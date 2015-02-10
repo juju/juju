@@ -128,7 +128,7 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 		params: map[string]interface{}{
 			"outfile": 5.0,
 		},
-		expectedErr: "JSON validation failed: \\(root\\)\\.outfile : must be of type string, given 5",
+		expectedErr: "validation failed: \\(root\\)\\.outfile : must be of type string, given 5",
 	}} {
 		c.Logf("Test %d: should %s", i, t.should)
 		before := state.NowToTheSecond()
@@ -409,7 +409,7 @@ func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// per contract, there should be at minimum an initial empty Change() result
-	wc.AssertChange()
+	wc.AssertChangeMaybeIncluding(expectActionIds(a1, a2)...)
 	wc.AssertNoChange()
 }
 
@@ -742,6 +742,7 @@ func (r mockAR) WatchActionNotifications() state.StringsWatcher    { return nil 
 func (r mockAR) Actions() ([]*state.Action, error)                 { return nil, nil }
 func (r mockAR) CompletedActions() ([]*state.Action, error)        { return nil, nil }
 func (r mockAR) PendingActions() ([]*state.Action, error)          { return nil, nil }
+func (r mockAR) RunningActions() ([]*state.Action, error)          { return nil, nil }
 func (r mockAR) Tag() names.Tag                                    { return names.NewUnitTag(r.id) }
 
 // TestMock verifies the mock UUID generator works as expected.

@@ -16,19 +16,35 @@ import (
 // stateServerAddresses returns the list of internal addresses of the state
 // server machines.
 func (st *State) stateServerAddresses() ([]string, error) {
+	ssState := st
+	env, err := st.StateServerEnvironment()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if st.EnvironTag() != env.EnvironTag() {
+		// We are not using the state server environment, so get one.
+		logger.Debugf("getting a state server state connection, current env: %s", st.EnvironTag())
+		ssState, err = st.ForEnviron(env.EnvironTag())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defer ssState.Close()
+		logger.Debugf("ssState env: %s", ssState.EnvironTag())
+	}
+
 	type addressMachine struct {
 		Addresses []address
 	}
 	var allAddresses []addressMachine
 	// TODO(rog) 2013/10/14 index machines on jobs.
-	machines, closer := st.getCollection(machinesC)
+	machines, closer := ssState.getCollection(machinesC)
 	defer closer()
-	err := machines.Find(bson.D{{"jobs", JobManageEnviron}}).All(&allAddresses)
+	err = machines.Find(bson.D{{"jobs", JobManageEnviron}}).All(&allAddresses)
 	if err != nil {
 		return nil, err
 	}
 	if len(allAddresses) == 0 {
-		return nil, fmt.Errorf("no state server machines found")
+		return nil, errors.New("no state server machines found")
 	}
 	apiAddrs := make([]string, 0, len(allAddresses))
 	for _, addrs := range allAddresses {
@@ -39,7 +55,7 @@ func (st *State) stateServerAddresses() ([]string, error) {
 		}
 	}
 	if len(apiAddrs) == 0 {
-		return nil, fmt.Errorf("no state server machines with addresses found")
+		return nil, errors.New("no state server machines with addresses found")
 	}
 	return apiAddrs, nil
 }
@@ -57,11 +73,11 @@ func appendPort(addrs []string, port int) []string {
 func (st *State) Addresses() ([]string, error) {
 	addrs, err := st.stateServerAddresses()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	config, err := st.EnvironConfig()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return appendPort(addrs, config.StatePort()), nil
 }
@@ -73,11 +89,11 @@ func (st *State) Addresses() ([]string, error) {
 func (st *State) APIAddressesFromMachines() ([]string, error) {
 	addrs, err := st.stateServerAddresses()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	config, err := st.EnvironConfig()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return appendPort(addrs, config.APIPort()), nil
 }
@@ -142,11 +158,11 @@ type DeployerConnectionValues struct {
 func (st *State) DeployerConnectionInfo() (*DeployerConnectionValues, error) {
 	addrs, err := st.stateServerAddresses()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	config, err := st.EnvironConfig()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return &DeployerConnectionValues{
 		StateAddresses: appendPort(addrs, config.StatePort()),

@@ -17,9 +17,11 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -202,11 +204,14 @@ var newCommandTests = []struct {
 	{"relation-list", ""},
 	{"relation-set", ""},
 	{"unit-get", ""},
+	{"storage-get", ""},
 	// The error message contains .exe on Windows
 	{"random", "unknown command: random(.exe)?"},
 }
 
 func (s *NewCommandSuite) TestNewCommand(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	ctx := s.GetHookContext(c, 0, "")
 	for _, t := range newCommandTests {
 		com, err := jujuc.NewCommand(ctx, cmdString(t.name))

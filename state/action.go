@@ -36,6 +36,9 @@ const (
 
 	// ActionPending is the default status when an Action is first queued.
 	ActionPending ActionStatus = "pending"
+
+	// ActionRunning indicates that the Action is currently running.
+	ActionRunning ActionStatus = "running"
 )
 const actionMarker string = "_a_"
 
@@ -80,6 +83,12 @@ type actionDoc struct {
 	// Enqueued is the time the action was added.
 	Enqueued time.Time `bson:"enqueued"`
 
+	// Started reflects the time the action began running.
+	Started time.Time `bson:"started"`
+
+	// Completed reflects the time that the action was finished.
+	Completed time.Time `bson:"completed"`
+
 	// Status represents the end state of the Action; ActionFailed for an
 	// action that was removed prematurely, or that failed, and
 	// ActionCompleted for an action that successfully completed.
@@ -90,9 +99,6 @@ type actionDoc struct {
 
 	// Results are the structured results from the action.
 	Results map[string]interface{} `bson:"results"`
-
-	// Completed reflects the time that the action was Finished.
-	Completed time.Time `bson:"completed"`
 }
 
 // Action represents an instruction to do some "action" and is expected
@@ -102,7 +108,7 @@ type Action struct {
 	doc actionDoc
 }
 
-// Id returns the local name of the Action.
+// Id returns the local id of the Action.
 func (a *Action) Id() string {
 	return a.st.localID(a.doc.DocId)
 }
@@ -131,6 +137,16 @@ func (a *Action) Enqueued() time.Time {
 	return a.doc.Enqueued
 }
 
+// Started returns the time that the Action execution began.
+func (a *Action) Started() time.Time {
+	return a.doc.Started
+}
+
+// Completed returns the completion time of the Action.
+func (a *Action) Completed() time.Time {
+	return a.doc.Completed
+}
+
 // Status returns the final state of the action.
 func (a *Action) Status() ActionStatus {
 	return a.doc.Status
@@ -139,11 +155,6 @@ func (a *Action) Status() ActionStatus {
 // Results returns the structured output of the action and any error.
 func (a *Action) Results() (map[string]interface{}, string) {
 	return a.doc.Results, a.doc.Message
-}
-
-// Completed returns the completion time of the Action.
-func (a *Action) Completed() time.Time {
-	return a.doc.Completed
 }
 
 // ValidateTag should be called before calls to Tag() or ActionTag(). It verifies
@@ -172,6 +183,25 @@ type ActionResults struct {
 	Message string                 `json:"message"`
 }
 
+// Begin marks an action as running, and logs the time it was started.
+// It asserts that the action is currently pending.
+func (a *Action) Begin() (*Action, error) {
+	err := a.st.runTransaction([]txn.Op{
+		{
+			C:      actionsC,
+			Id:     a.doc.DocId,
+			Assert: bson.D{{"status", ActionPending}},
+			Update: bson.D{{"$set", bson.D{
+				{"status", ActionRunning},
+				{"started", nowToTheSecond()},
+			}}},
+		}})
+	if err != nil {
+		return nil, err
+	}
+	return a.st.Action(a.Id())
+}
+
 // Finish removes action from the pending queue and captures the output
 // and end state of the action.
 func (a *Action) Finish(results ActionResults) (*Action, error) {
@@ -179,12 +209,19 @@ func (a *Action) Finish(results ActionResults) (*Action, error) {
 }
 
 // removeAndLog takes the action off of the pending queue, and creates
-// an actionresult to capture the outcome of the action.
+// an actionresult to capture the outcome of the action. It asserts that
+// the action is not already completed.
 func (a *Action) removeAndLog(finalStatus ActionStatus, results map[string]interface{}, message string) (*Action, error) {
 	err := a.st.runTransaction([]txn.Op{
 		{
 			C:  actionsC,
 			Id: a.doc.DocId,
+			Assert: bson.D{{"status", bson.D{
+				{"$nin", []interface{}{
+					ActionCompleted,
+					ActionCancelled,
+					ActionFailed,
+				}}}}},
 			Update: bson.D{{"$set", bson.D{
 				{"status", finalStatus},
 				{"message", message},
@@ -383,6 +420,13 @@ func (st *State) matchingActionNotificationsByReceiverId(id string) ([]names.Act
 // that are pending.
 func (st *State) matchingActionsPending(ar ActionReceiver) ([]*Action, error) {
 	completed := bson.D{{"status", ActionPending}}
+	return st.matchingActionsByReceiverAndStatus(ar.Tag(), completed)
+}
+
+// matchingActionsRunning finds actions that match ActionReceiver and
+// that are running.
+func (st *State) matchingActionsRunning(ar ActionReceiver) ([]*Action, error) {
+	completed := bson.D{{"status", ActionRunning}}
 	return st.matchingActionsByReceiverAndStatus(ar.Tag(), completed)
 }
 

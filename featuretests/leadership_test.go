@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/leadership"
+	"github.com/juju/juju/api/uniter"
 	leadershipapi "github.com/juju/juju/apiserver/leadership"
 	"github.com/juju/juju/apiserver/params"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
@@ -48,32 +49,27 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	fakeEnsureMongo := agenttesting.FakeEnsure{}
 	s.AgentSuite.PatchValue(&cmdutil.EnsureMongoServer, fakeEnsureMongo.FakeEnsureMongo)
 
-	f := factory.NewFactory(s.State)
-
-	// Create a machine to manage the environment, and set all
-	// passwords to something known.
-	const password = "machine-password-1234567890"
-	stateServer := f.MakeMachine(c, &factory.MachineParams{
+	// Create a machine to manage the environment.
+	stateServer, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		InstanceId: "id-1",
 		Nonce:      agent.BootstrapNonce,
 		Jobs:       []state.MachineJob{state.JobManageEnviron},
-		Password:   password,
 	})
 	c.Assert(stateServer.PasswordValid(password), gc.Equals, true)
 	c.Assert(stateServer.SetMongoPassword(password), gc.IsNil)
 
 	// Create a machine to host some units.
-	unitHostMachine := f.MakeMachine(c, &factory.MachineParams{
+	unitHostMachine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Nonce:    agent.BootstrapNonce,
 		Password: password,
 	})
 
 	// Create a service and an instance of that service so that we can
 	// create a client.
-	service := f.MakeService(c, &factory.ServiceParams{})
+	service := s.Factory.MakeService(c, &factory.ServiceParams{})
 	s.serviceId = service.Tag().Id()
 
-	unit := f.MakeUnit(c, &factory.UnitParams{Machine: unitHostMachine, Service: service})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Machine: unitHostMachine, Service: service})
 	s.unitId = unit.UnitTag().Id()
 
 	c.Assert(unit.SetPassword(password), gc.IsNil)
@@ -89,7 +85,8 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 		c,
 		s.MongoInfo(c),
 		s.DataDir(),
-		names.NewMachineTag(stateServer.Id()),
+		stateServer.Tag(),
+		s.State.EnvironTag(),
 		password,
 		version.Current,
 	)
@@ -147,7 +144,7 @@ func (s *leadershipSuite) TestUnblock(c *gc.C) {
 
 	unblocked := make(chan struct{})
 	go func() {
-		err = client.BlockUntilLeadershipReleased(s.serviceId)
+		err := client.BlockUntilLeadershipReleased(s.serviceId)
 		c.Check(err, gc.IsNil)
 		unblocked <- struct{}{}
 	}()
@@ -164,11 +161,177 @@ func (s *leadershipSuite) TestUnblock(c *gc.C) {
 	}
 }
 
+type uniterLeadershipSuite struct {
+	agenttesting.AgentSuite
+
+	factory      *factory.Factory
+	clientFacade base.ClientFacade
+	facadeCaller base.FacadeCaller
+	machineAgent *agentcmd.MachineAgent
+	unitId       string
+	serviceId    string
+}
+
+func (s *uniterLeadershipSuite) TestReadLeadershipSettings(c *gc.C) {
+
+	// First, the unit must be elected leader; otherwise merges will be denied.
+	leaderClient := leadership.NewClient(s.clientFacade, s.facadeCaller)
+	defer func() { err := leaderClient.Close(); c.Assert(err, gc.IsNil) }()
+	_, err := leaderClient.ClaimLeadership(s.serviceId, s.unitId)
+	c.Assert(err, gc.IsNil)
+
+	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))
+
+	// Toss a few settings in.
+	desiredSettings := map[string]string{
+		"foo": "bar",
+		"baz": "biz",
+	}
+
+	err = client.LeadershipSettings.Merge(s.serviceId, desiredSettings)
+	c.Assert(err, gc.IsNil)
+
+	settings, err := client.LeadershipSettings.Read(s.serviceId)
+	c.Assert(err, gc.IsNil)
+	c.Check(settings, gc.DeepEquals, desiredSettings)
+}
+
+func (s *uniterLeadershipSuite) TestMergeLeadershipSettings(c *gc.C) {
+
+	// First, the unit must be elected leader; otherwise merges will be denied.
+	leaderClient := leadership.NewClient(s.clientFacade, s.facadeCaller)
+	defer func() { err := leaderClient.Close(); c.Assert(err, gc.IsNil) }()
+	_, err := leaderClient.ClaimLeadership(s.serviceId, s.unitId)
+	c.Assert(err, gc.IsNil)
+
+	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))
+
+	// Grab what settings exist.
+	settings, err := client.LeadershipSettings.Read(s.serviceId)
+	c.Assert(err, gc.IsNil)
+	// Double check that it's empty so that we don't pass the test by
+	// happenstance.
+	c.Assert(settings, gc.HasLen, 0)
+
+	// Toss a few settings in.
+	settings["foo"] = "bar"
+	settings["baz"] = "biz"
+
+	err = client.LeadershipSettings.Merge(s.serviceId, settings)
+	c.Assert(err, gc.IsNil)
+
+	settings, err = client.LeadershipSettings.Read(s.serviceId)
+	c.Assert(err, gc.IsNil)
+	c.Check(settings["foo"], gc.Equals, "bar")
+	c.Check(settings["baz"], gc.Equals, "biz")
+}
+
+func (s *uniterLeadershipSuite) TestSettingsChangeNotifier(c *gc.C) {
+
+	// First, the unit must be elected leader; otherwise merges will be denied.
+	leadershipClient := leadership.NewClient(s.clientFacade, s.facadeCaller)
+	defer func() { err := leadershipClient.Close(); c.Assert(err, gc.IsNil) }()
+	_, err := leadershipClient.ClaimLeadership(s.serviceId, s.unitId)
+	c.Assert(err, gc.IsNil)
+
+	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))
+
+	// Listen for changes
+	sawChanges := make(chan struct{})
+	go func() {
+		watcher, err := client.LeadershipSettings.WatchLeadershipSettings(s.serviceId)
+		c.Assert(err, gc.IsNil)
+		sawChanges <- <-watcher.Changes()
+	}()
+
+	err = client.LeadershipSettings.Merge(s.serviceId, map[string]string{"foo": "bar"})
+	c.Assert(err, gc.IsNil)
+
+	<-sawChanges
+}
+
+func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {
+
+	s.AgentSuite.SetUpTest(c)
+
+	file, _ := ioutil.TempFile("", "juju-run")
+	defer file.Close()
+	s.AgentSuite.PatchValue(&agentcmd.JujuRun, file.Name())
+
+	fakeEnsureMongo := agenttesting.FakeEnsure{}
+	s.AgentSuite.PatchValue(&cmdutil.EnsureMongoServer, fakeEnsureMongo.FakeEnsureMongo)
+
+	s.factory = factory.NewFactory(s.State)
+
+	// Create a machine to manage the environment, and set all
+	// passwords to something known.
+	stateServer, password := s.factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		InstanceId: "id-1",
+		Nonce:      agent.BootstrapNonce,
+		Jobs:       []state.MachineJob{state.JobManageEnviron},
+	})
+	c.Assert(stateServer.PasswordValid(password), gc.Equals, true)
+	c.Assert(stateServer.SetMongoPassword(password), gc.IsNil)
+
+	// Create a machine to host some units.
+	unitHostMachine := s.factory.MakeMachine(c, &factory.MachineParams{
+		Nonce:    agent.BootstrapNonce,
+		Password: password,
+	})
+
+	// Create a service and an instance of that service so that we can
+	// create a client.
+	service := s.factory.MakeService(c, &factory.ServiceParams{})
+	s.serviceId = service.Tag().Id()
+
+	unit := s.factory.MakeUnit(c, &factory.UnitParams{Machine: unitHostMachine, Service: service})
+	s.unitId = unit.UnitTag().Id()
+
+	c.Assert(unit.SetPassword(password), gc.IsNil)
+	unitState := s.OpenAPIAs(c, unit.Tag(), password)
+
+	// Create components needed to construct a client.
+	s.clientFacade, s.facadeCaller = base.NewClientFacade(unitState, leadershipapi.FacadeName)
+	c.Assert(s.clientFacade, gc.NotNil)
+	c.Assert(s.facadeCaller, gc.NotNil)
+
+	// Tweak and write out the config file for the state server.
+	writeStateAgentConfig(
+		c,
+		s.MongoInfo(c),
+		s.DataDir(),
+		names.NewMachineTag(stateServer.Id()),
+		s.State.EnvironTag(),
+		password,
+		version.Current,
+	)
+
+	// Create & start a machine agent so the tests have something to call into.
+	agentConf := agentcmd.AgentConf{DataDir: s.DataDir()}
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(&agentConf, &agentConf)
+	s.machineAgent = machineAgentFactory(stateServer.Id())
+
+	c.Log("Starting machine agent...")
+	go func() {
+		err := s.machineAgent.Run(coretesting.Context(c))
+		c.Assert(err, gc.IsNil)
+	}()
+}
+
+func (s *uniterLeadershipSuite) TearDownTest(c *gc.C) {
+	c.Log("Stopping machine agent...")
+	err := s.machineAgent.Stop()
+	c.Assert(err, gc.IsNil)
+
+	s.AgentSuite.TearDownTest(c)
+}
+
 func writeStateAgentConfig(
 	c *gc.C,
 	stateInfo *mongo.MongoInfo,
 	dataDir string,
 	tag names.Tag,
+	environTag names.EnvironTag,
 	password string,
 	vers version.Binary,
 ) agent.ConfigSetterWriter {
@@ -179,6 +342,7 @@ func writeStateAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:           dataDir,
 			Tag:               tag,
+			Environment:       environTag,
 			UpgradedToVersion: vers.Number,
 			Password:          password,
 			Nonce:             agent.BootstrapNonce,

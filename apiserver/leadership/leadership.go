@@ -36,7 +36,7 @@ func init() {
 
 	common.RegisterStandardFacade(
 		FacadeName,
-		0,
+		1,
 		NewLeadershipServiceFn(leaderMgr),
 	)
 }

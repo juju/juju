@@ -5,6 +5,7 @@ package config_test
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	stdtesting "testing"
@@ -269,7 +270,7 @@ var configTests = []configTest{
 			"name":         "my-name",
 			"ca-cert-path": "no-such-file",
 		},
-		err: `open .*\.juju/no-such-file: .*`,
+		err: fmt.Sprintf(`open .*\.juju%sno-such-file: .*`, regexp.QuoteMeta(string(os.PathSeparator))),
 	}, {
 		about:       "CA key specified as non-existent file",
 		useDefaults: config.UseDefaults,
@@ -278,7 +279,7 @@ var configTests = []configTest{
 			"name":                "my-name",
 			"ca-private-key-path": "no-such-file",
 		},
-		err: `open .*\.juju/no-such-file: .*`,
+		err: fmt.Sprintf(`open .*\.juju%sno-such-file: .*`, regexp.QuoteMeta(string(os.PathSeparator))),
 	}, {
 		about:       "Specified agent version",
 		useDefaults: config.UseDefaults,
@@ -988,7 +989,7 @@ var emptyCertFilesTests = []configTest{
 			"authorized-keys": testing.FakeAuthKeys,
 			"ca-private-key":  caKey,
 		},
-		err: `file ".*/my-name-cert.pem" is empty`,
+		err: fmt.Sprintf(`file ".*%smy-name-cert.pem" is empty`, regexp.QuoteMeta(string(os.PathSeparator))),
 	}, {
 		about:       "Cert and key unspecified",
 		useDefaults: config.UseDefaults,
@@ -997,7 +998,7 @@ var emptyCertFilesTests = []configTest{
 			"name":            "my-name",
 			"authorized-keys": testing.FakeAuthKeys,
 		},
-		err: `file ".*/my-name-cert.pem" is empty`,
+		err: fmt.Sprintf(`file ".*%smy-name-cert.pem" is empty`, regexp.QuoteMeta(string(os.PathSeparator))),
 	}, {
 		about:       "Cert specified, key unspecified",
 		useDefaults: config.UseDefaults,
@@ -1007,7 +1008,7 @@ var emptyCertFilesTests = []configTest{
 			"authorized-keys": testing.FakeAuthKeys,
 			"ca-cert":         caCert,
 		},
-		err: `file ".*/my-name-private-key.pem" is empty`,
+		err: fmt.Sprintf(`file ".*%smy-name-private-key.pem" is empty`, regexp.QuoteMeta(string(os.PathSeparator))),
 	}, /* {
 		about: "Cert and key specified as absent",
 		useDefaults: config.UseDefaults,

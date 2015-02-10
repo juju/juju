@@ -70,16 +70,6 @@ func (*localEnviron) SupportedArchitectures() ([]string, error) {
 	return []string{localArch}, nil
 }
 
-// SupportNetworks is specified on the EnvironCapability interface.
-func (*localEnviron) SupportNetworks() bool {
-	return false
-}
-
-// SupportAddressAllocation is specified on the EnvironCapability interface.
-func (e *localEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
-}
-
 func (*localEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	if placement != "" {
 		return fmt.Errorf("unknown placement directive: %s", placement)
@@ -156,7 +146,7 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 	}
 
 	if err := environs.FinishMachineConfig(mcfg, env.Config()); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// Since Juju's state machine is currently the host machine
@@ -191,13 +181,13 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 	// potentially remove it at the start of the cloud-init.
 	localLogDir := filepath.Join(mcfg.DataDir, "log")
 	if err := os.RemoveAll(localLogDir); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := symlink.New(mcfg.LogDir, localLogDir); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := os.Remove(mcfg.CloudInitOutputLog); err != nil && !os.IsNotExist(err) {
-		return err
+		return errors.Trace(err)
 	}
 	cloudcfg.AddScripts(
 		fmt.Sprintf("rm -fr %s", mcfg.LogDir),
@@ -205,10 +195,10 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 	)
 	udata, err := cloudinit.NewUserdataConfig(mcfg, cloudcfg)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := udata.ConfigureJuju(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return executeCloudConfig(ctx, mcfg, cloudcfg)
 }
@@ -397,7 +387,7 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 // Override for testing.
 var createContainer = func(env *localEnviron, args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := args.Tools.OneSeries()
-	network := container.BridgeNetworkConfig(env.config.networkBridge())
+	network := container.BridgeNetworkConfig(env.config.networkBridge(), args.NetworkInfo)
 	inst, hardware, err := env.containerManager.CreateContainer(args.MachineConfig, series, network)
 	if err != nil {
 		return nil, nil, err
@@ -447,27 +437,6 @@ func (env *localEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 		err = nil
 	}
 	return insts, err
-}
-
-// AllocateAddress requests an address to be allocated for the
-// given instance on the given network. This is not supported on the
-// local provider.
-func (*localEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotSupportedf("AllocateAddress")
-}
-
-// ReleaseAddress releases a specific address previously allocated with
-// AllocateAddress.
-func (*localEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotSupportedf("ReleaseAddress")
-}
-
-// Subnets returns basic information about all subnets known
-// by the provider for the environment. They may be unknown to juju
-// yet (i.e. when called initially or when a new network was created).
-// This is not implemented by the local provider yet.
-func (*localEnviron) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
-	return nil, errors.NotSupportedf("Subnets")
 }
 
 // AllInstances is specified in the InstanceBroker interface.

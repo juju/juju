@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"fmt"
 	"net"
 	"strconv"
 	"sync"
@@ -266,7 +267,7 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 	connectedAddrPort, err := strconv.Atoi(connectedAddrPortString)
 	c.Assert(err, jc.ErrorIsNil)
 	connectedAddrHostPorts := [][]network.HostPort{
-		[]network.HostPort{{
+		{{
 			network.NewAddress(connectedAddrHost, network.ScopeUnknown),
 			connectedAddrPort,
 		}},
@@ -787,4 +788,169 @@ func (s *loginAncientSuite) TestAncientLoginDegrades(c *gc.C) {
 	envTag, err := st.EnvironTag()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envTag.String(), gc.Equals, apiserver.PreFacadeEnvironTag.String())
+}
+
+func (s *loginSuite) TestStateServerEnvironment(c *gc.C) {
+	info, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	c.Assert(info.EnvironTag, gc.Equals, s.State.EnvironTag())
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	adminUser := s.AdminUserTag(c)
+	err = st.Login(adminUser.String(), "dummy-secret", "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertRemoteEnvironment(c, st, s.State.EnvironTag())
+}
+
+func (s *loginSuite) TestStateServerEnvironmentBadCreds(c *gc.C) {
+	info, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	c.Assert(info.EnvironTag, gc.Equals, s.State.EnvironTag())
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	adminUser := s.AdminUserTag(c)
+	err = st.Login(adminUser.String(), "bad-password", "")
+	c.Assert(err, gc.ErrorMatches, `invalid entity name or password`)
+}
+
+func (s *loginSuite) TestNonExistentEnvironment(c *gc.C) {
+	info, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	info.EnvironTag = names.NewEnvironTag(uuid.String())
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	adminUser := s.AdminUserTag(c)
+	err = st.Login(adminUser.String(), "dummy-secret", "")
+	expectedError := fmt.Sprintf("unknown environment: %q", uuid)
+	c.Assert(err, gc.ErrorMatches, expectedError)
+}
+
+func (s *loginSuite) TestInvalidEnvironment(c *gc.C) {
+	info, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	info.EnvironTag = names.NewEnvironTag("rubbish")
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	adminUser := s.AdminUserTag(c)
+	err = st.Login(adminUser.String(), "dummy-secret", "")
+	c.Assert(err, gc.ErrorMatches, `unknown environment: "rubbish"`)
+}
+
+func (s *loginSuite) TestOtherEnvironment(c *gc.C) {
+	info, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	envOwner := s.Factory.MakeUser(c, nil)
+	envState := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Owner: envOwner.UserTag(),
+	})
+	defer envState.Close()
+	info.EnvironTag = envState.EnvironTag()
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	err = st.Login(envOwner.UserTag().String(), "password", "")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertRemoteEnvironment(c, st, envState.EnvironTag())
+}
+
+func (s *loginSuite) TestMachineLoginOtherEnvironment(c *gc.C) {
+	// User credentials are checked against a global user list.
+	// Machine credentials are checked against environment specific
+	// machines, so this makes sure that the credential checking is
+	// using the correct state connection.
+	info, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	envOwner := s.Factory.MakeUser(c, nil)
+	envState := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Owner: envOwner.UserTag(),
+		ConfigAttrs: map[string]interface{}{
+			"state-server": false,
+		},
+		Prepare: true,
+	})
+	defer envState.Close()
+
+	f2 := factory.NewFactory(envState)
+	machine, password := f2.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Nonce: "nonce",
+	})
+
+	info.EnvironTag = envState.EnvironTag()
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	err = st.Login(machine.Tag().String(), password, "nonce")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *loginSuite) TestOtherEnvironmentFromStateServer(c *gc.C) {
+	info, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobManageEnviron},
+	})
+
+	envState := s.Factory.MakeEnvironment(c, nil)
+	defer envState.Close()
+	info.EnvironTag = envState.EnvironTag()
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	err = st.Login(machine.Tag().String(), password, "nonce")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *loginSuite) TestOtherEnvironmentWhenNotStateServer(c *gc.C) {
+	info, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	machine, password := s.Factory.MakeMachineReturningPassword(c, nil)
+
+	envState := s.Factory.MakeEnvironment(c, nil)
+	defer envState.Close()
+	info.EnvironTag = envState.EnvironTag()
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	err = st.Login(machine.Tag().String(), password, "nonce")
+	c.Assert(err, gc.ErrorMatches, `invalid entity name or password`)
+}
+
+func (s *loginSuite) assertRemoteEnvironment(c *gc.C, st *api.State, expected names.EnvironTag) {
+	// Look at what the api thinks it has.
+	tag, err := st.EnvironTag()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tag, gc.Equals, expected)
+	// Look at what the api Client thinks it has.
+	client := st.Client()
+
+	// EnvironmentUUID looks at the env tag on the api state connection.
+	c.Assert(client.EnvironmentUUID(), gc.Equals, expected.Id())
+
+	// EnvironmentInfo calls a remote method that looks up the environment.
+	info, err := client.EnvironmentInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.UUID, gc.Equals, expected.Id())
 }

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"gopkg.in/juju/charm.v4"
 
@@ -130,6 +131,8 @@ type MachineInfo struct {
 	HardwareCharacteristics  *instance.HardwareCharacteristics `json:",omitempty"`
 	Jobs                     []MachineJob
 	Addresses                []network.Address
+	HasVote                  bool
+	WantsVote                bool
 }
 
 func (i *MachineInfo) EntityId() EntityId {
@@ -177,6 +180,26 @@ func (i *UnitInfo) EntityId() EntityId {
 	return EntityId{
 		Kind: "unit",
 		Id:   i.Name,
+	}
+}
+
+type ActionInfo struct {
+	Id         string                 `bson:"_id"`
+	Receiver   string                 `bson:"receiver"`
+	Name       string                 `bson:"name"`
+	Parameters map[string]interface{} `bson:"parameters"`
+	Status     string                 `bson:"status"`
+	Message    string                 `bson:"message"`
+	Results    map[string]interface{} `bson:"results"`
+	Enqueued   time.Time              `bson:"enqueued"`
+	Started    time.Time              `bson:"started"`
+	Completed  time.Time              `bson:"completed"`
+}
+
+func (i *ActionInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "action",
+		Id:   i.Id,
 	}
 }
 

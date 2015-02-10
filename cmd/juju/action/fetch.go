@@ -95,5 +95,10 @@ func formatActionResult(result params.ActionResult) map[string]interface{} {
 		"status":  result.Status,
 		"message": result.Message,
 		"results": result.Output,
+		"timing": map[string]string{
+			"enqueued":  result.Enqueued.String(),
+			"started":   result.Started.String(),
+			"completed": result.Completed.String(),
+		},
 	}
 }

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -34,6 +33,7 @@ var (
 	_ backingEntityDoc = (*backingStatus)(nil)
 	_ backingEntityDoc = (*backingConstraints)(nil)
 	_ backingEntityDoc = (*backingSettings)(nil)
+	_ backingEntityDoc = (*backingAction)(nil)
 )
 
 var dottedConfig = `
@@ -43,32 +43,12 @@ options:
 var _ = gc.Suite(&storeManagerStateSuite{})
 
 type storeManagerStateSuite struct {
-	gitjujutesting.MgoSuite
-	testing.BaseSuite
-	State      *State
+	internalStateSuite
 	OtherState *State
-	owner      names.UserTag
-}
-
-func (s *storeManagerStateSuite) SetUpSuite(c *gc.C) {
-	s.MgoSuite.SetUpSuite(c)
-	s.BaseSuite.SetUpSuite(c)
-}
-
-func (s *storeManagerStateSuite) TearDownSuite(c *gc.C) {
-	s.BaseSuite.TearDownSuite(c)
-	s.MgoSuite.TearDownSuite(c)
 }
 
 func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
-	s.MgoSuite.SetUpTest(c)
-	s.BaseSuite.SetUpTest(c)
-
-	s.owner = names.NewLocalUserTag("test-admin")
-	st, err := Initialize(s.owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.State = st
-	s.AddCleanup(func(*gc.C) { s.State.Close() })
+	s.internalStateSuite.SetUpTest(c)
 
 	s.OtherState = s.newState(c)
 	s.AddCleanup(func(*gc.C) { s.OtherState.Close() })
@@ -81,14 +61,9 @@ func (s *storeManagerStateSuite) newState(c *gc.C) *State {
 		"name": "testenv",
 		"uuid": uuid.String(),
 	})
-	_, st, err := s.State.NewEnvironment(cfg, s.owner)
+	_, st, err := s.state.NewEnvironment(cfg, s.owner)
 	c.Assert(err, jc.ErrorIsNil)
 	return st
-}
-
-func (s *storeManagerStateSuite) TearDownTest(c *gc.C) {
-	s.BaseSuite.TearDownTest(c)
-	s.MgoSuite.TearDownTest(c)
 }
 
 func (s *storeManagerStateSuite) Reset(c *gc.C) {
@@ -135,14 +110,14 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 }
 
 func (s *storeManagerStateSuite) TestStateBackingGetAll(c *gc.C) {
-	expectEntities := s.setUpScenario(c, s.State, 2)
+	expectEntities := s.setUpScenario(c, s.state, 2)
 	s.checkGetAll(c, expectEntities)
 }
 
 func (s *storeManagerStateSuite) TestStateBackingGetAllMultiEnv(c *gc.C) {
 	// Set up 2 environments and ensure that GetAll returns the
 	// entities for the first environment with no errors.
-	expectEntities := s.setUpScenario(c, s.State, 2)
+	expectEntities := s.setUpScenario(c, s.state, 2)
 
 	// Use more units in the second env to ensure the number of
 	// entities will mismatch if environment filtering isn't in place.
@@ -152,7 +127,7 @@ func (s *storeManagerStateSuite) TestStateBackingGetAllMultiEnv(c *gc.C) {
 }
 
 func (s *storeManagerStateSuite) checkGetAll(c *gc.C, expectEntities entityInfoSlice) {
-	b := newAllWatcherStateBacking(s.State)
+	b := newAllWatcherStateBacking(s.state)
 	all := newStore()
 	err := b.GetAll(all)
 	c.Assert(err, jc.ErrorIsNil)
@@ -172,6 +147,8 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C, st *State, units int) (e
 	m, err := st.AddMachine("quantal", JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
+	err = m.SetHasVote(true)
+	c.Assert(err, jc.ErrorIsNil)
 	// TODO(dfc) instance.Id should take a TAG!
 	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -188,6 +165,8 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C, st *State, units int) (e
 		Jobs:                    []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 		Addresses:               m.Addresses(),
 		HardwareCharacteristics: hc,
+		HasVote:                 true,
+		WantsVote:               false,
 	})
 
 	wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
@@ -210,7 +189,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C, st *State, units int) (e
 		Subordinate: false,
 	})
 	pairs := map[string]string{"x": "12", "y": "99"}
-	err = wordpress.SetAnnotations(pairs)
+	err = st.SetAnnotations(wordpress, pairs)
 	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.AnnotationInfo{
 		Tag:         "service-wordpress",
@@ -258,7 +237,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C, st *State, units int) (e
 			Subordinate: false,
 		})
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
-		err = wu.SetAnnotations(pairs)
+		err = st.SetAnnotations(wu, pairs)
 		c.Assert(err, jc.ErrorIsNil)
 		add(&multiwatcher.AnnotationInfo{
 			Tag:         fmt.Sprintf("unit-wordpress-%d", i),
@@ -281,6 +260,8 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C, st *State, units int) (e
 			Jobs:                    []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: hc,
+			HasVote:                 false,
+			WantsVote:               false,
 		})
 		err = wu.AssignToMachine(m)
 		c.Assert(err, jc.ErrorIsNil)
@@ -371,6 +352,8 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						Series:     "quantal",
 						Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 						Addresses:  []network.Address{},
+						HasVote:    false,
+						WantsVote:  false,
 					}}}
 		},
 		// Machine status changes
@@ -408,6 +391,8 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						HardwareCharacteristics:  &instance.HardwareCharacteristics{},
 						SupportedContainers:      []instance.ContainerType{instance.LXC},
 						SupportedContainersKnown: true,
+						HasVote:                  false,
+						WantsVote:                true,
 					}}}
 		},
 		// Unit changes
@@ -672,7 +657,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 		}, func(c *gc.C, st *State) testCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
-			err = m.SetAnnotations(map[string]string{"foo": "bar", "arble": "baz"})
+			err = st.SetAnnotations(m, map[string]string{"foo": "bar", "arble": "baz"})
 			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
@@ -689,7 +674,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 		}, func(c *gc.C, st *State) testCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
-			err = m.SetAnnotations(map[string]string{
+			err = st.SetAnnotations(m, map[string]string{
 				"arble":  "khroomph",
 				"pretty": "",
 				"new":    "attr",
@@ -999,11 +984,29 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 					Id: st.docID("s#foo"),
 				}}
 		},
+		// Action changes
+		func(c *gc.C, st *State) testCase {
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, jc.ErrorIsNil)
+			action, err := st.EnqueueAction(u.Tag(), "vacuumdb", map[string]interface{}{})
+			c.Assert(err, jc.ErrorIsNil)
+			enqueued := makeActionInfo(action, st)
+			action, err = action.Begin()
+			c.Assert(err, jc.ErrorIsNil)
+			started := makeActionInfo(action, st)
+			return testCase{
+				about:          "action change picks up last change",
+				add:            []multiwatcher.EntityInfo{&enqueued, &started},
+				change:         watcher.Change{C: actionsC, Id: st.docID(action.Id())},
+				expectContents: []multiwatcher.EntityInfo{&started},
+			}
+		},
 	} {
-		test := testFunc(c, s.State)
+		test := testFunc(c, s.state)
 
 		c.Logf("test %d. %s", i, test.about)
-		b := newAllWatcherStateBacking(s.State)
+		b := newAllWatcherStateBacking(s.state)
 		all := newStore()
 		for _, info := range test.add {
 			all.Update(info)
@@ -1019,15 +1022,15 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 // with the state-based backing. Most of the logic is tested elsewhere -
 // this just tests end-to-end.
 func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
-	m0, err := s.State.AddMachine("trusty", JobManageEnviron)
+	m0, err := s.state.AddMachine("trusty", JobManageEnviron)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.Id(), gc.Equals, "0")
 
-	m1, err := s.State.AddMachine("saucy", JobHostUnits)
+	m1, err := s.state.AddMachine("saucy", JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m1.Id(), gc.Equals, "1")
 
-	tw := newTestWatcher(s.State, c)
+	tw := newTestWatcher(s.state, c)
 	defer tw.Stop()
 
 	// Expect to see events for the already created machines first.
@@ -1040,6 +1043,8 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Series:    "trusty",
 			Jobs:      []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 			Addresses: []network.Address{},
+			HasVote:   false,
+			WantsVote: true,
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
@@ -1049,6 +1054,8 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Series:    "saucy",
 			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
+			HasVote:   false,
+			WantsVote: false,
 		},
 	}})
 
@@ -1069,11 +1076,11 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	err = m1.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	m2, err := s.State.AddMachine("quantal", JobHostUnits)
+	m2, err := s.state.AddMachine("quantal", JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m2.Id(), gc.Equals, "2")
 
-	wordpress := AddTestingService(c, s.State, "wordpress", AddTestingCharm(c, s.State, "wordpress"), s.owner)
+	wordpress := AddTestingService(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"), s.owner)
 	wu, err := wordpress.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = wu.AssignToMachine(m2)
@@ -1091,6 +1098,8 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Jobs:                    []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: hc,
+			HasVote:                 false,
+			WantsVote:               true,
 		},
 	}, {
 		Removed: true,
@@ -1110,6 +1119,8 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Series:    "quantal",
 			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
+			HasVote:   false,
+			WantsVote: false,
 		},
 	}, {
 		Entity: &multiwatcher.ServiceInfo{
@@ -1184,7 +1195,7 @@ func (s *storeManagerStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 				m, err := st.Machine("0")
 				c.Assert(err, jc.ErrorIsNil)
 
-				err = m.SetAnnotations(map[string]string{"foo": "bar"})
+				err = st.SetAnnotations(m, map[string]string{"foo": "bar"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -1250,12 +1261,12 @@ func (s *storeManagerStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 				otherW.AssertNoChange()
 			}
 
-			w1 := newTestWatcher(s.State, c)
+			w1 := newTestWatcher(s.state, c)
 			defer w1.Stop()
 			w2 := newTestWatcher(s.OtherState, c)
 			defer w2.Stop()
 
-			checkIsolationForEnv(s.State, w1, w2)
+			checkIsolationForEnv(s.state, w1, w2)
 			checkIsolationForEnv(s.OtherState, w2, w1)
 		}()
 		s.Reset(c)
@@ -1358,4 +1369,20 @@ func deltaMap(deltas []multiwatcher.Delta) map[interface{}]multiwatcher.EntityIn
 		}
 	}
 	return m
+}
+
+func makeActionInfo(a *Action, st *State) multiwatcher.ActionInfo {
+	results, message := a.Results()
+	return multiwatcher.ActionInfo{
+		Id:         a.Id(),
+		Receiver:   a.Receiver(),
+		Name:       a.Name(),
+		Parameters: a.Parameters(),
+		Status:     string(a.Status()),
+		Message:    message,
+		Results:    results,
+		Enqueued:   a.Enqueued(),
+		Started:    a.Started(),
+		Completed:  a.Completed(),
+	}
 }

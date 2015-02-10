@@ -15,7 +15,16 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
+
+	// Register the providers for the field check test
+	_ "github.com/juju/juju/provider/azure"
+	_ "github.com/juju/juju/provider/ec2"
+	_ "github.com/juju/juju/provider/joyent"
+	_ "github.com/juju/juju/provider/local"
+	_ "github.com/juju/juju/provider/maas"
+	_ "github.com/juju/juju/provider/openstack"
 )
 
 type envManagerSuite struct {
@@ -105,6 +114,75 @@ func (s *envManagerSuite) TestNonAdminCannotCreateEnvironmentForSomeoneElse(c *g
 	owner := names.NewUserTag("external@remote")
 	_, err := s.envmanager.CreateEnvironment(s.createArgs(c, owner))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *envManagerSuite) TestRestrictedProviderFields(c *gc.C) {
+	s.setAPIUser(c, names.NewUserTag("non-admin@remote"))
+	for i, test := range []struct {
+		provider string
+		expected []string
+	}{
+		{
+			provider: "azure",
+			expected: []string{
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert",
+				"location"},
+		}, {
+			provider: "dummy",
+			expected: []string{
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert"},
+		}, {
+			provider: "joyent",
+			expected: []string{
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert"},
+		}, {
+			provider: "local",
+			expected: []string{
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert",
+				"container", "network-bridge", "root-dir"},
+		}, {
+			provider: "maas",
+			expected: []string{
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert",
+				"maas-server"},
+		}, {
+			provider: "openstack",
+			expected: []string{
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert",
+				"region", "auth-url", "auth-mode"},
+		},
+	} {
+		c.Logf("%d: %s provider", i, test.provider)
+		fields, err := environmentmanager.RestrictedProviderFields(s.envmanager, test.provider)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(fields, jc.SameContents, test.expected)
+	}
+}
+
+func (s *envManagerSuite) TestConfigSkeleton(c *gc.C) {
+	s.setAPIUser(c, names.NewUserTag("non-admin@remote"))
+
+	_, err := s.envmanager.ConfigSkeleton(
+		params.EnvironmentSkeletonConfigArgs{Provider: "ec2"})
+	c.Check(err, gc.ErrorMatches, `provider value "ec2" not valid`)
+	_, err = s.envmanager.ConfigSkeleton(
+		params.EnvironmentSkeletonConfigArgs{Region: "the sun"})
+	c.Check(err, gc.ErrorMatches, `region value "the sun" not valid`)
+
+	skeleton, err := s.envmanager.ConfigSkeleton(params.EnvironmentSkeletonConfigArgs{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The apiPort changes every test run as the dummy provider
+	// looks for a random open port.
+	apiPort := s.Environ.Config().APIPort()
+
+	c.Assert(skeleton.Config, jc.DeepEquals, params.EnvironConfig{
+		"type":        "dummy",
+		"ca-cert":     coretesting.CACert,
+		"state-port":  1234,
+		"api-port":    apiPort,
+		"syslog-port": 2345,
+	})
 }
 
 func (s *envManagerSuite) TestCreateEnvironmentValidatesConfig(c *gc.C) {
@@ -210,7 +288,7 @@ func (s *envManagerSuite) TestCreateEnvironmentBadAgentVersion(c *gc.C) {
 func (s *envManagerSuite) TestListEnvironmentsForSelf(c *gc.C) {
 	user := names.NewUserTag("external@remote")
 	s.setAPIUser(c, user)
-	result, err := s.envmanager.ListEnvironments(user.String())
+	result, err := s.envmanager.ListEnvironments(params.Entity{user.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Environments, gc.HasLen, 0)
 }
@@ -224,7 +302,7 @@ func (s *envManagerSuite) checkEnvironmentMatches(c *gc.C, env params.Environmen
 func (s *envManagerSuite) TestListEnvironmentsAdminSelf(c *gc.C) {
 	user := s.AdminUserTag(c)
 	s.setAPIUser(c, user)
-	result, err := s.envmanager.ListEnvironments(user.String())
+	result, err := s.envmanager.ListEnvironments(params.Entity{user.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Environments, gc.HasLen, 1)
 	expected, err := s.State.Environment()
@@ -236,7 +314,7 @@ func (s *envManagerSuite) TestListEnvironmentsAdminListsOther(c *gc.C) {
 	user := s.AdminUserTag(c)
 	s.setAPIUser(c, user)
 	other := names.NewUserTag("external@remote")
-	result, err := s.envmanager.ListEnvironments(other.String())
+	result, err := s.envmanager.ListEnvironments(params.Entity{other.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Environments, gc.HasLen, 0)
 }
@@ -245,6 +323,6 @@ func (s *envManagerSuite) TestListEnvironmentsDenied(c *gc.C) {
 	user := names.NewUserTag("external@remote")
 	s.setAPIUser(c, user)
 	other := names.NewUserTag("other@remote")
-	_, err := s.envmanager.ListEnvironments(other.String())
+	_, err := s.envmanager.ListEnvironments(params.Entity{other.String()})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

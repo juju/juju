@@ -233,7 +233,7 @@ type testCase struct {
 	Groups []receiverGroup
 }
 
-var listTestCases = []testCase{{
+var testCases = []testCase{{
 	Groups: []receiverGroup{
 		{
 			ExpectedError: &params.Error{Message: "id not found", Code: "not found"},
@@ -257,7 +257,7 @@ var listTestCases = []testCase{{
 }}
 
 func (s *actionSuite) TestListAll(c *gc.C) {
-	for _, testCase := range listTestCases {
+	for _, testCase := range testCases {
 		// set up query args
 		arg := params.Entities{Entities: make([]params.Entity, len(testCase.Groups))}
 
@@ -280,16 +280,7 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 			// get Unit (ActionReceiver) for this Pair in the test case.
 			unit, err := s.State.Unit(group.Receiver.Id())
 			c.Assert(err, jc.ErrorIsNil)
-
-			// make sure there are no actions queued up already.
-			actions, err := unit.PendingActions()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(actions, gc.HasLen, 0)
-
-			// make sure there are no completed actions already.
-			results, err := unit.CompletedActions()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(results, gc.HasLen, 0)
+			assertReadyToTest(c, unit)
 
 			// add each action from the test case.
 			for j, action := range group.Actions {
@@ -305,6 +296,7 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 					Parameters: action.Parameters,
 				}
 				exp.Status = params.ActionPending
+				exp.Output = map[string]interface{}{}
 
 				if action.Execute {
 					status := state.ActionCompleted
@@ -330,7 +322,7 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 }
 
 func (s *actionSuite) TestListPending(c *gc.C) {
-	for _, testCase := range listTestCases {
+	for _, testCase := range testCases {
 		// set up query args
 		arg := params.Entities{Entities: make([]params.Entity, len(testCase.Groups))}
 
@@ -353,16 +345,7 @@ func (s *actionSuite) TestListPending(c *gc.C) {
 			// get Unit (ActionReceiver) for this Pair in the test case.
 			unit, err := s.State.Unit(group.Receiver.Id())
 			c.Assert(err, jc.ErrorIsNil)
-
-			// make sure there are no actions queued up already.
-			actions, err := unit.Actions()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(actions, gc.HasLen, 0)
-
-			// make sure there are no actions completed already.
-			results, err := unit.CompletedActions()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(results, gc.HasLen, 0)
+			assertReadyToTest(c, unit)
 
 			// add each action from the test case.
 			for _, action := range group.Actions {
@@ -387,6 +370,7 @@ func (s *actionSuite) TestListPending(c *gc.C) {
 							Parameters: action.Parameters,
 						},
 						Status: params.ActionPending,
+						Output: map[string]interface{}{},
 					}
 					cur.Actions = append(cur.Actions, exp)
 				}
@@ -400,8 +384,8 @@ func (s *actionSuite) TestListPending(c *gc.C) {
 	}
 }
 
-func (s *actionSuite) TestListCompleted(c *gc.C) {
-	for _, testCase := range listTestCases {
+func (s *actionSuite) TestListRunning(c *gc.C) {
+	for _, testCase := range testCases {
 		// set up query args
 		arg := params.Entities{Entities: make([]params.Entity, len(testCase.Groups))}
 
@@ -424,16 +408,66 @@ func (s *actionSuite) TestListCompleted(c *gc.C) {
 			// get Unit (ActionReceiver) for this Pair in the test case.
 			unit, err := s.State.Unit(group.Receiver.Id())
 			c.Assert(err, jc.ErrorIsNil)
+			assertReadyToTest(c, unit)
 
-			// make sure there are no actions pending already.
-			actions, err := unit.PendingActions()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(actions, gc.HasLen, 0)
+			// add each action from the test case.
+			for _, action := range group.Actions {
+				// add action.
+				added, err := unit.AddAction(action.Name, action.Parameters)
+				c.Assert(err, jc.ErrorIsNil)
 
-			// make sure there are no actions completed already.
-			results, err := unit.CompletedActions()
+				if action.Execute {
+					started, err := added.Begin()
+					c.Assert(err, jc.ErrorIsNil)
+					c.Assert(started.Status(), gc.Equals, state.ActionRunning)
+
+					// add expectation
+					exp := params.ActionResult{
+						Action: &params.Action{
+							Tag:        added.ActionTag().String(),
+							Name:       action.Name,
+							Parameters: action.Parameters,
+						},
+						Status: params.ActionRunning,
+						Output: map[string]interface{}{},
+					}
+					cur.Actions = append(cur.Actions, exp)
+				}
+			}
+		}
+
+		// validate assumptions.
+		actionList, err := s.action.ListRunning(arg)
+		c.Assert(err, jc.ErrorIsNil)
+		assertSame(c, actionList, expected)
+	}
+}
+
+func (s *actionSuite) TestListCompleted(c *gc.C) {
+	for _, testCase := range testCases {
+		// set up query args
+		arg := params.Entities{Entities: make([]params.Entity, len(testCase.Groups))}
+
+		// prepare state, and set up expectations.
+		expected := params.ActionsByReceivers{Actions: make([]params.ActionsByReceiver, len(testCase.Groups))}
+		for i, group := range testCase.Groups {
+			arg.Entities[i] = params.Entity{Tag: group.Receiver.String()}
+
+			cur := &expected.Actions[i]
+			cur.Error = group.ExpectedError
+
+			// short circuit and bail if the ActionReceiver isn't a Unit.
+			if _, ok := group.Receiver.(names.UnitTag); !ok {
+				continue
+			}
+
+			cur.Receiver = group.Receiver.String()
+			cur.Actions = []params.ActionResult{}
+
+			// get Unit (ActionReceiver) for this Pair in the test case.
+			unit, err := s.State.Unit(group.Receiver.Id())
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(results, gc.HasLen, 0)
+			assertReadyToTest(c, unit)
 
 			// add each action from the test case.
 			for _, action := range group.Actions {
@@ -542,7 +576,7 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 
 func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 	actionSchemas := map[string]map[string]interface{}{
-		"snapshot": map[string]interface{}{
+		"snapshot": {
 			"type":        "object",
 			"title":       "snapshot",
 			"description": "Take a snapshot of the database.",
@@ -554,7 +588,7 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 				},
 			},
 		},
-		"fakeaction": map[string]interface{}{
+		"fakeaction": {
 			"type":        "object",
 			"title":       "fakeaction",
 			"description": "No description",
@@ -568,11 +602,11 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 		serviceNames: []string{"dummy"},
 		expectedResults: params.ServicesCharmActionsResults{
 			Results: []params.ServiceCharmActionsResult{
-				params.ServiceCharmActionsResult{
+				{
 					ServiceTag: names.NewServiceTag("dummy").String(),
 					Actions: &charm.Actions{
 						ActionSpecs: map[string]charm.ActionSpec{
-							"snapshot": charm.ActionSpec{
+							"snapshot": {
 								Description: "Take a snapshot of the database.",
 								Params:      actionSchemas["snapshot"],
 							},
@@ -585,11 +619,11 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 		serviceNames: []string{"wordpress"},
 		expectedResults: params.ServicesCharmActionsResults{
 			Results: []params.ServiceCharmActionsResult{
-				params.ServiceCharmActionsResult{
+				{
 					ServiceTag: names.NewServiceTag("wordpress").String(),
 					Actions: &charm.Actions{
 						ActionSpecs: map[string]charm.ActionSpec{
-							"fakeaction": charm.ActionSpec{
+							"fakeaction": {
 								Description: "No description",
 								Params:      actionSchemas["fakeaction"],
 							},
@@ -602,7 +636,7 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 		serviceNames: []string{"nonsense"},
 		expectedResults: params.ServicesCharmActionsResults{
 			Results: []params.ServiceCharmActionsResult{
-				params.ServiceCharmActionsResult{
+				{
 					ServiceTag: names.NewServiceTag("nonsense").String(),
 					Error: &params.Error{
 						Message: `service "nonsense" not found`,
@@ -629,6 +663,28 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(results.Results, jc.DeepEquals, t.expectedResults.Results)
 	}
+}
+
+func assertReadyToTest(c *gc.C, receiver state.ActionReceiver) {
+	// make sure there are no actions on the receiver already.
+	actions, err := receiver.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, 0)
+
+	// make sure there are no actions pending already.
+	actions, err = receiver.PendingActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, 0)
+
+	// make sure there are no actions running already.
+	actions, err = receiver.RunningActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, 0)
+
+	// make sure there are no actions completed already.
+	actions, err = receiver.CompletedActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, 0)
 }
 
 func assertSame(c *gc.C, got, expected params.ActionsByReceivers) {

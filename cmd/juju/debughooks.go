@@ -58,7 +58,10 @@ func (c *DebugHooksCommand) validateHooks() error {
 	if len(c.hooks) == 0 {
 		return nil
 	}
-	service := names.UnitService(c.Target)
+	service, err := names.UnitService(c.Target)
+	if err != nil {
+		return err
+	}
 	relations, err := c.apiClient.ServiceCharmRelations(service)
 	if err != nil {
 		return err
@@ -77,7 +80,7 @@ func (c *DebugHooksCommand) validateHooks() error {
 	for _, hook := range c.hooks {
 		if !validHooks[hook] {
 			names := make([]string, 0, len(validHooks))
-			for hookName, _ := range validHooks {
+			for hookName := range validHooks {
 				names = append(names, hookName)
 			}
 			sort.Strings(names)

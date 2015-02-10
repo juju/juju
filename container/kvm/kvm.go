@@ -103,7 +103,7 @@ var startParams StartParams
 func (manager *containerManager) CreateContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,
-	network *container.NetworkConfig,
+	networkConfig *container.NetworkConfig,
 ) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
 	name := names.NewMachineTag(machineConfig.MachineId).String()
@@ -118,11 +118,12 @@ func (manager *containerManager) CreateContainer(
 	// Create the cloud-init.
 	directory, err := container.NewDirectory(name)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create container directory: %v", err)
+		return nil, nil, errors.Annotate(err, "failed to create container directory")
 	}
 	logger.Tracef("write cloud-init")
-	userDataFilename, err := container.WriteUserData(machineConfig, directory)
+	userDataFilename, err := container.WriteUserData(machineConfig, networkConfig, directory)
 	if err != nil {
+		logger.Infof("machine config api %#v", *machineConfig.APIInfo)
 		err = errors.Annotate(err, "failed to write user data")
 		logger.Infof(err.Error())
 		return nil, nil, err
@@ -131,7 +132,7 @@ func (manager *containerManager) CreateContainer(
 	startParams = ParseConstraintsToStartParams(machineConfig.Constraints)
 	startParams.Arch = version.Current.Arch
 	startParams.Series = series
-	startParams.Network = network
+	startParams.Network = networkConfig
 	startParams.UserDataFile = userDataFilename
 
 	// If the Simplestream requested is anything but released, update

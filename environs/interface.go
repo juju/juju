@@ -19,11 +19,22 @@ import (
 
 // A EnvironProvider represents a computing and storage provider.
 type EnvironProvider interface {
-	// Prepare prepares an environment for use. Any additional
+	// RestrictedConfigAttributes are provider specific attributes stored in
+	// the config that really cannot or should not be changed across
+	// environments running inside a single juju server.
+	RestrictedConfigAttributes() []string
+
+	// PrepareForCreateEnvironment prepares an environment for creation. Any
+	// additional configuration attributes are added to the config passed in
+	// and returned.  This allows providers to add additional required config
+	// for new environments that may be created in an existing juju server.
+	PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error)
+
+	// PrepareForBootstrap prepares an environment for use. Any additional
 	// configuration attributes in the returned environment should
 	// be saved to be used later. If the environment is already
 	// prepared, this call is equivalent to Open.
-	Prepare(ctx BootstrapContext, cfg *config.Config) (Environ, error)
+	PrepareForBootstrap(ctx BootstrapContext, cfg *config.Config) (Environ, error)
 
 	// Open opens the environment and returns it.
 	// The configuration must have come from a previously
@@ -123,20 +134,6 @@ type Environ interface {
 	// instances.
 	InstanceBroker
 
-	// AllocateAddress requests a specific address to be allocated for the
-	// given instance on the given network.
-	AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error
-
-	// ReleaseAddress releases a specific address previously allocated with
-	// AllocateAddress.
-	ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address) error
-
-	// Subnets returns basic information about all subnets known
-	// by the provider for the environment, for a specific instance. A
-	// provider may return all networks instead of just those for the
-	// instance (provider specific).
-	Subnets(inst instance.Id) ([]network.SubnetInfo, error)
-
 	// ConfigGetter allows the retrieval of the configuration data.
 	ConfigGetter
 
@@ -163,7 +160,9 @@ type Environ interface {
 
 	// StateServerInstances returns the IDs of instances corresponding
 	// to Juju state servers. If there are no state server instances,
-	// ErrNotBootstrapped is returned.
+	// ErrNoInstances is returned. If it can be determined that the
+	// environment has not been bootstrapped, then ErrNotBootstrapped
+	// should be returned instead.
 	StateServerInstances() ([]instance.Id, error)
 
 	// Destroy shuts down all known machines and destroys the

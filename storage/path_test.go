@@ -42,5 +42,5 @@ func (s *BlockDevicePathSuite) TestBlockDevicePathError(c *gc.C) {
 func testBlockDevicePath(c *gc.C, dev storage.BlockDevice, expect string) {
 	path, err := storage.BlockDevicePath(dev)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.Equals, expect)
+	c.Assert(path, jc.SamePath, expect)
 }

@@ -336,7 +336,9 @@ func (suite *environSuite) TestAcquireNodeByName(c *gc.C) {
 
 func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0", "architecture": "arm/generic"}`)
+	suite.testMAASObject.TestServer.NewNode(
+		`{"system_id": "node0", "hostname": "host0", "architecture": "arm/generic", "memory": 2048}`,
+	)
 	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
 
 	_, err := env.acquireNode("", "", constraints, nil, nil)
@@ -563,7 +565,7 @@ func (suite *environSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c *gc.
 	err := env.StopInstances("test1", "test2")
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedNodes := [][]string{[]string{"test1", "test2"}, []string{"test1"}, []string{"test2"}}
+	expectedNodes := [][]string{{"test1", "test2"}, {"test1"}, {"test2"}}
 	c.Assert(attemptedNodes, gc.DeepEquals, expectedNodes)
 }
 
@@ -647,6 +649,22 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (suite *environSuite) TestBootstrapNodeNotDeployed(c *gc.C) {
+	suite.setupFakeTools(c)
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
+		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8}`,
+		version.Current.Arch),
+	)
+	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
+	c.Assert(err, jc.ErrorIsNil)
+	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
+	// Ensure node will not be reported as deployed by changing its status.
+	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "4")
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
@@ -970,14 +988,15 @@ func (suite *environSuite) TestSetupNetworksNoMatch(c *gc.C) {
 	c.Check(networkInfo, gc.HasLen, 0)
 }
 
-func (suite *environSuite) TestSupportNetworks(c *gc.C) {
+func (suite *environSuite) TestSupportsNetworking(c *gc.C) {
 	env := suite.makeEnviron()
-	c.Assert(env.SupportNetworks(), jc.IsTrue)
+	_, supported := environs.SupportsNetworking(env)
+	c.Assert(supported, jc.IsTrue)
 }
 
-func (suite *environSuite) TestSupportAddressAllocation(c *gc.C) {
+func (suite *environSuite) TestSupportsAddressAllocation(c *gc.C) {
 	env := suite.makeEnviron()
-	supported, err := env.SupportAddressAllocation("")
+	supported, err := env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supported, jc.IsTrue)
 }
@@ -1062,10 +1081,25 @@ func (suite *environSuite) createSubnets(c *gc.C) instance.Instance {
 	return test_instance
 }
 
+func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
+	test_instance := suite.createSubnets(c)
+
+	netInfo, err := suite.makeEnviron().NetworkInterfaces(test_instance.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedInfo := []network.InterfaceInfo{
+		{DeviceIndex: 0, MACAddress: "aa:bb:cc:dd:ee:ff", CIDR: "192.168.1.1/24", ProviderSubnetId: "WLAN", InterfaceName: "wlan0", Disabled: true},
+		{DeviceIndex: 1, MACAddress: "aa:bb:cc:dd:ee:f1", CIDR: "192.168.2.1/24", ProviderSubnetId: "LAN", VLANTag: 42, InterfaceName: "eth0"},
+		{DeviceIndex: 2, MACAddress: "aa:bb:cc:dd:ee:f2", CIDR: "192.168.3.1/24", ProviderSubnetId: "Virt", InterfaceName: "vnet1"},
+	}
+	network.SortInterfaceInfo(netInfo)
+	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
+}
+
 func (suite *environSuite) TestSubnets(c *gc.C) {
 	test_instance := suite.createSubnets(c)
 
-	netInfo, err := suite.makeEnviron().Subnets(test_instance.Id())
+	netInfo, err := suite.makeEnviron().Subnets(test_instance.Id(), []network.Id{"LAN", "Virt", "WLAN"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedInfo := []network.SubnetInfo{
@@ -1073,6 +1107,18 @@ func (suite *environSuite) TestSubnets(c *gc.C) {
 		{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
 		{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0, AllocatableIPLow: net.ParseIP("192.168.1.129"), AllocatableIPHigh: net.ParseIP("192.168.1.255")}}
 	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
+}
+
+func (suite *environSuite) TestSubnetsNoNetIds(c *gc.C) {
+	test_instance := suite.createSubnets(c)
+	_, err := suite.makeEnviron().Subnets(test_instance.Id(), []network.Id{})
+	c.Assert(err, gc.ErrorMatches, "netIds must not be empty")
+}
+
+func (suite *environSuite) TestSubnetsMissingNetwork(c *gc.C) {
+	test_instance := suite.createSubnets(c)
+	_, err := suite.makeEnviron().Subnets(test_instance.Id(), []network.Id{"WLAN", "Missing"})
+	c.Assert(err, gc.ErrorMatches, "failed to find the following networks: \\[Missing\\]")
 }
 
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {
@@ -1095,7 +1141,7 @@ func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
 	test_instance := suite.createSubnets(c)
 	env := suite.makeEnviron()
 	err := env.AllocateAddress(test_instance.Id(), "bar", network.Address{Value: "192.168.2.1"})
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "could not find network matching bar")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "failed to find the following networks: \\[bar\\]")
 }
 
 func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
@@ -1185,6 +1231,24 @@ func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instanc
 		return nil, err
 	}
 	return result.Instance, nil
+}
+
+func (s *environSuite) TestStartInstanceUnmetConstraints(c *gc.C) {
+	env := s.bootstrap(c)
+	s.newNode(c, "thenode1", "host1", nil)
+	params := environs.StartInstanceParams{Constraints: constraints.MustParse("mem=8G")}
+	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, gc.ErrorMatches, "cannot run instances:.* 409.*")
+}
+
+func (s *environSuite) TestStartInstanceConstraints(c *gc.C) {
+	env := s.bootstrap(c)
+	s.newNode(c, "thenode1", "host1", nil)
+	s.newNode(c, "thenode2", "host2", map[string]interface{}{"memory": 8192})
+	params := environs.StartInstanceParams{Constraints: constraints.MustParse("mem=8G")}
+	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*result.Hardware.Mem, gc.Equals, uint64(8192))
 }
 
 func (s *environSuite) TestGetAvailabilityZones(c *gc.C) {

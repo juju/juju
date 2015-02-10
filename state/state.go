@@ -67,19 +67,20 @@ const (
 	// actionsC.
 	actionresultsC = "actionresults"
 
-	usersC        = "users"
-	envUsersC     = "envusers"
-	presenceC     = "presence"
-	cleanupsC     = "cleanups"
-	annotationsC  = "annotations"
-	statusesC     = "statuses"
-	stateServersC = "stateServers"
-	openedPortsC  = "openedPorts"
-	metricsC      = "metrics"
-	upgradeInfoC  = "upgradeInfo"
-	rebootC       = "reboot"
-	blockDevicesC = "blockdevices"
-	datastoresC   = "datastores"
+	usersC              = "users"
+	envUsersC           = "envusers"
+	presenceC           = "presence"
+	cleanupsC           = "cleanups"
+	annotationsC        = "annotations"
+	statusesC           = "statuses"
+	stateServersC       = "stateServers"
+	openedPortsC        = "openedPorts"
+	metricsC            = "metrics"
+	upgradeInfoC        = "upgradeInfo"
+	rebootC             = "reboot"
+	blockDevicesC       = "blockdevices"
+	storageConstraintsC = "storageconstraints"
+	storageInstancesC   = "storageinstances"
 
 	// leaseC is used to store lease tokens
 	leaseC = "lease"
@@ -147,6 +148,7 @@ func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
 		return nil, errors.Trace(err)
 	}
 	newState.environTag = env
+	newState.startPresenceWatcher()
 	return newState, nil
 }
 
@@ -165,6 +167,11 @@ func (st *State) EnvironUUID() string {
 // getPresence returns the presence collection.
 func (st *State) getPresence() *mgo.Collection {
 	return st.db.Session.DB("presence").C(presenceC)
+}
+
+func (st *State) startPresenceWatcher() {
+	pdb := st.db.Session.DB("presence")
+	st.pwatcher = presence.NewWatcher(pdb.C(presenceC), st.environTag)
 }
 
 // newDB returns a database connection using a new session, along with
@@ -1107,7 +1114,9 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // AddService creates a new service, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddService(name, owner string, ch *Charm, networks []string) (service *Service, err error) {
+func (st *State) AddService(
+	name, owner string, ch *Charm, networks []string, storage map[string]StorageConstraints,
+) (service *Service, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add service %q", name)
 	ownerTag, err := names.ParseUserTag(owner)
 	if err != nil {
@@ -1134,6 +1143,9 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 	if _, err := st.EnvironmentUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := validateStorageConstraints(st, storage, ch.Meta()); err != nil {
+		return nil, errors.Trace(err)
+	}
 	serviceID := st.docID(name)
 	// Create the service addition operations.
 	peers := ch.Meta().Peers
@@ -1157,7 +1169,9 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 		// provisioning, we should check the given networks are valid
 		// and known before setting them.
 		createRequestedNetworksOp(st, svc.globalKey(), networks),
+		createStorageConstraintsOp(svc.globalKey(), storage),
 		createSettingsOp(st, svc.settingsKey(), nil),
+		addLeadershipSettingsOp(svc.Tag().Id()),
 		{
 			C:      settingsrefsC,
 			Id:     st.docID(svc.settingsKey()),
@@ -1171,7 +1185,8 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 			Id:     serviceID,
 			Assert: txn.DocMissing,
 			Insert: svcDoc,
-		}}
+		},
+	}
 	// Collect peer relation addition operations.
 	peerOps, err := st.addPeerRelationsOps(name, peers)
 	if err != nil {

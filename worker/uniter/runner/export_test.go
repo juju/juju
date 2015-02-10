@@ -27,18 +27,18 @@ func RunnerPaths(rnr Runner) Paths {
 	return rnr.(*runner).paths
 }
 
-func UpdateCachedSettings(f0 Factory, relId int, unitName string, settings params.RelationSettings) {
+func UpdateCachedSettings(f0 Factory, relId int, unitName string, settings params.Settings) {
 	f := f0.(*factory)
 	members := f.relationCaches[relId].members
 	if members[unitName] == nil {
-		members[unitName] = params.RelationSettings{}
+		members[unitName] = params.Settings{}
 	}
 	for key, value := range settings {
 		members[unitName][key] = value
 	}
 }
 
-func CachedSettings(f0 Factory, relId int, unitName string) (params.RelationSettings, bool) {
+func CachedSettings(f0 Factory, relId int, unitName string) (params.Settings, bool) {
 	f := f0.(*factory)
 	settings, found := f.relationCaches[relId].members[unitName]
 	return settings, found
@@ -174,7 +174,7 @@ func SetEnvironmentHookContextRelation(
 	context.relationId = relationId
 	context.remoteUnitName = remoteUnitName
 	context.relations = map[int]*ContextRelation{
-		relationId: &ContextRelation{
+		relationId: {
 			endpointName: endpointName,
 			relationId:   relationId,
 		},

@@ -32,7 +32,6 @@ import (
 type Machine struct {
 	st  *State
 	doc machineDoc
-	annotator
 	presence.Presencer
 }
 
@@ -130,12 +129,11 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 		st:  st,
 		doc: *doc,
 	}
-	machine.annotator = annotator{
-		globalKey: machine.globalKey(),
-		tag:       machine.Tag(),
-		st:        st,
-	}
 	return machine
+}
+
+func wantsVote(jobs []MachineJob, noVote bool) bool {
+	return hasJob(jobs, JobManageEnviron) && !noVote
 }
 
 // Id returns the machine id.
@@ -220,6 +218,12 @@ func getInstanceData(st *State, id string) (instanceData, error) {
 // will be different from other Tag values returned by any other entities
 // from the same state.
 func (m *Machine) Tag() names.Tag {
+	return m.MachineTag()
+}
+
+// MachineTag returns the more specific MachineTag type as opposed
+// to the more generic Tag type.
+func (m *Machine) MachineTag() names.MachineTag {
 	return names.NewMachineTag(m.Id())
 }
 
@@ -236,7 +240,7 @@ func (m *Machine) Jobs() []MachineJob {
 // WantsVote reports whether the machine is a state server
 // that wants to take part in peer voting.
 func (m *Machine) WantsVote() bool {
-	return hasJob(m.doc.Jobs, JobManageEnviron) && !m.doc.NoVote
+	return wantsVote(m.doc.Jobs, m.doc.NoVote)
 }
 
 // HasVote reports whether that machine is currently a voting
@@ -465,6 +469,12 @@ func (m *Machine) Containers() ([]string, error) {
 func (m *Machine) ParentId() (string, bool) {
 	parentId := ParentId(m.Id())
 	return parentId, parentId != ""
+}
+
+// IsContainer returns true if the machine is a container.
+func (m *Machine) IsContainer() bool {
+	_, isContainer := m.ParentId()
+	return isContainer
 }
 
 type HasContainersError struct {
@@ -723,7 +733,7 @@ func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 // It returns the started pinger.
 func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := m.st.getPresence()
-	p := presence.NewPinger(presenceCollection, m.globalKey())
+	p := presence.NewPinger(presenceCollection, m.st.environTag, m.globalKey())
 	err := p.Start()
 	if err != nil {
 		return nil, err
@@ -988,13 +998,46 @@ func (m *Machine) SetMachineAddresses(addresses ...network.Address) (err error) 
 // setAddresses updates the machine's addresses (either Addresses or
 // MachineAddresses, depending on the field argument).
 func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fieldName string) error {
+	var addressesToSet []network.Address
+	if !m.IsContainer() {
+		// Check addresses first. We'll only add those addresses
+		// which are not in the IP address collection.
+		ipAddresses, closer := m.st.getCollection(ipaddressesC)
+		defer closer()
+
+		addressValues := make([]string, len(addresses))
+		for i, address := range addresses {
+			addressValues[i] = address.Value
+		}
+		ipDocs := []ipaddressDoc{}
+		sel := bson.D{{"value", bson.D{{"$in", addressValues}}}, {"state", AddressStateAllocated}}
+		err := ipAddresses.Find(sel).All(&ipDocs)
+		if err != nil {
+			return err
+		}
+		ipDocValues := set.NewStrings()
+		for _, ipDoc := range ipDocs {
+			ipDocValues.Add(ipDoc.Value)
+		}
+		for _, address := range addresses {
+			if !ipDocValues.Contains(address.Value) {
+				addressesToSet = append(addressesToSet, address)
+			}
+		}
+	} else {
+		// Containers will set all addresses.
+		addressesToSet = make([]network.Address, len(addresses))
+		copy(addressesToSet, addresses)
+	}
+	// Update addresses now.
 	var changed bool
 	envConfig, err := m.st.EnvironConfig()
 	if err != nil {
 		return err
 	}
-	network.SortAddresses(addresses, envConfig.PreferIPv6())
-	stateAddresses := instanceAddressesToAddresses(addresses)
+
+	network.SortAddresses(addressesToSet, envConfig.PreferIPv6())
+	stateAddresses := instanceAddressesToAddresses(addressesToSet)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		changed = false
 		if attempt > 0 {
@@ -1010,7 +1053,7 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 			Id:     m.doc.DocID,
 			Assert: append(bson.D{{fieldName, *field}}, notDeadDoc...),
 		}
-		if !addressesEqual(addresses, addressesToInstanceAddresses(*field)) {
+		if !addressesEqual(addressesToSet, addressesToInstanceAddresses(*field)) {
 			op.Update = bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}}
 			changed = true
 		}

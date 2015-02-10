@@ -5,15 +5,20 @@ package testing
 
 import (
 	"os"
+	"strings"
 
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/wrench"
 )
+
+var logger = loggo.GetLogger("juju.testing")
 
 // JujuOSEnvSuite isolates the tests from Juju environment variables.
 // This is intended to be only used by existing suites, usually embedded in
@@ -57,6 +62,15 @@ func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 	utils.SetHome(s.oldHomeEnv)
 }
 
+func (s *JujuOSEnvSuite) SetFeatureFlags(flag ...string) {
+	flags := strings.Join(flag, ",")
+	if err := os.Setenv(osenv.JujuFeatureFlagEnvKey, flags); err != nil {
+		panic(err)
+	}
+	logger.Debugf("setting feature flags: %s", flags)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+}
+
 // BaseSuite provides required functionality for all test suites
 // when embedded in a gocheck suite type:
 // - logger redirect
@@ -64,6 +78,8 @@ func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 // - protection of user's home directory
 // - scrubbing of env vars
 // TODO (frankban) 2014-06-09: switch to using IsolationSuite.
+// NOTE: there will be many tests that fail when you try to change
+// to the IsolationSuite that rely on external things in PATH.
 type BaseSuite struct {
 	testing.CleanupSuite
 	testing.LoggingSuite
@@ -94,6 +110,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	// We can't always just use IsolationSuite because we still need
 	// PATH and possibly a couple other envars.
 	s.PatchEnvironment("BASH_ENV", "")
+	network.ResetGobalPreferIPv6()
 }
 
 func (s *BaseSuite) TearDownTest(c *gc.C) {

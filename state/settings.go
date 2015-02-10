@@ -266,6 +266,15 @@ func readSettingsDoc(st *State, key string) (map[string]interface{}, int64, erro
 	return config, txnRevno, nil
 }
 
+// ReadSettings returns the settings for the given key.
+func (st *State) ReadSettings(key string) (*Settings, error) {
+	return readSettings(st, key)
+}
+
+func (st *State) ReadLeadershipSettings(serviceId string) (*Settings, error) {
+	return readSettings(st, LeadershipSettingsDocId(serviceId))
+}
+
 // readSettings returns the Settings for key.
 func readSettings(st *State, key string) (*Settings, error) {
 	s := newSettings(st, key)
@@ -313,6 +322,25 @@ func removeSettings(st *State, key string) error {
 		return errors.NotFoundf("settings")
 	}
 	return nil
+}
+
+// listSettings returns all the settings with the specified key prefix.
+func listSettings(st *State, keyPrefix string) (map[string]map[string]interface{}, error) {
+	settings, closer := st.getRawCollection(settingsC)
+	defer closer()
+
+	var matchingSettings []map[string]interface{}
+	findExpr := fmt.Sprintf("^%s.*$", st.docID(keyPrefix))
+	if err := settings.Find(bson.D{{"_id", bson.D{{"$regex", findExpr}}}}).All(&matchingSettings); err != nil {
+		return nil, err
+	}
+	result := make(map[string]map[string]interface{})
+	for i := range matchingSettings {
+		id := matchingSettings[i]["_id"].(string)
+		cleanSettingsMap(matchingSettings[i])
+		result[st.localID(id)] = matchingSettings[i]
+	}
+	return result, nil
 }
 
 // replaceSettingsOp returns a txn.Op that deletes the document's contents and
@@ -364,4 +392,39 @@ func setUnsetUpdate(set, unset bson.M) bson.D {
 		update = append(update, bson.DocElem{"$unset", unset})
 	}
 	return update
+}
+
+// StateSettings is used to expose various settings APIs outside of the state package.
+type StateSettings struct {
+	st *State
+}
+
+// NewStateSettings creates a StateSettings from state.
+func NewStateSettings(st *State) *StateSettings {
+	return &StateSettings{st}
+}
+
+// CreateSettings exposes createSettings on state for use outside the state package.
+func (s *StateSettings) CreateSettings(key string, settings map[string]interface{}) error {
+	_, err := createSettings(s.st, key, settings)
+	return err
+}
+
+// ReadSettings exposes readSettings on state for use outside the state package.
+func (s *StateSettings) ReadSettings(key string) (map[string]interface{}, error) {
+	if settings, err := readSettings(s.st, key); err != nil {
+		return nil, err
+	} else {
+		return settings.Map(), nil
+	}
+}
+
+// RemoveSettings exposes removeSettings on state for use outside the state package.
+func (s *StateSettings) RemoveSettings(key string) error {
+	return removeSettings(s.st, key)
+}
+
+// ListSettings exposes listSettings on state for use outside the state package.
+func (s *StateSettings) ListSettings(keyPrefix string) (map[string]map[string]interface{}, error) {
+	return listSettings(s.st, keyPrefix)
 }

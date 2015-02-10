@@ -24,7 +24,6 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -256,7 +255,17 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
-func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+// RestrictedConfigAttributes is specified in the EnvironProvider interface.
+func (p environProvider) RestrictedConfigAttributes() []string {
+	return []string{"region", "auth-url", "auth-mode"}
+}
+
+// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
+func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	return nil, jujuerrors.NotImplementedf("PrepareForCreateEnvironment")
+}
+
+func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	attrs := cfg.UnknownAttrs()
 	if _, ok := attrs["control-bucket"]; !ok {
 		uuid, err := utils.NewUUID()
@@ -566,18 +575,6 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 	})
 	e.supportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
 	return e.supportedArchitectures, err
-}
-
-// SupportNetworks is specified on the EnvironCapability interface.
-func (e *environ) SupportNetworks() bool {
-	// TODO(dimitern) Once we have support for networking, inquire
-	// about capabilities and return true if supported.
-	return false
-}
-
-// SupportAddressAllocation is specified on the EnvironCapability interface.
-func (e *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
 }
 
 var unsupportedConstraints = []string{
@@ -1237,27 +1234,6 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 		}
 	}
 	return insts, err
-}
-
-// AllocateAddress requests an address to be allocated for the
-// given instance on the given network. This is not implemented on the
-// OpenStack provider yet.
-func (*environ) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return jujuerrors.NotImplementedf("AllocateAddress")
-}
-
-// ReleaseAddress releases a specific address previously allocated with
-// AllocateAddress.
-func (*environ) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotImplementedf("ReleaseAddress")
-}
-
-// Subnets returns basic information about all subnets known
-// by the provider for the environment. They may be unknown to juju
-// yet (i.e. when called initially or when a new network was created).
-// This is not implemented by the OpenStack provider yet.
-func (*environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
-	return nil, jujuerrors.NotImplementedf("Subnets")
 }
 
 func (e *environ) AllInstances() (insts []instance.Instance, err error) {

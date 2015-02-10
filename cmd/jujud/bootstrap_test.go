@@ -158,6 +158,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 		UpgradedToVersion: version.Current.Number,
 		Password:          testPasswordHash(),
 		Nonce:             agent.BootstrapNonce,
+		Environment:       testing.EnvironmentTag,
 		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
 		APIAddresses:      []string{"0.1.2.3:1234"},
 		CACert:            testing.CACert,
@@ -659,7 +660,7 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	provider, err := environs.Provider(cfg.Type())
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := provider.Prepare(nullContext(), cfg)
+	env, err := provider.PrepareForBootstrap(nullContext(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	envtesting.MustUploadFakeTools(s.toolsStorage, cfg.AgentStream(), cfg.AgentStream())

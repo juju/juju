@@ -68,3 +68,36 @@ type ReleaseLeadershipParams struct {
 // ReleaseLeadershipBulkResults is a type which contains results from
 // a bulk leadership call.
 type ReleaseLeadershipBulkResults ErrorResults
+
+// GetLeadershipSettingsBulkResults is the collection of results from
+// a bulk request for leadership settings.
+type GetLeadershipSettingsBulkResults struct {
+	Results []GetLeadershipSettingsResult
+}
+
+// GetLeadershipSettingsResult is the results from requesting
+// leadership settings.
+type GetLeadershipSettingsResult struct {
+	Settings Settings
+	Error    *Error
+}
+
+// MergeLeadershipSettingsBulkParams is a collection of parameters for
+// making a bulk merge of leadership settings.
+type MergeLeadershipSettingsBulkParams struct {
+
+	// Params are the parameters for making a bulk leadership settings
+	// merge.
+	Params []MergeLeadershipSettingsParam
+}
+
+// MergeLeadershipSettingsParam are the parameters needed for merging
+// in leadership settings.
+type MergeLeadershipSettingsParam struct {
+	// ServiceTag is the service for which you want to merge
+	// leadership settings.
+	ServiceTag string
+
+	// Settings are the Leadership settings you wish to merge in.
+	Settings Settings
+}

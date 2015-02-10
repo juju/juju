@@ -29,12 +29,8 @@ func (s *EnvironSuite) TestEnvironment(c *gc.C) {
 	c.Assert(env.Tag(), gc.Equals, expectedTag)
 	c.Assert(env.ServerTag(), gc.Equals, expectedTag)
 	c.Assert(env.Name(), gc.Equals, "testenv")
-	c.Assert(env.Owner(), gc.Equals, s.owner)
+	c.Assert(env.Owner(), gc.Equals, s.Owner)
 	c.Assert(env.Life(), gc.Equals, state.Alive)
-
-	testAnnotator(c, func() (state.Annotator, error) {
-		return env, nil
-	})
 }
 
 func (s *EnvironSuite) TestNewEnvironmentNonExistentLocalUser(c *gc.C) {
@@ -94,12 +90,8 @@ func (s *EnvironSuite) TestStateServerEnvironment(c *gc.C) {
 	c.Assert(env.Tag(), gc.Equals, expectedTag)
 	c.Assert(env.ServerTag(), gc.Equals, expectedTag)
 	c.Assert(env.Name(), gc.Equals, "testenv")
-	c.Assert(env.Owner(), gc.Equals, s.owner)
+	c.Assert(env.Owner(), gc.Equals, s.Owner)
 	c.Assert(env.Life(), gc.Equals, state.Alive)
-
-	testAnnotator(c, func() (state.Annotator, error) {
-		return env, nil
-	})
 }
 
 func (s *EnvironSuite) TestStateServerEnvironmentAccessibleFromOtherEnvironments(c *gc.C) {
@@ -111,12 +103,8 @@ func (s *EnvironSuite) TestStateServerEnvironmentAccessibleFromOtherEnvironments
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Tag(), gc.Equals, s.envTag)
 	c.Assert(env.Name(), gc.Equals, "testenv")
-	c.Assert(env.Owner(), gc.Equals, s.owner)
+	c.Assert(env.Owner(), gc.Equals, s.Owner)
 	c.Assert(env.Life(), gc.Equals, state.Alive)
-
-	testAnnotator(c, func() (state.Annotator, error) {
-		return env, nil
-	})
 }
 
 // createTestEnvConfig returns a new environment config and its UUID for testing.

@@ -10,9 +10,7 @@ import (
 	"github.com/juju/juju/api/annotations"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/apiserver/params"
-	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type annotationsMockSuite struct {
@@ -54,8 +52,9 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 			return nil
 		})
 	annotationsClient := annotations.NewClient(apiCaller)
-	err := annotationsClient.Set(setParams)
+	callErrs, err := annotationsClient.Set(setParams)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(callErrs, gc.HasLen, 0)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -90,38 +89,5 @@ func (s *annotationsMockSuite) TestGetEntitiesAnnotations(c *gc.C) {
 	found, err := annotationsClient.Get([]string{"charm"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
-	c.Assert(found, gc.HasLen, 1)
-}
-
-type annotationsSuite struct {
-	jujutesting.JujuConnSuite
-	annotationsClient *annotations.Client
-}
-
-var _ = gc.Suite(&annotationsSuite{})
-
-func (s *annotationsSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.annotationsClient = annotations.NewClient(s.APIState)
-	c.Assert(s.annotationsClient, gc.NotNil)
-}
-
-func (s *annotationsSuite) TearDownTest(c *gc.C) {
-	s.annotationsClient.ClientFacade.Close()
-	s.JujuConnSuite.TearDownTest(c)
-}
-
-func (s *annotationsSuite) TestAnnotationFacadeCall(c *gc.C) {
-	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-
-	annts := map[string]string{"annotation": "test"}
-	err := s.annotationsClient.Set(
-		map[string]map[string]string{
-			charm.Tag().String(): annts,
-		})
-	c.Assert(err, jc.ErrorIsNil)
-
-	found, err := s.annotationsClient.Get([]string{charm.Tag().String()})
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.HasLen, 1)
 }

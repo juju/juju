@@ -5,7 +5,6 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/names"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -22,7 +21,6 @@ const environGlobalKey = "e"
 type Environment struct {
 	st  *State
 	doc environmentDoc
-	annotator
 }
 
 // environmentDoc represents the internal state of the environment in MongoDB.
@@ -53,11 +51,6 @@ func (st *State) StateServerEnvironment() (*Environment, error) {
 	if err := env.refresh(environments.FindId(uuid)); err != nil {
 		return nil, errors.Trace(err)
 	}
-	env.annotator = annotator{
-		globalKey: environGlobalKey,
-		tag:       env.Tag(),
-		st:        st,
-	}
 	return env, nil
 }
 
@@ -71,11 +64,6 @@ func (st *State) Environment() (*Environment, error) {
 	if err := env.refresh(environments.FindId(uuid)); err != nil {
 		return nil, errors.Trace(err)
 	}
-	env.annotator = annotator{
-		globalKey: environGlobalKey,
-		tag:       env.Tag(),
-		st:        st,
-	}
 	return env, nil
 }
 
@@ -87,11 +75,6 @@ func (st *State) GetEnvironment(tag names.EnvironTag) (*Environment, error) {
 	env := &Environment{st: st}
 	if err := env.refresh(environments.FindId(tag.Id())); err != nil {
 		return nil, errors.Trace(err)
-	}
-	env.annotator = annotator{
-		globalKey: environGlobalKey,
-		tag:       env.Tag(),
-		st:        st,
 	}
 	return env, nil
 }
@@ -117,7 +100,11 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 		return nil, nil, errors.Annotate(err, "could not load state server environment")
 	}
 
-	newState, err := open(st.mongoInfo, mongo.DialOpts{}, st.policy)
+	uuid, ok := cfg.UUID()
+	if !ok {
+		return nil, nil, errors.Errorf("environment uuid was not supplied")
+	}
+	newState, err := st.ForEnviron(names.NewEnvironTag(uuid))
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not create state for new environment")
 	}
@@ -127,11 +114,11 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 		}
 	}()
 
-	ops, err := newState.envSetupOps(cfg, ssEnv.UUID(), owner)
+	ops, err := newState.envSetupOps(cfg, uuid, ssEnv.UUID(), owner)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new environment")
 	}
-	err = newState.runTransaction(ops)
+	err = newState.runTransactionNoEnvAliveAssert(ops)
 	if err == txn.ErrAborted {
 		err = errors.New("environment already exists")
 	}

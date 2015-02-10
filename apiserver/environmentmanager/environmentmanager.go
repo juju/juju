@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
@@ -22,14 +23,15 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.environmentmanager")
 
 func init() {
-	common.RegisterStandardFacade("EnvironmentManager", 1, NewEnvironmentManagerAPI)
+	common.RegisterStandardFacadeForFeature("EnvironmentManager", 1, NewEnvironmentManagerAPI, feature.MESS)
 }
 
 // EnvironmentManager defines the methods on the environmentmanager API end
 // point.
 type EnvironmentManager interface {
+	ConfigSkeleton(args params.EnvironmentSkeletonConfigArgs) (params.EnvironConfigResult, error)
 	CreateEnvironment(args params.EnvironmentCreateArgs) (params.Environment, error)
-	ListEnvironments(forUser string) (params.EnvironmentList, error)
+	ListEnvironments(user params.Entity) (params.EnvironmentList, error)
 }
 
 // EnvironmentManagerAPI implements the environment manager interface and is
@@ -89,6 +91,66 @@ var configValuesFromStateServer = []string{
 	"rsyslog-ca-cert",
 }
 
+// ConfigSkeleton returns config values to be used as a starting point for the
+// API caller to construct a valid environment specific config.  The provider
+// and region params are there for future use, and current behaviour expects
+// both of these to be empty.
+func (em *EnvironmentManagerAPI) ConfigSkeleton(args params.EnvironmentSkeletonConfigArgs) (params.EnvironConfigResult, error) {
+	var result params.EnvironConfigResult
+	if args.Provider != "" {
+		return result, errors.NotValidf("provider value %q", args.Provider)
+	}
+	if args.Region != "" {
+		return result, errors.NotValidf("region value %q", args.Region)
+	}
+
+	stateServerEnv, err := em.state.StateServerEnvironment()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	config, err := em.configSkeleton(stateServerEnv)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	result.Config = config
+	return result, nil
+}
+
+func (em *EnvironmentManagerAPI) restrictedProviderFields(providerType string) ([]string, error) {
+	provider, err := environs.Provider(providerType)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var fields []string
+	fields = append(fields, configValuesFromStateServer...)
+	fields = append(fields, provider.RestrictedConfigAttributes()...)
+	return fields, nil
+}
+
+func (em *EnvironmentManagerAPI) configSkeleton(source ConfigSource) (map[string]interface{}, error) {
+	baseConfig, err := source.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	baseMap := baseConfig.AllAttrs()
+
+	fields, err := em.restrictedProviderFields(baseConfig.Type())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var result = make(map[string]interface{})
+	for _, field := range fields {
+		if value, found := baseMap[field]; found {
+			result[field] = value
+		}
+	}
+	return result, nil
+}
+
 func (em *EnvironmentManagerAPI) checkVersion(cfg map[string]interface{}) error {
 	// If there is no agent-version specified, use the current version.
 	// otherwise we need to check for tools
@@ -129,10 +191,11 @@ func (em *EnvironmentManagerAPI) newEnvironmentConfig(args params.EnvironmentCre
 	// the account values and the environment config together in the
 	// *config.Config instance.
 	joint := make(map[string]interface{})
-	for key, value := range args.Account {
+	for key, value := range args.Config {
 		joint[key] = value
 	}
-	for key, value := range args.Config {
+	// Account info overrides any config values.
+	for key, value := range args.Account {
 		joint[key] = value
 	}
 	if _, found := joint["uuid"]; found {
@@ -143,10 +206,15 @@ func (em *EnvironmentManagerAPI) newEnvironmentConfig(args params.EnvironmentCre
 		return nil, errors.Trace(err)
 	}
 	baseMap := baseConfig.AllAttrs()
+	fields, err := em.restrictedProviderFields(baseConfig.Type())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Any values that would normally be copied from the state server
 	// config can also be defined, but if they differ from the state server
 	// values, an error is returned.
-	for _, field := range configValuesFromStateServer {
+	for _, field := range fields {
 		if value, found := joint[field]; found {
 			if serverValue := baseMap[field]; value != serverValue {
 				return nil, errors.Errorf(
@@ -229,7 +297,7 @@ func (em *EnvironmentManagerAPI) CreateEnvironment(args params.EnvironmentCreate
 // has access to in the current server.  Only that state server owner
 // can list environments for any user (at this stage).  Other users
 // can only ask about their own environments.
-func (em *EnvironmentManagerAPI) ListEnvironments(forUser string) (params.EnvironmentList, error) {
+func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.EnvironmentList, error) {
 	result := params.EnvironmentList{}
 
 	stateServerEnv, err := em.state.StateServerEnvironment()
@@ -238,7 +306,7 @@ func (em *EnvironmentManagerAPI) ListEnvironments(forUser string) (params.Enviro
 	}
 	adminUser := stateServerEnv.Owner()
 
-	userTag, err := names.ParseUserTag(forUser)
+	userTag, err := names.ParseUserTag(user.Tag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -259,6 +327,7 @@ func (em *EnvironmentManagerAPI) ListEnvironments(forUser string) (params.Enviro
 			UUID:     env.UUID(),
 			OwnerTag: env.Owner().String(),
 		})
+		logger.Debugf("list env: %s, %s, %s", env.Name(), env.UUID(), env.Owner())
 	}
 
 	return result, nil

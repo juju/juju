@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -56,6 +57,9 @@ func newSSHStorage(host, storageDir, tmpDir string) (*SSHStorage, error) {
 var flockBin string
 
 func (s *storageSuite) SetUpSuite(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("No flock on windows`")
+	}
 	s.BaseSuite.SetUpSuite(c)
 
 	var err error

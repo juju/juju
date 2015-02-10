@@ -6,6 +6,7 @@ package network
 import (
 	"fmt"
 	"net"
+	"sort"
 
 	"github.com/juju/loggo"
 )
@@ -79,8 +80,12 @@ type InterfaceInfo struct {
 	// NetworkName is juju-internal name of the network.
 	NetworkName string
 
-	// ProviderId is a provider-specific network id.
+	// ProviderId is a provider-specific NIC id.
 	ProviderId Id
+
+	// ProviderSubnetId is the provider-specific id for the associated
+	// subnet.
+	ProviderSubnetId Id
 
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.
@@ -117,13 +122,29 @@ type InterfaceInfo struct {
 
 	// Gateway address, if set, defines the default gateway to
 	// configure for this network interface. For containers this
-	// usually (one of) the host address(es).
+	// usually is (one of) the host address(es).
 	GatewayAddress Address
 
 	// ExtraConfig can contain any valid setting and its value allowed
 	// inside an "iface" section of a interfaces(5) config file, e.g.
 	// "up", "down", "mtu", etc.
 	ExtraConfig map[string]string
+}
+
+type interfaceInfoSlice []InterfaceInfo
+
+func (s interfaceInfoSlice) Len() int      { return len(s) }
+func (s interfaceInfoSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s interfaceInfoSlice) Less(i, j int) bool {
+	iface1 := s[i]
+	iface2 := s[j]
+	return iface1.DeviceIndex < iface2.DeviceIndex
+}
+
+// SortInterfaceInfo sorts a slice of InterfaceInfo on DeviceIndex in ascending
+// order.
+func SortInterfaceInfo(interfaces []InterfaceInfo) {
+	sort.Sort(interfaceInfoSlice(interfaces))
 }
 
 // ActualInterfaceName returns raw interface name for raw interface (e.g. "eth0") and

@@ -29,6 +29,7 @@ type Runner interface {
 	Worker
 	StartWorker(id string, startFunc func() (Worker, error)) error
 	StopWorker(id string) error
+	Dying() <-chan struct{}
 }
 
 // runner runs a set of workers, restarting them as necessary
@@ -125,6 +126,10 @@ func (runner *runner) Wait() error {
 func (runner *runner) Kill() {
 	logger.Debugf("killing runner %p", runner)
 	runner.tomb.Kill(nil)
+}
+
+func (runner *runner) Dying() <-chan struct{} {
+	return runner.tomb.Dying()
 }
 
 // Stop kills the given worker and waits for it to exit.

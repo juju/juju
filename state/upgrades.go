@@ -906,8 +906,8 @@ func FixSequenceFields(st *State) error {
 	defer closer()
 
 	sel := bson.D{{"$or", []bson.D{
-		bson.D{{"env-uuid", ""}},
-		bson.D{{"name", ""}},
+		{{"env-uuid", ""}},
+		{{"name", ""}},
 	}}}
 	iter := sequence.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
 	defer iter.Close()
@@ -938,4 +938,56 @@ func FixSequenceFields(st *State) error {
 		return err
 	}
 	return st.runRawTransaction(ops)
+}
+
+// DropOldIndexesv123 drops old mongo indexes.
+func DropOldIndexesv123(st *State) error {
+	for collName, indexes := range oldIndexesv123 {
+		c, closer := st.getRawCollection(collName)
+		defer closer()
+		for _, index := range indexes {
+			if err := c.DropIndex(index...); err != nil {
+				format := "error while dropping index: %s"
+				// Failing to drop an index that does not exist does not
+				// warrant raising an error.
+				if err.Error() == "index not found" {
+					upgradesLogger.Infof(format, err.Error())
+				} else {
+					upgradesLogger.Errorf(format, err.Error())
+				}
+			}
+		}
+	}
+	return nil
+}
+
+var oldIndexesv123 = map[string][][]string{
+	relationsC: {
+		{"endpoints.relationname"},
+		{"endpoints.servicename"},
+	},
+	unitsC: {
+		{"service"},
+		{"principal"},
+		{"machineid"},
+	},
+	networksC: {
+		{"providerid"},
+	},
+	networkInterfacesC: {
+		{"interfacename", "machineid"},
+		{"macaddress", "networkname"},
+		{"networkname"},
+		{"machineid"},
+	},
+	blockDevicesC: {
+		{"machineid"},
+	},
+	subnetsC: {
+		{"providerid"},
+	},
+	ipaddressesC: {
+		{"state"},
+		{"subnetid"},
+	},
 }

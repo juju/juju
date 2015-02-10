@@ -7,17 +7,17 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/action"
 	cmdtesting "github.com/juju/juju/cmd/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
@@ -188,6 +188,7 @@ var commandNames = []string{
 	"block",
 	"bootstrap",
 	"cached-images",
+	"charms",
 	"debug-hooks",
 	"debug-log",
 	"deploy",
@@ -225,6 +226,7 @@ var commandNames = []string{
 	"ssh",
 	"stat", // alias for status
 	"status",
+	"storage",
 	"switch",
 	"sync-tools",
 	"terminate-machine", // alias for destroy-machine
@@ -249,19 +251,22 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 
 	// remove "action" for the first test because the feature is not
 	// enabled.
-	var commandNamesWithoutAction []string
-	sort.Strings(commandNames)
-	index := sort.SearchStrings(commandNames, "action")
-	copy(commandNamesWithoutAction, commandNames[:index])
-	commandNamesWithoutAction = append(commandNamesWithoutAction, commandNames[index+1:]...)
+	devFeatures := []string{feature.Actions, feature.Storage}
+
+	// remove features behind dev_flag for the first test
+	// since they are not enabled.
+	cmdSet := set.NewStrings(commandNames...)
+	for _, feature := range devFeatures {
+		cmdSet.Remove(feature)
+	}
 
 	// 1. Default Commands. Disable all features.
 	setFeatureFlags("")
-	c.Assert(getHelpCommandNames(c), jc.DeepEquals, commandNamesWithoutAction)
+	c.Assert(getHelpCommandNames(c), jc.SameContents, cmdSet.Values())
 
-	// 2. Enable Action feature, and test again.
-	setFeatureFlags(action.FeatureFlag)
-	c.Assert(getHelpCommandNames(c), jc.DeepEquals, commandNames)
+	// 2. Enable development features, and test again.
+	setFeatureFlags(strings.Join(devFeatures, ","))
+	c.Assert(getHelpCommandNames(c), jc.SameContents, commandNames)
 }
 
 func getHelpCommandNames(c *gc.C) []string {

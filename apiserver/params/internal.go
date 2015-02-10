@@ -143,6 +143,12 @@ type EnvironmentResult struct {
 	UUID  string
 }
 
+// EnvironmentSkeletonConfigArgs wraps the args for environmentmanager.SkeletonConfig.
+type EnvironmentSkeletonConfigArgs struct {
+	Provider string
+	Region   string
+}
+
 // EnvironmentCreateArgs holds the arguments that are necessary to create
 // and environment.
 type EnvironmentCreateArgs struct {
@@ -212,19 +218,19 @@ type BoolResults struct {
 	Results []BoolResult
 }
 
-// RelationSettings holds relation settings names and values.
-type RelationSettings map[string]string
+// Settings holds relation settings names and values.
+type Settings map[string]string
 
-// RelationSettingsResult holds a relation settings map or an error.
-type RelationSettingsResult struct {
+// SettingsResult holds a relation settings map or an error.
+type SettingsResult struct {
 	Error    *Error
-	Settings RelationSettings
+	Settings Settings
 }
 
-// RelationSettingsResults holds the result of an API calls that
+// SettingsResults holds the result of an API calls that
 // returns settings for multiple relations.
-type RelationSettingsResults struct {
-	Results []RelationSettingsResult
+type SettingsResults struct {
+	Results []SettingsResult
 }
 
 // ConfigSettings holds unit, service or cham configuration settings
@@ -285,7 +291,7 @@ type RelationUnitPairs struct {
 type RelationUnitSettings struct {
 	Relation string
 	Unit     string
-	Settings RelationSettings
+	Settings Settings
 }
 
 // RelationUnitsSettings holds the arguments for making a EnterScope
@@ -437,7 +443,7 @@ type InstanceInfo struct {
 	Characteristics *instance.HardwareCharacteristics
 	Networks        []Network
 	Interfaces      []NetworkInterface
-	Disks           []storage.BlockDevice
+	Volumes         []storage.BlockDevice
 }
 
 // InstancesInfo holds the parameters for making a SetInstanceInfo
@@ -738,7 +744,7 @@ type ProvisioningInfo struct {
 	Placement   string
 	Networks    []string
 	Jobs        []multiwatcher.MachineJob
-	Disks       []storage.DiskParams
+	Volumes     []storage.VolumeParams
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.
@@ -822,15 +828,39 @@ type BlockDevicesResults struct {
 }
 
 // BlockDeviceFilesystem holds the parameters for recording information about
-// the filesystem corresponding to the specified block device.
+// the specified block device's filesystem.
 type BlockDeviceFilesystem struct {
-	DiskTag    string             `json:"disktag"`
-	Datastore  string             `json:"datastore"`
-	Filesystem storage.Filesystem `json:"filesystem"`
+	DiskTag        string `json:"disktag"`
+	StorageTag     string `json:"storagetag"`
+	FilesystemType string `json:"fstype"`
 }
 
 // SetBlockDeviceFilesystem holds the parameters for recording information about
 // the filesystems corresponding to the specified block devices.
 type SetBlockDeviceFilesystem struct {
 	Filesystems []BlockDeviceFilesystem `json:"filesystems"`
+}
+
+// StorageInstanceResult holds the result of an API call to retrieve details
+// of a storage instance.
+type StorageInstanceResult struct {
+	Result storage.StorageInstance `json:"result"`
+	Error  *Error                  `json:"error,omitempty"`
+}
+
+// StorageInstanceResult holds the result of an API call to retrieve details
+// of multiple storage instances.
+type StorageInstanceResults struct {
+	Results []StorageInstanceResult `json:"results,omitempty"`
+}
+
+// UnitStorageInstances holds the storage instances for a given unit.
+type UnitStorageInstances struct {
+	Instances []storage.StorageInstance `json:"instances,omitempty"`
+	Error     *Error                    `json:"error,omitempty"`
+}
+
+// UnitStorageInstancesResults holds the result of a StorageInstances call for a unit.
+type UnitStorageInstancesResults struct {
+	UnitsStorageInstances []UnitStorageInstances `json:"unitstorageinstances,omitempty"`
 }

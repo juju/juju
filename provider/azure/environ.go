@@ -414,7 +414,7 @@ func (env *azureEnviron) StateServerInstances() ([]instance.Id, error) {
 		stateServerInstanceIds = append(stateServerInstanceIds, instanceIds...)
 	}
 	if len(stateServerInstanceIds) == 0 {
-		return nil, environs.ErrNotBootstrapped
+		return nil, environs.ErrNoInstances
 	}
 	return stateServerInstanceIds, nil
 }
@@ -532,16 +532,6 @@ func (env *azureEnviron) SupportedArchitectures() ([]string, error) {
 	var err error
 	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
 	return env.supportedArchitectures, err
-}
-
-// SupportNetworks is specified on the EnvironCapability interface.
-func (env *azureEnviron) SupportNetworks() bool {
-	return false
-}
-
-// SupportAddressAllocation is specified on the EnvironCapability interface.
-func (e *azureEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
 }
 
 // selectInstanceTypeAndImage returns the appropriate instances.InstanceType and
@@ -1078,7 +1068,7 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 		hostedServices[s.ServiceName] = hostedService
 	}
 
-	err = nil
+	var validInstances int
 	instances := make([]instance.Instance, len(ids))
 	for i, id := range instancesIds {
 		if id.serviceName == "" {
@@ -1089,37 +1079,22 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 		instance, err := snap.getInstance(hostedService, id.roleName)
 		if err == nil {
 			instances[i] = instance
+			validInstances++
 		} else {
 			logger.Debugf("failed to get instance for role %q in service %q: %v", id.roleName, hostedService.ServiceName, err)
 		}
 	}
-	for _, instance := range instances {
-		if instance == nil {
-			err = environs.ErrPartialInstances
-		}
+
+	switch validInstances {
+	case len(instances):
+		err = nil
+	case 0:
+		instances = nil
+		err = environs.ErrNoInstances
+	default:
+		err = environs.ErrPartialInstances
 	}
 	return instances, err
-}
-
-// AllocateAddress requests an address to be allocated for the
-// given instance on the given network. This is not implemented on the
-// Azure provider yet.
-func (*azureEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotImplementedf("AllocateAddress")
-}
-
-// ReleaseAddress releases a specific address previously allocated with
-// AllocateAddress.
-func (*azureEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotImplementedf("ReleaseAddress")
-}
-
-// Subnets returns basic information about all subnets known
-// by the provider for the environment. They may be unknown to juju
-// yet (i.e. when called initially or when a new network was created).
-// This is not implemented by the Azure provider yet.
-func (*azureEnviron) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
-	return nil, errors.NotImplementedf("Subnets")
 }
 
 // AllInstances is specified in the InstanceBroker interface.

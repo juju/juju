@@ -4,9 +4,9 @@
 package manual
 
 import (
-	"errors"
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs"
@@ -38,7 +38,18 @@ func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, cfg *environConfig
 	return nil
 }
 
-func (p manualProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+// RestrictedConfigAttributes is specified in the EnvironProvider interface.
+func (p manualProvider) RestrictedConfigAttributes() []string {
+	return []string{"bootstrap-host", "bootstrap-user"}
+}
+
+// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
+func (p manualProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	// Not even sure if this will ever make sense.
+	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
+}
+
+func (p manualProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	if _, ok := cfg.UnknownAttrs()["storage-auth-key"]; !ok {
 		uuid, err := utils.NewUUID()
 		if err != nil {

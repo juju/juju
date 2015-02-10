@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
 	jujuFactory "github.com/juju/juju/testing/factory"
 )
 
@@ -59,6 +61,7 @@ func (s *uniterBaseSuite) setUpTest(c *gc.C) {
 	})
 	s.wpCharm = factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "wordpress",
+		URL:  "cs:quantal/wordpress-3",
 	})
 	s.wordpress = factory.MakeService(c, &jujuFactory.ServiceParams{
 		Name:    "wordpress",
@@ -1131,12 +1134,12 @@ func (s *uniterBaseSuite) testCharmArchiveURLs(
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpressURLs := []string{
-		"https://0.1.2.3:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/charms?file=%2A&url=cs%3Aquantal%2Fwordpress-3",
-		"https://1.2.3.5:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/charms?file=%2A&url=cs%3Aquantal%2Fwordpress-3",
+		fmt.Sprintf("https://0.1.2.3:1234/environment/%s/charms?file=%%2A&url=cs%%3Aquantal%%2Fwordpress-3", coretesting.EnvironmentTag.Id()),
+		fmt.Sprintf("https://1.2.3.5:1234/environment/%s/charms?file=%%2A&url=cs%%3Aquantal%%2Fwordpress-3", coretesting.EnvironmentTag.Id()),
 	}
 	dummyURLs := []string{
-		"https://0.1.2.3:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/charms?file=%2A&url=local%3Aquantal%2Fdummy-1",
-		"https://1.2.3.5:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/charms?file=%2A&url=local%3Aquantal%2Fdummy-1",
+		fmt.Sprintf("https://0.1.2.3:1234/environment/%s/charms?file=%%2A&url=local%%3Aquantal%%2Fdummy-1", coretesting.EnvironmentTag.Id()),
+		fmt.Sprintf("https://1.2.3.5:1234/environment/%s/charms?file=%%2A&url=local%%3Aquantal%%2Fdummy-1", coretesting.EnvironmentTag.Id()),
 	}
 
 	c.Assert(result, gc.DeepEquals, params.StringsResults{
@@ -1404,6 +1407,35 @@ func (s *uniterBaseSuite) testFinishActionsAuthAccess(c *gc.C, facade finishActi
 	}
 }
 
+type beginActions interface {
+	BeginActions(args params.Entities) (params.ErrorResults, error)
+}
+
+func (s *uniterBaseSuite) testBeginActions(c *gc.C, facade beginActions) {
+	ten_seconds_ago := time.Now().Add(-10 * time.Second)
+	good, err := s.wordpressUnit.AddAction("fakeaction", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	running, err := s.wordpressUnit.RunningActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(running), gc.Equals, 0, gc.Commentf("expected no running actions, got %d", len(running)))
+
+	args := params.Entities{Entities: []params.Entity{{Tag: good.ActionTag().String()}}}
+	res, err := facade.BeginActions(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(res.Results), gc.Equals, 1)
+	c.Assert(res.Results[0].Error, gc.IsNil)
+
+	running, err = s.wordpressUnit.RunningActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(running), gc.Equals, 1, gc.Commentf("expected one running action, got %d", len(running)))
+	c.Assert(running[0].ActionTag(), gc.Equals, good.ActionTag())
+	enqueued, started := running[0].Enqueued(), running[0].Started()
+	c.Assert(ten_seconds_ago.Before(enqueued), jc.IsTrue, gc.Commentf("enqueued time should be after 10 seconds ago"))
+	c.Assert(ten_seconds_ago.Before(started), jc.IsTrue, gc.Commentf("started time should be after 10 seconds ago"))
+	c.Assert(started.After(enqueued) || started.Equal(enqueued), jc.IsTrue, gc.Commentf("started should be after or equal to enqueued time"))
+}
+
 func (s *uniterBaseSuite) testRelation(
 	c *gc.C,
 	facade interface {
@@ -1654,7 +1686,7 @@ func (s *uniterBaseSuite) testJoinedRelations(
 }
 
 type readSettings interface {
-	ReadSettings(args params.RelationUnits) (params.RelationSettingsResults, error)
+	ReadSettings(args params.RelationUnits) (params.SettingsResults, error)
 }
 
 func (s *uniterBaseSuite) testReadSettings(c *gc.C, facade readSettings) {
@@ -1683,10 +1715,10 @@ func (s *uniterBaseSuite) testReadSettings(c *gc.C, facade readSettings) {
 	}}
 	result, err := facade.ReadSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
-		Results: []params.RelationSettingsResult{
+	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+		Results: []params.SettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Settings: params.RelationSettings{
+			{Settings: params.Settings{
 				"some": "settings",
 			}},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1720,15 +1752,15 @@ func (s *uniterBaseSuite) testReadSettingsWithNonStringValuesFails(c *gc.C, faca
 	expectErr := `unexpected relation setting "invalid-bool": expected string, got bool`
 	result, err := facade.ReadSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
-		Results: []params.RelationSettingsResult{
+	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+		Results: []params.SettingsResult{
 			{Error: &params.Error{Message: expectErr}},
 		},
 	})
 }
 
 type readRemoteSettings interface {
-	ReadRemoteSettings(args params.RelationUnitPairs) (params.RelationSettingsResults, error)
+	ReadRemoteSettings(args params.RelationUnitPairs) (params.SettingsResults, error)
 }
 
 func (s *uniterBaseSuite) testReadRemoteSettings(c *gc.C, facade readRemoteSettings) {
@@ -1762,8 +1794,8 @@ func (s *uniterBaseSuite) testReadRemoteSettings(c *gc.C, facade readRemoteSetti
 	// We don't set the remote unit settings on purpose to test the error.
 	expectErr := `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": settings`
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.RelationSettingsResults{
-		Results: []params.RelationSettingsResult{
+	c.Assert(result, jc.DeepEquals, params.SettingsResults{
+		Results: []params.SettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.NotFoundError(expectErr)},
@@ -1797,9 +1829,9 @@ func (s *uniterBaseSuite) testReadRemoteSettings(c *gc.C, facade readRemoteSetti
 		LocalUnit:  "unit-wordpress-0",
 		RemoteUnit: "unit-mysql-0",
 	}}}
-	expect := params.RelationSettingsResults{
-		Results: []params.RelationSettingsResult{
-			{Settings: params.RelationSettings{
+	expect := params.SettingsResults{
+		Results: []params.SettingsResult{
+			{Settings: params.Settings{
 				"other": "things",
 			}},
 		},
@@ -1840,8 +1872,8 @@ func (s *uniterBaseSuite) testReadRemoteSettingsWithNonStringValuesFails(c *gc.C
 	expectErr := `unexpected relation setting "invalid-bool": expected string, got bool`
 	result, err := facade.ReadRemoteSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
-		Results: []params.RelationSettingsResult{
+	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+		Results: []params.SettingsResult{
 			{Error: &params.Error{Message: expectErr}},
 		},
 	})
@@ -1863,7 +1895,7 @@ func (s *uniterBaseSuite) testUpdateSettings(
 	err = relUnit.EnterScope(settings)
 	s.assertInScope(c, relUnit, true)
 
-	newSettings := params.RelationSettings{
+	newSettings := params.Settings{
 		"some":  "different",
 		"other": "",
 	}
