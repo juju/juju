@@ -3,6 +3,8 @@
 
 package storage
 
+import "github.com/juju/names"
+
 // StorageKind defines the type of the datastore: whether it
 // is a raw block device, or a filesystem.
 type StorageKind int
@@ -27,12 +29,9 @@ func (k StorageKind) String() string {
 // StorageInstance describes a storage instance, assigned to a service or
 // unit.
 type StorageInstance struct {
-	// Id is a unique name assigned by Juju to the storage instance.
-	Id string `yaml:"id" json:"id"`
+	// Tag is a unique tag assigned by Juju to the storage instance.
+	Tag names.StorageTag
 
 	// Kind is the kind of the datastore (block device, filesystem).
-	Kind StorageKind `yaml:"kind" json:"kind"`
-
-	// Location is the location relevant to the datastore (block device, filesystem).
-	Location string `yaml:"location" json:"location"`
+	Kind StorageKind
 }

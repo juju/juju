@@ -1172,13 +1172,11 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 	// Wait for state to be updated.
 	s.BackingState.StartSync()
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		devices, err := m.BlockDevices()
+		devices, err := s.BackingState.BlockDevices(m.MachineTag())
 		c.Assert(err, jc.ErrorIsNil)
 		if len(devices) > 0 {
 			c.Assert(devices, gc.HasLen, 1)
-			info, err := devices[0].Info()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(info.DeviceName, gc.Equals, expected[0].DeviceName)
+			c.Assert(devices[0].DeviceName, gc.Equals, expected[0].DeviceName)
 			return
 		}
 	}

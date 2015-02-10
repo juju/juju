@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/storage"
 )
 
 type StorageAccessor struct {
@@ -22,28 +21,28 @@ func NewStorageAccessor(facade base.FacadeCaller) *StorageAccessor {
 	return &StorageAccessor{facade}
 }
 
-// StorageInstances returns the storage instances for a unit.
-func (sa *StorageAccessor) StorageInstances(unitTag names.Tag) ([]storage.StorageInstance, error) {
+// StorageAttachments returns the storage instances attached to a unit.
+func (sa *StorageAccessor) StorageAttachments(unitTag names.Tag) ([]params.StorageAttachment, error) {
 	if sa.facade.BestAPIVersion() < 2 {
-		// StorageInstances() was introduced in UniterAPIV2.
-		return nil, errors.NotImplementedf("StorageInstances() (need V2+)")
+		// StorageAttachments() was introduced in UniterAPIV2.
+		return nil, errors.NotImplementedf("StorageAttachments() (need V2+)")
 	}
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: unitTag.String()},
 		},
 	}
-	var results params.UnitStorageInstancesResults
-	err := sa.facade.FacadeCall("UnitStorageInstances", args, &results)
+	var results params.StorageAttachmentsResults
+	err := sa.facade.FacadeCall("StorageAttachments", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if len(results.UnitsStorageInstances) != 1 {
-		panic(errors.Errorf("expected 1 result, got %d", len(results.UnitsStorageInstances)))
+	if len(results.Results) != 1 {
+		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
 	}
-	storageInstances := results.UnitsStorageInstances[0]
-	if storageInstances.Error != nil {
-		return nil, storageInstances.Error
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
 	}
-	return storageInstances.Instances, nil
+	return result.Result, nil
 }

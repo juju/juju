@@ -5,14 +5,15 @@
 package feature
 
 // Actions is the name of the feature to enable action commands.
-const Actions string = "action"
+const Actions = "action"
 
 // MESS stands for Multi-Environment State Server and controls access
 // to the apiserver endpoints, api client and CLI commands.
 const MESS = "mess"
 
-// Storage is the name of the feature to enable storage commands.
-const Storage string = "storage"
+// Storage is the name of the feature to enable storage commands
+// and server-side functionality.
+const Storage = "storage"
 
 // LogErrorStack is a developer feature flag to have the LoggedErrorStack
 // function in the utils package write out the error stack as defined by the

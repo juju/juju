@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 )
 
@@ -66,11 +65,11 @@ func (lvs *loopVolumeSource) rootDeviceDir() string {
 	return filepath.Join(dirParts...)
 }
 
-func (lvs *loopVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storage.BlockDevice, error) {
+func (lvs *loopVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storage.Volume, []storage.VolumeAttachment, error) {
 	panic("not implemented")
 }
 
-func (lvs *loopVolumeSource) DescribeVolumes(volIds []string) ([]storage.BlockDevice, error) {
+func (lvs *loopVolumeSource) DescribeVolumes(volIds []string) ([]storage.Volume, error) {
 	panic("not implemented")
 }
 
@@ -82,10 +81,10 @@ func (lvs *loopVolumeSource) ValidateVolumeParams(params storage.VolumeParams) e
 	panic("not implemented")
 }
 
-func (lvs *loopVolumeSource) AttachVolumes(volIds []string, instId []instance.Id) error {
+func (lvs *loopVolumeSource) AttachVolumes([]storage.VolumeAttachmentParams) ([]storage.VolumeAttachment, error) {
 	panic("not implemented")
 }
 
-func (lvs *loopVolumeSource) DetachVolumes(volIds []string, instId []instance.Id) error {
+func (lvs *loopVolumeSource) DetachVolumes([]storage.VolumeAttachmentParams) error {
 	panic("not implemented")
 }

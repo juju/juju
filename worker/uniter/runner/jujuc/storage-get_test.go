@@ -40,10 +40,10 @@ var storageGetTests = []struct {
 	format int
 	out    interface{}
 }{
-	{[]string{"1234", "location", "--format", "yaml"}, formatYaml, storageLocation},
-	{[]string{"1234", "location", "--format", "json"}, formatJson, storageLocation},
-	{[]string{"1234", "location", "kind"}, -1, "kind: 1\nlocation: /dev/sda\n"},
-	{[]string{"1234", "location"}, -1, "/dev/sda\n"},
+	{[]string{"data/0", "location", "--format", "yaml"}, formatYaml, storageLocation},
+	{[]string{"data/0", "location", "--format", "json"}, formatJson, storageLocation},
+	{[]string{"data/0", "location", "kind"}, -1, "kind: 1\nlocation: /dev/sda\n"},
+	{[]string{"data/0", "location"}, -1, "/dev/sda\n"},
 }
 
 func (s *storageGetSuite) TestOutputFormatKey(c *gc.C) {
@@ -100,7 +100,7 @@ func (s *storageGetSuite) TestOutputPath(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
-	code := cmd.Main(com, ctx, []string{"--format", "yaml", "--output", "some-file", "1234", "location"})
+	code := cmd.Main(com, ctx, []string{"--format", "yaml", "--output", "some-file", "data/0", "location"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")

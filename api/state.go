@@ -226,11 +226,11 @@ func (st *State) DiskManager() (*diskmanager.State, error) {
 // DiskFormatter returns a version of the state that provides functionality
 // required by the diskformatter worker.
 func (st *State) DiskFormatter() (*diskformatter.State, error) {
-	unitTag, ok := st.authTag.(names.UnitTag)
+	machineTag, ok := st.authTag.(names.MachineTag)
 	if !ok {
-		return nil, errors.Errorf("expected UnitTag, got %#v", st.authTag)
+		return nil, errors.Errorf("expected MachineTag, got %#v", st.authTag)
 	}
-	return diskformatter.NewState(st, unitTag), nil
+	return diskformatter.NewState(st, machineTag), nil
 }
 
 // Firewaller returns a version of the state that provides functionality
