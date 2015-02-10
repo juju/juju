@@ -1,4 +1,4 @@
-// Copyright 2012-2015 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state
@@ -29,7 +29,7 @@ func newUnitAgent(st *State, tag names.Tag, name string) *UnitAgent {
 
 // String returns the unit agent as string.
 func (u *UnitAgent) String() string {
-	return "pirulo" + u.name
+	return u.name
 }
 
 // Status returns the status of the unit.

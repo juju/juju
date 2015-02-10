@@ -55,7 +55,7 @@ func (u *Unit) Refresh() error {
 // SetUnitStatus sets the status of the unit.
 func (u *Unit) SetUnitStatus(status params.Status, info string, data map[string]interface{}) error {
 	if u.st.facade.BestAPIVersion() < 2 {
-		return errors.NotImplementedf("set unit status")
+		return errors.NotImplementedf("SetUnitStatus")
 	}
 	var result params.ErrorResults
 	args := params.SetStatus{
