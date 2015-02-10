@@ -435,15 +435,15 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 	var machineAssert bson.D
 	if machineCheck {
 		machineAssert = bson.D{{"$and", []bson.D{
-			bson.D{{"principals", []string{u.doc.Name}}},
-			bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
-			bson.D{{"hasvote", bson.D{{"$ne", true}}}},
+			{{"principals", []string{u.doc.Name}}},
+			{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
+			{{"hasvote", bson.D{{"$ne", true}}}},
 		}}}
 	} else {
 		machineAssert = bson.D{{"$or", []bson.D{
-			bson.D{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
-			bson.D{{"jobs", bson.D{{"$in", []MachineJob{JobManageEnviron}}}}},
-			bson.D{{"hasvote", true}},
+			{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
+			{{"jobs", bson.D{{"$in", []MachineJob{JobManageEnviron}}}}},
+			{{"hasvote", true}},
 		}}}
 	}
 
@@ -1639,7 +1639,7 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 	if !ok {
 		return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
 	}
-	_, err = spec.ValidateParams(payload)
+	err = spec.ValidateParams(payload)
 	if err != nil {
 		return nil, err
 	}

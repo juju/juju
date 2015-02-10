@@ -180,7 +180,7 @@ func (s *runSuite) TestParallelExecuteErrorsOnBlankHost(c *gc.C) {
 	s.mockSSH(c, echoInputShowArgs)
 
 	params := []*client.RemoteExec{
-		&client.RemoteExec{
+		{
 			ExecParams: ssh.ExecParams{
 				Command: "foo",
 				Timeout: testing.LongWait,
@@ -198,7 +198,7 @@ func (s *runSuite) TestParallelExecuteAddsIdentity(c *gc.C) {
 	s.mockSSH(c, echoInputShowArgs)
 
 	params := []*client.RemoteExec{
-		&client.RemoteExec{
+		{
 			ExecParams: ssh.ExecParams{
 				Host:    "localhost",
 				Command: "foo",
@@ -218,7 +218,7 @@ func (s *runSuite) TestParallelExecuteCopiesAcrossMachineAndUnit(c *gc.C) {
 	s.mockSSH(c, echoInputShowArgs)
 
 	params := []*client.RemoteExec{
-		&client.RemoteExec{
+		{
 			ExecParams: ssh.ExecParams{
 				Host:    "localhost",
 				Command: "foo",
@@ -309,16 +309,16 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	c.Assert(results, gc.HasLen, 3)
 
 	expectedResults := []params.RunResult{
-		params.RunResult{
+		{
 			ExecResponse: exec.ExecResponse{Stdout: []byte(expectedCommand[0])},
 			MachineId:    "0",
 		},
-		params.RunResult{
+		{
 			ExecResponse: exec.ExecResponse{Stdout: []byte(expectedCommand[1])},
 			MachineId:    "1",
 			UnitId:       "magic/0",
 		},
-		params.RunResult{
+		{
 			ExecResponse: exec.ExecResponse{Stdout: []byte(expectedCommand[2])},
 			MachineId:    "2",
 			UnitId:       "magic/1",

@@ -1421,7 +1421,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				name:    "snapshot",
 				results: map[string]interface{}{},
 				status:  params.ActionFailed,
-				message: `cannot run "snapshot" action: JSON validation failed: (root).outfile : must be of type string, given 2`,
+				message: `cannot run "snapshot" action: validation failed: (root).outfile : must be of type string, given 2`,
 			}}},
 			waitUnit{status: params.StatusActive},
 		), ut(

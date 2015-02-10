@@ -143,7 +143,7 @@ func entityToActionTag(entity params.Entity) (names.ActionTag, error) {
 // addValueToMap adds the given value to the map on which the method is run.
 // This allows us to merge maps such as {foo: {bar: baz}} and {foo: {baz: faz}}
 // into {foo: {bar: baz, baz: faz}}.
-func addValueToMap(keys []string, value string, target map[string]interface{}) {
+func addValueToMap(keys []string, value interface{}, target map[string]interface{}) {
 	next := target
 
 	for i := range keys {

@@ -115,8 +115,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityPlacementError(c *gc.C) 
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityFormatYaml(c *gc.C) {
 	expected := map[string][]string{
-		"maintained": []string{"0"},
-		"added":      []string{"1", "2"},
+		"maintained": {"0"},
+		"added":      {"1", "2"},
 	}
 
 	ctx, err := s.runEnsureAvailability(c, "-n", "3", "--format", "yaml")
@@ -135,8 +135,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityFormatYaml(c *gc.C) {
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityFormatJson(c *gc.C) {
 	expected := map[string][]string{
-		"maintained": []string{"0"},
-		"added":      []string{"1", "2"},
+		"maintained": {"0"},
+		"added":      {"1", "2"},
 	}
 
 	ctx, err := s.runEnsureAvailability(c, "-n", "3", "--format", "json")

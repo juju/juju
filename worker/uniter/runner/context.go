@@ -348,8 +348,6 @@ func (c *HookContext) ActionData() (*ActionData, error) {
 // such that it can know what environment it's operating in, and can call back
 // into context.
 func (context *HookContext) HookVars(paths Paths) []string {
-	// TODO(binary132): add Action env variables: JUJU_ACTION_NAME,
-	// JUJU_ACTION_UUID, ...
 	vars := context.proxySettings.AsEnvironmentValues()
 	vars = append(vars,
 		"CHARM_DIR="+paths.GetCharmDir(), // legacy, embarrassing

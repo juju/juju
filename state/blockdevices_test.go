@@ -135,7 +135,7 @@ func (s *BlockDevicesSuite) TestSetMachineBlockDevicesLeavesUnprovisioned(c *gc.
 	err = m.SetMachineBlockDevices(sda)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertBlockDevices(c, m, map[string]state.BlockDeviceInfo{
-		"0": state.BlockDeviceInfo{}, // unprovisioned
+		"0": {}, // unprovisioned
 		"1": sda,
 	})
 }

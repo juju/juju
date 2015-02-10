@@ -108,7 +108,7 @@ type Action struct {
 	doc actionDoc
 }
 
-// Id returns the local name of the Action.
+// Id returns the local id of the Action.
 func (a *Action) Id() string {
 	return a.st.localID(a.doc.DocId)
 }

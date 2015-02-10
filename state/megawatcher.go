@@ -237,6 +237,36 @@ func (svc *backingService) mongoId() interface{} {
 	return svc.DocID
 }
 
+type backingAction actionDoc
+
+func (a *backingAction) mongoId() interface{} {
+	return a.DocId
+}
+
+func (a *backingAction) removed(st *State, store *multiwatcherStore, id interface{}) {
+	store.Remove(multiwatcher.EntityId{
+		Kind: "action",
+		Id:   st.localID(id.(string)),
+	})
+}
+
+func (a *backingAction) updated(st *State, store *multiwatcherStore, id interface{}) error {
+	info := &multiwatcher.ActionInfo{
+		Id:         st.localID(a.DocId),
+		Receiver:   a.Receiver,
+		Name:       a.Name,
+		Parameters: a.Parameters,
+		Status:     string(a.Status),
+		Message:    a.Message,
+		Results:    a.Results,
+		Enqueued:   a.Enqueued,
+		Started:    a.Started,
+		Completed:  a.Completed,
+	}
+	store.Update(info)
+	return nil
+}
+
 type backingRelation relationDoc
 
 func (r *backingRelation) updated(st *State, store *multiwatcherStore, id interface{}) error {
@@ -493,6 +523,9 @@ func newAllWatcherStateBacking(st *State) Backing {
 	}, {
 		Collection: st.db.C(servicesC),
 		infoType:   reflect.TypeOf(backingService{}),
+	}, {
+		Collection: st.db.C(actionsC),
+		infoType:   reflect.TypeOf(backingAction{}),
 	}, {
 		Collection: st.db.C(relationsC),
 		infoType:   reflect.TypeOf(backingRelation{}),

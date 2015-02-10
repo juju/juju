@@ -61,7 +61,7 @@ func (m *memStore) List() ([]string, error) {
 	var envs []string
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	for name, _ := range m.envs {
+	for name := range m.envs {
 		envs = append(envs, name)
 	}
 	return envs, nil

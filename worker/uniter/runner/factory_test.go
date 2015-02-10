@@ -272,7 +272,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	// We need to set up a unit that has storage metadata defined.
 	ch := s.AddTestingCharm(c, "storage-block")
 	sCons := map[string]state.StorageConstraints{
-		"data": state.StorageConstraints{Pool: "", Size: 1024, Count: 1},
+		"data": {Pool: "", Size: 1024, Count: 1},
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, sCons)
 
