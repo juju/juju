@@ -119,13 +119,6 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 	}
 	var compatiblePorts []network.Port
 	for _, portRange := range portRanges {
-		if portRange.FromPort == portRange.ToPort {
-			compatiblePorts = append(compatiblePorts, network.Port{
-				Number:   portRange.FromPort,
-				Protocol: portRange.Protocol,
-			})
-			continue
-		}
 		for j := portRange.FromPort; j <= portRange.ToPort; j++ {
 			compatiblePorts = append(compatiblePorts, network.Port{
 				Number:   j,
