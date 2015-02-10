@@ -374,63 +374,63 @@ def make_os_security_group_instance(names):
 
 class TestOpenstackAccount(TestCase):
 
-    def test_from_config(self):
-        account = OpenStackAccount.from_config(get_os_config())
-        self.assertEqual(account._username, 'foo')
-        self.assertEqual(account._password, 'bar')
-        self.assertEqual(account._tenant_name, 'baz')
-        self.assertEqual(account._auth_url, 'qux')
-        self.assertEqual(account._region_name, 'quxx')
+    def test_manager_from_config(self):
+        with OpenStackAccount.manager_from_config(get_os_config()) as account:
+            self.assertEqual(account._username, 'foo')
+            self.assertEqual(account._password, 'bar')
+            self.assertEqual(account._tenant_name, 'baz')
+            self.assertEqual(account._auth_url, 'qux')
+            self.assertEqual(account._region_name, 'quxx')
 
     def test_get_client(self):
-        account = OpenStackAccount.from_config(get_os_config())
-        with patch('novaclient.client.Client') as ncc_mock:
-            account.get_client()
+        with OpenStackAccount.manager_from_config(get_os_config()) as account:
+            with patch('novaclient.client.Client') as ncc_mock:
+                account.get_client()
         ncc_mock.assert_called_once_with(
             '1.1', 'foo', 'bar', 'baz', 'qux', region_name='quxx',
             service_type='compute', insecure=False)
 
     def test_iter_security_groups(self):
-        account = OpenStackAccount.from_config(get_os_config())
-        with patch.object(account, 'get_client') as gc_mock:
-            client = gc_mock.return_value
-            groups = make_os_security_groups(['foo', 'bar', 'baz'])
-            client.security_groups.list.return_value = groups
-            result = account.iter_security_groups()
-        self.assertEqual(list(result), [
-            ('foo-id', 'foo'), ('bar-id', 'bar'), ('baz-id', 'baz')])
+        with OpenStackAccount.manager_from_config(get_os_config()) as account:
+            with patch.object(account, 'get_client') as gc_mock:
+                client = gc_mock.return_value
+                groups = make_os_security_groups(['foo', 'bar', 'baz'])
+                client.security_groups.list.return_value = groups
+                result = account.iter_security_groups()
+            self.assertEqual(list(result), [
+                ('foo-id', 'foo'), ('bar-id', 'bar'), ('baz-id', 'baz')])
 
     def test_iter_security_groups_non_juju(self):
-        account = OpenStackAccount.from_config(get_os_config())
-        with patch.object(account, 'get_client') as gc_mock:
-            client = gc_mock.return_value
-            groups = make_os_security_groups(
-                ['foo', 'bar', 'baz'], non_juju=['foo', 'baz'])
-            client.security_groups.list.return_value = groups
-            result = account.iter_security_groups()
-        self.assertEqual(list(result), [('bar-id', 'bar')])
+        with OpenStackAccount.manager_from_config(get_os_config()) as account:
+            with patch.object(account, 'get_client') as gc_mock:
+                client = gc_mock.return_value
+                groups = make_os_security_groups(
+                    ['foo', 'bar', 'baz'], non_juju=['foo', 'baz'])
+                client.security_groups.list.return_value = groups
+                result = account.iter_security_groups()
+            self.assertEqual(list(result), [('bar-id', 'bar')])
 
     def test_iter_instance_security_groups(self):
-        account = OpenStackAccount.from_config(get_os_config())
-        with patch.object(account, 'get_client') as gc_mock:
-            client = gc_mock.return_value
-            instance = MagicMock(security_groups=[{'name': 'foo'}])
-            client.servers.list.return_value = [instance]
-            groups = make_os_security_groups(['foo', 'bar'])
-            client.security_groups.list.return_value = groups
-            result = account.iter_instance_security_groups()
-        self.assertEqual(list(result), [('foo-id', 'foo')])
+        with OpenStackAccount.manager_from_config(get_os_config()) as account:
+            with patch.object(account, 'get_client') as gc_mock:
+                client = gc_mock.return_value
+                instance = MagicMock(security_groups=[{'name': 'foo'}])
+                client.servers.list.return_value = [instance]
+                groups = make_os_security_groups(['foo', 'bar'])
+                client.security_groups.list.return_value = groups
+                result = account.iter_instance_security_groups()
+            self.assertEqual(list(result), [('foo-id', 'foo')])
 
     def test_iter_instance_security_groups_instance_ids(self):
-        account = OpenStackAccount.from_config(get_os_config())
-        with patch.object(account, 'get_client') as gc_mock:
-            client = gc_mock.return_value
-            foo_bar = make_os_security_group_instance(['foo', 'bar'])
-            baz_bar = make_os_security_group_instance(['baz', 'bar'])
-            client.servers.list.return_value = [foo_bar, baz_bar]
-            groups = make_os_security_groups(['foo', 'bar', 'baz'])
-            client.security_groups.list.return_value = groups
-            result = account.iter_instance_security_groups(['foo-bar-id'])
+        with OpenStackAccount.manager_from_config(get_os_config()) as account:
+            with patch.object(account, 'get_client') as gc_mock:
+                client = gc_mock.return_value
+                foo_bar = make_os_security_group_instance(['foo', 'bar'])
+                baz_bar = make_os_security_group_instance(['baz', 'bar'])
+                client.servers.list.return_value = [foo_bar, baz_bar]
+                groups = make_os_security_groups(['foo', 'bar', 'baz'])
+                client.security_groups.list.return_value = groups
+                result = account.iter_instance_security_groups(['foo-bar-id'])
         self.assertEqual(list(result), [('foo-id', 'foo'), ('bar-id', 'bar')])
 
 
@@ -449,7 +449,7 @@ class TestJoyentAccount(TestCase):
     def test_manager_from_config(self):
         with JoyentAccount.manager_from_config(get_joyent_config()) as account:
             self.assertEqual(
-                open(account.client.key_path).read(),'key\abc\n')
+                open(account.client.key_path).read(), 'key\abc\n')
         self.assertFalse(os.path.exists(account.client.key_path))
         self.assertTrue(account.client.key_path.endswith('joyent.key'))
         self.assertEqual(account.client.sdc_url, 'http://example.org/sdc')

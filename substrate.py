@@ -207,9 +207,10 @@ class OpenStackAccount:
         self._client = None
 
     @classmethod
-    def from_config(cls, config):
+    @contextmanager
+    def manager_from_config(cls, config):
         """Create an OpenStackAccount from a juju environment dict."""
-        return cls(
+        yield cls(
             config['username'], config['password'], config['tenant-name'],
             config['auth-url'], config['region'])
 
@@ -407,11 +408,11 @@ def make_substrate_manager(config):
     """
     substrate_factory = {
         'ec2': AWSAccount.from_config,
-        'openstack': OpenStackAccount.from_config,
+        'openstack': OpenStackAccount.manager_from_config,
         'joyent': JoyentAccount.manager_from_config,
         'azure': AzureAccount.manager_from_config,
         }
-    if config['type'] in ('azure', 'joyent'):
+    if config['type'] in ('azure', 'joyent', 'openstack'):
         factory = substrate_factory[config['type']]
         with factory(config) as substrate:
             yield substrate
