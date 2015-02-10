@@ -15,19 +15,19 @@ import (
 
 // Volume describes a volume (disk, logical volume, etc.) in the environment.
 type Volume interface {
-	// Tag returns the tag for the volume.
-	Tag() names.Tag
+	Entity
 
 	// VolumeTag returns the tag for the volume.
 	VolumeTag() names.DiskTag
 
 	// StorageInstance returns the tag of the storage instance that this
-	// volume is assigned to, if any, and a boolean indicating whether
-	// it is assigned to a store at all.
+	// volume is assigned to, if any. If the volume is not assigned to
+	// a storage instance, an error satisfying errors.IsNotAssigned will
+	// be returned.
 	//
 	// A volume can be assigned to at most one storage instance, and a
 	// storage instance can have at most one associated volume.
-	StorageInstance() (names.StorageTag, bool)
+	StorageInstance() (names.StorageTag, error)
 
 	// Info returns the volume's VolumeInfo, or a NotProvisioned
 	// error if the volume has not yet been provisioned.
@@ -116,21 +116,26 @@ type VolumeAttachmentParams struct {
 	ReadOnly bool `bson:"read-only"`
 }
 
+// Tag is required to implement Entity.
 func (v *volume) Tag() names.Tag {
 	return v.VolumeTag()
 }
 
+// VolumeTag is required to implement Volume.
 func (v *volume) VolumeTag() names.DiskTag {
 	return names.NewDiskTag(v.doc.Name)
 }
 
-func (v *volume) StorageInstance() (names.StorageTag, bool) {
+// StorageInstance is required to implement Volume.
+func (v *volume) StorageInstance() (names.StorageTag, error) {
 	if v.doc.StorageInstance == "" {
-		return names.StorageTag{}, false
+		msg := fmt.Sprintf("volume %q is not assigned to any storage instance", v.Tag().Id())
+		return names.StorageTag{}, errors.NewNotAssigned(nil, msg)
 	}
-	return names.NewStorageTag(v.doc.StorageInstance), true
+	return names.NewStorageTag(v.doc.StorageInstance), nil
 }
 
+// Info is required to implement Volume.
 func (v *volume) Info() (VolumeInfo, error) {
 	if v.doc.Info == nil {
 		return VolumeInfo{}, errors.NotProvisionedf("volume %q", v.doc.Name)
@@ -138,6 +143,7 @@ func (v *volume) Info() (VolumeInfo, error) {
 	return *v.doc.Info, nil
 }
 
+// Params is required to implement Volume.
 func (v *volume) Params() (VolumeParams, bool) {
 	if v.doc.Params == nil {
 		return VolumeParams{}, false
@@ -145,14 +151,17 @@ func (v *volume) Params() (VolumeParams, bool) {
 	return *v.doc.Params, true
 }
 
+// Volume is required to implement VolumeAttachment.
 func (v *volumeAttachment) Volume() names.DiskTag {
 	return names.NewDiskTag(v.doc.Volume)
 }
 
+// Machine is required to implement VolumeAttachment.
 func (v *volumeAttachment) Machine() names.MachineTag {
 	return names.NewMachineTag(v.doc.Machine)
 }
 
+// Info is required to implement VolumeAttachment.
 func (v *volumeAttachment) Info() (VolumeAttachmentInfo, error) {
 	if v.doc.Info == nil {
 		return VolumeAttachmentInfo{}, errors.NotProvisionedf("volume attachment %q on %q", v.doc.Volume, v.doc.Machine)
@@ -160,6 +169,7 @@ func (v *volumeAttachment) Info() (VolumeAttachmentInfo, error) {
 	return *v.doc.Info, nil
 }
 
+// Params is required to implement VolumeAttachment.
 func (v *volumeAttachment) Params() (VolumeAttachmentParams, bool) {
 	if v.doc.Params == nil {
 		return VolumeAttachmentParams{}, false

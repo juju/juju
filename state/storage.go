@@ -19,8 +19,7 @@ import (
 // StorageInstance represents the state of a unit or service-wide storage
 // instance in the environment.
 type StorageInstance interface {
-	// Tag returns the tag for the storage instance.
-	Tag() names.Tag
+	Entity
 
 	// StorageTag returns the tag for the storage instance.
 	StorageTag() names.StorageTag
@@ -208,6 +207,8 @@ func (st *State) StorageInstance(tag names.StorageTag) (StorageInstance, error) 
 
 // RemoveStorageInstance removes the storage instance with the specified tag.
 func (st *State) RemoveStorageInstance(tag names.StorageTag) error {
+	// TODO(axw) ensure we cannot remove storage instance while
+	// there are attachments outstanding.
 	ops := []txn.Op{{
 		C:      storageInstancesC,
 		Id:     tag.Id(),
@@ -217,6 +218,19 @@ func (st *State) RemoveStorageInstance(tag names.StorageTag) error {
 }
 
 // createStorageInstanceOps returns txn.Ops for creating storage instances.
+//
+// The owner tag identifies the entity that owns the storage instance:
+// either a unit or a service. Shared storage instances are owned by a
+// service, and non-shared storage instances are owned by a unit.
+//
+// The charm metadata corresponds to the charm that the owner (service/unit)
+// is or will be running, and is used to extract storage constraints,
+// default values, etc.
+//
+// The supplied storage constraints are constraints for the storage
+// instances to be created, keyed on the storage name. These constraints
+// will be correlated with the charm storage metadata for validation
+// and supplementing.
 func createStorageInstanceOps(
 	st *State,
 	ownerTag names.Tag,

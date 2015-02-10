@@ -1034,8 +1034,8 @@ func (s *AssignSuite) TestAssignUnitWithStorageCleanAvailable(c *gc.C) {
 
 	volume, err := s.State.Volume(volumeAttachments[0].Volume())
 	c.Assert(err, jc.ErrorIsNil)
-	volumeStorageInstance, ok := volume.StorageInstance()
-	c.Assert(ok, jc.IsTrue)
+	volumeStorageInstance, err := volume.StorageInstance()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeStorageInstance, gc.Equals, storageAttachments[0].StorageInstance())
 }
 

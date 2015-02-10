@@ -2898,7 +2898,7 @@ func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
 	c.Assert(machines, gc.HasLen, 4)
 	c.Assert(machines[0].Machine, gc.Equals, "0")
 	c.Assert(machines[1].Error, gc.ErrorMatches, "cannot add a new machine: validating volume params: storage pools not implemented")
-	c.Assert(machines[2].Error, gc.ErrorMatches, "invalid count 0")
+	c.Assert(machines[2].Error, gc.ErrorMatches, "invalid volume params: count not specified")
 	c.Assert(machines[3].Error, gc.ErrorMatches, "cannot add a new machine: validating volume params: invalid size 0")
 
 	m, err := s.BackingState.Machine(machines[0].Machine)
@@ -2910,13 +2910,15 @@ func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
 	expectParams := []state.VolumeParams{
 		{Size: 1}, {Size: 1}, {Size: 2},
 	}
+	foundParams := make([]state.VolumeParams, len(volumeAttachments))
 	for i, attachment := range volumeAttachments {
 		volume, err := s.BackingState.Volume(attachment.Volume())
 		c.Assert(err, jc.ErrorIsNil)
 		params, ok := volume.Params()
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(params, gc.DeepEquals, expectParams[i])
+		foundParams[i] = params
 	}
+	c.Assert(foundParams, jc.SameContents, expectParams)
 }
 
 func (s *clientSuite) TestClientAddMachinesWithDisksNoFeatureFlag(c *gc.C) {

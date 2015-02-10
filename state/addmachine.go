@@ -62,8 +62,8 @@ type MachineTemplate struct {
 	// and attached to the machine.
 	Volumes []MachineVolumeParams
 
-	// Volumes holds the parameters for attaching existing volumes to
-	// the machine.
+	// VolumeAttachments holds the parameters for attaching existing
+	// volumes to the machine.
 	VolumeAttachments map[names.DiskTag]VolumeAttachmentParams
 
 	// Nonce holds a unique value that can be used to check

@@ -1002,25 +1002,16 @@ func (u *Unit) SetAgentPresence() (*presence.Pinger, error) {
 	return p, nil
 }
 
-// NotAssignedError indicates that a unit is not assigned to a machine (and, in
-// the case of subordinate units, that the unit's principal is not assigned).
-type NotAssignedError struct{ Unit *Unit }
-
-func (e *NotAssignedError) Error() string {
-	return fmt.Sprintf("unit %q is not assigned to a machine", e.Unit)
-}
-
-// IsNotAssigned verifies that err is an instance of NotAssignedError
-func IsNotAssigned(err error) bool {
-	_, ok := err.(*NotAssignedError)
-	return ok
+func unitNotAssignedError(u *Unit) error {
+	msg := fmt.Sprintf("unit %q is not assigned to a machine", u)
+	return errors.NewNotAssigned(nil, msg)
 }
 
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (id string, err error) {
 	if u.IsPrincipal() {
 		if u.doc.MachineId == "" {
-			return "", &NotAssignedError{u}
+			return "", unitNotAssignedError(u)
 		}
 		return u.doc.MachineId, nil
 	}
@@ -1036,7 +1027,7 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 		return "", err
 	}
 	if pudoc.MachineId == "" {
-		return "", &NotAssignedError{u}
+		return "", unitNotAssignedError(u)
 	}
 	return pudoc.MachineId, nil
 }

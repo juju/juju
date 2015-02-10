@@ -4,6 +4,8 @@
 package diskformatter
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -64,7 +66,7 @@ func (a *DiskFormatterAPI) WatchAttachedVolumes(args params.Entities) (params.No
 	}
 	canAccess, err := a.getAuthFunc()
 	if err != nil {
-		return params.NotifyWatchResults{}, err
+		return params.NotifyWatchResults{}, errors.Trace(err)
 	}
 	for i, entity := range args.Entities {
 		machineTag, err := names.ParseMachineTag(entity.Tag)
@@ -100,7 +102,7 @@ func (a *DiskFormatterAPI) AttachedVolumes(args params.Entities) (params.VolumeA
 	}
 	canAccess, err := a.getAuthFunc()
 	if err != nil {
-		return params.VolumeAttachmentsResults{}, err
+		return params.VolumeAttachmentsResults{}, errors.Trace(err)
 	}
 	one := func(entity params.Entity) ([]params.VolumeAttachment, error) {
 		machineTag, err := names.ParseMachineTag(entity.Tag)
@@ -120,14 +122,14 @@ func (a *DiskFormatterAPI) AttachedVolumes(args params.Entities) (params.VolumeA
 func (a *DiskFormatterAPI) oneAttachedVolumes(tag names.MachineTag) ([]params.VolumeAttachment, error) {
 	attachments, err := a.st.MachineVolumeAttachments(tag)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if len(attachments) == 0 {
 		return nil, nil
 	}
 	blockDevices, err := a.st.BlockDevices(tag)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	// Filter attachments without corresponding block device.
@@ -140,14 +142,18 @@ func (a *DiskFormatterAPI) oneAttachedVolumes(tag names.MachineTag) ([]params.Vo
 			return nil, errors.Trace(err)
 		}
 		volumeInfo, err := volume.Info()
-		if err != nil {
+		if errors.IsNotProvisioned(err) {
 			// Ignore unprovisioned volumes.
 			continue
+		} else if err != nil {
+			return nil, errors.Annotate(err, "getting volume info")
 		}
 		attachmentInfo, err := attachment.Info()
-		if err != nil {
+		if errors.IsNotProvisioned(err) {
 			// Ignore unprovisioned attachments.
 			continue
+		} else if err != nil {
+			return nil, errors.Annotate(err, "getting volume attachment info")
 		}
 		if _, ok := matchingBlockDevice(blockDevices, volumeInfo, attachmentInfo); ok {
 			result = append(result, params.VolumeAttachment{
@@ -189,85 +195,19 @@ func (a *DiskFormatterAPI) VolumePreparationInfo(args params.VolumeAttachmentIds
 	}
 	canAccess, err := a.getAuthFunc()
 	if err != nil {
-		return params.VolumePreparationInfoResults{}, err
+		return params.VolumePreparationInfoResults{}, errors.Trace(err)
 	}
 	machineBlockDevices := make(map[names.MachineTag][]state.BlockDeviceInfo)
 	one := func(id params.VolumeAttachmentId) (params.VolumePreparationInfo, error) {
-		var result params.VolumePreparationInfo
 		machineTag, err := names.ParseMachineTag(id.MachineTag)
 		if err != nil || !canAccess(machineTag) {
-			return result, common.ErrPerm
+			return params.VolumePreparationInfo{}, common.ErrPerm
 		}
 		volumeTag, err := names.ParseDiskTag(id.VolumeTag)
 		if err != nil {
-			return result, common.ErrPerm
+			return params.VolumePreparationInfo{}, common.ErrPerm
 		}
-		volume, err := a.st.Volume(volumeTag)
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		storageTag, ok := volume.StorageInstance()
-		if !ok {
-			// volume is not assigned to any storage.
-			return result, nil
-		}
-		storageInstance, err := a.st.StorageInstance(storageTag)
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		if storageInstance.Kind() != state.StorageKindFilesystem {
-			// volume is assigned to a non-filesystem
-			// kind storage instance.
-			return result, nil
-		}
-		volumeInfo, err := volume.Info()
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		attachment, err := a.st.VolumeAttachment(machineTag, volumeTag)
-		if err != nil {
-			return result, common.ErrPerm
-		}
-		attachmentInfo, err := attachment.Info()
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		blockDevices, ok := machineBlockDevices[machineTag]
-		if !ok {
-			blockDevices, err = a.st.BlockDevices(machineTag)
-			if err != nil {
-				return result, errors.Trace(err)
-			}
-			machineBlockDevices[machineTag] = blockDevices
-		}
-		blockDevice, ok := matchingBlockDevice(blockDevices, volumeInfo, attachmentInfo)
-		if !ok {
-			// volume is not visible yet.
-			return result, errors.NotFoundf(
-				"volume %q on machine %q", volumeTag.Id(), machineTag.Id(),
-			)
-		}
-		devicePath, err := storage.BlockDevicePath(storage.BlockDevice{
-			blockDevice.DeviceName,
-			blockDevice.Label,
-			blockDevice.UUID,
-			blockDevice.Serial,
-			blockDevice.Size,
-			blockDevice.FilesystemType,
-			blockDevice.InUse,
-		})
-		if err != nil {
-			return result, errors.Annotate(err, "determining block device path")
-		}
-		if blockDevice.FilesystemType == "" {
-			// We've asserted previously that the volume is assigned to
-			// a filesystem-kind storage instance; since the volume has
-			// been observed to not have a filesystem already, we should
-			// inform the clien that one should be created.
-			result.NeedsFilesystem = true
-			result.DevicePath = devicePath
-		}
-		return result, nil
+		return a.oneVolumePreparationInfo(machineTag, volumeTag, machineBlockDevices)
 	}
 	for i, id := range args.Ids {
 		info, err := one(id)
@@ -275,4 +215,104 @@ func (a *DiskFormatterAPI) VolumePreparationInfo(args params.VolumeAttachmentIds
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+func (a *DiskFormatterAPI) oneVolumePreparationInfo(
+	machineTag names.MachineTag,
+	volumeTag names.DiskTag,
+	machineBlockDevices map[names.MachineTag][]state.BlockDeviceInfo,
+) (params.VolumePreparationInfo, error) {
+	var result params.VolumePreparationInfo
+	volumeInfo, attachmentInfo, storageTag, err := a.attachedVolumeInfo(machineTag, volumeTag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	storageInstance, err := a.st.StorageInstance(*storageTag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if storageInstance.Kind() != state.StorageKindFilesystem {
+		// Volume is assigned to a non-filesystem kind storage instance,
+		// so it does not need a filesystem.
+		msg := fmt.Sprintf(
+			"volume %q is not assigned to a filesystem storage instance",
+			volumeTag.Id(),
+		)
+		return result, errors.NewNotAssigned(nil, msg)
+	}
+	blockDevices, ok := machineBlockDevices[machineTag]
+	if !ok {
+		blockDevices, err = a.st.BlockDevices(machineTag)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		machineBlockDevices[machineTag] = blockDevices
+	}
+	blockDevice, ok := matchingBlockDevice(blockDevices, *volumeInfo, *attachmentInfo)
+	if !ok {
+		// volume is not visible yet.
+		return result, errors.NotFoundf(
+			"volume %q on machine %q", volumeTag.Id(), machineTag.Id(),
+		)
+	}
+	devicePath, err := stateBlockDevicePath(blockDevice)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if blockDevice.FilesystemType == "" {
+		// We've asserted previously that the volume is assigned to
+		// a filesystem-kind storage instance; since the volume has
+		// been observed to not have a filesystem already, we should
+		// inform the client that one should be created.
+		result.NeedsFilesystem = true
+		result.DevicePath = devicePath
+	}
+	return result, nil
+}
+
+// attachedVolumeInfo returns information for the specified volume,
+// and its attachment to the specified machine, and the tag of the
+// storage instance that the volume is assigned to.
+func (a *DiskFormatterAPI) attachedVolumeInfo(
+	machineTag names.MachineTag,
+	volumeTag names.DiskTag,
+) (*state.VolumeInfo, *state.VolumeAttachmentInfo, *names.StorageTag, error) {
+	volume, err := a.st.Volume(volumeTag)
+	if err != nil {
+		return nil, nil, nil, errors.Trace(common.ErrPerm)
+	}
+	storageTag, err := volume.StorageInstance()
+	if err != nil {
+		return nil, nil, nil, errors.Trace(err)
+	}
+	volumeInfo, err := volume.Info()
+	if err != nil {
+		return nil, nil, nil, errors.Trace(err)
+	}
+	attachment, err := a.st.VolumeAttachment(machineTag, volumeTag)
+	if err != nil {
+		return nil, nil, nil, errors.Trace(common.ErrPerm)
+	}
+	attachmentInfo, err := attachment.Info()
+	if err != nil {
+		return nil, nil, nil, errors.Trace(err)
+	}
+	return &volumeInfo, &attachmentInfo, &storageTag, nil
+}
+
+// stateBlockDevicePath returns the path for the given block device.
+func stateBlockDevicePath(blockDevice *state.BlockDeviceInfo) (string, error) {
+	devicePath, err := storage.BlockDevicePath(storage.BlockDevice{
+		blockDevice.DeviceName,
+		blockDevice.Label,
+		blockDevice.UUID,
+		blockDevice.Serial,
+		blockDevice.Size,
+		blockDevice.FilesystemType,
+		blockDevice.InUse,
+	})
+	if err != nil {
+		return "", errors.Annotate(err, "determining block device path")
+	}
+	return devicePath, nil
 }

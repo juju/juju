@@ -50,8 +50,8 @@ func (st *State) WatchAttachedVolumes() (watcher.NotifyWatcher, error) {
 	return w, nil
 }
 
-// AttachedVolumes returns details of volumes attached to the machines with the
-// specified tags.
+// AttachedVolumes returns details of volumes attached to the machine
+// running the authenticated agent.
 func (st *State) AttachedVolumes() ([]params.VolumeAttachment, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{st.tag.String()}},

@@ -100,7 +100,7 @@ func getBlockDeviceMappings(
 		attachment := storage.VolumeAttachment{
 			Volume:     params.Tag,
 			DeviceName: actualDeviceName,
-			// MachineId, InstanceId and VolumeID are fllled out
+			// MachineId, InstanceId and VolumeID are filled out
 			// by the caller once the information is available.
 		}
 		blockDeviceMappings = append(blockDeviceMappings, mapping)

@@ -35,7 +35,7 @@ type Info struct {
 	// be retrieved by RunHook.
 	ActionId string `yaml:"action-id,omitempty"`
 
-	// StorageTag is the tag of the storage instance relevant to the hook.
+	// StorageId is the ID of the storage instance relevant to the hook.
 	StorageId string `yaml:"storage-id,omitempty"`
 }
 

@@ -29,6 +29,7 @@ func (s *DiskFormatterWorkerSuite) TestWorker(c *gc.C) {
 		{VolumeTag: "disk-0"},
 		{VolumeTag: "disk-1"},
 		{VolumeTag: "disk-2"},
+		{VolumeTag: "disk-3"},
 	}
 
 	volumeFormattingInfoResults := []params.VolumePreparationInfoResult{{
@@ -45,6 +46,11 @@ func (s *DiskFormatterWorkerSuite) TestWorker(c *gc.C) {
 		Error: &params.Error{
 			Code:    params.CodeNotFound,
 			Message: "volume 2 not found",
+		},
+	}, {
+		Error: &params.Error{
+			Code:    params.CodeNotAssigned,
+			Message: "volume 2 not assigned",
 		},
 	}}
 

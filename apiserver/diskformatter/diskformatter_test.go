@@ -244,6 +244,10 @@ func (s *DiskFormatterSuite) TestVolumePreparationInfo(c *gc.C) {
 		}, {
 			// not assigned to a "filesystem" storage instance
 			Result: params.VolumePreparationInfo{NeedsFilesystem: false},
+			Error: &params.Error{
+				Message: `volume "2" is not assigned to a filesystem storage instance`,
+				Code:    "not assigned",
+			},
 		}, {
 			// block device already has a filesystem
 			Result: params.VolumePreparationInfo{NeedsFilesystem: false},
@@ -255,18 +259,19 @@ func (s *DiskFormatterSuite) TestVolumePreparationInfo(c *gc.C) {
 
 	c.Assert(s.st.calls, gc.DeepEquals, []call{
 		{"Volume", []interface{}{volume0}},
-		{"StorageInstance", []interface{}{storagefs}},
 		{"VolumeAttachment", []interface{}{machine0, volume0}},
+		{"StorageInstance", []interface{}{storagefs}},
 		{"BlockDevices", []interface{}{machine0}},
 		{"Volume", []interface{}{volume1}},
-		{"StorageInstance", []interface{}{storagefs}},
 		{"VolumeAttachment", []interface{}{machine0, volume1}},
+		{"StorageInstance", []interface{}{storagefs}},
 		// No call to "BlockDevices", as the results are cached.
 		{"Volume", []interface{}{volume2}},
+		{"VolumeAttachment", []interface{}{machine0, volume2}},
 		{"StorageInstance", []interface{}{storageblk}},
 		{"Volume", []interface{}{volume3}},
-		{"StorageInstance", []interface{}{storagefs}},
 		{"VolumeAttachment", []interface{}{machine0, volume3}},
+		{"StorageInstance", []interface{}{storagefs}},
 		// No call to "BlockDevices", as the results are cached.
 	})
 }
@@ -358,8 +363,11 @@ type mockVolume struct {
 	info    *state.VolumeInfo
 }
 
-func (v *mockVolume) StorageInstance() (names.StorageTag, bool) {
-	return v.storage, v.storage != names.StorageTag{}
+func (v *mockVolume) StorageInstance() (names.StorageTag, error) {
+	if v.storage == (names.StorageTag{}) {
+		return names.StorageTag{}, errors.NotAssignedf("volume %q", v.tag.Id())
+	}
+	return v.storage, nil
 }
 
 func (v *mockVolume) Info() (state.VolumeInfo, error) {

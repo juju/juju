@@ -75,6 +75,25 @@ func (s *BlockDevicesSuite) TestSetMachineBlockDevicesUpdates(c *gc.C) {
 	})
 }
 
+func (s *BlockDevicesSuite) TestSetMachineBlockDevicesUnchanged(c *gc.C) {
+	sda := state.BlockDeviceInfo{DeviceName: "sda"}
+	err := s.machine.SetMachineBlockDevices(sda)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertBlockDevices(c, s.machine.MachineTag(), []state.BlockDeviceInfo{sda})
+
+	// Setting the same should not change txn-revno.
+	docID := state.DocID(s.State, s.machine.Id())
+	before, err := state.TxnRevno(s.State, state.BlockDevicesC, docID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.SetMachineBlockDevices(sda)
+	c.Assert(err, jc.ErrorIsNil)
+
+	after, err := state.TxnRevno(s.State, state.BlockDevicesC, docID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(after, gc.Equals, before)
+}
+
 func (s *BlockDevicesSuite) TestSetMachineBlockDevicesConcurrently(c *gc.C) {
 	sdaInner := state.BlockDeviceInfo{DeviceName: "sda"}
 	defer state.SetBeforeHooks(c, s.State, func() {

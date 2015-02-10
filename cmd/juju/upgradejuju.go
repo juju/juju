@@ -12,7 +12,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/cheggaaa/pb"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
@@ -331,15 +330,7 @@ func (context *upgradeContext) uploadTools() (err error) {
 	}
 	defer f.Close()
 	additionalSeries := version.OSSupportedSeries(builtTools.Version.OS)
-
-	bar := pb.New(int(builtTools.Size))
-	bar.ShowSpeed = true
-	bar.SetUnits(pb.U_BYTES)
-	bar.Start()
-	defer bar.Finish()
-	r := bar.NewProxyReader(f)
-
-	uploaded, err = context.apiClient.UploadTools(r, builtTools.Version, additionalSeries...)
+	uploaded, err = context.apiClient.UploadTools(f, builtTools.Version, additionalSeries...)
 	if err != nil {
 		return err
 	}

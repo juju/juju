@@ -87,10 +87,12 @@ func (f *diskFormatter) Handle() error {
 
 	for i, tag := range tags {
 		if info[i].Error != nil {
-			logger.Errorf(
-				"failed to get formatting info for volume %q: %v",
-				tag.Id(), info[i].Error,
-			)
+			if !params.IsCodeNotAssigned(info[i].Error) {
+				logger.Errorf(
+					"failed to get formatting info for volume %q: %v",
+					tag.Id(), info[i].Error,
+				)
+			}
 			continue
 		}
 		if !info[i].Result.NeedsFilesystem {

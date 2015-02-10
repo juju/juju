@@ -795,7 +795,7 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		volumes = make([]state.MachineVolumeParams, 0, len(p.Disks))
 		for _, cons := range p.Disks {
 			if cons.Count == 0 {
-				return nil, errors.Errorf("invalid count %v", cons.Count)
+				return nil, errors.Errorf("invalid volume params: count not specified")
 			}
 			// Pool and Size are validated by AddMachineX.
 			volumeParams := state.VolumeParams{
