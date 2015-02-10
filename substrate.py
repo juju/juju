@@ -1,6 +1,9 @@
 __metaclass__ = type
 
-from contextlib import contextmanager
+from contextlib import (
+    contextmanager,
+    nested,
+    )
 import logging
 import os
 import subprocess
@@ -81,9 +84,10 @@ class AWSAccount:
     """Represent the credentials of an AWS account."""
 
     @classmethod
-    def from_config(cls, config):
+    @contextmanager
+    def manager_from_config(cls, config):
         """Create an AWSAccount from a juju environment dict."""
-        return cls(get_euca_env(config), config['region'])
+        yield cls(get_euca_env(config), config['region'])
 
     def __init__(self, euca_environ, region):
         self.euca_environ = euca_environ
@@ -407,17 +411,17 @@ def make_substrate_manager(config):
     Returns None if the substrate is not supported.
     """
     substrate_factory = {
-        'ec2': AWSAccount.from_config,
+        'ec2': AWSAccount.manager_from_config,
         'openstack': OpenStackAccount.manager_from_config,
         'joyent': JoyentAccount.manager_from_config,
         'azure': AzureAccount.manager_from_config,
         }
-    if config['type'] in ('azure', 'joyent', 'openstack'):
-        factory = substrate_factory[config['type']]
+    factory = substrate_factory.get(config['type'])
+    if factory is None:
+        yield None
+    else:
         with factory(config) as substrate:
             yield substrate
-            return
-    yield substrate_factory.get(config['type'], lambda x: None)(config)
 
 
 def start_libvirt_domain(URI, domain):
