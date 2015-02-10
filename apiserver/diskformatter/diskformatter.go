@@ -181,19 +181,19 @@ func matchingBlockDevice(
 	return nil, false
 }
 
-// VolumeFormattingInfo returns the information required to format the
+// VolumePreparationInfo returns the information required to format the
 // specified volumes.
-func (a *DiskFormatterAPI) VolumeFormattingInfo(args params.VolumeAttachmentIds) (params.VolumeFormattingInfoResults, error) {
-	result := params.VolumeFormattingInfoResults{
-		Results: make([]params.VolumeFormattingInfoResult, len(args.Ids)),
+func (a *DiskFormatterAPI) VolumePreparationInfo(args params.VolumeAttachmentIds) (params.VolumePreparationInfoResults, error) {
+	result := params.VolumePreparationInfoResults{
+		Results: make([]params.VolumePreparationInfoResult, len(args.Ids)),
 	}
 	canAccess, err := a.getAuthFunc()
 	if err != nil {
-		return params.VolumeFormattingInfoResults{}, err
+		return params.VolumePreparationInfoResults{}, err
 	}
 	machineBlockDevices := make(map[names.MachineTag][]state.BlockDeviceInfo)
-	one := func(id params.VolumeAttachmentId) (params.VolumeFormattingInfo, error) {
-		var result params.VolumeFormattingInfo
+	one := func(id params.VolumeAttachmentId) (params.VolumePreparationInfo, error) {
+		var result params.VolumePreparationInfo
 		machineTag, err := names.ParseMachineTag(id.MachineTag)
 		if err != nil || !canAccess(machineTag) {
 			return result, common.ErrPerm
@@ -264,7 +264,7 @@ func (a *DiskFormatterAPI) VolumeFormattingInfo(args params.VolumeAttachmentIds)
 			// a filesystem-kind storage instance; since the volume has
 			// been observed to not have a filesystem already, we should
 			// inform the clien that one should be created.
-			result.NeedsFormatting = true
+			result.NeedsFilesystem = true
 			result.DevicePath = devicePath
 		}
 		return result, nil

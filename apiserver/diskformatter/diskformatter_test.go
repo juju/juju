@@ -148,7 +148,7 @@ func (s *DiskFormatterSuite) TestAttachedVolumes(c *gc.C) {
 	}})
 }
 
-func (s *DiskFormatterSuite) TestVolumeFormattingInfo(c *gc.C) {
+func (s *DiskFormatterSuite) TestVolumePreparationInfo(c *gc.C) {
 	machine0 := names.NewMachineTag("0")
 	volume0 := names.NewDiskTag("0")
 	volume1 := names.NewDiskTag("1")
@@ -220,7 +220,7 @@ func (s *DiskFormatterSuite) TestVolumeFormattingInfo(c *gc.C) {
 		&state.VolumeAttachmentInfo{DeviceName: "sdd"},
 	}}
 
-	results, err := s.api.VolumeFormattingInfo(params.VolumeAttachmentIds{
+	results, err := s.api.VolumePreparationInfo(params.VolumeAttachmentIds{
 		Ids: []params.VolumeAttachmentId{
 			{MachineTag: "machine-0", VolumeTag: "disk-0"},
 			{MachineTag: "machine-0", VolumeTag: "disk-1"},
@@ -230,23 +230,23 @@ func (s *DiskFormatterSuite) TestVolumeFormattingInfo(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.VolumeFormattingInfoResults{
-		Results: []params.VolumeFormattingInfoResult{{
-			Result: params.VolumeFormattingInfo{
-				NeedsFormatting: true,
+	c.Assert(results, gc.DeepEquals, params.VolumePreparationInfoResults{
+		Results: []params.VolumePreparationInfoResult{{
+			Result: params.VolumePreparationInfo{
+				NeedsFilesystem: true,
 				DevicePath:      "/dev/disk/by-id/capncrunch",
 			},
 		}, {
-			Result: params.VolumeFormattingInfo{
-				NeedsFormatting: true,
+			Result: params.VolumePreparationInfo{
+				NeedsFilesystem: true,
 				DevicePath:      "/dev/sdb",
 			},
 		}, {
 			// not assigned to a "filesystem" storage instance
-			Result: params.VolumeFormattingInfo{NeedsFormatting: false},
+			Result: params.VolumePreparationInfo{NeedsFilesystem: false},
 		}, {
 			// block device already has a filesystem
-			Result: params.VolumeFormattingInfo{NeedsFormatting: false},
+			Result: params.VolumePreparationInfo{NeedsFilesystem: false},
 		}, {
 			// non-matching machine
 			Error: &params.Error{Message: "permission denied", Code: "unauthorized access"},

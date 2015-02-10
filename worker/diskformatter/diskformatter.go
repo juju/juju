@@ -34,9 +34,9 @@ type VolumeAccessor interface {
 	// AttachedVolumes returns the volumes which are attached to the
 	// machine.
 	AttachedVolumes() ([]params.VolumeAttachment, error)
-	// VolumeFormattingInfo returns information required to format the
+	// VolumePreparationInfo returns information required to format the
 	// specified volumes.
-	VolumeFormattingInfo([]names.DiskTag) ([]params.VolumeFormattingInfoResult, error)
+	VolumePreparationInfo([]names.DiskTag) ([]params.VolumePreparationInfoResult, error)
 }
 
 // NewWorker returns a new worker that creates filesystems on volumes
@@ -80,7 +80,7 @@ func (f *diskFormatter) Handle() error {
 		return nil
 	}
 
-	info, err := f.accessor.VolumeFormattingInfo(tags)
+	info, err := f.accessor.VolumePreparationInfo(tags)
 	if err != nil {
 		return errors.Annotate(err, "getting volume formatting info")
 	}
@@ -93,7 +93,7 @@ func (f *diskFormatter) Handle() error {
 			)
 			continue
 		}
-		if !info[i].Result.NeedsFormatting {
+		if !info[i].Result.NeedsFilesystem {
 			continue
 		}
 		devicePath := info[i].Result.DevicePath

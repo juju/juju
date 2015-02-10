@@ -138,23 +138,23 @@ type VolumeParams struct {
 	MachineTag string `json:"machinetag,omitempty"`
 }
 
-// VolumeFormattingInfo holds the information regarding formatting
-// a storage volume.
-type VolumeFormattingInfo struct {
-	NeedsFormatting bool   `json:"needsformatting"`
+// VolumePreparationInfo holds the information regarding preparing
+// a storage volume for use.
+type VolumePreparationInfo struct {
+	NeedsFilesystem bool   `json:"needsfilesystem"`
 	DevicePath      string `json:"devicepath"`
 }
 
-// VolumeFormattingInfoResult holds a singular VolumeFormattingInfo
+// VolumePreparationInfoResult holds a singular VolumePreparationInfo
 // result, or an error.
-type VolumeFormattingInfoResult struct {
-	Result VolumeFormattingInfo `json:"result"`
-	Error  *Error               `json:"error,omitempty"`
+type VolumePreparationInfoResult struct {
+	Result VolumePreparationInfo `json:"result"`
+	Error  *Error                `json:"error,omitempty"`
 }
 
-// VolumeFormattingInfoResult holds a set of VolumeFormattingInfoResults.
-type VolumeFormattingInfoResults struct {
-	Results []VolumeFormattingInfoResult `json:"results,omitempty"`
+// VolumePreparationInfoResult holds a set of VolumePreparationInfoResults.
+type VolumePreparationInfoResults struct {
+	Results []VolumePreparationInfoResult `json:"results,omitempty"`
 }
 
 // VolumeAttachmentsResult holds the volume attachments for a single

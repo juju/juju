@@ -62,11 +62,11 @@ func (s *DiskFormatterSuite) TestBlockDeviceResultCountMismatch(c *gc.C) {
 	c.Assert(func() { st.AttachedVolumes() }, gc.PanicMatches, "expected 1 result, got 2")
 }
 
-func (s *DiskFormatterSuite) TestVolumeFormattingInfo(c *gc.C) {
-	expected := []params.VolumeFormattingInfoResult{{
-		Result: params.VolumeFormattingInfo{
+func (s *DiskFormatterSuite) TestVolumePreparationInfo(c *gc.C) {
+	expected := []params.VolumePreparationInfoResult{{
+		Result: params.VolumePreparationInfo{
 			DevicePath:      "/dev/sdx",
-			NeedsFormatting: true,
+			NeedsFilesystem: true,
 		},
 	}, {
 		Error: &params.Error{Message: "MSG", Code: "621"},
@@ -77,15 +77,15 @@ func (s *DiskFormatterSuite) TestVolumeFormattingInfo(c *gc.C) {
 		c.Check(objType, gc.Equals, "DiskFormatter")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "VolumeFormattingInfo")
+		c.Check(request, gc.Equals, "VolumePreparationInfo")
 		c.Check(arg, gc.DeepEquals, params.VolumeAttachmentIds{
 			Ids: []params.VolumeAttachmentId{
 				{MachineTag: "machine-0", VolumeTag: "disk-0"},
 				{MachineTag: "machine-0", VolumeTag: "disk-1"},
 			},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.VolumeFormattingInfoResults{})
-		*(result.(*params.VolumeFormattingInfoResults)) = params.VolumeFormattingInfoResults{
+		c.Assert(result, gc.FitsTypeOf, &params.VolumePreparationInfoResults{})
+		*(result.(*params.VolumePreparationInfoResults)) = params.VolumePreparationInfoResults{
 			expected,
 		}
 		called = true
@@ -93,7 +93,7 @@ func (s *DiskFormatterSuite) TestVolumeFormattingInfo(c *gc.C) {
 	})
 
 	st := diskformatter.NewState(apiCaller, names.NewMachineTag("0"))
-	results, err := st.VolumeFormattingInfo([]names.DiskTag{
+	results, err := st.VolumePreparationInfo([]names.DiskTag{
 		names.NewDiskTag("0"),
 		names.NewDiskTag("1"),
 	})
@@ -109,6 +109,6 @@ func (s *DiskFormatterSuite) TestAPIErrors(c *gc.C) {
 	st := diskformatter.NewState(apiCaller, names.NewMachineTag("0"))
 	_, err := st.AttachedVolumes()
 	c.Check(err, gc.ErrorMatches, "blargh")
-	_, err = st.VolumeFormattingInfo(nil)
+	_, err = st.VolumePreparationInfo(nil)
 	c.Check(err, gc.ErrorMatches, "blargh")
 }

@@ -59,7 +59,7 @@ func (st *State) AttachedVolumes() ([]params.VolumeAttachment, error) {
 	var results params.VolumeAttachmentsResults
 	err := st.facade.FacadeCall("AttachedVolumes", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
 		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
@@ -71,10 +71,10 @@ func (st *State) AttachedVolumes() ([]params.VolumeAttachment, error) {
 	return result.Attachments, nil
 }
 
-// VolumeFormattingInfo returns the information required to format the
+// VolumePreparationInfo returns the information required to format the
 // specified volumes.
-func (st *State) VolumeFormattingInfo(tags []names.DiskTag) ([]params.VolumeFormattingInfoResult, error) {
-	var results params.VolumeFormattingInfoResults
+func (st *State) VolumePreparationInfo(tags []names.DiskTag) ([]params.VolumePreparationInfoResult, error) {
+	var results params.VolumePreparationInfoResults
 	args := params.VolumeAttachmentIds{
 		Ids: make([]params.VolumeAttachmentId, len(tags)),
 	}
@@ -82,9 +82,9 @@ func (st *State) VolumeFormattingInfo(tags []names.DiskTag) ([]params.VolumeForm
 		args.Ids[i].MachineTag = st.tag.String()
 		args.Ids[i].VolumeTag = tag.String()
 	}
-	err := st.facade.FacadeCall("VolumeFormattingInfo", args, &results)
+	err := st.facade.FacadeCall("VolumePreparationInfo", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != len(args.Ids) {
 		panic(errors.Errorf("expected %d results, got %d", len(args.Ids), len(results.Results)))
