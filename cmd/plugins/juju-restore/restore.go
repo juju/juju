@@ -170,8 +170,8 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		db.machines.update({machineid: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
 		db.instanceData.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
 		db.machines.remove({machineid: {$ne:"0"}, hasvote: true})
-		db.stateServers.update({"_id":"e"}, {$set:{"machineids" : [0]}})
-		db.stateServers.update({"_id":"e"}, {$set:{"votingmachineids" : [0]}})
+		db.stateServers.update({"_id":"e"}, {$set:{"machineids" : ["0"]}})
+		db.stateServers.update({"_id":"e"}, {$set:{"votingmachineids" : ["0"]}})
 	'
 
 	# Give time to replset to initiate
