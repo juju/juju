@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
@@ -103,13 +104,54 @@ func translateLegacyUnitAgentStatus(in multiwatcher.Status) multiwatcher.Status 
 	return in
 }
 
+func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange, []network.Port, error) {
+	// Get opened port ranges for the unit and convert them to ports,
+	// as older clients/servers do not know about ranges. See bug
+	// http://pad.lv/1418433 for more info.
+	unit, err := st.Unit(unitName)
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "failed to get unit %q", unitName)
+	}
+	portRanges, err := unit.OpenedPorts()
+	// Since the port ranges are associated with the unit's machine,
+	// we need to check for NotAssignedError.
+	if IsNotAssigned(errors.Cause(err)) {
+		// Not assigned, so there won't be any ports opened.
+		return nil, nil, nil
+	} else if err != nil {
+		return nil, nil, errors.Annotate(err, "failed to get unit port ranges")
+	}
+	var compatiblePorts []network.Port
+	for _, portRange := range portRanges {
+		if portRange.FromPort == portRange.ToPort {
+			compatiblePorts = append(compatiblePorts, network.Port{
+				Number:   portRange.FromPort,
+				Protocol: portRange.Protocol,
+			})
+			continue
+		}
+		for j := portRange.FromPort; j <= portRange.ToPort; j++ {
+			compatiblePorts = append(compatiblePorts, network.Port{
+				Number:   j,
+				Protocol: portRange.Protocol,
+			})
+		}
+	}
+	return portRanges, compatiblePorts, nil
+}
+
 func (u *backingUnit) updated(st *State, store *multiwatcherStore, id interface{}) error {
+	portRanges, compatiblePorts, err := getUnitPortRangesAndPorts(st, u.Name)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	info := &multiwatcher.UnitInfo{
 		Name:        u.Name,
 		Service:     u.Service,
 		Series:      u.Series,
 		MachineId:   u.MachineId,
-		Ports:       u.Ports,
+		Ports:       compatiblePorts,
+		PortRanges:  portRanges,
 		Subordinate: u.Principal != "",
 	}
 	if u.CharmURL != nil {
