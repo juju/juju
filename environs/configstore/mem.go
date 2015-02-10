@@ -89,7 +89,7 @@ func (info *memInfo) Write() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if info.created && m.envs[info.name] != nil {
+	if !info.initialized && m.envs[info.name] != nil {
 		return ErrEnvironInfoAlreadyExists
 	}
 
