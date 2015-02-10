@@ -242,7 +242,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		logger.Errorf("failed to create new environ config: %v", err)
-		return err
+		return errors.Trace(err)
 	}
 	env.localMutex.Lock()
 	defer env.localMutex.Unlock()
@@ -274,7 +274,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.containerManager, err = factory.NewContainerManager(
 		containerType, managerConfig, imageURLGetter)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// When the localEnviron value is created on the client
@@ -288,18 +288,18 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	// httpstorage.
 	if addr := ecfg.bootstrapIPAddress(); addr != "" {
 		env.bridgeAddress = addr
-		return nil
+		return errors.Trace(err)
 	}
 	// If we get to here, it is because we haven't yet bootstrapped an
 	// environment, and saved the config in it, or we are running a command
 	// from the command line, so it is ok to work on the assumption that we
 	// have direct access to the directories.
 	if err := env.config.createDirs(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	// Record the network bridge address and create a filestorage.
 	if err := env.resolveBridgeAddress(cfg); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return env.setLocalStorage()
 }

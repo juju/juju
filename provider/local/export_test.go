@@ -3,6 +3,7 @@
 package local
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -24,7 +25,11 @@ var (
 // ConfigNamespace returns the result of the namespace call on the
 // localConfig.
 func ConfigNamespace(cfg *config.Config) string {
-	env, _ := providerInstance.Open(cfg)
+	env, err := providerInstance.Open(cfg)
+	if err != nil {
+		logger.Debugf(errors.ErrorStack(err))
+		panic(err)
+	}
 	return env.(*localEnviron).config.namespace()
 }
 
