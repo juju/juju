@@ -327,7 +327,7 @@ func (info *environInfo) writeJENVFile() error {
 	// so we don't need to use a temporary file any more.
 
 	flags := os.O_WRONLY
-	if info.created {
+	if info.created && !info.initialized {
 		flags |= os.O_CREATE | os.O_EXCL
 	} else {
 		flags |= os.O_TRUNC
@@ -342,6 +342,5 @@ func (info *environInfo) writeJENVFile() error {
 	_, err = file.Write(data)
 	file.Close()
 	info.path = path
-	info.created = false
 	return errors.Annotate(err, "cannot write file")
 }
