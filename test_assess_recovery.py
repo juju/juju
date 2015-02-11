@@ -37,7 +37,7 @@ class TestMakeClient(TestCase):
         te = temp_env({'environments': {'foo': {
             'orig-name': 'foo', 'name': 'foo'}}})
         with td as juju_path, te, patch('subprocess.Popen',
-                side_effect=ValueError):
+                                        side_effect=ValueError):
             with patch('subprocess.check_output') as co_mock:
                 co_mock.return_value = '1.18'
                 yield juju_path
