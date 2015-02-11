@@ -972,7 +972,8 @@ class TestDestroyEnvironmentAttempt(TestCase):
                                lambda x: iter([None])):
                         destroy_env.check_security_groups(
                             client, {'foo-id': 'foo', 'bar-id': 'bar'})
-        env = AWSAccount.from_config(client.env.config).get_environ()
+        with AWSAccount.manager_from_config(client.env.config) as aws:
+            env = aws.get_environ()
         co_mock.assert_called_once_with(
             ['euca-describe-groups', '--filter', 'description=juju group'],
             env=env)
@@ -987,7 +988,8 @@ class TestDestroyEnvironmentAttempt(TestCase):
         with patch('subprocess.check_output', return_value=output) as co_mock:
                 destroy_env.check_security_groups(
                     client, {'bar-id': 'bar'})
-        env = AWSAccount.from_config(client.env.config).get_environ()
+        with AWSAccount.manager_from_config(client.env.config) as aws:
+            env = aws.get_environ()
         co_mock.assert_called_once_with(
             ['euca-describe-groups', '--filter', 'description=juju group'],
             env=env)
