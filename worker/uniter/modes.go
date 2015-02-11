@@ -75,7 +75,9 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	return continueAfter(u, creator)
 }
 
-// ModeInstalling is responsible for the initial charm deployment.
+// ModeInstalling is responsible for the initial charm deployment. If an install
+// operation were to set an appropriate status, it shouldn't be necessary; but see
+// ModeUpgrading for discussion relevant to both.
 func ModeInstalling(curl *charm.URL) (next Mode, err error) {
 	name := fmt.Sprintf("ModeInstalling %s", curl)
 	return func(u *Uniter) (next Mode, err error) {
@@ -91,11 +93,11 @@ func ModeInstalling(curl *charm.URL) (next Mode, err error) {
 	}, nil
 }
 
-// ModeUpgrading is responsible for upgrading the charm. It's currently a
-// separate mode to ensure that we pass through ModeContinue after running
-// it, and thus ensure that the setup for ModeAbide/ModeHookError runs after
-// the upgrade (rather than continuing an old mode that was set up for the
-// wrong charm).
+// ModeUpgrading is responsible for upgrading the charm. It shouldn't really
+// need to be a mode at all -- it's just running a single operation -- but
+// it's not safe to call it inside arbitrary other modes, because failing to
+// pass through ModeContinue on the way out could cause a queued hook to be
+// accidentally skipped.
 func ModeUpgrading(curl *charm.URL) Mode {
 	name := fmt.Sprintf("ModeUpgrading %s", curl)
 	return func(u *Uniter) (next Mode, err error) {

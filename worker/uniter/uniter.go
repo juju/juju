@@ -121,7 +121,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			case operation.ErrHookFailed:
 				mode, err = ModeHookError, nil
 			default:
-				charmURL, ok := operation.IsDeployConflictError(cause)
+				charmURL, ok := operation.DeployConflictCharmURL(cause)
 				if ok {
 					mode, err = ModeConflicted(charmURL), nil
 				}

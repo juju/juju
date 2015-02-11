@@ -370,7 +370,7 @@ func (s *DeploySuite) testExecuteConflictError(c *gc.C, newDeploy newDeploy) {
 	newState, err := op.Execute(operation.State{})
 	c.Check(newState, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot deploy charm cs:quantal/nyancat-4")
-	errURL, ok := operation.IsDeployConflictError(err)
+	errURL, ok := operation.DeployConflictCharmURL(err)
 	c.Check(ok, jc.IsTrue)
 	c.Check(errURL, gc.DeepEquals, charmURL)
 	c.Check(deployer.MockDeploy.called, jc.IsTrue)
