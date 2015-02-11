@@ -166,14 +166,14 @@ func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 
 // Prepare implements environs.EnvironProvider.Prepare.
 func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	// The user must not set bootstrap-ip; this is determined by the provider,
-	// and its presence used to determine whether the environment has yet been
-	// bootstrapped.
 	cfg, err := p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	// The user must not set bootstrap-ip; this is determined by the provider,
+	// and its presence used to determine whether the environment has yet been
+	// bootstrapped.
 	if _, ok := cfg.UnknownAttrs()["bootstrap-ip"]; ok {
 		return nil, errors.Errorf("bootstrap-ip must not be specified")
 	}
