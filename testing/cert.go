@@ -34,6 +34,9 @@ var (
 	ServerCert, ServerKey = mustNewServer()
 
 	Certs = serverCerts()
+
+	// Other valid test certs different from the default.
+	OtherCACert, OtherCAKey = mustNewCA()
 )
 
 func verifyCertificates() error {
