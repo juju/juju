@@ -44,6 +44,7 @@ var (
 	NowToTheSecond         = nowToTheSecond
 	PickAddress            = &pickAddress
 	AddVolumeOp            = (*State).addVolumeOp
+	GetEnvironmentBlocks   = getEnvironmentBlocks
 )
 
 type (
