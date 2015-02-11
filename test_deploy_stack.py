@@ -12,6 +12,7 @@ from deploy_stack import (
     destroy_job_instances,
     dump_env_logs,
     dump_logs,
+    get_job_instances,
 )
 from jujupy import (
     EnvJujuClient,
@@ -61,7 +62,7 @@ class DeployStackTestCase(TestCase):
         self.assertEqual(1, de_mock.call_count)
         dji_mock.assert_called_with('foo')
 
-    def test_destroy_job_instances_no_instances(self):
+    def test_destroy_job_instances_none(self):
         with patch('deploy_stack.get_job_instances',
                    return_value=[], autospec=True) as gji_mock:
             with patch('subprocess.check_call') as cc_mock:
@@ -69,13 +70,28 @@ class DeployStackTestCase(TestCase):
         gji_mock.assert_called_with('foo')
         self.assertEqual(0, cc_mock.call_count)
 
-    def test_destroy_job_instances_some_instances(self):
+    def test_destroy_job_instances_some(self):
         with patch('deploy_stack.get_job_instances',
                    return_value=['i-bar'], autospec=True) as gji_mock:
             with patch('subprocess.check_call') as cc_mock:
                 destroy_job_instances('foo')
         gji_mock.assert_called_with('foo')
         cc_mock.assert_called_with(['euca-terminate-instances', 'i-bar'])
+
+    def test_get_job_instances_none(self):
+        with patch('deploy_stack.describe_instances',
+                   return_value=[], autospec=True) as di_mock:
+            ids = get_job_instances('foo')
+        self.assertEqual([], [i for i in ids])
+        di_mock.assert_called_with(job_name='foo', running=True)
+
+    def test_get_job_instances_some(self):
+        description = ('i-bar', 'foo-0')
+        with patch('deploy_stack.describe_instances',
+                   return_value=[description], autospec=True) as di_mock:
+            ids = get_job_instances('foo')
+        self.assertEqual(['i-bar'], [i for i in ids])
+        di_mock.assert_called_with(job_name='foo', running=True)
 
 
 class DumpEnvLogsTestCase(TestCase):
