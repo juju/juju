@@ -8,6 +8,7 @@ from unittest import TestCase
 
 from deploy_stack import (
     copy_remote_logs,
+    describe_instances,
     destroy_environment,
     destroy_job_instances,
     dump_env_logs,
@@ -92,6 +93,19 @@ class DeployStackTestCase(TestCase):
             ids = get_job_instances('foo')
         self.assertEqual(['i-bar'], [i for i in ids])
         di_mock.assert_called_with(job_name='foo', running=True)
+
+    def test_describe_instances(self):
+        with patch('subprocess.check_output',
+                   return_value='', autospec=True) as co_mock:
+            with patch('deploy_stack.parse_euca', autospec=True) as pe_mock:
+                describe_instances(
+                    instances=['i-foo'], job_name='bar', running=True)
+        co_mock.assert_called_with(
+            ['euca-describe-instances',
+             '--filter', 'tag:job_name=bar',
+             '--filter', 'instance-state-name=running',
+             'i-foo'], env=None)
+        pe_mock.assert_called_with('')
 
 
 class DumpEnvLogsTestCase(TestCase):
