@@ -7,8 +7,6 @@ package backups
 
 import (
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/apiserver/params"
 )
 
 // Restore satisfies the Backups interface on non-Linux OSes (e.g.
