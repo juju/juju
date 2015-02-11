@@ -79,6 +79,16 @@ func (s *FilterSuite) notifyAsserterC(c *gc.C, ch <-chan struct{}) coretesting.N
 	}
 }
 
+// contentAsserterC creates a coretesting.ContentAsserterC that will sync the
+// state before running our assertions.
+func (s *FilterSuite) contentAsserterC(c *gc.C, ch interface{}) coretesting.ContentAsserterC {
+	return coretesting.ContentAsserterC{
+		Precond: s.BackingState.StartSync,
+		C:       c,
+		Chan:    ch,
+	}
+}
+
 func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
@@ -167,11 +177,7 @@ func (s *FilterSuite) TestResolvedEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
-	resolvedC := coretesting.ContentAsserterC{
-		C:       c,
-		Precond: func() { s.BackingState.StartSync() },
-		Chan:    f.ResolvedEvents(),
-	}
+	resolvedC := s.contentAsserterC(c, f.ResolvedEvents())
 	resolvedC.AssertNoReceive()
 
 	// Request an event; no interesting event is available.
@@ -230,64 +236,45 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 	defer statetesting.AssertStop(c, f)
 
 	// No initial event is sent.
-	assertNoChange := func() {
-		s.BackingState.StartSync()
-		select {
-		case sch := <-f.UpgradeEvents():
-			c.Fatalf("unexpected %#v", sch)
-		case <-time.After(coretesting.ShortWait):
-		}
-	}
-	assertNoChange()
+	upgradeC := s.contentAsserterC(c, f.UpgradeEvents())
+	upgradeC.AssertNoReceive()
 
 	// Setting a charm generates no new events if it already matches.
 	err = f.SetCharm(oldCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
-	assertNoChange()
+	upgradeC.AssertNoReceive()
 
 	// Explicitly request an event relative to the existing state; nothing.
 	f.WantUpgradeEvent(false)
-	assertNoChange()
+	upgradeC.AssertNoReceive()
 
 	// Change the service in an irrelevant way; no events.
 	err = svc.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	assertNoChange()
+	upgradeC.AssertNoReceive()
 
 	// Change the service's charm; new event received.
 	newCharm := s.AddTestingCharm(c, "upgrade2")
 	err = svc.SetCharm(newCharm, false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange := func(url *charm.URL) {
-		s.BackingState.StartSync()
-		select {
-		case upgradeCharm := <-f.UpgradeEvents():
-			c.Assert(upgradeCharm, gc.DeepEquals, url)
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out")
-		}
-	}
-	assertChange(newCharm.URL())
-	assertNoChange()
+	c.Assert(upgradeC.AssertOneReceive(), gc.DeepEquals, newCharm.URL())
 
 	// Request a new upgrade *unforced* upgrade event, we should see one.
 	f.WantUpgradeEvent(false)
-	assertChange(newCharm.URL())
-	assertNoChange()
+	c.Assert(upgradeC.AssertOneReceive(), gc.DeepEquals, newCharm.URL())
 
 	// Request only *forced* upgrade events; nothing.
 	f.WantUpgradeEvent(true)
-	assertNoChange()
+	upgradeC.AssertNoReceive()
 
 	// But when we have a forced upgrade to the same URL, no new event.
 	err = svc.SetCharm(oldCharm, true)
 	c.Assert(err, jc.ErrorIsNil)
-	assertNoChange()
+	upgradeC.AssertNoReceive()
 
 	// ...but a *forced* change to a different URL should generate an event.
 	err = svc.SetCharm(newCharm, true)
-	assertChange(newCharm.URL())
-	assertNoChange()
+	c.Assert(upgradeC.AssertOneReceive(), gc.DeepEquals, newCharm.URL())
 }
 
 func (s *FilterSuite) TestConfigEvents(c *gc.C) {
