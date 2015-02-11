@@ -164,7 +164,7 @@ func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 	return cfg, nil
 }
 
-// Prepare implements environs.EnvironProvider.Prepare.
+// PrepareForBootstrap implements environs.EnvironProvider.PrepareForBootstrap.
 func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	cfg, err := p.PrepareForCreateEnvironment(cfg)
 	if err != nil {

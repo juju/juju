@@ -153,7 +153,7 @@ func (s *configSuite) TestNamespace(c *gc.C) {
 	s.PatchEnvironment("USER", "tester")
 	testConfig := minimalConfig(c)
 	c.Logf("\n\nname: %s\n\n", testConfig.Name())
-	c.Assert(local.ConfigNamespace(testConfig), gc.Equals, "tester-test")
+	local.CheckConfigNamespace(c, testConfig, "tester-test")
 }
 
 func (s *configSuite) TestBootstrapAsRoot(c *gc.C) {
