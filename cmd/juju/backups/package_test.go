@@ -16,6 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	apibackups "github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/backups"
 	jujutesting "github.com/juju/juju/testing"
@@ -226,5 +227,13 @@ func (c *fakeAPIClient) Remove(id string) error {
 }
 
 func (c *fakeAPIClient) Close() error {
+	return nil
+}
+
+func (c *fakeAPIClient) RestoreReader(io.Reader, *params.BackupsMetadataResult, apibackups.ClientConnection)  error {
+	return nil
+}
+
+func (c *fakeAPIClient) Restore(string, apibackups.ClientConnection) error {
 	return nil
 }

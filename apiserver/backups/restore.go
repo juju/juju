@@ -32,6 +32,11 @@ func (a *API) Restore(p params.RestoreArgs) error {
 		return errors.Errorf("machine %q has no internal address", machine)
 	}
 
+	pAddr := network.SelectPublicAddress(machine.Addresses())
+	if pAddr == "" {
+		return errors.Errorf("machine %q has no public address", machine)
+	}
+
 	info, err := a.st.RestoreInfoSetter()
 	if err != nil {
 		return errors.Trace(err)
@@ -54,6 +59,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	// Restore
 	restoreArgs := backups.RestoreArgs{
 		PrivateAddress: addr,
+		PublicAddress:  pAddr,
 		NewInstId:      instanceId,
 		NewInstTag:     machine.Tag(),
 		NewInstSeries:  machine.Series(),
@@ -87,6 +93,7 @@ func (a *API) FinishRestore() error {
 	}
 	currentStatus := info.Status()
 	if currentStatus != state.RestoreFinished {
+		defer info.SetStatus(state.RestoreFailed)
 		return errors.Errorf("Restore did not finish succesfuly")
 	}
 	logger.Infof("Succesfully restored")
