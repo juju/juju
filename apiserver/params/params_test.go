@@ -78,15 +78,11 @@ var marshalTestCases = []struct {
 			Service:  "Shazam",
 			Series:   "precise",
 			CharmURL: "cs:~user/precise/wordpress-42",
-			Ports: []network.Port{{
-				Protocol: "http",
-				Number:   80,
-			}},
-			PortRanges: []network.PortRange{{
-				FromPort: 80,
-				ToPort:   80,
-				Protocol: "http",
-			}},
+			Ports: []network.Port{
+				{
+					Protocol: "http",
+					Number:   80},
+			},
 			PublicAddress:  "testing.invalid",
 			PrivateAddress: "10.0.0.1",
 			MachineId:      "1",
@@ -94,7 +90,7 @@ var marshalTestCases = []struct {
 			StatusInfo:     "foo",
 		},
 	},
-	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "testing.invalid", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Ports": [{"Protocol": "http", "Number": 80}], "PortRanges": [{"FromPort": 80, "ToPort": 80, "Protocol": "http"}], "Status": "error", "StatusInfo": "foo", "StatusData": null, "Subordinate": false}]`,
+	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "testing.invalid", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Ports": [{"Protocol": "http", "Number": 80}], "Status": "error", "StatusInfo": "foo", "StatusData": null, "Subordinate": false}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: multiwatcher.Delta{
@@ -144,7 +140,7 @@ func (s *MarshalSuite) TestDeltaMarshalJSON(c *gc.C) {
 		var expected interface{}
 		err = json.Unmarshal([]byte(t.json), &expected)
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(unmarshalledOutput, jc.DeepEquals, expected)
+		c.Check(unmarshalledOutput, gc.DeepEquals, expected)
 	}
 }
 
