@@ -230,7 +230,7 @@ func (c *fakeAPIClient) Close() error {
 	return nil
 }
 
-func (c *fakeAPIClient) RestoreReader(io.Reader, *params.BackupsMetadataResult, apibackups.ClientConnection)  error {
+func (c *fakeAPIClient) RestoreReader(io.Reader, *params.BackupsMetadataResult, apibackups.ClientConnection) error {
 	return nil
 }
 

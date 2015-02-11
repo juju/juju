@@ -112,5 +112,3 @@ func (c *UploadCommand) getStoredMetadata(id string) (*params.BackupsMetadataRes
 	stored, err := client.Info(id)
 	return stored, errors.Trace(err)
 }
-
-

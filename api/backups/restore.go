@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package backups
@@ -93,7 +93,6 @@ func (c *Client) restore(backupId string, newClient ClientConnection) error {
 	// Restore
 	restoreArgs := params.RestoreArgs{
 		BackupId: backupId,
-		Machine:  RestoreMachineKey,
 	}
 
 	for a := restoreStrategy.Start(); a.Next(); {

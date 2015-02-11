@@ -68,11 +68,8 @@ type BackupsMetadataResult struct {
 	Version     version.Number
 }
 
-// RestoreArgs Holds the backup file or id and the machine to
-// be used for the restore process.
+// RestoreArgs Holds the backup file or id
 type RestoreArgs struct {
 	// BackupId holds the id of the backup in server if any
 	BackupId string
-	// Machine holds the machine where the backup is going to be restored
-	Machine string
 }
