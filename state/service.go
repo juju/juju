@@ -664,6 +664,8 @@ func (s *Service) unitStorageInstanceOps(unitName string) (ops []txn.Op, storage
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	attachmentOps := createStorageAttachmentOps(tag, storageInstanceIds)
+	ops = append(ops, attachmentOps...)
 	return ops, storageInstanceIds, nil
 }
 

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -22,48 +21,50 @@ type storageSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *storageSuite) TestStorageInstances(c *gc.C) {
-	storageInstances := []params.UnitStorageInstances{
-		{
-			Instances: []storage.StorageInstance{
-				{Id: "whatever", Kind: storage.StorageKindBlock, Location: "/dev/sda"},
-			},
-		},
-	}
+func (s *storageSuite) TestStorageAttachments(c *gc.C) {
+	storageAttachments := []params.StorageAttachment{{
+		StorageTag: "storage-whatever-0",
+		OwnerTag:   "service-mysql",
+		UnitTag:    "unit-mysql-0",
+		Kind:       params.StorageKindBlock,
+		Location:   "/dev/sda",
+	}}
 
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
 		c.Check(version, gc.Equals, 2)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "UnitStorageInstances")
+		c.Check(request, gc.Equals, "StorageAttachments")
 		c.Check(arg, gc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "unit-mysql-0"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.UnitStorageInstancesResults{})
-		*(result.(*params.UnitStorageInstancesResults)) = params.UnitStorageInstancesResults{
-			storageInstances,
+		c.Assert(result, gc.FitsTypeOf, &params.StorageAttachmentsResults{})
+		*(result.(*params.StorageAttachmentsResults)) = params.StorageAttachmentsResults{
+			Results: []params.StorageAttachmentsResult{{
+				Result: storageAttachments,
+			}},
 		}
 		called = true
 		return nil
 	})
 
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	instances, err := st.StorageInstances(names.NewUnitTag("mysql/0"))
+	attachments, err := st.StorageAttachments(names.NewUnitTag("mysql/0"))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)
-	c.Assert(instances, gc.DeepEquals, storageInstances[0].Instances)
+	c.Assert(attachments, gc.DeepEquals, storageAttachments)
 }
 
-func (s *storageSuite) TestStorageInstanceResultCountMismatch(c *gc.C) {
+func (s *storageSuite) TestStorageAttachmentResultCountMismatch(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.UnitStorageInstancesResults)) = params.UnitStorageInstancesResults{
-			[]params.UnitStorageInstances{{}, {}},
+		*(result.(*params.StorageAttachmentsResults)) = params.StorageAttachmentsResults{
+			[]params.StorageAttachmentsResult{{}, {}},
 		}
 		return nil
 	})
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	c.Assert(func() { st.StorageInstances(names.NewUnitTag("mysql/0")) }, gc.PanicMatches, "expected 1 result, got 2")
+	c.Assert(func() { st.StorageAttachments(names.NewUnitTag("mysql/0")) }, gc.PanicMatches, "expected 1 result, got 2")
 }
 
 func (s *storageSuite) TestAPIErrors(c *gc.C) {
@@ -71,6 +72,6 @@ func (s *storageSuite) TestAPIErrors(c *gc.C) {
 		return errors.New("bad")
 	})
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	_, err := st.StorageInstances(names.NewUnitTag("mysql/0"))
+	_, err := st.StorageAttachments(names.NewUnitTag("mysql/0"))
 	c.Check(err, gc.ErrorMatches, "bad")
 }

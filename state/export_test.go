@@ -32,29 +32,28 @@ const (
 )
 
 var (
-	ToolstorageNewStorage         = &toolstorageNewStorage
-	ImageStorageNewStorage        = &imageStorageNewStorage
-	MachineIdLessThan             = machineIdLessThan
-	NewAddress                    = newAddress
-	StateServerAvailable          = &stateServerAvailable
-	GetOrCreatePorts              = getOrCreatePorts
-	GetPorts                      = getPorts
-	PortsGlobalKey                = portsGlobalKey
-	CurrentUpgradeId              = currentUpgradeId
-	NowToTheSecond                = nowToTheSecond
-	PickAddress                   = &pickAddress
-	CreateMachineBlockDeviceOps   = createMachineBlockDeviceOps
-	SetProvisionedBlockDeviceInfo = setProvisionedBlockDeviceInfo
+	ToolstorageNewStorage  = &toolstorageNewStorage
+	ImageStorageNewStorage = &imageStorageNewStorage
+	MachineIdLessThan      = machineIdLessThan
+	NewAddress             = newAddress
+	StateServerAvailable   = &stateServerAvailable
+	GetOrCreatePorts       = getOrCreatePorts
+	GetPorts               = getPorts
+	PortsGlobalKey         = portsGlobalKey
+	CurrentUpgradeId       = currentUpgradeId
+	NowToTheSecond         = nowToTheSecond
+	PickAddress            = &pickAddress
+	AddVolumeOp            = (*State).addVolumeOp
 	GetEnvironmentBlocks          = getEnvironmentBlocks
 )
 
 type (
-	CharmDoc       charmDoc
-	MachineDoc     machineDoc
-	RelationDoc    relationDoc
-	ServiceDoc     serviceDoc
-	UnitDoc        unitDoc
-	BlockDeviceDoc blockDeviceDoc
+	CharmDoc        charmDoc
+	MachineDoc      machineDoc
+	RelationDoc     relationDoc
+	ServiceDoc      serviceDoc
+	UnitDoc         unitDoc
+	BlockDevicesDoc blockDevicesDoc
 )
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {

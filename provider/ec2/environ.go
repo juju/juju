@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"gopkg.in/amz.v2/aws"
 	"gopkg.in/amz.v2/ec2"
@@ -479,7 +480,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	var instResp *ec2.RunInstancesResp
 
-	blockDeviceMappings, volumes, err := getBlockDeviceMappings(
+	blockDeviceMappings, volumes, volumeAttachments, err := getBlockDeviceMappings(
 		*spec.InstanceType.VirtType, &args,
 	)
 	if err != nil {
@@ -520,6 +521,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	// TODO(axw) extract volume ID, store in BlockDevice.ProviderId field,
 	// and tag all resources (instances and volumes). We can't do this until
 	// goamz's BlockDeviceMapping structure is updated to include VolumeId.
+	for i := range volumes {
+		volumeAttachments[i].Machine = names.NewMachineTag(args.MachineConfig.MachineId)
+		volumeAttachments[i].InstanceId = inst.Id()
+	}
 
 	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
@@ -537,9 +542,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		AvailabilityZone: &inst.Instance.AvailZone,
 	}
 	return &environs.StartInstanceResult{
-		Instance: inst,
-		Hardware: &hc,
-		Volumes:  volumes,
+		Instance:          inst,
+		Hardware:          &hc,
+		Volumes:           volumes,
+		VolumeAttachments: volumeAttachments,
 	}, nil
 }
 

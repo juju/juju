@@ -53,8 +53,9 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.RelationChanged, RemoteUnit: "x"}, ""},
 	{hook.Info{Kind: hooks.RelationDeparted, RemoteUnit: "x"}, ""},
 	{hook.Info{Kind: hooks.RelationBroken}, ""},
-	{hook.Info{Kind: hooks.StorageAttached}, ""},
-	{hook.Info{Kind: hooks.StorageDetached}, ""},
+	{hook.Info{Kind: hooks.StorageAttached}, `invalid storage ID ""`},
+	{hook.Info{Kind: hooks.StorageAttached, StorageId: "data/0"}, ""},
+	{hook.Info{Kind: hooks.StorageDetached, StorageId: "data/0"}, ""},
 }
 
 func (s *InfoSuite) TestValidate(c *gc.C) {

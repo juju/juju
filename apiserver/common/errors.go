@@ -127,7 +127,7 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotFound
 	case errors.IsAlreadyExists(err):
 		code = params.CodeAlreadyExists
-	case state.IsNotAssigned(err):
+	case errors.IsNotAssigned(err):
 		code = params.CodeNotAssigned
 	case state.IsHasAssignedUnitsError(err):
 		code = params.CodeHasAssignedUnits
