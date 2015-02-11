@@ -161,7 +161,19 @@ def parse_args(argv=None):
     parser.add_argument('juju_path')
     parser.add_argument('env_name')
     parser.add_argument('logs', help='Directory to store logs in.')
+    parser.add_argument(
+        'temp_env_name', nargs='?',
+        help='Temporary environment name to use for this test.')
     return parser.parse_args(argv)
+
+
+def make_client(juju_path, debug, env_name, temp_env_name):
+    env = SimpleEnvironment.from_config(env_name)
+    if temp_env_name is not None:
+        env.environment = temp_env_name
+        env.config['name'] = temp_env_name
+    full_path = os.path.join(juju_path, 'juju')
+    return EnvJujuClient.by_version(env, full_path, debug)
 
 
 def main():
@@ -169,10 +181,10 @@ def main():
     log_dir = args.logs
     try:
         setup_juju_path(args.juju_path)
-        env = SimpleEnvironment.from_config(args.env_name)
+        client = make_client(args.juju_path, args.debug, args.env_name,
+                             args.temp_env_name)
         juju_home = get_juju_home()
-        ensure_deleted(get_jenv_path(juju_home, env.environment))
-        client = EnvJujuClient.by_version(env, debug=args.debug)
+        ensure_deleted(get_jenv_path(juju_home, client.env.environment))
         with temp_bootstrap_env(juju_home, client):
             client.bootstrap()
         bootstrap_host = get_machine_dns_name(client, 0)

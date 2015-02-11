@@ -2,7 +2,6 @@ __metaclass__ = type
 
 from contextlib import (
     contextmanager,
-    nested,
     )
 import logging
 import os
