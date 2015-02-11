@@ -112,13 +112,15 @@ func insertAnnotationsOps(st *State, entity GlobalEntity, toInsert map[string]st
 
 	switch tag.(type) {
 	case names.EnvironTag:
-		// Special treatment is only needed for state server environment
 		envTag, _ := tag.(names.EnvironTag)
 		env, err := st.GetEnvironment(envTag)
 		if err != nil {
 			return nil, errors.Annotatef(err, "inserting annotations")
 		}
 		if env.UUID() == env.doc.ServerUUID {
+			// This is a state server environment, and
+			// cannot be removed. Ergo, we can skip the
+			// existence check below.
 			return ops, nil
 		}
 	}
