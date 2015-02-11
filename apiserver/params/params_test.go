@@ -182,17 +182,29 @@ func (s *MarshalSuite) TestDeltaMarshalJSONUnknownEntity(c *gc.C) {
 // This test ensures the following network package types used as
 // fields are still properly serialized and deserialized:
 //
-// params.PortsResult.Ports                []network.Port
+// params.PortsResult.Ports                []params.Port
 // params.MachinePortRange.PortRange       network.PortRange
 // params.MachineAddresses.Addresses       []network.Address
 // params.AddMachineParams.Addrs           []network.Address
-// params.RsyslogConfigResult.HostPorts    []network.HostPort
-// params.APIHostPortsResult.Servers       [][]network.HostPort
-// params.LoginResult.Servers              [][]network.HostPort
-// params.LoginResultV1.Servers            [][]network.HostPort
+// params.RsyslogConfigResult.HostPorts    []params.HostPort
+// params.APIHostPortsResult.Servers       [][]params.HostPort
+// params.LoginResult.Servers              [][]params.HostPort
+// params.LoginResultV1.Servers            [][]params.HostPort
 func (s *MarshalSuite) TestNetworkEntities(c *gc.C) {
-
-	allAddressesCombos := []network.Address{
+	setPort := func(addrs []params.HostPort, port int) []params.HostPort {
+		hps := make([]params.HostPort, len(addrs))
+		for i, addr := range addrs {
+			hps[i] = params.HostPort{
+				Value:       addr.Value,
+				Type:        addr.Type,
+				NetworkName: addr.NetworkName,
+				Scope:       addr.Scope,
+				Port:        port,
+			}
+		}
+		return hps
+	}
+	allBaseHostPorts := []params.HostPort{
 		{Value: "foo0", Type: "bar0", NetworkName: "baz0", Scope: "none0"},
 		{Type: "bar1", NetworkName: "baz1", Scope: "none1"},
 		{Value: "foo2", NetworkName: "baz2", Scope: "none2"},
@@ -202,14 +214,12 @@ func (s *MarshalSuite) TestNetworkEntities(c *gc.C) {
 		{Value: "foo6"},
 		{},
 	}
-	allHostPortCombos := network.AddressesWithPort(allAddressesCombos, 1234)
-	allHostPortCombos = append(allHostPortCombos,
-		network.AddressesWithPort(allAddressesCombos, 0)...,
-	)
-	allServerHostPorts := [][]network.HostPort{
+	allHostPortCombos := setPort(allBaseHostPorts, 1234)
+	allHostPortCombos = append(allHostPortCombos, setPort(allBaseHostPorts, 0)...)
+	allServerHostPorts := [][]params.HostPort{
 		allHostPortCombos,
-		network.AddressesWithPort(allAddressesCombos, 0),
-		network.AddressesWithPort(allAddressesCombos, 1234),
+		setPort(allBaseHostPorts, 0),
+		setPort(allBaseHostPorts, 1234),
 		{},
 	}
 
@@ -219,7 +229,7 @@ func (s *MarshalSuite) TestNetworkEntities(c *gc.C) {
 	}{{
 		about: "params.PortResult.Ports",
 		input: []params.PortsResult{{
-			Ports: []network.Port{
+			Ports: []params.Port{
 				{Protocol: "foo", Number: 42},
 				{Protocol: "bar"},
 				{Number: 99},
@@ -249,7 +259,7 @@ func (s *MarshalSuite) TestNetworkEntities(c *gc.C) {
 		about: "params.MachineAddresses.Addresses",
 		input: []params.MachineAddresses{{
 			Tag:       "foo",
-			Addresses: allAddressesCombos,
+			Addresses: allBaseHostPorts,
 		}, {},
 		},
 	}, {
@@ -258,7 +268,7 @@ func (s *MarshalSuite) TestNetworkEntities(c *gc.C) {
 			Series:    "foo",
 			ParentId:  "bar",
 			Placement: nil,
-			Addrs:     allAddressesCombos,
+			Addrs:     allBaseHostPorts,
 		}, {},
 		},
 	}, {

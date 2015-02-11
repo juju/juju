@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
+	// "github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -155,12 +155,7 @@ type AddMachineParams struct {
 	InstanceId              instance.Id
 	Nonce                   string
 	HardwareCharacteristics instance.HardwareCharacteristics
-	// TODO(dimitern): Add explicit JSON serialization tags and use
-	// []string instead in order to break the dependency on the
-	// network package, as this potentially introduces hard to catch
-	// and debug wire-format changes in the protocol when the type
-	// changes!
-	Addrs []network.Address
+	Addrs                   []HostPort `json:"addrs"`
 }
 
 // AddMachines holds the parameters for making the
@@ -573,21 +568,32 @@ type SetRsyslogCertParams struct {
 	CACert []byte
 }
 
+// HostPort combines the network address information of a machine including its
+// location, metadata about what kind of location, and a port.
+type HostPort struct {
+	Value       string `json:"value"`
+	Type        string `json:"type"`
+	NetworkName string `json:"networkname"`
+	Scope       string `json:"scope"`
+	Port        int    `json:"port,omitempty"`
+}
+
 // RsyslogConfigResult holds the result of a GetRsyslogConfig call.
 type RsyslogConfigResult struct {
-	Error  *Error
-	CACert string
+	Error  *Error `json:"error"`
+	CACert string `json:"cacert"`
+
 	// Port is only used by state servers as the port to listen on.
 	// Clients should use HostPorts for the rsyslog addresses to forward
 	// logs to.
-	Port int
+	Port int `json:"port"`
 
 	// TODO(dimitern): Add explicit JSON serialization tags and use
 	// []string instead in order to break the dependency on the
 	// network package, as this potentially introduces hard to catch
 	// and debug wire-format changes in the protocol when the type
 	// changes!
-	HostPorts []network.HostPort
+	HostPorts []HostPort `json:"hostports"`
 }
 
 // RsyslogConfigResults is the bulk form of RyslogConfigResult
@@ -612,12 +618,7 @@ type DistributionGroupResults struct {
 // call. Each element in the top level slice holds
 // the addresses for one API server.
 type APIHostPortsResult struct {
-	// TODO(dimitern): Add explicit JSON serialization tags and use
-	// [][]string instead in order to break the dependency on the
-	// network package, as this potentially introduces hard to catch
-	// and debug wire-format changes in the protocol when the type
-	// changes!
-	Servers [][]network.HostPort
+	Servers [][]HostPort `json:"servers"`
 }
 
 // FacadeVersions describes the available Facades and what versions of each one
@@ -629,15 +630,10 @@ type FacadeVersions struct {
 
 // LoginResult holds the result of a Login call.
 type LoginResult struct {
-	// TODO(dimitern): Add explicit JSON serialization tags and use
-	// [][]string instead in order to break the dependency on the
-	// network package, as this potentially introduces hard to catch
-	// and debug wire-format changes in the protocol when the type
-	// changes!
-	Servers        [][]network.HostPort
-	EnvironTag     string
-	LastConnection *time.Time
-	Facades        []FacadeVersions
+	Servers        [][]HostPort     `json:"servers"`
+	EnvironTag     string           `json:"environtag"`
+	LastConnection *time.Time       `json:"lastconnection"`
+	Facades        []FacadeVersions `json:"facades"`
 }
 
 // ReauthRequest holds a challenge/response token meaningful to the identity
@@ -664,7 +660,7 @@ type LoginResultV1 struct {
 	// dependency on the network package, as this potentially
 	// introduces hard to catch and debug wire-format changes in the
 	// protocol when the type changes!
-	Servers [][]network.HostPort `json:"servers"`
+	Servers [][]HostPort `json:"servers"`
 
 	// EnvironTag is the tag for the environment that is being connected to.
 	EnvironTag string `json:"environ-tag"`

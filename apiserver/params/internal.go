@@ -67,13 +67,14 @@ type PortsResults struct {
 // PortsResult holds the result of an API call that returns a slice
 // of network.Port or an error.
 type PortsResult struct {
-	Error *Error
-	// TODO(dimitern): Add explicit JSON serialization tags and use
-	// []string instead in order to break the dependency on the
-	// network package, as this potentially introduces hard to catch
-	// and debug wire-format changes in the protocol when the type
-	// changes!
-	Ports []network.Port
+	Error *Error `json:"error"`
+	Ports []Port `json:"ports"`
+}
+
+// Port encapsulates the protocol and the number of a port.
+type Port struct {
+	Protocol string `json:"protocol"`
+	Number   int    `json:"number"`
 }
 
 // MachinePorts holds a machine and network tags. It's used when
@@ -577,13 +578,8 @@ type StatusResults struct {
 
 // MachineAddresses holds an machine tag and addresses.
 type MachineAddresses struct {
-	Tag string
-	// TODO(dimitern): Add explicit JSON serialization tags and use
-	// []string instead in order to break the dependency on the
-	// network package, as this potentially introduces hard to catch
-	// and debug wire-format changes in the protocol when the type
-	// changes!
-	Addresses []network.Address
+	Tag       string     `json:"tag"`
+	Addresses []HostPort `json:"addresses"`
 }
 
 // SetMachinesAddresses holds the parameters for making a SetMachineAddresses call.
