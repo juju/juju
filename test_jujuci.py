@@ -102,10 +102,12 @@ class JujuCITestCase(TestCase):
             self.assertTrue(kwargs['dry_run'])
 
     def test_main_setup_workspace_options(self):
-        with patch('jujuci.setup_workspace') as mock:
-            main(['-d', '-v', 'setup-workspace', './foo'])
+        with patch('jujuci.setup_workspace', autospec=True) as mock:
+            main(
+                ['-d', '-v', 'setup-workspace', '--clean-env', 'bar', './foo'])
             args, kwargs = mock.call_args
             self.assertEqual(('./foo', ), args)
+            self.assertEqual('bar', kwargs['env'])
             self.assertTrue(kwargs['dry_run'])
             self.assertTrue(kwargs['verbose'])
 

@@ -81,7 +81,7 @@ def get_artifacts(job_name, build, glob, path,
     return artifacts
 
 
-def setup_workspace(workspace_dir, dry_run=False, verbose=False):
+def setup_workspace(workspace_dir, env=None, dry_run=False, verbose=False):
     """Clean the workspace directory and create an artifacts sub directory."""
     for root, dirs, files in os.walk(workspace_dir):
         for name in files:
@@ -167,6 +167,9 @@ def parse_args(args=None):
     parser_workspace = subparsers.add_parser(
         'setup-workspace', help='Setup and clean a workspace for building.')
     parser_workspace.add_argument(
+        '-e', '--clean-env', dest='clean_env', default=None,
+        help='Ensure the env resources are freed or deleted.')
+    parser_workspace.add_argument(
         'path', help="The path to the existing workspace directory.")
     return parser.parse_args(args)
 
@@ -185,7 +188,8 @@ def main(argv):
                 verbose=args.verbose)
         elif args.command == 'setup-workspace':
             setup_workspace(
-                args.path, dry_run=args.dry_run, verbose=args.verbose)
+                args.path, env=args.clean_env,
+                dry_run=args.dry_run, verbose=args.verbose)
     except Exception as e:
         print(e)
         if args.verbose:
