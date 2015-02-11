@@ -288,7 +288,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	// httpstorage.
 	if addr := ecfg.bootstrapIPAddress(); addr != "" {
 		env.bridgeAddress = addr
-		return errors.Trace(err)
+		return nil
 	}
 	// If we get to here, it is because we haven't yet bootstrapped an
 	// environment, and saved the config in it, or we are running a command
