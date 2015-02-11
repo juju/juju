@@ -22,7 +22,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	defer closer.Close()
 
 	// Obtain the address of current machine, where we will be performing restore.
-	machine, err := a.st.Machine(p.Machine)
+	machine, err := a.st.Machine(a.machineID)
 	if err != nil {
 		return errors.Trace(err)
 	}
