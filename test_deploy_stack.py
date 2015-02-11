@@ -9,6 +9,7 @@ from unittest import TestCase
 from deploy_stack import (
     copy_remote_logs,
     destroy_environment,
+    destroy_job_instances,
     dump_env_logs,
     dump_logs,
 )
@@ -59,6 +60,22 @@ class DeployStackTestCase(TestCase):
                 destroy_environment(client, 'foo')
         self.assertEqual(1, de_mock.call_count)
         dji_mock.assert_called_with('foo')
+
+    def test_destroy_job_instances_no_instances(self):
+        with patch('deploy_stack.get_job_instances',
+                   return_value=[], autospec=True) as gji_mock:
+            with patch('subprocess.check_call') as cc_mock:
+                destroy_job_instances('foo')
+        gji_mock.assert_called_with('foo')
+        self.assertEqual(0, cc_mock.call_count)
+
+    def test_destroy_job_instances_some_instances(self):
+        with patch('deploy_stack.get_job_instances',
+                   return_value=['i-bar'], autospec=True) as gji_mock:
+            with patch('subprocess.check_call') as cc_mock:
+                destroy_job_instances('foo')
+        gji_mock.assert_called_with('foo')
+        cc_mock.assert_called_with(['euca-terminate-instances', 'i-bar'])
 
 
 class DumpEnvLogsTestCase(TestCase):
