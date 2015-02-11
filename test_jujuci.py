@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import json
 from mock import patch
 import os
@@ -7,6 +8,7 @@ from unittest import TestCase
 from jujuci import (
     add_artifacts,
     Artifact,
+    clean_environment,
     get_build_data,
     JENKINS_URL,
     get_artifacts,
@@ -15,6 +17,7 @@ from jujuci import (
     main,
     setup_workspace,
 )
+import jujupy
 from utility import temp_dir
 
 
@@ -80,6 +83,17 @@ def make_build_data(number='lastSuccessfulBuild'):
         "timestamp": 1416382502379,
         "url": "http://juju-ci.vapour.ws:8080/job/build-revision/%s/" % number
     }
+
+
+@contextmanager
+def temp_juju_home(env_name='local'):
+    with temp_dir() as juju_home:
+        with open(os.path.join(juju_home, 'environments.yaml'), 'w') as of:
+            of.write('environments:\n')
+            of.write('  %s:\n' % env_name)
+            of.write('    type: local\n')
+        with patch.dict('os.environ', {'JUJU_HOME': juju_home}):
+            yield juju_home
 
 
 class JujuCITestCase(TestCase):
@@ -242,6 +256,23 @@ class JujuCITestCase(TestCase):
                 setup_workspace(
                     workspace_dir, env='foo', dry_run=False, verbose=False)
             mock.assert_called_once_with('foo', verbose=False)
+
+    def test_clean_environment_not_dirty(self):
+        with temp_juju_home(env_name='local'):
+            with patch('jujuci.destroy_environment') as mock:
+                dirty = clean_environment('foo', verbose=False)
+        self.assertFalse(dirty)
+        self.assertEqual(0, mock.call_count)
+
+    def test_clean_environment_dirty(self):
+        with temp_juju_home(env_name='foo'):
+            with patch('jujuci.destroy_environment', autospec=True) as mock:
+                dirty = clean_environment('foo', verbose=False)
+        self.assertTrue(dirty)
+        self.assertEqual(1, mock.call_count)
+        args, kwargs = mock.call_args
+        self.assertIsInstance(args[0], jujupy.EnvJujuClient)
+        self.assertEqual('foo', args[1])
 
     def test_add_artifacts_simple(self):
         with temp_dir() as workspace_dir:

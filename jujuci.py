@@ -14,6 +14,13 @@ import traceback
 import urllib
 import urllib2
 
+from jujuconfig import NoSuchEnvironment
+from jujupy import (
+    SimpleEnvironment,
+    EnvJujuClient,
+)
+from deploy_stack import destroy_environment
+
 
 JENKINS_URL = 'http://juju-ci.vapour.ws:8080'
 BUILD_REVISION = 'build-revision'
@@ -82,7 +89,18 @@ def get_artifacts(job_name, build, glob, path,
 
 
 def clean_environment(env_name, verbose=False):
-    pass
+    try:
+        env = SimpleEnvironment.from_config(env_name)
+    except NoSuchEnvironment as e:
+        # Nothing to do.
+        if verbose:
+            print_now(str(e))
+        return False
+    client = EnvJujuClient.by_version(env)
+    if verbose:
+        print_now("Destroying %s" % env_name)
+    destroy_environment(client, env_name)
+    return True
 
 
 def setup_workspace(workspace_dir, env=None, dry_run=False, verbose=False):
