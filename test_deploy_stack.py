@@ -8,6 +8,7 @@ from unittest import TestCase
 
 from deploy_stack import (
     copy_remote_logs,
+    destroy_environment,
     dump_env_logs,
     dump_logs,
 )
@@ -33,6 +34,20 @@ def get_machine_addresses():
         '1': '10.10.0.11',
         '2': '10.10.0.22',
     }
+
+
+class DeployStackTestCase(TestCase):
+
+    def test_destroy_environment(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(client,
+                          'destroy_environment', autospec=True) as de_mock:
+            with patch('deploy_stack.destroy_job_instances',
+                       autospec=True) as dji_mock:
+                destroy_environment(client, 'foo')
+        self.assertEqual(1, de_mock.call_count)
+        self.assertEqual(0, dji_mock.call_count)
 
 
 class DumpEnvLogsTestCase(TestCase):
