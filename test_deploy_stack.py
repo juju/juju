@@ -14,6 +14,7 @@ from deploy_stack import (
     dump_env_logs,
     dump_logs,
     get_job_instances,
+    parse_euca,
 )
 from jujupy import (
     EnvJujuClient,
@@ -106,6 +107,18 @@ class DeployStackTestCase(TestCase):
              '--filter', 'instance-state-name=running',
              'i-foo'], env=None)
         pe_mock.assert_called_with('')
+
+    def test_parse_euca(self):
+        description = parse_euca('')
+        self.assertEqual([], [d for d in description])
+        euca_data = '\n'.join([
+            'header',
+            'INSTANCE\ti-foo\tblah\tbar-0',
+            'INSTANCE\ti-baz\tblah\tbar-1',
+        ])
+        description = parse_euca(euca_data)
+        self.assertEqual(
+            [('i-foo', 'bar-0'), ('i-baz', 'bar-1')], [d for d in description])
 
 
 class DumpEnvLogsTestCase(TestCase):
