@@ -234,6 +234,15 @@ class JujuCITestCase(TestCase):
             artifacts_dir = os.path.join(workspace_dir, 'artifacts')
             self.assertEqual(['empty'], os.listdir(artifacts_dir))
 
+    def test_setup_workspace_with_env(self):
+        with temp_dir() as base_dir:
+            workspace_dir = os.path.join(base_dir, 'workspace')
+            os.makedirs(workspace_dir)
+            with patch('jujuci.clean_environment', autospec=True) as mock:
+                setup_workspace(
+                    workspace_dir, env='foo', dry_run=False, verbose=False)
+            mock.assert_called_once_with('foo', verbose=False)
+
     def test_add_artifacts_simple(self):
         with temp_dir() as workspace_dir:
             artifacts_dir = os.path.join(workspace_dir, 'artifacts')

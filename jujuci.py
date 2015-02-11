@@ -81,6 +81,10 @@ def get_artifacts(job_name, build, glob, path,
     return artifacts
 
 
+def clean_environment(env_name, verbose=False):
+    pass
+
+
 def setup_workspace(workspace_dir, env=None, dry_run=False, verbose=False):
     """Clean the workspace directory and create an artifacts sub directory."""
     for root, dirs, files in os.walk(workspace_dir):
@@ -101,6 +105,8 @@ def setup_workspace(workspace_dir, env=None, dry_run=False, verbose=False):
     if not dry_run:
         with open(empty_path, 'w'):
             pass
+    if env is not None and not dry_run:
+        clean_environment(env, verbose=verbose)
 
 
 def add_artifacts(workspace_dir, globs, dry_run=False, verbose=False):
