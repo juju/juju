@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -436,36 +437,21 @@ func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
 	}
 }
 
-// TestActionEvent helper functions
-func getAssertNoActionChange(s *FilterSuite, f filter.Filter, c *gc.C) func() {
-	return func() {
-		s.BackingState.StartSync()
-		select {
-		case <-f.ActionEvents():
-			c.Fatalf("unexpected action event")
-		case <-time.After(coretesting.ShortWait):
-		}
-	}
-}
-
-func getAssertActionChange(s *FilterSuite, f filter.Filter, c *gc.C) func(ids []string) {
+func getAssertActionChange(actionC coretesting.ContentAsserterC) func(ids []string) {
+	// This calls AssertReceive N times for N ids, but allows the
+	// ids to come back in any order.
 	return func(ids []string) {
-		s.BackingState.StartSync()
 		expected := make(map[string]int)
 		seen := make(map[string]int)
 		for _, id := range ids {
 			expected[id] += 1
-			select {
-			case event, ok := <-f.ActionEvents():
-				c.Assert(ok, jc.IsTrue)
-				seen[event.ActionId] += 1
-			case <-time.After(coretesting.LongWait):
-				c.Fatalf("timed out")
-			}
+			event := actionC.AssertReceive().(*hook.Info)
+			seen[event.ActionId] += 1
 		}
-		c.Assert(seen, jc.DeepEquals, expected)
+		actionC.C.Assert(seen, jc.DeepEquals, expected)
 
-		getAssertNoActionChange(s, f, c)()
+		// Ensure that there are no other items remaining
+		actionC.AssertNoReceive()
 	}
 }
 
@@ -484,13 +470,12 @@ func (s *FilterSuite) TestActionEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
-	// Get helper functions
-	assertNoChange := getAssertNoActionChange(s, f, c)
-	assertChange := getAssertActionChange(s, f, c)
+	actionC := s.contentAsserterC(c, f.ActionEvents())
 	addAction := getAddAction(s, c)
+	assertChange := getAssertActionChange(actionC)
 
 	// Test no changes before Actions are added for the Unit.
-	assertNoChange()
+	actionC.AssertNoReceive()
 
 	// Add a new action; event occurs
 	testId := addAction("fakeaction")
@@ -501,7 +486,6 @@ func (s *FilterSuite) TestActionEvents(c *gc.C) {
 	for i := 0; i < 5; i++ {
 		testIds[i] = addAction("fakeaction")
 	}
-
 	assertChange(testIds)
 }
 
@@ -518,13 +502,12 @@ func (s *FilterSuite) TestPreexistingActions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
-	assertNoChange := getAssertNoActionChange(s, f, c)
-	assertChange := getAssertActionChange(s, f, c)
-
+	actionC := s.contentAsserterC(c, f.ActionEvents())
+	assertChange := getAssertActionChange(actionC)
 	assertChange([]string{testId})
 
 	// Let's make sure there were no duplicates.
-	assertNoChange()
+	actionC.AssertNoReceive()
 }
 
 func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
