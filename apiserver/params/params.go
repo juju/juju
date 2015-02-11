@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
-	// "github.com/juju/juju/network"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -576,6 +576,30 @@ type HostPort struct {
 	NetworkName string `json:"networkname"`
 	Scope       string `json:"scope"`
 	Port        int    `json:"port,omitempty"`
+}
+
+// FromNetworkHostPort is a convenience helper to create a parameter
+// out of the network type.
+func FromNetworkHostPort(hp network.HostPort) HostPort {
+	return HostPort{
+		Value:       hp.Value,
+		Type:        string(hp.Type),
+		NetworkName: hp.NetworkName,
+		Scope:       string(hp.Scope),
+		Port:        hp.Port,
+	}
+}
+
+// NetworkHostPort is a convenience helper to return the parameter
+// as network type.
+func (hp HostPort) NetworkHostPort() network.HostPort {
+	address := network.Address{
+		Value:       hp.Value,
+		Type:        network.AddressType(hp.Type),
+		NetworkName: hp.NetworkName,
+		Scope:       network.Scope(hp.Scope),
+	}
+	return network.HostPort{address, hp.Port}
 }
 
 // RsyslogConfigResult holds the result of a GetRsyslogConfig call.

@@ -305,6 +305,18 @@ func (s *MarshalSuite) TestNetworkEntities(c *gc.C) {
 	}
 }
 
+func (s *MarshalSuite) TestHostPortConvenience(c *gc.C) {
+	address := network.Address{
+		Value:       "foo",
+		Type:        network.IPv4Address,
+		NetworkName: "bar",
+		Scope:       network.ScopePublic,
+	}
+	networkHostPort := network.HostPort{address, 4711}
+	paramsHostPort := params.FromNetworkHostPort(networkHostPort)
+	c.Assert(networkHostPort, gc.DeepEquals, paramsHostPort.NetworkHostPort())
+}
+
 type ErrorResultsSuite struct{}
 
 var _ = gc.Suite(&ErrorResultsSuite{})
