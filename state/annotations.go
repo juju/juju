@@ -113,7 +113,6 @@ func insertAnnotationsOps(st *State, entity GlobalEntity, toInsert map[string]st
 	switch tag.(type) {
 	case names.EnvironTag:
 		// Special treatment is only needed for state server environment
-		//		env := st.entity.(Environment)
 		env, err := st.Environment()
 		if err != nil {
 			return nil, errors.Annotatef(err, "inserting annotations")
@@ -122,12 +121,7 @@ func insertAnnotationsOps(st *State, entity GlobalEntity, toInsert map[string]st
 			return ops, nil
 		}
 	}
-
-	/*switch tag.(type) {
-	case names.EnvironTag:
-		return ops, nil
-	}*/
-	// If the entity is not the environment, add a DocExists check on the
+	// If the entity is not the state server environment, add a DocExists check on the
 	// entity document, in order to avoid possible races between entity
 	// removal and annotation creation.
 	coll, id, err := st.tagToCollectionAndId(tag)

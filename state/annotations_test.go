@@ -34,7 +34,7 @@ func (s *AnnotationsSuite) SetUpTest(c *gc.C) {
 func (s *AnnotationsSuite) TestSetAnnotationsInvalidKey(c *gc.C) {
 	key := "tes.tkey"
 	expected := "typo"
-	err := s.getSetAnnotationResult(c, key, expected)
+	err := s.setAnnotationResult(c, key, expected)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*invalid key.*")
 }
 
@@ -45,18 +45,18 @@ func (s *AnnotationsSuite) TestSetAnnotationsCreate(c *gc.C) {
 func (s *AnnotationsSuite) createTestAnnotation(c *gc.C) string {
 	key := "testkey"
 	expected := "typo"
-	s.setAnnotation(c, key, expected)
+	s.assertSetAnnotation(c, key, expected)
 	assertAnnotation(c, s.ConnSuite, s.testEntity, key, expected)
 	return key
 }
 
-func (s *AnnotationsSuite) getSetAnnotationResult(c *gc.C, key, value string) error {
+func (s *AnnotationsSuite) setAnnotationResult(c *gc.C, key, value string) error {
 	annts := map[string]string{key: value}
 	return s.State.SetAnnotations(s.testEntity, annts)
 }
 
-func (s *AnnotationsSuite) setAnnotation(c *gc.C, key, value string) {
-	err := s.getSetAnnotationResult(c, key, value)
+func (s *AnnotationsSuite) assertSetAnnotation(c *gc.C, key, value string) {
+	err := s.setAnnotationResult(c, key, value)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -70,14 +70,14 @@ func (s *AnnotationsSuite) TestSetAnnotationsUpdate(c *gc.C) {
 	key := s.createTestAnnotation(c)
 	updated := "fixed"
 
-	s.setAnnotation(c, key, updated)
+	s.assertSetAnnotation(c, key, updated)
 	assertAnnotation(c, s.ConnSuite, s.testEntity, key, updated)
 }
 
 func (s *AnnotationsSuite) TestSetAnnotationsRemove(c *gc.C) {
 	key := s.createTestAnnotation(c)
 	updated := ""
-	s.setAnnotation(c, key, updated)
+	s.assertSetAnnotation(c, key, updated)
 	assertAnnotation(c, s.ConnSuite, s.testEntity, key, updated)
 
 	annts, err := s.State.Annotations(s.testEntity)
@@ -125,11 +125,11 @@ func (s *AnnotationsSuite) TestSetAnnotationsConcurrently(c *gc.C) {
 	last := "omega"
 
 	setAnnotations := func() {
-		s.setAnnotation(c, key, first)
+		s.assertSetAnnotation(c, key, first)
 		assertAnnotation(c, s.ConnSuite, s.testEntity, key, first)
 	}
 	defer state.SetBeforeHooks(c, s.State, setAnnotations).Check()
-	s.setAnnotation(c, key, last)
+	s.assertSetAnnotation(c, key, last)
 	assertAnnotation(c, s.ConnSuite, s.testEntity, key, last)
 }
 
