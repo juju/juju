@@ -325,15 +325,6 @@ func (st *State) obliterateUnit(unitName string) error {
 			return err
 		}
 	}
-	storageInstances, err := unit.StorageInstances()
-	if err != nil {
-		return err
-	}
-	for _, storageInstance := range storageInstances {
-		if err := storageInstance.Remove(); err != nil {
-			return err
-		}
-	}
 	if err := unit.EnsureDead(); err != nil {
 		return err
 	}

@@ -89,7 +89,7 @@ var errorTransformTests = []struct {
 	code:       params.CodeNotFound,
 	helperFunc: params.IsCodeNotFound,
 }, {
-	err:        &state.NotAssignedError{&state.Unit{}}, // too sleazy?! nah..
+	err:        errors.NotAssignedf("unit mysql/0"),
 	code:       params.CodeNotAssigned,
 	helperFunc: params.IsCodeNotAssigned,
 }, {

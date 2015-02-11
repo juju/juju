@@ -115,9 +115,42 @@ func (s *MetricSuite) TestSetMetricSent(c *gc.C) {
 func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
 	oldTime := time.Now().Add(-(time.Hour * 25))
 	m := state.Metric{"pings", "5", oldTime}
+	oldMetric1, err := s.unit.AddMetrics(oldTime, []state.Metric{m})
+	c.Assert(err, jc.ErrorIsNil)
+	oldMetric1.SetSent()
+
+	oldMetric2, err := s.unit.AddMetrics(oldTime, []state.Metric{m})
+	c.Assert(err, jc.ErrorIsNil)
+	oldMetric2.SetSent()
+
+	now := time.Now()
+	m = state.Metric{"pings", "5", now}
+	newMetric, err := s.unit.AddMetrics(now, []state.Metric{m})
+	c.Assert(err, jc.ErrorIsNil)
+	newMetric.SetSent()
+	err = s.State.CleanupOldMetrics()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.MetricBatch(newMetric.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.MetricBatch(oldMetric1.UUID())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	_, err = s.State.MetricBatch(oldMetric2.UUID())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *MetricSuite) TestCleanupNoMetrics(c *gc.C) {
+	err := s.State.CleanupOldMetrics()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MetricSuite) TestCleanupMetricsIgnoreNotSent(c *gc.C) {
+	oldTime := time.Now().Add(-(time.Hour * 25))
+	m := state.Metric{"pings", "5", oldTime}
 	oldMetric, err := s.unit.AddMetrics(oldTime, []state.Metric{m})
 	c.Assert(err, jc.ErrorIsNil)
-	oldMetric.SetSent()
 
 	now := time.Now()
 	m = state.Metric{"pings", "5", now}
@@ -131,11 +164,6 @@ func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.MetricBatch(oldMetric.UUID())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *MetricSuite) TestCleanupNoMetrics(c *gc.C) {
-	err := s.State.CleanupOldMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 }
 

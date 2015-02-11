@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -131,15 +130,15 @@ func (s *FactorySuite) AssertNotActionContext(c *gc.C, ctx runner.Context) {
 }
 
 func (s *FactorySuite) AssertNotStorageContext(c *gc.C, ctx runner.Context) {
-	storageInstances, ok := ctx.HookStorageInstance()
-	c.Assert(storageInstances, gc.IsNil)
+	storageAttachment, ok := ctx.HookStorageAttachment()
+	c.Assert(storageAttachment, gc.IsNil)
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (s *FactorySuite) AssertStorageContext(c *gc.C, ctx runner.Context, instance storage.StorageInstance) {
-	fromCache, ok := ctx.HookStorageInstance()
+func (s *FactorySuite) AssertStorageContext(c *gc.C, ctx runner.Context, attachment params.StorageAttachment) {
+	fromCache, ok := ctx.HookStorageAttachment()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(instance, jc.DeepEquals, *fromCache)
+	c.Assert(attachment, jc.DeepEquals, *fromCache)
 }
 
 func (s *FactorySuite) AssertRelationContext(c *gc.C, ctx runner.Context, relId int, remoteUnit string) *runner.ContextRelation {
@@ -275,8 +274,17 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 		"data": {Pool: "", Size: 1024, Count: 1},
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, sCons)
-
 	unit := s.AddUnit(c, service)
+
+	storageAttachments, err := s.State.StorageAttachments(unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageAttachments, gc.HasLen, 1)
+	err = s.State.SetStorageAttachmentInfo(
+		storageAttachments[0].StorageInstance(),
+		unit.UnitTag(),
+		state.StorageAttachmentInfo{Location: "outerspace"},
+	)
+
 	password, err := utils.RandomPassword()
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
@@ -302,9 +310,13 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	s.AssertPaths(c, rnr)
 	ctx := rnr.Context()
 	c.Assert(ctx.UnitName(), gc.Equals, "storage-block/0")
-	s.AssertStorageContext(c, ctx, storage.StorageInstance{
-		Id: "data/0", Kind: storage.StorageKindBlock, Location: ""},
-	)
+	s.AssertStorageContext(c, ctx, params.StorageAttachment{
+		StorageTag: "storage-data-0",
+		OwnerTag:   unit.Tag().String(),
+		UnitTag:    unit.Tag().String(),
+		Kind:       params.StorageKindBlock,
+		Location:   "outerspace",
+	})
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
 }

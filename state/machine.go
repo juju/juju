@@ -661,6 +661,7 @@ func (m *Machine) Remove() (err error) {
 		removeRequestedNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 		removeRebootDocOp(m.st, m.globalKey()),
+		removeMachineBlockDevicesOp(m.Id()),
 	}
 	ifacesOps, err := m.removeNetworkInterfacesOps()
 	if err != nil {
@@ -670,13 +671,8 @@ func (m *Machine) Remove() (err error) {
 	if err != nil {
 		return err
 	}
-	blockDeviceOps, err := removeMachineBlockDevicesOps(m.st, m.Id())
-	if err != nil {
-		return err
-	}
 	ops = append(ops, ifacesOps...)
 	ops = append(ops, portsOps...)
-	ops = append(ops, blockDeviceOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
@@ -911,7 +907,9 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
 	networks []NetworkInfo, interfaces []NetworkInterfaceInfo,
-	blockDevices map[string]BlockDeviceInfo) error {
+	volumes map[names.DiskTag]VolumeInfo,
+	volumeAttachments map[names.DiskTag]VolumeAttachmentInfo,
+) error {
 
 	// Add the networks and interfaces first.
 	for _, network := range networks {
@@ -932,7 +930,10 @@ func (m *Machine) SetInstanceInfo(
 			return errors.Trace(err)
 		}
 	}
-	if err := setProvisionedBlockDeviceInfo(m.st, m.Id(), blockDevices); err != nil {
+	if err := setProvisionedVolumeInfo(m.st, volumes); err != nil {
+		return errors.Trace(err)
+	}
+	if err := setMachineVolumeAttachmentInfo(m.st, m.Id(), volumeAttachments); err != nil {
 		return errors.Trace(err)
 	}
 	return m.SetProvisioned(id, nonce, characteristics)
@@ -1406,16 +1407,7 @@ func (m *Machine) SetMachineBlockDevices(info ...BlockDeviceInfo) error {
 	return setMachineBlockDevices(m.st, m.Id(), info)
 }
 
-// BlockDevices gets the aggregated list of block devices associated with
-// the machine, including unprovisioned ones.
-func (m *Machine) BlockDevices() ([]BlockDevice, error) {
-	devices, err := getMachineBlockDevices(m.st, m.Id())
-	if err != nil {
-		return nil, err
-	}
-	result := make([]BlockDevice, len(devices))
-	for i, dev := range devices {
-		result[i] = dev
-	}
-	return result, nil
+// VolumeAttachments returns the machine's volume attachments.
+func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
+	return m.st.MachineVolumeAttachments(m.MachineTag())
 }

@@ -105,7 +105,7 @@ func (s *networkerSuite) setUpMachine(c *gc.C) {
 		IsVirtual:     false,
 		Disabled:      true,
 	}}
-	err = s.machine.SetInstanceInfo("i-am", "fake_nonce", &hwChars, s.networks, s.machineIfaces, nil)
+	err = s.machine.SetInstanceInfo("i-am", "fake_nonce", &hwChars, s.networks, s.machineIfaces, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
@@ -138,7 +138,7 @@ func (s *networkerSuite) setUpContainers(c *gc.C) {
 	}}
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
 	err = s.container.SetInstanceInfo("i-container", "fake_nonce", &hwChars, s.networks[:2],
-		s.containerIfaces, nil)
+		s.containerIfaces, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.nestedContainer, err = s.State.AddMachineInsideMachine(template, s.container.Id(), instance.LXC)
@@ -150,7 +150,7 @@ func (s *networkerSuite) setUpContainers(c *gc.C) {
 		IsVirtual:     false,
 	}}
 	err = s.nestedContainer.SetInstanceInfo("i-too", "fake_nonce", &hwChars, s.networks[:1],
-		s.nestedContainerIfaces, nil)
+		s.nestedContainerIfaces, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -62,7 +62,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetInstanceInfo("i-manager", "fake_nonce", nil, nil, nil, nil)
+	err = s.machine.SetInstanceInfo("i-manager", "fake_nonce", nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
@@ -207,7 +207,16 @@ func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {
 
 func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	// Create a fresh machine, since machine 0 is already provisioned.
-	notProvisionedMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Volumes: []state.MachineVolumeParams{{
+			Volume: state.VolumeParams{
+				Size: 123,
+			}},
+		},
+	}
+	notProvisionedMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiMachine, err := s.provisioner.Machine(notProvisionedMachine.Tag().(names.MachineTag))
@@ -281,8 +290,22 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 		InterfaceName: "eth1", // duplicated name+machine id; ignored
 		IsVirtual:     false,
 	}}
+	volumes := []params.Volume{{
+		VolumeTag: "disk-0",
+		VolumeId:  "vol-123",
+		Size:      124,
+	}}
+	volumeAttachments := []params.VolumeAttachment{{
+		VolumeTag:  "disk-0",
+		VolumeId:   "vol-123",
+		MachineTag: "machine-1",
+		InstanceId: "i-will",
+		DeviceName: "xvdf1",
+	}}
 
-	err = apiMachine.SetInstanceInfo("i-will", "fake_nonce", &hwChars, networks, ifaces, nil)
+	err = apiMachine.SetInstanceInfo(
+		"i-will", "fake_nonce", &hwChars, networks, ifaces, volumes, volumeAttachments,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	instanceId, err = apiMachine.InstanceId()
@@ -290,7 +313,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(instanceId, gc.Equals, instance.Id("i-will"))
 
 	// Try it again - should fail.
-	err = apiMachine.SetInstanceInfo("i-wont", "fake", nil, nil, nil, nil)
+	err = apiMachine.SetInstanceInfo("i-wont", "fake", nil, nil, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot record provisioning info for "i-wont": cannot set instance data for machine "1": already set`)
 
 	// Now try to get machine 0's instance id.
@@ -332,6 +355,24 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 		c.Check(iface.MachineId(), gc.Equals, notProvisionedMachine.Id())
 	}
 	c.Assert(actual, jc.SameContents, ifaces[:4]) // skip the rest as they are ignored.
+
+	// Now check volumes and volume attachments.
+	volume, err := s.State.Volume(names.NewDiskTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	volumeInfo, err := volume.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeInfo, gc.Equals, state.VolumeInfo{
+		VolumeId: "vol-123",
+		Size:     124,
+	})
+	stateVolumeAttachments, err := s.State.MachineVolumeAttachments(names.NewMachineTag("1"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stateVolumeAttachments, gc.HasLen, 1)
+	volumeAttachmentInfo, err := stateVolumeAttachments[0].Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeAttachmentInfo, gc.Equals, state.VolumeAttachmentInfo{
+		DeviceName: "xvdf1",
+	})
 }
 
 func (s *provisionerSuite) TestSeries(c *gc.C) {
@@ -366,7 +407,7 @@ func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
-	err = apiMachine.SetInstanceInfo("i-d", "fake", nil, nil, nil, nil)
+	err = apiMachine.SetInstanceInfo("i-d", "fake", nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	instances, err = apiMachine.DistributionGroup()
 	c.Assert(err, jc.ErrorIsNil)

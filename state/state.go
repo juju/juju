@@ -79,8 +79,11 @@ const (
 	upgradeInfoC        = "upgradeInfo"
 	rebootC             = "reboot"
 	blockDevicesC       = "blockdevices"
+	storageAttachmentsC = "storageattachments"
 	storageConstraintsC = "storageconstraints"
 	storageInstancesC   = "storageinstances"
+	volumesC            = "volumes"
+	volumeAttachmentsC  = "volumeattachments"
 
 	// leaseC is used to store lease tokens
 	leaseC = "lease"
