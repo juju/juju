@@ -87,7 +87,10 @@ func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 	mapping, volumes, volumeAttachments, err := ec2.GetBlockDeviceMappings(
 		"pv", &environs.StartInstanceParams{Volumes: []storage.VolumeParams{
 			{Tag: volume0, Size: 1234},
-			{Tag: volume1, Size: 4321},
+			{Tag: volume1,
+				Size:       4321,
+				Attributes: map[string]interface{}{"volume-type": "standard", "iops": 1234},
+			},
 		}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,6 +115,8 @@ func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 	}, {
 		VolumeSize: 5,
 		DeviceName: "/dev/sdf2",
+		VolumeType: "standard",
+		IOPS:       1234,
 	}})
 	c.Assert(volumes, gc.DeepEquals, []storage.Volume{
 		{Tag: volume0, Size: 2048},

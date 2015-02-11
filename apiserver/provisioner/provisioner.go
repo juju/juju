@@ -539,11 +539,19 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 			continue
 		}
 		// Not provisioned yet, so ask the cloud provisioner do it.
+		var providerType storage.ProviderType
+		var options map[string]interface{}
+		if stateVolumeParams.Pool != "" {
+			providerType, options, err = poolConfig(p.st, stateVolumeParams.Pool)
+			if err != nil {
+				return nil, errors.Errorf("cannot get options for pool %q", stateVolumeParams.Pool)
+			}
+		}
 		volumeParams = append(volumeParams, params.VolumeParams{
 			volumeTag.String(),
 			stateVolumeParams.Size,
-			"",  // TODO(axw) storage provider
-			nil, // TODO(axw) pool attributes
+			string(providerType),
+			options,
 			m.Tag().String(),
 		})
 	}

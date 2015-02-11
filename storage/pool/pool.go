@@ -62,7 +62,12 @@ func (p *pool) Type() storage.ProviderType {
 
 // Config is defined on Pool interface.
 func (p *pool) Config() map[string]interface{} {
-	return p.cfg.values()
+	attrs := p.cfg.values()
+	// Ensure returned attributes are stripped
+	// of non-provider values.
+	delete(attrs, Name)
+	delete(attrs, Type)
+	return attrs
 }
 
 // NewPoolManager returns a NewPoolManager implementation using the specified state.

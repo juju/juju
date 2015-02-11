@@ -74,14 +74,18 @@ func (s *providerRegistrySuite) TestRegisterEnvironProvidersMultipleCalls(c *gc.
 	c.Assert(storage.IsProviderSupported("ec2", ptypeBar), jc.IsTrue)
 }
 
-func (s *providerRegistrySuite) DefaultProviderForEnviron(c *gc.C) {
-	ptypeFoo := storage.ProviderType("foo")
-	ptypeBar := storage.ProviderType("bar")
-	storage.RegisterEnvironStorageProviders("ec2", ptypeFoo, ptypeBar)
-}
-
-func (s *providerRegistrySuite) NoDefaultProviderForEnviron(c *gc.C) {
-	ptypeFoo := storage.ProviderType("foo")
-	ptypeBar := storage.ProviderType("bar")
-	storage.RegisterEnvironStorageProviders("ec2", ptypeFoo, ptypeBar)
+func (s *providerRegistrySuite) TestDefaultPool(c *gc.C) {
+	storage.RegisterDefaultPool("ec2", storage.StorageKindBlock, "ebs")
+	storage.RegisterDefaultPool("ec2", storage.StorageKindFilesystem, "nfs")
+	storage.RegisterDefaultPool("local", storage.StorageKindFilesystem, "nfs")
+	pool, ok := storage.DefaultPool("ec2", storage.StorageKindBlock)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(pool, gc.Equals, "ebs")
+	pool, ok = storage.DefaultPool("ec2", storage.StorageKindFilesystem)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(pool, gc.Equals, "nfs")
+	pool, ok = storage.DefaultPool("local", storage.StorageKindBlock)
+	c.Assert(ok, jc.IsFalse)
+	pool, ok = storage.DefaultPool("maas", storage.StorageKindBlock)
+	c.Assert(ok, jc.IsFalse)
 }

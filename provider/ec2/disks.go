@@ -4,16 +4,18 @@
 package ec2
 
 import (
+	"fmt"
+	"strconv"
+
 	"github.com/juju/errors"
 	"gopkg.in/amz.v2/ec2"
 
 	"github.com/juju/juju/environs"
+	providerstorage "github.com/juju/juju/provider/ec2/storage"
 	"github.com/juju/juju/storage"
 )
 
 const (
-	ebsStorageSource = "ebs"
-
 	// minRootDiskSizeMiB is the minimum/default size (in mebibytes) for ec2 root disks.
 	minRootDiskSizeMiB uint64 = 8 * 1024
 
@@ -89,7 +91,18 @@ func getBlockDeviceMappings(
 		mapping := ec2.BlockDeviceMapping{
 			VolumeSize: int64(mibToGib(params.Size)),
 			DeviceName: requestDeviceName,
-			// TODO(axw) VolumeType, IOPS and DeleteOnTermination
+			// TODO(axw) DeleteOnTermination
+		}
+		// Translate user values for storage provider parameters.
+		options := providerstorage.TranslateUserEBSOptions(params.Attributes)
+		if v, ok := options[providerstorage.VolumeType]; ok && v != "" {
+			mapping.VolumeType = fmt.Sprintf("%v", v)
+		}
+		if v, ok := options[providerstorage.IOPS]; ok && v != "" {
+			mapping.IOPS, err = strconv.ParseInt(fmt.Sprintf("%v", v), 10, 64)
+			if err != nil {
+				return nil, nil, nil, errors.Annotatef(err, "invalid iops value %v, expected integer", v)
+			}
 		}
 		volume := storage.Volume{
 			Tag:  params.Tag,

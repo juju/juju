@@ -660,6 +660,7 @@ func (s *Service) unitStorageInstanceOps(unitName string) (ops []txn.Op, storage
 	}
 	meta := charm.Meta()
 	tag := names.NewUnitTag(unitName)
+	// TODO(wallyworld) - record constraints info in data model - size and pool name
 	ops, storageInstanceIds, err = createStorageInstanceOps(s.st, tag, meta, cons)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
