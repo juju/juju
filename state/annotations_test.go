@@ -46,7 +46,7 @@ func (s *AnnotationsSuite) createTestAnnotation(c *gc.C) string {
 	key := "testkey"
 	expected := "typo"
 	s.assertSetAnnotation(c, key, expected)
-	assertAnnotation(c, s.ConnSuite, s.testEntity, key, expected)
+	assertAnnotation(c, s.State, s.testEntity, key, expected)
 	return key
 }
 
@@ -60,8 +60,8 @@ func (s *AnnotationsSuite) assertSetAnnotation(c *gc.C, key, value string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func assertAnnotation(c *gc.C, s ConnSuite, entity state.GlobalEntity, key, expected string) {
-	value, err := s.State.Annotation(entity, key)
+func assertAnnotation(c *gc.C, st *state.State, entity state.GlobalEntity, key, expected string) {
+	value, err := st.Annotation(entity, key)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(value, gc.DeepEquals, expected)
 }
@@ -71,14 +71,14 @@ func (s *AnnotationsSuite) TestSetAnnotationsUpdate(c *gc.C) {
 	updated := "fixed"
 
 	s.assertSetAnnotation(c, key, updated)
-	assertAnnotation(c, s.ConnSuite, s.testEntity, key, updated)
+	assertAnnotation(c, s.State, s.testEntity, key, updated)
 }
 
 func (s *AnnotationsSuite) TestSetAnnotationsRemove(c *gc.C) {
 	key := s.createTestAnnotation(c)
 	updated := ""
 	s.assertSetAnnotation(c, key, updated)
-	assertAnnotation(c, s.ConnSuite, s.testEntity, key, updated)
+	assertAnnotation(c, s.State, s.testEntity, key, updated)
 
 	annts, err := s.State.Annotations(s.testEntity)
 	c.Assert(err, jc.ErrorIsNil)
@@ -126,11 +126,11 @@ func (s *AnnotationsSuite) TestSetAnnotationsConcurrently(c *gc.C) {
 
 	setAnnotations := func() {
 		s.assertSetAnnotation(c, key, first)
-		assertAnnotation(c, s.ConnSuite, s.testEntity, key, first)
+		assertAnnotation(c, s.State, s.testEntity, key, first)
 	}
 	defer state.SetBeforeHooks(c, s.State, setAnnotations).Check()
 	s.assertSetAnnotation(c, key, last)
-	assertAnnotation(c, s.ConnSuite, s.testEntity, key, last)
+	assertAnnotation(c, s.State, s.testEntity, key, last)
 }
 
 type AnnotationsEnvSuite struct {
@@ -153,9 +153,9 @@ func (s *AnnotationsEnvSuite) TestSetAnnotationsDestroyedEnvironment(c *gc.C) {
 	key := "key"
 	expected := "oops"
 	annts := map[string]string{key: expected}
-	err := s.State.SetAnnotations(env, annts)
+	err := st.SetAnnotations(env, annts)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAnnotation(c, s.ConnSuite, env, key, expected)
+	assertAnnotation(c, st, env, key, expected)
 
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -167,13 +167,8 @@ func (s *AnnotationsEnvSuite) TestSetAnnotationsDestroyedEnvironment(c *gc.C) {
 	expected = "fail"
 	annts[key] = expected
 	err = s.State.SetAnnotations(env, annts)
-
-	// TODO(anastasiamac 2015-02-06) This should behave as
-	// the TestSetAnnotationsDestroyedEntity for any environments
-	// except for base, potentially. However, at the moment,
-	// environments in multi-environment context cannot be destroyed.
-	c.Assert(err, jc.ErrorIsNil)
-	assertAnnotation(c, s.ConnSuite, env, key, expected)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*environment not found.*")
+	c.Assert(err, gc.ErrorMatches, ".*cannot update annotations.*")
 }
 
 func (s *AnnotationsEnvSuite) createTestEnv(c *gc.C) (*state.Environment, *state.State) {
