@@ -111,6 +111,8 @@ func insertAnnotationsOps(st *State, entity GlobalEntity, toInsert map[string]st
 	}}
 	switch tag.(type) {
 	case names.EnvironTag:
+		// TODO(anastasiamac 2015-02-06) This may only be applicable to base
+		// environment in multi-environment scenarios.
 		return ops, nil
 	}
 	// If the entity is not the environment, add a DocExists check on the
