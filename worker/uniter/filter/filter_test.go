@@ -192,15 +192,11 @@ func (s *FilterSuite) TestResolvedEvents(c *gc.C) {
 	// Change the unit's resolved to an interesting value; new event received.
 	err = s.unit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange := func(expect params.ResolvedMode) {
-		rm := resolvedC.AssertOneReceive().(params.ResolvedMode)
-		c.Assert(rm, gc.Equals, expect)
-	}
-	assertChange(params.ResolvedRetryHooks)
+	resolvedC.AssertOneValue(params.ResolvedRetryHooks)
 
 	// Ask for the event again, and check it's resent.
 	f.WantResolvedEvent()
-	assertChange(params.ResolvedRetryHooks)
+	resolvedC.AssertOneValue(params.ResolvedRetryHooks)
 
 	// Clear the resolved status *via the filter*; check not resent...
 	err = f.ClearResolved()
@@ -218,7 +214,7 @@ func (s *FilterSuite) TestResolvedEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange(params.ResolvedNoHooks)
+	resolvedC.AssertOneValue(params.ResolvedNoHooks)
 }
 
 func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
@@ -257,11 +253,11 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 	newCharm := s.AddTestingCharm(c, "upgrade2")
 	err = svc.SetCharm(newCharm, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(upgradeC.AssertOneReceive(), gc.DeepEquals, newCharm.URL())
+	upgradeC.AssertOneValue(newCharm.URL())
 
 	// Request a new upgrade *unforced* upgrade event, we should see one.
 	f.WantUpgradeEvent(false)
-	c.Assert(upgradeC.AssertOneReceive(), gc.DeepEquals, newCharm.URL())
+	upgradeC.AssertOneValue(newCharm.URL())
 
 	// Request only *forced* upgrade events; nothing.
 	f.WantUpgradeEvent(true)
@@ -274,7 +270,7 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 
 	// ...but a *forced* change to a different URL should generate an event.
 	err = svc.SetCharm(newCharm, true)
-	c.Assert(upgradeC.AssertOneReceive(), gc.DeepEquals, newCharm.URL())
+	upgradeC.AssertOneValue(newCharm.URL())
 }
 
 func (s *FilterSuite) TestConfigEvents(c *gc.C) {
@@ -561,30 +557,13 @@ func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
-	assertNoChange := func() {
-		s.BackingState.StartSync()
-		select {
-		case ids := <-f.RelationsEvents():
-			c.Fatalf("unexpected relations event %#v", ids)
-		case <-time.After(coretesting.ShortWait):
-		}
-	}
-	assertNoChange()
+	relationsC := s.contentAsserterC(c, f.RelationsEvents())
+	relationsC.AssertNoReceive()
 
 	// Add a couple of relations; check the event.
 	rel0 := s.addRelation(c)
 	rel1 := s.addRelation(c)
-	assertChange := func(expect []int) {
-		s.BackingState.StartSync()
-		select {
-		case got := <-f.RelationsEvents():
-			c.Assert(got, gc.DeepEquals, expect)
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out")
-		}
-		assertNoChange()
-	}
-	assertChange([]int{0, 1})
+	c.Assert(relationsC.AssertOneReceive(), gc.DeepEquals, []int{0, 1})
 
 	// Add another relation, and change another's Life (by entering scope before
 	// Destroy, thereby setting the relation to Dying); check event.
@@ -595,14 +574,14 @@ func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel0.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange([]int{0, 2})
+	c.Assert(relationsC.AssertOneReceive(), gc.DeepEquals, []int{0, 2})
 
 	// Remove a relation completely; check no event, because the relation
 	// could not have been removed if the unit was in scope, and therefore
 	// the uniter never needs to hear about it.
 	err = rel1.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertNoChange()
+	relationsC.AssertNoReceive()
 	err = f.Stop()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -610,12 +589,13 @@ func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
 	f, err = filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
-	assertChange([]int{0, 2})
+	relationsC = s.contentAsserterC(c, f.RelationsEvents())
+	c.Assert(relationsC.AssertOneReceive(), gc.DeepEquals, []int{0, 2})
 
 	// Check setting the charm URL generates all new relation events.
 	err = f.SetCharm(s.wpcharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange([]int{0, 2})
+	c.Assert(relationsC.AssertOneReceive(), gc.DeepEquals, []int{0, 2})
 }
 
 func (s *FilterSuite) addRelation(c *gc.C) *state.Relation {
