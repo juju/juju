@@ -34,6 +34,7 @@ var (
 	_ backingEntityDoc = (*backingConstraints)(nil)
 	_ backingEntityDoc = (*backingSettings)(nil)
 	_ backingEntityDoc = (*backingAction)(nil)
+	_ backingEntityDoc = (*backingBlock)(nil)
 )
 
 var dottedConfig = `
@@ -1002,6 +1003,73 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				expectContents: []multiwatcher.EntityInfo{&started},
 			}
 		},
+		// Block changes
+		func(c *gc.C, st *State) testCase {
+			return testCase{
+				about: "no blocks in state, no blocks in store -> do nothing",
+				change: watcher.Change{
+					C:  blocksC,
+					Id: st.docID(DestroyBlock.String()),
+				}}
+		}, func(c *gc.C, st *State) testCase {
+			blockId := st.docID(DestroyBlock.String())
+			blockType := DestroyBlock.ToParams()
+			blockMsg := "woot"
+			return testCase{
+				about: "no change if block is not in backing",
+				add: []multiwatcher.EntityInfo{&multiwatcher.BlockInfo{
+					Id:      blockId,
+					Type:    blockType,
+					Message: blockMsg,
+					EnvUUID: st.EnvironUUID(),
+				}},
+				change: watcher.Change{
+					C:  blocksC,
+					Id: blockId,
+				},
+				expectContents: []multiwatcher.EntityInfo{&multiwatcher.BlockInfo{
+					Id:      blockId,
+					Type:    blockType,
+					Message: blockMsg,
+					EnvUUID: st.EnvironUUID(),
+				}},
+			}
+		}, func(c *gc.C, st *State) testCase {
+			err := st.SwitchBlockOn(DestroyBlock, "multiwatcher testing")
+			c.Assert(err, jc.ErrorIsNil)
+			b, err := st.HasBlock(DestroyBlock)
+			c.Assert(err, jc.ErrorIsNil)
+			blockId := st.docID(DestroyBlock.String())
+
+			return testCase{
+				about: "block is added if it's in backing but not in Store",
+				change: watcher.Change{
+					C:  blocksC,
+					Id: blockId,
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.BlockInfo{
+						Id:      blockId,
+						Type:    b.Type().ToParams(),
+						Message: b.Message(),
+						EnvUUID: b.Environment(),
+					}}}
+		}, func(c *gc.C, st *State) testCase {
+			err := st.SwitchBlockOn(DestroyBlock, "multiwatcher testing")
+			c.Assert(err, jc.ErrorIsNil)
+			_, err = st.HasBlock(DestroyBlock)
+			c.Assert(err, jc.ErrorIsNil)
+			err = st.SwitchBlockOff(DestroyBlock)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return testCase{
+				about: "block is removed if it's in backing and in multiwatcher.Store",
+				change: watcher.Change{
+					C:  blocksC,
+					Id: st.docID(DestroyBlock.String()),
+				},
+			}
+		},
 	} {
 		test := testFunc(c, s.state)
 
@@ -1237,6 +1305,16 @@ func (s *storeManagerStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 
 				err = svc.UpdateConfigSettings(charm.Settings{"blog-title": "boring"})
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "blocks",
+			triggerEvent: func(st *State) {
+				m, err := st.HasBlock(DestroyBlock)
+				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(m, gc.IsNil)
+
+				err = st.SwitchBlockOn(DestroyBlock, "test block")
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		},

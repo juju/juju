@@ -45,6 +45,7 @@ var (
 	PickAddress                   = &pickAddress
 	CreateMachineBlockDeviceOps   = createMachineBlockDeviceOps
 	SetProvisionedBlockDeviceInfo = setProvisionedBlockDeviceInfo
+	GetEnvironmentBlocks          = getEnvironmentBlocks
 )
 
 type (

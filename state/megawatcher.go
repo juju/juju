@@ -324,6 +324,30 @@ func (a *backingAnnotation) mongoId() interface{} {
 	return a.GlobalKey
 }
 
+type backingBlock blockDoc
+
+func (a *backingBlock) updated(st *State, store *multiwatcherStore, id interface{}) error {
+	info := &multiwatcher.BlockInfo{
+		Id:      a.DocID,
+		EnvUUID: a.EnvUUID,
+		Type:    a.Type.ToParams(),
+		Message: a.Message,
+	}
+	store.Update(info)
+	return nil
+}
+
+func (a *backingBlock) removed(st *State, store *multiwatcherStore, id interface{}) {
+	store.Remove(multiwatcher.EntityId{
+		Kind: "block",
+		Id:   st.localID(id.(string)),
+	})
+}
+
+func (a *backingBlock) mongoId() interface{} {
+	return a.DocID
+}
+
 type backingStatus statusDoc
 
 func (s *backingStatus) updated(st *State, store *multiwatcherStore, id interface{}) error {
@@ -532,6 +556,9 @@ func newAllWatcherStateBacking(st *State) Backing {
 	}, {
 		Collection: st.db.C(annotationsC),
 		infoType:   reflect.TypeOf(backingAnnotation{}),
+	}, {
+		Collection: st.db.C(blocksC),
+		infoType:   reflect.TypeOf(backingBlock{}),
 	}, {
 		Collection: st.db.C(statusesC),
 		infoType:   reflect.TypeOf(backingStatus{}),
