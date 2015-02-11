@@ -269,9 +269,9 @@ func AnyJobNeedsState(jobs ...MachineJob) bool {
 // in this environment that are watched.
 type BlockInfo struct {
 	Id      string    `bson:"_id"`
-	EnvUUID string    `bson:"env-uuid"`
 	Type    BlockType `bson:"type"`
 	Message string    `bson:"message,omitempty"`
+	Tag     string    `bson:"entity-tag"`
 }
 
 // EntityId returns block id.

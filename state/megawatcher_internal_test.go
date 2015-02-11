@@ -1032,10 +1032,10 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				about: "no blocks in state, no blocks in store -> do nothing",
 				change: watcher.Change{
 					C:  blocksC,
-					Id: st.docID(DestroyBlock.String()),
+					Id: "1",
 				}}
 		}, func(c *gc.C, st *State) testCase {
-			blockId := st.docID(DestroyBlock.String())
+			blockId := st.docID("0")
 			blockType := DestroyBlock.ToParams()
 			blockMsg := "woot"
 			return testCase{
@@ -1044,17 +1044,17 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 					Id:      blockId,
 					Type:    blockType,
 					Message: blockMsg,
-					EnvUUID: st.EnvironUUID(),
+					Tag:     st.EnvironTag().String(),
 				}},
 				change: watcher.Change{
 					C:  blocksC,
-					Id: blockId,
+					Id: st.localID(blockId),
 				},
 				expectContents: []multiwatcher.EntityInfo{&multiwatcher.BlockInfo{
 					Id:      blockId,
 					Type:    blockType,
 					Message: blockMsg,
-					EnvUUID: st.EnvironUUID(),
+					Tag:     st.EnvironTag().String(),
 				}},
 			}
 		}, func(c *gc.C, st *State) testCase {
@@ -1062,7 +1062,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			b, err := st.HasBlock(DestroyBlock)
 			c.Assert(err, jc.ErrorIsNil)
-			blockId := st.docID(DestroyBlock.String())
+			blockId := b.Id()
 
 			return testCase{
 				about: "block is added if it's in backing but not in Store",
@@ -1072,15 +1072,15 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.BlockInfo{
-						Id:      blockId,
+						Id:      st.localID(blockId),
 						Type:    b.Type().ToParams(),
 						Message: b.Message(),
-						EnvUUID: b.Environment(),
+						Tag:     st.EnvironTag().String(),
 					}}}
 		}, func(c *gc.C, st *State) testCase {
 			err := st.SwitchBlockOn(DestroyBlock, "multiwatcher testing")
 			c.Assert(err, jc.ErrorIsNil)
-			_, err = st.HasBlock(DestroyBlock)
+			b, err := st.HasBlock(DestroyBlock)
 			c.Assert(err, jc.ErrorIsNil)
 			err = st.SwitchBlockOff(DestroyBlock)
 			c.Assert(err, jc.ErrorIsNil)
@@ -1089,7 +1089,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				about: "block is removed if it's in backing and in multiwatcher.Store",
 				change: watcher.Change{
 					C:  blocksC,
-					Id: st.docID(DestroyBlock.String()),
+					Id: b.Id(),
 				},
 			}
 		},

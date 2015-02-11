@@ -42,6 +42,9 @@ func assertEnvHasBlock(c *gc.C, st *state.State, t state.BlockType, msg string) 
 	c.Assert(dBlock, gc.NotNil)
 	c.Assert(dBlock.Type(), gc.DeepEquals, t)
 	c.Assert(dBlock.Environment(), gc.DeepEquals, st.EnvironUUID())
+	tag, err := dBlock.EntityTag()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tag, gc.DeepEquals, st.EnvironTag())
 	c.Assert(dBlock.Message(), gc.DeepEquals, msg)
 }
 

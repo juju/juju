@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -17,8 +18,14 @@ import (
 // Customers and stakeholders want to be able to prevent accidental damage to their Juju deployments.
 // To prevent running some operations, we want to have blocks that can be switched on/off.
 type Block interface {
+	// Id returns this block's id.
+	Id() string
+
 	// Environment returns environment UUID where this block is applied.
 	Environment() string
+
+	// EntityTag returns tag for entity that is being blocked
+	EntityTag() (names.Tag, error)
 
 	// Type returns block type
 	Type() BlockType
@@ -77,10 +84,16 @@ type block struct {
 
 // blockDoc records information about an environment block.
 type blockDoc struct {
-	DocID   string    `bson:"_id"`
-	EnvUUID string    `bson:"env-uuid"`
-	Type    BlockType `bson:"type"`
-	Message string    `bson:"message,omitempty"`
+	DocID     string    `bson:"_id"`
+	EnvUUID   string    `bson:"env-uuid"`
+	EntityTag string    `bson:"entity-tag"`
+	Type      BlockType `bson:"type"`
+	Message   string    `bson:"message,omitempty"`
+}
+
+// Implementation for Block.Id().
+func (b *block) Id() string {
+	return b.doc.DocID
 }
 
 // Implementation for Block.Environment().
@@ -88,14 +101,18 @@ func (b *block) Environment() string {
 	return b.doc.EnvUUID
 }
 
-// DocId returns block id.
-func (b *block) DocId() string {
-	return b.doc.DocID
-}
-
 // Implementation for Block.Message().
 func (b *block) Message() string {
 	return b.doc.Message
+}
+
+// Implementation for Block.EntityTag().
+func (b *block) EntityTag() (names.Tag, error) {
+	tag, err := names.ParseTag(b.doc.EntityTag)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting block information")
+	}
+	return tag, nil
 }
 
 // Implementation for Block.Type().
@@ -173,13 +190,26 @@ func setEnvironmentBlock(st *State, t BlockType, msg string) error {
 	return st.run(buildTxn)
 }
 
+// newBlockId returns a sequential block id for this environment.
+func newBlockId(st *State) (string, error) {
+	seq, err := st.sequence("block")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return fmt.Sprint(seq), nil
+}
+
 func createEnvironmentBlockOps(st *State, t BlockType, msg string) ([]txn.Op, error) {
-	envUUID := st.EnvironUUID()
+	id, err := newBlockId(st)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting new block id")
+	}
 	newDoc := blockDoc{
-		EnvUUID: envUUID,
-		DocID:   st.docID(t.String()),
-		Type:    t,
-		Message: msg,
+		DocID:     st.docID(id),
+		EnvUUID:   st.EnvironUUID(),
+		EntityTag: st.EnvironTag().String(),
+		Type:      t,
+		Message:   msg,
 	}
 	insertOp := txn.Op{
 		C:      blocksC,
