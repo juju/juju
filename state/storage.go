@@ -449,31 +449,6 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 				charmMeta.Name, name,
 			)
 		}
-		if charmStorage.CountMin < 0 {
-			return errors.Errorf(
-				"charm %q store %q: min count %v must be greater than 0",
-				charmMeta.Name, name,
-				charmStorage.CountMin,
-			)
-		}
-		if charmStorage.CountMin == 0 {
-			charmStorage.CountMin = 1
-		}
-		kind := storage.StorageKindUnknown
-		switch charmStorage.Type {
-		case charm.StorageBlock:
-			kind = storage.StorageKindBlock
-		case charm.StorageFilesystem:
-			kind = storage.StorageKindFilesystem
-		}
-		if poolName, err := validateStoragePool(st, cons.Pool, kind); err != nil {
-			if err == ErrNoDefaultStoragePool {
-				err = errors.Maskf(err, "no storage pool specified and no default available for %q storage", name)
-			}
-			return err
-		} else {
-			cons.Pool = poolName
-		}
 		if cons.Count < uint64(charmStorage.CountMin) {
 			return errors.Errorf(
 				"charm %q store %q: %d instances required, %d specified",
@@ -493,13 +468,28 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 			// validating, the latter of which should be non-modifying.
 			cons.Size = 1024
 		}
+		kind := storage.StorageKindUnknown
+		switch charmStorage.Type {
+		case charm.StorageBlock:
+			kind = storage.StorageKindBlock
+		case charm.StorageFilesystem:
+			kind = storage.StorageKindFilesystem
+		}
+		if poolName, err := validateStoragePool(st, cons.Pool, kind); err != nil {
+			if err == ErrNoDefaultStoragePool {
+				err = errors.Maskf(err, "no storage pool specified and no default available for %q storage", name)
+			}
+			return err
+		} else {
+			cons.Pool = poolName
+		}
 		// Replace in case pool or size were updated.
 		allCons[name] = cons
 	}
 	// Ensure all stores have constraints specified. Defaults should have
 	// been set by this point, if the user didn't specify constraints.
-	for name := range charmMeta.Storage {
-		if _, ok := allCons[name]; !ok {
+	for name, charmStorage := range charmMeta.Storage {
+		if _, ok := allCons[name]; !ok && charmStorage.CountMin > 0 {
 			return errors.Errorf("no constraints specified for store %q", name)
 		}
 	}

@@ -743,7 +743,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 		Placement:         "valid",
 		RequestedNetworks: []string{"net1", "net2"},
 		Volumes: []state.MachineVolumeParams{
-			{Volume: state.VolumeParams{Size: 1000}},
+			{Volume: state.VolumeParams{Size: 1000, Pool: "loop-pool"}},
 			{Volume: state.VolumeParams{Size: 2000, Pool: "loop-pool"}},
 		},
 	}
@@ -777,6 +777,8 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 					VolumeTag:  "disk-0",
 					Size:       1000,
 					MachineTag: placementMachine.Tag().String(),
+					Provider:   "loop",
+					Attributes: map[string]interface{}{"foo": "bar"},
 				}, {
 					VolumeTag:  "disk-1",
 					Size:       2000,

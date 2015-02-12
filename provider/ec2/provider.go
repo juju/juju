@@ -15,16 +15,9 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju/arch"
-
-	// Ensure storage setup is done.
-	_ "github.com/juju/juju/provider/ec2/storage"
 )
 
 var logger = loggo.GetLogger("juju.provider.ec2")
-
-func init() {
-	environs.RegisterProvider("ec2", environProvider{})
-}
 
 type environProvider struct{}
 

@@ -10,7 +10,6 @@ import (
 	"gopkg.in/amz.v2/ec2"
 
 	"github.com/juju/juju/environs"
-	providerstorage "github.com/juju/juju/provider/ec2/storage"
 	"github.com/juju/juju/storage"
 )
 
@@ -94,11 +93,11 @@ func getBlockDeviceMappings(
 		}
 		// Translate user values for storage provider parameters.
 		// TODO(wallyworld) - remove type assertions when juju/schema is used
-		options := providerstorage.TranslateUserEBSOptions(params.Attributes)
-		if v, ok := options[providerstorage.VolumeType]; ok && v != "" {
+		options := TranslateUserEBSOptions(params.Attributes)
+		if v, ok := options[EBS_VolumeType]; ok && v != "" {
 			mapping.VolumeType = v.(string)
 		}
-		if v, ok := options[providerstorage.IOPS]; ok && v != "" {
+		if v, ok := options[EBS_IOPS]; ok && v != "" {
 			mapping.IOPS, err = strconv.ParseInt(v.(string), 10, 64)
 			if err != nil {
 				return nil, nil, nil, errors.Annotatef(err, "invalid iops value %v, expected integer", v)

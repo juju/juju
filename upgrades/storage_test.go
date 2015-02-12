@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
-	ec2storage "github.com/juju/juju/provider/ec2/storage"
+	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/pool"
 	"github.com/juju/juju/upgrades"
@@ -34,6 +34,6 @@ func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *gc.C) {
 	for _, pName := range []string{"ebs", "ebs-ssd"} {
 		p, err := pm.Get(pName)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(p.Type(), gc.Equals, ec2storage.EBSProviderType)
+		c.Assert(p.Type(), gc.Equals, ec2.EBS_ProviderType)
 	}
 }

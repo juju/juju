@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package storage
+package ec2
 
 import (
 	"github.com/juju/errors"
@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	EBSProviderType = storage.ProviderType("ebs")
+	EBS_ProviderType = storage.ProviderType("ebs")
 
 	// Config attributes
 	// TODO(wallyworld) - use juju/schema for defining attributes
@@ -22,22 +22,22 @@ const (
 	//   "gp2" for General Purpose (SSD) volumes
 	//   "io1" for Provisioned IOPS (SSD) volumes,
 	//   "standard" for Magnetic volumes.
-	VolumeType = "volume-type" // top level directory where loop devices are created.
+	EBS_VolumeType = "volume-type" // top level directory where loop devices are created.
 
 	// The number of I/O operations per second (IOPS) to provision for the volume.
 	// Only valid for Provisioned IOPS (SSD) volumes.
-	IOPS = "iops" // optional subdirectory for loop devices.
+	EBS_IOPS = "iops" // optional subdirectory for loop devices.
 
 	// Specifies whether the volume should be encrypted.
-	Encrypted = "encrypted"
+	EBS_Encrypted = "encrypted"
 )
 
 func init() {
 	defaultPools := []pool.PoolInfo{
 		// TODO(wallyworld) - remove "ebs" pool which has no params when we support
 		// specifying provider type for pool name
-		{"ebs", EBSProviderType, map[string]interface{}{}},
-		{"ebs-ssd", EBSProviderType, map[string]interface{}{"volume-type": "gp2"}},
+		{"ebs", EBS_ProviderType, map[string]interface{}{}},
+		{"ebs-ssd", EBS_ProviderType, map[string]interface{}{"volume-type": "gp2"}},
 	}
 	pool.RegisterDefaultStoragePools(defaultPools)
 }
@@ -48,9 +48,9 @@ type ebsProvider struct{}
 var _ storage.Provider = (*ebsProvider)(nil)
 
 var validConfigOptions = set.NewStrings(
-	VolumeType,
-	IOPS,
-	Encrypted,
+	EBS_VolumeType,
+	EBS_IOPS,
+	EBS_Encrypted,
 )
 
 // ValidateConfig is defined on the Provider interface.
@@ -67,7 +67,7 @@ func (e *ebsProvider) ValidateConfig(providerConfig *storage.Config) error {
 func TranslateUserEBSOptions(userOptions map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for k, v := range userOptions {
-		if k == VolumeType {
+		if k == EBS_VolumeType {
 			switch v {
 			case "magnetic":
 				v = "standard"
