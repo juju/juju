@@ -90,7 +90,10 @@ func globalKey(name string) string {
 // Create is defined on PoolManager interface.
 func (pm *poolManager) Create(name string, providerType storage.ProviderType, attrs map[string]interface{}) (Pool, error) {
 	// Take a copy of the config and record name, type.
-	poolAttrs := attrs
+	poolAttrs := make(map[string]interface{}, len(attrs))
+	for k, v := range attrs {
+		poolAttrs[k] = v
+	}
 	poolAttrs[Name] = name
 	poolAttrs[Type] = string(providerType)
 
@@ -118,7 +121,11 @@ func (pm *poolManager) Delete(name string) error {
 func (pm *poolManager) Get(name string) (Pool, error) {
 	settings, err := pm.settings.ReadSettings(globalKey(name))
 	if err != nil {
-		return nil, errors.Annotatef(err, "reading pool %q", name)
+		if errors.IsNotFound(err) {
+			return nil, errors.NotFoundf("pool %q", name)
+		} else {
+			return nil, errors.Annotatef(err, "reading pool %q", name)
+		}
 	}
 	return &pool{&config{settings}}, nil
 }

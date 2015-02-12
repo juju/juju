@@ -279,7 +279,7 @@ func (st *State) addVolumeOp(params VolumeParams) (txn.Op, names.DiskTag, error)
 }
 
 func (st *State) validateVolumeParams(params VolumeParams) error {
-	if poolName, err := validateStoragePool(st, params.Pool, storage.StorageKindBlock, "disk"); err != nil {
+	if poolName, err := validateStoragePool(st, params.Pool, storage.StorageKindBlock); err != nil {
 		return err
 	} else {
 		params.Pool = poolName

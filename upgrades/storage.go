@@ -7,6 +7,10 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/pool"
+
+	// Import the providers so they can register their
+	// default pools.
+	_ "github.com/juju/juju/provider/all"
 )
 
 func addDefaultStoragePools(st *state.State, agentConfig agent.Config) error {

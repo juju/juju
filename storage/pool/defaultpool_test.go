@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
-	ec2storage "github.com/juju/juju/provider/ec2/storage"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/pool"
 )
 
@@ -29,16 +29,24 @@ func (mock *mockAgentConfig) DataDir() string {
 	return mock.dataDir
 }
 
-func (s *defaultStoragePoolsSuite) TestDefaultEBSStoragePools(c *gc.C) {
+func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
+	defaultPools := []pool.PoolInfo{
+		{"pool1", storage.ProviderType("foo"), map[string]interface{}{"1": "2"}},
+		{"pool2", storage.ProviderType("bar"), map[string]interface{}{"3": "4"}},
+	}
+	pool.RegisterDefaultStoragePools(defaultPools)
+
 	settings := state.NewStateSettings(s.State)
 	err := pool.AddDefaultStoragePools(settings, &mockAgentConfig{dataDir: s.DataDir()})
 	c.Assert(err, jc.ErrorIsNil)
 	pm := pool.NewPoolManager(settings)
-	for _, pName := range []string{"ebs", "ebs-ssd"} {
-		p, err := pm.Get(pName)
+	for _, info := range defaultPools {
+		p, err := pm.Get(info.Name)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(p.Type(), gc.Equals, ec2storage.EBSProviderType)
+		c.Assert(p.Type(), gc.Equals, info.Type)
+		c.Assert(p.Config(), gc.DeepEquals, info.Config)
 	}
 }

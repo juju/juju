@@ -449,6 +449,16 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 				charmMeta.Name, name,
 			)
 		}
+		if charmStorage.CountMin < 0 {
+			return errors.Errorf(
+				"charm %q store %q: min count %v must be greater than 0",
+				charmMeta.Name, name,
+				charmStorage.CountMin,
+			)
+		}
+		if charmStorage.CountMin == 0 {
+			charmStorage.CountMin = 1
+		}
 		kind := storage.StorageKindUnknown
 		switch charmStorage.Type {
 		case charm.StorageBlock:
@@ -456,7 +466,10 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 		case charm.StorageFilesystem:
 			kind = storage.StorageKindFilesystem
 		}
-		if poolName, err := validateStoragePool(st, cons.Pool, kind, name); err != nil {
+		if poolName, err := validateStoragePool(st, cons.Pool, kind); err != nil {
+			if err == ErrNoDefaultStoragePool {
+				err = errors.Maskf(err, "no storage pool specified and no default available for %q storage", name)
+			}
 			return err
 		} else {
 			cons.Pool = poolName
@@ -493,7 +506,11 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 	return nil
 }
 
-func validateStoragePool(st *State, poolName string, kind storage.StorageKind, storageName string) (string, error) {
+// ErrNoDefaultStoragePool is returned when a storage pool is required but none
+// is specified nor available as a default.
+var ErrNoDefaultStoragePool = fmt.Errorf("no storage pool specifed and no default available")
+
+func validateStoragePool(st *State, poolName string, kind storage.StorageKind) (string, error) {
 	conf, err := st.EnvironConfig()
 	if err != nil {
 		return "", errors.Trace(err)
@@ -506,10 +523,7 @@ func validateStoragePool(st *State, poolName string, kind storage.StorageKind, s
 			logger.Infof("no storage pool specified, using default pool %q", defaultPool)
 			poolName = defaultPool
 		} else {
-			return "", errors.Errorf(
-				"no storage pool specifed and no default available for %q storage",
-				storageName,
-			)
+			return "", ErrNoDefaultStoragePool
 		}
 	}
 	// Ensure the pool type is supported by the environment.

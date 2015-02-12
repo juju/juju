@@ -44,7 +44,9 @@ func init() {
 	storage.RegisterEnvironStorageProviders(
 		provider.Local,
 		// TODO(wallyworld) - common provider type registration
-		storageprovider.LoopProviderType,
+		storageprovider.HostLoopProviderType,
+		// TODO(wallyworld) - sort out policy for allowing loop provider
+		//storageprovider.LoopProviderType,
 	)
 	// TODO(wallyworld) - add when available
 	//	storage.RegisterDefaultPool(

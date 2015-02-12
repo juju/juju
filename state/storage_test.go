@@ -73,14 +73,14 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraints(c *gc.C) {
 		"multi1to10": makeStorageCons("", 1024, 1),
 		"multi2up":   makeStorageCons("", 1024, 1),
 	}
-	assertErr(storageCons, `cannot add service "storage-block2": no storage pool specifed and no default available .*`)
+	assertErr(storageCons, `cannot add service "storage-block2": no storage pool specified and no default available .*`)
 	storage.RegisterDefaultPool("someprovider", storage.StorageKindBlock, "block")
 	assertErr(storageCons, `cannot add service "storage-block2": charm "storage-block2" store "multi2up": 2 instances required, 1 specified`)
 	storageCons["multi2up"] = makeStorageCons("block", 1024, 2)
 	storageCons["multi1to10"] = makeStorageCons("", 1024, 11)
 	assertErr(storageCons, `cannot add service "storage-block2": charm "storage-block2" store "multi1to10": at most 10 instances supported, 11 specified`)
 	storageCons["multi1to10"] = makeStorageCons("ebs", 1024, 10)
-	assertErr(storageCons, `cannot add service "storage-block2": reading pool "ebs": settings not found`)
+	assertErr(storageCons, `cannot add service "storage-block2": pool "ebs" not found`)
 	storageCons["multi1to10"] = makeStorageCons("", 1024, 10)
 	_, err := addService(storageCons)
 	c.Assert(err, jc.ErrorIsNil)

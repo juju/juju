@@ -1428,8 +1428,7 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceDeployWithStorage(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.setupStoragePool(c)
 	s.testClientServiceDeployWithStorage(c, true)
 }
 
@@ -1444,6 +1443,7 @@ func (s *clientSuite) testClientServiceDeployWithStorage(c *gc.C, expectConstrai
 		"data": {
 			Count: 1,
 			Size:  1024,
+			Pool:  "loop-pool",
 		},
 	}
 
@@ -1462,6 +1462,7 @@ func (s *clientSuite) testClientServiceDeployWithStorage(c *gc.C, expectConstrai
 			"data": {
 				Count: 1,
 				Size:  1024,
+				Pool:  "loop-pool",
 			},
 		})
 	} else {
@@ -1470,8 +1471,7 @@ func (s *clientSuite) testClientServiceDeployWithStorage(c *gc.C, expectConstrai
 }
 
 func (s *clientSuite) TestClientServiceDeployWithInvalidStoragePool(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.setupStoragePool(c)
 	s.makeMockCharmStore()
 	curl, _ := addCharm(c, "storage-block")
 	storageConstraints := map[string]storage.Constraints{
@@ -1487,20 +1487,21 @@ func (s *clientSuite) TestClientServiceDeployWithInvalidStoragePool(c *gc.C) {
 		curl.String(), "service", 1, "", cons, "", nil,
 		storageConstraints,
 	)
-	c.Assert(err, gc.ErrorMatches, `.*reading pool "foo": settings not found`)
+	c.Assert(err, gc.ErrorMatches, `.* pool "foo" not found`)
 }
 
 func (s *clientSuite) TestClientServiceDeployWithUnsupportedStoragePool(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
-	_, err := pm.Create("foo", provider.LoopProviderType, map[string]interface{}{})
+	_, err := pm.Create("host-loop-pool", provider.HostLoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
+
 	s.makeMockCharmStore()
 	curl, _ := addCharm(c, "storage-block")
 	storageConstraints := map[string]storage.Constraints{
 		"data": storage.Constraints{
-			Pool:  "foo",
+			Pool:  "host-loop-pool",
 			Count: 1,
 			Size:  1024,
 		},
@@ -1513,7 +1514,7 @@ func (s *clientSuite) TestClientServiceDeployWithUnsupportedStoragePool(c *gc.C)
 	)
 	c.Assert(
 		err, gc.ErrorMatches,
-		`.*pool "foo" uses storage provider "loop" which is not supported for environments of type "dummy"`)
+		`.*pool "host-loop-pool" uses storage provider "hostloop" which is not supported for environments of type "dummy"`)
 }
 
 func (s *clientSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
@@ -2928,12 +2929,20 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	c.Assert(m.Placement(), gc.DeepEquals, apiParams[3].Placement.Directive)
 }
 
-func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
+func (s *clientSuite) setupStoragePool(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
-	_, err := pm.Create("loop", provider.LoopProviderType, map[string]interface{}{})
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	storage.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
+	s.AddCleanup(func(_ *gc.C) {
+		storage.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
+	})
+}
 
+func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
+	s.setupStoragePool(c)
 	apiParams := make([]params.AddMachineParams, 5)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
@@ -2942,14 +2951,14 @@ func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
 	}
 	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
 	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "three"}}
-	apiParams[2].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "loop"}}
+	apiParams[2].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "loop-pool"}}
 	apiParams[3].Disks = []storage.Constraints{{Size: 0, Count: 0}}
 	apiParams[4].Disks = []storage.Constraints{{Size: 0, Count: 1}}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 5)
 	c.Assert(machines[0].Machine, gc.Equals, "0")
-	c.Assert(machines[1].Error, gc.ErrorMatches, "cannot add a new machine: validating volume params: invalid storage pool: .*")
+	c.Assert(machines[1].Error, gc.ErrorMatches, `cannot add a new machine: validating volume params: pool "three" not found`)
 	c.Assert(machines[2].Machine, gc.Equals, "2")
 	c.Assert(machines[3].Error, gc.ErrorMatches, "invalid volume params: count not specified")
 	c.Assert(machines[4].Error, gc.ErrorMatches, "cannot add a new machine: validating volume params: invalid size 0")
@@ -2960,7 +2969,7 @@ func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
 	s.assertVolumeParams(c, machines[0].Machine, expectParams)
 
 	expectParams = []state.VolumeParams{
-		{Size: 1, Pool: "loop"}, {Size: 1, Pool: "loop"},
+		{Size: 1, Pool: "loop-pool"}, {Size: 1, Pool: "loop-pool"},
 	}
 	s.assertVolumeParams(c, machines[2].Machine, expectParams)
 }

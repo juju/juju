@@ -89,7 +89,7 @@ func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 			{Tag: volume0, Size: 1234},
 			{Tag: volume1,
 				Size:       4321,
-				Attributes: map[string]interface{}{"volume-type": "standard", "iops": 1234},
+				Attributes: map[string]interface{}{"volume-type": "standard", "iops": "1234"},
 			},
 		}},
 	)

@@ -39,6 +39,10 @@ import (
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
+
+	// Import the providers so they can register their
+	// default pools.
+	_ "github.com/juju/juju/provider/all"
 )
 
 var (

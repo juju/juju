@@ -4,7 +4,6 @@
 package ec2
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/juju/errors"
@@ -94,12 +93,13 @@ func getBlockDeviceMappings(
 			// TODO(axw) DeleteOnTermination
 		}
 		// Translate user values for storage provider parameters.
+		// TODO(wallyworld) - remove type assertions when juju/schema is used
 		options := providerstorage.TranslateUserEBSOptions(params.Attributes)
 		if v, ok := options[providerstorage.VolumeType]; ok && v != "" {
-			mapping.VolumeType = fmt.Sprintf("%v", v)
+			mapping.VolumeType = v.(string)
 		}
 		if v, ok := options[providerstorage.IOPS]; ok && v != "" {
-			mapping.IOPS, err = strconv.ParseInt(fmt.Sprintf("%v", v), 10, 64)
+			mapping.IOPS, err = strconv.ParseInt(v.(string), 10, 64)
 			if err != nil {
 				return nil, nil, nil, errors.Annotatef(err, "invalid iops value %v, expected integer", v)
 			}

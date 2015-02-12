@@ -9,12 +9,14 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/pool"
 )
 
 const (
 	EBSProviderType = storage.ProviderType("ebs")
 
 	// Config attributes
+	// TODO(wallyworld) - use juju/schema for defining attributes
 
 	// The volume type (default standard):
 	//   "gp2" for General Purpose (SSD) volumes
@@ -28,10 +30,17 @@ const (
 
 	// Specifies whether the volume should be encrypted.
 	Encrypted = "encrypted"
-
-	// The Availability Zone in which to create the volume.
-	availabilityZone = "availability-zone"
 )
+
+func init() {
+	defaultPools := []pool.PoolInfo{
+		// TODO(wallyworld) - remove "ebs" pool which has no params when we support
+		// specifying provider type for pool name
+		{"ebs", EBSProviderType, map[string]interface{}{}},
+		{"ebs-ssd", EBSProviderType, map[string]interface{}{"volume-type": "gp2"}},
+	}
+	pool.RegisterDefaultStoragePools(defaultPools)
+}
 
 // loopProviders create volume sources which use loop devices.
 type ebsProvider struct{}
@@ -47,11 +56,6 @@ var validConfigOptions = set.NewStrings(
 // ValidateConfig is defined on the Provider interface.
 func (e *ebsProvider) ValidateConfig(providerConfig *storage.Config) error {
 	// TODO - check valid values as well as attr names
-	if _, ok := providerConfig.Attrs()[availabilityZone]; ok {
-		return errors.Errorf(
-			"%q cannot be specified as a pool option as it needs to match the deployed instance", availabilityZone,
-		)
-	}
 	for attr := range providerConfig.Attrs() {
 		if !validConfigOptions.Contains(attr) {
 			return errors.Errorf("unknown provider config option %q", attr)
@@ -83,31 +87,31 @@ func (e *ebsProvider) VolumeSource(environConfig *config.Config, providerConfig 
 	panic("not implemented")
 }
 
-type ebsVolueSoucre struct {
+type ebsVolumeSoucre struct {
 }
 
-var _ storage.VolumeSource = (*ebsVolueSoucre)(nil)
+var _ storage.VolumeSource = (*ebsVolumeSoucre)(nil)
 
-func (v *ebsVolueSoucre) CreateVolumes([]storage.VolumeParams) ([]storage.Volume, []storage.VolumeAttachment, error) {
+func (v *ebsVolumeSoucre) CreateVolumes([]storage.VolumeParams) ([]storage.Volume, []storage.VolumeAttachment, error) {
 	panic("not implemented")
 }
 
-func (v *ebsVolueSoucre) DescribeVolumes(volIds []string) ([]storage.Volume, error) {
+func (v *ebsVolumeSoucre) DescribeVolumes(volIds []string) ([]storage.Volume, error) {
 	panic("not implemented")
 }
 
-func (v *ebsVolueSoucre) DestroyVolumes(volIds []string) error {
+func (v *ebsVolumeSoucre) DestroyVolumes(volIds []string) error {
 	panic("not implemented")
 }
 
-func (v *ebsVolueSoucre) ValidateVolumeParams(params storage.VolumeParams) error {
+func (v *ebsVolumeSoucre) ValidateVolumeParams(params storage.VolumeParams) error {
 	panic("not implemented")
 }
 
-func (v *ebsVolueSoucre) AttachVolumes([]storage.VolumeAttachmentParams) ([]storage.VolumeAttachment, error) {
+func (v *ebsVolumeSoucre) AttachVolumes([]storage.VolumeAttachmentParams) ([]storage.VolumeAttachment, error) {
 	panic("not implemented")
 }
 
-func (v *ebsVolueSoucre) DetachVolumes([]storage.VolumeAttachmentParams) error {
+func (v *ebsVolumeSoucre) DetachVolumes([]storage.VolumeAttachmentParams) error {
 	panic("not implemented")
 }

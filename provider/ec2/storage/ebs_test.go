@@ -18,16 +18,6 @@ type storageSuite struct {
 
 var _ = gc.Suite(&storageSuite{})
 
-func (*storageSuite) TestValidateConfigNoZone(c *gc.C) {
-	p := ec2storage.EBSProvider()
-	cfg, err := storage.NewConfig("foo", ec2storage.EBSProviderType, map[string]interface{}{
-		"availability-zone": "zone-1",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = p.ValidateConfig(cfg)
-	c.Assert(err, gc.ErrorMatches, `"availability-zone" cannot be specified as a pool option as it needs to match the deployed instance`)
-}
-
 func (*storageSuite) TestValidateConfigInvalidConfig(c *gc.C) {
 	p := ec2storage.EBSProvider()
 	cfg, err := storage.NewConfig("foo", ec2storage.EBSProviderType, map[string]interface{}{

@@ -8,27 +8,36 @@ import (
 
 	"github.com/juju/errors"
 
-	ec2storage "github.com/juju/juju/provider/ec2/storage"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 )
 
-var defaultEBSPools = map[string]map[string]interface{}{
-	// TODO(wallyworld) - remove "ebs" pool which has no params when we support
-	// specifying pool type for pool name
-	"ebs":     map[string]interface{}{},
-	"ebs-ssd": map[string]interface{}{"volume-type": "gp2"},
+// PoolInfo is used to register default pool information.
+type PoolInfo struct {
+	Name   string
+	Type   storage.ProviderType
+	Config map[string]interface{}
+}
+
+var defaultPools []PoolInfo
+
+// RegisterDefaultStoragePools registers pool information to be saved to
+// state when AddDefaultStoragePools is called.
+func RegisterDefaultStoragePools(pools []PoolInfo) {
+	defaultPools = append(defaultPools, pools...)
 }
 
 type poolConfig interface {
 	DataDir() string
 }
 
+// AddDefaultStoragePools is run at bootstrap and on upgrade to ensure that
+// out of the box storage pools are created.
 func AddDefaultStoragePools(settings SettingsManager, config poolConfig) error {
 	pm := NewPoolManager(settings)
 
-	for name, attrs := range defaultEBSPools {
-		if err := addDefaultPool(pm, name, ec2storage.EBSProviderType, attrs); err != nil {
+	for _, poolInfo := range defaultPools {
+		if err := addDefaultPool(pm, poolInfo.Name, poolInfo.Type, poolInfo.Config); err != nil {
 			return err
 		}
 	}

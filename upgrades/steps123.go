@@ -16,7 +16,6 @@ func stateStepsFor123() []Step {
 	// TODO(axw) stop checking feature flag once storage has graduated.
 	if featureflag.Enabled(feature.Storage) {
 		steps = append(steps,
-			// TODO - move to api steps once api is available
 			&upgradeStep{
 				description: "add default storage pools",
 				targets:     []Target{DatabaseMaster},
