@@ -575,7 +575,6 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
-
 	expectedSeries := make(set.Strings)
 	if exploded {
 		for _, series := range version.SupportedSeries() {
@@ -655,7 +654,6 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 			"bootstrap-timeout": "123",
 		},
 	).Delete("admin-secret", "ca-private-key")
-
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	provider, err := environs.Provider(cfg.Type())

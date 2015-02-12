@@ -308,6 +308,7 @@ func Sequence(st *State, name string) (int, error) {
 
 // This is a naive environment destruction function, used to test environment
 // watching after the client calls DestroyEnvironment and the environ doc is removed.
+// It is also used to test annotations.
 func RemoveEnvironment(st *State, uuid string) error {
 	ops := []txn.Op{{
 		C:      environmentsC,
@@ -317,3 +318,18 @@ func RemoveEnvironment(st *State, uuid string) error {
 	}}
 	return st.runTransaction(ops)
 }
+
+type MockGlobalEntity struct {
+}
+
+func (m MockGlobalEntity) globalKey() string {
+	return "globalKey"
+}
+func (m MockGlobalEntity) Tag() names.Tag {
+	return names.NewMachineTag("42")
+}
+
+var (
+	_                    GlobalEntity = (*MockGlobalEntity)(nil)
+	TagToCollectionAndId              = (*State).tagToCollectionAndId
+)
