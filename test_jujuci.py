@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 import json
 from mock import patch
 import os
@@ -83,17 +82,6 @@ def make_build_data(number='lastSuccessfulBuild'):
         "timestamp": 1416382502379,
         "url": "http://juju-ci.vapour.ws:8080/job/build-revision/%s/" % number
     }
-
-
-@contextmanager
-def temp_juju_home(env_name='local'):
-    with temp_dir() as juju_home:
-        with open(os.path.join(juju_home, 'environments.yaml'), 'w') as of:
-            of.write('environments:\n')
-            of.write('  %s:\n' % env_name)
-            of.write('    type: local\n')
-        with patch.dict('os.environ', {'JUJU_HOME': juju_home}):
-            yield juju_home
 
 
 class JujuCITestCase(TestCase):
@@ -258,14 +246,16 @@ class JujuCITestCase(TestCase):
             mock.assert_called_once_with('foo', verbose=False)
 
     def test_clean_environment_not_dirty(self):
-        with temp_juju_home(env_name='local'):
+        config = {'environments': {'local': {'type': 'local'}}}
+        with jujupy._temp_env(config, set_home=True):
             with patch('jujuci.destroy_environment') as mock:
                 dirty = clean_environment('foo', verbose=False)
         self.assertFalse(dirty)
         self.assertEqual(0, mock.call_count)
 
     def test_clean_environment_dirty(self):
-        with temp_juju_home(env_name='foo'):
+        config = {'environments': {'foo': {'type': 'local'}}}
+        with jujupy._temp_env(config, set_home=True):
             with patch('jujuci.destroy_environment', autospec=True) as mock:
                 dirty = clean_environment('foo', verbose=False)
         self.assertTrue(dirty)
