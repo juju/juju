@@ -38,6 +38,7 @@ QUICK = 'quick'
 DENSITY = 'density'
 FULL = 'full'
 BACKUP = 'backup'
+UPGRADE = 'upgrade'
 
 
 class MultiIndustrialTest:
@@ -315,6 +316,35 @@ class BootstrapAttempt(SteppedStageAttempt):
         yield results
 
 
+class UpgradeJujuAttempt(SteppedStageAttempt):
+
+    @staticmethod
+    def get_test_info():
+        return OrderedDict([
+            ('bootstrap', {'title': 'Bootstrap'}),
+            ('upgrade-juju', {'title': 'Upgrade Juju'}),
+            ])
+
+    def __init__(self, bootstrap_paths):
+        super(UpgradeJujuAttempt, self).__init__()
+        self.bootstrap_paths = bootstrap_paths
+
+    def iter_steps(self, client):
+        ba = BootstrapAttempt()
+        bootstrap_path = self.bootstrap_paths[client.full_path]
+        bootstrap_client = client.by_version(
+            client.env, bootstrap_path, client.debug)
+        for result in ba.iter_steps(bootstrap_client):
+            yield result
+        result = {'test_id': 'upgrade-juju'}
+        yield result
+        client.upgrade_juju()
+        yield result
+        client.wait_for_version(client.get_matching_agent_version())
+        result['result'] = True
+        yield result
+
+
 @contextmanager
 def make_substrate_manager(client, required_attrs):
     """A context manager for the client with the required attributes.
@@ -405,7 +435,6 @@ class EnsureAvailabilityAttempt(SteppedStageAttempt):
         client.wait_for_ha()
         results['result'] = True
         yield results
-
 
 
 @contextmanager
@@ -606,6 +635,7 @@ suites = {
            DestroyEnvironmentAttempt),
     BACKUP: (BootstrapAttempt, BackupRestoreAttempt,
              DestroyEnvironmentAttempt),
+    UPGRADE: (UpgradeJujuAttempt, DestroyEnvironmentAttempt),
     }
 
 
