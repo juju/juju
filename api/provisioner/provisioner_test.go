@@ -30,6 +30,8 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -206,12 +208,17 @@ func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
+	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Create a fresh machine, since machine 0 is already provisioned.
 	template := state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.MachineVolumeParams{{
 			Volume: state.VolumeParams{
+				Pool: "loop-pool",
 				Size: 123,
 			}},
 		},
