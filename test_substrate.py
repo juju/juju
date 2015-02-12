@@ -182,7 +182,8 @@ class TestAWSAccount(TestCase):
 
     def test_euca(self):
         with AWSAccount.manager_from_config(get_aws_env().config) as aws:
-            with patch('subprocess.check_call', return_value='quxx') as co_mock:
+            with patch('subprocess.check_call',
+                       return_value='quxx') as co_mock:
                 result = aws.euca('foo-bar', ['baz', 'qux'])
             co_mock.assert_called_once_with(['euca-foo-bar', 'baz', 'qux'],
                                             env=aws.get_environ())
@@ -273,7 +274,8 @@ class TestAWSAccount(TestCase):
         with AWSAccount.manager_from_config(get_aws_env().config) as aws:
             with patch('subprocess.check_call',
                        side_effect=CalledProcessError(1, 'foo')):
-                failures = aws.destroy_security_groups(['foo', 'foobar', 'baz'])
+                failures = aws.destroy_security_groups(['foo', 'foobar',
+                                                        'baz'])
             self.assertEqual(failures, ['foo', 'foobar', 'baz'])
 
     def test_get_ec2_connection(self):
