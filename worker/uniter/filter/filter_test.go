@@ -348,30 +348,15 @@ func (s *FilterSuite) TestInitialAddressEventIgnored(c *gc.C) {
 
 	// We should not get any config-change events until
 	// setting the charm URL.
-	s.BackingState.StartSync()
-	select {
-	case <-f.ConfigEvents():
-		c.Fatalf("unexpected config event")
-	case <-time.After(coretesting.ShortWait):
-	}
+	configC := s.notifyAsserterC(c, f.ConfigEvents())
+	configC.AssertNoReceive()
 
 	// Set the charm URL to trigger config events.
 	err = f.SetCharm(s.wpcharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should get one config-change event only.
-	s.BackingState.StartSync()
-	select {
-	case _, ok := <-f.ConfigEvents():
-		c.Assert(ok, jc.IsTrue)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out")
-	}
-	select {
-	case <-f.ConfigEvents():
-		c.Fatalf("unexpected config event")
-	case <-time.After(coretesting.ShortWait):
-	}
+	configC.AssertOneReceive()
 }
 
 func (s *FilterSuite) TestConfigAndAddressEvents(c *gc.C) {
@@ -390,32 +375,24 @@ func (s *FilterSuite) TestConfigAndAddressEvents(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertChange := func() {
-		select {
-		case _, ok := <-f.ConfigEvents():
-			c.Assert(ok, jc.IsTrue)
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out")
-		}
-	}
+	configC := s.notifyAsserterC(c, f.ConfigEvents())
 
 	// Config and address events should be coalesced. Start
 	// the synchronisation and sleep a bit to give the filter
 	// a chance to pick them both up.
 	s.BackingState.StartSync()
 	time.Sleep(250 * time.Millisecond)
-	assertChange()
-	select {
-	case <-f.ConfigEvents():
-		c.Fatalf("unexpected config event")
-	case <-time.After(coretesting.ShortWait):
-	}
+	configC.AssertOneReceive()
 }
 
 func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
 	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
+
+	// There should be no pending changes yet
+	configC := s.notifyAsserterC(c, f.ConfigEvents())
+	configC.AssertNoReceive()
 
 	// Change the machine addresses.
 	err = s.machine.SetAddresses(
@@ -428,13 +405,8 @@ func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should not receive any config-change events.
-	s.BackingState.StartSync()
 	f.DiscardConfigEvent()
-	select {
-	case <-f.ConfigEvents():
-		c.Fatalf("unexpected config event")
-	case <-time.After(coretesting.ShortWait):
-	}
+	configC.AssertNoReceive()
 }
 
 func getAssertActionChange(actionC coretesting.ContentAsserterC) func(ids []string) {
