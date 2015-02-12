@@ -32,7 +32,7 @@ fi
 ##############################
 # Fall back to the old plugin.
 
-remote_cmd() {	
+remote_cmd() {
 	LIBJUJU=/var/lib/juju
 
 	# usage: execute message cmd [arg...]
@@ -52,7 +52,7 @@ remote_cmd() {
 		}
 		echo SUCCESS
 	}
-	
+
 	next_step() {
 		echo
 		echo '**************************************************************'
@@ -73,7 +73,7 @@ remote_cmd() {
 	# Mongo requires that a locale is set
 	export LC_ALL=C
 
-	# Prefer jujud-mongodb binaries if available 
+	# Prefer jujud-mongodb binaries if available
 	export MONGODUMP=mongodump
 	if [ -f /usr/lib/juju/bin/mongodump ]; then
 		export MONGODUMP=/usr/lib/juju/bin/mongodump;
@@ -131,7 +131,7 @@ remote_cmd() {
 	execute 'Performing tar' tar -czf juju-backup.tgz juju-backup
 	rm -r juju-backup
 	execute 'Changing ownership of backup archive to ubuntu' chown -R ubuntu.ubuntu juju-backup*
-	
+
 	echo
 	echo Juju backup finished.
 	echo
