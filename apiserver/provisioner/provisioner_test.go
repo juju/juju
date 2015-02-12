@@ -26,6 +26,9 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -724,6 +727,14 @@ func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C)
 }
 
 func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
+	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+	storage.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
+	defer func() {
+		storage.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
+	}()
+
 	cons := constraints.MustParse("cpu-cores=123 mem=8G networks=^net3,^net4")
 	template := state.MachineTemplate{
 		Series:            "quantal",
@@ -732,8 +743,8 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 		Placement:         "valid",
 		RequestedNetworks: []string{"net1", "net2"},
 		Volumes: []state.MachineVolumeParams{
-			{Volume: state.VolumeParams{Size: 1000}},
-			{Volume: state.VolumeParams{Size: 2000}},
+			{Volume: state.VolumeParams{Size: 1000, Pool: "loop-pool"}},
+			{Volume: state.VolumeParams{Size: 2000, Pool: "loop-pool"}},
 		},
 	}
 	placementMachine, err := s.State.AddOneMachine(template)
@@ -766,10 +777,14 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 					VolumeTag:  "disk-0",
 					Size:       1000,
 					MachineTag: placementMachine.Tag().String(),
+					Provider:   "loop",
+					Attributes: map[string]interface{}{"foo": "bar"},
 				}, {
 					VolumeTag:  "disk-1",
 					Size:       2000,
 					MachineTag: placementMachine.Tag().String(),
+					Provider:   "loop",
+					Attributes: map[string]interface{}{"foo": "bar"},
 				}},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
@@ -931,9 +946,17 @@ func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
+	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+	storage.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
+	defer func() {
+		storage.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
+	}()
+
 	// Provision machine 0 first.
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err := s.machines[0].SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil, nil, nil)
+	err = s.machines[0].SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	volumesMachine, err := s.State.AddOneMachine(state.MachineTemplate{
@@ -943,6 +966,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 			Volume: state.VolumeParams{Size: 1000},
 		}},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	networks := []params.Network{{
 		Tag:        "network-net1",

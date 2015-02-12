@@ -13,6 +13,9 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/provider"
 )
 
 type VolumeStateSuite struct {
@@ -27,12 +30,16 @@ func (s *VolumeStateSuite) SetUpTest(c *gc.C) {
 	// This suite is all about storage, so enable the feature by default.
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	storage.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 }
 
 func (s *VolumeStateSuite) TestAddMachine(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
 	storage := map[string]state.StorageConstraints{
-		"data": makeStorageCons("", 1024, 1),
+		"data": makeStorageCons("loop-pool", 1024, 1),
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
 	unit, err := service.AddUnit()

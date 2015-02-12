@@ -14,6 +14,9 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/pool"
 )
 
 // StorageInstance represents the state of a unit or service-wide storage
@@ -429,12 +432,12 @@ func readStorageConstraints(st *State, key string) (map[string]StorageConstraint
 	return doc.Constraints, nil
 }
 
-func validateStorageConstraints(st *State, cons map[string]StorageConstraints, charmMeta *charm.Meta) error {
+func validateStorageConstraints(st *State, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
 	// TODO(axw) stop checking feature flag once storage has graduated.
 	if !featureflag.Enabled(feature.Storage) {
 		return nil
 	}
-	for name, cons := range cons {
+	for name, cons := range allCons {
 		charmStorage, ok := charmMeta.Storage[name]
 		if !ok {
 			return errors.Errorf("charm %q has no store called %q", charmMeta.Name, name)
@@ -445,12 +448,6 @@ func validateStorageConstraints(st *State, cons map[string]StorageConstraints, c
 				"charm %q store %q: shared storage support not implemented",
 				charmMeta.Name, name,
 			)
-		}
-		if cons.Pool != "" {
-			// TODO(axw) when we support pools, we should invert the test;
-			// the caller should carry out the logic for determining the
-			// default pool and so on.
-			return errors.Errorf("storage pools are not implemented")
 		}
 		if cons.Count < uint64(charmStorage.CountMin) {
 			return errors.Errorf(
@@ -464,13 +461,75 @@ func validateStorageConstraints(st *State, cons map[string]StorageConstraints, c
 				charmMeta.Name, name, charmStorage.CountMax, cons.Count,
 			)
 		}
+		// TODO - use charm min size when available
+		if cons.Size == 0 {
+			// TODO(axw) this doesn't really belong in a validation
+			// method. We should separate setting defaults from
+			// validating, the latter of which should be non-modifying.
+			cons.Size = 1024
+		}
+		kind := storage.StorageKindUnknown
+		switch charmStorage.Type {
+		case charm.StorageBlock:
+			kind = storage.StorageKindBlock
+		case charm.StorageFilesystem:
+			kind = storage.StorageKindFilesystem
+		}
+		if poolName, err := validateStoragePool(st, cons.Pool, kind); err != nil {
+			if err == ErrNoDefaultStoragePool {
+				err = errors.Maskf(err, "no storage pool specified and no default available for %q storage", name)
+			}
+			return err
+		} else {
+			cons.Pool = poolName
+		}
+		// Replace in case pool or size were updated.
+		allCons[name] = cons
 	}
 	// Ensure all stores have constraints specified. Defaults should have
 	// been set by this point, if the user didn't specify constraints.
-	for name := range charmMeta.Storage {
-		if _, ok := cons[name]; !ok {
+	for name, charmStorage := range charmMeta.Storage {
+		if _, ok := allCons[name]; !ok && charmStorage.CountMin > 0 {
 			return errors.Errorf("no constraints specified for store %q", name)
 		}
 	}
 	return nil
+}
+
+// ErrNoDefaultStoragePool is returned when a storage pool is required but none
+// is specified nor available as a default.
+var ErrNoDefaultStoragePool = fmt.Errorf("no storage pool specifed and no default available")
+
+func validateStoragePool(st *State, poolName string, kind storage.StorageKind) (string, error) {
+	conf, err := st.EnvironConfig()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	envType := conf.Type()
+	// If no pool specified, use the default if registered.
+	if poolName == "" {
+		defaultPool, ok := storage.DefaultPool(envType, kind)
+		if ok {
+			logger.Infof("no storage pool specified, using default pool %q", defaultPool)
+			poolName = defaultPool
+		} else {
+			return "", ErrNoDefaultStoragePool
+		}
+	}
+	// Ensure the pool type is supported by the environment.
+	pm := pool.NewPoolManager(NewStateSettings(st))
+	p, err := pm.Get(poolName)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	providerType := p.Type()
+	if !storage.IsProviderSupported(envType, providerType) {
+		return "", errors.Errorf(
+			"pool %q uses storage provider %q which is not supported for environments of type %q",
+			poolName,
+			providerType,
+			envType,
+		)
+	}
+	return poolName, nil
 }

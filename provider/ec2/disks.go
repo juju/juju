@@ -4,6 +4,8 @@
 package ec2
 
 import (
+	"strconv"
+
 	"github.com/juju/errors"
 	"gopkg.in/amz.v2/ec2"
 
@@ -12,8 +14,6 @@ import (
 )
 
 const (
-	ebsStorageSource = "ebs"
-
 	// minRootDiskSizeMiB is the minimum/default size (in mebibytes) for ec2 root disks.
 	minRootDiskSizeMiB uint64 = 8 * 1024
 
@@ -89,7 +89,19 @@ func getBlockDeviceMappings(
 		mapping := ec2.BlockDeviceMapping{
 			VolumeSize: int64(mibToGib(params.Size)),
 			DeviceName: requestDeviceName,
-			// TODO(axw) VolumeType, IOPS and DeleteOnTermination
+			// TODO(axw) DeleteOnTermination
+		}
+		// Translate user values for storage provider parameters.
+		// TODO(wallyworld) - remove type assertions when juju/schema is used
+		options := TranslateUserEBSOptions(params.Attributes)
+		if v, ok := options[EBS_VolumeType]; ok && v != "" {
+			mapping.VolumeType = v.(string)
+		}
+		if v, ok := options[EBS_IOPS]; ok && v != "" {
+			mapping.IOPS, err = strconv.ParseInt(v.(string), 10, 64)
+			if err != nil {
+				return nil, nil, nil, errors.Annotatef(err, "invalid iops value %v, expected integer", v)
+			}
 		}
 		volume := storage.Volume{
 			Tag:  params.Tag,
