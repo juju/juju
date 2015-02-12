@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd"
@@ -107,7 +109,7 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 		forceRemoteUnit: true,
 	},
 	} {
-		c.Logf("\n%d: %s", i, test.title)
+		c.Logf("%d: %s", i, test.title)
 		runCommand := &RunCommand{}
 		err := testing.InitCommand(runCommand, test.args)
 		if test.errMatch == "" {
@@ -166,14 +168,14 @@ func (s *RunTestSuite) TestNoContext(c *gc.C) {
 	ctx, err := testing.RunCommand(c, &RunCommand{}, "--no-context", "echo done")
 	c.Assert(err, jc.Satisfies, cmd.IsRcPassthroughError)
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 0")
-	c.Assert(testing.Stdout(ctx), gc.Equals, "done\n")
+	c.Assert(strings.TrimRight(testing.Stdout(ctx), "\r\n"), gc.Equals, "done")
 }
 
 func (s *RunTestSuite) TestNoContextAsync(c *gc.C) {
 	channel := startRunAsync(c, []string{"--no-context", "echo done"})
 	ctx, err := waitForResult(channel, testing.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(ctx), gc.Equals, "done\n")
+	c.Assert(strings.TrimRight(testing.Stdout(ctx), "\r\n"), gc.Equals, "done")
 }
 
 func (s *RunTestSuite) TestNoContextWithLock(c *gc.C) {
@@ -192,10 +194,13 @@ func (s *RunTestSuite) TestNoContextWithLock(c *gc.C) {
 
 	ctx, err = waitForResult(channel, testing.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(ctx), gc.Equals, "done\n")
+	c.Assert(strings.TrimRight(testing.Stdout(ctx), "\r\n"), gc.Equals, "done")
 }
 
 func (s *RunTestSuite) TestMissingSocket(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Current implementation of named pipes loops if the socket is missing")
+	}
 	agentDir := filepath.Join(cmdutil.DataDir, "agents", "unit-foo-1")
 	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
@@ -284,7 +289,7 @@ func (s *RunTestSuite) TestCheckRelationIdValid(c *gc.C) {
 			err:    true,
 		},
 	} {
-		c.Logf("\n%d: %s", i, test.title)
+		c.Logf("%d: %s", i, test.title)
 		relationId, err := checkRelationId(test.input)
 		c.Assert(relationId, gc.Equals, test.output)
 		if test.err {

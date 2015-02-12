@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -984,6 +985,11 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRun(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		// Cannot make symlink to nonexistent file on windows or
+		// create a file point a symlink to it then remove it
+		c.Skip("Cannot test this on windows")
+	}
 	err := symlink.New("/nowhere/special", JujuRun)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = os.Stat(JujuRun)
