@@ -124,9 +124,12 @@ func (st *State) SwitchBlockOff(t BlockType) error {
 	return removeEnvironmentBlock(st, t)
 }
 
-// HasBlock returns the Block of the specified type for the current environment.
-// Nil if this type of block is not switched on.
-func (st *State) HasBlock(t BlockType) (Block, error) {
+// GetBlockForType returns the Block of the specified type for the current environment
+// where
+//     not found -> nil, false, nil
+//     found -> block, true, nil
+//     error -> nil, false, err
+func (st *State) GetBlockForType(t BlockType) (Block, bool, error) {
 	all, closer := st.getCollection(blocksC)
 	defer closer()
 
@@ -135,11 +138,11 @@ func (st *State) HasBlock(t BlockType) (Block, error) {
 
 	switch err {
 	case nil:
-		return &block{doc}, nil
+		return &block{doc}, true, nil
 	case mgo.ErrNotFound:
-		return nil, nil
+		return nil, false, nil
 	default:
-		return nil, errors.Annotatef(err, "cannot get block of type %v", t.String())
+		return nil, false, errors.Annotatef(err, "cannot get block of type %v", t.String())
 	}
 }
 
@@ -165,13 +168,13 @@ func (st *State) AllBlocks() ([]Block, error) {
 // Only one instance of each block type can exist in environment.
 func setEnvironmentBlock(st *State, t BlockType, msg string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		tBlock, err := st.HasBlock(t)
+		_, exists, err := st.GetBlockForType(t)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		// Cannot create blocks of the same type more than once per environment.
 		// Cannot update current blocks.
-		if tBlock != nil {
+		if exists {
 			return nil, errors.Errorf("block %v is already ON", t.String())
 		}
 		return createEnvironmentBlockOps(st, t, msg)
@@ -217,11 +220,11 @@ func removeEnvironmentBlock(st *State, t BlockType) error {
 }
 
 func removeEnvironmentBlockOps(st *State, t BlockType) ([]txn.Op, error) {
-	tBlock, err := st.HasBlock(t)
+	tBlock, exists, err := st.GetBlockForType(t)
 	if err != nil {
 		return nil, errors.Annotatef(err, "removing block %v", t.String())
 	}
-	if tBlock != nil {
+	if exists {
 		return []txn.Op{txn.Op{
 			C:      blocksC,
 			Id:     tBlock.Id(),

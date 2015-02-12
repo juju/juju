@@ -1060,8 +1060,9 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 		}, func(c *gc.C, st *State) testCase {
 			err := st.SwitchBlockOn(DestroyBlock, "multiwatcher testing")
 			c.Assert(err, jc.ErrorIsNil)
-			b, err := st.HasBlock(DestroyBlock)
+			b, found, err := st.GetBlockForType(DestroyBlock)
 			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(found, jc.IsTrue)
 			blockId := b.Id()
 
 			return testCase{
@@ -1080,8 +1081,9 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 		}, func(c *gc.C, st *State) testCase {
 			err := st.SwitchBlockOn(DestroyBlock, "multiwatcher testing")
 			c.Assert(err, jc.ErrorIsNil)
-			b, err := st.HasBlock(DestroyBlock)
+			b, found, err := st.GetBlockForType(DestroyBlock)
 			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(found, jc.IsTrue)
 			err = st.SwitchBlockOff(DestroyBlock)
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -1333,8 +1335,9 @@ func (s *storeManagerStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 		}, {
 			about: "blocks",
 			triggerEvent: func(st *State) {
-				m, err := st.HasBlock(DestroyBlock)
+				m, found, err := st.GetBlockForType(DestroyBlock)
 				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(found, jc.IsFalse)
 				c.Assert(m, gc.IsNil)
 
 				err = st.SwitchBlockOn(DestroyBlock, "test block")

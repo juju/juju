@@ -33,14 +33,16 @@ func assertNoEnvBlock(c *gc.C, st *state.State) {
 }
 
 func (s *blockSuite) assertNoTypedBlock(c *gc.C, t state.BlockType) {
-	one, err := s.State.HasBlock(t)
+	one, found, err := s.State.GetBlockForType(t)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found, jc.IsFalse)
 	c.Assert(one, gc.IsNil)
 }
 
 func assertEnvHasBlock(c *gc.C, st *state.State, t state.BlockType, msg string) {
-	dBlock, err := st.HasBlock(t)
+	dBlock, found, err := st.GetBlockForType(t)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found, jc.IsTrue)
 	c.Assert(dBlock, gc.NotNil)
 	c.Assert(dBlock.Type(), gc.DeepEquals, t)
 	tag, err := dBlock.Tag()
