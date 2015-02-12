@@ -32,7 +32,9 @@ var (
 	_ backingEntityDoc = (*backingStatus)(nil)
 	_ backingEntityDoc = (*backingConstraints)(nil)
 	_ backingEntityDoc = (*backingSettings)(nil)
+	_ backingEntityDoc = (*backingOpenedPorts)(nil)
 	_ backingEntityDoc = (*backingAction)(nil)
+	_ backingEntityDoc = (*backingBlock)(nil)
 )
 
 var dottedConfig = `
@@ -239,6 +241,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C, st *State, units int) (e
 			Service:     wordpress.Name(),
 			Series:      m.Series(),
 			MachineId:   m.Id(),
+			Ports:       []network.Port{},
 			Status:      multiwatcher.Status("allocating"),
 			Subordinate: false,
 		})
@@ -294,6 +297,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C, st *State, units int) (e
 			Name:        fmt.Sprintf("logging/%d", i),
 			Service:     "logging",
 			Series:      "quantal",
+			Ports:       []network.Port{},
 			Status:      multiwatcher.Status("allocating"),
 			Subordinate: true,
 		})
@@ -424,7 +428,6 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
-			// Open two ports and one range.
 			err = u.OpenPort("tcp", 12345)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPort("udp", 54321)
@@ -479,6 +482,8 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 					Name:       "wordpress/0",
 					Status:     multiwatcher.Status("error"),
 					StatusInfo: "another failure",
+					Ports:      []network.Port{{"udp", 17070}},
+					PortRanges: []network.PortRange{{17070, 17070, "udp"}},
 				}},
 				change: watcher.Change{
 					C:  "units",
@@ -495,6 +500,77 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "another failure",
 					}}}
+		}, func(c *gc.C, st *State) testCase {
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, jc.ErrorIsNil)
+			m, err := st.AddMachine("quantal", JobHostUnits)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.AssignToMachine(m)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.OpenPort("tcp", 4242)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return testCase{
+				about: "unit info is updated if a port is opened on the machine it is placed in",
+				add: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						Name: "wordpress/0",
+					},
+					&multiwatcher.MachineInfo{
+						Id: "0",
+					},
+				},
+				change: watcher.Change{
+					C:  openedPortsC,
+					Id: st.docID("m#0#n#juju-public"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						Name:       "wordpress/0",
+						Ports:      []network.Port{{"tcp", 4242}},
+						PortRanges: []network.PortRange{{4242, 4242, "tcp"}},
+					},
+					&multiwatcher.MachineInfo{
+						Id: "0",
+					},
+				}}
+		}, func(c *gc.C, st *State) testCase {
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, jc.ErrorIsNil)
+			m, err := st.AddMachine("quantal", JobHostUnits)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.AssignToMachine(m)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.OpenPorts("tcp", 21, 22)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return testCase{
+				about: "unit is created if a port is opened on the machine it is placed in",
+				add: []multiwatcher.EntityInfo{
+					&multiwatcher.MachineInfo{
+						Id: "0",
+					},
+				},
+				change: watcher.Change{
+					C:  "units",
+					Id: st.docID("wordpress/0"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						Name:       "wordpress/0",
+						Service:    "wordpress",
+						Series:     "quantal",
+						MachineId:  "0",
+						Status:     "allocating",
+						Ports:      []network.Port{{"tcp", 21}, {"tcp", 22}},
+						PortRanges: []network.PortRange{{21, 22, "tcp"}},
+					},
+					&multiwatcher.MachineInfo{
+						Id: "0",
+					},
+				}}
 		}, func(c *gc.C, st *State) testCase {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
@@ -527,8 +603,9 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						PrivateAddress: "private",
 						MachineId:      "0",
 						Ports:          []network.Port{{"tcp", 12345}},
-						PortRanges:     []network.PortRange{{12345, 12345, "tcp"}}, Status: multiwatcher.Status("error"),
-						StatusInfo: "failure",
+						PortRanges:     []network.PortRange{{12345, 12345, "tcp"}},
+						Status:         multiwatcher.Status("error"),
+						StatusInfo:     "failure",
 					}}}
 		},
 		// Service changes
@@ -1025,6 +1102,75 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				expectContents: []multiwatcher.EntityInfo{&started},
 			}
 		},
+		// Block changes
+		func(c *gc.C, st *State) testCase {
+			return testCase{
+				about: "no blocks in state, no blocks in store -> do nothing",
+				change: watcher.Change{
+					C:  blocksC,
+					Id: "1",
+				}}
+		}, func(c *gc.C, st *State) testCase {
+			blockId := st.docID("0")
+			blockType := DestroyBlock.ToParams()
+			blockMsg := "woot"
+			return testCase{
+				about: "no change if block is not in backing",
+				add: []multiwatcher.EntityInfo{&multiwatcher.BlockInfo{
+					Id:      blockId,
+					Type:    blockType,
+					Message: blockMsg,
+					Tag:     st.EnvironTag().String(),
+				}},
+				change: watcher.Change{
+					C:  blocksC,
+					Id: st.localID(blockId),
+				},
+				expectContents: []multiwatcher.EntityInfo{&multiwatcher.BlockInfo{
+					Id:      blockId,
+					Type:    blockType,
+					Message: blockMsg,
+					Tag:     st.EnvironTag().String(),
+				}},
+			}
+		}, func(c *gc.C, st *State) testCase {
+			err := st.SwitchBlockOn(DestroyBlock, "multiwatcher testing")
+			c.Assert(err, jc.ErrorIsNil)
+			b, found, err := st.GetBlockForType(DestroyBlock)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(found, jc.IsTrue)
+			blockId := b.Id()
+
+			return testCase{
+				about: "block is added if it's in backing but not in Store",
+				change: watcher.Change{
+					C:  blocksC,
+					Id: blockId,
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.BlockInfo{
+						Id:      st.localID(blockId),
+						Type:    b.Type().ToParams(),
+						Message: b.Message(),
+						Tag:     st.EnvironTag().String(),
+					}}}
+		}, func(c *gc.C, st *State) testCase {
+			err := st.SwitchBlockOn(DestroyBlock, "multiwatcher testing")
+			c.Assert(err, jc.ErrorIsNil)
+			b, found, err := st.GetBlockForType(DestroyBlock)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(found, jc.IsTrue)
+			err = st.SwitchBlockOff(DestroyBlock)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return testCase{
+				about: "block is removed if it's in backing and in multiwatcher.Store",
+				change: watcher.Change{
+					C:  blocksC,
+					Id: b.Id(),
+				},
+			}
+		},
 	} {
 		test := testFunc(c, s.state)
 
@@ -1260,6 +1406,17 @@ func (s *storeManagerStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 
 				err = svc.UpdateConfigSettings(charm.Settings{"blog-title": "boring"})
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "blocks",
+			triggerEvent: func(st *State) {
+				m, found, err := st.GetBlockForType(DestroyBlock)
+				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(found, jc.IsFalse)
+				c.Assert(m, gc.IsNil)
+
+				err = st.SwitchBlockOn(DestroyBlock, "test block")
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		},

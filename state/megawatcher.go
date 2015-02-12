@@ -117,7 +117,11 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 	} else if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to get unit port ranges")
 	}
-	var compatiblePorts []network.Port
+	// For backward compatibility, if there are no ports opened, return an
+	// empty slice rather than a nil slice. Use a len(portRanges) capacity to
+	// avoid unnecessary allocations, since most of the times only specific
+	// ports are opened by charms.
+	compatiblePorts := make([]network.Port, 0, len(portRanges))
 	for _, portRange := range portRanges {
 		for j := portRange.FromPort; j <= portRange.ToPort; j++ {
 			compatiblePorts = append(compatiblePorts, network.Port{
@@ -130,17 +134,11 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 }
 
 func (u *backingUnit) updated(st *State, store *multiwatcherStore, id interface{}) error {
-	portRanges, compatiblePorts, err := getUnitPortRangesAndPorts(st, u.Name)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	info := &multiwatcher.UnitInfo{
 		Name:        u.Name,
 		Service:     u.Service,
 		Series:      u.Series,
 		MachineId:   u.MachineId,
-		Ports:       compatiblePorts,
-		PortRanges:  portRanges,
 		Subordinate: u.Principal != "",
 	}
 	if u.CharmURL != nil {
@@ -149,7 +147,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id interface{
 	oldInfo := store.Get(info.EntityId())
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
-		// so fetch the associated unit status.
+		// so fetch the associated unit status and opened ports.
 		sdoc, err := getStatus(st, unitGlobalKey(u.Name))
 		if err != nil {
 			return err
@@ -157,11 +155,20 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id interface{
 		info.Status = multiwatcher.Status(sdoc.Status)
 		info.Status = translateLegacyUnitAgentStatus(info.Status)
 		info.StatusInfo = sdoc.StatusInfo
+		portRanges, compatiblePorts, err := getUnitPortRangesAndPorts(st, u.Name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		info.PortRanges = portRanges
+		info.Ports = compatiblePorts
+
 	} else {
-		// The entry already exists, so preserve the current status.
+		// The entry already exists, so preserve the current status and ports.
 		oldInfo := oldInfo.(*multiwatcher.UnitInfo)
 		info.Status = oldInfo.Status
 		info.StatusInfo = oldInfo.StatusInfo
+		info.Ports = oldInfo.Ports
+		info.PortRanges = oldInfo.PortRanges
 	}
 	publicAddress, privateAddress, err := getUnitAddresses(st, u.Name)
 	if err != nil {
@@ -359,6 +366,30 @@ func (a *backingAnnotation) mongoId() interface{} {
 	return a.GlobalKey
 }
 
+type backingBlock blockDoc
+
+func (a *backingBlock) updated(st *State, store *multiwatcherStore, id interface{}) error {
+	info := &multiwatcher.BlockInfo{
+		Id:      st.localID(a.DocID),
+		Tag:     a.Tag,
+		Type:    a.Type.ToParams(),
+		Message: a.Message,
+	}
+	store.Update(info)
+	return nil
+}
+
+func (a *backingBlock) removed(st *State, store *multiwatcherStore, id interface{}) {
+	store.Remove(multiwatcher.EntityId{
+		Kind: "block",
+		Id:   st.localID(id.(string)),
+	})
+}
+
+func (a *backingBlock) mongoId() interface{} {
+	return a.DocID
+}
+
 type backingStatus statusDoc
 
 func (s *backingStatus) updated(st *State, store *multiwatcherStore, id interface{}) error {
@@ -491,6 +522,79 @@ func backingEntityIdForSettingsKey(key string) (eid multiwatcher.EntityId, extra
 	return
 }
 
+type backingOpenedPorts map[string]interface{}
+
+func (p *backingOpenedPorts) updated(st *State, store *multiwatcherStore, id interface{}) error {
+	localID := st.localID(id.(string))
+	parentId, ok := backingEntityIdForOpenedPortsKey(localID)
+	if !ok {
+		return nil
+	}
+	switch info := store.Get(parentId).(type) {
+	case nil:
+		// The parent info doesn't exist. This is unexpected because the port
+		// always refers to a machine. Anyway, ignore the ports for now.
+		return nil
+	case *multiwatcher.MachineInfo:
+		// Retrieve the units placed in the machine.
+		units, err := st.UnitsFor(info.Id)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// Update the ports on all units assigned to the machine.
+		for _, u := range units {
+			if err := updateUnitPorts(st, store, u); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+	return nil
+}
+
+func (p *backingOpenedPorts) removed(st *State, store *multiwatcherStore, id interface{}) {}
+
+func (p *backingOpenedPorts) mongoId() interface{} {
+	panic("cannot find mongo id from openedPorts document")
+}
+
+// updateUnitPorts updates the Ports and PortRanges info of the given unit.
+func updateUnitPorts(st *State, store *multiwatcherStore, u *Unit) error {
+	eid, ok := backingEntityIdForGlobalKey(u.globalKey())
+	if !ok {
+		// This should never happen.
+		return errors.New("cannot retrieve entity id for unit")
+	}
+	switch oldInfo := store.Get(eid).(type) {
+	case nil:
+		// The unit info doesn't exist. This is unlikely to happen, but ignore
+		// the status until a unitInfo is included in the store.
+		return nil
+	case *multiwatcher.UnitInfo:
+		portRanges, compatiblePorts, err := getUnitPortRangesAndPorts(st, oldInfo.Name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		unitInfo := *oldInfo
+		unitInfo.PortRanges = portRanges
+		unitInfo.Ports = compatiblePorts
+		store.Update(&unitInfo)
+	default:
+		return nil
+	}
+	return nil
+}
+
+// backingEntityIdForOpenedPortsKey returns the entity id for the given
+// openedPorts key. Any extra information in the key is discarded.
+func backingEntityIdForOpenedPortsKey(key string) (multiwatcher.EntityId, bool) {
+	parts, err := extractPortsIdParts(key)
+	if err != nil {
+		logger.Debugf("cannot parse ports key %q: %v", key, err)
+		return multiwatcher.EntityId{}, false
+	}
+	return backingEntityIdForGlobalKey(machineGlobalKey(parts[1]))
+}
+
 // backingEntityIdForGlobalKey returns the entity id for the given global key.
 // It returns false if the key is not recognized.
 func backingEntityIdForGlobalKey(key string) (multiwatcher.EntityId, bool) {
@@ -568,6 +672,9 @@ func newAllWatcherStateBacking(st *State) Backing {
 		Collection: st.db.C(annotationsC),
 		infoType:   reflect.TypeOf(backingAnnotation{}),
 	}, {
+		Collection: st.db.C(blocksC),
+		infoType:   reflect.TypeOf(backingBlock{}),
+	}, {
 		Collection: st.db.C(statusesC),
 		infoType:   reflect.TypeOf(backingStatus{}),
 		subsidiary: true,
@@ -578,6 +685,10 @@ func newAllWatcherStateBacking(st *State) Backing {
 	}, {
 		Collection: st.db.C(settingsC),
 		infoType:   reflect.TypeOf(backingSettings{}),
+		subsidiary: true,
+	}, {
+		Collection: st.db.C(openedPortsC),
+		infoType:   reflect.TypeOf(backingOpenedPorts{}),
 		subsidiary: true,
 	}}
 	// Populate the collection maps from the above set of collections.

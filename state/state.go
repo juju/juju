@@ -106,6 +106,9 @@ const (
 
 	// restoreInfoC is used to track restore progress
 	restoreInfoC = "restoreInfo"
+
+	// blocksC is used to identify collection of environment blocks.
+	blocksC = "blocks"
 )
 
 // State represents the state of an environment
@@ -1802,6 +1805,20 @@ func (st *State) Unit(name string) (*Unit, error) {
 		return nil, errors.Annotatef(err, "cannot get unit %q", name)
 	}
 	return newUnit(st, &doc), nil
+}
+
+// UnitsFor returns the units placed in the given machine id.
+func (st *State) UnitsFor(machineId string) ([]*Unit, error) {
+	if !names.IsValidMachine(machineId) {
+		return nil, errors.Errorf("%q is not a valid machine id", machineId)
+	}
+	m := &Machine{
+		st: st,
+		doc: machineDoc{
+			Id: machineId,
+		},
+	}
+	return m.Units()
 }
 
 // AssignUnit places the unit on a machine. Depending on the policy, and the
