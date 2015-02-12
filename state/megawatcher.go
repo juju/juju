@@ -364,7 +364,7 @@ type backingBlock blockDoc
 func (a *backingBlock) updated(st *State, store *multiwatcherStore, id interface{}) error {
 	info := &multiwatcher.BlockInfo{
 		Id:      st.localID(a.DocID),
-		Tag:     a.EntityTag,
+		Tag:     a.Tag,
 		Type:    a.Type.ToParams(),
 		Message: a.Message,
 	}

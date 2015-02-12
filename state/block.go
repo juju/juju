@@ -21,11 +21,8 @@ type Block interface {
 	// Id returns this block's id.
 	Id() string
 
-	// Environment returns environment UUID where this block is applied.
-	Environment() string
-
-	// EntityTag returns tag for entity that is being blocked
-	EntityTag() (names.Tag, error)
+	// Tag returns tag for the entity that is being blocked
+	Tag() (names.Tag, error)
 
 	// Type returns block type
 	Type() BlockType
@@ -84,11 +81,11 @@ type block struct {
 
 // blockDoc records information about an environment block.
 type blockDoc struct {
-	DocID     string    `bson:"_id"`
-	EnvUUID   string    `bson:"env-uuid"`
-	EntityTag string    `bson:"entity-tag"`
-	Type      BlockType `bson:"type"`
-	Message   string    `bson:"message,omitempty"`
+	DocID   string    `bson:"_id"`
+	EnvUUID string    `bson:"env-uuid"`
+	Tag     string    `bson:"tag"`
+	Type    BlockType `bson:"type"`
+	Message string    `bson:"message,omitempty"`
 }
 
 // Implementation for Block.Id().
@@ -96,19 +93,14 @@ func (b *block) Id() string {
 	return b.doc.DocID
 }
 
-// Implementation for Block.Environment().
-func (b *block) Environment() string {
-	return b.doc.EnvUUID
-}
-
 // Implementation for Block.Message().
 func (b *block) Message() string {
 	return b.doc.Message
 }
 
-// Implementation for Block.EntityTag().
-func (b *block) EntityTag() (names.Tag, error) {
-	tag, err := names.ParseTag(b.doc.EntityTag)
+// Implementation for Block.Tag().
+func (b *block) Tag() (names.Tag, error) {
+	tag, err := names.ParseTag(b.doc.Tag)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting block information")
 	}
@@ -205,11 +197,11 @@ func createEnvironmentBlockOps(st *State, t BlockType, msg string) ([]txn.Op, er
 		return nil, errors.Annotatef(err, "getting new block id")
 	}
 	newDoc := blockDoc{
-		DocID:     st.docID(id),
-		EnvUUID:   st.EnvironUUID(),
-		EntityTag: st.EnvironTag().String(),
-		Type:      t,
-		Message:   msg,
+		DocID:   st.docID(id),
+		EnvUUID: st.EnvironUUID(),
+		Tag:     st.EnvironTag().String(),
+		Type:    t,
+		Message: msg,
 	}
 	insertOp := txn.Op{
 		C:      blocksC,

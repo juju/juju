@@ -271,7 +271,7 @@ type BlockInfo struct {
 	Id      string    `bson:"_id"`
 	Type    BlockType `bson:"type"`
 	Message string    `bson:"message,omitempty"`
-	Tag     string    `bson:"entity-tag"`
+	Tag     string    `bson:"tag"`
 }
 
 // EntityId returns block id.
