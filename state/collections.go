@@ -63,6 +63,7 @@ var multiEnvCollections = set.NewStrings(
 	actionsC,
 	annotationsC,
 	blockDevicesC,
+	blocksC,
 	charmsC,
 	cleanupsC,
 	constraintsC,

@@ -106,6 +106,9 @@ const (
 
 	// restoreInfoC is used to track restore progress
 	restoreInfoC = "restoreInfo"
+
+	// blocksC is used to identify collection of environment blocks.
+	blocksC = "blocks"
 )
 
 // State represents the state of an environment
