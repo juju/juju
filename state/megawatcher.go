@@ -119,7 +119,7 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 	}
 	// For backward compatibility, if there are no ports opened, return an
 	// empty slice rather than a nil slice.
-	compatiblePorts := make([]network.Port, 0)
+	compatiblePorts := make([]network.Port, 0, len(portRanges))
 	for _, portRange := range portRanges {
 		for j := portRange.FromPort; j <= portRange.ToPort; j++ {
 			compatiblePorts = append(compatiblePorts, network.Port{
@@ -528,8 +528,7 @@ func (p *backingOpenedPorts) updated(st *State, store *multiwatcherStore, id int
 	if !ok {
 		return nil
 	}
-	info0 := store.Get(parentId)
-	switch info := info0.(type) {
+	switch info := store.Get(parentId).(type) {
 	case nil:
 		// The parent info doesn't exist. This is unexpected because the port
 		// always refers to a machine. Anyway, ignore the ports for now.
@@ -550,8 +549,6 @@ func (p *backingOpenedPorts) updated(st *State, store *multiwatcherStore, id int
 				return errors.Trace(err)
 			}
 		}
-	default:
-		return nil
 	}
 	return nil
 }
@@ -569,8 +566,7 @@ func updateUnitPorts(st *State, store *multiwatcherStore, u *Unit) error {
 		// This should never happen.
 		return errors.New("cannot retrieve entity id for unit")
 	}
-	info0 := store.Get(eid)
-	switch oldInfo := info0.(type) {
+	switch oldInfo := store.Get(eid).(type) {
 	case nil:
 		// The unit info doesn't exist. This is unlikely to happen, but ignore
 		// the status until a unitInfo is included in the store.
@@ -593,11 +589,12 @@ func updateUnitPorts(st *State, store *multiwatcherStore, u *Unit) error {
 // backingEntityIdForOpenedPortsKey returns the entity id for the given
 // openedPorts key. Any extra information in the key is discarded.
 func backingEntityIdForOpenedPortsKey(key string) (multiwatcher.EntityId, bool) {
-	i := strings.Index(key, "#n")
-	if i == -1 {
+	parts, err := extractPortsIdParts(key)
+	if err != nil {
+		logger.Debugf("cannot parse ports key %q: %v", key, err)
 		return multiwatcher.EntityId{}, false
 	}
-	return backingEntityIdForGlobalKey(key[:i])
+	return backingEntityIdForGlobalKey(machineGlobalKey(parts[1]))
 }
 
 // backingEntityIdForGlobalKey returns the entity id for the given global key.
