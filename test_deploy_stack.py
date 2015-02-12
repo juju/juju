@@ -2,6 +2,7 @@ import logging
 from mock import patch
 import os
 from StringIO import StringIO
+from textwrap import dedent
 import subprocess
 from unittest import TestCase
 
@@ -111,11 +112,11 @@ class DeployStackTestCase(TestCase):
     def test_parse_euca(self):
         description = parse_euca('')
         self.assertEqual([], [d for d in description])
-        euca_data = '\n'.join([
-            'header',
-            'INSTANCE\ti-foo\tblah\tbar-0',
-            'INSTANCE\ti-baz\tblah\tbar-1',
-        ])
+        euca_data = dedent("""
+            header
+            INSTANCE\ti-foo\tblah\tbar-0
+            INSTANCE\ti-baz\tblah\tbar-1
+        """)
         description = parse_euca(euca_data)
         self.assertEqual(
             [('i-foo', 'bar-0'), ('i-baz', 'bar-1')], [d for d in description])
