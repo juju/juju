@@ -73,7 +73,7 @@ func (s *environmentmanagerSuite) TestCreateEnvironmentMissingConfig(c *gc.C) {
 	s.SetFeatureFlags(feature.MESS)
 	envManager := s.OpenAPI(c)
 	_, err := envManager.CreateEnvironment("owner", nil, nil)
-	c.Assert(err, gc.ErrorMatches, `name: expected string, got nothing`)
+	c.Assert(err, gc.ErrorMatches, `creating config from values failed: name: expected string, got nothing`)
 }
 
 func (s *environmentmanagerSuite) TestCreateEnvironment(c *gc.C) {
