@@ -491,7 +491,7 @@ func WriteMetadata(stor storage.Storage, streamMetadata map[string][]*ToolsMetad
 	}
 	if writeMirrors {
 		streamsMirrorsMetadata := make(map[string][]simplestreams.MirrorReference)
-		for stream, _ := range streamMetadata {
+		for stream := range streamMetadata {
 			streamsMirrorsMetadata[ToolsContentId(stream)] = []simplestreams.MirrorReference{{
 				Updated:  updated.Format("20060102"), // YYYYMMDD
 				DataType: ContentDownload,

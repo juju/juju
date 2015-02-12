@@ -159,7 +159,7 @@ func (f *factory) NewHookRunner(hookInfo hook.Info) (Runner, error) {
 		hookName = fmt.Sprintf("%s-%s", relation.Name(), hookInfo.Kind)
 	}
 	if hookInfo.Kind.IsStorage() {
-		ctx.storageId = hookInfo.StorageId
+		ctx.storageTag = names.NewStorageTag(hookInfo.StorageId)
 		if err := f.updateStorage(ctx); err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -198,13 +198,19 @@ func (f *factory) NewActionRunner(actionId string) (Runner, error) {
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	err = f.state.ActionBegin(tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	name := action.Name()
 	spec, ok := ch.Actions().ActionSpecs[name]
 	if !ok {
 		return nil, &badActionError{name, "not defined"}
 	}
 	params := action.Params()
-	if _, err := spec.ValidateParams(params); err != nil {
+	if err := spec.ValidateParams(params); err != nil {
 		return nil, &badActionError{name, err.Error()}
 	}
 
@@ -239,7 +245,7 @@ func (f *factory) coreContext() (*HookContext, error) {
 		canAddMetrics:      false,
 		definedMetrics:     nil,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
-		storageInstances:   nil,
+		storageAttachments: nil,
 	}
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err
@@ -328,7 +334,7 @@ func (f *factory) updateContext(ctx *HookContext) (err error) {
 }
 
 func (f *factory) updateStorage(ctx *HookContext) (err error) {
-	ctx.storageInstances, err = f.state.StorageInstances(f.unit.Tag())
+	ctx.storageAttachments, err = f.state.StorageAttachments(f.unit.Tag())
 	return err
 }
 

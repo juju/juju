@@ -81,7 +81,11 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 			Environment:       coretesting.EnvironmentTag,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	managerConfig := container.ManagerConfig{container.ConfigName: "juju", "use-clone": "false"}
+	managerConfig := container.ManagerConfig{
+		container.ConfigName: "juju",
+		"log-dir":            c.MkDir(),
+		"use-clone":          "false",
+	}
 	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, s.agentConfig, managerConfig, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -241,7 +245,11 @@ func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner {
 	parentMachineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
-	managerConfig := container.ManagerConfig{container.ConfigName: "juju", "use-clone": "false"}
+	managerConfig := container.ManagerConfig{
+		container.ConfigName: "juju",
+		"log-dir":            c.MkDir(),
+		"use-clone":          "false",
+	}
 	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig, &containertesting.MockURLGetter{})
 	c.Assert(err, jc.ErrorIsNil)
 	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker)

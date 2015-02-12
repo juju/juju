@@ -5,7 +5,6 @@ package state
 
 import (
 	"fmt"
-	"reflect"
 	"sort"
 	"time"
 
@@ -33,6 +32,9 @@ var (
 	_ backingEntityDoc = (*backingStatus)(nil)
 	_ backingEntityDoc = (*backingConstraints)(nil)
 	_ backingEntityDoc = (*backingSettings)(nil)
+	_ backingEntityDoc = (*backingOpenedPorts)(nil)
+	_ backingEntityDoc = (*backingAction)(nil)
+	_ backingEntityDoc = (*backingBlock)(nil)
 )
 
 var dottedConfig = `
@@ -70,6 +72,14 @@ func (s *storeManagerStateSuite) Reset(c *gc.C) {
 	s.SetUpTest(c)
 }
 
+func jcDeepEqualsCheck(c *gc.C, got, want interface{}) bool {
+	ok, message := jc.DeepEquals.Check([]interface{}{got, want}, []string{"got", "want"})
+	if !ok {
+		c.Logf(message)
+	}
+	return ok
+}
+
 func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 	if len(got) == 0 {
 		got = nil
@@ -77,7 +87,7 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 	if len(want) == 0 {
 		want = nil
 	}
-	if reflect.DeepEqual(got, want) {
+	if jcDeepEqualsCheck(c, got, want) {
 		return
 	}
 	c.Errorf("entity mismatch; got len %d; want %d", len(got), len(want))
@@ -94,7 +104,7 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 		for i := 0; i < len(got); i++ {
 			g := got[i]
 			w := want[i]
-			if !reflect.DeepEqual(g, w) {
+			if !jcDeepEqualsCheck(c, g, w) {
 				c.Logf("")
 				c.Logf("first difference at position %d", i)
 				c.Logf("got:")
@@ -420,6 +430,10 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPort("tcp", 12345)
 			c.Assert(err, jc.ErrorIsNil)
+			err = u.OpenPort("udp", 54321)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.OpenPorts("tcp", 5555, 5558)
+			c.Assert(err, jc.ErrorIsNil)
 			err = u.SetAgentStatus(StatusError, "failure", nil)
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -431,11 +445,23 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						Name:       "wordpress/0",
-						Service:    "wordpress",
-						Series:     "quantal",
-						MachineId:  "0",
-						Ports:      []network.Port{},
+						Name:      "wordpress/0",
+						Service:   "wordpress",
+						Series:    "quantal",
+						MachineId: "0",
+						Ports: []network.Port{
+							{"tcp", 5555},
+							{"tcp", 5556},
+							{"tcp", 5557},
+							{"tcp", 5558},
+							{"tcp", 12345},
+							{"udp", 54321},
+						},
+						PortRanges: []network.PortRange{
+							{5555, 5558, "tcp"},
+							{12345, 12345, "tcp"},
+							{54321, 54321, "udp"},
+						},
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "failure",
 					}}}
@@ -456,6 +482,8 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 					Name:       "wordpress/0",
 					Status:     multiwatcher.Status("error"),
 					StatusInfo: "another failure",
+					Ports:      []network.Port{{"udp", 17070}},
+					PortRanges: []network.PortRange{{17070, 17070, "udp"}},
 				}},
 				change: watcher.Change{
 					C:  "units",
@@ -467,10 +495,82 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						Service:    "wordpress",
 						Series:     "quantal",
 						MachineId:  "0",
-						Ports:      []network.Port{},
+						Ports:      []network.Port{{"udp", 17070}},
+						PortRanges: []network.PortRange{{17070, 17070, "udp"}},
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "another failure",
 					}}}
+		}, func(c *gc.C, st *State) testCase {
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, jc.ErrorIsNil)
+			m, err := st.AddMachine("quantal", JobHostUnits)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.AssignToMachine(m)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.OpenPort("tcp", 4242)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return testCase{
+				about: "unit info is updated if a port is opened on the machine it is placed in",
+				add: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						Name: "wordpress/0",
+					},
+					&multiwatcher.MachineInfo{
+						Id: "0",
+					},
+				},
+				change: watcher.Change{
+					C:  openedPortsC,
+					Id: st.docID("m#0#n#juju-public"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						Name:       "wordpress/0",
+						Ports:      []network.Port{{"tcp", 4242}},
+						PortRanges: []network.PortRange{{4242, 4242, "tcp"}},
+					},
+					&multiwatcher.MachineInfo{
+						Id: "0",
+					},
+				}}
+		}, func(c *gc.C, st *State) testCase {
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, jc.ErrorIsNil)
+			m, err := st.AddMachine("quantal", JobHostUnits)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.AssignToMachine(m)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.OpenPorts("tcp", 21, 22)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return testCase{
+				about: "unit is created if a port is opened on the machine it is placed in",
+				add: []multiwatcher.EntityInfo{
+					&multiwatcher.MachineInfo{
+						Id: "0",
+					},
+				},
+				change: watcher.Change{
+					C:  "units",
+					Id: st.docID("wordpress/0"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						Name:       "wordpress/0",
+						Service:    "wordpress",
+						Series:     "quantal",
+						MachineId:  "0",
+						Status:     "allocating",
+						Ports:      []network.Port{{"tcp", 21}, {"tcp", 22}},
+						PortRanges: []network.PortRange{{21, 22, "tcp"}},
+					},
+					&multiwatcher.MachineInfo{
+						Id: "0",
+					},
+				}}
 		}, func(c *gc.C, st *State) testCase {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
@@ -502,7 +602,8 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						PublicAddress:  "public",
 						PrivateAddress: "private",
 						MachineId:      "0",
-						Ports:          []network.Port{},
+						Ports:          []network.Port{{"tcp", 12345}},
+						PortRanges:     []network.PortRange{{12345, 12345, "tcp"}},
 						Status:         multiwatcher.Status("error"),
 						StatusInfo:     "failure",
 					}}}
@@ -983,6 +1084,93 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 					Id: st.docID("s#foo"),
 				}}
 		},
+		// Action changes
+		func(c *gc.C, st *State) testCase {
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, jc.ErrorIsNil)
+			action, err := st.EnqueueAction(u.Tag(), "vacuumdb", map[string]interface{}{})
+			c.Assert(err, jc.ErrorIsNil)
+			enqueued := makeActionInfo(action, st)
+			action, err = action.Begin()
+			c.Assert(err, jc.ErrorIsNil)
+			started := makeActionInfo(action, st)
+			return testCase{
+				about:          "action change picks up last change",
+				add:            []multiwatcher.EntityInfo{&enqueued, &started},
+				change:         watcher.Change{C: actionsC, Id: st.docID(action.Id())},
+				expectContents: []multiwatcher.EntityInfo{&started},
+			}
+		},
+		// Block changes
+		func(c *gc.C, st *State) testCase {
+			return testCase{
+				about: "no blocks in state, no blocks in store -> do nothing",
+				change: watcher.Change{
+					C:  blocksC,
+					Id: "1",
+				}}
+		}, func(c *gc.C, st *State) testCase {
+			blockId := st.docID("0")
+			blockType := DestroyBlock.ToParams()
+			blockMsg := "woot"
+			return testCase{
+				about: "no change if block is not in backing",
+				add: []multiwatcher.EntityInfo{&multiwatcher.BlockInfo{
+					Id:      blockId,
+					Type:    blockType,
+					Message: blockMsg,
+					Tag:     st.EnvironTag().String(),
+				}},
+				change: watcher.Change{
+					C:  blocksC,
+					Id: st.localID(blockId),
+				},
+				expectContents: []multiwatcher.EntityInfo{&multiwatcher.BlockInfo{
+					Id:      blockId,
+					Type:    blockType,
+					Message: blockMsg,
+					Tag:     st.EnvironTag().String(),
+				}},
+			}
+		}, func(c *gc.C, st *State) testCase {
+			err := st.SwitchBlockOn(DestroyBlock, "multiwatcher testing")
+			c.Assert(err, jc.ErrorIsNil)
+			b, found, err := st.GetBlockForType(DestroyBlock)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(found, jc.IsTrue)
+			blockId := b.Id()
+
+			return testCase{
+				about: "block is added if it's in backing but not in Store",
+				change: watcher.Change{
+					C:  blocksC,
+					Id: blockId,
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.BlockInfo{
+						Id:      st.localID(blockId),
+						Type:    b.Type().ToParams(),
+						Message: b.Message(),
+						Tag:     st.EnvironTag().String(),
+					}}}
+		}, func(c *gc.C, st *State) testCase {
+			err := st.SwitchBlockOn(DestroyBlock, "multiwatcher testing")
+			c.Assert(err, jc.ErrorIsNil)
+			b, found, err := st.GetBlockForType(DestroyBlock)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(found, jc.IsTrue)
+			err = st.SwitchBlockOff(DestroyBlock)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return testCase{
+				about: "block is removed if it's in backing and in multiwatcher.Store",
+				change: watcher.Change{
+					C:  blocksC,
+					Id: b.Id(),
+				},
+			}
+		},
 	} {
 		test := testFunc(c, s.state)
 
@@ -1220,6 +1408,17 @@ func (s *storeManagerStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 				err = svc.UpdateConfigSettings(charm.Settings{"blog-title": "boring"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
+		}, {
+			about: "blocks",
+			triggerEvent: func(st *State) {
+				m, found, err := st.GetBlockForType(DestroyBlock)
+				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(found, jc.IsFalse)
+				c.Assert(m, gc.IsNil)
+
+				err = st.SwitchBlockOn(DestroyBlock, "test block")
+				c.Assert(err, jc.ErrorIsNil)
+			},
 		},
 	} {
 		c.Logf("Test %d: %s", i, test.about)
@@ -1350,4 +1549,20 @@ func deltaMap(deltas []multiwatcher.Delta) map[interface{}]multiwatcher.EntityIn
 		}
 	}
 	return m
+}
+
+func makeActionInfo(a *Action, st *State) multiwatcher.ActionInfo {
+	results, message := a.Results()
+	return multiwatcher.ActionInfo{
+		Id:         a.Id(),
+		Receiver:   a.Receiver(),
+		Name:       a.Name(),
+		Parameters: a.Parameters(),
+		Status:     string(a.Status()),
+		Message:    message,
+		Results:    results,
+		Enqueued:   a.Enqueued(),
+		Started:    a.Started(),
+		Completed:  a.Completed(),
+	}
 }

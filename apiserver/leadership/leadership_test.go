@@ -93,7 +93,7 @@ func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 	ldrSvc := &leadershipService{LeadershipManager: &ldrMgr, authorizer: &stubAuthorizer{}}
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
-			params.ClaimLeadershipParams{
+			{
 				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
 				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
 			},
@@ -116,7 +116,7 @@ func (s *leadershipSuite) TestReleaseLeadershipTranslation(c *gc.C) {
 	ldrSvc := &leadershipService{LeadershipManager: &ldrMgr, authorizer: &stubAuthorizer{}}
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
-			params.ClaimLeadershipParams{
+			{
 				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
 				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
 			},
@@ -150,7 +150,7 @@ func (s *leadershipSuite) TestClaimLeadershipFailOnAuthorizerErrors(c *gc.C) {
 	ldrSvc := &leadershipService{LeadershipManager: nil, authorizer: authorizer}
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
-			params.ClaimLeadershipParams{
+			{
 				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
 				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
 			},
@@ -171,7 +171,7 @@ func (s *leadershipSuite) TestReleaseLeadershipFailOnAuthorizerErrors(c *gc.C) {
 	ldrSvc := &leadershipService{LeadershipManager: nil, authorizer: authorizer}
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
-			params.ClaimLeadershipParams{
+			{
 				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
 				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
 			},

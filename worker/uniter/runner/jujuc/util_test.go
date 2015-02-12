@@ -11,6 +11,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -114,18 +114,16 @@ func (c *Context) AvailabilityZone() (string, bool) {
 	return "us-east-1a", true
 }
 
-func (c *Context) StorageInstance(storageId string) (*storage.StorageInstance, bool) {
-	return &storage.StorageInstance{
-		"1234",
-		storage.StorageKindBlock,
-		"/dev/sda",
-	}, true
+func (c *Context) StorageAttachment(storage names.StorageTag) (*params.StorageAttachment, bool) {
+	return c.HookStorageAttachment()
 }
 
-func (c *Context) HookStorageInstance() (*storage.StorageInstance, bool) {
-	return &storage.StorageInstance{
-		"1234",
-		storage.StorageKindBlock,
+func (c *Context) HookStorageAttachment() (*params.StorageAttachment, bool) {
+	return &params.StorageAttachment{
+		"storage-data-0",
+		"unit-service-0",
+		"unit-service-0",
+		params.StorageKindBlock,
 		"/dev/sda",
 	}, true
 }

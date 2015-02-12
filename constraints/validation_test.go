@@ -71,45 +71,45 @@ var validationTests = []struct {
 	},
 	{
 		cons:  "arch=amd64 mem=4G cpu-cores=4",
-		vocab: map[string][]interface{}{"arch": []interface{}{"amd64", "i386"}},
+		vocab: map[string][]interface{}{"arch": {"amd64", "i386"}},
 	},
 	{
 		cons:  "mem=4G cpu-cores=4",
-		vocab: map[string][]interface{}{"cpu-cores": []interface{}{2, 4, 8}},
+		vocab: map[string][]interface{}{"cpu-cores": {2, 4, 8}},
 	},
 	{
 		cons:  "mem=4G instance-type=foo",
-		vocab: map[string][]interface{}{"instance-type": []interface{}{"foo", "bar"}},
+		vocab: map[string][]interface{}{"instance-type": {"foo", "bar"}},
 	},
 	{
 		cons:  "mem=4G tags=foo,bar",
-		vocab: map[string][]interface{}{"tags": []interface{}{"foo", "bar", "another"}},
+		vocab: map[string][]interface{}{"tags": {"foo", "bar", "another"}},
 	},
 	{
 		cons:  "arch=i386 mem=4G cpu-cores=4",
-		vocab: map[string][]interface{}{"arch": []interface{}{"amd64"}},
+		vocab: map[string][]interface{}{"arch": {"amd64"}},
 		err:   "invalid constraint value: arch=i386\nvalid values are:.*",
 	},
 	{
 		cons:  "mem=4G cpu-cores=5",
-		vocab: map[string][]interface{}{"cpu-cores": []interface{}{2, 4, 8}},
+		vocab: map[string][]interface{}{"cpu-cores": {2, 4, 8}},
 		err:   "invalid constraint value: cpu-cores=5\nvalid values are:.*",
 	},
 	{
 		cons:  "mem=4G instance-type=foo",
-		vocab: map[string][]interface{}{"instance-type": []interface{}{"bar"}},
+		vocab: map[string][]interface{}{"instance-type": {"bar"}},
 		err:   "invalid constraint value: instance-type=foo\nvalid values are:.*",
 	},
 	{
 		cons:  "mem=4G tags=foo,other",
-		vocab: map[string][]interface{}{"tags": []interface{}{"foo", "bar", "another"}},
+		vocab: map[string][]interface{}{"tags": {"foo", "bar", "another"}},
 		err:   "invalid constraint value: tags=other\nvalid values are:.*",
 	},
 	{
 		cons: "arch=i386 mem=4G instance-type=foo",
 		vocab: map[string][]interface{}{
-			"instance-type": []interface{}{"foo", "bar"},
-			"arch":          []interface{}{"amd64", "i386"}},
+			"instance-type": {"foo", "bar"},
+			"arch":          {"amd64", "i386"}},
 	},
 }
 

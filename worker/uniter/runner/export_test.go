@@ -174,7 +174,7 @@ func SetEnvironmentHookContextRelation(
 	context.relationId = relationId
 	context.remoteUnitName = remoteUnitName
 	context.relations = map[int]*ContextRelation{
-		relationId: &ContextRelation{
+		relationId: {
 			endpointName: endpointName,
 			relationId:   relationId,
 		},

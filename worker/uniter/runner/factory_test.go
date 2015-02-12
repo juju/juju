@@ -5,6 +5,7 @@ package runner_test
 
 import (
 	"os"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -130,15 +130,15 @@ func (s *FactorySuite) AssertNotActionContext(c *gc.C, ctx runner.Context) {
 }
 
 func (s *FactorySuite) AssertNotStorageContext(c *gc.C, ctx runner.Context) {
-	storageInstances, ok := ctx.HookStorageInstance()
-	c.Assert(storageInstances, gc.IsNil)
+	storageAttachment, ok := ctx.HookStorageAttachment()
+	c.Assert(storageAttachment, gc.IsNil)
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (s *FactorySuite) AssertStorageContext(c *gc.C, ctx runner.Context, instance storage.StorageInstance) {
-	fromCache, ok := ctx.HookStorageInstance()
+func (s *FactorySuite) AssertStorageContext(c *gc.C, ctx runner.Context, attachment params.StorageAttachment) {
+	fromCache, ok := ctx.HookStorageAttachment()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(instance, jc.DeepEquals, *fromCache)
+	c.Assert(attachment, jc.DeepEquals, *fromCache)
 }
 
 func (s *FactorySuite) AssertRelationContext(c *gc.C, ctx runner.Context, relId int, remoteUnit string) *runner.ContextRelation {
@@ -271,11 +271,20 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	// We need to set up a unit that has storage metadata defined.
 	ch := s.AddTestingCharm(c, "storage-block")
 	sCons := map[string]state.StorageConstraints{
-		"data": state.StorageConstraints{Pool: "", Size: 1024, Count: 1},
+		"data": {Pool: "", Size: 1024, Count: 1},
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, sCons)
-
 	unit := s.AddUnit(c, service)
+
+	storageAttachments, err := s.State.StorageAttachments(unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageAttachments, gc.HasLen, 1)
+	err = s.State.SetStorageAttachmentInfo(
+		storageAttachments[0].StorageInstance(),
+		unit.UnitTag(),
+		state.StorageAttachmentInfo{Location: "outerspace"},
+	)
+
 	password, err := utils.RandomPassword()
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
@@ -301,9 +310,13 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	s.AssertPaths(c, rnr)
 	ctx := rnr.Context()
 	c.Assert(ctx.UnitName(), gc.Equals, "storage-block/0")
-	s.AssertStorageContext(c, ctx, storage.StorageInstance{
-		Id: "data/0", Kind: storage.StorageKindBlock, Location: ""},
-	)
+	s.AssertStorageContext(c, ctx, params.StorageAttachment{
+		StorageTag: "storage-data-0",
+		OwnerTag:   unit.Tag().String(),
+		UnitTag:    unit.Tag().String(),
+		Kind:       params.StorageKindBlock,
+		Location:   "outerspace",
+	})
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
 }
@@ -517,14 +530,7 @@ func (s *FactorySuite) TestNewHookRunnerMetricsEnabled(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *FactorySuite) TestNewActionRunnerBadCharm(c *gc.C) {
-	rnr, err := s.factory.NewActionRunner("irrelevant")
-	c.Assert(rnr, gc.IsNil)
-	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
-	c.Assert(err, gc.Not(jc.Satisfies), runner.IsBadActionError)
-}
-
-func (s *FactorySuite) TestNewActionRunner(c *gc.C) {
+func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 	s.SetCharm(c, "dummy")
 	action, err := s.State.EnqueueAction(s.unit.Tag(), "snapshot", map[string]interface{}{
 		"outfile": "/some/file.bz2",
@@ -544,6 +550,19 @@ func (s *FactorySuite) TestNewActionRunner(c *gc.C) {
 		},
 		ResultsMap: map[string]interface{}{},
 	})
+	vars := ctx.HookVars(s.paths)
+	c.Assert(len(vars) > 0, jc.IsTrue, gc.Commentf("expected HookVars but found none"))
+	combined := strings.Join(vars, "|")
+	c.Assert(combined, gc.Matches, `(^|.*\|)JUJU_ACTION_NAME=snapshot(\|.*|$)`)
+	c.Assert(combined, gc.Matches, `(^|.*\|)JUJU_ACTION_UUID=`+action.Id()+`(\|.*|$)`)
+	c.Assert(combined, gc.Matches, `(^|.*\|)JUJU_ACTION_TAG=`+action.Tag().String()+`(\|.*|$)`)
+}
+
+func (s *FactorySuite) TestNewActionRunnerBadCharm(c *gc.C) {
+	rnr, err := s.factory.NewActionRunner("irrelevant")
+	c.Assert(rnr, gc.IsNil)
+	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
+	c.Assert(err, gc.Not(jc.Satisfies), runner.IsBadActionError)
 }
 
 func (s *FactorySuite) TestNewActionRunnerBadName(c *gc.C) {

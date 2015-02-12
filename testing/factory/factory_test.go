@@ -5,6 +5,7 @@ package factory_test
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/juju/errors"
@@ -440,7 +441,7 @@ func (s *factorySuite) TestMakeMetric(c *gc.C) {
 		Unit:    unit,
 		Time:    &now,
 		Sent:    true,
-		Metrics: []state.Metric{state.Metric{"pings", "1", now}},
+		Metrics: []state.Metric{{"pings", "1", now}},
 	})
 	c.Assert(metric, gc.NotNil)
 
@@ -464,7 +465,8 @@ func (s *factorySuite) TestMakeEnvironmentNil(c *gc.C) {
 
 	env, err := st.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Name(), gc.Equals, "testenv-1")
+	re := regexp.MustCompile(`^testenv-\d+$`)
+	c.Assert(re.MatchString(env.Name()), jc.IsTrue)
 	c.Assert(env.UUID() == s.State.EnvironUUID(), jc.IsFalse)
 	origEnv, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)

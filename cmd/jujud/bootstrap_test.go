@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage/pool"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -575,7 +576,6 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
-
 	expectedSeries := make(set.Strings)
 	if exploded {
 		for _, series := range version.SupportedSeries() {
@@ -655,12 +655,11 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 			"bootstrap-timeout": "123",
 		},
 	).Delete("admin-secret", "ca-private-key")
-
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	provider, err := environs.Provider(cfg.Type())
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := provider.Prepare(nullContext(), cfg)
+	env, err := provider.PrepareForBootstrap(nullContext(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	envtesting.MustUploadFakeTools(s.toolsStorage, cfg.AgentStream(), cfg.AgentStream())
@@ -691,4 +690,28 @@ func (m b64yaml) encode() string {
 		panic(err)
 	}
 	return base64.StdEncoding.EncodeToString(data)
+}
+
+func (s *BootstrapSuite) TestDefaultStoragePools(c *gc.C) {
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	c.Assert(err, jc.ErrorIsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	st, err := state.Open(&mongo.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
+		Password: testPasswordHash(),
+	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	settings := state.NewStateSettings(st)
+	pm := pool.NewPoolManager(settings)
+	for _, p := range []string{"ebs", "ebs-ssd"} {
+		_, err = pm.Get(p)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }

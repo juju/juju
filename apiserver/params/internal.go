@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -141,6 +140,12 @@ type EnvironmentResult struct {
 	Error *Error
 	Name  string
 	UUID  string
+}
+
+// EnvironmentSkeletonConfigArgs wraps the args for environmentmanager.SkeletonConfig.
+type EnvironmentSkeletonConfigArgs struct {
+	Provider string
+	Region   string
 }
 
 // EnvironmentCreateArgs holds the arguments that are necessary to create
@@ -437,7 +442,11 @@ type InstanceInfo struct {
 	Characteristics *instance.HardwareCharacteristics
 	Networks        []Network
 	Interfaces      []NetworkInterface
-	Volumes         []storage.BlockDevice
+	Volumes         []Volume
+	// TODO(axw) we should return map[names.DiskTag]VolumeAttachmentInfo
+	// here, containing only the information regarding the attachment.
+	// The rest can be inferred from the context.
+	VolumeAttachments []VolumeAttachment
 }
 
 // InstancesInfo holds the parameters for making a SetInstanceInfo
@@ -738,7 +747,7 @@ type ProvisioningInfo struct {
 	Placement   string
 	Networks    []string
 	Jobs        []multiwatcher.MachineJob
-	Volumes     []storage.VolumeParams
+	Volumes     []VolumeParams
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.
@@ -780,81 +789,4 @@ type MeterStatusResult struct {
 // MeterStatusResults holds meter status results for multiple units.
 type MeterStatusResults struct {
 	Results []MeterStatusResult
-}
-
-// MachineBlockDevices holds a machine tag and the block devices present
-// on that machine.
-type MachineBlockDevices struct {
-	Machine      string
-	BlockDevices []storage.BlockDevice
-}
-
-// SetMachineBlockDevices holds the arguments for recording the block
-// devices present on a set of machines.
-type SetMachineBlockDevices struct {
-	MachineBlockDevices []MachineBlockDevices
-}
-
-// BlockDeviceResult holds the result of an API call to retrieve details
-// of a block device.
-type BlockDeviceResult struct {
-	Result storage.BlockDevice `json:"result"`
-	Error  *Error              `json:"error,omitempty"`
-}
-
-// BlockDeviceResults holds the result of an API call to retrieve details
-// of multiple block devices.
-type BlockDeviceResults struct {
-	Results []BlockDeviceResult `json:"results,omitempty"`
-}
-
-// BlockDevicesResult holds the result of an API call to retrieve details
-// of all block devices relating to some entity.
-type BlockDevicesResult struct {
-	Result []storage.BlockDevice `json:"result"`
-	Error  *Error                `json:"error,omitempty"`
-}
-
-// BlockDevicseResults holds the result of an API call to retrieve details
-// of all block devices relating to some entities.
-type BlockDevicesResults struct {
-	Results []BlockDevicesResult `json:"results,omitempty"`
-}
-
-// BlockDeviceFilesystem holds the parameters for recording information about
-// the specified block device's filesystem.
-type BlockDeviceFilesystem struct {
-	DiskTag        string `json:"disktag"`
-	StorageTag     string `json:"storagetag"`
-	FilesystemType string `json:"fstype"`
-}
-
-// SetBlockDeviceFilesystem holds the parameters for recording information about
-// the filesystems corresponding to the specified block devices.
-type SetBlockDeviceFilesystem struct {
-	Filesystems []BlockDeviceFilesystem `json:"filesystems"`
-}
-
-// StorageInstanceResult holds the result of an API call to retrieve details
-// of a storage instance.
-type StorageInstanceResult struct {
-	Result storage.StorageInstance `json:"result"`
-	Error  *Error                  `json:"error,omitempty"`
-}
-
-// StorageInstanceResult holds the result of an API call to retrieve details
-// of multiple storage instances.
-type StorageInstanceResults struct {
-	Results []StorageInstanceResult `json:"results,omitempty"`
-}
-
-// UnitStorageInstances holds the storage instances for a given unit.
-type UnitStorageInstances struct {
-	Instances []storage.StorageInstance `json:"instances,omitempty"`
-	Error     *Error                    `json:"error,omitempty"`
-}
-
-// UnitStorageInstancesResults holds the result of a StorageInstances call for a unit.
-type UnitStorageInstancesResults struct {
-	UnitsStorageInstances []UnitStorageInstances `json:"unitstorageinstances,omitempty"`
 }

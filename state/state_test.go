@@ -32,6 +32,9 @@ import (
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -129,6 +132,427 @@ func (s *StateSuite) TestEnvironUUID(c *gc.C) {
 func (s *StateSuite) TestMongoSession(c *gc.C) {
 	session := s.State.MongoSession()
 	c.Assert(session.Ping(), gc.IsNil)
+}
+
+type MultiEnvStateSuite struct {
+	ConnSuite
+	OtherState *state.State
+}
+
+func (s *MultiEnvStateSuite) SetUpTest(c *gc.C) {
+	s.ConnSuite.SetUpTest(c)
+	s.policy.GetConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
+		validator := constraints.NewValidator()
+		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
+		validator.RegisterUnsupported([]string{constraints.CpuPower})
+		return validator, nil
+	}
+	s.OtherState = s.factory.MakeEnvironment(c, nil)
+}
+
+func (s *MultiEnvStateSuite) TearDownTest(c *gc.C) {
+	if s.OtherState != nil {
+		s.OtherState.Close()
+	}
+	s.ConnSuite.TearDownTest(c)
+}
+
+func (s *MultiEnvStateSuite) Reset(c *gc.C) {
+	s.TearDownTest(c)
+	s.SetUpTest(c)
+}
+
+var _ = gc.Suite(&MultiEnvStateSuite{})
+
+func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
+	for i, test := range []struct {
+		about        string
+		getWatcher   func(*state.State) interface{}
+		setUpState   func(*state.State) (assertChanges bool)
+		triggerEvent func(*state.State)
+	}{
+		{
+			about: "machines",
+			getWatcher: func(st *state.State) interface{} {
+				return st.WatchEnvironMachines()
+			},
+			triggerEvent: func(st *state.State) {
+				f := factory.NewFactory(st)
+				m := f.MakeMachine(c, nil)
+				c.Assert(m.Id(), gc.Equals, "0")
+			},
+		},
+		{
+			about: "containers",
+			getWatcher: func(st *state.State) interface{} {
+				f := factory.NewFactory(st)
+				m := f.MakeMachine(c, nil)
+				c.Assert(m.Id(), gc.Equals, "0")
+				return m.WatchAllContainers()
+			},
+			triggerEvent: func(st *state.State) {
+				m, err := st.Machine("0")
+				_, err = st.AddMachineInsideMachine(
+					state.MachineTemplate{
+						Series: "trusty",
+						Jobs:   []state.MachineJob{state.JobHostUnits},
+					},
+					m.Id(),
+					instance.KVM,
+				)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "LXC only containers",
+			getWatcher: func(st *state.State) interface{} {
+				f := factory.NewFactory(st)
+				m := f.MakeMachine(c, nil)
+				c.Assert(m.Id(), gc.Equals, "0")
+				return m.WatchContainers(instance.LXC)
+			},
+			triggerEvent: func(st *state.State) {
+				m, err := st.Machine("0")
+				c.Assert(err, jc.ErrorIsNil)
+				_, err = st.AddMachineInsideMachine(
+					state.MachineTemplate{
+						Series: "trusty",
+						Jobs:   []state.MachineJob{state.JobHostUnits},
+					},
+					m.Id(),
+					instance.LXC,
+				)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "units",
+			getWatcher: func(st *state.State) interface{} {
+				f := factory.NewFactory(st)
+				m := f.MakeMachine(c, nil)
+				c.Assert(m.Id(), gc.Equals, "0")
+				return m.WatchUnits()
+			},
+			triggerEvent: func(st *state.State) {
+				m, err := st.Machine("0")
+				c.Assert(err, jc.ErrorIsNil)
+				f := factory.NewFactory(st)
+				f.MakeUnit(c, &factory.UnitParams{Machine: m})
+			},
+		}, {
+			about: "services",
+			getWatcher: func(st *state.State) interface{} {
+				return st.WatchServices()
+			},
+			triggerEvent: func(st *state.State) {
+				f := factory.NewFactory(st)
+				f.MakeService(c, nil)
+			},
+		}, {
+			about: "relations",
+			getWatcher: func(st *state.State) interface{} {
+				f := factory.NewFactory(st)
+				wordpressCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+				wordpress := f.MakeService(c, &factory.ServiceParams{Name: "wordpress", Charm: wordpressCharm})
+				return wordpress.WatchRelations()
+			},
+			setUpState: func(st *state.State) bool {
+				f := factory.NewFactory(st)
+				mysqlCharm := f.MakeCharm(c, &factory.CharmParams{Name: "mysql"})
+				f.MakeService(c, &factory.ServiceParams{Name: "mysql", Charm: mysqlCharm})
+				return false
+			},
+			triggerEvent: func(st *state.State) {
+				eps, err := st.InferEndpoints("wordpress", "mysql")
+				c.Assert(err, jc.ErrorIsNil)
+				_, err = st.AddRelation(eps...)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "open ports",
+			getWatcher: func(st *state.State) interface{} {
+				return st.WatchOpenedPorts()
+			},
+			setUpState: func(st *state.State) bool {
+				f := factory.NewFactory(st)
+				mysql := f.MakeService(c, &factory.ServiceParams{Name: "mysql"})
+				f.MakeUnit(c, &factory.UnitParams{Service: mysql})
+				return false
+			},
+			triggerEvent: func(st *state.State) {
+				u, err := st.Unit("mysql/0")
+				c.Assert(err, jc.ErrorIsNil)
+				err = u.OpenPorts("TCP", 100, 200)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "network interfaces",
+			getWatcher: func(st *state.State) interface{} {
+				f := factory.NewFactory(st)
+				m := f.MakeMachine(c, &factory.MachineParams{})
+				c.Assert(m.Id(), gc.Equals, "0")
+
+				return m.WatchInterfaces()
+			},
+			setUpState: func(st *state.State) bool {
+				m, err := st.Machine("0")
+				c.Assert(err, jc.ErrorIsNil)
+
+				_, err = st.AddNetwork(state.NetworkInfo{"net1", "net1", "0.1.2.3/24", 0})
+				c.Assert(err, jc.ErrorIsNil)
+
+				_, err = m.AddNetworkInterface(state.NetworkInterfaceInfo{
+					MACAddress:    "aa:bb:cc:dd:ee:ff",
+					InterfaceName: "eth0",
+					NetworkName:   "net1",
+					IsVirtual:     false,
+				})
+				c.Assert(err, jc.ErrorIsNil)
+				return true
+			},
+			triggerEvent: func(st *state.State) {
+				m, err := st.Machine("0")
+				c.Assert(err, jc.ErrorIsNil)
+				_, err = m.NetworkInterfaces()
+				c.Assert(err, jc.ErrorIsNil)
+
+				ifaces, err := m.NetworkInterfaces()
+				c.Assert(err, jc.ErrorIsNil)
+				err = ifaces[0].Disable()
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "cleanups",
+			getWatcher: func(st *state.State) interface{} {
+				return st.WatchCleanups()
+			},
+			setUpState: func(st *state.State) bool {
+				f := factory.NewFactory(st)
+				wordpressCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+				f.MakeService(c, &factory.ServiceParams{Name: "wordpress", Charm: wordpressCharm})
+				mysqlCharm := f.MakeCharm(c, &factory.CharmParams{Name: "mysql"})
+				f.MakeService(c, &factory.ServiceParams{Name: "mysql", Charm: mysqlCharm})
+
+				// add and destroy a relation, so there is something to cleanup.
+				eps, err := st.InferEndpoints("wordpress", "mysql")
+				c.Assert(err, jc.ErrorIsNil)
+				r := f.MakeRelation(c, &factory.RelationParams{Endpoints: eps})
+				err = r.Destroy()
+				c.Assert(err, jc.ErrorIsNil)
+
+				return false
+			},
+			triggerEvent: func(st *state.State) {
+				err := st.Cleanup()
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "reboots",
+			getWatcher: func(st *state.State) interface{} {
+				f := factory.NewFactory(st)
+				m := f.MakeMachine(c, &factory.MachineParams{})
+				c.Assert(m.Id(), gc.Equals, "0")
+				w, err := m.WatchForRebootEvent()
+				c.Assert(err, jc.ErrorIsNil)
+				return w
+			},
+			triggerEvent: func(st *state.State) {
+				m, err := st.Machine("0")
+				c.Assert(err, jc.ErrorIsNil)
+				err = m.SetRebootFlag(true)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "block devices",
+			getWatcher: func(st *state.State) interface{} {
+				f := factory.NewFactory(st)
+				m := f.MakeMachine(c, &factory.MachineParams{})
+				c.Assert(m.Id(), gc.Equals, "0")
+				return st.WatchBlockDevices(m.MachineTag())
+			},
+			setUpState: func(st *state.State) bool {
+				m, err := st.Machine("0")
+				c.Assert(err, jc.ErrorIsNil)
+				sdb := state.BlockDeviceInfo{DeviceName: "sdb"}
+				err = m.SetMachineBlockDevices(sdb)
+				c.Assert(err, jc.ErrorIsNil)
+				return false
+			},
+			triggerEvent: func(st *state.State) {
+				m, err := st.Machine("0")
+				c.Assert(err, jc.ErrorIsNil)
+				sdb := state.BlockDeviceInfo{DeviceName: "sdb", Label: "fatty"}
+				err = m.SetMachineBlockDevices(sdb)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "statuses",
+			getWatcher: func(st *state.State) interface{} {
+				m, err := st.AddMachine("trusty", state.JobHostUnits)
+				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(m.Id(), gc.Equals, "0")
+				return m.Watch()
+			},
+			setUpState: func(st *state.State) bool {
+				m, err := st.Machine("0")
+				c.Assert(err, jc.ErrorIsNil)
+				m.SetProvisioned("inst-id", "fake_nonce", nil)
+				return false
+			},
+			triggerEvent: func(st *state.State) {
+				m, err := st.Machine("0")
+				c.Assert(err, jc.ErrorIsNil)
+
+				err = m.SetStatus("error", "some status", nil)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "settings",
+			getWatcher: func(st *state.State) interface{} {
+				return st.WatchServices()
+			},
+			setUpState: func(st *state.State) bool {
+				f := factory.NewFactory(st)
+				wordpressCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+				f.MakeService(c, &factory.ServiceParams{Name: "wordpress", Charm: wordpressCharm})
+				return false
+			},
+			triggerEvent: func(st *state.State) {
+				svc, err := st.Service("wordpress")
+				c.Assert(err, jc.ErrorIsNil)
+
+				err = svc.UpdateConfigSettings(charm.Settings{"blog-title": "awesome"})
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "action status",
+			getWatcher: func(st *state.State) interface{} {
+				f := factory.NewFactory(st)
+				dummyCharm := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
+				service := f.MakeService(c, &factory.ServiceParams{Name: "dummy", Charm: dummyCharm})
+
+				unit, err := service.AddUnit()
+				c.Assert(err, jc.ErrorIsNil)
+				return unit.WatchActionNotifications()
+			},
+			triggerEvent: func(st *state.State) {
+				unit, err := st.Unit("dummy/0")
+				c.Assert(err, jc.ErrorIsNil)
+				_, err = unit.AddAction("snapshot", nil)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "min units",
+			getWatcher: func(st *state.State) interface{} {
+				return st.WatchMinUnits()
+			},
+			setUpState: func(st *state.State) bool {
+				f := factory.NewFactory(st)
+				wordpressCharm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+				_ = f.MakeService(c, &factory.ServiceParams{Name: "wordpress", Charm: wordpressCharm})
+				return false
+			},
+			triggerEvent: func(st *state.State) {
+				wordpress, err := st.Service("wordpress")
+				c.Assert(err, jc.ErrorIsNil)
+				err = wordpress.SetMinUnits(2)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		},
+	} {
+		c.Logf("Test %d: %s", i, test.about)
+		func() {
+			getTestWatcher := func(st *state.State) TestWatcherC {
+				var wc interface{}
+				switch w := test.getWatcher(st).(type) {
+				case statetesting.StringsWatcher:
+					wc = statetesting.NewStringsWatcherC(c, st, w)
+					swc := wc.(statetesting.StringsWatcherC)
+					// consume initial event
+					swc.AssertChange()
+					swc.AssertNoChange()
+				case statetesting.NotifyWatcher:
+					wc = statetesting.NewNotifyWatcherC(c, st, w)
+					nwc := wc.(statetesting.NotifyWatcherC)
+					// consume initial event
+					nwc.AssertOneChange()
+				default:
+					c.Fatalf("unknown watcher type %T", w)
+				}
+				return TestWatcherC{
+					c:       c,
+					State:   st,
+					Watcher: wc,
+				}
+			}
+
+			checkIsolationForEnv := func(w1, w2 TestWatcherC) {
+				c.Logf("Making changes to environment %s", w1.State.EnvironUUID())
+				// switch on type of watcher here
+				if test.setUpState != nil {
+
+					assertChanges := test.setUpState(w1.State)
+					if assertChanges {
+						// Consume events from setup.
+						w1.AssertChanges()
+						w1.AssertNoChange()
+						w2.AssertNoChange()
+					}
+				}
+				test.triggerEvent(w1.State)
+				w1.AssertChanges()
+				w1.AssertNoChange()
+				w2.AssertNoChange()
+			}
+
+			wc1 := getTestWatcher(s.State)
+			defer wc1.Stop()
+			wc2 := getTestWatcher(s.OtherState)
+			defer wc2.Stop()
+			wc2.AssertNoChange()
+			wc1.AssertNoChange()
+			checkIsolationForEnv(wc1, wc2)
+			checkIsolationForEnv(wc2, wc1)
+		}()
+		s.Reset(c)
+	}
+}
+
+type TestWatcherC struct {
+	c       *gc.C
+	State   *state.State
+	Watcher interface{}
+}
+
+func (tw *TestWatcherC) AssertChanges() {
+	switch wc := tw.Watcher.(type) {
+	case statetesting.StringsWatcherC:
+		wc.AssertChanges()
+	case statetesting.NotifyWatcherC:
+		wc.AssertOneChange()
+	default:
+		tw.c.Fatalf("unknown watcher type %T", wc)
+	}
+}
+
+func (tw *TestWatcherC) AssertNoChange() {
+	switch wc := tw.Watcher.(type) {
+	case statetesting.StringsWatcherC:
+		wc.AssertNoChange()
+	case statetesting.NotifyWatcherC:
+		wc.AssertNoChange()
+	default:
+		tw.c.Fatalf("unknown watcher type %T", wc)
+	}
+}
+
+func (tw *TestWatcherC) Stop() {
+	switch wc := tw.Watcher.(type) {
+	case statetesting.StringsWatcherC:
+		statetesting.AssertStop(tw.c, wc.Watcher)
+	case statetesting.NotifyWatcherC:
+		statetesting.AssertStop(tw.c, wc.Watcher)
+	default:
+		tw.c.Fatalf("unknown watcher type %T", wc)
+	}
 }
 
 func (s *StateSuite) TestAddresses(c *gc.C) {
@@ -729,10 +1153,29 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
 }
 
-func (s *StateSuite) TestAddMachineWithBlockDevices(c *gc.C) {
+func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
+	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	storage.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	cons := constraints.MustParse("mem=4G")
 	hc := instance.MustParseHardware("mem=2G")
+
+	volume0 := state.VolumeParams{
+		Pool: "loop-pool",
+		Size: 123,
+	}
+	volume1 := state.VolumeParams{
+		Pool: "loop-pool",
+		Size: 456,
+	}
+	volumeAttachment0 := state.VolumeAttachmentParams{}
+	volumeAttachment1 := state.VolumeAttachmentParams{
+		ReadOnly: true,
+	}
+
 	machineTemplate := state.MachineTemplate{
 		Series:                  "precise",
 		Constraints:             cons,
@@ -740,10 +1183,10 @@ func (s *StateSuite) TestAddMachineWithBlockDevices(c *gc.C) {
 		InstanceId:              "inst-id",
 		Nonce:                   "nonce",
 		Jobs:                    oneJob,
-		BlockDevices: []state.BlockDeviceParams{{
-			Size: 123,
+		Volumes: []state.MachineVolumeParams{{
+			volume0, volumeAttachment0,
 		}, {
-			Size: 456,
+			volume1, volumeAttachment1,
 		}},
 	}
 	machines, err := s.State.AddMachines(machineTemplate)
@@ -752,15 +1195,26 @@ func (s *StateSuite) TestAddMachineWithBlockDevices(c *gc.C) {
 	m, err := s.State.Machine(machines[0].Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	blockDevices, err := m.BlockDevices()
+	volumeAttachments, err := s.State.MachineVolumeAttachments(m.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockDevices, gc.HasLen, 2)
-	for i, dev := range blockDevices {
-		_, err = dev.Info()
+	c.Assert(volumeAttachments, gc.HasLen, 2)
+	if volumeAttachments[0].Volume() == names.NewDiskTag("1") {
+		va := volumeAttachments
+		va[0], va[1] = va[1], va[0]
+	}
+	for i, att := range volumeAttachments {
+		_, err = att.Info()
 		c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
-		params, ok := dev.Params()
+		attachmentParams, ok := att.Params()
 		c.Assert(ok, jc.IsTrue)
-		c.Check(params, gc.Equals, machineTemplate.BlockDevices[i])
+		c.Check(attachmentParams, gc.Equals, machineTemplate.Volumes[i].Attachment)
+		volume, err := s.State.Volume(att.Volume())
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = volume.Info()
+		c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+		volumeParams, ok := volume.Params()
+		c.Assert(ok, jc.IsTrue)
+		c.Check(volumeParams, gc.Equals, machineTemplate.Volumes[i].Volume)
 	}
 }
 
@@ -3746,6 +4200,15 @@ func (s *StateSuite) TestNowToTheSecond(c *gc.C) {
 	t := state.NowToTheSecond()
 	rounded := t.Round(time.Second)
 	c.Assert(t, gc.DeepEquals, rounded)
+}
+
+func (s *StateSuite) TestUnitsForInvalidId(c *gc.C) {
+	// Check that an error is returned if an invalid machine id is provided.
+	// Success cases are tested as part of TestMachinePrincipalUnits in the
+	// MachineSuite.
+	units, err := s.State.UnitsFor("invalid-id")
+	c.Assert(units, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `"invalid-id" is not a valid machine id`)
 }
 
 type SetAdminMongoPasswordSuite struct {

@@ -512,9 +512,9 @@ type ProvisioningScriptResult struct {
 	Script string
 }
 
-// EnvironmentGetResults contains the result of EnvironmentGet client
-// API call.
-type EnvironmentGetResults struct {
+// EnvironmentConfigResults contains the result of client API calls
+// to get environment config values.
+type EnvironmentConfigResults struct {
 	Config map[string]interface{}
 }
 

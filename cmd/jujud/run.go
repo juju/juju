@@ -137,7 +137,6 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	if len(c.remoteUnitName) > 0 && relationId == -1 {
 		return nil, errors.Errorf("remote unit: %s, provided without a relation", c.remoteUnitName)
 	}
-
 	client, err := sockets.Dial(c.socketPath())
 	if err != nil {
 		return nil, errors.Trace(err)

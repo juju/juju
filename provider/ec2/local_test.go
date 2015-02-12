@@ -734,7 +734,7 @@ func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *g
 func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.NetworkingEnviron, instance.Id) {
 	// setting a default-vpc will create a network interface
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": []string{"vpc-xxxxxxx"},
+		"default-vpc": {"vpc-xxxxxxx"},
 	})
 	env := t.prepareEnviron(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
@@ -807,6 +807,26 @@ func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
+func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+	interfaces, err := env.NetworkInterfaces(instId)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedInterfaces := []network.InterfaceInfo{{
+		DeviceIndex:      0,
+		MACAddress:       "20:01:60:cb:27:37",
+		CIDR:             "10.10.0.0/20",
+		ProviderId:       "eni-0",
+		ProviderSubnetId: "subnet-0",
+		VLANTag:          0,
+		InterfaceName:    "eth0",
+		Disabled:         false,
+		NoAutoStart:      false,
+		ConfigType:       "",
+		Address:          network.NewAddress("10.10.0.5", network.ScopeCloudLocal),
+	}}
+	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)
+}
+
 func (t *localServerSuite) TestSubnets(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
 
@@ -840,7 +860,7 @@ func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
 
 func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": []string{"vpc-xxxxxxx"},
+		"default-vpc": {"vpc-xxxxxxx"},
 	})
 	env := t.prepareEnviron(c)
 	result, err := env.SupportsAddressAllocation("")
@@ -850,7 +870,7 @@ func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {
 
 func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": []string{"none"},
+		"default-vpc": {"none"},
 	})
 	env := t.prepareEnviron(c)
 	result, err := env.SupportsAddressAllocation("")
@@ -860,7 +880,7 @@ func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
 	// this value won't change normally, the change here is to
 	// ensure that subsequent calls use the cached value
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": []string{"vpc-xxxxxxx"},
+		"default-vpc": {"vpc-xxxxxxx"},
 	})
 	result, err = env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
@@ -869,7 +889,7 @@ func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
 
 func (t *localServerSuite) TestSupportsAddressAllocationFalse(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": []string{"none"},
+		"default-vpc": {"none"},
 	})
 	env := t.prepareEnviron(c)
 	result, err := env.SupportsAddressAllocation("")

@@ -8,9 +8,9 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/uniter"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
 	jujufactory "github.com/juju/juju/testing/factory"
 )
 
@@ -34,11 +34,11 @@ func (s *uniterV2Suite) SetUpTest(c *gc.C) {
 	s.uniter = uniterAPIV2
 }
 
-func (s *uniterV2Suite) TestStorageInstances(c *gc.C) {
+func (s *uniterV2Suite) TestStorageAttachments(c *gc.C) {
 	// We need to set up a unit that has storage metadata defined.
 	ch := s.AddTestingCharm(c, "storage-block")
 	sCons := map[string]state.StorageConstraints{
-		"data": state.StorageConstraints{Pool: "", Size: 1024, Count: 1},
+		"data": {Pool: "", Size: 1024, Count: 1},
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, sCons)
 	factory := jujufactory.NewFactory(s.State)
@@ -46,17 +46,32 @@ func (s *uniterV2Suite) TestStorageInstances(c *gc.C) {
 		Service: service,
 	})
 
+	stateStorageAttachments, err := s.State.StorageAttachments(unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stateStorageAttachments, gc.HasLen, 1)
+	err = s.State.SetStorageAttachmentInfo(
+		stateStorageAttachments[0].StorageInstance(),
+		unit.UnitTag(),
+		state.StorageAttachmentInfo{Location: "outerspace"},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	password, err := utils.RandomPassword()
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.OpenAPIAs(c, unit.Tag(), password)
 	uniter, err := st.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
-	instances, err := uniter.StorageInstances(unit.Tag())
+
+	attachments, err := uniter.StorageAttachments(unit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instances, gc.DeepEquals, []storage.StorageInstance{
-		{Id: "data/0", Kind: storage.StorageKindBlock, Location: ""},
-	})
+	c.Assert(attachments, gc.DeepEquals, []params.StorageAttachment{{
+		StorageTag: "storage-data-0",
+		OwnerTag:   unit.Tag().String(),
+		UnitTag:    unit.Tag().String(),
+		Kind:       params.StorageKindBlock,
+		Location:   "outerspace",
+	}})
 }
 
 // TestSetStatus tests backwards compatibility for

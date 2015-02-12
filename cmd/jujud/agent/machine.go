@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
@@ -53,7 +54,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
-	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -63,7 +63,9 @@ import (
 	"github.com/juju/juju/worker/charmrevisionworker"
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/worker/diskformatter"
 	"github.com/juju/juju/worker/diskmanager"
+	"github.com/juju/juju/worker/envworkermanager"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
@@ -430,6 +432,14 @@ func (a *MachineAgent) BeginRestore() error {
 	return nil
 }
 
+// EndRestore will flag the agent to allow all commands
+// This being invoked means that restore process failed
+// since success restarts the agent.
+func (a *MachineAgent) EndRestore() {
+	a.restoreMode = false
+	a.restoring = false
+}
+
 // newrestorestatewatcherworker will return a worker or err if there is a failure,
 // the worker takes care of watching the state of restoreInfo doc and put the
 // agent in the different restore modes.
@@ -443,7 +453,7 @@ func (a *MachineAgent) newRestoreStateWatcherWorker(st *state.State) (worker.Wor
 // restoreChanged will be called whenever restoreInfo doc changes signaling a new
 // step in the restore process.
 func (a *MachineAgent) restoreChanged(st *state.State) error {
-	rinfo, err := st.EnsureRestoreInfo()
+	rinfo, err := st.RestoreInfoSetter()
 	if err != nil {
 		return errors.Annotate(err, "cannot read restore state")
 	}
@@ -452,6 +462,8 @@ func (a *MachineAgent) restoreChanged(st *state.State) error {
 		a.PrepareRestore()
 	case state.RestoreInProgress:
 		a.BeginRestore()
+	case state.RestoreFailed:
+		a.EndRestore()
 	}
 	return nil
 }
@@ -555,7 +567,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return nil, errors.Annotate(err, "cannot set machine agent version")
 	}
 
-	runner := worker.NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
+	runner := newConnRunner(st)
 
 	// Run the upgrader and the upgrade-steps worker without waiting for
 	// the upgrade steps to complete.
@@ -583,22 +595,24 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	entity *apiagent.Entity,
 ) (worker.Worker, error) {
 
-	runner := worker.NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
-
 	rsyslogMode := rsyslog.RsyslogModeForwarding
-	var singularRunner worker.Runner
 	var err error
 	for _, job := range entity.Jobs() {
 		if job == multiwatcher.JobManageEnviron {
 			rsyslogMode = rsyslog.RsyslogModeAccumulate
-			conn := singularAPIConn{st, st.Agent()}
-			singularRunner, err = newSingularRunner(runner, conn)
-			if err != nil {
-				return nil, fmt.Errorf("cannot make singular API Runner: %v", err)
-			}
 			break
 		}
 	}
+
+	runner := newConnRunner(st)
+	// TODO(fwereade): this is *still* a hideous layering violation, but at least
+	// it's confined to jujud rather than extending into the worker itself.
+	// Start this worker first to try and get proxy settings in place
+	// before we do anything else.
+	writeSystemFiles := shouldWriteProxyFiles(agentConfig)
+	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
+		return proxyupdater.New(st.Environment(), writeSystemFiles), nil
+	})
 
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
@@ -621,24 +635,24 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
 
-	// TODO(fwereade): this is *still* a hideous layering violation, but at least
-	// it's confined to jujud rather than extending into the worker itself.
-	writeSystemFiles := shouldWriteProxyFiles(agentConfig)
-	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
-		return proxyupdater.New(st.Environment(), writeSystemFiles), nil
-	})
-
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
 	// TODO(axw) stop checking feature flag once storage has graduated.
-	if featureflag.Enabled(storage.FeatureFlag) {
+	if featureflag.Enabled(feature.Storage) {
 		runner.StartWorker("diskmanager", func() (worker.Worker, error) {
 			api, err := st.DiskManager()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
+		})
+		runner.StartWorker("diskformatter", func() (worker.Worker, error) {
+			api, err := st.DiskFormatter()
+			if err != nil {
+				return nil, err
+			}
+			return diskformatter.NewWorker(api), nil
 		})
 	}
 
@@ -651,9 +665,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	if disableNetworkManagement {
 		logger.Infof("network management is disabled")
 	}
-	// Check if firewall-mode is "none" to disable the firewaller.
-	firewallMode := envConfig.FirewallMode()
-	disableFirewaller := firewallMode == config.FwNone
 
 	// Start networker depending on configuration and job.
 	intrusiveMode := false
@@ -694,28 +705,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				return deployer.NewDeployer(apiDeployer, context), nil
 			})
 		case multiwatcher.JobManageEnviron:
-			singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
-				return provisioner.NewEnvironProvisioner(st.Provisioner(), agentConfig), nil
-			})
-			// TODO(axw) 2013-09-24 bug #1229506
-			// Make another job to enable the firewaller. Not all
-			// environments are capable of managing ports
-			// centrally.
-			if !disableFirewaller {
-				singularRunner.StartWorker("firewaller", func() (worker.Worker, error) {
-					return newFirewaller(st.Firewaller())
-				})
-			} else {
-				logger.Debugf("not starting firewaller worker - firewall-mode is %q", config.FwNone)
-			}
-			singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
-				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
-			})
-
-			logger.Infof("starting metric workers")
-			runner.StartWorker("metricmanagerworker", func() (worker.Worker, error) {
-				return metricworker.NewMetricsManager(getMetricAPI(st))
-			})
 			runner.StartWorker("identity-file-writer", func() (worker.Worker, error) {
 				inner := func(<-chan struct{}) error {
 					agentConfig := a.CurrentConfig()
@@ -860,11 +849,10 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
 	registerSimplestreamsDataSource(stor)
 
-	singularStateConn := singularStateConn{st.MongoSession(), m}
-	runner := worker.NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
-	singularRunner, err := newSingularRunner(runner, singularStateConn)
+	runner := newConnRunner(st)
+	singularRunner, err := newSingularStateRunner(runner, st, m)
 	if err != nil {
-		return nil, fmt.Errorf("cannot make singular State Runner: %v", err)
+		return nil, errors.Trace(err)
 	}
 
 	// Take advantage of special knowledge here in that we will only ever want
@@ -884,8 +872,8 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			// Implemented in APIWorker.
 		case state.JobManageEnviron:
 			useMultipleCPUs()
-			a.startWorkerAfterUpgrade(runner, "instancepoller", func() (worker.Worker, error) {
-				return instancepoller.NewWorker(st), nil
+			a.startWorkerAfterUpgrade(runner, "env worker manager", func() (worker.Worker, error) {
+				return envworkermanager.NewEnvWorkerManager(st, a.startEnvWorkers), nil
 			})
 			a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
 				return peergrouperNew(st)
@@ -910,17 +898,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
 				return newCertificateUpdater(m, agentConfig, st, stateServingSetter, certChangedChan), nil
 			})
-			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {
-				return cleaner.NewCleaner(st), nil
-			})
 			a.startWorkerAfterUpgrade(singularRunner, "resumer", func() (worker.Worker, error) {
 				// The action of resumer is so subtle that it is not tested,
 				// because we can't figure out how to do so without brutalising
 				// the transaction log.
 				return resumer.NewResumer(st), nil
-			})
-			a.startWorkerAfterUpgrade(singularRunner, "minunitsworker", func() (worker.Worker, error) {
-				return minunitsworker.NewMinUnitsWorker(st), nil
 			})
 		case state.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
@@ -929,6 +911,111 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		}
 	}
 	return cmdutil.NewCloseWorker(logger, runner, st), nil
+}
+
+// startEnvWorkers starts state server workers that need to run per
+// environment.
+func (a *MachineAgent) startEnvWorkers(
+	ssSt envworkermanager.InitialState,
+	st *state.State,
+) (runner worker.Runner, err error) {
+	envUUID := st.EnvironUUID()
+	defer errors.DeferredAnnotatef(&err, "failed to start workers for env %s", envUUID)
+	logger.Infof("starting workers for env %s", envUUID)
+
+	// Establish API connection for this environment.
+	agentConfig := a.CurrentConfig()
+	apiInfo := agentConfig.APIInfo()
+	apiInfo.EnvironTag = st.EnvironTag()
+	apiSt, err := OpenAPIStateUsingInfo(apiInfo, a, agentConfig.OldPassword())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Create a runner for workers specific to this
+	// environment. Either the State or API connection failing will be
+	// considered fatal, killing the runner and all its workers.
+	runner = newConnRunner(st, apiSt)
+	defer func() {
+		if err != nil && runner != nil {
+			runner.Kill()
+			runner.Wait()
+		}
+	}()
+	// Close the API connection when the runner for this environment dies.
+	go func() {
+		runner.Wait()
+		err := apiSt.Close()
+		if err != nil {
+			logger.Errorf("failed to close API connection for env %s: %v", envUUID, err)
+		}
+	}()
+
+	// Create a singular runner for this environment.
+	machine, err := ssSt.Machine(a.machineId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	singularRunner, err := newSingularStateRunner(runner, ssSt, machine)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer func() {
+		if err != nil && singularRunner != nil {
+			singularRunner.Kill()
+			singularRunner.Wait()
+		}
+	}()
+
+	// Start workers that depend on a *state.State.
+	runner.StartWorker("instancepoller", func() (worker.Worker, error) {
+		return instancepoller.NewWorker(st), nil
+	})
+	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
+		return cleaner.NewCleaner(st), nil
+	})
+	singularRunner.StartWorker("minunitsworker", func() (worker.Worker, error) {
+		return minunitsworker.NewMinUnitsWorker(st), nil
+	})
+
+	// Start workers that use an API connection.
+	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
+		return provisioner.NewEnvironProvisioner(apiSt.Provisioner(), agentConfig), nil
+	})
+	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
+		return charmrevisionworker.NewRevisionUpdateWorker(apiSt.CharmRevisionUpdater()), nil
+	})
+	runner.StartWorker("metricmanagerworker", func() (worker.Worker, error) {
+		return metricworker.NewMetricsManager(getMetricAPI(apiSt))
+	})
+
+	// TODO(axw) 2013-09-24 bug #1229506
+	// Make another job to enable the firewaller. Not all
+	// environments are capable of managing ports
+	// centrally.
+	fwMode, err := getFirewallMode(apiSt)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get firewall mode")
+	}
+	if fwMode != config.FwNone {
+		singularRunner.StartWorker("firewaller", func() (worker.Worker, error) {
+			return newFirewaller(apiSt.Firewaller())
+		})
+	} else {
+		logger.Debugf("not starting firewaller worker - firewall-mode is %q", fwMode)
+	}
+
+	return runner, nil
+}
+
+var getFirewallMode = _getFirewallMode
+
+func _getFirewallMode(apiSt *api.State) (string, error) {
+	envConfig, err := apiSt.Environment().EnvironConfig()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot read environment config")
+	}
+	return envConfig.FirewallMode(), nil
 }
 
 // stateWorkerDialOpts is a mongo.DialOpts suitable
@@ -1307,19 +1394,21 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 	return fmt.Errorf("uninstall failed: %v", errors)
 }
 
-// singularAPIConn implements singular.Conn on
-// top of an API connection.
-type singularAPIConn struct {
-	apiState   *api.State
-	agentState *apiagent.State
+func newConnRunner(conns ...cmdutil.Pinger) worker.Runner {
+	return worker.NewRunner(cmdutil.ConnectionIsFatal(logger, conns...), cmdutil.MoreImportant)
 }
 
-func (c singularAPIConn) IsMaster() (bool, error) {
-	return c.agentState.IsMaster()
+type MongoSessioner interface {
+	MongoSession() *mgo.Session
 }
 
-func (c singularAPIConn) Ping() error {
-	return c.apiState.Ping()
+func newSingularStateRunner(runner worker.Runner, st MongoSessioner, m *state.Machine) (worker.Runner, error) {
+	singularStateConn := singularStateConn{st.MongoSession(), m}
+	singularRunner, err := newSingularRunner(runner, singularStateConn)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot make singular State Runner")
+	}
+	return singularRunner, err
 }
 
 // singularStateConn implements singular.Conn on

@@ -163,7 +163,7 @@ func (s *clientSuite) TestEnsureAvailabilityConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 	expectedCons := []constraints.Value{
-		constraints.Value{},
+		{},
 		constraints.MustParse("mem=4G"),
 		constraints.MustParse("mem=4G"),
 	}
@@ -203,7 +203,7 @@ func (s *clientSuite) TestEnsureAvailabilityPlacement(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 	expectedCons := []constraints.Value{
-		constraints.Value{},
+		{},
 		constraints.MustParse("mem=4G"),
 		constraints.MustParse("mem=4G"),
 	}

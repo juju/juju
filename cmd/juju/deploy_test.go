@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -210,9 +212,12 @@ func (s *DeploySuite) TestStorageWithoutFeatureFlag(c *gc.C) {
 func (s *DeploySuite) TestStorage(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
 
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "storage-block")
-	err := runDeploy(c, "local:storage-block", "--storage", "data=1G")
+	err = runDeploy(c, "local:storage-block", "--storage", "data=loop-pool,1G")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/storage-block-1")
 	service, _ := s.AssertService(c, "storage-block", curl, 1, 0)
@@ -220,7 +225,8 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 	cons, err := service.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
-		"data": state.StorageConstraints{
+		"data": {
+			Pool:  "loop-pool",
 			Count: 1,
 			Size:  1024,
 		},

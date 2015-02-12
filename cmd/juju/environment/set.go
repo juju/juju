@@ -82,7 +82,7 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	for key, _ := range c.values {
+	for key := range c.values {
 		// check if the key exists in the existing env config
 		// and warn the user if the key is not defined in
 		// the existing config

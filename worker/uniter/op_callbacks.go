@@ -84,6 +84,11 @@ func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 	return nil
 }
 
+// UpdateRelations is part of the operation.Callbacks interface.
+func (opc *operationCallbacks) UpdateRelations(ids []int) error {
+	return opc.u.relations.Update(ids)
+}
+
 func notifyHook(hook string, ctx runner.Context, method func(string)) {
 	if r, ok := ctx.HookRelation(); ok {
 		remote, _ := ctx.RemoteUnitName()
@@ -136,12 +141,12 @@ func (opc *operationCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
 	return opc.u.f.SetCharm(charmURL)
 }
 
-// ClearResolvedFlag is part of the operation.Callbacks interface,
+// ClearResolvedFlag is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) ClearResolvedFlag() error {
 	return opc.u.f.ClearResolved()
 }
 
-// InitializeMetricsCollector is part of the operation.Callbacks interface,
+// InitializeMetricsCollector is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) InitializeMetricsCollector() error {
 	return opc.u.initializeMetricsCollector()
 }

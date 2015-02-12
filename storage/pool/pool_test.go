@@ -46,7 +46,7 @@ func (s *poolSuite) TestList(c *gc.C) {
 	pools, err := s.poolManager.List()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pools, gc.HasLen, 1)
-	c.Assert(pools[0].Config(), gc.DeepEquals, poolAttrs)
+	c.Assert(pools[0].Config(), gc.DeepEquals, map[string]interface{}{"foo": "bar"})
 	c.Assert(pools[0].Name(), gc.Equals, "testpool")
 	c.Assert(pools[0].Type(), gc.Equals, storage.ProviderType("loop"))
 }
@@ -65,8 +65,8 @@ func (s *poolSuite) TestListManyResults(c *gc.C) {
 		poolCfgs[p.Name()] = p.Config()
 	}
 	c.Assert(poolCfgs, jc.DeepEquals, map[string]map[string]interface{}{
-		"testpool":  {"name": "testpool", "type": "loop", "foo": "bar"},
-		"testpool2": {"name": "testpool2", "type": "loop", "foo2": "bar2"},
+		"testpool":  {"foo": "bar"},
+		"testpool2": {"foo2": "bar2"},
 	})
 }
 
@@ -80,7 +80,7 @@ func (s *poolSuite) TestPool(c *gc.C) {
 	s.createSettings(c)
 	p, err := s.poolManager.Get("testpool")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p.Config(), gc.DeepEquals, poolAttrs)
+	c.Assert(p.Config(), gc.DeepEquals, map[string]interface{}{"foo": "bar"})
 	c.Assert(p.Name(), gc.Equals, "testpool")
 	c.Assert(p.Type(), gc.Equals, storage.ProviderType("loop"))
 }
@@ -91,7 +91,7 @@ func (s *poolSuite) TestCreate(c *gc.C) {
 	p, err := s.poolManager.Get("testpool")
 	c.Assert(created, gc.DeepEquals, p)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p.Config(), gc.DeepEquals, poolAttrs)
+	c.Assert(p.Config(), gc.DeepEquals, map[string]interface{}{"foo": "bar"})
 	c.Assert(p.Name(), gc.Equals, "testpool")
 	c.Assert(p.Type(), gc.Equals, storage.ProviderType("loop"))
 }

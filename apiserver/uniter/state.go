@@ -4,11 +4,14 @@
 package uniter
 
 import (
+	"github.com/juju/names"
+
 	"github.com/juju/juju/state"
 )
 
 type storageStateInterface interface {
-	StorageInstance(id string) (state.StorageInstance, error)
+	StorageInstance(names.StorageTag) (state.StorageInstance, error)
+	StorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 	Unit(name string) (*state.Unit, error)
 }
 
@@ -18,12 +21,4 @@ type storageStateShim struct {
 
 var getStorageState = func(st *state.State) storageStateInterface {
 	return storageStateShim{st}
-}
-
-func (s storageStateShim) StorageInstance(id string) (state.StorageInstance, error) {
-	return s.State.StorageInstance(id)
-}
-
-func (s storageStateShim) Unit(name string) (*state.Unit, error) {
-	return s.State.Unit(name)
 }

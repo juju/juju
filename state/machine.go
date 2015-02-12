@@ -471,6 +471,12 @@ func (m *Machine) ParentId() (string, bool) {
 	return parentId, parentId != ""
 }
 
+// IsContainer returns true if the machine is a container.
+func (m *Machine) IsContainer() bool {
+	_, isContainer := m.ParentId()
+	return isContainer
+}
+
 type HasContainersError struct {
 	MachineId    string
 	ContainerIds []string
@@ -655,6 +661,7 @@ func (m *Machine) Remove() (err error) {
 		removeRequestedNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 		removeRebootDocOp(m.st, m.globalKey()),
+		removeMachineBlockDevicesOp(m.Id()),
 	}
 	ifacesOps, err := m.removeNetworkInterfacesOps()
 	if err != nil {
@@ -664,13 +671,8 @@ func (m *Machine) Remove() (err error) {
 	if err != nil {
 		return err
 	}
-	blockDeviceOps, err := removeMachineBlockDevicesOps(m.st, m.Id())
-	if err != nil {
-		return err
-	}
 	ops = append(ops, ifacesOps...)
 	ops = append(ops, portsOps...)
-	ops = append(ops, blockDeviceOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
@@ -727,7 +729,7 @@ func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 // It returns the started pinger.
 func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := m.st.getPresence()
-	p := presence.NewPinger(presenceCollection, m.globalKey())
+	p := presence.NewPinger(presenceCollection, m.st.environTag, m.globalKey())
 	err := p.Start()
 	if err != nil {
 		return nil, err
@@ -905,7 +907,9 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
 	networks []NetworkInfo, interfaces []NetworkInterfaceInfo,
-	blockDevices map[string]BlockDeviceInfo) error {
+	volumes map[names.DiskTag]VolumeInfo,
+	volumeAttachments map[names.DiskTag]VolumeAttachmentInfo,
+) error {
 
 	// Add the networks and interfaces first.
 	for _, network := range networks {
@@ -926,7 +930,10 @@ func (m *Machine) SetInstanceInfo(
 			return errors.Trace(err)
 		}
 	}
-	if err := setProvisionedBlockDeviceInfo(m.st, m.Id(), blockDevices); err != nil {
+	if err := setProvisionedVolumeInfo(m.st, volumes); err != nil {
+		return errors.Trace(err)
+	}
+	if err := setMachineVolumeAttachmentInfo(m.st, m.Id(), volumeAttachments); err != nil {
 		return errors.Trace(err)
 	}
 	return m.SetProvisioned(id, nonce, characteristics)
@@ -992,13 +999,46 @@ func (m *Machine) SetMachineAddresses(addresses ...network.Address) (err error) 
 // setAddresses updates the machine's addresses (either Addresses or
 // MachineAddresses, depending on the field argument).
 func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fieldName string) error {
+	var addressesToSet []network.Address
+	if !m.IsContainer() {
+		// Check addresses first. We'll only add those addresses
+		// which are not in the IP address collection.
+		ipAddresses, closer := m.st.getCollection(ipaddressesC)
+		defer closer()
+
+		addressValues := make([]string, len(addresses))
+		for i, address := range addresses {
+			addressValues[i] = address.Value
+		}
+		ipDocs := []ipaddressDoc{}
+		sel := bson.D{{"value", bson.D{{"$in", addressValues}}}, {"state", AddressStateAllocated}}
+		err := ipAddresses.Find(sel).All(&ipDocs)
+		if err != nil {
+			return err
+		}
+		ipDocValues := set.NewStrings()
+		for _, ipDoc := range ipDocs {
+			ipDocValues.Add(ipDoc.Value)
+		}
+		for _, address := range addresses {
+			if !ipDocValues.Contains(address.Value) {
+				addressesToSet = append(addressesToSet, address)
+			}
+		}
+	} else {
+		// Containers will set all addresses.
+		addressesToSet = make([]network.Address, len(addresses))
+		copy(addressesToSet, addresses)
+	}
+	// Update addresses now.
 	var changed bool
 	envConfig, err := m.st.EnvironConfig()
 	if err != nil {
 		return err
 	}
-	network.SortAddresses(addresses, envConfig.PreferIPv6())
-	stateAddresses := instanceAddressesToAddresses(addresses)
+
+	network.SortAddresses(addressesToSet, envConfig.PreferIPv6())
+	stateAddresses := instanceAddressesToAddresses(addressesToSet)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		changed = false
 		if attempt > 0 {
@@ -1014,7 +1054,7 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 			Id:     m.doc.DocID,
 			Assert: append(bson.D{{fieldName, *field}}, notDeadDoc...),
 		}
-		if !addressesEqual(addresses, addressesToInstanceAddresses(*field)) {
+		if !addressesEqual(addressesToSet, addressesToInstanceAddresses(*field)) {
 			op.Update = bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}}
 			changed = true
 		}
@@ -1367,16 +1407,7 @@ func (m *Machine) SetMachineBlockDevices(info ...BlockDeviceInfo) error {
 	return setMachineBlockDevices(m.st, m.Id(), info)
 }
 
-// BlockDevices gets the aggregated list of block devices associated with
-// the machine, including unprovisioned ones.
-func (m *Machine) BlockDevices() ([]BlockDevice, error) {
-	devices, err := getMachineBlockDevices(m.st, m.Id())
-	if err != nil {
-		return nil, err
-	}
-	result := make([]BlockDevice, len(devices))
-	for i, dev := range devices {
-		result[i] = dev
-	}
-	return result, nil
+// VolumeAttachments returns the machine's volume attachments.
+func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
+	return m.st.MachineVolumeAttachments(m.MachineTag())
 }

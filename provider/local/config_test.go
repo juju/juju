@@ -38,6 +38,8 @@ func minimalConfig(c *gc.C) *config.Config {
 	minimal := minimalConfigValues()
 	testConfig, err := config.New(config.NoDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
+	testConfig, err = local.Provider.PrepareForCreateEnvironment(testConfig)
+	c.Assert(err, jc.ErrorIsNil)
 	valid, err := local.Provider.Validate(testConfig, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return valid
@@ -49,6 +51,8 @@ func localConfig(c *gc.C, extra map[string]interface{}) *config.Config {
 		values[key] = value
 	}
 	testConfig, err := config.New(config.NoDefaults, values)
+	c.Assert(err, jc.ErrorIsNil)
+	testConfig, err = local.Provider.PrepareForCreateEnvironment(testConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	valid, err := local.Provider.Validate(testConfig, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -62,36 +66,39 @@ func (s *configSuite) TestDefaultNetworkBridge(c *gc.C) {
 	c.Assert(unknownAttrs["network-bridge"], gc.Equals, "lxcbr0")
 }
 
-func (s *configSuite) TestDefaultNetworkBridgeForKVMContainersWithOldDefault(c *gc.C) {
-	minAttrs := testing.FakeConfig().Merge(testing.Attrs{
+func (s *configSuite) TestDefaultNetworkBridgeForKVMContainers(c *gc.C) {
+	testConfig := localConfig(c, map[string]interface{}{
+		"container": "kvm",
+	})
+	containerType, bridgeName := local.ContainerAndBridge(c, testConfig)
+	c.Check(containerType, gc.Equals, string(instance.KVM))
+	c.Check(bridgeName, gc.Equals, kvm.DefaultKvmBridge)
+}
+
+func (s *configSuite) TestExplicitNetworkBridgeForLXCContainers(c *gc.C) {
+	testConfig := localConfig(c, map[string]interface{}{
+		"container":      "lxc",
+		"network-bridge": "foo",
+	})
+	containerType, bridgeName := local.ContainerAndBridge(c, testConfig)
+	c.Check(containerType, gc.Equals, string(instance.LXC))
+	c.Check(bridgeName, gc.Equals, "foo")
+}
+
+func (s *configSuite) TestExplicitNetworkBridgeForKVMContainers(c *gc.C) {
+	testConfig := localConfig(c, map[string]interface{}{
 		"container":      "kvm",
 		"network-bridge": "lxcbr0",
 	})
-	testConfig, err := config.New(config.NoDefaults, minAttrs)
-	c.Assert(err, jc.ErrorIsNil)
 	containerType, bridgeName := local.ContainerAndBridge(c, testConfig)
 	c.Check(containerType, gc.Equals, string(instance.KVM))
-	//should have corrected default for kvm container
-	c.Check(bridgeName, gc.Equals, kvm.DefaultKvmBridge)
-}
-
-func (s *configSuite) TestDefaultNetworkBridgeForKVMContainers(c *gc.C) {
-	minAttrs := testing.FakeConfig().Merge(testing.Attrs{
-		"container": "kvm",
-	})
-	testConfig, err := config.New(config.NoDefaults, minAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	containerType, bridgeName := local.ContainerAndBridge(c, testConfig)
-	c.Check(containerType, gc.Equals, string(instance.KVM))
-	c.Check(bridgeName, gc.Equals, kvm.DefaultKvmBridge)
+	c.Check(bridgeName, gc.Equals, "lxcbr0")
 }
 
 func (s *configSuite) TestDefaultNetworkBridgeForLXCContainers(c *gc.C) {
-	minAttrs := testing.FakeConfig().Merge(testing.Attrs{
+	testConfig := localConfig(c, map[string]interface{}{
 		"container": "lxc",
 	})
-	testConfig, err := config.New(config.NoDefaults, minAttrs)
-	c.Assert(err, jc.ErrorIsNil)
 	containerType, bridgeName := local.ContainerAndBridge(c, testConfig)
 	c.Check(containerType, gc.Equals, string(instance.LXC))
 	c.Check(bridgeName, gc.Equals, lxc.DefaultLxcBridge)
@@ -143,14 +150,15 @@ func (s *configSuite) TestValidateConfigWithFloatPort(c *gc.C) {
 }
 
 func (s *configSuite) TestNamespace(c *gc.C) {
-	testConfig := minimalConfig(c)
 	s.PatchEnvironment("USER", "tester")
-	c.Assert(local.ConfigNamespace(testConfig), gc.Equals, "tester-test")
+	testConfig := minimalConfig(c)
+	c.Logf("\n\nname: %s\n\n", testConfig.Name())
+	local.CheckConfigNamespace(c, testConfig, "tester-test")
 }
 
 func (s *configSuite) TestBootstrapAsRoot(c *gc.C) {
 	s.PatchValue(local.CheckIfRoot, func() bool { return true })
-	env, err := local.Provider.Prepare(envtesting.BootstrapContext(c), minimalConfig(c))
+	env, err := local.Provider.PrepareForBootstrap(envtesting.BootstrapContext(c), minimalConfig(c))
 	c.Assert(err, jc.ErrorIsNil)
 	_, _, _, err = env.Bootstrap(envtesting.BootstrapContext(c), environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "bootstrapping a local environment must not be done as root")
@@ -163,13 +171,9 @@ func (s *configSuite) TestLocalDisablesUpgradesWhenCloning(c *gc.C) {
 	c.Check(testConfig.EnableOSUpgrade(), jc.IsTrue)
 
 	// If using lxc-clone, we set updates to false
-	minAttrs := testing.FakeConfig().Merge(testing.Attrs{
+	validConfig := localConfig(c, map[string]interface{}{
 		"lxc-clone": true,
 	})
-	testConfig, err := config.New(config.NoDefaults, minAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	validConfig, err := local.Provider.Validate(testConfig, nil)
-	c.Assert(err, jc.ErrorIsNil)
 	c.Check(validConfig.EnableOSRefreshUpdate(), jc.IsTrue)
 	c.Check(validConfig.EnableOSUpgrade(), jc.IsFalse)
 }

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
@@ -432,6 +433,7 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
+	s.setInstantRetryStrategy(c)
 	// Upload tools to provider storage, so they can be migrated to environment storage.
 	stor, err := environs.LegacyStorage(s.State)
 	if !errors.IsNotSupported(err) {
@@ -445,6 +447,7 @@ func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
+	s.setInstantRetryStrategy(c)
 	// We need to first start up a state server that thinks it has already been upgraded.
 	ss, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, ss)
@@ -558,6 +561,9 @@ func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgrade(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: doesn't work on windows because of symlink issue")
+	}
 	// This test checks that the master triggers a downgrade if one of
 	// the other state server fails to signal it is ready for upgrade.
 	//

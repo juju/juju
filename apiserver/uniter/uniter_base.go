@@ -830,6 +830,34 @@ func (u *uniterBaseAPI) Actions(args params.Entities) (params.ActionsQueryResult
 	return results, nil
 }
 
+// BeginActions marks the actions represented by the passed in Tags as running.
+func (u *uniterBaseAPI) BeginActions(args params.Entities) (params.ErrorResults, error) {
+	nothing := params.ErrorResults{}
+
+	actionFn, err := u.authAndActionFromTagFn()
+	if err != nil {
+		return nothing, err
+	}
+
+	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Entities))}
+
+	for i, arg := range args.Entities {
+		action, err := actionFn(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		_, err = action.Begin()
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+	}
+
+	return results, nil
+}
+
 // FinishActions saves the result of a completed Action
 func (u *uniterBaseAPI) FinishActions(args params.ActionExecutionResults) (params.ErrorResults, error) {
 	nothing := params.ErrorResults{}
@@ -1205,7 +1233,6 @@ func (u *uniterBaseAPI) AddMetrics(args params.MetricsParams) (params.ErrorResul
 			if err == nil {
 				metricBatch := make([]state.Metric, len(unitMetrics.Metrics))
 				for j, metric := range unitMetrics.Metrics {
-					// TODO (tasdomas) 2014-08-26: set credentials for metrics when available
 					metricBatch[j] = state.Metric{
 						Key:   metric.Key,
 						Value: metric.Value,

@@ -158,6 +158,12 @@ func (nw *Networker) IsPrimaryInterfaceOrLoopback(interfaceName string) bool {
 
 // loop is the worker's main loop.
 func (nw *Networker) loop() error {
+	// TODO(dimitern) Networker is disabled until we have time to fix
+	// it so it's not overwriting /etc/network/interfaces
+	// indiscriminately for containers and possibly other cases.
+	logger.Infof("networker is disabled - not starting on machine %q", nw.tag)
+	return nil
+
 	logger.Debugf("starting on machine %q", nw.tag)
 	if !nw.IntrusiveMode() {
 		logger.Warningf("running in non-intrusive mode - no commands or changes to network config will be done")

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -39,6 +38,7 @@ func Open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, er
 		return nil, errors.Annotate(err, "could not access state server info")
 	}
 	st.environTag = ssInfo.EnvironmentTag
+	st.startPresenceWatcher()
 	return st, nil
 }
 
@@ -72,17 +72,28 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 			st.Close()
 		}
 	}()
+	uuid, ok := cfg.UUID()
+	if !ok {
+		return nil, errors.Errorf("environment uuid was not supplied")
+	}
+	st.environTag = names.NewEnvironTag(uuid)
+
 	// A valid environment is used as a signal that the
 	// state has already been initalized. If this is the case
 	// do nothing.
 	if _, err := st.Environment(); err == nil {
-		return st, nil
+		return nil, errors.New("already initialized")
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
 	logger.Infof("initializing environment, owner: %q", owner.Username())
 	logger.Infof("info: %#v", info)
-	ops, err := st.envSetupOps(cfg, "", owner)
+	logger.Infof("starting presence watcher")
+	st.startPresenceWatcher()
+
+	// When creating the state server environment, the new environment
+	// UUID is also used as the state server UUID.
+	ops, err := st.envSetupOps(cfg, uuid, uuid, owner)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -110,35 +121,27 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		},
 	)
 
-	if err := st.runTransactionNoEnvAliveAssert(ops); err == txn.ErrAborted {
-		// The config was created in the meantime.
-		return st, nil
-	} else if err != nil {
+	if err := st.runTransactionNoEnvAliveAssert(ops); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
 }
 
-func (st *State) envSetupOps(cfg *config.Config, serverUUID string, owner names.UserTag) ([]txn.Op, error) {
+func (st *State) envSetupOps(cfg *config.Config, envUUID, serverUUID string, owner names.UserTag) ([]txn.Op, error) {
 	if err := checkEnvironConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
-	uuid, ok := cfg.UUID()
-	if !ok {
-		return nil, errors.Errorf("environment uuid was not supplied")
-	}
-	st.environTag = names.NewEnvironTag(uuid)
 
 	// When creating the state server environment, the new environment
 	// UUID is also used as the state server UUID.
 	if serverUUID == "" {
-		serverUUID = uuid
+		serverUUID = envUUID
 	}
-	envUserOp, _ := createEnvUserOpAndDoc(uuid, owner, owner, owner.Name())
+	envUserOp, _ := createEnvUserOpAndDoc(envUUID, owner, owner, owner.Name())
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
-		createEnvironmentOp(st, owner, cfg.Name(), uuid, serverUUID),
+		createEnvironmentOp(st, owner, cfg.Name(), envUUID, serverUUID),
 		envUserOp,
 	}
 	return ops, nil
@@ -150,25 +153,26 @@ var indexes = []struct {
 	unique     bool
 	sparse     bool
 }{
-	// After the first public release, do not remove entries from here
-	// without adding them to a list of indexes to drop, to ensure
-	// old databases are modified to have the correct indexes.
-	{relationsC, []string{"endpoints.relationname"}, false, false},
-	{relationsC, []string{"endpoints.servicename"}, false, false},
-	{unitsC, []string{"service"}, false, false},
-	{unitsC, []string{"principal"}, false, false},
-	{unitsC, []string{"machineid"}, false, false},
+
+	// Create an upgrade step to remove old indexes when editing or removing
+	// items from this slice.
+	{relationsC, []string{"env-uuid", "endpoints.relationname"}, false, false},
+	{relationsC, []string{"env-uuid", "endpoints.servicename"}, false, false},
+	{unitsC, []string{"env-uuid", "service"}, false, false},
+	{unitsC, []string{"env-uuid", "principal"}, false, false},
+	{unitsC, []string{"env-uuid", "machineid"}, false, false},
 	// TODO(thumper): schema change to remove this index.
 	{usersC, []string{"name"}, false, false},
-	{networksC, []string{"providerid"}, true, false},
-	{networkInterfacesC, []string{"interfacename", "machineid"}, true, false},
-	{networkInterfacesC, []string{"macaddress", "networkname"}, true, false},
-	{networkInterfacesC, []string{"networkname"}, false, false},
-	{networkInterfacesC, []string{"machineid"}, false, false},
-	{blockDevicesC, []string{"machineid"}, false, false},
+	{networksC, []string{"env-uuid", "providerid"}, true, false},
+	{networkInterfacesC, []string{"env-uuid", "interfacename", "machineid"}, true, false},
+	{networkInterfacesC, []string{"env-uuid", "macaddress", "networkname"}, true, false},
+	{networkInterfacesC, []string{"env-uuid", "networkname"}, false, false},
+	{networkInterfacesC, []string{"env-uuid", "machineid"}, false, false},
+	{blockDevicesC, []string{"env-uuid", "machineid"}, false, false},
 	{subnetsC, []string{"providerid"}, true, true},
-	{ipaddressesC, []string{"state"}, false, false},
-	{ipaddressesC, []string{"subnetid"}, false, false},
+	{ipaddressesC, []string{"env-uuid", "state"}, false, false},
+	{ipaddressesC, []string{"env-uuid", "subnetid"}, false, false},
+	{storageInstancesC, []string{"env-uuid", "owner"}, false, false},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -220,7 +224,6 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 	}
 
 	db := session.DB("juju")
-	pdb := session.DB("presence")
 	st := &State{
 		mongoInfo: mongoInfo,
 		policy:    policy,
@@ -249,14 +252,6 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 			}
 		}
 	}()
-	st.pwatcher = presence.NewWatcher(pdb.C(presenceC))
-	defer func() {
-		if resultErr != nil {
-			if err := st.pwatcher.Stop(); err != nil {
-				logger.Errorf("failed to stop presence watcher: %v", err)
-			}
-		}
-	}()
 
 	for _, item := range indexes {
 		index := mgo.Index{Key: item.key, Unique: item.unique, Sparse: item.sparse}
@@ -281,7 +276,10 @@ func (st *State) CACert() string {
 func (st *State) Close() (err error) {
 	defer errors.DeferredAnnotatef(&err, "closing state failed")
 	err1 := st.watcher.Stop()
-	err2 := st.pwatcher.Stop()
+	var err2 error
+	if st.pwatcher != nil {
+		err2 = st.pwatcher.Stop()
+	}
 	st.mu.Lock()
 	var err3 error
 	if st.allManager != nil {

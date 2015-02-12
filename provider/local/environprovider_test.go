@@ -172,56 +172,56 @@ func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
 		message: "apt-proxies detected",
 		aptOutput: `CommandLine::AsString "apt-config dump";
 Acquire::http::Proxy  "10.0.3.1:3142";
-Acquire::https::Proxy "false";
-Acquire::ftp::Proxy "none";
-Acquire::magic::Proxy "none";
+Acquire::https::Proxy "";
+Acquire::ftp::Proxy "";
+Acquire::magic::Proxy "";
 `,
 		expectedAptProxy: proxy.Settings{
-			Http:  "10.0.3.1:3142",
-			Https: "false",
-			Ftp:   "none",
+			Http:  "http://10.0.3.1:3142",
+			Https: "",
+			Ftp:   "",
 		},
 	}, {
 		message: "apt-proxies not used if apt-http-proxy set",
 		extraConfig: map[string]interface{}{
-			"apt-http-proxy": "value-set",
+			"apt-http-proxy": "http://value-set",
 		},
 		aptOutput: `CommandLine::AsString "apt-config dump";
 Acquire::http::Proxy  "10.0.3.1:3142";
-Acquire::https::Proxy "false";
-Acquire::ftp::Proxy "none";
-Acquire::magic::Proxy "none";
+Acquire::https::Proxy "";
+Acquire::ftp::Proxy "";
+Acquire::magic::Proxy "";
 `,
 		expectedAptProxy: proxy.Settings{
-			Http: "value-set",
+			Http: "http://value-set",
 		},
 	}, {
 		message: "apt-proxies not used if apt-https-proxy set",
 		extraConfig: map[string]interface{}{
-			"apt-https-proxy": "value-set",
+			"apt-https-proxy": "https://value-set",
 		},
 		aptOutput: `CommandLine::AsString "apt-config dump";
 Acquire::http::Proxy  "10.0.3.1:3142";
-Acquire::https::Proxy "false";
-Acquire::ftp::Proxy "none";
-Acquire::magic::Proxy "none";
+Acquire::https::Proxy "";
+Acquire::ftp::Proxy "";
+Acquire::magic::Proxy "";
 `,
 		expectedAptProxy: proxy.Settings{
-			Https: "value-set",
+			Https: "https://value-set",
 		},
 	}, {
 		message: "apt-proxies not used if apt-ftp-proxy set",
 		extraConfig: map[string]interface{}{
-			"apt-ftp-proxy": "value-set",
+			"apt-ftp-proxy": "ftp://value-set",
 		},
 		aptOutput: `CommandLine::AsString "apt-config dump";
 Acquire::http::Proxy  "10.0.3.1:3142";
-Acquire::https::Proxy "false";
-Acquire::ftp::Proxy "none";
-Acquire::magic::Proxy "none";
+Acquire::https::Proxy "";
+Acquire::ftp::Proxy "";
+Acquire::magic::Proxy "";
 `,
 		expectedAptProxy: proxy.Settings{
-			Ftp: "value-set",
+			Ftp: "ftp://value-set",
 		},
 	}} {
 		c.Logf("\n%v: %s", i, test.message)
@@ -237,7 +237,7 @@ Acquire::magic::Proxy "none";
 			testConfig, err = baseConfig.Apply(test.extraConfig)
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		env, err := provider.Prepare(envtesting.BootstrapContext(c), testConfig)
+		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), testConfig)
 		c.Assert(err, jc.ErrorIsNil)
 
 		envConfig := env.Config()
@@ -293,7 +293,7 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 		s.PatchValue(local.UserCurrent, func() (*user.User, error) {
 			return &user.User{Username: test.userOS}, test.userOSErr
 		})
-		env, err := provider.Prepare(envtesting.BootstrapContext(c), basecfg)
+		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), basecfg)
 		if test.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			cfg := env.Config()
@@ -314,7 +314,7 @@ func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {
 	})
 	provider, err := environs.Provider("local")
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := provider.Prepare(envtesting.BootstrapContext(c), basecfg)
+	env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), basecfg)
 	c.Assert(err, jc.ErrorIsNil)
 	// local provider sets proxy-ssh to false
 	c.Assert(env.Config().ProxySSH(), jc.IsFalse)
@@ -346,7 +346,7 @@ func (s *prepareSuite) TesteProxyLocalhostFix(c *gc.C) {
 		cfg, err := basecfg.Apply(proxyAttrValues)
 		c.Assert(err, jc.ErrorIsNil)
 		//this call should replace all loopback urls with bridge ip
-		env, err := provider.Prepare(envtesting.BootstrapContext(c), cfg)
+		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
 		c.Assert(err, jc.ErrorIsNil)
 
 		// verify that correct replacement took place

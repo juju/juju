@@ -63,11 +63,13 @@ var multiEnvCollections = set.NewStrings(
 	actionsC,
 	annotationsC,
 	blockDevicesC,
+	blocksC,
 	charmsC,
 	cleanupsC,
 	constraintsC,
 	containerRefsC,
 	instanceDataC,
+	ipaddressesC,
 	machinesC,
 	meterStatusC,
 	minUnitsC,
@@ -83,10 +85,13 @@ var multiEnvCollections = set.NewStrings(
 	settingsC,
 	settingsrefsC,
 	statusesC,
+	storageAttachmentsC,
 	storageConstraintsC,
 	storageInstancesC,
 	subnetsC,
 	unitsC,
+	volumesC,
+	volumeAttachmentsC,
 )
 
 func newStateCollection(coll *mgo.Collection, envUUID string) stateCollection {

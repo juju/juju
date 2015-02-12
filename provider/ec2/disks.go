@@ -4,6 +4,8 @@
 package ec2
 
 import (
+	"strconv"
+
 	"github.com/juju/errors"
 	"gopkg.in/amz.v2/ec2"
 
@@ -12,8 +14,6 @@ import (
 )
 
 const (
-	ebsStorageSource = "ebs"
-
 	// minRootDiskSizeMiB is the minimum/default size (in mebibytes) for ec2 root disks.
 	minRootDiskSizeMiB uint64 = 8 * 1024
 
@@ -30,7 +30,7 @@ func getBlockDeviceMappings(
 	virtType string,
 	args *environs.StartInstanceParams,
 ) (
-	[]ec2.BlockDeviceMapping, []storage.BlockDevice, error,
+	[]ec2.BlockDeviceMapping, []storage.Volume, []storage.VolumeAttachment, error,
 ) {
 	rootDiskSizeMiB := minRootDiskSizeMiB
 	if args.Constraints.RootDisk != nil {
@@ -73,34 +73,53 @@ func getBlockDeviceMappings(
 	// many there are and how big each one is. We also need to
 	// unmap ephemeral0 in cloud-init.
 
-	volumes := make([]storage.BlockDevice, len(args.Volumes))
+	volumes := make([]storage.Volume, len(args.Volumes))
+	attachments := make([]storage.VolumeAttachment, len(args.Volumes))
 	nextDeviceName := blockDeviceNamer(virtType == paravirtual)
 	for i, params := range args.Volumes {
 		// Check minimum constraints can be satisfied.
 		if err := validateVolumeParams(params); err != nil {
-			return nil, nil, errors.Annotate(err, "invalid volume parameters")
+			return nil, nil, nil, errors.Annotate(err, "invalid volume parameters")
 		}
 		requestDeviceName, actualDeviceName, err := nextDeviceName()
 		if err != nil {
-			// Can't allocate any more volumes.
-			return nil, nil, err
+			// Can't attach any more volumes.
+			return nil, nil, nil, err
 		}
 		mapping := ec2.BlockDeviceMapping{
 			VolumeSize: int64(mibToGib(params.Size)),
 			DeviceName: requestDeviceName,
-			// TODO(axw) VolumeType, IOPS and DeleteOnTermination
+			// TODO(axw) DeleteOnTermination
 		}
-		volume := storage.BlockDevice{
-			Name:       params.Name,
-			DeviceName: actualDeviceName,
-			Size:       gibToMib(uint64(mapping.VolumeSize)),
-			// ProviderId will be filled in once the instance has
+		// Translate user values for storage provider parameters.
+		// TODO(wallyworld) - remove type assertions when juju/schema is used
+		options := TranslateUserEBSOptions(params.Attributes)
+		if v, ok := options[EBS_VolumeType]; ok && v != "" {
+			mapping.VolumeType = v.(string)
+		}
+		if v, ok := options[EBS_IOPS]; ok && v != "" {
+			mapping.IOPS, err = strconv.ParseInt(v.(string), 10, 64)
+			if err != nil {
+				return nil, nil, nil, errors.Annotatef(err, "invalid iops value %v, expected integer", v)
+			}
+		}
+		volume := storage.Volume{
+			Tag:  params.Tag,
+			Size: gibToMib(uint64(mapping.VolumeSize)),
+			// VolumeId will be filled in once the instance has
 			// been created, which will create the volumes too.
+		}
+		attachment := storage.VolumeAttachment{
+			Volume:     params.Tag,
+			DeviceName: actualDeviceName,
+			// MachineId, InstanceId and VolumeID are filled out
+			// by the caller once the information is available.
 		}
 		blockDeviceMappings = append(blockDeviceMappings, mapping)
 		volumes[i] = volume
+		attachments[i] = attachment
 	}
-	return blockDeviceMappings, volumes, nil
+	return blockDeviceMappings, volumes, attachments, nil
 }
 
 // validateVolumParams validates the volume parameters.

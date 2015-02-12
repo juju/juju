@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -25,7 +24,7 @@ import (
 // * updates existing db entries to make sure they hold no references to
 // old instances
 // * updates config in all agents.
-func (b *backups) Restore(backupId string, args params.RestoreArgs) error {
+func (b *backups) Restore(backupId string, args RestoreArgs) error {
 	meta, backupReader, err := b.Get(backupId)
 	if err != nil {
 		return errors.Annotatef(err, "could not fetch backup %q", backupId)
@@ -127,7 +126,7 @@ func (b *backups) Restore(backupId string, args params.RestoreArgs) error {
 		return errors.Annotate(err, "cannot update agents")
 	}
 
-	info, err := st.EnsureRestoreInfo()
+	info, err := st.RestoreInfoSetter()
 
 	if err != nil {
 		return errors.Trace(err)

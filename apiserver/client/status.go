@@ -216,7 +216,7 @@ func fetchAllServicesAndUnits(
 			}
 		}
 	}
-	for baseURL, _ := range latestCharms {
+	for baseURL := range latestCharms {
 		ch, err := st.LatestPlaceholderCharm(&baseURL)
 		if errors.IsNotFound(err) {
 			continue

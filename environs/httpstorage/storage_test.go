@@ -135,7 +135,7 @@ func checkList(c *gc.C, stor storage.StorageReader, prefix string, names []strin
 	i := len(lnames)
 	j := len(names)
 	c.Assert(i, gc.Equals, j)
-	for i, _ := range lnames {
+	for i := range lnames {
 		c.Assert(lnames[i], jc.SamePath, names[i])
 	}
 }
