@@ -67,7 +67,7 @@ func (t BlockType) ToParams() multiwatcher.BlockType {
 	if jujuBlock, ok := typeNames[t]; ok {
 		return jujuBlock
 	}
-	return multiwatcher.BlockType(fmt.Sprintf("<unknown block type %d>", int(t)))
+	panic(fmt.Sprintf("unknown block type %d", int(t)))
 }
 
 // String returns humanly readable type representation.
@@ -127,33 +127,34 @@ func (st *State) SwitchBlockOff(t BlockType) error {
 // HasBlock returns the Block of the specified type for the current environment.
 // Nil if this type of block is not switched on.
 func (st *State) HasBlock(t BlockType) (Block, error) {
-	blocks, err := getEnvironmentBlocks(st)
-	if err != nil && err != mgo.ErrNotFound {
-		return nil, errors.Trace(err)
-	}
-	for _, b := range blocks {
-		if b.Type() == t {
-			return b, nil
-		}
-	}
-	return nil, nil
-}
-
-// getEnvironmentBlocks returns all of the blocks associated with the
-// environment.
-func getEnvironmentBlocks(st *State) ([]Block, error) {
-	envUUID := st.EnvironUUID()
-	sel := bson.D{{"env-uuid", envUUID}}
 	all, closer := st.getCollection(blocksC)
 	defer closer()
 
-	var docs []blockDoc
-	err := all.Find(sel).All(&docs)
-	if err != nil {
-		return nil, errors.Trace(err)
+	doc := blockDoc{}
+	err := all.Find(bson.D{{"type", t}}).One(&doc)
+
+	switch err {
+	case nil:
+		return &block{doc}, nil
+	case mgo.ErrNotFound:
+		return nil, nil
+	default:
+		return nil, errors.Annotatef(err, "cannot get block of type %v", t.String())
 	}
-	blocks := make([]Block, len(docs))
-	for i, doc := range docs {
+}
+
+// AllBlocks returns all blocks in the environment.
+func (st *State) AllBlocks() ([]Block, error) {
+	blocksCollection, closer := st.getCollection(blocksC)
+	defer closer()
+
+	var bdocs []blockDoc
+	err := blocksCollection.Find(nil).All(&bdocs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get all blocks")
+	}
+	blocks := make([]Block, len(bdocs))
+	for i, doc := range bdocs {
 		blocks[i] = &block{doc}
 	}
 	return blocks, nil
@@ -164,18 +165,14 @@ func getEnvironmentBlocks(st *State) ([]Block, error) {
 // Only one instance of each block type can exist in environment.
 func setEnvironmentBlock(st *State, t BlockType, msg string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		currentBlocks, err := getEnvironmentBlocks(st)
-		if err != nil && err != mgo.ErrNotFound {
+		tBlock, err := st.HasBlock(t)
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		// Cannot create blocks of the same type more than once per environment.
 		// Cannot update current blocks.
-		// TODO(2015-02-09 anastasiamac) May change when we implement blocks per entity.
-		for _, aBlock := range currentBlocks {
-			aType := aBlock.Type()
-			if aType == t {
-				return nil, errors.New("block is already ON")
-			}
+		if tBlock != nil {
+			return nil, errors.Errorf("block %v is already ON", t.String())
 		}
 		return createEnvironmentBlockOps(st, t, msg)
 	}
@@ -220,21 +217,16 @@ func removeEnvironmentBlock(st *State, t BlockType) error {
 }
 
 func removeEnvironmentBlockOps(st *State, t BlockType) ([]txn.Op, error) {
-	envUUID := st.EnvironUUID()
-	sel := bson.D{{"env-uuid", envUUID}}
-	all, closer := st.getCollection(blocksC)
-	defer closer()
-
-	iter := all.Find(sel).Select(bson.D{{"type", t}}).Iter()
-	defer iter.Close()
-	var ops []txn.Op
-	var doc blockDoc
-	for iter.Next(&doc) {
-		ops = append(ops, txn.Op{
-			C:      blocksC,
-			Id:     doc.DocID,
-			Remove: true,
-		})
+	tBlock, err := st.HasBlock(t)
+	if err != nil {
+		return nil, errors.Annotatef(err, "removing block %v", t.String())
 	}
-	return ops, errors.Trace(iter.Close())
+	if tBlock != nil {
+		return []txn.Op{txn.Op{
+			C:      blocksC,
+			Id:     tBlock.Id(),
+			Remove: true,
+		}}, nil
+	}
+	return nil, errors.Errorf("block %v is already OFF", t.String())
 }

@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -14,23 +16,23 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type BlockSuite struct {
+type blockSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&BlockSuite{})
+var _ = gc.Suite(&blockSuite{})
 
-func (s *BlockSuite) SetUpTest(c *gc.C) {
+func (s *blockSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 }
 
-func (s *BlockSuite) assertNoEnvBlock(c *gc.C) {
-	all, err := state.GetEnvironmentBlocks(s.State)
+func assertNoEnvBlock(c *gc.C, st *state.State) {
+	all, err := st.AllBlocks()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(all, gc.HasLen, 0)
 }
 
-func (s *BlockSuite) assertNoTypedBlock(c *gc.C, t state.BlockType) {
+func (s *blockSuite) assertNoTypedBlock(c *gc.C, t state.BlockType) {
 	one, err := s.State.HasBlock(t)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(one, gc.IsNil)
@@ -47,53 +49,70 @@ func assertEnvHasBlock(c *gc.C, st *state.State, t state.BlockType, msg string) 
 	c.Assert(dBlock.Message(), gc.DeepEquals, msg)
 }
 
-func (s *BlockSuite) assertBlocked(c *gc.C, t state.BlockType) {
+func (s *blockSuite) assertSwitchedOn(c *gc.C, t state.BlockType) string {
 	msg := ""
 	err := s.State.SwitchBlockOn(t, msg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// cannot duplicate
-	err = s.State.SwitchBlockOn(t, msg)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*block is already ON.*")
-
-	// cannot update
-	err = s.State.SwitchBlockOn(t, "Test block update")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*block is already ON.*")
-
 	assertEnvHasBlock(c, s.State, t, msg)
+	return msg
+}
 
-	err = s.State.SwitchBlockOff(t)
+func (s *blockSuite) assertSwitchedOff(c *gc.C, t state.BlockType) {
+	err := s.State.SwitchBlockOff(t)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertNoEnvBlock(c)
+	assertNoEnvBlock(c, s.State)
 	s.assertNoTypedBlock(c, t)
 }
 
-func (s *BlockSuite) TestNewEnvironmentNotBlocked(c *gc.C) {
-	s.assertNoEnvBlock(c)
+func (s *blockSuite) assertBlocked(c *gc.C, t state.BlockType) {
+	msg := s.assertSwitchedOn(c, t)
+
+	expectedErr := fmt.Sprintf(".*block %v is already ON.*", t.String())
+	// cannot duplicate
+	err := s.State.SwitchBlockOn(t, msg)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, expectedErr)
+
+	// cannot update
+	err = s.State.SwitchBlockOn(t, "Test block update")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, expectedErr)
+
+	s.assertSwitchedOff(c, t)
+
+	err = s.State.SwitchBlockOff(t)
+	expectedErr = fmt.Sprintf(".*block %v is already OFF.*", t.String())
+	c.Assert(errors.Cause(err), gc.ErrorMatches, expectedErr)
+}
+
+func (s *blockSuite) TestNewEnvironmentNotBlocked(c *gc.C) {
+	assertNoEnvBlock(c, s.State)
 	s.assertNoTypedBlock(c, state.DestroyBlock)
 	s.assertNoTypedBlock(c, state.RemoveBlock)
 	s.assertNoTypedBlock(c, state.ChangeBlock)
 }
 
-func (s *BlockSuite) TestDestroyBlocked(c *gc.C) {
+func (s *blockSuite) TestDestroyBlocked(c *gc.C) {
 	s.assertBlocked(c, state.DestroyBlock)
 }
 
-func (s *BlockSuite) TestRemoveBlocked(c *gc.C) {
+func (s *blockSuite) TestRemoveBlocked(c *gc.C) {
 	s.assertBlocked(c, state.RemoveBlock)
 }
 
-func (s *BlockSuite) TestChangeBlocked(c *gc.C) {
+func (s *blockSuite) TestChangeBlocked(c *gc.C) {
 	s.assertBlocked(c, state.ChangeBlock)
 }
 
-func (s *BlockSuite) TestNonsenseBlocked(c *gc.C) {
+func (s *blockSuite) TestNonsenseBlocked(c *gc.C) {
+	bType := state.BlockType(42)
 	// This could be useful for entity blocks...
-	// but is it valid now?
-	s.assertBlocked(c, state.BlockType(42))
+	s.assertSwitchedOn(c, bType)
+	s.assertSwitchedOff(c, bType)
+	// but for multiwatcher, it should panic.
+	c.Assert(func() { bType.ToParams() }, gc.PanicMatches, ".*unknown block type.*")
 }
 
-func (s *BlockSuite) TestMultiEnvBlocked(c *gc.C) {
+func (s *blockSuite) TestMultiEnvBlocked(c *gc.C) {
 	// create another env
 	_, st2 := s.createTestEnv(c)
 	defer st2.Close()
@@ -106,11 +125,11 @@ func (s *BlockSuite) TestMultiEnvBlocked(c *gc.C) {
 	assertEnvHasBlock(c, st2, t, msg)
 
 	//check correct env has it
-	s.assertNoEnvBlock(c)
+	assertNoEnvBlock(c, s.State)
 	s.assertNoTypedBlock(c, t)
 }
 
-func (s *BlockSuite) createTestEnv(c *gc.C) (*state.Environment, *state.State) {
+func (s *blockSuite) createTestEnv(c *gc.C) (*state.Environment, *state.State) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
@@ -123,7 +142,7 @@ func (s *BlockSuite) createTestEnv(c *gc.C) (*state.Environment, *state.State) {
 	return env, st
 }
 
-func (s *BlockSuite) TestConcurrentBlocked(c *gc.C) {
+func (s *blockSuite) TestConcurrentBlocked(c *gc.C) {
 	switchBlockOn := func() {
 		msg := ""
 		t := state.DestroyBlock
