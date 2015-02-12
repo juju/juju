@@ -110,10 +110,9 @@ func insertAnnotationsOps(st *State, entity GlobalEntity, toInsert map[string]st
 		},
 	}}
 
-	switch tag.(type) {
+	switch tag := tag.(type) {
 	case names.EnvironTag:
-		envTag, _ := tag.(names.EnvironTag)
-		env, err := st.GetEnvironment(envTag)
+		env, err := st.GetEnvironment(tag)
 		if err != nil {
 			return nil, errors.Annotatef(err, "inserting annotations")
 		}
