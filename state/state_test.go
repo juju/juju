@@ -3662,6 +3662,15 @@ func (s *StateSuite) TestNowToTheSecond(c *gc.C) {
 	c.Assert(t, gc.DeepEquals, rounded)
 }
 
+func (s *StateSuite) TestUnitsForInvalidId(c *gc.C) {
+	// Check that an error is returned if an invalid machine id is provided.
+	// Success cases are tested as part of TestMachinePrincipalUnits in the
+	// MachineSuite.
+	units, err := s.State.UnitsFor("invalid-id")
+	c.Assert(units, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `"invalid-id" is not a valid machine id`)
+}
+
 type SetAdminMongoPasswordSuite struct {
 	testing.BaseSuite
 }

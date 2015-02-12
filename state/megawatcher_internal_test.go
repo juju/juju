@@ -32,6 +32,7 @@ var (
 	_ backingEntityDoc = (*backingStatus)(nil)
 	_ backingEntityDoc = (*backingConstraints)(nil)
 	_ backingEntityDoc = (*backingSettings)(nil)
+	_ backingEntityDoc = (*backingOpenedPorts)(nil)
 )
 
 var dottedConfig = `
@@ -456,6 +457,8 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 					Name:       "wordpress/0",
 					Status:     multiwatcher.Status("error"),
 					StatusInfo: "another failure",
+					Ports:      []network.Port{{"udp", 17070}},
+					PortRanges: []network.PortRange{{17070, 17070, "udp"}},
 				}},
 				change: watcher.Change{
 					C:  "units",
@@ -472,6 +475,77 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "another failure",
 					}}}
+		}, func(c *gc.C, st *State) testCase {
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, jc.ErrorIsNil)
+			m, err := st.AddMachine("quantal", JobHostUnits)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.AssignToMachine(m)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.OpenPort("tcp", 4242)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return testCase{
+				about: "unit info is updated if a port is opened on the machine it is placed in",
+				add: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						Name: "wordpress/0",
+					},
+					&multiwatcher.MachineInfo{
+						Id: "0",
+					},
+				},
+				change: watcher.Change{
+					C:  openedPortsC,
+					Id: st.docID("m#0#n#juju-public"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						Name:       "wordpress/0",
+						Ports:      []network.Port{{"tcp", 4242}},
+						PortRanges: []network.PortRange{{4242, 4242, "tcp"}},
+					},
+					&multiwatcher.MachineInfo{
+						Id: "0",
+					},
+				}}
+		}, func(c *gc.C, st *State) testCase {
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, jc.ErrorIsNil)
+			m, err := st.AddMachine("quantal", JobHostUnits)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.AssignToMachine(m)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.OpenPorts("tcp", 21, 22)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return testCase{
+				about: "unit is created if a port is opened on the machine it is placed in",
+				add: []multiwatcher.EntityInfo{
+					&multiwatcher.MachineInfo{
+						Id: "0",
+					},
+				},
+				change: watcher.Change{
+					C:  "units",
+					Id: st.docID("wordpress/0"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						Name:       "wordpress/0",
+						Service:    "wordpress",
+						Series:     "quantal",
+						MachineId:  "0",
+						Status:     "allocating",
+						Ports:      []network.Port{{"tcp", 21}, {"tcp", 22}},
+						PortRanges: []network.PortRange{{21, 22, "tcp"}},
+					},
+					&multiwatcher.MachineInfo{
+						Id: "0",
+					},
+				}}
 		}, func(c *gc.C, st *State) testCase {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()

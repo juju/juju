@@ -978,7 +978,7 @@ func (s *MachineSuite) TestRefreshWhenNotAlive(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
-	// Check that Machine.Units works correctly.
+	// Check that Machine.Units and st.UnitsFor work correctly.
 
 	// Make three machines, three services and three units for each service;
 	// variously assign units to machines and check that Machine.Units
@@ -1018,6 +1018,7 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 	}
 	units[3], err = s3.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sortedUnitNames(units[3]), jc.DeepEquals, []string{"s3/0", "s3/1", "s3/2"})
 
 	assignments := []struct {
 		machine      *state.Machine
@@ -1038,10 +1039,17 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 
 	for i, a := range assignments {
 		c.Logf("test %d", i)
+		expect := sortedUnitNames(append(a.units, a.subordinates...))
+
+		// The units can be retrieved from the machine model.
 		got, err := a.machine.Units()
 		c.Assert(err, jc.ErrorIsNil)
-		expect := sortedUnitNames(append(a.units, a.subordinates...))
-		c.Assert(sortedUnitNames(got), gc.DeepEquals, expect)
+		c.Assert(sortedUnitNames(got), jc.DeepEquals, expect)
+
+		// The units can be retrieved from the machine id.
+		got, err = s.State.UnitsFor(a.machine.Id())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(sortedUnitNames(got), jc.DeepEquals, expect)
 	}
 }
 
