@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -155,7 +154,7 @@ type AddMachineParams struct {
 	InstanceId              instance.Id
 	Nonce                   string
 	HardwareCharacteristics instance.HardwareCharacteristics
-	Addrs                   []HostPort `json:"addrs"`
+	Addrs                   []Address
 }
 
 // AddMachines holds the parameters for making the
@@ -568,56 +567,17 @@ type SetRsyslogCertParams struct {
 	CACert []byte
 }
 
-// HostPort combines the network address information of a machine including its
-// location, metadata about what kind of location, and a port.
-type HostPort struct {
-	Value       string `json:"value"`
-	Type        string `json:"type"`
-	NetworkName string `json:"networkname"`
-	Scope       string `json:"scope"`
-	Port        int    `json:"port,omitempty"`
-}
-
-// FromNetworkHostPort is a convenience helper to create a parameter
-// out of the network type.
-func FromNetworkHostPort(hp network.HostPort) HostPort {
-	return HostPort{
-		Value:       hp.Value,
-		Type:        string(hp.Type),
-		NetworkName: hp.NetworkName,
-		Scope:       string(hp.Scope),
-		Port:        hp.Port,
-	}
-}
-
-// NetworkHostPort is a convenience helper to return the parameter
-// as network type.
-func (hp HostPort) NetworkHostPort() network.HostPort {
-	address := network.Address{
-		Value:       hp.Value,
-		Type:        network.AddressType(hp.Type),
-		NetworkName: hp.NetworkName,
-		Scope:       network.Scope(hp.Scope),
-	}
-	return network.HostPort{address, hp.Port}
-}
-
 // RsyslogConfigResult holds the result of a GetRsyslogConfig call.
 type RsyslogConfigResult struct {
-	Error  *Error `json:"error"`
-	CACert string `json:"cacert"`
+	Error  *Error
+	CACert string
 
 	// Port is only used by state servers as the port to listen on.
 	// Clients should use HostPorts for the rsyslog addresses to forward
 	// logs to.
-	Port int `json:"port"`
+	Port int
 
-	// TODO(dimitern): Add explicit JSON serialization tags and use
-	// []string instead in order to break the dependency on the
-	// network package, as this potentially introduces hard to catch
-	// and debug wire-format changes in the protocol when the type
-	// changes!
-	HostPorts []HostPort `json:"hostports"`
+	HostPorts []HostPort
 }
 
 // RsyslogConfigResults is the bulk form of RyslogConfigResult
@@ -642,7 +602,7 @@ type DistributionGroupResults struct {
 // call. Each element in the top level slice holds
 // the addresses for one API server.
 type APIHostPortsResult struct {
-	Servers [][]HostPort `json:"servers"`
+	Servers [][]HostPort
 }
 
 // FacadeVersions describes the available Facades and what versions of each one
@@ -654,10 +614,10 @@ type FacadeVersions struct {
 
 // LoginResult holds the result of a Login call.
 type LoginResult struct {
-	Servers        [][]HostPort     `json:"servers"`
-	EnvironTag     string           `json:"environtag"`
-	LastConnection *time.Time       `json:"lastconnection"`
-	Facades        []FacadeVersions `json:"facades"`
+	Servers        [][]HostPort
+	EnvironTag     string
+	LastConnection *time.Time
+	Facades        []FacadeVersions
 }
 
 // ReauthRequest holds a challenge/response token meaningful to the identity
@@ -680,10 +640,7 @@ type AuthUserInfo struct {
 
 // LoginRequestV1 holds the result of an Admin v1 Login call.
 type LoginResultV1 struct {
-	// TODO(dimitern): Use [][]string instead in order to break the
-	// dependency on the network package, as this potentially
-	// introduces hard to catch and debug wire-format changes in the
-	// protocol when the type changes!
+	// Servers is the list of API server addresses.
 	Servers [][]HostPort `json:"servers"`
 
 	// EnvironTag is the tag for the environment that is being connected to.

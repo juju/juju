@@ -58,25 +58,6 @@ type StringsResult struct {
 	Result []string
 }
 
-// PortsResults holds the bulk operation result of an API call
-// that returns a slice of network.Port.
-type PortsResults struct {
-	Results []PortsResult
-}
-
-// PortsResult holds the result of an API call that returns a slice
-// of network.Port or an error.
-type PortsResult struct {
-	Error *Error `json:"error"`
-	Ports []Port `json:"ports"`
-}
-
-// Port encapsulates the protocol and the number of a port.
-type Port struct {
-	Protocol string `json:"protocol"`
-	Number   int    `json:"number"`
-}
-
 // MachinePorts holds a machine and network tags. It's used when
 // referring to opened ports on the machine for a network.
 type MachinePorts struct {
@@ -574,12 +555,6 @@ type StatusResult struct {
 // StatusResults holds multiple status results.
 type StatusResults struct {
 	Results []StatusResult
-}
-
-// MachineAddresses holds an machine tag and addresses.
-type MachineAddresses struct {
-	Tag       string     `json:"tag"`
-	Addresses []HostPort `json:"addresses"`
 }
 
 // SetMachinesAddresses holds the parameters for making a SetMachineAddresses call.
