@@ -91,8 +91,8 @@ type backingUnit unitDoc
 
 func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange, []network.Port, error) {
 	// Get opened port ranges for the unit and convert them to ports,
-	// as older clients/servers do not know about ranges. See bug
-	// http://pad.lv/1418433 for more info.
+	// as older clients/servers do not know about ranges). See bug
+	// http://pad.lv/1418344 for more info.
 	unit, err := st.Unit(unitName)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "failed to get unit %q", unitName)
@@ -106,15 +106,12 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 	} else if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to get unit port ranges")
 	}
-	var compatiblePorts []network.Port
+	// For backward compatibility, if there are no ports opened, return an
+	// empty slice rather than a nil slice. Use a len(portRanges) capacity to
+	// avoid unnecessary allocations, since most of the times only specific
+	// ports are opened by charms.
+	compatiblePorts := make([]network.Port, 0, len(portRanges))
 	for _, portRange := range portRanges {
-		if portRange.FromPort == portRange.ToPort {
-			compatiblePorts = append(compatiblePorts, network.Port{
-				Number:   portRange.FromPort,
-				Protocol: portRange.Protocol,
-			})
-			continue
-		}
 		for j := portRange.FromPort; j <= portRange.ToPort; j++ {
 			compatiblePorts = append(compatiblePorts, network.Port{
 				Number:   j,
@@ -126,17 +123,11 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 }
 
 func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface{}) error {
-	portRanges, compatiblePorts, err := getUnitPortRangesAndPorts(st, u.Name)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	info := &params.UnitInfo{
 		Name:        u.Name,
 		Service:     u.Service,
 		Series:      u.Series,
 		MachineId:   u.MachineId,
-		Ports:       compatiblePorts,
-		PortRanges:  portRanges,
 		Subordinate: u.Principal != "",
 	}
 	if u.CharmURL != nil {
@@ -145,18 +136,27 @@ func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface
 	oldInfo := store.Get(info.EntityId())
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
-		// so fetch the associated unit status.
+		// so fetch the associated unit status and opened ports.
 		sdoc, err := getStatus(st, unitGlobalKey(u.Name))
 		if err != nil {
 			return err
 		}
 		info.Status = params.Status(sdoc.Status)
 		info.StatusInfo = sdoc.StatusInfo
+		portRanges, compatiblePorts, err := getUnitPortRangesAndPorts(st, u.Name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		info.PortRanges = portRanges
+		info.Ports = compatiblePorts
 	} else {
-		// The entry already exists, so preserve the current status.
+		// The entry already exists, so preserve the current status and ports.
 		oldInfo := oldInfo.(*params.UnitInfo)
 		info.Status = oldInfo.Status
 		info.StatusInfo = oldInfo.StatusInfo
+		info.Ports = oldInfo.Ports
+		info.PortRanges = oldInfo.PortRanges
+
 	}
 	publicAddress, privateAddress, err := getUnitAddresses(st, u.Name)
 	if err != nil {
@@ -455,6 +455,79 @@ func backingEntityIdForSettingsKey(key string) (eid params.EntityId, extra strin
 	return
 }
 
+type backingOpenedPorts map[string]interface{}
+
+func (p *backingOpenedPorts) updated(st *State, store *multiwatcher.Store, id interface{}) error {
+	localID := st.localID(id.(string))
+	parentId, ok := backingEntityIdForOpenedPortsKey(localID)
+	if !ok {
+		return nil
+	}
+	switch info := store.Get(parentId).(type) {
+	case nil:
+		// The parent info doesn't exist. This is unexpected because the port
+		// always refers to a machine. Anyway, ignore the ports for now.
+		return nil
+	case *params.MachineInfo:
+		// Retrieve the units placed in the machine.
+		units, err := st.UnitsFor(info.Id)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// Update the ports on all units assigned to the machine.
+		for _, u := range units {
+			if err := updateUnitPorts(st, store, u); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+	return nil
+}
+
+func (p *backingOpenedPorts) removed(st *State, store *multiwatcher.Store, id interface{}) {}
+
+func (p *backingOpenedPorts) mongoId() interface{} {
+	panic("cannot find mongo id from openedPorts document")
+}
+
+// updateUnitPorts updates the Ports and PortRanges info of the given unit.
+func updateUnitPorts(st *State, store *multiwatcher.Store, u *Unit) error {
+	eid, ok := backingEntityIdForGlobalKey(u.globalKey())
+	if !ok {
+		// This should never happen.
+		return errors.New("cannot retrieve entity id for unit")
+	}
+	switch oldInfo := store.Get(eid).(type) {
+	case nil:
+		// The unit info doesn't exist. This is unlikely to happen, but ignore
+		// the status until a unitInfo is included in the store.
+		return nil
+	case *params.UnitInfo:
+		portRanges, compatiblePorts, err := getUnitPortRangesAndPorts(st, oldInfo.Name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		unitInfo := *oldInfo
+		unitInfo.PortRanges = portRanges
+		unitInfo.Ports = compatiblePorts
+		store.Update(&unitInfo)
+	default:
+		return nil
+	}
+	return nil
+}
+
+// backingEntityIdForOpenedPortsKey returns the entity id for the given
+// openedPorts key. Any extra information in the key is discarded.
+func backingEntityIdForOpenedPortsKey(key string) (params.EntityId, bool) {
+	parts := portsIdRe.FindStringSubmatch(key)
+	if len(parts) != 3 {
+		logger.Debugf("cannot parse ports key %q: invalid ports document name", key)
+		return params.EntityId{}, false
+	}
+	return backingEntityIdForGlobalKey(machineGlobalKey(parts[1]))
+}
+
 // backingEntityIdForGlobalKey returns the entity id for the given global key.
 // It returns false if the key is not recognized.
 func backingEntityIdForGlobalKey(key string) (params.EntityId, bool) {
@@ -549,6 +622,10 @@ func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
 	}, {
 		Collection: st.db.C(settingsC),
 		infoType:   reflect.TypeOf(backingSettings{}),
+		subsidiary: true,
+	}, {
+		Collection: st.db.C(openedPortsC),
+		infoType:   reflect.TypeOf(backingOpenedPorts{}),
 		subsidiary: true,
 	}}
 	// Populate the collection maps from the above set of collections.
