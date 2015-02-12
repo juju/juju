@@ -265,11 +265,6 @@ func (ctx *HookContext) WriteLeaderSettings(_ params.Settings) error {
 	return errors.NotImplementedf("IsLeader")
 }
 
-func (ctx *HookContext) IsLeader() (bool, error) {
-	logger.Warningf("IsLeader: leadership not implemented")
-	return false, nil
-}
-
 // ActionName returns the name of the action.
 func (ctx *HookContext) ActionName() (string, error) {
 	if ctx.actionData == nil {
