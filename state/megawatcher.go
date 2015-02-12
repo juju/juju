@@ -118,7 +118,9 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 		return nil, nil, errors.Annotate(err, "failed to get unit port ranges")
 	}
 	// For backward compatibility, if there are no ports opened, return an
-	// empty slice rather than a nil slice.
+	// empty slice rather than a nil slice. Use a len(portRanges) capacity to
+	// avoid unnecessary allocations, since most of the times only specific
+	// ports are opened by charms.
 	compatiblePorts := make([]network.Port, 0, len(portRanges))
 	for _, portRange := range portRanges {
 		for j := portRange.FromPort; j <= portRange.ToPort; j++ {
@@ -534,16 +536,12 @@ func (p *backingOpenedPorts) updated(st *State, store *multiwatcherStore, id int
 		// always refers to a machine. Anyway, ignore the ports for now.
 		return nil
 	case *multiwatcher.MachineInfo:
-		// Retrieve the machine.
-		m, err := st.Machine(info.Id)
+		// Retrieve the units placed in the machine.
+		units, err := st.UnitsFor(info.Id)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		// Update the ports on all units assigned to the machine.
-		units, err := m.Units()
-		if err != nil {
-			return errors.Trace(err)
-		}
 		for _, u := range units {
 			if err := updateUnitPorts(st, store, u); err != nil {
 				return errors.Trace(err)

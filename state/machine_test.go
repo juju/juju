@@ -1036,7 +1036,7 @@ func (s *MachineSuite) TestRefreshWhenNotAlive(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
-	// Check that Machine.Units works correctly.
+	// Check that Machine.Units and st.UnitsFor work correctly.
 
 	// Make three machines, three services and three units for each service;
 	// variously assign units to machines and check that Machine.Units
@@ -1096,9 +1096,16 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 
 	for i, a := range assignments {
 		c.Logf("test %d", i)
+		expect := sortedUnitNames(append(a.units, a.subordinates...))
+
+		// The units can be retrieved from the machine model.
 		got, err := a.machine.Units()
 		c.Assert(err, jc.ErrorIsNil)
-		expect := sortedUnitNames(append(a.units, a.subordinates...))
+		c.Assert(sortedUnitNames(got), gc.DeepEquals, expect)
+
+		// The units can be retrieved from the machine id.
+		got, err = s.State.UnitsFor(a.machine.Id())
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(sortedUnitNames(got), gc.DeepEquals, expect)
 	}
 }
