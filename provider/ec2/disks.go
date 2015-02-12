@@ -111,9 +111,8 @@ func getBlockDeviceMappings(
 		}
 		attachment := storage.VolumeAttachment{
 			Volume:     params.Tag,
+			Machine:    params.Attachment.Machine,
 			DeviceName: actualDeviceName,
-			// MachineId, InstanceId and VolumeID are filled out
-			// by the caller once the information is available.
 		}
 		blockDeviceMappings = append(blockDeviceMappings, mapping)
 		volumes[i] = volume
@@ -124,6 +123,9 @@ func getBlockDeviceMappings(
 
 // validateVolumParams validates the volume parameters.
 func validateVolumeParams(params storage.VolumeParams) error {
+	if params.Attachment == nil {
+		return errors.NotImplementedf("allocating unattached volumes")
+	}
 	if params.Size > volumeSizeMaxMiB {
 		return errors.Errorf("%d MiB exceeds the maximum of %d MiB", params.Size, volumeSizeMaxMiB)
 	}

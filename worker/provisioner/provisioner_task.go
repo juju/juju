@@ -500,7 +500,7 @@ func constructStartInstanceParams(
 			v.Size,
 			storage.ProviderType(v.Provider),
 			v.Attributes,
-			&storage.AttachmentParams{machineTag.Id(), ""},
+			&storage.AttachmentParams{machineTag, ""},
 		}
 	}
 
@@ -690,9 +690,7 @@ func volumeAttachmentsToApiserver(attachments []storage.VolumeAttachment) []para
 	for i, a := range attachments {
 		result[i] = params.VolumeAttachment{
 			a.Volume.String(),
-			a.VolumeId,
 			a.Machine.String(),
-			string(a.InstanceId),
 			a.DeviceName,
 		}
 	}

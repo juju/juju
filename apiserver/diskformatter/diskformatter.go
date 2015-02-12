@@ -158,9 +158,7 @@ func (a *DiskFormatterAPI) oneAttachedVolumes(tag names.MachineTag) ([]params.Vo
 		if _, ok := matchingBlockDevice(blockDevices, volumeInfo, attachmentInfo); ok {
 			result = append(result, params.VolumeAttachment{
 				attachment.Volume().String(),
-				volumeInfo.VolumeId,
 				attachment.Machine().String(),
-				"", // instance ID is not important
 				attachmentInfo.DeviceName,
 			})
 		}

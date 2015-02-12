@@ -19,7 +19,7 @@ var _ = gc.Suite(&providerRegistrySuite{})
 type mockProvider struct {
 }
 
-func (p *mockProvider) VolumeSource(*config.Config, *storage.Config) (storage.VolumeSource, error) {
+func (p *mockProvider) VolumeSource(*config.Config, *storage.Config, string) (storage.VolumeSource, error) {
 	return nil, errors.New("not implemented")
 }
 

@@ -1050,9 +1050,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		}},
 		VolumeAttachments: []params.VolumeAttachment{{
 			VolumeTag:  "disk-0",
-			VolumeId:   "vol-0",
 			MachineTag: volumesMachine.Tag().String(),
-			InstanceId: "i-am-also",
 			DeviceName: "sda",
 		}},
 	},
