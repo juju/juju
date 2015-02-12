@@ -206,66 +206,6 @@ class IndustrialTest:
                 return
 
 
-class StageAttempt:
-    """Attempt to run a testing stage."""
-
-    def __init__(self):
-        self.failure_clients = set()
-
-    @classmethod
-    def get_test_info(cls):
-        """Describe the tests provided by this Stage."""
-        return {cls.test_id: {'title': cls.title}}
-
-    def do_stage(self, old, new):
-        """Do this stage, return a tuple.
-
-        This method may be overridden, but it is more typical to provide
-        do_operation and get_result.
-        :param old: The old juju client.
-        :param new: The new juju client.
-        :return: a tuple of (old_succeeded, new_succeeded).
-        """
-        self.do_operation(old)
-        self.do_operation(new)
-        old_result = self.get_result(old)
-        new_result = self.get_result(new)
-        return old_result, new_result
-
-    def iter_test_results(self, old, new):
-        old_result, new_result = self.do_stage(old, new)
-        yield self.test_id, old_result, new_result
-
-    def do_operation(self, client, output=None):
-        """Perform this stage's operation.
-
-        This implementation requires a subclass to declare _operation.
-        Exceptions raised by _operation are logged and cause the operation to
-        be considered failed for that client.
-        """
-        try:
-            self._operation(client)
-        except Exception as e:
-            logging.exception(e)
-            self.failure_clients.add(client)
-
-    def get_result(self, client):
-        """Determine whether this stage's operation succeeded.
-
-        This implementation requires a subclass to declare _result.
-        If _operation failed for this, this returns False.
-        If _result raises an exception, this returns False.
-        Otherwise, this returns the value of get_result.
-        """
-        if client in self.failure_clients:
-            return False
-        try:
-            return self._result(client)
-        except Exception as e:
-            logging.exception(e)
-            return False
-
-
 class SteppedStageAttempt:
     """Subclasses of this class implement an industrial test stage with steps.
 
@@ -444,19 +384,28 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
         yield results
 
 
-class EnsureAvailabilityAttempt(StageAttempt):
+class EnsureAvailabilityAttempt(SteppedStageAttempt):
     """Implementation of an ensure-availability stage."""
 
     title = 'ensure-availability -n 3'
 
     test_id = 'ensure-availability-n3'
 
-    def _operation(self, client):
-        client.juju('ensure-availability', ('-n', '3'))
+    @staticmethod
+    def get_test_info():
+        return {'ensure-availability-n3': {
+            'title': 'ensure-availability -n 3'}}
 
-    def _result(self, client):
+    def iter_steps(self, client):
+        """Iterate the steps of this Stage.  See SteppedStageAttempt."""
+        results = {'test_id': 'ensure-availability-n3'}
+        yield results
+        client.juju('ensure-availability', ('-n', '3'))
+        yield results
         client.wait_for_ha()
-        return True
+        results['result'] = True
+        yield results
+
 
 
 @contextmanager
