@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"gopkg.in/amz.v2/aws"
 	"gopkg.in/amz.v2/ec2"
@@ -479,7 +480,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	var instResp *ec2.RunInstancesResp
 
-	blockDeviceMappings, volumes, err := getBlockDeviceMappings(
+	blockDeviceMappings, volumes, volumeAttachments, err := getBlockDeviceMappings(
 		*spec.InstanceType.VirtType, &args,
 	)
 	if err != nil {
@@ -520,6 +521,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	// TODO(axw) extract volume ID, store in BlockDevice.ProviderId field,
 	// and tag all resources (instances and volumes). We can't do this until
 	// goamz's BlockDeviceMapping structure is updated to include VolumeId.
+	for i := range volumes {
+		volumeAttachments[i].Machine = names.NewMachineTag(args.MachineConfig.MachineId)
+		volumeAttachments[i].InstanceId = inst.Id()
+	}
 
 	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
@@ -537,9 +542,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		AvailabilityZone: &inst.Instance.AvailZone,
 	}
 	return &environs.StartInstanceResult{
-		Instance: inst,
-		Hardware: &hc,
-		Volumes:  volumes,
+		Instance:          inst,
+		Hardware:          &hc,
+		Volumes:           volumes,
+		VolumeAttachments: volumeAttachments,
 	}, nil
 }
 
@@ -770,10 +776,54 @@ func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.
 	return nil
 }
 
-// NetworkInterfaces implements Environ.NetworkInterfaces, but it's
-// not implemented on this provider yet.
-func (*environ) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error) {
-	return nil, errors.NotImplementedf("NetworkInterfaces")
+// NetworkInterfaces implements Environ.NetworkInterfaces.
+func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+	ec2Client := e.ec2()
+	var err error
+	var networkInterfacesResp *ec2.NetworkInterfacesResp
+	for a := shortAttempt.Start(); a.Next(); {
+		filter := ec2.NewFilter()
+		filter.Add("attachment.instance-id", string(instId))
+		networkInterfacesResp, err = ec2Client.NetworkInterfaces(nil, filter)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		// either the instance doesn't exist or we couldn't get through to
+		// the ec2 api
+		return nil, errors.Annotatef(err, "cannot get instance %v network interfaces", instId)
+	}
+	ec2Interfaces := networkInterfacesResp.Interfaces
+	result := make([]network.InterfaceInfo, len(ec2Interfaces))
+	for i, iface := range ec2Interfaces {
+		resp, err := ec2Client.Subnets([]string{iface.SubnetId}, nil)
+		if err != nil {
+			return nil, errors.Annotatef(err, "failed to retrieve subnet %v info", iface.SubnetId)
+		}
+		if len(resp.Subnets) != 1 {
+			return nil, errors.Errorf("expected 1 subnet, got %d", len(resp.Subnets))
+		}
+		subnet := resp.Subnets[0]
+		cidr := subnet.CIDRBlock
+
+		result[i] = network.InterfaceInfo{
+			DeviceIndex:      iface.Attachment.DeviceIndex,
+			MACAddress:       iface.MACAddress,
+			CIDR:             cidr,
+			NetworkName:      "", // Not needed for now.
+			ProviderId:       network.Id(iface.Id),
+			ProviderSubnetId: network.Id(iface.SubnetId),
+			VLANTag:          0, // Not supported on EC2.
+			// Not supported on EC2, so fake it.
+			InterfaceName: fmt.Sprintf("eth%d", iface.Attachment.DeviceIndex),
+			Disabled:      false,
+			NoAutoStart:   false,
+			ConfigType:    network.ConfigUnknown,
+			Address:       network.NewAddress(iface.PrivateIPAddress, network.ScopeCloudLocal),
+		}
+	}
+	return result, nil
 }
 
 // Subnets returns basic information about the specified subnets known

@@ -174,7 +174,7 @@ func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 			{nil},
 			{nil},
 			{&params.Error{Message: "x3 error"}},
-			{&params.Error{Message: `"machine-4" is not in an error state`}},
+			{&params.Error{Message: "machine 4 is not in an error state"}},
 			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
 		},

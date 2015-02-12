@@ -483,7 +483,7 @@ curl .* --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid
 			InstanceId:              "i-bootstrap",
 			MachineAgentServiceName: "jujud-machine-0",
 			EnableOSRefreshUpdate:   true,
-			CustomImageMetadata: []*imagemetadata.ImageMetadata{&imagemetadata.ImageMetadata{
+			CustomImageMetadata: []*imagemetadata.ImageMetadata{{
 				Id:         "image-id",
 				Storage:    "ebs",
 				VirtType:   "pv",
@@ -1035,7 +1035,7 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cmds := cloudcfg.BootCmds()
-	expected := "[ -f /etc/apt/apt.conf.d/42-juju-proxy-settings ] || (printf '%s\\n' 'Acquire::http::Proxy \"http://user@10.0.0.1\";' > /etc/apt/apt.conf.d/42-juju-proxy-settings)"
+	expected := "printf '%s\\n' 'Acquire::http::Proxy \"http://user@10.0.0.1\";' > /etc/apt/apt.conf.d/42-juju-proxy-settings"
 	c.Assert(cmds, jc.DeepEquals, []interface{}{expected})
 }
 

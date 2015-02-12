@@ -188,7 +188,6 @@ var commandNames = []string{
 	"block",
 	"bootstrap",
 	"cached-images",
-	"charms",
 	"debug-hooks",
 	"debug-log",
 	"deploy",

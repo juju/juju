@@ -77,9 +77,9 @@ func (s *stateSuite) TestAllMachinePortsV1(c *gc.C) {
 	portsMap, err := s.uniter.AllMachinePorts(s.wordpressMachine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(portsMap, jc.DeepEquals, map[network.PortRange]params.RelationUnit{
-		network.PortRange{100, 200, "tcp"}: params.RelationUnit{Unit: s.wordpressUnit.Tag().String()},
-		network.PortRange{10, 20, "udp"}:   params.RelationUnit{Unit: s.wordpressUnit.Tag().String()},
-		network.PortRange{201, 250, "tcp"}: params.RelationUnit{Unit: wordpressUnit1.Tag().String()},
-		network.PortRange{1, 8, "udp"}:     params.RelationUnit{Unit: wordpressUnit1.Tag().String()},
+		network.PortRange{100, 200, "tcp"}: {Unit: s.wordpressUnit.Tag().String()},
+		network.PortRange{10, 20, "udp"}:   {Unit: s.wordpressUnit.Tag().String()},
+		network.PortRange{201, 250, "tcp"}: {Unit: wordpressUnit1.Tag().String()},
+		network.PortRange{1, 8, "udp"}:     {Unit: wordpressUnit1.Tag().String()},
 	})
 }

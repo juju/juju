@@ -629,6 +629,10 @@ func isEmpty(val interface{}) bool {
 //
 // The defined[attr+"-path"] key is always deleted.
 func maybeReadAttrFromFile(defined map[string]interface{}, attr, defaultPath string) error {
+	if !osenv.IsJujuHomeSet() {
+		logger.Debugf("JUJU_HOME not set, not attempting to read file %q", defaultPath)
+		return nil
+	}
 	pathAttr := attr + "-path"
 	path, _ := defined[pathAttr].(string)
 	delete(defined, pathAttr)
@@ -839,6 +843,14 @@ func (c *Config) getWithFallback(key, fallback string) string {
 	return value
 }
 
+// addSchemeIfMissing adds a scheme to a URL if it is missing
+func addSchemeIfMissing(defaultScheme string, url string) string {
+	if url != "" && !strings.Contains(url, "://") {
+		url = defaultScheme + "://" + url
+	}
+	return url
+}
+
 // AptProxySettings returns all three proxy settings; http, https and ftp.
 func (c *Config) AptProxySettings() proxy.Settings {
 	return proxy.Settings{
@@ -851,19 +863,19 @@ func (c *Config) AptProxySettings() proxy.Settings {
 // AptHttpProxy returns the apt http proxy for the environment.
 // Falls back to the default http-proxy if not specified.
 func (c *Config) AptHttpProxy() string {
-	return c.getWithFallback(AptHttpProxyKey, HttpProxyKey)
+	return addSchemeIfMissing("http", c.getWithFallback(AptHttpProxyKey, HttpProxyKey))
 }
 
 // AptHttpsProxy returns the apt https proxy for the environment.
 // Falls back to the default https-proxy if not specified.
 func (c *Config) AptHttpsProxy() string {
-	return c.getWithFallback(AptHttpsProxyKey, HttpsProxyKey)
+	return addSchemeIfMissing("https", c.getWithFallback(AptHttpsProxyKey, HttpsProxyKey))
 }
 
 // AptFtpProxy returns the apt ftp proxy for the environment.
 // Falls back to the default ftp-proxy if not specified.
 func (c *Config) AptFtpProxy() string {
-	return c.getWithFallback(AptFtpProxyKey, FtpProxyKey)
+	return addSchemeIfMissing("ftp", c.getWithFallback(AptFtpProxyKey, FtpProxyKey))
 }
 
 // AptMirror sets the apt mirror for the environment.

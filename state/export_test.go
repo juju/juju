@@ -32,28 +32,27 @@ const (
 )
 
 var (
-	ToolstorageNewStorage         = &toolstorageNewStorage
-	ImageStorageNewStorage        = &imageStorageNewStorage
-	MachineIdLessThan             = machineIdLessThan
-	NewAddress                    = newAddress
-	StateServerAvailable          = &stateServerAvailable
-	GetOrCreatePorts              = getOrCreatePorts
-	GetPorts                      = getPorts
-	PortsGlobalKey                = portsGlobalKey
-	CurrentUpgradeId              = currentUpgradeId
-	NowToTheSecond                = nowToTheSecond
-	PickAddress                   = &pickAddress
-	CreateMachineBlockDeviceOps   = createMachineBlockDeviceOps
-	SetProvisionedBlockDeviceInfo = setProvisionedBlockDeviceInfo
+	ToolstorageNewStorage  = &toolstorageNewStorage
+	ImageStorageNewStorage = &imageStorageNewStorage
+	MachineIdLessThan      = machineIdLessThan
+	NewAddress             = newAddress
+	StateServerAvailable   = &stateServerAvailable
+	GetOrCreatePorts       = getOrCreatePorts
+	GetPorts               = getPorts
+	PortsGlobalKey         = portsGlobalKey
+	CurrentUpgradeId       = currentUpgradeId
+	NowToTheSecond         = nowToTheSecond
+	PickAddress            = &pickAddress
+	AddVolumeOp            = (*State).addVolumeOp
 )
 
 type (
-	CharmDoc       charmDoc
-	MachineDoc     machineDoc
-	RelationDoc    relationDoc
-	ServiceDoc     serviceDoc
-	UnitDoc        unitDoc
-	BlockDeviceDoc blockDeviceDoc
+	CharmDoc        charmDoc
+	MachineDoc      machineDoc
+	RelationDoc     relationDoc
+	ServiceDoc      serviceDoc
+	UnitDoc         unitDoc
+	BlockDevicesDoc blockDevicesDoc
 )
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
@@ -307,8 +306,8 @@ func Sequence(st *State, name string) (int, error) {
 }
 
 // TODO(mjs) - This is a temporary and naive environment destruction
-// function, used to test environment watching. Once the environment
-// destroying work is completed it can go away.
+// function, used to test environment watching and annotations.
+// Once the environment destroying work is completed it can go away.
 func RemoveEnvironment(st *State, uuid string) error {
 	ops := []txn.Op{{
 		C:      environmentsC,
@@ -318,3 +317,18 @@ func RemoveEnvironment(st *State, uuid string) error {
 	}}
 	return st.runTransaction(ops)
 }
+
+type MockGlobalEntity struct {
+}
+
+func (m MockGlobalEntity) globalKey() string {
+	return "globalKey"
+}
+func (m MockGlobalEntity) Tag() names.Tag {
+	return names.NewMachineTag("42")
+}
+
+var (
+	_                    GlobalEntity = (*MockGlobalEntity)(nil)
+	TagToCollectionAndId              = (*State).tagToCollectionAndId
+)

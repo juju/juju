@@ -30,7 +30,7 @@ func getBlockDeviceMappings(
 	virtType string,
 	args *environs.StartInstanceParams,
 ) (
-	[]ec2.BlockDeviceMapping, []storage.BlockDevice, error,
+	[]ec2.BlockDeviceMapping, []storage.Volume, []storage.VolumeAttachment, error,
 ) {
 	rootDiskSizeMiB := minRootDiskSizeMiB
 	if args.Constraints.RootDisk != nil {
@@ -73,34 +73,41 @@ func getBlockDeviceMappings(
 	// many there are and how big each one is. We also need to
 	// unmap ephemeral0 in cloud-init.
 
-	volumes := make([]storage.BlockDevice, len(args.Volumes))
+	volumes := make([]storage.Volume, len(args.Volumes))
+	attachments := make([]storage.VolumeAttachment, len(args.Volumes))
 	nextDeviceName := blockDeviceNamer(virtType == paravirtual)
 	for i, params := range args.Volumes {
 		// Check minimum constraints can be satisfied.
 		if err := validateVolumeParams(params); err != nil {
-			return nil, nil, errors.Annotate(err, "invalid volume parameters")
+			return nil, nil, nil, errors.Annotate(err, "invalid volume parameters")
 		}
 		requestDeviceName, actualDeviceName, err := nextDeviceName()
 		if err != nil {
-			// Can't allocate any more volumes.
-			return nil, nil, err
+			// Can't attach any more volumes.
+			return nil, nil, nil, err
 		}
 		mapping := ec2.BlockDeviceMapping{
 			VolumeSize: int64(mibToGib(params.Size)),
 			DeviceName: requestDeviceName,
 			// TODO(axw) VolumeType, IOPS and DeleteOnTermination
 		}
-		volume := storage.BlockDevice{
-			Name:       params.Name,
-			DeviceName: actualDeviceName,
-			Size:       gibToMib(uint64(mapping.VolumeSize)),
-			// ProviderId will be filled in once the instance has
+		volume := storage.Volume{
+			Tag:  params.Tag,
+			Size: gibToMib(uint64(mapping.VolumeSize)),
+			// VolumeId will be filled in once the instance has
 			// been created, which will create the volumes too.
+		}
+		attachment := storage.VolumeAttachment{
+			Volume:     params.Tag,
+			DeviceName: actualDeviceName,
+			// MachineId, InstanceId and VolumeID are filled out
+			// by the caller once the information is available.
 		}
 		blockDeviceMappings = append(blockDeviceMappings, mapping)
 		volumes[i] = volume
+		attachments[i] = attachment
 	}
-	return blockDeviceMappings, volumes, nil
+	return blockDeviceMappings, volumes, attachments, nil
 }
 
 // validateVolumParams validates the volume parameters.

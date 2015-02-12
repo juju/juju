@@ -79,8 +79,11 @@ const (
 	upgradeInfoC        = "upgradeInfo"
 	rebootC             = "reboot"
 	blockDevicesC       = "blockdevices"
+	storageAttachmentsC = "storageattachments"
 	storageConstraintsC = "storageconstraints"
 	storageInstancesC   = "storageinstances"
+	volumesC            = "volumes"
+	volumeAttachmentsC  = "volumeattachments"
 
 	// leaseC is used to store lease tokens
 	leaseC = "lease"
@@ -103,6 +106,9 @@ const (
 
 	// restoreInfoC is used to track restore progress
 	restoreInfoC = "restoreInfo"
+
+	// blocksC is used to identify collection of environment blocks.
+	blocksC = "blocks"
 )
 
 // State represents the state of an environment
@@ -148,6 +154,7 @@ func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
 		return nil, errors.Trace(err)
 	}
 	newState.environTag = env
+	newState.startPresenceWatcher()
 	return newState, nil
 }
 
@@ -166,6 +173,11 @@ func (st *State) EnvironUUID() string {
 // getPresence returns the presence collection.
 func (st *State) getPresence() *mgo.Collection {
 	return st.db.Session.DB("presence").C(presenceC)
+}
+
+func (st *State) startPresenceWatcher() {
+	pdb := st.db.Session.DB("presence")
+	st.pwatcher = presence.NewWatcher(pdb.C(presenceC), st.environTag)
 }
 
 // newDB returns a database connection using a new session, along with

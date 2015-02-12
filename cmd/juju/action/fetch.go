@@ -5,6 +5,7 @@ package action
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/cmd"
 	errors "github.com/juju/errors"
@@ -91,9 +92,29 @@ func (c *FetchCommand) Run(ctx *cmd.Context) error {
 }
 
 func formatActionResult(result params.ActionResult) map[string]interface{} {
-	return map[string]interface{}{
-		"status":  result.Status,
-		"message": result.Message,
-		"results": result.Output,
+	response := map[string]interface{}{"status": result.Status}
+	if result.Message != "" {
+		response["message"] = result.Message
 	}
+	if len(result.Output) != 0 {
+		response["results"] = result.Output
+	}
+
+	if result.Enqueued.IsZero() && result.Started.IsZero() && result.Completed.IsZero() {
+		return response
+	}
+
+	responseTiming := make(map[string]string)
+	for k, v := range map[string]time.Time{
+		"enqueued":  result.Enqueued,
+		"started":   result.Started,
+		"completed": result.Completed,
+	} {
+		if !v.IsZero() {
+			responseTiming[k] = v.String()
+		}
+	}
+	response["timing"] = responseTiming
+
+	return response
 }

@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -127,9 +128,9 @@ func (s *ProxyUpdaterSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Setting
 	// proxy settings which is what we would get if we don't explicitly set
 	// apt values.
 	aptProxySettings := proxy.Settings{
-		Http:  "apt http proxy",
-		Https: "apt https proxy",
-		Ftp:   "apt ftp proxy",
+		Http:  "http://apt.http.proxy",
+		Https: "https://apt.https.proxy",
+		Ftp:   "ftp://apt.ftp.proxy",
 	}
 	for k, v := range config.AptProxyConfigMap(aptProxySettings) {
 		attrs[k] = v
@@ -162,6 +163,33 @@ func (s *ProxyUpdaterSuite) TestWriteSystemFiles(c *gc.C) {
 	s.waitProxySettings(c, proxySettings)
 	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
 	s.waitForFile(c, apt.ConfFile, apt.ProxyContent(aptProxySettings)+"\n")
+}
+
+func (s *ProxyUpdaterSuite) TestEnvironmentVariables(c *gc.C) {
+	setenv := func(proxy, value string) {
+		os.Setenv(proxy, value)
+		os.Setenv(strings.ToUpper(proxy), value)
+	}
+	setenv("http_proxy", "foo")
+	setenv("https_proxy", "foo")
+	setenv("ftp_proxy", "foo")
+	setenv("no_proxy", "foo")
+
+	proxySettings, _ := s.updateConfig(c)
+
+	updater := proxyupdater.New(s.environmentAPI, true)
+	defer worker.Stop(updater)
+	s.waitForPostSetup(c)
+	s.waitProxySettings(c, proxySettings)
+
+	assertEnv := func(proxy, value string) {
+		c.Assert(os.Getenv(proxy), gc.Equals, value)
+		c.Assert(os.Getenv(strings.ToUpper(proxy)), gc.Equals, value)
+	}
+	assertEnv("http_proxy", proxySettings.Http)
+	assertEnv("https_proxy", proxySettings.Https)
+	assertEnv("ftp_proxy", proxySettings.Ftp)
+	assertEnv("no_proxy", proxySettings.NoProxy)
 }
 
 func (s *ProxyUpdaterSuite) TestDontWriteSystemFiles(c *gc.C) {

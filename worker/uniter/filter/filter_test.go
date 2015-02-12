@@ -88,6 +88,19 @@ func (s *FilterSuite) contentAsserterC(c *gc.C, ch interface{}) coretesting.Cont
 		C:       c,
 		Chan:    ch,
 	}
+
+// EvilSync starts a state sync (ensuring that any changes will be delivered to
+// the internal watchers "soon") -- and then waits "a while" so that we can be
+// reasonably certain that the events have made it through the api server and
+// then delivered from the api-level watcher to the filter itself.
+//
+// It's important to be clear that this *is* evil, and we should be testing
+// with a mocked-out watcher we can control directly; the only reason this
+// method exists is because we already perpetrated this crime -- but not
+// consistently -- and we're concentrating the evil in one place.
+func (s *FilterSuite) EvilSync() {
+	s.BackingState.StartSync()
+	time.Sleep(250 * time.Millisecond)
 }
 
 func (s *FilterSuite) TestUnitDeath(c *gc.C) {
@@ -309,8 +322,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	// that's a bit inconvenient for this change.
 	changeConfig(nil)
 	changeConfig("the curious incident of the dog in the cloud")
-	s.BackingState.StartSync()
-	time.Sleep(250 * time.Millisecond)
+	s.EvilSync()
 	f.DiscardConfigEvent()
 	configC.AssertNoReceive()
 
@@ -340,11 +352,8 @@ func (s *FilterSuite) TestInitialAddressEventIgnored(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
-	// Note: we don't set addresses here because that would
-	// race with the filter starting its address watcher.
-	// We will always receive a config-changed event when
-	// addresses change *after* the filter starts watching
-	// addresses.
+	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	c.Assert(err, jc.ErrorIsNil)
 
 	// We should not get any config-change events until
 	// setting the charm URL.
@@ -380,8 +389,7 @@ func (s *FilterSuite) TestConfigAndAddressEvents(c *gc.C) {
 	// Config and address events should be coalesced. Start
 	// the synchronisation and sleep a bit to give the filter
 	// a chance to pick them both up.
-	s.BackingState.StartSync()
-	time.Sleep(250 * time.Millisecond)
+	s.EvilSync()
 	configC.AssertOneReceive()
 }
 
@@ -405,6 +413,7 @@ func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should not receive any config-change events.
+	s.EvilSync()
 	f.DiscardConfigEvent()
 	configC.AssertNoReceive()
 }

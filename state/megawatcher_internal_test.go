@@ -33,6 +33,8 @@ var (
 	_ backingEntityDoc = (*backingStatus)(nil)
 	_ backingEntityDoc = (*backingConstraints)(nil)
 	_ backingEntityDoc = (*backingSettings)(nil)
+	_ backingEntityDoc = (*backingAction)(nil)
+	_ backingEntityDoc = (*backingBlock)(nil)
 )
 
 var dottedConfig = `
@@ -983,6 +985,93 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 					Id: st.docID("s#foo"),
 				}}
 		},
+		// Action changes
+		func(c *gc.C, st *State) testCase {
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, jc.ErrorIsNil)
+			action, err := st.EnqueueAction(u.Tag(), "vacuumdb", map[string]interface{}{})
+			c.Assert(err, jc.ErrorIsNil)
+			enqueued := makeActionInfo(action, st)
+			action, err = action.Begin()
+			c.Assert(err, jc.ErrorIsNil)
+			started := makeActionInfo(action, st)
+			return testCase{
+				about:          "action change picks up last change",
+				add:            []multiwatcher.EntityInfo{&enqueued, &started},
+				change:         watcher.Change{C: actionsC, Id: st.docID(action.Id())},
+				expectContents: []multiwatcher.EntityInfo{&started},
+			}
+		},
+		// Block changes
+		func(c *gc.C, st *State) testCase {
+			return testCase{
+				about: "no blocks in state, no blocks in store -> do nothing",
+				change: watcher.Change{
+					C:  blocksC,
+					Id: "1",
+				}}
+		}, func(c *gc.C, st *State) testCase {
+			blockId := st.docID("0")
+			blockType := DestroyBlock.ToParams()
+			blockMsg := "woot"
+			return testCase{
+				about: "no change if block is not in backing",
+				add: []multiwatcher.EntityInfo{&multiwatcher.BlockInfo{
+					Id:      blockId,
+					Type:    blockType,
+					Message: blockMsg,
+					Tag:     st.EnvironTag().String(),
+				}},
+				change: watcher.Change{
+					C:  blocksC,
+					Id: st.localID(blockId),
+				},
+				expectContents: []multiwatcher.EntityInfo{&multiwatcher.BlockInfo{
+					Id:      blockId,
+					Type:    blockType,
+					Message: blockMsg,
+					Tag:     st.EnvironTag().String(),
+				}},
+			}
+		}, func(c *gc.C, st *State) testCase {
+			err := st.SwitchBlockOn(DestroyBlock, "multiwatcher testing")
+			c.Assert(err, jc.ErrorIsNil)
+			b, found, err := st.GetBlockForType(DestroyBlock)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(found, jc.IsTrue)
+			blockId := b.Id()
+
+			return testCase{
+				about: "block is added if it's in backing but not in Store",
+				change: watcher.Change{
+					C:  blocksC,
+					Id: blockId,
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.BlockInfo{
+						Id:      st.localID(blockId),
+						Type:    b.Type().ToParams(),
+						Message: b.Message(),
+						Tag:     st.EnvironTag().String(),
+					}}}
+		}, func(c *gc.C, st *State) testCase {
+			err := st.SwitchBlockOn(DestroyBlock, "multiwatcher testing")
+			c.Assert(err, jc.ErrorIsNil)
+			b, found, err := st.GetBlockForType(DestroyBlock)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(found, jc.IsTrue)
+			err = st.SwitchBlockOff(DestroyBlock)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return testCase{
+				about: "block is removed if it's in backing and in multiwatcher.Store",
+				change: watcher.Change{
+					C:  blocksC,
+					Id: b.Id(),
+				},
+			}
+		},
 	} {
 		test := testFunc(c, s.state)
 
@@ -1220,6 +1309,17 @@ func (s *storeManagerStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 				err = svc.UpdateConfigSettings(charm.Settings{"blog-title": "boring"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
+		}, {
+			about: "blocks",
+			triggerEvent: func(st *State) {
+				m, found, err := st.GetBlockForType(DestroyBlock)
+				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(found, jc.IsFalse)
+				c.Assert(m, gc.IsNil)
+
+				err = st.SwitchBlockOn(DestroyBlock, "test block")
+				c.Assert(err, jc.ErrorIsNil)
+			},
 		},
 	} {
 		c.Logf("Test %d: %s", i, test.about)
@@ -1350,4 +1450,20 @@ func deltaMap(deltas []multiwatcher.Delta) map[interface{}]multiwatcher.EntityIn
 		}
 	}
 	return m
+}
+
+func makeActionInfo(a *Action, st *State) multiwatcher.ActionInfo {
+	results, message := a.Results()
+	return multiwatcher.ActionInfo{
+		Id:         a.Id(),
+		Receiver:   a.Receiver(),
+		Name:       a.Name(),
+		Parameters: a.Parameters(),
+		Status:     string(a.Status()),
+		Message:    message,
+		Results:    results,
+		Enqueued:   a.Enqueued(),
+		Started:    a.Started(),
+		Completed:  a.Completed(),
+	}
 }

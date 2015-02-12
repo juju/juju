@@ -6,16 +6,17 @@ package jujuc
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 )
 
 // StorageGetCommand implements the storage-get command.
 type StorageGetCommand struct {
 	cmd.CommandBase
-	ctx               Context
-	storageInstanceId string
-	keys              []string
-	out               cmd.Output
+	ctx        Context
+	storageTag names.StorageTag
+	keys       []string
+	out        cmd.Output
 }
 
 func NewStorageGetCommand(ctx Context) cmd.Command {
@@ -45,13 +46,16 @@ func (c *StorageGetCommand) Init(args []string) error {
 	if len(args) < 2 {
 		return errors.New("no attribute keys specified")
 	}
-	c.storageInstanceId = args[0]
+	if !names.IsValidStorage(args[0]) {
+		return errors.Errorf("invalid storage ID %q", args[0])
+	}
+	c.storageTag = names.NewStorageTag(args[0])
 	c.keys = args[1:]
 	return nil
 }
 
 func (c *StorageGetCommand) Run(ctx *cmd.Context) error {
-	storageInstance, ok := c.ctx.StorageInstance(c.storageInstanceId)
+	storageAttachment, ok := c.ctx.StorageAttachment(c.storageTag)
 	if !ok {
 		return nil
 	}
@@ -60,9 +64,9 @@ func (c *StorageGetCommand) Run(ctx *cmd.Context) error {
 	for _, key := range c.keys {
 		switch key {
 		case "kind":
-			values[key] = storageInstance.Kind
+			values[key] = storageAttachment.Kind
 		case "location":
-			values[key] = storageInstance.Location
+			values[key] = storageAttachment.Location
 		default:
 			return errors.Errorf("invalid storage instance key %q", key)
 		}

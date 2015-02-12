@@ -565,7 +565,7 @@ func (suite *environSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c *gc.
 	err := env.StopInstances("test1", "test2")
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedNodes := [][]string{[]string{"test1", "test2"}, []string{"test1"}, []string{"test2"}}
+	expectedNodes := [][]string{{"test1", "test2"}, {"test1"}, {"test2"}}
 	c.Assert(attemptedNodes, gc.DeepEquals, expectedNodes)
 }
 

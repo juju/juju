@@ -282,10 +282,10 @@ func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {
 	_, err := common.WaitSSH(envcmd.BootstrapContext(ctx), nil, ssh.DefaultClient, "", &addressesChange{addrs: [][]string{
 		nil,
 		nil,
-		[]string{"0.1.2.3"},
-		[]string{"0.1.2.3"},
+		{"0.1.2.3"},
+		{"0.1.2.3"},
 		nil,
-		[]string{"0.1.2.4"},
+		{"0.1.2.4"},
 	}}, testSSHTimeout)
 	// Not necessarily the last one in the list, due to scheduling.
 	c.Check(err, gc.ErrorMatches,

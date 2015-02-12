@@ -1233,7 +1233,6 @@ func (u *uniterBaseAPI) AddMetrics(args params.MetricsParams) (params.ErrorResul
 			if err == nil {
 				metricBatch := make([]state.Metric, len(unitMetrics.Metrics))
 				for j, metric := range unitMetrics.Metrics {
-					// TODO (tasdomas) 2014-08-26: set credentials for metrics when available
 					metricBatch[j] = state.Metric{
 						Key:   metric.Key,
 						Value: metric.Value,
