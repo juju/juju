@@ -20,98 +20,100 @@ type IsLeaderSuite struct {
 
 var _ = gc.Suite(&IsLeaderSuite{})
 
-func (s *IsLeaderSuite) TestInitSuccess(c *gc.C) {
-	command := jujuc.NewIsLeaderCommand(nil)
-	err := command.Init(nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *IsLeaderSuite) TestInitError(c *gc.C) {
 	command := jujuc.NewIsLeaderCommand(nil)
 	err := command.Init([]string{"blah"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["blah"\]`)
 }
 
-func (s *IsLeaderSuite) TestIsLeaderError(c *gc.C) {
-	command := jujuc.NewIsLeaderCommand(isLeaderContext{
-		err: errors.New("pow"),
-	})
-	context := testing.Context(c)
-	code := cmd.Main(command, context, nil)
-	c.Check(code, gc.Equals, 1)
-	c.Check(bufferString(context.Stdout), gc.Equals, "")
-	c.Check(bufferString(context.Stderr), gc.Equals, "error: leadership status unknown: pow\n")
+func (s *IsLeaderSuite) TestInitSuccess(c *gc.C) {
+	command := jujuc.NewIsLeaderCommand(nil)
+	err := command.Init(nil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *IsLeaderSuite) TestFormatError(c *gc.C) {
 	command := jujuc.NewIsLeaderCommand(nil)
-	context := testing.Context(c)
-	code := cmd.Main(command, context, []string{"--format", "bad"})
+	runContext := testing.Context(c)
+	code := cmd.Main(command, runContext, []string{"--format", "bad"})
 	c.Check(code, gc.Equals, 2)
-	c.Check(bufferString(context.Stdout), gc.Equals, "")
-	c.Check(bufferString(context.Stderr), gc.Equals, `error: invalid value "bad" for flag --format: unknown format "bad"`+"\n")
+	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
+	c.Check(bufferString(runContext.Stderr), gc.Equals, `error: invalid value "bad" for flag --format: unknown format "bad"`+"\n")
 }
 
-func testOutput(c *gc.C, leader bool, args []string, expect string) {
-	command := jujuc.NewIsLeaderCommand(isLeaderContext{
-		leader: leader,
-	})
-	context := testing.Context(c)
-	code := cmd.Main(command, context, args)
-	c.Check(code, gc.Equals, 0)
-	c.Check(bufferString(context.Stdout), gc.Equals, expect)
-	c.Check(bufferString(context.Stderr), gc.Equals, "")
+func (s *IsLeaderSuite) TestIsLeaderError(c *gc.C) {
+	jujucContext := &isLeaderContext{err: errors.New("pow")}
+	command := jujuc.NewIsLeaderCommand(jujucContext)
+	runContext := testing.Context(c)
+	code := cmd.Main(command, runContext, nil)
+	c.Check(code, gc.Equals, 1)
+	c.Check(jujucContext.called, jc.IsTrue)
+	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
+	c.Check(bufferString(runContext.Stderr), gc.Equals, "error: leadership status unknown: pow\n")
 }
 
 func (s *IsLeaderSuite) TestFormatDefaultYes(c *gc.C) {
-	testOutput(c, true, nil, "True\n")
+	s.testOutput(c, true, nil, "True\n")
 }
 
 func (s *IsLeaderSuite) TestFormatDefaultNo(c *gc.C) {
-	testOutput(c, false, nil, "False\n")
+	s.testOutput(c, false, nil, "False\n")
 }
 
 func (s *IsLeaderSuite) TestFormatSmartYes(c *gc.C) {
-	testOutput(c, true, []string{"--format", "smart"}, "True\n")
+	s.testOutput(c, true, []string{"--format", "smart"}, "True\n")
 }
 
 func (s *IsLeaderSuite) TestFormatSmartNo(c *gc.C) {
-	testOutput(c, false, []string{"--format", "smart"}, "False\n")
-}
-
-func testParseOutput(c *gc.C, leader bool, args []string, checker gc.Checker) {
-	command := jujuc.NewIsLeaderCommand(isLeaderContext{
-		leader: leader,
-	})
-	context := testing.Context(c)
-	code := cmd.Main(command, context, args)
-	c.Check(code, gc.Equals, 0)
-	c.Check(bufferString(context.Stdout), checker, leader)
-	c.Check(bufferString(context.Stderr), gc.Equals, "")
+	s.testOutput(c, false, []string{"--format", "smart"}, "False\n")
 }
 
 func (s *IsLeaderSuite) TestFormatYamlYes(c *gc.C) {
-	testParseOutput(c, true, []string{"--format", "yaml"}, jc.YAMLEquals)
+	s.testParseOutput(c, true, []string{"--format", "yaml"}, jc.YAMLEquals)
 }
 
 func (s *IsLeaderSuite) TestFormatYamlNo(c *gc.C) {
-	testParseOutput(c, false, []string{"--format", "yaml"}, jc.YAMLEquals)
+	s.testParseOutput(c, false, []string{"--format", "yaml"}, jc.YAMLEquals)
 }
 
 func (s *IsLeaderSuite) TestFormatJsonYes(c *gc.C) {
-	testParseOutput(c, true, []string{"--format", "json"}, jc.JSONEquals)
+	s.testParseOutput(c, true, []string{"--format", "json"}, jc.JSONEquals)
 }
 
 func (s *IsLeaderSuite) TestFormatJsonNo(c *gc.C) {
-	testParseOutput(c, false, []string{"--format", "json"}, jc.JSONEquals)
+	s.testParseOutput(c, false, []string{"--format", "json"}, jc.JSONEquals)
+}
+
+func (s *IsLeaderSuite) testOutput(c *gc.C, leader bool, args []string, expect string) {
+	jujucContext := &isLeaderContext{leader: leader}
+	command := jujuc.NewIsLeaderCommand(jujucContext)
+	runContext := testing.Context(c)
+	code := cmd.Main(command, runContext, args)
+	c.Check(code, gc.Equals, 0)
+	c.Check(jujucContext.called, jc.IsTrue)
+	c.Check(bufferString(runContext.Stdout), gc.Equals, expect)
+	c.Check(bufferString(runContext.Stderr), gc.Equals, "")
+}
+
+func (s *IsLeaderSuite) testParseOutput(c *gc.C, leader bool, args []string, checker gc.Checker) {
+	jujucContext := &isLeaderContext{leader: leader}
+	command := jujuc.NewIsLeaderCommand(jujucContext)
+	runContext := testing.Context(c)
+	code := cmd.Main(command, runContext, args)
+	c.Check(code, gc.Equals, 0)
+	c.Check(jujucContext.called, jc.IsTrue)
+	c.Check(bufferString(runContext.Stdout), checker, leader)
+	c.Check(bufferString(runContext.Stderr), gc.Equals, "")
 }
 
 type isLeaderContext struct {
 	jujuc.Context
+	called bool
 	leader bool
 	err    error
 }
 
-func (ctx isLeaderContext) IsLeader() (bool, error) {
+func (ctx *isLeaderContext) IsLeader() (bool, error) {
+	ctx.called = true
 	return ctx.leader, ctx.err
 }
