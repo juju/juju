@@ -101,9 +101,14 @@ def run_instances(count, job_name):
     for remaining in until_timeout(300):
         names = dict(describe_instances(machine_ids, env=environ))
         if '' not in names.values():
-            subprocess.check_call(
-                ['euca-create-tags', '--tag', 'job_name=%s' % job_name]
-                + machine_ids, env=environ)
+            try:
+                subprocess.check_call(
+                    ['euca-create-tags', '--tag', 'job_name=%s' % job_name]
+                    + machine_ids, env=environ)
+            except subprocess.CalledProcessError:
+                subprocess.call(
+                    ['euca-terminate-instances'] + machine_ids)
+                raise
             return names.items()
         sleep(1)
 

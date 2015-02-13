@@ -144,6 +144,29 @@ class DeployStackTestCase(TestCase):
             env=os.environ)
         di_mock.assert_called_once_with(['i-foo', 'i-baz'], env=os.environ)
 
+    def test_run_instances_tagging_failed(self):
+        euca_data = dedent("""
+            header
+            INSTANCE\ti-foo\tblah\tbar-0
+            INSTANCE\ti-baz\tblah\tbar-1
+        """)
+        description = [('i-foo', 'bar-0'), ('i-baz', 'bar-1')]
+
+        def raise_error(*args, **kwargs):
+            raise subprocess.CalledProcessError('', '')
+
+        with patch('subprocess.check_output',
+                   return_value=euca_data, autospec=True):
+            with patch('subprocess.check_call', autospec=True,
+                       side_effect=raise_error):
+                with patch('deploy_stack.describe_instances',
+                           return_value=description, autospec=True):
+                    with patch('subprocess.call', autospec=True) as c_mock:
+                        with self.assertRaises(subprocess.CalledProcessError):
+                            run_instances(2, 'qux')
+        c_mock.assert_called_with(
+            ['euca-terminate-instances', 'i-foo', 'i-baz'])
+
 
 class DumpEnvLogsTestCase(TestCase):
 
