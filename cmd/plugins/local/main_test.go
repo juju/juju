@@ -73,6 +73,6 @@ func (s *mainSuite) TestRunAsRootCallsSudoIfNotRoot(c *gc.C) {
 	context := coretesting.Context(c)
 	err = local.RunAsRoot("juju-magic", args, context, callIgnored)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := fmt.Sprintf("sudo \"--preserve-env\" %q \"passed\"\n", magicPath)
-	c.Assert(coretesting.Stdout(context), gc.Equals, expected)
+	expected := fmt.Sprintf("sudo \"--preserve-env\" \"%s\" \"passed\"", magicPath)
+	c.Assert(strings.TrimRight(coretesting.Stdout(context), "\r\n"), gc.Equals, expected)
 }

@@ -168,10 +168,11 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 	mongoAdminEval '
 		db = db.getSiblingDB("juju")
 		db.machines.update({machineid: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
+		db.machines.update({machineid: "0"}, {$set: {"addresses": ["{{.Address}}"] } })
 		db.instanceData.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
 		db.machines.remove({machineid: {$ne:"0"}, hasvote: true})
-		db.stateServers.update({"_id":"e"}, {$set:{"machineids" : [0]}})
-		db.stateServers.update({"_id":"e"}, {$set:{"votingmachineids" : [0]}})
+		db.stateServers.update({"_id":"e"}, {$set:{"machineids" : ["0"]}})
+		db.stateServers.update({"_id":"e"}, {$set:{"votingmachineids" : ["0"]}})
 	'
 
 	# Give time to replset to initiate
@@ -297,18 +298,27 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 		return nil, err
 	}
 	instanceIds, err := env.StateServerInstances()
-	if err != nil {
+	switch errors.Cause(err) {
+	case nil, environs.ErrNoInstances:
+		// Some providers will return a nil error even
+		// if there are no live state server instances.
+		break
+	case environs.ErrNotBootstrapped:
+		return nil, errors.Trace(err)
+	default:
 		return nil, errors.Annotate(err, "cannot determine state server instances")
 	}
-	if len(instanceIds) == 0 {
-		return nil, fmt.Errorf("no instances found; perhaps the environment was not bootstrapped")
-	}
-	inst, err := env.Instances(instanceIds)
-	if err == nil {
-		return nil, fmt.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
-	}
-	if err != environs.ErrNoInstances {
-		return nil, errors.Annotate(err, "cannot detect whether old instance is still running")
+	if len(instanceIds) > 0 {
+		instances, err := env.Instances(instanceIds)
+		switch errors.Cause(err) {
+		case nil, environs.ErrPartialInstances:
+			return nil, fmt.Errorf("old bootstrap instances %q still seems to exist; will not replace", instances)
+		case environs.ErrNoInstances:
+			// No state server instances, so keep running.
+			break
+		default:
+			return nil, errors.Annotate(err, "cannot detect whether old instance is still running")
+		}
 	}
 	// Remove the storage so that we can bootstrap without the provider complaining.
 	if env, ok := env.(environs.EnvironStorage); ok {

@@ -82,7 +82,7 @@ func (s *filestorageSuite) TestList(c *gc.C) {
 		i := len(files)
 		j := len(test.expected)
 		c.Assert(i, gc.Equals, j)
-		for i, _ := range files {
+		for i := range files {
 			c.Assert(files[i], jc.SamePath, test.expected[i])
 		}
 	}

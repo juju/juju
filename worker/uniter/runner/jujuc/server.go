@@ -20,8 +20,8 @@ import (
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/featureflag"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/storage"
 )
 
 var logger = loggo.GetLogger("worker.uniter.jujuc")
@@ -56,7 +56,7 @@ func CommandNames() (names []string) {
 		names = append(names, name)
 	}
 	// TODO: stop checking feature flag once storage has graduated.
-	if featureflag.Enabled(storage.FeatureFlag) {
+	if featureflag.Enabled(feature.Storage) {
 		for name := range storageCommands {
 			names = append(names, name)
 		}
@@ -69,7 +69,7 @@ func CommandNames() (names []string) {
 // against the supplied Context.
 func NewCommand(ctx Context, name string) (cmd.Command, error) {
 	f := newCommands[name]
-	if f == nil && featureflag.Enabled(storage.FeatureFlag) {
+	if f == nil && featureflag.Enabled(feature.Storage) {
 		f = storageCommands[name]
 	}
 	if f == nil {

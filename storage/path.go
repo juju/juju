@@ -10,25 +10,21 @@ import (
 )
 
 const (
-	diskByUUID  = "/dev/disk/by-uuid"
-	diskByLabel = "/dev/disk/by-label"
+	diskByID         = "/dev/disk/by-id"
+	diskByDeviceName = "/dev"
 )
 
 // BlockDevicePath returns the path to a block device, or an error if a path
-// cannot be determined.
-//
-// The path is only guaranteed to be persistent until the machine reboots or
-// the device is modified (e.g. filesystem destroyed or created).
+// cannot be determined. The path is based on the serial, if available,
+// otherwise the device name.
 func BlockDevicePath(device BlockDevice) (string, error) {
-	// Labels must be unique, and are short, so prefer them over UUID.
-	if device.Label != "" {
-		return filepath.Join(diskByLabel, device.Label), nil
-	}
-	if device.UUID != "" {
-		return filepath.Join(diskByUUID, device.UUID), nil
+	if device.Serial != "" {
+		// TODO(axw) rename Serial; by-id is a combination of vendor,
+		// model and serial.
+		return filepath.Join(diskByID, device.Serial), nil
 	}
 	if device.DeviceName != "" {
-		return filepath.Join("/dev", device.DeviceName), nil
+		return filepath.Join(diskByDeviceName, device.DeviceName), nil
 	}
-	return "", errors.Errorf("could not determine path for block device %q", device.Name)
+	return "", errors.Errorf("could not determine path for block device")
 }

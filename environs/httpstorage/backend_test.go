@@ -275,7 +275,7 @@ func testList(c *gc.C, client *http.Client, url string) {
 		i := len(names)
 		j := len(tc.found)
 		c.Assert(i, gc.Equals, j)
-		for i, _ := range names {
+		for i := range names {
 			c.Assert(names[i], jc.SamePath, tc.found[i])
 		}
 	}

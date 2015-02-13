@@ -55,7 +55,7 @@ func ServiceInstances(st *State, service string) ([]instance.Id, error) {
 	instanceIds := make([]instance.Id, 0, len(units))
 	for _, unit := range units {
 		machineId, err := unit.AssignedMachineId()
-		if IsNotAssigned(err) {
+		if errors.IsNotAssigned(err) {
 			continue
 		} else if err != nil {
 			return nil, err

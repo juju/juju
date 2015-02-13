@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/juju/errors"
@@ -49,6 +50,9 @@ var _ = gc.Suite(&lxcBrokerSuite{})
 
 func (s *lxcSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping lxc tests on windows")
+	}
 	s.events = make(chan mock.Event)
 	s.eventsDone = make(chan struct{})
 	go func() {
@@ -67,6 +71,9 @@ func (s *lxcSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping lxc tests on windows")
+	}
 	s.lxcSuite.SetUpTest(c)
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
@@ -81,7 +88,11 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 			Environment:       coretesting.EnvironmentTag,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	managerConfig := container.ManagerConfig{container.ConfigName: "juju", "use-clone": "false"}
+	managerConfig := container.ManagerConfig{
+		container.ConfigName: "juju",
+		"log-dir":            c.MkDir(),
+		"use-clone":          "false",
+	}
 	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, s.agentConfig, managerConfig, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -183,6 +194,9 @@ type lxcProvisionerSuite struct {
 var _ = gc.Suite(&lxcProvisionerSuite{})
 
 func (s *lxcProvisionerSuite) SetUpSuite(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping lxc tests on windows")
+	}
 	s.CommonProvisionerSuite.SetUpSuite(c)
 	s.lxcSuite.SetUpSuite(c)
 }
@@ -241,7 +255,11 @@ func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner {
 	parentMachineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
-	managerConfig := container.ManagerConfig{container.ConfigName: "juju", "use-clone": "false"}
+	managerConfig := container.ManagerConfig{
+		container.ConfigName: "juju",
+		"log-dir":            c.MkDir(),
+		"use-clone":          "false",
+	}
 	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig, &containertesting.MockURLGetter{})
 	c.Assert(err, jc.ErrorIsNil)
 	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker)

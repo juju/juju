@@ -40,4 +40,5 @@ var (
 
 	// 123 upgrade functions
 	AddEnvironmentUUIDToAgentConfig = addEnvironmentUUIDToAgentConfig
+	AddDefaultStoragePools          = addDefaultStoragePools
 )

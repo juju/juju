@@ -211,3 +211,9 @@ func (s *FactorySuite) TestNewHookString_Skip(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, "clear resolved flag and skip run relation-joined (123; foo/22) hook")
 }
+
+func (s *FactorySuite) TestNewUpdateRelations(c *gc.C) {
+	op, err := s.factory.NewUpdateRelations([]int{1, 2, 3})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(op.String(), gc.Equals, "update relations [1 2 3]")
+}

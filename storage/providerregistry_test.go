@@ -4,11 +4,9 @@
 package storage_test
 
 import (
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
 )
 
@@ -17,14 +15,7 @@ type providerRegistrySuite struct{}
 var _ = gc.Suite(&providerRegistrySuite{})
 
 type mockProvider struct {
-}
-
-func (p *mockProvider) VolumeSource(*config.Config, *storage.Config) (storage.VolumeSource, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (p *mockProvider) ValidateConfig(*storage.Config) error {
-	return nil
+	storage.Provider
 }
 
 func (s *providerRegistrySuite) TestRegisterProvider(c *gc.C) {
@@ -74,14 +65,18 @@ func (s *providerRegistrySuite) TestRegisterEnvironProvidersMultipleCalls(c *gc.
 	c.Assert(storage.IsProviderSupported("ec2", ptypeBar), jc.IsTrue)
 }
 
-func (s *providerRegistrySuite) DefaultProviderForEnviron(c *gc.C) {
-	ptypeFoo := storage.ProviderType("foo")
-	ptypeBar := storage.ProviderType("bar")
-	storage.RegisterEnvironStorageProviders("ec2", ptypeFoo, ptypeBar)
-}
-
-func (s *providerRegistrySuite) NoDefaultProviderForEnviron(c *gc.C) {
-	ptypeFoo := storage.ProviderType("foo")
-	ptypeBar := storage.ProviderType("bar")
-	storage.RegisterEnvironStorageProviders("ec2", ptypeFoo, ptypeBar)
+func (s *providerRegistrySuite) TestDefaultPool(c *gc.C) {
+	storage.RegisterDefaultPool("ec2", storage.StorageKindBlock, "ebs")
+	storage.RegisterDefaultPool("ec2", storage.StorageKindFilesystem, "nfs")
+	storage.RegisterDefaultPool("local", storage.StorageKindFilesystem, "nfs")
+	pool, ok := storage.DefaultPool("ec2", storage.StorageKindBlock)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(pool, gc.Equals, "ebs")
+	pool, ok = storage.DefaultPool("ec2", storage.StorageKindFilesystem)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(pool, gc.Equals, "nfs")
+	pool, ok = storage.DefaultPool("local", storage.StorageKindBlock)
+	c.Assert(ok, jc.IsFalse)
+	pool, ok = storage.DefaultPool("maas", storage.StorageKindBlock)
+	c.Assert(ok, jc.IsFalse)
 }

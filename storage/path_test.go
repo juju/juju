@@ -13,19 +13,11 @@ type BlockDevicePathSuite struct{}
 
 var _ = gc.Suite(&BlockDevicePathSuite{})
 
-func (s *BlockDevicePathSuite) TestBlockDevicePathLabel(c *gc.C) {
+func (s *BlockDevicePathSuite) TestBlockDevicePathSerial(c *gc.C) {
 	testBlockDevicePath(c, storage.BlockDevice{
-		Label:      "label",
-		UUID:       "uuid",
+		Serial:     "SPR_OSUM_123",
 		DeviceName: "name",
-	}, "/dev/disk/by-label/label")
-}
-
-func (s *BlockDevicePathSuite) TestBlockDevicePathUUID(c *gc.C) {
-	testBlockDevicePath(c, storage.BlockDevice{
-		UUID:       "uuid",
-		DeviceName: "name",
-	}, "/dev/disk/by-uuid/uuid")
+	}, "/dev/disk/by-id/SPR_OSUM_123")
 }
 
 func (s *BlockDevicePathSuite) TestBlockDevicePathDeviceName(c *gc.C) {
@@ -35,8 +27,8 @@ func (s *BlockDevicePathSuite) TestBlockDevicePathDeviceName(c *gc.C) {
 }
 
 func (s *BlockDevicePathSuite) TestBlockDevicePathError(c *gc.C) {
-	_, err := storage.BlockDevicePath(storage.BlockDevice{Name: "0"})
-	c.Assert(err, gc.ErrorMatches, `could not determine path for block device "0"`)
+	_, err := storage.BlockDevicePath(storage.BlockDevice{})
+	c.Assert(err, gc.ErrorMatches, `could not determine path for block device`)
 }
 
 func testBlockDevicePath(c *gc.C, dev storage.BlockDevice, expect string) {

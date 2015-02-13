@@ -25,6 +25,7 @@ var expectedCommmandNames = []string{
 	"get",
 	"help",
 	"jenv",
+	"retry-provisioning",
 	"set",
 	"unset",
 }

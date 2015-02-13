@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/storage"
+	"github.com/juju/names"
 )
 
 type RebootPriority int
@@ -100,12 +100,12 @@ type Context interface {
 	// RequestReboot will set the reboot flag to true on the machine agent
 	RequestReboot(prio RebootPriority) error
 
-	// StorageInstance returns the storage instance with the given id.
-	StorageInstance(storageId string) (*storage.StorageInstance, bool)
+	// StorageAttachment returns the storage attachment with the given tag.
+	StorageAttachment(names.StorageTag) (*params.StorageAttachment, bool)
 
-	// HookStorageInstance returns the storage instance associated
+	// HookStorageInstance returns the storage attachment associated
 	// the executing hook.
-	HookStorageInstance() (*storage.StorageInstance, bool)
+	HookStorageAttachment() (*params.StorageAttachment, bool)
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.

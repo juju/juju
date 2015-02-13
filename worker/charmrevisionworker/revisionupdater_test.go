@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -109,4 +110,18 @@ func (s *RevisionUpdateSuite) TestVersionUpdateRunsPeriodically(c *gc.C) {
 	s.UpdateStoreRevision("cs:quantal/mysql", 24)
 	// Check the results of the latest changes.
 	c.Assert(s.checkCharmRevision(c, 24), jc.IsTrue)
+}
+
+func (s *RevisionUpdateSuite) TestDiesOnError(c *gc.C) {
+	mockUpdate := func(ruw *charmrevisionworker.RevisionUpdateWorker) error {
+		return errors.New("boo")
+	}
+	s.PatchValue(&charmrevisionworker.UpdateVersions, mockUpdate)
+
+	revisionUpdaterState := s.st.CharmRevisionUpdater()
+	c.Assert(revisionUpdaterState, gc.NotNil)
+
+	versionUpdater := charmrevisionworker.NewRevisionUpdateWorker(revisionUpdaterState)
+	err := versionUpdater.Stop()
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "boo")
 }

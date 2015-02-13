@@ -1,6 +1,8 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build !windows
+
 package main
 
 import (
@@ -160,12 +162,12 @@ type userHost struct {
 }
 
 var userHostsFromTargets = map[string]userHost{
-	"0":               userHost{"ubuntu", "dummyenv-0.dns"},
-	"mysql/0":         userHost{"ubuntu", "dummyenv-0.dns"},
-	"mongodb/0":       userHost{"ubuntu", "dummyenv-1.dns"},
-	"mongodb/1":       userHost{"ubuntu", "dummyenv-2.dns"},
-	"mongo@mongodb/1": userHost{"mongo", "dummyenv-2.dns"},
-	"ipv6-svc/0":      userHost{"ubuntu", "2001:db8::1"},
+	"0":               {"ubuntu", "dummyenv-0.dns"},
+	"mysql/0":         {"ubuntu", "dummyenv-0.dns"},
+	"mongodb/0":       {"ubuntu", "dummyenv-1.dns"},
+	"mongodb/1":       {"ubuntu", "dummyenv-2.dns"},
+	"mongo@mongodb/1": {"mongo", "dummyenv-2.dns"},
+	"ipv6-svc/0":      {"ubuntu", "2001:db8::1"},
 }
 
 func dummyHostsFromTarget(target string) (string, string, error) {

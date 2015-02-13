@@ -6,6 +6,7 @@ package ec2_test
 import (
 	"strconv"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	amzec2 "gopkg.in/amz.v2/ec2"
 	gc "gopkg.in/check.v1"
@@ -80,11 +81,27 @@ func (*DisksSuite) TestBlockDeviceNamer(c *gc.C) {
 }
 
 func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
-	mapping, blockDeviceInfo, err := ec2.GetBlockDeviceMappings(
+	volume0 := names.NewDiskTag("0")
+	volume1 := names.NewDiskTag("1")
+	machine0 := names.NewMachineTag("0")
+
+	mapping, volumes, volumeAttachments, err := ec2.GetBlockDeviceMappings(
 		"pv", &environs.StartInstanceParams{Volumes: []storage.VolumeParams{{
-			Name: "0", Size: 1234,
+			Tag:  volume0,
+			Size: 1234,
+			Attachment: &storage.AttachmentParams{
+				Machine: machine0,
+			},
 		}, {
-			Name: "1", Size: 4321,
+			Tag:  volume1,
+			Size: 4321,
+			Attributes: map[string]interface{}{
+				"volume-type": "standard",
+				"iops":        "1234",
+			},
+			Attachment: &storage.AttachmentParams{
+				Machine: machine0,
+			},
 		}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -109,14 +126,15 @@ func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 	}, {
 		VolumeSize: 5,
 		DeviceName: "/dev/sdf2",
+		VolumeType: "standard",
+		IOPS:       1234,
 	}})
-	c.Assert(blockDeviceInfo, gc.DeepEquals, []storage.BlockDevice{{
-		Name:       "0",
-		DeviceName: "xvdf1",
-		Size:       2048,
-	}, {
-		Name:       "1",
-		DeviceName: "xvdf2",
-		Size:       5120,
-	}})
+	c.Assert(volumes, gc.DeepEquals, []storage.Volume{
+		{Tag: volume0, Size: 2048},
+		{Tag: volume1, Size: 5120},
+	})
+	c.Assert(volumeAttachments, gc.DeepEquals, []storage.VolumeAttachment{
+		{Volume: volume0, Machine: machine0, DeviceName: "xvdf1"},
+		{Volume: volume1, Machine: machine0, DeviceName: "xvdf2"},
+	})
 }

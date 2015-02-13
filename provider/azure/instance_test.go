@@ -146,13 +146,13 @@ func (s *instanceSuite) TestAddresses(c *gc.C) {
 	gwacl.PatchManagementAPIResponses(responses)
 
 	expected := []network.Address{
-		network.Address{
+		{
 			"1.2.3.4",
 			network.IPv4Address,
 			vnn,
 			network.ScopeCloudLocal,
 		},
-		network.Address{
+		{
 			s.service.ServiceName + "." + AzureDomainName,
 			network.HostName,
 			"",

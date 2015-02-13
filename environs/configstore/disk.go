@@ -327,10 +327,10 @@ func (info *environInfo) writeJENVFile() error {
 	// so we don't need to use a temporary file any more.
 
 	flags := os.O_WRONLY
-	if info.created {
-		flags |= os.O_CREATE | os.O_EXCL
-	} else {
+	if info.initialized {
 		flags |= os.O_TRUNC
+	} else {
+		flags |= os.O_CREATE | os.O_EXCL
 	}
 	path := jenvFilename(info.environmentDir, info.name)
 	logger.Debugf("writing jenv file to %s", path)

@@ -22,6 +22,7 @@ import (
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	mgotxn "gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
@@ -32,6 +33,9 @@ import (
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -124,6 +128,11 @@ func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {
 
 func (s *StateSuite) TestEnvironUUID(c *gc.C) {
 	c.Assert(s.State.EnvironUUID(), gc.Equals, s.envTag.Id())
+}
+
+func (s *StateSuite) TestNoEnvDocs(c *gc.C) {
+	c.Assert(s.State.EnsureEnvironmentRemoved(), gc.ErrorMatches,
+		fmt.Sprintf("found documents for environment with uuid %s: 1 constraints doc, 1 settings doc", s.State.EnvironUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -363,9 +372,7 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				f := factory.NewFactory(st)
 				m := f.MakeMachine(c, &factory.MachineParams{})
 				c.Assert(m.Id(), gc.Equals, "0")
-
-				return m.WatchBlockDevices()
-
+				return st.WatchBlockDevices(m.MachineTag())
 			},
 			setUpState: func(st *state.State) bool {
 				m, err := st.Machine("0")
@@ -1152,10 +1159,29 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
 }
 
-func (s *StateSuite) TestAddMachineWithBlockDevices(c *gc.C) {
+func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
+	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	storage.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	cons := constraints.MustParse("mem=4G")
 	hc := instance.MustParseHardware("mem=2G")
+
+	volume0 := state.VolumeParams{
+		Pool: "loop-pool",
+		Size: 123,
+	}
+	volume1 := state.VolumeParams{
+		Pool: "loop-pool",
+		Size: 456,
+	}
+	volumeAttachment0 := state.VolumeAttachmentParams{}
+	volumeAttachment1 := state.VolumeAttachmentParams{
+		ReadOnly: true,
+	}
+
 	machineTemplate := state.MachineTemplate{
 		Series:                  "precise",
 		Constraints:             cons,
@@ -1163,10 +1189,10 @@ func (s *StateSuite) TestAddMachineWithBlockDevices(c *gc.C) {
 		InstanceId:              "inst-id",
 		Nonce:                   "nonce",
 		Jobs:                    oneJob,
-		BlockDevices: []state.BlockDeviceParams{{
-			Size: 123,
+		Volumes: []state.MachineVolumeParams{{
+			volume0, volumeAttachment0,
 		}, {
-			Size: 456,
+			volume1, volumeAttachment1,
 		}},
 	}
 	machines, err := s.State.AddMachines(machineTemplate)
@@ -1175,15 +1201,26 @@ func (s *StateSuite) TestAddMachineWithBlockDevices(c *gc.C) {
 	m, err := s.State.Machine(machines[0].Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	blockDevices, err := m.BlockDevices()
+	volumeAttachments, err := s.State.MachineVolumeAttachments(m.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockDevices, gc.HasLen, 2)
-	for i, dev := range blockDevices {
-		_, err = dev.Info()
+	c.Assert(volumeAttachments, gc.HasLen, 2)
+	if volumeAttachments[0].Volume() == names.NewDiskTag("1") {
+		va := volumeAttachments
+		va[0], va[1] = va[1], va[0]
+	}
+	for i, att := range volumeAttachments {
+		_, err = att.Info()
 		c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
-		params, ok := dev.Params()
+		attachmentParams, ok := att.Params()
 		c.Assert(ok, jc.IsTrue)
-		c.Check(params, gc.Equals, machineTemplate.BlockDevices[i])
+		c.Check(attachmentParams, gc.Equals, machineTemplate.Volumes[i].Attachment)
+		volume, err := s.State.Volume(att.Volume())
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = volume.Info()
+		c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+		volumeParams, ok := volume.Params()
+		c.Assert(ok, jc.IsTrue)
+		c.Check(volumeParams, gc.Equals, machineTemplate.Volumes[i].Volume)
 	}
 }
 
@@ -2103,9 +2140,9 @@ func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove alive and dying and see changes reported.
-	err = alive.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
 	err = state.RemoveEnvironment(s.State, dying.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+	err = alive.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(alive.UUID(), dying.UUID())
 	wc.AssertNoChange()
@@ -2571,6 +2608,48 @@ func (s *StateSuite) TestAdditionalValidation(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot remove logging-config")
 	err = s.State.UpdateEnvironConfig(updateAttrs, nil, configValidator3)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
+	st := s.factory.MakeEnvironment(c, nil)
+	defer st.Close()
+
+	// insert one doc for each multiEnvCollection
+	var ops []mgotxn.Op
+	for collName := range state.MultiEnvCollections {
+		// skip adding constraints and settings as they were added when the
+		// environment was created
+		if collName == "constraints" || collName == "settings" {
+			continue
+		}
+		ops = append(ops, mgotxn.Op{
+			C:      collName,
+			Id:     state.DocID(st, "arbitraryid"),
+			Insert: bson.M{"env-uuid": st.EnvironUUID()}})
+	}
+	err := state.RunTransaction(st, ops)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// test that we can find each doc in state
+	for collName := range state.MultiEnvCollections {
+		coll, closer := state.GetRawCollection(st, collName)
+		defer closer()
+		n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(n, gc.Equals, 1)
+	}
+
+	err = st.RemoveAllEnvironDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// ensure all docs for all multiEnvCollections are removed
+	for collName := range state.MultiEnvCollections {
+		coll, closer := state.GetRawCollection(st, collName)
+		defer closer()
+		n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(n, gc.Equals, 0)
+	}
 }
 
 type attrs map[string]interface{}
@@ -4169,6 +4248,15 @@ func (s *StateSuite) TestNowToTheSecond(c *gc.C) {
 	t := state.NowToTheSecond()
 	rounded := t.Round(time.Second)
 	c.Assert(t, gc.DeepEquals, rounded)
+}
+
+func (s *StateSuite) TestUnitsForInvalidId(c *gc.C) {
+	// Check that an error is returned if an invalid machine id is provided.
+	// Success cases are tested as part of TestMachinePrincipalUnits in the
+	// MachineSuite.
+	units, err := s.State.UnitsFor("invalid-id")
+	c.Assert(units, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `"invalid-id" is not a valid machine id`)
 }
 
 type SetAdminMongoPasswordSuite struct {
