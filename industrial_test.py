@@ -682,10 +682,9 @@ def run_single(args):
     client.destroy_environment()
     stages = MultiIndustrialTest.get_stages(args.suite, env.config)
     upgrade_sequence = [upgrade_client.full_path, client.full_path]
-    stage_attempts = [stage.factory(upgrade_sequence) for stage in stages]
     try:
-        for stage in stage_attempts:
-            for step in stage.iter_steps(client):
+        for stage in stages:
+            for step in stage.factory(upgrade_sequence).iter_steps(client):
                 print step
     except BaseException as e:
         logging.exception(e)
