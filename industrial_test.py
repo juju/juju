@@ -56,7 +56,7 @@ class MultiIndustrialTest:
         stages = cls.get_stages(args.suite, config)
         return cls(args.env, args.new_juju_path,
                    stages, args.attempts, args.attempts * 2,
-                   args.new_agent_url, args.debug)
+                   args.new_agent_url, args.debug, args.old_stable)
 
     @staticmethod
     def get_stages(suite, config):
@@ -68,8 +68,10 @@ class MultiIndustrialTest:
         return stages
 
     def __init__(self, env, new_juju_path, stages, attempt_count=2,
-                 max_attempts=1, new_agent_url=None, debug=False):
+                 max_attempts=1, new_agent_url=None, debug=False,
+                 really_old_path=None):
         self.env = env
+        self.really_old_path = really_old_path
         self.new_juju_path = new_juju_path
         self.new_agent_url = new_agent_url
         self.stages = stages
@@ -106,7 +108,11 @@ class MultiIndustrialTest:
 
     def make_industrial_test(self):
         """Create an IndustrialTest for this MultiIndustrialTest."""
-        stage_attempts = [stage() for stage in self.stages]
+        stable_path = EnvJujuClient.get_full_path()
+        paths = [self.really_old_path, stable_path, self.new_juju_path]
+        upgrade_sequence = [p for p in paths if p is not None]
+        stage_attempts = [stage.factory(upgrade_sequence)
+                          for stage in self.stages]
         return IndustrialTest.from_args(self.env, self.new_juju_path,
                                         stage_attempts, self.new_agent_url,
                                         self.debug)
@@ -180,6 +186,8 @@ class IndustrialTest:
         self.destroy_both()
         try:
             return list(self.run_stages())
+        except CannotUpgradeToOldClient:
+            raise
         except Exception as e:
             logging.exception(e)
             self.destroy_both()
@@ -198,9 +206,14 @@ class IndustrialTest:
         Iteration stops when one client has a False result.
         """
         for attempt in self.stage_attempts:
-            for result in attempt.iter_test_results(self.old_client,
-                                                    self.new_client):
-                yield result
+            try:
+                for result in attempt.iter_test_results(self.old_client,
+                                                        self.new_client):
+                    yield result
+            except CannotUpgradeToClient as e:
+                if e.client is not self.old_client:
+                    raise
+                raise CannotUpgradeToOldClient(e.client)
             # If a stage ends with a failure, no further stages should be run.
             if False in result[1:]:
                 self.destroy_both()
@@ -243,6 +256,8 @@ class SteppedStageAttempt:
                 try:
                     result = dict(iterator.next())
                 except StopIteration:
+                    raise
+                except CannotUpgradeToClient:
                     raise
                 except Exception as e:
                     logging.exception(e)
@@ -320,6 +335,19 @@ class BootstrapAttempt(SteppedStageAttempt):
         yield results
 
 
+class CannotUpgradeToClient(Exception):
+    """UpgradeJujuAttempt cannot upgrade to the supplied client."""
+
+    def __init__(self, client):
+        msg = 'Cannot upgrade to client at "{}"'.format(client.full_path)
+        super(CannotUpgradeToClient, self).__init__(msg)
+        self.client = client
+
+
+class CannotUpgradeToOldClient(CannotUpgradeToClient):
+    """UpgradeJujuAttempt cannot upgrade to the old client."""
+
+
 class UpgradeJujuAttempt(SteppedStageAttempt):
 
     @staticmethod
@@ -343,7 +371,10 @@ class UpgradeJujuAttempt(SteppedStageAttempt):
 
     def iter_steps(self, client):
         ba = BootstrapAttempt()
-        bootstrap_path = self.bootstrap_paths[client.full_path]
+        try:
+            bootstrap_path = self.bootstrap_paths[client.full_path]
+        except KeyError:
+            raise CannotUpgradeToClient(client)
         bootstrap_client = client.by_version(
             client.env, bootstrap_path, client.debug)
         for result in ba.iter_steps(bootstrap_client):
@@ -662,6 +693,9 @@ def parse_args(args=None):
     parser.add_argument('--new-agent-url')
     parser.add_argument('--single', action='store_true')
     parser.add_argument('--debug', action='store_true', default=False)
+    parser.add_argument(
+        '--old-stable', help='Path to a version of juju that stable can'
+        'upgrade from.')
     return parser.parse_args(args)
 
 
@@ -698,7 +732,13 @@ def main():
         run_single(args)
         return
     mit = MultiIndustrialTest.from_args(args)
-    results = mit.run_tests()
+    try:
+        results = mit.run_tests()
+    except CannotUpgradeToOldClient:
+        if args.old_stable is not None:
+            raise
+        sys.stderr.write('Upgade tests require --old-stable.\n')
+        sys.exit(1)
     maybe_write_json(args.json_file, results)
     sys.stdout.writelines(mit.results_table(results['results']))
 

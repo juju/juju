@@ -19,6 +19,8 @@ from industrial_test import (
     BACKUP,
     BackupRestoreAttempt,
     BootstrapAttempt,
+    CannotUpgradeToClient,
+    CannotUpgradeToOldClient,
     DENSITY,
     DeployManyAttempt,
     DeployManyFactory,
@@ -133,6 +135,12 @@ class TestParseArgs(TestCase):
         args = parse_args(['rai', 'new-juju', '--debug', QUICK])
         self.assertEqual(args.debug, True)
 
+    def test_parse_args_old_stable(self):
+        args = parse_args(['rai', 'new-juju', QUICK, '--old-stable', 'asdf'])
+        self.assertEqual(args.old_stable, 'asdf')
+        args = parse_args(['rai', 'new-juju', QUICK])
+        self.assertIs(args.old_stable, None)
+
 
 class FakeStepAttempt:
 
@@ -211,7 +219,7 @@ class TestMultiIndustrialTest(TestCase):
     def test_from_args_maas(self):
         args = Namespace(
             env='foo', new_juju_path='new-path', attempts=7, suite=DENSITY,
-            new_agent_url=None, debug=False)
+            new_agent_url=None, debug=False, old_stable=None)
         with temp_env('foo', {'type': 'maas'}):
             mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(
@@ -220,14 +228,29 @@ class TestMultiIndustrialTest(TestCase):
                 DestroyEnvironmentAttempt])
 
     def test_from_args_debug(self):
-        args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
-                         suite=DENSITY, new_agent_url=None, debug=False)
+        args = Namespace(
+            env='foo', new_juju_path='new-path', attempts=7, suite=DENSITY,
+            new_agent_url=None, debug=False, old_stable=None)
         with temp_env('foo', {'type': 'maas'}):
             mit = MultiIndustrialTest.from_args(args)
             self.assertEqual(mit.debug, False)
             args.debug = True
             mit = MultiIndustrialTest.from_args(args)
             self.assertEqual(mit.debug, True)
+
+    def test_from_args_really_old_path(self):
+        args = Namespace(
+            env='foo', new_juju_path='new-path', attempts=7, suite=QUICK,
+            new_agent_url=None, debug=False, old_stable='really-old-path')
+        with temp_env('foo'):
+            mit = MultiIndustrialTest.from_args(args)
+        self.assertEqual(mit.really_old_path, 'really-old-path')
+        args = Namespace(
+            env='bar', new_juju_path='new-path2', attempts=6, suite=FULL,
+            new_agent_url=None, debug=False, old_stable=None)
+        with temp_env('bar'):
+            mit = MultiIndustrialTest.from_args(args)
+        self.assertIs(mit.really_old_path, None)
 
     def test_get_stages(self):
         self.assertEqual(
@@ -264,7 +287,7 @@ class TestMultiIndustrialTest(TestCase):
     def test_density_suite(self):
         args = Namespace(
             env='foo', new_juju_path='new-path', attempts=7, suite=DENSITY,
-            new_agent_url=None, debug=False)
+            new_agent_url=None, debug=False, old_stable=None)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(
@@ -272,8 +295,9 @@ class TestMultiIndustrialTest(TestCase):
                          DestroyEnvironmentAttempt])
 
     def test_backup_suite(self):
-        args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
-                         suite=BACKUP, new_agent_url=None, debug=False)
+        args = Namespace(
+            env='foo', new_juju_path='new-path', attempts=7, suite=BACKUP,
+            new_agent_url=None, debug=False, old_stable=None)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(
@@ -283,7 +307,7 @@ class TestMultiIndustrialTest(TestCase):
     def test_from_args_new_agent_url(self):
         args = Namespace(
             env='foo', new_juju_path='new-path', attempts=7, suite=QUICK,
-            new_agent_url='http://example.net', debug=False)
+            new_agent_url='http://example.net', debug=False, old_stable=None)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(mit.new_agent_url, 'http://example.net')
@@ -577,6 +601,13 @@ class TestIndustrialTest(TestCase):
             with patch.object(new_client, 'destroy_environment'):
                 self.assertEqual(list(industrial.run_stages()), [
                     ('foo', True, True), ('bar', False, True)])
+
+    def test_run_stages_raises_cannot_upgrade_to_old_client(self):
+        old = FakeEnvJujuClient()
+        new = FakeEnvJujuClient()
+        industrial = IndustrialTest(old, new, [UpgradeJujuAttempt({})])
+        with self.assertRaises(CannotUpgradeToOldClient):
+            list(industrial.run_stages())
 
     def test_destroy_both_even_with_exception(self):
         old_client = FakeEnvJujuClient('old')
@@ -1373,6 +1404,15 @@ class TestUpgradeJujuAttempt(TestCase):
         with patch('subprocess.check_output', return_value=version_status):
             self.assertEqual({'test_id': 'upgrade-juju', 'result': True},
                              uj_iterator.next())
+
+    def test_iter_steps_no_previous_client(self):
+        uj_attempt = UpgradeJujuAttempt({})
+        client = FakeEnvJujuClient()
+        client.full_path = '/present/juju'
+        uj_iterator = uj_attempt.iter_steps(client)
+        with self.assertRaises(CannotUpgradeToClient) as exc_context:
+            uj_iterator.next()
+        self.assertIs(exc_context.exception.client, client)
 
 
 class TestMaybeWriteJson(TestCase):
