@@ -92,7 +92,7 @@ func (lvs *loopVolumeSource) createVolume(params storage.VolumeParams) (storage.
 		return volume, volumeAttachment, errors.Trace(err)
 	}
 
-	volumeId := fmt.Sprintf("%s", params.Tag)
+	volumeId := params.Tag.String()
 	loopFilePath := lvs.volumeFilePath(volumeId)
 
 	if err := os.MkdirAll(lvs.storageDir, 0755); err != nil {
