@@ -4,6 +4,7 @@
 package rsyslog_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -38,8 +39,11 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *rsyslogSuite) TestGetRsyslogConfig(c *gc.C) {
-	err := s.APIState.Client().EnvironmentSet(map[string]interface{}{"rsyslog-ca-cert": coretesting.CACert})
-	c.Assert(err, gc.IsNil)
+	err := s.APIState.Client().EnvironmentSet(map[string]interface{}{
+		"rsyslog-ca-cert": coretesting.CACert,
+		"rsyslog-ca-key":  coretesting.CAKey,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := s.rsyslog.GetRsyslogConfig(s.machine.Tag().String())
 	c.Assert(err, gc.IsNil)
