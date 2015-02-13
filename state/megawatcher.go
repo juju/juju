@@ -606,6 +606,7 @@ func backingEntityIdForGlobalKey(key string) (multiwatcher.EntityId, bool) {
 	case 'm':
 		return (&multiwatcher.MachineInfo{Id: id}).EntityId(), true
 	case 'u':
+		id = strings.TrimSuffix(id, "#charm")
 		return (&multiwatcher.UnitInfo{Name: id}).EntityId(), true
 	case 's':
 		return (&multiwatcher.ServiceInfo{Name: id}).EntityId(), true
