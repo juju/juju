@@ -24,7 +24,7 @@ const (
 
 // Mongo exposes the mongo-related paths that juju cares about.
 type Mongo struct {
-	BinDir string
+	binDir string
 }
 
 // NewMongo creates a new Mongo using the juju-bundled mongo paths and
@@ -39,19 +39,19 @@ func MatchMongo(mongod string) Mongo {
 	return Mongo{path.Dir(mongod)}
 }
 
-// Path returns the path to the mongod binary.
-func (m Mongo) Path() string {
-	return path.Join(m.BinDir, mongoServer)
+// ServerPath returns the path to the mongod binary.
+func (m Mongo) ServerPath() string {
+	return path.Join(m.binDir, mongoServer)
 }
 
 // DumpPath returns the path to the mongodump binary.
 func (m Mongo) DumpPath() string {
-	return path.Join(m.BinDir, mongoDump)
+	return path.Join(m.binDir, mongoDump)
 }
 
 // RestorePath returns the path to the mongorestore binary.
 func (m Mongo) RestorePath() string {
-	return path.Join(m.BinDir, mongoRestore)
+	return path.Join(m.binDir, mongoRestore)
 }
 
 var osStat = os.Stat

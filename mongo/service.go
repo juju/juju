@@ -53,7 +53,7 @@ func Path() (string, error) {
 }
 
 var mongodPath = func() string {
-	return paths.NewMongo().Path()
+	return paths.NewMongo().ServerPath()
 }
 
 // ServiceName returns the name of the init service config for mongo using
