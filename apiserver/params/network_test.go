@@ -23,16 +23,16 @@ type NetworkSuite struct{}
 var _ = gc.Suite(&NetworkSuite{})
 
 func (s *NetworkSuite) TestPortsResults(c *gc.C) {
-	createResults := func(rs ...interface{}) M {
+	mkResults := func(rs ...interface{}) M {
 		return M{"Results": rs}
 	}
-	createResult := func(err, ports interface{}) M {
+	mkResult := func(err, ports interface{}) M {
 		return M{"Error": err, "Ports": ports}
 	}
-	createError := func(msg, code string) M {
+	mkError := func(msg, code string) M {
 		return M{"Message": msg, "Code": code}
 	}
-	createPort := func(prot string, num int) M {
+	mkPort := func(prot string, num int) M {
 		return M{"Protocol": prot, "Number": num}
 	}
 	tests := []struct {
@@ -42,7 +42,7 @@ func (s *NetworkSuite) TestPortsResults(c *gc.C) {
 	}{{
 		about:    "empty result set",
 		results:  params.PortsResults{},
-		expected: createResults(),
+		expected: mkResults(),
 	}, {
 		about: "one error",
 		results: params.PortsResults{
@@ -50,167 +50,227 @@ func (s *NetworkSuite) TestPortsResults(c *gc.C) {
 				params.PortsResult{Error: &params.Error{"I failed", "ERR42"}},
 			},
 		},
-		expected: createResults(createResult(createError("I failed", "ERR42"), nil)),
+		expected: mkResults(
+			mkResult(
+				mkError("I failed", "ERR42"),
+				nil)),
 	}, {
 		about: "one succes with one port",
 		results: params.PortsResults{
 			Results: []params.PortsResult{
-				params.PortsResult{Ports: []params.Port{{"http", 80}}},
+				params.PortsResult{Ports: []params.Port{{"tcp", 80}}},
 			},
 		},
-		expected: createResults(createResult(nil, IS{createPort("http", 80)})),
+		expected: mkResults(
+			mkResult(
+				nil,
+				IS{mkPort("tcp", 80)})),
 	}, {
 		about: "two results, one error and one success with two ports",
 		results: params.PortsResults{
 			Results: []params.PortsResult{
 				params.PortsResult{Error: &params.Error{"I failed", "ERR42"}},
-				params.PortsResult{Ports: []params.Port{{"http", 80}, {"https", 443}}},
+				params.PortsResult{Ports: []params.Port{{"tcp", 80}, {"tcp", 443}}},
 			},
 		},
-		expected: createResults(
-			createResult(createError("I failed", "ERR42"), nil),
-			createResult(nil, IS{createPort("http", 80), createPort("https", 443)})),
+		expected: mkResults(
+			mkResult(
+				mkError("I failed", "ERR42"),
+				nil),
+			mkResult(
+				nil,
+				IS{mkPort("tcp", 80), mkPort("tcp", 443)})),
 	}}
 	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)
 		output, err := json.Marshal(test.results)
-		c.Assert(err, jc.ErrorIsNil)
+		if !c.Check(err, jc.ErrorIsNil) {
+			continue
+		}
 		c.Logf("\nJSON output:\n%v", string(output))
-		c.Assert(string(output), jc.JSONEquals, test.expected)
+		c.Check(string(output), jc.JSONEquals, test.expected)
 	}
 }
 
-// TODO(dimitern): apiserver/params should not depend on the network
-// package: network types used as fields in request/response structs
-// should be replaced with equivalent string, []string, or [][]string
-// types, so the wire-format of the API protocol will remain stable,
-// even if a network type changes its serialization format.
-//
-// This test ensures the following network package types used as
-// fields are still properly serialized and deserialized:
-//
-// params.PortsResult.Ports                []params.Port
-// params.MachinePortRange.PortRange       network.PortRange
-// params.MachineAddresses.Addresses       []network.Address
-// params.AddMachineParams.Addrs           []network.Address
-// params.RsyslogConfigResult.HostPorts    []params.HostPort
-// params.APIHostPortsResult.Servers       [][]params.HostPort
-// params.LoginResult.Servers              [][]params.HostPort
-// params.LoginResultV1.Servers            [][]params.HostPort
-//func (s *NetworkSuite) TestNetworkEntities(c *gc.C) {
-//	setPort := func(addrs []params.HostPort, port int) []params.HostPort {
-//		hps := make([]params.HostPort, len(addrs))
-//		for i, addr := range addrs {
-//			hps[i] = params.HostPort{
-//				Value:       addr.Value,
-//				Type:        addr.Type,
-//				NetworkName: addr.NetworkName,
-//				Scope:       addr.Scope,
-//				Port:        port,
-//			}
-//		}
-//		return hps
-//	}
-//	allBaseHostPorts := []params.HostPort{
-//		{Value: "foo0", Type: "bar0", NetworkName: "baz0", Scope: "none0"},
-//		{Type: "bar1", NetworkName: "baz1", Scope: "none1"},
-//		{Value: "foo2", NetworkName: "baz2", Scope: "none2"},
-//		{Value: "foo3", Type: "bar3", Scope: "none3"},
-//		{Value: "foo4", Type: "bar4", NetworkName: "baz4"},
-//		{Value: "foo5", Type: "bar5"},
-//		{Value: "foo6"},
-//		{},
-//	}
-//	allHostPortCombos := setPort(allBaseHostPorts, 1234)
-//	allHostPortCombos = append(allHostPortCombos, setPort(allBaseHostPorts, 0)...)
-//	allServerHostPorts := [][]params.HostPort{
-//		allHostPortCombos,
-//		setPort(allBaseHostPorts, 0),
-//		setPort(allBaseHostPorts, 1234),
-//		{},
-//	}
-//
-//	for i, test := range []struct {
-//		about string
-//		input interface{}
-//	}{{
-//		about: "params.PortResult.Ports",
-//		input: []params.PortsResult{{
-//			Ports: []params.Port{
-//				{Protocol: "foo", Number: 42},
-//				{Protocol: "bar"},
-//				{Number: 99},
-//				{},
-//			},
-//		}, {},
-//		},
-//	}, {
-//		about: "params.MachinePortRange.PortRange",
-//		input: []params.MachinePortRange{{
-//			UnitTag:     "foo",
-//			RelationTag: "bar",
-//			PortRange:   network.PortRange{FromPort: 42, ToPort: 69, Protocol: "baz"},
-//		}, {
-//			PortRange: network.PortRange{ToPort: 69, Protocol: "foo"},
-//		}, {
-//			PortRange: network.PortRange{FromPort: 42, Protocol: "bar"},
-//		}, {
-//			PortRange: network.PortRange{Protocol: "baz"},
-//		}, {
-//			PortRange: network.PortRange{FromPort: 42, ToPort: 69},
-//		}, {
-//			PortRange: network.PortRange{},
-//		}, {},
-//		},
-//	}, {
-//		about: "params.MachineAddresses.Addresses",
-//		input: []params.MachineAddresses{{
-//			Tag:       "foo",
-//			Addresses: allBaseHostPorts,
-//		}, {},
-//		},
-//	}, {
-//		about: "params.AddMachineParams.Addrs",
-//		input: []params.AddMachineParams{{
-//			Series:    "foo",
-//			ParentId:  "bar",
-//			Placement: nil,
-//			Addrs:     allBaseHostPorts,
-//		}, {},
-//		},
-//	}, {
-//		about: "params.RsyslogConfigResult.HostPorts",
-//		input: []params.RsyslogConfigResult{{
-//			CACert:    "fake",
-//			HostPorts: allHostPortCombos,
-//		}, {},
-//		},
-//	}, {
-//		about: "params.APIHostPortsResult.Servers",
-//		input: []params.APIHostPortsResult{{
-//			Servers: allServerHostPorts,
-//		}, {},
-//		},
-//	}, {
-//		about: "params.LoginResult.Servers",
-//		input: []params.LoginResult{{
-//			Servers: allServerHostPorts,
-//		}, {},
-//		},
-//	}, {
-//		about: "params.LoginResultV1.Servers",
-//		input: []params.LoginResultV1{{
-//			Servers: allServerHostPorts,
-//		}, {},
-//		},
-//	}} {
-//		c.Logf("\ntest %d: %s", i, test.about)
-//		output, err := json.Marshal(test.input)
-//		c.Assert(err, jc.ErrorIsNil)
-//		c.Logf("\nJSON output:\n%v", string(output))
-//		c.Assert(string(output), jc.JSONEquals, test.input)
-//	}
-//}
+func (s *NetworkSuite) TestHostPort(c *gc.C) {
+	mkHostPort := func(v, t, n, s string, p int) M {
+		return M{
+			"Value":       v,
+			"Type":        t,
+			"NetworkName": n,
+			"Scope":       s,
+			"Port":        p,
+		}
+	}
+	tests := []struct {
+		about    string
+		hostPort params.HostPort
+		expected M
+	}{{
+		about: "address only value; port is 1234",
+		hostPort: params.HostPort{
+			Address: params.Address{
+				Value: "foo",
+			},
+			Port: 1234,
+		},
+		expected: mkHostPort("foo", "", "", "", 1234),
+	}, {
+		about: "address value and type; port is 1234",
+		hostPort: params.HostPort{
+			Address: params.Address{
+				Value: "foo",
+				Type:  "ipv4",
+			},
+			Port: 1234,
+		},
+		expected: mkHostPort("foo", "ipv4", "", "", 1234),
+	}, {
+		about: "address value, type, and network name, port is 1234",
+		hostPort: params.HostPort{
+			Address: params.Address{
+				Value:       "foo",
+				Type:        "ipv4",
+				NetworkName: "bar",
+			},
+			Port: 1234,
+		},
+		expected: mkHostPort("foo", "ipv4", "bar", "", 1234),
+	}, {
+		about: "address all fields, port is 1234",
+		hostPort: params.HostPort{
+			Address: params.Address{
+				Value:       "foo",
+				Type:        "ipv4",
+				NetworkName: "bar",
+				Scope:       "public",
+			},
+			Port: 1234,
+		},
+		expected: mkHostPort("foo", "ipv4", "bar", "public", 1234),
+	}, {
+		about: "address all fields, port is 0",
+		hostPort: params.HostPort{
+			Address: params.Address{
+				Value:       "foo",
+				Type:        "ipv4",
+				NetworkName: "bar",
+				Scope:       "public",
+			},
+			Port: 0,
+		},
+		expected: mkHostPort("foo", "ipv4", "bar", "public", 0),
+	}}
+	for i, test := range tests {
+		c.Logf("\ntest %d: %s", i, test.about)
+		output, err := json.Marshal(test.hostPort)
+		if !c.Check(err, jc.ErrorIsNil) {
+			continue
+		}
+		c.Logf("\nJSON output:\n%v", string(output))
+		c.Check(string(output), jc.JSONEquals, test.expected)
+	}
+}
+
+func (s *NetworkSuite) TestMachinePortRange(c *gc.C) {
+	mkPortRange := func(u, r string, f, t int, p string) M {
+		return M{
+			"UnitTag":     u,
+			"RelationTag": r,
+			"PortRange": M{
+				"FromPort": f,
+				"ToPort":   t,
+				"Protocol": p,
+			},
+		}
+	}
+	tests := []struct {
+		about            string
+		machinePortRange params.MachinePortRange
+		expected         M
+	}{{
+		about: "all values",
+		machinePortRange: params.MachinePortRange{
+			UnitTag:     "foo/0",
+			RelationTag: "foo.db#bar.server",
+			PortRange: params.PortRange{
+				FromPort: 100,
+				ToPort:   200,
+				Protocol: "tcp",
+			},
+		},
+		expected: mkPortRange("foo/0", "foo.db#bar.server", 100, 200, "tcp"),
+	}, {
+		about: "only port range, missing from",
+		machinePortRange: params.MachinePortRange{
+			PortRange: params.PortRange{
+				ToPort:   200,
+				Protocol: "tcp",
+			},
+		},
+		expected: mkPortRange("", "", 0, 200, "tcp"),
+	}, {
+		about: "only port range, missing to",
+		machinePortRange: params.MachinePortRange{
+			PortRange: params.PortRange{
+				FromPort: 100,
+				Protocol: "tcp",
+			},
+		},
+		expected: mkPortRange("", "", 100, 0, "tcp"),
+	}, {
+		about: "only port range, missing protocol",
+		machinePortRange: params.MachinePortRange{
+			PortRange: params.PortRange{
+				FromPort: 100,
+				ToPort:   200,
+			},
+		},
+		expected: mkPortRange("", "", 100, 200, ""),
+	}, {
+		about:            "no field values",
+		machinePortRange: params.MachinePortRange{},
+		expected:         mkPortRange("", "", 0, 0, ""),
+	}}
+	for i, test := range tests {
+		c.Logf("\ntest %d: %s", i, test.about)
+		output, err := json.Marshal(test.machinePortRange)
+		if !c.Check(err, jc.ErrorIsNil) {
+			continue
+		}
+		c.Logf("\nJSON output:\n%v", string(output))
+		c.Check(string(output), jc.JSONEquals, test.expected)
+	}
+}
+
+func (s *NetworkSuite) TestPortConvenience(c *gc.C) {
+	networkPort := network.Port{
+		Protocol: "udp",
+		Number:   55555,
+	}
+	paramsPort := params.FromNetworkPort(networkPort)
+	c.Assert(networkPort, jc.DeepEquals, paramsPort.NetworkPort())
+}
+
+func (s *NetworkSuite) TestPortRangeConvenience(c *gc.C) {
+	networkPortRange := network.PortRange{
+		FromPort: 61001,
+		ToPort:   61010,
+		Protocol: "tcp",
+	}
+	paramsPortRange := params.FromNetworkPortRange(networkPortRange)
+	networkPortRangeBack, err := paramsPortRange.NetworkPortRange()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(networkPortRange, jc.DeepEquals, networkPortRangeBack)
+
+	paramsPortRange = params.PortRange{
+		FromPort: 1,
+		ToPort:   2,
+		Protocol: "foo",
+	}
+	_, err = paramsPortRange.NetworkPortRange()
+	c.Assert(err, gc.ErrorMatches, `invalid protocol "foo", expected "tcp" or "udp"`)
+}
 
 func (s *NetworkSuite) TestAddressConvenience(c *gc.C) {
 	networkAddress := network.Address{
@@ -220,7 +280,7 @@ func (s *NetworkSuite) TestAddressConvenience(c *gc.C) {
 		Scope:       network.ScopePublic,
 	}
 	paramsAddress := params.FromNetworkAddress(networkAddress)
-	c.Assert(networkAddress, gc.DeepEquals, paramsAddress.NetworkAddress())
+	c.Assert(networkAddress, jc.DeepEquals, paramsAddress.NetworkAddress())
 }
 
 func (s *NetworkSuite) TestHostPortConvenience(c *gc.C) {
@@ -232,5 +292,5 @@ func (s *NetworkSuite) TestHostPortConvenience(c *gc.C) {
 	}
 	networkHostPort := network.HostPort{networkAddress, 4711}
 	paramsHostPort := params.FromNetworkHostPort(networkHostPort)
-	c.Assert(networkHostPort, gc.DeepEquals, paramsHostPort.NetworkHostPort())
+	c.Assert(networkHostPort, jc.DeepEquals, paramsHostPort.NetworkHostPort())
 }
