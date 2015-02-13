@@ -5,5 +5,4 @@ package uniter
 
 var (
 	GetZone = &getZone
-	ToUnit  = &toUnit
 )

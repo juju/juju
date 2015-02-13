@@ -91,29 +91,35 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 		return
 	}
 	c.Errorf("entity mismatch; got len %d; want %d", len(got), len(want))
-	c.Logf("got:")
+	// Lets construct a decent output.
+	var errorOutput string
+	errorOutput = "\ngot: \n"
 	for _, e := range got {
-		c.Logf("\t%T %#v", e, e)
+		errorOutput += fmt.Sprintf("\t%T %#v\n", e, e)
 	}
-	c.Logf("expected:")
+	errorOutput += "expected: \n"
 	for _, e := range want {
-		c.Logf("\t%T %#v", e, e)
+		errorOutput += fmt.Sprintf("\t%T %#v\n", e, e)
 	}
 
+	c.Errorf(errorOutput)
+
+	var firstDiffError string
 	if len(got) == len(want) {
 		for i := 0; i < len(got); i++ {
 			g := got[i]
 			w := want[i]
 			if !jcDeepEqualsCheck(c, g, w) {
-				c.Logf("")
-				c.Logf("first difference at position %d", i)
-				c.Logf("got:")
-				c.Logf("\t%T %#v", g, g)
-				c.Logf("expected:")
-				c.Logf("\t%T %#v", w, w)
+				firstDiffError += "\n"
+				firstDiffError += fmt.Sprintf("first difference at position %d", i)
+				firstDiffError += "got: \n"
+				firstDiffError += fmt.Sprintf("\t%T %#v", g, g)
+				firstDiffError += "expected: \n"
+				firstDiffError += fmt.Sprintf("\t%T %#v", w, w)
 				break
 			}
 		}
+		c.Errorf(firstDiffError)
 	}
 	c.FailNow()
 }
