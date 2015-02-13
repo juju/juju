@@ -64,7 +64,9 @@ func (*jenvSuite) TestJenvFileNotFound(c *gc.C) {
 func (*jenvSuite) TestJenvFileDirectory(c *gc.C) {
 	jenvCmd := &environment.JenvCommand{}
 	ctx, err := testing.RunCommand(c, jenvCmd, c.MkDir())
-	c.Assert(err, gc.ErrorMatches, "cannot read the provided jenv file .*: is a directory")
+
+	// The error is different on some platforms
+	c.Assert(err, gc.ErrorMatches, "cannot read the provided jenv file .*: (is a directory|The handle is invalid.)")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }
 
