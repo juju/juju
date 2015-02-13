@@ -14,6 +14,13 @@ import traceback
 import urllib
 import urllib2
 
+from jujuconfig import NoSuchEnvironment
+from jujupy import (
+    SimpleEnvironment,
+    EnvJujuClient,
+)
+from deploy_stack import destroy_environment
+
 
 JENKINS_URL = 'http://juju-ci.vapour.ws:8080'
 BUILD_REVISION = 'build-revision'
@@ -81,7 +88,22 @@ def get_artifacts(job_name, build, glob, path,
     return artifacts
 
 
-def setup_workspace(workspace_dir, dry_run=False, verbose=False):
+def clean_environment(env_name, verbose=False):
+    try:
+        env = SimpleEnvironment.from_config(env_name)
+    except NoSuchEnvironment as e:
+        # Nothing to do.
+        if verbose:
+            print_now(str(e))
+        return False
+    client = EnvJujuClient.by_version(env)
+    if verbose:
+        print_now("Destroying %s" % env_name)
+    destroy_environment(client, env_name)
+    return True
+
+
+def setup_workspace(workspace_dir, env=None, dry_run=False, verbose=False):
     """Clean the workspace directory and create an artifacts sub directory."""
     for root, dirs, files in os.walk(workspace_dir):
         for name in files:
@@ -101,6 +123,8 @@ def setup_workspace(workspace_dir, dry_run=False, verbose=False):
     if not dry_run:
         with open(empty_path, 'w'):
             pass
+    if env is not None and not dry_run:
+        clean_environment(env, verbose=verbose)
 
 
 def add_artifacts(workspace_dir, globs, dry_run=False, verbose=False):
@@ -167,6 +191,9 @@ def parse_args(args=None):
     parser_workspace = subparsers.add_parser(
         'setup-workspace', help='Setup and clean a workspace for building.')
     parser_workspace.add_argument(
+        '-e', '--clean-env', dest='clean_env', default=None,
+        help='Ensure the env resources are freed or deleted.')
+    parser_workspace.add_argument(
         'path', help="The path to the existing workspace directory.")
     return parser.parse_args(args)
 
@@ -185,7 +212,8 @@ def main(argv):
                 verbose=args.verbose)
         elif args.command == 'setup-workspace':
             setup_workspace(
-                args.path, dry_run=args.dry_run, verbose=args.verbose)
+                args.path, env=args.clean_env,
+                dry_run=args.dry_run, verbose=args.verbose)
     except Exception as e:
         print(e)
         if args.verbose:

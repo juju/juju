@@ -2,14 +2,20 @@ import logging
 from mock import patch
 import os
 from StringIO import StringIO
+from textwrap import dedent
 import subprocess
 from unittest import TestCase
 
 
 from deploy_stack import (
     copy_remote_logs,
+    describe_instances,
+    destroy_environment,
+    destroy_job_instances,
     dump_env_logs,
     dump_logs,
+    get_job_instances,
+    parse_euca,
 )
 from jujupy import (
     EnvJujuClient,
@@ -33,6 +39,87 @@ def get_machine_addresses():
         '1': '10.10.0.11',
         '2': '10.10.0.22',
     }
+
+
+class DeployStackTestCase(TestCase):
+
+    def test_destroy_environment(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(client,
+                          'destroy_environment', autospec=True) as de_mock:
+            with patch('deploy_stack.destroy_job_instances',
+                       autospec=True) as dji_mock:
+                destroy_environment(client, 'foo')
+        self.assertEqual(1, de_mock.call_count)
+        self.assertEqual(0, dji_mock.call_count)
+
+    def test_destroy_environment_with_manual_type(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'manual'}), '1.234-76', None)
+        with patch.object(client,
+                          'destroy_environment', autospec=True) as de_mock:
+            with patch('deploy_stack.destroy_job_instances',
+                       autospec=True) as dji_mock:
+                destroy_environment(client, 'foo')
+        self.assertEqual(1, de_mock.call_count)
+        dji_mock.assert_called_with('foo')
+
+    def test_destroy_job_instances_none(self):
+        with patch('deploy_stack.get_job_instances',
+                   return_value=[], autospec=True) as gji_mock:
+            with patch('subprocess.check_call') as cc_mock:
+                destroy_job_instances('foo')
+        gji_mock.assert_called_with('foo')
+        self.assertEqual(0, cc_mock.call_count)
+
+    def test_destroy_job_instances_some(self):
+        with patch('deploy_stack.get_job_instances',
+                   return_value=['i-bar'], autospec=True) as gji_mock:
+            with patch('subprocess.check_call') as cc_mock:
+                destroy_job_instances('foo')
+        gji_mock.assert_called_with('foo')
+        cc_mock.assert_called_with(['euca-terminate-instances', 'i-bar'])
+
+    def test_get_job_instances_none(self):
+        with patch('deploy_stack.describe_instances',
+                   return_value=[], autospec=True) as di_mock:
+            ids = get_job_instances('foo')
+        self.assertEqual([], [i for i in ids])
+        di_mock.assert_called_with(job_name='foo', running=True)
+
+    def test_get_job_instances_some(self):
+        description = ('i-bar', 'foo-0')
+        with patch('deploy_stack.describe_instances',
+                   return_value=[description], autospec=True) as di_mock:
+            ids = get_job_instances('foo')
+        self.assertEqual(['i-bar'], [i for i in ids])
+        di_mock.assert_called_with(job_name='foo', running=True)
+
+    def test_describe_instances(self):
+        with patch('subprocess.check_output',
+                   return_value='', autospec=True) as co_mock:
+            with patch('deploy_stack.parse_euca', autospec=True) as pe_mock:
+                describe_instances(
+                    instances=['i-foo'], job_name='bar', running=True)
+        co_mock.assert_called_with(
+            ['euca-describe-instances',
+             '--filter', 'tag:job_name=bar',
+             '--filter', 'instance-state-name=running',
+             'i-foo'], env=None)
+        pe_mock.assert_called_with('')
+
+    def test_parse_euca(self):
+        description = parse_euca('')
+        self.assertEqual([], [d for d in description])
+        euca_data = dedent("""
+            header
+            INSTANCE\ti-foo\tblah\tbar-0
+            INSTANCE\ti-baz\tblah\tbar-1
+        """)
+        description = parse_euca(euca_data)
+        self.assertEqual(
+            [('i-foo', 'bar-0'), ('i-baz', 'bar-1')], [d for d in description])
 
 
 class DumpEnvLogsTestCase(TestCase):

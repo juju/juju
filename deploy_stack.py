@@ -71,10 +71,9 @@ def prepare_environment(env, already_bootstrapped, machines):
 
 
 def destroy_environment(client, instance_tag):
+    client.destroy_environment()
     if client.env.config['type'] == 'manual':
         destroy_job_instances(instance_tag)
-    else:
-        client.destroy_environment()
 
 
 def destroy_job_instances(job_name):
