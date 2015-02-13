@@ -57,7 +57,11 @@ func (lp *loopProvider) VolumeSource(
 	if err := lp.validateFullConfig(sourceConfig); err != nil {
 		return nil, err
 	}
+	// storageDir is validated by validateFullConfig.
 	storageDir, _ := sourceConfig.ValueString(storage.ConfigStorageDir)
+	if err := os.MkdirAll(storageDir, 0755); err != nil {
+		return nil, errors.Annotate(err, "creating storage directory")
+	}
 	return &loopVolumeSource{lp.run, storageDir}, nil
 }
 
@@ -95,9 +99,6 @@ func (lvs *loopVolumeSource) createVolume(params storage.VolumeParams) (storage.
 	volumeId := params.Tag.String()
 	loopFilePath := lvs.volumeFilePath(volumeId)
 
-	if err := os.MkdirAll(lvs.storageDir, 0755); err != nil {
-		return volume, volumeAttachment, errors.Annotate(err, "creating storage directory")
-	}
 	if err := createBlockFile(lvs.run, loopFilePath, params.Size); err != nil {
 		return volume, volumeAttachment, errors.Annotate(err, "could not create block file")
 	}
