@@ -221,6 +221,10 @@ class SteppedStageAttempt:
     failures are typically handled by raising exceptions.
     """
 
+    @classmethod
+    def factory(cls, upgrade_sequence):
+        return cls()
+
     @staticmethod
     def _iter_for_result(iterator):
         """Iterate through an iterator of {'test_id'} with optional result.
@@ -324,6 +328,14 @@ class UpgradeJujuAttempt(SteppedStageAttempt):
             ('bootstrap', {'title': 'Bootstrap'}),
             ('upgrade-juju', {'title': 'Upgrade Juju'}),
             ])
+
+    @classmethod
+    def factory(cls, upgrade_sequence):
+        if len(upgrade_sequence) < 2:
+            raise ValueError('Not enough paths for upgrade.')
+        bootstrap_paths = dict(
+            zip(upgrade_sequence[1:], upgrade_sequence[:-1]))
+        return cls(bootstrap_paths)
 
     def __init__(self, bootstrap_paths):
         super(UpgradeJujuAttempt, self).__init__()

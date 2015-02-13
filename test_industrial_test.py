@@ -760,6 +760,15 @@ class TestSteppedStageAttempt(TestCase):
                 [('test-1', True, False), ('test-2', False, True)])
         le_mock.assert_called_once_with(error)
 
+    def test_factory(self):
+
+        class StubSA(SteppedStageAttempt):
+
+            def __init__(self):
+                super(StubSA, self).__init__()
+
+        self.assertIs(type(StubSA.factory(['a', 'b', 'c'])), StubSA)
+
 
 class FakeEnvJujuClient(EnvJujuClient):
 
@@ -1312,6 +1321,19 @@ class TestBackupRestoreAttempt(TestCase):
 
 
 class TestUpgradeJujuAttempt(TestCase):
+
+    def test_factory(self):
+        uj_attempt = UpgradeJujuAttempt.factory(['a', 'b', 'c'])
+        self.assertIs(type(uj_attempt), UpgradeJujuAttempt)
+        self.assertEqual(uj_attempt.bootstrap_paths, {'b': 'a', 'c': 'b'})
+
+    def test_factory_empty(self):
+        with self.assertRaisesRegexp(
+                ValueError, 'Not enough paths for upgrade.'):
+            UpgradeJujuAttempt.factory(['a'])
+        with self.assertRaisesRegexp(
+                ValueError, 'Not enough paths for upgrade.'):
+            UpgradeJujuAttempt.factory([])
 
     def test_iter_steps(self):
         future_client = FakeEnvJujuClient()
