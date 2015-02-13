@@ -80,6 +80,7 @@ func setSettings(c *gc.C, ru *state.RelationUnit, settings map[string]interface{
 }
 
 type Context struct {
+	jujuc.Context
 	ports          []network.PortRange
 	relid          int
 	remote         string
