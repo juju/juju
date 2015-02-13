@@ -90,11 +90,7 @@ func NewMachineConfig(
 func NewBootstrapMachineConfig(cons constraints.Value, series string) (*cloudinit.MachineConfig, error) {
 	// For a bootstrap instance, FinishMachineConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
-
-	// TODO (wallyworld): reenable this when cloud-image-utils is installed on precise
-	// See: https://bugs.launchpad.net/juju-core/+bug/1417594
-	secureServerConnection := false
-	mcfg, err := NewMachineConfig("0", agent.BootstrapNonce, "", series, secureServerConnection, nil, nil, nil)
+	mcfg, err := NewMachineConfig("0", agent.BootstrapNonce, "", series, true, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}

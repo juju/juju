@@ -94,9 +94,6 @@ func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudini
 		return nil, err
 	}
 	secureServerConnection := info.CAPrivateKey != ""
-	// TODO (wallyworld): reenable this when cloud-image-utils is installed on precise
-	// See: https://bugs.launchpad.net/juju-core/+bug/1417594
-	secureServerConnection = false
 	mcfg, err := environs.NewMachineConfig(machineId, nonce, env.Config().ImageStream(), machine.Series(),
 		secureServerConnection, networks, mongoInfo, apiInfo,
 	)
