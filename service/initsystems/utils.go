@@ -68,28 +68,28 @@ func (s LocalShell) RunCommandStr(cmd string) ([]byte, error) {
 	return out.Stdout, nil
 }
 
-// FakeShell is a Shell implementation for use in testing.
-type FakeShell struct {
-	*testing.Fake
+// StubShell is a Shell implementation for use in testing.
+type StubShell struct {
+	*testing.Stub
 	// Out is the return value for RunCommand and RunCommandStr for
 	// successive calls.
 	Out [][]byte
 }
 
-// NewFakeShell creates a new FakeShell and returns it.
-func NewFakeShell() *FakeShell {
-	return &FakeShell{
-		Fake: &testing.Fake{},
+// NewStubShell creates a new StubShell and returns it.
+func NewStubShell() *StubShell {
+	return &StubShell{
+		Stub: &testing.Stub{},
 	}
 }
 
 // SetOut sets the sequence of RunCommand* return values.
-func (fs *FakeShell) SetOut(out ...[]byte) {
+func (fs *StubShell) SetOut(out ...[]byte) {
 	fs.Out = out
 }
 
 // SetOutString sets the sequence of RunCommand* return values.
-func (fs *FakeShell) SetOutString(out ...string) {
+func (fs *StubShell) SetOutString(out ...string) {
 	fs.Out = make([][]byte, len(out))
 	for i, v := range out {
 		fs.Out[i] = []byte(v)
@@ -97,13 +97,13 @@ func (fs *FakeShell) SetOutString(out ...string) {
 }
 
 // AddToOut sets the sequence of RunCommand* return values.
-func (fs *FakeShell) AddToOut(out ...string) {
+func (fs *StubShell) AddToOut(out ...string) {
 	for _, v := range out {
 		fs.Out = append(fs.Out, []byte(v))
 	}
 }
 
-func (fs *FakeShell) out() []byte {
+func (fs *StubShell) out() []byte {
 	if len(fs.Out) == 0 {
 		return nil
 	}
@@ -113,18 +113,13 @@ func (fs *FakeShell) out() []byte {
 }
 
 // RunCommand implements Shell.
-func (fs *FakeShell) RunCommand(cmd string, args ...string) ([]byte, error) {
-	fs.AddCall("RunCommand", testing.FakeCallArgs{
-		"cmd":  cmd,
-		"args": args,
-	})
-	return fs.out(), fs.Err()
+func (fs *StubShell) RunCommand(cmd string, args ...string) ([]byte, error) {
+	fs.AddCall("RunCommand", cmd, args)
+	return fs.out(), fs.NextErr()
 }
 
 // RunCommandStr implements Shell.
-func (fs *FakeShell) RunCommandStr(cmd string) ([]byte, error) {
-	fs.AddCall("RunCommandStr", testing.FakeCallArgs{
-		"cmd": cmd,
-	})
-	return fs.out(), fs.Err()
+func (fs *StubShell) RunCommandStr(cmd string) ([]byte, error) {
+	fs.AddCall("RunCommandStr", cmd)
+	return fs.out(), fs.NextErr()
 }
