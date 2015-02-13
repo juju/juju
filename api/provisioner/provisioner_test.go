@@ -304,9 +304,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	}}
 	volumeAttachments := []params.VolumeAttachment{{
 		VolumeTag:  "disk-0",
-		VolumeId:   "vol-123",
 		MachineTag: "machine-1",
-		InstanceId: "i-will",
 		DeviceName: "xvdf1",
 	}}
 

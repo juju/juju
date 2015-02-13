@@ -123,11 +123,11 @@ type VolumeAttachmentParams struct {
 // AttachmentParams describes the parameters for attaching a volume or
 // filesystem to a machine.
 type AttachmentParams struct {
-	// MachineId is the ID of the Juju machine that the storage should be
+	// Machine is the tag of the Juju machine that the storage should be
 	// attached to. Storage providers may use this to perform machine-
 	// specific operations, such as configuring access controls for the
 	// machine.
-	MachineId string
+	Machine names.MachineTag
 
 	// InstanceId is the ID of the cloud instance that the storage should
 	// be attached to. This will only be of interest to storage providers

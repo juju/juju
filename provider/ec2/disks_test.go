@@ -83,15 +83,26 @@ func (*DisksSuite) TestBlockDeviceNamer(c *gc.C) {
 func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 	volume0 := names.NewDiskTag("0")
 	volume1 := names.NewDiskTag("1")
+	machine0 := names.NewMachineTag("0")
 
 	mapping, volumes, volumeAttachments, err := ec2.GetBlockDeviceMappings(
-		"pv", &environs.StartInstanceParams{Volumes: []storage.VolumeParams{
-			{Tag: volume0, Size: 1234},
-			{Tag: volume1,
-				Size:       4321,
-				Attributes: map[string]interface{}{"volume-type": "standard", "iops": "1234"},
+		"pv", &environs.StartInstanceParams{Volumes: []storage.VolumeParams{{
+			Tag:  volume0,
+			Size: 1234,
+			Attachment: &storage.AttachmentParams{
+				Machine: machine0,
 			},
-		}},
+		}, {
+			Tag:  volume1,
+			Size: 4321,
+			Attributes: map[string]interface{}{
+				"volume-type": "standard",
+				"iops":        "1234",
+			},
+			Attachment: &storage.AttachmentParams{
+				Machine: machine0,
+			},
+		}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mapping, gc.DeepEquals, []amzec2.BlockDeviceMapping{{
@@ -123,7 +134,7 @@ func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 		{Tag: volume1, Size: 5120},
 	})
 	c.Assert(volumeAttachments, gc.DeepEquals, []storage.VolumeAttachment{
-		{Volume: volume0, DeviceName: "xvdf1"},
-		{Volume: volume1, DeviceName: "xvdf2"},
+		{Volume: volume0, Machine: machine0, DeviceName: "xvdf1"},
+		{Volume: volume1, Machine: machine0, DeviceName: "xvdf2"},
 	})
 }

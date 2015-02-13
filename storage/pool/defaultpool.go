@@ -4,8 +4,6 @@
 package pool
 
 import (
-	"path/filepath"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/storage"
@@ -43,10 +41,7 @@ func AddDefaultStoragePools(settings SettingsManager, config poolConfig) error {
 	}
 
 	// Register the default loop pool.
-	// TODO(wallyworld) - remove loop data dir as we don't want to hard code it here
-	cfg := map[string]interface{}{
-		provider.LoopDataDir: filepath.Join(config.DataDir(), "storage", "block", "loop"),
-	}
+	cfg := map[string]interface{}{}
 	return addDefaultPool(pm, "loop", provider.LoopProviderType, cfg)
 }
 
