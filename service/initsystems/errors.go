@@ -68,7 +68,10 @@ func newUnsupportedError(field, key, reason string) error {
 type ErrUnsupportedField struct {
 	errors.Err
 
-	Field  string
+	// Field is the name of the field that the init system does not support.
+	Field string
+
+	// Reason indicates why the field is not supported.
 	Reason string
 }
 
@@ -77,5 +80,7 @@ type ErrUnsupportedField struct {
 // then errors.NotValid should be used instead.
 type ErrUnsupportedItem struct {
 	ErrUnsupportedField
+
+	// Key is the mapping field's key which the init system does not support.
 	Key string
 }
