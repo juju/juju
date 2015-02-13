@@ -13,7 +13,10 @@ import (
 	"github.com/juju/juju/network"
 )
 
-type M map[string]interface{}
+type (
+	IS []interface{}
+	M  map[string]interface{}
+)
 
 type NetworkSuite struct{}
 
@@ -37,6 +40,10 @@ func (s *NetworkSuite) TestPortsResults(c *gc.C) {
 		results  params.PortsResults
 		expected M
 	}{{
+		about:    "empty result set",
+		results:  params.PortsResults{},
+		expected: createResults(),
+	}, {
 		about: "one error",
 		results: params.PortsResults{
 			Results: []params.PortsResult{
@@ -45,13 +52,24 @@ func (s *NetworkSuite) TestPortsResults(c *gc.C) {
 		},
 		expected: createResults(createResult(createError("I failed", "ERR42"), nil)),
 	}, {
-		about: "one port",
+		about: "one succes with one port",
 		results: params.PortsResults{
 			Results: []params.PortsResult{
 				params.PortsResult{Ports: []params.Port{{"http", 80}}},
 			},
 		},
-		expected: createResults(createResult(nil, []interface{}{createPort("http", 80)})),
+		expected: createResults(createResult(nil, IS{createPort("http", 80)})),
+	}, {
+		about: "two results, one error and one success with two ports",
+		results: params.PortsResults{
+			Results: []params.PortsResult{
+				params.PortsResult{Error: &params.Error{"I failed", "ERR42"}},
+				params.PortsResult{Ports: []params.Port{{"http", 80}, {"https", 443}}},
+			},
+		},
+		expected: createResults(
+			createResult(createError("I failed", "ERR42"), nil),
+			createResult(nil, IS{createPort("http", 80), createPort("https", 443)})),
 	}}
 	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)
