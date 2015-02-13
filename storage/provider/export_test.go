@@ -8,3 +8,7 @@ import "github.com/juju/juju/storage"
 func LoopVolumeSource(storageDir string, run func(string, ...string) (string, error)) storage.VolumeSource {
 	return &loopVolumeSource{run, storageDir}
 }
+
+func LoopProvider(run func(string, ...string) (string, error)) storage.Provider {
+	return &loopProvider{run}
+}

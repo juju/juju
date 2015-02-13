@@ -30,8 +30,22 @@ type loopProvider struct {
 var _ storage.Provider = (*loopProvider)(nil)
 
 // ValidateConfig is defined on the Provider interface.
-func (lp *loopProvider) ValidateConfig(providerConfig *storage.Config) error {
+func (lp *loopProvider) ValidateConfig(cfg *storage.Config) error {
 	// Loop provider has no configuration.
+	return nil
+}
+
+// validateFullConfig validates a fully-constructed storage config,
+// combining the user-specified config and any internally specified
+// config.
+func (lp *loopProvider) validateFullConfig(cfg *storage.Config) error {
+	if err := lp.ValidateConfig(cfg); err != nil {
+		return err
+	}
+	storageDir, ok := cfg.ValueString(storage.ConfigStorageDir)
+	if !ok || storageDir == "" {
+		return errors.New("storage directory not specified")
+	}
 	return nil
 }
 
@@ -39,11 +53,11 @@ func (lp *loopProvider) ValidateConfig(providerConfig *storage.Config) error {
 func (lp *loopProvider) VolumeSource(
 	environConfig *config.Config,
 	sourceConfig *storage.Config,
-	storageDir string,
 ) (storage.VolumeSource, error) {
-	if err := lp.ValidateConfig(sourceConfig); err != nil {
+	if err := lp.validateFullConfig(sourceConfig); err != nil {
 		return nil, err
 	}
+	storageDir, _ := sourceConfig.ValueString(storage.ConfigStorageDir)
 	return &loopVolumeSource{lp.run, storageDir}, nil
 }
 

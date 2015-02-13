@@ -20,15 +20,7 @@ type Provider interface {
 	// If the storage provider does not support creating volumes as a
 	// first-class primitive, then VolumeSource must return an error
 	// satisfying errors.IsNotSupported.
-	//
-	// The storage provider may use the provided storage directory
-	// to contain local storage artifacts for machine-scoped storage.
-	// The directory does not necessarily exist.
-	VolumeSource(
-		environConfig *config.Config,
-		providerConfig *Config,
-		storageDir string,
-	) (VolumeSource, error)
+	VolumeSource(environConfig *config.Config, providerConfig *Config) (VolumeSource, error)
 
 	// TODO(axw) define filesystem source. If the user requests a
 	// filesystem and that can be provided first-class, it should be

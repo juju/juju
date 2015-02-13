@@ -4,11 +4,9 @@
 package storage_test
 
 import (
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
 )
 
@@ -17,14 +15,7 @@ type providerRegistrySuite struct{}
 var _ = gc.Suite(&providerRegistrySuite{})
 
 type mockProvider struct {
-}
-
-func (p *mockProvider) VolumeSource(*config.Config, *storage.Config, string) (storage.VolumeSource, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (p *mockProvider) ValidateConfig(*storage.Config) error {
-	return nil
+	storage.Provider
 }
 
 func (s *providerRegistrySuite) TestRegisterProvider(c *gc.C) {

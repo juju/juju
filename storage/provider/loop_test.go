@@ -44,6 +44,30 @@ func (s *loopSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
+func (s *loopSuite) TestVolumeSource(c *gc.C) {
+	p := provider.LoopProvider(s.commands.run)
+	cfg, err := storage.NewConfig("name", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = p.VolumeSource(nil, cfg)
+	c.Assert(err, gc.ErrorMatches, "storage directory not specified")
+	cfg, err = storage.NewConfig("name", provider.LoopProviderType, map[string]interface{}{
+		"storage-dir": c.MkDir(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = p.VolumeSource(nil, cfg)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *loopSuite) TestValidateConfig(c *gc.C) {
+	p := provider.LoopProvider(s.commands.run)
+	cfg, err := storage.NewConfig("name", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = p.ValidateConfig(cfg)
+	// The loop provider does not have any user
+	// configuration, so an empty map will pass.
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *loopSuite) TestCreateVolumes(c *gc.C) {
 	s.commands.expect("fallocate", "-l", "2MiB", filepath.Join(s.storageDir, "disk-0"))
 	cmd := s.commands.expect("losetup", "-f", "--show", filepath.Join(s.storageDir, "disk-0"))
