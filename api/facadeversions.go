@@ -16,6 +16,7 @@ var facadeVersions = map[string]int{
 	"AllWatcher":           0,
 	"Annotations":          1,
 	"Backups":              0,
+	"Block":                1,
 	"Charms":               1,
 	"CharmRevisionUpdater": 0,
 	"Client":               0,
