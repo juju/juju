@@ -25,9 +25,9 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/version"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/version"
 )
 
 func init() {

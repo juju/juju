@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/feature"
 	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v4"
@@ -15,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider/registry"

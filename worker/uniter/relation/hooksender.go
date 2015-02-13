@@ -4,9 +4,8 @@
 package relation
 
 import (
-	"launchpad.net/tomb"
-
 	"github.com/juju/errors"
+	"launchpad.net/tomb"
 
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker/uniter/hook"
