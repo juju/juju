@@ -16,6 +16,7 @@ from deploy_stack import (
     dump_logs,
     get_job_instances,
     parse_euca,
+    run_instances,
 )
 from jujupy import (
     EnvJujuClient,
@@ -120,6 +121,42 @@ class DeployStackTestCase(TestCase):
         description = parse_euca(euca_data)
         self.assertEqual(
             [('i-foo', 'bar-0'), ('i-baz', 'bar-1')], [d for d in description])
+
+    def test_run_instances(self):
+        euca_data = dedent("""
+            header
+            INSTANCE\ti-foo\tblah\tbar-0
+            INSTANCE\ti-baz\tblah\tbar-1
+        """)
+        description = [('i-foo', 'bar-0'), ('i-baz', 'bar-1')]
+        with patch('subprocess.check_output',
+                   return_value=euca_data, autospec=True) as co_mock:
+            with patch('subprocess.check_call', autospec=True) as cc_mock:
+                with patch('deploy_stack.describe_instances',
+                           return_value=description, autospec=True) as di_mock:
+                    run_instances(2, 'qux')
+        co_mock.assert_called_once_with(
+            ['euca-run-instances', '-k', 'id_rsa', '-n', '2',
+             '-t', 'm1.large', '-g', 'manual-juju-test', 'ami-36aa4d5e'],
+            env=os.environ)
+        cc_mock.assert_called_once_with(
+            ['euca-create-tags', '--tag', 'job_name=qux', 'i-foo', 'i-baz'],
+            env=os.environ)
+        di_mock.assert_called_once_with(['i-foo', 'i-baz'], env=os.environ)
+
+    def test_run_instances_tagging_failed(self):
+        euca_data = 'INSTANCE\ti-foo\tblah\tbar-0'
+        description = [('i-foo', 'bar-0')]
+        with patch('subprocess.check_output',
+                   return_value=euca_data, autospec=True):
+            with patch('subprocess.check_call', autospec=True,
+                       side_effect=subprocess.CalledProcessError('', '')):
+                with patch('deploy_stack.describe_instances',
+                           return_value=description, autospec=True):
+                    with patch('subprocess.call', autospec=True) as c_mock:
+                        with self.assertRaises(subprocess.CalledProcessError):
+                            run_instances(1, 'qux')
+        c_mock.assert_called_with(['euca-terminate-instances', 'i-foo'])
 
 
 class DumpEnvLogsTestCase(TestCase):
