@@ -14,13 +14,13 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&pathsSuite{})
+var _ = gc.Suite(&mongoSuite{})
 
-type pathsSuite struct {
+type mongoSuite struct {
 	testing.BaseSuite
 }
 
-func (s *pathsSuite) TestMongorestorePathDefaultMongoExists(c *gc.C) {
+func (s *mongoSuite) TestFindMongoRestorePathDefaultExists(c *gc.C) {
 	calledWithPaths := []string{}
 	osStat := func(aPath string) (os.FileInfo, error) {
 		calledWithPaths = append(calledWithPaths, aPath)
@@ -35,7 +35,7 @@ func (s *pathsSuite) TestMongorestorePathDefaultMongoExists(c *gc.C) {
 	c.Assert(calledWithPaths, gc.DeepEquals, []string{"/usr/lib/juju/bin/mongorestore"})
 }
 
-func (s *pathsSuite) TestMongorestorePathNoDefaultMongo(c *gc.C) {
+func (s *mongoSuite) TestFindMongoRestorePathDefaultNotExists(c *gc.C) {
 	calledWithPaths := []string{}
 	osStat := func(aPath string) (os.FileInfo, error) {
 		calledWithPaths = append(calledWithPaths, aPath)
