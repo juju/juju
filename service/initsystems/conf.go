@@ -135,6 +135,7 @@ func (c *Conf) Repair(err error) error {
 	return nil
 }
 
+// Validate checks the conf and returns errors.NotValid if invalid.
 func (c Conf) Validate(name string) error {
 	if name == "" {
 		return errors.NotValidf("missing name")
