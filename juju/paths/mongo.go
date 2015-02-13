@@ -48,19 +48,16 @@ func (m Mongo) RestorePath() string {
 	return path.Join(m.binDir, mongoRestore)
 }
 
-var osStat = os.Stat
-var execLookPath = exec.LookPath
-
 // Find looks for `executable` on the system and returns it if it
 // actually exists. It first looks for the provided path. If that is not
 // found then Find checks $PATH for the base name of `executable`.
 func Find(executable string) (string, error) {
-	if _, err := osStat(executable); err == nil {
+	if _, err := os.Stat(executable); err == nil {
 		return executable, nil
 	}
 
 	name := filepath.Base(executable)
-	path, err := execLookPath(name)
+	path, err := exec.LookPath(name)
 	if err != nil {
 		return "", errors.Annotatef(err, "could not find %s in $PATH", name)
 	}

@@ -4,8 +4,8 @@
 package paths_test
 
 import (
-	"fmt"
 	"os"
+	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -20,40 +20,40 @@ type mongoSuite struct {
 	testing.BaseSuite
 }
 
-func (s *mongoSuite) TestFindMongoRestorePathDefaultExists(c *gc.C) {
-	calledWithPaths := []string{}
-	osStat := func(aPath string) (os.FileInfo, error) {
-		calledWithPaths = append(calledWithPaths, aPath)
-		return nil, nil
-	}
-	s.PatchValue(paths.OsStat, osStat)
+func (s *mongoSuite) writeScript(c *gc.C, name, content string) (string, string) {
+	dirname := c.MkDir()
+	filename := filepath.Join(dirname, name)
 
-	jujuRestore := paths.NewMongo().RestorePath()
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	defer file.Close()
+
+	_, err = file.Write([]byte(content))
+	c.Assert(err, jc.ErrorIsNil)
+
+	return dirname, filename
+}
+
+func (s *mongoSuite) TestFindMongoRestorePathDefaultExists(c *gc.C) {
+	jujudir, expected := s.writeScript(c, "mongorestore", "echo 'mongorestore'")
+
+	jujuRestore := paths.NewMongoTest(jujudir).RestorePath()
 	mongoPath, err := paths.Find(jujuRestore)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mongoPath, gc.Equals, "/usr/lib/juju/bin/mongorestore")
-	c.Assert(calledWithPaths, gc.DeepEquals, []string{"/usr/lib/juju/bin/mongorestore"})
+
+	c.Check(mongoPath, gc.Equals, expected)
 }
 
 func (s *mongoSuite) TestFindMongoRestorePathDefaultNotExists(c *gc.C) {
-	calledWithPaths := []string{}
-	osStat := func(aPath string) (os.FileInfo, error) {
-		calledWithPaths = append(calledWithPaths, aPath)
-		return nil, fmt.Errorf("sorry no mongo")
-	}
-	s.PatchValue(paths.OsStat, osStat)
+	jujudir, _ := s.writeScript(c, "mongod", "echo 'mongod'")
+	pathdir, expected := s.writeScript(c, "mongorestore", "echo 'mongorestore'")
+	s.PatchEnvironment("PATH", pathdir)
+	c.Logf(os.Getenv("PATH"))
+	c.Logf(expected)
 
-	calledWithLookup := []string{}
-	execLookPath := func(aLookup string) (string, error) {
-		calledWithLookup = append(calledWithLookup, aLookup)
-		return "/a/fake/mongo/path", nil
-	}
-	s.PatchValue(paths.ExecLookPath, execLookPath)
-
-	jujuRestore := paths.NewMongo().RestorePath()
+	jujuRestore := paths.NewMongoTest(jujudir).RestorePath()
 	mongoPath, err := paths.Find(jujuRestore)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mongoPath, gc.Equals, "/a/fake/mongo/path")
-	c.Assert(calledWithPaths, gc.DeepEquals, []string{"/usr/lib/juju/bin/mongorestore"})
-	c.Assert(calledWithLookup, gc.DeepEquals, []string{"mongorestore"})
+
+	c.Check(mongoPath, gc.Equals, expected)
 }
