@@ -118,7 +118,7 @@ class JujuCITestCase(TestCase):
         json_io = StringIO(json.dumps(expected_data))
         with patch('urllib2.urlopen', return_value=json_io) as mock:
             build_data = get_build_data('http://foo:8080', 'bar', '1234')
-        mock.assert_called_once(['http://foo:8080/job/bar/1234/api/json'])
+        mock.assert_called_once_with('http://foo:8080/job/bar/1234/api/json')
         self.assertEqual(expected_data, build_data)
 
     def test_get_build_data_with_default_build(self):
@@ -126,8 +126,8 @@ class JujuCITestCase(TestCase):
         json_io = StringIO(json.dumps(expected_data))
         with patch('urllib2.urlopen', return_value=json_io) as mock:
             get_build_data('http://foo:8080', 'bar')
-        mock.assert_called_once(
-            ['http://foo:8080/job/bar/lastSuccessfulBuild/api/json'])
+        mock.assert_called_once_with(
+            'http://foo:8080/job/bar/lastSuccessfulBuild/api/json')
 
     def test_find_artifacts_all(self):
         expected_data = make_build_data()
@@ -152,7 +152,7 @@ class JujuCITestCase(TestCase):
         with patch('jujuci.get_build_data', return_value=build_data) as mock:
             with patch('jujuci.print_now') as pn_mock:
                 list_artifacts('foo', '1234', '*')
-        mock.assert_called_once([JENKINS_URL, 'foo', '1234'])
+        mock.assert_called_once_with(JENKINS_URL, 'foo', '1234')
         files = sorted(call[1][0] for call in pn_mock.mock_calls)
         self.assertEqual(
             ['buildvars.bash', 'buildvars.json',
