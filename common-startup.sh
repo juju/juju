@@ -35,19 +35,3 @@ $SCRIPTS/jujuci.py get publish-revision $JUJU_LOCAL_DEB
 $SCRIPTS/jujuci.py get publish-revision $JUJU_CORE_DEB
 dpkg-deb -x ./$JUJU_CORE_DEB extracted-bin
 export NEW_JUJU_BIN=$(readlink -f $(dirname $(find extracted-bin -name juju)))
-
-# Tear down any resources and data last from a previous test.
-if [ "$ENV" == "manual" ]; then
-    set +x
-    source $HOME/cloud-city/ec2rc
-    set -x
-    ec2-terminate-job-instances
-else
-    jenv=$JUJU_HOME/environments/$ENV.jenv
-    if [[ -e $jenv ]]; then
-        destroy-environment $ENV
-        if [[ -e $jenv ]]; then
-            rm $jenv
-        fi
-    fi
-fi
