@@ -39,7 +39,10 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *rsyslogSuite) TestGetRsyslogConfig(c *gc.C) {
-	err := s.APIState.Client().EnvironmentSet(map[string]interface{}{"rsyslog-ca-cert": coretesting.CACert})
+	err := s.APIState.Client().EnvironmentSet(map[string]interface{}{
+		"rsyslog-ca-cert": coretesting.CACert,
+		"rsyslog-ca-key":  coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := s.rsyslog.GetRsyslogConfig(s.machine.Tag().String())
