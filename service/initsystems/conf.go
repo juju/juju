@@ -148,41 +148,6 @@ func (c Conf) Validate(name string) error {
 	return nil
 }
 
-func (c Conf) Equals(other Conf) bool {
-	if c.Desc != other.Desc {
-		return false
-	}
-	if !compareStrMaps(c.Env, other.Env) {
-		return false
-	}
-	if !compareStrMaps(c.Limit, other.Limit) {
-		return false
-	}
-	if c.Cmd != other.Cmd {
-		return false
-	}
-	if c.Out != other.Out {
-		return false
-	}
-	return true
-}
-
-func compareStrMaps(map1, map2 map[string]string) bool {
-	if len(map1) != len(map2) {
-		return false
-	}
-	for key, value1 := range map1 {
-		value2, ok := map2[key]
-		if !ok {
-			return false
-		}
-		if value1 != value2 {
-			return false
-		}
-	}
-	return true
-}
-
 // SerializeJSON converts the conf into a JSON string.
 func SerializeJSON(conf Conf) ([]byte, error) {
 	data, err := json.MarshalIndent(&conf, "", " ")

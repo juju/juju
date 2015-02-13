@@ -163,17 +163,3 @@ func (s *confSuite) TestValidateMissingCmd(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, `missing Cmd.*`)
 }
-
-func (s *confSuite) TestEqualsSame(c *gc.C) {
-	equal := s.conf.Equals(*s.conf)
-
-	c.Check(equal, jc.IsTrue)
-}
-
-func (s *confSuite) TestEqualsDifferent(c *gc.C) {
-	other := *s.conf
-	other.Cmd = "<do something else>"
-	equal := s.conf.Equals(other)
-
-	c.Check(equal, jc.IsFalse)
-}

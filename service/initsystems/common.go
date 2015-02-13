@@ -5,6 +5,7 @@ package initsystems
 
 import (
 	"os"
+	"reflect"
 
 	"github.com/juju/errors"
 )
@@ -88,5 +89,5 @@ func CheckConf(name, filename string, is confChecker, fops fileOperations) (bool
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return conf.Equals(*expected), nil
+	return reflect.DeepEqual(conf, *expected), nil
 }
