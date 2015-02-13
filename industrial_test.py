@@ -675,11 +675,14 @@ def maybe_write_json(filename, results):
 def run_single(args):
     env = SimpleEnvironment.from_config(args.env)
     env.environment = env.environment + '-single'
+    upgrade_client = EnvJujuClient.by_version(
+        env, debug=args.debug)
     client = EnvJujuClient.by_version(
         env,  args.new_juju_path, debug=args.debug)
     client.destroy_environment()
     stages = MultiIndustrialTest.get_stages(args.suite, env.config)
-    stage_attempts = [stage() for stage in stages]
+    upgrade_sequence = [upgrade_client.full_path, client.full_path]
+    stage_attempts = [stage.factory(upgrade_sequence) for stage in stages]
     try:
         for stage in stage_attempts:
             for step in stage.iter_steps(client):
