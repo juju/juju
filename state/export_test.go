@@ -42,6 +42,7 @@ var (
 	PortsGlobalKey         = portsGlobalKey
 	CurrentUpgradeId       = currentUpgradeId
 	NowToTheSecond         = nowToTheSecond
+	MultiEnvCollections    = multiEnvCollections
 	PickAddress            = &pickAddress
 	AddVolumeOp            = (*State).addVolumeOp
 )
@@ -305,9 +306,9 @@ func Sequence(st *State, name string) (int, error) {
 	return st.sequence(name)
 }
 
-// TODO(mjs) - This is a temporary and naive environment destruction
-// function, used to test environment watching and annotations.
-// Once the environment destroying work is completed it can go away.
+// This is a naive environment destruction function, used to test environment
+// watching after the client calls DestroyEnvironment and the environ doc is removed.
+// It is also used to test annotations.
 func RemoveEnvironment(st *State, uuid string) error {
 	ops := []txn.Op{{
 		C:      environmentsC,
