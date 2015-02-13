@@ -6,6 +6,7 @@ package backups
 import (
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 
 	"github.com/juju/errors"
@@ -101,7 +102,8 @@ var getMongodumpPath = func() (string, error) {
 		return "", errors.Annotate(err, "failed to get mongod path")
 	}
 
-	mongoDumpPath := paths.MatchMongo(mongod).DumpPath()
+	mongoPaths := paths.Mongo{path.Dir(mongod)}
+	mongoDumpPath := mongoPaths.DumpPath()
 	_, err = os.Stat(mongoDumpPath)
 	return mongoDumpPath, errors.Trace(err)
 }

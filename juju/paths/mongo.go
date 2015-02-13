@@ -33,12 +33,6 @@ func NewMongo() Mongo {
 	return Mongo{mongoBinDir}
 }
 
-// MatchMongo creates a new Mongo based in the same directory as the
-// provided mongod path and returns it.
-func MatchMongo(mongod string) Mongo {
-	return Mongo{path.Dir(mongod)}
-}
-
 // ServerPath returns the path to the mongod binary.
 func (m Mongo) ServerPath() string {
 	return path.Join(m.binDir, mongoServer)
