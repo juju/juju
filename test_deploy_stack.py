@@ -131,7 +131,7 @@ class DeployStackTestCase(TestCase):
         description = [('i-foo', 'bar-0'), ('i-baz', 'bar-1')]
         with patch('subprocess.check_output',
                    return_value=euca_data, autospec=True) as co_mock:
-            with patch('subprocess.call', autospec=True) as c_mock:
+            with patch('subprocess.check_call', autospec=True) as cc_mock:
                 with patch('deploy_stack.describe_instances',
                            return_value=description, autospec=True) as di_mock:
                     run_instances(2, 'qux')
@@ -139,7 +139,7 @@ class DeployStackTestCase(TestCase):
             ['euca-run-instances', '-k', 'id_rsa', '-n', '2',
              '-t', 'm1.large', '-g', 'manual-juju-test', 'ami-36aa4d5e'],
             env=os.environ)
-        c_mock.assert_called_once_with(
+        cc_mock.assert_called_once_with(
             ['euca-create-tags', '--tag', 'job_name=qux', 'i-foo', 'i-baz'],
             env=os.environ)
         di_mock.assert_called_once_with(['i-foo', 'i-baz'], env=os.environ)
