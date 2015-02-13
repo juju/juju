@@ -162,6 +162,10 @@ class FakeAttempt(FakeStepAttempt):
 
 class FakeAttemptClass:
 
+    @classmethod
+    def factory(cls, upgrade_sequence):
+        return cls('foo')
+
     def __init__(self, title, *result):
         self.title = title
         self.test_id = '{}-id'.format(title)
@@ -194,7 +198,7 @@ class TestMultiIndustrialTest(TestCase):
     def test_from_args(self):
         args = Namespace(
             env='foo', new_juju_path='new-path', attempts=7, suite=QUICK,
-            new_agent_url=None, debug=False)
+            new_agent_url=None, debug=False, old_stable=None)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(mit.env, 'foo')
@@ -203,8 +207,9 @@ class TestMultiIndustrialTest(TestCase):
         self.assertEqual(mit.max_attempts, 14)
         self.assertEqual(
             mit.stages, [BootstrapAttempt, DestroyEnvironmentAttempt])
-        args = Namespace(env='bar', new_juju_path='new-path2', attempts=6,
-                         suite=FULL, new_agent_url=None, debug=False)
+        args = Namespace(
+            env='bar', new_juju_path='new-path2', attempts=6, suite=FULL,
+            new_agent_url=None, debug=False, old_stable=None)
         with temp_env('bar'):
             mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(mit.env, 'bar')
