@@ -1517,7 +1517,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			}}},
 			waitUnit{status: params.StatusActive},
 		), ut(
-			"actions are not attempted from ModeHookError and do not clear the error",
+			"actions can run from ModeHookError, but do not clear the error",
 			startupErrorWithCustomCharm{
 				badHook: "start",
 				customize: func(c *gc.C, ctx *context, path string) {
@@ -1533,7 +1533,18 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 					"hook": "start",
 				},
 			},
-			verifyNoActionResults{},
+			waitActionResults{[]actionResult{{
+				name:    "action-log",
+				results: map[string]interface{}{},
+				status:  params.ActionCompleted,
+			}}},
+			waitUnit{
+				status: params.StatusError,
+				info:   `hook failed: "start"`,
+				data: map[string]interface{}{
+					"hook": "start",
+				},
+			},
 			verifyWaiting{},
 			resolveError{state.ResolvedNoHooks},
 			waitUnit{status: params.StatusActive},

@@ -82,13 +82,13 @@ func (s *FactorySuite) TestNewResolvedUpgradeString(c *gc.C) {
 }
 
 func (s *FactorySuite) TestNewActionError(c *gc.C) {
-	op, err := s.factory.NewAction("lol-something")
+	op, err := s.factory.NewAction("lol-something", operation.Continue)
 	c.Check(op, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, `invalid action id "lol-something"`)
 }
 
 func (s *FactorySuite) TestNewActionString(c *gc.C) {
-	op, err := s.factory.NewAction(someActionId)
+	op, err := s.factory.NewAction(someActionId, operation.Continue)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, "run action "+someActionId)
 }

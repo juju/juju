@@ -75,9 +75,9 @@ func newCommandsOp(args operation.CommandArgs, sendResponse operation.CommandRes
 	}
 }
 
-func newActionOp(actionId string) creator {
+func newActionOp(actionId string, resume operation.Kind) creator {
 	return func(factory operation.Factory) (operation.Operation, error) {
-		return factory.NewAction(actionId)
+		return factory.NewAction(actionId, resume)
 	}
 }
 
