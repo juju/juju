@@ -24,7 +24,8 @@ const (
 
 // Mongo exposes the mongo-related paths that juju cares about.
 type Mongo struct {
-	binDir string
+	// BinDir is the directory where the mongo executables live.
+	BinDir string
 }
 
 // NewMongo creates a new Mongo using the juju-bundled mongo paths and
@@ -35,17 +36,17 @@ func NewMongo() Mongo {
 
 // ServerPath returns the path to the mongod binary.
 func (m Mongo) ServerPath() string {
-	return path.Join(m.binDir, mongoServer)
+	return path.Join(m.BinDir, mongoServer)
 }
 
 // DumpPath returns the path to the mongodump binary.
 func (m Mongo) DumpPath() string {
-	return path.Join(m.binDir, mongoDump)
+	return path.Join(m.BinDir, mongoDump)
 }
 
 // RestorePath returns the path to the mongorestore binary.
 func (m Mongo) RestorePath() string {
-	return path.Join(m.binDir, mongoRestore)
+	return path.Join(m.BinDir, mongoRestore)
 }
 
 // Find looks for `executable` on the system and returns it if it
