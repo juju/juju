@@ -48,9 +48,9 @@ type initSystemSuite struct {
 	conf    initsystems.Conf
 	confStr string
 
-	fake  *testing.Fake
-	files *fs.FakeOps
-	cmd   *initsystems.FakeShell
+	stub  *testing.Stub
+	files *fs.StubOps
+	cmd   *initsystems.StubShell
 	init  initsystems.InitSystem
 }
 
@@ -66,9 +66,9 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 	}
 	s.confStr = s.newConfStr("jujud-machine-0", "", nil, nil)
 
-	s.fake = &testing.Fake{}
-	s.files = &fs.FakeOps{Fake: s.fake}
-	s.cmd = &initsystems.FakeShell{Fake: s.fake}
+	s.stub = &testing.Stub{}
+	s.files = &fs.StubOps{Stub: s.stub}
+	s.cmd = &initsystems.StubShell{Stub: s.stub}
 	s.init = upstart.NewUpstart(s.initDir, s.files, s.cmd)
 
 	s.PatchValue(&upstart.ConfDir, s.initDir)
@@ -148,22 +148,22 @@ func (s *initSystemSuite) TestInitSystemStart(c *gc.C) {
 	err := s.init.Start(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.fake.CheckCalls(c, []testing.FakeCall{{
+	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Exists",
-		Args: testing.FakeCallArgs{
-			"name": s.initDir + "/" + name + ".conf",
+		Args: []interface{}{
+			s.initDir + "/" + name + ".conf",
 		},
 	}, {
 		FuncName: "RunCommand",
-		Args: testing.FakeCallArgs{
-			"cmd":  "status",
-			"args": []string{"--system", name},
+		Args: []interface{}{
+			"status",
+			[]string{"--system", name},
 		},
 	}, {
 		FuncName: "RunCommand",
-		Args: testing.FakeCallArgs{
-			"cmd":  "start",
-			"args": []string{"--system", name},
+		Args: []interface{}{
+			"start",
+			[]string{"--system", name},
 		},
 	}})
 }
@@ -192,22 +192,22 @@ func (s *initSystemSuite) TestInitSystemStop(c *gc.C) {
 	err := s.init.Stop(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.fake.CheckCalls(c, []testing.FakeCall{{
+	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Exists",
-		Args: testing.FakeCallArgs{
-			"name": s.initDir + "/" + name + ".conf",
+		Args: []interface{}{
+			s.initDir + "/" + name + ".conf",
 		},
 	}, {
 		FuncName: "RunCommand",
-		Args: testing.FakeCallArgs{
-			"cmd":  "status",
-			"args": []string{"--system", name},
+		Args: []interface{}{
+			"status",
+			[]string{"--system", name},
 		},
 	}, {
 		FuncName: "RunCommand",
-		Args: testing.FakeCallArgs{
-			"cmd":  "stop",
-			"args": []string{"--system", name},
+		Args: []interface{}{
+			"stop",
+			[]string{"--system", name},
 		},
 	}})
 }
@@ -236,21 +236,21 @@ func (s *initSystemSuite) TestInitSystemEnable(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	initFile := s.initDir + "/" + name + ".conf"
-	s.fake.CheckCalls(c, []testing.FakeCall{{
+	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Exists",
-		Args: testing.FakeCallArgs{
-			"name": initFile,
+		Args: []interface{}{
+			initFile,
 		},
 	}, {
 		FuncName: "ReadFile",
-		Args: testing.FakeCallArgs{
-			"filename": filename,
+		Args: []interface{}{
+			filename,
 		},
 	}, {
 		FuncName: "Symlink",
-		Args: testing.FakeCallArgs{
-			"oldName": filename,
-			"newName": initFile,
+		Args: []interface{}{
+			filename,
+			initFile,
 		},
 	}})
 }
@@ -273,15 +273,15 @@ func (s *initSystemSuite) TestInitSystemDisable(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	initFile := s.initDir + "/" + name + ".conf"
-	s.fake.CheckCalls(c, []testing.FakeCall{{
+	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Exists",
-		Args: testing.FakeCallArgs{
-			"name": s.initDir + "/" + name + ".conf",
+		Args: []interface{}{
+			s.initDir + "/" + name + ".conf",
 		},
 	}, {
 		FuncName: "RemoveAll",
-		Args: testing.FakeCallArgs{
-			"name": initFile,
+		Args: []interface{}{
+			initFile,
 		},
 	}})
 }
@@ -302,10 +302,10 @@ func (s *initSystemSuite) TestInitSystemIsEnabledTrue(c *gc.C) {
 	c.Check(enabled, jc.IsTrue)
 
 	initFile := s.initDir + "/" + name + ".conf"
-	s.fake.CheckCalls(c, []testing.FakeCall{{
+	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Exists",
-		Args: testing.FakeCallArgs{
-			"name": initFile,
+		Args: []interface{}{
+			initFile,
 		},
 	}})
 }
@@ -334,21 +334,21 @@ func (s *initSystemSuite) TestInitSystemInfoRunning(c *gc.C) {
 	})
 
 	initFile := s.initDir + "/" + name + ".conf"
-	s.fake.CheckCalls(c, []testing.FakeCall{{
+	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Exists",
-		Args: testing.FakeCallArgs{
-			"name": s.initDir + "/" + name + ".conf",
+		Args: []interface{}{
+			s.initDir + "/" + name + ".conf",
 		},
 	}, {
 		FuncName: "ReadFile",
-		Args: testing.FakeCallArgs{
-			"filename": initFile,
+		Args: []interface{}{
+			initFile,
 		},
 	}, {
 		FuncName: "RunCommand",
-		Args: testing.FakeCallArgs{
-			"cmd":  "status",
-			"args": []string{"--system", name},
+		Args: []interface{}{
+			"status",
+			[]string{"--system", name},
 		},
 	}})
 }
@@ -389,10 +389,10 @@ func (s *initSystemSuite) TestInitSystemConf(c *gc.C) {
 	})
 
 	initFile := s.initDir + "/" + name + ".conf"
-	s.fake.CheckCalls(c, []testing.FakeCall{{
+	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ReadFile",
-		Args: testing.FakeCallArgs{
-			"filename": initFile,
+		Args: []interface{}{
+			initFile,
 		},
 	}})
 }
@@ -409,7 +409,7 @@ func (s *initSystemSuite) TestInitSystemValidate(c *gc.C) {
 	err := s.init.Validate("jujud-unit-wordpress-0", s.conf)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.fake.CheckCalls(c, nil)
+	s.stub.CheckCalls(c, nil)
 }
 
 func (s *initSystemSuite) TestInitSystemValidateInvalid(c *gc.C) {
@@ -426,7 +426,7 @@ func (s *initSystemSuite) TestInitSystemSerializeBasic(c *gc.C) {
 
 	c.Check(string(data), gc.Equals, s.confStr)
 
-	s.fake.CheckCalls(c, nil)
+	s.stub.CheckCalls(c, nil)
 }
 
 func (s *initSystemSuite) TestInitSystemSerializeFull(c *gc.C) {
@@ -468,7 +468,7 @@ func (s *initSystemSuite) TestInitSystemDeserializeBasic(c *gc.C) {
 		Cmd:  "/var/lib/juju/init/" + name + "/script.sh",
 	})
 
-	s.fake.CheckCalls(c, nil)
+	s.stub.CheckCalls(c, nil)
 }
 
 func (s *initSystemSuite) TestInitSystemDeserializeFull(c *gc.C) {

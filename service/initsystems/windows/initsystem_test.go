@@ -31,9 +31,9 @@ type initSystemSuite struct {
 	conf    initsystems.Conf
 	confStr string
 
-	fake  *testing.Fake
-	files *fs.FakeOps
-	cmd   *initsystems.FakeShell
+	stub  *testing.Stub
+	files *fs.StubOps
+	cmd   *initsystems.StubShell
 	init  initsystems.InitSystem
 }
 
@@ -48,9 +48,9 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 	}
 	s.confStr = s.newConfStr("jujud-machine-0")
 
-	s.fake = &testing.Fake{}
-	s.files = &fs.FakeOps{Fake: s.fake}
-	s.cmd = &initsystems.FakeShell{Fake: s.fake}
+	s.stub = &testing.Stub{}
+	s.files = &fs.StubOps{Stub: s.stub}
+	s.cmd = &initsystems.StubShell{Stub: s.stub}
 	s.init = windows.NewWindows(s.files, s.cmd)
 
 	s.PatchValue(&initsystems.RetryAttempts, utils.AttemptStrategy{})
@@ -134,20 +134,20 @@ func (s *initSystemSuite) TestInitSystemStart(c *gc.C) {
 
 	statusCmd := cmdPrefix + `(Get-Service "` + name + `").Status`
 	cmd := cmdPrefix + `Start-Service  "` + name + `"`
-	s.fake.CheckCalls(c, []testing.FakeCall{{
+	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "RunCommandStr",
-		Args: testing.FakeCallArgs{
-			"cmd": statusCmd,
+		Args: []interface{}{
+			statusCmd,
 		},
 	}, {
 		FuncName: "RunCommandStr",
-		Args: testing.FakeCallArgs{
-			"cmd": statusCmd,
+		Args: []interface{}{
+			statusCmd,
 		},
 	}, {
 		FuncName: "RunCommandStr",
-		Args: testing.FakeCallArgs{
-			"cmd": cmd,
+		Args: []interface{}{
+			cmd,
 		},
 	}})
 }
@@ -181,20 +181,20 @@ func (s *initSystemSuite) TestInitSystemStop(c *gc.C) {
 
 	statusCmd := cmdPrefix + `(Get-Service "` + name + `").Status`
 	cmd := cmdPrefix + `Stop-Service  "` + name + `"`
-	s.fake.CheckCalls(c, []testing.FakeCall{{
+	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "RunCommandStr",
-		Args: testing.FakeCallArgs{
-			"cmd": statusCmd,
+		Args: []interface{}{
+			statusCmd,
 		},
 	}, {
 		FuncName: "RunCommandStr",
-		Args: testing.FakeCallArgs{
-			"cmd": statusCmd,
+		Args: []interface{}{
+			statusCmd,
 		},
 	}, {
 		FuncName: "RunCommandStr",
-		Args: testing.FakeCallArgs{
-			"cmd": cmd,
+		Args: []interface{}{
+			cmd,
 		},
 	}})
 }
@@ -229,29 +229,29 @@ func (s *initSystemSuite) TestInitSystemEnable(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	statusCmd := cmdPrefix + `(Get-Service "` + name + `").Status`
-	expected := []testing.FakeCall{{
+	expected := []testing.StubCall{{
 		FuncName: "RunCommandStr",
-		Args: testing.FakeCallArgs{
-			"cmd": statusCmd,
+		Args: []interface{}{
+			statusCmd,
 		},
 	}, {
 		FuncName: "ReadFile",
-		Args: testing.FakeCallArgs{
-			"filename": filename,
+		Args: []interface{}{
+			filename,
 		},
 	}}
 	for _, cmd := range []string{
 		fmt.Sprintf("New-Service -Credential $jujuCreds -Name '%s' -DisplayName 'juju agent for %s' 'jujud.exe %s'", name, tag, tag),
 		"cmd.exe /C sc config " + name + " start=delayed-auto",
 	} {
-		expected = append(expected, testing.FakeCall{
+		expected = append(expected, testing.StubCall{
 			FuncName: "RunCommandStr",
-			Args: testing.FakeCallArgs{
-				"cmd": cmd,
+			Args: []interface{}{
+				cmd,
 			},
 		})
 	}
-	s.fake.CheckCalls(c, expected)
+	s.stub.CheckCalls(c, expected)
 }
 
 func (s *initSystemSuite) TestInitSystemEnableAlreadyEnabled(c *gc.C) {
@@ -273,15 +273,15 @@ func (s *initSystemSuite) TestInitSystemDisable(c *gc.C) {
 
 	statusCmd := cmdPrefix + `(Get-Service "` + name + `").Status`
 	cmd := cmdPrefix + `(gwmi win32_service -filter 'name="` + name + `"').Delete()`
-	s.fake.CheckCalls(c, []testing.FakeCall{{
+	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "RunCommandStr",
-		Args: testing.FakeCallArgs{
-			"cmd": statusCmd,
+		Args: []interface{}{
+			statusCmd,
 		},
 	}, {
 		FuncName: "RunCommandStr",
-		Args: testing.FakeCallArgs{
-			"cmd": cmd,
+		Args: []interface{}{
+			cmd,
 		},
 	}})
 }
@@ -305,10 +305,10 @@ func (s *initSystemSuite) TestInitSystemIsEnabledTrue(c *gc.C) {
 	c.Check(enabled, jc.IsTrue)
 
 	statusCmd := cmdPrefix + `(Get-Service "` + name + `").Status`
-	s.fake.CheckCalls(c, []testing.FakeCall{{
+	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "RunCommandStr",
-		Args: testing.FakeCallArgs{
-			"cmd": statusCmd,
+		Args: []interface{}{
+			statusCmd,
 		},
 	}})
 }
@@ -339,15 +339,15 @@ func (s *initSystemSuite) TestInitSystemInfoRunning(c *gc.C) {
 
 	statusCmd := cmdPrefix + `(Get-Service "` + name + `").Status`
 	descrCmd := cmdPrefix + `(Get-Service "` + name + `").DisplayName`
-	s.fake.CheckCalls(c, []testing.FakeCall{{
+	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "RunCommandStr",
-		Args: testing.FakeCallArgs{
-			"cmd": statusCmd,
+		Args: []interface{}{
+			statusCmd,
 		},
 	}, {
 		FuncName: "RunCommandStr",
-		Args: testing.FakeCallArgs{
-			"cmd": descrCmd,
+		Args: []interface{}{
+			descrCmd,
 		},
 	}})
 }
@@ -393,20 +393,20 @@ func (s *initSystemSuite) TestInitSystemConf(c *gc.C) {
 	statusCmd := cmdPrefix + `(Get-Service "` + name + `").Status`
 	descrCmd := cmdPrefix + `(Get-Service "` + name + `").DisplayName`
 	cmd := cmdPrefix + `(Get-WmiObject win32_service | ?{$_.Name -like '` + name + `'}).PathName`
-	s.fake.CheckCalls(c, []testing.FakeCall{{
+	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "RunCommandStr",
-		Args: testing.FakeCallArgs{
-			"cmd": statusCmd,
+		Args: []interface{}{
+			statusCmd,
 		},
 	}, {
 		FuncName: "RunCommandStr",
-		Args: testing.FakeCallArgs{
-			"cmd": descrCmd,
+		Args: []interface{}{
+			descrCmd,
 		},
 	}, {
 		FuncName: "RunCommandStr",
-		Args: testing.FakeCallArgs{
-			"cmd": cmd,
+		Args: []interface{}{
+			cmd,
 		},
 	}})
 }
@@ -424,7 +424,7 @@ func (s *initSystemSuite) TestInitSystemValidate(c *gc.C) {
 	err := s.init.Validate("jujud-machine-0", s.conf)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.fake.CheckCalls(c, nil)
+	s.stub.CheckCalls(c, nil)
 }
 
 func (s *initSystemSuite) TestInitSystemValidateInvalid(c *gc.C) {
@@ -472,7 +472,7 @@ func (s *initSystemSuite) TestInitSystemSerialize(c *gc.C) {
 
 	c.Check(string(data), gc.Equals, s.confStr)
 
-	s.fake.CheckCalls(c, nil)
+	s.stub.CheckCalls(c, nil)
 }
 
 func (s *initSystemSuite) TestInitSystemSerializeUnsupported(c *gc.C) {
@@ -500,7 +500,7 @@ func (s *initSystemSuite) TestInitSystemDeserialize(c *gc.C) {
 		Cmd:  "jujud.exe unit-wordpress-0",
 	})
 
-	s.fake.CheckCalls(c, nil)
+	s.stub.CheckCalls(c, nil)
 }
 
 func (s *initSystemSuite) TestInitSystemDeserializeUnsupported(c *gc.C) {
