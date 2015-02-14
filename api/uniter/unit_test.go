@@ -117,7 +117,7 @@ func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
 func (s *unitSuite) TestSetUnitStatusOldServer(c *gc.C) {
 	s.patchNewState(c, uniter.NewStateV1)
 
-	err = s.apiUnit.SetUnitStatus(params.StatusRunning, "blah", nil)
+	err := s.apiUnit.SetUnitStatus(params.StatusRunning, "blah", nil)
 	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 	c.Assert(err.Error(), gc.Equals, "SetUnitStatus not implemented")
 }
