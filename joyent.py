@@ -391,7 +391,7 @@ class Client:
             self.request_deletion(current_stuck, contact_mail_address)
 
 
-def parse_args(args=None):
+def parse_args(argv=None):
     """Return the argument parser for this program."""
     parser = ArgumentParser('Query and manage joyent.')
     parser.add_argument(
@@ -437,15 +437,15 @@ def parse_args(args=None):
         'list-objects', help='List directories and files in manta')
     parser_list_objects.add_argument('path', help='The path')
 
-
-    return parser.parse_args(args)
+    args = parser.parse_args(argv)
+    if not args.sdc_url:
+        print('SDC_URL must be sourced into the environment.')
+        sys.exit(1)
+    return args
 
 
 def main(argv):
     args = parse_args(argv)
-    if not args.sdc_url:
-        print('SDC_URL must be sourced into the environment.')
-        sys.exit(1)
     client = Client(
         args.sdc_url, args.account, args.key_id, args.key_path, args.manta_url,
         dry_run=args.dry_run, verbose=args.verbose)
