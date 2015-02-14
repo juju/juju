@@ -44,22 +44,19 @@ func newUnsupportedError(field, key, reason string) error {
 	baseErr.SetLocation(2)
 
 	// Build the field error.
-	var err error
-	fieldErr := ErrUnsupportedField{
+	err := ErrUnsupportedField{
 		Err:   baseErr,
 		Field: field,
 	}
-	err = &fieldErr
-
-	if key != "" {
-		// Build the item error.
-		err = &ErrUnsupportedItem{
-			ErrUnsupportedField: fieldErr,
-			Key:                 key,
-		}
+	if key == "" {
+		return &err
 	}
 
-	return err
+	// Build the item error.
+	return &ErrUnsupportedItem{
+		ErrUnsupportedField: err,
+		Key:                 key,
+	}
 }
 
 // ErrUnsupportedField is an error used to describe a conf field that
