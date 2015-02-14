@@ -4,13 +4,12 @@
 package state
 
 import (
-	"fmt"
-
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/mgo.v2/txn"
 )
 
-// UnitAgent represents the state of a service unit agent.
+// UnitAgent represents the state of a service's unit agent.
 type UnitAgent struct {
 	st   *State
 	tag  names.Tag
@@ -36,7 +35,7 @@ func (u *UnitAgent) String() string {
 func (u *UnitAgent) Status() (status Status, info string, data map[string]interface{}, err error) {
 	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
-		return "", "", nil, err
+		return "", "", nil, errors.Trace(err)
 	}
 	status = doc.Status
 	info = doc.StatusInfo
@@ -49,19 +48,19 @@ func (u *UnitAgent) Status() (status Status, info string, data map[string]interf
 func (u *UnitAgent) SetStatus(status Status, info string, data map[string]interface{}) error {
 	doc, err := newUnitAgentStatusDoc(status, info, data)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	ops := []txn.Op{
 		updateStatusOp(u.st, u.globalKey(), doc.statusDoc),
 	}
 	err = u.st.runTransaction(ops)
 	if err != nil {
-		return fmt.Errorf("cannot set status of unit agent %q: %v", u, onAbort(err, ErrDead))
+		return errors.Errorf("cannot set status of unit agent %q: %v", u, onAbort(err, ErrDead))
 	}
 	return nil
 }
 
-// unitGlobalKey returns the global database key for the named unit.
+// unitAgentGlobalKey returns the global database key for the named unit.
 func unitAgentGlobalKey(name string) string {
 	return "u#" + name
 }
@@ -71,7 +70,7 @@ func (u *UnitAgent) globalKey() string {
 	return unitAgentGlobalKey(u.name)
 }
 
-// Tag returns a name identifying this agent's unit.
+// Tag returns a names.Tag identifying this agent's unit.
 func (u *UnitAgent) Tag() names.Tag {
 	return u.tag
 }

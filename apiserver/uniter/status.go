@@ -13,6 +13,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// StatusAPI is the uniter part that deals with setting/getting
+// status from different entities, this particular separation from
+// base is because we have a shim to support unit/agent split.
 type StatusAPI struct {
 	agentSetter  *common.StatusSetter
 	unitSetter   *common.StatusSetter
@@ -30,7 +33,7 @@ func (ua *unitAgentFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	}
 	entity, err := ua.EntityFinder.FindEntity(tag)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return entity.(*state.Unit).Agent(), nil
 }

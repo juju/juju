@@ -1279,8 +1279,6 @@ func (s *clientSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetStatus(state.StatusRunning, "", nil)
-		c.Assert(err, jc.ErrorIsNil)
 		err = unit.SetAgentStatus(state.StatusActive, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit

@@ -65,12 +65,12 @@ func (u *Unit) SetUnitStatus(status params.Status, info string, data map[string]
 	}
 	err := u.st.facade.FacadeCall("SetUnitStatus", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return result.OneError()
 }
 
-// SetUnitStatus sets the status of the unit agent.
+// SetAgentStatus sets the status of the unit agent.
 func (u *Unit) SetAgentStatus(status params.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{

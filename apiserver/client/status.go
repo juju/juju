@@ -597,7 +597,7 @@ func processAgent(entity stateAgent) (out api.AgentStatus, compatStatus params.S
 		out.Version = t.Version.Number.String()
 	}
 
-	// TODO - this is ok for now, but status needs to support returning 3 values
+	// TODO(wallyworld) - this is ok for now, but status needs to support returning 3 values
 	// for unit:
 	// - legacy agent status
 	// - new agent status

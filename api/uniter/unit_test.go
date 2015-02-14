@@ -76,12 +76,12 @@ func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
 	c.Assert(info, gc.Equals, "blah")
 	c.Assert(data, gc.HasLen, 0)
 
+	// Ensure that unit has not changed.
 	unitStatus, unitInfo, unitData, err = s.wordpressUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitStatus, gc.Equals, state.StatusBusy)
 	c.Assert(unitInfo, gc.Equals, "")
 	c.Assert(unitData, gc.HasLen, 0)
-
 }
 
 func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
@@ -106,22 +106,16 @@ func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
 	c.Assert(info, gc.Equals, "blah")
 	c.Assert(data, gc.HasLen, 0)
 
+	// Ensure unit's agent has not changed.
 	agentStatus, agentInfo, agentData, err = s.wordpressUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(agentStatus, gc.Equals, state.StatusAllocating)
 	c.Assert(agentInfo, gc.Equals, "")
 	c.Assert(agentData, gc.HasLen, 0)
-
 }
 
 func (s *unitSuite) TestSetUnitStatusOldServer(c *gc.C) {
 	s.patchNewState(c, uniter.NewStateV1)
-
-	status, info, data, err := s.wordpressUnit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusBusy)
-	c.Assert(info, gc.Equals, "")
-	c.Assert(data, gc.HasLen, 0)
 
 	err = s.apiUnit.SetUnitStatus(params.StatusRunning, "blah", nil)
 	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)

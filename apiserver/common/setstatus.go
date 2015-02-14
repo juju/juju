@@ -90,7 +90,6 @@ func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]int
 			newData[k] = v
 		}
 	}
-
 	entity, ok := entity0.(state.StatusSetter)
 	if !ok {
 		return NotSupportedError(tag, "updating status")

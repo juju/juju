@@ -144,11 +144,6 @@ func (status Status) Matches(candidate Status) bool {
 	return status == candidate
 }
 
-// AgentUnit represents a type that can return its agent.
-type AgentUnit interface {
-	Agent() Entity
-}
-
 // StatusSetter represents a type whose status can be set.
 type StatusSetter interface {
 	SetStatus(status Status, info string, data map[string]interface{}) error
@@ -157,11 +152,6 @@ type StatusSetter interface {
 // StatusGetter represents a type whose status can be read.
 type StatusGetter interface {
 	Status() (status Status, info string, data map[string]interface{}, err error)
-}
-
-type StatusSetterGetter interface {
-	StatusSetter
-	StatusGetter
 }
 
 // statusDoc represents a entity status in Mongodb.  The implicit
@@ -301,7 +291,7 @@ func newUnitStatusDoc(status Status, info string, data map[string]interface{}) (
 		StatusData: data,
 	}}
 	if err := doc.validateSet(); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return doc, nil
 }
@@ -331,7 +321,7 @@ func (doc *unitStatusDoc) validateSet() error {
 		return errors.Errorf("cannot set invalid status %q", doc.Status)
 	}
 	switch doc.Status {
-	//TODO(perrito666) add business rules regarding status transitions
+	// TODO(perrito666) add business rules regarding status transitions.
 	case StatusError:
 		if doc.StatusInfo == "" {
 			return errors.Errorf("cannot set status %q without info", doc.Status)
