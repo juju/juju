@@ -20,23 +20,23 @@ type confDirSuite struct {
 }
 
 func (s *confDirSuite) checkWritten(c *gc.C, filename, content string, perm os.FileMode) {
-	s.FakeFiles.CheckCalls(c, []testing.FakeCall{{
+	s.StubFiles.CheckCalls(c, []testing.StubCall{{
 		FuncName: "CreateFile",
-		Args: testing.FakeCallArgs{
-			"filename": filename,
+		Args: []interface{}{
+			filename,
 		},
 	}, {
 		FuncName: "Write",
-		Args: testing.FakeCallArgs{
-			"data": []byte(content),
+		Args: []interface{}{
+			[]byte(content),
 		},
 	}, {
 		FuncName: "Close",
 	}, {
 		FuncName: "Chmod",
-		Args: testing.FakeCallArgs{
-			"name": filename,
-			"perm": perm,
+		Args: []interface{}{
+			filename,
+			perm,
 		},
 	}})
 }
@@ -60,21 +60,21 @@ func (s *confDirSuite) TestFilename(c *gc.C) {
 }
 
 func (s *confDirSuite) TestValidate(c *gc.C) {
-	s.FakeFiles.Returns.Exists = true
+	s.StubFiles.Returns.Exists = true
 
 	err := s.Confdir.validate()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.FakeFiles.CheckCalls(c, []testing.FakeCall{{
+	s.StubFiles.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Exists",
-		Args: testing.FakeCallArgs{
-			"name": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
+		Args: []interface{}{
+			"/var/lib/juju/init/jujud-machine-0/upstart.conf",
 		},
 	}})
 }
 
 func (s *confDirSuite) TestValidateMissingConf(c *gc.C) {
-	s.FakeFiles.SetErrors(os.ErrNotExist)
+	s.StubFiles.SetErrors(os.ErrNotExist)
 
 	err := s.Confdir.validate()
 
@@ -85,22 +85,22 @@ func (s *confDirSuite) TestCreate(c *gc.C) {
 	err := s.Confdir.create()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.FakeFiles.CheckCalls(c, []testing.FakeCall{{
+	s.StubFiles.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Exists",
-		Args: testing.FakeCallArgs{
-			"name": "/var/lib/juju/init/jujud-machine-0",
+		Args: []interface{}{
+			"/var/lib/juju/init/jujud-machine-0",
 		},
 	}, {
 		FuncName: "MkdirAll",
-		Args: testing.FakeCallArgs{
-			"dirname": "/var/lib/juju/init/jujud-machine-0",
-			"perm":    os.FileMode(0755),
+		Args: []interface{}{
+			"/var/lib/juju/init/jujud-machine-0",
+			os.FileMode(0755),
 		},
 	}})
 }
 
 func (s *confDirSuite) TestConf(c *gc.C) {
-	s.FakeFiles.Returns.Data = []byte("<conf file contents>")
+	s.StubFiles.Returns.Data = []byte("<conf file contents>")
 
 	content, err := s.Confdir.conf()
 	c.Assert(err, jc.ErrorIsNil)
@@ -109,7 +109,7 @@ func (s *confDirSuite) TestConf(c *gc.C) {
 }
 
 func (s *confDirSuite) TestScript(c *gc.C) {
-	s.FakeFiles.Returns.Data = []byte("<script file contents>")
+	s.StubFiles.Returns.Data = []byte("<script file contents>")
 
 	content, err := s.Confdir.script()
 	c.Assert(err, jc.ErrorIsNil)
@@ -177,10 +177,10 @@ func (s *confDirSuite) TestRemove(c *gc.C) {
 	err := s.Confdir.remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.FakeFiles.CheckCalls(c, []testing.FakeCall{{
+	s.StubFiles.CheckCalls(c, []testing.StubCall{{
 		FuncName: "RemoveAll",
-		Args: testing.FakeCallArgs{
-			"name": "/var/lib/juju/init/jujud-machine-0",
+		Args: []interface{}{
+			"/var/lib/juju/init/jujud-machine-0",
 		},
 	}})
 }
