@@ -210,8 +210,6 @@ class Client:
             obj = json.loads(line)
             obj['path'] = '%s/%s' % (path, obj['name'])
             objects.append(obj)
-        if self.verbose:
-            print(objects)
         return objects
 
     def list_objects(self, path):
