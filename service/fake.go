@@ -10,19 +10,19 @@ import (
 	"github.com/juju/utils/set"
 )
 
-// FakeServiceStatus holds the sets of names for a given status.
-type FakeServicesStatus struct {
+// StubServiceStatus holds the sets of names for a given status.
+type StubServicesStatus struct {
 	Running set.Strings
 	Enabled set.Strings
 	Managed set.Strings
 }
 
-// FakeServices is used in place of Services in testing.
-type FakeServices struct {
-	*testing.Fake
+// StubServices is used in place of Services in testing.
+type StubServices struct {
+	*testing.Stub
 
 	// Status is the collection of service statuses.
-	Status FakeServicesStatus
+	Status StubServicesStatus
 
 	// Confs tracks which confs have been passed to the methods.
 	Confs map[string]Conf
@@ -35,21 +35,21 @@ type FakeServices struct {
 	CheckPassed []bool
 }
 
-// NewFakeServices creates a new FakeServices with the given init system
+// NewStubServices creates a new StubServices with the given init system
 // name set.
-func NewFakeServices(init string) *FakeServices {
-	fake := &FakeServices{
-		Fake: &testing.Fake{},
+func NewStubServices(init string) *StubServices {
+	stub := &StubServices{
+		Stub: &testing.Stub{},
 		Init: init,
 	}
-	fake.Reset()
-	return fake
+	stub.Calls = nil
+	return stub
 }
 
-// Reset sets the fake back to a pristine state.
-func (fs *FakeServices) Reset() {
-	fs.Fake.Reset()
-	fs.Status = FakeServicesStatus{
+// Reset sets the stub back to a pristine state.
+func (fs *StubServices) Reset() {
+	fs.Stub.Calls = nil
+	fs.Status = StubServicesStatus{
 		Running: set.NewStrings(),
 		Enabled: set.NewStrings(),
 		Managed: set.NewStrings(),
@@ -59,94 +59,79 @@ func (fs *FakeServices) Reset() {
 }
 
 // InitSystem implements services.
-func (fs *FakeServices) InitSystem() string {
-	fs.AddCall("InitSystem", nil)
+func (fs *StubServices) InitSystem() string {
+	fs.AddCall("InitSystem")
 
-	fs.Err()
+	fs.NextErr()
 	return fs.Init
 }
 
 // List implements services.
-func (fs *FakeServices) List() ([]string, error) {
-	fs.AddCall("List", nil)
+func (fs *StubServices) List() ([]string, error) {
+	fs.AddCall("List")
 
-	return fs.Status.Managed.Values(), fs.Err()
+	return fs.Status.Managed.Values(), fs.NextErr()
 }
 
 // ListEnabled implements services.
-func (fs *FakeServices) ListEnabled() ([]string, error) {
-	fs.AddCall("ListEnabled", nil)
+func (fs *StubServices) ListEnabled() ([]string, error) {
+	fs.AddCall("ListEnabled")
 
-	return fs.Status.Enabled.Values(), fs.Err()
+	return fs.Status.Enabled.Values(), fs.NextErr()
 }
 
 // Start implements services.
-func (fs *FakeServices) Start(name string) error {
-	fs.AddCall("Start", testing.FakeCallArgs{
-		"name": name,
-	})
+func (fs *StubServices) Start(name string) error {
+	fs.AddCall("Start", name)
 
 	fs.Status.Running.Add(name)
-	return fs.Err()
+	return fs.NextErr()
 }
 
 // Stop implements services.
-func (fs *FakeServices) Stop(name string) error {
-	fs.AddCall("Stop", testing.FakeCallArgs{
-		"name": name,
-	})
+func (fs *StubServices) Stop(name string) error {
+	fs.AddCall("Stop", name)
 
 	fs.Status.Running.Remove(name)
-	return fs.Err()
+	return fs.NextErr()
 }
 
 // IsRunning implements services.
-func (fs *FakeServices) IsRunning(name string) (bool, error) {
-	fs.AddCall("IsRunning", testing.FakeCallArgs{
-		"name": name,
-	})
+func (fs *StubServices) IsRunning(name string) (bool, error) {
+	fs.AddCall("IsRunning", name)
 
-	return fs.Status.Running.Contains(name), fs.Err()
+	return fs.Status.Running.Contains(name), fs.NextErr()
 }
 
 // Enable implements services.
-func (fs *FakeServices) Enable(name string) error {
-	fs.AddCall("Enable", testing.FakeCallArgs{
-		"name": name,
-	})
+func (fs *StubServices) Enable(name string) error {
+	fs.AddCall("Enable", name)
 
 	fs.Status.Enabled.Add(name)
-	return fs.Err()
+	return fs.NextErr()
 }
 
 // Disable implements services.
-func (fs *FakeServices) Disable(name string) error {
-	fs.AddCall("Disable", testing.FakeCallArgs{
-		"name": name,
-	})
+func (fs *StubServices) Disable(name string) error {
+	fs.AddCall("Disable", name)
 
 	fs.Status.Running.Remove(name)
 	fs.Status.Enabled.Remove(name)
-	return fs.Err()
+	return fs.NextErr()
 }
 
 // IsEnabled implements services.
-func (fs *FakeServices) IsEnabled(name string) (bool, error) {
-	fs.AddCall("IsEnabled", testing.FakeCallArgs{
-		"name": name,
-	})
+func (fs *StubServices) IsEnabled(name string) (bool, error) {
+	fs.AddCall("IsEnabled", name)
 
-	return fs.Status.Enabled.Contains(name), fs.Err()
+	return fs.Status.Enabled.Contains(name), fs.NextErr()
 }
 
 // Manage implements services.
-func (fs *FakeServices) Manage(name string, conf Conf) error {
-	fs.AddCall("Add", testing.FakeCallArgs{
-		"name": name,
-		"conf": conf,
-	})
+func (fs *StubServices) Manage(name string, conf Conf) error {
+	fs.AddCall("Add", name, conf)
 
-	if err := fs.Err(); err != nil {
+	if err := fs.NextErr(); err != nil {
 		return err
 	}
 	if fs.Status.Managed.Contains(name) {
@@ -155,66 +140,52 @@ func (fs *FakeServices) Manage(name string, conf Conf) error {
 
 	fs.Status.Managed.Add(name)
 	fs.Confs[name] = conf
-	return fs.Err()
+	return fs.NextErr()
 }
 
 // Remove implements services.
-func (fs *FakeServices) Remove(name string) error {
-	fs.AddCall("Remove", testing.FakeCallArgs{
-		"name": name,
-	})
+func (fs *StubServices) Remove(name string) error {
+	fs.AddCall("Remove", name)
 
 	fs.Status.Running.Remove(name)
 	fs.Status.Enabled.Remove(name)
 	fs.Status.Managed.Remove(name)
-	return fs.Err()
+	return fs.NextErr()
 }
 
 // Check implements services.
-func (fs *FakeServices) Check(name string, conf Conf) (bool, error) {
-	fs.AddCall("Check", testing.FakeCallArgs{
-		"name": name,
-		"conf": conf,
-	})
+func (fs *StubServices) Check(name string, conf Conf) (bool, error) {
+	fs.AddCall("Check", name, conf)
 
 	passed := true
 	if len(fs.CheckPassed) > 0 {
 		passed = fs.CheckPassed[0]
 		fs.CheckPassed = fs.CheckPassed[1:]
 	}
-	return passed, fs.Err()
+	return passed, fs.NextErr()
 }
 
 // IsManaged implements services.
-func (fs *FakeServices) IsManaged(name string) bool {
-	fs.AddCall("IsManaged", testing.FakeCallArgs{
-		"name": name,
-	})
+func (fs *StubServices) IsManaged(name string) bool {
+	fs.AddCall("IsManaged", name)
 
 	return fs.Status.Managed.Contains(name)
 }
 
 // Install implements services.
-func (fs *FakeServices) Install(name string, conf Conf) error {
-	fs.AddCall("Install", testing.FakeCallArgs{
-		"name": name,
-		"conf": conf,
-	})
+func (fs *StubServices) Install(name string, conf Conf) error {
+	fs.AddCall("Install", name, conf)
 
 	fs.Status.Managed.Add(name)
 	fs.Status.Enabled.Add(name)
 	fs.Status.Running.Add(name)
-	return fs.Err()
+	return fs.NextErr()
 }
 
 // NewAgentSevice implements services.
-func (fs *FakeServices) NewAgentService(tag names.Tag, paths AgentPaths, env map[string]string) (*Service, error) {
-	fs.AddCall("NewAgentService", testing.FakeCallArgs{
-		"tag":   tag,
-		"paths": paths,
-		"env":   env,
-	})
+func (fs *StubServices) NewAgentService(tag names.Tag, paths AgentPaths, env map[string]string) (*Service, error) {
+	fs.AddCall("NewAgentService", tag, paths, env)
 
 	svc, _ := NewAgentService(tag, paths, env, fs)
-	return svc, fs.Err()
+	return svc, fs.NextErr()
 }

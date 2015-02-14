@@ -4,6 +4,8 @@
 package service
 
 import (
+	"reflect"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
@@ -328,7 +330,7 @@ func (s Services) Check(name string, conf Conf) (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return actual.Equals(*expected), nil
+	return reflect.DeepEqual(actual, *expected), nil
 }
 
 // IsManaged determines whether or not the named service is
