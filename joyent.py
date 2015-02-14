@@ -22,6 +22,8 @@ from textwrap import dedent
 from time import sleep
 import urllib2
 
+from utils import until_timeout
+
 
 VERSION = '0.1.0'
 USER_AGENT = "juju-cloud-tool/{} ({}) Python/{}".format(
@@ -133,8 +135,8 @@ class Client:
     See https://github.com/joyent/python-manta
     """
 
-    def __init__(self, sdc_url, account, key_id, manta_url,
-                 user_agent=USER_AGENT, dry_run=False, verbose=False):
+    def __init__(self, sdc_url, account, key_id, key_path, manta_url,
+                 user_agent=USER_AGENT, pause=3, dry_run=False, verbose=False):
         if sdc_url.endswith('/'):
             sdc_url = sdc_url[1:]
         self.sdc_url = sdc_url
@@ -143,7 +145,9 @@ class Client:
         self.manta_url = manta_url
         self.account = account
         self.key_id = key_id
+        self.key_path = key_path
         self.user_agent = user_agent
+        self.pause = pause
         self.dry_run = dry_run
         self.verbose = verbose
 
@@ -154,8 +158,7 @@ class Client:
         where "date" must be lowercase.
         """
         timestamp = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
-        key_path = os.path.join(os.environ['JUJU_HOME'], 'id_rsa')
-        script = SSL_SIGN.format(timestamp, key_path)
+        script = SSL_SIGN.format(timestamp, self.key_path)
         signature = subprocess.check_output(['bash', '-c', script])
         key = "/{}/keys/{}".format(self.account, self.key_id)
         auth = (
@@ -341,6 +344,20 @@ class Client:
             with open(STUCK_MACHINES_PATH, 'w') as stuck_file:
                 json.dump(list(current_stuck_ids), stuck_file)
 
+    def _delete_running_machine(self, machine_id):
+        self.stop_machine(machine_id)
+        for ignored in until_timeout(120):
+            if self.verbose:
+                print(".", end="")
+                sys.stdout.flush()
+            sleep(self.pause)
+            stopping_machine = self._list_machines(machine_id)
+            if stopping_machine['state'] == 'stopped':
+                break
+        if self.verbose:
+            print("stopped")
+        self.delete_machine(machine_id)
+
     def delete_old_machines(self, old_age, contact_mail_address):
         procs = subprocess.check_output(['bash', '-c', JOYENT_PROCS])
         for proc in procs.splitlines():
@@ -358,25 +375,19 @@ class Client:
         for machine in machines:
             created = datetime.strptime(machine['created'], ISO_8601_FORMAT)
             age = now - created
-            print(age)
             if age > timedelta(hours=old_age):
                 machine_id = machine['id']
+                tags = self._list_machine_tags(machine_id)
+                if tags.get('permanent', 'false') == 'true':
+                    continue
                 if machine['state'] == 'provisioning':
                     current_stuck.append(machine)
                     continue
-                print("Machine {} is {} old".format(machine_id, age))
+                if self.verbose:
+                    print("Machine {} is {} old".format(machine_id, age))
                 if not self.dry_run:
-                    self.stop_machine(machine_id)
-                    while True:
-                        print(".", end="")
-                        sys.stdout.flush()
-                        sleep(3)
-                        stopping_machine = self._list_machines(machine_id)
-                        if stopping_machine['state'] == 'stopped':
-                            break
-                    print("stopped")
-                    self.delete_machine(machine_id)
-        if not self.dry_run:
+                    self._delete_running_machine(machine_id)
+        if not self.dry_run and current_stuck:
             self.request_deletion(current_stuck, contact_mail_address)
 
 
@@ -404,6 +415,10 @@ def parse_args(args=None):
         "-k", "--key-id", dest="key_id",
         help="SSH key fingerprint.  Environment: MANTA_KEY_ID=FINGERPRINT",
         default=os.environ.get("MANTA_KEY_ID"))
+    parser.add_argument(
+        "-p", "--key-path", dest="key_path",
+        help="Path to the SSH key",
+        default=os.path.join(os.environ.get('JUJU_HOME', '~/.juju'), 'id_rsa'))
     subparsers = parser.add_subparsers(help='sub-command help', dest="command")
     subparsers.add_parser('list-machines', help='List running machines')
     parser_delete_old_machine = subparsers.add_parser(
@@ -422,7 +437,8 @@ def parse_args(args=None):
         'list-objects', help='List directories and files in manta')
     parser_list_objects.add_argument('path', help='The path')
 
-    return parser.parse_args()
+
+    return parser.parse_args(args)
 
 
 def main(argv):
@@ -431,7 +447,7 @@ def main(argv):
         print('SDC_URL must be sourced into the environment.')
         sys.exit(1)
     client = Client(
-        args.sdc_url, args.account, args.key_id, args.manta_url,
+        args.sdc_url, args.account, args.key_id, args.key_path, args.manta_url,
         dry_run=args.dry_run, verbose=args.verbose)
     if args.command == 'list-machines':
         client.list_machines()

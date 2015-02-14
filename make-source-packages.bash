@@ -7,6 +7,7 @@
 # from the other script.
 
 SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
+HERE=$(pwd)
 
 
 usage() {
@@ -62,7 +63,7 @@ fi
 shift; shift; shift
 FIXED_BUGS=$@
 
-summary="The source package can be uploaded:"
+summary="The source package can be uploaded:\n\n"
 supported_series=$(grep -E 'DEVEL|LTS|SUPPORTED' \
     $SCRIPT_DIR/supported-releases.txt |
     cut -d ' ' -f 2)
@@ -74,8 +75,9 @@ fi
 for series in $supported_series; do
     source $SCRIPT_DIR/make-package-with-tarball.bash \
         $test_opt -p $PPATCH $series $TARBALL "$DEBEMAIL" $FIXED_BUGS
-    summary="$summary\n  cd $TMP_DIR"
+    summary="$summary\ncd $TMP_DIR"
     summary="$summary\n  dput $PPA juju-core_${UBUNTU_VERSION}_source.changes"
 done
 echo -e "$summary"
+echo -e "cd $HERE"
 

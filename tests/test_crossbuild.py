@@ -245,18 +245,28 @@ class CrossBuildTestCase(TestCase):
             mt_mock.call_args[0])
 
     def test_make_osx_tarball(self):
+        oct_775 = int('775', 8)
+        oct_664 = int('664', 8)
         with temp_dir() as base_dir:
             cmd_dir = os.path.join(base_dir, 'foo')
             os.makedirs(cmd_dir)
-            juju_binary = os.path.join(cmd_dir,  'juju')
-            metadata_binary = os.path.join(cmd_dir,  'juju-metadata')
-            for path in [juju_binary, metadata_binary]:
+            juju_binary = os.path.join(cmd_dir, 'juju')
+            readme_file = os.path.join(cmd_dir, 'README.txt')
+            for path in [juju_binary, readme_file]:
                 with open(path, 'w') as jb:
                     jb.write('juju')
-            make_osx_tarball([juju_binary, metadata_binary], '1.2.3', base_dir)
+            os.chmod(juju_binary, oct_775)
+            os.chmod(readme_file, oct_664)
+            make_osx_tarball([juju_binary, readme_file], '1.2.3', base_dir)
             osx_tarball_path = os.path.join(base_dir, 'juju-1.2.3-osx.tar.gz')
             self.assertTrue(os.path.isfile(osx_tarball_path))
             with tarfile.open(osx_tarball_path, 'r:gz') as tar:
                 self.assertEqual(
-                    ['juju-bin', 'juju-bin/juju', 'juju-bin/juju-metadata'],
+                    ['juju-bin', 'juju-bin/juju', 'juju-bin/README.txt'],
                     tar.getnames())
+                self.assertEqual(
+                    oct_775, tar.getmember('juju-bin').mode)
+                self.assertEqual(
+                    oct_775, tar.getmember('juju-bin/juju').mode)
+                self.assertEqual(
+                    oct_664, tar.getmember('juju-bin/README.txt').mode)
