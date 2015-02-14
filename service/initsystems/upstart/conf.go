@@ -5,6 +5,7 @@ package upstart
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 	"text/template"
 
@@ -36,6 +37,12 @@ func Serialize(name string, conf initsystems.Conf) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+var confRegex = regexp.MustCompile(`` +
+	`description "(.*)"|` +
+	`env (\w+)="(.*)"|` +
+	`limit (\w*) (\w+)|` +
+	`exec ([^ ]+)(?: >> (.+) 2>&1)?`)
+
 // Deserialize parses the provided data (in the init system's prefered
 // format) and populates a new Conf with the result.
 func Deserialize(data []byte, name string) (*initsystems.Conf, error) {
@@ -47,41 +54,29 @@ func Deserialize(data []byte, name string) (*initsystems.Conf, error) {
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 
-		if line == "" {
+		groups := confRegex.FindSubmatch([]byte(line))
+		if groups == nil {
 			continue
 		}
 
-		if strings.HasPrefix(line, "description ") {
-			start := len("description ")
-			conf.Desc = strings.Trim(line[start:], `"`)
-			continue
-		}
-		if strings.HasPrefix(line, "env ") {
+		switch {
+		case groups[1] != nil:
+			conf.Desc = string(groups[1])
+		case groups[2] != nil:
 			if conf.Env == nil {
 				conf.Env = make(map[string]string)
 			}
-			start := len("env ")
-			parts := strings.SplitN(line[start:], "=", 2)
-			conf.Env[parts[0]] = strings.Trim(parts[1], `"`)
-			continue
-		}
-		if strings.HasPrefix(line, "limit ") {
+			name := string(groups[2])
+			conf.Env[name] = string(groups[3])
+		case groups[4] != nil:
 			if conf.Limit == nil {
 				conf.Limit = make(map[string]string)
 			}
-			start := len("limit ")
-			parts := strings.SplitN(line[start:], " ", 2)
-			conf.Limit[parts[0]] = parts[1]
-			continue
-		}
-		if strings.HasPrefix(line, "exec ") {
-			start := len("exec ")
-			parts := strings.SplitN(line[start:], " >> ", 2)
-			conf.Cmd = parts[0]
-			if len(parts) == 2 {
-				conf.Out = strings.TrimSuffix(parts[1], " 2>&1")
-			}
-			continue
+			name := string(groups[4])
+			conf.Limit[name] = string(groups[5])
+		case groups[6] != nil:
+			conf.Cmd = string(groups[6])
+			conf.Out = string(groups[7])
 		}
 	}
 
