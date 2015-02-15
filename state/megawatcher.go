@@ -148,7 +148,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id interface{
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
 		// so fetch the associated unit status and opened ports.
-		sdoc, err := getStatus(st, unitGlobalKey(u.Name))
+		sdoc, err := getStatus(st, unitAgentGlobalKey(u.Name))
 		if err != nil {
 			return err
 		}
@@ -606,6 +606,7 @@ func backingEntityIdForGlobalKey(key string) (multiwatcher.EntityId, bool) {
 	case 'm':
 		return (&multiwatcher.MachineInfo{Id: id}).EntityId(), true
 	case 'u':
+		id = strings.TrimSuffix(id, "#charm")
 		return (&multiwatcher.UnitInfo{Name: id}).EntityId(), true
 	case 's':
 		return (&multiwatcher.ServiceInfo{Name: id}).EntityId(), true

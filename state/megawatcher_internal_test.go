@@ -91,29 +91,35 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 		return
 	}
 	c.Errorf("entity mismatch; got len %d; want %d", len(got), len(want))
-	c.Logf("got:")
+	// Lets construct a decent output.
+	var errorOutput string
+	errorOutput = "\ngot: \n"
 	for _, e := range got {
-		c.Logf("\t%T %#v", e, e)
+		errorOutput += fmt.Sprintf("\t%T %#v\n", e, e)
 	}
-	c.Logf("expected:")
+	errorOutput += "expected: \n"
 	for _, e := range want {
-		c.Logf("\t%T %#v", e, e)
+		errorOutput += fmt.Sprintf("\t%T %#v\n", e, e)
 	}
 
+	c.Errorf(errorOutput)
+
+	var firstDiffError string
 	if len(got) == len(want) {
 		for i := 0; i < len(got); i++ {
 			g := got[i]
 			w := want[i]
 			if !jcDeepEqualsCheck(c, g, w) {
-				c.Logf("")
-				c.Logf("first difference at position %d", i)
-				c.Logf("got:")
-				c.Logf("\t%T %#v", g, g)
-				c.Logf("expected:")
-				c.Logf("\t%T %#v", w, w)
+				firstDiffError += "\n"
+				firstDiffError += fmt.Sprintf("first difference at position %d", i)
+				firstDiffError += "got: \n"
+				firstDiffError += fmt.Sprintf("\t%T %#v", g, g)
+				firstDiffError += "expected: \n"
+				firstDiffError += fmt.Sprintf("\t%T %#v", w, w)
 				break
 			}
 		}
+		c.Errorf(firstDiffError)
 	}
 	c.FailNow()
 }
@@ -434,7 +440,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPorts("tcp", 5555, 5558)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetStatus(StatusError, "failure", nil)
+			err = u.SetAgentStatus(StatusError, "failure", nil)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
@@ -585,7 +591,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			privateAddress := network.NewAddress("private", network.ScopeCloudLocal)
 			err = m.SetAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetStatus(StatusError, "failure", nil)
+			err = u.SetAgentStatus(StatusError, "failure", nil)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
@@ -833,7 +839,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetStatus(StatusActive, "", nil)
+			err = u.SetAgentStatus(StatusActive, "", nil)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
@@ -857,7 +863,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetStatus(StatusError, "hook error", map[string]interface{}{
+			err = u.SetAgentStatus(StatusError, "hook error", map[string]interface{}{
 				"1st-key": "one",
 				"2nd-key": 2,
 				"3rd-key": true,

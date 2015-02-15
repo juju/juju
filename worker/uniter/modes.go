@@ -85,7 +85,7 @@ func ModeInstalling(curl *charm.URL) (next Mode, err error) {
 		// This SetStatus call should probably be inside the operation somehow;
 		// which in turn implies that the SetStatus call in PrepareHook is
 		// also misplaced, and should also be explicitly part of the operation.
-		if err = u.unit.SetStatus(params.StatusInstalling, "", nil); err != nil {
+		if err = u.unit.SetAgentStatus(params.StatusInstalling, "", nil); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return continueAfter(u, newInstallOp(curl))
@@ -114,7 +114,7 @@ func ModeUpgrading(curl *charm.URL) Mode {
 // ModeTerminating marks the unit dead and returns ErrTerminateAgent.
 func ModeTerminating(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeTerminating", &err)()
-	if err = u.unit.SetStatus(params.StatusStopping, "", nil); err != nil {
+	if err = u.unit.SetAgentStatus(params.StatusStopping, "", nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 	w, err := u.unit.Watch()
@@ -173,7 +173,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if !opState.Started {
 		return continueAfter(u, newSimpleRunHookOp(hooks.Start))
 	}
-	if err = u.unit.SetStatus(params.StatusActive, "", nil); err != nil {
+	if err = u.unit.SetAgentStatus(params.StatusActive, "", nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 	u.f.WantUpgradeEvent(false)
@@ -293,7 +293,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	u.f.WantResolvedEvent()
 	u.f.WantUpgradeEvent(true)
 	for {
-		if err = u.unit.SetStatus(params.StatusError, statusMessage, statusData); err != nil {
+		if err = u.unit.SetAgentStatus(params.StatusError, statusMessage, statusData); err != nil {
 			return nil, errors.Trace(err)
 		}
 		select {
@@ -329,7 +329,7 @@ func ModeConflicted(curl *charm.URL) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext("ModeConflicted", &err)()
 		// TODO(mue) Add helpful data here too in later CL.
-		if err = u.unit.SetStatus(params.StatusError, "upgrade failed", nil); err != nil {
+		if err = u.unit.SetAgentStatus(params.StatusError, "upgrade failed", nil); err != nil {
 			return nil, errors.Trace(err)
 		}
 		u.f.WantResolvedEvent()

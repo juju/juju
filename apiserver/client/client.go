@@ -288,10 +288,10 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	}
 	curl, err := charm.ParseURL(args.CharmUrl)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if curl.Revision < 0 {
-		return fmt.Errorf("charm url must include revision")
+		return errors.Errorf("charm url must include revision")
 	}
 
 	if args.ToMachineSpec != "" && names.IsValidMachine(args.ToMachineSpec) {
@@ -310,14 +310,14 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		}
 		err = c.AddCharm(params.CharmURL{args.CharmUrl})
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		ch, err = c.api.state.Charm(curl)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	} else if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// TODO(axw) stop checking feature flag once storage has graduated.
@@ -362,12 +362,12 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		settings, err = parseSettingsCompatible(ch, args.Config)
 	}
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	// Convert network tags to names for any given networks.
 	requestedNetworks, err := networkTagsToNames(args.Networks)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	_, err = jjj.DeployService(c.api.state,
