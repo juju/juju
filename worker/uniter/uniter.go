@@ -114,12 +114,17 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		default:
 			mode, err = mode(u)
 			switch cause := errors.Cause(err); cause {
-			case operation.ErrHookFailed:
-				mode, err = ModeHookError, nil
 			case operation.ErrNeedsReboot:
 				err = worker.ErrRebootMachine
 			case tomb.ErrDying, worker.ErrTerminateAgent:
 				err = cause
+			case operation.ErrHookFailed:
+				mode, err = ModeHookError, nil
+			default:
+				charmURL, ok := operation.DeployConflictCharmURL(cause)
+				if ok {
+					mode, err = ModeConflicted(charmURL), nil
+				}
 			}
 		}
 	}

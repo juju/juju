@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
-	ucharm "github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
@@ -76,7 +75,9 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	return continueAfter(u, creator)
 }
 
-// ModeInstalling is responsible for the initial charm deployment.
+// ModeInstalling is responsible for the initial charm deployment. If an install
+// operation were to set an appropriate status, it shouldn't be necessary; but see
+// ModeUpgrading for discussion relevant to both.
 func ModeInstalling(curl *charm.URL) (next Mode, err error) {
 	name := fmt.Sprintf("ModeInstalling %s", curl)
 	return func(u *Uniter) (next Mode, err error) {
@@ -92,22 +93,16 @@ func ModeInstalling(curl *charm.URL) (next Mode, err error) {
 	}, nil
 }
 
-// ModeUpgrading is responsible for upgrading the charm.
+// ModeUpgrading is responsible for upgrading the charm. It shouldn't really
+// need to be a mode at all -- it's just running a single operation -- but
+// it's not safe to call it inside arbitrary other modes, because failing to
+// pass through ModeContinue on the way out could cause a queued hook to be
+// accidentally skipped.
 func ModeUpgrading(curl *charm.URL) Mode {
 	name := fmt.Sprintf("ModeUpgrading %s", curl)
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext(name, &err)()
-		// TODO(fwereade) 2015-01-19
-		// If we encoded the failed charm URL in ErrConflict -- or alternatively
-		// if we recorded a bit more info in operation.State -- we could move this
-		// code into the error->mode transform in Uniter.loop().
-		err = u.runOperation(newUpgradeOp(curl))
-		if errors.Cause(err) == ucharm.ErrConflict {
-			return ModeConflicted(curl), nil
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return ModeContinue, nil
+		return continueAfter(u, newUpgradeOp(curl))
 	}
 }
 
@@ -343,17 +338,7 @@ func ModeConflicted(curl *charm.URL) Mode {
 		case <-u.f.ResolvedEvents():
 			creator = newResolvedUpgradeOp(curl)
 		}
-		err = u.runOperation(creator)
-		// TODO(fwereade) 2015-01-19
-		// If we encoded the failed charm URL in ErrConflict -- or alternatively
-		// if we recorded a bit more info in operation.State -- we could move this
-		// code into the error->mode transform in Uniter.loop().
-		if errors.Cause(err) == ucharm.ErrConflict {
-			return ModeConflicted(curl), nil
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return ModeContinue, nil
+		return continueAfter(u, creator)
 	}
 }
 
