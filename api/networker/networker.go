@@ -31,7 +31,7 @@ func (st *State) MachineNetworkInfo(tag names.MachineTag) ([]network.InterfaceIn
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
-	var results params.MachineNetworkInfoResults
+	var results params.MachineNetworkConfigResults
 	err := st.facade.FacadeCall("MachineNetworkInfo", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
@@ -46,8 +46,8 @@ func (st *State) MachineNetworkInfo(tag names.MachineTag) ([]network.InterfaceIn
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	interfaceInfo := make([]network.InterfaceInfo, len(result.Info))
-	for i, ifaceInfo := range result.Info {
+	interfaceInfo := make([]network.InterfaceInfo, len(result.Config))
+	for i, ifaceInfo := range result.Config {
 		interfaceInfo[i].DeviceIndex = ifaceInfo.DeviceIndex
 		interfaceInfo[i].MACAddress = ifaceInfo.MACAddress
 		interfaceInfo[i].CIDR = ifaceInfo.CIDR

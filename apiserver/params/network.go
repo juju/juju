@@ -47,12 +47,12 @@ type NetworkInterface struct {
 	Disabled bool `json:"Disabled"`
 }
 
-// NetworkInfo describes all the necessary information to configure
+// NetworkConfig describes all the necessary information to configure
 // all network interfaces on a machine. This mostly duplicates
 // network.InterfaceInfo type and it's defined here so it can be kept
 // separate and stable as definition to ensure proper wire-format for
 // the API.
-type NetworkInfo struct {
+type NetworkConfig struct {
 	// DeviceIndex specifies the order in which the network interface
 	// appears on the host. The primary interface has an index of 0.
 	DeviceIndex int
@@ -324,13 +324,15 @@ type RequestedNetworksResults struct {
 	Results []RequestedNetworkResult `json:"Results"`
 }
 
-// MachineNetworkInfoResult holds network info for a single machine.
-type MachineNetworkInfoResult struct {
-	Error *Error        `json:"Error"`
-	Info  []NetworkInfo `json:"Info"`
+// MachineNetworkConfigResult holds network configuration for a single machine.
+type MachineNetworkConfigResult struct {
+	Error *Error `json:"Error"`
+
+	// Tagged to Info due to compatability reasons.
+	Config []NetworkConfig `json:"Info"`
 }
 
-// MachineNetworkInfoResults holds network info for multiple machines.
-type MachineNetworkInfoResults struct {
-	Results []MachineNetworkInfoResult `json:"Results"`
+// MachineNetworkConfigResults holds network configuration for multiple machines.
+type MachineNetworkConfigResults struct {
+	Results []MachineNetworkConfigResult `json:"Results"`
 }
