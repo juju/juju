@@ -3,10 +3,8 @@
 
 package provider
 
-import "github.com/juju/juju/storage"
-
 func init() {
-	storage.RegisterProvider(LoopProviderType, &loopProvider{logAndExec})
+	RegisterProvider(LoopProviderType, &loopProvider{logAndExec})
 
 	// TODO(axw) provide a function for registering common storage providers.
 }

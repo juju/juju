@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/pool"
 	"github.com/juju/juju/storage/provider"
 )
@@ -36,7 +35,7 @@ func (s *AssignSuite) SetUpTest(c *gc.C) {
 	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	storage.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+	provider.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 
 	wordpress := s.AddTestingServiceWithNetworks(
 		c,

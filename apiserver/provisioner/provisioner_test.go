@@ -730,9 +730,9 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	storage.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
+	provider.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
 	defer func() {
-		storage.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
+		provider.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
 	}()
 
 	cons := constraints.MustParse("cpu-cores=123 mem=8G networks=^net3,^net4")
@@ -949,9 +949,9 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	storage.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
+	provider.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
 	defer func() {
-		storage.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
+		provider.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
 	}()
 
 	// Provision machine 0 first.

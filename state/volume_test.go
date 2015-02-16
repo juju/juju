@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/pool"
 	"github.com/juju/juju/storage/provider"
 )
@@ -33,7 +32,7 @@ func (s *VolumeStateSuite) SetUpTest(c *gc.C) {
 	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	storage.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+	provider.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 }
 
 func (s *VolumeStateSuite) TestAddMachine(c *gc.C) {

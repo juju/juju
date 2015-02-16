@@ -2935,9 +2935,9 @@ func (s *clientSuite) setupStoragePool(c *gc.C) {
 	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	storage.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
+	provider.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
 	s.AddCleanup(func(_ *gc.C) {
-		storage.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
+		provider.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
 	})
 }
 
