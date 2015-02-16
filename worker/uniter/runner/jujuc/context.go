@@ -194,7 +194,7 @@ func newStorageIdValue(ctx Context, result *names.StorageTag) *storageIdValue {
 	if s, found := ctx.HookStorageAttachment(); found {
 		tag, err := names.ParseStorageTag(s.StorageTag)
 		if err == nil {
-			*result = tag
+			*v.result = tag
 		}
 	}
 	return v

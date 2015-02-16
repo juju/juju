@@ -99,7 +99,6 @@ When no <key> is supplied, all keys values are printed.
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }
 
-//
 func (s *storageGetSuite) TestOutputPath(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
