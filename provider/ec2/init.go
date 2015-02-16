@@ -9,15 +9,15 @@ import (
 )
 
 const (
-	AWS = "ec2"
+	providerType = "ec2"
 )
 
 func init() {
-	environs.RegisterProvider(AWS, environProvider{})
+	environs.RegisterProvider(providerType, environProvider{})
 
 	//Register the AWS specific providers.
 	registry.RegisterProvider(EBS_ProviderType, &ebsProvider{})
 
 	// Inform the storage provider registry about the AWS providers.
-	registry.RegisterEnvironStorageProviders(AWS, EBS_ProviderType)
+	registry.RegisterEnvironStorageProviders(providerType, EBS_ProviderType)
 }

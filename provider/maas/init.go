@@ -9,11 +9,11 @@ import (
 )
 
 const (
-	MAAS = "maas"
+	providerType = "maas"
 )
 
 func init() {
-	environs.RegisterProvider(MAAS, maasEnvironProvider{})
+	environs.RegisterProvider(providerType, maasEnvironProvider{})
 
-	registry.RegisterEnvironStorageProviders(MAAS)
+	registry.RegisterEnvironStorageProviders(providerType)
 }

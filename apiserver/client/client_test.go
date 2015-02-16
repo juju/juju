@@ -41,7 +41,7 @@ import (
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/pool"
-	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -2935,9 +2935,9 @@ func (s *clientSuite) setupStoragePool(c *gc.C) {
 	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	provider.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
+	registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
 	s.AddCleanup(func(_ *gc.C) {
-		provider.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
+		registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
 	})
 }
 

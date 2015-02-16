@@ -10,13 +10,13 @@ import (
 )
 
 const (
-	Openstack = "openstack"
+	providerType = "openstack"
 )
 
 func init() {
-	environs.RegisterProvider(Openstack, environProvider{})
+	environs.RegisterProvider(providerType, environProvider{})
 	environs.RegisterImageDataSourceFunc("keystone catalog", getKeystoneImageSource)
 	tools.RegisterToolsDataSourceFunc("keystone catalog", getKeystoneToolsSource)
 
-	registry.RegisterEnvironStorageProviders(Openstack)
+	registry.RegisterEnvironStorageProviders(providerType)
 }

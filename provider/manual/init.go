@@ -9,12 +9,12 @@ import (
 )
 
 const (
-	Manual = "manual"
+	providerType = "manual"
 )
 
 func init() {
 	p := manualProvider{}
-	environs.RegisterProvider(Manual, p, "null")
+	environs.RegisterProvider(providerType, p, "null")
 
-	registry.RegisterEnvironStorageProviders(Manual)
+	registry.RegisterEnvironStorageProviders(providerType)
 }

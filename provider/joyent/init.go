@@ -9,11 +9,11 @@ import (
 )
 
 const (
-	Joyent = "joyent"
+	providerType = "joyent"
 )
 
 func init() {
-	environs.RegisterProvider(Joyent, providerInstance)
+	environs.RegisterProvider(providerType, providerInstance)
 
-	registry.RegisterEnvironStorageProviders(Joyent)
+	registry.RegisterEnvironStorageProviders(providerType)
 }

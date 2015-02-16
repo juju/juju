@@ -9,11 +9,11 @@ import (
 )
 
 const (
-	Azure = "azure"
+	providerType = "azure"
 )
 
 func init() {
-	environs.RegisterProvider("azure", azureEnvironProvider{})
+	environs.RegisterProvider(providerType, azureEnvironProvider{})
 
-	registry.RegisterEnvironStorageProviders(Azure)
+	registry.RegisterEnvironStorageProviders(providerType)
 }

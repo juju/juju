@@ -10,24 +10,24 @@ import (
 )
 
 const (
-	Local = "local"
+	providerType = "local"
 )
 
 func init() {
-	environs.RegisterProvider(Local, providerInstance)
+	environs.RegisterProvider(providerType, providerInstance)
 
 	// TODO(wallyworld) - sort out policy for allowing loop provider
 	registry.RegisterEnvironStorageProviders(
-		Local,
+		providerType,
 		storageprovider.HostLoopProviderType,
 	)
 	// TODO(wallyworld) - implement when available
-	//	storageprovider.RegisterDefaultPool(
+	//	registry.RegisterDefaultPool(
 	//		provider.Local,
 	//		storage.StorageKindBlock,
 	//		storageprovider.LoopPool,
 	//	)
-	//	storageprovider.RegisterDefaultPool(
+	//	registry.RegisterDefaultPool(
 	//		provider.Local,
 	//		storage.StorageKindFilesystem,
 	//		storageprovider.RootfsPool,
