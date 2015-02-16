@@ -130,6 +130,7 @@ type State struct {
 	mu         sync.Mutex
 	allManager *storeManager
 	environTag names.EnvironTag
+	serverTag  names.EnvironTag
 }
 
 // StateServingInfo holds information needed by a state server.
@@ -144,6 +145,12 @@ type StateServingInfo struct {
 	// this will be passed as the KeyFile argument to MongoDB
 	SharedSecret   string
 	SystemIdentity string
+}
+
+// IsStateServer returns true if this state instance has the bootstrap
+// environment UUID.
+func (st *State) IsStateServer() bool {
+	return st.environTag == st.serverTag
 }
 
 // RemoveAllEnvironDocs removes all documents from multi-environment
@@ -181,6 +188,7 @@ func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
 		return nil, errors.Trace(err)
 	}
 	newState.environTag = env
+	newState.serverTag = st.serverTag
 	newState.startPresenceWatcher()
 	return newState, nil
 }

@@ -71,6 +71,13 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestIsStateServer(c *gc.C) {
+	c.Assert(s.State.IsStateServer(), jc.IsTrue)
+	st2 := s.Factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+	c.Assert(st2.IsStateServer(), jc.IsFalse)
+}
+
 func (s *StateSuite) TestDocID(c *gc.C) {
 	id := "wordpress"
 	docID := state.DocID(s.State, id)
@@ -1077,6 +1084,11 @@ func (s *StateSuite) TestAddMachine(c *gc.C) {
 	c.Assert(m, gc.HasLen, 2)
 	check(m[0], "0", "quantal", allJobs)
 	check(m[1], "1", "blahblah", oneJob)
+
+	st2 := s.Factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+	_, err = st2.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: state server jobs specified but not allowed")
 }
 
 func (s *StateSuite) TestAddMachines(c *gc.C) {
@@ -1518,7 +1530,7 @@ func (s *StateSuite) TestAddMachineCanOnlyAddStateServerForMachine0(c *gc.C) {
 	c.Assert(info.MachineIds, gc.DeepEquals, []string{"0"})
 	c.Assert(info.VotingMachineIds, gc.DeepEquals, []string{"0"})
 
-	const errCannotAdd = "cannot add a new machine: state server jobs specified without calling EnsureAvailability"
+	const errCannotAdd = "cannot add a new machine: state server jobs specified but not allowed"
 	m, err = s.State.AddOneMachine(template)
 	c.Assert(err, gc.ErrorMatches, errCannotAdd)
 
