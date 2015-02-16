@@ -4,9 +4,9 @@
 package storage
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"

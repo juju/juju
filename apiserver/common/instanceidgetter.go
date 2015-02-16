@@ -4,10 +4,11 @@
 package common
 
 import (
+	"github.com/juju/names"
+
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
-	"github.com/juju/names"
 )
 
 // InstanceIdGetter implements a common InstanceId method for use by

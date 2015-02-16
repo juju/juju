@@ -7,12 +7,12 @@ import (
 	"fmt"
 	stdtesting "testing"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/names"
 )
 
 func TestAll(t *stdtesting.T) {

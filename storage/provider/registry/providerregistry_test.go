@@ -8,12 +8,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	// Ensure environ providers are registered.
+	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
-
-	// Ensure environ providers are registered.
-	_ "github.com/juju/juju/provider/all"
 )
 
 type providerRegistrySuite struct{}

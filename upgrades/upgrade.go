@@ -6,8 +6,9 @@ package upgrades
 import (
 	"fmt"
 
-	"github.com/juju/juju/version"
 	"github.com/juju/loggo"
+
+	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.upgrade")

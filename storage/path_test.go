@@ -4,9 +4,10 @@
 package storage_test
 
 import (
-	"github.com/juju/juju/storage"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/storage"
 )
 
 type BlockDevicePathSuite struct{}

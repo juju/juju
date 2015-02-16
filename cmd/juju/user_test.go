@@ -7,13 +7,13 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
-	"github.com/juju/juju/testing/factory"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 // UserSuite tests the connectivity of all the user subcommands. These tests
