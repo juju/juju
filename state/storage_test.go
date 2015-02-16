@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 )
@@ -32,7 +32,7 @@ func (s *StorageStateSuite) SetUpTest(c *gc.C) {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
 	// Create a default pool for block devices.
-	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	pm := poolmanager.NewPoolManager(state.NewStateSettings(s.State))
 	_, err := pm.Create("block", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
@@ -86,6 +86,18 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraints(c *gc.C) {
 	_, err := addService(storageCons)
 	c.Assert(err, jc.ErrorIsNil)
 	// TODO(wallyworld) - test pool name stored in data model
+}
+
+func (s *StorageStateSuite) TestProviderFallbackToType(c *gc.C) {
+	ch := s.AddTestingCharm(c, "storage-block")
+	addService := func(storage map[string]state.StorageConstraints) (*state.Service, error) {
+		return s.State.AddService("storage-block", "user-test-admin@local", ch, nil, storage)
+	}
+	storageCons := map[string]state.StorageConstraints{
+		"data": makeStorageCons("loop", 1024, 1),
+	}
+	_, err := addService(storageCons)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *StorageStateSuite) TestAddUnit(c *gc.C) {

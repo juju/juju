@@ -19,7 +19,8 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider/registry"
 )
 
 func init() {
@@ -544,7 +545,7 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 		if stateVolumeParams.Pool == "" {
 			return nil, errors.Errorf("storage pool name not specified")
 		}
-		providerType, options, err = poolConfig(p.st, stateVolumeParams.Pool)
+		providerType, options, err = storageConfig(p.st, stateVolumeParams.Pool)
 		if err != nil {
 			return nil, errors.Errorf("cannot get options for pool %q", stateVolumeParams.Pool)
 		}
@@ -559,13 +560,24 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 	return volumeParams, nil
 }
 
-func poolConfig(st *state.State, poolName string) (storage.ProviderType, map[string]interface{}, error) {
-	pm := pool.NewPoolManager(state.NewStateSettings(st))
+// storageConfig returns the provider type and config attributes for the
+// specified poolName. If no such pool exists, assume poolName is
+// actually a provider type, in which case config will be empty.
+func storageConfig(st *state.State, poolName string) (storage.ProviderType, map[string]interface{}, error) {
+	pm := poolmanager.NewPoolManager(state.NewStateSettings(st))
 	p, err := pm.Get(poolName)
+	// If not a storage pool, then maybe a provider type.
+	if errors.IsNotFound(err) {
+		providerType := storage.ProviderType(poolName)
+		if _, err1 := registry.StorageProvider(providerType); err1 != nil {
+			return "", nil, errors.Trace(err)
+		}
+		return providerType, nil, nil
+	}
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
-	return p.Type(), p.Config(), nil
+	return p.Provider(), p.Attrs(), nil
 }
 
 // volumesToState converts a slice of storage.Volume to a mapping

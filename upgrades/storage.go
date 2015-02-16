@@ -6,10 +6,10 @@ package upgrades
 import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/poolmanager"
 )
 
 func addDefaultStoragePools(st *state.State, agentConfig agent.Config) error {
 	settings := state.NewStateSettings(st)
-	return pool.AddDefaultStoragePools(settings, agentConfig)
+	return poolmanager.AddDefaultStoragePools(settings, agentConfig)
 }

@@ -16,7 +16,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider/registry"
 )
 
@@ -518,12 +518,20 @@ func validateStoragePool(st *State, poolName string, kind storage.StorageKind) (
 		}
 	}
 	// Ensure the pool type is supported by the environment.
-	pm := pool.NewPoolManager(NewStateSettings(st))
+	var providerType storage.ProviderType
+	pm := poolmanager.NewPoolManager(NewStateSettings(st))
 	p, err := pm.Get(poolName)
-	if err != nil {
+	// If there's no pool called poolName, maybe a provider type has been specified directly.
+	if errors.IsNotFound(err) {
+		providerType = storage.ProviderType(poolName)
+		if _, err1 := registry.StorageProvider(providerType); err1 != nil {
+			return "", errors.Trace(err)
+		}
+	} else if err != nil {
 		return "", errors.Trace(err)
+	} else {
+		providerType = p.Provider()
 	}
-	providerType := p.Type()
 	if !registry.IsProviderSupported(envType, providerType) {
 		return "", errors.Errorf(
 			"pool %q uses storage provider %q which is not supported for environments of type %q",

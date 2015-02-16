@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/poolmanager"
 )
 
 const (
@@ -33,13 +33,11 @@ const (
 )
 
 func init() {
-	defaultPools := []pool.PoolInfo{
-		// TODO(wallyworld) - remove "ebs" pool which has no params when we support
-		// specifying provider type for pool name
-		{"ebs", EBS_ProviderType, map[string]interface{}{}},
-		{"ebs-ssd", EBS_ProviderType, map[string]interface{}{"volume-type": "gp2"}},
+	ebsssdPool, _ := storage.NewConfig("ebs-ssd", EBS_ProviderType, map[string]interface{}{"volume-type": "gp2"})
+	defaultPools := []*storage.Config{
+		ebsssdPool,
 	}
-	pool.RegisterDefaultStoragePools(defaultPools)
+	poolmanager.RegisterDefaultStoragePools(defaultPools)
 }
 
 // loopProviders create volume sources which use loop devices.

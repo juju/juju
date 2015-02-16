@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package pool_test
+package poolmanager_test
 
 import (
 	"github.com/juju/errors"
@@ -11,14 +11,14 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/poolmanager"
 )
 
 type poolSuite struct {
 	// TODO - don't use state directly, mock it out and add feature tests.
 	statetesting.StateSuite
-	poolManager pool.PoolManager
-	settings    pool.SettingsManager
+	poolManager poolmanager.PoolManager
+	settings    poolmanager.SettingsManager
 }
 
 var _ = gc.Suite(&poolSuite{})
@@ -30,7 +30,7 @@ var poolAttrs = map[string]interface{}{
 func (s *poolSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.settings = state.NewStateSettings(s.State)
-	s.poolManager = pool.NewPoolManager(s.settings)
+	s.poolManager = poolmanager.NewPoolManager(s.settings)
 }
 
 func (s *poolSuite) createSettings(c *gc.C) {
@@ -46,9 +46,9 @@ func (s *poolSuite) TestList(c *gc.C) {
 	pools, err := s.poolManager.List()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pools, gc.HasLen, 1)
-	c.Assert(pools[0].Config(), gc.DeepEquals, map[string]interface{}{"foo": "bar"})
+	c.Assert(pools[0].Attrs(), gc.DeepEquals, map[string]interface{}{"foo": "bar"})
 	c.Assert(pools[0].Name(), gc.Equals, "testpool")
-	c.Assert(pools[0].Type(), gc.Equals, storage.ProviderType("loop"))
+	c.Assert(pools[0].Provider(), gc.Equals, storage.ProviderType("loop"))
 }
 
 func (s *poolSuite) TestListManyResults(c *gc.C) {
@@ -62,7 +62,7 @@ func (s *poolSuite) TestListManyResults(c *gc.C) {
 	c.Assert(pools, gc.HasLen, 2)
 	poolCfgs := make(map[string]map[string]interface{})
 	for _, p := range pools {
-		poolCfgs[p.Name()] = p.Config()
+		poolCfgs[p.Name()] = p.Attrs()
 	}
 	c.Assert(poolCfgs, jc.DeepEquals, map[string]map[string]interface{}{
 		"testpool":  {"foo": "bar"},
@@ -80,9 +80,9 @@ func (s *poolSuite) TestPool(c *gc.C) {
 	s.createSettings(c)
 	p, err := s.poolManager.Get("testpool")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p.Config(), gc.DeepEquals, map[string]interface{}{"foo": "bar"})
+	c.Assert(p.Attrs(), gc.DeepEquals, map[string]interface{}{"foo": "bar"})
 	c.Assert(p.Name(), gc.Equals, "testpool")
-	c.Assert(p.Type(), gc.Equals, storage.ProviderType("loop"))
+	c.Assert(p.Provider(), gc.Equals, storage.ProviderType("loop"))
 }
 
 func (s *poolSuite) TestCreate(c *gc.C) {
@@ -91,9 +91,9 @@ func (s *poolSuite) TestCreate(c *gc.C) {
 	p, err := s.poolManager.Get("testpool")
 	c.Assert(created, gc.DeepEquals, p)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p.Config(), gc.DeepEquals, map[string]interface{}{"foo": "bar"})
+	c.Assert(p.Attrs(), gc.DeepEquals, map[string]interface{}{"foo": "bar"})
 	c.Assert(p.Name(), gc.Equals, "testpool")
-	c.Assert(p.Type(), gc.Equals, storage.ProviderType("loop"))
+	c.Assert(p.Provider(), gc.Equals, storage.ProviderType("loop"))
 }
 
 func (s *poolSuite) TestCreateAlreadyExists(c *gc.C) {

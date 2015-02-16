@@ -12,7 +12,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/upgrades"
 )
 
@@ -28,12 +28,12 @@ func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *gc.C) {
 
 	err := upgrades.AddDefaultStoragePools(s.State, &mockAgentConfig{dataDir: s.DataDir()})
 	settings := state.NewStateSettings(s.State)
-	err = pool.AddDefaultStoragePools(settings, &mockAgentConfig{dataDir: s.DataDir()})
+	err = poolmanager.AddDefaultStoragePools(settings, &mockAgentConfig{dataDir: s.DataDir()})
 	c.Assert(err, jc.ErrorIsNil)
-	pm := pool.NewPoolManager(settings)
-	for _, pName := range []string{"ebs", "ebs-ssd"} {
+	pm := poolmanager.NewPoolManager(settings)
+	for _, pName := range []string{"ebs-ssd"} {
 		p, err := pm.Get(pName)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(p.Type(), gc.Equals, ec2.EBS_ProviderType)
+		c.Assert(p.Provider(), gc.Equals, ec2.EBS_ProviderType)
 	}
 }

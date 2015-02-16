@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package pool
+package poolmanager
 
 import (
 	"github.com/juju/errors"
@@ -19,56 +19,6 @@ var (
 	MissingTypeError = errors.New("provider type is missing")
 	MissingNameError = errors.New("pool name is missing")
 )
-
-// config encapsulates the config attributes for a storage pool.
-type config struct {
-	attrs map[string]interface{}
-}
-
-func (c *config) values() map[string]interface{} {
-	copy := make(map[string]interface{})
-	for k, v := range c.attrs {
-		copy[k] = v
-	}
-	return copy
-}
-
-func (c *config) validate() error {
-	//TODO: properly validate the config attributes.
-	if c.attrs[Type] == "" {
-		return MissingTypeError
-	}
-	if c.attrs[Name] == "" {
-		return MissingNameError
-	}
-	return nil
-}
-
-var _ Pool = (*pool)(nil)
-
-type pool struct {
-	cfg *config
-}
-
-// Name is defined on Pool interface.
-func (p *pool) Name() string {
-	return p.cfg.attrs[Name].(string)
-}
-
-// Type is defined on Pool interface.
-func (p *pool) Type() storage.ProviderType {
-	return storage.ProviderType(p.cfg.attrs[Type].(string))
-}
-
-// Config is defined on Pool interface.
-func (p *pool) Config() map[string]interface{} {
-	attrs := p.cfg.values()
-	// Ensure returned attributes are stripped
-	// of non-provider values.
-	delete(attrs, Name)
-	delete(attrs, Type)
-	return attrs
-}
 
 // NewPoolManager returns a NewPoolManager implementation using the specified state.
 func NewPoolManager(settings SettingsManager) PoolManager {
@@ -88,7 +38,18 @@ func globalKey(name string) string {
 }
 
 // Create is defined on PoolManager interface.
-func (pm *poolManager) Create(name string, providerType storage.ProviderType, attrs map[string]interface{}) (Pool, error) {
+func (pm *poolManager) Create(name string, providerType storage.ProviderType, attrs map[string]interface{}) (*storage.Config, error) {
+	if name == "" {
+		return nil, MissingNameError
+	}
+	if providerType == "" {
+		return nil, MissingTypeError
+	}
+
+	cfg, err := storage.NewConfig(name, providerType, attrs)
+	if err != nil {
+		return nil, err
+	}
 	// Take a copy of the config and record name, type.
 	poolAttrs := make(map[string]interface{}, len(attrs))
 	for k, v := range attrs {
@@ -96,16 +57,10 @@ func (pm *poolManager) Create(name string, providerType storage.ProviderType, at
 	}
 	poolAttrs[Name] = name
 	poolAttrs[Type] = string(providerType)
-
-	// Make sure we validate.
-	cfg := &config{poolAttrs}
-	if err := cfg.validate(); err != nil {
-		return nil, err
-	}
 	if err := pm.settings.CreateSettings(globalKey(name), poolAttrs); err != nil {
 		return nil, errors.Annotatef(err, "creating pool %q", name)
 	}
-	return &pool{cfg}, nil
+	return cfg, nil
 }
 
 // Delete is defined on PoolManager interface.
@@ -118,7 +73,7 @@ func (pm *poolManager) Delete(name string) error {
 }
 
 // Get is defined on PoolManager interface.
-func (pm *poolManager) Get(name string) (Pool, error) {
+func (pm *poolManager) Get(name string) (*storage.Config, error) {
 	settings, err := pm.settings.ReadSettings(globalKey(name))
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -127,18 +82,33 @@ func (pm *poolManager) Get(name string) (Pool, error) {
 			return nil, errors.Annotatef(err, "reading pool %q", name)
 		}
 	}
-	return &pool{&config{settings}}, nil
+	providerType := storage.ProviderType(settings[Type].(string))
+	// Ensure returned attributes are stripped
+	// of name and type as these are not core settings values.
+	delete(settings, Name)
+	delete(settings, Type)
+	return storage.NewConfig(name, providerType, settings)
 }
 
 // List is defined on PoolManager interface.
-func (pm *poolManager) List() ([]Pool, error) {
+func (pm *poolManager) List() ([]*storage.Config, error) {
 	settings, err := pm.settings.ListSettings(globalKeyPrefix)
 	if err != nil {
 		return nil, errors.Annotate(err, "listing pool settings")
 	}
-	var result []Pool
+	var result []*storage.Config
 	for _, attrs := range settings {
-		result = append(result, &pool{&config{attrs}})
+		name := attrs[Name].(string)
+		providerType := storage.ProviderType(attrs[Type].(string))
+		// Ensure returned attributes are stripped
+		// of name and type as these are not core settings values.
+		delete(attrs, Name)
+		delete(attrs, Type)
+		if cfg, err := storage.NewConfig(name, providerType, attrs); err != nil {
+			return nil, err
+		} else {
+			result = append(result, cfg)
+		}
 	}
 	return result, nil
 }
