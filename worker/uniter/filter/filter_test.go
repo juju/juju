@@ -88,6 +88,7 @@ func (s *FilterSuite) contentAsserterC(c *gc.C, ch interface{}) coretesting.Cont
 		C:       c,
 		Chan:    ch,
 	}
+}
 
 // EvilSync starts a state sync (ensuring that any changes will be delivered to
 // the internal watchers "soon") -- and then waits "a while" so that we can be
