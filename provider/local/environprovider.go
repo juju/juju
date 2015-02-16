@@ -23,9 +23,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/provider"
-	"github.com/juju/juju/storage"
-	storageprovider "github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/version"
 )
 
@@ -36,30 +33,6 @@ var _ environs.EnvironProvider = (*environProvider)(nil)
 type environProvider struct{}
 
 var providerInstance = &environProvider{}
-
-func init() {
-	environs.RegisterProvider(provider.Local, providerInstance)
-
-	// TODO(wallyworld) - add tests when this is sorted
-	storage.RegisterEnvironStorageProviders(
-		provider.Local,
-		// TODO(wallyworld) - common provider type registration
-		storageprovider.HostLoopProviderType,
-		// TODO(wallyworld) - sort out policy for allowing loop provider
-		//storageprovider.LoopProviderType,
-	)
-	// TODO(wallyworld) - add when available
-	//	storage.RegisterDefaultPool(
-	//		provider.Local,
-	//		storage.StorageKindBlock,
-	//		storageprovider.LoopPool,
-	//	)
-	//	storage.RegisterDefaultPool(
-	//		provider.Local,
-	//		storage.StorageKindFilesystem,
-	//		storageprovider.RootfsPool,
-	//	)
-}
 
 var userCurrent = user.Current
 

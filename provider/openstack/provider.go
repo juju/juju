@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
@@ -59,12 +58,6 @@ var makeServiceURL = client.AuthenticatingClient.MakeServiceURL
 var shortAttempt = utils.AttemptStrategy{
 	Total: 15 * time.Second,
 	Delay: 200 * time.Millisecond,
-}
-
-func init() {
-	environs.RegisterProvider("openstack", environProvider{})
-	environs.RegisterImageDataSourceFunc("keystone catalog", getKeystoneImageSource)
-	envtools.RegisterToolsDataSourceFunc("keystone catalog", getKeystoneToolsSource)
 }
 
 func (p environProvider) BoilerplateConfig() string {
