@@ -47,6 +47,7 @@ type NetworkInterface struct {
 	Disabled bool `json:"Disabled"`
 }
 
+// NetworkConfig (look at StartInstance).
 // NetworkInfo describes all the necessary information to configure
 // all network interfaces on a machine. This mostly duplicates
 // network.InterfaceInfo type and it's defined here so it can be kept
@@ -125,7 +126,7 @@ type Port struct {
 }
 
 // FromNetworkPort is a convenience helper to create a parameter
-// out of the network type.
+// out of the network type, here for Port.
 func FromNetworkPort(p network.Port) Port {
 	return Port{
 		Protocol: p.Protocol,
@@ -134,7 +135,7 @@ func FromNetworkPort(p network.Port) Port {
 }
 
 // NetworkPort is a convenience helper to return the parameter
-// as network type.
+// as network type, here for Port.
 func (p Port) NetworkPort() network.Port {
 	return network.Port{
 		Protocol: p.Protocol,
@@ -152,7 +153,7 @@ type PortRange struct {
 }
 
 // FromNetworkPortRange is a convenience helper to create a parameter
-// out of the network type.
+// out of the network type, here for PortRange.
 func FromNetworkPortRange(pr network.PortRange) PortRange {
 	return PortRange{
 		FromPort: pr.FromPort,
@@ -162,17 +163,13 @@ func FromNetworkPortRange(pr network.PortRange) PortRange {
 }
 
 // NetworkPortRange is a convenience helper to return the parameter
-// as network type.
-func (pr PortRange) NetworkPortRange() (network.PortRange, error) {
-	npr := network.PortRange{
+// as network type, here for PortRange.
+func (pr PortRange) NetworkPortRange() network.PortRange {
+	return network.PortRange{
 		FromPort: pr.FromPort,
 		ToPort:   pr.ToPort,
 		Protocol: pr.Protocol,
 	}
-	if err := npr.Validate(); err != nil {
-		return network.PortRange{}, err
-	}
-	return npr, nil
 }
 
 // Address represents the location of a machine, including metadata
@@ -187,18 +184,18 @@ type Address struct {
 }
 
 // FromNetworkAddress is a convenience helper to create a parameter
-// out of the network type.
-func FromNetworkAddress(addr network.Address) Address {
+// out of the network type, here for Address.
+func FromNetworkAddress(naddr network.Address) Address {
 	return Address{
-		Value:       addr.Value,
-		Type:        string(addr.Type),
-		NetworkName: addr.NetworkName,
-		Scope:       string(addr.Scope),
+		Value:       naddr.Value,
+		Type:        string(naddr.Type),
+		NetworkName: naddr.NetworkName,
+		Scope:       string(naddr.Scope),
 	}
 }
 
 // NetworkAddress is a convenience helper to return the parameter
-// as network type.
+// as network type, here for Address.
 func (addr Address) NetworkAddress() network.Address {
 	return network.Address{
 		Value:       addr.Value,
@@ -206,6 +203,26 @@ func (addr Address) NetworkAddress() network.Address {
 		NetworkName: addr.NetworkName,
 		Scope:       network.Scope(addr.Scope),
 	}
+}
+
+// FromNetworkAddresses is a convenience helper to create a parameter
+// out of the network type, here for a slice of Address.
+func FromNetworkAddresses(naddrs []network.Address) []Address {
+	addrs := make([]Address, len(naddrs))
+	for i, naddr := range naddrs {
+		addrs[i] = FromNetworkAddress(naddr)
+	}
+	return addrs
+}
+
+// NetworkAddresses is a convenience helper to return the parameter
+// as network type, here for a slice of Address.
+func NetworkAddresses(addrs []Address) []network.Address {
+	naddrs := make([]network.Address, len(addrs))
+	for i, addr := range addrs {
+		naddrs[i] = addr.NetworkAddress()
+	}
+	return naddrs
 }
 
 // HostPort associates an address with a port. It's used in
@@ -217,15 +234,55 @@ type HostPort struct {
 }
 
 // FromNetworkHostPort is a convenience helper to create a parameter
-// out of the network type.
-func FromNetworkHostPort(hp network.HostPort) HostPort {
-	return HostPort{FromNetworkAddress(hp.Address), hp.Port}
+// out of the network type, here for HostPort.
+func FromNetworkHostPort(nhp network.HostPort) HostPort {
+	return HostPort{FromNetworkAddress(nhp.Address), nhp.Port}
 }
 
 // NetworkHostPort is a convenience helper to return the parameter
-// as network type.
+// as network type, here for HostPort.
 func (hp HostPort) NetworkHostPort() network.HostPort {
 	return network.HostPort{hp.Address.NetworkAddress(), hp.Port}
+}
+
+// FromNetworkHostPorts is a helper to create a parameter
+// out of the network type, here for a slice of HostPort.
+func FromNetworkHostPorts(nhps []network.HostPort) []HostPort {
+	hps := make([]HostPort, len(nhps))
+	for i, nhp := range nhps {
+		hps[i] = FromNetworkHostPort(nhp)
+	}
+	return hps
+}
+
+// NetworkHostPorts is a convenience helper to return the parameter
+// as network type, here for a slice of HostPort.
+func NetworkHostPorts(hps []HostPort) []network.HostPort {
+	nhps := make([]network.HostPort, len(hps))
+	for i, hp := range hps {
+		nhps[i] = hp.NetworkHostPort()
+	}
+	return nhps
+}
+
+// FromNetworkHostPortMatrix is a helper to create a parameter
+// out of the network type, here for a nested slice of HostPort.
+func FromNetworkHostPortMatrix(nhpm [][]network.HostPort) [][]HostPort {
+	hpm := make([][]HostPort, len(nhpm))
+	for i, nhps := range nhpm {
+		hpm[i] = FromNetworkHostPorts(nhps)
+	}
+	return hpm
+}
+
+// NetworkHostPortMatrix is a convenience helper to return the parameter
+// as network type, here for a nested slice of HostPort.
+func NetworkHostPortMatrix(hpm [][]HostPort) [][]network.HostPort {
+	nhpm := make([][]network.HostPort, len(hpm))
+	for i, hps := range hpm {
+		nhpm[i] = NetworkHostPorts(hps)
+	}
+	return nhpm
 }
 
 // MachineAddresses holds an machine tag and addresses.

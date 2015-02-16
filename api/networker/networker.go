@@ -52,7 +52,7 @@ func (st *State) MachineNetworkInfo(tag names.MachineTag) ([]network.InterfaceIn
 		interfaceInfo[i].MACAddress = ifaceInfo.MACAddress
 		interfaceInfo[i].CIDR = ifaceInfo.CIDR
 		interfaceInfo[i].NetworkName = ifaceInfo.NetworkName
-		interfaceInfo[i].ProviderId = ifaceInfo.ProviderId
+		interfaceInfo[i].ProviderId = network.Id(ifaceInfo.ProviderId)
 		interfaceInfo[i].VLANTag = ifaceInfo.VLANTag
 		interfaceInfo[i].InterfaceName = ifaceInfo.InterfaceName
 		interfaceInfo[i].Disabled = ifaceInfo.Disabled

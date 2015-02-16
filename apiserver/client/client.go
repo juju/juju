@@ -823,7 +823,7 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		Jobs:        jobs,
 		Nonce:       p.Nonce,
 		HardwareCharacteristics: p.HardwareCharacteristics,
-		Addresses:               p.Addrs,
+		Addresses:               params.NetworkAddresses(p.Addrs),
 		Placement:               placementDirective,
 	}
 	if p.ContainerType == "" {
@@ -1348,9 +1348,11 @@ func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, erro
 
 // APIHostPorts returns the API host/port addresses stored in state.
 func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
-	if result.Servers, err = c.api.state.APIHostPorts(); err != nil {
+	var servers [][]network.HostPort
+	if servers, err = c.api.state.APIHostPorts(); err != nil {
 		return params.APIHostPortsResult{}, err
 	}
+	result.Servers = params.FromNetworkHostPortMatrix(servers)
 	return result, nil
 }
 

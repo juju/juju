@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -603,16 +604,16 @@ func networkParamsToStateParams(networks []params.Network, ifaces []params.Netwo
 	[]state.NetworkInfo, []state.NetworkInterfaceInfo, error,
 ) {
 	stateNetworks := make([]state.NetworkInfo, len(networks))
-	for i, network := range networks {
-		tag, err := names.ParseNetworkTag(network.Tag)
+	for i, net := range networks {
+		tag, err := names.ParseNetworkTag(net.Tag)
 		if err != nil {
 			return nil, nil, err
 		}
 		stateNetworks[i] = state.NetworkInfo{
 			Name:       tag.Id(),
-			ProviderId: network.ProviderId,
-			CIDR:       network.CIDR,
-			VLANTag:    network.VLANTag,
+			ProviderId: network.Id(net.ProviderId),
+			CIDR:       net.CIDR,
+			VLANTag:    net.VLANTag,
 		}
 	}
 	stateInterfaces := make([]state.NetworkInterfaceInfo, len(ifaces))

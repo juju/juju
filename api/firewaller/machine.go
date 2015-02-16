@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 )
 
 // Machine represents a juju machine as seen by the firewaller worker.
@@ -105,7 +104,7 @@ func (m *Machine) ActiveNetworks() ([]names.NetworkTag, error) {
 
 // OpenedPorts returns a map of network.PortRange to unit tag for all
 // opened port ranges on the machine for the given network tag.
-func (m *Machine) OpenedPorts(networkTag names.NetworkTag) (map[network.PortRange]names.UnitTag, error) {
+func (m *Machine) OpenedPorts(networkTag names.NetworkTag) (map[params.PortRange]names.UnitTag, error) {
 	var results params.MachinePortsResults
 	args := params.MachinePortsParams{
 		Params: []params.MachinePorts{
@@ -124,7 +123,7 @@ func (m *Machine) OpenedPorts(networkTag names.NetworkTag) (map[network.PortRang
 		return nil, result.Error
 	}
 	// Convert string tags to names.UnitTag before returning.
-	endResult := make(map[network.PortRange]names.UnitTag)
+	endResult := make(map[params.PortRange]names.UnitTag)
 	for _, ports := range result.Ports {
 		unitTag, err := names.ParseUnitTag(ports.UnitTag)
 		if err != nil {

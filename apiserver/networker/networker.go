@@ -95,7 +95,7 @@ func (n *NetworkerAPI) oneMachineInfo(id string) ([]params.NetworkInfo, error) {
 			MACAddress:    iface.MACAddress(),
 			CIDR:          nw.CIDR(),
 			NetworkName:   iface.NetworkName(),
-			ProviderId:    nw.ProviderId(),
+			ProviderId:    string(nw.ProviderId()),
 			VLANTag:       nw.VLANTag(),
 			InterfaceName: iface.RawInterfaceName(),
 			Disabled:      iface.IsDisabled(),

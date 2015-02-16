@@ -259,17 +259,8 @@ func (s *NetworkSuite) TestPortRangeConvenience(c *gc.C) {
 		Protocol: "tcp",
 	}
 	paramsPortRange := params.FromNetworkPortRange(networkPortRange)
-	networkPortRangeBack, err := paramsPortRange.NetworkPortRange()
-	c.Assert(err, jc.ErrorIsNil)
+	networkPortRangeBack := paramsPortRange.NetworkPortRange()
 	c.Assert(networkPortRange, jc.DeepEquals, networkPortRangeBack)
-
-	paramsPortRange = params.PortRange{
-		FromPort: 1,
-		ToPort:   2,
-		Protocol: "foo",
-	}
-	_, err = paramsPortRange.NetworkPortRange()
-	c.Assert(err, gc.ErrorMatches, `invalid protocol "foo", expected "tcp" or "udp"`)
 }
 
 func (s *NetworkSuite) TestAddressConvenience(c *gc.C) {
