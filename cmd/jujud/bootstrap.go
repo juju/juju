@@ -293,7 +293,7 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 // populateDefaultStoragePools creates the default storage pools.
 func (c *BootstrapCommand) populateDefaultStoragePools(st *state.State) error {
 	settings := state.NewStateSettings(st)
-	return poolmanager.AddDefaultStoragePools(settings, c.CurrentConfig())
+	return poolmanager.AddDefaultStoragePools(settings)
 }
 
 // populateTools stores uploaded tools in provider storage

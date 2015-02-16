@@ -21,14 +21,6 @@ type defaultStoragePoolsSuite struct {
 
 var _ = gc.Suite(&defaultStoragePoolsSuite{})
 
-type mockAgentConfig struct {
-	dataDir string
-}
-
-func (mock *mockAgentConfig) DataDir() string {
-	return mock.dataDir
-}
-
 func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
@@ -40,7 +32,7 @@ func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *gc.C) {
 	poolmanager.RegisterDefaultStoragePools(defaultPools)
 
 	settings := state.NewStateSettings(s.State)
-	err = poolmanager.AddDefaultStoragePools(settings, &mockAgentConfig{dataDir: s.DataDir()})
+	err = poolmanager.AddDefaultStoragePools(settings)
 	c.Assert(err, jc.ErrorIsNil)
 	pm := poolmanager.NewPoolManager(settings)
 	for _, pool := range defaultPools {

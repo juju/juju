@@ -561,7 +561,7 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 }
 
 // storageConfig returns the provider type and config attributes for the
-// specified poolName. If no such pool exists, assume poolName is
+// specified poolName. If no such pool exists, we check to see if poolName is
 // actually a provider type, in which case config will be empty.
 func storageConfig(st *state.State, poolName string) (storage.ProviderType, map[string]interface{}, error) {
 	pm := poolmanager.NewPoolManager(state.NewStateSettings(st))

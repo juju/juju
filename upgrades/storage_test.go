@@ -26,9 +26,9 @@ func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
-	err := upgrades.AddDefaultStoragePools(s.State, &mockAgentConfig{dataDir: s.DataDir()})
+	err := upgrades.AddDefaultStoragePools(s.State)
 	settings := state.NewStateSettings(s.State)
-	err = poolmanager.AddDefaultStoragePools(settings, &mockAgentConfig{dataDir: s.DataDir()})
+	err = poolmanager.AddDefaultStoragePools(settings)
 	c.Assert(err, jc.ErrorIsNil)
 	pm := poolmanager.NewPoolManager(settings)
 	for _, pName := range []string{"ebs-ssd"} {

@@ -17,13 +17,9 @@ func RegisterDefaultStoragePools(pools []*storage.Config) {
 	defaultPools = append(defaultPools, pools...)
 }
 
-type poolConfig interface {
-	DataDir() string
-}
-
 // AddDefaultStoragePools is run at bootstrap and on upgrade to ensure that
 // out of the box storage pools are created.
-func AddDefaultStoragePools(settings SettingsManager, config poolConfig) error {
+func AddDefaultStoragePools(settings SettingsManager) error {
 	pm := NewPoolManager(settings)
 	for _, pool := range defaultPools {
 		if err := addDefaultPool(pm, pool); err != nil {
