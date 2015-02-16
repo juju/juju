@@ -20,8 +20,8 @@ var (
 	MissingNameError = errors.New("pool name is missing")
 )
 
-// NewPoolManager returns a NewPoolManager implementation using the specified state.
-func NewPoolManager(settings SettingsManager) PoolManager {
+// New returns a PoolManager implementation using the specified state.
+func New(settings SettingsManager) PoolManager {
 	return &poolManager{settings}
 }
 

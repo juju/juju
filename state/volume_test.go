@@ -30,7 +30,7 @@ func (s *VolumeStateSuite) SetUpTest(c *gc.C) {
 	// This suite is all about storage, so enable the feature by default.
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	pm := poolmanager.NewPoolManager(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)

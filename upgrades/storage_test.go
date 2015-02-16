@@ -30,7 +30,7 @@ func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *gc.C) {
 	settings := state.NewStateSettings(s.State)
 	err = poolmanager.AddDefaultStoragePools(settings)
 	c.Assert(err, jc.ErrorIsNil)
-	pm := poolmanager.NewPoolManager(settings)
+	pm := poolmanager.New(settings)
 	for _, pName := range []string{"ebs-ssd"} {
 		p, err := pm.Get(pName)
 		c.Assert(err, jc.ErrorIsNil)

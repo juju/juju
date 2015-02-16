@@ -728,7 +728,7 @@ func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C)
 }
 
 func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
-	pm := poolmanager.NewPoolManager(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
@@ -987,7 +987,7 @@ func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
-	pm := poolmanager.NewPoolManager(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")

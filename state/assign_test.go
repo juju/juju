@@ -33,7 +33,7 @@ var _ = gc.Suite(&assignCleanSuite{ConnSuite{}, state.AssignClean, nil})
 
 func (s *AssignSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	pm := poolmanager.NewPoolManager(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)

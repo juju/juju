@@ -30,7 +30,7 @@ var poolAttrs = map[string]interface{}{
 func (s *poolSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.settings = state.NewStateSettings(s.State)
-	s.poolManager = poolmanager.NewPoolManager(s.settings)
+	s.poolManager = poolmanager.New(s.settings)
 }
 
 func (s *poolSuite) createSettings(c *gc.C) {

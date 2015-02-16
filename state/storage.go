@@ -519,7 +519,7 @@ func validateStoragePool(st *State, poolName string, kind storage.StorageKind) (
 	}
 	// Ensure the pool type is supported by the environment.
 	var providerType storage.ProviderType
-	pm := poolmanager.NewPoolManager(NewStateSettings(st))
+	pm := poolmanager.New(NewStateSettings(st))
 	p, err := pm.Get(poolName)
 	// If there's no pool called poolName, maybe a provider type has been specified directly.
 	if errors.IsNotFound(err) {

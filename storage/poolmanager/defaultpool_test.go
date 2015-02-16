@@ -34,7 +34,7 @@ func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *gc.C) {
 	settings := state.NewStateSettings(s.State)
 	err = poolmanager.AddDefaultStoragePools(settings)
 	c.Assert(err, jc.ErrorIsNil)
-	pm := poolmanager.NewPoolManager(settings)
+	pm := poolmanager.New(settings)
 	for _, pool := range defaultPools {
 		p, err := pm.Get(pool.Name())
 		c.Assert(err, jc.ErrorIsNil)

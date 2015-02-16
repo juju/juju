@@ -709,7 +709,7 @@ func (s *BootstrapSuite) TestDefaultStoragePools(c *gc.C) {
 	defer st.Close()
 
 	settings := state.NewStateSettings(st)
-	pm := poolmanager.NewPoolManager(settings)
+	pm := poolmanager.New(settings)
 	for _, p := range []string{"ebs-ssd"} {
 		_, err = pm.Get(p)
 		c.Assert(err, jc.ErrorIsNil)
