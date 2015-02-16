@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -25,6 +24,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/filter"
+	"github.com/juju/juju/worker/uniter/hook"
 )
 
 type FilterSuite struct {
