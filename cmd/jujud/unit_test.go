@@ -147,7 +147,7 @@ func waitForUnitActive(stateConn *state.State, unit *state.Unit, c *gc.C) {
 		case <-time.After(coretesting.ShortWait):
 			err := unit.Refresh()
 			c.Assert(err, jc.ErrorIsNil)
-			st, info, data, err := unit.Status()
+			st, info, data, err := unit.AgentStatus()
 			c.Assert(err, jc.ErrorIsNil)
 			switch st {
 			case state.StatusAllocating, state.StatusInstalling:

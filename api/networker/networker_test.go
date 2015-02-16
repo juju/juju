@@ -4,6 +4,8 @@
 package networker_test
 
 import (
+	"runtime"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -174,6 +176,11 @@ func (s *networkerSuite) TestMachineNetworkInfoPermissionDenied(c *gc.C) {
 }
 
 func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
+	// TODO(bogdanteleaga): Find out what's the problem with this test
+	// It seems to work on some machines
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: currently does not work on windows")
+	}
 	// Expected results of MachineNetworkInfo for a machine and containers
 	expectedMachineInfo := []network.InterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",

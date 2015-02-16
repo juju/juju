@@ -11,6 +11,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/storage"
 )
 
 // Volume describes a volume (disk, logical volume, etc.) in the environment.
@@ -277,10 +279,10 @@ func (st *State) addVolumeOp(params VolumeParams) (txn.Op, names.DiskTag, error)
 }
 
 func (st *State) validateVolumeParams(params VolumeParams) error {
-	// TODO(axw) remove this check when we support pools,
-	// and validate the existence of the pool instead.
-	if params.Pool != "" {
-		return errors.NotImplementedf("storage pools")
+	if poolName, err := validateStoragePool(st, params.Pool, storage.StorageKindBlock); err != nil {
+		return err
+	} else {
+		params.Pool = poolName
 	}
 	if params.Size == 0 {
 		return errors.New("invalid size 0")

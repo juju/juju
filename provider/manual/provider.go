@@ -19,11 +19,6 @@ type manualProvider struct{}
 // Verify that we conform to the interface.
 var _ environs.EnvironProvider = (*manualProvider)(nil)
 
-func init() {
-	p := manualProvider{}
-	environs.RegisterProvider("manual", p, "null")
-}
-
 var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
 
 var initUbuntuUser = manual.InitUbuntuUser

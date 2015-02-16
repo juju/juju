@@ -3,6 +3,19 @@
 
 package storage
 
+const (
+	// ConfigStorageDir is the path to the directory which a
+	// machine-scoped storage source may use to contain storage
+	// artifacts. This should not be used for environment-wide
+	// storage sources, as the contents are bound to the
+	// lifetime of the machine.
+	//
+	// ConfigStorageDir is set by the storage provisioner, so
+	// should not be relied upon until a storage source is
+	// constructed.
+	ConfigStorageDir = "storage-dir"
+)
+
 // Config defines the configuration for a storage source.
 type Config struct {
 	name     string

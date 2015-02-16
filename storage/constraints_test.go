@@ -24,10 +24,9 @@ func (s *ConstraintsSuite) TestParseConstraintsStoragePool(c *gc.C) {
 		Size:  1,
 	})
 	s.testParse(c, "pool,", storage.Constraints{
-		Pool: "pool",
+		Pool:  "pool",
+		Count: 1,
 	})
-	s.testParse(c, "", storage.Constraints{})
-	s.testParse(c, ",", storage.Constraints{})
 	s.testParse(c, "1M", storage.Constraints{
 		Size:  1,
 		Count: 1,
@@ -59,7 +58,8 @@ func (s *ConstraintsSuite) TestParseConstraintsOptions(c *gc.C) {
 		Size:  1,
 	})
 	s.testParse(c, "p,anyoldjunk", storage.Constraints{
-		Pool: "p",
+		Pool:  "p",
+		Count: 1,
 	})
 }
 
@@ -67,6 +67,8 @@ func (s *ConstraintsSuite) TestParseConstraintsCountRange(c *gc.C) {
 	s.testParseError(c, "p,0,100M", `cannot parse count: count must be greater than zero, got "0"`)
 	s.testParseError(c, "p,00,100M", `cannot parse count: count must be greater than zero, got "00"`)
 	s.testParseError(c, "p,-1,100M", `cannot parse count: count must be greater than zero, got "-1"`)
+	s.testParseError(c, "", `storage constraints require at least one field to be specified`)
+	s.testParseError(c, ",", `storage constraints require at least one field to be specified`)
 }
 
 func (s *ConstraintsSuite) TestParseConstraintsSizeRange(c *gc.C) {

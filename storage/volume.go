@@ -3,10 +3,7 @@
 
 package storage
 
-import (
-	"github.com/juju/juju/instance"
-	"github.com/juju/names"
-)
+import "github.com/juju/names"
 
 // Volume describes a volume (disk, logical volume, etc.)
 type Volume struct {
@@ -35,17 +32,9 @@ type VolumeAttachment struct {
 	// that this attachment corresponds to.
 	Volume names.DiskTag
 
-	// VolumeId is the unique provider-supplied ID for the volume that
-	// this attachment corresponds to.
-	VolumeId string
-
 	// MachineId is the unique tag assigned by Juju for the machine that
 	// this attachment corresponds to.
 	Machine names.MachineTag
-
-	// InstanceId is the unique provider-supplied ID for the cloud
-	// instance that this attachment corresponds to.
-	InstanceId instance.Id
 
 	// DeviceName is the volume's OS-specific device name (e.g. "sdb").
 	//

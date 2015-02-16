@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/provider"
 	"github.com/juju/juju/version"
 )
 
@@ -34,10 +33,6 @@ var _ environs.EnvironProvider = (*environProvider)(nil)
 type environProvider struct{}
 
 var providerInstance = &environProvider{}
-
-func init() {
-	environs.RegisterProvider(provider.Local, providerInstance)
-}
 
 var userCurrent = user.Current
 

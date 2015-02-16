@@ -4,6 +4,8 @@
 package ec2
 
 import (
+	"strconv"
+
 	"github.com/juju/errors"
 	"gopkg.in/amz.v2/ec2"
 
@@ -12,8 +14,6 @@ import (
 )
 
 const (
-	ebsStorageSource = "ebs"
-
 	// minRootDiskSizeMiB is the minimum/default size (in mebibytes) for ec2 root disks.
 	minRootDiskSizeMiB uint64 = 8 * 1024
 
@@ -89,7 +89,19 @@ func getBlockDeviceMappings(
 		mapping := ec2.BlockDeviceMapping{
 			VolumeSize: int64(mibToGib(params.Size)),
 			DeviceName: requestDeviceName,
-			// TODO(axw) VolumeType, IOPS and DeleteOnTermination
+			// TODO(axw) DeleteOnTermination
+		}
+		// Translate user values for storage provider parameters.
+		// TODO(wallyworld) - remove type assertions when juju/schema is used
+		options := TranslateUserEBSOptions(params.Attributes)
+		if v, ok := options[EBS_VolumeType]; ok && v != "" {
+			mapping.VolumeType = v.(string)
+		}
+		if v, ok := options[EBS_IOPS]; ok && v != "" {
+			mapping.IOPS, err = strconv.ParseInt(v.(string), 10, 64)
+			if err != nil {
+				return nil, nil, nil, errors.Annotatef(err, "invalid iops value %v, expected integer", v)
+			}
 		}
 		volume := storage.Volume{
 			Tag:  params.Tag,
@@ -99,9 +111,8 @@ func getBlockDeviceMappings(
 		}
 		attachment := storage.VolumeAttachment{
 			Volume:     params.Tag,
+			Machine:    params.Attachment.Machine,
 			DeviceName: actualDeviceName,
-			// MachineId, InstanceId and VolumeID are filled out
-			// by the caller once the information is available.
 		}
 		blockDeviceMappings = append(blockDeviceMappings, mapping)
 		volumes[i] = volume
@@ -112,6 +123,9 @@ func getBlockDeviceMappings(
 
 // validateVolumParams validates the volume parameters.
 func validateVolumeParams(params storage.VolumeParams) error {
+	if params.Attachment == nil {
+		return errors.NotImplementedf("allocating unattached volumes")
+	}
 	if params.Size > volumeSizeMaxMiB {
 		return errors.Errorf("%d MiB exceeds the maximum of %d MiB", params.Size, volumeSizeMaxMiB)
 	}

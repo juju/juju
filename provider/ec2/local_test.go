@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"gopkg.in/amz.v2/aws"
@@ -902,13 +903,20 @@ func (t *localServerSuite) TestStartInstanceVolumes(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
+	attachmentParams := &storage.AttachmentParams{
+		Machine: names.NewMachineTag("0"),
+	}
+
 	params := environs.StartInstanceParams{
 		Volumes: []storage.VolumeParams{{
-			Size: 512, // round up to 1GiB
+			Size:       512, // round up to 1GiB
+			Attachment: attachmentParams,
 		}, {
-			Size: 1024, // 1GiB exactly
+			Size:       1024, // 1GiB exactly
+			Attachment: attachmentParams,
 		}, {
-			Size: 1025, // round up to 2GiB
+			Size:       1025, // round up to 2GiB
+			Attachment: attachmentParams,
 		}},
 	}
 	result, err := testing.StartInstanceWithParams(env, "1", params, nil)

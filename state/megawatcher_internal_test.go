@@ -5,7 +5,6 @@ package state
 
 import (
 	"fmt"
-	"reflect"
 	"sort"
 	"time"
 
@@ -33,6 +32,7 @@ var (
 	_ backingEntityDoc = (*backingStatus)(nil)
 	_ backingEntityDoc = (*backingConstraints)(nil)
 	_ backingEntityDoc = (*backingSettings)(nil)
+	_ backingEntityDoc = (*backingOpenedPorts)(nil)
 	_ backingEntityDoc = (*backingAction)(nil)
 	_ backingEntityDoc = (*backingBlock)(nil)
 )
@@ -72,6 +72,14 @@ func (s *storeManagerStateSuite) Reset(c *gc.C) {
 	s.SetUpTest(c)
 }
 
+func jcDeepEqualsCheck(c *gc.C, got, want interface{}) bool {
+	ok, message := jc.DeepEquals.Check([]interface{}{got, want}, []string{"got", "want"})
+	if !ok {
+		c.Logf(message)
+	}
+	return ok
+}
+
 func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 	if len(got) == 0 {
 		got = nil
@@ -79,33 +87,39 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 	if len(want) == 0 {
 		want = nil
 	}
-	if reflect.DeepEqual(got, want) {
+	if jcDeepEqualsCheck(c, got, want) {
 		return
 	}
 	c.Errorf("entity mismatch; got len %d; want %d", len(got), len(want))
-	c.Logf("got:")
+	// Lets construct a decent output.
+	var errorOutput string
+	errorOutput = "\ngot: \n"
 	for _, e := range got {
-		c.Logf("\t%T %#v", e, e)
+		errorOutput += fmt.Sprintf("\t%T %#v\n", e, e)
 	}
-	c.Logf("expected:")
+	errorOutput += "expected: \n"
 	for _, e := range want {
-		c.Logf("\t%T %#v", e, e)
+		errorOutput += fmt.Sprintf("\t%T %#v\n", e, e)
 	}
 
+	c.Errorf(errorOutput)
+
+	var firstDiffError string
 	if len(got) == len(want) {
 		for i := 0; i < len(got); i++ {
 			g := got[i]
 			w := want[i]
-			if !reflect.DeepEqual(g, w) {
-				c.Logf("")
-				c.Logf("first difference at position %d", i)
-				c.Logf("got:")
-				c.Logf("\t%T %#v", g, g)
-				c.Logf("expected:")
-				c.Logf("\t%T %#v", w, w)
+			if !jcDeepEqualsCheck(c, g, w) {
+				firstDiffError += "\n"
+				firstDiffError += fmt.Sprintf("first difference at position %d", i)
+				firstDiffError += "got: \n"
+				firstDiffError += fmt.Sprintf("\t%T %#v", g, g)
+				firstDiffError += "expected: \n"
+				firstDiffError += fmt.Sprintf("\t%T %#v", w, w)
 				break
 			}
 		}
+		c.Errorf(firstDiffError)
 	}
 	c.FailNow()
 }
@@ -422,7 +436,11 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPort("tcp", 12345)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetStatus(StatusError, "failure", nil)
+			err = u.OpenPort("udp", 54321)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.OpenPorts("tcp", 5555, 5558)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.SetAgentStatus(StatusError, "failure", nil)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
@@ -433,11 +451,23 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						Name:       "wordpress/0",
-						Service:    "wordpress",
-						Series:     "quantal",
-						MachineId:  "0",
-						Ports:      []network.Port{},
+						Name:      "wordpress/0",
+						Service:   "wordpress",
+						Series:    "quantal",
+						MachineId: "0",
+						Ports: []network.Port{
+							{"tcp", 5555},
+							{"tcp", 5556},
+							{"tcp", 5557},
+							{"tcp", 5558},
+							{"tcp", 12345},
+							{"udp", 54321},
+						},
+						PortRanges: []network.PortRange{
+							{5555, 5558, "tcp"},
+							{12345, 12345, "tcp"},
+							{54321, 54321, "udp"},
+						},
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "failure",
 					}}}
@@ -458,6 +488,8 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 					Name:       "wordpress/0",
 					Status:     multiwatcher.Status("error"),
 					StatusInfo: "another failure",
+					Ports:      []network.Port{{"udp", 17070}},
+					PortRanges: []network.PortRange{{17070, 17070, "udp"}},
 				}},
 				change: watcher.Change{
 					C:  "units",
@@ -469,10 +501,82 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						Service:    "wordpress",
 						Series:     "quantal",
 						MachineId:  "0",
-						Ports:      []network.Port{},
+						Ports:      []network.Port{{"udp", 17070}},
+						PortRanges: []network.PortRange{{17070, 17070, "udp"}},
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "another failure",
 					}}}
+		}, func(c *gc.C, st *State) testCase {
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, jc.ErrorIsNil)
+			m, err := st.AddMachine("quantal", JobHostUnits)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.AssignToMachine(m)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.OpenPort("tcp", 4242)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return testCase{
+				about: "unit info is updated if a port is opened on the machine it is placed in",
+				add: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						Name: "wordpress/0",
+					},
+					&multiwatcher.MachineInfo{
+						Id: "0",
+					},
+				},
+				change: watcher.Change{
+					C:  openedPortsC,
+					Id: st.docID("m#0#n#juju-public"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						Name:       "wordpress/0",
+						Ports:      []network.Port{{"tcp", 4242}},
+						PortRanges: []network.PortRange{{4242, 4242, "tcp"}},
+					},
+					&multiwatcher.MachineInfo{
+						Id: "0",
+					},
+				}}
+		}, func(c *gc.C, st *State) testCase {
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, jc.ErrorIsNil)
+			m, err := st.AddMachine("quantal", JobHostUnits)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.AssignToMachine(m)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.OpenPorts("tcp", 21, 22)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return testCase{
+				about: "unit is created if a port is opened on the machine it is placed in",
+				add: []multiwatcher.EntityInfo{
+					&multiwatcher.MachineInfo{
+						Id: "0",
+					},
+				},
+				change: watcher.Change{
+					C:  "units",
+					Id: st.docID("wordpress/0"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						Name:       "wordpress/0",
+						Service:    "wordpress",
+						Series:     "quantal",
+						MachineId:  "0",
+						Status:     "allocating",
+						Ports:      []network.Port{{"tcp", 21}, {"tcp", 22}},
+						PortRanges: []network.PortRange{{21, 22, "tcp"}},
+					},
+					&multiwatcher.MachineInfo{
+						Id: "0",
+					},
+				}}
 		}, func(c *gc.C, st *State) testCase {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
@@ -487,7 +591,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			privateAddress := network.NewAddress("private", network.ScopeCloudLocal)
 			err = m.SetAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetStatus(StatusError, "failure", nil)
+			err = u.SetAgentStatus(StatusError, "failure", nil)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
@@ -504,7 +608,8 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						PublicAddress:  "public",
 						PrivateAddress: "private",
 						MachineId:      "0",
-						Ports:          []network.Port{},
+						Ports:          []network.Port{{"tcp", 12345}},
+						PortRanges:     []network.PortRange{{12345, 12345, "tcp"}},
 						Status:         multiwatcher.Status("error"),
 						StatusInfo:     "failure",
 					}}}
@@ -734,7 +839,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetStatus(StatusActive, "", nil)
+			err = u.SetAgentStatus(StatusActive, "", nil)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
@@ -758,7 +863,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetStatus(StatusError, "hook error", map[string]interface{}{
+			err = u.SetAgentStatus(StatusError, "hook error", map[string]interface{}{
 				"1st-key": "one",
 				"2nd-key": 2,
 				"3rd-key": true,

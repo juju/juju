@@ -16,6 +16,9 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 )
 
 type AssignSuite struct {
@@ -30,6 +33,11 @@ var _ = gc.Suite(&assignCleanSuite{ConnSuite{}, state.AssignClean, nil})
 
 func (s *AssignSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
+	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+
 	wordpress := s.AddTestingServiceWithNetworks(
 		c,
 		"wordpress",
@@ -42,6 +50,7 @@ func (s *AssignSuite) SetUpTest(c *gc.C) {
 		c, "storage-block", s.AddTestingCharm(c, "storage-block"),
 		map[string]state.StorageConstraints{
 			"data": {
+				Pool:  "loop-pool",
 				Count: 1,
 				Size:  1024,
 			},

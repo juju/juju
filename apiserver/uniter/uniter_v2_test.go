@@ -73,3 +73,21 @@ func (s *uniterV2Suite) TestStorageAttachments(c *gc.C) {
 		Location:   "outerspace",
 	}})
 }
+
+// TestSetStatus tests backwards compatibility for
+// set status has been properly implemented.
+func (s *uniterV2Suite) TestSetStatus(c *gc.C) {
+	s.testSetStatus(c, s.uniter)
+}
+
+// TestSetAgentStatus tests agent part of set status
+// implemented for this version.
+func (s *uniterV2Suite) TestSetAgentStatus(c *gc.C) {
+	s.testSetAgentStatus(c, s.uniter)
+}
+
+// TestSetUnitStatus tests unit part of set status
+// implemented for this version.
+func (s *uniterV2Suite) TestSetUnitStatus(c *gc.C) {
+	s.testSetUnitStatus(c, s.uniter)
+}

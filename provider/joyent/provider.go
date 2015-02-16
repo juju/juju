@@ -27,10 +27,6 @@ var _ environs.EnvironProvider = providerInstance
 
 var _ simplestreams.HasRegion = (*joyentEnviron)(nil)
 
-func init() {
-	environs.RegisterProvider("joyent", providerInstance)
-}
-
 var errNotImplemented = errors.New("not implemented in Joyent provider")
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.

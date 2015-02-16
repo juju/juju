@@ -374,7 +374,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 
 	// "start the agent" for u0 to prevent short-circuited remove-on-destroy;
 	// check that it's kept deployed despite being Dying.
-	err = u0.SetStatus(state.StatusActive, "", nil)
+	err = u0.SetAgentStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u0.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -909,6 +909,10 @@ func (s *MachineSuite) TestJobManageEnvironRunsMinUnitsWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
+	//TODO(bogdanteleaga): Fix once we get authentication worker up on windows
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: authentication worker not yet implemented on windows")
+	}
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	a := s.newAgent(c, m)

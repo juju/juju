@@ -41,6 +41,9 @@ import (
 )
 
 func Test(t *stdtesting.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("LXC is currently not supported on windows")
+	}
 	gc.TestingT(t)
 }
 
