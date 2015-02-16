@@ -8,10 +8,12 @@ type listSource struct {
 	hooks []Info
 }
 
+// Empty is defined in Source.
 func (q *listSource) Empty() bool {
 	return len(q.hooks) == 0
 }
 
+// Next is defined in Source.
 func (q *listSource) Next() Info {
 	if q.Empty() {
 		panic("Source is empty")
@@ -19,6 +21,7 @@ func (q *listSource) Next() Info {
 	return q.hooks[0]
 }
 
+// Pop is defined in Source.
 func (q *listSource) Pop() {
 	if q.Empty() {
 		panic("Source is empty")
