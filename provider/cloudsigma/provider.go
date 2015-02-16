@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Juju provider for CloudSigma
@@ -18,15 +18,6 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.provider.cloudsigma")
-
-type loggerWriter struct {
-	level loggo.Level
-}
-
-func (lw loggerWriter) Write(p []byte) (n int, err error) {
-	logger.Logf(lw.level, string(p))
-	return len(p), nil
-}
 
 func getImageSource(env environs.Environ) (simplestreams.DataSource, error) {
 	e, ok := env.(*environ)

@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package cloudsigma
@@ -6,7 +6,7 @@ package cloudsigma
 import (
 	"time"
 
-	"github.com/Altoros/gosigma/mock"
+	"github.com/altoros/gosigma/mock"
 	"github.com/juju/loggo"
 	gc "gopkg.in/check.v1"
 

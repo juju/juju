@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package cloudsigma
@@ -6,34 +6,34 @@ package cloudsigma
 import (
 	"fmt"
 
-	"github.com/Altoros/gosigma"
+	"github.com/altoros/gosigma"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 )
 
-// This file contains implementation of CloudSigma instance constraints
 type sigmaConstraints struct {
 	driveTemplate string
 	driveSize     uint64
-	cores         uint64
-	power         uint64
-	mem           uint64
+	cores         uint64 //number of cpu cores
+	power         uint64 //cpu power in MHz
+	mem           uint64 //memory size in GB
 }
 
 const (
 	defaultCPUPower = 2000
-	defaultMemoryGB = 5
+	defaultDriveGB  = 5
+	defaultMemoryGB = 2
 )
 
 // newConstraints creates new CloudSigma constraints from juju common constraints
 func newConstraints(bootstrap bool, jc constraints.Value, img *imagemetadata.ImageMetadata) *sigmaConstraints {
-	var sc sigmaConstraints
-
-	sc.driveTemplate = img.Id
+	var sc = sigmaConstraints{
+		driveTemplate: img.Id,
+	}
 
 	if size := jc.RootDisk; bootstrap && size == nil {
-		sc.driveSize = defaultMemoryGB * gosigma.Gigabyte
+		sc.driveSize = defaultDriveGB * gosigma.Gigabyte
 	} else if size != nil {
 		sc.driveSize = *size * gosigma.Megabyte
 	}
@@ -59,7 +59,7 @@ func newConstraints(bootstrap bool, jc constraints.Value, img *imagemetadata.Ima
 	if m := jc.Mem; m != nil {
 		sc.mem = *m * gosigma.Megabyte
 	} else {
-		sc.mem = 2 * gosigma.Gigabyte
+		sc.mem = defaultMemoryGB * gosigma.Gigabyte
 	}
 
 	return &sc

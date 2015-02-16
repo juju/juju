@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package cloudsigma
@@ -6,7 +6,7 @@ package cloudsigma
 import (
 	"encoding/base64"
 
-	"github.com/Altoros/gosigma"
+	"github.com/altoros/gosigma"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
-	ar "github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/state/multiwatcher"
 )
 
@@ -155,8 +155,8 @@ func (c *environClient) stopInstance(id instance.Id) error {
 	return nil
 }
 
-//newInstance creates and starts new instance
-func (c *environClient) newInstance(args environs.StartInstanceParams, img *imagemetadata.ImageMetadata, userData []byte) (srv gosigma.Server, drv gosigma.Drive, arch string, err error) {
+//newInstance creates and starts new instance.
+func (c *environClient) newInstance(args environs.StartInstanceParams, img *imagemetadata.ImageMetadata, userData []byte) (srv gosigma.Server, drv gosigma.Drive, ar string, err error) {
 
 	defer func() {
 		if err == nil {
@@ -185,7 +185,7 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 
 	originalDrive, err := c.conn.Drive(constraints.driveTemplate, gosigma.LibraryMedia)
 	if err != nil {
-		err = errors.Errorf("query drive template: %v", err)
+		err = errors.Annotatef(err, "iFailed to query drive template")
 		return nil, nil, "", err
 	}
 
@@ -206,31 +206,31 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 
 	cc, err := c.generateSigmaComponents(baseName, constraints, args, drv, userData)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, "", errors.Trace(err)
 	}
 
 	if srv, err = c.conn.CreateServer(cc); err != nil {
-		err = errors.Errorf("error creating new instance: %v", err)
+		err = errors.Annotatef(err, "error creating new instance")
 		return nil, nil, "", err
 	}
 
 	if err = srv.Start(); err != nil {
-		err = errors.Errorf("error booting new instance: %v", err)
+		err = errors.Annotatef(err, "error booting new instance")
 		return nil, nil, "", err
 	}
 
 	// populate root drive hardware characteristics
 	switch originalDrive.Arch() {
 	case "64":
-		arch = ar.AMD64
+		ar = arch.AMD64
 	case "32":
-		arch = ar.I386
+		ar = arch.I386
 	default:
-		err = errors.Errorf("unknown arch: %v", arch)
+		err = errors.Errorf("unknown arch: %v", ar)
 		return nil, nil, "", err
 	}
 
-	return srv, drv, arch, nil
+	return srv, drv, ar, nil
 }
 
 func (c *environClient) generateSigmaComponents(baseName string, constraints *sigmaConstraints, args environs.StartInstanceParams, drv gosigma.Drive, userData []byte) (cc gosigma.Components, err error) {

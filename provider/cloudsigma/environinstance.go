@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package cloudsigma
@@ -19,8 +19,7 @@ import (
 // Imlementation of InstanceBroker: methods for starting and stopping instances.
 //
 
-var findInstanceImage = func(
-	env *environ, ic *imagemetadata.ImageConstraint) (*imagemetadata.ImageMetadata, error) {
+var findInstanceImage = func(env *environ, ic *imagemetadata.ImageConstraint) (*imagemetadata.ImageMetadata, error) {
 
 	sources, err := environs.ImageMetadataSources(env)
 	if err != nil {
@@ -43,8 +42,7 @@ var findInstanceImage = func(
 // state for the new instance to connect to. The config MachineNonce, which must be
 // unique within an environment, is used by juju to protect against the
 // consequences of multiple instances being started with the same machine id.
-func (env *environ) StartInstance(args environs.StartInstanceParams) (
-	*environs.StartInstanceResult, error) {
+func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	logger.Infof("sigmaEnviron.StartInstance...")
 
 	if args.MachineConfig == nil {
@@ -154,7 +152,7 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 
 	m, err := env.client.instanceMap()
 	if err != nil {
-		logger.Tracef("environ.Instances failed: %v", err)
+		logger.Warningf("environ.Instances failed: %v", err)
 		return nil, err
 	}
 

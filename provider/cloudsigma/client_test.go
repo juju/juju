@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package cloudsigma
@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Altoros/gosigma"
-	"github.com/Altoros/gosigma/data"
-	"github.com/Altoros/gosigma/mock"
+	"github.com/altoros/gosigma"
+	"github.com/altoros/gosigma/data"
+	"github.com/altoros/gosigma/mock"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -129,7 +129,6 @@ func (s *clientSuite) TestClientStopStateInstance(c *gc.C) {
 
 	addTestClientServer(c, jujuMetaInstanceServer, "alien")
 	addTestClientServer(c, jujuMetaInstanceStateServer, "alien")
-	addTestClientServer(c, jujuMetaInstanceServer, "client-test")
 	addTestClientServer(c, jujuMetaInstanceServer, "client-test")
 	suuid := addTestClientServer(c, jujuMetaInstanceStateServer, "client-test")
 

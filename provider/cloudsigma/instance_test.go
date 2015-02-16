@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package cloudsigma
@@ -6,9 +6,9 @@ package cloudsigma
 import (
 	"strings"
 
-	"github.com/Altoros/gosigma"
-	"github.com/Altoros/gosigma/data"
-	"github.com/Altoros/gosigma/mock"
+	"github.com/altoros/gosigma"
+	"github.com/altoros/gosigma/data"
+	"github.com/altoros/gosigma/mock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/instance"

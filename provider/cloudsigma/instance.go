@@ -1,10 +1,10 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package cloudsigma
 
 import (
-	"github.com/Altoros/gosigma"
+	"github.com/altoros/gosigma"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/instance"
@@ -21,9 +21,6 @@ var ErrNoDNSName = errors.New("IPv4 address not found")
 
 // Id returns a provider-generated identifier for the Instance.
 func (i sigmaInstance) Id() instance.Id {
-	if i.server == nil {
-		return instance.Id("")
-	}
 	id := instance.Id(i.server.UUID())
 	logger.Tracef("sigmaInstance.Id: %s", id)
 	return id
@@ -31,9 +28,6 @@ func (i sigmaInstance) Id() instance.Id {
 
 // Status returns the provider-specific status for the instance.
 func (i sigmaInstance) Status() string {
-	if i.server == nil {
-		return ""
-	}
 	status := i.server.Status()
 	logger.Tracef("sigmaInstance.Status: %s", status)
 	return status
@@ -53,7 +47,6 @@ func (i sigmaInstance) Refresh() error {
 // associated with the instance. This will supercede DNSName
 // which can be implemented by selecting a preferred address.
 func (i sigmaInstance) Addresses() ([]network.Address, error) {
-
 	ip := i.findIPv4()
 
 	if ip == "" {
@@ -98,29 +91,23 @@ func (i sigmaInstance) DNSName() (string, error) {
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
 func (i sigmaInstance) OpenPorts(machineID string, ports []network.PortRange) error {
-	logger.Tracef("sigmaInstance.OpenPorts: not implemented")
-	return nil
+	return errors.NotImplementedf("OpenPorts")
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
 func (i sigmaInstance) ClosePorts(machineID string, ports []network.PortRange) error {
-	logger.Tracef("sigmaInstance.ClosePorts: not implemented")
-	return nil
+	return errors.NotImplementedf("ClosePorts")
 }
 
 // Ports returns the set of ports open on the instance, which
 // should have been started with the given machine id.
 // The ports are returned as sorted by SortPorts.
 func (i sigmaInstance) Ports(machineID string) ([]network.PortRange, error) {
-	logger.Tracef("sigmaInstance.Ports: not implemented")
-	return []network.PortRange{}, nil
+	return nil, errors.NotImplementedf("ClosePorts")
 }
 
 func (i sigmaInstance) findIPv4() string {
-	if i.server == nil {
-		return ""
-	}
 	addrs := i.server.IPv4()
 	if len(addrs) == 0 {
 		return ""
@@ -129,9 +116,6 @@ func (i sigmaInstance) findIPv4() string {
 }
 
 func (i *sigmaInstance) hardware(arch string, driveSize uint64) (*instance.HardwareCharacteristics, error) {
-	if i.server == nil {
-		return nil, errors.New("Server is not initialized.")
-	}
 	memory := i.server.Mem() / gosigma.Megabyte
 	cores := uint64(i.server.SMP())
 	cpu := i.server.CPU()

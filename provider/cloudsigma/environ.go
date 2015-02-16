@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package cloudsigma
@@ -6,7 +6,7 @@ package cloudsigma
 import (
 	"sync"
 
-	"github.com/Altoros/gosigma"
+	"github.com/altoros/gosigma"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/constraints"

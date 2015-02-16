@@ -1,9 +1,11 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package cloudsigma
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -52,7 +54,6 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 // SupportNetworks returns whether the environment has support to
 // specify networks for services and machines.
 func (env *environ) SupportNetworks() bool {
-	logger.Debugf("environ:SupportedNetworks")
 	return false
 }
 
@@ -61,6 +62,5 @@ func (env *environ) SupportNetworks() bool {
 // does not support unit placement, then machines may not be created
 // without units, and units cannot be placed explcitly.
 func (env *environ) SupportsUnitPlacement() error {
-	logger.Debugf("cloudsigma:environ:SupportsUnitPlacement not implemented")
-	return nil
+	return errors.NotImplementedf("SupportsUnitPlacement")
 }

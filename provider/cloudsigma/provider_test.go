@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package cloudsigma
@@ -17,11 +17,6 @@ import (
 var live = flag.Bool("live", false, "run tests on live CloudSigma account")
 
 func TestCloudSigma(t *testing.T) {
-	/*
-		if *live {
-			registerLiveTests()
-		}
-	*/
 	gc.TestingT(t)
 }
 
