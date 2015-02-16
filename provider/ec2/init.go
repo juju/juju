@@ -5,16 +5,19 @@ package ec2
 
 import (
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider"
-	storageprovider "github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
+)
+
+const (
+	AWS = "ec2"
 )
 
 func init() {
-	environs.RegisterProvider(provider.AWS, environProvider{})
+	environs.RegisterProvider(AWS, environProvider{})
 
 	//Register the AWS specific providers.
-	storageprovider.RegisterProvider(EBS_ProviderType, &ebsProvider{})
+	registry.RegisterProvider(EBS_ProviderType, &ebsProvider{})
 
 	// Inform the storage provider registry about the AWS providers.
-	storageprovider.RegisterEnvironStorageProviders(provider.AWS, EBS_ProviderType)
+	registry.RegisterEnvironStorageProviders(AWS, EBS_ProviderType)
 }

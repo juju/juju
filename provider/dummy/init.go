@@ -4,9 +4,9 @@
 package dummy
 
 import (
-	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 )
 
 func init() {
-	provider.RegisterEnvironStorageProviders("dummy")
+	registry.RegisterEnvironStorageProviders("dummy")
 }

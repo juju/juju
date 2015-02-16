@@ -6,14 +6,17 @@ package openstack
 import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/provider"
-	storageprovider "github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
+)
+
+const (
+	Openstack = "openstack"
 )
 
 func init() {
-	environs.RegisterProvider(provider.Openstack, environProvider{})
+	environs.RegisterProvider(Openstack, environProvider{})
 	environs.RegisterImageDataSourceFunc("keystone catalog", getKeystoneImageSource)
 	tools.RegisterToolsDataSourceFunc("keystone catalog", getKeystoneToolsSource)
 
-	storageprovider.RegisterEnvironStorageProviders(provider.Openstack)
+	registry.RegisterEnvironStorageProviders(Openstack)
 }

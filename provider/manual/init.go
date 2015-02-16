@@ -5,13 +5,16 @@ package manual
 
 import (
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider"
-	storageprovider "github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
+)
+
+const (
+	Manual = "manual"
 )
 
 func init() {
 	p := manualProvider{}
-	environs.RegisterProvider(provider.Manual, p, "null")
+	environs.RegisterProvider(Manual, p, "null")
 
-	storageprovider.RegisterEnvironStorageProviders(provider.Manual)
+	registry.RegisterEnvironStorageProviders(Manual)
 }

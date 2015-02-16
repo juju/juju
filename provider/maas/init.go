@@ -5,12 +5,15 @@ package maas
 
 import (
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider"
-	storageprovider "github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
+)
+
+const (
+	MAAS = "maas"
 )
 
 func init() {
-	environs.RegisterProvider(provider.MAAS, maasEnvironProvider{})
+	environs.RegisterProvider(MAAS, maasEnvironProvider{})
 
-	storageprovider.RegisterEnvironStorageProviders(provider.MAAS)
+	registry.RegisterEnvironStorageProviders(MAAS)
 }

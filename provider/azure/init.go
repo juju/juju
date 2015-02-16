@@ -5,12 +5,15 @@ package azure
 
 import (
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider"
-	storageprovider "github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
+)
+
+const (
+	Azure = "azure"
 )
 
 func init() {
 	environs.RegisterProvider("azure", azureEnvironProvider{})
 
-	storageprovider.RegisterEnvironStorageProviders(provider.Azure)
+	registry.RegisterEnvironStorageProviders(Azure)
 }

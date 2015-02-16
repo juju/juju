@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing"
 )
 
@@ -20,7 +20,7 @@ type providerSuite struct {
 var _ = gc.Suite(&providerSuite{})
 
 func (*providerSuite) TestEBSProviderRegistered(c *gc.C) {
-	p, err := provider.StorageProvider(ec2.EBS_ProviderType)
+	p, err := registry.StorageProvider(ec2.EBS_ProviderType)
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := p.(storage.Provider)
 	c.Assert(ok, jc.IsTrue)
@@ -29,7 +29,7 @@ func (*providerSuite) TestEBSProviderRegistered(c *gc.C) {
 func (*providerSuite) TestSupportedProviders(c *gc.C) {
 	supported := []storage.ProviderType{ec2.EBS_ProviderType}
 	for _, providerType := range supported {
-		ok := provider.IsProviderSupported("ec2", providerType)
+		ok := registry.IsProviderSupported("ec2", providerType)
 		c.Assert(ok, jc.IsTrue)
 	}
 }

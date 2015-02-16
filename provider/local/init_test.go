@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing"
 )
 
@@ -21,7 +22,7 @@ var _ = gc.Suite(&providerSuite{})
 func (*providerSuite) TestSupportedProviders(c *gc.C) {
 	supported := []storage.ProviderType{provider.HostLoopProviderType}
 	for _, providerType := range supported {
-		ok := provider.IsProviderSupported("local", providerType)
+		ok := registry.IsProviderSupported("local", providerType)
 		c.Assert(ok, jc.IsTrue)
 	}
 }

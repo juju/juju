@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/pool"
-	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 )
 
 // StorageInstance represents the state of a unit or service-wide storage
@@ -509,7 +509,7 @@ func validateStoragePool(st *State, poolName string, kind storage.StorageKind) (
 	envType := conf.Type()
 	// If no pool specified, use the default if registered.
 	if poolName == "" {
-		defaultPool, ok := provider.DefaultPool(envType, kind)
+		defaultPool, ok := registry.DefaultPool(envType, kind)
 		if ok {
 			logger.Infof("no storage pool specified, using default pool %q", defaultPool)
 			poolName = defaultPool
@@ -524,7 +524,7 @@ func validateStoragePool(st *State, poolName string, kind storage.StorageKind) (
 		return "", errors.Trace(err)
 	}
 	providerType := p.Type()
-	if !provider.IsProviderSupported(envType, providerType) {
+	if !registry.IsProviderSupported(envType, providerType) {
 		return "", errors.Errorf(
 			"pool %q uses storage provider %q which is not supported for environments of type %q",
 			poolName,

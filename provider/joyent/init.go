@@ -5,12 +5,15 @@ package joyent
 
 import (
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider"
-	storageprovider "github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
+)
+
+const (
+	Joyent = "joyent"
 )
 
 func init() {
-	environs.RegisterProvider(provider.Joyent, providerInstance)
+	environs.RegisterProvider(Joyent, providerInstance)
 
-	storageprovider.RegisterEnvironStorageProviders(provider.Joyent)
+	registry.RegisterEnvironStorageProviders(Joyent)
 }

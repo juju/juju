@@ -8,13 +8,9 @@
 package provider
 
 const (
-	Joyent    = "joyent"
-	Local     = "local"
-	MAAS      = "maas"
-	AWS       = "ec2"
-	Openstack = "openstack"
-	Azure     = "azure"
-	Manual    = "manual"
+	Joyent = "joyent"
+	Local  = "local"
+	MAAS   = "maas"
 )
 
 // IsManual returns true iff the specified provider

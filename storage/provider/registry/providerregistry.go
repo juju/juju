@@ -1,12 +1,13 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provider
+package registry
 
 import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 )
 
 //
@@ -39,11 +40,6 @@ func StorageProvider(providerType storage.ProviderType) (storage.Provider, error
 // valid for a Juju Environ.
 //
 
-var commonProviders = []storage.ProviderType{
-	LoopProviderType,
-	// TODO(wallyworld) - add rootfs, tmpfs provider
-}
-
 // supportedEnvironProviders maps from environment type to a slice of
 // supported ProviderType(s).
 var supportedEnvironProviders = make(map[string][]storage.ProviderType)
@@ -62,7 +58,7 @@ func RegisterEnvironStorageProviders(envType string, providers ...storage.Provid
 	}
 
 	// Add the common providers.
-	for _, p := range commonProviders {
+	for p := range provider.CommonProviders() {
 		if IsProviderSupported(envType, p) {
 			continue
 		}
@@ -85,7 +81,6 @@ func IsProviderSupported(envType string, providerType storage.ProviderType) bool
 	return false
 }
 
-// TODO(wallyworld) - this needs rework to account for defaults with/without storage directives
 type defaultStoragePool map[storage.StorageKind]string
 
 // defaultPools records the default block and filesystem pools to be
