@@ -47,7 +47,6 @@ type NetworkInterface struct {
 	Disabled bool `json:"Disabled"`
 }
 
-// NetworkConfig (look at StartInstance).
 // NetworkInfo describes all the necessary information to configure
 // all network interfaces on a machine. This mostly duplicates
 // network.InterfaceInfo type and it's defined here so it can be kept

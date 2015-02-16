@@ -14,6 +14,10 @@ import (
 )
 
 type (
+	P struct {
+		prot string
+		num  int
+	}
 	IS []interface{}
 	M  map[string]interface{}
 )
@@ -23,6 +27,22 @@ type NetworkSuite struct{}
 var _ = gc.Suite(&NetworkSuite{})
 
 func (s *NetworkSuite) TestPortsResults(c *gc.C) {
+	// Convenience helpers.
+	mkPortsResults := func(prs ...params.PortsResult) params.PortsResults {
+		return params.PortsResults{
+			Results: prs,
+		}
+	}
+	mkPortsResult := func(msg, code string, ports ...P) params.PortsResult {
+		pr := params.PortsResult{}
+		if msg != "" {
+			pr.Error = &params.Error{msg, code}
+		}
+		for _, p := range ports {
+			pr.Ports = append(pr.Ports, params.Port{p.prot, p.num})
+		}
+		return pr
+	}
 	mkResults := func(rs ...interface{}) M {
 		return M{"Results": rs}
 	}
@@ -35,44 +55,36 @@ func (s *NetworkSuite) TestPortsResults(c *gc.C) {
 	mkPort := func(prot string, num int) M {
 		return M{"Protocol": prot, "Number": num}
 	}
+	// Tests.
 	tests := []struct {
 		about    string
 		results  params.PortsResults
 		expected M
 	}{{
 		about:    "empty result set",
-		results:  params.PortsResults{},
+		results:  mkPortsResults(),
 		expected: mkResults(),
 	}, {
 		about: "one error",
-		results: params.PortsResults{
-			Results: []params.PortsResult{
-				params.PortsResult{Error: &params.Error{"I failed", "ERR42"}},
-			},
-		},
+		results: mkPortsResults(
+			mkPortsResult("I failed", "ERR42")),
 		expected: mkResults(
 			mkResult(
 				mkError("I failed", "ERR42"),
 				nil)),
 	}, {
 		about: "one succes with one port",
-		results: params.PortsResults{
-			Results: []params.PortsResult{
-				params.PortsResult{Ports: []params.Port{{"tcp", 80}}},
-			},
-		},
+		results: mkPortsResults(
+			mkPortsResult("", "", P{"tcp", 80})),
 		expected: mkResults(
 			mkResult(
 				nil,
 				IS{mkPort("tcp", 80)})),
 	}, {
 		about: "two results, one error and one success with two ports",
-		results: params.PortsResults{
-			Results: []params.PortsResult{
-				params.PortsResult{Error: &params.Error{"I failed", "ERR42"}},
-				params.PortsResult{Ports: []params.Port{{"tcp", 80}, {"tcp", 443}}},
-			},
-		},
+		results: mkPortsResults(
+			mkPortsResult("I failed", "ERR42"),
+			mkPortsResult("", "", P{"tcp", 80}, P{"tcp", 443})),
 		expected: mkResults(
 			mkResult(
 				mkError("I failed", "ERR42"),
