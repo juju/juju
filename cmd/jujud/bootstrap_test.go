@@ -47,7 +47,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -709,8 +709,8 @@ func (s *BootstrapSuite) TestDefaultStoragePools(c *gc.C) {
 	defer st.Close()
 
 	settings := state.NewStateSettings(st)
-	pm := pool.NewPoolManager(settings)
-	for _, p := range []string{"ebs", "ebs-ssd"} {
+	pm := poolmanager.New(settings)
+	for _, p := range []string{"ebs-ssd"} {
 		_, err = pm.Get(p)
 		c.Assert(err, jc.ErrorIsNil)
 	}

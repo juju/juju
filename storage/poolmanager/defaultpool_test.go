@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package pool_test
+package poolmanager_test
 
 import (
 	jc "github.com/juju/testing/checkers"
@@ -12,7 +12,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/poolmanager"
 )
 
 type defaultStoragePoolsSuite struct {
@@ -21,32 +21,24 @@ type defaultStoragePoolsSuite struct {
 
 var _ = gc.Suite(&defaultStoragePoolsSuite{})
 
-type mockAgentConfig struct {
-	dataDir string
-}
-
-func (mock *mockAgentConfig) DataDir() string {
-	return mock.dataDir
-}
-
 func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
-	defaultPools := []pool.PoolInfo{
-		{"pool1", storage.ProviderType("foo"), map[string]interface{}{"1": "2"}},
-		{"pool2", storage.ProviderType("bar"), map[string]interface{}{"3": "4"}},
-	}
-	pool.RegisterDefaultStoragePools(defaultPools)
+	p1, err := storage.NewConfig("pool1", storage.ProviderType("foo"), map[string]interface{}{"1": "2"})
+	p2, err := storage.NewConfig("pool2", storage.ProviderType("bar"), map[string]interface{}{"3": "4"})
+	c.Assert(err, jc.ErrorIsNil)
+	defaultPools := []*storage.Config{p1, p2}
+	poolmanager.RegisterDefaultStoragePools(defaultPools)
 
 	settings := state.NewStateSettings(s.State)
-	err := pool.AddDefaultStoragePools(settings, &mockAgentConfig{dataDir: s.DataDir()})
+	err = poolmanager.AddDefaultStoragePools(settings)
 	c.Assert(err, jc.ErrorIsNil)
-	pm := pool.NewPoolManager(settings)
-	for _, info := range defaultPools {
-		p, err := pm.Get(info.Name)
+	pm := poolmanager.New(settings)
+	for _, pool := range defaultPools {
+		p, err := pm.Get(pool.Name())
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(p.Type(), gc.Equals, info.Type)
-		c.Assert(p.Config(), gc.DeepEquals, info.Config)
+		c.Assert(p.Provider(), gc.Equals, pool.Provider())
+		c.Assert(p.Attrs(), gc.DeepEquals, pool.Attrs())
 	}
 }

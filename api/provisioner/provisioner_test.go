@@ -30,7 +30,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -208,7 +208,7 @@ func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
-	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 

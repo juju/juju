@@ -40,7 +40,7 @@ import (
 	"github.com/juju/juju/state/presence"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testcharms"
@@ -1494,7 +1494,7 @@ func (s *clientSuite) TestClientServiceDeployWithInvalidStoragePool(c *gc.C) {
 func (s *clientSuite) TestClientServiceDeployWithUnsupportedStoragePool(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("host-loop-pool", provider.HostLoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2933,7 +2933,7 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 func (s *clientSuite) setupStoragePool(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 	registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
