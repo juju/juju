@@ -55,7 +55,19 @@ class DeployStackTestCase(TestCase):
         self.assertEqual(1, de_mock.call_count)
         self.assertEqual(0, dji_mock.call_count)
 
-    def test_destroy_environment_with_manual_type(self):
+    def test_destroy_environment_with_manual_type_aws(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'manual'}), '1.234-76', None)
+        with patch.object(client,
+                          'destroy_environment', autospec=True) as de_mock:
+            with patch('deploy_stack.destroy_job_instances',
+                       autospec=True) as dji_mock:
+                with patch.dict(os.environ, {'AWS_ACCESS_KEY': 'bar'}):
+                    destroy_environment(client, 'foo')
+        self.assertEqual(1, de_mock.call_count)
+        dji_mock.assert_called_with('foo')
+
+    def test_destroy_environment_with_manual_type_non_aws(self):
         client = EnvJujuClient(
             SimpleEnvironment('foo', {'type': 'manual'}), '1.234-76', None)
         with patch.object(client,
@@ -64,7 +76,7 @@ class DeployStackTestCase(TestCase):
                        autospec=True) as dji_mock:
                 destroy_environment(client, 'foo')
         self.assertEqual(1, de_mock.call_count)
-        dji_mock.assert_called_with('foo')
+        self.assertEqual(0, dji_mock.call_count)
 
     def test_destroy_job_instances_none(self):
         with patch('deploy_stack.get_job_instances',
