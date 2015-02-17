@@ -209,6 +209,22 @@ func (st *State) StorageInstance(tag names.StorageTag) (StorageInstance, error) 
 	return &s, nil
 }
 
+func (st *State) AllStorageInstances() ([]StorageInstance, error) {
+	coll, closer := st.getCollection(storageInstancesC)
+	defer closer()
+
+	var storageInstances []StorageInstance
+	var doc storageInstanceDoc
+	iter := coll.Find(nil).Iter()
+	for iter.Next(&doc) {
+		storageInstances = append(storageInstances, &storageInstance{st, doc})
+	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Annotate(err, "cannot get storage instances")
+	}
+	return storageInstances, nil
+}
+
 // RemoveStorageInstance removes the storage instance with the specified tag.
 func (st *State) RemoveStorageInstance(tag names.StorageTag) error {
 	// TODO(axw) ensure we cannot remove storage instance while

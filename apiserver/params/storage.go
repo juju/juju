@@ -179,3 +179,8 @@ type StorageShowResult struct {
 type StorageShowResults struct {
 	Results []StorageShowResult `json:"results,omitempty"`
 }
+
+// StorageListResult holds information about storage instances.
+type StorageListResult struct {
+	Instances []StorageInstance
+}

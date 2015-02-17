@@ -28,6 +28,7 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
+// Show retrieves information about desired storage instances.
 func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInstance, error) {
 	found := params.StorageShowResults{}
 	entities := make([]params.Entity, len(tags))
@@ -47,4 +48,13 @@ func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInstance, error)
 		all = append(all, result.Result)
 	}
 	return all, allErr.Combine()
+}
+
+// List list all current storage instances.
+func (c *Client) List() ([]params.StorageInstance, error) {
+	result := params.StorageListResult{}
+	if err := c.facade.FacadeCall("List", nil, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return result.Instances, nil
 }
