@@ -116,7 +116,7 @@ func (s *suite) TestKillPropogates(c *gc.C) {
 	c.Assert(runners[1].killed, jc.IsFalse)
 
 	m.Kill()
-	err := waitOrPanic(m.Wait)
+	err := waitOrFatal(c, m.Wait)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(runners[0].killed, jc.IsTrue)
@@ -164,7 +164,7 @@ func (s *suite) TestFatalErrorKillsEnvWorkerManager(c *gc.C) {
 	runner.tomb.Kill(worker.ErrTerminateAgent)
 	runner.tomb.Done()
 
-	err := waitOrPanic(m.Wait)
+	err := waitOrFatal(c, m.Wait)
 	c.Assert(errors.Cause(err), gc.Equals, worker.ErrTerminateAgent)
 }
 
@@ -187,7 +187,7 @@ func (s *suite) TestStateIsClosedIfStartEnvWorkersFails(c *gc.C) {
 	// panic.
 	s.startErr = worker.ErrTerminateAgent // This will make envWorkerManager exit.
 	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorkers)
-	waitOrPanic(m.Wait)
+	waitOrFatal(c, m.Wait)
 }
 
 func (s *suite) seeRunnersStart(c *gc.C, expectedCount int) []*fakeRunner {
@@ -239,7 +239,7 @@ func (s *suite) startEnvWorkers(ssSt envworkermanager.InitialState, st *state.St
 	return runner, nil
 }
 
-func waitOrPanic(wait func() error) error {
+func waitOrFatal(c *gc.C, wait func() error) error {
 	errC := make(chan error)
 	go func() {
 		errC <- wait()
@@ -249,8 +249,9 @@ func waitOrPanic(wait func() error) error {
 	case err := <-errC:
 		return err
 	case <-time.After(testing.LongWait):
-		panic("waited too long")
+		c.Fatal("waited too long")
 	}
+	return nil
 }
 
 // fakeRunner minimally implements the worker.Runner interface. It
