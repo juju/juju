@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
 )
 
@@ -87,6 +88,9 @@ func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 
 	mapping, volumes, volumeAttachments, err := ec2.GetBlockDeviceMappings(
 		"pv", &environs.StartInstanceParams{Volumes: []storage.VolumeParams{{
+			Size:     1234,
+			Provider: provider.LoopProviderType,
+		}, {
 			Tag:      volume0,
 			Size:     1234,
 			Provider: ec2.EBS_ProviderType,

@@ -81,10 +81,10 @@ func getBlockDeviceMappings(
 	// many there are and how big each one is. We also need to
 	// unmap ephemeral0 in cloud-init.
 
-	volumes := make([]storage.Volume, len(args.Volumes))
-	attachments := make([]storage.VolumeAttachment, len(args.Volumes))
+	var volumes []storage.Volume
+	var attachments []storage.VolumeAttachment
 	nextDeviceName := blockDeviceNamer(virtType == paravirtual)
-	for i, params := range args.Volumes {
+	for _, params := range args.Volumes {
 		if params.Provider != EBS_ProviderType {
 			continue
 		}
@@ -132,8 +132,8 @@ func getBlockDeviceMappings(
 			DeviceName: actualDeviceName,
 		}
 		blockDeviceMappings = append(blockDeviceMappings, mapping)
-		volumes[i] = volume
-		attachments[i] = attachment
+		volumes = append(volumes, volume)
+		attachments = append(attachments, attachment)
 	}
 	return blockDeviceMappings, volumes, attachments, nil
 }
