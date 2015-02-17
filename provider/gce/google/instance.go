@@ -83,6 +83,14 @@ func (is InstanceSpec) networkInterfaces() []*compute.NetworkInterface {
 	return result
 }
 
+// RootDisk identifies the root disk for a given instance (or instance
+// spec) and returns it. If the root disk could not be determined then
+// nil is returned.
+// TODO(ericsnow) Return an error?
+func (is InstanceSpec) RootDisk() *compute.AttachedDisk {
+	return is.Disks[0].newAttached()
+}
+
 // InstanceSummary captures all the data needed by Instance.
 type InstanceSummary struct {
 	// ID is the "name" of the instance.
@@ -139,13 +147,21 @@ func (gi Instance) Spec() *InstanceSpec {
 	return gi.spec
 }
 
+// RootDisk returns an AttachedDisk
+func (gi Instance) RootDisk() *compute.AttachedDisk {
+	if gi.spec == nil {
+		return nil
+	}
+	return gi.spec.RootDisk()
+}
+
 // RootDiskGB returns the size of the instance's root disk. If it
 // cannot be determined then 0 is returned.
 func (gi Instance) RootDiskGB() uint64 {
 	if gi.spec == nil {
 		return 0
 	}
-	attached := rootDisk(gi.spec)
+	attached := gi.RootDisk()
 	// The root disk from a spec will not fail.
 	size, _ := diskSizeGB(attached)
 	return size

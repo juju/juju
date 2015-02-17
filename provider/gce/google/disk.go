@@ -20,21 +20,19 @@ const (
 	diskModeRO = "READ_ONLY"
 )
 
-const (
-	// MinDiskSizeGB is the minimum/default size (in megabytes) for
-	// GCE disks.
-	//
-	// Note: GCE does not currently have an official minimum disk size.
-	// However, a size of 0 is not viable so we use the next lowest
-	// value.
-	MinDiskSizeGB uint64 = 1
-)
+// MinDiskSizeGB is the minimum/default size (in megabytes) for
+// GCE disks.
+//
+// Note: GCE does not currently have an official minimum disk size.
+// However, a size of 0 is not viable so we use the next lowest
+// value.
+const MinDiskSizeGB uint64 = 1
 
 // DiskSpec holds all the data needed to request a new disk on GCE.
 // Some fields are used only for attached disks (i.e. in association
 // with instances).
 type DiskSpec struct {
-	// sizeHintGB is the requested disk size in Gigabytes. It must be
+	// SizeHintGB is the requested disk size in Gigabytes. It must be
 	// greater than 0.
 	SizeHintGB uint64
 	// ImageURL is the location of the image to which the disk should
@@ -73,14 +71,14 @@ func (ds *DiskSpec) SizeGB() uint64 {
 // newAttached builds a compute.AttachedDisk using the information in
 // the disk spec and returns it.
 //
-// Npte: Not all AttachedDisk fields are set.
+// Note: Not all AttachedDisk fields are set.
 func (ds *DiskSpec) newAttached() *compute.AttachedDisk {
 	// TODO(ericsnow) Fail if SizeHintGB is 0?
-	diskType := diskTypePersistent // The default.
+	diskType := diskTypePersistent
 	if ds.Scratch {
 		diskType = diskTypeScratch
 	}
-	mode := diskModeRW // The default.
+	mode := diskModeRW
 	if ds.Readonly {
 		mode = diskModeRO
 	}
@@ -100,26 +98,6 @@ func (ds *DiskSpec) newAttached() *compute.AttachedDisk {
 		// DeviceName (GCE sets this, persistent disk only)
 	}
 	return &disk
-}
-
-// rootDisk identifies the root disk for a given instance (or instance
-// spec) and returns it. If the root disk could not be determined then
-// nil is returned.
-// TODO(ericsnow) Return an error?
-func rootDisk(inst interface{}) *compute.AttachedDisk {
-	switch typed := inst.(type) {
-	case *compute.Instance:
-		return typed.Disks[0]
-	case *Instance:
-		if typed.spec == nil {
-			return nil
-		}
-		return typed.spec.Disks[0].newAttached()
-	case *InstanceSpec:
-		return typed.Disks[0].newAttached()
-	default:
-		return nil
-	}
 }
 
 // diskSizeGB determines the size of the provided disk. This works both

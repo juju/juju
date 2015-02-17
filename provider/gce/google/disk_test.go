@@ -112,25 +112,8 @@ func (s *diskSuite) TestDiskSpecNewAttachedReadOnly(c *gc.C) {
 	})
 }
 
-func (s *diskSuite) TestRootDiskCompute(c *gc.C) {
-	attached := google.RootDisk(&s.RawInstance)
-
-	c.Assert(attached, gc.NotNil)
-	s.checkAttached(c, attachedInfo{
-		attached: attached,
-		diskType: "PERSISTENT",
-		diskMode: "READ_WRITE",
-	})
-}
-
-func (s *diskSuite) TestRootDiskComputeValue(c *gc.C) {
-	attached := google.RootDisk(s.RawInstance)
-
-	c.Assert(attached, gc.IsNil)
-}
-
 func (s *diskSuite) TestRootDiskInstance(c *gc.C) {
-	attached := google.RootDisk(&s.Instance)
+	attached := s.Instance.RootDisk()
 
 	c.Assert(attached, gc.NotNil)
 	s.checkAttached(c, attachedInfo{
@@ -141,13 +124,14 @@ func (s *diskSuite) TestRootDiskInstance(c *gc.C) {
 }
 
 func (s *diskSuite) TestRootDiskInstanceNilSpec(c *gc.C) {
-	attached := google.RootDisk(&google.Instance{})
+	inst := google.Instance{}
+	attached := inst.RootDisk()
 
 	c.Assert(attached, gc.IsNil)
 }
 
 func (s *diskSuite) TestRootDiskSpec(c *gc.C) {
-	attached := google.RootDisk(&s.InstanceSpec)
+	attached := s.InstanceSpec.RootDisk()
 
 	c.Assert(attached, gc.NotNil)
 	s.checkAttached(c, attachedInfo{
@@ -155,12 +139,6 @@ func (s *diskSuite) TestRootDiskSpec(c *gc.C) {
 		diskType: "PERSISTENT",
 		diskMode: "READ_WRITE",
 	})
-}
-
-func (s *diskSuite) TestRootDiskUnknown(c *gc.C) {
-	attached := google.RootDisk("hello")
-
-	c.Assert(attached, gc.IsNil)
 }
 
 func (s *diskSuite) TestDiskSizeGBCompute(c *gc.C) {
