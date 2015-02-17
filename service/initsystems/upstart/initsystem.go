@@ -1,6 +1,13 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// TODO(ericsnow) Remove build constraints from this package. Upstart
+// should be viable under Windows as long as its fileOperations and
+// cmdRunner are targetting linux (e.g. a remote host). Once those two
+// interfaces expose their supported target, Upstart should validate
+// that target and the build constraints should be removed.
+// +build linux
+
 package upstart
 
 import (
