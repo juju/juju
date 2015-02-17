@@ -569,12 +569,14 @@ type StatusParams struct {
 // SetRsyslogCertParams holds parameters for the SetRsyslogCert call.
 type SetRsyslogCertParams struct {
 	CACert []byte
+	CAKey  []byte
 }
 
 // RsyslogConfigResult holds the result of a GetRsyslogConfig call.
 type RsyslogConfigResult struct {
 	Error  *Error
 	CACert string
+	CAKey  string
 	// Port is only used by state servers as the port to listen on.
 	// Clients should use HostPorts for the rsyslog addresses to forward
 	// logs to.
