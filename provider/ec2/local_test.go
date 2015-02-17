@@ -478,6 +478,11 @@ var azConstrainedErr = &amzec2.Error{
 	Message: "The requested Availability Zone is currently constrained etc.",
 }
 
+var azVolumeTypeNotAvailableInZoneErr = &amzec2.Error{
+	Code:    "VolumeTypeNotAvailableInZone",
+	Message: "blah blah",
+}
+
 var azInsufficientInstanceCapacityErr = &amzec2.Error{
 	Code: "InsufficientInstanceCapacity",
 	Message: "We currently do not have sufficient m1.small capacity in the " +
@@ -494,6 +499,10 @@ var azNoDefaultSubnetErr = &amzec2.Error{
 
 func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
 	t.testStartInstanceAvailZoneAllConstrained(c, azConstrainedErr)
+}
+
+func (t *localServerSuite) TestStartInstanceVolumeTypeNotAvailable(c *gc.C) {
+	t.testStartInstanceAvailZoneAllConstrained(c, azVolumeTypeNotAvailableInZoneErr)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneAllInsufficientInstanceCapacity(c *gc.C) {
