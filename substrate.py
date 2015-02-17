@@ -6,14 +6,9 @@ from contextlib import (
 import logging
 import os
 import subprocess
-import sys
 from time import sleep
 
 from utility import temp_dir
-
-
-sys.path.insert(
-    0, os.path.realpath(os.path.join(__file__, '../../juju-release-tools')))
 
 from boto import ec2
 from boto.exception import EC2ResponseError
