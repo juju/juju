@@ -73,7 +73,7 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 	s.cmd = &initsystems.StubShell{Stub: s.stub}
 	s.init = upstart.NewUpstart(s.initDir, s.files, s.cmd)
 
-	s.PatchValue(&upstart.ConfDir, s.initDir)
+	s.PatchValue(upstart.ConfDir, s.initDir)
 	s.PatchValue(&initsystems.RetryAttempts, utils.AttemptStrategy{})
 }
 

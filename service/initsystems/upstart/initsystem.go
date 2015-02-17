@@ -23,8 +23,8 @@ import (
 
 // Vars for patching in tests.
 var (
-	// ConfDir holds the default init directory name.
-	ConfDir = "/etc/init"
+	// confDir holds the default init directory name.
+	confDir = "/etc/init"
 )
 
 var (
@@ -74,7 +74,7 @@ type upstart struct {
 func NewInitSystem(name string) initsystems.InitSystem {
 	return &upstart{
 		name:    name,
-		initDir: ConfDir,
+		initDir: confDir,
 		fops:    &fs.Ops{},
 		cmd:     &initsystems.LocalShell{},
 	}

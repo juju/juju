@@ -9,6 +9,10 @@ import (
 	"github.com/juju/juju/service/initsystems"
 )
 
+var (
+	ConfDir = &confDir
+)
+
 func NewUpstart(initDir string, fops fileOperations, cmd cmdRunner) initsystems.InitSystem {
 	return &upstart{
 		name:    "upstart",
