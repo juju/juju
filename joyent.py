@@ -129,17 +129,24 @@ class FormParser(HTMLParser):
             self.importance_field_opened = False
 
 
+def parse_iso_date(string):
+    return datetime.strptime(string, ISO_8601_FORMAT)
+
+
 class Client:
     """A class that mirrors MantaClient without the modern Crypto.
 
     See https://github.com/joyent/python-manta
     """
 
-    def __init__(self, sdc_url, account, key_id, key_path,
+    def __init__(self, sdc_url, account, key_id, key_path, manta_url,
                  user_agent=USER_AGENT, pause=3, dry_run=False, verbose=False):
         if sdc_url.endswith('/'):
             sdc_url = sdc_url[1:]
         self.sdc_url = sdc_url
+        if manta_url.endswith('/'):
+            manta_url = manta_url[1:]
+        self.manta_url = manta_url
         self.account = account
         self.key_id = key_id
         self.key_path = key_path
@@ -168,11 +175,16 @@ class Client:
         headers["User-Agent"] = USER_AGENT
         return headers
 
-    def _request(self, path, method="GET", body=None, headers=None):
+    def _request(self, path, method="GET", body=None, headers=None,
+                 is_manta=False):
         headers = self.make_request_headers(headers)
         if path.startswith('/'):
             path = path[1:]
-        uri = "{}/{}/{}".format(self.sdc_url, self.account, path)
+        if is_manta:
+            base_url = self.manta_url
+        else:
+            base_url = self.sdc_url
+        uri = "{}/{}/{}".format(base_url, self.account, path)
         if method == 'DELETE':
             request = DeleteRequest(uri, headers=headers)
         elif method == 'HEAD':
@@ -194,6 +206,45 @@ class Client:
         headers['status'] = str(response.getcode())
         headers['reason'] = response.msg
         return headers, content
+
+    def _list_objects(self, path, deep=False):
+        headers, content = self._request(path, is_manta=True)
+        objects = []
+        for line in content.splitlines():
+            obj = json.loads(line)
+            obj['path'] = '%s/%s' % (path, obj['name'])
+            objects.append(obj)
+            if obj['type'] == 'directory' and deep:
+                objects.extend(self._list_objects(obj['path'], deep=True))
+        return objects
+
+    def list_objects(self, path, deep=False):
+        objects = self._list_objects(path, deep=deep)
+        for obj in objects:
+            print('{type:9} {mtime} {path}'.format(**obj))
+
+    def delete_old_objects(self, path, old_age):
+        now = datetime.utcnow()
+        ago = timedelta(hours=old_age)
+        objects = self._list_objects(path, deep=True)
+        # The list is dir, the sub objects. Manta requires the sub objects
+        # to be deleted first.
+        objects.reverse()
+        for obj in objects:
+            if '.joyent' in obj['path']:
+                # The .joyent dir cannot be deleted.
+                print('ignoring %s' % obj['path'])
+                continue
+            mtime = parse_iso_date(obj['mtime'])
+            age = now - mtime
+            if age < ago:
+                print('ignoring young %s' % obj['path'])
+                continue
+            if self.verbose:
+                print('Deleting %s' % obj['path'])
+            if not self.dry_run:
+                headers, content = self._request(
+                    obj['path'], method='DELETE', is_manta=True)
 
     def _list_machines(self, machine_id=None):
         """Return a list of machine dicts."""
@@ -349,7 +400,7 @@ class Client:
         now = datetime.utcnow()
         current_stuck = []
         for machine in machines:
-            created = datetime.strptime(machine['created'], ISO_8601_FORMAT)
+            created = parse_iso_date(machine['created'])
             age = now - created
             if age > timedelta(hours=old_age):
                 machine_id = machine['id']
@@ -367,7 +418,7 @@ class Client:
             self.request_deletion(current_stuck, contact_mail_address)
 
 
-def parse_args(args=None):
+def parse_args(argv=None):
     """Return the argument parser for this program."""
     parser = ArgumentParser('Query and manage joyent.')
     parser.add_argument(
@@ -379,6 +430,10 @@ def parse_args(args=None):
         "-u", "--url", dest="sdc_url",
         help="SDC URL. Environment: SDC_URL=URL",
         default=os.environ.get("SDC_URL"))
+    parser.add_argument(
+        "-m", "--manta-url", dest="manta_url",
+        help="Manta URL. Environment: MANTA_URL=URL",
+        default=os.environ.get("MANTA_URL"))
     parser.add_argument(
         "-a", "--account",
         help="Manta account. Environment: MANTA_USER=ACCOUNT",
@@ -405,23 +460,42 @@ def parse_args(args=None):
     parser_list_tags = subparsers.add_parser(
         'list-tags', help='List tags of running machines')
     parser_list_tags.add_argument('machine_id', help='The machine id.')
-    return parser.parse_args(args)
+    parser_list_objects = subparsers.add_parser(
+        'list-objects', help='List directories and files in manta')
+    parser_list_objects.add_argument(
+        '-r', '--recursive', action='store_true', default=False,
+        help='Include content in subdirectories.')
+    parser_list_objects.add_argument('path', help='The path')
+    parser_delete_old_objects = subparsers.add_parser(
+        'delete-old-objects',
+        help='Delete objects older than %d hours' % OLD_MACHINE_AGE)
+    parser_delete_old_objects.add_argument(
+        '-o', '--old-age', default=OLD_MACHINE_AGE, type=int,
+        help='Set old object age to n hours.')
+    parser_delete_old_objects.add_argument('path', help='The path')
+
+    args = parser.parse_args(argv)
+    if not args.sdc_url:
+        print('SDC_URL must be sourced into the environment.')
+        sys.exit(1)
+    return args
 
 
 def main(argv):
     args = parse_args(argv)
-    if not args.sdc_url:
-        print('SDC_URL must be sourced into the environment.')
-        sys.exit(1)
     client = Client(
-        args.sdc_url, args.account, args.key_id, args.key_path,
+        args.sdc_url, args.account, args.key_id, args.key_path, args.manta_url,
         dry_run=args.dry_run, verbose=args.verbose)
     if args.command == 'list-machines':
         client.list_machines()
     elif args.command == 'list-tags':
         client.list_machine_tags(args.machine_id)
+    elif args.command == 'list-objects':
+        client.list_objects(args.path, deep=args.recursive)
     elif args.command == 'delete-old-machines':
         client.delete_old_machines(args.old_age, args.contact_mail_address)
+    elif args.command == 'delete-old-objects':
+        client.delete_old_objects(args.path, args.old_age)
     else:
         print("action not understood.")
 
