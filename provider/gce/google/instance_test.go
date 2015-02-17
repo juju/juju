@@ -155,8 +155,8 @@ func (s *instanceSuite) TestUnpackMetadata(c *gc.C) {
 	c.Check(data, jc.DeepEquals, expected)
 }
 
-func (s *instanceSuite) TestResolveMachineType(c *gc.C) {
-	resolved := google.ResolveMachineType("a-zone", "spam")
+func (s *instanceSuite) TestFormatMachineType(c *gc.C) {
+	resolved := google.FormatMachineType("a-zone", "spam")
 
 	c.Check(resolved, gc.Equals, "zones/a-zone/machineTypes/spam")
 }

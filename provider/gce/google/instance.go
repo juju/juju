@@ -253,6 +253,6 @@ func unpackMetadata(data *compute.Metadata) map[string]string {
 	return result
 }
 
-func resolveMachineType(zone, name string) string {
-	return fmt.Sprintf(partialMachineType, zone, name)
+func formatMachineType(zone, name string) string {
+	return fmt.Sprintf("zones/%s/machineTypes/%s", zone, name)
 }

@@ -18,11 +18,11 @@ var (
 	// TODO(ericsnow) Tune the timeouts and delays.
 
 	attemptsLong = utils.AttemptStrategy{
-		Total: 300 * time.Second, // 5 minutes
+		Total: 5 * time.Minute,
 		Delay: 2 * time.Second,
 	}
 	attemptsShort = utils.AttemptStrategy{
-		Total: 60 * time.Second,
+		Total: 1 * time.Minute,
 		Delay: 1 * time.Second,
 	}
 )

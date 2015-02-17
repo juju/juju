@@ -20,7 +20,7 @@ func (gce *Connection) addInstance(requestedInst *compute.Instance, machineType 
 	for _, zoneName := range zones {
 		var waitErr error
 		inst := *requestedInst
-		inst.MachineType = resolveMachineType(zoneName, machineType)
+		inst.MachineType = formatMachineType(zoneName, machineType)
 		err := gce.raw.AddInstance(gce.ProjectID, zoneName, &inst)
 		if isWaitError(err) {
 			waitErr = err

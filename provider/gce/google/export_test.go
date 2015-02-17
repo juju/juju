@@ -10,14 +10,14 @@ import (
 var (
 	NewRawConnection = &newRawConnection
 
-	NewInstanceRaw     = newInstance
-	PackMetadata       = packMetadata
-	UnpackMetadata     = unpackMetadata
-	ResolveMachineType = resolveMachineType
-	DiskSizeGB         = diskSizeGB
-	ZoneName           = zoneName
-	FirewallSpec       = firewallSpec
-	ExtractAddresses   = extractAddresses
+	NewInstanceRaw    = newInstance
+	PackMetadata      = packMetadata
+	UnpackMetadata    = unpackMetadata
+	FormatMachineType = formatMachineType
+	DiskSizeGB        = diskSizeGB
+	ZoneName          = zoneName
+	FirewallSpec      = firewallSpec
+	ExtractAddresses  = extractAddresses
 )
 
 func SetRawConn(conn *Connection, raw rawConnectionWrapper) {
