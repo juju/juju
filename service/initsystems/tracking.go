@@ -5,7 +5,6 @@ package initsystems
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/fs"
 	"github.com/juju/utils/set"
 )
 
@@ -15,7 +14,7 @@ import (
 // and serialization it defers to its base InitSystem.
 type Tracking struct {
 	base basicInitSystem
-	fops fileOperations
+	fops ConfFileOperations
 
 	// Services is the record of known services and their configurations.
 	Services map[string]Conf
@@ -29,10 +28,11 @@ type Tracking struct {
 
 // NewTracking creates a new Tracking around the provided init system
 // and "filesystem".
-func NewTracking(base InitSystem, fops fs.Operations) *Tracking {
+func NewTracking(base InitSystem, fops ConfFileOperations) *Tracking {
 	return newTracking(base, fops)
 }
 
+// basicInitSystem exposes the parts of InitSystem used by Tracking.
 type basicInitSystem interface {
 	// Name implements InitSystem.
 	Name() string
@@ -47,7 +47,7 @@ type basicInitSystem interface {
 	Deserialize(data []byte, name string) (*Conf, error)
 }
 
-func newTracking(base basicInitSystem, fops fileOperations) *Tracking {
+func newTracking(base basicInitSystem, fops ConfFileOperations) *Tracking {
 	return &Tracking{
 		base:     base,
 		fops:     fops,
@@ -114,7 +114,7 @@ func (is *Tracking) Enable(name, filename string) error {
 		return errors.Trace(err)
 	}
 
-	conf, err := readConf(name, filename, is, is.fops)
+	conf, err := ReadConf(name, filename, is, is.fops)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -142,7 +142,7 @@ func (is *Tracking) IsEnabled(name string) (bool, error) {
 
 // Check implements InitSystem.
 func (is *Tracking) Check(name, filename string) (bool, error) {
-	matched, err := checkConf(name, filename, is, is.fops)
+	matched, err := CheckConf(name, filename, is, is.fops)
 	return matched, errors.Trace(err)
 }
 
