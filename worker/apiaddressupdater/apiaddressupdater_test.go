@@ -94,7 +94,7 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	// and then the updated value.
 	select {
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for SetAPIHostPorts to be called first")
+		c.Fatalf("timed out waiting for SetAPIHostPorts to be called initially")
 	case servers := <-setter.servers:
 		c.Assert(servers, gc.HasLen, 0)
 	}
@@ -103,7 +103,7 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for SetAPIHostPorts to be called second")
+		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
 	case servers := <-setter.servers:
 		c.Assert(servers, gc.DeepEquals, updatedServers)
 	}
@@ -160,7 +160,7 @@ LXC_BRIDGE="ignored"`[1:])
 	// then the updated value, but filtering occurs in both cases.
 	select {
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for SetAPIHostPorts to be called first")
+		c.Fatalf("timed out waiting for SetAPIHostPorts to be called initially")
 	case servers := <-setter.servers:
 		c.Assert(servers, gc.HasLen, 2)
 		c.Assert(servers, jc.DeepEquals, [][]network.HostPort{
@@ -173,7 +173,7 @@ LXC_BRIDGE="ignored"`[1:])
 	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for SetAPIHostPorts to be called second")
+		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
 	case servers := <-setter.servers:
 		c.Assert(servers, gc.HasLen, 2)
 		c.Assert(servers, jc.DeepEquals, [][]network.HostPort{
