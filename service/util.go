@@ -5,6 +5,8 @@ package service
 
 import (
 	"strings"
+
+	"github.com/juju/utils/fs"
 )
 
 //TODO(ericsnow) Move hasPrefix to the utils repo.
@@ -35,4 +37,8 @@ func fromSlash(path string, initSystem string) string {
 		return strings.Replace(path, "/", `\`, -1)
 	}
 	return path
+}
+
+var newFileOps = func() fs.Operations {
+	return &fs.Ops{}
 }
