@@ -48,6 +48,9 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	name := "jujud-machine-0"
 	initDir := s.DataDir + "/init"
+	// In the context of the `service` package, the particular init
+	// system is not significant. Nothing in the package should rely on
+	// any specific init system. So here we simply picked one.
 	s.Confdir = newConfDir(name, initDir, InitSystemUpstart, nil)
 }
 
