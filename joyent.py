@@ -129,6 +129,10 @@ class FormParser(HTMLParser):
             self.importance_field_opened = False
 
 
+def parse_iso_date(string):
+    return datetime.strptime(string, ISO_8601_FORMAT)
+
+
 class Client:
     """A class that mirrors MantaClient without the modern Crypto.
 
@@ -217,7 +221,30 @@ class Client:
     def list_objects(self, path, deep=False):
         objects = self._list_objects(path, deep=deep)
         for obj in objects:
-            print('{type} {mtime} {path}'.format(**obj))
+            print('{type:9} {mtime} {path}'.format(**obj))
+
+    def delete_old_objects(self, path, old_age):
+        now = datetime.utcnow()
+        ago = timedelta(hours=old_age)
+        objects = self._list_objects(path, deep=True)
+        # The list is dir, the sub objects. Manta requires the sub objects
+        # to be deleted first.
+        objects.reverse()
+        for obj in objects:
+            if '.joyent' in obj['path']:
+                # The .joyent dir cannot be deleted.
+                print('ignoring %s' % obj['path'])
+                continue
+            mtime = parse_iso_date(obj['mtime'])
+            age = now - mtime
+            if age < ago:
+                print('ignoring young %s' % obj['path'])
+                continue
+            if self.verbose:
+                print('Deleting %s' % obj['path'])
+            if not self.dry_run:
+                headers, content = self._request(
+                    obj['path'], method='DELETE', is_manta=True)
 
     def _list_machines(self, machine_id=None):
         """Return a list of machine dicts."""
@@ -373,7 +400,7 @@ class Client:
         now = datetime.utcnow()
         current_stuck = []
         for machine in machines:
-            created = datetime.strptime(machine['created'], ISO_8601_FORMAT)
+            created = parse_iso_date(machine['created'])
             age = now - created
             if age > timedelta(hours=old_age):
                 machine_id = machine['id']
@@ -439,6 +466,13 @@ def parse_args(argv=None):
         '-r', '--recursive', action='store_true', default=False,
         help='Include content in subdirectories.')
     parser_list_objects.add_argument('path', help='The path')
+    parser_delete_old_objects = subparsers.add_parser(
+        'delete-old-objects',
+        help='Delete objects older than %d hours' % OLD_MACHINE_AGE)
+    parser_delete_old_objects.add_argument(
+        '-o', '--old-age', default=OLD_MACHINE_AGE, type=int,
+        help='Set old object age to n hours.')
+    parser_delete_old_objects.add_argument('path', help='The path')
 
     args = parser.parse_args(argv)
     if not args.sdc_url:
@@ -460,6 +494,8 @@ def main(argv):
         client.list_objects(args.path, deep=args.recursive)
     elif args.command == 'delete-old-machines':
         client.delete_old_machines(args.old_age, args.contact_mail_address)
+    elif args.command == 'delete-old-objects':
+        client.delete_old_objects(args.path, args.old_age)
     else:
         print("action not understood.")
 
