@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
@@ -12,6 +13,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -136,7 +138,77 @@ func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
 	}
 }
 
-// TODO(axw) StorageInstance can't be destroyed while it has attachments
+func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
+	ch := s.AddTestingCharm(c, "storage-block")
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("block", 1024, 1),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	u, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	// destroying a unit with storage attachments is fine; this is what
+	// will trigger the death and removal of storage attachments.
+	err = u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	// until all storage attachments are removed, the unit cannot be
+	// marked as being dead.
+	err = u.EnsureDead()
+	c.Assert(err, gc.ErrorMatches, "unit has storage attachments")
+	err = s.State.EnsureStorageAttachmentDead(names.NewStorageTag("data/0"), u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.DestroyStorageInstance(names.NewStorageTag("data/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveStorageAttachment(names.NewStorageTag("data/0"), u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StorageStateSuite) TestRemoveStorageInstance(c *gc.C) {
+	ch := s.AddTestingCharm(c, "storage-block")
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("block", 1024, 1),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	u, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	storageTag := names.NewStorageTag("data/0")
+
+	err = s.State.DestroyStorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveStorageInstance(storageTag)
+	c.Assert(err, gc.ErrorMatches, `cannot remove storage "data/0": storage is not dead`)
+
+	err = s.State.EnsureStorageAttachmentDead(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveStorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
+	ch := s.AddTestingCharm(c, "storage-block2")
+	storage := map[string]state.StorageConstraints{
+		"multi1to10": makeStorageCons("block", 1024, 1),
+		"multi2up":   makeStorageCons("block", 1024, 2),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-block2", ch, storage)
+	u, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := s.State.WatchStorageAttachments(u.UnitTag())
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange("multi1to10/0", "multi2up/1", "multi2up/2")
+	wc.AssertNoChange()
+
+	err = s.State.DestroyStorageAttachment(names.NewStorageTag("multi2up/1"), u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("multi2up/1")
+	wc.AssertNoChange()
+}
+
 // TODO(axw) StorageAttachments can't be added to Dying StorageInstance
 // TODO(axw) StorageInstance becomes Dying when Unit becomes Dying
-// TODO(axw) StorageAttachments become Dying when StorageInstance becomes Dying
