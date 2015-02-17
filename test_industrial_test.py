@@ -634,16 +634,17 @@ class TestIndustrialTest(TestCase):
         attempt = FakeAttempt(True, True)
         industrial = IndustrialTest(old_client, new_client, [attempt])
 
-        def iter_test_results():
+        def iter_test_results(old, new):
             raise Exception
             yield
 
-        with patch.object(attempt, 'iter_test_results', iter_test_results):
+        with patch.object(attempt, 'iter_test_results',
+                          iter_test_results):
             with patch('logging.exception') as le_mock:
                 with patch.object(industrial, 'destroy_both') as db_mock:
                     with self.assertRaises(SystemExit):
                         industrial.run_attempt()
-        le_mock.assert_called_once()
+        self.assertEqual(1, le_mock.call_count)
         self.assertEqual(db_mock.mock_calls, [call(), call()])
 
 

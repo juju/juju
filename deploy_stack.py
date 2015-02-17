@@ -72,7 +72,8 @@ def prepare_environment(env, already_bootstrapped, machines):
 
 def destroy_environment(client, instance_tag):
     client.destroy_environment()
-    if client.env.config['type'] == 'manual':
+    if (client.env.config['type'] == 'manual'
+            and 'AWS_ACCESS_KEY' in os.environ):
         destroy_job_instances(instance_tag)
 
 
@@ -98,12 +99,17 @@ def run_instances(count, job_name):
         '-t', 'm1.large', '-g', 'manual-juju-test', 'ami-36aa4d5e']
     run_output = subprocess.check_output(command, env=environ).strip()
     machine_ids = dict(parse_euca(run_output)).keys()
-    subprocess.call(
-        ['euca-create-tags', '--tag', 'job_name=%s' % job_name]
-        + machine_ids, env=environ)
     for remaining in until_timeout(300):
         names = dict(describe_instances(machine_ids, env=environ))
         if '' not in names.values():
+            try:
+                subprocess.check_call(
+                    ['euca-create-tags', '--tag', 'job_name=%s' % job_name]
+                    + machine_ids, env=environ)
+            except subprocess.CalledProcessError:
+                subprocess.call(
+                    ['euca-terminate-instances'] + machine_ids)
+                raise
             return names.items()
         sleep(1)
 
@@ -349,7 +355,7 @@ def deploy_job():
         env = dict(os.environ)
         env.update({
             'ENV': args.env,
-            })
+        })
         scripts = os.path.dirname(os.path.abspath(sys.argv[0]))
         subprocess.check_call(
             ['bash', '{}/common-startup.sh'.format(scripts)], env=env)
