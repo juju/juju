@@ -206,17 +206,19 @@ func (gi Instance) Metadata() map[string]string {
 
 // FormatAuthorizedKeys returns our authorizedKeys with
 // the username prepended to it. This is the format that
-// GCE uses for its sshKeys metadata.
-func FormatAuthorizedKeys(raw, user string) (string, error) {
-	if raw == "" {
-		return "", errors.New("empty raw")
+// GCE expects when we upload sshKeys metadata. The sshKeys
+// metadata is what is used by our scripts and commands
+// like juju ssh to connect to juju machines.
+func FormatAuthorizedKeys(rawAuthorizedKeys, user string) (string, error) {
+	if rawAuthorizedKeys == "" {
+		return "", errors.New("empty rawAuthorizedKeys")
 	}
 	if user == "" {
 		return "", errors.New("empty user")
 	}
 
 	var userKeys string
-	keys := strings.Split(raw, "\n")
+	keys := strings.Split(rawAuthorizedKeys, "\n")
 	for _, key := range keys {
 		userKeys += user + ":" + key + "\n"
 	}

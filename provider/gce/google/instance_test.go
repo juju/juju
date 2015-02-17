@@ -117,7 +117,7 @@ func (s *instanceSuite) TestFormatAuthorizedKeys(c *gc.C) {
 func (s *instanceSuite) TestFormatAuthorizedKeysEmpty(c *gc.C) {
 	_, err := google.FormatAuthorizedKeys("", "john")
 
-	c.Check(err, gc.ErrorMatches, "empty raw")
+	c.Check(err, gc.ErrorMatches, "empty rawAuthorizedKeys")
 }
 
 func (s *instanceSuite) TestFormatAuthorizedKeysNoUser(c *gc.C) {
