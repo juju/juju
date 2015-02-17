@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
@@ -121,6 +122,52 @@ func (s *suite) TestKillPropogates(c *gc.C) {
 
 	c.Assert(runners[0].killed, jc.IsTrue)
 	c.Assert(runners[1].killed, jc.IsTrue)
+}
+
+// stateWithFailingGetEnvironment wraps a *state.State, overriding the
+// GetEnvironment to generate an error.
+type stateWithFailingGetEnvironment struct {
+	*stateWithFakeWatcher
+	shouldFail bool
+}
+
+func newStateWithFailingGetEnvironment(realSt *state.State) *stateWithFailingGetEnvironment {
+	return &stateWithFailingGetEnvironment{
+		stateWithFakeWatcher: newStateWithFakeWatcher(realSt),
+		shouldFail:           false,
+	}
+}
+func (s *stateWithFailingGetEnvironment) GetEnvironment(tag names.EnvironTag) (*state.Environment, error) {
+	if s.shouldFail {
+		return nil, errors.New("unable to GetEnvironment")
+	}
+	return s.State.GetEnvironment(tag)
+}
+
+func (s *suite) TestLoopExitKillsRunner(c *gc.C) {
+	// If something causes EnvWorkerManager.loop to exit that isn't Kill() then it should stop the runner.
+	// Currently the best way to cause this is to make
+	// m.st.GetEnvironment(tag) fail with any error other than NotFound
+	st := newStateWithFailingGetEnvironment(s.State)
+	uuid := st.EnvironUUID()
+	m := envworkermanager.NewEnvWorkerManager(st, s.startEnvWorkers)
+	defer m.Kill()
+
+	// First time: runners started
+	st.sendEnvChange(uuid)
+	runners := s.seeRunnersStart(c, 1)
+	c.Assert(runners[0].killed, jc.IsFalse)
+
+	// Now we start failing
+	st.shouldFail = true
+	st.sendEnvChange(uuid)
+
+	// This should kill the manager
+	err := waitOrFatal(c, m.Wait)
+	c.Assert(err, gc.ErrorMatches, "error loading environment .*: unable to GetEnvironment")
+
+	// And that should kill all the runners
+	c.Assert(runners[0].killed, jc.IsTrue)
 }
 
 func (s *suite) TestNothingHappensWhenEnvIsSeenAgain(c *gc.C) {
