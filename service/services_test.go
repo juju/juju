@@ -22,5 +22,53 @@ func (s *servicesSuite) SetUpTest(c *gc.C) {
 
 // TODO(ericsnow) Write the tests.
 
-func (s *servicesSuite) Test(c *gc.C) {
+func (s *servicesSuite) TestDiscoverServices(c *gc.C) {
+}
+
+func (s *servicesSuite) TestInitSystem(c *gc.C) {
+}
+
+func (s *servicesSuite) TestList(c *gc.C) {
+}
+
+func (s *servicesSuite) TestListEnabled(c *gc.C) {
+}
+
+func (s *servicesSuite) TestStart(c *gc.C) {
+}
+
+func (s *servicesSuite) TestStop(c *gc.C) {
+}
+
+func (s *servicesSuite) TestIsRunning(c *gc.C) {
+}
+
+func (s *servicesSuite) TestEnable(c *gc.C) {
+}
+
+func (s *servicesSuite) TestDisable(c *gc.C) {
+}
+
+func (s *servicesSuite) TestIsEnabled(c *gc.C) {
+}
+
+func (s *servicesSuite) TestManage(c *gc.C) {
+}
+
+func (s *servicesSuite) TestRemove(c *gc.C) {
+}
+
+func (s *servicesSuite) TestInstall(c *gc.C) {
+}
+
+func (s *servicesSuite) TestCheck(c *gc.C) {
+}
+
+func (s *servicesSuite) TestIsManaged(c *gc.C) {
+}
+
+func (s *servicesSuite) TestNewService(c *gc.C) {
+}
+
+func (s *servicesSuite) TestNewAgentService(c *gc.C) {
 }

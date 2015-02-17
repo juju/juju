@@ -32,6 +32,15 @@ type Services struct {
 	init    initsystems.InitSystem
 }
 
+// NewServices build a Services from the provided data dir and init
+// system and returns it.
+func NewServices(dataDir string, init initsystems.InitSystem) *Services {
+	return &Services{
+		configs: newConfigs(dataDir, init.Name(), jujuPrefixes...),
+		init:    init,
+	}
+}
+
 // DiscoverServices populates a new Services and returns it. This
 // includes determining which init system is in use on the current host.
 // The provided data dir is used as the parent of the directory in which
@@ -56,15 +65,6 @@ func DiscoverServices(dataDir string, args ...string) (*Services, error) {
 	// Ensure that the list of known services is cached.
 	err = services.configs.refresh()
 	return services, errors.Trace(err)
-}
-
-// NewServices build a Services from the provided data dir and init
-// system and returns it.
-func NewServices(dataDir string, init initsystems.InitSystem) *Services {
-	return &Services{
-		configs: newConfigs(dataDir, init.Name(), jujuPrefixes...),
-		init:    init,
-	}
 }
 
 func extractInitSystem(args []string) (initsystems.InitSystem, error) {
