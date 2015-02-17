@@ -592,6 +592,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 
 	docID := s.st.docID(name)
 	globalKey := unitGlobalKey(name)
+	agentGlobalKey := unitAgentGlobalKey(name)
 	udoc := &unitDoc{
 		DocID:            docID,
 		Name:             name,
@@ -602,8 +603,12 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		Principal:        principalName,
 		StorageInstances: storageInstanceIds,
 	}
-	sdoc := statusDoc{
+	agentStatusDoc := statusDoc{
 		Status:  StatusAllocating,
+		EnvUUID: s.st.EnvironUUID(),
+	}
+	unitStatusDoc := statusDoc{
+		Status:  StatusBusy,
 		EnvUUID: s.st.EnvironUUID(),
 	}
 	ops := []txn.Op{
@@ -613,7 +618,8 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 			Assert: txn.DocMissing,
 			Insert: udoc,
 		},
-		createStatusOp(s.st, globalKey, sdoc),
+		createStatusOp(s.st, globalKey, unitStatusDoc),
+		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
 		createMeterStatusOp(s.st, globalKey, &meterStatusDoc{Code: MeterNotSet}),
 		{
 			C:      servicesC,
@@ -642,7 +648,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		if err != nil {
 			return "", nil, err
 		}
-		ops = append(ops, createConstraintsOp(s.st, globalKey, cons))
+		ops = append(ops, createConstraintsOp(s.st, agentGlobalKey, cons))
 	}
 	return name, ops, nil
 }
@@ -660,6 +666,7 @@ func (s *Service) unitStorageInstanceOps(unitName string) (ops []txn.Op, storage
 	}
 	meta := charm.Meta()
 	tag := names.NewUnitTag(unitName)
+	// TODO(wallyworld) - record constraints info in data model - size and pool name
 	ops, storageInstanceIds, err = createStorageInstanceOps(s.st, tag, meta, cons)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -727,7 +734,8 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		Assert: append(observedFieldsMatch, asserts...),
 		Remove: true,
 	},
-		removeConstraintsOp(s.st, u.globalKey()),
+		removeConstraintsOp(s.st, u.globalAgentKey()),
+		removeStatusOp(s.st, u.globalAgentKey()),
 		removeStatusOp(s.st, u.globalKey()),
 		removeMeterStatusOp(s.st, u.globalKey()),
 		annotationRemoveOp(s.st, u.globalKey()),

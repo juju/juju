@@ -22,6 +22,7 @@ import (
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	mgotxn "gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
@@ -32,6 +33,9 @@ import (
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -47,7 +51,7 @@ var alternatePassword = "bar-12345678901234567890"
 // asserting the behaviour of a given method in each state, and the unit quick-
 // remove change caused many of these to fail.
 func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
-	err := u.SetStatus(state.StatusActive, "", nil)
+	err := u.SetAgentStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -124,6 +128,11 @@ func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {
 
 func (s *StateSuite) TestEnvironUUID(c *gc.C) {
 	c.Assert(s.State.EnvironUUID(), gc.Equals, s.envTag.Id())
+}
+
+func (s *StateSuite) TestNoEnvDocs(c *gc.C) {
+	c.Assert(s.State.EnsureEnvironmentRemoved(), gc.ErrorMatches,
+		fmt.Sprintf("found documents for environment with uuid %s: 1 constraints doc, 1 settings doc", s.State.EnvironUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -1151,14 +1160,21 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	cons := constraints.MustParse("mem=4G")
 	hc := instance.MustParseHardware("mem=2G")
 
 	volume0 := state.VolumeParams{
+		Pool: "loop-pool",
 		Size: 123,
 	}
 	volume1 := state.VolumeParams{
+		Pool: "loop-pool",
 		Size: 456,
 	}
 	volumeAttachment0 := state.VolumeAttachmentParams{}
@@ -2124,9 +2140,9 @@ func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove alive and dying and see changes reported.
-	err = alive.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
 	err = state.RemoveEnvironment(s.State, dying.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+	err = alive.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(alive.UUID(), dying.UUID())
 	wc.AssertNoChange()
@@ -2592,6 +2608,48 @@ func (s *StateSuite) TestAdditionalValidation(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot remove logging-config")
 	err = s.State.UpdateEnvironConfig(updateAttrs, nil, configValidator3)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
+	st := s.factory.MakeEnvironment(c, nil)
+	defer st.Close()
+
+	// insert one doc for each multiEnvCollection
+	var ops []mgotxn.Op
+	for collName := range state.MultiEnvCollections {
+		// skip adding constraints and settings as they were added when the
+		// environment was created
+		if collName == "constraints" || collName == "settings" {
+			continue
+		}
+		ops = append(ops, mgotxn.Op{
+			C:      collName,
+			Id:     state.DocID(st, "arbitraryid"),
+			Insert: bson.M{"env-uuid": st.EnvironUUID()}})
+	}
+	err := state.RunTransaction(st, ops)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// test that we can find each doc in state
+	for collName := range state.MultiEnvCollections {
+		coll, closer := state.GetRawCollection(st, collName)
+		defer closer()
+		n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(n, gc.Equals, 1)
+	}
+
+	err = st.RemoveAllEnvironDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// ensure all docs for all multiEnvCollections are removed
+	for collName := range state.MultiEnvCollections {
+		coll, closer := state.GetRawCollection(st, collName)
+		defer closer()
+		n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(n, gc.Equals, 0)
+	}
 }
 
 type attrs map[string]interface{}
@@ -4190,6 +4248,15 @@ func (s *StateSuite) TestNowToTheSecond(c *gc.C) {
 	t := state.NowToTheSecond()
 	rounded := t.Round(time.Second)
 	c.Assert(t, gc.DeepEquals, rounded)
+}
+
+func (s *StateSuite) TestUnitsForInvalidId(c *gc.C) {
+	// Check that an error is returned if an invalid machine id is provided.
+	// Success cases are tested as part of TestMachinePrincipalUnits in the
+	// MachineSuite.
+	units, err := s.State.UnitsFor("invalid-id")
+	c.Assert(units, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `"invalid-id" is not a valid machine id`)
 }
 
 type SetAdminMongoPasswordSuite struct {

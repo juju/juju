@@ -26,6 +26,10 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -724,6 +728,14 @@ func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C)
 }
 
 func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+	registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
+	defer func() {
+		registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
+	}()
+
 	cons := constraints.MustParse("cpu-cores=123 mem=8G networks=^net3,^net4")
 	template := state.MachineTemplate{
 		Series:            "quantal",
@@ -732,8 +744,8 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 		Placement:         "valid",
 		RequestedNetworks: []string{"net1", "net2"},
 		Volumes: []state.MachineVolumeParams{
-			{Volume: state.VolumeParams{Size: 1000}},
-			{Volume: state.VolumeParams{Size: 2000}},
+			{Volume: state.VolumeParams{Size: 1000, Pool: "loop-pool"}},
+			{Volume: state.VolumeParams{Size: 2000, Pool: "loop-pool"}},
 		},
 	}
 	placementMachine, err := s.State.AddOneMachine(template)
@@ -766,15 +778,59 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 					VolumeTag:  "disk-0",
 					Size:       1000,
 					MachineTag: placementMachine.Tag().String(),
+					Provider:   "loop",
+					Attributes: map[string]interface{}{"foo": "bar"},
 				}, {
 					VolumeTag:  "disk-1",
 					Size:       2000,
 					MachineTag: placementMachine.Tag().String(),
+					Provider:   "loop",
+					Attributes: map[string]interface{}{"foo": "bar"},
 				}},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
+	template := state.MachineTemplate{
+		Series:            "quantal",
+		Jobs:              []state.MachineJob{state.JobHostUnits},
+		Placement:         "valid",
+		RequestedNetworks: []string{"net1", "net2"},
+		Volumes: []state.MachineVolumeParams{
+			// No pool called "loop" exists but there is a "loop" provider type.
+			{Volume: state.VolumeParams{Size: 1000, Pool: "loop"}},
+		},
+	}
+	placementMachine, err := s.State.AddOneMachine(template)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: placementMachine.Tag().String()},
+	}}
+	result, err := s.provisioner.ProvisioningInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(result, gc.DeepEquals, params.ProvisioningInfoResults{
+		Results: []params.ProvisioningInfoResult{
+			{Result: &params.ProvisioningInfo{
+				Series:      "quantal",
+				Constraints: template.Constraints,
+				Placement:   template.Placement,
+				Networks:    template.RequestedNetworks,
+				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Volumes: []params.VolumeParams{{
+					VolumeTag:  "disk-0",
+					Size:       1000,
+					MachineTag: placementMachine.Tag().String(),
+					Provider:   "loop",
+					Attributes: nil,
+				}},
+			}},
 		},
 	})
 }
@@ -931,9 +987,17 @@ func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+	registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
+	defer func() {
+		registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
+	}()
+
 	// Provision machine 0 first.
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err := s.machines[0].SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil, nil, nil)
+	err = s.machines[0].SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	volumesMachine, err := s.State.AddOneMachine(state.MachineTemplate{
@@ -943,6 +1007,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 			Volume: state.VolumeParams{Size: 1000},
 		}},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	networks := []params.Network{{
 		Tag:        "network-net1",
@@ -1026,9 +1091,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		}},
 		VolumeAttachments: []params.VolumeAttachment{{
 			VolumeTag:  "disk-0",
-			VolumeId:   "vol-0",
 			MachineTag: volumesMachine.Tag().String(),
-			InstanceId: "i-am-also",
 			DeviceName: "sda",
 		}},
 	},

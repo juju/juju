@@ -848,6 +848,19 @@ const (
 )
 
 const (
+	// Status values specific to units
+
+	// The unit is
+	StatusRemoving Status = "removing"
+
+	// The unit is
+	StatusGone Status = "gone"
+
+	// The unit is
+	StatusUnknown Status = "unknown"
+)
+
+const (
 	// Status values specific to services and units, reflecting the
 	// state of the software itself.
 

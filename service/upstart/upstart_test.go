@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
@@ -20,7 +21,12 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-func Test(t *testing.T) { gc.TestingT(t) }
+func Test(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping upstart tests on windows")
+	}
+	gc.TestingT(t)
+}
 
 type UpstartSuite struct {
 	coretesting.BaseSuite

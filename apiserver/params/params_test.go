@@ -144,7 +144,7 @@ func (s *MarshalSuite) TestDeltaMarshalJSON(c *gc.C) {
 		var expected interface{}
 		err = json.Unmarshal([]byte(t.json), &expected)
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(unmarshalledOutput, jc.DeepEquals, expected)
+		c.Check(unmarshalledOutput, gc.DeepEquals, expected)
 	}
 }
 

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	"gopkg.in/amz.v2/aws"
 	"gopkg.in/amz.v2/ec2"
@@ -521,10 +520,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	// TODO(axw) extract volume ID, store in BlockDevice.ProviderId field,
 	// and tag all resources (instances and volumes). We can't do this until
 	// goamz's BlockDeviceMapping structure is updated to include VolumeId.
-	for i := range volumes {
-		volumeAttachments[i].Machine = names.NewMachineTag(args.MachineConfig.MachineId)
-		volumeAttachments[i].InstanceId = inst.Id()
-	}
 
 	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
@@ -1291,6 +1286,8 @@ func isZoneConstrainedError(err error) bool {
 			// if the AZ does not have a default subnet. Until we have proper
 			// support for networks, we'll skip over these.
 			return strings.HasPrefix(err.Message, "No default subnet for availability zone")
+		case "VolumeTypeNotAvailableInZone":
+			return true
 		}
 	}
 	return false

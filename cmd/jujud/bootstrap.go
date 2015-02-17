@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/state/toolstorage"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
@@ -232,6 +233,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 	}
 
+	// Populate the storage pools.
+	if err := c.populateDefaultStoragePools(st); err != nil {
+		return err
+	}
+
 	// bootstrap machine always gets the vote
 	return m.SetHasVote(true)
 }
@@ -282,6 +288,12 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 		DialInfo:       dialInfo,
 		MemberHostPort: peerHostPort,
 	})
+}
+
+// populateDefaultStoragePools creates the default storage pools.
+func (c *BootstrapCommand) populateDefaultStoragePools(st *state.State) error {
+	settings := state.NewStateSettings(st)
+	return poolmanager.AddDefaultStoragePools(settings)
 }
 
 // populateTools stores uploaded tools in provider storage
@@ -357,6 +369,7 @@ func (c *BootstrapCommand) storeCustomImageMetadata(stor storage.Storage) error 
 			return err
 		}
 		defer f.Close()
+		relpath = filepath.ToSlash(relpath)
 		logger.Debugf("storing %q in environment storage (%d bytes)", relpath, info.Size())
 		return stor.Put(relpath, f, info.Size())
 	})

@@ -7,15 +7,21 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/client"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	jujutesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type destroyEnvironmentSuite struct {
@@ -71,7 +77,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
 	// If there are any non-manager manual machines in state, DestroyEnvironment will
 	// error. It will not set the Dying flag on the environment.
 	err := s.APIState.Client().DestroyEnvironment()
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("manually provisioned machines must first be destroyed with `juju destroy-machine %s`", nonManager.Id()))
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed to destroy environment: manually provisioned machines must first be destroyed with `juju destroy-machine %s`", nonManager.Id()))
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Alive)
@@ -178,4 +184,61 @@ func (s *destroyEnvironmentSuite) TestBlockChangesDestroyEnvironment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().DestroyEnvironment()
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
+}
+
+type destroyTwoEnvironmentsSuite struct {
+	testing.JujuConnSuite
+	otherState     *state.State
+	otherEnvOwner  names.UserTag
+	otherEnvClient *client.Client
+}
+
+var _ = gc.Suite(&destroyTwoEnvironmentsSuite{})
+
+func (s *destroyTwoEnvironmentsSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.otherEnvOwner = names.NewUserTag("jess@dummy")
+	s.otherState = factory.NewFactory(s.State).MakeEnvironment(c, &factory.EnvParams{
+		Owner:   s.otherEnvOwner,
+		Prepare: true,
+		ConfigAttrs: jujutesting.Attrs{
+			"state-server": false,
+		},
+	})
+	s.AddCleanup(func(*gc.C) { s.otherState.Close() })
+
+	// get the client for the other environment
+	auth := apiservertesting.FakeAuthorizer{
+		Tag:            s.otherEnvOwner,
+		EnvironManager: false,
+	}
+	var err error
+	s.otherEnvClient, err = client.NewClient(s.otherState, common.NewResources(), auth)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {
+	otherFactory := factory.NewFactory(s.otherState)
+	otherFactory.MakeMachine(c, nil)
+	m := otherFactory.MakeMachine(c, nil)
+	otherFactory.MakeMachineNested(c, m.Id(), nil)
+
+	err := s.otherEnvClient.DestroyEnvironment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.otherState.Environment()
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+
+	_, err = s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.otherState.EnsureEnvironmentRemoved(), jc.ErrorIsNil)
+}
+
+func (s *destroyTwoEnvironmentsSuite) TestDestroyStateServerAfterNonStateServerIsDestroyed(c *gc.C) {
+	err := s.APIState.Client().DestroyEnvironment()
+	c.Assert(err, gc.ErrorMatches, "failed to destroy environment: state server environment cannot be destroyed before all other environments are destroyed")
+	err = s.otherEnvClient.DestroyEnvironment()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.APIState.Client().DestroyEnvironment()
+	c.Assert(err, jc.ErrorIsNil)
 }

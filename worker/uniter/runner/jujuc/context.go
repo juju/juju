@@ -9,11 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/names"
 )
 
 type RebootPriority int
@@ -183,5 +184,47 @@ func (v *relationIdValue) Set(value string) error {
 	}
 	*v.result = id
 	v.value = value
+	return nil
+}
+
+// newStorageIdValue returns a gnuflag.Value for convenient parsing of storage
+// ids in ctx.
+func newStorageIdValue(ctx Context, result *names.StorageTag) *storageIdValue {
+	v := &storageIdValue{result: result, ctx: ctx}
+	if s, found := ctx.HookStorageAttachment(); found {
+		tag, err := names.ParseStorageTag(s.StorageTag)
+		if err == nil {
+			*v.result = tag
+		}
+	}
+	return v
+}
+
+// storageIdValue implements gnuflag.Value for use in storage commands.
+type storageIdValue struct {
+	result *names.StorageTag
+	ctx    Context
+}
+
+// String returns the current value.
+func (v *storageIdValue) String() string {
+	if *v.result == (names.StorageTag{}) {
+		return ""
+	}
+	return v.result.Id()
+}
+
+// Set interprets value as a storage id, if possible, and returns an error
+// if it is not known to the system. The parsed storage id will be written
+// to v.result.
+func (v *storageIdValue) Set(value string) error {
+	if !names.IsValidStorage(value) {
+		return errors.Errorf("invalid storage ID %q", value)
+	}
+	tag := names.NewStorageTag(value)
+	if _, found := v.ctx.StorageAttachment(tag); !found {
+		return fmt.Errorf("unknown storage attachment")
+	}
+	*v.result = tag
 	return nil
 }

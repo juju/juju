@@ -21,11 +21,13 @@ var (
 	UserCurrent        = &userCurrent
 )
 
-// ConfigNamespace returns the result of the namespace call on the
+// CheckConfigNamespace checks the result of the namespace call on the
 // localConfig.
-func ConfigNamespace(cfg *config.Config) string {
-	env, _ := providerInstance.Open(cfg)
-	return env.(*localEnviron).config.namespace()
+func CheckConfigNamespace(c *gc.C, cfg *config.Config, expected string) {
+	env, err := providerInstance.Open(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	namespace := env.(*localEnviron).config.namespace()
+	c.Assert(namespace, gc.Equals, expected)
 }
 
 // CreateDirs calls createDirs on the localEnviron.

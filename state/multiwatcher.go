@@ -9,7 +9,6 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/state/multiwatcher"

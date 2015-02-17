@@ -5,6 +5,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -16,7 +17,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"fmt"
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
@@ -147,7 +147,7 @@ func waitForUnitActive(stateConn *state.State, unit *state.Unit, c *gc.C) {
 		case <-time.After(coretesting.ShortWait):
 			err := unit.Refresh()
 			c.Assert(err, jc.ErrorIsNil)
-			st, info, data, err := unit.Status()
+			st, info, data, err := unit.AgentStatus()
 			c.Assert(err, jc.ErrorIsNil)
 			switch st {
 			case state.StatusAllocating, state.StatusInstalling:

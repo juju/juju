@@ -120,6 +120,15 @@ func (a *ContentAsserterC) AssertOneReceive() interface{} {
 	return res
 }
 
+// AssertOneValue checks that exactly 1 message was sent, and that the content DeepEquals the value.
+// It also returns the value in case further inspection is desired.
+func (a *ContentAsserterC) AssertOneValue(val interface{}) interface{} {
+	res := a.AssertReceive()
+	a.C.Assert(val, gc.DeepEquals, res)
+	a.AssertNoReceive()
+	return res
+}
+
 // AssertClosed ensures that we get a closed event on the channel
 func (a *ContentAsserterC) AssertClosed() {
 	_, ok, timedOut := a.recv(LongWait)

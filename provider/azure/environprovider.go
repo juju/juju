@@ -12,11 +12,6 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-// Register the Azure provider with Juju.
-func init() {
-	environs.RegisterProvider("azure", azureEnvironProvider{})
-}
-
 // Logger for the Azure provider.
 var logger = loggo.GetLogger("juju.provider.azure")
 

@@ -4,6 +4,8 @@
 package networker_test
 
 import (
+	"runtime"
+
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
@@ -17,6 +19,10 @@ type utilsSuite struct {
 var _ = gc.Suite(&utilsSuite{})
 
 func (s *utilsSuite) TestExecuteCommands(c *gc.C) {
+	//TODO(bogdanteleaga): Fix this on windows
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: test uses bash scripts, will fix later on windows")
+	}
 	commands := []string{
 		"echo start",
 		"sh -c 'echo STDOUT; echo STDERR >&2; exit 123'",

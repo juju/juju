@@ -23,6 +23,9 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -930,8 +933,13 @@ func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams) names.DiskT
 }
 
 func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+
 	// Must create the requested block device prior to SetInstanceInfo.
-	volumeTag := s.addVolume(c, state.VolumeParams{Size: 1000})
+	volumeTag := s.addVolume(c, state.VolumeParams{Size: 1000, Pool: "loop-pool"})
 
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
 	networks := []state.NetworkInfo{
@@ -946,7 +954,7 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 			Size:     1234,
 		},
 	}
-	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces, volumes, nil)
+	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces, volumes, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsTrue)
 	network, err := s.State.Network(networks[0].Name)
@@ -1036,7 +1044,7 @@ func (s *MachineSuite) TestRefreshWhenNotAlive(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
-	// Check that Machine.Units works correctly.
+	// Check that Machine.Units and st.UnitsFor work correctly.
 
 	// Make three machines, three services and three units for each service;
 	// variously assign units to machines and check that Machine.Units
@@ -1076,6 +1084,7 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 	}
 	units[3], err = s3.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sortedUnitNames(units[3]), jc.DeepEquals, []string{"s3/0", "s3/1", "s3/2"})
 
 	assignments := []struct {
 		machine      *state.Machine
@@ -1096,10 +1105,17 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 
 	for i, a := range assignments {
 		c.Logf("test %d", i)
+		expect := sortedUnitNames(append(a.units, a.subordinates...))
+
+		// The units can be retrieved from the machine model.
 		got, err := a.machine.Units()
 		c.Assert(err, jc.ErrorIsNil)
-		expect := sortedUnitNames(append(a.units, a.subordinates...))
-		c.Assert(sortedUnitNames(got), gc.DeepEquals, expect)
+		c.Assert(sortedUnitNames(got), jc.DeepEquals, expect)
+
+		// The units can be retrieved from the machine id.
+		got, err = s.State.UnitsFor(a.machine.Id())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(sortedUnitNames(got), jc.DeepEquals, expect)
 	}
 }
 
@@ -1230,7 +1246,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(state.StatusActive, "", nil)
+	err = mysql0.SetAgentStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1259,7 +1275,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(state.StatusActive, "", nil)
+	err = logging0.SetAgentStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1334,7 +1350,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(state.StatusActive, "", nil)
+	err = mysql0.SetAgentStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1364,7 +1380,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(state.StatusActive, "", nil)
+	err = logging0.SetAgentStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
