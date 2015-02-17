@@ -18,11 +18,16 @@ const (
 )
 
 var (
+	// linuxInitNames maps the executable from PID 1 onto the name of
+	// an init system.
 	linuxInitNames = map[string]string{
 		"/sbin/init": InitSystemUpstart,
 	}
 )
 
+// newInitSystem returns an InitSystem implementation based on the
+// provided name. If the name is unrecognized then errors.NotFound is
+// returned.
 func newInitSystem(name string) (initsystems.InitSystem, error) {
 	switch name {
 	case InitSystemWindows:
