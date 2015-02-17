@@ -42,7 +42,7 @@ func NewStubServices(init string) *StubServices {
 		Stub: &testing.Stub{},
 		Init: init,
 	}
-	stub.Calls = nil
+	stub.Reset()
 	return stub
 }
 
