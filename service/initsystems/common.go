@@ -19,7 +19,7 @@ func EnsureEnabled(name string, is InitSystem) error {
 }
 
 type enabledChecker interface {
-	// Implements InitSystem.
+	// IsEnabled implements InitSystem.
 	IsEnabled(name string) (bool, error)
 }
 
@@ -59,12 +59,12 @@ func ReadConf(name, filename string, is InitSystem, fops fs.Operations) (*Conf, 
 }
 
 type deserializer interface {
-	// Implements InitSystem.
+	// Deserialize implements InitSystem.
 	Deserialize(data []byte, name string) (*Conf, error)
 }
 
 type fileOperations interface {
-	// Implements fs.FileOperations.
+	// ReadFile implements fs.FileOperations.
 	ReadFile(filename string) ([]byte, error)
 }
 
@@ -88,7 +88,7 @@ func CheckConf(name, filename string, is InitSystem, fops fs.Operations) (bool, 
 type confChecker interface {
 	deserializer
 
-	// Implements InitSystem.
+	// Conf implements InitSystem.
 	Conf(name string) (*Conf, error)
 }
 

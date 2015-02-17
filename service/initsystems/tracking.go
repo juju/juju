@@ -5,15 +5,9 @@ package initsystems
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/fs"
 	"github.com/juju/utils/set"
 )
-
-type basicInitSystem interface {
-	Name() string
-	Validate(name string, conf Conf) error
-	Serialize(name string, conf Conf) ([]byte, error)
-	Deserialize(data []byte, name string) (*Conf, error)
-}
 
 // Tracking is an InitSystem implementation that doesn't
 // actually interact with a concrete init system. Instead it simulates
@@ -35,7 +29,25 @@ type Tracking struct {
 
 // NewTracking creates a new Tracking around the provided init system
 // and "filesystem".
-func NewTracking(base basicInitSystem, fops fileOperations) *Tracking {
+func NewTracking(base InitSystem, fops fs.Operations) *Tracking {
+	return newTracking(base, fops)
+}
+
+type basicInitSystem interface {
+	// Name implements InitSystem.
+	Name() string
+
+	// Validate implements InitSystem.
+	Validate(name string, conf Conf) error
+
+	// Serialize implements InitSystem.
+	Serialize(name string, conf Conf) ([]byte, error)
+
+	// Deserialize implements InitSystem.
+	Deserialize(data []byte, name string) (*Conf, error)
+}
+
+func newTracking(base basicInitSystem, fops fileOperations) *Tracking {
 	return &Tracking{
 		base:     base,
 		fops:     fops,
