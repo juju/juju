@@ -695,7 +695,7 @@ def parse_args(args=None):
     parser.add_argument('--debug', action='store_true', default=False)
     parser.add_argument(
         '--old-stable', help='Path to a version of juju that stable can'
-        'upgrade from.')
+        ' upgrade from.')
     return parser.parse_args(args)
 
 
