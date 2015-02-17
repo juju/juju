@@ -42,8 +42,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/filestorage"
-
-	"github.com/juju/juju/apiserver/params"
 )
 
 const (
@@ -101,7 +99,7 @@ type Backups interface {
 	Remove(id string) error
 
 	// Restore updates juju's state to the contents of the backup archive.
-	Restore(backupId string, args params.RestoreArgs) error
+	Restore(backupId string, args RestoreArgs) error
 }
 
 type backups struct {

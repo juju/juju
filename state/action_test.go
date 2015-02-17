@@ -128,7 +128,7 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 		params: map[string]interface{}{
 			"outfile": 5.0,
 		},
-		expectedErr: "JSON validation failed: \\(root\\)\\.outfile : must be of type string, given 5",
+		expectedErr: "validation failed: \\(root\\)\\.outfile : must be of type string, given 5",
 	}} {
 		c.Logf("Test %d: should %s", i, t.should)
 		before := state.NowToTheSecond()

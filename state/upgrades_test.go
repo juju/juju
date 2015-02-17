@@ -44,7 +44,7 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 	}
 
 	ops := []txn.Op{
-		txn.Op{
+		{
 			C:      "users",
 			Id:     userId,
 			Assert: txn.DocMissing,
@@ -1597,7 +1597,7 @@ func (s *upgradesSuite) instanceIdSetUp(c *gc.C, machineID string, instID instan
 		"instanceid": instID,
 	}
 	ops := []txn.Op{
-		txn.Op{
+		{
 			C:      machinesC,
 			Id:     machineID,
 			Assert: txn.DocMissing,
@@ -1991,7 +1991,7 @@ func (s *upgradesSuite) TestDropOldIndexesv123(c *gc.C) {
 	DropOldIndexesv123(s.state)
 
 	// check that all old indexes are now missing
-	for collName, _ := range oldIndexesv123 {
+	for collName := range oldIndexesv123 {
 		func() {
 			coll, closer := s.state.getRawCollection(collName)
 			defer closer()

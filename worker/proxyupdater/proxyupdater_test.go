@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"runtime"
 	"strings"
 	"time"
 
@@ -86,6 +87,10 @@ func (s *ProxyUpdaterSuite) waitProxySettings(c *gc.C, expected proxy.Settings) 
 }
 
 func (s *ProxyUpdaterSuite) waitForFile(c *gc.C, filename, expected string) {
+	//TODO(bogdanteleaga): Find a way to test this on windows
+	if runtime.GOOS == "windows" {
+		c.Skip("Proxy settings are written to the registry on windows")
+	}
 	for {
 		select {
 		case <-time.After(testing.LongWait):
@@ -128,9 +133,9 @@ func (s *ProxyUpdaterSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Setting
 	// proxy settings which is what we would get if we don't explicitly set
 	// apt values.
 	aptProxySettings := proxy.Settings{
-		Http:  "apt http proxy",
-		Https: "apt https proxy",
-		Ftp:   "apt ftp proxy",
+		Http:  "http://apt.http.proxy",
+		Https: "https://apt.https.proxy",
+		Ftp:   "ftp://apt.ftp.proxy",
 	}
 	for k, v := range config.AptProxyConfigMap(aptProxySettings) {
 		attrs[k] = v

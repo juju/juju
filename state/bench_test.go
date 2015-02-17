@@ -70,7 +70,7 @@ func benchmarkAddMetrics(metricsPerBatch, batches int, c *gc.C) {
 	defer s.TearDownTest(c)
 	now := time.Now()
 	metrics := make([]state.Metric, metricsPerBatch)
-	for i, _ := range metrics {
+	for i := range metrics {
 		metrics[i] = state.Metric{
 			Key:   "metricKey",
 			Value: "keyValue",

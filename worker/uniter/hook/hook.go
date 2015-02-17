@@ -7,11 +7,11 @@ package hook
 import (
 	"fmt"
 
-	"github.com/juju/utils/featureflag"
-
-	"github.com/juju/juju/storage"
 	"github.com/juju/names"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v4/hooks"
+
+	"github.com/juju/juju/feature"
 )
 
 // Info holds details required to execute a hook. Not all fields are
@@ -35,7 +35,7 @@ type Info struct {
 	// be retrieved by RunHook.
 	ActionId string `yaml:"action-id,omitempty"`
 
-	// StorageId is the id of the storage instance relevant to the hook.
+	// StorageId is the ID of the storage instance relevant to the hook.
 	StorageId string `yaml:"storage-id,omitempty"`
 }
 
@@ -56,7 +56,10 @@ func (hi Info) Validate() error {
 		return nil
 	case hooks.StorageAttached, hooks.StorageDetached:
 		// TODO: stop checking feature flag once storage has graduated.
-		if featureflag.Enabled(storage.FeatureFlag) {
+		if featureflag.Enabled(feature.Storage) {
+			if !names.IsValidStorage(hi.StorageId) {
+				return fmt.Errorf("invalid storage ID %q", hi.StorageId)
+			}
 			return nil
 		}
 	}

@@ -5,11 +5,11 @@ package storage
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/names"
 )
 
 const ShowCommandDoc = `
@@ -59,13 +59,11 @@ func (c *ShowCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // StorageInfo defines the serialization behaviour of the storage information.
 type StorageInfo struct {
-	StorageTag    string   `yaml:"storage-tag" json:"storage-tag"`
-	StorageName   string   `yaml:"storage-name" json:"storage-name"`
-	OwnerTag      string   `yaml:"owner-tag" json:"owner-tag"`
-	Location      string   `yaml:"location,omitempty" json:"location,omitempty"`
-	AvailableSize uint64   `yaml:"available-size" json:"available-size"`
-	TotalSize     uint64   `yaml:"total-size" json:"total-size"`
-	Tags          []string `yaml:"tags,omitempty" json:"tags,omitempty"`
+	StorageTag string `yaml:"storage-tag" json:"storage-tag"`
+	OwnerTag   string `yaml:"owner-tag" json:"owner-tag"`
+	// TODO(axw) add in location, available/total-size, and
+	// provider-specific info when we have the information
+	// from the API server.
 }
 
 // Run implements Command.Run.
@@ -110,13 +108,8 @@ func (c *ShowCommand) apiStoragesToInstanceSlice(all []params.StorageInstance) [
 	var output []StorageInfo
 	for _, one := range all {
 		outInfo := StorageInfo{
-			StorageTag:    one.StorageTag,
-			StorageName:   one.StorageName,
-			Location:      one.Location,
-			OwnerTag:      one.OwnerTag,
-			AvailableSize: one.AvailableSize,
-			TotalSize:     one.TotalSize,
-			Tags:          one.Tags,
+			StorageTag: one.StorageTag,
+			OwnerTag:   one.OwnerTag,
 		}
 		output = append(output, outInfo)
 	}

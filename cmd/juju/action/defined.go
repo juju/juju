@@ -80,7 +80,12 @@ func (c *DefinedCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.fullSchema {
-		return c.out.Write(ctx, output)
+		verboseSpecs := make(map[string]interface{})
+		for k, v := range output {
+			verboseSpecs[k] = v.Params
+		}
+
+		return c.out.Write(ctx, verboseSpecs)
 	}
 
 	shortOutput := make(map[string]string)

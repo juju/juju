@@ -172,6 +172,7 @@ var indexes = []struct {
 	{subnetsC, []string{"providerid"}, true, true},
 	{ipaddressesC, []string{"env-uuid", "state"}, false, false},
 	{ipaddressesC, []string{"env-uuid", "subnetid"}, false, false},
+	{storageInstancesC, []string{"env-uuid", "owner"}, false, false},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.

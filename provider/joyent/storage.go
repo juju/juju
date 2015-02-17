@@ -168,7 +168,7 @@ func (s *JoyentStorage) Put(name string, r io.Reader, length int64) error {
 	if strings.Contains(name, "/") {
 		var parents []string
 		dirs := strings.Split(name, "/")
-		for i, _ := range dirs {
+		for i := range dirs {
 			if i < (len(dirs) - 1) {
 				parents = append(parents, strings.Join(dirs[:(i+1)], "/"))
 			}

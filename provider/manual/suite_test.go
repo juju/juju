@@ -4,6 +4,7 @@
 package manual_test
 
 import (
+	"runtime"
 	"testing"
 
 	gc "gopkg.in/check.v1"
@@ -13,6 +14,11 @@ import (
 )
 
 func Test(t *testing.T) {
+	//TODO(bogdanteleaga): Fix this once manual provider is supported on
+	//windows
+	if runtime.GOOS == "windows" {
+		t.Skip("Manual provider is not yet supported on windows")
+	}
 	// Prevent any use of ssh for storage.
 	*manual.NewSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {
 		return nil, nil

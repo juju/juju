@@ -4,8 +4,10 @@
 package upgrades_test
 
 import (
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -17,7 +19,10 @@ type steps123Suite struct {
 var _ = gc.Suite(&steps123Suite{})
 
 func (s *steps123Suite) TestStateStepsFor123(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	expected := []string{
+		"add default storage pools",
 		"drop old mongo indexes",
 	}
 	assertStateSteps(c, version.MustParse("1.23.0"), expected)

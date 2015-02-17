@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -373,7 +374,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 
 	// "start the agent" for u0 to prevent short-circuited remove-on-destroy;
 	// check that it's kept deployed despite being Dying.
-	err = u0.SetStatus(state.StatusActive, "", nil)
+	err = u0.SetAgentStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u0.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -908,6 +909,10 @@ func (s *MachineSuite) TestJobManageEnvironRunsMinUnitsWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
+	//TODO(bogdanteleaga): Fix once we get authentication worker up on windows
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: authentication worker not yet implemented on windows")
+	}
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	a := s.newAgent(c, m)
@@ -984,6 +989,11 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRun(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		// Cannot make symlink to nonexistent file on windows or
+		// create a file point a symlink to it then remove it
+		c.Skip("Cannot test this on windows")
+	}
 	err := symlink.New("/nowhere/special", JujuRun)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = os.Stat(JujuRun)
@@ -1172,13 +1182,11 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 	// Wait for state to be updated.
 	s.BackingState.StartSync()
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		devices, err := m.BlockDevices()
+		devices, err := s.BackingState.BlockDevices(m.MachineTag())
 		c.Assert(err, jc.ErrorIsNil)
 		if len(devices) > 0 {
 			c.Assert(devices, gc.HasLen, 1)
-			info, err := devices[0].Info()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(info.DeviceName, gc.Equals, expected[0].DeviceName)
+			c.Assert(devices[0].DeviceName, gc.Equals, expected[0].DeviceName)
 			return
 		}
 	}

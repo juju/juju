@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
-	"github.com/juju/testing"
 )
 
 type KVMSuite struct {

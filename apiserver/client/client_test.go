@@ -40,6 +40,9 @@ import (
 	"github.com/juju/juju/state/presence"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -802,7 +805,7 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 			url:   "local:quantal/dummy-1",
 			expectedActions: &charm.Actions{
 				ActionSpecs: map[string]charm.ActionSpec{
-					"snapshot": charm.ActionSpec{
+					"snapshot": {
 						Description: "Take a snapshot of the database.",
 						Params: map[string]interface{}{
 							"type":        "object",
@@ -825,7 +828,7 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 			// Use wordpress for tests so that we can compare Provides and Requires.
 			charm: "wordpress",
 			expectedActions: &charm.Actions{ActionSpecs: map[string]charm.ActionSpec{
-				"fakeaction": charm.ActionSpec{
+				"fakeaction": {
 					Description: "No description",
 					Params: map[string]interface{}{
 						"type":        "object",
@@ -1277,7 +1280,7 @@ func (s *clientSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetStatus(state.StatusActive, "", nil)
+		err = unit.SetAgentStatus(state.StatusActive, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -1426,8 +1429,7 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceDeployWithStorage(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.setupStoragePool(c)
 	s.testClientServiceDeployWithStorage(c, true)
 }
 
@@ -1439,9 +1441,10 @@ func (s *clientSuite) testClientServiceDeployWithStorage(c *gc.C, expectConstrai
 	s.makeMockCharmStore()
 	curl, bundle := addCharm(c, "storage-block")
 	storageConstraints := map[string]storage.Constraints{
-		"data": storage.Constraints{
+		"data": {
 			Count: 1,
 			Size:  1024,
+			Pool:  "loop-pool",
 		},
 	}
 
@@ -1457,14 +1460,62 @@ func (s *clientSuite) testClientServiceDeployWithStorage(c *gc.C, expectConstrai
 
 	if expectConstraints {
 		c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
-			"data": state.StorageConstraints{
+			"data": {
 				Count: 1,
 				Size:  1024,
+				Pool:  "loop-pool",
 			},
 		})
 	} else {
 		c.Assert(storageConstraintsOut, gc.HasLen, 0)
 	}
+}
+
+func (s *clientSuite) TestClientServiceDeployWithInvalidStoragePool(c *gc.C) {
+	s.setupStoragePool(c)
+	s.makeMockCharmStore()
+	curl, _ := addCharm(c, "storage-block")
+	storageConstraints := map[string]storage.Constraints{
+		"data": storage.Constraints{
+			Pool:  "foo",
+			Count: 1,
+			Size:  1024,
+		},
+	}
+
+	var cons constraints.Value
+	err := s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 1, "", cons, "", nil,
+		storageConstraints,
+	)
+	c.Assert(err, gc.ErrorMatches, `.* pool "foo" not found`)
+}
+
+func (s *clientSuite) TestClientServiceDeployWithUnsupportedStoragePool(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("host-loop-pool", provider.HostLoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.makeMockCharmStore()
+	curl, _ := addCharm(c, "storage-block")
+	storageConstraints := map[string]storage.Constraints{
+		"data": storage.Constraints{
+			Pool:  "host-loop-pool",
+			Count: 1,
+			Size:  1024,
+		},
+	}
+
+	var cons constraints.Value
+	err = s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 1, "", cons, "", nil,
+		storageConstraints,
+	)
+	c.Assert(
+		err, gc.ErrorMatches,
+		`.*pool "host-loop-pool" uses storage provider "hostloop" which is not supported for environments of type "dummy"`)
 }
 
 func (s *clientSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
@@ -2879,11 +2930,21 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	c.Assert(m.Placement(), gc.DeepEquals, apiParams[3].Placement.Directive)
 }
 
-func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
+func (s *clientSuite) setupStoragePool(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
+	s.AddCleanup(func(_ *gc.C) {
+		registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
+	})
+}
 
-	apiParams := make([]params.AddMachineParams, 3)
+func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
+	s.setupStoragePool(c)
+	apiParams := make([]params.AddMachineParams, 5)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
 			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
@@ -2891,25 +2952,45 @@ func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
 	}
 	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
 	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "three"}}
-	apiParams[2].Disks = []storage.Constraints{{Size: 0, Count: 0}}
+	apiParams[2].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "loop-pool"}}
+	apiParams[3].Disks = []storage.Constraints{{Size: 0, Count: 0}}
+	apiParams[4].Disks = []storage.Constraints{{Size: 0, Count: 1}}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(machines), gc.Equals, 3)
+	c.Assert(machines, gc.HasLen, 5)
 	c.Assert(machines[0].Machine, gc.Equals, "0")
-	c.Assert(machines[1].Error, gc.ErrorMatches, "storage pools not implemented")
-	c.Assert(machines[2].Error, gc.ErrorMatches, "invalid size 0")
+	c.Assert(machines[1].Error, gc.ErrorMatches, `cannot add a new machine: validating volume params: pool "three" not found`)
+	c.Assert(machines[2].Machine, gc.Equals, "2")
+	c.Assert(machines[3].Error, gc.ErrorMatches, "invalid volume params: count not specified")
+	c.Assert(machines[4].Error, gc.ErrorMatches, "cannot add a new machine: validating volume params: invalid size 0")
 
-	m, err := s.BackingState.Machine(machines[0].Machine)
-	c.Assert(err, jc.ErrorIsNil)
-	blockDevices, err := m.BlockDevices()
-	c.Assert(err, jc.ErrorIsNil)
-	expectParams := []state.BlockDeviceParams{{Size: 1}, {Size: 1}, {Size: 2}}
-	c.Assert(blockDevices, gc.HasLen, len(expectParams))
-	for i, dev := range blockDevices {
-		params, ok := dev.Params()
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(params, gc.DeepEquals, expectParams[i])
+	expectParams := []state.VolumeParams{
+		{Size: 1}, {Size: 1}, {Size: 2},
 	}
+	s.assertVolumeParams(c, machines[0].Machine, expectParams)
+
+	expectParams = []state.VolumeParams{
+		{Size: 1, Pool: "loop-pool"}, {Size: 1, Pool: "loop-pool"},
+	}
+	s.assertVolumeParams(c, machines[2].Machine, expectParams)
+}
+
+func (s *clientSuite) assertVolumeParams(c *gc.C, machineId string, expectParams []state.VolumeParams) {
+	m, err := s.BackingState.Machine(machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	volumeAttachments, err := s.BackingState.MachineVolumeAttachments(m.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeAttachments, gc.HasLen, len(expectParams))
+
+	foundParams := make([]state.VolumeParams, len(volumeAttachments))
+	for i, attachment := range volumeAttachments {
+		volume, err := s.BackingState.Volume(attachment.Volume())
+		c.Assert(err, jc.ErrorIsNil)
+		params, ok := volume.Params()
+		c.Assert(ok, jc.IsTrue)
+		foundParams[i] = params
+	}
+	c.Assert(foundParams, jc.SameContents, expectParams)
 }
 
 func (s *clientSuite) TestClientAddMachinesWithDisksNoFeatureFlag(c *gc.C) {
@@ -2929,9 +3010,9 @@ func (s *clientSuite) TestClientAddMachinesWithDisksNoFeatureFlag(c *gc.C) {
 	c.Assert(machines[1].Machine, gc.Equals, "1")
 	m, err := s.BackingState.Machine(machines[0].Machine)
 	c.Assert(err, jc.ErrorIsNil)
-	blockDevices, err := m.BlockDevices()
+	volumeAttachments, err := s.BackingState.MachineVolumeAttachments(m.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockDevices, gc.HasLen, 0)
+	c.Assert(volumeAttachments, gc.HasLen, 0)
 }
 
 func (s *clientSuite) TestClientAddMachines1dot18(c *gc.C) {
@@ -3689,7 +3770,7 @@ func (s *clientSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetStatus(state.StatusActive, "", nil)
+		err = unit.SetAgentStatus(state.StatusActive, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}

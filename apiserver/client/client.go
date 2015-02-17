@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
@@ -287,10 +288,10 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	}
 	curl, err := charm.ParseURL(args.CharmUrl)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if curl.Revision < 0 {
-		return fmt.Errorf("charm url must include revision")
+		return errors.Errorf("charm url must include revision")
 	}
 
 	if args.ToMachineSpec != "" && names.IsValidMachine(args.ToMachineSpec) {
@@ -309,19 +310,19 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		}
 		err = c.AddCharm(params.CharmURL{args.CharmUrl})
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		ch, err = c.api.state.Charm(curl)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	} else if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// TODO(axw) stop checking feature flag once storage has graduated.
 	var storageConstraints map[string]storage.Constraints
-	if featureflag.Enabled(storage.FeatureFlag) {
+	if featureflag.Enabled(feature.Storage) {
 		// Validate the storage parameters against the charm metadata,
 		// and ensure there are no conflicting parameters.
 		if err := validateCharmStorage(args, ch); err != nil {
@@ -361,12 +362,12 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		settings, err = parseSettingsCompatible(ch, args.Config)
 	}
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	// Convert network tags to names for any given networks.
 	requestedNetworks, err := networkTagsToNames(args.Networks)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	_, err = jjj.DeployService(c.api.state,
@@ -789,26 +790,23 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 	}
 
 	// TODO(axw) stop checking feature flag once storage has graduated.
-	var blockDeviceParams []state.BlockDeviceParams
-	if featureflag.Enabled(storage.FeatureFlag) {
-		// TODO(axw) unify storage and free block device constraints in state.
+	var volumes []state.MachineVolumeParams
+	if featureflag.Enabled(feature.Storage) {
+		volumes = make([]state.MachineVolumeParams, 0, len(p.Disks))
 		for _, cons := range p.Disks {
-			if cons.Pool != "" {
-				// TODO(axw) implement pools. If pool is not specified,
-				// determine default pool and set here.
-				return nil, errors.Errorf("storage pools not implemented")
-			}
-			if cons.Size == 0 {
-				return nil, errors.Errorf("invalid size %v", cons.Size)
-			}
 			if cons.Count == 0 {
-				return nil, errors.Errorf("invalid count %v", cons.Count)
+				return nil, errors.Errorf("invalid volume params: count not specified")
 			}
-			params := state.BlockDeviceParams{
+			// Pool and Size are validated by AddMachineX.
+			volumeParams := state.VolumeParams{
+				Pool: cons.Pool,
 				Size: cons.Size,
 			}
+			volumeAttachmentParams := state.VolumeAttachmentParams{}
 			for i := uint64(0); i < cons.Count; i++ {
-				blockDeviceParams = append(blockDeviceParams, params)
+				volumes = append(volumes, state.MachineVolumeParams{
+					volumeParams, volumeAttachmentParams,
+				})
 			}
 		}
 	}
@@ -818,12 +816,12 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		return nil, err
 	}
 	template := state.MachineTemplate{
-		Series:       p.Series,
-		Constraints:  p.Constraints,
-		BlockDevices: blockDeviceParams,
-		InstanceId:   p.InstanceId,
-		Jobs:         jobs,
-		Nonce:        p.Nonce,
+		Series:      p.Series,
+		Constraints: p.Constraints,
+		Volumes:     volumes,
+		InstanceId:  p.InstanceId,
+		Jobs:        jobs,
+		Nonce:       p.Nonce,
 		HardwareCharacteristics: p.HardwareCharacteristics,
 		Addresses:               p.Addrs,
 		Placement:               placementDirective,

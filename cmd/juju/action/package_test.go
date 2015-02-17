@@ -72,7 +72,7 @@ func (s *BaseActionSuite) checkHelp(c *gc.C, subcmd envcmd.EnvironCommand) {
 
 var someCharmActions = &charm.Actions{
 	ActionSpecs: map[string]charm.ActionSpec{
-		"snapshot": charm.ActionSpec{
+		"snapshot": {
 			Description: "Take a snapshot of the database.",
 			Params: map[string]interface{}{
 				"foo": map[string]interface{}{
@@ -81,7 +81,7 @@ var someCharmActions = &charm.Actions{
 				"baz": "bar",
 			},
 		},
-		"kill": charm.ActionSpec{
+		"kill": {
 			Description: "Kill the database.",
 			Params: map[string]interface{}{
 				"bar": map[string]interface{}{
@@ -90,7 +90,7 @@ var someCharmActions = &charm.Actions{
 				"foo": "baz",
 			},
 		},
-		"no-description": charm.ActionSpec{
+		"no-description": {
 			Params: map[string]interface{}{
 				"bar": map[string]interface{}{
 					"baz": "foo",
@@ -98,7 +98,7 @@ var someCharmActions = &charm.Actions{
 				"foo": "baz",
 			},
 		},
-		"no-params": charm.ActionSpec{
+		"no-params": {
 			Description: "An action with no parameters.",
 		},
 	},

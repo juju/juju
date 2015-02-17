@@ -5,6 +5,7 @@ package relation
 
 import (
 	"sort"
+	"sync"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v4/hooks"
@@ -37,6 +38,7 @@ type liveSource struct {
 
 	started bool
 	watcher RelationUnitsWatcher
+	changes chan hook.SourceChange
 }
 
 // unitInfo holds unit information for management by liveSource.
@@ -65,9 +67,9 @@ type unitInfo struct {
 // obtained from the w watcher and generates the hooks that must be executed
 // in the unit. It guarantees that the stream of hooks will respect the
 // guarantees Juju makes about hook execution order. If any values have
-// previously been received from w's Changes channel, the HookSource's
+// previously been received from w's Changes channel, the Source's
 // behaviour is undefined.
-func NewLiveHookSource(initial *State, w RelationUnitsWatcher) HookSource {
+func NewLiveHookSource(initial *State, w RelationUnitsWatcher) hook.Source {
 	info := map[string]*unitInfo{}
 	for unit, version := range initial.Members {
 		info[unit] = &unitInfo{
@@ -76,21 +78,38 @@ func NewLiveHookSource(initial *State, w RelationUnitsWatcher) HookSource {
 			joined:  true,
 		}
 	}
-	return &liveSource{
+	s := &liveSource{
 		watcher:        w,
 		info:           info,
 		relationId:     initial.RelationId,
 		changedPending: initial.ChangedPending,
+		changes:        make(chan hook.SourceChange),
 	}
+	go func() {
+		defer close(s.changes)
+		// w's out channel will be closed when the source is Stop()ped.
+		// We use a waitgroup to ensure the current change is processed
+		// before any more changes are accepted.
+		var wg sync.WaitGroup
+		for c := range w.Changes() {
+			wg.Add(1)
+			s.changes <- func() error {
+				defer wg.Done()
+				return s.Update(c)
+			}
+			wg.Wait()
+		}
+	}()
+	return s
 }
 
-// Changes returns a channel sending a stream of RelationUnitsChange events
-// that need to be delivered to Update in order for the source to function
-// correctly. In particular, the first event represents the ideal state of
-// the relation, and must be delivered for the source to be able to calculate
-// the desired hooks.
-func (q *liveSource) Changes() <-chan multiwatcher.RelationUnitsChange {
-	return q.watcher.Changes()
+// Changes returns a channel sending a stream of hook.SourceChange events
+// that need to be Applied in order for the source to function correctly.
+// In particular, the first event represents the ideal state of the relation,
+// and must be delivered for the source to be able to calculate the desired
+// hooks.
+func (q *liveSource) Changes() <-chan hook.SourceChange {
+	return q.changes
 }
 
 // Stop cleans up the liveSource's resources and stops sending changes.

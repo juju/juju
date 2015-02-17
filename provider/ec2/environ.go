@@ -479,7 +479,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	var instResp *ec2.RunInstancesResp
 
-	blockDeviceMappings, volumes, err := getBlockDeviceMappings(
+	blockDeviceMappings, volumes, volumeAttachments, err := getBlockDeviceMappings(
 		*spec.InstanceType.VirtType, &args,
 	)
 	if err != nil {
@@ -537,9 +537,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		AvailabilityZone: &inst.Instance.AvailZone,
 	}
 	return &environs.StartInstanceResult{
-		Instance: inst,
-		Hardware: &hc,
-		Volumes:  volumes,
+		Instance:          inst,
+		Hardware:          &hc,
+		Volumes:           volumes,
+		VolumeAttachments: volumeAttachments,
 	}, nil
 }
 
@@ -1285,6 +1286,8 @@ func isZoneConstrainedError(err error) bool {
 			// if the AZ does not have a default subnet. Until we have proper
 			// support for networks, we'll skip over these.
 			return strings.HasPrefix(err.Message, "No default subnet for availability zone")
+		case "VolumeTypeNotAvailableInZone":
+			return true
 		}
 	}
 	return false

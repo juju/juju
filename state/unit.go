@@ -152,7 +152,12 @@ func (u *Unit) Name() string {
 
 // unitGlobalKey returns the global database key for the named unit.
 func unitGlobalKey(name string) string {
-	return "u#" + name
+	return "u#" + name + "#charm"
+}
+
+// globalAgentKey returns the global database key for the unit.
+func (u *Unit) globalAgentKey() string {
+	return unitAgentGlobalKey(u.doc.Name)
 }
 
 // globalKey returns the global database key for the unit.
@@ -341,7 +346,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 		return setDyingOps, nil
 	}
 
-	sdocId := u.globalKey()
+	sdocId := u.globalAgentKey()
 	sdoc, err := getStatus(u.st, sdocId)
 	if errors.IsNotFound(err) {
 		return nil, errAlreadyDying
@@ -435,15 +440,15 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 	var machineAssert bson.D
 	if machineCheck {
 		machineAssert = bson.D{{"$and", []bson.D{
-			bson.D{{"principals", []string{u.doc.Name}}},
-			bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
-			bson.D{{"hasvote", bson.D{{"$ne", true}}}},
+			{{"principals", []string{u.doc.Name}}},
+			{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
+			{{"hasvote", bson.D{{"$ne", true}}}},
 		}}}
 	} else {
 		machineAssert = bson.D{{"$or", []bson.D{
-			bson.D{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
-			bson.D{{"jobs", bson.D{{"$in", []MachineJob{JobManageEnviron}}}}},
-			bson.D{{"hasvote", true}},
+			{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
+			{{"jobs", bson.D{{"$in", []MachineJob{JobManageEnviron}}}}},
+			{{"hasvote", true}},
 		}}}
 	}
 
@@ -750,7 +755,31 @@ func (u *Unit) Refresh() error {
 	return nil
 }
 
+// Agent Returns an agent by its unit's name.
+func (u *Unit) Agent() Entity {
+	return newUnitAgent(u.st, u.Tag(), u.Name())
+}
+
+// SetAgentStatus calls SetStatus for this unit's agent, this call
+// is equivalent to the former call to SetStatus when Agent and Unit
+// where not separate entities.
+func (u *Unit) SetAgentStatus(status Status, info string, data map[string]interface{}) error {
+	agent := newUnitAgent(u.st, u.Tag(), u.Name())
+	return agent.SetStatus(status, info, data)
+}
+
+// AgentStatus calls Status for this unit's agent, this call
+// is equivalent to the former call to Status when Agent and Unit
+// where not separate entities.
+func (u *Unit) AgentStatus() (status Status, info string, data map[string]interface{}, err error) {
+	agent := newUnitAgent(u.st, u.Tag(), u.Name())
+	return agent.Status()
+}
+
 // Status returns the status of the unit.
+// This method relies on globalKey instead of globalAgentKey since it is part of
+// the effort to separate Unit from UnitAgent. Now the Status for UnitAgent is in
+// the UnitAgent struct.
 func (u *Unit) Status() (status Status, info string, data map[string]interface{}, err error) {
 	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
@@ -764,8 +793,11 @@ func (u *Unit) Status() (status Status, info string, data map[string]interface{}
 
 // SetStatus sets the status of the unit agent. The optional values
 // allow to pass additional helpful status data.
+// This method relies on globalKey instead of globalAgentKey since it is part of
+// the effort to separate Unit from UnitAgent. Now the SetStatus for UnitAgent is in
+// the UnitAgent struct.
 func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}) error {
-	doc, err := newUnitAgentStatusDoc(status, info, data)
+	doc, err := newUnitStatusDoc(status, info, data)
 	if err != nil {
 		return err
 	}
@@ -780,6 +812,7 @@ func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}
 	if err != nil {
 		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, ErrDead))
 	}
+
 	return nil
 }
 
@@ -953,7 +986,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 
 // AgentPresence returns whether the respective remote agent is alive.
 func (u *Unit) AgentPresence() (bool, error) {
-	return u.st.pwatcher.Alive(u.globalKey())
+	return u.st.pwatcher.Alive(u.globalAgentKey())
 }
 
 // Tag returns a name identifying the unit.
@@ -973,8 +1006,8 @@ func (u *Unit) UnitTag() names.UnitTag {
 func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
-	u.st.pwatcher.Watch(u.globalKey(), ch)
-	defer u.st.pwatcher.Unwatch(u.globalKey(), ch)
+	u.st.pwatcher.Watch(u.globalAgentKey(), ch)
+	defer u.st.pwatcher.Unwatch(u.globalAgentKey(), ch)
 	for i := 0; i < 2; i++ {
 		select {
 		case change := <-ch:
@@ -994,7 +1027,7 @@ func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 // It returns the started pinger.
 func (u *Unit) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := u.st.getPresence()
-	p := presence.NewPinger(presenceCollection, u.st.EnvironTag(), u.globalKey())
+	p := presence.NewPinger(presenceCollection, u.st.EnvironTag(), u.globalAgentKey())
 	err := p.Start()
 	if err != nil {
 		return nil, err
@@ -1002,25 +1035,16 @@ func (u *Unit) SetAgentPresence() (*presence.Pinger, error) {
 	return p, nil
 }
 
-// NotAssignedError indicates that a unit is not assigned to a machine (and, in
-// the case of subordinate units, that the unit's principal is not assigned).
-type NotAssignedError struct{ Unit *Unit }
-
-func (e *NotAssignedError) Error() string {
-	return fmt.Sprintf("unit %q is not assigned to a machine", e.Unit)
-}
-
-// IsNotAssigned verifies that err is an instance of NotAssignedError
-func IsNotAssigned(err error) bool {
-	_, ok := err.(*NotAssignedError)
-	return ok
+func unitNotAssignedError(u *Unit) error {
+	msg := fmt.Sprintf("unit %q is not assigned to a machine", u)
+	return errors.NewNotAssigned(nil, msg)
 }
 
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (id string, err error) {
 	if u.IsPrincipal() {
 		if u.doc.MachineId == "" {
-			return "", &NotAssignedError{u}
+			return "", unitNotAssignedError(u)
 		}
 		return u.doc.MachineId, nil
 	}
@@ -1036,7 +1060,7 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 		return "", err
 	}
 	if pudoc.MachineId == "" {
-		return "", &NotAssignedError{u}
+		return "", unitNotAssignedError(u)
 	}
 	return pudoc.MachineId, nil
 }
@@ -1245,7 +1269,7 @@ func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, con
 
 // Constraints returns the unit's deployment constraints.
 func (u *Unit) Constraints() (*constraints.Value, error) {
-	cons, err := readConstraints(u.st, u.globalKey())
+	cons, err := readConstraints(u.st, u.globalAgentKey())
 	if errors.IsNotFound(err) {
 		// Lack of constraints indicates lack of unit.
 		return nil, errors.NotFoundf("unit")
@@ -1342,28 +1366,85 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	if err != nil {
 		return err
 	}
-	storageInstances, err := u.StorageInstances()
+	volumes, volumeAttachments, err := u.newMachineVolumeParams()
 	if err != nil {
-		return err
-	}
-	var blockDeviceParams []BlockDeviceParams
-	for _, storageInstance := range storageInstances {
-		// TODO(axw) consult storage provider to see if we need to request
-		// a block device for the storage instance.
-		storageInstanceParams, _ := storageInstance.Params()
-		blockDeviceParams = append(blockDeviceParams, BlockDeviceParams{
-			storageInstance: storageInstance.Id(),
-			Size:            storageInstanceParams.Size,
-		})
+		return errors.Trace(err)
 	}
 	template := MachineTemplate{
 		Series:            u.doc.Series,
 		Constraints:       *cons,
 		Jobs:              []MachineJob{JobHostUnits},
 		RequestedNetworks: requestedNetworks,
-		BlockDevices:      blockDeviceParams,
+		Volumes:           volumes,
+		VolumeAttachments: volumeAttachments,
 	}
 	return u.assignToNewMachine(template, "", containerType)
+}
+
+// newMachineVolumeParams returns parameters for creating volumes and volume
+// attachments for a new machine that the unit will be assigned to.
+func (u *Unit) newMachineVolumeParams() ([]MachineVolumeParams, map[names.DiskTag]VolumeAttachmentParams, error) {
+	storageAttachments, err := u.st.StorageAttachments(u.UnitTag())
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "getting storage attachments")
+	}
+	svc, err := u.Service()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	curl, _ := svc.CharmURL()
+	if curl == nil {
+		return nil, nil, errors.Errorf("no URL set for service %q", svc.Name())
+	}
+	ch, err := u.st.Charm(curl)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "getting charm")
+	}
+	allCons, err := u.StorageConstraints()
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "getting storage constraints")
+	}
+
+	var volumes []MachineVolumeParams
+	volumeAttachments := make(map[names.DiskTag]VolumeAttachmentParams)
+	for _, storageAttachment := range storageAttachments {
+		// TODO(axw) consult storage provider to see if we need to request
+		// a volume for the storage instance. Otherwise create a Filesystem
+		// and FilesystemAttachment.
+		storageInstance, err := u.st.StorageInstance(storageAttachment.StorageInstance())
+		if err != nil {
+			return nil, nil, errors.Annotatef(err, "getting storage instance")
+		}
+
+		charmStorage := ch.Meta().Storage[storageInstance.StorageName()]
+		volumeAttachmentParams := VolumeAttachmentParams{
+			charmStorage.ReadOnly,
+		}
+
+		if storageInstance.Owner() == u.Tag() {
+			// The storage instance is owned by the unit, so we'll need
+			// to create a volume.
+			cons := allCons[storageInstance.StorageName()]
+			volumeParams := VolumeParams{
+				storage: storageInstance.StorageTag(),
+				Pool:    cons.Pool,
+				Size:    cons.Size,
+			}
+			volumes = append(volumes, MachineVolumeParams{
+				volumeParams, volumeAttachmentParams,
+			})
+		} else {
+			// The storage instance is owned by the service, so there
+			// should be a (shared) volume already, for which we will
+			// just add an attachment.
+			volume, err := u.st.StorageInstanceVolume(storageInstance.StorageTag())
+			if err != nil {
+				return nil, nil, errors.Annotatef(err, "getting volume for storage %q", storageInstance.Tag().Id())
+			}
+			volumeAttachments[volume.VolumeTag()] = volumeAttachmentParams
+		}
+	}
+	return volumes, volumeAttachments, nil
 }
 
 var noCleanMachines = stderrors.New("all eligible machines in use")
@@ -1639,7 +1720,7 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 	if !ok {
 		return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
 	}
-	_, err = spec.ValidateParams(payload)
+	err = spec.ValidateParams(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -1795,9 +1876,4 @@ func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 	// TODO(axw) eventually we should be able to override service
 	// storage constraints at the unit level.
 	return readStorageConstraints(u.st, serviceGlobalKey(u.doc.Service))
-}
-
-// StorageInstances returns the storage instances owned by this unit.
-func (u *Unit) StorageInstances() ([]StorageInstance, error) {
-	return readStorageInstances(u.st, u.Tag())
 }

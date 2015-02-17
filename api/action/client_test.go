@@ -37,7 +37,7 @@ func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 	}{{
 		description: "result from wrong service",
 		patchResults: []params.ServiceCharmActionsResult{
-			params.ServiceCharmActionsResult{
+			{
 				ServiceTag: names.NewServiceTag("bar").String(),
 			},
 		},
@@ -45,7 +45,7 @@ func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 	}, {
 		description: "some other error",
 		patchResults: []params.ServiceCharmActionsResult{
-			params.ServiceCharmActionsResult{
+			{
 				ServiceTag: names.NewServiceTag("foo").String(),
 				Error: &params.Error{
 					Message: "something bad",
@@ -56,8 +56,8 @@ func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 	}, {
 		description: "more than one result",
 		patchResults: []params.ServiceCharmActionsResult{
-			params.ServiceCharmActionsResult{},
-			params.ServiceCharmActionsResult{},
+			{},
+			{},
 		},
 		expectedErr: "2 results, expected 1",
 	}, {
@@ -71,11 +71,11 @@ func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 	}, {
 		description: "normal result",
 		patchResults: []params.ServiceCharmActionsResult{
-			params.ServiceCharmActionsResult{
+			{
 				ServiceTag: names.NewServiceTag("foo").String(),
 				Actions: &charm.Actions{
 					ActionSpecs: map[string]charm.ActionSpec{
-						"action": charm.ActionSpec{
+						"action": {
 							Description: "description",
 							Params: map[string]interface{}{
 								"foo": "bar",
@@ -87,7 +87,7 @@ func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 		},
 		expectedResult: &charm.Actions{
 			ActionSpecs: map[string]charm.ActionSpec{
-				"action": charm.ActionSpec{
+				"action": {
 					Description: "description",
 					Params: map[string]interface{}{
 						"foo": "bar",
