@@ -36,7 +36,7 @@ func (s *managedSuite) TestNewConfigs(c *gc.C) {
 		initSystem: InitSystemUpstart,
 		prefixes:   []string{"juju-", "jujud-"},
 		names:      nil,
-		fops:       s.StubFiles,
+		fops:       s.Files,
 	})
 }
 
@@ -48,13 +48,13 @@ func (s *managedSuite) TestNewConfigsPrefixes(c *gc.C) {
 		initSystem: InitSystemUpstart,
 		prefixes:   []string{"spam-"},
 		names:      nil,
-		fops:       s.StubFiles,
+		fops:       s.Files,
 	})
 }
 
 func (s *managedSuite) TestRefresh(c *gc.C) {
-	s.StubFiles.Returns.Exists = true
-	s.StubFiles.Returns.DirEntries = []os.FileInfo{
+	s.Files.Returns.Exists = true
+	s.Files.Returns.DirEntries = []os.FileInfo{
 		newStubFile("an-errant-file", []byte("<data>")),
 		newStubDir("jujud-machine-0"),
 		newStubDir("an-errant-dir"),
@@ -71,7 +71,7 @@ func (s *managedSuite) TestRefresh(c *gc.C) {
 }
 
 func (s *managedSuite) TestRefreshIncomplete(c *gc.C) {
-	s.StubFiles.Returns.DirEntries = []os.FileInfo{
+	s.Files.Returns.DirEntries = []os.FileInfo{
 		newStubFile("an-errant-file", []byte("<data>")),
 		newStubDir("jujud-machine-0"),
 		newStubDir("an-errant-dir"),
@@ -92,8 +92,8 @@ func (s *managedSuite) TestRefreshEmpty(c *gc.C) {
 }
 
 func (s *managedSuite) TestList(c *gc.C) {
-	s.StubFiles.Returns.Exists = true
-	s.StubFiles.Returns.DirEntries = []os.FileInfo{
+	s.Files.Returns.Exists = true
+	s.Files.Returns.DirEntries = []os.FileInfo{
 		newStubFile("an-errant-file", []byte("<data>")),
 		newStubDir("jujud-machine-0"),
 		newStubDir("an-errant-dir"),
@@ -126,9 +126,9 @@ func (s *managedSuite) TestLookupNotFound(c *gc.C) {
 }
 
 func (s *managedSuite) TestAddSuccess(c *gc.C) {
-	s.StubInit.Returns.Data = []byte("<upstart conf>")
+	s.Init.Returns.Data = []byte("<upstart conf>")
 
-	err := s.configs.add("jujud-machine-0", s.Conf, s.StubInit)
+	err := s.configs.add("jujud-machine-0", s.Conf, s.Init)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []testing.StubCall{{
@@ -175,19 +175,19 @@ func (s *managedSuite) TestAddSuccess(c *gc.C) {
 func (s *managedSuite) TestAddExists(c *gc.C) {
 	s.configs.names = append(s.configs.names, "jujud-machine-0")
 
-	err := s.configs.add("jujud-machine-0", s.Conf, s.StubInit)
+	err := s.configs.add("jujud-machine-0", s.Conf, s.Init)
 
 	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
 func (s *managedSuite) TestAddMultiline(c *gc.C) {
 	s.Conf.Cmd = "spam\neggs"
-	s.StubInit.Returns.Data = []byte("<upstart conf>")
+	s.Init.Returns.Data = []byte("<upstart conf>")
 
-	err := s.configs.add("jujud-machine-0", s.Conf, s.StubInit)
+	err := s.configs.add("jujud-machine-0", s.Conf, s.Init)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.StubFiles.CheckCalls(c, []testing.StubCall{{
+	s.Files.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Exists",
 		Args: []interface{}{
 			"/var/lib/juju/init/jujud-machine-0",
@@ -248,12 +248,12 @@ func (s *managedSuite) TestAddMultiline(c *gc.C) {
 
 func (s *managedSuite) TestAddExtra(c *gc.C) {
 	s.Conf.ExtraScript = "eggs"
-	s.StubInit.Returns.Data = []byte("<upstart conf>")
+	s.Init.Returns.Data = []byte("<upstart conf>")
 
-	err := s.configs.add("jujud-machine-0", s.Conf, s.StubInit)
+	err := s.configs.add("jujud-machine-0", s.Conf, s.Init)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.StubFiles.CheckCalls(c, []testing.StubCall{{
+	s.Files.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Exists",
 		Args: []interface{}{
 			"/var/lib/juju/init/jujud-machine-0",

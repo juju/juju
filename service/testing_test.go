@@ -20,10 +20,10 @@ type BaseSuite struct {
 	Conf    Conf
 	ConfDir initsystems.ConfDirInfo
 
-	Stub      *testing.Stub
-	StubInit  *initsystems.Stub
-	StubFile  *fs.StubFile
-	StubFiles *fs.StubOps
+	Stub  *testing.Stub
+	Init  *initsystems.Stub
+	File  *fs.StubFile
+	Files *fs.StubOps
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -37,13 +37,13 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	// Patch a few things.
 	s.Stub = &testing.Stub{}
-	s.StubInit = &initsystems.Stub{Stub: s.Stub}
-	s.StubFile = &fs.StubFile{Stub: s.Stub}
-	s.StubFiles = &fs.StubOps{Stub: s.Stub}
-	s.StubFiles.Returns.File = s.StubFile
+	s.Init = &initsystems.Stub{Stub: s.Stub}
+	s.File = &fs.StubFile{Stub: s.Stub}
+	s.Files = &fs.StubOps{Stub: s.Stub}
+	s.Files.Returns.File = s.File
 
 	s.PatchValue(&newFileOps, func() fs.Operations {
-		return s.StubFiles
+		return s.Files
 	})
 
 	name := "jujud-machine-0"
