@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+//TODO(ericsnow) Move hasPrefix to the utils repo.
+
 func hasPrefix(name string, prefixes ...string) bool {
 	for _, prefix := range prefixes {
 		if strings.HasPrefix(name, prefix) {
