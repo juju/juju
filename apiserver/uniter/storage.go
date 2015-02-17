@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
 
 // StorageAPI provides access to the Storage API facade.
@@ -85,4 +86,39 @@ func (s *StorageAPI) getOneUnitStorageAttachments(canAccess common.AuthFunc, uni
 		})
 	}
 	return result, nil
+}
+
+// WatchStorageAttachments creates storage attachment watchers for a collection of units.
+func (s *StorageAPI) WatchStorageAttachments(args params.Entities) (params.StringsWatchResults, error) {
+	canAccess, err := s.accessUnit()
+	if err != nil {
+		return params.StringsWatchResults{}, err
+	}
+	results := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		result, err := s.watchOneUnitStorageAttachments(entity.Tag, canAccess)
+		if err == nil {
+			results.Results[i] = result
+		}
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+func (s *StorageAPI) watchOneUnitStorageAttachments(tag string, canAccess func(names.Tag) bool) (params.StringsWatchResult, error) {
+	nothing := params.StringsWatchResult{}
+	unitTag, err := names.ParseUnitTag(tag)
+	if err != nil || !canAccess(unitTag) {
+		return nothing, common.ErrPerm
+	}
+	watch := s.st.WatchStorageAttachments(unitTag)
+	if changes, ok := <-watch.Changes(); ok {
+		return params.StringsWatchResult{
+			StringsWatcherId: s.resources.Register(watch),
+			Changes:          changes,
+		}, nil
+	}
+	return nothing, watcher.EnsureErr(watch)
 }

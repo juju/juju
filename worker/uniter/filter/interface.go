@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/names"
 )
 
 // Filter is responsible for delivering events relevant to a unit agent in a
@@ -53,6 +54,10 @@ type Filter interface {
 	// RelationsEvents returns a channel that will receive the ids of all the service's
 	// relations whose Life status has changed.
 	RelationsEvents() <-chan []int
+
+	// StorageEvents returns a channel that will receive the tags of all the unit's
+	// associated storage instances whose Life status has changed.
+	StorageEvents() <-chan []names.StorageTag
 
 	// WantUpgradeEvent controls whether the filter will generate upgrade
 	// events for unforced service charm changes.

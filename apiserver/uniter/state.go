@@ -13,6 +13,7 @@ type storageStateInterface interface {
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	StorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 	Unit(name string) (*state.Unit, error)
+	WatchStorageAttachments(names.UnitTag) state.StringsWatcher
 }
 
 type storageStateShim struct {
