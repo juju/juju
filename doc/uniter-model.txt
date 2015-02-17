@@ -28,7 +28,7 @@
     ModeUpgrading --> ModeContinue
     ModeUpgrading --> unexpectedError
 
-    ModeConflicted : charm specific conflict mode \n responds to - \n  2. User Resolution \n  2. Forced charm upgrade
+    ModeConflicted : charm specific conflict mode \n responds to - \n  * user resolution of \n    charm upgrade conflicts \n  * forced charm upgrade
     ModeConflicted --> ModeContinue
     ModeConflicted --> unexpectedError
 
