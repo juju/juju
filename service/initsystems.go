@@ -4,6 +4,8 @@
 package service
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/service/initsystems"
 	"github.com/juju/juju/service/initsystems/upstart"
 	"github.com/juju/juju/service/initsystems/windows"
@@ -21,12 +23,12 @@ var (
 	}
 )
 
-func newInitSystem(name string) initsystems.InitSystem {
+func newInitSystem(name string) (initsystems.InitSystem, error) {
 	switch name {
 	case InitSystemWindows:
-		return windows.NewInitSystem(name)
+		return windows.NewInitSystem(name), nil
 	case InitSystemUpstart:
-		return upstart.NewInitSystem(name)
+		return upstart.NewInitSystem(name), nil
 	}
-	return nil
+	return nil, errors.NotFoundf("init system implementation for %q", name)
 }
