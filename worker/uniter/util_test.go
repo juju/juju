@@ -687,7 +687,7 @@ func (s waitUnit) step(c *gc.C, ctx *context) {
 				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
 			}
-			status, info, data, err := ctx.unit.Status()
+			status, info, data, err := ctx.unit.AgentStatus()
 			c.Assert(err, jc.ErrorIsNil)
 			if string(status) != string(s.status) {
 				c.Logf("want unit status %q, got %q; still waiting", s.status, status)
@@ -962,7 +962,7 @@ func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 			// to reset the error status, we can avoid a race in which a subsequent
 			// fixUpgradeError lands just before the restarting uniter retries the
 			// upgrade; and thus puts us in an unexpected state for future steps.
-			ctx.unit.SetStatus(state.StatusActive, "", nil)
+			ctx.unit.SetAgentStatus(state.StatusActive, "", nil)
 		}},
 		startUniter{},
 	}

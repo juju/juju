@@ -8,9 +8,8 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
-
 	"github.com/juju/errors"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"

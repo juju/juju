@@ -391,7 +391,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 				"remote-unit": "logging/0",
 				"foo":         "bar",
 			}
-			wu.SetStatus(state.StatusError, "blam", sd)
+			wu.SetAgentStatus(state.StatusError, "blam", sd)
 		}
 
 		// Create the subordinate unit as a side-effect of entering

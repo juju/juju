@@ -118,11 +118,9 @@ func (s *DiskFormatterSuite) TestAttachedVolumes(c *gc.C) {
 		Results: []params.VolumeAttachmentsResult{{
 			Attachments: []params.VolumeAttachment{{
 				VolumeTag:  volume0.String(),
-				VolumeId:   "vol-0",
 				MachineTag: machine0.String(),
 			}, {
 				VolumeTag:  volume1.String(),
-				VolumeId:   "vol-1",
 				MachineTag: machine0.String(),
 				DeviceName: "sdb",
 			}},

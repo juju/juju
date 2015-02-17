@@ -1,7 +1,7 @@
-// Copyright 2012-2014 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package relation_test
+package hook_test
 
 import (
 	"time"
@@ -10,11 +10,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4/hooks"
 
-	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/relation"
+	"github.com/juju/juju/worker/uniter/hook/hooktesting"
 )
 
 type HookSenderSuite struct{}
@@ -40,10 +39,10 @@ func assertEmpty(c *gc.C, out chan hook.Info) {
 }
 
 func (s *HookSenderSuite) TestSendsHooks(c *gc.C) {
-	expect := hookList(hooks.Install, hooks.ConfigChanged, hooks.Start)
-	source := relation.NewListSource(expect)
+	expect := hooktesting.HookList(hooks.Install, hooks.ConfigChanged, hooks.Start)
+	source := hook.NewListSource(expect)
 	out := make(chan hook.Info)
-	sender := relation.NewHookSender(out, source)
+	sender := hook.NewSender(out, source)
 	defer statetesting.AssertStop(c, sender)
 
 	for i := range expect {
@@ -55,10 +54,10 @@ func (s *HookSenderSuite) TestSendsHooks(c *gc.C) {
 }
 
 func (s *HookSenderSuite) TestStopsHooks(c *gc.C) {
-	expect := hookList(hooks.Install, hooks.ConfigChanged, hooks.Start)
-	source := relation.NewListSource(expect)
+	expect := hooktesting.HookList(hooks.Install, hooks.ConfigChanged, hooks.Start)
+	source := hook.NewListSource(expect)
 	out := make(chan hook.Info)
-	sender := relation.NewHookSender(out, source)
+	sender := hook.NewSender(out, source)
 	defer statetesting.AssertStop(c, sender)
 
 	assertNext(c, out, expect[0])
@@ -69,18 +68,18 @@ func (s *HookSenderSuite) TestStopsHooks(c *gc.C) {
 }
 
 func (s *HookSenderSuite) TestHandlesUpdatesFullQueue(c *gc.C) {
-	source := newFullUnbufferedSource()
+	source := hooktesting.NewFullUnbufferedSource()
 	defer statetesting.AssertStop(c, source)
 
 	out := make(chan hook.Info)
-	sender := relation.NewHookSender(out, source)
+	sender := hook.NewSender(out, source)
 	defer statetesting.AssertStop(c, sender)
 
 	// Check we're being sent hooks but not updates.
 	assertActive := func() {
 		assertNext(c, out, hook.Info{Kind: hooks.Install})
 		select {
-		case update, ok := <-source.updates:
+		case update, ok := <-source.UpdatesC:
 			c.Fatalf("got unexpected update: %#v %#v", update, ok)
 		case <-time.After(coretesting.ShortWait):
 		}
@@ -88,24 +87,22 @@ func (s *HookSenderSuite) TestHandlesUpdatesFullQueue(c *gc.C) {
 	assertActive()
 
 	// Send an event on the Changes() chan.
-	sent := multiwatcher.RelationUnitsChange{Departed: []string{"sent"}}
 	select {
-	case source.changes <- sent:
+	case source.ChangesC <- source.NewChange("sent"):
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("could not send change")
 	}
 
 	// Now that a change has been delivered, nothing should be sent on the out
 	// chan, or read from the changes chan, until the Update method has completed.
-	notSent := multiwatcher.RelationUnitsChange{Departed: []string{"notSent"}}
 	select {
-	case source.changes <- notSent:
+	case source.ChangesC <- source.NewChange("notSent"):
 		c.Fatalf("sent extra change while updating queue")
 	case hi, ok := <-out:
 		c.Fatalf("got unexpected hook while updating queue: %#v %#v", hi, ok)
-	case got, ok := <-source.updates:
+	case got, ok := <-source.UpdatesC:
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(got, gc.DeepEquals, sent)
+		c.Assert(got, gc.Equals, "sent")
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out")
 	}
@@ -115,11 +112,11 @@ func (s *HookSenderSuite) TestHandlesUpdatesFullQueue(c *gc.C) {
 }
 
 func (s *HookSenderSuite) TestHandlesUpdatesFullQueueSpam(c *gc.C) {
-	source := newFullBufferedSource()
+	source := hooktesting.NewFullBufferedSource()
 	defer statetesting.AssertStop(c, source)
 
 	out := make(chan hook.Info)
-	sender := relation.NewHookSender(out, source)
+	sender := hook.NewSender(out, source)
 	defer statetesting.AssertStop(c, sender)
 
 	// Spam all channels continuously for a bit.
@@ -133,11 +130,11 @@ func (s *HookSenderSuite) TestHandlesUpdatesFullQueueSpam(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(hi, gc.DeepEquals, hook.Info{Kind: hooks.Install})
 			hookCount++
-		case source.changes <- multiwatcher.RelationUnitsChange{}:
+		case source.ChangesC <- source.NewChange("sent"):
 			changeCount++
-		case update, ok := <-source.updates:
+		case update, ok := <-source.UpdatesC:
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(update, gc.DeepEquals, multiwatcher.RelationUnitsChange{})
+			c.Assert(update, gc.Equals, "sent")
 			updateCount++
 		case <-timeout:
 			c.Fatalf("not enough things happened in time")
@@ -147,9 +144,9 @@ func (s *HookSenderSuite) TestHandlesUpdatesFullQueueSpam(c *gc.C) {
 	// Once we've finished sending, exhaust the updates...
 	for i := updateCount; i < changeCount && updateCount < changeCount; i++ {
 		select {
-		case update, ok := <-source.updates:
+		case update, ok := <-source.UpdatesC:
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(update, gc.DeepEquals, multiwatcher.RelationUnitsChange{})
+			c.Assert(update, gc.Equals, "sent")
 			updateCount++
 		case <-timeout:
 			c.Fatalf("expected %d updates, got %d", changeCount, updateCount)
@@ -162,11 +159,11 @@ func (s *HookSenderSuite) TestHandlesUpdatesFullQueueSpam(c *gc.C) {
 }
 
 func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueue(c *gc.C) {
-	source := newEmptySource()
+	source := hooktesting.NewEmptySource()
 	defer statetesting.AssertStop(c, source)
 
 	out := make(chan hook.Info)
-	sender := relation.NewHookSender(out, source)
+	sender := hook.NewSender(out, source)
 	defer statetesting.AssertStop(c, sender)
 
 	// Check no hooks are sent and no updates delivered.
@@ -174,7 +171,7 @@ func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueue(c *gc.C) {
 		select {
 		case hi, ok := <-out:
 			c.Fatalf("got unexpected hook: %#v %#v", hi, ok)
-		case update, ok := <-source.updates:
+		case update, ok := <-source.UpdatesC:
 			c.Fatalf("got unexpected update: %#v %#v", update, ok)
 		case <-time.After(coretesting.ShortWait):
 		}
@@ -182,25 +179,23 @@ func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueue(c *gc.C) {
 	assertIdle()
 
 	// Send an event on the Changes() chan.
-	sent := multiwatcher.RelationUnitsChange{Departed: []string{"sent"}}
 	timeout := time.After(coretesting.LongWait)
 	select {
-	case source.changes <- sent:
+	case source.ChangesC <- source.NewChange("sent"):
 	case <-timeout:
 		c.Fatalf("timed out")
 	}
 
 	// Now that a change has been delivered, nothing should be sent on the out
 	// chan, or read from the changes chan, until the Update method has completed.
-	notSent := multiwatcher.RelationUnitsChange{Departed: []string{"notSent"}}
 	select {
-	case source.changes <- notSent:
+	case source.ChangesC <- source.NewChange("notSent"):
 		c.Fatalf("sent extra update while updating queue")
 	case hi, ok := <-out:
 		c.Fatalf("got unexpected hook while updating queue: %#v %#v", hi, ok)
-	case got, ok := <-source.updates:
+	case got, ok := <-source.UpdatesC:
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(got, gc.DeepEquals, sent)
+		c.Assert(got, gc.Equals, "sent")
 	case <-timeout:
 		c.Fatalf("timed out")
 	}
@@ -210,11 +205,11 @@ func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueue(c *gc.C) {
 }
 
 func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueueSpam(c *gc.C) {
-	source := newEmptySource()
+	source := hooktesting.NewEmptySource()
 	defer statetesting.AssertStop(c, source)
 
 	out := make(chan hook.Info)
-	sender := relation.NewHookSender(out, source)
+	sender := hook.NewSender(out, source)
 	defer statetesting.AssertStop(c, sender)
 
 	// Spam all channels continuously for a bit.
@@ -225,11 +220,11 @@ func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueueSpam(c *gc.C) {
 		select {
 		case hi, ok := <-out:
 			c.Fatalf("got unexpected hook: %#v %#v", hi, ok)
-		case source.changes <- multiwatcher.RelationUnitsChange{}:
+		case source.ChangesC <- source.NewChange("sent"):
 			changeCount++
-		case update, ok := <-source.updates:
+		case update, ok := <-source.UpdatesC:
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(update, gc.DeepEquals, multiwatcher.RelationUnitsChange{})
+			c.Assert(update, gc.Equals, "sent")
 			updateCount++
 		case <-timeout:
 			c.Fatalf("not enough things happened in time")

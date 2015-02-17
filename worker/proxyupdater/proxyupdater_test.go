@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"runtime"
 	"strings"
 	"time"
 
@@ -86,6 +87,10 @@ func (s *ProxyUpdaterSuite) waitProxySettings(c *gc.C, expected proxy.Settings) 
 }
 
 func (s *ProxyUpdaterSuite) waitForFile(c *gc.C, filename, expected string) {
+	//TODO(bogdanteleaga): Find a way to test this on windows
+	if runtime.GOOS == "windows" {
+		c.Skip("Proxy settings are written to the registry on windows")
+	}
 	for {
 		select {
 		case <-time.After(testing.LongWait):

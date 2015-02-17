@@ -15,7 +15,12 @@ import (
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
+	jujustorage "github.com/juju/juju/storage"
 )
+
+func EBSProvider() jujustorage.Provider {
+	return &ebsProvider{}
+}
 
 func ControlBucketName(e environs.Environ) string {
 	return e.(*environ).ecfg().controlBucket()

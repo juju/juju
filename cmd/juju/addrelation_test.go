@@ -4,11 +4,12 @@
 package main
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	"strings"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"

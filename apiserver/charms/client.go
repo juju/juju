@@ -5,13 +5,13 @@ package charms
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/utils/set"
 )
 
 func init() {

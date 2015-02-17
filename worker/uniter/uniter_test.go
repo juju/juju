@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
@@ -128,6 +129,10 @@ func (s *UniterSuite) TestUniterStartup(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterBootstrap(c *gc.C) {
+	//TODO(bogdanteleaga): Fix this on windows
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: currently does not work on windows")
+	}
 	s.runUniterTests(c, []uniterTest{
 		// Check error conditions during unit bootstrap phase.
 		ut(
@@ -525,6 +530,10 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
+	//TODO(bogdanteleaga): Fix this on windows
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: currently does not work on windows")
+	}
 	makeTest := func(description string, content, extraChecks ft.Entries) uniterTest {
 		return ut(description,
 			createCharm{
@@ -775,6 +784,10 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
+	//TODO(bogdanteleaga): Fix this on windows
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: currently does not work on windows")
+	}
 	s.runUniterTests(c, []uniterTest{
 		// Upgrade scenarios - handling conflicts.
 		ut(
@@ -1704,6 +1717,10 @@ func (s *UniterSuite) TestReboot(c *gc.C) {
 }
 
 func (s *UniterSuite) TestRebootFromJujuRun(c *gc.C) {
+	//TODO(bogdanteleaga): Fix this on windows
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: currently does not work on windows")
+	}
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"test juju-reboot",

@@ -152,7 +152,12 @@ func (u *Unit) Name() string {
 
 // unitGlobalKey returns the global database key for the named unit.
 func unitGlobalKey(name string) string {
-	return "u#" + name
+	return "u#" + name + "#charm"
+}
+
+// globalAgentKey returns the global database key for the unit.
+func (u *Unit) globalAgentKey() string {
+	return unitAgentGlobalKey(u.doc.Name)
 }
 
 // globalKey returns the global database key for the unit.
@@ -341,7 +346,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 		return setDyingOps, nil
 	}
 
-	sdocId := u.globalKey()
+	sdocId := u.globalAgentKey()
 	sdoc, err := getStatus(u.st, sdocId)
 	if errors.IsNotFound(err) {
 		return nil, errAlreadyDying
@@ -750,7 +755,31 @@ func (u *Unit) Refresh() error {
 	return nil
 }
 
+// Agent Returns an agent by its unit's name.
+func (u *Unit) Agent() Entity {
+	return newUnitAgent(u.st, u.Tag(), u.Name())
+}
+
+// SetAgentStatus calls SetStatus for this unit's agent, this call
+// is equivalent to the former call to SetStatus when Agent and Unit
+// where not separate entities.
+func (u *Unit) SetAgentStatus(status Status, info string, data map[string]interface{}) error {
+	agent := newUnitAgent(u.st, u.Tag(), u.Name())
+	return agent.SetStatus(status, info, data)
+}
+
+// AgentStatus calls Status for this unit's agent, this call
+// is equivalent to the former call to Status when Agent and Unit
+// where not separate entities.
+func (u *Unit) AgentStatus() (status Status, info string, data map[string]interface{}, err error) {
+	agent := newUnitAgent(u.st, u.Tag(), u.Name())
+	return agent.Status()
+}
+
 // Status returns the status of the unit.
+// This method relies on globalKey instead of globalAgentKey since it is part of
+// the effort to separate Unit from UnitAgent. Now the Status for UnitAgent is in
+// the UnitAgent struct.
 func (u *Unit) Status() (status Status, info string, data map[string]interface{}, err error) {
 	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
@@ -764,8 +793,11 @@ func (u *Unit) Status() (status Status, info string, data map[string]interface{}
 
 // SetStatus sets the status of the unit agent. The optional values
 // allow to pass additional helpful status data.
+// This method relies on globalKey instead of globalAgentKey since it is part of
+// the effort to separate Unit from UnitAgent. Now the SetStatus for UnitAgent is in
+// the UnitAgent struct.
 func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}) error {
-	doc, err := newUnitAgentStatusDoc(status, info, data)
+	doc, err := newUnitStatusDoc(status, info, data)
 	if err != nil {
 		return err
 	}
@@ -780,6 +812,7 @@ func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}
 	if err != nil {
 		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, ErrDead))
 	}
+
 	return nil
 }
 
@@ -953,7 +986,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 
 // AgentPresence returns whether the respective remote agent is alive.
 func (u *Unit) AgentPresence() (bool, error) {
-	return u.st.pwatcher.Alive(u.globalKey())
+	return u.st.pwatcher.Alive(u.globalAgentKey())
 }
 
 // Tag returns a name identifying the unit.
@@ -973,8 +1006,8 @@ func (u *Unit) UnitTag() names.UnitTag {
 func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
-	u.st.pwatcher.Watch(u.globalKey(), ch)
-	defer u.st.pwatcher.Unwatch(u.globalKey(), ch)
+	u.st.pwatcher.Watch(u.globalAgentKey(), ch)
+	defer u.st.pwatcher.Unwatch(u.globalAgentKey(), ch)
 	for i := 0; i < 2; i++ {
 		select {
 		case change := <-ch:
@@ -994,7 +1027,7 @@ func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 // It returns the started pinger.
 func (u *Unit) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := u.st.getPresence()
-	p := presence.NewPinger(presenceCollection, u.st.EnvironTag(), u.globalKey())
+	p := presence.NewPinger(presenceCollection, u.st.EnvironTag(), u.globalAgentKey())
 	err := p.Start()
 	if err != nil {
 		return nil, err
@@ -1236,7 +1269,7 @@ func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, con
 
 // Constraints returns the unit's deployment constraints.
 func (u *Unit) Constraints() (*constraints.Value, error) {
-	cons, err := readConstraints(u.st, u.globalKey())
+	cons, err := readConstraints(u.st, u.globalAgentKey())
 	if errors.IsNotFound(err) {
 		// Lack of constraints indicates lack of unit.
 		return nil, errors.NotFoundf("unit")

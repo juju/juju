@@ -120,9 +120,7 @@ type VolumeAttachmentIds struct {
 // VolumeAttachment describes a volume attachment.
 type VolumeAttachment struct {
 	VolumeTag  string `json:"volumetag"`
-	VolumeId   string `json:"volumeid"`
 	MachineTag string `json:"machinetag"`
-	InstanceId string `json:"instanceid,omitempty"`
 	DeviceName string `json:"devicename,omitempty"`
 }
 

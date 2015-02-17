@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"gopkg.in/amz.v2/aws"
@@ -477,6 +478,11 @@ var azConstrainedErr = &amzec2.Error{
 	Message: "The requested Availability Zone is currently constrained etc.",
 }
 
+var azVolumeTypeNotAvailableInZoneErr = &amzec2.Error{
+	Code:    "VolumeTypeNotAvailableInZone",
+	Message: "blah blah",
+}
+
 var azInsufficientInstanceCapacityErr = &amzec2.Error{
 	Code: "InsufficientInstanceCapacity",
 	Message: "We currently do not have sufficient m1.small capacity in the " +
@@ -493,6 +499,10 @@ var azNoDefaultSubnetErr = &amzec2.Error{
 
 func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
 	t.testStartInstanceAvailZoneAllConstrained(c, azConstrainedErr)
+}
+
+func (t *localServerSuite) TestStartInstanceVolumeTypeNotAvailable(c *gc.C) {
+	t.testStartInstanceAvailZoneAllConstrained(c, azVolumeTypeNotAvailableInZoneErr)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneAllInsufficientInstanceCapacity(c *gc.C) {
@@ -902,13 +912,23 @@ func (t *localServerSuite) TestStartInstanceVolumes(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
+	attachmentParams := &storage.AttachmentParams{
+		Machine: names.NewMachineTag("0"),
+	}
+
 	params := environs.StartInstanceParams{
 		Volumes: []storage.VolumeParams{{
-			Size: 512, // round up to 1GiB
+			Size:       512, // round up to 1GiB
+			Provider:   ec2.EBS_ProviderType,
+			Attachment: attachmentParams,
 		}, {
-			Size: 1024, // 1GiB exactly
+			Size:       1024, // 1GiB exactly
+			Provider:   ec2.EBS_ProviderType,
+			Attachment: attachmentParams,
 		}, {
-			Size: 1025, // round up to 2GiB
+			Size:       1025, // round up to 2GiB
+			Provider:   ec2.EBS_ProviderType,
+			Attachment: attachmentParams,
 		}},
 	}
 	result, err := testing.StartInstanceWithParams(env, "1", params, nil)

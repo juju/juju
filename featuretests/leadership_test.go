@@ -6,6 +6,9 @@ package featuretests
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/juju/names"
@@ -45,6 +48,10 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	file, _ := ioutil.TempFile("", "juju-run")
 	defer file.Close()
 	s.AgentSuite.PatchValue(&agentcmd.JujuRun, file.Name())
+
+	if runtime.GOOS == "windows" {
+		s.AgentSuite.PatchValue(&agentcmd.EnableJournaling, false)
+	}
 
 	fakeEnsureMongo := agenttesting.FakeEnsure{}
 	s.AgentSuite.PatchValue(&cmdutil.EnsureMongoServer, fakeEnsureMongo.FakeEnsureMongo)
@@ -96,6 +103,12 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(&agentConf, &agentConf)
 	s.machineAgent = machineAgentFactory(stateServer.Id())
 
+	// See comment in createMockJujudExecutable
+	if runtime.GOOS == "windows" {
+		dirToRemove := createMockJujudExecutable(c, s.DataDir(), s.machineAgent.Tag().String())
+		s.AddCleanup(func(*gc.C) { os.RemoveAll(dirToRemove) })
+	}
+
 	c.Log("Starting machine agent...")
 	go func() {
 		err := s.machineAgent.Run(coretesting.Context(c))
@@ -107,6 +120,7 @@ func (s *leadershipSuite) TearDownTest(c *gc.C) {
 	c.Log("Stopping machine agent...")
 	err := s.machineAgent.Stop()
 	c.Assert(err, gc.IsNil)
+	os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
 
 	s.AgentSuite.TearDownTest(c)
 }
@@ -258,6 +272,10 @@ func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {
 	defer file.Close()
 	s.AgentSuite.PatchValue(&agentcmd.JujuRun, file.Name())
 
+	if runtime.GOOS == "windows" {
+		s.AgentSuite.PatchValue(&agentcmd.EnableJournaling, false)
+	}
+
 	fakeEnsureMongo := agenttesting.FakeEnsure{}
 	s.AgentSuite.PatchValue(&cmdutil.EnsureMongoServer, fakeEnsureMongo.FakeEnsureMongo)
 
@@ -311,11 +329,30 @@ func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(&agentConf, &agentConf)
 	s.machineAgent = machineAgentFactory(stateServer.Id())
 
+	// See comment in createMockJujudExecutable
+	if runtime.GOOS == "windows" {
+		dirToRemove := createMockJujudExecutable(c, s.DataDir(), s.machineAgent.Tag().String())
+		s.AddCleanup(func(*gc.C) { os.RemoveAll(dirToRemove) })
+	}
+
 	c.Log("Starting machine agent...")
 	go func() {
 		err := s.machineAgent.Run(coretesting.Context(c))
 		c.Assert(err, gc.IsNil)
 	}()
+}
+
+// When a machine agent is ran it creates a symlink to the jujud executable.
+// Since we cannot create symlinks to a non-existent file on windows,
+// we place a dummy executable in the expected location.
+func createMockJujudExecutable(c *gc.C, dir, tag string) string {
+	toolsDir := filepath.Join(dir, "tools")
+	err := os.MkdirAll(filepath.Join(toolsDir, tag), 0755)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(filepath.Join(toolsDir, tag, "jujud.exe"),
+		[]byte("echo 1"), 0777)
+	c.Assert(err, gc.IsNil)
+	return toolsDir
 }
 
 func (s *uniterLeadershipSuite) TearDownTest(c *gc.C) {

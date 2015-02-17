@@ -9,13 +9,13 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	"github.com/juju/utils/exec"
 )
 
 type InterfaceSuite struct {

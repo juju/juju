@@ -4,12 +4,12 @@
 package block_test
 
 import (
-	gc "gopkg.in/check.v1"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
