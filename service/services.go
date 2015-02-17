@@ -83,7 +83,7 @@ func extractInitSystem(args []string) (initsystems.InitSystem, error) {
 	}
 
 	// Return the corresponding init system.
-	return newInitSystem(name), nil
+	return newInitSystem(name)
 }
 
 // InitSystem identifies which init system is in use.
