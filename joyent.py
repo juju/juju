@@ -203,17 +203,19 @@ class Client:
         headers['reason'] = response.msg
         return headers, content
 
-    def _list_objects(self, path):
+    def _list_objects(self, path, deep=False):
         headers, content = self._request(path, is_manta=True)
         objects = []
         for line in content.splitlines():
             obj = json.loads(line)
             obj['path'] = '%s/%s' % (path, obj['name'])
             objects.append(obj)
+            if obj['type'] == 'directory' and deep:
+                objects.extend(self._list_objects(obj['path'], deep=True))
         return objects
 
-    def list_objects(self, path):
-        objects = self._list_objects(path)
+    def list_objects(self, path, deep=False):
+        objects = self._list_objects(path, deep=deep)
         for obj in objects:
             print('{type} {mtime} {path}'.format(**obj))
 
@@ -433,6 +435,9 @@ def parse_args(argv=None):
     parser_list_tags.add_argument('machine_id', help='The machine id.')
     parser_list_objects = subparsers.add_parser(
         'list-objects', help='List directories and files in manta')
+    parser_list_objects.add_argument(
+        '-r', '--recursive', action='store_true', default=False,
+        help='Include content in subdirectories.')
     parser_list_objects.add_argument('path', help='The path')
 
     args = parser.parse_args(argv)
@@ -452,7 +457,7 @@ def main(argv):
     elif args.command == 'list-tags':
         client.list_machine_tags(args.machine_id)
     elif args.command == 'list-objects':
-        client.list_objects(args.path)
+        client.list_objects(args.path, deep=args.recursive)
     elif args.command == 'delete-old-machines':
         client.delete_old_machines(args.old_age, args.contact_mail_address)
     else:
