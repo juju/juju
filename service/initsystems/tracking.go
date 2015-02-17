@@ -102,7 +102,7 @@ func (is *Tracking) Enable(name, filename string) error {
 		return errors.Trace(err)
 	}
 
-	conf, err := ReadConf(name, filename, is, is.fops)
+	conf, err := readConf(name, filename, is, is.fops)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -130,7 +130,7 @@ func (is *Tracking) IsEnabled(name string) (bool, error) {
 
 // Check implements InitSystem.
 func (is *Tracking) Check(name, filename string) (bool, error) {
-	matched, err := CheckConf(name, filename, is, is.fops)
+	matched, err := checkConf(name, filename, is, is.fops)
 	return matched, errors.Trace(err)
 }
 

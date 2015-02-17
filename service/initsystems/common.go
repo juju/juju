@@ -8,16 +8,22 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/fs"
 )
-
-type enabledChecker interface {
-	IsEnabled(name string) (bool, error)
-}
 
 // EnsureEnabled may be used by InitSystem implementations to ensure
 // that the named service has been enabled. This is important for
 // operations where the service must first be enabled.
-func EnsureEnabled(name string, is enabledChecker) error {
+func EnsureEnabled(name string, is InitSystem) error {
+	return ensureEnabled(name, is)
+}
+
+type enabledChecker interface {
+	// Implements InitSystem.
+	IsEnabled(name string) (bool, error)
+}
+
+func ensureEnabled(name string, is enabledChecker) error {
 	enabled, err := is.IsEnabled(name)
 	if err != nil {
 		return errors.Trace(err)
@@ -46,17 +52,23 @@ func FilterNames(names, include []string) []string {
 	return filtered
 }
 
+// ReadConf wraps the operations of reading the file and deserializing
+// it (and validating the resulting conf).
+func ReadConf(name, filename string, is InitSystem, fops fs.Operations) (*Conf, error) {
+	return readConf(name, filename, is, fops)
+}
+
 type deserializer interface {
+	// Implements InitSystem.
 	Deserialize(data []byte, name string) (*Conf, error)
 }
 
 type fileOperations interface {
+	// Implements fs.FileOperations.
 	ReadFile(filename string) ([]byte, error)
 }
 
-// ReadConf wraps the operations of reading the file and deserializing
-// it (and validating the resulting conf).
-func ReadConf(name, filename string, is deserializer, fops fileOperations) (*Conf, error) {
+func readConf(name, filename string, is deserializer, fops fileOperations) (*Conf, error) {
 	data, err := fops.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -65,17 +77,23 @@ func ReadConf(name, filename string, is deserializer, fops fileOperations) (*Con
 	return conf, errors.Trace(err)
 }
 
-type confChecker interface {
-	deserializer
-	Conf(name string) (*Conf, error)
-}
-
 // CheckConf reads and deserializes the conf from the file and compares
 // it to the one that is enabled in the init system (if any). If the
 // file does not exist or the init system cannot retrieve the conf then
 // false is returned (with no error).
-func CheckConf(name, filename string, is confChecker, fops fileOperations) (bool, error) {
-	expected, err := ReadConf(name, filename, is, fops)
+func CheckConf(name, filename string, is InitSystem, fops fs.Operations) (bool, error) {
+	return checkConf(name, filename, is, fops)
+}
+
+type confChecker interface {
+	deserializer
+
+	// Implements InitSystem.
+	Conf(name string) (*Conf, error)
+}
+
+func checkConf(name, filename string, is confChecker, fops fileOperations) (bool, error) {
+	expected, err := readConf(name, filename, is, fops)
 	if os.IsNotExist(errors.Cause(err)) {
 		return false, nil
 	}
