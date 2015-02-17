@@ -9,20 +9,28 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/fs"
 
 	"github.com/juju/juju/service/initsystems"
-)
-
-const (
-	psErrNotFound = "NoServiceFoundForGivenName"
 )
 
 // TODO(ericsnow) Move juju-specific pieces to the service package and
 // accommodate them here via initsystems.InitSystem and initsystems.Conf.
 
+const (
+	psErrNotFound = "NoServiceFoundForGivenName"
+)
+
+// cmdRunner exposes the parts of initsystems.Shell used by the Windows
+// implementation of InitSystem.
+type cmdRunner interface {
+	// RunCommandStr implements initsystems.Shell.
+	RunCommandStr(cmd string) ([]byte, error)
+}
+
 type windows struct {
 	name string
-	fops fileOperations
+	fops fs.Operations
 	cmd  cmdRunner
 }
 
@@ -31,8 +39,8 @@ type windows struct {
 func NewInitSystem(name string) initsystems.InitSystem {
 	return &windows{
 		name: name,
-		fops: newFileOperations(),
-		cmd:  newCmdRunner(),
+		fops: &fs.Ops{},
+		cmd:  &initsystems.LocalShell{},
 	}
 }
 
@@ -103,7 +111,7 @@ func (is *windows) Enable(name, filename string) error {
 		return errors.AlreadyExistsf("service %q", name)
 	}
 
-	conf, err := initsystems.ReadConf(name, filename, is, is.fops)
+	conf, err := initsystems.ReadConf(name, filename, is, is.fops.(fs.Operations))
 	if err != nil {
 		return errors.Trace(err)
 	}

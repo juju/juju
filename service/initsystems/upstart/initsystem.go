@@ -9,6 +9,7 @@ import (
 	"regexp"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/fs"
 
 	"github.com/juju/juju/service/initsystems"
 )
@@ -24,6 +25,35 @@ var (
 	startedRE  = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
 )
 
+// fileOperations exposes the parts of fs.Operations used by the upstart
+// implementation of InitSystem.
+type fileOperations interface {
+	// Exists implements fs.Operations.
+	Exists(name string) (bool, error)
+
+	// ListDir implements fs.Operations.
+	ListDir(dirname string) ([]os.FileInfo, error)
+
+	// ReadFile implements fs.Operations.
+	ReadFile(filename string) ([]byte, error)
+
+	// Symlink implements fs.Operations.
+	Symlink(oldname, newname string) error
+
+	// Readlink implements fs.Operations.
+	Readlink(name string) (string, error)
+
+	// RemoveAll implements fs.Operations.
+	RemoveAll(name string) error
+}
+
+// cmdRunner exposes the parts of initsystems.Shell used by the upstart
+// implementation of InitSystem.
+type cmdRunner interface {
+	// RunCommend implements initsystems.Shell.
+	RunCommand(cmd string, args ...string) ([]byte, error)
+}
+
 // Upstart is an InitSystem implementation for upstart.
 type Upstart struct {
 	name    string
@@ -38,8 +68,8 @@ func NewInitSystem(name string) initsystems.InitSystem {
 	return &Upstart{
 		name:    name,
 		initDir: ConfDir,
-		fops:    newFileOperations(),
-		cmd:     newCmdRunner(),
+		fops:    &fs.Ops{},
+		cmd:     &initsystems.LocalShell{},
 	}
 }
 

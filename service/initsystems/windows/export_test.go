@@ -4,10 +4,12 @@
 package windows
 
 import (
+	"github.com/juju/utils/fs"
+
 	"github.com/juju/juju/service/initsystems"
 )
 
-func NewWindows(fops fileOperations, cmd cmdRunner) initsystems.InitSystem {
+func NewWindows(fops fs.Operations, cmd cmdRunner) initsystems.InitSystem {
 	return &windows{
 		name: "windows",
 		fops: fops,
