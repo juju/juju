@@ -88,20 +88,20 @@ func (cd confDir) create() error {
 	return nil
 }
 
-func (cd confDir) readfile(name string) ([]byte, error) {
+func (cd confDir) readFile(name string) ([]byte, error) {
 	data, err := cd.fops.ReadFile(filepath.Join(cd.dirName, name))
 	return data, errors.Trace(err)
 }
 
 func (cd confDir) conf() ([]byte, error) {
-	return cd.readfile(cd.confName())
+	return cd.readFile(cd.confName())
 }
 
 func (cd confDir) script() ([]byte, error) {
-	return cd.readfile(filenameScript)
+	return cd.readFile(filenameScript)
 }
 
-func (cd confDir) writefile(name string, data []byte) (string, error) {
+func (cd confDir) writeFile(name string, data []byte) (string, error) {
 	filename := filepath.Join(cd.dirName, name)
 
 	file, err := cd.fops.CreateFile(filename)
@@ -118,7 +118,7 @@ func (cd confDir) writefile(name string, data []byte) (string, error) {
 }
 
 func (cd confDir) writeConf(data []byte) error {
-	filename, err := cd.writefile(cd.confName(), data)
+	filename, err := cd.writeFile(cd.confName(), data)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -131,7 +131,7 @@ func (cd confDir) writeConf(data []byte) error {
 }
 
 func (cd confDir) writeScript(script string) (string, error) {
-	filename, err := cd.writefile(filenameScript, []byte(script))
+	filename, err := cd.writeFile(filenameScript, []byte(script))
 	if err != nil {
 		return "", errors.Trace(err)
 	}
