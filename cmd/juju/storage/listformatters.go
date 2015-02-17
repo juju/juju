@@ -1,3 +1,6 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package storage
 
 import (
@@ -27,7 +30,7 @@ func formatListTabular(value interface{}) ([]byte, error) {
 		fmt.Fprintln(tw)
 	}
 	p("[Storage]")
-	p("OWNER\tID")
+	p("OWNER\tID\tNAME\tLOCATION")
 
 	// First sort by owners
 	owners := make([]string, 0, len(storageInfo))
@@ -46,12 +49,8 @@ func formatListTabular(value interface{}) ([]byte, error) {
 		sort.Strings(byStorageId(storageIds))
 
 		for _, storageId := range storageIds {
-			// TODO(anastasiamac|axw) we should be listing attachments here,
-			// not storage instances. This needs to change
-			// when the model does. For now we are assume
-			// all owners are units (which is currently the
-			// case.)
-			p(owner, storageId)
+			info := all[storageId]
+			p(owner, storageId, info.StorageName, info.Location)
 		}
 	}
 	tw.Flush()

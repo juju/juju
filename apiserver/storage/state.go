@@ -12,6 +12,7 @@ import (
 type storageAccess interface {
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	AllStorageInstances() ([]state.StorageInstance, error)
+	StorageAttachments(unit names.UnitTag) ([]state.StorageAttachment, error)
 }
 
 type stateShim struct {

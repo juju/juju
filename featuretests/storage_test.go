@@ -76,37 +76,41 @@ func (s *apiStorageSuite) TestStorageShow(c *gc.C) {
 
 	storageTag, err := names.ParseStorageTag("storage-data-0")
 	c.Assert(err, jc.ErrorIsNil)
-	found, err := s.storageClient.Show([]names.StorageTag{storageTag})
+	attachments, instances, err := s.storageClient.Show([]names.StorageTag{storageTag})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, gc.HasLen, 1)
-	one := found[0]
+	c.Assert(instances, gc.HasLen, 0)
+	c.Assert(attachments, gc.HasLen, 1)
+	one := attachments[0]
 	c.Assert(one.StorageTag, gc.DeepEquals, "storage-data-0")
 	c.Assert(one.OwnerTag, gc.DeepEquals, "unit-storage-block-0")
 	c.Assert(one.Kind, gc.DeepEquals, params.StorageKindBlock)
 }
 
 func (s *apiStorageSuite) TestStorageShowEmpty(c *gc.C) {
-	found, err := s.storageClient.Show(nil)
+	attachments, instances, err := s.storageClient.Show(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, gc.HasLen, 0)
+	c.Assert(attachments, gc.HasLen, 0)
+	c.Assert(instances, gc.HasLen, 0)
 }
 
 func (s *apiStorageSuite) TestStorageList(c *gc.C) {
 	createUnitForTest(c, &s.JujuConnSuite)
 
-	found, err := s.storageClient.List()
+	attachments, instances, err := s.storageClient.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, gc.HasLen, 1)
-	one := found[0]
+	c.Assert(instances, gc.HasLen, 0)
+	c.Assert(attachments, gc.HasLen, 1)
+	one := attachments[0]
 	c.Assert(one.StorageTag, gc.DeepEquals, "storage-data-0")
 	c.Assert(one.OwnerTag, gc.DeepEquals, "unit-storage-block-0")
 	c.Assert(one.Kind, gc.DeepEquals, params.StorageKindBlock)
 }
 
 func (s *apiStorageSuite) TestStorageListEmpty(c *gc.C) {
-	found, err := s.storageClient.List()
+	attachments, instances, err := s.storageClient.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, gc.HasLen, 0)
+	c.Assert(attachments, gc.HasLen, 0)
+	c.Assert(instances, gc.HasLen, 0)
 }
 
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
@@ -172,8 +176,8 @@ func (s *cmdStorageSuite) TestStorageListCmdStack(c *gc.C) {
 	context := runList(c)
 	expected := `
 [Storage]       
-OWNER           ID     
-storage-block/0 data/0 
+OWNER           ID     NAME LOCATION 
+storage-block/0 data/0 data          
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)

@@ -43,9 +43,11 @@ func (s *ListSuite) TestList(c *gc.C) {
 		// Default format is tabular
 		`
 [Storage]    
-OWNER        ID          
-postgresql/0 db-dir/1000 
-transcode/0  shared-fs/0 
+OWNER        ID          NAME      LOCATION 
+postgresql/0 db-dir/1000 db-dir    there    
+transcode    db-dir/1000 db-dir             
+transcode    shared-fs/0 shared-fs          
+transcode/0  shared-fs/0 shared-fs here     
 
 `[1:],
 	)
@@ -59,9 +61,16 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 postgresql/0:
   db-dir/1000:
     storage: db-dir
+    location: there
+transcode:
+  db-dir/1000:
+    storage: db-dir
+  shared-fs/0:
+    storage: shared-fs
 transcode/0:
   shared-fs/0:
     storage: shared-fs
+    location: here
 `[1:],
 	)
 }
@@ -74,12 +83,14 @@ func (s *ListSuite) TestListOwnerStorageIdSort(c *gc.C) {
 		// Default format is tabular
 		`
 [Storage]    
-OWNER        ID          
-postgresql/0 db-dir/1000 
-transcode    db-dir/1000 
-transcode/0  db-dir/1000 
-transcode/0  shared-fs/0 
-transcode/0  shared-fs/5 
+OWNER        ID          NAME      LOCATION 
+postgresql/0 db-dir/1000 db-dir    there    
+transcode    db-dir/1000 db-dir             
+transcode    shared-fs/0 shared-fs          
+transcode    shared-fs/5 shared-fs          
+transcode/0  db-dir/1000 db-dir             
+transcode/0  shared-fs/0 shared-fs here     
+transcode/0  shared-fs/5 shared-fs nowhere  
 
 `[1:],
 	)
@@ -101,32 +112,84 @@ func (s mockListAPI) Close() error {
 	return nil
 }
 
-func (s mockListAPI) List() ([]params.StorageInstance, error) {
+func (s mockListAPI) List() ([]params.StorageAttachment, []params.StorageInstance, error) {
+	return getTestAttachments(s.lexicalChaos), getTestInstances(s.lexicalChaos), nil
+}
 
-	results := []params.StorageInstance{{
+func getTestAttachments(chaos bool) []params.StorageAttachment {
+	results := []params.StorageAttachment{{
 		StorageTag: "storage-shared-fs-0",
 		OwnerTag:   "unit-transcode-0",
+		UnitTag:    "unit-transcode-0",
+		Kind:       params.StorageKindBlock,
+		Location:   "here",
 	}, {
 		StorageTag: "storage-db-dir-1000",
 		OwnerTag:   "unit-postgresql-0",
+		UnitTag:    "unit-transcode-0",
+		Kind:       params.StorageKindUnknown,
+		Location:   "there",
 	}}
 
-	if s.lexicalChaos {
-		last := params.StorageInstance{
+	if chaos {
+		last := params.StorageAttachment{
 			StorageTag: "storage-shared-fs-5",
 			OwnerTag:   "unit-transcode-0",
+			UnitTag:    "unit-transcode-0",
+			Kind:       params.StorageKindUnknown,
+			Location:   "nowhere",
 		}
-		second := params.StorageInstance{
+		second := params.StorageAttachment{
 			StorageTag: "storage-db-dir-1000",
 			OwnerTag:   "unit-transcode-0",
+			UnitTag:    "unit-transcode-0",
+			Kind:       params.StorageKindBlock,
+			Location:   "",
 		}
-		first := params.StorageInstance{
+		first := params.StorageAttachment{
 			StorageTag: "storage-db-dir-1000",
 			OwnerTag:   "service-transcode",
+			UnitTag:    "unit-transcode-0",
+			Kind:       params.StorageKindFilesystem,
 		}
 		results = append(results, last)
 		results = append(results, second)
 		results = append(results, first)
 	}
-	return results, nil
+	return results
+}
+
+func getTestInstances(chaos bool) []params.StorageInstance {
+
+	results := []params.StorageInstance{{
+		StorageTag: "storage-shared-fs-0",
+		OwnerTag:   "service-transcode",
+		Kind:       params.StorageKindUnknown,
+	}, {
+		StorageTag: "storage-db-dir-1000",
+		OwnerTag:   "service-transcode",
+		Kind:       params.StorageKindBlock,
+	}}
+
+	if chaos {
+		last := params.StorageInstance{
+			StorageTag: "storage-shared-fs-5",
+			OwnerTag:   "service-transcode",
+			Kind:       params.StorageKindUnknown,
+		}
+		second := params.StorageInstance{
+			StorageTag: "storage-db-dir-1000",
+			OwnerTag:   "service-transcode",
+			Kind:       params.StorageKindBlock,
+		}
+		first := params.StorageInstance{
+			StorageTag: "storage-db-dir-1000",
+			OwnerTag:   "service-transcode",
+			Kind:       params.StorageKindFilesystem,
+		}
+		results = append(results, last)
+		results = append(results, second)
+		results = append(results, first)
+	}
+	return results
 }

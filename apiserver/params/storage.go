@@ -171,8 +171,10 @@ type VolumeAttachmentsResults struct {
 // StorageShowResult holds information about a storage instance
 // or error related to its retrieval.
 type StorageShowResult struct {
-	Result StorageInstance `json:"result"`
-	Error  *Error          `json:"error,omitempty"`
+	// If Attachments don't exist - instance is unattached :D.
+	Attachments []StorageAttachment `json:"attachments"`
+	Instance    StorageInstance     `json:"instance"`
+	Error       *Error              `json:"error,omitempty"`
 }
 
 // StorageShowResults holds a collection of storage instances.
@@ -182,5 +184,6 @@ type StorageShowResults struct {
 
 // StorageListResult holds information about storage instances.
 type StorageListResult struct {
-	Instances []StorageInstance
+	Instances   []StorageInstance
+	Attachments []StorageAttachment
 }

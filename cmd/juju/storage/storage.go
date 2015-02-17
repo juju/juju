@@ -63,13 +63,39 @@ func (c *StorageCommandBase) NewStorageAPI() (*storage.Client, error) {
 // StorageInfo defines the serialization behaviour of the storage information.
 type StorageInfo struct {
 	StorageName string `yaml:"storage" json:"storage"`
+	Location    string `yaml:"location,omitempty" json:"location,omitempty"`
 }
 
 // formatStorageInfo takes a set of StorageInstances and creates a
 // mapping from storage instance ID to information structures.
-func formatStorageInfo(all []params.StorageInstance) (map[string]map[string]StorageInfo, error) {
+func formatStorageInfo(attachments []params.StorageAttachment, instances []params.StorageInstance) (map[string]map[string]StorageInfo, error) {
 	output := make(map[string]map[string]StorageInfo)
-	for _, one := range all {
+	for _, one := range attachments {
+		storageTag, err := names.ParseStorageTag(one.StorageTag)
+		if err != nil {
+			return nil, errors.Annotate(err, "invalid storage tag")
+		}
+		ownerTag, err := names.ParseTag(one.OwnerTag)
+		if err != nil {
+			return nil, errors.Annotate(err, "invalid owner tag")
+		}
+		storageName, err := names.StorageName(storageTag.Id())
+		if err != nil {
+			panic(err) // impossible
+		}
+		si := StorageInfo{
+			StorageName: storageName,
+			Location:    one.Location,
+		}
+		owner := ownerTag.Id()
+		ownerColl, ok := output[owner]
+		if !ok {
+			ownerColl = map[string]StorageInfo{}
+			output[owner] = ownerColl
+		}
+		ownerColl[storageTag.Id()] = si
+	}
+	for _, one := range instances {
 		storageTag, err := names.ParseStorageTag(one.StorageTag)
 		if err != nil {
 			return nil, errors.Annotate(err, "invalid storage tag")

@@ -60,11 +60,11 @@ func (c *ListCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	result, err := api.List()
+	attachments, instances, err := api.List()
 	if err != nil {
 		return err
 	}
-	output, err := formatStorageInfo(result)
+	output, err := formatStorageInfo(attachments, instances)
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ var (
 // StorageAPI defines the API methods that the storage commands use.
 type StorageListAPI interface {
 	Close() error
-	List() ([]params.StorageInstance, error)
+	List() ([]params.StorageAttachment, []params.StorageInstance, error)
 }
 
 func (c *ListCommand) getStorageListAPI() (StorageListAPI, error) {

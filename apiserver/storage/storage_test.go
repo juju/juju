@@ -91,9 +91,18 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 
 	one := found.Results[0]
 	c.Assert(one.Error, gc.IsNil)
-	c.Assert(one.Result.StorageTag, gc.DeepEquals, "storage-data-0")
-	c.Assert(one.Result.OwnerTag, gc.DeepEquals, "unit-storage-block-0")
-	c.Assert(one.Result.Kind, gc.DeepEquals, params.StorageKindBlock)
+	assertInstanceIsNil(c, one.Instance)
+	c.Assert(one.Attachments, gc.HasLen, 1)
+	att := one.Attachments[0]
+	c.Assert(att.StorageTag, gc.DeepEquals, "storage-data-0")
+	c.Assert(att.OwnerTag, gc.DeepEquals, "unit-storage-block-0")
+	c.Assert(att.Kind, gc.DeepEquals, params.StorageKindBlock)
+}
+
+func assertInstanceIsNil(c *gc.C, si params.StorageInstance) {
+	c.Assert(si.StorageTag, gc.DeepEquals, "")
+	c.Assert(si.OwnerTag, gc.DeepEquals, "")
+	c.Assert(si.Kind, gc.DeepEquals, params.StorageKindUnknown)
 }
 
 func (s *storageSuite) TestShowStorageInvalidId(c *gc.C) {
@@ -104,6 +113,8 @@ func (s *storageSuite) TestShowStorageInvalidId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error.Error(), gc.Matches, ".*permission denied*")
+	assertInstanceIsNil(c, found.Results[0].Instance)
+	c.Assert(found.Results[0].Attachments, gc.HasLen, 0)
 }
 
 func (s *storageSuite) TestStorageListEmpty(c *gc.C) {
@@ -117,10 +128,13 @@ func (s *storageSuite) TestStorageList(c *gc.C) {
 
 	found, err := s.api.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Instances, gc.HasLen, 1)
+	c.Assert(found.Instances, gc.HasLen, 0)
+	c.Assert(found.Attachments, gc.HasLen, 1)
 
-	one := found.Instances[0]
+	one := found.Attachments[0]
 	c.Assert(one.StorageTag, gc.DeepEquals, "storage-data-0")
-	c.Assert(one.OwnerTag, gc.DeepEquals, "unit-storage-block-0")
+	c.Assert(one.UnitTag, gc.DeepEquals, "unit-storage-block-0")
 	c.Assert(one.Kind, gc.DeepEquals, params.StorageKindBlock)
+	c.Assert(one.OwnerTag, gc.DeepEquals, "unit-storage-block-0")
+	c.Assert(one.Location, gc.DeepEquals, "")
 }

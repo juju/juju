@@ -43,9 +43,13 @@ func (s *ShowSuite) TestShow(c *gc.C) {
 		[]string{"shared-fs/0"},
 		// Default format is yaml
 		`
+postgresql:
+  shared-fs/0:
+    storage: shared-fs
 postgresql/0:
   shared-fs/0:
     storage: shared-fs
+    location: a location
 `[1:],
 	)
 }
@@ -59,7 +63,7 @@ func (s *ShowSuite) TestShowJSON(c *gc.C) {
 	s.assertValidShow(
 		c,
 		[]string{"shared-fs/0", "--format", "json"},
-		`{"postgresql/0":{"shared-fs/0":{"storage":"shared-fs"}}}
+		`{"postgresql":{"shared-fs/0":{"storage":"shared-fs"}},"postgresql/0":{"shared-fs/0":{"storage":"shared-fs","location":"a location"}}}
 `,
 	)
 }
@@ -69,11 +73,18 @@ func (s *ShowSuite) TestShowMultipleReturn(c *gc.C) {
 		c,
 		[]string{"shared-fs/0", "db-dir/1000"},
 		`
-postgresql/0:
+postgresql:
   db-dir/1000:
     storage: db-dir
   shared-fs/0:
     storage: shared-fs
+postgresql/0:
+  db-dir/1000:
+    storage: db-dir
+    location: a location
+  shared-fs/0:
+    storage: shared-fs
+    location: a location
 `[1:],
 	)
 }
@@ -93,13 +104,24 @@ func (s mockShowAPI) Close() error {
 	return nil
 }
 
-func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageInstance, error) {
-	results := make([]params.StorageInstance, len(tags))
+func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageAttachment, []params.StorageInstance, error) {
+	instances := make([]params.StorageInstance, len(tags))
 	for i, tag := range tags {
-		results[i] = params.StorageInstance{
+		instances[i] = params.StorageInstance{
 			StorageTag: tag.String(),
-			OwnerTag:   "unit-postgresql-0",
+			OwnerTag:   "service-postgresql",
+			Kind:       params.StorageKindBlock,
 		}
 	}
-	return results, nil
+	attachments := make([]params.StorageAttachment, len(tags))
+	for i, tag := range tags {
+		attachments[i] = params.StorageAttachment{
+			StorageTag: tag.String(),
+			OwnerTag:   "unit-postgresql-0",
+			UnitTag:    "unit-postgresql-0",
+			Kind:       params.StorageKindBlock,
+			Location:   "a location",
+		}
+	}
+	return attachments, instances, nil
 }

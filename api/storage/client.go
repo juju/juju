@@ -29,32 +29,37 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 // Show retrieves information about desired storage instances.
-func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInstance, error) {
+func (c *Client) Show(tags []names.StorageTag) ([]params.StorageAttachment, []params.StorageInstance, error) {
 	found := params.StorageShowResults{}
 	entities := make([]params.Entity, len(tags))
 	for i, tag := range tags {
 		entities[i] = params.Entity{Tag: tag.String()}
 	}
 	if err := c.facade.FacadeCall("Show", params.Entities{Entities: entities}, &found); err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
-	all := []params.StorageInstance{}
+	instances := []params.StorageInstance{}
+	attachments := []params.StorageAttachment{}
 	allErr := params.ErrorResults{}
 	for _, result := range found.Results {
 		if result.Error != nil {
 			allErr.Results = append(allErr.Results, params.ErrorResult{result.Error})
 			continue
 		}
-		all = append(all, result.Result)
+		if len(result.Attachments) > 0 {
+			attachments = append(attachments, result.Attachments...)
+		} else {
+			instances = append(instances, result.Instance)
+		}
 	}
-	return all, allErr.Combine()
+	return attachments, instances, allErr.Combine()
 }
 
 // List list all current storage instances.
-func (c *Client) List() ([]params.StorageInstance, error) {
+func (c *Client) List() ([]params.StorageAttachment, []params.StorageInstance, error) {
 	result := params.StorageListResult{}
 	if err := c.facade.FacadeCall("List", nil, &result); err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
-	return result.Instances, nil
+	return result.Attachments, result.Instances, nil
 }
