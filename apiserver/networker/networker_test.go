@@ -195,8 +195,8 @@ func (s *networkerSuite) TestMachineNetworkInfoPermissions(c *gc.C) {
 	}}
 	results, err := s.networker.MachineNetworkInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.MachineNetworkInfoResults{
-		Results: []params.MachineNetworkInfoResult{
+	c.Assert(results, gc.DeepEquals, params.MachineNetworkConfigResults{
+		Results: []params.MachineNetworkConfigResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -287,9 +287,9 @@ func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.MachineNetworkConfigResults{
 		Results: []params.MachineNetworkConfigResult{
-			{Error: nil, Info: expectedMachineConfig},
-			{Error: nil, Info: expectedContainerConfig},
-			{Error: nil, Info: expectedNestedContainerConfig},
+			{Error: nil, Config: expectedMachineConfig},
+			{Error: nil, Config: expectedContainerConfig},
+			{Error: nil, Config: expectedNestedContainerConfig},
 		},
 	})
 }
