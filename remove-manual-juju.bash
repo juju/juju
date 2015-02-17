@@ -9,6 +9,7 @@ for ip in $ips; do
 set -ux
 if [[ -n "$(ps ax | grep jujud | grep -v grep)" ]]; then
     sudo killall -SIGABRT jujud
+    sudo killall -9 mongod
 fi
 if [[ -d $JUJU_DIR ]]; then
     sudo rm -r $JUJU_DIR
