@@ -163,6 +163,11 @@ func (cd confDir) normalizeConf(conf Conf) (*initsystems.Conf, error) {
 	return normalConf, errors.Trace(err)
 }
 
+// isSimpleScript checks the provided script to see if it is what
+// confDir considers "simple". In the context of confDir, "simple" means
+// it is a single line. A "simple" script will remain in Conf.Cmd, while
+// a non-simple one will be written out to a script file and the path to
+// that file stored in Conf.Cmd.
 func (cd confDir) isSimpleScript(script string) bool {
 	if strings.Contains(script, "\n") {
 		return false
