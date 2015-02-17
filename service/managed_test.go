@@ -56,7 +56,7 @@ func (s *managedSuite) TestNewDir(c *gc.C) {
 	newConfDir := s.configs.newDir("jujud-machine-0")
 
 	c.Check(newConfDir, jc.DeepEquals, &confDir{
-		dirname:    "/var/lib/juju/init/jujud-machine-0",
+		dirName:    "/var/lib/juju/init/jujud-machine-0",
 		initSystem: InitSystemUpstart,
 		fops:       s.StubFiles,
 	})
@@ -125,7 +125,7 @@ func (s *managedSuite) TestLookup(c *gc.C) {
 	dir := s.configs.lookup("jujud-machine-0")
 
 	c.Check(dir, jc.DeepEquals, &confDir{
-		dirname:    "/var/lib/juju/init/jujud-machine-0",
+		dirName:    "/var/lib/juju/init/jujud-machine-0",
 		initSystem: InitSystemUpstart,
 		fops:       s.StubFiles,
 	})

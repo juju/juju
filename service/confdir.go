@@ -25,8 +25,8 @@ const (
 // directory will typically be found in the "init" subdirectory of the
 // juju datadir (e.g. /var/lib/juju).
 type confDir struct {
-	// dirname is the absolute path to the service's conf directory.
-	dirname    string
+	// dirName is the absolute path to the service's conf directory.
+	dirName    string
 	initSystem string
 	fops       fs.Operations
 }
@@ -37,7 +37,7 @@ func newConfDir(name, initDir, initSystem string, fops fs.Operations) *confDir {
 	}
 
 	return &confDir{
-		dirname:    filepath.Join(initDir, name),
+		dirName:    filepath.Join(initDir, name),
 		initSystem: initSystem,
 		fops:       fops,
 	}
@@ -48,7 +48,7 @@ var newFileOps = func() fs.Operations {
 }
 
 func (cd confDir) name() string {
-	return filepath.Base(cd.dirname)
+	return filepath.Base(cd.dirName)
 }
 
 func (cd confDir) confname() string {
@@ -56,15 +56,15 @@ func (cd confDir) confname() string {
 }
 
 func (cd confDir) filename() string {
-	return filepath.Join(cd.dirname, cd.confname())
+	return filepath.Join(cd.dirName, cd.confname())
 }
 
 func (cd confDir) validate() error {
 	// The conf file must exist.
 	confname := cd.confname()
-	exists, err := cd.fops.Exists(filepath.Join(cd.dirname, confname))
+	exists, err := cd.fops.Exists(filepath.Join(cd.dirName, confname))
 	if !exists {
-		return errors.NotValidf("%q missing conf file %q", cd.dirname, confname)
+		return errors.NotValidf("%q missing conf file %q", cd.dirName, confname)
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -74,14 +74,14 @@ func (cd confDir) validate() error {
 }
 
 func (cd confDir) create() error {
-	exists, err := cd.fops.Exists(cd.dirname)
+	exists, err := cd.fops.Exists(cd.dirName)
 	if exists {
-		return errors.AlreadyExistsf("service conf dir %q", cd.dirname)
+		return errors.AlreadyExistsf("service conf dir %q", cd.dirName)
 	}
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := cd.fops.MkdirAll(cd.dirname, 0755); err != nil {
+	if err := cd.fops.MkdirAll(cd.dirName, 0755); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -89,7 +89,7 @@ func (cd confDir) create() error {
 }
 
 func (cd confDir) readfile(name string) ([]byte, error) {
-	data, err := cd.fops.ReadFile(filepath.Join(cd.dirname, name))
+	data, err := cd.fops.ReadFile(filepath.Join(cd.dirName, name))
 	return data, errors.Trace(err)
 }
 
@@ -102,7 +102,7 @@ func (cd confDir) script() ([]byte, error) {
 }
 
 func (cd confDir) writefile(name string, data []byte) (string, error) {
-	filename := filepath.Join(cd.dirname, name)
+	filename := filepath.Join(cd.dirName, name)
 
 	file, err := cd.fops.CreateFile(filename)
 	if err != nil {
@@ -171,7 +171,7 @@ func (cd confDir) isSimpleScript(script string) bool {
 }
 
 func (cd confDir) remove() error {
-	err := cd.fops.RemoveAll(cd.dirname)
+	err := cd.fops.RemoveAll(cd.dirName)
 	if os.IsNotExist(err) {
 		return nil
 	}
