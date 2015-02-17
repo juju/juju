@@ -2,6 +2,11 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// TODO(ericsnow) windows should be viable under non-Windows as long as
+// its `fops` and `cmd` are targetting Windows (e.g. a remote host).
+// Once those two interfaces expose their supported target, windows
+// should validate that target.
+
 package windows
 
 import (
