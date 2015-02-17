@@ -161,10 +161,14 @@ class FakeAttempt(FakeStepAttempt):
 
 
 class FakeAttemptClass:
+    """Instances of this class behave like classes, not instances.
 
-    @classmethod
-    def factory(cls, upgrade_sequence):
-        return cls('foo')
+    Methods like factory, that would be classmethods on a normal class, are
+    normal methods on FakeAttemptClass.
+    """
+
+    def factory(self, upgrade_sequence):
+        return self()
 
     def __init__(self, title, *result):
         self.title = title
