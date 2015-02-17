@@ -51,20 +51,20 @@ func (cd confDir) name() string {
 	return filepath.Base(cd.dirName)
 }
 
-func (cd confDir) confname() string {
+func (cd confDir) confName() string {
 	return fmt.Sprintf(filenameConf, cd.initSystem)
 }
 
 func (cd confDir) filename() string {
-	return filepath.Join(cd.dirName, cd.confname())
+	return filepath.Join(cd.dirName, cd.confName())
 }
 
 func (cd confDir) validate() error {
 	// The conf file must exist.
-	confname := cd.confname()
-	exists, err := cd.fops.Exists(filepath.Join(cd.dirName, confname))
+	confName := cd.confName()
+	exists, err := cd.fops.Exists(filepath.Join(cd.dirName, confName))
 	if !exists {
-		return errors.NotValidf("%q missing conf file %q", cd.dirName, confname)
+		return errors.NotValidf("%q missing conf file %q", cd.dirName, confName)
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -94,7 +94,7 @@ func (cd confDir) readfile(name string) ([]byte, error) {
 }
 
 func (cd confDir) conf() ([]byte, error) {
-	return cd.readfile(cd.confname())
+	return cd.readfile(cd.confName())
 }
 
 func (cd confDir) script() ([]byte, error) {
@@ -118,7 +118,7 @@ func (cd confDir) writefile(name string, data []byte) (string, error) {
 }
 
 func (cd confDir) writeConf(data []byte) error {
-	filename, err := cd.writefile(cd.confname(), data)
+	filename, err := cd.writefile(cd.confName(), data)
 	if err != nil {
 		return errors.Trace(err)
 	}

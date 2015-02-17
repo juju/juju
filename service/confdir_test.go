@@ -48,9 +48,9 @@ func (s *confDirSuite) TestName(c *gc.C) {
 }
 
 func (s *confDirSuite) TestConfName(c *gc.C) {
-	confname := s.Confdir.confname()
+	confName := s.Confdir.confName()
 
-	c.Check(confname, gc.Equals, "upstart.conf")
+	c.Check(confName, gc.Equals, "upstart.conf")
 }
 
 func (s *confDirSuite) TestFilename(c *gc.C) {
