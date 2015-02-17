@@ -14,6 +14,9 @@ import (
 )
 
 const (
+	// initDir is the name of the directory where per-service confDir
+	// directories are stored. This will typically be relative to the
+	// juju data dir.
 	initDir = "init"
 )
 
@@ -43,11 +46,15 @@ func newConfigs(baseDir, initSystem string, prefixes ...string) *serviceConfigs 
 	}
 }
 
+// newDir produces a new confDir for the given service name. No actual
+// directory is created nor is the confDir validated.
 func (sc serviceConfigs) newDir(name string) *confDir {
 	confDir := newConfDir(name, sc.baseDir, sc.initSystem, sc.fops)
 	return confDir
 }
 
+// refresh updates the list of managed service names based on the
+// sub-directories of the "init" dir (see initDir).
 func (sc *serviceConfigs) refresh() error {
 	names, err := sc.list()
 	if err != nil {
@@ -57,6 +64,8 @@ func (sc *serviceConfigs) refresh() error {
 	return nil
 }
 
+// list generates a fresh list of managed service names based on the
+// sub-directories of the "init" dir (see initDir).
 func (sc serviceConfigs) list() ([]string, error) {
 	dirnames, err := fs.ListSubdirectoriesOp(sc.baseDir, sc.fops)
 	if os.IsNotExist(errors.Cause(err)) {
@@ -80,6 +89,8 @@ func (sc serviceConfigs) list() ([]string, error) {
 	return names, nil
 }
 
+// lookup returns a confDir for the given service name if it is already
+// managed by juju. If not then nil is returned.
 func (sc serviceConfigs) lookup(name string) *confDir {
 	if !contains(sc.names, name) {
 		return nil
@@ -87,10 +98,16 @@ func (sc serviceConfigs) lookup(name string) *confDir {
 	return sc.newDir(name)
 }
 
+// serializer exposes the InitSystem methods needed by add.
 type serializer interface {
+	// Serialize implements InitSystem.
 	Serialize(name string, conf initsystems.Conf) ([]byte, error)
 }
 
+// add creates a new confDir for the given service name and populates
+// the directory. The service gets added to the list of managed
+// services. If the service is already managed then errors.AlreadyExists
+// is returned.
 func (sc *serviceConfigs) add(name string, conf Conf, serializer serializer) error {
 	if contains(sc.names, name) {
 		return errors.AlreadyExistsf("service %q", name)
@@ -127,6 +144,9 @@ func (sc *serviceConfigs) add(name string, conf Conf, serializer serializer) err
 	return nil
 }
 
+// remove deletes the conf directory for the given service name and
+// removes the name from the list of juju-managed services. If the
+// service isn't already managed then errors.NotFound is returned.
 func (sc *serviceConfigs) remove(name string) error {
 	confDir := sc.lookup(name)
 	if confDir == nil {
