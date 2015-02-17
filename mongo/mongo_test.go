@@ -32,8 +32,8 @@ type MongoSuite struct {
 	mongodConfigPath string
 	mongodPath       string
 	installCount     int
-	fake             *testing.Fake
-	services         *service.FakeServices
+	stub             *testing.Stub
+	services         *service.StubServices
 }
 
 var _ = gc.Suite(&MongoSuite{})
@@ -94,9 +94,9 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.mongodConfigPath = filepath.Join(testPath, "mongodConfig")
 	s.PatchValue(mongo.MongoConfigPath, s.mongodConfigPath)
 
-	s.fake = &testing.Fake{}
-	s.services = service.NewFakeServices(service.InitSystemUpstart)
-	s.services.Fake = s.fake
+	s.stub = &testing.Stub{}
+	s.services = service.NewStubServices(service.InitSystemUpstart)
+	s.services.Stub = s.stub
 	s.PatchValue(mongo.NewService, func(name, dataDir string, conf service.Conf) (*service.Service, error) {
 		return service.NewService(name, conf, s.services), nil
 	})
@@ -125,7 +125,7 @@ func (s *MongoSuite) setService(c *gc.C, namespace, status string) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	s.services.ResetCalls()
+	s.services.Calls = nil
 }
 
 func (s *MongoSuite) enabled() []*service.Service {
@@ -229,7 +229,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check(s.installCount, gc.Equals, 0)
-	s.fake.CheckCallNames(c, "Add", "IsEnabled", "Check", "IsRunning")
+	s.stub.CheckCallNames(c, "Add", "IsEnabled", "Check", "IsRunning")
 }
 
 func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
@@ -244,7 +244,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.installCount, gc.Equals, 0)
-	s.fake.CheckCallNames(c, "Add", "IsEnabled", "Check", "IsRunning", "Start")
+	s.stub.CheckCallNames(c, "Add", "IsEnabled", "Check", "IsRunning", "Start")
 
 	running, err := s.services.IsRunning(name)
 	c.Assert(err, jc.ErrorIsNil)
@@ -260,13 +260,13 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
 	s.setService(c, namespace, initsystems.StatusEnabled)
 	failure := errors.New("won't start")
 	// Add, IsEnabled, Check, IsRunning, **Start**
-	s.fake.Errors = []error{nil, nil, nil, nil, failure}
+	s.stub.SetErrors(nil, nil, nil, nil, failure)
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 
 	c.Check(err, gc.ErrorMatches, `.*won't start`)
 	c.Check(s.installCount, gc.Equals, 0)
-	s.fake.CheckCallNames(c, "Add", "IsEnabled", "Check", "IsRunning", "Start")
+	s.stub.CheckCallNames(c, "Add", "IsEnabled", "Check", "IsRunning", "Start")
 }
 
 func (s *MongoSuite) TestEnsureServerNumaCtl(c *gc.C) {
@@ -358,7 +358,7 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 	s.setService(c, namespace, initsystems.StatusRunning)
 	failure := errors.New("shouldn't be called")
 	// Add, IsEnabled, Check, IsRunning, **Start**
-	s.fake.Errors = []error{nil, nil, nil, nil, failure}
+	s.stub.SetErrors(nil, nil, nil, nil, failure)
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
