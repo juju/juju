@@ -1,7 +1,7 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2014-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package relation_test
+package hook_test
 
 import (
 	"time"
@@ -10,11 +10,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4/hooks"
 
-	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/relation"
+	"github.com/juju/juju/worker/uniter/hook/hooktesting"
 )
 
 type PeekerSuite struct {
@@ -23,9 +22,9 @@ type PeekerSuite struct {
 var _ = gc.Suite(&PeekerSuite{})
 
 func (s *PeekerSuite) TestPeeks(c *gc.C) {
-	expect := hookList(hooks.Install, hooks.ConfigChanged, hooks.Start)
-	source := relation.NewListSource(expect)
-	peeker := relation.NewPeeker(source)
+	expect := hooktesting.HookList(hooks.Install, hooks.ConfigChanged, hooks.Start)
+	source := hook.NewListSource(expect)
+	peeker := hook.NewPeeker(source)
 	defer statetesting.AssertStop(c, peeker)
 
 	timeout := time.After(coretesting.LongWait)
@@ -55,10 +54,10 @@ func (s *PeekerSuite) TestPeeks(c *gc.C) {
 }
 
 func (s *PeekerSuite) TestStopWhileRunning(c *gc.C) {
-	source := newFullUnbufferedSource()
+	source := hooktesting.NewFullUnbufferedSource()
 	defer statetesting.AssertStop(c, source)
 
-	peeker := relation.NewPeeker(source)
+	peeker := hook.NewPeeker(source)
 	defer statetesting.AssertStop(c, peeker)
 
 	// Grab and reject a peek to check we're running.
@@ -74,10 +73,10 @@ func (s *PeekerSuite) TestStopWhileRunning(c *gc.C) {
 }
 
 func (s *PeekerSuite) TestStopWhilePeeking(c *gc.C) {
-	source := newFullUnbufferedSource()
+	source := hooktesting.NewFullUnbufferedSource()
 	defer statetesting.AssertStop(c, source)
 
-	peeker := relation.NewPeeker(source)
+	peeker := hook.NewPeeker(source)
 	defer statetesting.AssertStop(c, peeker)
 
 	select {
@@ -91,15 +90,15 @@ func (s *PeekerSuite) TestStopWhilePeeking(c *gc.C) {
 }
 
 func (s *PeekerSuite) TestStopWhileUpdating(c *gc.C) {
-	source := newFullBufferedSource()
+	source := hooktesting.NewFullBufferedSource()
 	defer statetesting.AssertStop(c, source)
 
-	peeker := relation.NewPeeker(source)
+	peeker := hook.NewPeeker(source)
 	defer statetesting.AssertStop(c, peeker)
 
 	// Deliver a change; do not accept updates.
 	select {
-	case source.changes <- multiwatcher.RelationUnitsChange{}:
+	case source.ChangesC <- source.NewChange(nil):
 		assertStopPeeker(c, peeker, source)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out")
@@ -107,10 +106,10 @@ func (s *PeekerSuite) TestStopWhileUpdating(c *gc.C) {
 }
 
 func (s *PeekerSuite) TestUpdatesFullQueue(c *gc.C) {
-	source := newFullUnbufferedSource()
+	source := hooktesting.NewFullUnbufferedSource()
 	defer statetesting.AssertStop(c, source)
 
-	peeker := relation.NewPeeker(source)
+	peeker := hook.NewPeeker(source)
 	defer statetesting.AssertStop(c, peeker)
 
 	// Check we're being sent peeks but not updates.
@@ -121,7 +120,7 @@ func (s *PeekerSuite) TestUpdatesFullQueue(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			defer peek.Reject()
 			c.Assert(peek.HookInfo(), gc.Equals, hook.Info{Kind: hooks.Install})
-		case update, ok := <-source.updates:
+		case update, ok := <-source.UpdatesC:
 			c.Fatalf("got unexpected update: %#v %#v", update, ok)
 		case <-timeout:
 			c.Fatalf("timed out")
@@ -130,24 +129,22 @@ func (s *PeekerSuite) TestUpdatesFullQueue(c *gc.C) {
 	assertActive()
 
 	// Send an event on the Changes() chan.
-	sent := multiwatcher.RelationUnitsChange{Departed: []string{"sent"}}
 	select {
-	case source.changes <- sent:
+	case source.ChangesC <- source.NewChange("sent"):
 	case <-timeout:
 		c.Fatalf("could not send change")
 	}
 
 	// Now that a change has been delivered, nothing should be sent on the out
 	// chan, or read from the changes chan, until the Update method has completed.
-	notSent := multiwatcher.RelationUnitsChange{Departed: []string{"notSent"}}
 	select {
-	case source.changes <- notSent:
+	case source.ChangesC <- source.NewChange("notSent"):
 		c.Fatalf("sent extra change while updating queue")
 	case peek, ok := <-peeker.Peeks():
 		c.Fatalf("got unexpected peek while updating queue: %#v %#v", peek, ok)
-	case got, ok := <-source.updates:
+	case got, ok := <-source.UpdatesC:
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(got, gc.DeepEquals, sent)
+		c.Assert(got, gc.Equals, "sent")
 	case <-timeout:
 		c.Fatalf("timed out")
 	}
@@ -157,10 +154,10 @@ func (s *PeekerSuite) TestUpdatesFullQueue(c *gc.C) {
 }
 
 func (s *PeekerSuite) TestUpdatesFullQueueSpam(c *gc.C) {
-	source := newFullUnbufferedSource()
+	source := hooktesting.NewFullUnbufferedSource()
 	defer statetesting.AssertStop(c, source)
 
-	peeker := relation.NewPeeker(source)
+	peeker := hook.NewPeeker(source)
 	defer statetesting.AssertStop(c, peeker)
 
 	// Spam all channels continuously for a bit.
@@ -175,11 +172,11 @@ func (s *PeekerSuite) TestUpdatesFullQueueSpam(c *gc.C) {
 			c.Assert(peek.HookInfo(), gc.DeepEquals, hook.Info{Kind: hooks.Install})
 			peek.Consume()
 			peekCount++
-		case source.changes <- multiwatcher.RelationUnitsChange{}:
+		case source.ChangesC <- source.NewChange("!"):
 			changeCount++
-		case update, ok := <-source.updates:
+		case update, ok := <-source.UpdatesC:
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(update, gc.DeepEquals, multiwatcher.RelationUnitsChange{})
+			c.Assert(update, gc.Equals, "!")
 			updateCount++
 		case <-timeout:
 			c.Fatalf("not enough things happened in time")
@@ -189,9 +186,9 @@ func (s *PeekerSuite) TestUpdatesFullQueueSpam(c *gc.C) {
 	// Once we've finished sending, exhaust the updates...
 	for i := updateCount; i < changeCount && updateCount < changeCount; i++ {
 		select {
-		case update, ok := <-source.updates:
+		case update, ok := <-source.UpdatesC:
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(update, gc.DeepEquals, multiwatcher.RelationUnitsChange{})
+			c.Assert(update, gc.DeepEquals, "!")
 			updateCount++
 		case <-timeout:
 			c.Fatalf("expected %d updates, got %d", changeCount, updateCount)
@@ -204,10 +201,10 @@ func (s *PeekerSuite) TestUpdatesFullQueueSpam(c *gc.C) {
 }
 
 func (s *PeekerSuite) TestUpdatesEmptyQueue(c *gc.C) {
-	source := newEmptySource()
+	source := hooktesting.NewEmptySource()
 	defer statetesting.AssertStop(c, source)
 
-	peeker := relation.NewPeeker(source)
+	peeker := hook.NewPeeker(source)
 	defer statetesting.AssertStop(c, peeker)
 
 	// Check no hooks are sent and no updates delivered.
@@ -215,7 +212,7 @@ func (s *PeekerSuite) TestUpdatesEmptyQueue(c *gc.C) {
 		select {
 		case peek, ok := <-peeker.Peeks():
 			c.Fatalf("got unexpected peek: %#v %#v", peek, ok)
-		case update, ok := <-source.updates:
+		case update, ok := <-source.UpdatesC:
 			c.Fatalf("got unexpected update: %#v %#v", update, ok)
 		case <-time.After(coretesting.ShortWait):
 		}
@@ -223,25 +220,23 @@ func (s *PeekerSuite) TestUpdatesEmptyQueue(c *gc.C) {
 	assertIdle()
 
 	// Send an event on the Changes() chan.
-	sent := multiwatcher.RelationUnitsChange{Departed: []string{"sent"}}
 	timeout := time.After(coretesting.LongWait)
 	select {
-	case source.changes <- sent:
+	case source.ChangesC <- source.NewChange("sent"):
 	case <-timeout:
 		c.Fatalf("timed out")
 	}
 
 	// Now that a change has been delivered, nothing should be sent on the out
 	// chan, or read from the changes chan, until the Update method has completed.
-	notSent := multiwatcher.RelationUnitsChange{Departed: []string{"notSent"}}
 	select {
-	case source.changes <- notSent:
+	case source.ChangesC <- source.NewChange("notSent"):
 		c.Fatalf("sent extra change while updating queue")
 	case peek, ok := <-peeker.Peeks():
 		c.Fatalf("got unexpected peek while updating queue: %#v %#v", peek, ok)
-	case got, ok := <-source.updates:
+	case got, ok := <-source.UpdatesC:
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(got, gc.DeepEquals, sent)
+		c.Assert(got, gc.Equals, "sent")
 	case <-timeout:
 		c.Fatalf("timed out")
 	}
@@ -251,10 +246,10 @@ func (s *PeekerSuite) TestUpdatesEmptyQueue(c *gc.C) {
 }
 
 func (s *PeekerSuite) TestUpdatesEmptyQueueSpam(c *gc.C) {
-	source := newEmptySource()
+	source := hooktesting.NewEmptySource()
 	defer statetesting.AssertStop(c, source)
 
-	peeker := relation.NewPeeker(source)
+	peeker := hook.NewPeeker(source)
 	defer statetesting.AssertStop(c, peeker)
 
 	// Spam all channels continuously for a bit.
@@ -265,11 +260,11 @@ func (s *PeekerSuite) TestUpdatesEmptyQueueSpam(c *gc.C) {
 		select {
 		case peek, ok := <-peeker.Peeks():
 			c.Fatalf("got unexpected peek: %#v %#v", peek, ok)
-		case source.changes <- multiwatcher.RelationUnitsChange{}:
+		case source.ChangesC <- source.NewChange("!"):
 			changeCount++
-		case update, ok := <-source.updates:
+		case update, ok := <-source.UpdatesC:
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(update, gc.DeepEquals, multiwatcher.RelationUnitsChange{})
+			c.Assert(update, gc.Equals, "!")
 			updateCount++
 		case <-timeout:
 			c.Fatalf("not enough things happened in time")
@@ -280,11 +275,12 @@ func (s *PeekerSuite) TestUpdatesEmptyQueueSpam(c *gc.C) {
 	c.Check(changeCount, gc.Equals, 50)
 	c.Check(updateCount, gc.Equals, 50)
 }
+
 func (s *PeekerSuite) TestPeeksBlockUntilRejected(c *gc.C) {
-	source := newFullBufferedSource()
+	source := hooktesting.NewFullBufferedSource()
 	defer statetesting.AssertStop(c, source)
 
-	peeker := relation.NewPeeker(source)
+	peeker := hook.NewPeeker(source)
 	defer statetesting.AssertStop(c, peeker)
 
 	// Collect a peek...
@@ -298,7 +294,7 @@ func (s *PeekerSuite) TestPeeksBlockUntilRejected(c *gc.C) {
 
 		// ...and check that changes can't be delivered...
 		select {
-		case source.changes <- multiwatcher.RelationUnitsChange{}:
+		case source.ChangesC <- source.NewChange(nil):
 			c.Fatalf("delivered change while supposedly peeking")
 		default:
 		}
@@ -306,7 +302,7 @@ func (s *PeekerSuite) TestPeeksBlockUntilRejected(c *gc.C) {
 		// ...before the peek is rejected, at which point changes are unblocked.
 		peek.Reject()
 		select {
-		case source.changes <- multiwatcher.RelationUnitsChange{}:
+		case source.ChangesC <- source.NewChange(nil):
 		case <-timeout:
 			c.Fatalf("failed to unblock changes")
 		}
@@ -314,10 +310,10 @@ func (s *PeekerSuite) TestPeeksBlockUntilRejected(c *gc.C) {
 }
 
 func (s *PeekerSuite) TestPeeksBlockUntilConsumed(c *gc.C) {
-	source := newFullBufferedSource()
+	source := hooktesting.NewFullBufferedSource()
 	defer statetesting.AssertStop(c, source)
 
-	peeker := relation.NewPeeker(source)
+	peeker := hook.NewPeeker(source)
 	defer statetesting.AssertStop(c, peeker)
 
 	// Collect a peek...
@@ -331,7 +327,7 @@ func (s *PeekerSuite) TestPeeksBlockUntilConsumed(c *gc.C) {
 
 		// ...and check that changes can't be delivered...
 		select {
-		case source.changes <- multiwatcher.RelationUnitsChange{}:
+		case source.ChangesC <- source.NewChange(nil):
 			c.Fatalf("delivered change while supposedly peeking")
 		default:
 		}
@@ -339,7 +335,7 @@ func (s *PeekerSuite) TestPeeksBlockUntilConsumed(c *gc.C) {
 		// ...before the peek is consumed, at which point changes are unblocked.
 		peek.Consume()
 		select {
-		case source.changes <- multiwatcher.RelationUnitsChange{}:
+		case source.ChangesC <- source.NewChange(nil):
 		case <-timeout:
 			c.Fatalf("failed to unblock changes")
 		}
@@ -347,16 +343,16 @@ func (s *PeekerSuite) TestPeeksBlockUntilConsumed(c *gc.C) {
 }
 
 func (s *PeekerSuite) TestBlocksWhenUpdating(c *gc.C) {
-	source := newFullUnbufferedSource()
+	source := hooktesting.NewFullUnbufferedSource()
 	defer statetesting.AssertStop(c, source)
 
-	peeker := relation.NewPeeker(source)
+	peeker := hook.NewPeeker(source)
 	defer statetesting.AssertStop(c, peeker)
 
 	// Deliver a change.
 	timeout := time.After(coretesting.LongWait)
 	select {
-	case source.changes <- multiwatcher.RelationUnitsChange{}:
+	case source.ChangesC <- source.NewChange("sent"):
 	case <-timeout:
 		c.Fatalf("failed to send change")
 	}
@@ -370,9 +366,9 @@ func (s *PeekerSuite) TestBlocksWhenUpdating(c *gc.C) {
 
 	// ...before the update is handled...
 	select {
-	case update, ok := <-source.updates:
+	case update, ok := <-source.UpdatesC:
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(update, gc.DeepEquals, multiwatcher.RelationUnitsChange{})
+		c.Assert(update, gc.Equals, "sent")
 	case <-timeout:
 		c.Fatalf("failed to collect update")
 	}
@@ -388,7 +384,7 @@ func (s *PeekerSuite) TestBlocksWhenUpdating(c *gc.C) {
 	}
 }
 
-func assertStopPeeker(c *gc.C, peeker relation.Peeker, source *updateSource) {
+func assertStopPeeker(c *gc.C, peeker hook.Peeker, source *hooktesting.UpdateSource) {
 	// Stop the peeker...
 	err := peeker.Stop()
 	c.Assert(err, gc.IsNil)
@@ -404,8 +400,8 @@ func assertStopPeeker(c *gc.C, peeker relation.Peeker, source *updateSource) {
 
 	// ...and stopped the source.
 	select {
-	case <-source.tomb.Dead():
-		c.Assert(source.tomb.Err(), jc.ErrorIsNil)
+	case <-source.Tomb.Dead():
+		c.Assert(source.Tomb.Err(), jc.ErrorIsNil)
 	default:
 		c.Fatalf("source not stopped")
 	}
