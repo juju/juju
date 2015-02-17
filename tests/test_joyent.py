@@ -48,7 +48,7 @@ class ClientTestCase(TestCase):
 
     def test_init(self):
         client = Client(
-            'sdc_url', 'account', 'key_id', './key',
+            'sdc_url', 'account', 'key_id', './key', 'manta_url',
             dry_run=True, verbose=True)
         self.assertEqual('sdc_url', client.sdc_url)
         self.assertEqual('account', client.account)
@@ -59,7 +59,8 @@ class ClientTestCase(TestCase):
         self.assertTrue(client.verbose)
 
     def test_list_machine_tags(self):
-        client = Client('sdc_url', 'account', 'key_id', './key', pause=0)
+        client = Client(
+            'sdc_url', 'account', 'key_id', './key', 'manta_url', pause=0)
         headers = {}
         content = json.dumps({'env': 'foo'})
         with patch.object(client, '_request', autospec=True,
@@ -70,7 +71,8 @@ class ClientTestCase(TestCase):
 
     def test_delete_old_machines(self):
         machine = make_machine('stopped')
-        client = Client('sdc_url', 'account', 'key_id', './key', pause=0)
+        client = Client(
+            'sdc_url', 'account', 'key_id', './key', 'manta_url', pause=0)
         with patch.object(client, '_list_machines',
                           side_effect=fake_list_machines(machine)) as lm_mock:
             with patch.object(client, '_list_machine_tags', autospec=True,
@@ -88,7 +90,8 @@ class ClientTestCase(TestCase):
 
     def test_delete_old_machines_stuck_provisioning(self):
         machine = make_machine('provisioning')
-        client = Client('sdc_url', 'account', 'key_id', './key', pause=0)
+        client = Client(
+            'sdc_url', 'account', 'key_id', 'manta_url', './key', pause=0)
         with patch.object(client, '_list_machines', autospec=True,
                           side_effect=fake_list_machines(machine)):
             with patch.object(client, '_list_machine_tags', autospec=True):
@@ -102,7 +105,8 @@ class ClientTestCase(TestCase):
 
     def test_delete_old_machines_permanent(self):
         machine = make_machine('provisioning')
-        client = Client('sdc_url', 'account', 'key_id', './key', pause=0)
+        client = Client(
+            'sdc_url', 'account', 'key_id', './key', 'manta_url', pause=0)
         with patch.object(client, '_list_machines', autospec=True,
                           side_effect=fake_list_machines(machine)):
             with patch.object(client, '_list_machine_tags', autospec=True,
