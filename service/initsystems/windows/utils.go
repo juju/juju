@@ -10,6 +10,7 @@ import (
 )
 
 type fileOperations interface {
+	// ReadFile implements fs.Operations.
 	ReadFile(filename string) ([]byte, error)
 }
 
@@ -18,6 +19,7 @@ func newFileOperations() fileOperations {
 }
 
 type cmdRunner interface {
+	// RunCommandStr implements initsystems.Shell.
 	RunCommandStr(cmd string) ([]byte, error)
 }
 

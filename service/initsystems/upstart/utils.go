@@ -12,11 +12,22 @@ import (
 )
 
 type fileOperations interface {
+	// Exists implements fs.Operations.
 	Exists(name string) (bool, error)
+
+	// ListDir implements fs.Operations.
 	ListDir(dirname string) ([]os.FileInfo, error)
+
+	// ReadFile implements fs.Operations.
 	ReadFile(filename string) ([]byte, error)
+
+	// Symlink implements fs.Operations.
 	Symlink(oldname, newname string) error
+
+	// Readlink implements fs.Operations.
 	Readlink(name string) (string, error)
+
+	// RemoveAll implements fs.Operations.
 	RemoveAll(name string) error
 }
 
