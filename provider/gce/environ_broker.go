@@ -129,13 +129,8 @@ func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstr
 		return nil, errors.Trace(err)
 	}
 
-	cloudSpec, err := env.cloudSpec(ic.Region)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: cloudSpec,
+		CloudSpec: env.cloudSpec(ic.Region),
 		Series:    []string{ic.Series},
 		Arches:    ic.Arches,
 		Stream:    stream,

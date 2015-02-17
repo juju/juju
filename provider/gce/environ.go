@@ -86,16 +86,14 @@ func (*environ) Provider() environs.EnvironProvider {
 
 // Region returns the CloudSpec to use for the provider, as configured.
 func (env *environ) Region() (simplestreams.CloudSpec, error) {
-	cloudSpec, err := env.cloudSpec(env.ecfg.region())
-	return cloudSpec, errors.Trace(err)
+	return env.cloudSpec(env.ecfg.region()), nil
 }
 
-func (env *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
-	cloudSpec := simplestreams.CloudSpec{
+func (env *environ) cloudSpec(region string) simplestreams.CloudSpec {
+	return simplestreams.CloudSpec{
 		Region:   region,
 		Endpoint: env.ecfg.imageEndpoint(),
 	}
-	return cloudSpec, nil
 }
 
 // SetConfig updates the env's configuration.
