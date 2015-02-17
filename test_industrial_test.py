@@ -1385,21 +1385,25 @@ class TestUpgradeJujuAttempt(TestCase):
             {future_client.full_path: present_client.full_path})
         uj_iterator = iter_steps_validate_info(self, uj_attempt, future_client)
         with patch('subprocess.check_output', return_value='foo'):
-            self.assertEqual({'test_id': 'bootstrap'}, uj_iterator.next())
+            self.assertEqual({'test_id': 'prepare-upgrade-juju'},
+                             uj_iterator.next())
         with patch('subprocess.Popen') as po_mock:
-            uj_iterator.next()
+            self.assertEqual({'test_id': 'prepare-upgrade-juju'},
+                             uj_iterator.next())
         assert_juju_call(self, po_mock, present_client, (
             'juju', '--show-log', 'bootstrap', '-e', 'steve', '--constraints',
             'mem=2G'))
         po_mock.return_value.wait.return_value = 0
-        self.assertEqual(uj_iterator.next(), {'test_id': 'bootstrap'})
+        self.assertEqual(uj_iterator.next(),
+                         {'test_id': 'prepare-upgrade-juju'})
         b_status = yaml.safe_dump({
             'machines': {'0': {'agent-state': 'started'}},
             'services': {},
             })
         with patch('subprocess.check_output', return_value=b_status):
-            self.assertEqual(uj_iterator.next(),
-                             {'test_id': 'bootstrap', 'result': True})
+            self.assertEqual(
+                uj_iterator.next(),
+                {'test_id': 'prepare-upgrade-juju', 'result': True})
         self.assertEqual(uj_iterator.next(), {'test_id': 'upgrade-juju'})
         with patch('subprocess.check_call') as cc_mock:
             self.assertEqual({'test_id': 'upgrade-juju'}, uj_iterator.next())

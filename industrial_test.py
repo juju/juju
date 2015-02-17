@@ -353,7 +353,7 @@ class UpgradeJujuAttempt(SteppedStageAttempt):
     @staticmethod
     def get_test_info():
         return OrderedDict([
-            ('bootstrap', {'title': 'Bootstrap'}),
+            ('prepare-upgrade-juju', {'title': 'Bootstrap'}),
             ('upgrade-juju', {'title': 'Upgrade Juju'}),
             ])
 
@@ -378,6 +378,8 @@ class UpgradeJujuAttempt(SteppedStageAttempt):
         bootstrap_client = client.by_version(
             client.env, bootstrap_path, client.debug)
         for result in ba.iter_steps(bootstrap_client):
+            result = dict(result)
+            result['test_id'] = 'prepare-upgrade-juju'
             yield result
         result = {'test_id': 'upgrade-juju'}
         yield result
