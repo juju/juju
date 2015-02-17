@@ -4,12 +4,14 @@
 package storage
 
 import (
-	"github.com/juju/juju/state"
 	"github.com/juju/names"
+
+	"github.com/juju/juju/state"
 )
 
 type storageAccess interface {
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
+	AllStorageInstances() ([]state.StorageInstance, error)
 }
 
 type stateShim struct {
