@@ -3,13 +3,13 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // this package provides a level of abstraction over the package managers
-// available on different distributions
+// available on different distributions.
 package packaging
 
 import "fmt"
 
 // PackageManager is a struct which returns system-specific commands for all
-// the operations that may be required of a package management system
+// the operations that may be required of a package management system.
 type PackageManager struct {
 	// available options:
 	// update				updates the local package list
@@ -26,18 +26,28 @@ type PackageManager struct {
 	cmds map[string]string
 }
 
-// Update returns the command that refreshes the local package list
+// CentOSPackageManager returns the PackageManager for yum-specific work
+func CentOSPackageManager() *PackageManager {
+	return &PackageManager{yumCmds}
+}
+
+// UbuntuPackageManager returns the PackageManager for apt-specific work
+func UbuntuPackageManager() *PackageManager {
+	return &PackageManager{aptCmds}
+}
+
+// Update returns the command that refreshes the local package list.
 func (p *PackageManager) Update() string {
 	return p.cmds["update"]
 }
 
 // Upgrade returns the command that fetches all the available newer versions
-// of the currently installed packages and installs them on the system
+// of the currently installed packages and installs them on the system.
 func (p *PackageManager) Upgrade() string {
 	return p.cmds["upgrade"]
 }
 
-// Install returns the command that installs the given package(s)
+// Install returns the command that installs the given package(s).
 func (p *PackageManager) Install(packs ...string) string {
 	cmd := p.cmds["install"]
 
@@ -48,8 +58,8 @@ func (p *PackageManager) Install(packs ...string) string {
 	return cmd[:len(cmd)-1]
 }
 
-// Remove returns the command that removes the given package(s)
-// NOTE: yum: remove also has Purge()'s functionality
+// Remove returns the command that removes the given package(s).
+// NOTE: yum: remove also has Purge()'s functionality.
 func (p *PackageManager) Remove(packs ...string) string {
 	cmd := p.cmds["remove"]
 
@@ -61,7 +71,7 @@ func (p *PackageManager) Remove(packs ...string) string {
 }
 
 // Purge returns the command that removes the given package(s), along with all
-// the auxiliary files associated to it(them)
+// the auxiliary files associated to it(them).
 func (p *PackageManager) Purge(packs ...string) string {
 	cmd := p.cmds["purge"]
 
@@ -73,43 +83,44 @@ func (p *PackageManager) Purge(packs ...string) string {
 }
 
 // Search returns the command that determines whether the given package is
-// available for installation from the currently configured repositories
+// available for installation from the currently configured repositories.
 func (p *PackageManager) Search(pack string) string {
 	return fmt.Sprintf(p.cmds["search"], pack)
 }
 
 // ListAvailable returns the command which will list all packages available
-// for installation from the currently configured repositories
-// NOTE: includes already installed packages
+// for installation from the currently configured repositories.
+// NOTE: includes already installed packages.
 func (p *PackageManager) ListAvailable() string {
 	return p.cmds["list-available"]
 }
 
 // ListInstalled returns the command which will list all installed packages
-// on the current system
+// on the current system.
 func (p *PackageManager) ListInstalled() string {
 	return p.cmds["list-installed"]
 }
 
-// ListRepositories returns the command to lists all repositories currently available
+// ListRepositories returns the command to lists all repositories currently
+// available.
 func (p *PackageManager) ListRepositories() string {
 	return p.cmds["list-repositories"]
 }
 
 // AddRepository returns the command that adds a repository to the list of
-// available repositories
+// available repositories.
 func (p *PackageManager) AddRepository(repo string) string {
 	return fmt.Sprintf(p.cmds["add-repository"], repo)
 }
 
 // RemoveRepository returns the command that removes a repository from the
-// list of available repositories
+// list of available repositories.
 func (p *PackageManager) RemoveRepository(repo string) string {
 	return fmt.Sprintf(p.cmds["remove-repository"], repo)
 }
 
 // Cleanup returns the command that cleans up all orphaned packages, left-over
-// configuration files and previously-cached packages
+// configuration files and previously-cached packages.
 func (p *PackageManager) Cleanup() string {
 	return p.cmds["cleanup"]
 }

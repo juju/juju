@@ -35,8 +35,8 @@ func (w *UbuntuRenderer) PathJoin(filepath ...string) string {
 	return path.Join(filepath...)
 }
 
-func (w *UbuntuRenderer) Render(conf *Config) ([]byte, error) {
-	data, err := yaml.Marshal(conf.attrs)
+func (w *UbuntuRenderer) Render(conf Config) ([]byte, error) {
+	data, err := yaml.Marshal(conf.getAttrs())
 	if err != nil {
 		return nil, err
 	}
@@ -66,15 +66,15 @@ func (w *WindowsRenderer) FromSlash(path string) string {
 	return strings.Replace(path, "/", `\`, -1)
 }
 
-func (w *WindowsRenderer) Render(conf *Config) ([]byte, error) {
-	winCmds := conf.attrs["runcmd"]
+func (w *WindowsRenderer) Render(conf Config) ([]byte, error) {
+	winCmds := conf.RunCmds()
 	var script []byte
 	newline := "\r\n"
 	header := "#ps1_sysnative\r\n"
 	script = append(script, header...)
-	for _, value := range winCmds.([]*command) {
+	for _, cmd := range winCmds {
 		script = append(script, newline...)
-		script = append(script, value.literal...)
+		script = append(script, cmd...)
 
 	}
 	return script, nil

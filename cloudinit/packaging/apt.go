@@ -4,6 +4,10 @@
 
 package packaging
 
+// UbuntuAptSourcesFile is the default file which list all core sources for apt
+// packages on an Ubuntu system.
+var UbuntuAptSourcesFile = "/etc/apt/sources.list"
+
 const (
 	// the basic command for all apt-get calls
 	//		--assume-yes to never prompt for confirmation
@@ -19,7 +23,7 @@ const (
 )
 
 // aptCmds is a map of available actions specific to a package manager
-// and their direct equivalent command on an apt-based system
+// and their direct equivalent command on an apt-based system.
 var aptCmds map[string]string = map[string]string{
 	"update":            aptget + "update",
 	"upgrade":           aptget + "upgrade",

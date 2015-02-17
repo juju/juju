@@ -4,6 +4,10 @@
 
 package packaging
 
+// CentOSSourcesFile is the default file which lists all core sources for yum
+// packages on CentOS.
+var CentOSSourcesFile string = "/etc/yum.repos.d/CentOS-Base.repo"
+
 const (
 	// the basic command for all yum calls
 	// 		--assumeyes to never prompt for confirmation
@@ -15,7 +19,7 @@ const (
 )
 
 // yumCmds is a map of available actions specific to a package manager
-// and their direct equivalent command on a yum-based system
+// and their direct equivalent command on a yum-based system.
 var yumCmds map[string]string = map[string]string{
 	"update":            yum + "clean expire-cache",
 	"upgrade":           yum + "update",
