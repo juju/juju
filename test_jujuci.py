@@ -136,9 +136,7 @@ class JujuCITestCase(TestCase):
     def assertRequest(self, request, url, headers):
         self.assertIs(request.__class__, urllib2.Request)
         self.assertEqual(request.get_full_url(), url)
-        self.assertEqual(
-            request.headers,
-            headers)
+        self.assertEqual(request.headers, headers)
 
     def test_get_build_data_with_default_build(self):
         expected_data = make_build_data()
