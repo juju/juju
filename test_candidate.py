@@ -11,14 +11,25 @@ from candidate import (
     get_build_parameters,
     get_package,
     get_scripts,
+    parse_args,
     prepare_dir,
     publish_candidates,
     run_command,
 )
+from jujuci import Credentials
 from utility import temp_dir
 
 
 class CandidateTestCase(TestCase):
+
+    def test_parse_args_download(self):
+        args, credentials = parse_args(['download', 'branch', 'path'])
+        self.assertIs(credentials, None)
+        args, credentials = parse_args([
+            'download', 'branch', 'path', '--user', 'jrandom', '--password',
+            'password1'])
+        self.assertEqual(credentials, Credentials('jrandom', 'password1'))
+
 
     def test_get_build_parameters(self):
         build_data = {
@@ -61,30 +72,39 @@ class CandidateTestCase(TestCase):
         }
 
     def test_find_publish_revision_number(self):
+        credentials = Credentials('jrandom', 'password1')
         with patch('candidate.get_build_data',
-                   side_effect=self.make_publish_revision_build_data) as mock:
-            found_number = find_publish_revision_number(1234, limit=2)
+                   side_effect=self.make_publish_revision_build_data,
+                   autospec=True) as mock:
+            found_number = find_publish_revision_number(credentials, 1234,
+                                                        limit=2)
         self.assertEqual(1234, found_number)
         self.assertEqual(2, mock.call_count)
         output, args, kwargs = mock.mock_calls[0]
         self.assertEqual(
-            ('http://juju-ci.vapour.ws:8080', 'publish-revision'), args)
+            ('http://juju-ci.vapour.ws:8080', credentials, 'publish-revision'),
+             args)
         self.assertEqual('lastSuccessfulBuild', kwargs['build'])
         output, args, kwargs = mock.mock_calls[1]
         self.assertEqual(
-            ('http://juju-ci.vapour.ws:8080', 'publish-revision'), args)
+            ('http://juju-ci.vapour.ws:8080', credentials, 'publish-revision'),
+             args)
         self.assertEqual(1234, kwargs['build'])
 
     def test_find_publish_revision_number_no_match(self):
+        credentials = Credentials('jrandom', 'password1')
         with patch('candidate.get_build_data',
                    side_effect=self.make_publish_revision_build_data) as mock:
-            found_number = find_publish_revision_number(1, limit=2)
+            found_number = find_publish_revision_number(credentials, 1,
+                                                        limit=2)
         self.assertEqual(None, found_number)
         self.assertEqual(2, mock.call_count)
 
     def test_find_publish_revision_number_no_build_data(self):
+        credentials = Credentials('jrandom', 'password1')
         with patch('candidate.get_build_data', return_value=None) as mock:
-            found_number = find_publish_revision_number(1, limit=5)
+            found_number = find_publish_revision_number(credentials, 1,
+                                                        limit=5)
         self.assertEqual(None, found_number)
         self.assertEqual(1, mock.call_count)
 
@@ -116,38 +136,41 @@ class CandidateTestCase(TestCase):
             self.assertFalse(os.path.isdir(candidate_dir_path))
 
     def test_download_candidate_files(self):
+        credentials = Credentials('jrandom', 'password1')
         with patch('candidate.prepare_dir') as pd_mock:
             with patch('candidate.find_publish_revision_number',
-                       return_value=5678) as fprn_mock:
-                with patch('candidate.get_artifacts') as ga_mock:
+                       return_value=5678, autospec=True) as fprn_mock:
+                with patch(
+                        'candidate.get_artifacts', autospec=True) as ga_mock:
                     download_candidate_files(
-                        'gitbr:1.21:gh', '~/candidate', '1234')
+                        credentials, 'gitbr:1.21:gh', '~/candidate', '1234')
         args, kwargs = pd_mock.call_args
         self.assertEqual(('~/candidate/1.21-artifacts', False, False), args)
         args, kwargs = fprn_mock.call_args
-        self.assertEqual(('1234', ), args)
+        self.assertEqual((Credentials('jrandom', 'password1'), '1234'), args)
         self.assertEqual(2, ga_mock.call_count)
         output, args, kwargs = ga_mock.mock_calls[0]
         self.assertEqual(
-            ('build-revision', '1234', 'buildvars.json',
-             '~/candidate/1.21-artifacts'),
-            args)
+            (credentials, 'build-revision', '1234',
+             'buildvars.json', '~/candidate/1.21-artifacts'), args)
         options = {'verbose': False, 'dry_run': False}
         self.assertEqual(options, kwargs)
         output, args, kwargs = ga_mock.mock_calls[1]
         self.assertEqual(
-            ('publish-revision', 5678, 'juju-core*',
+            (credentials, 'publish-revision', 5678, 'juju-core*',
              '~/candidate/1.21-artifacts'),
             args)
         self.assertEqual(options, kwargs)
 
     def test_download_candidate_files_with_dry_run(self):
+        credentials = Credentials('jrandom', 'password1')
         with patch('candidate.prepare_dir') as pd_mock:
             with patch('candidate.find_publish_revision_number',
-                       return_value=5678):
-                with patch('candidate.get_artifacts') as ga_mock:
+                       return_value=5678, autospec=True):
+                with patch(
+                        'candidate.get_artifacts', autospec=True) as ga_mock:
                     download_candidate_files(
-                        'gitbr:1.21:gh', '~/candidate', '1234',
+                        credentials, 'gitbr:1.21:gh', '~/candidate', '1234',
                         dry_run=True, verbose=True)
         args, kwargs = pd_mock.call_args
         self.assertEqual(('~/candidate/1.21-artifacts', True, True), args)

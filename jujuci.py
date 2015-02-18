@@ -177,6 +177,13 @@ def add_build_job_glob(parser):
         help="The glob pattern to match artifact file names.")
 
 
+def add_credential_args(parser):
+    parser.add_argument(
+        '--user', default=os.environ.get('JENKINS_USER'))
+    parser.add_argument(
+        '--password', default=os.environ.get('JENKINS_PASSWORD'))
+
+
 def parse_args(args=None):
     """Return the argument parser for this program."""
     parser = ArgumentParser("List and get artifacts from Juju CI.")
@@ -199,11 +206,8 @@ def parse_args(args=None):
     parser_get.add_argument(
         'path', nargs='?', default='.',
         help="The path to download the files to.")
-    for jenkins_parser in parser_list, parser_get:
-        jenkins_parser.add_argument(
-            '--user', default=os.environ.get('JENKINS_USER'))
-        jenkins_parser.add_argument(
-            '--password', default=os.environ.get('JENKINS_PASSWORD'))
+    add_credential_args(parser_list)
+    add_credential_args(parser_get)
     parser_workspace = subparsers.add_parser(
         'setup-workspace', help='Setup and clean a workspace for building.')
     parser_workspace.add_argument(
@@ -212,12 +216,16 @@ def parse_args(args=None):
     parser_workspace.add_argument(
         'path', help="The path to the existing workspace directory.")
     parsed_args = parser.parse_args(args)
-    if 'user' not in parsed_args or None in (
-            parsed_args.user, parsed_args.password):
-        credentials = None
-    else:
-        credentials = Credentials(parsed_args.user, parsed_args.password)
+    credentials = get_credentials(parsed_args)
     return parsed_args, credentials
+
+
+def get_credentials(args):
+    if 'user' not in args:
+        return None
+    if None in (args.user, args.password):
+        return None
+    return Credentials(args.user, args.password)
 
 
 def main(argv):
