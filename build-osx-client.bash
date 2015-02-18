@@ -21,15 +21,17 @@ USER_AT_HOST="$1"
 set -x
 ssh $SSH_OPTIONS $USER_AT_HOST "revision_build=$revision_build bash" <<"EOT"
 #!/bin/bash
-set -ux
-set +e
-RELEASE_SCRIPTS=$HOME/ci/juju-release-tools
-SCRIPTS=$HOME/ci/juju-ci-tools
-GOBASE=$HOME/ci/crossbuild
-WORKSPACE=$HOME/ci/workspace
+set -eu
+RELEASE_SCRIPTS=$HOME/juju-release-tools
+SCRIPTS=$HOME/juju-ci-tools
+GOBASE=$HOME/crossbuild
+WORKSPACE=$HOME/workspace
+JUJU_HOME=$HOME/cloud-city
+source $JUJU_HOME/juju-qa.jujuci
+set -x
 
 cd $WORKSPACE
-$SCRIPTS/jujuci.py setup-workspace $WORKSPACE
+$SCRIPTS/jujuci.py -v setup-workspace $WORKSPACE
 TARFILE=$($SCRIPTS/jujuci.py get build-revision 'juju-core_*.tar.gz' ./)
 echo "Downloaded $TARFILE"
 $RELEASE_SCRIPTS/crossbuild.py -v osx-client -b $GOBASE ./$TARFILE

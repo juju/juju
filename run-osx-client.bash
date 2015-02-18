@@ -26,11 +26,13 @@ echo "Testing $BRANCH $rev"
 
 ssh $SSH_OPTIONS $USER_AT_HOST <<"EOT"
 #!/bin/bash
-set -ux
-set +e
-RELEASE_SCRIPTS=$HOME/ci/juju-release-tools
-SCRIPTS=$HOME/ci/juju-ci-tools
-WORKSPACE=$HOME/ci/workspace
+set -eu
+RELEASE_SCRIPTS=$HOME/juju-release-tools
+SCRIPTS=$HOME/juju-ci-tools
+WORKSPACE=$HOME/workspace
+JUJU_HOME=$HOME/cloud-city
+source $JUJU_HOME/juju-qa.jujuci
+set -x
 
 cd $WORKSPACE
 $SCRIPTS/jujuci.py setup-workspace --clean-env testing-osx-client $WORKSPACE
