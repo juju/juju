@@ -21,7 +21,7 @@ from azure.servicemanagement import (
     AZURE_MANAGEMENT_SUBSCRIPTIONID,
     ServiceManagementService,
 )
-from utils import until_timeout
+from utility import until_timeout
 
 
 OLD_MACHINE_AGE = 12
