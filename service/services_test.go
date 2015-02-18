@@ -487,12 +487,49 @@ func (s *servicesSuite) TestIsManagedFalse(c *gc.C) {
 	s.Stub.CheckCalls(c, nil)
 }
 
-// TODO(ericsnow) Write the tests.
-
 func (s *servicesSuite) TestInstall(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	s.Init.Returns.Enabled = false
+
+	err := s.services.Install(name, *s.Conf)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Stub.CheckCallNames(c,
+		"IsEnabled",
+		"Exists",
+		"MkdirAll",
+		"Serialize",
+		"CreateFile",
+		"Write",
+		"Close",
+		"Chmod",
+		"Enable",
+		"Start",
+	)
 }
 
-func (s *servicesSuite) TestCheck(c *gc.C) {
+func (s *servicesSuite) TestCheckSame(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	s.Init.Returns.Conf = &s.Conf.Conf
+
+	ok, err := s.services.Check(name, *s.Conf)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(ok, jc.IsTrue)
+}
+
+func (s *servicesSuite) TestCheckDifferent(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	s.Init.Returns.Conf = &s.Conf.Conf
+
+	conf := service.Conf{Conf: initsystems.Conf{
+		Desc: "another service",
+		Cmd:  "<a command>",
+	}}
+	ok, err := s.services.Check(name, conf)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(ok, jc.IsFalse)
 }
 
 // TODO(ericsnow) Write the tests.

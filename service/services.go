@@ -141,7 +141,10 @@ func (s Services) Start(name string) error {
 	if err := s.ensureManaged(name); err != nil {
 		return errors.Trace(err)
 	}
+	return s.start(name)
+}
 
+func (s Services) start(name string) error {
 	err := s.init.Start(name)
 	if errors.IsNotFound(err) {
 		return errors.Annotatef(err, "service %q not enabled", name)
@@ -199,7 +202,10 @@ func (s Services) Enable(name string) error {
 	if confDir == nil {
 		return errors.NotFoundf("service %q", name)
 	}
+	return s.enable(name, confDir)
+}
 
+func (s Services) enable(name string, confDir *confDir) error {
 	err := s.init.Enable(name, confDir.filename())
 	if errors.IsAlreadyExists(err) {
 		// It is already enabled. Make sure the enabled one is
@@ -309,16 +315,24 @@ func (s Services) IsManaged(name string) bool {
 
 // Install prepares the service, enables it, and starts it.
 func (s Services) Install(name string, conf Conf) error {
+	enabled, err := s.init.IsEnabled(name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if enabled {
+		return errors.AlreadyExistsf("service %q", name)
+	}
+
 	if err := s.Manage(name, conf); err != nil {
 		return errors.Trace(err)
 	}
-	if err := s.Enable(name); err != nil {
+	confDir := s.configs.lookup(name)
+	if err := s.enable(name, confDir); err != nil {
 		return errors.Trace(err)
 	}
-	if err := s.Start(name); err != nil {
+	if err := s.start(name); err != nil {
 		return errors.Trace(err)
 	}
-	//return errors.Errorf("%+v", s.configs.names)
 	return nil
 }
 
@@ -336,7 +350,14 @@ func (s Services) Check(name string, conf Conf) (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return reflect.DeepEqual(actual, *expected), nil
+
+	return reflect.DeepEqual(actual, expected), nil
+}
+
+type limitedConf struct {
+	Desc string
+	Cmd  string
+	Out  string
 }
 
 // NewService wraps the name and conf in a Service for convenience.

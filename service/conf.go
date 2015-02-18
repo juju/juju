@@ -48,11 +48,20 @@ func (c Conf) script() string {
 func (c Conf) normalize() initsystems.Conf {
 	script := c.script()
 
+	env := c.Env
+	if len(env) == 0 {
+		env = nil
+	}
+	limit := c.Limit
+	if len(limit) == 0 {
+		limit = nil
+	}
+
 	return initsystems.Conf{
 		Desc:  c.Desc,
 		Cmd:   script,
-		Env:   c.Env,
-		Limit: c.Limit,
+		Env:   env,
+		Limit: limit,
 		Out:   c.Out,
 	}
 }
