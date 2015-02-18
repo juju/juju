@@ -5,6 +5,7 @@ package service_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -532,10 +533,41 @@ func (s *servicesSuite) TestCheckDifferent(c *gc.C) {
 	c.Check(ok, jc.IsFalse)
 }
 
-// TODO(ericsnow) Write the tests.
-
 func (s *servicesSuite) TestNewService(c *gc.C) {
+	expName := "jujud-unit-wordpress-0"
+	svc := s.services.NewService(expName, *s.Conf)
+	name := svc.Name()
+	conf := svc.Conf()
+
+	c.Check(name, gc.Equals, expName)
+	c.Check(conf, jc.DeepEquals, *s.Conf)
+}
+
+type agentPaths struct{}
+
+// DataDir implements AgentPaths.
+func (agentPaths) DataDir() string {
+	return "/var/lib/juju"
+}
+
+// LogDir implements AgentPaths.
+func (agentPaths) LogDir() string {
+	return "/var/log/juju"
 }
 
 func (s *servicesSuite) TestNewAgentService(c *gc.C) {
+	tagStr := "unit-wordpress-0"
+	tag, _ := names.ParseTag(tagStr)
+	paths := agentPaths{}
+	svc, err := s.services.NewAgentService(tag, paths, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	name := svc.Name()
+	conf := svc.Conf()
+
+	c.Check(name, gc.Equals, "jujud-"+tagStr)
+	c.Check(conf, jc.DeepEquals, service.Conf{Conf: initsystems.Conf{
+		Desc: "juju agent for unit wordpress/0",
+		Cmd:  `"/var/lib/juju/tools/unit-wordpress-0/jujud" unit --data-dir "/var/lib/juju" --unit-name "wordpress/0" --debug`,
+		Out:  "/var/log/juju/unit-wordpress-0.log",
+	}})
 }
