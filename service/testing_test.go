@@ -54,6 +54,10 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.ConfDir = initsystems.NewConfDirInfo(name, initDir, InitSystemUpstart)
 }
 
+func (s *BaseSuite) SetManaged(name string, services *Services) {
+	services.configs.names = append(services.configs.names, name)
+}
+
 func newStubFile(name string, data []byte) os.FileInfo {
 	return fs.NewFile(name, 0644, data)
 }
