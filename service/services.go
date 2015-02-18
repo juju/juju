@@ -150,8 +150,7 @@ func (s Services) Stop(name string) error {
 	if err := s.ensureManaged(name); err != nil {
 		return errors.Trace(err)
 	}
-	err := s.stop(name)
-	return errors.Trace(err)
+	return s.stop(name)
 }
 
 func (s Services) stop(name string) error {
@@ -215,9 +214,7 @@ func (s Services) Disable(name string) error {
 	if err := s.ensureManaged(name); err != nil {
 		return errors.Trace(err)
 	}
-
-	err := s.disable(name)
-	return errors.Trace(err)
+	return s.disable(name)
 }
 
 func (s Services) disable(name string) error {
