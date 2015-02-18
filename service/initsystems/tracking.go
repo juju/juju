@@ -13,7 +13,7 @@ import (
 // one by tracking services (and their state) in memory. For validation
 // and serialization it defers to its base InitSystem.
 type Tracking struct {
-	base basicInitSystem
+	base ConfHandler
 	fops ConfFileOperations
 
 	// Services is the record of known services and their configurations.
@@ -28,26 +28,7 @@ type Tracking struct {
 
 // NewTracking creates a new Tracking around the provided init system
 // and "filesystem".
-func NewTracking(base InitSystem, fops ConfFileOperations) *Tracking {
-	return newTracking(base, fops)
-}
-
-// basicInitSystem exposes the parts of InitSystem used by Tracking.
-type basicInitSystem interface {
-	// Name implements InitSystem.
-	Name() string
-
-	// Validate implements InitSystem.
-	Validate(name string, conf Conf) error
-
-	// Serialize implements InitSystem.
-	Serialize(name string, conf Conf) ([]byte, error)
-
-	// Deserialize implements InitSystem.
-	Deserialize(data []byte, name string) (Conf, error)
-}
-
-func newTracking(base basicInitSystem, fops ConfFileOperations) *Tracking {
+func NewTracking(base ConfHandler, fops ConfFileOperations) *Tracking {
 	return &Tracking{
 		base:     base,
 		fops:     fops,
@@ -180,9 +161,9 @@ func (is *Tracking) Conf(name string) (Conf, error) {
 }
 
 // Validate implements InitSystem.
-func (is *Tracking) Validate(name string, conf Conf) error {
-	err := is.base.Validate(name, conf)
-	return errors.Trace(err)
+func (is *Tracking) Validate(name string, conf Conf) (string, error) {
+	confName, err := is.base.Validate(name, conf)
+	return confName, errors.Trace(err)
 }
 
 // Serialize implements InitSystem.

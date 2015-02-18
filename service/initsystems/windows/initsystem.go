@@ -245,9 +245,9 @@ func (is *windows) Conf(name string) (initsystems.Conf, error) {
 }
 
 // Validate implements service/initsystems.InitSystem.
-func (is *windows) Validate(name string, conf initsystems.Conf) error {
-	err := Validate(name, conf)
-	return errors.Trace(err)
+func (is *windows) Validate(name string, conf initsystems.Conf) (string, error) {
+	confName, err := Validate(name, conf)
+	return confName, errors.Trace(err)
 }
 
 // Serialize implements service/initsystems.InitSystem.

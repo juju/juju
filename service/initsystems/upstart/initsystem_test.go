@@ -408,7 +408,7 @@ func (s *initSystemSuite) TestInitSystemConfNotEnabled(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestInitSystemValidate(c *gc.C) {
-	err := s.init.Validate("jujud-unit-wordpress-0", s.conf)
+	_, err := s.init.Validate("jujud-unit-wordpress-0", s.conf)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCalls(c, nil)
@@ -417,7 +417,7 @@ func (s *initSystemSuite) TestInitSystemValidate(c *gc.C) {
 func (s *initSystemSuite) TestInitSystemValidateInvalid(c *gc.C) {
 	s.conf.Cmd = ""
 
-	err := s.init.Validate("jujud-unit-wordpress-0", s.conf)
+	_, err := s.init.Validate("jujud-unit-wordpress-0", s.conf)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }

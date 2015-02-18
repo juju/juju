@@ -10,28 +10,30 @@ import (
 )
 
 // Validate returns an error if the service is not adequately defined.
-func Validate(name string, conf initsystems.Conf) error {
+func Validate(name string, conf initsystems.Conf) (string, error) {
+	confName := name + ".conf"
+
 	if err := conf.Validate(name); err != nil {
-		return errors.Trace(err)
+		return confName, errors.Trace(err)
 	}
 
 	if len(conf.Env) > 0 {
-		return initsystems.NewUnsupportedField("Env")
+		return confName, initsystems.NewUnsupportedField("Env")
 	}
 	if len(conf.Limit) > 0 {
-		return initsystems.NewUnsupportedField("Limit")
+		return confName, initsystems.NewUnsupportedField("Limit")
 	}
 	if len(conf.Out) > 0 {
-		return initsystems.NewUnsupportedField("Out")
+		return confName, initsystems.NewUnsupportedField("Out")
 	}
-	return nil
+	return confName, nil
 }
 
 // Serialize serializes the provided Conf for the named service. The
 // resulting data will be in the prefered format for consumption by
 // the init system.
 func Serialize(name string, conf initsystems.Conf) ([]byte, error) {
-	if err := Validate(name, conf); err != nil {
+	if _, err := Validate(name, conf); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -50,6 +52,6 @@ func Deserialize(data []byte, name string) (initsystems.Conf, error) {
 	if name == "" {
 		name = "<>"
 	}
-	err = Validate(name, conf)
+	_, err = Validate(name, conf)
 	return conf, errors.Trace(err)
 }

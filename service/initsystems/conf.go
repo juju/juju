@@ -39,12 +39,17 @@ var (
 // A ConfHandler is able to inspect a Conf and render it as bytes
 // (and back).
 type ConfHandler interface {
+	// Name returns the init system's name.
+	Name() string
+
 	// Validate checks the provided service name and conf to ensure
 	// that they are compatible with the init system. If a particular
 	// conf field is not supported by the init system then
-	// errors.NotSupported is returned (see Conf). Otherwise
-	// any other invalid results in an errors.NotValid error.
-	Validate(name string, conf Conf) error
+	// errors.NotSupported is returned (see Conf). Otherwise any other
+	// validation failure results in an errors.NotValid error.
+	//
+	// The expected conf file name for the given name is also returned.
+	Validate(name string, conf Conf) (string, error)
 
 	// Serialize converts the provided Conf into the file format
 	// recognized by the init system. Validate is called on the conf

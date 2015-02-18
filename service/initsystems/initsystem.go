@@ -13,9 +13,6 @@ package initsystems
 type InitSystem interface {
 	ConfHandler
 
-	// Name returns the init system's name.
-	Name() string
-
 	// List gathers the names of all enabled services in the init system
 	// and returns them. If any names are passed as arguments then the
 	// result will be limited to those names. Otherwise all known

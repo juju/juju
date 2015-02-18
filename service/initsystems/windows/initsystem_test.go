@@ -421,7 +421,7 @@ func (s *initSystemSuite) TestInitSystemConfNotEnabled(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestInitSystemValidate(c *gc.C) {
-	err := s.init.Validate("jujud-machine-0", s.conf)
+	_, err := s.init.Validate("jujud-machine-0", s.conf)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCalls(c, nil)
@@ -430,7 +430,7 @@ func (s *initSystemSuite) TestInitSystemValidate(c *gc.C) {
 func (s *initSystemSuite) TestInitSystemValidateInvalid(c *gc.C) {
 	s.conf.Cmd = ""
 
-	err := s.init.Validate("jujud-machine-0", s.conf)
+	_, err := s.init.Validate("jujud-machine-0", s.conf)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
@@ -440,7 +440,7 @@ func (s *initSystemSuite) TestInitSystemValidateUnsupportedEnv(c *gc.C) {
 		"x": "y",
 	}
 
-	err := s.init.Validate("jujud-machine-0", s.conf)
+	_, err := s.init.Validate("jujud-machine-0", s.conf)
 
 	expected := initsystems.NewUnsupportedField("Env")
 	c.Check(errors.Cause(err), gc.FitsTypeOf, expected)
@@ -451,7 +451,7 @@ func (s *initSystemSuite) TestInitSystemValidateUnsupportedLimit(c *gc.C) {
 		"x": "y",
 	}
 
-	err := s.init.Validate("jujud-machine-0", s.conf)
+	_, err := s.init.Validate("jujud-machine-0", s.conf)
 
 	expected := initsystems.NewUnsupportedField("Limit")
 	c.Check(errors.Cause(err), gc.FitsTypeOf, expected)
@@ -460,7 +460,7 @@ func (s *initSystemSuite) TestInitSystemValidateUnsupportedLimit(c *gc.C) {
 func (s *initSystemSuite) TestInitSystemValidateUnsupportedOut(c *gc.C) {
 	s.conf.Out = "/var/log/juju/machine-0.log"
 
-	err := s.init.Validate("jujud-machine-0", s.conf)
+	_, err := s.init.Validate("jujud-machine-0", s.conf)
 
 	expected := initsystems.NewUnsupportedField("Out")
 	c.Check(errors.Cause(err), gc.FitsTypeOf, expected)

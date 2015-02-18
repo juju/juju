@@ -267,9 +267,9 @@ func (is *upstart) Conf(name string) (initsystems.Conf, error) {
 }
 
 // Validate implements initsystems.InitSystem.
-func (is *upstart) Validate(name string, conf initsystems.Conf) error {
-	err := Validate(name, conf)
-	return errors.Trace(err)
+func (is *upstart) Validate(name string, conf initsystems.Conf) (string, error) {
+	confName, err := Validate(name, conf)
+	return confName, errors.Trace(err)
 }
 
 // Serialize implements initsystems.InitSystem.

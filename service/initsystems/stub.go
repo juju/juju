@@ -15,6 +15,7 @@ type StubReturns struct {
 	CheckPassed bool
 	Info        ServiceInfo
 	Conf        Conf
+	ConfName    string
 	Data        []byte
 }
 
@@ -95,9 +96,9 @@ func (fi *Stub) Conf(name string) (Conf, error) {
 }
 
 // Validate implements InitSystem.
-func (fi *Stub) Validate(name string, conf Conf) error {
+func (fi *Stub) Validate(name string, conf Conf) (string, error) {
 	fi.AddCall("Validate", name, conf)
-	return fi.NextErr()
+	return fi.Returns.ConfName, fi.NextErr()
 }
 
 // Serialize implements InitSystem.
