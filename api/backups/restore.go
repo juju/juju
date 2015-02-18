@@ -15,11 +15,6 @@ import (
 )
 
 var (
-	// TODO(perrito666): this Key needs to be determined in a dinamic way since machine 0
-	// might not always be there in HA contexts.
-	// RestoreMachineKey holds the value for the machine where we restore, this should be
-	// obtained from the running environment.
-	RestoreMachineKey = "0"
 	// restoreStrategy is the attempt strategy for api server calls re-attempts in case
 	// the server is upgrading.
 	restoreStrategy = utils.AttemptStrategy{
@@ -31,6 +26,16 @@ var (
 // ClientConnection type represents a function capable of spawning a new Client connection
 // it is used to pass around connection factories when necessary.
 type ClientConnection func() (*Client, func() error, error)
+
+// closerfunc is a function that allows you to close a client connection.
+type closerFunc func() error
+
+func prepareAttempt(client *Client, closer closerFunc) (error, error) {
+	var remoteError error
+	defer closer()
+	err := client.facade.FacadeCall("PrepareRestore", nil, &remoteError)
+	return err, remoteError
+}
 
 func prepareRestore(newClient ClientConnection) error {
 	var err, remoteError error
@@ -45,9 +50,8 @@ func prepareRestore(newClient ClientConnection) error {
 		if clientErr != nil {
 			return errors.Trace(clientErr)
 		}
-		defer clientCloser()
-		if err = client.facade.FacadeCall("PrepareRestore", nil, &remoteError); err == nil {
-			break
+		if err, remoteError = prepareAttempt(client, clientCloser); err == nil {
+			return nil
 		}
 		if !params.IsCodeUpgradeInProgress(remoteError) {
 			return errors.Annotatef(err, "could not start prepare restore mode, server returned: %v", remoteError)
@@ -59,14 +63,14 @@ func prepareRestore(newClient ClientConnection) error {
 // RestoreReader restores the contents of backupFile as backup.
 func (c *Client) RestoreReader(r io.Reader, meta *params.BackupsMetadataResult, newClient ClientConnection) error {
 	if err := prepareRestore(newClient); err != nil {
-		errors.Trace(err)
+		return errors.Trace(err)
 	}
 	logger.Debugf("Server is now in 'about to restore' mode, proceeding to upload the backup file")
 
 	// Upload
 	backupId, err := c.Upload(r, *meta)
 	if err != nil {
-		//TODO(perrito666): this is a recoverable error, we should undo Prepare
+		finishRestore(newClient)
 		return errors.Annotatef(err, "cannot upload backup file")
 	}
 	return c.restore(backupId, newClient)
@@ -75,10 +79,17 @@ func (c *Client) RestoreReader(r io.Reader, meta *params.BackupsMetadataResult, 
 // Restore performs restore using a backup id corresponding to a backup stored in the server.
 func (c *Client) Restore(backupId string, newClient ClientConnection) error {
 	if err := prepareRestore(newClient); err != nil {
-		errors.Trace(err)
+		return errors.Trace(err)
 	}
 	logger.Debugf("Server in 'about to restore' mode")
 	return c.restore(backupId, newClient)
+}
+
+func restoreAttempt(client *Client, closer closerFunc, restoreArgs params.RestoreArgs) (error, error) {
+	var remoteError error
+	defer closer()
+	err := client.facade.FacadeCall("Restore", restoreArgs, &remoteError)
+	return err, remoteError
 }
 
 // restore is responsible for triggering the whole restore process in a remote
@@ -103,45 +114,58 @@ func (c *Client) restore(backupId string, newClient ClientConnection) error {
 		}
 		defer restoreClientCloser()
 
-		err = restoreClient.facade.FacadeCall("Restore", restoreArgs, &remoteError)
+		err, remoteError = restoreAttempt(restoreClient, restoreClientCloser, restoreArgs)
 
 		// This signals that Restore almost certainly finished and
 		// triggered Exit.
 		if err == rpc.ErrShutdown && remoteError == nil {
 			break
 		}
-		//TODO(perrito666): There are some of the possible outcomes that might
-		// deserve disable PrepareRestore mode
 		if err != nil && !params.IsCodeUpgradeInProgress(remoteError) {
+			finishRestore(newClient)
 			return errors.Annotatef(err, "cannot perform restore: %v", remoteError)
 		}
+	}
+	if err == nil {
+		return errors.Errorf("An unreported error occured in the server.")
 	}
 	if err != rpc.ErrShutdown {
 		return errors.Annotatef(err, "cannot perform restore: %v", remoteError)
 	}
 
-	// FinishRestore since Restore call will end up with a reset
-	// state server, finish restore will check that the the newly
-	// placed state server has the mark of restore complete.
-	// upstart should have restarted the api server so we reconnect.
+	err = finishRestore(newClient)
+	if err != nil {
+		return errors.Annotatef(err, "could not finish restore process: %v", remoteError)
+	}
+	return nil
+}
+
+func finishAttempt(client *Client, closer closerFunc) (error, error) {
+	var remoteError error
+	defer closer()
+	err := client.facade.FacadeCall("finishRestore", nil, &remoteError)
+	return err, remoteError
+}
+
+// finishRestore since Restore call will end up with a reset
+// state server, finish restore will check that the the newly
+// placed state server has the mark of restore complete.
+// upstart should have restarted the api server so we reconnect.
+func finishRestore(newClient ClientConnection) error {
+	var err, remoteError error
 	for a := restoreStrategy.Start(); a.Next(); {
-		logger.Debugf("Attempting FinishRestore")
+		logger.Debugf("Attempting finishRestore")
 		finishClient, finishClientCloser, err := newClient()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		defer finishClientCloser()
 
-		err = finishClient.facade.FacadeCall("FinishRestore", nil, &remoteError)
-		if err == nil {
-			break
+		if err, remoteError = finishAttempt(finishClient, finishClientCloser); err == nil {
+			return nil
 		}
 		if !params.IsCodeUpgradeInProgress(remoteError) {
 			return errors.Annotatef(err, "cannot complete restore: %v", remoteError)
 		}
 	}
-	if err != nil {
-		return errors.Annotatef(err, "could not finish restore process: %v", remoteError)
-	}
-	return nil
+	return errors.Annotatef(err, "cannot complete restore: %v", remoteError)
 }

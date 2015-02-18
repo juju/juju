@@ -132,7 +132,6 @@ func (c *RestoreCommand) runRestore(ctx *cmd.Context) error {
 // rebootstrap will bootstrap a new server in safe-mode (not killing any other agent)
 // if there is no current server available to restore to.
 func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) error {
-	cons := c.constraints
 	store, err := configstore.Default()
 	if err != nil {
 		return errors.Trace(err)
@@ -168,6 +167,7 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) error {
 		return errors.Annotatef(err, "cannot detect whether old instance is still running")
 	}
 
+	cons := c.constraints
 	args := bootstrap.BootstrapParams{Constraints: cons}
 	if err := bootstrap.Bootstrap(envcmd.BootstrapContext(ctx), env, args); err != nil {
 		return errors.Annotatef(err, "cannot bootstrap new instance")

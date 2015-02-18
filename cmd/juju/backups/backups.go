@@ -134,26 +134,25 @@ func getArchive(filename string) (io.ReadCloser, *params.BackupsMetadataResult, 
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-	} else {
-		// Make sure the file info is set.
-		fileMeta, err := statebackups.BuildMetadata(archive)
+	}
+	// Make sure the file info is set.
+	fileMeta, err := statebackups.BuildMetadata(archive)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	if meta.Size() == int64(0) {
+		if err := meta.SetFileInfo(fileMeta.Size(), "", ""); err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+	}
+	if meta.Checksum() == "" {
+		err := meta.SetFileInfo(0, fileMeta.Checksum(), fileMeta.ChecksumFormat())
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		if meta.Size() == int64(0) {
-			if err := meta.SetFileInfo(fileMeta.Size(), "", ""); err != nil {
-				return nil, nil, errors.Trace(err)
-			}
-		}
-		if meta.Checksum() == "" {
-			err := meta.SetFileInfo(0, fileMeta.Checksum(), fileMeta.ChecksumFormat())
-			if err != nil {
-				return nil, nil, errors.Trace(err)
-			}
-		}
-		if meta.Finished == nil || meta.Finished.IsZero() {
-			meta.Finished = fileMeta.Finished
-		}
+	}
+	if meta.Finished == nil || meta.Finished.IsZero() {
+		meta.Finished = fileMeta.Finished
 	}
 	_, err = archive.Seek(0, os.SEEK_SET)
 	if err != nil {
