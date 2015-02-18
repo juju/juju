@@ -167,11 +167,12 @@ type EnvironmentCreateArgs struct {
 }
 
 // Environment holds the result of an API call returning a name and UUID
-// for an environment.
+// for an environment and the tag of the server in which it is running.
 type Environment struct {
-	Name     string
-	UUID     string
-	OwnerTag string
+	Name       string
+	UUID       string
+	OwnerTag   string
+	ServerUUID string
 }
 
 // EnvironmentList holds information about a list of environments.

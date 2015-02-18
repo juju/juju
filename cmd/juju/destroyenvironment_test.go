@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type destroyEnvSuite struct {
@@ -122,15 +123,93 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEFlag(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEmptyJenv(c *gc.C) {
-	info := s.ConfigStore.CreateInfo("emptyenv")
-	err := info.Write()
+func (s *destroyEnvSuite) TestDestroyEnvironmentCommandNonStateServer(c *gc.C) {
+	s.setupHostedEnviron(c, "dummy-non-state-server")
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "dummy-non-state-server", "--yes")
+	c.Check(<-errc, gc.IsNil)
+	// Check there are no operations on the provider, we do not want to call
+	// Destroy on it.
+	c.Check(<-opc, gc.IsNil)
+
+	_, err := s.ConfigStore.ReadInfo("dummy-non-state-server")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *destroyEnvSuite) TestForceDestroyEnvironmentCommandOnNonStateServerFails(c *gc.C) {
+	s.setupHostedEnviron(c, "dummy-non-state-server")
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "dummy-non-state-server", "--yes", "--force")
+	c.Check(<-errc, gc.ErrorMatches, "cannot force destroy hosted environments")
+	c.Check(<-opc, gc.IsNil)
+
+	serverInfo, err := s.ConfigStore.ReadInfo("dummy-non-state-server")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(serverInfo, gc.Not(gc.IsNil))
+}
+
+func (s *destroyEnvSuite) TestForceDestroyEnvironmentCommandOnNonStateServerNoConfimFails(c *gc.C) {
+	s.setupHostedEnviron(c, "dummy-non-state-server")
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "dummy-non-state-server", "--force")
+	c.Check(<-errc, gc.ErrorMatches, "cannot force destroy hosted environments")
+	c.Check(<-opc, gc.IsNil)
+
+	serverInfo, err := s.ConfigStore.ReadInfo("dummy-non-state-server")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(serverInfo, gc.Not(gc.IsNil))
+}
+
+func (s *destroyEnvSuite) TestDestroyEnvironmentCommandTwiceOnNonStateServer(c *gc.C) {
+	s.setupHostedEnviron(c, "dummy-non-state-server")
+	oldInfo, err := s.ConfigStore.ReadInfo("dummy-non-state-server")
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := coretesting.RunCommand(c, new(DestroyEnvironmentCommand), "-e", "emptyenv")
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "dummy-non-state-server", "--yes")
+	c.Check(<-errc, gc.IsNil)
+	c.Check(<-opc, gc.IsNil)
+
+	_, err = s.ConfigStore.ReadInfo("dummy-non-state-server")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// Simluate another client calling destroy on the same environment. This
+	// client will have a local cache of the environ info, so write it back out.
+	info := s.ConfigStore.CreateInfo("dummy-non-state-server")
+	info.SetAPIEndpoint(oldInfo.APIEndpoint())
+	info.SetAPICredentials(oldInfo.APICredentials())
+	err = info.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(coretesting.Stderr(context), gc.Equals, "removing empty environment file\n")
+	// Call destroy again.
+	context, err := coretesting.RunCommand(c, new(DestroyEnvironmentCommand), "dummy-non-state-server", "--yes")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(context), gc.Equals, "environment not found, removing config file\n")
+
+	// Check that the client's cached info has been removed.
+	_, err = s.ConfigStore.ReadInfo("dummy-non-state-server")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *destroyEnvSuite) setupHostedEnviron(c *gc.C, name string) {
+	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name:        name,
+		Prepare:     true,
+		ConfigAttrs: coretesting.Attrs{"state-server": false},
+	})
+	defer st.Close()
+
+	ports, err := st.APIHostPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	info := s.ConfigStore.CreateInfo(name)
+	endpoint := configstore.APIEndpoint{
+		CACert:      st.CACert(),
+		EnvironUUID: st.EnvironUUID(),
+		Addresses:   []string{ports[0][0].String()},
+	}
+	info.SetAPIEndpoint(endpoint)
+
+	ssinfo, err := s.ConfigStore.ReadInfo("dummyenv")
+	c.Assert(err, jc.ErrorIsNil)
+	info.SetAPICredentials(ssinfo.APICredentials())
+	err = info.Write()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {

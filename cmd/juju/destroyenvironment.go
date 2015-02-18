@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -77,49 +78,99 @@ func (c *DestroyEnvironmentCommand) Init(args []string) error {
 func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 	store, err := configstore.Default()
 	if err != nil {
-		return fmt.Errorf("cannot open environment info storage: %v", err)
+		return errors.Annotate(err, "cannot open environment info storage")
 	}
-	environ, err := environs.NewFromName(c.envName, store)
+	isServer, err := c.isServer(c.envName, store)
 	if err != nil {
-		if environs.IsEmptyConfig(err) {
-			// Delete the .jenv file and call it done.
-			ctx.Infof("removing empty environment file")
+		return errors.Annotate(err, "cannot determine if this is the server environment or not")
+	}
+
+	var serverEnviron environs.Environ
+	if isServer {
+		serverEnviron, err = environs.NewFromName(c.envName, store)
+		if err != nil {
+			return errors.Annotatef(err, "cannot get environment %q", c.envName)
+		}
+	}
+
+	if c.force {
+		if isServer {
+			// If --force is supplied on a server environment, then don't
+			// attempt to use the API. This is necessary to destroy broken
+			// environments, where the API server is inaccessible or faulty.
+			return environs.Destroy(serverEnviron, store)
+		} else {
+			// Force only makes sense on the server environment.
+			return errors.Errorf("cannot force destroy hosted environments")
+		}
+
+	}
+
+	apiclient, err := juju.NewAPIClientFromName(c.envName)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			logger.Warningf("environment not found, removing config file")
+			ctx.Infof("environment not found, removing config file")
 			return environs.DestroyInfo(c.envName, store)
 		}
-		return err
+		return errors.Annotate(err, "cannot connect to API")
 	}
+	defer apiclient.Close()
+	info, err := apiclient.EnvironmentInfo()
+	if err != nil {
+		return errors.Annotate(err, "cannot get information for environment")
+	}
+
 	if !c.assumeYes {
-		fmt.Fprintf(ctx.Stdout, destroyEnvMsg, c.envName, environ.Config().Type())
+		fmt.Fprintf(ctx.Stdout, destroyEnvMsg, c.envName, info.ProviderType)
 
 		scanner := bufio.NewScanner(ctx.Stdin)
 		scanner.Scan()
 		err := scanner.Err()
 		if err != nil && err != io.EOF {
-			return fmt.Errorf("Environment destruction aborted: %s", err)
+			return errors.Annotate(err, "environment destruction aborted")
 		}
 		answer := strings.ToLower(scanner.Text())
 		if answer != "y" && answer != "yes" {
 			return stderrors.New("environment destruction aborted")
 		}
 	}
-	// If --force is supplied, then don't attempt to use the API.
-	// This is necessary to destroy broken environments, where the
-	// API server is inaccessible or faulty.
-	if !c.force {
-		defer func() {
-			result = c.ensureUserFriendlyErrorLog(result)
-		}()
-		apiclient, err := juju.NewAPIClientFromName(c.envName)
-		if err != nil {
-			return errors.Annotate(err, "cannot connect to API")
+
+	if isServer {
+		if err := c.destroyEnv(apiclient); err != nil {
+			return errors.Annotate(err, "environment destruction failed")
 		}
-		defer apiclient.Close()
-		err = apiclient.DestroyEnvironment()
-		if cmdErr := processDestroyError(err); cmdErr != nil {
-			return cmdErr
-		}
+		return environs.Destroy(serverEnviron, store)
 	}
-	return environs.Destroy(environ, store)
+
+	// If this is not the server environment, there is no bootstrap info and
+	// we do not call Destroy on the provider. Destroying the environment via
+	// the API and cleaning up the jenv file is sufficient.
+	if err := c.destroyEnv(apiclient); err != nil {
+		errors.Annotate(err, "cannot destroy environment")
+	}
+	return environs.DestroyInfo(c.envName, store)
+}
+
+func (c *DestroyEnvironmentCommand) isServer(envName string, store configstore.Storage) (bool, error) {
+	info, err := store.ReadInfo(c.envName)
+	if err != nil {
+		return false, errors.Annotate(err, "cannot read environment info")
+	}
+
+	return info.BootstrapConfig() != nil, nil
+}
+
+func (c *DestroyEnvironmentCommand) destroyEnv(apiclient *api.Client) (result error) {
+	defer func() {
+		result = c.ensureUserFriendlyErrorLog(result)
+	}()
+	err := apiclient.DestroyEnvironment()
+	if cmdErr := processDestroyError(err); cmdErr != nil {
+		return cmdErr
+	}
+
+	return nil
 }
 
 // processDestroyError determines how to format error message based on its code.
