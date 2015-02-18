@@ -14,15 +14,13 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-// CommonSuite tests the connectivity of all the common commands.
-// These tests go from the command line, api client, api server, db. The db
-// changes are then checked.  Only one test for each command is done here to
+// CmdJujuSuite tests the connectivity of juju commands.  These tests
+// go from the command line, api client, api server, db. The db changes
+// are then checked.  Only one test for each command is done here to
 // check connectivity.  Exhaustive unit tests are at each layer.
-type CommonSuite struct {
+type cmdJujuSuite struct {
 	jujutesting.JujuConnSuite
 }
-
-var _ = gc.Suite(&CommonSuite{})
 
 func uint64p(val uint64) *uint64 {
 	return &val
@@ -37,7 +35,7 @@ func runCommonCommand(c *gc.C, commands ...string) (*cmd.Context, error) {
 	return context, juju.Run(context)
 }
 
-func (s *CommonSuite) TestSetConstraints(c *gc.C) {
+func (s *cmdJujuSuite) TestSetConstraints(c *gc.C) {
 	_, err := runCommonCommand(c, "set-constraints", "mem=4G", "cpu-power=250")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -49,7 +47,7 @@ func (s *CommonSuite) TestSetConstraints(c *gc.C) {
 	})
 }
 
-func (s *CommonSuite) TestGetConstraints(c *gc.C) {
+func (s *cmdJujuSuite) TestGetConstraints(c *gc.C) {
 	svc := s.AddTestingService(c, "svc", s.AddTestingCharm(c, "dummy"))
 	err := svc.SetConstraints(constraints.Value{CpuCores: uint64p(64)})
 	c.Assert(err, jc.ErrorIsNil)
