@@ -4,6 +4,7 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+import base64
 from collections import namedtuple
 import fnmatch
 import json
@@ -33,10 +34,18 @@ def print_now(string):
     print(string)
 
 
-def get_build_data(jenkins_url, job_name, build='lastSuccessfulBuild'):
+Credentials = namedtuple('Credentials', ['user', 'password'])
+
+
+def get_build_data(jenkins_url, credentials, job_name,
+                   build='lastSuccessfulBuild'):
     """Return a dict of the build data for a job build number."""
-    build_data = urllib2.urlopen(
+    req = urllib2.Request(
         '%s/job/%s/%s/api/json' % (jenkins_url, job_name, build))
+
+    encoded = base64.encodestring('{}:{}'.format(*credentials))
+    req.add_header('Authorization', 'Basic {}'.format(encoded))
+    build_data = urllib2.urlopen(req)
     build_data = json.load(build_data)
     return build_data
 
@@ -53,8 +62,8 @@ def find_artifacts(build_data, glob='*'):
     return found
 
 
-def list_artifacts(job_name, build, glob, verbose=False):
-    build_data = get_build_data(JENKINS_URL, job_name, build)
+def list_artifacts(credentials, job_name, build, glob, verbose=False):
+    build_data = get_build_data(JENKINS_URL, credentials, job_name, build)
     artifacts = find_artifacts(build_data, glob)
     for artifact in artifacts:
         if verbose:
@@ -63,7 +72,7 @@ def list_artifacts(job_name, build, glob, verbose=False):
             print_now(artifact.file_name)
 
 
-def get_artifacts(job_name, build, glob, path,
+def get_artifacts(credentials, job_name, build, glob, path,
                   archive=False, dry_run=False, verbose=False):
     full_path = os.path.expanduser(path)
     if archive:
@@ -73,7 +82,7 @@ def get_artifacts(job_name, build, glob, path,
             raise ValueError('%s does not exist' % full_path)
         shutil.rmtree(full_path)
         os.makedirs(full_path)
-    build_data = get_build_data(JENKINS_URL, job_name, build)
+    build_data = get_build_data(JENKINS_URL, credentials, job_name, build)
     artifacts = find_artifacts(build_data, glob)
     opener = urllib.URLopener()
     for artifact in artifacts:
@@ -84,7 +93,9 @@ def get_artifacts(job_name, build, glob, path,
         else:
             print_now(artifact.file_name)
         if not dry_run:
-            opener.retrieve(artifact.location, local_path)
+            auth_location = artifact.location.replace(
+                'http://', 'http://{}:{}@'.format(*credentials))
+            opener.retrieve(auth_location, local_path)
     return artifacts
 
 
@@ -188,6 +199,11 @@ def parse_args(args=None):
     parser_get.add_argument(
         'path', nargs='?', default='.',
         help="The path to download the files to.")
+    for jenkins_parser in parser_list, parser_get:
+        jenkins_parser.add_argument(
+            '--user', default=os.environ.get('JENKINS_USER'))
+        jenkins_parser.add_argument(
+            '--password', default=os.environ.get('JENKINS_PASSWORD'))
     parser_workspace = subparsers.add_parser(
         'setup-workspace', help='Setup and clean a workspace for building.')
     parser_workspace.add_argument(
@@ -195,19 +211,26 @@ def parse_args(args=None):
         help='Ensure the env resources are freed or deleted.')
     parser_workspace.add_argument(
         'path', help="The path to the existing workspace directory.")
-    return parser.parse_args(args)
+    parsed_args = parser.parse_args(args)
+    if 'user' not in parsed_args or None in (
+            parsed_args.user, parsed_args.password):
+        credentials = None
+    else:
+        credentials = Credentials(parsed_args.user, parsed_args.password)
+    return parsed_args, credentials
 
 
 def main(argv):
     """Manage list and get files from Juju CI builds."""
-    args = parse_args(argv)
+    args, credentials = parse_args(argv)
     try:
         if args.command == 'list':
             list_artifacts(
-                args.job, args.build, args.glob, verbose=args.verbose)
+                credentials, args.job, args.build, args.glob,
+                verbose=args.verbose)
         elif args.command == 'get':
             get_artifacts(
-                args.job, args.build, args.glob, args.path,
+                credentials, args.job, args.build, args.glob, args.path,
                 archive=args.archive, dry_run=args.dry_run,
                 verbose=args.verbose)
         elif args.command == 'setup-workspace':

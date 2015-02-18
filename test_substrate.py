@@ -444,6 +444,7 @@ def get_joyent_config():
         'sdc-url': 'http://example.org/sdc',
         'manta-user': 'user@manta.org',
         'manta-key-id': 'key-id@manta.org',
+        'manta-url': 'http://us-east.manta.example.org',
         'private-key': 'key\abc\n'
         }
 

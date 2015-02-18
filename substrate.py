@@ -2,7 +2,7 @@ __metaclass__ = type
 
 from contextlib import (
     contextmanager,
-    )
+)
 import logging
 import os
 import subprocess
@@ -21,7 +21,7 @@ from boto.exception import EC2ResponseError
 from jujuconfig import (
     get_euca_env,
     translate_to_env,
-    )
+)
 from utility import (
     print_now,
     until_timeout,
@@ -280,7 +280,7 @@ class JoyentAccount:
             open(key_path, 'w').write(config['private-key'])
             client = Client(
                 config['sdc-url'], config['manta-user'],
-                config['manta-key-id'], key_path)
+                config['manta-key-id'], key_path, '')
             yield cls(client)
 
     def terminate_instances(self, instance_ids):
@@ -414,7 +414,7 @@ def make_substrate_manager(config):
         'openstack': OpenStackAccount.manager_from_config,
         'joyent': JoyentAccount.manager_from_config,
         'azure': AzureAccount.manager_from_config,
-        }
+    }
     factory = substrate_factory.get(config['type'])
     if factory is None:
         yield None

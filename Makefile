@@ -1,7 +1,7 @@
 test:
 	python -m unittest discover -vv . -p '*.py'
 lint:
-	flake8 .
+	flake8 *.py
 clean:
 	find . -name '*.pyc' -delete
 apt-update:
