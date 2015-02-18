@@ -25,7 +25,7 @@ var _ = gc.Suite(&blockMockSuite{})
 
 func (s *blockMockSuite) TestSwitchBlockOn(c *gc.C) {
 	called := false
-	bType := state.DestroyBlock.String()
+	blockType := state.DestroyBlock.String()
 	msg := "for test switch block on"
 
 	apiCaller := basetesting.APICallerFunc(
@@ -42,7 +42,7 @@ func (s *blockMockSuite) TestSwitchBlockOn(c *gc.C) {
 			args, ok := a.(params.BlockSwitchParams)
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Message, gc.DeepEquals, msg)
-			c.Assert(args.Type, gc.DeepEquals, bType)
+			c.Assert(args.Type, gc.DeepEquals, blockType)
 
 			_, ok = response.(*params.ErrorResult)
 			c.Assert(ok, jc.IsTrue)
@@ -50,7 +50,7 @@ func (s *blockMockSuite) TestSwitchBlockOn(c *gc.C) {
 			return nil
 		})
 	blockClient := block.NewClient(apiCaller)
-	err := blockClient.SwitchBlockOn(bType, msg)
+	err := blockClient.SwitchBlockOn(blockType, msg)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -77,7 +77,7 @@ func (s *blockMockSuite) TestSwitchBlockOnError(c *gc.C) {
 
 func (s *blockMockSuite) TestSwitchBlockOff(c *gc.C) {
 	called := false
-	bType := state.DestroyBlock.String()
+	blockType := state.DestroyBlock.String()
 
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
@@ -95,7 +95,7 @@ func (s *blockMockSuite) TestSwitchBlockOff(c *gc.C) {
 			// message is never sent, so this argument should
 			// always be empty string.
 			c.Assert(args.Message, gc.DeepEquals, "")
-			c.Assert(args.Type, gc.DeepEquals, bType)
+			c.Assert(args.Type, gc.DeepEquals, blockType)
 
 			_, ok = response.(*params.ErrorResult)
 			c.Assert(ok, jc.IsTrue)
@@ -103,7 +103,7 @@ func (s *blockMockSuite) TestSwitchBlockOff(c *gc.C) {
 			return nil
 		})
 	blockClient := block.NewClient(apiCaller)
-	err := blockClient.SwitchBlockOff(bType)
+	err := blockClient.SwitchBlockOff(blockType)
 	c.Assert(err, gc.IsNil)
 }
 
