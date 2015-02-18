@@ -127,6 +127,7 @@ func (c *Client) restore(backupId string, newClient ClientConnection) error {
 		}
 	}
 	if err != rpc.ErrShutdown {
+		finishRestore(newClient)
 		return errors.Annotatef(err, "cannot perform restore: %v", remoteError)
 	}
 
