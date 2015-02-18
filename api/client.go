@@ -837,7 +837,7 @@ func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
 	if err := c.facade.FacadeCall("APIHostPorts", nil, &result); err != nil {
 		return nil, err
 	}
-	return params.NetworkHostPortMatrix(result.Servers), nil
+	return params.NetworkHostsPorts(result.Servers), nil
 }
 
 // EnsureAvailability ensures the availability of Juju state servers.

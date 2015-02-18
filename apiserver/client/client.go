@@ -1352,7 +1352,7 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 	if servers, err = c.api.state.APIHostPorts(); err != nil {
 		return params.APIHostPortsResult{}, err
 	}
-	result.Servers = params.FromNetworkHostPortMatrix(servers)
+	result.Servers = params.FromNetworkHostsPorts(servers)
 	return result, nil
 }
 

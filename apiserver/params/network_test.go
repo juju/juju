@@ -69,29 +69,21 @@ func (s *NetworkSuite) TestPortsResults(c *gc.C) {
 		results: mkPortsResults(
 			mkPortsResult("I failed", "ERR42")),
 		expected: mkResults(
-			mkResult(
-				mkError("I failed", "ERR42"),
-				nil)),
+			mkResult(mkError("I failed", "ERR42"), nil)),
 	}, {
 		about: "one succes with one port",
 		results: mkPortsResults(
 			mkPortsResult("", "", P{"tcp", 80})),
 		expected: mkResults(
-			mkResult(
-				nil,
-				IS{mkPort("tcp", 80)})),
+			mkResult(nil, IS{mkPort("tcp", 80)})),
 	}, {
 		about: "two results, one error and one success with two ports",
 		results: mkPortsResults(
 			mkPortsResult("I failed", "ERR42"),
 			mkPortsResult("", "", P{"tcp", 80}, P{"tcp", 443})),
 		expected: mkResults(
-			mkResult(
-				mkError("I failed", "ERR42"),
-				nil),
-			mkResult(
-				nil,
-				IS{mkPort("tcp", 80), mkPort("tcp", 443)})),
+			mkResult(mkError("I failed", "ERR42"), nil),
+			mkResult(nil, IS{mkPort("tcp", 80), mkPort("tcp", 443)})),
 	}}
 	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)

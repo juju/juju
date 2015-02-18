@@ -7,7 +7,9 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// params types.
+// -----
+// Parameters field types.
+// -----
 
 // Network describes a single network available on an instance.
 type Network struct {
@@ -47,7 +49,7 @@ type NetworkInterface struct {
 	Disabled bool `json:"Disabled"`
 }
 
-// NetworkConfig describes all the necessary information to configure
+// NetworkConfig describes the necessary information to configure
 // all network interfaces on a machine. This mostly duplicates
 // network.InterfaceInfo type and it's defined here so it can be kept
 // separate and stable as definition to ensure proper wire-format for
@@ -55,65 +57,65 @@ type NetworkInterface struct {
 type NetworkConfig struct {
 	// DeviceIndex specifies the order in which the network interface
 	// appears on the host. The primary interface has an index of 0.
-	DeviceIndex int
+	DeviceIndex int `json:"DeviceIndex"`
 
 	// MACAddress is the network interface's hardware MAC address
 	// (e.g. "aa:bb:cc:dd:ee:ff").
-	MACAddress string
+	MACAddress string `json:"MACAddress"`
 
 	// CIDR of the network, in 123.45.67.89/24 format.
-	CIDR string
+	CIDR string `json:"CIDR"`
 
 	// NetworkName is juju-internal name of the network.
 	// TODO(dimitern) This should be removed or adapted to the model
 	// once spaces are introduced.
-	NetworkName string
+	NetworkName string `json:"NetworkName"`
 
 	// ProviderId is a provider-specific network id.
-	ProviderId string
+	ProviderId string `json:"ProviderId"`
 
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.
-	VLANTag int
+	VLANTag int `json:"VLANTag"`
 
 	// InterfaceName is the raw OS-specific network device name (e.g.
 	// "eth1", even for a VLAN eth1.42 virtual interface).
-	InterfaceName string
+	InterfaceName string `json:"InterfaceName"`
 
 	// Disabled is true when the interface needs to be disabled on the
 	// machine, e.g. not to configure it at all or stop it if running.
-	Disabled bool
+	Disabled bool `json:"Disabled"`
 
 	// NoAutoStart is true when the interface should not be configured
 	// to start automatically on boot. By default and for
 	// backwards-compatibility, interfaces are configured to
 	// auto-start.
-	NoAutoStart bool `json:",omitempty"`
+	NoAutoStart bool `json:"NoAutoStart,omitempty"`
 
 	// ConfigType, if set, defines what type of configuration to use.
 	// See network.InterfaceConfigType for more info. If not set, for
 	// backwards-compatibility, "dhcp" is assumed.
-	ConfigType string `json:",omitempty"`
+	ConfigType string `json:"ConfigType,omitempty"`
 
 	// Address contains an optional static IP address to configure for
 	// this network interface. The subnet mask to set will be inferred
 	// from the CIDR value.
-	Address string `json:",omitempty"`
+	Address string `json:"Address,omitempty"`
 
 	// DNSServers contains an optional list of IP addresses and/or
 	// hostnames to configure as DNS servers for this network
 	// interface.
-	DNSServers []string `json:",omitempty"`
+	DNSServers []string `json:"DNSServers,omitempty"`
 
 	// Gateway address, if set, defines the default gateway to
 	// configure for this network interface. For containers this
 	// usually (one of) the host address(es).
-	GatewayAddress string `json:",omitempty"`
+	GatewayAddress string `json:"GatewayAddress,omitempty"`
 
 	// ExtraConfig can contain any valid setting and its value allowed
 	// inside an "iface" section of a interfaces(5) config file, e.g.
 	// "up", "down", "mtu", etc.
-	ExtraConfig map[string]string `json:",omitempty"`
+	ExtraConfig map[string]string `json:"ExtraConfig,omitempty"`
 }
 
 // Port encapsulates a protocol and port number. It is used in API
@@ -169,6 +171,33 @@ func (pr PortRange) NetworkPortRange() network.PortRange {
 		ToPort:   pr.ToPort,
 		Protocol: pr.Protocol,
 	}
+}
+
+// EntityPort holds an entity's tag, a protocol and a port.
+type EntityPort struct {
+	Tag      string `json:"Tag"`
+	Protocol string `json:"Protocol"`
+	Port     int    `json:"Port"`
+}
+
+// EntitiesPorts holds the parameters for making an OpenPort or
+// ClosePort on some entities.
+type EntitiesPorts struct {
+	Entities []EntityPort `json:"Entities"`
+}
+
+// EntityPortRange holds an entity's tag, a protocol and a port range.
+type EntityPortRange struct {
+	Tag      string `json:"Tag"`
+	Protocol string `json:"Protocol"`
+	FromPort int    `json:"FromPort"`
+	ToPort   int    `json:"ToPort"`
+}
+
+// EntitiesPortRanges holds the parameters for making an OpenPorts or
+// ClosePorts on some entities.
+type EntitiesPortRanges struct {
+	Entities []EntityPortRange `json:"Entities"`
 }
 
 // Address represents the location of a machine, including metadata
@@ -264,9 +293,9 @@ func NetworkHostPorts(hps []HostPort) []network.HostPort {
 	return nhps
 }
 
-// FromNetworkHostPortMatrix is a helper to create a parameter
+// FromNetworkHostsPorts is a helper to create a parameter
 // out of the network type, here for a nested slice of HostPort.
-func FromNetworkHostPortMatrix(nhpm [][]network.HostPort) [][]HostPort {
+func FromNetworkHostsPorts(nhpm [][]network.HostPort) [][]HostPort {
 	hpm := make([][]HostPort, len(nhpm))
 	for i, nhps := range nhpm {
 		hpm[i] = FromNetworkHostPorts(nhps)
@@ -274,9 +303,9 @@ func FromNetworkHostPortMatrix(nhpm [][]network.HostPort) [][]HostPort {
 	return hpm
 }
 
-// NetworkHostPortMatrix is a convenience helper to return the parameter
+// NetworkHostsPorts is a convenience helper to return the parameter
 // as network type, here for a nested slice of HostPort.
-func NetworkHostPortMatrix(hpm [][]HostPort) [][]network.HostPort {
+func NetworkHostsPorts(hpm [][]HostPort) [][]network.HostPort {
 	nhpm := make([][]network.HostPort, len(hpm))
 	for i, hps := range hpm {
 		nhpm[i] = NetworkHostPorts(hps)
@@ -298,7 +327,16 @@ type MachinePortRange struct {
 	PortRange   PortRange `json:"PortRange"`
 }
 
+// MachinePorts holds a machine and network tags. It's used when
+// referring to opened ports on the machine for a network.
+type MachinePorts struct {
+	MachineTag string `json:"MachineTag"`
+	NetworkTag string `json:"NetworkTag"`
+}
+
+// -----
 // API request / response types.
+// -----
 
 // PortsResults holds the bulk operation result of an API call
 // that returns a slice of Port.
@@ -328,11 +366,39 @@ type RequestedNetworksResults struct {
 type MachineNetworkConfigResult struct {
 	Error *Error `json:"Error"`
 
-	// Tagged to Info due to compatability reasons.
+	// Tagged to Info due to compatibility reasons.
 	Config []NetworkConfig `json:"Info"`
 }
 
 // MachineNetworkConfigResults holds network configuration for multiple machines.
 type MachineNetworkConfigResults struct {
 	Results []MachineNetworkConfigResult `json:"Results"`
+}
+
+// MachinePortsParams holds the arguments for making a
+// FirewallerAPIV1.GetMachinePorts() API call.
+type MachinePortsParams struct {
+	Params []MachinePorts `json:"Params"`
+}
+
+// MachinePortsResult holds a single result of the
+// FirewallerAPIV1.GetMachinePorts() and UniterAPI.AllMachinePorts()
+// API calls.
+type MachinePortsResult struct {
+	Error *Error             `json:"Error"`
+	Ports []MachinePortRange `json:"Ports"`
+}
+
+// MachinePortsResults holds all the results of the
+// FirewallerAPIV1.GetMachinePorts() and UniterAPI.AllMachinePorts()
+// API calls.
+type MachinePortsResults struct {
+	Results []MachinePortsResult `json:"Results"`
+}
+
+// APIHostPortsResult holds the result of an APIHostPorts
+// call. Each element in the top level slice holds
+// the addresses for one API server.
+type APIHostPortsResult struct {
+	Servers [][]HostPort `json:"Servers"`
 }

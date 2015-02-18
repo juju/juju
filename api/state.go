@@ -77,11 +77,11 @@ func (st *State) loginV1(tag, password, nonce string) error {
 	var facades []params.FacadeVersions
 	if result.LoginResult.EnvironTag != "" {
 		environTag = result.LoginResult.EnvironTag
-		servers = params.NetworkHostPortMatrix(result.LoginResult.Servers)
+		servers = params.NetworkHostsPorts(result.LoginResult.Servers)
 		facades = result.LoginResult.Facades
 	} else if result.LoginResultV1.EnvironTag != "" {
 		environTag = result.LoginResultV1.EnvironTag
-		servers = params.NetworkHostPortMatrix(result.LoginResultV1.Servers)
+		servers = params.NetworkHostsPorts(result.LoginResultV1.Servers)
 		facades = result.LoginResultV1.Facades
 	}
 
@@ -126,7 +126,7 @@ func (st *State) loginV0(tag, password, nonce string) error {
 	if err != nil {
 		return err
 	}
-	servers := params.NetworkHostPortMatrix(result.Servers)
+	servers := params.NetworkHostsPorts(result.Servers)
 	if err = st.setLoginResult(tag, result.EnvironTag, servers, result.Facades); err != nil {
 		return err
 	}
