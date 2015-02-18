@@ -43,8 +43,8 @@ func NewService(name string, conf Conf, services services) *Service {
 // DiscoverService builds a Services value using the provided dataDir and
 // init system name and wraps it in a Service for the given name and
 // conf.
-func DiscoverService(name, dataDir string, conf Conf, args ...string) (*Service, error) {
-	services, err := DiscoverServices(dataDir, args...)
+func DiscoverService(name, dataDir string, conf Conf) (*Service, error) {
+	services, err := DiscoverServices(dataDir)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

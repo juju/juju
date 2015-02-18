@@ -32,7 +32,7 @@ type Services struct {
 	init    initsystems.InitSystem
 }
 
-// NewServices build a Services from the provided data dir and init
+// NewServices builds a Services from the provided data dir and init
 // system and returns it.
 func NewServices(dataDir string, init initsystems.InitSystem) *Services {
 	return &Services{
@@ -41,20 +41,10 @@ func NewServices(dataDir string, init initsystems.InitSystem) *Services {
 	}
 }
 
-// DiscoverServices populates a new Services and returns it. This
-// includes determining which init system is in use on the current host.
-// The provided data dir is used as the parent of the directory in which
-// all juju-managed service configurations are stored. The names of the
-// services located there are extracted and cached. A service conf must
-// be there already or be added via the Manage method before Services
-// will recognize it as juju-managed.
-func DiscoverServices(dataDir string, args ...string) (*Services, error) {
-	if len(args) > 1 {
-		return nil, errors.Errorf("at most 1 arg expected, got %d", len(args))
-	}
-
-	// Get the init system.
-	init, err := extractInitSystem(args)
+// BuildServices builds a Services from the provided data dir and init
+// system and returns it.
+func BuildServices(dataDir, initName string) (*Services, error) {
+	init, err := newInitSystem(initName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -67,23 +57,21 @@ func DiscoverServices(dataDir string, args ...string) (*Services, error) {
 	return services, errors.Trace(err)
 }
 
-func extractInitSystem(args []string) (initsystems.InitSystem, error) {
-	// Get the init system name from the args.
-	var name string
-	if len(args) != 0 {
-		name = args[0]
-	}
-
-	// Fall back to discovery.
+// DiscoverServices populates a new Services and returns it. This
+// includes determining which init system is in use on the current host.
+// The provided data dir is used as the parent of the directory in which
+// all juju-managed service configurations are stored. The names of the
+// services located there are extracted and cached. A service conf must
+// be there already or be added via the Manage method before Services
+// will recognize it as juju-managed.
+func DiscoverServices(dataDir string) (*Services, error) {
+	name := DiscoverInitSystem()
 	if name == "" {
-		name = DiscoverInitSystem()
-		if name == "" {
-			return nil, errors.New("could not determine init system")
-		}
+		return nil, errors.New("could not determine init system")
 	}
 
-	// Return the corresponding init system.
-	return newInitSystem(name)
+	services, err := BuildServices(dataDir, name)
+	return services, errors.Trace(err)
 }
 
 // InitSystem identifies which init system is in use.
