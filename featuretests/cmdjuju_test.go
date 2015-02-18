@@ -1,13 +1,14 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package featuretests
 
 import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	cmdjuju "github.com/juju/juju/cmd/juju"
 	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
@@ -29,7 +30,7 @@ func uint64p(val uint64) *uint64 {
 
 func runCommonCommand(c *gc.C, commands ...string) (*cmd.Context, error) {
 	context := testing.Context(c)
-	juju := NewJujuCommand(context)
+	juju := cmdjuju.NewJujuCommand(context)
 	if err := testing.InitCommand(juju, commands); err != nil {
 		return context, err
 	}
