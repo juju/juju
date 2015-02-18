@@ -404,12 +404,87 @@ func (s *servicesSuite) TestIsEnabledCheckFailed(c *gc.C) {
 }
 
 func (s *servicesSuite) TestManage(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	err := s.services.Manage(name, *s.Conf)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Stub.CheckCallNames(c,
+		"Exists",
+		"MkdirAll",
+		"Serialize",
+		"CreateFile",
+		"Write",
+		"Close",
+		"Chmod",
+	)
+}
+
+func (s *servicesSuite) TestManageAlreadyManaged(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	s.SetManaged(name, s.services)
+
+	err := s.services.Manage(name, *s.Conf)
+
+	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
+	s.Stub.CheckCalls(c, nil)
 }
 
 func (s *servicesSuite) TestRemove(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	s.SetManaged(name, s.services)
+
+	err := s.services.Remove(name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Stub.CheckCallNames(c, "IsEnabled", "RemoveAll")
 }
 
-func (s *servicesSuite) TestIsManaged(c *gc.C) {
+func (s *servicesSuite) TestRemoveEnabled(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	s.SetManaged(name, s.services)
+	s.Init.Returns.Enabled = true
+	s.Init.Returns.CheckPassed = true
+
+	err := s.services.Remove(name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Stub.CheckCallNames(c,
+		"IsEnabled",
+		"Check",
+		"RemoveAll",
+		"Stop",
+		"Disable",
+	)
+}
+
+func (s *servicesSuite) TestRemoveCheckFailed(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	s.SetManaged(name, s.services)
+	s.Init.Returns.Enabled = true
+	s.Init.Returns.CheckPassed = false
+
+	err := s.services.Remove(name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Stub.CheckCallNames(c, "IsEnabled", "Check", "RemoveAll")
+}
+
+func (s *servicesSuite) TestIsManagedTrue(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	s.SetManaged(name, s.services)
+
+	managed := s.services.IsManaged(name)
+
+	c.Check(managed, jc.IsTrue)
+	s.Stub.CheckCalls(c, nil)
+}
+
+func (s *servicesSuite) TestIsManagedFalse(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	managed := s.services.IsManaged(name)
+
+	c.Check(managed, jc.IsFalse)
+	s.Stub.CheckCalls(c, nil)
 }
 
 // TODO(ericsnow) Write the tests.
