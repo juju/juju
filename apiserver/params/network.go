@@ -402,3 +402,9 @@ type MachinePortsResults struct {
 type APIHostPortsResult struct {
 	Servers [][]HostPort `json:"Servers"`
 }
+
+// NetworkHostsPorts is a convenience helper to return the contained
+// result servers as network type.
+func (r APIHostPortsResult) NetworkHostsPorts() [][]network.HostPort {
+	return NetworkHostsPorts(r.Servers)
+}
