@@ -6,6 +6,7 @@ package diskformatter_test
 import (
 	"errors"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/juju/api/diskformatter"
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/names"
 )
 
 var _ = gc.Suite(&DiskFormatterSuite{})

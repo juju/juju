@@ -6,6 +6,7 @@ package local_test
 import (
 	"fmt"
 	"net"
+	"runtime"
 	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
@@ -18,6 +19,9 @@ import (
 )
 
 func TestLocal(t *stdtesting.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Local provider is not supported on windows")
+	}
 	gc.TestingT(t)
 }
 

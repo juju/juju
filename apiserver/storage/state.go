@@ -4,8 +4,9 @@
 package storage
 
 import (
-	"github.com/juju/juju/state"
 	"github.com/juju/names"
+
+	"github.com/juju/juju/state"
 )
 
 type storageAccess interface {

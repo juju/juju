@@ -7,12 +7,11 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/instance"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/filestorage"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/backups"
 )
 

@@ -8,6 +8,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/apiserver/params"
 )
 
 // StorageGetCommand implements the storage-get command.
@@ -15,7 +17,7 @@ type StorageGetCommand struct {
 	cmd.CommandBase
 	ctx        Context
 	storageTag names.StorageTag
-	keys       []string
+	key        string
 	out        cmd.Output
 }
 
@@ -29,29 +31,38 @@ When no <key> is supplied, all keys values are printed.
 `
 	return &cmd.Info{
 		Name:    "storage-get",
-		Args:    "<storageInstanceId> <key> [<key>]*",
+		Args:    "[<key>]",
 		Purpose: "print information for storage instance with specified id",
 		Doc:     doc,
 	}
 }
 
 func (c *StorageGetCommand) SetFlags(f *gnuflag.FlagSet) {
+	sV := newStorageIdValue(c.ctx, &c.storageTag)
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	f.Var(sV, "s", "specify a storage instance by id")
 }
 
 func (c *StorageGetCommand) Init(args []string) error {
-	if len(args) < 1 {
+	if c.storageTag == (names.StorageTag{}) {
 		return errors.New("no storage instance specified")
 	}
-	if len(args) < 2 {
-		return errors.New("no attribute keys specified")
+	key, err := cmd.ZeroOrOneArgs(args)
+	if err != nil {
+		return err
 	}
-	if !names.IsValidStorage(args[0]) {
-		return errors.Errorf("invalid storage ID %q", args[0])
-	}
-	c.storageTag = names.NewStorageTag(args[0])
-	c.keys = args[1:]
+	c.key = key
 	return nil
+}
+
+func storageKindString(k params.StorageKind) string {
+	switch k {
+	case params.StorageKindBlock:
+		return "block"
+	case params.StorageKindFilesystem:
+		return "filesystem"
+	}
+	return "unknown"
 }
 
 func (c *StorageGetCommand) Run(ctx *cmd.Context) error {
@@ -59,23 +70,15 @@ func (c *StorageGetCommand) Run(ctx *cmd.Context) error {
 	if !ok {
 		return nil
 	}
-	values := make(map[string]interface{})
-	var singleValue interface{}
-	for _, key := range c.keys {
-		switch key {
-		case "kind":
-			values[key] = storageAttachment.Kind
-		case "location":
-			values[key] = storageAttachment.Location
-		default:
-			return errors.Errorf("invalid storage instance key %q", key)
-		}
-		singleValue = values[key]
+	values := map[string]interface{}{
+		"kind":     storageKindString(storageAttachment.Kind),
+		"location": storageAttachment.Location,
 	}
-	// For single values with smart formatting, we want just the value printed,
-	// not "key: value".
-	if len(c.keys) == 1 && c.out.Name() == "smart" {
-		return c.out.Write(ctx, singleValue)
+	if c.key == "" {
+		return c.out.Write(ctx, values)
 	}
-	return c.out.Write(ctx, values)
+	if value, ok := values[c.key]; ok {
+		return c.out.Write(ctx, value)
+	}
+	return errors.Errorf("invalid storage attribute %q", c.key)
 }

@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -63,11 +64,16 @@ func (*jenvSuite) TestJenvFileNotFound(c *gc.C) {
 func (*jenvSuite) TestJenvFileDirectory(c *gc.C) {
 	jenvCmd := &environment.JenvCommand{}
 	ctx, err := testing.RunCommand(c, jenvCmd, c.MkDir())
-	c.Assert(err, gc.ErrorMatches, "cannot read the provided jenv file .*: is a directory")
+
+	// The error is different on some platforms
+	c.Assert(err, gc.ErrorMatches, "cannot read the provided jenv file .*: (is a directory|The handle is invalid.)")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }
 
 func (*jenvSuite) TestJenvFileNotReadable(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Cannot test on windows because it uses chmod")
+	}
 	// Create a read-only jenv file.
 	f := openJenvFile(c, nil)
 	defer f.Close()
@@ -114,6 +120,9 @@ func (*jenvSuite) TestJenvFileContentErrors(c *gc.C) {
 }
 
 func (*jenvSuite) TestConfigStoreError(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Cannot test on windows because it uses chmod")
+	}
 	// Create a jenv file.
 	f := openJenvFile(c, nil)
 	defer f.Close()
@@ -131,6 +140,9 @@ func (*jenvSuite) TestConfigStoreError(c *gc.C) {
 }
 
 func (*jenvSuite) TestWriteError(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Cannot test on windows because it uses chmod")
+	}
 	// Create a jenv file.
 	f := openJenvFile(c, makeValidJenvContents())
 	defer f.Close()
@@ -162,6 +174,9 @@ func (*jenvSuite) TestSwitchErrorJujuEnvSet(c *gc.C) {
 }
 
 func (*jenvSuite) TestSwitchErrorEnvironmentsNotReadable(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Cannot test on windows because it uses chmod")
+	}
 	// Create a jenv file.
 	f := openJenvFile(c, makeValidJenvContents())
 	defer f.Close()
@@ -178,6 +193,9 @@ func (*jenvSuite) TestSwitchErrorEnvironmentsNotReadable(c *gc.C) {
 }
 
 func (*jenvSuite) TestSwitchErrorCannotWriteCurrentEnvironment(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Cannot test on windows because it uses chmod")
+	}
 	// Create a jenv file.
 	f := openJenvFile(c, makeValidJenvContents())
 	defer f.Close()

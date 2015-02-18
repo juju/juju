@@ -4,9 +4,8 @@
 package featuretests
 
 import (
-	gc "gopkg.in/check.v1"
-
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/annotations"
 	jujutesting "github.com/juju/juju/juju/testing"

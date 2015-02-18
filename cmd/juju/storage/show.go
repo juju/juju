@@ -5,11 +5,11 @@ package storage
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/names"
 )
 
 const ShowCommandDoc = `

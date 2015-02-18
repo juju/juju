@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/diskformatter"
-	"github.com/juju/testing"
 )
 
 var _ = gc.Suite(&DiskFormatterWorkerSuite{})

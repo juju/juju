@@ -25,11 +25,6 @@ type migrateCustomImageMetadataStorageSuite struct {
 
 var _ = gc.Suite(&migrateCustomImageMetadataStorageSuite{})
 
-var customImageMetadata = map[string][]byte{
-	"images/abc":     []byte("abc"),
-	"images/def/ghi": []byte("xyz"),
-}
-
 func (s *migrateCustomImageMetadataStorageSuite) TestMigrateCustomImageMetadata(c *gc.C) {
 	stor := s.Environ.(environs.EnvironStorage).Storage()
 	for path, content := range customImageMetadata {

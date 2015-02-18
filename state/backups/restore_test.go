@@ -13,7 +13,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	stdtesting "testing"
 
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
@@ -32,10 +31,6 @@ import (
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
-
-func Test(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 var _ = gc.Suite(&RestoreSuite{})
 

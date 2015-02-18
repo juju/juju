@@ -9,13 +9,16 @@ import (
 	"github.com/juju/juju/cmd/jujud/reboot"
 )
 
-var rebootBin = "shutdown.exe"
+const (
+	rebootBin  = "shutdown.exe"
+	rebootTime = "15"
+)
 
 func (s *RebootSuite) rebootCommandParams(c *gc.C) []string {
 	return []string{
 		"-r",
 		"-t",
-		"0",
+		rebootTime,
 	}
 }
 
@@ -23,7 +26,7 @@ func (s *RebootSuite) shutdownCommandParams(c *gc.C) []string {
 	return []string{
 		"-s",
 		"-t",
-		"0",
+		rebootTime,
 	}
 }
 

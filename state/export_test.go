@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/juju/juju/testcharms"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
@@ -18,6 +17,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/testcharms"
 )
 
 const (
@@ -42,6 +43,7 @@ var (
 	PortsGlobalKey         = portsGlobalKey
 	CurrentUpgradeId       = currentUpgradeId
 	NowToTheSecond         = nowToTheSecond
+	MultiEnvCollections    = multiEnvCollections
 	PickAddress            = &pickAddress
 	AddVolumeOp            = (*State).addVolumeOp
 )
@@ -305,9 +307,9 @@ func Sequence(st *State, name string) (int, error) {
 	return st.sequence(name)
 }
 
-// TODO(mjs) - This is a temporary and naive environment destruction
-// function, used to test environment watching. Once the environment
-// destroying work is completed it can go away.
+// This is a naive environment destruction function, used to test environment
+// watching after the client calls DestroyEnvironment and the environ doc is removed.
+// It is also used to test annotations.
 func RemoveEnvironment(st *State, uuid string) error {
 	ops := []txn.Op{{
 		C:      environmentsC,
@@ -317,3 +319,18 @@ func RemoveEnvironment(st *State, uuid string) error {
 	}}
 	return st.runTransaction(ops)
 }
+
+type MockGlobalEntity struct {
+}
+
+func (m MockGlobalEntity) globalKey() string {
+	return "globalKey"
+}
+func (m MockGlobalEntity) Tag() names.Tag {
+	return names.NewMachineTag("42")
+}
+
+var (
+	_                    GlobalEntity = (*MockGlobalEntity)(nil)
+	TagToCollectionAndId              = (*State).tagToCollectionAndId
+)

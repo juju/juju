@@ -12,10 +12,9 @@ import (
 	"sort"
 	"strings"
 
-	"launchpad.net/tomb"
-
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
 	apinetworker "github.com/juju/juju/api/networker"
