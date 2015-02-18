@@ -121,7 +121,7 @@ func (is *windows) Enable(name, filename string) error {
 		return errors.Trace(err)
 	}
 
-	commands := enableCommands(name, *conf)
+	commands := enableCommands(name, conf)
 	for _, command := range commands {
 		_, err := is.cmd.RunCommandStr(command)
 		if err != nil {
@@ -168,26 +168,28 @@ func (is *windows) Check(name, filename string) (bool, error) {
 }
 
 // Info implements service/initsystems.InitSystem.
-func (is *windows) Info(name string) (*initsystems.ServiceInfo, error) {
+func (is *windows) Info(name string) (initsystems.ServiceInfo, error) {
+	var info initsystems.ServiceInfo
+
 	// Get the status.
 	status, err := is.status(name)
 	if isNotFound(err) {
-		return nil, errors.NotFoundf("service %q", name)
+		return info, errors.NotFoundf("service %q", name)
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return info, errors.Trace(err)
 	}
 
 	// Get the description.
 	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; (Get-Service "%s").DisplayName`, name)
 	out, err := is.cmd.RunCommandStr(cmd)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return info, errors.Trace(err)
 	}
 	description := strings.TrimSpace(string(out))
 
 	// Return the info.
-	info := &initsystems.ServiceInfo{
+	info = initsystems.ServiceInfo{
 		Name:        name,
 		Description: description,
 		Status:      status,
@@ -216,11 +218,13 @@ func (is *windows) status(name string) (string, error) {
 }
 
 // Conf implements service/initsystems.InitSystem.
-func (is *windows) Conf(name string) (*initsystems.Conf, error) {
+func (is *windows) Conf(name string) (initsystems.Conf, error) {
+	var conf initsystems.Conf
+
 	// Get the description. Info also ensures the service is enabled.
 	info, err := is.Info(name)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return conf, errors.Trace(err)
 	}
 	description := info.Description
 
@@ -228,12 +232,12 @@ func (is *windows) Conf(name string) (*initsystems.Conf, error) {
 	query := fmt.Sprintf(`$ErrorActionPreference="Stop"; (Get-WmiObject win32_service | ?{$_.Name -like '%s'}).PathName`, name)
 	out, err := is.cmd.RunCommandStr(query)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return conf, errors.Trace(err)
 	}
 	cmd := strings.TrimSpace(string(out))
 
 	// Return the conf.
-	conf := &initsystems.Conf{
+	conf = initsystems.Conf{
 		Desc: description,
 		Cmd:  cmd,
 	}
@@ -253,7 +257,7 @@ func (is *windows) Serialize(name string, conf initsystems.Conf) ([]byte, error)
 }
 
 // Deserialize implements service/initsystems.InitSystem.
-func (is *windows) Deserialize(data []byte, name string) (*initsystems.Conf, error) {
+func (is *windows) Deserialize(data []byte, name string) (initsystems.Conf, error) {
 	conf, err := Deserialize(data, name)
 	return conf, errors.Trace(err)
 }

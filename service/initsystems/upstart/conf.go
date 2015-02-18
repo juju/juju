@@ -47,7 +47,7 @@ var confRegex = regexp.MustCompile(`` +
 
 // Deserialize parses the provided data (in the init system's prefered
 // format) and populates a new Conf with the result.
-func Deserialize(data []byte, name string) (*initsystems.Conf, error) {
+func Deserialize(data []byte, name string) (initsystems.Conf, error) {
 	var conf initsystems.Conf
 
 	// TODO(ericsnow) Is there a better way? This approach is
@@ -86,7 +86,7 @@ func Deserialize(data []byte, name string) (*initsystems.Conf, error) {
 		name = "<>"
 	}
 	err := Validate(name, conf)
-	return &conf, errors.Trace(err)
+	return conf, errors.Trace(err)
 }
 
 // TODO(ericsnow) Do not hard-code the author in the template (use Conf.Meta).

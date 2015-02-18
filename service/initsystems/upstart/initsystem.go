@@ -212,24 +212,26 @@ func (is *upstart) Check(name, filename string) (bool, error) {
 }
 
 // Info implements initsystems.InitSystem.
-func (is *upstart) Info(name string) (*initsystems.ServiceInfo, error) {
+func (is *upstart) Info(name string) (initsystems.ServiceInfo, error) {
+	var info initsystems.ServiceInfo
+
 	if err := initsystems.EnsureEnabled(name, is); err != nil {
-		return nil, errors.Trace(err)
+		return info, errors.Trace(err)
 	}
 
 	conf, err := is.Conf(name)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return info, errors.Trace(err)
 	}
 
 	status := initsystems.StatusStopped
 	if err := is.ensureRunning(name); err == nil {
 		status = initsystems.StatusRunning
 	} else if !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
+		return info, errors.Trace(err)
 	}
 
-	info := &initsystems.ServiceInfo{
+	info = initsystems.ServiceInfo{
 		Name:        name,
 		Description: conf.Desc,
 		Status:      status,
@@ -249,16 +251,18 @@ func (is *upstart) ensureRunning(name string) error {
 }
 
 // Conf implements initsystems.InitSystem.
-func (is *upstart) Conf(name string) (*initsystems.Conf, error) {
+func (is *upstart) Conf(name string) (initsystems.Conf, error) {
+	var conf initsystems.Conf
+
 	data, err := is.fops.ReadFile(is.confPath(name))
 	if os.IsNotExist(err) {
-		return nil, errors.NotFoundf("service %q", name)
+		return conf, errors.NotFoundf("service %q", name)
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return conf, errors.Trace(err)
 	}
 
-	conf, err := is.Deserialize(data, name)
+	conf, err = is.Deserialize(data, name)
 	return conf, errors.Trace(err)
 }
 
@@ -275,7 +279,7 @@ func (upstart) Serialize(name string, conf initsystems.Conf) ([]byte, error) {
 }
 
 // Deserialize implements initsystems.InitSystem.
-func (upstart) Deserialize(data []byte, name string) (*initsystems.Conf, error) {
+func (upstart) Deserialize(data []byte, name string) (initsystems.Conf, error) {
 	conf, err := Deserialize(data, name)
 	return conf, errors.Trace(err)
 }

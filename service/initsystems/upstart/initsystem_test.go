@@ -329,7 +329,7 @@ func (s *initSystemSuite) TestInitSystemInfoRunning(c *gc.C) {
 	info, err := s.init.Info(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(info, jc.DeepEquals, &initsystems.ServiceInfo{
+	c.Check(info, jc.DeepEquals, initsystems.ServiceInfo{
 		Name:        name,
 		Description: "juju agent for " + name,
 		Status:      initsystems.StatusRunning,
@@ -364,7 +364,7 @@ func (s *initSystemSuite) TestInitSystemInfoNotRunning(c *gc.C) {
 	info, err := s.init.Info(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(info, jc.DeepEquals, &initsystems.ServiceInfo{
+	c.Check(info, jc.DeepEquals, initsystems.ServiceInfo{
 		Name:        name,
 		Description: "juju agent for " + name,
 		Status:      initsystems.StatusStopped,
@@ -385,7 +385,7 @@ func (s *initSystemSuite) TestInitSystemConf(c *gc.C) {
 	conf, err := s.init.Conf(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(conf, jc.DeepEquals, &initsystems.Conf{
+	c.Check(conf, jc.DeepEquals, initsystems.Conf{
 		Desc: `juju agent for jujud-unit-wordpress-0`,
 		Cmd:  "/var/lib/juju/init/" + name + "/script.sh",
 	})
@@ -465,7 +465,7 @@ func (s *initSystemSuite) TestInitSystemDeserializeBasic(c *gc.C) {
 	conf, err := s.init.Deserialize([]byte(data), name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(conf, jc.DeepEquals, &initsystems.Conf{
+	c.Check(conf, jc.DeepEquals, initsystems.Conf{
 		Desc: `juju agent for jujud-unit-wordpress-0`,
 		Cmd:  "/var/lib/juju/init/" + name + "/script.sh",
 	})
@@ -485,7 +485,7 @@ func (s *initSystemSuite) TestInitSystemDeserializeFull(c *gc.C) {
 	conf, err := s.init.Deserialize([]byte(data), name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(conf, jc.DeepEquals, &initsystems.Conf{
+	c.Check(conf, jc.DeepEquals, initsystems.Conf{
 		Desc: `juju agent for ` + name,
 		Cmd:  "/var/lib/juju/init/" + name + "/script.sh",
 		Env: map[string]string{
