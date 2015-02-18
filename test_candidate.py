@@ -30,7 +30,6 @@ class CandidateTestCase(TestCase):
             'password1'])
         self.assertEqual(credentials, Credentials('jrandom', 'password1'))
 
-
     def test_get_build_parameters(self):
         build_data = {
             "actions": [
@@ -83,12 +82,12 @@ class CandidateTestCase(TestCase):
         output, args, kwargs = mock.mock_calls[0]
         self.assertEqual(
             ('http://juju-ci.vapour.ws:8080', credentials, 'publish-revision'),
-             args)
+            args)
         self.assertEqual('lastSuccessfulBuild', kwargs['build'])
         output, args, kwargs = mock.mock_calls[1]
         self.assertEqual(
             ('http://juju-ci.vapour.ws:8080', credentials, 'publish-revision'),
-             args)
+            args)
         self.assertEqual(1234, kwargs['build'])
 
     def test_find_publish_revision_number_no_match(self):

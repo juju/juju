@@ -23,7 +23,7 @@ class JujuBuildTestCase(TestCase):
             args, kwargs = mock.call_args
             self.assertEqual(
                 (Credentials('jrandom', 'password1'), 'win-client', './foo',
-                '1234'), args)
+                 '1234'), args)
             self.assertTrue(kwargs['dry_run'])
             self.assertTrue(kwargs['verbose'])
 
@@ -38,7 +38,7 @@ class JujuBuildTestCase(TestCase):
                            return_value=artifacts, autospec=True) as ga_mock:
                     with patch('build_juju.run_command') as rc_mock:
                         with patch('build_juju.add_artifacts', autospec=True
-                                ) as aa_mock:
+                                   ) as aa_mock:
                             build_juju(
                                 credentials, 'win-client', work_dir,
                                 'lastSucessful', dry_run=True, verbose=True)
