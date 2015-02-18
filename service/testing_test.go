@@ -17,6 +17,8 @@ type BaseSuite struct {
 	testing.IsolationSuite
 
 	DataDir string
+	LogDir  string
+	Paths   AgentPaths
 	Conf    Conf
 	ConfDir initsystems.ConfDirInfo
 
@@ -30,6 +32,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.DataDir = "/var/lib/juju"
+	s.LogDir = "/var/log/juju"
+	s.Paths = NewAgentPaths(s.DataDir, s.LogDir)
 	s.Conf = Conf{Conf: initsystems.Conf{
 		Desc: "a service",
 		Cmd:  "spam",
@@ -64,4 +68,27 @@ func newStubFile(name string, data []byte) os.FileInfo {
 
 func newStubDir(name string) os.FileInfo {
 	return fs.NewDir(name, 0755)
+}
+
+type agentPaths struct {
+	dataDir string
+	logDir  string
+}
+
+// NewAgentPaths returns a new AgentPaths based on the given info.
+func NewAgentPaths(dataDir, logDir string) AgentPaths {
+	return &agentPaths{
+		dataDir: dataDir,
+		logDir:  logDir,
+	}
+}
+
+// DataDir implements AgentPaths.
+func (ap agentPaths) DataDir() string {
+	return ap.dataDir
+}
+
+// LogDir implements AgentPaths.
+func (ap agentPaths) LogDir() string {
+	return ap.logDir
 }

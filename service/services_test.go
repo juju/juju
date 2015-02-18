@@ -539,23 +539,10 @@ func (s *servicesSuite) TestNewService(c *gc.C) {
 	c.Check(conf, jc.DeepEquals, *s.Conf)
 }
 
-type agentPaths struct{}
-
-// DataDir implements AgentPaths.
-func (agentPaths) DataDir() string {
-	return "/var/lib/juju"
-}
-
-// LogDir implements AgentPaths.
-func (agentPaths) LogDir() string {
-	return "/var/log/juju"
-}
-
 func (s *servicesSuite) TestNewAgentService(c *gc.C) {
 	tagStr := "unit-wordpress-0"
 	tag, _ := names.ParseTag(tagStr)
-	paths := agentPaths{}
-	svc, err := s.services.NewAgentService(tag, paths, nil)
+	svc, err := s.services.NewAgentService(tag, s.Paths, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	name := svc.Name()
 	conf := svc.Conf()
