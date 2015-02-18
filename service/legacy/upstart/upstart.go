@@ -17,6 +17,11 @@ import (
 	"github.com/juju/juju/service/initsystems/upstart"
 )
 
+var (
+	// ConfDir is the directory where upstart conf files go.
+	ConfDir = "/etc/init"
+)
+
 // TODO(ericsnow) Eliminate MachineAgentUpstartService (use NewAgentService).
 
 const maxAgentFiles = 20000
@@ -64,7 +69,7 @@ func (s *Service) InstallCommands() ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 	conf := buf.Bytes()
-	confPath := path.Join(upstart.ConfDir, s.Name+".conf")
+	confPath := path.Join(ConfDir, s.Name+".conf")
 
 	return []string{
 		fmt.Sprintf("cat >> %s << 'EOF'\n%sEOF\n", confPath, conf),

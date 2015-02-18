@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/initsystems"
-	iupstart "github.com/juju/juju/service/initsystems/upstart"
 	"github.com/juju/juju/service/legacy/upstart"
 	"github.com/juju/juju/testing"
 )
@@ -30,7 +29,7 @@ func (s *UpstartSuite) SetUpTest(c *gc.C) {
 	s.testPath = c.MkDir()
 	s.initDir = c.MkDir()
 	s.PatchEnvPathPrepend(s.testPath)
-	s.PatchValue(&iupstart.ConfDir, s.initDir)
+	s.PatchValue(&upstart.ConfDir, s.initDir)
 	s.service = &upstart.Service{
 		Name: "some-service",
 		Conf: service.Conf{Conf: initsystems.Conf{
@@ -112,7 +111,7 @@ func (s *UpstartSuite) dummyConf(c *gc.C) service.Conf {
 
 func (s *UpstartSuite) assertInstall(c *gc.C, conf service.Conf, expectEnd string) {
 	expectContent := expectStart + expectEnd
-	expectPath := filepath.Join(iupstart.ConfDir, "some-service.conf")
+	expectPath := filepath.Join(upstart.ConfDir, "some-service.conf")
 
 	s.service.Conf = conf
 	cmds, err := s.service.InstallCommands()
