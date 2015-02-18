@@ -63,14 +63,18 @@ func (c *StorageCommandBase) NewStorageAPI() (*storage.Client, error) {
 // StorageInfo defines the serialization behaviour of the storage information.
 type StorageInfo struct {
 	StorageName string `yaml:"storage" json:"storage"`
+	Kind        string `yaml:"kind" json:"kind"`
+	UnitId      string `yaml:"unit_id,omitempty" json:"unit_id,omitempty"`
+	Attached    bool   `yaml:"attached,omitempty" json:"attached,omitempty"`
 	Location    string `yaml:"location,omitempty" json:"location,omitempty"`
+	Provisioned bool   `yaml:"provisioned,omitempty" json:"provisioned,omitempty"`
 }
 
 // formatStorageInfo takes a set of StorageInstances and creates a
 // mapping from storage instance ID to information structures.
-func formatStorageInfo(attachments []params.StorageAttachment, instances []params.StorageInstance) (map[string]map[string]StorageInfo, error) {
+func formatStorageInfo(storages []params.StorageInfo) (map[string]map[string]StorageInfo, error) {
 	output := make(map[string]map[string]StorageInfo)
-	for _, one := range attachments {
+	for _, one := range storages {
 		storageTag, err := names.ParseStorageTag(one.StorageTag)
 		if err != nil {
 			return nil, errors.Annotate(err, "invalid storage tag")
@@ -85,31 +89,17 @@ func formatStorageInfo(attachments []params.StorageAttachment, instances []param
 		}
 		si := StorageInfo{
 			StorageName: storageName,
+			Kind:        one.Kind.String(),
+			Attached:    one.Attached,
 			Location:    one.Location,
+			Provisioned: one.Provisioned,
 		}
-		owner := ownerTag.Id()
-		ownerColl, ok := output[owner]
-		if !ok {
-			ownerColl = map[string]StorageInfo{}
-			output[owner] = ownerColl
-		}
-		ownerColl[storageTag.Id()] = si
-	}
-	for _, one := range instances {
-		storageTag, err := names.ParseStorageTag(one.StorageTag)
-		if err != nil {
-			return nil, errors.Annotate(err, "invalid storage tag")
-		}
-		ownerTag, err := names.ParseTag(one.OwnerTag)
-		if err != nil {
-			return nil, errors.Annotate(err, "invalid owner tag")
-		}
-		storageName, err := names.StorageName(storageTag.Id())
-		if err != nil {
-			panic(err) // impossible
-		}
-		si := StorageInfo{
-			StorageName: storageName,
+		if si.Attached {
+			unitTag, err := names.ParseTag(one.UnitTag)
+			if err != nil {
+				return nil, errors.Annotate(err, "invalid unit tag")
+			}
+			si.UnitId = unitTag.Id()
 		}
 		owner := ownerTag.Id()
 		ownerColl, ok := output[owner]

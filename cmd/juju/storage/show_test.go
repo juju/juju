@@ -46,10 +46,15 @@ func (s *ShowSuite) TestShow(c *gc.C) {
 postgresql:
   shared-fs/0:
     storage: shared-fs
+    kind: block
 postgresql/0:
   shared-fs/0:
     storage: shared-fs
+    kind: block
+    unit_id: postgresql/0
+    attached: true
     location: a location
+    provisioned: true
 `[1:],
 	)
 }
@@ -63,7 +68,7 @@ func (s *ShowSuite) TestShowJSON(c *gc.C) {
 	s.assertValidShow(
 		c,
 		[]string{"shared-fs/0", "--format", "json"},
-		`{"postgresql":{"shared-fs/0":{"storage":"shared-fs"}},"postgresql/0":{"shared-fs/0":{"storage":"shared-fs","location":"a location"}}}
+		`{"postgresql":{"shared-fs/0":{"storage":"shared-fs","kind":"block"}},"postgresql/0":{"shared-fs/0":{"storage":"shared-fs","kind":"block","unit_id":"postgresql/0","attached":true,"location":"a location","provisioned":true}}}
 `,
 	)
 }
@@ -76,15 +81,25 @@ func (s *ShowSuite) TestShowMultipleReturn(c *gc.C) {
 postgresql:
   db-dir/1000:
     storage: db-dir
+    kind: block
   shared-fs/0:
     storage: shared-fs
+    kind: block
 postgresql/0:
   db-dir/1000:
     storage: db-dir
+    kind: block
+    unit_id: postgresql/0
+    attached: true
     location: a location
+    provisioned: true
   shared-fs/0:
     storage: shared-fs
+    kind: block
+    unit_id: postgresql/0
+    attached: true
     location: a location
+    provisioned: true
 `[1:],
 	)
 }
@@ -104,24 +119,28 @@ func (s mockShowAPI) Close() error {
 	return nil
 }
 
-func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageAttachment, []params.StorageInstance, error) {
-	instances := make([]params.StorageInstance, len(tags))
-	for i, tag := range tags {
-		instances[i] = params.StorageInstance{
+func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageInfo, error) {
+	all := make([]params.StorageInfo, len(tags)*2)
+	ind := 0
+	for _, tag := range tags {
+		all[ind] = params.StorageInfo{
 			StorageTag: tag.String(),
 			OwnerTag:   "service-postgresql",
 			Kind:       params.StorageKindBlock,
 		}
+		ind++
 	}
-	attachments := make([]params.StorageAttachment, len(tags))
-	for i, tag := range tags {
-		attachments[i] = params.StorageAttachment{
-			StorageTag: tag.String(),
-			OwnerTag:   "unit-postgresql-0",
-			UnitTag:    "unit-postgresql-0",
-			Kind:       params.StorageKindBlock,
-			Location:   "a location",
+	for _, tag := range tags {
+		all[ind] = params.StorageInfo{
+			StorageTag:  tag.String(),
+			OwnerTag:    "unit-postgresql-0",
+			UnitTag:     "unit-postgresql-0",
+			Kind:        params.StorageKindBlock,
+			Location:    "a location",
+			Attached:    true,
+			Provisioned: true,
 		}
+		ind++
 	}
-	return attachments, instances, nil
+	return all, nil
 }

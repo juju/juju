@@ -76,41 +76,44 @@ func (s *apiStorageSuite) TestStorageShow(c *gc.C) {
 
 	storageTag, err := names.ParseStorageTag("storage-data-0")
 	c.Assert(err, jc.ErrorIsNil)
-	attachments, instances, err := s.storageClient.Show([]names.StorageTag{storageTag})
+	found, err := s.storageClient.Show([]names.StorageTag{storageTag})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instances, gc.HasLen, 0)
-	c.Assert(attachments, gc.HasLen, 1)
-	one := attachments[0]
+	c.Assert(found, gc.HasLen, 1)
+	one := found[0]
 	c.Assert(one.StorageTag, gc.DeepEquals, "storage-data-0")
 	c.Assert(one.OwnerTag, gc.DeepEquals, "unit-storage-block-0")
+	c.Assert(one.UnitTag, gc.DeepEquals, "unit-storage-block-0")
+	c.Assert(one.Location, gc.DeepEquals, "")
+	c.Assert(one.Provisioned, jc.IsFalse)
+	c.Assert(one.Attached, jc.IsTrue)
 	c.Assert(one.Kind, gc.DeepEquals, params.StorageKindBlock)
 }
 
 func (s *apiStorageSuite) TestStorageShowEmpty(c *gc.C) {
-	attachments, instances, err := s.storageClient.Show(nil)
+	found, err := s.storageClient.Show(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(attachments, gc.HasLen, 0)
-	c.Assert(instances, gc.HasLen, 0)
+	c.Assert(found, gc.HasLen, 0)
 }
 
 func (s *apiStorageSuite) TestStorageList(c *gc.C) {
 	createUnitForTest(c, &s.JujuConnSuite)
 
-	attachments, instances, err := s.storageClient.List()
+	found, err := s.storageClient.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instances, gc.HasLen, 0)
-	c.Assert(attachments, gc.HasLen, 1)
-	one := attachments[0]
+	c.Assert(found, gc.HasLen, 1)
+	one := found[0]
 	c.Assert(one.StorageTag, gc.DeepEquals, "storage-data-0")
 	c.Assert(one.OwnerTag, gc.DeepEquals, "unit-storage-block-0")
 	c.Assert(one.Kind, gc.DeepEquals, params.StorageKindBlock)
+	c.Assert(one.Location, gc.DeepEquals, "")
+	c.Assert(one.Provisioned, jc.IsFalse)
+	c.Assert(one.Attached, jc.IsTrue)
 }
 
 func (s *apiStorageSuite) TestStorageListEmpty(c *gc.C) {
-	attachments, instances, err := s.storageClient.List()
+	found, err := s.storageClient.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(attachments, gc.HasLen, 0)
-	c.Assert(instances, gc.HasLen, 0)
+	c.Assert(found, gc.HasLen, 0)
 }
 
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
@@ -161,6 +164,9 @@ func (s *cmdStorageSuite) TestStorageShowCmdStack(c *gc.C) {
 storage-block/0:
   data/0:
     storage: data
+    kind: block
+    unit_id: storage-block/0
+    attached: true
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
@@ -176,8 +182,8 @@ func (s *cmdStorageSuite) TestStorageListCmdStack(c *gc.C) {
 	context := runList(c)
 	expected := `
 [Storage]       
-OWNER           ID     NAME LOCATION 
-storage-block/0 data/0 data          
+OWNER           ID     NAME ATTACHED        LOCATION KIND  
+storage-block/0 data/0 data storage-block/0          block 
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)

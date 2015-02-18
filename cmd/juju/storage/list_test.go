@@ -43,11 +43,11 @@ func (s *ListSuite) TestList(c *gc.C) {
 		// Default format is tabular
 		`
 [Storage]    
-OWNER        ID          NAME      LOCATION 
-postgresql/0 db-dir/1000 db-dir    there    
-transcode    db-dir/1000 db-dir             
-transcode    shared-fs/0 shared-fs          
-transcode/0  shared-fs/0 shared-fs here     
+OWNER        ID          NAME      ATTACHED    LOCATION KIND    
+postgresql/0 db-dir/1000 db-dir    transcode/0 there    unknown 
+transcode    db-dir/1000 db-dir                         block   
+transcode    shared-fs/0 shared-fs                      unknown 
+transcode/0  shared-fs/0 shared-fs transcode/0 here     block   
 
 `[1:],
 	)
@@ -61,16 +61,26 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 postgresql/0:
   db-dir/1000:
     storage: db-dir
+    kind: unknown
+    unit_id: transcode/0
+    attached: true
     location: there
+    provisioned: true
 transcode:
   db-dir/1000:
     storage: db-dir
+    kind: block
   shared-fs/0:
     storage: shared-fs
+    kind: unknown
 transcode/0:
   shared-fs/0:
     storage: shared-fs
+    kind: block
+    unit_id: transcode/0
+    attached: true
     location: here
+    provisioned: true
 `[1:],
 	)
 }
@@ -83,14 +93,14 @@ func (s *ListSuite) TestListOwnerStorageIdSort(c *gc.C) {
 		// Default format is tabular
 		`
 [Storage]    
-OWNER        ID          NAME      LOCATION 
-postgresql/0 db-dir/1000 db-dir    there    
-transcode    db-dir/1000 db-dir             
-transcode    shared-fs/0 shared-fs          
-transcode    shared-fs/5 shared-fs          
-transcode/0  db-dir/1000 db-dir             
-transcode/0  shared-fs/0 shared-fs here     
-transcode/0  shared-fs/5 shared-fs nowhere  
+OWNER        ID          NAME      ATTACHED    LOCATION KIND        
+postgresql/0 db-dir/1000 db-dir    transcode/0 there    unknown     
+transcode    db-dir/1000 db-dir                         file system 
+transcode    shared-fs/0 shared-fs                      unknown     
+transcode    shared-fs/5 shared-fs                      unknown     
+transcode/0  db-dir/1000 db-dir    transcode/0          block       
+transcode/0  shared-fs/0 shared-fs transcode/0 here     block       
+transcode/0  shared-fs/5 shared-fs transcode/0 nowhere  unknown     
 
 `[1:],
 	)
@@ -112,45 +122,58 @@ func (s mockListAPI) Close() error {
 	return nil
 }
 
-func (s mockListAPI) List() ([]params.StorageAttachment, []params.StorageInstance, error) {
-	return getTestAttachments(s.lexicalChaos), getTestInstances(s.lexicalChaos), nil
+func (s mockListAPI) List() ([]params.StorageInfo, error) {
+	result := []params.StorageInfo{}
+	result = append(result, getTestAttachments(s.lexicalChaos)...)
+	result = append(result, getTestInstances(s.lexicalChaos)...)
+	return result, nil
 }
 
-func getTestAttachments(chaos bool) []params.StorageAttachment {
-	results := []params.StorageAttachment{{
-		StorageTag: "storage-shared-fs-0",
-		OwnerTag:   "unit-transcode-0",
-		UnitTag:    "unit-transcode-0",
-		Kind:       params.StorageKindBlock,
-		Location:   "here",
+func getTestAttachments(chaos bool) []params.StorageInfo {
+	results := []params.StorageInfo{{
+		StorageTag:  "storage-shared-fs-0",
+		OwnerTag:    "unit-transcode-0",
+		UnitTag:     "unit-transcode-0",
+		Kind:        params.StorageKindBlock,
+		Location:    "here",
+		Provisioned: true,
+		Attached:    true,
 	}, {
-		StorageTag: "storage-db-dir-1000",
-		OwnerTag:   "unit-postgresql-0",
-		UnitTag:    "unit-transcode-0",
-		Kind:       params.StorageKindUnknown,
-		Location:   "there",
+		StorageTag:  "storage-db-dir-1000",
+		OwnerTag:    "unit-postgresql-0",
+		UnitTag:     "unit-transcode-0",
+		Kind:        params.StorageKindUnknown,
+		Location:    "there",
+		Provisioned: true,
+		Attached:    true,
 	}}
 
 	if chaos {
-		last := params.StorageAttachment{
-			StorageTag: "storage-shared-fs-5",
-			OwnerTag:   "unit-transcode-0",
-			UnitTag:    "unit-transcode-0",
-			Kind:       params.StorageKindUnknown,
-			Location:   "nowhere",
+		last := params.StorageInfo{
+			StorageTag:  "storage-shared-fs-5",
+			OwnerTag:    "unit-transcode-0",
+			UnitTag:     "unit-transcode-0",
+			Kind:        params.StorageKindUnknown,
+			Location:    "nowhere",
+			Provisioned: true,
+			Attached:    true,
 		}
-		second := params.StorageAttachment{
-			StorageTag: "storage-db-dir-1000",
-			OwnerTag:   "unit-transcode-0",
-			UnitTag:    "unit-transcode-0",
-			Kind:       params.StorageKindBlock,
-			Location:   "",
+		second := params.StorageInfo{
+			StorageTag:  "storage-db-dir-1000",
+			OwnerTag:    "unit-transcode-0",
+			UnitTag:     "unit-transcode-0",
+			Kind:        params.StorageKindBlock,
+			Location:    "",
+			Provisioned: true,
+			Attached:    true,
 		}
-		first := params.StorageAttachment{
-			StorageTag: "storage-db-dir-1000",
-			OwnerTag:   "service-transcode",
-			UnitTag:    "unit-transcode-0",
-			Kind:       params.StorageKindFilesystem,
+		first := params.StorageInfo{
+			StorageTag:  "storage-db-dir-1000",
+			OwnerTag:    "service-transcode",
+			UnitTag:     "unit-transcode-0",
+			Kind:        params.StorageKindFilesystem,
+			Provisioned: true,
+			Attached:    true,
 		}
 		results = append(results, last)
 		results = append(results, second)
@@ -159,9 +182,9 @@ func getTestAttachments(chaos bool) []params.StorageAttachment {
 	return results
 }
 
-func getTestInstances(chaos bool) []params.StorageInstance {
+func getTestInstances(chaos bool) []params.StorageInfo {
 
-	results := []params.StorageInstance{{
+	results := []params.StorageInfo{{
 		StorageTag: "storage-shared-fs-0",
 		OwnerTag:   "service-transcode",
 		Kind:       params.StorageKindUnknown,
@@ -172,17 +195,17 @@ func getTestInstances(chaos bool) []params.StorageInstance {
 	}}
 
 	if chaos {
-		last := params.StorageInstance{
+		last := params.StorageInfo{
 			StorageTag: "storage-shared-fs-5",
 			OwnerTag:   "service-transcode",
 			Kind:       params.StorageKindUnknown,
 		}
-		second := params.StorageInstance{
+		second := params.StorageInfo{
 			StorageTag: "storage-db-dir-1000",
 			OwnerTag:   "service-transcode",
 			Kind:       params.StorageKindBlock,
 		}
-		first := params.StorageInstance{
+		first := params.StorageInfo{
 			StorageTag: "storage-db-dir-1000",
 			OwnerTag:   "service-transcode",
 			Kind:       params.StorageKindFilesystem,

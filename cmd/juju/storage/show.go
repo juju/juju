@@ -71,11 +71,11 @@ func (c *ShowCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	attachments, instances, err := api.Show(tags)
+	found, err := api.Show(tags)
 	if err != nil {
 		return err
 	}
-	output, err := formatStorageInfo(attachments, instances)
+	output, err := formatStorageInfo(found)
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ var (
 // StorageAPI defines the API methods that the storage commands use.
 type StorageShowAPI interface {
 	Close() error
-	Show(tags []names.StorageTag) ([]params.StorageAttachment, []params.StorageInstance, error)
+	Show(tags []names.StorageTag) ([]params.StorageInfo, error)
 }
 
 func (c *ShowCommand) getStorageShowAPI() (StorageShowAPI, error) {
