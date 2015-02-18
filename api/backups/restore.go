@@ -126,9 +126,6 @@ func (c *Client) restore(backupId string, newClient ClientConnection) error {
 			return errors.Annotatef(err, "cannot perform restore: %v", remoteError)
 		}
 	}
-	if err == nil {
-		return errors.Errorf("An unreported error occured in the server.")
-	}
 	if err != rpc.ErrShutdown {
 		return errors.Annotatef(err, "cannot perform restore: %v", remoteError)
 	}
