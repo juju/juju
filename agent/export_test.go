@@ -51,4 +51,7 @@ func ConfigFileExists(config Config) bool {
 	return err == nil
 }
 
-var MachineJobFromParams = machineJobFromParams
+var (
+	MachineJobFromParams = machineJobFromParams
+	IsLocalEnv           = &isLocalEnv
+)
