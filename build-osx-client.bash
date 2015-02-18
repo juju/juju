@@ -21,14 +21,14 @@ USER_AT_HOST="$1"
 set -x
 ssh $SSH_OPTIONS $USER_AT_HOST "revision_build=$revision_build bash" <<"EOT"
 #!/bin/bash
-set -ux
+set -eu
 RELEASE_SCRIPTS=$HOME/juju-release-tools
 SCRIPTS=$HOME/juju-ci-tools
 GOBASE=$HOME/crossbuild
 WORKSPACE=$HOME/workspace
 JUJU_HOME=$HOME/cloud-city
 source $JUJU_HOME/juju-qa.jujuci
-set -e
+set -x
 
 cd $WORKSPACE
 $SCRIPTS/jujuci.py -v setup-workspace $WORKSPACE
