@@ -28,10 +28,6 @@ func (s *servicesSuite) SetUpTest(c *gc.C) {
 	s.Stub.Calls = nil
 }
 
-func (s *servicesSuite) TestDiscoverServices(c *gc.C) {
-	// TODO(ericsnow) Write the test?
-}
-
 func (s *servicesSuite) TestInitSystem(c *gc.C) {
 	// Our choice of init system name here is not significant.
 	expected := service.InitSystemUpstart
