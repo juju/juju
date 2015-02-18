@@ -112,7 +112,6 @@ func (c *Client) restore(backupId string, newClient ClientConnection) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		defer restoreClientCloser()
 
 		err, remoteError = restoreAttempt(restoreClient, restoreClientCloser, restoreArgs)
 

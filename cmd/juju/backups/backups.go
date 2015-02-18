@@ -109,9 +109,14 @@ func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetad
 	fmt.Fprintf(ctx.Stdout, "juju version:    %v\n", result.Version)
 }
 
-func getArchive(filename string) (io.ReadCloser, *params.BackupsMetadataResult, error) {
-
+func getArchive(filename string) (rc io.ReadCloser, metaResult *params.BackupsMetadataResult, err error) {
+	defer func() {
+		if err != nil && rc != nil {
+			rc.Close()
+		}
+	}()
 	archive, err := os.Open(filename)
+	rc = archive
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -160,7 +165,7 @@ func getArchive(filename string) (io.ReadCloser, *params.BackupsMetadataResult, 
 	}
 
 	// Pack the metadata into a result.
-	metaResult := apiserverbackups.ResultFromMetadata(meta)
+	*metaResult = apiserverbackups.ResultFromMetadata(meta)
 
-	return archive, &metaResult, nil
+	return archive, metaResult, nil
 }
