@@ -301,6 +301,12 @@ func (s Services) Remove(name string) error {
 	return nil
 }
 
+// IsManaged determines whether or not the named service is
+// managed by juju.
+func (s Services) IsManaged(name string) bool {
+	return s.configs.lookup(name) != nil
+}
+
 // Install prepares the service, enables it, and starts it.
 func (s Services) Install(name string, conf Conf) error {
 	if err := s.Manage(name, conf); err != nil {
@@ -331,12 +337,6 @@ func (s Services) Check(name string, conf Conf) (bool, error) {
 		return false, errors.Trace(err)
 	}
 	return reflect.DeepEqual(actual, *expected), nil
-}
-
-// IsManaged determines whether or not the named service is
-// managed by juju.
-func (s Services) IsManaged(name string) bool {
-	return s.configs.lookup(name) != nil
 }
 
 // NewService wraps the name and conf in a Service for convenience.

@@ -267,15 +267,140 @@ func (s *servicesSuite) TestIsRunningNotEnabled(c *gc.C) {
 	s.Stub.CheckCallNames(c, "IsEnabled", "Info")
 }
 
-// TODO(ericsnow) Write the tests.
-
 func (s *servicesSuite) TestEnable(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	s.SetManaged(name, s.services)
+	s.Init.Returns.Enabled = false
+
+	err := s.services.Enable(name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Stub.CheckCallNames(c, "Enable")
+}
+
+func (s *servicesSuite) TestEnableNotManaged(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	err := s.services.Enable(name)
+
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	s.Stub.CheckCalls(c, nil)
+}
+
+func (s *servicesSuite) TestEnableAlreadyEnabled(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	s.SetManaged(name, s.services)
+	s.Init.Returns.CheckPassed = true
+	failure := errors.AlreadyExistsf(name)
+	s.Stub.SetErrors(failure) // Enable
+
+	err := s.services.Enable(name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Stub.CheckCallNames(c, "Enable", "Check")
+}
+
+func (s *servicesSuite) TestEnableCheckFailed(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	s.SetManaged(name, s.services)
+	s.Init.Returns.CheckPassed = false
+	failure := errors.AlreadyExistsf(name)
+	s.Stub.SetErrors(failure) // Enable
+
+	err := s.services.Enable(name)
+
+	c.Check(errors.Cause(err), gc.Equals, service.ErrNotManaged)
+	s.Stub.CheckCallNames(c, "Enable", "Check")
 }
 
 func (s *servicesSuite) TestDisable(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	s.SetManaged(name, s.services)
+	s.Init.Returns.Enabled = true
+	s.Init.Returns.CheckPassed = true
+
+	err := s.services.Disable(name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Stub.CheckCallNames(c, "IsEnabled", "Check", "Disable")
 }
 
-func (s *servicesSuite) TestIsEnabled(c *gc.C) {
+func (s *servicesSuite) TestDisableNotManaged(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	err := s.services.Disable(name)
+
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	s.Stub.CheckCalls(c, nil)
+}
+
+func (s *servicesSuite) TestDisableNotEnabled(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	s.SetManaged(name, s.services)
+	s.Init.Returns.Enabled = false
+	failure := errors.NotFoundf(name)
+	s.Stub.SetErrors(nil, failure) // IsEnabled, Disable
+
+	err := s.services.Disable(name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Stub.CheckCallNames(c, "IsEnabled", "Disable")
+}
+
+func (s *servicesSuite) TestDisableCheckFailed(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	s.SetManaged(name, s.services)
+	s.Init.Returns.Enabled = true
+	s.Init.Returns.CheckPassed = false
+
+	err := s.services.Disable(name)
+
+	c.Check(errors.Cause(err), gc.Equals, service.ErrNotManaged)
+	s.Stub.CheckCallNames(c, "IsEnabled", "Check")
+}
+
+func (s *servicesSuite) TestIsEnabledTrue(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	s.SetManaged(name, s.services)
+	s.Init.Returns.Enabled = true
+	s.Init.Returns.CheckPassed = true
+
+	enabled, err := s.services.IsEnabled(name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(enabled, jc.IsTrue)
+	s.Stub.CheckCallNames(c, "IsEnabled", "Check", "IsEnabled")
+}
+
+func (s *servicesSuite) TestIsEnabledFalse(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	s.SetManaged(name, s.services)
+	s.Init.Returns.Enabled = false
+
+	enabled, err := s.services.IsEnabled(name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(enabled, jc.IsFalse)
+	s.Stub.CheckCallNames(c, "IsEnabled", "IsEnabled")
+}
+
+func (s *servicesSuite) TestIsEnabledNotManaged(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	enabled, err := s.services.IsEnabled(name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(enabled, jc.IsFalse)
+	s.Stub.CheckCalls(c, nil)
+}
+
+func (s *servicesSuite) TestIsEnabledCheckFailed(c *gc.C) {
+	name := "jujud-unit-wordpress-0"
+	s.SetManaged(name, s.services)
+	s.Init.Returns.Enabled = true
+	s.Init.Returns.CheckPassed = false
+
+	_, err := s.services.IsEnabled(name)
+
+	c.Check(errors.Cause(err), gc.Equals, service.ErrNotManaged)
+	s.Stub.CheckCallNames(c, "IsEnabled", "Check")
 }
 
 func (s *servicesSuite) TestManage(c *gc.C) {
@@ -284,14 +409,18 @@ func (s *servicesSuite) TestManage(c *gc.C) {
 func (s *servicesSuite) TestRemove(c *gc.C) {
 }
 
+func (s *servicesSuite) TestIsManaged(c *gc.C) {
+}
+
+// TODO(ericsnow) Write the tests.
+
 func (s *servicesSuite) TestInstall(c *gc.C) {
 }
 
 func (s *servicesSuite) TestCheck(c *gc.C) {
 }
 
-func (s *servicesSuite) TestIsManaged(c *gc.C) {
-}
+// TODO(ericsnow) Write the tests.
 
 func (s *servicesSuite) TestNewService(c *gc.C) {
 }
