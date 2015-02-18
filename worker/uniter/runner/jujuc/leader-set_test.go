@@ -15,31 +15,31 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-type LeaderSetSuite struct {
+type leaderSetSuite struct {
 	jujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&LeaderSetSuite{})
+var _ = gc.Suite(&leaderSetSuite{})
 
-func (s *LeaderSetSuite) TestInitEmpty(c *gc.C) {
+func (s *leaderSetSuite) TestInitEmpty(c *gc.C) {
 	command := jujuc.NewLeaderSetCommand(nil)
 	err := command.Init(nil)
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *LeaderSetSuite) TestInitValues(c *gc.C) {
+func (s *leaderSetSuite) TestInitValues(c *gc.C) {
 	command := jujuc.NewLeaderSetCommand(nil)
 	err := command.Init([]string{"foo=bar", "baz=qux"})
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *LeaderSetSuite) TestInitError(c *gc.C) {
+func (s *leaderSetSuite) TestInitError(c *gc.C) {
 	command := jujuc.NewLeaderSetCommand(nil)
 	err := command.Init([]string{"nonsense"})
 	c.Check(err, gc.ErrorMatches, `expected "key=value", got "nonsense"`)
 }
 
-func (s *LeaderSetSuite) TestWriteEmpty(c *gc.C) {
+func (s *leaderSetSuite) TestWriteEmpty(c *gc.C) {
 	jujucContext := &leaderSetContext{}
 	command := jujuc.NewLeaderSetCommand(jujucContext)
 	runContext := testing.Context(c)
@@ -50,7 +50,7 @@ func (s *LeaderSetSuite) TestWriteEmpty(c *gc.C) {
 	c.Check(bufferString(runContext.Stderr), gc.Equals, "")
 }
 
-func (s *LeaderSetSuite) TestWriteValues(c *gc.C) {
+func (s *leaderSetSuite) TestWriteValues(c *gc.C) {
 	jujucContext := &leaderSetContext{}
 	command := jujuc.NewLeaderSetCommand(jujucContext)
 	runContext := testing.Context(c)
@@ -64,7 +64,7 @@ func (s *LeaderSetSuite) TestWriteValues(c *gc.C) {
 	c.Check(bufferString(runContext.Stderr), gc.Equals, "")
 }
 
-func (s *LeaderSetSuite) TestWriteError(c *gc.C) {
+func (s *leaderSetSuite) TestWriteError(c *gc.C) {
 	jujucContext := &leaderSetContext{err: errors.New("splat")}
 	command := jujuc.NewLeaderSetCommand(jujucContext)
 	runContext := testing.Context(c)

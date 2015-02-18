@@ -14,25 +14,25 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-type IsLeaderSuite struct {
+type isLeaderSuite struct {
 	jujutesting.IsolationSuite
 }
 
-var _ = gc.Suite(&IsLeaderSuite{})
+var _ = gc.Suite(&isLeaderSuite{})
 
-func (s *IsLeaderSuite) TestInitError(c *gc.C) {
+func (s *isLeaderSuite) TestInitError(c *gc.C) {
 	command := jujuc.NewIsLeaderCommand(nil)
 	err := command.Init([]string{"blah"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["blah"\]`)
 }
 
-func (s *IsLeaderSuite) TestInitSuccess(c *gc.C) {
+func (s *isLeaderSuite) TestInitSuccess(c *gc.C) {
 	command := jujuc.NewIsLeaderCommand(nil)
 	err := command.Init(nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *IsLeaderSuite) TestFormatError(c *gc.C) {
+func (s *isLeaderSuite) TestFormatError(c *gc.C) {
 	command := jujuc.NewIsLeaderCommand(nil)
 	runContext := testing.Context(c)
 	code := cmd.Main(command, runContext, []string{"--format", "bad"})
@@ -41,7 +41,7 @@ func (s *IsLeaderSuite) TestFormatError(c *gc.C) {
 	c.Check(bufferString(runContext.Stderr), gc.Equals, `error: invalid value "bad" for flag --format: unknown format "bad"`+"\n")
 }
 
-func (s *IsLeaderSuite) TestIsLeaderError(c *gc.C) {
+func (s *isLeaderSuite) TestIsLeaderError(c *gc.C) {
 	jujucContext := &isLeaderContext{err: errors.New("pow")}
 	command := jujuc.NewIsLeaderCommand(jujucContext)
 	runContext := testing.Context(c)
@@ -52,39 +52,39 @@ func (s *IsLeaderSuite) TestIsLeaderError(c *gc.C) {
 	c.Check(bufferString(runContext.Stderr), gc.Equals, "error: leadership status unknown: pow\n")
 }
 
-func (s *IsLeaderSuite) TestFormatDefaultYes(c *gc.C) {
+func (s *isLeaderSuite) TestFormatDefaultYes(c *gc.C) {
 	s.testOutput(c, true, nil, "True\n")
 }
 
-func (s *IsLeaderSuite) TestFormatDefaultNo(c *gc.C) {
+func (s *isLeaderSuite) TestFormatDefaultNo(c *gc.C) {
 	s.testOutput(c, false, nil, "False\n")
 }
 
-func (s *IsLeaderSuite) TestFormatSmartYes(c *gc.C) {
+func (s *isLeaderSuite) TestFormatSmartYes(c *gc.C) {
 	s.testOutput(c, true, []string{"--format", "smart"}, "True\n")
 }
 
-func (s *IsLeaderSuite) TestFormatSmartNo(c *gc.C) {
+func (s *isLeaderSuite) TestFormatSmartNo(c *gc.C) {
 	s.testOutput(c, false, []string{"--format", "smart"}, "False\n")
 }
 
-func (s *IsLeaderSuite) TestFormatYamlYes(c *gc.C) {
+func (s *isLeaderSuite) TestFormatYamlYes(c *gc.C) {
 	s.testParseOutput(c, true, []string{"--format", "yaml"}, jc.YAMLEquals)
 }
 
-func (s *IsLeaderSuite) TestFormatYamlNo(c *gc.C) {
+func (s *isLeaderSuite) TestFormatYamlNo(c *gc.C) {
 	s.testParseOutput(c, false, []string{"--format", "yaml"}, jc.YAMLEquals)
 }
 
-func (s *IsLeaderSuite) TestFormatJsonYes(c *gc.C) {
+func (s *isLeaderSuite) TestFormatJsonYes(c *gc.C) {
 	s.testParseOutput(c, true, []string{"--format", "json"}, jc.JSONEquals)
 }
 
-func (s *IsLeaderSuite) TestFormatJsonNo(c *gc.C) {
+func (s *isLeaderSuite) TestFormatJsonNo(c *gc.C) {
 	s.testParseOutput(c, false, []string{"--format", "json"}, jc.JSONEquals)
 }
 
-func (s *IsLeaderSuite) testOutput(c *gc.C, leader bool, args []string, expect string) {
+func (s *isLeaderSuite) testOutput(c *gc.C, leader bool, args []string, expect string) {
 	jujucContext := &isLeaderContext{leader: leader}
 	command := jujuc.NewIsLeaderCommand(jujucContext)
 	runContext := testing.Context(c)
@@ -95,7 +95,7 @@ func (s *IsLeaderSuite) testOutput(c *gc.C, leader bool, args []string, expect s
 	c.Check(bufferString(runContext.Stderr), gc.Equals, "")
 }
 
-func (s *IsLeaderSuite) testParseOutput(c *gc.C, leader bool, args []string, checker gc.Checker) {
+func (s *isLeaderSuite) testParseOutput(c *gc.C, leader bool, args []string, checker gc.Checker) {
 	jujucContext := &isLeaderContext{leader: leader}
 	command := jujuc.NewIsLeaderCommand(jujucContext)
 	runContext := testing.Context(c)
