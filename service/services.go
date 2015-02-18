@@ -144,7 +144,7 @@ func (s Services) Start(name string) error {
 
 	err := s.init.Start(name)
 	if errors.IsNotFound(err) {
-		return errors.Errorf("service %q not enabled", name)
+		return errors.Annotatef(err, "service %q not enabled", name)
 	}
 	if errors.IsAlreadyExists(err) {
 		// It is already started.
@@ -358,9 +358,6 @@ func (s Services) ensureManaged(name string) error {
 	}
 
 	enabled, err := s.init.IsEnabled(name)
-	if errors.IsNotFound(err) {
-		return nil
-	}
 	if err != nil {
 		return errors.Trace(err)
 	}
