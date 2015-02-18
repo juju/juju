@@ -13,8 +13,8 @@ type StubReturns struct {
 	Names       []string
 	Enabled     bool
 	CheckPassed bool
-	Info        *ServiceInfo
-	Conf        *Conf
+	Info        ServiceInfo
+	Conf        Conf
 	Data        []byte
 }
 
@@ -83,13 +83,13 @@ func (fi *Stub) Check(name, filename string) (bool, error) {
 }
 
 // Info implements InitSystem.
-func (fi *Stub) Info(name string) (*ServiceInfo, error) {
+func (fi *Stub) Info(name string) (ServiceInfo, error) {
 	fi.AddCall("Info", name)
 	return fi.Returns.Info, fi.NextErr()
 }
 
 // Conf implements InitSystem.
-func (fi *Stub) Conf(name string) (*Conf, error) {
+func (fi *Stub) Conf(name string) (Conf, error) {
 	fi.AddCall("Conf", name)
 	return fi.Returns.Conf, fi.NextErr()
 }
@@ -107,7 +107,7 @@ func (fi *Stub) Serialize(name string, conf Conf) ([]byte, error) {
 }
 
 // Deserialize implements InitSystem.
-func (fi *Stub) Deserialize(data []byte, name string) (*Conf, error) {
+func (fi *Stub) Deserialize(data []byte, name string) (Conf, error) {
 	fi.AddCall("Deserialize", data, name)
 	return fi.Returns.Conf, fi.NextErr()
 }

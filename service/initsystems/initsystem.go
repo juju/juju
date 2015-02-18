@@ -50,11 +50,11 @@ type InitSystem interface {
 
 	// Info gathers information about the named service and returns it.
 	// If the service is not enabled then errors.NotFound is returned.
-	Info(name string) (*ServiceInfo, error)
+	Info(name string) (ServiceInfo, error)
 
 	// Conf composes a Conf for the named service and returns it.
 	// If the service is not enabled then errors.NotFound is returned.
-	Conf(name string) (*Conf, error)
+	Conf(name string) (Conf, error)
 
 	// Validate checks the provided service name and conf to ensure
 	// that they are compatible with the init system. If a particular
@@ -73,5 +73,5 @@ type InitSystem interface {
 	// correspond to that file format then an error is returned.
 	// Validate is called on the conf before it is returned. If a name
 	// is provided then it must be valid for the provided data.
-	Deserialize(data []byte, name string) (*Conf, error)
+	Deserialize(data []byte, name string) (Conf, error)
 }

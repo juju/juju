@@ -44,7 +44,7 @@ type basicInitSystem interface {
 	Serialize(name string, conf Conf) ([]byte, error)
 
 	// Deserialize implements InitSystem.
-	Deserialize(data []byte, name string) (*Conf, error)
+	Deserialize(data []byte, name string) (Conf, error)
 }
 
 func newTracking(base basicInitSystem, fops ConfFileOperations) *Tracking {
@@ -119,7 +119,7 @@ func (is *Tracking) Enable(name, filename string) error {
 		return errors.Trace(err)
 	}
 
-	is.Services[name] = *conf
+	is.Services[name] = conf
 	is.Enabled.Add(name)
 	return nil
 }
@@ -147,9 +147,11 @@ func (is *Tracking) Check(name, filename string) (bool, error) {
 }
 
 // Info implements InitSystem.
-func (is *Tracking) Info(name string) (*ServiceInfo, error) {
+func (is *Tracking) Info(name string) (ServiceInfo, error) {
+	var info ServiceInfo
+
 	if err := EnsureEnabled(name, is); err != nil {
-		return nil, errors.Trace(err)
+		return info, errors.Trace(err)
 	}
 
 	status := StatusStopped
@@ -158,22 +160,23 @@ func (is *Tracking) Info(name string) (*ServiceInfo, error) {
 	}
 
 	conf := is.Services[name]
-	info := ServiceInfo{
+	info = ServiceInfo{
 		Name:        name,
 		Description: conf.Desc,
 		Status:      status,
 	}
-	return &info, nil
+	return info, nil
 }
 
 // Conf implements InitSystem.
-func (is *Tracking) Conf(name string) (*Conf, error) {
+func (is *Tracking) Conf(name string) (Conf, error) {
+	var conf Conf
+
 	if err := EnsureEnabled(name, is); err != nil {
-		return nil, errors.Trace(err)
+		return conf, errors.Trace(err)
 	}
 
-	conf := is.Services[name]
-	return &conf, nil
+	return is.Services[name], nil
 }
 
 // Validate implements InitSystem.
@@ -189,7 +192,7 @@ func (is *Tracking) Serialize(name string, conf Conf) ([]byte, error) {
 }
 
 // Deserialize implements InitSystem.
-func (is *Tracking) Deserialize(data []byte, name string) (*Conf, error) {
+func (is *Tracking) Deserialize(data []byte, name string) (Conf, error) {
 	conf, err := is.base.Deserialize(data, name)
 	return conf, errors.Trace(err)
 }
