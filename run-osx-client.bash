@@ -31,6 +31,7 @@ RELEASE_SCRIPTS=$HOME/juju-release-tools
 SCRIPTS=$HOME/juju-ci-tools
 WORKSPACE=$HOME/workspace
 JUJU_HOME=$HOME/.juju
+source $HOME/.bashrc
 source $HOME/cloud-city/juju-qa.jujuci
 set -x
 
