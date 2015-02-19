@@ -5,6 +5,7 @@ package runner_test
 
 import (
 	"path/filepath"
+	"runtime"
 
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -47,6 +48,9 @@ func (s *WindowsHookSuite) TestHookCommandNotPowerShellScripts(c *gc.C) {
 }
 
 func (s *WindowsHookSuite) TestSearchHookUbuntu(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Cannot search for executables without extension on windows")
+	}
 	restorer := envtesting.PatchValue(&version.Current.OS, version.Ubuntu)
 	defer restorer()
 
@@ -92,6 +96,6 @@ func (s *WindowsHookSuite) TestSearchHookWindowsError(c *gc.C) {
 	}, charmDir)
 
 	obtained, err := runner.SearchHook(charmDir, filepath.Join("hooks", "something-happened"))
-	c.Assert(err, gc.ErrorMatches, "hooks/something-happened does not exist")
+	c.Assert(err.Error(), gc.Equals, filepath.FromSlash("hooks/something-happened does not exist"))
 	c.Assert(obtained, gc.Equals, "")
 }

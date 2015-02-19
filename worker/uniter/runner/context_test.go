@@ -5,6 +5,7 @@ package runner_test
 
 import (
 	"os"
+	"runtime"
 	"syscall"
 
 	jc "github.com/juju/testing/checkers"
@@ -211,12 +212,15 @@ func (s *InterfaceSuite) startProcess(c *gc.C) *os.Process {
 }
 
 func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: Cannot send sigterm on windows")
+	}
 	ctx := runner.HookContext{}
 	p := s.startProcess(c)
 	ctx.SetProcess(p)
 	err := ctx.RequestReboot(jujuc.RebootAfterHook)
 	c.Assert(err, jc.ErrorIsNil)
-	err = syscall.Kill(p.Pid, syscall.SIGTERM)
+	err = p.Signal(syscall.SIGTERM)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = p.Wait()
 	c.Assert(err, jc.ErrorIsNil)

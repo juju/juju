@@ -76,7 +76,7 @@ func (s *ActionFailSuite) TestActionFail(c *gc.C) {
 	for i, t := range actionFailTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := &actionFailContext{}
-		com, err := jujuc.NewCommand(hctx, "action-fail")
+		com, err := jujuc.NewCommand(hctx, cmdString("action-fail"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.command)
@@ -89,7 +89,7 @@ func (s *ActionFailSuite) TestActionFail(c *gc.C) {
 
 func (s *ActionFailSuite) TestNonActionSetActionFailedFails(c *gc.C) {
 	hctx := &nonActionFailContext{}
-	com, err := jujuc.NewCommand(hctx, "action-fail")
+	com, err := jujuc.NewCommand(hctx, cmdString("action-fail"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"oops"})
@@ -100,7 +100,7 @@ func (s *ActionFailSuite) TestNonActionSetActionFailedFails(c *gc.C) {
 
 func (s *ActionFailSuite) TestHelp(c *gc.C) {
 	hctx := &Context{}
-	com, err := jujuc.NewCommand(hctx, "action-fail")
+	com, err := jujuc.NewCommand(hctx, cmdString("action-fail"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
