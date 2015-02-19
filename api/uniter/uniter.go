@@ -350,7 +350,8 @@ func (st *State) AllMachinePorts(machineTag names.MachineTag) (map[network.PortR
 	}
 	portsMap := make(map[network.PortRange]params.RelationUnit)
 	for _, ports := range result.Ports {
-		portsMap[ports.PortRange] = params.RelationUnit{
+		portRange := ports.PortRange.NetworkPortRange()
+		portsMap[portRange] = params.RelationUnit{
 			Unit:     ports.UnitTag,
 			Relation: ports.RelationTag,
 		}

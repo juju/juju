@@ -575,7 +575,7 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.I
 		if !visitedNetworks.Contains(networkTag) {
 			networks = append(networks, params.Network{
 				Tag:        networkTag,
-				ProviderId: info.ProviderId,
+				ProviderId: string(info.ProviderId),
 				CIDR:       info.CIDR,
 				VLANTag:    info.VLANTag,
 			})

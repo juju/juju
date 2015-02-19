@@ -59,7 +59,7 @@ func (m *Machine) SetMachineAddresses(addresses []network.Address) error {
 	var result params.ErrorResults
 	args := params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{
-			{Tag: m.Tag().String(), Addresses: addresses},
+			{Tag: m.Tag().String(), Addresses: params.FromNetworkAddresses(addresses)},
 		},
 	}
 	err := m.st.facade.FacadeCall("SetMachineAddresses", args, &result)

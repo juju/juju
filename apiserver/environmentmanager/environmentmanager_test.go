@@ -126,30 +126,30 @@ func (s *envManagerSuite) TestRestrictedProviderFields(c *gc.C) {
 		{
 			provider: "azure",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert",
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
 				"location"},
 		}, {
 			provider: "dummy",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert"},
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key"},
 		}, {
 			provider: "joyent",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert"},
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key"},
 		}, {
 			provider: "local",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert",
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
 				"container", "network-bridge", "root-dir"},
 		}, {
 			provider: "maas",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert",
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
 				"maas-server"},
 		}, {
 			provider: "openstack",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert",
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
 				"region", "auth-url", "auth-mode"},
 		},
 	} {
@@ -232,6 +232,10 @@ func (s *envManagerSuite) TestCreateEnvironmentBadConfig(c *gc.C) {
 			key:      "rsyslog-ca-cert",
 			value:    "some-cert",
 			errMatch: `specified rsyslog-ca-cert "some-cert" does not match apiserver ".*"`,
+		}, {
+			key:      "rsyslog-ca-key",
+			value:    "some-key",
+			errMatch: `specified rsyslog-ca-key "some-key" does not match apiserver ".*"`,
 		},
 	} {
 		c.Logf("%d: %s", i, test.key)

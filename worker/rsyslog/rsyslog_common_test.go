@@ -80,7 +80,10 @@ func (s *RsyslogSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
-	err := s.APIState.Client().EnvironmentSet(map[string]interface{}{"rsyslog-ca-cert": coretesting.CACert})
+	err := s.APIState.Client().EnvironmentSet(map[string]interface{}{
+		"rsyslog-ca-cert": coretesting.CACert,
+		"rsyslog-ca-key":  coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	st, m := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	addrs := []string{"0.1.2.3", "0.2.4.6"}

@@ -812,6 +812,16 @@ func (c *Config) RsyslogCACert() string {
 	return ""
 }
 
+// RsyslogCAKey returns the key of the CA that signed the
+// rsyslog certificate, in PEM format, or nil if one hasn't been
+// generated yet.
+func (c *Config) RsyslogCAKey() string {
+	if s, ok := c.defined["rsyslog-ca-key"]; ok {
+		return s.(string)
+	}
+	return ""
+}
+
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
@@ -1167,6 +1177,7 @@ var fields = schema.Fields{
 	"api-port":                   schema.ForceInt(),
 	"syslog-port":                schema.ForceInt(),
 	"rsyslog-ca-cert":            schema.String(),
+	"rsyslog-ca-key":             schema.String(),
 	"logging-config":             schema.String(),
 	"charm-store-auth":           schema.String(),
 	ProvisionerHarvestModeKey:    schema.String(),
@@ -1222,6 +1233,7 @@ var alwaysOptional = schema.Defaults{
 	"bootstrap-retry-delay":      schema.Omit,
 	"bootstrap-addresses-delay":  schema.Omit,
 	"rsyslog-ca-cert":            schema.Omit,
+	"rsyslog-ca-key":             schema.Omit,
 	HttpProxyKey:                 schema.Omit,
 	HttpsProxyKey:                schema.Omit,
 	FtpProxyKey:                  schema.Omit,
