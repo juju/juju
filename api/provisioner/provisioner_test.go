@@ -337,13 +337,13 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 		tag, err := names.ParseNetworkTag(networks[i].Tag)
 		c.Assert(err, jc.ErrorIsNil)
 		networkName := tag.Id()
-		network, err := s.State.Network(networkName)
+		nw, err := s.State.Network(networkName)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(network.Name(), gc.Equals, networkName)
-		c.Check(network.ProviderId(), gc.Equals, networks[i].ProviderId)
-		c.Check(network.Tag().String(), gc.Equals, networks[i].Tag)
-		c.Check(network.VLANTag(), gc.Equals, networks[i].VLANTag)
-		c.Check(network.CIDR(), gc.Equals, networks[i].CIDR)
+		c.Check(nw.Name(), gc.Equals, networkName)
+		c.Check(nw.ProviderId(), gc.Equals, network.Id(networks[i].ProviderId))
+		c.Check(nw.Tag().String(), gc.Equals, networks[i].Tag)
+		c.Check(nw.VLANTag(), gc.Equals, networks[i].VLANTag)
+		c.Check(nw.CIDR(), gc.Equals, networks[i].CIDR)
 	}
 
 	// And the network interfaces as well.

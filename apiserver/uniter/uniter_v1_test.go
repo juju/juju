@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/uniter"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -413,10 +412,10 @@ func (s *uniterV1Suite) TestAllMachinePorts(c *gc.C) {
 		{Tag: "service-wordpress"},
 	}}
 	expectPorts := []params.MachinePortRange{
-		{UnitTag: "unit-wordpress-0", PortRange: network.PortRange{100, 200, "tcp"}},
-		{UnitTag: "unit-mysql-1", PortRange: network.PortRange{201, 250, "tcp"}},
-		{UnitTag: "unit-mysql-1", PortRange: network.PortRange{1, 8, "udp"}},
-		{UnitTag: "unit-wordpress-0", PortRange: network.PortRange{10, 20, "udp"}},
+		{UnitTag: "unit-wordpress-0", PortRange: params.PortRange{100, 200, "tcp"}},
+		{UnitTag: "unit-mysql-1", PortRange: params.PortRange{201, 250, "tcp"}},
+		{UnitTag: "unit-mysql-1", PortRange: params.PortRange{1, 8, "udp"}},
+		{UnitTag: "unit-wordpress-0", PortRange: params.PortRange{10, 20, "udp"}},
 	}
 	result, err := s.uniter.AllMachinePorts(args)
 	c.Assert(err, jc.ErrorIsNil)

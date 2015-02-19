@@ -66,7 +66,7 @@ func (a *APIAddresser) APIHostPorts() ([][]network.HostPort, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.Servers, nil
+	return result.NetworkHostsPorts(), nil
 }
 
 // WatchAPIHostPorts watches the host/port addresses of the API servers.

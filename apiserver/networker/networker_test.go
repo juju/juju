@@ -197,8 +197,8 @@ func (s *networkerSuite) TestMachineNetworkInfoPermissions(c *gc.C) {
 	}}
 	results, err := s.networker.MachineNetworkInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.MachineNetworkInfoResults{
-		Results: []params.MachineNetworkInfoResult{
+	c.Assert(results, gc.DeepEquals, params.MachineNetworkConfigResults{
+		Results: []params.MachineNetworkConfigResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -210,14 +210,14 @@ func (s *networkerSuite) TestMachineNetworkInfoPermissions(c *gc.C) {
 	})
 }
 
-func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
+func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 	// TODO(bogdanteleaga): Find out what's the problem with this test
 	// It seems to work on some machines
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: currently does not work on windows")
 	}
-	// Expected results of MachineNetworkInfo for a machine and containers
-	expectedMachineInfo := []params.NetworkInfo{{
+	// Expected results of MachineNetworkConfig for a machine and containers
+	expectedMachineConfig := []params.NetworkConfig{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		CIDR:          "0.1.2.0/24",
 		NetworkName:   "net1",
@@ -254,7 +254,7 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		InterfaceName: "eth2",
 		Disabled:      true,
 	}}
-	expectedContainerInfo := []params.NetworkInfo{{
+	expectedContainerConfig := []params.NetworkConfig{{
 		MACAddress:    "aa:bb:cc:dd:ee:e0",
 		CIDR:          "0.1.2.0/24",
 		NetworkName:   "net1",
@@ -276,7 +276,7 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		VLANTag:       42,
 		InterfaceName: "eth1",
 	}}
-	expectedNestedContainerInfo := []params.NetworkInfo{{
+	expectedNestedContainerConfig := []params.NetworkConfig{{
 		MACAddress:    "aa:bb:cc:dd:ee:d0",
 		CIDR:          "0.1.2.0/24",
 		NetworkName:   "net1",
@@ -292,11 +292,11 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 	}}
 	results, err := s.networker.MachineNetworkInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.MachineNetworkInfoResults{
-		Results: []params.MachineNetworkInfoResult{
-			{Error: nil, Info: expectedMachineInfo},
-			{Error: nil, Info: expectedContainerInfo},
-			{Error: nil, Info: expectedNestedContainerInfo},
+	c.Assert(results, gc.DeepEquals, params.MachineNetworkConfigResults{
+		Results: []params.MachineNetworkConfigResult{
+			{Error: nil, Config: expectedMachineConfig},
+			{Error: nil, Config: expectedContainerConfig},
+			{Error: nil, Config: expectedNestedContainerConfig},
 		},
 	})
 }

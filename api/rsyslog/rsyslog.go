@@ -93,6 +93,6 @@ func (st *State) GetRsyslogConfig(agentTag string) (*RsyslogConfig, error) {
 	return &RsyslogConfig{
 		CACert:    result.CACert,
 		Port:      result.Port,
-		HostPorts: result.HostPorts,
+		HostPorts: params.NetworkHostPorts(result.HostPorts),
 	}, nil
 }

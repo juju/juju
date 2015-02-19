@@ -43,7 +43,7 @@ func (api *APIAddresser) APIHostPorts() (params.APIHostPortsResult, error) {
 		return params.APIHostPortsResult{}, err
 	}
 	return params.APIHostPortsResult{
-		Servers: servers,
+		Servers: params.FromNetworkHostsPorts(servers),
 	}, nil
 }
 

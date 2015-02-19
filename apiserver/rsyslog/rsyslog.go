@@ -74,7 +74,7 @@ func (api *RsyslogAPI) GetRsyslogConfig(args params.Entities) (params.RsyslogCon
 			result.Results[i] = params.RsyslogConfigResult{
 				CACert:    rsyslogCfg.CACert,
 				Port:      rsyslogCfg.Port,
-				HostPorts: rsyslogCfg.HostPorts,
+				HostPorts: params.FromNetworkHostPorts(rsyslogCfg.HostPorts),
 			}
 		} else {
 			result.Results[i].Error = common.ServerError(err)

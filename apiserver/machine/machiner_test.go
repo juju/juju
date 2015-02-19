@@ -161,9 +161,9 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	}
 
 	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{
-		{Tag: "machine-1", Addresses: addresses},
-		{Tag: "machine-0", Addresses: addresses},
-		{Tag: "machine-42", Addresses: addresses},
+		{Tag: "machine-1", Addresses: params.FromNetworkAddresses(addresses)},
+		{Tag: "machine-0", Addresses: params.FromNetworkAddresses(addresses)},
+		{Tag: "machine-42", Addresses: params.FromNetworkAddresses(addresses)},
 	}}
 
 	result, err := s.machiner.SetMachineAddresses(args)
