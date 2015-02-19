@@ -58,6 +58,9 @@ type BaseSuiteUnpatched struct {
 	Ports []network.PortRange
 }
 
+var _ environs.Environ = (*environ)(nil)
+var _ simplestreams.HasRegion = (*environ)(nil)
+
 func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 

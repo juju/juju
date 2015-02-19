@@ -50,9 +50,6 @@ type environ struct {
 	supportedArchitectures []string
 }
 
-var _ environs.Environ = (*environ)(nil)
-var _ simplestreams.HasRegion = (*environ)(nil)
-
 func newEnviron(ecfg *environConfig) (*environ, error) {
 	uuid, ok := ecfg.UUID()
 	if !ok {
