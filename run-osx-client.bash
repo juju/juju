@@ -30,8 +30,7 @@ set -eu
 RELEASE_SCRIPTS=$HOME/juju-release-tools
 SCRIPTS=$HOME/juju-ci-tools
 WORKSPACE=$HOME/workspace
-JUJU_HOME=$HOME/cloud-city
-source $JUJU_HOME/juju-qa.jujuci
+source $HOME/cloud-city/juju-qa.jujuci
 set -x
 
 cd $WORKSPACE
