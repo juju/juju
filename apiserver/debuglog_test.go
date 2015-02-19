@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type debugLogSuite struct {
@@ -53,6 +54,21 @@ func (s *debugLogSuite) TestNoAuth(c *gc.C) {
 	reader := bufio.NewReader(conn)
 
 	s.assertErrorResponse(c, reader, "auth failed: invalid request format")
+	s.assertWebsocketClosed(c, reader)
+}
+
+func (s *debugLogSuite) TestAgentLoginsRejected(c *gc.C) {
+	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Nonce: "foo-nonce",
+	})
+	header := utils.BasicAuthHeader(m.Tag().String(), password)
+	header.Add("X-Juju-Nonce", "foo-nonce")
+	conn, err := s.dialWebsocketInternal(c, nil, header)
+	c.Assert(err, jc.ErrorIsNil)
+	defer conn.Close()
+	reader := bufio.NewReader(conn)
+
+	s.assertErrorResponse(c, reader, "auth failed: invalid entity name or password")
 	s.assertWebsocketClosed(c, reader)
 }
 
