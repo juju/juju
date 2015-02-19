@@ -75,9 +75,11 @@ func (sc serviceConfigs) list() ([]string, error) {
 		}
 
 		info := initsystems.NewConfDirInfo(name, sc.baseDir, sc.initSystem)
-		if _, err := info.Read(sc.fops); err == nil {
-			names = append(names, name)
+		if _, err := info.Read(sc.fops); err != nil {
+			continue
 		}
+
+		names = append(names, name)
 	}
 	return names, nil
 }

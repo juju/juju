@@ -39,9 +39,15 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		Cmd:  "spam",
 	}}
 
+	// In the context of the `service` package, the particular init
+	// system is not significant. Nothing in the package should rely on
+	// any specific init system. So here we simply picked one.
+	initName := InitSystemUpstart
+
 	// Patch a few things.
 	s.Stub = &testing.Stub{}
 	s.Init = &initsystems.Stub{Stub: s.Stub}
+	s.Init.Returns.Name = initName
 	s.File = &fs.StubFile{Stub: s.Stub}
 	s.Files = &fs.StubOps{Stub: s.Stub}
 	s.Files.Returns.File = s.File
@@ -52,14 +58,61 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	name := "jujud-machine-0"
 	initDir := s.DataDir + "/init"
-	// In the context of the `service` package, the particular init
-	// system is not significant. Nothing in the package should rely on
-	// any specific init system. So here we simply picked one.
-	s.ConfDir = initsystems.NewConfDirInfo(name, initDir, InitSystemUpstart)
+	s.ConfDir = initsystems.NewConfDirInfo(name, initDir, initName)
 }
 
 func (s *BaseSuite) SetManaged(name string, services *Services) {
 	services.configs.names = append(services.configs.names, name)
+}
+
+const (
+	ConfDirReadCalls       = "<ConfDir.Read>"
+	ConfDirPopulateCalls   = "<ConfDir.Populate>"
+	ConfDirWriteCalls      = "<ConfDir.Write>"
+	ConfDirCreateFileCalls = "<ConfDir.CreateFile>"
+	ManageCalls            = "<serviceConfigs.add>"
+)
+
+func (s *BaseSuite) appendCallName(names []string, name string) []string {
+	switch name {
+	case ConfDirReadCalls:
+		names = append(names, []string{
+			"ReadFile",
+			"ReadFile",
+			"ListDir",
+		}...)
+	case ConfDirPopulateCalls:
+		names = append(names, []string{
+			"Name",
+			"Validate",
+			"Validate",
+			"Serialize",
+		}...)
+	case ConfDirCreateFileCalls:
+		names = append(names, []string{
+			"CreateFile",
+			"Write",
+			"Close",
+		}...)
+	case ConfDirWriteCalls:
+		names = append(names, "MkdirAll")
+		names = s.appendCallName(names, ConfDirCreateFileCalls)
+		names = s.appendCallName(names, ConfDirCreateFileCalls)
+	case ManageCalls:
+		names = s.appendCallName(names, ConfDirPopulateCalls)
+		names = s.appendCallName(names, ConfDirWriteCalls)
+	default:
+		names = append(names, name)
+	}
+	return names
+}
+
+func (s *BaseSuite) CheckCallNames(c *gc.C, names ...string) {
+	var expanded []string
+	for _, name := range names {
+		expanded = s.appendCallName(expanded, name)
+	}
+	s.Stub.CheckCallNames(c, expanded...)
 }
 
 func newStubFile(name string, data []byte) os.FileInfo {

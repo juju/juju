@@ -94,9 +94,13 @@ func (s Services) ListEnabled() ([]string, error) {
 
 	var names []string
 	for _, managed := range s.configs.names {
-		confDir := s.configs.lookup(managed)
-		if confDir == nil {
+		info := s.configs.lookup(managed)
+		if info == nil {
 			continue
+		}
+		confDir, err := info.Read(s.configs.fops)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 
 		var name string
@@ -111,7 +115,7 @@ func (s Services) ListEnabled() ([]string, error) {
 		}
 
 		// Make sure it is the juju-managed service.
-		same, err := s.init.Check(name, confDir.filename())
+		same, err := s.init.Check(name, confDir.Filename())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -185,19 +189,23 @@ func (s Services) IsRunning(name string) (bool, error) {
 
 // Enable adds the named service to the underlying init system.
 func (s Services) Enable(name string) error {
-	confDir := s.configs.lookup(name)
-	if confDir == nil {
+	info := s.configs.lookup(name)
+	if info == nil {
 		return errors.NotFoundf("service %q", name)
+	}
+	confDir, err := info.Read(s.configs.fops)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	return s.enable(name, confDir)
 }
 
-func (s Services) enable(name string, confDir *confDir) error {
-	err := s.init.Enable(name, confDir.filename())
+func (s Services) enable(name string, confDir initsystems.ConfDir) error {
+	err := s.init.Enable(name, confDir.Filename())
 	if errors.IsAlreadyExists(err) {
 		// It is already enabled. Make sure the enabled one is
 		// managed by juju.
-		same, err := s.init.Check(name, confDir.filename())
+		same, err := s.init.Check(name, confDir.Filename())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -257,17 +265,22 @@ func (s Services) Manage(name string, conf Conf) error {
 // removal takes place. If the service is not managed by juju then
 // nothing happens.
 func (s Services) Remove(name string) error {
-	confDir := s.configs.lookup(name)
-	if confDir == nil {
+	info := s.configs.lookup(name)
+	if info == nil {
 		return nil
 	}
+	confDir, err := info.Read(s.configs.fops)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	enabled, err := s.init.IsEnabled(name)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if enabled {
 		// We must do this before removing the conf directory.
-		same, err := s.init.Check(name, confDir.filename())
+		same, err := s.init.Check(name, confDir.Filename())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -311,7 +324,14 @@ func (s Services) Install(name string, conf Conf) error {
 	if err := s.Manage(name, conf); err != nil {
 		return errors.Trace(err)
 	}
-	confDir := s.configs.lookup(name)
+	info := s.configs.lookup(name)
+	if info == nil {
+		return errors.Errorf("conf dir for %q not found", name)
+	}
+	confDir, err := info.Read(s.configs.fops)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if err := s.enable(name, confDir); err != nil {
 		return errors.Trace(err)
 	}
@@ -331,10 +351,7 @@ func (s Services) Check(name string, conf Conf) (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	expected, err := conf.normalize()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
+	expected := conf.normalize()
 
 	return reflect.DeepEqual(actual, expected), nil
 }
@@ -358,9 +375,13 @@ func (s Services) NewAgentService(tag names.Tag, paths AgentPaths, env map[strin
 }
 
 func (s Services) ensureManaged(name string) error {
-	confDir := s.configs.lookup(name)
-	if confDir == nil {
+	info := s.configs.lookup(name)
+	if info == nil {
 		return errors.NotFoundf("service %q", name)
+	}
+	confDir, err := info.Read(s.configs.fops)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	enabled, err := s.init.IsEnabled(name)
@@ -372,7 +393,7 @@ func (s Services) ensureManaged(name string) error {
 	}
 
 	// Make sure that the juju-managed conf matches the enabled one.
-	same, err := s.init.Check(name, confDir.filename())
+	same, err := s.init.Check(name, confDir.Filename())
 	if errors.IsNotSupported(err) {
 		// We'll just have to trust.
 		return nil

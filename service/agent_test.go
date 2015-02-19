@@ -26,6 +26,8 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 
 	s.services = service.NewServices(c.MkDir(), s.Init)
 	s.Stub.Calls = nil
+
+	s.Files.Returns.Data = []byte("{}")
 }
 
 func (s *agentSuite) TestListAgents(c *gc.C) {

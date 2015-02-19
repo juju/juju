@@ -26,6 +26,13 @@ func (s *servicesSuite) SetUpTest(c *gc.C) {
 
 	s.services = service.NewServices(c.MkDir(), s.Init)
 	s.Stub.Calls = nil
+
+	s.Files.Returns.Data = []byte("{}")
+}
+
+func (s *servicesSuite) setPostReadErrors(errs ...error) {
+	confDirReadErrors := []error{nil, nil, nil} // ReadFile, ReadFile, ListDir
+	s.Stub.SetErrors(append(confDirReadErrors, errs...)...)
 }
 
 func (s *servicesSuite) TestInitSystem(c *gc.C) {
@@ -92,7 +99,12 @@ func (s *servicesSuite) TestStart(c *gc.C) {
 	err := s.services.Start(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "IsEnabled", "Check", "Start")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"Check",
+		"Start",
+	)
 }
 
 func (s *servicesSuite) TestStartAlreadyStarted(c *gc.C) {
@@ -101,12 +113,17 @@ func (s *servicesSuite) TestStartAlreadyStarted(c *gc.C) {
 	s.Init.Returns.Enabled = true
 	s.Init.Returns.CheckPassed = true
 	failure := errors.AlreadyExistsf(name)
-	s.Stub.SetErrors(nil, failure) // IsEnabled, Start
+	s.setPostReadErrors(nil, failure) // IsEnabled, Start
 
 	err := s.services.Start(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "IsEnabled", "Check", "Start")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"Check",
+		"Start",
+	)
 }
 
 func (s *servicesSuite) TestStartNotManaged(c *gc.C) {
@@ -125,7 +142,11 @@ func (s *servicesSuite) TestStartCheckFailed(c *gc.C) {
 	err := s.services.Start(name)
 
 	c.Check(errors.Cause(err), gc.Equals, service.ErrNotManaged)
-	s.Stub.CheckCallNames(c, "IsEnabled", "Check")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"Check",
+	)
 }
 
 func (s *servicesSuite) TestStartNotEnabled(c *gc.C) {
@@ -133,12 +154,16 @@ func (s *servicesSuite) TestStartNotEnabled(c *gc.C) {
 	s.SetManaged(name, s.services)
 	s.Init.Returns.Enabled = false
 	failure := errors.NotFoundf(name)
-	s.Stub.SetErrors(nil, failure) // IsEnabled, Start
+	s.setPostReadErrors(nil, failure) // IsEnabled, Start
 
 	err := s.services.Start(name)
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
-	s.Stub.CheckCallNames(c, "IsEnabled", "Start")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"Start",
+	)
 }
 
 func (s *servicesSuite) TestStop(c *gc.C) {
@@ -150,20 +175,30 @@ func (s *servicesSuite) TestStop(c *gc.C) {
 	err := s.services.Stop(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "IsEnabled", "Check", "Stop")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"Check",
+		"Stop",
+	)
 }
 
 func (s *servicesSuite) TestStopNotRunning(c *gc.C) {
 	name := "jujud-unit-wordpress-0"
 	s.SetManaged(name, s.services)
+	s.Files.Returns.Data = []byte("{}")
 	s.Init.Returns.Enabled = false
 	failure := errors.NotFoundf(name)
-	s.Stub.SetErrors(nil, failure) // IsEnabled, Stop
+	s.setPostReadErrors(nil, failure) // IsEnabled, Stop
 
 	err := s.services.Stop(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "IsEnabled", "Stop")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"Stop",
+	)
 }
 
 func (s *servicesSuite) TestStopNotManaged(c *gc.C) {
@@ -182,7 +217,11 @@ func (s *servicesSuite) TestStopCheckFailed(c *gc.C) {
 	err := s.services.Stop(name)
 
 	c.Check(errors.Cause(err), gc.Equals, service.ErrNotManaged)
-	s.Stub.CheckCallNames(c, "IsEnabled", "Check")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"Check",
+	)
 }
 
 func (s *servicesSuite) TestStopNotEnabled(c *gc.C) {
@@ -190,12 +229,16 @@ func (s *servicesSuite) TestStopNotEnabled(c *gc.C) {
 	s.SetManaged(name, s.services)
 	s.Init.Returns.Enabled = false
 	failure := errors.NotFoundf(name)
-	s.Stub.SetErrors(nil, failure) // IsEnabled, Stop
+	s.setPostReadErrors(nil, failure) // IsEnabled, Stop
 
 	err := s.services.Stop(name)
 	c.Check(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "IsEnabled", "Stop")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"Stop",
+	)
 }
 
 func (s *servicesSuite) TestIsRunningTrue(c *gc.C) {
@@ -203,7 +246,7 @@ func (s *servicesSuite) TestIsRunningTrue(c *gc.C) {
 	s.SetManaged(name, s.services)
 	s.Init.Returns.Enabled = true
 	s.Init.Returns.CheckPassed = true
-	s.Init.Returns.Info = &initsystems.ServiceInfo{
+	s.Init.Returns.Info = initsystems.ServiceInfo{
 		Status: initsystems.StatusRunning,
 	}
 
@@ -211,7 +254,12 @@ func (s *servicesSuite) TestIsRunningTrue(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(running, jc.IsTrue)
-	s.Stub.CheckCallNames(c, "IsEnabled", "Check", "Info")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"Check",
+		"Info",
+	)
 }
 
 func (s *servicesSuite) TestIsRunningFalse(c *gc.C) {
@@ -219,7 +267,7 @@ func (s *servicesSuite) TestIsRunningFalse(c *gc.C) {
 	s.SetManaged(name, s.services)
 	s.Init.Returns.Enabled = true
 	s.Init.Returns.CheckPassed = true
-	s.Init.Returns.Info = &initsystems.ServiceInfo{
+	s.Init.Returns.Info = initsystems.ServiceInfo{
 		Status: initsystems.StatusStopped,
 	}
 
@@ -227,7 +275,12 @@ func (s *servicesSuite) TestIsRunningFalse(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(running, jc.IsFalse)
-	s.Stub.CheckCallNames(c, "IsEnabled", "Check", "Info")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"Check",
+		"Info",
+	)
 }
 
 func (s *servicesSuite) TestIsRunningNotManaged(c *gc.C) {
@@ -247,7 +300,11 @@ func (s *servicesSuite) TestIsRunningCheckFailed(c *gc.C) {
 	_, err := s.services.IsRunning(name)
 
 	c.Check(errors.Cause(err), gc.Equals, service.ErrNotManaged)
-	s.Stub.CheckCallNames(c, "IsEnabled", "Check")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"Check",
+	)
 }
 
 func (s *servicesSuite) TestIsRunningNotEnabled(c *gc.C) {
@@ -255,13 +312,17 @@ func (s *servicesSuite) TestIsRunningNotEnabled(c *gc.C) {
 	s.SetManaged(name, s.services)
 	s.Init.Returns.Enabled = false
 	failure := errors.NotFoundf(name)
-	s.Stub.SetErrors(nil, failure) // IsEnabled, IsRunning
+	s.setPostReadErrors(nil, failure) // IsEnabled, IsRunning
 
 	running, err := s.services.IsRunning(name)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(running, jc.IsFalse)
-	s.Stub.CheckCallNames(c, "IsEnabled", "Info")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"Info",
+	)
 }
 
 func (s *servicesSuite) TestEnable(c *gc.C) {
@@ -272,7 +333,10 @@ func (s *servicesSuite) TestEnable(c *gc.C) {
 	err := s.services.Enable(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "Enable")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"Enable",
+	)
 }
 
 func (s *servicesSuite) TestEnableNotManaged(c *gc.C) {
@@ -288,12 +352,16 @@ func (s *servicesSuite) TestEnableAlreadyEnabled(c *gc.C) {
 	s.SetManaged(name, s.services)
 	s.Init.Returns.CheckPassed = true
 	failure := errors.AlreadyExistsf(name)
-	s.Stub.SetErrors(failure) // Enable
+	s.setPostReadErrors(failure) // Enable
 
 	err := s.services.Enable(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "Enable", "Check")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"Enable",
+		"Check",
+	)
 }
 
 func (s *servicesSuite) TestEnableCheckFailed(c *gc.C) {
@@ -301,12 +369,16 @@ func (s *servicesSuite) TestEnableCheckFailed(c *gc.C) {
 	s.SetManaged(name, s.services)
 	s.Init.Returns.CheckPassed = false
 	failure := errors.AlreadyExistsf(name)
-	s.Stub.SetErrors(failure) // Enable
+	s.setPostReadErrors(failure) // Enable
 
 	err := s.services.Enable(name)
 
 	c.Check(errors.Cause(err), gc.Equals, service.ErrNotManaged)
-	s.Stub.CheckCallNames(c, "Enable", "Check")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"Enable",
+		"Check",
+	)
 }
 
 func (s *servicesSuite) TestDisable(c *gc.C) {
@@ -318,7 +390,12 @@ func (s *servicesSuite) TestDisable(c *gc.C) {
 	err := s.services.Disable(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "IsEnabled", "Check", "Disable")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"Check",
+		"Disable",
+	)
 }
 
 func (s *servicesSuite) TestDisableNotManaged(c *gc.C) {
@@ -334,12 +411,16 @@ func (s *servicesSuite) TestDisableNotEnabled(c *gc.C) {
 	s.SetManaged(name, s.services)
 	s.Init.Returns.Enabled = false
 	failure := errors.NotFoundf(name)
-	s.Stub.SetErrors(nil, failure) // IsEnabled, Disable
+	s.setPostReadErrors(nil, failure) // IsEnabled, Disable
 
 	err := s.services.Disable(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "IsEnabled", "Disable")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"Disable",
+	)
 }
 
 func (s *servicesSuite) TestDisableCheckFailed(c *gc.C) {
@@ -351,7 +432,11 @@ func (s *servicesSuite) TestDisableCheckFailed(c *gc.C) {
 	err := s.services.Disable(name)
 
 	c.Check(errors.Cause(err), gc.Equals, service.ErrNotManaged)
-	s.Stub.CheckCallNames(c, "IsEnabled", "Check")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"Check",
+	)
 }
 
 func (s *servicesSuite) TestIsEnabledTrue(c *gc.C) {
@@ -364,7 +449,12 @@ func (s *servicesSuite) TestIsEnabledTrue(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(enabled, jc.IsTrue)
-	s.Stub.CheckCallNames(c, "IsEnabled", "Check", "IsEnabled")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"Check",
+		"IsEnabled",
+	)
 }
 
 func (s *servicesSuite) TestIsEnabledFalse(c *gc.C) {
@@ -376,7 +466,11 @@ func (s *servicesSuite) TestIsEnabledFalse(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(enabled, jc.IsFalse)
-	s.Stub.CheckCallNames(c, "IsEnabled", "IsEnabled")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"IsEnabled",
+	)
 }
 
 func (s *servicesSuite) TestIsEnabledNotManaged(c *gc.C) {
@@ -397,22 +491,20 @@ func (s *servicesSuite) TestIsEnabledCheckFailed(c *gc.C) {
 	_, err := s.services.IsEnabled(name)
 
 	c.Check(errors.Cause(err), gc.Equals, service.ErrNotManaged)
-	s.Stub.CheckCallNames(c, "IsEnabled", "Check")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"Check",
+	)
 }
 
 func (s *servicesSuite) TestManage(c *gc.C) {
 	name := "jujud-unit-wordpress-0"
-	err := s.services.Manage(name, *s.Conf)
+	err := s.services.Manage(name, s.Conf)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c,
-		"Exists",
-		"MkdirAll",
-		"Serialize",
-		"CreateFile",
-		"Write",
-		"Close",
-		"Chmod",
+	s.CheckCallNames(c,
+		service.ManageCalls,
 	)
 }
 
@@ -420,7 +512,7 @@ func (s *servicesSuite) TestManageAlreadyManaged(c *gc.C) {
 	name := "jujud-unit-wordpress-0"
 	s.SetManaged(name, s.services)
 
-	err := s.services.Manage(name, *s.Conf)
+	err := s.services.Manage(name, s.Conf)
 
 	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
 	s.Stub.CheckCalls(c, nil)
@@ -433,7 +525,11 @@ func (s *servicesSuite) TestRemove(c *gc.C) {
 	err := s.services.Remove(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "IsEnabled", "RemoveAll")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"RemoveAll",
+	)
 }
 
 func (s *servicesSuite) TestRemoveEnabled(c *gc.C) {
@@ -445,7 +541,8 @@ func (s *servicesSuite) TestRemoveEnabled(c *gc.C) {
 	err := s.services.Remove(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c,
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
 		"IsEnabled",
 		"Check",
 		"RemoveAll",
@@ -463,7 +560,12 @@ func (s *servicesSuite) TestRemoveCheckFailed(c *gc.C) {
 	err := s.services.Remove(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "IsEnabled", "Check", "RemoveAll")
+	s.CheckCallNames(c,
+		service.ConfDirReadCalls,
+		"IsEnabled",
+		"Check",
+		"RemoveAll",
+	)
 }
 
 func (s *servicesSuite) TestIsManagedTrue(c *gc.C) {
@@ -488,18 +590,13 @@ func (s *servicesSuite) TestInstall(c *gc.C) {
 	name := "jujud-unit-wordpress-0"
 	s.Init.Returns.Enabled = false
 
-	err := s.services.Install(name, *s.Conf)
+	err := s.services.Install(name, s.Conf)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c,
+	s.CheckCallNames(c,
 		"IsEnabled",
-		"Exists",
-		"MkdirAll",
-		"Serialize",
-		"CreateFile",
-		"Write",
-		"Close",
-		"Chmod",
+		service.ManageCalls,
+		service.ConfDirReadCalls,
 		"Enable",
 		"Start",
 	)
@@ -507,9 +604,9 @@ func (s *servicesSuite) TestInstall(c *gc.C) {
 
 func (s *servicesSuite) TestCheckSame(c *gc.C) {
 	name := "jujud-unit-wordpress-0"
-	s.Init.Returns.Conf = &s.Conf.Conf
+	s.Init.Returns.Conf = s.Conf.Conf
 
-	ok, err := s.services.Check(name, *s.Conf)
+	ok, err := s.services.Check(name, s.Conf)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ok, jc.IsTrue)
@@ -517,7 +614,7 @@ func (s *servicesSuite) TestCheckSame(c *gc.C) {
 
 func (s *servicesSuite) TestCheckDifferent(c *gc.C) {
 	name := "jujud-unit-wordpress-0"
-	s.Init.Returns.Conf = &s.Conf.Conf
+	s.Init.Returns.Conf = s.Conf.Conf
 
 	conf := service.Conf{Conf: initsystems.Conf{
 		Desc: "another service",
@@ -531,12 +628,12 @@ func (s *servicesSuite) TestCheckDifferent(c *gc.C) {
 
 func (s *servicesSuite) TestNewService(c *gc.C) {
 	expName := "jujud-unit-wordpress-0"
-	svc := s.services.NewService(expName, *s.Conf)
+	svc := s.services.NewService(expName, s.Conf)
 	name := svc.Name()
 	conf := svc.Conf()
 
 	c.Check(name, gc.Equals, expName)
-	c.Check(conf, jc.DeepEquals, *s.Conf)
+	c.Check(conf, jc.DeepEquals, s.Conf)
 }
 
 func (s *servicesSuite) TestNewAgentService(c *gc.C) {

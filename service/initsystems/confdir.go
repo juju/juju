@@ -227,6 +227,10 @@ type ConfDir struct {
 	Files []FileData
 }
 
+func (cd ConfDir) Filename() string {
+	return path.Join(cd.DirName, cd.InitSystem, cd.ConfName)
+}
+
 // TODO(ericsnow) Add a Rebase method that creates a new ConfDir based
 // in a different directory? This could be useful for copying an
 // existing one.

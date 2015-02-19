@@ -26,6 +26,8 @@ func (s *managedSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.configs = newConfigs(s.DataDir, InitSystemUpstart)
+
+	s.Files.Returns.Data = []byte("{}")
 }
 
 func (s *managedSuite) TestNewConfigs(c *gc.C) {
@@ -53,7 +55,6 @@ func (s *managedSuite) TestNewConfigsPrefixes(c *gc.C) {
 }
 
 func (s *managedSuite) TestRefresh(c *gc.C) {
-	s.Files.Returns.Exists = true
 	s.Files.Returns.DirEntries = []os.FileInfo{
 		newStubFile("an-errant-file", []byte("<data>")),
 		newStubDir("jujud-machine-0"),
@@ -70,13 +71,8 @@ func (s *managedSuite) TestRefresh(c *gc.C) {
 	})
 }
 
-func (s *managedSuite) TestRefreshIncomplete(c *gc.C) {
-	s.Files.Returns.DirEntries = []os.FileInfo{
-		newStubFile("an-errant-file", []byte("<data>")),
-		newStubDir("jujud-machine-0"),
-		newStubDir("an-errant-dir"),
-		newStubDir("jujud-unit-wordpress-0"),
-	}
+func (s *managedSuite) TestRefreshDirMissing(c *gc.C) {
+	s.Files.SetErrors(os.ErrNotExist)
 
 	err := s.configs.refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -92,7 +88,6 @@ func (s *managedSuite) TestRefreshEmpty(c *gc.C) {
 }
 
 func (s *managedSuite) TestList(c *gc.C) {
-	s.Files.Returns.Exists = true
 	s.Files.Returns.DirEntries = []os.FileInfo{
 		newStubFile("an-errant-file", []byte("<data>")),
 		newStubDir("jujud-machine-0"),
@@ -116,7 +111,7 @@ func (s *managedSuite) TestLookup(c *gc.C) {
 	dir := s.configs.lookup(name)
 
 	expected := initsystems.NewConfDirInfo(name, s.DataDir+"/init", InitSystemUpstart)
-	c.Check(dir, jc.DeepEquals, expected)
+	c.Check(dir, jc.DeepEquals, &expected)
 }
 
 func (s *managedSuite) TestLookupNotFound(c *gc.C) {
@@ -131,45 +126,9 @@ func (s *managedSuite) TestAddSuccess(c *gc.C) {
 	err := s.configs.add("jujud-machine-0", s.Conf, s.Init)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "Exists",
-		Args: []interface{}{
-			"/var/lib/juju/init/jujud-machine-0",
-		},
-	}, {
-		FuncName: "MkdirAll",
-		Args: []interface{}{
-			"/var/lib/juju/init/jujud-machine-0",
-			os.FileMode(0755),
-		},
-	}, {
-		FuncName: "Serialize",
-		Args: []interface{}{
-			"jujud-machine-0",
-			initsystems.Conf{
-				Desc: "a service",
-				Cmd:  "spam",
-			},
-		},
-	}, {
-		FuncName: "CreateFile",
-		Args: []interface{}{
-			"/var/lib/juju/init/jujud-machine-0/upstart.conf",
-		},
-	}, {
-		FuncName: "Write",
-		Args: []interface{}{
-			[]byte("<upstart conf>"),
-		},
-	}, {
-		FuncName: "Close",
-	}, {
-		FuncName: "Chmod",
-		Args: []interface{}{
-			"/var/lib/juju/init/jujud-machine-0/upstart.conf",
-			os.FileMode(0644),
-		},
-	}})
+	s.CheckCallNames(c,
+		ManageCalls,
+	)
 }
 
 func (s *managedSuite) TestAddExists(c *gc.C) {
@@ -187,63 +146,10 @@ func (s *managedSuite) TestAddMultiline(c *gc.C) {
 	err := s.configs.add("jujud-machine-0", s.Conf, s.Init)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Files.CheckCalls(c, []testing.StubCall{{
-		FuncName: "Exists",
-		Args: []interface{}{
-			"/var/lib/juju/init/jujud-machine-0",
-		},
-	}, {
-		FuncName: "MkdirAll",
-		Args: []interface{}{
-			"/var/lib/juju/init/jujud-machine-0",
-			os.FileMode(0755),
-		},
-	}, {
-		FuncName: "CreateFile",
-		Args: []interface{}{
-			"/var/lib/juju/init/jujud-machine-0/script.sh",
-		},
-	}, {
-		FuncName: "Write",
-		Args: []interface{}{
-			[]byte("spam\neggs"),
-		},
-	}, {
-		FuncName: "Close",
-	}, {
-		FuncName: "Chmod",
-		Args: []interface{}{
-			"/var/lib/juju/init/jujud-machine-0/script.sh",
-			os.FileMode(0755),
-		},
-	}, {
-		FuncName: "Serialize",
-		Args: []interface{}{
-			"jujud-machine-0",
-			initsystems.Conf{
-				Desc: "a service",
-				Cmd:  "/var/lib/juju/init/jujud-machine-0/script.sh",
-			},
-		},
-	}, {
-		FuncName: "CreateFile",
-		Args: []interface{}{
-			"/var/lib/juju/init/jujud-machine-0/upstart.conf",
-		},
-	}, {
-		FuncName: "Write",
-		Args: []interface{}{
-			[]byte("<upstart conf>"),
-		},
-	}, {
-		FuncName: "Close",
-	}, {
-		FuncName: "Chmod",
-		Args: []interface{}{
-			"/var/lib/juju/init/jujud-machine-0/upstart.conf",
-			os.FileMode(0644),
-		},
-	}})
+	s.CheckCallNames(c,
+		ManageCalls,
+		ConfDirCreateFileCalls,
+	)
 }
 
 func (s *managedSuite) TestAddExtra(c *gc.C) {
@@ -253,63 +159,10 @@ func (s *managedSuite) TestAddExtra(c *gc.C) {
 	err := s.configs.add("jujud-machine-0", s.Conf, s.Init)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Files.CheckCalls(c, []testing.StubCall{{
-		FuncName: "Exists",
-		Args: []interface{}{
-			"/var/lib/juju/init/jujud-machine-0",
-		},
-	}, {
-		FuncName: "MkdirAll",
-		Args: []interface{}{
-			"/var/lib/juju/init/jujud-machine-0",
-			os.FileMode(0755),
-		},
-	}, {
-		FuncName: "CreateFile",
-		Args: []interface{}{
-			"/var/lib/juju/init/jujud-machine-0/script.sh",
-		},
-	}, {
-		FuncName: "Write",
-		Args: []interface{}{
-			[]byte("eggs\nspam"),
-		},
-	}, {
-		FuncName: "Close",
-	}, {
-		FuncName: "Chmod",
-		Args: []interface{}{
-			"/var/lib/juju/init/jujud-machine-0/script.sh",
-			os.FileMode(0755),
-		},
-	}, {
-		FuncName: "Serialize",
-		Args: []interface{}{
-			"jujud-machine-0",
-			initsystems.Conf{
-				Desc: "a service",
-				Cmd:  "/var/lib/juju/init/jujud-machine-0/script.sh",
-			},
-		},
-	}, {
-		FuncName: "CreateFile",
-		Args: []interface{}{
-			"/var/lib/juju/init/jujud-machine-0/upstart.conf",
-		},
-	}, {
-		FuncName: "Write",
-		Args: []interface{}{
-			[]byte("<upstart conf>"),
-		},
-	}, {
-		FuncName: "Close",
-	}, {
-		FuncName: "Chmod",
-		Args: []interface{}{
-			"/var/lib/juju/init/jujud-machine-0/upstart.conf",
-			os.FileMode(0644),
-		},
-	}})
+	s.CheckCallNames(c,
+		ManageCalls,
+		ConfDirCreateFileCalls,
+	)
 }
 
 func (s *managedSuite) TestRemove(c *gc.C) {
