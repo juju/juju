@@ -116,7 +116,7 @@ func (s *debugLogSuite) TestReadFromEnvUUIDPath(c *gc.C) {
 }
 
 func (s *debugLogSuite) TestReadRejectsWrongEnvUUIDPath(c *gc.C) {
-	// Check that we cannot upload charms to https://host:port/BADENVUUID/charms
+	// Check that we cannot pull logs from https://host:port/BADENVUUID/charms
 	s.ensureLogFile(c)
 	reader := s.openWebsocketCustomPath(c, "/environment/dead-beef-123456/log")
 	s.assertErrorResponse(c, reader, `unknown environment: "dead-beef-123456"`)
