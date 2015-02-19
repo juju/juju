@@ -176,7 +176,7 @@ func (gi Instance) Status() string {
 type instGetter interface {
 	// Instance gets the up-to-date info about the given instance
 	// and returns it.
-	Instance(id, zone string) (*Instance, error)
+	Instance(id, zone string) (Instance, error)
 }
 
 // Refresh updates the instance with its current data, utilizing the

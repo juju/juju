@@ -408,13 +408,13 @@ func (fc *fakeConn) VerifyCredentials() error {
 	return fc.err()
 }
 
-func (fc *fakeConn) Instance(id, zone string) (*google.Instance, error) {
+func (fc *fakeConn) Instance(id, zone string) (google.Instance, error) {
 	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName: "Instance",
 		ID:       id,
 		ZoneName: zone,
 	})
-	return fc.Inst, fc.err()
+	return *fc.Inst, fc.err()
 }
 
 func (fc *fakeConn) Instances(prefix string, statuses ...string) ([]google.Instance, error) {

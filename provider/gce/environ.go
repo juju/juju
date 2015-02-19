@@ -24,7 +24,7 @@ type gceConnection interface {
 
 	// Instance gets the up-to-date info about the given instance
 	// and returns it.
-	Instance(id, zone string) (*google.Instance, error)
+	Instance(id, zone string) (google.Instance, error)
 	Instances(prefix string, statuses ...string) ([]google.Instance, error)
 	AddInstance(spec google.InstanceSpec, zones []string) (*google.Instance, error)
 	RemoveInstances(prefix string, ids ...string) error

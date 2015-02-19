@@ -61,12 +61,14 @@ func (gce *Connection) AddInstance(spec InstanceSpec, zones []string) (*Instance
 
 // Instance gets the up-to-date info about the given instance
 // and returns it.
-func (gce *Connection) Instance(id, zone string) (*Instance, error) {
+func (gce *Connection) Instance(id, zone string) (Instance, error) {
+	var result Instance
 	raw, err := gce.raw.GetInstance(gce.ProjectID, zone, id)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return result, errors.Trace(err)
 	}
-	return newInstance(raw, nil), nil
+	result = *newInstance(raw, nil)
+	return result, nil
 }
 
 // Instances sends a request to the GCE API for a list of all instances
