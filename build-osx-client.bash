@@ -26,7 +26,8 @@ RELEASE_SCRIPTS=$HOME/juju-release-tools
 SCRIPTS=$HOME/juju-ci-tools
 GOBASE=$HOME/crossbuild
 WORKSPACE=$HOME/workspace
-JUJU_HOME=$HOME/cloud-city
+JUJU_HOME=$HOME/.juju
+source $HOME/.bashrc
 source $JUJU_HOME/juju-qa.jujuci
 set -x
 
