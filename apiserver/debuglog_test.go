@@ -5,11 +5,7 @@ package apiserver_test
 
 import (
 	"bufio"
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,17 +13,14 @@ import (
 	"strings"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/juju/testing/factory"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type debugLogSuite struct {
-	authHttpSuite
+	userAuthHttpSuite
 	logFile *os.File
 	last    int
 }
@@ -53,7 +46,7 @@ func (s *debugLogSuite) TestNoAuth(c *gc.C) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 
-	s.assertErrorResponse(c, reader, "auth failed: invalid request format")
+	assertJSONError(c, reader, "auth failed: invalid request format")
 	s.assertWebsocketClosed(c, reader)
 }
 
@@ -68,19 +61,19 @@ func (s *debugLogSuite) TestAgentLoginsRejected(c *gc.C) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 
-	s.assertErrorResponse(c, reader, "auth failed: invalid entity name or password")
+	assertJSONError(c, reader, "auth failed: invalid entity name or password")
 	s.assertWebsocketClosed(c, reader)
 }
 
 func (s *debugLogSuite) TestNoLogfile(c *gc.C) {
 	reader := s.openWebsocket(c, nil)
-	s.assertErrorResponse(c, reader, "cannot open log file: .*: "+utils.NoSuchFileErrRegexp)
+	assertJSONError(c, reader, "cannot open log file: .*: "+utils.NoSuchFileErrRegexp)
 	s.assertWebsocketClosed(c, reader)
 }
 
 func (s *debugLogSuite) TestBadParams(c *gc.C) {
 	reader := s.openWebsocket(c, url.Values{"maxLines": {"foo"}})
-	s.assertErrorResponse(c, reader, `maxLines value "foo" is not a valid unsigned number`)
+	assertJSONError(c, reader, `maxLines value "foo" is not a valid unsigned number`)
 	s.assertWebsocketClosed(c, reader)
 }
 
@@ -116,10 +109,10 @@ func (s *debugLogSuite) TestReadFromEnvUUIDPath(c *gc.C) {
 }
 
 func (s *debugLogSuite) TestReadRejectsWrongEnvUUIDPath(c *gc.C) {
-	// Check that we cannot pull logs from https://host:port/BADENVUUID/charms
+	// Check that we cannot pull logs from https://host:port/BADENVUUID/log
 	s.ensureLogFile(c)
 	reader := s.openWebsocketCustomPath(c, "/environment/dead-beef-123456/log")
-	s.assertErrorResponse(c, reader, `unknown environment: "dead-beef-123456"`)
+	assertJSONError(c, reader, `unknown environment: "dead-beef-123456"`)
 	s.assertWebsocketClosed(c, reader)
 }
 
@@ -382,57 +375,18 @@ func (s *debugLogSuite) dialWebsocketInternal(c *gc.C, queryParams url.Values, h
 	return s.dialWebsocketFromURL(c, server, header)
 }
 
-func (s *debugLogSuite) dialWebsocketFromURL(c *gc.C, server string, header http.Header) (*websocket.Conn, error) {
-	c.Logf("dialing %v", server)
-	config, err := websocket.NewConfig(server, "http://localhost/")
-	c.Assert(err, jc.ErrorIsNil)
-	config.Header = header
-	caCerts := x509.NewCertPool()
-	c.Assert(caCerts.AppendCertsFromPEM([]byte(testing.CACert)), jc.IsTrue)
-	config.TlsConfig = &tls.Config{RootCAs: caCerts, ServerName: "anything"}
-	return websocket.DialConfig(config)
-}
-
 func (s *debugLogSuite) dialWebsocket(c *gc.C, queryParams url.Values) (*websocket.Conn, error) {
 	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
 	return s.dialWebsocketInternal(c, queryParams, header)
 }
 
 func (s *debugLogSuite) logURL(c *gc.C, scheme string, queryParams url.Values) *url.URL {
-	logURL := s.baseURL(c)
-	query := ""
-	if queryParams != nil {
-		query = queryParams.Encode()
-	}
-	logURL.Scheme = scheme
-	logURL.Path += "/log"
-	logURL.RawQuery = query
-	return logURL
-}
-
-func (s *debugLogSuite) assertWebsocketClosed(c *gc.C, reader *bufio.Reader) {
-	_, err := reader.ReadByte()
-	c.Assert(err, gc.Equals, io.EOF)
+	return s.makeURL(c, scheme, "/log", queryParams)
 }
 
 func (s *debugLogSuite) assertLogFollowing(c *gc.C, reader *bufio.Reader) {
-	errResult := s.getErrorResult(c, reader)
+	errResult := readJSONErrorLine(c, reader)
 	c.Assert(errResult.Error, gc.IsNil)
-}
-
-func (s *debugLogSuite) assertErrorResponse(c *gc.C, reader *bufio.Reader, expected string) {
-	errResult := s.getErrorResult(c, reader)
-	c.Assert(errResult.Error, gc.NotNil)
-	c.Assert(errResult.Error.Message, gc.Matches, expected)
-}
-
-func (s *debugLogSuite) getErrorResult(c *gc.C, reader *bufio.Reader) params.ErrorResult {
-	line, err := reader.ReadSlice('\n')
-	c.Assert(err, jc.ErrorIsNil)
-	var errResult params.ErrorResult
-	err = json.Unmarshal(line, &errResult)
-	c.Assert(err, jc.ErrorIsNil)
-	return errResult
 }
 
 var (

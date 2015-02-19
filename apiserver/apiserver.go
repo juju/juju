@@ -320,6 +320,11 @@ func (srv *Server) run(lis net.Listener) {
 			httpHandler: httpHandler{ssState: srv.state},
 			logDir:      srv.logDir},
 	)
+	handleAll(mux, "/environment/:envuuid/logsink",
+		&logSinkHandler{
+			httpHandler: httpHandler{ssState: srv.state},
+		},
+	)
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
 			httpHandler: httpHandler{ssState: srv.state},
