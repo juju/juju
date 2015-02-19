@@ -1,5 +1,5 @@
 #!/bin/bash
-# This script presumes ~/ci and ~/.juju is setup on the remote machine.
+# This script presumes ~/ and ~/.juju is setup on the remote machine.
 set -eu
 SCRIPTS=$(readlink -f $(dirname $0))
 JUJU_HOME=${JUJU_HOME:-$(dirname $SCRIPTS)/cloud-city}
@@ -41,7 +41,7 @@ EXIT_STATUS=$?
 
 if [ $EXIT_STATUS -eq 0 ]; then
     scp $SSH_OPTIONS \
-        $USER_AT_HOST:~/ci/workspace/juju-*-osx.tar.gz $WORKSPACE/artifacts/
+        $USER_AT_HOST:~/workspace/juju-*-osx.tar.gz $WORKSPACE/artifacts/
 fi
 
 exit $EXIT_STATUS
