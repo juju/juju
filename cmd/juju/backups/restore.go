@@ -101,31 +101,29 @@ func (c *RestoreCommand) runRestore(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer closer()
+	var target string
+	var rErr error
 	if c.filename != "" {
+		target = c.filename
 		archive, meta, err := getArchive(c.filename)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		defer archive.Close()
 
-		if err := client.RestoreReader(archive, meta, c.newClient); err != nil {
-			// Backwards compatibility
-			if params.IsCodeNotImplemented(err) {
-				return errors.Errorf(restoreAPIIncompatibility)
-			}
-			return errors.Trace(err)
-		}
-		fmt.Fprintf(ctx.Stdout, "restore from %q completed\n", c.filename)
+		rErr = client.RestoreReader(archive, meta, c.newClient)
 	} else {
-		if err := client.Restore(c.backupId, c.newClient); err != nil {
-			// Backwards compatibility
-			if params.IsCodeNotImplemented(err) {
-				return errors.Errorf(restoreAPIIncompatibility)
-			}
-			return errors.Trace(err)
-		}
-		fmt.Fprintf(ctx.Stdout, "restore from %q completed\n", c.backupId)
+		target = c.backupId
+		rErr = client.Restore(c.backupId, c.newClient)
 	}
+	if params.IsCodeNotImplemented(rErr) {
+		return errors.Errorf(restoreAPIIncompatibility)
+	}
+	if rErr != nil {
+		return errors.Trace(rErr)
+	}
+
+	fmt.Fprintf(ctx.Stdout, "restore from %q completed\n", target)
 	return nil
 }
 

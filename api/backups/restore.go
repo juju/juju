@@ -25,6 +25,7 @@ var (
 
 // ClientConnection type represents a function capable of spawning a new Client connection
 // it is used to pass around connection factories when necessary.
+// TODO(perrito666) This is a workaround for lp:1399722 .
 type ClientConnection func() (*Client, func() error, error)
 
 // closerfunc is a function that allows you to close a client connection.
@@ -67,10 +68,11 @@ func (c *Client) RestoreReader(r io.Reader, meta *params.BackupsMetadataResult, 
 	}
 	logger.Debugf("Server is now in 'about to restore' mode, proceeding to upload the backup file")
 
-	// Upload
+	// Upload.
 	backupId, err := c.Upload(r, *meta)
 	if err != nil {
-		finishRestore(newClient)
+		finishErr := finishRestore(newClient)
+		logger.Errorf("could not exit restoring status: %v", finishErr)
 		return errors.Annotatef(err, "cannot upload backup file")
 	}
 	return c.restore(backupId, newClient)
@@ -121,12 +123,14 @@ func (c *Client) restore(backupId string, newClient ClientConnection) error {
 			break
 		}
 		if err != nil && !params.IsCodeUpgradeInProgress(remoteError) {
-			finishRestore(newClient)
+			finishErr := finishRestore(newClient)
+			logger.Errorf("could not exit restoring status: %v", finishErr)
 			return errors.Annotatef(err, "cannot perform restore: %v", remoteError)
 		}
 	}
 	if err != rpc.ErrShutdown {
-		finishRestore(newClient)
+		finishErr := finishRestore(newClient)
+		logger.Errorf("could not exit restoring status: %v", finishErr)
 		return errors.Annotatef(err, "cannot perform restore: %v", remoteError)
 	}
 
