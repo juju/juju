@@ -46,10 +46,11 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 		api, s.State, s.resources, commontesting.NoSecrets)
 }
 
-func verifyRsyslogCACert(c *gc.C, st *apirsyslog.State, expected string) {
+func verifyRsyslogCACert(c *gc.C, st *apirsyslog.State, expectedCA, expectedKey string) {
 	cfg, err := st.GetRsyslogConfig("foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.CACert, gc.DeepEquals, expected)
+	c.Assert(cfg.CACert, gc.DeepEquals, expectedCA)
+	c.Assert(cfg.CAKey, gc.DeepEquals, expectedKey)
 }
 
 func (s *rsyslogSuite) TestSetRsyslogCert(c *gc.C) {
@@ -57,9 +58,9 @@ func (s *rsyslogSuite) TestSetRsyslogCert(c *gc.C) {
 	err := m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.Rsyslog().SetRsyslogCert(coretesting.CACert)
+	err = st.Rsyslog().SetRsyslogCert(coretesting.CACert, coretesting.CAKey)
 	c.Assert(err, jc.ErrorIsNil)
-	verifyRsyslogCACert(c, st.Rsyslog(), coretesting.CACert)
+	verifyRsyslogCACert(c, st.Rsyslog(), coretesting.CACert, coretesting.CAKey)
 }
 
 func (s *rsyslogSuite) TestSetRsyslogCertNil(c *gc.C) {
@@ -67,9 +68,9 @@ func (s *rsyslogSuite) TestSetRsyslogCertNil(c *gc.C) {
 	err := m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.Rsyslog().SetRsyslogCert("")
+	err = st.Rsyslog().SetRsyslogCert("", "")
 	c.Assert(err, gc.ErrorMatches, "no certificates found")
-	verifyRsyslogCACert(c, st.Rsyslog(), "")
+	verifyRsyslogCACert(c, st.Rsyslog(), "", "")
 }
 
 func (s *rsyslogSuite) TestSetRsyslogCertInvalid(c *gc.C) {
@@ -80,9 +81,9 @@ func (s *rsyslogSuite) TestSetRsyslogCertInvalid(c *gc.C) {
 	err = st.Rsyslog().SetRsyslogCert(string(pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: []byte("not a valid certificate"),
-	})))
+	})), "")
 	c.Assert(err, gc.ErrorMatches, ".*structure error.*")
-	verifyRsyslogCACert(c, st.Rsyslog(), "")
+	verifyRsyslogCACert(c, st.Rsyslog(), "", "")
 }
 
 func (s *rsyslogSuite) TestSetRsyslogCertPerms(c *gc.C) {
@@ -93,11 +94,11 @@ func (s *rsyslogSuite) TestSetRsyslogCertPerms(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	unitState, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	err = unitState.Rsyslog().SetRsyslogCert(coretesting.CACert)
+	err = unitState.Rsyslog().SetRsyslogCert(coretesting.CACert, coretesting.CAKey)
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	// Verify no change was effected.
-	verifyRsyslogCACert(c, unitState.Rsyslog(), "")
+	verifyRsyslogCACert(c, unitState.Rsyslog(), "", "")
 }
 
 func (s *rsyslogSuite) TestUpgraderAPIAllowsUnitAgent(c *gc.C) {
