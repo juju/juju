@@ -7,8 +7,8 @@ import (
 	"bufio"
 	"fmt"
 	"net"
-	"sort"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/juju/loggo"
