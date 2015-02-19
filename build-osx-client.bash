@@ -28,7 +28,7 @@ GOBASE=$HOME/crossbuild
 WORKSPACE=$HOME/workspace
 JUJU_HOME=$HOME/.juju
 source $HOME/.bashrc
-source $JUJU_HOME/juju-qa.jujuci
+source $HOME/cloud-city/juju-qa.jujuci
 set -x
 
 cd $WORKSPACE
