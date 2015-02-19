@@ -60,7 +60,7 @@ type Service struct {
 
 // InstallCommands returns shell commands to install and start the service.
 func (s *Service) InstallCommands() ([]string, error) {
-	if err := upstart.Validate(s.Name, s.Conf.Conf); err != nil {
+	if _, err := upstart.Validate(s.Name, s.Conf.Conf); err != nil {
 		return nil, errors.Trace(err)
 	}
 

@@ -176,7 +176,7 @@ func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 	fix.makeBin(c, "stop", "cp $(which stopped-status) $(which status)")
 
 	fops := &fs.Ops{}
-	baseIS := &upstart.Upstart{}
+	baseIS := upstart.NewInitSystem("upstart")
 	fix.init = initsystems.NewTracking(baseIS, fops)
 	fix.services = service.NewServices(dataDir, fix.init)
 }
@@ -209,13 +209,17 @@ func (fix *SimpleToolsFixture) getContextForMachine(c *gc.C, machineTag names.Ta
 
 func (fix *SimpleToolsFixture) paths(tag names.Tag) (confPath, agentDir, toolsDir string) {
 	svcName := fmt.Sprintf("jujud-%s", tag)
-	confPath = filepath.Join(fix.dataDir, "init", svcName, "upstart.conf")
+	confPath = filepath.Join(fix.dataDir, "init", svcName, "upstart", svcName+".conf")
 	agentDir = agent.Dir(fix.dataDir, tag)
 	toolsDir = tools.ToolsDir(fix.dataDir, tag.String())
 	return
 }
 
 func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string) {
+	fix.checkUpstartUnitInstalled(c, name, password)
+}
+
+func (fix *SimpleToolsFixture) checkUpstartUnitInstalled(c *gc.C, name, password string) {
 	tag := names.NewUnitTag(name)
 	uconfPath, _, toolsDir := fix.paths(tag)
 	uconfData, err := ioutil.ReadFile(uconfPath)
