@@ -85,6 +85,11 @@ func (e *ebsProvider) VolumeSource(environConfig *config.Config, providerConfig 
 	panic("not implemented")
 }
 
+// FilesystemSource is defined on the Provider interface.
+func (e *ebsProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
+	return nil, errors.NotSupportedf("filesystems")
+}
+
 type ebsVolumeSoucre struct {
 }
 
