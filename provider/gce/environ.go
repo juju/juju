@@ -41,12 +41,12 @@ type environ struct {
 
 	name string
 	uuid string
-	ecfg *environConfig
 	gce  gceConnection
 
-	lock     sync.Mutex
-	archLock sync.Mutex
+	lock sync.Mutex
+	ecfg *environConfig
 
+	archLock               sync.Mutex
 	supportedArchitectures []string
 }
 
@@ -115,16 +115,8 @@ var newConnection = func(ecfg *environConfig) gceConnection {
 // getSnapshot returns a copy of the environment. This is useful for
 // ensuring the env you are using does not get changed by other code
 // while you are using it.
-func (env *environ) getSnapshot() *environ {
-	env.lock.Lock()
-	clone := *env
-	// The config values are all immutable so we don't need to also copy
-	// env.ecfg and env.gce by value. If that changes we need to
-	// re-evaluate copying them by value.
-	env.lock.Unlock()
-
-	clone.lock = sync.Mutex{}
-	return &clone
+func (env environ) getSnapshot() *environ {
+	return &env
 }
 
 // Config returns the configuration data with which the env was created.
