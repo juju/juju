@@ -99,6 +99,22 @@ type ServiceStatus struct {
 
 // UnitStatus holds status info about a unit.
 type UnitStatus struct {
+	// Workload and Agent have separate statuses since 1.23.
+	// but they store similar data so AgentStatus is used too.
+
+	// UnitAgent is created instead of using Agent since it was
+	// already used when changed from 1.18 to 1.19 to hold more
+	// data than the 3 Agent* values below.
+	UnitAgent AgentStatus
+	// Workload status holds information about the state of the
+	// unit's workload independent of information about the agent.
+	Workload AgentStatus
+
+	// Agent holds the combination of AgentState, AgentStateInfo,
+	// AgentVersion, Life and Err. It was introduced as an update
+	// to the information held in this struct in 1.19 but was
+	// deprecated in favor of separate workload/agent information
+	// in 1.24
 	Agent AgentStatus
 
 	// See the comment in MachineStatus regarding these fields.
