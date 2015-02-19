@@ -43,7 +43,8 @@ def get_build_data(jenkins_url, credentials, job_name,
     req = urllib2.Request(
         '%s/job/%s/%s/api/json' % (jenkins_url, job_name, build))
 
-    encoded = base64.encodestring('{}:{}'.format(*credentials))
+    encoded = base64.encodestring(
+        '{}:{}'.format(*credentials)).replace('\n', '')
     req.add_header('Authorization', 'Basic {}'.format(encoded))
     build_data = urllib2.urlopen(req)
     build_data = json.load(build_data)
