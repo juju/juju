@@ -24,28 +24,29 @@ func (c Conf) Script() (string, error) {
 	if len(c.Cmd) == 0 {
 		return "", errors.New("missing Cmd")
 	}
+	return c.script(), nil
+}
 
+func (c Conf) script() string {
 	script := c.Cmd
 	if len(c.ExtraScript) > 0 {
 		// We trust that this will work on Windows.
 		script = c.ExtraScript + "\n" + script
 	}
 
-	return script, nil
+	return script
 }
 
 // normalize composes an initsystems.Conf from the service Conf. This
 // may involve adjusting some values and validating others.
-func (c Conf) normalize() (*initsystems.Conf, error) {
-	if c.ExtraScript != "" {
-		return nil, errors.NotSupportedf("ExtraScript")
-	}
-	normalConf := initsystems.Conf{
+func (c Conf) normalize() initsystems.Conf {
+	script := c.script()
+
+	return initsystems.Conf{
 		Desc:  c.Desc,
-		Cmd:   c.Cmd,
+		Cmd:   script,
 		Env:   c.Env,
 		Limit: c.Limit,
 		Out:   c.Out,
 	}
-	return &normalConf, nil
 }

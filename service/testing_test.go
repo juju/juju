@@ -17,8 +17,8 @@ type BaseSuite struct {
 	testing.IsolationSuite
 
 	DataDir string
-	Conf    *Conf
-	Confdir *confDir
+	Conf    Conf
+	ConfDir initsystems.ConfDirInfo
 
 	Stub      *testing.Stub
 	StubInit  *initsystems.Stub
@@ -30,7 +30,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.DataDir = "/var/lib/juju"
-	s.Conf = &Conf{Conf: initsystems.Conf{
+	s.Conf = Conf{Conf: initsystems.Conf{
 		Desc: "a service",
 		Cmd:  "spam",
 	}}
@@ -51,7 +51,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	// In the context of the `service` package, the particular init
 	// system is not significant. Nothing in the package should rely on
 	// any specific init system. So here we simply picked one.
-	s.Confdir = newConfDir(name, initDir, InitSystemUpstart, nil)
+	s.ConfDir = initsystems.NewConfDirInfo(name, initDir, InitSystemUpstart)
 }
 
 func newStubFile(name string, data []byte) os.FileInfo {

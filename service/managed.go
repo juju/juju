@@ -46,13 +46,6 @@ func newConfigs(baseDir, initSystem string, prefixes ...string) *serviceConfigs 
 	}
 }
 
-// newDir produces a new confDir for the given service name. No actual
-// directory is created nor is the confDir validated.
-func (sc serviceConfigs) newDir(name string) *confDir {
-	confDir := newConfDir(name, sc.baseDir, sc.initSystem, sc.fops)
-	return confDir
-}
-
 // refresh updates the list of managed service names based on the
 // sub-directories of the "init" dir (see initDir).
 func (sc *serviceConfigs) refresh() error {
@@ -81,61 +74,46 @@ func (sc serviceConfigs) list() ([]string, error) {
 			continue
 		}
 
-		dir := sc.newDir(name)
-		if err := dir.validate(); err == nil {
+		info := initsystems.NewConfDirInfo(name, sc.baseDir, sc.initSystem)
+		if _, err := info.Read(sc.fops); err == nil {
 			names = append(names, name)
 		}
 	}
 	return names, nil
 }
 
-// lookup returns a confDir for the given service name if it is already
-// managed by juju. If not then nil is returned.
-func (sc serviceConfigs) lookup(name string) *confDir {
+// lookup returns a ConfDirInfo for the given service name if it is
+// already managed by juju. If not then nil is returned.
+func (sc serviceConfigs) lookup(name string) *initsystems.ConfDirInfo {
 	if !contains(sc.names, name) {
 		return nil
 	}
-	return sc.newDir(name)
-}
-
-// serializer exposes the InitSystem methods needed by add.
-type serializer interface {
-	// Serialize implements InitSystem.
-	Serialize(name string, conf initsystems.Conf) ([]byte, error)
+	info := initsystems.NewConfDirInfo(name, sc.baseDir, sc.initSystem)
+	return &info
 }
 
 // add creates a new confDir for the given service name and populates
 // the directory. The service gets added to the list of managed
 // services. If the service is already managed then errors.AlreadyExists
 // is returned.
-func (sc *serviceConfigs) add(name string, conf Conf, serializer serializer) error {
+func (sc *serviceConfigs) add(name string, conf Conf, handler initsystems.ConfHandler) error {
 	if contains(sc.names, name) {
 		return errors.AlreadyExistsf("service %q", name)
 	}
 
-	confDir := sc.newDir(name)
-	if err := confDir.create(); err != nil {
+	if err := conf.Validate(name); err != nil {
 		return errors.Trace(err)
 	}
 
-	normalConf, err := confDir.normalizeConf(conf)
+	normalConf := conf.normalize()
+
+	info := initsystems.NewConfDirInfo(name, sc.baseDir, sc.initSystem)
+	confDir, err := info.Populate(normalConf, handler)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	var data []byte
-	for {
-		data, err = serializer.Serialize(name, *normalConf)
-		if err == nil {
-			break
-		}
-
-		if err := normalConf.Repair(err); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	if err := confDir.writeConf(data); err != nil {
+	if err := confDir.Write(sc.fops); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -148,12 +126,12 @@ func (sc *serviceConfigs) add(name string, conf Conf, serializer serializer) err
 // removes the name from the list of juju-managed services. If the
 // service isn't already managed then errors.NotFound is returned.
 func (sc *serviceConfigs) remove(name string) error {
-	confDir := sc.lookup(name)
-	if confDir == nil {
+	info := sc.lookup(name)
+	if info == nil {
 		return errors.NotFoundf("service %q", name)
 	}
 
-	if err := confDir.remove(); err != nil {
+	if err := info.Remove(sc.fops.RemoveAll); err != nil {
 		return errors.Trace(err)
 	}
 
