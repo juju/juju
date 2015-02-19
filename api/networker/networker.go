@@ -27,6 +27,7 @@ func NewState(caller base.APICaller) *State {
 
 // MachineNetworkInfo returns information about network interfaces to
 // setup only for a single machine.
+// DEPRECATED: Use MachineNetworkConfig() instead.
 func (st *State) MachineNetworkInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
 	return st.MachineNetworkConfig(tag)
 }
