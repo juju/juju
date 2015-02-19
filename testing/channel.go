@@ -94,7 +94,6 @@ func (a *ContentAsserterC) recv(timeout time.Duration) (val interface{}, ok, tim
 	}})
 	switch which {
 	case 0:
-		a.C.Assert(ok, jc.IsTrue)
 		return v.Interface(), ok, false
 	case 1:
 		return nil, false, true
