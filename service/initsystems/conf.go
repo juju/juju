@@ -5,6 +5,8 @@ package initsystems
 
 import (
 	"encoding/json"
+	"path"
+	"strings"
 
 	"github.com/juju/errors"
 )
@@ -62,6 +64,9 @@ type ConfHandler interface {
 	// Validate is called on the conf before it is returned. If a name
 	// is provided then it must be valid for the provided data.
 	Deserialize(data []byte, name string) (Conf, error)
+
+	// TODO(ericsnow) Should the `ConfHandler` have an opportunity to
+	// modify the conf at any point?
 }
 
 // Conf contains all the information an init system may need in order
@@ -175,6 +180,73 @@ func (c Conf) Validate(name string) error {
 		return errors.NotValidf("missing Cmd")
 	}
 	return nil
+}
+
+// Normalize creates a new Conf based on the old one and the provided
+// directory path and ConfHandler. This may involve adjusting some
+// some values and validating others. Any files that the normalized Conf
+// depends on are also returned.
+func (c Conf) Normalize(dirname string, init ConfHandler) (Conf, []FileData, error) {
+	name := path.Base(dirname)
+	conf := c.copy()
+
+	// We generate a file for each script we need. However, usually a
+	// conf will have but one command that does not need to be put into
+	// a separate script file.
+	var files []FileData
+	if !c.isSimpleScript(c.Cmd) {
+		// TODO(ericsnow) This is neither remote- nor windows-friendly.
+		filename := "exec-start.sh"
+		file := newScriptData(filename, c.Cmd)
+		files = append(files, file)
+		conf.Cmd = path.Join(dirname, filename)
+	}
+
+	// Then we adjust to the init system's constraints.
+	for {
+		_, err := init.Validate(name, conf)
+		if err == nil {
+			break
+		}
+
+		if err := conf.Repair(err); err != nil {
+			return conf, nil, errors.Trace(err)
+		}
+	}
+
+	return conf, files, nil
+}
+
+func (c Conf) copy() Conf {
+	conf := c
+
+	if c.Env != nil {
+		conf.Env = make(map[string]string, len(c.Env))
+		for k, v := range c.Env {
+			conf.Env[k] = v
+		}
+	}
+
+	if c.Limit != nil {
+		conf.Limit = make(map[string]string, len(c.Limit))
+		for k, v := range c.Limit {
+			conf.Limit[k] = v
+		}
+	}
+
+	return conf
+}
+
+// isSimpleScript checks the provided script to see if it is what
+// confDir considers "simple". In the context of confDir, "simple" means
+// it is a single line. A "simple" script will remain in Conf.Cmd, while
+// a non-simple one will be written out to a script file and the path to
+// that file stored in Conf.Cmd.
+func (c Conf) isSimpleScript(script string) bool {
+	if strings.Contains(script, "\n") {
+		return false
+	}
+	return true
 }
 
 // SerializeJSON converts the conf into a JSON string.
