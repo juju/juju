@@ -250,6 +250,7 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		InterfaceName: "eth0",
 	}}
 
+	// Test for old API name.
 	results, err := s.networker.MachineNetworkInfo(names.NewMachineTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, expectedMachineInfo)
@@ -259,6 +260,19 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, expectedContainerInfo)
 
 	results, err = s.networker.MachineNetworkInfo(names.NewMachineTag("0/lxc/0/lxc/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, expectedNestedContainerInfo)
+
+	// Test for new API name.
+	results, err = s.networker.MachineNetworkConfig(names.NewMachineTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, expectedMachineInfo)
+
+	results, err = s.networker.MachineNetworkConfig(names.NewMachineTag("0/lxc/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, expectedContainerInfo)
+
+	results, err = s.networker.MachineNetworkConfig(names.NewMachineTag("0/lxc/0/lxc/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, expectedNestedContainerInfo)
 }

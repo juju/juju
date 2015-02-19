@@ -28,10 +28,18 @@ func NewState(caller base.APICaller) *State {
 // MachineNetworkInfo returns information about network interfaces to
 // setup only for a single machine.
 func (st *State) MachineNetworkInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
+	return st.MachineNetworkConfig(tag)
+}
+
+// MachineNetworkConfig returns information about network interfaces to
+// setup only for a single machine.
+func (st *State) MachineNetworkConfig(tag names.MachineTag) ([]network.InterfaceInfo, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	var results params.MachineNetworkConfigResults
+	// TODO(mue): New name is now MachineNetworkConfig, this variant
+	// is kept due to compatibility reasons.
 	err := st.facade.FacadeCall("MachineNetworkInfo", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
