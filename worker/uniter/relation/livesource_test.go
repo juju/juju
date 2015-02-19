@@ -41,7 +41,6 @@ func (s *LiveSourceSuite) TestLiveHookSourceTeardownEvenWhenUnclean(c *gc.C) {
 	source := relation.NewLiveHookSource(initialState, ruw)
 	sourceChanges := source.Changes()
 	sourceC := coretesting.ContentAsserterC{C: c, Chan: sourceChanges}
-	sourceC.AssertNoReceive()
 	ruw.in <- multiwatcher.RelationUnitsChange{}
 	sourceChange := sourceC.AssertOneReceive()
 	// assert that it has the right type, but don't actually call it

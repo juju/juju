@@ -223,7 +223,10 @@ func (w *RUW) Changes() <-chan multiwatcher.RelationUnitsChange {
 }
 
 func (w *RUW) Stop() error {
-	close(w.in)
+	// Stop() should be idempotent, but close(chan) is not, so guard it.
+	if !w.stopped {
+		close(w.in)
+	}
 	w.stopped = true
 	return nil
 }

@@ -90,6 +90,7 @@ func NewLiveHookSource(initial *State, w RelationUnitsWatcher) hook.Source {
 	}
 	go func() {
 		defer q.tomb.Done()
+		defer watcher.Stop(q.watcher, &q.tomb)
 		q.tomb.Kill(q.loop())
 	}()
 	return q
