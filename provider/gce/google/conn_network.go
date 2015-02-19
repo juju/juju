@@ -29,7 +29,7 @@ func (gce Connection) Ports(fwname string) ([]network.PortRange, error) {
 				return ports, errors.Annotate(err, "bad ports from GCE")
 			}
 			portRange.Protocol = allowed.IPProtocol
-			ports = append(ports, *portRange)
+			ports = append(ports, portRange)
 		}
 	}
 
