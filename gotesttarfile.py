@@ -63,6 +63,10 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
     env = dict(os.environ)
     env['GOPATH'] = gopath
     env['GOARCH'] = 'amd64'
+    if sys.platform == 'win32':
+        # Ensure OpenSSH is never in the path for win tests.
+        sys.path = [p for p in sys.path if 'OpenSSH' not in p]
+        sys.path.append('C:\\Windows\\System32\\WindowsPowerShell\\v1.0')
     package_dir = os.path.join(gopath, 'src', package.replace('/', os.sep))
     with WorkingDirectory(package_dir):
         if verbose:
