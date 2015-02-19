@@ -214,6 +214,7 @@ func AddAptCommands(
 		// leave it to the networker worker.
 		c.AddPackage("bridge-utils")
 		c.AddPackage("rsyslog-gnutls")
+		c.AddPackage("cloud-image-utils")
 	}
 
 	// Write out the apt proxy settings
