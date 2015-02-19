@@ -60,6 +60,7 @@ type BaseSuiteUnpatched struct {
 
 var _ environs.Environ = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
+var _ instance.Instance = (*environInstance)(nil)
 
 func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)

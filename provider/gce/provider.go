@@ -12,8 +12,7 @@ import (
 
 type environProvider struct{}
 
-var providerInstance = environProvider{}
-var _ environs.EnvironProvider = providerInstance
+var providerInstance environProvider
 
 func init() {
 	// This will only happen in binaries that actually import this provider
