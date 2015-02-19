@@ -165,7 +165,10 @@ func getArchive(filename string) (rc io.ReadCloser, metaResult *params.BackupsMe
 	}
 
 	// Pack the metadata into a result.
-	*metaResult = apiserverbackups.ResultFromMetadata(meta)
+	// TODO(perrito666) change the identity of ResultfromMetadata to
+	// return a pointer.
+	mResult := apiserverbackups.ResultFromMetadata(meta)
+	metaResult = &mResult
 
 	return archive, metaResult, nil
 }
