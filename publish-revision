@@ -2,7 +2,7 @@
 set -eux
 
 BUILD_PACKAGES=${BUILD_PACKAGES:-true}
-TARFILE=$($SCRIPTS/get-tarfile-name)
+TARFILE=$($SCRIPTS/jujuci.py get build-revision 'juju-core_*.tar.gz' ./)
 VERSION=$(basename $TARFILE .tar.gz | cut -d '_' -f2)
 
 OFFICIAL_VERSIONS="$STREAMS/juju-dist/proposed/tools/releases"
@@ -13,14 +13,8 @@ if [[ -f $OFFICIAL_VERSIONS/juju-$VERSION-trusty-amd64.tgz ]]; then
 fi
 
 if [[ $BUILD_PACKAGES == 'true' ]]; then
-    $SCRIPTS/jujuci.py get build-revision '*.tar.gz' ./
 # Make source packages for all supported series.
-if [[ $VERSION =~ ^1.(18|20|22).*$ ]]; then
-    PURPOSE="stable"
-else
-    PURPOSE="devel"
-fi
-$RELEASE_TOOLS/make-source-packages.bash -t $PURPOSE $TARFILE \
+$RELEASE_TOOLS/make-source-packages.bash -t devel $TARFILE \
     'Curtis Hovey <curtis.hovey@canonical.com>'
 
 # Load the credentials to create instances in ec2.
