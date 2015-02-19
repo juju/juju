@@ -24,6 +24,7 @@ func (s *steps123Suite) TestStateStepsFor123(c *gc.C) {
 	expected := []string{
 		"add default storage pools",
 		"drop old mongo indexes",
+		"migrate envuuid to env-uuid in envUsersC",
 	}
 	assertStateSteps(c, version.MustParse("1.23.0"), expected)
 }
