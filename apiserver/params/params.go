@@ -825,6 +825,29 @@ const (
 	// spun up in the cloud.
 	StatusAllocating Status = "allocating"
 
+	// The machine on which this agent is running is being rebooted.
+	// The juju-agent should move from rebooting to idle when the reboot is complete.
+	StatusRebooting Status = "rebooting"
+
+	// The agent is running a hook or action. The human-readable message should reflect
+	// which hook or action is being run.
+	StatusExecuting Status = "executing"
+
+	// Once the agent is installed and running it will notify the Juju server and its state
+	// becomes "idle". It will stay "idle" until some action (e.g. it needs to run a hook) or
+	// error (e.g it loses contact with the Juju server) moves it to a different state.
+	StatusIdle Status = "idle"
+
+	// The unit agent has failed in some way,eg the agent ought to be signalling
+	// activity, but it cannot be detected. It might also be that the unit agent
+	// detected an unrecoverable condition and managed to tell the Juju server about it.
+	StatusFailed Status = "failed"
+
+	// The juju agent has has not communicated with the juju server for an unexpectedly long time;
+	// the unit agent ought to be signalling activity, but none has been detected.
+	StatusLost Status = "lost"
+
+	// ---- Outdated ----
 	// The unit agent is downloading the charm and running the install hook.
 	StatusInstalling Status = "installing"
 
@@ -834,23 +857,23 @@ const (
 	// The unit is being destroyed; the agent will soon mark the unit as “dead”.
 	// In Juju 2.x this will describe the state of the agent rather than a unit.
 	StatusStopping Status = "stopping"
-
-	// The unit agent has failed in some way,eg the agent ought to be signalling
-	// activity, but it cannot be detected. It might also be that the unit agent
-	// detected an unrecoverable condition and managed to tell the Juju server about it.
-	StatusFailed Status = "failed"
 )
 
 const (
 	// Status values specific to units
 
-	// The unit is
-	StatusRemoving Status = "removing"
+	// The unit is not yet providing services, but is actively doing stuff
+	// in preparation for providing those services.
+	// This is a "spinning" state, not an error state.
+	// It reflects activity on the unit itself, not on peers or related units.
+	StatusMaintenance Status = "maintenance"
 
-	// The unit is
-	StatusGone Status = "gone"
+	// This unit used to exist, we have a record of it (perhaps because of storage
+	// allocated for it that was flagged to survive it). Nonetheless, it is now gone.
+	StatusTerminated Status = "terminated"
 
-	// The unit is
+	// A unit-agent has finished calling install, config-changed, and start,
+	// but the charm has not called status-set yet.
 	StatusUnknown Status = "unknown"
 )
 
@@ -862,8 +885,8 @@ const (
 	// ready to provide services.
 	StatusBusy Status = "busy"
 
-	// The unit is unable to offer services because it needs another
-	// service to be up.
+	// The unit is unable to progress to an active state because a service to
+	// which it is related is not running.
 	StatusWaiting Status = "waiting"
 
 	// The unit needs manual intervention to get back to the Running state.
