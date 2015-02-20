@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"reflect"
+	"strings"
 
 	"github.com/coreos/go-systemd/dbus"
 	"github.com/juju/errors"
@@ -31,7 +33,12 @@ func ListServices() ([]string, error) {
 
 	var services []string
 	for _, unit := range units {
-		services = append(services, unit.Name)
+		// TODO(ericsnow) Will the unit names really always end with .service?
+		if !strings.HasSuffix(unit.Name, ".service") {
+			continue
+		}
+		name := strings.TrimSuffix(unit.Name, ".service")
+		services = append(services, name)
 	}
 	return services, nil
 }
@@ -127,11 +134,28 @@ func (s *Service) Installed() bool {
 
 // Exists implements Service.
 func (s *Service) Exists() bool {
-	// TODO(ericsnow) Finish!
-	panic("not finished")
+	same, err := s.check()
+	if err != nil {
+		return false
+	}
+	return same
+}
 
+func (s *Service) check() (bool, error) {
+	conf, err := s.readConf()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return reflect.DeepEqual(s.Conf, conf), nil
+}
+
+func (s *Service) readConf() (common.Conf, error) {
+	var conf common.Conf
+
+	// TODO(ericsnow) Finish!
 	// This may involve conn.GetUnitProperties...
-	return false
+
+	return conf, nil
 }
 
 // Running implements Service.
@@ -148,7 +172,7 @@ func (s *Service) Running() bool {
 	}
 
 	for _, unit := range units {
-		if unit.Name == s.Name {
+		if unit.Name == s.ConfName {
 			return unit.LoadState == "loaded" && unit.ActiveState == "active"
 		}
 	}
@@ -157,6 +181,13 @@ func (s *Service) Running() bool {
 
 // Start implements Service.
 func (s *Service) Start() error {
+	if !s.Installed() {
+		return errors.NotFoundf("service " + s.Name)
+	}
+	if s.Running() {
+		return nil
+	}
+
 	conn, err := newConn()
 	if err != nil {
 		return errors.Trace(err)
@@ -180,6 +211,10 @@ func (s *Service) Start() error {
 
 // Stop implements Service.
 func (s *Service) Stop() error {
+	if !s.Running() {
+		return nil
+	}
+
 	conn, err := newConn()
 	if err != nil {
 		return errors.Trace(err)
@@ -212,6 +247,10 @@ func (s *Service) StopAndRemove() error {
 
 // Remove implements Service.
 func (s *Service) Remove() error {
+	if !s.Installed() {
+		return nil
+	}
+
 	conn, err := newConn()
 	if err != nil {
 		return errors.Trace(err)
@@ -238,6 +277,20 @@ var removeAll = func(name string) error {
 
 // Install implements Service.
 func (s *Service) Install() error {
+	if s.Installed() {
+		same, err := s.check()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if same {
+			return nil
+		}
+		// An old copy is already running so stop it first.
+		if err := s.StopAndRemove(); err != nil {
+			return errors.Annotate(err, "systemd: could not remove old service")
+		}
+	}
+
 	filename, err := s.writeConf()
 	if err != nil {
 		return errors.Trace(err)

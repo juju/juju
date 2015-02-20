@@ -14,7 +14,7 @@ type StubDbusAPI struct {
 	Units []dbus.UnitStatus
 }
 
-func (fda *StubDbusAPI) AddUnit(name, desc, status string) {
+func (fda *StubDbusAPI) AddService(name, desc, status string) {
 	active := ""
 	load := "loaded"
 	if status == "error" {
@@ -24,7 +24,7 @@ func (fda *StubDbusAPI) AddUnit(name, desc, status string) {
 	}
 
 	unit := dbus.UnitStatus{
-		Name:        name,
+		Name:        name + ".service",
 		Description: desc,
 		ActiveState: active,
 		LoadState:   load,
@@ -33,7 +33,7 @@ func (fda *StubDbusAPI) AddUnit(name, desc, status string) {
 }
 
 func (fda *StubDbusAPI) ListUnits() ([]dbus.UnitStatus, error) {
-	fda.Stub.AddCall("ListUnits", nil)
+	fda.Stub.AddCall("ListUnits")
 
 	return fda.Units, fda.NextErr()
 }
@@ -57,16 +57,13 @@ func (fda *StubDbusAPI) EnableUnitFiles(files []string, runtime bool, force bool
 }
 
 func (fda *StubDbusAPI) DisableUnitFiles(files []string, runtime bool) ([]dbus.DisableUnitFileChange, error) {
-	fda.Stub.AddCall("DisableUnitFiles", []interface{}{
-		files,
-		runtime,
-	})
+	fda.Stub.AddCall("DisableUnitFiles", files, runtime)
 
 	return nil, fda.NextErr()
 }
 
 func (fda *StubDbusAPI) Close() {
-	fda.Stub.AddCall("Close", nil)
+	fda.Stub.AddCall("Close")
 
 	fda.Stub.NextErr() // We don't return the error (just pop it off).
 }

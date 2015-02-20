@@ -92,10 +92,12 @@ func (s *initSystemSuite) newConfStr(name, cmd string) string {
 	return fmt.Sprintf(confStr[1:], tag, cmd)
 }
 
+// TODO(ericsnow) Rename addUnit to addService.
+
 func (s *initSystemSuite) addUnit(name, status string) {
 	tag := name[len("jujud-"):]
 	desc := "juju agent for " + tag
-	s.conn.AddUnit(name, desc, status)
+	s.conn.AddService(name, desc, status)
 }
 
 func (s *initSystemSuite) checkCreateFileCall(c *gc.C, index int, filename, content string, perm os.FileMode) {
@@ -301,134 +303,180 @@ func (s *initSystemSuite) TestRunningError(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestStart(c *gc.C) {
+	s.addUnit("jujud-machine-0", "inactive")
 	s.ch <- "done"
 
 	err := s.service.Start()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCallNames(c, "StartUnit", "Close")
-}
-
-func (s *initSystemSuite) TestStop(c *gc.C) {
-	s.ch <- "done"
-
-	err := s.service.Stop()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCallNames(c, "StopUnit", "Close")
-}
-
-func (s *initSystemSuite) TestStopAndRemove(c *gc.C) {
-	s.ch <- "done"
-
-	err := s.service.StopAndRemove()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCallNames(c, "StopUnit", "Close", "DisableUnitFiles", "RemoveAll", "Close")
-}
-
-func (s *initSystemSuite) TestRemove(c *gc.C) {
-	err := s.service.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCallNames(c, "DisableUnitFiles", "RemoveAll", "Close")
-}
-
-func (s *initSystemSuite) TestInstall(c *gc.C) {
-	err := s.service.Install()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCallNames(c, "MkdirAll", "CreateFile", "EnableUnitFiles", "Close")
-	s.checkCreateFileCall(c, 1, s.name, "", 0644)
-}
-
-func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
-	scriptPath := fmt.Sprintf("%s/init/%s/exec-start.sh", s.dataDir, s.name)
-	cmd := "a\nb\nc"
-	s.service.Conf.Cmd = scriptPath
-	s.service.Script = []byte(cmd)
-
-	err := s.service.Install()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCallNames(c, "MkdirAll", "CreateFile", "CreateFile", "EnableUnitFiles", "Close")
-	s.checkCreateFileCall(c, 1, scriptPath, cmd, 0755)
-	filename := fmt.Sprintf("%s/init/%s/%s.service", s.dataDir, s.name, s.name)
-	content := s.newConfStr(s.name, scriptPath)
-	s.checkCreateFileCall(c, 2, filename, content, 0644)
-}
-
-func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
-	// TODO(ericsnow) Finish.
-}
-
-///////////////////////////////////////////////////////////
-
-/*
-func (s *initSystemSuite) TestInitSystemStart(c *gc.C) {
-	name := "jujud-unit-wordpress-0"
-	s.addUnit(name, "inactive")
-	s.ch <- "done"
-
-	err := s.init.Start(name)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCallNames(c, "ListUnits", "Close", "StartUnit", "Close")
-}
-
-func (s *initSystemSuite) TestInitSystemStartAlreadyRunning(c *gc.C) {
-	name := "jujud-unit-wordpress-0"
-	s.addUnit(name, "active")
-
-	err := s.init.Start(name)
-
-	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
-}
-
-func (s *initSystemSuite) TestInitSystemStartNotEnabled(c *gc.C) {
-	name := "jujud-unit-wordpress-0"
-	err := s.init.Start(name)
-
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *initSystemSuite) TestInitSystemStop(c *gc.C) {
-	name := "jujud-unit-wordpress-0"
-	s.addUnit(name, "active")
-	s.ch <- "done"
-
-	err := s.init.Stop(name)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCallNames(c, "ListUnits", "Close", "StopUnit", "Close")
-}
-
-func (s *initSystemSuite) TestInitSystemStopNotRunning(c *gc.C) {
-	name := "jujud-unit-wordpress-0"
-	s.addUnit(name, "inactive")
-
-	err := s.init.Stop(name)
-
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *initSystemSuite) TestInitSystemStopNotEnabled(c *gc.C) {
-	name := "jujud-unit-wordpress-0"
-	err := s.init.Stop(name)
-
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *initSystemSuite) TestInitSystemEnable(c *gc.C) {
-	name := "jujud-unit-wordpress-0"
-	filename := "/var/lib/juju/init/" + name + "/systemd.conf"
-	err := s.init.Enable(name, filename)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ListUnits",
 	}, {
 		FuncName: "Close",
+	}, {
+		FuncName: "ListUnits",
+	}, {
+		FuncName: "Close",
+	}, {
+		FuncName: "StartUnit",
+		Args: []interface{}{
+			s.name + ".service",
+			"fail",
+			(chan<- string)(s.ch),
+		},
+	}, {
+		FuncName: "Close",
+	}})
+}
+
+func (s *initSystemSuite) TestStartAlreadyRunning(c *gc.C) {
+	s.addUnit("jujud-machine-0", "active")
+	s.ch <- "done" // just in case
+
+	err := s.service.Start()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c,
+		"ListUnits",
+		"Close",
+		"ListUnits",
+		"Close",
+	)
+}
+
+func (s *initSystemSuite) TestStartNotInstalled(c *gc.C) {
+	s.ch <- "done" // just in case
+
+	err := s.service.Start()
+
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	s.stub.CheckCallNames(c, "ListUnits", "Close")
+}
+
+func (s *initSystemSuite) TestStop(c *gc.C) {
+	s.addUnit("jujud-machine-0", "active")
+	s.ch <- "done"
+
+	err := s.service.Stop()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		FuncName: "ListUnits",
+	}, {
+		FuncName: "Close",
+	}, {
+		FuncName: "StopUnit",
+		Args: []interface{}{
+			s.name + ".service",
+			"fail",
+			(chan<- string)(s.ch),
+		},
+	}, {
+		FuncName: "Close",
+	}})
+}
+
+func (s *initSystemSuite) TestStopNotRunning(c *gc.C) {
+	s.addUnit("jujud-machine-0", "inactive")
+	s.ch <- "done" // just in case
+
+	err := s.service.Stop()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "ListUnits", "Close")
+}
+
+func (s *initSystemSuite) TestStopNotInstalled(c *gc.C) {
+	s.ch <- "done" // just in case
+
+	err := s.service.Stop()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "ListUnits", "Close")
+}
+
+func (s *initSystemSuite) TestStopAndRemove(c *gc.C) {
+	s.addUnit("jujud-machine-0", "active")
+	s.ch <- "done"
+
+	err := s.service.StopAndRemove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c,
+		"ListUnits",
+		"Close",
+		"StopUnit",
+		"Close",
+		"ListUnits",
+		"Close",
+		"DisableUnitFiles",
+		"RemoveAll",
+		"Close",
+	)
+}
+
+func (s *initSystemSuite) TestRemove(c *gc.C) {
+	s.addUnit("jujud-machine-0", "inactive")
+
+	err := s.service.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c,
+		"ListUnits",
+		"Close",
+		"DisableUnitFiles",
+		"RemoveAll",
+		"Close",
+	)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		FuncName: "ListUnits",
+	}, {
+		FuncName: "Close",
+	}, {
+		FuncName: "DisableUnitFiles",
+		Args: []interface{}{
+			[]string{s.name + ".service"},
+			false,
+		},
+	}, {
+		FuncName: "RemoveAll",
+		Args: []interface{}{
+			fmt.Sprintf("%s/init/%s", s.dataDir, s.name),
+		},
+	}, {
+		FuncName: "Close",
+	}})
+}
+
+func (s *initSystemSuite) TestRemoveNotInstalled(c *gc.C) {
+	err := s.service.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "ListUnits", "Close")
+}
+
+func (s *initSystemSuite) TestInstall(c *gc.C) {
+	err := s.service.Install()
+	c.Assert(err, jc.ErrorIsNil)
+
+	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
+	filename := fmt.Sprintf("%s/%s.service", dirname, s.name)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		FuncName: "ListUnits",
+	}, {
+		FuncName: "Close",
+	}, {
+		FuncName: "MkdirAll",
+		Args: []interface{}{
+			dirname,
+		},
+	}, {
+		FuncName: "CreateFile",
+		Args: []interface{}{
+			filename,
+			[]byte(s.newConfStr(s.name, "")),
+			os.FileMode(0644),
+		},
 	}, {
 		FuncName: "EnableUnitFiles",
 		Args: []interface{}{
@@ -441,251 +489,69 @@ func (s *initSystemSuite) TestInitSystemEnable(c *gc.C) {
 	}})
 }
 
-func (s *initSystemSuite) TestInitSystemEnableAlreadyEnabled(c *gc.C) {
-	name := "jujud-unit-wordpress-0"
-	s.addUnit(name, "inactive")
+func (s *initSystemSuite) TestInstallAlreadyInstalled(c *gc.C) {
+	s.addUnit("jujud-machine-0", "inactive")
 
-	filename := "/var/lib/juju/init/" + name + "/systemd.conf"
-	err := s.init.Enable(name, filename)
-
-	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
-}
-
-func (s *initSystemSuite) TestInitSystemDisable(c *gc.C) {
-	name := "jujud-unit-wordpress-0"
-	s.addUnit(name, "inactive")
-
-	err := s.init.Disable(name)
+	err := s.service.Install()
 	c.Assert(err, jc.ErrorIsNil)
 
-	filename := "/var/lib/juju/init/" + name + "/systemd.conf"
-	s.stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ListUnits",
-	}, {
-		FuncName: "Close",
-	}, {
-		FuncName: "DisableUnitFiles",
-		Args: []interface{}{
-			[]string{filename},
-			false,
-		},
-	}, {
-		FuncName: "Close",
-	}})
+	s.stub.CheckCallNames(c,
+		"ListUnits",
+		"Close",
+	)
 }
 
-func (s *initSystemSuite) TestInitSystemDisableNotEnabled(c *gc.C) {
-	name := "jujud-unit-wordpress-0"
+func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
+	s.addUnit("jujud-machine-0", "active")
+	s.ch <- "done"
 
-	err := s.init.Disable(name)
-
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *initSystemSuite) TestInitSystemIsEnabledTrue(c *gc.C) {
-	name := "jujud-unit-wordpress-0"
-	s.addUnit(name, "inactive")
-
-	enabled, err := s.init.IsEnabled(name)
+	err := s.service.Install()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(enabled, jc.IsTrue)
-
-	s.stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ListUnits",
-	}, {
-		FuncName: "Close",
-	}})
+	s.stub.CheckCallNames(c,
+		"ListUnits",
+		"Close",
+		"ListUnits",
+		"Close",
+		"StopUnit",
+		"Close",
+		"ListUnits",
+		"Close",
+		"DisableUnitFiles",
+		"RemoveAll",
+		"Close",
+		"MkdirAll",
+		"CreateFile",
+		"EnableUnitFiles",
+		"Close",
+	)
+	s.checkCreateFileCall(c, 12, s.name, "", 0644)
 }
 
-func (s *initSystemSuite) TestInitSystemIsEnabledFalse(c *gc.C) {
-	name := "jujud-unit-wordpress-0"
+func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
+	scriptPath := fmt.Sprintf("%s/init/%s/exec-start.sh", s.dataDir, s.name)
+	cmd := "a\nb\nc"
+	s.service.Conf.Cmd = scriptPath
+	s.service.Script = []byte(cmd)
 
-	enabled, err := s.init.IsEnabled(name)
+	err := s.service.Install()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(enabled, jc.IsFalse)
+	s.stub.CheckCallNames(c,
+		"ListUnits",
+		"Close",
+		"MkdirAll",
+		"CreateFile",
+		"CreateFile",
+		"EnableUnitFiles",
+		"Close",
+	)
+	s.checkCreateFileCall(c, 3, scriptPath, cmd, 0755)
+	filename := fmt.Sprintf("%s/init/%s/%s.service", s.dataDir, s.name, s.name)
+	content := s.newConfStr(s.name, scriptPath)
+	s.checkCreateFileCall(c, 4, filename, content, 0644)
 }
 
-func (s *initSystemSuite) TestInitSystemInfoRunning(c *gc.C) {
-	name := "jujud-unit-wordpress-0"
-	s.addUnit(name, "active")
-
-	info, err := s.init.Info(name)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(info, jc.DeepEquals, &initsystems.ServiceInfo{
-		Name:        name,
-		Description: "juju agent for unit-wordpress-0",
-		Status:      "active",
-	})
-
-	s.stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ListUnits",
-	}, {
-		FuncName: "Close",
-	}})
+func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
+	// TODO(ericsnow) Finish.
 }
-
-func (s *initSystemSuite) TestInitSystemInfoNotRunning(c *gc.C) {
-	name := "jujud-unit-wordpress-0"
-	s.addUnit(name, "inactive")
-
-	info, err := s.init.Info(name)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(info, jc.DeepEquals, &initsystems.ServiceInfo{
-		Name:        name,
-		Description: "juju agent for unit-wordpress-0",
-		Status:      "inactive",
-	})
-}
-
-func (s *initSystemSuite) TestInitSystemInfoNotEnabled(c *gc.C) {
-	name := "jujud-unit-wordpress-0"
-	_, err := s.init.Info(name)
-
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *initSystemSuite) TestInitSystemConf(c *gc.C) {
-	name := "jujud-unit-wordpress-0"
-	s.addUnit(name, "inactive")
-
-	conf, err := s.init.Conf(name)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(conf, jc.DeepEquals, common.Conf{
-		Desc: `juju agent for unit-wordpress-0`,
-		Cmd:  "jujud unit-wordpress-0",
-	})
-
-	s.stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ListUnits",
-	}, {
-		FuncName: "Close",
-	}})
-}
-
-func (s *initSystemSuite) TestInitSystemConfNotEnabled(c *gc.C) {
-	name := "jujud-unit-wordpress-0"
-
-	_, err := s.init.Conf(name)
-
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *initSystemSuite) TestInitSystemValidate(c *gc.C) {
-	confName, err := s.init.Validate("jujud-machine-0", s.conf)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(confName, gc.Equals, "jujud-machine-0.service")
-	s.stub.CheckCalls(c, nil)
-}
-
-func (s *initSystemSuite) TestInitSystemValidateFull(c *gc.C) {
-	s.conf.Env = map[string]string{
-		"x": "y",
-	}
-	s.conf.Limit = map[string]string{
-		"nofile": "10",
-	}
-	s.conf.Out = "syslog"
-
-	_, err := s.init.Validate("jujud-machine-0", s.conf)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCalls(c, nil)
-}
-
-func (s *initSystemSuite) TestInitSystemValidateInvalid(c *gc.C) {
-	s.conf.Cmd = ""
-
-	_, err := s.init.Validate("jujud-machine-0", s.conf)
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-}
-
-func (s *initSystemSuite) TestInitSystemValidateInvalidOut(c *gc.C) {
-	s.conf.Out = "/var/log/juju/machine-0.log"
-
-	_, err := s.init.Validate("jujud-machine-0", s.conf)
-
-	expected := errors.NotValidf("Out")
-	c.Check(errors.Cause(err), gc.FitsTypeOf, expected)
-}
-
-func (s *initSystemSuite) TestInitSystemValidateInvalidLimit(c *gc.C) {
-	s.conf.Limit = map[string]string{
-		"x": "y",
-	}
-
-	_, err := s.init.Validate("jujud-machine-0", s.conf)
-
-	expected := errors.NotValidf("Limit")
-	c.Check(errors.Cause(err), gc.FitsTypeOf, expected)
-}
-
-func (s *initSystemSuite) TestInitSystemSerialize(c *gc.C) {
-	data, err := s.init.Serialize("jujud-machine-0", s.conf)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(string(data), gc.Equals, s.confStr)
-
-	s.stub.CheckCalls(c, nil)
-}
-
-func (s *initSystemSuite) TestInitSystemSerializeUnsupported(c *gc.C) {
-	tag := "unit-wordpress-0"
-	name := "jujud-unit-wordpress-0"
-	conf := common.Conf{
-		Desc: "juju agent for " + tag,
-		Cmd:  "jujud " + tag,
-		Out:  "/var/log/juju/" + tag,
-	}
-	_, err := s.init.Serialize(name, conf)
-
-	expected := errors.NotValidf("Out")
-	c.Check(errors.Cause(err), gc.FitsTypeOf, expected)
-}
-
-func (s *initSystemSuite) TestInitSystemDeserialize(c *gc.C) {
-	name := "jujud-unit-wordpress-0"
-	data := s.newConfStr(name)
-	conf, err := s.init.Deserialize([]byte(data), name)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(conf, jc.DeepEquals, common.Conf{
-		Desc: "juju agent for unit-wordpress-0",
-		Cmd:  "jujud unit-wordpress-0",
-	})
-
-	s.stub.CheckCalls(c, nil)
-}
-
-func (s *initSystemSuite) TestInitSystemDeserializeUnsupported(c *gc.C) {
-	name := "jujud-machine-0"
-	data := `
-[Unit]
-Description=juju agent for machine-0
-After=syslog.target
-After=network.target
-After=systemd-user-sessions.service
-
-[Service]
-Type=forking
-StandardOutput=/var/log/juju/machine-0.log
-ExecStart=jujud machine-0
-RemainAfterExit=yes
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-
-`[1:]
-	_, err := s.init.Deserialize([]byte(data), name)
-
-	expected := errors.NotValidf("Out")
-	c.Check(errors.Cause(err), gc.FitsTypeOf, expected)
-}
-*/
