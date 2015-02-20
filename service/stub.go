@@ -13,18 +13,22 @@ import (
 	"github.com/juju/juju/service/initsystems"
 )
 
-// AddMockInitSystem registers a new mock InitSystem implementation.
-// This is useful for testing.
-func AddMockInitSystem(name, baseName string) {
+// NewMockInitSystem creates a new mock init system and returns it.
+func NewMockInitSystem(name, baseName string) initsystems.InitSystem {
 	base := initsystems.NewInitSystem(baseName)
 	if base == nil {
 		panic(`unknown base init system "` + baseName + `"`)
 	}
 	fops := &fs.Ops{}
-	newMock := func(name string) initsystems.InitSystem {
-		return initsystems.NewTracking(base, fops)
-	}
+	return initsystems.NewTracking(base, fops)
+}
 
+// AddMockInitSystem registers a new mock InitSystem implementation.
+// This is useful for testing.
+func AddMockInitSystem(name, baseName string) {
+	newMock := func(name string) initsystems.InitSystem {
+		return NewMockInitSystem(name, baseName)
+	}
 	initsystems.Register(name, initsystems.InitSystemDefinition{
 		Name:        name,
 		OSNames:     []string{"<any>"},

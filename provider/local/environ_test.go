@@ -12,7 +12,6 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/fs"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -34,7 +33,6 @@ import (
 	"github.com/juju/juju/provider/local"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/initsystems"
-	"github.com/juju/juju/service/initsystems/upstart"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -140,9 +138,7 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	})
 
 	// Patch out the init system.
-	fops := &fs.Ops{}
-	baseIS := &upstart.Upstart{}
-	initSystem := initsystems.NewTracking(baseIS, fops)
+	initSystem := service.NewMockInitSystem("<mock-provider-local", service.InitSystemUpstart)
 	s.services = service.NewServices(c.MkDir(), initSystem)
 	s.PatchValue(local.NewServices, func(string) (*service.Services, error) {
 		return s.services, nil
