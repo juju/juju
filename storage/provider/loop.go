@@ -135,7 +135,7 @@ func (lvs *loopVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.Volu
 // DestroyVolumes is defined on the VolumeSource interface.
 func (lvs *loopVolumeSource) DestroyVolumes(volumeIds []string) error {
 	for _, volumeId := range volumeIds {
-		if _, err := names.ParseDiskTag(volumeId); err != nil {
+		if _, err := names.ParseVolumeTag(volumeId); err != nil {
 			return errors.Errorf("invalid loop volume ID %q", volumeId)
 		}
 		loopFilePath := lvs.volumeFilePath(volumeId)

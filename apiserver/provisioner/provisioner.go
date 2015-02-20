@@ -583,13 +583,13 @@ func storageConfig(st *state.State, poolName string) (storage.ProviderType, map[
 
 // volumesToState converts a slice of storage.Volume to a mapping
 // of volume names to state.VolumeInfo.
-func volumesToState(in []params.Volume) (map[names.DiskTag]state.VolumeInfo, error) {
-	m := make(map[names.DiskTag]state.VolumeInfo)
+func volumesToState(in []params.Volume) (map[names.VolumeTag]state.VolumeInfo, error) {
+	m := make(map[names.VolumeTag]state.VolumeInfo)
 	for _, v := range in {
 		if v.VolumeTag == "" {
 			return nil, errors.New("Tag is empty")
 		}
-		volumeTag, err := names.ParseDiskTag(v.VolumeTag)
+		volumeTag, err := names.ParseVolumeTag(v.VolumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -604,13 +604,13 @@ func volumesToState(in []params.Volume) (map[names.DiskTag]state.VolumeInfo, err
 
 // volumeAttachmentsToState converts a slice of storage.VolumeAttachment to a
 // mapping of volume names to state.VolumeAttachmentInfo.
-func volumeAttachmentsToState(in []params.VolumeAttachment) (map[names.DiskTag]state.VolumeAttachmentInfo, error) {
-	m := make(map[names.DiskTag]state.VolumeAttachmentInfo)
+func volumeAttachmentsToState(in []params.VolumeAttachment) (map[names.VolumeTag]state.VolumeAttachmentInfo, error) {
+	m := make(map[names.VolumeTag]state.VolumeAttachmentInfo)
 	for _, v := range in {
 		if v.VolumeTag == "" {
 			return nil, errors.New("Tag is empty")
 		}
-		volumeTag, err := names.ParseDiskTag(v.VolumeTag)
+		volumeTag, err := names.ParseVolumeTag(v.VolumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

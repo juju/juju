@@ -1383,7 +1383,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 
 // newMachineVolumeParams returns parameters for creating volumes and volume
 // attachments for a new machine that the unit will be assigned to.
-func (u *Unit) newMachineVolumeParams() ([]MachineVolumeParams, map[names.DiskTag]VolumeAttachmentParams, error) {
+func (u *Unit) newMachineVolumeParams() ([]MachineVolumeParams, map[names.VolumeTag]VolumeAttachmentParams, error) {
 	storageAttachments, err := u.st.StorageAttachments(u.UnitTag())
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting storage attachments")
@@ -1406,7 +1406,7 @@ func (u *Unit) newMachineVolumeParams() ([]MachineVolumeParams, map[names.DiskTa
 	}
 
 	var volumes []MachineVolumeParams
-	volumeAttachments := make(map[names.DiskTag]VolumeAttachmentParams)
+	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
 	for _, storageAttachment := range storageAttachments {
 		// TODO(axw) consult storage provider to see if we need to request
 		// a volume for the storage instance. Otherwise create a Filesystem
