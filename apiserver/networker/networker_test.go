@@ -284,34 +284,25 @@ func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 		VLANTag:       0,
 		InterfaceName: "eth0",
 	}}
-
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
 		{Tag: "machine-0-lxc-0"},
 		{Tag: "machine-0-lxc-0-lxc-0"},
 	}}
 
-	// Test for old API name.
-	results, err := s.networker.MachineNetworkInfo(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.MachineNetworkConfigResults{
-		Results: []params.MachineNetworkConfigResult{
-			{Error: nil, Config: expectedMachineConfig},
-			{Error: nil, Config: expectedContainerConfig},
-			{Error: nil, Config: expectedNestedContainerConfig},
-		},
-	})
-
-	// Test for new API name.
-	results, err = s.networker.MachineNetworkConfig(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.MachineNetworkConfigResults{
-		Results: []params.MachineNetworkConfigResult{
-			{Error: nil, Config: expectedMachineConfig},
-			{Error: nil, Config: expectedContainerConfig},
-			{Error: nil, Config: expectedNestedContainerConfig},
-		},
-	})
+	assert := func(f func(params.Entities) (params.MachineNetworkConfigResults, error)) {
+		results, err := f(args)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(results, gc.DeepEquals, params.MachineNetworkConfigResults{
+			Results: []params.MachineNetworkConfigResult{
+				{Error: nil, Config: expectedMachineConfig},
+				{Error: nil, Config: expectedContainerConfig},
+				{Error: nil, Config: expectedNestedContainerConfig},
+			},
+		})
+	}
+	assert(s.networker.MachineNetworkInfo)
+	assert(s.networker.MachineNetworkConfig)
 }
 
 func (s *networkerSuite) TestWatchInterfacesPermissions(c *gc.C) {

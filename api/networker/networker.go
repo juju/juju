@@ -25,13 +25,6 @@ func NewState(caller base.APICaller) *State {
 	return &State{base.NewFacadeCaller(caller, networkerFacade)}
 }
 
-// MachineNetworkInfo returns information about network interfaces to
-// setup only for a single machine.
-// DEPRECATED: Use MachineNetworkConfig() instead.
-func (st *State) MachineNetworkInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
-	return st.MachineNetworkConfig(tag)
-}
-
 // MachineNetworkConfig returns information about network interfaces to
 // setup only for a single machine.
 func (st *State) MachineNetworkConfig(tag names.MachineTag) ([]network.InterfaceInfo, error) {
@@ -39,12 +32,16 @@ func (st *State) MachineNetworkConfig(tag names.MachineTag) ([]network.Interface
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	var results params.MachineNetworkConfigResults
-	// TODO(mue): New name is now MachineNetworkConfig, this variant
-	// is kept due to compatibility reasons.
-	err := st.facade.FacadeCall("MachineNetworkInfo", args, &results)
+	err := st.facade.FacadeCall("MachineNetworkConfig", args, &results)
 	if err != nil {
-		// TODO: Not directly tested
-		return nil, err
+		if params.IsCodeNotImplemented(err) {
+			// Fallback to former name.
+			err = st.facade.FacadeCall("MachineNetworkInfo", args, &results)
+		}
+		if err != nil {
+			// TODO: Not directly tested.
+			return nil, err
+		}
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
