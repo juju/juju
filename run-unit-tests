@@ -1,7 +1,6 @@
 #!/bin/bash
 set -eux
 : ${SCRIPTS=$(readlink -f $(dirname $0))}
-: ${LOCAL_JENKINS_URL=${JENKINS_URL:-http://juju-ci.vapour.ws:8080}}
 
 export INSTANCE_TYPE=$1
 export AMI_IMAGE=$2
