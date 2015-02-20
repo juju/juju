@@ -250,7 +250,7 @@ class DumpEnvLogsTestCase(TestCase):
                            side_effect=make_logs(log_dir)) as crl_mock:
                     dump_logs(client, '10.10.0.1', log_dir,
                               local_state_server=False)
-            self.assertEqual(['cloud.log.gz', 'extra'], os.listdir(log_dir))
+            self.assertEqual(['cloud.log.gz', 'extra'], sorted(os.listdir(log_dir)))
         self.assertEqual(0, cll_mock.call_count)
         self.assertEqual(('10.10.0.1', log_dir), crl_mock.call_args[0])
 
@@ -265,7 +265,7 @@ class DumpEnvLogsTestCase(TestCase):
                            autospec=True) as crl_mock:
                     dump_logs(client, '10.10.0.1', log_dir,
                               local_state_server=True)
-            self.assertEqual(['cloud.log.gz', 'extra'], os.listdir(log_dir))
+            self.assertEqual(['cloud.log.gz', 'extra'], sorted(os.listdir(log_dir)))
         self.assertEqual((log_dir, client), cll_mock.call_args[0])
         self.assertEqual(0, crl_mock.call_count)
 
