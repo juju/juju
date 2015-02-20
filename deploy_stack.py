@@ -4,6 +4,7 @@ __metaclass__ = type
 
 
 from argparse import ArgumentParser
+import errno
 import glob
 import logging
 import os
@@ -25,6 +26,7 @@ from jujupy import (
     get_local_root,
 )
 from substrate import (
+    get_maas_ip_from_name,
     LIBVIRT_DOMAIN_RUNNING,
     start_libvirt_domain,
     stop_libvirt_domain,
@@ -168,14 +170,23 @@ def get_random_string():
     return ''.join(random.choice(allowed_chars) for n in range(20))
 
 
-def dump_env_logs(client, bootstrap_host, directory, host_id=None):
+def dump_env_logs(env, bootstrap_host, directory, host_id=None):
+    client = env.client.get_env_client(env)
     machine_addrs = get_machines_for_logs(client, bootstrap_host)
 
     for machine_id, addr in machine_addrs.iteritems():
         logging.info("Retrieving logs for machine-%s", machine_id)
         machine_directory = os.path.join(directory, machine_id)
-        os.mkdir(machine_directory)
+        try:
+            os.mkdir(machine_directory)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
         local_state_server = client.env.local and machine_id == '0'
+        if env.config['type'] == 'maas':
+            addr = get_maas_ip_from_name(env.config['maas-server'], addr)
+            logging.info("Resolved machine_id %s to %s using %s.",
+                         machine_id, addr, env.config['maas-server'])
         dump_logs(client, addr, machine_directory,
                   local_state_server=local_state_server)
 
@@ -238,12 +249,14 @@ def copy_remote_logs(host, directory):
     ]
     source = 'ubuntu@%s:/var/log/{%s}' % (host, ','.join(log_names))
 
+    logging.info("Waiting for %s:22", host)
     try:
         wait_for_port(host, 22, timeout=60)
     except PortTimeoutError:
         logging.warning("Could not dump logs because port 22 was closed.")
         return
 
+    logging.info("Changing permissions on %s/var/log/juju/*", host)
     try:
         subprocess.check_call([
             'timeout', '5m', 'ssh',
@@ -257,8 +270,9 @@ def copy_remote_logs(host, directory):
         logging.warning("Could not change the permission of the juju logs:")
         logging.warning(e.output)
 
+    logging.info("Copying %s", source)
     try:
-        subprocess.check_call([
+        subprocess.check_output([
             'timeout', '5m', 'scp', '-C',
             '-o', 'UserKnownHostsFile /dev/null',
             '-o', 'StrictHostKeyChecking no',
@@ -460,9 +474,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                 except BaseException as e:
                     logging.exception(e)
                     if host is not None:
-                        dump_env_logs(
-                            env.client.get_env_client(env), host, log_dir,
-                            host_id=bootstrap_id)
+                        dump_env_logs(env, host, log_dir, host_id=bootstrap_id)
                     sys.exit(1)
             finally:
                 env.juju('status')

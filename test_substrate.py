@@ -22,6 +22,7 @@ from substrate import (
     AWSAccount,
     AzureAccount,
     get_libvirt_domstate,
+    get_maas_ip_from_name,
     JoyentAccount,
     OpenStackAccount,
     make_substrate_manager,
@@ -689,3 +690,18 @@ class TestLibvirt(TestCase):
         with patch('substrate.get_libvirt_domstate', return_value='shut off'):
             rval = verify_libvirt_domain(URI, dom_name, 'running')
         self.assertFalse(rval)
+
+
+class TestGetMaaSIp(TestCase):
+
+    def test_get_maas_ip_from_name(self):
+        env = get_maas_env()
+        with patch('subprocess.check_output',
+                   return_value='10-0-20-171.maas.\n10.0.20.171') as cc_mock:
+            returned_ip = get_maas_ip_from_name(env.config['maas-server'],
+                                                'node.maas')
+        expected = (
+            ['dig', '@' + '10.0.10.10', 'node.maas', '+short'],
+        )
+        self.assertEqual(expected, cc_mock.call_args_list[0][0])
+        self.assertEqual(returned_ip, '10.0.20.171')
