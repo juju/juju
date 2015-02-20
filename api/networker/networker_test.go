@@ -168,14 +168,20 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.networker, gc.NotNil)
 }
 
-func (s *networkerSuite) TestMachineNetworkInfoPermissionDenied(c *gc.C) {
+func (s *networkerSuite) TestMachineNetworkConfigPermissionDenied(c *gc.C) {
+	// Test for old API name.
 	info, err := s.networker.MachineNetworkInfo(names.NewMachineTag("1"))
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(info, gc.IsNil)
+	// Test for new API name.
+	info, err = s.networker.MachineNetworkConfig(names.NewMachineTag("1"))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(info, gc.IsNil)
 }
 
-func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
+func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 	// TODO(bogdanteleaga): Find out what's the problem with this test
 	// It seems to work on some machines
 	if runtime.GOOS == "windows" {
