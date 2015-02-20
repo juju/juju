@@ -87,6 +87,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 
 func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
 	machineNonce := "fake-nonce"
+	version.Current.Arch = "amd64"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
