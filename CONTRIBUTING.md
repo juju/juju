@@ -41,6 +41,7 @@ Specifically, the following commands should already have been run:
 
 ```shell
 $ go get -d -v github.com/juju/juju/...
+$ cd $GOPATH/src/github.com/juju/juju
 $ make install-dependencies
 ```
 
