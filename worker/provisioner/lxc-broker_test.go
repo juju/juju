@@ -24,6 +24,7 @@ import (
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
 	"github.com/juju/juju/juju/arch"
@@ -98,13 +99,18 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
+func (s *lxcBrokerSuite) machineConfig(c *gc.C, machineId string) *cloudinit.MachineConfig {
 	machineNonce := "fake-nonce"
 	s.PatchValue(&version.Current.Arch, arch.AMD64)
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
+	return machineConfig
+}
+
+func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
+	machineConfig := s.machineConfig(c, machineId)
 	cons := constraints.Value{}
 	possibleTools := coretools.List{&coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
@@ -133,12 +139,7 @@ func (s *lxcBrokerSuite) TestStartInstance(c *gc.C) {
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceHostArch(c *gc.C) {
-	const machineId = "1/lxc/0"
-	stateInfo := jujutesting.FakeStateInfo(machineId)
-	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig, err := environs.NewMachineConfig(machineId, "fake-nonce", "released", "quantal", true, nil, stateInfo, apiInfo)
-	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.Value{}
+	machineConfig := s.machineConfig(c, "1/lxc/0")
 
 	// Patch the host's arch, so the LXC broker will filter tools.
 	s.PatchValue(&version.Current.Arch, arch.PPC64EL)
@@ -149,13 +150,30 @@ func (s *lxcBrokerSuite) TestStartInstanceHostArch(c *gc.C) {
 		Version: version.MustParseBinary("2.3.4-quantal-ppc64el"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-ppc64el.tgz",
 	}}
-	_, err = s.broker.StartInstance(environs.StartInstanceParams{
-		Constraints:   cons,
+	_, err := s.broker.StartInstance(environs.StartInstanceParams{
+		Constraints:   constraints.Value{},
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineConfig.Tools.Version.Arch, gc.Equals, arch.PPC64EL)
+}
+
+func (s *lxcBrokerSuite) TestStartInstanceToolsArchNotFound(c *gc.C) {
+	machineConfig := s.machineConfig(c, "1/lxc/0")
+
+	// Patch the host's arch, so the LXC broker will filter tools.
+	s.PatchValue(&version.Current.Arch, arch.PPC64EL)
+	possibleTools := coretools.List{&coretools.Tools{
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	}}
+	_, err := s.broker.StartInstance(environs.StartInstanceParams{
+		Constraints:   constraints.Value{},
+		Tools:         possibleTools,
+		MachineConfig: machineConfig,
+	})
+	c.Assert(err, gc.ErrorMatches, "need tools for arch ppc64el, only found \\[amd64\\]")
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceWithBridgeEnviron(c *gc.C) {
