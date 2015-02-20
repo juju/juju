@@ -89,6 +89,9 @@ type InitSystemDefinition struct {
 
 func (isd InitSystemDefinition) supportedOS(osName string) bool {
 	for _, supported := range isd.OSNames {
+		if supported == "<any>" {
+			return true
+		}
 		if supported == osName {
 			return true
 		}
@@ -101,6 +104,9 @@ func (isd InitSystemDefinition) supportedOS(osName string) bool {
 
 func (isd InitSystemDefinition) supportedExecutable(executable string) bool {
 	for _, supported := range isd.Executables {
+		if supported == "<any>" {
+			return true
+		}
 		if supported == executable {
 			return true
 		}

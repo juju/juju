@@ -19,6 +19,11 @@ import (
 	"github.com/juju/juju/version"
 )
 
+// InitSystem identifies the name of the init system to use. By default
+// nothing is specified so it will be discovered on the local host. Tests
+// may change this value to force a specific init system.
+var InitSystem = ""
+
 // APICalls defines the interface to the API that the simple context needs.
 type APICalls interface {
 	ConnectionInfo() (params.DeployerConnectionValues, error)
@@ -70,7 +75,11 @@ func recursiveChmod(path string, mode os.FileMode) error {
 // the specified deployer, that deploys unit agents.
 // Paths to which agents and tools are installed are relative to dataDir.
 func NewSimpleContext(agentConfig agent.Config, api APICalls) (*SimpleContext, error) {
-	services, err := service.DiscoverServices(agentConfig.DataDir())
+	initSystem := InitSystem
+	if initSystem == "" {
+		initSystem = service.DiscoverInitSystem()
+	}
+	services, err := service.BuildServices(agentConfig.DataDir(), initSystem)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

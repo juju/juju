@@ -7,8 +7,31 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/testing"
+	"github.com/juju/utils/fs"
 	"github.com/juju/utils/set"
+
+	"github.com/juju/juju/service/initsystems"
 )
+
+// AddMockInitSystem registers a new mock InitSystem implementation.
+// This is useful for testing.
+func AddMockInitSystem(name, baseName string) {
+	base := initsystems.NewInitSystem(baseName)
+	if base == nil {
+		panic(`unknown base init system "` + baseName + `"`)
+	}
+	fops := &fs.Ops{}
+	newMock := func(name string) initsystems.InitSystem {
+		return initsystems.NewTracking(base, fops)
+	}
+
+	initsystems.Register(name, initsystems.InitSystemDefinition{
+		Name:        name,
+		OSNames:     []string{"<any>"},
+		Executables: []string{"<any>"},
+		New:         newMock,
+	})
+}
 
 // StubServiceStatus holds the sets of names for a given status.
 type StubServicesStatus struct {

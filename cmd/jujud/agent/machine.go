@@ -705,6 +705,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				apiDeployer := st.Deployer()
 				context, err := newDeployContext(apiDeployer, agentConfig)
 				if err != nil {
+					panic("here")
 					return nil, errors.Trace(err)
 				}
 				return deployer.NewDeployer(apiDeployer, context), nil
