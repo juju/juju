@@ -63,6 +63,14 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
     env = dict(os.environ)
     env['GOPATH'] = gopath
     env['GOARCH'] = 'amd64'
+    if sys.platform == 'win32':
+        # Ensure OpenSSH is never in the path for win tests.
+        sane_path = [p for p in env['PATH'].split(';') if 'OpenSSH' not in p]
+        env['PATH'] = ';'.join(sane_path)
+        env['Path'] = env['PATH']
+        if verbose:
+            print('Setting environ Path to:')
+            print(env['Path'])
     package_dir = os.path.join(gopath, 'src', package.replace('/', os.sep))
     with WorkingDirectory(package_dir):
         if verbose:

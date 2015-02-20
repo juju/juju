@@ -1,7 +1,9 @@
 test:
 	python -m unittest discover -vv . -p '*.py'
 lint:
-	flake8 .
+	flake8 *.py
+clean:
+	find . -name '*.pyc' -delete
 apt-update:
 	sudo apt-get -qq update
 juju-ci-tools.common_0.1.0-0_all.deb: apt-update

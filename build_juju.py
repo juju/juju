@@ -11,7 +11,9 @@ import traceback
 from candidate import run_command
 from jujuci import (
     add_artifacts,
+    add_credential_args,
     get_artifacts,
+    get_credentials,
     BUILD_REVISION,
     setup_workspace,
 )
@@ -33,7 +35,7 @@ def get_script(juju_release_tools=None):
     return script
 
 
-def build_juju(product, workspace_dir, build,
+def build_juju(credentials, product, workspace_dir, build,
                juju_release_tools=None, dry_run=False, verbose=False):
     """Build the juju product from a Juju CI build-revision in a workspace.
 
@@ -45,8 +47,8 @@ def build_juju(product, workspace_dir, build,
     """
     setup_workspace(workspace_dir, dry_run=dry_run, verbose=verbose)
     artifacts = get_artifacts(
-        BUILD_REVISION, build, 'juju-core_*.tar.gz', workspace_dir,
-        archive=False, dry_run=dry_run, verbose=verbose)
+        credentials, BUILD_REVISION, build, 'juju-core_*.tar.gz',
+        workspace_dir, archive=False, dry_run=dry_run, verbose=verbose)
     tar_artifact = artifacts[0]
     crossbuild = get_script(juju_release_tools)
     command = [
@@ -78,20 +80,22 @@ def parse_args(args=None):
         help='the kind of juju to make and package.')
     parser.add_argument(
         'workspace',  help='The path to the workspace to build in.')
-    return parser.parse_args(args)
+    add_credential_args(parser)
+    parsed = parser.parse_args(args)
+    return parsed, get_credentials(parsed)
 
 
 def main(argv):
     """Build and package juju for an non-debian OS."""
-    args = parse_args(argv)
+    args, credentials = parse_args(argv)
     try:
         build_juju(
-            args.product, args.workspace, args.build,
+            credentials, args.product, args.workspace, args.build,
             juju_release_tools=args.juju_release_tools,
             dry_run=args.dry_run, verbose=args.verbose)
     except Exception as e:
         print(e)
-        print(getattr(e, 'output'))
+        print(getattr(e, 'output', ''))
         if args.verbose:
             traceback.print_tb(sys.exc_info()[2])
         return 2

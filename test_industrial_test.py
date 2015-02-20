@@ -19,6 +19,8 @@ from industrial_test import (
     BACKUP,
     BackupRestoreAttempt,
     BootstrapAttempt,
+    CannotUpgradeToClient,
+    CannotUpgradeToOldClient,
     DENSITY,
     DeployManyAttempt,
     DeployManyFactory,
@@ -31,8 +33,8 @@ from industrial_test import (
     MultiIndustrialTest,
     parse_args,
     QUICK,
-    StageAttempt,
     SteppedStageAttempt,
+    UpgradeJujuAttempt,
     )
 from jujuconfig import get_euca_env
 from jujupy import (
@@ -133,6 +135,12 @@ class TestParseArgs(TestCase):
         args = parse_args(['rai', 'new-juju', '--debug', QUICK])
         self.assertEqual(args.debug, True)
 
+    def test_parse_args_old_stable(self):
+        args = parse_args(['rai', 'new-juju', QUICK, '--old-stable', 'asdf'])
+        self.assertEqual(args.old_stable, 'asdf')
+        args = parse_args(['rai', 'new-juju', QUICK])
+        self.assertIs(args.old_stable, None)
+
 
 class FakeStepAttempt:
 
@@ -153,6 +161,14 @@ class FakeAttempt(FakeStepAttempt):
 
 
 class FakeAttemptClass:
+    """Instances of this class behave like classes, not instances.
+
+    Methods like factory, that would be classmethods on a normal class, are
+    normal methods on FakeAttemptClass.
+    """
+
+    def factory(self, upgrade_sequence):
+        return self()
 
     def __init__(self, title, *result):
         self.title = title
@@ -186,7 +202,7 @@ class TestMultiIndustrialTest(TestCase):
     def test_from_args(self):
         args = Namespace(
             env='foo', new_juju_path='new-path', attempts=7, suite=QUICK,
-            new_agent_url=None, debug=False)
+            new_agent_url=None, debug=False, old_stable=None)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(mit.env, 'foo')
@@ -195,8 +211,9 @@ class TestMultiIndustrialTest(TestCase):
         self.assertEqual(mit.max_attempts, 14)
         self.assertEqual(
             mit.stages, [BootstrapAttempt, DestroyEnvironmentAttempt])
-        args = Namespace(env='bar', new_juju_path='new-path2', attempts=6,
-                         suite=FULL, new_agent_url=None, debug=False)
+        args = Namespace(
+            env='bar', new_juju_path='new-path2', attempts=6, suite=FULL,
+            new_agent_url=None, debug=False, old_stable=None)
         with temp_env('bar'):
             mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(mit.env, 'bar')
@@ -211,7 +228,7 @@ class TestMultiIndustrialTest(TestCase):
     def test_from_args_maas(self):
         args = Namespace(
             env='foo', new_juju_path='new-path', attempts=7, suite=DENSITY,
-            new_agent_url=None, debug=False)
+            new_agent_url=None, debug=False, old_stable=None)
         with temp_env('foo', {'type': 'maas'}):
             mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(
@@ -220,14 +237,29 @@ class TestMultiIndustrialTest(TestCase):
                 DestroyEnvironmentAttempt])
 
     def test_from_args_debug(self):
-        args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
-                         suite=DENSITY, new_agent_url=None, debug=False)
+        args = Namespace(
+            env='foo', new_juju_path='new-path', attempts=7, suite=DENSITY,
+            new_agent_url=None, debug=False, old_stable=None)
         with temp_env('foo', {'type': 'maas'}):
             mit = MultiIndustrialTest.from_args(args)
             self.assertEqual(mit.debug, False)
             args.debug = True
             mit = MultiIndustrialTest.from_args(args)
             self.assertEqual(mit.debug, True)
+
+    def test_from_args_really_old_path(self):
+        args = Namespace(
+            env='foo', new_juju_path='new-path', attempts=7, suite=QUICK,
+            new_agent_url=None, debug=False, old_stable='really-old-path')
+        with temp_env('foo'):
+            mit = MultiIndustrialTest.from_args(args)
+        self.assertEqual(mit.really_old_path, 'really-old-path')
+        args = Namespace(
+            env='bar', new_juju_path='new-path2', attempts=6, suite=FULL,
+            new_agent_url=None, debug=False, old_stable=None)
+        with temp_env('bar'):
+            mit = MultiIndustrialTest.from_args(args)
+        self.assertIs(mit.really_old_path, None)
 
     def test_get_stages(self):
         self.assertEqual(
@@ -264,7 +296,7 @@ class TestMultiIndustrialTest(TestCase):
     def test_density_suite(self):
         args = Namespace(
             env='foo', new_juju_path='new-path', attempts=7, suite=DENSITY,
-            new_agent_url=None, debug=False)
+            new_agent_url=None, debug=False, old_stable=None)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(
@@ -272,8 +304,9 @@ class TestMultiIndustrialTest(TestCase):
                          DestroyEnvironmentAttempt])
 
     def test_backup_suite(self):
-        args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
-                         suite=BACKUP, new_agent_url=None, debug=False)
+        args = Namespace(
+            env='foo', new_juju_path='new-path', attempts=7, suite=BACKUP,
+            new_agent_url=None, debug=False, old_stable=None)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(
@@ -283,7 +316,7 @@ class TestMultiIndustrialTest(TestCase):
     def test_from_args_new_agent_url(self):
         args = Namespace(
             env='foo', new_juju_path='new-path', attempts=7, suite=QUICK,
-            new_agent_url='http://example.net', debug=False)
+            new_agent_url='http://example.net', debug=False, old_stable=None)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(mit.new_agent_url, 'http://example.net')
@@ -303,11 +336,43 @@ class TestMultiIndustrialTest(TestCase):
         results = mit.make_results()
         self.assertEqual(results, {'results': [
             {'attempts': 0, 'old_failures': 0, 'new_failures': 0,
-             'title': 'destroy environment', 'test_id': 'destroy-env'},
+             'title': 'destroy environment', 'test_id': 'destroy-env',
+             'report_on': True},
             {'attempts': 0, 'old_failures': 0, 'new_failures': 0,
-             'title': 'check substrate clean', 'test_id': 'substrate-clean'},
+             'title': 'check substrate clean', 'test_id': 'substrate-clean',
+             'report_on': True},
             {'attempts': 0, 'old_failures': 0, 'new_failures': 0,
-             'title': 'bootstrap', 'test_id': 'bootstrap'},
+             'title': 'bootstrap', 'test_id': 'bootstrap', 'report_on': True},
+        ]})
+
+    def test_make_results_report_on(self):
+        class NoReportOn:
+
+            @staticmethod
+            def get_test_info():
+                return {'no-report': {
+                    'title': 'No report', 'report_on': False}}
+
+        mit = MultiIndustrialTest('foo-env', 'bar-path', [
+            BootstrapAttempt, NoReportOn], 5)
+        results = mit.make_results()
+        self.assertEqual(results, {'results': [
+            {
+                'test_id': 'bootstrap',
+                'title': 'bootstrap',
+                'report_on': True,
+                'attempts': 0,
+                'old_failures': 0,
+                'new_failures': 0,
+            },
+            {
+                'test_id': 'no-report',
+                'title': 'No report',
+                'report_on': False,
+                'attempts': 0,
+                'old_failures': 0,
+                'new_failures': 0,
+            },
         ]})
 
     def test_make_industrial_test(self):
@@ -363,11 +428,13 @@ class TestMultiIndustrialTest(TestCase):
         mit.update_results([('destroy-env', True, False)], results)
         expected = {'results': [
             {'title': 'destroy environment', 'test_id': 'destroy-env',
-             'attempts': 1, 'new_failures': 1, 'old_failures': 0},
+             'attempts': 1, 'new_failures': 1, 'old_failures': 0,
+             'report_on': True},
             {'title': 'check substrate clean', 'test_id': 'substrate-clean',
-             'attempts': 0, 'new_failures': 0, 'old_failures': 0},
+             'attempts': 0, 'new_failures': 0, 'old_failures': 0,
+             'report_on': True},
             {'title': 'bootstrap', 'test_id': 'bootstrap', 'attempts': 0,
-             'new_failures': 0, 'old_failures': 0},
+             'new_failures': 0, 'old_failures': 0, 'report_on': True},
             ]}
         self.assertEqual(results, expected)
         mit.update_results(
@@ -376,11 +443,13 @@ class TestMultiIndustrialTest(TestCase):
             results)
         self.assertEqual(results, {'results': [
             {'title': 'destroy environment', 'test_id': 'destroy-env',
-             'attempts': 2, 'new_failures': 1, 'old_failures': 0},
+             'attempts': 2, 'new_failures': 1, 'old_failures': 0,
+             'report_on': True},
             {'title': 'check substrate clean', 'test_id': 'substrate-clean',
-             'attempts': 1, 'new_failures': 0, 'old_failures': 0},
+             'attempts': 1, 'new_failures': 0, 'old_failures': 0,
+             'report_on': True},
             {'title': 'bootstrap', 'test_id': 'bootstrap', 'attempts': 1,
-             'new_failures': 0, 'old_failures': 1},
+             'new_failures': 0, 'old_failures': 1, 'report_on': True},
             ]})
         mit.update_results(
             [('destroy-env', False, False), ('substrate-clean', True, True),
@@ -388,11 +457,13 @@ class TestMultiIndustrialTest(TestCase):
             results)
         expected = {'results': [
             {'title': 'destroy environment', 'test_id': 'destroy-env',
-             'attempts': 2, 'new_failures': 1, 'old_failures': 0},
+             'attempts': 2, 'new_failures': 1, 'old_failures': 0,
+             'report_on': True},
             {'title': 'check substrate clean', 'test_id': 'substrate-clean',
-             'attempts': 2, 'new_failures': 0, 'old_failures': 0},
+             'attempts': 2, 'new_failures': 0, 'old_failures': 0,
+             'report_on': True},
             {'title': 'bootstrap', 'test_id': 'bootstrap', 'attempts': 2,
-             'new_failures': 1, 'old_failures': 2},
+             'new_failures': 1, 'old_failures': 2, 'report_on': True},
             ]}
         self.assertEqual(results, expected)
 
@@ -408,9 +479,9 @@ class TestMultiIndustrialTest(TestCase):
                 results = mit.run_tests()
         self.assertEqual(results, {'results': [
             {'title': 'foo', 'test_id': 'foo-id', 'attempts': 5,
-             'old_failures': 0, 'new_failures': 0},
+             'old_failures': 0, 'new_failures': 0, 'report_on': True},
             {'title': 'bar', 'test_id': 'bar-id', 'attempts': 5,
-             'old_failures': 0, 'new_failures': 5},
+             'old_failures': 0, 'new_failures': 5, 'report_on': True},
             ]})
 
     def test_run_tests_max_attempts(self):
@@ -425,9 +496,9 @@ class TestMultiIndustrialTest(TestCase):
                 results = mit.run_tests()
         self.assertEqual(results, {'results': [
             {'title': 'foo', 'test_id': 'foo-id', 'attempts': 5,
-             'old_failures': 0, 'new_failures': 5},
+             'old_failures': 0, 'new_failures': 5, 'report_on': True},
             {'title': 'bar', 'test_id': 'bar-id', 'attempts': 0,
-             'old_failures': 0, 'new_failures': 0},
+             'old_failures': 0, 'new_failures': 0, 'report_on': True},
             ]})
 
     def test_run_tests_max_attempts_less_than_attempt_count(self):
@@ -442,9 +513,9 @@ class TestMultiIndustrialTest(TestCase):
                 results = mit.run_tests()
         self.assertEqual(results, {'results': [
             {'title': 'foo', 'test_id': 'foo-id', 'attempts': 4,
-             'old_failures': 0, 'new_failures': 4},
+             'old_failures': 0, 'new_failures': 4, 'report_on': True},
             {'title': 'bar', 'test_id': 'bar-id', 'attempts': 0,
-             'old_failures': 0, 'new_failures': 0},
+             'old_failures': 0, 'new_failures': 0, 'report_on': True},
             ]})
 
     def test_results_table(self):
@@ -452,7 +523,9 @@ class TestMultiIndustrialTest(TestCase):
             {'title': 'foo', 'attempts': 5, 'old_failures': 1,
              'new_failures': 2},
             {'title': 'bar', 'attempts': 5, 'old_failures': 3,
-             'new_failures': 4},
+             'new_failures': 4, 'report_on': True},
+            {'title': 'baz', 'attempts': 5, 'old_failures': 3,
+             'new_failures': 4, 'report_on': False},
             ]
         self.assertEqual(
             ''.join(MultiIndustrialTest.results_table(results)),
@@ -578,6 +651,13 @@ class TestIndustrialTest(TestCase):
                 self.assertEqual(list(industrial.run_stages()), [
                     ('foo', True, True), ('bar', False, True)])
 
+    def test_run_stages_raises_cannot_upgrade_to_old_client(self):
+        old = FakeEnvJujuClient()
+        new = FakeEnvJujuClient()
+        industrial = IndustrialTest(old, new, [UpgradeJujuAttempt({})])
+        with self.assertRaises(CannotUpgradeToOldClient):
+            list(industrial.run_stages())
+
     def test_destroy_both_even_with_exception(self):
         old_client = FakeEnvJujuClient('old')
         new_client = FakeEnvJujuClient('new')
@@ -598,67 +678,18 @@ class TestIndustrialTest(TestCase):
         attempt = FakeAttempt(True, True)
         industrial = IndustrialTest(old_client, new_client, [attempt])
 
-        def iter_test_results():
+        def iter_test_results(old, new):
             raise Exception
             yield
 
-        with patch.object(attempt, 'iter_test_results', iter_test_results):
+        with patch.object(attempt, 'iter_test_results',
+                          iter_test_results):
             with patch('logging.exception') as le_mock:
                 with patch.object(industrial, 'destroy_both') as db_mock:
                     with self.assertRaises(SystemExit):
                         industrial.run_attempt()
-        le_mock.assert_called_once()
+        self.assertEqual(1, le_mock.call_count)
         self.assertEqual(db_mock.mock_calls, [call(), call()])
-
-
-class TestStageAttempt(TestCase):
-
-    def test_do_stage(self):
-
-        class StubSA(StageAttempt):
-
-            def __init__(self):
-                super(StageAttempt, self).__init__()
-                self.did_op = []
-
-            def do_operation(self, client):
-                self.did_op.append(client)
-
-            def get_result(self, client):
-                return self.did_op.index(client)
-
-        attempt = StubSA()
-        old = object()
-        new = object()
-        result = attempt.do_stage(old, new)
-        self.assertEqual([old, new], attempt.did_op)
-        self.assertEqual(result, (0, 1))
-
-    def test_get_test_info(self):
-
-        class StubSA(StageAttempt):
-
-            test_id = 'foo-bar'
-
-            title = 'baz'
-
-        self.assertEqual(StubSA.get_test_info(), {'foo-bar': {'title': 'baz'}})
-
-    def test_iter_test_results(self):
-
-        did_operation = [False]
-
-        class StubSA(StageAttempt):
-
-            test_id = 'foo-id'
-
-            def do_stage(self, old, new):
-
-                did_operation[0] = True
-                return True, True
-
-        for result in StubSA().iter_test_results(None, None):
-            self.assertEqual(result, ('foo-id', True, True))
 
 
 class TestSteppedStageAttempt(TestCase):
@@ -809,6 +840,15 @@ class TestSteppedStageAttempt(TestCase):
                 StubSA().iter_test_results(old, new),
                 [('test-1', True, False), ('test-2', False, True)])
         le_mock.assert_called_once_with(error)
+
+    def test_factory(self):
+
+        class StubSA(SteppedStageAttempt):
+
+            def __init__(self):
+                super(StubSA, self).__init__()
+
+        self.assertIs(type(StubSA.factory(['a', 'b', 'c'])), StubSA)
 
 
 class FakeEnvJujuClient(EnvJujuClient):
@@ -1010,19 +1050,19 @@ class TestEnsureAvailabilityAttempt(TestCase):
         self.addCleanup(patcher.stop)
         self.pause_mock = patcher.start()
 
-    def test__operation(self):
+    def test_iter_steps(self):
         client = FakeEnvJujuClient()
         ensure_av = EnsureAvailabilityAttempt()
-        with patch('subprocess.check_call') as mock_cc:
-            ensure_av._operation(client)
-        assert_juju_call(self, mock_cc, client, (
+        ensure_iter = iter_steps_validate_info(self, ensure_av, client)
+        self.assertEqual(ensure_iter.next(), {
+            'test_id': 'ensure-availability-n3'})
+        with patch('subprocess.check_call') as cc_mock:
+            self.assertEqual(ensure_iter.next(), {
+                'test_id': 'ensure-availability-n3'})
+        assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'ensure-availability', '-e', 'steve', '-n',
             '3'))
-
-    def test__result_true(self):
-        ensure_av = EnsureAvailabilityAttempt()
-        client = FakeEnvJujuClient()
-        output = yaml.safe_dump({
+        value = yaml.safe_dump({
             'machines': {
                 '0': {'state-server-member-status': 'has-vote'},
                 '1': {'state-server-member-status': 'has-vote'},
@@ -1030,10 +1070,19 @@ class TestEnsureAvailabilityAttempt(TestCase):
                 },
             'services': {},
             })
-        with patch('subprocess.check_output', return_value=output):
-            self.assertTrue(ensure_av.get_result(client))
+        with patch('subprocess.check_output', return_value=value) as co_mock:
+            self.assertEqual(ensure_iter.next(), {
+                'test_id': 'ensure-availability-n3', 'result': True})
+        assert_juju_call(self, co_mock, client, (
+            'juju', '--show-log', 'status', '-e', 'steve'), assign_stderr=True)
 
-    def test__result_false(self):
+    def test_iter_steps_failure(self):
+        client = FakeEnvJujuClient()
+        ensure_av = EnsureAvailabilityAttempt()
+        ensure_iter = iter_steps_validate_info(self, ensure_av, client)
+        ensure_iter.next()
+        with patch('subprocess.check_call'):
+            ensure_iter.next()
         ensure_av = EnsureAvailabilityAttempt()
         client = FakeEnvJujuClient()
         output = yaml.safe_dump({
@@ -1046,7 +1095,7 @@ class TestEnsureAvailabilityAttempt(TestCase):
         with patch('subprocess.check_output', return_value=output):
             with self.assertRaisesRegexp(
                     Exception, 'Timed out waiting for voting to be enabled.'):
-                ensure_av._result(client)
+                ensure_iter.next()
 
 
 class TestDeployManyAttempt(TestCase):
@@ -1350,6 +1399,74 @@ class TestBackupRestoreAttempt(TestCase):
                              {'test_id': 'back-up-restore', 'result': True})
         assert_juju_call(self, co_mock, client, (
             'juju', '--show-log', 'status', '-e', 'baz'), assign_stderr=True)
+
+
+class TestUpgradeJujuAttempt(TestCase):
+
+    def test_factory(self):
+        uj_attempt = UpgradeJujuAttempt.factory(['a', 'b', 'c'])
+        self.assertIs(type(uj_attempt), UpgradeJujuAttempt)
+        self.assertEqual(uj_attempt.bootstrap_paths, {'b': 'a', 'c': 'b'})
+
+    def test_factory_empty(self):
+        with self.assertRaisesRegexp(
+                ValueError, 'Not enough paths for upgrade.'):
+            UpgradeJujuAttempt.factory(['a'])
+        with self.assertRaisesRegexp(
+                ValueError, 'Not enough paths for upgrade.'):
+            UpgradeJujuAttempt.factory([])
+
+    def test_iter_steps(self):
+        future_client = FakeEnvJujuClient()
+        future_client.full_path = '/future/juju'
+        present_client = FakeEnvJujuClient()
+        present_client.full_path = '/present/juju'
+        uj_attempt = UpgradeJujuAttempt(
+            {future_client.full_path: present_client.full_path})
+        uj_iterator = iter_steps_validate_info(self, uj_attempt, future_client)
+        with patch('subprocess.check_output', return_value='foo'):
+            self.assertEqual({'test_id': 'prepare-upgrade-juju'},
+                             uj_iterator.next())
+        with patch('subprocess.Popen') as po_mock:
+            self.assertEqual({'test_id': 'prepare-upgrade-juju'},
+                             uj_iterator.next())
+        assert_juju_call(self, po_mock, present_client, (
+            'juju', '--show-log', 'bootstrap', '-e', 'steve', '--constraints',
+            'mem=2G'))
+        po_mock.return_value.wait.return_value = 0
+        self.assertEqual(uj_iterator.next(),
+                         {'test_id': 'prepare-upgrade-juju'})
+        b_status = yaml.safe_dump({
+            'machines': {'0': {'agent-state': 'started'}},
+            'services': {},
+            })
+        with patch('subprocess.check_output', return_value=b_status):
+            self.assertEqual(
+                uj_iterator.next(),
+                {'test_id': 'prepare-upgrade-juju', 'result': True})
+        self.assertEqual(uj_iterator.next(), {'test_id': 'upgrade-juju'})
+        with patch('subprocess.check_call') as cc_mock:
+            self.assertEqual({'test_id': 'upgrade-juju'}, uj_iterator.next())
+        assert_juju_call(self, cc_mock, future_client, (
+            'juju', '--show-log', 'upgrade-juju', '-e', 'steve', '--version',
+            future_client.get_matching_agent_version()))
+        version_status = yaml.safe_dump({
+            'machines': {'0': {
+                'agent-version': future_client.get_matching_agent_version()}},
+            'services': {},
+            })
+        with patch('subprocess.check_output', return_value=version_status):
+            self.assertEqual({'test_id': 'upgrade-juju', 'result': True},
+                             uj_iterator.next())
+
+    def test_iter_steps_no_previous_client(self):
+        uj_attempt = UpgradeJujuAttempt({})
+        client = FakeEnvJujuClient()
+        client.full_path = '/present/juju'
+        uj_iterator = uj_attempt.iter_steps(client)
+        with self.assertRaises(CannotUpgradeToClient) as exc_context:
+            uj_iterator.next()
+        self.assertIs(exc_context.exception.client, client)
 
 
 class TestMaybeWriteJson(TestCase):

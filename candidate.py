@@ -13,9 +13,11 @@ import sys
 import traceback
 
 from jujuci import (
+    add_credential_args,
     BUILD_REVISION,
     get_build_data,
     get_artifacts,
+    get_credentials,
     JENKINS_URL,
     PUBLISH_REVISION
 )
@@ -37,13 +39,13 @@ def get_build_parameters(build_data):
     return parameters
 
 
-def find_publish_revision_number(br_number, limit=20):
+def find_publish_revision_number(credentials, br_number, limit=20):
     """Return the publish-revsion number paired with build-revision number."""
     found_number = None
     job_number = 'lastSuccessfulBuild'
     for i in range(limit):
         build_data = get_build_data(
-            JENKINS_URL, PUBLISH_REVISION, build=job_number)
+            JENKINS_URL, credentials, PUBLISH_REVISION, build=job_number)
         if not build_data:
             return None
         # Ensure we have the real job number (an int), not an alias.
@@ -70,7 +72,7 @@ def prepare_dir(dir_path, dry_run=False, verbose=False):
         os.makedirs(dir_path)
 
 
-def download_candidate_files(branch, path, br_number,
+def download_candidate_files(credentials, branch, path, br_number,
                              pr_number=None, dry_run=False, verbose=False):
     """Download the files from the build-revision and publish-revision jobs.
 
@@ -83,12 +85,12 @@ def download_candidate_files(branch, path, br_number,
     candidate_dir = os.path.join(path, artifact_dir_name)
     prepare_dir(candidate_dir, dry_run, verbose)
     get_artifacts(
-        BUILD_REVISION, br_number, 'buildvars.json', candidate_dir,
-        dry_run=dry_run, verbose=verbose)
+        credentials, BUILD_REVISION, br_number, 'buildvars.json',
+        candidate_dir, dry_run=dry_run, verbose=verbose)
     if not pr_number:
-        pr_number = find_publish_revision_number(br_number)
+        pr_number = find_publish_revision_number(credentials, br_number)
     get_artifacts(
-        PUBLISH_REVISION, pr_number, 'juju-core*', candidate_dir,
+        credentials, PUBLISH_REVISION, pr_number, 'juju-core*', candidate_dir,
         dry_run=dry_run, verbose=verbose)
 
 
@@ -223,7 +225,7 @@ def parse_args(args=None):
     subparsers = parser.add_subparsers(help='sub-command help', dest="command")
     # ./candidate download -b 1234 master ~/candidate
     parser_update = subparsers.add_parser(
-        'download', help='deownload a candidate')
+        'download', help='download a candidate')
     parser_update.add_argument(
         '-b', '--br-number', default='lastSuccessfulBuild',
         help="The specific build-revision number.")
@@ -234,6 +236,7 @@ def parse_args(args=None):
         'branch', help='The successfully test branch location.')
     parser_update.add_argument(
         'path', help='The path to save the candiate data to.')
+    add_credential_args(parser_update)
     # ./candidate extract master ~/candidate
     parser_extract = subparsers.add_parser(
         'extract',
@@ -251,17 +254,18 @@ def parse_args(args=None):
         'path', help='The path to the candiate data dir.')
     parser_publish.add_argument(
         'streams_path', help='The path to the streams data dir.')
-    return parser.parse_args(args)
+    parsed_args = parser.parse_args(args)
+    return parsed_args, get_credentials(parsed_args)
 
 
 def main(argv):
     """Manage successful Juju CI candiates."""
-    args = parse_args(argv)
+    args, credentials = parse_args(argv)
     try:
         if args.command == 'download':
             download_candidate_files(
-                args.branch, args.path, args.br_number, args.pr_number,
-                dry_run=args.dry_run, verbose=args.verbose)
+                credentials, args.branch, args.path, args.br_number,
+                args.pr_number, dry_run=args.dry_run, verbose=args.verbose)
         elif args.command == 'extract':
             extract_candidates(
                 args.path, dry_run=args.dry_run, verbose=args.verbose)

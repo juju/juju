@@ -20,7 +20,7 @@ update_jenkins() {
         # Bypass DNS which points to the apache front-end.
         host="54.86.142.177"
     else
-        host=$(host -t A $hostname | cut -d ' ' -f4)
+        host=$(host -4 -t A $hostname 8.8.8.8 | tail -1 | cut -d ' ' -f4)
     fi
     echo "updating $hostname at $host"
     if [[ "$CLOUD_CITY" == "true" ]]; then

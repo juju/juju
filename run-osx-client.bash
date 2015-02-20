@@ -26,14 +26,17 @@ echo "Testing $BRANCH $rev"
 
 ssh $SSH_OPTIONS $USER_AT_HOST <<"EOT"
 #!/bin/bash
-set -ux
-set +e
-RELEASE_SCRIPTS=$HOME/ci/juju-release-tools
-SCRIPTS=$HOME/ci/juju-ci-tools
-WORKSPACE=$HOME/ci/workspace
+set -eu
+RELEASE_SCRIPTS=$HOME/juju-release-tools
+SCRIPTS=$HOME/juju-ci-tools
+WORKSPACE=$HOME/workspace
+JUJU_HOME=$HOME/.juju
+source $HOME/.bashrc
+source $HOME/cloud-city/juju-qa.jujuci
+set -x
 
 cd $WORKSPACE
-$SCRIPTS/jujuci.py setup-workspace $WORKSPACE
+$SCRIPTS/jujuci.py setup-workspace --clean-env testing-osx-client $WORKSPACE
 ~/Bin/juju destroy-environment --force -y testing-osx-client || true
 TARFILE=$($SCRIPTS/jujuci.py get build-osx-client 'juju-*-osx.tar.gz' ./)
 echo "Downloaded $TARFILE"
