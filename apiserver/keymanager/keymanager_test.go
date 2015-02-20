@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	asct "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/keymanager"
 	keymanagertesting "github.com/juju/juju/apiserver/keymanager/testing"
 	"github.com/juju/juju/apiserver/params"
@@ -28,6 +28,8 @@ type keyManagerSuite struct {
 	keymanager *keymanager.KeyManagerAPI
 	resources  *common.Resources
 	authoriser apiservertesting.FakeAuthorizer
+
+	blockSwitch *asct.BlockSwitch
 }
 
 var _ = gc.Suite(&keyManagerSuite{})
@@ -43,6 +45,8 @@ func (s *keyManagerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.blockSwitch = asct.NewBlockSwitch(s.APIState)
 }
 
 func (s *keyManagerSuite) TestNewKeyManagerAPIAcceptsClient(c *gc.C) {
@@ -149,10 +153,10 @@ func (s *keyManagerSuite) TestBlockAddKeys(c *gc.C) {
 		Keys: []string{key2, newKey, "invalid-key"},
 	}
 
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.blockSwitch.AllChanges(c, "TestBlockAddKeys")
 	_, err := s.keymanager.AddKeys(args)
 	// Check that the call is blocked
-	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	asct.AssertErrorBlocked(c, err, "TestBlockAddKeys")
 	s.assertEnvironKeys(c, initialKeys)
 }
 
@@ -236,10 +240,10 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *gc.C) {
 		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, sshtesting.ValidKeyThree.Fingerprint, "invalid-key"},
 	}
 
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.blockSwitch.AllChanges(c, "TestBlockDeleteKeys")
 	_, err := s.keymanager.DeleteKeys(args)
 	// Check that the call is blocked
-	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	asct.AssertErrorBlocked(c, err, "TestBlockDeleteKeys")
 	s.assertEnvironKeys(c, initialKeys)
 }
 
@@ -330,9 +334,9 @@ func (s *keyManagerSuite) TestBlockImportKeys(c *gc.C) {
 		Keys: []string{"lp:existing", "lp:validuser", "invalid-key"},
 	}
 
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.blockSwitch.AllChanges(c, "TestBlockImportKeys")
 	_, err := s.keymanager.ImportKeys(args)
 	// Check that the call is blocked
-	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	asct.AssertErrorBlocked(c, err, "TestBlockImportKeys")
 	s.assertEnvironKeys(c, initialKeys)
 }

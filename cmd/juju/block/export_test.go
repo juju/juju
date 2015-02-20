@@ -4,5 +4,26 @@
 package block
 
 var (
-	ClientGetter = &getBlockClientAPI
+	BlockClient   = &getBlockClientAPI
+	UnblockClient = &getUnblockClientAPI
 )
+
+type MockBlockClient struct {
+	BlockType string
+	Msg       string
+}
+
+func (c *MockBlockClient) Close() error {
+	return nil
+}
+
+func (c *MockBlockClient) SwitchBlockOn(blockType, msg string) error {
+	c.BlockType = blockType
+	c.Msg = msg
+	return nil
+}
+
+func (c *MockBlockClient) SwitchBlockOff(blockType string) error {
+	c.BlockType = blockType
+	return nil
+}

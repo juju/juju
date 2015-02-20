@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	asct "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/usermanager"
@@ -23,6 +23,8 @@ type userManagerSuite struct {
 	usermanager *usermanager.UserManagerAPI
 	authorizer  apiservertesting.FakeAuthorizer
 	adminName   string
+
+	blockSwitch *asct.BlockSwitch
 }
 
 var _ = gc.Suite(&userManagerSuite{})
@@ -38,6 +40,8 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.blockSwitch = asct.NewBlockSwitch(s.APIState)
 }
 
 func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
@@ -79,10 +83,10 @@ func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
 			Password:    "password",
 		}}}
 
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.blockSwitch.AllChanges(c, "TestBlockAddUser")
 	result, err := s.usermanager.AddUser(args)
 	// Check that the call is blocked
-	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	asct.AssertErrorBlocked(c, err, "TestBlockAddUser")
 	c.Assert(result.Results, gc.HasLen, 1)
 	//check that user is not created
 	foobarTag := names.NewLocalUserTag("foobar")
@@ -164,10 +168,10 @@ func (s *userManagerSuite) TestBlockDisableUser(c *gc.C) {
 			{"not-a-tag"},
 		}}
 
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.blockSwitch.AllChanges(c, "TestBlockDisableUser")
 	_, err := s.usermanager.DisableUser(args)
 	// Check that the call is blocked
-	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	asct.AssertErrorBlocked(c, err, "TestBlockDisableUser")
 
 	err = alex.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -230,10 +234,10 @@ func (s *userManagerSuite) TestBlockEnableUser(c *gc.C) {
 			{"not-a-tag"},
 		}}
 
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.blockSwitch.AllChanges(c, "TestBlockEnableUser")
 	_, err := s.usermanager.EnableUser(args)
 	// Check that the call is blocked
-	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	asct.AssertErrorBlocked(c, err, "TestBlockEnableUser")
 
 	err = alex.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -417,10 +421,10 @@ func (s *userManagerSuite) TestBlockSetPassword(c *gc.C) {
 			Password: "new-password",
 		}}}
 
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.blockSwitch.AllChanges(c, "TestBlockSetPassword")
 	_, err := s.usermanager.SetPassword(args)
 	// Check that the call is blocked
-	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	asct.AssertErrorBlocked(c, err, "TestBlockSetPassword")
 
 	err = alex.Refresh()
 	c.Assert(err, jc.ErrorIsNil)

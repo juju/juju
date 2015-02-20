@@ -17,13 +17,12 @@ import (
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type SetSuite struct {
-	testing.JujuConnSuite
+	CmdBlockSuite
 	svc *state.Service
 	dir string
 }
@@ -36,7 +35,7 @@ var (
 )
 
 func (s *SetSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.CmdBlockSuite.SetUpTest(c)
 	ch := s.AddTestingCharm(c, "dummy")
 	svc := s.AddTestingService(c, "dummy-service", ch)
 	s.svc = svc
@@ -125,7 +124,7 @@ func (s *SetSuite) TestSetConfig(c *gc.C) {
 
 func (s *SetSuite) TestBlockSetConfig(c *gc.C) {
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockSetConfig")
 	ctx := coretesting.ContextForDir(c, s.dir)
 	code := cmd.Main(envcmd.Wrap(&SetCommand{}), ctx, append([]string{"dummy-service"}, []string{
 		"--config",
@@ -134,7 +133,7 @@ func (s *SetSuite) TestBlockSetConfig(c *gc.C) {
 	c.Check(code, gc.Equals, 1)
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*TestBlockSetConfig.*")
 }
 
 // assertSetSuccess sets configuration options and checks the expected settings.
