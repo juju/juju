@@ -125,7 +125,7 @@ func (f *factory) NewSkipHook(hookInfo hook.Info) (Operation, error) {
 }
 
 // NewAction is part of the Factory interface.
-func (f *factory) NewAction(actionId string, continuation Kind) (Operation, error) {
+func (f *factory) NewAction(actionId string) (Operation, error) {
 	if !names.IsValidAction(actionId) {
 		return nil, errors.Errorf("invalid action id %q", actionId)
 	}
@@ -133,7 +133,6 @@ func (f *factory) NewAction(actionId string, continuation Kind) (Operation, erro
 		actionId:      actionId,
 		callbacks:     f.callbacks,
 		runnerFactory: f.runnerFactory,
-		continuation:  continuation,
 	}, nil
 }
 

@@ -87,10 +87,8 @@ type Factory interface {
 	// mark the supplied hook as completed successfully.
 	NewSkipHook(hookInfo hook.Info) (Operation, error)
 
-	// NewAction creates an operation to execute the supplied action. continuation is
-	// the operation.Kind that the action should set the opState to on successful
-	// completion.
-	NewAction(actionId string, continuation Kind) (Operation, error)
+	// NewAction creates an operation to execute the supplied action.
+	NewAction(actionId string) (Operation, error)
 
 	// NewCommands creates an operation to execute the supplied script in the
 	// indicated relation context, and pass the results back over the supplied
