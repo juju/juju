@@ -21,6 +21,20 @@ import (
 	"github.com/juju/juju/service/initsystems"
 )
 
+const (
+	// Name is the name of the init system.
+	Name = "upstart"
+)
+
+func init() {
+	initsystems.Register(Name, initsystems.InitSystemDefinition{
+		Name:        Name,
+		OSNames:     []string{"!windows"},
+		Executables: []string{"/sbin/init"},
+		New:         NewInitSystem,
+	})
+}
+
 // Vars for patching in tests.
 var (
 	// confDir holds the default init directory name.
@@ -88,7 +102,7 @@ func (is upstart) confPath(name string) string {
 // Name implements initsystems.InitSystem.
 func (is upstart) Name() string {
 	if is.name == "" {
-		return "upstart"
+		return Name
 	}
 	return is.name
 }

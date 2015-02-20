@@ -44,16 +44,16 @@ func NewServices(dataDir string, init initsystems.InitSystem) *Services {
 // BuildServices builds a Services from the provided data dir and init
 // system and returns it.
 func BuildServices(dataDir, initName string) (*Services, error) {
-	init, err := newInitSystem(initName)
-	if err != nil {
-		return nil, errors.Trace(err)
+	init := initsystems.NewInitSystem(initName)
+	if init == nil {
+		return nil, errors.NotFoundf("init system %q", initName)
 	}
 
 	// Build the Services.
 	services := NewServices(dataDir, init)
 
 	// Ensure that the list of known services is cached.
-	err = services.configs.refresh()
+	err := services.configs.refresh()
 	return services, errors.Trace(err)
 }
 

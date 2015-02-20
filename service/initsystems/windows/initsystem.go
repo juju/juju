@@ -19,6 +19,20 @@ import (
 	"github.com/juju/juju/service/initsystems"
 )
 
+const (
+	// Name is the name of the init system.
+	Name = "windows"
+)
+
+func init() {
+	initsystems.Register(Name, initsystems.InitSystemDefinition{
+		Name:        Name,
+		OSNames:     []string{"windows"},
+		Executables: []string{"<windows>"},
+		New:         NewInitSystem,
+	})
+}
+
 // TODO(ericsnow) Move juju-specific pieces to the service package and
 // accommodate them here via initsystems.InitSystem and initsystems.Conf.
 
@@ -51,6 +65,9 @@ func NewInitSystem(name string) initsystems.InitSystem {
 
 // Name implements service/initsystems.InitSystem.
 func (is *windows) Name() string {
+	if is.name == "" {
+		return Name
+	}
 	return is.name
 }
 
