@@ -221,7 +221,7 @@ func AddAptCommands(
 			"cloud-image-utils",
 		}
 
-		// These cloud packages need to possibly come from the correct repo.
+		// The required packages need to come from the correct repo.
 		// For precise, that might require an explicit --target-release parameter.
 		aptGetInstallCommandList := apt.GetPreparePackages(requiredPackages, series)
 		for _, cmds := range aptGetInstallCommandList {
