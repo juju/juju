@@ -4,8 +4,7 @@
 package provisioner
 
 import (
-	"errors"
-
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/agent"
@@ -14,6 +13,8 @@ import (
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 )
 
 var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")
@@ -64,9 +65,20 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	}
 	network := container.BridgeNetworkConfig(bridgeDevice)
 
-	series := args.Tools.OneSeries()
+	// The provisioner worker will provide all tools it knows about
+	// (after applying explicitly specified constraints), which may
+	// include tools for architectures other than the host's. We
+	// must constrain to the host's architecture for LXC.
+	archTools, err := args.Tools.Match(tools.Filter{
+		Arch: version.Current.Arch,
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "filtering tools")
+	}
+
+	series := archTools.OneSeries()
 	args.MachineConfig.MachineContainerType = instance.LXC
-	args.MachineConfig.Tools = args.Tools[0]
+	args.MachineConfig.Tools = archTools[0]
 
 	config, err := broker.api.ContainerConfig()
 	if err != nil {

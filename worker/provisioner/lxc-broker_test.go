@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
+	"github.com/juju/juju/juju/arch"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -116,6 +117,32 @@ func (s *lxcBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.type = veth")
 	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = lxcbr0")
+}
+
+func (s *lxcBrokerSuite) TestStartInstanceHostArch(c *gc.C) {
+	const machineId = "1/lxc/0"
+	stateInfo := jujutesting.FakeStateInfo(machineId)
+	apiInfo := jujutesting.FakeAPIInfo(machineId)
+	machineConfig, err := environs.NewMachineConfig(machineId, "fake-nonce", "released", "quantal", true, nil, stateInfo, apiInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	cons := constraints.Value{}
+
+	// Patch the host's arch, so the LXC broker will filter tools.
+	s.PatchValue(&version.Current.Arch, arch.PPC64EL)
+	possibleTools := coretools.List{&coretools.Tools{
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	}, {
+		Version: version.MustParseBinary("2.3.4-quantal-ppc64el"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-ppc64el.tgz",
+	}}
+	_, err = s.broker.StartInstance(environs.StartInstanceParams{
+		Constraints:   cons,
+		Tools:         possibleTools,
+		MachineConfig: machineConfig,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machineConfig.Tools.Version.Arch, gc.Equals, arch.PPC64EL)
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceWithBridgeEnviron(c *gc.C) {
