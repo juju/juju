@@ -13,14 +13,13 @@ import (
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/cmd/envcmd"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
 type RemoveUnitSuite struct {
-	jujutesting.RepoSuite
+	CmdBlockSuite
 }
 
 var _ = gc.Suite(&RemoveUnitSuite{})
@@ -54,12 +53,12 @@ func (s *RemoveUnitSuite) TestBlockRemoveUnit(c *gc.C) {
 	svc := s.setupUnitForRemove(c)
 
 	// block operation
-	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
+	s.AssertSwitchBlockOn(c, "remove-object", "TestBlockRemoveUnit")
 	err := runRemoveUnit(c, "dummy/0", "dummy/1")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	c.Assert(svc.Life(), gc.Equals, state.Alive)
 
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock removal.*")
+	c.Check(stripped, gc.Matches, ".*TestBlockRemoveUnit.*")
 }

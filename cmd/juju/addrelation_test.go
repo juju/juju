@@ -11,13 +11,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
 type AddRelationSuite struct {
-	jujutesting.RepoSuite
+	CmdBlockSuite
 }
 
 var _ = gc.Suite(&AddRelationSuite{})
@@ -171,7 +170,7 @@ func (s *AddRelationSuite) TestBlockAddRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockAddRelation")
 
 	for i, t := range addRelationTests {
 		c.Logf("test %d: %v", i, t.args)
@@ -183,7 +182,7 @@ func (s *AddRelationSuite) TestBlockAddRelation(c *gc.C) {
 
 			// msg is logged
 			stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-			c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+			c.Check(stripped, gc.Matches, ".*TestBlockAddRelation.*")
 		}
 	}
 }

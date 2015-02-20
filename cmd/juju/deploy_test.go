@@ -29,7 +29,7 @@ import (
 )
 
 type DeploySuite struct {
-	testing.RepoSuite
+	CmdBlockSuite
 }
 
 var _ = gc.Suite(&DeploySuite{})
@@ -85,14 +85,14 @@ func (s *DeploySuite) TestNoCharm(c *gc.C) {
 
 func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockDeploy")
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*TestBlockDeploy.*")
 }
 
 func (s *DeploySuite) TestCharmDir(c *gc.C) {

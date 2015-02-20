@@ -11,13 +11,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
 type RemoveRelationSuite struct {
-	jujutesting.RepoSuite
+	CmdBlockSuite
 }
 
 var _ = gc.Suite(&RemoveRelationSuite{})
@@ -59,12 +58,12 @@ func (s *RemoveRelationSuite) TestBlockRemoveRelation(c *gc.C) {
 	s.setupRelationForRemove(c)
 
 	// block operation
-	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
+	s.AssertSwitchBlockOn(c, "remove-object", "TestBlockRemoveRelation")
 	// Destroy a relation that exists.
 	err := runRemoveRelation(c, "logging", "riak")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock removal.*")
+	c.Check(stripped, gc.Matches, ".*TestBlockRemoveRelation.*")
 }

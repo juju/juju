@@ -1120,14 +1120,7 @@ func (c *Client) EnvironmentGet() (params.EnvironmentConfigResults, error) {
 // set-environment CLI command.
 func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 	if err := c.check.ChangeAllowed(); err != nil {
-		// if trying to change value for block-changes, we would want to let it go.
-		if v, present := args.Config[config.PreventAllChangesKey]; !present {
-			return errors.Trace(err)
-		} else if block, ok := v.(bool); ok && block {
-			// still want to block changes
-			return errors.Trace(err)
-		}
-		// else if block is false, we want to unblock changes
+		return errors.Trace(err)
 	}
 	// Make sure we don't allow changing agent-version.
 	checkAgentVersion := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {

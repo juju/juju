@@ -11,14 +11,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
 type ResolvedSuite struct {
-	jujutesting.RepoSuite
+	CmdBlockSuite
 }
 
 var _ = gc.Suite(&ResolvedSuite{})
@@ -117,10 +116,11 @@ func (s *ResolvedSuite) TestBlockResolved(c *gc.C) {
 	}
 
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockResolved")
+
 	err = runResolved(c, []string{"dummy/2"})
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*TestBlockResolved.*")
 }

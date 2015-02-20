@@ -13,13 +13,12 @@ import (
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type UnsetSuite struct {
-	testing.JujuConnSuite
+	CmdBlockSuite
 	svc *state.Service
 	dir string
 }
@@ -27,7 +26,7 @@ type UnsetSuite struct {
 var _ = gc.Suite(&UnsetSuite{})
 
 func (s *UnsetSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.CmdBlockSuite.SetUpTest(c)
 	ch := s.AddTestingCharm(c, "dummy")
 	svc := s.AddTestingService(c, "dummy-service", ch)
 	s.svc = svc
@@ -63,14 +62,14 @@ func (s *UnsetSuite) TestBlockUnset(c *gc.C) {
 	})
 
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockUnset")
 
 	ctx := coretesting.ContextForDir(c, s.dir)
 	code := cmd.Main(envcmd.Wrap(&UnsetCommand{}), ctx, append([]string{"dummy-service"}, []string{"username"}...))
 	c.Check(code, gc.Equals, 1)
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*TestBlockUnset.*")
 }
 
 func (s *UnsetSuite) TestUnsetOptionMultipleAtOnceSuccess(c *gc.C) {

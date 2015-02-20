@@ -22,7 +22,7 @@ import (
 )
 
 type AddUnitSuite struct {
-	jujutesting.RepoSuite
+	CmdBlockSuite
 }
 
 var _ = gc.Suite(&AddUnitSuite{})
@@ -81,12 +81,13 @@ func (s *AddUnitSuite) TestBlockAddUnit(c *gc.C) {
 	s.setupService(c)
 
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockAddUnit")
+
 	c.Assert(runAddUnit(c, "some-service-name"), gc.ErrorMatches, cmd.ErrSilent.Error())
 
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*TestBlockAddUnit.*")
 }
 
 // assertForceMachine ensures that the result of assigning a unit with --to
@@ -129,7 +130,7 @@ func (s *AddUnitSuite) TestBlockForceMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	svc, _ := s.AssertService(c, "some-service-name", curl, 3, 0)
 	// Block operation: should be ignored :)
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockForceMachine")
 	s.assertForceMachine(c, svc, 3, 1, machine2.Id())
 	s.assertForceMachine(c, svc, 3, 2, machine.Id())
 }
@@ -175,12 +176,12 @@ func (s *AddUnitSuite) TestNonLocalCannotHostUnits(c *gc.C) {
 
 func (s *AddUnitSuite) TestBlockNonLocalCannotHostUnits(c *gc.C) {
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockNonLocalCannotHostUnits")
 	c.Assert(runAddUnit(c, "some-service-name", "--to", "0"), gc.ErrorMatches, cmd.ErrSilent.Error())
 
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*TestBlockNonLocalCannotHostUnits.*")
 }
 
 func (s *AddUnitSuite) TestCannotDeployToNonExistentMachine(c *gc.C) {
@@ -192,12 +193,12 @@ func (s *AddUnitSuite) TestCannotDeployToNonExistentMachine(c *gc.C) {
 func (s *AddUnitSuite) TestBlockCannotDeployToNonExistentMachine(c *gc.C) {
 	s.setupService(c)
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockCannotDeployToNonExistentMachine")
 	c.Assert(runAddUnit(c, "some-service-name", "--to", "42"), gc.ErrorMatches, cmd.ErrSilent.Error())
 
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*TestBlockCannotDeployToNonExistentMachine.*")
 }
 
 type AddUnitLocalSuite struct {

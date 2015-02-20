@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 )
 
 // UnblockCommand removes the block from desired operation.
@@ -49,11 +50,31 @@ func (c *UnblockCommand) Info() *cmd.Info {
 // Init initializes the command.
 // Satisfying Command interface.
 func (c *UnblockCommand) Init(args []string) error {
+	if len(args) > 1 {
+		return errors.Trace(errors.New("can only specify block type"))
+	}
+
 	return c.assignValidOperation("unblock", args)
 }
 
 // Run unblocks previously blocked commands.
 // Satisfying Command interface.
 func (c *UnblockCommand) Run(_ *cmd.Context) error {
-	return c.setBlockEnvironmentVariable(false)
+	client, err := getUnblockClientAPI(c)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer client.Close()
+
+	return client.SwitchBlockOff(TranslateOperation(c.operation))
+}
+
+// UnblockClientAPI defines the client API methods that unblock command uses.
+type UnblockClientAPI interface {
+	Close() error
+	SwitchBlockOff(blockType string) error
+}
+
+var getUnblockClientAPI = func(p *UnblockCommand) (UnblockClientAPI, error) {
+	return p.NewBlockAPI()
 }

@@ -9,7 +9,10 @@ import (
 
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/block"
+	cmdblock "github.com/juju/juju/cmd/juju/block"
 	cmdtesting "github.com/juju/juju/cmd/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
 	_ "github.com/juju/juju/provider/dummy" // XXX Why?
 	"github.com/juju/juju/testing"
 )
@@ -29,4 +32,21 @@ func TestRunMain(t *stdtesting.T) {
 	if *cmdtesting.FlagRunMain {
 		Main(flag.Args())
 	}
+}
+
+type CmdBlockSuite struct {
+	jujutesting.RepoSuite
+	blockClient *block.Client
+}
+
+func (s *CmdBlockSuite) SetUpTest(c *gc.C) {
+	s.RepoSuite.SetUpTest(c)
+	s.blockClient = block.NewClient(s.APIState)
+	c.Assert(s.blockClient, gc.NotNil)
+}
+
+// AssertSwitchBlockOn switches on desired block and
+// asserts that no errors were encountered.
+func (s *CmdBlockSuite) AssertSwitchBlockOn(c *gc.C, blockType, msg string) {
+	c.Assert(s.blockClient.SwitchBlockOn(cmdblock.TranslateOperation(blockType), msg), gc.IsNil)
 }

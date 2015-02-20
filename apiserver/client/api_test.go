@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	asct "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -32,6 +33,12 @@ func TestAll(t *stdtesting.T) {
 
 type baseSuite struct {
 	testing.JujuConnSuite
+	blockSwitch *asct.BlockSwitch
+}
+
+func (s *baseSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.blockSwitch = asct.NewBlockSwitch(s.APIState)
 }
 
 var _ = gc.Suite(&baseSuite{})
