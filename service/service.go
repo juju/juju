@@ -6,6 +6,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
 	"github.com/juju/juju/version"
@@ -15,6 +16,7 @@ import (
 const (
 	InitSystemWindows = "windows"
 	InitSystemUpstart = "upstart"
+	InitSystemSystemd = "systemd"
 )
 
 var _ Service = (*upstart.Service)(nil)
@@ -76,6 +78,8 @@ func NewService(name string, conf common.Conf, initSystem string) (Service, erro
 		return windows.NewService(name, conf), nil
 	case InitSystemUpstart:
 		return upstart.NewService(name, conf), nil
+	case InitSystemSystemd:
+		return systemd.NewService(name, conf), nil
 	default:
 		return nil, errors.NotFoundf("init system %q", initSystem)
 	}
@@ -109,7 +113,7 @@ func VersionInitSystem(vers version.Binary) (string, bool) {
 			return InitSystemUpstart, true
 		default:
 			// vivid and later
-			return "systemd", true
+			return InitSystemSystemd, true
 		}
 		// TODO(ericsnow) Support other OSes, like version.CentOS.
 	default:
@@ -137,13 +141,20 @@ func ListServices(initDir string) ([]string, error) {
 			return nil, err
 		}
 		return services, nil
+	case InitSystemSystemd:
+		services, err := systemd.ListServices()
+		if err != nil {
+			return nil, err
+		}
+		return services, nil
 	default:
 		return nil, errors.NotFoundf("init system %q", initName)
 	}
 }
 
 var linuxExecutables = map[string]string{
-	"/sbin/init": InitSystemUpstart,
+	"/sbin/init":    InitSystemUpstart,
+	"/sbin/systemd": InitSystemSystemd,
 }
 
 // TODO(ericsnow) Is it too much to cat once for each executable?
@@ -185,6 +196,8 @@ func listServicesCommand(initSystem string) (string, bool) {
 		return windows.ListCommand(), true
 	case InitSystemUpstart:
 		return upstart.ListCommand(), true
+	case InitSystemSystemd:
+		return systemd.ListCommand(), true
 	default:
 		return "", false
 	}
