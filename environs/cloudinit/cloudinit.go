@@ -209,16 +209,21 @@ func AddAptCommands(
 	// If we're not doing an update, adding these packages is
 	// meaningless.
 	if addUpdateScripts {
-		c.AddPackage("curl")
-		c.AddPackage("cpu-checker")
-		// TODO(axw) 2014-07-02 #1277359
-		// Don't install bridge-utils in cloud-init;
-		// leave it to the networker worker.
-		c.AddPackage("bridge-utils")
-		c.AddPackage("rsyslog-gnutls")
+		requiredPackages := []string{
+			"curl",
+			"cpu-checker",
+			// TODO(axw) 2014-07-02 #1277359
+			// Don't install bridge-utils in cloud-init;
+			// leave it to the networker worker.
+			"bridge-utils",
+			"rsyslog-gnutls",
+			"cloud-utils",
+			"cloud-image-utils",
+		}
 
-		// These cloud packages need to possibly come from the cloud-tools archive for precise.
-		aptGetInstallCommandList := apt.GetPreparePackages([]string{"cloud-utils", "cloud-image-utils"}, series)
+		// These cloud packages need to possibly come from the correct repo.
+		// For precise, that might require an explicit --target-release parameter.
+		aptGetInstallCommandList := apt.GetPreparePackages(requiredPackages, series)
 		for _, cmds := range aptGetInstallCommandList {
 			c.AddPackage(strings.Join(cmds, " "))
 		}
