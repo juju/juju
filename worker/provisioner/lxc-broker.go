@@ -72,8 +72,12 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	archTools, err := args.Tools.Match(tools.Filter{
 		Arch: version.Current.Arch,
 	})
-	if err != nil {
-		return nil, errors.Annotate(err, "filtering tools")
+	if err == tools.ErrNoMatches {
+		return nil, errors.Errorf(
+			"need tools for arch %s, only found %s",
+			version.Current.Arch,
+			args.Tools.Arches(),
+		)
 	}
 
 	series := archTools.OneSeries()
