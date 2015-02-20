@@ -534,15 +534,15 @@ func (s *UnitSuite) TestGetSetUnitStatusWhileAlive(c *gc.C) {
 
 	status, info, data, err := s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusBusy)
+	c.Assert(status, gc.Equals, state.StatusMaintenance)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.unit.SetStatus(state.StatusRunning, "", nil)
+	err = s.unit.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	status, info, data, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusRunning)
+	c.Assert(status, gc.Equals, state.StatusActive)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
@@ -582,21 +582,21 @@ func (s *UnitSuite) TestGetAgentStatus(c *gc.C) {
 func (s *UnitSuite) TestGetSetUnitStatusWhileNotAlive(c *gc.C) {
 	err := s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.SetStatus(state.StatusRunning, "not really", nil)
+	err = s.unit.SetStatus(state.StatusActive, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.SetStatus(state.StatusRunning, "not really", nil)
+	err = s.unit.SetStatus(state.StatusActive, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 }
 
 func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
-	err := s.unit.SetStatus(state.StatusRunning, "", nil)
+	err := s.unit.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -621,7 +621,7 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 }
 
 func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
-	err := s.unit.SetStatus(state.StatusRunning, "", nil)
+	err := s.unit.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -648,7 +648,7 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 }
 
 func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
-	err := s.unit.SetStatus(state.StatusRunning, "", nil)
+	err := s.unit.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -674,12 +674,12 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	})
 
 	// Set status data to nil, so an empty map will be returned.
-	err = s.unit.SetStatus(state.StatusRunning, "", nil)
+	err = s.unit.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, info, data, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusRunning)
+	c.Assert(status, gc.Equals, state.StatusActive)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 }
@@ -794,7 +794,7 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.unit.SetAgentStatus(state.StatusActive, "", nil)
+		err := s.unit.SetAgentStatus(state.StatusIdle, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func() {
 		assertLife(c, s.unit, state.Dying)
@@ -900,11 +900,11 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithStatus(c *gc.C) {
 		status state.Status
 		info   string
 	}{{
-		state.StatusActive, "",
+		state.StatusIdle, "",
 	}, {
-		state.StatusError, "blah",
+		state.StatusExecuting, "blah",
 	}, {
-		state.StatusStopping, "",
+		state.StatusLost, "",
 	}} {
 		c.Logf("test %d: %s", i, test.status)
 		unit, err := s.service.AddUnit()

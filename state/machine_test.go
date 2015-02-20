@@ -1246,7 +1246,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	err = mysql0.SetAgentStatus(state.StatusActive, "", nil)
+	err = mysql0.SetAgentStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1275,7 +1275,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetAgentStatus(state.StatusActive, "", nil)
+	err = logging0.SetAgentStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1350,7 +1350,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	err = mysql0.SetAgentStatus(state.StatusActive, "", nil)
+	err = mysql0.SetAgentStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1380,7 +1380,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetAgentStatus(state.StatusActive, "", nil)
+	err = logging0.SetAgentStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 

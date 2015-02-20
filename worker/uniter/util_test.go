@@ -640,7 +640,7 @@ func (s waitUnit) step(c *gc.C, ctx *context) {
 			status, info, data, err := ctx.unit.AgentStatus()
 			c.Assert(err, jc.ErrorIsNil)
 			if string(status) != string(s.status) {
-				c.Logf("want unit status %q, got %q; still waiting", s.status, status)
+				c.Logf("want unit agent status %q, got %q; still waiting", s.status, status)
 				continue
 			}
 			if info != s.info {

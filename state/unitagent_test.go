@@ -44,11 +44,11 @@ func (s *UnitAgentSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = agent.SetStatus(state.StatusActive, "", nil)
+	err = agent.SetStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	status, info, data, err = agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusActive)
+	c.Assert(status, gc.Equals, state.StatusIdle)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
@@ -69,14 +69,14 @@ func (s *UnitAgentSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	agent := s.unit.Agent().(*state.UnitAgent)
 	err := s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = agent.SetStatus(state.StatusActive, "not really", nil)
+	err = agent.SetStatus(state.StatusIdle, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit agent "wordpress/0": not found or dead`)
 	_, _, _, err = agent.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = agent.SetStatus(state.StatusActive, "not really", nil)
+	err = agent.SetStatus(state.StatusIdle, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit agent "wordpress/0": not found or dead`)
 	_, _, _, err = agent.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
@@ -84,7 +84,7 @@ func (s *UnitAgentSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 
 func (s *UnitAgentSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	agent := s.unit.Agent().(*state.UnitAgent)
-	err := agent.SetStatus(state.StatusActive, "", nil)
+	err := agent.SetStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, _, _, err = agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -110,7 +110,7 @@ func (s *UnitAgentSuite) TestGetSetStatusDataStandard(c *gc.C) {
 
 func (s *UnitAgentSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	agent := s.unit.Agent().(*state.UnitAgent)
-	err := agent.SetStatus(state.StatusActive, "", nil)
+	err := agent.SetStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, _, _, err = agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -138,7 +138,7 @@ func (s *UnitAgentSuite) TestGetSetStatusDataMongo(c *gc.C) {
 
 func (s *UnitAgentSuite) TestGetSetStatusDataChange(c *gc.C) {
 	agent := s.unit.Agent().(*state.UnitAgent)
-	err := agent.SetStatus(state.StatusActive, "", nil)
+	err := agent.SetStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, _, _, err = agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -164,12 +164,12 @@ func (s *UnitAgentSuite) TestGetSetStatusDataChange(c *gc.C) {
 	})
 
 	// Set status data to nil, so an empty map will be returned.
-	err = agent.SetStatus(state.StatusActive, "", nil)
+	err = agent.SetStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, info, data, err = agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusActive)
+	c.Assert(status, gc.Equals, state.StatusIdle)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 }

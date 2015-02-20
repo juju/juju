@@ -63,7 +63,7 @@ func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
 
 	unitStatus, unitInfo, unitData, err := s.wordpressUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitStatus, gc.Equals, state.StatusBusy)
+	c.Assert(unitStatus, gc.Equals, state.StatusMaintenance)
 	c.Assert(unitInfo, gc.Equals, "")
 	c.Assert(unitData, gc.HasLen, 0)
 
@@ -79,7 +79,7 @@ func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
 	// Ensure that unit has not changed.
 	unitStatus, unitInfo, unitData, err = s.wordpressUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitStatus, gc.Equals, state.StatusBusy)
+	c.Assert(unitStatus, gc.Equals, state.StatusMaintenance)
 	c.Assert(unitInfo, gc.Equals, "")
 	c.Assert(unitData, gc.HasLen, 0)
 }
@@ -87,7 +87,7 @@ func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
 func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
 	status, info, data, err := s.wordpressUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusBusy)
+	c.Assert(status, gc.Equals, state.StatusMaintenance)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
@@ -127,7 +127,7 @@ func (s *unitSuite) TestSetAgentStatusOldServer(c *gc.C) {
 
 	status, info, data, err := s.wordpressUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusBusy)
+	c.Assert(status, gc.Equals, state.StatusMaintenance)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
