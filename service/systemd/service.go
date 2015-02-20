@@ -18,7 +18,6 @@ import (
 
 // ListServices returns the list of installed service names.
 func ListServices() ([]string, error) {
-	// TODO(ericsnow) Limit to just juju-managed?
 	conn, err := newConn()
 	if err != nil {
 		return nil, errors.Trace(err)
