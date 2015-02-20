@@ -70,6 +70,9 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
         if powershell_dir not in sane_path:
             sane_path.append(powershell_dir)
         env['PATH'] = ';'.join(sane_path)
+        if verbose:
+            print('Setting environ path to:')
+            print(env['PATH'])
     package_dir = os.path.join(gopath, 'src', package.replace('/', os.sep))
     with WorkingDirectory(package_dir):
         if verbose:
