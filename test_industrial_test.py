@@ -336,11 +336,43 @@ class TestMultiIndustrialTest(TestCase):
         results = mit.make_results()
         self.assertEqual(results, {'results': [
             {'attempts': 0, 'old_failures': 0, 'new_failures': 0,
-             'title': 'destroy environment', 'test_id': 'destroy-env'},
+             'title': 'destroy environment', 'test_id': 'destroy-env',
+             'report_on': True},
             {'attempts': 0, 'old_failures': 0, 'new_failures': 0,
-             'title': 'check substrate clean', 'test_id': 'substrate-clean'},
+             'title': 'check substrate clean', 'test_id': 'substrate-clean',
+             'report_on': True},
             {'attempts': 0, 'old_failures': 0, 'new_failures': 0,
-             'title': 'bootstrap', 'test_id': 'bootstrap'},
+             'title': 'bootstrap', 'test_id': 'bootstrap', 'report_on': True},
+        ]})
+
+    def test_make_results_report_on(self):
+        class NoReportOn:
+
+            @staticmethod
+            def get_test_info():
+                return {'no-report': {
+                    'title': 'No report', 'report_on': False}}
+
+        mit = MultiIndustrialTest('foo-env', 'bar-path', [
+            BootstrapAttempt, NoReportOn], 5)
+        results = mit.make_results()
+        self.assertEqual(results, {'results': [
+            {
+                'test_id': 'bootstrap',
+                'title': 'bootstrap',
+                'report_on': True,
+                'attempts': 0,
+                'old_failures': 0,
+                'new_failures': 0,
+            },
+            {
+                'test_id': 'no-report',
+                'title': 'No report',
+                'report_on': False,
+                'attempts': 0,
+                'old_failures': 0,
+                'new_failures': 0,
+            },
         ]})
 
     def test_make_industrial_test(self):
@@ -396,11 +428,13 @@ class TestMultiIndustrialTest(TestCase):
         mit.update_results([('destroy-env', True, False)], results)
         expected = {'results': [
             {'title': 'destroy environment', 'test_id': 'destroy-env',
-             'attempts': 1, 'new_failures': 1, 'old_failures': 0},
+             'attempts': 1, 'new_failures': 1, 'old_failures': 0,
+             'report_on': True},
             {'title': 'check substrate clean', 'test_id': 'substrate-clean',
-             'attempts': 0, 'new_failures': 0, 'old_failures': 0},
+             'attempts': 0, 'new_failures': 0, 'old_failures': 0,
+             'report_on': True},
             {'title': 'bootstrap', 'test_id': 'bootstrap', 'attempts': 0,
-             'new_failures': 0, 'old_failures': 0},
+             'new_failures': 0, 'old_failures': 0, 'report_on': True},
             ]}
         self.assertEqual(results, expected)
         mit.update_results(
@@ -409,11 +443,13 @@ class TestMultiIndustrialTest(TestCase):
             results)
         self.assertEqual(results, {'results': [
             {'title': 'destroy environment', 'test_id': 'destroy-env',
-             'attempts': 2, 'new_failures': 1, 'old_failures': 0},
+             'attempts': 2, 'new_failures': 1, 'old_failures': 0,
+             'report_on': True},
             {'title': 'check substrate clean', 'test_id': 'substrate-clean',
-             'attempts': 1, 'new_failures': 0, 'old_failures': 0},
+             'attempts': 1, 'new_failures': 0, 'old_failures': 0,
+             'report_on': True},
             {'title': 'bootstrap', 'test_id': 'bootstrap', 'attempts': 1,
-             'new_failures': 0, 'old_failures': 1},
+             'new_failures': 0, 'old_failures': 1, 'report_on': True},
             ]})
         mit.update_results(
             [('destroy-env', False, False), ('substrate-clean', True, True),
@@ -421,11 +457,13 @@ class TestMultiIndustrialTest(TestCase):
             results)
         expected = {'results': [
             {'title': 'destroy environment', 'test_id': 'destroy-env',
-             'attempts': 2, 'new_failures': 1, 'old_failures': 0},
+             'attempts': 2, 'new_failures': 1, 'old_failures': 0,
+             'report_on': True},
             {'title': 'check substrate clean', 'test_id': 'substrate-clean',
-             'attempts': 2, 'new_failures': 0, 'old_failures': 0},
+             'attempts': 2, 'new_failures': 0, 'old_failures': 0,
+             'report_on': True},
             {'title': 'bootstrap', 'test_id': 'bootstrap', 'attempts': 2,
-             'new_failures': 1, 'old_failures': 2},
+             'new_failures': 1, 'old_failures': 2, 'report_on': True},
             ]}
         self.assertEqual(results, expected)
 
@@ -441,9 +479,9 @@ class TestMultiIndustrialTest(TestCase):
                 results = mit.run_tests()
         self.assertEqual(results, {'results': [
             {'title': 'foo', 'test_id': 'foo-id', 'attempts': 5,
-             'old_failures': 0, 'new_failures': 0},
+             'old_failures': 0, 'new_failures': 0, 'report_on': True},
             {'title': 'bar', 'test_id': 'bar-id', 'attempts': 5,
-             'old_failures': 0, 'new_failures': 5},
+             'old_failures': 0, 'new_failures': 5, 'report_on': True},
             ]})
 
     def test_run_tests_max_attempts(self):
@@ -458,9 +496,9 @@ class TestMultiIndustrialTest(TestCase):
                 results = mit.run_tests()
         self.assertEqual(results, {'results': [
             {'title': 'foo', 'test_id': 'foo-id', 'attempts': 5,
-             'old_failures': 0, 'new_failures': 5},
+             'old_failures': 0, 'new_failures': 5, 'report_on': True},
             {'title': 'bar', 'test_id': 'bar-id', 'attempts': 0,
-             'old_failures': 0, 'new_failures': 0},
+             'old_failures': 0, 'new_failures': 0, 'report_on': True},
             ]})
 
     def test_run_tests_max_attempts_less_than_attempt_count(self):
@@ -475,9 +513,9 @@ class TestMultiIndustrialTest(TestCase):
                 results = mit.run_tests()
         self.assertEqual(results, {'results': [
             {'title': 'foo', 'test_id': 'foo-id', 'attempts': 4,
-             'old_failures': 0, 'new_failures': 4},
+             'old_failures': 0, 'new_failures': 4, 'report_on': True},
             {'title': 'bar', 'test_id': 'bar-id', 'attempts': 0,
-             'old_failures': 0, 'new_failures': 0},
+             'old_failures': 0, 'new_failures': 0, 'report_on': True},
             ]})
 
     def test_results_table(self):
@@ -485,7 +523,9 @@ class TestMultiIndustrialTest(TestCase):
             {'title': 'foo', 'attempts': 5, 'old_failures': 1,
              'new_failures': 2},
             {'title': 'bar', 'attempts': 5, 'old_failures': 3,
-             'new_failures': 4},
+             'new_failures': 4, 'report_on': True},
+            {'title': 'baz', 'attempts': 5, 'old_failures': 3,
+             'new_failures': 4, 'report_on': False},
             ]
         self.assertEqual(
             ''.join(MultiIndustrialTest.results_table(results)),
@@ -1385,21 +1425,25 @@ class TestUpgradeJujuAttempt(TestCase):
             {future_client.full_path: present_client.full_path})
         uj_iterator = iter_steps_validate_info(self, uj_attempt, future_client)
         with patch('subprocess.check_output', return_value='foo'):
-            self.assertEqual({'test_id': 'bootstrap'}, uj_iterator.next())
+            self.assertEqual({'test_id': 'prepare-upgrade-juju'},
+                             uj_iterator.next())
         with patch('subprocess.Popen') as po_mock:
-            uj_iterator.next()
+            self.assertEqual({'test_id': 'prepare-upgrade-juju'},
+                             uj_iterator.next())
         assert_juju_call(self, po_mock, present_client, (
             'juju', '--show-log', 'bootstrap', '-e', 'steve', '--constraints',
             'mem=2G'))
         po_mock.return_value.wait.return_value = 0
-        self.assertEqual(uj_iterator.next(), {'test_id': 'bootstrap'})
+        self.assertEqual(uj_iterator.next(),
+                         {'test_id': 'prepare-upgrade-juju'})
         b_status = yaml.safe_dump({
             'machines': {'0': {'agent-state': 'started'}},
             'services': {},
             })
         with patch('subprocess.check_output', return_value=b_status):
-            self.assertEqual(uj_iterator.next(),
-                             {'test_id': 'bootstrap', 'result': True})
+            self.assertEqual(
+                uj_iterator.next(),
+                {'test_id': 'prepare-upgrade-juju', 'result': True})
         self.assertEqual(uj_iterator.next(), {'test_id': 'upgrade-juju'})
         with patch('subprocess.check_call') as cc_mock:
             self.assertEqual({'test_id': 'upgrade-juju'}, uj_iterator.next())

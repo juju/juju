@@ -87,6 +87,7 @@ class MultiIndustrialTest:
                 results.append({
                     'title': info['title'],
                     'test_id': test_id,
+                    'report_on': info.get('report_on', True),
                     'attempts': 0,
                     'old_failures': 0,
                     'new_failures': 0,
@@ -140,6 +141,8 @@ class MultiIndustrialTest:
         """Yield strings for a human-readable table of results."""
         yield 'old failure | new failure | attempt | title\n'
         for stage in results:
+            if not stage.get('report_on', True):
+                continue
             yield (' {old_failures:10d} | {new_failures:11d} | {attempts:7d}'
                    ' | {title}\n').format(**stage)
 
@@ -353,7 +356,8 @@ class UpgradeJujuAttempt(SteppedStageAttempt):
     @staticmethod
     def get_test_info():
         return OrderedDict([
-            ('bootstrap', {'title': 'Bootstrap'}),
+            ('prepare-upgrade-juju',
+                {'title': 'Prepare upgrade-juju', 'report_on': False}),
             ('upgrade-juju', {'title': 'Upgrade Juju'}),
             ])
 
@@ -378,6 +382,8 @@ class UpgradeJujuAttempt(SteppedStageAttempt):
         bootstrap_client = client.by_version(
             client.env, bootstrap_path, client.debug)
         for result in ba.iter_steps(bootstrap_client):
+            result = dict(result)
+            result['test_id'] = 'prepare-upgrade-juju'
             yield result
         result = {'test_id': 'upgrade-juju'}
         yield result
@@ -521,7 +527,8 @@ class DeployManyAttempt(SteppedStageAttempt):
         """Describe the tests provided by this Stage."""
         return OrderedDict([
             ('add-machine-many', {'title': 'add many machines'}),
-            ('ensure-machines', {'title': 'Ensure sufficient machines'}),
+            ('ensure-machines', {
+                'title': 'Ensure sufficient machines', 'report_on': False}),
             ('deploy-many', {'title': 'deploy many'}),
             ('remove-machine-many-lxc', {
                 'title': 'remove many machines (lxc)'}),
