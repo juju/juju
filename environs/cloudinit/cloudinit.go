@@ -9,6 +9,7 @@ import (
 	"net"
 	"path"
 	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -185,6 +186,7 @@ const NonceFile = "nonce.txt"
 // packages, the request to do the apt-get update/upgrade on boot, and adds
 // the apt proxy and mirror settings if there are any.
 func AddAptCommands(
+	series string,
 	proxySettings proxy.Settings,
 	aptMirror string,
 	c *cloudinit.Config,
@@ -214,7 +216,12 @@ func AddAptCommands(
 		// leave it to the networker worker.
 		c.AddPackage("bridge-utils")
 		c.AddPackage("rsyslog-gnutls")
-		c.AddPackage("cloud-image-utils")
+
+		// These cloud packages need to possibly come from the cloud-tools archive for precise.
+		aptGetInstallCommandList := apt.GetPreparePackages([]string{"cloud-utils", "cloud-image-utils"}, series)
+		for _, cmds := range aptGetInstallCommandList {
+			c.AddPackage(strings.Join(cmds, " "))
+		}
 	}
 
 	// Write out the apt proxy settings

@@ -67,7 +67,7 @@ func templateUserData(
 	if enablePackageUpdates {
 		cloudinit.MaybeAddCloudArchiveCloudTools(config, series)
 	}
-	cloudinit.AddAptCommands(aptProxy, aptMirror, config, enablePackageUpdates, enableOSUpgrades)
+	cloudinit.AddAptCommands(series, aptProxy, aptMirror, config, enablePackageUpdates, enableOSUpgrades)
 	config.AddScripts(
 		fmt.Sprintf(
 			"printf '%%s\n' %s > %s",
