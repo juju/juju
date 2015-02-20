@@ -23,7 +23,6 @@ func init() {
 	}
 
 	// Initialize all suites here.
-	gc.Suite(&cmdJujuSuite{})
 	gc.Suite(&leadershipSuite{})
 	gc.Suite(&uniterLeadershipSuite{})
 }
