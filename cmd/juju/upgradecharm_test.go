@@ -99,7 +99,7 @@ func (s *UpgradeCharmErrorsSuite) TestInvalidRevision(c *gc.C) {
 }
 
 type UpgradeCharmSuccessSuite struct {
-	jujutesting.RepoSuite
+	CmdBlockSuite
 	path string
 	riak *state.Service
 }
@@ -107,7 +107,7 @@ type UpgradeCharmSuccessSuite struct {
 var _ = gc.Suite(&UpgradeCharmSuccessSuite{})
 
 func (s *UpgradeCharmSuccessSuite) SetUpTest(c *gc.C) {
-	s.RepoSuite.SetUpTest(c)
+	s.CmdBlockSuite.SetUpTest(c)
 	s.path = testcharms.Repo.ClonedDirPath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, jc.ErrorIsNil)
@@ -147,12 +147,12 @@ func (s *UpgradeCharmSuccessSuite) TestLocalRevisionUnchanged(c *gc.C) {
 
 func (s *UpgradeCharmSuccessSuite) TestBlockUpgradeCharm(c *gc.C) {
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockUpgradeCharm")
 	err := runUpgradeCharm(c, "riak")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*TestBlockUpgradeCharm.*")
 }
 
 func (s *UpgradeCharmSuccessSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
@@ -196,12 +196,12 @@ func (s *UpgradeCharmSuccessSuite) TestBlockUpgradesWithBundle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockUpgradesWithBundle")
 	err = runUpgradeCharm(c, "riak")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*TestBlockUpgradesWithBundle.*")
 }
 
 func (s *UpgradeCharmSuccessSuite) TestForcedUpgrade(c *gc.C) {
@@ -214,7 +214,7 @@ func (s *UpgradeCharmSuccessSuite) TestForcedUpgrade(c *gc.C) {
 
 func (s *UpgradeCharmSuccessSuite) TestBlockForcedUpgrade(c *gc.C) {
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockForcedUpgrade")
 	err := runUpgradeCharm(c, "riak", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpgraded(c, 8, true)

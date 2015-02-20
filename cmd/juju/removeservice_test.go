@@ -11,14 +11,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
 type RemoveServiceSuite struct {
-	jujutesting.RepoSuite
+	CmdBlockSuite
 }
 
 var _ = gc.Suite(&RemoveServiceSuite{})
@@ -48,7 +47,7 @@ func (s *RemoveServiceSuite) TestBlockRemoveService(c *gc.C) {
 	s.setupTestService(c)
 
 	// block operation
-	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
+	s.AssertSwitchBlockOn(c, "remove-object", "TestBlockRemoveService")
 	err := runRemoveService(c, "riak")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	riak, err := s.State.Service("riak")
@@ -57,7 +56,7 @@ func (s *RemoveServiceSuite) TestBlockRemoveService(c *gc.C) {
 
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock removal.*")
+	c.Check(stripped, gc.Matches, ".*TestBlockRemoveService.*")
 }
 
 func (s *RemoveServiceSuite) TestFailure(c *gc.C) {

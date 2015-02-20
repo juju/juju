@@ -16,13 +16,12 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type destroyEnvSuite struct {
-	testing.JujuConnSuite
+	CmdBlockSuite
 }
 
 var _ = gc.Suite(&destroyEnvSuite{})
@@ -56,7 +55,9 @@ func (s *destroyEnvSuite) checkDestroyEnvironment(c *gc.C, blocked, force bool) 
 	//Setup environment
 	envName := "dummyenv"
 	s.startEnvironment(c, envName)
-	s.AssertConfigParameterUpdated(c, "block-destroy-environment", blocked)
+	if blocked {
+		s.AssertSwitchBlockOn(c, "destroy-environment", "checkDestroyEnvironment")
+	}
 	opc := make(chan dummy.Operation)
 	errc := make(chan error)
 	if force {

@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
+	asct "github.com/juju/juju/apiserver/common/testing"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -159,31 +159,26 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentWithContainers(c *gc.C) 
 func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
 	// Setup environment
 	s.setUpInstances(c)
-	// lock environment: can't destroy locked environment
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-destroy-environment": true}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.APIState.Client().DestroyEnvironment()
-	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
+	s.blockSwitch.DestroyEnvironment(c, "TestBlockDestroyDestroyEnvironment")
+	err := s.APIState.Client().DestroyEnvironment()
+	asct.AssertErrorBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
 }
 
 func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
 	// Setup environment
 	s.setUpInstances(c)
-	// lock environment: can't destroy locked environment
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-remove-object": true}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.APIState.Client().DestroyEnvironment()
-	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
+	s.blockSwitch.RemoveObject(c, "TestBlockRemoveDestroyEnvironment")
+	err := s.APIState.Client().DestroyEnvironment()
+	asct.AssertErrorBlocked(c, err, "TestBlockRemoveDestroyEnvironment")
 }
 
 func (s *destroyEnvironmentSuite) TestBlockChangesDestroyEnvironment(c *gc.C) {
 	// Setup environment
 	s.setUpInstances(c)
 	// lock environment: can't destroy locked environment
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-all-changes": true}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.APIState.Client().DestroyEnvironment()
-	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
+	s.blockSwitch.AllChanges(c, "TestBlockChangesDestroyEnvironment")
+	err := s.APIState.Client().DestroyEnvironment()
+	asct.AssertErrorBlocked(c, err, "TestBlockChangesDestroyEnvironment")
 }
 
 type destroyTwoEnvironmentsSuite struct {

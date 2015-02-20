@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/environment"
@@ -99,13 +100,13 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailability(c *gc.C) {
 }
 
 func (s *EnsureAvailabilitySuite) TestBlockEnsureAvailability(c *gc.C) {
-	s.fake.err = &params.Error{Code: params.CodeOperationBlocked}
+	s.fake.err = common.ErrOperationBlocked("TestBlockEnsureAvailability")
 	_, err := s.runEnsureAvailability(c, "-n", "1")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*TestBlockEnsureAvailability.*")
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityPlacementError(c *gc.C) {
