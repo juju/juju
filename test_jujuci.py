@@ -130,7 +130,7 @@ class JujuCITestCase(TestCase):
         request = mock.mock_calls[0][1][0]
         self.assertRequest(
             request, 'http://foo:8080/job/bar/1234/api/json',
-            {'Authorization': 'Basic anJhbmRvbToxcGFzc3dvcmQ=\n'})
+            {'Authorization': 'Basic anJhbmRvbToxcGFzc3dvcmQ='})
         self.assertEqual(expected_data, build_data)
 
     def assertRequest(self, request, url, headers):
@@ -148,7 +148,7 @@ class JujuCITestCase(TestCase):
         self.assertRequest(
             mock.mock_calls[0][1][0],
             'http://foo:8080/job/bar/lastSuccessfulBuild/api/json',
-            {'Authorization': 'Basic anJhbmRvbToxcGFzc3dvcmQ=\n'})
+            {'Authorization': 'Basic anJhbmRvbToxcGFzc3dvcmQ='})
 
     def test_find_artifacts_all(self):
         expected_data = make_build_data()
