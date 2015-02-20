@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
@@ -751,10 +752,12 @@ func checkPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool
 	found := false
 	for _, p0 := range pkgs {
 		p := p0.(string)
-		hasTargetRelease := strings.Contains(p, "--target-release")
-		hasQuotedPkg := strings.Contains(p, "'"+pkg+"'")
-		if p == pkg || (hasTargetRelease && hasQuotedPkg) {
+		// p might be a space separate list of packages eg 'foo bar qed' so split them up
+		manyPkgs := set.NewStrings(strings.Split(p, " ")...)
+		hasPkg := manyPkgs.Contains(pkg)
+		if p == pkg || hasPkg {
 			found = true
+			break
 		}
 	}
 	switch {
