@@ -527,7 +527,8 @@ class DeployManyAttempt(SteppedStageAttempt):
         """Describe the tests provided by this Stage."""
         return OrderedDict([
             ('add-machine-many', {'title': 'add many machines'}),
-            ('ensure-machines', {'title': 'Ensure sufficient machines'}),
+            ('ensure-machines', {
+                'title': 'Ensure sufficient machines', 'report_on': False}),
             ('deploy-many', {'title': 'deploy many'}),
             ('remove-machine-many-lxc', {
                 'title': 'remove many machines (lxc)'}),
