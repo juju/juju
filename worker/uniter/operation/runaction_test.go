@@ -30,7 +30,7 @@ func (s *RunActionSuite) TestPrepareErrorBadActionAndFailSucceeds(c *gc.C) {
 		MockFailAction: &MockFailAction{err: errors.New("squelch")},
 	}
 	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil)
-	op, err := factory.NewAction(someActionId)
+	op, err := factory.NewAction(someActionId, operation.Continue)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
@@ -50,7 +50,7 @@ func (s *RunActionSuite) TestPrepareErrorBadActionAndFailErrors(c *gc.C) {
 		MockFailAction: &MockFailAction{},
 	}
 	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil)
-	op, err := factory.NewAction(someActionId)
+	op, err := factory.NewAction(someActionId, operation.Continue)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
@@ -66,7 +66,7 @@ func (s *RunActionSuite) TestPrepareErrorActionNotAvailable(c *gc.C) {
 		MockNewActionRunner: &MockNewActionRunner{err: runner.ErrActionNotAvailable},
 	}
 	factory := operation.NewFactory(nil, runnerFactory, nil, nil)
-	op, err := factory.NewAction(someActionId)
+	op, err := factory.NewAction(someActionId, operation.Continue)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
@@ -80,7 +80,7 @@ func (s *RunActionSuite) TestPrepareErrorOther(c *gc.C) {
 		MockNewActionRunner: &MockNewActionRunner{err: errors.New("foop")},
 	}
 	factory := operation.NewFactory(nil, runnerFactory, nil, nil)
-	op, err := factory.NewAction(someActionId)
+	op, err := factory.NewAction(someActionId, operation.Continue)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
@@ -92,7 +92,7 @@ func (s *RunActionSuite) TestPrepareErrorOther(c *gc.C) {
 func (s *RunActionSuite) TestPrepareSuccessCleanState(c *gc.C) {
 	runnerFactory := NewRunActionRunnerFactory(errors.New("should not call"))
 	factory := operation.NewFactory(nil, runnerFactory, nil, nil)
-	op, err := factory.NewAction(someActionId)
+	op, err := factory.NewAction(someActionId, operation.Continue)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
@@ -109,7 +109,7 @@ func (s *RunActionSuite) TestPrepareSuccessCleanState(c *gc.C) {
 func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
 	runnerFactory := NewRunActionRunnerFactory(errors.New("should not call"))
 	factory := operation.NewFactory(nil, runnerFactory, nil, nil)
-	op, err := factory.NewAction(someActionId)
+	op, err := factory.NewAction(someActionId, operation.Continue)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(overwriteState)
@@ -132,7 +132,7 @@ func (s *RunActionSuite) TestExecuteLockError(c *gc.C) {
 		MockAcquireExecutionLock: &MockAcquireExecutionLock{err: errors.New("plonk")},
 	}
 	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil)
-	op, err := factory.NewAction(someActionId)
+	op, err := factory.NewAction(someActionId, operation.Continue)
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(newState, gc.NotNil)
@@ -150,7 +150,7 @@ func (s *RunActionSuite) TestExecuteRunError(c *gc.C) {
 		MockAcquireExecutionLock: &MockAcquireExecutionLock{},
 	}
 	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil)
-	op, err := factory.NewAction(someActionId)
+	op, err := factory.NewAction(someActionId, operation.Continue)
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(newState, gc.NotNil)
@@ -196,7 +196,7 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 			MockAcquireExecutionLock: &MockAcquireExecutionLock{},
 		}
 		factory := operation.NewFactory(nil, runnerFactory, callbacks, nil)
-		op, err := factory.NewAction(someActionId)
+		op, err := factory.NewAction(someActionId, operation.Continue)
 		c.Assert(err, jc.ErrorIsNil)
 		midState, err := op.Prepare(test.before)
 		c.Assert(midState, gc.NotNil)
@@ -220,14 +220,14 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 	}{{
 		description: "empty state",
 		after: operation.State{
-			Kind: operation.Continue,
+			Kind: operation.RunHook,
 			Step: operation.Pending,
 		},
 	}, {
 		description: "preserves appropriate fields",
 		before:      overwriteState,
 		after: operation.State{
-			Kind:               operation.Continue,
+			Kind:               operation.RunHook,
 			Step:               operation.Pending,
 			Hook:               &hook.Info{Kind: hooks.Install},
 			Started:            true,
@@ -238,7 +238,7 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 	for i, test := range stateChangeTests {
 		c.Logf("test %d: %s", i, test.description)
 		factory := operation.NewFactory(nil, nil, nil, nil)
-		op, err := factory.NewAction(someActionId)
+		op, err := factory.NewAction(someActionId, operation.RunHook)
 		c.Assert(err, jc.ErrorIsNil)
 
 		newState, err := op.Commit(test.before)
