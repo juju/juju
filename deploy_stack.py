@@ -253,14 +253,12 @@ def copy_remote_logs(host, directory):
     ]
     source = 'ubuntu@%s:/var/log/{%s}' % (host, ','.join(log_names))
 
-    logging.info("Waiting for %s:22", host)
     try:
         wait_for_port(host, 22, timeout=60)
     except PortTimeoutError:
         logging.warning("Could not dump logs because port 22 was closed.")
         return
 
-    logging.info("Changing permissions on %s/var/log/juju/*", host)
     try:
         subprocess.check_call([
             'timeout', '5m', 'ssh',
@@ -274,9 +272,8 @@ def copy_remote_logs(host, directory):
         logging.warning("Could not change the permission of the juju logs:")
         logging.warning(e.output)
 
-    logging.info("Copying %s", source)
     try:
-        subprocess.check_output([
+        subprocess.check_call([
             'timeout', '5m', 'scp', '-C',
             '-o', 'UserKnownHostsFile /dev/null',
             '-o', 'StrictHostKeyChecking no',
