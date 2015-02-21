@@ -716,7 +716,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *gc.C) {
 
 func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
+	defer p.Stop()
 
 	// Add and provision a machine with networks specified.
 	requestedNetworks := []string{"net1", "net2"}
@@ -760,6 +760,24 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C
 	c.Assert(m.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, inst)
 	s.waitRemoved(c, m)
+}
+
+func (s *ProvisionerSuite) TestProvisioningMachinesWithInvalidNetwork(c *gc.C) {
+	s.newEnvironProvisioner(c)
+
+	// Add and provision a machine with networks specified.
+	networks := []string{"invalid-net1"}
+	expectNetworkInfo := []network.InterfaceInfo{
+		{ProviderId: "invalid-net1", NetworkName: "$$invalid-net1", CIDR: "invalid"},
+	}
+	m, err := s.addMachineWithRequestedNetworks(networks, constraints.Value{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.checkStartInstanceCustom(
+		c, m, "pork", constraints.Value{},
+		networks, expectNetworkInfo, false,
+		nil, false,
+	)
+	c.Assert(m.EnsureDead(), gc.IsNil)
 }
 
 func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInstanceButKeepsGoing(c *gc.C) {

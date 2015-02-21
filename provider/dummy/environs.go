@@ -925,6 +925,13 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 				NetworkName: netName,
 				CIDR:        "invalid",
 			}
+		} else if strings.HasPrefix(netName, "invalid-") {
+			// Simulate we didn't get correct information for the network.
+			networkInfo[i] = network.InterfaceInfo{
+				ProviderId:  network.Id(netName),
+				NetworkName: "$$" + netName,
+				CIDR:        "invalid",
+			}
 		} else {
 			networkInfo[i] = network.InterfaceInfo{
 				ProviderId:    network.Id(netName),
