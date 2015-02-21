@@ -93,9 +93,7 @@ func (s *initSystemSuite) newConfStr(name, cmd string) string {
 	return fmt.Sprintf(confStr[1:], tag, cmd)
 }
 
-// TODO(ericsnow) Rename addUnit to addService.
-
-func (s *initSystemSuite) addUnit(name, status string) {
+func (s *initSystemSuite) addService(name, status string) {
 	tag := name[len("jujud-"):]
 	desc := "juju agent for " + tag
 	s.conn.AddService(name, desc, status)
@@ -148,10 +146,10 @@ func (s *initSystemSuite) checkCreateFileCall(c *gc.C, index int, filename, cont
 }
 
 func (s *initSystemSuite) TestListServices(c *gc.C) {
-	s.addUnit("jujud-machine-0", "active")
-	s.addUnit("something-else", "error")
-	s.addUnit("jujud-unit-wordpress-0", "active")
-	s.addUnit("another", "inactive")
+	s.addService("jujud-machine-0", "active")
+	s.addService("something-else", "error")
+	s.addService("jujud-unit-wordpress-0", "active")
+	s.addService("another", "inactive")
 
 	names, err := systemd.ListServices()
 	c.Assert(err, jc.ErrorIsNil)
@@ -240,9 +238,9 @@ func (s *initSystemSuite) TestUpdateConfigMultiline(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestInstalledTrue(c *gc.C) {
-	s.addUnit("jujud-machine-0", "active")
-	s.addUnit("something-else", "error")
-	s.addUnit("juju-mongod", "active")
+	s.addService("jujud-machine-0", "active")
+	s.addService("something-else", "error")
+	s.addService("juju-mongod", "active")
 
 	installed := s.service.Installed()
 
@@ -251,7 +249,7 @@ func (s *initSystemSuite) TestInstalledTrue(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestInstalledFalse(c *gc.C) {
-	s.addUnit("something-else", "error")
+	s.addService("something-else", "error")
 
 	installed := s.service.Installed()
 
@@ -260,9 +258,9 @@ func (s *initSystemSuite) TestInstalledFalse(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestInstalledError(c *gc.C) {
-	s.addUnit("jujud-machine-0", "active")
-	s.addUnit("something-else", "error")
-	s.addUnit("juju-mongod", "active")
+	s.addService("jujud-machine-0", "active")
+	s.addService("something-else", "error")
+	s.addService("juju-mongod", "active")
 	failure := errors.New("<failed>")
 	s.stub.SetErrors(failure)
 
@@ -316,9 +314,9 @@ func (s *initSystemSuite) TestExistsError(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestRunningTrue(c *gc.C) {
-	s.addUnit("jujud-machine-0", "active")
-	s.addUnit("something-else", "error")
-	s.addUnit("juju-mongod", "active")
+	s.addService("jujud-machine-0", "active")
+	s.addService("something-else", "error")
+	s.addService("juju-mongod", "active")
 
 	running := s.service.Running()
 
@@ -327,9 +325,9 @@ func (s *initSystemSuite) TestRunningTrue(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestRunningFalse(c *gc.C) {
-	s.addUnit("jujud-machine-0", "inactive")
-	s.addUnit("something-else", "error")
-	s.addUnit("juju-mongod", "active")
+	s.addService("jujud-machine-0", "inactive")
+	s.addService("something-else", "error")
+	s.addService("juju-mongod", "active")
 
 	running := s.service.Running()
 
@@ -338,7 +336,7 @@ func (s *initSystemSuite) TestRunningFalse(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestRunningNotEnabled(c *gc.C) {
-	s.addUnit("something-else", "active")
+	s.addService("something-else", "active")
 
 	running := s.service.Running()
 
@@ -347,9 +345,9 @@ func (s *initSystemSuite) TestRunningNotEnabled(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestRunningError(c *gc.C) {
-	s.addUnit("jujud-machine-0", "active")
-	s.addUnit("something-else", "error")
-	s.addUnit("juju-mongod", "active")
+	s.addService("jujud-machine-0", "active")
+	s.addService("something-else", "error")
+	s.addService("juju-mongod", "active")
 	failure := errors.New("<failed>")
 	s.stub.SetErrors(failure)
 
@@ -360,7 +358,7 @@ func (s *initSystemSuite) TestRunningError(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestStart(c *gc.C) {
-	s.addUnit("jujud-machine-0", "inactive")
+	s.addService("jujud-machine-0", "inactive")
 	s.ch <- "done"
 
 	err := s.service.Start()
@@ -387,7 +385,7 @@ func (s *initSystemSuite) TestStart(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestStartAlreadyRunning(c *gc.C) {
-	s.addUnit("jujud-machine-0", "active")
+	s.addService("jujud-machine-0", "active")
 	s.ch <- "done" // just in case
 
 	err := s.service.Start()
@@ -411,7 +409,7 @@ func (s *initSystemSuite) TestStartNotInstalled(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestStop(c *gc.C) {
-	s.addUnit("jujud-machine-0", "active")
+	s.addService("jujud-machine-0", "active")
 	s.ch <- "done"
 
 	err := s.service.Stop()
@@ -434,7 +432,7 @@ func (s *initSystemSuite) TestStop(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestStopNotRunning(c *gc.C) {
-	s.addUnit("jujud-machine-0", "inactive")
+	s.addService("jujud-machine-0", "inactive")
 	s.ch <- "done" // just in case
 
 	err := s.service.Stop()
@@ -453,7 +451,7 @@ func (s *initSystemSuite) TestStopNotInstalled(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestStopAndRemove(c *gc.C) {
-	s.addUnit("jujud-machine-0", "active")
+	s.addService("jujud-machine-0", "active")
 	s.ch <- "done"
 
 	err := s.service.StopAndRemove()
@@ -473,7 +471,7 @@ func (s *initSystemSuite) TestStopAndRemove(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestRemove(c *gc.C) {
-	s.addUnit("jujud-machine-0", "inactive")
+	s.addService("jujud-machine-0", "inactive")
 
 	err := s.service.Remove()
 	c.Assert(err, jc.ErrorIsNil)
@@ -547,7 +545,7 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestInstallAlreadyInstalled(c *gc.C) {
-	s.addUnit("jujud-machine-0", "inactive")
+	s.addService("jujud-machine-0", "inactive")
 	s.setConf(s.conf)
 
 	err := s.service.Install()
@@ -563,7 +561,7 @@ func (s *initSystemSuite) TestInstallAlreadyInstalled(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
-	s.addUnit("jujud-machine-0", "active")
+	s.addService("jujud-machine-0", "active")
 	s.setConf(common.Conf{
 		Desc: s.conf.Desc,
 		Cmd:  s.conf.Cmd,
