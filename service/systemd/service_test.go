@@ -6,6 +6,7 @@ package systemd_test
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -98,6 +99,31 @@ func (s *initSystemSuite) addUnit(name, status string) {
 	tag := name[len("jujud-"):]
 	desc := "juju agent for " + tag
 	s.conn.AddService(name, desc, status)
+}
+
+func (s *initSystemSuite) setConf(conf common.Conf) {
+	s.conn.SetProperty("", "Description", conf.Desc)
+
+	s.conn.SetProperty("Service", "Description", conf.Desc)
+
+	parts := strings.Fields(conf.Cmd)
+	var args []interface{}
+	for _, arg := range parts[1:] {
+		args = append(args, arg)
+	}
+	s.conn.SetProperty("Service", "ExecStart", []interface{}{
+		parts[0],
+		args,
+		false, 0, 0, 0, 0, 0, 0, 0,
+	})
+
+	if len(conf.Env) > 0 || len(conf.Limit) > 0 {
+		// For now none of our tests need this.
+		panic("not supported yet")
+	}
+
+	s.conn.SetProperty("Service", "StandardOutput", conf.Out)
+	s.conn.SetProperty("Service", "StandardError", conf.Out)
 }
 
 func (s *initSystemSuite) checkCreateFileCall(c *gc.C, index int, filename, content string, perm os.FileMode) {
@@ -247,15 +273,46 @@ func (s *initSystemSuite) TestInstalledError(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestExistsTrue(c *gc.C) {
-	// TODO(ericsnow) Finish!
+	s.setConf(s.conf)
+
+	exists := s.service.Exists()
+
+	c.Check(exists, jc.IsTrue)
+	s.stub.CheckCallNames(c,
+		"GetUnitProperties",
+		"GetUnitTypeProperties",
+		"Close",
+	)
 }
 
 func (s *initSystemSuite) TestExistsFalse(c *gc.C) {
-	// TODO(ericsnow) Finish!
+	s.setConf(common.Conf{
+		Desc: s.conf.Desc,
+		Cmd:  s.conf.Cmd,
+		Out:  "syslog",
+	})
+
+	exists := s.service.Exists()
+
+	c.Check(exists, jc.IsFalse)
+	s.stub.CheckCallNames(c,
+		"GetUnitProperties",
+		"GetUnitTypeProperties",
+		"Close",
+	)
 }
 
 func (s *initSystemSuite) TestExistsError(c *gc.C) {
-	// TODO(ericsnow) Finish!
+	failure := errors.New("<failed>")
+	s.stub.SetErrors(failure)
+
+	exists := s.service.Exists()
+
+	c.Check(exists, jc.IsFalse)
+	s.stub.CheckCallNames(c,
+		"GetUnitProperties",
+		"Close",
+	)
 }
 
 func (s *initSystemSuite) TestRunningTrue(c *gc.C) {
@@ -491,6 +548,7 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 
 func (s *initSystemSuite) TestInstallAlreadyInstalled(c *gc.C) {
 	s.addUnit("jujud-machine-0", "inactive")
+	s.setConf(s.conf)
 
 	err := s.service.Install()
 	c.Assert(err, jc.ErrorIsNil)
@@ -498,11 +556,19 @@ func (s *initSystemSuite) TestInstallAlreadyInstalled(c *gc.C) {
 	s.stub.CheckCallNames(c,
 		"ListUnits",
 		"Close",
+		"GetUnitProperties",
+		"GetUnitTypeProperties",
+		"Close",
 	)
 }
 
 func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 	s.addUnit("jujud-machine-0", "active")
+	s.setConf(common.Conf{
+		Desc: s.conf.Desc,
+		Cmd:  s.conf.Cmd,
+		Out:  "syslog",
+	})
 	s.ch <- "done"
 
 	err := s.service.Install()
@@ -510,6 +576,9 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 
 	s.stub.CheckCallNames(c,
 		"ListUnits",
+		"Close",
+		"GetUnitProperties",
+		"GetUnitTypeProperties",
 		"Close",
 		"ListUnits",
 		"Close",
@@ -525,7 +594,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 		"EnableUnitFiles",
 		"Close",
 	)
-	s.checkCreateFileCall(c, 12, s.name, "", 0644)
+	s.checkCreateFileCall(c, 15, s.name, "", 0644)
 }
 
 func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {

@@ -34,6 +34,25 @@ func (fda *StubDbusAPI) AddService(name, desc, status string) {
 	fda.Units = append(fda.Units, unit)
 }
 
+func (fda *StubDbusAPI) SetProperty(unitType, name string, value interface{}) {
+	if unitType == "" {
+		unitType = "Unit"
+	}
+
+	switch unitType {
+	case "Unit":
+		if fda.Props == nil {
+			fda.Props = make(map[string]interface{})
+		}
+		fda.Props[name] = value
+	default:
+		if fda.TypeProps == nil {
+			fda.TypeProps = make(map[string]interface{})
+		}
+		fda.TypeProps[name] = value
+	}
+}
+
 func (fda *StubDbusAPI) ListUnits() ([]dbus.UnitStatus, error) {
 	fda.Stub.AddCall("ListUnits")
 
