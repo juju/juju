@@ -195,12 +195,15 @@ func serializeInstall(conf common.Conf) []*unit.UnitOption {
 // deserialize parses the provided data (in the init system's prefered
 // format) and populates a new Conf with the result.
 func deserialize(data []byte) (common.Conf, error) {
-	var conf common.Conf
-
 	opts, err := unit.Deserialize(bytes.NewBuffer(data))
 	if err != nil {
-		return conf, errors.Trace(err)
+		return common.Conf{}, errors.Trace(err)
 	}
+	return deserializeOptions(opts)
+}
+
+func deserializeOptions(opts []*unit.UnitOption) (common.Conf, error) {
+	var conf common.Conf
 
 	for _, uo := range opts {
 		switch uo.Section {
@@ -268,6 +271,6 @@ func deserialize(data []byte) (common.Conf, error) {
 		}
 	}
 
-	err = validate("<>", conf)
+	err := validate("<>", conf)
 	return conf, errors.Trace(err)
 }

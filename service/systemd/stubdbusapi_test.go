@@ -11,7 +11,9 @@ import (
 type StubDbusAPI struct {
 	*testing.Stub
 
-	Units []dbus.UnitStatus
+	Units     []dbus.UnitStatus
+	Props     map[string]interface{}
+	TypeProps map[string]interface{}
 }
 
 func (fda *StubDbusAPI) AddService(name, desc, status string) {
@@ -60,6 +62,18 @@ func (fda *StubDbusAPI) DisableUnitFiles(files []string, runtime bool) ([]dbus.D
 	fda.Stub.AddCall("DisableUnitFiles", files, runtime)
 
 	return nil, fda.NextErr()
+}
+
+func (fda *StubDbusAPI) GetUnitProperties(unit string) (map[string]interface{}, error) {
+	fda.Stub.AddCall("GetUnitProperties", unit)
+
+	return fda.Props, fda.NextErr()
+}
+
+func (fda *StubDbusAPI) GetUnitTypeProperties(unit, unitType string) (map[string]interface{}, error) {
+	fda.Stub.AddCall("GetUnitTypeProperties", unit, unitType)
+
+	return fda.TypeProps, fda.NextErr()
 }
 
 func (fda *StubDbusAPI) Close() {

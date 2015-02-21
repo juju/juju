@@ -86,10 +86,12 @@ var findDataDir = func() (string, error) {
 type dbusAPI interface {
 	Close()
 	ListUnits() ([]dbus.UnitStatus, error)
-	StartUnit(name string, mode string, ch chan<- string) (int, error)
-	StopUnit(name string, mode string, ch chan<- string) (int, error)
-	EnableUnitFiles(files []string, runtime bool, force bool) (bool, []dbus.EnableUnitFileChange, error)
-	DisableUnitFiles(files []string, runtime bool) ([]dbus.DisableUnitFileChange, error)
+	StartUnit(string, string, chan<- string) (int, error)
+	StopUnit(string, string, chan<- string) (int, error)
+	EnableUnitFiles([]string, bool, bool) (bool, []dbus.EnableUnitFileChange, error)
+	DisableUnitFiles([]string, bool) ([]dbus.DisableUnitFileChange, error)
+	GetUnitProperties(string) (map[string]interface{}, error)
+	GetUnitTypeProperties(string, string) (map[string]interface{}, error)
 }
 
 var newConn = func() (dbusAPI, error) {
@@ -152,10 +154,22 @@ func (s *Service) check() (bool, error) {
 func (s *Service) readConf() (common.Conf, error) {
 	var conf common.Conf
 
-	// TODO(ericsnow) Finish!
-	// This may involve conn.GetUnitProperties...
+	conn, err := newConn()
+	if err != nil {
+		return conf, errors.Trace(err)
+	}
+	defer conn.Close()
 
-	return conf, nil
+	// go-systemd does not appear to provide an easy way to get
+	// a list of UnitOption for an existing unit. So we have to
+	// do build the list manually.
+
+	opts, err := getUnitOptions(conn, s.ConfName, "Service")
+	if err != nil {
+		return conf, errors.Trace(err)
+	}
+	conf, err = deserializeOptions(opts)
+	return conf, errors.Trace(err)
 }
 
 // Running implements Service.
