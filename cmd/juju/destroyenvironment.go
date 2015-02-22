@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
 )
@@ -80,16 +81,23 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 	if err != nil {
 		return errors.Annotate(err, "cannot open environment info storage")
 	}
-	isServer, err := c.isServer(c.envName, store)
+
+	cfgInfo, err := store.ReadInfo(c.envName)
 	if err != nil {
-		return errors.Annotate(err, "cannot determine if this is the server environment or not")
+		return errors.Annotate(err, "cannot read environment info")
 	}
 
+	var isServer bool
 	var serverEnviron environs.Environ
-	if isServer {
-		serverEnviron, err = environs.NewFromName(c.envName, store)
+	if bootstrapCfg := cfgInfo.BootstrapConfig(); bootstrapCfg != nil {
+		isServer = true
+		cfg, err := config.New(config.NoDefaults, bootstrapCfg)
 		if err != nil {
-			return errors.Annotatef(err, "cannot get environment %q", c.envName)
+			return errors.Trace(err)
+		}
+		serverEnviron, err = environs.New(cfg)
+		if err != nil {
+			return errors.Trace(err)
 		}
 	}
 
@@ -101,9 +109,8 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 			return environs.Destroy(serverEnviron, store)
 		} else {
 			// Force only makes sense on the server environment.
-			return errors.Errorf("cannot force destroy hosted environments")
+			return errors.Errorf("cannot force destroy environment without bootstrap information")
 		}
-
 	}
 
 	apiclient, err := juju.NewAPIClientFromName(c.envName)
@@ -143,6 +150,14 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 		return environs.Destroy(serverEnviron, store)
 	}
 
+	// Before destroying the hosted environment, double check with the API
+	// server that this isn't the server environment. This covers the case
+	// where a user has a jenv file that points to the server environment, but
+	// doesn't have the bootstrap args.
+	if info.UUID == info.ServerUUID {
+		return errors.Errorf("cannot destroy server environment without bootstrap infomation")
+	}
+
 	// If this is not the server environment, there is no bootstrap info and
 	// we do not call Destroy on the provider. Destroying the environment via
 	// the API and cleaning up the jenv file is sufficient.
@@ -150,15 +165,6 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 		errors.Annotate(err, "cannot destroy environment")
 	}
 	return environs.DestroyInfo(c.envName, store)
-}
-
-func (c *DestroyEnvironmentCommand) isServer(envName string, store configstore.Storage) (bool, error) {
-	info, err := store.ReadInfo(c.envName)
-	if err != nil {
-		return false, errors.Annotate(err, "cannot read environment info")
-	}
-
-	return info.BootstrapConfig() != nil, nil
 }
 
 func (c *DestroyEnvironmentCommand) destroyEnv(apiclient *api.Client) (result error) {

@@ -197,7 +197,7 @@ func (f *FirewallerAPI) GetMachinePorts(args params.MachinePortsParams) (params.
 				result.Results[i].Ports = append(result.Results[i].Ports,
 					params.MachinePortRange{
 						UnitTag:   unitTag,
-						PortRange: portRange,
+						PortRange: params.FromNetworkPortRange(portRange),
 					})
 			}
 		}

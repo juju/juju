@@ -123,11 +123,24 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEFlag(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEmptyJenv(c *gc.C) {
+	oldinfo, err := s.ConfigStore.ReadInfo("dummyenv")
+	info := s.ConfigStore.CreateInfo("dummy-no-bootstrap")
+	info.SetAPICredentials(oldinfo.APICredentials())
+	info.SetAPIEndpoint(oldinfo.APIEndpoint())
+	err = info.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "dummy-no-bootstrap", "--yes")
+	c.Check(<-errc, gc.ErrorMatches, "cannot destroy server environment without bootstrap infomation")
+	c.Check(<-opc, gc.IsNil)
+}
+
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandNonStateServer(c *gc.C) {
 	s.setupHostedEnviron(c, "dummy-non-state-server")
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "dummy-non-state-server", "--yes")
 	c.Check(<-errc, gc.IsNil)
-	// Check there are no operations on the provider, we do not want to call
+	// Check that there are no operations on the provider, we do not want to call
 	// Destroy on it.
 	c.Check(<-opc, gc.IsNil)
 
@@ -138,7 +151,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandNonStateServer(c *gc.C) {
 func (s *destroyEnvSuite) TestForceDestroyEnvironmentCommandOnNonStateServerFails(c *gc.C) {
 	s.setupHostedEnviron(c, "dummy-non-state-server")
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "dummy-non-state-server", "--yes", "--force")
-	c.Check(<-errc, gc.ErrorMatches, "cannot force destroy hosted environments")
+	c.Check(<-errc, gc.ErrorMatches, "cannot force destroy environment without bootstrap information")
 	c.Check(<-opc, gc.IsNil)
 
 	serverInfo, err := s.ConfigStore.ReadInfo("dummy-non-state-server")
@@ -149,7 +162,7 @@ func (s *destroyEnvSuite) TestForceDestroyEnvironmentCommandOnNonStateServerFail
 func (s *destroyEnvSuite) TestForceDestroyEnvironmentCommandOnNonStateServerNoConfimFails(c *gc.C) {
 	s.setupHostedEnviron(c, "dummy-non-state-server")
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "dummy-non-state-server", "--force")
-	c.Check(<-errc, gc.ErrorMatches, "cannot force destroy hosted environments")
+	c.Check(<-errc, gc.ErrorMatches, "cannot force destroy environment without bootstrap information")
 	c.Check(<-opc, gc.IsNil)
 
 	serverInfo, err := s.ConfigStore.ReadInfo("dummy-non-state-server")

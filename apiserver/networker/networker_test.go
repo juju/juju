@@ -185,7 +185,7 @@ func (s *networkerSuite) TestNetworkerNonMachineAgent(c *gc.C) {
 	c.Assert(aNetworker, gc.IsNil)
 }
 
-func (s *networkerSuite) TestMachineNetworkInfoPermissions(c *gc.C) {
+func (s *networkerSuite) TestMachineNetworkConfigPermissions(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "service-bar"},
 		{Tag: "foo-42"},
@@ -195,10 +195,10 @@ func (s *networkerSuite) TestMachineNetworkInfoPermissions(c *gc.C) {
 		{Tag: "machine-1"},
 		{Tag: "machine-0-lxc-42"},
 	}}
-	results, err := s.networker.MachineNetworkInfo(args)
+	results, err := s.networker.MachineNetworkConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.MachineNetworkInfoResults{
-		Results: []params.MachineNetworkInfoResult{
+	c.Assert(results, gc.DeepEquals, params.MachineNetworkConfigResults{
+		Results: []params.MachineNetworkConfigResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -210,14 +210,14 @@ func (s *networkerSuite) TestMachineNetworkInfoPermissions(c *gc.C) {
 	})
 }
 
-func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
+func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 	// TODO(bogdanteleaga): Find out what's the problem with this test
 	// It seems to work on some machines
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: currently does not work on windows")
 	}
-	// Expected results of MachineNetworkInfo for a machine and containers
-	expectedMachineInfo := []params.NetworkInfo{{
+	// Expected results of MachineNetworkConfig for a machine and containers
+	expectedMachineConfig := []params.NetworkConfig{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		CIDR:          "0.1.2.0/24",
 		NetworkName:   "net1",
@@ -254,7 +254,7 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		InterfaceName: "eth2",
 		Disabled:      true,
 	}}
-	expectedContainerInfo := []params.NetworkInfo{{
+	expectedContainerConfig := []params.NetworkConfig{{
 		MACAddress:    "aa:bb:cc:dd:ee:e0",
 		CIDR:          "0.1.2.0/24",
 		NetworkName:   "net1",
@@ -276,7 +276,7 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		VLANTag:       42,
 		InterfaceName: "eth1",
 	}}
-	expectedNestedContainerInfo := []params.NetworkInfo{{
+	expectedNestedContainerConfig := []params.NetworkConfig{{
 		MACAddress:    "aa:bb:cc:dd:ee:d0",
 		CIDR:          "0.1.2.0/24",
 		NetworkName:   "net1",
@@ -284,21 +284,25 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		VLANTag:       0,
 		InterfaceName: "eth0",
 	}}
-
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
 		{Tag: "machine-0-lxc-0"},
 		{Tag: "machine-0-lxc-0-lxc-0"},
 	}}
-	results, err := s.networker.MachineNetworkInfo(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.MachineNetworkInfoResults{
-		Results: []params.MachineNetworkInfoResult{
-			{Error: nil, Info: expectedMachineInfo},
-			{Error: nil, Info: expectedContainerInfo},
-			{Error: nil, Info: expectedNestedContainerInfo},
-		},
-	})
+
+	assert := func(f func(params.Entities) (params.MachineNetworkConfigResults, error)) {
+		results, err := f(args)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(results, gc.DeepEquals, params.MachineNetworkConfigResults{
+			Results: []params.MachineNetworkConfigResult{
+				{Error: nil, Config: expectedMachineConfig},
+				{Error: nil, Config: expectedContainerConfig},
+				{Error: nil, Config: expectedNestedContainerConfig},
+			},
+		})
+	}
+	assert(s.networker.MachineNetworkInfo)
+	assert(s.networker.MachineNetworkConfig)
 }
 
 func (s *networkerSuite) TestWatchInterfacesPermissions(c *gc.C) {

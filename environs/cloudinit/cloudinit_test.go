@@ -9,8 +9,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
@@ -624,6 +626,34 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 	}
 }
 
+func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
+	loggo.GetLogger("").SetLogLevel(loggo.INFO)
+	machineConfig := minimalMachineConfig()
+	machineConfig.Config = minimalConfig(c)
+
+	cloudcfg := coreCloudinit.New()
+	udata, err := cloudinit.NewUserdataConfig(&machineConfig, cloudcfg)
+
+	c.Assert(err, jc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := udata.Render()
+	c.Assert(err, jc.ErrorIsNil)
+	configKeyValues := make(map[interface{}]interface{})
+	err = goyaml.Unmarshal(data, &configKeyValues)
+	c.Assert(err, jc.ErrorIsNil)
+
+	scripts := getScripts(configKeyValues)
+	for i, script := range scripts {
+		if strings.Contains(script, "bootstrap") {
+			c.Logf("scripts[%d]: %q", i, script)
+		}
+	}
+	expected := "jujud bootstrap-state --data-dir '.*' --env-config '.*'" +
+		" --instance-id '.*' --constraints 'mem=2048M' --show-log"
+	assertScriptMatch(c, scripts, expected, false)
+}
+
 func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	// Create a simple cloudinit config with a 'runcmd' statement.
 	cloudcfg := coreCloudinit.New()
@@ -732,10 +762,12 @@ func checkPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool
 	found := false
 	for _, p0 := range pkgs {
 		p := p0.(string)
-		hasTargetRelease := strings.Contains(p, "--target-release")
-		hasQuotedPkg := strings.Contains(p, "'"+pkg+"'")
-		if p == pkg || (hasTargetRelease && hasQuotedPkg) {
+		// p might be a space separate list of packages eg 'foo bar qed' so split them up
+		manyPkgs := set.NewStrings(strings.Split(p, " ")...)
+		hasPkg := manyPkgs.Contains(pkg)
+		if p == pkg || hasPkg {
 			found = true
+			break
 		}
 	}
 	switch {

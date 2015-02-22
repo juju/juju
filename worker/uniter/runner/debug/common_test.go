@@ -4,6 +4,7 @@
 package debug_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/uniter/runner/debug"
@@ -19,6 +20,6 @@ func (*DebugHooksCommonSuite) TestHooksContext(c *gc.C) {
 	c.Assert(ctx.Unit, gc.Equals, "foo/8")
 	c.Assert(ctx.FlockDir, gc.Equals, "/tmp")
 	ctx.FlockDir = "/var/lib/juju"
-	c.Assert(ctx.ClientFileLock(), gc.Equals, "/var/lib/juju/juju-unit-foo-8-debug-hooks")
-	c.Assert(ctx.ClientExitFileLock(), gc.Equals, "/var/lib/juju/juju-unit-foo-8-debug-hooks-exit")
+	c.Assert(ctx.ClientFileLock(), jc.SamePath, "/var/lib/juju/juju-unit-foo-8-debug-hooks")
+	c.Assert(ctx.ClientExitFileLock(), jc.SamePath, "/var/lib/juju/juju-unit-foo-8-debug-hooks-exit")
 }
