@@ -1288,14 +1288,16 @@ func (st *State) AddService(
 	return svc, nil
 }
 
-// AddIPAddress creates and returns a new IP address
+// AddIPAddress creates and returns a new IP address. It can return an
+// error satisfying IsNotValid() or IsAlreadyExists() when the addr
+// does not contain a valid IP, or when addr is already added.
 func (st *State) AddIPAddress(addr network.Address, subnetid string) (ipaddress *IPAddress, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add IP address %v", addr.Value)
+	defer errors.DeferredAnnotatef(&err, "cannot add IP address %q", addr)
 
 	// This checks for a missing value as well as invalid values
 	ip := net.ParseIP(addr.Value)
 	if ip == nil {
-		return nil, errors.Errorf("invalid IP address %q", addr.Value)
+		return nil, errors.NotValidf("address")
 	}
 
 	addressID := st.docID(addr.Value)
@@ -1321,9 +1323,7 @@ func (st *State) AddIPAddress(addr network.Address, subnetid string) (ipaddress 
 	switch err {
 	case txn.ErrAborted:
 		if _, err = st.IPAddress(addr.Value); err == nil {
-			return nil, errors.AlreadyExistsf("IP address %q", addr.Value)
-		} else if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.AlreadyExistsf("address")
 		}
 	case nil:
 		return ipaddress, nil
@@ -1349,7 +1349,7 @@ func (st *State) IPAddress(value string) (*IPAddress, error) {
 
 // AddSubnet creates and returns a new subnet
 func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add subnet %v", args.CIDR)
+	defer errors.DeferredAnnotatef(&err, "cannot add subnet %q", args.CIDR)
 
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
@@ -1390,7 +1390,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 		if err == nil {
 			return subnet, nil
 		}
-		return nil, errors.Annotatef(err, "ProviderId not unique %q", args.ProviderId)
+		return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
 	}
 	return nil, errors.Trace(err)
 }

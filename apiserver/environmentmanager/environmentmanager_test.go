@@ -16,10 +16,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
-
 	// Register the providers for the field check test
 	_ "github.com/juju/juju/provider/azure"
 	_ "github.com/juju/juju/provider/ec2"
@@ -27,6 +23,9 @@ import (
 	_ "github.com/juju/juju/provider/local"
 	_ "github.com/juju/juju/provider/maas"
 	_ "github.com/juju/juju/provider/openstack"
+	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type envManagerSuite struct {
@@ -127,30 +126,30 @@ func (s *envManagerSuite) TestRestrictedProviderFields(c *gc.C) {
 		{
 			provider: "azure",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert",
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
 				"location"},
 		}, {
 			provider: "dummy",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert"},
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key"},
 		}, {
 			provider: "joyent",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert"},
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key"},
 		}, {
 			provider: "local",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert",
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
 				"container", "network-bridge", "root-dir"},
 		}, {
 			provider: "maas",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert",
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
 				"maas-server"},
 		}, {
 			provider: "openstack",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert",
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
 				"region", "auth-url", "auth-mode"},
 		},
 	} {
@@ -233,6 +232,10 @@ func (s *envManagerSuite) TestCreateEnvironmentBadConfig(c *gc.C) {
 			key:      "rsyslog-ca-cert",
 			value:    "some-cert",
 			errMatch: `specified rsyslog-ca-cert "some-cert" does not match apiserver ".*"`,
+		}, {
+			key:      "rsyslog-ca-key",
+			value:    "some-key",
+			errMatch: `specified rsyslog-ca-key "some-key" does not match apiserver ".*"`,
 		},
 	} {
 		c.Logf("%d: %s", i, test.key)

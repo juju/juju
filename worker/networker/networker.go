@@ -12,10 +12,9 @@ import (
 	"sort"
 	"strings"
 
-	"launchpad.net/tomb"
-
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
 	apinetworker "github.com/juju/juju/api/networker"
@@ -297,7 +296,7 @@ func (nw *Networker) updateInterfaces() error {
 // commands to load the kernal 8021q VLAN module, if not already
 // loaded and when not running inside an LXC container.
 func (nw *Networker) fetchInterfaceInfo() error {
-	interfaceInfo, err := nw.st.MachineNetworkInfo(nw.tag)
+	interfaceInfo, err := nw.st.MachineNetworkConfig(nw.tag)
 	if err != nil {
 		logger.Errorf("failed to retrieve network info: %v", err)
 		return err

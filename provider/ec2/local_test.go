@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"gopkg.in/amz.v2/aws"
 	amzec2 "gopkg.in/amz.v2/ec2"
 	"gopkg.in/amz.v2/ec2/ec2test"
@@ -478,6 +479,11 @@ var azConstrainedErr = &amzec2.Error{
 	Message: "The requested Availability Zone is currently constrained etc.",
 }
 
+var azVolumeTypeNotAvailableInZoneErr = &amzec2.Error{
+	Code:    "VolumeTypeNotAvailableInZone",
+	Message: "blah blah",
+}
+
 var azInsufficientInstanceCapacityErr = &amzec2.Error{
 	Code: "InsufficientInstanceCapacity",
 	Message: "We currently do not have sufficient m1.small capacity in the " +
@@ -494,6 +500,10 @@ var azNoDefaultSubnetErr = &amzec2.Error{
 
 func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
 	t.testStartInstanceAvailZoneAllConstrained(c, azConstrainedErr)
+}
+
+func (t *localServerSuite) TestStartInstanceVolumeTypeNotAvailable(c *gc.C) {
+	t.testStartInstanceAvailZoneAllConstrained(c, azVolumeTypeNotAvailableInZoneErr)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneAllInsufficientInstanceCapacity(c *gc.C) {
@@ -910,12 +920,15 @@ func (t *localServerSuite) TestStartInstanceVolumes(c *gc.C) {
 	params := environs.StartInstanceParams{
 		Volumes: []storage.VolumeParams{{
 			Size:       512, // round up to 1GiB
+			Provider:   ec2.EBS_ProviderType,
 			Attachment: attachmentParams,
 		}, {
 			Size:       1024, // 1GiB exactly
+			Provider:   ec2.EBS_ProviderType,
 			Attachment: attachmentParams,
 		}, {
 			Size:       1025, // round up to 2GiB
+			Provider:   ec2.EBS_ProviderType,
 			Attachment: attachmentParams,
 		}},
 	}
@@ -1024,8 +1037,12 @@ func CheckPackage(c *gc.C, userDataMap map[interface{}]interface{}, pkg string, 
 	found := false
 	for _, p0 := range pkgs {
 		p := p0.(string)
-		if p == pkg {
+		// p might be a space separate list of packages eg 'foo bar qed' so split them up
+		manyPkgs := set.NewStrings(strings.Split(p, " ")...)
+		hasPkg := manyPkgs.Contains(pkg)
+		if p == pkg || hasPkg {
 			found = true
+			break
 		}
 	}
 	switch {

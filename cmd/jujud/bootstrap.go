@@ -35,7 +35,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/state/toolstorage"
-	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
@@ -293,7 +293,7 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 // populateDefaultStoragePools creates the default storage pools.
 func (c *BootstrapCommand) populateDefaultStoragePools(st *state.State) error {
 	settings := state.NewStateSettings(st)
-	return pool.AddDefaultStoragePools(settings, c.CurrentConfig())
+	return poolmanager.AddDefaultStoragePools(settings)
 }
 
 // populateTools stores uploaded tools in provider storage

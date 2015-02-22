@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/juju/juju/juju/names"
-
 	"bitbucket.org/kardianos/service"
+
+	"github.com/juju/juju/juju/names"
 )
 
 func runService() {

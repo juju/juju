@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/feature"
 	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v4"
@@ -15,8 +14,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider/registry"
 )
 
 // StorageInstance represents the state of a unit or service-wide storage
@@ -508,7 +509,7 @@ func validateStoragePool(st *State, poolName string, kind storage.StorageKind) (
 	envType := conf.Type()
 	// If no pool specified, use the default if registered.
 	if poolName == "" {
-		defaultPool, ok := storage.DefaultPool(envType, kind)
+		defaultPool, ok := registry.DefaultPool(envType, kind)
 		if ok {
 			logger.Infof("no storage pool specified, using default pool %q", defaultPool)
 			poolName = defaultPool
@@ -517,13 +518,21 @@ func validateStoragePool(st *State, poolName string, kind storage.StorageKind) (
 		}
 	}
 	// Ensure the pool type is supported by the environment.
-	pm := pool.NewPoolManager(NewStateSettings(st))
+	var providerType storage.ProviderType
+	pm := poolmanager.New(NewStateSettings(st))
 	p, err := pm.Get(poolName)
-	if err != nil {
+	// If there's no pool called poolName, maybe a provider type has been specified directly.
+	if errors.IsNotFound(err) {
+		providerType = storage.ProviderType(poolName)
+		if _, err1 := registry.StorageProvider(providerType); err1 != nil {
+			return "", errors.Trace(err)
+		}
+	} else if err != nil {
 		return "", errors.Trace(err)
+	} else {
+		providerType = p.Provider()
 	}
-	providerType := p.Type()
-	if !storage.IsProviderSupported(envType, providerType) {
+	if !registry.IsProviderSupported(envType, providerType) {
 		return "", errors.Errorf(
 			"pool %q uses storage provider %q which is not supported for environments of type %q",
 			poolName,

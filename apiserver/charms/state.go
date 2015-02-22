@@ -4,8 +4,9 @@
 package charms
 
 import (
-	"github.com/juju/juju/state"
 	"gopkg.in/juju/charm.v4"
+
+	"github.com/juju/juju/state"
 )
 
 type charmsAccess interface {

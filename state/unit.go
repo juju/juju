@@ -1720,7 +1720,12 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 	if !ok {
 		return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
 	}
+	// Reject bad payloads before attempting to insert defaults.
 	err = spec.ValidateParams(payload)
+	if err != nil {
+		return nil, err
+	}
+	err = spec.InsertDefaults(payload)
 	if err != nil {
 		return nil, err
 	}

@@ -52,7 +52,11 @@ func (api *RsyslogAPI) SetRsyslogCert(args params.SetRsyslogCertParams) (params.
 		result.Error = common.ServerError(err)
 		return result, nil
 	}
-	attrs := map[string]interface{}{"rsyslog-ca-cert": string(args.CACert)}
+
+	attrs := map[string]interface{}{
+		"rsyslog-ca-cert": string(args.CACert),
+		"rsyslog-ca-key":  string(args.CAKey),
+	}
 	if err := api.st.UpdateEnvironConfig(attrs, nil, nil); err != nil {
 		result.Error = common.ServerError(err)
 	}
@@ -73,8 +77,9 @@ func (api *RsyslogAPI) GetRsyslogConfig(args params.Entities) (params.RsyslogCon
 		if err == nil {
 			result.Results[i] = params.RsyslogConfigResult{
 				CACert:    rsyslogCfg.CACert,
+				CAKey:     rsyslogCfg.CAKey,
 				Port:      rsyslogCfg.Port,
-				HostPorts: rsyslogCfg.HostPorts,
+				HostPorts: params.FromNetworkHostPorts(rsyslogCfg.HostPorts),
 			}
 		} else {
 			result.Results[i].Error = common.ServerError(err)

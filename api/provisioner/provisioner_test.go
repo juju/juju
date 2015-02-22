@@ -30,7 +30,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -208,7 +208,7 @@ func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
-	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -337,13 +337,13 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 		tag, err := names.ParseNetworkTag(networks[i].Tag)
 		c.Assert(err, jc.ErrorIsNil)
 		networkName := tag.Id()
-		network, err := s.State.Network(networkName)
+		nw, err := s.State.Network(networkName)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(network.Name(), gc.Equals, networkName)
-		c.Check(network.ProviderId(), gc.Equals, networks[i].ProviderId)
-		c.Check(network.Tag().String(), gc.Equals, networks[i].Tag)
-		c.Check(network.VLANTag(), gc.Equals, networks[i].VLANTag)
-		c.Check(network.CIDR(), gc.Equals, networks[i].CIDR)
+		c.Check(nw.Name(), gc.Equals, networkName)
+		c.Check(nw.ProviderId(), gc.Equals, network.Id(networks[i].ProviderId))
+		c.Check(nw.Tag().String(), gc.Equals, networks[i].Tag)
+		c.Check(nw.VLANTag(), gc.Equals, networks[i].VLANTag)
+		c.Check(nw.CIDR(), gc.Equals, networks[i].CIDR)
 	}
 
 	// And the network interfaces as well.

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
 )
 
@@ -87,16 +88,21 @@ func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 
 	mapping, volumes, volumeAttachments, err := ec2.GetBlockDeviceMappings(
 		"pv", &environs.StartInstanceParams{Volumes: []storage.VolumeParams{{
-			Tag:  volume0,
-			Size: 1234,
+			Size:     1234,
+			Provider: provider.LoopProviderType,
+		}, {
+			Tag:      volume0,
+			Size:     1234,
+			Provider: ec2.EBS_ProviderType,
 			Attachment: &storage.AttachmentParams{
 				Machine: machine0,
 			},
 		}, {
-			Tag:  volume1,
-			Size: 4321,
+			Tag:      volume1,
+			Size:     45000,
+			Provider: ec2.EBS_ProviderType,
 			Attributes: map[string]interface{}{
-				"volume-type": "standard",
+				"volume-type": "io1",
 				"iops":        "1234",
 			},
 			Attachment: &storage.AttachmentParams{
@@ -124,17 +130,93 @@ func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 		VolumeSize: 2,
 		DeviceName: "/dev/sdf1",
 	}, {
-		VolumeSize: 5,
+		VolumeSize: 44,
 		DeviceName: "/dev/sdf2",
-		VolumeType: "standard",
+		VolumeType: "io1",
 		IOPS:       1234,
 	}})
 	c.Assert(volumes, gc.DeepEquals, []storage.Volume{
 		{Tag: volume0, Size: 2048},
-		{Tag: volume1, Size: 5120},
+		{Tag: volume1, Size: 45056},
 	})
 	c.Assert(volumeAttachments, gc.DeepEquals, []storage.VolumeAttachment{
 		{Volume: volume0, Machine: machine0, DeviceName: "xvdf1"},
 		{Volume: volume1, Machine: machine0, DeviceName: "xvdf2"},
 	})
+}
+
+func (*DisksSuite) TestGetBlockDeviceMappingErrors(c *gc.C) {
+	volume0 := names.NewDiskTag("0")
+	machine0 := names.NewMachineTag("0")
+
+	for _, test := range []struct {
+		params storage.VolumeParams
+		err    string
+	}{
+		{
+			params: storage.VolumeParams{
+				Provider: ec2.EBS_ProviderType,
+			},
+			err: "allocating unattached volumes not implemented",
+		},
+		{
+			params: storage.VolumeParams{
+				Size:     100000000,
+				Provider: ec2.EBS_ProviderType,
+				Attachment: &storage.AttachmentParams{
+					Machine: machine0,
+				},
+			},
+			err: "invalid volume parameters: 97657 GiB exceeds the maximum of 1024 GiB",
+		},
+		{
+			params: storage.VolumeParams{
+				Tag:      volume0,
+				Size:     1000,
+				Provider: ec2.EBS_ProviderType,
+				Attributes: map[string]interface{}{
+					"volume-type": "io1",
+					"iops":        "1234",
+				},
+				Attachment: &storage.AttachmentParams{
+					Machine: machine0,
+				},
+			},
+			err: "invalid volume parameters: volume size is 1 GiB, must be at least 10 GiB for provisioned IOPS",
+		},
+		{
+			params: storage.VolumeParams{
+				Tag:      volume0,
+				Size:     10000,
+				Provider: ec2.EBS_ProviderType,
+				Attributes: map[string]interface{}{
+					"volume-type": "io1",
+					"iops":        "1234",
+				},
+				Attachment: &storage.AttachmentParams{
+					Machine: machine0,
+				},
+			},
+			err: "invalid volume parameters: volume size is 10 GiB, must be at least 41 GiB to support 1234 IOPS",
+		},
+		{
+			params: storage.VolumeParams{
+				Tag:      volume0,
+				Size:     10000,
+				Provider: ec2.EBS_ProviderType,
+				Attributes: map[string]interface{}{
+					"volume-type": "standard",
+					"iops":        "1234",
+				},
+				Attachment: &storage.AttachmentParams{
+					Machine: machine0,
+				},
+			},
+			err: `invalid volume parameters: IOPS specified, but volume type is "standard"`,
+		}} {
+		_, _, _, err := ec2.GetBlockDeviceMappings(
+			"pv", &environs.StartInstanceParams{Volumes: []storage.VolumeParams{test.params}},
+		)
+		c.Check(err, gc.ErrorMatches, test.err)
+	}
 }

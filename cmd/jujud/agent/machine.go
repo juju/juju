@@ -23,6 +23,7 @@ import (
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
@@ -83,7 +84,6 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 const bootstrapMachineId = "0"

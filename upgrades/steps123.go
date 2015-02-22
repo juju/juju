@@ -20,7 +20,7 @@ func stateStepsFor123() []Step {
 				description: "add default storage pools",
 				targets:     []Target{DatabaseMaster},
 				run: func(context Context) error {
-					return addDefaultStoragePools(context.State(), context.AgentConfig())
+					return addDefaultStoragePools(context.State())
 				},
 			},
 		)

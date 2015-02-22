@@ -32,7 +32,10 @@ func (s *storageGetSuite) SetUpTest(c *gc.C) {
 }
 
 var (
-	storageLocation = map[string]interface{}{"location": "/dev/sda"}
+	storageAttributes = map[string]interface{}{
+		"location": "/dev/sda",
+		"kind":     "block",
+	}
 )
 
 var storageGetTests = []struct {
@@ -40,10 +43,10 @@ var storageGetTests = []struct {
 	format int
 	out    interface{}
 }{
-	{[]string{"data/0", "location", "--format", "yaml"}, formatYaml, storageLocation},
-	{[]string{"data/0", "location", "--format", "json"}, formatJson, storageLocation},
-	{[]string{"data/0", "location", "kind"}, -1, "kind: 1\nlocation: /dev/sda\n"},
-	{[]string{"data/0", "location"}, -1, "/dev/sda\n"},
+	{[]string{"--format", "yaml"}, formatYaml, storageAttributes},
+	{[]string{"--format", "json"}, formatJson, storageAttributes},
+	{[]string{}, formatYaml, storageAttributes},
+	{[]string{"location"}, -1, "/dev/sda\n"},
 }
 
 func (s *storageGetSuite) TestOutputFormatKey(c *gc.C) {
@@ -80,7 +83,7 @@ func (s *storageGetSuite) TestHelp(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: storage-get [options] <storageInstanceId> <key> [<key>]*
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: storage-get [options] [<key>]
 purpose: print information for storage instance with specified id
 
 options:
@@ -88,19 +91,20 @@ options:
     specify output format (json|smart|yaml)
 -o, --output (= "")
     specify an output file
+-s  (= data/0)
+    specify a storage instance by id
 
 When no <key> is supplied, all keys values are printed.
 `)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }
 
-//
 func (s *storageGetSuite) TestOutputPath(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
-	code := cmd.Main(com, ctx, []string{"--format", "yaml", "--output", "some-file", "data/0", "location"})
+	code := cmd.Main(com, ctx, []string{"--format", "yaml", "--output", "some-file", "-s", "data/0"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
@@ -109,5 +113,5 @@ func (s *storageGetSuite) TestOutputPath(c *gc.C) {
 
 	var out map[string]interface{}
 	c.Assert(goyaml.Unmarshal(content, &out), gc.IsNil)
-	c.Assert(out, gc.DeepEquals, storageLocation)
+	c.Assert(out, gc.DeepEquals, storageAttributes)
 }

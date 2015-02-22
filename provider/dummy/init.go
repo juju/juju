@@ -4,11 +4,9 @@
 package dummy
 
 import (
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 )
 
 func init() {
-	// TODO(wallyworld) - common provider registration
-	storage.RegisterEnvironStorageProviders("dummy", provider.LoopProviderType)
+	registry.RegisterEnvironStorageProviders("dummy")
 }

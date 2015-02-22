@@ -27,8 +27,9 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -727,12 +728,12 @@ func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C)
 }
 
 func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
-	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	storage.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
+	registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
 	defer func() {
-		storage.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
+		registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
 	}()
 
 	cons := constraints.MustParse("cpu-cores=123 mem=8G networks=^net3,^net4")
@@ -790,6 +791,46 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
+	template := state.MachineTemplate{
+		Series:            "quantal",
+		Jobs:              []state.MachineJob{state.JobHostUnits},
+		Placement:         "valid",
+		RequestedNetworks: []string{"net1", "net2"},
+		Volumes: []state.MachineVolumeParams{
+			// No pool called "loop" exists but there is a "loop" provider type.
+			{Volume: state.VolumeParams{Size: 1000, Pool: "loop"}},
+		},
+	}
+	placementMachine, err := s.State.AddOneMachine(template)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: placementMachine.Tag().String()},
+	}}
+	result, err := s.provisioner.ProvisioningInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(result, gc.DeepEquals, params.ProvisioningInfoResults{
+		Results: []params.ProvisioningInfoResult{
+			{Result: &params.ProvisioningInfo{
+				Series:      "quantal",
+				Constraints: template.Constraints,
+				Placement:   template.Placement,
+				Networks:    template.RequestedNetworks,
+				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Volumes: []params.VolumeParams{{
+					VolumeTag:  "disk-0",
+					Size:       1000,
+					MachineTag: placementMachine.Tag().String(),
+					Provider:   "loop",
+					Attributes: nil,
+				}},
+			}},
 		},
 	})
 }
@@ -946,12 +987,12 @@ func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
-	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	storage.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
+	registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
 	defer func() {
-		storage.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
+		registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
 	}()
 
 	// Provision machine 0 first.
@@ -1118,13 +1159,13 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		tag, err := names.ParseNetworkTag(networks[i].Tag)
 		c.Assert(err, jc.ErrorIsNil)
 		networkName := tag.Id()
-		network, err := s.State.Network(networkName)
+		nw, err := s.State.Network(networkName)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(network.Name(), gc.Equals, networkName)
-		c.Check(network.ProviderId(), gc.Equals, networks[i].ProviderId)
-		c.Check(network.Tag().String(), gc.Equals, networks[i].Tag)
-		c.Check(network.VLANTag(), gc.Equals, networks[i].VLANTag)
-		c.Check(network.CIDR(), gc.Equals, networks[i].CIDR)
+		c.Check(nw.Name(), gc.Equals, networkName)
+		c.Check(nw.ProviderId(), gc.Equals, network.Id(networks[i].ProviderId))
+		c.Check(nw.Tag().String(), gc.Equals, networks[i].Tag)
+		c.Check(nw.VLANTag(), gc.Equals, networks[i].VLANTag)
+		c.Check(nw.CIDR(), gc.Equals, networks[i].CIDR)
 	}
 
 	// Verify the machine with requested volumes was provisioned, and the
