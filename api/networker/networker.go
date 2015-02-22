@@ -25,17 +25,23 @@ func NewState(caller base.APICaller) *State {
 	return &State{base.NewFacadeCaller(caller, networkerFacade)}
 }
 
-// MachineNetworkInfo returns information about network interfaces to
+// MachineNetworkConfig returns information about network interfaces to
 // setup only for a single machine.
-func (st *State) MachineNetworkInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
+func (st *State) MachineNetworkConfig(tag names.MachineTag) ([]network.InterfaceInfo, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	var results params.MachineNetworkConfigResults
-	err := st.facade.FacadeCall("MachineNetworkInfo", args, &results)
+	err := st.facade.FacadeCall("MachineNetworkConfig", args, &results)
 	if err != nil {
-		// TODO: Not directly tested
-		return nil, err
+		if params.IsCodeNotImplemented(err) {
+			// Fallback to former name.
+			err = st.facade.FacadeCall("MachineNetworkInfo", args, &results)
+		}
+		if err != nil {
+			// TODO: Not directly tested.
+			return nil, err
+		}
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
