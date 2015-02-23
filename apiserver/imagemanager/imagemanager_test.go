@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	asct "github.com/juju/juju/apiserver/common/testing"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/imagemanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -28,7 +28,7 @@ type imageManagerSuite struct {
 	resources    *common.Resources
 	authoriser   apiservertesting.FakeAuthorizer
 
-	blockSwitch *asct.BlockSwitch
+	blockSwitch *commontesting.BlockSwitch
 }
 
 var _ = gc.Suite(&imageManagerSuite{})
@@ -45,7 +45,7 @@ func (s *imageManagerSuite) SetUpTest(c *gc.C) {
 	s.imagemanager, err = imagemanager.NewImageManagerAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.blockSwitch = asct.NewBlockSwitch(s.APIState)
+	s.blockSwitch = commontesting.NewBlockSwitch(s.APIState)
 }
 
 func (s *imageManagerSuite) TestNewImageManagerAPIAcceptsClient(c *gc.C) {
@@ -176,7 +176,7 @@ func (s *imageManagerSuite) TestBlockDeleteImages(c *gc.C) {
 	s.blockSwitch.AllChanges(c, "TestBlockDeleteImages")
 	_, err := s.imagemanager.DeleteImages(args)
 	// Check that the call is blocked
-	asct.AssertErrorBlocked(c, err, "TestBlockDeleteImages")
+	commontesting.AssertErrorBlocked(c, err, "TestBlockDeleteImages")
 	// Check the image still exists.
 	stor := s.State.ImageStorage()
 	_, rdr, err := stor.Image("lxc", "trusty", "amd64")

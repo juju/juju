@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
-	asct "github.com/juju/juju/apiserver/common/testing"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -161,7 +161,7 @@ func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
 	s.setUpInstances(c)
 	s.blockSwitch.DestroyEnvironment(c, "TestBlockDestroyDestroyEnvironment")
 	err := s.APIState.Client().DestroyEnvironment()
-	asct.AssertErrorBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
+	commontesting.AssertErrorBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
 }
 
 func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
@@ -169,7 +169,7 @@ func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
 	s.setUpInstances(c)
 	s.blockSwitch.RemoveObject(c, "TestBlockRemoveDestroyEnvironment")
 	err := s.APIState.Client().DestroyEnvironment()
-	asct.AssertErrorBlocked(c, err, "TestBlockRemoveDestroyEnvironment")
+	commontesting.AssertErrorBlocked(c, err, "TestBlockRemoveDestroyEnvironment")
 }
 
 func (s *destroyEnvironmentSuite) TestBlockChangesDestroyEnvironment(c *gc.C) {
@@ -178,7 +178,7 @@ func (s *destroyEnvironmentSuite) TestBlockChangesDestroyEnvironment(c *gc.C) {
 	// lock environment: can't destroy locked environment
 	s.blockSwitch.AllChanges(c, "TestBlockChangesDestroyEnvironment")
 	err := s.APIState.Client().DestroyEnvironment()
-	asct.AssertErrorBlocked(c, err, "TestBlockChangesDestroyEnvironment")
+	commontesting.AssertErrorBlocked(c, err, "TestBlockChangesDestroyEnvironment")
 }
 
 type destroyTwoEnvironmentsSuite struct {

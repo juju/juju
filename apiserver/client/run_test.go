@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/client"
-	asct "github.com/juju/juju/apiserver/common/testing"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -268,7 +268,7 @@ func (s *runSuite) TestBlockRunOnAllMachines(c *gc.C) {
 	// block all changes
 	s.blockSwitch.AllChanges(c, "TestBlockRunOnAllMachines")
 	_, err := s.APIState.Client().RunOnAllMachines("hostname", testing.LongWait)
-	asct.AssertErrorBlocked(c, err, "TestBlockRunOnAllMachines")
+	commontesting.AssertErrorBlocked(c, err, "TestBlockRunOnAllMachines")
 }
 
 func (s *runSuite) TestRunMachineAndService(c *gc.C) {
@@ -345,5 +345,5 @@ func (s *runSuite) TestBlockRunMachineAndService(c *gc.C) {
 			Machines: []string{"0"},
 			Services: []string{"magic"},
 		})
-	asct.AssertErrorBlocked(c, err, "TestBlockRunMachineAndService")
+	commontesting.AssertErrorBlocked(c, err, "TestBlockRunMachineAndService")
 }

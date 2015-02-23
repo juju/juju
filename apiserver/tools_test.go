@@ -18,7 +18,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	asct "github.com/juju/juju/apiserver/common/testing"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
 	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -34,7 +34,7 @@ import (
 type toolsSuite struct {
 	authHttpSuite
 
-	blockSwitch *asct.BlockSwitch
+	blockSwitch *commontesting.BlockSwitch
 }
 
 var _ = gc.Suite(&toolsSuite{})
@@ -46,7 +46,7 @@ func (s *toolsSuite) SetUpSuite(c *gc.C) {
 
 func (s *toolsSuite) SetUpTest(c *gc.C) {
 	s.authHttpSuite.SetUpTest(c)
-	s.blockSwitch = asct.NewBlockSwitch(s.APIState)
+	s.blockSwitch = commontesting.NewBlockSwitch(s.APIState)
 }
 
 func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {
@@ -155,7 +155,7 @@ func (s *toolsSuite) TestBlockUpload(c *gc.C) {
 		c, s.toolsURI(c, "?binaryVersion="+vers.String()), true, toolPath)
 	c.Assert(err, jc.ErrorIsNil)
 	problem := s.assertErrorResponse(c, resp, http.StatusBadRequest, "TestUpload")
-	asct.AssertErrorBlocked(c, problem, "TestUpload")
+	commontesting.AssertErrorBlocked(c, problem, "TestUpload")
 
 	// Check the contents.
 	storage, err := s.State.ToolsStorage()

@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	asct "github.com/juju/juju/apiserver/common/testing"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/highavailability"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -33,7 +33,7 @@ type clientSuite struct {
 	haServer   *highavailability.HighAvailabilityAPI
 	pinger     *presence.Pinger
 
-	blockSwitch *asct.BlockSwitch
+	blockSwitch *commontesting.BlockSwitch
 }
 
 type Killer interface {
@@ -70,7 +70,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	// We have to ensure the agents are alive, or EnsureAvailability will
 	// create more to replace them.
 	s.pinger = s.setAgentPresence(c, "0")
-	s.blockSwitch = asct.NewBlockSwitch(s.APIState)
+	s.blockSwitch = commontesting.NewBlockSwitch(s.APIState)
 }
 
 func (s *clientSuite) TearDownTest(c *gc.C) {
@@ -182,7 +182,7 @@ func (s *clientSuite) TestBlockEnsureAvailability(c *gc.C) {
 	s.blockSwitch.AllChanges(c, "TestBlockEnsureAvailability")
 
 	ensureAvailabilityResult, err := s.ensureAvailability(c, 3, constraints.MustParse("mem=4G"), defaultSeries, nil)
-	asct.AssertErrorBlocked(c, err, "TestBlockEnsureAvailability")
+	commontesting.AssertErrorBlocked(c, err, "TestBlockEnsureAvailability")
 
 	c.Assert(ensureAvailabilityResult.Maintained, gc.HasLen, 0)
 	c.Assert(ensureAvailabilityResult.Added, gc.HasLen, 0)
