@@ -3,5 +3,6 @@
 
 package paths
 
-var OsStat = &osStat
-var ExecLookPath = &execLookPath
+func NewMongoTest(binDir string) Mongo {
+	return Mongo{binDir}
+}
