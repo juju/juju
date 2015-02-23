@@ -51,14 +51,16 @@ func ListCommand() string {
 // Service provides visibility into and control over a systemd service.
 type Service struct {
 	Name     string
+	ConfName string
+	UnitName string
 	Conf     common.Conf
 	Dirname  string
-	ConfName string
 	Script   []byte
 }
 
 // NewService returns a new value that implements Service for systemd.
 func NewService(name string, conf common.Conf) (*Service, error) {
+	confName := name + ".service"
 	dataDir, err := findDataDir()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -67,8 +69,9 @@ func NewService(name string, conf common.Conf) (*Service, error) {
 
 	service := &Service{
 		Name:     name,
+		ConfName: confName,
+		UnitName: confName,
 		Dirname:  dirname,
-		ConfName: name + ".service",
 	}
 
 	if err := service.setConf(conf); err != nil {

@@ -177,9 +177,10 @@ func (s *initSystemSuite) TestNewService(c *gc.C) {
 
 	c.Check(service, jc.DeepEquals, &systemd.Service{
 		Name:     s.name,
+		ConfName: s.name + ".service",
+		UnitName: s.name + ".service",
 		Conf:     s.conf,
 		Dirname:  fmt.Sprintf("%s/init/%s", s.dataDir, s.name),
-		ConfName: s.name + ".service",
 	})
 	s.stub.CheckCalls(c, nil)
 }
@@ -192,9 +193,10 @@ func (s *initSystemSuite) TestUpdateConfig(c *gc.C) {
 
 	c.Check(s.service, jc.DeepEquals, &systemd.Service{
 		Name:     s.name,
+		ConfName: s.name + ".service",
+		UnitName: s.name + ".service",
 		Conf:     s.conf,
 		Dirname:  fmt.Sprintf("%s/init/%s", s.dataDir, s.name),
-		ConfName: s.name + ".service",
 	})
 	s.stub.CheckCalls(c, nil)
 }
@@ -206,14 +208,15 @@ func (s *initSystemSuite) TestUpdateConfigExtraScript(c *gc.C) {
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	c.Check(s.service, jc.DeepEquals, &systemd.Service{
-		Name: s.name,
+		Name:     s.name,
+		UnitName: s.name + ".service",
+		ConfName: s.name + ".service",
 		Conf: common.Conf{
 			Desc: s.conf.Desc,
 			Cmd:  dirname + "/exec-start.sh",
 		},
-		Dirname:  dirname,
-		ConfName: s.name + ".service",
-		Script:   []byte("<some other command>\njujud machine-0"),
+		Dirname: dirname,
+		Script:  []byte("<some other command>\njujud machine-0"),
 	})
 	s.stub.CheckCalls(c, nil)
 }
@@ -225,14 +228,15 @@ func (s *initSystemSuite) TestUpdateConfigMultiline(c *gc.C) {
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	c.Check(s.service, jc.DeepEquals, &systemd.Service{
-		Name: s.name,
+		Name:     s.name,
+		UnitName: s.name + ".service",
+		ConfName: s.name + ".service",
 		Conf: common.Conf{
 			Desc: s.conf.Desc,
 			Cmd:  dirname + "/exec-start.sh",
 		},
-		Dirname:  dirname,
-		ConfName: s.name + ".service",
-		Script:   []byte("a\nb\nc"),
+		Dirname: dirname,
+		Script:  []byte("a\nb\nc"),
 	})
 	s.stub.CheckCalls(c, nil)
 }
