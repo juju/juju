@@ -246,7 +246,7 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 // based on the given template. It also returns the machine document
 // that will be inserted.
 func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op, error) {
-	template, err := st.effectiveMachineTemplate(template, true)
+	template, err := st.effectiveMachineTemplate(template, st.IsStateServer())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -497,7 +497,7 @@ func hasJob(jobs []MachineJob, job MachineJob) bool {
 	return false
 }
 
-var errStateServerNotAllowed = errors.New("state server jobs specified without calling EnsureAvailability")
+var errStateServerNotAllowed = errors.New("state server jobs specified but not allowed")
 
 // maintainStateServersOps returns a set of operations that will maintain
 // the state server information when the given machine documents
