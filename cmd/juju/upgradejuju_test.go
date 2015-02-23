@@ -36,7 +36,6 @@ import (
 type UpgradeJujuSuite struct {
 	jujutesting.JujuConnSuite
 
-	//	blockClient *block.API
 	resources  *common.Resources
 	authoriser apiservertesting.FakeAuthorizer
 

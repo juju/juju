@@ -59,7 +59,6 @@ func (c *BlockChecker) DestroyAllowed() error {
 // to stop operation execution.
 func (c *BlockChecker) checkBlock(blockType state.BlockType) error {
 	aBlock, isEnabled, err := c.getter.GetBlockForType(blockType)
-	//	fmt.Printf("\nLOOKING FOR %v > BLOCK(%+v) is enabled %t (%v)\n", blockType, aBlock, isEnabled, err)
 	if err != nil {
 		return errors.Trace(err)
 	}
