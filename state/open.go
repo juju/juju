@@ -38,6 +38,7 @@ func Open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, er
 		return nil, errors.Annotate(err, "could not access state server info")
 	}
 	st.environTag = ssInfo.EnvironmentTag
+	st.serverTag = ssInfo.EnvironmentTag
 	st.startPresenceWatcher()
 	return st, nil
 }
@@ -76,7 +77,9 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	if !ok {
 		return nil, errors.Errorf("environment uuid was not supplied")
 	}
-	st.environTag = names.NewEnvironTag(uuid)
+	envTag := names.NewEnvironTag(uuid)
+	st.environTag = envTag
+	st.serverTag = envTag
 
 	// A valid environment is used as a signal that the
 	// state has already been initalized. If this is the case

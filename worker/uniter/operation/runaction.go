@@ -19,8 +19,6 @@ type runAction struct {
 
 	name   string
 	runner runner.Runner
-
-	continuation Kind
 }
 
 // String is part of the Operation interface.
@@ -87,7 +85,7 @@ func (ra *runAction) Execute(state State) (*State, error) {
 // Commit is part of the Operation interface.
 func (ra *runAction) Commit(state State) (*State, error) {
 	return stateChange{
-		Kind: ra.continuation,
+		Kind: Continue,
 		Step: Pending,
 		Hook: state.Hook,
 	}.apply(state), nil

@@ -78,7 +78,7 @@ func (s *EnvironSuite) TestNewEnvironment(c *gc.C) {
 	c.Assert(entity.Tag(), gc.Equals, envTag)
 
 	// Ensure the environment is functional by adding a machine
-	_, err = st.AddMachine("quantal", state.JobManageEnviron)
+	_, err = st.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

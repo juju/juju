@@ -71,8 +71,12 @@ type NetworkConfig struct {
 	// once spaces are introduced.
 	NetworkName string `json:"NetworkName"`
 
-	// ProviderId is a provider-specific network id.
+	// ProviderId is a provider-specific network interface id.
 	ProviderId string `json:"ProviderId"`
+
+	// ProviderSubnetId is a provider-specific subnet id, to which the
+	// interface is attached to.
+	ProviderSubnetId string `json:"ProviderSubnetId"`
 
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.

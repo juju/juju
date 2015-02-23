@@ -68,6 +68,7 @@ const (
 // InterfaceInfo describes a single network interface available on an
 // instance. For providers that support networks, this will be
 // available at StartInstance() time.
+// TODO(mue): Rename to InterfaceConfig due to consistency later.
 type InterfaceInfo struct {
 	// DeviceIndex specifies the order in which the network interface
 	// appears on the host. The primary interface has an index of 0.

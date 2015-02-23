@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"gopkg.in/amz.v2/aws"
 	amzec2 "gopkg.in/amz.v2/ec2"
 	"gopkg.in/amz.v2/ec2/ec2test"
@@ -1036,8 +1037,12 @@ func CheckPackage(c *gc.C, userDataMap map[interface{}]interface{}, pkg string, 
 	found := false
 	for _, p0 := range pkgs {
 		p := p0.(string)
-		if p == pkg {
+		// p might be a space separate list of packages eg 'foo bar qed' so split them up
+		manyPkgs := set.NewStrings(strings.Split(p, " ")...)
+		hasPkg := manyPkgs.Contains(pkg)
+		if p == pkg || hasPkg {
 			found = true
+			break
 		}
 	}
 	switch {
