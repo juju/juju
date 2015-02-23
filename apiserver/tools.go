@@ -110,11 +110,7 @@ func (h *toolsHandler) sendJSON(w http.ResponseWriter, statusCode int, response 
 // sendError sends a JSON-encoded error response using desired
 // error message.
 func (h *toolsHandler) sendError(w http.ResponseWriter, statusCode int, message string) {
-	logger.Debugf("sending error: %v %v", statusCode, message)
-	err := common.ServerError(errors.New(message))
-	if err := h.sendJSON(w, statusCode, &params.ToolsResult{Error: err}); err != nil {
-		logger.Errorf("failed to send error: %v", err)
-	}
+	h.sendExistingError(w, statusCode, errors.New(message))
 }
 
 // sendExistingError sends a JSON-encoded error response
