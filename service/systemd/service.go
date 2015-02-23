@@ -4,6 +4,7 @@
 package systemd
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -167,7 +168,7 @@ func (s *Service) readConf() (common.Conf, error) {
 	// a list of UnitOption for an existing unit. So we have to
 	// do build the list manually.
 
-	opts, err := getUnitOptions(conn, s.ConfName, "Service")
+	opts, err := getUnitOptions(conn, s.UnitName, "Service")
 	if err != nil {
 		return conf, errors.Trace(err)
 	}
@@ -189,7 +190,7 @@ func (s *Service) Running() bool {
 	}
 
 	for _, unit := range units {
-		if unit.Name == s.ConfName {
+		if unit.Name == s.UnitName {
 			return unit.LoadState == "loaded" && unit.ActiveState == "active"
 		}
 	}
@@ -212,7 +213,7 @@ func (s *Service) Start() error {
 	defer conn.Close()
 
 	statusCh := newChan()
-	_, err = conn.StartUnit(s.ConfName, "fail", statusCh)
+	_, err = conn.StartUnit(s.UnitName, "fail", statusCh)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -239,7 +240,7 @@ func (s *Service) Stop() error {
 	defer conn.Close()
 
 	statusCh := newChan()
-	_, err = conn.StopUnit(s.ConfName, "fail", statusCh)
+	_, err = conn.StopUnit(s.UnitName, "fail", statusCh)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -276,7 +277,7 @@ func (s *Service) Remove() error {
 
 	// TODO(ericsnow) We may need the original file name (or make sure
 	// the unit conf is on the systemd search path.
-	_, err = conn.DisableUnitFiles([]string{s.ConfName}, false)
+	_, err = conn.DisableUnitFiles([]string{s.UnitName}, false)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -326,7 +327,7 @@ func (s *Service) Install() error {
 }
 
 func (s *Service) writeConf() (string, error) {
-	data, err := serialize(s.ConfName, s.Conf)
+	data, err := serialize(s.UnitName, s.Conf)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -360,6 +361,19 @@ var createFile = func(filename string, data []byte, perm os.FileMode) error {
 
 // InstallCommands implements Service.
 func (s *Service) InstallCommands() ([]string, error) {
-	// TODO(ericsnow) Finish.
-	panic("not finished")
+	//remote := NewService(s.Name, s.Conf)
+	//remote.Dirname = ioutil.TempDir("", "juju-systemd-remote-")
+
+	data, err := serialize(s.UnitName, s.Conf)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	commands := []string{
+		fmt.Sprintf("cat >> /tmp/%s << 'EOF'\n%sEOF\n", s.ConfName, data),
+		// TODO(ericsnow) "Link" the unit file first?
+		//  "systemd link /tmp/" + s.ConfName,
+		"systemd start /tmp/" + s.ConfName,
+	}
+	return commands, nil
 }

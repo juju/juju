@@ -624,5 +624,12 @@ func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
-	// TODO(ericsnow) Finish.
+	commands, err := s.service.InstallCommands()
+	c.Assert(err, jc.ErrorIsNil)
+
+	content := s.newConfStr("jujud-machine-0", "")
+	c.Check(commands, jc.DeepEquals, []string{
+		"cat >> /tmp/jujud-machine-0.service << 'EOF'\n" + content + "EOF\n",
+		"systemd start /tmp/jujud-machine-0.service",
+	})
 }
