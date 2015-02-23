@@ -894,6 +894,7 @@ func (s *clientSuite) TestClientEnvironmentInfo(c *gc.C) {
 	c.Assert(info.ProviderType, gc.Equals, conf.Type())
 	c.Assert(info.Name, gc.Equals, conf.Name())
 	c.Assert(info.UUID, gc.Equals, env.UUID())
+	c.Assert(info.ServerUUID, gc.Equals, env.ServerUUID())
 }
 
 var clientAnnotationsTests = []struct {

@@ -961,6 +961,7 @@ func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
 		ProviderType:  conf.Type(),
 		Name:          conf.Name(),
 		UUID:          env.UUID(),
+		ServerUUID:    env.ServerUUID(),
 	}
 	return info, nil
 }

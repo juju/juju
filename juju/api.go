@@ -89,11 +89,11 @@ func defaultAPIOpen(info *api.Info, opts api.DialOpts) (apiState, error) {
 func newAPIClient(envName string) (*api.State, error) {
 	store, err := configstore.Default()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	st, err := newAPIFromStore(envName, store, defaultAPIOpen)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return st.(*api.State), nil
 }
@@ -238,12 +238,12 @@ func errorImportance(err error) int {
 		// An error from an actual connection attempt
 		// is more interesting than the fact that there's
 		// no environment info available.
-		return 1
+		return 2
 	}
 	if _, ok := err.(*infoConnectError); ok {
 		// A connection to a potentially stale cached address
 		// is less important than a connection from fresh info.
-		return 2
+		return 1
 	}
 	return 3
 }
