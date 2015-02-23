@@ -119,6 +119,10 @@ class MultiIndustrialTest:
                 existing_result = combine_dict[test_id]
                 for key in ['attempts', 'old_failures', 'new_failures']:
                     existing_result[key] += result[key]
+                existing_result['report_on'] = (
+                    result.get('report_on', True) or
+                    existing_result.get('report_on', True)
+                    )
         return {'results': combine_dict.values()}
 
     def make_industrial_test(self):

@@ -561,13 +561,44 @@ class TestMultiIndustrialTest(TestCase):
             [self.get_results_1(), results_2])
         self.assertEqual(new_results, {'results': [
             {'title': 'foo', 'attempts': 8, 'old_failures': 3,
-             'new_failures': 3, 'test_id': 'foo-id'},
+             'new_failures': 3, 'test_id': 'foo-id', 'report_on': True},
             {'title': 'bar', 'attempts': 5, 'old_failures': 3,
              'new_failures': 4, 'report_on': True, 'test_id': 'bar-id'},
             {'title': 'baz', 'attempts': 5, 'old_failures': 3,
              'new_failures': 4, 'report_on': False, 'test_id': 'baz-id'},
             ]})
 
+    def test_combine_results_report_on(self):
+        results_1 = {'results': [
+            {'test_id': 'foo-id', 'title': 'foo6', 'attempts': 3,
+             'old_failures': 2, 'new_failures': 1},
+            {'test_id': 'bar-id', 'title': 'bar6', 'attempts': 3,
+             'old_failures': 2, 'new_failures': 1},
+            {'test_id': 'baz-id', 'title': 'baz', 'attempts': 3,
+             'old_failures': 2, 'new_failures': 1, 'report_on': False},
+            {'test_id': 'qux-id', 'title': 'qux', 'attempts': 3,
+             'old_failures': 2, 'new_failures': 1, 'report_on': False},
+            ]}
+        results_2 = {'results': [
+            {'test_id': 'foo-id', 'title': 'foo6', 'attempts': 3,
+             'old_failures': 2, 'new_failures': 1, 'report_on': True},
+            {'test_id': 'bar-id', 'title': 'foo6', 'attempts': 3,
+             'old_failures': 2, 'new_failures': 1, 'report_on': False},
+            {'test_id': 'baz-id', 'title': 'foo6', 'attempts': 3,
+             'old_failures': 2, 'new_failures': 1},
+            {'test_id': 'qux-id', 'title': 'qux6', 'attempts': 3,
+             'old_failures': 2, 'new_failures': 1, 'report_on': False},
+            ]}
+        new_results = MultiIndustrialTest.combine_results(
+            [results_1, results_2])
+        self.assertEqual(new_results['results'][0].get('report_on', True),
+                         True)
+        self.assertEqual(new_results['results'][1].get('report_on', True),
+                         True)
+        self.assertEqual(new_results['results'][2].get('report_on', True),
+                         True)
+        self.assertEqual(new_results['results'][3].get('report_on', False),
+                         False)
 
     def test_results_table(self):
         results = [
