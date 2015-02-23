@@ -4,8 +4,6 @@
 package uniter
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
@@ -63,7 +61,7 @@ func (sa *StorageAccessor) WatchStorageAttachments(unitTag names.UnitTag) (watch
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {

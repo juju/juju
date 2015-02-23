@@ -4,11 +4,11 @@
 package filter
 
 import (
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/names"
 )
 
 // Filter is responsible for delivering events relevant to a unit agent in a
