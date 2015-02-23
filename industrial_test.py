@@ -712,7 +712,7 @@ def suite_list(suite_str):
     for suite in suite_list:
         if suite not in suites:
             sys.stderr.write(
-                "Invalid argument suite: invalid choice: '{}'".format(suite))
+                "Invalid argument suite: invalid choice: '{}'\n".format(suite))
             sys.exit(1)
     return suite_list
 
