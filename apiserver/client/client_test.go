@@ -326,36 +326,40 @@ func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
 	c.Assert(agentVersion, gc.Equals, "9.8.7")
 }
 
-func (s *serverSuite) assertSetEnvironAgentVersionBlocked(c *gc.C, blocked bool, msg string) {
+func (s *serverSuite) assertSetEnvironAgentVersion(c *gc.C) {
 	args := params.SetEnvironAgentVersion{
 		Version: version.MustParse("9.8.7"),
 	}
 	err := s.client.SetEnvironAgentVersion(args)
-	if blocked {
-		s.AssertErrorBlocked(c, err, msg)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		envConfig, err := s.State.EnvironConfig()
-		c.Assert(err, jc.ErrorIsNil)
-		agentVersion, found := envConfig.AllAttrs()["agent-version"]
-		c.Assert(found, jc.IsTrue)
-		c.Assert(agentVersion, gc.Equals, "9.8.7")
+	c.Assert(err, jc.ErrorIsNil)
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	agentVersion, found := envConfig.AllAttrs()["agent-version"]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(agentVersion, gc.Equals, "9.8.7")
+}
+
+func (s *serverSuite) assertSetEnvironAgentVersionBlocked(c *gc.C, msg string) {
+	args := params.SetEnvironAgentVersion{
+		Version: version.MustParse("9.8.7"),
 	}
+	err := s.client.SetEnvironAgentVersion(args)
+	s.AssertErrorBlocked(c, err, msg)
 }
 
 func (s *serverSuite) TestBlockDestroySetEnvironAgentVersion(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroySetEnvironAgentVersion")
-	s.assertSetEnvironAgentVersionBlocked(c, false, "TestBlockDestroySetEnvironAgentVersion")
+	s.assertSetEnvironAgentVersion(c)
 }
 
 func (s *serverSuite) TestBlockRemoveSetEnvironAgentVersion(c *gc.C) {
 	s.BlockRemoveObject(c, "TestBlockRemoveSetEnvironAgentVersion")
-	s.assertSetEnvironAgentVersionBlocked(c, false, "TestBlockRemoveSetEnvironAgentVersion")
+	s.assertSetEnvironAgentVersion(c)
 }
 
 func (s *serverSuite) TestBlockChangesSetEnvironAgentVersion(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockChangesSetEnvironAgentVersion")
-	s.assertSetEnvironAgentVersionBlocked(c, true, "TestBlockChangesSetEnvironAgentVersion")
+	s.assertSetEnvironAgentVersionBlocked(c, "TestBlockChangesSetEnvironAgentVersion")
 }
 
 func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
@@ -385,17 +389,17 @@ func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	c.Assert(isUpgrading, jc.IsFalse)
 }
 
-func (s *serverSuite) assertAbortCurrentUpgradeBlocked(c *gc.C, blocked bool, msg string) {
+func (s *serverSuite) assertAbortCurrentUpgradeBlocked(c *gc.C, msg string) {
 	err := s.client.AbortCurrentUpgrade()
+	s.AssertErrorBlocked(c, err, msg)
+}
 
-	if blocked {
-		s.AssertErrorBlocked(c, err, msg)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		isUpgrading, err := s.State.IsUpgrading()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(isUpgrading, jc.IsFalse)
-	}
+func (s *serverSuite) assertAbortCurrentUpgrade(c *gc.C) {
+	err := s.client.AbortCurrentUpgrade()
+	c.Assert(err, jc.ErrorIsNil)
+	isUpgrading, err := s.State.IsUpgrading()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isUpgrading, jc.IsFalse)
 }
 
 func (s *serverSuite) setupAbortCurrentUpgradeBlocked(c *gc.C) {
@@ -420,19 +424,19 @@ func (s *serverSuite) setupAbortCurrentUpgradeBlocked(c *gc.C) {
 func (s *serverSuite) TestBlockDestroyAbortCurrentUpgrade(c *gc.C) {
 	s.setupAbortCurrentUpgradeBlocked(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyAbortCurrentUpgrade")
-	s.assertAbortCurrentUpgradeBlocked(c, false, "TestBlockDestroyAbortCurrentUpgrade")
+	s.assertAbortCurrentUpgrade(c)
 }
 
 func (s *serverSuite) TestBlockRemoveAbortCurrentUpgrade(c *gc.C) {
 	s.setupAbortCurrentUpgradeBlocked(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveAbortCurrentUpgrade")
-	s.assertAbortCurrentUpgradeBlocked(c, false, "TestBlockRemoveAbortCurrentUpgrade")
+	s.assertAbortCurrentUpgrade(c)
 }
 
 func (s *serverSuite) TestBlockChangesAbortCurrentUpgrade(c *gc.C) {
 	s.setupAbortCurrentUpgradeBlocked(c)
 	s.BlockAllChanges(c, "TestBlockChangesAbortCurrentUpgrade")
-	s.assertAbortCurrentUpgradeBlocked(c, true, "TestBlockChangesAbortCurrentUpgrade")
+	s.assertAbortCurrentUpgradeBlocked(c, "TestBlockChangesAbortCurrentUpgrade")
 }
 
 var _ = gc.Suite(&clientSuite{})
@@ -523,40 +527,46 @@ func (s *clientSuite) TestClientServiceSet(c *gc.C) {
 	})
 }
 
-func (s *serverSuite) assertServiceSetBlocked(c *gc.C, dummy *state.Service, blocked bool, msg string) {
+func (s *serverSuite) assertServiceSetBlocked(c *gc.C, dummy *state.Service, msg string) {
 	err := s.client.ServiceSet(params.ServiceSet{
 		ServiceName: "dummy",
 		Options: map[string]string{
 			"title":    "foobar",
 			"username": validSetTestValue}})
-	if blocked {
-		s.AssertErrorBlocked(c, err, msg)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		settings, err := dummy.ConfigSettings()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(settings, gc.DeepEquals, charm.Settings{
-			"title":    "foobar",
-			"username": validSetTestValue,
-		})
-	}
+	s.AssertErrorBlocked(c, err, msg)
 }
+
+func (s *serverSuite) assertServiceSet(c *gc.C, dummy *state.Service) {
+	err := s.client.ServiceSet(params.ServiceSet{
+		ServiceName: "dummy",
+		Options: map[string]string{
+			"title":    "foobar",
+			"username": validSetTestValue}})
+	c.Assert(err, jc.ErrorIsNil)
+	settings, err := dummy.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
+		"title":    "foobar",
+		"username": validSetTestValue,
+	})
+}
+
 func (s *serverSuite) TestBlockDestroyServiceSet(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceSet")
-	s.assertServiceSetBlocked(c, dummy, false, "TestBlockDestroyServiceSet")
+	s.assertServiceSet(c, dummy)
 }
 
 func (s *serverSuite) TestBlockRemoveServiceSet(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	s.BlockRemoveObject(c, "TestBlockRemoveServiceSet")
-	s.assertServiceSetBlocked(c, dummy, false, "TestBlockRemoveServiceSet")
+	s.assertServiceSet(c, dummy)
 }
 
 func (s *serverSuite) TestBlockChangesServiceSet(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	s.BlockAllChanges(c, "TestBlockChangesServiceSet")
-	s.assertServiceSetBlocked(c, dummy, true, "TestBlockChangesServiceSet")
+	s.assertServiceSetBlocked(c, dummy, "TestBlockChangesServiceSet")
 }
 
 func (s *clientSuite) TestClientServerUnset(c *gc.C) {
@@ -602,39 +612,43 @@ func (s *serverSuite) setupServerUnsetBlocked(c *gc.C) *state.Service {
 	return dummy
 }
 
-func (s *serverSuite) assertServerUnsetBlocked(c *gc.C, dummy *state.Service, blocked bool, msg string) {
+func (s *serverSuite) assertServerUnset(c *gc.C, dummy *state.Service) {
 	err := s.client.ServiceUnset(params.ServiceUnset{
 		ServiceName: "dummy",
 		Options:     []string{"username"},
 	})
-	if blocked {
-		s.AssertErrorBlocked(c, err, msg)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		settings, err := dummy.ConfigSettings()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(settings, gc.DeepEquals, charm.Settings{
-			"title": "foobar",
-		})
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	settings, err := dummy.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
+		"title": "foobar",
+	})
+}
+
+func (s *serverSuite) assertServerUnsetBlocked(c *gc.C, dummy *state.Service, msg string) {
+	err := s.client.ServiceUnset(params.ServiceUnset{
+		ServiceName: "dummy",
+		Options:     []string{"username"},
+	})
+	s.AssertErrorBlocked(c, err, msg)
 }
 
 func (s *serverSuite) TestBlockDestroyServerUnset(c *gc.C) {
 	dummy := s.setupServerUnsetBlocked(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyServerUnset")
-	s.assertServerUnsetBlocked(c, dummy, false, "TestBlockDestroyServerUnset")
+	s.assertServerUnset(c, dummy)
 }
 
 func (s *serverSuite) TestBlockRemoveServerUnset(c *gc.C) {
 	dummy := s.setupServerUnsetBlocked(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveServerUnset")
-	s.assertServerUnsetBlocked(c, dummy, false, "TestBlockRemoveServerUnset")
+	s.assertServerUnset(c, dummy)
 }
 
 func (s *serverSuite) TestBlockChangesServerUnset(c *gc.C) {
 	dummy := s.setupServerUnsetBlocked(c)
 	s.BlockAllChanges(c, "TestBlockChangesServerUnset")
-	s.assertServerUnsetBlocked(c, dummy, true, "TestBlockChangesServerUnset")
+	s.assertServerUnsetBlocked(c, dummy, "TestBlockChangesServerUnset")
 }
 
 func (s *clientSuite) TestClientServiceSetYAML(c *gc.C) {
@@ -658,37 +672,38 @@ func (s *clientSuite) TestClientServiceSetYAML(c *gc.C) {
 	})
 }
 
-func (s *clientSuite) assertServiceSetYAMLBlocked(c *gc.C, dummy *state.Service, blocked bool, msg string) {
+func (s *clientSuite) assertServiceSetYAML(c *gc.C, dummy *state.Service) {
 	err := s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: foobar\n  username: user name\n")
-	if blocked {
-		s.AssertErrorBlocked(c, err, msg)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		settings, err := dummy.ConfigSettings()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(settings, gc.DeepEquals, charm.Settings{
-			"title":    "foobar",
-			"username": "user name",
-		})
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	settings, err := dummy.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
+		"title":    "foobar",
+		"username": "user name",
+	})
+}
+
+func (s *clientSuite) assertServiceSetYAMLBlocked(c *gc.C, dummy *state.Service, msg string) {
+	err := s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: foobar\n  username: user name\n")
+	s.AssertErrorBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyServiceSetYAML(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceSetYAML")
-	s.assertServiceSetYAMLBlocked(c, dummy, false, "TestBlockDestroyServiceSetYAML")
+	s.assertServiceSetYAML(c, dummy)
 }
 
 func (s *clientSuite) TestBlockRemoveServiceSetYAML(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	s.BlockRemoveObject(c, "TestBlockRemoveServiceSetYAML")
-	s.assertServiceSetYAMLBlocked(c, dummy, false, "TestBlockRemoveServiceSetYAML")
+	s.assertServiceSetYAML(c, dummy)
 }
 
 func (s *clientSuite) TestBlockChangesServiceSetYAML(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	s.BlockAllChanges(c, "TestBlockChangesServiceSetYAML")
-	s.assertServiceSetYAMLBlocked(c, dummy, true, "TestBlockChangesServiceSetYAML")
+	s.assertServiceSetYAMLBlocked(c, dummy, "TestBlockChangesServiceSetYAML")
 }
 
 var clientAddServiceUnitsTests = []struct {
@@ -750,39 +765,40 @@ func (s *clientSuite) TestClientAddServiceUnits(c *gc.C) {
 	c.Assert(assignedMachine, gc.Equals, "0")
 }
 
-func (s *clientSuite) assertAddServiceUnitsBlocked(c *gc.C, blocked bool, msg string) {
+func (s *clientSuite) assertAddServiceUnits(c *gc.C) {
 	units, err := s.APIState.Client().AddServiceUnits("dummy", 3, "")
-	if blocked {
-		s.AssertErrorBlocked(c, err, msg)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(units, gc.DeepEquals, []string{"dummy/0", "dummy/1", "dummy/2"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.DeepEquals, []string{"dummy/0", "dummy/1", "dummy/2"})
 
-		// Test that we actually assigned the unit to machine 0
-		forcedUnit, err := s.BackingState.Unit("dummy/0")
-		c.Assert(err, jc.ErrorIsNil)
-		assignedMachine, err := forcedUnit.AssignedMachineId()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(assignedMachine, gc.Equals, "0")
-	}
+	// Test that we actually assigned the unit to machine 0
+	forcedUnit, err := s.BackingState.Unit("dummy/0")
+	c.Assert(err, jc.ErrorIsNil)
+	assignedMachine, err := forcedUnit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(assignedMachine, gc.Equals, "0")
+}
+
+func (s *clientSuite) assertAddServiceUnitsBlocked(c *gc.C, msg string) {
+	units, err := s.APIState.Client().AddServiceUnits("dummy", 3, "")
+	s.AssertErrorBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyAddServiceUnits(c *gc.C) {
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyAddServiceUnits")
-	s.assertAddServiceUnitsBlocked(c, false, "TestBlockDestroyAddServiceUnits")
+	s.assertAddServiceUnits(c)
 }
 
 func (s *clientSuite) TestBlockRemoveAddServiceUnits(c *gc.C) {
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	s.BlockRemoveObject(c, "TestBlockRemoveAddServiceUnits")
-	s.assertAddServiceUnitsBlocked(c, false, "TestBlockRemoveAddServiceUnits")
+	s.assertAddServiceUnits(c)
 }
 
 func (s *clientSuite) TestBlockChangeAddServiceUnits(c *gc.C) {
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	s.BlockAllChanges(c, "TestBlockChangeAddServiceUnits")
-	s.assertAddServiceUnitsBlocked(c, true, "TestBlockChangeAddServiceUnits")
+	s.assertAddServiceUnitsBlocked(c, "TestBlockChangeAddServiceUnits")
 }
 
 func (s *clientSuite) TestClientAddUnitToMachineNotFound(c *gc.C) {
@@ -1061,41 +1077,45 @@ func (s *clientSuite) setupServiceExpose(c *gc.C) {
 	c.Assert(svcs[1].IsExposed(), jc.IsTrue)
 }
 
-func (s *clientSuite) assertServiceExposeBlocked(c *gc.C, blocked bool, msg string) {
+func (s *clientSuite) assertServiceExpose(c *gc.C) {
 	for i, t := range serviceExposeTests {
 		c.Logf("test %d. %s", i, t.about)
 		err := s.APIState.Client().ServiceExpose(t.service)
-		if blocked {
-			s.AssertErrorBlocked(c, err, msg)
+		if t.err != "" {
+			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
-			if t.err != "" {
-				c.Assert(err, gc.ErrorMatches, t.err)
-			} else {
-				c.Assert(err, jc.ErrorIsNil)
-				service, err := s.State.Service(t.service)
-				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(service.IsExposed(), gc.Equals, t.exposed)
-			}
+			c.Assert(err, jc.ErrorIsNil)
+			service, err := s.State.Service(t.service)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(service.IsExposed(), gc.Equals, t.exposed)
 		}
+	}
+}
+
+func (s *clientSuite) assertServiceExposeBlocked(c *gc.C, msg string) {
+	for i, t := range serviceExposeTests {
+		c.Logf("test %d. %s", i, t.about)
+		err := s.APIState.Client().ServiceExpose(t.service)
+		s.AssertErrorBlocked(c, err, msg)
 	}
 }
 
 func (s *clientSuite) TestBlockDestroyServiceExpose(c *gc.C) {
 	s.setupServiceExpose(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceExpose")
-	s.assertServiceExposeBlocked(c, false, "TestBlockDestroyServiceExpose")
+	s.assertServiceExpose(c)
 }
 
 func (s *clientSuite) TestBlockRemoveServiceExpose(c *gc.C) {
 	s.setupServiceExpose(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveServiceExpose")
-	s.assertServiceExposeBlocked(c, false, "TestBlockRemoveServiceExpose")
+	s.assertServiceExpose(c)
 }
 
 func (s *clientSuite) TestBlockChangesServiceExpose(c *gc.C) {
 	s.setupServiceExpose(c)
 	s.BlockAllChanges(c, "TestBlockChangesServiceExpose")
-	s.assertServiceExposeBlocked(c, true, "TestBlockChangesServiceExpose")
+	s.assertServiceExposeBlocked(c, "TestBlockChangesServiceExpose")
 }
 
 var serviceUnexposeTests = []struct {
@@ -1154,15 +1174,18 @@ func (s *clientSuite) setupServiceUnexpose(c *gc.C) *state.Service {
 	return svc
 }
 
-func (s *clientSuite) assertServiceUnexposeBlocked(c *gc.C, svc *state.Service, blocked bool, msg string) {
+func (s *clientSuite) assertServiceUnexpose(c *gc.C, svc *state.Service) {
 	err := s.APIState.Client().ServiceUnexpose("dummy-service")
-	if blocked {
-		s.AssertErrorBlocked(c, err, msg)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		svc.Refresh()
-		c.Assert(svc.IsExposed(), gc.Equals, false)
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	svc.Refresh()
+	c.Assert(svc.IsExposed(), gc.Equals, false)
+	err = svc.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *clientSuite) assertServiceUnexposeBlocked(c *gc.C, svc *state.Service, msg string) {
+	err := s.APIState.Client().ServiceUnexpose("dummy-service")
+	s.AssertErrorBlocked(c, err, msg)
 	err = svc.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1170,19 +1193,19 @@ func (s *clientSuite) assertServiceUnexposeBlocked(c *gc.C, svc *state.Service, 
 func (s *clientSuite) TestBlockDestroyServiceUnexpose(c *gc.C) {
 	svc := s.setupServiceUnexpose(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceUnexpose")
-	s.assertServiceUnexposeBlocked(c, svc, false, "TestBlockDestroyServiceUnexpose")
+	s.assertServiceUnexpose(c, svc)
 }
 
 func (s *clientSuite) TestBlockRemoveServiceUnexpose(c *gc.C) {
 	svc := s.setupServiceUnexpose(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveServiceUnexpose")
-	s.assertServiceUnexposeBlocked(c, svc, false, "TestBlockRemoveServiceUnexpose")
+	s.assertServiceUnexpose(c, svc)
 }
 
 func (s *clientSuite) TestBlockChangesServiceUnexpose(c *gc.C) {
 	svc := s.setupServiceUnexpose(c)
 	s.BlockAllChanges(c, "TestBlockChangesServiceUnexpose")
-	s.assertServiceUnexposeBlocked(c, svc, true, "TestBlockChangesServiceUnexpose")
+	s.assertServiceUnexposeBlocked(c, svc, "TestBlockChangesServiceUnexpose")
 }
 
 var serviceDestroyTests = []struct {
@@ -1347,38 +1370,39 @@ func (s *clientSuite) setupResolved(c *gc.C) *state.Unit {
 	return u
 }
 
-func (s *clientSuite) assertResolvedBlocked(c *gc.C, u *state.Unit, blocked bool, msg string) {
+func (s *clientSuite) assertResolved(c *gc.C, u *state.Unit) {
 	err := s.APIState.Client().Resolved("wordpress/0", true)
-	if blocked {
-		s.AssertErrorBlocked(c, err, msg)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		// Freshen the unit's state.
-		err = u.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		// And now the actual test assertions: we set the unit as resolved via
-		// the API so it should have a resolved mode set.
-		mode := u.Resolved()
-		c.Assert(mode, gc.Equals, state.ResolvedRetryHooks)
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	// Freshen the unit's state.
+	err = u.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	// And now the actual test assertions: we set the unit as resolved via
+	// the API so it should have a resolved mode set.
+	mode := u.Resolved()
+	c.Assert(mode, gc.Equals, state.ResolvedRetryHooks)
+}
+
+func (s *clientSuite) assertResolvedBlocked(c *gc.C, u *state.Unit, msg string) {
+	err := s.APIState.Client().Resolved("wordpress/0", true)
+	s.AssertErrorBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyUnitResolved(c *gc.C) {
 	u := s.setupResolved(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyUnitResolved")
-	s.assertResolvedBlocked(c, u, false, "TestBlockDestroyUnitResolved")
+	s.assertResolved(c, u)
 }
 
 func (s *clientSuite) TestBlockRemoveUnitResolved(c *gc.C) {
 	u := s.setupResolved(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveUnitResolved")
-	s.assertResolvedBlocked(c, u, false, "TestBlockRemoveUnitResolved")
+	s.assertResolved(c, u)
 }
 
 func (s *clientSuite) TestBlockChangeUnitResolved(c *gc.C) {
 	u := s.setupResolved(c)
 	s.BlockAllChanges(c, "TestBlockChangeUnitResolved")
-	s.assertResolvedBlocked(c, u, true, "TestBlockChangeUnitResolved")
+	s.assertResolvedBlocked(c, u, "TestBlockChangeUnitResolved")
 }
 
 func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
@@ -1525,42 +1549,47 @@ func (s *clientSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, char
 	return curl, bundle, cons
 }
 
-func (s *clientSuite) assertServiceDeployWithNetworksBlocked(c *gc.C, blocked bool, msg string, curl *charm.URL, bundle charm.Charm, cons constraints.Value) {
+func (s *clientSuite) assertServiceDeployWithNetwork(c *gc.C, curl *charm.URL, bundle charm.Charm, cons constraints.Value) {
 	err := s.APIState.Client().ServiceDeployWithNetworks(
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"network-net1", "network-net2"},
 		nil,
 	)
-	if blocked {
-		s.AssertErrorBlocked(c, err, msg)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
-		networks, err := service.Networks()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(networks, gc.DeepEquals, []string{"net1", "net2"})
-		serviceCons, err := service.Constraints()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(serviceCons, gc.DeepEquals, cons)
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
+	networks, err := service.Networks()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(networks, gc.DeepEquals, []string{"net1", "net2"})
+	serviceCons, err := service.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(serviceCons, gc.DeepEquals, cons)
+}
+
+func (s *clientSuite) assertServiceDeployWithNetworksBlocked(c *gc.C, msg string, curl *charm.URL, bundle charm.Charm, cons constraints.Value) {
+	err := s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 3, "", cons, "",
+		[]string{"network-net1", "network-net2"},
+		nil,
+	)
+	s.AssertErrorBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyServiceDeployWithNetworks(c *gc.C) {
 	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceDeployWithNetworks")
-	s.assertServiceDeployWithNetworksBlocked(c, false, "TestBlockDestroyServiceDeployWithNetworks", curl, bundle, cons)
+	s.assertServiceDeployWithNetworks(c, curl, bundle, cons)
 }
 
 func (s *clientSuite) TestBlockRemoveServiceDeployWithNetworks(c *gc.C) {
 	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
 	s.BlockRemoveObject(c, "TestBlockRemoveServiceDeployWithNetworks")
-	s.assertServiceDeployWithNetworksBlocked(c, false, "TestBlockRemoveServiceDeployWithNetworks", curl, bundle, cons)
+	s.assertServiceDeployWithNetworks(c, curl, bundle, cons)
 }
 
 func (s *clientSuite) TestBlockChangeServiceDeployWithNetworks(c *gc.C) {
 	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
 	s.BlockAllChanges(c, "TestBlockChangeServiceDeployWithNetworks")
-	s.assertServiceDeployWithNetworksBlocked(c, true, "TestBlockChangeServiceDeployWithNetworks", curl, bundle, cons)
+	s.assertServiceDeployWithNetworksBlocked(c, "TestBlockChangeServiceDeployWithNetworks", curl, bundle, cons)
 }
 
 func (s *clientSuite) assertPrincipalDeployed(c *gc.C, serviceName string, curl *charm.URL, forced bool, bundle charm.Charm, cons constraints.Value) *state.Service {
@@ -1603,34 +1632,37 @@ func (s *clientSuite) TestClientServiceDeployPrincipal(c *gc.C) {
 	s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
 }
 
-func (s *clientSuite) assertServiceDeployPrincipalBlocked(c *gc.C, blocked bool, msg string, curl *charm.URL, bundle charm.Charm, mem4g constraints.Value) {
+func (s *clientSuite) assertServiceDeployPrincipal(c *gc.C, curl *charm.URL, bundle charm.Charm, mem4g constraints.Value) {
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", mem4g, "",
 	)
-	if blocked {
-		s.AssertErrorBlocked(c, err, msg)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
+}
+
+func (s *clientSuite) assertServiceDeployPrincipalBlocked(c *gc.C, msg string, curl *charm.URL, bundle charm.Charm, mem4g constraints.Value) {
+	err := s.APIState.Client().ServiceDeploy(
+		curl.String(), "service", 3, "", mem4g, "",
+	)
+	s.AssertErrorBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyServiceDeployPrincipal(c *gc.C) {
 	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G")
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceDeployPrincipal")
-	s.assertServiceDeployPrincipalBlocked(c, false, "TestBlockDestroyServiceDeployPrincipal", curl, bundle, cons)
+	s.assertServiceDeployPrincipal(c, curl, bundle, cons)
 }
 
 func (s *clientSuite) TestBlockRemoveServiceDeployPrincipal(c *gc.C) {
 	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G")
 	s.BlockRemoveObject(c, "TestBlockRemoveServiceDeployPrincipal")
-	s.assertServiceDeployPrincipalBlocked(c, false, "TestBlockRemoveServiceDeployPrincipal", curl, bundle, cons)
+	s.assertServiceDeployPrincipal(c, curl, bundle, cons)
 }
 
 func (s *clientSuite) TestBlockChangesServiceDeployPrincipal(c *gc.C) {
 	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G")
 	s.BlockAllChanges(c, "TestBlockChangesServiceDeployPrincipal")
-	s.assertServiceDeployPrincipalBlocked(c, true, "TestBlockChangesServiceDeployPrincipal", curl, bundle, cons)
+	s.assertServiceDeployPrincipalBlocked(c, "TestBlockChangesServiceDeployPrincipal", curl, bundle, cons)
 }
 
 func (s *clientSuite) TestClientServiceDeploySubordinate(c *gc.C) {
@@ -2039,39 +2071,42 @@ func (s *clientSuite) setupServiceSetCharm(c *gc.C) {
 	addCharm(c, "wordpress")
 }
 
-func (s *clientSuite) assertServiceSetCharmBlocked(c *gc.C, blocked, force bool, msg string) {
+func (s *clientSuite) assertServiceSetCharm(c *gc.C, force bool) {
 	err := s.APIState.Client().ServiceSetCharm(
 		"service", "cs:precise/wordpress-3", force,
 	)
-	if blocked {
-		s.AssertErrorBlocked(c, err, msg)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		// Ensure that the charm is not marked as forced.
-		service, err := s.State.Service("service")
-		c.Assert(err, jc.ErrorIsNil)
-		charm, _, err := service.Charm()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(charm.URL().String(), gc.Equals, "cs:precise/wordpress-3")
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	// Ensure that the charm is not marked as forced.
+	service, err := s.State.Service("service")
+	c.Assert(err, jc.ErrorIsNil)
+	charm, _, err := service.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(charm.URL().String(), gc.Equals, "cs:precise/wordpress-3")
+}
+
+func (s *clientSuite) assertServiceSetCharmBlocked(c *gc.C, force bool, msg string) {
+	err := s.APIState.Client().ServiceSetCharm(
+		"service", "cs:precise/wordpress-3", force,
+	)
+	s.AssertErrorBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyServiceSetCharm(c *gc.C) {
 	s.setupServiceSetCharm(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceSetCharm")
-	s.assertServiceSetCharmBlocked(c, false, false, "TestBlockDestroyServiceSetCharm")
+	s.assertServiceSetCharm(c, false)
 }
 
 func (s *clientSuite) TestBlockRemoveServiceSetCharm(c *gc.C) {
 	s.setupServiceSetCharm(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveServiceSetCharm")
-	s.assertServiceSetCharmBlocked(c, false, false, "TestBlockRemoveServiceSetCharm")
+	s.assertServiceSetCharm(c, false)
 }
 
 func (s *clientSuite) TestBlockChangesServiceSetCharm(c *gc.C) {
 	s.setupServiceSetCharm(c)
 	s.BlockAllChanges(c, "TestBlockChangesServiceSetCharm")
-	s.assertServiceSetCharmBlocked(c, true, false, "TestBlockChangesServiceSetCharm")
+	s.assertServiceSetCharmBlocked(c, false, "TestBlockChangesServiceSetCharm")
 }
 
 func (s *clientSuite) TestClientServiceSetCharmForce(c *gc.C) {
@@ -2104,7 +2139,7 @@ func (s *clientSuite) TestBlockServiceSetCharmForce(c *gc.C) {
 	s.BlockRemoveObject(c, "TestBlockServiceSetCharmForce")
 	s.BlockDestroyEnvironment(c, "TestBlockServiceSetCharmForce")
 
-	s.assertServiceSetCharmBlocked(c, false, true, "TestBlockServiceSetCharmForce")
+	s.assertServiceSetCharm(c, true)
 }
 
 func (s *clientSuite) TestClientServiceSetCharmInvalidService(c *gc.C) {
@@ -2393,35 +2428,36 @@ func (s *clientSuite) setupSetServiceConstraints(c *gc.C) (*state.Service, const
 	return service, cons
 }
 
-func (s *clientSuite) assertSetServiceConstraints(c *gc.C, blocked bool, msg string, service *state.Service, cons constraints.Value) {
+func (s *clientSuite) assertSetServiceConstraints(c *gc.C, service *state.Service, cons constraints.Value) {
 	err := s.APIState.Client().SetServiceConstraints("dummy", cons)
-	if blocked {
-		s.AssertErrorBlocked(c, err, msg)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		// Ensure the constraints have been correctly updated.
-		obtained, err := service.Constraints()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(obtained, gc.DeepEquals, cons)
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	// Ensure the constraints have been correctly updated.
+	obtained, err := service.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, cons)
+}
+
+func (s *clientSuite) assertSetServiceConstraintsBlocked(c *gc.C, msg string, service *state.Service, cons constraints.Value) {
+	err := s.APIState.Client().SetServiceConstraints("dummy", cons)
+	s.AssertErrorBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroySetServiceConstraints(c *gc.C) {
 	svc, cons := s.setupSetServiceConstraints(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroySetServiceConstraints")
-	s.assertSetServiceConstraints(c, false, "TestBlockDestroySetServiceConstraints", svc, cons)
+	s.assertSetServiceConstraints(c, svc, cons)
 }
 
 func (s *clientSuite) TestBlockRemoveSetServiceConstraints(c *gc.C) {
 	svc, cons := s.setupSetServiceConstraints(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveSetServiceConstraints")
-	s.assertSetServiceConstraints(c, false, "TestBlockRemoveSetServiceConstraints", svc, cons)
+	s.assertSetServiceConstraints(c, svc, cons)
 }
 
 func (s *clientSuite) TestBlockChangesSetServiceConstraints(c *gc.C) {
 	svc, cons := s.setupSetServiceConstraints(c)
 	s.BlockAllChanges(c, "TestBlockChangesSetServiceConstraints")
-	s.assertSetServiceConstraints(c, true, "TestBlockChangesSetServiceConstraints", svc, cons)
+	s.assertSetServiceConstraintsBlocked(c, "TestBlockChangesSetServiceConstraints", svc, cons)
 }
 
 func (s *clientSuite) TestClientGetServiceConstraints(c *gc.C) {
@@ -2452,35 +2488,39 @@ func (s *clientSuite) TestClientSetEnvironmentConstraints(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
 
-func (s *clientSuite) assertSetEnvironmentConstraintsBlocked(c *gc.C, blocked bool, msg string) {
+func (s *clientSuite) assertSetEnvironmentConstraints(c *gc.C) {
 	// Set constraints for the environment.
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().SetEnvironmentConstraints(cons)
-	if blocked {
-		s.AssertErrorBlocked(c, err, msg)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		// Ensure the constraints have been correctly updated.
-		obtained, err := s.State.EnvironConstraints()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(obtained, gc.DeepEquals, cons)
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	// Ensure the constraints have been correctly updated.
+	obtained, err := s.State.EnvironConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, cons)
+}
+
+func (s *clientSuite) assertSetEnvironmentConstraintsBlocked(c *gc.C, msg string) {
+	// Set constraints for the environment.
+	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.APIState.Client().SetEnvironmentConstraints(cons)
+	s.AssertErrorBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyClientSetEnvironmentConstraints(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyClientSetEnvironmentConstraints")
-	s.assertSetEnvironmentConstraintsBlocked(c, false, "TestBlockDestroyClientSetEnvironmentConstraints")
+	s.assertSetEnvironmentConstraints(c)
 }
 
 func (s *clientSuite) TestBlockRemoveClientSetEnvironmentConstraints(c *gc.C) {
 	s.BlockRemoveObject(c, "TestBlockRemoveClientSetEnvironmentConstraints")
-	s.assertSetEnvironmentConstraintsBlocked(c, false, "TestBlockRemoveClientSetEnvironmentConstraints")
+	s.assertSetEnvironmentConstraints(c)
 }
 
 func (s *clientSuite) TestBlockChangesClientSetEnvironmentConstraints(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockChangesClientSetEnvironmentConstraints")
-	s.assertSetEnvironmentConstraintsBlocked(c, true, "TestBlockChangesClientSetEnvironmentConstraints")
+	s.assertSetEnvironmentConstraintsBlocked(c, "TestBlockChangesClientSetEnvironmentConstraints")
 }
 
 func (s *clientSuite) TestClientGetEnvironmentConstraints(c *gc.C) {
@@ -2766,7 +2806,7 @@ func (s *clientSuite) TestClientAddMachinesDefaultSeries(c *gc.C) {
 	}
 }
 
-func (s *clientSuite) assertAddMachinesBlocked(c *gc.C, blocked bool, msg string) {
+func (s *clientSuite) assertAddMachines(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
@@ -2774,31 +2814,38 @@ func (s *clientSuite) assertAddMachinesBlocked(c *gc.C, blocked bool, msg string
 		}
 	}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
-	if blocked {
-		s.AssertErrorBlocked(c, err, msg)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(len(machines), gc.Equals, 3)
-		for i, machineResult := range machines {
-			c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-			s.checkMachine(c, machineResult.Machine, coretesting.FakeDefaultSeries, apiParams[i].Constraints.String())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(machines), gc.Equals, 3)
+	for i, machineResult := range machines {
+		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
+		s.checkMachine(c, machineResult.Machine, coretesting.FakeDefaultSeries, apiParams[i].Constraints.String())
+	}
+}
+
+func (s *clientSuite) assertAddMachinesBlocked(c *gc.C, msg string) {
+	apiParams := make([]params.AddMachineParams, 3)
+	for i := 0; i < 3; i++ {
+		apiParams[i] = params.AddMachineParams{
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
+	machines, err := s.APIState.Client().AddMachines(apiParams)
+	s.AssertErrorBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyClientAddMachinesDefaultSeries(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyClientAddMachinesDefaultSeries")
-	s.assertAddMachinesBlocked(c, false, "TestBlockDestroyClientAddMachinesDefaultSeries")
+	s.assertAddMachines(c)
 }
 
 func (s *clientSuite) TestBlockRemoveClientAddMachinesDefaultSeries(c *gc.C) {
 	s.BlockRemoveObject(c, "TestBlockRemoveClientAddMachinesDefaultSeries")
-	s.assertAddMachinesBlocked(c, false, "TestBlockRemoveClientAddMachinesDefaultSeries")
+	s.assertAddMachines(c)
 }
 
 func (s *clientSuite) TestBlockChangesClientAddMachines(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockChangesClientAddMachines")
-	s.assertAddMachinesBlocked(c, true, "TestBlockChangesClientAddMachines")
+	s.assertAddMachinesBlocked(c, "TestBlockChangesClientAddMachines")
 }
 
 func (s *clientSuite) TestClientAddMachinesWithSeries(c *gc.C) {
@@ -3495,36 +3542,37 @@ func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
 	return machine
 }
 
-func (s *clientSuite) assertRetryProvisioningBlocked(c *gc.C, machine *state.Machine, blocked bool, msg string) {
+func (s *clientSuite) assertRetryProvisioning(c *gc.C, machine *state.Machine) {
 	_, err := s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
-	if blocked {
-		s.AssertErrorBlocked(c, err, msg)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		status, info, data, err := machine.Status()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(status, gc.Equals, state.StatusError)
-		c.Assert(info, gc.Equals, "error")
-		c.Assert(data["transient"], jc.IsTrue)
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	status, info, data, err := machine.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, state.StatusError)
+	c.Assert(info, gc.Equals, "error")
+	c.Assert(data["transient"], jc.IsTrue)
+}
+
+func (s *clientSuite) assertRetryProvisioningBlocked(c *gc.C, machine *state.Machine, msg string) {
+	_, err := s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
+	s.AssertErrorBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyRetryProvisioning(c *gc.C) {
 	m := s.setupRetryProvisioning(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyRetryProvisioning")
-	s.assertRetryProvisioningBlocked(c, m, false, "TestBlockDestroyRetryProvisioning")
+	s.assertRetryProvisioning(c, m)
 }
 
 func (s *clientSuite) TestBlockRemoveRetryProvisioning(c *gc.C) {
 	m := s.setupRetryProvisioning(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveRetryProvisioning")
-	s.assertRetryProvisioningBlocked(c, m, false, "TestBlockRemoveRetryProvisioning")
+	s.assertRetryProvisioning(c, m)
 }
 
 func (s *clientSuite) TestBlockChangesRetryProvisioning(c *gc.C) {
 	m := s.setupRetryProvisioning(c)
 	s.BlockAllChanges(c, "TestBlockChangesRetryProvisioning")
-	s.assertRetryProvisioningBlocked(c, m, true, "TestBlockChangesRetryProvisioning")
+	s.assertRetryProvisioningBlocked(c, m, "TestBlockChangesRetryProvisioning")
 }
 
 func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
