@@ -65,21 +65,21 @@ const (
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in apiserver/params.
 type unitDoc struct {
-	DocID            string `bson:"_id"`
-	Name             string `bson:"name"`
-	EnvUUID          string `bson:"env-uuid"`
-	Service          string
-	Series           string
-	CharmURL         *charm.URL
-	Principal        string
-	Subordinates     []string
-	StorageInstances []string `bson:"storageinstances,omitempty"`
-	MachineId        string
-	Resolved         ResolvedMode
-	Tools            *tools.Tools `bson:",omitempty"`
-	Life             Life
-	TxnRevno         int64 `bson:"txn-revno"`
-	PasswordHash     string
+	DocID                  string `bson:"_id"`
+	Name                   string `bson:"name"`
+	EnvUUID                string `bson:"env-uuid"`
+	Service                string
+	Series                 string
+	CharmURL               *charm.URL
+	Principal              string
+	Subordinates           []string
+	StorageAttachmentCount int `bson:"storageattachmentcount"`
+	MachineId              string
+	Resolved               ResolvedMode
+	Tools                  *tools.Tools `bson:",omitempty"`
+	Life                   Life
+	TxnRevno               int64 `bson:"txn-revno"`
+	PasswordHash           string
 
 	// No longer used - to be removed.
 	Ports          []network.Port
@@ -342,7 +342,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	}, cleanupOp, minUnitsOp}
 	if u.doc.Principal != "" {
 		return setDyingOps, nil
-	} else if len(u.doc.Subordinates)+len(u.doc.StorageInstances) != 0 {
+	} else if len(u.doc.Subordinates)+u.doc.StorageAttachmentCount != 0 {
 		return setDyingOps, nil
 	}
 
@@ -364,7 +364,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	removeAsserts := append(isAliveDoc, bson.DocElem{
 		"$and", []bson.D{
 			unitHasNoSubordinates,
-			unitHasNoStorageInstances,
+			unitHasNoStorageAttachments,
 		},
 	})
 	removeOps, err := u.removeOps(removeAsserts)
@@ -494,15 +494,15 @@ var unitHasNoSubordinates = bson.D{{
 	},
 }}
 
-// ErrUnitHasStorageInstances is a standard error to indicate that a Unit
-// cannot complete an operation to end its life because it still has
-// storage instances.
-var ErrUnitHasStorageInstances = stderrors.New("unit has storage instances")
+// ErrUnitHasStorageAttachments is a standard error to indicate that
+// a Unit cannot complete an operation to end its life because it still
+// has storage attachments.
+var ErrUnitHasStorageAttachments = stderrors.New("unit has storage attachments")
 
-var unitHasNoStorageInstances = bson.D{{
+var unitHasNoStorageAttachments = bson.D{{
 	"$or", []bson.D{
-		{{"storageinstances", bson.D{{"$size", 0}}}},
-		{{"storageinstances", bson.D{{"$exists", false}}}},
+		{{"storageattachmentcount", 0}},
+		{{"storageattachmentcount", bson.D{{"$exists", false}}}},
 	},
 }}
 
@@ -522,7 +522,7 @@ func (u *Unit) EnsureDead() (err error) {
 	assert := append(notDeadDoc, bson.DocElem{
 		"$and", []bson.D{
 			unitHasNoSubordinates,
-			unitHasNoStorageInstances,
+			unitHasNoStorageAttachments,
 		},
 	})
 	ops := []txn.Op{{
@@ -547,7 +547,7 @@ func (u *Unit) EnsureDead() (err error) {
 	if len(u.doc.Subordinates) > 0 {
 		return ErrUnitHasSubordinates
 	}
-	return ErrUnitHasStorageInstances
+	return ErrUnitHasStorageAttachments
 }
 
 // Remove removes the unit from state, and may remove its service as well, if
@@ -619,14 +619,6 @@ func (u *Unit) SubordinateNames() []string {
 	names := make([]string, len(u.doc.Subordinates))
 	copy(names, u.doc.Subordinates)
 	return names
-}
-
-// StorageInstanceIds returns the IDs of any storage instances owned by
-// the unit.
-func (u *Unit) StorageInstanceIds() []string {
-	ids := make([]string, len(u.doc.StorageInstances))
-	copy(ids, u.doc.StorageInstances)
-	return ids
 }
 
 // RelationsJoined returns the relations for which the unit has entered scope

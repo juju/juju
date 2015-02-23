@@ -5,13 +5,16 @@ package state_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -36,6 +39,31 @@ func (s *StorageStateSuite) SetUpTest(c *gc.C) {
 	_, err := pm.Create("block", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+}
+
+func (s *StorageStateSuite) storageInstanceExists(c *gc.C, tag names.StorageTag) bool {
+	_, err := state.TxnRevno(
+		s.State,
+		state.StorageInstancesC,
+		state.DocID(s.State, tag.Id()),
+	)
+	if err != nil {
+		c.Assert(err, gc.Equals, mgo.ErrNotFound)
+		return false
+	}
+	return true
+}
+
+func (s *StorageStateSuite) setupSingleStorage(c *gc.C) (*state.Service, *state.Unit, names.StorageTag) {
+	ch := s.AddTestingCharm(c, "storage-block")
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("block", 1024, 1),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	unit, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	storageTag := names.NewStorageTag("data/0")
+	return service, unit, storageTag
 }
 
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
@@ -136,7 +164,167 @@ func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
 	}
 }
 
-// TODO(axw) StorageInstance can't be destroyed while it has attachments
+func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c)
+	// destroying a unit with storage attachments is fine; this is what
+	// will trigger the death and removal of storage attachments.
+	err := u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	// until all storage attachments are removed, the unit cannot be
+	// marked as being dead.
+	assertUnitEnsureDeadError := func() {
+		err = u.EnsureDead()
+		c.Assert(err, gc.ErrorMatches, "unit has storage attachments")
+	}
+	assertUnitEnsureDeadError()
+	err = s.State.EnsureStorageAttachmentDead(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	assertUnitEnsureDeadError()
+	err = s.State.DestroyStorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	assertUnitEnsureDeadError()
+	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c)
+
+	// Mark the storage instance as Dying, so that it will be removed
+	// when the last attachment is removed.
+	err := s.State.DestroyStorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	si, err := s.State.StorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(si.Life(), gc.Equals, state.Dying)
+
+	err = s.State.EnsureStorageAttachmentDead(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	exists := s.storageInstanceExists(c, storageTag)
+	c.Assert(exists, jc.IsFalse)
+}
+
+func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAttachmentsRemovesInstance(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.EnsureStorageAttachmentDead(storageTag, u.UnitTag())
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	// Destroying the instance should check that there are no concurrent
+	// changes to the storage instance's attachments, and recompute
+	// operations if there are.
+	err := s.State.DestroyStorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	exists := s.storageInstanceExists(c, storageTag)
+	c.Assert(exists, jc.IsFalse)
+}
+
+func (s *StorageStateSuite) TestConcurrentRemoveStorageAttachment(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c)
+
+	err := s.State.DestroyStorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ensureDead := func() {
+		err = s.State.EnsureStorageAttachmentDead(storageTag, u.UnitTag())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	remove := func() {
+		err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	defer state.SetBeforeHooks(c, s.State, ensureDead, remove).Check()
+	ensureDead()
+	remove()
+	exists := s.storageInstanceExists(c, storageTag)
+	c.Assert(exists, jc.IsFalse)
+}
+
+func (s *StorageStateSuite) TestRemoveAliveStorageAttachmentError(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c)
+
+	err := s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, gc.ErrorMatches, "cannot remove storage attachment data/0:storage-block/0: storage attachment is not dead")
+
+	attachments, err := s.State.StorageAttachments(u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(attachments, gc.HasLen, 1)
+	c.Assert(attachments[0].StorageInstance(), gc.Equals, storageTag)
+}
+
+func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachmentsRemovesInstance(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		// Concurrently mark the storage instance as Dying,
+		// so that it will be removed when the last attachment
+		// is removed.
+		err := s.State.DestroyStorageInstance(storageTag)
+		c.Assert(err, jc.ErrorIsNil)
+	}, nil).Check()
+
+	// Removing the attachment should check that there are no concurrent
+	// changes to the storage instance's life, and recompute operations
+	// if it does.
+	err := s.State.EnsureStorageAttachmentDead(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	exists := s.storageInstanceExists(c, storageTag)
+	c.Assert(exists, jc.IsFalse)
+}
+
+func (s *StorageStateSuite) TestConcurrentDestroyStorageInstance(c *gc.C) {
+	_, _, storageTag := s.setupSingleStorage(c)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.DestroyStorageInstance(storageTag)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	err := s.State.DestroyStorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	si, err := s.State.StorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(si.Life(), gc.Equals, state.Dying)
+}
+
+func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
+	ch := s.AddTestingCharm(c, "storage-block2")
+	storage := map[string]state.StorageConstraints{
+		"multi1to10": makeStorageCons("block", 1024, 1),
+		"multi2up":   makeStorageCons("block", 1024, 2),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-block2", ch, storage)
+	u, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := s.State.WatchStorageAttachments(u.UnitTag())
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange("multi1to10/0", "multi2up/1", "multi2up/2")
+	wc.AssertNoChange()
+
+	err = s.State.DestroyStorageAttachment(names.NewStorageTag("multi2up/1"), u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("multi2up/1")
+	wc.AssertNoChange()
+}
+
 // TODO(axw) StorageAttachments can't be added to Dying StorageInstance
+// TODO(axw) StorageInstance without attachments is removed by Destroy
 // TODO(axw) StorageInstance becomes Dying when Unit becomes Dying
-// TODO(axw) StorageAttachments become Dying when StorageInstance becomes Dying
+// TODO(axw) concurrent add-unit and StorageAttachment removal does not
+//           remove storage instance.
