@@ -90,7 +90,7 @@ func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 	ldrMgr.ClaimLeadershipFn = func(sid, uid string, duration time.Duration) error {
 		c.Check(sid, gc.Equals, StubServiceNm)
 		c.Check(uid, gc.Equals, StubUnitNm)
-		c.Check(duration, gc.Equals, time.Duration(123.45*float64(time.Second)))
+		c.Check(duration, gc.Equals, time.Duration(299.9*float64(time.Second)))
 		return nil
 	}
 
@@ -100,12 +100,12 @@ func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 			{
 				ServiceTag:      names.NewServiceTag(StubServiceNm).String(),
 				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
-				DurationSeconds: 123.45,
+				DurationSeconds: 299.9,
 			},
 		},
 	})
 
-	c.Assert(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Check(results.Results[0].Error, gc.IsNil)
 }
@@ -115,7 +115,7 @@ func (s *leadershipSuite) TestClaimLeadershipDeniedError(c *gc.C) {
 	ldrMgr.ClaimLeadershipFn = func(sid, uid string, duration time.Duration) error {
 		c.Check(sid, gc.Equals, StubServiceNm)
 		c.Check(uid, gc.Equals, StubUnitNm)
-		c.Check(duration, gc.Equals, time.Duration(123.45*float64(time.Second)))
+		c.Check(duration, gc.Equals, time.Duration(5.001*float64(time.Second)))
 		return errors.Annotatef(leadership.ErrClaimDenied, "obfuscated")
 	}
 
@@ -125,14 +125,86 @@ func (s *leadershipSuite) TestClaimLeadershipDeniedError(c *gc.C) {
 			{
 				ServiceTag:      names.NewServiceTag(StubServiceNm).String(),
 				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
-				DurationSeconds: 123.45,
+				DurationSeconds: 5.001,
 			},
 		},
 	})
 
-	c.Assert(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeLeadershipClaimDenied)
+}
+
+func (s *leadershipSuite) TestClaimLeadershipBadService(c *gc.C) {
+	ldrSvc := &leadershipService{authorizer: &stubAuthorizer{}}
+	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
+		Params: []params.ClaimLeadershipParams{
+			{
+				ServiceTag:      "service-bad/0",
+				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
+				DurationSeconds: 123.45,
+			},
+		},
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	// TODO(fwereade): this is completely wrong, but *every* instance of this
+	// code is completely wrong, not letting myself get derailed here.
+	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *leadershipSuite) TestClaimLeadershipBadUnit(c *gc.C) {
+	ldrSvc := &leadershipService{authorizer: &stubAuthorizer{}}
+	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
+		Params: []params.ClaimLeadershipParams{
+			{
+				ServiceTag:      names.NewServiceTag(StubServiceNm).String(),
+				UnitTag:         "unit-bad",
+				DurationSeconds: 123.45,
+			},
+		},
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	// TODO(fwereade): this is completely wrong, but *every* instance of this
+	// code is completely wrong, not letting myself get derailed here.
+	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *leadershipSuite) TestClaimLeadershipDurationTooShort(c *gc.C) {
+	ldrSvc := &leadershipService{authorizer: &stubAuthorizer{}}
+	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
+		Params: []params.ClaimLeadershipParams{
+			{
+				ServiceTag:      names.NewServiceTag(StubServiceNm).String(),
+				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
+				DurationSeconds: 4.99,
+			},
+		},
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	// NOTE: I think that asking for an excessive lease duration satisfies
+	// Unauthorized quite well..?
+	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *leadershipSuite) TestClaimLeadershipDurationTooLong(c *gc.C) {
+	ldrSvc := &leadershipService{authorizer: &stubAuthorizer{}}
+	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
+		Params: []params.ClaimLeadershipParams{
+			{
+				ServiceTag:      names.NewServiceTag(StubServiceNm).String(),
+				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
+				DurationSeconds: 300.1,
+			},
+		},
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	// NOTE: I think that asking for an excessive lease duration satisfies
+	// Unauthorized quite well..?
+	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *leadershipSuite) TestReleaseLeadershipTranslation(c *gc.C) {
@@ -145,8 +217,8 @@ func (s *leadershipSuite) TestReleaseLeadershipTranslation(c *gc.C) {
 	}
 
 	ldrSvc := &leadershipService{LeadershipManager: &ldrMgr, authorizer: &stubAuthorizer{}}
-	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
-		Params: []params.ClaimLeadershipParams{
+	results, err := ldrSvc.ReleaseLeadership(params.ReleaseLeadershipBulkParams{
+		Params: []params.ReleaseLeadershipParams{
 			{
 				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
 				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
@@ -154,8 +226,9 @@ func (s *leadershipSuite) TestReleaseLeadershipTranslation(c *gc.C) {
 		},
 	})
 
-	c.Assert(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
+	c.Check(results.Results[0].Error, gc.IsNil)
 }
 
 func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
@@ -169,8 +242,8 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 	ldrSvc := &leadershipService{LeadershipManager: &ldrMgr, authorizer: &stubAuthorizer{}}
 	result, err := ldrSvc.BlockUntilLeadershipReleased(names.NewServiceTag(StubServiceNm))
 
-	c.Assert(err, gc.IsNil)
-	c.Assert(result.Error, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result.Error, gc.IsNil)
 }
 
 func (s *leadershipSuite) TestClaimLeadershipFailOnAuthorizerErrors(c *gc.C) {
@@ -188,7 +261,7 @@ func (s *leadershipSuite) TestClaimLeadershipFailOnAuthorizerErrors(c *gc.C) {
 		},
 	})
 
-	c.Assert(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.NotNil)
 	c.Check(results.Results[0].Error, gc.ErrorMatches, common.ErrPerm.Error())
@@ -200,8 +273,8 @@ func (s *leadershipSuite) TestReleaseLeadershipFailOnAuthorizerErrors(c *gc.C) {
 	}
 
 	ldrSvc := &leadershipService{LeadershipManager: nil, authorizer: authorizer}
-	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
-		Params: []params.ClaimLeadershipParams{
+	results, err := ldrSvc.ReleaseLeadership(params.ReleaseLeadershipBulkParams{
+		Params: []params.ReleaseLeadershipParams{
 			{
 				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
 				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
@@ -209,7 +282,7 @@ func (s *leadershipSuite) TestReleaseLeadershipFailOnAuthorizerErrors(c *gc.C) {
 		},
 	})
 
-	c.Assert(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.NotNil)
 	c.Check(results.Results[0].Error, gc.ErrorMatches, common.ErrPerm.Error())
@@ -225,6 +298,6 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedErrors(c *gc.C) {
 
 	// Overall function call should succeed, but operations should
 	// fail with a permissions issue.
-	c.Assert(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(result.Error, gc.ErrorMatches, common.ErrPerm.Error())
 }

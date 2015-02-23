@@ -21,6 +21,14 @@ const (
 	// to register the service, and for the client to resolve the
 	// service endpoint.
 	FacadeName = "LeadershipService"
+
+	// MinLeaseRequest is the shortest duration for which we will accept
+	// a leadership claim.
+	MinLeaseRequest = 5 * time.Second
+
+	// MaxLeaseRequest is the longest duration for which we will accept
+	// a leadership claim.
+	MaxLeaseRequest = 5 * time.Minute
 )
 
 var (
@@ -97,6 +105,10 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 			continue
 		}
 		duration := time.Duration(p.DurationSeconds * float64(time.Second))
+		if duration > MaxLeaseRequest || duration < MinLeaseRequest {
+			result.Error = common.ServerError(common.ErrPerm)
+			continue
+		}
 
 		// In the future, situations may arise wherein units will make
 		// leadership claims for other units. For now, units can only
