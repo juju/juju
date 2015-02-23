@@ -194,7 +194,7 @@ func (st *State) Machiner() *machiner.State {
 
 // Networker returns a version of the state that provides functionality
 // required by the networker worker.
-func (st *State) Networker() *networker.State {
+func (st *State) Networker() networker.State {
 	return networker.NewState(st)
 }
 
