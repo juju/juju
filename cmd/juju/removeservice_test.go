@@ -4,9 +4,6 @@
 package main
 
 import (
-	"strings"
-
-	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -19,9 +16,16 @@ import (
 
 type RemoveServiceSuite struct {
 	jujutesting.RepoSuite
+	CmdBlockSwitch
 }
 
 var _ = gc.Suite(&RemoveServiceSuite{})
+
+func (s *RemoveServiceSuite) SetUpTest(c *gc.C) {
+	s.RepoSuite.SetUpTest(c)
+	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
+	c.Assert(s.CmdBlockSwitch, gc.NotNil)
+}
 
 func runRemoveService(c *gc.C, args ...string) error {
 	_, err := testing.RunCommand(c, envcmd.Wrap(&RemoveServiceCommand{}), args...)
@@ -48,16 +52,12 @@ func (s *RemoveServiceSuite) TestBlockRemoveService(c *gc.C) {
 	s.setupTestService(c)
 
 	// block operation
-	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
+	s.BlockRemoveObject(c, "TestBlockRemoveService")
 	err := runRemoveService(c, "riak")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	s.AssertBlockError(c, err, ".*TestBlockRemoveService.*")
 	riak, err := s.State.Service("riak")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(riak.Life(), gc.Equals, state.Alive)
-
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock removal.*")
 }
 
 func (s *RemoveServiceSuite) TestFailure(c *gc.C) {

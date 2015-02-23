@@ -19,6 +19,13 @@ import (
 
 type ConstraintsCommandsSuite struct {
 	testing.JujuConnSuite
+	CmdBlockSwitch
+}
+
+func (s *ConstraintsCommandsSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
+	c.Assert(s.CmdBlockSwitch, gc.NotNil)
 }
 
 var _ = gc.Suite(&ConstraintsCommandsSuite{})
@@ -71,7 +78,7 @@ func (s *ConstraintsCommandsSuite) TestSetEnviron(c *gc.C) {
 
 func (s *ConstraintsCommandsSuite) TestBlockSetEnviron(c *gc.C) {
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.BlockAllChanges(c, "TestBlockSetEnviron")
 	// Set constraints.
 	assertSetBlocked(c, "mem=4G", "cpu-power=250")
 }
@@ -99,7 +106,7 @@ func (s *ConstraintsCommandsSuite) TestBlockSetService(c *gc.C) {
 	s.AddTestingService(c, "svc", s.AddTestingCharm(c, "dummy"))
 
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.BlockAllChanges(c, "TestBlockSetService")
 	// Set constraints.
 	assertSetBlocked(c, "-s", "svc", "mem=4G", "cpu-power=250")
 }
