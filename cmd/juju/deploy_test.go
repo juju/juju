@@ -6,7 +6,6 @@ package main
 import (
 	"strings"
 
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -30,6 +29,13 @@ import (
 
 type DeploySuite struct {
 	testing.RepoSuite
+	CmdBlockSwitch
+}
+
+func (s *DeploySuite) SetUpTest(c *gc.C) {
+	s.RepoSuite.SetUpTest(c)
+	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
+	c.Assert(s.CmdBlockSwitch, gc.NotNil)
 }
 
 var _ = gc.Suite(&DeploySuite{})
@@ -85,14 +91,10 @@ func (s *DeploySuite) TestNoCharm(c *gc.C) {
 
 func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.BlockAllChanges(c, "TestBlockDeploy")
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	s.AssertBlockError(c, err, ".*TestBlockDeploy.*")
 }
 
 func (s *DeploySuite) TestCharmDir(c *gc.C) {
