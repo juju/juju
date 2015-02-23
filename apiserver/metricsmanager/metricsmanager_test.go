@@ -159,3 +159,36 @@ func (s *metricsManagerSuite) TestSendArgsIndependent(c *gc.C) {
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
 	c.Assert(result.Results[1], gc.DeepEquals, params.ErrorResult{Error: nil})
 }
+
+func (s *metricsManagerSuite) TestMeterStatusOnConsecutiveErrors(c *gc.C) {
+	var sender metricsender.ErrorSender
+	sender.Err = errors.New("an error")
+	now := time.Now()
+	metric := state.Metric{"pings", "5", now}
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: []state.Metric{metric}})
+	metricsmanager.PatchSender(&sender)
+	args := params.Entities{Entities: []params.Entity{
+		{s.State.EnvironTag().String()},
+	}}
+	_, err := s.metricsmanager.SendMetrics(args)
+	c.Assert(err, jc.ErrorIsNil)
+	mm, err := s.State.GetMetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mm.ConsecutiveErrors(), gc.Equals, 1)
+}
+
+func (s *metricsManagerSuite) TestMeterStatusSuccessfulSend(c *gc.C) {
+	var sender metricsender.MockSender
+	pastTime := time.Now().Add(-time.Second)
+	metric := state.Metric{"pings", "5", pastTime}
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &pastTime, Metrics: []state.Metric{metric}})
+	metricsmanager.PatchSender(&sender)
+	args := params.Entities{Entities: []params.Entity{
+		{s.State.EnvironTag().String()},
+	}}
+	_, err := s.metricsmanager.SendMetrics(args)
+	c.Assert(err, jc.ErrorIsNil)
+	mm, err := s.State.GetMetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mm.LastSuccessfulSend().After(pastTime), jc.IsTrue)
+}

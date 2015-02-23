@@ -6,6 +6,8 @@
 package metricsmanager
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -38,6 +40,8 @@ type MetricsManager interface {
 type MetricsManagerAPI struct {
 	state *state.State
 
+	store *state.MetricsManager
+
 	accessEnviron common.GetAuthFunc
 }
 
@@ -63,9 +67,22 @@ func NewMetricsManagerAPI(
 		}, nil
 	}
 
+	var store *state.MetricsManager
+	var err error
+	store, err = st.GetMetricsManager()
+	if err != nil && err == state.MetricsManagerNotFoundError {
+		store, err = st.NewMetricsManager()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &MetricsManagerAPI{
 		state:         st,
 		accessEnviron: accessEnviron,
+		store:         store,
 	}, nil
 }
 
@@ -129,7 +146,22 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 		err = metricsender.SendMetrics(api.state, sender, maxBatchesPerSend)
 		if err != nil {
 			err = errors.Annotate(err, "failed to send metrics")
+			logger.Errorf(err.Error())
 			result.Results[i].Error = common.ServerError(err)
+			if incErr := api.store.IncrementConsecutiveErrors(); incErr != nil {
+				logger.Warningf("failed to increment error count with error %v, after sending error: %v", incErr, err)
+			}
+		} else {
+			if err := api.store.SetNoConsecutiveErrors(); err != nil {
+				err = errors.Annotate(err, "failed to reset consecutive errors count")
+				logger.Errorf(err.Error())
+				result.Results[i].Error = common.ServerError(err)
+			}
+			if err := api.store.SetMetricsManagerSuccessfulSend(time.Now()); err != nil {
+				err = errors.Annotate(err, "failed to set successful send time")
+				logger.Errorf(err.Error())
+				result.Results[i].Error = common.ServerError(err)
+			}
 		}
 	}
 	return result, nil
