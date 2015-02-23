@@ -44,7 +44,7 @@ type Context interface {
 	// AvailabilityZone returns the executing unit's availablilty zone.
 	AvailabilityZone() (string, bool)
 
-	// OpenPorst marks the supplied port range for opening when the
+	// OpenPorts marks the supplied port range for opening when the
 	// executing unit's service is exposed.
 	OpenPorts(protocol string, fromPort, toPort int) error
 
@@ -60,6 +60,19 @@ type Context interface {
 
 	// Config returns the current service configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)
+
+	// IsLeader returns true if the local unit is known to be leader for at
+	// least the next 30s.
+	IsLeader() (bool, error)
+
+	// LeaderSettings returns the current leader settings. Once leader settings
+	// have been read in a given context, they will not be updated other than
+	// via successful calls to WriteLeaderSettings.
+	LeaderSettings() (params.Settings, error)
+
+	// WriteLeaderSettings writes the supplied settings directly to state, or
+	// fails if the local unit is not the service's leader.
+	WriteLeaderSettings(params.Settings) error
 
 	// ActionParams returns the map of params passed with an Action.
 	ActionParams() (map[string]interface{}, error)
@@ -104,7 +117,7 @@ type Context interface {
 	// StorageAttachment returns the storage attachment with the given tag.
 	StorageAttachment(names.StorageTag) (*params.StorageAttachment, bool)
 
-	// HookStorageInstance returns the storage attachment associated
+	// HookStorageAttachment returns the storage attachment associated
 	// the executing hook.
 	HookStorageAttachment() (*params.StorageAttachment, bool)
 }

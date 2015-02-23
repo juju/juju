@@ -253,6 +253,18 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
+func (ctx *HookContext) IsLeader() (bool, error) {
+	return false, errors.NotImplementedf("IsLeader")
+}
+
+func (ctx *HookContext) LeaderSettings() (params.Settings, error) {
+	return nil, errors.NotImplementedf("IsLeader")
+}
+
+func (ctx *HookContext) WriteLeaderSettings(_ params.Settings) error {
+	return errors.NotImplementedf("IsLeader")
+}
+
 // ActionName returns the name of the action.
 func (ctx *HookContext) ActionName() (string, error) {
 	if ctx.actionData == nil {
