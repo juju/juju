@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/proxy"
 
@@ -130,6 +131,7 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 	}
 
 	AddAptCommands(
+		w.mcfg.Series,
 		w.mcfg.AptProxySettings,
 		w.mcfg.AptMirror,
 		w.conf,
@@ -270,6 +272,12 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 			}
 		}
 		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Bootstrapping Juju machine agent"))
+		loggingOption := " --show-log"
+		// If the bootstrap command was requsted with --debug, then the root
+		// logger will be set to DEBUG.  If it is, then we use --debug here too.
+		if loggo.GetLogger("").LogLevel() == loggo.DEBUG {
+			loggingOption = " --debug"
+		}
 		w.conf.AddScripts(
 			// The bootstrapping is always run with debug on.
 			w.mcfg.jujuTools() + "/jujud bootstrap-state" +
@@ -279,7 +287,7 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 				hardware +
 				cons +
 				metadataDir +
-				" --debug",
+				loggingOption,
 		)
 	}
 

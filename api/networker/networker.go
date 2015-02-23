@@ -25,17 +25,23 @@ func NewState(caller base.APICaller) *State {
 	return &State{base.NewFacadeCaller(caller, networkerFacade)}
 }
 
-// MachineNetworkInfo returns information about network interfaces to
+// MachineNetworkConfig returns information about network interfaces to
 // setup only for a single machine.
-func (st *State) MachineNetworkInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
+func (st *State) MachineNetworkConfig(tag names.MachineTag) ([]network.InterfaceInfo, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
-	var results params.MachineNetworkInfoResults
-	err := st.facade.FacadeCall("MachineNetworkInfo", args, &results)
+	var results params.MachineNetworkConfigResults
+	err := st.facade.FacadeCall("MachineNetworkConfig", args, &results)
 	if err != nil {
-		// TODO: Not directly tested
-		return nil, err
+		if params.IsCodeNotImplemented(err) {
+			// Fallback to former name.
+			err = st.facade.FacadeCall("MachineNetworkInfo", args, &results)
+		}
+		if err != nil {
+			// TODO: Not directly tested.
+			return nil, err
+		}
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
@@ -46,13 +52,13 @@ func (st *State) MachineNetworkInfo(tag names.MachineTag) ([]network.InterfaceIn
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	interfaceInfo := make([]network.InterfaceInfo, len(result.Info))
-	for i, ifaceInfo := range result.Info {
+	interfaceInfo := make([]network.InterfaceInfo, len(result.Config))
+	for i, ifaceInfo := range result.Config {
 		interfaceInfo[i].DeviceIndex = ifaceInfo.DeviceIndex
 		interfaceInfo[i].MACAddress = ifaceInfo.MACAddress
 		interfaceInfo[i].CIDR = ifaceInfo.CIDR
 		interfaceInfo[i].NetworkName = ifaceInfo.NetworkName
-		interfaceInfo[i].ProviderId = ifaceInfo.ProviderId
+		interfaceInfo[i].ProviderId = network.Id(ifaceInfo.ProviderId)
 		interfaceInfo[i].VLANTag = ifaceInfo.VLANTag
 		interfaceInfo[i].InterfaceName = ifaceInfo.InterfaceName
 		interfaceInfo[i].Disabled = ifaceInfo.Disabled

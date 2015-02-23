@@ -178,10 +178,11 @@ type OpNetworkInterfaces struct {
 	Info       []network.InterfaceInfo
 }
 
-// TODO(dimitern) Rename this to OpSubnets and add InstanceId field.
-type OpListNetworks struct {
-	Env  string
-	Info []network.SubnetInfo
+type OpSubnets struct {
+	Env        string
+	InstanceId instance.Id
+	SubnetIds  []network.Id
+	Info       []network.SubnetInfo
 }
 
 type OpStartInstance struct {
@@ -1016,6 +1017,14 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
+	if err := env.checkBroken("SupportsAddressAllocation"); err != nil {
+		return false, err
+	}
+	// Any subnetId starting with "noalloc-" will cause this to return
+	// false, so it can be used in tests.
+	if strings.HasPrefix(string(subnetId), "noalloc-") {
+		return false, nil
+	}
 	return true, nil
 }
 
@@ -1084,25 +1093,32 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 	info := make([]network.InterfaceInfo, 2)
 	for i, netName := range []string{"private", "public"} {
 		info[i] = network.InterfaceInfo{
-			ProviderId:    network.Id("dummy-" + netName),
-			NetworkName:   "juju-" + netName,
-			CIDR:          fmt.Sprintf("0.%d.2.0/24", i+1),
-			InterfaceName: fmt.Sprintf("eth%d", i),
-			VLANTag:       i,
-			MACAddress:    fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
-			Disabled:      i%2 != 0,
-			NoAutoStart:   i%2 != 0,
-			ConfigType:    network.ConfigDHCP,
+			DeviceIndex:      i,
+			ProviderId:       network.Id(fmt.Sprintf("dummy-eth%d", i)),
+			ProviderSubnetId: network.Id("dummy-" + netName),
+			NetworkName:      "juju-" + netName,
+			CIDR:             fmt.Sprintf("0.%d.0.0/24", (i+1)*10),
+			InterfaceName:    fmt.Sprintf("eth%d", i),
+			VLANTag:          i,
+			MACAddress:       fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
+			Disabled:         i%2 != 0,
+			NoAutoStart:      i%2 != 0,
+			ConfigType:       network.ConfigDHCP,
 			Address: network.NewAddress(
-				fmt.Sprintf("0.%d.2.%d", i+1, estate.maxAddr+1),
+				fmt.Sprintf("0.%d.0.%d", (i+1)*10, estate.maxAddr+2),
 				network.ScopeUnknown,
 			),
 			DNSServers: network.NewAddresses("ns1.dummy", "ns2.dummy"),
 			GatewayAddress: network.NewAddress(
-				fmt.Sprintf("0.%d.2.1", i+1),
+				fmt.Sprintf("0.%d.0.1", (i+1)*10),
 				network.ScopeUnknown,
 			),
 		}
+	}
+
+	if strings.HasPrefix(string(instId), "i-no-nics-") {
+		// Simulate no NICs on instances with id prefix "i-no-nics-".
+		info = info[:0]
 	}
 
 	estate.ops <- OpNetworkInterfaces{
@@ -1110,11 +1126,12 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 		InstanceId: instId,
 		Info:       info,
 	}
+
 	return info, nil
 }
 
 // Subnets implements environs.Environ.Subnets.
-func (env *environ) Subnets(_ instance.Id, _ []network.Id) ([]network.SubnetInfo, error) {
+func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	if err := env.checkBroken("Subnets"); err != nil {
 		return nil, err
 	}
@@ -1126,16 +1143,86 @@ func (env *environ) Subnets(_ instance.Id, _ []network.Id) ([]network.SubnetInfo
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 
-	// TODO(dimitern) Populate AllocatableIPLow/High below.
-	netInfo := []network.SubnetInfo{
-		{CIDR: "0.10.0.0/8", ProviderId: "dummy-private"},
-		{CIDR: "0.20.0.0/24", ProviderId: "dummy-public"},
+	allSubnets := []network.SubnetInfo{{
+		CIDR:              "0.10.0.0/24",
+		ProviderId:        "dummy-private",
+		AllocatableIPLow:  net.ParseIP("0.10.0.0"),
+		AllocatableIPHigh: net.ParseIP("0.10.0.255"),
+	}, {
+		CIDR:              "0.20.0.0/24",
+		ProviderId:        "dummy-public",
+		AllocatableIPLow:  net.ParseIP("0.20.0.0"),
+		AllocatableIPHigh: net.ParseIP("0.20.0.255"),
+	}}
+
+	// Filter result by ids, if given.
+	var result []network.SubnetInfo
+	for _, subId := range subnetIds {
+		switch subId {
+		case "dummy-private":
+			result = append(result, allSubnets[0])
+		case "dummy-public":
+			result = append(result, allSubnets[1])
+		}
 	}
-	estate.ops <- OpListNetworks{
-		Env:  env.name,
-		Info: netInfo,
+	if len(subnetIds) == 0 {
+		result = append([]network.SubnetInfo{}, allSubnets...)
 	}
-	return netInfo, nil
+	if strings.HasPrefix(string(instId), "i-no-subnets-") {
+		// Simulate no subnets available if the instance id has prefix
+		// "i-no-subnets-".
+		result = result[:0]
+	}
+	if len(result) == 0 {
+		// No results, so just return them now.
+		estate.ops <- OpSubnets{
+			Env:        env.name,
+			InstanceId: instId,
+			SubnetIds:  subnetIds,
+			Info:       result,
+		}
+		return result, nil
+	}
+
+	makeNoAlloc := func(info network.SubnetInfo) network.SubnetInfo {
+		// Remove the allocatable range and change the provider id
+		// prefix.
+		pid := string(info.ProviderId)
+		pid = strings.TrimPrefix(pid, "dummy-")
+		info.ProviderId = network.Id("noalloc-" + pid)
+		info.AllocatableIPLow = nil
+		info.AllocatableIPHigh = nil
+		return info
+	}
+	if strings.HasPrefix(string(instId), "i-no-alloc-") {
+		iid := strings.TrimPrefix(string(instId), "i-no-alloc-")
+		lastIdx := len(result) - 1
+		if strings.HasPrefix(iid, "all") {
+			// Simulate all subnets have no allocatable ranges set.
+			for i := range result {
+				result[i] = makeNoAlloc(result[i])
+			}
+		} else if idx, err := strconv.Atoi(iid); err == nil {
+			// Simulate only the subnet with index idx in the result
+			// have no allocatable range set.
+			if idx < 0 || idx > lastIdx {
+				err = errors.Errorf("index %d out of range; expected 0..%d", idx, lastIdx)
+				return nil, err
+			}
+			result[idx] = makeNoAlloc(result[idx])
+		} else {
+			err = errors.Errorf("invalid index %q; expected int", iid)
+			return nil, err
+		}
+	}
+
+	estate.ops <- OpSubnets{
+		Env:        env.name,
+		InstanceId: instId,
+		SubnetIds:  subnetIds,
+		Info:       result,
+	}
+	return result, nil
 }
 
 func (e *environ) AllInstances() ([]instance.Instance, error) {

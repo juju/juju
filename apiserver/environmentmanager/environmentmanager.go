@@ -89,6 +89,7 @@ var configValuesFromStateServer = []string{
 	"api-port",
 	"syslog-port",
 	"rsyslog-ca-cert",
+	"rsyslog-ca-key",
 }
 
 // ConfigSkeleton returns config values to be used as a starting point for the

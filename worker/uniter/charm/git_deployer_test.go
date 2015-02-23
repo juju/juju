@@ -26,6 +26,7 @@ type GitDeployerSuite struct {
 var _ = gc.Suite(&GitDeployerSuite{})
 
 func (s *GitDeployerSuite) SetUpTest(c *gc.C) {
+	testing.SkipIfGitNotAvailable(c)
 	s.GitSuite.SetUpTest(c)
 	s.bundles = &bundleReader{}
 	s.targetPath = filepath.Join(c.MkDir(), "target")
