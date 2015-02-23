@@ -4,9 +4,6 @@
 package main
 
 import (
-	"strings"
-
-	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
@@ -22,7 +19,14 @@ import (
 )
 
 type AddUnitSuite struct {
-	CmdBlockSuite
+	jujutesting.RepoSuite
+	CmdBlockSwitch
+}
+
+func (s *AddUnitSuite) SetUpTest(c *gc.C) {
+	s.RepoSuite.SetUpTest(c)
+	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
+	c.Assert(s.CmdBlockSwitch, gc.NotNil)
 }
 
 var _ = gc.Suite(&AddUnitSuite{})
@@ -81,13 +85,8 @@ func (s *AddUnitSuite) TestBlockAddUnit(c *gc.C) {
 	s.setupService(c)
 
 	// Block operation
-	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockAddUnit")
-
-	c.Assert(runAddUnit(c, "some-service-name"), gc.ErrorMatches, cmd.ErrSilent.Error())
-
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*TestBlockAddUnit.*")
+	s.BlockAllChanges(c, "TestBlockAddUnit")
+	s.AssertBlockError(c, runAddUnit(c, "some-service-name"), ".*TestBlockAddUnit.*")
 }
 
 // assertForceMachine ensures that the result of assigning a unit with --to
@@ -130,7 +129,7 @@ func (s *AddUnitSuite) TestBlockForceMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	svc, _ := s.AssertService(c, "some-service-name", curl, 3, 0)
 	// Block operation: should be ignored :)
-	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockForceMachine")
+	s.BlockAllChanges(c, "TestBlockForceMachine")
 	s.assertForceMachine(c, svc, 3, 1, machine2.Id())
 	s.assertForceMachine(c, svc, 3, 2, machine.Id())
 }
@@ -176,12 +175,8 @@ func (s *AddUnitSuite) TestNonLocalCannotHostUnits(c *gc.C) {
 
 func (s *AddUnitSuite) TestBlockNonLocalCannotHostUnits(c *gc.C) {
 	// Block operation
-	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockNonLocalCannotHostUnits")
-	c.Assert(runAddUnit(c, "some-service-name", "--to", "0"), gc.ErrorMatches, cmd.ErrSilent.Error())
-
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*TestBlockNonLocalCannotHostUnits.*")
+	s.BlockAllChanges(c, "TestBlockNonLocalCannotHostUnits")
+	s.AssertBlockError(c, runAddUnit(c, "some-service-name", "--to", "0"), ".*TestBlockNonLocalCannotHostUnits.*")
 }
 
 func (s *AddUnitSuite) TestCannotDeployToNonExistentMachine(c *gc.C) {
@@ -193,12 +188,8 @@ func (s *AddUnitSuite) TestCannotDeployToNonExistentMachine(c *gc.C) {
 func (s *AddUnitSuite) TestBlockCannotDeployToNonExistentMachine(c *gc.C) {
 	s.setupService(c)
 	// Block operation
-	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockCannotDeployToNonExistentMachine")
-	c.Assert(runAddUnit(c, "some-service-name", "--to", "42"), gc.ErrorMatches, cmd.ErrSilent.Error())
-
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*TestBlockCannotDeployToNonExistentMachine.*")
+	s.BlockAllChanges(c, "TestBlockCannotDeployToNonExistentMachine")
+	s.AssertBlockError(c, runAddUnit(c, "some-service-name", "--to", "42"), ".*TestBlockCannotDeployToNonExistentMachine.*")
 }
 
 type AddUnitLocalSuite struct {

@@ -5,21 +5,27 @@ package main
 
 import (
 	"fmt"
-	"strings"
 
-	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/cmd/envcmd"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
 type RemoveUnitSuite struct {
-	CmdBlockSuite
+	jujutesting.RepoSuite
+	CmdBlockSwitch
+}
+
+func (s *RemoveUnitSuite) SetUpTest(c *gc.C) {
+	s.RepoSuite.SetUpTest(c)
+	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
+	c.Assert(s.CmdBlockSwitch, gc.NotNil)
 }
 
 var _ = gc.Suite(&RemoveUnitSuite{})
@@ -53,12 +59,8 @@ func (s *RemoveUnitSuite) TestBlockRemoveUnit(c *gc.C) {
 	svc := s.setupUnitForRemove(c)
 
 	// block operation
-	s.AssertSwitchBlockOn(c, "remove-object", "TestBlockRemoveUnit")
+	s.BlockRemoveObject(c, "TestBlockRemoveUnit")
 	err := runRemoveUnit(c, "dummy/0", "dummy/1")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	s.AssertBlockError(c, err, ".*TestBlockRemoveUnit.*")
 	c.Assert(svc.Life(), gc.Equals, state.Alive)
-
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*TestBlockRemoveUnit.*")
 }

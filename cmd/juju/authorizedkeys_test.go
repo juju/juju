@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -15,6 +14,7 @@ import (
 	keymanagertesting "github.com/juju/juju/apiserver/keymanager/testing"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju/osenv"
+	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
@@ -83,12 +83,19 @@ func (s *AuthorizedKeysSuite) TestHelpImport(c *gc.C) {
 }
 
 type keySuiteBase struct {
-	CmdBlockSuite
+	jujutesting.JujuConnSuite
+	CmdBlockSwitch
 }
 
 func (s *keySuiteBase) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
 	s.PatchEnvironment(osenv.JujuEnvEnvKey, "dummyenv")
+}
+
+func (s *keySuiteBase) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
+	c.Assert(s.CmdBlockSwitch, gc.NotNil)
 }
 
 func (s *keySuiteBase) setAuthorizedKeys(c *gc.C, keys ...string) {
@@ -178,13 +185,9 @@ func (s *AddKeySuite) TestBlockAddKey(c *gc.C) {
 
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
 	// Block operation
-	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockAddKey")
+	s.BlockAllChanges(c, "TestBlockAddKey")
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&AddKeysCommand{}), key2, "invalid-key")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*TestBlockAddKey.*")
+	s.AssertBlockError(c, err, ".*TestBlockAddKey.*")
 }
 
 func (s *AddKeySuite) TestAddKeyNonDefaultUser(c *gc.C) {
@@ -223,14 +226,10 @@ func (s *DeleteKeySuite) TestBlockDeleteKeys(c *gc.C) {
 	s.setAuthorizedKeys(c, key1, key2)
 
 	// Block operation
-	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockDeleteKeys")
+	s.BlockAllChanges(c, "TestBlockDeleteKeys")
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeleteKeysCommand{}),
 		sshtesting.ValidKeyTwo.Fingerprint, "invalid-key")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*TestBlockDeleteKeys.*")
+	s.AssertBlockError(c, err, ".*TestBlockDeleteKeys.*")
 }
 
 func (s *DeleteKeySuite) TestDeleteKeyNonDefaultUser(c *gc.C) {
@@ -272,13 +271,9 @@ func (s *ImportKeySuite) TestBlockImportKeys(c *gc.C) {
 	s.setAuthorizedKeys(c, key1)
 
 	// Block operation
-	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockImportKeys")
+	s.BlockAllChanges(c, "TestBlockImportKeys")
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&ImportKeysCommand{}), "lp:validuser", "invalid-key")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*TestBlockImportKeys.*")
+	s.AssertBlockError(c, err, ".*TestBlockImportKeys.*")
 }
 
 func (s *ImportKeySuite) TestImportKeyNonDefaultUser(c *gc.C) {

@@ -33,12 +33,12 @@ func TestAll(t *stdtesting.T) {
 
 type baseSuite struct {
 	testing.JujuConnSuite
-	blockSwitch *commontesting.BlockSwitch
+	commontesting.BlockSwitch
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.blockSwitch = commontesting.NewBlockSwitch(s.APIState)
+	s.BlockSwitch = commontesting.NewBlockSwitch(s.APIState)
 }
 
 var _ = gc.Suite(&baseSuite{})

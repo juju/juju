@@ -11,16 +11,13 @@ import (
 	"io/ioutil"
 	"strings"
 
-	jujucmd "github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/block"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cmd/envcmd"
-	cmdblock "github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
@@ -39,11 +36,12 @@ import (
 type UpgradeJujuSuite struct {
 	jujutesting.JujuConnSuite
 
-	blockClient *block.API
-	resources   *common.Resources
-	authoriser  apiservertesting.FakeAuthorizer
+	//	blockClient *block.API
+	resources  *common.Resources
+	authoriser apiservertesting.FakeAuthorizer
 
 	toolsDir string
+	CmdBlockSwitch
 }
 
 func (s *UpgradeJujuSuite) SetUpTest(c *gc.C) {
@@ -52,19 +50,10 @@ func (s *UpgradeJujuSuite) SetUpTest(c *gc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	var err error
-	s.blockClient, err = block.NewAPI(s.State, s.resources, s.authoriser)
-	c.Assert(err, jc.ErrorIsNil)
-}
 
-// AssertSwitchBlockOn switches on desired block and
-// asserts that no errors were encountered.
-func (s *UpgradeJujuSuite) AssertSwitchBlockOn(c *gc.C, blockType, msg string) {
-	args := params.BlockSwitchParams{
-		Type:    cmdblock.TranslateOperation(blockType),
-		Message: msg,
-	}
-	c.Assert(s.blockClient.SwitchBlockOn(args).Error, gc.IsNil)
+	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
+	c.Assert(s.CmdBlockSwitch, gc.NotNil)
+
 }
 
 var _ = gc.Suite(&UpgradeJujuSuite{})
@@ -450,19 +439,14 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	vers := version.Current
 	vers.Build = 1
 	s.checkToolsUploaded(c, vers, vers.Number)
-	//_, err = envtools.FindExactTools(s.Environ, vers.Number, vers.Series, vers.Arch)
-	//c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeJujuSuite) TestBlockUpgradeJujuWithRealUpload(c *gc.C) {
 	cmd := envcmd.Wrap(&UpgradeJujuCommand{})
 	// Block operation
-	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockUpgradeJujuWithRealUpload")
+	s.BlockAllChanges(c, "TestBlockUpgradeJujuWithRealUpload")
 	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
-	c.Assert(err, gc.ErrorMatches, jujucmd.ErrSilent.Error())
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*TestBlockUpgradeJujuWithRealUpload.*")
+	s.AssertBlockError(c, err, ".*TestBlockUpgradeJujuWithRealUpload.*")
 }
 
 type DryRunTest struct {
@@ -585,12 +569,9 @@ func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Block operation
-	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockUpgradeInProgress")
+	s.BlockAllChanges(c, "TestBlockUpgradeInProgress")
 	err = cmd.Run(coretesting.Context(c))
-	c.Assert(err, gc.ErrorMatches, jujucmd.ErrSilent.Error())
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	s.AssertBlockError(c, err, ".*To unblock changes.*")
 }
 
 func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {

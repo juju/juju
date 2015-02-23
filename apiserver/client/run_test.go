@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/client"
-	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -266,9 +265,9 @@ func (s *runSuite) TestBlockRunOnAllMachines(c *gc.C) {
 	s.mockSSH(c, echoInput)
 
 	// block all changes
-	s.blockSwitch.AllChanges(c, "TestBlockRunOnAllMachines")
+	s.BlockAllChanges(c, "TestBlockRunOnAllMachines")
 	_, err := s.APIState.Client().RunOnAllMachines("hostname", testing.LongWait)
-	commontesting.AssertErrorBlocked(c, err, "TestBlockRunOnAllMachines")
+	s.AssertErrorBlocked(c, err, "TestBlockRunOnAllMachines")
 }
 
 func (s *runSuite) TestRunMachineAndService(c *gc.C) {
@@ -337,7 +336,7 @@ func (s *runSuite) TestBlockRunMachineAndService(c *gc.C) {
 	client := s.APIState.Client()
 
 	// block all changes
-	s.blockSwitch.AllChanges(c, "TestBlockRunMachineAndService")
+	s.BlockAllChanges(c, "TestBlockRunMachineAndService")
 	_, err = client.Run(
 		params.RunParams{
 			Commands: "hostname",
@@ -345,5 +344,5 @@ func (s *runSuite) TestBlockRunMachineAndService(c *gc.C) {
 			Machines: []string{"0"},
 			Services: []string{"magic"},
 		})
-	commontesting.AssertErrorBlocked(c, err, "TestBlockRunMachineAndService")
+	s.AssertErrorBlocked(c, err, "TestBlockRunMachineAndService")
 }

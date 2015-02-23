@@ -13,12 +13,14 @@ import (
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type UnsetSuite struct {
-	CmdBlockSuite
+	testing.JujuConnSuite
+	CmdBlockSwitch
 	svc *state.Service
 	dir string
 }
@@ -26,12 +28,15 @@ type UnsetSuite struct {
 var _ = gc.Suite(&UnsetSuite{})
 
 func (s *UnsetSuite) SetUpTest(c *gc.C) {
-	s.CmdBlockSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 	ch := s.AddTestingCharm(c, "dummy")
 	svc := s.AddTestingService(c, "dummy-service", ch)
 	s.svc = svc
 	s.dir = c.MkDir()
 	setupConfigFile(c, s.dir)
+
+	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
+	c.Assert(s.CmdBlockSwitch, gc.NotNil)
 }
 
 func (s *UnsetSuite) TestUnsetOptionOneByOneSuccess(c *gc.C) {
@@ -62,7 +67,7 @@ func (s *UnsetSuite) TestBlockUnset(c *gc.C) {
 	})
 
 	// Block operation
-	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockUnset")
+	s.BlockAllChanges(c, "TestBlockUnset")
 
 	ctx := coretesting.ContextForDir(c, s.dir)
 	code := cmd.Main(envcmd.Wrap(&UnsetCommand{}), ctx, append([]string{"dummy-service"}, []string{"username"}...))

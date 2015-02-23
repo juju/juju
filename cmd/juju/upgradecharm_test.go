@@ -8,9 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"strings"
 
-	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
@@ -99,7 +97,8 @@ func (s *UpgradeCharmErrorsSuite) TestInvalidRevision(c *gc.C) {
 }
 
 type UpgradeCharmSuccessSuite struct {
-	CmdBlockSuite
+	jujutesting.RepoSuite
+	CmdBlockSwitch
 	path string
 	riak *state.Service
 }
@@ -107,7 +106,7 @@ type UpgradeCharmSuccessSuite struct {
 var _ = gc.Suite(&UpgradeCharmSuccessSuite{})
 
 func (s *UpgradeCharmSuccessSuite) SetUpTest(c *gc.C) {
-	s.CmdBlockSuite.SetUpTest(c)
+	s.RepoSuite.SetUpTest(c)
 	s.path = testcharms.Repo.ClonedDirPath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, jc.ErrorIsNil)
@@ -117,6 +116,9 @@ func (s *UpgradeCharmSuccessSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.Revision(), gc.Equals, 7)
 	c.Assert(forced, jc.IsFalse)
+
+	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
+	c.Assert(s.CmdBlockSwitch, gc.NotNil)
 }
 
 func (s *UpgradeCharmSuccessSuite) assertUpgraded(c *gc.C, revision int, forced bool) *charm.URL {
@@ -147,12 +149,9 @@ func (s *UpgradeCharmSuccessSuite) TestLocalRevisionUnchanged(c *gc.C) {
 
 func (s *UpgradeCharmSuccessSuite) TestBlockUpgradeCharm(c *gc.C) {
 	// Block operation
-	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockUpgradeCharm")
+	s.BlockAllChanges(c, "TestBlockUpgradeCharm")
 	err := runUpgradeCharm(c, "riak")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*TestBlockUpgradeCharm.*")
+	s.AssertBlockError(c, err, ".*TestBlockUpgradeCharm.*")
 }
 
 func (s *UpgradeCharmSuccessSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
@@ -196,12 +195,9 @@ func (s *UpgradeCharmSuccessSuite) TestBlockUpgradesWithBundle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Block operation
-	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockUpgradesWithBundle")
+	s.BlockAllChanges(c, "TestBlockUpgradesWithBundle")
 	err = runUpgradeCharm(c, "riak")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*TestBlockUpgradesWithBundle.*")
+	s.AssertBlockError(c, err, ".*TestBlockUpgradesWithBundle.*")
 }
 
 func (s *UpgradeCharmSuccessSuite) TestForcedUpgrade(c *gc.C) {
@@ -214,7 +210,7 @@ func (s *UpgradeCharmSuccessSuite) TestForcedUpgrade(c *gc.C) {
 
 func (s *UpgradeCharmSuccessSuite) TestBlockForcedUpgrade(c *gc.C) {
 	// Block operation
-	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockForcedUpgrade")
+	s.BlockAllChanges(c, "TestBlockForcedUpgrade")
 	err := runUpgradeCharm(c, "riak", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpgraded(c, 8, true)

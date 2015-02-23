@@ -29,7 +29,7 @@ type keyManagerSuite struct {
 	resources  *common.Resources
 	authoriser apiservertesting.FakeAuthorizer
 
-	blockSwitch *commontesting.BlockSwitch
+	commontesting.BlockSwitch
 }
 
 var _ = gc.Suite(&keyManagerSuite{})
@@ -46,7 +46,7 @@ func (s *keyManagerSuite) SetUpTest(c *gc.C) {
 	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.blockSwitch = commontesting.NewBlockSwitch(s.APIState)
+	s.BlockSwitch = commontesting.NewBlockSwitch(s.APIState)
 }
 
 func (s *keyManagerSuite) TestNewKeyManagerAPIAcceptsClient(c *gc.C) {
@@ -153,10 +153,10 @@ func (s *keyManagerSuite) TestBlockAddKeys(c *gc.C) {
 		Keys: []string{key2, newKey, "invalid-key"},
 	}
 
-	s.blockSwitch.AllChanges(c, "TestBlockAddKeys")
+	s.BlockAllChanges(c, "TestBlockAddKeys")
 	_, err := s.keymanager.AddKeys(args)
 	// Check that the call is blocked
-	commontesting.AssertErrorBlocked(c, err, "TestBlockAddKeys")
+	s.AssertErrorBlocked(c, err, "TestBlockAddKeys")
 	s.assertEnvironKeys(c, initialKeys)
 }
 
@@ -240,10 +240,10 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *gc.C) {
 		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, sshtesting.ValidKeyThree.Fingerprint, "invalid-key"},
 	}
 
-	s.blockSwitch.AllChanges(c, "TestBlockDeleteKeys")
+	s.BlockAllChanges(c, "TestBlockDeleteKeys")
 	_, err := s.keymanager.DeleteKeys(args)
 	// Check that the call is blocked
-	commontesting.AssertErrorBlocked(c, err, "TestBlockDeleteKeys")
+	s.AssertErrorBlocked(c, err, "TestBlockDeleteKeys")
 	s.assertEnvironKeys(c, initialKeys)
 }
 
@@ -334,9 +334,9 @@ func (s *keyManagerSuite) TestBlockImportKeys(c *gc.C) {
 		Keys: []string{"lp:existing", "lp:validuser", "invalid-key"},
 	}
 
-	s.blockSwitch.AllChanges(c, "TestBlockImportKeys")
+	s.BlockAllChanges(c, "TestBlockImportKeys")
 	_, err := s.keymanager.ImportKeys(args)
 	// Check that the call is blocked
-	commontesting.AssertErrorBlocked(c, err, "TestBlockImportKeys")
+	s.AssertErrorBlocked(c, err, "TestBlockImportKeys")
 	s.assertEnvironKeys(c, initialKeys)
 }

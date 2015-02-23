@@ -24,7 +24,7 @@ type userManagerSuite struct {
 	authorizer  apiservertesting.FakeAuthorizer
 	adminName   string
 
-	blockSwitch *commontesting.BlockSwitch
+	commontesting.BlockSwitch
 }
 
 var _ = gc.Suite(&userManagerSuite{})
@@ -41,7 +41,7 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.blockSwitch = commontesting.NewBlockSwitch(s.APIState)
+	s.BlockSwitch = commontesting.NewBlockSwitch(s.APIState)
 }
 
 func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
@@ -83,10 +83,10 @@ func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
 			Password:    "password",
 		}}}
 
-	s.blockSwitch.AllChanges(c, "TestBlockAddUser")
+	s.BlockAllChanges(c, "TestBlockAddUser")
 	result, err := s.usermanager.AddUser(args)
 	// Check that the call is blocked
-	commontesting.AssertErrorBlocked(c, err, "TestBlockAddUser")
+	s.AssertErrorBlocked(c, err, "TestBlockAddUser")
 	c.Assert(result.Results, gc.HasLen, 1)
 	//check that user is not created
 	foobarTag := names.NewLocalUserTag("foobar")
@@ -168,10 +168,10 @@ func (s *userManagerSuite) TestBlockDisableUser(c *gc.C) {
 			{"not-a-tag"},
 		}}
 
-	s.blockSwitch.AllChanges(c, "TestBlockDisableUser")
+	s.BlockAllChanges(c, "TestBlockDisableUser")
 	_, err := s.usermanager.DisableUser(args)
 	// Check that the call is blocked
-	commontesting.AssertErrorBlocked(c, err, "TestBlockDisableUser")
+	s.AssertErrorBlocked(c, err, "TestBlockDisableUser")
 
 	err = alex.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -234,10 +234,10 @@ func (s *userManagerSuite) TestBlockEnableUser(c *gc.C) {
 			{"not-a-tag"},
 		}}
 
-	s.blockSwitch.AllChanges(c, "TestBlockEnableUser")
+	s.BlockAllChanges(c, "TestBlockEnableUser")
 	_, err := s.usermanager.EnableUser(args)
 	// Check that the call is blocked
-	commontesting.AssertErrorBlocked(c, err, "TestBlockEnableUser")
+	s.AssertErrorBlocked(c, err, "TestBlockEnableUser")
 
 	err = alex.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -421,10 +421,10 @@ func (s *userManagerSuite) TestBlockSetPassword(c *gc.C) {
 			Password: "new-password",
 		}}}
 
-	s.blockSwitch.AllChanges(c, "TestBlockSetPassword")
+	s.BlockAllChanges(c, "TestBlockSetPassword")
 	_, err := s.usermanager.SetPassword(args)
 	// Check that the call is blocked
-	commontesting.AssertErrorBlocked(c, err, "TestBlockSetPassword")
+	s.AssertErrorBlocked(c, err, "TestBlockSetPassword")
 
 	err = alex.Refresh()
 	c.Assert(err, jc.ErrorIsNil)

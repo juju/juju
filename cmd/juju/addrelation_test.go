@@ -4,19 +4,24 @@
 package main
 
 import (
-	"strings"
-
-	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
 type AddRelationSuite struct {
-	CmdBlockSuite
+	jujutesting.RepoSuite
+	CmdBlockSwitch
+}
+
+func (s *AddRelationSuite) SetUpTest(c *gc.C) {
+	s.RepoSuite.SetUpTest(c)
+	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
+	c.Assert(s.CmdBlockSwitch, gc.NotNil)
 }
 
 var _ = gc.Suite(&AddRelationSuite{})
@@ -170,7 +175,7 @@ func (s *AddRelationSuite) TestBlockAddRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Block operation
-	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockAddRelation")
+	s.BlockAllChanges(c, "TestBlockAddRelation")
 
 	for i, t := range addRelationTests {
 		c.Logf("test %d: %v", i, t.args)
@@ -178,11 +183,7 @@ func (s *AddRelationSuite) TestBlockAddRelation(c *gc.C) {
 		if len(t.args) == 2 {
 			// Only worry about Run being blocked.
 			// For len(t.args) != 2, an Init will fail
-			c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-
-			// msg is logged
-			stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-			c.Check(stripped, gc.Matches, ".*TestBlockAddRelation.*")
+			s.AssertBlockError(c, err, ".*TestBlockAddRelation.*")
 		}
 	}
 }

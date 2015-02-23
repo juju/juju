@@ -17,14 +17,16 @@ import (
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type SetSuite struct {
-	CmdBlockSuite
+	testing.JujuConnSuite
 	svc *state.Service
 	dir string
+	CmdBlockSwitch
 }
 
 var _ = gc.Suite(&SetSuite{})
@@ -35,7 +37,7 @@ var (
 )
 
 func (s *SetSuite) SetUpTest(c *gc.C) {
-	s.CmdBlockSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 	ch := s.AddTestingCharm(c, "dummy")
 	svc := s.AddTestingService(c, "dummy-service", ch)
 	s.svc = svc
@@ -46,6 +48,9 @@ func (s *SetSuite) SetUpTest(c *gc.C) {
 	setupValueFile(c, s.dir, "invalid.txt", invalidSetTestValue)
 	setupBigFile(c, s.dir)
 	setupConfigFile(c, s.dir)
+
+	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
+	c.Assert(s.CmdBlockSwitch, gc.NotNil)
 }
 
 func (s *SetSuite) TestSetOptionSuccess(c *gc.C) {
@@ -124,7 +129,7 @@ func (s *SetSuite) TestSetConfig(c *gc.C) {
 
 func (s *SetSuite) TestBlockSetConfig(c *gc.C) {
 	// Block operation
-	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockSetConfig")
+	s.BlockAllChanges(c, "TestBlockSetConfig")
 	ctx := coretesting.ContextForDir(c, s.dir)
 	code := cmd.Main(envcmd.Wrap(&SetCommand{}), ctx, append([]string{"dummy-service"}, []string{
 		"--config",

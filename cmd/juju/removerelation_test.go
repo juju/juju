@@ -4,19 +4,24 @@
 package main
 
 import (
-	"strings"
-
-	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
 type RemoveRelationSuite struct {
-	CmdBlockSuite
+	jujutesting.RepoSuite
+	CmdBlockSwitch
+}
+
+func (s *RemoveRelationSuite) SetUpTest(c *gc.C) {
+	s.RepoSuite.SetUpTest(c)
+	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
+	c.Assert(s.CmdBlockSwitch, gc.NotNil)
 }
 
 var _ = gc.Suite(&RemoveRelationSuite{})
@@ -58,12 +63,8 @@ func (s *RemoveRelationSuite) TestBlockRemoveRelation(c *gc.C) {
 	s.setupRelationForRemove(c)
 
 	// block operation
-	s.AssertSwitchBlockOn(c, "remove-object", "TestBlockRemoveRelation")
+	s.BlockRemoveObject(c, "TestBlockRemoveRelation")
 	// Destroy a relation that exists.
 	err := runRemoveRelation(c, "logging", "riak")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*TestBlockRemoveRelation.*")
+	s.AssertBlockError(c, err, ".*TestBlockRemoveRelation.*")
 }

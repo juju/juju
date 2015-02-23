@@ -4,20 +4,25 @@
 package main
 
 import (
-	"strings"
-
-	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/cmd/envcmd"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
 type UnexposeSuite struct {
-	CmdBlockSuite
+	jujutesting.RepoSuite
+	CmdBlockSwitch
+}
+
+func (s *UnexposeSuite) SetUpTest(c *gc.C) {
+	s.RepoSuite.SetUpTest(c)
+	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
+	c.Assert(s.CmdBlockSwitch, gc.NotNil)
 }
 
 var _ = gc.Suite(&UnexposeSuite{})
@@ -61,10 +66,7 @@ func (s *UnexposeSuite) TestBlockUnexpose(c *gc.C) {
 	s.AssertService(c, "some-service-name", curl, 1, 0)
 
 	// Block operation
-	s.AssertSwitchBlockOn(c, "all-changes", "TestBlockUnexpose")
+	s.BlockAllChanges(c, "TestBlockUnexpose")
 	err = runExpose(c, "some-service-name")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*TestBlockUnexpose.*")
+	s.AssertBlockError(c, err, ".*TestBlockUnexpose.*")
 }
