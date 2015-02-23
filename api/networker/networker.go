@@ -16,18 +16,29 @@ import (
 const networkerFacade = "Networker"
 
 // State provides access to an networker worker's view of the state.
-type State struct {
+//
+// NOTE: This is defined as an interface due to PPC64 bug #1424669 -
+// if it were a type build errors happen (due to a linker bug).
+type State interface {
+	MachineNetworkConfig(names.MachineTag) ([]network.InterfaceInfo, error)
+	WatchInterfaces(names.MachineTag) (watcher.NotifyWatcher, error)
+}
+
+var _ State = (*state)(nil)
+
+// state implements State.
+type state struct {
 	facade base.FacadeCaller
 }
 
 // NewState creates a new client-side Machiner facade.
-func NewState(caller base.APICaller) *State {
-	return &State{base.NewFacadeCaller(caller, networkerFacade)}
+func NewState(caller base.APICaller) State {
+	return &state{base.NewFacadeCaller(caller, networkerFacade)}
 }
 
 // MachineNetworkConfig returns information about network interfaces to
 // setup only for a single machine.
-func (st *State) MachineNetworkConfig(tag names.MachineTag) ([]network.InterfaceInfo, error) {
+func (st *state) MachineNetworkConfig(tag names.MachineTag) ([]network.InterfaceInfo, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
@@ -72,7 +83,7 @@ func (st *State) MachineNetworkConfig(tag names.MachineTag) ([]network.Interface
 
 // WatchInterfaces returns a NotifyWatcher that notifies of changes to network
 // interfaces on the machine.
-func (st *State) WatchInterfaces(tag names.MachineTag) (watcher.NotifyWatcher, error) {
+func (st *state) WatchInterfaces(tag names.MachineTag) (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
