@@ -44,7 +44,6 @@ type lxcBrokerSuite struct {
 	lxcSuite
 	broker      environs.InstanceBroker
 	agentConfig agent.ConfigSetterWriter
-	realArch    string
 }
 
 var _ = gc.Suite(&lxcBrokerSuite{})
@@ -87,14 +86,9 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *lxcBrokerSuite) TearDownTest(c *gc.C) {
-	version.Current.Arch = s.realArch
-}
-
 func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
 	machineNonce := "fake-nonce"
-	s.realArch = version.Current.Arch
-	version.Current.Arch = arch.AMD64
+	s.PatchValue(&version.Current.Arch, arch.AMD64)
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
