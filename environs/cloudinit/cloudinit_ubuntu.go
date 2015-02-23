@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/service/legacy/upstart"
 )
 
 const (

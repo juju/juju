@@ -16,7 +16,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/cmd"
-	"github.com/juju/testing"
+	//"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gnuflag"
@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/names"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -53,12 +52,6 @@ func mktemp(prefix string, content string) string {
 }
 
 func TestPackage(t *stdtesting.T) {
-	// Change the default init dir in worker/deployer,
-	// so the deployer doesn't try to remove upstart
-	// jobs from tests.
-	restore := testing.PatchValue(&deployer.InitDir, mkdtemp("juju-worker-deployer"))
-	defer restore()
-
 	// TODO(waigani) 2014-03-19 bug 1294458
 	// Refactor to use base suites
 

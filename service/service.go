@@ -1,98 +1,119 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+// The service package provides abstractions and helpers for interacting
+// with the juju-managed services in a host's init system.
 package service
 
 import (
-	"fmt"
-	"io/ioutil"
-	"regexp"
-	"strings"
-
-	"github.com/juju/utils/exec"
-
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/service/windows"
-	"github.com/juju/juju/version"
+	"github.com/juju/errors"
 )
 
-var _ Service = (*upstart.Service)(nil)
-var _ Service = (*windows.Service)(nil)
-
-// Service represents a service running on the current system
-type Service interface {
-	// Installed will return a boolean value that denotes
-	// whether or not the service is installed
-	Installed() bool
-	// Exists returns whether the service configuration exists in the
-	// init directory with the same content that this Service would have
-	// if installed.
-	Exists() bool
-	// Running returns a boolean value that denotes
-	// whether or not the service is running
-	Running() bool
-	// Start will try to start the service
-	Start() error
-	// Stop will try to stop the service
-	Stop() error
-	// StopAndRemove will stop the service and remove it
-	StopAndRemove() error
-	// Remove will remove the service
-	Remove() error
-	// Install installs a service
-	Install() error
-	// Config adds a config to the service, overwritting the current one
-	UpdateConfig(conf common.Conf)
+type services interface {
+	InitSystem() string
+	Start(name string) error
+	Stop(name string) error
+	IsRunning(name string) (bool, error)
+	Enable(name string) error
+	Disable(name string) error
+	IsEnabled(name string) (bool, error)
+	Manage(name string, conf Conf) error
+	Remove(name string) error
+	Install(name string, conf Conf) error
+	Check(name string, conf Conf) (bool, error)
+	IsManaged(name string) bool
 }
 
-// NewService returns an interface to a service apropriate
-// for the current system
-func NewService(name string, conf common.Conf) Service {
-	switch version.Current.OS {
-	case version.Windows:
-		svc := windows.NewService(name, conf)
-		return svc
-	default:
-		return upstart.NewService(name, conf)
+// Service is a convenience wrapper around Services for a single service.
+type Service struct {
+	name     string
+	conf     Conf
+	services services
+}
+
+// NewService is a bare-bones "constructor" for a new Service.
+func NewService(name string, conf Conf, services services) *Service {
+	return &Service{
+		name:     name,
+		conf:     conf,
+		services: services,
 	}
 }
 
-func windowsListServices() ([]string, error) {
-	com := exec.RunParams{
-		Commands: `(Get-Service).Name`,
-	}
-	out, err := exec.RunCommands(com)
+// DiscoverService builds a Services value using the provided dataDir and
+// init system name and wraps it in a Service for the given name and
+// conf.
+func DiscoverService(name, dataDir string, conf Conf) (*Service, error) {
+	services, err := DiscoverServices(dataDir)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	if out.Code != 0 {
-		return nil, fmt.Errorf("Error running %s: %s", com.Commands, string(out.Stderr))
-	}
-	return strings.Fields(string(out.Stdout)), nil
+	svc := NewService(name, conf, services)
+	return svc, nil
 }
 
-var servicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
-
-func upstartListServices(initDir string) ([]string, error) {
-	var services []string
-	fis, err := ioutil.ReadDir(initDir)
-	if err != nil {
-		return nil, err
-	}
-	for _, fi := range fis {
-		if groups := servicesRe.FindStringSubmatch(fi.Name()); len(groups) > 0 {
-			services = append(services, groups[1])
-		}
-	}
-	return services, nil
+// Name returns the name of the service.
+func (s Service) Name() string {
+	return s.name
 }
 
-// ListServices lists all installed services on the running system
-func ListServices(initDir string) ([]string, error) {
-	switch version.Current.OS {
-	case version.Ubuntu:
-		return upstartListServices(initDir)
-	case version.Windows:
-		return windowsListServices()
-	default:
-		return upstartListServices(initDir)
-	}
+// Conf returns a copy of the service's conf specification..
+func (s Service) Conf() Conf {
+	return s.conf
+}
+
+// Start starts the service.
+func (s Service) Start() error {
+	return s.services.Start(s.name)
+}
+
+// Stop stops the service.
+func (s Service) Stop() error {
+	return s.services.Stop(s.name)
+}
+
+// IsRunning returns true if the service is running.
+func (s Service) IsRunning() (bool, error) {
+	return s.services.IsRunning(s.name)
+}
+
+// Enable registers the service with the underlying init system.
+func (s Service) Enable() error {
+	return s.services.Enable(s.name)
+}
+
+// Disable unregisters the service with the underlying init system.
+func (s Service) Disable() error {
+	return s.services.Disable(s.name)
+}
+
+// IsEnabled returns true if the init system knows about the service.
+func (s Service) IsEnabled() (bool, error) {
+	return s.services.IsEnabled(s.name)
+}
+
+// Manage adds the service to the set of services that juju manages.
+func (s Service) Manage() error {
+	return s.services.Manage(s.name, s.conf)
+}
+
+// Remove disables the service and removes it from juju management.
+func (s Service) Remove() error {
+	return s.services.Remove(s.name)
+}
+
+// Install adds the service to juju management, then enables and starts it.
+func (s Service) Install() error {
+	return s.services.Install(s.name, s.conf)
+}
+
+// Check returns true if the service is managed by juju and also matches
+// the service in the init system with the same name (if any exists).
+func (s Service) Check() (bool, error) {
+	return s.services.Check(s.name, s.conf)
+}
+
+// IsManaged returns true if the service is currently managed by juju.
+func (s Service) IsManaged() bool {
+	return s.services.IsManaged(s.name)
 }

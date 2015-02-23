@@ -5,20 +5,17 @@ package mongo
 
 var (
 	MakeJournalDirs = makeJournalDirs
-	MongoConfigPath = &mongoConfigPath
+	MongoConfigPath = &configPath
 	NoauthCommand   = noauthCommand
 	ProcessSignal   = &processSignal
 
 	SharedSecretPath = sharedSecretPath
 	SSLKeyPath       = sslKeyPath
 
-	UpstartConfInstall          = &upstartConfInstall
-	UpstartService              = upstartService
-	UpstartServiceExists        = &upstartServiceExists
-	UpstartServiceRunning       = &upstartServiceRunning
-	UpstartServiceStopAndRemove = &upstartServiceStopAndRemove
-	UpstartServiceStop          = &upstartServiceStop
-	UpstartServiceStart         = &upstartServiceStart
+	NewAdminService = &newAdminService
+	NewService      = &newService
+	InstallService  = &installService
+	MongodPath      = &mongodPath
 
 	HostWordSize   = &hostWordSize
 	RuntimeGOOS    = &runtimeGOOS
@@ -32,3 +29,9 @@ var (
 	PreallocFileSizes = preallocFileSizes
 	PreallocFiles     = preallocFiles
 )
+
+func NewServiceClosure(s adminService) func(string, string) (adminService, error) {
+	return func(string, string) (adminService, error) {
+		return s, nil
+	}
+}
