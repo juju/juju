@@ -24,6 +24,13 @@ import (
 
 type destroyEnvSuite struct {
 	testing.JujuConnSuite
+	CmdBlockSwitch
+}
+
+func (s *destroyEnvSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
+	c.Assert(s.CmdBlockSwitch, gc.NotNil)
 }
 
 var _ = gc.Suite(&destroyEnvSuite{})
@@ -57,7 +64,9 @@ func (s *destroyEnvSuite) checkDestroyEnvironment(c *gc.C, blocked, force bool) 
 	//Setup environment
 	envName := "dummyenv"
 	s.startEnvironment(c, envName)
-	s.AssertConfigParameterUpdated(c, "block-destroy-environment", blocked)
+	if blocked {
+		s.BlockDestroyEnvironment(c, "checkDestroyEnvironment")
+	}
 	opc := make(chan dummy.Operation)
 	errc := make(chan error)
 	if force {
