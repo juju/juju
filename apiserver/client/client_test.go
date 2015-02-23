@@ -779,7 +779,7 @@ func (s *clientSuite) assertAddServiceUnits(c *gc.C) {
 }
 
 func (s *clientSuite) assertAddServiceUnitsBlocked(c *gc.C, msg string) {
-	units, err := s.APIState.Client().AddServiceUnits("dummy", 3, "")
+	_, err := s.APIState.Client().AddServiceUnits("dummy", 3, "")
 	s.AssertErrorBlocked(c, err, msg)
 }
 
@@ -1550,7 +1550,7 @@ func (s *clientSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, char
 	return curl, bundle, cons
 }
 
-func (s *clientSuite) assertServiceDeployWithNetwork(c *gc.C, curl *charm.URL, bundle charm.Charm, cons constraints.Value) {
+func (s *clientSuite) assertServiceDeployWithNetworks(c *gc.C, curl *charm.URL, bundle charm.Charm, cons constraints.Value) {
 	err := s.APIState.Client().ServiceDeployWithNetworks(
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"network-net1", "network-net2"},
@@ -2830,7 +2830,7 @@ func (s *clientSuite) assertAddMachinesBlocked(c *gc.C, msg string) {
 			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
-	machines, err := s.APIState.Client().AddMachines(apiParams)
+	_, err := s.APIState.Client().AddMachines(apiParams)
 	s.AssertErrorBlocked(c, err, msg)
 }
 
