@@ -752,3 +752,40 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		c.Assert(apiList, jc.SameContents, toolsList)
 	}
 }
+
+func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
+	// This test exercises just the success path, all the other cases
+	// are already tested in the apiserver package.
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectInfo := []network.InterfaceInfo{{
+		DeviceIndex:      0,
+		MACAddress:       "aa:bb:cc:dd:ee:f0",
+		CIDR:             "0.10.0.0/24",
+		NetworkName:      "juju-private",
+		ProviderId:       "dummy-eth0",
+		ProviderSubnetId: "dummy-private",
+		VLANTag:          0,
+		InterfaceName:    "eth0",
+		Disabled:         false,
+		NoAutoStart:      false,
+		ConfigType:       network.ConfigStatic,
+		// Overwrite the Address field below with the actual one, as
+		// it's chosen randomly.
+		Address:        network.Address{},
+		DNSServers:     network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress: network.NewAddress("0.10.0.2", network.ScopeUnknown),
+		ExtraConfig:    nil,
+	}}
+	ifaceInfo, err := s.provisioner.PrepareContainerInterfaceInfo(container.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ifaceInfo, gc.HasLen, 1)
+	c.Assert(ifaceInfo[0].Address, gc.Not(gc.DeepEquals), network.Address{})
+	expectInfo[0].Address = ifaceInfo[0].Address
+	c.Assert(ifaceInfo, jc.DeepEquals, expectInfo)
+}
