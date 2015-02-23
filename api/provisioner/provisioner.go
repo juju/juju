@@ -153,6 +153,10 @@ func (st *State) FindTools(v version.Number, series string, arch *string) (tools
 // PrepareContainerInterfaceInfo returns the necessary information to
 // configure network interfaces of a container with allocated static
 // IP addresses.
+//
+// TODO(dimitern): Before we start using this, we need to rename both
+// the method and the network.InterfaceInfo type to be called
+// InterfaceConfig.
 func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
 	var result params.MachineNetworkConfigResults
 	args := params.Entities{
