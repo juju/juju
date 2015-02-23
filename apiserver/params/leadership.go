@@ -21,31 +21,14 @@ type ClaimLeadershipParams struct {
 
 	// UnitTag is the unit which is making the leadership claim.
 	UnitTag string
+
+	// DurationSeconds is the number of seconds for which the lease is required.
+	DurationSeconds float64
 }
 
 // ClaimLeadershipBulkResults is the collection of results from a bulk
 // leadership claim.
-type ClaimLeadershipBulkResults struct {
-
-	// Results is the collection of results from the claim.
-	Results []ClaimLeadershipResults
-}
-
-// ClaimLeadershipResults are the results from making a leadership
-// claim.
-type ClaimLeadershipResults struct {
-
-	// ServiceTag is the service for which you want to make a
-	// leadership claim.
-	ServiceTag string
-
-	// ClaimDurationInSec is the number of seconds a claim will be
-	// held.
-	ClaimDurationInSec float64
-
-	// Error is filled in if there was an error fulfilling the claim.
-	Error *Error
-}
+type ClaimLeadershipBulkResults ErrorResults
 
 // ReleaseLeadershipBulkParams is a collection of parameters needed to
 // make a bulk release leadership call.
