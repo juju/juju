@@ -187,7 +187,7 @@ type FilesystemAttachmentParams struct {
 	// should be attached/detached.
 	Filesystem names.FilesystemTag
 
-	// Path is the path at which the filesystem is mounted on the machine that
+	// Path is the path at which the filesystem is to be mounted on the machine that
 	// this attachment corresponds to.
 	Path string
 }

@@ -144,29 +144,13 @@ func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParam
 	if path == "" {
 		return filesystem, filesystemAttachment, errors.New("cannot create a filesystem mount without specifying a path")
 	}
+	if err := s.validatePath(path); err != nil {
+		return filesystem, filesystemAttachment, err
+	}
 	filesystemAttachment = storage.FilesystemAttachment{
 		Filesystem: params.Tag,
 		Machine:    params.Attachment.Machine,
 		Path:       path,
-	}
-	// If path already exists, we check that it is empty.
-	// It is up to the storage provisioner to ensure that any
-	// shared storage constraints and attachments with the same
-	// path are validated etc. So the check here is more a sanity check.
-	if fi, err := s.dirFuncs.lstat(path); os.IsNotExist(err) {
-		if err := s.dirFuncs.mkDirAll(path, 0755); err != nil {
-			return filesystem, filesystemAttachment, errors.Annotate(err, "could not create directory")
-		}
-	} else if !fi.IsDir() {
-		return filesystem, filesystemAttachment, errors.Errorf("path %q must be a directory", path)
-	} else {
-		fileCount, err := s.dirFuncs.fileCount(path)
-		if err != nil {
-			return filesystem, filesystemAttachment, errors.Annotate(err, "could not read directory")
-		}
-		if fileCount > 0 {
-			return filesystem, filesystemAttachment, errors.New("path must be empty")
-		}
 	}
 	dfOutput, err := s.run("df", "--output=size", path)
 	if err != nil {
@@ -190,4 +174,27 @@ func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParam
 		Size: sizeInMiB,
 	}
 	return filesystem, filesystemAttachment, nil
+}
+
+func (s *rootfsFilesystemSource) validatePath(path string) error {
+	// If path already exists, we check that it is empty.
+	// It is up to the storage provisioner to ensure that any
+	// shared storage constraints and attachments with the same
+	// path are validated etc. So the check here is more a sanity check.
+	if fi, err := s.dirFuncs.lstat(path); os.IsNotExist(err) {
+		if err := s.dirFuncs.mkDirAll(path, 0755); err != nil {
+			return errors.Annotate(err, "could not create directory")
+		}
+	} else if !fi.IsDir() {
+		return errors.Errorf("path %q must be a directory", path)
+	} else {
+		fileCount, err := s.dirFuncs.fileCount(path)
+		if err != nil {
+			return errors.Annotate(err, "could not read directory")
+		}
+		if fileCount > 0 {
+			return errors.New("path must be empty")
+		}
+	}
+	return nil
 }
