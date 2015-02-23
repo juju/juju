@@ -287,29 +287,8 @@ func (st *State) destroyStorageInstanceOps(s *storageInstance) ([]txn.Op, error)
 	return ops, nil
 }
 
-// RemoveStorageInstance removes the storage instance with the specified tag.
-func (st *State) RemoveStorageInstance(tag names.StorageTag) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot remove storage %q", tag.Id())
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		s, err := st.storageInstance(tag)
-		if errors.IsNotFound(err) {
-			return nil, jujutxn.ErrNoOperations
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if s.doc.Life != Dead {
-			return nil, errors.New("storage is not dead")
-		}
-		if s.doc.AttachmentCount != 0 {
-			return nil, errors.New("storage has attachments")
-		}
-		hasNoAttachments := bson.D{{"attachmentcount", 0}}
-		assert := append(hasNoAttachments, isDeadDoc...)
-		return removeStorageInstanceOps(tag, assert), nil
-	}
-	return st.run(buildTxn)
-}
-
+// removeStorageInstanceOps removes the storage instance with the given
+// tag from state, if the specified assertions hold true.
 func removeStorageInstanceOps(tag names.StorageTag, assert bson.D) []txn.Op {
 	return []txn.Op{{
 		C:      storageInstancesC,

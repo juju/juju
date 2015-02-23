@@ -41,6 +41,31 @@ func (s *StorageStateSuite) SetUpTest(c *gc.C) {
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 }
 
+func (s *StorageStateSuite) storageInstanceExists(c *gc.C, tag names.StorageTag) bool {
+	_, err := state.TxnRevno(
+		s.State,
+		state.StorageInstancesC,
+		state.DocID(s.State, tag.Id()),
+	)
+	if err != nil {
+		c.Assert(err, gc.Equals, mgo.ErrNotFound)
+		return false
+	}
+	return true
+}
+
+func (s *StorageStateSuite) setupSingleStorage(c *gc.C) (*state.Service, *state.Unit, names.StorageTag) {
+	ch := s.AddTestingCharm(c, "storage-block")
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("block", 1024, 1),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	unit, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	storageTag := names.NewStorageTag("data/0")
+	return service, unit, storageTag
+}
+
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 	return state.StorageConstraints{Pool: pool, Size: size, Count: count}
 }
@@ -140,16 +165,10 @@ func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
-	ch := s.AddTestingCharm(c, "storage-block")
-	storage := map[string]state.StorageConstraints{
-		"data": makeStorageCons("block", 1024, 1),
-	}
-	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
-	u, err := service.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
+	_, u, storageTag := s.setupSingleStorage(c)
 	// destroying a unit with storage attachments is fine; this is what
 	// will trigger the death and removal of storage attachments.
-	err = u.Destroy()
+	err := u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	// until all storage attachments are removed, the unit cannot be
 	// marked as being dead.
@@ -158,57 +177,49 @@ func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
 		c.Assert(err, gc.ErrorMatches, "unit has storage attachments")
 	}
 	assertUnitEnsureDeadError()
-	err = s.State.EnsureStorageAttachmentDead(names.NewStorageTag("data/0"), u.UnitTag())
+	err = s.State.EnsureStorageAttachmentDead(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	assertUnitEnsureDeadError()
-	err = s.State.DestroyStorageInstance(names.NewStorageTag("data/0"))
+	err = s.State.DestroyStorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	assertUnitEnsureDeadError()
-	err = s.State.RemoveStorageAttachment(names.NewStorageTag("data/0"), u.UnitTag())
+	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *StorageStateSuite) TestRemoveStorageInstance(c *gc.C) {
-	ch := s.AddTestingCharm(c, "storage-block")
-	storage := map[string]state.StorageConstraints{
-		"data": makeStorageCons("block", 1024, 1),
-	}
-	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
-	u, err := service.AddUnit()
+func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesInstance(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c)
+
+	// Mark the storage instance as Dying, so that it will be removed
+	// when the last attachment is removed.
+	err := s.State.DestroyStorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	storageTag := names.NewStorageTag("data/0")
-
-	storageInstanceExists := func() bool {
-		_, err := state.TxnRevno(
-			s.State,
-			state.StorageInstancesC,
-			state.DocID(s.State, storageTag.Id()),
-		)
-		if err != nil {
-			c.Assert(err, gc.Equals, mgo.ErrNotFound)
-			return false
-		}
-		return true
-	}
-
-	err = s.State.DestroyStorageInstance(storageTag)
+	si, err := s.State.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveStorageInstance(storageTag)
-	c.Assert(err, gc.ErrorMatches, `cannot remove storage "data/0": storage is not dead`)
-	exists := storageInstanceExists()
-	c.Assert(exists, jc.IsTrue)
+	c.Assert(si.Life(), gc.Equals, state.Dying)
 
 	err = s.State.EnsureStorageAttachmentDead(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveStorageInstance(storageTag)
-	c.Assert(err, jc.ErrorIsNil)
-	exists = storageInstanceExists()
+	exists := s.storageInstanceExists(c, storageTag)
 	c.Assert(exists, jc.IsFalse)
+}
+
+func (s *StorageStateSuite) TestDestroyStorageInstanceTwice(c *gc.C) {
+	_, _, storageTag := s.setupSingleStorage(c)
+
+	for i := 0; i < 2; i++ {
+		err := s.State.DestroyStorageInstance(storageTag)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	si, err := s.State.StorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(si.Life(), gc.Equals, state.Dying)
 }
 
 func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
@@ -234,4 +245,5 @@ func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 }
 
 // TODO(axw) StorageAttachments can't be added to Dying StorageInstance
+// TODO(axw) StorageInstance without attachments is removed by Destroy
 // TODO(axw) StorageInstance becomes Dying when Unit becomes Dying
