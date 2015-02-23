@@ -26,6 +26,7 @@ type SetSuite struct {
 	testing.JujuConnSuite
 	svc *state.Service
 	dir string
+	CmdBlockSwitch
 }
 
 var _ = gc.Suite(&SetSuite{})
@@ -47,6 +48,9 @@ func (s *SetSuite) SetUpTest(c *gc.C) {
 	setupValueFile(c, s.dir, "invalid.txt", invalidSetTestValue)
 	setupBigFile(c, s.dir)
 	setupConfigFile(c, s.dir)
+
+	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
+	c.Assert(s.CmdBlockSwitch, gc.NotNil)
 }
 
 func (s *SetSuite) TestSetOptionSuccess(c *gc.C) {
@@ -125,7 +129,7 @@ func (s *SetSuite) TestSetConfig(c *gc.C) {
 
 func (s *SetSuite) TestBlockSetConfig(c *gc.C) {
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.BlockAllChanges(c, "TestBlockSetConfig")
 	ctx := coretesting.ContextForDir(c, s.dir)
 	code := cmd.Main(envcmd.Wrap(&SetCommand{}), ctx, append([]string{"dummy-service"}, []string{
 		"--config",
@@ -134,7 +138,7 @@ func (s *SetSuite) TestBlockSetConfig(c *gc.C) {
 	c.Check(code, gc.Equals, 1)
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*TestBlockSetConfig.*")
 }
 
 // assertSetSuccess sets configuration options and checks the expected settings.
