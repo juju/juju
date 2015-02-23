@@ -444,8 +444,11 @@ func (st *State) storageAttachment(storage names.StorageTag, unit names.UnitTag)
 	coll, closer := st.getCollection(storageAttachmentsC)
 	defer closer()
 	var s storageAttachment
-	if err := coll.FindId(storageAttachmentId(unit.Id(), storage.Id())).One(&s.doc); err != nil {
-		return nil, errors.Annotatef(err, "cannot get storage attachment %s/%s", storage.Id(), unit.Id())
+	err := coll.FindId(storageAttachmentId(unit.Id(), storage.Id())).One(&s.doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("storage attachment %s:%s", storage.Id(), unit.Id())
+	} else if err != nil {
+		return nil, errors.Annotatef(err, "cannot get storage attachment %s:%s", storage.Id(), unit.Id())
 	}
 	return &s, nil
 }
@@ -453,7 +456,7 @@ func (st *State) storageAttachment(storage names.StorageTag, unit names.UnitTag)
 // DestroyStorageAttachment ensures that the storage attachment will be
 // removed at some point.
 func (st *State) DestroyStorageAttachment(storage names.StorageTag, unit names.UnitTag) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot destroy storage attachment %s/%s", storage.Id(), unit.Id())
+	defer errors.DeferredAnnotatef(&err, "cannot destroy storage attachment %s:%s", storage.Id(), unit.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := st.storageAttachment(storage, unit)
 		if errors.IsNotFound(err) {
