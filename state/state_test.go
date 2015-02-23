@@ -139,7 +139,7 @@ func (s *StateSuite) TestEnvironUUID(c *gc.C) {
 
 func (s *StateSuite) TestNoEnvDocs(c *gc.C) {
 	c.Assert(s.State.EnsureEnvironmentRemoved(), gc.ErrorMatches,
-		fmt.Sprintf("found documents for environment with uuid %s: 1 constraints doc, 1 settings doc", s.State.EnvironUUID()))
+		fmt.Sprintf("found documents for environment with uuid %s: 1 constraints doc, 1 envusers doc, 1 settings doc", s.State.EnvironUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -2629,9 +2629,9 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	// insert one doc for each multiEnvCollection
 	var ops []mgotxn.Op
 	for collName := range state.MultiEnvCollections {
-		// skip adding constraints and settings as they were added when the
+		// skip adding constraints, envuser and settings as they were added when the
 		// environment was created
-		if collName == "constraints" || collName == "settings" {
+		if collName == "constraints" || collName == "envusers" || collName == "settings" {
 			continue
 		}
 		ops = append(ops, mgotxn.Op{

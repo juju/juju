@@ -239,6 +239,73 @@ func (s *upgradesSuite) TestAddEnvUUIDToUnitsIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToUnits, unitsC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToEnvUsers(c *gc.C) {
+	uuid := s.state.EnvironUUID()
+	coll, newIDs, count := s.checkEnvUUID(c, AddEnvUUIDToEnvUsersDoc, envUsersC,
+		[]bson.M{{
+			"_id":         uuid + ":sam@local",
+			"createdby":   "test-admin@local",
+			"displayname": "sam",
+			"envuuid":     uuid,
+			"user":        "sam@local",
+		}, {
+			"_id":         uuid + ":ralph@local",
+			"createdby":   "test-admin@local",
+			"displayname": "ralph",
+			"envuuid":     uuid,
+			"user":        "ralph@local",
+		}},
+		false,
+	)
+	// This test expects 3 docs to account for the test-admin user doc.
+	c.Assert(count, gc.Equals, 3)
+
+	var newDoc envUserDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.UserName, gc.Equals, "sam@local")
+	c.Assert(newDoc.CreatedBy, gc.Equals, "test-admin@local")
+	c.Assert(newDoc.DisplayName, gc.Equals, "sam")
+
+	var newBsonDoc bson.M
+	s.FindId(c, coll, newIDs[0], &newBsonDoc)
+	_, ok := newBsonDoc["envuuid"]
+	c.Assert(ok, jc.IsFalse)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.UserName, gc.Equals, "ralph@local")
+	c.Assert(newDoc.CreatedBy, gc.Equals, "test-admin@local")
+	c.Assert(newDoc.DisplayName, gc.Equals, "ralph")
+
+	s.FindId(c, coll, newIDs[1], &newBsonDoc)
+	_, ok = newBsonDoc["envuuid"]
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToEnvUsersIdempotent(c *gc.C) {
+	uuid := s.state.EnvironUUID()
+	oldID := uuid + ":bob@local"
+
+	s.addLegacyDoc(c, envUsersC, bson.M{"_id": oldID, "envuuid": uuid})
+	err := AddEnvUUIDToEnvUsersDoc(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	err = AddEnvUUIDToEnvUsersDoc(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	coll, closer := s.state.getRawCollection(envUsersC)
+	defer closer()
+
+	var docs []map[string]string
+	err = coll.Find(nil).All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(docs, gc.HasLen, 2)
+	c.Assert(docs[0]["user"], gc.Equals, "test-admin@local")
+	c.Assert(docs[1]["_id"], gc.Equals, oldID)
+	c.Assert(docs[1]["env-uuid"], gc.Equals, uuid)
+	if oldUuid, ok := docs[1]["envuuid"]; ok {
+		c.Fatalf("expected nil found %q", oldUuid)
+	}
+}
+
 func (s *upgradesSuite) TestAddEnvUUIDToMachines(c *gc.C) {
 	coll, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToMachines, machinesC,
 		bson.M{
