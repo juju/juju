@@ -19,6 +19,7 @@ var expectedSubCommmandNames = []string{
 	"info",
 	"list",
 	"remove",
+	"restore",
 	"upload",
 }
 

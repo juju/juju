@@ -12,6 +12,7 @@ import (
 // RestoreArgs holds the args to be used to call state/backups.Restore
 type RestoreArgs struct {
 	PrivateAddress string
+	PublicAddress  string
 	NewInstId      instance.Id
 	NewInstTag     names.Tag
 	NewInstSeries  string
