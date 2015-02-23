@@ -496,6 +496,7 @@ type EnvironmentInfo struct {
 	ProviderType  string
 	Name          string
 	UUID          string
+	ServerUUID    string
 }
 
 // EnvironmentInfo returns details about the Juju environment.
