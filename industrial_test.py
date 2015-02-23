@@ -51,9 +51,9 @@ class MultiIndustrialTest:
     """
 
     @classmethod
-    def from_args(cls, args):
+    def from_args(cls, args, suite):
         config = SimpleEnvironment.from_config(args.env).config
-        stages = cls.get_stages(args.suite, config)
+        stages = cls.get_stages(suite, config)
         return cls(args.env, args.new_juju_path,
                    stages, args.attempts, args.attempts * 2,
                    args.new_agent_url, args.debug, args.old_stable)
@@ -106,6 +106,24 @@ class MultiIndustrialTest:
             industrial = self.make_industrial_test()
             self.update_results(industrial.run_attempt(), results)
         return results
+
+    @staticmethod
+    def combine_results(result_list_list):
+        combine_dict = OrderedDict()
+        for result_list in result_list_list:
+            for result in result_list['results']:
+                test_id = result['test_id']
+                if test_id not in combine_dict:
+                    combine_dict[test_id] = result
+                    continue
+                existing_result = combine_dict[test_id]
+                for key in ['attempts', 'old_failures', 'new_failures']:
+                    existing_result[key] += result[key]
+                existing_result['report_on'] = (
+                    result.get('report_on', True) or
+                    existing_result.get('report_on', True)
+                    )
+        return {'results': combine_dict.values()}
 
     def make_industrial_test(self):
         """Create an IndustrialTest for this MultiIndustrialTest."""
@@ -689,12 +707,22 @@ suites = {
     }
 
 
+def suite_list(suite_str):
+    suite_list = suite_str.split(',')
+    for suite in suite_list:
+        if suite not in suites:
+            sys.stderr.write(
+                "Invalid argument suite: invalid choice: '{}'\n".format(suite))
+            sys.exit(1)
+    return suite_list
+
+
 def parse_args(args=None):
     """Parse commandline arguments into a Namespace."""
     parser = ArgumentParser()
     parser.add_argument('env')
     parser.add_argument('new_juju_path')
-    parser.add_argument('suite', choices=suites.keys())
+    parser.add_argument('suite', type=suite_list)
     parser.add_argument('--attempts', type=int, default=2)
     parser.add_argument('--json-file')
     parser.add_argument('--new-agent-url')
@@ -721,15 +749,16 @@ def run_single(args):
     client = EnvJujuClient.by_version(
         env,  args.new_juju_path, debug=args.debug)
     client.destroy_environment()
-    stages = MultiIndustrialTest.get_stages(args.suite, env.config)
-    upgrade_sequence = [upgrade_client.full_path, client.full_path]
-    try:
-        for stage in stages:
-            for step in stage.factory(upgrade_sequence).iter_steps(client):
-                print step
-    except BaseException as e:
-        logging.exception(e)
-        client.destroy_environment()
+    for suite in args.suite:
+        stages = MultiIndustrialTest.get_stages(suite, env.config)
+        upgrade_sequence = [upgrade_client.full_path, client.full_path]
+        try:
+            for stage in stages:
+                for step in stage.factory(upgrade_sequence).iter_steps(client):
+                    print step
+        except BaseException as e:
+            logging.exception(e)
+            client.destroy_environment()
 
 
 def main():
@@ -738,14 +767,17 @@ def main():
     if args.single:
         run_single(args)
         return
-    mit = MultiIndustrialTest.from_args(args)
-    try:
-        results = mit.run_tests()
-    except CannotUpgradeToOldClient:
-        if args.old_stable is not None:
-            raise
-        sys.stderr.write('Upgade tests require --old-stable.\n')
-        sys.exit(1)
+    results_list = []
+    for suite in args.suite:
+        mit = MultiIndustrialTest.from_args(args, suite)
+        try:
+            results_list.append(mit.run_tests())
+        except CannotUpgradeToOldClient:
+            if args.old_stable is not None:
+                raise
+            sys.stderr.write('Upgade tests require --old-stable.\n')
+            sys.exit(1)
+    results = MultiIndustrialTest.combine_results(results_list)
     maybe_write_json(args.json_file, results)
     sys.stdout.writelines(mit.results_table(results['results']))
 
