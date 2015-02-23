@@ -23,10 +23,13 @@ type Provider interface {
 	// satisfying errors.IsNotSupported.
 	VolumeSource(environConfig *config.Config, providerConfig *Config) (VolumeSource, error)
 
-	// TODO(axw) define filesystem source. If the user requests a
-	// filesystem and that can be provided first-class, it should be
-	// done that way. Otherwise we create a volume and then manage a
-	// filesystem on that.
+	// FilesystemSource returns a FilesystemSource given the
+	// specified cloud and storage provider configurations.
+	//
+	// If the storage provider does not support creating filesystems
+	// as a first-class primitive, then FilesystemSource must return
+	// an error satisfying errors.IsNotSupported.
+	FilesystemSource(environConfig *config.Config, providerConfig *Config) (FilesystemSource, error)
 
 	// ValidateConfig validates the provided storage provider config,
 	// returning an error if it is invalid.
@@ -76,6 +79,22 @@ type VolumeSource interface {
 	DetachVolumes(params []VolumeAttachmentParams) error
 }
 
+// FilesystemSource provides an interface for creating, destroying and
+// describing filesystems in the environment. A FilesystemSource is
+// configured in a particular way, and corresponds to a storage "pool".
+type FilesystemSource interface {
+	// ValidateFilesystemParams validates the provided filesystem creation
+	// parameters, returning an error if they are invalid.
+	ValidateFilesystemParams(params FilesystemParams) error
+
+	// CreateFilesystems creates filesystems with the specified size, in MiB.
+	// If the filesystems are initially attached, then CreateFilesystems returns
+	// information about those attachments too.
+	CreateFilesystems(params []FilesystemParams) ([]Filesystem, []FilesystemAttachment, error)
+
+	// TODO(wallyworld) add support for attaching/detaching filesystems
+}
+
 // VolumeParams is a fully specified set of parameters for volume creation,
 // derived from one or more of user-specified storage constraints, a
 // storage pool definition, and charm storage metadata.
@@ -104,7 +123,7 @@ type VolumeParams struct {
 	// presented with parameters for any due-to-be-attached volumes. If
 	// once the instance is created there are still unprovisioned volumes,
 	// the dynamic storage provisioner will take care of creating them.
-	Attachment *AttachmentParams
+	Attachment *VolumeAttachmentParams
 }
 
 // VolumeAttachmentParams is a set of parameters for volume attachment or
@@ -135,4 +154,40 @@ type AttachmentParams struct {
 	// that interact with the instances, such as EBS/EC2. The InstanceId
 	// field will be empty if the instance is not yet provisioned.
 	InstanceId instance.Id
+}
+
+// FilesystemParams is a fully specified set of parameters for filesystem creation,
+// derived from one or more of user-specified storage constraints, a
+// storage pool definition, and charm storage metadata.
+type FilesystemParams struct {
+	// Tag is a unique tag assigned by Juju for the requested filesystem.
+	Tag names.FilesystemTag
+
+	// Size is the minimum size of the filesystem in MiB.
+	Size uint64
+
+	// Attributes is a set of provider-specific options for storage creation,
+	// as defined in a storage pool.
+	Attributes map[string]interface{}
+
+	// The provider type for this filesystem.
+	Provider ProviderType
+
+	// Attachment identifies the machine that the filesystem should be
+	// mounted on.
+	Attachment *FilesystemAttachmentParams
+}
+
+// FilesystemAttachmentParams is a set of parameters for filesystem attachment or
+// detachment.
+type FilesystemAttachmentParams struct {
+	AttachmentParams
+
+	// Filesystem is a unique tag assigned by Juju for the filesystem that
+	// should be attached/detached.
+	Filesystem names.FilesystemTag
+
+	// Path is the path at which the filesystem is to be mounted on the machine that
+	// this attachment corresponds to.
+	Path string
 }

@@ -24,6 +24,7 @@ const (
 
 // loopProviders create volume sources which use loop devices.
 type loopProvider struct {
+	// run is a function type used for running commands on the local machine.
 	run runCommandFunc
 }
 
@@ -63,6 +64,14 @@ func (lp *loopProvider) VolumeSource(
 		return nil, errors.Annotate(err, "creating storage directory")
 	}
 	return &loopVolumeSource{lp.run, storageDir}, nil
+}
+
+// FilesystemSource is defined on the Provider interface.
+func (lp *loopProvider) FilesystemSource(
+	environConfig *config.Config,
+	providerConfig *storage.Config,
+) (storage.FilesystemSource, error) {
+	return nil, errors.NotSupportedf("filesystems")
 }
 
 // loopVolumeSource provides common functionality to handle

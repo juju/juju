@@ -25,9 +25,9 @@ type mockCommand struct {
 	err    error
 }
 
-func (c *mockCommand) respond(result string, err error) {
-	c.result = result
-	c.err = err
+func (m *mockCommand) respond(result string, err error) {
+	m.result = result
+	m.err = err
 }
 
 func (m *mockRunCommand) expect(cmd string, args ...string) *mockCommand {

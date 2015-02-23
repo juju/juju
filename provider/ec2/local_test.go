@@ -913,10 +913,11 @@ func (t *localServerSuite) TestStartInstanceVolumes(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	attachmentParams := &storage.AttachmentParams{
-		Machine: names.NewMachineTag("0"),
+	attachmentParams := &storage.VolumeAttachmentParams{
+		AttachmentParams: storage.AttachmentParams{
+			Machine: names.NewMachineTag("0"),
+		},
 	}
-
 	params := environs.StartInstanceParams{
 		Volumes: []storage.VolumeParams{{
 			Size:       512, // round up to 1GiB

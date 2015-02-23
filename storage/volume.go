@@ -32,7 +32,7 @@ type VolumeAttachment struct {
 	// that this attachment corresponds to.
 	Volume names.VolumeTag
 
-	// MachineId is the unique tag assigned by Juju for the machine that
+	// Machine is the unique tag assigned by Juju for the machine that
 	// this attachment corresponds to.
 	Machine names.MachineTag
 
