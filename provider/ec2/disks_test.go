@@ -82,8 +82,8 @@ func (*DisksSuite) TestBlockDeviceNamer(c *gc.C) {
 }
 
 func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
-	volume0 := names.NewDiskTag("0")
-	volume1 := names.NewDiskTag("1")
+	volume0 := names.NewVolumeTag("0")
+	volume1 := names.NewVolumeTag("1")
 	machine0 := names.NewMachineTag("0")
 
 	mapping, volumes, volumeAttachments, err := ec2.GetBlockDeviceMappings(
@@ -146,7 +146,7 @@ func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 }
 
 func (*DisksSuite) TestGetBlockDeviceMappingErrors(c *gc.C) {
-	volume0 := names.NewDiskTag("0")
+	volume0 := names.NewVolumeTag("0")
 	machine0 := names.NewMachineTag("0")
 
 	for _, test := range []struct {

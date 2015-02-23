@@ -47,7 +47,7 @@ func (s *DiskFormatterSuite) TestWatchAttachedVolumes(c *gc.C) {
 			{Tag: "machine-0"},
 			{Tag: "machine-1"},
 			{Tag: "unit-service-0"},
-			{Tag: "disk-1"},
+			{Tag: "volume-1"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,9 +66,9 @@ func (s *DiskFormatterSuite) TestWatchAttachedVolumes(c *gc.C) {
 
 func (s *DiskFormatterSuite) TestAttachedVolumes(c *gc.C) {
 	machine0 := names.NewMachineTag("0")
-	volume0 := names.NewDiskTag("0")
-	volume1 := names.NewDiskTag("1")
-	volume2 := names.NewDiskTag("2")
+	volume0 := names.NewVolumeTag("0")
+	volume1 := names.NewVolumeTag("1")
+	volume2 := names.NewVolumeTag("2")
 
 	s.st.devices = map[names.MachineTag][]state.BlockDeviceInfo{
 		machine0: {{
@@ -79,7 +79,7 @@ func (s *DiskFormatterSuite) TestAttachedVolumes(c *gc.C) {
 		}},
 	}
 
-	s.st.volumes = map[names.DiskTag]*mockVolume{
+	s.st.volumes = map[names.VolumeTag]*mockVolume{
 		volume0: {
 			tag: volume0,
 			info: &state.VolumeInfo{
@@ -110,7 +110,7 @@ func (s *DiskFormatterSuite) TestAttachedVolumes(c *gc.C) {
 			{Tag: "machine-0"},
 			{Tag: "machine-1"},
 			{Tag: "unit-service-0"},
-			{Tag: "disk-1"},
+			{Tag: "volume-1"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -148,10 +148,10 @@ func (s *DiskFormatterSuite) TestAttachedVolumes(c *gc.C) {
 
 func (s *DiskFormatterSuite) TestVolumePreparationInfo(c *gc.C) {
 	machine0 := names.NewMachineTag("0")
-	volume0 := names.NewDiskTag("0")
-	volume1 := names.NewDiskTag("1")
-	volume2 := names.NewDiskTag("2")
-	volume3 := names.NewDiskTag("3")
+	volume0 := names.NewVolumeTag("0")
+	volume1 := names.NewVolumeTag("1")
+	volume2 := names.NewVolumeTag("2")
+	volume3 := names.NewVolumeTag("3")
 	storagefs := names.NewStorageTag("fs/0")
 	storageblk := names.NewStorageTag("blk/0")
 
@@ -174,7 +174,7 @@ func (s *DiskFormatterSuite) TestVolumePreparationInfo(c *gc.C) {
 		storageblk: {kind: state.StorageKindBlock},
 	}
 
-	s.st.volumes = map[names.DiskTag]*mockVolume{
+	s.st.volumes = map[names.VolumeTag]*mockVolume{
 		volume0: {
 			tag:     volume0,
 			storage: storagefs,
@@ -220,11 +220,11 @@ func (s *DiskFormatterSuite) TestVolumePreparationInfo(c *gc.C) {
 
 	results, err := s.api.VolumePreparationInfo(params.VolumeAttachmentIds{
 		Ids: []params.VolumeAttachmentId{
-			{MachineTag: "machine-0", VolumeTag: "disk-0"},
-			{MachineTag: "machine-0", VolumeTag: "disk-1"},
-			{MachineTag: "machine-0", VolumeTag: "disk-2"},
-			{MachineTag: "machine-0", VolumeTag: "disk-3"},
-			{MachineTag: "machine-1", VolumeTag: "disk-0"},
+			{MachineTag: "machine-0", VolumeTag: "volume-0"},
+			{MachineTag: "machine-0", VolumeTag: "volume-1"},
+			{MachineTag: "machine-0", VolumeTag: "volume-2"},
+			{MachineTag: "machine-0", VolumeTag: "volume-3"},
+			{MachineTag: "machine-1", VolumeTag: "volume-0"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -278,7 +278,7 @@ type mockState struct {
 	calls             []call
 	devices           map[names.MachineTag][]state.BlockDeviceInfo
 	storageInstances  map[names.StorageTag]*mockStorageInstance
-	volumes           map[names.DiskTag]*mockVolume
+	volumes           map[names.VolumeTag]*mockVolume
 	volumeAttachments []*mockVolumeAttachment
 }
 
@@ -314,7 +314,7 @@ func (st *mockState) StorageInstance(tag names.StorageTag) (state.StorageInstanc
 	return storageInstance, nil
 }
 
-func (st *mockState) Volume(tag names.DiskTag) (state.Volume, error) {
+func (st *mockState) Volume(tag names.VolumeTag) (state.Volume, error) {
 	st.recordCall("Volume", tag)
 	volume, ok := st.volumes[tag]
 	if !ok {
@@ -334,7 +334,7 @@ func (st *mockState) MachineVolumeAttachments(tag names.MachineTag) ([]state.Vol
 	return attachments, nil
 }
 
-func (st *mockState) VolumeAttachment(machine names.MachineTag, volume names.DiskTag) (state.VolumeAttachment, error) {
+func (st *mockState) VolumeAttachment(machine names.MachineTag, volume names.VolumeTag) (state.VolumeAttachment, error) {
 	st.recordCall("VolumeAttachment", machine, volume)
 	for _, att := range st.volumeAttachments {
 		if att.machine == machine && att.volume == volume {
@@ -356,7 +356,7 @@ func (w *mockNotifyWatcher) Changes() <-chan struct{} {
 type mockVolume struct {
 	state.Volume
 
-	tag     names.DiskTag
+	tag     names.VolumeTag
 	storage names.StorageTag
 	info    *state.VolumeInfo
 }
@@ -387,12 +387,12 @@ func (d *mockStorageInstance) Kind() state.StorageKind {
 }
 
 type mockVolumeAttachment struct {
-	volume  names.DiskTag
+	volume  names.VolumeTag
 	machine names.MachineTag
 	info    *state.VolumeAttachmentInfo
 }
 
-func (a *mockVolumeAttachment) Volume() names.DiskTag {
+func (a *mockVolumeAttachment) Volume() names.VolumeTag {
 	return a.volume
 }
 

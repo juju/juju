@@ -81,7 +81,7 @@ type VolumeSource interface {
 // storage pool definition, and charm storage metadata.
 type VolumeParams struct {
 	// Tag is a unique tag name assigned by Juju for the requested volume.
-	Tag names.DiskTag
+	Tag names.VolumeTag
 
 	// Size is the minimum size of the volume in MiB.
 	Size uint64
@@ -114,7 +114,7 @@ type VolumeAttachmentParams struct {
 
 	// Volume is a unique tag assigned by Juju for the volume that
 	// should be attached/detached.
-	Volume names.DiskTag
+	Volume names.VolumeTag
 
 	// VolumeId is the unique provider-supplied ID for the volume that
 	// should be attached/detached.

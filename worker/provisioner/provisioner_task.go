@@ -484,7 +484,7 @@ func constructStartInstanceParams(
 
 	volumes := make([]storage.VolumeParams, len(provisioningInfo.Volumes))
 	for i, v := range provisioningInfo.Volumes {
-		volumeTag, err := names.ParseDiskTag(v.VolumeTag)
+		volumeTag, err := names.ParseVolumeTag(v.VolumeTag)
 		if err != nil {
 			return environs.StartInstanceParams{}, errors.Trace(err)
 		}

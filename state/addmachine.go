@@ -64,7 +64,7 @@ type MachineTemplate struct {
 
 	// VolumeAttachments holds the parameters for attaching existing
 	// volumes to the machine.
-	VolumeAttachments map[names.DiskTag]VolumeAttachmentParams
+	VolumeAttachments map[names.VolumeTag]VolumeAttachmentParams
 
 	// Nonce holds a unique value that can be used to check
 	// if a new instance was really started for this machine.
@@ -470,7 +470,7 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	// attempting to create the volume until after the machine
 	// has been provisioned.
 	var volumeOps []txn.Op
-	attachmentParams := make(map[names.DiskTag]VolumeAttachmentParams)
+	attachmentParams := make(map[names.VolumeTag]VolumeAttachmentParams)
 	for _, v := range template.Volumes {
 		op, tag, err := st.addVolumeOp(v.Volume)
 		if err != nil {

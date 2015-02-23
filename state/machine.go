@@ -907,8 +907,8 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
 	networks []NetworkInfo, interfaces []NetworkInterfaceInfo,
-	volumes map[names.DiskTag]VolumeInfo,
-	volumeAttachments map[names.DiskTag]VolumeAttachmentInfo,
+	volumes map[names.VolumeTag]VolumeInfo,
+	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
 ) error {
 
 	// Add the networks and interfaces first.

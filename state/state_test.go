@@ -1216,7 +1216,7 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 	volumeAttachments, err := s.State.MachineVolumeAttachments(m.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 2)
-	if volumeAttachments[0].Volume() == names.NewDiskTag("1") {
+	if volumeAttachments[0].Volume() == names.NewVolumeTag("1") {
 		va := volumeAttachments
 		va[0], va[1] = va[1], va[0]
 	}

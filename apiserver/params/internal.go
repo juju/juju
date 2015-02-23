@@ -320,7 +320,7 @@ type InstanceInfo struct {
 	Networks        []Network
 	Interfaces      []NetworkInterface
 	Volumes         []Volume
-	// TODO(axw) we should return map[names.DiskTag]VolumeAttachmentInfo
+	// TODO(axw) we should return map[names.VolumeTag]VolumeAttachmentInfo
 	// here, containing only the information regarding the attachment.
 	// The rest can be inferred from the context.
 	VolumeAttachments []VolumeAttachment
