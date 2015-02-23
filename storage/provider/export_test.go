@@ -5,6 +5,7 @@ package provider
 
 import (
 	"os"
+	"time"
 
 	"github.com/juju/utils/set"
 
@@ -31,11 +32,45 @@ func (m *mockDirFuncs) mkDirAll(path string, perm os.FileMode) error {
 	return nil
 }
 
-func (m *mockDirFuncs) lstat(name string) (fi os.FileInfo, err error) {
-	if m.dirs.Contains(name) {
-		return nil, nil
+type mockFileInfo struct {
+	isDir bool
+}
+
+func (m *mockFileInfo) IsDir() bool {
+	return m.isDir
+}
+
+func (m *mockFileInfo) Name() string {
+	return ""
+}
+
+func (m *mockFileInfo) Size() int64 {
+	return 0
+}
+
+func (m *mockFileInfo) Mode() os.FileMode {
+	return 0
+}
+
+func (m *mockFileInfo) ModTime() time.Time {
+	return time.Now()
+}
+func (m *mockFileInfo) Sys() interface{} {
+	return nil
+}
+
+func (m *mockDirFuncs) lstat(name string) (os.FileInfo, error) {
+	if name == "file" || m.dirs.Contains(name) {
+		return &mockFileInfo{name != "file"}, nil
 	}
 	return nil, os.ErrNotExist
+}
+
+func (m *mockDirFuncs) fileCount(name string) (int, error) {
+	if name == "/mnt/notempty" {
+		return 2, nil
+	}
+	return 0, nil
 }
 
 func RootfsFilesystemSource(storageDir string, run func(string, ...string) (string, error)) storage.FilesystemSource {

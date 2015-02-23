@@ -500,7 +500,7 @@ func constructStartInstanceParams(
 			v.Size,
 			storage.ProviderType(v.Provider),
 			v.Attributes,
-			&storage.AttachmentParams{machineTag, ""},
+			&storage.VolumeAttachmentParams{AttachmentParams: storage.AttachmentParams{machineTag, ""}},
 		}
 	}
 

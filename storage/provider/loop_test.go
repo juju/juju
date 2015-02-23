@@ -83,9 +83,11 @@ func (s *loopSuite) TestCreateVolumes(c *gc.C) {
 	volumes, volumeAttachments, err := source.CreateVolumes([]storage.VolumeParams{{
 		Tag:  names.NewVolumeTag("0"),
 		Size: 2,
-		Attachment: &storage.AttachmentParams{
-			Machine:    names.NewMachineTag("1"),
-			InstanceId: "instance-id",
+		Attachment: &storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				Machine:    names.NewMachineTag("1"),
+				InstanceId: "instance-id",
+			},
 		},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -103,7 +105,7 @@ func (s *loopSuite) TestCreateVolumes(c *gc.C) {
 	})
 }
 
-func (s *loopSuite) xestCreateVolumesNoAttachment(c *gc.C) {
+func (s *loopSuite) TestCreateVolumesNoAttachment(c *gc.C) {
 	source := s.loopVolumeSource(c)
 	_, _, err := source.CreateVolumes([]storage.VolumeParams{{
 		Tag:  names.NewVolumeTag("0"),

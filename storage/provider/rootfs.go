@@ -5,7 +5,6 @@ package provider
 
 import (
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -13,6 +12,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
+	"io/ioutil"
 )
 
 const (
@@ -79,7 +79,8 @@ type rootfsFilesystemSource struct {
 // be stubbed out for testing.
 type dirFuncs interface {
 	mkDirAll(path string, perm os.FileMode) error
-	lstat(name string) (fi os.FileInfo, err error)
+	lstat(path string) (fi os.FileInfo, err error)
+	fileCount(path string) (int, error)
 }
 
 // The real directory related functions.
@@ -89,8 +90,16 @@ func (*osDirFuncs) mkDirAll(path string, perm os.FileMode) error {
 	return os.MkdirAll(path, perm)
 }
 
-func (*osDirFuncs) lstat(name string) (fi os.FileInfo, err error) {
-	return os.Lstat(name)
+func (*osDirFuncs) lstat(path string) (fi os.FileInfo, err error) {
+	return os.Lstat(path)
+}
+
+func (*osDirFuncs) fileCount(path string) (int, error) {
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		return 0, errors.Annotate(err, "could not read directory")
+	}
+	return len(files), nil
 }
 
 var _ storage.FilesystemSource = (*rootfsFilesystemSource)(nil)
@@ -118,56 +127,65 @@ func (s *rootfsFilesystemSource) CreateFilesystems(args []storage.FilesystemPara
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "creating filesystem")
 		}
-		// If the filesystem exists, no need to record that we created it.
-		if filesystem != nil {
-			filesystems = append(filesystems, *filesystem)
-		}
+		filesystems = append(filesystems, filesystem)
 		filesystemAttachments = append(filesystemAttachments, filesystemAttachment)
 	}
 	return filesystems, filesystemAttachments, nil
 
 }
 
-func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParams) (*storage.Filesystem, storage.FilesystemAttachment, error) {
-	var filesystem *storage.Filesystem
+func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParams) (storage.Filesystem, storage.FilesystemAttachment, error) {
+	var filesystem storage.Filesystem
 	var filesystemAttachment storage.FilesystemAttachment
 	if err := s.ValidateFilesystemParams(params); err != nil {
 		return filesystem, filesystemAttachment, errors.Trace(err)
 	}
-	location := params.Location
-	if location == "" {
-		location = filepath.Join(s.storageDir, params.Tag.Id())
+	path := params.Attachment.Path
+	if path == "" {
+		return filesystem, filesystemAttachment, errors.New("cannot create a filesystem mount without specifying a path")
 	}
 	filesystemAttachment = storage.FilesystemAttachment{
 		Filesystem: params.Tag,
 		Machine:    params.Attachment.Machine,
-		Location:   location,
+		Path:       path,
 	}
-	if _, err := s.dirFuncs.lstat(location); !os.IsNotExist(err) {
-		// Filesystem already exists so no need to create it again.
-		return filesystem, filesystemAttachment, nil
+	// If path already exists, we check that it is empty.
+	// It is up to the storage provisioner to ensure that any
+	// shared storage constraints and attachments with the same
+	// path are validated etc. So the check here is more a sanity check.
+	if fi, err := s.dirFuncs.lstat(path); os.IsNotExist(err) {
+		if err := s.dirFuncs.mkDirAll(path, 0755); err != nil {
+			return filesystem, filesystemAttachment, errors.Annotate(err, "could not create directory")
+		}
+	} else if !fi.IsDir() {
+		return filesystem, filesystemAttachment, errors.Errorf("path %q must be a directory", path)
+	} else {
+		fileCount, err := s.dirFuncs.fileCount(path)
+		if err != nil {
+			return filesystem, filesystemAttachment, errors.Annotate(err, "could not read directory")
+		}
+		if fileCount > 0 {
+			return filesystem, filesystemAttachment, errors.New("path must be empty")
+		}
 	}
-	if err := s.dirFuncs.mkDirAll(location, 0755); err != nil {
-		return filesystem, filesystemAttachment, errors.Annotate(err, "could not create directory")
-	}
-	dfOutput, err := s.run("df", "--output=size", location)
+	dfOutput, err := s.run("df", "--output=size", path)
 	if err != nil {
-		os.Remove(location)
+		os.Remove(path)
 		return filesystem, filesystemAttachment, errors.Annotate(err, "getting size")
 	}
 	lines := strings.SplitN(dfOutput, "\n", 2)
 	blocks, err := strconv.ParseUint(strings.TrimSpace(lines[1]), 10, 64)
 	if err != nil {
-		os.Remove(location)
-		return filesystem, filesystemAttachment, errors.Annotate(err, "getting size")
+		os.Remove(path)
+		return filesystem, filesystemAttachment, errors.Annotate(err, "parsing size")
 	}
 	sizeInMiB := blocks / 1024
 	if sizeInMiB < params.Size {
-		os.Remove(location)
+		os.Remove(path)
 		return filesystem, filesystemAttachment, errors.Errorf("filesystem is not big enough (%dM < %dM)", sizeInMiB, params.Size)
 	}
 
-	filesystem = &storage.Filesystem{
+	filesystem = storage.Filesystem{
 		Tag:  params.Tag,
 		Size: sizeInMiB,
 	}

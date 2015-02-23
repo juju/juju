@@ -123,7 +123,7 @@ type VolumeParams struct {
 	// presented with parameters for any due-to-be-attached volumes. If
 	// once the instance is created there are still unprovisioned volumes,
 	// the dynamic storage provisioner will take care of creating them.
-	Attachment *AttachmentParams
+	Attachment *VolumeAttachmentParams
 }
 
 // VolumeAttachmentParams is a set of parameters for volume attachment or
@@ -160,7 +160,7 @@ type AttachmentParams struct {
 // derived from one or more of user-specified storage constraints, a
 // storage pool definition, and charm storage metadata.
 type FilesystemParams struct {
-	// Tag is a unique name assigned by Juju for the requested filesystem.
+	// Tag is a unique tag assigned by Juju for the requested filesystem.
 	Tag names.FilesystemTag
 
 	// Size is the minimum size of the filesystem in MiB.
@@ -173,18 +173,13 @@ type FilesystemParams struct {
 	// The provider type for this filesystem.
 	Provider ProviderType
 
-	// The location at which the filesystem is mounted on the machine that
-	// this attachment corresponds to.
-	Location string
-
 	// Attachment identifies the machine that the filesystem should be
 	// mounted on.
-	Attachment *AttachmentParams
+	Attachment *FilesystemAttachmentParams
 }
 
 // FilesystemAttachmentParams is a set of parameters for filesystem attachment or
 // detachment.
-// TODO(wallworld) - not used yet; required when support for attaching filesystems is added.
 type FilesystemAttachmentParams struct {
 	AttachmentParams
 
@@ -192,7 +187,7 @@ type FilesystemAttachmentParams struct {
 	// should be attached/detached.
 	Filesystem names.FilesystemTag
 
-	// Location is the path at which the filesystem is mounted on the machine that
+	// Path is the path at which the filesystem is mounted on the machine that
 	// this attachment corresponds to.
-	Location string
+	Path string
 }

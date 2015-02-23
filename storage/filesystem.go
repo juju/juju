@@ -15,8 +15,8 @@ type Filesystem struct {
 	Size uint64
 }
 
-// FilesystemAttachment describes machine-specific volume attachment information,
-// including how the volume is exposed on the machine.
+// FilesystemAttachment describes machine-specific filesystem attachment information,
+// including how the filesystem is exposed on the machine.
 type FilesystemAttachment struct {
 	// Filesystem is the unique tag assigned by Juju for the filesystem
 	// that this attachment corresponds to.
@@ -26,7 +26,7 @@ type FilesystemAttachment struct {
 	// this attachment corresponds to.
 	Machine names.MachineTag
 
-	// Location is the path at which the filesystem is mounted on the machine that
+	// Path is the path at which the filesystem is mounted on the machine that
 	// this attachment corresponds to.
-	Location string
+	Path string
 }
