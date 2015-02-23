@@ -339,7 +339,7 @@ func createStorageOps(
 	entity names.Tag,
 	charmMeta *charm.Meta,
 	cons map[string]StorageConstraints,
-) (ops []txn.Op, storageAttachments []names.StorageTag, err error) {
+) (ops []txn.Op, numStorageAttachments int, err error) {
 
 	type template struct {
 		storageName string
@@ -353,7 +353,7 @@ func createStorageOps(
 		createdShared = true
 	case names.UnitTag:
 	default:
-		return nil, nil, errors.Errorf("expected service or unit tag, got %T", entity)
+		return nil, -1, errors.Errorf("expected service or unit tag, got %T", entity)
 	}
 
 	// Create storage instances in order of name, to simplify testing.
@@ -367,7 +367,7 @@ func createStorageOps(
 		cons := cons[store]
 		charmStorage, ok := charmMeta.Storage[store]
 		if !ok {
-			return nil, nil, errors.NotFoundf("charm storage %q", store)
+			return nil, -1, errors.NotFoundf("charm storage %q", store)
 		}
 		if createdShared != charmStorage.Shared {
 			// services only get shared storage instances,
@@ -382,7 +382,6 @@ func createStorageOps(
 	}
 
 	ops = make([]txn.Op, 0, len(templates)*2)
-	storageAttachments = make([]names.StorageTag, 0, len(templates))
 	for _, t := range templates {
 		owner := entity.String()
 		var kind StorageKind
@@ -392,13 +391,13 @@ func createStorageOps(
 		case charm.StorageFilesystem:
 			kind = StorageKindFilesystem
 		default:
-			return nil, nil, errors.Errorf("unknown storage type %q", t.meta.Type)
+			return nil, -1, errors.Errorf("unknown storage type %q", t.meta.Type)
 		}
 
 		for i := uint64(0); i < t.cons.Count; i++ {
 			id, err := newStorageInstanceId(st, t.storageName)
 			if err != nil {
-				return nil, nil, errors.Annotate(err, "cannot generate storage instance name")
+				return nil, -1, errors.Annotate(err, "cannot generate storage instance name")
 			}
 			doc := &storageInstanceDoc{
 				Id:          id,
@@ -410,7 +409,7 @@ func createStorageOps(
 				doc.AttachmentCount = 1
 				storage := names.NewStorageTag(id)
 				ops = append(ops, createStorageAttachmentOp(storage, unit))
-				storageAttachments = append(storageAttachments, storage)
+				numStorageAttachments++
 			}
 			ops = append(ops, txn.Op{
 				C:      storageInstancesC,
@@ -428,7 +427,7 @@ func createStorageOps(
 	// creation, because the only sane time to add storage attachments
 	// is when units are added to said service.
 
-	return ops, storageAttachments, nil
+	return ops, numStorageAttachments, nil
 }
 
 // createStorageAttachmentOps returns a txn.Op for creating a storage attachment.

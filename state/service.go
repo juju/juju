@@ -585,7 +585,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	}
 
 	// Create instances of the charm's declared stores.
-	storageOps, storageAttachments, err := s.unitStorageOps(name)
+	storageOps, numStorageAttachments, err := s.unitStorageOps(name)
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
@@ -601,7 +601,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		Series:                 s.doc.Series,
 		Life:                   Alive,
 		Principal:              principalName,
-		StorageAttachmentCount: len(storageAttachments),
+		StorageAttachmentCount: numStorageAttachments,
 	}
 	agentStatusDoc := statusDoc{
 		Status:  StatusAllocating,
@@ -654,24 +654,26 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 }
 
 // unitStorageOps returns operations for creating storage
-// instances and attachments for a new unit.
-func (s *Service) unitStorageOps(unitName string) (ops []txn.Op, storageAttachments []names.StorageTag, err error) {
+// instances and attachments for a new unit. unitStorageOps
+// returns the number of initial storage attachments, to
+// initialise the unit's storage attachment refcount.
+func (s *Service) unitStorageOps(unitName string) (ops []txn.Op, numStorageAttachments int, err error) {
 	cons, err := s.StorageConstraints()
 	if err != nil {
-		return nil, nil, err
+		return nil, -1, err
 	}
 	charm, _, err := s.Charm()
 	if err != nil {
-		return nil, nil, err
+		return nil, -1, err
 	}
 	meta := charm.Meta()
 	tag := names.NewUnitTag(unitName)
 	// TODO(wallyworld) - record constraints info in data model - size and pool name
-	ops, storageAttachments, err = createStorageOps(s.st, tag, meta, cons)
+	ops, numStorageAttachments, err = createStorageOps(s.st, tag, meta, cons)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, -1, errors.Trace(err)
 	}
-	return ops, storageAttachments, nil
+	return ops, numStorageAttachments, nil
 }
 
 // SCHEMACHANGE

@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
@@ -152,12 +153,17 @@ func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// until all storage attachments are removed, the unit cannot be
 	// marked as being dead.
-	err = u.EnsureDead()
-	c.Assert(err, gc.ErrorMatches, "unit has storage attachments")
+	assertUnitEnsureDeadError := func() {
+		err = u.EnsureDead()
+		c.Assert(err, gc.ErrorMatches, "unit has storage attachments")
+	}
+	assertUnitEnsureDeadError()
 	err = s.State.EnsureStorageAttachmentDead(names.NewStorageTag("data/0"), u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
+	assertUnitEnsureDeadError()
 	err = s.State.DestroyStorageInstance(names.NewStorageTag("data/0"))
 	c.Assert(err, jc.ErrorIsNil)
+	assertUnitEnsureDeadError()
 	err = s.State.RemoveStorageAttachment(names.NewStorageTag("data/0"), u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.EnsureDead()
@@ -175,10 +181,25 @@ func (s *StorageStateSuite) TestRemoveStorageInstance(c *gc.C) {
 
 	storageTag := names.NewStorageTag("data/0")
 
+	storageInstanceExists := func() bool {
+		_, err := state.TxnRevno(
+			s.State,
+			state.StorageInstancesC,
+			state.DocID(s.State, storageTag.Id()),
+		)
+		if err != nil {
+			c.Assert(err, gc.Equals, mgo.ErrNotFound)
+			return false
+		}
+		return true
+	}
+
 	err = s.State.DestroyStorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveStorageInstance(storageTag)
 	c.Assert(err, gc.ErrorMatches, `cannot remove storage "data/0": storage is not dead`)
+	exists := storageInstanceExists()
+	c.Assert(exists, jc.IsTrue)
 
 	err = s.State.EnsureStorageAttachmentDead(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -186,6 +207,8 @@ func (s *StorageStateSuite) TestRemoveStorageInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveStorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
+	exists = storageInstanceExists()
+	c.Assert(exists, jc.IsFalse)
 }
 
 func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {

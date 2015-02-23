@@ -30,6 +30,7 @@ const (
 	UnitsC             = unitsC
 	UsersC             = usersC
 	BlockDevicesC      = blockDevicesC
+	StorageInstancesC  = storageInstancesC
 )
 
 var (

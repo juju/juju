@@ -364,6 +364,7 @@ func (s *CleanupSuite) TestCleanupStorage(c *gc.C) {
 	// check no cleanups
 	s.assertDoesNotNeedCleanup(c)
 
+	// this tag matches the storage instance created for the unit above.
 	storageTag := names.NewStorageTag("data/0")
 
 	si, err := s.State.StorageInstance(storageTag)
