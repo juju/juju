@@ -290,7 +290,7 @@ func (f *summaryFormatter) aggregateServiceAndUnitStates(services map[string]ser
 
 // sortStrings is syntactic sugar so we can do sorts in one line.
 func sortStrings(s []string) []string {
-	sort.Strings(s)
+	sort.Sort(naturally(s))
 	return s
 }
 
