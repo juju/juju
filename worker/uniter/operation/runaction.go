@@ -50,10 +50,11 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 	ra.name = actionData.ActionName
 	ra.runner = rnr
 	return stateChange{
-		Kind:     RunAction,
-		Step:     Pending,
-		ActionId: &ra.actionId,
-		Hook:     state.Hook,
+		Kind:               RunAction,
+		Step:               Pending,
+		ActionId:           &ra.actionId,
+		ActionContinuation: state.Kind,
+		Hook:               state.Hook,
 	}.apply(state), nil
 }
 
@@ -74,19 +75,24 @@ func (ra *runAction) Execute(state State) (*State, error) {
 		return nil, errors.Annotatef(err, "running action %q", ra.name)
 	}
 	return stateChange{
-		Kind:     RunAction,
-		Step:     Done,
-		ActionId: &ra.actionId,
-		Hook:     state.Hook,
+		Kind:               RunAction,
+		Step:               Done,
+		ActionId:           &ra.actionId,
+		ActionContinuation: state.ActionContinuation,
+		Hook:               state.Hook,
 	}.apply(state), nil
 }
 
 // Commit preserves the recorded hook, and returns a neutral state.
 // Commit is part of the Operation interface.
 func (ra *runAction) Commit(state State) (*State, error) {
+	if string(state.ActionContinuation) == "" {
+		state.ActionContinuation = Continue
+	}
 	return stateChange{
-		Kind: Continue,
-		Step: Pending,
-		Hook: state.Hook,
+		Kind:               state.ActionContinuation,
+		Step:               Pending,
+		ActionContinuation: Continue,
+		Hook:               state.Hook,
 	}.apply(state), nil
 }

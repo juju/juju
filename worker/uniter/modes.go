@@ -313,6 +313,11 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 				return nil, errors.Trace(err)
 			}
 			return ModeContinue, nil
+		case action := <-u.f.ActionEvents():
+			if err := u.runOperation(newActionOp(action.ActionId)); err != nil {
+				return nil, errors.Trace(err)
+			}
+			continue
 		}
 	}
 }
