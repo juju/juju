@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/service/common"
@@ -53,19 +54,50 @@ type Service interface {
 	UpdateConfig(conf common.Conf)
 }
 
-// TODO(ericsnow) NewService -> DiscoverService.
+func newService(name string, conf common.Conf, initSystem string) (Service, error) {
+	var svc Service
 
-// TODO(ericsnow) Return an error from NewService.
+	switch initSystem {
+	case "windows":
+		svc = windows.NewService(name, conf)
+	case "upstart":
+		svc = upstart.NewService(name, conf)
+	default:
+		return nil, errors.NotFoundf("init system %q", initSystem)
+	}
+
+	return svc, nil
+}
+
+// TODO(ericsnow) NewService -> DiscoverService.
 
 // NewService returns an interface to a service apropriate
 // for the current system
-func NewService(name string, conf common.Conf) Service {
-	switch version.Current.OS {
+func NewService(name string, conf common.Conf) (Service, error) {
+	initName := versionInitSystem(version.Current)
+	if initName == "" {
+		return nil, errors.NotFoundf("init system on local host")
+	}
+
+	service, err := newService(name, conf, initName)
+	return service, errors.Trace(err)
+}
+
+func versionInitSystem(vers version.Binary) string {
+	switch vers.OS {
 	case version.Windows:
-		svc := windows.NewService(name, conf)
-		return svc
+		return "windows"
+	case version.Ubuntu:
+		switch vers.Series {
+		case "precise", "quantal", "raring", "saucy", "trusty", "utopic":
+			return "upstart"
+		default:
+			// vivid and later
+			return "systemd"
+		}
+		// TODO(ericsnow) Support other OSes, like version.CentOS.
 	default:
-		return upstart.NewService(name, conf)
+		return ""
 	}
 }
 
@@ -105,12 +137,19 @@ func upstartListServices(initDir string) ([]string, error) {
 
 // ListServices lists all installed services on the running system
 func ListServices(initDir string) ([]string, error) {
-	switch version.Current.OS {
-	case version.Ubuntu:
-		return upstartListServices(initDir)
-	case version.Windows:
-		return windowsListServices()
+	initName := versionInitSystem(version.Current)
+	if initName == "" {
+		return nil, errors.NotFoundf("init system on local host")
+	}
+
+	switch initName {
+	case "windows":
+		services, err := windowsListServices()
+		return services, errors.Trace(err)
+	case "upstart":
+		services, err := upstartListServices(initDir)
+		return services, errors.Trace(err)
 	default:
-		return upstartListServices(initDir)
+		return nil, errors.NotFoundf("init system %q", initName)
 	}
 }

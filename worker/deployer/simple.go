@@ -23,6 +23,8 @@ import (
 	"github.com/juju/juju/version"
 )
 
+// TODO(ericsnow) Eliminate InitDir.
+
 // InitDir is the default upstart init directory.
 // This is a var so it can be overridden by tests.
 var InitDir = "/etc/init"
@@ -171,7 +173,7 @@ func (ctx *SimpleContext) findUpstartJob(unitName string) service.Service {
 		return nil
 	}
 	if job, ok := unitsAndJobs[unitName]; ok {
-		svc := service.NewService(job, common.Conf{InitDir: ctx.initDir})
+		svc, _ := service.NewService(job, common.Conf{InitDir: ctx.initDir})
 		return svc
 	}
 	return nil
@@ -242,7 +244,7 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 func (ctx *SimpleContext) service(unitName string) service.Service {
 	tag := names.NewUnitTag(unitName).String()
 	svcName := "jujud-" + tag
-	svc := service.NewService(svcName, common.Conf{InitDir: ctx.initDir})
+	svc, _ := service.NewService(svcName, common.Conf{InitDir: ctx.initDir})
 	return svc
 }
 
