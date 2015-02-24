@@ -63,6 +63,9 @@ type State struct {
 	// Started indicates whether the start hook has run.
 	Started bool `yaml:"started"`
 
+	// Stopped indicates whether the stop hook has run.
+	Stopped bool `yaml:"stopped"`
+
 	// Kind indicates the current operation.
 	Kind Kind `yaml:"op"`
 
@@ -100,34 +103,41 @@ func (st State) validate() (err error) {
 	switch st.Kind {
 	case Install:
 		if hasHook {
-			return errors.New("unexpected hook info")
+			return errors.New("unexpected hook info with Kind Install")
 		}
 		fallthrough
 	case Upgrade:
-		if !hasCharm {
+		switch {
+		case !hasCharm:
 			return errors.New("missing charm URL")
-		} else if hasActionId {
+		case hasActionId:
 			return errors.New("unexpected action id")
 		}
 	case RunAction:
-		if !hasHook {
-			return errors.New("missing hook info")
-		} else if hasCharm {
+		switch {
+		case hasHook:
+			return errors.New("unexpected hook info with Kind RunAction")
+		case hasCharm:
 			return errors.New("unexpected charm URL")
-		} else if !hasActionId {
+		case !hasActionId:
 			return errors.New("missing action id")
 		}
 	case RunHook:
-		if hasActionId {
+		switch {
+		case !hasHook:
+			return errors.New("missing hook info with Kind RunHook")
+		case hasCharm:
+			return errors.New("unexpected charm URL")
+		case hasActionId:
 			return errors.New("unexpected action id")
 		}
-		fallthrough
 	case Continue:
-		if !hasHook {
-			return errors.New("missing hook info")
-		} else if hasCharm {
+		switch {
+		case hasHook:
+			return errors.New("unexpected hook info with Kind Continue")
+		case hasCharm:
 			return errors.New("unexpected charm URL")
-		} else if hasActionId {
+		case hasActionId:
 			return errors.New("unexpected action id")
 		}
 	default:
@@ -196,5 +206,23 @@ func (f *StateFile) Write(st *State) error {
 	if err := st.validate(); err != nil {
 		panic(err)
 	}
+	return utils.WriteYaml(f.path, st)
+}
+
+// ReadUnsafe reads a State from the file, without verifying state
+// validity. If the file does not exist it returns ErrNoStateFile.
+func (f *StateFile) ReadUnsafe() (*State, error) {
+	var st State
+	if err := utils.ReadYaml(f.path, &st); err != nil {
+		if os.IsNotExist(err) {
+			return nil, ErrNoStateFile
+		}
+	}
+	return &st, nil
+}
+
+// WriteUnsafe stores the supplied state to the file, without
+// verifying the state validity.
+func (f *StateFile) WriteUnsafe(st *State) error {
 	return utils.WriteYaml(f.path, st)
 }
