@@ -76,6 +76,10 @@ type State struct {
 	// RunAction, it holds the running action.
 	ActionId *string `yaml:"action-id,omitempty"`
 
+	// ActionContinuation holds the Kind that the operation should return
+	// when the action is complete.
+	ActionContinuation Kind `yaml:"action-continuation,omitempty"`
+
 	// Charm describes the charm being deployed by an Install or Upgrade
 	// operation, and is otherwise blank.
 	CharmURL *charm.URL `yaml:"charm,omitempty"`
@@ -145,11 +149,12 @@ func (st State) CollectedMetricsAt() time.Time {
 
 // stateChange is useful for a variety of Operation implementations.
 type stateChange struct {
-	Kind     Kind
-	Step     Step
-	Hook     *hook.Info
-	ActionId *string
-	CharmURL *charm.URL
+	Kind               Kind
+	Step               Step
+	Hook               *hook.Info
+	ActionId           *string
+	ActionContinuation Kind
+	CharmURL           *charm.URL
 }
 
 func (change stateChange) apply(state State) *State {
@@ -157,6 +162,7 @@ func (change stateChange) apply(state State) *State {
 	state.Step = change.Step
 	state.Hook = change.Hook
 	state.ActionId = change.ActionId
+	state.ActionContinuation = change.ActionContinuation
 	state.CharmURL = change.CharmURL
 	return &state
 }
