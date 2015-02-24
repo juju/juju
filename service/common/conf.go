@@ -47,7 +47,7 @@ type Conf struct {
 // Validate checks the conf's values for correctness.
 func (c Conf) Validate() error {
 	if c.Desc == "" {
-		return errors.New("missing Description")
+		return errors.New("missing Desc")
 	}
 
 	if c.Cmd == "" {
