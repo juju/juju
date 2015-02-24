@@ -169,7 +169,7 @@ func diffStrings(c *gc.C, value, expected string) {
 		vline := vlines[i]
 		eline := elines[i]
 		if vline != eline {
-			c.Log("first mismatched line:")
+			c.Logf("first mismatched line (%d/%d):", i, len(smaller))
 			c.Log("expected: " + eline)
 			c.Log("got:      " + vline)
 			break

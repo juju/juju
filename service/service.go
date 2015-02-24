@@ -52,12 +52,17 @@ type Service interface {
 
 	// Remove will remove the service
 	Remove() error
+
+	// InstallCommands returns the list of commands to run on a
+	// (remote) host to install the service.
+	InstallCommands() ([]string, error)
 }
 
 // TODO(ericsnow) Eliminate the need to pass an empty conf here for
 // most service methods.
 
-func newService(name string, conf common.Conf, initSystem string) (Service, error) {
+// NewService returns a new Service based on the provided info.
+func NewService(name string, conf common.Conf, initSystem string) (Service, error) {
 	var svc Service
 
 	switch initSystem {
@@ -75,16 +80,18 @@ func newService(name string, conf common.Conf, initSystem string) (Service, erro
 // DiscoverService returns an interface to a service apropriate
 // for the current system
 func DiscoverService(name string, conf common.Conf) (Service, error) {
-	initName := versionInitSystem(version.Current)
+	initName := VersionInitSystem(version.Current)
 	if initName == "" {
 		return nil, errors.NotFoundf("init system on local host")
 	}
 
-	service, err := newService(name, conf, initName)
+	service, err := NewService(name, conf, initName)
 	return service, errors.Trace(err)
 }
 
-func versionInitSystem(vers version.Binary) string {
+// VersionInitSystem returns an init system name based on the provided
+// version info.
+func VersionInitSystem(vers version.Binary) string {
 	switch vers.OS {
 	case version.Windows:
 		return "windows"
@@ -104,7 +111,7 @@ func versionInitSystem(vers version.Binary) string {
 
 // ListServices lists all installed services on the running system
 func ListServices(initDir string) ([]string, error) {
-	initName := versionInitSystem(version.Current)
+	initName := VersionInitSystem(version.Current)
 	if initName == "" {
 		return nil, errors.NotFoundf("init system on local host")
 	}

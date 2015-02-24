@@ -4,6 +4,7 @@
 package service_test
 
 import (
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -18,12 +19,14 @@ import (
 )
 
 func init() {
+	quote = "'"
 	if runtime.GOOS == "windows" {
 		cmdSuffix = ".exe"
+		quote = `"`
 	}
 }
 
-var cmdSuffix string
+var quote, cmdSuffix string
 
 type agentSuite struct {
 	testing.IsolationSuite
@@ -31,16 +34,16 @@ type agentSuite struct {
 
 var _ = gc.Suite(&agentSuite{})
 
-func (*agentSuite) TestMachineAgentConf(c *gc.C) {
+func (*agentSuite) TestMachineAgentConfLocal(c *gc.C) {
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
 	conf, toolsDir := service.MachineAgentConf("0", dataDir, logDir, "")
 
 	c.Check(toolsDir, gc.Equals, filepath.Join(dataDir, "tools", "machine-0"))
 	cmd := strings.Join([]string{
-		filepath.Join(toolsDir, "jujud"+cmdSuffix),
+		quote + filepath.Join(toolsDir, "jujud"+cmdSuffix) + quote,
 		"machine",
-		"--data-dir", "'" + dataDir + "'",
+		"--data-dir", quote + dataDir + quote,
 		"--machine-id", "0",
 		"--debug",
 	}, " ")
@@ -55,12 +58,60 @@ func (*agentSuite) TestMachineAgentConf(c *gc.C) {
 	})
 }
 
+func (*agentSuite) TestMachineAgentConfUbuntu(c *gc.C) {
+	dataDir := "/var/lib/juju"
+	logDir := "/var/log/juju"
+	conf, toolsDir := service.MachineAgentConf("0", dataDir, logDir, "ubuntu")
+
+	c.Check(toolsDir, gc.Equals, dataDir+"/tools/machine-0")
+	cmd := strings.Join([]string{
+		"'" + toolsDir + "/jujud'",
+		"machine",
+		"--data-dir", "'" + dataDir + "'",
+		"--machine-id", "0",
+		"--debug",
+	}, " ")
+	c.Check(conf, jc.DeepEquals, common.Conf{
+		Desc:      "juju agent for machine-0",
+		ExecStart: cmd,
+		Out:       logDir + "/machine-0.log",
+		Env:       osenv.FeatureFlags(),
+		Limit: map[string]string{
+			"nofile": "20000 20000",
+		},
+	})
+}
+
+func (*agentSuite) TestMachineAgentConfWindows(c *gc.C) {
+	dataDir := `c:\Juju\lib\juju`
+	logDir := `c:\Juju\logs\juju`
+	conf, toolsDir := service.MachineAgentConf("0", dataDir, logDir, "windows")
+
+	c.Check(toolsDir, gc.Equals, dataDir+`\tools\machine-0`)
+	cmd := strings.Join([]string{
+		`"` + toolsDir + `\jujud.exe"`,
+		"machine",
+		"--data-dir", `"` + dataDir + `"`,
+		"--machine-id", "0",
+		"--debug",
+	}, " ")
+	c.Check(conf, jc.DeepEquals, common.Conf{
+		Desc:      "juju agent for machine-0",
+		ExecStart: cmd,
+		Out:       logDir + `\machine-0.log`,
+		Env:       osenv.FeatureFlags(),
+		Limit: map[string]string{
+			"nofile": "20000 20000",
+		},
+	})
+}
+
 func (*agentSuite) TestUnitAgentConf(c *gc.C) {
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
 	conf, toolsDir := service.UnitAgentConf("wordpress/0", dataDir, logDir, "", "cont")
 
-	c.Check(toolsDir, gc.Equals, filepath.Join(dataDir, "tools", "unit-wordpress-0"))
+	c.Check(toolsDir, gc.Equals, path.Join(dataDir, "tools", "unit-wordpress-0"))
 	cmd := strings.Join([]string{
 		filepath.Join(toolsDir, "jujud"+cmdSuffix),
 		"unit",

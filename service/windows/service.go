@@ -33,20 +33,6 @@ func ListServices() ([]string, error) {
 	return strings.Fields(string(out.Stdout)), nil
 }
 
-var serviceInstallScript = `$data = Get-Content "C:\Juju\Jujud.pass"
-if($? -eq $false){Write-Error "Failed to read encrypted password"; exit 1}
-$serviceName = "%s"
-$secpasswd = $data | convertto-securestring
-if($? -eq $false){Write-Error "Failed decode password"; exit 1}
-$juju_user = whoami
-$jujuCreds = New-Object System.Management.Automation.PSCredential($juju_user, $secpasswd)
-if($? -eq $false){Write-Error "Failed to create secure credentials"; exit 1}
-New-Service -Credential $jujuCreds -Name "$serviceName" -DisplayName '%s' '%s'
-if($? -eq $false){Write-Error "Failed to install service $serviceName"; exit 1}
-cmd.exe /C call sc config $serviceName start=delayed-auto
-if($? -eq $false){Write-Error "Failed execute sc"; exit 1}
-`
-
 // Service represents a service running on the current system
 type Service struct {
 	common.Service
@@ -170,10 +156,11 @@ func (s *Service) Install() error {
 	}
 
 	logger.Infof("Installing Service %v", s.Name)
-	cmd := fmt.Sprintf(serviceInstallScript,
+	cmd := fmt.Sprintf(serviceInstallScript[1:],
 		s.Service.Name,
 		s.Service.Conf.Desc,
-		s.Service.Conf.ExecStart)
+		s.Service.Conf.ExecStart,
+	)
 	outCmd, errCmd := runPsCommand(cmd)
 
 	if errCmd != nil {
@@ -195,9 +182,35 @@ func NewService(name string, conf common.Conf) *Service {
 
 // InstallCommands returns shell commands to install and start the service.
 func (s *Service) InstallCommands() ([]string, error) {
-	cmd := fmt.Sprintf(serviceInstallScript,
+	// TODO(ericsnow) Properly quote the arg values in Conf.ExecStart.
+	// TODO(ericsnow) Properly "render" the arg values in Conf.ExecStart.
+	// (see cloudinit.WindowsRendrer.FromSlash).
+	cmd := fmt.Sprintf(serviceInstallCommands[1:],
 		s.Service.Name,
 		s.Service.Conf.Desc,
-		s.Service.Conf.ExecStart)
+		s.Service.Conf.ExecStart,
+		s.Service.Name,
+		s.Service.Name,
+	)
 	return strings.Split(cmd, "\n"), nil
 }
+
+const serviceInstallCommands = `
+New-Service -Credential $jujuCreds -Name '%s' -DisplayName '%s' '%s'
+cmd.exe /C sc config %s start=delayed-auto
+Start-Service %s`
+
+const serviceInstallScript = `
+$data = Get-Content "C:\Juju\Jujud.pass"
+if($? -eq $false){Write-Error "Failed to read encrypted password"; exit 1}
+$serviceName = "%s"
+$secpasswd = $data | convertto-securestring
+if($? -eq $false){Write-Error "Failed decode password"; exit 1}
+$juju_user = whoami
+$jujuCreds = New-Object System.Management.Automation.PSCredential($juju_user, $secpasswd)
+if($? -eq $false){Write-Error "Failed to create secure credentials"; exit 1}
+New-Service -Credential $jujuCreds -Name "$serviceName" -DisplayName '%s' '%s'
+if($? -eq $false){Write-Error "Failed to install service $serviceName"; exit 1}
+cmd.exe /C call sc config $serviceName start=delayed-auto
+if($? -eq $false){Write-Error "Failed execute sc"; exit 1}
+`

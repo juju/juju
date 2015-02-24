@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service/common"
 )
@@ -27,17 +28,22 @@ func MachineAgentConf(machineID, dataDir, logDir, os string) (common.Conf, strin
 	tag := names.NewMachineTag(machineID)
 	tagStr := tag.String()
 
-	toolsDir := tools.ToolsDir(dataDir, tagStr)
-	jujudPath := path.Join(toolsDir, "jujud")
+	var renderer cloudinit.Renderer = &cloudinit.UbuntuRenderer{}
+	jujudSuffix := ""
+	shquote := utils.ShQuote
 	if os == "windows" {
-		jujudPath += ".exe"
+		renderer = &cloudinit.WindowsRenderer{}
+		jujudSuffix = ".exe"
+		shquote = func(path string) string { return `"` + path + `"` }
 	}
+	toolsDir := renderer.FromSlash(tools.ToolsDir(dataDir, tagStr))
+	jujudPath := renderer.PathJoin(toolsDir, "jujud") + jujudSuffix
 
 	cmd := strings.Join([]string{
-		jujudPath,
+		shquote(jujudPath),
 		"machine",
-		"--data-dir", utils.ShQuote(dataDir),
-		"--machine-id", machineID,
+		"--data-dir", shquote(renderer.FromSlash(dataDir)),
+		"--machine-id", machineID, // TODO(ericsnow) double-quote on windows?
 		"--debug",
 	}, " ")
 
@@ -48,7 +54,7 @@ func MachineAgentConf(machineID, dataDir, logDir, os string) (common.Conf, strin
 	conf := common.Conf{
 		Desc:      fmt.Sprintf("juju agent for %s", tag),
 		ExecStart: cmd,
-		Out:       logFile,
+		Out:       renderer.FromSlash(logFile),
 		Env:       osenv.FeatureFlags(),
 		Limit: map[string]string{
 			"nofile": fmt.Sprintf("%d %d", maxAgentFiles, maxAgentFiles),

@@ -21,8 +21,6 @@ import (
 
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/upstart"
 )
 
 const (
@@ -53,19 +51,10 @@ done`
 )
 
 type ubuntuConfigure struct {
-	mcfg     *MachineConfig
-	conf     *cloudinit.Config
-	renderer cloudinit.Renderer
+	baseConfigure
 }
 
-func (w *ubuntuConfigure) init() error {
-	renderer, err := cloudinit.NewRenderer(w.mcfg.Series)
-	if err != nil {
-		return err
-	}
-	w.renderer = renderer
-	return nil
-}
+// TODO(ericsnow) Move Configure to the baseConfigure type?
 
 // Configure updates the provided cloudinit.Config with
 // configuration to initialize a Juju machine agent.
@@ -313,44 +302,4 @@ func toolsDownloadCommand(curlCommand string, urls []string) string {
 		panic(errors.Annotate(err, "tools download template error"))
 	}
 	return buf.String()
-}
-
-func (w *ubuntuConfigure) addMachineAgentToBoot(tag string) error {
-	conf, toolsDir := service.MachineAgentConf(
-		w.mcfg.MachineId,
-		w.mcfg.DataDir,
-		w.mcfg.LogDir,
-		"",
-	)
-	// Make the agent run via a symbolic link to the actual tools
-	// directory, so it can upgrade itself without needing to change
-	// the init script.
-	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
-	w.conf.AddScripts(fmt.Sprintf("ln -s %v %s", w.mcfg.Tools.Version, shquote(toolsDir)))
-
-	name := w.mcfg.MachineAgentServiceName
-	svc := upstart.NewService(name, conf)
-	cmds, err := svc.InstallCommands()
-	if err != nil {
-		return errors.Annotatef(err, "cannot make cloud-init upstart script for the %s agent", tag)
-	}
-	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", name))
-	w.conf.AddScripts(cmds...)
-	return nil
-}
-
-func (w *ubuntuConfigure) Render() ([]byte, error) {
-	return w.renderer.Render(w.conf)
-}
-
-func newUbuntuConfig(mcfg *MachineConfig, conf *cloudinit.Config) (*ubuntuConfigure, error) {
-	cfg := &ubuntuConfigure{
-		mcfg: mcfg,
-		conf: conf,
-	}
-	err := cfg.init()
-	if err != nil {
-		return nil, err
-	}
-	return cfg, nil
 }
