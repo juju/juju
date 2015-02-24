@@ -1,11 +1,7 @@
 package service
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/juju/errors"
-	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
@@ -100,22 +96,6 @@ func versionInitSystem(vers version.Binary) string {
 	}
 }
 
-// TODO(ericsnow) Move windowsListServices to service/windows.ListServices.
-
-func windowsListServices() ([]string, error) {
-	com := exec.RunParams{
-		Commands: `(Get-Service).Name`,
-	}
-	out, err := exec.RunCommands(com)
-	if err != nil {
-		return nil, err
-	}
-	if out.Code != 0 {
-		return nil, fmt.Errorf("Error running %s: %s", com.Commands, string(out.Stderr))
-	}
-	return strings.Fields(string(out.Stdout)), nil
-}
-
 // ListServices lists all installed services on the running system
 func ListServices(initDir string) ([]string, error) {
 	initName := versionInitSystem(version.Current)
@@ -125,7 +105,7 @@ func ListServices(initDir string) ([]string, error) {
 
 	switch initName {
 	case "windows":
-		services, err := windowsListServices()
+		services, err := windows.ListServices()
 		return services, errors.Trace(err)
 	case "upstart":
 		services, err := upstart.ListServices(initDir)

@@ -17,6 +17,22 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.deployer.service")
 
+// ListServices returns the name of all installed services on the
+// local host.
+func ListServices() ([]string, error) {
+	com := exec.RunParams{
+		Commands: `(Get-Service).Name`,
+	}
+	out, err := exec.RunCommands(com)
+	if err != nil {
+		return nil, err
+	}
+	if out.Code != 0 {
+		return nil, fmt.Errorf("Error running %s: %s", com.Commands, string(out.Stderr))
+	}
+	return strings.Fields(string(out.Stdout)), nil
+}
+
 var serviceInstallScript = `$data = Get-Content "C:\Juju\Jujud.pass"
 if($? -eq $false){Write-Error "Failed to read encrypted password"; exit 1}
 $serviceName = "%s"
