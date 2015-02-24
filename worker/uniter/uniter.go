@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/uniter/storage"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")
@@ -56,6 +57,7 @@ type Uniter struct {
 	unit      *uniter.Unit
 	relations Relations
 	cleanups  []cleanup
+	storage   *storage.Attachments
 
 	deployer          *deployerProxy
 	operationFactory  operation.Factory
@@ -216,6 +218,11 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create relations")
 	}
 	u.relations = relations
+	storageAttachments, err := storage.NewAttachments(u.st, unitTag, u.tomb.Dying())
+	if err != nil {
+		return errors.Annotatef(err, "cannot create storage hook source")
+	}
+	u.storage = storageAttachments
 
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,
@@ -236,6 +243,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		u.deployer,
 		runnerFactory,
 		&operationCallbacks{u},
+		u.storage,
 		u.tomb.Dying(),
 	)
 

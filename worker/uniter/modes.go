@@ -211,6 +211,8 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			creator = newUpdateRelationsOp(ids)
 		case actionId := <-u.f.ActionEvents():
 			creator = newActionOp(actionId)
+		case tags := <-u.f.StorageEvents():
+			creator = newUpdateStorageOp(tags)
 		case <-u.f.ConfigEvents():
 			creator = newSimpleRunHookOp(hooks.ConfigChanged)
 		case <-u.f.MeterStatusEvents():
@@ -218,6 +220,8 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 		case <-collectMetricsSignal:
 			creator = newSimpleRunHookOp(hooks.CollectMetrics)
 		case hookInfo := <-u.relations.Hooks():
+			creator = newRunHookOp(hookInfo)
+		case hookInfo := <-u.storage.Hooks():
 			creator = newRunHookOp(hookInfo)
 		}
 		if err := u.runOperation(creator); err != nil {
