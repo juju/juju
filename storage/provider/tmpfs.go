@@ -79,7 +79,7 @@ var _ storage.FilesystemSource = (*tmpfsFilesystemSource)(nil)
 func (s *tmpfsFilesystemSource) ValidateFilesystemParams(params storage.FilesystemParams) error {
 	// ValidateFilesystemParams may be called on a machine other than the
 	// machine where the filesystem will be mounted, so we cannot check
-	// available size until we get to CreateFilesystem.
+	// available size until we get to createFilesystem.
 	if params.Attachment == nil {
 		return errors.NotSupportedf(
 			"creating filesystem without machine attachment",

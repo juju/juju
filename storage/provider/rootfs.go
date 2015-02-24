@@ -111,11 +111,11 @@ func (o *osDirFuncs) calculateSize(path string) (sizeInMib uint64, _ error) {
 		return 0, errors.Annotate(err, "getting size")
 	}
 	lines := strings.SplitN(dfOutput, "\n", 2)
-	blocks, err := strconv.ParseUint(strings.TrimSpace(lines[1]), 10, 64)
+	numBlocks, err := strconv.ParseUint(strings.TrimSpace(lines[1]), 10, 64)
 	if err != nil {
 		return 0, errors.Annotate(err, "parsing size")
 	}
-	return blocks / 1024, nil
+	return numBlocks / 1024, nil
 }
 
 // validatePath ensures the specified path is suitable as the mount

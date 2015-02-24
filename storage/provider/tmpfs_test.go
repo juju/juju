@@ -4,11 +4,11 @@
 package provider_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
