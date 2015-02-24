@@ -8,6 +8,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
@@ -212,7 +213,31 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Running apt-get upgrade"))
 		cmds = append(cmds, aptget+"upgrade")
 	}
-	for _, pkg := range cfg.Packages() {
+	pkgs := cfg.Packages()
+	skipNext := 0
+	for i, pkg := range pkgs {
+		if skipNext > 0 {
+			skipNext--
+			continue
+		}
+		// Make sure the cloud-init 0.6.3 hack (for precise) where
+		// --target-release and precise-updates/cloud-tools are
+		// specified as separate packages is converted to a single
+		// package argument below.
+		if pkg == "--target-release" {
+			// There has to be at least 2 more items - the target
+			// release (e.g. "precise-updates/cloud-tools") and the
+			// package name.
+			if i+2 >= len(pkgs) {
+				remaining := strings.Join(pkgs[:i], " ")
+				return nil, errors.Errorf(
+					"invalid package %q: expected --target-release <release> <package>",
+					remaining,
+				)
+			}
+			pkg = strings.Join(pkgs[i:i+2], " ")
+			skipNext = 2
+		}
 		cmds = append(cmds, cloudinit.LogProgressCmd("Installing package: %s", pkg))
 		cmd := fmt.Sprintf(aptget+"install %s", pkg)
 		cmds = append(cmds, cmd)
