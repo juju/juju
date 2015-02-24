@@ -37,7 +37,7 @@ var (
 	ToolstorageNewStorage  = &toolstorageNewStorage
 	ImageStorageNewStorage = &imageStorageNewStorage
 	MachineIdLessThan      = machineIdLessThan
-	NewAddress             = fromNetworkAddress
+	FromNetworkAddress     = fromNetworkAddress
 	StateServerAvailable   = &stateServerAvailable
 	GetOrCreatePorts       = getOrCreatePorts
 	GetPorts               = getPorts

@@ -443,11 +443,11 @@ func (s *upgradesSuite) TestAddEnvUUIDToNetworks(c *gc.C) {
 
 	var newDoc networkDoc
 	s.FindId(c, coll, newIDs[0], &newDoc)
-	c.Assert(newDoc.ProviderId, gc.Equals, network.Id("net1"))
+	c.Assert(network.Id(newDoc.ProviderId), gc.Equals, network.Id("net1"))
 	c.Assert(newDoc.CIDR, gc.Equals, "0.1.2.0/24")
 
 	s.FindId(c, coll, newIDs[1], &newDoc)
-	c.Assert(newDoc.ProviderId, gc.Equals, network.Id("net2"))
+	c.Assert(network.Id(newDoc.ProviderId), gc.Equals, network.Id("net2"))
 	c.Assert(newDoc.CIDR, gc.Equals, "0.2.2.0/24")
 }
 
