@@ -51,50 +51,56 @@ var InstallStartRetryAttempts = utils.AttemptStrategy{
 
 // Service provides visibility into and control over an upstart service.
 type Service struct {
-	Name string
-	Conf common.Conf
+	common.Service
 }
 
 func NewService(name string, conf common.Conf) *Service {
 	if conf.InitDir == "" {
 		conf.InitDir = InitDir
 	}
-	return &Service{Name: name, Conf: conf}
+	return &Service{
+		Service: common.Service{
+			Name: name,
+			Conf: conf,
+		},
+	}
+}
+
+// Name implements service.Service.
+func (s Service) Name() string {
+	return s.Service.Name
+}
+
+// Conf implements service.Service.
+func (s Service) Conf() common.Conf {
+	return s.Service.Conf
 }
 
 // confPath returns the path to the service's configuration file.
 func (s *Service) confPath() string {
-	return path.Join(s.Conf.InitDir, s.Name+".conf")
+	return path.Join(s.Service.Conf.InitDir, s.Service.Name+".conf")
 }
 
-func (s *Service) UpdateConfig(conf common.Conf) {
-	s.Conf = conf
-}
-
-// validate returns an error if the service is not adequately defined.
-func (s *Service) validate() error {
-	if s.Name == "" {
-		return errors.New("missing Name")
+// Validate returns an error if the service is not adequately defined.
+func (s *Service) Validate() error {
+	if err := s.Service.Validate(); err != nil {
+		return errors.Trace(err)
 	}
-	if s.Conf.InitDir == "" {
+
+	if s.Service.Conf.InitDir == "" {
 		return errors.New("missing InitDir")
 	}
-	if s.Conf.Desc == "" {
-		return errors.New("missing Desc")
-	}
-	if s.Conf.Cmd == "" {
-		return errors.New("missing Cmd")
-	}
+
 	return nil
 }
 
 // render returns the upstart configuration for the service as a slice of bytes.
 func (s *Service) render() ([]byte, error) {
-	if err := s.validate(); err != nil {
+	if err := s.Validate(); err != nil {
 		return nil, err
 	}
 	var buf bytes.Buffer
-	if err := confT.Execute(&buf, s.Conf); err != nil {
+	if err := confT.Execute(&buf, s.Conf()); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -138,7 +144,7 @@ func (s *Service) existsAndSame() (exists, same bool, conf []byte, err error) {
 
 // Running returns true if the Service appears to be running.
 func (s *Service) Running() bool {
-	cmd := exec.Command("status", "--system", s.Name)
+	cmd := exec.Command("status", "--system", s.Service.Name)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return false
@@ -151,7 +157,7 @@ func (s *Service) Start() error {
 	if s.Running() {
 		return nil
 	}
-	err := runCommand("start", "--system", s.Name)
+	err := runCommand("start", "--system", s.Service.Name)
 	if err != nil {
 		// Double check to see if we were started before our command ran.
 		if s.Running() {
@@ -178,7 +184,7 @@ func (s *Service) Stop() error {
 	if !s.Running() {
 		return nil
 	}
-	return runCommand("stop", "--system", s.Name)
+	return runCommand("stop", "--system", s.Service.Name)
 }
 
 // StopAndRemove stops the service and then deletes the service
@@ -238,7 +244,7 @@ func (s *Service) InstallCommands() ([]string, error) {
 	}
 	return []string{
 		fmt.Sprintf("cat >> %s << 'EOF'\n%sEOF\n", s.confPath(), conf),
-		"start " + s.Name,
+		"start " + s.Service.Name,
 	}, nil
 }
 

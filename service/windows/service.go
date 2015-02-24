@@ -49,8 +49,7 @@ if($? -eq $false){Write-Error "Failed execute sc"; exit 1}
 
 // Service represents a service running on the current system
 type Service struct {
-	Name string
-	Conf common.Conf
+	common.Service
 }
 
 func runPsCommand(cmd string) (*exec.ExecResponse, error) {
@@ -67,13 +66,19 @@ func runPsCommand(cmd string) (*exec.ExecResponse, error) {
 	return out, nil
 }
 
-func (s *Service) UpdateConfig(conf common.Conf) {
-	s.Conf = conf
+// Name implements service.Service.
+func (s Service) Name() string {
+	return s.Service.Name
+}
+
+// Conf implements service.Service.
+func (s Service) Conf() common.Conf {
+	return s.Service.Conf
 }
 
 // Status gets the service status
 func (s *Service) Status() (string, error) {
-	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; (Get-Service "%s").Status`, s.Name)
+	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; (Get-Service "%s").Status`, s.Service.Name)
 	out, err := runPsCommand(cmd)
 	if err != nil {
 		return "", err
@@ -84,7 +89,7 @@ func (s *Service) Status() (string, error) {
 // Running returns true if the Service appears to be running.
 func (s *Service) Running() bool {
 	status, err := s.Status()
-	logger.Infof("Service %q Status %q", s.Name, status)
+	logger.Infof("Service %q Status %q", s.Service.Name, status)
 	if err != nil {
 		return false
 	}
@@ -114,10 +119,10 @@ func (s *Service) Exists() bool {
 
 // Start starts the service.
 func (s *Service) Start() error {
-	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; Start-Service  "%s"`, s.Name)
-	logger.Infof("Starting service %q", s.Name)
+	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; Start-Service  "%s"`, s.Service.Name)
+	logger.Infof("Starting service %q", s.Service.Name)
 	if s.Running() {
-		logger.Infof("Service %q already running", s.Name)
+		logger.Infof("Service %q already running", s.Service.Name)
 		return nil
 	}
 	_, err := runPsCommand(cmd)
@@ -129,7 +134,7 @@ func (s *Service) Stop() error {
 	if !s.Running() {
 		return nil
 	}
-	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; Stop-Service  "%s"`, s.Name)
+	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; Stop-Service  "%s"`, s.Service.Name)
 	_, err := runPsCommand(cmd)
 	return err
 }
@@ -140,7 +145,7 @@ func (s *Service) Remove() error {
 	if err != nil {
 		return err
 	}
-	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; (gwmi win32_service -filter 'name="%s"').Delete()`, s.Name)
+	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; (gwmi win32_service -filter 'name="%s"').Delete()`, s.Service.Name)
 	_, err = runPsCommand(cmd)
 	return err
 }
@@ -154,22 +159,9 @@ func (s *Service) StopAndRemove() error {
 	return s.Remove()
 }
 
-func (s *Service) validate() error {
-	if s.Conf.Cmd == "" {
-		return errors.New("missing Cmd")
-	}
-	if s.Conf.Desc == "" {
-		return errors.New("missing Description")
-	}
-	if s.Name == "" {
-		return errors.New("missing Name")
-	}
-	return nil
-}
-
 // Install installs and starts the service.
 func (s *Service) Install() error {
-	err := s.validate()
+	err := s.Validate()
 	if err != nil {
 		return err
 	}
@@ -179,9 +171,9 @@ func (s *Service) Install() error {
 
 	logger.Infof("Installing Service %v", s.Name)
 	cmd := fmt.Sprintf(serviceInstallScript,
-		s.Name,
-		s.Conf.Desc,
-		s.Conf.Cmd)
+		s.Service.Name,
+		s.Service.Conf.Desc,
+		s.Service.Conf.Cmd)
 	outCmd, errCmd := runPsCommand(cmd)
 
 	if errCmd != nil {
@@ -194,16 +186,18 @@ func (s *Service) Install() error {
 // NewService returns a new Service type
 func NewService(name string, conf common.Conf) *Service {
 	return &Service{
-		Name: name,
-		Conf: conf,
+		Service: common.Service{
+			Name: name,
+			Conf: conf,
+		},
 	}
 }
 
 // InstallCommands returns shell commands to install and start the service.
 func (s *Service) InstallCommands() ([]string, error) {
 	cmd := fmt.Sprintf(serviceInstallScript,
-		s.Name,
-		s.Conf.Desc,
-		s.Conf.Cmd)
+		s.Service.Name,
+		s.Service.Conf.Desc,
+		s.Service.Conf.Cmd)
 	return strings.Split(cmd, "\n"), nil
 }

@@ -14,7 +14,11 @@ var _ Service = (*windows.Service)(nil)
 
 // Service represents a service running on the current system
 type Service interface {
-	// TODO(ericsnow) Add Name and Conf.
+	// Name returns the service's name.
+	Name() string
+
+	// Conf returns the service's conf data.
+	Conf() common.Conf
 
 	// Installed will return a boolean value that denotes
 	// whether or not the service is installed
