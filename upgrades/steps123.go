@@ -64,5 +64,10 @@ func stepsFor123() []Step {
 			targets:     []Target{AllMachines},
 			run:         addEnvironmentUUIDToAgentConfig,
 		},
+		&upgradeStep{
+			description: "update worker state file with Stopped field",
+			targets:     []Target{AllMachines},
+			run:         addStoppedFieldToUniterState,
+		},
 	}
 }

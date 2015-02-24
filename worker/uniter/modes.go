@@ -64,10 +64,11 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 			creator = newSkipHookOp(*opState.Hook)
 		}
 	case operation.Continue:
-		logger.Infof("continuing after %q hook", opState.Hook.Kind)
-		if opState.Hook.Kind == hooks.Stop {
+		if opState.Stopped {
+			logger.Infof("opState.Stopped == true; transition to ModeTerminating")
 			return ModeTerminating, nil
 		}
+		logger.Infof("continuing after hook")
 		return ModeAbide, nil
 	default:
 		return nil, errors.Errorf("unknown operation kind %v", opState.Kind)
