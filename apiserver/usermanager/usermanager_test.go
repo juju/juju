@@ -24,7 +24,7 @@ type userManagerSuite struct {
 	authorizer  apiservertesting.FakeAuthorizer
 	adminName   string
 
-	commontesting.BlockSwitch
+	commontesting.BlockHelper
 }
 
 var _ = gc.Suite(&userManagerSuite{})
@@ -41,7 +41,7 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.BlockSwitch = commontesting.NewBlockSwitch(s.APIState)
+	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 }
 
 func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
@@ -86,7 +86,7 @@ func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockAddUser")
 	result, err := s.usermanager.AddUser(args)
 	// Check that the call is blocked
-	s.AssertErrorBlocked(c, err, "TestBlockAddUser")
+	s.AssertBlocked(c, err, "TestBlockAddUser")
 	c.Assert(result.Results, gc.HasLen, 1)
 	//check that user is not created
 	foobarTag := names.NewLocalUserTag("foobar")
@@ -171,7 +171,7 @@ func (s *userManagerSuite) TestBlockDisableUser(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockDisableUser")
 	_, err := s.usermanager.DisableUser(args)
 	// Check that the call is blocked
-	s.AssertErrorBlocked(c, err, "TestBlockDisableUser")
+	s.AssertBlocked(c, err, "TestBlockDisableUser")
 
 	err = alex.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -237,7 +237,7 @@ func (s *userManagerSuite) TestBlockEnableUser(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockEnableUser")
 	_, err := s.usermanager.EnableUser(args)
 	// Check that the call is blocked
-	s.AssertErrorBlocked(c, err, "TestBlockEnableUser")
+	s.AssertBlocked(c, err, "TestBlockEnableUser")
 
 	err = alex.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -424,7 +424,7 @@ func (s *userManagerSuite) TestBlockSetPassword(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockSetPassword")
 	_, err := s.usermanager.SetPassword(args)
 	// Check that the call is blocked
-	s.AssertErrorBlocked(c, err, "TestBlockSetPassword")
+	s.AssertBlocked(c, err, "TestBlockSetPassword")
 
 	err = alex.Refresh()
 	c.Assert(err, jc.ErrorIsNil)

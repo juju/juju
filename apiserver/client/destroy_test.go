@@ -160,7 +160,7 @@ func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
 	s.setUpInstances(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyEnvironment")
 	err := s.APIState.Client().DestroyEnvironment()
-	s.AssertErrorBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
+	s.AssertBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
 }
 
 func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
@@ -168,7 +168,7 @@ func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
 	s.setUpInstances(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroyEnvironment")
 	err := s.APIState.Client().DestroyEnvironment()
-	s.AssertErrorBlocked(c, err, "TestBlockRemoveDestroyEnvironment")
+	s.AssertBlocked(c, err, "TestBlockRemoveDestroyEnvironment")
 }
 
 func (s *destroyEnvironmentSuite) TestBlockChangesDestroyEnvironment(c *gc.C) {
@@ -177,7 +177,7 @@ func (s *destroyEnvironmentSuite) TestBlockChangesDestroyEnvironment(c *gc.C) {
 	// lock environment: can't destroy locked environment
 	s.BlockAllChanges(c, "TestBlockChangesDestroyEnvironment")
 	err := s.APIState.Client().DestroyEnvironment()
-	s.AssertErrorBlocked(c, err, "TestBlockChangesDestroyEnvironment")
+	s.AssertBlocked(c, err, "TestBlockChangesDestroyEnvironment")
 }
 
 type destroyTwoEnvironmentsSuite struct {

@@ -29,7 +29,7 @@ type keyManagerSuite struct {
 	resources  *common.Resources
 	authoriser apiservertesting.FakeAuthorizer
 
-	commontesting.BlockSwitch
+	commontesting.BlockHelper
 }
 
 var _ = gc.Suite(&keyManagerSuite{})
@@ -46,7 +46,7 @@ func (s *keyManagerSuite) SetUpTest(c *gc.C) {
 	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.BlockSwitch = commontesting.NewBlockSwitch(s.APIState)
+	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 }
 
 func (s *keyManagerSuite) TestNewKeyManagerAPIAcceptsClient(c *gc.C) {
@@ -156,7 +156,7 @@ func (s *keyManagerSuite) TestBlockAddKeys(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockAddKeys")
 	_, err := s.keymanager.AddKeys(args)
 	// Check that the call is blocked
-	s.AssertErrorBlocked(c, err, "TestBlockAddKeys")
+	s.AssertBlocked(c, err, "TestBlockAddKeys")
 	s.assertEnvironKeys(c, initialKeys)
 }
 
@@ -243,7 +243,7 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockDeleteKeys")
 	_, err := s.keymanager.DeleteKeys(args)
 	// Check that the call is blocked
-	s.AssertErrorBlocked(c, err, "TestBlockDeleteKeys")
+	s.AssertBlocked(c, err, "TestBlockDeleteKeys")
 	s.assertEnvironKeys(c, initialKeys)
 }
 
@@ -337,6 +337,6 @@ func (s *keyManagerSuite) TestBlockImportKeys(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockImportKeys")
 	_, err := s.keymanager.ImportKeys(args)
 	// Check that the call is blocked
-	s.AssertErrorBlocked(c, err, "TestBlockImportKeys")
+	s.AssertBlocked(c, err, "TestBlockImportKeys")
 	s.assertEnvironKeys(c, initialKeys)
 }

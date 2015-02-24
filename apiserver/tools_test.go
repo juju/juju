@@ -33,7 +33,7 @@ import (
 
 type toolsSuite struct {
 	authHttpSuite
-	commontesting.BlockSwitch
+	commontesting.BlockHelper
 }
 
 var _ = gc.Suite(&toolsSuite{})
@@ -45,7 +45,7 @@ func (s *toolsSuite) SetUpSuite(c *gc.C) {
 
 func (s *toolsSuite) SetUpTest(c *gc.C) {
 	s.authHttpSuite.SetUpTest(c)
-	s.BlockSwitch = commontesting.NewBlockSwitch(s.APIState)
+	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 }
 
 func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {
@@ -154,7 +154,7 @@ func (s *toolsSuite) TestBlockUpload(c *gc.C) {
 		c, s.toolsURI(c, "?binaryVersion="+vers.String()), true, toolPath)
 	c.Assert(err, jc.ErrorIsNil)
 	problem := s.assertErrorResponse(c, resp, http.StatusBadRequest, "TestUpload")
-	s.AssertErrorBlocked(c, problem, "TestUpload")
+	s.AssertBlocked(c, problem, "TestUpload")
 
 	// Check the contents.
 	storage, err := s.State.ToolsStorage()

@@ -35,7 +35,7 @@ type clientSuite struct {
 	haServer   *highavailability.HighAvailabilityAPI
 	pinger     *presence.Pinger
 
-	commontesting.BlockSwitch
+	commontesting.BlockHelper
 }
 
 type Killer interface {
@@ -72,7 +72,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	// We have to ensure the agents are alive, or EnsureAvailability will
 	// create more to replace them.
 	s.pinger = s.setAgentPresence(c, "0")
-	s.BlockSwitch = commontesting.NewBlockSwitch(s.APIState)
+	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 }
 
 func (s *clientSuite) TearDownTest(c *gc.C) {
@@ -189,7 +189,7 @@ func (s *clientSuite) TestBlockEnsureAvailability(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockEnsureAvailability")
 
 	ensureAvailabilityResult, err := s.ensureAvailability(c, 3, constraints.MustParse("mem=4G"), defaultSeries, nil)
-	s.AssertErrorBlocked(c, err, "TestBlockEnsureAvailability")
+	s.AssertBlocked(c, err, "TestBlockEnsureAvailability")
 
 	c.Assert(ensureAvailabilityResult.Maintained, gc.HasLen, 0)
 	c.Assert(ensureAvailabilityResult.Added, gc.HasLen, 0)
