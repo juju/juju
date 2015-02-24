@@ -25,7 +25,7 @@ type Ticket chan bool
 type Tracker interface {
 
 	// ClaimLeader will cause the ticket to be closed in the near future; if true
-	// is sent before it's closed, the unit's leadership is guaranteed for the
+	// is sent before it's closed, the unit's leadership is guaranteed for half the
 	// tracker's duration.
 	ClaimLeader(ticket Ticket)
 }
@@ -50,9 +50,9 @@ type tracker struct {
 }
 
 // NewTrackerWorker returns a TrackerWorker that attempts to claim and retain
-// service leadership for the supplied unit. It will claim leadership for the
-// supplied duration, and once it has it it will renew leadership every time
-// the duration is half elapsed.
+// service leadership for the supplied unit. It will claim leadership for twice
+// the supplied duration, and once it has it it will renew leadership every time
+// the duration elapses.
 func NewTrackerWorker(tag names.UnitTag, leadership leadership.LeadershipManager, duration time.Duration) TrackerWorker {
 	unitName := tag.Id()
 	serviceName, _ := names.UnitService(unitName)
@@ -60,7 +60,7 @@ func NewTrackerWorker(tag names.UnitTag, leadership leadership.LeadershipManager
 		unitName:     unitName,
 		serviceName:  serviceName,
 		leadership:   leadership,
-		duration:     duration,
+		duration:     duration * 2,
 		claimTickets: make(chan Ticket),
 	}
 	go func() {

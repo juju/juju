@@ -24,6 +24,15 @@ type TrackerSuite struct {
 	manager *StubLeadershipManager
 }
 
+var _ = gc.Suite(&TrackerSuite{})
+
+const (
+	trackerDuration = coretesting.ShortWait
+	leaseDuration   = trackerDuration * 2
+	oneRefresh      = trackerDuration * 3 / 2
+	noRefresh       = trackerDuration / 2
+)
+
 func (s *TrackerSuite) SetUpTest(c *gc.C) {
 	s.unitTag = names.NewUnitTag("led-service/123")
 	s.manager = &StubLeadershipManager{
@@ -41,10 +50,8 @@ func (s *TrackerSuite) TearDownTest(c *gc.C) {
 	}
 }
 
-var _ = gc.Suite(&TrackerSuite{})
-
 func (s *TrackerSuite) TestOnLeaderSuccess(c *gc.C) {
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, coretesting.ShortWait)
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check ticket gets sent true, and is closed afterwards.
@@ -55,14 +62,14 @@ func (s *TrackerSuite) TestOnLeaderSuccess(c *gc.C) {
 	s.manager.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
-			"led-service", "led-service/123", coretesting.ShortWait,
+			"led-service", "led-service/123", leaseDuration,
 		},
 	}})
 }
 
 func (s *TrackerSuite) TestOnLeaderFailure(c *gc.C) {
 	s.manager.Stub.Errors = []error{coreleadership.ErrClaimDenied, nil}
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, coretesting.ShortWait)
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check ticket gets closed.
@@ -81,7 +88,7 @@ func (s *TrackerSuite) TestOnLeaderFailure(c *gc.C) {
 	s.manager.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
-			"led-service", "led-service/123", coretesting.ShortWait,
+			"led-service", "led-service/123", leaseDuration,
 		},
 	}, {
 		FuncName: "BlockUntilLeadershipReleased",
@@ -93,7 +100,7 @@ func (s *TrackerSuite) TestOnLeaderFailure(c *gc.C) {
 
 func (s *TrackerSuite) TestOnLeaderError(c *gc.C) {
 	s.manager.Stub.Errors = []error{errors.New("pow")}
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, coretesting.ShortWait)
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer worker.Stop(tracker)
 
 	// Check ticket gets closed.
@@ -105,14 +112,14 @@ func (s *TrackerSuite) TestOnLeaderError(c *gc.C) {
 	s.manager.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
-			"led-service", "led-service/123", coretesting.ShortWait,
+			"led-service", "led-service/123", leaseDuration,
 		},
 	}})
 }
 
 func (s *TrackerSuite) TestLoseLeadership(c *gc.C) {
 	s.manager.Stub.Errors = []error{nil, coreleadership.ErrClaimDenied, nil}
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, coretesting.ShortWait)
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check first ticket gets sent true, and then closed.
@@ -120,7 +127,7 @@ func (s *TrackerSuite) TestLoseLeadership(c *gc.C) {
 
 	// Wait long enough for a single refresh, to trigger ErrClaimDenied; then
 	// check the next ticket gets closed (without sending true).
-	<-time.After(coretesting.ShortWait * 3 / 4)
+	<-time.After(oneRefresh)
 	assertCloseTicket(c, tracker)
 
 	// Stop the tracker before trying to look at its stub.
@@ -136,12 +143,12 @@ func (s *TrackerSuite) TestLoseLeadership(c *gc.C) {
 	s.manager.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
-			"led-service", "led-service/123", coretesting.ShortWait,
+			"led-service", "led-service/123", leaseDuration,
 		},
 	}, {
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
-			"led-service", "led-service/123", coretesting.ShortWait,
+			"led-service", "led-service/123", leaseDuration,
 		},
 	}, {
 		FuncName: "BlockUntilLeadershipReleased",
@@ -153,7 +160,7 @@ func (s *TrackerSuite) TestLoseLeadership(c *gc.C) {
 
 func (s *TrackerSuite) TestGainLeadership(c *gc.C) {
 	s.manager.Stub.Errors = []error{coreleadership.ErrClaimDenied, nil, nil}
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, coretesting.ShortWait)
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check initial ticket gets closed.
@@ -165,7 +172,7 @@ func (s *TrackerSuite) TestGainLeadership(c *gc.C) {
 	default:
 		c.Fatalf("did nobody call BlockUntilLeadershipReleased?")
 	}
-	<-time.After(coretesting.ShortWait / 4)
+	<-time.After(noRefresh)
 
 	// ...and issue a new ticket, which we expect to receive true before closing.
 	assertSendOnce(c, tracker)
@@ -175,7 +182,7 @@ func (s *TrackerSuite) TestGainLeadership(c *gc.C) {
 	s.manager.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
-			"led-service", "led-service/123", coretesting.ShortWait,
+			"led-service", "led-service/123", leaseDuration,
 		},
 	}, {
 		FuncName: "BlockUntilLeadershipReleased",
@@ -185,7 +192,7 @@ func (s *TrackerSuite) TestGainLeadership(c *gc.C) {
 	}, {
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
-			"led-service", "led-service/123", coretesting.ShortWait,
+			"led-service", "led-service/123", leaseDuration,
 		},
 	}})
 }
