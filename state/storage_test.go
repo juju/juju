@@ -129,6 +129,10 @@ func (s *StorageStateSuite) TestProviderFallbackToType(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
+	s.assertStorageUnitsAdded(c)
+}
+
+func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
 	registry.RegisterDefaultPool("someprovider", storage.StorageKindBlock, "block")
 	defer func() {
 		registry.RegisterDefaultPool("someprovider", storage.StorageKindBlock, "")
@@ -162,6 +166,20 @@ func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
 		})
 		// TODO(wallyworld) - test pool name stored in data model
 	}
+}
+
+func (s *StorageStateSuite) TestAllStorageInstances(c *gc.C) {
+	s.assertStorageUnitsAdded(c)
+
+	all, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 6)
+}
+
+func (s *StorageStateSuite) TestAllStorageInstancesEmpty(c *gc.C) {
+	all, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 0)
 }
 
 func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {

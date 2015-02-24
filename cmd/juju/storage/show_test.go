@@ -18,7 +18,7 @@ import (
 
 type ShowSuite struct {
 	SubStorageSuite
-	mockAPI *mockStorageAPI
+	mockAPI *mockShowAPI
 }
 
 var _ = gc.Suite(&ShowSuite{})
@@ -26,7 +26,7 @@ var _ = gc.Suite(&ShowSuite{})
 func (s *ShowSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
-	s.mockAPI = &mockStorageAPI{}
+	s.mockAPI = &mockShowAPI{}
 	s.PatchValue(storage.GetStorageShowAPI, func(c *storage.ShowCommand) (storage.StorageShowAPI, error) {
 		return s.mockAPI, nil
 	})
@@ -42,17 +42,33 @@ func (s *ShowSuite) TestShow(c *gc.C) {
 		c,
 		[]string{"shared-fs/0"},
 		// Default format is yaml
-		`- storage-tag: storage-shared-fs-0
-  owner-tag: unitTag
-`,
+		`
+postgresql:
+  shared-fs/0:
+    storage: shared-fs
+    kind: block
+postgresql/0:
+  shared-fs/0:
+    storage: shared-fs
+    kind: block
+    unit_id: postgresql/0
+    attached: true
+    location: a location
+    provisioned: true
+`[1:],
 	)
+}
+
+func (s *ShowSuite) TestShowInvalidId(c *gc.C) {
+	_, err := runShow(c, []string{"foo"})
+	c.Assert(err, gc.ErrorMatches, ".*invalid storage id foo.*")
 }
 
 func (s *ShowSuite) TestShowJSON(c *gc.C) {
 	s.assertValidShow(
 		c,
 		[]string{"shared-fs/0", "--format", "json"},
-		`[{"storage-tag":"storage-shared-fs-0","owner-tag":"unitTag"}]
+		`{"postgresql":{"shared-fs/0":{"storage":"shared-fs","kind":"block"}},"postgresql/0":{"shared-fs/0":{"storage":"shared-fs","kind":"block","unit_id":"postgresql/0","attached":true,"location":"a location","provisioned":true}}}
 `,
 	)
 }
@@ -61,11 +77,30 @@ func (s *ShowSuite) TestShowMultipleReturn(c *gc.C) {
 	s.assertValidShow(
 		c,
 		[]string{"shared-fs/0", "db-dir/1000"},
-		`- storage-tag: storage-shared-fs-0
-  owner-tag: unitTag
-- storage-tag: storage-db-dir-1000
-  owner-tag: unitTag
-`,
+		`
+postgresql:
+  db-dir/1000:
+    storage: db-dir
+    kind: block
+  shared-fs/0:
+    storage: shared-fs
+    kind: block
+postgresql/0:
+  db-dir/1000:
+    storage: db-dir
+    kind: block
+    unit_id: postgresql/0
+    attached: true
+    location: a location
+    provisioned: true
+  shared-fs/0:
+    storage: shared-fs
+    kind: block
+    unit_id: postgresql/0
+    attached: true
+    location: a location
+    provisioned: true
+`[1:],
 	)
 }
 
@@ -77,21 +112,35 @@ func (s *ShowSuite) assertValidShow(c *gc.C, args []string, expected string) {
 	c.Assert(obtained, gc.Equals, expected)
 }
 
-type mockStorageAPI struct {
+type mockShowAPI struct {
 }
 
-func (s mockStorageAPI) Close() error {
+func (s mockShowAPI) Close() error {
 	return nil
 }
 
-func (s mockStorageAPI) Show(tags []names.StorageTag) ([]params.StorageInstance, error) {
-	results := make([]params.StorageInstance, len(tags))
-
-	for i, tag := range tags {
-		results[i] = params.StorageInstance{
+func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageInfo, error) {
+	all := make([]params.StorageInfo, len(tags)*2)
+	ind := 0
+	for _, tag := range tags {
+		all[ind] = params.StorageInfo{
 			StorageTag: tag.String(),
-			OwnerTag:   "unitTag",
+			OwnerTag:   "service-postgresql",
+			Kind:       params.StorageKindBlock,
 		}
+		ind++
 	}
-	return results, nil
+	for _, tag := range tags {
+		all[ind] = params.StorageInfo{
+			StorageTag:  tag.String(),
+			OwnerTag:    "unit-postgresql-0",
+			UnitTag:     "unit-postgresql-0",
+			Kind:        params.StorageKindBlock,
+			Location:    "a location",
+			Attached:    true,
+			Provisioned: true,
+		}
+		ind++
+	}
+	return all, nil
 }
