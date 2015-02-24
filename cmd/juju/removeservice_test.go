@@ -16,15 +16,15 @@ import (
 
 type RemoveServiceSuite struct {
 	jujutesting.RepoSuite
-	CmdBlockSwitch
+	CmdBlockHelper
 }
 
 var _ = gc.Suite(&RemoveServiceSuite{})
 
 func (s *RemoveServiceSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
-	c.Assert(s.CmdBlockSwitch, gc.NotNil)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
 }
 
 func runRemoveService(c *gc.C, args ...string) error {
@@ -54,7 +54,7 @@ func (s *RemoveServiceSuite) TestBlockRemoveService(c *gc.C) {
 	// block operation
 	s.BlockRemoveObject(c, "TestBlockRemoveService")
 	err := runRemoveService(c, "riak")
-	s.AssertBlockError(c, err, ".*TestBlockRemoveService.*")
+	s.AssertBlocked(c, err, ".*TestBlockRemoveService.*")
 	riak, err := s.State.Service("riak")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(riak.Life(), gc.Equals, state.Alive)

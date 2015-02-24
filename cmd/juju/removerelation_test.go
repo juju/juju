@@ -15,13 +15,13 @@ import (
 
 type RemoveRelationSuite struct {
 	jujutesting.RepoSuite
-	CmdBlockSwitch
+	CmdBlockHelper
 }
 
 func (s *RemoveRelationSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
-	c.Assert(s.CmdBlockSwitch, gc.NotNil)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
 }
 
 var _ = gc.Suite(&RemoveRelationSuite{})
@@ -66,5 +66,5 @@ func (s *RemoveRelationSuite) TestBlockRemoveRelation(c *gc.C) {
 	s.BlockRemoveObject(c, "TestBlockRemoveRelation")
 	// Destroy a relation that exists.
 	err := runRemoveRelation(c, "logging", "riak")
-	s.AssertBlockError(c, err, ".*TestBlockRemoveRelation.*")
+	s.AssertBlocked(c, err, ".*TestBlockRemoveRelation.*")
 }

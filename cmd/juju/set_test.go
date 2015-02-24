@@ -26,7 +26,7 @@ type SetSuite struct {
 	testing.JujuConnSuite
 	svc *state.Service
 	dir string
-	CmdBlockSwitch
+	CmdBlockHelper
 }
 
 var _ = gc.Suite(&SetSuite{})
@@ -49,8 +49,8 @@ func (s *SetSuite) SetUpTest(c *gc.C) {
 	setupBigFile(c, s.dir)
 	setupConfigFile(c, s.dir)
 
-	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
-	c.Assert(s.CmdBlockSwitch, gc.NotNil)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
 }
 
 func (s *SetSuite) TestSetOptionSuccess(c *gc.C) {

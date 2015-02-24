@@ -16,13 +16,13 @@ import (
 
 type ExposeSuite struct {
 	jujutesting.RepoSuite
-	CmdBlockSwitch
+	CmdBlockHelper
 }
 
 func (s *ExposeSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
-	c.Assert(s.CmdBlockSwitch, gc.NotNil)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
 }
 
 var _ = gc.Suite(&ExposeSuite{})
@@ -65,5 +65,5 @@ func (s *ExposeSuite) TestBlockExpose(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockExpose")
 
 	err = runExpose(c, "some-service-name")
-	s.AssertBlockError(c, err, ".*TestBlockExpose.*")
+	s.AssertBlocked(c, err, ".*TestBlockExpose.*")
 }

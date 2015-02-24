@@ -16,13 +16,13 @@ import (
 
 type ResolvedSuite struct {
 	jujutesting.RepoSuite
-	CmdBlockSwitch
+	CmdBlockHelper
 }
 
 func (s *ResolvedSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
-	c.Assert(s.CmdBlockSwitch, gc.NotNil)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
 }
 
 var _ = gc.Suite(&ResolvedSuite{})
@@ -123,5 +123,5 @@ func (s *ResolvedSuite) TestBlockResolved(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockResolved")
 	err = runResolved(c, []string{"dummy/2"})
-	s.AssertBlockError(c, err, ".*TestBlockResolved.*")
+	s.AssertBlocked(c, err, ".*TestBlockResolved.*")
 }

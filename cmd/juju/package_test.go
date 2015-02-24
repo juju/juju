@@ -36,43 +36,50 @@ func TestRunMain(t *stdtesting.T) {
 	}
 }
 
-type CmdBlockSwitch struct {
+// CmdBlockHelper facilitates manipulation of blocks
+// for CLI tests.
+// It provides easy access to block client.
+type CmdBlockHelper struct {
 	blockClient *block.Client
 }
 
 // NewCmdBlockSwitch creates a block switch used in testing
 // to manage desired juju blocks.
-func NewCmdBlockSwitch(st *api.State) CmdBlockSwitch {
-	return CmdBlockSwitch{
+func NewCmdBlockHelper(st *api.State) CmdBlockHelper {
+	return CmdBlockHelper{
 		blockClient: block.NewClient(st),
 	}
 }
 
 // on switches on desired block and
 // asserts that no errors were encountered.
-func (s *CmdBlockSwitch) on(c *gc.C, blockType, msg string) {
+func (s *CmdBlockHelper) on(c *gc.C, blockType, msg string) {
 	c.Assert(s.blockClient.SwitchBlockOn(cmdblock.TranslateOperation(blockType), msg), gc.IsNil)
 }
 
 // BlockAllChanges switches changes block on.
 // This prevents all changes to juju environment.
-func (s *CmdBlockSwitch) BlockAllChanges(c *gc.C, msg string) {
+func (s *CmdBlockHelper) BlockAllChanges(c *gc.C, msg string) {
 	s.on(c, "all-changes", msg)
 }
 
 // BlockRemoveObject switches remove block on.
 // This prevents any object/entity removal on juju environment
-func (s *CmdBlockSwitch) BlockRemoveObject(c *gc.C, msg string) {
+func (s *CmdBlockHelper) BlockRemoveObject(c *gc.C, msg string) {
 	s.on(c, "remove-object", msg)
 }
 
 // BlockDestroyEnvironment switches destory block on.
 // This prevents juju environment destruction.
-func (s *CmdBlockSwitch) BlockDestroyEnvironment(c *gc.C, msg string) {
+func (s *CmdBlockHelper) BlockDestroyEnvironment(c *gc.C, msg string) {
 	s.on(c, "destroy-environment", msg)
 }
 
-func (s *CmdBlockSwitch) AssertBlockError(c *gc.C, err error, msg string) {
+// AssertBlocked asserts that given data exhibits
+// behaviour/output expected from blocked operation.
+// At this stage, the resulting error must be silent and
+// the message sent to the console must contain the message of the block.
+func (s *CmdBlockHelper) AssertBlocked(c *gc.C, err error, msg string) {
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)

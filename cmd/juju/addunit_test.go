@@ -20,13 +20,13 @@ import (
 
 type AddUnitSuite struct {
 	jujutesting.RepoSuite
-	CmdBlockSwitch
+	CmdBlockHelper
 }
 
 func (s *AddUnitSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
-	c.Assert(s.CmdBlockSwitch, gc.NotNil)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
 }
 
 var _ = gc.Suite(&AddUnitSuite{})
@@ -86,7 +86,7 @@ func (s *AddUnitSuite) TestBlockAddUnit(c *gc.C) {
 
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockAddUnit")
-	s.AssertBlockError(c, runAddUnit(c, "some-service-name"), ".*TestBlockAddUnit.*")
+	s.AssertBlocked(c, runAddUnit(c, "some-service-name"), ".*TestBlockAddUnit.*")
 }
 
 // assertForceMachine ensures that the result of assigning a unit with --to
@@ -176,7 +176,7 @@ func (s *AddUnitSuite) TestNonLocalCannotHostUnits(c *gc.C) {
 func (s *AddUnitSuite) TestBlockNonLocalCannotHostUnits(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockNonLocalCannotHostUnits")
-	s.AssertBlockError(c, runAddUnit(c, "some-service-name", "--to", "0"), ".*TestBlockNonLocalCannotHostUnits.*")
+	s.AssertBlocked(c, runAddUnit(c, "some-service-name", "--to", "0"), ".*TestBlockNonLocalCannotHostUnits.*")
 }
 
 func (s *AddUnitSuite) TestCannotDeployToNonExistentMachine(c *gc.C) {
@@ -189,7 +189,7 @@ func (s *AddUnitSuite) TestBlockCannotDeployToNonExistentMachine(c *gc.C) {
 	s.setupService(c)
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockCannotDeployToNonExistentMachine")
-	s.AssertBlockError(c, runAddUnit(c, "some-service-name", "--to", "42"), ".*TestBlockCannotDeployToNonExistentMachine.*")
+	s.AssertBlocked(c, runAddUnit(c, "some-service-name", "--to", "42"), ".*TestBlockCannotDeployToNonExistentMachine.*")
 }
 
 type AddUnitLocalSuite struct {

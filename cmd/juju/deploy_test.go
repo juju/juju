@@ -29,13 +29,13 @@ import (
 
 type DeploySuite struct {
 	testing.RepoSuite
-	CmdBlockSwitch
+	CmdBlockHelper
 }
 
 func (s *DeploySuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
-	c.Assert(s.CmdBlockSwitch, gc.NotNil)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
 }
 
 var _ = gc.Suite(&DeploySuite{})
@@ -94,7 +94,7 @@ func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockDeploy")
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
-	s.AssertBlockError(c, err, ".*TestBlockDeploy.*")
+	s.AssertBlocked(c, err, ".*TestBlockDeploy.*")
 }
 
 func (s *DeploySuite) TestCharmDir(c *gc.C) {

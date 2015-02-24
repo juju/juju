@@ -24,13 +24,13 @@ import (
 
 type destroyEnvSuite struct {
 	testing.JujuConnSuite
-	CmdBlockSwitch
+	CmdBlockHelper
 }
 
 func (s *destroyEnvSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
-	c.Assert(s.CmdBlockSwitch, gc.NotNil)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
 }
 
 var _ = gc.Suite(&destroyEnvSuite{})

@@ -15,13 +15,13 @@ import (
 
 type AddRelationSuite struct {
 	jujutesting.RepoSuite
-	CmdBlockSwitch
+	CmdBlockHelper
 }
 
 func (s *AddRelationSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
-	c.Assert(s.CmdBlockSwitch, gc.NotNil)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
 }
 
 var _ = gc.Suite(&AddRelationSuite{})
@@ -183,7 +183,7 @@ func (s *AddRelationSuite) TestBlockAddRelation(c *gc.C) {
 		if len(t.args) == 2 {
 			// Only worry about Run being blocked.
 			// For len(t.args) != 2, an Init will fail
-			s.AssertBlockError(c, err, ".*TestBlockAddRelation.*")
+			s.AssertBlocked(c, err, ".*TestBlockAddRelation.*")
 		}
 	}
 }

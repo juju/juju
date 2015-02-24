@@ -19,13 +19,13 @@ import (
 
 type RemoveUnitSuite struct {
 	jujutesting.RepoSuite
-	CmdBlockSwitch
+	CmdBlockHelper
 }
 
 func (s *RemoveUnitSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
-	c.Assert(s.CmdBlockSwitch, gc.NotNil)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
 }
 
 var _ = gc.Suite(&RemoveUnitSuite{})
@@ -61,6 +61,6 @@ func (s *RemoveUnitSuite) TestBlockRemoveUnit(c *gc.C) {
 	// block operation
 	s.BlockRemoveObject(c, "TestBlockRemoveUnit")
 	err := runRemoveUnit(c, "dummy/0", "dummy/1")
-	s.AssertBlockError(c, err, ".*TestBlockRemoveUnit.*")
+	s.AssertBlocked(c, err, ".*TestBlockRemoveUnit.*")
 	c.Assert(svc.Life(), gc.Equals, state.Alive)
 }

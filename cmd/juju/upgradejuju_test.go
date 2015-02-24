@@ -40,7 +40,7 @@ type UpgradeJujuSuite struct {
 	authoriser apiservertesting.FakeAuthorizer
 
 	toolsDir string
-	CmdBlockSwitch
+	CmdBlockHelper
 }
 
 func (s *UpgradeJujuSuite) SetUpTest(c *gc.C) {
@@ -50,8 +50,8 @@ func (s *UpgradeJujuSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 
-	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
-	c.Assert(s.CmdBlockSwitch, gc.NotNil)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
 
 }
 
@@ -445,7 +445,7 @@ func (s *UpgradeJujuSuite) TestBlockUpgradeJujuWithRealUpload(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeJujuWithRealUpload")
 	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
-	s.AssertBlockError(c, err, ".*TestBlockUpgradeJujuWithRealUpload.*")
+	s.AssertBlocked(c, err, ".*TestBlockUpgradeJujuWithRealUpload.*")
 }
 
 type DryRunTest struct {
@@ -570,7 +570,7 @@ func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeInProgress")
 	err = cmd.Run(coretesting.Context(c))
-	s.AssertBlockError(c, err, ".*To unblock changes.*")
+	s.AssertBlocked(c, err, ".*To unblock changes.*")
 }
 
 func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {

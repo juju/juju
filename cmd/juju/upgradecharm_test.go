@@ -98,7 +98,7 @@ func (s *UpgradeCharmErrorsSuite) TestInvalidRevision(c *gc.C) {
 
 type UpgradeCharmSuccessSuite struct {
 	jujutesting.RepoSuite
-	CmdBlockSwitch
+	CmdBlockHelper
 	path string
 	riak *state.Service
 }
@@ -117,8 +117,8 @@ func (s *UpgradeCharmSuccessSuite) SetUpTest(c *gc.C) {
 	c.Assert(ch.Revision(), gc.Equals, 7)
 	c.Assert(forced, jc.IsFalse)
 
-	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
-	c.Assert(s.CmdBlockSwitch, gc.NotNil)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
 }
 
 func (s *UpgradeCharmSuccessSuite) assertUpgraded(c *gc.C, revision int, forced bool) *charm.URL {
@@ -151,7 +151,7 @@ func (s *UpgradeCharmSuccessSuite) TestBlockUpgradeCharm(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeCharm")
 	err := runUpgradeCharm(c, "riak")
-	s.AssertBlockError(c, err, ".*TestBlockUpgradeCharm.*")
+	s.AssertBlocked(c, err, ".*TestBlockUpgradeCharm.*")
 }
 
 func (s *UpgradeCharmSuccessSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
@@ -197,7 +197,7 @@ func (s *UpgradeCharmSuccessSuite) TestBlockUpgradesWithBundle(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradesWithBundle")
 	err = runUpgradeCharm(c, "riak")
-	s.AssertBlockError(c, err, ".*TestBlockUpgradesWithBundle.*")
+	s.AssertBlocked(c, err, ".*TestBlockUpgradesWithBundle.*")
 }
 
 func (s *UpgradeCharmSuccessSuite) TestForcedUpgrade(c *gc.C) {
