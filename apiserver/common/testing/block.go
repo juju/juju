@@ -16,7 +16,8 @@ import (
 )
 
 // BlockHelper helps manage blocks for apiserver tests.
-// It provides easy access to swicth blocks on.
+// It provides easy access to switch blocks on
+// as well as test whether operations are blocked or not.
 type BlockHelper struct {
 	ApiState *api.State
 	client   *block.Client

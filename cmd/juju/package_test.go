@@ -36,9 +36,9 @@ func TestRunMain(t *stdtesting.T) {
 	}
 }
 
-// CmdBlockHelper facilitates manipulation of blocks
-// for CLI tests.
-// It provides easy access to block client.
+// CmdBlockHelper facilitates manipulation of blocks for CLI tests.
+// It provides easy access to block client to
+// switch blocks on as well as test whether operations are blocked or not.
 type CmdBlockHelper struct {
 	blockClient *block.Client
 }
