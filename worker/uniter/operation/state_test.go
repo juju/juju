@@ -38,7 +38,6 @@ var stateTests = []struct {
 		st: operation.State{
 			Kind: operation.Continue,
 			Step: operation.Step("dudelike"),
-			Hook: &hook.Info{Kind: hooks.ConfigChanged},
 		},
 		err: `unknown operation step "dudelike"`,
 	},
@@ -49,7 +48,7 @@ var stateTests = []struct {
 			Step: operation.Pending,
 			Hook: &hook.Info{Kind: hooks.ConfigChanged},
 		},
-		err: `unexpected hook info`,
+		err: `unexpected hook info with Kind Install`,
 	}, {
 		st: operation.State{
 			Kind: operation.Install,
@@ -76,14 +75,12 @@ var stateTests = []struct {
 		st: operation.State{
 			Kind: operation.RunAction,
 			Step: operation.Pending,
-			Hook: &hook.Info{Kind: hooks.Install},
 		},
 		err: `missing action id`,
 	}, {
 		st: operation.State{
 			Kind:     operation.RunAction,
 			Step:     operation.Pending,
-			Hook:     &hook.Info{Kind: hooks.Install},
 			CharmURL: stcurl,
 		},
 		err: `unexpected charm URL`,
@@ -91,7 +88,6 @@ var stateTests = []struct {
 		st: operation.State{
 			Kind:     operation.RunAction,
 			Step:     operation.Pending,
-			Hook:     &hook.Info{Kind: hooks.Install},
 			ActionId: &someActionId,
 		},
 	},
@@ -173,13 +169,13 @@ var stateTests = []struct {
 		st: operation.State{
 			Kind: operation.Continue,
 			Step: operation.Pending,
+			Hook: &hook.Info{Kind: hooks.ConfigChanged},
 		},
-		err: `missing hook info`,
+		err: `unexpected hook info with Kind Continue`,
 	}, {
 		st: operation.State{
 			Kind:     operation.Continue,
 			Step:     operation.Pending,
-			Hook:     relhook,
 			CharmURL: stcurl,
 		},
 		err: `unexpected charm URL`,
@@ -187,7 +183,6 @@ var stateTests = []struct {
 		st: operation.State{
 			Kind:     operation.Continue,
 			Step:     operation.Pending,
-			Hook:     relhook,
 			ActionId: &someActionId,
 		},
 		err: `unexpected action id`,
@@ -195,7 +190,6 @@ var stateTests = []struct {
 		st: operation.State{
 			Kind:               operation.Continue,
 			Step:               operation.Pending,
-			Hook:               relhook,
 			CollectMetricsTime: 98765432,
 			Leader:             true,
 		},

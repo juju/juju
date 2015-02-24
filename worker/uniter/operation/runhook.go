@@ -114,32 +114,36 @@ func (rh *runHook) Commit(state State) (*State, error) {
 	}
 
 	change := stateChange{
-		Kind: RunHook,
-		Step: Queued,
+		Kind: Continue,
+		Step: Pending,
 	}
+
+	var hi *hook.Info = &hook.Info{Kind: hooks.ConfigChanged}
 	switch rh.info.Kind {
-	case hooks.Install, hooks.UpgradeCharm:
-		change.Hook = &hook.Info{Kind: hooks.ConfigChanged}
 	case hooks.ConfigChanged:
-		if !state.Started {
-			change.Hook = &hook.Info{Kind: hooks.Start}
+		if state.Started {
 			break
 		}
+		hi.Kind = hooks.Start
 		fallthrough
-	default:
+	case hooks.UpgradeCharm:
 		change = stateChange{
-			Kind: Continue,
-			Step: Pending,
-			Hook: &rh.info,
+			Kind: RunHook,
+			Step: Queued,
+			Hook: hi,
 		}
 	}
 
 	newState := change.apply(state)
+
 	switch rh.info.Kind {
 	case hooks.Start:
 		newState.Started = true
+	case hooks.Stop:
+		newState.Stopped = true
 	case hooks.CollectMetrics:
 		newState.CollectMetricsTime = time.Now().Unix()
 	}
+
 	return newState, nil
 }
