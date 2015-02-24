@@ -214,11 +214,6 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 	}
 	for _, pkg := range cfg.Packages() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Installing package: %s", pkg))
-		if !strings.Contains(pkg, "--target-release") {
-			// We only need to shquote the package name if it does not
-			// contain additional arguments.
-			pkg = utils.ShQuote(pkg)
-		}
 		cmd := fmt.Sprintf(aptget+"install %s", pkg)
 		cmds = append(cmds, cmd)
 	}
