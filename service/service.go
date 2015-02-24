@@ -54,6 +54,9 @@ type Service interface {
 	UpdateConfig(conf common.Conf)
 }
 
+// TODO(ericsnow) Eliminate the need to pass an empty conf here for
+// most service methods.
+
 func newService(name string, conf common.Conf, initSystem string) (Service, error) {
 	var svc Service
 
@@ -69,11 +72,9 @@ func newService(name string, conf common.Conf, initSystem string) (Service, erro
 	return svc, nil
 }
 
-// TODO(ericsnow) NewService -> DiscoverService.
-
-// NewService returns an interface to a service apropriate
+// DiscoverService returns an interface to a service apropriate
 // for the current system
-func NewService(name string, conf common.Conf) (Service, error) {
+func DiscoverService(name string, conf common.Conf) (Service, error) {
 	initName := versionInitSystem(version.Current)
 	if initName == "" {
 		return nil, errors.NotFoundf("init system on local host")
