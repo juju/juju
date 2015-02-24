@@ -14,22 +14,19 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/leadership"
 )
 
-func init() {
-	// Ensure the LeadershipService conforms to the interface at compile-time.
-	var _ LeadershipService = (*leadershipService)(nil)
-
-	gc.Suite(&leadershipSuite{})
+type leadershipSuite struct {
+	testing.IsolationSuite
 }
 
-type leadershipSuite struct{}
+var _ = gc.Suite(&leadershipSuite{})
 
 const (
 	StubServiceNm = "stub-service"
@@ -85,12 +82,21 @@ func (m *stubAuthorizer) AuthEnvironManager() bool { return true }
 func (m *stubAuthorizer) AuthClient() bool         { return true }
 func (m *stubAuthorizer) GetAuthTag() names.Tag    { return names.NewServiceTag(StubUnitNm) }
 
+func checkDurationEquals(c *gc.C, actual, expect time.Duration) {
+	delta := actual - expect
+	if delta < 0 {
+		delta = -delta
+	}
+	c.Check(delta, jc.LessThan, time.Microsecond)
+}
+
 func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 	var ldrMgr stubLeadershipManager
 	ldrMgr.ClaimLeadershipFn = func(sid, uid string, duration time.Duration) error {
 		c.Check(sid, gc.Equals, StubServiceNm)
 		c.Check(uid, gc.Equals, StubUnitNm)
-		c.Check(duration, gc.Equals, time.Duration(299.9*float64(time.Second)))
+		expectDuration := time.Duration(299.9 * float64(time.Second))
+		checkDurationEquals(c, duration, expectDuration)
 		return nil
 	}
 
@@ -115,7 +121,8 @@ func (s *leadershipSuite) TestClaimLeadershipDeniedError(c *gc.C) {
 	ldrMgr.ClaimLeadershipFn = func(sid, uid string, duration time.Duration) error {
 		c.Check(sid, gc.Equals, StubServiceNm)
 		c.Check(uid, gc.Equals, StubUnitNm)
-		c.Check(duration, gc.Equals, time.Duration(5.001*float64(time.Second)))
+		expectDuration := time.Duration(5.001 * float64(time.Second))
+		checkDurationEquals(c, duration, expectDuration)
 		return errors.Annotatef(leadership.ErrClaimDenied, "obfuscated")
 	}
 
@@ -184,9 +191,7 @@ func (s *leadershipSuite) TestClaimLeadershipDurationTooShort(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	// NOTE: I think that asking for an excessive lease duration satisfies
-	// Unauthorized quite well..?
-	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(results.Results[0].Error, gc.ErrorMatches, "invalid duration")
 }
 
 func (s *leadershipSuite) TestClaimLeadershipDurationTooLong(c *gc.C) {
@@ -202,9 +207,7 @@ func (s *leadershipSuite) TestClaimLeadershipDurationTooLong(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	// NOTE: I think that asking for an excessive lease duration satisfies
-	// Unauthorized quite well..?
-	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(results.Results[0].Error, gc.ErrorMatches, "invalid duration")
 }
 
 func (s *leadershipSuite) TestReleaseLeadershipTranslation(c *gc.C) {
@@ -255,16 +258,16 @@ func (s *leadershipSuite) TestClaimLeadershipFailOnAuthorizerErrors(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
-				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
-				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
+				ServiceTag:      names.NewServiceTag(StubServiceNm).String(),
+				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
+				DurationSeconds: 123.45,
 			},
 		},
 	})
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.NotNil)
-	c.Check(results.Results[0].Error, gc.ErrorMatches, common.ErrPerm.Error())
+	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *leadershipSuite) TestReleaseLeadershipFailOnAuthorizerErrors(c *gc.C) {
@@ -284,8 +287,7 @@ func (s *leadershipSuite) TestReleaseLeadershipFailOnAuthorizerErrors(c *gc.C) {
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.NotNil)
-	c.Check(results.Results[0].Error, gc.ErrorMatches, common.ErrPerm.Error())
+	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *leadershipSuite) TestBlockUntilLeadershipReleasedErrors(c *gc.C) {
@@ -299,5 +301,5 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedErrors(c *gc.C) {
 	// Overall function call should succeed, but operations should
 	// fail with a permissions issue.
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(result.Error, gc.ErrorMatches, common.ErrPerm.Error())
+	c.Check(result.Error, jc.Satisfies, params.IsCodeUnauthorized)
 }

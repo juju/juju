@@ -6,6 +6,7 @@ package leadership
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
@@ -106,7 +107,7 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 		}
 		duration := time.Duration(p.DurationSeconds * float64(time.Second))
 		if duration > MaxLeaseRequest || duration < MinLeaseRequest {
-			result.Error = common.ServerError(common.ErrPerm)
+			result.Error = common.ServerError(errors.New("invalid duration"))
 			continue
 		}
 
