@@ -2,8 +2,6 @@ package service
 
 import (
 	"fmt"
-	"io/ioutil"
-	"regexp"
 	"strings"
 
 	"github.com/juju/errors"
@@ -118,24 +116,6 @@ func windowsListServices() ([]string, error) {
 	return strings.Fields(string(out.Stdout)), nil
 }
 
-// TODO(ericsnow) Move upstartListServices to service/upstart.ListServices.
-
-var servicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
-
-func upstartListServices(initDir string) ([]string, error) {
-	var services []string
-	fis, err := ioutil.ReadDir(initDir)
-	if err != nil {
-		return nil, err
-	}
-	for _, fi := range fis {
-		if groups := servicesRe.FindStringSubmatch(fi.Name()); len(groups) > 0 {
-			services = append(services, groups[1])
-		}
-	}
-	return services, nil
-}
-
 // ListServices lists all installed services on the running system
 func ListServices(initDir string) ([]string, error) {
 	initName := versionInitSystem(version.Current)
@@ -148,7 +128,7 @@ func ListServices(initDir string) ([]string, error) {
 		services, err := windowsListServices()
 		return services, errors.Trace(err)
 	case "upstart":
-		services, err := upstartListServices(initDir)
+		services, err := upstart.ListServices(initDir)
 		return services, errors.Trace(err)
 	default:
 		return nil, errors.NotFoundf("init system %q", initName)

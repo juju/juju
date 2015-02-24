@@ -20,6 +20,25 @@ import (
 	"github.com/juju/juju/service/common"
 )
 
+var servicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
+
+// ListServices returns the name of all installed services on the
+// local host.
+func ListServices(initDir string) ([]string, error) {
+	fis, err := ioutil.ReadDir(initDir)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var services []string
+	for _, fi := range fis {
+		if groups := servicesRe.FindStringSubmatch(fi.Name()); len(groups) > 0 {
+			services = append(services, groups[1])
+		}
+	}
+	return services, nil
+}
+
 var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
 
 // InitDir holds the default init directory name.
