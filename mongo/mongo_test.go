@@ -15,6 +15,7 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/upstart"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -41,11 +41,7 @@ type MongoSuite struct {
 	mongodConfigPath string
 	mongodPath       string
 
-	installError error
-	installed    []upstart.Service
-
-	removeError error
-	removed     []upstart.Service
+	data *mongo.ServiceData
 }
 
 var _ = gc.Suite(&MongoSuite{})
@@ -102,19 +98,8 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.mongodConfigPath = filepath.Join(testPath, "mongodConfig")
 	s.PatchValue(mongo.MongoConfigPath, s.mongodConfigPath)
 
-	s.PatchValue(mongo.UpstartConfInstall, func(conf *upstart.Service) error {
-		s.installed = append(s.installed, *conf)
-		return s.installError
-	})
-	s.PatchValue(mongo.UpstartServiceStopAndRemove, func(svc *upstart.Service) error {
-		s.removed = append(s.removed, *svc)
-		return s.removeError
-	})
-	// Clear out the values that are set by the above patched functions.
-	s.removeError = nil
-	s.installError = nil
-	s.installed = nil
-	s.removed = nil
+	s.data = &mongo.ServiceData{}
+	mongo.PatchService(s.PatchValue, s.data)
 }
 
 func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
@@ -188,19 +173,13 @@ func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
-	s.PatchValue(mongo.UpstartServiceExists, func(svc *upstart.Service) bool {
-		return true
-	})
-	s.PatchValue(mongo.UpstartServiceRunning, func(svc *upstart.Service) bool {
-		return true
-	})
-	s.PatchValue(mongo.UpstartServiceStart, func(svc *upstart.Service) error {
-		return fmt.Errorf("shouldn't be called")
-	})
+	s.data.Exists = true
+	s.data.Running = true
+	s.data.SetErrors(errors.New("shouldn't be called"))
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.installed, gc.HasLen, 0)
+	c.Assert(s.data.Installed, gc.HasLen, 0)
 }
 
 func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
@@ -209,22 +188,13 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
 
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
-	s.PatchValue(mongo.UpstartServiceExists, func(svc *upstart.Service) bool {
-		return true
-	})
-	s.PatchValue(mongo.UpstartServiceRunning, func(svc *upstart.Service) bool {
-		return false
-	})
-	var started bool
-	s.PatchValue(mongo.UpstartServiceStart, func(svc *upstart.Service) error {
-		started = true
-		return nil
-	})
+	s.data.Exists = true
+	s.data.Running = false
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.installed, gc.HasLen, 0)
-	c.Assert(started, jc.IsTrue)
+	c.Assert(s.data.Installed, gc.HasLen, 0)
+	s.data.CheckCallNames(c, "Exists", "Running", "Start")
 }
 
 func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
@@ -233,19 +203,14 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
 
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
-	s.PatchValue(mongo.UpstartServiceExists, func(svc *upstart.Service) bool {
-		return true
-	})
-	s.PatchValue(mongo.UpstartServiceRunning, func(svc *upstart.Service) bool {
-		return false
-	})
-	s.PatchValue(mongo.UpstartServiceStart, func(svc *upstart.Service) error {
-		return fmt.Errorf("won't start")
-	})
+	s.data.Exists = true
+	s.data.Running = false
+	failure := errors.New("won't start")
+	s.data.SetErrors(nil, nil, failure) // Exists, Running, Start
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
-	c.Assert(err, gc.ErrorMatches, `.*won't start`)
-	c.Assert(s.installed, gc.HasLen, 0)
+	c.Assert(errors.Cause(err), gc.Equals, failure)
+	c.Assert(s.data.Installed, gc.HasLen, 0)
 }
 
 func (s *MongoSuite) TestEnsureServerNumaCtl(c *gc.C) {
@@ -267,10 +232,9 @@ func (s *MongoSuite) testEnsureServerNumaCtl(c *gc.C, setNumaPolicy bool) string
 	testJournalDirs(dbDir, c)
 
 	assertInstalled := func() {
-		c.Assert(s.installed, gc.HasLen, 1)
-		service := s.installed[0]
+		c.Assert(s.data.Installed, gc.HasLen, 1)
+		service := s.data.Installed[0]
 		c.Assert(service.Name(), gc.Equals, "juju-db-namespace")
-		c.Assert(service.Conf().InitDir, gc.Equals, "/etc/init")
 		c.Assert(service.Conf().Desc, gc.Equals, "juju state database")
 		if setNumaPolicy {
 			stripped := strings.Replace(service.Conf().ExtraScript, "\n", "", -1)
@@ -332,55 +296,45 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 	dataDir := c.MkDir()
 	namespace := "namespace"
 
-	s.PatchValue(mongo.UpstartServiceExists, func(svc *upstart.Service) bool {
-		return true
-	})
-	s.PatchValue(mongo.UpstartServiceRunning, func(svc *upstart.Service) bool {
-		return true
-	})
-	s.PatchValue(mongo.UpstartServiceStart, func(svc *upstart.Service) error {
-		return fmt.Errorf("shouldn't be called")
-	})
+	s.data.Exists = true
+	s.data.Running = true
+	s.data.SetErrors(errors.New("shouldn't be called"))
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.installed, gc.HasLen, 0)
+	c.Assert(s.data.Installed, gc.HasLen, 0)
 
 	// We still attempt to install mongodb, despite the service existing.
 	cmds := getMockShellCalls(c, output)
 	c.Assert(cmds, gc.HasLen, 1)
 }
 
-func (s *MongoSuite) TestUpstartServiceWithReplSet(c *gc.C) {
+func (s *MongoSuite) TestNewServiceWithReplSet(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(strings.Contains(svc.Conf().ExecStart, "--replSet"), jc.IsTrue)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
+	c.Assert(strings.Contains(conf.ExecStart, "--replSet"), jc.IsTrue)
 }
 
-func (s *MongoSuite) TestUpstartServiceWithNumCtl(c *gc.C) {
+func (s *MongoSuite) TestNewServiceWithNumCtl(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(svc.Conf().ExtraScript, gc.Not(gc.Matches), "")
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, true)
+	c.Assert(conf.ExtraScript, gc.Not(gc.Matches), "")
 }
 
-func (s *MongoSuite) TestUpstartServiceIPv6(c *gc.C) {
+func (s *MongoSuite) TestNewServiceIPv6(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(strings.Contains(svc.Conf().ExecStart, "--ipv6"), jc.IsTrue)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
+	c.Assert(strings.Contains(conf.ExecStart, "--ipv6"), jc.IsTrue)
 }
 
-func (s *MongoSuite) TestUpstartServiceWithJournal(c *gc.C) {
+func (s *MongoSuite) TestNewServiceWithJournal(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(svc.Conf().ExecStart, gc.Matches, `.* --journal.*`)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
+	c.Assert(conf.ExecStart, gc.Matches, `.* --journal.*`)
 }
 
 func (s *MongoSuite) TestNoAuthCommandWithJournal(c *gc.C) {
@@ -400,12 +354,10 @@ func (s *MongoSuite) TestNoAuthCommandWithJournal(c *gc.C) {
 func (s *MongoSuite) TestRemoveService(c *gc.C) {
 	err := mongo.RemoveService("namespace")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.removed, jc.DeepEquals, []upstart.Service{{
-		Service: common.Service{
-			Name: "juju-db-namespace",
-			Conf: common.Conf{InitDir: upstart.InitDir},
-		},
-	}})
+
+	c.Check(s.data.Removed, gc.HasLen, 1)
+	c.Check(s.data.Removed[0].Name(), gc.Equals, "juju-db-namespace")
+	c.Check(s.data.Removed[0].Conf(), jc.DeepEquals, common.Conf{})
 }
 
 func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
