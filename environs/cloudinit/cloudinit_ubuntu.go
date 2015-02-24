@@ -320,6 +320,7 @@ func (w *ubuntuConfigure) addMachineAgentToBoot(tag string) error {
 		w.mcfg.MachineId,
 		w.mcfg.DataDir,
 		w.mcfg.LogDir,
+		"",
 	)
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change

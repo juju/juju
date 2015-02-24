@@ -99,11 +99,7 @@ func (s *Service) render() ([]byte, error) {
 	if err := s.Validate(); err != nil {
 		return nil, err
 	}
-	var buf bytes.Buffer
-	if err := confT.Execute(&buf, s.Conf()); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return Serialize(s.Name(), s.Conf())
 }
 
 // Installed returns whether the service configuration exists in the
@@ -246,6 +242,15 @@ func (s *Service) InstallCommands() ([]string, error) {
 		fmt.Sprintf("cat >> %s << 'EOF'\n%sEOF\n", s.confPath(), conf),
 		"start " + s.Service.Name,
 	}, nil
+}
+
+// Serialize renders the conf as raw bytes.
+func Serialize(name string, conf common.Conf) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := confT.Execute(&buf, conf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 // BUG: %q quoting does not necessarily match libnih quoting rules
