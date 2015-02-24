@@ -15,7 +15,9 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-// Ticket is used with
+var logger = loggo.GetLogger("juju.worker.leadership")
+
+// Ticket is used with Tracker to communicate leadership status back to a client.
 type Ticket chan bool
 
 // Tracker allows clients to discover current leadership status by attempting to
@@ -28,12 +30,11 @@ type Tracker interface {
 	ClaimLeader(ticket Ticket)
 }
 
+// TrackerWorker embeds the Tracker and worker.Worker interfaces.
 type TrackerWorker interface {
 	worker.Worker
 	Tracker
 }
-
-var logger = loggo.GetLogger("juju.worker.leadership")
 
 type tracker struct {
 	tomb        tomb.Tomb
@@ -48,6 +49,10 @@ type tracker struct {
 	claimTickets chan Ticket
 }
 
+// NewTrackerWorker returns a TrackerWorker that attempts to claim and retain
+// service leadership for the supplied unit. It will claim leadership for the
+// supplied duration, and once it has it it will renew leadership every time
+// the duration is half elapsed.
 func NewTrackerWorker(tag names.UnitTag, leadership leadership.LeadershipManager, duration time.Duration) TrackerWorker {
 	unitName := tag.Id()
 	serviceName, _ := names.UnitService(unitName)
@@ -108,7 +113,8 @@ func (t *tracker) loop() error {
 	}
 }
 
-// refresh
+// refresh makes a leadership request, and updates tracker state to conform to
+// latest known reality.
 func (t *tracker) refresh() error {
 	logger.Infof("checking leadership...")
 	untilTime := time.Now().Add(t.duration)
@@ -124,6 +130,7 @@ func (t *tracker) refresh() error {
 	return nil
 }
 
+// setLeader arranges for lease renewal.
 func (t *tracker) setLeader(untilTime time.Time) {
 	logger.Infof("leadership confirmed until %s", untilTime)
 	renewTime := untilTime.Add(-(t.duration / 2))
@@ -133,6 +140,7 @@ func (t *tracker) setLeader(untilTime time.Time) {
 	t.renewLease = time.After(renewTime.Sub(time.Now()))
 }
 
+// setLeader arranges for lease acquisition when there's an opportunity.
 func (t *tracker) setMinion() {
 	logger.Infof("leadership denied")
 	t.isMinion = true
@@ -148,7 +156,7 @@ func (t *tracker) setMinion() {
 }
 
 // resolveClaim will send true on the supplied channel if leadership can be
-// successfully verified, and will return an error if it could not.
+// successfully verified, and will always close it whether or not it sent.
 func (t *tracker) resolveClaim(ticket Ticket) error {
 	logger.Infof("checking leadership ticket...")
 	defer close(ticket)
