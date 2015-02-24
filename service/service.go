@@ -19,29 +19,43 @@ var _ Service = (*windows.Service)(nil)
 
 // Service represents a service running on the current system
 type Service interface {
+	// TODO(ericsnow) Add Name and Conf.
+
 	// Installed will return a boolean value that denotes
 	// whether or not the service is installed
 	Installed() bool
+
 	// Exists returns whether the service configuration exists in the
 	// init directory with the same content that this Service would have
 	// if installed.
 	Exists() bool
+
 	// Running returns a boolean value that denotes
 	// whether or not the service is running
 	Running() bool
+
 	// Start will try to start the service
 	Start() error
+
 	// Stop will try to stop the service
 	Stop() error
+
 	// StopAndRemove will stop the service and remove it
 	StopAndRemove() error
+
 	// Remove will remove the service
 	Remove() error
+
 	// Install installs a service
 	Install() error
+
 	// Config adds a config to the service, overwritting the current one
 	UpdateConfig(conf common.Conf)
 }
+
+// TODO(ericsnow) NewService -> DiscoverService.
+
+// TODO(ericsnow) Return an error from NewService.
 
 // NewService returns an interface to a service apropriate
 // for the current system
@@ -54,6 +68,8 @@ func NewService(name string, conf common.Conf) Service {
 		return upstart.NewService(name, conf)
 	}
 }
+
+// TODO(ericsnow) Move windowsListServices to service/windows.ListServices.
 
 func windowsListServices() ([]string, error) {
 	com := exec.RunParams{
@@ -68,6 +84,8 @@ func windowsListServices() ([]string, error) {
 	}
 	return strings.Fields(string(out.Stdout)), nil
 }
+
+// TODO(ericsnow) Move upstartListServices to service/upstart.ListServices.
 
 var servicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
 
