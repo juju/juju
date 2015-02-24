@@ -20,14 +20,8 @@ type Service interface {
 	// Conf returns the service's conf data.
 	Conf() common.Conf
 
-	// Installed will return a boolean value that denotes
-	// whether or not the service is installed
-	Installed() bool
-
-	// Exists returns whether the service configuration exists in the
-	// init directory with the same content that this Service would have
-	// if installed.
-	Exists() bool
+	// Config adds a config to the service, overwritting the current one
+	UpdateConfig(conf common.Conf)
 
 	// Running returns a boolean value that denotes
 	// whether or not the service is running
@@ -39,17 +33,25 @@ type Service interface {
 	// Stop will try to stop the service
 	Stop() error
 
+	// TODO(ericsnow) Eliminate StopAndRemove.
+
 	// StopAndRemove will stop the service and remove it
 	StopAndRemove() error
 
-	// Remove will remove the service
-	Remove() error
+	// Exists returns whether the service configuration exists in the
+	// init directory with the same content that this Service would have
+	// if installed.
+	Exists() bool
+
+	// Installed will return a boolean value that denotes
+	// whether or not the service is installed
+	Installed() bool
 
 	// Install installs a service
 	Install() error
 
-	// Config adds a config to the service, overwritting the current one
-	UpdateConfig(conf common.Conf)
+	// Remove will remove the service
+	Remove() error
 }
 
 // TODO(ericsnow) Eliminate the need to pass an empty conf here for

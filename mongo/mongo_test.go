@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -41,7 +42,7 @@ type MongoSuite struct {
 	mongodConfigPath string
 	mongodPath       string
 
-	data *mongo.ServiceData
+	data *service.FakeServiceData
 }
 
 var _ = gc.Suite(&MongoSuite{})
@@ -98,7 +99,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.mongodConfigPath = filepath.Join(testPath, "mongodConfig")
 	s.PatchValue(mongo.MongoConfigPath, s.mongodConfigPath)
 
-	s.data = &mongo.ServiceData{}
+	s.data = service.NewFakeServiceData()
 	mongo.PatchService(s.PatchValue, s.data)
 }
 
@@ -173,13 +174,14 @@ func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
-	s.data.Exists = true
-	s.data.Running = true
-	s.data.SetErrors(errors.New("shouldn't be called"))
+	s.data.SetStatus(mongo.ServiceName(namespace), "running")
+	s.data.SetErrors(nil, nil, errors.New("shouldn't be called"))
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.data.Installed, gc.HasLen, 0)
+
+	c.Check(s.data.Installed, gc.HasLen, 0)
+	s.data.CheckCallNames(c, "Exists", "Running")
 }
 
 func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
@@ -188,12 +190,12 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
 
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
-	s.data.Exists = true
-	s.data.Running = false
+	s.data.SetStatus(mongo.ServiceName(namespace), "installed")
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.data.Installed, gc.HasLen, 0)
+
+	c.Check(s.data.Installed, gc.HasLen, 0)
 	s.data.CheckCallNames(c, "Exists", "Running", "Start")
 }
 
@@ -203,14 +205,15 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
 
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
-	s.data.Exists = true
-	s.data.Running = false
+	s.data.SetStatus(mongo.ServiceName(namespace), "installed")
 	failure := errors.New("won't start")
-	s.data.SetErrors(nil, nil, failure) // Exists, Running, Start
+	s.data.SetErrors(nil, nil, failure) // Exists, Running, Running, Start
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
-	c.Assert(errors.Cause(err), gc.Equals, failure)
-	c.Assert(s.data.Installed, gc.HasLen, 0)
+
+	c.Check(errors.Cause(err), gc.Equals, failure)
+	c.Check(s.data.Installed, gc.HasLen, 0)
+	s.data.CheckCallNames(c, "Exists", "Running", "Start")
 }
 
 func (s *MongoSuite) TestEnsureServerNumaCtl(c *gc.C) {
@@ -296,17 +299,18 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 	dataDir := c.MkDir()
 	namespace := "namespace"
 
-	s.data.Exists = true
-	s.data.Running = true
-	s.data.SetErrors(errors.New("shouldn't be called"))
+	s.data.SetStatus(mongo.ServiceName(namespace), "running")
+	s.data.SetErrors(nil, nil, errors.New("shouldn't be called"))
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.data.Installed, gc.HasLen, 0)
+
+	c.Check(s.data.Installed, gc.HasLen, 0)
+	s.data.CheckCallNames(c, "Exists", "Running")
 
 	// We still attempt to install mongodb, despite the service existing.
 	cmds := getMockShellCalls(c, output)
-	c.Assert(cmds, gc.HasLen, 1)
+	c.Check(cmds, gc.HasLen, 1)
 }
 
 func (s *MongoSuite) TestNewServiceWithReplSet(c *gc.C) {
@@ -352,12 +356,17 @@ func (s *MongoSuite) TestNoAuthCommandWithJournal(c *gc.C) {
 }
 
 func (s *MongoSuite) TestRemoveService(c *gc.C) {
-	err := mongo.RemoveService("namespace")
+	namespace := "namespace"
+	s.data.SetStatus(mongo.ServiceName(namespace), "running")
+
+	err := mongo.RemoveService(namespace)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.data.Removed, gc.HasLen, 1)
-	c.Check(s.data.Removed[0].Name(), gc.Equals, "juju-db-namespace")
-	c.Check(s.data.Removed[0].Conf(), jc.DeepEquals, common.Conf{})
+	if !c.Check(s.data.Removed, gc.HasLen, 1) {
+		c.Check(s.data.Removed[0].Name(), gc.Equals, "juju-db-namespace")
+		c.Check(s.data.Removed[0].Conf(), jc.DeepEquals, common.Conf{})
+	}
+	s.data.CheckCallNames(c, "Stop", "Remove")
 }
 
 func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {

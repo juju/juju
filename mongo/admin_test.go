@@ -16,13 +16,14 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type adminSuite struct {
 	coretesting.BaseSuite
 
-	data *mongo.ServiceData
+	data *service.FakeServiceData
 }
 
 var _ = gc.Suite(&adminSuite{})
@@ -30,7 +31,7 @@ var _ = gc.Suite(&adminSuite{})
 func (s *adminSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.data = &mongo.ServiceData{}
+	s.data = service.NewFakeServiceData()
 	mongo.PatchService(s.PatchValue, s.data)
 }
 

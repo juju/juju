@@ -4,6 +4,7 @@
 package mongo
 
 import (
+	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 )
 
@@ -31,20 +32,15 @@ var (
 	PreallocFiles     = preallocFiles
 )
 
-func PatchService(patchValue func(interface{}, interface{}), data *ServiceData) {
+func PatchService(patchValue func(interface{}, interface{}), data *service.FakeServiceData) {
 	patchValue(&discoverService, func(name string) (mongoService, error) {
-		svc := &stubService{
-			ServiceData: data,
-			name:        name,
-		}
+		svc := service.NewFakeService(name, common.Conf{})
+		svc.FakeServiceData = data
 		return svc, nil
 	})
 	patchValue(&newService, func(name string, conf common.Conf) (mongoService, error) {
-		svc := &stubService{
-			ServiceData: data,
-			name:        name,
-			conf:        conf,
-		}
+		svc := service.NewFakeService(name, conf)
+		svc.FakeServiceData = data
 		return svc, nil
 	})
 }
