@@ -3,6 +3,10 @@
 
 package common
 
+import (
+	"github.com/juju/errors"
+)
+
 // Conf is responsible for defining services. Its fields
 // represent elements of a service configuration.
 type Conf struct {
@@ -38,4 +42,17 @@ type Conf struct {
 
 	// ExtraScript allows to insert script before command execution
 	ExtraScript string
+}
+
+// Validate checks the conf's values for correctness.
+func (c Conf) Validate() error {
+	if c.Desc == "" {
+		return errors.New("missing Description")
+	}
+
+	if c.Cmd == "" {
+		return errors.New("missing Cmd")
+	}
+
+	return nil
 }
