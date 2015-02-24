@@ -46,8 +46,8 @@ func (s *UpstartSuite) SetUpTest(c *gc.C) {
 	s.service = upstart.NewService(
 		"some-service",
 		common.Conf{
-			Desc: "some service",
-			Cmd:  "some command",
+			Desc:      "some service",
+			ExecStart: "some command",
 		},
 	)
 }
@@ -105,7 +105,7 @@ func (s *UpstartSuite) TestExists(c *gc.C) {
 
 func (s *UpstartSuite) TestExistsNonEmpty(c *gc.C) {
 	s.goodInstall(c)
-	s.service.Service.Conf.Cmd = "something else"
+	s.service.Service.Conf.ExecStart = "something else"
 	c.Assert(s.service.Exists(), jc.IsFalse)
 }
 
@@ -195,8 +195,8 @@ func (s *UpstartSuite) TestInstallErrors(c *gc.C) {
 	s.service.Service.Name = "some-service"
 	check("missing Desc")
 	s.service.Service.Conf.Desc = "this is an upstart service"
-	check("missing Cmd")
-	s.service.Service.Conf.Cmd = "<a command>"
+	check("missing ExecStart")
+	s.service.Service.Conf.ExecStart = "<a command>"
 	check("missing InitDir")
 }
 
@@ -210,9 +210,9 @@ normal exit 0
 
 func (s *UpstartSuite) dummyConf(c *gc.C) common.Conf {
 	return common.Conf{
-		Desc:    "this is an upstart service",
-		Cmd:     "do something",
-		InitDir: s.initDir,
+		Desc:      "this is an upstart service",
+		ExecStart: "do something",
+		InitDir:   s.initDir,
 	}
 }
 

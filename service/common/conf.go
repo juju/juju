@@ -22,11 +22,9 @@ type Conf struct {
 	// Currently not used on Windows
 	Limit map[string]string
 
-	// TODO(ericsnow) Cmd -> ExecStart.
-
-	// Cmd is the command (with arguments) that will be run.
+	// ExecStart is the command (with arguments) that will be run.
 	// The command will be restarted if it exits with a non-zero exit code.
-	Cmd string
+	ExecStart string
 
 	// Out, if set, will redirect output to that path.
 	Out string
@@ -50,8 +48,8 @@ func (c Conf) Validate() error {
 		return errors.New("missing Desc")
 	}
 
-	if c.Cmd == "" {
-		return errors.New("missing Cmd")
+	if c.ExecStart == "" {
+		return errors.New("missing ExecStart")
 	}
 
 	return nil

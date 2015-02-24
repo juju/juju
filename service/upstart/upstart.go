@@ -269,6 +269,6 @@ script
   chown syslog:syslog {{.Out}}
   chmod 0600 {{.Out}}
 {{end}}
-  exec {{.Cmd}}{{if .Out}} >> {{.Out}} 2>&1{{end}}
+  exec {{.ExecStart}}{{if .Out}} >> {{.Out}} 2>&1{{end}}
 end script
 `[1:]))

@@ -25,8 +25,8 @@ var _ = gc.Suite(&serviceSuite{})
 func (*serviceSuite) TestDiscoverService(c *gc.C) {
 	name := "a-service"
 	conf := common.Conf{
-		Desc: "some service",
-		Cmd:  "<do something>",
+		Desc:      "some service",
+		ExecStart: "<do something>",
 	}
 	svc, err := service.DiscoverService(name, conf)
 	c.Assert(err, jc.ErrorIsNil)
@@ -34,10 +34,12 @@ func (*serviceSuite) TestDiscoverService(c *gc.C) {
 	switch runtime.GOOS {
 	case "linux":
 		c.Check(svc, gc.FitsTypeOf, &upstart.Service{})
+		conf.InitDir = "/etc/init"
 	case "windows":
 		c.Check(svc, gc.FitsTypeOf, &windows.Service{})
 	default:
 		c.Errorf("unrecognized os %q", runtime.GOOS)
 	}
-	// TODO(ericsnow) Verify that svc.Name() and svc.Conf() are correct.
+	c.Check(svc.Name(), gc.Equals, "a-service")
+	c.Check(svc.Conf(), jc.DeepEquals, conf)
 }

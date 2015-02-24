@@ -356,7 +356,7 @@ func upstartService(namespace, dataDir, dbDir, mongoPath string, port, oplogSize
 			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
 		},
 		ExtraScript: extraScript,
-		Cmd:         mongoCmd,
+		ExecStart:   mongoCmd,
 	}
 	svc := upstart.NewService(ServiceName(namespace), conf)
 	return svc, nil

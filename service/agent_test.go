@@ -33,10 +33,10 @@ func (*agentSuite) TestMachineAgentConf(c *gc.C) {
 		" --machine-id 0" +
 		" --debug"
 	c.Check(conf, jc.DeepEquals, common.Conf{
-		Desc: "juju agent for machine-0",
-		Cmd:  expected,
-		Out:  filepath.Join(logDir, "machine-0.log"),
-		Env:  osenv.FeatureFlags(),
+		Desc:      "juju agent for machine-0",
+		ExecStart: expected,
+		Out:       filepath.Join(logDir, "machine-0.log"),
+		Env:       osenv.FeatureFlags(),
 		Limit: map[string]string{
 			"nofile": "20000 20000",
 		},

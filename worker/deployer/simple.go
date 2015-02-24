@@ -153,11 +153,11 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	}
 	osenv.MergeEnvironment(envVars, osenv.FeatureFlags())
 	sconf := common.Conf{
-		Desc:    "juju unit agent for " + unitName,
-		Cmd:     cmd,
-		Out:     logPath,
-		Env:     envVars,
-		InitDir: ctx.initDir,
+		Desc:      "juju unit agent for " + unitName,
+		ExecStart: cmd,
+		Out:       logPath,
+		Env:       envVars,
+		InitDir:   ctx.initDir,
 	}
 	svc.UpdateConfig(sconf)
 	return svc.Install()

@@ -269,18 +269,18 @@ func (s *MongoSuite) testEnsureServerNumaCtl(c *gc.C, setNumaPolicy bool) string
 	assertInstalled := func() {
 		c.Assert(s.installed, gc.HasLen, 1)
 		service := s.installed[0]
-		c.Assert(service.Name, gc.Equals, "juju-db-namespace")
-		c.Assert(service.Conf.InitDir, gc.Equals, "/etc/init")
-		c.Assert(service.Conf.Desc, gc.Equals, "juju state database")
+		c.Assert(service.Name(), gc.Equals, "juju-db-namespace")
+		c.Assert(service.Conf().InitDir, gc.Equals, "/etc/init")
+		c.Assert(service.Conf().Desc, gc.Equals, "juju state database")
 		if setNumaPolicy {
-			stripped := strings.Replace(service.Conf.ExtraScript, "\n", "", -1)
+			stripped := strings.Replace(service.Conf().ExtraScript, "\n", "", -1)
 			c.Assert(stripped, gc.Matches, `.* sysctl .*`)
 		} else {
-			c.Assert(service.Conf.ExtraScript, gc.Equals, "")
+			c.Assert(service.Conf().ExtraScript, gc.Equals, "")
 		}
-		c.Assert(service.Conf.Cmd, gc.Matches, ".*"+regexp.QuoteMeta(s.mongodPath)+".*")
+		c.Assert(service.Conf().ExecStart, gc.Matches, ".*"+regexp.QuoteMeta(s.mongodPath)+".*")
 		// TODO(nate) set Out so that mongod output goes somewhere useful?
-		c.Assert(service.Conf.Out, gc.Equals, "")
+		c.Assert(service.Conf().Out, gc.Equals, "")
 	}
 	assertInstalled()
 	return dataDir
@@ -356,7 +356,7 @@ func (s *MongoSuite) TestUpstartServiceWithReplSet(c *gc.C) {
 
 	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(strings.Contains(svc.Conf.Cmd, "--replSet"), jc.IsTrue)
+	c.Assert(strings.Contains(svc.Conf().ExecStart, "--replSet"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestUpstartServiceWithNumCtl(c *gc.C) {
@@ -364,7 +364,7 @@ func (s *MongoSuite) TestUpstartServiceWithNumCtl(c *gc.C) {
 
 	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, true)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(svc.Conf.ExtraScript, gc.Not(gc.Matches), "")
+	c.Assert(svc.Conf().ExtraScript, gc.Not(gc.Matches), "")
 }
 
 func (s *MongoSuite) TestUpstartServiceIPv6(c *gc.C) {
@@ -372,7 +372,7 @@ func (s *MongoSuite) TestUpstartServiceIPv6(c *gc.C) {
 
 	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(strings.Contains(svc.Conf.Cmd, "--ipv6"), jc.IsTrue)
+	c.Assert(strings.Contains(svc.Conf().ExecStart, "--ipv6"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestUpstartServiceWithJournal(c *gc.C) {
@@ -380,8 +380,7 @@ func (s *MongoSuite) TestUpstartServiceWithJournal(c *gc.C) {
 
 	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
 	c.Assert(err, jc.ErrorIsNil)
-	journalPresent := strings.Contains(svc.Conf.Cmd, " --journal ") || strings.HasSuffix(svc.Conf.Cmd, " --journal")
-	c.Assert(journalPresent, jc.IsTrue)
+	c.Assert(svc.Conf().ExecStart, gc.Matches, `.* --journal.*`)
 }
 
 func (s *MongoSuite) TestNoAuthCommandWithJournal(c *gc.C) {
@@ -402,8 +401,10 @@ func (s *MongoSuite) TestRemoveService(c *gc.C) {
 	err := mongo.RemoveService("namespace")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.removed, jc.DeepEquals, []upstart.Service{{
-		Name: "juju-db-namespace",
-		Conf: common.Conf{InitDir: upstart.InitDir},
+		Service: common.Service{
+			Name: "juju-db-namespace",
+			Conf: common.Conf{InitDir: upstart.InitDir},
+		},
 	}})
 }
 

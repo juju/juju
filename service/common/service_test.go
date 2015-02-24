@@ -21,8 +21,8 @@ func (*serviceSuite) TestValidateOkay(c *gc.C) {
 	service := common.Service{
 		Name: "a-service",
 		Conf: common.Conf{
-			Desc: "some service",
-			Cmd:  "<do something>",
+			Desc:      "some service",
+			ExecStart: "<do something>",
 		},
 	}
 	err := service.Validate()
@@ -33,8 +33,8 @@ func (*serviceSuite) TestValidateOkay(c *gc.C) {
 func (*serviceSuite) TestValidateMissingName(c *gc.C) {
 	service := common.Service{
 		Conf: common.Conf{
-			Desc: "some service",
-			Cmd:  "<do something>",
+			Desc:      "some service",
+			ExecStart: "<do something>",
 		},
 	}
 	err := service.Validate()
@@ -46,7 +46,7 @@ func (*serviceSuite) TestValidateMissingDesc(c *gc.C) {
 	service := common.Service{
 		Name: "a-service",
 		Conf: common.Conf{
-			Cmd: "<do something>",
+			ExecStart: "<do something>",
 		},
 	}
 	err := service.Validate()
@@ -54,7 +54,7 @@ func (*serviceSuite) TestValidateMissingDesc(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, ".*missing Desc.*")
 }
 
-func (*serviceSuite) TestValidateMissingCmd(c *gc.C) {
+func (*serviceSuite) TestValidateMissingExecStart(c *gc.C) {
 	service := common.Service{
 		Name: "a-service",
 		Conf: common.Conf{
@@ -63,5 +63,5 @@ func (*serviceSuite) TestValidateMissingCmd(c *gc.C) {
 	}
 	err := service.Validate()
 
-	c.Check(err, gc.ErrorMatches, ".*missing Cmd.*")
+	c.Check(err, gc.ErrorMatches, ".*missing ExecStart.*")
 }

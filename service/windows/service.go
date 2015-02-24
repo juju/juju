@@ -173,7 +173,7 @@ func (s *Service) Install() error {
 	cmd := fmt.Sprintf(serviceInstallScript,
 		s.Service.Name,
 		s.Service.Conf.Desc,
-		s.Service.Conf.Cmd)
+		s.Service.Conf.ExecStart)
 	outCmd, errCmd := runPsCommand(cmd)
 
 	if errCmd != nil {
@@ -198,6 +198,6 @@ func (s *Service) InstallCommands() ([]string, error) {
 	cmd := fmt.Sprintf(serviceInstallScript,
 		s.Service.Name,
 		s.Service.Conf.Desc,
-		s.Service.Conf.Cmd)
+		s.Service.Conf.ExecStart)
 	return strings.Split(cmd, "\n"), nil
 }

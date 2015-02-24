@@ -19,8 +19,8 @@ var _ = gc.Suite(&confSuite{})
 
 func (*confSuite) TestValidateOkay(c *gc.C) {
 	conf := common.Conf{
-		Desc: "some service",
-		Cmd:  "<do something>",
+		Desc:      "some service",
+		ExecStart: "<do something>",
 	}
 	err := conf.Validate()
 
@@ -29,18 +29,18 @@ func (*confSuite) TestValidateOkay(c *gc.C) {
 
 func (*confSuite) TestValidateMissingDesc(c *gc.C) {
 	conf := common.Conf{
-		Cmd: "<do something>",
+		ExecStart: "<do something>",
 	}
 	err := conf.Validate()
 
 	c.Check(err, gc.ErrorMatches, ".*missing Desc.*")
 }
 
-func (*confSuite) TestValidateMissingCmd(c *gc.C) {
+func (*confSuite) TestValidateMissingExecStart(c *gc.C) {
 	conf := common.Conf{
 		Desc: "some service",
 	}
 	err := conf.Validate()
 
-	c.Check(err, gc.ErrorMatches, ".*missing Cmd.*")
+	c.Check(err, gc.ErrorMatches, ".*missing ExecStart.*")
 }

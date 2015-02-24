@@ -38,10 +38,10 @@ func MachineAgentConf(machineID, dataDir, logDir string) (common.Conf, string) {
 	// The machine agent always starts with debug turned on.  The logger worker
 	// will update this to the system logging environment as soon as it starts.
 	conf := common.Conf{
-		Desc: fmt.Sprintf("juju agent for %s", tag),
-		Cmd:  cmd,
-		Out:  logFile,
-		Env:  osenv.FeatureFlags(),
+		Desc:      fmt.Sprintf("juju agent for %s", tag),
+		ExecStart: cmd,
+		Out:       logFile,
+		Env:       osenv.FeatureFlags(),
 		Limit: map[string]string{
 			"nofile": fmt.Sprintf("%d %d", maxAgentFiles, maxAgentFiles),
 		},

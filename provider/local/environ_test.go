@@ -274,8 +274,8 @@ func (s *localJujuTestSuite) makeFakeUpstartScripts(c *gc.C, env environs.Enviro
 
 	namespace := env.Config().AllAttrs()["namespace"].(string)
 	mongoConf := common.Conf{
-		Desc: "fake mongo",
-		Cmd:  "echo FAKE",
+		Desc:      "fake mongo",
+		ExecStart: "echo FAKE",
 	}
 	mongoService = upstart.NewService(mongo.ServiceName(namespace), mongoConf)
 	err := mongoService.Install()
@@ -283,8 +283,8 @@ func (s *localJujuTestSuite) makeFakeUpstartScripts(c *gc.C, env environs.Enviro
 	c.Assert(mongoService.Installed(), jc.IsTrue)
 
 	agentConf := common.Conf{
-		Desc: "fake agent",
-		Cmd:  "echo FAKE",
+		Desc:      "fake agent",
+		ExecStart: "echo FAKE",
 	}
 	machineAgent = upstart.NewService(fmt.Sprintf("juju-agent-%s", namespace), agentConf)
 
