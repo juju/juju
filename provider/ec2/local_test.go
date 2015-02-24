@@ -814,7 +814,7 @@ func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 	// Releasing a second time tests that the first call actually released
 	// it plus tests the error handling of ReleaseAddress
 	err = env.ReleaseAddress(instId, "", addr)
-	msg := fmt.Sprintf("failed to unassign IP address \"%v\" for instance \"%v\".*", addr.Value, instId)
+	msg := fmt.Sprintf(`failed to release address "8\.0\.0\.4" from instance %q.*`, instId)
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
@@ -832,7 +832,7 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 		InterfaceName:    "eth0",
 		Disabled:         false,
 		NoAutoStart:      false,
-		ConfigType:       "",
+		ConfigType:       network.ConfigDHCP,
 		Address:          network.NewAddress("10.10.0.5", network.ScopeCloudLocal),
 	}}
 	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)
@@ -866,7 +866,7 @@ func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
 
 	_, err := env.Subnets("", []network.Id{"subnet-0", "Missing"})
-	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: \\[Missing\\]")
+	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[Missing\]`)
 }
 
 func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {
