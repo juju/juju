@@ -82,6 +82,7 @@ type unitDoc struct {
 	PasswordHash           string
 
 	// No longer used - to be removed.
+	// TODO(mue): Can it be removed now?
 	Ports          []network.Port
 	PublicAddress  string
 	PrivateAddress string

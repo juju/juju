@@ -53,8 +53,8 @@ type ipaddressDoc struct {
 	MachineId   string `bson:",omitempty"`
 	InterfaceId string `bson:",omitempty"`
 	Value       string
-	Type        network.AddressType
-	Scope       network.Scope `bson:"networkscope,omitempty"`
+	Type        string
+	Scope       string `bson:"networkscope,omitempty"`
 	State       AddressState
 }
 
@@ -84,19 +84,19 @@ func (i *IPAddress) Value() string {
 
 // Address returns the network.Address represent the IP address
 func (i *IPAddress) Address() network.Address {
-	return network.NewAddress(i.doc.Value, i.doc.Scope)
+	return network.NewAddress(i.doc.Value, i.Scope())
 }
 
 // Type returns the type of the IP address. The IP address will have a type of
 // IPv4, IPv6 or hostname.
 func (i *IPAddress) Type() network.AddressType {
-	return i.doc.Type
+	return network.AddressType(i.doc.Type)
 }
 
 // Scope returns the scope of the IP address. If the scope is not set this
 // returns "".
 func (i *IPAddress) Scope() network.Scope {
-	return i.doc.Scope
+	return network.Scope(i.doc.Scope)
 }
 
 // State returns the state of an IP address.

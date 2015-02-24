@@ -43,7 +43,7 @@ type networkDoc struct {
 	Name    string `bson:"name"`
 	EnvUUID string `bson:"env-uuid"`
 
-	ProviderId network.Id
+	ProviderId string
 	CIDR       string
 	VLANTag    int
 }
@@ -57,7 +57,7 @@ func (st *State) newNetworkDoc(args NetworkInfo) *networkDoc {
 		DocID:      st.docID(args.Name),
 		EnvUUID:    st.EnvironUUID(),
 		Name:       args.Name,
-		ProviderId: args.ProviderId,
+		ProviderId: string(args.ProviderId),
 		CIDR:       args.CIDR,
 		VLANTag:    args.VLANTag,
 	}
@@ -77,7 +77,7 @@ func (n *Network) Name() string {
 
 // ProviderId returns the provider-specific id of the network.
 func (n *Network) ProviderId() network.Id {
-	return n.doc.ProviderId
+	return network.Id(n.doc.ProviderId)
 }
 
 // Tag returns the network tag.
