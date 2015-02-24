@@ -9,7 +9,6 @@ import (
 	"net"
 	"path"
 	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -201,6 +200,13 @@ func AddAptCommands(
 	// Set the APT mirror.
 	c.SetAptMirror(aptMirror)
 
+	// For LTS series which need support for the cloud-tools archive,
+	// we need to enable apt-get update regardless of the environ
+	// setting, otherwise bootstrap or provisioning will fail.
+	if series == "precise" && !addUpdateScripts {
+		addUpdateScripts = true
+	}
+
 	// Bring packages up-to-date.
 	c.SetAptUpdate(addUpdateScripts)
 	c.SetAptUpgrade(addUpgradeScripts)
@@ -223,9 +229,26 @@ func AddAptCommands(
 
 		// The required packages need to come from the correct repo.
 		// For precise, that might require an explicit --target-release parameter.
-		aptGetInstallCommandList := apt.GetPreparePackages(requiredPackages, series)
-		for _, cmds := range aptGetInstallCommandList {
-			c.AddPackage(strings.Join(cmds, " "))
+		for _, pkg := range requiredPackages {
+			// We cannot just pass requiredPackages below, because
+			// this will generate install commands which older
+			// versions of cloud-init (e.g. 0.6.3 in precise) will
+			// interpret incorrectly (see bug http://pad.lv/1424777).
+			cmds := apt.GetPreparePackages([]string{pkg}, series)
+			if len(cmds) != 1 {
+				// One package given, one command (with possibly
+				// multiple args) expected.
+				panic(fmt.Sprintf("expected one install command per package, got %v", cmds))
+			}
+			for _, p := range cmds[0] {
+				// We need to add them one package at a time. Also for
+				// precise where --target-release
+				// precise-updates/cloud-tools is needed for some packages
+				// we need to pass these as "packages", otherwise the
+				// aforementioned older cloud-init will also fail to
+				// interpret the command correctly.
+				c.AddPackage(p)
+			}
 		}
 	}
 
