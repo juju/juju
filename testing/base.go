@@ -140,3 +140,39 @@ func (s *BaseSuite) TearDownTest(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 	s.CleanupSuite.TearDownTest(c)
 }
+
+// CheckString compares two strings. If they do not match then the spot
+// where they do not match is logged.
+func CheckString(c *gc.C, value, expected string) {
+	if !c.Check(value, gc.Equals, expected) {
+		diffStrings(c, value, expected)
+	}
+}
+
+func diffStrings(c *gc.C, value, expected string) {
+	// If only Go had a diff library.
+	vlines := strings.Split(value, "\n")
+	elines := strings.Split(expected, "\n")
+	vsize := len(vlines)
+	esize := len(elines)
+
+	if vsize < 2 || esize < 2 {
+		return
+	}
+
+	smaller := elines
+	if vsize < esize {
+		smaller = vlines
+	}
+
+	for i := range smaller {
+		vline := vlines[i]
+		eline := elines[i]
+		if vline != eline {
+			c.Log("first mismatched line:")
+			c.Log("expected: " + eline)
+			c.Log("got:      " + vline)
+			break
+		}
+	}
+}
