@@ -22,8 +22,8 @@ def parse_args(argv=None):
     parser = ArgumentParser()
     parser.add_argument(
         'root_dir', help='Directory containing releases and candidates dir')
-    parser.add_argument('--suite', help='Test suite to run', default=FULL,
-                        choices=suites.keys())
+    parser.add_argument('--suite', help='Test suite to run', default=[],
+                        choices=suites.keys(), action='append')
     parser.add_argument('jobs', nargs='*', metavar='job',
                         help='Jobs to schedule builds for.')
     add_credential_args(parser)
@@ -35,7 +35,7 @@ def parse_args(argv=None):
 
 
 def build_job(credentials, root, job_name, candidates, suite):
-    parameters = {'suite': suite, 'attempts': '10'}
+    parameters = {'suite': ','.join(suite), 'attempts': '10'}
     jenkins = Jenkins('http://localhost:8080', credentials.user,
                       credentials.password)
     for candidate in candidates:
@@ -47,13 +47,16 @@ def build_job(credentials, root, job_name, candidates, suite):
 
 def main():
     args, credentials = parse_args()
+    suite = args.suite
+    if suite == []:
+        suite = [FULL]
     candidates = list(find_candidates(args.root_dir))
     jobs = args.jobs
     if jobs is None:
         jobs = ['industrial-test', 'industrial-test-aws',
                 'industrial-test-joyent']
     for job in jobs:
-        build_job(credentials, args.root_dir, job, candidates, args.suite)
+        build_job(credentials, args.root_dir, job, candidates, suite)
 
 
 if __name__ == '__main__':

@@ -9,6 +9,7 @@ from mock import (
 from industrial_test import (
     FULL,
     suites,
+    UPGRADE,
     )
 from jujuci import Credentials
 from schedule_reliability_tests import (
@@ -29,7 +30,7 @@ class TestParseArgs(TestCase):
             'foo', '--user', 'jrandom', '--password', 'password1'])
         self.assertEqual(
             args,
-            Namespace(root_dir='foo', suite=FULL, jobs=None, user='jrandom',
+            Namespace(root_dir='foo', suite=[], jobs=None, user='jrandom',
                       password='password1'))
         self.assertEqual(credentials,
                          Credentials(user='jrandom', password='password1'))
@@ -37,8 +38,8 @@ class TestParseArgs(TestCase):
     def test_parse_args_suite_supports_known_suites(self):
         for suite in suites.keys():
             self.assertEqual(parse_args(['foo', '--suite', suite])[0],
-                             Namespace(root_dir='foo', suite=suite, jobs=None,
-                                       user=None, password=None))
+                             Namespace(root_dir='foo', suite=[suite],
+                                       jobs=None, user=None, password=None))
 
     def test_parse_args_bad_suite(self):
         with parse_error(self) as stderr:
@@ -46,25 +47,29 @@ class TestParseArgs(TestCase):
         self.assertRegexpMatches(stderr.getvalue(),
                                  ".*invalid choice: 'foo'.*")
 
+    def test_parse_args_multi_suite(self):
+        args = parse_args(['foo', '--suite', FULL, '--suite', UPGRADE])[0]
+        self.assertEqual(args.suite, [FULL, UPGRADE])
+
     def test_parse_jobs(self):
         self.assertEqual(
             parse_args(['foo', 'bar'])[0],
-            Namespace(root_dir='foo', suite=FULL, jobs=['bar'], user=None,
+            Namespace(root_dir='foo', suite=[], jobs=['bar'], user=None,
                       password=None))
         self.assertEqual(
             parse_args(['foo', 'bar', 'baz'])[0],
-            Namespace(root_dir='foo', suite=FULL, jobs=['bar', 'baz'],
+            Namespace(root_dir='foo', suite=[], jobs=['bar', 'baz'],
                       user=None, password=None))
 
 
 class TestBuildJob(TestCase):
 
     def test_build_job(self):
-        with patch('schedule_reliability_tests.Jenkins') as jenkins_mock:
-            with temp_dir() as root:
-                write_config(root, 'foo', 'quxxx')
-                build_job(Credentials('jrandom', 'password1'), root, 'foo',
-                          ['bar', 'baz'], 'qux')
+        jenkins_cxt = patch('schedule_reliability_tests.Jenkins')
+        with jenkins_cxt as jenkins_mock, temp_dir() as root:
+            write_config(root, 'foo', 'quxxx')
+            build_job(Credentials('jrandom', 'password1'), root, 'foo',
+                      ['bar', 'baz'], ['qux'])
         jenkins_mock.assert_called_once_with(
             'http://localhost:8080', 'jrandom', 'password1')
         calls = jenkins_mock.return_value.build_job.mock_calls
@@ -75,3 +80,13 @@ class TestBuildJob(TestCase):
                          'new_juju_dir': 'baz'}, token='quxxx'),
             ]
         self.assertEqual(calls, expected)
+
+    def test_build_job_multi_suite(self):
+        jenkins_cxt = patch('schedule_reliability_tests.Jenkins')
+        with jenkins_cxt as jenkins_mock, temp_dir() as root:
+            write_config(root, 'foo', 'bar')
+            build_job(Credentials('jrandom', 'password1'), root, 'foo',
+                      ['baz'], ['qux', 'quxx'])
+        jenkins_mock.return_value.build_job.assert_called_once_with(
+            'foo', {'suite': 'qux,quxx', 'attempts': '10',
+                    'new_juju_dir': 'baz'}, token='bar')
