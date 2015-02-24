@@ -5,6 +5,7 @@ package operation
 
 import (
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	utilexec "github.com/juju/utils/exec"
 	corecharm "gopkg.in/juju/charm.v4"
 
@@ -98,6 +99,10 @@ type Factory interface {
 	// NewUpdateRelations creates an operation to ensure the supplied relation
 	// ids are known and tracked.
 	NewUpdateRelations(ids []int) (Operation, error)
+
+	// NewUpdateStorage creates an operation to ensure the supplied storage
+	// tags are known and tracked.
+	NewUpdateStorage(tags []names.StorageTag) (Operation, error)
 }
 
 // CommandArgs stores the arguments for a Command operation.
@@ -166,4 +171,12 @@ type Callbacks interface {
 	// the resolved attempt and is trying to progress. It's only used by Resolved
 	// operations (which we generally expect to wrap other operations).
 	ClearResolvedFlag() error
+}
+
+// StorageUpdater is an interface used for updating local knowledge of storage
+// attachments.
+type StorageUpdater interface {
+	// UpdateStorage updates local knowledge of the storage attachments
+	// with the specified tags.
+	UpdateStorage([]names.StorageTag) error
 }
