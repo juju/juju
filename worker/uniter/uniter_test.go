@@ -179,7 +179,7 @@ func (s *UniterSuite) TestUniterInstallHook(c *gc.C) {
 
 			resolveError{state.ResolvedRetryHooks},
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusFailed,
 				info:   `hook failed: "install"`,
 				data: map[string]interface{}{
 					"hook": "install",
@@ -218,7 +218,7 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 
 			resolveError{state.ResolvedRetryHooks},
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusFailed,
 				info:   `hook failed: "start"`,
 				data: map[string]interface{}{
 					"hook": "start",
@@ -246,7 +246,7 @@ func (s *UniterSuite) TestUniterMultipleErrors(c *gc.C) {
 			serveCharm{},
 			createUniter{},
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusFailed,
 				info:   `hook failed: "install"`,
 				data: map[string]interface{}{
 					"hook": "install",
@@ -254,7 +254,7 @@ func (s *UniterSuite) TestUniterMultipleErrors(c *gc.C) {
 			},
 			resolveError{state.ResolvedNoHooks},
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusFailed,
 				info:   `hook failed: "config-changed"`,
 				data: map[string]interface{}{
 					"hook": "config-changed",
@@ -262,7 +262,7 @@ func (s *UniterSuite) TestUniterMultipleErrors(c *gc.C) {
 			},
 			resolveError{state.ResolvedNoHooks},
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusFailed,
 				info:   `hook failed: "start"`,
 				data: map[string]interface{}{
 					"hook": "start",
@@ -299,7 +299,7 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *gc.C) {
 
 			resolveError{state.ResolvedRetryHooks},
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusFailed,
 				info:   `hook failed: "config-changed"`,
 				data: map[string]interface{}{
 					"hook": "config-changed",
@@ -457,7 +457,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			createCharm{revision: 1, badHooks: []string{"upgrade-charm"}},
 			upgradeCharm{revision: 1},
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusFailed,
 				info:   `hook failed: "upgrade-charm"`,
 				data: map[string]interface{}{
 					"hook": "upgrade-charm",
@@ -481,7 +481,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			createCharm{revision: 1, badHooks: []string{"upgrade-charm"}},
 			upgradeCharm{revision: 1},
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusFailed,
 				info:   `hook failed: "upgrade-charm"`,
 				data: map[string]interface{}{
 					"hook": "upgrade-charm",
@@ -494,7 +494,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 
 			resolveError{state.ResolvedRetryHooks},
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusFailed,
 				info:   `hook failed: "upgrade-charm"`,
 				data: map[string]interface{}{
 					"hook": "upgrade-charm",
@@ -633,7 +633,7 @@ func (s *UniterSuite) TestUniterErrorStateUpgrade(c *gc.C) {
 			createCharm{revision: 1},
 			upgradeCharm{revision: 1},
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusFailed,
 				info:   `hook failed: "start"`,
 				data: map[string]interface{}{
 					"hook": "start",
@@ -662,7 +662,7 @@ func (s *UniterSuite) TestUniterErrorStateUpgrade(c *gc.C) {
 			// the charm has been downloaded and verified). However, it's still
 			// useful to wait until that point...
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusFailed,
 				info:   `hook failed: "start"`,
 				data: map[string]interface{}{
 					"hook": "start",
@@ -913,7 +913,7 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 			serveCharm{},
 			upgradeCharm{revision: 1},
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusFailed,
 				info:   "upgrade failed",
 				charm:  1,
 			},
@@ -1109,7 +1109,7 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 			"hook error during join of a relation",
 			startupRelationError{"db-relation-joined"},
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusFailed,
 				info:   `hook failed: "db-relation-joined"`,
 				data: map[string]interface{}{
 					"hook":        "db-relation-joined",
@@ -1121,7 +1121,7 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 			"hook error during change of a relation",
 			startupRelationError{"db-relation-changed"},
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusFailed,
 				info:   `hook failed: "db-relation-changed"`,
 				data: map[string]interface{}{
 					"hook":        "db-relation-changed",
@@ -1135,7 +1135,7 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 			waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"},
 			removeRelationUnit{"mysql/0"},
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusFailed,
 				info:   `hook failed: "db-relation-departed"`,
 				data: map[string]interface{}{
 					"hook":        "db-relation-departed",
@@ -1150,7 +1150,7 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 			waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"},
 			relationDying,
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusFailed,
 				info:   `hook failed: "db-relation-broken"`,
 				data: map[string]interface{}{
 					"hook":        "db-relation-broken",
@@ -1463,7 +1463,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			addAction{"action-log", nil},
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusFailed,
 				info:   `hook failed: "start"`,
 				data: map[string]interface{}{
 					"hook": "start",
@@ -1645,7 +1645,7 @@ func (s *UniterSuite) TestReboot(c *gc.C) {
 			startUniter{},
 			waitAddresses{},
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusFailed,
 				info:   fmt.Sprintf(`hook failed: "install"`),
 			},
 		),
