@@ -1,4 +1,5 @@
 set -eu
+set +x
 : ${SCRIPTS=$(readlink -f $(dirname $0))}
 export PATH="$SCRIPTS:$PATH"
 
@@ -7,6 +8,7 @@ export JUJU_HOME=${JUJU_HOME:-$HOME/cloud-city}
 export JUJU_REPOSITORY
 
 export MACHINES=""
+source $JUJU_HOME/juju-qa.jujuci
 set -x
 
 # Determine BRANCH, REVNO, VERSION, and PACKAGES under test.

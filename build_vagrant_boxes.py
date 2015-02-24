@@ -1,15 +1,17 @@
 #!/usr/bin/env python
 from argparse import ArgumentParser
-from jenkins import Jenkins
 import logging
 import os
-import re
 import shutil
 import subprocess
 import sys
 
-
-from utility import builds_for_revision
+from jujuci import (
+    add_credential_args,
+    get_artifacts,
+    get_credentials,
+    PUBLISH_REVISION
+)
 
 """Build Juju-Vagrant boxes for Juju packages build by publish-revision.
 
@@ -20,8 +22,6 @@ Required environment variables:
         lp:~ubuntu-on-ec2/vmbuilder/jenkins_kvm (main build scripts)
 """
 
-JENKINS_URL = 'http://juju-ci.vapour.ws:8080'
-PUBLISH_REVISION_JOB = 'publish-revision'
 SERIES_TO_NUMBERS = {
     'trusty': '14.04',
     'precise': '12.04',
@@ -30,43 +30,24 @@ JENKINS_KVM = 'JENKINS_KVM'
 WORKSPACE = 'WORKSPACE'
 
 
-def package_regexes(series, arch):
-    series_number = SERIES_TO_NUMBERS[series].replace('.', r'\.')
-    regex_core = re.compile(
-        r'^juju-core_.*%s.*%s\.deb$' % (series_number, arch))
-    regex_local = re.compile(
-        r'^juju-local_.*%s.*all\.deb$' % series_number)
+def get_package_globs(series, arch):
+    series_number = SERIES_TO_NUMBERS[series]
     return {
-        'core': regex_core,
-        'local': regex_local,
+        'core': 'juju-core_*%s*_%s.deb' % (series_number, arch),
+        'local': 'juju-local_*%s*_all.deb' % series_number,
     }
 
 
-def get_debian_packages(jenkins, workspace, series, arch, revision_build):
-    builds = builds_for_revision(PUBLISH_REVISION_JOB, revision_build, jenkins)
-    if len(builds) == 0:
-        logging.error('No builds found for revision_build %s' % revision_build)
-        sys.exit(1)
-
-    build_info = builds[0]
+def get_debian_packages(credentials, workspace, series, arch, revision_build):
     result = {}
-    regexes = package_regexes(series, arch)
+    package_globs = get_package_globs(series, arch)
     try:
-        for artifact in build_info['artifacts']:
-            filename = artifact['fileName']
-            for package, matcher in regexes.items():
-                if matcher.search(filename) is not None:
-                    package_url = '%s/artifact/%s' % (
-                        build_info['url'], filename)
-                    local_path = os.path.join(workspace, filename)
-                    logging.info(
-                        'copying %s from build %s' % (
-                            filename, build_info['number']))
-                    result[package] = local_path
-                    command = 'wget -q -O %s %s' % (
-                        local_path, package_url)
-                    subprocess.check_call(command.split(' '))
-                    break
+        for package, glob in package_globs.items():
+            artifacts = get_artifacts(
+                credentials, PUBLISH_REVISION, revision_build, glob,
+                workspace, dry_run=False, verbose=False)
+            file_path = os.path.join(workspace, artifacts[0].file_name)
+            result[package] = file_path
     except Exception:
         for file_path in result.values():
             if os.path.exists(file_path):
@@ -151,12 +132,13 @@ def main():
             'this option is a revision_build number. The debian packages '
             'are retrieved from a run of the publish-revision for this '
             'revision_build.'))
+    add_credential_args(parser)
     args = parser.parse_args()
     clean_workspace(args.workspace)
-    jenkins = Jenkins(JENKINS_URL)
     if args.use_ci_juju_packages is not None:
+        credentials = get_credentials(args)
         package_info = get_debian_packages(
-            jenkins, args.workspace, args.series, args.arch,
+            credentials, args.workspace, args.series, args.arch,
             args.use_ci_juju_packages)
         if 'core' not in package_info:
             logging.error('Could not find juju-core package')

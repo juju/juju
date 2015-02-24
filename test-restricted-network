@@ -31,21 +31,43 @@ export AMI_IMAGE
 export SERIES
 
 SCRIPTS=$(readlink -f $(dirname $0))
-: ${JENKINS_URL="http://juju-ci.vapour.ws:8080/"}
 : ${JOB_NAME="testy"}
 export JOB_NAME
 export PATH="$SCRIPTS:$PATH"
 source $JUJU_HOME/ec2rc
+mkdir -p bash
+$SCRIPTS/jujuci.py get -a build-revision buildvars.bash bash
+source bash/buildvars.bash
 ec2-terminate-job-instances
 set -x
 export INSTANCE_TYPE=m1.large
 instance_id=$(ec2-run-instance-get-id)
-ec2-tag-job-instances $instance_id
 instance_name=$(ec2-get-name $instance_id)
+ec2-tag-job-instances $instance_id
 wait-for-port $instance_name 22
+
+RELEASE=$(ssh -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' \
+    ubuntu@$instance_name lsb_release -sr)
+ARCH=$(ssh -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' \
+    ubuntu@$instance_name dpkg --print-architecture)
+
+juju_local_deb="juju-local_$VERSION-0ubuntu1~$RELEASE.1~juju1_all.deb"
+juju_core_deb="juju-core_$VERSION-0ubuntu1~$RELEASE.1~juju1_$ARCH.deb"
+
+if [ -e debs ]; then
+  rm -R debs
+fi
+mkdir -p debs
+$SCRIPTS/jujuci.py get publish-revision $juju_local_deb debs
+$SCRIPTS/jujuci.py get publish-revision $juju_core_deb debs
+
+scp -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' \
+  debs/$juju_local_deb debs/$juju_core_deb ubuntu@$instance_name:
+
 set +e
 ssh -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    ubuntu@$instance_name "JENKINS_URL=$JENKINS_URL SERIES=$SERIES bash"<<"EOT"
+    ubuntu@$instance_name "SERIES=$SERIES juju_local_deb=$juju_local_deb\
+    juju_core_deb=$juju_core_deb bash"<<"EOT"
 set -eux
 for attempt in $(seq 10); do
   if grep ec2.archive.ubuntu.com /etc/apt/sources.list > /dev/null; then
@@ -57,28 +79,15 @@ for attempt in $(seq 10); do
 done
 if [[ $SERIES == "precise" ]]; then
     sudo add-apt-repository cloud-archive:tools
-    CONNTRACK=""
-else
-    CONNTRACK="conntrack"
 fi
 sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y bzr $CONNTRACK
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y bzr
 
 # prevent spurious failure on success
 rm .bash_logout
 afact=lastSuccessfulBuild/artifact
-wget -q ${JENKINS_URL}job/build-revision/$afact/buildvars.bash
-source buildvars.bash
-RELEASE=$(lsb_release -sr)
-ARCH=$(dpkg --print-architecture)
-juju_local_deb="juju-local_$VERSION-0ubuntu1~$RELEASE.1~juju1_all.deb"
-juju_core_deb="juju-core_$VERSION-0ubuntu1~$RELEASE.1~juju1_$ARCH.deb"
-wget -q ${JENKINS_URL}job/publish-revision/$afact/$juju_local_deb
-wget -q ${JENKINS_URL}job/publish-revision/$afact/$juju_core_deb
-set +e
-sudo dpkg -i $juju_core_deb $juju_local_deb
-set -e
+sudo dpkg -i $juju_core_deb $juju_local_deb || true
 sudo apt-get install -y -f
 export JUJU_REPOSITORY="$HOME/repo"
 mkdir -p $JUJU_REPOSITORY/$SERIES
@@ -92,9 +101,7 @@ environments:
     tools-metadata-url: http://juju-dist.s3.amazonaws.com/testing/tools
 EOT2
 ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
-#juju sync-tools --show-log
-login_ip=$(sudo cat /proc/net/ip_conntrack || sudo conntrack -L | \
-  sed -nr 's/.*src=([^ ]*) .*dport=22 .*/\1/p' | uniq)
+login_ip=$(netstat --tcp -n|sed -nr 's/.*:22 *([^ ]*):.* .*/\1/p')
 gateway=$(route -n | sed -rn 's/^0.0.0.0 *([0-7.]*) .*/\1/p')
 nameservers="$(sed /etc/resolv.conf -nr -e 's/nameserver (.*)/\1/p')"
 for ns in $nameservers; do

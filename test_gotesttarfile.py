@@ -68,6 +68,28 @@ class gotesttarfileTestCase(TestCase):
         self.assertEqual('amd64', kwargs['env'].get('GOARCH'))
         self.assertEqual(gopath, kwargs['env'].get('GOPATH'))
 
+    def test_go_test_package_win32(self):
+        with temp_dir() as gopath:
+            package_path = os.path.join(
+                gopath, 'src', 'github.com', 'juju', 'juju')
+            os.makedirs(package_path)
+            with patch('gotesttarfile.run', return_value=[0, 'success'],
+                       autospec=True) as run_mock:
+                devnull = open(os.devnull, 'w')
+                with patch('sys.stdout', devnull):
+                    with patch('sys.platform', 'win32'):
+                        tainted_path = r'C:\foo;C:\bar\OpenSSH;C:\baz'
+                        with patch.dict(os.environ, {'PATH': tainted_path}):
+                            returncode = go_test_package(
+                                'github.com/juju/juju', 'go', gopath)
+        self.assertEqual(0, returncode)
+        args, kwargs = run_mock.call_args
+        self.assertEqual(
+            ('powershell.exe', '-Command', 'go', 'test', './...'),
+            args)
+        self.assertEqual(r'C:\foo;C:\baz', kwargs['env'].get('PATH'))
+        self.assertEqual(kwargs['env'].get('PATH'), kwargs['env'].get('Path'))
+
     def test_parse_args(self):
         args = parse_args(
             ['-v', '-g', 'go', '-p' 'github/foo', '-r', 'juju.tar.gz'])
