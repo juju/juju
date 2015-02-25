@@ -17,8 +17,9 @@ import (
 
 type MeterStateSuite struct {
 	ConnSuite
-	unit    *state.Unit
-	factory *factory.Factory
+	unit           *state.Unit
+	factory        *factory.Factory
+	metricsManager *state.MetricsManager
 }
 
 var _ = gc.Suite(&MeterStateSuite{})
@@ -28,9 +29,12 @@ func (s *MeterStateSuite) SetUpTest(c *gc.C) {
 	s.factory = factory.NewFactory(s.State)
 	s.unit = s.factory.MakeUnit(c, nil)
 	c.Assert(s.unit.Series(), gc.Equals, "quantal")
+	var err error
+	s.metricsManager, err = s.State.NewMetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *UnitSuite) TestMeterStatus(c *gc.C) {
+func (s *MeterStateSuite) TestMeterStatus(c *gc.C) {
 	status, info, err := s.unit.GetMeterStatus()
 	c.Assert(status, gc.Equals, "NOT SET")
 	c.Assert(info, gc.Equals, "")
@@ -43,7 +47,7 @@ func (s *UnitSuite) TestMeterStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *UnitSuite) TestMeterStatusIncludesEnvUUID(c *gc.C) {
+func (s *MeterStateSuite) TestMeterStatusIncludesEnvUUID(c *gc.C) {
 	jujuDB := s.MgoSuite.Session.DB("juju")
 	meterStatus := jujuDB.C("meterStatus")
 	var docs []bson.M
@@ -53,7 +57,7 @@ func (s *UnitSuite) TestMeterStatusIncludesEnvUUID(c *gc.C) {
 	c.Assert(docs[0]["env-uuid"], gc.Equals, s.State.EnvironUUID())
 }
 
-func (s *UnitSuite) TestSetMeterStatusIncorrect(c *gc.C) {
+func (s *MeterStateSuite) TestSetMeterStatusIncorrect(c *gc.C) {
 	err := s.unit.SetMeterStatus("NOT SET", "Additional information.")
 	c.Assert(err, gc.NotNil)
 	status, info, err := s.unit.GetMeterStatus()
@@ -69,7 +73,7 @@ func (s *UnitSuite) TestSetMeterStatusIncorrect(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *UnitSuite) TestSetMeterStatusWhenDying(c *gc.C) {
+func (s *MeterStateSuite) TestSetMeterStatusWhenDying(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
 	testWhenDying(c, s.unit, contentionErr, contentionErr, func() error {
 		err := s.unit.SetMeterStatus("GREEN", "Additional information.")
@@ -84,7 +88,7 @@ func (s *UnitSuite) TestSetMeterStatusWhenDying(c *gc.C) {
 	})
 }
 
-func (s *UnitSuite) TestMeterStatusRemovedWithUnit(c *gc.C) {
+func (s *MeterStateSuite) TestMeterStatusRemovedWithUnit(c *gc.C) {
 	err := s.unit.SetMeterStatus("GREEN", "Information.")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.EnsureDead()
@@ -127,4 +131,38 @@ func assertMeterStatusChanged(c *gc.C, w state.NotifyWatcher) {
 			c.Fatalf("expected event from watcher by now")
 		}
 	}
+}
+
+func (s *MeterStateSuite) TestMeterStatusWithAmberMetricsManager(c *gc.C) {
+	for i := 0; i < 3; i++ {
+		err := s.metricsManager.IncrementConsecutiveErrors()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	err := s.metricsManager.SetMetricsManagerSuccessfulSend(time.Now())
+	c.Assert(err, jc.ErrorIsNil)
+	code, _ := s.metricsManager.MeterStatus()
+	c.Assert(code, gc.Equals, "AMBER")
+	err = s.unit.SetMeterStatus("GREEN", "Information.")
+	c.Assert(err, jc.ErrorIsNil)
+	code, info, err := s.unit.GetMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(code, gc.Equals, "AMBER")
+	c.Assert(info, gc.Equals, "failed to send metrics")
+}
+
+func (s *MeterStateSuite) TestRedMeterStatusWithAmberMetricsManager(c *gc.C) {
+	for i := 0; i < 3; i++ {
+		err := s.metricsManager.IncrementConsecutiveErrors()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	err := s.metricsManager.SetMetricsManagerSuccessfulSend(time.Now())
+	c.Assert(err, jc.ErrorIsNil)
+	code, _ := s.metricsManager.MeterStatus()
+	c.Assert(code, gc.Equals, "AMBER")
+	err = s.unit.SetMeterStatus("RED", "Information.")
+	c.Assert(err, jc.ErrorIsNil)
+	code, info, err := s.unit.GetMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(code, gc.Equals, "RED")
+	c.Assert(info, gc.Equals, "Information.")
 }
