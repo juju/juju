@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type CommandInfo struct {
@@ -47,6 +48,15 @@ type Factory interface {
 	NewActionRunner(actionId string) (Runner, error)
 }
 
+// StorageContextAccessor is an interface providing access to StorageContexts
+// for a jujuc.Context.
+type StorageContextAccessor interface {
+
+	// Storage returns the jujuc.ContextStorage with the supplied tag if
+	// it was found, and whether it was found.
+	Storage(names.StorageTag) (jujuc.ContextStorage, bool)
+}
+
 // RelationsFunc is used to get snapshots of relation membership at context
 // creation time.
 type RelationsFunc func() map[int]*RelationInfo
@@ -58,6 +68,7 @@ func NewFactory(
 	unitTag names.UnitTag,
 	tracker leadership.Tracker,
 	getRelationInfos RelationsFunc,
+	storage StorageContextAccessor,
 	paths Paths,
 ) (
 	Factory, error,
@@ -93,6 +104,7 @@ func NewFactory(
 		ownerTag:         ownerTag,
 		getRelationInfos: getRelationInfos,
 		relationCaches:   map[int]*RelationCache{},
+		storage:          storage,
 		rand:             rand.New(rand.NewSource(time.Now().Unix())),
 	}, nil
 }
@@ -109,6 +121,7 @@ type factory struct {
 	envName    string
 	machineTag names.MachineTag
 	ownerTag   names.UserTag
+	storage    StorageContextAccessor
 
 	// Callback to get relation state snapshot.
 	getRelationInfos RelationsFunc
@@ -164,9 +177,14 @@ func (f *factory) NewHookRunner(hookInfo hook.Info) (Runner, error) {
 	}
 	if hookInfo.Kind.IsStorage() {
 		ctx.storageTag = names.NewStorageTag(hookInfo.StorageId)
-		if err := f.updateStorage(ctx); err != nil {
+		if _, found := ctx.storage.Storage(ctx.storageTag); !found {
+			return nil, errors.Errorf("unknown storage id: %v", hookInfo.StorageId)
+		}
+		storageName, err := names.StorageName(hookInfo.StorageId)
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		hookName = fmt.Sprintf("%s-%s", storageName, hookName)
 	}
 	// Metrics are only sent from the collect-metrics hook.
 	if hookInfo.Kind == hooks.CollectMetrics {
@@ -254,7 +272,7 @@ func (f *factory) coreContext() (*HookContext, error) {
 		canAddMetrics:      false,
 		definedMetrics:     nil,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
-		storageAttachments: nil,
+		storage:            f.storage,
 	}
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err
@@ -271,7 +289,7 @@ func (f *factory) getCharm() (charm.Charm, error) {
 }
 
 // getContextRelations updates the factory's relation caches, and uses them
-// to construct contextRelations for a fresh context.
+// to construct ContextRelations for a fresh context.
 func (f *factory) getContextRelations() map[int]*ContextRelation {
 	contextRelations := map[int]*ContextRelation{}
 	relationInfos := f.getRelationInfos()
@@ -340,11 +358,6 @@ func (f *factory) updateContext(ctx *HookContext) (err error) {
 		return err
 	}
 	return nil
-}
-
-func (f *factory) updateStorage(ctx *HookContext) (err error) {
-	ctx.storageAttachments, err = f.state.UnitStorageAttachments(f.unit.Tag())
-	return err
 }
 
 func inferRemoteUnit(rctxs map[int]*ContextRelation, info CommandInfo) (int, string, error) {

@@ -131,8 +131,8 @@ type HookContext struct {
 	// the hook will be killed and requeued
 	rebootPriority jujuc.RebootPriority
 
-	// storageAttachments contains the StorageAttachments associated with the unit.
-	storageAttachments []params.StorageAttachment
+	// storage provides access to the information about storage attached to the unit.
+	storage StorageContextAccessor
 
 	// storageId is the tag of the storage instance associated with the running hook.
 	storageTag names.StorageTag
@@ -197,17 +197,12 @@ func (ctx *HookContext) AvailabilityZone() (string, bool) {
 	return ctx.availabilityzone, ctx.availabilityzone != ""
 }
 
-func (ctx *HookContext) HookStorageAttachment() (*params.StorageAttachment, bool) {
-	return ctx.StorageAttachment(ctx.storageTag)
+func (ctx *HookContext) HookStorage() (jujuc.ContextStorage, bool) {
+	return ctx.Storage(ctx.storageTag)
 }
 
-func (ctx *HookContext) StorageAttachment(storage names.StorageTag) (*params.StorageAttachment, bool) {
-	for _, storageAttachment := range ctx.storageAttachments {
-		if storageAttachment.StorageTag == storage.String() {
-			return &storageAttachment, true
-		}
-	}
-	return nil, false
+func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
+	return ctx.storage.Storage(tag)
 }
 
 func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {

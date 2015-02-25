@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.storage")
@@ -20,7 +21,8 @@ type StorageAccessor interface {
 }
 
 // Attachments generates storage hooks in response to changes to
-// storage attachments.
+// storage attachments, and provides access to information about
+// storage attachments to hooks.
 type Attachments struct {
 	st      StorageAccessor
 	unitTag names.UnitTag
@@ -51,4 +53,12 @@ func (a *Attachments) UpdateStorage(tags []names.StorageTag) error {
 	// the specified tags. For each source, there will be a sender
 	// that sends to a.hooks.
 	return nil
+}
+
+// Storage returns the ContextStorage with the supplied tag if it was
+// found, and whether it was found.
+func (a *Attachments) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
+	// TODO(axw) this method will return a jujuc.ContextStorage for
+	// storage attachments that are tracked.
+	return nil, false
 }

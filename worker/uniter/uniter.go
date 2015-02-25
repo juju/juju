@@ -234,7 +234,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	u.deployer = &deployerProxy{deployer}
 	runnerFactory, err := runner.NewFactory(
-		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.paths,
+		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.storage, u.paths,
 	)
 	if err != nil {
 		return err
