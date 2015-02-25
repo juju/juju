@@ -1289,6 +1289,8 @@ func (s *withStateServerSuite) TestCACert(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestWatchMachineErrorRetry(c *gc.C) {
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	s.PatchValue(&provisioner.ErrorRetryWaitDelay, 2*coretesting.ShortWait)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 

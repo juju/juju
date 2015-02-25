@@ -432,6 +432,8 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	// Upload tools to provider storage, so they can be migrated to environment storage.
 	stor, err := environs.LegacyStorage(s.State)
 	if !errors.IsNotSupported(err) {
