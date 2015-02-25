@@ -5,13 +5,12 @@ package main
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
+	"strings"
+	"unicode"
 )
 
 type naturally []string
-
-var splitRegexp = regexp.MustCompile("^(?P<prefix>.*?)(?P<number>\\d+)$")
 
 func (n naturally) Len() int {
 	return len(n)
@@ -36,16 +35,17 @@ func (n naturally) Less(a, b int) bool {
 // If no numeric suffix exists, full original string is returned as
 // prefix with -1 as a suffix.
 func splitAtNumber(str string) (string, int) {
-	prefix := splitRegexp.ReplaceAllString(str, "$prefix")
-	number := splitRegexp.ReplaceAllString(str, "$number")
-
-	if prefix == number {
-		// no number suffix exists
+	i := strings.LastIndexFunc(str, func(r rune) bool {
+		return !unicode.IsDigit(r)
+	}) + 1
+	if i == len(str) {
+		// no numeric suffix
 		return str, -1
 	}
-	new_s, err := strconv.Atoi(number)
+	n, err := strconv.Atoi(str[i:])
 	if err != nil {
-		panic(fmt.Sprintf("parsing number %v", err)) // should never happen
+		panic(fmt.Sprintf("parsing number %v: %v", str[i:], err)) // should never happen
 	}
-	return prefix, new_s
+	return str[:i], n
+
 }
