@@ -101,6 +101,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 
 func (s *lxcBrokerSuite) machineConfig(c *gc.C, machineId string) *cloudinit.MachineConfig {
 	machineNonce := "fake-nonce"
+	// To isolate the tests from the host's architecture, we override it here.
 	s.PatchValue(&version.Current.Arch, arch.AMD64)
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
@@ -141,7 +142,8 @@ func (s *lxcBrokerSuite) TestStartInstance(c *gc.C) {
 func (s *lxcBrokerSuite) TestStartInstanceHostArch(c *gc.C) {
 	machineConfig := s.machineConfig(c, "1/lxc/0")
 
-	// Patch the host's arch, so the LXC broker will filter tools.
+	// Patch the host's arch, so the LXC broker will filter tools. We don't use PatchValue
+	// because machineConfig already has, so it will restore version.Current.Arch during TearDownTest
 	version.Current.Arch = arch.PPC64EL
 	possibleTools := coretools.List{&coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
@@ -162,7 +164,8 @@ func (s *lxcBrokerSuite) TestStartInstanceHostArch(c *gc.C) {
 func (s *lxcBrokerSuite) TestStartInstanceToolsArchNotFound(c *gc.C) {
 	machineConfig := s.machineConfig(c, "1/lxc/0")
 
-	// Patch the host's arch, so the LXC broker will filter tools.
+	// Patch the host's arch, so the LXC broker will filter tools. We don't use PatchValue
+	// because machineConfig already has, so it will restore version.Current.Arch during TearDownTest
 	version.Current.Arch = arch.PPC64EL
 	possibleTools := coretools.List{&coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
