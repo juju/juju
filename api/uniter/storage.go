@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -45,4 +46,27 @@ func (sa *StorageAccessor) StorageAttachments(unitTag names.Tag) ([]params.Stora
 		return nil, result.Error
 	}
 	return result.Result, nil
+}
+
+// WatchStorageAttachments starts a watcher for changes to storage
+// attachments related to the unit. The watcher will return the
+// IDs of the corresponding storage instances.
+func (sa *StorageAccessor) WatchStorageAttachments(unitTag names.UnitTag) (watcher.StringsWatcher, error) {
+	var results params.StringsWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: unitTag.String()}},
+	}
+	err := sa.facade.FacadeCall("WatchStorageAttachments", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewStringsWatcher(sa.facade.RawAPICaller(), result)
+	return w, nil
 }
