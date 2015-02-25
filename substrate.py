@@ -496,7 +496,7 @@ def get_libvirt_domstate(URI, domain):
 
 
 def get_maas_ip_from_name(server_url, host):
-    match = re.match('http:[/][/](\d+\.\d+\.\d+\.\d+)[/]MAAS[/]',
+    match = re.match('http://(\d+\.\d+\.\d+\.\d+)/MAAS/',
                      server_url)
     if match is not None:
         maas_ip = match.groups()[0]
