@@ -5,6 +5,10 @@ from argparse import ArgumentParser
 import os
 
 from jenkins import Jenkins
+from jujuci import (
+    add_credential_args,
+    get_credentials,
+    )
 from utility import (
     find_candidates,
     get_auth_token,
@@ -12,11 +16,13 @@ from utility import (
     )
 
 
-def get_args():
+def get_args(argv=None):
     parser = ArgumentParser()
     parser.add_argument(
         'root_dir', help='Directory containing releases and candidates dir')
-    return parser.parse_args()
+    add_credential_args(parser)
+    args = parser.parse_args(argv)
+    return args, get_credentials(args)
 
 
 def get_releases(root):
@@ -49,16 +55,16 @@ def calculate_jobs(root):
             }
 
 
-def build_jobs(root, jobs):
-    jenkins = Jenkins('http://localhost:8080')
+def build_jobs(credentials, root, jobs):
+    jenkins = Jenkins('http://localhost:8080', *credentials)
     token = get_auth_token(root, 'compatibility-control')
     for job in jobs:
         jenkins.build_job('compatibility-control', job, token=token)
 
 
 def main():
-    args = get_args()
-    build_jobs(args.root_dir, calculate_jobs(args.root_dir))
+    args, credentials = get_args()
+    build_jobs(credentials, args.root_dir, calculate_jobs(args.root_dir))
 
 
 if __name__ == '__main__':

@@ -84,6 +84,9 @@ class gotesttarfileTestCase(TestCase):
                                 'github.com/juju/juju', 'go', gopath)
         self.assertEqual(0, returncode)
         args, kwargs = run_mock.call_args
+        self.assertEqual(
+            ('powershell.exe', '-Command', 'go', 'test', './...'),
+            args)
         self.assertEqual(r'C:\foo;C:\baz', kwargs['env'].get('PATH'))
         self.assertEqual(kwargs['env'].get('PATH'), kwargs['env'].get('Path'))
 

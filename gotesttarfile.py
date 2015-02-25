@@ -71,11 +71,14 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
         if verbose:
             print('Setting environ Path to:')
             print(env['Path'])
+        command = ['powershell.exe', '-Command', go_cmd, 'test', './...']
+    else:
+        command = [go_cmd, 'test', './...']
     package_dir = os.path.join(gopath, 'src', package.replace('/', os.sep))
     with WorkingDirectory(package_dir):
         if verbose:
             print('Running unit tests in %s' % package)
-        returncode, output = run(go_cmd, 'test', './...', env=env)
+        returncode, output = run(*command, env=env)
         print(output)
         if verbose:
             if returncode == 0:
