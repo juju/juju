@@ -43,7 +43,11 @@ func (s *apiStorageSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { conn.Close() })
 
-	setupTestStorageSupport(c, s.State)
+	cfgType := setupTestStorageSupport(c, s.State)
+	s.AddCleanup(func(_ *gc.C) {
+		registry.RegisterDefaultPool(cfgType, jujustorage.StorageKindBlock, "")
+	})
+
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -53,7 +57,7 @@ func (s *apiStorageSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.storageClient, gc.NotNil)
 }
 
-func setupTestStorageSupport(c *gc.C, s *state.State) {
+func setupTestStorageSupport(c *gc.C, s *state.State) string {
 	cfg, err := s.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -64,6 +68,7 @@ func setupTestStorageSupport(c *gc.C, s *state.State) {
 
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	registry.RegisterDefaultPool(cfg.Type(), jujustorage.StorageKindBlock, testPool)
+	return cfg.Type()
 }
 
 func (s *apiStorageSuite) TearDownTest(c *gc.C) {
@@ -147,7 +152,10 @@ func (s *cmdStorageSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	s.SetFeatureFlags(feature.Storage)
 
-	setupTestStorageSupport(c, s.State)
+	cfgType := setupTestStorageSupport(c, s.State)
+	s.AddCleanup(func(_ *gc.C) {
+		registry.RegisterDefaultPool(cfgType, jujustorage.StorageKindBlock, "")
+	})
 }
 
 func runShow(c *gc.C, args []string) *cmd.Context {

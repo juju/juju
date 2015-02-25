@@ -38,24 +38,27 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 
-	setupTestStorageSupport(c, s.State)
+	s.setupTestStorageSupport(c)
 
 	var err error
 	s.api, err = storage.NewAPI(s.State, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func setupTestStorageSupport(c *gc.C, s *state.State) {
-	cfg, err := s.EnvironConfig()
+func (s *storageSuite) setupTestStorageSupport(c *gc.C) {
+	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	stsetts := state.NewStateSettings(s)
+	stsetts := state.NewStateSettings(s.State)
 	poolManager := poolmanager.New(stsetts)
 	_, err = poolManager.Create(testPool, provider.LoopProviderType, map[string]interface{}{"it": "works"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	registry.RegisterDefaultPool(cfg.Type(), jujustorage.StorageKindBlock, testPool)
+	s.AddCleanup(func(_ *gc.C) {
+		registry.RegisterDefaultPool(cfg.Type(), jujustorage.StorageKindBlock, "")
+	})
 }
 
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
@@ -117,7 +120,7 @@ func (s *storageSuite) TestShowStorageInvalidId(c *gc.C) {
 func (s *storageSuite) TestStorageListEmpty(c *gc.C) {
 	found, err := s.api.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Storages, gc.HasLen, 0)
+	c.Assert(found.Results, gc.HasLen, 0)
 }
 
 func (s *storageSuite) TestStorageList(c *gc.C) {
@@ -125,9 +128,10 @@ func (s *storageSuite) TestStorageList(c *gc.C) {
 
 	found, err := s.api.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Storages, gc.HasLen, 1)
+	c.Assert(found.Results, gc.HasLen, 1)
 
-	one := found.Storages[0]
+	c.Assert(found.Results[0].Error, gc.IsNil)
+	one := found.Results[0].Result
 	c.Assert(one.StorageTag, gc.DeepEquals, "storage-data-0")
 	c.Assert(one.UnitTag, gc.DeepEquals, "unit-storage-block-0")
 	c.Assert(one.Kind, gc.DeepEquals, params.StorageKindBlock)

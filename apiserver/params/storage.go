@@ -179,8 +179,7 @@ type VolumeAttachmentsResults struct {
 	Results []VolumeAttachmentsResult `json:"results,omitempty"`
 }
 
-// StorageInfo holds information about either a
-// StorageInstance or StorageAttachment.
+// StorageInfo holds information about storage.
 type StorageInfo struct {
 	// StorageTag holds tag for this storage.
 	StorageTag string `json:"storagetag"`
@@ -214,9 +213,4 @@ type StorageShowResult struct {
 // StorageShowResults holds a collection of storage instances.
 type StorageShowResults struct {
 	Results []StorageShowResult `json:"results,omitempty"`
-}
-
-// StorageListResult holds information about storage instances.
-type StorageListResult struct {
-	Storages []StorageInfo
 }

@@ -45,58 +45,48 @@ func NewAPI(
 }
 
 func (api *API) Show(entities params.Entities) (params.StorageShowResults, error) {
-	all := []params.StorageShowResult{}
-
+	var all []params.StorageShowResult
 	for _, entity := range entities.Entities {
 		instance, err := api.getStorageInstance(entity.Tag)
 		if err != nil {
 			all = append(all, params.StorageShowResult{Error: err})
 			continue
 		}
-		attachments, err := api.getStorageAttachments(instance)
-		if err != nil {
-			all = append(all, params.StorageShowResult{Error: err})
-			continue
-		}
-		if len(attachments) > 0 {
-			// If any attachments were found for this storage instance,
-			// return them instead.
-			for _, attachment := range attachments {
-				all = append(all, params.StorageShowResult{Result: attachment})
-			}
-			continue
-		}
-		// If we are here then this storage instance is unattached.
-		all = append(all, params.StorageShowResult{Result: instance})
+		all = append(all, api.createStorageShowResult(instance)...)
 	}
 	return params.StorageShowResults{Results: all}, nil
 }
 
-func (api *API) List() (params.StorageListResult, error) {
-	nothing := params.StorageListResult{}
-
+func (api *API) List() (params.StorageShowResults, error) {
 	stateInstances, err := api.storage.AllStorageInstances()
 	if err != nil {
-		return nothing, err
+		return params.StorageShowResults{}, common.ServerError(err)
 	}
-	all := []params.StorageInfo{}
+	var infos []params.StorageShowResult
 	for _, stateInstance := range stateInstances {
 		instance := createParamsStorageInstance(stateInstance)
-		attachments, err := api.getStorageAttachments(instance)
-		if err != nil {
-			return nothing, err
-		}
-		if len(attachments) > 0 {
-			// If any attachments were found for this storage instance,
-			// return them instead.
-			all = append(all, attachments...)
-			continue
-		}
-		// If we are here then this storage instance is unattached.
-		all = append(all, instance)
+		infos = append(infos, api.createStorageShowResult(instance)...)
 	}
+	return params.StorageShowResults{Results: infos}, nil
+}
 
-	return params.StorageListResult{Storages: all}, nil
+func (api *API) createStorageShowResult(instance params.StorageInfo) []params.StorageShowResult {
+	attachments, err := api.getStorageAttachments(instance)
+	if err != nil {
+		return []params.StorageShowResult{params.StorageShowResult{Error: err}}
+	}
+	if len(attachments) > 0 {
+		// If any attachments were found for this storage instance,
+		// return them instead.
+		result := make([]params.StorageShowResult, len(attachments))
+		for i, attachment := range attachments {
+			result[i] = params.StorageShowResult{Result: attachment}
+		}
+		return result
+	}
+	// If we are here then this storage instance is unattached.
+	return []params.StorageShowResult{params.StorageShowResult{Result: instance}}
+
 }
 
 func (api *API) getStorageAttachments(instance params.StorageInfo) ([]params.StorageInfo, *params.Error) {

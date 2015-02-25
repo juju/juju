@@ -38,9 +38,12 @@ func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInfo, error) {
 	if err := c.facade.FacadeCall("Show", params.Entities{Entities: entities}, &found); err != nil {
 		return nil, errors.Trace(err)
 	}
-	storages := []params.StorageInfo{}
-	allErr := params.ErrorResults{}
-	for _, result := range found.Results {
+	return c.convert(found.Results)
+}
+func (c *Client) convert(found []params.StorageShowResult) ([]params.StorageInfo, error) {
+	var storages []params.StorageInfo
+	var allErr params.ErrorResults
+	for _, result := range found {
 		if result.Error != nil {
 			allErr.Results = append(allErr.Results, params.ErrorResult{result.Error})
 			continue
@@ -52,9 +55,9 @@ func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInfo, error) {
 
 // List list all current storage instances.
 func (c *Client) List() ([]params.StorageInfo, error) {
-	result := params.StorageListResult{}
-	if err := c.facade.FacadeCall("List", nil, &result); err != nil {
+	found := params.StorageShowResults{}
+	if err := c.facade.FacadeCall("List", nil, &found); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return result.Storages, nil
+	return c.convert(found.Results)
 }
