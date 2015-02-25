@@ -82,9 +82,8 @@ func validate(name string, conf common.Conf) error {
 	return nil
 }
 
-// serialize serializes the provided Conf for the named service. The
-// resulting data will be in the prefered format for consumption by
-// the init system.
+// serialize returns the data that should be written to disk for the
+// provided Conf, rendered in the systemd unit file format.
 func serialize(name string, conf common.Conf) ([]byte, error) {
 	if err := validate(name, conf); err != nil {
 		return nil, errors.Trace(err)
