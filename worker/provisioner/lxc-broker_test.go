@@ -328,6 +328,8 @@ func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 }
 
 func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	p := s.newLxcProvisioner(c)
 	defer stop(c, p)
 

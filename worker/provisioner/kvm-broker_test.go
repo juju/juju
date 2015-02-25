@@ -169,6 +169,10 @@ func (s *kvmProvisionerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *kvmProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
+	// This check in particular leads to tests just hanging
+	// indefinitely quite often on i386.
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	s.State.StartSync()
 	event := <-s.events
 	c.Assert(event.Action, gc.Equals, mock.Started)
@@ -179,6 +183,10 @@ func (s *kvmProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) str
 }
 
 func (s *kvmProvisionerSuite) expectStopped(c *gc.C, instId string) {
+	// This check in particular leads to tests just hanging
+	// indefinitely quite often on i386.
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	s.State.StartSync()
 	event := <-s.events
 	c.Assert(event.Action, gc.Equals, mock.Stopped)
@@ -245,6 +253,8 @@ func (s *kvmProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 }
 
 func (s *kvmProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	p := s.newKvmProvisioner(c)
 	defer stop(c, p)
 

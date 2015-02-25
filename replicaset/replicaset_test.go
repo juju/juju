@@ -155,6 +155,8 @@ func attemptLoop(c *gc.C, strategy utils.AttemptStrategy, desc string, f func() 
 }
 
 func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	getAddr := func(inst *gitjujutesting.MgoInstance) string {
 		return inst.Addr()
 	}
