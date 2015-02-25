@@ -153,8 +153,11 @@ func ListServices(initDir string) ([]string, error) {
 }
 
 var linuxExecutables = map[string]string{
-	"/sbin/init":    InitSystemUpstart,
-	"/sbin/systemd": InitSystemSystemd,
+	"/sbin/init":           InitSystemUpstart,
+	"/sbin/upstart":        InitSystemUpstart,
+	"/sbin/systemd":        InitSystemSystemd,
+	"/bin/systemd":         InitSystemSystemd,
+	"/lib/systemd/systemd": InitSystemSystemd,
 }
 
 // TODO(ericsnow) Is it too much to cat once for each executable?
