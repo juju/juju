@@ -1088,9 +1088,48 @@ func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedInfo := []network.InterfaceInfo{
-		{DeviceIndex: 0, MACAddress: "aa:bb:cc:dd:ee:ff", CIDR: "192.168.1.1/24", ProviderSubnetId: "WLAN", InterfaceName: "wlan0", Disabled: true},
-		{DeviceIndex: 1, MACAddress: "aa:bb:cc:dd:ee:f1", CIDR: "192.168.2.1/24", ProviderSubnetId: "LAN", VLANTag: 42, InterfaceName: "eth0"},
-		{DeviceIndex: 2, MACAddress: "aa:bb:cc:dd:ee:f2", CIDR: "192.168.3.1/24", ProviderSubnetId: "Virt", InterfaceName: "vnet1"},
+		{
+			DeviceIndex:      0,
+			MACAddress:       "aa:bb:cc:dd:ee:ff",
+			CIDR:             "192.168.1.1/24",
+			ProviderSubnetId: "WLAN",
+			VLANTag:          0,
+			InterfaceName:    "wlan0",
+			Disabled:         true,
+			NoAutoStart:      false,
+			ConfigType:       network.ConfigDHCP,
+			ExtraConfig:      nil,
+			GatewayAddress:   network.Address{},
+			Address:          network.NewAddress("192.168.1.1", network.ScopeCloudLocal),
+		},
+		{
+			DeviceIndex:      1,
+			MACAddress:       "aa:bb:cc:dd:ee:f1",
+			CIDR:             "192.168.2.1/24",
+			ProviderSubnetId: "LAN",
+			VLANTag:          42,
+			InterfaceName:    "eth0",
+			Disabled:         false,
+			NoAutoStart:      false,
+			ConfigType:       network.ConfigDHCP,
+			ExtraConfig:      nil,
+			GatewayAddress:   network.Address{},
+			Address:          network.NewAddress("192.168.2.1", network.ScopeCloudLocal),
+		},
+		{
+			DeviceIndex:      2,
+			MACAddress:       "aa:bb:cc:dd:ee:f2",
+			CIDR:             "192.168.3.1/24",
+			ProviderSubnetId: "Virt",
+			VLANTag:          0,
+			InterfaceName:    "vnet1",
+			Disabled:         false,
+			NoAutoStart:      false,
+			ConfigType:       network.ConfigDHCP,
+			ExtraConfig:      nil,
+			GatewayAddress:   network.Address{},
+			Address:          network.NewAddress("192.168.3.1", network.ScopeCloudLocal),
+		},
 	}
 	network.SortInterfaceInfo(netInfo)
 	c.Assert(netInfo, jc.DeepEquals, expectedInfo)

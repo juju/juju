@@ -42,6 +42,9 @@ const (
 	apiVersion = "1.0"
 )
 
+// Ensure maasEnviron supports environs.NetworkingEnviron.
+var _ environs.NetworkingEnviron = (*maasEnviron)(nil)
+
 // A request may fail to due "eventual consistency" semantics, which
 // should resolve fairly quickly.  A request may also fail due to a slow
 // state transition (for instance an instance taking a while to release
@@ -1253,17 +1256,14 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
-func (environ *maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, addr network.Address) error {
+func (environ *maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, addr network.Address) (err error) {
+	defer errors.DeferredAnnotatef(&err, "failed to release IP address %v", addr.Value)
 	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
 	// This can return a 404 error if the address has already been released
 	// or is unknown by maas. However this, like any other error, would be
 	// unexpected - so we don't treat it specially and just return it to
 	// the caller.
-	err := ReleaseIPAddress(ipaddresses, addr)
-	if err != nil {
-		return errors.Annotatef(err, "failed to release IP address %v", addr.Value)
-	}
-	return nil
+	return ReleaseIPAddress(ipaddresses, addr)
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces.
@@ -1308,6 +1308,7 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 			InterfaceName: interfaceName,
 			Disabled:      disabled,
 			MACAddress:    serial,
+			ConfigType:    network.ConfigDHCP,
 		}
 		details, ok := macToNetworkMap[serial]
 		if ok {
@@ -1316,6 +1317,7 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 			mask := net.IPMask(net.ParseIP(details.Mask))
 			cidr := net.IPNet{net.ParseIP(details.IP), mask}
 			ifaceInfo.CIDR = cidr.String()
+			ifaceInfo.Address = network.NewAddress(cidr.IP.String(), network.ScopeUnknown)
 		}
 		result = append(result, ifaceInfo)
 	}
