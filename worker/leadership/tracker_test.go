@@ -50,12 +50,20 @@ func (s *TrackerSuite) TearDownTest(c *gc.C) {
 	}
 }
 
+func (s *TrackerSuite) unblockRelease(c *gc.C) {
+	select {
+	case s.manager.releases <- struct{}{}:
+	default:
+		c.Fatalf("did nobody call BlockUntilLeadershipReleased?")
+	}
+}
+
 func (s *TrackerSuite) TestOnLeaderSuccess(c *gc.C) {
 	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer assertStop(c, tracker)
 
-	// Check ticket gets sent true, and is closed afterwards.
-	assertSendOnce(c, tracker)
+	// Check the ticket succeeds.
+	assertClaimLeader(c, tracker, true)
 
 	// Stop the tracker before trying to look at its stub.
 	assertStop(c, tracker)
@@ -72,18 +80,14 @@ func (s *TrackerSuite) TestOnLeaderFailure(c *gc.C) {
 	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer assertStop(c, tracker)
 
-	// Check ticket gets closed.
-	assertCloseTicket(c, tracker)
+	// Check the ticket fails.
+	assertClaimLeader(c, tracker, false)
 
 	// Stop the tracker before trying to look at its mocks.
 	assertStop(c, tracker)
 
 	// Unblock the release goroutine, lest data races.
-	select {
-	case s.manager.releases <- struct{}{}:
-	default:
-		c.Fatalf("did nobody call BlockUntilLeadershipReleased?")
-	}
+	s.unblockRelease(c)
 
 	s.manager.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
@@ -103,8 +107,8 @@ func (s *TrackerSuite) TestOnLeaderError(c *gc.C) {
 	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer worker.Stop(tracker)
 
-	// Check ticket gets closed.
-	assertCloseTicket(c, tracker)
+	// Check the ticket fails.
+	assertClaimLeader(c, tracker, false)
 
 	// Stop the tracker before trying to look at its mocks.
 	err := worker.Stop(tracker)
@@ -122,23 +126,19 @@ func (s *TrackerSuite) TestLoseLeadership(c *gc.C) {
 	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer assertStop(c, tracker)
 
-	// Check first ticket gets sent true, and then closed.
-	assertSendOnce(c, tracker)
+	// Check the first ticket succeeds.
+	assertClaimLeader(c, tracker, true)
 
 	// Wait long enough for a single refresh, to trigger ErrClaimDenied; then
-	// check the next ticket gets closed (without sending true).
+	// check the next ticket fails.
 	<-time.After(oneRefresh)
-	assertCloseTicket(c, tracker)
+	assertClaimLeader(c, tracker, false)
 
 	// Stop the tracker before trying to look at its stub.
 	assertStop(c, tracker)
 
 	// Unblock the release goroutine, lest data races.
-	select {
-	case s.manager.releases <- struct{}{}:
-	default:
-		c.Fatalf("did nobody call BlockUntilLeadershipReleased?")
-	}
+	s.unblockRelease(c)
 
 	s.manager.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
@@ -163,19 +163,17 @@ func (s *TrackerSuite) TestGainLeadership(c *gc.C) {
 	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer assertStop(c, tracker)
 
-	// Check initial ticket gets closed.
-	assertCloseTicket(c, tracker)
+	// Check initial ticket fails.
+	assertClaimLeader(c, tracker, false)
 
-	// Unblock the release goroutine, and... uh, voodoo sleep a bit...
-	select {
-	case s.manager.releases <- struct{}{}:
-	default:
-		c.Fatalf("did nobody call BlockUntilLeadershipReleased?")
-	}
+	// Unblock the release goroutine...
+	s.unblockRelease(c)
+
+	// ...and, uh, voodoo sleep a bit, but not long enough to trigger a refresh...
 	<-time.After(noRefresh)
 
-	// ...and issue a new ticket, which we expect to receive true before closing.
-	assertSendOnce(c, tracker)
+	// ...then check the next ticket succeeds.
+	assertClaimLeader(c, tracker, true)
 
 	// Stop the tracker before trying to look at its stub.
 	assertStop(c, tracker)
@@ -197,32 +195,24 @@ func (s *TrackerSuite) TestGainLeadership(c *gc.C) {
 	}})
 }
 
-func assertSendOnce(c *gc.C, tracker leadership.Tracker) {
-	ticket := make(leadership.Ticket)
-	tracker.ClaimLeader(ticket)
+func assertClaimLeader(c *gc.C, tracker leadership.Tracker, expect bool) {
+	// Grab a ticket...
+	ticket := tracker.ClaimLeader()
+
+	// ...and check that it gives the expected result every time it's checked.
+	assertTicket(c, ticket, expect)
+	assertTicket(c, ticket, expect)
+}
+
+func assertTicket(c *gc.C, ticket leadership.Ticket, expect bool) {
+	// Wait for the ticket to give a value...
+	success := make(chan bool)
+	go func() { success <- ticket.Wait() }()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("value not sent")
-	case success, ok := <-ticket:
-		c.Check(success, jc.IsTrue)
-		c.Check(ok, jc.IsTrue)
-	}
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("ticket not closed")
-	case _, ok := <-ticket:
-		c.Check(ok, jc.IsFalse)
-	}
-}
-
-func assertCloseTicket(c *gc.C, tracker leadership.Tracker) {
-	ticket := make(leadership.Ticket)
-	tracker.ClaimLeader(ticket)
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("ticket not closed")
-	case _, ok := <-ticket:
-		c.Check(ok, jc.IsFalse)
+	case actual := <-success:
+		c.Assert(actual, gc.Equals, expect)
 	}
 }
 

@@ -17,17 +17,19 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.leadership")
 
-// Ticket is used with Tracker to communicate leadership status back to a client.
-type Ticket chan bool
+// Ticket is used to communicate leadership status to Tracker clients.
+type Ticket interface {
+	Wait() bool
+}
 
 // Tracker allows clients to discover current leadership status by attempting to
 // claim it for themselves.
 type Tracker interface {
 
-	// ClaimLeader will cause the ticket to be closed in the near future; if true
-	// is sent before it's closed, the unit's leadership is guaranteed for half the
-	// tracker's duration.
-	ClaimLeader(ticket Ticket)
+	// ClaimLeader will return a Ticket which, when Wait()ed for, will return
+	// true if leadership is guaranteed for at least the tracker's duration from
+	// the time the ticket was issued.
+	ClaimLeader() Ticket
 }
 
 // TrackerWorker embeds the Tracker and worker.Worker interfaces.
@@ -46,7 +48,7 @@ type tracker struct {
 
 	claimLease   chan struct{}
 	renewLease   <-chan time.Time
-	claimTickets chan Ticket
+	claimTickets chan chan bool
 }
 
 // NewTrackerWorker returns a TrackerWorker that attempts to claim and retain
@@ -61,7 +63,7 @@ func NewTrackerWorker(tag names.UnitTag, leadership leadership.LeadershipManager
 		serviceName:  serviceName,
 		leadership:   leadership,
 		duration:     duration * 2,
-		claimTickets: make(chan Ticket),
+		claimTickets: make(chan chan bool),
 	}
 	go func() {
 		defer t.tomb.Done()
@@ -81,8 +83,10 @@ func (t *tracker) Wait() error {
 }
 
 // ClaimLeader is part of the Tracker interface.
-func (t *tracker) ClaimLeader(ticket Ticket) {
-	t.send(ticket, t.claimTickets)
+func (t *tracker) ClaimLeader() Ticket {
+	ch := make(chan bool, 1)
+	t.send(ch, t.claimTickets)
+	return &ticket{ch: ch}
 }
 
 func (t *tracker) loop() error {
@@ -157,7 +161,7 @@ func (t *tracker) setMinion() {
 
 // resolveClaim will send true on the supplied channel if leadership can be
 // successfully verified, and will always close it whether or not it sent.
-func (t *tracker) resolveClaim(ticket Ticket) error {
+func (t *tracker) resolveClaim(ticket chan bool) error {
 	logger.Infof("checking leadership ticket...")
 	defer close(ticket)
 	if !t.isMinion {
@@ -183,7 +187,7 @@ func (t *tracker) resolveClaim(ticket Ticket) error {
 	return t.confirm(ticket)
 }
 
-func (t *tracker) send(ticket Ticket, ch chan Ticket) {
+func (t *tracker) send(ticket chan bool, ch chan chan bool) {
 	select {
 	case <-t.tomb.Dying():
 		close(ticket)
@@ -191,11 +195,25 @@ func (t *tracker) send(ticket Ticket, ch chan Ticket) {
 	}
 }
 
-func (t *tracker) confirm(ticket Ticket) error {
+func (t *tracker) confirm(ticket chan bool) error {
 	select {
 	case <-t.tomb.Dying():
 		return tomb.ErrDying
 	case ticket <- true:
 	}
 	return nil
+}
+
+// ticket is used with Tracker to communicate leadership status back to a client.
+type ticket struct {
+	ch      chan bool
+	success bool
+}
+
+// Wait is part of the Ticket interface.
+func (t *ticket) Wait() bool {
+	if <-t.ch {
+		t.success = true
+	}
+	return t.success
 }
