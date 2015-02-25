@@ -1122,6 +1122,8 @@ func (s *localHTTPSServerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
+	coretesting.SkipIfPPC64EL(c, "lp:1425242")
+
 	// If you don't have ssl-hostname-verification set to false, then we
 	// fail to connect to the environment. Copy the attrs used by SetUp and
 	// force hostname verification.
