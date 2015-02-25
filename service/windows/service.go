@@ -33,6 +33,11 @@ func ListServices() ([]string, error) {
 	return strings.Fields(string(out.Stdout)), nil
 }
 
+// ListCommand returns a command that will list the services on a host.
+func ListCommand() string {
+	return `(Get-Service).Name`
+}
+
 // Service represents a service running on the current system
 type Service struct {
 	common.Service

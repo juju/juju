@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/service/common"
@@ -125,5 +126,51 @@ func ListServices(initDir string) ([]string, error) {
 		return services, errors.Trace(err)
 	default:
 		return nil, errors.NotFoundf("init system %q", initName)
+	}
+}
+
+var linuxExecutables = map[string]string{
+	"/sbin/init": "upstart",
+}
+
+// TODO(ericsnow) Is it to much to cat once for each executable?
+const initSystemTest = `[[ "$(cat /proc/1/cmdline)" == "%s" ]]`
+
+// ListServicesCommand returns the command that should be run to get
+// a list of service names on a host.
+func ListServicesCommand() string {
+	// TODO(ericsnow) Allow passing in "initSystems ...string".
+	executables := linuxExecutables
+
+	// TODO(ericsnow) build the command in a better way?
+
+	cmdAll := ""
+	for executable, initSystem := range executables {
+		cmd := listServicesCommand(initSystem)
+		if cmd == "" {
+			continue
+		}
+
+		test := fmt.Sprintf(initSystemTest, executable)
+		cmd = fmt.Sprintf("if %s; then %s\n", test, cmd)
+		if cmdAll != "" {
+			cmd = "el" + cmd
+		}
+		cmdAll += cmd
+	}
+	if cmdAll != "" {
+		cmdAll += "fi"
+	}
+	return cmdAll
+}
+
+func listServicesCommand(initSystem string) string {
+	switch initSystem {
+	case "windows":
+		return windows.ListCommand()
+	case "upstart":
+		return upstart.ListCommand()
+	default:
+		return ""
 	}
 }

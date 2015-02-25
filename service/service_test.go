@@ -43,3 +43,12 @@ func (*serviceSuite) TestDiscoverService(c *gc.C) {
 	c.Check(svc.Name(), gc.Equals, "a-service")
 	c.Check(svc.Conf(), jc.DeepEquals, conf)
 }
+
+func (*serviceSuite) TestListServicesCommand(c *gc.C) {
+	cmd := service.ListServicesCommand()
+
+	c.Check(cmd, gc.Equals, ""+
+		`if [[ "$(cat /proc/1/cmdline)" == "/sbin/init" ]]; then `+
+		`sudo initctl list | awk '{print $1}' | sort | uniq`+"\n"+
+		`fi`)
+}

@@ -39,6 +39,12 @@ func ListServices(initDir string) ([]string, error) {
 	return services, nil
 }
 
+// ListCommand returns a command that will list the services on a host.
+func ListCommand() string {
+	// TODO(ericsnow) Do "ls /etc/init/*.conf" instead?
+	return `sudo initctl list | awk '{print $1}' | sort | uniq`
+}
+
 var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
 
 // InitDir holds the default init directory name.
