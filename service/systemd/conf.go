@@ -194,7 +194,7 @@ func serializeInstall(conf common.Conf) []*unit.UnitOption {
 	return unitOptions
 }
 
-// deserialize parses the provided data (in the init system's prefered
+// deserialize parses the provided data (in the systemd unit file
 // format) and populates a new Conf with the result.
 func deserialize(data []byte) (common.Conf, error) {
 	opts, err := unit.Deserialize(bytes.NewBuffer(data))
