@@ -270,10 +270,13 @@ func (s *Service) InstallCommands() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []string{
+	cmds := []string{
 		fmt.Sprintf("cat >> %s << 'EOF'\n%sEOF\n", s.confPath(), conf),
-		"start " + s.Service.Name,
-	}, nil
+	}
+	if !s.Service.Conf.Transient {
+		cmds = append(cmds, "start "+s.Service.Name)
+	}
+	return cmds, nil
 }
 
 // Serialize renders the conf as raw bytes.
@@ -322,6 +325,7 @@ var transientConfT = template.Must(template.New("").Parse(`
 description "{{.Desc}}"
 author "Juju Team <juju@lists.ubuntu.com>"
 start on stopped {{.AfterStopped}}
+
 script
   {{.ExecStart}}
 end script

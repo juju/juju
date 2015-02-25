@@ -795,6 +795,28 @@ lxc.network.mtu = 4321
 	return template
 }
 
+func (s *LxcSuite) TestShutdownInitScript(c *gc.C) {
+	script, err := lxc.ShutdownInitScript("upstart")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(script, gc.Equals, `
+cat >> /etc/init/juju-template-restart.conf << 'EOF'
+description "Juju lxc template shutdown job"
+author "Juju Team <juju@lists.ubuntu.com>"
+start on stopped cloud-final
+
+script
+  shutdown -h now
+end script
+
+post-stop script
+  rm /etc/init/juju-template-restart.conf
+end script
+
+EOF
+`[1:])
+}
+
 func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplate(c *gc.C) {
 	s.createTemplate(c)
 	s.PatchValue(&s.useClone, true)
