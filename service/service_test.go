@@ -4,7 +4,9 @@
 package service_test
 
 import (
+	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -47,17 +49,17 @@ func (*serviceSuite) TestDiscoverService(c *gc.C) {
 func (*serviceSuite) TestListServicesCommand(c *gc.C) {
 	cmd := service.ListServicesCommand()
 
-	c.Check(cmd, gc.Equals, ""+
-		`if [[ "$(cat /proc/1/cmdline)" == "/sbin/init" ]]; then `+
-		`sudo initctl list | awk '{print $1}' | sort | uniq`+"\n"+
-		`elif [[ "$(cat /proc/1/cmdline)" == "/sbin/upstart" ]]; then `+
-		`sudo initctl list | awk '{print $1}' | sort | uniq`+"\n"+
-		`elif [[ "$(cat /proc/1/cmdline)" == "/sbin/systemd" ]]; then `+
-		`systemctl --no-page -t service -a | awk -F'.' '{print $1}'`+"\n"+
-		`elif [[ "$(cat /proc/1/cmdline)" == "/bin/systemd" ]]; then `+
-		`systemctl --no-page -t service -a | awk -F'.' '{print $1}'`+"\n"+
-		`elif [[ "$(cat /proc/1/cmdline)" == "/lib/systemd/systemd" ]]; then `+
-		`systemctl --no-page -t service -a | awk -F'.' '{print $1}'`+"\n"+
-		`else exit 1`+"\n"+
-		`fi`)
+	line := `if [[ "$(cat /proc/1/cmdline)" == "%s" ]]; then %s`
+	upstart := `sudo initctl list | awk '{print $1}' | sort | uniq`
+	systemd := `systemctl --no-legend --no-page -t service -a` +
+		` | grep -o -P '^\w[-\w]*(?=\.service)'`
+	c.Check(cmd, gc.Equals, strings.Join([]string{
+		fmt.Sprintf(line, "/sbin/init", upstart),
+		"el" + fmt.Sprintf(line, "/sbin/upstart", upstart),
+		"el" + fmt.Sprintf(line, "/sbin/systemd", systemd),
+		"el" + fmt.Sprintf(line, "/bin/systemd", systemd),
+		"el" + fmt.Sprintf(line, "/lib/systemd/systemd", systemd),
+		"else exit 1",
+		"fi",
+	}, "\n"))
 }
