@@ -86,6 +86,11 @@ func (t *tracker) ClaimLeader() Ticket {
 	return &ticket{ch: ch}
 }
 
+// ServiceName is part of the Tracker interface.
+func (t *tracker) ServiceName() string {
+	return t.serviceName
+}
+
 func (t *tracker) loop() error {
 	logger.Infof("making initial claim")
 	if err := t.refresh(); err != nil {

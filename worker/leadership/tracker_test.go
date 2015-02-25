@@ -58,6 +58,12 @@ func (s *TrackerSuite) unblockRelease(c *gc.C) {
 	}
 }
 
+func (s *TrackerSuite) TestServiceName(c *gc.C) {
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	defer assertStop(c, tracker)
+	c.Assert(tracker.ServiceName(), gc.Equals, "led-service")
+}
+
 func (s *TrackerSuite) TestOnLeaderSuccess(c *gc.C) {
 	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
 	defer assertStop(c, tracker)

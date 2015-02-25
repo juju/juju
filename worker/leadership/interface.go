@@ -20,6 +20,10 @@ type Tracker interface {
 	// true if leadership is guaranteed for at least the tracker's duration from
 	// the time the ticket was issued.
 	ClaimLeader() Ticket
+
+	// ServiceName returns the name of the service for which leadership claims
+	// are made.
+	ServiceName() string
 }
 
 // TrackerWorker embeds the Tracker and worker.Worker interfaces.
