@@ -241,7 +241,8 @@ class DumpEnvLogsTestCase(TestCase):
                     env = Environment('foo', JujuClientDevel.by_version(),
                                       {'type': 'local'})
                     dump_env_logs(env, '10.10.0.1', artifacts_dir)
-        call_list = sorted((cal[0][1:3], cal[1]) for cal in dl_mock.call_args_list)
+        call_list = sorted((cal[0][1:3], cal[1]) for cal in
+                           dl_mock.call_args_list)
         self.assertEqual(
             [(('10.10.0.1', '%s/0' % artifacts_dir),
               {'local_state_server': True}),
