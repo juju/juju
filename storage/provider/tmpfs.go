@@ -125,6 +125,8 @@ func (s *tmpfsFilesystemSource) createFilesystem(params storage.FilesystemParams
 		return filesystem, filesystemAttachment, errors.Annotate(err, "cannot mount tmpfs")
 	}
 
+	// Just to be sure, we still need to double check the size here because
+	//the allocation above is rounded to the nearest page size.
 	sizeInMiB, err := s.dirFuncs.calculateSize(path)
 	if err != nil {
 		os.Remove(path)
