@@ -97,6 +97,28 @@ func (s *Service) Validate() error {
 		return errors.New("missing InitDir")
 	}
 
+	if s.Service.Conf.Transient {
+		if len(s.Service.Conf.Env) > 0 {
+			return errors.NotSupportedf("Conf.Env (when transient)")
+		}
+		if len(s.Service.Conf.Limit) > 0 {
+			return errors.NotSupportedf("Conf.Limit (when transient)")
+		}
+		if s.Service.Conf.Out != "" {
+			return errors.NotSupportedf("Conf.Out (when transient)")
+		}
+		if s.Service.Conf.ExtraScript != "" {
+			return errors.NotSupportedf("Conf.ExtraScript (when transient)")
+		}
+	} else {
+		if s.Service.Conf.AfterStopped != "" {
+			return errors.NotSupportedf("Conf.AfterStopped (when not transient)")
+		}
+		if s.Service.Conf.ExecStopPost != "" {
+			return errors.NotSupportedf("Conf.ExecStopPost (when not transient)")
+		}
+	}
+
 	return nil
 }
 
@@ -105,7 +127,11 @@ func (s *Service) render() ([]byte, error) {
 	if err := s.Validate(); err != nil {
 		return nil, err
 	}
-	return Serialize(s.Name(), s.Conf())
+	conf := s.Conf()
+	if conf.Transient {
+		conf.ExecStopPost = "rm " + s.confPath()
+	}
+	return Serialize(s.Name(), conf)
 }
 
 // Installed returns whether the service configuration exists in the
@@ -253,11 +279,19 @@ func (s *Service) InstallCommands() ([]string, error) {
 // Serialize renders the conf as raw bytes.
 func Serialize(name string, conf common.Conf) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := confT.Execute(&buf, conf); err != nil {
-		return nil, err
+	if conf.Transient {
+		if err := transientConfT.Execute(&buf, conf); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := confT.Execute(&buf, conf); err != nil {
+			return nil, err
+		}
 	}
 	return buf.Bytes(), nil
 }
+
+// TODO(ericsnow) Use a different solution than templates?
 
 // BUG: %q quoting does not necessarily match libnih quoting rules
 // (as used by upstart); this may become an issue in the future.
@@ -282,4 +316,18 @@ script
 {{end}}
   exec {{.ExecStart}}{{if .Out}} >> {{.Out}} 2>&1{{end}}
 end script
+`[1:]))
+
+var transientConfT = template.Must(template.New("").Parse(`
+description "{{.Desc}}"
+author "Juju Team <juju@lists.ubuntu.com>"
+start on stopped {{.AfterStopped}}
+script
+  {{.ExecStart}}
+end script
+{{if .ExecStopPost}}
+post-stop script
+  {{.ExecStopPost}}
+end script
+{{end}}
 `[1:]))

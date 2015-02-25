@@ -13,6 +13,13 @@ type Conf struct {
 	// Desc is the init service's description.
 	Desc string
 
+	// Transient indicates whether or not the service is a one-off.
+	Transient bool
+
+	// AfterStopped is the name, if any, of another service. This
+	// service will not start until after the other stops.
+	AfterStopped string
+
 	// Env holds the environment variables that will be set when the
 	// command runs.
 	// Currently not used on Windows
@@ -25,6 +32,9 @@ type Conf struct {
 	// ExecStart is the command (with arguments) that will be run.
 	// The command will be restarted if it exits with a non-zero exit code.
 	ExecStart string
+
+	// ExecStopPost is the command that will be run after the service stops.
+	ExecStopPost string
 
 	// Out, if set, will redirect output to that path.
 	Out string

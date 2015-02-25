@@ -5,10 +5,10 @@
 package windows
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
 
@@ -65,6 +65,23 @@ func (s Service) Name() string {
 // Conf implements service.Service.
 func (s Service) Conf() common.Conf {
 	return s.Service.Conf
+}
+
+// Validate checks the service for invalid values.
+func (s Service) Validate() error {
+	if err := s.Service.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if s.Service.Conf.Transient {
+		return errors.NotSupportedf("transient services")
+	}
+
+	if s.Service.Conf.AfterStopped != "" {
+		return errors.NotSupportedf("Conf.AfterStopped")
+	}
+
+	return nil
 }
 
 // Status gets the service status
