@@ -146,12 +146,9 @@ bzr whoami 'J. Random Hacker <jrandom@example.org>'
 go version || gccgo -v
 make build
 export JUJU_NOTEST_MONGOJS=1
-if [[ -e $LOG_FILE_PATH ]] ; then
-    if ! grep 'Angsty Antelope' $LOG_FILE_PATH ; then
-      echo "$LOG_TXT" | sudo tee -a $LOG_FILE_PATH
-    fi
-else
-    echo "Error!! File not found: $LOG_FILE_PATH"
+
+if ! grep 'Angsty Antelope' $LOG_FILE_PATH ; then
+  echo "$LOG_TXT" | sudo tee -a $LOG_FILE_PATH
 fi
 
 if [[ "$RETRY" == "true" ]]; then
