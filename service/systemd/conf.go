@@ -32,6 +32,9 @@ var limitMap = map[string]string{
 	"stack":      "LimitSTACK",
 }
 
+// normalize adjusts the conf to more standardized content and
+// returns a new Conf with that updated content. It also returns the
+// content of any script file that should accompany the conf.
 func normalize(conf common.Conf, scriptPath string) (common.Conf, []byte) {
 	var data []byte
 
