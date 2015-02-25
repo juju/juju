@@ -38,14 +38,14 @@ type NetworkInfo struct {
 // part of.
 type networkDoc struct {
 	DocID string `bson:"_id"`
+
 	// Name is the network's name. It should be one of the machine's
 	// included networks.
-	Name    string `bson:"name"`
-	EnvUUID string `bson:"env-uuid"`
-
-	ProviderId string
-	CIDR       string
-	VLANTag    int
+	Name       string `bson:"name"`
+	EnvUUID    string `bson:"env-uuid"`
+	ProviderId string `bson:"providerid"`
+	CIDR       string `bson:"cidr"`
+	VLANTag    int    `bson:"vlantag"`
 }
 
 func newNetwork(st *State, doc *networkDoc) *Network {

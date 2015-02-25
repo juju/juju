@@ -62,6 +62,24 @@ const (
 	ResolvedNoHooks    ResolvedMode = "no-hooks"
 )
 
+// port identifies a network port number for a particular protocol.
+// TODO(mue) Not really used anymore, se bellow. Can be removed when
+// cleaning unitDoc.
+type port struct {
+	Protocol string `bson:"protocol"`
+	Number   int    `bson:"number"`
+}
+
+// networkPorts is a convenience helper to return the state type
+// as network type, here for a slice of Port.
+func networkPorts(ports []port) []network.Port {
+	netPorts := make([]network.Port, len(ports))
+	for i, port := range ports {
+		netPorts[i] = network.Port{port.Protocol, port.Number}
+	}
+	return netPorts
+}
+
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in apiserver/params.
 type unitDoc struct {
@@ -81,11 +99,11 @@ type unitDoc struct {
 	TxnRevno               int64 `bson:"txn-revno"`
 	PasswordHash           string
 
-	// No longer used - to be removed.
-	// TODO(mue): Can it be removed now?
-	Ports          []network.Port
-	PublicAddress  string
-	PrivateAddress string
+	// TODO(mue) No longer actively used, only in upgrades.go.
+	// To be removed later.
+	Ports          []port `bson:"ports"`
+	PublicAddress  string `bson:"publicaddress"`
+	PrivateAddress string `bson:"privateaddress"`
 }
 
 // Unit represents the state of a service unit.

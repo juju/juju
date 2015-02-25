@@ -1324,7 +1324,7 @@ func (s *upgradesSuite) assertUnitPortsPostMigration(c *gc.C, units map[int][]*U
 			if unit.Name() == units[2][2].Name() {
 				// Only units[2][2] will have ports on its doc, as
 				// it's not assigned to a machine.
-				c.Assert(unit.doc.Ports, jc.DeepEquals, []network.Port{
+				c.Assert(networkPorts(unit.doc.Ports), jc.DeepEquals, []network.Port{
 					{Protocol: "tcp", Number: 80},
 				})
 			} else {

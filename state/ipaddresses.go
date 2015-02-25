@@ -47,15 +47,15 @@ type IPAddress struct {
 }
 
 type ipaddressDoc struct {
-	DocID       string `bson:"_id"`
-	EnvUUID     string `bson:"env-uuid"`
-	SubnetId    string `bson:",omitempty"`
-	MachineId   string `bson:",omitempty"`
-	InterfaceId string `bson:",omitempty"`
-	Value       string
-	Type        string
-	Scope       string `bson:"networkscope,omitempty"`
-	State       AddressState
+	DocID       string       `bson:"_id"`
+	EnvUUID     string       `bson:"env-uuid"`
+	SubnetId    string       `bson:"subnetid,omitempty"`
+	MachineId   string       `bson:"machineid,omitempty"`
+	InterfaceId string       `bson:"interfaceid,omitempty"`
+	Value       string       `bson:"value"`
+	Type        string       `bson:"type"`
+	Scope       string       `bson:"networkscope,omitempty"`
+	State       AddressState `bson:"state"`
 }
 
 // SubnetId returns the ID of the subnet the IP address is associated with. If

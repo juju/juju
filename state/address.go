@@ -101,7 +101,7 @@ func (st *State) APIAddressesFromMachines() ([]string, error) {
 const apiHostPortsKey = "apiHostPorts"
 
 type apiHostPortsDoc struct {
-	APIHostPorts [][]hostPort
+	APIHostPorts [][]hostPort `bson:"apihostports"`
 }
 
 // SetAPIHostPorts sets the addresses of the API server instances.
@@ -122,7 +122,7 @@ func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
 				"apihostports", fromNetworkHostsPorts(existing),
 			}},
 		}
-		if !hostPortsEqual(netHostsPorts, existing) {
+		if !hostsPortsEqual(netHostsPorts, existing) {
 			op.Update = bson.D{{
 				"$set", bson.D{{"apihostports", doc.APIHostPorts}},
 			}}
@@ -177,9 +177,9 @@ func (st *State) DeployerConnectionInfo() (*DeployerConnectionValues, error) {
 // stuff at some point. We want to use juju-specific network names
 // that point to existing documents in the networks collection.
 type address struct {
-	Value       string
-	AddressType string
-	NetworkName string `bson:",omitempty"`
+	Value       string `bson:"value"`
+	AddressType string `bson:"addresstype"`
+	NetworkName string `bson:"networkname,omitempty"`
 	Scope       string `bson:"networkscope,omitempty"`
 }
 
@@ -232,11 +232,11 @@ func networkAddresses(addrs []address) []network.Address {
 // stuff at some point. We want to use juju-specific network names
 // that point to existing documents in the networks collection.
 type hostPort struct {
-	Value       string
-	AddressType string
-	NetworkName string `bson:",omitempty"`
+	Value       string `bson:"value"`
+	AddressType string `bson:"addresstype"`
+	NetworkName string `bson:"networkname,omitempty"`
 	Scope       string `bson:"networkscope,omitempty"`
-	Port        int
+	Port        int    `bson:"port"`
 }
 
 // fromNetworkHostPort is a convenience helper to create a state type
@@ -291,6 +291,7 @@ func networkHostsPorts(hsps [][]hostPort) [][]network.HostPort {
 	return netHostsPorts
 }
 
+// addressEqual checks that two slices of network addresses are equal.
 func addressesEqual(a, b []network.Address) bool {
 	if len(a) != len(b) {
 		return false
@@ -303,7 +304,8 @@ func addressesEqual(a, b []network.Address) bool {
 	return true
 }
 
-func hostPortsEqual(a, b [][]network.HostPort) bool {
+// hostsPortsEqual checks that two arrays of network hostports are equal.
+func hostsPortsEqual(a, b [][]network.HostPort) bool {
 	if len(a) != len(b) {
 		return false
 	}
