@@ -15,8 +15,9 @@ import (
 var metricsManagerLogger = loggo.GetLogger("juju.state.metricsmanager")
 
 const (
-	defaultGracePeriod = 7 * 24 * time.Hour // 1 week in hours
-	metricsManagerKey  = "metricsManagerKey"
+	defaultGracePeriod                      = 7 * 24 * time.Hour // 1 week in hours
+	metricsManagerConsecutiveErrorThreshold = 3
+	metricsManagerKey                       = "metricsManagerKey"
 )
 
 var (
@@ -45,7 +46,7 @@ func (m *MetricsManager) ConsecutiveErrors() int {
 	return m.doc.ConsecutiveErrors
 }
 
-// GracePeriodSeconds returns the current grace period.
+// GracePeriod returns the current grace period.
 func (m *MetricsManager) GracePeriod() time.Duration {
 	return m.doc.GracePeriod
 }
@@ -137,12 +138,12 @@ func (m *MetricsManager) updateMetricsManagerOps(update bson.M) error {
 // SetMetricsManagerSuccessfulSend sets the last successful send time to the input time.
 func (m *MetricsManager) SetMetricsManagerSuccessfulSend(t time.Time) error {
 	err := m.updateMetricsManagerOps(
-		bson.M{"$set": bson.M{"lastsuccessfulsend": t}},
+		bson.M{"$set": bson.M{"lastsuccessfulsend": t.UTC()}},
 	)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	m.doc.LastSuccessfulSend = t
+	m.doc.LastSuccessfulSend = t.UTC()
 	return nil
 }
 
@@ -158,8 +159,8 @@ func (m *MetricsManager) IncrementConsecutiveErrors() error {
 	return nil
 }
 
-// SetNoConsecutiveErrors resets the consecutive errors back to 0.
-func (m *MetricsManager) SetNoConsecutiveErrors() error {
+// ResetConsecutiveErrors resets the consecutive errors back to 0.
+func (m *MetricsManager) ResetConsecutiveErrors() error {
 	err := m.updateMetricsManagerOps(
 		bson.M{"$set": bson.M{"consecutiveerrors": 0}},
 	)
@@ -178,11 +179,11 @@ func (m *MetricsManager) gracePeriodExceeded() bool {
 
 // MeterStatus returns the overall state of the MetricsManager as a meter status summary.
 func (m *MetricsManager) MeterStatus() (code, info string) {
-	if m.ConsecutiveErrors() < 3 {
-		return "GREEN", "metrics manager state ok"
+	if m.ConsecutiveErrors() < metricsManagerConsecutiveErrorThreshold {
+		return "GREEN", "ok"
 	}
 	if m.gracePeriodExceeded() {
-		return "RED", "failed to send metrics to collector - exceeded grace period"
+		return "RED", "failed to send metrics, exceeded grace period"
 	}
-	return "AMBER", "failed to send metrics to collector - still in grace period"
+	return "AMBER", "failed to send metrics"
 }

@@ -35,14 +35,14 @@ func (s *metricsManagerSuite) TestCannotAddMultipleDocs(c *gc.C) {
 func (s *metricsManagerSuite) TestSetMetricsManagerSuccesfulSend(c *gc.C) {
 	mm, err := s.State.NewMetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
-	now := time.Now().Round(time.Second)
+	now := time.Now().Round(time.Second).UTC()
 	err = mm.SetMetricsManagerSuccessfulSend(now)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mm.LastSuccessfulSend(), gc.DeepEquals, now)
 
 	m, err := s.State.GetMetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.LastSuccessfulSend(), gc.DeepEquals, now)
+	c.Assert(m.LastSuccessfulSend().Equal(now), jc.IsTrue)
 }
 
 func (s *metricsManagerSuite) TestIncrementConsecutiveErrors(c *gc.C) {
@@ -58,12 +58,12 @@ func (s *metricsManagerSuite) TestIncrementConsecutiveErrors(c *gc.C) {
 	c.Assert(m.ConsecutiveErrors(), gc.Equals, 1)
 }
 
-func (s *metricsManagerSuite) TestSetNoConsecutiveErrors(c *gc.C) {
+func (s *metricsManagerSuite) TestResetConsecutiveErrors(c *gc.C) {
 	mm, err := s.State.NewMetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	err = mm.IncrementConsecutiveErrors()
 	c.Assert(err, jc.ErrorIsNil)
-	err = mm.SetNoConsecutiveErrors()
+	err = mm.ResetConsecutiveErrors()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mm.ConsecutiveErrors(), gc.Equals, 0)
 
@@ -77,7 +77,7 @@ func (s *metricsManagerSuite) TestMeterStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	code, info := mm.MeterStatus()
 	c.Assert(code, gc.Equals, "GREEN")
-	c.Assert(info, gc.Equals, "metrics manager state ok")
+	c.Assert(info, gc.Equals, "ok")
 	now := time.Now()
 	err = mm.SetMetricsManagerSuccessfulSend(now)
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,10 +87,16 @@ func (s *metricsManagerSuite) TestMeterStatus(c *gc.C) {
 	}
 	code, info = mm.MeterStatus()
 	c.Assert(code, gc.Equals, "AMBER")
-	c.Assert(info, gc.Equals, "failed to send metrics to collector - still in grace period")
+	c.Assert(info, gc.Equals, "failed to send metrics")
 	err = mm.SetMetricsManagerSuccessfulSend(now.Add(-(24 * 7 * time.Hour)))
 	c.Assert(err, jc.ErrorIsNil)
 	code, info = mm.MeterStatus()
 	c.Assert(code, gc.Equals, "RED")
-	c.Assert(info, gc.Equals, "failed to send metrics to collector - exceeded grace period")
+	c.Assert(info, gc.Equals, "failed to send metrics, exceeded grace period")
+
+	err = mm.ResetConsecutiveErrors()
+	c.Assert(err, jc.ErrorIsNil)
+	code, info = mm.MeterStatus()
+	c.Assert(code, gc.Equals, "GREEN")
+	c.Assert(info, gc.Equals, "ok")
 }

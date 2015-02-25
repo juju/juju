@@ -70,7 +70,7 @@ func NewMetricsManagerAPI(
 	var store *state.MetricsManager
 	var err error
 	store, err = st.GetMetricsManager()
-	if err != nil && err == state.MetricsManagerNotFoundError {
+	if err == state.MetricsManagerNotFoundError {
 		store, err = st.NewMetricsManager()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -151,17 +151,17 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 			if incErr := api.store.IncrementConsecutiveErrors(); incErr != nil {
 				logger.Warningf("failed to increment error count with error %v, after sending error: %v", incErr, err)
 			}
-		} else {
-			if err := api.store.SetNoConsecutiveErrors(); err != nil {
-				err = errors.Annotate(err, "failed to reset consecutive errors count")
-				logger.Errorf(err.Error())
-				result.Results[i].Error = common.ServerError(err)
-			}
-			if err := api.store.SetMetricsManagerSuccessfulSend(time.Now()); err != nil {
-				err = errors.Annotate(err, "failed to set successful send time")
-				logger.Errorf(err.Error())
-				result.Results[i].Error = common.ServerError(err)
-			}
+			continue
+		}
+		if err := api.store.ResetConsecutiveErrors(); err != nil {
+			err = errors.Annotate(err, "failed to reset consecutive errors count")
+			logger.Warningf(err.Error())
+			continue
+		}
+		if err := api.store.SetMetricsManagerSuccessfulSend(time.Now()); err != nil {
+			err = errors.Annotate(err, "failed to set successful send time")
+			logger.Warningf(err.Error())
+			continue
 		}
 	}
 	return result, nil
