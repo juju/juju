@@ -231,7 +231,6 @@ func (s *Service) Start() error {
 		return errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Add timeout support?
 	status := <-statusCh
 	if status != "done" {
 		return errors.Errorf("failed to start service %s", s.Service.Name)
@@ -258,7 +257,6 @@ func (s *Service) Stop() error {
 		return errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Add timeout support?
 	status := <-statusCh
 	if status != "done" {
 		return errors.Errorf("failed to stop service %s", s.Service.Name)
