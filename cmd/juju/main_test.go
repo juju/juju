@@ -255,9 +255,9 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	// First check default commands, and then check commands that are
 	// activated by feature flags.
 
-	// remove "action" for the first test because the feature is not
+	// remove "storage" for the first test because the feature is not
 	// enabled.
-	devFeatures := []string{feature.Actions, feature.Storage}
+	devFeatures := []string{feature.Storage}
 
 	// remove features behind dev_flag for the first test
 	// since they are not enabled.

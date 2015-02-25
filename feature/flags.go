@@ -4,9 +4,6 @@
 // The feature package defines the names of the current feature flags.
 package feature
 
-// Actions is the name of the feature to enable action commands.
-const Actions = "action"
-
 // JES stands for Juju Environment Server and controls access
 // to the apiserver endpoints, api client and CLI commands.
 const JES = "jes"

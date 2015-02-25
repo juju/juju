@@ -191,10 +191,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.RegisterSuperAlias("ensure-availability", "environment", "ensure-availability", twoDotOhDeprecation("environment ensure-availability"))
 	r.RegisterSuperAlias("retry-provisioning", "environment", "retry-provisioning", twoDotOhDeprecation("environment retry-provisioning"))
 
-	// Manage and control actions.
-	if featureflag.Enabled(feature.Actions) {
-		r.Register(action.NewSuperCommand())
-	}
+	// Manage and control actions
+	r.Register(action.NewSuperCommand())
 
 	// Operation protection commands
 	r.Register(wrapEnvCommand(&block.BlockCommand{}))
