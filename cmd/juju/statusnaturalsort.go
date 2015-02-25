@@ -47,5 +47,4 @@ func splitAtNumber(str string) (string, int) {
 		panic(fmt.Sprintf("parsing number %v: %v", str[i:], err)) // should never happen
 	}
 	return str[:i], n
-
 }
