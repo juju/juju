@@ -21,9 +21,8 @@ func (n naturally) Swap(a, b int) {
 	n[a], n[b] = n[b], n[a]
 }
 
-// Less sorts by non-numeric prefix and numeric suffix.
-// For example, both "abc" and "abc/999' and "abc999" are catered for.
-// However, "abc123defg142/h2' is not really.
+// Less sorts by non-numeric prefix and numeric suffix
+// when one exists.
 func (n naturally) Less(a, b int) bool {
 	aPrefix, aNumber := splitAtNumber(n[a])
 	bPrefix, bNumber := splitAtNumber(n[b])
@@ -33,11 +32,9 @@ func (n naturally) Less(a, b int) bool {
 	return n[a] < n[b]
 }
 
-// splitAtNumber splits given string at first encountered digit.
-// It returns non-numeric prefix and numeric suffix. For e.g.:
-//     "abc"        > "abc", -1
-//     "abc/999"    > "abc/", 999
-//     "abc999"     > "abc", 999
+// splitAtNumber splits given string into prefix and numeric suffix.
+// If no numeric suffix exists, full original string is returned as
+// prefix with -1 as a suffix.
 func splitAtNumber(str string) (string, int) {
 	prefix := splitRegexp.ReplaceAllString(str, "$prefix")
 	number := splitRegexp.ReplaceAllString(str, "$number")
