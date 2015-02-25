@@ -39,12 +39,12 @@ func normalize(conf common.Conf, scriptPath string) (common.Conf, []byte) {
 	var data []byte
 
 	if conf.ExtraScript != "" {
-		conf.Cmd = conf.ExtraScript + "\n" + conf.Cmd
+		conf.ExecStart = conf.ExtraScript + "\n" + conf.ExecStart
 		conf.ExtraScript = ""
 	}
-	if strings.Contains(conf.Cmd, "\n") {
-		data = []byte(conf.Cmd)
-		conf.Cmd = scriptPath
+	if strings.Contains(conf.ExecStart, "\n") {
+		data = []byte(conf.ExecStart)
+		conf.ExecStart = scriptPath
 	}
 
 	if len(conf.Env) == 0 {
@@ -62,7 +62,7 @@ func validate(name string, conf common.Conf) error {
 	if name == "" {
 		return errors.NotValidf("missing service name")
 	}
-	if conf.Cmd == "" {
+	if conf.ExecStart == "" {
 		return errors.NotValidf("missing cmd")
 	}
 	if conf.ExtraScript != "" {
@@ -77,6 +77,21 @@ func validate(name string, conf common.Conf) error {
 		if _, ok := limitMap[k]; !ok {
 			return errors.NotValidf("conf.Limit key %q", k)
 		}
+	}
+
+	if conf.Transient {
+		// TODO(ericsnow) This needs to be sorted out.
+		return errors.NotSupportedf("Conf.Transient")
+	}
+
+	if conf.AfterStopped != "" {
+		// TODO(ericsnow) This needs to be sorted out.
+		return errors.NotSupportedf("Conf.AfterStopped")
+	}
+
+	if conf.ExecStopPost != "" {
+		// TODO(ericsnow) This needs to be sorted out.
+		return errors.NotSupportedf("Conf.ExecStopPost")
 	}
 
 	return nil
@@ -164,7 +179,7 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 	unitOptions = append(unitOptions, &unit.UnitOption{
 		Section: "Service",
 		Name:    "ExecStart",
-		Value:   conf.Cmd,
+		Value:   conf.ExecStart,
 	})
 
 	unitOptions = append(unitOptions, &unit.UnitOption{
@@ -221,7 +236,7 @@ func deserializeOptions(opts []*unit.UnitOption) (common.Conf, error) {
 		case "Service":
 			switch {
 			case uo.Name == "ExecStart":
-				conf.Cmd = uo.Value
+				conf.ExecStart = uo.Value
 			case uo.Name == "StandardError", uo.Name == "StandardOutput":
 				// TODO(wwitzel3) We serialize Standard(Error|Output)
 				// to the same thing, but we should probably make sure they match

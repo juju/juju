@@ -75,8 +75,8 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 	s.tag = tag
 	s.name = "jujud-" + tagStr
 	s.conf = common.Conf{
-		Desc: "juju agent for " + tagStr,
-		Cmd:  "jujud " + tagStr,
+		Desc:      "juju agent for " + tagStr,
+		ExecStart: "jujud " + tagStr,
 	}
 	s.service, err = systemd.NewService(s.name, s.conf)
 	c.Assert(err, jc.ErrorIsNil)
@@ -104,7 +104,7 @@ func (s *initSystemSuite) setConf(conf common.Conf) {
 
 	s.conn.SetProperty("Service", "Description", conf.Desc)
 
-	parts := strings.Fields(conf.Cmd)
+	parts := strings.Fields(conf.ExecStart)
 	var args []interface{}
 	for _, arg := range parts[1:] {
 		args = append(args, arg)
@@ -176,26 +176,30 @@ func (s *initSystemSuite) TestNewService(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(service, jc.DeepEquals, &systemd.Service{
-		Name:     s.name,
+		Service: common.Service{
+			Name: s.name,
+			Conf: s.conf,
+		},
 		ConfName: s.name + ".service",
 		UnitName: s.name + ".service",
-		Conf:     s.conf,
 		Dirname:  fmt.Sprintf("%s/init/%s", s.dataDir, s.name),
 	})
 	s.stub.CheckCalls(c, nil)
 }
 
 func (s *initSystemSuite) TestUpdateConfig(c *gc.C) {
-	s.conf.Cmd = "<some other command>"
-	c.Assert(s.service.Conf.Cmd, gc.Equals, "jujud machine-0")
+	s.conf.ExecStart = "<some other command>"
+	c.Assert(s.service.Service.Conf.ExecStart, gc.Equals, "jujud machine-0")
 
 	s.service.UpdateConfig(s.conf)
 
 	c.Check(s.service, jc.DeepEquals, &systemd.Service{
-		Name:     s.name,
+		Service: common.Service{
+			Name: s.name,
+			Conf: s.conf,
+		},
 		ConfName: s.name + ".service",
 		UnitName: s.name + ".service",
-		Conf:     s.conf,
 		Dirname:  fmt.Sprintf("%s/init/%s", s.dataDir, s.name),
 	})
 	s.stub.CheckCalls(c, nil)
@@ -208,35 +212,39 @@ func (s *initSystemSuite) TestUpdateConfigExtraScript(c *gc.C) {
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	c.Check(s.service, jc.DeepEquals, &systemd.Service{
-		Name:     s.name,
+		Service: common.Service{
+			Name: s.name,
+			Conf: common.Conf{
+				Desc:      s.conf.Desc,
+				ExecStart: dirname + "/exec-start.sh",
+			},
+		},
 		UnitName: s.name + ".service",
 		ConfName: s.name + ".service",
-		Conf: common.Conf{
-			Desc: s.conf.Desc,
-			Cmd:  dirname + "/exec-start.sh",
-		},
-		Dirname: dirname,
-		Script:  []byte("<some other command>\njujud machine-0"),
+		Dirname:  dirname,
+		Script:   []byte("<some other command>\njujud machine-0"),
 	})
 	s.stub.CheckCalls(c, nil)
 }
 
 func (s *initSystemSuite) TestUpdateConfigMultiline(c *gc.C) {
-	s.conf.Cmd = "a\nb\nc"
+	s.conf.ExecStart = "a\nb\nc"
 
 	s.service.UpdateConfig(s.conf)
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	c.Check(s.service, jc.DeepEquals, &systemd.Service{
-		Name:     s.name,
+		Service: common.Service{
+			Name: s.name,
+			Conf: common.Conf{
+				Desc:      s.conf.Desc,
+				ExecStart: dirname + "/exec-start.sh",
+			},
+		},
 		UnitName: s.name + ".service",
 		ConfName: s.name + ".service",
-		Conf: common.Conf{
-			Desc: s.conf.Desc,
-			Cmd:  dirname + "/exec-start.sh",
-		},
-		Dirname: dirname,
-		Script:  []byte("a\nb\nc"),
+		Dirname:  dirname,
+		Script:   []byte("a\nb\nc"),
 	})
 	s.stub.CheckCalls(c, nil)
 }
@@ -289,9 +297,9 @@ func (s *initSystemSuite) TestExistsTrue(c *gc.C) {
 
 func (s *initSystemSuite) TestExistsFalse(c *gc.C) {
 	s.setConf(common.Conf{
-		Desc: s.conf.Desc,
-		Cmd:  s.conf.Cmd,
-		Out:  "syslog",
+		Desc:      s.conf.Desc,
+		ExecStart: s.conf.ExecStart,
+		Out:       "syslog",
 	})
 
 	exists := s.service.Exists()
@@ -567,9 +575,9 @@ func (s *initSystemSuite) TestInstallAlreadyInstalled(c *gc.C) {
 func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 	s.addService("jujud-machine-0", "active")
 	s.setConf(common.Conf{
-		Desc: s.conf.Desc,
-		Cmd:  s.conf.Cmd,
-		Out:  "syslog",
+		Desc:      s.conf.Desc,
+		ExecStart: s.conf.ExecStart,
+		Out:       "syslog",
 	})
 	s.ch <- "done"
 
@@ -602,7 +610,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
 	scriptPath := fmt.Sprintf("%s/init/%s/exec-start.sh", s.dataDir, s.name)
 	cmd := "a\nb\nc"
-	s.service.Conf.Cmd = scriptPath
+	s.service.Service.Conf.ExecStart = scriptPath
 	s.service.Script = []byte(cmd)
 
 	err := s.service.Install()

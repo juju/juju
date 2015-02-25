@@ -51,10 +51,10 @@ func ListCommand() string {
 
 // Service provides visibility into and control over a systemd service.
 type Service struct {
-	Name     string
+	common.Service
+
 	ConfName string
 	UnitName string
-	Conf     common.Conf
 	Dirname  string
 	Script   []byte
 }
@@ -69,7 +69,10 @@ func NewService(name string, conf common.Conf) (*Service, error) {
 	dirname := path.Join(dataDir, "init", name)
 
 	service := &Service{
-		Name:     name,
+		Service: common.Service{
+			Name: name,
+			// Conf is set in setConf.
+		},
 		ConfName: confName,
 		UnitName: confName,
 		Dirname:  dirname,
@@ -106,6 +109,16 @@ var newChan = func() chan string {
 	return make(chan string)
 }
 
+// Name implements service.Service.
+func (s Service) Name() string {
+	return s.Service.Name
+}
+
+// Conf implements service.Service.
+func (s Service) Conf() common.Conf {
+	return s.Service.Conf
+}
+
 // UpdateConfig implements Service.
 func (s *Service) UpdateConfig(conf common.Conf) {
 	s.setConf(conf) // We ignore any error (i.e. when validation fails).
@@ -115,11 +128,11 @@ func (s *Service) setConf(conf common.Conf) error {
 	scriptPath := path.Join(s.Dirname, "exec-start.sh")
 
 	normalConf, data := normalize(conf, scriptPath)
-	if err := validate(s.Name, normalConf); err != nil {
+	if err := validate(s.Service.Name, normalConf); err != nil {
 		return errors.Trace(err)
 	}
 
-	s.Conf = normalConf
+	s.Service.Conf = normalConf
 	s.Script = data
 	return nil
 }
@@ -131,7 +144,7 @@ func (s *Service) Installed() bool {
 		return false
 	}
 	for _, name := range names {
-		if name == s.Name {
+		if name == s.Service.Name {
 			return true
 		}
 	}
@@ -152,7 +165,7 @@ func (s *Service) check() (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return reflect.DeepEqual(s.Conf, conf), nil
+	return reflect.DeepEqual(s.Service.Conf, conf), nil
 }
 
 func (s *Service) readConf() (common.Conf, error) {
@@ -200,7 +213,7 @@ func (s *Service) Running() bool {
 // Start implements Service.
 func (s *Service) Start() error {
 	if !s.Installed() {
-		return errors.NotFoundf("service " + s.Name)
+		return errors.NotFoundf("service " + s.Service.Name)
 	}
 	if s.Running() {
 		return nil
@@ -221,7 +234,7 @@ func (s *Service) Start() error {
 	// TODO(ericsnow) Add timeout support?
 	status := <-statusCh
 	if status != "done" {
-		return errors.Errorf("failed to start service %s", s.Name)
+		return errors.Errorf("failed to start service %s", s.Service.Name)
 	}
 
 	return nil
@@ -248,7 +261,7 @@ func (s *Service) Stop() error {
 	// TODO(ericsnow) Add timeout support?
 	status := <-statusCh
 	if status != "done" {
-		return errors.Errorf("failed to stop service %s", s.Name)
+		return errors.Errorf("failed to stop service %s", s.Service.Name)
 	}
 
 	return err
@@ -327,7 +340,7 @@ func (s *Service) Install() error {
 }
 
 func (s *Service) writeConf() (string, error) {
-	data, err := serialize(s.UnitName, s.Conf)
+	data, err := serialize(s.UnitName, s.Service.Conf)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -338,7 +351,7 @@ func (s *Service) writeConf() (string, error) {
 	filename := path.Join(s.Dirname, s.ConfName)
 
 	if s.Script != nil {
-		scriptPath := s.Conf.Cmd
+		scriptPath := s.Service.Conf.ExecStart
 		if err := createFile(scriptPath, s.Script, 0755); err != nil {
 			return filename, errors.Trace(err)
 		}
@@ -361,10 +374,10 @@ var createFile = func(filename string, data []byte, perm os.FileMode) error {
 
 // InstallCommands implements Service.
 func (s *Service) InstallCommands() ([]string, error) {
-	//remote := NewService(s.Name, s.Conf)
+	//remote := NewService(s.Service.Name, s.Service.Conf)
 	//remote.Dirname = ioutil.TempDir("", "juju-systemd-remote-")
 
-	data, err := serialize(s.UnitName, s.Conf)
+	data, err := serialize(s.UnitName, s.Service.Conf)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
