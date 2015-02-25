@@ -142,7 +142,7 @@ func (s *lxcBrokerSuite) TestStartInstanceHostArch(c *gc.C) {
 	machineConfig := s.machineConfig(c, "1/lxc/0")
 
 	// Patch the host's arch, so the LXC broker will filter tools.
-	s.PatchValue(&version.Current.Arch, arch.PPC64EL)
+	version.Current.Arch = arch.PPC64EL
 	possibleTools := coretools.List{&coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
@@ -163,7 +163,7 @@ func (s *lxcBrokerSuite) TestStartInstanceToolsArchNotFound(c *gc.C) {
 	machineConfig := s.machineConfig(c, "1/lxc/0")
 
 	// Patch the host's arch, so the LXC broker will filter tools.
-	s.PatchValue(&version.Current.Arch, arch.PPC64EL)
+	version.Current.Arch = arch.PPC64EL
 	possibleTools := coretools.List{&coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
