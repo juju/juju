@@ -227,6 +227,8 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 // If the bootstrap node is configured to require a public IP address,
 // bootstrapping fails if an address cannot be allocated.
 func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
+	coretesting.SkipIfPPC64EL(c, "lp:1425242")
+
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
 		func(sc hook.ServiceControl, args ...interface{}) error {
@@ -449,6 +451,8 @@ func (s *localServerSuite) TestStopInstance(c *gc.C) {
 // environment. If this is the case, the attempt to delete the instance's
 // security group fails but StopInstance succeeds.
 func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
+	coretesting.SkipIfPPC64EL(c, "lp:1425242")
+
 	// Force an error when a security group is deleted.
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"removeSecurityGroup",
@@ -643,6 +647,8 @@ func (s *localServerSuite) TestInstancesGatheringWithFloatingIP(c *gc.C) {
 }
 
 func (s *localServerSuite) TestCollectInstances(c *gc.C) {
+	coretesting.SkipIfPPC64EL(c, "lp:1425242")
+
 	env := s.Prepare(c)
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"addServer",
@@ -667,6 +673,8 @@ func (s *localServerSuite) TestCollectInstances(c *gc.C) {
 }
 
 func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
+	coretesting.SkipIfPPC64EL(c, "lp:1425242")
+
 	env := s.Prepare(c)
 	// HP servers are available once they are BUILD(spawning).
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
@@ -692,6 +700,8 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 }
 
 func (s *localServerSuite) TestInstancesShutoffSuspended(c *gc.C) {
+	coretesting.SkipIfPPC64EL(c, "lp:1425242")
+
 	env := s.Prepare(c)
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"addServer",
@@ -1112,6 +1122,8 @@ func (s *localHTTPSServerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
+	coretesting.SkipIfPPC64EL(c, "lp:1425242")
+
 	// If you don't have ssl-hostname-verification set to false, then we
 	// fail to connect to the environment. Copy the attrs used by SetUp and
 	// force hostname verification.
@@ -1487,6 +1499,8 @@ func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 }
 
 func (t *localServerSuite) TestStartInstancePicksValidZoneForHost(c *gc.C) {
+	coretesting.SkipIfPPC64EL(c, "lp:1425242")
+
 	t.srv.Service.Nova.SetAvailabilityZones(
 		// bootstrap node will be on az1.
 		nova.AvailabilityZone{
@@ -1531,6 +1545,8 @@ func (t *localServerSuite) TestStartInstancePicksValidZoneForHost(c *gc.C) {
 }
 
 func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
+	coretesting.SkipIfPPC64EL(c, "lp:1425242")
+
 	t.srv.Service.Nova.SetAvailabilityZones(
 		// bootstrap node will be on az1.
 		nova.AvailabilityZone{
