@@ -4,13 +4,16 @@
 package testing
 
 import (
+	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/juju/testing"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/wrench"
 )
@@ -55,6 +58,15 @@ func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 		os.Setenv(name, value)
 	}
 	utils.SetHome(s.oldHomeEnv)
+}
+
+// SkipIfPPC64 skips the test if the arch is PPC64EL and the compiler
+// is gccgo.
+func SkipIfPPC64EL(c *gc.C, bugID string) {
+	if runtime.Compiler == "gccgo" &&
+		arch.NormaliseArch(runtime.GOARCH) == arch.PPC64EL {
+		c.Skip(fmt.Sprintf("Test disabled on PPC64EL until fixed - see bug %s", bugID))
+	}
 }
 
 // BaseSuite provides required functionality for all test suites
