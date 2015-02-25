@@ -49,6 +49,14 @@ func (s *naturalSortSuite) TestNaturallyAlphanumericSpecial(c *gc.C) {
 	)
 }
 
+func (s *naturalSortSuite) TestNaturallyTagLike(c *gc.C) {
+	s.assertNaturallySort(
+		c,
+		[]string{"a1/1", "a1/11", "a1/2", "a1/7", "a1/100"},
+		[]string{"a1/1", "a1/2", "a1/7", "a1/11", "a1/100"},
+	)
+}
+
 func (s *naturalSortSuite) TestNaturallyJuju(c *gc.C) {
 	s.assertNaturallySort(
 		c,
