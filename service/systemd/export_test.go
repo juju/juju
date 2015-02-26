@@ -36,3 +36,9 @@ func PatchFileOps(patcher patcher, stub *testing.Stub) *StubFileOps {
 	patcher.PatchValue(&createFile, fops.CreateFile)
 	return fops
 }
+
+func PatchExec(patcher patcher, stub *testing.Stub) *StubExec {
+	exec := &StubExec{Stub: stub}
+	patcher.PatchValue(&runCommands, exec.RunCommand)
+	return exec
+}

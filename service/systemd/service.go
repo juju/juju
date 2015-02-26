@@ -21,6 +21,16 @@ import (
 
 // ListServices returns the list of installed service names.
 func ListServices() ([]string, error) {
+	// TODO(ericsnow) conn.ListUnits misses some inactive units, so we
+	// would need conn.ListUnitFiles. Such a method has been requested.
+	// (see https://github.com/coreos/go-systemd/issues/76). In the
+	// meantime we use systemctl at the shell to list the services.
+	names, err := Cmdline{}.ListAll()
+	return names, errors.Trace(err)
+	//return listServices()
+}
+
+func listServices() ([]string, error) {
 	conn, err := newConn()
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -91,11 +91,16 @@ func (cl Cmdline) ListAll() ([]string, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return strings.Split(strings.TrimSpace(out), "\n"), nil
+	out = strings.TrimSpace(out)
+
+	if out == "" {
+		return nil, nil
+	}
+	return strings.Split(out, "\n"), nil
 }
 
 func (Cmdline) runCommand(cmd string) (string, error) {
-	resp, err := exec.RunCommands(exec.RunParams{
+	resp, err := runCommands(exec.RunParams{
 		Commands: executable + " " + cmd,
 	})
 	if err != nil {
@@ -111,4 +116,8 @@ func (Cmdline) runCommand(cmd string) (string, error) {
 		)
 	}
 	return out, nil
+}
+
+var runCommands = func(args exec.RunParams) (*exec.ExecResponse, error) {
+	return exec.RunCommands(args)
 }

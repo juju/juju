@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/service/common"
@@ -39,6 +40,10 @@ WantedBy=multi-user.target
 
 const jujud = "/var/lib/juju/bin/jujud"
 
+var listCmdArg = exec.RunParams{
+	Commands: `/bin/systemctl list-unit-files --no-legend --no-page -t service | grep -o -P '^\w[\S]*(?=\.service)'`,
+}
+
 type initSystemSuite struct {
 	coretesting.BaseSuite
 
@@ -47,6 +52,7 @@ type initSystemSuite struct {
 	stub    *testing.Stub
 	conn    *systemd.StubDbusAPI
 	fops    *systemd.StubFileOps
+	exec    *systemd.StubExec
 
 	name    string
 	tag     names.Tag
@@ -68,7 +74,7 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 	s.conn = systemd.PatchNewConn(s, s.stub)
 	s.fops = systemd.PatchFileOps(s, s.stub)
-	c.Logf("%+v", s.fops)
+	s.exec = systemd.PatchExec(s, s.stub)
 
 	// Set up the service.
 	tagStr := "machine-0"
@@ -99,6 +105,19 @@ func (s *initSystemSuite) addService(name, status string) {
 	tag := name[len("jujud-"):]
 	desc := "juju agent for " + tag
 	s.conn.AddService(name, desc, status)
+}
+
+func (s *initSystemSuite) addListResponse() {
+	var lines []string
+	for _, unit := range s.conn.Units {
+		lines = append(lines, strings.TrimSuffix(unit.Name, ".service"))
+	}
+
+	s.exec.Responses = append(s.exec.Responses, exec.ExecResponse{
+		Code:   0,
+		Stdout: []byte(strings.Join(lines, "\n")),
+		Stderr: nil,
+	})
 }
 
 func (s *initSystemSuite) setConf(conf common.Conf) {
@@ -152,6 +171,7 @@ func (s *initSystemSuite) TestListServices(c *gc.C) {
 	s.addService("something-else", "error")
 	s.addService("jujud-unit-wordpress-0", "active")
 	s.addService("another", "inactive")
+	s.addListResponse()
 
 	names, err := systemd.ListServices()
 	c.Assert(err, jc.ErrorIsNil)
@@ -162,15 +182,17 @@ func (s *initSystemSuite) TestListServices(c *gc.C) {
 		"jujud-unit-wordpress-0",
 		"another",
 	})
-	s.stub.CheckCallNames(c, "ListUnits", "Close")
+	s.stub.CheckCallNames(c, "RunCommand")
 }
 
 func (s *initSystemSuite) TestListServicesEmpty(c *gc.C) {
+	s.addListResponse()
+
 	names, err := systemd.ListServices()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(names, gc.HasLen, 0)
-	s.stub.CheckCallNames(c, "ListUnits", "Close")
+	s.stub.CheckCallNames(c, "RunCommand")
 }
 
 func (s *initSystemSuite) TestNewService(c *gc.C) {
@@ -257,33 +279,36 @@ func (s *initSystemSuite) TestInstalledTrue(c *gc.C) {
 	s.addService("jujud-machine-0", "active")
 	s.addService("something-else", "error")
 	s.addService("juju-mongod", "active")
+	s.addListResponse()
 
 	installed := s.service.Installed()
 
 	c.Check(installed, jc.IsTrue)
-	s.stub.CheckCallNames(c, "ListUnits", "Close")
+	s.stub.CheckCallNames(c, "RunCommand")
 }
 
 func (s *initSystemSuite) TestInstalledFalse(c *gc.C) {
 	s.addService("something-else", "error")
+	s.addListResponse()
 
 	installed := s.service.Installed()
 
 	c.Check(installed, jc.IsFalse)
-	s.stub.CheckCallNames(c, "ListUnits", "Close")
+	s.stub.CheckCallNames(c, "RunCommand")
 }
 
 func (s *initSystemSuite) TestInstalledError(c *gc.C) {
 	s.addService("jujud-machine-0", "active")
 	s.addService("something-else", "error")
 	s.addService("juju-mongod", "active")
+	s.addListResponse()
 	failure := errors.New("<failed>")
 	s.stub.SetErrors(failure)
 
 	installed := s.service.Installed()
 
 	c.Check(installed, jc.IsFalse)
-	s.stub.CheckCallNames(c, "ListUnits", "Close")
+	s.stub.CheckCallNames(c, "RunCommand")
 }
 
 func (s *initSystemSuite) TestExistsTrue(c *gc.C) {
@@ -376,14 +401,16 @@ func (s *initSystemSuite) TestRunningError(c *gc.C) {
 func (s *initSystemSuite) TestStart(c *gc.C) {
 	s.addService("jujud-machine-0", "inactive")
 	s.ch <- "done"
+	s.addListResponse()
 
 	err := s.service.Start()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ListUnits",
-	}, {
-		FuncName: "Close",
+		FuncName: "RunCommand",
+		Args: []interface{}{
+			listCmdArg,
+		},
 	}, {
 		FuncName: "ListUnits",
 	}, {
@@ -403,13 +430,13 @@ func (s *initSystemSuite) TestStart(c *gc.C) {
 func (s *initSystemSuite) TestStartAlreadyRunning(c *gc.C) {
 	s.addService("jujud-machine-0", "active")
 	s.ch <- "done" // just in case
+	s.addListResponse()
 
 	err := s.service.Start()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
-		"ListUnits",
-		"Close",
+		"RunCommand",
 		"ListUnits",
 		"Close",
 	)
@@ -421,7 +448,7 @@ func (s *initSystemSuite) TestStartNotInstalled(c *gc.C) {
 	err := s.service.Start()
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
-	s.stub.CheckCallNames(c, "ListUnits", "Close")
+	s.stub.CheckCallNames(c, "RunCommand")
 }
 
 func (s *initSystemSuite) TestStop(c *gc.C) {
@@ -469,6 +496,7 @@ func (s *initSystemSuite) TestStopNotInstalled(c *gc.C) {
 func (s *initSystemSuite) TestStopAndRemove(c *gc.C) {
 	s.addService("jujud-machine-0", "active")
 	s.ch <- "done"
+	s.addListResponse()
 
 	err := s.service.StopAndRemove()
 	c.Assert(err, jc.ErrorIsNil)
@@ -478,8 +506,7 @@ func (s *initSystemSuite) TestStopAndRemove(c *gc.C) {
 		"Close",
 		"StopUnit",
 		"Close",
-		"ListUnits",
-		"Close",
+		"RunCommand",
 		"DisableUnitFiles",
 		"RemoveAll",
 		"Close",
@@ -488,21 +515,22 @@ func (s *initSystemSuite) TestStopAndRemove(c *gc.C) {
 
 func (s *initSystemSuite) TestRemove(c *gc.C) {
 	s.addService("jujud-machine-0", "inactive")
+	s.addListResponse()
 
 	err := s.service.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
-		"ListUnits",
-		"Close",
+		"RunCommand",
 		"DisableUnitFiles",
 		"RemoveAll",
 		"Close",
 	)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ListUnits",
-	}, {
-		FuncName: "Close",
+		FuncName: "RunCommand",
+		Args: []interface{}{
+			listCmdArg,
+		},
 	}, {
 		FuncName: "DisableUnitFiles",
 		Args: []interface{}{
@@ -523,7 +551,7 @@ func (s *initSystemSuite) TestRemoveNotInstalled(c *gc.C) {
 	err := s.service.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "ListUnits", "Close")
+	s.stub.CheckCallNames(c, "RunCommand")
 }
 
 func (s *initSystemSuite) TestInstall(c *gc.C) {
@@ -533,9 +561,10 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	filename := fmt.Sprintf("%s/%s.service", dirname, s.name)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ListUnits",
-	}, {
-		FuncName: "Close",
+		FuncName: "RunCommand",
+		Args: []interface{}{
+			listCmdArg,
+		},
 	}, {
 		FuncName: "MkdirAll",
 		Args: []interface{}{
@@ -569,14 +598,14 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 
 func (s *initSystemSuite) TestInstallAlreadyInstalled(c *gc.C) {
 	s.addService("jujud-machine-0", "inactive")
+	s.addListResponse()
 	s.setConf(s.conf)
 
 	err := s.service.Install()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
-		"ListUnits",
-		"Close",
+		"RunCommand",
 		"GetUnitProperties",
 		"GetUnitTypeProperties",
 		"Close",
@@ -585,6 +614,8 @@ func (s *initSystemSuite) TestInstallAlreadyInstalled(c *gc.C) {
 
 func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 	s.addService("jujud-machine-0", "active")
+	s.addListResponse()
+	s.addListResponse()
 	s.setConf(common.Conf{
 		Desc:      s.conf.Desc,
 		ExecStart: s.conf.ExecStart,
@@ -596,8 +627,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
-		"ListUnits",
-		"Close",
+		"RunCommand",
 		"GetUnitProperties",
 		"GetUnitTypeProperties",
 		"Close",
@@ -605,8 +635,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 		"Close",
 		"StopUnit",
 		"Close",
-		"ListUnits",
-		"Close",
+		"RunCommand",
 		"DisableUnitFiles",
 		"RemoveAll",
 		"Close",
@@ -616,7 +645,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 		"EnableUnitFiles",
 		"Close",
 	)
-	s.checkCreateFileCall(c, 15, s.name, "", 0644)
+	s.checkCreateFileCall(c, 13, s.name, "", 0644)
 }
 
 func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
@@ -629,8 +658,7 @@ func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
-		"ListUnits",
-		"Close",
+		"RunCommand",
 		"MkdirAll",
 		"CreateFile",
 		"CreateFile",
@@ -638,10 +666,10 @@ func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
 		"EnableUnitFiles",
 		"Close",
 	)
-	s.checkCreateFileCall(c, 3, scriptPath, cmd, 0755)
+	s.checkCreateFileCall(c, 2, scriptPath, cmd, 0755)
 	filename := fmt.Sprintf("%s/init/%s/%s.service", s.dataDir, s.name, s.name)
 	content := s.newConfStr(s.name, scriptPath)
-	s.checkCreateFileCall(c, 4, filename, content, 0644)
+	s.checkCreateFileCall(c, 3, filename, content, 0644)
 }
 
 func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
