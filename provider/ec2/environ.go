@@ -734,9 +734,9 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 	}
 	for a := shortAttempt.Start(); a.Next(); {
 		err = AssignPrivateIPAddress(ec2Inst, nicId, addr)
-		logger.Tracef("AssignPrivateIPAddresses(%q, %q) returned: %v", nicId, addr, err)
+		logger.Tracef("AssignPrivateIPAddresses(%v, %v) returned: %v", nicId, addr, err)
 		if err == nil {
-			logger.Tracef("allocated address % for instance %q, NIC %q", addr, instId, nicId)
+			logger.Tracef("allocated address %v for instance %v, NIC %v", addr, instId, nicId)
 			break
 		}
 		if ec2Err, ok := err.(*ec2.Error); ok {
@@ -886,8 +886,7 @@ func (e *environ) Subnets(_ instance.Id, subnetIds []network.Id) ([]network.Subn
 		zeros := bits - ones
 		numIPs := uint32(1) << uint32(zeros)
 		highIP := start + numIPs - 1
-		// The last address in a subnet is also reserved (see same
-		// ref).
+		// The last address in a subnet is also reserved (see same ref).
 		allocatableHigh := network.DecimalToIPv4(highIP - 1)
 
 		info := network.SubnetInfo{
