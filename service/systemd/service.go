@@ -56,8 +56,7 @@ func listServices() ([]string, error) {
 
 // ListCommand returns a command that will list the services on a host.
 func ListCommand() string {
-	return `systemctl --no-legend --no-page -t service -a` +
-		` | grep -o -P '^\w[-\w]*(?=\.service)'`
+	return commands{}.listAll()
 }
 
 // Service provides visibility into and control over a systemd service.

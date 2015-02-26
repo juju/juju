@@ -51,8 +51,8 @@ func (*serviceSuite) TestListServicesCommand(c *gc.C) {
 
 	line := `if [[ "$(cat /proc/1/cmdline)" == "%s" ]]; then %s`
 	upstart := `sudo initctl list | awk '{print $1}' | sort | uniq`
-	systemd := `systemctl --no-legend --no-page -t service -a` +
-		` | grep -o -P '^\w[-\w]*(?=\.service)'`
+	systemd := `/bin/systemctl list-unit-files --no-legend --no-page -t service` +
+		` | grep -o -P '^\w[\S]*(?=\.service)'`
 	c.Check(cmd, gc.Equals, strings.Join([]string{
 		fmt.Sprintf(line, "/sbin/init", upstart),
 		"el" + fmt.Sprintf(line, "/sbin/upstart", upstart),
