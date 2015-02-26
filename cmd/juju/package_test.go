@@ -76,7 +76,7 @@ func (s *CmdBlockHelper) Close() {
 	s.blockClient.Close()
 }
 
-func (s *CmdBlockHelper) AssertBlockError(c *gc.C, err error, msg string) {
+func (s *CmdBlockHelper) AssertBlocked(c *gc.C, err error, msg string) {
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)

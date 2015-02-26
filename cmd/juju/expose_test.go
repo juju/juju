@@ -66,5 +66,5 @@ func (s *ExposeSuite) TestBlockExpose(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockExpose")
 
 	err = runExpose(c, "some-service-name")
-	s.AssertBlockError(c, err, ".*TestBlockExpose.*")
+	s.AssertBlocked(c, err, ".*TestBlockExpose.*")
 }

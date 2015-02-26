@@ -15,6 +15,9 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 )
 
+// BlockHelper helps manage blocks for apiserver tests.
+// It provides easy access to switch blocks on
+// as well as test whether operations are blocked or not.
 type BlockHelper struct {
 	ApiState *api.State
 	client   *block.Client
@@ -59,9 +62,9 @@ func (s BlockHelper) BlockDestroyEnvironment(c *gc.C, msg string) {
 	s.on(c, multiwatcher.BlockDestroy, msg)
 }
 
-// AssertErrorBlocked checks if given error is
+// AssertBlocked checks if given error is
 // related to switched block.
-func (s BlockHelper) AssertErrorBlocked(c *gc.C, err error, msg string) {
+func (s BlockHelper) AssertBlocked(c *gc.C, err error, msg string) {
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, msg)
 }

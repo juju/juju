@@ -69,5 +69,5 @@ func (s *UnexposeSuite) TestBlockUnexpose(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUnexpose")
 	err = runExpose(c, "some-service-name")
-	s.AssertBlockError(c, err, ".*TestBlockUnexpose.*")
+	s.AssertBlocked(c, err, ".*TestBlockUnexpose.*")
 }

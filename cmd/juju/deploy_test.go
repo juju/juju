@@ -95,7 +95,7 @@ func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockDeploy")
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
-	s.AssertBlockError(c, err, ".*TestBlockDeploy.*")
+	s.AssertBlocked(c, err, ".*TestBlockDeploy.*")
 }
 
 func (s *DeploySuite) TestCharmDir(c *gc.C) {

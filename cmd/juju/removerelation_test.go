@@ -67,5 +67,5 @@ func (s *RemoveRelationSuite) TestBlockRemoveRelation(c *gc.C) {
 	s.BlockRemoveObject(c, "TestBlockRemoveRelation")
 	// Destroy a relation that exists.
 	err := runRemoveRelation(c, "logging", "riak")
-	s.AssertBlockError(c, err, ".*TestBlockRemoveRelation.*")
+	s.AssertBlocked(c, err, ".*TestBlockRemoveRelation.*")
 }

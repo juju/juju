@@ -428,6 +428,10 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	}}}
 	err = s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
+	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
@@ -441,11 +445,12 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 }
 
 func (s *UpgradeJujuSuite) TestBlockUpgradeJujuWithRealUpload(c *gc.C) {
+	s.Reset(c)
 	cmd := envcmd.Wrap(&UpgradeJujuCommand{})
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeJujuWithRealUpload")
 	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
-	s.AssertBlockError(c, err, ".*TestBlockUpgradeJujuWithRealUpload.*")
+	s.AssertBlocked(c, err, ".*TestBlockUpgradeJujuWithRealUpload.*")
 }
 
 type DryRunTest struct {
@@ -570,7 +575,7 @@ func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeInProgress")
 	err = cmd.Run(coretesting.Context(c))
-	s.AssertBlockError(c, err, ".*To unblock changes.*")
+	s.AssertBlocked(c, err, ".*To unblock changes.*")
 }
 
 func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {

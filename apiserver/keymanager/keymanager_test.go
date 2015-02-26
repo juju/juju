@@ -157,7 +157,7 @@ func (s *keyManagerSuite) TestBlockAddKeys(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockAddKeys")
 	_, err := s.keymanager.AddKeys(args)
 	// Check that the call is blocked
-	s.AssertErrorBlocked(c, err, "TestBlockAddKeys")
+	s.AssertBlocked(c, err, "TestBlockAddKeys")
 	s.assertEnvironKeys(c, initialKeys)
 }
 
@@ -244,7 +244,7 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockDeleteKeys")
 	_, err := s.keymanager.DeleteKeys(args)
 	// Check that the call is blocked
-	s.AssertErrorBlocked(c, err, "TestBlockDeleteKeys")
+	s.AssertBlocked(c, err, "TestBlockDeleteKeys")
 	s.assertEnvironKeys(c, initialKeys)
 }
 
@@ -338,6 +338,6 @@ func (s *keyManagerSuite) TestBlockImportKeys(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockImportKeys")
 	_, err := s.keymanager.ImportKeys(args)
 	// Check that the call is blocked
-	s.AssertErrorBlocked(c, err, "TestBlockImportKeys")
+	s.AssertBlocked(c, err, "TestBlockImportKeys")
 	s.assertEnvironKeys(c, initialKeys)
 }

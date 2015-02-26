@@ -152,7 +152,7 @@ func (s *UpgradeCharmSuccessSuite) TestBlockUpgradeCharm(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeCharm")
 	err := runUpgradeCharm(c, "riak")
-	s.AssertBlockError(c, err, ".*TestBlockUpgradeCharm.*")
+	s.AssertBlocked(c, err, ".*TestBlockUpgradeCharm.*")
 }
 
 func (s *UpgradeCharmSuccessSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
@@ -198,7 +198,7 @@ func (s *UpgradeCharmSuccessSuite) TestBlockUpgradesWithBundle(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradesWithBundle")
 	err = runUpgradeCharm(c, "riak")
-	s.AssertBlockError(c, err, ".*TestBlockUpgradesWithBundle.*")
+	s.AssertBlocked(c, err, ".*TestBlockUpgradesWithBundle.*")
 }
 
 func (s *UpgradeCharmSuccessSuite) TestForcedUpgrade(c *gc.C) {

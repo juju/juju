@@ -267,7 +267,7 @@ func (s *runSuite) TestBlockRunOnAllMachines(c *gc.C) {
 	// block all changes
 	s.BlockAllChanges(c, "TestBlockRunOnAllMachines")
 	_, err := s.APIState.Client().RunOnAllMachines("hostname", testing.LongWait)
-	s.AssertErrorBlocked(c, err, "TestBlockRunOnAllMachines")
+	s.AssertBlocked(c, err, "TestBlockRunOnAllMachines")
 }
 
 func (s *runSuite) TestRunMachineAndService(c *gc.C) {
@@ -344,5 +344,5 @@ func (s *runSuite) TestBlockRunMachineAndService(c *gc.C) {
 			Machines: []string{"0"},
 			Services: []string{"magic"},
 		})
-	s.AssertErrorBlocked(c, err, "TestBlockRunMachineAndService")
+	s.AssertBlocked(c, err, "TestBlockRunMachineAndService")
 }

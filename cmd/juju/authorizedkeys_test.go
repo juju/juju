@@ -188,7 +188,7 @@ func (s *AddKeySuite) TestBlockAddKey(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockAddKey")
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&AddKeysCommand{}), key2, "invalid-key")
-	s.AssertBlockError(c, err, ".*TestBlockAddKey.*")
+	s.AssertBlocked(c, err, ".*TestBlockAddKey.*")
 }
 
 func (s *AddKeySuite) TestAddKeyNonDefaultUser(c *gc.C) {
@@ -230,7 +230,7 @@ func (s *DeleteKeySuite) TestBlockDeleteKeys(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockDeleteKeys")
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeleteKeysCommand{}),
 		sshtesting.ValidKeyTwo.Fingerprint, "invalid-key")
-	s.AssertBlockError(c, err, ".*TestBlockDeleteKeys.*")
+	s.AssertBlocked(c, err, ".*TestBlockDeleteKeys.*")
 }
 
 func (s *DeleteKeySuite) TestDeleteKeyNonDefaultUser(c *gc.C) {
@@ -274,7 +274,7 @@ func (s *ImportKeySuite) TestBlockImportKeys(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockImportKeys")
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&ImportKeysCommand{}), "lp:validuser", "invalid-key")
-	s.AssertBlockError(c, err, ".*TestBlockImportKeys.*")
+	s.AssertBlocked(c, err, ".*TestBlockImportKeys.*")
 }
 
 func (s *ImportKeySuite) TestImportKeyNonDefaultUser(c *gc.C) {

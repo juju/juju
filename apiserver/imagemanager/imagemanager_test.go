@@ -177,7 +177,7 @@ func (s *imageManagerSuite) TestBlockDeleteImages(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockDeleteImages")
 	_, err := s.imagemanager.DeleteImages(args)
 	// Check that the call is blocked
-	s.AssertErrorBlocked(c, err, "TestBlockDeleteImages")
+	s.AssertBlocked(c, err, "TestBlockDeleteImages")
 	// Check the image still exists.
 	stor := s.State.ImageStorage()
 	_, rdr, err := stor.Image("lxc", "trusty", "amd64")

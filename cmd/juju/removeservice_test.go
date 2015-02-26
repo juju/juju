@@ -55,7 +55,7 @@ func (s *RemoveServiceSuite) TestBlockRemoveService(c *gc.C) {
 	// block operation
 	s.BlockRemoveObject(c, "TestBlockRemoveService")
 	err := runRemoveService(c, "riak")
-	s.AssertBlockError(c, err, ".*TestBlockRemoveService.*")
+	s.AssertBlocked(c, err, ".*TestBlockRemoveService.*")
 	riak, err := s.State.Service("riak")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(riak.Life(), gc.Equals, state.Alive)

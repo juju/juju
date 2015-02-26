@@ -184,7 +184,7 @@ func (s *AddRelationSuite) TestBlockAddRelation(c *gc.C) {
 		if len(t.args) == 2 {
 			// Only worry about Run being blocked.
 			// For len(t.args) != 2, an Init will fail
-			s.AssertBlockError(c, err, ".*TestBlockAddRelation.*")
+			s.AssertBlocked(c, err, ".*TestBlockAddRelation.*")
 		}
 	}
 }

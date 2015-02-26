@@ -62,6 +62,6 @@ func (s *RemoveUnitSuite) TestBlockRemoveUnit(c *gc.C) {
 	// block operation
 	s.BlockRemoveObject(c, "TestBlockRemoveUnit")
 	err := runRemoveUnit(c, "dummy/0", "dummy/1")
-	s.AssertBlockError(c, err, ".*TestBlockRemoveUnit.*")
+	s.AssertBlocked(c, err, ".*TestBlockRemoveUnit.*")
 	c.Assert(svc.Life(), gc.Equals, state.Alive)
 }

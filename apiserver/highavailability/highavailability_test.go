@@ -190,7 +190,7 @@ func (s *clientSuite) TestBlockEnsureAvailability(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockEnsureAvailability")
 
 	ensureAvailabilityResult, err := s.ensureAvailability(c, 3, constraints.MustParse("mem=4G"), defaultSeries, nil)
-	s.AssertErrorBlocked(c, err, "TestBlockEnsureAvailability")
+	s.AssertBlocked(c, err, "TestBlockEnsureAvailability")
 
 	c.Assert(ensureAvailabilityResult.Maintained, gc.HasLen, 0)
 	c.Assert(ensureAvailabilityResult.Added, gc.HasLen, 0)

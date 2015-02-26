@@ -127,7 +127,7 @@ func (s *serverSuite) TestBlockEnsureAvailabilityDeprecated(c *gc.C) {
 
 	arg := params.StateServersSpecs{[]params.StateServersSpec{{NumStateServers: 3}}}
 	results, err := s.client.EnsureAvailability(arg)
-	s.AssertErrorBlocked(c, err, "TestBlockEnsureAvailabilityDeprecated")
+	s.AssertBlocked(c, err, "TestBlockEnsureAvailabilityDeprecated")
 	c.Assert(results.Results, gc.HasLen, 0)
 
 	machines, err := s.State.AllMachines() //there
@@ -344,7 +344,7 @@ func (s *serverSuite) assertSetEnvironAgentVersionBlocked(c *gc.C, msg string) {
 		Version: version.MustParse("9.8.7"),
 	}
 	err := s.client.SetEnvironAgentVersion(args)
-	s.AssertErrorBlocked(c, err, msg)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *serverSuite) TestBlockDestroySetEnvironAgentVersion(c *gc.C) {
@@ -391,7 +391,7 @@ func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
 
 func (s *serverSuite) assertAbortCurrentUpgradeBlocked(c *gc.C, msg string) {
 	err := s.client.AbortCurrentUpgrade()
-	s.AssertErrorBlocked(c, err, msg)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *serverSuite) assertAbortCurrentUpgrade(c *gc.C) {
@@ -533,7 +533,7 @@ func (s *serverSuite) assertServiceSetBlocked(c *gc.C, dummy *state.Service, msg
 		Options: map[string]string{
 			"title":    "foobar",
 			"username": validSetTestValue}})
-	s.AssertErrorBlocked(c, err, msg)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *serverSuite) assertServiceSet(c *gc.C, dummy *state.Service) {
@@ -630,7 +630,7 @@ func (s *serverSuite) assertServerUnsetBlocked(c *gc.C, dummy *state.Service, ms
 		ServiceName: "dummy",
 		Options:     []string{"username"},
 	})
-	s.AssertErrorBlocked(c, err, msg)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *serverSuite) TestBlockDestroyServerUnset(c *gc.C) {
@@ -685,7 +685,7 @@ func (s *clientSuite) assertServiceSetYAML(c *gc.C, dummy *state.Service) {
 
 func (s *clientSuite) assertServiceSetYAMLBlocked(c *gc.C, dummy *state.Service, msg string) {
 	err := s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: foobar\n  username: user name\n")
-	s.AssertErrorBlocked(c, err, msg)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyServiceSetYAML(c *gc.C) {
@@ -780,7 +780,7 @@ func (s *clientSuite) assertAddServiceUnits(c *gc.C) {
 
 func (s *clientSuite) assertAddServiceUnitsBlocked(c *gc.C, msg string) {
 	_, err := s.APIState.Client().AddServiceUnits("dummy", 3, "")
-	s.AssertErrorBlocked(c, err, msg)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyAddServiceUnits(c *gc.C) {
@@ -1097,7 +1097,7 @@ func (s *clientSuite) assertServiceExposeBlocked(c *gc.C, msg string) {
 	for i, t := range serviceExposeTests {
 		c.Logf("test %d. %s", i, t.about)
 		err := s.APIState.Client().ServiceExpose(t.service)
-		s.AssertErrorBlocked(c, err, msg)
+		s.AssertBlocked(c, err, msg)
 	}
 }
 
@@ -1186,7 +1186,7 @@ func (s *clientSuite) assertServiceUnexpose(c *gc.C, svc *state.Service) {
 
 func (s *clientSuite) assertServiceUnexposeBlocked(c *gc.C, svc *state.Service, msg string) {
 	err := s.APIState.Client().ServiceUnexpose("dummy-service")
-	s.AssertErrorBlocked(c, err, msg)
+	s.AssertBlocked(c, err, msg)
 	err = svc.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1385,7 +1385,7 @@ func (s *clientSuite) assertResolved(c *gc.C, u *state.Unit) {
 
 func (s *clientSuite) assertResolvedBlocked(c *gc.C, u *state.Unit, msg string) {
 	err := s.APIState.Client().Resolved("wordpress/0", true)
-	s.AssertErrorBlocked(c, err, msg)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyUnitResolved(c *gc.C) {
@@ -1572,7 +1572,7 @@ func (s *clientSuite) assertServiceDeployWithNetworksBlocked(c *gc.C, msg string
 		[]string{"network-net1", "network-net2"},
 		nil,
 	)
-	s.AssertErrorBlocked(c, err, msg)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyServiceDeployWithNetworks(c *gc.C) {
@@ -1645,7 +1645,7 @@ func (s *clientSuite) assertServiceDeployPrincipalBlocked(c *gc.C, msg string, c
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", mem4g, "",
 	)
-	s.AssertErrorBlocked(c, err, msg)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyServiceDeployPrincipal(c *gc.C) {
@@ -1831,7 +1831,7 @@ func (s *clientSuite) TestBlockChangeServiceUpdate(c *gc.C) {
 		ForceCharmUrl: false,
 	}
 	err := s.APIState.Client().ServiceUpdate(args)
-	s.AssertErrorBlocked(c, err, "TestBlockChangeServiceUpdate")
+	s.AssertBlocked(c, err, "TestBlockChangeServiceUpdate")
 }
 
 func (s *clientSuite) TestClientServiceUpdateForceSetCharm(c *gc.C) {
@@ -2089,7 +2089,7 @@ func (s *clientSuite) assertServiceSetCharmBlocked(c *gc.C, force bool, msg stri
 	err := s.APIState.Client().ServiceSetCharm(
 		"service", "cs:precise/wordpress-3", force,
 	)
-	s.AssertErrorBlocked(c, err, msg)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyServiceSetCharm(c *gc.C) {
@@ -2245,7 +2245,7 @@ func (s *clientSuite) TestBlockChangesAddRelation(c *gc.C) {
 	s.setUpScenario(c)
 	s.BlockAllChanges(c, "TestBlockChangesAddRelation")
 	_, err := s.APIState.Client().AddRelation([]string{"wordpress", "mysql"}...)
-	s.AssertErrorBlocked(c, err, "TestBlockChangesAddRelation")
+	s.AssertBlocked(c, err, "TestBlockChangesAddRelation")
 }
 
 func (s *clientSuite) TestSuccessfullyAddRelationSwapped(c *gc.C) {
@@ -2440,7 +2440,7 @@ func (s *clientSuite) assertSetServiceConstraints(c *gc.C, service *state.Servic
 
 func (s *clientSuite) assertSetServiceConstraintsBlocked(c *gc.C, msg string, service *state.Service, cons constraints.Value) {
 	err := s.APIState.Client().SetServiceConstraints("dummy", cons)
-	s.AssertErrorBlocked(c, err, msg)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroySetServiceConstraints(c *gc.C) {
@@ -2506,7 +2506,7 @@ func (s *clientSuite) assertSetEnvironmentConstraintsBlocked(c *gc.C, msg string
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().SetEnvironmentConstraints(cons)
-	s.AssertErrorBlocked(c, err, msg)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyClientSetEnvironmentConstraints(c *gc.C) {
@@ -2685,7 +2685,7 @@ func (s *serverSuite) TestClientEnvironmentSetImmutable(c *gc.C) {
 
 func (s *serverSuite) assertEnvironmentSetBlocked(c *gc.C, args map[string]interface{}, msg string) {
 	err := s.client.EnvironmentSet(params.EnvironmentSet{args})
-	s.AssertErrorBlocked(c, err, msg)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *serverSuite) TestBlockChangesClientEnvironmentSet(c *gc.C) {
@@ -2742,7 +2742,7 @@ func (s *serverSuite) TestBlockClientEnvironmentUnset(c *gc.C) {
 
 	args := params.EnvironmentUnset{[]string{"abc"}}
 	err = s.client.EnvironmentUnset(args)
-	s.AssertErrorBlocked(c, err, "TestBlockClientEnvironmentUnset")
+	s.AssertBlocked(c, err, "TestBlockClientEnvironmentUnset")
 }
 
 func (s *serverSuite) TestClientEnvironmentUnsetMissing(c *gc.C) {
@@ -2831,7 +2831,7 @@ func (s *clientSuite) assertAddMachinesBlocked(c *gc.C, msg string) {
 		}
 	}
 	_, err := s.APIState.Client().AddMachines(apiParams)
-	s.AssertErrorBlocked(c, err, msg)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyClientAddMachinesDefaultSeries(c *gc.C) {
@@ -3555,7 +3555,7 @@ func (s *clientSuite) assertRetryProvisioning(c *gc.C, machine *state.Machine) {
 
 func (s *clientSuite) assertRetryProvisioningBlocked(c *gc.C, machine *state.Machine, msg string) {
 	_, err := s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
-	s.AssertErrorBlocked(c, err, msg)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyRetryProvisioning(c *gc.C) {
@@ -3650,7 +3650,7 @@ func (s *serverSuite) TestBlockServiceDestroy(c *gc.C) {
 	// block remove-objects
 	s.BlockRemoveObject(c, "TestBlockServiceDestroy")
 	err := s.APIState.Client().ServiceDestroy("dummy-service")
-	s.AssertErrorBlocked(c, err, "TestBlockServiceDestroy")
+	s.AssertBlocked(c, err, "TestBlockServiceDestroy")
 	// Tests may have invalid service names.
 	service, err := s.State.Service("dummy-service")
 	if err == nil {
@@ -3684,7 +3684,7 @@ func (s *clientSuite) assertBlockedErrorAndLiveliness(
 	living3 state.Living,
 	living4 state.Living,
 ) {
-	s.AssertErrorBlocked(c, err, msg)
+	s.AssertBlocked(c, err, msg)
 	assertLife(c, living1, state.Alive)
 	assertLife(c, living2, state.Alive)
 	assertLife(c, living3, state.Alive)
@@ -3831,13 +3831,13 @@ func (s *clientSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroySubordinateUnits")
 	// Try to destroy the subordinate alone; check it fails.
 	err = s.APIState.Client().DestroyServiceUnits("logging/0")
-	s.AssertErrorBlocked(c, err, "TestBlockRemoveDestroySubordinateUnits")
+	s.AssertBlocked(c, err, "TestBlockRemoveDestroySubordinateUnits")
 	assertLife(c, rel, state.Alive)
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 
 	err = s.APIState.Client().DestroyServiceUnits("wordpress/0", "logging/0")
-	s.AssertErrorBlocked(c, err, "TestBlockRemoveDestroySubordinateUnits")
+	s.AssertBlocked(c, err, "TestBlockRemoveDestroySubordinateUnits")
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 	assertLife(c, rel, state.Alive)
@@ -3862,13 +3862,13 @@ func (s *clientSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockChangesDestroySubordinateUnits")
 	// Try to destroy the subordinate alone; check it fails.
 	err = s.APIState.Client().DestroyServiceUnits("logging/0")
-	s.AssertErrorBlocked(c, err, "TestBlockChangesDestroySubordinateUnits")
+	s.AssertBlocked(c, err, "TestBlockChangesDestroySubordinateUnits")
 	assertLife(c, rel, state.Alive)
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 
 	err = s.APIState.Client().DestroyServiceUnits("wordpress/0", "logging/0")
-	s.AssertErrorBlocked(c, err, "TestBlockChangesDestroySubordinateUnits")
+	s.AssertBlocked(c, err, "TestBlockChangesDestroySubordinateUnits")
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 	assertLife(c, rel, state.Alive)
@@ -3905,7 +3905,7 @@ func (s *clientSuite) TestBlockRemoveDestroyRelation(c *gc.C) {
 	// block remove-objects
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroyRelation")
 	err := s.APIState.Client().DestroyRelation(endpoints...)
-	s.AssertErrorBlocked(c, err, "TestBlockRemoveDestroyRelation")
+	s.AssertBlocked(c, err, "TestBlockRemoveDestroyRelation")
 	assertLife(c, relation, state.Alive)
 }
 
@@ -3914,7 +3914,7 @@ func (s *clientSuite) TestBlockChangeDestroyRelation(c *gc.C) {
 	relation := s.setupRelationScenario(c, endpoints)
 	s.BlockAllChanges(c, "TestBlockChangeDestroyRelation")
 	err := s.APIState.Client().DestroyRelation(endpoints...)
-	s.AssertErrorBlocked(c, err, "TestBlockChangeDestroyRelation")
+	s.AssertBlocked(c, err, "TestBlockChangeDestroyRelation")
 	assertLife(c, relation, state.Alive)
 }
 
