@@ -4,7 +4,9 @@
 package testing
 
 import (
+	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/juju/loggo"
@@ -13,6 +15,7 @@ import (
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/wrench"
@@ -63,6 +66,15 @@ func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 	}
 	utils.SetHome(s.oldHomeEnv)
 	osenv.SetJujuHome(s.oldJujuHome)
+}
+
+// SkipIfPPC64 skips the test if the arch is PPC64EL and the compiler
+// is gccgo.
+func SkipIfPPC64EL(c *gc.C, bugID string) {
+	if runtime.Compiler == "gccgo" &&
+		arch.NormaliseArch(runtime.GOARCH) == arch.PPC64EL {
+		c.Skip(fmt.Sprintf("Test disabled on PPC64EL until fixed - see bug %s", bugID))
+	}
 }
 
 func (s *JujuOSEnvSuite) SetFeatureFlags(flag ...string) {

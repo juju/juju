@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/utils"
 	"github.com/juju/juju/worker"
 )
 
@@ -166,7 +167,7 @@ func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config) P
 	logger.Tracef("Starting environ provisioner for %q", p.agentConfig.Tag())
 	go func() {
 		defer p.tomb.Done()
-		p.tomb.Kill(p.loop())
+		p.tomb.Kill(errors.Cause(p.loop()))
 	}()
 	return p
 }
@@ -175,21 +176,21 @@ func (p *environProvisioner) loop() error {
 	var environConfigChanges <-chan struct{}
 	environWatcher, err := p.st.WatchForEnvironConfigChanges()
 	if err != nil {
-		return err
+		return utils.LoggedErrorStack(errors.Trace(err))
 	}
 	environConfigChanges = environWatcher.Changes()
 	defer watcher.Stop(environWatcher, &p.tomb)
 
 	p.environ, err = worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
 	if err != nil {
-		return err
+		return utils.LoggedErrorStack(errors.Trace(err))
 	}
 	p.broker = p.environ
 
 	harvestMode := p.environ.Config().ProvisionerHarvestMode()
 	task, err := p.getStartTask(harvestMode)
 	if err != nil {
-		return err
+		return utils.LoggedErrorStack(errors.Trace(err))
 	}
 	defer watcher.Stop(task, &p.tomb)
 

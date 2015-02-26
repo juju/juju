@@ -75,3 +75,29 @@ func (s *storageSuite) TestAPIErrors(c *gc.C) {
 	_, err := st.StorageAttachments(names.NewUnitTag("mysql/0"))
 	c.Check(err, gc.ErrorMatches, "bad")
 }
+
+func (s *storageSuite) TestWatchStorageAttachments(c *gc.C) {
+	var called bool
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Uniter")
+		c.Check(version, gc.Equals, 2)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchStorageAttachments")
+		c.Check(arg, gc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "unit-mysql-0"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		called = true
+		return nil
+	})
+
+	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	_, err := st.WatchStorageAttachments(names.NewUnitTag("mysql/0"))
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(called, jc.IsTrue)
+}

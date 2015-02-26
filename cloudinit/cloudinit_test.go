@@ -245,7 +245,7 @@ var ctests = []struct {
 	{
 		"Packages with --target-release",
 		map[string]interface{}{"packages": []string{
-			"--target-release 'precise-updates/cloud-tools' 'mongodb-server'",
+			"--target-release precise-updates/cloud-tools mongodb-server",
 		}},
 		func(cfg *cloudinit.Config) {
 			cfg.AddPackageFromTargetRelease("mongodb-server", "precise-updates/cloud-tools")
@@ -389,7 +389,7 @@ func (S) TestPackages(c *gc.C) {
 	expectedPackages := []string{"a b c", "d!"}
 	c.Assert(cfg.Packages(), gc.DeepEquals, expectedPackages)
 	cfg.AddPackageFromTargetRelease("package", "series")
-	expectedPackages = append(expectedPackages, "--target-release 'series' 'package'")
+	expectedPackages = append(expectedPackages, "--target-release series package")
 	c.Assert(cfg.Packages(), gc.DeepEquals, expectedPackages)
 }
 
