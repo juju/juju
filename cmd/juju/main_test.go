@@ -461,7 +461,6 @@ func (s *MainSuite) TestTwoDotOhDeprecation(c *gc.C) {
 var obsoleteCommandNames = []string{
 	"add-machine",
 	"destroy-machine",
-	"ensure-availability",
 	"get-constraints",
 	"get-env",
 	"get-environment",

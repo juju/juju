@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environment_test
+package main
 
 import (
 	"bytes"
@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/constraints"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -84,7 +83,7 @@ func (f *fakeHAClient) EnsureAvailability(numStateServers int, cons constraints.
 var _ = gc.Suite(&EnsureAvailabilitySuite{})
 
 func (s *EnsureAvailabilitySuite) runEnsureAvailability(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := environment.NewEnsureAvailabilityCommand(s.fake)
+	command := &EnsureAvailabilityCommand{haClient: s.fake}
 	return coretesting.RunCommand(c, envcmd.Wrap(command), args...)
 }
 
