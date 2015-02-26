@@ -674,5 +674,5 @@ func (u *Unit) WatchMeterStatus() (watcher.NotifyWatcher, error) {
 // WatchStorage returns a watcher for observing changes to the
 // unit's storage attachments.
 func (u *Unit) WatchStorage() (watcher.StringsWatcher, error) {
-	return u.st.WatchStorageAttachments(u.tag)
+	return u.st.WatchUnitStorageAttachments(u.tag)
 }
