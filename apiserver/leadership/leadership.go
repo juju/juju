@@ -173,20 +173,15 @@ func (m *leadershipService) BlockUntilLeadershipReleased(serviceTag names.Servic
 
 // parseServiceAndUnitTags takes in string representations of service
 // and unit tags and returns their corresponding tags.
-//
-// NOTE: we return permissions errors when parsing fails to obfuscate
-// the parse-failure. This is for security purposes.
-// TODO(fwereade): wondering how the hell obfuscating *parse* errors helps
-// with security at all. Yes: we're meant to obfuscate things that could
-// leak *private* information -- for example, whether or not a given entity
-// *exists* -- but our tag format is *completely public* and there is no
-// point at all in doing this. Looking through the code it looks like this
-// problem is omnipresent though :-/.
 func parseServiceAndUnitTags(
 	serviceTagString, unitTagString string,
 ) (
 	names.ServiceTag, names.UnitTag, error,
 ) {
+	// TODO(fwereade) 2015-02-25 bug #1425506
+	// These permissions errors are not appropriate -- there's no permission or
+	// security issue in play here, because our tag format is public, and the
+	// error only triggers when the strings fail to match that format.
 	serviceTag, err := names.ParseServiceTag(serviceTagString)
 	if err != nil {
 		return names.ServiceTag{}, names.UnitTag{}, common.ErrPerm
