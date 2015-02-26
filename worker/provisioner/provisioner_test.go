@@ -157,7 +157,7 @@ type stopper interface {
 
 // stop stops a stopper.
 func stop(c *gc.C, s stopper) {
-	c.Assert(s.Stop(), gc.IsNil)
+	c.Assert(s.Stop(), jc.ErrorIsNil)
 }
 
 func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instance.Instance {
@@ -422,7 +422,7 @@ func (s *CommonProvisionerSuite) ensureAvailability(c *gc.C, n int) []*state.Mac
 
 func (s *ProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
-	c.Assert(p.Stop(), gc.IsNil)
+	c.Assert(p.Stop(), jc.ErrorIsNil)
 }
 
 func (s *ProvisionerSuite) TestSimple(c *gc.C) {
