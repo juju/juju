@@ -498,6 +498,56 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                 logging.info("%s" % status_msg)
 
 
+def run_deployer():
+    from argparse import ArgumentParser
+    parser = ArgumentParser('Test with deployer')
+    parser.add_argument('env',
+                        help='The juju environment to test')
+    parser.add_argument('bundle_path',
+                        help='URL or path to a bundle')
+    parser.add_argument('job_name', help='Name of the Jenkins job.')
+    parser.add_argument('log_dir', help='log directory.')
+    parser.add_argument('--agent-url', default=None,
+                        help='URL to use for retrieving agent binaries.')
+    parser.add_argument('--service-count', type=int, default=2,
+                        help='Minimum number of expected services.')
+    parser.add_argument('--debug', action="store_true", default=False,
+                        help='debug output')
+    parser.add_argument('--new-juju-bin', default=False,
+                        help='Dirctory containing the new Juju binary.')
+    parser.add_argument('--series',
+                        help='Name of the Ubuntu series to use.')
+    args = parser.parse_args()
+    if args.new_juju_bin:
+        juju_path = os.path.abspath(args.new_juju_bin)
+        new_path = '%s:%s' % (juju_path, os.environ['PATH'])
+        os.environ['PATH'] = new_path
+    log_level = logging.INFO
+    if args.debug:
+        log_level = logging.DEBUG
+    configure_logging(log_level)
+    env = Environment.from_config(args.env)
+    env.client.debug = args.debug
+    juju_home = get_juju_home()
+    update_env(args.env, args.job_name, series=args.series,
+               agent_url=args.agent_url)
+    ensure_deleted(get_jenv_path(juju_home, env.environment))
+    env.destroy_environment()
+    bootstrap_from_env(juju_home, env.client.get_env_client(env))
+    host = get_machine_dns_name(env.client.get_env_client(env), 0)
+    if host is None:
+        raise Exception('Could not get machine 0 host')
+    try:
+        env.deployer(args.bundle_path)
+    except BaseException as e:
+        logging.exception(e)
+        dump_env_logs(env, host, args.log_dir)
+        sys.exit(1)
+    finally:
+        env.juju('status')
+        env.destroy_environment()
+
+
 def get_machine_dns_name(client, machine):
     timeout = 600
     for remaining in until_timeout(timeout):

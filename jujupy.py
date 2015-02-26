@@ -110,6 +110,9 @@ class JujuClientDevel:
         """Return the value of the environment's configured option."""
         return self.get_env_client(environment).get_env_option(option)
 
+    def deployer(self, environment, bundle):
+        return self.get_env_client(environment).deployer(bundle)
+
     def quickstart(self, environment, bundle):
         return self.get_env_client(environment).quickstart(bundle)
 
@@ -300,6 +303,13 @@ class EnvJujuClient:
     def deploy(self, charm):
         args = (charm,)
         return self.juju('deploy', args)
+
+    def deployer(self, bundle, upload_tools=False):
+        """deployer, using sudo if necessary."""
+        args = ('--debug')
+        args = args + ('--deploy-delay', 10,)
+        args = args + ('--config', bundle,)
+        self.juju('deployer', args, self.env.needs_sudo())
 
     def quickstart(self, bundle, upload_tools=False):
         """quickstart, using sudo if necessary."""
@@ -680,6 +690,9 @@ class Environment(SimpleEnvironment):
     def deploy(self, charm):
         args = (charm,)
         return self.juju('deploy', *args)
+
+    def deployer(self, bundle):
+        return self.client.deployer(self, bundle)
 
     def quickstart(self, bundle):
         return self.client.quickstart(self, bundle)
