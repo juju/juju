@@ -4,8 +4,6 @@
 package storage
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/storage"
 	"github.com/juju/names"
 )
@@ -15,21 +13,6 @@ type contextStorage struct {
 	tag      names.StorageTag
 	kind     storage.StorageKind
 	location string
-}
-
-// newContextStorage creates a new context for the given storage
-// attachment.
-func newContextStorage(a *params.StorageAttachment) (*contextStorage, error) {
-	tag, err := names.ParseStorageTag(a.StorageTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	kind := storage.StorageKind(a.Kind)
-	return &contextStorage{
-		tag:      tag,
-		kind:     kind,
-		location: a.Location,
-	}, nil
 }
 
 func (ctx *contextStorage) Tag() names.StorageTag {
