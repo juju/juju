@@ -1642,3 +1642,11 @@ class TestStageInfo(TestCase):
         self.assertEqual(
             si.as_tuple(),
             ('bar-id', {'title': 'Bar title', 'report_on': False}))
+
+    def test_as_result(self):
+        si = StageInfo('foo-id', 'Foo title')
+        self.assertEqual(si.as_result(), {'test_id': 'foo-id'})
+        self.assertEqual(si.as_result(True),
+                         {'test_id': 'foo-id', 'result': True})
+        self.assertEqual(si.as_result(False),
+                         {'test_id': 'foo-id', 'result': False})

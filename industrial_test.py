@@ -51,6 +51,11 @@ class StageInfo:
         return (self.stage_id, {
             'title': self.title, 'report_on': self.report_on})
 
+    def as_result(self, result=None):
+        result_dict = {'test_id': self.stage_id}
+        if result is not None:
+            result_dict['result'] = result
+        return result_dict
 
 class MultiIndustrialTest:
     """Run IndustrialTests until desired number of results are achieved.
