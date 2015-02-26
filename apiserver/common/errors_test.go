@@ -109,7 +109,7 @@ var errorTransformTests = []struct {
 	code:       params.CodeUpgradeInProgress,
 	helperFunc: params.IsCodeUpgradeInProgress,
 }, {
-	err:        common.ErrOperationBlocked,
+	err:        common.ErrOperationBlocked("test"),
 	code:       params.CodeOperationBlocked,
 	helperFunc: params.IsCodeOperationBlocked,
 }, {
