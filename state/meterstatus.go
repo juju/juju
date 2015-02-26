@@ -4,8 +4,6 @@
 package state
 
 import (
-	"sort"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
@@ -119,14 +117,13 @@ func (u *Unit) GetMeterStatus() (code, info string, err error) {
 		return string(MeterNotAvailable), "", errors.Annotatef(err, "cannot retrieve meter status for unit %s", u.Name())
 	}
 
-	c, i := mm.MeterStatus()
-	mmStatus := MeterStatus{Code: c, Info: i}
-	unitStatus := MeterStatus{Code: string(status.Code), Info: status.Info}
-	statuses := MeterStatusSlice{unitStatus, mmStatus}
+	metricManagerCode, metricManagerInfo := mm.MeterStatus()
 
-	sort.Sort(statuses)
+	if metricManagerCode == "RED" || meterSeverity[metricManagerCode] < meterSeverity[string(status.Code)] {
+		return string(metricManagerCode), metricManagerInfo, nil
+	}
 
-	return string(statuses[0].Code), statuses[0].Info, nil
+	return string(status.Code), status.Info, nil
 }
 
 func (u *Unit) getMeterStatusDoc() (*meterStatusDoc, error) {
@@ -138,23 +135,4 @@ func (u *Unit) getMeterStatusDoc() (*meterStatusDoc, error) {
 		return nil, errors.Trace(err)
 	}
 	return &status, nil
-}
-
-type MeterStatus struct {
-	Code string
-	Info string
-}
-
-type MeterStatusSlice []MeterStatus
-
-// Len implements sort.Interface.
-func (s MeterStatusSlice) Len() int { return len(s) }
-
-// Swap implements sort.Interface.
-func (s MeterStatusSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
-
-// Less implements sort.Interface.
-func (s MeterStatusSlice) Less(i, j int) bool {
-	codeMoreSevere := meterSeverity[s[i].Code] < meterSeverity[s[j].Code]
-	return codeMoreSevere
 }

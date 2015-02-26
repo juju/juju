@@ -150,10 +150,112 @@ func (s *MeterStateSuite) TestMeterStatusWithAmberMetricsManager(c *gc.C) {
 	c.Assert(info, gc.Equals, "failed to send metrics")
 }
 
-func (s *MeterStateSuite) TestRedMeterStatusWithAmberMetricsManager(c *gc.C) {
-	for i := 0; i < 3; i++ {
-		err := s.metricsManager.IncrementConsecutiveErrors()
+func (s *MeterStateSuite) TestMeterStatusMetricsManagerCombination(c *gc.C) {
+	greenMetricsMangager := func() {}
+	amberMetricsManager := func() {
+		for i := 0; i < 3; i++ {
+			err := s.metricsManager.IncrementConsecutiveErrors()
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		err := s.metricsManager.SetMetricsManagerSuccessfulSend(time.Now())
 		c.Assert(err, jc.ErrorIsNil)
+		code, _ := s.metricsManager.MeterStatus()
+		c.Assert(code, gc.Equals, "AMBER")
+	}
+	redMetricsManager := func() {
+		for i := 0; i < 3; i++ {
+			err := s.metricsManager.IncrementConsecutiveErrors()
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		err := s.metricsManager.SetMetricsManagerSuccessfulSend(time.Now().Add(-14 * 24 * time.Hour))
+		c.Assert(err, jc.ErrorIsNil)
+		code, _ := s.metricsManager.MeterStatus()
+		c.Assert(code, gc.Equals, "RED")
+	}
+	greenUnit := func() {
+		err := s.unit.SetMeterStatus("GREEN", "Unit")
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	amberUnit := func() {
+		err := s.unit.SetMeterStatus("AMBER", "Unit")
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	redUnit := func() {
+		err := s.unit.SetMeterStatus("RED", "Unit")
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	tests := []struct {
+		metricsManager func()
+		unit           func()
+		expectedCode   string
+		expectedInfo   string
+	}{
+		{
+			greenMetricsMangager,
+			greenUnit,
+			"GREEN",
+			"Unit",
+		},
+		{
+			amberMetricsManager,
+			amberUnit,
+			"AMBER",
+			"Unit",
+		},
+		{
+			redMetricsManager,
+			redUnit,
+			"RED",
+			"failed to send metrics, exceeded grace period",
+		},
+		{
+			redMetricsManager,
+			amberUnit,
+			"RED",
+			"failed to send metrics, exceeded grace period",
+		},
+
+		{
+			redMetricsManager,
+			greenUnit,
+			"RED",
+			"failed to send metrics, exceeded grace period",
+		},
+		{
+			amberMetricsManager,
+			redUnit,
+			"RED",
+			"Unit",
+		},
+		{
+			amberMetricsManager,
+			greenUnit,
+			"AMBER",
+			"failed to send metrics",
+		},
+		{
+			greenMetricsMangager,
+			redUnit,
+			"RED",
+			"Unit",
+		},
+		{
+			greenMetricsMangager,
+			amberUnit,
+			"AMBER",
+			"Unit",
+		},
+	}
+
+	for i, test := range tests {
+		c.Logf("running test %d", i)
+		test.metricsManager()
+		test.unit()
+		code, info, err := s.unit.GetMeterStatus()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(code, gc.Equals, test.expectedCode)
+		c.Check(info, gc.Equals, test.expectedInfo)
 	}
 	err := s.metricsManager.SetMetricsManagerSuccessfulSend(time.Now())
 	c.Assert(err, jc.ErrorIsNil)
