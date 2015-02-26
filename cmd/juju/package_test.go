@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/api/block"
 	cmdblock "github.com/juju/juju/cmd/juju/block"
 	cmdtesting "github.com/juju/juju/cmd/testing"
-	_ "github.com/juju/juju/provider/dummy" // XXX Why?
+	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
 

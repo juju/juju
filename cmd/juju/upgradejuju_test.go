@@ -26,7 +26,7 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
-	_ "github.com/juju/juju/provider/dummy" // XXX Why?
+	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
