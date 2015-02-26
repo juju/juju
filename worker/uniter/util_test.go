@@ -525,7 +525,7 @@ func (s startupErrorWithCustomCharm) step(c *gc.C, ctx *context) {
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
 	step(c, ctx, waitUnit{
-		status: params.StatusFailed,
+		status: params.StatusError,
 		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
 	for _, hook := range []string{"install", "config-changed", "start"} {
@@ -547,7 +547,7 @@ func (s startupError) step(c *gc.C, ctx *context) {
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
 	step(c, ctx, waitUnit{
-		status: params.StatusFailed,
+		status: params.StatusError,
 		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
 	for _, hook := range []string{"install", "config-changed", "start"} {
@@ -566,7 +566,7 @@ func (s quickStart) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnit{status: params.StatusIdle})
+	step(c, ctx, waitUnit{status: params.StatusActive})
 	step(c, ctx, waitHooks{"install", "config-changed", "start"})
 	step(c, ctx, verifyCharm{})
 }
@@ -589,7 +589,7 @@ func (s startupRelationError) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnit{status: params.StatusIdle})
+	step(c, ctx, waitUnit{status: params.StatusActive})
 	step(c, ctx, waitHooks{"install", "config-changed", "start"})
 	step(c, ctx, verifyCharm{})
 	step(c, ctx, addRelation{})
@@ -605,6 +605,14 @@ func (s resolveError) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+type waitUnitAgent struct {
+	status   params.Status
+	info     string
+	data     map[string]interface{}
+	charm    int
+	resolved state.ResolvedMode
+}
+
 type waitUnit struct {
 	status   params.Status
 	info     string
@@ -613,7 +621,7 @@ type waitUnit struct {
 	resolved state.ResolvedMode
 }
 
-func (s waitUnit) step(c *gc.C, ctx *context) {
+func (s waitUnitAgent) step(c *gc.C, ctx *context) {
 	timeout := time.After(worstCase)
 	for {
 		ctx.s.BackingState.StartSync()
@@ -641,6 +649,60 @@ func (s waitUnit) step(c *gc.C, ctx *context) {
 			c.Assert(err, jc.ErrorIsNil)
 			if string(status) != string(s.status) {
 				c.Logf("want unit agent status %q, got %q; still waiting", s.status, status)
+				continue
+			}
+			if info != s.info {
+				c.Logf("want unit status info %q, got %q; still waiting", s.info, info)
+				continue
+			}
+			if s.data != nil {
+				if len(data) != len(s.data) {
+					c.Logf("want %d unit status data value(s), got %d; still waiting", len(s.data), len(data))
+					continue
+				}
+				for key, value := range s.data {
+					if data[key] != value {
+						c.Logf("want unit status data value %q for key %q, got %q; still waiting",
+							value, key, data[key])
+						continue
+					}
+				}
+			}
+			return
+		case <-timeout:
+			c.Fatalf("never reached desired status")
+		}
+	}
+}
+
+func (s waitUnit) step(c *gc.C, ctx *context) {
+	timeout := time.After(worstCase)
+	for {
+		ctx.s.BackingState.StartSync()
+		select {
+		case <-time.After(coretesting.ShortWait):
+			err := ctx.unit.Refresh()
+			if err != nil {
+				c.Fatalf("cannot refresh unit: %v", err)
+			}
+			resolved := ctx.unit.Resolved()
+			if resolved != s.resolved {
+				c.Logf("want resolved mode %q, got %q; still waiting", s.resolved, resolved)
+				continue
+			}
+			url, ok := ctx.unit.CharmURL()
+			if !ok || *url != *curl(s.charm) {
+				var got string
+				if ok {
+					got = url.String()
+				}
+				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
+				continue
+			}
+			status, info, data, err := ctx.unit.Status()
+			c.Assert(err, jc.ErrorIsNil)
+			if string(status) != string(s.status) {
+				c.Logf("want unit status %q, got %q; still waiting", s.status, status)
 				continue
 			}
 			if info != s.info {
@@ -871,7 +933,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		createUniter{},
 		waitUnit{
-			status: params.StatusIdle,
+			status: params.StatusActive,
 		},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
@@ -880,7 +942,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: params.StatusFailed,
+			status: params.StatusError,
 			info:   "upgrade failed",
 			charm:  1,
 		},
@@ -899,7 +961,7 @@ type verifyWaitingUpgradeError struct {
 func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 	verifyCharmSteps := []stepper{
 		waitUnit{
-			status: params.StatusFailed,
+			status: params.StatusError,
 			info:   "upgrade failed",
 			charm:  s.revision,
 		},
@@ -1479,7 +1541,7 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		createUniter{},
 		waitUnit{
-			status: params.StatusIdle,
+			status: params.StatusActive,
 		},
 		waitHooks{"install", "config-changed", "start"},
 		verifyGitCharm{dirty: true},
@@ -1494,7 +1556,7 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: params.StatusFailed,
+			status: params.StatusError,
 			info:   "upgrade failed",
 			charm:  1,
 		},
