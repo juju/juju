@@ -162,9 +162,7 @@ func (gi Instance) RootDiskGB() uint64 {
 		return 0
 	}
 	attached := gi.RootDisk()
-	// The root disk from a spec will not fail.
-	size, _ := diskSizeGB(attached)
-	return size
+	return uint64(attached.InitializeParams.DiskSizeGb)
 }
 
 // Status returns a string identifying the status of the instance. The

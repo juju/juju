@@ -5,7 +5,6 @@ package google
 
 import (
 	"code.google.com/p/google-api-go-client/compute/v1"
-	"github.com/juju/errors"
 )
 
 // The different types of disks supported by GCE.
@@ -98,22 +97,4 @@ func (ds *DiskSpec) newAttached() *compute.AttachedDisk {
 		// DeviceName (GCE sets this, persistent disk only)
 	}
 	return &disk
-}
-
-// diskSizeGB determines the size of the provided disk. This works both
-// with compute.Disk and compute.AttachedDisk. For attached disks the
-// size is pulled from the data used initialize it. If that data is not
-// available then an error is returned.
-func diskSizeGB(disk interface{}) (uint64, error) {
-	switch typed := disk.(type) {
-	case *compute.Disk:
-		return uint64(typed.SizeGb), nil
-	case *compute.AttachedDisk:
-		if typed.InitializeParams == nil {
-			return 0, errors.Errorf("attached disk missing init params: %v", disk)
-		}
-		return uint64(typed.InitializeParams.DiskSizeGb), nil
-	default:
-		return 0, errors.Errorf("disk has unrecognized type: %v", disk)
-	}
 }

@@ -14,7 +14,6 @@ var (
 	PackMetadata      = packMetadata
 	UnpackMetadata    = unpackMetadata
 	FormatMachineType = formatMachineType
-	DiskSizeGB        = diskSizeGB
 	ZoneName          = zoneName
 	FirewallSpec      = firewallSpec
 	ExtractAddresses  = extractAddresses
