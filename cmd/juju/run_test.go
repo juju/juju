@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/testing"
@@ -272,7 +273,6 @@ func (s *RunSuite) TestBlockRunForMachineAndUnit(c *gc.C) {
 	mock := s.setupMockAPI()
 	// Block operation
 	mock.block = true
-	s.AssertConfigParameterUpdated(c, "block-all-changes", "true")
 	_, err := testing.RunCommand(c, envcmd.Wrap(&RunCommand{}),
 		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
 		"-e blah",
@@ -441,10 +441,7 @@ func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([
 	var result []params.RunResult
 
 	if m.block {
-		return result, &params.Error{
-			Code:    params.CodeOperationBlocked,
-			Message: "The operation has been blocked.",
-		}
+		return result, common.ErrOperationBlocked("The operation has been blocked.")
 	}
 	sortedMachineIds := make([]string, 0, len(m.machines))
 	for machineId := range m.machines {
@@ -468,10 +465,7 @@ func (m *mockRunAPI) Run(runParams params.RunParams) ([]params.RunResult, error)
 	var result []params.RunResult
 
 	if m.block {
-		return result, &params.Error{
-			Code:    params.CodeOperationBlocked,
-			Message: "The operation has been blocked.",
-		}
+		return result, common.ErrOperationBlocked("The operation has been blocked.")
 	}
 	// Just add in ids that match in order.
 	for _, id := range runParams.Machines {
