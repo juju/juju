@@ -55,6 +55,7 @@ func (s BlockHelper) BlockRemoveObject(c *gc.C, msg string) {
 
 func (s BlockHelper) Close() {
 	s.client.Close()
+	s.ApiState.Close()
 }
 
 // BlockDestroyEnvironment blocks destroy-environment.
