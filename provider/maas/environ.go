@@ -1217,8 +1217,12 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
-func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address) error {
-	subnets, err := environ.Subnets(instId, []network.Id{subnetId})
+func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address) (err error) {
+	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
+	var subnets []network.SubnetInfo
+
+	subnets, err = environ.Subnets(instId, []network.Id{subnetId})
+	logger.Tracef("Subnets(%q, %q, %q) returned: %v (%v)", instId, subnetId, addr, subnets, err)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1226,11 +1230,13 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 		return errors.Errorf("could not find network matching %v", subnetId)
 	}
 	foundSub := subnets[0]
+	logger.Tracef("found subnet %#v", foundSub)
 
 	cidr := foundSub.CIDR
 	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
 	err = ReserveIPAddress(ipaddresses, cidr, addr)
 	if err == nil {
+		logger.Infof("allocated address %q for instance %q on subnet %q", addr, instId, cidr)
 		return nil
 	}
 
@@ -1245,8 +1251,10 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 	// For an address already in use we get
 	// StaticIPAddressUnavailable - an error 404
 	if maasErr.StatusCode == 404 {
+		logger.Tracef("address %q not available for allocation", addr)
 		return environs.ErrIPAddressUnavailable
 	} else if maasErr.StatusCode == 503 {
+		logger.Tracef("no more addresses available on the subnet")
 		return environs.ErrIPAddressesExhausted
 	}
 	// any error other than a 404 or 503 is "unexpected" and should
@@ -1256,8 +1264,8 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
-func (environ *maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, addr network.Address) (err error) {
-	defer errors.DeferredAnnotatef(&err, "failed to release IP address %v", addr.Value)
+func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address) (err error) {
+	defer errors.DeferredAnnotatef(&err, "failed to release IP address %q from instance %q", addr, instId)
 	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
 	// This can return a 404 error if the address has already been released
 	// or is unknown by maas. However this, like any other error, would be
@@ -1270,20 +1278,21 @@ func (environ *maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, addr net
 func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
 	if err != nil {
-		return nil, errors.Annotatef(err, "could not find instance %v", instId)
+		return nil, errors.Annotatef(err, "could not find instance %q", instId)
 	}
 	if len(instances) == 0 {
-		return nil, errors.NotFoundf("instance %v", instId)
+		return nil, errors.NotFoundf("instance %q", instId)
 	}
 	inst := instances[0]
 	interfaces, _, err := environ.getInstanceNetworkInterfaces(inst)
 	if err != nil {
+		errors.Annotatef(err, "failed to get instance %q network interfaces", instId)
 		return nil, errors.Trace(err)
 	}
 
 	networks, err := environ.getInstanceNetworks(inst)
 	if err != nil {
-		return nil, errors.Annotatef(err, "getInstanceNetworks failed")
+		return nil, errors.Annotatef(err, "failed to get instance %q subnets", instId)
 	}
 
 	macToNetworkMap := make(map[string]networkDetails)
@@ -1307,6 +1316,7 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 			DeviceIndex:   deviceIndex,
 			InterfaceName: interfaceName,
 			Disabled:      disabled,
+			NoAutoStart:   disabled,
 			MACAddress:    serial,
 			ConfigType:    network.ConfigDHCP,
 		}
@@ -1318,6 +1328,8 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 			cidr := net.IPNet{net.ParseIP(details.IP), mask}
 			ifaceInfo.CIDR = cidr.String()
 			ifaceInfo.Address = network.NewAddress(cidr.IP.String(), network.ScopeUnknown)
+		} else {
+			logger.Debugf("no subnet information for MAC address %q, instance %q", serial, instId)
 		}
 		result = append(result, ifaceInfo)
 	}
@@ -1353,50 +1365,54 @@ func (environ *maasEnviron) listConnectedMacs(network networkDetails) ([]string,
 	return result, nil
 }
 
-// Subnets returns basic information about the specified subnets for a specific
-// instance.
-func (environ *maasEnviron) Subnets(instId instance.Id, netIds []network.Id) ([]network.SubnetInfo, error) {
+// Subnets returns basic information about the specified subnets known
+// by the provider for the specified instance. subnetIds must not be
+// empty. Implements NetworkingEnviron.Subnets.
+func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	// At some point in the future an empty netIds may mean "fetch all subnets"
 	// but until that functionality is needed it's an error.
-	if len(netIds) == 0 {
+	if len(subnetIds) == 0 {
 		return nil, errors.Errorf("netIds must not be empty")
 	}
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
 	if err != nil {
-		return nil, errors.Annotatef(err, "could not find instance %v", instId)
+		return nil, errors.Annotatef(err, "could not find instance %q", instId)
 	}
 	if len(instances) == 0 {
 		return nil, errors.NotFoundf("instance %v", instId)
 	}
 	inst := instances[0]
-	networks, err := environ.getInstanceNetworks(inst)
+	// The MAAS API get networks call returns named subnets, not physical networks,
+	// so we save the data from this call into a variable called subnets.
+	// http://maas.ubuntu.com/docs/api.html#networks
+	subnets, err := environ.getInstanceNetworks(inst)
 	if err != nil {
-		return nil, errors.Annotatef(err, "getInstanceNetworks failed")
+		return nil, errors.Annotatef(err, "cannot get instance %q subnets", instId)
 	}
-	logger.Debugf("node %q has networks %v", instId, networks)
+	logger.Debugf("instance %q has subnets %v", instId, subnets)
 
 	nodegroups, err := environ.getNodegroups()
 	if err != nil {
-		return nil, errors.Annotatef(err, "getNodegroups failed")
+		return nil, errors.Annotatef(err, "cannot get instance %q node groups", instId)
 	}
 	nodegroupInterfaces := environ.getNodegroupInterfaces(nodegroups)
 
-	netIdSet := make(map[network.Id]bool)
-	for _, netId := range netIds {
-		netIdSet[netId] = false
+	subnetIdSet := make(map[network.Id]bool)
+	for _, netId := range subnetIds {
+		subnetIdSet[netId] = false
 	}
 
 	var networkInfo []network.SubnetInfo
-	for _, netw := range networks {
-		_, ok := netIdSet[network.Id(netw.Name)]
+	for _, subnet := range subnets {
+		_, ok := subnetIdSet[network.Id(subnet.Name)]
 		if !ok {
 			continue
 		}
 		// mark that we've found this subnet
-		netIdSet[network.Id(netw.Name)] = true
+		subnetIdSet[network.Id(subnet.Name)] = true
 		netCIDR := &net.IPNet{
-			IP:   net.ParseIP(netw.IP),
-			Mask: net.IPMask(net.ParseIP(netw.Mask)),
+			IP:   net.ParseIP(subnet.IP),
+			Mask: net.IPMask(net.ParseIP(subnet.Mask)),
 		}
 		var allocatableHigh, allocatableLow net.IP
 		for ip, bounds := range nodegroupInterfaces {
@@ -1407,33 +1423,34 @@ func (environ *maasEnviron) Subnets(instId instance.Id, netIds []network.Id) ([]
 				break
 			}
 		}
-		netInfo := network.SubnetInfo{
+		subnetInfo := network.SubnetInfo{
 			CIDR:              netCIDR.String(),
-			VLANTag:           netw.VLANTag,
-			ProviderId:        network.Id(netw.Name),
+			VLANTag:           subnet.VLANTag,
+			ProviderId:        network.Id(subnet.Name),
 			AllocatableIPLow:  allocatableLow,
 			AllocatableIPHigh: allocatableHigh,
 		}
 
 		// Verify we filled-in everything for all networks
 		// and drop incomplete records.
-		if netInfo.ProviderId == "" || netInfo.CIDR == "" {
-			logger.Warningf("ignoring network  %q: missing information (%#v)", netw.Name, netInfo)
+		if subnetInfo.ProviderId == "" || subnetInfo.CIDR == "" {
+			logger.Warningf("ignoring subnet  %q: missing information (%#v)", subnet.Name, subnetInfo)
 			continue
 		}
 
-		networkInfo = append(networkInfo, netInfo)
+		logger.Tracef("found subnet with info %#v", subnetInfo)
+		networkInfo = append(networkInfo, subnetInfo)
 	}
-	logger.Debugf("available networks for instance %v: %#v", inst.Id(), networkInfo)
+	logger.Debugf("available subnet for instance %v: %#v", inst.Id(), networkInfo)
 
 	notFound := []network.Id{}
-	for netId, found := range netIdSet {
+	for subnetId, found := range subnetIdSet {
 		if !found {
-			notFound = append(notFound, netId)
+			notFound = append(notFound, subnetId)
 		}
 	}
 	if len(notFound) != 0 {
-		return nil, errors.Errorf("failed to find the following networks: %v", notFound)
+		return nil, errors.Errorf("failed to find the following subnets: %v", notFound)
 	}
 
 	return networkInfo, nil

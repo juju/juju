@@ -1087,50 +1087,46 @@ func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
 	netInfo, err := suite.makeEnviron().NetworkInterfaces(test_instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedInfo := []network.InterfaceInfo{
-		{
-			DeviceIndex:      0,
-			MACAddress:       "aa:bb:cc:dd:ee:ff",
-			CIDR:             "192.168.1.1/24",
-			ProviderSubnetId: "WLAN",
-			VLANTag:          0,
-			InterfaceName:    "wlan0",
-			Disabled:         true,
-			NoAutoStart:      false,
-			ConfigType:       network.ConfigDHCP,
-			ExtraConfig:      nil,
-			GatewayAddress:   network.Address{},
-			Address:          network.NewAddress("192.168.1.1", network.ScopeCloudLocal),
-		},
-		{
-			DeviceIndex:      1,
-			MACAddress:       "aa:bb:cc:dd:ee:f1",
-			CIDR:             "192.168.2.1/24",
-			ProviderSubnetId: "LAN",
-			VLANTag:          42,
-			InterfaceName:    "eth0",
-			Disabled:         false,
-			NoAutoStart:      false,
-			ConfigType:       network.ConfigDHCP,
-			ExtraConfig:      nil,
-			GatewayAddress:   network.Address{},
-			Address:          network.NewAddress("192.168.2.1", network.ScopeCloudLocal),
-		},
-		{
-			DeviceIndex:      2,
-			MACAddress:       "aa:bb:cc:dd:ee:f2",
-			CIDR:             "192.168.3.1/24",
-			ProviderSubnetId: "Virt",
-			VLANTag:          0,
-			InterfaceName:    "vnet1",
-			Disabled:         false,
-			NoAutoStart:      false,
-			ConfigType:       network.ConfigDHCP,
-			ExtraConfig:      nil,
-			GatewayAddress:   network.Address{},
-			Address:          network.NewAddress("192.168.3.1", network.ScopeCloudLocal),
-		},
-	}
+	expectedInfo := []network.InterfaceInfo{{
+		DeviceIndex:      0,
+		MACAddress:       "aa:bb:cc:dd:ee:ff",
+		CIDR:             "192.168.1.1/24",
+		ProviderSubnetId: "WLAN",
+		VLANTag:          0,
+		InterfaceName:    "wlan0",
+		Disabled:         true,
+		NoAutoStart:      true,
+		ConfigType:       network.ConfigDHCP,
+		ExtraConfig:      nil,
+		GatewayAddress:   network.Address{},
+		Address:          network.NewAddress("192.168.1.1", network.ScopeCloudLocal),
+	}, {
+		DeviceIndex:      1,
+		MACAddress:       "aa:bb:cc:dd:ee:f1",
+		CIDR:             "192.168.2.1/24",
+		ProviderSubnetId: "LAN",
+		VLANTag:          42,
+		InterfaceName:    "eth0",
+		Disabled:         false,
+		NoAutoStart:      false,
+		ConfigType:       network.ConfigDHCP,
+		ExtraConfig:      nil,
+		GatewayAddress:   network.Address{},
+		Address:          network.NewAddress("192.168.2.1", network.ScopeCloudLocal),
+	}, {
+		DeviceIndex:      2,
+		MACAddress:       "aa:bb:cc:dd:ee:f2",
+		CIDR:             "192.168.3.1/24",
+		ProviderSubnetId: "Virt",
+		VLANTag:          0,
+		InterfaceName:    "vnet1",
+		Disabled:         false,
+		NoAutoStart:      false,
+		ConfigType:       network.ConfigDHCP,
+		ExtraConfig:      nil,
+		GatewayAddress:   network.Address{},
+		Address:          network.NewAddress("192.168.3.1", network.ScopeCloudLocal),
+	}}
 	network.SortInterfaceInfo(netInfo)
 	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
 }
@@ -1157,7 +1153,7 @@ func (suite *environSuite) TestSubnetsNoNetIds(c *gc.C) {
 func (suite *environSuite) TestSubnetsMissingNetwork(c *gc.C) {
 	test_instance := suite.createSubnets(c)
 	_, err := suite.makeEnviron().Subnets(test_instance.Id(), []network.Id{"WLAN", "Missing"})
-	c.Assert(err, gc.ErrorMatches, "failed to find the following networks: \\[Missing\\]")
+	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: \\[Missing\\]")
 }
 
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {
@@ -1172,15 +1168,18 @@ func (suite *environSuite) TestAllocateAddress(c *gc.C) {
 
 func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
 	env := suite.makeEnviron()
-	err := env.AllocateAddress("foo", "bar", network.Address{Value: "192.168.2.1"})
-	c.Assert(err, gc.ErrorMatches, "instance foo not found")
+	addr := network.Address{Value: "192.168.2.1"}
+	instId := instance.Id("foo")
+	err := env.AllocateAddress(instId, "bar", addr)
+	expected := fmt.Sprintf("failed to allocate address %q for instance %q.*", addr, instId)
+	c.Assert(err, gc.ErrorMatches, expected)
 }
 
 func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
 	test_instance := suite.createSubnets(c)
 	env := suite.makeEnviron()
 	err := env.AllocateAddress(test_instance.Id(), "bar", network.Address{Value: "192.168.2.1"})
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "failed to find the following networks: \\[bar\\]")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "failed to find the following subnets: \\[bar\\]")
 }
 
 func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
@@ -1192,8 +1191,11 @@ func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
 	}
 	suite.PatchValue(&ReserveIPAddress, reserveIPAddress)
 
-	err := env.AllocateAddress(test_instance.Id(), "LAN", network.Address{Value: "192.168.2.1"})
-	c.Assert(err, gc.Equals, environs.ErrIPAddressUnavailable)
+	ipAddress := network.Address{Value: "192.168.2.1"}
+	err := env.AllocateAddress(test_instance.Id(), "LAN", ipAddress)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
+	expected := fmt.Sprintf("failed to allocate address %q for instance %q.*", ipAddress, test_instance.Id())
+	c.Assert(err, gc.ErrorMatches, expected)
 }
 
 func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
@@ -1211,13 +1213,15 @@ func (suite *environSuite) TestReleaseAddress(c *gc.C) {
 	err := env.AllocateAddress(test_instance.Id(), "LAN", network.Address{Value: "192.168.2.1"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = env.ReleaseAddress("foo", "bar", network.Address{Value: "192.168.2.1"})
+	ipAddress := network.Address{Value: "192.168.2.1"}
+	err = env.ReleaseAddress(test_instance.Id(), "bar", ipAddress)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// by releasing again we can test that the first release worked, *and*
 	// the error handling of ReleaseError
-	err = env.ReleaseAddress("foo", "bar", network.Address{Value: "192.168.2.1"})
-	c.Assert(err, gc.ErrorMatches, "(.|\n)*failed to release IP address 192\\.168\\.2\\.1(.|\n)*")
+	err = env.ReleaseAddress(test_instance.Id(), "bar", ipAddress)
+	expected := fmt.Sprintf("(?s).*failed to release IP address %q from instance %q.*", ipAddress, test_instance.Id())
+	c.Assert(err, gc.ErrorMatches, expected)
 }
 
 func (s *environSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
