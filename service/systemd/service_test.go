@@ -549,6 +549,13 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 			os.FileMode(0644),
 		},
 	}, {
+		FuncName: "LinkUnitFiles",
+		Args: []interface{}{
+			[]string{filename},
+			false,
+			true,
+		},
+	}, {
 		FuncName: "EnableUnitFiles",
 		Args: []interface{}{
 			[]string{filename},
@@ -605,6 +612,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 		"Close",
 		"MkdirAll",
 		"CreateFile",
+		"LinkUnitFiles",
 		"EnableUnitFiles",
 		"Close",
 	)
@@ -626,6 +634,7 @@ func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
 		"MkdirAll",
 		"CreateFile",
 		"CreateFile",
+		"LinkUnitFiles",
 		"EnableUnitFiles",
 		"Close",
 	)

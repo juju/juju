@@ -71,6 +71,12 @@ func (fda *StubDbusAPI) StopUnit(name string, mode string, ch chan<- string) (in
 	return 0, fda.NextErr()
 }
 
+func (fda *StubDbusAPI) LinkUnitFiles(files []string, runtime bool, force bool) ([]dbus.LinkUnitFileChange, error) {
+	fda.Stub.AddCall("LinkUnitFiles", files, runtime, force)
+
+	return nil, fda.NextErr()
+}
+
 func (fda *StubDbusAPI) EnableUnitFiles(files []string, runtime bool, force bool) (bool, []dbus.EnableUnitFileChange, error) {
 	fda.Stub.AddCall("EnableUnitFiles", files, runtime, force)
 

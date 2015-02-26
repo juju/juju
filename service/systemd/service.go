@@ -96,6 +96,7 @@ type dbusAPI interface {
 	ListUnits() ([]dbus.UnitStatus, error)
 	StartUnit(string, string, chan<- string) (int, error)
 	StopUnit(string, string, chan<- string) (int, error)
+	LinkUnitFiles([]string, bool, bool) ([]dbus.LinkUnitFileChange, error)
 	EnableUnitFiles([]string, bool, bool) (bool, []dbus.EnableUnitFileChange, error)
 	DisableUnitFiles([]string, bool) ([]dbus.DisableUnitFileChange, error)
 	GetUnitProperties(string) (map[string]interface{}, error)
@@ -331,9 +332,14 @@ func (s *Service) Install() error {
 	}
 	defer conn.Close()
 
-	// TODO(ericsnow) We may need to use conn.LinkUnitFiles either
-	// instead of or in conjunction with EnableUnitFiles.
-	_, _, err = conn.EnableUnitFiles([]string{filename}, false, true)
+	runtime, force := false, true
+	_, err = conn.LinkUnitFiles([]string{filename}, runtime, force)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO(ericsnow) This needs SU privs...
+	_, _, err = conn.EnableUnitFiles([]string{filename}, runtime, force)
 	return errors.Trace(err)
 }
 
