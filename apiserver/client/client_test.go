@@ -1519,6 +1519,25 @@ func (s *clientSuite) TestClientServiceDeployWithUnsupportedStoragePool(c *gc.C)
 		`.*pool "host-loop-pool" uses storage provider "hostloop" which is not supported for environments of type "dummy"`)
 }
 
+func (s *clientSuite) TestClientServiceDeployDefaultFilesystemStorage(c *gc.C) {
+	s.setupStoragePool(c)
+	s.makeMockCharmStore()
+	curl, bundle := addCharm(c, "storage-filesystem")
+	var cons constraints.Value
+	err := s.APIState.Client().ServiceDeployWithNetworks(curl.String(), "service", 1, "", cons, "", nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
+	storageConstraintsOut, err := service.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
+		"data": {
+			Count: 1,
+			Size:  1024,
+			Pool:  "rootfs",
+		},
+	})
+}
+
 func (s *clientSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
 	s.makeMockCharmStore()
 	curl, bundle := addCharm(c, "dummy")
