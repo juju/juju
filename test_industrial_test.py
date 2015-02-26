@@ -1626,7 +1626,7 @@ class TestStageInfo(TestCase):
 
     def test_ctor(self):
         si = StageInfo('foo-id', 'Foo title')
-        self.assertEqual(si.test_id, 'foo-id')
+        self.assertEqual(si.stage_id, 'foo-id')
         self.assertEqual(si.title, 'Foo title')
         self.assertEqual(si.report_on, True)
 

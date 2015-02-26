@@ -42,13 +42,13 @@ UPGRADE = 'upgrade'
 
 class StageInfo:
 
-    def __init__(self, test_id, title, report_on=True):
-        self.test_id = test_id
+    def __init__(self, stage_id, title, report_on=True):
+        self.stage_id = stage_id
         self.title = title
         self.report_on = report_on
 
     def as_tuple(self):
-        return (self.test_id, {
+        return (self.stage_id, {
             'title': self.title, 'report_on': self.report_on})
 
 
