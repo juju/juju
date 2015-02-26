@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/testing"
@@ -92,23 +92,23 @@ func (s *RemoveMachineSuite) TestRemoveForce(c *gc.C) {
 }
 
 func (s *RemoveMachineSuite) TestBlockedError(c *gc.C) {
-	s.fake.removeError = &params.Error{Code: params.CodeOperationBlocked}
+	s.fake.removeError = common.ErrOperationBlocked("TestBlockedError")
 	_, err := s.run(c, "1")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(s.fake.forced, jc.IsFalse)
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Assert(stripped, gc.Matches, ".*To unblock removal.*")
+	c.Assert(stripped, gc.Matches, ".*TestBlockedError.*")
 }
 
 func (s *RemoveMachineSuite) TestForceBlockedError(c *gc.C) {
-	s.fake.removeError = &params.Error{Code: params.CodeOperationBlocked}
+	s.fake.removeError = common.ErrOperationBlocked("TestForceBlockedError")
 	_, err := s.run(c, "--force", "1")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(s.fake.forced, jc.IsTrue)
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Assert(stripped, gc.Matches, ".*To unblock removal.*")
+	c.Assert(stripped, gc.Matches, ".*TestForceBlockedError.*")
 }
 
 type fakeRemoveMachineAPI struct {

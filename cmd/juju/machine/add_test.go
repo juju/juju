@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/machine"
@@ -181,12 +182,12 @@ failed to create 2 machines
 }
 
 func (s *AddMachineSuite) TestBlockedError(c *gc.C) {
-	s.fake.addError = &params.Error{Code: params.CodeOperationBlocked}
+	s.fake.addError = common.ErrOperationBlocked("TestBlockedError")
 	_, err := s.run(c)
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*TestBlockedError.*")
 }
 
 func (s *AddMachineSuite) TestServerIsPreJobManageNetworking(c *gc.C) {

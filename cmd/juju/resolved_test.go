@@ -4,9 +4,6 @@
 package main
 
 import (
-	"strings"
-
-	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -19,6 +16,13 @@ import (
 
 type ResolvedSuite struct {
 	jujutesting.RepoSuite
+	CmdBlockHelper
+}
+
+func (s *ResolvedSuite) SetUpTest(c *gc.C) {
+	s.RepoSuite.SetUpTest(c)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
 }
 
 var _ = gc.Suite(&ResolvedSuite{})
@@ -117,10 +121,7 @@ func (s *ResolvedSuite) TestBlockResolved(c *gc.C) {
 	}
 
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.BlockAllChanges(c, "TestBlockResolved")
 	err = runResolved(c, []string{"dummy/2"})
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	s.AssertBlocked(c, err, ".*TestBlockResolved.*")
 }
