@@ -351,11 +351,12 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 			if charmStorage.CountMin <= 0 {
 				continue
 			}
-			if charmStorage.Type == charm.StorageBlock {
+			if charmStorage.Type != charm.StorageFilesystem {
 				// TODO(axw) clarify what the rules are for "block" kind when
 				// no constraints are specified. For "filesystem" we use rootfs.
 				return errors.Errorf(
-					"no constraints specified for block charm storage %q",
+					"no constraints specified for %v charm storage %q",
+					charmStorage.Type,
 					store,
 				)
 			}
