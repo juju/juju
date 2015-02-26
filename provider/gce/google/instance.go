@@ -167,7 +167,8 @@ func (gi Instance) Status() string {
 	return gi.InstanceSummary.Status
 }
 
-type instGetter interface {
+// InstGetter exposes the Connection functionality needed by refresh.
+type InstGetter interface {
 	// Instance gets the up-to-date info about the given instance
 	// and returns it.
 	Instance(id, zone string) (Instance, error)
@@ -175,7 +176,7 @@ type instGetter interface {
 
 // Refresh updates the instance with its current data, utilizing the
 // provided connection to request it.
-func (gi *Instance) Refresh(conn instGetter) error {
+func (gi *Instance) Refresh(conn InstGetter) error {
 	updated, err := conn.Instance(gi.ID, gi.ZoneName)
 	if err != nil {
 		return errors.Trace(err)
