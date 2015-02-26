@@ -313,7 +313,7 @@ func (s *prepareSuite) TestRetryingOnAllocateAddressFailure(c *gc.C) {
 	var addresses []string
 	origSetAddrState := *provisioner.SetAddrState
 	s.PatchValue(provisioner.SetAddrState, func(ip *state.IPAddress, st state.AddressState) error {
-		c.Logf("setAddrState called for address %q, state %q", ip, st)
+		c.Logf("setAddrState called for address %q, state %q", ip.String(), st)
 		c.Assert(st, gc.Equals, state.AddressStateUnavailable)
 		addresses = append(addresses, ip.Value())
 
@@ -379,7 +379,7 @@ func (s *prepareSuite) TestReleaseAndCleanupWhenAllocateAndOrSetFail(c *gc.C) {
 	// are called along with the addresses to verify the logs later.
 	var allocAttemptedAddrs, allocAddrsOK, setAddrs, releasedAddrs []string
 	s.PatchValue(provisioner.AllocateAddrTo, func(ip *state.IPAddress, m *state.Machine) error {
-		c.Logf("allocateAddrTo called for address %q, machine %q", ip, m)
+		c.Logf("allocateAddrTo called for address %q, machine %q", ip.String(), m)
 		c.Assert(m.Id(), gc.Equals, container.Id())
 		allocAttemptedAddrs = append(allocAttemptedAddrs, ip.Value())
 
@@ -392,13 +392,13 @@ func (s *prepareSuite) TestReleaseAndCleanupWhenAllocateAndOrSetFail(c *gc.C) {
 		return errors.New("crash!")
 	})
 	s.PatchValue(provisioner.SetAddrsTo, func(ip *state.IPAddress, m *state.Machine) error {
-		c.Logf("setAddrsTo called for address %q, machine %q", ip, m)
+		c.Logf("setAddrsTo called for address %q, machine %q", ip.String(), m)
 		c.Assert(m.Id(), gc.Equals, container.Id())
 		setAddrs = append(setAddrs, ip.Value())
 		return errors.New("boom!")
 	})
 	s.PatchValue(provisioner.SetAddrState, func(ip *state.IPAddress, st state.AddressState) error {
-		c.Logf("setAddrState called for address %q, state %q", ip, st)
+		c.Logf("setAddrState called for address %q, state %q", ip.String(), st)
 		c.Assert(st, gc.Equals, state.AddressStateUnavailable)
 		releasedAddrs = append(releasedAddrs, ip.Value())
 		return nil
@@ -462,13 +462,13 @@ func (s *prepareSuite) TestReleaseAndRetryWhenSetOnlyFails(c *gc.C) {
 	args := s.makeArgs(container)
 
 	s.PatchValue(provisioner.SetAddrsTo, func(ip *state.IPAddress, m *state.Machine) error {
-		c.Logf("setAddrsTo called for address %q, machine %q", ip, m)
+		c.Logf("setAddrsTo called for address %q, machine %q", ip.String(), m)
 		c.Assert(m.Id(), gc.Equals, container.Id())
 		c.Assert(ip.Value(), gc.Equals, "0.10.0.10")
 		return errors.New("boom!")
 	})
 	s.PatchValue(provisioner.SetAddrState, func(ip *state.IPAddress, st state.AddressState) error {
-		c.Logf("setAddrState called for address %q, state %q", ip, st)
+		c.Logf("setAddrState called for address %q, state %q", ip.String(), st)
 		c.Assert(st, gc.Equals, state.AddressStateUnavailable)
 		c.Assert(ip.Value(), gc.Equals, "0.10.0.10")
 		return errors.New("pow!")
