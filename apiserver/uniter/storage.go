@@ -167,6 +167,7 @@ func (s *StorageAPI) watchOneUnitStorageAttachments(tag string, canAccess func(n
 	return nothing, watcher.EnsureErr(watch)
 }
 
+// WatchUnitStorageAttachments creates watchers for a collection of storage attachments.
 func (s *StorageAPI) WatchStorageAttachments(args params.StorageAttachmentIds) (params.NotifyWatchResults, error) {
 	canAccess, err := s.accessUnit()
 	if err != nil {
