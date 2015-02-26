@@ -29,13 +29,14 @@ import (
 
 type DeploySuite struct {
 	testing.RepoSuite
-	CmdBlockSwitch
+	CmdBlockHelper
 }
 
 func (s *DeploySuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
-	c.Assert(s.CmdBlockSwitch, gc.NotNil)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
+	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
 
 var _ = gc.Suite(&DeploySuite{})

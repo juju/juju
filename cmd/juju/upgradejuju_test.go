@@ -36,12 +36,11 @@ import (
 type UpgradeJujuSuite struct {
 	jujutesting.JujuConnSuite
 
-	//	blockClient *block.API
 	resources  *common.Resources
 	authoriser apiservertesting.FakeAuthorizer
 
 	toolsDir string
-	CmdBlockSwitch
+	CmdBlockHelper
 }
 
 func (s *UpgradeJujuSuite) SetUpTest(c *gc.C) {
@@ -51,9 +50,9 @@ func (s *UpgradeJujuSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 
-	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
-	c.Assert(s.CmdBlockSwitch, gc.NotNil)
-
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
+	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
 
 var _ = gc.Suite(&UpgradeJujuSuite{})

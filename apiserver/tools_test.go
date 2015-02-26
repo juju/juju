@@ -33,7 +33,7 @@ import (
 
 type toolsSuite struct {
 	authHttpSuite
-	commontesting.BlockSwitch
+	commontesting.BlockHelper
 }
 
 var _ = gc.Suite(&toolsSuite{})
@@ -45,7 +45,8 @@ func (s *toolsSuite) SetUpSuite(c *gc.C) {
 
 func (s *toolsSuite) SetUpTest(c *gc.C) {
 	s.authHttpSuite.SetUpTest(c)
-	s.BlockSwitch = commontesting.NewBlockSwitch(s.APIState)
+	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
 func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {

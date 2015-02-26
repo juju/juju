@@ -24,7 +24,7 @@ type userManagerSuite struct {
 	authorizer  apiservertesting.FakeAuthorizer
 	adminName   string
 
-	commontesting.BlockSwitch
+	commontesting.BlockHelper
 }
 
 var _ = gc.Suite(&userManagerSuite{})
@@ -41,7 +41,8 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.BlockSwitch = commontesting.NewBlockSwitch(s.APIState)
+	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
 func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {

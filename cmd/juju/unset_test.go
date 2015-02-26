@@ -20,7 +20,7 @@ import (
 
 type UnsetSuite struct {
 	testing.JujuConnSuite
-	CmdBlockSwitch
+	CmdBlockHelper
 	svc *state.Service
 	dir string
 }
@@ -35,8 +35,9 @@ func (s *UnsetSuite) SetUpTest(c *gc.C) {
 	s.dir = c.MkDir()
 	setupConfigFile(c, s.dir)
 
-	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
-	c.Assert(s.CmdBlockSwitch, gc.NotNil)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
+	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
 
 func (s *UnsetSuite) TestUnsetOptionOneByOneSuccess(c *gc.C) {

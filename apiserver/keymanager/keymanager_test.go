@@ -29,7 +29,7 @@ type keyManagerSuite struct {
 	resources  *common.Resources
 	authoriser apiservertesting.FakeAuthorizer
 
-	commontesting.BlockSwitch
+	commontesting.BlockHelper
 }
 
 var _ = gc.Suite(&keyManagerSuite{})
@@ -46,7 +46,8 @@ func (s *keyManagerSuite) SetUpTest(c *gc.C) {
 	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.BlockSwitch = commontesting.NewBlockSwitch(s.APIState)
+	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
 func (s *keyManagerSuite) TestNewKeyManagerAPIAcceptsClient(c *gc.C) {

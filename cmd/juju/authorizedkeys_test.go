@@ -84,7 +84,7 @@ func (s *AuthorizedKeysSuite) TestHelpImport(c *gc.C) {
 
 type keySuiteBase struct {
 	jujutesting.JujuConnSuite
-	CmdBlockSwitch
+	CmdBlockHelper
 }
 
 func (s *keySuiteBase) SetUpSuite(c *gc.C) {
@@ -94,8 +94,9 @@ func (s *keySuiteBase) SetUpSuite(c *gc.C) {
 
 func (s *keySuiteBase) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.CmdBlockSwitch = NewCmdBlockSwitch(s.APIState)
-	c.Assert(s.CmdBlockSwitch, gc.NotNil)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
+	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
 
 func (s *keySuiteBase) setAuthorizedKeys(c *gc.C, keys ...string) {

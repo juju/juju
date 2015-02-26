@@ -44,6 +44,7 @@ func (s *blockCheckerSuite) SetUpTest(c *gc.C) {
 	s.remove = mockBlock{t: state.RemoveBlock, m: "Mock BLOCK testing: REMOVE"}
 	s.change = mockBlock{t: state.ChangeBlock, m: "Mock BLOCK testing: CHANGE"}
 	s.blockchecker = common.NewBlockChecker(s)
+	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
 func (mock *blockCheckerSuite) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
