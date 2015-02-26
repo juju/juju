@@ -40,6 +40,17 @@ FULL = 'full'
 BACKUP = 'backup'
 UPGRADE = 'upgrade'
 
+class StageInfo:
+
+    def __init__(self, test_id, title, report_on=True):
+        self.test_id = test_id
+        self.title = title
+        self.report_on = report_on
+
+    def as_tuple(self):
+        return (self.test_id, {
+            'title': self.title, 'report_on': self.report_on})
+
 
 class MultiIndustrialTest:
     """Run IndustrialTests until desired number of results are achieved.
@@ -325,6 +336,11 @@ class SteppedStageAttempt:
                 cls.get_test_info()[old_result['test_id']]['title'],
                 *result_strings))
             yield (old_result['test_id'],) + results
+
+    @classmethod
+    def get_test_info(cls):
+        """Default implementation uses get_stage_info."""
+        return OrderedDict(si.as_tuple() for si in cls.get_stage_info())
 
     def iter_test_results(self, old, new):
         """Iterate through the results for this operation for both clients."""

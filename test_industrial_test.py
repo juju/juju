@@ -1,6 +1,7 @@
 __metaclass__ = type
 
 from argparse import Namespace
+from collections import OrderedDict
 from contextlib import contextmanager
 import os
 from tempfile import NamedTemporaryFile
@@ -33,6 +34,7 @@ from industrial_test import (
     MultiIndustrialTest,
     parse_args,
     QUICK,
+    StageInfo,
     SteppedStageAttempt,
     UpgradeJujuAttempt,
     )
@@ -932,6 +934,19 @@ class TestSteppedStageAttempt(TestCase):
 
         self.assertIs(type(StubSA.factory(['a', 'b', 'c'])), StubSA)
 
+    def test_get_test_info(self):
+
+        class StubSA(SteppedStageAttempt):
+
+            @staticmethod
+            def get_stage_info():
+                return [StageInfo('foo-id', 'Foo title'),
+                        StageInfo('bar-id', 'Bar title', report_on=False)]
+
+        self.assertEqual(StubSA.get_test_info(), OrderedDict([
+            ('foo-id', {'title': 'Foo title', 'report_on': True}),
+            ('bar-id', {'title': 'Bar title', 'report_on': False})]))
+
 
 class FakeEnvJujuClient(EnvJujuClient):
 
@@ -1605,3 +1620,25 @@ class TestMakeSubstrate(TestCase):
                          'iter_instance_security_groups']
                 ) as substrate:
             self.assertIs(type(substrate), AWSAccount)
+
+
+class TestStageInfo(TestCase):
+
+    def test_ctor(self):
+        si = StageInfo('foo-id', 'Foo title')
+        self.assertEqual(si.test_id, 'foo-id')
+        self.assertEqual(si.title, 'Foo title')
+        self.assertEqual(si.report_on, True)
+
+        si = StageInfo('foo-id', 'Foo title', False)
+        self.assertEqual(si.report_on, False)
+
+    def test_as_tuple(self):
+        si = StageInfo('foo-id', 'Foo title')
+        self.assertEqual(
+            si.as_tuple(),
+            ('foo-id', {'title': 'Foo title', 'report_on': True}))
+        si = StageInfo('bar-id', 'Bar title', False)
+        self.assertEqual(
+            si.as_tuple(),
+            ('bar-id', {'title': 'Bar title', 'report_on': False}))
