@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2/bson"
@@ -194,9 +195,9 @@ func fromNetworkAddress(netAddr network.Address) address {
 	}
 }
 
-// NetworkAddress is a convenience helper to return the state type
+// networkAddress is a convenience helper to return the state type
 // as network type, here for Address.
-func (addr *address) NetworkAddress() network.Address {
+func (addr *address) networkAddress() network.Address {
 	return network.Address{
 		Value:       addr.Value,
 		Type:        network.AddressType(addr.AddressType),
@@ -220,7 +221,7 @@ func fromNetworkAddresses(netAddrs []network.Address) []address {
 func networkAddresses(addrs []address) []network.Address {
 	netAddrs := make([]network.Address, len(addrs))
 	for i, addr := range addrs {
-		netAddrs[i] = addr.NetworkAddress()
+		netAddrs[i] = addr.networkAddress()
 	}
 	return netAddrs
 }
@@ -293,31 +294,10 @@ func networkHostsPorts(hsps [][]hostPort) [][]network.HostPort {
 
 // addressEqual checks that two slices of network addresses are equal.
 func addressesEqual(a, b []network.Address) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i, addrA := range a {
-		if addrA != b[i] {
-			return false
-		}
-	}
-	return true
+	return reflect.DeepEqual(a, b)
 }
 
 // hostsPortsEqual checks that two arrays of network hostports are equal.
 func hostsPortsEqual(a, b [][]network.HostPort) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i, hpA := range a {
-		if len(hpA) != len(b[i]) {
-			return false
-		}
-		for j := range hpA {
-			if hpA[j] != b[i][j] {
-				return false
-			}
-		}
-	}
-	return true
+	return reflect.DeepEqual(a, b)
 }

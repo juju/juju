@@ -948,11 +948,11 @@ func mergedAddresses(machineAddresses, providerAddresses []address) []network.Ad
 			continue
 		}
 		providerValues.Add(address.Value)
-		merged = append(merged, address.NetworkAddress())
+		merged = append(merged, address.networkAddress())
 	}
 	for _, address := range machineAddresses {
 		if !providerValues.Contains(address.Value) {
-			merged = append(merged, address.NetworkAddress())
+			merged = append(merged, address.networkAddress())
 		}
 	}
 	return merged
@@ -982,7 +982,7 @@ func (m *Machine) SetAddresses(addresses ...network.Address) (err error) {
 // determined by asking the machine itself.
 func (m *Machine) MachineAddresses() (addresses []network.Address) {
 	for _, address := range m.doc.MachineAddresses {
-		addresses = append(addresses, address.NetworkAddress())
+		addresses = append(addresses, address.networkAddress())
 	}
 	return
 }
