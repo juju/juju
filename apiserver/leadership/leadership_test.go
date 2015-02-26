@@ -155,8 +155,6 @@ func (s *leadershipSuite) TestClaimLeadershipBadService(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	// TODO(fwereade): this is completely wrong, but *every* instance of this
-	// code is completely wrong, not letting myself get derailed here.
 	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
@@ -173,8 +171,6 @@ func (s *leadershipSuite) TestClaimLeadershipBadUnit(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	// TODO(fwereade): this is completely wrong, but *every* instance of this
-	// code is completely wrong, not letting myself get derailed here.
 	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 

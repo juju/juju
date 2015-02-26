@@ -92,7 +92,7 @@ func (t *tracker) ServiceName() string {
 }
 
 func (t *tracker) loop() error {
-	logger.Infof("making initial claim")
+	logger.Infof("%s making initial claim for %s leadership", t.unitName, t.serviceName)
 	if err := t.refresh(); err != nil {
 		return errors.Trace(err)
 	}
@@ -101,17 +101,17 @@ func (t *tracker) loop() error {
 		case <-t.tomb.Dying():
 			return tomb.ErrDying
 		case <-t.claimLease:
-			logger.Infof("claiming lease")
+			logger.Infof("%s claiming lease for %s leadership", t.unitName, t.serviceName)
 			if err := t.refresh(); err != nil {
 				return errors.Trace(err)
 			}
 		case <-t.renewLease:
-			logger.Infof("renewing lease")
+			logger.Infof("%s renewing lease for %s leadership", t.unitName, t.serviceName)
 			if err := t.refresh(); err != nil {
 				return errors.Trace(err)
 			}
 		case ticket := <-t.claimTickets:
-			logger.Infof("got claim request")
+			logger.Infof("%s got claim request for %s leadership", t.unitName, t.serviceName)
 			if err := t.resolveClaim(ticket); err != nil {
 				return errors.Trace(err)
 			}
@@ -122,7 +122,7 @@ func (t *tracker) loop() error {
 // refresh makes a leadership request, and updates tracker state to conform to
 // latest known reality.
 func (t *tracker) refresh() error {
-	logger.Infof("checking leadership...")
+	logger.Infof("checking %s for %s leadership", t.unitName, t.serviceName)
 	untilTime := time.Now().Add(t.leaseDuration)
 	err := t.leadership.ClaimLeadership(t.serviceName, t.unitName, t.leaseDuration)
 	switch {
@@ -136,11 +136,11 @@ func (t *tracker) refresh() error {
 	return nil
 }
 
-// setLeader arranges for lease renewal .
+// setLeader arranges for lease renewal.
 func (t *tracker) setLeader(untilTime time.Time) {
-	logger.Infof("leadership confirmed until %s", untilTime)
+	logger.Infof("%s confirmed for %s leadership until %s", t.unitName, t.serviceName, untilTime)
 	renewTime := untilTime.Add(t.overlapDuration)
-	logger.Infof("will renew at %s", renewTime)
+	logger.Infof("%s will renew %s leadership at %s", t.unitName, t.serviceName, renewTime)
 	t.isMinion = false
 	t.claimLease = nil
 	t.renewLease = time.After(renewTime.Sub(time.Now()))
@@ -148,13 +148,13 @@ func (t *tracker) setLeader(untilTime time.Time) {
 
 // setMinion arranges for lease acquisition when there's an opportunity.
 func (t *tracker) setMinion() {
-	logger.Infof("leadership denied")
+	logger.Infof("%s leadership for %s denied")
 	t.isMinion = true
 	t.renewLease = nil
 	if t.claimLease == nil {
 		t.claimLease = make(chan struct{})
 		go func() {
-			logger.Infof("waiting for leadership release")
+			logger.Infof("%s waiting for %s leadership release", t.unitName, t.serviceName)
 			t.leadership.BlockUntilLeadershipReleased(t.serviceName)
 			close(t.claimLease)
 		}()
@@ -164,7 +164,7 @@ func (t *tracker) setMinion() {
 // resolveClaim will send true on the supplied channel if leadership can be
 // successfully verified, and will always close it whether or not it sent.
 func (t *tracker) resolveClaim(ticket chan bool) error {
-	logger.Infof("checking leadership ticket...")
+	logger.Infof("resolving %s leadership ticket for %s...", t.serviceName, t.unitName)
 	defer close(ticket)
 	if !t.isMinion {
 		// Last time we looked, we were leader.
@@ -172,20 +172,20 @@ func (t *tracker) resolveClaim(ticket chan bool) error {
 		case <-t.tomb.Dying():
 			return tomb.ErrDying
 		case <-t.renewLease:
-			logger.Infof("renewing lease")
+			logger.Infof("%s renewing lease for %s leadership", t.unitName, t.serviceName)
 			t.renewLease = nil
 			if err := t.refresh(); err != nil {
 				return errors.Trace(err)
 			}
 		default:
-			logger.Infof("still leader")
+			logger.Infof("%s still has %s leadership", t.unitName, t.serviceName)
 		}
 	}
 	if t.isMinion {
-		logger.Infof("not leader")
+		logger.Infof("%s is not %s leader", t.unitName, t.serviceName)
 		return nil
 	}
-	logger.Infof("confirming leadership ticket")
+	logger.Infof("confirming %s leadership for %s", t.serviceName, t.unitName)
 	return t.confirm(ticket)
 }
 
