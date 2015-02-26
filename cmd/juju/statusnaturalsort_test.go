@@ -73,6 +73,14 @@ func (s *naturalSortSuite) TestNaturallySeveralNumericParts(c *gc.C) {
 	)
 }
 
+func (s *naturalSortSuite) TestNaturallyFoo(c *gc.C) {
+	s.assertNaturallySort(
+		c,
+		[]string{"foo2", "foo01"},
+		[]string{"foo01", "foo2"},
+	)
+}
+
 func (s *naturalSortSuite) TestNaturallyDecimalFractions(c *gc.C) {
 	s.assertNaturallySort(
 		c,
