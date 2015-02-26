@@ -79,22 +79,25 @@ func (s *StorageAPI) getOneUnitStorageAttachments(canAccess common.AuthFunc, uni
 }
 
 func (s *StorageAPI) fromStateStorageAttachment(stateStorageAttachment state.StorageAttachment) (params.StorageAttachment, error) {
-	info, err := stateStorageAttachment.Info()
-	if err != nil {
-		return params.StorageAttachment{}, err
-	}
-	stateStorageInstance, err := s.st.StorageInstance(stateStorageAttachment.StorageInstance())
-	if err != nil {
-		return params.StorageAttachment{}, err
-	}
-	return params.StorageAttachment{
-		stateStorageAttachment.StorageInstance().String(),
-		stateStorageInstance.Owner().String(),
-		stateStorageAttachment.Unit().String(),
-		params.StorageKind(stateStorageInstance.Kind()),
-		info.Location,
-		params.Life(stateStorageAttachment.Life().String()),
-	}, nil
+	/*
+		info, err := stateStorageAttachment.Info()
+		if err != nil {
+			return params.StorageAttachment{}, err
+		}
+		stateStorageInstance, err := s.st.StorageInstance(stateStorageAttachment.StorageInstance())
+		if err != nil {
+			return params.StorageAttachment{}, err
+		}
+		return params.StorageAttachment{
+			stateStorageAttachment.StorageInstance().String(),
+			stateStorageInstance.Owner().String(),
+			stateStorageAttachment.Unit().String(),
+			params.StorageKind(stateStorageInstance.Kind()),
+			info.Location,
+			params.Life(stateStorageAttachment.Life().String()),
+		}, nil
+	*/
+	panic("unimplemented")
 }
 
 // StorageAttachments returns the storage attachments with the specified tags.

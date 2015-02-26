@@ -1308,11 +1308,6 @@ func (st *State) WatchAPIHostPorts() NotifyWatcher {
 	return newEntityWatcher(st, stateServersC, apiHostPortsKey)
 }
 
-func (st *State) WatchStorageAttachment(storage names.StorageTag, unit names.UnitTag) NotifyWatcher {
-	docID := st.docID(storageAttachmentId(unit.Id(), storage.Id()))
-	return newEntityWatcher(st, storageAttachmentsC, docID)
-}
-
 // WatchConfigSettings returns a watcher for observing changes to the
 // unit's service configuration settings. The unit must have a charm URL
 // set before this method is called, and the returned watcher will be

@@ -4,7 +4,6 @@
 package state_test
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/featureflag"
@@ -211,8 +210,6 @@ func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			count[storageInstance.StorageName()]++
 			c.Assert(storageInstance.Kind(), gc.Equals, state.StorageKindBlock)
-			_, err = storageInstance.Info()
-			c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 		}
 		c.Assert(count, gc.DeepEquals, map[string]int{
 			"multi1to10": 1,
