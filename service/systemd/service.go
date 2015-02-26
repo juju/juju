@@ -34,11 +34,11 @@ func ListServices() ([]string, error) {
 
 	var services []string
 	for _, unit := range units {
-		// TODO(ericsnow) Will the unit names really always end with .service?
-		if !strings.HasSuffix(unit.Name, ".service") {
+		name := unit.Name
+		if !strings.HasSuffix(name, ".service") {
 			continue
 		}
-		name := strings.TrimSuffix(unit.Name, ".service")
+		name = strings.TrimSuffix(name, ".service")
 		services = append(services, name)
 	}
 	return services, nil
@@ -287,9 +287,8 @@ func (s *Service) Remove() error {
 	}
 	defer conn.Close()
 
-	// TODO(ericsnow) We may need the original file name (or make sure
-	// the unit conf is on the systemd search path.
-	_, err = conn.DisableUnitFiles([]string{s.UnitName}, false)
+	runtime := false
+	_, err = conn.DisableUnitFiles([]string{s.UnitName}, runtime)
 	if err != nil {
 		return errors.Trace(err)
 	}
