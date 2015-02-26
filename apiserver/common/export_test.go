@@ -4,11 +4,10 @@
 package common
 
 var (
-	ValidateNewFacade  = validateNewFacade
-	WrapNewFacade      = wrapNewFacade
-	NilFacadeRecord    = facadeRecord{}
-	EnvtoolsFindTools  = &envtoolsFindTools
-	IsOperationBlocked = isOperationBlocked
+	ValidateNewFacade = validateNewFacade
+	WrapNewFacade     = wrapNewFacade
+	NilFacadeRecord   = facadeRecord{}
+	EnvtoolsFindTools = &envtoolsFindTools
 )
 
 type Patcher interface {
