@@ -5,7 +5,6 @@ from contextlib import (
 )
 import logging
 import os
-import re
 import subprocess
 import sys
 from time import sleep
@@ -493,13 +492,3 @@ def get_libvirt_domstate(URI, domain):
     except subprocess.CalledProcessError:
         raise Exception('%s failed' % command)
     return sub_output
-
-
-def get_maas_ip_from_name(server_url, host):
-    match = re.match('http://(\d+\.\d+\.\d+\.\d+)/MAAS/',
-                     server_url)
-    if match is not None:
-        maas_ip = match.groups()[0]
-        command = ['dig', '@' + maas_ip, host, '+short']
-        host = subprocess.check_output(command)
-        return host.splitlines().pop()
