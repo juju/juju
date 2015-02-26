@@ -38,16 +38,15 @@ var (
 	ToolstorageNewStorage  = &toolstorageNewStorage
 	ImageStorageNewStorage = &imageStorageNewStorage
 	MachineIdLessThan      = machineIdLessThan
-	// FromNetworkAddress     = fromNetworkAddress
-	StateServerAvailable = &stateServerAvailable
-	GetOrCreatePorts     = getOrCreatePorts
-	GetPorts             = getPorts
-	PortsGlobalKey       = portsGlobalKey
-	CurrentUpgradeId     = currentUpgradeId
-	NowToTheSecond       = nowToTheSecond
-	MultiEnvCollections  = multiEnvCollections
-	PickAddress          = &pickAddress
-	AddVolumeOp          = (*State).addVolumeOp
+	StateServerAvailable   = &stateServerAvailable
+	GetOrCreatePorts       = getOrCreatePorts
+	GetPorts               = getPorts
+	PortsGlobalKey         = portsGlobalKey
+	CurrentUpgradeId       = currentUpgradeId
+	NowToTheSecond         = nowToTheSecond
+	MultiEnvCollections    = multiEnvCollections
+	PickAddress            = &pickAddress
+	AddVolumeOp            = (*State).addVolumeOp
 )
 
 type (
