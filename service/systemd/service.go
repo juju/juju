@@ -4,7 +4,6 @@
 package systemd
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -387,16 +386,20 @@ var createFile = func(filename string, data []byte, perm os.FileMode) error {
 
 // InstallCommands implements Service.
 func (s *Service) InstallCommands() ([]string, error) {
+	name := s.Name()
+	dirname := "/tmp"
+
 	data, err := serialize(s.UnitName, s.Service.Conf)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	commands := []string{
-		fmt.Sprintf("cat >> /tmp/%s << 'EOF'\n%sEOF\n", s.ConfName, data),
-		// TODO(ericsnow) "Link" the unit file first?
-		//  "systemd link /tmp/" + s.ConfName,
-		"systemd start /tmp/" + s.ConfName,
+	cmds := commands{executable}
+	cmdList := []string{
+		cmds.writeFile(name, dirname, data),
+		cmds.link(name, dirname),
+		cmds.enable(name),
+		cmds.start(name),
 	}
-	return commands, nil
+	return cmdList, nil
 }

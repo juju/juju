@@ -678,7 +678,9 @@ func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 
 	content := s.newConfStr("jujud-machine-0", "")
 	c.Check(commands, jc.DeepEquals, []string{
-		"cat >> /tmp/jujud-machine-0.service << 'EOF'\n" + content + "EOF\n",
-		"systemd start /tmp/jujud-machine-0.service",
+		"cat >> /tmp/jujud-machine-0.service << 'EOF'\n" + content + "EOF",
+		"/bin/systemctl link /tmp/jujud-machine-0.service",
+		"/bin/systemctl enable jujud-machine-0.service",
+		"/bin/systemctl start jujud-machine-0.service",
 	})
 }
