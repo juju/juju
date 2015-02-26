@@ -440,6 +440,15 @@ func (st *State) StorageAttachments(unit names.UnitTag) ([]StorageAttachment, er
 	return storageAttachments, nil
 }
 
+// StorageAttachment returns the StorageAttachment wit hthe specified tags.
+func (st *State) StorageAttachment(storage names.StorageTag, unit names.UnitTag) (StorageAttachment, error) {
+	att, err := st.storageAttachment(storage, unit)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return att, nil
+}
+
 func (st *State) storageAttachment(storage names.StorageTag, unit names.UnitTag) (*storageAttachment, error) {
 	coll, closer := st.getCollection(storageAttachmentsC)
 	defer closer()
