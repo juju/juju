@@ -42,9 +42,6 @@ const (
 	apiVersion = "1.0"
 )
 
-// Ensure maasEnviron supports environs.NetworkingEnviron.
-var _ environs.NetworkingEnviron = (*maasEnviron)(nil)
-
 // A request may fail to due "eventual consistency" semantics, which
 // should resolve fairly quickly.  A request may also fail due to a slow
 // state transition (for instance an instance taking a while to release
