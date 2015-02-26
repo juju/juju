@@ -35,6 +35,10 @@ func NewAvailabilityZone(zone *compute.Zone) AvailabilityZone {
 	return AvailabilityZone{zone: zone}
 }
 
+func GetInstanceSpec(inst *Instance) *InstanceSpec {
+	return inst.spec
+}
+
 // TODO(ericsnow) Elimiinate this.
 func SetInstanceSpec(inst *Instance, spec *InstanceSpec) {
 	inst.spec = spec

@@ -120,6 +120,7 @@ func newInstanceSummary(raw *compute.Instance) InstanceSummary {
 type Instance struct {
 	InstanceSummary
 
+	// spec is the InstanceSpec used to create this instance.
 	spec *InstanceSpec
 }
 
@@ -140,11 +141,6 @@ func NewInstance(summary InstanceSummary, spec *InstanceSpec) *Instance {
 		InstanceSummary: summary,
 		spec:            spec,
 	}
-}
-
-// Spec returns the spec that was used to create this instance.
-func (gi Instance) Spec() *InstanceSpec {
-	return gi.spec
 }
 
 // RootDisk returns an AttachedDisk

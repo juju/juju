@@ -25,19 +25,15 @@ func (s *instanceSuite) TestNewInstance(c *gc.C) {
 	c.Check(inst.Status(), gc.Equals, google.StatusRunning)
 	c.Check(inst.Metadata(), jc.DeepEquals, s.Metadata)
 	c.Check(inst.Addresses(), jc.DeepEquals, s.Addresses)
-	c.Check(inst.Spec(), jc.DeepEquals, &s.InstanceSpec)
+	spec := google.GetInstanceSpec(inst)
+	c.Check(spec, jc.DeepEquals, &s.InstanceSpec)
 }
 
 func (s *instanceSuite) TestNewInstanceNoSpec(c *gc.C) {
 	inst := google.NewInstanceRaw(&s.RawInstanceFull, nil)
 
-	c.Check(inst.Spec(), gc.IsNil)
-}
-
-func (s *instanceSuite) TestInstanceSpec(c *gc.C) {
-	spec := s.Instance.Spec()
-
-	c.Check(spec, gc.Equals, &s.InstanceSpec)
+	spec := google.GetInstanceSpec(inst)
+	c.Check(spec, gc.IsNil)
 }
 
 func (s *instanceSuite) TestInstanceRootDiskGB(c *gc.C) {
@@ -69,10 +65,10 @@ func (s *instanceSuite) TestInstanceStatusDown(c *gc.C) {
 func (s *instanceSuite) TestInstanceRefresh(c *gc.C) {
 	s.FakeConn.Instance = &s.RawInstanceFull
 
-	specBefore := s.Instance.Spec()
+	specBefore := google.GetInstanceSpec(&s.Instance)
 	err := s.Instance.Refresh(s.Conn)
 	c.Assert(err, jc.ErrorIsNil)
-	specAfter := s.Instance.Spec()
+	specAfter := google.GetInstanceSpec(&s.Instance)
 
 	c.Check(s.Instance.ID, gc.Equals, "spam")
 	c.Check(s.Instance.ZoneName, gc.Equals, "a-zone")

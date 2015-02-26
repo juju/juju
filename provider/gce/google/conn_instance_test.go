@@ -56,7 +56,8 @@ func (s *instanceSuite) TestConnectionAddInstance(c *gc.C) {
 	c.Check(inst.Status(), gc.Equals, google.StatusRunning)
 	c.Check(inst.Metadata(), jc.DeepEquals, s.Metadata)
 	c.Check(inst.Addresses(), jc.DeepEquals, s.Addresses)
-	c.Check(inst.Spec(), gc.DeepEquals, &s.InstanceSpec)
+	spec := google.GetInstanceSpec(inst)
+	c.Check(spec, gc.DeepEquals, &s.InstanceSpec)
 }
 
 func (s *instanceSuite) TestConnectionAddInstanceAPI(c *gc.C) {
@@ -156,7 +157,8 @@ func (s *connSuite) TestConnectionInstance(c *gc.C) {
 	c.Check(inst.Status(), gc.Equals, google.StatusRunning)
 	c.Check(inst.Metadata(), jc.DeepEquals, s.Metadata)
 	c.Check(inst.Addresses(), jc.DeepEquals, s.Addresses)
-	c.Check(inst.Spec(), gc.IsNil)
+	spec := google.GetInstanceSpec(&inst)
+	c.Check(spec, gc.IsNil)
 }
 
 func (s *connSuite) TestConnectionInstanceAPI(c *gc.C) {
