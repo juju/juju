@@ -37,6 +37,8 @@ WantedBy=multi-user.target
 
 `
 
+const jujud = "/var/lib/juju/bin/jujud"
+
 type initSystemSuite struct {
 	coretesting.BaseSuite
 
@@ -76,7 +78,7 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 	s.name = "jujud-" + tagStr
 	s.conf = common.Conf{
 		Desc:      "juju agent for " + tagStr,
-		ExecStart: "jujud " + tagStr,
+		ExecStart: jujud + " " + tagStr,
 	}
 	s.service, err = systemd.NewService(s.name, s.conf)
 	c.Assert(err, jc.ErrorIsNil)
@@ -88,7 +90,7 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 func (s *initSystemSuite) newConfStr(name, cmd string) string {
 	tag := name[len("jujud-"):]
 	if cmd == "" {
-		cmd = "jujud " + tag
+		cmd = jujud + " " + tag
 	}
 	return fmt.Sprintf(confStr[1:], tag, cmd)
 }
@@ -188,8 +190,8 @@ func (s *initSystemSuite) TestNewService(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestUpdateConfig(c *gc.C) {
-	s.conf.ExecStart = "<some other command>"
-	c.Assert(s.service.Service.Conf.ExecStart, gc.Equals, "jujud machine-0")
+	s.conf.ExecStart = "/path/to/some/other/command"
+	c.Assert(s.service.Service.Conf.ExecStart, gc.Equals, jujud+" machine-0")
 
 	s.service.UpdateConfig(s.conf)
 
@@ -206,11 +208,12 @@ func (s *initSystemSuite) TestUpdateConfig(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestUpdateConfigExtraScript(c *gc.C) {
-	s.conf.ExtraScript = "<some other command>"
+	s.conf.ExtraScript = "/path/to/another/command"
 
 	s.service.UpdateConfig(s.conf)
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
+	script := "/path/to/another/command\n" + jujud + " machine-0"
 	c.Check(s.service, jc.DeepEquals, &systemd.Service{
 		Service: common.Service{
 			Name: s.name,
@@ -222,8 +225,9 @@ func (s *initSystemSuite) TestUpdateConfigExtraScript(c *gc.C) {
 		UnitName: s.name + ".service",
 		ConfName: s.name + ".service",
 		Dirname:  dirname,
-		Script:   []byte("<some other command>\njujud machine-0"),
+		Script:   []byte(script),
 	})
+	c.Check(string(s.service.Script), gc.Equals, script)
 	s.stub.CheckCalls(c, nil)
 }
 

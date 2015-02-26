@@ -62,12 +62,17 @@ func validate(name string, conf common.Conf) error {
 	if name == "" {
 		return errors.NotValidf("missing service name")
 	}
+
 	if conf.ExecStart == "" {
-		return errors.NotValidf("missing cmd")
+		return errors.NotValidf("missing ExecStart")
+	} else if !strings.HasPrefix(conf.ExecStart, "/") {
+		return errors.NotValidf("relative path in ExecStart")
 	}
+
 	if conf.ExtraScript != "" {
 		return errors.NotValidf("unexpected ExtraScript")
 	}
+
 	if conf.Out != "" && conf.Out != "syslog" {
 		return errors.NotValidf("conf.Out value %q (Options are syslog)", conf.Out)
 	}
@@ -92,6 +97,10 @@ func validate(name string, conf common.Conf) error {
 	if conf.ExecStopPost != "" {
 		// TODO(ericsnow) This needs to be sorted out.
 		return errors.NotSupportedf("Conf.ExecStopPost")
+
+		if !strings.HasPrefix(conf.ExecStopPost, "/") {
+			return errors.NotValidf("relative path in ExecStopPost")
+		}
 	}
 
 	return nil

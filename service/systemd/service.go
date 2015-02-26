@@ -373,9 +373,6 @@ var createFile = func(filename string, data []byte, perm os.FileMode) error {
 
 // InstallCommands implements Service.
 func (s *Service) InstallCommands() ([]string, error) {
-	//remote := NewService(s.Service.Name, s.Service.Conf)
-	//remote.Dirname = ioutil.TempDir("", "juju-systemd-remote-")
-
 	data, err := serialize(s.UnitName, s.Service.Conf)
 	if err != nil {
 		return nil, errors.Trace(err)
