@@ -97,11 +97,13 @@ func (t *tracker) loop() error {
 			return tomb.ErrDying
 		case <-t.claimLease:
 			logger.Infof("%s claiming lease for %s leadership", t.unitName, t.serviceName)
+			t.claimLease = nil
 			if err := t.refresh(); err != nil {
 				return errors.Trace(err)
 			}
 		case <-t.renewLease:
 			logger.Infof("%s renewing lease for %s leadership", t.unitName, t.serviceName)
+			t.renewLease = nil
 			if err := t.refresh(); err != nil {
 				return errors.Trace(err)
 			}
@@ -143,7 +145,7 @@ func (t *tracker) setLeader(untilTime time.Time) {
 
 // setMinion arranges for lease acquisition when there's an opportunity.
 func (t *tracker) setMinion() {
-	logger.Infof("%s leadership for %s denied")
+	logger.Infof("%s leadership for %s denied", t.serviceName, t.unitName)
 	t.isMinion = true
 	t.renewLease = nil
 	if t.claimLease == nil {
