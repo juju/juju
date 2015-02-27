@@ -37,6 +37,7 @@ import (
 	instancetest "github.com/juju/juju/instance/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/service"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -796,7 +797,7 @@ lxc.network.mtu = 4321
 }
 
 func (s *LxcSuite) TestShutdownInitScript(c *gc.C) {
-	script, err := lxc.ShutdownInitScript("upstart")
+	script, err := lxc.ShutdownInitScript(service.InitSystemUpstart)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(script, gc.Equals, `

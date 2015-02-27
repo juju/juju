@@ -11,6 +11,12 @@ import (
 	"github.com/juju/juju/version"
 )
 
+// These are the names of the init systems regognized by juju.
+const (
+	InitSystemWindows = "windows"
+	InitSystemUpstart = "upstart"
+)
+
 var _ Service = (*upstart.Service)(nil)
 var _ Service = (*windows.Service)(nil)
 
@@ -66,9 +72,9 @@ type Service interface {
 // NewService returns a new Service based on the provided info.
 func NewService(name string, conf common.Conf, initSystem string) (Service, error) {
 	switch initSystem {
-	case "windows":
+	case InitSystemWindows:
 		return windows.NewService(name, conf), nil
-	case "upstart":
+	case InitSystemUpstart:
 		return upstart.NewService(name, conf), nil
 	default:
 		return nil, errors.NotFoundf("init system %q", initSystem)
@@ -92,11 +98,11 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 func VersionInitSystem(vers version.Binary) string {
 	switch vers.OS {
 	case version.Windows:
-		return "windows"
+		return InitSystemWindows
 	case version.Ubuntu:
 		switch vers.Series {
 		case "precise", "quantal", "raring", "saucy", "trusty", "utopic":
-			return "upstart"
+			return InitSystemUpstart
 		default:
 			// vivid and later
 			return "systemd"
@@ -115,10 +121,10 @@ func ListServices(initDir string) ([]string, error) {
 	}
 
 	switch initName {
-	case "windows":
+	case InitSystemWindows:
 		services, err := windows.ListServices()
 		return services, errors.Trace(err)
-	case "upstart":
+	case InitSystemUpstart:
 		services, err := upstart.ListServices(initDir)
 		return services, errors.Trace(err)
 	default:
@@ -127,7 +133,7 @@ func ListServices(initDir string) ([]string, error) {
 }
 
 var linuxExecutables = map[string]string{
-	"/sbin/init": "upstart",
+	"/sbin/init": InitSystemUpstart,
 }
 
 // TODO(ericsnow) Is it too much to cat once for each executable?
@@ -163,9 +169,9 @@ func ListServicesCommand() string {
 
 func listServicesCommand(initSystem string) string {
 	switch initSystem {
-	case "windows":
+	case InitSystemWindows:
 		return windows.ListCommand()
-	case "upstart":
+	case InitSystemUpstart:
 		return upstart.ListCommand()
 	default:
 		return ""

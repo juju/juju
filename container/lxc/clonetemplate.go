@@ -82,7 +82,7 @@ func templateUserData(
 
 func containerInitSystem() string {
 	// TODO(ericsnow) Where to find it...
-	return "upstart"
+	return service.InitSystemUpstart
 }
 
 func shutdownInitScript(initSystem string) (string, error) {
