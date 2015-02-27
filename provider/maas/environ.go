@@ -964,7 +964,6 @@ func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) error {
 		if statusValues[systemId] == "Deployed" {
 			return nil
 		}
-		logger.Debugf("maas instance %v has status %q", id, statusValues[systemId])
 	}
 	return errors.Errorf("instance %q is started but not deployed", id)
 }
