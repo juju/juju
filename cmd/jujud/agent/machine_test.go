@@ -1309,7 +1309,7 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 
 		modeCh := make(chan bool, 1)
 		s.AgentSuite.PatchValue(&newNetworker, func(
-			st *apinetworker.State,
+			st apinetworker.State,
 			conf agent.Config,
 			intrusiveMode bool,
 			configBaseDir string,

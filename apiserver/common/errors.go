@@ -76,9 +76,14 @@ var (
 	ErrTryAgain           = stderrors.New("try again")
 	ErrActionNotAvailable = stderrors.New("action no longer available")
 
-	ErrOperationBlocked = &params.Error{
-		Code:    params.CodeOperationBlocked,
-		Message: "The operation has been blocked.",
+	ErrOperationBlocked = func(msg string) *params.Error {
+		if msg == "" {
+			msg = "The operation has been blocked."
+		}
+		return &params.Error{
+			Code:    params.CodeOperationBlocked,
+			Message: msg,
+		}
 	}
 )
 

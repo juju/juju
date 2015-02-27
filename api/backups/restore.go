@@ -130,7 +130,9 @@ func (c *Client) restore(backupId string, newClient ClientConnection) error {
 	}
 	if err != rpc.ErrShutdown {
 		finishErr := finishRestore(newClient)
-		logger.Errorf("could not exit restoring status: %v", finishErr)
+		if finishErr != nil {
+			logger.Errorf("could not exit restoring status: %v", finishErr)
+		}
 		return errors.Annotatef(err, "cannot perform restore: %v", remoteError)
 	}
 
@@ -144,7 +146,7 @@ func (c *Client) restore(backupId string, newClient ClientConnection) error {
 func finishAttempt(client *Client, closer closerFunc) (error, error) {
 	var remoteError error
 	defer closer()
-	err := client.facade.FacadeCall("finishRestore", nil, &remoteError)
+	err := client.facade.FacadeCall("FinishRestore", nil, &remoteError)
 	return err, remoteError
 }
 
