@@ -5,6 +5,7 @@ package google
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	"code.google.com/p/google-api-go-client/compute/v1"
@@ -109,7 +110,7 @@ type InstanceSummary struct {
 func newInstanceSummary(raw *compute.Instance) InstanceSummary {
 	return InstanceSummary{
 		ID:        raw.Name,
-		ZoneName:  zoneName(raw),
+		ZoneName:  path.Base(raw.Zone),
 		Status:    raw.Status,
 		Metadata:  unpackMetadata(raw.Metadata),
 		Addresses: extractAddresses(raw.NetworkInterfaces...),

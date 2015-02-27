@@ -4,8 +4,6 @@
 package google
 
 import (
-	"path"
-
 	"code.google.com/p/google-api-go-client/compute/v1"
 )
 
@@ -41,24 +39,4 @@ func (z AvailabilityZone) Status() string {
 func (z AvailabilityZone) Available() bool {
 	// https://cloud.google.com/compute/docs/reference/latest/zones#status
 	return z.Status() == StatusUp
-}
-
-// zoneName returns the unqualified name of the corresponding zone
-// for some of the low-level types that have that information. If value
-// does not have the information or is of an unsupported type then the
-// empty string is returned.
-func zoneName(value interface{}) string {
-	// We trust that path.Base will always give the right answer
-	// when used.
-	switch typed := value.(type) {
-	case *compute.Instance:
-		return path.Base(typed.Zone)
-	case *compute.Operation:
-		return path.Base(typed.Zone)
-	case *Instance:
-		return path.Base(typed.InstanceSummary.ZoneName)
-	default:
-		// TODO(ericsnow) Fail?
-		return ""
-	}
 }

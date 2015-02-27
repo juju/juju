@@ -203,8 +203,8 @@ type opDoer interface {
 func (rc *rawConn) checkOperation(projectID string, op *compute.Operation) (*compute.Operation, error) {
 	var call opDoer
 	if op.Zone != "" {
-		zone := zoneName(op)
-		call = rc.ZoneOperations.Get(projectID, zone, op.Name)
+		zoneName := path.Base(op.Zone)
+		call = rc.ZoneOperations.Get(projectID, zoneName, op.Name)
 	} else if op.Region != "" {
 		region := path.Base(op.Region)
 		call = rc.RegionOperations.Get(projectID, region, op.Name)

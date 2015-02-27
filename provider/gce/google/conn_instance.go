@@ -4,6 +4,8 @@
 package google
 
 import (
+	"path"
+
 	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
 )
@@ -123,7 +125,8 @@ func (gce *Connection) RemoveInstances(prefix string, ids ...string) error {
 	for _, instID := range ids {
 		for _, inst := range instances {
 			if inst.ID == instID {
-				if err := gce.removeInstance(instID, zoneName(&inst)); err != nil {
+				zoneName := path.Base(inst.InstanceSummary.ZoneName)
+				if err := gce.removeInstance(instID, zoneName); err != nil {
 					failed = append(failed, instID)
 					logger.Errorf("while removing instance %q: %v", instID, err)
 				}
