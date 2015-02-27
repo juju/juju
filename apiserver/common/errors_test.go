@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/leadership"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -108,6 +109,10 @@ var errorTransformTests = []struct {
 	err:        state.UpgradeInProgressError,
 	code:       params.CodeUpgradeInProgress,
 	helperFunc: params.IsCodeUpgradeInProgress,
+}, {
+	err:        leadership.ErrClaimDenied,
+	code:       params.CodeLeadershipClaimDenied,
+	helperFunc: params.IsCodeLeadershipClaimDenied,
 }, {
 	err:        common.ErrOperationBlocked("test"),
 	code:       params.CodeOperationBlocked,
