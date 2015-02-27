@@ -22,6 +22,9 @@ const (
 var _ Service = (*upstart.Service)(nil)
 var _ Service = (*windows.Service)(nil)
 
+// TODO(ericsnow) bug #1426461
+// Running, Installed, and Exists should return errors.
+
 // Service represents a service in the init system running on a host.
 type Service interface {
 	// Name returns the service's name.
