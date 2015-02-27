@@ -53,6 +53,8 @@ func addAgentInfo(
 }
 
 func NewUserdataConfig(mcfg *MachineConfig, conf *cloudinit.Config) (UserdataConfig, error) {
+	// TODO(ericsnow) bug #1426217
+	// Protect mcfg and conf better.
 	operatingSystem, err := version.GetOSFromSeries(mcfg.Series)
 	if err != nil {
 		return nil, err
