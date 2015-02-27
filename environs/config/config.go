@@ -1097,9 +1097,11 @@ func (c *Config) DisableNetworkManagement() (bool, bool) {
 	return v, ok
 }
 
+// StorageDefaultBlockSource returns the default block storage
+// source for the environment.
 func (c *Config) StorageDefaultBlockSource() (string, bool) {
-	bp := c.asString(StorageDefaultBlockSourceKey)
-	return bp, bp != ""
+	bs := c.asString(StorageDefaultBlockSourceKey)
+	return bs, bs != ""
 }
 
 // UnknownAttrs returns a copy of the raw configuration attributes
