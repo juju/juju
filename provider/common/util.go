@@ -6,8 +6,6 @@ package common
 import (
 	"fmt"
 
-	"github.com/juju/names"
-
 	"github.com/juju/juju/environs"
 )
 
@@ -26,8 +24,7 @@ func EnvFullName(env environs.Environ) string {
 // and machine ID that is suitable for identifying instances on a
 // provider. See EnvFullName for an explanation on how this function
 // helps juju users.
-func MachineFullName(env environs.Environ, machineId string) string {
+func MachineFullName(env environs.Environ, machineID string) string {
 	envstr := EnvFullName(env)
-	machineTag := names.NewMachineTag(machineId)
-	return fmt.Sprintf("%s-%s", envstr, machineTag)
+	return fmt.Sprintf("%s-machine-%s", envstr, machineID)
 }
