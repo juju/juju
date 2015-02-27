@@ -46,7 +46,7 @@ func parseProperties(props map[string]interface{}, unitType string) []*unit.Unit
 
 	var parseProperty func(string, interface{}) []*unit.UnitOption
 	switch unitType {
-	case "Unit", "":
+	case "Unit":
 		parseProperty = parseUnitProperty
 	case "Service":
 		parseProperty = parseServiceProperty
