@@ -255,13 +255,16 @@ func updateBackupMachineTag(oldTag, newTag names.Tag) error {
 	if oldTagString == newTagString {
 		return nil
 	}
-	oldTagPath := path.Join(agent.DefaultDataDir, oldTagString)
-	newTagPath := path.Join(agent.DefaultDataDir, newTagString)
+	// TODO(perrito666) create an authoritative source for agents dir.
+	oldTagPath := path.Join(agent.DefaultDataDir, "agents", oldTagString)
+	newTagPath := path.Join(agent.DefaultDataDir, "agents", newTagString)
 
 	oldToolsDir := tools.ToolsDir(agent.DefaultDataDir, oldTagString)
 	oldLink, err := filepath.EvalSymlinks(oldToolsDir)
 
-	os.Rename(oldTagPath, newTagPath)
+	if err := os.Rename(oldTagPath, newTagPath); err != nil {
+		return errors.Annotatef(err, "could not rename %q into %q", oldTagPath, newTagPath)
+	}
 	newToolsDir := tools.ToolsDir(agent.DefaultDataDir, newTagString)
 	newToolsPath := strings.Replace(oldLink, oldTagPath, newTagPath, -1)
 	err = symlink.Replace(newToolsDir, newToolsPath)
