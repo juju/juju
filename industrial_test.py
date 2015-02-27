@@ -785,14 +785,12 @@ suites = {
     QUICK: (BootstrapAttempt, DestroyEnvironmentAttempt),
     DENSITY: (BootstrapAttempt, DeployManyAttempt,
               DestroyEnvironmentAttempt),
-    FULL: (BootstrapAttempt, DeployManyAttempt,
+    FULL: (BootstrapAttempt, UpgradeCharmAttempt, DeployManyAttempt,
            BackupRestoreAttempt, EnsureAvailabilityAttempt,
            DestroyEnvironmentAttempt),
     BACKUP: (BootstrapAttempt, BackupRestoreAttempt,
              DestroyEnvironmentAttempt),
     UPGRADE: (UpgradeJujuAttempt, DestroyEnvironmentAttempt),
-    'upgrade-charm': (BootstrapAttempt, UpgradeCharmAttempt,
-                      DestroyEnvironmentAttempt)
     }
 
 

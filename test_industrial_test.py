@@ -236,8 +236,9 @@ class TestMultiIndustrialTest(TestCase):
         self.assertEqual(mit.max_attempts, 12)
         self.assertEqual(
             mit.stages, [
-                BootstrapAttempt, DeployManyAttempt, BackupRestoreAttempt,
-                EnsureAvailabilityAttempt, DestroyEnvironmentAttempt])
+                BootstrapAttempt, UpgradeCharmAttempt, DeployManyAttempt,
+                BackupRestoreAttempt, EnsureAvailabilityAttempt,
+                DestroyEnvironmentAttempt])
 
     def test_from_args_maas(self):
         args = Namespace(
@@ -282,8 +283,9 @@ class TestMultiIndustrialTest(TestCase):
 
         self.assertEqual(
             MultiIndustrialTest.get_stages(FULL, {'type': 'foo'}), [
-                BootstrapAttempt, DeployManyAttempt, BackupRestoreAttempt,
-                EnsureAvailabilityAttempt, DestroyEnvironmentAttempt])
+                BootstrapAttempt, UpgradeCharmAttempt, DeployManyAttempt,
+                BackupRestoreAttempt, EnsureAvailabilityAttempt,
+                DestroyEnvironmentAttempt])
         self.assertEqual(
             MultiIndustrialTest.get_stages(DENSITY, {'type': 'foo'}), [
                 BootstrapAttempt, DeployManyAttempt,
@@ -299,9 +301,9 @@ class TestMultiIndustrialTest(TestCase):
             [BootstrapAttempt, DestroyEnvironmentAttempt])
         self.assertEqual(
             MultiIndustrialTest.get_stages(FULL, {'type': 'maas'}), [
-                BootstrapAttempt, DeployManyFactory(2, 2),
-                BackupRestoreAttempt, EnsureAvailabilityAttempt,
-                DestroyEnvironmentAttempt])
+                BootstrapAttempt, UpgradeCharmAttempt,
+                DeployManyFactory(2, 2), BackupRestoreAttempt,
+                EnsureAvailabilityAttempt, DestroyEnvironmentAttempt])
         self.assertEqual(
             MultiIndustrialTest.get_stages(DENSITY, {'type': 'maas'}), [
                 BootstrapAttempt, DeployManyFactory(2, 2),
