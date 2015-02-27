@@ -282,7 +282,6 @@ func deserializeOptions(opts []*unit.UnitOption) (common.Conf, error) {
 			default:
 				return conf, errors.NotSupportedf("Service directive %q", uo.Name)
 			}
-
 		case "Install":
 			switch uo.Name {
 			case "WantedBy":
