@@ -9,7 +9,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/juju/names"
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent/tools"
@@ -22,11 +21,14 @@ const (
 	maxAgentFiles = 20000
 )
 
+// TODO(ericsnow) Factor out the common parts between the two helpers.
+// TODO(ericsnow) Add agent.Info to handle all the agent-related data
+// and pass it as *the* arg to the helpers.
+
 // MachineAgentConf returns the data that defines an init service config
 // for the identified machine.
 func MachineAgentConf(machineID, dataDir, logDir, os string) (common.Conf, string) {
-	tag := names.NewMachineTag(machineID)
-	tagStr := tag.String()
+	machineName := "machine-" + strings.Replace(machineID, "/", "-", -1)
 
 	var renderer cloudinit.Renderer = &cloudinit.UbuntuRenderer{}
 	jujudSuffix := ""
@@ -36,7 +38,7 @@ func MachineAgentConf(machineID, dataDir, logDir, os string) (common.Conf, strin
 		jujudSuffix = ".exe"
 		shquote = func(path string) string { return `"` + path + `"` }
 	}
-	toolsDir := renderer.FromSlash(tools.ToolsDir(dataDir, tagStr))
+	toolsDir := renderer.FromSlash(tools.ToolsDir(dataDir, machineName))
 	jujudPath := renderer.PathJoin(toolsDir, "jujud") + jujudSuffix
 
 	cmd := strings.Join([]string{
@@ -47,12 +49,12 @@ func MachineAgentConf(machineID, dataDir, logDir, os string) (common.Conf, strin
 		"--debug",
 	}, " ")
 
-	logFile := path.Join(logDir, tagStr+".log")
+	logFile := path.Join(logDir, machineName+".log")
 
 	// The machine agent always starts with debug turned on.  The logger worker
 	// will update this to the system logging environment as soon as it starts.
 	conf := common.Conf{
-		Desc:      fmt.Sprintf("juju agent for %s", tag),
+		Desc:      fmt.Sprintf("juju agent for %s", machineName),
 		ExecStart: cmd,
 		Out:       renderer.FromSlash(logFile),
 		Env:       osenv.FeatureFlags(),
@@ -71,10 +73,9 @@ func UnitAgentConf(unitName, dataDir, logDir, os, containerType string) (common.
 		os = runtime.GOOS
 	}
 
-	tag := names.NewUnitTag(unitName)
-	tagStr := tag.String()
+	unitID := "unit-" + strings.Replace(unitName, "/", "-", -1)
 
-	toolsDir := tools.ToolsDir(dataDir, tagStr)
+	toolsDir := tools.ToolsDir(dataDir, unitID)
 	jujudPath := path.Join(toolsDir, "jujud")
 	if os == "windows" {
 		jujudPath += ".exe"
@@ -88,7 +89,7 @@ func UnitAgentConf(unitName, dataDir, logDir, os, containerType string) (common.
 		"--debug",
 	}, " ")
 
-	logFile := path.Join(logDir, tagStr+".log")
+	logFile := path.Join(logDir, unitID+".log")
 
 	// TODO(thumper): 2013-09-02 bug 1219630
 	// As much as I'd like to remove JujuContainerType now, it is still
