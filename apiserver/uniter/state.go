@@ -12,7 +12,10 @@ import (
 type storageStateInterface interface {
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	StorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
+	StorageAttachment(names.StorageTag, names.UnitTag) (state.StorageAttachment, error)
 	Unit(name string) (*state.Unit, error)
+	WatchStorageAttachments(names.UnitTag) state.StringsWatcher
+	WatchStorageAttachment(names.StorageTag, names.UnitTag) state.NotifyWatcher
 }
 
 type storageStateShim struct {

@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
-	"io/ioutil"
 )
 
 const (
@@ -63,7 +63,7 @@ func (p *rootfsProvider) FilesystemSource(environConfig *config.Config, sourceCo
 	storageDir, _ := sourceConfig.ValueString(storage.ConfigStorageDir)
 
 	return &rootfsFilesystemSource{
-		&osDirFuncs{},
+		&osDirFuncs{p.run},
 		p.run,
 		storageDir,
 	}, nil
@@ -81,10 +81,13 @@ type dirFuncs interface {
 	mkDirAll(path string, perm os.FileMode) error
 	lstat(path string) (fi os.FileInfo, err error)
 	fileCount(path string) (int, error)
+	calculateSize(path string) (sizeInMib uint64, _ error)
 }
 
 // The real directory related functions.
-type osDirFuncs struct{}
+type osDirFuncs struct {
+	run runCommandFunc
+}
 
 func (*osDirFuncs) mkDirAll(path string, perm os.FileMode) error {
 	return os.MkdirAll(path, perm)
@@ -100,6 +103,43 @@ func (*osDirFuncs) fileCount(path string) (int, error) {
 		return 0, errors.Annotate(err, "could not read directory")
 	}
 	return len(files), nil
+}
+
+func (o *osDirFuncs) calculateSize(path string) (sizeInMib uint64, _ error) {
+	dfOutput, err := o.run("df", "--output=size", path)
+	if err != nil {
+		return 0, errors.Annotate(err, "getting size")
+	}
+	lines := strings.SplitN(dfOutput, "\n", 2)
+	numBlocks, err := strconv.ParseUint(strings.TrimSpace(lines[1]), 10, 64)
+	if err != nil {
+		return 0, errors.Annotate(err, "parsing size")
+	}
+	return numBlocks / 1024, nil
+}
+
+// validatePath ensures the specified path is suitable as the mount
+// point for a filesystem storage.
+func validatePath(d dirFuncs, path string) error {
+	// If path already exists, we check that it is empty.
+	// It is up to the storage provisioner to ensure that any
+	// shared storage constraints and attachments with the same
+	// path are validated etc. So the check here is more a sanity check.
+	if fi, err := d.lstat(path); os.IsNotExist(err) {
+		if err := d.mkDirAll(path, 0755); err != nil {
+			return errors.Annotate(err, "could not create directory")
+		}
+	} else if !fi.IsDir() {
+		return errors.Errorf("path %q must be a directory", path)
+	}
+	fileCount, err := d.fileCount(path)
+	if err != nil {
+		return errors.Annotate(err, "could not read directory")
+	}
+	if fileCount > 0 {
+		return errors.New("path must be empty")
+	}
+	return nil
 }
 
 var _ storage.FilesystemSource = (*rootfsFilesystemSource)(nil)
@@ -144,26 +184,14 @@ func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParam
 	if path == "" {
 		return filesystem, filesystemAttachment, errors.New("cannot create a filesystem mount without specifying a path")
 	}
-	if err := s.validatePath(path); err != nil {
+	if err := validatePath(s.dirFuncs, path); err != nil {
 		return filesystem, filesystemAttachment, err
 	}
-	filesystemAttachment = storage.FilesystemAttachment{
-		Filesystem: params.Tag,
-		Machine:    params.Attachment.Machine,
-		Path:       path,
-	}
-	dfOutput, err := s.run("df", "--output=size", path)
+	sizeInMiB, err := s.dirFuncs.calculateSize(path)
 	if err != nil {
 		os.Remove(path)
 		return filesystem, filesystemAttachment, errors.Annotate(err, "getting size")
 	}
-	lines := strings.SplitN(dfOutput, "\n", 2)
-	blocks, err := strconv.ParseUint(strings.TrimSpace(lines[1]), 10, 64)
-	if err != nil {
-		os.Remove(path)
-		return filesystem, filesystemAttachment, errors.Annotate(err, "parsing size")
-	}
-	sizeInMiB := blocks / 1024
 	if sizeInMiB < params.Size {
 		os.Remove(path)
 		return filesystem, filesystemAttachment, errors.Errorf("filesystem is not big enough (%dM < %dM)", sizeInMiB, params.Size)
@@ -173,28 +201,10 @@ func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParam
 		Tag:  params.Tag,
 		Size: sizeInMiB,
 	}
-	return filesystem, filesystemAttachment, nil
-}
-
-func (s *rootfsFilesystemSource) validatePath(path string) error {
-	// If path already exists, we check that it is empty.
-	// It is up to the storage provisioner to ensure that any
-	// shared storage constraints and attachments with the same
-	// path are validated etc. So the check here is more a sanity check.
-	if fi, err := s.dirFuncs.lstat(path); os.IsNotExist(err) {
-		if err := s.dirFuncs.mkDirAll(path, 0755); err != nil {
-			return errors.Annotate(err, "could not create directory")
-		}
-	} else if !fi.IsDir() {
-		return errors.Errorf("path %q must be a directory", path)
-	} else {
-		fileCount, err := s.dirFuncs.fileCount(path)
-		if err != nil {
-			return errors.Annotate(err, "could not read directory")
-		}
-		if fileCount > 0 {
-			return errors.New("path must be empty")
-		}
+	filesystemAttachment = storage.FilesystemAttachment{
+		Filesystem: params.Tag,
+		Machine:    params.Attachment.Machine,
+		Path:       path,
 	}
-	return nil
+	return filesystem, filesystemAttachment, nil
 }

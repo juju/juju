@@ -126,6 +126,7 @@ func (c *Context) HookStorageAttachment() (*params.StorageAttachment, bool) {
 		"unit-service-0",
 		params.StorageKindBlock,
 		"/dev/sda",
+		"alive",
 	}, true
 }
 

@@ -34,7 +34,7 @@ const DefaultConfigBaseDir = "/etc/network"
 type Networker struct {
 	tomb tomb.Tomb
 
-	st  *apinetworker.State
+	st  apinetworker.State
 	tag names.MachineTag
 
 	// isVLANSupportInstalled is set to true when the VLAN kernel
@@ -80,7 +80,7 @@ var _ worker.Worker = (*Networker)(nil)
 // configuration. If there is no <configBasePath>/interfaces file, an
 // error is returned.
 func NewNetworker(
-	st *apinetworker.State,
+	st apinetworker.State,
 	agentConfig agent.Config,
 	intrusiveMode bool,
 	configBaseDir string,

@@ -7,9 +7,9 @@ package feature
 // Actions is the name of the feature to enable action commands.
 const Actions = "action"
 
-// MESS stands for Multi-Environment State Server and controls access
+// JES stands for Juju Environment Server and controls access
 // to the apiserver endpoints, api client and CLI commands.
-const MESS = "mess"
+const JES = "jes"
 
 // Storage is the name of the feature to enable storage commands
 // and server-side functionality.

@@ -104,9 +104,6 @@ func (s *rootfsSuite) TestCreateFilesystems(c *gc.C) {
 
 func (s *rootfsSuite) TestCreateFilesystemsIsUse(c *gc.C) {
 	source := s.rootfsFilesystemSource(c)
-	cmd := s.commands.expect("df", "--output=size", "/mnt/notempty")
-	cmd.respond("1K-blocks\n2048", nil)
-
 	_, _, err := source.CreateFilesystems([]storage.FilesystemParams{
 		{
 			Tag:  names.NewFilesystemTag("6"),
@@ -134,7 +131,6 @@ func (s *rootfsSuite) TestCreateFilesystemsIsUse(c *gc.C) {
 
 func (s *rootfsSuite) TestCreateFilesystemsPathNotDir(c *gc.C) {
 	source := s.rootfsFilesystemSource(c)
-
 	_, _, err := source.CreateFilesystems([]storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("6"),
 		Size: 2,

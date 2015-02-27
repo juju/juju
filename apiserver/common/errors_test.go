@@ -114,7 +114,7 @@ var errorTransformTests = []struct {
 	code:       params.CodeLeadershipClaimDenied,
 	helperFunc: params.IsCodeLeadershipClaimDenied,
 }, {
-	err:        common.ErrOperationBlocked,
+	err:        common.ErrOperationBlocked("test"),
 	code:       params.CodeOperationBlocked,
 	helperFunc: params.IsCodeOperationBlocked,
 }, {

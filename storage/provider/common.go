@@ -10,5 +10,6 @@ func CommonProviders() map[storage.ProviderType]storage.Provider {
 	return map[storage.ProviderType]storage.Provider{
 		LoopProviderType:   &loopProvider{logAndExec},
 		RootfsProviderType: &rootfsProvider{logAndExec},
+		TmpfsProviderType:  &tmpfsProvider{logAndExec},
 	}
 }

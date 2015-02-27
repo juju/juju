@@ -264,15 +264,14 @@ func (s *syncToolsSuite) TestAPIAdapterUploadTools(c *gc.C) {
 
 func (s *syncToolsSuite) TestAPIAdapterBlockUploadTools(c *gc.C) {
 	syncTools = func(sctx *sync.SyncContext) error {
-		return common.ErrOperationBlocked
+		// Block operation
+		return common.ErrOperationBlocked("TestAPIAdapterBlockUploadTools")
 	}
-	// Block operation
-	s.PatchEnvironment("block-all-changes", "true")
 	_, err := runSyncToolsCommand(c, "-e", "test-target", "--destination", c.MkDir(), "--stream", "released")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*TestAPIAdapterBlockUploadTools.*")
 }
 
 type fakeSyncToolsAPI struct {

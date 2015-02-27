@@ -334,7 +334,7 @@ func (f *factory) updateContext(ctx *HookContext) (err error) {
 }
 
 func (f *factory) updateStorage(ctx *HookContext) (err error) {
-	ctx.storageAttachments, err = f.state.StorageAttachments(f.unit.Tag())
+	ctx.storageAttachments, err = f.state.UnitStorageAttachments(f.unit.Tag())
 	return err
 }
 
