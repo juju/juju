@@ -99,7 +99,7 @@ func (c *baseConfigure) Render() ([]byte, error) {
 	return c.renderer.Render(c.conf)
 }
 
-func (c *baseConfigure) addMachineAgentToBoot(tag string) error {
+func (c *baseConfigure) addMachineAgentToBoot(name string) error {
 	svc, toolsDir, err := c.mcfg.initService()
 	if err != nil {
 		return errors.Trace(err)
@@ -112,11 +112,11 @@ func (c *baseConfigure) addMachineAgentToBoot(tag string) error {
 
 	cmds, err := svc.InstallCommands()
 	if err != nil {
-		return errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", tag)
+		return errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
 	}
 
-	name := c.mcfg.MachineAgentServiceName
-	c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", name))
+	svcName := c.mcfg.MachineAgentServiceName
+	c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", svcName))
 	c.conf.AddScripts(cmds...)
 	return nil
 }
