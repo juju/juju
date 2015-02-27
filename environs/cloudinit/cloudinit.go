@@ -282,8 +282,8 @@ func (cfg *MachineConfig) initSystem() string {
 	return service.VersionInitSystem(cfg.Tools.Version)
 }
 
-var newService = func(name string, conf common.Conf, os string) (service.Service, error) {
-	return service.NewService(name, conf, os)
+var newService = func(name string, conf common.Conf, initSystem string) (service.Service, error) {
+	return service.NewService(name, conf, initSystem)
 }
 
 func (cfg *MachineConfig) dataFile(name string) string {
