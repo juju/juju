@@ -101,6 +101,7 @@ func (gce Connection) ClosePorts(fwname string, ports ...network.PortRange) erro
 		if err := gce.raw.RemoveFirewall(gce.ProjectID, fwname); err != nil {
 			return errors.Annotatef(err, "closing port(s) %+v", ports)
 		}
+		return nil
 	}
 
 	// Update an existing firewall.
