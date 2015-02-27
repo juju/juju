@@ -1253,11 +1253,31 @@ func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }
 
-func (s *withoutStateServerSuite) TestContainerManagerConfig(c *gc.C) {
-	args := params.ContainerManagerConfigParams{Type: instance.KVM}
+func (s *withoutStateServerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType) map[string]string {
+	args := params.ContainerManagerConfigParams{Type: typ}
 	results, err := s.provisioner.ContainerManagerConfig(args)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.ManagerConfig, gc.DeepEquals, map[string]string{
+	c.Assert(err, jc.ErrorIsNil)
+	return results.ManagerConfig
+}
+
+func (s *withoutStateServerSuite) TestContainerManagerConfig(c *gc.C) {
+	cfg := s.getManagerConfig(c, instance.KVM)
+	c.Assert(cfg, jc.DeepEquals, map[string]string{
+		container.ConfigName: "juju",
+
+		// dummy provider supports both networking and address
+		// allocation by default, so IP forwarding should be enabled.
+		container.ConfigIPForwarding: "true",
+	})
+}
+
+func (s *withoutStateServerSuite) TestContainerManagerConfigNoIPForwarding(c *gc.C) {
+	// Break dummy provider's SupportsAddressAllocation method to
+	// ensure ConfigIPForwarding is not set below.
+	s.AssertConfigParameterUpdated(c, "broken", "SupportsAddressAllocation")
+
+	cfg := s.getManagerConfig(c, instance.KVM)
+	c.Assert(cfg, jc.DeepEquals, map[string]string{
 		container.ConfigName: "juju",
 	})
 }
