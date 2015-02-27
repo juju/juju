@@ -122,7 +122,6 @@ func (s *initSystemSuite) addListResponse() {
 
 func (s *initSystemSuite) setConf(conf common.Conf) {
 	s.conn.SetProperty("", "Description", conf.Desc)
-
 	s.conn.SetProperty("Service", "Description", conf.Desc)
 
 	parts := strings.Fields(conf.ExecStart)
