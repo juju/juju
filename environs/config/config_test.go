@@ -556,14 +556,6 @@ var configTests = []configTest{
 		},
 		err: `ssl-hostname-verification: expected bool, got string\("yes please"\)`,
 	}, {
-		about:       "default block storage source",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
-			"storage-default-block-source": "block-source",
-		},
-	}, {
 		about: fmt.Sprintf(
 			"%s: %s",
 			"provisioner-harvest-mode",
@@ -766,6 +758,16 @@ var configTests = []configTest{
 		about:       "No defaults: sample configuration",
 		useDefaults: config.NoDefaults,
 		attrs:       sampleConfig,
+	}, {
+		about:       "No defaults: with storage-default-block-source",
+		useDefaults: config.NoDefaults,
+		attrs:       sampleConfig.Merge(testing.Attrs{"storage-default-block-source": "ebs"}),
+		err:         `attribute "storage-default-block-source" is not allowed in configuration`,
+	}, {
+		about:       "Defaults: with storage-default-block-source",
+		useDefaults: config.UseDefaults,
+		attrs:       sampleConfig.Merge(testing.Attrs{"storage-default-block-source": "ebs"}),
+		err:         `attribute "storage-default-block-source" is not allowed in configuration`,
 	}, {
 		about:       "No defaults: with ca-cert-path",
 		useDefaults: config.NoDefaults,
