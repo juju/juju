@@ -1377,85 +1377,128 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	if err != nil {
 		return err
 	}
-	volumes, volumeAttachments, err := u.newMachineVolumeParams()
+	volumes, volumeAttachments, filesystems, filesystemAttachments, err := u.newMachineStorageParams()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	template := MachineTemplate{
-		Series:            u.doc.Series,
-		Constraints:       *cons,
-		Jobs:              []MachineJob{JobHostUnits},
-		RequestedNetworks: requestedNetworks,
-		Volumes:           volumes,
-		VolumeAttachments: volumeAttachments,
+		Series:                u.doc.Series,
+		Constraints:           *cons,
+		Jobs:                  []MachineJob{JobHostUnits},
+		RequestedNetworks:     requestedNetworks,
+		Volumes:               volumes,
+		VolumeAttachments:     volumeAttachments,
+		Filesystems:           filesystems,
+		FilesystemAttachments: filesystemAttachments,
 	}
 	return u.assignToNewMachine(template, "", containerType)
 }
 
-// newMachineVolumeParams returns parameters for creating volumes and volume
-// attachments for a new machine that the unit will be assigned to.
-func (u *Unit) newMachineVolumeParams() ([]MachineVolumeParams, map[names.VolumeTag]VolumeAttachmentParams, error) {
+// newMachineStorageParams returns parameters for creating volumes/filesystems
+// and volume/filesystem attachments for a new machine that the unit will be
+// assigned to.
+func (u *Unit) newMachineStorageParams() (
+	[]MachineVolumeParams,
+	map[names.VolumeTag]VolumeAttachmentParams,
+	[]MachineFilesystemParams,
+	map[names.FilesystemTag]FilesystemAttachmentParams,
+	error,
+) {
 	storageAttachments, err := u.st.StorageAttachments(u.UnitTag())
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "getting storage attachments")
+		return nil, nil, nil, nil, errors.Annotate(err, "getting storage attachments")
 	}
 	svc, err := u.Service()
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, nil, nil, errors.Trace(err)
 	}
 	curl, _ := svc.CharmURL()
 	if curl == nil {
-		return nil, nil, errors.Errorf("no URL set for service %q", svc.Name())
+		return nil, nil, nil, nil, errors.Errorf("no URL set for service %q", svc.Name())
 	}
 	ch, err := u.st.Charm(curl)
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "getting charm")
+		return nil, nil, nil, nil, errors.Annotate(err, "getting charm")
 	}
 	allCons, err := u.StorageConstraints()
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "getting storage constraints")
+		return nil, nil, nil, nil, errors.Annotatef(err, "getting storage constraints")
 	}
 
 	var volumes []MachineVolumeParams
+	var filesystems []MachineFilesystemParams
 	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
+	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
 	for _, storageAttachment := range storageAttachments {
 		// TODO(axw) consult storage provider to see if we need to request
 		// a volume for the storage instance. Otherwise create a Filesystem
 		// and FilesystemAttachment.
-		storageInstance, err := u.st.StorageInstance(storageAttachment.StorageInstance())
+		storage, err := u.st.StorageInstance(storageAttachment.StorageInstance())
 		if err != nil {
-			return nil, nil, errors.Annotatef(err, "getting storage instance")
+			return nil, nil, nil, nil, errors.Annotatef(err, "getting storage instance")
 		}
 
-		charmStorage := ch.Meta().Storage[storageInstance.StorageName()]
-		volumeAttachmentParams := VolumeAttachmentParams{
-			charmStorage.ReadOnly,
-		}
+		charmStorage := ch.Meta().Storage[storage.StorageName()]
 
-		if storageInstance.Owner() == u.Tag() {
-			// The storage instance is owned by the unit, so we'll need
-			// to create a volume.
-			cons := allCons[storageInstance.StorageName()]
-			volumeParams := VolumeParams{
-				storage: storageInstance.StorageTag(),
-				Pool:    cons.Pool,
-				Size:    cons.Size,
+		switch storage.Kind() {
+		case StorageKindBlock:
+			volumeAttachmentParams := VolumeAttachmentParams{
+				charmStorage.ReadOnly,
 			}
-			volumes = append(volumes, MachineVolumeParams{
-				volumeParams, volumeAttachmentParams,
-			})
-		} else {
-			// The storage instance is owned by the service, so there
-			// should be a (shared) volume already, for which we will
-			// just add an attachment.
-			volume, err := u.st.StorageInstanceVolume(storageInstance.StorageTag())
-			if err != nil {
-				return nil, nil, errors.Annotatef(err, "getting volume for storage %q", storageInstance.Tag().Id())
+			if storage.Owner() == u.Tag() {
+				// The storage instance is owned by the unit, so we'll need
+				// to create a volume.
+				cons := allCons[storage.StorageName()]
+				volumeParams := VolumeParams{
+					storage: storage.StorageTag(),
+					Pool:    cons.Pool,
+					Size:    cons.Size,
+				}
+				volumes = append(volumes, MachineVolumeParams{
+					volumeParams, volumeAttachmentParams,
+				})
+			} else {
+				// The storage instance is owned by the service, so there
+				// should be a (shared) volume already, for which we will
+				// just add an attachment.
+				volume, err := u.st.StorageInstanceVolume(storage.StorageTag())
+				if err != nil {
+					return nil, nil, nil, nil, errors.Annotatef(err, "getting volume for storage %q", storage.Tag().Id())
+				}
+				volumeAttachments[volume.VolumeTag()] = volumeAttachmentParams
 			}
-			volumeAttachments[volume.VolumeTag()] = volumeAttachmentParams
+		case StorageKindFilesystem:
+			filesystemAttachmentParams := FilesystemAttachmentParams{
+				charmStorage.Location,
+				charmStorage.ReadOnly,
+			}
+			if storage.Owner() == u.Tag() {
+				// The storage instance is owned by the unit, so we'll need
+				// to create a filesystem.
+				cons := allCons[storage.StorageName()]
+				filesystemParams := FilesystemParams{
+					storage: storage.StorageTag(),
+					Pool:    cons.Pool,
+					Size:    cons.Size,
+				}
+				filesystems = append(filesystems, MachineFilesystemParams{
+					filesystemParams, filesystemAttachmentParams,
+				})
+			} else {
+				// The storage instance is owned by the service, so there
+				// should be a (shared) filesystem already, for which we will
+				// just add an attachment.
+				filesystem, err := u.st.StorageInstanceFilesystem(storage.StorageTag())
+				if err != nil {
+					return nil, nil, nil, nil, errors.Annotatef(err, "getting filesystem for storage %q", storage.Tag().Id())
+				}
+				filesystemAttachments[filesystem.FilesystemTag()] = filesystemAttachmentParams
+			}
+		default:
+			return nil, nil, nil, nil, errors.Errorf("invalid storage kind %v", storage.Kind())
 		}
 	}
-	return volumes, volumeAttachments, nil
+	return volumes, volumeAttachments, filesystems, filesystemAttachments, nil
 }
 
 var noCleanMachines = stderrors.New("all eligible machines in use")

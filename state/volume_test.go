@@ -82,7 +82,7 @@ func (s *VolumeStateSuite) TestAddMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *VolumeStateSuite) TestAddMachineInvalidPool(c *gc.C) {
+func (s *VolumeStateSuite) TestAddServiceInvalidPool(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("invalid-pool", 1024, 1),
@@ -91,7 +91,7 @@ func (s *VolumeStateSuite) TestAddMachineInvalidPool(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.* pool "invalid-pool" not found`)
 }
 
-func (s *VolumeStateSuite) TestAddMachineNoUserDefaultPool(c *gc.C) {
+func (s *VolumeStateSuite) TestAddServiceNoUserDefaultPool(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
@@ -109,7 +109,7 @@ func (s *VolumeStateSuite) TestAddMachineNoUserDefaultPool(c *gc.C) {
 	})
 }
 
-func (s *VolumeStateSuite) TestAddMachineDefaultPool(c *gc.C) {
+func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 	// Register a default pool.
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("default-block", provider.LoopProviderType, map[string]interface{}{})

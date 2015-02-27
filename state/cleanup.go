@@ -350,7 +350,7 @@ func (st *State) cleanupAttachmentsForDyingStorage(storageId string) error {
 
 	var doc storageAttachmentDoc
 	fields := bson.D{{"unitid", 1}}
-	iter := coll.Find(bson.D{{"storageinstanceid", storageId}}).Select(fields).Iter()
+	iter := coll.Find(bson.D{{"storageid", storageId}}).Select(fields).Iter()
 	for iter.Next(&doc) {
 		unitTag := names.NewUnitTag(doc.Unit)
 		if err := st.DestroyStorageAttachment(storageTag, unitTag); err != nil {
