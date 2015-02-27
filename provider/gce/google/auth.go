@@ -41,7 +41,7 @@ type Auth struct {
 // transport is built using the Auth values. The following GCE access
 // scopes are used:
 //   https://www.googleapis.com/auth/compute
-// 	 https://www.googleapis.com/auth/devstorage.full_control
+//   https://www.googleapis.com/auth/devstorage.full_control
 func (ga Auth) newTransport() (*oauth.Transport, error) {
 	token, err := newToken(ga, driverScopes)
 	if err != nil {
