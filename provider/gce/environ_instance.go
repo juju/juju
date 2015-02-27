@@ -125,6 +125,10 @@ type instPlacement struct {
 // string and returns it. If no zone is found there then an error is
 // returned.
 func (env *environ) parsePlacement(placement string) (*instPlacement, error) {
+	if placement == "" {
+		return nil, nil
+	}
+
 	pos := strings.IndexRune(placement, '=')
 	if pos == -1 {
 		return nil, errors.Errorf("unknown placement directive: %v", placement)

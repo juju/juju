@@ -16,10 +16,8 @@ import (
 // PrecheckInstance verifies that the provided series and constraints
 // are valid for use in creating an instance in this environment.
 func (env *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	if placement != "" {
-		if _, err := env.parsePlacement(placement); err != nil {
-			return errors.Trace(err)
-		}
+	if _, err := env.parsePlacement(placement); err != nil {
+		return errors.Trace(err)
 	}
 
 	if cons.HasInstanceType() {
