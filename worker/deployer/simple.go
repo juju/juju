@@ -19,6 +19,8 @@ import (
 	"github.com/juju/juju/version"
 )
 
+// TODO(ericsnow) Use errors.Trace, etc. in this file.
+
 // TODO(ericsnow) Eliminate InitDir.
 
 // InitDir is the default upstart init directory.
@@ -172,6 +174,8 @@ type deployerService interface {
 func (ctx *SimpleContext) findInitSystemJob(unitName string) deployerService {
 	unitsAndJobs, err := ctx.deployedUnitsInitSystemJobs()
 	if err != nil {
+		// TODO(ericsnow) Is there a good reason to discard the error
+		// like this?
 		return nil
 	}
 	if job, ok := unitsAndJobs[unitName]; ok {
