@@ -84,8 +84,8 @@ func NewService(name string, conf common.Conf, initSystem string) (Service, erro
 // DiscoverService returns an interface to a service apropriate
 // for the current system
 func DiscoverService(name string, conf common.Conf) (Service, error) {
-	initName := VersionInitSystem(version.Current)
-	if initName == "" {
+	initName, ok := VersionInitSystem(version.Current)
+	if !ok {
 		return nil, errors.NotFoundf("init system on local host")
 	}
 
@@ -94,29 +94,30 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 }
 
 // VersionInitSystem returns an init system name based on the provided
-// version info.
-func VersionInitSystem(vers version.Binary) string {
+// version info. If one cannot be identified then false if returned
+// for the second return value.
+func VersionInitSystem(vers version.Binary) (string, bool) {
 	switch vers.OS {
 	case version.Windows:
-		return InitSystemWindows
+		return InitSystemWindows, true
 	case version.Ubuntu:
 		switch vers.Series {
 		case "precise", "quantal", "raring", "saucy", "trusty", "utopic":
-			return InitSystemUpstart
+			return InitSystemUpstart, true
 		default:
 			// vivid and later
-			return "systemd"
+			return "systemd", true
 		}
 		// TODO(ericsnow) Support other OSes, like version.CentOS.
 	default:
-		return ""
+		return "", false
 	}
 }
 
 // ListServices lists all installed services on the running system
 func ListServices(initDir string) ([]string, error) {
-	initName := VersionInitSystem(version.Current)
-	if initName == "" {
+	initName, ok := VersionInitSystem(version.Current)
+	if !ok {
 		return nil, errors.NotFoundf("init system on local host")
 	}
 
@@ -149,8 +150,8 @@ func ListServicesCommand() string {
 
 	cmdAll := ""
 	for executable, initSystem := range executables {
-		cmd := listServicesCommand(initSystem)
-		if cmd == "" {
+		cmd, ok := listServicesCommand(initSystem)
+		if !ok {
 			continue
 		}
 
@@ -167,13 +168,13 @@ func ListServicesCommand() string {
 	return cmdAll
 }
 
-func listServicesCommand(initSystem string) string {
+func listServicesCommand(initSystem string) (string, bool) {
 	switch initSystem {
 	case InitSystemWindows:
-		return windows.ListCommand()
+		return windows.ListCommand(), true
 	case InitSystemUpstart:
-		return upstart.ListCommand()
+		return upstart.ListCommand(), true
 	default:
-		return ""
+		return "", false
 	}
 }

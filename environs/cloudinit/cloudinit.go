@@ -274,11 +274,15 @@ func (cfg *MachineConfig) initService() (service.Service, string, error) {
 	)
 
 	name := cfg.MachineAgentServiceName
-	svc, err := newService(name, conf, cfg.initSystem())
+	initSystem, ok := cfg.initSystem()
+	if !ok {
+		return nil, "", errors.New("could not identify init system")
+	}
+	svc, err := newService(name, conf, initSystem)
 	return svc, toolsDir, errors.Trace(err)
 }
 
-func (cfg *MachineConfig) initSystem() string {
+func (cfg *MachineConfig) initSystem() (string, bool) {
 	return service.VersionInitSystem(cfg.Tools.Version)
 }
 
