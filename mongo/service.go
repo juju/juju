@@ -31,8 +31,8 @@ const (
 )
 
 var (
-	// This is the name of the variable to use in ExtraScript
-	// fragment to substitute into init script template.
+	// This is the name of an environment variable that we use in the
+	// init system conf file when mongo NUMA support is used.
 	multinodeVarName = "MULTI_NODE"
 	// This value will be used to wrap desired mongo cmd in numactl if wanted/needed
 	numaCtlWrap = "$%v"
