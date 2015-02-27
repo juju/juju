@@ -21,7 +21,7 @@ type storageSuite struct {
 
 var _ = gc.Suite(&storageSuite{})
 
-func (s *storageSuite) TestStorageAttachments(c *gc.C) {
+func (s *storageSuite) TestWatchUnitStorageAttachments(c *gc.C) {
 	resources := common.NewResources()
 	getCanAccess := func() (common.AuthFunc, error) {
 		return func(names.Tag) bool {
@@ -42,7 +42,7 @@ func (s *storageSuite) TestStorageAttachments(c *gc.C) {
 
 	storage, err := uniter.NewStorageAPI(state, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	watches, err := storage.WatchStorageAttachments(params.Entities{
+	watches, err := storage.WatchUnitStorageAttachments(params.Entities{
 		Entities: []params.Entity{{unitTag.String()}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -55,13 +55,56 @@ func (s *storageSuite) TestStorageAttachments(c *gc.C) {
 	c.Assert(resources.Get("1"), gc.Equals, watcher)
 }
 
+func (s *storageSuite) TestWatchStorageAttachment(c *gc.C) {
+	resources := common.NewResources()
+	getCanAccess := func() (common.AuthFunc, error) {
+		return func(names.Tag) bool {
+			return true
+		}, nil
+	}
+	unitTag := names.NewUnitTag("mysql/0")
+	storageTag := names.NewStorageTag("data/0")
+	watcher := &mockNotifyWatcher{
+		changes: make(chan struct{}, 1),
+	}
+	watcher.changes <- struct{}{}
+	state := &mockStorageState{
+		watchStorageAttachment: func(s names.StorageTag, u names.UnitTag) state.NotifyWatcher {
+			c.Assert(s, gc.DeepEquals, storageTag)
+			c.Assert(u, gc.DeepEquals, unitTag)
+			return watcher
+		},
+	}
+
+	storage, err := uniter.NewStorageAPI(state, resources, getCanAccess)
+	c.Assert(err, jc.ErrorIsNil)
+	watches, err := storage.WatchStorageAttachments(params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{{
+			StorageTag: storageTag.String(),
+			UnitTag:    unitTag.String(),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(watches, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{{
+			NotifyWatcherId: "1",
+		}},
+	})
+	c.Assert(resources.Get("1"), gc.Equals, watcher)
+}
+
 type mockStorageState struct {
 	uniter.StorageStateInterface
 	watchStorageAttachments func(names.UnitTag) state.StringsWatcher
+	watchStorageAttachment  func(names.StorageTag, names.UnitTag) state.NotifyWatcher
 }
 
 func (m *mockStorageState) WatchStorageAttachments(u names.UnitTag) state.StringsWatcher {
 	return m.watchStorageAttachments(u)
+}
+
+func (m *mockStorageState) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) state.NotifyWatcher {
+	return m.watchStorageAttachment(s, u)
 }
 
 type mockStringsWatcher struct {
@@ -70,5 +113,14 @@ type mockStringsWatcher struct {
 }
 
 func (m *mockStringsWatcher) Changes() <-chan []string {
+	return m.changes
+}
+
+type mockNotifyWatcher struct {
+	state.NotifyWatcher
+	changes chan struct{}
+}
+
+func (m *mockNotifyWatcher) Changes() <-chan struct{} {
 	return m.changes
 }
