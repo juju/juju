@@ -464,6 +464,14 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
             yield self.prepare.as_result()
             hooks_path = os.path.join(charm_root, 'hooks')
             os.mkdir(hooks_path)
+            self.add_hook(hooks_path, 'config-changed', dedent("""\
+                #!/bin/sh
+                open-port 34
+                """))
+            self.add_hook(hooks_path, 'upgrade-charm', dedent("""\
+                #!/bin/sh
+                open-port 42
+                """))
             with open(os.path.join(hooks_path, 'upgrade-charm'), 'w') as f:
                 os.fchmod(f.fileno(), 0755)
                 f.write(dedent("""\
@@ -476,12 +484,18 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
                 'upgrade-charm', ('mycharm', '--repository', temp_repository))
             yield self.upgrade.as_result()
             for status in client.status_until(300):
-                if '42/tcp' in status.get_open_ports('mycharm/0'):
+                ports = status.get_open_ports('mycharm/0')
+                if '42/tcp' in ports and '34/tcp' in ports:
                     break
             else:
-                raise Exception('42 not opened.')
-            import pdb; pdb.set_trace()
+                raise Exception('42 and/or 34 not opened.')
             yield self.upgrade.as_result(True)
+
+    def add_hook(self, hooks_path, hook_name, hook_contents):
+        with open(os.path.join(hooks_path, hook_name), 'w') as f:
+            os.fchmod(f.fileno(), 0755)
+            f.write(hook_contents)
+
 
 
 @contextmanager

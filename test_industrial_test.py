@@ -967,6 +967,10 @@ class FakeEnvJujuClient(EnvJujuClient):
         with patch('sys.stdout'):
             return super(FakeEnvJujuClient, self).wait_for_ha(0.01)
 
+    def status_until(self, *args, **kwargs):
+        yield self.get_status()
+        yield self.get_status()
+
     def juju(self, *args, **kwargs):
         # Suppress stdout for juju commands.
         with patch('sys.stdout'):
@@ -1572,6 +1576,12 @@ class TestUpgradeJujuAttempt(TestCase):
 
 class TestUpgradeCharmAttempt(TestCase):
 
+    def assert_hook(self, hook_path, content):
+        with open(hook_path) as hook_file:
+            self.assertEqual(hook_file.read(), content)
+            mode = os.fstat(hook_file.fileno()).st_mode
+        self.assertEqual(0755, mode & 0777)
+
     def test_iter_steps(self):
         client = FakeEnvJujuClient()
         client.full_path = '/future/juju'
@@ -1604,17 +1614,20 @@ class TestUpgradeCharmAttempt(TestCase):
         hooks_path = os.path.join(temp_repository, 'trusty', 'mycharm',
                                   'hooks')
         upgrade_path = os.path.join(hooks_path, 'upgrade-charm')
+        config_changed = os.path.join(hooks_path, 'config-changed')
+        self.assertFalse(os.path.exists(config_changed))
         self.assertFalse(os.path.exists(upgrade_path))
         self.assertEqual(
             uc_iterator.next(),
             {'test_id': 'prepare-upgrade-charm', 'result': True})
-        with open(upgrade_path) as upgrade_hook:
-            self.assertEqual(upgrade_hook.read(), dedent("""\
-                #!/bin/sh
-                open-port 42
-                """))
-            mode = os.fstat(upgrade_hook.fileno()).st_mode
-        self.assertEqual(0755, mode & 0777)
+        self.assert_hook(upgrade_path, dedent("""\
+            #!/bin/sh
+            open-port 42
+            """))
+        self.assert_hook(config_changed, dedent("""\
+            #!/bin/sh
+            open-port 34
+            """))
         self.assertEqual(uc_iterator.next(), {'test_id': 'upgrade-charm'})
         with patch('subprocess.check_call') as cc_mock:
             self.assertEqual(uc_iterator.next(), {'test_id': 'upgrade-charm'})
@@ -1624,7 +1637,7 @@ class TestUpgradeCharmAttempt(TestCase):
         status = yaml.safe_dump({
             'machines': {'0': {'agent-state': 'started'}},
             'services': {'mycharm': {'units': {'mycharm/0': {
-                'open-ports': '42/tcp',
+                'open-ports': ['42/tcp', '34/tcp'],
                 }}}},
             })
         with patch('subprocess.check_output', return_value=status):
