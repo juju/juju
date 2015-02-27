@@ -19,6 +19,8 @@ type ActionGetSuite struct {
 	ContextSuite
 }
 
+var _ = gc.Suite(&ActionGetSuite{})
+
 type actionGetContext struct {
 	actionParams map[string]interface{}
 	jujuc.Context
@@ -36,11 +38,9 @@ func (ctx *nonActionContext) ActionParams() (map[string]interface{}, error) {
 	return nil, fmt.Errorf("ActionParams queried from non-Action hook context")
 }
 
-var _ = gc.Suite(&ActionGetSuite{})
-
 func (s *ActionGetSuite) TestNonActionRunFail(c *gc.C) {
 	hctx := &nonActionContext{}
-	com, err := jujuc.NewCommand(hctx, "action-get")
+	com, err := jujuc.NewCommand(hctx, cmdString("action-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{})

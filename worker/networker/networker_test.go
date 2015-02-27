@@ -41,7 +41,7 @@ type networkerSuite struct {
 	lastCommands          chan []string
 
 	apiState  *api.State
-	apiFacade *apinetworker.State
+	apiFacade apinetworker.State
 }
 
 var _ = gc.Suite(&networkerSuite{})
@@ -411,7 +411,7 @@ func (s *networkerSuite) executeCommandsHook(c *gc.C, commands []string) error {
 
 func (s *networkerSuite) newCustomNetworker(
 	c *gc.C,
-	facade *apinetworker.State,
+	facade apinetworker.State,
 	machineId string,
 	intrusiveMode bool,
 	initInterfaces bool,

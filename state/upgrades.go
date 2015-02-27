@@ -112,7 +112,7 @@ func validateUnitPorts(st *State, unit *Unit) (
 	validRanges []PortRange,
 ) {
 	// Collapse individual ports into port ranges.
-	mergedRanges = network.CollapsePorts(unit.doc.Ports)
+	mergedRanges = network.CollapsePorts(networkPorts(unit.doc.Ports))
 	upgradesLogger.Debugf("merged raw port ranges for unit %q: %v", unit, mergedRanges)
 
 	skippedRanges = 0
@@ -424,6 +424,35 @@ func AddEnvironmentUUIDToStateServerDoc(st *State) error {
 		}}},
 	}}
 
+	return st.runRawTransaction(ops)
+}
+
+// AddEnvUUIDToEnvUsersDoc adds environment uuid to state server doc.
+func AddEnvUUIDToEnvUsersDoc(st *State) error {
+	envUsers, closer := st.getRawCollection(envUsersC)
+	defer closer()
+
+	var ops []txn.Op
+	var doc bson.M
+	iter := envUsers.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+
+		if _, ok := doc["env-uuid"]; !ok || doc["env-uuid"] == "" {
+			ops = append(ops, txn.Op{
+				C:      envUsersC,
+				Id:     doc["_id"],
+				Assert: txn.DocExists,
+				Update: bson.D{
+					{"$set", bson.D{{"env-uuid", doc["envuuid"]}}},
+					{"$unset", bson.D{{"envuuid", nil}}},
+				},
+			})
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
 	return st.runRawTransaction(ops)
 }
 

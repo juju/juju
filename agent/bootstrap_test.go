@@ -4,6 +4,10 @@
 package agent_test
 
 import (
+	"io/ioutil"
+	"net"
+	"path/filepath"
+
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -46,8 +50,39 @@ func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
+func (s *bootstrapSuite) TestInitializeStateNonLocal(c *gc.C) {
+	s.testInitializeState(c, false)
+}
+
+func (s *bootstrapSuite) TestInitializeStateLocal(c *gc.C) {
+	s.testInitializeState(c, true)
+}
+
+func (s *bootstrapSuite) testInitializeState(c *gc.C, fakeLocalEnv bool) {
 	dataDir := c.MkDir()
+
+	lxcFakeNetConfig := filepath.Join(c.MkDir(), "lxc-net")
+	netConf := []byte(`
+  # comments ignored
+LXC_BR= ignored
+LXC_ADDR = "fooo"
+LXC_BRIDGE="foobar" # detected
+anything else ignored
+LXC_BRIDGE="ignored"`[1:])
+	err := ioutil.WriteFile(lxcFakeNetConfig, netConf, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(&network.InterfaceByNameAddrs, func(name string) ([]net.Addr, error) {
+		c.Assert(name, gc.Equals, "foobar")
+		return []net.Addr{
+			&net.IPAddr{IP: net.IPv4(10, 0, 3, 1)},
+			&net.IPAddr{IP: net.IPv4(10, 0, 3, 4)},
+		}, nil
+	})
+	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
+	s.PatchValue(agent.IsLocalEnv, func(*config.Config) bool {
+		c.Logf("fakeLocalEnv=%v", fakeLocalEnv)
+		return fakeLocalEnv
+	})
 
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	configParams := agent.AgentConfigParams{
@@ -75,13 +110,29 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(available, jc.IsTrue)
 	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")
+	initialAddrs := network.NewAddresses(
+		"zeroonetwothree",
+		"0.1.2.3",
+		"10.0.3.1", // lxc bridge address filtered (when fakeLocalEnv=false).
+		"10.0.3.4", // lxc bridge address filtered (-"-).
+		"10.0.3.3", // not a lxc bridge address
+	)
 	mcfg := agent.BootstrapMachineConfig{
-		Addresses:       network.NewAddresses("zeroonetwothree", "0.1.2.3"),
+		Addresses:       initialAddrs,
 		Constraints:     expectConstraints,
 		Jobs:            []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
 		SharedSecret:    "abc123",
+	}
+	filteredAddrs := network.NewAddresses(
+		"zeroonetwothree",
+		"0.1.2.3",
+		"10.0.3.3",
+	)
+	if fakeLocalEnv {
+		// For local environments - no filtering.
+		filteredAddrs = append([]network.Address{}, initialAddrs...)
 	}
 	envAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": version.Current.Number.String(),
@@ -121,7 +172,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
 	c.Assert(m.Series(), gc.Equals, version.Current.Series)
 	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
-	c.Assert(m.Addresses(), gc.DeepEquals, mcfg.Addresses)
+	c.Assert(m.Addresses(), jc.DeepEquals, filteredAddrs)
 	gotConstraints, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotConstraints, gc.DeepEquals, expectConstraints)
@@ -129,14 +180,12 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	gotHW, err := m.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*gotHW, gc.DeepEquals, expectHW)
-	gotAddrs := m.Addresses()
-	c.Assert(gotAddrs, gc.DeepEquals, mcfg.Addresses)
 
 	// Check that the API host ports are initialised correctly.
 	apiHostPorts, err := st.APIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiHostPorts, jc.DeepEquals, [][]network.HostPort{
-		network.NewHostPorts(1234, "zeroonetwothree", "0.1.2.3"),
+		network.AddressesWithPort(filteredAddrs, 1234),
 	})
 
 	// Check that the state serving info is initialised correctly.

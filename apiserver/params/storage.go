@@ -81,6 +81,19 @@ type StorageAttachment struct {
 
 	Kind     StorageKind
 	Location string
+	Life     Life
+}
+
+// StorageAttachmentId identifies a storage attachment by the tags of the
+// related unit and storage instance.
+type StorageAttachmentId struct {
+	StorageTag string `json:"storagetag"`
+	UnitTag    string `json:"unittag"`
+}
+
+// StorageAttachmentIds holds a set of storage attachment identifiers.
+type StorageAttachmentIds struct {
+	Ids []StorageAttachmentId `json:"ids"`
 }
 
 // StorageAttachmentsResult holds the result of an API call to retrieve details
@@ -94,6 +107,19 @@ type StorageAttachmentsResult struct {
 // of multiple units' attached storage instances.
 type StorageAttachmentsResults struct {
 	Results []StorageAttachmentsResult `json:"results,omitempty"`
+}
+
+// StorageAttachmentResult holds the result of an API call to retrieve details
+// of a storage attachment.
+type StorageAttachmentResult struct {
+	Result StorageAttachment `json:"result"`
+	Error  *Error            `json:"error,omitempty"`
+}
+
+// StorageAttachmentResults holds the result of an API call to retrieve details
+// of multiple storage attachments.
+type StorageAttachmentResults struct {
+	Results []StorageAttachmentResult `json:"results,omitempty"`
 }
 
 // Volume describes a storage volume in the environment.

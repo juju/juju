@@ -108,11 +108,12 @@ type EnvironmentCreateArgs struct {
 }
 
 // Environment holds the result of an API call returning a name and UUID
-// for an environment.
+// for an environment and the tag of the server in which it is running.
 type Environment struct {
-	Name     string
-	UUID     string
-	OwnerTag string
+	Name       string
+	UUID       string
+	OwnerTag   string
+	ServerUUID string
 }
 
 // EnvironmentList holds information about a list of environments.
@@ -319,7 +320,7 @@ type InstanceInfo struct {
 	Networks        []Network
 	Interfaces      []NetworkInterface
 	Volumes         []Volume
-	// TODO(axw) we should return map[names.DiskTag]VolumeAttachmentInfo
+	// TODO(axw) we should return map[names.VolumeTag]VolumeAttachmentInfo
 	// here, containing only the information regarding the attachment.
 	// The rest can be inferred from the context.
 	VolumeAttachments []VolumeAttachment

@@ -201,7 +201,7 @@ func (a *DiskFormatterAPI) VolumePreparationInfo(args params.VolumeAttachmentIds
 		if err != nil || !canAccess(machineTag) {
 			return params.VolumePreparationInfo{}, common.ErrPerm
 		}
-		volumeTag, err := names.ParseDiskTag(id.VolumeTag)
+		volumeTag, err := names.ParseVolumeTag(id.VolumeTag)
 		if err != nil {
 			return params.VolumePreparationInfo{}, common.ErrPerm
 		}
@@ -217,7 +217,7 @@ func (a *DiskFormatterAPI) VolumePreparationInfo(args params.VolumeAttachmentIds
 
 func (a *DiskFormatterAPI) oneVolumePreparationInfo(
 	machineTag names.MachineTag,
-	volumeTag names.DiskTag,
+	volumeTag names.VolumeTag,
 	machineBlockDevices map[names.MachineTag][]state.BlockDeviceInfo,
 ) (params.VolumePreparationInfo, error) {
 	var result params.VolumePreparationInfo
@@ -273,7 +273,7 @@ func (a *DiskFormatterAPI) oneVolumePreparationInfo(
 // storage instance that the volume is assigned to.
 func (a *DiskFormatterAPI) attachedVolumeInfo(
 	machineTag names.MachineTag,
-	volumeTag names.DiskTag,
+	volumeTag names.VolumeTag,
 ) (*state.VolumeInfo, *state.VolumeAttachmentInfo, *names.StorageTag, error) {
 	volume, err := a.st.Volume(volumeTag)
 	if err != nil {

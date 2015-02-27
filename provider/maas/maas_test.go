@@ -4,13 +4,19 @@
 package maas
 
 import (
+	"time"
+
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gomaasapi"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	coretesting "github.com/juju/juju/testing"
 )
+
+// Ensure maasEnviron supports environs.NetworkingEnviron.
+var _ environs.NetworkingEnviron = (*maasEnviron)(nil)
 
 type providerSuite struct {
 	coretesting.BaseSuite
@@ -22,12 +28,15 @@ type providerSuite struct {
 var _ = gc.Suite(&providerSuite{})
 
 func (s *providerSuite) SetUpSuite(c *gc.C) {
-	s.restoreTimeouts = envtesting.PatchAttemptStrategies(&shortAttempt, &longAttempt)
+	s.restoreTimeouts = envtesting.PatchAttemptStrategies(&shortAttempt)
 	s.BaseSuite.SetUpSuite(c)
 	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
 	s.testMAASObject = TestMAASObject
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+	s.PatchValue(&nodeDeploymentTimeout, func(*maasEnviron) time.Duration {
+		return coretesting.ShortWait
+	})
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {

@@ -106,8 +106,16 @@ func (n *NetworkerAPI) oneMachineConfig(id string) ([]params.NetworkConfig, erro
 	return configs, nil
 }
 
-// Networks returns the list of networks with related interfaces for a given set of machines.
+// MachineNetworkInfo returns the list of networks with related interfaces for a
+// given set of machines.
+// DEPRECATED: Use MachineNetworkConfig() instead.
 func (n *NetworkerAPI) MachineNetworkInfo(args params.Entities) (params.MachineNetworkConfigResults, error) {
+	return n.MachineNetworkConfig(args)
+}
+
+// MachineNetworkConfig returns the list of networks with related interfaces
+// for a given set of machines.
+func (n *NetworkerAPI) MachineNetworkConfig(args params.Entities) (params.MachineNetworkConfigResults, error) {
 	result := params.MachineNetworkConfigResults{
 		Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
 	}

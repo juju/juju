@@ -585,7 +585,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	}
 
 	// Create instances of the charm's declared stores.
-	storageInstanceOps, storageInstanceIds, err := s.unitStorageInstanceOps(name)
+	storageOps, numStorageAttachments, err := s.unitStorageOps(name)
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
@@ -594,14 +594,14 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	globalKey := unitGlobalKey(name)
 	agentGlobalKey := unitAgentGlobalKey(name)
 	udoc := &unitDoc{
-		DocID:            docID,
-		Name:             name,
-		EnvUUID:          s.doc.EnvUUID,
-		Service:          s.doc.Name,
-		Series:           s.doc.Series,
-		Life:             Alive,
-		Principal:        principalName,
-		StorageInstances: storageInstanceIds,
+		DocID:                  docID,
+		Name:                   name,
+		EnvUUID:                s.doc.EnvUUID,
+		Service:                s.doc.Name,
+		Series:                 s.doc.Series,
+		Life:                   Alive,
+		Principal:              principalName,
+		StorageAttachmentCount: numStorageAttachments,
 	}
 	agentStatusDoc := statusDoc{
 		Status:  StatusAllocating,
@@ -628,7 +628,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 			Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
 		},
 	}
-	ops = append(ops, storageInstanceOps...)
+	ops = append(ops, storageOps...)
 
 	if s.doc.Subordinate {
 		ops = append(ops, txn.Op{
@@ -653,27 +653,27 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	return name, ops, nil
 }
 
-// createUnitStorageInstanceOps returns transactions operations for
-// creating storage instances for a new unit.
-func (s *Service) unitStorageInstanceOps(unitName string) (ops []txn.Op, storageInstanceIds []string, err error) {
+// unitStorageOps returns operations for creating storage
+// instances and attachments for a new unit. unitStorageOps
+// returns the number of initial storage attachments, to
+// initialise the unit's storage attachment refcount.
+func (s *Service) unitStorageOps(unitName string) (ops []txn.Op, numStorageAttachments int, err error) {
 	cons, err := s.StorageConstraints()
 	if err != nil {
-		return nil, nil, err
+		return nil, -1, err
 	}
 	charm, _, err := s.Charm()
 	if err != nil {
-		return nil, nil, err
+		return nil, -1, err
 	}
 	meta := charm.Meta()
 	tag := names.NewUnitTag(unitName)
 	// TODO(wallyworld) - record constraints info in data model - size and pool name
-	ops, storageInstanceIds, err = createStorageInstanceOps(s.st, tag, meta, cons)
+	ops, numStorageAttachments, err = createStorageOps(s.st, tag, meta, cons)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, -1, errors.Trace(err)
 	}
-	attachmentOps := createStorageAttachmentOps(tag, storageInstanceIds)
-	ops = append(ops, attachmentOps...)
-	return ops, storageInstanceIds, nil
+	return ops, numStorageAttachments, nil
 }
 
 // SCHEMACHANGE

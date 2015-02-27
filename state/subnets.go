@@ -48,14 +48,13 @@ type Subnet struct {
 type subnetDoc struct {
 	DocID             string `bson:"_id"`
 	EnvUUID           string `bson:"env-uuid"`
-	Life              Life
-	ProviderId        string `bson:",omitempty"`
-	CIDR              string
-	AllocatableIPHigh string `bson:",omitempty"`
-	AllocatableIPLow  string `bson:",omitempty"`
-
-	VLANTag          int    `bson:",omitempty"`
-	AvailabilityZone string `bson:",omitempty"`
+	Life              Life   `bson:"life"`
+	ProviderId        string `bson:"providerid,omitempty"`
+	CIDR              string `bson:"cidr"`
+	AllocatableIPHigh string `bson:"allocatableiphigh,omitempty"`
+	AllocatableIPLow  string `bson:"allocatableiplow,omitempty"`
+	VLANTag           int    `bson:"vlantag,omitempty"`
+	AvailabilityZone  string `bson:"availabilityzone,omitempty"`
 }
 
 // Life returns whether the subnet is Alive, Dying or Dead.
@@ -68,18 +67,24 @@ func (s *Subnet) ID() string {
 	return s.doc.DocID
 }
 
-// EnsureDead sets the Life of the subnet to Dead
+// String implements fmt.Stringer.
+func (s *Subnet) String() string {
+	return s.CIDR()
+}
+
+// GoString implements fmt.GoStringer.
+func (s *Subnet) GoString() string {
+	return s.String()
+}
+
+// EnsureDead sets the Life of the subnet to Dead, if it's Alive. It
+// does nothing otherwise.
 func (s *Subnet) EnsureDead() (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot destroy subnet %v", s)
+	defer errors.DeferredAnnotatef(&err, "cannot set subnet %q to dead", s)
+
 	if s.doc.Life == Dead {
 		return nil
 	}
-
-	defer func() {
-		if err == nil {
-			s.doc.Life = Dead
-		}
-	}()
 
 	ops := []txn.Op{{
 		C:      subnetsC,
@@ -87,13 +92,19 @@ func (s *Subnet) EnsureDead() (err error) {
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 		Assert: isAliveDoc,
 	}}
-	return s.st.runTransaction(ops)
+	if err = s.st.runTransaction(ops); err != nil {
+		// Ignore ErrAborted if it happens, otherwise return err.
+		return onAbort(err, nil)
+	}
+	s.doc.Life = Dead
+	return nil
 }
 
 // Remove removes a dead subnet. If the subnet is not dead it returns an error.
 // It also removes any IP addresses associated with the subnet.
 func (s *Subnet) Remove() (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot destroy subnet %v", s)
+	defer errors.DeferredAnnotatef(&err, "cannot remove subnet %q", s)
+
 	if s.doc.Life != Dead {
 		return errors.New("subnet is not dead")
 	}
@@ -112,6 +123,9 @@ func (s *Subnet) Remove() (err error) {
 			Id:     doc.DocID,
 			Remove: true,
 		})
+	}
+	if err = iter.Close(); err != nil {
+		return errors.Annotate(err, "cannot read addresses")
 	}
 
 	ops = append(ops, txn.Op{
@@ -162,7 +176,7 @@ func (s *Subnet) Validate() error {
 	if s.doc.CIDR != "" {
 		_, mask, err = net.ParseCIDR(s.doc.CIDR)
 		if err != nil {
-			return errors.Annotatef(err, "invalid CIDR")
+			return errors.Trace(err)
 		}
 	} else {
 		return errors.Errorf("missing CIDR")
@@ -205,16 +219,17 @@ func (s *Subnet) Refresh() error {
 
 	err := subnets.FindId(s.doc.DocID).One(&s.doc)
 	if err == mgo.ErrNotFound {
-		return errors.NotFoundf("subnet %v", s)
+		return errors.NotFoundf("subnet %q", s)
 	}
 	if err != nil {
-		return errors.Errorf("cannot refresh subnet %v: %v", s, err)
+		return errors.Errorf("cannot refresh subnet %q: %v", s, err)
 	}
 	return nil
 }
 
 // PickNewAddress returns a new IPAddress that isn't in use for the subnet.
 // The address starts with AddressStateUnknown, for later allocation.
+// This will fail if the subnet is not alive.
 func (s *Subnet) PickNewAddress() (*IPAddress, error) {
 	for {
 		addr, err := s.attemptToPickNewAddress()
@@ -227,27 +242,31 @@ func (s *Subnet) PickNewAddress() (*IPAddress, error) {
 	}
 }
 
-// attemptToPickNewAddress will try to pick a new address. It can fail with
-// AlreadyExists due to a race condition between fetching the list of addresses
-// already in use and allocating a new one. It is called in a loop by
+// attemptToPickNewAddress will try to pick a new address. It can fail
+// with AlreadyExists due to a race condition between fetching the
+// list of addresses already in use and allocating a new one. If the
+// subnet is not alive, it will also fail. It is called in a loop by
 // PickNewAddress until it gets one or there are no more available!
 func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
+	if s.doc.Life != Alive {
+		return nil, errors.Errorf("cannot pick address: subnet %q is not alive", s)
+	}
 	high := s.doc.AllocatableIPHigh
 	low := s.doc.AllocatableIPLow
 	if low == "" || high == "" {
-		return nil, errors.Errorf("no allocatable IP addresses for subnet %v", s)
+		return nil, errors.Errorf("no allocatable IP addresses for subnet %q", s)
 	}
 
 	// convert low and high to decimals as the bounds
 	lowDecimal, err := network.IPv4ToDecimal(net.ParseIP(low))
 	if err != nil {
 		// these addresses are validated so should never happen
-		return nil, errors.Annotatef(err, "invalid AllocatableIPLow %q for subnet %v", low, s)
+		return nil, errors.Annotatef(err, "invalid AllocatableIPLow %q for subnet %q", low, s)
 	}
 	highDecimal, err := network.IPv4ToDecimal(net.ParseIP(high))
 	if err != nil {
 		// these addresses are validated so should never happen
-		return nil, errors.Annotatef(err, "invalid AllocatableIPHigh %q for subnet %v", high, s)
+		return nil, errors.Annotatef(err, "invalid AllocatableIPHigh %q for subnet %q", high, s)
 	}
 
 	// find all addresses for this subnet and convert them to decimals
@@ -268,12 +287,15 @@ func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 		}
 		allocated[value] = true
 	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Annotatef(err, "cannot read addresses of subnet %q", s)
+	}
 
 	// Check that the number of addresses in use is less than the
 	// difference between low and high - i.e. we haven't exhausted all
 	// possible addresses.
 	if len(allocated) >= int(highDecimal-lowDecimal)+1 {
-		return nil, errors.Errorf("allocatable IP addresses exhausted for subnet %v", s)
+		return nil, errors.Errorf("allocatable IP addresses exhausted for subnet %q", s)
 	}
 
 	// pick a new random decimal between the low and high bounds that

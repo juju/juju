@@ -159,6 +159,12 @@ func (e *Environment) UUID() string {
 	return e.doc.UUID
 }
 
+// ServerUUID returns the universally unique identifier of the server in which
+// the environment is running.
+func (e *Environment) ServerUUID() string {
+	return e.doc.ServerUUID
+}
+
 // Name returns the human friendly name of the environment.
 func (e *Environment) Name() string {
 	return e.doc.Name
@@ -325,7 +331,6 @@ func checkManualMachines(machines []*Machine) error {
 // ensureDestroyable returns an error if there is more than one environment and the
 // environment to be destroyed is the state server environment.
 func (e *Environment) ensureDestroyable() error {
-	// There's a race here: a client might add a manual machine
 	// after another client checks. Destroy-environment will
 	// still fail, but the environment will be in a state where
 	// entities can only be destroyed.

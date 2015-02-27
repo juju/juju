@@ -5,16 +5,12 @@ package backups
 
 import (
 	"fmt"
-	"io"
-	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state/backups"
 )
 
 const uploadDoc = `
@@ -69,7 +65,7 @@ func (c *UploadCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	archive, meta, err := c.getArchive(c.Filename)
+	archive, meta, err := getArchive(c.Filename)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -115,61 +111,4 @@ func (c *UploadCommand) getStoredMetadata(id string) (*params.BackupsMetadataRes
 
 	stored, err := client.Info(id)
 	return stored, errors.Trace(err)
-}
-
-func (c *UploadCommand) getArchive(filename string) (io.ReadCloser, *params.BackupsMetadataResult, error) {
-
-	archive, err := os.Open(filename)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	// Extract the metadata.
-	ad, err := backups.NewArchiveDataReader(archive)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	_, err = archive.Seek(0, os.SEEK_SET)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	meta, err := ad.Metadata()
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return nil, nil, errors.Trace(err)
-		}
-		meta, err = backups.BuildMetadata(archive)
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-	} else {
-		// Make sure the file info is set.
-		fileMeta, err := backups.BuildMetadata(archive)
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		if meta.Size() == int64(0) {
-			if err := meta.SetFileInfo(fileMeta.Size(), "", ""); err != nil {
-				return nil, nil, errors.Trace(err)
-			}
-		}
-		if meta.Checksum() == "" {
-			err := meta.SetFileInfo(0, fileMeta.Checksum(), fileMeta.ChecksumFormat())
-			if err != nil {
-				return nil, nil, errors.Trace(err)
-			}
-		}
-		if meta.Finished == nil || meta.Finished.IsZero() {
-			meta.Finished = fileMeta.Finished
-		}
-	}
-	_, err = archive.Seek(0, os.SEEK_SET)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	// Pack the metadata into a result.
-	metaResult := apiserverbackups.ResultFromMetadata(meta)
-
-	return archive, &metaResult, nil
 }

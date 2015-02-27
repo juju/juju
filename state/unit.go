@@ -62,29 +62,48 @@ const (
 	ResolvedNoHooks    ResolvedMode = "no-hooks"
 )
 
+// port identifies a network port number for a particular protocol.
+// TODO(mue) Not really used anymore, se bellow. Can be removed when
+// cleaning unitDoc.
+type port struct {
+	Protocol string `bson:"protocol"`
+	Number   int    `bson:"number"`
+}
+
+// networkPorts is a convenience helper to return the state type
+// as network type, here for a slice of Port.
+func networkPorts(ports []port) []network.Port {
+	netPorts := make([]network.Port, len(ports))
+	for i, port := range ports {
+		netPorts[i] = network.Port{port.Protocol, port.Number}
+	}
+	return netPorts
+}
+
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in apiserver/params.
 type unitDoc struct {
-	DocID            string `bson:"_id"`
-	Name             string `bson:"name"`
-	EnvUUID          string `bson:"env-uuid"`
-	Service          string
-	Series           string
-	CharmURL         *charm.URL
-	Principal        string
-	Subordinates     []string
-	StorageInstances []string `bson:"storageinstances,omitempty"`
-	MachineId        string
-	Resolved         ResolvedMode
-	Tools            *tools.Tools `bson:",omitempty"`
-	Life             Life
-	TxnRevno         int64 `bson:"txn-revno"`
-	PasswordHash     string
+	DocID                  string `bson:"_id"`
+	Name                   string `bson:"name"`
+	EnvUUID                string `bson:"env-uuid"`
+	Service                string
+	Series                 string
+	CharmURL               *charm.URL
+	Principal              string
+	Subordinates           []string
+	StorageAttachmentCount int `bson:"storageattachmentcount"`
+	MachineId              string
+	Resolved               ResolvedMode
+	Tools                  *tools.Tools `bson:",omitempty"`
+	Life                   Life
+	TxnRevno               int64 `bson:"txn-revno"`
+	PasswordHash           string
 
-	// No longer used - to be removed.
-	Ports          []network.Port
-	PublicAddress  string
-	PrivateAddress string
+	// TODO(mue) No longer actively used, only in upgrades.go.
+	// To be removed later.
+	Ports          []port `bson:"ports"`
+	PublicAddress  string `bson:"publicaddress"`
+	PrivateAddress string `bson:"privateaddress"`
 }
 
 // Unit represents the state of a service unit.
@@ -342,7 +361,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	}, cleanupOp, minUnitsOp}
 	if u.doc.Principal != "" {
 		return setDyingOps, nil
-	} else if len(u.doc.Subordinates)+len(u.doc.StorageInstances) != 0 {
+	} else if len(u.doc.Subordinates)+u.doc.StorageAttachmentCount != 0 {
 		return setDyingOps, nil
 	}
 
@@ -364,7 +383,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	removeAsserts := append(isAliveDoc, bson.DocElem{
 		"$and", []bson.D{
 			unitHasNoSubordinates,
-			unitHasNoStorageInstances,
+			unitHasNoStorageAttachments,
 		},
 	})
 	removeOps, err := u.removeOps(removeAsserts)
@@ -494,15 +513,15 @@ var unitHasNoSubordinates = bson.D{{
 	},
 }}
 
-// ErrUnitHasStorageInstances is a standard error to indicate that a Unit
-// cannot complete an operation to end its life because it still has
-// storage instances.
-var ErrUnitHasStorageInstances = stderrors.New("unit has storage instances")
+// ErrUnitHasStorageAttachments is a standard error to indicate that
+// a Unit cannot complete an operation to end its life because it still
+// has storage attachments.
+var ErrUnitHasStorageAttachments = stderrors.New("unit has storage attachments")
 
-var unitHasNoStorageInstances = bson.D{{
+var unitHasNoStorageAttachments = bson.D{{
 	"$or", []bson.D{
-		{{"storageinstances", bson.D{{"$size", 0}}}},
-		{{"storageinstances", bson.D{{"$exists", false}}}},
+		{{"storageattachmentcount", 0}},
+		{{"storageattachmentcount", bson.D{{"$exists", false}}}},
 	},
 }}
 
@@ -522,7 +541,7 @@ func (u *Unit) EnsureDead() (err error) {
 	assert := append(notDeadDoc, bson.DocElem{
 		"$and", []bson.D{
 			unitHasNoSubordinates,
-			unitHasNoStorageInstances,
+			unitHasNoStorageAttachments,
 		},
 	})
 	ops := []txn.Op{{
@@ -547,7 +566,7 @@ func (u *Unit) EnsureDead() (err error) {
 	if len(u.doc.Subordinates) > 0 {
 		return ErrUnitHasSubordinates
 	}
-	return ErrUnitHasStorageInstances
+	return ErrUnitHasStorageAttachments
 }
 
 // Remove removes the unit from state, and may remove its service as well, if
@@ -619,14 +638,6 @@ func (u *Unit) SubordinateNames() []string {
 	names := make([]string, len(u.doc.Subordinates))
 	copy(names, u.doc.Subordinates)
 	return names
-}
-
-// StorageInstanceIds returns the IDs of any storage instances owned by
-// the unit.
-func (u *Unit) StorageInstanceIds() []string {
-	ids := make([]string, len(u.doc.StorageInstances))
-	copy(ids, u.doc.StorageInstances)
-	return ids
 }
 
 // RelationsJoined returns the relations for which the unit has entered scope
@@ -1383,7 +1394,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 
 // newMachineVolumeParams returns parameters for creating volumes and volume
 // attachments for a new machine that the unit will be assigned to.
-func (u *Unit) newMachineVolumeParams() ([]MachineVolumeParams, map[names.DiskTag]VolumeAttachmentParams, error) {
+func (u *Unit) newMachineVolumeParams() ([]MachineVolumeParams, map[names.VolumeTag]VolumeAttachmentParams, error) {
 	storageAttachments, err := u.st.StorageAttachments(u.UnitTag())
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting storage attachments")
@@ -1406,7 +1417,7 @@ func (u *Unit) newMachineVolumeParams() ([]MachineVolumeParams, map[names.DiskTa
 	}
 
 	var volumes []MachineVolumeParams
-	volumeAttachments := make(map[names.DiskTag]VolumeAttachmentParams)
+	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
 	for _, storageAttachment := range storageAttachments {
 		// TODO(axw) consult storage provider to see if we need to request
 		// a volume for the storage instance. Otherwise create a Filesystem
@@ -1720,7 +1731,12 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 	if !ok {
 		return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
 	}
+	// Reject bad payloads before attempting to insert defaults.
 	err = spec.ValidateParams(payload)
+	if err != nil {
+		return nil, err
+	}
+	err = spec.InsertDefaults(payload)
 	if err != nil {
 		return nil, err
 	}

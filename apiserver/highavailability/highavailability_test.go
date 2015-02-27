@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/highavailability"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -32,6 +34,8 @@ type clientSuite struct {
 	authoriser apiservertesting.FakeAuthorizer
 	haServer   *highavailability.HighAvailabilityAPI
 	pinger     *presence.Pinger
+
+	commontesting.BlockHelper
 }
 
 type Killer interface {
@@ -68,6 +72,8 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	// We have to ensure the agents are alive, or EnsureAvailability will
 	// create more to replace them.
 	s.pinger = s.setAgentPresence(c, "0")
+	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
 func (s *clientSuite) TearDownTest(c *gc.C) {
@@ -89,7 +95,12 @@ func (s *clientSuite) setAgentPresence(c *gc.C, machineId string) *presence.Ping
 func (s *clientSuite) ensureAvailability(
 	c *gc.C, numStateServers int, cons constraints.Value, series string, placement []string,
 ) (params.StateServersChanges, error) {
+	return ensureAvailability(c, s.haServer, numStateServers, cons, series, placement)
+}
 
+func ensureAvailability(
+	c *gc.C, haServer *highavailability.HighAvailabilityAPI, numStateServers int, cons constraints.Value, series string, placement []string,
+) (params.StateServersChanges, error) {
 	arg := params.StateServersSpecs{
 		Specs: []params.StateServersSpec{{
 			NumStateServers: numStateServers,
@@ -97,7 +108,7 @@ func (s *clientSuite) ensureAvailability(
 			Series:          series,
 			Placement:       placement,
 		}}}
-	results, err := s.haServer.EnsureAvailability(arg)
+	results, err := haServer.EnsureAvailability(arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -176,11 +187,10 @@ func (s *clientSuite) TestEnsureAvailabilityConstraints(c *gc.C) {
 
 func (s *clientSuite) TestBlockEnsureAvailability(c *gc.C) {
 	// Block all changes.
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-all-changes": true}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	s.BlockAllChanges(c, "TestBlockEnsureAvailability")
 
 	ensureAvailabilityResult, err := s.ensureAvailability(c, 3, constraints.MustParse("mem=4G"), defaultSeries, nil)
-	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
+	s.AssertBlocked(c, err, "TestBlockEnsureAvailability")
 
 	c.Assert(ensureAvailabilityResult.Maintained, gc.HasLen, 0)
 	c.Assert(ensureAvailabilityResult.Added, gc.HasLen, 0)
@@ -286,4 +296,23 @@ func (s *clientSuite) TestEnsureAvailabilityErrors(c *gc.C) {
 
 	_, err = s.ensureAvailability(c, 1, emptyCons, defaultSeries, nil)
 	c.Assert(err, gc.ErrorMatches, "failed to create new state server machines: cannot reduce state server count")
+}
+
+func (s *clientSuite) TestEnsureAvailabilityHostedEnvErrors(c *gc.C) {
+	st2 := s.Factory.MakeEnvironment(c, &factory.EnvParams{ConfigAttrs: coretesting.Attrs{"state-server": false}})
+	defer st2.Close()
+
+	haServer, err := highavailability.NewHighAvailabilityAPI(st2, s.resources, s.authoriser)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ensureAvailabilityResult, err := ensureAvailability(c, haServer, 3, constraints.MustParse("mem=4G"), defaultSeries, nil)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "unsupported with hosted environments")
+
+	c.Assert(ensureAvailabilityResult.Maintained, gc.HasLen, 0)
+	c.Assert(ensureAvailabilityResult.Added, gc.HasLen, 0)
+	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+
+	machines, err := st2.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 0)
 }

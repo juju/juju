@@ -26,10 +26,10 @@ type DiskFormatterWorkerSuite struct {
 
 func (s *DiskFormatterWorkerSuite) TestWorker(c *gc.C) {
 	volumeAttachments := []params.VolumeAttachment{
-		{VolumeTag: "disk-0"},
-		{VolumeTag: "disk-1"},
-		{VolumeTag: "disk-2"},
-		{VolumeTag: "disk-3"},
+		{VolumeTag: "volume-0"},
+		{VolumeTag: "volume-1"},
+		{VolumeTag: "volume-2"},
+		{VolumeTag: "volume-3"},
 	}
 
 	volumeFormattingInfoResults := []params.VolumePreparationInfoResult{{
@@ -59,12 +59,12 @@ func (s *DiskFormatterWorkerSuite) TestWorker(c *gc.C) {
 		attachedVolumes: func() ([]params.VolumeAttachment, error) {
 			return volumeAttachments, nil
 		},
-		volumeFormattingInfo: func(tags []names.DiskTag) ([]params.VolumePreparationInfoResult, error) {
-			expect := make([]names.DiskTag, len(volumeAttachments))
+		volumeFormattingInfo: func(tags []names.VolumeTag) ([]params.VolumePreparationInfoResult, error) {
+			expect := make([]names.VolumeTag, len(volumeAttachments))
 			for i, att := range volumeAttachments {
 				tag, err := names.ParseTag(att.VolumeTag)
 				c.Assert(err, jc.ErrorIsNil)
-				expect[i] = tag.(names.DiskTag)
+				expect[i] = tag.(names.VolumeTag)
 			}
 			c.Assert(tags, gc.DeepEquals, expect)
 			return volumeFormattingInfoResults, nil
@@ -94,10 +94,10 @@ func (s *DiskFormatterWorkerSuite) TestMakeDefaultFilesystem(c *gc.C) {
 	accessor := &mockVolumeAccessor{
 		attachedVolumes: func() ([]params.VolumeAttachment, error) {
 			return []params.VolumeAttachment{{
-				VolumeTag: "disk-0",
+				VolumeTag: "volume-0",
 			}}, nil
 		},
-		volumeFormattingInfo: func(tags []names.DiskTag) ([]params.VolumePreparationInfoResult, error) {
+		volumeFormattingInfo: func(tags []names.VolumeTag) ([]params.VolumePreparationInfoResult, error) {
 			return []params.VolumePreparationInfoResult{{
 				Result: params.VolumePreparationInfo{
 					NeedsFilesystem: true,
@@ -128,9 +128,9 @@ func (s *DiskFormatterWorkerSuite) TestAttachedVolumesError(c *gc.C) {
 func (s *DiskFormatterWorkerSuite) TestBlockDeviceStorageInstanceError(c *gc.C) {
 	accessor := &mockVolumeAccessor{
 		attachedVolumes: func() ([]params.VolumeAttachment, error) {
-			return []params.VolumeAttachment{{VolumeTag: "disk-0"}}, nil
+			return []params.VolumeAttachment{{VolumeTag: "volume-0"}}, nil
 		},
-		volumeFormattingInfo: func(tags []names.DiskTag) ([]params.VolumePreparationInfoResult, error) {
+		volumeFormattingInfo: func(tags []names.VolumeTag) ([]params.VolumePreparationInfoResult, error) {
 			return []params.VolumePreparationInfoResult{}, errors.New("VolumePreparationInfo failed")
 		},
 	}
@@ -142,9 +142,9 @@ func (s *DiskFormatterWorkerSuite) TestBlockDeviceStorageInstanceError(c *gc.C) 
 func (s *DiskFormatterWorkerSuite) TestCannotMakeFilesystem(c *gc.C) {
 	accessor := &mockVolumeAccessor{
 		attachedVolumes: func() ([]params.VolumeAttachment, error) {
-			return []params.VolumeAttachment{{VolumeTag: "disk-0"}}, nil
+			return []params.VolumeAttachment{{VolumeTag: "volume-0"}}, nil
 		},
-		volumeFormattingInfo: func(tags []names.DiskTag) ([]params.VolumePreparationInfoResult, error) {
+		volumeFormattingInfo: func(tags []names.VolumeTag) ([]params.VolumePreparationInfoResult, error) {
 			return []params.VolumePreparationInfoResult{{
 				Result: params.VolumePreparationInfo{
 					NeedsFilesystem: true,
@@ -163,7 +163,7 @@ func (s *DiskFormatterWorkerSuite) TestCannotMakeFilesystem(c *gc.C) {
 type mockVolumeAccessor struct {
 	changes              chan struct{}
 	attachedVolumes      func() ([]params.VolumeAttachment, error)
-	volumeFormattingInfo func([]names.DiskTag) ([]params.VolumePreparationInfoResult, error)
+	volumeFormattingInfo func([]names.VolumeTag) ([]params.VolumePreparationInfoResult, error)
 }
 
 func (m *mockVolumeAccessor) Changes() <-chan struct{} {
@@ -186,6 +186,6 @@ func (m *mockVolumeAccessor) AttachedVolumes() ([]params.VolumeAttachment, error
 	return m.attachedVolumes()
 }
 
-func (m *mockVolumeAccessor) VolumePreparationInfo(tags []names.DiskTag) ([]params.VolumePreparationInfoResult, error) {
+func (m *mockVolumeAccessor) VolumePreparationInfo(tags []names.VolumeTag) ([]params.VolumePreparationInfoResult, error) {
 	return m.volumeFormattingInfo(tags)
 }

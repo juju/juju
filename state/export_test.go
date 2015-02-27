@@ -18,6 +18,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -30,13 +31,13 @@ const (
 	UnitsC             = unitsC
 	UsersC             = usersC
 	BlockDevicesC      = blockDevicesC
+	StorageInstancesC  = storageInstancesC
 )
 
 var (
 	ToolstorageNewStorage  = &toolstorageNewStorage
 	ImageStorageNewStorage = &imageStorageNewStorage
 	MachineIdLessThan      = machineIdLessThan
-	NewAddress             = newAddress
 	StateServerAvailable   = &stateServerAvailable
 	GetOrCreatePorts       = getOrCreatePorts
 	GetPorts               = getPorts
@@ -334,3 +335,36 @@ var (
 	_                    GlobalEntity = (*MockGlobalEntity)(nil)
 	TagToCollectionAndId              = (*State).tagToCollectionAndId
 )
+
+func AssertAddressConversion(c *gc.C, netAddr network.Address) {
+	addr := fromNetworkAddress(netAddr)
+	newNetAddr := addr.networkAddress()
+	c.Assert(netAddr, gc.DeepEquals, newNetAddr)
+
+	size := 5
+	netAddrs := make([]network.Address, size)
+	for i := 0; i < size; i++ {
+		netAddrs[i] = netAddr
+	}
+	addrs := fromNetworkAddresses(netAddrs)
+	newNetAddrs := networkAddresses(addrs)
+	c.Assert(netAddrs, gc.DeepEquals, newNetAddrs)
+}
+
+func AssertHostPortConversion(c *gc.C, netHostPort network.HostPort) {
+	hostPort := fromNetworkHostPort(netHostPort)
+	newNetHostPort := hostPort.networkHostPort()
+	c.Assert(netHostPort, gc.DeepEquals, newNetHostPort)
+
+	size := 5
+	netHostsPorts := make([][]network.HostPort, size)
+	for i := 0; i < size; i++ {
+		netHostsPorts[i] = make([]network.HostPort, size)
+		for j := 0; j < size; j++ {
+			netHostsPorts[i][j] = netHostPort
+		}
+	}
+	hostsPorts := fromNetworkHostsPorts(netHostsPorts)
+	newNetHostsPorts := networkHostsPorts(hostsPorts)
+	c.Assert(netHostsPorts, gc.DeepEquals, newNetHostsPorts)
+}

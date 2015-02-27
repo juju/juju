@@ -64,7 +64,7 @@ type MachineTemplate struct {
 
 	// VolumeAttachments holds the parameters for attaching existing
 	// volumes to the machine.
-	VolumeAttachments map[names.DiskTag]VolumeAttachmentParams
+	VolumeAttachments map[names.VolumeTag]VolumeAttachmentParams
 
 	// Nonce holds a unique value that can be used to check
 	// if a new instance was really started for this machine.
@@ -246,7 +246,7 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 // based on the given template. It also returns the machine document
 // that will be inserted.
 func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op, error) {
-	template, err := st.effectiveMachineTemplate(template, true)
+	template, err := st.effectiveMachineTemplate(template, st.IsStateServer())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -432,7 +432,7 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 		Principals: template.principals,
 		Life:       Alive,
 		Nonce:      template.Nonce,
-		Addresses:  instanceAddressesToAddresses(template.Addresses),
+		Addresses:  fromNetworkAddresses(template.Addresses),
 		NoVote:     template.NoVote,
 		Placement:  template.Placement,
 	}
@@ -470,7 +470,7 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	// attempting to create the volume until after the machine
 	// has been provisioned.
 	var volumeOps []txn.Op
-	attachmentParams := make(map[names.DiskTag]VolumeAttachmentParams)
+	attachmentParams := make(map[names.VolumeTag]VolumeAttachmentParams)
 	for _, v := range template.Volumes {
 		op, tag, err := st.addVolumeOp(v.Volume)
 		if err != nil {
@@ -497,7 +497,7 @@ func hasJob(jobs []MachineJob, job MachineJob) bool {
 	return false
 }
 
-var errStateServerNotAllowed = errors.New("state server jobs specified without calling EnsureAvailability")
+var errStateServerNotAllowed = errors.New("state server jobs specified but not allowed")
 
 // maintainStateServersOps returns a set of operations that will maintain
 // the state server information when the given machine documents

@@ -24,5 +24,7 @@ func (s *providerCommonSuite) TestCommonProvidersExported(c *gc.C) {
 	}
 	c.Assert(common, jc.SameContents, []storage.ProviderType{
 		provider.LoopProviderType,
+		provider.RootfsProviderType,
+		provider.TmpfsProviderType,
 	})
 }
