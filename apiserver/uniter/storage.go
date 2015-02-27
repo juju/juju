@@ -79,25 +79,22 @@ func (s *StorageAPI) getOneUnitStorageAttachments(canAccess common.AuthFunc, uni
 }
 
 func (s *StorageAPI) fromStateStorageAttachment(stateStorageAttachment state.StorageAttachment) (params.StorageAttachment, error) {
-	/*
-		info, err := stateStorageAttachment.Info()
-		if err != nil {
-			return params.StorageAttachment{}, err
-		}
-		stateStorageInstance, err := s.st.StorageInstance(stateStorageAttachment.StorageInstance())
-		if err != nil {
-			return params.StorageAttachment{}, err
-		}
-		return params.StorageAttachment{
-			stateStorageAttachment.StorageInstance().String(),
-			stateStorageInstance.Owner().String(),
-			stateStorageAttachment.Unit().String(),
-			params.StorageKind(stateStorageInstance.Kind()),
-			info.Location,
-			params.Life(stateStorageAttachment.Life().String()),
-		}, nil
-	*/
-	panic("unimplemented")
+	info, err := common.StorageAttachmentInfo(s.st, stateStorageAttachment)
+	if err != nil {
+		return params.StorageAttachment{}, err
+	}
+	stateStorageInstance, err := s.st.StorageInstance(stateStorageAttachment.StorageInstance())
+	if err != nil {
+		return params.StorageAttachment{}, err
+	}
+	return params.StorageAttachment{
+		stateStorageAttachment.StorageInstance().String(),
+		stateStorageInstance.Owner().String(),
+		stateStorageAttachment.Unit().String(),
+		params.StorageKind(stateStorageInstance.Kind()),
+		info.Location,
+		params.Life(stateStorageAttachment.Life().String()),
+	}, nil
 }
 
 // StorageAttachments returns the storage attachments with the specified tags.
@@ -190,6 +187,11 @@ func (s *StorageAPI) WatchStorageAttachments(args params.StorageAttachmentIds) (
 }
 
 func (s *StorageAPI) watchOneStorageAttachment(id params.StorageAttachmentId, canAccess func(names.Tag) bool) (params.NotifyWatchResult, error) {
+	// Watching a storage attachment is implemented as watching the
+	// underlying volume or filesystem attachment. The only thing
+	// we don't necessarily see in doing this is the lifecycle state
+	// changes, but these may be observed by using the
+	// WatchUnitStorageAttachments watcher.
 	nothing := params.NotifyWatchResult{}
 	unitTag, err := names.ParseUnitTag(id.UnitTag)
 	if err != nil || !canAccess(unitTag) {
@@ -199,7 +201,10 @@ func (s *StorageAPI) watchOneStorageAttachment(id params.StorageAttachmentId, ca
 	if err != nil {
 		return nothing, err
 	}
-	watch := s.st.WatchStorageAttachment(storageTag, unitTag)
+	watch, err := common.WatchStorageAttachment(s.st, storageTag, unitTag)
+	if err != nil {
+		return nothing, errors.Trace(err)
+	}
 	if _, ok := <-watch.Changes(); ok {
 		return params.NotifyWatchResult{
 			NotifyWatcherId: s.resources.Register(watch),

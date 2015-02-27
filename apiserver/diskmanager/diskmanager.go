@@ -102,6 +102,7 @@ func stateBlockDeviceInfo(devices []storage.BlockDevice) []state.BlockDeviceInfo
 			dev.Size,
 			dev.FilesystemType,
 			dev.InUse,
+			dev.MountPoint,
 		}
 	}
 	return result
