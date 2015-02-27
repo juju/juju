@@ -659,7 +659,8 @@ SIGNING_KEY=""
 IS_LOCAL="false"
 GET_RELEASED_TOOL="true"
 INIT_VERSION="1.21."
-while getopts "r:s:t:i:n" o; do
+RESIGN="false"
+while getopts "r:s:t:i:na" o; do
     case "${o}" in
         r)
             REMOVE_RELEASE=${OPTARG}
@@ -682,6 +683,10 @@ while getopts "r:s:t:i:n" o; do
         n)
             GET_RELEASED_TOOL="false"
             echo "Not downloading release tools."
+            ;;
+        a)
+            RESIGN="true"
+            echo "Will resign streams."
             ;;
         *)
             echo "Invalid option: ${o}"
@@ -737,20 +742,22 @@ IGNORED=""
 # Main.
 check_deps
 build_tool_tree
-if [[ $GET_RELEASED_TOOL == "true" ]]; then
-    sync_released_tools
-fi
-retract_tools
-init_tools_maybe
-if [[ $IS_LOCAL == "true" || $RELEASE != "IGNORE" ]]; then
-    retrieve_packages
-    if [[ $PURPOSE == "released" ]]; then
-        copy_proposed_to_release
-    else
-        archive_tools
+if [[ $RESIGN == "false" ]]; then
+    if [[ $GET_RELEASED_TOOL == "true" ]]; then
+        sync_released_tools
     fi
+    retract_tools
+    init_tools_maybe
+    if [[ $IS_LOCAL == "true" || $RELEASE != "IGNORE" ]]; then
+        retrieve_packages
+        if [[ $PURPOSE == "released" ]]; then
+            copy_proposed_to_release
+        else
+            archive_tools
+        fi
+    fi
+    generate_streams
 fi
-generate_streams
 if [[ $SIGNING_KEY != "" ]]; then
     generate_mirrors
     sign_metadata
