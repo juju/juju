@@ -1,9 +1,13 @@
 __metaclass__ = type
 
 from argparse import Namespace
+from collections import OrderedDict
 from contextlib import contextmanager
 import os
-from tempfile import NamedTemporaryFile
+from tempfile import (
+    mkdtemp,
+    NamedTemporaryFile,
+    )
 from textwrap import dedent
 from unittest import TestCase
 
@@ -33,7 +37,9 @@ from industrial_test import (
     MultiIndustrialTest,
     parse_args,
     QUICK,
+    StageInfo,
     SteppedStageAttempt,
+    UpgradeCharmAttempt,
     UpgradeJujuAttempt,
     )
 from jujuconfig import get_euca_env
@@ -230,8 +236,9 @@ class TestMultiIndustrialTest(TestCase):
         self.assertEqual(mit.max_attempts, 12)
         self.assertEqual(
             mit.stages, [
-                BootstrapAttempt, DeployManyAttempt, BackupRestoreAttempt,
-                EnsureAvailabilityAttempt, DestroyEnvironmentAttempt])
+                BootstrapAttempt, UpgradeCharmAttempt, DeployManyAttempt,
+                BackupRestoreAttempt, EnsureAvailabilityAttempt,
+                DestroyEnvironmentAttempt])
 
     def test_from_args_maas(self):
         args = Namespace(
@@ -276,8 +283,9 @@ class TestMultiIndustrialTest(TestCase):
 
         self.assertEqual(
             MultiIndustrialTest.get_stages(FULL, {'type': 'foo'}), [
-                BootstrapAttempt, DeployManyAttempt, BackupRestoreAttempt,
-                EnsureAvailabilityAttempt, DestroyEnvironmentAttempt])
+                BootstrapAttempt, UpgradeCharmAttempt, DeployManyAttempt,
+                BackupRestoreAttempt, EnsureAvailabilityAttempt,
+                DestroyEnvironmentAttempt])
         self.assertEqual(
             MultiIndustrialTest.get_stages(DENSITY, {'type': 'foo'}), [
                 BootstrapAttempt, DeployManyAttempt,
@@ -293,9 +301,9 @@ class TestMultiIndustrialTest(TestCase):
             [BootstrapAttempt, DestroyEnvironmentAttempt])
         self.assertEqual(
             MultiIndustrialTest.get_stages(FULL, {'type': 'maas'}), [
-                BootstrapAttempt, DeployManyFactory(2, 2),
-                BackupRestoreAttempt, EnsureAvailabilityAttempt,
-                DestroyEnvironmentAttempt])
+                BootstrapAttempt, UpgradeCharmAttempt,
+                DeployManyFactory(2, 2), BackupRestoreAttempt,
+                EnsureAvailabilityAttempt, DestroyEnvironmentAttempt])
         self.assertEqual(
             MultiIndustrialTest.get_stages(DENSITY, {'type': 'maas'}), [
                 BootstrapAttempt, DeployManyFactory(2, 2),
@@ -932,6 +940,19 @@ class TestSteppedStageAttempt(TestCase):
 
         self.assertIs(type(StubSA.factory(['a', 'b', 'c'])), StubSA)
 
+    def test_get_test_info(self):
+
+        class StubSA(SteppedStageAttempt):
+
+            @staticmethod
+            def get_stage_info():
+                return [StageInfo('foo-id', 'Foo title'),
+                        StageInfo('bar-id', 'Bar title', report_on=False)]
+
+        self.assertEqual(StubSA.get_test_info(), OrderedDict([
+            ('foo-id', {'title': 'Foo title', 'report_on': True}),
+            ('bar-id', {'title': 'Bar title', 'report_on': False})]))
+
 
 class FakeEnvJujuClient(EnvJujuClient):
 
@@ -947,6 +968,10 @@ class FakeEnvJujuClient(EnvJujuClient):
     def wait_for_ha(self):
         with patch('sys.stdout'):
             return super(FakeEnvJujuClient, self).wait_for_ha(0.01)
+
+    def status_until(self, *args, **kwargs):
+        yield self.get_status()
+        yield self.get_status()
 
     def juju(self, *args, **kwargs):
         # Suppress stdout for juju commands.
@@ -1551,6 +1576,78 @@ class TestUpgradeJujuAttempt(TestCase):
         self.assertIs(exc_context.exception.client, client)
 
 
+class TestUpgradeCharmAttempt(TestCase):
+
+    def assert_hook(self, hook_path, content):
+        with open(hook_path) as hook_file:
+            self.assertEqual(hook_file.read(), content)
+            mode = os.fstat(hook_file.fileno()).st_mode
+        self.assertEqual(0755, mode & 0777)
+
+    def test_iter_steps(self):
+        client = FakeEnvJujuClient()
+        client.full_path = '/future/juju'
+        uc_attempt = UpgradeCharmAttempt()
+        uc_iterator = iter_steps_validate_info(self, uc_attempt, client)
+        self.assertEqual(uc_iterator.next(),
+                         {'test_id': 'prepare-upgrade-charm'})
+        temp_repository = mkdtemp()
+        with patch('utility.mkdtemp', return_value=temp_repository):
+            with patch('subprocess.check_call') as cc_mock:
+                self.assertEqual(uc_iterator.next(),
+                                 {'test_id': 'prepare-upgrade-charm'})
+        metadata_path = os.path.join(
+            temp_repository, 'trusty', 'mycharm', 'metadata.yaml')
+        with open(metadata_path) as metadata_file:
+            metadata = yaml.safe_load(metadata_file)
+        self.assertEqual(metadata['name'], 'mycharm')
+        self.assertIn('summary', metadata)
+        self.assertIn('description', metadata)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'deploy', '-e', 'steve',
+            'local:trusty/mycharm', '--repository', temp_repository))
+        status = yaml.safe_dump({
+            'machines': {'0': {'agent-state': 'started'}},
+            'services': {},
+            })
+        with patch('subprocess.check_output', return_value=status):
+            self.assertEqual(uc_iterator.next(),
+                             {'test_id': 'prepare-upgrade-charm'})
+        hooks_path = os.path.join(temp_repository, 'trusty', 'mycharm',
+                                  'hooks')
+        upgrade_path = os.path.join(hooks_path, 'upgrade-charm')
+        config_changed = os.path.join(hooks_path, 'config-changed')
+        self.assertFalse(os.path.exists(config_changed))
+        self.assertFalse(os.path.exists(upgrade_path))
+        self.assertEqual(
+            uc_iterator.next(),
+            {'test_id': 'prepare-upgrade-charm', 'result': True})
+        self.assert_hook(upgrade_path, dedent("""\
+            #!/bin/sh
+            open-port 42
+            """))
+        self.assert_hook(config_changed, dedent("""\
+            #!/bin/sh
+            open-port 34
+            """))
+        self.assertEqual(uc_iterator.next(), {'test_id': 'upgrade-charm'})
+        with patch('subprocess.check_call') as cc_mock:
+            self.assertEqual(uc_iterator.next(), {'test_id': 'upgrade-charm'})
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'upgrade-charm', '-e', 'steve',
+            'mycharm', '--repository', temp_repository))
+        status = yaml.safe_dump({
+            'machines': {'0': {'agent-state': 'started'}},
+            'services': {'mycharm': {'units': {'mycharm/0': {
+                'open-ports': ['42/tcp', '34/tcp'],
+                }}}},
+            })
+        with patch('subprocess.check_output', return_value=status):
+            self.assertEqual(
+                uc_iterator.next(),
+                {'test_id': 'upgrade-charm', 'result': True})
+
+
 class TestMaybeWriteJson(TestCase):
 
     def test_maybe_write_json(self):
@@ -1605,3 +1702,33 @@ class TestMakeSubstrate(TestCase):
                          'iter_instance_security_groups']
                 ) as substrate:
             self.assertIs(type(substrate), AWSAccount)
+
+
+class TestStageInfo(TestCase):
+
+    def test_ctor(self):
+        si = StageInfo('foo-id', 'Foo title')
+        self.assertEqual(si.stage_id, 'foo-id')
+        self.assertEqual(si.title, 'Foo title')
+        self.assertEqual(si.report_on, True)
+
+        si = StageInfo('foo-id', 'Foo title', False)
+        self.assertEqual(si.report_on, False)
+
+    def test_as_tuple(self):
+        si = StageInfo('foo-id', 'Foo title')
+        self.assertEqual(
+            si.as_tuple(),
+            ('foo-id', {'title': 'Foo title', 'report_on': True}))
+        si = StageInfo('bar-id', 'Bar title', False)
+        self.assertEqual(
+            si.as_tuple(),
+            ('bar-id', {'title': 'Bar title', 'report_on': False}))
+
+    def test_as_result(self):
+        si = StageInfo('foo-id', 'Foo title')
+        self.assertEqual(si.as_result(), {'test_id': 'foo-id'})
+        self.assertEqual(si.as_result(True),
+                         {'test_id': 'foo-id', 'result': True})
+        self.assertEqual(si.as_result(False),
+                         {'test_id': 'foo-id', 'result': False})

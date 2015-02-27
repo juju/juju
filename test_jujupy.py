@@ -416,6 +416,42 @@ class TestEnvJujuClient(TestCase):
             env.deploy('mondogb')
         mock_juju.assert_called_with('deploy', ('mondogb',))
 
+    def test_deploy_repository(self):
+        env = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.deploy('mondogb', '/home/jrandom/repo')
+        mock_juju.assert_called_with(
+            'deploy', ('mondogb', '--repository', '/home/jrandom/repo'))
+
+    def test_status_until_always_runs_once(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        status_txt = self.make_status_yaml('agent-state', 'started', 'started')
+        with patch.object(client, 'get_juju_output', return_value=status_txt):
+            result = list(client.status_until(-1))
+        self.assertEqual(
+            [r.status for r in result], [Status.from_text(status_txt).status])
+
+    def test_status_until_timeout(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        status_txt = self.make_status_yaml('agent-state', 'started', 'started')
+        status_yaml = yaml.safe_load(status_txt)
+
+        def until_timeout_stub(timeout, start=None):
+            return iter([None, None])
+
+        with patch.object(client, 'get_juju_output', return_value=status_txt):
+            with patch('jujupy.until_timeout',
+                       side_effect=until_timeout_stub) as ut_mock:
+                result = list(client.status_until(30, 70))
+        self.assertEqual(
+            [r.status for r in result], [status_yaml] * 3)
+        # until_timeout is called by status as well as status_until.
+        self.assertEqual(ut_mock.mock_calls,
+                         [call(60), call(30, start=70), call(60), call(60)])
+
     def test_wait_for_started(self):
         value = self.make_status_yaml('agent-state', 'started', 'started')
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
@@ -1258,6 +1294,46 @@ class TestStatus(TestCase):
             }
         }, '')
         self.assertEqual(3, status.get_service_count())
+
+    def test_get_unit(self):
+        status = Status({
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {'agent-state': 'bad'},
+                    }
+                },
+                'dummy-sink': {
+                    'units': {
+                        'jenkins/2': {'agent-state': 'started'},
+                    }
+                },
+            }
+        }, '')
+        self.assertEqual(
+            status.get_unit('jenkins/1'), {'agent-state': 'bad'})
+        self.assertEqual(
+            status.get_unit('jenkins/2'), {'agent-state': 'started'})
+        with self.assertRaisesRegexp(KeyError, 'jenkins/3'):
+            status.get_unit('jenkins/3')
+
+    def test_get_open_ports(self):
+        status = Status({
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {'agent-state': 'bad'},
+                    }
+                },
+                'dummy-sink': {
+                    'units': {
+                        'jenkins/2': {'open-ports': ['42/tcp']},
+                    }
+                },
+            }
+        }, '')
+        self.assertEqual(status.get_open_ports('jenkins/1'), [])
+        self.assertEqual(status.get_open_ports('jenkins/2'), ['42/tcp'])
 
     def test_agent_states(self):
         status = Status({

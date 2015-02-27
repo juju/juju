@@ -9,6 +9,9 @@ import json
 import logging
 import os
 import sys
+from textwrap import dedent
+
+import yaml
 
 from deploy_stack import (
     get_machine_dns_name,
@@ -30,6 +33,7 @@ from substrate import (
     )
 from utility import (
     configure_logging,
+    temp_dir,
     until_timeout,
     )
 
@@ -39,6 +43,24 @@ DENSITY = 'density'
 FULL = 'full'
 BACKUP = 'backup'
 UPGRADE = 'upgrade'
+
+
+class StageInfo:
+
+    def __init__(self, stage_id, title, report_on=True):
+        self.stage_id = stage_id
+        self.title = title
+        self.report_on = report_on
+
+    def as_tuple(self):
+        return (self.stage_id, {
+            'title': self.title, 'report_on': self.report_on})
+
+    def as_result(self, result=None):
+        result_dict = {'test_id': self.stage_id}
+        if result is not None:
+            result_dict['result'] = result
+        return result_dict
 
 
 class MultiIndustrialTest:
@@ -326,6 +348,11 @@ class SteppedStageAttempt:
                 *result_strings))
             yield (old_result['test_id'],) + results
 
+    @classmethod
+    def get_test_info(cls):
+        """Default implementation uses get_stage_info."""
+        return OrderedDict(si.as_tuple() for si in cls.get_stage_info())
+
     def iter_test_results(self, old, new):
         """Iterate through the results for this operation for both clients."""
         old_iter = self._iter_for_result(self.iter_steps(old))
@@ -410,6 +437,60 @@ class UpgradeJujuAttempt(SteppedStageAttempt):
         client.wait_for_version(client.get_matching_agent_version())
         result['result'] = True
         yield result
+
+
+class UpgradeCharmAttempt(SteppedStageAttempt):
+
+    prepare = StageInfo('prepare-upgrade-charm', 'Prepare to upgrade charm.',
+                        report_on=False)
+    upgrade = StageInfo('upgrade-charm', 'Upgrade charm')
+
+    @classmethod
+    def get_stage_info(cls):
+        return [cls.prepare, cls.upgrade]
+
+    def iter_steps(self, client):
+        yield self.prepare.as_result()
+        with temp_dir() as temp_repository:
+            charm_root = os.path.join(temp_repository, 'trusty', 'mycharm')
+            os.makedirs(charm_root)
+            with open(os.path.join(charm_root, 'metadata.yaml'), 'w') as f:
+                f.write(yaml.safe_dump({
+                    'name': 'mycharm',
+                    'description': 'foo-description',
+                    'summary': 'foo-summary',
+                    }))
+            client.deploy('local:trusty/mycharm', temp_repository)
+            yield self.prepare.as_result()
+            client.wait_for_started()
+            yield self.prepare.as_result()
+            hooks_path = os.path.join(charm_root, 'hooks')
+            os.mkdir(hooks_path)
+            self.add_hook(hooks_path, 'config-changed', dedent("""\
+                #!/bin/sh
+                open-port 34
+                """))
+            self.add_hook(hooks_path, 'upgrade-charm', dedent("""\
+                #!/bin/sh
+                open-port 42
+                """))
+            yield self.prepare.as_result(True)
+            yield self.upgrade.as_result()
+            client.juju(
+                'upgrade-charm', ('mycharm', '--repository', temp_repository))
+            yield self.upgrade.as_result()
+            for status in client.status_until(300):
+                ports = status.get_open_ports('mycharm/0')
+                if '42/tcp' in ports and '34/tcp' in ports:
+                    break
+            else:
+                raise Exception('42 and/or 34 not opened.')
+            yield self.upgrade.as_result(True)
+
+    def add_hook(self, hooks_path, hook_name, hook_contents):
+        with open(os.path.join(hooks_path, hook_name), 'w') as f:
+            os.fchmod(f.fileno(), 0755)
+            f.write(hook_contents)
 
 
 @contextmanager
@@ -698,7 +779,7 @@ suites = {
     QUICK: (BootstrapAttempt, DestroyEnvironmentAttempt),
     DENSITY: (BootstrapAttempt, DeployManyAttempt,
               DestroyEnvironmentAttempt),
-    FULL: (BootstrapAttempt, DeployManyAttempt,
+    FULL: (BootstrapAttempt, UpgradeCharmAttempt, DeployManyAttempt,
            BackupRestoreAttempt, EnsureAvailabilityAttempt,
            DestroyEnvironmentAttempt),
     BACKUP: (BootstrapAttempt, BackupRestoreAttempt,
