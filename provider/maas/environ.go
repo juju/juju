@@ -52,14 +52,6 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
-// longAttempt is used when we are polling for changes to
-// instance state. Such changes may involve a reboot so we
-// want to allow sufficient time for that to happen.
-var longAttempt = utils.AttemptStrategy{
-	Min:   50,
-	Delay: 5 * time.Second,
-}
-
 var (
 	ReleaseNodes         = releaseNodes
 	ReserveIPAddress     = reserveIPAddress
@@ -948,8 +940,19 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}, nil
 }
 
+// Override for testing.
+var nodeDeploymentTimeout = func(environ *maasEnviron) time.Duration {
+	sshTimeouts := environ.Config().BootstrapSSHOpts()
+	return sshTimeouts.Timeout
+}
+
 func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) error {
 	systemId := extractSystemId(id)
+	longAttempt := utils.AttemptStrategy{
+		Delay: 10 * time.Second,
+		Total: nodeDeploymentTimeout(environ),
+	}
+
 	for a := longAttempt.Start(); a.Next(); {
 		statusValues, err := environ.deploymentStatus(id)
 		if errors.IsNotImplemented(err) {
