@@ -1,16 +1,15 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// TODO(dimitern) Disabled on gccgo (PPC64 in particular) due
-// to build failures. See bug http://pad.lv/1425788.
-//
-// NOTE: This file is built only with the default gc compiler. We
-// can't use runtime.Compiler to exclude only the problematic
-// gc.Suite(&cmdJujuSuite{}) statement below because runtime.Compiler
-// is a const, whereas the +build directives are honored by -compiler
-// gccgo as well. See also the comment in package_gccgo_test.go.
+// TODO(dimitern) Remove this file once bug http://pad.lv/1425788 is
+// resolved. For now in order to exclude the problematic
+// cmdjuju_test.go from compiling on gccgo (amd64 and ppc64 are both
+// affected), while also running the other tests which pass on gccgo
+// we need 2 package_test files: this one needs to be called
+// package_gccgo_test.go, not package_test_gccgo.go in order to be
+// considered at all by 'go test' which ignores non *_test.go files.
 
-// +build !gccgo
+// +build gccgo
 
 package featuretests
 
@@ -33,7 +32,6 @@ func init() {
 		return
 	}
 	// Initialize all suites here.
-	gc.Suite(&cmdJujuSuite{})
 	gc.Suite(&leadershipSuite{})
 	gc.Suite(&uniterLeadershipSuite{})
 }
