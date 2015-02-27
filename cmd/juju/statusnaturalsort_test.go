@@ -57,14 +57,6 @@ func (s *naturalSortSuite) TestNaturallyTagLike(c *gc.C) {
 	)
 }
 
-func (s *naturalSortSuite) TestNaturallyMixed(c *gc.C) {
-	s.assertNaturallySort(
-		c,
-		[]string{"a1a", "a", "a1", "a1b", "a0", "a20", "a2", "a10"},
-		[]string{"a", "a0", "a1", "a1a", "a1b", "a2", "a10", "a20"},
-	)
-}
-
 func (s *naturalSortSuite) TestNaturallySeveralNumericParts(c *gc.C) {
 	s.assertNaturallySort(
 		c,
@@ -78,14 +70,6 @@ func (s *naturalSortSuite) TestNaturallyFoo(c *gc.C) {
 		c,
 		[]string{"foo2", "foo01"},
 		[]string{"foo01", "foo2"},
-	)
-}
-
-func (s *naturalSortSuite) TestNaturallyDecimalFractions(c *gc.C) {
-	s.assertNaturallySort(
-		c,
-		[]string{"1.002", "1.3", "1.001", "1.010", "1.02", "1.1"},
-		[]string{"1.001", "1.002", "1.010", "1.02", "1.1", "1.3"},
 	)
 }
 
