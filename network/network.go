@@ -28,6 +28,11 @@ const (
 // Id defines a provider-specific network id.
 type Id string
 
+// AnySubnet when passed as a subnet id should be interpreted by the
+// providers as "the subnet id does not matter". It's up to the
+// provider how to handle this case - it might return an error.
+const AnySubnet Id = ""
+
 // SubnetInfo describes the bare minimum information for a subnet,
 // which the provider knows about but juju might not yet.
 type SubnetInfo struct {

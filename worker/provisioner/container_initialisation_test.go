@@ -5,8 +5,10 @@ package provisioner_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 
 	"github.com/juju/names"
@@ -278,4 +280,50 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 	err = handler.Handle([]string{"0/lxc/0"})
 	c.Assert(err, gc.ErrorMatches, ".*failed to acquire initialization lock:.*")
 
+}
+
+func AssertFileContains(c *gc.C, filename, expectedContent string) {
+	// TODO(dimitern): We should put this in juju/testing repo and
+	// replace all similar checks with it.
+	data, err := ioutil.ReadFile(filename)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(data), jc.Contains, expectedContent)
+}
+
+type SetIPForwardingSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&SetIPForwardingSuite{})
+
+func (s *SetIPForwardingSuite) TestSuccess(c *gc.C) {
+	fakeConfig := filepath.Join(c.MkDir(), "sysctl.conf")
+	testing.PatchExecutableAsEchoArgs(c, s, "sysctl")
+	expectKeyVal := fmt.Sprintf("%s=1", provisioner.IPForwardSysctlKey)
+	s.PatchValue(provisioner.SysctlConfig, fakeConfig)
+
+	err := provisioner.SetIPForwarding(true)
+	c.Assert(err, jc.ErrorIsNil)
+	AssertFileContains(c, fakeConfig, expectKeyVal)
+	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
+
+	expectKeyVal = fmt.Sprintf("%s=0", provisioner.IPForwardSysctlKey)
+	err = provisioner.SetIPForwarding(false)
+	c.Assert(err, jc.ErrorIsNil)
+	AssertFileContains(c, fakeConfig, expectKeyVal)
+	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
+}
+
+func (s *SetIPForwardingSuite) TestFailure(c *gc.C) {
+	fakeConfig := filepath.Join(c.MkDir(), "sysctl.conf")
+	testing.PatchExecutableThrowError(c, s, "sysctl", 123)
+	s.PatchValue(provisioner.SysctlConfig, fakeConfig)
+	expectKeyVal := fmt.Sprintf("%s=1", provisioner.IPForwardSysctlKey)
+
+	err := provisioner.SetIPForwarding(true)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+		`cannot set IP forwarding to %s: unexpected exit code 123`, expectKeyVal),
+	)
+	_, err = os.Stat(fakeConfig)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }

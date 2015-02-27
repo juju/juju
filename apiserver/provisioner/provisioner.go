@@ -226,9 +226,9 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 		return result, err
 	}
 	if netEnv, ok := environs.SupportsNetworking(env); ok {
-		// Passing subnetId "" below is interpreted by the provider as
-		// "does ANY subnet support this".
-		supported, err := netEnv.SupportsAddressAllocation("")
+		// Passing network.AnySubnet below should be interpreted by
+		// the provider as "does ANY subnet support this".
+		supported, err := netEnv.SupportsAddressAllocation(network.AnySubnet)
 		if err == nil && supported {
 			cfg[container.ConfigIPForwarding] = "true"
 		} else if err != nil {
