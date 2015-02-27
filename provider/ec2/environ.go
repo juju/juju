@@ -826,7 +826,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 			ProviderSubnetId: network.Id(iface.SubnetId),
 			VLANTag:          0, // Not supported on EC2.
 			// Getting the interface name is not supported on EC2, so fake it.
-			InterfaceName: fmt.Sprintf("eth%d", iface.Attachment.DeviceIndex),
+			InterfaceName: fmt.Sprintf("unsupported%d", iface.Attachment.DeviceIndex),
 			Disabled:      false,
 			NoAutoStart:   false,
 			ConfigType:    network.ConfigDHCP,

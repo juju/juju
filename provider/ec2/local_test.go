@@ -829,7 +829,7 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 		ProviderId:       "eni-0",
 		ProviderSubnetId: "subnet-0",
 		VLANTag:          0,
-		InterfaceName:    "eth0",
+		InterfaceName:    "unsupported0",
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigDHCP,
