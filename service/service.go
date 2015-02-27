@@ -64,18 +64,14 @@ type Service interface {
 
 // NewService returns a new Service based on the provided info.
 func NewService(name string, conf common.Conf, initSystem string) (Service, error) {
-	var svc Service
-
 	switch initSystem {
 	case "windows":
-		svc = windows.NewService(name, conf)
+		return windows.NewService(name, conf), nil
 	case "upstart":
-		svc = upstart.NewService(name, conf)
+		return upstart.NewService(name, conf), nil
 	default:
 		return nil, errors.NotFoundf("init system %q", initSystem)
 	}
-
-	return svc, nil
 }
 
 // DiscoverService returns an interface to a service apropriate
