@@ -253,7 +253,7 @@ func (s *UpstartSuite) TestInstallExtraScript(c *gc.C) {
 
 func (s *UpstartSuite) TestInstallOutput(c *gc.C) {
 	conf := s.dummyConf(c)
-	conf.Out = "/some/output/path"
+	conf.Output = "/some/output/path"
 	s.assertInstall(c, conf, "\n\nscript\n\n\n  # Ensure log files are properly protected\n  touch /some/output/path\n  chown syslog:syslog /some/output/path\n  chmod 0600 /some/output/path\n\n  exec do something >> /some/output/path 2>&1\nend script\n")
 }
 

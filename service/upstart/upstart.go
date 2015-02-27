@@ -104,8 +104,8 @@ func (s *Service) Validate() error {
 		if len(s.Service.Conf.Limit) > 0 {
 			return errors.NotSupportedf("Conf.Limit (when transient)")
 		}
-		if s.Service.Conf.Out != "" {
-			return errors.NotSupportedf("Conf.Out (when transient)")
+		if s.Service.Conf.Output != "" {
+			return errors.NotSupportedf("Conf.Output (when transient)")
 		}
 		if s.Service.Conf.ExtraScript != "" {
 			return errors.NotSupportedf("Conf.ExtraScript (when transient)")
@@ -311,13 +311,13 @@ normal exit 0
 {{end}}
 script
 {{if .ExtraScript}}{{.ExtraScript}}{{end}}
-{{if .Out}}
+{{if .Output}}
   # Ensure log files are properly protected
-  touch {{.Out}}
-  chown syslog:syslog {{.Out}}
-  chmod 0600 {{.Out}}
+  touch {{.Output}}
+  chown syslog:syslog {{.Output}}
+  chmod 0600 {{.Output}}
 {{end}}
-  exec {{.ExecStart}}{{if .Out}} >> {{.Out}} 2>&1{{end}}
+  exec {{.ExecStart}}{{if .Output}} >> {{.Output}} 2>&1{{end}}
 end script
 `[1:]))
 

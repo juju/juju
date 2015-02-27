@@ -36,8 +36,10 @@ type Conf struct {
 	// ExecStopPost is the command that will be run after the service stops.
 	ExecStopPost string
 
-	// Out, if set, will redirect output to that path.
-	Out string
+	// Output, if set, indicates where the service's output should be
+	// sent. How that is interpreted depends on the init system. Some
+	// accept paths to files while others only support certain identifiers.
+	Output string
 
 	// TODO(ericsnow) Eliminate InitDir.
 
