@@ -75,7 +75,7 @@ func NewUserdataConfig(mcfg *MachineConfig, conf *cloudinit.Config) (UserdataCon
 	case version.Windows:
 		return &windowsConfigure{base}, nil
 	default:
-		return nil, errors.Errorf("Unsupported OS %s", mcfg.Series)
+		return nil, errors.NotSupportedf("OS %s", mcfg.Series)
 	}
 }
 
