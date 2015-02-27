@@ -20,7 +20,7 @@ const (
 var _ Service = (*upstart.Service)(nil)
 var _ Service = (*windows.Service)(nil)
 
-// Service represents a service running on the current system
+// Service represents a service in the init system running on a host.
 type Service interface {
 	// Name returns the service's name.
 	Name() string
@@ -28,22 +28,22 @@ type Service interface {
 	// Conf returns the service's conf data.
 	Conf() common.Conf
 
-	// Config adds a config to the service, overwritting the current one
+	// UpdateConfig adds a config to the service, overwriting the current one.
 	UpdateConfig(conf common.Conf)
 
 	// Running returns a boolean value that denotes
-	// whether or not the service is running
+	// whether or not the service is running.
 	Running() bool
 
-	// Start will try to start the service
+	// Start will try to start the service.
 	Start() error
 
-	// Stop will try to stop the service
+	// Stop will try to stop the service.
 	Stop() error
 
 	// TODO(ericsnow) Eliminate StopAndRemove.
 
-	// StopAndRemove will stop the service and remove it
+	// StopAndRemove will stop the service and remove it.
 	StopAndRemove() error
 
 	// Exists returns whether the service configuration exists in the
@@ -52,13 +52,13 @@ type Service interface {
 	Exists() bool
 
 	// Installed will return a boolean value that denotes
-	// whether or not the service is installed
+	// whether or not the service is installed.
 	Installed() bool
 
-	// Install installs a service
+	// Install installs a service.
 	Install() error
 
-	// Remove will remove the service
+	// Remove will remove the service.
 	Remove() error
 
 	// InstallCommands returns the list of commands to run on a
