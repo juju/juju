@@ -130,7 +130,7 @@ var linuxExecutables = map[string]string{
 	"/sbin/init": "upstart",
 }
 
-// TODO(ericsnow) Is it to much to cat once for each executable?
+// TODO(ericsnow) Is it too much to cat once for each executable?
 const initSystemTest = `[[ "$(cat /proc/1/cmdline)" == "%s" ]]`
 
 // ListServicesCommand returns the command that should be run to get
