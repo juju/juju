@@ -79,7 +79,7 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 	mongoServiceName := ServiceName(p.Namespace)
 	mongoService, err := discoverService(mongoServiceName)
 	if err != nil {
-		return false, errors.Trace(err)
+		return false, errors.Annotatef(err, "failed to discover service", mongoServiceName)
 	}
 	if err := mongoService.Stop(); err != nil {
 		return false, fmt.Errorf("failed to stop %v: %v", mongoServiceName, err)
