@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	// TODO(dimitern: Don't import a main package into a library
+	// TODO(dimitern): Don't import a main package into a library
 	// package, pulling in main() along with it.
 	cmdjuju "github.com/juju/juju/cmd/juju"
 	"github.com/juju/juju/constraints"
