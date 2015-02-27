@@ -135,6 +135,7 @@ const (
 	SetNumaControlPolicyKey = "set-numa-control-policy"
 
 	// BlockKeyPrefix is the prefix used for environment variables that block commands
+	// TODO(anastasiamac 2015-02-27) remove it and all related post 1.24 as obsolete
 	BlockKeyPrefix = "block-"
 
 	// PreventDestroyEnvironmentKey stores the value for this setting
@@ -478,7 +479,7 @@ func ProcessDeprecatedAttributes(attrs map[string]interface{}) map[string]interf
 		}
 	}
 
-	//Update agent-stream from tools-stream if agent-stream was not specified but tools-stream was.
+	// Update agent-stream from tools-stream if agent-stream was not specified but tools-stream was.
 	if _, ok := attrs[AgentStreamKey]; !ok {
 		if toolsKey, ok := attrs[ToolsStreamKey]; ok {
 			processedAttrs[AgentStreamKey] = toolsKey
@@ -1226,15 +1227,15 @@ var alwaysOptional = schema.Defaults{
 	"disable-network-management": schema.Omit,
 	AgentStreamKey:               schema.Omit,
 	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
-	PreventDestroyEnvironmentKey: DefaultPreventDestroyEnvironment,
-	PreventRemoveObjectKey:       DefaultPreventRemoveObject,
-	PreventAllChangesKey:         DefaultPreventAllChanges,
 
 	// Deprecated fields, retain for backwards compatibility.
-	ToolsMetadataURLKey:    "",
-	LxcUseClone:            schema.Omit,
-	ProvisionerSafeModeKey: schema.Omit,
-	ToolsStreamKey:         schema.Omit,
+	ToolsMetadataURLKey:          "",
+	LxcUseClone:                  schema.Omit,
+	ProvisionerSafeModeKey:       schema.Omit,
+	ToolsStreamKey:               schema.Omit,
+	PreventDestroyEnvironmentKey: schema.Omit,
+	PreventRemoveObjectKey:       schema.Omit,
+	PreventAllChangesKey:         schema.Omit,
 
 	// For backward compatibility reasons, the following
 	// attributes default to empty strings rather than being
@@ -1292,9 +1293,6 @@ func allDefaults() schema.Defaults {
 		"prefer-ipv6":                false,
 		"disable-network-management": false,
 		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
-		PreventDestroyEnvironmentKey: DefaultPreventDestroyEnvironment,
-		PreventRemoveObjectKey:       DefaultPreventRemoveObject,
-		PreventAllChangesKey:         DefaultPreventAllChanges,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {

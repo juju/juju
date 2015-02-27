@@ -51,5 +51,10 @@ func stepsFor123() []Step {
 			targets:     []Target{AllMachines},
 			run:         addEnvironmentUUIDToAgentConfig,
 		},
+		&upgradeStep{
+			description: "move blocks from environment to state",
+			targets:     []Target{DatabaseMaster},
+			run:         moveBlocksFromEnvironToState,
+		},
 	}
 }

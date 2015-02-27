@@ -92,11 +92,36 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 	// tools-stream has been renamed to agent-stream, so log warnings to the user
 	envs.logDeprecatedWarnings(attrs, newAttrs, config.ToolsStreamKey, config.AgentStreamKey)
 
+	// Block attributes only matter if they have been used
+	envs.checkBlocks(attrs)
+
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+func (envs *Environs) checkBlocks(attrs map[string]interface{}) {
+	checkBlockVar := func(key string) {
+		if used, ok := attrs[key]; ok {
+			if used.(bool) {
+				envs.logBlockWarning(key, used)
+			}
+		}
+	}
+	checkBlockVar(config.PreventDestroyEnvironmentKey)
+	checkBlockVar(config.PreventRemoveObjectKey)
+	checkBlockVar(config.PreventAllChangesKey)
+}
+
+func (envs *Environs) logBlockWarning(key string, value interface{}) {
+	logger.Warningf(
+		"Config attribute %q (%v) is deprecated and will be ignored since \n"+
+			"upgrade process takes care of it. \n"+
+			"The attribute %q should be removed from your configuration.",
+		key, value, key,
+	)
 }
 
 // logDeprecatedWarnings constructs log warning messages for deprecated attributes names.

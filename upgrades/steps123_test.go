@@ -32,6 +32,7 @@ func (s *steps123Suite) TestStateStepsFor123(c *gc.C) {
 func (s *steps123Suite) TestStepsFor123(c *gc.C) {
 	expected := []string{
 		"add environment UUID to agent config",
+		"move blocks from environment to state",
 	}
 	assertSteps(c, version.MustParse("1.23.0"), expected)
 }
