@@ -297,9 +297,11 @@ class EnvJujuClient:
         if retcode != 0:
             raise subprocess.CalledProcessError(retcode, full_args)
 
-    def deploy(self, charm):
-        args = (charm,)
-        return self.juju('deploy', args)
+    def deploy(self, charm, repository=None):
+        args = [charm]
+        if repository is not None:
+            args.extend(['--repository', repository])
+        return self.juju('deploy', tuple(args))
 
     def quickstart(self, bundle, upload_tools=False):
         """quickstart, using sudo if necessary."""
@@ -312,6 +314,11 @@ class EnvJujuClient:
             args = ('--upload-tools',) + args
         args = args + ('--no-browser', bundle,)
         self.juju('quickstart', args, self.env.needs_sudo())
+
+    def status_until(self, timeout, start=None):
+        yield self.get_status()
+        for remaining in until_timeout(timeout, start=start):
+            yield self.get_status()
 
     def wait_for_started(self, timeout=1200, start=None):
         """Wait until all unit/machine agents are 'started'."""
@@ -612,6 +619,18 @@ class Status:
 
     def get_instance_id(self, machine_id):
         return self.status['machines'][machine_id]['instance-id']
+
+    def get_unit(self, unit_name):
+        for service in sorted(self.status['services'].values()):
+            for cur_unit_name, value in service.get('units', {}).items():
+                if cur_unit_name == unit_name:
+                    return value
+        raise KeyError(unit_name)
+
+    def get_open_ports(self, unit_name):
+        return self.get_unit(unit_name).get('open-ports', [])
+
+
 
 
 class SimpleEnvironment:

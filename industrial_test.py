@@ -9,6 +9,9 @@ import json
 import logging
 import os
 import sys
+from textwrap import dedent
+
+import yaml
 
 from deploy_stack import (
     get_machine_dns_name,
@@ -30,6 +33,7 @@ from substrate import (
     )
 from utility import (
     configure_logging,
+    temp_dir,
     until_timeout,
     )
 
@@ -433,6 +437,53 @@ class UpgradeJujuAttempt(SteppedStageAttempt):
         yield result
 
 
+class UpgradeCharmAttempt(SteppedStageAttempt):
+
+    prepare = StageInfo('prepare-upgrade-charm', 'Prepare to upgrade charm.',
+                        report_on=False)
+    upgrade = StageInfo('upgrade-charm', 'Upgrade charm')
+
+    @classmethod
+    def get_stage_info(cls):
+        return [cls.prepare, cls.upgrade]
+
+    def iter_steps(self, client):
+        yield self.prepare.as_result()
+        with temp_dir() as temp_repository:
+            charm_root = os.path.join(temp_repository, 'trusty', 'mycharm')
+            os.makedirs(charm_root)
+            with open(os.path.join(charm_root, 'metadata.yaml'), 'w') as f:
+                f.write(yaml.safe_dump({
+                    'name': 'mycharm',
+                    'description': 'foo-description',
+                    'summary': 'foo-summary',
+                    }))
+            client.deploy('local:trusty/mycharm', temp_repository)
+            yield self.prepare.as_result()
+            client.wait_for_started()
+            yield self.prepare.as_result()
+            hooks_path = os.path.join(charm_root, 'hooks')
+            os.mkdir(hooks_path)
+            with open(os.path.join(hooks_path, 'upgrade-charm'), 'w') as f:
+                os.fchmod(f.fileno(), 0755)
+                f.write(dedent("""\
+                    #!/bin/sh
+                    open-port 42
+                    """))
+            yield self.prepare.as_result(True)
+            yield self.upgrade.as_result()
+            client.juju(
+                'upgrade-charm', ('mycharm', '--repository', temp_repository))
+            yield self.upgrade.as_result()
+            for status in client.status_until(300):
+                if '42/tcp' in status.get_open_ports('mycharm/0'):
+                    break
+            else:
+                raise Exception('42 not opened.')
+            import pdb; pdb.set_trace()
+            yield self.upgrade.as_result(True)
+
+
 @contextmanager
 def make_substrate_manager(client, required_attrs):
     """A context manager for the client with the required attributes.
@@ -725,6 +776,8 @@ suites = {
     BACKUP: (BootstrapAttempt, BackupRestoreAttempt,
              DestroyEnvironmentAttempt),
     UPGRADE: (UpgradeJujuAttempt, DestroyEnvironmentAttempt),
+    'upgrade-charm': (BootstrapAttempt, UpgradeCharmAttempt,
+                      DestroyEnvironmentAttempt)
     }
 
 

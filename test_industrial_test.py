@@ -4,7 +4,10 @@ from argparse import Namespace
 from collections import OrderedDict
 from contextlib import contextmanager
 import os
-from tempfile import NamedTemporaryFile
+from tempfile import (
+    mkdtemp,
+    NamedTemporaryFile,
+    )
 from textwrap import dedent
 from unittest import TestCase
 
@@ -36,6 +39,7 @@ from industrial_test import (
     QUICK,
     StageInfo,
     SteppedStageAttempt,
+    UpgradeCharmAttempt,
     UpgradeJujuAttempt,
     )
 from jujuconfig import get_euca_env
@@ -1564,6 +1568,69 @@ class TestUpgradeJujuAttempt(TestCase):
         with self.assertRaises(CannotUpgradeToClient) as exc_context:
             uj_iterator.next()
         self.assertIs(exc_context.exception.client, client)
+
+
+class TestUpgradeCharmAttempt(TestCase):
+
+    def test_iter_steps(self):
+        client = FakeEnvJujuClient()
+        client.full_path = '/future/juju'
+        uc_attempt = UpgradeCharmAttempt()
+        uc_iterator = iter_steps_validate_info(self, uc_attempt, client)
+        self.assertEqual(uc_iterator.next(),
+                         {'test_id': 'prepare-upgrade-charm'})
+        temp_repository = mkdtemp()
+        with patch('utility.mkdtemp', return_value=temp_repository) as mk:
+            with patch('subprocess.check_call') as cc_mock:
+                self.assertEqual(uc_iterator.next(),
+                                 {'test_id': 'prepare-upgrade-charm'})
+        metadata_path = os.path.join(
+            temp_repository, 'trusty', 'mycharm', 'metadata.yaml')
+        with open(metadata_path) as metadata_file:
+            metadata = yaml.safe_load(metadata_file)
+        self.assertEqual(metadata['name'], 'mycharm')
+        self.assertIn('summary', metadata)
+        self.assertIn('description', metadata)
+        assert_juju_call(self, cc_mock, client,
+            ('juju', '--show-log', 'deploy', '-e', 'steve',
+             'local:trusty/mycharm', '--repository', temp_repository))
+        status = yaml.safe_dump({
+            'machines': {'0': {'agent-state': 'started'}},
+            'services': {},
+            })
+        with patch('subprocess.check_output', return_value=status):
+            self.assertEqual(uc_iterator.next(),
+                             {'test_id': 'prepare-upgrade-charm'})
+        hooks_path = os.path.join(temp_repository, 'trusty', 'mycharm',
+                                  'hooks')
+        upgrade_path = os.path.join(hooks_path, 'upgrade-charm')
+        self.assertFalse(os.path.exists(upgrade_path))
+        self.assertEqual(
+            uc_iterator.next(),
+            {'test_id': 'prepare-upgrade-charm', 'result': True})
+        with open(upgrade_path) as upgrade_hook:
+            self.assertEqual(upgrade_hook.read(), dedent("""\
+                #!/bin/sh
+                open-port 42
+                """))
+            mode = os.fstat(upgrade_hook.fileno()).st_mode
+        self.assertEqual(0755, mode & 0777)
+        self.assertEqual(uc_iterator.next(), {'test_id': 'upgrade-charm'})
+        with patch('subprocess.check_call') as cc_mock:
+            self.assertEqual(uc_iterator.next(), {'test_id': 'upgrade-charm'})
+        assert_juju_call(self, cc_mock, client,
+            ('juju', '--show-log', 'upgrade-charm', '-e', 'steve',
+             'mycharm', '--repository', temp_repository))
+        status = yaml.safe_dump({
+            'machines': {'0': {'agent-state': 'started'}},
+            'services': {'mycharm': {'units': {'mycharm/0': {
+                'open-ports': '42/tcp',
+                }}}},
+            })
+        with patch('subprocess.check_output', return_value=status):
+            self.assertEqual(
+                uc_iterator.next(),
+                {'test_id': 'upgrade-charm', 'result': True})
 
 
 class TestMaybeWriteJson(TestCase):
