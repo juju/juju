@@ -115,7 +115,9 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 	return validator, nil
 }
 
-// SupportsUnitPlacement implement via common.SupportsUnitPlacementPolicy
+// environ provides SupportsUnitPlacement (a method of the
+// state.EnvironCapatability interface) by embedding
+// common.SupportsUnitPlacementPolicy.
 
 // SupportNetworks returns whether the environment has support to
 // specify networks for services and machines.
