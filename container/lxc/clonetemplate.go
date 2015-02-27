@@ -62,7 +62,7 @@ func templateUserData(
 	}
 	cloudinit.AddAptCommands(series, aptProxy, aptMirror, config, enablePackageUpdates, enableOSUpgrades)
 
-	initSystem := remoteInitSystem()
+	initSystem := containerInitSystem()
 	script, err := shutdownInitScript(initSystem)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -80,7 +80,7 @@ func templateUserData(
 	return data, nil
 }
 
-func remoteInitSystem() string {
+func containerInitSystem() string {
 	// TODO(ericsnow) Where to find it...
 	return "upstart"
 }
