@@ -316,6 +316,16 @@ class EnvJujuClient:
         self.juju('quickstart', args, self.env.needs_sudo())
 
     def status_until(self, timeout, start=None):
+        """Call and yield status until the timeout is reached.
+
+        Status will always be yielded once before checking the timeout.
+
+        This is intended for implementing things like wait_for_started.
+
+        :param timeout: The number of seconds to wait before timing out.
+        :param start: If supplied, the time to count from when determining
+            timeout.
+        """
         yield self.get_status()
         for remaining in until_timeout(timeout, start=start):
             yield self.get_status()
@@ -621,13 +631,17 @@ class Status:
         return self.status['machines'][machine_id]['instance-id']
 
     def get_unit(self, unit_name):
+        """Return metadata about a unit."""
         for service in sorted(self.status['services'].values()):
-            for cur_unit_name, value in service.get('units', {}).items():
-                if cur_unit_name == unit_name:
-                    return value
+            if unit_name in service.get('units', {}):
+                return service['units'][unit_name]
         raise KeyError(unit_name)
 
     def get_open_ports(self, unit_name):
+        """List the open ports for the specified unit.
+
+        If no ports are listed for the unit, the empty list is returned.
+        """
         return self.get_unit(unit_name).get('open-ports', [])
 
 
