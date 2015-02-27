@@ -73,8 +73,8 @@ func validate(name string, conf common.Conf) error {
 		return errors.NotValidf("unexpected ExtraScript")
 	}
 
-	if conf.Out != "" && conf.Out != "syslog" {
-		return errors.NotValidf("conf.Out value %q (Options are syslog)", conf.Out)
+	if conf.Output != "" && conf.Output != "syslog" {
+		return errors.NotValidf("conf.Output value %q (Options are syslog)", conf.Output)
 	}
 	// We ignore Desc and InitDir.
 
@@ -156,16 +156,16 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 		Value:   "forking",
 	})
 
-	if conf.Out != "" {
+	if conf.Output != "" {
 		unitOptions = append(unitOptions, &unit.UnitOption{
 			Section: "Service",
 			Name:    "StandardOutput",
-			Value:   conf.Out,
+			Value:   conf.Output,
 		})
 		unitOptions = append(unitOptions, &unit.UnitOption{
 			Section: "Service",
 			Name:    "StandardError",
-			Value:   conf.Out,
+			Value:   conf.Output,
 		})
 	}
 
@@ -249,7 +249,7 @@ func deserializeOptions(opts []*unit.UnitOption) (common.Conf, error) {
 			case uo.Name == "StandardError", uo.Name == "StandardOutput":
 				// TODO(wwitzel3) We serialize Standard(Error|Output)
 				// to the same thing, but we should probably make sure they match
-				conf.Out = uo.Value
+				conf.Output = uo.Value
 			case uo.Name == "Environment":
 				if conf.Env == nil {
 					conf.Env = make(map[string]string)

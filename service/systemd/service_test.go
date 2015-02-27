@@ -141,8 +141,8 @@ func (s *initSystemSuite) setConf(conf common.Conf) {
 		panic("not supported yet")
 	}
 
-	s.conn.SetProperty("Service", "StandardOutput", conf.Out)
-	s.conn.SetProperty("Service", "StandardError", conf.Out)
+	s.conn.SetProperty("Service", "StandardOutput", conf.Output)
+	s.conn.SetProperty("Service", "StandardError", conf.Output)
 }
 
 func (s *initSystemSuite) checkCreateFileCall(c *gc.C, index int, filename, content string, perm os.FileMode) {
@@ -328,7 +328,7 @@ func (s *initSystemSuite) TestExistsFalse(c *gc.C) {
 	s.setConf(common.Conf{
 		Desc:      s.conf.Desc,
 		ExecStart: s.conf.ExecStart,
-		Out:       "syslog",
+		Output:    "syslog",
 	})
 
 	exists := s.service.Exists()
@@ -619,7 +619,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 	s.setConf(common.Conf{
 		Desc:      s.conf.Desc,
 		ExecStart: s.conf.ExecStart,
-		Out:       "syslog",
+		Output:    "syslog",
 	})
 	s.ch <- "done"
 
