@@ -474,12 +474,6 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
                 #!/bin/sh
                 open-port 42
                 """))
-            with open(os.path.join(hooks_path, 'upgrade-charm'), 'w') as f:
-                os.fchmod(f.fileno(), 0755)
-                f.write(dedent("""\
-                    #!/bin/sh
-                    open-port 42
-                    """))
             yield self.prepare.as_result(True)
             yield self.upgrade.as_result()
             client.juju(
