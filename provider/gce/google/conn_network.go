@@ -58,17 +58,19 @@ func (gce Connection) OpenPorts(fwname string, ports ...network.PortRange) error
 
 	// Send the request, depending on the current ports.
 	if currentPortsSet.IsEmpty() {
+		// Create a new firewall.
 		firewall := firewallSpec(fwname, inputPortsSet)
 		if err := gce.raw.AddFirewall(gce.ProjectID, firewall); err != nil {
 			return errors.Annotatef(err, "opening port(s) %+v", ports)
 		}
+		return nil
+	}
 
-	} else {
-		newPortsSet := currentPortsSet.Union(inputPortsSet)
-		firewall := firewallSpec(fwname, newPortsSet)
-		if err := gce.raw.UpdateFirewall(gce.ProjectID, fwname, firewall); err != nil {
-			return errors.Annotatef(err, "opening port(s) %+v", ports)
-		}
+	// Update an existing firewall.
+	newPortsSet := currentPortsSet.Union(inputPortsSet)
+	firewall := firewallSpec(fwname, newPortsSet)
+	if err := gce.raw.UpdateFirewall(gce.ProjectID, fwname, firewall); err != nil {
+		return errors.Annotatef(err, "opening port(s) %+v", ports)
 	}
 	return nil
 }
@@ -94,15 +96,17 @@ func (gce Connection) ClosePorts(fwname string, ports ...network.PortRange) erro
 
 	// Send the request, depending on the current ports.
 	if newPortsSet.IsEmpty() {
+		// Delete a firewall.
 		// TODO(ericsnow) Handle case where firewall does not exist.
 		if err := gce.raw.RemoveFirewall(gce.ProjectID, fwname); err != nil {
 			return errors.Annotatef(err, "closing port(s) %+v", ports)
 		}
-	} else {
-		firewall := firewallSpec(fwname, newPortsSet)
-		if err := gce.raw.UpdateFirewall(gce.ProjectID, fwname, firewall); err != nil {
-			return errors.Annotatef(err, "closing port(s) %+v", ports)
-		}
+	}
+
+	// Update an existing firewall.
+	firewall := firewallSpec(fwname, newPortsSet)
+	if err := gce.raw.UpdateFirewall(gce.ProjectID, fwname, firewall); err != nil {
+		return errors.Annotatef(err, "closing port(s) %+v", ports)
 	}
 	return nil
 }
