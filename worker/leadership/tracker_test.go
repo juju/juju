@@ -199,6 +199,58 @@ func (s *TrackerSuite) TestGainLeadership(c *gc.C) {
 	}})
 }
 
+func (s *TrackerSuite) TestFailGainLeadership(c *gc.C) {
+	s.manager.Stub.Errors = []error{
+		coreleadership.ErrClaimDenied, nil, coreleadership.ErrClaimDenied, nil,
+	}
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	defer assertStop(c, tracker)
+
+	// Check initial ticket fails.
+	assertClaimLeader(c, tracker, false)
+
+	// Unblock the release goroutine...
+	s.unblockRelease(c)
+
+	// ...and, uh, voodoo sleep a bit, but not long enough to trigger a refresh...
+	<-time.After(refreshes(0))
+
+	// ...then check the next ticket fails again.
+	assertClaimLeader(c, tracker, false)
+
+	// This time, sleep long enough that a refresh would trigger if it were
+	// going to...
+	<-time.After(refreshes(1))
+
+	// ...but it won't, because we Stop the tracker...
+	assertStop(c, tracker)
+
+	// ...and clear out the release goroutine before we look at the stub.
+	s.unblockRelease(c)
+
+	s.manager.CheckCalls(c, []testing.StubCall{{
+		FuncName: "ClaimLeadership",
+		Args: []interface{}{
+			"led-service", "led-service/123", leaseDuration,
+		},
+	}, {
+		FuncName: "BlockUntilLeadershipReleased",
+		Args: []interface{}{
+			"led-service",
+		},
+	}, {
+		FuncName: "ClaimLeadership",
+		Args: []interface{}{
+			"led-service", "led-service/123", leaseDuration,
+		},
+	}, {
+		FuncName: "BlockUntilLeadershipReleased",
+		Args: []interface{}{
+			"led-service",
+		},
+	}})
+}
+
 func assertClaimLeader(c *gc.C, tracker leadership.Tracker, expect bool) {
 	// Grab a ticket...
 	ticket := tracker.ClaimLeader()
