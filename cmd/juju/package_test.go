@@ -3,6 +3,11 @@
 
 package main
 
+// TODO(dimitern): bug http://pad.lv/1425569
+// Disabled until we have time to fix these tests on i386 properly.
+//
+// +build !386
+
 import (
 	"flag"
 	"strings"
@@ -21,11 +26,6 @@ import (
 
 func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
-}
-
-func badrun(c *gc.C, exit int, args ...string) string {
-	args = append([]string{"juju"}, args...)
-	return cmdtesting.BadRun(c, exit, args...)
 }
 
 // Reentrancy point for testing (something as close as possible to) the juju
