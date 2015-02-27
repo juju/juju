@@ -631,8 +631,6 @@ class Status:
         return self.get_unit(unit_name).get('open-ports', [])
 
 
-
-
 class SimpleEnvironment:
 
     def __init__(self, environment, config=None):

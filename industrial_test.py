@@ -44,6 +44,7 @@ FULL = 'full'
 BACKUP = 'backup'
 UPGRADE = 'upgrade'
 
+
 class StageInfo:
 
     def __init__(self, stage_id, title, report_on=True):
@@ -60,6 +61,7 @@ class StageInfo:
         if result is not None:
             result_dict['result'] = result
         return result_dict
+
 
 class MultiIndustrialTest:
     """Run IndustrialTests until desired number of results are achieved.
@@ -495,7 +497,6 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
         with open(os.path.join(hooks_path, hook_name), 'w') as f:
             os.fchmod(f.fileno(), 0755)
             f.write(hook_contents)
-
 
 
 @contextmanager

@@ -1590,7 +1590,7 @@ class TestUpgradeCharmAttempt(TestCase):
         self.assertEqual(uc_iterator.next(),
                          {'test_id': 'prepare-upgrade-charm'})
         temp_repository = mkdtemp()
-        with patch('utility.mkdtemp', return_value=temp_repository) as mk:
+        with patch('utility.mkdtemp', return_value=temp_repository):
             with patch('subprocess.check_call') as cc_mock:
                 self.assertEqual(uc_iterator.next(),
                                  {'test_id': 'prepare-upgrade-charm'})
@@ -1601,9 +1601,9 @@ class TestUpgradeCharmAttempt(TestCase):
         self.assertEqual(metadata['name'], 'mycharm')
         self.assertIn('summary', metadata)
         self.assertIn('description', metadata)
-        assert_juju_call(self, cc_mock, client,
-            ('juju', '--show-log', 'deploy', '-e', 'steve',
-             'local:trusty/mycharm', '--repository', temp_repository))
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'deploy', '-e', 'steve',
+            'local:trusty/mycharm', '--repository', temp_repository))
         status = yaml.safe_dump({
             'machines': {'0': {'agent-state': 'started'}},
             'services': {},
@@ -1631,9 +1631,9 @@ class TestUpgradeCharmAttempt(TestCase):
         self.assertEqual(uc_iterator.next(), {'test_id': 'upgrade-charm'})
         with patch('subprocess.check_call') as cc_mock:
             self.assertEqual(uc_iterator.next(), {'test_id': 'upgrade-charm'})
-        assert_juju_call(self, cc_mock, client,
-            ('juju', '--show-log', 'upgrade-charm', '-e', 'steve',
-             'mycharm', '--repository', temp_repository))
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'upgrade-charm', '-e', 'steve',
+            'mycharm', '--repository', temp_repository))
         status = yaml.safe_dump({
             'machines': {'0': {'agent-state': 'started'}},
             'services': {'mycharm': {'units': {'mycharm/0': {
