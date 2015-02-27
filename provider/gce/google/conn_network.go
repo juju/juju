@@ -42,7 +42,7 @@ func (gce Connection) Ports(fwname string) ([]network.PortRange, error) {
 // existing firewall is updated to add the provided port ranges to the
 // ports it already has open. The call blocks until the ports are
 // opened or the request fails.
-func (gce Connection) OpenPorts(fwname string, ports []network.PortRange) error {
+func (gce Connection) OpenPorts(fwname string, ports ...network.PortRange) error {
 	// TODO(ericsnow) Short-circuit if ports is empty.
 
 	// Compose the full set of open ports.
@@ -79,7 +79,7 @@ func (gce Connection) OpenPorts(fwname string, ports []network.PortRange) error 
 // Otherwise it will be left with just the open ports it has that do not
 // match the provided port ranges. The call blocks until the ports are
 // closed or the request fails.
-func (gce Connection) ClosePorts(fwname string, ports []network.PortRange) error {
+func (gce Connection) ClosePorts(fwname string, ports ...network.PortRange) error {
 	// Compose the full set of open ports.
 	currentPorts, err := gce.Ports(fwname)
 	if err != nil {

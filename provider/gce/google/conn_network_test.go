@@ -56,11 +56,11 @@ func (s *connSuite) TestConnectionPortsAPI(c *gc.C) {
 func (s *connSuite) TestConnectionOpenPortsAdd(c *gc.C) {
 	s.FakeConn.Err = errors.NotFoundf("spam")
 
-	ports := []network.PortRange{{
+	ports := network.PortRange{
 		FromPort: 80,
 		ToPort:   81,
 		Protocol: "tcp",
-	}}
+	}
 	err := s.Conn.OpenPorts("spam", ports)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -89,11 +89,11 @@ func (s *connSuite) TestConnectionOpenPortsUpdate(c *gc.C) {
 		}},
 	}
 
-	ports := []network.PortRange{{
+	ports := network.PortRange{
 		FromPort: 443,
 		ToPort:   443,
 		Protocol: "tcp",
-	}}
+	}
 	err := s.Conn.OpenPorts("spam", ports)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -122,11 +122,11 @@ func (s *connSuite) TestConnectionClosePortsRemove(c *gc.C) {
 		}},
 	}
 
-	ports := []network.PortRange{{
+	ports := network.PortRange{
 		FromPort: 443,
 		ToPort:   443,
 		Protocol: "tcp",
-	}}
+	}
 	err := s.Conn.ClosePorts("spam", ports)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -147,11 +147,11 @@ func (s *connSuite) TestConnectionClosePortsUpdate(c *gc.C) {
 		}},
 	}
 
-	ports := []network.PortRange{{
+	ports := network.PortRange{
 		FromPort: 443,
 		ToPort:   443,
 		Protocol: "tcp",
-	}}
+	}
 	err := s.Conn.ClosePorts("spam", ports)
 	c.Assert(err, jc.ErrorIsNil)
 

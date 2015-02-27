@@ -52,7 +52,7 @@ func (gce *Connection) addInstance(requestedInst *compute.Instance, machineType 
 // AddInstance creates a new instance based on the spec's data and
 // returns it. The instance will be created using the provided
 // connection and in one of the provided zones.
-func (gce *Connection) AddInstance(spec InstanceSpec, zones []string) (*Instance, error) {
+func (gce *Connection) AddInstance(spec InstanceSpec, zones ...string) (*Instance, error) {
 	raw := spec.raw()
 	if err := gce.addInstance(raw, spec.Type, zones); err != nil {
 		return nil, errors.Trace(err)

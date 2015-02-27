@@ -430,7 +430,7 @@ func (fc *fakeConn) Instances(prefix string, statuses ...string) ([]google.Insta
 	return fc.Insts, fc.err()
 }
 
-func (fc *fakeConn) AddInstance(spec google.InstanceSpec, zones []string) (*google.Instance, error) {
+func (fc *fakeConn) AddInstance(spec google.InstanceSpec, zones ...string) (*google.Instance, error) {
 	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName:     "AddInstance",
 		InstanceSpec: spec,
@@ -456,7 +456,7 @@ func (fc *fakeConn) Ports(fwname string) ([]network.PortRange, error) {
 	return fc.PortRanges, fc.err()
 }
 
-func (fc *fakeConn) OpenPorts(fwname string, ports []network.PortRange) error {
+func (fc *fakeConn) OpenPorts(fwname string, ports ...network.PortRange) error {
 	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName:     "OpenPorts",
 		FirewallName: fwname,
@@ -465,7 +465,7 @@ func (fc *fakeConn) OpenPorts(fwname string, ports []network.PortRange) error {
 	return fc.err()
 }
 
-func (fc *fakeConn) ClosePorts(fwname string, ports []network.PortRange) error {
+func (fc *fakeConn) ClosePorts(fwname string, ports ...network.PortRange) error {
 	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName:     "ClosePorts",
 		FirewallName: fwname,

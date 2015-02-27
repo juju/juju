@@ -26,12 +26,12 @@ type gceConnection interface {
 	// and returns it.
 	Instance(id, zone string) (google.Instance, error)
 	Instances(prefix string, statuses ...string) ([]google.Instance, error)
-	AddInstance(spec google.InstanceSpec, zones []string) (*google.Instance, error)
+	AddInstance(spec google.InstanceSpec, zones ...string) (*google.Instance, error)
 	RemoveInstances(prefix string, ids ...string) error
 
 	Ports(fwname string) ([]network.PortRange, error)
-	OpenPorts(fwname string, ports []network.PortRange) error
-	ClosePorts(fwname string, ports []network.PortRange) error
+	OpenPorts(fwname string, ports ...network.PortRange) error
+	ClosePorts(fwname string, ports ...network.PortRange) error
 
 	AvailabilityZones(region string) ([]google.AvailabilityZone, error)
 }

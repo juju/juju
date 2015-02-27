@@ -57,11 +57,11 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 
 	// Open API port on state server.
 	if isStateServer(args.MachineConfig) {
-		ports := []network.PortRange{{
+		ports := network.PortRange{
 			FromPort: args.MachineConfig.StateServingInfo.APIPort,
 			ToPort:   args.MachineConfig.StateServingInfo.APIPort,
 			Protocol: "tcp",
-		}}
+		}
 		if err := env.gce.OpenPorts(raw.ID, ports); err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -181,7 +181,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		return nil, errors.Trace(err)
 	}
 
-	inst, err := env.gce.AddInstance(instSpec, zones)
+	inst, err := env.gce.AddInstance(instSpec, zones...)
 	return inst, errors.Trace(err)
 }
 
