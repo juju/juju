@@ -14,14 +14,6 @@ type environProvider struct{}
 
 var providerInstance environProvider
 
-func init() {
-	// This will only happen in binaries that actually import this provider
-	// somewhere. To enable a provider, import it in the "providers/all"
-	// package; please do *not* import individual providers anywhere else,
-	// except in direct tests for that provider.
-	environs.RegisterProvider("gce", providerInstance)
-}
-
 // Open implements environs.EnvironProvider.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	// The config will have come from either state or from a config
