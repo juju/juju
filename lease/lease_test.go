@@ -4,9 +4,13 @@
 package lease
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
@@ -71,10 +75,10 @@ func (s *leaseSuite) TestTokenListIsolation(c *gc.C) {
 	stop := make(chan struct{})
 	go WorkerLoop(&stubLeasePersistor{})(stop)
 	defer func() { stop <- struct{}{} }()
-
 	mgr := Manager()
+	_, err := mgr.ClaimLease(testNamespace, testId, testDuration)
+	c.Assert(err, jc.ErrorIsNil)
 
-	mgr.ClaimLease(testNamespace, testId, testDuration)
 	toksA := mgr.CopyOfLeaseTokens()
 	toksB := mgr.CopyOfLeaseTokens()
 
@@ -86,20 +90,53 @@ func (s *leaseSuite) TestTokenListIsolation(c *gc.C) {
 	toksA[0].Id = "I'm a bad, bad programmer. Why would I do this?"
 	c.Check(toksA[0], gc.Not(gc.Equals), toksB[0])
 
-	//...and the cache remains in tact.
-	err := mgr.ReleaseLease(testNamespace, testId)
-	c.Check(err, gc.IsNil)
+	//...and the cache remains intact.
+	err = mgr.ReleaseLease(testNamespace, testId)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *leaseSuite) TestTokenListRaces(c *gc.C) {
+	stop := make(chan struct{})
+	go WorkerLoop(&stubLeasePersistor{})(stop)
+	defer func() { stop <- struct{}{} }()
+	mgr := Manager()
+	_, err := mgr.ClaimLease(testNamespace, testId, testDuration)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var wg sync.WaitGroup
+	count := 10
+	results := make(chan []Token, count)
+	for i := 0; i < count; i++ {
+		wg.Add(1)
+		go func() {
+			results <- mgr.CopyOfLeaseTokens()
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	var allResults [][]Token
+	for i := 0; i < count; i++ {
+		select {
+		case result := <-results:
+			allResults = append(allResults, result)
+		default:
+			c.Fatalf("not enough results received")
+		}
+	}
+	for i := 1; i < count; i++ {
+		c.Check(allResults[0], jc.DeepEquals, allResults[i])
+	}
 }
 
 func (s *leaseSuite) TestClaimLease(c *gc.C) {
 	stop := make(chan struct{})
 	go WorkerLoop(&stubLeasePersistor{})(stop)
 	defer func() { stop <- struct{}{} }()
-
 	mgr := Manager()
-	ownerId, err := mgr.ClaimLease(testNamespace, testId, testDuration)
 
-	c.Assert(err, gc.IsNil)
+	ownerId, err := mgr.ClaimLease(testNamespace, testId, testDuration)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ownerId, gc.Equals, testId)
 
 	toks := mgr.CopyOfLeaseTokens()
@@ -108,19 +145,83 @@ func (s *leaseSuite) TestClaimLease(c *gc.C) {
 	c.Assert(toks[0].Id, gc.Equals, testId)
 }
 
+func (s *leaseSuite) TestClaimLeaseRaces(c *gc.C) {
+	stop := make(chan struct{})
+	go WorkerLoop(&stubLeasePersistor{})(stop)
+	defer func() { stop <- struct{}{} }()
+	mgr := Manager()
+
+	var wg sync.WaitGroup
+	count := 10
+	owners := make(chan string, count)
+	for i := 0; i < count; i++ {
+		id := fmt.Sprintf("unit/%d", i)
+		wg.Add(1)
+		go func(id string) {
+			ownerId, err := mgr.ClaimLease(testNamespace, id, testDuration)
+			c.Logf(ownerId)
+			if err != nil {
+				c.Check(err, gc.Equals, LeaseClaimDeniedErr)
+			}
+			owners <- ownerId
+			wg.Done()
+		}(id)
+	}
+	wg.Wait()
+
+	allOwners := set.NewStrings()
+	for i := 0; i < count; i++ {
+		select {
+		case ownerId := <-owners:
+			allOwners.Add(ownerId)
+		default:
+			c.Fatalf("not enough ownerIds received")
+		}
+	}
+	c.Check(allOwners.Size(), gc.Equals, 1)
+	c.Check(allOwners.Contains(""), jc.IsFalse)
+}
+
 func (s *leaseSuite) TestReleaseLease(c *gc.C) {
 	stop := make(chan struct{})
 	go WorkerLoop(&stubLeasePersistor{})(stop)
 	defer func() { stop <- struct{}{} }()
-
 	mgr := Manager()
-
-	ownerId, err := mgr.ClaimLease(testNamespace, testId, 30*time.Hour)
-	c.Assert(err, gc.IsNil)
-	c.Assert(ownerId, gc.Equals, testId)
+	_, err := mgr.ClaimLease(testNamespace, testId, testDuration)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = mgr.ReleaseLease(testNamespace, testId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	toks := mgr.CopyOfLeaseTokens()
+	c.Assert(toks, gc.HasLen, 0)
+}
+
+func (s *leaseSuite) TestReleaseLeaseRaces(c *gc.C) {
+	stop := make(chan struct{})
+	go WorkerLoop(&stubLeasePersistor{})(stop)
+	defer func() { stop <- struct{}{} }()
+	mgr := Manager()
+
+	count := 10
+	var namespaces []string
+	for i := 0; i < count; i++ {
+		namespace := fmt.Sprintf("namespace-%d", i)
+		namespaces = append(namespaces, namespace)
+		_, err := mgr.ClaimLease(namespace, testId, testDuration)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	var wg sync.WaitGroup
+	for _, namespace := range namespaces {
+		wg.Add(1)
+		go func(namespace string) {
+			err := mgr.ReleaseLease(namespace, testId)
+			c.Check(err, jc.ErrorIsNil)
+			wg.Done()
+		}(namespace)
+	}
+	wg.Wait()
 
 	toks := mgr.CopyOfLeaseTokens()
 	c.Assert(toks, gc.HasLen, 0)
@@ -130,12 +231,9 @@ func (s *leaseSuite) TestRetrieveLease(c *gc.C) {
 	stop := make(chan struct{})
 	go WorkerLoop(&stubLeasePersistor{})(stop)
 	defer func() { stop <- struct{}{} }()
-
 	mgr := Manager()
-
-	ownerId, err := mgr.ClaimLease(testNamespace, testId, 30*time.Hour)
-	c.Assert(err, gc.IsNil)
-	c.Assert(ownerId, gc.Equals, testId)
+	_, err := mgr.ClaimLease(testNamespace, testId, testDuration)
+	c.Assert(err, jc.ErrorIsNil)
 
 	tok := mgr.RetrieveLease(testNamespace)
 	c.Check(tok.Id, gc.Equals, testId)
@@ -157,14 +255,11 @@ func (s *leaseSuite) TestReleaseLeaseNotification(c *gc.C) {
 	stop := make(chan struct{})
 	go WorkerLoop(&stubLeasePersistor{})(stop)
 	defer func() { stop <- struct{}{} }()
-
 	mgr := Manager()
+	_, err := mgr.ClaimLease(testNamespace, testId, testDuration)
+	c.Assert(err, jc.ErrorIsNil)
 
-	// Grab a lease.
-	_, err := mgr.ClaimLease(testNamespace, testId, 30*time.Hour)
-	c.Assert(err, gc.IsNil)
-
-	// Listen for it to be released.
+	// Listen for the lease to be released.
 	subscription := mgr.LeaseReleasedNotifier(testNamespace)
 	receivedSignal := make(chan struct{})
 	go func() {
@@ -174,7 +269,7 @@ func (s *leaseSuite) TestReleaseLeaseNotification(c *gc.C) {
 
 	// Release it
 	err = mgr.ReleaseLease(testNamespace, testId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	select {
 	case <-receivedSignal:
@@ -233,7 +328,7 @@ func (s *leaseSuite) TestLeaseExpiration(c *gc.C) {
 	// Grab a lease.
 	_, err := mgr.ClaimLease(testNamespace, testId, leaseDuration)
 	leaseClaimedTime = time.Now()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for the all-clear, or a time-out.
 	select {
@@ -265,8 +360,8 @@ func (s *leaseSuite) TestManagerPeresistsOnClaims(c *gc.C) {
 		return nil
 	}
 
-	mgr.ClaimLease(testNamespace, testId, testDuration)
-
+	_, err := mgr.ClaimLease(testNamespace, testId, testDuration)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(numWriteCalls, gc.Equals, 1)
 }
 
@@ -282,7 +377,7 @@ func (s *leaseSuite) TestManagerRemovesOnRelease(c *gc.C) {
 
 	// Grab a lease.
 	_, err := mgr.ClaimLease(testNamespace, testId, testDuration)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	numRemoveCalls := 0
 	persistor.RemoveTokenFn = func(id string) error {
@@ -291,7 +386,7 @@ func (s *leaseSuite) TestManagerRemovesOnRelease(c *gc.C) {
 		return nil
 	}
 
-	// Release the lease, and the peresitor should be called.
+	// Release the lease, and the persistor should be called.
 	mgr.ReleaseLease(testNamespace, testId)
 
 	c.Check(numRemoveCalls, gc.Equals, 1)

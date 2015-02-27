@@ -30,10 +30,10 @@ var (
 
 func init() {
 	singleton = &leaseManager{
-		claimLease:       make(chan Token),
+		claimLease:       make(chan claimLeaseMsg),
 		releaseLease:     make(chan releaseLeaseMsg),
 		leaseReleasedSub: make(chan leaseReleasedMsg),
-		copyOfTokens:     make(chan []Token),
+		copyOfTokens:     make(chan copyTokensMsg),
 	}
 }
 
@@ -67,29 +67,37 @@ func Manager() *leaseManager {
 // Messages for channels.
 //
 
+type claimLeaseMsg struct {
+	Token    Token
+	Response chan<- Token
+}
 type releaseLeaseMsg struct {
-	Token *Token
-	Err   error
+	Token    Token
+	Response chan<- error
 }
 type leaseReleasedMsg struct {
 	Watcher      chan<- struct{}
 	ForNamespace string
 }
+type copyTokensMsg struct {
+	Response chan<- []Token
+}
 
 type leaseManager struct {
 	leasePersistor   leasePersistor
 	retrieveLease    chan Token
-	claimLease       chan Token
+	claimLease       chan claimLeaseMsg
 	releaseLease     chan releaseLeaseMsg
 	leaseReleasedSub chan leaseReleasedMsg
-	copyOfTokens     chan []Token
+	copyOfTokens     chan copyTokensMsg
 }
 
-// CopyOfLeaseTokens returns a copy of the lease tokens current held
+// CopyOfLeaseTokens returns a copy of the lease tokens currently held
 // by the manager.
 func (m *leaseManager) CopyOfLeaseTokens() []Token {
-	m.copyOfTokens <- nil
-	return <-m.copyOfTokens
+	ch := make(chan []Token)
+	m.copyOfTokens <- copyTokensMsg{ch}
+	return <-ch
 }
 
 // RetrieveLease returns the lease token currently stored for the
@@ -110,9 +118,11 @@ func (m *leaseManager) RetrieveLease(namespace string) Token {
 // owner's ID will be returned.
 func (m *leaseManager) ClaimLease(namespace, id string, forDur time.Duration) (leaseOwnerId string, err error) {
 
+	ch := make(chan Token)
 	token := Token{namespace, id, time.Now().Add(forDur)}
-	m.claimLease <- token
-	activeClaim := <-m.claimLease
+	message := claimLeaseMsg{token, ch}
+	m.claimLease <- message
+	activeClaim := <-ch
 
 	leaseOwnerId = activeClaim.Id
 	if id != leaseOwnerId {
@@ -125,12 +135,14 @@ func (m *leaseManager) ClaimLease(namespace, id string, forDur time.Duration) (l
 // ReleaseLease releases the lease held for namespace by id.
 func (m *leaseManager) ReleaseLease(namespace, id string) (err error) {
 
+	ch := make(chan error)
 	token := Token{Namespace: namespace, Id: id}
-	m.releaseLease <- releaseLeaseMsg{Token: &token}
-	response := <-m.releaseLease
+	message := releaseLeaseMsg{token, ch}
+	m.releaseLease <- message
+	err = <-ch
 
-	if err := response.Err; err != nil {
-		err = errors.Annotatef(response.Err, `could not release lease for namespace "%s", id "%s"`, namespace, id)
+	if err != nil {
+		err = errors.Annotatef(err, `could not release lease for namespace "%s", id "%s"`, namespace, id)
 
 		// Log errors so that we're aware they're happening, but don't
 		// burden the caller with dealing with an error if it's
@@ -176,37 +188,36 @@ func (m *leaseManager) workerLoop(stop <-chan struct{}) error {
 		case <-stop:
 			return nil
 		case claim := <-m.claimLease:
-			lease := claimLease(leaseCache, claim)
-			if lease.Id != claim.Id {
-				m.claimLease <- lease
+			lease := claimLease(leaseCache, claim.Token)
+			if lease.Id == claim.Token.Id {
+				m.leasePersistor.WriteToken(lease.Namespace, lease)
+				if lease.Expiration.Before(nextExpiration) {
+					nextExpiration = lease.Expiration
+				}
 			}
-
-			m.leasePersistor.WriteToken(lease.Namespace, lease)
-			if lease.Expiration.Before(nextExpiration) {
-				nextExpiration = lease.Expiration
-			}
-			m.claimLease <- lease
-		case claim := <-m.releaseLease:
-			var response releaseLeaseMsg
-			response.Err = releaseLease(leaseCache, claim.Token)
-			if response.Err != nil {
-				m.releaseLease <- response
-			}
-
+			claim.Response <- lease
+		case release := <-m.releaseLease:
 			// Unwind our layers from most volatile to least.
-			response.Err = m.leasePersistor.RemoveToken(claim.Token.Namespace)
-			m.releaseLease <- response
-			notifyOfRelease(releaseSubs[claim.Token.Namespace], claim.Token.Namespace)
-
+			err := releaseLease(leaseCache, release.Token)
+			if err == nil {
+				namespace := release.Token.Namespace
+				err = m.leasePersistor.RemoveToken(namespace)
+				// TODO(fwereade): not quite convinced by this behaviour, but
+				// I think I'm preserving what's there already. Shouldn't this
+				// kill the worker? We've broken our cache already, so the
+				// release notifications will be matching cache content but
+				// both (might be) lying about substrate state...
+				notifyOfRelease(releaseSubs[namespace], namespace)
+			}
+			release.Response <- err
 		case subscription := <-m.leaseReleasedSub:
 			subscribe(releaseSubs, subscription)
-		case <-m.copyOfTokens:
+		case msg := <-m.copyOfTokens:
 			// create a copy of the lease cache for use by code
 			// external to our thread-safe context.
-			m.copyOfTokens <- copyTokens(leaseCache)
+			msg.Response <- copyTokens(leaseCache)
 		case <-time.After(nextExpiration.Sub(time.Now())):
 			nextExpiration = m.expireLeases(leaseCache, releaseSubs)
-			break
 		}
 	}
 }
@@ -233,7 +244,7 @@ func (m *leaseManager) expireLeases(
 		}
 
 		logger.Infof(`Lease for namespace "%s" has expired.`, token.Namespace)
-		if err := releaseLease(cache, &token); err == nil {
+		if err := releaseLease(cache, token); err == nil {
 			notifyOfRelease(subscribers[token.Namespace], token.Namespace)
 		}
 	}
@@ -257,7 +268,7 @@ func claimLease(cache map[string]Token, claim Token) Token {
 	return claim
 }
 
-func releaseLease(cache map[string]Token, claim *Token) error {
+func releaseLease(cache map[string]Token, claim Token) error {
 	if active, ok := cache[claim.Namespace]; !ok || active.Id != claim.Id {
 		return NotLeaseOwnerErr
 	}
