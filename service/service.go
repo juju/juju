@@ -90,7 +90,10 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 	}
 
 	service, err := NewService(name, conf, initName)
-	return service, errors.Trace(err)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return service, nil
 }
 
 // VersionInitSystem returns an init system name based on the provided
@@ -124,10 +127,16 @@ func ListServices(initDir string) ([]string, error) {
 	switch initName {
 	case InitSystemWindows:
 		services, err := windows.ListServices()
-		return services, errors.Trace(err)
+		if err != nil {
+			return nil, err
+		}
+		return services, nil
 	case InitSystemUpstart:
 		services, err := upstart.ListServices(initDir)
-		return services, errors.Trace(err)
+		if err != nil {
+			return nil, err
+		}
+		return services, nil
 	default:
 		return nil, errors.NotFoundf("init system %q", initName)
 	}
