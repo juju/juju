@@ -770,7 +770,7 @@ func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.
 		_, err = ec2Inst.UnassignPrivateIPAddresses(nicId, []string{addr.Value})
 		logger.Tracef("UnassignPrivateIPAddresses(%q, %q) returned: %v", nicId, addr, err)
 		if err == nil {
-			logger.Tracef("released address % from instance %q, NIC %q", addr, instId, nicId)
+			logger.Tracef("released address %q from instance %q, NIC %q", addr, instId, nicId)
 			break
 		}
 	}
