@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
-	"reflect"
 )
 
 func moveBlocksFromEnvironToState(context Context) error {
@@ -25,7 +24,7 @@ func moveBlocksFromEnvironToState(context Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = recordCurrentBlocks(context, blocks)
+	err = upgradeBlocks(context, blocks)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -36,7 +35,7 @@ func moveBlocksFromEnvironToState(context Context) error {
 	return nil
 }
 
-func recordCurrentBlocks(context Context, blocks []string) error {
+func upgradeBlocks(context Context, blocks []string) error {
 	if len(blocks) == 0 {
 		// no existing blocks = nothing to do here :)
 		return nil
@@ -44,7 +43,7 @@ func recordCurrentBlocks(context Context, blocks []string) error {
 	blockClient := block.NewClient(context.APIState())
 	for _, one := range blocks {
 		err := blockClient.SwitchBlockOn(one, "")
-		if !reflect.ValueOf(err).IsNil() {
+		if err != nil {
 			return errors.Annotatef(err, "switching on %v", one)
 		}
 	}

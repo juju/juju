@@ -93,7 +93,7 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 	envs.logDeprecatedWarnings(attrs, newAttrs, config.ToolsStreamKey, config.AgentStreamKey)
 
 	// Block attributes only matter if they have been used
-	envs.checkBlocks(attrs)
+	envs.logBlockDeprecationWarnings(attrs)
 
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
@@ -102,7 +102,7 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 	return cfg, nil
 }
 
-func (envs *Environs) checkBlocks(attrs map[string]interface{}) {
+func (envs *Environs) logBlockDeprecationWarnings(attrs map[string]interface{}) {
 	checkBlockVar := func(key string) {
 		if used, ok := attrs[key]; ok {
 			if used.(bool) {

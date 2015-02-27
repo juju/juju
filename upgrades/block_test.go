@@ -25,7 +25,6 @@ var _ = gc.Suite(&blockSuite{})
 
 func (s *blockSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	//	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 
 	conn, err := juju.NewAPIState(s.AdminUserTag(c), s.Environ, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -39,14 +38,14 @@ func (s *blockSuite) SetUpTest(c *gc.C) {
 	s.blockClient = block.NewClient(conn)
 }
 
-func (s *blockSuite) TestRecordBlocksNone(c *gc.C) {
+func (s *blockSuite) TestUpdateBlocksNone(c *gc.C) {
 	err := upgrades.MoveBlocksFromEnvironToState(s.ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	s.ensureBlocksRecorded(c, nil)
-	s.ensureEnvBlocksOff(c)
+	s.ensureBlocksUpdated(c, nil)
+	s.ensureBlocksRemovedFromEnvConfig(c)
 }
 
-func (s *blockSuite) ensureEnvBlocksOff(c *gc.C) {
+func (s *blockSuite) ensureBlocksRemovedFromEnvConfig(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := cfg.AllAttrs()
@@ -58,7 +57,7 @@ func (s *blockSuite) ensureEnvBlocksOff(c *gc.C) {
 	c.Assert(exists, jc.IsFalse)
 }
 
-func (s *blockSuite) ensureBlocksRecorded(c *gc.C, expected []string) {
+func (s *blockSuite) ensureBlocksUpdated(c *gc.C, expected []string) {
 	blocks, err := s.blockClient.List()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -80,10 +79,10 @@ func (s *blockSuite) TestUpgradeBlocks(c *gc.C) {
 	err = upgrades.MoveBlocksFromEnvironToState(s.ctx)
 
 	c.Assert(err, jc.ErrorIsNil)
-	s.ensureBlocksRecorded(c, []string{
+	s.ensureBlocksUpdated(c, []string{
 		state.ChangeBlock.String(),
 		state.DestroyBlock.String(),
 		state.RemoveBlock.String(),
 	})
-	s.ensureEnvBlocksOff(c)
+	s.ensureBlocksRemovedFromEnvConfig(c)
 }
