@@ -26,10 +26,8 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -731,10 +729,10 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
-	defer func() {
-		registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
-	}()
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{
+		"storage-default-block-source": "loop-pool",
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("cpu-cores=123 mem=8G networks=^net3,^net4")
 	template := state.MachineTemplate{
@@ -990,10 +988,10 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
-	defer func() {
-		registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
-	}()
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{
+		"storage-default-block-source": "loop-pool",
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Provision machine 0 first.
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")

@@ -556,6 +556,14 @@ var configTests = []configTest{
 		},
 		err: `ssl-hostname-verification: expected bool, got string\("yes please"\)`,
 	}, {
+		about:       "default block storage source",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"storage-default-block-source": "block-source",
+		},
+	}, {
 		about: fmt.Sprintf(
 			"%s: %s",
 			"provisioner-harvest-mode",

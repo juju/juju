@@ -42,7 +42,6 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -2956,10 +2955,10 @@ func (s *clientSuite) setupStoragePool(c *gc.C) {
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
-	s.AddCleanup(func(_ *gc.C) {
-		registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
-	})
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{
+		"storage-default-block-source": "loop-pool",
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {

@@ -146,6 +146,9 @@ const (
 	// PreventAllChangesKey stores the value for this setting
 	PreventAllChangesKey = BlockKeyPrefix + "all-changes"
 
+	// The default block storage source.
+	StorageDefaultBlockSourceKey = "storage-default-block-source"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -1094,6 +1097,11 @@ func (c *Config) DisableNetworkManagement() (bool, bool) {
 	return v, ok
 }
 
+func (c *Config) StorageDefaultBlockSource() (string, bool) {
+	bp := c.asString(StorageDefaultBlockSourceKey)
+	return bp, bp != ""
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1184,6 +1192,7 @@ var fields = schema.Fields{
 	PreventDestroyEnvironmentKey: schema.Bool(),
 	PreventRemoveObjectKey:       schema.Bool(),
 	PreventAllChangesKey:         schema.Bool(),
+	StorageDefaultBlockSourceKey: schema.String(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    schema.String(),
@@ -1229,6 +1238,10 @@ var alwaysOptional = schema.Defaults{
 	PreventDestroyEnvironmentKey: DefaultPreventDestroyEnvironment,
 	PreventRemoveObjectKey:       DefaultPreventRemoveObject,
 	PreventAllChangesKey:         DefaultPreventAllChanges,
+
+	// Storage related config.
+	// Environ providers will specify their own defaults.
+	StorageDefaultBlockSourceKey: schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    "",
