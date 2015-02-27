@@ -22,11 +22,11 @@ type Conf struct {
 
 	// Env holds the environment variables that will be set when the
 	// command runs.
-	// Currently not used on Windows
+	// Currently not used on Windows.
 	Env map[string]string
 
 	// Limit holds the ulimit values that will be set when the command runs.
-	// Currently not used on Windows
+	// Currently not used on Windows.
 	Limit map[string]string
 
 	// ExecStart is the command (with arguments) that will be run.
@@ -50,7 +50,7 @@ type Conf struct {
 
 	// TODO(ericsnow) Turn ExtraScript into ExecStartPre.
 
-	// ExtraScript allows to insert script before command execution
+	// ExtraScript allows to insert script before command execution.
 	ExtraScript string
 }
 
