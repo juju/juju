@@ -50,5 +50,6 @@ func (*serviceSuite) TestListServicesCommand(c *gc.C) {
 	c.Check(cmd, gc.Equals, ""+
 		`if [[ "$(cat /proc/1/cmdline)" == "/sbin/init" ]]; then `+
 		`sudo initctl list | awk '{print $1}' | sort | uniq`+"\n"+
+		`else exit 1`+"\n"+
 		`fi`)
 }

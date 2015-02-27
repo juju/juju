@@ -163,7 +163,9 @@ func ListServicesCommand() string {
 		cmdAll += cmd
 	}
 	if cmdAll != "" {
-		cmdAll += "fi"
+		cmdAll += "" +
+			"else exit 1\n" +
+			"fi"
 	}
 	return cmdAll
 }
