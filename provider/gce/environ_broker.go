@@ -136,6 +136,7 @@ func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstr
 		Stream:    stream,
 	})
 
+	signedImageDataOnly := false
 	matchingImages, _, err := imageMetadataFetch(sources, imageConstraint, signedImageDataOnly)
 	if err != nil {
 		return nil, errors.Trace(err)

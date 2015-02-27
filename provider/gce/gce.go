@@ -39,6 +39,4 @@ var (
 	logger = loggo.GetLogger("juju.provider.gce")
 
 	errNotImplemented = errors.NotImplementedf("gce provider functionality")
-
-	signedImageDataOnly = false
 )
