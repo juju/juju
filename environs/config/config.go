@@ -493,8 +493,7 @@ func ProcessDeprecatedAttributes(attrs map[string]interface{}) map[string]interf
 	return processedAttrs
 }
 
-// InvalidConfigValue is an error type for a config value that failed
-// validation.
+// InvalidConfigValue is an error type for a config value that failed validation.
 type InvalidConfigValueError struct {
 	// Key is the config key used to access the value.
 	Key string
