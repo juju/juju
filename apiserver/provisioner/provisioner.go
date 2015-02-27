@@ -1025,13 +1025,13 @@ func (p *ProvisionerAPI) allocateAddress(
 		if err != nil {
 			return nil, err
 		}
-		logger.Tracef("picked new address %q on subnet %q", addr, subnetId)
+		logger.Tracef("picked new address %q on subnet %q", addr.String(), subnetId)
 		// Attempt to allocate with environ.
 		err = environ.AllocateAddress(instId, subnetId, addr.Address())
 		if err != nil {
 			logger.Warningf(
 				"allocating address %q on instance %q and subnet %q failed: %v (retrying)",
-				addr, instId, subnetId, err,
+				addr.String(), instId, subnetId, err,
 			)
 			// It's as good as unavailable for us, so mark it as
 			// such.
@@ -1039,19 +1039,19 @@ func (p *ProvisionerAPI) allocateAddress(
 			if err != nil {
 				logger.Warningf(
 					"cannot set address %q to %q: %v (ignoring and retrying)",
-					addr, state.AddressStateUnavailable, err,
+					addr.String(), state.AddressStateUnavailable, err,
 				)
 				continue
 			}
 			logger.Tracef(
 				"setting address %q to %q and retrying",
-				addr, state.AddressStateUnavailable,
+				addr.String(), state.AddressStateUnavailable,
 			)
 			continue
 		}
 		logger.Infof(
 			"allocated address %q on instance %q and subnet %q",
-			addr, instId, subnetId,
+			addr.String(), instId, subnetId,
 		)
 		err = p.setAllocatedOrRelease(addr, environ, instId, container, subnetId)
 		if err != nil {
@@ -1079,7 +1079,7 @@ func (p *ProvisionerAPI) setAllocatedOrRelease(
 		}
 		logger.Warningf(
 			"failed to mark address %q as %q to container %q: %v (releasing and retrying)",
-			addr, state.AddressStateAllocated, container, err,
+			addr.String(), state.AddressStateAllocated, container, err,
 		)
 		// It's as good as unavailable for us, so mark it as
 		// such.
@@ -1087,17 +1087,17 @@ func (p *ProvisionerAPI) setAllocatedOrRelease(
 		if err != nil {
 			logger.Warningf(
 				"cannot set address %q to %q: %v (ignoring and releasing)",
-				addr, state.AddressStateUnavailable, err,
+				addr.String(), state.AddressStateUnavailable, err,
 			)
 		}
 		err = environ.ReleaseAddress(instId, subnetId, addr.Address())
 		if err == nil {
-			logger.Infof("address %q released; trying to allocate new", addr)
+			logger.Infof("address %q released; trying to allocate new", addr.String())
 			return
 		}
 		logger.Warningf(
 			"failed to release address %q on instance %q and subnet %q: %v (ignoring and retrying)",
-			addr, instId, subnetId, err,
+			addr.String(), instId, subnetId, err,
 		)
 	}()
 
@@ -1110,7 +1110,7 @@ func (p *ProvisionerAPI) setAllocatedOrRelease(
 		return errors.Trace(err)
 	}
 
-	logger.Infof("assigned address %q to container %q", addr, container)
+	logger.Infof("assigned address %q to container %q", addr.String(), container)
 	return nil
 }
 

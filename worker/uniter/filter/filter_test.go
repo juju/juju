@@ -598,3 +598,34 @@ func (s *FilterSuite) TestMeterStatusEvents(c *gc.C) {
 	}
 	meterC.AssertOneReceive()
 }
+
+func (s *FilterSuite) TestStorageEvents(c *gc.C) {
+	storageCharm := s.AddTestingCharm(c, "storage-block2")
+	svc := s.AddTestingServiceWithStorage(c, "storage-block2", storageCharm, map[string]state.StorageConstraints{
+		"multi1to10": state.StorageConstraints{Pool: "loop", Size: 1024, Count: 1},
+		"multi2up":   state.StorageConstraints{Pool: "loop", Size: 1024, Count: 2},
+	})
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	s.APILogin(c, unit)
+
+	f, err := filter.NewFilter(s.uniter, unit.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
+	defer statetesting.AssertStop(c, f)
+	storageC := s.contentAsserterC(c, f.StorageEvents())
+	c.Assert(storageC.AssertOneReceive(), gc.DeepEquals, []names.StorageTag{
+		names.NewStorageTag("multi1to10/0"),
+		names.NewStorageTag("multi2up/1"),
+		names.NewStorageTag("multi2up/2"),
+	})
+
+	err = s.State.DestroyStorageInstance(names.NewStorageTag("multi2up/1"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageC.AssertOneReceive(), gc.DeepEquals, []names.StorageTag{
+		names.NewStorageTag("multi2up/1"),
+	})
+}

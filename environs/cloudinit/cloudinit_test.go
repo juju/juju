@@ -1225,7 +1225,6 @@ func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
 		compareString = strings.TrimSpace(compareString)
 
 		c.Assert(stringData, gc.Equals, compareString)
-
 	}
 }
 

@@ -4,6 +4,7 @@
 package filter
 
 import (
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/params"
@@ -53,6 +54,10 @@ type Filter interface {
 	// RelationsEvents returns a channel that will receive the ids of all the service's
 	// relations whose Life status has changed.
 	RelationsEvents() <-chan []int
+
+	// StorageEvents returns a channel that will receive the tags of all the unit's
+	// associated storage instances whose Life status has changed.
+	StorageEvents() <-chan []names.StorageTag
 
 	// WantUpgradeEvent controls whether the filter will generate upgrade
 	// events for unforced service charm changes.

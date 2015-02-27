@@ -2,7 +2,7 @@
 
 DEPNOTICE='DEPRECATED: Use "juju backups create" instead of "juju backup".'
 
-if [ $1 == "--help" ]; then
+if [ "$1" == "--help" ]; then
 	echo "juju backup"
 	echo ""
 	echo $DEPNOTICE
@@ -11,7 +11,7 @@ if [ $1 == "--help" ]; then
 	exit 0
 fi
 
-if [ $1 == "--description" ]; then
+if [ "$1" == "--description" ]; then
 	echo $DEPNOTICE
 	exit 0
 fi

@@ -24,6 +24,7 @@ var _ dirFuncs = (*mockDirFuncs)(nil)
 
 // mockDirFuncs stub out the real mkdir and lstat functions from stdlib.
 type mockDirFuncs struct {
+	osDirFuncs
 	dirs set.Strings
 }
 
@@ -75,18 +76,42 @@ func (m *mockDirFuncs) fileCount(name string) (int, error) {
 
 func RootfsFilesystemSource(storageDir string, run func(string, ...string) (string, error)) storage.FilesystemSource {
 	return &rootfsFilesystemSource{
-		&mockDirFuncs{set.NewStrings()},
+		&mockDirFuncs{
+			osDirFuncs{run},
+			set.NewStrings(),
+		},
 		run,
 		storageDir,
 	}
 }
 
+func RootfsProvider(run func(string, ...string) (string, error)) storage.Provider {
+	return &rootfsProvider{run}
+}
+
+func TmpfsFilesystemSource(storageDir string, run func(string, ...string) (string, error)) storage.FilesystemSource {
+	return &tmpfsFilesystemSource{
+		&mockDirFuncs{
+			osDirFuncs{run},
+			set.NewStrings(),
+		},
+		run,
+		storageDir,
+	}
+}
+
+func TmpfsProvider(run func(string, ...string) (string, error)) storage.Provider {
+	return &tmpfsProvider{run}
+}
+
 // MountedDirs returns all the dirs which have been created during any CreateFilesystem calls
 // on the specified filesystem source..
 func MountedDirs(fsSource storage.FilesystemSource) set.Strings {
-	return fsSource.(*rootfsFilesystemSource).dirFuncs.(*mockDirFuncs).dirs
-}
-
-func RootfsProvider(run func(string, ...string) (string, error)) storage.Provider {
-	return &rootfsProvider{run}
+	switch fs := fsSource.(type) {
+	case *rootfsFilesystemSource:
+		return fs.dirFuncs.(*mockDirFuncs).dirs
+	case *tmpfsFilesystemSource:
+		return fs.dirFuncs.(*mockDirFuncs).dirs
+	}
+	panic("unexpectd type")
 }

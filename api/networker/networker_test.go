@@ -36,7 +36,7 @@ type networkerSuite struct {
 	nestedContainerIfaces []state.NetworkInterfaceInfo
 
 	st        *api.State
-	networker *networker.State
+	networker networker.State
 }
 
 var _ = gc.Suite(&networkerSuite{})

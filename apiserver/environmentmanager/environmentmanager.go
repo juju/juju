@@ -23,7 +23,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.environmentmanager")
 
 func init() {
-	common.RegisterStandardFacadeForFeature("EnvironmentManager", 1, NewEnvironmentManagerAPI, feature.MESS)
+	common.RegisterStandardFacadeForFeature("EnvironmentManager", 1, NewEnvironmentManagerAPI, feature.JES)
 }
 
 // EnvironmentManager defines the methods on the environmentmanager API end

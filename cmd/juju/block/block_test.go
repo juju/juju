@@ -14,12 +14,20 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 )
 
 type BlockCommandSuite struct {
 	ProtectionCommandSuite
+	mockClient *block.MockBlockClient
+}
+
+func (s *BlockCommandSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.mockClient = &block.MockBlockClient{}
+	s.PatchValue(block.BlockClient, func(p *block.BlockCommand) (block.BlockClientAPI, error) {
+		return s.mockClient, nil
+	})
 }
 
 var _ = gc.Suite(&BlockCommandSuite{})
@@ -29,21 +37,21 @@ func runBlockCommand(c *gc.C, args ...string) error {
 	return err
 }
 
-func (s *BlockCommandSuite) runBlockTestAndCompare(c *gc.C, operation string, expectedValue bool) {
-	err := runBlockCommand(c, operation)
+func (s *BlockCommandSuite) assertRunBlock(c *gc.C, operation, message string) {
+	err := runBlockCommand(c, operation, message)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedOp := config.BlockKeyPrefix + strings.ToLower(operation)
-	expectedCfg := map[string]interface{}{expectedOp: expectedValue}
-	c.Assert(s.mockClient.cfg, gc.DeepEquals, expectedCfg)
+	expectedOp := block.TranslateOperation(operation)
+	c.Assert(s.mockClient.BlockType, gc.DeepEquals, expectedOp)
+	c.Assert(s.mockClient.Msg, gc.DeepEquals, message)
 }
 
 func (s *BlockCommandSuite) TestBlockCmdNoOperation(c *gc.C) {
 	s.assertErrorMatches(c, runBlockCommand(c), `.*must specify one of.*`)
 }
 
-func (s *BlockCommandSuite) TestBlockCmdMoreThanOneOperation(c *gc.C) {
-	s.assertErrorMatches(c, runBlockCommand(c, "destroy-environment", "change"), `.*must specify one of.*`)
+func (s *BlockCommandSuite) TestBlockCmdMoreArgs(c *gc.C) {
+	s.assertErrorMatches(c, runBlockCommand(c, "destroy-environment", "change", "too much"), `.*can only specify block type and its message.*`)
 }
 
 func (s *BlockCommandSuite) TestBlockCmdOperationWithSeparator(c *gc.C) {
@@ -59,11 +67,11 @@ func (s *BlockCommandSuite) TestBlockCmdUnknownOperation(c *gc.C) {
 }
 
 func (s *BlockCommandSuite) TestBlockCmdValidDestroyEnvOperationUpperCase(c *gc.C) {
-	s.runBlockTestAndCompare(c, "DESTROY-ENVIRONMENT", true)
+	s.assertRunBlock(c, "DESTROY-ENVIRONMENT", "TestBlockCmdValidDestroyEnvOperationUpperCase")
 }
 
 func (s *BlockCommandSuite) TestBlockCmdValidDestroyEnvOperation(c *gc.C) {
-	s.runBlockTestAndCompare(c, "destroy-environment", true)
+	s.assertRunBlock(c, "destroy-environment", "TestBlockCmdValidDestroyEnvOperation")
 }
 
 func (s *BlockCommandSuite) processErrorTest(c *gc.C, tstError error, blockType block.Block, expectedError error, expectedWarning string) {
@@ -78,8 +86,8 @@ func (s *BlockCommandSuite) processErrorTest(c *gc.C, tstError error, blockType 
 }
 
 func (s *BlockCommandSuite) TestProcessErrOperationBlocked(c *gc.C) {
-	s.processErrorTest(c, common.ErrOperationBlocked, block.BlockRemove, cmd.ErrSilent, ".*operations that remove.*")
-	s.processErrorTest(c, common.ErrOperationBlocked, block.BlockDestroy, cmd.ErrSilent, ".*destroy-environment operation has been blocked.*")
+	s.processErrorTest(c, common.ErrOperationBlocked("operations that remove"), block.BlockRemove, cmd.ErrSilent, ".*operations that remove.*")
+	s.processErrorTest(c, common.ErrOperationBlocked("destroy-environment operation has been blocked"), block.BlockDestroy, cmd.ErrSilent, ".*destroy-environment operation has been blocked.*")
 }
 
 func (s *BlockCommandSuite) TestProcessErrNil(c *gc.C) {
