@@ -11,6 +11,9 @@ import (
 	"github.com/juju/errors"
 )
 
+// This is the exhaustive list of property names of the "Unit" dbus
+// object that map to unit "Install" section directives. All other
+// valid "Unit" properties map to "Unit" section directives.
 var installProperties = []string{
 	"Alias",
 	"WantedBy",
@@ -19,6 +22,12 @@ var installProperties = []string{
 	"DefaultInstance",
 }
 
+// getUnitOptions is a surrogate for a helper that has been requested
+// upstream (https://github.com/coreos/go-systemd/issues/78). It gets
+// the unit options (i.e. unit directives) via the provided dbus
+// connection for the given service name (including the .service suffix)
+// and unit type (e.g. Unit, Service).  The options can then be
+// converted into a common.Conf or into a unit file.
 func getUnitOptions(conn dbusAPI, name, unitType string) ([]*unit.UnitOption, error) {
 	var opts []*unit.UnitOption
 
@@ -39,6 +48,11 @@ func getUnitOptions(conn dbusAPI, name, unitType string) ([]*unit.UnitOption, er
 	return append(opts, typeOpts...), nil
 }
 
+// parseProperties converts the provided dbus properties into the
+// corresponding systemd unit options (section + directive + value).
+// The unit type (e.g. Unit, Service) indicates which set of properties
+// to expect and with which unit section to associate them. Note that
+// not all systemd dbus properties have a corresponding unit option.
 func parseProperties(props map[string]interface{}, unitType string) []*unit.UnitOption {
 	// See:
 	//  http://dbus.freedesktop.org/doc/dbus-specification.html#basic-types
@@ -61,6 +75,10 @@ func parseProperties(props map[string]interface{}, unitType string) []*unit.Unit
 	return opts
 }
 
+// parseUnitProperty converts a single property from the "Unit" dbus
+// object into zero or more corresponding unit options with the section
+// set to "Unit" or "Install" (depending on the name). Any unsupported
+// property names are simply ignored.
 func parseUnitProperty(name string, value interface{}) []*unit.UnitOption {
 	var opts []*unit.UnitOption
 
@@ -92,6 +110,10 @@ func parseUnitProperty(name string, value interface{}) []*unit.UnitOption {
 	return opts
 }
 
+// parseServiceProperty converts a single property from the "Service"
+// dbus object into zero or more corresponding unit options with the
+// section set to "Service". Any unsupported property names are simply
+// ignored.
 func parseServiceProperty(name string, value interface{}) []*unit.UnitOption {
 	var opts []*unit.UnitOption
 
