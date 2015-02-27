@@ -504,3 +504,13 @@ func (s *ConfigDeprecationSuite) TestDeprecatedToolsStreamWIthAgentWarning(c *gc
 	expected := fmt.Sprintf(standardDeprecationWarningWithNew)
 	s.checkDeprecationWarning(c, attrs, expected)
 }
+
+func (s *ConfigDeprecationSuite) TestDeprecatedBlockWarning(c *gc.C) {
+	assertBlockWarning := func(tst string) {
+		attrs := testing.Attrs{tst: true}
+		s.checkDeprecationWarning(c, attrs, ".*is deprecated and will be ignored since.*")
+	}
+	assertBlockWarning("block-destroy-environment")
+	assertBlockWarning("block-remove-object")
+	assertBlockWarning("block-all-changes")
+}
