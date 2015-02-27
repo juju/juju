@@ -39,6 +39,13 @@ func stateStepsFor123() []Step {
 				return state.AddEnvUUIDToEnvUsersDoc(context.State())
 			},
 		},
+		&upgradeStep{
+			description: "move blocks from environment to state",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return moveBlocksFromEnvironToState(context)
+			},
+		},
 	)
 	return steps
 }
@@ -50,11 +57,6 @@ func stepsFor123() []Step {
 			description: "add environment UUID to agent config",
 			targets:     []Target{AllMachines},
 			run:         addEnvironmentUUIDToAgentConfig,
-		},
-		&upgradeStep{
-			description: "move blocks from environment to state",
-			targets:     []Target{DatabaseMaster},
-			run:         moveBlocksFromEnvironToState,
 		},
 	}
 }
