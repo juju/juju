@@ -68,8 +68,9 @@ type Service interface {
 	InstallCommands() ([]string, error)
 }
 
-// TODO(ericsnow) Eliminate the need to pass an empty conf here for
-// most service methods.
+// TODO(ericsnow) bug #1426458
+// Eliminate the need to pass an empty conf for most service methods
+// and several helper functions.
 
 // NewService returns a new Service based on the provided info.
 func NewService(name string, conf common.Conf, initSystem string) (Service, error) {
