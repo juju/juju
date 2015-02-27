@@ -21,19 +21,21 @@ import (
 	"github.com/juju/juju/instance"
 )
 
+// EnsureAvailabilityCommand makes the system highly available.
 type EnsureAvailabilityCommand struct {
 	envcmd.EnvCommandBase
 	out      cmd.Output
 	haClient EnsureAvailabilityClient
 
+	// NumStateServers specifies the number of state servers to make available.
 	NumStateServers int
-	// If specified, use this series for newly created machines,
-	// else use the environment's default-series
+	// Series is used for newly created machines, if specified.
+	// Otherwise,  the environment's default-series is used.
 	Series string
-	// If specified, these constraints will be merged with those
-	// already in the environment when creating new machines.
+	// Constraints, if specified, will be merged with those already
+	// in the environment when creating new machines.
 	Constraints constraints.Value
-	// If specified, these specific machine(s) will be used to host
+	// Placement specifies specific machine(s) which will be used to host
 	// new state servers. If there are more state servers required than
 	// machines specified, new machines will be created.
 	// Placement is passed verbatim to the API, to be evaluated and used server-side.
@@ -72,10 +74,10 @@ Examples:
 func formatSimple(value interface{}) ([]byte, error) {
 	ensureAvailabilityResult, ok := value.(availabilityInfo)
 	if !ok {
-		return nil, fmt.Errorf("unexpected result type for ensure-availability call")
+		return nil, fmt.Errorf("unexpected result type for ensure-availability call: %T", value)
 	}
 
-	buff := &bytes.Buffer{}
+	var buff bytes.Buffer
 
 	for _, machineList := range []struct {
 		message string
@@ -105,7 +107,7 @@ func formatSimple(value interface{}) ([]byte, error) {
 		if len(machineList.list) == 0 {
 			continue
 		}
-		_, err := fmt.Fprintf(buff, machineList.message, strings.Join(machineList.list, ", "))
+		_, err := fmt.Fprintf(&buff, machineList.message, strings.Join(machineList.list, ", "))
 		if err != nil {
 			return nil, err
 		}
@@ -117,7 +119,7 @@ func formatSimple(value interface{}) ([]byte, error) {
 func (c *EnsureAvailabilityCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "ensure-availability",
-		Purpose: "ensure the availability of Juju state servers",
+		Purpose: "ensure that sufficient state servers exist to provide redundancy",
 		Doc:     ensureAvailabilityDoc,
 	}
 }
@@ -228,5 +230,4 @@ func machineTagsToIds(tags ...string) []string {
 		result = append(result, tag.Id())
 	}
 	return result
-
 }
