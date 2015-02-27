@@ -110,7 +110,7 @@ func (s *BaseBackupsSuite) checkArchive(c *gc.C) {
 }
 
 func (s *BaseBackupsSuite) checkStd(c *gc.C, ctx *cmd.Context, out, err string) {
-	c.Check(ctx.Stdin.(*bytes.Buffer).String(), gc.Equals, "")
+	c.Check(ctx.Stdin.(*bytes.Buffer).Len(), gc.Equals, 0)
 	jujutesting.CheckString(c, ctx.Stdout.(*bytes.Buffer).String(), out)
 	jujutesting.CheckString(c, ctx.Stderr.(*bytes.Buffer).String(), err)
 }
