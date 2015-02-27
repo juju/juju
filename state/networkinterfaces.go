@@ -49,12 +49,12 @@ type NetworkInterfaceInfo struct {
 type networkInterfaceDoc struct {
 	Id            bson.ObjectId `bson:"_id"`
 	EnvUUID       string        `bson:"env-uuid"`
-	MACAddress    string
-	InterfaceName string
-	NetworkName   string
-	MachineId     string
-	IsVirtual     bool
-	IsDisabled    bool
+	MACAddress    string        `bson:"macaddress"`
+	InterfaceName string        `bson:"interfacename"`
+	NetworkName   string        `bson:"networkname"`
+	MachineId     string        `bson:"machineid"`
+	IsVirtual     bool          `bson:"isvirtual"`
+	IsDisabled    bool          `bson:"isdisabled"`
 }
 
 // GoString implements fmt.GoStringer.

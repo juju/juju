@@ -1307,8 +1307,8 @@ func (st *State) AddIPAddress(addr network.Address, subnetid string) (ipaddress 
 		State:    AddressStateUnknown,
 		SubnetId: subnetid,
 		Value:    addr.Value,
-		Type:     addr.Type,
-		Scope:    addr.Scope,
+		Type:     string(addr.Type),
+		Scope:    string(addr.Scope),
 	}
 
 	ipaddress = &IPAddress{doc: ipDoc, st: st}
