@@ -10,6 +10,7 @@ from unittest import TestCase
 
 from winazure import (
     DATETIME_PATTERN,
+    delete_service,
     delete_services,
     delete_unused_disks,
     is_old_deployment,
@@ -115,6 +116,24 @@ class WinAzureTestCase(TestCase):
             wait_for_success(sms, request, pause=0, verbose=False)
         self.assertEqual(2, gs_mock.call_count)
 
+    def test_delete_service(self):
+        sms = ServiceManagementService('secret', 'cert.pem')
+        hosted_service = Mock()
+        hosted_service.name = 'juju-bar'
+        deployment = Mock()
+        deployment.name = 'juju-bar-2'
+        with patch.object(sms, 'delete_deployment',
+                          return_value='request') as dd_mock:
+            with patch('winazure.wait_for_success', autospec=True) as ws_mock:
+                with patch.object(sms, 'delete_hosted_service',
+                                  autospec=True) as ds_mock:
+                    delete_service(
+                        sms, hosted_service, [deployment],
+                        pause=0, dry_run=False, verbose=False)
+        dd_mock.assert_called_once_with('juju-bar', 'juju-bar-2')
+        ws_mock.assert_called_once_with(sms, 'request', pause=0, verbose=False)
+        ds_mock.assert_any_call('juju-bar')
+
     def test_delete_services(self):
         sms = ServiceManagementService('secret', 'cert.pem')
         hs1 = Mock(service_name='juju-foo')
@@ -142,4 +161,4 @@ class WinAzureTestCase(TestCase):
         self.assertIsInstance(args[1], datetime)
         self.assertEqual(2 * 60 * 60, args[2].seconds)
         ds_mock.assert_called_once_with(
-            sms, 'juju-bar', [d2], pause=0, dry_run=False, verbose=False)
+            sms, hs2, [d2], pause=0, dry_run=False, verbose=False)

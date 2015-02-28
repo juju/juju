@@ -84,18 +84,18 @@ def wait_for_success(sms, request, pause=3, verbose=False):
             break
 
 
-def delete_service(sms, name, deployments,
+def delete_service(sms, service, deployments,
                    pause=3, dry_run=False, verbose=False):
-        for deployment in deployments:
-            if verbose:
-                print("Deleting deployment {}".format(deployment.name))
-            if not dry_run:
-                request = sms.delete_deployment(name, deployment.name)
-                wait_for_success(sms, request, pause=pause, verbose=verbose)
+    for deployment in deployments:
         if verbose:
-            print("Deleting service {}".format(name))
+            print("Deleting deployment {}".format(deployment.name))
         if not dry_run:
-            sms.delete_hosted_service(name)
+            request = sms.delete_deployment(service.name, deployment.name)
+            wait_for_success(sms, request, pause=pause, verbose=verbose)
+    if verbose:
+        print("Deleting service {}".format(service.name))
+    if not dry_run:
+        sms.delete_hosted_service(service.name)
 
 
 def delete_services(sms, glob='*', old_age=OLD_MACHINE_AGE,
@@ -113,7 +113,7 @@ def delete_services(sms, glob='*', old_age=OLD_MACHINE_AGE,
                 print("{} does not have deployements".format(name))
             continue
         delete_service(
-            sms, name, properties.deployments,
+            sms, service, properties.deployments,
             pause=pause, dry_run=dry_run, verbose=verbose)
 
 
