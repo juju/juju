@@ -6,6 +6,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
 	"github.com/juju/juju/version"
@@ -15,10 +16,14 @@ import (
 const (
 	InitSystemWindows = "windows"
 	InitSystemUpstart = "upstart"
+	InitSystemSystemd = "systemd"
 )
 
 var _ Service = (*upstart.Service)(nil)
 var _ Service = (*windows.Service)(nil)
+
+// TODO(ericsnow) bug #1426461
+// Running, Installed, and Exists should return errors.
 
 // Service represents a service in the init system running on a host.
 type Service interface {
@@ -66,8 +71,9 @@ type Service interface {
 	InstallCommands() ([]string, error)
 }
 
-// TODO(ericsnow) Eliminate the need to pass an empty conf here for
-// most service methods.
+// TODO(ericsnow) bug #1426458
+// Eliminate the need to pass an empty conf for most service methods
+// and several helper functions.
 
 // NewService returns a new Service based on the provided info.
 func NewService(name string, conf common.Conf, initSystem string) (Service, error) {
@@ -76,6 +82,12 @@ func NewService(name string, conf common.Conf, initSystem string) (Service, erro
 		return windows.NewService(name, conf), nil
 	case InitSystemUpstart:
 		return upstart.NewService(name, conf), nil
+	case InitSystemSystemd:
+		svc, err := systemd.NewService(name, conf)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc, nil
 	default:
 		return nil, errors.NotFoundf("init system %q", initSystem)
 	}
@@ -109,7 +121,7 @@ func VersionInitSystem(vers version.Binary) (string, bool) {
 			return InitSystemUpstart, true
 		default:
 			// vivid and later
-			return "systemd", true
+			return InitSystemSystemd, true
 		}
 		// TODO(ericsnow) Support other OSes, like version.CentOS.
 	default:
@@ -137,13 +149,26 @@ func ListServices(initDir string) ([]string, error) {
 			return nil, err
 		}
 		return services, nil
+	case InitSystemSystemd:
+		services, err := systemd.ListServices()
+		if err != nil {
+			return nil, err
+		}
+		return services, nil
 	default:
 		return nil, errors.NotFoundf("init system %q", initName)
 	}
 }
 
 var linuxExecutables = map[string]string{
-	"/sbin/init": InitSystemUpstart,
+	// Note that some systems link /sbin/init to whatever init system
+	// is supported, so in the future we may need some other way to
+	// identify upstart uniquely.
+	"/sbin/init":           InitSystemUpstart,
+	"/sbin/upstart":        InitSystemUpstart,
+	"/sbin/systemd":        InitSystemSystemd,
+	"/bin/systemd":         InitSystemSystemd,
+	"/lib/systemd/systemd": InitSystemSystemd,
 }
 
 // TODO(ericsnow) Is it too much to cat once for each executable?
@@ -185,6 +210,8 @@ func listServicesCommand(initSystem string) (string, bool) {
 		return windows.ListCommand(), true
 	case InitSystemUpstart:
 		return upstart.ListCommand(), true
+	case InitSystemSystemd:
+		return systemd.ListCommand(), true
 	default:
 		return "", false
 	}
