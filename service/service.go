@@ -161,6 +161,9 @@ func ListServices(initDir string) ([]string, error) {
 }
 
 var linuxExecutables = map[string]string{
+	// Note that some systems link /sbin/init to whatever init system
+	// is supported, so in the future we may need some other way to
+	// identify upstart uniquely.
 	"/sbin/init":           InitSystemUpstart,
 	"/sbin/upstart":        InitSystemUpstart,
 	"/sbin/systemd":        InitSystemSystemd,
