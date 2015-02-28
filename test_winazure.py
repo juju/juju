@@ -15,6 +15,8 @@ from winazure import (
     list_services,
     main,
     ServiceManagementService,
+    SUCCEEDED,
+    wait_for_success,
 )
 
 
@@ -96,3 +98,18 @@ class WinAzureTestCase(TestCase):
             is_old_deployment([d2], now, ago, verbose=False))
         self.assertTrue(
             is_old_deployment([d1, d2], now, ago, verbose=False))
+
+    def test_wait_for_success(self):
+        sms = ServiceManagementService('secret', 'cert.pem')
+        request = Mock()
+        request.request_id = 'foo'
+        op1 = Mock()
+        op1.status = 'Pending'
+        op2 = Mock()
+        op2.status = SUCCEEDED
+        op3 = Mock()
+        op3.status = 'Not Reachable'
+        with patch.object(sms, 'get_operation_status', autospec=True,
+                          side_effect=[op1, op2, op3]) as gs_mock:
+            wait_for_success(sms, request, pause=0, verbose=False)
+        self.assertEqual(2, gs_mock.call_count)
