@@ -84,6 +84,20 @@ def wait_for_success(sms, request, pause=3, verbose=False):
             break
 
 
+def delete_service(sms, name, deployments,
+                   pause=3, dry_run=False, verbose=False):
+        for deployment in deployments:
+            if verbose:
+                print("Deleting deployment {}".format(deployment.name))
+            if not dry_run:
+                request = sms.delete_deployment(name, deployment.name)
+                wait_for_success(sms, request, pause=pause, verbose=verbose)
+        if verbose:
+            print("Deleting service {}".format(name))
+        if not dry_run:
+            sms.delete_hosted_service(name)
+
+
 def delete_services(sms, glob='*', old_age=OLD_MACHINE_AGE,
                     pause=3, dry_run=False, verbose=False):
     now = datetime.utcnow()
@@ -98,16 +112,9 @@ def delete_services(sms, glob='*', old_age=OLD_MACHINE_AGE,
             if len(properties.deployments) == 0 and verbose:
                 print("{} does not have deployements".format(name))
             continue
-        for deployment in properties.deployments:
-            if verbose:
-                print("Deleting deployment {}".format(deployment.name))
-            if not dry_run:
-                request = sms.delete_deployment(name, deployment.name)
-                wait_for_success(sms, request, pause=pause, verbose=verbose)
-        if verbose:
-            print("Deleting service {}".format(name))
-        if not dry_run:
-            sms.delete_hosted_service(name)
+        delete_service(
+            sms, name, properties.deployments,
+            pause=pause, dry_run=dry_run, verbose=verbose)
 
 
 def parse_args(args=None):

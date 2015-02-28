@@ -10,6 +10,7 @@ from unittest import TestCase
 
 from winazure import (
     DATETIME_PATTERN,
+    delete_services,
     delete_unused_disks,
     is_old_deployment,
     list_services,
@@ -113,3 +114,32 @@ class WinAzureTestCase(TestCase):
                           side_effect=[op1, op2, op3]) as gs_mock:
             wait_for_success(sms, request, pause=0, verbose=False)
         self.assertEqual(2, gs_mock.call_count)
+
+    def test_delete_services(self):
+        sms = ServiceManagementService('secret', 'cert.pem')
+        hs1 = Mock(service_name='juju-foo')
+        hs2 = Mock(service_name='juju-bar')
+        d1 = Mock(name='juju-foo-1')
+        p1 = Mock(deployments=[d1])
+        d2 = Mock(name='juju-bar-2')
+        p2 = Mock(deployments=[d2])
+        with patch('winazure.list_services', autospec=True,
+                   return_value=[hs1, hs2]) as ls_mock:
+            with patch.object(sms, 'get_hosted_service_properties',
+                              side_effect=[p1, p2]) as gs_mock:
+                with patch('winazure.is_old_deployment', autospec=True,
+                           side_effect=[False, True]) as od_mock:
+                    with patch('winazure.delete_service',
+                               autospec=True) as ds_mock:
+                        delete_services(sms, glob='juju-*', old_age=2,
+                                        pause=0, dry_run=False, verbose=False)
+        ls_mock.assert_called_once_with(sms, glob='juju-*', verbose=False)
+        gs_mock.assert_any_call('juju-foo', embed_detail=True)
+        gs_mock.assert_any_call('juju-bar', embed_detail=True)
+        self.assertEqual(2, od_mock.call_count)
+        args, kwargs = od_mock.call_args
+        self.assertIs(p2.deployments, args[0])
+        self.assertIsInstance(args[1], datetime)
+        self.assertEqual(2 * 60 * 60, args[2].seconds)
+        ds_mock.assert_called_once_with(
+            sms, 'juju-bar', [d2], pause=0, dry_run=False, verbose=False)
