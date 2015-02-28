@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 from argparse import ArgumentParser
+
+from jujuci import (
+    add_credential_args,
+    get_credentials,
+    )
 from utility import (
     find_candidates,
     get_auth_token,
@@ -17,19 +22,22 @@ def parse_args(argv=None):
     parser = ArgumentParser()
     parser.add_argument(
         'root_dir', help='Directory containing releases and candidates dir')
-    parser.add_argument('--suite', help='Test suite to run', default=FULL,
-                        choices=suites.keys())
+    parser.add_argument('--suite', help='Test suite to run', default=[],
+                        choices=suites.keys(), action='append')
     parser.add_argument('jobs', nargs='*', metavar='job',
                         help='Jobs to schedule builds for.')
+    add_credential_args(parser)
     result = parser.parse_args(argv)
     if result.jobs == []:
         result.jobs = None
-    return result
+    credentials = get_credentials(result)
+    return result, credentials
 
 
-def build_job(root, job_name, candidates, suite):
-    parameters = {'suite': suite, 'attempts': '10'}
-    jenkins = Jenkins('http://localhost:8080')
+def build_job(credentials, root, job_name, candidates, suite):
+    parameters = {'suite': ','.join(suite), 'attempts': '10'}
+    jenkins = Jenkins('http://localhost:8080', credentials.user,
+                      credentials.password)
     for candidate in candidates:
         call_parameters = {'new_juju_dir': candidate}
         call_parameters.update(parameters)
@@ -38,14 +46,17 @@ def build_job(root, job_name, candidates, suite):
 
 
 def main():
-    args = parse_args()
+    args, credentials = parse_args()
+    suite = args.suite
+    if suite == []:
+        suite = [FULL]
     candidates = list(find_candidates(args.root_dir))
     jobs = args.jobs
     if jobs is None:
         jobs = ['industrial-test', 'industrial-test-aws',
                 'industrial-test-joyent']
     for job in jobs:
-        build_job(args.root_dir, job, candidates, args.suite)
+        build_job(credentials, args.root_dir, job, candidates, suite)
 
 
 if __name__ == '__main__':

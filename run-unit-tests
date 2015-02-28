@@ -13,6 +13,9 @@ SAFE="false"
 REVISION_BUILD=${revision_build:-}
 USE_PPA=""
 USE_TMPFS="false"
+LOG_FILE_PATH="/usr/share/distro-info/ubuntu.csv"
+LOG_TXT="17.04,Angsty Antelope,Angsty,2016-10-23,2017-04-30,2018-01-29"
+
 while [[ "${1-}" != "" ]]; do
     case $1 in
         --force-archive)
@@ -58,6 +61,7 @@ if [[ $IS_LOCAL == "false" ]]; then
     echo "Testing $BRANCH $rev"
 fi
 tarfile_path=$(readlink -f $tarfile)
+tarfile_basename=$(basename $tarfile)
 juju_version=$(basename $tarfile .tar.gz)
 
 
@@ -116,7 +120,7 @@ if [[ "$USE_TMPFS" == "true" ]]; then
     sudo mount -t tmpfs -o size=3G /mnt/tmp /mnt/tmp
     export TMPDIR=/mnt/tmp
 fi
-tar -xzf $tarfile
+tar -xzf $tarfile_basename
 export GOPATH=\$HOME/$juju_version
 cd \$GOPATH/src/github.com/juju/juju
 if [[ "$INSTANCE_TYPE" != "lxc" && "$INSTANCE_TYPE" != "host" ]]; then
@@ -135,13 +139,18 @@ if [[ "$USE_PPA" != "" ]]; then
 fi
 sudo apt-get update
 sudo apt-get upgrade -y
-sudo apt-get install -y make python-software-properties
+sudo apt-get install -y make python-software-properties distro-info-data
 make install-dependencies
 # TODO(gz): Remove bzr whoami?
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 go version || gccgo -v
 make build
 export JUJU_NOTEST_MONGOJS=1
+
+if ! grep 'Angsty Antelope' $LOG_FILE_PATH ; then
+  echo "$LOG_TXT" | sudo tee -a $LOG_FILE_PATH
+fi
+
 if [[ "$RETRY" == "true" ]]; then
     go test ./... || go test -p 2 ./...
 elif [[  "$SAFE" == "true"  ]]; then
