@@ -9,7 +9,9 @@ from mock import (
 from unittest import TestCase
 
 from winazure import (
+    DATETIME_PATTERN,
     delete_unused_disks,
+    is_old_deployment,
     list_services,
     main,
     ServiceManagementService,
@@ -80,3 +82,17 @@ class WinAzureTestCase(TestCase):
             services = list_services(sms, 'juju-deploy-*', verbose=False)
         ls_mock.assert_called_once_with()
         self.assertEqual([hs2], services)
+
+    def test_is_old_deployment(self):
+        now = datetime.utcnow()
+        ago = timedelta(hours=2)
+        d1 = Mock()
+        d1.created_time = (now - timedelta(hours=3)).strftime(DATETIME_PATTERN)
+        self.assertTrue(
+            is_old_deployment([d1], now, ago, verbose=False))
+        d2 = Mock()
+        d2.created_time = (now - timedelta(hours=1)).strftime(DATETIME_PATTERN)
+        self.assertFalse(
+            is_old_deployment([d2], now, ago, verbose=False))
+        self.assertTrue(
+            is_old_deployment([d1, d2], now, ago, verbose=False))
