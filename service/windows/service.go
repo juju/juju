@@ -174,7 +174,7 @@ func (s *Service) Install() error {
 		return err
 	}
 	if s.Installed() {
-		return errors.New(fmt.Sprintf("Service %s already installed", s.Name))
+		return errors.New(fmt.Sprintf("Service %s already installed", s.Service.Name))
 	}
 
 	logger.Infof("Installing Service %v", s.Name)
