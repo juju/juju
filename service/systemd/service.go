@@ -244,11 +244,21 @@ func (s *Service) Start() error {
 		return errors.Trace(err)
 	}
 
-	status := <-statusCh
-	if status != "done" {
-		return errors.Errorf("failed to start service %s", s.Service.Name)
+	if err := s.wait("start", statusCh); err != nil {
+		return errors.Trace(err)
 	}
 
+	return nil
+}
+
+func (s *Service) wait(op string, statusCh chan string) error {
+	status := <-statusCh
+
+	// TODO(ericsnow) Other status values *may* be okay. See:
+	//  https://godoc.org/github.com/coreos/go-systemd/dbus#Conn.StartUnit
+	if status != "done" {
+		return errors.Errorf("failed to %s service %s", op, s.Service.Name)
+	}
 	return nil
 }
 
@@ -270,9 +280,8 @@ func (s *Service) Stop() error {
 		return errors.Trace(err)
 	}
 
-	status := <-statusCh
-	if status != "done" {
-		return errors.Errorf("failed to stop service %s", s.Service.Name)
+	if err := s.wait("stop", statusCh); err != nil {
+		return errors.Trace(err)
 	}
 
 	return err
