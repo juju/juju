@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/juju/cmd"
@@ -110,45 +109,10 @@ func (s *BaseBackupsSuite) checkArchive(c *gc.C) {
 	c.Check(string(data), gc.Equals, s.data)
 }
 
-func (s *BaseBackupsSuite) diffStrings(c *gc.C, value, expected string) {
-	// If only Go had a diff library.
-	vlines := strings.Split(value, "\n")
-	elines := strings.Split(expected, "\n")
-	vsize := len(vlines)
-	esize := len(elines)
-
-	if vsize < 2 || esize < 2 {
-		return
-	}
-
-	smaller := elines
-	if vsize < esize {
-		smaller = vlines
-	}
-
-	for i := range smaller {
-		vline := vlines[i]
-		eline := elines[i]
-		if vline != eline {
-			c.Log("first mismatched line:")
-			c.Log("expected: " + eline)
-			c.Log("got:      " + vline)
-			break
-		}
-	}
-
-}
-
-func (s *BaseBackupsSuite) checkString(c *gc.C, value, expected string) {
-	if !c.Check(value, gc.Equals, expected) {
-		s.diffStrings(c, value, expected)
-	}
-}
-
 func (s *BaseBackupsSuite) checkStd(c *gc.C, ctx *cmd.Context, out, err string) {
-	c.Check(ctx.Stdin.(*bytes.Buffer).String(), gc.Equals, "")
-	s.checkString(c, ctx.Stdout.(*bytes.Buffer).String(), out)
-	s.checkString(c, ctx.Stderr.(*bytes.Buffer).String(), err)
+	c.Check(ctx.Stdin.(*bytes.Buffer).Len(), gc.Equals, 0)
+	jujutesting.CheckString(c, ctx.Stdout.(*bytes.Buffer).String(), out)
+	jujutesting.CheckString(c, ctx.Stderr.(*bytes.Buffer).String(), err)
 }
 
 type fakeAPIClient struct {

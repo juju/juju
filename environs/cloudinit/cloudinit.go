@@ -9,6 +9,7 @@ import (
 	"net"
 	"path"
 	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -27,6 +28,8 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -260,6 +263,31 @@ func AddAptCommands(
 			shquote(apt.ProxyContent(proxySettings)),
 			filename))
 	}
+}
+
+func (cfg *MachineConfig) initService() (service.Service, string, error) {
+	conf, toolsDir := service.MachineAgentConf(
+		cfg.MachineId,
+		cfg.DataDir,
+		cfg.LogDir,
+		strings.ToLower(cfg.Tools.Version.OS.String()),
+	)
+
+	name := cfg.MachineAgentServiceName
+	initSystem, ok := cfg.initSystem()
+	if !ok {
+		return nil, "", errors.New("could not identify init system")
+	}
+	svc, err := newService(name, conf, initSystem)
+	return svc, toolsDir, errors.Trace(err)
+}
+
+func (cfg *MachineConfig) initSystem() (string, bool) {
+	return service.VersionInitSystem(cfg.Tools.Version)
+}
+
+var newService = func(name string, conf common.Conf, initSystem string) (service.Service, error) {
+	return service.NewService(name, conf, initSystem)
 }
 
 func (cfg *MachineConfig) dataFile(name string) string {

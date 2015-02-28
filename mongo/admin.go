@@ -11,10 +11,8 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
-
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/upstart"
 )
 
 // AdminUser is the name of the user that is initially created in mongo.
@@ -79,8 +77,11 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 	// Login failed, so we need to add the user.
 	// Stop mongo, so we can start it in --noauth mode.
 	mongoServiceName := ServiceName(p.Namespace)
-	mongoService := upstart.NewService(mongoServiceName, common.Conf{})
-	if err := upstartServiceStop(mongoService); err != nil {
+	mongoService, err := discoverService(mongoServiceName)
+	if err != nil {
+		return false, errors.Annotatef(err, "failed to discover service", mongoServiceName)
+	}
+	if err := mongoService.Stop(); err != nil {
 		return false, fmt.Errorf("failed to stop %v: %v", mongoServiceName, err)
 	}
 
@@ -107,7 +108,7 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 	}
 	logger.Infof("added %q to admin database", p.User)
 
-	// Restart mongo using upstart.
+	// Restart mongo using the init system.
 	if err := processSignal(cmd.Process, syscall.SIGTERM); err != nil {
 		return false, fmt.Errorf("cannot kill mongod: %v", err)
 	}
@@ -116,7 +117,7 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 			return false, fmt.Errorf("mongod did not cleanly terminate: %v", err)
 		}
 	}
-	if err := upstartServiceStart(mongoService); err != nil {
+	if err := mongoService.Start(); err != nil {
 		return false, err
 	}
 	return true, nil

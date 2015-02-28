@@ -18,6 +18,9 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -85,9 +88,9 @@ func (s *SimpleContextSuite) TestOldDeployedUnitsCanBeRecalled(c *gc.C) {
 
 	// Simulate some previously deployed units with the old
 	// upstart conf filename format (+deployer tags).
-	s.injectUnit(c, "jujud-machine-0:unit-mysql-0.conf", "unit-mysql-0")
+	s.injectUnit(c, "jujud-machine-0:unit-mysql-0", "unit-mysql-0")
 	s.assertUpstartCount(c, 1)
-	s.injectUnit(c, "jujud-unit-wordpress-0:unit-nrpe-0.conf", "unit-nrpe-0")
+	s.injectUnit(c, "jujud-unit-wordpress-0:unit-nrpe-0", "unit-nrpe-0")
 	s.assertUpstartCount(c, 2)
 
 	// Make sure we can discover them.
@@ -136,6 +139,8 @@ type SimpleToolsFixture struct {
 	initDir  string
 	origPath string
 	binDir   string
+
+	data *service.FakeServiceData
 }
 
 var fakeJujud = "#!/bin/bash --norc\n# fake-jujud\nexit 0\n"
@@ -164,6 +169,8 @@ func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 	fix.makeBin(c, "started-status", `echo "blah start/running, process 666"`)
 	fix.makeBin(c, "start", "cp $(which started-status) $(which status)")
 	fix.makeBin(c, "stop", "cp $(which stopped-status) $(which status)")
+
+	fix.data = service.NewFakeServiceData()
 }
 
 func (fix *SimpleToolsFixture) TearDown(c *gc.C) {
@@ -177,22 +184,21 @@ func (fix *SimpleToolsFixture) makeBin(c *gc.C, name, script string) {
 }
 
 func (fix *SimpleToolsFixture) assertUpstartCount(c *gc.C, count int) {
-	fis, err := ioutil.ReadDir(fix.initDir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fis, gc.HasLen, count)
+	c.Assert(fix.data.InstalledNames, gc.HasLen, count)
 }
 
 func (fix *SimpleToolsFixture) getContext(c *gc.C) *deployer.SimpleContext {
 	config := agentConfig(names.NewMachineTag("99"), fix.dataDir, fix.logDir)
-	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir)
+	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir, fix.data)
 }
 
 func (fix *SimpleToolsFixture) getContextForMachine(c *gc.C, machineTag names.Tag) *deployer.SimpleContext {
 	config := agentConfig(machineTag, fix.dataDir, fix.logDir)
-	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir)
+	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir, fix.data)
 }
 
 func (fix *SimpleToolsFixture) paths(tag names.Tag) (confPath, agentDir, toolsDir string) {
+	// TODO(ericsnow) Drop confPath.
 	confName := fmt.Sprintf("jujud-%s.conf", tag)
 	confPath = filepath.Join(fix.initDir, confName)
 	agentDir = agent.Dir(fix.dataDir, tag)
@@ -202,8 +208,19 @@ func (fix *SimpleToolsFixture) paths(tag names.Tag) (confPath, agentDir, toolsDi
 
 func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string) {
 	tag := names.NewUnitTag(name)
-	uconfPath, _, toolsDir := fix.paths(tag)
-	uconfData, err := ioutil.ReadFile(uconfPath)
+
+	svcName := "jujud-" + tag.String()
+	c.Assert(svcName, jc.Satisfies, fix.data.InstalledNames.Contains)
+
+	var svcConf common.Conf
+	for _, svc := range fix.data.Installed {
+		if svc.Name() == svcName {
+			svcConf = svc.Conf()
+			break
+		}
+	}
+	// TODO(ericsnow) For now we just use upstart serialization.
+	uconfData, err := upstart.Serialize(svcName, svcConf)
 	c.Assert(err, jc.ErrorIsNil)
 	uconf := string(uconfData)
 
@@ -211,13 +228,15 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 	execs := regex.FindAllString(uconf, -1)
 
 	if nil == execs {
-		c.Fatalf("no command found in %s:\n%s", uconfPath, uconf)
+		c.Fatalf("no command found in conf:\n%s", uconf)
 	} else if 1 > len(execs) {
 		c.Fatalf("Test is not built to handle more than one exec line.")
 	}
 
-	logPath := filepath.Join(fix.logDir, tag.String()+".log")
+	_, _, toolsDir := fix.paths(tag)
 	jujudPath := filepath.Join(toolsDir, "jujud")
+
+	logPath := filepath.Join(fix.logDir, tag.String()+".log")
 
 	for _, pat := range []string{
 		"^exec " + jujudPath + " unit ",
@@ -243,8 +262,11 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 
 func (fix *SimpleToolsFixture) checkUnitRemoved(c *gc.C, name string) {
 	tag := names.NewUnitTag(name)
-	confPath, agentDir, toolsDir := fix.paths(tag)
-	for _, path := range []string{confPath, agentDir, toolsDir} {
+
+	c.Assert(name, gc.Not(jc.Satisfies), fix.data.InstalledNames.Contains)
+
+	_, agentDir, toolsDir := fix.paths(tag)
+	for _, path := range []string{agentDir, toolsDir} {
 		_, err := ioutil.ReadFile(path)
 		if err == nil {
 			c.Logf("Warning: %q not removed as expected", path)
@@ -254,12 +276,11 @@ func (fix *SimpleToolsFixture) checkUnitRemoved(c *gc.C, name string) {
 	}
 }
 
-func (fix *SimpleToolsFixture) injectUnit(c *gc.C, upstartConf, unitTag string) {
-	confPath := filepath.Join(fix.initDir, upstartConf)
-	err := ioutil.WriteFile(confPath, []byte("#!/bin/bash --norc\necho $0"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+func (fix *SimpleToolsFixture) injectUnit(c *gc.C, name, unitTag string) {
+	fix.data.SetStatus(name, "installed")
+
 	toolsDir := filepath.Join(fix.dataDir, "tools", unitTag)
-	err = os.MkdirAll(toolsDir, 0755)
+	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
