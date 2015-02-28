@@ -10,6 +10,7 @@ from unittest import TestCase
 
 from winazure import (
     delete_unused_disks,
+    list_services,
     main,
     ServiceManagementService,
 )
@@ -66,3 +67,16 @@ class WinAzureTestCase(TestCase):
         dd_mock.assert_any_call('disk1', delete_vhd=True)
         dd_mock.assert_any_call('disk2', delete_vhd=True)
         self.assertEqual(2, dd_mock.call_count)
+
+    def test_list_services(self):
+        sms = ServiceManagementService('secret', 'cert.pem')
+        hs1 = Mock()
+        hs1.service_name = 'juju-upgrade-foo'
+        hs2 = Mock()
+        hs2.service_name = 'juju-deploy-foo'
+        services = [hs1, hs2]
+        with patch.object(sms, 'list_hosted_services', autospec=True,
+                          return_value=services) as ls_mock:
+            services = list_services(sms, 'juju-deploy-*', verbose=False)
+        ls_mock.assert_called_once_with()
+        self.assertEqual([hs2], services)
