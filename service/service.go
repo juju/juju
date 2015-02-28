@@ -84,7 +84,10 @@ func NewService(name string, conf common.Conf, initSystem string) (Service, erro
 		return upstart.NewService(name, conf), nil
 	case InitSystemSystemd:
 		svc, err := systemd.NewService(name, conf)
-		return svc, errors.Trace(err)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc, nil
 	default:
 		return nil, errors.NotFoundf("init system %q", initSystem)
 	}
