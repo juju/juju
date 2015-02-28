@@ -26,5 +26,9 @@ func (se *StubExec) RunCommand(args exec.RunParams) (*exec.ExecResponse, error) 
 		response = se.Responses[0]
 		se.Responses = se.Responses[1:]
 	}
-	return &response, se.NextErr()
+	err := se.NextErr()
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
 }

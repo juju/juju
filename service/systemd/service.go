@@ -24,9 +24,12 @@ func ListServices() ([]string, error) {
 	// would need conn.ListUnitFiles. Such a method has been requested.
 	// (see https://github.com/coreos/go-systemd/issues/76). In the
 	// meantime we use systemctl at the shell to list the services.
+	// Once that is addressed upstread we can just call listServices here.
 	names, err := Cmdline{}.ListAll()
-	return names, errors.Trace(err)
-	//return listServices()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return names, nil
 }
 
 func listServices() ([]string, error) {
@@ -88,7 +91,7 @@ func NewService(name string, conf common.Conf) (*Service, error) {
 	}
 
 	if err := service.setConf(conf); err != nil {
-		return service, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	return service, nil
