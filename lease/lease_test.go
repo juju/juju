@@ -71,7 +71,7 @@ func (s *leaseSuite) TestSingleton(c *gc.C) {
 
 // TestTokenListIsolation ensures that the copy of the lease tokens we
 // get is truly a copy and thus isolated from all other code.
-func (s *leaseSuite) TestTokenListIsolation(c *gc.C) {
+func (s *leaseSuite) TestCopyOfLeaseTokensIsolated(c *gc.C) {
 	stop := make(chan struct{})
 	go WorkerLoop(&stubLeasePersistor{})(stop)
 	defer func() { stop <- struct{}{} }()
@@ -95,7 +95,7 @@ func (s *leaseSuite) TestTokenListIsolation(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *leaseSuite) TestTokenListRaces(c *gc.C) {
+func (s *leaseSuite) TestCopyOfLeaseTokensRaces(c *gc.C) {
 	stop := make(chan struct{})
 	go WorkerLoop(&stubLeasePersistor{})(stop)
 	defer func() { stop <- struct{}{} }()
@@ -103,8 +103,9 @@ func (s *leaseSuite) TestTokenListRaces(c *gc.C) {
 	_, err := mgr.ClaimLease(testNamespace, testId, testDuration)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Fill a channel with several concurrently-acquired copies...
 	var wg sync.WaitGroup
-	count := 10
+	const count = 10
 	results := make(chan []Token, count)
 	for i := 0; i < count; i++ {
 		wg.Add(1)
@@ -115,6 +116,7 @@ func (s *leaseSuite) TestTokenListRaces(c *gc.C) {
 	}
 	wg.Wait()
 
+	// ...then extract all those copies for checking below...
 	var allResults [][]Token
 	for i := 0; i < count; i++ {
 		select {
@@ -124,12 +126,14 @@ func (s *leaseSuite) TestTokenListRaces(c *gc.C) {
 			c.Fatalf("not enough results received")
 		}
 	}
+
+	// ...and verify that they're all the same.
 	for i := 1; i < count; i++ {
 		c.Check(allResults[0], jc.DeepEquals, allResults[i])
 	}
 }
 
-func (s *leaseSuite) TestClaimLease(c *gc.C) {
+func (s *leaseSuite) TestClaimLeaseSuccess(c *gc.C) {
 	stop := make(chan struct{})
 	go WorkerLoop(&stubLeasePersistor{})(stop)
 	defer func() { stop <- struct{}{} }()
@@ -151,13 +155,14 @@ func (s *leaseSuite) TestClaimLeaseRaces(c *gc.C) {
 	defer func() { stop <- struct{}{} }()
 	mgr := Manager()
 
+	// Run several concurrent requests for different ids in the same namespace.
 	var wg sync.WaitGroup
-	count := 10
+	const count = 10
 	owners := make(chan string, count)
 	for i := 0; i < count; i++ {
-		id := fmt.Sprintf("unit/%d", i)
 		wg.Add(1)
-		go func(id string) {
+		go func(i int) {
+			id := fmt.Sprintf("unit/%d", i)
 			ownerId, err := mgr.ClaimLease(testNamespace, id, testDuration)
 			c.Logf(ownerId)
 			if err != nil {
@@ -165,10 +170,11 @@ func (s *leaseSuite) TestClaimLeaseRaces(c *gc.C) {
 			}
 			owners <- ownerId
 			wg.Done()
-		}(id)
+		}(i)
 	}
 	wg.Wait()
 
+	// Consolidate all the results, and check they agree.
 	allOwners := set.NewStrings()
 	for i := 0; i < count; i++ {
 		select {
@@ -203,7 +209,8 @@ func (s *leaseSuite) TestReleaseLeaseRaces(c *gc.C) {
 	defer func() { stop <- struct{}{} }()
 	mgr := Manager()
 
-	count := 10
+	// Add several leases in different namespaces.
+	const count = 10
 	var namespaces []string
 	for i := 0; i < count; i++ {
 		namespace := fmt.Sprintf("namespace-%d", i)
@@ -212,6 +219,7 @@ func (s *leaseSuite) TestReleaseLeaseRaces(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
+	// Release them all.
 	var wg sync.WaitGroup
 	for _, namespace := range namespaces {
 		wg.Add(1)
@@ -223,6 +231,7 @@ func (s *leaseSuite) TestReleaseLeaseRaces(c *gc.C) {
 	}
 	wg.Wait()
 
+	// Check the cache agrees they're all released.
 	toks := mgr.CopyOfLeaseTokens()
 	c.Assert(toks, gc.HasLen, 0)
 }
