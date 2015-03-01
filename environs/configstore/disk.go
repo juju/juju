@@ -41,6 +41,7 @@ type EnvironInfoData struct {
 	User            string
 	Password        string
 	EnvironUUID     string                 `json:"environ-uuid,omitempty" yaml:"environ-uuid,omitempty"`
+	ServerUUID      string                 `json:"server-uuid,omitempty" yaml:"server-uuid,omitempty"`
 	StateServers    []string               `json:"state-servers" yaml:"state-servers"`
 	ServerHostnames []string               `json:"server-hostnames,omitempty" yaml:"server-hostnames,omitempty"`
 	CACert          string                 `json:"ca-cert" yaml:"ca-cert"`
@@ -67,6 +68,7 @@ type environInfo struct {
 	user            string
 	credentials     string
 	environmentUUID string
+	serverUUID      string
 	apiEndpoints    []string
 	apiHostnames    []string
 	caCert          string
@@ -195,6 +197,7 @@ func (info *environInfo) APIEndpoint() APIEndpoint {
 		Hostnames:   info.apiHostnames,
 		CACert:      info.caCert,
 		EnvironUUID: info.environmentUUID,
+		ServerUUID:  info.serverUUID,
 	}
 }
 
@@ -216,6 +219,7 @@ func (info *environInfo) SetAPIEndpoint(endpoint APIEndpoint) {
 	info.apiHostnames = endpoint.Hostnames
 	info.caCert = endpoint.CACert
 	info.environmentUUID = endpoint.EnvironUUID
+	info.serverUUID = endpoint.ServerUUID
 }
 
 // SetAPICredentials implements EnvironInfo.SetAPICredentials.
@@ -297,6 +301,7 @@ func (d *diskStore) readJENVFile(envName string) (*environInfo, error) {
 	info.user = values.User
 	info.credentials = values.Password
 	info.environmentUUID = values.EnvironUUID
+	info.serverUUID = values.ServerUUID
 	info.caCert = values.CACert
 	info.apiEndpoints = values.StateServers
 	info.apiHostnames = values.ServerHostnames
@@ -313,6 +318,7 @@ func (info *environInfo) writeJENVFile() error {
 		User:            info.user,
 		Password:        info.credentials,
 		EnvironUUID:     info.environmentUUID,
+		ServerUUID:      info.serverUUID,
 		StateServers:    info.apiEndpoints,
 		ServerHostnames: info.apiHostnames,
 		CACert:          info.caCert,

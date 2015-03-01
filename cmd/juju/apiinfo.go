@@ -25,6 +25,7 @@ type APIInfoCommand struct {
 	cacert   bool
 	servers  bool
 	envuuid  bool
+	srvuuid  bool
 	fields   []string
 }
 
@@ -80,6 +81,7 @@ func (c *APIInfoCommand) Init(args []string) error {
 	if len(args) == 0 {
 		c.user = true
 		c.envuuid = true
+		c.srvuuid = true
 		c.servers = true
 		c.cacert = true
 		return nil
@@ -98,6 +100,8 @@ func (c *APIInfoCommand) Init(args []string) error {
 			c.servers = true
 		case "ca-cert":
 			c.cacert = true
+		case "server-uuid":
+			c.srvuuid = true
 		default:
 			unknown = append(unknown, fmt.Sprintf("%q", name))
 		}
@@ -159,6 +163,9 @@ func (c *APIInfoCommand) Run(ctx *cmd.Context) error {
 	if c.cacert {
 		result.CACert = apiendpoint.CACert
 	}
+	if c.srvuuid {
+		result.ServerUUID = apiendpoint.ServerUUID
+	}
 
 	return c.out.Write(ctx, result)
 }
@@ -187,6 +194,7 @@ type InfoData struct {
 	User         string   `json:"user,omitempty" yaml:",omitempty"`
 	Password     string   `json:"password,omitempty" yaml:",omitempty"`
 	EnvironUUID  string   `json:"environ-uuid,omitempty" yaml:"environ-uuid,omitempty"`
+	ServerUUID   string   `json:"server-uuid,omitempty" yaml:"server-uuid,omitempty"`
 	StateServers []string `json:"state-servers,omitempty" yaml:"state-servers,omitempty"`
 	CACert       string   `json:"ca-cert,omitempty" yaml:"ca-cert,omitempty"`
 }
@@ -203,6 +211,8 @@ func (i *InfoData) field(name string) (interface{}, error) {
 		return i.StateServers, nil
 	case "ca-cert":
 		return i.CACert, nil
+	case "server-uuid":
+		return i.ServerUUID, nil
 	default:
 		return "", errors.Errorf("unknown field %q", name)
 	}

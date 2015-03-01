@@ -35,6 +35,7 @@ type apiState interface {
 	Close() error
 	APIHostPorts() [][]network.HostPort
 	EnvironTag() (names.EnvironTag, error)
+	ServerTag() (names.EnvironTag, error)
 }
 
 type apiOpenFunc func(*api.Info, api.DialOpts) (apiState, error)
@@ -220,11 +221,17 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 		}
 	}
 	// Update API addresses if they've changed. Error is non-fatal.
-	envTag, err := st.EnvironTag()
-	if err != nil {
-		logger.Warningf("ignoring API connection environ tag: %v", err)
+	// For older servers, the environ tag or server tag may not be set.
+	// if they are not, we store empty values.
+	var environUUID string
+	var serverUUID string
+	if envTag, err := st.EnvironTag(); err == nil {
+		environUUID = envTag.Id()
 	}
-	if localerr := cacheChangedAPIInfo(info, st.APIHostPorts(), addrConnectedTo, envTag); localerr != nil {
+	if serverTag, err := st.ServerTag(); err == nil {
+		serverUUID = serverTag.Id()
+	}
+	if localerr := cacheChangedAPIInfo(info, st.APIHostPorts(), addrConnectedTo, environUUID, serverUUID); localerr != nil {
 		logger.Warningf("cannot cache API addresses: %v", localerr)
 	}
 	return st, nil
@@ -510,15 +517,18 @@ func PrepareEndpointsForCaching(info configstore.EnvironInfo, hostPorts [][]netw
 // cacheChangedAPIInfo updates the local environment settings (.jenv file)
 // with the provided API server addresses if they have changed. It will also
 // save the environment tag if it is available.
-func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.HostPort, addrConnectedTo network.HostPort, newEnvironTag names.EnvironTag) error {
+func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.HostPort, addrConnectedTo network.HostPort, environUUID, serverUUID string) error {
 	addrs, hosts, addrsChanged := PrepareEndpointsForCaching(info, hostPorts, addrConnectedTo)
+	logger.Debugf("cacheChangedAPIInfo: serverUUID=%q", serverUUID)
 	endpoint := info.APIEndpoint()
 	needCaching := false
-	if names.IsValidEnvironment(newEnvironTag.Id()) {
-		if environUUID := newEnvironTag.Id(); endpoint.EnvironUUID != environUUID {
-			endpoint.EnvironUUID = environUUID
-			needCaching = true
-		}
+	if endpoint.EnvironUUID != environUUID {
+		endpoint.EnvironUUID = environUUID
+		needCaching = true
+	}
+	if endpoint.ServerUUID != serverUUID {
+		endpoint.ServerUUID = serverUUID
+		needCaching = true
 	}
 	if addrsChanged {
 		endpoint.Addresses = addrs
