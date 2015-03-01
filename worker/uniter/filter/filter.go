@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
@@ -17,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/uniter/hook"
 )
 
 var filterLogger = loggo.GetLogger("juju.worker.uniter.filter")
@@ -38,8 +36,8 @@ type filter struct {
 	// to the client.
 	outConfig        chan struct{}
 	outConfigOn      chan struct{}
-	outAction        chan *hook.Info
-	outActionOn      chan *hook.Info
+	outAction        chan string
+	outActionOn      chan string
 	outUpgrade       chan *charm.URL
 	outUpgradeOn     chan *charm.URL
 	outResolved      chan params.ResolvedMode
@@ -95,7 +93,7 @@ type filter struct {
 	relations        []int
 	storage          []names.StorageTag
 	actionsPending   []string
-	nextAction       *hook.Info
+	nextAction       string
 
 	// meterStatusCode and meterStatusInfo reflect the meter status values of the unit.
 	meterStatusCode string
@@ -111,7 +109,7 @@ func NewFilter(st *uniter.State, unitTag names.UnitTag) (Filter, error) {
 		outConfig:         nil,
 		outConfigOn:       make(chan struct{}),
 		outAction:         nil,
-		outActionOn:       make(chan *hook.Info),
+		outActionOn:       make(chan string),
 		outUpgrade:        nil,
 		outUpgradeOn:      make(chan *charm.URL),
 		outResolved:       nil,
@@ -186,7 +184,7 @@ func (f *filter) ConfigEvents() <-chan struct{} {
 
 // ActionEvents returns a channel that will receive a signal whenever the unit
 // receives new Actions.
-func (f *filter) ActionEvents() <-chan *hook.Info {
+func (f *filter) ActionEvents() <-chan string {
 	return f.outActionOn
 }
 
@@ -683,22 +681,19 @@ func (f *filter) storageChanged(changed []names.StorageTag) {
 	}
 }
 
-func (f *filter) getNextAction() *hook.Info {
+func (f *filter) getNextAction() string {
 	if len(f.actionsPending) > 0 {
-		nextAction := hook.Info{
-			Kind:     hooks.Action,
-			ActionId: f.actionsPending[0],
-		}
+		actionId := f.actionsPending[0]
 
 		f.outAction = f.outActionOn
 		f.actionsPending = f.actionsPending[1:]
 
-		return &nextAction
+		return actionId
 	} else {
 		f.outAction = nil
 	}
 
-	return nil
+	return ""
 }
 
 // serviceCharm holds information about a charm.
