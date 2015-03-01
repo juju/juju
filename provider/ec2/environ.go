@@ -206,7 +206,7 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.
-func (e *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
+func (e *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
 	_, hasDefaultVpc, err := e.defaultVpc()
 	if err != nil {
 		return false, errors.Trace(err)

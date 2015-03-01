@@ -217,7 +217,7 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.
-func (env *maasEnviron) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
+func (env *maasEnviron) SupportsAddressAllocation(_ network.Id) (bool, error) {
 	caps, err := env.getCapabilities()
 	if err != nil {
 		return false, errors.Annotatef(err, "getCapabilities failed")

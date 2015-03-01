@@ -219,6 +219,25 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 	}
 	cfg := make(map[string]string)
 	cfg[container.ConfigName] = container.DefaultNamespace
+
+	// Create an environment to verify networking support.
+	env, err := environs.New(config)
+	if err != nil {
+		return result, err
+	}
+	if netEnv, ok := environs.SupportsNetworking(env); ok {
+		// Passing network.AnySubnet below should be interpreted by
+		// the provider as "does ANY subnet support this".
+		supported, err := netEnv.SupportsAddressAllocation(network.AnySubnet)
+		if err == nil && supported {
+			cfg[container.ConfigIPForwarding] = "true"
+		} else if err != nil {
+			// We log the error, but it's safe to ignore as it's not
+			// critical.
+			logger.Debugf("address allocation not supported (%v)", err)
+		}
+	}
+
 	switch args.Type {
 	case instance.LXC:
 		if useLxcClone, ok := config.LXCUseClone(); ok {

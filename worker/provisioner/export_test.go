@@ -4,6 +4,8 @@
 package provisioner
 
 import (
+	"reflect"
+
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/environs/config"
 )
@@ -22,4 +24,31 @@ func GetRetryWatcher(p Provisioner) (watcher.NotifyWatcher, error) {
 var (
 	ContainerManagerConfig = containerManagerConfig
 	GetToolsFinder         = &getToolsFinder
+	SysctlConfig           = &sysctlConfig
 )
+
+const IPForwardSysctlKey = ipForwardSysctlKey
+
+// SetIPForwarding calls the internal setIPForwarding and then
+// restores the mocked one.
+var SetIPForwarding func(bool) error
+
+func init() {
+	// In order to isolate the host machine from the running tests,
+	// but also allow calling the original setIPForwarding func to
+	// test it, we need a litte bit of reflect magic, mostly borrowed
+	// from the juju/testing pacakge.
+	newv := reflect.ValueOf(&setIPForwarding).Elem()
+	oldv := reflect.New(newv.Type()).Elem()
+	oldv.Set(newv)
+	mockv := reflect.ValueOf(func(bool) error { return nil })
+	restore := func() { newv.Set(oldv) }
+	remock := func() { newv.Set(mockv) }
+	remock()
+
+	SetIPForwarding = func(v bool) error {
+		restore()
+		defer remock()
+		return setIPForwarding(v)
+	}
+}
