@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/schema"
-	"gopkg.in/amz.v2/aws"
+	"gopkg.in/amz.v3/aws"
 
 	"github.com/juju/juju/environs/config"
 )

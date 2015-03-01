@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
-	amzec2 "gopkg.in/amz.v2/ec2"
+	amzec2 "gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"

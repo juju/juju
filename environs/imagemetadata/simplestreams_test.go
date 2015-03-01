@@ -13,7 +13,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"gopkg.in/amz.v2/aws"
+	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagemetadata"
