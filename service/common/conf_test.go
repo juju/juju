@@ -27,6 +27,36 @@ func (*confSuite) TestValidateOkay(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
+func (*confSuite) TestValidateSingleQuotedExecutable(c *gc.C) {
+	conf := common.Conf{
+		Desc:      "some service",
+		ExecStart: "'/path/to/some-command' a b c",
+	}
+	err := conf.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (*confSuite) TestValidateDoubleQuotedExecutable(c *gc.C) {
+	conf := common.Conf{
+		Desc:      "some service",
+		ExecStart: `"/path/to/some-command" a b c`,
+	}
+	err := conf.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (*confSuite) TestValidatePartiallyQuotedExecutable(c *gc.C) {
+	conf := common.Conf{
+		Desc:      "some service",
+		ExecStart: "'/path/to/some-command a b c'",
+	}
+	err := conf.Validate()
+
+	c.Check(err, gc.ErrorMatches, `.*relative path in ExecStart \(.*`)
+}
+
 func (*confSuite) TestValidateMissingDesc(c *gc.C) {
 	conf := common.Conf{
 		ExecStart: "/path/to/some-command a b c",
