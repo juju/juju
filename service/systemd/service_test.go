@@ -210,6 +210,18 @@ func (s *initSystemSuite) TestNewService(c *gc.C) {
 	s.stub.CheckCalls(c, nil)
 }
 
+func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
+	s.conf.Output = "/var/log/juju/machine-0.log"
+
+	service, err := systemd.NewService(s.name, s.conf)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(service.Service.Conf, jc.DeepEquals, common.Conf{
+		Desc:      s.conf.Desc,
+		ExecStart: s.conf.ExecStart + " &> /var/log/juju/machine-0.log",
+	})
+}
+
 func (s *initSystemSuite) TestUpdateConfig(c *gc.C) {
 	s.conf.ExecStart = "/path/to/some/other/command"
 	c.Assert(s.service.Service.Conf.ExecStart, gc.Equals, jujud+" machine-0")
@@ -272,6 +284,18 @@ func (s *initSystemSuite) TestUpdateConfigMultiline(c *gc.C) {
 		Script:   []byte("a\nb\nc"),
 	})
 	s.stub.CheckCalls(c, nil)
+}
+
+func (s *initSystemSuite) TestUpdateConfigLogfile(c *gc.C) {
+	s.conf.Output = "/var/log/juju/machine-0.log"
+
+	s.service.UpdateConfig(s.conf)
+
+	// TODO(ericsnow) The error return needs to be checked once there is one.
+	c.Check(s.service.Service.Conf, jc.DeepEquals, common.Conf{
+		Desc:      s.conf.Desc,
+		ExecStart: s.conf.ExecStart + " &> /var/log/juju/machine-0.log",
+	})
 }
 
 func (s *initSystemSuite) TestInstalledTrue(c *gc.C) {
