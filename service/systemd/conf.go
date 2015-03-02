@@ -66,22 +66,11 @@ func normalize(conf common.Conf, scriptPath string) (common.Conf, []byte) {
 }
 
 func isSimpleCommand(cmd string) bool {
-	switch {
-	case strings.Contains(cmd, "\n"):
+	if strings.ContainsAny(cmd, "\n;|><&") {
 		return false
-	case strings.Contains(cmd, ";"):
-		return false
-	case strings.Contains(cmd, "|"):
-		return false
-	case strings.Contains(cmd, ">"):
-		return false
-	case strings.Contains(cmd, "<"):
-		return false
-	case strings.Contains(cmd, "&"):
-		return false
-	default:
-		return true
 	}
+
+	return true
 }
 
 func validate(name string, conf common.Conf) error {
