@@ -18,7 +18,9 @@ import (
 	cmdjuju "github.com/juju/juju/cmd/juju"
 	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 // cmdJujuSuite tests the connectivity of juju commands.  These tests
@@ -33,7 +35,7 @@ func uint64p(val uint64) *uint64 {
 	return &val
 }
 
-func runCommonCommand(c *gc.C, commands ...string) (*cmd.Context, error) {
+func runCommand(c *gc.C, commands ...string) (*cmd.Context, error) {
 	context := testing.Context(c)
 	juju := cmdjuju.NewJujuCommand(context)
 	if err := testing.InitCommand(juju, commands); err != nil {
@@ -43,7 +45,7 @@ func runCommonCommand(c *gc.C, commands ...string) (*cmd.Context, error) {
 }
 
 func (s *cmdJujuSuite) TestSetConstraints(c *gc.C) {
-	_, err := runCommonCommand(c, "set-constraints", "mem=4G", "cpu-power=250")
+	_, err := runCommand(c, "set-constraints", "mem=4G", "cpu-power=250")
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons, err := s.State.EnvironConstraints()
@@ -59,7 +61,20 @@ func (s *cmdJujuSuite) TestGetConstraints(c *gc.C) {
 	err := svc.SetConstraints(constraints.Value{CpuCores: uint64p(64)})
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := runCommonCommand(c, "get-constraints", "svc")
+	context, err := runCommand(c, "get-constraints", "svc")
 	c.Assert(testing.Stdout(context), gc.Equals, "cpu-cores=64\n")
 	c.Assert(testing.Stderr(context), gc.Equals, "")
+}
+
+func (s *cmdJujuSuite) TestEnsureAvailability(c *gc.C) {
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobManageEnviron},
+	})
+	ctx, err := runCommand(c, "ensure-availability", "-n", "3")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Machine 0 is demoted because it hasn't reported its presence
+	c.Assert(testing.Stdout(ctx), gc.Equals,
+		"adding machines: 1, 2, 3\n"+
+			"demoting machines 0\n\n")
 }

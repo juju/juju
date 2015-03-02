@@ -188,11 +188,13 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.RegisterSuperAlias("set-env", "environment", "set", twoDotOhDeprecation("environment set"))
 	r.RegisterSuperAlias("unset-environment", "environment", "unset", twoDotOhDeprecation("environment unset"))
 	r.RegisterSuperAlias("unset-env", "environment", "unset", twoDotOhDeprecation("environment unset"))
-	r.RegisterSuperAlias("ensure-availability", "environment", "ensure-availability", twoDotOhDeprecation("environment ensure-availability"))
 	r.RegisterSuperAlias("retry-provisioning", "environment", "retry-provisioning", twoDotOhDeprecation("environment retry-provisioning"))
 
 	// Manage and control actions
 	r.Register(action.NewSuperCommand())
+
+	// Manage state server availability
+	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))
 
 	// Operation protection commands
 	r.Register(wrapEnvCommand(&block.BlockCommand{}))

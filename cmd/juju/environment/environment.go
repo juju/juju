@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-var logger = loggo.GetLogger("juju.cmd.juju.machine")
+var logger = loggo.GetLogger("juju.cmd.juju.environment")
 
 const commandDoc = `
 "juju environment" provides commands to interact with the Juju environment.
@@ -29,7 +29,6 @@ func NewSuperCommand() cmd.Command {
 	environmentCmd.Register(envcmd.Wrap(&SetCommand{}))
 	environmentCmd.Register(envcmd.Wrap(&UnsetCommand{}))
 	environmentCmd.Register(&JenvCommand{})
-	environmentCmd.Register(envcmd.Wrap(&EnsureAvailabilityCommand{}))
 	environmentCmd.Register(envcmd.Wrap(&RetryProvisioningCommand{}))
 	return environmentCmd
 }

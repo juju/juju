@@ -76,19 +76,6 @@ func (s *EnvironmentSuite) TestUnset(c *gc.C) {
 	s.assertEnvValueMissing(c, "special")
 }
 
-func (s *EnvironmentSuite) TestEnsureAvailability(c *gc.C) {
-	s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageEnviron},
-	})
-	ctx, err := s.RunEnvironmentCommand(c, "ensure-availability", "-n", "3")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Machine 0 is demoted because it hasn't reported its presence
-	c.Assert(testing.Stdout(ctx), gc.Equals,
-		"adding machines: 1, 2, 3\n"+
-			"demoting machines 0\n\n")
-}
-
 func (s *EnvironmentSuite) TestRetryProvisioning(c *gc.C) {
 	s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageEnviron},
