@@ -77,7 +77,7 @@ func formatSimple(value interface{}) ([]byte, error) {
 		return nil, fmt.Errorf("unexpected result type for ensure-availability call: %T", value)
 	}
 
-	var buff bytes.Buffer
+	var buf bytes.Buffer
 
 	for _, machineList := range []struct {
 		message string
@@ -107,13 +107,13 @@ func formatSimple(value interface{}) ([]byte, error) {
 		if len(machineList.list) == 0 {
 			continue
 		}
-		_, err := fmt.Fprintf(&buff, machineList.message, strings.Join(machineList.list, ", "))
+		_, err := fmt.Fprintf(&buf, machineList.message, strings.Join(machineList.list, ", "))
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return buff.Bytes(), nil
+	return buf.Bytes(), nil
 }
 
 func (c *EnsureAvailabilityCommand) Info() *cmd.Info {
@@ -191,14 +191,13 @@ func (c *EnsureAvailabilityCommand) getHAClient() (EnsureAvailabilityClient, err
 // Run connects to the environment specified on the command line
 // and calls EnsureAvailability.
 func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
-	var ensureAvailabilityResult params.StateServersChanges
 	haClient, err := c.getHAClient()
 	if err != nil {
 		return err
 	}
 
 	defer haClient.Close()
-	ensureAvailabilityResult, err = haClient.EnsureAvailability(
+	ensureAvailabilityResult, err := haClient.EnsureAvailability(
 		c.NumStateServers,
 		c.Constraints,
 		c.Series,
