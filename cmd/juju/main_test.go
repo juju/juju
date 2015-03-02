@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
@@ -41,6 +42,10 @@ func setHelpText() string {
 
 func syncToolsHelpText() string {
 	return cmdtesting.HelpText(envcmd.Wrap(&SyncToolsCommand{}), "juju sync-tools")
+}
+
+func blockHelpText() string {
+	return cmdtesting.HelpText(block.NewBlockCommand(), "juju block")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
@@ -142,9 +147,9 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		out:     version.Current.String() + "\n",
 	}, {
 		summary: "check block command registered properly",
-		args:    []string{"block"},
+		args:    []string{"block", "-h"},
 		code:    0,
-		out:     "error: must specify one of [destroy-environment | remove-object | all-changes] to block\n",
+		out:     blockHelpText(),
 	}, {
 		summary: "check unblock command registered properly",
 		args:    []string{"unblock"},

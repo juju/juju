@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package block_test
@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/testing"
+	"strings"
 )
 
 type UnblockCommandSuite struct {
@@ -36,7 +37,7 @@ func (s *UnblockCommandSuite) assertRunUnblock(c *gc.C, operation string) {
 	err := runUnblockCommand(c, operation)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedOp := block.TranslateOperation(operation)
+	expectedOp := block.TypeFromOperation(strings.ToLower(operation))
 	c.Assert(s.mockClient.BlockType, gc.DeepEquals, expectedOp)
 }
 

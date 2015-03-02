@@ -51,7 +51,7 @@ func NewCmdBlockHelper(st *api.State) CmdBlockHelper {
 // on switches on desired block and
 // asserts that no errors were encountered.
 func (s *CmdBlockHelper) on(c *gc.C, blockType, msg string) {
-	c.Assert(s.blockClient.SwitchBlockOn(cmdblock.TranslateOperation(blockType), msg), gc.IsNil)
+	c.Assert(s.blockClient.SwitchBlockOn(cmdblock.TypeFromOperation(blockType), msg), gc.IsNil)
 }
 
 // BlockAllChanges switches changes block on.

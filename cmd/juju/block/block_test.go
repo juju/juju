@@ -25,53 +25,53 @@ type BlockCommandSuite struct {
 func (s *BlockCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.mockClient = &block.MockBlockClient{}
-	s.PatchValue(block.BlockClient, func(p *block.BlockCommand) (block.BlockClientAPI, error) {
+	s.PatchValue(block.BlockClient, func(p *block.BaseBlockCommand) (block.BlockClientAPI, error) {
 		return s.mockClient, nil
 	})
 }
 
 var _ = gc.Suite(&BlockCommandSuite{})
 
-func runBlockCommand(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&block.BlockCommand{}), args...)
-	return err
-}
-
-func (s *BlockCommandSuite) assertRunBlock(c *gc.C, operation, message string) {
-	err := runBlockCommand(c, operation, message)
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedOp := block.TranslateOperation(operation)
+func (s *BlockCommandSuite) assertBlock(c *gc.C, operation, message string) {
+	expectedOp := block.TypeFromOperation(operation)
 	c.Assert(s.mockClient.BlockType, gc.DeepEquals, expectedOp)
 	c.Assert(s.mockClient.Msg, gc.DeepEquals, message)
 }
 
-func (s *BlockCommandSuite) TestBlockCmdNoOperation(c *gc.C) {
-	s.assertErrorMatches(c, runBlockCommand(c), `.*must specify one of.*`)
-}
-
 func (s *BlockCommandSuite) TestBlockCmdMoreArgs(c *gc.C) {
-	s.assertErrorMatches(c, runBlockCommand(c, "destroy-environment", "change", "too much"), `.*can only specify block type and its message.*`)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&block.DestroyBlockCommand{}), "change", "too much")
+	c.Assert(
+		err,
+		gc.ErrorMatches,
+		`.*can only specify block message.*`)
 }
 
-func (s *BlockCommandSuite) TestBlockCmdOperationWithSeparator(c *gc.C) {
-	s.assertErrorMatches(c, runBlockCommand(c, "destroy-environment|"), `.*valid argument.*`)
+func (s *BlockCommandSuite) TestBlockCmdNoMessage(c *gc.C) {
+	command := block.DestroyBlockCommand{}
+	_, err := testing.RunCommand(c, envcmd.Wrap(&command))
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertBlock(c, command.Info().Name, "")
 }
 
-func (s *BlockCommandSuite) TestBlockCmdUnknownJujuOperation(c *gc.C) {
-	s.assertErrorMatches(c, runBlockCommand(c, "add-machine"), `.*valid argument.*`)
+func (s *BlockCommandSuite) TestBlockDestroyOperations(c *gc.C) {
+	command := block.DestroyBlockCommand{}
+	_, err := testing.RunCommand(c, envcmd.Wrap(&command), "TestBlockDestroyOperations")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertBlock(c, command.Info().Name, "TestBlockDestroyOperations")
 }
 
-func (s *BlockCommandSuite) TestBlockCmdUnknownOperation(c *gc.C) {
-	s.assertErrorMatches(c, runBlockCommand(c, "blah"), `.*valid argument.*`)
+func (s *BlockCommandSuite) TestBlockRemoveOperations(c *gc.C) {
+	command := block.RemoveBlockCommand{}
+	_, err := testing.RunCommand(c, envcmd.Wrap(&command), "TestBlockRemoveOperations")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertBlock(c, command.Info().Name, "TestBlockRemoveOperations")
 }
 
-func (s *BlockCommandSuite) TestBlockCmdValidDestroyEnvOperationUpperCase(c *gc.C) {
-	s.assertRunBlock(c, "DESTROY-ENVIRONMENT", "TestBlockCmdValidDestroyEnvOperationUpperCase")
-}
-
-func (s *BlockCommandSuite) TestBlockCmdValidDestroyEnvOperation(c *gc.C) {
-	s.assertRunBlock(c, "destroy-environment", "TestBlockCmdValidDestroyEnvOperation")
+func (s *BlockCommandSuite) TestBlockChangeOperations(c *gc.C) {
+	command := block.ChangeBlockCommand{}
+	_, err := testing.RunCommand(c, envcmd.Wrap(&command), "TestBlockChangeOperations")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertBlock(c, command.Info().Name, "TestBlockChangeOperations")
 }
 
 func (s *BlockCommandSuite) processErrorTest(c *gc.C, tstError error, blockType block.Block, expectedError error, expectedWarning string) {
