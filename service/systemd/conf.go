@@ -42,7 +42,7 @@ func normalize(conf common.Conf, scriptPath string) (common.Conf, []byte) {
 		conf.ExecStart = conf.ExtraScript + "\n" + conf.ExecStart
 		conf.ExtraScript = ""
 	}
-	if isSimpleCommand(conf.ExecStart) {
+	if !isSimpleCommand(conf.ExecStart) {
 		data = []byte(conf.ExecStart)
 		conf.ExecStart = scriptPath
 	}
@@ -68,19 +68,19 @@ func normalize(conf common.Conf, scriptPath string) (common.Conf, []byte) {
 func isSimpleCommand(cmd string) bool {
 	switch {
 	case strings.Contains(cmd, "\n"):
-		return true
-	case strings.Contains(cmd, ";"):
-		return true
-	case strings.Contains(cmd, "|"):
-		return true
-	case strings.Contains(cmd, ">"):
-		return true
-	case strings.Contains(cmd, "<"):
-		return true
-	case strings.Contains(cmd, "&"):
-		return true
-	default:
 		return false
+	case strings.Contains(cmd, ";"):
+		return false
+	case strings.Contains(cmd, "|"):
+		return false
+	case strings.Contains(cmd, ">"):
+		return false
+	case strings.Contains(cmd, "<"):
+		return false
+	case strings.Contains(cmd, "&"):
+		return false
+	default:
+		return true
 	}
 }
 
