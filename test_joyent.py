@@ -48,7 +48,7 @@ class ClientTestCase(TestCase):
 
     def test_init(self):
         client = Client(
-            'sdc_url', 'account', 'key_id', './key', 'manta_url', 
+            'sdc_url', 'account', 'key_id', './key', 'manta_url',
             dry_run=True, verbose=True)
         self.assertEqual('sdc_url', client.sdc_url)
         self.assertEqual('account', client.account)
@@ -69,6 +69,26 @@ class ClientTestCase(TestCase):
         mock.assert_called_once_with('/machines/bar/tags')
         self.assertEqual({'env': 'foo'}, tags)
 
+    def test_kill_old_procs(self):
+        values = (
+            '123 45:30 /test.py -e joyent ./juju\n'
+            '456 03:45:30 /test.py -e joyent ./juju\n'
+            '789 13:45:30 /test.py -e joyent ./juju',
+            '')
+        client = Client(
+            'sdc_url', 'account', 'key_id', './key', 'manta_url', pause=0)
+        with patch('subprocess.check_output', autospec=False,
+                   side_effect=values) as co_mock:
+            old_procs = client._kill_old_procs(12)
+        self.assertEqual(
+            [('789', '13:45:30', ['/test.py', '-e', 'joyent', './juju'])],
+            old_procs)
+        co_mock.assert_call_any(
+            'bash', '-c',
+            'ps ax -eo pid,etime,command | grep joyent | grep juju')
+        co_mock.assert_call_any('kill', '-9', '789')
+        self.assertEqual(2, co_mock.call_count)
+
     def test_delete_old_machines(self):
         machine = make_machine('stopped')
         client = Client(
@@ -81,12 +101,15 @@ class ClientTestCase(TestCase):
                                   autospec=True) as drm_mock:
                     with patch.object(client, 'request_deletion',
                                       autospec=True) as rd_mock:
-                        client.delete_old_machines(1, 'foo@bar')
+                        with patch.object(client, '_kill_old_procs',
+                                          autospec=True) as kp_mock:
+                            client.delete_old_machines(1, 'foo@bar')
         lm_mock.assert_call_any(None)
         lm_mock.assert_call_any('id')
         lmt_mock.assert_called_once_with('id')
         drm_mock.assert_called_once_with('id')
         self.assertEqual(0, rd_mock.call_count)
+        kp_mock.assert_called_once_with(1)
 
     def test_delete_old_machines_stuck_provisioning(self):
         machine = make_machine('provisioning')
