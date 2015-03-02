@@ -53,13 +53,47 @@ func (*serviceSuite) TestListServicesCommand(c *gc.C) {
 	upstart := `sudo initctl list | awk '{print $1}' | sort | uniq`
 	systemd := `/bin/systemctl list-unit-files --no-legend --no-page -t service` +
 		` | grep -o -P '^\w[\S]*(?=\.service)'`
-	c.Check(cmd, gc.Equals, strings.Join([]string{
+
+	lines := []string{
 		fmt.Sprintf(line, "/sbin/init", upstart),
-		"el" + fmt.Sprintf(line, "/sbin/upstart", upstart),
-		"el" + fmt.Sprintf(line, "/sbin/systemd", systemd),
-		"el" + fmt.Sprintf(line, "/bin/systemd", systemd),
-		"el" + fmt.Sprintf(line, "/lib/systemd/systemd", systemd),
-		"else exit 1",
-		"fi",
-	}, "\n"))
+		fmt.Sprintf(line, "/sbin/upstart", upstart),
+		fmt.Sprintf(line, "/sbin/systemd", systemd),
+		fmt.Sprintf(line, "/bin/systemd", systemd),
+		fmt.Sprintf(line, "/lib/systemd/systemd", systemd),
+	}
+	
+	/* We expect the command sequence to start with an if <command>
+	   then each command to be prefixed with elif and the whole
+	   list to be terminated by "else exit 1". The particular commands
+	   don't have a required order, so we accept any order. */
+	cmds := strings.Split(cmd, "\n")
+	foundLines := 0
+	for i := range cmds {
+		cmdline := ""
+		switch i {
+			case 0:
+				c.Check(cmds[i][0:3], gc.Equals, "if ")
+				cmdline = cmds[i]
+			case len(cmds) - 2:
+				c.Check(cmds[i], gc.Equals, "else exit 1")
+			case len(cmds) - 1:
+				c.Check(cmds[i], gc.Equals, "fi")
+			default:
+				c.Check(cmds[i][0:5], gc.Equals, "elif ")
+				cmdline = cmds[i][2:]
+		}
+		if cmdline != "" {
+			ok := false
+			for _, testLine := range(lines) {
+				if testLine == cmdline {
+					ok = true
+					foundLines++
+					break
+				}
+			}
+			c.Check(ok, gc.Equals, true)
+		}
+	}
+	c.Check(foundLines, gc.Equals, len(lines))
+	return
 }
