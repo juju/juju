@@ -1,9 +1,11 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package block_test
 
 import (
+	"strings"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -36,7 +38,7 @@ func (s *UnblockCommandSuite) assertRunUnblock(c *gc.C, operation string) {
 	err := runUnblockCommand(c, operation)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedOp := block.TranslateOperation(operation)
+	expectedOp := block.TypeFromOperation(strings.ToLower(operation))
 	c.Assert(s.mockClient.BlockType, gc.DeepEquals, expectedOp)
 }
 

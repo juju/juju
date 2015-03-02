@@ -197,7 +197,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))
 
 	// Operation protection commands
-	r.Register(wrapEnvCommand(&block.BlockCommand{}))
+	r.Register(block.NewSuperBlockCommand())
 	r.Register(wrapEnvCommand(&block.UnblockCommand{}))
 
 	// Manage storage
