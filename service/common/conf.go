@@ -40,6 +40,8 @@ type Conf struct {
 	// The path to the executable must be absolute.
 	ExecStopPost string
 
+	// TODO(ericsnow) Rename "Output" to "Logfile".
+
 	// Output, if set, indicates where the service's output should be
 	// sent. How that is interpreted depends on the init system. Some
 	// accept paths to files while others only support certain identifiers.
@@ -77,10 +79,17 @@ func (c Conf) Validate() error {
 
 func executable(cmd string) string {
 	path := strings.Fields(cmd)[0]
-	return unquote(path)
+	return Unquote(path)
 }
 
-func unquote(str string) string {
+// Unquote returns the string embedded between matching quotation marks.
+// If there aren't any matching quotation marks then the string is
+// returned as-is.
+func Unquote(str string) string {
+	if len(str) < 2 {
+		return str
+	}
+
 	first, last := string(str[0]), string(str[len(str)-1])
 
 	if first == `"` && last == `"` {
