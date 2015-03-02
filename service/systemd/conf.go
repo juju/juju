@@ -63,10 +63,13 @@ func validate(name string, conf common.Conf) error {
 		return errors.NotValidf("missing service name")
 	}
 
-	if conf.ExecStart == "" {
-		return errors.NotValidf("missing ExecStart")
-	} else if !strings.HasPrefix(conf.ExecStart, "/") {
-		return errors.NotValidf("relative path in ExecStart")
+	if conf.ExecStopPost != "" {
+		// TODO(ericsnow) This needs to be sorted out.
+		return errors.NotSupportedf("Conf.ExecStopPost")
+	}
+
+	if err := conf.Validate(); err != nil {
+		return errors.Trace(err)
 	}
 
 	if conf.ExtraScript != "" {
@@ -92,15 +95,6 @@ func validate(name string, conf common.Conf) error {
 	if conf.AfterStopped != "" {
 		// TODO(ericsnow) This needs to be sorted out.
 		return errors.NotSupportedf("Conf.AfterStopped")
-	}
-
-	if conf.ExecStopPost != "" {
-		// TODO(ericsnow) This needs to be sorted out.
-		return errors.NotSupportedf("Conf.ExecStopPost")
-
-		if !strings.HasPrefix(conf.ExecStopPost, "/") {
-			return errors.NotValidf("relative path in ExecStopPost")
-		}
 	}
 
 	return nil

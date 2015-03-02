@@ -128,3 +128,22 @@ func (*agentSuite) TestUnitAgentConf(c *gc.C) {
 		Env:       env,
 	})
 }
+
+func (*agentSuite) TestShutdownAfterConf(c *gc.C) {
+	conf, err := service.ShutdownAfterConf("spam")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(conf, jc.DeepEquals, common.Conf{
+		Desc:         "juju shutdown job",
+		Transient:    true,
+		AfterStopped: "spam",
+		ExecStart:    "/sbin/shutdown -h now",
+	})
+	c.Check(conf.Validate(), jc.ErrorIsNil)
+}
+
+func (*agentSuite) TestShutdownAfterConfMissingServiceName(c *gc.C) {
+	_, err := service.ShutdownAfterConf("")
+
+	c.Check(err, gc.ErrorMatches, `.*missing "after" service name.*`)
+}
