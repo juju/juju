@@ -91,7 +91,7 @@ func shutdownInitScript(initSystem string) (string, error) {
 		Desc:         "Juju lxc template shutdown job",
 		Transient:    true,
 		AfterStopped: "cloud-final",
-		ExecStart:    "shutdown -h now",
+		ExecStart:    "/sbin/shutdown -h now",
 	}
 	svc, err := service.NewService(name, conf, initSystem)
 	if err != nil {

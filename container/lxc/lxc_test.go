@@ -807,7 +807,7 @@ author "Juju Team <juju@lists.ubuntu.com>"
 start on stopped cloud-final
 
 script
-  shutdown -h now
+  /sbin/shutdown -h now
 end script
 
 post-stop script
