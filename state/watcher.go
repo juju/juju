@@ -64,6 +64,66 @@ type RelationUnitsWatcher interface {
 	Changes() <-chan multiwatcher.RelationUnitsChange
 }
 
+// NotifyWatchers combines two NotifyWatcher structs into a single watcher.
+type NotifyWatchers struct {
+	NotifyWatcher
+	w1 NotifyWatcher
+	w2 NotifyWatcher
+}
+
+// Changes implements the NotifyWatcher interface.
+func (n *NotifyWatchers) Changes() <-chan struct{} {
+	r := make(chan struct{})
+	go func() {
+		select {
+		case <-n.w1.Changes():
+			r <- struct{}{}
+		case <-n.w2.Changes():
+			r <- struct{}{}
+		}
+	}()
+	return r
+}
+
+// Kill implements the Watcher interface.
+func (n *NotifyWatchers) Kill() {
+	n.w1.Kill()
+	n.w2.Kill()
+}
+
+// Wait implements the Watcher interface.
+func (n *NotifyWatchers) Wait() error {
+	if err := n.w1.Wait(); err != nil {
+		return err
+	}
+	if err := n.w2.Wait(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Stop implements the Watcher interface.
+func (n *NotifyWatchers) Stop() error {
+	if err := n.w1.Stop(); err != nil {
+		return err
+	}
+	if err := n.w2.Stop(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Err implements the Watcher interface.
+func (n *NotifyWatchers) Err() error {
+	if err := n.w1.Err(); err != nil {
+		return err
+	}
+	if err := n.w2.Err(); err != nil {
+		return err
+	}
+	return nil
+}
+
 // commonWatcher is part of all client watchers.
 type commonWatcher struct {
 	st   *State
@@ -1361,10 +1421,22 @@ func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	return newEntityWatcher(u.st, settingsC, u.st.docID(settingsKey)), nil
 }
 
-// WatchMeterStatus returns a watcher observing the changes to the unit's
+// watchUnitMeterStatus returns a watcher observing the changes to the unit's
 // meter status.
-func (u *Unit) WatchMeterStatus() NotifyWatcher {
+func (u *Unit) watchUnitMeterStatus() NotifyWatcher {
 	return newEntityWatcher(u.st, meterStatusC, u.st.docID(u.globalKey()))
+}
+
+// WatchMeterStatus returns a watcher observing changes that affect the meter status
+// of a unit.
+func (u *Unit) WatchMeterStatus() NotifyWatcher {
+	return &NotifyWatchers{w1: u.watchUnitMeterStatus(), w2: u.st.watchMetricsMangager()}
+}
+
+// watchMetricsMangager returns a watcher observing the changes to the metrics
+// manager collection
+func (st *State) watchMetricsMangager() NotifyWatcher {
+	return newEntityWatcher(st, metricsManagerC, metricsManagerKey)
 }
 
 func newEntityWatcher(st *State, collName string, key interface{}) NotifyWatcher {

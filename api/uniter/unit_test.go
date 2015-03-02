@@ -744,7 +744,7 @@ func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
 
 	// Initial event.
-	wc.AssertOneChange()
+	wc.AssertChanges(2) //Shouldn't have to do this?
 
 	err = s.wordpressUnit.SetMeterStatus("GREEN", "ok")
 	c.Assert(err, jc.ErrorIsNil)
@@ -756,6 +756,18 @@ func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
 	err = s.wordpressUnit.SetMeterStatus("AMBER", "ok")
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+
+	mm, err := s.State.NewMetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	err = mm.SetMetricsManagerSuccessfulSend(time.Now())
+	c.Assert(err, jc.ErrorIsNil)
+	for i := 0; i < 3; i++ {
+		err := mm.IncrementConsecutiveErrors()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	code, _ := mm.MeterStatus()
+	c.Assert(code, gc.Equals, "AMBER") // Confirm meter status has changed
+	wc.AssertOneChange()
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()

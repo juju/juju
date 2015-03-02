@@ -4,11 +4,14 @@
 package state_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -92,4 +95,47 @@ func (s *UnitSuite) TestMeterStatusRemovedWithUnit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot retrieve meter status for unit .*: not found")
 	c.Assert(code, gc.Equals, "NOT AVAILABLE")
 	c.Assert(info, gc.Equals, "")
+}
+
+func (s *MeterStateSuite) TestMeterStatusWatcherRespondstoMeterStatus(c *gc.C) {
+	watcher := s.unit.WatchMeterStatus()
+	<-watcher.Changes() // After creation there is an item in the channel, let's get rid of it
+	start := make(chan struct{})
+	go func() {
+		err := s.unit.SetMeterStatus("GREEN", "Information.")
+		c.Assert(err, jc.ErrorIsNil)
+		<-start
+	}()
+	start <- struct{}{}
+	select {
+	case <-watcher.Changes():
+	case <-time.After(testing.LongWait):
+		c.Fatalf("expected event from watcher by now")
+	}
+}
+
+func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManager(c *gc.C) {
+	mm, err := s.State.NewMetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	code, info := mm.MeterStatus()
+	watcher := s.unit.WatchMeterStatus()
+	<-watcher.Changes()
+	start := make(chan struct{})
+	go func() {
+		err := mm.SetMetricsManagerSuccessfulSend(time.Now())
+		c.Assert(err, jc.ErrorIsNil)
+		for i := 0; i < 3; i++ {
+			err := mm.IncrementConsecutiveErrors()
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		code, info = mm.MeterStatus()
+		c.Assert(code, gc.Equals, "AMBER") // Confirm meter status has changed
+		<-start
+	}()
+	start <- struct{}{}
+	select {
+	case <-watcher.Changes():
+	case <-time.After(testing.LongWait):
+		c.Fatalf("expected event from watcher by now")
+	}
 }
