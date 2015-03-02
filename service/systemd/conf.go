@@ -42,7 +42,7 @@ func normalize(conf common.Conf, scriptPath string) (common.Conf, []byte) {
 		conf.ExecStart = conf.ExtraScript + "\n" + conf.ExecStart
 		conf.ExtraScript = ""
 	}
-	if strings.Contains(conf.ExecStart, "\n") {
+	if isSimpleCommand(conf.ExecStart) {
 		data = []byte(conf.ExecStart)
 		conf.ExecStart = scriptPath
 	}
@@ -55,7 +55,33 @@ func normalize(conf common.Conf, scriptPath string) (common.Conf, []byte) {
 		conf.Limit = nil
 	}
 
+	output := common.Unquote(conf.Output)
+	if strings.HasPrefix(output, "/") {
+		// Due to isSimpleStart we can always do this safely.
+		conf.ExecStart += " &> " + conf.Output
+		conf.Output = ""
+	}
+
 	return conf, data
+}
+
+func isSimpleCommand(cmd string) bool {
+	switch {
+	case strings.Contains(cmd, "\n"):
+		return true
+	case strings.Contains(cmd, ";"):
+		return true
+	case strings.Contains(cmd, "|"):
+		return true
+	case strings.Contains(cmd, ">"):
+		return true
+	case strings.Contains(cmd, "<"):
+		return true
+	case strings.Contains(cmd, "&"):
+		return true
+	default:
+		return false
+	}
 }
 
 func validate(name string, conf common.Conf) error {
