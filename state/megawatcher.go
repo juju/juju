@@ -110,7 +110,8 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 	// http://pad.lv/1418344 for more info.
 	unit, err := st.Unit(unitName)
 	if errors.IsNotFound(err) {
-		// Empty slices avoid panics due to nil later.
+		// Empty slices ensure backwards compatibility with older clients.
+		// See Bug #1425435.
 		return []network.PortRange{}, []network.Port{}, nil
 	} else if err != nil {
 		return nil, nil, errors.Annotatef(err, "failed to get unit %q", unitName)
@@ -118,9 +119,10 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 	portRanges, err := unit.OpenedPorts()
 	// Since the port ranges are associated with the unit's machine,
 	// we need to check for NotAssignedError.
-	if IsNotAssigned(errors.Cause(err)) {
+	if IsNotAssigned(err) {
 		// Not assigned, so there won't be any ports opened.
-		// Empty slices avoid panics due to nil later.
+		// Empty slices ensure backwards compatibility with older clients.
+		// See Bug #1425435.
 		return []network.PortRange{}, []network.Port{}, nil
 	} else if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to get unit port ranges")
@@ -194,6 +196,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id interface{
 func getUnitAddresses(st *State, unitName string) (publicAddress, privateAddress string, err error) {
 	u, err := st.Unit(unitName)
 	if errors.IsNotFound(err) {
+		// Not found, so there won't be any addresses.
 		return "", "", nil
 	} else if err != nil {
 		return "", "", err
