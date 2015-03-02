@@ -78,11 +78,6 @@ func validate(name string, conf common.Conf) error {
 		return errors.NotValidf("missing service name")
 	}
 
-	if conf.ExecStopPost != "" {
-		// TODO(ericsnow) This needs to be sorted out.
-		return errors.NotSupportedf("Conf.ExecStopPost")
-	}
-
 	if err := conf.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -211,6 +206,14 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 		Name:    "Restart",
 		Value:   "always",
 	})
+
+	if conf.ExecStopPost != "" {
+		unitOptions = append(unitOptions, &unit.UnitOption{
+			Section: "Service",
+			Name:    "ExecStopPost",
+			Value:   conf.ExecStopPost,
+		})
+	}
 
 	return unitOptions
 }
