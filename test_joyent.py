@@ -71,15 +71,15 @@ class ClientTestCase(TestCase):
         self.assertEqual({'env': 'foo'}, tags)
 
     def test_kill_old_procs(self):
-        values = [dedent("""\
+        return_values = [dedent("""\
             123    45:30 /test.py -e joyent ./juju
             456 03:45:30 /test.py -e joyent ./juju
             789 13:45:30 /test.py -e joyent ./juju
             """), '']
         client = Client(
             'sdc_url', 'account', 'key_id', './key', 'manta_url', pause=0)
-        with patch('subprocess.check_output', autospec=False,
-                   side_effect=values) as co_mock:
+        with patch('subprocess.check_output',
+                   side_effect=return_values) as co_mock:
             old_procs = client._kill_old_procs(12)
         self.assertEqual(
             [('789', '13:45:30', ['/test.py', '-e', 'joyent', './juju'])],
