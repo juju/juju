@@ -759,16 +759,6 @@ var configTests = []configTest{
 		useDefaults: config.NoDefaults,
 		attrs:       sampleConfig,
 	}, {
-		about:       "No defaults: with storage-default-block-source",
-		useDefaults: config.NoDefaults,
-		attrs:       sampleConfig.Merge(testing.Attrs{"storage-default-block-source": "ebs"}),
-		err:         `attribute "storage-default-block-source" is not allowed in configuration`,
-	}, {
-		about:       "Defaults: with storage-default-block-source",
-		useDefaults: config.UseDefaults,
-		attrs:       sampleConfig.Merge(testing.Attrs{"storage-default-block-source": "ebs"}),
-		err:         `attribute "storage-default-block-source" is not allowed in configuration`,
-	}, {
 		about:       "No defaults: with ca-cert-path",
 		useDefaults: config.NoDefaults,
 		attrs:       sampleConfig.Merge(testing.Attrs{"ca-cert-path": "arble"}),

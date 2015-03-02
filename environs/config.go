@@ -52,6 +52,15 @@ func validateEnvironmentKind(rawEnviron map[string]interface{}) error {
 	return nil
 }
 
+// disallowedWithNew holds those attributes
+// that can not be set in an initial environment
+// config used to bootstrap (they must only be set
+// on a running environment where appropriate
+// validation can be performed).
+var disallowedWithBootstrap = []string{
+	config.StorageDefaultBlockSourceKey,
+}
+
 // Config returns the environment configuration for the environment
 // with the given name. If the configuration is not
 // found, an errors.NotFoundError is returned.
@@ -68,6 +77,13 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 	}
 	if err := validateEnvironmentKind(attrs); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	// Check that we don't have any disallowed fields in new configs used for bootstrap.
+	for _, attr := range disallowedWithBootstrap {
+		if _, ok := attrs[attr]; ok {
+			return nil, fmt.Errorf("attribute %q is not allowed in bootstrap configurations", attr)
+		}
 	}
 
 	// If deprecated config attributes are used, log warnings so the user can know

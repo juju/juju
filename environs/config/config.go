@@ -1326,7 +1326,6 @@ var allowedWithDefaultsOnly = []string{
 	"ca-cert-path",
 	"ca-private-key-path",
 	"authorized-keys-path",
-	StorageDefaultBlockSourceKey,
 }
 
 // mandatoryWithoutDefaults holds those attributes

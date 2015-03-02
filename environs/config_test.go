@@ -307,6 +307,24 @@ func (*suite) TestBootstrapConfig(c *gc.C) {
 	c.Assert(cfg1.AllAttrs(), gc.DeepEquals, expect)
 }
 
+func (s *suite) TestDisallowedInBootstrap(c *gc.C) {
+	content := `
+environments:
+    dummy:
+        type: dummy
+        state-server: false
+`
+	for key, value := range map[string]interface{}{
+		"storage-default-block-source": "loop",
+	} {
+		envContent := fmt.Sprintf("%s\n        %s: %s", content, key, value)
+		envs, err := environs.ReadEnvironsBytes([]byte(envContent))
+		c.Check(err, jc.ErrorIsNil)
+		_, err = envs.Config("dummy")
+		c.Assert(err, gc.ErrorMatches, "attribute .* is not allowed in bootstrap configurations")
+	}
+}
+
 type dummyProvider struct {
 	environs.EnvironProvider
 }
