@@ -19,3 +19,7 @@ const Storage = "storage"
 // failure.  This means that the developers with this flag set will see the
 // stack trace in the log output, but normal deployments never will.
 const LogErrorStack = "log-error-stack"
+
+// DbLog is the the feature which has Juju's logs go to
+// MongoDB instead of to all-machines.log using rsyslog.
+const DbLog = "db-log"
