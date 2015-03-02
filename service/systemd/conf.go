@@ -57,7 +57,7 @@ func normalize(conf common.Conf, scriptPath string) (common.Conf, []byte) {
 
 	output := common.Unquote(conf.Output)
 	if strings.HasPrefix(output, "/") {
-		// Due to isSimpleStart we can always do this safely.
+		// Due to isSimpleCommand we can always do this safely.
 		conf.ExecStart += " &> " + conf.Output
 		conf.Output = ""
 	}
