@@ -216,7 +216,6 @@ func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
 	service, err := systemd.NewService(s.name, s.conf)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO(ericsnow) The error return needs to be checked once there is one.
 	c.Check(service.Service.Conf, jc.DeepEquals, common.Conf{
 		Desc:      s.conf.Desc,
 		ExecStart: s.conf.ExecStart + " &> /var/log/juju/machine-0.log",
