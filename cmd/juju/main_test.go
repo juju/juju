@@ -45,7 +45,7 @@ func syncToolsHelpText() string {
 }
 
 func blockHelpText() string {
-	return cmdtesting.HelpText(block.NewBlockCommand(), "juju block")
+	return cmdtesting.HelpText(block.NewSuperBlockCommand(), "juju block")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {

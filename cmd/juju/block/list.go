@@ -45,10 +45,10 @@ func (c *ListCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "special", map[string]cmd.Formatter{
-		"yaml":    cmd.FormatYaml,
-		"json":    cmd.FormatJson,
-		"special": formatBlocks,
+	c.out.AddFlags(f, "blocks", map[string]cmd.Formatter{
+		"yaml":   cmd.FormatYaml,
+		"json":   cmd.FormatJson,
+		"blocks": formatBlocks,
 	})
 }
 
@@ -129,11 +129,12 @@ func formatBlocks(value interface{}) ([]byte, error) {
 		if ablock.Enabled {
 			switched = "on"
 		}
+		fmt.Fprintf(tw, "%v\t", ablock.Operation)
 		if ablock.Message != nil {
-			fmt.Fprintf(tw, "%v=%v, %v", ablock.Operation, switched, *ablock.Message)
+			fmt.Fprintf(tw, "\t=%v, %v", switched, *ablock.Message)
 			continue
 		}
-		fmt.Fprintf(tw, "%v=%v", ablock.Operation, switched)
+		fmt.Fprintf(tw, "\t=%v", switched)
 	}
 
 	tw.Flush()

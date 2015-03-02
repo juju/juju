@@ -32,9 +32,9 @@ func (s *listCommandSuite) TestListEmpty(c *gc.C) {
 	ctx, err := testing.RunCommand(c, envcmd.Wrap(&block.ListCommand{}))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, `
-destroy-environment=off
-remove-object=off
-all-changes=off
+destroy-environment  =off
+remove-object        =off
+all-changes          =off
 `)
 }
 
@@ -43,9 +43,9 @@ func (s *listCommandSuite) TestList(c *gc.C) {
 	ctx, err := testing.RunCommand(c, envcmd.Wrap(&block.ListCommand{}))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, `
-destroy-environment=off
-remove-object=on, Test this one
-all-changes=off
+destroy-environment  =off
+remove-object        =on, Test this one
+all-changes          =off
 `)
 }
 

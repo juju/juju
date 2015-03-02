@@ -28,9 +28,9 @@ type Command struct {
 	cmd.SuperCommand
 }
 
-// NewBlockCommand creates the block supercommand and
+// NewSuperBlockCommand creates the block supercommand and
 // registers the subcommands that it supports.
-func NewBlockCommand() cmd.Command {
+func NewSuperBlockCommand() cmd.Command {
 	blockcmd := Command{
 		SuperCommand: *cmd.NewSuperCommand(
 			cmd.SuperCommandParams{
@@ -39,9 +39,9 @@ func NewBlockCommand() cmd.Command {
 				UsagePrefix: "juju",
 				Purpose:     superBlockCmdPurpose,
 			})}
-	blockcmd.Register(envcmd.Wrap(&DestroyBlockCommand{}))
-	blockcmd.Register(envcmd.Wrap(&RemoveBlockCommand{}))
-	blockcmd.Register(envcmd.Wrap(&ChangeBlockCommand{}))
+	blockcmd.Register(envcmd.Wrap(&DestroyCommand{}))
+	blockcmd.Register(envcmd.Wrap(&RemoveCommand{}))
+	blockcmd.Register(envcmd.Wrap(&ChangeCommand{}))
 	blockcmd.Register(envcmd.Wrap(&ListCommand{}))
 	return &blockcmd
 }

@@ -39,7 +39,7 @@ func (s *BlockCommandSuite) assertBlock(c *gc.C, operation, message string) {
 }
 
 func (s *BlockCommandSuite) TestBlockCmdMoreArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&block.DestroyBlockCommand{}), "change", "too much")
+	_, err := testing.RunCommand(c, envcmd.Wrap(&block.DestroyCommand{}), "change", "too much")
 	c.Assert(
 		err,
 		gc.ErrorMatches,
@@ -47,28 +47,28 @@ func (s *BlockCommandSuite) TestBlockCmdMoreArgs(c *gc.C) {
 }
 
 func (s *BlockCommandSuite) TestBlockCmdNoMessage(c *gc.C) {
-	command := block.DestroyBlockCommand{}
+	command := block.DestroyCommand{}
 	_, err := testing.RunCommand(c, envcmd.Wrap(&command))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertBlock(c, command.Info().Name, "")
 }
 
 func (s *BlockCommandSuite) TestBlockDestroyOperations(c *gc.C) {
-	command := block.DestroyBlockCommand{}
+	command := block.DestroyCommand{}
 	_, err := testing.RunCommand(c, envcmd.Wrap(&command), "TestBlockDestroyOperations")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertBlock(c, command.Info().Name, "TestBlockDestroyOperations")
 }
 
 func (s *BlockCommandSuite) TestBlockRemoveOperations(c *gc.C) {
-	command := block.RemoveBlockCommand{}
+	command := block.RemoveCommand{}
 	_, err := testing.RunCommand(c, envcmd.Wrap(&command), "TestBlockRemoveOperations")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertBlock(c, command.Info().Name, "TestBlockRemoveOperations")
 }
 
 func (s *BlockCommandSuite) TestBlockChangeOperations(c *gc.C) {
-	command := block.ChangeBlockCommand{}
+	command := block.ChangeCommand{}
 	_, err := testing.RunCommand(c, envcmd.Wrap(&command), "TestBlockChangeOperations")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertBlock(c, command.Info().Name, "TestBlockChangeOperations")
