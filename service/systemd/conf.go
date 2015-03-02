@@ -102,11 +102,6 @@ func validate(name string, conf common.Conf) error {
 		return errors.NotSupportedf("Conf.Transient")
 	}
 
-	if conf.AfterStopped != "" {
-		// TODO(ericsnow) This needs to be sorted out.
-		return errors.NotSupportedf("Conf.AfterStopped")
-	}
-
 	return nil
 }
 
@@ -145,6 +140,19 @@ func serializeUnit(conf common.Conf) []*unit.UnitOption {
 			Section: "Unit",
 			Name:    "After",
 			Value:   name,
+		})
+	}
+
+	if conf.AfterStopped != "" {
+		unitOptions = append(unitOptions, &unit.UnitOption{
+			Section: "Unit",
+			Name:    "After",
+			Value:   conf.AfterStopped,
+		})
+		unitOptions = append(unitOptions, &unit.UnitOption{
+			Section: "Unit",
+			Name:    "Conflicts",
+			Value:   conf.AfterStopped,
 		})
 	}
 
