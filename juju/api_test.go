@@ -901,7 +901,7 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6True(c 
 		return true
 	})
 	// First test cacheChangedAPIInfo behaves as expected.
-	err := juju.CacheChangedAPIInfo(info, s.hostPorts, s.apiHostPort, s.envTag)
+	err := juju.CacheChangedAPIInfo(info, s.hostPorts, s.apiHostPort, s.envTag.Id(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEndpointsPreferIPv6True(c, info)
 
@@ -925,7 +925,7 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6False(c
 		return false
 	})
 	// First test cacheChangedAPIInfo behaves as expected.
-	err := juju.CacheChangedAPIInfo(info, s.hostPorts, s.apiHostPort, s.envTag)
+	err := juju.CacheChangedAPIInfo(info, s.hostPorts, s.apiHostPort, s.envTag.Id(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEndpointsPreferIPv6False(c, info)
 

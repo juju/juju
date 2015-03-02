@@ -6,6 +6,7 @@ package api_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -82,13 +83,18 @@ func (s *stateSuite) TestLoginSetsEnvironTag(c *gc.C) {
 	// We haven't called Login yet, so the EnvironTag shouldn't be set.
 	envTag, err := apistate.EnvironTag()
 	c.Check(err, gc.ErrorMatches, `"" is not a valid tag`)
-	c.Check(envTag.String(), gc.Equals, "environment-")
+	c.Check(envTag, gc.Equals, names.EnvironTag{})
 	err = apistate.Login(tag, password, "")
 	c.Assert(err, jc.ErrorIsNil)
 	// Now that we've logged in, EnvironTag should be updated correctly.
 	envTag, err = apistate.EnvironTag()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(envTag, gc.Equals, env.EnvironTag())
+	// The server tag is also set, and since the environment is the
+	// state server environment, the uuid is the same.
+	srvTag, err := apistate.ServerTag()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(srvTag, gc.Equals, env.EnvironTag())
 }
 
 func (s *stateSuite) TestLoginTracksFacadeVersions(c *gc.C) {
