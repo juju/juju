@@ -53,16 +53,21 @@ func (s *authHttpSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCod
 }
 
 func (s *authHttpSuite) dialWebsocketFromURL(c *gc.C, server string, header http.Header) *websocket.Conn {
+	config := s.makeWebsocketConfigFromURL(c, server, header)
 	c.Logf("dialing %v", server)
+	conn, err := websocket.DialConfig(config)
+	c.Assert(err, jc.ErrorIsNil)
+	return conn
+}
+
+func (s *authHttpSuite) makeWebsocketConfigFromURL(c *gc.C, server string, header http.Header) *websocket.Config {
 	config, err := websocket.NewConfig(server, "http://localhost/")
 	c.Assert(err, jc.ErrorIsNil)
 	config.Header = header
 	caCerts := x509.NewCertPool()
 	c.Assert(caCerts.AppendCertsFromPEM([]byte(testing.CACert)), jc.IsTrue)
 	config.TlsConfig = &tls.Config{RootCAs: caCerts, ServerName: "anything"}
-	conn, err := websocket.DialConfig(config)
-	c.Assert(err, jc.ErrorIsNil)
-	return conn
+	return config
 }
 
 func (s *authHttpSuite) assertWebsocketClosed(c *gc.C, reader *bufio.Reader) {

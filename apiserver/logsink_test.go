@@ -18,12 +18,22 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
-type logsinkSuite struct {
+// logsinkBaseSuite has functionality that's shared between the the 2 logsink related suites
+type logsinkBaseSuite struct {
 	authHttpSuite
+}
+
+func (s *logsinkBaseSuite) logsinkURL(c *gc.C, scheme string) *url.URL {
+	return s.makeURL(c, scheme, "/environment/"+s.State.EnvironUUID()+"/logsink", nil)
+}
+
+type logsinkSuite struct {
+	logsinkBaseSuite
 	machineTag names.Tag
 	password   string
 	nonce      string
@@ -33,7 +43,8 @@ type logsinkSuite struct {
 var _ = gc.Suite(&logsinkSuite{})
 
 func (s *logsinkSuite) SetUpTest(c *gc.C) {
-	s.authHttpSuite.SetUpTest(c)
+	s.SetInitialFeatureFlags(feature.DbLog)
+	s.logsinkBaseSuite.SetUpTest(c)
 	s.nonce = "nonce"
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: s.nonce,
@@ -182,12 +193,21 @@ func (s *logsinkSuite) openWebsocketCustomPath(c *gc.C, path string) *bufio.Read
 	return bufio.NewReader(conn)
 }
 
-func (s *logsinkSuite) logsinkURL(c *gc.C, scheme string) *url.URL {
-	return s.makeURL(c, scheme, "/environment/"+s.State.EnvironUUID()+"/logsink", nil)
-}
-
 func (s *logsinkSuite) makeAuthHeader() http.Header {
 	header := utils.BasicAuthHeader(s.machineTag.String(), s.password)
 	header.Add("X-Juju-Nonce", s.nonce)
 	return header
+}
+
+type logsinkNoFeatureSuite struct {
+	logsinkBaseSuite
+}
+
+var _ = gc.Suite(&logsinkNoFeatureSuite{})
+
+func (s *logsinkNoFeatureSuite) TestNoApiWithoutFeatureFlag(c *gc.C) {
+	server := s.logsinkURL(c, "wss").String()
+	config := s.makeWebsocketConfigFromURL(c, server, nil)
+	_, err := websocket.DialConfig(config)
+	c.Assert(err, gc.ErrorMatches, ".+/logsink: bad status$")
 }
