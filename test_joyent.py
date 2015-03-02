@@ -48,7 +48,7 @@ class ClientTestCase(TestCase):
 
     def test_init(self):
         client = Client(
-            'sdc_url', 'account', 'key_id', './key', 'manta_url', 
+            'sdc_url', 'account', 'key_id', './key', 'manta_url',
             dry_run=True, verbose=True)
         self.assertEqual('sdc_url', client.sdc_url)
         self.assertEqual('account', client.account)
