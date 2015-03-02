@@ -68,11 +68,11 @@ type Context interface {
 	// LeaderSettings returns the current leader settings. Once leader settings
 	// have been read in a given context, they will not be updated other than
 	// via successful calls to WriteLeaderSettings.
-	LeaderSettings() (params.Settings, error)
+	LeaderSettings() (map[string]string, error)
 
 	// WriteLeaderSettings writes the supplied settings directly to state, or
 	// fails if the local unit is not the service's leader.
-	WriteLeaderSettings(params.Settings) error
+	WriteLeaderSettings(map[string]string) error
 
 	// ActionParams returns the map of params passed with an Action.
 	ActionParams() (map[string]interface{}, error)

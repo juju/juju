@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 )
@@ -34,6 +35,14 @@ type FactorySuite struct {
 
 var _ = gc.Suite(&FactorySuite{})
 
+type fakeTracker struct {
+	leadership.Tracker
+}
+
+func (fakeTracker) ServiceName() string {
+	return "service-name"
+}
+
 func (s *FactorySuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
@@ -43,6 +52,7 @@ func (s *FactorySuite) SetUpTest(c *gc.C) {
 	factory, err := runner.NewFactory(
 		s.uniter,
 		s.unit.Tag().(names.UnitTag),
+		fakeTracker{},
 		s.getRelationInfos,
 		s.paths,
 	)
@@ -295,6 +305,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	factory, err := runner.NewFactory(
 		uniter,
 		unit.Tag().(names.UnitTag),
+		fakeTracker{},
 		s.getRelationInfos,
 		s.paths,
 	)
@@ -610,4 +621,8 @@ func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "action no longer available")
 	c.Check(err, gc.Equals, runner.ErrActionNotAvailable)
+}
+
+func (s *FactorySuite) TestLeadershipContext(c *gc.C) {
+	c.Fatalf("oh god tedious")
 }
