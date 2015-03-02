@@ -522,11 +522,11 @@ func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.Hos
 	logger.Debugf("cacheChangedAPIInfo: serverUUID=%q", serverUUID)
 	endpoint := info.APIEndpoint()
 	needCaching := false
-	if endpoint.EnvironUUID != environUUID {
+	if endpoint.EnvironUUID != environUUID && environUUID != "" {
 		endpoint.EnvironUUID = environUUID
 		needCaching = true
 	}
-	if endpoint.ServerUUID != serverUUID {
+	if endpoint.ServerUUID != serverUUID && serverUUID != "" {
 		endpoint.ServerUUID = serverUUID
 		needCaching = true
 	}
