@@ -14,6 +14,8 @@ else
   extra_args=""
 fi
 set -x
+# Delete all files in $WORKSPACE, but no error if empty.
+find $WORKSPACE -type f -delete
 $SCRIPTS/write_industrial_test_metadata.py $new_juju_dir/buildvars.json \
   $environment metadata.json
 s3cmd -c $s3cfg put metadata.json $s3base-metadata.json
