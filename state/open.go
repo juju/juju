@@ -265,6 +265,10 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 		}
 	}
 
+	if err := InitDbLogs(session); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return st, nil
 }
 
