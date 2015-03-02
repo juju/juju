@@ -1574,8 +1574,7 @@ func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 	)
 	defer cleanup()
 	_, _, _, err = testing.StartInstance(env, "1")
-	errString := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(errString, gc.Matches, ".*Some unknown error.*")
+	c.Assert(err, gc.ErrorMatches, "(?s).*Some unknown error.*")
 }
 
 func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {

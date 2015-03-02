@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
@@ -84,7 +83,7 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsWithoutFeature(c *gc
 	c.Assert(storageConstraints, gc.HasLen, 0)
 }
 
-func (s *StorageStateSuite) TestAddServiceStorageConstraints(c *gc.C) {
+func (s *StorageStateSuite) TestAddServiceStorageConstraintsValidation(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block2")
 	addService := func(storage map[string]state.StorageConstraints) (*state.Service, error) {
 		return s.State.AddService("storage-block2", "user-test-admin@local", ch, nil, storage)
@@ -95,25 +94,65 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraints(c *gc.C) {
 	}
 	assertErr(nil, `.*no constraints specified for store.*`)
 
-	defer func() {
-		registry.RegisterDefaultPool("someprovider", storage.StorageKindBlock, "")
-	}()
 	storageCons := map[string]state.StorageConstraints{
-		"multi1to10": makeStorageCons("", 1024, 1),
+		"multi1to10": makeStorageCons("block", 1024, 1),
+		"multi2up":   makeStorageCons("block", 1024, 1),
 	}
-	assertErr(storageCons, `cannot add service "storage-block2": no storage pool specified and no default available .*`)
-	registry.RegisterDefaultPool("someprovider", storage.StorageKindBlock, "block")
-	storageCons["multi2up"] = makeStorageCons("", 1024, 1)
 	assertErr(storageCons, `cannot add service "storage-block2": charm "storage-block2" store "multi2up": 2 instances required, 1 specified`)
 	storageCons["multi2up"] = makeStorageCons("block", 1024, 2)
-	storageCons["multi1to10"] = makeStorageCons("", 1024, 11)
+	storageCons["multi1to10"] = makeStorageCons("block", 1024, 11)
 	assertErr(storageCons, `cannot add service "storage-block2": charm "storage-block2" store "multi1to10": at most 10 instances supported, 11 specified`)
 	storageCons["multi1to10"] = makeStorageCons("ebs", 1024, 10)
 	assertErr(storageCons, `cannot add service "storage-block2": pool "ebs" not found`)
-	storageCons["multi1to10"] = makeStorageCons("", 1024, 10)
+	storageCons["multi1to10"] = makeStorageCons("block", 1024, 10)
 	_, err := addService(storageCons)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StorageStateSuite) assertAddServiceStorageConstraintsDefaults(c *gc.C, pool string, cons, expect map[string]state.StorageConstraints) {
+	if pool != "" {
+		err := s.State.UpdateEnvironConfig(map[string]interface{}{
+			"storage-default-block-source": pool,
+		}, nil, nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	ch := s.AddTestingCharm(c, "storage-block")
+	service, err := s.State.AddService("storage-block2", "user-test-admin@local", ch, nil, cons)
+	c.Assert(err, jc.ErrorIsNil)
+	savedCons, err := service.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(savedCons, jc.DeepEquals, expect)
 	// TODO(wallyworld) - test pool name stored in data model
+}
+
+func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefaultPool(c *gc.C) {
+	storageCons := map[string]state.StorageConstraints{
+		"data": makeStorageCons("", 2048, 1),
+	}
+	expectedCons := map[string]state.StorageConstraints{
+		"data": makeStorageCons("block", 2048, 1),
+	}
+	s.assertAddServiceStorageConstraintsDefaults(c, "block", storageCons, expectedCons)
+}
+
+func (s *StorageStateSuite) TestAddServiceStorageConstraintsNoUserDefaultPool(c *gc.C) {
+	storageCons := map[string]state.StorageConstraints{
+		"data": makeStorageCons("", 2048, 1),
+	}
+	expectedCons := map[string]state.StorageConstraints{
+		"data": makeStorageCons("loop", 2048, 1),
+	}
+	s.assertAddServiceStorageConstraintsDefaults(c, "", storageCons, expectedCons)
+}
+
+func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefaultSize(c *gc.C) {
+	storageCons := map[string]state.StorageConstraints{
+		"data": makeStorageCons("block", 0, 1),
+	}
+	expectedCons := map[string]state.StorageConstraints{
+		"data": makeStorageCons("block", 1024, 1),
+	}
+	s.assertAddServiceStorageConstraintsDefaults(c, "block", storageCons, expectedCons)
 }
 
 func (s *StorageStateSuite) TestProviderFallbackToType(c *gc.C) {
@@ -129,10 +168,11 @@ func (s *StorageStateSuite) TestProviderFallbackToType(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
-	registry.RegisterDefaultPool("someprovider", storage.StorageKindBlock, "block")
-	defer func() {
-		registry.RegisterDefaultPool("someprovider", storage.StorageKindBlock, "")
-	}()
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{
+		"storage-default-block-source": "block",
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Each unit added to the service will create storage instances
 	// to satisfy the service's storage constraints.
 	ch := s.AddTestingCharm(c, "storage-block2")
@@ -321,6 +361,19 @@ func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("multi2up/1")
 	wc.AssertNoChange()
+}
+
+func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c)
+
+	w := s.State.WatchStorageAttachment(storageTag, u.UnitTag())
+	defer testing.AssertStop(c, w)
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	err := s.State.DestroyStorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
 }
 
 // TODO(axw) StorageAttachments can't be added to Dying StorageInstance

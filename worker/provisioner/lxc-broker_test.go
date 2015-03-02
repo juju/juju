@@ -264,6 +264,10 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *lxcProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
+	// This check in particular leads to tests just hanging
+	// indefinitely quite often on i386.
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	s.State.StartSync()
 	event := <-s.events
 	c.Assert(event.Action, gc.Equals, mock.Created)
@@ -278,6 +282,10 @@ func (s *lxcProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) str
 }
 
 func (s *lxcProvisionerSuite) expectStopped(c *gc.C, instId string) {
+	// This check in particular leads to tests just hanging
+	// indefinitely quite often on i386.
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	s.State.StartSync()
 	event := <-s.events
 	c.Assert(event.Action, gc.Equals, mock.Stopped)
@@ -350,6 +358,8 @@ func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 }
 
 func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	p := s.newLxcProvisioner(c)
 	defer stop(c, p)
 

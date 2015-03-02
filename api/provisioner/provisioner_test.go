@@ -589,12 +589,32 @@ func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
 	c.Assert(addresses, gc.DeepEquals, stateAddresses)
 }
 
-func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
-	args := params.ContainerManagerConfigParams{Type: instance.KVM}
+func (s *provisionerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType) map[string]string {
+	args := params.ContainerManagerConfigParams{Type: typ}
 	result, err := s.provisioner.ContainerManagerConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.ManagerConfig, gc.DeepEquals, map[string]string{
+	return result.ManagerConfig
+}
+
+func (s *provisionerSuite) TestContainerManagerConfigKNoIPForwarding(c *gc.C) {
+	// Break dummy provider's SupportsAddressAllocation method to
+	// ensure ConfigIPForwarding is not set below.
+	s.AssertConfigParameterUpdated(c, "broken", "SupportsAddressAllocation")
+
+	cfg := s.getManagerConfig(c, instance.KVM)
+	c.Assert(cfg, jc.DeepEquals, map[string]string{
 		container.ConfigName: "juju",
+	})
+}
+
+func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
+	cfg := s.getManagerConfig(c, instance.KVM)
+	c.Assert(cfg, jc.DeepEquals, map[string]string{
+		container.ConfigName: "juju",
+
+		// dummy provider supports both networking and address
+		// allocation by default, so IP forwarding should be enabled.
+		container.ConfigIPForwarding: "true",
 	})
 }
 
@@ -652,11 +672,13 @@ func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
 func (s *provisionerSuite) TestContainerManagerConfigPermissive(c *gc.C) {
 	// ContainerManagerConfig is permissive of container types, and
 	// will just return the basic type-independent configuration.
-	args := params.ContainerManagerConfigParams{Type: "invalid"}
-	result, err := s.provisioner.ContainerManagerConfig(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.ManagerConfig, gc.DeepEquals, map[string]string{
+	cfg := s.getManagerConfig(c, "invalid")
+	c.Assert(cfg, jc.DeepEquals, map[string]string{
 		container.ConfigName: "juju",
+
+		// dummy provider supports both networking and address
+		// allocation by default, so IP forwarding should be enabled.
+		container.ConfigIPForwarding: "true",
 	})
 }
 

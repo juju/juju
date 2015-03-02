@@ -11,15 +11,15 @@ import (
 	"github.com/juju/juju/lease"
 )
 
-// LeadershipClaimDeniedErr is the error which will be returned when a
+// ErrClaimDenied is the error which will be returned when a
 // leadership claim has been denied.
-var LeadershipClaimDeniedErr = errors.New("leadership claim denied")
+var ErrClaimDenied = errors.New("leadership claim denied")
 
 type LeadershipManager interface {
 	// ClaimLeadership claims a leadership for the given serviceId and
-	// unitId. If successful, the duration of the leadership lease is
-	// returned.
-	ClaimLeadership(serviceId, unitId string) (nextClaimInterval time.Duration, err error)
+	// unitId. If successful, the leadership will persist for the supplied
+	// duration (or until released).
+	ClaimLeadership(serviceId, unitId string, duration time.Duration) error
 
 	// ReleaseLeadership releases a leadership claim for the given
 	// serviceId and unitId.

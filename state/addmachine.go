@@ -432,7 +432,7 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 		Principals: template.principals,
 		Life:       Alive,
 		Nonce:      template.Nonce,
-		Addresses:  instanceAddressesToAddresses(template.Addresses),
+		Addresses:  fromNetworkAddresses(template.Addresses),
 		NoVote:     template.NoVote,
 		Placement:  template.Placement,
 	}

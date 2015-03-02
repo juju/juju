@@ -20,6 +20,7 @@ import (
 
 type UnsetSuite struct {
 	testing.JujuConnSuite
+	CmdBlockHelper
 	svc *state.Service
 	dir string
 }
@@ -33,6 +34,10 @@ func (s *UnsetSuite) SetUpTest(c *gc.C) {
 	s.svc = svc
 	s.dir = c.MkDir()
 	setupConfigFile(c, s.dir)
+
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
+	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
 
 func (s *UnsetSuite) TestUnsetOptionOneByOneSuccess(c *gc.C) {
@@ -63,14 +68,14 @@ func (s *UnsetSuite) TestBlockUnset(c *gc.C) {
 	})
 
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.BlockAllChanges(c, "TestBlockUnset")
 
 	ctx := coretesting.ContextForDir(c, s.dir)
 	code := cmd.Main(envcmd.Wrap(&UnsetCommand{}), ctx, append([]string{"dummy-service"}, []string{"username"}...))
 	c.Check(code, gc.Equals, 1)
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*TestBlockUnset.*")
 }
 
 func (s *UnsetSuite) TestUnsetOptionMultipleAtOnceSuccess(c *gc.C) {

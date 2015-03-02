@@ -316,6 +316,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 		UnitTag:    unit.Tag().String(),
 		Kind:       params.StorageKindBlock,
 		Location:   "outerspace",
+		Life:       "alive",
 	})
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)

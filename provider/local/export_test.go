@@ -10,6 +10,9 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 )
 
 var (
@@ -84,4 +87,21 @@ func PatchCreateContainer(s *testing.CleanupSuite, c *gc.C, expectedURL string) 
 	}
 	s.PatchValue(&createContainer, mockFunc)
 	return mockFunc
+}
+
+func PatchServices(patchValue func(interface{}, interface{}), data *service.FakeServiceData) {
+	patchValue(&mongoRemoveService, func(namespace string) error {
+		data.AddCall("RemoveService", namespace)
+		data.SetStatus(mongo.ServiceName(namespace), "")
+		return data.NextErr()
+	})
+	patchValue(&discoverService, func(name string) (agentService, error) {
+		return NewService(name, common.Conf{}, data), nil
+	})
+}
+
+func NewService(name string, conf common.Conf, data *service.FakeServiceData) *service.FakeService {
+	svc := service.NewFakeService(name, conf)
+	svc.FakeServiceData = data
+	return svc
 }

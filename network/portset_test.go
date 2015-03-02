@@ -36,10 +36,10 @@ func (s *PortSetSuite) SetUpTest(c *gc.C) {
 	portRange4, err := network.ParsePortRange("5000-5123/udp")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.portRange1 = *portRange1
-	s.portRange2 = *portRange2
-	s.portRange3 = *portRange3
-	s.portRange4 = *portRange4
+	s.portRange1 = portRange1
+	s.portRange2 = portRange2
+	s.portRange3 = portRange3
+	s.portRange4 = portRange4
 }
 
 func (s *PortSetSuite) getPorts(start, end int) []int {

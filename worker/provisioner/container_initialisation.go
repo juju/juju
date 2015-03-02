@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 
 	"github.com/juju/juju/agent"
@@ -218,11 +219,25 @@ func containerManagerConfig(
 		managerConfigResult.ManagerConfig[container.ConfigName] = namespace
 	}
 	managerConfig := container.ManagerConfig(managerConfigResult.ManagerConfig)
+
+	// Enable IP forwarding if needed.
+	if _, ok := managerConfig[container.ConfigIPForwarding]; ok {
+		if err := setIPForwarding(true); err != nil {
+			return nil, errors.Trace(err)
+		}
+		logger.Infof("enabled IP forwarding for containers")
+	}
 	return managerConfig, nil
 }
 
 // Override for testing.
-var StartProvisioner = startProvisionerWorker
+var (
+	StartProvisioner = startProvisionerWorker
+
+	sysctlConfig = "/etc/sysctl.conf"
+)
+
+const ipForwardSysctlKey = "net.ipv4.ip_forward"
 
 // startProvisionerWorker kicks off a provisioner task responsible for creating containers
 // of the specified type on the machine.
@@ -230,9 +245,44 @@ func startProvisionerWorker(runner worker.Runner, containerType instance.Contain
 	provisioner *apiprovisioner.State, config agent.Config, broker environs.InstanceBroker) error {
 
 	workerName := fmt.Sprintf("%s-provisioner", containerType)
-	// The provisioner task is created after a container record has already been added to the machine.
-	// It will see that the container does not have an instance yet and create one.
+	// The provisioner task is created after a container record has
+	// already been added to the machine. It will see that the
+	// container does not have an instance yet and create one.
 	return runner.StartWorker(workerName, func() (worker.Worker, error) {
 		return NewContainerProvisioner(containerType, provisioner, config, broker), nil
 	})
+}
+
+// setIPForwarding enables or disables IP forwarding on the machine.
+// This is needed when the machine needs to host addressable
+// containers.
+var setIPForwarding = func(enabled bool) (err error) {
+	val := "0"
+	if enabled {
+		val = "1"
+	}
+	keyAndVal := fmt.Sprintf("%s=%s", ipForwardSysctlKey, val)
+	defer errors.DeferredAnnotatef(&err, "cannot set IP forwarding to %s", keyAndVal)
+
+	commands := []string{
+		// Change it immediately:
+		fmt.Sprintf("sysctl -w %s", keyAndVal),
+
+		// Change it also on next boot:
+		fmt.Sprintf("echo '%s' | tee -a %s", keyAndVal, sysctlConfig),
+	}
+	for _, cmd := range commands {
+		result, err := exec.RunCommands(exec.RunParams{Commands: cmd})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Debugf(
+			"command %q returned: code: %d, stdout: %q, stderr: %q",
+			cmd, result.Code, string(result.Stdout), string(result.Stderr),
+		)
+		if result.Code != 0 {
+			return errors.Errorf("unexpected exit code %d", result.Code)
+		}
+	}
+	return nil
 }

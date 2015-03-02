@@ -13,8 +13,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
+	// TODO(dimitern): Don't ever import "." unless there's a GOOD
+	// reason to do it.
 	. "github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/testing"
@@ -142,7 +144,7 @@ func (s *ConstraintsCommandsSuite) TestSetEnviron(c *gc.C) {
 
 func (s *ConstraintsCommandsSuite) TestBlockSetEnviron(c *gc.C) {
 	// Block operation
-	s.fake.err = &params.Error{Code: params.CodeOperationBlocked}
+	s.fake.err = common.ErrOperationBlocked("TestBlockSetEnviron")
 	// Set constraints.
 	s.assertSetBlocked(c, "mem=4G", "cpu-power=250")
 }
@@ -168,7 +170,7 @@ func (s *ConstraintsCommandsSuite) TestBlockSetService(c *gc.C) {
 	s.fake.addTestingService("svc")
 
 	// Block operation
-	s.fake.err = &params.Error{Code: params.CodeOperationBlocked}
+	s.fake.err = common.ErrOperationBlocked("TestBlockSetService")
 	// Set constraints.
 	s.assertSetBlocked(c, "-s", "svc", "mem=4G", "cpu-power=250")
 }

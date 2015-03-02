@@ -8,7 +8,6 @@ import (
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker/uniter/hook"
 )
 
 // Filter is responsible for delivering events relevant to a unit agent in a
@@ -49,7 +48,7 @@ type Filter interface {
 
 	// ActionEvents returns a channel that will receive a signal whenever the unit
 	// receives new Actions.
-	ActionEvents() <-chan *hook.Info
+	ActionEvents() <-chan string
 
 	// RelationsEvents returns a channel that will receive the ids of all the service's
 	// relations whose Life status has changed.

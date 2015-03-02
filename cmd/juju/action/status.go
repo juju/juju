@@ -19,21 +19,19 @@ type StatusCommand struct {
 }
 
 const statusDoc = `
-Show the status of an Action by its identifier.
+Show the status of an Action by ID.
 `
 
-// Set up the YAML output.
+// Set up the output.
 func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-	})
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 }
 
 func (c *StatusCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "status",
-		Args:    "<action identifier>",
-		Purpose: "WIP: show results of an action by identifier",
+		Args:    "<action ID>",
+		Purpose: "show results of an action by ID",
 		Doc:     statusDoc,
 	}
 }
@@ -41,7 +39,7 @@ func (c *StatusCommand) Info() *cmd.Info {
 func (c *StatusCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
-		return errors.New("no action identifier specified")
+		return errors.New("no action ID specified")
 	case 1:
 		c.requestedId = args[0]
 		return nil
@@ -81,11 +79,8 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	if result.Error != nil {
 		return result.Error
 	}
-	return c.out.Write(ctx, struct {
-		Id     string
-		Status string
-	}{
-		Id:     actionTag.Id(),
-		Status: result.Status,
+	return c.out.Write(ctx, map[string]interface{}{
+		"id":     actionTag.Id(),
+		"status": result.Status,
 	})
 }
