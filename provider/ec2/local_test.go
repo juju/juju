@@ -65,7 +65,6 @@ func registerLocalTests() {
 	// has entries in the images/query txt files.
 	aws.Regions["test"] = aws.Region{
 		Name: "test",
-		Sign: aws.SignV2,
 	}
 
 	gc.Suite(&localServerSuite{})
@@ -120,7 +119,6 @@ func (srv *localServer) startServer(c *gc.C) {
 		EC2Endpoint:          srv.ec2srv.URL(),
 		S3Endpoint:           srv.s3srv.URL(),
 		S3LocationConstraint: true,
-		Sign:                 aws.SignV2,
 	}
 	srv.addSpice(c)
 

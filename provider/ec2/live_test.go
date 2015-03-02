@@ -379,7 +379,8 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 func (t *LiveTests) TestPutBucketOnlyOnce(c *gc.C) {
 	t.PrepareOnce(c)
 	s3inst := ec2.EnvironS3(t.Env)
-	b := s3inst.Bucket("test-once-" + uniqueName)
+	b, err := s3inst.Bucket("test-once-" + uniqueName)
+	c.Assert(err, jc.ErrorIsNil)
 	s := ec2.BucketStorage(b)
 
 	// Check that we don't do a PutBucket every time by
@@ -388,7 +389,7 @@ func (t *LiveTests) TestPutBucketOnlyOnce(c *gc.C) {
 	// which should fail because it doesn't try to do
 	// the PutBucket again.
 
-	err := s.Put("test-object", strings.NewReader("test"), 4)
+	err = s.Put("test-object", strings.NewReader("test"), 4)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.Remove("test-object")
