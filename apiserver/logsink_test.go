@@ -78,8 +78,7 @@ func (s *logsinkSuite) checkAuthFailsWithEntityError(c *gc.C, header http.Header
 }
 
 func (s *logsinkSuite) checkAuthFails(c *gc.C, header http.Header, message string) {
-	conn, err := s.dialWebsocketInternal(c, header)
-	c.Assert(err, jc.ErrorIsNil)
+	conn := s.dialWebsocketInternal(c, header)
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 	assertJSONError(c, reader, "auth failed: "+message)
@@ -87,8 +86,7 @@ func (s *logsinkSuite) checkAuthFails(c *gc.C, header http.Header, message strin
 }
 
 func (s *logsinkSuite) TestLogging(c *gc.C) {
-	conn, err := s.dialWebsocket(c)
-	c.Assert(err, jc.ErrorIsNil)
+	conn := s.dialWebsocket(c)
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 
@@ -97,7 +95,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	c.Assert(errResult.Error, gc.IsNil)
 
 	t0 := time.Now().Truncate(time.Millisecond)
-	err = websocket.JSON.Send(conn, &apiserver.LogMessage{
+	err := websocket.JSON.Send(conn, &apiserver.LogMessage{
 		Time:     t0,
 		Module:   "some.where",
 		Location: "foo.go:42",
@@ -167,11 +165,11 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	}
 }
 
-func (s *logsinkSuite) dialWebsocket(c *gc.C) (*websocket.Conn, error) {
+func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {
 	return s.dialWebsocketInternal(c, s.makeAuthHeader())
 }
 
-func (s *logsinkSuite) dialWebsocketInternal(c *gc.C, header http.Header) (*websocket.Conn, error) {
+func (s *logsinkSuite) dialWebsocketInternal(c *gc.C, header http.Header) *websocket.Conn {
 	server := s.logsinkURL(c, "wss").String()
 	return s.dialWebsocketFromURL(c, server, header)
 }
@@ -179,8 +177,7 @@ func (s *logsinkSuite) dialWebsocketInternal(c *gc.C, header http.Header) (*webs
 func (s *logsinkSuite) openWebsocketCustomPath(c *gc.C, path string) *bufio.Reader {
 	server := s.logsinkURL(c, "wss")
 	server.Path = path
-	conn, err := s.dialWebsocketFromURL(c, server.String(), s.makeAuthHeader())
-	c.Assert(err, jc.ErrorIsNil)
+	conn := s.dialWebsocketFromURL(c, server.String(), s.makeAuthHeader())
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
 	return bufio.NewReader(conn)
 }

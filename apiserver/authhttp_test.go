@@ -52,7 +52,7 @@ func (s *authHttpSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCod
 	c.Check(jsonResponse(c, body).Error, gc.Matches, expError)
 }
 
-func (s *authHttpSuite) dialWebsocketFromURL(c *gc.C, server string, header http.Header) (*websocket.Conn, error) {
+func (s *authHttpSuite) dialWebsocketFromURL(c *gc.C, server string, header http.Header) *websocket.Conn {
 	c.Logf("dialing %v", server)
 	config, err := websocket.NewConfig(server, "http://localhost/")
 	c.Assert(err, jc.ErrorIsNil)
@@ -60,7 +60,9 @@ func (s *authHttpSuite) dialWebsocketFromURL(c *gc.C, server string, header http
 	caCerts := x509.NewCertPool()
 	c.Assert(caCerts.AppendCertsFromPEM([]byte(testing.CACert)), jc.IsTrue)
 	config.TlsConfig = &tls.Config{RootCAs: caCerts, ServerName: "anything"}
-	return websocket.DialConfig(config)
+	conn, err := websocket.DialConfig(config)
+	c.Assert(err, jc.ErrorIsNil)
+	return conn
 }
 
 func (s *authHttpSuite) assertWebsocketClosed(c *gc.C, reader *bufio.Reader) {
