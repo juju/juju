@@ -802,7 +802,7 @@ func (s *LxcSuite) TestShutdownInitScript(c *gc.C) {
 
 	c.Check(script, gc.Equals, `
 cat >> /etc/init/juju-template-restart.conf << 'EOF'
-description "Juju lxc template shutdown job"
+description "juju shutdown job"
 author "Juju Team <juju@lists.ubuntu.com>"
 start on stopped cloud-final
 

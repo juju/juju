@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
 )
 
 var (
@@ -87,12 +86,11 @@ func containerInitSystem() string {
 
 func shutdownInitScript(initSystem string) (string, error) {
 	name := "juju-template-restart"
-	conf := common.Conf{
-		Desc:         "Juju lxc template shutdown job",
-		Transient:    true,
-		AfterStopped: "cloud-final",
-		ExecStart:    "/sbin/shutdown -h now",
+	conf, err := service.ShutdownAfterConf("cloud-final")
+	if err != nil {
+		return "", errors.Trace(err)
 	}
+
 	svc, err := service.NewService(name, conf, initSystem)
 	if err != nil {
 		return "", errors.Trace(err)
