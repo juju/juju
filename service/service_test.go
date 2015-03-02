@@ -28,7 +28,7 @@ func (*serviceSuite) TestDiscoverService(c *gc.C) {
 	name := "a-service"
 	conf := common.Conf{
 		Desc:      "some service",
-		ExecStart: "<do something>",
+		ExecStart: "/path/to/some-command",
 	}
 	svc, err := service.DiscoverService(name, conf)
 	c.Assert(err, jc.ErrorIsNil)

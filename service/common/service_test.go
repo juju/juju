@@ -22,7 +22,7 @@ func (*serviceSuite) TestValidateOkay(c *gc.C) {
 		Name: "a-service",
 		Conf: common.Conf{
 			Desc:      "some service",
-			ExecStart: "<do something>",
+			ExecStart: "/path/to/some-command x y z",
 		},
 	}
 	err := service.Validate()
@@ -34,7 +34,7 @@ func (*serviceSuite) TestValidateMissingName(c *gc.C) {
 	service := common.Service{
 		Conf: common.Conf{
 			Desc:      "some service",
-			ExecStart: "<do something>",
+			ExecStart: "/path/to/some-command x y z",
 		},
 	}
 	err := service.Validate()
@@ -46,7 +46,7 @@ func (*serviceSuite) TestValidateMissingDesc(c *gc.C) {
 	service := common.Service{
 		Name: "a-service",
 		Conf: common.Conf{
-			ExecStart: "<do something>",
+			ExecStart: "/path/to/some-command x y z",
 		},
 	}
 	err := service.Validate()
