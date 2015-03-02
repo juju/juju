@@ -582,7 +582,7 @@ func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
 	s.PatchValue(provisioner.NetInterfaces, func() ([]net.Interface, error) {
 		return []net.Interface{{
 			Index: 0,
-			Name:  "eth0",
+			Name:  "fake0",
 			Flags: net.FlagUp,
 		}}, nil
 	})
@@ -608,6 +608,7 @@ func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:    0,
 		ConfigType:     network.ConfigStatic,
+		InterfaceName:  "eth0", // generated from the device index.
 		DNSServers:     network.NewAddresses("ns1.dummy"),
 		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
 		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
@@ -773,6 +774,7 @@ func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag) ([]network
 	}
 	return []network.InterfaceInfo{{
 		DeviceIndex:    0,
+		InterfaceName:  "dummy0",
 		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
 		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
 	}}, nil

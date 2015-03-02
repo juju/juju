@@ -6,6 +6,7 @@ package provisioner
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -414,6 +415,9 @@ func maybeAllocateStaticIP(
 		return nil, errors.Trace(err)
 	}
 	for i, _ := range finalIfaceInfo {
+		// The interface name on the container depends on the device
+		// index.
+		finalIfaceInfo[i].InterfaceName = fmt.Sprintf("eth%d", finalIfaceInfo[i].DeviceIndex)
 		finalIfaceInfo[i].ConfigType = network.ConfigStatic
 		finalIfaceInfo[i].DNSServers = dnsServers
 	}

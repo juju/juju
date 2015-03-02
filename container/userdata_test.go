@@ -60,7 +60,7 @@ bootcmd:
   auto eth0
   iface eth0 inet static
       address 0.1.2.3
-      netmask 255.255.255.255
+      netmask 255.255.255.0
       dns-nameservers ns1.invalid ns2.invalid
       pre-up ip route add 0.1.2.1 dev eth0
       pre-up ip route add default via 0.1.2.1
