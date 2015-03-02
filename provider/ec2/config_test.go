@@ -43,17 +43,18 @@ var testAuth = aws.Auth{"gopher", "long teeth"}
 // when mutated by the mutate function, or that the parse matches the
 // given error.
 type configTest struct {
-	config        map[string]interface{}
-	change        map[string]interface{}
-	expect        map[string]interface{}
-	region        string
-	cbucket       string
-	pbucket       string
-	pbucketRegion string
-	accessKey     string
-	secretKey     string
-	firewallMode  string
-	err           string
+	config             map[string]interface{}
+	change             map[string]interface{}
+	expect             map[string]interface{}
+	region             string
+	cbucket            string
+	pbucket            string
+	pbucketRegion      string
+	accessKey          string
+	secretKey          string
+	firewallMode       string
+	blockStorageSource string
+	err                string
 }
 
 type attrs map[string]interface{}
@@ -202,6 +203,14 @@ var configTests = []configTest{
 	}, {
 		config:       attrs{},
 		firewallMode: config.FwInstance,
+	}, {
+		config:             attrs{},
+		blockStorageSource: "ebs",
+	}, {
+		config: attrs{
+			"default-block-storage-source": "ebs-fast",
+		},
+		blockStorageSource: "ebs-fast",
 	}, {
 		config: attrs{
 			"firewall-mode": "instance",

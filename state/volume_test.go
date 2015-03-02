@@ -81,3 +81,56 @@ func (s *VolumeStateSuite) TestAddMachine(c *gc.C) {
 	_, err = s.State.VolumeAttachment(machine.MachineTag(), volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+func (s *VolumeStateSuite) TestAddMachineInvalidPool(c *gc.C) {
+	ch := s.AddTestingCharm(c, "storage-block")
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("invalid-pool", 1024, 1),
+	}
+	_, err := s.State.AddService("storage-block", s.Owner.String(), ch, nil, storage)
+	c.Assert(err, gc.ErrorMatches, `.* pool "invalid-pool" not found`)
+}
+
+func (s *VolumeStateSuite) TestAddMachineNoUserDefaultPool(c *gc.C) {
+	ch := s.AddTestingCharm(c, "storage-block")
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("", 1024, 1),
+	}
+	service, err := s.State.AddService("storage-block", s.Owner.String(), ch, nil, storage)
+	c.Assert(err, jc.ErrorIsNil)
+	cons, err := service.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
+		"data": state.StorageConstraints{
+			Pool:  "loop",
+			Size:  1024,
+			Count: 1,
+		},
+	})
+}
+
+func (s *VolumeStateSuite) TestAddMachineDefaultPool(c *gc.C) {
+	// Register a default pool.
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("default-block", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{
+		"storage-default-block-source": "default-block",
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch := s.AddTestingCharm(c, "storage-block")
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("", 1024, 1),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	cons, err := service.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
+		"data": state.StorageConstraints{
+			Pool:  "default-block",
+			Size:  1024,
+			Count: 1,
+		},
+	})
+}

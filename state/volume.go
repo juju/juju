@@ -279,10 +279,20 @@ func (st *State) addVolumeOp(params VolumeParams) (txn.Op, names.VolumeTag, erro
 }
 
 func (st *State) validateVolumeParams(params VolumeParams) error {
-	if poolName, err := validateStoragePool(st, params.Pool, storage.StorageKindBlock); err != nil {
+	conf, err := st.EnvironConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	envType := conf.Type()
+	if params.Pool == "" {
+		if poolName, err := defaultStoragePool(conf, envType, storage.StorageKindBlock); err != nil {
+			return err
+		} else {
+			params.Pool = poolName
+		}
+	}
+	if err := validateStoragePool(st, params.Pool, storage.StorageKindBlock); err != nil {
 		return err
-	} else {
-		params.Pool = poolName
 	}
 	if params.Size == 0 {
 		return errors.New("invalid size 0")

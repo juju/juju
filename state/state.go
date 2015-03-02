@@ -1219,6 +1219,9 @@ func (st *State) AddService(
 	if _, err := st.EnvironmentUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := addDefaultStorageConstraints(st, storage, ch.Meta()); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := validateStorageConstraints(st, storage, ch.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
