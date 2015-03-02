@@ -393,7 +393,7 @@ class Client:
             pid = command.pop(0)
             alive = command.pop(0)
             if len(alive) > 5 and int(alive.split(':')[0]) > old_age:
-                # the pid has an hours column and the value is greater than 1.
+                # the pid has an hours column and it is greater than old_age.
                 old_procs.append((pid, alive, command))
                 print(
                     "Pid {} is {} old. Ending {}".format(pid, alive, command))
