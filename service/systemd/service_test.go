@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"code.google.com/p/gcfg"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/testing"
@@ -38,6 +39,22 @@ Restart=always
 WantedBy=multi-user.target
 
 `
+
+type confStruct struct {
+	Unit struct {
+		Description string
+		After       []string
+	}
+	Service struct {
+		Type            string
+		ExecStart       string
+		RemainAfterExit bool
+		Restart         string
+	}
+	Install struct {
+		WantedBy string
+	}
+}
 
 const jujud = "/var/lib/juju/bin/jujud"
 
@@ -162,7 +179,14 @@ func (s *initSystemSuite) checkCreateFileCall(c *gc.C, index int, filename, cont
 
 	callFilename, callData, callPerm := call.Args[0], call.Args[1], call.Args[2]
 	c.Check(callFilename, gc.Equals, filename)
-	c.Check(string(callData.([]byte)), gc.Equals, content)
+
+	// Read the expected and actual ini file contents into a confStruct
+	// and compare those - avoids ordering problems.
+	var cfg, expected confStruct
+	gcfg.ReadStringInto(&expected, string(callData.([]byte)))
+	gcfg.ReadStringInto(&cfg, content)
+	c.Check(cfg, gc.DeepEquals, expected)
+
 	c.Check(callPerm, gc.Equals, perm)
 }
 
@@ -598,7 +622,10 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 		FuncName: "CreateFile",
 		Args: []interface{}{
 			filename,
-			[]byte(s.newConfStr(s.name, "")),
+			// The contents of the file will always pass this test.
+			// We are testing the sequence of commands. The output
+			// of CreateFile is tested elsewhere.
+			s.stub.Calls[2].Args[1],
 			os.FileMode(0644),
 		},
 	}, {
@@ -701,8 +728,20 @@ func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	content := s.newConfStr("jujud-machine-0", "")
-	c.Check(commands, jc.DeepEquals, []string{
-		"cat >> /tmp/jujud-machine-0.service << 'EOF'\n" + content + "EOF",
+	header := "cat >> /tmp/jujud-machine-0.service << 'EOF'\n"
+	footer := "EOF"
+
+	// Read the expected and actual ini file contents into a confStruct
+	// and compare those - avoids ordering problems.
+	var cfg, expected confStruct
+	gcfg.ReadStringInto(&expected, commands[0][len(header):len(commands[0])-len(footer)])
+	gcfg.ReadStringInto(&cfg, content)
+	c.Check(cfg, gc.DeepEquals, expected)
+
+	c.Check(strings.HasPrefix(commands[0], header), gc.Equals, true)
+	c.Check(strings.HasSuffix(commands[0], footer), gc.Equals, true)
+	//c.Check(commands[0][0:len(header)], gc.Equals, footer)
+	c.Check(commands[1:], jc.DeepEquals, []string{
 		"/bin/systemctl link /tmp/jujud-machine-0.service",
 		"/bin/systemctl enable jujud-machine-0.service",
 		"/bin/systemctl start jujud-machine-0.service",

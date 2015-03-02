@@ -4,6 +4,8 @@
 package google_test
 
 import (
+	"sort"
+
 	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -67,6 +69,7 @@ func (s *connSuite) TestConnectionOpenPortsAdd(c *gc.C) {
 	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "GetFirewall")
 	c.Check(s.FakeConn.Calls[1].FuncName, gc.Equals, "AddFirewall")
+	sort.Strings(s.FakeConn.Calls[1].Firewall.Allowed[0].Ports)
 	c.Check(s.FakeConn.Calls[1].Firewall, jc.DeepEquals, &compute.Firewall{
 		Name:         "spam",
 		TargetTags:   []string{"spam"},
@@ -100,13 +103,14 @@ func (s *connSuite) TestConnectionOpenPortsUpdate(c *gc.C) {
 	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "GetFirewall")
 	c.Check(s.FakeConn.Calls[1].FuncName, gc.Equals, "UpdateFirewall")
+	sort.Strings(s.FakeConn.Calls[1].Firewall.Allowed[0].Ports)
 	c.Check(s.FakeConn.Calls[1].Firewall, jc.DeepEquals, &compute.Firewall{
 		Name:         "spam",
 		TargetTags:   []string{"spam"},
 		SourceRanges: []string{"0.0.0.0/0"},
 		Allowed: []*compute.FirewallAllowed{{
 			IPProtocol: "tcp",
-			Ports:      []string{"80", "81", "443"},
+			Ports:      []string{"443", "80", "81"},
 		}},
 	})
 }
@@ -158,6 +162,7 @@ func (s *connSuite) TestConnectionClosePortsUpdate(c *gc.C) {
 	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "GetFirewall")
 	c.Check(s.FakeConn.Calls[1].FuncName, gc.Equals, "UpdateFirewall")
+	sort.Strings(s.FakeConn.Calls[1].Firewall.Allowed[0].Ports)
 	c.Check(s.FakeConn.Calls[1].Firewall, jc.DeepEquals, &compute.Firewall{
 		Name:         "spam",
 		TargetTags:   []string{"spam"},
