@@ -20,14 +20,14 @@ type StorageInterface interface {
 	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
 	UnitAssignedMachine(names.UnitTag) (names.MachineTag, error)
 	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
+	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 }
 
 // StorageAttachmentInfo returns the StorageAttachmentInfo for the specified
 // StorageAttachment by gathering information from related entities (volumes,
 // filesystems).
 func StorageAttachmentInfo(st StorageInterface, att state.StorageAttachment) (*storage.StorageAttachmentInfo, error) {
-	unitTag := att.Unit()
-	machineTag, err := st.UnitAssignedMachine(unitTag)
+	machineTag, err := st.UnitAssignedMachine(att.Unit())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -39,12 +39,11 @@ func StorageAttachmentInfo(st StorageInterface, att state.StorageAttachment) (*s
 	case state.StorageKindBlock:
 		return volumeStorageAttachmentInfo(st, storageInstance, machineTag)
 	case state.StorageKindFilesystem:
-		return nil, errors.NotSupportedf("filesystem storage")
-	default:
 		// TODO(axw) handle filesystem kind once
 		// the state.Filesystem branch lands.
-		return nil, errors.Errorf("invalid storage kind %v", storageInstance.Kind())
+		return nil, errors.NotSupportedf("filesystem storage")
 	}
+	return nil, errors.Errorf("invalid storage kind %v", storageInstance.Kind())
 }
 
 func volumeStorageAttachmentInfo(
@@ -79,26 +78,31 @@ func volumeStorageAttachmentInfo(
 	return &storage.StorageAttachmentInfo{devicePath}, nil
 }
 
+// WatchStorageAttachment returns a state.NotifyWatcher that reacts to changes
+// to the VolumeAttachment or FilesystemAttachment corresponding to the tags
+// specified.
 func WatchStorageAttachment(st StorageInterface, storageTag names.StorageTag, unitTag names.UnitTag) (state.NotifyWatcher, error) {
-	storageInstance, err := s.st.StorageInstance(storageTag)
+	machineTag, err := st.UnitAssignedMachine(unitTag)
 	if err != nil {
-		return nothing, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	machineTag, err := s.st.UnitAssignedMachine(unitTag)
+	storageInstance, err := st.StorageInstance(storageTag)
 	if err != nil {
-		return nothing, errors.Trace(err)
+		return nil, errors.Annotate(err, "getting storage instance")
 	}
-	var watch state.NotifyWatcher
 	switch storageInstance.Kind() {
 	case state.StorageKindBlock:
-		volume, err := s.st.StorageInstanceVolume(storageTag)
+		volume, err := st.StorageInstanceVolume(storageTag)
 		if err != nil {
-			return nothing, errors.Trace(err)
+			return nil, errors.Annotate(err, "getting storage volume")
 		}
-		watch := s.st.WatchVolumeAttachment(machineTag, volume.VolumeTag())
-	default:
-		panic("!")
+		return st.WatchVolumeAttachment(machineTag, volume.VolumeTag()), nil
+	case state.StorageKindFilesystem:
+		// TODO(axw) handle filesystem kind once
+		// the state.Filesystem branch lands.
+		return nil, errors.NotSupportedf("filesystem storage")
 	}
+	return nil, errors.Errorf("invalid storage kind %v", storageInstance.Kind())
 }
 
 // MatchingBlockDevice finds the block device that matches the

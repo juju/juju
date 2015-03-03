@@ -1308,6 +1308,13 @@ func (st *State) WatchAPIHostPorts() NotifyWatcher {
 	return newEntityWatcher(st, stateServersC, apiHostPortsKey)
 }
 
+// WatchVolumeAttachment returns a watcher for observing changes
+// to a volume attachment.
+func (st *State) WatchVolumeAttachment(m names.MachineTag, v names.VolumeTag) NotifyWatcher {
+	id := volumeAttachmentId(m.Id(), v.Id())
+	return newEntityWatcher(st, volumeAttachmentsC, id)
+}
+
 // WatchConfigSettings returns a watcher for observing changes to the
 // unit's service configuration settings. The unit must have a charm URL
 // set before this method is called, and the returned watcher will be

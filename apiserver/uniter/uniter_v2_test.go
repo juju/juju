@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/uniter"
 	"github.com/juju/juju/state"
-	jujufactory "github.com/juju/juju/testing/factory"
 )
 
 //TODO run all common V0 and V1 tests.
@@ -41,18 +40,29 @@ func (s *uniterV2Suite) TestStorageAttachments(c *gc.C) {
 		"data": {Pool: "", Size: 1024, Count: 1},
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, sCons)
-	factory := jujufactory.NewFactory(s.State)
-	unit := factory.MakeUnit(c, &jujufactory.UnitParams{
-		Service: service,
-	})
-
-	stateStorageAttachments, err := s.State.StorageAttachments(unit.UnitTag())
+	unit, err := service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateStorageAttachments, gc.HasLen, 1)
-	err = s.State.SetStorageAttachmentInfo(
-		stateStorageAttachments[0].StorageInstance(),
-		unit.UnitTag(),
-		state.StorageAttachmentInfo{Location: "outerspace"},
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	assignedMachineId, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(assignedMachineId)
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumeAttachments, err := machine.VolumeAttachments()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeAttachments, gc.HasLen, 1)
+
+	err = s.State.SetVolumeInfo(
+		volumeAttachments[0].Volume(),
+		state.VolumeInfo{VolumeId: "vol-123", Size: 456},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.SetVolumeAttachmentInfo(
+		machine.MachineTag(),
+		volumeAttachments[0].Volume(),
+		state.VolumeAttachmentInfo{DeviceName: "xvdf1"},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -70,7 +80,7 @@ func (s *uniterV2Suite) TestStorageAttachments(c *gc.C) {
 		OwnerTag:   unit.Tag().String(),
 		UnitTag:    unit.Tag().String(),
 		Kind:       params.StorageKindBlock,
-		Location:   "outerspace",
+		Location:   "/dev/xvdf1",
 		Life:       "alive",
 	}})
 }
