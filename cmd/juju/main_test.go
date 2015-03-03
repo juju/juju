@@ -230,6 +230,7 @@ var commandNames = []string{
 	"retry-provisioning",
 	"run",
 	"scp",
+	"service",
 	"set",
 	"set-constraints",
 	"set-env", // alias for set-environment
