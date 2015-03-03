@@ -180,12 +180,19 @@ func (s *initSystemSuite) checkCreateFileCall(c *gc.C, index int, filename, cont
 	callFilename, callData, callPerm := call.Args[0], call.Args[1], call.Args[2]
 	c.Check(callFilename, gc.Equals, filename)
 
-	// Read the expected and actual ini file contents into a confStruct
-	// and compare those - avoids ordering problems.
-	var cfg, expected confStruct
-	gcfg.ReadStringInto(&expected, string(callData.([]byte)))
-	gcfg.ReadStringInto(&cfg, content)
-	c.Check(cfg, gc.DeepEquals, expected)
+	// Some tests don't generate valid ini files, instead including placeholder
+	// strings. To avoid parsing errors, we only try and parse actual and expected
+	// file content if they don't exactly match.
+	if content != string(callData.([]byte)) {
+		// Read the expected and actual ini file contents into a confStruct
+		// and compare those - avoids ordering problems.
+		var cfg, expected confStruct
+		err := gcfg.ReadStringInto(&expected, string(callData.([]byte)))
+		c.Assert(err, jc.ErrorIsNil)
+		err = gcfg.ReadStringInto(&cfg, content)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(cfg, gc.DeepEquals, expected)
+	}
 
 	c.Check(callPerm, gc.Equals, perm)
 }
@@ -622,9 +629,9 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 		FuncName: "CreateFile",
 		Args: []interface{}{
 			filename,
-			// The contents of the file will always pass this test.
-			// We are testing the sequence of commands. The output
-			// of CreateFile is tested elsewhere.
+			// The contents of the file will always pass this test. We are
+			// testing the sequence of commands. The output of CreateFile
+			// is tested by tests that call checkCreateFileCall.
 			s.stub.Calls[2].Args[1],
 			os.FileMode(0644),
 		},
@@ -645,6 +652,7 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 	}, {
 		FuncName: "Close",
 	}})
+	//s.checkCreateFileCall(c, 2, filename, s.newConfStr(s.name, ""), 0644)
 }
 
 func (s *initSystemSuite) TestInstallAlreadyInstalled(c *gc.C) {
@@ -734,13 +742,15 @@ func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 	// Read the expected and actual ini file contents into a confStruct
 	// and compare those - avoids ordering problems.
 	var cfg, expected confStruct
-	gcfg.ReadStringInto(&expected, commands[0][len(header):len(commands[0])-len(footer)])
-	gcfg.ReadStringInto(&cfg, content)
-	c.Check(cfg, gc.DeepEquals, expected)
+	err = gcfg.ReadStringInto(&expected, commands[0][len(header):len(commands[0])-len(footer)])
+	c.Assert(err, jc.ErrorIsNil)
+	err = gcfg.ReadStringInto(&cfg, content)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg, jc.DeepEquals, expected)
 
-	c.Check(strings.HasPrefix(commands[0], header), gc.Equals, true)
-	c.Check(strings.HasSuffix(commands[0], footer), gc.Equals, true)
-	//c.Check(commands[0][0:len(header)], gc.Equals, footer)
+	cmd := commands[0]
+	c.Check(cmd, jc.HasPrefix, header)
+	c.Check(cmd, jc.HasSuffix, footer)
 	c.Check(commands[1:], jc.DeepEquals, []string{
 		"/bin/systemctl link /tmp/jujud-machine-0.service",
 		"/bin/systemctl enable jujud-machine-0.service",

@@ -46,6 +46,30 @@ func (*serviceSuite) TestDiscoverService(c *gc.C) {
 	c.Check(svc.Conf(), jc.DeepEquals, conf)
 }
 
+// checkShellSwitch examines the contents a fragment of shell script that implements a switch
+// using an if, elif, else chain. It tests that each command in expectedCommands is used once
+// and that the whole script fragment ends with "else exit 1". The order of commands in
+// script doesn't matter.
+func checkShellSwitch(c *gc.C, script string, expectedCommands []string) {
+	cmds := strings.Split(script, "\n")
+
+	// Ensure that we terminate the if, elif, else chain correctly
+	last := len(cmds) - 1
+	c.Check(cmds[last-1], gc.Equals, "else exit 1")
+	c.Check(cmds[last], gc.Equals, "fi")
+
+	// First line must start with if
+	c.Check(cmds[0][0:3], gc.Equals, "if ")
+
+	// Further lines must start with elif. Convert them to if <statement>
+	for i := 1; i < last-1; i++ {
+		c.Check(cmds[i][0:5], gc.Equals, "elif ")
+		cmds[i] = cmds[i][2:]
+	}
+
+	c.Check(cmds[0:last-1], jc.SameContents, expectedCommands)
+}
+
 func (*serviceSuite) TestListServicesCommand(c *gc.C) {
 	cmd := service.ListServicesCommand()
 
@@ -61,39 +85,6 @@ func (*serviceSuite) TestListServicesCommand(c *gc.C) {
 		fmt.Sprintf(line, "/bin/systemd", systemd),
 		fmt.Sprintf(line, "/lib/systemd/systemd", systemd),
 	}
-	
-	/* We expect the command sequence to start with an if <command>
-	   then each command to be prefixed with elif and the whole
-	   list to be terminated by "else exit 1". The particular commands
-	   don't have a required order, so we accept any order. */
-	cmds := strings.Split(cmd, "\n")
-	foundLines := 0
-	for i := range cmds {
-		cmdline := ""
-		switch i {
-			case 0:
-				c.Check(cmds[i][0:3], gc.Equals, "if ")
-				cmdline = cmds[i]
-			case len(cmds) - 2:
-				c.Check(cmds[i], gc.Equals, "else exit 1")
-			case len(cmds) - 1:
-				c.Check(cmds[i], gc.Equals, "fi")
-			default:
-				c.Check(cmds[i][0:5], gc.Equals, "elif ")
-				cmdline = cmds[i][2:]
-		}
-		if cmdline != "" {
-			ok := false
-			for _, testLine := range(lines) {
-				if testLine == cmdline {
-					ok = true
-					foundLines++
-					break
-				}
-			}
-			c.Check(ok, gc.Equals, true)
-		}
-	}
-	c.Check(foundLines, gc.Equals, len(lines))
-	return
+
+	checkShellSwitch(c, cmd, lines)
 }
