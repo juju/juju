@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
 	coretesting "github.com/juju/juju/testing"
@@ -705,5 +706,35 @@ func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 		"/bin/systemctl link /tmp/jujud-machine-0.service",
 		"/bin/systemctl enable jujud-machine-0.service",
 		"/bin/systemctl start jujud-machine-0.service",
+	})
+}
+
+func (s *initSystemSuite) TestInstallCommandsShutdown(c *gc.C) {
+	name := "juju-shutdown-job"
+	conf, err := service.ShutdownAfterConf("cloud-final")
+	c.Assert(err, jc.ErrorIsNil)
+	svc, err := systemd.NewService(name, conf)
+	c.Assert(err, jc.ErrorIsNil)
+	commands, err := svc.InstallCommands()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(commands, jc.DeepEquals, []string{
+		`cat >> /tmp/juju-shutdown-job.service << 'EOF'
+[Unit]
+Description=juju shutdown job
+After=syslog.target
+After=network.target
+After=systemd-user-sessions.service
+After=cloud-final
+Conflicts=cloud-final
+
+[Service]
+ExecStart=/sbin/shutdown -h now
+ExecStopPost=/bin/systemctl disable juju-shutdown-job.service
+
+EOF`,
+		"/bin/systemctl link /tmp/juju-shutdown-job.service",
+		"/bin/systemctl enable juju-shutdown-job.service",
+		"/bin/systemctl start juju-shutdown-job.service",
 	})
 }
