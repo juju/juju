@@ -18,7 +18,7 @@ import (
 // whereas the user could represent a remote user or a user
 // across multiple environments the environment user always represents
 // a single user for a single environment.
-// There should be no more than one EnvironmentUser per user
+// There should be no more than one EnvironmentUser per user.
 type EnvironmentUser struct {
 	st  *State
 	doc envUserDoc
