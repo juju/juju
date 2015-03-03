@@ -98,7 +98,7 @@ func discoverLocalInitSystem() (string, error) {
 
 	initName, ok := identifyInitSystem(executable)
 	if !ok {
-		return "", errors.NotFoundf("init system (based on %s)", executable)
+		return "", errors.NotFoundf("init system (based on %q)", executable)
 	}
 	logger.Debugf("discovered init system %q from executable %q", initName, executable)
 	return initName, nil
