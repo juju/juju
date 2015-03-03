@@ -73,7 +73,7 @@ func checkShellSwitch(c *gc.C, script string, expectedCommands []string) {
 func (*serviceSuite) TestListServicesCommand(c *gc.C) {
 	cmd := service.ListServicesCommand()
 
-	line := `if [[ "$(cat /proc/1/cmdline)" == "%s" ]]; then %s`
+	line := `if [[ "$(cat /proc/1/cmdline | awk '{print $1}')" == "%s" ]]; then %s`
 	upstart := `sudo initctl list | awk '{print $1}' | sort | uniq`
 	systemd := `/bin/systemctl list-unit-files --no-legend --no-page -t service` +
 		` | grep -o -P '^\w[\S]*(?=\.service)'`

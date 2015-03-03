@@ -2,6 +2,10 @@ package service
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"runtime"
+	"strings"
 
 	"github.com/juju/errors"
 
@@ -96,9 +100,17 @@ func NewService(name string, conf common.Conf, initSystem string) (Service, erro
 // DiscoverService returns an interface to a service apropriate
 // for the current system
 func DiscoverService(name string, conf common.Conf) (Service, error) {
-	initName, ok := VersionInitSystem(version.Current)
-	if !ok {
-		return nil, errors.NotFoundf("init system on local host")
+	initName, err := discoverLocalInitSystem()
+	if errors.IsNotFound(err) {
+		// Fall back to checking the juju version.
+		versionInitName, ok := VersionInitSystem(version.Current)
+		if !ok {
+			return nil, errors.NotFoundf("init system on local host")
+		}
+		initName = versionInitName
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	service, err := NewService(name, conf, initName)
@@ -118,10 +130,6 @@ func VersionInitSystem(vers version.Binary) (string, bool) {
 	case version.Ubuntu:
 		switch vers.Series {
 		case "precise", "quantal", "raring", "saucy", "trusty", "utopic":
-			return InitSystemUpstart, true
-		// TODO(ericsnow) the explicit vivid case should be removed once
-		// vivid switches over to systemd (for PID 1).
-		case "vivid":
 			return InitSystemUpstart, true
 		default:
 			// vivid and later
@@ -180,8 +188,38 @@ var linuxExecutables = []initSystem{
 	{"/lib/systemd/systemd", InitSystemSystemd},
 }
 
+func identifyInitSystem(executable string) (string, bool) {
+	for _, initSystem := range linuxExecutables {
+		if executable == initSystem.executable {
+			return initSystem.name, true
+		}
+	}
+	return "", false
+}
+
+func discoverLocalInitSystem() (string, error) {
+	if runtime.GOOS == "windows" {
+		return InitSystemWindows, nil
+	}
+
+	data, err := ioutil.ReadFile("/proc/1/cmdline")
+	if os.IsNotExist(err) {
+		return "", errors.NotFoundf("init system")
+	}
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	executable := strings.Fields(string(data))[0]
+
+	initName, ok := identifyInitSystem(executable)
+	if !ok {
+		return "", errors.NotFoundf("init system (%s)", executable)
+	}
+	return initName, nil
+}
+
 // TODO(ericsnow) Is it too much to cat once for each executable?
-const initSystemTest = `[[ "$(cat /proc/1/cmdline)" == "%s" ]]`
+const initSystemTest = `[[ "$(cat /proc/1/cmdline | awk '{print $1}')" == "%s" ]]`
 
 // ListServicesCommand returns the command that should be run to get
 // a list of service names on a host.
