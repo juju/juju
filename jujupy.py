@@ -110,9 +110,6 @@ class JujuClientDevel:
         """Return the value of the environment's configured option."""
         return self.get_env_client(environment).get_env_option(option)
 
-    def deployer(self, environment, bundle):
-        return self.get_env_client(environment).deployer(bundle)
-
     def quickstart(self, environment, bundle):
         return self.get_env_client(environment).quickstart(bundle)
 
@@ -690,9 +687,6 @@ class Environment(SimpleEnvironment):
     def deploy(self, charm):
         args = (charm,)
         return self.juju('deploy', *args)
-
-    def deployer(self, bundle):
-        return self.client.deployer(self, bundle)
 
     def quickstart(self, bundle):
         return self.client.quickstart(self, bundle)

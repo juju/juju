@@ -23,6 +23,9 @@ from jujuconfig import (
 from jujupy import (
     bootstrap_from_env,
     Environment,
+    EnvJujuClient,
+    SimpleEnvironment,
+    temp_bootstrap_env,
     get_local_root,
 )
 from substrate import (
@@ -524,26 +527,26 @@ def run_deployer():
     if args.debug:
         log_level = logging.DEBUG
     configure_logging(log_level)
-    env = Environment.from_config(args.env)
-    env.client.debug = args.debug
-    juju_home = get_juju_home()
+    env = SimpleEnvironment.from_config(args.env)
     update_env(env, args.job_name, series=args.series,
                agent_url=args.agent_url)
-    ensure_deleted(get_jenv_path(juju_home, env.environment))
-    env.destroy_environment()
-    bootstrap_from_env(juju_home, env.client.get_env_client(env))
-    host = get_machine_dns_name(env.client.get_env_client(env), 0)
+    client = EnvJujuClient.by_version(env, debug=args.debug)
+    client.destroy_environment()
+    juju_home = get_juju_home()
+    with temp_bootstrap_env(
+            get_juju_home(), client, set_home=False) as juju_home:
+        client.bootstrap(juju_home=juju_home)
+    host = get_machine_dns_name(client, 0)
     if host is None:
         raise Exception('Could not get machine 0 host')
     try:
-        env.deployer(args.bundle_path)
+        client.deployer(args.bundle_path)
     except BaseException as e:
         logging.exception(e)
-        dump_env_logs(env, host, args.log_dir)
         sys.exit(1)
     finally:
-        env.juju('status')
-        env.destroy_environment()
+        client.juju('status', ())
+        client.destroy_environment()
 
 
 def get_machine_dns_name(client, machine):
