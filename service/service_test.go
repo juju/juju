@@ -75,16 +75,15 @@ func (*serviceSuite) TestListServicesCommand(c *gc.C) {
 
 	line := `if [[ "$(cat /proc/1/cmdline)" == "%s" ]]; then %s`
 	upstart := `sudo initctl list | awk '{print $1}' | sort | uniq`
-	//systemd := `/bin/systemctl list-unit-files --no-legend --no-page -t service` +
-	//	` | grep -o -P '^\w[\S]*(?=\.service)'`
+	systemd := `/bin/systemctl list-unit-files --no-legend --no-page -t service` +
+		` | grep -o -P '^\w[\S]*(?=\.service)'`
 
 	lines := []string{
 		fmt.Sprintf(line, "/sbin/init", upstart),
 		fmt.Sprintf(line, "/sbin/upstart", upstart),
-		// TODO(ericsnow) Disabled for lp-1427210.
-		//fmt.Sprintf(line, "/sbin/systemd", systemd),
-		//fmt.Sprintf(line, "/bin/systemd", systemd),
-		//fmt.Sprintf(line, "/lib/systemd/systemd", systemd),
+		fmt.Sprintf(line, "/sbin/systemd", systemd),
+		fmt.Sprintf(line, "/bin/systemd", systemd),
+		fmt.Sprintf(line, "/lib/systemd/systemd", systemd),
 	}
 
 	checkShellSwitch(c, cmd, lines)
