@@ -35,7 +35,7 @@ var limitMap = map[string]string{
 // normalize adjusts the conf to more standardized content and
 // returns a new Conf with that updated content. It also returns the
 // content of any script file that should accompany the conf.
-func normalize(conf common.Conf, scriptPath string) (common.Conf, []byte) {
+func normalize(name string, conf common.Conf, scriptPath string) (common.Conf, []byte) {
 	var data []byte
 
 	if conf.ExtraScript != "" {
@@ -62,6 +62,11 @@ func normalize(conf common.Conf, scriptPath string) (common.Conf, []byte) {
 		conf.Output = ""
 	}
 
+	if conf.Transient {
+		// TODO(ericsnow) Handle Transient via systemd-run command?
+		conf.ExecStopPost = commands{executable}.disable(name)
+	}
+
 	return conf, data
 }
 
@@ -76,11 +81,6 @@ func isSimpleCommand(cmd string) bool {
 func validate(name string, conf common.Conf) error {
 	if name == "" {
 		return errors.NotValidf("missing service name")
-	}
-
-	if conf.ExecStopPost != "" {
-		// TODO(ericsnow) This needs to be sorted out.
-		return errors.NotSupportedf("Conf.ExecStopPost")
 	}
 
 	if err := conf.Validate(); err != nil {
@@ -100,16 +100,6 @@ func validate(name string, conf common.Conf) error {
 		if _, ok := limitMap[k]; !ok {
 			return errors.NotValidf("conf.Limit key %q", k)
 		}
-	}
-
-	if conf.Transient {
-		// TODO(ericsnow) This needs to be sorted out.
-		return errors.NotSupportedf("Conf.Transient")
-	}
-
-	if conf.AfterStopped != "" {
-		// TODO(ericsnow) This needs to be sorted out.
-		return errors.NotSupportedf("Conf.AfterStopped")
 	}
 
 	return nil
@@ -134,11 +124,13 @@ func serialize(name string, conf common.Conf) ([]byte, error) {
 func serializeUnit(conf common.Conf) []*unit.UnitOption {
 	var unitOptions []*unit.UnitOption
 
-	unitOptions = append(unitOptions, &unit.UnitOption{
-		Section: "Unit",
-		Name:    "Description",
-		Value:   conf.Desc,
-	})
+	if conf.Desc != "" {
+		unitOptions = append(unitOptions, &unit.UnitOption{
+			Section: "Unit",
+			Name:    "Description",
+			Value:   conf.Desc,
+		})
+	}
 
 	after := []string{
 		"syslog.target",
@@ -153,17 +145,33 @@ func serializeUnit(conf common.Conf) []*unit.UnitOption {
 		})
 	}
 
+	if conf.AfterStopped != "" {
+		unitOptions = append(unitOptions, &unit.UnitOption{
+			Section: "Unit",
+			Name:    "After",
+			Value:   conf.AfterStopped,
+		})
+		unitOptions = append(unitOptions, &unit.UnitOption{
+			Section: "Unit",
+			Name:    "Conflicts",
+			Value:   conf.AfterStopped,
+		})
+	}
+
 	return unitOptions
 }
 
 func serializeService(conf common.Conf) []*unit.UnitOption {
 	var unitOptions []*unit.UnitOption
 
-	unitOptions = append(unitOptions, &unit.UnitOption{
-		Section: "Service",
-		Name:    "Type",
-		Value:   "forking",
-	})
+	// TODO(ericsnow) This should key off Conf.Forking, once added.
+	if !conf.Transient {
+		unitOptions = append(unitOptions, &unit.UnitOption{
+			Section: "Service",
+			Name:    "Type",
+			Value:   "forking",
+		})
+	}
 
 	if conf.Output != "" {
 		unitOptions = append(unitOptions, &unit.UnitOption{
@@ -194,23 +202,39 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 		})
 	}
 
-	unitOptions = append(unitOptions, &unit.UnitOption{
-		Section: "Service",
-		Name:    "ExecStart",
-		Value:   conf.ExecStart,
-	})
+	if conf.ExecStart != "" {
+		unitOptions = append(unitOptions, &unit.UnitOption{
+			Section: "Service",
+			Name:    "ExecStart",
+			Value:   conf.ExecStart,
+		})
+	}
 
-	unitOptions = append(unitOptions, &unit.UnitOption{
-		Section: "Service",
-		Name:    "RemainAfterExit",
-		Value:   "yes",
-	})
+	// TODO(ericsnow) This should key off Conf.RemainAfterExit, once added.
+	if !conf.Transient {
+		unitOptions = append(unitOptions, &unit.UnitOption{
+			Section: "Service",
+			Name:    "RemainAfterExit",
+			Value:   "yes",
+		})
+	}
 
-	unitOptions = append(unitOptions, &unit.UnitOption{
-		Section: "Service",
-		Name:    "Restart",
-		Value:   "always",
-	})
+	// TODO(ericsnow) This should key off Conf.Restart, once added.
+	if !conf.Transient {
+		unitOptions = append(unitOptions, &unit.UnitOption{
+			Section: "Service",
+			Name:    "Restart",
+			Value:   "always",
+		})
+	}
+
+	if conf.ExecStopPost != "" {
+		unitOptions = append(unitOptions, &unit.UnitOption{
+			Section: "Service",
+			Name:    "ExecStopPost",
+			Value:   conf.ExecStopPost,
+		})
+	}
 
 	return unitOptions
 }
@@ -218,11 +242,13 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 func serializeInstall(conf common.Conf) []*unit.UnitOption {
 	var unitOptions []*unit.UnitOption
 
-	unitOptions = append(unitOptions, &unit.UnitOption{
-		Section: "Install",
-		Name:    "WantedBy",
-		Value:   "multi-user.target",
-	})
+	if !conf.Transient {
+		unitOptions = append(unitOptions, &unit.UnitOption{
+			Section: "Install",
+			Name:    "WantedBy",
+			Value:   "multi-user.target",
+		})
+	}
 
 	return unitOptions
 }
