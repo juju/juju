@@ -121,7 +121,9 @@ func VersionInitSystem(vers version.Binary) (string, bool) {
 			return InitSystemUpstart, true
 		default:
 			// vivid and later
-			return InitSystemSystemd, true
+			// TODO(ericsnow) Disabled for lp-1427210.
+			//return InitSystemSystemd, true
+			return "", false
 		}
 		// TODO(ericsnow) Support other OSes, like version.CentOS.
 	default:
@@ -164,11 +166,12 @@ var linuxExecutables = map[string]string{
 	// Note that some systems link /sbin/init to whatever init system
 	// is supported, so in the future we may need some other way to
 	// identify upstart uniquely.
-	"/sbin/init":           InitSystemUpstart,
-	"/sbin/upstart":        InitSystemUpstart,
-	"/sbin/systemd":        InitSystemSystemd,
-	"/bin/systemd":         InitSystemSystemd,
-	"/lib/systemd/systemd": InitSystemSystemd,
+	"/sbin/init":    InitSystemUpstart,
+	"/sbin/upstart": InitSystemUpstart,
+	// TODO(ericsnow) Disabled for lp-1427210.
+	//"/sbin/systemd":        InitSystemSystemd,
+	//"/bin/systemd":         InitSystemSystemd,
+	//"/lib/systemd/systemd": InitSystemSystemd,
 }
 
 // TODO(ericsnow) Is it too much to cat once for each executable?
