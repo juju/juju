@@ -2,7 +2,6 @@ package service
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/juju/errors"
 
@@ -161,15 +160,20 @@ func ListServices(initDir string) ([]string, error) {
 	}
 }
 
-var linuxExecutables = map[string]string{
+type initSystem struct {
+	Name    string
+	Flavour string
+}
+
+var linuxExecutables = []initSystem{
 	// Note that some systems link /sbin/init to whatever init system
 	// is supported, so in the future we may need some other way to
 	// identify upstart uniquely.
-	"/sbin/init":           InitSystemUpstart,
-	"/sbin/upstart":        InitSystemUpstart,
-	"/sbin/systemd":        InitSystemSystemd,
-	"/bin/systemd":         InitSystemSystemd,
-	"/lib/systemd/systemd": InitSystemSystemd,
+	{"/sbin/init", InitSystemUpstart},
+	{"/sbin/upstart", InitSystemUpstart},
+	{"/sbin/systemd", InitSystemSystemd},
+	{"/bin/systemd", InitSystemSystemd},
+	{"/lib/systemd/systemd", InitSystemSystemd},
 }
 
 // TODO(ericsnow) Is it too much to cat once for each executable?
@@ -183,25 +187,14 @@ func ListServicesCommand() string {
 
 	// TODO(ericsnow) build the command in a better way?
 
-	// We need ListServicesCommand to return the same string for the same
-	// input so we iterate using sorted keys. This enables simple testing.
-	keys := make([]string, len(executables))
-	i := 0
-	for k := range executables {
-		keys[i] = k
-		i += 1
-	}
-	sort.Strings(keys)
-	
 	cmdAll := ""
-	for _, executable := range keys {
-		initSystem := executables[executable]
-		cmd, ok := listServicesCommand(initSystem)
+	for _, executable := range executables {
+		cmd, ok := listServicesCommand(executable.Flavour)
 		if !ok {
 			continue
 		}
 
-		test := fmt.Sprintf(initSystemTest, executable)
+		test := fmt.Sprintf(initSystemTest, executable.Name)
 		cmd = fmt.Sprintf("if %s; then %s\n", test, cmd)
 		if cmdAll != "" {
 			cmd = "el" + cmd
