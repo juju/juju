@@ -184,22 +184,16 @@ func (s *Service) check() (bool, error) {
 func (s *Service) readConf() (common.Conf, error) {
 	var conf common.Conf
 
-	conn, err := newConn()
+	data, err := Cmdline{}.conf(s.Service.Name)
 	if err != nil {
 		return conf, errors.Trace(err)
 	}
-	defer conn.Close()
 
-	// go-systemd does not appear to provide an easy way to get
-	// a list of UnitOption for an existing unit. So we have to
-	// do build the list manually.
-
-	opts, err := getUnitOptions(conn, s.UnitName, "Service")
+	conf, err = deserialize(data)
 	if err != nil {
 		return conf, errors.Trace(err)
 	}
-	conf, err = deserializeOptions(opts)
-	return conf, errors.Trace(err)
+	return conf, nil
 }
 
 // Running implements Service.

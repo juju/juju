@@ -139,7 +139,7 @@ func (s *initSystemSuite) addListResponse() {
 	})
 }
 
-func (s *initSystemSuite) setConf(conf common.Conf) {
+func (s *initSystemSuite) setConf(c *gc.C, conf common.Conf) {
 	s.conn.SetProperty("", "Description", conf.Desc)
 	s.conn.SetProperty("Service", "Description", conf.Desc)
 
@@ -161,6 +161,14 @@ func (s *initSystemSuite) setConf(conf common.Conf) {
 
 	s.conn.SetProperty("Service", "StandardOutput", conf.Output)
 	s.conn.SetProperty("Service", "StandardError", conf.Output)
+
+	data, err := systemd.Serialize(s.name, conf)
+	c.Assert(err, jc.ErrorIsNil)
+	s.exec.Responses = append(s.exec.Responses, exec.ExecResponse{
+		Code:   0,
+		Stdout: data,
+		Stderr: nil,
+	})
 }
 
 func (s *initSystemSuite) checkCreateFileCall(c *gc.C, index int, filename, content string, perm os.FileMode) {
@@ -366,20 +374,18 @@ func (s *initSystemSuite) TestInstalledError(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestExistsTrue(c *gc.C) {
-	s.setConf(s.conf)
+	s.setConf(c, s.conf)
 
 	exists := s.service.Exists()
 
 	c.Check(exists, jc.IsTrue)
 	s.stub.CheckCallNames(c,
-		"GetUnitProperties",
-		"GetUnitTypeProperties",
-		"Close",
+		"RunCommand",
 	)
 }
 
 func (s *initSystemSuite) TestExistsFalse(c *gc.C) {
-	s.setConf(common.Conf{
+	s.setConf(c, common.Conf{
 		Desc:      s.conf.Desc,
 		ExecStart: s.conf.ExecStart,
 		Output:    "syslog",
@@ -389,9 +395,7 @@ func (s *initSystemSuite) TestExistsFalse(c *gc.C) {
 
 	c.Check(exists, jc.IsFalse)
 	s.stub.CheckCallNames(c,
-		"GetUnitProperties",
-		"GetUnitTypeProperties",
-		"Close",
+		"RunCommand",
 	)
 }
 
@@ -403,8 +407,7 @@ func (s *initSystemSuite) TestExistsError(c *gc.C) {
 
 	c.Check(exists, jc.IsFalse)
 	s.stub.CheckCallNames(c,
-		"GetUnitProperties",
-		"Close",
+		"RunCommand",
 	)
 }
 
@@ -658,28 +661,26 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 func (s *initSystemSuite) TestInstallAlreadyInstalled(c *gc.C) {
 	s.addService("jujud-machine-0", "inactive")
 	s.addListResponse()
-	s.setConf(s.conf)
+	s.setConf(c, s.conf)
 
 	err := s.service.Install()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
 		"RunCommand",
-		"GetUnitProperties",
-		"GetUnitTypeProperties",
-		"Close",
+		"RunCommand",
 	)
 }
 
 func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 	s.addService("jujud-machine-0", "active")
 	s.addListResponse()
-	s.addListResponse()
-	s.setConf(common.Conf{
+	s.setConf(c, common.Conf{
 		Desc:      s.conf.Desc,
 		ExecStart: s.conf.ExecStart,
 		Output:    "syslog",
 	})
+	s.addListResponse()
 	s.ch <- "done"
 
 	err := s.service.Install()
@@ -687,9 +688,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 
 	s.stub.CheckCallNames(c,
 		"RunCommand",
-		"GetUnitProperties",
-		"GetUnitTypeProperties",
-		"Close",
+		"RunCommand",
 		"ListUnits",
 		"Close",
 		"StopUnit",
@@ -704,7 +703,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 		"EnableUnitFiles",
 		"Close",
 	)
-	s.checkCreateFileCall(c, 13, s.name, "", 0644)
+	s.checkCreateFileCall(c, 11, s.name, "", 0644)
 }
 
 func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
