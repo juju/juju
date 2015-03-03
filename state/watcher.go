@@ -1312,7 +1312,7 @@ func (st *State) WatchAPIHostPorts() NotifyWatcher {
 // to a volume attachment.
 func (st *State) WatchVolumeAttachment(m names.MachineTag, v names.VolumeTag) NotifyWatcher {
 	id := volumeAttachmentId(m.Id(), v.Id())
-	return newEntityWatcher(st, volumeAttachmentsC, id)
+	return newEntityWatcher(st, volumeAttachmentsC, st.docID(id))
 }
 
 // WatchConfigSettings returns a watcher for observing changes to the

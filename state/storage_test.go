@@ -378,19 +378,6 @@ func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
-	_, u, storageTag := s.setupSingleStorage(c)
-
-	w := s.State.WatchStorageAttachment(storageTag, u.UnitTag())
-	defer testing.AssertStop(c, w)
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
-	wc.AssertOneChange()
-
-	err := s.State.DestroyStorageAttachment(storageTag, u.UnitTag())
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-}
-
 // TODO(axw) StorageAttachments can't be added to Dying StorageInstance
 // TODO(axw) StorageInstance without attachments is removed by Destroy
 // TODO(axw) StorageInstance becomes Dying when Unit becomes Dying

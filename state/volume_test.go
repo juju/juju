@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
@@ -202,6 +203,37 @@ func (s *VolumeStateSuite) TestSetVolumeInfoNoStorageAssigned(c *gc.C) {
 	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVolumeInfo(c, volumeTag, volumeInfoSet)
+}
+
+func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "block")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	assignedMachineId, err := u.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machineTag := names.NewMachineTag(assignedMachineId)
+
+	volume, err := s.State.StorageInstanceVolume(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	volumeTag := volume.VolumeTag()
+
+	w := s.State.WatchVolumeAttachment(machineTag, volumeTag)
+	defer testing.AssertStop(c, w)
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	err = s.State.SetVolumeAttachmentInfo(
+		machineTag, volumeTag, state.VolumeAttachmentInfo{
+			DeviceName: "xvdf1",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// volume attachment will NOT react to volume changes
+	err = s.State.SetVolumeInfo(volumeTag, state.VolumeInfo{VolumeId: "vol-123"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
 }
 
 func (s *VolumeStateSuite) assertVolumeUnprovisioned(c *gc.C, tag names.VolumeTag) {
