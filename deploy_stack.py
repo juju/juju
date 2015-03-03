@@ -509,8 +509,6 @@ def run_deployer():
     parser.add_argument('log_dir', help='log directory.')
     parser.add_argument('--agent-url', default=None,
                         help='URL to use for retrieving agent binaries.')
-    parser.add_argument('--service-count', type=int, default=2,
-                        help='Minimum number of expected services.')
     parser.add_argument('--debug', action="store_true", default=False,
                         help='debug output')
     parser.add_argument('--new-juju-bin', default=False,
@@ -529,7 +527,7 @@ def run_deployer():
     env = Environment.from_config(args.env)
     env.client.debug = args.debug
     juju_home = get_juju_home()
-    update_env(args.env, args.job_name, series=args.series,
+    update_env(env, args.job_name, series=args.series,
                agent_url=args.agent_url)
     ensure_deleted(get_jenv_path(juju_home, env.environment))
     env.destroy_environment()

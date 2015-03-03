@@ -304,10 +304,10 @@ class EnvJujuClient:
         args = (charm,)
         return self.juju('deploy', args)
 
-    def deployer(self, bundle, upload_tools=False):
+    def deployer(self, bundle):
         """deployer, using sudo if necessary."""
-        args = ('--debug')
-        args = args + ('--deploy-delay', 10,)
+        args = ('--debug',)
+        args = args + ('--deploy-delay 10',)
         args = args + ('--config', bundle,)
         self.juju('deployer', args, self.env.needs_sudo())
 
