@@ -40,6 +40,8 @@ type MetricsManager interface {
 type MetricsManagerAPI struct {
 	state *state.State
 
+	// Backing store for the state of the sender.
+	// We only ever write to this store.
 	store *state.MetricsManager
 
 	accessEnviron common.GetAuthFunc
@@ -67,15 +69,8 @@ func NewMetricsManagerAPI(
 		}, nil
 	}
 
-	var store *state.MetricsManager
-	var err error
-	store, err = st.GetMetricsManager()
-	if err == state.MetricsManagerNotFoundError {
-		store, err = st.NewMetricsManager()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	} else if err != nil {
+	store, err := st.MetricsManager()
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -143,6 +138,14 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
+		unsentMetrics, err := api.state.CountofUnsentMetrics()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		if unsentMetrics == 0 {
+			continue
+		}
 		err = metricsender.SendMetrics(api.state, sender, maxBatchesPerSend)
 		if err != nil {
 			err = errors.Annotate(err, "failed to send metrics")
@@ -151,11 +154,6 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 			if incErr := api.store.IncrementConsecutiveErrors(); incErr != nil {
 				logger.Warningf("failed to increment error count with error %v, after sending error: %v", incErr, err)
 			}
-			continue
-		}
-		if err := api.store.ResetConsecutiveErrors(); err != nil {
-			err = errors.Annotate(err, "failed to reset consecutive errors count")
-			logger.Warningf(err.Error())
 			continue
 		}
 		if err := api.store.SetMetricsManagerSuccessfulSend(time.Now()); err != nil {

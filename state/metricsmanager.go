@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -20,10 +21,6 @@ const (
 	metricsManagerKey                       = "metricsManagerKey"
 )
 
-var (
-	MetricsManagerNotFoundError = errors.New("cannot create new metrics manager - only one allowed")
-)
-
 // MetricsManager stores data about the state of the metrics manager
 type MetricsManager struct {
 	st  *State
@@ -31,9 +28,15 @@ type MetricsManager struct {
 }
 
 type metricsManagerDoc struct {
+	DocID              string        `bson:"_id"`
 	LastSuccessfulSend time.Time     `bson:"lastsuccessfulsend"`
 	ConsecutiveErrors  int           `bson:"consecutiveerrors"`
 	GracePeriod        time.Duration `bson:"graceperiod"`
+}
+
+// DocID returns the Document id of the MetricsManager.
+func (m *MetricsManager) DocID() string {
+	return m.doc.DocID
 }
 
 // LastSuccessfulSend returns the time of the last successful send.
@@ -51,12 +54,22 @@ func (m *MetricsManager) GracePeriod() time.Duration {
 	return m.doc.GracePeriod
 }
 
-// NewMetricsManager returns a new MetricsManager
-// As only one can ever exist an error is returned if one already exists.
-func (st *State) NewMetricsManager() (*MetricsManager, error) {
+// MetricsManager returns an existing metricsmanager, or a new one if non exists.
+func (st *State) MetricsManager() (*MetricsManager, error) {
+	mm, err := st.getMetricsManager()
+	if errors.IsNotFound(err) {
+		return st.newMetricsManager()
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return mm, nil
+}
+
+func (st *State) newMetricsManager() (*MetricsManager, error) {
 	mm := &MetricsManager{
 		st: st,
 		doc: metricsManagerDoc{
+			DocID:              st.docID(metricsManagerKey),
 			LastSuccessfulSend: time.Time{},
 			ConsecutiveErrors:  0,
 			GracePeriod:        defaultGracePeriod,
@@ -65,27 +78,22 @@ func (st *State) NewMetricsManager() (*MetricsManager, error) {
 		if attempt > 0 {
 			coll, closer := st.getCollection(metricsManagerC)
 			defer closer()
-			n, err := coll.Find(bson.D{{"_id", metricsManagerKey}}).Count()
+			n, err := coll.FindId(st.docID(metricsManagerKey)).Count()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			if n > 0 {
-				return nil, MetricsManagerNotFoundError
+				return nil, errors.NotFoundf("metrics manager")
 			}
 		}
 		return []txn.Op{{
 			C:      metricsManagerC,
-			Id:     metricsManagerKey,
-			Assert: txn.DocMissing,
-		}, {
-			C:      metricsManagerC,
-			Id:     metricsManagerKey,
+			Id:     st.docID(metricsManagerKey),
 			Assert: txn.DocMissing,
 			Insert: mm.doc,
 		},
 		}, nil
 	}
-
 	err := st.run(buildTxn)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -93,41 +101,24 @@ func (st *State) NewMetricsManager() (*MetricsManager, error) {
 	return mm, nil
 }
 
-// GetMetricsManager returns an existing metrics manager if one exists.
-func (st *State) GetMetricsManager() (*MetricsManager, error) {
+func (st *State) getMetricsManager() (*MetricsManager, error) {
 	coll, closer := st.getCollection(metricsManagerC)
 	defer closer()
-	n, err := coll.Find(bson.D{{"_id", metricsManagerKey}}).Count()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if n == 0 {
-		return nil, MetricsManagerNotFoundError
-	}
 	var doc metricsManagerDoc
-	err = coll.Find(bson.D{{"_id", metricsManagerKey}}).One(&doc)
-	if err != nil {
+	err := coll.FindId(st.docID(metricsManagerKey)).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("metrics manager")
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &MetricsManager{st: st, doc: doc}, nil
 }
 
-func (m *MetricsManager) updateMetricsManagerOps(update bson.M) error {
+func (m *MetricsManager) updateMetricsManager(update bson.M) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			coll, closer := m.st.getCollection(metricsManagerC)
-			defer closer()
-			n, err := coll.Find(bson.D{{"_id", metricsManagerKey}}).Count()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if n == 0 {
-				return nil, errors.New("no existing metrics manager object")
-			}
-		}
 		return []txn.Op{{
 			C:      metricsManagerC,
-			Id:     metricsManagerKey,
+			Id:     m.st.docID(metricsManagerKey),
 			Assert: txn.DocExists,
 			Update: update,
 		}}, nil
@@ -137,37 +128,29 @@ func (m *MetricsManager) updateMetricsManagerOps(update bson.M) error {
 
 // SetMetricsManagerSuccessfulSend sets the last successful send time to the input time.
 func (m *MetricsManager) SetMetricsManagerSuccessfulSend(t time.Time) error {
-	err := m.updateMetricsManagerOps(
-		bson.M{"$set": bson.M{"lastsuccessfulsend": t.UTC()}},
+	err := m.updateMetricsManager(
+		bson.M{"$set": bson.M{
+			"lastsuccessfulsend": t.UTC(),
+			"consecutiveerrors":  0,
+		}},
 	)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	m.doc.LastSuccessfulSend = t.UTC()
+	m.doc.ConsecutiveErrors = 0
 	return nil
 }
 
 // IncrementConsecutiveErrors adds 1 to the consecutive errors count.
 func (m *MetricsManager) IncrementConsecutiveErrors() error {
-	err := m.updateMetricsManagerOps(
+	err := m.updateMetricsManager(
 		bson.M{"$inc": bson.M{"consecutiveerrors": 1}},
 	)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	m.doc.ConsecutiveErrors++
-	return nil
-}
-
-// ResetConsecutiveErrors resets the consecutive errors back to 0.
-func (m *MetricsManager) ResetConsecutiveErrors() error {
-	err := m.updateMetricsManagerOps(
-		bson.M{"$set": bson.M{"consecutiveerrors": 0}},
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	m.doc.ConsecutiveErrors = 0
 	return nil
 }
 
@@ -180,10 +163,10 @@ func (m *MetricsManager) gracePeriodExceeded() bool {
 // MeterStatus returns the overall state of the MetricsManager as a meter status summary.
 func (m *MetricsManager) MeterStatus() (code, info string) {
 	if m.ConsecutiveErrors() < metricsManagerConsecutiveErrorThreshold {
-		return "GREEN", "ok"
+		return string(MeterGreen), "ok"
 	}
 	if m.gracePeriodExceeded() {
-		return "RED", "failed to send metrics, exceeded grace period"
+		return string(MeterRed), "failed to send metrics, exceeded grace period"
 	}
-	return "AMBER", "failed to send metrics"
+	return string(MeterAmber), "failed to send metrics"
 }

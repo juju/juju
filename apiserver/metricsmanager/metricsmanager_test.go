@@ -172,7 +172,7 @@ func (s *metricsManagerSuite) TestMeterStatusOnConsecutiveErrors(c *gc.C) {
 	}}
 	_, err := s.metricsmanager.SendMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
-	mm, err := s.State.GetMetricsManager()
+	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mm.ConsecutiveErrors(), gc.Equals, 1)
 }
@@ -188,7 +188,20 @@ func (s *metricsManagerSuite) TestMeterStatusSuccessfulSend(c *gc.C) {
 	}}
 	_, err := s.metricsmanager.SendMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
-	mm, err := s.State.GetMetricsManager()
+	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mm.LastSuccessfulSend().After(pastTime), jc.IsTrue)
+}
+
+func (s *metricsManagerSuite) TestLastSuccessfulNotSentIfNothingToSend(c *gc.C) {
+	var sender metricsender.MockSender
+	metricsmanager.PatchSender(&sender)
+	args := params.Entities{Entities: []params.Entity{
+		{s.State.EnvironTag().String()},
+	}}
+	_, err := s.metricsmanager.SendMetrics(args)
+	c.Assert(err, jc.ErrorIsNil)
+	mm, err := s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mm.LastSuccessfulSend().Equal(time.Time{}), jc.IsTrue)
 }
