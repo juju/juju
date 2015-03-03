@@ -30,7 +30,7 @@ func (s *MeterStateSuite) SetUpTest(c *gc.C) {
 	s.unit = s.factory.MakeUnit(c, nil)
 	c.Assert(s.unit.Series(), gc.Equals, "quantal")
 	var err error
-	s.metricsManager, err = s.State.NewMetricsManager()
+	s.metricsManager, err = s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -150,27 +150,29 @@ func (s *MeterStateSuite) TestMeterStatusWithAmberMetricsManager(c *gc.C) {
 	c.Assert(info, gc.Equals, "failed to send metrics")
 }
 
-func (s *MeterStateSuite) TestMeterStatusMetricsManagerCombination(c *gc.C) {
+// TestMeterStatusMetricsManagerCombinations test every possible combination
+// of meter status from the unit and the metrics manager.
+func (s *MeterStateSuite) TestMeterStatusMetricsManagerCombinations(c *gc.C) {
 	greenMetricsMangager := func() {}
 	amberMetricsManager := func() {
+		err := s.metricsManager.SetLastSuccessfulSend(time.Now())
+		c.Assert(err, jc.ErrorIsNil)
 		for i := 0; i < 3; i++ {
 			err := s.metricsManager.IncrementConsecutiveErrors()
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		err := s.metricsManager.SetMetricsManagerSuccessfulSend(time.Now())
-		c.Assert(err, jc.ErrorIsNil)
 		code, _ := s.metricsManager.MeterStatus()
-		c.Assert(code, gc.Equals, "AMBER")
+		c.Assert(code, gc.Equals, state.MeterAmber)
 	}
 	redMetricsManager := func() {
+		err := s.metricsManager.SetLastSuccessfulSend(time.Now().Add(-14 * 24 * time.Hour))
+		c.Assert(err, jc.ErrorIsNil)
 		for i := 0; i < 3; i++ {
 			err := s.metricsManager.IncrementConsecutiveErrors()
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		err := s.metricsManager.SetMetricsManagerSuccessfulSend(time.Now().Add(-14 * 24 * time.Hour))
-		c.Assert(err, jc.ErrorIsNil)
 		code, _ := s.metricsManager.MeterStatus()
-		c.Assert(code, gc.Equals, "RED")
+		c.Assert(code, gc.Equals, state.MeterRed)
 	}
 	greenUnit := func() {
 		err := s.unit.SetMeterStatus("GREEN", "Unit")

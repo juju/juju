@@ -25,10 +25,12 @@ const (
 )
 
 var (
-	meterSeverity = map[string]int{
-		"RED":   0,
-		"AMBER": 1,
-		"GREEN": 2,
+	meterSeverity = map[MeterStatusCode]int{
+		MeterNotAvailable: 0,
+		MeterRed:          0,
+		MeterNotSet:       1,
+		MeterAmber:        1,
+		MeterGreen:        2,
 	}
 )
 
@@ -108,7 +110,7 @@ func removeMeterStatusOp(st *State, globalKey string) txn.Op {
 
 // GetMeterStatus returns the meter status for the unit.
 func (u *Unit) GetMeterStatus() (code, info string, err error) {
-	mm, err := u.st.GetMetricsManager()
+	mm, err := u.st.MetricsManager()
 	if err != nil {
 		return string(MeterNotAvailable), "", errors.Annotatef(err, "cannot retrieve meter status for metrics manager")
 	}
@@ -119,7 +121,7 @@ func (u *Unit) GetMeterStatus() (code, info string, err error) {
 
 	metricManagerCode, metricManagerInfo := mm.MeterStatus()
 
-	if metricManagerCode == "RED" || meterSeverity[metricManagerCode] < meterSeverity[string(status.Code)] {
+	if metricManagerCode == MeterRed || meterSeverity[metricManagerCode] < meterSeverity[status.Code] {
 		return string(metricManagerCode), metricManagerInfo, nil
 	}
 
