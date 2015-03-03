@@ -400,11 +400,20 @@ func (s *Service) InstallCommands() ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	cmds := commands{executable}
+	cmds := commands{}
 	cmdList := []string{
 		cmds.writeFile(name, dirname, data),
 		cmds.link(name, dirname),
 		cmds.enable(name),
+	}
+	return cmdList, nil
+}
+
+// StartCommands implements Service.
+func (s *Service) StartCommands() ([]string, error) {
+	name := s.Name()
+	cmds := commands{}
+	cmdList := []string{
 		cmds.start(name),
 	}
 	return cmdList, nil

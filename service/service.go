@@ -2,8 +2,10 @@ package service
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
@@ -22,34 +24,27 @@ const (
 var _ Service = (*upstart.Service)(nil)
 var _ Service = (*windows.Service)(nil)
 
-// TODO(ericsnow) bug #1426461
-// Running, Installed, and Exists should return errors.
-
-// Service represents a service in the init system running on a host.
-type Service interface {
-	// Name returns the service's name.
-	Name() string
-
-	// Conf returns the service's conf data.
-	Conf() common.Conf
-
-	// UpdateConfig adds a config to the service, overwriting the current one.
-	UpdateConfig(conf common.Conf)
-
-	// Running returns a boolean value that denotes
-	// whether or not the service is running.
-	Running() bool
-
+type ServiceActions interface {
 	// Start will try to start the service.
 	Start() error
 
 	// Stop will try to stop the service.
 	Stop() error
 
-	// TODO(ericsnow) Eliminate StopAndRemove.
+	// Install installs a service.
+	Install() error
 
-	// StopAndRemove will stop the service and remove it.
-	StopAndRemove() error
+	// Remove will remove the service.
+	Remove() error
+}
+
+// TODO(ericsnow) bug #1426461
+// Running, Installed, and Exists should return errors.
+
+type ServiceStatus interface {
+	// Running returns a boolean value that denotes
+	// whether or not the service is running.
+	Running() bool
 
 	// Exists returns whether the service configuration exists in the
 	// init directory with the same content that this Service would have
@@ -59,16 +54,36 @@ type Service interface {
 	// Installed will return a boolean value that denotes
 	// whether or not the service is installed.
 	Installed() bool
+}
 
-	// Install installs a service.
-	Install() error
+// Service represents a service in the init system running on a host.
+type Service interface {
+	ServiceActions
+	ServiceStatus
 
-	// Remove will remove the service.
-	Remove() error
+	// Name returns the service's name.
+	Name() string
+
+	// Conf returns the service's conf data.
+	Conf() common.Conf
+
+	// UpdateConfig adds a config to the service, overwriting the current one.
+	UpdateConfig(conf common.Conf)
+
+	// TODO(ericsnow) Eliminate StopAndRemove.
+
+	// StopAndRemove will stop the service and remove it.
+	StopAndRemove() error
+
+	// TODO(ericsnow) Move all the commands into a separate interface.
 
 	// InstallCommands returns the list of commands to run on a
 	// (remote) host to install the service.
 	InstallCommands() ([]string, error)
+
+	// StartCommands returns the list of commands to run on a
+	// (remote) host to start the service.
+	StartCommands() ([]string, error)
 }
 
 // TODO(ericsnow) bug #1426458
@@ -165,4 +180,29 @@ func listServicesCommand(initSystem string) (string, bool) {
 	default:
 		return "", false
 	}
+}
+
+// InstallStartRetryAttempts defines how much InstallAndStart retries
+// upon Start failures.
+var InstallStartRetryAttempts = utils.AttemptStrategy{
+	Total: 1 * time.Second,
+	Delay: 250 * time.Millisecond,
+}
+
+// InstallAndStart installs the provided service and tries starting it.
+// The first few Start failures are ignored.
+func InstallAndStart(svc ServiceActions) error {
+	if err := svc.Install(); err != nil {
+		return errors.Trace(err)
+	}
+
+	// On slower disks, the init system may take a short time to realise
+	// that there is a service there.
+	var err error
+	for attempt := InstallStartRetryAttempts.Start(); attempt.Next(); {
+		if err = svc.Start(); err == nil {
+			break
+		}
+	}
+	return errors.Trace(err)
 }

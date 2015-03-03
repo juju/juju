@@ -752,7 +752,6 @@ func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 	c.Check(commands[1:], jc.DeepEquals, []string{
 		"/bin/systemctl link /tmp/jujud-machine-0.service",
 		"/bin/systemctl enable jujud-machine-0.service",
-		"/bin/systemctl start jujud-machine-0.service",
 	})
 }
 
@@ -791,6 +790,14 @@ ExecStopPost=/bin/systemctl disable juju-shutdown-job.service`
 	c.Check(commands[1:], jc.DeepEquals, []string{
 		"/bin/systemctl link /tmp/juju-shutdown-job.service",
 		"/bin/systemctl enable juju-shutdown-job.service",
-		"/bin/systemctl start juju-shutdown-job.service",
+	})
+}
+
+func (s *initSystemSuite) TestStartCommands(c *gc.C) {
+	commands, err := s.service.StartCommands()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(commands, jc.DeepEquals, []string{
+		"/bin/systemctl start jujud-machine-0.service",
 	})
 }

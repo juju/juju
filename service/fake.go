@@ -39,6 +39,9 @@ type FakeServiceData struct {
 
 	// InstallCommands is the value to return for Service.InstallCommands.
 	InstallCommands []string
+
+	// StartCommands is the value to return for Service.StartCommands.
+	StartCommands []string
 }
 
 // NewFakeServiceData returns a new FakeServiceData.
@@ -223,4 +226,11 @@ func (ss *FakeService) InstallCommands() ([]string, error) {
 	ss.AddCall("InstallCommands")
 
 	return ss.FakeServiceData.InstallCommands, ss.NextErr()
+}
+
+// StartCommands implements Service.
+func (ss *FakeService) StartCommands() ([]string, error) {
+	ss.AddCall("StartCommands")
+
+	return ss.FakeServiceData.StartCommands, ss.NextErr()
 }
