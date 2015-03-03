@@ -93,11 +93,12 @@ func discoverLocalInitSystem() (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	executable := strings.Fields(string(data))[0]
+	out := strings.Trim(strings.TrimSpace(string(data)), "\x00")
+	executable := strings.Fields(out)[0]
 
 	initName, ok := identifyInitSystem(executable)
 	if !ok {
-		return "", errors.NotFoundf("init system (%s)", executable)
+		return "", errors.NotFoundf("init system (based on %s)", executable)
 	}
 	return initName, nil
 }
