@@ -119,11 +119,13 @@ func VersionInitSystem(vers version.Binary) (string, bool) {
 		switch vers.Series {
 		case "precise", "quantal", "raring", "saucy", "trusty", "utopic":
 			return InitSystemUpstart, true
+		// TODO(ericsnow) the explicit vivid case should be removed once
+		// vivid switches over to systemd (for PID 1).
+		case "vivid":
+			return InitSystemUpstart, true
 		default:
 			// vivid and later
-			// TODO(ericsnow) Disabled for lp-1427210.
-			//return InitSystemSystemd, true
-			return "", false
+			return InitSystemSystemd, true
 		}
 		// TODO(ericsnow) Support other OSes, like version.CentOS.
 	default:
