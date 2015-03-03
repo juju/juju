@@ -251,7 +251,7 @@ func (s *Service) wait(op string, statusCh chan string) error {
 	// TODO(ericsnow) Other status values *may* be okay. See:
 	//  https://godoc.org/github.com/coreos/go-systemd/dbus#Conn.StartUnit
 	if status != "done" {
-		return errors.Errorf("failed to %s service %s", op, s.Service.Name)
+		return errors.Errorf("failed to %s service %q (API status %q)", op, s.Service.Name, status)
 	}
 	return nil
 }
