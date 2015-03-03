@@ -100,6 +100,7 @@ func discoverLocalInitSystem() (string, error) {
 	if !ok {
 		return "", errors.NotFoundf("init system (based on %s)", executable)
 	}
+	logger.Debugf("discovered init system %q from executable %q", initName, executable)
 	return initName, nil
 }
 

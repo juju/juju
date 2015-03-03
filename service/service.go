@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/service/common"
@@ -12,6 +13,10 @@ import (
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
 	"github.com/juju/juju/version"
+)
+
+var (
+	logger = loggo.GetLogger("juju.mongo")
 )
 
 // These are the names of the init systems regognized by juju.
