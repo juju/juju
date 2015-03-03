@@ -198,8 +198,7 @@ func EnsureServer(args EnsureServerParams) error {
 	if err != nil {
 		return err
 	}
-	// TODO(ericsnow) svc.Installed() should get called too.
-	if svc.Exists() {
+	if svc.Installed() && svc.Exists() {
 		logger.Debugf("mongo exists as expected")
 		if !svc.Running() {
 			return svc.Start()

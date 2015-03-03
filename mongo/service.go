@@ -50,6 +50,7 @@ fi
 
 type mongoService interface {
 	Exists() bool
+	Installed() bool
 	Running() bool
 	Start() error
 	Stop() error
