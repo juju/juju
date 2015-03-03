@@ -627,7 +627,7 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 	}, {
 		FuncName: "Close",
 	}})
-	//s.checkCreateFileCall(c, 2, filename, s.newConfStr(s.name, ""), 0644)
+	s.checkCreateFileCall(c, 2, filename, s.newConfStr(s.name, ""), 0644)
 }
 
 func (s *initSystemSuite) TestInstallAlreadyInstalled(c *gc.C) {
