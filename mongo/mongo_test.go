@@ -246,8 +246,7 @@ func (s *MongoSuite) testEnsureServerNumaCtl(c *gc.C, setNumaPolicy bool) string
 			c.Assert(service.Conf().ExtraScript, gc.Equals, "")
 		}
 		c.Assert(service.Conf().ExecStart, gc.Matches, ".*"+regexp.QuoteMeta(s.mongodPath)+".*")
-		// TODO(nate) set Out so that mongod output goes somewhere useful?
-		c.Assert(service.Conf().Output, gc.Equals, "")
+		c.Assert(service.Conf().Logfile, gc.Equals, "")
 	}
 	assertInstalled()
 	return dataDir

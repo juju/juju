@@ -265,9 +265,9 @@ end script
 `)
 }
 
-func (s *UpstartSuite) TestInstallOutput(c *gc.C) {
+func (s *UpstartSuite) TestInstallLogfile(c *gc.C) {
 	conf := s.dummyConf(c)
-	conf.Output = "/some/output/path"
+	conf.Logfile = "/some/output/path"
 	s.assertInstall(c, conf, `
 
 script

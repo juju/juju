@@ -140,28 +140,6 @@ func (s *initSystemSuite) addListResponse() {
 }
 
 func (s *initSystemSuite) setConf(c *gc.C, conf common.Conf) {
-	s.conn.SetProperty("", "Description", conf.Desc)
-	s.conn.SetProperty("Service", "Description", conf.Desc)
-
-	parts := strings.Fields(conf.ExecStart)
-	var args []interface{}
-	for _, arg := range parts[1:] {
-		args = append(args, arg)
-	}
-	s.conn.SetProperty("Service", "ExecStart", []interface{}{
-		parts[0],
-		args,
-		false, 0, 0, 0, 0, 0, 0, 0,
-	})
-
-	if len(conf.Env) > 0 || len(conf.Limit) > 0 {
-		// For now none of our tests need this.
-		panic("not supported yet")
-	}
-
-	s.conn.SetProperty("Service", "StandardOutput", conf.Output)
-	s.conn.SetProperty("Service", "StandardError", conf.Output)
-
 	data, err := systemd.Serialize(s.name, conf)
 	c.Assert(err, jc.ErrorIsNil)
 	s.exec.Responses = append(s.exec.Responses, exec.ExecResponse{
@@ -250,7 +228,7 @@ func (s *initSystemSuite) TestNewService(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
-	s.conf.Output = "/var/log/juju/machine-0.log"
+	s.conf.Logfile = "/var/log/juju/machine-0.log"
 
 	service, err := systemd.NewService(s.name, s.conf)
 	c.Assert(err, jc.ErrorIsNil)
@@ -326,7 +304,7 @@ func (s *initSystemSuite) TestUpdateConfigMultiline(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestUpdateConfigLogfile(c *gc.C) {
-	s.conf.Output = "/var/log/juju/machine-0.log"
+	s.conf.Logfile = "/var/log/juju/machine-0.log"
 
 	s.service.UpdateConfig(s.conf)
 
@@ -388,7 +366,7 @@ func (s *initSystemSuite) TestExistsFalse(c *gc.C) {
 	s.setConf(c, common.Conf{
 		Desc:      s.conf.Desc,
 		ExecStart: s.conf.ExecStart,
-		Output:    "syslog",
+		Env:       map[string]string{"a": "b"},
 	})
 
 	exists := s.service.Exists()
@@ -678,7 +656,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 	s.setConf(c, common.Conf{
 		Desc:      s.conf.Desc,
 		ExecStart: s.conf.ExecStart,
-		Output:    "syslog",
+		Env:       map[string]string{"a": "b"},
 	})
 	s.addListResponse()
 	s.ch <- "done"

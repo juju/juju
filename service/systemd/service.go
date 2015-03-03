@@ -178,7 +178,9 @@ func (s *Service) check() (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return reflect.DeepEqual(s.Service.Conf, conf), nil
+	scriptPath := path.Join(s.Dirname, "exec-start.sh")
+	normalConf, _ := normalize(s.Service.Name, s.Service.Conf, scriptPath)
+	return reflect.DeepEqual(normalConf, conf), nil
 }
 
 func (s *Service) readConf() (common.Conf, error) {
