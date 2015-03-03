@@ -528,26 +528,6 @@ func (s *initSystemSuite) TestStopNotInstalled(c *gc.C) {
 	s.stub.CheckCallNames(c, "ListUnits", "Close")
 }
 
-func (s *initSystemSuite) TestStopAndRemove(c *gc.C) {
-	s.addService("jujud-machine-0", "active")
-	s.ch <- "done"
-	s.addListResponse()
-
-	err := s.service.StopAndRemove()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCallNames(c,
-		"ListUnits",
-		"Close",
-		"StopUnit",
-		"Close",
-		"RunCommand",
-		"DisableUnitFiles",
-		"RemoveAll",
-		"Close",
-	)
-}
-
 func (s *initSystemSuite) TestRemove(c *gc.C) {
 	s.addService("jujud-machine-0", "inactive")
 	s.addListResponse()

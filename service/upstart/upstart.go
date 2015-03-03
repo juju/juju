@@ -201,18 +201,6 @@ func (s *Service) Stop() error {
 	return runCommand("stop", "--system", s.Service.Name)
 }
 
-// StopAndRemove stops the service and then deletes the service
-// configuration from the init directory.
-func (s *Service) StopAndRemove() error {
-	if !s.Installed() {
-		return nil
-	}
-	if err := s.Stop(); err != nil {
-		return err
-	}
-	return os.Remove(s.confPath())
-}
-
 // Remove deletes the service configuration from the init directory.
 func (s *Service) Remove() error {
 	if !s.Installed() {
@@ -231,10 +219,12 @@ func (s *Service) Install() error {
 		return nil
 	}
 	if exists {
-		if err := s.StopAndRemove(); err != nil {
+		if err := s.Stop(); err != nil {
+			return errors.Annotate(err, "upstart: could not stop installed service")
+		}
+		if err := s.Remove(); err != nil {
 			return errors.Annotate(err, "upstart: could not remove installed service")
 		}
-
 	}
 	if err := ioutil.WriteFile(s.confPath(), conf, 0644); err != nil {
 		return errors.Trace(err)

@@ -132,47 +132,36 @@ func (s *UpstartSuite) TestStop(c *gc.C) {
 }
 
 func (s *UpstartSuite) TestRemoveMissing(c *gc.C) {
-	c.Assert(s.service.StopAndRemove(), gc.IsNil)
+	err := s.service.Remove()
+
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *UpstartSuite) TestRemoveStopped(c *gc.C) {
 	s.goodInstall(c)
 	s.StoppedStatus(c)
-	c.Assert(s.service.StopAndRemove(), gc.IsNil)
+	err := s.service.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
 	filename := filepath.Join(upstart.InitDir, "some-service.conf")
-	_, err := os.Stat(filename)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	_, err = os.Stat(filename)
+	c.Check(err, jc.Satisfies, os.IsNotExist)
 }
 
-func (s *UpstartSuite) TestRemoveRunning(c *gc.C) {
+func (s *UpstartSuite) TestStopRunning(c *gc.C) {
 	s.goodInstall(c)
 	s.RunningStatus(c)
 	s.MakeTool(c, "stop", "exit 99")
 	filename := filepath.Join(upstart.InitDir, "some-service.conf")
-	c.Assert(s.service.StopAndRemove(), gc.ErrorMatches, ".*exit status 99.*")
-	_, err := os.Stat(filename)
+	err := s.service.Stop()
+	c.Assert(err, gc.ErrorMatches, ".*exit status 99.*")
+
+	_, err = os.Stat(filename)
 	c.Assert(err, jc.ErrorIsNil)
+
 	s.MakeTool(c, "stop", "exit 0")
-	c.Assert(s.service.StopAndRemove(), gc.IsNil)
-	_, err = os.Stat(filename)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-}
-
-func (s *UpstartSuite) TestStopAndRemove(c *gc.C) {
-	s.goodInstall(c)
-	s.RunningStatus(c)
-	s.MakeTool(c, "stop", "exit 99")
-
-	// StopAndRemove will fail, as it calls stop.
-	c.Assert(s.service.StopAndRemove(), gc.ErrorMatches, ".*exit status 99.*")
-	filename := filepath.Join(upstart.InitDir, "some-service.conf")
-	_, err := os.Stat(filename)
+	err = s.service.Stop()
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Plain old Remove will succeed.
-	c.Assert(s.service.Remove(), gc.IsNil)
-	_, err = os.Stat(filename)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
 func (s *UpstartSuite) TestInstallErrors(c *gc.C) {

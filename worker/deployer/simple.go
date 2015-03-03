@@ -159,7 +159,6 @@ type deployerService interface {
 	Remove() error
 	Start() error
 	Stop() error
-	StopAndRemove() error
 }
 
 // findUpstartJob tries to find an init system job matching the
@@ -184,7 +183,10 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	if svc == nil || !svc.Installed() {
 		return fmt.Errorf("unit %q is not deployed", unitName)
 	}
-	if err := svc.StopAndRemove(); err != nil {
+	if err := svc.Stop(); err != nil {
+		return err
+	}
+	if err := svc.Remove(); err != nil {
 		return err
 	}
 	tag := names.NewUnitTag(unitName)

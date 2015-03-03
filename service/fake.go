@@ -163,14 +163,6 @@ func (ss *FakeService) Stop() error {
 	return ss.NextErr()
 }
 
-// StopAndRemove implements Service.
-func (ss *FakeService) StopAndRemove() error {
-	if err := ss.Stop(); err != nil {
-		return err
-	}
-	return ss.Remove()
-}
-
 // Exists implements Service.
 func (ss *FakeService) Exists() bool {
 	ss.AddCall("Exists")

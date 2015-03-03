@@ -283,15 +283,6 @@ func (s *Service) Stop() error {
 	return err
 }
 
-// StopAndRemove implements Service.
-func (s *Service) StopAndRemove() error {
-	if err := s.Stop(); err != nil {
-		return errors.Trace(err)
-	}
-	err := s.Remove()
-	return errors.Trace(err)
-}
-
 // Remove implements Service.
 func (s *Service) Remove() error {
 	if !s.Installed() {
@@ -332,7 +323,10 @@ func (s *Service) Install() error {
 			return nil
 		}
 		// An old copy is already running so stop it first.
-		if err := s.StopAndRemove(); err != nil {
+		if err := s.Stop(); err != nil {
+			return errors.Annotate(err, "systemd: could not stop old service")
+		}
+		if err := s.Remove(); err != nil {
 			return errors.Annotate(err, "systemd: could not remove old service")
 		}
 	}

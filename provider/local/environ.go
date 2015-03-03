@@ -520,7 +520,8 @@ func (env *localEnviron) Destroy() error {
 	mongoRemoveService(env.config.namespace())
 	svc, err := discoverService(env.machineAgentServiceName())
 	if err == nil {
-		svc.StopAndRemove()
+		svc.Stop()
+		svc.Remove()
 	}
 
 	// Finally, remove the data-dir.
@@ -539,7 +540,8 @@ func (env *localEnviron) Destroy() error {
 }
 
 type agentService interface {
-	StopAndRemove() error
+	Stop() error
+	Remove() error
 }
 
 var mongoRemoveService = func(namespace string) error {

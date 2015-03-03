@@ -158,15 +158,6 @@ func (s *Service) Remove() error {
 	return err
 }
 
-// StopAndRemove stops the service and then deletes the service.
-func (s *Service) StopAndRemove() error {
-	err := s.Stop()
-	if err != nil {
-		return err
-	}
-	return s.Remove()
-}
-
 // Install installs and starts the service.
 func (s *Service) Install() error {
 	err := s.Validate()

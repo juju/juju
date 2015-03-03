@@ -70,11 +70,6 @@ type Service interface {
 	// whether or not the service is installed.
 	Installed() bool
 
-	// TODO(ericsnow) Eliminate StopAndRemove.
-
-	// StopAndRemove will stop the service and remove it.
-	StopAndRemove() error
-
 	// TODO(ericsnow) Move all the commands into a separate interface.
 
 	// InstallCommands returns the list of commands to run on a
