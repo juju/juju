@@ -113,7 +113,7 @@ func NewService(name string, conf common.Conf, initSystem string) (Service, erro
 }
 
 // ListServices lists all installed services on the running system
-func ListServices(initDir string) ([]string, error) {
+func ListServices() ([]string, error) {
 	initName, ok := VersionInitSystem(version.Current)
 	if !ok {
 		return nil, errors.NotFoundf("init system on local host")
@@ -127,7 +127,7 @@ func ListServices(initDir string) ([]string, error) {
 		}
 		return services, nil
 	case InitSystemUpstart:
-		services, err := upstart.ListServices(initDir)
+		services, err := upstart.ListServices()
 		if err != nil {
 			return nil, err
 		}

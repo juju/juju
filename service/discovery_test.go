@@ -93,9 +93,6 @@ func (dt discoveryTest) checkService(c *gc.C, svc service.Service, err error, na
 	}
 	switch dt.expected {
 	case service.InitSystemUpstart:
-		if conf.InitDir == "" {
-			conf.InitDir = "/etc/init"
-		}
 		c.Check(svc, gc.FitsTypeOf, &upstart.Service{})
 	case service.InitSystemSystemd:
 		c.Check(svc, gc.FitsTypeOf, &systemd.Service{})

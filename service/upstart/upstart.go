@@ -18,12 +18,15 @@ import (
 	"github.com/juju/juju/service/common"
 )
 
+// InitDir holds the default init directory name.
+var InitDir = "/etc/init"
+
 var servicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
 
 // ListServices returns the name of all installed services on the
 // local host.
-func ListServices(initDir string) ([]string, error) {
-	fis, err := ioutil.ReadDir(initDir)
+func ListServices() ([]string, error) {
+	fis, err := ioutil.ReadDir(InitDir)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -45,18 +48,12 @@ func ListCommand() string {
 
 var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
 
-// InitDir holds the default init directory name.
-var InitDir = "/etc/init"
-
 // Service provides visibility into and control over an upstart service.
 type Service struct {
 	common.Service
 }
 
 func NewService(name string, conf common.Conf) *Service {
-	if conf.InitDir == "" {
-		conf.InitDir = InitDir
-	}
 	return &Service{
 		Service: common.Service{
 			Name: name,
@@ -77,17 +74,13 @@ func (s Service) Conf() common.Conf {
 
 // confPath returns the path to the service's configuration file.
 func (s *Service) confPath() string {
-	return path.Join(s.Service.Conf.InitDir, s.Service.Name+".conf")
+	return path.Join(InitDir, s.Service.Name+".conf")
 }
 
 // Validate returns an error if the service is not adequately defined.
 func (s *Service) Validate() error {
 	if err := s.Service.Validate(); err != nil {
 		return errors.Trace(err)
-	}
-
-	if s.Service.Conf.InitDir == "" {
-		return errors.New("missing InitDir")
 	}
 
 	if s.Service.Conf.Transient {

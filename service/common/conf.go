@@ -47,13 +47,6 @@ type Conf struct {
 	// accept paths to files while others only support certain identifiers.
 	Output string
 
-	// TODO(ericsnow) Eliminate InitDir.
-
-	// InitDir is the folder in which the init script should be written
-	// defaults to "/etc/init" on Ubuntu
-	// Currently not used on Windows
-	InitDir string
-
 	// TODO(ericsnow) Turn ExtraScript into ExecStartPre.
 
 	// ExtraScript allows to insert script before command execution.

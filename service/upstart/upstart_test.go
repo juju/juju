@@ -77,11 +77,6 @@ func (s *UpstartSuite) RunningStatus(c *gc.C) {
 	s.MakeTool(c, "status", `echo "some-service start/running, process 123"`)
 }
 
-func (s *UpstartSuite) TestInitDir(c *gc.C) {
-	svc := upstart.NewService("blah", common.Conf{})
-	c.Assert(svc.Conf().InitDir, gc.Equals, s.initDir)
-}
-
 func (s *UpstartSuite) goodInstall(c *gc.C) {
 	s.MakeTool(c, "start", "exit 0")
 	err := s.service.Install()
@@ -144,7 +139,7 @@ func (s *UpstartSuite) TestRemoveStopped(c *gc.C) {
 	s.goodInstall(c)
 	s.StoppedStatus(c)
 	c.Assert(s.service.StopAndRemove(), gc.IsNil)
-	filename := filepath.Join(s.service.Conf().InitDir, "some-service.conf")
+	filename := filepath.Join(upstart.InitDir, "some-service.conf")
 	_, err := os.Stat(filename)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
@@ -153,7 +148,7 @@ func (s *UpstartSuite) TestRemoveRunning(c *gc.C) {
 	s.goodInstall(c)
 	s.RunningStatus(c)
 	s.MakeTool(c, "stop", "exit 99")
-	filename := filepath.Join(s.service.Conf().InitDir, "some-service.conf")
+	filename := filepath.Join(upstart.InitDir, "some-service.conf")
 	c.Assert(s.service.StopAndRemove(), gc.ErrorMatches, ".*exit status 99.*")
 	_, err := os.Stat(filename)
 	c.Assert(err, jc.ErrorIsNil)
@@ -170,7 +165,7 @@ func (s *UpstartSuite) TestStopAndRemove(c *gc.C) {
 
 	// StopAndRemove will fail, as it calls stop.
 	c.Assert(s.service.StopAndRemove(), gc.ErrorMatches, ".*exit status 99.*")
-	filename := filepath.Join(s.service.Conf().InitDir, "some-service.conf")
+	filename := filepath.Join(upstart.InitDir, "some-service.conf")
 	_, err := os.Stat(filename)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -194,8 +189,6 @@ func (s *UpstartSuite) TestInstallErrors(c *gc.C) {
 	check("missing Desc")
 	s.service.Service.Conf.Desc = "this is an upstart service"
 	check("missing ExecStart")
-	s.service.Service.Conf.ExecStart = "/a/command"
-	check("missing InitDir")
 }
 
 const expectStart = `description "this is an upstart service"
@@ -210,13 +203,12 @@ func (s *UpstartSuite) dummyConf(c *gc.C) common.Conf {
 	return common.Conf{
 		Desc:      "this is an upstart service",
 		ExecStart: "/path/to/some-command x y z",
-		InitDir:   s.initDir,
 	}
 }
 
 func (s *UpstartSuite) assertInstall(c *gc.C, conf common.Conf, expectEnd string) {
 	expectContent := expectStart + expectEnd
-	expectPath := filepath.Join(conf.InitDir, "some-service.conf")
+	expectPath := filepath.Join(upstart.InitDir, "some-service.conf")
 
 	s.service.Service.Conf = conf
 	svc := s.service

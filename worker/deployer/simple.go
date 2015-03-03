@@ -22,12 +22,6 @@ import (
 
 // TODO(ericsnow) Use errors.Trace, etc. in this file.
 
-// TODO(ericsnow) Eliminate InitDir.
-
-// InitDir is the default upstart init directory.
-// This is a var so it can be overridden by tests.
-var InitDir = "/etc/init"
-
 // APICalls defines the interface to the API that the simple context needs.
 type APICalls interface {
 	ConnectionInfo() (params.DeployerConnectionValues, error)
@@ -44,15 +38,11 @@ type SimpleContext struct {
 	// running the deployer.
 	agentConfig agent.Config
 
-	// initDir specifies the directory used by init on the local system.
-	// For upstart, it is typically set to "/etc/init".
-	initDir string
-
 	// discoverService is a surrogate for service.DiscoverService.
 	discoverService func(string, common.Conf) deployerService
 
 	// listServices is a surrogate for service.ListServices.
-	listServices func(string) ([]string, error)
+	listServices func() ([]string, error)
 }
 
 var _ Context = (*SimpleContext)(nil)
@@ -82,13 +72,12 @@ func NewSimpleContext(agentConfig agent.Config, api APICalls) *SimpleContext {
 	return &SimpleContext{
 		api:         api,
 		agentConfig: agentConfig,
-		initDir:     InitDir,
 		discoverService: func(name string, conf common.Conf) deployerService {
 			svc, _ := service.DiscoverService(name, conf)
 			return svc
 		},
-		listServices: func(initDir string) ([]string, error) {
-			return service.ListServices(initDir)
+		listServices: func() ([]string, error) {
+			return service.ListServices()
 		},
 	}
 }
@@ -156,7 +145,6 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		"",
 		containerType,
 	)
-	sconf.InitDir = ctx.initDir
 	svc.UpdateConfig(sconf)
 	if err := service.InstallAndStart(svc); err != nil {
 		return errors.Trace(err)
@@ -186,7 +174,7 @@ func (ctx *SimpleContext) findInitSystemJob(unitName string) deployerService {
 		return nil
 	}
 	if job, ok := unitsAndJobs[unitName]; ok {
-		return ctx.discoverService(job, common.Conf{InitDir: ctx.initDir})
+		return ctx.discoverService(job, common.Conf{})
 	}
 	return nil
 }
@@ -219,7 +207,7 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 var deployedRe = regexp.MustCompile("^(jujud-.*unit-([a-z0-9-]+)-([0-9]+))$")
 
 func (ctx *SimpleContext) deployedUnitsInitSystemJobs() (map[string]string, error) {
-	fis, err := ctx.listServices(ctx.initDir)
+	fis, err := ctx.listServices()
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +244,7 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 func (ctx *SimpleContext) service(unitName string) deployerService {
 	tag := names.NewUnitTag(unitName).String()
 	svcName := "jujud-" + tag
-	return ctx.discoverService(svcName, common.Conf{InitDir: ctx.initDir})
+	return ctx.discoverService(svcName, common.Conf{})
 }
 
 func removeOnErr(err *error, path string) {
