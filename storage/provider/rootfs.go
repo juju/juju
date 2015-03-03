@@ -71,7 +71,7 @@ func (p *rootfsProvider) FilesystemSource(environConfig *config.Config, sourceCo
 
 // Supports is defined on the Provider interface.
 func (*rootfsProvider) Supports(k storage.StorageKind) bool {
-	return k == storage.StorageKindBlock
+	return k == storage.StorageKindFilesystem
 }
 
 type rootfsFilesystemSource struct {

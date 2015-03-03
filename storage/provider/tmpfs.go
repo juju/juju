@@ -69,7 +69,7 @@ func (p *tmpfsProvider) FilesystemSource(environConfig *config.Config, sourceCon
 
 // Supports is defined on the Provider interface.
 func (*tmpfsProvider) Supports(k storage.StorageKind) bool {
-	return k == storage.StorageKindBlock
+	return k == storage.StorageKindFilesystem
 }
 
 type tmpfsFilesystemSource struct {
