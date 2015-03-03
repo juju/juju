@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/juju/errors"
 
@@ -182,8 +183,19 @@ func ListServicesCommand() string {
 
 	// TODO(ericsnow) build the command in a better way?
 
+	// We need ListServicesCommand to return the same string for the same
+	// input so we iterate using sorted keys. This enables simple testing.
+	keys := make([]string, len(executables))
+	i := 0
+	for k := range executables {
+		keys[i] = k
+		i += 1
+	}
+	sort.Strings(keys)
+	
 	cmdAll := ""
-	for executable, initSystem := range executables {
+	for _, executable := range keys {
+		initSystem := executables[executable]
 		cmd, ok := listServicesCommand(initSystem)
 		if !ok {
 			continue
