@@ -123,7 +123,7 @@ func VersionInitSystem(vers version.Binary) (string, bool) {
 			// vivid and later
 			// TODO(ericsnow) Disabled for lp-1427210.
 			//return InitSystemSystemd, true
-			return "", false
+			return InitSystemUpstart, true
 		}
 		// TODO(ericsnow) Support other OSes, like version.CentOS.
 	default:
