@@ -1620,6 +1620,16 @@ func (s *clientSuite) assertPrincipalDeployed(c *gc.C, serviceName string, curl 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(force, gc.Equals, forced)
 	c.Assert(charm.URL(), gc.DeepEquals, curl)
+	// When charms are read from state, storage properties are
+	// always deserialised as empty slices if empty or nil, so
+	// update bundle to match (bundle comes from parsing charm
+	// metadata yaml where nil means nil).
+	for name, bundleMeta := range bundle.Meta().Storage {
+		if bundleMeta.Properties == nil {
+			bundleMeta.Properties = []string{}
+			bundle.Meta().Storage[name] = bundleMeta
+		}
+	}
 	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
 	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
 
