@@ -4,7 +4,6 @@
 package lease
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
