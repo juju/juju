@@ -30,3 +30,10 @@ func NewRetryProvisioningCommand(api RetryProvisioningAPI) *RetryProvisioningCom
 		api: api,
 	}
 }
+
+// NewCreateCommand returns a CreateCommand with the api provided as specified.
+func NewCreateCommand(api CreateEnvironmentAPI) *CreateCommand {
+	return &CreateCommand{
+		api: api,
+	}
+}

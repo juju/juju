@@ -39,6 +39,7 @@ type State struct {
 
 	// environTag holds the environment tag once we're connected
 	environTag string
+
 	// serverTag holds the server tag once we're connected.
 	// This is only set with newer apiservers where they are using
 	// the v1 login mechansim.
