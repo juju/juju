@@ -30,3 +30,10 @@ func NewRetryProvisioningCommand(api RetryProvisioningAPI) *RetryProvisioningCom
 		api: api,
 	}
 }
+
+// NewShareCommand returns a ShareCommand with the api provided as specified.
+func NewShareCommand(api ShareEnvironmentAPI) *ShareCommand {
+	return &ShareCommand{
+		api: api,
+	}
+}
