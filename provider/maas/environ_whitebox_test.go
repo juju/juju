@@ -1001,12 +1001,16 @@ func (suite *environSuite) TestSupportsAddressAllocation(c *gc.C) {
 	c.Assert(supported, jc.IsTrue)
 }
 
-func (suite *environSuite) createSubnets(c *gc.C) instance.Instance {
+func (suite *environSuite) createSubnets(c *gc.C, duplicates bool) instance.Instance {
 	test_instance := suite.getInstance("node1")
 	templateInterfaces := map[string]ifaceInfo{
 		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
 		"aa:bb:cc:dd:ee:f1": {1, "eth0", false},
 		"aa:bb:cc:dd:ee:f2": {2, "vnet1", false},
+	}
+	if duplicates {
+		templateInterfaces["aa:bb:cc:dd:ee:f3"] = ifaceInfo{3, "eth1", true}
+		templateInterfaces["aa:bb:cc:dd:ee:f4"] = ifaceInfo{4, "vnet2", false}
 	}
 	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1021,6 +1025,10 @@ func (suite *environSuite) createSubnets(c *gc.C) instance.Instance {
 	// resulting CIDR 192.168.1.1/24
 	suite.getNetwork("WLAN", 1, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
+	if duplicates {
+		suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f3")
+		suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f4")
+	}
 
 	// needed for getNodeGroups to work
 	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "precise"}`)
@@ -1043,36 +1051,36 @@ func (suite *environSuite) createSubnets(c *gc.C) instance.Instance {
 		"ip_range_low":         "172.16.0.2",
 		"broadcast_ip":         "172.16.0.255",
 		"static_ip_range_low":  "172.16.0.129",
-		"name":                 "eth0",
+		"name":                 "eth1",
 		"ip":                   "172.16.0.2",
 		"subnet_mask":          "255.255.255.0",
 		"management":           2,
 		"static_ip_range_high": "172.16.0.255",
-		"interface":            "eth0"
+		"interface":            "eth1"
 	}`
 	jsonText3 := `{
 		"ip_range_high":        "192.168.1.128",
 		"ip_range_low":         "192.168.1.2",
 		"broadcast_ip":         "192.168.1.255",
 		"static_ip_range_low":  "192.168.1.129",
-		"name":                 "eth0",
+		"name":                 "eth2",
 		"ip":                   "192.168.1.2",
 		"subnet_mask":          "255.255.255.0",
 		"management":           2,
 		"static_ip_range_high": "192.168.1.255",
-		"interface":            "eth0"
+		"interface":            "eth2"
 	}`
 	jsonText4 := `{
 		"ip_range_high":        "172.16.8.128",
 		"ip_range_low":         "172.16.8.2",
 		"broadcast_ip":         "172.16.8.255",
 		"static_ip_range_low":  "172.16.0.129",
-		"name":                 "eth0",
+		"name":                 "eth3",
 		"ip":                   "172.16.8.2",
 		"subnet_mask":          "255.255.255.0",
 		"management":           2,
 		"static_ip_range_high": "172.16.8.255",
-		"interface":            "eth0"
+		"interface":            "eth3"
 	}`
 	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-0", jsonText1)
 	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-0", jsonText2)
@@ -1082,7 +1090,7 @@ func (suite *environSuite) createSubnets(c *gc.C) instance.Instance {
 }
 
 func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
-	test_instance := suite.createSubnets(c)
+	test_instance := suite.createSubnets(c, false)
 
 	netInfo, err := suite.makeEnviron().NetworkInterfaces(test_instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1132,7 +1140,7 @@ func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
 }
 
 func (suite *environSuite) TestSubnets(c *gc.C) {
-	test_instance := suite.createSubnets(c)
+	test_instance := suite.createSubnets(c, false)
 
 	netInfo, err := suite.makeEnviron().Subnets(test_instance.Id(), []network.Id{"LAN", "Virt", "WLAN"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1145,19 +1153,32 @@ func (suite *environSuite) TestSubnets(c *gc.C) {
 }
 
 func (suite *environSuite) TestSubnetsNoNetIds(c *gc.C) {
-	test_instance := suite.createSubnets(c)
+	test_instance := suite.createSubnets(c, false)
 	_, err := suite.makeEnviron().Subnets(test_instance.Id(), []network.Id{})
 	c.Assert(err, gc.ErrorMatches, "netIds must not be empty")
 }
 
 func (suite *environSuite) TestSubnetsMissingNetwork(c *gc.C) {
-	test_instance := suite.createSubnets(c)
+	test_instance := suite.createSubnets(c, false)
 	_, err := suite.makeEnviron().Subnets(test_instance.Id(), []network.Id{"WLAN", "Missing"})
 	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: \\[Missing\\]")
 }
 
+func (suite *environSuite) TestSubnetsNoDuplicates(c *gc.C) {
+	test_instance := suite.createSubnets(c, true)
+
+	netInfo, err := suite.makeEnviron().Subnets(test_instance.Id(), []network.Id{"LAN", "Virt", "WLAN"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedInfo := []network.SubnetInfo{
+		{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42, AllocatableIPLow: net.ParseIP("192.168.2.0"), AllocatableIPHigh: net.ParseIP("192.168.2.127")},
+		{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
+		{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0, AllocatableIPLow: net.ParseIP("192.168.1.129"), AllocatableIPHigh: net.ParseIP("192.168.1.255")}}
+	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
+}
+
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {
-	test_instance := suite.createSubnets(c)
+	test_instance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
 	// note that the default test server always succeeds if we provide a
@@ -1176,14 +1197,14 @@ func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
-	test_instance := suite.createSubnets(c)
+	test_instance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 	err := env.AllocateAddress(test_instance.Id(), "bar", network.Address{Value: "192.168.2.1"})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "failed to find the following subnets: \\[bar\\]")
 }
 
 func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
-	test_instance := suite.createSubnets(c)
+	test_instance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
 	reserveIPAddress := func(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
@@ -1207,7 +1228,7 @@ func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 }
 
 func (suite *environSuite) TestReleaseAddress(c *gc.C) {
-	test_instance := suite.createSubnets(c)
+	test_instance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
 	err := env.AllocateAddress(test_instance.Id(), "LAN", network.Address{Value: "192.168.2.1"})

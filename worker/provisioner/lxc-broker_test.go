@@ -335,82 +335,124 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesInvalidArgs(c *gc.C) {
 	gitjujutesting.PatchExecutableThrowError(c, s, "ip", 123)
 
 	// Check that all the arguments are verified to be non-empty.
-	expectStartupErr := "primaryNIC, bridgeName, and ifaceInfo must be all set"
+	expectStartupErr := "primaryNIC, primaryAddr, bridgeName, and ifaceInfo must be all set"
 	emptyIfaceInfo := []network.InterfaceInfo{}
 	for i, test := range []struct {
-		primaryNIC string
-		bridgeName string
-		ifaceInfo  []network.InterfaceInfo
-		expectErr  string
+		primaryNIC  string
+		primaryAddr network.Address
+		bridgeName  string
+		ifaceInfo   []network.InterfaceInfo
+		expectErr   string
 	}{{
-		primaryNIC: "",
-		bridgeName: "",
-		ifaceInfo:  nil,
-		expectErr:  expectStartupErr,
+		primaryNIC:  "",
+		primaryAddr: network.Address{},
+		bridgeName:  "",
+		ifaceInfo:   nil,
+		expectErr:   expectStartupErr,
 	}, {
-		primaryNIC: "nic",
-		bridgeName: "",
-		ifaceInfo:  nil,
-		expectErr:  expectStartupErr,
+		primaryNIC:  "nic",
+		primaryAddr: network.Address{},
+		bridgeName:  "",
+		ifaceInfo:   nil,
+		expectErr:   expectStartupErr,
 	}, {
-		primaryNIC: "",
-		bridgeName: "bridge",
-		ifaceInfo:  nil,
-		expectErr:  expectStartupErr,
+		primaryNIC:  "",
+		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		bridgeName:  "",
+		ifaceInfo:   nil,
+		expectErr:   expectStartupErr,
 	}, {
-		primaryNIC: "nic",
-		bridgeName: "bridge",
-		ifaceInfo:  nil,
-		expectErr:  expectStartupErr,
+		primaryNIC:  "",
+		primaryAddr: network.Address{},
+		bridgeName:  "bridge",
+		ifaceInfo:   nil,
+		expectErr:   expectStartupErr,
 	}, {
-		primaryNIC: "",
-		bridgeName: "",
-		ifaceInfo:  emptyIfaceInfo,
-		expectErr:  expectStartupErr,
+		primaryNIC:  "nic",
+		primaryAddr: network.Address{},
+		bridgeName:  "bridge",
+		ifaceInfo:   nil,
+		expectErr:   expectStartupErr,
 	}, {
-		primaryNIC: "nic",
-		bridgeName: "",
-		ifaceInfo:  emptyIfaceInfo,
-		expectErr:  expectStartupErr,
+		primaryNIC:  "nic",
+		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		bridgeName:  "",
+		ifaceInfo:   nil,
+		expectErr:   expectStartupErr,
 	}, {
-		primaryNIC: "",
-		bridgeName: "bridge",
-		ifaceInfo:  emptyIfaceInfo,
-		expectErr:  expectStartupErr,
+		primaryNIC:  "",
+		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		bridgeName:  "bridge",
+		ifaceInfo:   nil,
+		expectErr:   expectStartupErr,
 	}, {
-		primaryNIC: "nic",
-		bridgeName: "bridge",
-		ifaceInfo:  emptyIfaceInfo,
-		expectErr:  expectStartupErr,
+		primaryNIC:  "nic",
+		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		bridgeName:  "bridge",
+		ifaceInfo:   nil,
+		expectErr:   expectStartupErr,
 	}, {
-		primaryNIC: "nic",
-		bridgeName: "bridge",
-		// No Address or GatewayAddress set.
+		primaryNIC:  "",
+		primaryAddr: network.Address{},
+		bridgeName:  "",
+		ifaceInfo:   emptyIfaceInfo,
+		expectErr:   expectStartupErr,
+	}, {
+		primaryNIC:  "nic",
+		primaryAddr: network.Address{},
+		bridgeName:  "",
+		ifaceInfo:   emptyIfaceInfo,
+		expectErr:   expectStartupErr,
+	}, {
+		primaryNIC:  "",
+		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		bridgeName:  "",
+		ifaceInfo:   emptyIfaceInfo,
+		expectErr:   expectStartupErr,
+	}, {
+		primaryNIC:  "",
+		primaryAddr: network.Address{},
+		bridgeName:  "bridge",
+		ifaceInfo:   emptyIfaceInfo,
+		expectErr:   expectStartupErr,
+	}, {
+		primaryNIC:  "nic",
+		primaryAddr: network.Address{},
+		bridgeName:  "bridge",
+		ifaceInfo:   emptyIfaceInfo,
+		expectErr:   expectStartupErr,
+	}, {
+		primaryNIC:  "nic",
+		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		bridgeName:  "",
+		ifaceInfo:   emptyIfaceInfo,
+		expectErr:   expectStartupErr,
+	}, {
+		primaryNIC:  "",
+		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		bridgeName:  "bridge",
+		ifaceInfo:   emptyIfaceInfo,
+		expectErr:   expectStartupErr,
+	}, {
+		primaryNIC:  "nic",
+		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		bridgeName:  "bridge",
+		ifaceInfo:   emptyIfaceInfo,
+		expectErr:   expectStartupErr,
+	}, {
+		primaryNIC:  "nic",
+		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		bridgeName:  "bridge",
+		// No Address set.
 		ifaceInfo: []network.InterfaceInfo{{DeviceIndex: 0}},
-		expectErr: `host IP "" and container IP "" must be both set`,
-	}, {
-		primaryNIC: "nic",
-		bridgeName: "bridge",
-		// Has Address but no GatewayAddress set.
-		ifaceInfo: []network.InterfaceInfo{{
-			Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		}},
-		expectErr: `host IP "" and container IP "0.1.2.3" must be both set`,
-	}, {
-		primaryNIC: "nic",
-		bridgeName: "bridge",
-		// Has GatewayAddress but no Address set.
-		ifaceInfo: []network.InterfaceInfo{{
-			GatewayAddress: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		}},
-		expectErr: `host IP "0.1.2.3" and container IP "" must be both set`,
+		expectErr: `container IP "" must be set`,
 	}} {
 		c.Logf(
-			"test %d: primaryNIC=%q, bridge=%q, ifaceInfo=%v",
-			i, test.primaryNIC, test.bridgeName, test.ifaceInfo,
+			"test %d: primaryNIC=%q, primaryAddr=%q, bridge=%q, ifaceInfo=%v",
+			i, test.primaryNIC, test.primaryAddr.Value, test.bridgeName, test.ifaceInfo,
 		)
-		err := provisioner.SetupRoutesAndIPTables(test.primaryNIC, test.bridgeName, test.ifaceInfo)
-		c.Assert(err, gc.ErrorMatches, test.expectErr)
+		err := provisioner.SetupRoutesAndIPTables(test.primaryNIC, test.primaryAddr, test.bridgeName, test.ifaceInfo)
+		c.Check(err, gc.ErrorMatches, test.expectErr)
 	}
 }
 
@@ -420,11 +462,11 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesIPTablesCheckError(c *gc.C) {
 	gitjujutesting.PatchExecutableThrowError(c, s, "ip", 123)
 
 	ifaceInfo := []network.InterfaceInfo{{
-		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
 	}}
 
-	err := provisioner.SetupRoutesAndIPTables("nic", "bridge", ifaceInfo)
+	addr := network.NewAddress("0.1.2.1", network.ScopeUnknown)
+	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo)
 	c.Assert(err, gc.ErrorMatches, "iptables failed with unexpected exit code 42")
 }
 
@@ -437,11 +479,11 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesIPTablesAddError(c *gc.C) {
 	gitjujutesting.PatchExecutableThrowError(c, s, "ip", 123)
 
 	ifaceInfo := []network.InterfaceInfo{{
-		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
 	}}
 
-	err := provisioner.SetupRoutesAndIPTables("nic", "bridge", ifaceInfo)
+	addr := network.NewAddress("0.1.2.1", network.ScopeUnknown)
+	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo)
 	c.Assert(err, gc.ErrorMatches, `command "iptables -t nat -A .*" failed with exit code 42`)
 }
 
@@ -452,11 +494,11 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesIPRouteError(c *gc.C) {
 	gitjujutesting.PatchExecutableThrowError(c, s, "ip", 123)
 
 	ifaceInfo := []network.InterfaceInfo{{
-		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
 	}}
 
-	err := provisioner.SetupRoutesAndIPTables("nic", "bridge", ifaceInfo)
+	addr := network.NewAddress("0.1.2.1", network.ScopeUnknown)
+	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo)
 	c.Assert(err, gc.ErrorMatches,
 		`command "ip route add 0.1.2.3 dev bridge" failed with exit code 123`,
 	)
@@ -480,11 +522,11 @@ iptables-add {{.HostIF}} {{.HostIP}}`[1:])
 	gitjujutesting.PatchExecutableAsEchoArgs(c, s, "ip")
 
 	ifaceInfo := []network.InterfaceInfo{{
-		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
 	}}
 
-	err := provisioner.SetupRoutesAndIPTables("nic", "bridge", ifaceInfo)
+	addr := network.NewAddress("0.1.2.1", network.ScopeUnknown)
+	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now verify the expected commands - since check returns 1, add
@@ -500,9 +542,10 @@ func (s *lxcBrokerSuite) TestDiscoverPrimaryNICNetInterfacesError(c *gc.C) {
 		return nil, errors.New("boom!")
 	})
 
-	nic, err := provisioner.DiscoverPrimaryNIC()
+	nic, addr, err := provisioner.DiscoverPrimaryNIC()
 	c.Assert(err, gc.ErrorMatches, "cannot get network interfaces: boom!")
 	c.Assert(nic, gc.Equals, "")
+	c.Assert(addr, jc.DeepEquals, network.Address{})
 }
 
 func (s *lxcBrokerSuite) TestDiscoverPrimaryNICInterfaceAddrsError(c *gc.C) {
@@ -517,9 +560,28 @@ func (s *lxcBrokerSuite) TestDiscoverPrimaryNICInterfaceAddrsError(c *gc.C) {
 		return nil, errors.New("boom!")
 	})
 
-	nic, err := provisioner.DiscoverPrimaryNIC()
+	nic, addr, err := provisioner.DiscoverPrimaryNIC()
 	c.Assert(err, gc.ErrorMatches, `cannot get "fake" addresses: boom!`)
 	c.Assert(nic, gc.Equals, "")
+	c.Assert(addr, jc.DeepEquals, network.Address{})
+}
+
+func (s *lxcBrokerSuite) TestDiscoverPrimaryNICInvalidAddr(c *gc.C) {
+	s.PatchValue(provisioner.NetInterfaces, func() ([]net.Interface, error) {
+		return []net.Interface{{
+			Index: 0,
+			Name:  "fake",
+			Flags: net.FlagUp,
+		}}, nil
+	})
+	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
+		return []net.Addr{&fakeAddr{}}, nil
+	})
+
+	nic, addr, err := provisioner.DiscoverPrimaryNIC()
+	c.Assert(err, gc.ErrorMatches, `cannot parse address "fakeAddr": invalid CIDR address: fakeAddr`)
+	c.Assert(nic, gc.Equals, "")
+	c.Assert(addr, jc.DeepEquals, network.Address{})
 }
 
 func (s *lxcBrokerSuite) TestDiscoverPrimaryNICInterfaceNotFound(c *gc.C) {
@@ -527,15 +589,21 @@ func (s *lxcBrokerSuite) TestDiscoverPrimaryNICInterfaceNotFound(c *gc.C) {
 		return nil, nil
 	})
 
-	nic, err := provisioner.DiscoverPrimaryNIC()
+	nic, addr, err := provisioner.DiscoverPrimaryNIC()
 	c.Assert(err, gc.ErrorMatches, "cannot detect the primary network interface")
 	c.Assert(nic, gc.Equals, "")
+	c.Assert(addr, jc.DeepEquals, network.Address{})
 }
 
-type fakeAddr struct{}
+type fakeAddr struct{ value string }
 
 func (f *fakeAddr) Network() string { return "net" }
-func (f *fakeAddr) String() string  { return "fakeAddr" }
+func (f *fakeAddr) String() string {
+	if f.value != "" {
+		return f.value
+	}
+	return "fakeAddr"
+}
 
 var _ net.Addr = (*fakeAddr)(nil)
 
@@ -565,15 +633,16 @@ func (s *lxcBrokerSuite) TestDiscoverPrimaryNICSuccess(c *gc.C) {
 		c.Assert(i, gc.NotNil)
 		c.Assert(i.Name, gc.Matches, "if[12]")
 		if i.Name == "if2" {
-			return []net.Addr{&fakeAddr{}}, nil
+			return []net.Addr{&fakeAddr{"0.1.2.3/24"}}, nil
 		}
 		// For if1 we return no addresses.
 		return nil, nil
 	})
 
-	nic, err := provisioner.DiscoverPrimaryNIC()
+	nic, addr, err := provisioner.DiscoverPrimaryNIC()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(nic, gc.Equals, "if2")
+	c.Assert(addr, jc.DeepEquals, network.NewAddress("0.1.2.3", network.ScopeUnknown))
 }
 
 func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
@@ -587,7 +656,7 @@ func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
 		}}, nil
 	})
 	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
-		return []net.Addr{&fakeAddr{}}, nil
+		return []net.Addr{&fakeAddr{"0.1.2.1/24"}}, nil
 	})
 	fakeResolvConf := filepath.Join(c.MkDir(), "resolv.conf")
 	err := ioutil.WriteFile(fakeResolvConf, []byte("nameserver ns1.dummy\n"), 0644)
@@ -607,6 +676,7 @@ func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:    0,
+		CIDR:           "0.1.2.0/24",
 		ConfigType:     network.ConfigStatic,
 		InterfaceName:  "eth0", // generated from the device index.
 		DNSServers:     network.NewAddresses("ns1.dummy"),
@@ -774,6 +844,7 @@ func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag) ([]network
 	}
 	return []network.InterfaceInfo{{
 		DeviceIndex:    0,
+		CIDR:           "0.1.2.0/24",
 		InterfaceName:  "dummy0",
 		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
 		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),

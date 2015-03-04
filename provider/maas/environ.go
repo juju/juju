@@ -4,7 +4,6 @@
 package maas
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
@@ -14,16 +13,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"text/template"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
-	"github.com/juju/utils/set"
-	"gopkg.in/mgo.v2/bson"
-	"launchpad.net/gomaasapi"
-
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -35,6 +27,10 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
+	"gopkg.in/mgo.v2/bson"
+	"launchpad.net/gomaasapi"
 )
 
 const (
@@ -116,10 +112,6 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
-	// Override the network bridge device used for both LXC and KVM
-	// containers, because we'll be creating juju-br0 at bootstrap
-	// time.
-	args.ContainerBridgeName = environs.DefaultBridgeName
 	result, series, finalizer, err := common.BootstrapInstance(ctx, env, args)
 	if err != nil {
 		return "", "", nil, err
@@ -690,35 +682,6 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 	return err
 }
 
-const bridgeConfigTemplate = `cat >> {{.Config}} << EOF
-
-iface {{.PrimaryNIC}} inet manual
-
-auto {{.Bridge}}
-iface {{.Bridge}} inet dhcp
-    bridge_ports {{.PrimaryNIC}}
-EOF
-grep -q 'iface {{.PrimaryNIC}} inet dhcp' {{.Config}} && \
-sed -i 's/iface {{.PrimaryNIC}} inet dhcp//' {{.Config}}`
-
-// setupJujuNetworking returns a string representing the script to run
-// in order to prepare the Juju-specific networking config on a node.
-func setupJujuNetworking(primaryIface string) (string, error) {
-	parsedTemplate := template.Must(
-		template.New("BridgeConfig").Parse(bridgeConfigTemplate),
-	)
-	var buf bytes.Buffer
-	err := parsedTemplate.Execute(&buf, map[string]interface{}{
-		"Config":     "/etc/network/interfaces",
-		"Bridge":     environs.DefaultBridgeName,
-		"PrimaryNIC": primaryIface,
-	})
-	if err != nil {
-		return "", errors.Annotate(err, "bridge config template error")
-	}
-	return buf.String(), nil
-}
-
 var unsupportedConstraints = []string{
 	constraints.CpuPower,
 	constraints.InstanceType,
@@ -900,12 +863,6 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if err != nil {
 		return nil, err
 	}
-	// Override the network bridge to use for both LXC and KVM
-	// containers on the new instance.
-	if args.MachineConfig.AgentEnvironment == nil {
-		args.MachineConfig.AgentEnvironment = make(map[string]string)
-	}
-	args.MachineConfig.AgentEnvironment[agent.LxcBridge] = environs.DefaultBridgeName
 	if err := environs.FinishMachineConfig(args.MachineConfig, environ.Config()); err != nil {
 		return nil, err
 	}
@@ -1055,28 +1012,10 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series st
 
 	switch operatingSystem {
 	case version.Windows:
-		cloudcfg.AddScripts(
-			runCmd,
-		)
+		cloudcfg.AddScripts(runCmd)
 	case version.Ubuntu:
 		cloudcfg.SetAptUpdate(true)
-		if on, set := environ.Config().DisableNetworkManagement(); on && set {
-			logger.Infof("network management disabled - setting up br0, eth0 disabled")
-			cloudcfg.AddScripts("set -xe", runCmd)
-		} else {
-			bridgeScript, err := setupJujuNetworking(primaryIface)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			cloudcfg.AddPackage("bridge-utils")
-			cloudcfg.AddScripts(
-				"set -xe",
-				runCmd,
-				"ifdown "+primaryIface,
-				bridgeScript,
-				"ifup "+environs.DefaultBridgeName,
-			)
-		}
+		cloudcfg.AddScripts("set -xe", runCmd)
 	}
 	return cloudcfg, nil
 }
@@ -1401,14 +1340,21 @@ func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) 
 	for _, netId := range subnetIds {
 		subnetIdSet[netId] = false
 	}
+	processedIds := make(map[network.Id]bool)
 
 	var networkInfo []network.SubnetInfo
 	for _, subnet := range subnets {
 		_, ok := subnetIdSet[network.Id(subnet.Name)]
 		if !ok {
+			// This id is not what we're looking for.
+			continue
+		}
+		if _, ok := processedIds[network.Id(subnet.Name)]; ok {
+			// Don't add the same subnet twice.
 			continue
 		}
 		// mark that we've found this subnet
+		processedIds[network.Id(subnet.Name)] = true
 		subnetIdSet[network.Id(subnet.Name)] = true
 		netCIDR := &net.IPNet{
 			IP:   net.ParseIP(subnet.IP),
@@ -1441,7 +1387,7 @@ func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) 
 		logger.Tracef("found subnet with info %#v", subnetInfo)
 		networkInfo = append(networkInfo, subnetInfo)
 	}
-	logger.Debugf("available subnet for instance %v: %#v", inst.Id(), networkInfo)
+	logger.Debugf("available subnets for instance %v: %#v", inst.Id(), networkInfo)
 
 	notFound := []network.Id{}
 	for subnetId, found := range subnetIdSet {

@@ -284,27 +284,28 @@ func runTemplateCommand(t *template.Template, exitNonZeroOK bool, data interface
 
 // setupRoutesAndIPTables sets up on the host machine the needed
 // iptables rules and static routes for an addressable container.
-var setupRoutesAndIPTables = func(primaryNIC, bridgeName string, ifaceInfo []network.InterfaceInfo) error {
+var setupRoutesAndIPTables = func(
+	primaryNIC string,
+	primaryAddr network.Address,
+	bridgeName string,
+	ifaceInfo []network.InterfaceInfo,
+) error {
 
-	if primaryNIC == "" || bridgeName == "" || len(ifaceInfo) == 0 {
-		return errors.Errorf("primaryNIC, bridgeName, and ifaceInfo must be all set")
+	if primaryNIC == "" || primaryAddr.Value == "" || bridgeName == "" || len(ifaceInfo) == 0 {
+		return errors.Errorf("primaryNIC, primaryAddr, bridgeName, and ifaceInfo must be all set")
 	}
 
 	for _, iface := range ifaceInfo {
-		hostIP := iface.GatewayAddress.Value
 		containerIP := iface.Address.Value
-		if hostIP == "" || containerIP == "" {
-			return errors.Errorf(
-				"host IP %q and container IP %q must be both set",
-				hostIP, containerIP,
-			)
+		if containerIP == "" {
+			return errors.Errorf("container IP %q must be set", containerIP)
 		}
 		data := struct {
 			HostIF      string
 			HostIP      string
 			HostBridge  string
 			ContainerIP string
-		}{primaryNIC, hostIP, bridgeName, containerIP}
+		}{primaryNIC, primaryAddr.Value, bridgeName, containerIP}
 
 		// Check if the iptables SNAT rule has been set and add it if not.
 		code, err := runTemplateCommand(iptablesCheckSNAT, true, data)
@@ -341,11 +342,12 @@ var (
 )
 
 // discoverPrimaryNIC returns the name of the first network interface
-// on the machine which is up and has address.
-func discoverPrimaryNIC() (string, error) {
+// on the machine which is up and has address, along with the first
+// address it has.
+func discoverPrimaryNIC() (string, network.Address, error) {
 	interfaces, err := netInterfaces()
 	if err != nil {
-		return "", errors.Annotatef(err, "cannot get network interfaces")
+		return "", network.Address{}, errors.Annotatef(err, "cannot get network interfaces")
 	}
 	logger.Tracef("trying to discover primary network interface")
 	for _, iface := range interfaces {
@@ -360,16 +362,28 @@ func discoverPrimaryNIC() (string, error) {
 			logger.Tracef("verifying interface %q has addresses", iface.Name)
 			addrs, err := interfaceAddrs(&iface)
 			if err != nil {
-				return "", errors.Annotatef(err, "cannot get %q addresses", iface.Name)
+				return "", network.Address{}, errors.Annotatef(err, "cannot get %q addresses", iface.Name)
 			}
 			if len(addrs) > 0 {
 				// We found it.
-				logger.Tracef("primary network interface is %q", iface.Name)
-				return iface.Name, nil
+				// Check if it's an IP or a CIDR.
+				addr := addrs[0].String()
+				ip := net.ParseIP(addr)
+				if ip == nil {
+					// Try a CIDR.
+					ip, _, err = net.ParseCIDR(addr)
+					if err != nil {
+						return "", network.Address{}, errors.Annotatef(err, "cannot parse address %q", addr)
+					}
+				}
+				addr = ip.String()
+
+				logger.Tracef("primary network interface is %q, address %q", iface.Name, addr)
+				return iface.Name, network.NewAddress(addr, network.ScopeUnknown), nil
 			}
 		}
 	}
-	return "", errors.Errorf("cannot detect the primary network interface")
+	return "", network.Address{}, errors.Errorf("cannot detect the primary network interface")
 }
 
 // maybeAllocateStaticIP tries to allocate a static IP address for the
@@ -397,7 +411,8 @@ func maybeAllocateStaticIP(
 	logger.Debugf("trying to allocate a static IP for container %q", containerId)
 
 	var primaryNIC string
-	primaryNIC, err = discoverPrimaryNIC()
+	var primaryAddr network.Address
+	primaryNIC, primaryAddr, err = discoverPrimaryNIC()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -420,8 +435,9 @@ func maybeAllocateStaticIP(
 		finalIfaceInfo[i].InterfaceName = fmt.Sprintf("eth%d", finalIfaceInfo[i].DeviceIndex)
 		finalIfaceInfo[i].ConfigType = network.ConfigStatic
 		finalIfaceInfo[i].DNSServers = dnsServers
+		finalIfaceInfo[i].GatewayAddress = primaryAddr
 	}
-	err = setupRoutesAndIPTables(primaryNIC, bridgeDevice, finalIfaceInfo)
+	err = setupRoutesAndIPTables(primaryNIC, primaryAddr, bridgeDevice, finalIfaceInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
