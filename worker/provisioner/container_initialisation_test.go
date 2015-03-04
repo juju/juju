@@ -348,39 +348,54 @@ func AssertFileContains(c *gc.C, filename, expectedContent string) {
 	c.Assert(string(data), jc.Contains, expectedContent)
 }
 
-type SetIPForwardingSuite struct {
+type SetIPAndARPForwardingSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&SetIPForwardingSuite{})
+var _ = gc.Suite(&SetIPAndARPForwardingSuite{})
 
-func (s *SetIPForwardingSuite) TestSuccess(c *gc.C) {
+func (s *SetIPAndARPForwardingSuite) TestSuccess(c *gc.C) {
+	// NOTE: Because PatchExecutableAsEchoArgs does not allow us to
+	// assert on earlier invocations of the same binary (each run
+	// overwrites the last args used), we only check sysctl was called
+	// for the second key (arpProxySysctlKey). We do check the config
+	// contains both though.
 	fakeConfig := filepath.Join(c.MkDir(), "sysctl.conf")
 	testing.PatchExecutableAsEchoArgs(c, s, "sysctl")
-	expectKeyVal := fmt.Sprintf("%s=1", provisioner.IPForwardSysctlKey)
+	expectKeyVal := fmt.Sprintf("%s=1", provisioner.ARPProxySysctlKey)
 	s.PatchValue(provisioner.SysctlConfig, fakeConfig)
 
-	err := provisioner.SetIPForwarding(true)
+	err := provisioner.SetIPAndARPForwarding(true)
 	c.Assert(err, jc.ErrorIsNil)
-	AssertFileContains(c, fakeConfig, expectKeyVal)
+	expectConf := fmt.Sprintf(
+		"%s=1\n%s=1",
+		provisioner.IPForwardSysctlKey,
+		provisioner.ARPProxySysctlKey,
+	)
+	AssertFileContains(c, fakeConfig, expectConf)
 	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
 
-	expectKeyVal = fmt.Sprintf("%s=0", provisioner.IPForwardSysctlKey)
-	err = provisioner.SetIPForwarding(false)
+	expectKeyVal = fmt.Sprintf("%s=0", provisioner.ARPProxySysctlKey)
+	err = provisioner.SetIPAndARPForwarding(false)
 	c.Assert(err, jc.ErrorIsNil)
-	AssertFileContains(c, fakeConfig, expectKeyVal)
+	expectConf = fmt.Sprintf(
+		"%s=0\n%s=0",
+		provisioner.IPForwardSysctlKey,
+		provisioner.ARPProxySysctlKey,
+	)
+	AssertFileContains(c, fakeConfig, expectConf)
 	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
 }
 
-func (s *SetIPForwardingSuite) TestFailure(c *gc.C) {
+func (s *SetIPAndARPForwardingSuite) TestFailure(c *gc.C) {
 	fakeConfig := filepath.Join(c.MkDir(), "sysctl.conf")
 	testing.PatchExecutableThrowError(c, s, "sysctl", 123)
 	s.PatchValue(provisioner.SysctlConfig, fakeConfig)
 	expectKeyVal := fmt.Sprintf("%s=1", provisioner.IPForwardSysctlKey)
 
-	err := provisioner.SetIPForwarding(true)
+	err := provisioner.SetIPAndARPForwarding(true)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
-		`cannot set IP forwarding to %s: unexpected exit code 123`, expectKeyVal),
+		`cannot set %s: unexpected exit code 123`, expectKeyVal),
 	)
 	_, err = os.Stat(fakeConfig)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)

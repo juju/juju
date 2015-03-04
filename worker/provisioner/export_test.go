@@ -38,11 +38,14 @@ var (
 	MaybeAllocateStaticIP  = maybeAllocateStaticIP
 )
 
-const IPForwardSysctlKey = ipForwardSysctlKey
+const (
+	IPForwardSysctlKey = ipForwardSysctlKey
+	ARPProxySysctlKey  = arpProxySysctlKey
+)
 
-// SetIPForwarding calls the internal setIPForwarding and then
-// restores the mocked one.
-var SetIPForwarding func(bool) error
+// SetIPAndARPForwarding calls the internal setIPAndARPForwarding and
+// then restores the mocked one.
+var SetIPAndARPForwarding func(bool) error
 
 // SetupRoutesAndIPTables calls the internal setupRoutesAndIPTables
 // and the restores the mocked one.
@@ -50,17 +53,17 @@ var SetupRoutesAndIPTables func(string, network.Address, string, []network.Inter
 
 func init() {
 	// In order to isolate the host machine from the running tests,
-	// but also allow calling the original setIPForwarding and
+	// but also allow calling the original setIPAndARPForwarding and
 	// setupRoutesAndIPTables funcs to test them, we need a litte bit
 	// of reflect magic, mostly borrowed from the juju/testing
 	// pacakge.
-	newSetIPForwardingValue := reflect.ValueOf(&setIPForwarding).Elem()
+	newSetIPAndARPForwardingValue := reflect.ValueOf(&setIPAndARPForwarding).Elem()
 	newSetupRoutesAndIPTablesValue := reflect.ValueOf(&setupRoutesAndIPTables).Elem()
-	oldSetIPForwardingValue := reflect.New(newSetIPForwardingValue.Type()).Elem()
+	oldSetIPAndARPForwardingValue := reflect.New(newSetIPAndARPForwardingValue.Type()).Elem()
 	oldSetupRoutesAndIPTablesValue := reflect.New(newSetupRoutesAndIPTablesValue.Type()).Elem()
-	oldSetIPForwardingValue.Set(newSetIPForwardingValue)
+	oldSetIPAndARPForwardingValue.Set(newSetIPAndARPForwardingValue)
 	oldSetupRoutesAndIPTablesValue.Set(newSetupRoutesAndIPTablesValue)
-	mockSetIPForwardingValue := reflect.ValueOf(
+	mockSetIPAndARPForwardingValue := reflect.ValueOf(
 		func(bool) error { return nil },
 	)
 	mockSetupRoutesAndIPTablesValue := reflect.ValueOf(
@@ -69,13 +72,13 @@ func init() {
 	switchValues := func(newValue, oldValue reflect.Value) {
 		newValue.Set(oldValue)
 	}
-	switchValues(newSetIPForwardingValue, mockSetIPForwardingValue)
+	switchValues(newSetIPAndARPForwardingValue, mockSetIPAndARPForwardingValue)
 	switchValues(newSetupRoutesAndIPTablesValue, mockSetupRoutesAndIPTablesValue)
 
-	SetIPForwarding = func(v bool) error {
-		switchValues(newSetIPForwardingValue, oldSetIPForwardingValue)
-		defer switchValues(newSetIPForwardingValue, mockSetIPForwardingValue)
-		return setIPForwarding(v)
+	SetIPAndARPForwarding = func(v bool) error {
+		switchValues(newSetIPAndARPForwardingValue, oldSetIPAndARPForwardingValue)
+		defer switchValues(newSetIPAndARPForwardingValue, mockSetIPAndARPForwardingValue)
+		return setIPAndARPForwarding(v)
 	}
 	SetupRoutesAndIPTables = func(nic string, addr network.Address, bridge string, ifinfo []network.InterfaceInfo) error {
 		switchValues(newSetupRoutesAndIPTablesValue, oldSetupRoutesAndIPTablesValue)
