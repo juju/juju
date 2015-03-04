@@ -285,7 +285,7 @@ def dump_euca_console(host_id, directory):
 
 def test_juju_run(env):
     responses = env.client.get_juju_output(env, 'run', '--format',
-                                           'json', '--all', 'uname')
+                                           'json', '--machine', '1,2', 'uname')
     responses = json.loads(responses)
     for machine in responses:
         if machine.get('ReturnCode', 0) != 0:
