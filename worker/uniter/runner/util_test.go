@@ -147,17 +147,23 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Service) *state.Unit {
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	if s.machine == nil {
-		s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	if s.machine != nil {
+		err = unit.AssignToMachine(s.machine)
 		c.Assert(err, jc.ErrorIsNil)
-		zone := "a-zone"
-		hwc := instance.HardwareCharacteristics{
-			AvailabilityZone: &zone,
-		}
-		err = s.machine.SetProvisioned("i-exist", "fake_nonce", &hwc)
-		c.Assert(err, jc.ErrorIsNil)
+		return unit
 	}
-	err = unit.AssignToMachine(s.machine)
+
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	machineId, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	s.machine, err = s.State.Machine(machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	zone := "a-zone"
+	hwc := instance.HardwareCharacteristics{
+		AvailabilityZone: &zone,
+	}
+	err = s.machine.SetProvisioned("i-exist", "fake_nonce", &hwc)
 	c.Assert(err, jc.ErrorIsNil)
 	return unit
 }

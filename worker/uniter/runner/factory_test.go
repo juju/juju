@@ -274,16 +274,32 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 		"data": {Pool: "", Size: 1024, Count: 1},
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, sCons)
+	s.machine = nil // allocate a new machine
 	unit := s.AddUnit(c, service)
 
 	storageAttachments, err := s.State.StorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
-	err = s.State.SetStorageAttachmentInfo(
-		storageAttachments[0].StorageInstance(),
-		unit.UnitTag(),
-		state.StorageAttachmentInfo{Location: "outerspace"},
+	storageTag := storageAttachments[0].StorageInstance()
+
+	volume, err := s.State.StorageInstanceVolume(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	volumeTag := volume.VolumeTag()
+	machineTag := s.machine.MachineTag()
+
+	err = s.State.SetVolumeInfo(
+		volumeTag, state.VolumeInfo{
+			VolumeId: "vol-123",
+			Size:     456,
+		},
 	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetVolumeAttachmentInfo(
+		machineTag, volumeTag, state.VolumeAttachmentInfo{
+			DeviceName: "sdb",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	password, err := utils.RandomPassword()
 	err = unit.SetPassword(password)
@@ -315,7 +331,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 		OwnerTag:   unit.Tag().String(),
 		UnitTag:    unit.Tag().String(),
 		Kind:       params.StorageKindBlock,
-		Location:   "outerspace",
+		Location:   "/dev/sdb",
 		Life:       "alive",
 	})
 	s.AssertNotActionContext(c, ctx)
