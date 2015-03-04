@@ -15,8 +15,8 @@ import (
 )
 
 const getConstraintsDoc = `
-service get-constraints returns a list of constraints that have been set on the
-specified service using juju service set-constraints.  You can also view constraints
+Shows the list of constraints that have been set on the specified service
+using juju service set-constraints.  You can also view constraints
 set for an environment by using juju environment get-constraints.
 
 Constraints set on a service are combined with environment constraints for
@@ -33,8 +33,8 @@ See Also:
 `
 
 const setConstraintsDoc = `
-service set-constraints sets machine constraints on specific service, which are
-used as the default constraints for all new machines provisioned by that service.
+Sets machine constraints on specific service, which are used as the
+default constraints for all new machines provisioned by that service.
 You can also set constraints on an environment by using
 juju environment set-constraints.
 
