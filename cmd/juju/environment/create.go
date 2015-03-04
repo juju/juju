@@ -125,7 +125,7 @@ func (c *CreateCommand) Run(ctx *cmd.Context) (err error) {
 		if err != nil {
 			e := info.Destroy()
 			if e != nil {
-				logger.Errorf("could not remove environment file: ", e)
+				logger.Errorf("could not remove environment file: %v", e)
 			}
 		}
 	}()
