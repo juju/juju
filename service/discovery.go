@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"runtime"
@@ -106,3 +107,36 @@ func discoverLocalInitSystem() (string, error) {
 
 // TODO(ericsnow) Is it too much to cat once for each executable?
 const initSystemTest = `[[ "$(cat /proc/1/cmdline | awk '{print $1}')" == "%s" ]]`
+
+// newShellSelectCommand creates a bash if statement with an if
+// (or elif) clause for each of the executables in linuxExecutables.
+// The body of each clause comes from calling the provided handler with
+// the init system name. If the handler does not support the args then
+// it returns a false "ok" value.
+func newShellSelectCommand(handler func(string) (string, bool)) string {
+	// TODO(ericsnow) Allow passing in "initSystems ...string".
+	executables := linuxExecutables
+
+	// TODO(ericsnow) build the command in a better way?
+
+	cmdAll := ""
+	for _, initSystem := range executables {
+		cmd, ok := handler(initSystem.name)
+		if !ok {
+			continue
+		}
+
+		test := fmt.Sprintf(initSystemTest, initSystem.executable)
+		cmd = fmt.Sprintf("if %s; then %s\n", test, cmd)
+		if cmdAll != "" {
+			cmd = "el" + cmd
+		}
+		cmdAll += cmd
+	}
+	if cmdAll != "" {
+		cmdAll += "" +
+			"else exit 1\n" +
+			"fi"
+	}
+	return cmdAll
+}

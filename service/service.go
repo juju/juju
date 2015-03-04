@@ -1,7 +1,6 @@
 package service
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -147,31 +146,7 @@ func ListServices(initDir string) ([]string, error) {
 // ListServicesCommand returns the command that should be run to get
 // a list of service names on a host.
 func ListServicesCommand() string {
-	// TODO(ericsnow) Allow passing in "initSystems ...string".
-	executables := linuxExecutables
-
-	// TODO(ericsnow) build the command in a better way?
-
-	cmdAll := ""
-	for _, executable := range executables {
-		cmd, ok := listServicesCommand(executable.name)
-		if !ok {
-			continue
-		}
-
-		test := fmt.Sprintf(initSystemTest, executable.executable)
-		cmd = fmt.Sprintf("if %s; then %s\n", test, cmd)
-		if cmdAll != "" {
-			cmd = "el" + cmd
-		}
-		cmdAll += cmd
-	}
-	if cmdAll != "" {
-		cmdAll += "" +
-			"else exit 1\n" +
-			"fi"
-	}
-	return cmdAll
+	return newShellSelectCommand(listServicesCommand)
 }
 
 func listServicesCommand(initSystem string) (string, bool) {
