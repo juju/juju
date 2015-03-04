@@ -765,7 +765,7 @@ func (s *initSystemSuite) TestInstallCommandsShutdown(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	commands, err := svc.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
-	
+
 	content := `[Unit]
 Description=juju shutdown job
 After=syslog.target

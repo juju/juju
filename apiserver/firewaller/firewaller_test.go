@@ -5,7 +5,7 @@ package firewaller_test
 
 import (
 	"sort"
-	
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
