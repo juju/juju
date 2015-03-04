@@ -92,6 +92,10 @@ type Service interface {
 
 // NewService returns a new Service based on the provided info.
 func NewService(name string, conf common.Conf, initSystem string) (Service, error) {
+	if name == "" {
+		return nil, errors.New("missing name")
+	}
+
 	switch initSystem {
 	case InitSystemWindows:
 		return windows.NewService(name, conf), nil
