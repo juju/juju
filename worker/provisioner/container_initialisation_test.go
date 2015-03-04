@@ -170,12 +170,16 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 	}
 }
 
-func (s *ContainerSetupSuite) TestKvmContainerUsesConstraintsArch(c *gc.C) {
+func (s *ContainerSetupSuite) TestLxcContainerUsesConstraintsArch(c *gc.C) {
+	// LXC should override the architecture in constraints with the
+	// host's architecture.
 	s.PatchValue(&version.Current.Arch, arch.PPC64EL)
 	s.testContainerConstraintsArch(c, instance.LXC, arch.PPC64EL)
 }
 
-func (s *ContainerSetupSuite) TestLxcContainerUsesHostArch(c *gc.C) {
+func (s *ContainerSetupSuite) TestKvmContainerUsesHostArch(c *gc.C) {
+	// KVM should do what it's told, and use the architecture in
+	// constraints.
 	s.PatchValue(&version.Current.Arch, arch.PPC64EL)
 	s.testContainerConstraintsArch(c, instance.KVM, arch.AMD64)
 }
