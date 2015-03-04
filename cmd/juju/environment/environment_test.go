@@ -21,10 +21,12 @@ var _ = gc.Suite(&EnvironmentCommandSuite{})
 
 var expectedCommmandNames = []string{
 	"get",
+	"get-constraints",
 	"help",
 	"jenv",
 	"retry-provisioning",
 	"set",
+	"set-constraints",
 	"unset",
 }
 

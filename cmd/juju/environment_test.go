@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -98,4 +99,30 @@ func (s *EnvironmentSuite) TestCreate(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(testing.Stdout(context), gc.Equals, "")
 	c.Check(testing.Stderr(context), gc.Equals, "")
+}
+
+func uint64p(val uint64) *uint64 {
+	return &val
+}
+
+func (s *EnvironmentSuite) TestGetConstraints(c *gc.C) {
+	cons := constraints.Value{CpuPower: uint64p(250)}
+	err := s.State.SetEnvironConstraints(cons)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx, err := s.RunEnvironmentCommand(c, "get-constraints")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(testing.Stdout(ctx), gc.Equals, "cpu-power=250\n")
+}
+
+func (s *EnvironmentSuite) TestSetConstraints(c *gc.C) {
+	_, err := s.RunEnvironmentCommand(c, "set-constraints", "mem=4G", "cpu-power=250")
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err := s.State.EnvironConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.DeepEquals, constraints.Value{
+		CpuPower: uint64p(250),
+		Mem:      uint64p(4096),
+	})
 }
