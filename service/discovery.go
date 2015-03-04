@@ -23,7 +23,11 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 		// Fall back to checking the juju version.
 		versionInitName, ok := VersionInitSystem(jujuVersion)
 		if !ok {
-			return nil, errors.Annotate(err, "nor on local host")
+			// The key error is the one from discoverLocalInitSystem so
+			// that is what we return. However, we at least log the
+			// failed fallback attempt.
+			logger.Errorf("could not identify init system from %v", jujuVersion)
+			return nil, errors.Trace(err)
 		}
 		initName = versionInitName
 	} else if err != nil {
