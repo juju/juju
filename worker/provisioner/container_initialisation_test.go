@@ -24,8 +24,10 @@ import (
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/provisioner"
@@ -141,7 +143,8 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	// A stub worker callback to record what happens.
 	provisionerStarted := false
 	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
-		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker) error {
+		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
+		toolsFinder provisioner.ToolsFinder) error {
 		c.Assert(containerType, gc.Equals, ctype)
 		c.Assert(cfg.Tag(), gc.Equals, host.Tag())
 		provisionerStarted = true
@@ -174,7 +177,57 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 	}
 }
 
-func (s *ContainerSetupSuite) TestLxcContainerUesImageURL(c *gc.C) {
+func (s *ContainerSetupSuite) TestKvmContainerUsesConstraintsArch(c *gc.C) {
+	s.PatchValue(&version.Current.Arch, arch.PPC64EL)
+	s.testContainerConstraintsArch(c, instance.LXC, arch.PPC64EL)
+}
+
+func (s *ContainerSetupSuite) TestLxcContainerUsesHostArch(c *gc.C) {
+	s.PatchValue(&version.Current.Arch, arch.PPC64EL)
+	s.testContainerConstraintsArch(c, instance.KVM, arch.AMD64)
+}
+
+func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerType instance.ContainerType, expectArch string) {
+	var called bool
+	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
+		return toolsFinderFunc(func(v version.Number, series string, arch *string) (tools.List, error) {
+			called = true
+			c.Assert(arch, gc.NotNil)
+			c.Assert(*arch, gc.Equals, expectArch)
+			result := version.Current
+			result.Number = v
+			result.Series = series
+			result.Arch = *arch
+			return tools.List{{Version: result}}, nil
+		})
+	})
+
+	s.PatchValue(&provisioner.StartProvisioner, func(runner worker.Runner, containerType instance.ContainerType,
+		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
+		toolsFinder provisioner.ToolsFinder) error {
+		amd64 := arch.AMD64
+		toolsFinder.FindTools(version.Current.Number, version.Current.Series, &amd64)
+		return nil
+	})
+
+	// create a machine to host the container.
+	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
+		Series:      coretesting.FakeDefaultSeries,
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: s.defaultConstraints,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetSupportedContainers([]instance.ContainerType{containerType})
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetAgentVersion(version.Current)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.createContainer(c, m, containerType)
+	<-s.aptCmdChan
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *ContainerSetupSuite) TestLxcContainerUsesImageURL(c *gc.C) {
 	// create a machine to host the container.
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
 		Series:      coretesting.FakeDefaultSeries,
@@ -218,7 +271,8 @@ func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
 func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance.ContainerType, packages []string) {
 	// A noop worker callback.
 	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
-		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker) error {
+		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
+		toolsFinder provisioner.ToolsFinder) error {
 		return nil
 	}
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
@@ -326,4 +380,10 @@ func (s *SetIPForwardingSuite) TestFailure(c *gc.C) {
 	)
 	_, err = os.Stat(fakeConfig)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
+}
+
+type toolsFinderFunc func(v version.Number, series string, arch *string) (tools.List, error)
+
+func (t toolsFinderFunc) FindTools(v version.Number, series string, arch *string) (tools.List, error) {
+	return t(v, series, arch)
 }

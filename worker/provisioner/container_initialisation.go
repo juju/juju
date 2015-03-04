@@ -137,14 +137,15 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.C
 	}()
 
 	logger.Debugf("setup and start provisioner for %s containers", containerType)
-	if initialiser, broker, err := cs.getContainerArtifacts(containerType); err != nil {
+	toolsFinder := getToolsFinder(cs.provisioner)
+	initialiser, broker, toolsFinder, err := cs.getContainerArtifacts(containerType, toolsFinder)
+	if err != nil {
 		return errors.Annotate(err, "initialising container infrastructure on host machine")
-	} else {
-		if err := cs.runInitialiser(containerType, initialiser); err != nil {
-			return errors.Annotate(err, "setting up container dependencies on host machine")
-		}
-		return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker)
 	}
+	if err := cs.runInitialiser(containerType, initialiser); err != nil {
+		return errors.Annotate(err, "setting up container dependencies on host machine")
+	}
+	return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker, toolsFinder)
 }
 
 // runInitialiser runs the container initialiser with the initialisation hook held.
@@ -163,38 +164,58 @@ func (cs *ContainerSetup) TearDown() error {
 	return nil
 }
 
-func (cs *ContainerSetup) getContainerArtifacts(containerType instance.ContainerType) (container.Initialiser, environs.InstanceBroker, error) {
+// getContainerArtifacts returns type-specific interfaces for
+// managing containers.
+//
+// The ToolsFinder passed in may be replaced or wrapped to
+// enforce container-specific constraints.
+func (cs *ContainerSetup) getContainerArtifacts(
+	containerType instance.ContainerType, toolsFinder ToolsFinder,
+) (
+	container.Initialiser,
+	environs.InstanceBroker,
+	ToolsFinder,
+	error,
+) {
 	var initialiser container.Initialiser
 	var broker environs.InstanceBroker
 
 	managerConfig, err := containerManagerConfig(containerType, cs.provisioner, cs.config)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	switch containerType {
 	case instance.LXC:
 		series, err := cs.machine.Series()
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 
 		initialiser = lxc.NewContainerInitialiser(series)
 		broker, err = NewLxcBroker(cs.provisioner, cs.config, managerConfig, cs.imageURLGetter)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
+
+		// LXC containers must have the same architecture as the host.
+		// We should call through to the finder since the version of
+		// tools running on the host may not match, but we want to
+		// override the arch constraint with the arch of the host.
+		toolsFinder = hostArchToolsFinder{toolsFinder}
+
 	case instance.KVM:
 		initialiser = kvm.NewContainerInitialiser()
 		broker, err = NewKvmBroker(cs.provisioner, cs.config, managerConfig)
 		if err != nil {
 			logger.Errorf("failed to create new kvm broker")
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 	default:
-		return nil, nil, fmt.Errorf("unknown container type: %v", containerType)
+		return nil, nil, nil, fmt.Errorf("unknown container type: %v", containerType)
 	}
-	return initialiser, broker, nil
+
+	return initialiser, broker, toolsFinder, nil
 }
 
 func containerManagerConfig(
@@ -241,15 +262,21 @@ const ipForwardSysctlKey = "net.ipv4.ip_forward"
 
 // startProvisionerWorker kicks off a provisioner task responsible for creating containers
 // of the specified type on the machine.
-func startProvisionerWorker(runner worker.Runner, containerType instance.ContainerType,
-	provisioner *apiprovisioner.State, config agent.Config, broker environs.InstanceBroker) error {
+func startProvisionerWorker(
+	runner worker.Runner,
+	containerType instance.ContainerType,
+	provisioner *apiprovisioner.State,
+	config agent.Config,
+	broker environs.InstanceBroker,
+	toolsFinder ToolsFinder,
+) error {
 
 	workerName := fmt.Sprintf("%s-provisioner", containerType)
 	// The provisioner task is created after a container record has
 	// already been added to the machine. It will see that the
 	// container does not have an instance yet and create one.
 	return runner.StartWorker(workerName, func() (worker.Worker, error) {
-		return NewContainerProvisioner(containerType, provisioner, config, broker), nil
+		return NewContainerProvisioner(containerType, provisioner, config, broker, toolsFinder), nil
 	})
 }
 

@@ -134,3 +134,13 @@ func (broker *lxcBroker) StopInstances(ids ...instance.Id) error {
 func (broker *lxcBroker) AllInstances() (result []instance.Instance, err error) {
 	return broker.manager.ListContainers()
 }
+
+type hostArchToolsFinder struct {
+	f ToolsFinder
+}
+
+// FindTools is defined on the ToolsFinder interface.
+func (h hostArchToolsFinder) FindTools(v version.Number, series string, arch *string) (tools.List, error) {
+	// Override the arch constraint with the arch of the host.
+	return h.f.FindTools(v, series, &version.Current.Arch)
+}

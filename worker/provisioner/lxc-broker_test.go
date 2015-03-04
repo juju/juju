@@ -319,7 +319,8 @@ func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner
 	}
 	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig, &containertesting.MockURLGetter{})
 	c.Assert(err, jc.ErrorIsNil)
-	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker)
+	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
+	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker, toolsFinder)
 }
 
 func (s *lxcProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
