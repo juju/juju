@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
@@ -185,10 +186,17 @@ func ListServicesCommand() string {
 	// TODO(ericsnow) Allow passing in "initSystems ...string".
 	executables := linuxExecutables
 
+	// Sort executable names for predictable commands, simplifying testing.
+	sortedExecutables := make(set.Strings)
+	for executable := range executables {
+		sortedExecutables.Add(executable)
+	}
+
 	// TODO(ericsnow) build the command in a better way?
 
 	cmdAll := ""
-	for executable, initSystem := range executables {
+	for _, executable := range sortedExecutables.SortedValues() {
+		initSystem := executables[executable]
 		cmd, ok := listServicesCommand(initSystem)
 		if !ok {
 			continue
