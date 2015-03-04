@@ -176,13 +176,19 @@ func (s *discoverySuite) TestDiscoverServiceLocalHost(c *gc.C) {
 	case "windows":
 		localInitSystem = service.InitSystemWindows
 	case "linux":
-		localInitSystem = service.InitSystemUpstart
+		// TODO(ericsnow) Drop the vivid special-case once systemd is
+		// turned on there.
+		if version.Current.Series == "vivid" {
+			return
+		}
+		localInitSystem, _ = service.VersionInitSystem(version.Current)
 	}
 	test := discoveryTest{
 		os:       version.Current.OS,
 		series:   version.Current.Series,
 		expected: localInitSystem,
 	}
+	test.disableVersionDiscovery(s)
 
 	svc, err := service.DiscoverService(s.name, s.conf)
 	c.Assert(err, jc.ErrorIsNil)
