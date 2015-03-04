@@ -38,7 +38,7 @@ func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 	if _, ok := attrs["control-bucket"]; !ok {
 		uuid, err := utils.NewUUID()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		attrs["control-bucket"] = fmt.Sprintf("%x", uuid.Raw())
 	}
