@@ -78,3 +78,26 @@ func (s *cmdJujuSuite) TestEnsureAvailability(c *gc.C) {
 		"adding machines: 1, 2, 3\n"+
 			"demoting machines 0\n\n")
 }
+
+func (s *cmdJujuSuite) TestServiceSetConstraints(c *gc.C) {
+	svc := s.AddTestingService(c, "svc", s.AddTestingCharm(c, "dummy"))
+	_, err := runCommand(c, "service", "set-constraints", "svc", "mem=4G", "cpu-power=250")
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err := svc.Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cons, gc.DeepEquals, constraints.Value{
+		CpuPower: uint64p(250),
+		Mem:      uint64p(4096),
+	})
+}
+
+func (s *cmdJujuSuite) TestServiceGetConstraints(c *gc.C) {
+	svc := s.AddTestingService(c, "svc", s.AddTestingCharm(c, "dummy"))
+	err := svc.SetConstraints(constraints.Value{CpuCores: uint64p(64)})
+	c.Assert(err, jc.ErrorIsNil)
+
+	context, err := runCommand(c, "service", "get-constraints", "svc")
+	c.Assert(testing.Stdout(context), gc.Equals, "cpu-cores=64\n")
+	c.Assert(testing.Stderr(context), gc.Equals, "")
+}
