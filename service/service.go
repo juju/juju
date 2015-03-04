@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
@@ -165,16 +164,21 @@ func ListServices(initDir string) ([]string, error) {
 	}
 }
 
-var linuxExecutables = map[string]string{
+type initSystem struct {
+	executable string
+	name       string
+}
+
+var linuxExecutables = []initSystem{
 	// Note that some systems link /sbin/init to whatever init system
 	// is supported, so in the future we may need some other way to
 	// identify upstart uniquely.
-	"/sbin/init":    InitSystemUpstart,
-	"/sbin/upstart": InitSystemUpstart,
+	{"/sbin/init", InitSystemUpstart},
+	{"/sbin/upstart", InitSystemUpstart},
 	// TODO(ericsnow) Disabled for lp-1427210.
-	//"/sbin/systemd":        InitSystemSystemd,
-	//"/bin/systemd":         InitSystemSystemd,
-	//"/lib/systemd/systemd": InitSystemSystemd,
+	//{"/sbin/systemd", InitSystemSystemd},
+	//{"/bin/systemd", InitSystemSystemd},
+	//{"/lib/systemd/systemd", InitSystemSystemd},
 }
 
 // TODO(ericsnow) Is it too much to cat once for each executable?
@@ -186,23 +190,16 @@ func ListServicesCommand() string {
 	// TODO(ericsnow) Allow passing in "initSystems ...string".
 	executables := linuxExecutables
 
-	// Sort executable names for predictable commands, simplifying testing.
-	sortedExecutables := make(set.Strings)
-	for executable := range executables {
-		sortedExecutables.Add(executable)
-	}
-
 	// TODO(ericsnow) build the command in a better way?
 
 	cmdAll := ""
-	for _, executable := range sortedExecutables.SortedValues() {
-		initSystem := executables[executable]
-		cmd, ok := listServicesCommand(initSystem)
+	for _, executable := range executables {
+		cmd, ok := listServicesCommand(executable.name)
 		if !ok {
 			continue
 		}
 
-		test := fmt.Sprintf(initSystemTest, executable)
+		test := fmt.Sprintf(initSystemTest, executable.executable)
 		cmd = fmt.Sprintf("if %s; then %s\n", test, cmd)
 		if cmdAll != "" {
 			cmd = "el" + cmd
