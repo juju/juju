@@ -12,18 +12,26 @@ import (
 )
 
 const getConstraintsDoc = `
-environment get-constraints returns a list of constraints that have been set on the
-environment using juju environment set-constraints.  You can also view constraints
+Shows a list of constraints that have been set on the environment
+using juju environment set-constraints.  You can also view constraints
 set for a specific service by using juju service get-constraints <service>.
+
+Constraints set on a service are combined with environment constraints for
+commands (such as juju deploy) that provision machines for services.  Where
+environment and service constraints overlap, the service constraints take
+precedence.
 
 See Also:
    juju help constraints
    juju environment help set-constraints
+   juju help deploy
+   juju machine help add
+   juju help add-unit
 `
 
 const setConstraintsDoc = `
-set-constraints sets machine constraints on the system, which are used as the
-default constraints for all new machines provisioned in the environment (unless
+Sets machine constraints on the environment, which are used as the default
+constraints for all new machines provisioned in the environment (unless
 overridden).  You can also set constraints on a specific service by using
 juju service set-constraints.
 
