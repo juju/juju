@@ -58,6 +58,7 @@ type provisioner struct {
 	st          *apiprovisioner.State
 	agentConfig agent.Config
 	broker      environs.InstanceBroker
+	toolsFinder ToolsFinder
 	tomb        tomb.Tomb
 }
 
@@ -141,7 +142,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		machineTag,
 		harvestMode,
 		p.st,
-		getToolsFinder(p.st),
+		p.toolsFinder,
 		machineWatcher,
 		retryWatcher,
 		p.broker,
@@ -160,6 +161,7 @@ func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config) P
 		provisioner: provisioner{
 			st:          st,
 			agentConfig: agentConfig,
+			toolsFinder: getToolsFinder(st),
 		},
 	}
 	p.Provisioner = p
@@ -239,14 +241,20 @@ func (p *environProvisioner) setConfig(environConfig *config.Config) error {
 // NewContainerProvisioner returns a new Provisioner. When new machines
 // are added to the state, it allocates instances from the environment
 // and allocates them to the new machines.
-func NewContainerProvisioner(containerType instance.ContainerType, st *apiprovisioner.State,
-	agentConfig agent.Config, broker environs.InstanceBroker) Provisioner {
+func NewContainerProvisioner(
+	containerType instance.ContainerType,
+	st *apiprovisioner.State,
+	agentConfig agent.Config,
+	broker environs.InstanceBroker,
+	toolsFinder ToolsFinder,
+) Provisioner {
 
 	p := &containerProvisioner{
 		provisioner: provisioner{
 			st:          st,
 			agentConfig: agentConfig,
 			broker:      broker,
+			toolsFinder: toolsFinder,
 		},
 		containerType: containerType,
 	}
