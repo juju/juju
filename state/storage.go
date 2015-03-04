@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
@@ -729,6 +730,12 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 				charmMeta.Name, name, charmStorage.CountMax, cons.Count,
 			)
 		}
+		if charmStorage.MinimumSize > 0 && cons.Size < charmStorage.MinimumSize {
+			return errors.Errorf(
+				"charm %q store %q: minimum storage size is %s, %s specified",
+				charmMeta.Name, name, humanize.Bytes(charmStorage.MinimumSize*humanize.MByte), humanize.Bytes(cons.Size*humanize.MByte),
+			)
+		}
 		kind := storageKind(charmStorage.Type)
 		if err := validateStoragePool(st, cons.Pool, kind); err != nil {
 			return err
@@ -829,14 +836,17 @@ func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstrain
 		return errors.Trace(err)
 	}
 
-	for name, cons := range allCons {
-		charmStorage, ok := charmMeta.Storage[name]
+	if allCons == nil {
+		allCons = make(map[string]StorageConstraints)
+	}
+	for name, charmStorage := range charmMeta.Storage {
+		cons, ok := allCons[name]
 		if !ok {
-			return errors.Errorf("charm %q has no store called %q", charmMeta.Name, name)
+			cons = StorageConstraints{}
 		}
 		kind := storageKind(charmStorage.Type)
 		var err error
-		cons, err = storageConstraintsWithDefaults(conf, cons, kind)
+		cons, err = storageConstraintsWithDefaults(conf, kind, charmStorage, cons)
 		if err != nil {
 			if err == ErrNoDefaultStoragePool {
 				err = errors.Maskf(err, "no storage pool specified and no default available for %q storage", name)
@@ -850,7 +860,9 @@ func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstrain
 }
 
 // storageConstraintsWithDefaults returns a constraints derived from cons, with any defaults filled in.
-func storageConstraintsWithDefaults(cfg *config.Config, cons StorageConstraints, kind storage.StorageKind) (StorageConstraints, error) {
+func storageConstraintsWithDefaults(cfg *config.Config, kind storage.StorageKind,
+	charmStorage charm.Storage, cons StorageConstraints,
+) (StorageConstraints, error) {
 	withDefaults := cons
 	if cons.Pool == "" {
 		poolName, err := defaultStoragePool(cfg, kind)
@@ -859,9 +871,15 @@ func storageConstraintsWithDefaults(cfg *config.Config, cons StorageConstraints,
 		}
 		withDefaults.Pool = poolName
 	}
-	// TODO - use charm min size when available
 	if cons.Size == 0 {
-		withDefaults.Size = 1024
+		if charmStorage.MinimumSize > 0 {
+			withDefaults.Size = charmStorage.MinimumSize
+		} else {
+			withDefaults.Size = 1024
+		}
+	}
+	if cons.Count == 0 {
+		withDefaults.Count = uint64(charmStorage.CountMin)
 	}
 	return withDefaults, nil
 }
