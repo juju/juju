@@ -289,7 +289,7 @@ def test_juju_run(env):
     responses = json.loads(responses)
     for machine in responses:
         if machine.get('ReturnCode', 0) != 0:
-            raise Exception('juju run on machine %s returned %d: %s' % (
+            raise ValueError('juju run on machine %s returned %d: %s' % (
                             machine.get('MachineId'),
                             machine.get('ReturnCode'),
                             machine.get('Stderr')))

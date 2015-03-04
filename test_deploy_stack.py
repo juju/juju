@@ -5,6 +5,7 @@ from StringIO import StringIO
 from textwrap import dedent
 import subprocess
 from unittest import TestCase
+import json
 
 
 from deploy_stack import (
@@ -17,10 +18,13 @@ from deploy_stack import (
     get_job_instances,
     parse_euca,
     run_instances,
+    test_juju_run,
 )
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
+    JujuClientDevel,
+    Environment,
 )
 from utility import temp_dir
 
@@ -180,6 +184,30 @@ class DeployStackTestCase(TestCase):
                     with self.assertRaises(subprocess.CalledProcessError):
                             run_instances(1, 'qux')
         c_mock.assert_called_with(['euca-terminate-instances', 'i-foo'])
+
+    def test_juju_run_test(self):
+        client = JujuClientDevel(None, None)
+        env = Environment('foo', client, {'type': 'nonlocal'})
+        response_ok = json.dumps(
+            [{"MachineId": "0", "Stdout": "Linux\n"},
+             {"MachineId": "1", "Stdout": "Linux\n"},
+             {"MachineId": "2", "Stdout": "Linux\n"}])
+        response_err = json.dumps([
+            {"MachineId": "0", "Stdout": "Linux\n"},
+            {"MachineId": "1", "Stdout": "Linux\n"},
+            {"MachineId": "2",
+             "Stdout": "Linux\n",
+             "ReturnCode": 255,
+             "Stderr": "Permission denied (publickey,password)"}])
+        with patch.object(client, 'get_juju_output', return_value=response_ok):
+            try:
+                test_juju_run(env)
+            except ValueError:
+                self.fail("test_juju_run() raised ValueError unexpectedly")
+        with patch.object(client, 'get_juju_output',
+                          return_value=response_err):
+            with self.assertRaises(ValueError):
+                test_juju_run(env)
 
 
 class DumpEnvLogsTestCase(TestCase):
