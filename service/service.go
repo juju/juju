@@ -28,6 +28,8 @@ const (
 var _ Service = (*upstart.Service)(nil)
 var _ Service = (*windows.Service)(nil)
 
+// ServiceActions represents the actions that may be requested for
+// an init system service.
 type ServiceActions interface {
 	// Start will try to start the service.
 	Start() error
