@@ -361,9 +361,7 @@ func (s *initSystemSuite) TestExistsTrue(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(exists, jc.IsTrue)
-	s.stub.CheckCallNames(c,
-		"RunCommand",
-	)
+	s.stub.CheckCallNames(c, "RunCommand")
 }
 
 func (s *initSystemSuite) TestExistsFalse(c *gc.C) {
@@ -377,9 +375,7 @@ func (s *initSystemSuite) TestExistsFalse(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(exists, jc.IsFalse)
-	s.stub.CheckCallNames(c,
-		"RunCommand",
-	)
+	s.stub.CheckCallNames(c, "RunCommand")
 }
 
 func (s *initSystemSuite) TestExistsError(c *gc.C) {
@@ -390,9 +386,7 @@ func (s *initSystemSuite) TestExistsError(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.Equals, failure)
 
 	c.Check(exists, jc.IsFalse)
-	s.stub.CheckCallNames(c,
-		"RunCommand",
-	)
+	s.stub.CheckCallNames(c, "RunCommand")
 }
 
 func (s *initSystemSuite) TestRunningTrue(c *gc.C) {
