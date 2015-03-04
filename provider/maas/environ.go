@@ -16,6 +16,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
+	"gopkg.in/mgo.v2/bson"
+	"launchpad.net/gomaasapi"
+
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -27,10 +32,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
-	"github.com/juju/utils"
-	"github.com/juju/utils/set"
-	"gopkg.in/mgo.v2/bson"
-	"launchpad.net/gomaasapi"
 )
 
 const (

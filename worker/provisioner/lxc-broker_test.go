@@ -254,6 +254,7 @@ func (s *lxcBrokerSuite) TestLocalDNSServers(c *gc.C) {
   # comments are ignored
   nameserver  0.1.2.3  # that's parsed
 search foo # ignored
+# nameserver 42.42.42.42 - ignored as well
 nameserver 8.8.8.8
 nameserver example.com # comment after is ok
 `
@@ -338,108 +339,126 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesInvalidArgs(c *gc.C) {
 	expectStartupErr := "primaryNIC, primaryAddr, bridgeName, and ifaceInfo must be all set"
 	emptyIfaceInfo := []network.InterfaceInfo{}
 	for i, test := range []struct {
+		about       string
 		primaryNIC  string
 		primaryAddr network.Address
 		bridgeName  string
 		ifaceInfo   []network.InterfaceInfo
 		expectErr   string
 	}{{
+		about:       "all empty",
 		primaryNIC:  "",
 		primaryAddr: network.Address{},
 		bridgeName:  "",
 		ifaceInfo:   nil,
 		expectErr:   expectStartupErr,
 	}, {
+		about:       "all but primaryNIC empty",
 		primaryNIC:  "nic",
 		primaryAddr: network.Address{},
 		bridgeName:  "",
 		ifaceInfo:   nil,
 		expectErr:   expectStartupErr,
 	}, {
+		about:       "all but primaryAddr empty",
 		primaryNIC:  "",
 		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
 		bridgeName:  "",
 		ifaceInfo:   nil,
 		expectErr:   expectStartupErr,
 	}, {
+		about:       "all but bridgeName empty",
 		primaryNIC:  "",
 		primaryAddr: network.Address{},
 		bridgeName:  "bridge",
 		ifaceInfo:   nil,
 		expectErr:   expectStartupErr,
 	}, {
+		about:       "all but primaryNIC and bridgeName empty",
 		primaryNIC:  "nic",
 		primaryAddr: network.Address{},
 		bridgeName:  "bridge",
 		ifaceInfo:   nil,
 		expectErr:   expectStartupErr,
 	}, {
+		about:       "all but primaryNIC and primaryAddr empty",
 		primaryNIC:  "nic",
 		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
 		bridgeName:  "",
 		ifaceInfo:   nil,
 		expectErr:   expectStartupErr,
 	}, {
+		about:       "all but primaryAddr and bridgeName empty",
 		primaryNIC:  "",
 		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
 		bridgeName:  "bridge",
 		ifaceInfo:   nil,
 		expectErr:   expectStartupErr,
 	}, {
+		about:       "all set except ifaceInfo",
 		primaryNIC:  "nic",
 		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
 		bridgeName:  "bridge",
 		ifaceInfo:   nil,
 		expectErr:   expectStartupErr,
 	}, {
+		about:       "all empty (ifaceInfo set but empty)",
 		primaryNIC:  "",
 		primaryAddr: network.Address{},
 		bridgeName:  "",
 		ifaceInfo:   emptyIfaceInfo,
 		expectErr:   expectStartupErr,
 	}, {
+		about:       "all but primaryNIC empty (ifaceInfo set but empty)",
 		primaryNIC:  "nic",
 		primaryAddr: network.Address{},
 		bridgeName:  "",
 		ifaceInfo:   emptyIfaceInfo,
 		expectErr:   expectStartupErr,
 	}, {
+		about:       "all but primaryAddr empty (ifaceInfo set but empty)",
 		primaryNIC:  "",
 		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
 		bridgeName:  "",
 		ifaceInfo:   emptyIfaceInfo,
 		expectErr:   expectStartupErr,
 	}, {
+		about:       "all but bridgeName empty (ifaceInfo set but empty)",
 		primaryNIC:  "",
 		primaryAddr: network.Address{},
 		bridgeName:  "bridge",
 		ifaceInfo:   emptyIfaceInfo,
 		expectErr:   expectStartupErr,
 	}, {
+		about:       "just primaryAddr is empty and ifaceInfo set but empty",
 		primaryNIC:  "nic",
 		primaryAddr: network.Address{},
 		bridgeName:  "bridge",
 		ifaceInfo:   emptyIfaceInfo,
 		expectErr:   expectStartupErr,
 	}, {
+		about:       "just bridgeName is empty and ifaceInfo set but empty",
 		primaryNIC:  "nic",
 		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
 		bridgeName:  "",
 		ifaceInfo:   emptyIfaceInfo,
 		expectErr:   expectStartupErr,
 	}, {
+		about:       "just primaryNIC is empty and ifaceInfo set but empty",
 		primaryNIC:  "",
 		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
 		bridgeName:  "bridge",
 		ifaceInfo:   emptyIfaceInfo,
 		expectErr:   expectStartupErr,
 	}, {
+		about:       "all set except ifaceInfo, which is set but empty",
 		primaryNIC:  "nic",
 		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
 		bridgeName:  "bridge",
 		ifaceInfo:   emptyIfaceInfo,
 		expectErr:   expectStartupErr,
 	}, {
+		about:       "all set, but ifaceInfo has empty Address",
 		primaryNIC:  "nic",
 		primaryAddr: network.NewAddress("0.1.2.1", network.ScopeUnknown),
 		bridgeName:  "bridge",
@@ -447,11 +466,13 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesInvalidArgs(c *gc.C) {
 		ifaceInfo: []network.InterfaceInfo{{DeviceIndex: 0}},
 		expectErr: `container IP "" must be set`,
 	}} {
-		c.Logf(
-			"test %d: primaryNIC=%q, primaryAddr=%q, bridge=%q, ifaceInfo=%v",
-			i, test.primaryNIC, test.primaryAddr.Value, test.bridgeName, test.ifaceInfo,
+		c.Logf("test %d: %s", i, test.about)
+		err := provisioner.SetupRoutesAndIPTables(
+			test.primaryNIC,
+			test.primaryAddr,
+			test.bridgeName,
+			test.ifaceInfo,
 		)
-		err := provisioner.SetupRoutesAndIPTables(test.primaryNIC, test.primaryAddr, test.bridgeName, test.ifaceInfo)
 		c.Check(err, gc.ErrorMatches, test.expectErr)
 	}
 }
@@ -489,7 +510,7 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesIPTablesAddError(c *gc.C) {
 
 func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesIPRouteError(c *gc.C) {
 	// Isolate the test from the host machine.
-	// Returning code=0 from iptables means
+	// Returning code=0 from iptables means we won't add a rule.
 	gitjujutesting.PatchExecutableThrowError(c, s, "iptables", 0)
 	gitjujutesting.PatchExecutableThrowError(c, s, "ip", 123)
 
