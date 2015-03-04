@@ -285,7 +285,7 @@ var allInstanceTypes = []instances.InstanceType{
 		Name:     "t1.micro",
 		Arches:   both,
 		CpuCores: 1,
-		CpuPower: instances.CpuPower(20),
+		CpuPower: instances.CpuPower(100),
 		Mem:      613,
 		VirtType: &paravirtual,
 	},
@@ -295,8 +295,7 @@ var allInstanceTypes = []instances.InstanceType{
 		Arches:   amd64,
 		CpuCores: 1,
 		Mem:      1024,
-		//TODO (anastasiamac 2015-03-04) where is cpu power coming from?
-		CpuPower: instances.CpuPower(20),
+		CpuPower: instances.CpuPower(100),
 		VirtType: &paravirtual,
 	},
 	{ // General Purpose, 3rd generation.
@@ -304,8 +303,7 @@ var allInstanceTypes = []instances.InstanceType{
 		Arches:   amd64,
 		CpuCores: 1,
 		Mem:      2048,
-		//TODO (anastasiamac 2015-03-04) where is cpu power coming from?
-		CpuPower: instances.CpuPower(20),
+		CpuPower: instances.CpuPower(100),
 		VirtType: &paravirtual,
 	},
 	{ // General Purpose, 3rd generation.
@@ -313,8 +311,7 @@ var allInstanceTypes = []instances.InstanceType{
 		Arches:   amd64,
 		CpuCores: 2,
 		Mem:      4096,
-		//TODO (anastasiamac 2015-03-04) where is cpu power coming from?
-		CpuPower: instances.CpuPower(20),
+		CpuPower: instances.CpuPower(200),
 		VirtType: &paravirtual,
 	},
 
@@ -323,28 +320,28 @@ var allInstanceTypes = []instances.InstanceType{
         Arches:   amd64,
         CpuCores: 2,
         Mem:      3840,
-        CpuPower: instances.CpuPower(700),
+        CpuPower: instances.CpuPower(800),
         VirtType: &hvm,
     }, {
         Name:     "c4.xlarge",
         Arches:   amd64,
         CpuCores: 4,
         Mem:      7680,
-        CpuPower: instances.CpuPower(1400),
+        CpuPower: instances.CpuPower(1600),
         VirtType: &hvm,
     }, {
         Name:     "c4.2xlarge",
         Arches:   amd64,
         CpuCores: 8,
         Mem:      15360,
-        CpuPower: instances.CpuPower(2800),
+        CpuPower: instances.CpuPower(3100),
         VirtType: &hvm,
     }, {
         Name:     "c4.4xlarge",
         Arches:   amd64,
         CpuCores: 16,
         Mem:      30720,
-        CpuPower: instances.CpuPower(5500),
+        CpuPower: instances.CpuPower(6200),
         VirtType: &hvm,
     }, {
         Name:     "c4.8xlarge",
@@ -358,7 +355,7 @@ var allInstanceTypes = []instances.InstanceType{
         // https://console.aws.amazon.com/support/home?#/case/?caseId=1349800621&displayId=1349800621&language=en
         CpuCores: 32,
         Mem:      61440,
-        CpuPower: instances.CpuPower(10800),
+        CpuPower: instances.CpuPower(13200),
         VirtType: &hvm,
     },
 
