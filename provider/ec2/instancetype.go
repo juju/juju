@@ -4,7 +4,7 @@
 package ec2
 
 import (
-	"gopkg.in/amz.v2/aws"
+	"gopkg.in/amz.v3/aws"
 
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/juju/arch"

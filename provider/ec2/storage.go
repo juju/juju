@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/amz.v2/s3"
+	"gopkg.in/amz.v3/s3"
 
 	"github.com/juju/juju/environs/storage"
 )
@@ -74,8 +74,9 @@ func (s *ec2storage) Get(file string) (r io.ReadCloser, err error) {
 }
 
 func (s *ec2storage) URL(name string) (string, error) {
-	// 10 years should be good enough.
-	return s.bucket.SignedURL(name, time.Now().AddDate(10, 0, 0)), nil
+	const sevenDays = 168 * time.Hour
+	const maxExpiratoryPeriod = sevenDays
+	return s.bucket.SignedURL(name, maxExpiratoryPeriod)
 }
 
 var storageAttempt = utils.AttemptStrategy{
