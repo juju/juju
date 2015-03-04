@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 import logging
 from mock import patch
 import os
@@ -8,6 +9,9 @@ from unittest import TestCase
 
 
 from deploy_stack import (
+    add_juju_args,
+    add_output_args,
+    add_path_args,
     copy_remote_logs,
     describe_instances,
     destroy_environment,
@@ -15,6 +19,8 @@ from deploy_stack import (
     dump_env_logs,
     dump_logs,
     get_job_instances,
+    get_log_level,
+    get_new_juju_path,
     parse_euca,
     run_instances,
 )
@@ -40,6 +46,76 @@ def get_machine_addresses():
         '1': '10.10.0.11',
         '2': '10.10.0.22',
     }
+
+
+class ArgParserTestCase(TestCase):
+
+    def test_add_path_args(self):
+        parser = ArgumentParser('proc')
+        add_path_args(parser)
+        cmd_line = ['proc', '--new-juju-bin', '/tmp/juju']
+        with patch('sys.argv', cmd_line):
+            args_dict = parser.parse_args().__dict__
+        expected = {'run_startup': False, 'new_juju_bin': '/tmp/juju'}
+        self.assertEqual(args_dict, expected)
+
+    def test_add_output_args(self):
+        parser = ArgumentParser('proc')
+        add_output_args(parser)
+        cmd_line = ['proc', '--debug', '--verbose']
+        with patch('sys.argv', cmd_line):
+            args_dict = parser.parse_args().__dict__
+        expected = {'debug': True, 'verbose': True}
+        self.assertEqual(args_dict, expected)
+
+    def test_add_juju_args(self):
+        parser = ArgumentParser('proc')
+        add_juju_args(parser)
+        cmd_line = ['proc', '--agent-url', 'some_url', '--series', 'vivid']
+        with patch('sys.argv', cmd_line):
+            args_dict = parser.parse_args().__dict__
+        expected = {'agent_url': 'some_url', 'series': 'vivid'}
+        self.assertEqual(args_dict, expected)
+
+    def test_get_new_juju_path_new_juju_bin(self):
+        parser = ArgumentParser('proc')
+        add_path_args(parser)
+        cmd_line = ['proc', '--new-juju-bin', '/tmp/juju']
+        with patch('sys.argv', cmd_line):
+            args = parser.parse_args()
+        new_path = get_new_juju_path(args)
+        self.assertEqual(new_path.split(':')[0], '/tmp/juju')
+
+    def test_get_new_juju_path_run_startup(self):
+        parser = ArgumentParser('proc')
+        parser.add_argument('env')
+        add_path_args(parser)
+        cmd_line = ['proc', '--run-startup', 'foo']
+        with patch('sys.argv', cmd_line):
+            args = parser.parse_args()
+        with patch.dict(os.environ, {'PATH': os.environ['PATH']}):
+            with patch('subprocess.check_call') as cc_mock:
+                with patch('subprocess.check_output'):
+                    get_new_juju_path(args)
+        self.assertIn('common-startup.sh', cc_mock.call_args_list[0][0][0][1])
+
+    def test_get_log_level_debug(self):
+        parser = ArgumentParser('proc')
+        add_output_args(parser)
+        cmd_line = ['proc', '--debug']
+        with patch('sys.argv', cmd_line):
+            args = parser.parse_args()
+        log_level = get_log_level(args)
+        self.assertEqual(log_level, 20)
+
+    def test_get_log_level_verbose(self):
+        parser = ArgumentParser('proc')
+        add_output_args(parser)
+        cmd_line = ['proc', '--verbose']
+        with patch('sys.argv', cmd_line):
+            args = parser.parse_args()
+        log_level = get_log_level(args)
+        self.assertEqual(log_level, 10)
 
 
 class DeployStackTestCase(TestCase):
