@@ -194,7 +194,7 @@ func GetPasswordHash(e Authenticator) string {
 }
 
 func init() {
-	logSize = logSizeTests
+	txnLogSize = txnLogSizeTests
 }
 
 // TxnRevno returns the txn-revno field of the document
