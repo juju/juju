@@ -51,14 +51,16 @@ func (*serviceSuite) TestListServicesCommand(c *gc.C) {
 
 	line := `if [[ "$(cat /proc/1/cmdline)" == "%s" ]]; then %s`
 	upstart := `sudo initctl list | awk '{print $1}' | sort | uniq`
-	systemd := `/bin/systemctl list-unit-files --no-legend --no-page -t service` +
-		` | grep -o -P '^\w[\S]*(?=\.service)'`
+	// TODO(ericsnow) Disabled for lp-1427210.
+	//systemd := `/bin/systemctl list-unit-files --no-legend --no-page -t service` +
+	//	` | grep -o -P '^\w[\S]*(?=\.service)'`
 	c.Check(cmd, gc.Equals, strings.Join([]string{
 		fmt.Sprintf(line, "/sbin/init", upstart),
 		"el" + fmt.Sprintf(line, "/sbin/upstart", upstart),
-		"el" + fmt.Sprintf(line, "/sbin/systemd", systemd),
-		"el" + fmt.Sprintf(line, "/bin/systemd", systemd),
-		"el" + fmt.Sprintf(line, "/lib/systemd/systemd", systemd),
+		// TODO(ericsnow) Disabled for lp-1427210.
+		//"el" + fmt.Sprintf(line, "/sbin/systemd", systemd),
+		//"el" + fmt.Sprintf(line, "/bin/systemd", systemd),
+		//"el" + fmt.Sprintf(line, "/lib/systemd/systemd", systemd),
 		"else exit 1",
 		"fi",
 	}, "\n"))

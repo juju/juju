@@ -207,7 +207,7 @@ func addEnvUsers(c *gc.C, st *state.State) (expected []*state.EnvironmentUser) {
 
 	f := factory.NewFactory(st)
 	return []*state.EnvironmentUser{
-		// we expect the owner to be an existing envionment user
+		// we expect the owner to be an existing environment user
 		owner,
 		// add new users to the environment
 		f.MakeEnvUser(c, nil),

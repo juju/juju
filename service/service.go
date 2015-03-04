@@ -119,6 +119,10 @@ func VersionInitSystem(vers version.Binary) (string, bool) {
 		switch vers.Series {
 		case "precise", "quantal", "raring", "saucy", "trusty", "utopic":
 			return InitSystemUpstart, true
+		// TODO(ericsnow) the explicit vivid case should be removed once
+		// vivid switches over to systemd (for PID 1).
+		case "vivid":
+			return InitSystemUpstart, true
 		default:
 			// vivid and later
 			return InitSystemSystemd, true
@@ -164,11 +168,12 @@ var linuxExecutables = map[string]string{
 	// Note that some systems link /sbin/init to whatever init system
 	// is supported, so in the future we may need some other way to
 	// identify upstart uniquely.
-	"/sbin/init":           InitSystemUpstart,
-	"/sbin/upstart":        InitSystemUpstart,
-	"/sbin/systemd":        InitSystemSystemd,
-	"/bin/systemd":         InitSystemSystemd,
-	"/lib/systemd/systemd": InitSystemSystemd,
+	"/sbin/init":    InitSystemUpstart,
+	"/sbin/upstart": InitSystemUpstart,
+	// TODO(ericsnow) Disabled for lp-1427210.
+	//"/sbin/systemd":        InitSystemSystemd,
+	//"/bin/systemd":         InitSystemSystemd,
+	//"/lib/systemd/systemd": InitSystemSystemd,
 }
 
 // TODO(ericsnow) Is it too much to cat once for each executable?

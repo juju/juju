@@ -12,9 +12,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/amz.v2/aws"
-	"gopkg.in/amz.v2/ec2"
-	"gopkg.in/amz.v2/s3"
+	"gopkg.in/amz.v3/aws"
+	"gopkg.in/amz.v3/ec2"
+	"gopkg.in/amz.v3/s3"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -102,14 +102,25 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 
 	auth := aws.Auth{ecfg.accessKey(), ecfg.secretKey()}
 	region := aws.Regions[ecfg.region()]
-	e.ec2Unlocked = ec2.New(auth, region)
+
+	// TODO(katco-): Eventually we want to migrate to v4, but this
+	// change is designed to be least impactful. We are currently only
+	// trying to support the China region.
+	signer := aws.SignV2
+	if region == aws.CNNorth {
+		signer = aws.SignV4Factory(region.Name, "ec2")
+	}
+	e.ec2Unlocked = ec2.New(auth, region, signer)
 	e.s3Unlocked = s3.New(auth, region)
+
+	bucket, err := e.s3Unlocked.Bucket(ecfg.controlBucket())
+	if err != nil {
+		return err
+	}
 
 	// create new storage instances, existing instances continue
 	// to reference their existing configuration.
-	e.storageUnlocked = &ec2storage{
-		bucket: e.s3Unlocked.Bucket(ecfg.controlBucket()),
-	}
+	e.storageUnlocked = &ec2storage{bucket: bucket}
 	return nil
 }
 
