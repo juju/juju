@@ -9,6 +9,10 @@ import (
 
 // Ticket is used to communicate leadership status to Tracker clients.
 type Ticket interface {
+
+	// Wait returns true if its Tracker is prepared to guarantee leadership
+	// for some period from the ticket request. The guaranteed duration depends
+	// upon the Tracker.
 	Wait() bool
 }
 
