@@ -54,21 +54,18 @@ type Service interface {
 	// UpdateConfig adds a config to the service, overwriting the current one.
 	UpdateConfig(conf common.Conf)
 
-	// TODO(ericsnow) bug #1426461
-	// Running, Installed, and Exists should return errors.
-
 	// Running returns a boolean value that denotes
 	// whether or not the service is running.
-	Running() bool
+	Running() (bool, error)
 
 	// Exists returns whether the service configuration exists in the
 	// init directory with the same content that this Service would have
 	// if installed.
-	Exists() bool
+	Exists() (bool, error)
 
 	// Installed will return a boolean value that denotes
 	// whether or not the service is installed.
-	Installed() bool
+	Installed() (bool, error)
 
 	// TODO(ericsnow) Move all the commands into a separate interface.
 

@@ -89,7 +89,11 @@ func (ctx *SimpleContext) AgentConfig() agent.Config {
 func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err error) {
 	// Check sanity.
 	svc := ctx.service(unitName)
-	if svc.Installed() {
+	installed, err := svc.Installed()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if installed {
 		return fmt.Errorf("unit %q is already deployed", unitName)
 	}
 
@@ -154,7 +158,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 
 type deployerService interface {
 	UpdateConfig(common.Conf)
-	Installed() bool
+	Installed() (bool, error)
 	Install() error
 	Remove() error
 	Start() error
@@ -180,7 +184,11 @@ func (ctx *SimpleContext) findInitSystemJob(unitName string) deployerService {
 
 func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	svc := ctx.findInitSystemJob(unitName)
-	if svc == nil || !svc.Installed() {
+	if svc == nil {
+		return fmt.Errorf("unit %q is not deployed", unitName)
+	}
+	installed, err := svc.Installed()
+	if !installed {
 		return fmt.Errorf("unit %q is not deployed", unitName)
 	}
 	if err := svc.Stop(); err != nil {
@@ -194,7 +202,7 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	agentDir := agent.Dir(dataDir, tag)
 	// Recursivley change mode to 777 on windows to avoid
 	// Operation not permitted errors when deleting the agentDir
-	err := recursiveChmod(agentDir, os.FileMode(0777))
+	err = recursiveChmod(agentDir, os.FileMode(0777))
 	if err != nil {
 		return err
 	}

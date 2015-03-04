@@ -84,51 +84,72 @@ func (s *UpstartSuite) goodInstall(c *gc.C) {
 }
 
 func (s *UpstartSuite) TestInstalled(c *gc.C) {
-	c.Assert(s.service.Installed(), jc.IsFalse)
+	installed, err := s.service.Installed()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(installed, jc.IsFalse)
+
 	s.goodInstall(c)
-	c.Assert(s.service.Installed(), jc.IsTrue)
+	installed, err = s.service.Installed()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(installed, jc.IsTrue)
 }
 
 func (s *UpstartSuite) TestExists(c *gc.C) {
 	// Setup creates the file, but it is empty.
-	c.Assert(s.service.Exists(), jc.IsFalse)
+	exists, err := s.service.Exists()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(exists, jc.IsFalse)
+
 	s.goodInstall(c)
-	c.Assert(s.service.Exists(), jc.IsTrue)
+	exists, err = s.service.Exists()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(exists, jc.IsTrue)
 }
 
 func (s *UpstartSuite) TestExistsNonEmpty(c *gc.C) {
 	s.goodInstall(c)
 	s.service.Service.Conf.ExecStart = "/path/to/other-command"
-	c.Assert(s.service.Exists(), jc.IsFalse)
+
+	exists, err := s.service.Exists()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(exists, jc.IsFalse)
 }
 
 func (s *UpstartSuite) TestRunning(c *gc.C) {
 	s.MakeTool(c, "status", "exit 1")
-	c.Assert(s.service.Running(), jc.IsFalse)
+	running, err := s.service.Running()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(running, jc.IsFalse)
+
 	s.MakeTool(c, "status", `echo "GIBBERISH NONSENSE"`)
-	c.Assert(s.service.Running(), jc.IsFalse)
+	running, err = s.service.Running()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(running, jc.IsFalse)
+
 	s.RunningStatus(c)
-	c.Assert(s.service.Running(), jc.IsTrue)
+	running, err = s.service.Running()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(running, jc.IsTrue)
 }
 
 func (s *UpstartSuite) TestStart(c *gc.C) {
 	s.RunningStatus(c)
 	s.MakeTool(c, "start", "exit 99")
-	c.Assert(s.service.Start(), gc.IsNil)
+	c.Assert(s.service.Start(), jc.ErrorIsNil)
 	s.StoppedStatus(c)
 	c.Assert(s.service.Start(), gc.ErrorMatches, ".*exit status 99.*")
 	s.MakeTool(c, "start", "exit 0")
-	c.Assert(s.service.Start(), gc.IsNil)
+	c.Assert(s.service.Start(), jc.ErrorIsNil)
 }
 
 func (s *UpstartSuite) TestStop(c *gc.C) {
 	s.StoppedStatus(c)
 	s.MakeTool(c, "stop", "exit 99")
-	c.Assert(s.service.Stop(), gc.IsNil)
+	c.Assert(s.service.Stop(), jc.ErrorIsNil)
 	s.RunningStatus(c)
 	c.Assert(s.service.Stop(), gc.ErrorMatches, ".*exit status 99.*")
 	s.MakeTool(c, "stop", "exit 0")
-	c.Assert(s.service.Stop(), gc.IsNil)
+	c.Assert(s.service.Stop(), jc.ErrorIsNil)
 }
 
 func (s *UpstartSuite) TestRemoveMissing(c *gc.C) {
@@ -323,5 +344,7 @@ func (s *UpstartSuite) TestInstallAlreadyRunning(c *gc.C) {
 	s.service.UpdateConfig(conf)
 	err = s.service.Install()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.service, jc.Satisfies, (*upstart.Service).Running)
+	installed, err := s.service.Running()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(installed, jc.IsTrue)
 }

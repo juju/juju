@@ -122,22 +122,28 @@ func (s *Service) render() ([]byte, error) {
 
 // Installed returns whether the service configuration exists in the
 // init directory.
-func (s *Service) Installed() bool {
+func (s *Service) Installed() (bool, error) {
 	_, err := os.Stat(s.confPath())
-	return err == nil
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return true, nil
 }
 
 // Exists returns whether the service configuration exists in the
 // init directory with the same content that this Service would have
 // if installed.
-func (s *Service) Exists() bool {
+func (s *Service) Exists() (bool, error) {
 	// In any error case, we just say it doesn't exist with this configuration.
 	// Subsequent calls into the Service will give the caller more useful errors.
 	_, same, _, err := s.existsAndSame()
 	if err != nil {
-		return false
+		return false, errors.Trace(err)
 	}
-	return same
+	return same, nil
 }
 
 func (s *Service) existsAndSame() (exists, same bool, conf []byte, err error) {
@@ -157,24 +163,32 @@ func (s *Service) existsAndSame() (exists, same bool, conf []byte, err error) {
 }
 
 // Running returns true if the Service appears to be running.
-func (s *Service) Running() bool {
+func (s *Service) Running() (bool, error) {
 	cmd := exec.Command("status", "--system", s.Service.Name)
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return false
+	if err == nil {
+		return startedRE.Match(out), nil
 	}
-	return startedRE.Match(out)
+	if err.Error() != "exit status 1" {
+		return false, errors.Trace(err)
+	}
+	return false, nil
 }
 
 // Start starts the service.
 func (s *Service) Start() error {
-	if s.Running() {
+	running, err := s.Running()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if running {
 		return nil
 	}
-	err := runCommand("start", "--system", s.Service.Name)
+	err = runCommand("start", "--system", s.Service.Name)
 	if err != nil {
 		// Double check to see if we were started before our command ran.
-		if s.Running() {
+		// If this fails then we simply trust it's okay.
+		if running, _ := s.Running(); running {
 			return nil
 		}
 	}
@@ -195,7 +209,11 @@ func runCommand(args ...string) error {
 
 // Stop stops the service.
 func (s *Service) Stop() error {
-	if !s.Running() {
+	running, err := s.Running()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !running {
 		return nil
 	}
 	return runCommand("stop", "--system", s.Service.Name)
@@ -203,7 +221,11 @@ func (s *Service) Stop() error {
 
 // Remove deletes the service configuration from the init directory.
 func (s *Service) Remove() error {
-	if !s.Installed() {
+	installed, err := s.Installed()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !installed {
 		return nil
 	}
 	return os.Remove(s.confPath())
