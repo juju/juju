@@ -241,9 +241,9 @@ func containerManagerConfig(
 	}
 	managerConfig := container.ManagerConfig(managerConfigResult.ManagerConfig)
 
-	// Enable IP forwarding if needed.
+	// Enable IP and ARP forwarding if needed.
 	if _, ok := managerConfig[container.ConfigIPForwarding]; ok {
-		if err := setIPForwarding(true); err != nil {
+		if err := setIPAndARPForwarding(true); err != nil {
 			return nil, errors.Trace(err)
 		}
 		logger.Infof("enabled IP forwarding for containers")
@@ -258,7 +258,10 @@ var (
 	sysctlConfig = "/etc/sysctl.conf"
 )
 
-const ipForwardSysctlKey = "net.ipv4.ip_forward"
+const (
+	ipForwardSysctlKey = "net.ipv4.ip_forward"
+	arpProxySysctlKey  = "net.ipv4.conf.all.proxy_arp"
+)
 
 // startProvisionerWorker kicks off a provisioner task responsible for creating containers
 // of the specified type on the machine.
@@ -280,36 +283,45 @@ func startProvisionerWorker(
 	})
 }
 
-// setIPForwarding enables or disables IP forwarding on the machine.
-// This is needed when the machine needs to host addressable
-// containers.
-var setIPForwarding = func(enabled bool) (err error) {
+// setIPAndARPForwarding enables or disables IP and ARP forwarding on
+// the machine. This is needed when the machine needs to host
+// addressable containers.
+var setIPAndARPForwarding = func(enabled bool) error {
 	val := "0"
 	if enabled {
 		val = "1"
 	}
-	keyAndVal := fmt.Sprintf("%s=%s", ipForwardSysctlKey, val)
-	defer errors.DeferredAnnotatef(&err, "cannot set IP forwarding to %s", keyAndVal)
 
-	commands := []string{
-		// Change it immediately:
-		fmt.Sprintf("sysctl -w %s", keyAndVal),
+	runCmds := func(keyAndVal string) (err error) {
 
-		// Change it also on next boot:
-		fmt.Sprintf("echo '%s' | tee -a %s", keyAndVal, sysctlConfig),
-	}
-	for _, cmd := range commands {
-		result, err := exec.RunCommands(exec.RunParams{Commands: cmd})
-		if err != nil {
-			return errors.Trace(err)
+		defer errors.DeferredAnnotatef(&err, "cannot set %s", keyAndVal)
+
+		commands := []string{
+			// Change it immediately:
+			fmt.Sprintf("sysctl -w %s", keyAndVal),
+
+			// Change it also on next boot:
+			fmt.Sprintf("echo '%s' | tee -a %s", keyAndVal, sysctlConfig),
 		}
-		logger.Debugf(
-			"command %q returned: code: %d, stdout: %q, stderr: %q",
-			cmd, result.Code, string(result.Stdout), string(result.Stderr),
-		)
-		if result.Code != 0 {
-			return errors.Errorf("unexpected exit code %d", result.Code)
+		for _, cmd := range commands {
+			result, err := exec.RunCommands(exec.RunParams{Commands: cmd})
+			if err != nil {
+				return errors.Trace(err)
+			}
+			logger.Debugf(
+				"command %q returned: code: %d, stdout: %q, stderr: %q",
+				cmd, result.Code, string(result.Stdout), string(result.Stderr),
+			)
+			if result.Code != 0 {
+				return errors.Errorf("unexpected exit code %d", result.Code)
+			}
 		}
+		return nil
 	}
-	return nil
+
+	err := runCmds(fmt.Sprintf("%s=%s", ipForwardSysctlKey, val))
+	if err != nil {
+		return err
+	}
+	return runCmds(fmt.Sprintf("%s=%s", arpProxySysctlKey, val))
 }
