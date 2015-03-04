@@ -185,14 +185,12 @@ func (s *initSystemSuite) checkCreateFileCall(c *gc.C, index int, filename, cont
 	// strings (e.g. "a\nb\nc\n"). To avoid parsing errors, we only try and
 	// parse actual and expected file content if they don't exactly match.
 	if content != string(callData.([]byte)) {
-		// Parse the ini configurations and compare those. unit.Deserialize creates
-		// lists of pointers to structures, so we use SameContentsDeref, which
-		// compares what is pointed to, not the pointers.
+		// Parse the ini configurations and compare those.
 		expected, err := unit.Deserialize(bytes.NewReader(callData.([]byte)))
 		c.Assert(err, jc.ErrorIsNil)
 		cfg, err := unit.Deserialize(strings.NewReader(content))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(cfg, jc.SameContentsDeref, expected)
+		c.Check(cfg, jc.SameContents, expected)
 	}
 
 	c.Check(callPerm, gc.Equals, perm)
@@ -740,15 +738,13 @@ func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 	header := "cat >> /tmp/jujud-machine-0.service << 'EOF'\n"
 	footer := "EOF"
 
-	// Parse the ini configurations and compare those. unit.Deserialize creates
-	// lists of pointers to structures, so we use SameContentsDeref, which
-	// compares what is pointed to, not the pointers.
+	// Parse the ini configurations and compare those.
 	expectedString := commands[0][len(header) : len(commands[0])-len(footer)]
 	expected, err := unit.Deserialize(strings.NewReader(expectedString))
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := unit.Deserialize(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg, jc.SameContentsDeref, expected)
+	c.Check(cfg, jc.SameContents, expected)
 
 	cmd := commands[0]
 	c.Check(cmd, jc.HasPrefix, header)
