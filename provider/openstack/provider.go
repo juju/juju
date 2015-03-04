@@ -255,10 +255,6 @@ func (p environProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return nil, jujuerrors.NotImplementedf("PrepareForCreateEnvironment")
-}
-
-func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	attrs := cfg.UnknownAttrs()
 	if _, ok := attrs["control-bucket"]; !ok {
 		uuid, err := utils.NewUUID()
@@ -267,7 +263,11 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 		}
 		attrs["control-bucket"] = fmt.Sprintf("%x", uuid.Raw())
 	}
-	cfg, err := cfg.Apply(attrs)
+	return cfg.Apply(attrs)
+}
+
+func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+	cfg, err := p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, err
 	}
