@@ -81,7 +81,7 @@ func (*serviceSuite) TestListServicesCommand(c *gc.C) {
 	lines := []string{
 		fmt.Sprintf(line, "/sbin/init", upstart),
 		fmt.Sprintf(line, "/sbin/upstart", upstart),
-		// Disabled for lp-1427210
+		// TODO(ericsnow) Disabled for lp-1427210.
 		//fmt.Sprintf(line, "/sbin/systemd", systemd),
 		//fmt.Sprintf(line, "/bin/systemd", systemd),
 		//fmt.Sprintf(line, "/lib/systemd/systemd", systemd),

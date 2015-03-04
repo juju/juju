@@ -175,6 +175,7 @@ var linuxExecutables = []initSystem{
 	// identify upstart uniquely.
 	{"/sbin/init", InitSystemUpstart},
 	{"/sbin/upstart", InitSystemUpstart},
+	// TODO(ericsnow) Disabled for lp-1427210.
 	//{"/sbin/systemd", InitSystemSystemd},
 	//{"/bin/systemd", InitSystemSystemd},
 	//{"/lib/systemd/systemd", InitSystemSystemd},
