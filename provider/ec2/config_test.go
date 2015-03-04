@@ -302,6 +302,28 @@ func (s *ConfigSuite) TestMissingAuth(c *gc.C) {
 	test.check(c)
 }
 
+func (s *ConfigSuite) TestPrepareForCreateInsertsUniqueControlBucket(c *gc.C) {
+	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type": "ec2",
+	})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg1, err := providerInstance.PrepareForCreateEnvironment(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	bucket1 := cfg1.UnknownAttrs()["control-bucket"]
+	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
+
+	cfg2, err := providerInstance.PrepareForCreateEnvironment(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	bucket2 := cfg2.UnknownAttrs()["control-bucket"]
+	c.Assert(bucket2, gc.Matches, "[a-f0-9]{32}")
+
+	c.Assert(bucket1, gc.Not(gc.Equals), bucket2)
+}
+
 func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
 	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{

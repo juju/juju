@@ -4,6 +4,8 @@
 package google_test
 
 import (
+	"sort"
+
 	"code.google.com/p/google-api-go-client/compute/v1"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -42,6 +44,18 @@ func (s *networkSuite) TestNetworkSpecNewInterface(c *gc.C) {
 	})
 }
 
+type ByIPProtocol []*compute.FirewallAllowed
+
+func (s ByIPProtocol) Len() int {
+	return len(s)
+}
+func (s ByIPProtocol) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s ByIPProtocol) Less(i, j int) bool {
+	return s[i].IPProtocol < s[j].IPProtocol
+}
+
 func (s *networkSuite) TestFirewallSpec(c *gc.C) {
 	ports := network.NewPortSet(
 		network.MustParsePortRange("80-81/tcp"),
@@ -57,6 +71,10 @@ func (s *networkSuite) TestFirewallSpec(c *gc.C) {
 		IPProtocol: "udp",
 		Ports:      []string{"1234"},
 	}}
+	sort.Sort(ByIPProtocol(fw.Allowed))
+	for i := range fw.Allowed {
+		sort.Strings(fw.Allowed[i].Ports)
+	}
 	c.Check(fw, jc.DeepEquals, &compute.Firewall{
 		Name:         "spam",
 		TargetTags:   []string{"spam"},

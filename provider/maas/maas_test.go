@@ -19,41 +19,42 @@ import (
 var _ environs.NetworkingEnviron = (*maasEnviron)(nil)
 
 type providerSuite struct {
-	coretesting.BaseSuite
+	coretesting.FakeJujuHomeSuite
 	envtesting.ToolsFixture
-	testMAASObject  *gomaasapi.TestMAASObject
-	restoreTimeouts func()
+	testMAASObject *gomaasapi.TestMAASObject
 }
 
 var _ = gc.Suite(&providerSuite{})
 
 func (s *providerSuite) SetUpSuite(c *gc.C) {
-	s.restoreTimeouts = envtesting.PatchAttemptStrategies(&shortAttempt)
-	s.BaseSuite.SetUpSuite(c)
+	s.FakeJujuHomeSuite.SetUpSuite(c)
+	restoreTimeouts := envtesting.PatchAttemptStrategies(&shortAttempt)
 	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
 	s.testMAASObject = TestMAASObject
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+	s.AddSuiteCleanup(func(*gc.C) {
+		restoreFinishBootstrap()
+		restoreTimeouts()
+	})
 	s.PatchValue(&nodeDeploymentTimeout, func(*maasEnviron) time.Duration {
 		return coretesting.ShortWait
 	})
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 }
 
 func (s *providerSuite) TearDownTest(c *gc.C) {
 	s.testMAASObject.TestServer.Clear()
 	s.ToolsFixture.TearDownTest(c)
-	s.BaseSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (s *providerSuite) TearDownSuite(c *gc.C) {
 	s.testMAASObject.Close()
-	s.restoreTimeouts()
-	s.BaseSuite.TearDownSuite(c)
+	s.FakeJujuHomeSuite.TearDownSuite(c)
 }
 
 const exampleAgentName = "dfb69555-0bc4-4d1f-85f2-4ee390974984"

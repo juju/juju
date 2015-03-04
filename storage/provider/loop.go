@@ -74,6 +74,11 @@ func (lp *loopProvider) FilesystemSource(
 	return nil, errors.NotSupportedf("filesystems")
 }
 
+// Supports is defined on the Provider interface.
+func (*loopProvider) Supports(k storage.StorageKind) bool {
+	return k == storage.StorageKindBlock
+}
+
 // loopVolumeSource provides common functionality to handle
 // loop devices for rootfs and host loop volume sources.
 type loopVolumeSource struct {

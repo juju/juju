@@ -1186,7 +1186,7 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 		Size: 123,
 	}
 	volume1 := state.VolumeParams{
-		Pool: "loop-pool",
+		Pool: "", // use default
 		Size: 456,
 	}
 	volumeAttachment0 := state.VolumeAttachmentParams{}
@@ -1212,6 +1212,10 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 	c.Assert(machines, gc.HasLen, 1)
 	m, err := s.State.Machine(machines[0].Id())
 	c.Assert(err, jc.ErrorIsNil)
+
+	// When adding the machine, the default pool should
+	// have been set on the volume params.
+	machineTemplate.Volumes[1].Volume.Pool = "loop"
 
 	volumeAttachments, err := s.State.MachineVolumeAttachments(m.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)

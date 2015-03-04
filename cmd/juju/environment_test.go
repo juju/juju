@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -86,4 +87,15 @@ func (s *EnvironmentSuite) TestRetryProvisioning(c *gc.C) {
 	output := testing.Stderr(ctx)
 	stripped := strings.Replace(output, "\n", "", -1)
 	c.Check(stripped, gc.Equals, `machine 0 is not in an error state`)
+}
+
+func (s *EnvironmentSuite) TestCreate(c *gc.C) {
+	s.SetFeatureFlags(feature.JES)
+	// The JujuConnSuite doesn't set up an ssh key in the fake home dir,
+	// so fake one on the command line.  The dummy provider also expects
+	// a config value for 'state-server'.
+	context, err := s.RunEnvironmentCommand(c, "create", "new-env", "authorized-keys=fake-key", "state-server=false")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(testing.Stdout(context), gc.Equals, "")
+	c.Check(testing.Stderr(context), gc.Equals, "")
 }
