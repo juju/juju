@@ -4,7 +4,6 @@
 package lease
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -142,7 +141,7 @@ func (m *leaseManager) ReleaseLease(namespace, id string) (err error) {
 	err = <-ch
 
 	if err != nil {
-		err = errors.Annotatef(err, `could not release lease for namespace "%s", id "%s"`, namespace, id)
+		err = errors.Annotatef(err, `could not release lease for namespace %q, id %q`, namespace, id)
 
 		// Log errors so that we're aware they're happening, but don't
 		// burden the caller with dealing with an error if it's
@@ -170,6 +169,9 @@ func (m *leaseManager) LeaseReleasedNotifier(namespace string) (notifier <-chan 
 
 // workerLoop serializes all requests into a single thread.
 func (m *leaseManager) workerLoop(stop <-chan struct{}) error {
+	// TODO(fwereade): this method never returns any errors after it's
+	// entered the loop. This is bad; it may poison its cache and continue
+	// to operate, serving unhelpful results.
 
 	// These data-structures are local to ensure they're only utilized
 	// within this thread-safe context.
@@ -202,11 +204,8 @@ func (m *leaseManager) workerLoop(stop <-chan struct{}) error {
 			if err == nil {
 				namespace := release.Token.Namespace
 				err = m.leasePersistor.RemoveToken(namespace)
-				// TODO(fwereade): not quite convinced by this behaviour, but
-				// I think I'm preserving what's there already. Shouldn't this
-				// kill the worker? We've broken our cache already, so the
-				// release notifications will be matching cache content but
-				// both (might be) lying about substrate state...
+				// TODO(fwereade): if the above error is non-nil, we should
+				// not be continuing as if nothing had happened.
 				notifyOfRelease(releaseSubs[namespace], namespace)
 			}
 			release.Response <- err
@@ -238,13 +237,17 @@ func (m *leaseManager) expireLeases(
 			// minimum time we should wait before cleaning up again.
 			if nextExpiration.After(token.Expiration) {
 				nextExpiration = token.Expiration
-				fmt.Printf("Setting next expiration to %s\n", nextExpiration)
+				logger.Debugf("Setting next expiration to %s\n", nextExpiration)
 			}
 			continue
 		}
 
-		logger.Infof(`Lease for namespace "%s" has expired.`, token.Namespace)
-		if err := releaseLease(cache, token); err == nil {
+		logger.Infof(`Lease for namespace %q has expired.`, token.Namespace)
+		if err := releaseLease(cache, token); err != nil {
+			// TODO(fwereade): we should certainly be returning the error and
+			// killing the main loop.
+			logger.Errorf("Failed to release expired lease for namespace %q: %v", token.Namespace, err)
+		} else {
 			notifyOfRelease(subscribers[token.Namespace], token.Namespace)
 		}
 	}
@@ -264,7 +267,7 @@ func claimLease(cache map[string]Token, claim Token) Token {
 		return active
 	}
 	cache[claim.Namespace] = claim
-	logger.Infof(`"%s" obtained lease for "%s"`, claim.Id, claim.Namespace)
+	logger.Infof(`%q obtained lease for %q`, claim.Id, claim.Namespace)
 	return claim
 }
 
@@ -273,7 +276,7 @@ func releaseLease(cache map[string]Token, claim Token) error {
 		return NotLeaseOwnerErr
 	}
 	delete(cache, claim.Namespace)
-	logger.Infof(`"%s" released lease for namespace "%s"`, claim.Id, claim.Namespace)
+	logger.Infof(`%q released lease for namespace %q`, claim.Id, claim.Namespace)
 	return nil
 }
 
@@ -284,7 +287,7 @@ func subscribe(subMap map[string][]chan<- struct{}, subscription leaseReleasedMs
 }
 
 func notifyOfRelease(subscribers []chan<- struct{}, namespace string) {
-	logger.Infof(`Notifying namespace "%s" subscribers that its lease has been released.`, namespace)
+	logger.Infof(`Notifying namespace %q subscribers that its lease has been released.`, namespace)
 	for _, subscriber := range subscribers {
 		// Spin off into go-routine so we don't rely on listeners to
 		// not block.
