@@ -13,15 +13,17 @@ import (
 	"github.com/juju/juju/version"
 )
 
+var jujuVersion = version.Current
+
 // DiscoverService returns an interface to a service apropriate
 // for the current system
 func DiscoverService(name string, conf common.Conf) (Service, error) {
 	initName, err := discoverLocalInitSystem()
 	if errors.IsNotFound(err) {
 		// Fall back to checking the juju version.
-		versionInitName, ok := VersionInitSystem(version.Current)
+		versionInitName, ok := VersionInitSystem(jujuVersion)
 		if !ok {
-			return nil, errors.NotFoundf("init system on local host")
+			return nil, errors.Annotate(err, "nor on local host")
 		}
 		initName = versionInitName
 	}
@@ -47,7 +49,14 @@ func VersionInitSystem(vers version.Binary) (string, bool) {
 		switch vers.Series {
 		case "precise", "quantal", "raring", "saucy", "trusty", "utopic":
 			return InitSystemUpstart, true
+		case "":
+			return "", false
 		default:
+			// Check for pre-precise releases.
+			os, _ := version.GetOSFromSeries(vers.Series)
+			if os == version.Unknown {
+				return "", false
+			}
 			// vivid and later
 			return InitSystemSystemd, true
 		}
@@ -56,6 +65,8 @@ func VersionInitSystem(vers version.Binary) (string, bool) {
 		return "", false
 	}
 }
+
+const pid1 = "/proc/1/cmdline"
 
 type initSystem struct {
 	executable string
@@ -82,12 +93,15 @@ func identifyInitSystem(executable string) (string, bool) {
 	return "", false
 }
 
+var runtimeOS = runtime.GOOS
+var pid1File = pid1
+
 func discoverLocalInitSystem() (string, error) {
-	if runtime.GOOS == "windows" {
+	if runtimeOS == "windows" {
 		return InitSystemWindows, nil
 	}
 
-	data, err := ioutil.ReadFile("/proc/1/cmdline")
+	data, err := ioutil.ReadFile(pid1File)
 	if os.IsNotExist(err) {
 		return "", errors.NotFoundf("init system")
 	}
@@ -106,7 +120,7 @@ func discoverLocalInitSystem() (string, error) {
 }
 
 // TODO(ericsnow) Is it too much to cat once for each executable?
-const initSystemTest = `[[ "$(cat /proc/1/cmdline | awk '{print $1}')" == "%s" ]]`
+const initSystemTest = `[[ "$(cat ` + pid1 + ` | awk '{print $1}')" == "%s" ]]`
 
 // newShellSelectCommand creates a bash if statement with an if
 // (or elif) clause for each of the executables in linuxExecutables.

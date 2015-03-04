@@ -5,7 +5,6 @@ package service_test
 
 import (
 	"fmt"
-	"runtime"
 	"strings"
 
 	"github.com/juju/testing"
@@ -13,9 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/service/windows"
 )
 
 type serviceSuite struct {
@@ -23,28 +19,6 @@ type serviceSuite struct {
 }
 
 var _ = gc.Suite(&serviceSuite{})
-
-func (*serviceSuite) TestDiscoverService(c *gc.C) {
-	name := "a-service"
-	conf := common.Conf{
-		Desc:      "some service",
-		ExecStart: "/path/to/some-command",
-	}
-	svc, err := service.DiscoverService(name, conf)
-	c.Assert(err, jc.ErrorIsNil)
-
-	switch runtime.GOOS {
-	case "linux":
-		c.Check(svc, gc.FitsTypeOf, &upstart.Service{})
-		conf.InitDir = "/etc/init"
-	case "windows":
-		c.Check(svc, gc.FitsTypeOf, &windows.Service{})
-	default:
-		c.Errorf("unrecognized os %q", runtime.GOOS)
-	}
-	c.Check(svc.Name(), gc.Equals, "a-service")
-	c.Check(svc.Conf(), jc.DeepEquals, conf)
-}
 
 // checkShellSwitch examines the contents a fragment of shell script that implements a switch
 // using an if, elif, else chain. It tests that each command in expectedCommands is used once
