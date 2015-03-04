@@ -11,14 +11,16 @@ import (
 )
 
 type storageStateInterface interface {
-	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
+	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
+	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
 	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
 	StorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 	StorageAttachment(names.StorageTag, names.UnitTag) (state.StorageAttachment, error)
 	UnitAssignedMachine(names.UnitTag) (names.MachineTag, error)
 	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 	WatchStorageAttachments(names.UnitTag) state.StringsWatcher
+	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 }
 

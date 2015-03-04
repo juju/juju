@@ -132,7 +132,9 @@ func (s *StorageAPI) getOneStorageAttachment(canAccess common.AuthFunc, id param
 	return s.fromStateStorageAttachment(stateStorageAttachment)
 }
 
-// WatchUnitStorageAttachments creates storage attachment watchers for a collection of units.
+// WatchUnitStorageAttachments creates watchers for a collection of units,
+// each of which can be used to watch for lifecycle changes to the corresponding
+// unit's storage attachments.
 func (s *StorageAPI) WatchUnitStorageAttachments(args params.Entities) (params.StringsWatchResults, error) {
 	canAccess, err := s.accessUnit()
 	if err != nil {
@@ -167,8 +169,10 @@ func (s *StorageAPI) watchOneUnitStorageAttachments(tag string, canAccess func(n
 	return nothing, watcher.EnsureErr(watch)
 }
 
-// WatchUnitStorageAttachments creates watchers for a collection of storage attachments.
-func (s *StorageAPI) WatchStorageAttachments(args params.StorageAttachmentIds) (params.NotifyWatchResults, error) {
+// WatchStorageAttachmentInfos creates watchers for a collection of storage
+// attachments, each of which can be used to watch changes to storage
+// attachment info.
+func (s *StorageAPI) WatchStorageAttachmentInfos(args params.StorageAttachmentIds) (params.NotifyWatchResults, error) {
 	canAccess, err := s.accessUnit()
 	if err != nil {
 		return params.NotifyWatchResults{}, err
@@ -201,7 +205,7 @@ func (s *StorageAPI) watchOneStorageAttachment(id params.StorageAttachmentId, ca
 	if err != nil {
 		return nothing, err
 	}
-	watch, err := common.WatchStorageAttachment(s.st, storageTag, unitTag)
+	watch, err := common.WatchStorageAttachmentInfo(s.st, storageTag, unitTag)
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
