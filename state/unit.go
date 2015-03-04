@@ -1377,7 +1377,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	if err != nil {
 		return err
 	}
-	volumes, volumeAttachments, filesystems, filesystemAttachments, err := u.newMachineStorageParams()
+	storageParams, err := u.newMachineStorageParams()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1386,43 +1386,44 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		Constraints:           *cons,
 		Jobs:                  []MachineJob{JobHostUnits},
 		RequestedNetworks:     requestedNetworks,
-		Volumes:               volumes,
-		VolumeAttachments:     volumeAttachments,
-		Filesystems:           filesystems,
-		FilesystemAttachments: filesystemAttachments,
+		Volumes:               storageParams.volumes,
+		VolumeAttachments:     storageParams.volumeAttachments,
+		Filesystems:           storageParams.filesystems,
+		FilesystemAttachments: storageParams.filesystemAttachments,
 	}
 	return u.assignToNewMachine(template, "", containerType)
+}
+
+type storageParams struct {
+	volumes               []MachineVolumeParams
+	volumeAttachments     map[names.VolumeTag]VolumeAttachmentParams
+	filesystems           []MachineFilesystemParams
+	filesystemAttachments map[names.FilesystemTag]FilesystemAttachmentParams
 }
 
 // newMachineStorageParams returns parameters for creating volumes/filesystems
 // and volume/filesystem attachments for a new machine that the unit will be
 // assigned to.
-func (u *Unit) newMachineStorageParams() (
-	[]MachineVolumeParams,
-	map[names.VolumeTag]VolumeAttachmentParams,
-	[]MachineFilesystemParams,
-	map[names.FilesystemTag]FilesystemAttachmentParams,
-	error,
-) {
+func (u *Unit) newMachineStorageParams() (*storageParams, error) {
 	storageAttachments, err := u.st.StorageAttachments(u.UnitTag())
 	if err != nil {
-		return nil, nil, nil, nil, errors.Annotate(err, "getting storage attachments")
+		return nil, errors.Annotate(err, "getting storage attachments")
 	}
 	svc, err := u.Service()
 	if err != nil {
-		return nil, nil, nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	curl, _ := svc.CharmURL()
 	if curl == nil {
-		return nil, nil, nil, nil, errors.Errorf("no URL set for service %q", svc.Name())
+		return nil, errors.Errorf("no URL set for service %q", svc.Name())
 	}
 	ch, err := u.st.Charm(curl)
 	if err != nil {
-		return nil, nil, nil, nil, errors.Annotate(err, "getting charm")
+		return nil, errors.Annotate(err, "getting charm")
 	}
 	allCons, err := u.StorageConstraints()
 	if err != nil {
-		return nil, nil, nil, nil, errors.Annotatef(err, "getting storage constraints")
+		return nil, errors.Annotatef(err, "getting storage constraints")
 	}
 
 	var volumes []MachineVolumeParams
@@ -1430,12 +1431,9 @@ func (u *Unit) newMachineStorageParams() (
 	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
 	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
 	for _, storageAttachment := range storageAttachments {
-		// TODO(axw) consult storage provider to see if we need to request
-		// a volume for the storage instance. Otherwise create a Filesystem
-		// and FilesystemAttachment.
 		storage, err := u.st.StorageInstance(storageAttachment.StorageInstance())
 		if err != nil {
-			return nil, nil, nil, nil, errors.Annotatef(err, "getting storage instance")
+			return nil, errors.Annotatef(err, "getting storage instance")
 		}
 
 		charmStorage := ch.Meta().Storage[storage.StorageName()]
@@ -1463,7 +1461,7 @@ func (u *Unit) newMachineStorageParams() (
 				// just add an attachment.
 				volume, err := u.st.StorageInstanceVolume(storage.StorageTag())
 				if err != nil {
-					return nil, nil, nil, nil, errors.Annotatef(err, "getting volume for storage %q", storage.Tag().Id())
+					return nil, errors.Annotatef(err, "getting volume for storage %q", storage.Tag().Id())
 				}
 				volumeAttachments[volume.VolumeTag()] = volumeAttachmentParams
 			}
@@ -1490,15 +1488,21 @@ func (u *Unit) newMachineStorageParams() (
 				// just add an attachment.
 				filesystem, err := u.st.StorageInstanceFilesystem(storage.StorageTag())
 				if err != nil {
-					return nil, nil, nil, nil, errors.Annotatef(err, "getting filesystem for storage %q", storage.Tag().Id())
+					return nil, errors.Annotatef(err, "getting filesystem for storage %q", storage.Tag().Id())
 				}
 				filesystemAttachments[filesystem.FilesystemTag()] = filesystemAttachmentParams
 			}
 		default:
-			return nil, nil, nil, nil, errors.Errorf("invalid storage kind %v", storage.Kind())
+			return nil, errors.Errorf("invalid storage kind %v", storage.Kind())
 		}
 	}
-	return volumes, volumeAttachments, filesystems, filesystemAttachments, nil
+	result := &storageParams{
+		volumes,
+		volumeAttachments,
+		filesystems,
+		filesystemAttachments,
+	}
+	return result, nil
 }
 
 var noCleanMachines = stderrors.New("all eligible machines in use")
