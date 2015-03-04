@@ -4,6 +4,8 @@
 package leadership
 
 import (
+	"time"
+
 	"github.com/juju/juju/worker"
 )
 
@@ -24,6 +26,10 @@ type Tracker interface {
 	// true if leadership is guaranteed for at least the tracker's duration from
 	// the time the ticket was issued.
 	ClaimLeader() Ticket
+
+	// ClaimDuration returns the duration for which a Ticket's true Wait result
+	// is guaranteed valid.
+	ClaimDuration() time.Duration
 
 	// ServiceName returns the name of the service for which leadership claims
 	// are made.
