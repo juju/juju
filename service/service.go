@@ -172,8 +172,8 @@ func InstallAndStart(svc ServiceActions) error {
 		return errors.Trace(err)
 	}
 
-	// On slower disks, the init system may take a short time to realise
-	// that there is a service there.
+	// For various reasons the init system may take a short time to
+	// realise that the service has been installed.
 	var err error
 	for attempt := InstallStartRetryAttempts.Start(); attempt.Next(); {
 		if err = svc.Start(); err == nil {
