@@ -140,7 +140,7 @@ func (s *Service) UpdateConfig(conf common.Conf) {
 func (s *Service) setConf(conf common.Conf) error {
 	scriptPath := path.Join(s.Dirname, "exec-start.sh")
 
-	normalConf, data := normalize(conf, scriptPath)
+	normalConf, data := normalize(s.Service.Name, conf, scriptPath)
 	if err := validate(s.Service.Name, normalConf); err != nil {
 		return errors.Trace(err)
 	}
