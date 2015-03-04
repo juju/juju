@@ -502,7 +502,6 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
 
 
 def run_deployer():
-    from argparse import ArgumentParser
     parser = ArgumentParser('Test with deployer')
     parser.add_argument('env',
                         help='The juju environment to test')
@@ -531,7 +530,6 @@ def run_deployer():
     update_env(env, args.job_name, series=args.series,
                agent_url=args.agent_url)
     client = EnvJujuClient.by_version(env, debug=args.debug)
-    client.destroy_environment()
     juju_home = get_juju_home()
     with temp_bootstrap_env(
             get_juju_home(), client, set_home=False) as juju_home:
