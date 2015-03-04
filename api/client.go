@@ -58,6 +58,16 @@ type AgentStatus struct {
 	Err     error
 }
 
+// WorkloadStatus holds status about a unit's workload.
+type WorkloadStatus struct {
+	Status  params.Status
+	Info    string
+	Data    map[string]interface{}
+	Version string
+	Life    string
+	Err     error
+}
+
 // MachineStatus holds status info about a machine.
 type MachineStatus struct {
 	Agent AgentStatus
@@ -100,6 +110,8 @@ type ServiceStatus struct {
 // UnitStatus holds status info about a unit.
 type UnitStatus struct {
 	Agent AgentStatus
+	// Workload and Agent have separate statuses since 1.23.
+	Workload WorkloadStatus
 
 	// See the comment in MachineStatus regarding these fields.
 	AgentState     params.Status

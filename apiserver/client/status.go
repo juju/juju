@@ -523,15 +523,16 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 	if serviceCharm != "" && curl != nil && curl.String() != serviceCharm {
 		status.Charm = curl.String()
 	}
-	status.Agent, status.AgentState, status.AgentStateInfo = processAgent(unit)
+	status.Agent, status.Workload, status.AgentState, status.AgentStateInfo = processUnitAgent(unit)
 
 	// Until Juju 2.0, we need to continue to display legacy status values.
-	status.Agent.Status = params.TranslateLegacyStatus(status.Agent.Status)
-	status.AgentState = params.TranslateLegacyStatus(status.AgentState)
+	//status.Agent.Status = params.TranslateLegacyStatus(status.Agent.Status)
+	//status.AgentState = params.TranslateLegacyStatus(status.AgentState)
 
-	status.AgentVersion = status.Agent.Version
-	status.Life = status.Agent.Life
-	status.Err = status.Agent.Err
+	status.AgentVersion = status.Workload.Version
+	status.Life = status.Workload.Life
+	status.Err = status.Workload.Err
+
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
 		status.Subordinates = make(map[string]api.UnitStatus)
 		for _, name := range subUnits {
@@ -589,7 +590,32 @@ type stateAgent interface {
 	Status() (state.Status, string, map[string]interface{}, error)
 }
 
-// processAgent retrieves version and status information from the given entity.
+// processUnitAgent retrieves status information for both unit and unitAgents.
+func processUnitAgent(unit *state.Unit) (agent api.AgentStatus,
+	workload api.WorkloadStatus,
+	compatStatus params.Status,
+	compatInfo string) {
+
+	unitAgent := unit.Agent().(*state.UnitAgent)
+
+	workloadStatus, _, _ := processAgent(unit)
+	workload = api.WorkloadStatus(workloadStatus)
+	processAgentStatus(&agent, unitAgent)
+
+	compatStatus = params.TranslateLegacyAgentStatus(workload.Status)
+	compatInfo = agent.Info
+	return
+}
+
+// processAgentStatus performs the common tasks for all Agent processors.
+func processAgentStatus(agent *api.AgentStatus, getter state.StatusGetter) {
+	var st state.Status
+	st, agent.Info, agent.Data, agent.Err = getter.Status()
+	agent.Status = params.Status(st)
+	agent.Data = filterStatusData(agent.Data)
+}
+
+// processMachineAgent retrieves version and status information from the given entity.
 func processAgent(entity stateAgent) (out api.AgentStatus, compatStatus params.Status, compatInfo string) {
 	out.Life = processLife(entity)
 
@@ -597,31 +623,16 @@ func processAgent(entity stateAgent) (out api.AgentStatus, compatStatus params.S
 		out.Version = t.Version.Number.String()
 	}
 
-	// TODO(wallyworld) - this is ok for now, but status needs to support returning 3 values
-	// for unit:
-	// - legacy agent status
-	// - new agent status
-	// - unit status
-	// so it will no longer be appropriate to use a common processAgent()
-	// method for both machines and units
-	var st state.Status
-	unit, ok := entity.(*state.Unit)
-	if ok {
-		st, out.Info, out.Data, out.Err = unit.AgentStatus()
-	} else {
-		st, out.Info, out.Data, out.Err = entity.Status()
-	}
-	out.Status = params.Status(st)
+	processAgentStatus(&out, entity)
 	compatStatus = out.Status
 	compatInfo = out.Info
-	out.Data = filterStatusData(out.Data)
 	if out.Err != nil {
 		return
 	}
-
 	if out.Status == params.StatusPending || // Need to still check pending for existing deployments.
 		out.Status == params.StatusAllocating ||
-		out.Status == params.StatusInstalling {
+		out.Status == params.StatusInstalling ||
+		out.Status == params.StatusMaintenance {
 		// The status is allocating or installing - there's no point
 		// in enquiring about the agent liveness.
 		return

@@ -781,8 +781,27 @@ func TranslateLegacyStatus(in Status) Status {
 	switch in {
 	case StatusFailed:
 		return StatusDown
+	case StatusActive: // < 1.24
+		return StatusStarted
+	case StatusMaintenance, StatusUnknown: // 1.24
+		return StatusPending
+	case StatusError, StatusBlocked: // 1.24
+		return StatusError
+	default:
+		return in
+	}
+}
+
+// TranslateLegacyAgentStatus returns the status value clients expect to see for
+// agent-state in versions prior to 1.24
+func TranslateLegacyAgentStatus(in Status) Status {
+	switch in {
+	case StatusMaintenance, StatusWaiting:
+		return StatusPending
 	case StatusActive:
 		return StatusStarted
+	case StatusUnknown, StatusTerminated, StatusBlocked:
+		return StatusError
 	default:
 		return in
 	}

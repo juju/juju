@@ -156,16 +156,16 @@ func waitForUnitActive(stateConn *state.State, unit *state.Unit, c *gc.C) {
 		case <-time.After(coretesting.ShortWait):
 			err := unit.Refresh()
 			c.Assert(err, jc.ErrorIsNil)
-			st, info, data, err := unit.AgentStatus()
+			st, info, data, err := unit.Status()
 			c.Assert(err, jc.ErrorIsNil)
 			switch st {
-			case state.StatusAllocating, state.StatusInstalling:
+			case state.StatusMaintenance, state.StatusWaiting:
 				c.Logf("waiting...")
 				continue
 			case state.StatusActive:
 				c.Logf("active!")
 				return
-			case state.StatusFailed:
+			case state.StatusError:
 				stateConn.StartSync()
 				c.Logf("unit is still down")
 			default:

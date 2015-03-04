@@ -203,8 +203,11 @@ func (s serviceStatus) GetYAML() (tag string, value interface{}) {
 }
 
 type unitStatus struct {
-	Err            error                 `json:"-" yaml:",omitempty"`
-	Charm          string                `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
+	Err                error              `json:"-" yaml:",omitempty"`
+	Charm              string             `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
+	WorkloadStatusInfo statusInfoContents `json:"workload-status,omitempty" yaml:"workload-status,omitempty"`
+	AgentStatusInfo    statusInfoContents `json:"agent-status,omitempty" yaml:"agent-status,omitempty"`
+
 	AgentState     params.Status         `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
 	AgentStateInfo string                `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
 	AgentVersion   string                `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
@@ -213,6 +216,30 @@ type unitStatus struct {
 	OpenedPorts    []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
 	PublicAddress  string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
 	Subordinates   map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
+}
+
+type statusInfoContents struct {
+	Err     error         `json:"-" yaml:",omitempty"`
+	Current params.Status `json:"current,omitempty" yaml:"current,omitempty"`
+	Message string        `json:"message,omitempty" yaml:"message,omitempty"`
+	Since   string        `json:"since,omitempty" yaml:"since,omitempty"`
+}
+
+type statusInfoContentsNoMarshal statusInfoContents
+
+func (s statusInfoContents) MarshalJSON() ([]byte, error) {
+	if s.Err != nil {
+		return json.Marshal(errorStatus{s.Err.Error()})
+	}
+	return json.Marshal(statusInfoContentsNoMarshal(s))
+}
+
+func (s statusInfoContents) GetYAML() (tag string, value interface{}) {
+	if s.Err != nil {
+		return "", errorStatus{s.Err.Error()}
+	}
+	type sNoMethods statusInfoContents
+	return "", sNoMethods(s)
 }
 
 type unitStatusNoMarshal unitStatus
@@ -228,8 +255,8 @@ func (s unitStatus) GetYAML() (tag string, value interface{}) {
 	if s.Err != nil {
 		return "", errorStatus{s.Err.Error()}
 	}
-	type uNoMethods unitStatus
-	return "", unitStatusNoMarshal(s)
+	type sNoMethods unitStatus
+	return "", sNoMethods(s)
 }
 
 type networkStatus struct {
@@ -375,21 +402,39 @@ func (sf *statusFormatter) formatService(name string, service api.ServiceStatus)
 
 func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) unitStatus {
 	out := unitStatus{
-		Err:            unit.Err,
-		AgentState:     unit.AgentState,
-		AgentStateInfo: sf.getUnitStatusInfo(unit, serviceName),
-		AgentVersion:   unit.AgentVersion,
-		Life:           unit.Life,
-		Machine:        unit.Machine,
-		OpenedPorts:    unit.OpenedPorts,
-		PublicAddress:  unit.PublicAddress,
-		Charm:          unit.Charm,
-		Subordinates:   make(map[string]unitStatus),
+		Err:                unit.Err,
+		WorkloadStatusInfo: sf.getWorkloadStatusInfo(unit),
+		AgentStatusInfo:    sf.getAgentStatusInfo(unit),
+		AgentState:         unit.AgentState, // < 1.24 agent-state
+		AgentStateInfo:     sf.getUnitStatusInfo(unit, serviceName),
+		AgentVersion:       unit.AgentVersion,
+		Life:               unit.Life,
+		Machine:            unit.Machine,
+		OpenedPorts:        unit.OpenedPorts,
+		PublicAddress:      unit.PublicAddress,
+		Charm:              unit.Charm,
+		Subordinates:       make(map[string]unitStatus),
 	}
 	for k, m := range unit.Subordinates {
 		out.Subordinates[k] = sf.formatUnit(m, serviceName)
 	}
 	return out
+}
+
+func (sf *statusFormatter) getWorkloadStatusInfo(unit api.UnitStatus) statusInfoContents {
+	return statusInfoContents{
+		Err:     unit.Workload.Err,
+		Current: unit.Workload.Status,
+		Message: unit.Workload.Info,
+	}
+}
+
+func (sf *statusFormatter) getAgentStatusInfo(unit api.UnitStatus) statusInfoContents {
+	return statusInfoContents{
+		Err:     unit.Agent.Err,
+		Current: unit.Agent.Status,
+		Message: unit.Agent.Info,
+	}
 }
 
 func (sf *statusFormatter) getUnitStatusInfo(unit api.UnitStatus, serviceName string) string {
