@@ -7,51 +7,21 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 type VolumeStateSuite struct {
-	ConnSuite
+	StorageStateSuiteBase
 }
 
 var _ = gc.Suite(&VolumeStateSuite{})
-
-func (s *VolumeStateSuite) SetUpTest(c *gc.C) {
-	s.ConnSuite.SetUpTest(c)
-
-	// This suite is all about storage, so enable the feature by default.
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
-}
-
-func (s *VolumeStateSuite) setupSingleStorage(c *gc.C, kind string) (*state.Service, *state.Unit, names.StorageTag) {
-	// There are test charms called "storage-block" and
-	// "storage-filesystem" which are what you'd expect.
-	ch := s.AddTestingCharm(c, "storage-"+kind)
-	storage := map[string]state.StorageConstraints{
-		"data": makeStorageCons("loop-pool", 1024, 1),
-	}
-	service := s.AddTestingServiceWithStorage(c, "storage-"+kind, ch, storage)
-	unit, err := service.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-	storageTag := names.NewStorageTag("data/0")
-	return service, unit, storageTag
-}
 
 func (s *VolumeStateSuite) TestAddMachine(c *gc.C) {
 	_, unit, _ := s.setupSingleStorage(c, "block")

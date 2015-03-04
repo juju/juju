@@ -351,9 +351,7 @@ func setMachineVolumeAttachmentInfo(st *State, machineId string, attachments map
 }
 
 // SetVolumeAttachmentInfo sets the VolumeAttachmentInfo for the specified
-// volume attachment. If the volume is assigned to a block-kind storage
-// instance, identify each storage attachment relating to units assigned
-// to the machine, and update their info as well.
+// volume attachment.
 func (st *State) SetVolumeAttachmentInfo(machineTag names.MachineTag, volumeTag names.VolumeTag, info VolumeAttachmentInfo) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set info for volume attachment %s:%s", volumeTag.Id(), machineTag.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -403,9 +401,7 @@ func setProvisionedVolumeInfo(st *State, volumes map[names.VolumeTag]VolumeInfo)
 	return nil
 }
 
-// SetVolumeInfo sets the VolumeInfo for the specified volume. If the volume
-// is assigned to a block-kind storage instance, that storage instance's
-// info will be updated as well.
+// SetVolumeInfo sets the VolumeInfo for the specified volume.
 func (st *State) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set info for volume %q", tag.Id())
 	// TODO(axw) we should reject info without VolumeId set; can't do this

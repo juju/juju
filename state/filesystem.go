@@ -202,6 +202,21 @@ func (f *filesystemAttachment) Params() (FilesystemAttachmentParams, bool) {
 	return *f.doc.Params, true
 }
 
+// Filesystem returns the Filesystem with the specified name.
+func (st *State) Filesystem(tag names.FilesystemTag) (Filesystem, error) {
+	coll, cleanup := st.getCollection(filesystemsC)
+	defer cleanup()
+
+	var fs filesystem
+	err := coll.FindId(tag.Id()).One(&fs.doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("filesystem %q", tag.Id())
+	} else if err != nil {
+		return nil, errors.Annotate(err, "cannot get filesystem")
+	}
+	return &fs, nil
+}
+
 // StorageInstanceFilesystem returns the Filesystem assigned to the specified
 // storage instance.
 func (st *State) StorageInstanceFilesystem(tag names.StorageTag) (Filesystem, error) {
@@ -370,4 +385,92 @@ func createMachineFilesystemAttachmentsOps(machineId string, params map[names.Fi
 		})
 	}
 	return ops
+}
+
+// SetFilesystemInfo sets the FilesystemInfo for the specified filesystem.
+func (st *State) SetFilesystemInfo(tag names.FilesystemTag, info FilesystemInfo) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set info for filesystem %q", tag.Id())
+	// TODO(axw) we should reject info without FilesystemId set; can't do this
+	// until the providers all set it correctly.
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		fs, err := st.Filesystem(tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		var unsetParams bool
+		if _, ok := fs.Params(); ok {
+			// filesystem has parameters, unset them when
+			// we set info for the first time.
+			unsetParams = true
+		}
+		ops := setFilesystemInfoOps(tag, info, unsetParams)
+		return ops, nil
+	}
+	return st.run(buildTxn)
+}
+
+func setFilesystemInfoOps(tag names.FilesystemTag, info FilesystemInfo, unsetParams bool) []txn.Op {
+	asserts := isAliveDoc
+	update := bson.D{
+		{"$set", bson.D{{"info", &info}}},
+	}
+	if unsetParams {
+		asserts = append(asserts, bson.DocElem{"info", bson.D{{"$exists", false}}})
+		asserts = append(asserts, bson.DocElem{"params", bson.D{{"$exists", true}}})
+		update = append(update, bson.DocElem{"$unset", bson.D{{"params", nil}}})
+	}
+	return []txn.Op{{
+		C:      filesystemsC,
+		Id:     tag.Id(),
+		Assert: asserts,
+		Update: update,
+	}}
+}
+
+// SetFilesystemAttachmentInfo sets the FilesystemAttachmentInfo for the
+// specified filesystem attachment.
+func (st *State) SetFilesystemAttachmentInfo(
+	machineTag names.MachineTag,
+	filesystemTag names.FilesystemTag,
+	info FilesystemAttachmentInfo,
+) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set info for filesystem attachment %s:%s", filesystemTag.Id(), machineTag.Id())
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		fsa, err := st.FilesystemAttachment(machineTag, filesystemTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		var unsetParams bool
+		if _, ok := fsa.Params(); ok {
+			// filesystem attachment has parameters, unset them
+			// when we set info for the first time.
+			unsetParams = true
+		}
+		ops := setFilesystemAttachmentInfoOps(machineTag, filesystemTag, info, unsetParams)
+		return ops, nil
+	}
+	return st.run(buildTxn)
+}
+
+func setFilesystemAttachmentInfoOps(
+	machine names.MachineTag,
+	filesystem names.FilesystemTag,
+	info FilesystemAttachmentInfo,
+	unsetParams bool,
+) []txn.Op {
+	asserts := isAliveDoc
+	update := bson.D{
+		{"$set", bson.D{{"info", &info}}},
+	}
+	if unsetParams {
+		asserts = append(asserts, bson.DocElem{"info", bson.D{{"$exists", false}}})
+		asserts = append(asserts, bson.DocElem{"params", bson.D{{"$exists", true}}})
+		update = append(update, bson.DocElem{"$unset", bson.D{{"params", nil}}})
+	}
+	return []txn.Op{{
+		C:      filesystemAttachmentsC,
+		Id:     filesystemAttachmentId(machine.Id(), filesystem.Id()),
+		Assert: asserts,
+		Update: update,
+	}}
 }
