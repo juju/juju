@@ -26,8 +26,7 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 			return nil, errors.Annotate(err, "nor on local host")
 		}
 		initName = versionInitName
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
