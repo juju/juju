@@ -32,19 +32,19 @@ import (
 )
 
 type toolsSuite struct {
-	authHttpSuite
+	userAuthHttpSuite
 	commontesting.BlockHelper
 }
 
 var _ = gc.Suite(&toolsSuite{})
 
 func (s *toolsSuite) SetUpSuite(c *gc.C) {
-	s.authHttpSuite.SetUpSuite(c)
+	s.userAuthHttpSuite.SetUpSuite(c)
 	s.archiveContentType = "application/x-tar-gz"
 }
 
 func (s *toolsSuite) SetUpTest(c *gc.C) {
-	s.authHttpSuite.SetUpTest(c)
+	s.userAuthHttpSuite.SetUpTest(c)
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }

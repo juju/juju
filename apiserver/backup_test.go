@@ -28,12 +28,12 @@ import (
 )
 
 type baseBackupsSuite struct {
-	authHttpSuite
+	userAuthHttpSuite
 	fake *backupstesting.FakeBackups
 }
 
 func (s *baseBackupsSuite) SetUpTest(c *gc.C) {
-	s.authHttpSuite.SetUpTest(c)
+	s.userAuthHttpSuite.SetUpTest(c)
 
 	s.fake = &backupstesting.FakeBackups{}
 	s.PatchValue(apiserver.NewBackups,
