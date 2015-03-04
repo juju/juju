@@ -50,7 +50,9 @@ type tracker struct {
 // the supplied duration, and once it's leader it will renew leadership every
 // time the duration elapses.
 // Thus, successful leadership claims on the resulting Tracker will guarantee
-// leadership for the duration supplied here.
+// leadership for the duration supplied here without generating additional calls
+// to the supplied manager (which may very well be on the other side of a
+// network connection).
 func NewTrackerWorker(tag names.UnitTag, leadership leadership.LeadershipManager, duration time.Duration) TrackerWorker {
 	unitName := tag.Id()
 	serviceName, _ := names.UnitService(unitName)
