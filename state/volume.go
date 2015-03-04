@@ -69,13 +69,13 @@ type volumeAttachment struct {
 
 // volumeDoc records information about a volume in the environment.
 type volumeDoc struct {
-	DocID           string        `bson:"_id"`
-	Name            string        `bson:"name"`
-	EnvUUID         string        `bson:"env-uuid"`
-	Life            Life          `bson:"life"`
-	StorageInstance string        `bson:"storageinstanceid,omitempty"`
-	Info            *VolumeInfo   `bson:"info,omitempty"`
-	Params          *VolumeParams `bson:"params,omitempty"`
+	DocID     string        `bson:"_id"`
+	Name      string        `bson:"name"`
+	EnvUUID   string        `bson:"env-uuid"`
+	Life      Life          `bson:"life"`
+	StorageId string        `bson:"storageid,omitempty"`
+	Info      *VolumeInfo   `bson:"info,omitempty"`
+	Params    *VolumeParams `bson:"params,omitempty"`
 }
 
 // volumeAttachmentDoc records information about a volume attachment.
@@ -130,11 +130,11 @@ func (v *volume) VolumeTag() names.VolumeTag {
 
 // StorageInstance is required to implement Volume.
 func (v *volume) StorageInstance() (names.StorageTag, error) {
-	if v.doc.StorageInstance == "" {
+	if v.doc.StorageId == "" {
 		msg := fmt.Sprintf("volume %q is not assigned to any storage instance", v.Tag().Id())
 		return names.StorageTag{}, errors.NewNotAssigned(nil, msg)
 	}
-	return names.NewStorageTag(v.doc.StorageInstance), nil
+	return names.NewStorageTag(v.doc.StorageId), nil
 }
 
 // Info is required to implement Volume.
@@ -201,7 +201,7 @@ func (st *State) StorageInstanceVolume(tag names.StorageTag) (Volume, error) {
 	defer cleanup()
 
 	var v volume
-	err := coll.Find(bson.D{{"storageinstanceid", tag.Id()}}).One(&v.doc)
+	err := coll.Find(bson.D{{"storageid", tag.Id()}}).One(&v.doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("volume for storage instance %q", tag.Id())
 	} else if err != nil {
@@ -258,6 +258,10 @@ func newVolumeName(st *State) (string, error) {
 // addVolumeOp returns a txn.Op to create a new volume with the specified
 // parameters.
 func (st *State) addVolumeOp(params VolumeParams) (txn.Op, names.VolumeTag, error) {
+	params, err := st.volumeParamsWithDefaults(params)
+	if err != nil {
+		return txn.Op{}, names.VolumeTag{}, errors.Trace(err)
+	}
 	if err := st.validateVolumeParams(params); err != nil {
 		return txn.Op{}, names.VolumeTag{}, errors.Annotate(err, "validating volume params")
 	}
@@ -270,27 +274,31 @@ func (st *State) addVolumeOp(params VolumeParams) (txn.Op, names.VolumeTag, erro
 		Id:     name,
 		Assert: txn.DocMissing,
 		Insert: &volumeDoc{
-			Name:            name,
-			StorageInstance: params.storage.Id(),
-			Params:          &params,
+			Name:      name,
+			StorageId: params.storage.Id(),
+			Params:    &params,
 		},
 	}
 	return op, names.NewVolumeTag(name), nil
 }
 
-func (st *State) validateVolumeParams(params VolumeParams) error {
-	conf, err := st.EnvironConfig()
+func (st *State) volumeParamsWithDefaults(params VolumeParams) (VolumeParams, error) {
+	if params.Pool != "" {
+		return params, nil
+	}
+	envConfig, err := st.EnvironConfig()
 	if err != nil {
-		return errors.Trace(err)
+		return VolumeParams{}, errors.Trace(err)
 	}
-	envType := conf.Type()
-	if params.Pool == "" {
-		if poolName, err := defaultStoragePool(conf, envType, storage.StorageKindBlock); err != nil {
-			return err
-		} else {
-			params.Pool = poolName
-		}
+	poolName, err := defaultStoragePool(envConfig, storage.StorageKindBlock)
+	if err != nil {
+		return VolumeParams{}, errors.Annotate(err, "getting default block storage pool")
 	}
+	params.Pool = poolName
+	return params, nil
+}
+
+func (st *State) validateVolumeParams(params VolumeParams) error {
 	if err := validateStoragePool(st, params.Pool, storage.StorageKindBlock); err != nil {
 		return err
 	}
@@ -306,9 +314,9 @@ func volumeAttachmentId(machineId, volumeName string) string {
 	return fmt.Sprintf("%s#%s", machineGlobalKey(machineId), volumeName)
 }
 
-// createMachineVolumeAttachmentInfo creates volume attachment
+// createMachineVolumeAttachmentInfo creates volume attachments
 // for the specified machine, and attachment parameters keyed
-// by volume names.
+// by volume tags.
 func createMachineVolumeAttachmentsOps(machineId string, params map[names.VolumeTag]VolumeAttachmentParams) []txn.Op {
 	ops := make([]txn.Op, 0, len(params))
 	for volumeTag, params := range params {

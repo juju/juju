@@ -69,6 +69,8 @@ var multiEnvCollections = set.NewStrings(
 	constraintsC,
 	containerRefsC,
 	envUsersC,
+	filesystemsC,
+	filesystemAttachmentsC,
 	instanceDataC,
 	ipaddressesC,
 	machinesC,
