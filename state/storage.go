@@ -840,10 +840,7 @@ func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstrain
 		allCons = make(map[string]StorageConstraints)
 	}
 	for name, charmStorage := range charmMeta.Storage {
-		cons, ok := allCons[name]
-		if !ok {
-			cons = StorageConstraints{}
-		}
+		cons := allCons[name]
 		kind := storageKind(charmStorage.Type)
 		var err error
 		cons, err = storageConstraintsWithDefaults(conf, kind, charmStorage, cons)
