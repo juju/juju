@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/version"
 )
 
+// This exists to allow patching during tests.
 var jujuVersion = version.Current
 
 // DiscoverService returns an interface to a service apropriate
@@ -69,6 +70,8 @@ func VersionInitSystem(vers version.Binary) (string, bool) {
 	}
 }
 
+// pid1 is the path to the "file" that contains the path to the init
+// system executable on linux.
 const pid1 = "/proc/1/cmdline"
 
 type initSystem struct {
@@ -96,8 +99,11 @@ func identifyInitSystem(executable string) (string, bool) {
 	return "", false
 }
 
-var runtimeOS = runtime.GOOS
-var pid1File = pid1
+// These exist to allow patching during tests.
+var (
+	runtimeOS = runtime.GOOS
+	pid1File  = pid1
+)
 
 func discoverLocalInitSystem() (string, error) {
 	if runtimeOS == "windows" {
