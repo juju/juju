@@ -5,7 +5,6 @@ import os
 from StringIO import StringIO
 from textwrap import dedent
 import subprocess
-import sys
 from unittest import TestCase
 
 
@@ -56,40 +55,36 @@ class ArgParserTestCase(TestCase):
     def test_add_path_args(self):
         parser = ArgumentParser('proc')
         add_path_args(parser)
-        sys.argv = []
         cmd_line = ['proc', '--new-juju-bin', '/tmp/juju']
-        sys.argv.extend(cmd_line)
+        with patch('sys.argv', cmd_line):
+            args_dict = parser.parse_args().__dict__
         expected = {'run_startup': False, 'new_juju_bin': '/tmp/juju'}
-        args_dict = parser.parse_args().__dict__
         self.assertEqual(args_dict, expected)
 
     def test_add_output_args(self):
         parser = ArgumentParser('proc')
         add_output_args(parser)
-        sys.argv = []
         cmd_line = ['proc', '--debug', '--verbose', '/tmp/logs']
-        sys.argv.extend(cmd_line)
+        with patch('sys.argv', cmd_line):
+            args_dict = parser.parse_args().__dict__
         expected = {'debug': True, 'verbose': True, 'logs': '/tmp/logs'}
-        args_dict = parser.parse_args().__dict__
         self.assertEqual(args_dict, expected)
 
     def test_add_juju_args(self):
         parser = ArgumentParser('proc')
         add_juju_args(parser)
-        sys.argv = []
         cmd_line = ['proc', '--agent-url', 'some_url', '--series', 'vivid']
-        sys.argv.extend(cmd_line)
+        with patch('sys.argv', cmd_line):
+            args_dict = parser.parse_args().__dict__
         expected = {'agent_url': 'some_url', 'series': 'vivid'}
-        args_dict = parser.parse_args().__dict__
         self.assertEqual(args_dict, expected)
 
     def test_get_new_juju_path_new_juju_bin(self):
         parser = ArgumentParser('proc')
         add_path_args(parser)
-        sys.argv = []
         cmd_line = ['proc', '--new-juju-bin', '/tmp/juju']
-        sys.argv.extend(cmd_line)
-        args = parser.parse_args()
+        with patch('sys.argv', cmd_line):
+            args = parser.parse_args()
         new_path = get_new_juju_path(args)
         self.assertEqual(new_path.split(':')[0], '/tmp/juju')
 
@@ -97,10 +92,9 @@ class ArgParserTestCase(TestCase):
         parser = ArgumentParser('proc')
         parser.add_argument('env')
         add_path_args(parser)
-        sys.argv = []
         cmd_line = ['proc', '--run-startup', 'foo']
-        sys.argv.extend(cmd_line)
-        args = parser.parse_args()
+        with patch('sys.argv', cmd_line):
+            args = parser.parse_args()
         with patch.dict(os.environ, {'PATH': os.environ['PATH']}):
             with patch('subprocess.check_call') as cc_mock:
                 with patch('subprocess.check_output'):
@@ -110,20 +104,18 @@ class ArgParserTestCase(TestCase):
     def test_get_log_level_debug(self):
         parser = ArgumentParser('proc')
         add_output_args(parser)
-        sys.argv = []
         cmd_line = ['proc', '--debug', '/tmp/logs']
-        sys.argv.extend(cmd_line)
-        args = parser.parse_args()
+        with patch('sys.argv', cmd_line):
+            args = parser.parse_args()
         log_level = get_log_level(args)
         self.assertEqual(log_level, 20)
 
     def test_get_log_level_verbose(self):
         parser = ArgumentParser('proc')
         add_output_args(parser)
-        sys.argv = []
         cmd_line = ['proc', '--verbose', '/tmp/logs']
-        sys.argv.extend(cmd_line)
-        args = parser.parse_args()
+        with patch('sys.argv', cmd_line):
+            args = parser.parse_args()
         log_level = get_log_level(args)
         self.assertEqual(log_level, 10)
 

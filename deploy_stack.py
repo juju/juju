@@ -384,7 +384,6 @@ def get_log_level(args):
 
 
 def deploy_job():
-    from argparse import ArgumentParser
     parser = ArgumentParser('deploy_job')
     parser.add_argument('env', help='Base Juju environment.')
     parser.add_argument('job_name', help='Name of the Jenkins job.')
