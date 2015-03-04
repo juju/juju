@@ -649,6 +649,28 @@ class TestEnvJujuClient(TestCase):
              'tools-metadata-url=https://example.org/juju/tools'),
             env=os.environ)
 
+    def test_set_testing_tools_metadata_url(self):
+        env = SimpleEnvironment(None, {'type': 'foo'})
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client, 'get_env_option') as mock_get:
+            mock_get.return_value = 'https://example.org/juju/tools'
+            with patch.object(client, 'set_env_option') as mock_set:
+                client.set_testing_tools_metadata_url()
+        mock_get.assert_called_with('tools-metadata-url')
+        mock_set.assert_called_with(
+            'tools-metadata-url',
+            'https://example.org/juju/testing/tools')
+
+    def test_set_testing_tools_metadata_url_noop(self):
+        env = SimpleEnvironment(None, {'type': 'foo'})
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client, 'get_env_option') as mock_get:
+            mock_get.return_value = 'https://example.org/juju/testing/tools'
+            with patch.object(client, 'set_env_option') as mock_set:
+                client.set_testing_tools_metadata_url()
+        mock_get.assert_called_with('tools-metadata-url')
+        self.assertEqual(0, mock_set.call_count)
+
     def test_juju(self):
         env = Environment('qux', '')
         client = EnvJujuClient(env, None, None)
