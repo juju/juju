@@ -614,6 +614,7 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	filename := fmt.Sprintf("%s/%s.service", dirname, s.name)
+	createFileOutput := s.stub.Calls[2].Args[1]
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "RunCommand",
 		Args: []interface{}{
@@ -631,7 +632,7 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 			// The contents of the file will always pass this test. We are
 			// testing the sequence of commands. The output of CreateFile
 			// is tested by tests that call checkCreateFileCall.
-			s.stub.Calls[2].Args[1],
+			createFileOutput,
 			os.FileMode(0644),
 		},
 	}, {
@@ -764,10 +765,8 @@ func (s *initSystemSuite) TestInstallCommandsShutdown(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	commands, err := svc.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(commands, jc.DeepEquals, []string{
-		`cat >> /tmp/juju-shutdown-job.service << 'EOF'
-[Unit]
+	
+	content := `[Unit]
 Description=juju shutdown job
 After=syslog.target
 After=network.target
@@ -777,9 +776,20 @@ Conflicts=cloud-final
 
 [Service]
 ExecStart=/sbin/shutdown -h now
-ExecStopPost=/bin/systemctl disable juju-shutdown-job.service
+ExecStopPost=/bin/systemctl disable juju-shutdown-job.service`
+	header := "cat >> /tmp/juju-shutdown-job.service << 'EOF'\n"
+	footer := "EOF"
+	expectedString := commands[0][len(header) : len(commands[0])-len(footer)]
+	expected, err := unit.Deserialize(strings.NewReader(expectedString))
+	c.Assert(err, jc.ErrorIsNil)
+	cfg, err := unit.Deserialize(strings.NewReader(content))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg, jc.SameContents, expected)
 
-EOF`,
+	cmd := commands[0]
+	c.Check(cmd, jc.HasPrefix, header)
+	c.Check(cmd, jc.HasSuffix, footer)
+	c.Check(commands[1:], jc.DeepEquals, []string{
 		"/bin/systemctl link /tmp/juju-shutdown-job.service",
 		"/bin/systemctl enable juju-shutdown-job.service",
 		"/bin/systemctl start juju-shutdown-job.service",

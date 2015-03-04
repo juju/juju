@@ -165,8 +165,8 @@ func ListServices(initDir string) ([]string, error) {
 }
 
 type initSystem struct {
-	Name    string
-	Flavour string
+	executable string
+	name       string
 }
 
 var linuxExecutables = []initSystem{
@@ -193,12 +193,12 @@ func ListServicesCommand() string {
 
 	cmdAll := ""
 	for _, executable := range executables {
-		cmd, ok := listServicesCommand(executable.Flavour)
+		cmd, ok := listServicesCommand(executable.name)
 		if !ok {
 			continue
 		}
 
-		test := fmt.Sprintf(initSystemTest, executable.Name)
+		test := fmt.Sprintf(initSystemTest, executable.executable)
 		cmd = fmt.Sprintf("if %s; then %s\n", test, cmd)
 		if cmdAll != "" {
 			cmd = "el" + cmd
