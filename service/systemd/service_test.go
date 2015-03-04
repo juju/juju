@@ -4,11 +4,12 @@
 package systemd_test
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strings"
 
-	"code.google.com/p/gcfg"
+	"github.com/coreos/go-systemd/unit"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/testing"
@@ -181,17 +182,17 @@ func (s *initSystemSuite) checkCreateFileCall(c *gc.C, index int, filename, cont
 	c.Check(callFilename, gc.Equals, filename)
 
 	// Some tests don't generate valid ini files, instead including placeholder
-	// strings. To avoid parsing errors, we only try and parse actual and expected
-	// file content if they don't exactly match.
+	// strings (e.g. "a\nb\nc\n"). To avoid parsing errors, we only try and
+	// parse actual and expected file content if they don't exactly match.
 	if content != string(callData.([]byte)) {
-		// Read the expected and actual ini file contents into a confStruct
-		// and compare those - avoids ordering problems.
-		var cfg, expected confStruct
-		err := gcfg.ReadStringInto(&expected, string(callData.([]byte)))
+		// Parse the ini configurations and compare those. unit.Deserialize creates
+		// lists of pointers to structures, so we use SameContentsDeref, which
+		// compares what is pointed to, not the pointers.
+		expected, err := unit.Deserialize(bytes.NewReader(callData.([]byte)))
 		c.Assert(err, jc.ErrorIsNil)
-		err = gcfg.ReadStringInto(&cfg, content)
+		cfg, err := unit.Deserialize(strings.NewReader(content))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(cfg, gc.DeepEquals, expected)
+		c.Check(cfg, jc.SameContentsDeref, expected)
 	}
 
 	c.Check(callPerm, gc.Equals, perm)
@@ -739,14 +740,15 @@ func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 	header := "cat >> /tmp/jujud-machine-0.service << 'EOF'\n"
 	footer := "EOF"
 
-	// Read the expected and actual ini file contents into a confStruct
-	// and compare those - avoids ordering problems.
-	var cfg, expected confStruct
-	err = gcfg.ReadStringInto(&expected, commands[0][len(header):len(commands[0])-len(footer)])
+	// Parse the ini configurations and compare those. unit.Deserialize creates
+	// lists of pointers to structures, so we use SameContentsDeref, which
+	// compares what is pointed to, not the pointers.
+	expectedString := commands[0][len(header) : len(commands[0])-len(footer)]
+	expected, err := unit.Deserialize(strings.NewReader(expectedString))
 	c.Assert(err, jc.ErrorIsNil)
-	err = gcfg.ReadStringInto(&cfg, content)
+	cfg, err := unit.Deserialize(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg, jc.DeepEquals, expected)
+	c.Check(cfg, jc.SameContentsDeref, expected)
 
 	cmd := commands[0]
 	c.Check(cmd, jc.HasPrefix, header)
