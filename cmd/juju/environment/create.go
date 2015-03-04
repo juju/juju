@@ -32,14 +32,14 @@ type CreateCommand struct {
 }
 
 const createEnvHelpDoc = `
-If configuration values are passed by both extra command line arguments and
-the --config option, the command line args take priority.
-
 This command will create another environment within the current Juju
 Environment Server. The provider has to match, and the environment config must
 specify all the required configuration values for the provider. In the cases
 of ‘ec2’ and ‘openstack’, the same environment variables are checked for the
 access and secret keys.
+
+If configuration values are passed by both extra command line arguments and
+the --config option, the command line args take priority.
 `
 
 func (c *CreateCommand) Info() *cmd.Info {
@@ -97,8 +97,7 @@ func (c *CreateCommand) Run(ctx *cmd.Context) (err error) {
 	defer client.Close()
 
 	// Create the configstore entry and write it to disk, as this will error
-	// if one with the same name already exists IF we are creating an
-	// environment for ourselves.
+	// if one with the same name already exists.
 	creds, err := c.ConnectionCredentials()
 	if err != nil {
 		return errors.Trace(err)
