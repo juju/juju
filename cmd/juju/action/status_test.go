@@ -6,6 +6,7 @@ package action_test
 import (
 	"bytes"
 
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -36,25 +37,24 @@ func (s *StatusSuite) TestRun(c *gc.C) {
 	fakeid2 := prefix + "-0001-4000-8000-feedfacebeef"
 	faketag := "action-" + fakeid
 	faketag2 := "action-" + fakeid2
-	fakestatus := "bloobered"
 
 	args := []string{prefix}
-	result := []params.ActionResult{{Status: fakestatus}}
+	result1 := []params.ActionResult{{Status: "some-random-status"}}
+	result2 := []params.ActionResult{{Status: "a status"}, {Status: "another status"}}
 
-	errNotSpecified := "no action ID specified"
-	errNotFound := `actions for identifier "` + prefix + `" not found`
-	errNotRecognized := `identifier "` + prefix + `" got unrecognized entity tags .*`
-	errMultipleMatches := `identifier "` + prefix + `" matched multiple actions .*`
-	errNoResults := `identifier "` + prefix + `" matched action "` + fakeid + `", but found no results`
+	errNotFound := "no actions found"
+	errNotFoundForPrefix := `no actions found matching prefix "` + prefix + `"`
+	errFoundTagButNoResults := `identifier "` + prefix + `" matched action\(s\) \[.*\], but found no results`
 
 	tests := []statusTestCase{
-		{expectError: errNotSpecified},
-		{args: args, expectError: errNotFound},
-		{args: args, expectError: errNotFound, tags: tagsForIdPrefix(prefix)},
-		{args: args, expectError: errNotRecognized, tags: tagsForIdPrefix(prefix, "bb", "bc")},
-		{args: args, expectError: errMultipleMatches, tags: tagsForIdPrefix(prefix, faketag, faketag2)},
-		{args: args, expectError: errNoResults, tags: tagsForIdPrefix(prefix, faketag)},
-		{args: args, tags: tagsForIdPrefix(prefix, faketag), results: result},
+		{expectError: errNotFound},
+		{args: args, expectError: errNotFoundForPrefix},
+		{args: args, expectError: errNotFoundForPrefix, tags: tagsForIdPrefix(prefix)},
+		{args: args, expectError: errNotFoundForPrefix, tags: tagsForIdPrefix(prefix, "bb", "bc")},
+		{args: args, expectError: errFoundTagButNoResults, tags: tagsForIdPrefix(prefix, faketag, faketag2)},
+		{args: args, expectError: errFoundTagButNoResults, tags: tagsForIdPrefix(prefix, faketag)},
+		{args: args, tags: tagsForIdPrefix(prefix, faketag), results: result1},
+		{args: args, tags: tagsForIdPrefix(prefix, faketag, faketag2), results: result2},
 	}
 
 	for _, test := range tests {
@@ -75,8 +75,9 @@ func (s *StatusSuite) runTestCase(c *gc.C, tc statusTestCase) {
 		c.Check(err, gc.ErrorMatches, tc.expectError)
 	}
 	if len(tc.results) > 0 {
-		expected := "id: .*\nstatus: " + tc.results[0].Status + "\n"
-		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Matches, expected)
+		buf, err := cmd.DefaultFormatters["yaml"](action.ActionResultsToMap(tc.results))
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, string(buf)+"\n")
 		c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 	}
 }
