@@ -42,10 +42,22 @@ type ServiceActions interface {
 	Remove() error
 }
 
-// TODO(ericsnow) bug #1426461
-// Running, Installed, and Exists should return errors.
+// Service represents a service in the init system running on a host.
+type Service interface {
+	ServiceActions
 
-type ServiceStatus interface {
+	// Name returns the service's name.
+	Name() string
+
+	// Conf returns the service's conf data.
+	Conf() common.Conf
+
+	// UpdateConfig adds a config to the service, overwriting the current one.
+	UpdateConfig(conf common.Conf)
+
+	// TODO(ericsnow) bug #1426461
+	// Running, Installed, and Exists should return errors.
+
 	// Running returns a boolean value that denotes
 	// whether or not the service is running.
 	Running() bool
@@ -58,21 +70,6 @@ type ServiceStatus interface {
 	// Installed will return a boolean value that denotes
 	// whether or not the service is installed.
 	Installed() bool
-}
-
-// Service represents a service in the init system running on a host.
-type Service interface {
-	ServiceActions
-	ServiceStatus
-
-	// Name returns the service's name.
-	Name() string
-
-	// Conf returns the service's conf data.
-	Conf() common.Conf
-
-	// UpdateConfig adds a config to the service, overwriting the current one.
-	UpdateConfig(conf common.Conf)
 
 	// TODO(ericsnow) Eliminate StopAndRemove.
 
