@@ -62,7 +62,7 @@ func (c *FetchCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	actionTag, err := getActionTagFromPrefix(api, c.requestedId)
+	actionTag, err := getActionTagByPrefix(api, c.requestedId)
 	if err != nil {
 		return err
 	}
