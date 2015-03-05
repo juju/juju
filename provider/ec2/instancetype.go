@@ -285,7 +285,8 @@ var allInstanceTypes = []instances.InstanceType{
 		Name:     "t1.micro",
 		Arches:   both,
 		CpuCores: 1,
-		CpuPower: instances.CpuPower(100),
+		// Burstable baseline is 20%
+		CpuPower: instances.CpuPower(20),
 		Mem:      613,
 		VirtType: &paravirtual,
 	},
@@ -295,7 +296,8 @@ var allInstanceTypes = []instances.InstanceType{
 		Arches:   amd64,
 		CpuCores: 1,
 		Mem:      1024,
-		CpuPower: instances.CpuPower(100),
+		// Burstable baseline is 10% (from http://aws.amazon.com/ec2/faqs/#burst)
+		CpuPower: instances.CpuPower(10),
 		VirtType: &paravirtual,
 	},
 	{ // General Purpose, 3rd generation.
@@ -303,7 +305,8 @@ var allInstanceTypes = []instances.InstanceType{
 		Arches:   amd64,
 		CpuCores: 1,
 		Mem:      2048,
-		CpuPower: instances.CpuPower(100),
+		// Burstable baseline is 20% (from http://aws.amazon.com/ec2/faqs/#burst)
+		CpuPower: instances.CpuPower(20),
 		VirtType: &paravirtual,
 	},
 	{ // General Purpose, 3rd generation.
@@ -311,7 +314,8 @@ var allInstanceTypes = []instances.InstanceType{
 		Arches:   amd64,
 		CpuCores: 2,
 		Mem:      4096,
-		CpuPower: instances.CpuPower(200),
+		// Burstable baseline is 40% (from http://aws.amazon.com/ec2/faqs/#burst)
+		CpuPower: instances.CpuPower(40),
 		VirtType: &paravirtual,
 	},
 
@@ -804,5 +808,59 @@ var allRegionCosts = regionCosts{
 		"i2.2xlarge": 2026,
 		"i2.4xlarge": 4051,
 		"i2.8xlarge": 8102,
+
+		// Marked as "unspecified" on
+		// http://aws.amazon.com/ec2/pricing/
+		"g2.2xlarge":  0,
+		"hs1.8xlarge": 0,
+	},
+	"us-gov-west-1": { // Isolated region - US GovCloud.
+		"t2.micro":  15,
+		"t2.small":  31,
+		"t2.medium": 62,
+
+		"m3.medium":  84,
+		"m3.large":   168,
+		"m3.xlarge":  336,
+		"m3.2xlarge": 672,
+
+		"c3.large":   126,
+		"c3.xlarge":  252,
+		"c3.2xlarge": 504,
+		"c3.4xlarge": 1008,
+		"c3.8xlarge": 2016,
+
+		"r3.large":   210,
+		"r3.xlarge":  420,
+		"r3.2xlarge": 840,
+		"r3.4xlarge": 1680,
+		"r3.8xlarge": 3360,
+
+		"i2.xlarge":  1023,
+		"i2.2xlarge": 2046,
+		"i2.4xlarge": 4092,
+		"i2.8xlarge": 8184,
+
+		"hs1.8xlarge": 5520,
+	},
+	"cn-north-1": { // Isolated region - China, Beijing.
+		// Instance type information is from
+		// http://www.amazonaws.cn/en/ec2/details/
+		// TODO (anastasiamac 2015-03-05):
+		// cost is unknown.
+		"m3.medium":  0,
+		"m3.large":   0,
+		"m3.xlarge":  0,
+		"m3.2xlarge": 0,
+
+		"m1.small": 0,
+
+		"c3.large":   0,
+		"c3.xlarge":  0,
+		"c3.2xlarge": 0,
+		"c3.4xlarge": 0,
+		"c3.8xlarge": 0,
+
+		"t1.micro": 0,
 	},
 }
