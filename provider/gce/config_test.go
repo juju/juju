@@ -152,12 +152,6 @@ func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 		if test.err != "" {
 			test.checkFailure(c, err, "invalid config")
 		} else {
-			if test.remove != nil {
-				// No defaults are set on the existing config.
-				c.Check(err, gc.ErrorMatches, "invalid config: .*")
-				continue
-			}
-
 			test.checkSuccess(c, environ, err)
 		}
 	}

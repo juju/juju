@@ -7,6 +7,10 @@ import (
 	"github.com/juju/testing"
 )
 
+var (
+	Serialize = serialize
+)
+
 type patcher interface {
 	PatchValue(interface{}, interface{})
 }
