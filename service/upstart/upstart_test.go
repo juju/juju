@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 
@@ -41,7 +40,6 @@ func (s *UpstartSuite) SetUpTest(c *gc.C) {
 	s.testPath = c.MkDir()
 	s.initDir = c.MkDir()
 	s.PatchEnvPathPrepend(s.testPath)
-	s.PatchValue(&upstart.InstallStartRetryAttempts, utils.AttemptStrategy{})
 	s.PatchValue(&upstart.InitDir, s.initDir)
 	s.service = upstart.NewService(
 		"some-service",
@@ -226,15 +224,25 @@ func (s *UpstartSuite) assertInstall(c *gc.C, conf common.Conf, expectEnd string
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmds, gc.DeepEquals, []string{
 		"cat >> " + expectPath + " << 'EOF'\n" + expectContent + "EOF\n",
+	})
+	cmds, err = s.service.StartCommands()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmds, gc.DeepEquals, []string{
 		"start some-service",
 	})
 
 	s.MakeTool(c, "start", "exit 99")
 	err = svc.Install()
+	c.Assert(err, jc.ErrorIsNil)
+	err = svc.Start()
 	c.Assert(err, gc.ErrorMatches, ".*exit status 99.*")
+
 	s.MakeTool(c, "start", "exit 0")
 	err = svc.Install()
 	c.Assert(err, jc.ErrorIsNil)
+	err = svc.Start()
+	c.Assert(err, jc.ErrorIsNil)
+
 	content, err := ioutil.ReadFile(expectPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, expectContent)

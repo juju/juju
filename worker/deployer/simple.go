@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
@@ -157,13 +158,19 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	)
 	sconf.InitDir = ctx.initDir
 	svc.UpdateConfig(sconf)
-	return svc.Install()
+	if err := service.InstallAndStart(svc); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 type deployerService interface {
 	UpdateConfig(common.Conf)
 	Installed() bool
 	Install() error
+	Remove() error
+	Start() error
+	Stop() error
 	StopAndRemove() error
 }
 

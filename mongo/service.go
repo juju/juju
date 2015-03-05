@@ -49,12 +49,12 @@ fi
 )
 
 type mongoService interface {
-	Install() error
-	Start() error
-	Stop() error
-	Remove() error
 	Exists() bool
 	Running() bool
+	Start() error
+	Stop() error
+	Install() error
+	Remove() error
 }
 
 var newService = func(name string, conf common.Conf) (mongoService, error) {
