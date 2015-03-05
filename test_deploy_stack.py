@@ -38,8 +38,6 @@ from deploy_stack import (
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
-    JujuClientDevel,
-    Environment,
 )
 from test_jujupy import assert_juju_call
 from utility import temp_dir
@@ -112,8 +110,8 @@ class ArgParserTestCase(TestCase):
         env = dict(os.environ)
         scripts = os.path.dirname(os.path.abspath(sys.argv[0]))
         env['ENV'] = args.env
-        cc_mock.assert_called_once_with(['bash',
-            '{}/common-startup.sh'.format(scripts)], env=env)
+        cc_mock.assert_called_once_with(
+            ['bash', '{}/common-startup.sh'.format(scripts)], env=env)
         co_mock.assert_called_once_with(
             ['find', 'extracted-bin', '-name', 'juju'])
         self.assertEqual(juju_path, os.path.abspath('foo'))
