@@ -24,6 +24,7 @@ from jujupy import (
     EnvJujuClient,
     get_local_root,
     SimpleEnvironment,
+    temp_bootstrap_env,
 )
 from substrate import (
     LIBVIRT_DOMAIN_RUNNING,
@@ -323,35 +324,28 @@ def get_job_instances(job_name):
     return (machine_id for machine_id, name in description)
 
 
-def deploy_job():
-    from argparse import ArgumentParser
-    parser = ArgumentParser('deploy_job')
+def add_path_args(parser):
     parser.add_argument('--new-juju-bin', default=False,
                         help='Dirctory containing the new Juju binary.')
-    parser.add_argument('env', help='Base Juju environment.')
-    parser.add_argument('logs', help='log directory.')
-    parser.add_argument('job_name', help='Name of the Jenkins job.')
-    parser.add_argument('--upgrade', action="store_true", default=False,
-                        help='Perform an upgrade test.')
-    parser.add_argument('--debug', action="store_true", default=False,
-                        help='Use --debug juju logging.')
-    parser.add_argument('--series', help='Name of the Ubuntu series to use.')
     parser.add_argument('--run-startup', help='Run common-startup.sh.',
                         action='store_true', default=False)
-    parser.add_argument('--bootstrap-host',
-                        help='The host to use for bootstrap.')
-    parser.add_argument('--machine', help='A machine to add or when used with '
-                        'KVM based MaaS, a KVM image to start.',
-                        action='append', default=[])
-    parser.add_argument('--agent-url', default=None,
-                        help='URL to use for retrieving agent binaries.')
+
+
+def add_output_args(parser):
+    parser.add_argument('--debug', action="store_true", default=False,
+                        help='Use --debug juju logging.')
     parser.add_argument('--verbose', '-v', action="store_true", default=False,
                         help='Increase logging verbosity.')
-    args = parser.parse_args()
-    log_level = logging.INFO
-    if args.verbose:
-        log_level = logging.DEBUG
-    configure_logging(log_level)
+
+
+def add_juju_args(parser):
+    parser.add_argument('--agent-url', default=None,
+                        help='URL to use for retrieving agent binaries.')
+    parser.add_argument('--series',
+                        help='Name of the Ubuntu series to use.')
+
+
+def get_juju_path(args):
     if args.run_startup:
         env = dict(os.environ)
         env.update({
@@ -368,6 +362,34 @@ def deploy_job():
                         ' supplied.')
     else:
         juju_path = os.path.join(args.new_juju_bin, 'juju')
+    return juju_path
+
+
+def get_log_level(args):
+    log_level = logging.INFO
+    if args.verbose:
+        log_level = logging.DEBUG
+    return log_level
+
+
+def deploy_job():
+    parser = ArgumentParser('deploy_job')
+    parser.add_argument('env', help='Base Juju environment.')
+    parser.add_argument('logs', help='log directory.')
+    parser.add_argument('job_name', help='Name of the Jenkins job.')
+    parser.add_argument('--upgrade', action="store_true", default=False,
+                        help='Perform an upgrade test.')
+    parser.add_argument('--bootstrap-host',
+                        help='The host to use for bootstrap.')
+    parser.add_argument('--machine', help='A machine to add or when used with '
+                        'KVM based MaaS, a KVM image to start.',
+                        action='append', default=[])
+    add_juju_args(parser)
+    add_output_args(parser)
+    add_path_args(parser)
+    args = parser.parse_args()
+    configure_logging(get_log_level(args))
+    juju_path = get_juju_path(args)
     series = args.series
     if series is None:
         series = 'precise'
@@ -484,6 +506,42 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
                 logging.info("Attempting to stop %s at %s" % (name, URI))
                 status_msg = stop_libvirt_domain(URI, name)
                 logging.info("%s" % status_msg)
+
+
+def run_deployer():
+    parser = ArgumentParser('Test with deployer')
+    parser.add_argument('bundle_path',
+                        help='URL or path to a bundle')
+    parser.add_argument('env',
+                        help='The juju environment to test')
+    parser.add_argument('logs', help='log directory.')
+    parser.add_argument('job_name', help='Name of the Jenkins job.')
+    add_juju_args(parser)
+    add_output_args(parser)
+    add_path_args(parser)
+    args = parser.parse_args()
+    juju_path = get_juju_path(args)
+    os.environ['PATH'] = '%s:%s' % (juju_path, os.environ['PATH'])
+    configure_logging(get_log_level(args))
+    env = SimpleEnvironment.from_config(args.env)
+    update_env(env, args.job_name, series=args.series,
+               agent_url=args.agent_url)
+    client = EnvJujuClient.by_version(env, debug=args.debug)
+    juju_home = get_juju_home()
+    with temp_bootstrap_env(
+            get_juju_home(), client, set_home=False) as juju_home:
+        client.bootstrap(juju_home=juju_home)
+    host = get_machine_dns_name(client, 0)
+    if host is None:
+        raise Exception('Could not get machine 0 host')
+    try:
+        client.deployer(args.bundle_path)
+    except BaseException as e:
+        logging.exception(e)
+        sys.exit(1)
+    finally:
+        client.juju('status', ())
+        client.destroy_environment()
 
 
 def get_machine_dns_name(client, machine):
