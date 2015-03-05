@@ -97,28 +97,40 @@ func sharedSecretPath(dataDir string) string {
 	return filepath.Join(dataDir, SharedSecretFile)
 }
 
-// newConf returns the init system config for the mongo state service.
-func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCtl bool) common.Conf {
-	mongoCmd := mongoPath + " --auth" +
-		" --dbpath=" + utils.ShQuote(dbDir) +
+// mongodOptions defines how mongod command line arguments should be
+// constructed.
+type mongodOptions struct {
+	dataDir     string
+	dbDir       string
+	logFile     string
+	mongoPath   string
+	port        int
+	oplogSizeMB int
+	wantNumaCtl bool
+}
+
+// newServiceConf returns the init system config for the mongo state service.
+func newServiceConf(opts *mongodOptions) common.Conf {
+	mongoCmd := opts.mongoPath + " --auth" +
+		" --dbpath=" + utils.ShQuote(opts.dbDir) +
 		" --sslOnNormalPorts" +
-		" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(dataDir)) +
+		" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(opts.dataDir)) +
 		" --sslPEMKeyPassword ignored" +
-		" --port " + fmt.Sprint(port) +
+		" --port " + fmt.Sprint(opts.port) +
 		" --noprealloc" +
-		" --syslog" +
+		" --logpath " + utils.ShQuote(opts.logFile) +
 		" --smallfiles" +
 		" --journal" +
-		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)) +
+		" --keyFile " + utils.ShQuote(sharedSecretPath(opts.dataDir)) +
 		" --replSet " + ReplicaSetName +
 		" --ipv6 " +
-		" --oplogSize " + strconv.Itoa(oplogSizeMB)
+		" --oplogSize " + strconv.Itoa(opts.oplogSizeMB)
 	extraScript := ""
-	if wantNumaCtl {
+	if opts.wantNumaCtl {
 		extraScript = fmt.Sprintf(detectMultiNodeScript, multinodeVarName, multinodeVarName)
 		mongoCmd = fmt.Sprintf(numaCtlWrap, multinodeVarName) + mongoCmd
 	}
-	conf := common.Conf{
+	return common.Conf{
 		Desc: "juju state database",
 		Limit: map[string]string{
 			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
@@ -127,5 +139,4 @@ func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCt
 		ExtraScript: extraScript,
 		ExecStart:   mongoCmd,
 	}
-	return conf
 }

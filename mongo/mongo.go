@@ -141,6 +141,9 @@ type EnsureServerParams struct {
 	// DataDir is the machine agent data directory.
 	DataDir string
 
+	// LogDir is the machine agent log directory.
+	LogDir string
+
 	// Namespace is the machine agent's namespace, which is used to
 	// generate a unique service name for Mongo.
 	Namespace string
@@ -193,7 +196,15 @@ func EnsureServer(args EnsureServerParams) error {
 	}
 	logVersion(mongoPath)
 
-	svcConf := newConf(args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.SetNumaControlPolicy)
+	svcConf := newServiceConf(&mongodOptions{
+		dataDir:     args.DataDir,
+		dbDir:       dbDir,
+		logFile:     filepath.Join(args.LogDir, "db.log"),
+		mongoPath:   mongoPath,
+		port:        args.StatePort,
+		oplogSizeMB: oplogSizeMB,
+		wantNumaCtl: args.SetNumaControlPolicy,
+	})
 	svc, err := newService(ServiceName(args.Namespace), svcConf)
 	if err != nil {
 		return err
@@ -332,23 +343,28 @@ func packageForSeries(series string) string {
 
 // noauthCommand returns an os/exec.Cmd that may be executed to
 // run mongod without security.
-func noauthCommand(dataDir string, port int) (*exec.Cmd, error) {
+//
+// TODO (cmars): Remove this once MachineAgent.ensureMongoAdminUser is no
+// longer needed. It seems to be the only caller of EnsureAdminUser which uses
+// this command line.
+func noauthCommand(dataDir, logDir string, port int) (*exec.Cmd, error) {
 	sslKeyFile := path.Join(dataDir, "server.pem")
 	dbDir := filepath.Join(dataDir, "db")
+	logFile := filepath.Join(logDir, "db.log")
 	mongoPath, err := Path()
 	if err != nil {
 		return nil, err
 	}
 	cmd := exec.Command(mongoPath,
 		"--noauth",
-		"--dbpath", dbDir,
+		"--dbpath", utils.ShQuote(dbDir),
 		"--sslOnNormalPorts",
-		"--sslPEMKeyFile", sslKeyFile,
+		"--sslPEMKeyFile", utils.ShQuote(sslKeyFile),
 		"--sslPEMKeyPassword", "ignored",
 		"--bind_ip", "127.0.0.1",
 		"--port", fmt.Sprint(port),
 		"--noprealloc",
-		"--syslog",
+		"--logpath", utils.ShQuote(logFile),
 		"--smallfiles",
 		"--journal",
 	)

@@ -4,6 +4,8 @@
 package mongo
 
 import (
+	"path/filepath"
+
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 )
@@ -17,7 +19,7 @@ var (
 	SharedSecretPath = sharedSecretPath
 	SSLKeyPath       = sslKeyPath
 
-	NewConf = newConf
+	NewServiceConf = newServiceConf
 
 	HostWordSize   = &hostWordSize
 	RuntimeGOOS    = &runtimeGOOS
@@ -31,6 +33,18 @@ var (
 	PreallocFileSizes = preallocFileSizes
 	PreallocFiles     = preallocFiles
 )
+
+func NewTestMongodOptions(dataDir string, numa bool) *mongodOptions {
+	return &mongodOptions{
+		dataDir:     dataDir,
+		dbDir:       dataDir,
+		logFile:     filepath.Join(dataDir, "db.log"),
+		mongoPath:   JujuMongodPath,
+		port:        1234,
+		oplogSizeMB: 1024,
+		wantNumaCtl: numa,
+	}
+}
 
 func PatchService(patchValue func(interface{}, interface{}), data *service.FakeServiceData) {
 	patchValue(&discoverService, func(name string) (mongoService, error) {

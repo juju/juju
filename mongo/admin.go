@@ -29,6 +29,8 @@ type EnsureAdminUserParams struct {
 	Namespace string
 	// DataDir is the Juju data directory, used to start a --noauth server.
 	DataDir string
+	// LogDir is the Juju log directory, used to start a --noauth server.
+	LogDir string
 	// Port is the listening port of the Mongo server.
 	Port int
 	// User holds the user to log in to the mongo server as.
@@ -87,7 +89,7 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 
 	// Start mongod in --noauth mode.
 	logger.Debugf("starting mongo with --noauth")
-	cmd, err := noauthCommand(p.DataDir, p.Port)
+	cmd, err := noauthCommand(p.DataDir, p.LogDir, p.Port)
 	if err != nil {
 		return false, fmt.Errorf("failed to prepare mongod command: %v", err)
 	}
