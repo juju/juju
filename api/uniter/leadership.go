@@ -59,7 +59,7 @@ func (lsa *LeadershipSettingsAccessor) Merge(serviceId string, settings map[stri
 func (lsa *LeadershipSettingsAccessor) Read(serviceId string) (map[string]string, error) {
 
 	if err := lsa.checkApiVersion("Read"); err != nil {
-		return nil, errors.Annotatef(err, "failed to access leadership api")
+		return nil, errors.Annotatef(err, "cannot access leadership api")
 	}
 
 	results, err := lsa.bulkRead(lsa.prepareRead(serviceId))
