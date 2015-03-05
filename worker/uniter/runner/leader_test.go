@@ -324,3 +324,13 @@ type StubTicket bool
 func (ticket StubTicket) Wait() bool {
 	return bool(ticket)
 }
+
+func (ticket StubTicket) Ready() <-chan struct{} {
+	return alwaysReady
+}
+
+var alwaysReady = make(chan struct{})
+
+func init() {
+	close(alwaysReady)
+}
