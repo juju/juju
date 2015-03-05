@@ -25,6 +25,7 @@ func (s *steps123Suite) TestStateStepsFor123(c *gc.C) {
 		"add default storage pools",
 		"drop old mongo indexes",
 		"migrate envuuid to env-uuid in envUsersC",
+		"move blocks from environment to state",
 	}
 	assertStateSteps(c, version.MustParse("1.23.0"), expected)
 }

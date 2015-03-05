@@ -15,6 +15,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
+	// TODO(dimitern): Don't ever import "." unless there's a GOOD
+	// reason to do it.
 	. "github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/testing"

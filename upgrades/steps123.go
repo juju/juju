@@ -39,6 +39,13 @@ func stateStepsFor123() []Step {
 				return state.AddEnvUUIDToEnvUsersDoc(context.State())
 			},
 		},
+		&upgradeStep{
+			description: "move blocks from environment to state",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return moveBlocksFromEnvironToState(context)
+			},
+		},
 	)
 	return steps
 }

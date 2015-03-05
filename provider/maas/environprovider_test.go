@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 )
 
@@ -23,8 +22,6 @@ type EnvironProviderSuite struct {
 var _ = gc.Suite(&EnvironProviderSuite{})
 
 func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes(c *gc.C) {
-	testJujuHome := c.MkDir()
-	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
 	const oauth = "aa:bb:cc"
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":        "maas",
@@ -34,7 +31,7 @@ func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	secretAttrs, err := suite.makeEnviron().Provider().SecretAttrs(config)
+	secretAttrs, err := providerInstance.SecretAttrs(config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedAttrs := map[string]string{"maas-oauth": oauth}
@@ -42,8 +39,6 @@ func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes
 }
 
 func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
-	testJujuHome := c.MkDir()
-	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":        "maas",
 		"maas-oauth":  "aa:bb:cc",
@@ -53,7 +48,7 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := envtesting.BootstrapContext(c)
-	environ, err := suite.makeEnviron().Provider().PrepareForBootstrap(ctx, config)
+	environ, err := providerInstance.PrepareForBootstrap(ctx, config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	preparedConfig := environ.Config()
@@ -65,9 +60,38 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
 	c.Assert(uuid, jc.Satisfies, utils.IsValidUUIDString)
 }
 
+func (suite *EnvironProviderSuite) TestPrepareSetsAgentName(c *gc.C) {
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type":        "maas",
+		"maas-oauth":  "aa:bb:cc",
+		"maas-server": "http://maas.testing.invalid/maas/",
+	})
+	config, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	config, err = providerInstance.PrepareForCreateEnvironment(config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid, ok := config.UnknownAttrs()["maas-agent-name"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(uuid, jc.Satisfies, utils.IsValidUUIDString)
+}
+
+func (suite *EnvironProviderSuite) TestPrepareExistingAgentName(c *gc.C) {
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type":            "maas",
+		"maas-oauth":      "aa:bb:cc",
+		"maas-server":     "http://maas.testing.invalid/maas/",
+		"maas-agent-name": "foobar",
+	})
+	config, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = providerInstance.PrepareForCreateEnvironment(config)
+	c.Assert(err, gc.Equals, errAgentNameAlreadySet)
+}
+
 func (suite *EnvironProviderSuite) TestAgentNameShouldNotBeSetByHand(c *gc.C) {
-	testJujuHome := c.MkDir()
-	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":            "maas",
 		"maas-oauth":      "aa:bb:cc",
@@ -78,7 +102,7 @@ func (suite *EnvironProviderSuite) TestAgentNameShouldNotBeSetByHand(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := envtesting.BootstrapContext(c)
-	_, err = suite.makeEnviron().Provider().PrepareForBootstrap(ctx, config)
+	_, err = providerInstance.PrepareForBootstrap(ctx, config)
 	c.Assert(err, gc.Equals, errAgentNameAlreadySet)
 }
 
@@ -94,8 +118,6 @@ func createTempFile(c *gc.C, content []byte) string {
 }
 
 func (suite *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.C) {
-	testJujuHome := c.MkDir()
-	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
 	const oauth = "wrongly-formatted-oauth-string"
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":        "maas",
@@ -104,7 +126,7 @@ func (suite *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.
 	})
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := suite.makeEnviron().Provider().Open(config)
+	env, err := providerInstance.Open(config)
 	// When Open() fails (i.e. returns a non-nil error), it returns an
 	// environs.Environ interface object with a nil value and a nil
 	// type.

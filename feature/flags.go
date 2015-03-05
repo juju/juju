@@ -4,8 +4,11 @@
 // The feature package defines the names of the current feature flags.
 package feature
 
-// Actions is the name of the feature to enable action commands.
-const Actions = "action"
+// TODO (anastasiamac 2015-03-02)
+// Features that have commands that can be blocked,
+// command list for "juju block" and "juju unblock"
+// needs to be maintained until we can dynamically discover
+// these commands.
 
 // JES stands for Juju Environment Server and controls access
 // to the apiserver endpoints, api client and CLI commands.

@@ -112,7 +112,7 @@ func validateUnitPorts(st *State, unit *Unit) (
 	validRanges []PortRange,
 ) {
 	// Collapse individual ports into port ranges.
-	mergedRanges = network.CollapsePorts(unit.doc.Ports)
+	mergedRanges = network.CollapsePorts(networkPorts(unit.doc.Ports))
 	upgradesLogger.Debugf("merged raw port ranges for unit %q: %v", unit, mergedRanges)
 
 	skippedRanges = 0

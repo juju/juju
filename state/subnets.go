@@ -48,14 +48,13 @@ type Subnet struct {
 type subnetDoc struct {
 	DocID             string `bson:"_id"`
 	EnvUUID           string `bson:"env-uuid"`
-	Life              Life
-	ProviderId        string `bson:",omitempty"`
-	CIDR              string
-	AllocatableIPHigh string `bson:",omitempty"`
-	AllocatableIPLow  string `bson:",omitempty"`
-
-	VLANTag          int    `bson:",omitempty"`
-	AvailabilityZone string `bson:",omitempty"`
+	Life              Life   `bson:"life"`
+	ProviderId        string `bson:"providerid,omitempty"`
+	CIDR              string `bson:"cidr"`
+	AllocatableIPHigh string `bson:"allocatableiphigh,omitempty"`
+	AllocatableIPLow  string `bson:"allocatableiplow,omitempty"`
+	VLANTag           int    `bson:"vlantag,omitempty"`
+	AvailabilityZone  string `bson:"availabilityzone,omitempty"`
 }
 
 // Life returns whether the subnet is Alive, Dying or Dead.

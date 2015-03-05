@@ -24,7 +24,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/filter"
-	"github.com/juju/juju/worker/uniter/hook"
 )
 
 type FilterSuite struct {
@@ -135,6 +134,8 @@ func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 }
 
 func (s *FilterSuite) TestUnitRemoval(c *gc.C) {
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 	defer f.Stop() // no AssertStop, we test for an error below
@@ -427,8 +428,8 @@ func getAssertActionChange(actionC coretesting.ContentAsserterC) func(ids []stri
 		seen := make(map[string]int)
 		for _, id := range ids {
 			expected[id] += 1
-			event := actionC.AssertReceive().(*hook.Info)
-			seen[event.ActionId] += 1
+			actionId := actionC.AssertReceive().(string)
+			seen[actionId] += 1
 		}
 		actionC.C.Assert(seen, jc.DeepEquals, expected)
 

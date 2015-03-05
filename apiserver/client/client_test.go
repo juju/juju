@@ -1519,6 +1519,7 @@ func (s *clientSuite) TestClientServiceDeployWithInvalidStoragePool(c *gc.C) {
 func (s *clientSuite) TestClientServiceDeployWithUnsupportedStoragePool(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	registry.RegisterProvider("hostloop", &mockStorageProvider{kind: storage.StorageKindBlock})
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("host-loop-pool", provider.HostLoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1619,6 +1620,16 @@ func (s *clientSuite) assertPrincipalDeployed(c *gc.C, serviceName string, curl 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(force, gc.Equals, forced)
 	c.Assert(charm.URL(), gc.DeepEquals, curl)
+	// When charms are read from state, storage properties are
+	// always deserialised as empty slices if empty or nil, so
+	// update bundle to match (bundle comes from parsing charm
+	// metadata yaml where nil means nil).
+	for name, bundleMeta := range bundle.Meta().Storage {
+		if bundleMeta.Properties == nil {
+			bundleMeta.Properties = []string{}
+			bundle.Meta().Storage[name] = bundleMeta
+		}
+	}
 	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
 	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
 
@@ -2956,10 +2967,10 @@ func (s *clientSuite) setupStoragePool(c *gc.C) {
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
-	s.AddCleanup(func(_ *gc.C) {
-		registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
-	})
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{
+		"storage-default-block-source": "loop-pool",
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
@@ -2984,9 +2995,16 @@ func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
 	c.Assert(machines[3].Error, gc.ErrorMatches, "invalid volume params: count not specified")
 	c.Assert(machines[4].Error, gc.ErrorMatches, "cannot add a new machine: validating volume params: invalid size 0")
 
-	expectParams := []state.VolumeParams{
-		{Size: 1}, {Size: 1}, {Size: 2},
-	}
+	expectParams := []state.VolumeParams{{
+		Pool: "loop-pool",
+		Size: 1,
+	}, {
+		Pool: "loop-pool",
+		Size: 1,
+	}, {
+		Pool: "loop-pool",
+		Size: 2,
+	}}
 	s.assertVolumeParams(c, machines[0].Machine, expectParams)
 
 	expectParams = []state.VolumeParams{
@@ -3941,4 +3959,13 @@ func (s *clientSuite) TestBlockDestroyDestroyRelation(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyRelation")
 	endpoints := []string{"wordpress", "mysql"}
 	s.assertDestroyRelation(c, endpoints)
+}
+
+type mockStorageProvider struct {
+	storage.Provider
+	kind storage.StorageKind
+}
+
+func (m *mockStorageProvider) Supports(k storage.StorageKind) bool {
+	return k == m.kind
 }
