@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -249,6 +250,25 @@ func (s *serverSuite) TestUnshareEnvironment(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
+func (s *serverSuite) TestUnshareEnvironmentMissingUser(c *gc.C) {
+	user := names.NewUserTag("bob")
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			UserTag: user.String(),
+			Action:  params.RemoveEnvUser,
+		}}}
+
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.ErrorMatches, `could not unshare environment: env user "bob@local" does not exist: transaction aborted`)
+
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.NotNil)
+
+	_, err = s.State.EnvironmentUser(user)
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
 func (s *serverSuite) TestShareEnvironmentAddLocalUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoEnvUser: true})
 	args := params.ModifyEnvironUsers{
@@ -289,6 +309,29 @@ func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
 	c.Assert(envUser.UserName(), gc.Equals, user.Username())
 	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Username())
 	c.Assert(envUser.LastConnection(), gc.IsNil)
+}
+
+func (s *serverSuite) TestShareEnvironmentAddUserTwice(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			UserTag: user.Tag().String(),
+			Action:  params.AddEnvUser,
+		}}}
+
+	_, err := s.client.ShareEnvironment(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.ErrorMatches, "could not share environment: environment user \"foobar@local\" already exists")
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, "could not share environment: environment user \"foobar@local\" already exists")
+	c.Assert(result.Results[0].Error.Code, gc.Matches, params.CodeAlreadyExists)
+
+	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Username())
 }
 
 func (s *serverSuite) TestShareEnvironmentInvalidTags(c *gc.C) {
@@ -1597,6 +1640,7 @@ func (s *clientSuite) TestClientServiceDeployWithInvalidStoragePool(c *gc.C) {
 func (s *clientSuite) TestClientServiceDeployWithUnsupportedStoragePool(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	registry.RegisterProvider("hostloop", &mockStorageProvider{kind: storage.StorageKindBlock})
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("host-loop-pool", provider.HostLoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1697,6 +1741,16 @@ func (s *clientSuite) assertPrincipalDeployed(c *gc.C, serviceName string, curl 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(force, gc.Equals, forced)
 	c.Assert(charm.URL(), gc.DeepEquals, curl)
+	// When charms are read from state, storage properties are
+	// always deserialised as empty slices if empty or nil, so
+	// update bundle to match (bundle comes from parsing charm
+	// metadata yaml where nil means nil).
+	for name, bundleMeta := range bundle.Meta().Storage {
+		if bundleMeta.Properties == nil {
+			bundleMeta.Properties = []string{}
+			bundle.Meta().Storage[name] = bundleMeta
+		}
+	}
 	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
 	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
 
@@ -3062,9 +3116,16 @@ func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
 	c.Assert(machines[3].Error, gc.ErrorMatches, "invalid volume params: count not specified")
 	c.Assert(machines[4].Error, gc.ErrorMatches, "cannot add a new machine: validating volume params: invalid size 0")
 
-	expectParams := []state.VolumeParams{
-		{Size: 1}, {Size: 1}, {Size: 2},
-	}
+	expectParams := []state.VolumeParams{{
+		Pool: "loop-pool",
+		Size: 1,
+	}, {
+		Pool: "loop-pool",
+		Size: 1,
+	}, {
+		Pool: "loop-pool",
+		Size: 2,
+	}}
 	s.assertVolumeParams(c, machines[0].Machine, expectParams)
 
 	expectParams = []state.VolumeParams{
@@ -4019,4 +4080,13 @@ func (s *clientSuite) TestBlockDestroyDestroyRelation(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyRelation")
 	endpoints := []string{"wordpress", "mysql"}
 	s.assertDestroyRelation(c, endpoints)
+}
+
+type mockStorageProvider struct {
+	storage.Provider
+	kind storage.StorageKind
+}
+
+func (m *mockStorageProvider) Supports(k storage.StorageKind) bool {
+	return k == m.kind
 }

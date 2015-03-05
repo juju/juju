@@ -759,7 +759,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(result, gc.DeepEquals, params.ProvisioningInfoResults{
+	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
 				Series:   "quantal",
@@ -790,7 +790,14 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
-	})
+	}
+	// The order of volumes is not predictable, so we make sure we compare the right ones. This only
+	// applies to Results[1] since it is the only result to contain volumes.
+	if expected.Results[1].Result.Volumes[0].VolumeTag != result.Results[1].Result.Volumes[0].VolumeTag {
+		vols := expected.Results[1].Result.Volumes
+		vols[0], vols[1] = vols[1], vols[0]
+	}
+	c.Assert(result, gc.DeepEquals, expected)
 }
 
 func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {

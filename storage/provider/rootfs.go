@@ -69,6 +69,11 @@ func (p *rootfsProvider) FilesystemSource(environConfig *config.Config, sourceCo
 	}, nil
 }
 
+// Supports is defined on the Provider interface.
+func (*rootfsProvider) Supports(k storage.StorageKind) bool {
+	return k == storage.StorageKindFilesystem
+}
+
 type rootfsFilesystemSource struct {
 	dirFuncs   dirFuncs
 	run        runCommandFunc

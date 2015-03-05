@@ -33,6 +33,7 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworks(c *gc.C) {
 	ifaces := []network.InterfaceInfo{{
 		InterfaceName:  "eth0",
+		CIDR:           "0.1.2.0/24",
 		ConfigType:     network.ConfigStatic,
 		NoAutoStart:    false,
 		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
@@ -60,7 +61,7 @@ bootcmd:
   auto eth0
   iface eth0 inet static
       address 0.1.2.3
-      netmask 255.255.255.255
+      netmask 0.1.2.0/24
       dns-nameservers ns1.invalid ns2.invalid
       pre-up ip route add 0.1.2.1 dev eth0
       pre-up ip route add default via 0.1.2.1

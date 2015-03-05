@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/network"
 )
 
 func SetObserver(p Provisioner, observer chan<- *config.Config) {
@@ -25,30 +26,63 @@ var (
 	ContainerManagerConfig = containerManagerConfig
 	GetToolsFinder         = &getToolsFinder
 	SysctlConfig           = &sysctlConfig
+	ResolvConf             = &resolvConf
+	LocalDNSServers        = localDNSServers
+	MustParseTemplate      = mustParseTemplate
+	RunTemplateCommand     = runTemplateCommand
+	IPTablesCheckSNAT      = &iptablesCheckSNAT
+	IPTablesAddSNAT        = &iptablesAddSNAT
+	NetInterfaces          = &netInterfaces
+	InterfaceAddrs         = &interfaceAddrs
+	DiscoverPrimaryNIC     = discoverPrimaryNIC
+	MaybeAllocateStaticIP  = maybeAllocateStaticIP
 )
 
-const IPForwardSysctlKey = ipForwardSysctlKey
+const (
+	IPForwardSysctlKey = ipForwardSysctlKey
+	ARPProxySysctlKey  = arpProxySysctlKey
+)
 
-// SetIPForwarding calls the internal setIPForwarding and then
-// restores the mocked one.
-var SetIPForwarding func(bool) error
+// SetIPAndARPForwarding calls the internal setIPAndARPForwarding and
+// then restores the mocked one.
+var SetIPAndARPForwarding func(bool) error
+
+// SetupRoutesAndIPTables calls the internal setupRoutesAndIPTables
+// and the restores the mocked one.
+var SetupRoutesAndIPTables func(string, network.Address, string, []network.InterfaceInfo) error
 
 func init() {
 	// In order to isolate the host machine from the running tests,
-	// but also allow calling the original setIPForwarding func to
-	// test it, we need a litte bit of reflect magic, mostly borrowed
-	// from the juju/testing pacakge.
-	newv := reflect.ValueOf(&setIPForwarding).Elem()
-	oldv := reflect.New(newv.Type()).Elem()
-	oldv.Set(newv)
-	mockv := reflect.ValueOf(func(bool) error { return nil })
-	restore := func() { newv.Set(oldv) }
-	remock := func() { newv.Set(mockv) }
-	remock()
+	// but also allow calling the original setIPAndARPForwarding and
+	// setupRoutesAndIPTables funcs to test them, we need a litte bit
+	// of reflect magic, mostly borrowed from the juju/testing
+	// pacakge.
+	newSetIPAndARPForwardingValue := reflect.ValueOf(&setIPAndARPForwarding).Elem()
+	newSetupRoutesAndIPTablesValue := reflect.ValueOf(&setupRoutesAndIPTables).Elem()
+	oldSetIPAndARPForwardingValue := reflect.New(newSetIPAndARPForwardingValue.Type()).Elem()
+	oldSetupRoutesAndIPTablesValue := reflect.New(newSetupRoutesAndIPTablesValue.Type()).Elem()
+	oldSetIPAndARPForwardingValue.Set(newSetIPAndARPForwardingValue)
+	oldSetupRoutesAndIPTablesValue.Set(newSetupRoutesAndIPTablesValue)
+	mockSetIPAndARPForwardingValue := reflect.ValueOf(
+		func(bool) error { return nil },
+	)
+	mockSetupRoutesAndIPTablesValue := reflect.ValueOf(
+		func(string, network.Address, string, []network.InterfaceInfo) error { return nil },
+	)
+	switchValues := func(newValue, oldValue reflect.Value) {
+		newValue.Set(oldValue)
+	}
+	switchValues(newSetIPAndARPForwardingValue, mockSetIPAndARPForwardingValue)
+	switchValues(newSetupRoutesAndIPTablesValue, mockSetupRoutesAndIPTablesValue)
 
-	SetIPForwarding = func(v bool) error {
-		restore()
-		defer remock()
-		return setIPForwarding(v)
+	SetIPAndARPForwarding = func(v bool) error {
+		switchValues(newSetIPAndARPForwardingValue, oldSetIPAndARPForwardingValue)
+		defer switchValues(newSetIPAndARPForwardingValue, mockSetIPAndARPForwardingValue)
+		return setIPAndARPForwarding(v)
+	}
+	SetupRoutesAndIPTables = func(nic string, addr network.Address, bridge string, ifinfo []network.InterfaceInfo) error {
+		switchValues(newSetupRoutesAndIPTablesValue, oldSetupRoutesAndIPTablesValue)
+		defer switchValues(newSetupRoutesAndIPTablesValue, mockSetupRoutesAndIPTablesValue)
+		return setupRoutesAndIPTables(nic, addr, bridge, ifinfo)
 	}
 }

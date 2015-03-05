@@ -76,7 +76,7 @@ func (result ErrorResults) OneError() error {
 }
 
 // Combine returns one error from the result which is an accumulation of the
-// errors.  If there are no errors in the result, the return value is nil.
+// errors. If there are no errors in the result, the return value is nil.
 // Otherwise the error values are combined with new-line characters.
 func (result ErrorResults) Combine() error {
 	var errorStrings []string
