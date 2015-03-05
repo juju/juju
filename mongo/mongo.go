@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
+	"github.com/juju/juju/service"
 	"github.com/juju/juju/version"
 )
 
@@ -197,6 +198,7 @@ func EnsureServer(args EnsureServerParams) error {
 	if err != nil {
 		return err
 	}
+	// TODO(ericsnow) svc.Installed() should get called too.
 	if svc.Exists() {
 		logger.Debugf("mongo exists as expected")
 		if !svc.Running() {
@@ -239,7 +241,10 @@ func EnsureServer(args EnsureServerParams) error {
 	if err := preallocOplog(dbDir, oplogSizeMB); err != nil {
 		return fmt.Errorf("error creating oplog files: %v", err)
 	}
-	return svc.Install()
+	if err := service.InstallAndStart(svc); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func makeJournalDirs(dataDir string) error {

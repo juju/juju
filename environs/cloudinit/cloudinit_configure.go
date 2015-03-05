@@ -114,6 +114,11 @@ func (c *baseConfigure) addMachineAgentToBoot(name string) error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
 	}
+	startCmds, err := svc.StartCommands()
+	if err != nil {
+		return errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
+	}
+	cmds = append(cmds, startCmds...)
 
 	svcName := c.mcfg.MachineAgentServiceName
 	c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", svcName))
