@@ -12,10 +12,8 @@ import (
 	"path"
 	"regexp"
 	"text/template"
-	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/service/common"
 )
@@ -49,11 +47,6 @@ var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
 
 // InitDir holds the default init directory name.
 var InitDir = "/etc/init"
-
-var InstallStartRetryAttempts = utils.AttemptStrategy{
-	Total: 1 * time.Second,
-	Delay: 250 * time.Millisecond,
-}
 
 // Service provides visibility into and control over an upstart service.
 type Service struct {
@@ -254,29 +247,25 @@ func (s *Service) Install() error {
 		return errors.Trace(err)
 	}
 
-	// On slower disks, upstart may take a short time to realise
-	// that there is a service there.
-	for attempt := InstallStartRetryAttempts.Start(); attempt.Next(); {
-		if err = s.Start(); err == nil {
-			break
-		}
-	}
-	return err
+	return nil
 }
 
-// InstallCommands returns shell commands to install and start the service.
+// InstallCommands returns shell commands to install the service.
 func (s *Service) InstallCommands() ([]string, error) {
 	conf, err := s.render()
 	if err != nil {
 		return nil, err
 	}
-	cmds := []string{
-		fmt.Sprintf("cat >> %s << 'EOF'\n%sEOF\n", s.confPath(), conf),
+	cmd := fmt.Sprintf("cat >> %s << 'EOF'\n%sEOF\n", s.confPath(), conf)
+	return []string{cmd}, nil
+}
+
+// StartCommands returns shell commands to start the service.
+func (s *Service) StartCommands() ([]string, error) {
+	if s.Service.Conf.Transient {
+		return nil, nil
 	}
-	if !s.Service.Conf.Transient {
-		cmds = append(cmds, "start "+s.Service.Name)
-	}
-	return cmds, nil
+	return []string{"start " + s.Service.Name}, nil
 }
 
 // Serialize renders the conf as raw bytes.
