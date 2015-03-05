@@ -27,10 +27,11 @@ func (s *fakeEnvSuite) SetUpTest(c *gc.C) {
 }
 
 type fakeEnvAPI struct {
-	values   map[string]interface{}
-	err      error
-	keys     []string
-	addUsers []names.UserTag
+	values      map[string]interface{}
+	err         error
+	keys        []string
+	addUsers    []names.UserTag
+	removeUsers []names.UserTag
 }
 
 func (f *fakeEnvAPI) Close() error {
@@ -53,5 +54,10 @@ func (f *fakeEnvAPI) EnvironmentUnset(keys ...string) error {
 
 func (f *fakeEnvAPI) ShareEnvironment(users ...names.UserTag) error {
 	f.addUsers = users
+	return f.err
+}
+
+func (f *fakeEnvAPI) UnshareEnvironment(users ...names.UserTag) error {
+	f.removeUsers = users
 	return f.err
 }

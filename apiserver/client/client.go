@@ -980,7 +980,7 @@ func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
 	return info, nil
 }
 
-// ShareEnvironment allows the given user(s) access to the environment.
+// ShareEnvironment manages allowing and denying the given user(s) access to the environment.
 func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params.ErrorResults, err error) {
 	var createdBy names.UserTag
 	var ok bool
