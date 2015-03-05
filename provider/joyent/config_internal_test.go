@@ -19,7 +19,7 @@ var _ = gc.Suite(&InternalSuite{})
 
 func (s *InternalSuite) TestEnsurePrivateKey(c *gc.C) {
 	m := map[string]interface{}{
-		"private-key-path": "foo",
+		"private-key": "foo",
 	}
 
 	e := &environConfig{attrs: copymap(m)}
