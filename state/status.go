@@ -152,6 +152,49 @@ func (status Status) ValidAgentStatus() bool {
 	}
 }
 
+// ValidWorkloadStatus returns true if status has a known value for a workload.
+// This is used by the status command to filter out
+// unknown status values.
+func (status Status) ValidWorkloadStatus() bool {
+	switch status {
+	case
+		StatusBlocked,
+		StatusMaintenance,
+		StatusWaiting,
+		StatusActive,
+		StatusError,
+		StatusUnknown,
+		StatusTerminated:
+		return true
+	case // Deprecated statuses
+		StatusPending,
+		StatusInstalling,
+		StatusStarted,
+		StatusStopped,
+		StatusDown:
+		return true
+	default:
+		return false
+	}
+}
+
+// WorkloadMatches returns true if the candidate matches status,
+// taking into account that the candidate may be a legacy
+// status value which has been deprecated.
+func (status Status) WorkloadMatches(candidate Status) bool {
+	switch candidate {
+	case status: // We could be holding an old status ourselves
+		return true
+	case StatusDown, StatusStopped:
+		candidate = StatusTerminated
+	case StatusInstalling:
+		candidate = StatusMaintenance
+	case StatusStarted:
+		candidate = StatusActive
+	}
+	return status == candidate
+}
+
 // Matches returns true if the candidate matches status,
 // taking into account that the candidate may be a legacy
 // status value which has been deprecated.

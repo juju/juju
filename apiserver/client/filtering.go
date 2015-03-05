@@ -145,6 +145,14 @@ func unitMatchAgentStatus(u *state.Unit, patterns []string) (bool, bool, error) 
 	return matchAgentStatus(patterns, status)
 }
 
+func unitMatchWorkloadStatus(u *state.Unit, patterns []string) (bool, bool, error) {
+	status, _, _, err := u.Status()
+	if err != nil {
+		return false, false, err
+	}
+	return matchWorkloadStatus(patterns, status)
+}
+
 func unitMatchExposure(u *state.Unit, patterns []string) (bool, bool, error) {
 	s, err := u.Service()
 	if err != nil {
@@ -261,6 +269,7 @@ func buildUnitMatcherShims(u *state.Unit, patterns []string) []closurePredicate 
 	return []closurePredicate{
 		closeOver(unitMatchUnitName),
 		closeOver(unitMatchAgentStatus),
+		closeOver(unitMatchWorkloadStatus),
 		closeOver(unitMatchExposure),
 		closeOver(unitMatchSubnet),
 		closeOver(unitMatchPort),
@@ -314,6 +323,23 @@ func matchExposure(patterns []string, s *state.Service) (bool, bool, error) {
 		return !s.IsExposed(), true, nil
 	}
 	return false, false, nil
+}
+
+func matchWorkloadStatus(patterns []string, status state.Status) (bool, bool, error) {
+	oneValidStatus := false
+	for _, p := range patterns {
+		// If the pattern isn't a valid status, ignore it.
+		ps := state.Status(p)
+		if !ps.ValidWorkloadStatus() {
+			continue
+		}
+
+		oneValidStatus = true
+		if status.WorkloadMatches(ps) {
+			return true, true, nil
+		}
+	}
+	return false, oneValidStatus, nil
 }
 
 func matchAgentStatus(patterns []string, status state.Status) (bool, bool, error) {

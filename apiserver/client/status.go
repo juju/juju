@@ -523,11 +523,11 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 	if serviceCharm != "" && curl != nil && curl.String() != serviceCharm {
 		status.Charm = curl.String()
 	}
-	status.Agent, status.Workload, status.AgentState, status.AgentStateInfo = processUnitAgent(unit)
+	status.UnitAgent, status.Workload, status.AgentState, status.AgentStateInfo = processUnitAgent(unit)
 
 	// Until Juju 2.0, we need to continue to display legacy status values.
-	//status.Agent.Status = params.TranslateLegacyStatus(status.Agent.Status)
-	//status.AgentState = params.TranslateLegacyStatus(status.AgentState)
+	status.Agent = status.Workload
+	status.Agent.Status = params.TranslateToLegacyAgentState(status.Agent.Status)
 
 	status.AgentVersion = status.Workload.Version
 	status.Life = status.Workload.Life
@@ -592,17 +592,16 @@ type stateAgent interface {
 
 // processUnitAgent retrieves status information for both unit and unitAgents.
 func processUnitAgent(unit *state.Unit) (agent api.AgentStatus,
-	workload api.WorkloadStatus,
+	workload api.AgentStatus,
 	compatStatus params.Status,
 	compatInfo string) {
 
 	unitAgent := unit.Agent().(*state.UnitAgent)
 
-	workloadStatus, _, _ := processAgent(unit)
-	workload = api.WorkloadStatus(workloadStatus)
+	workload, _, _ = processAgent(unit)
 	processAgentStatus(&agent, unitAgent)
 
-	compatStatus = params.TranslateLegacyAgentStatus(workload.Status)
+	compatStatus = params.TranslateToLegacyAgentState(workload.Status)
 	compatInfo = agent.Info
 	return
 }

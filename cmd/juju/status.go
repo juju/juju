@@ -431,9 +431,9 @@ func (sf *statusFormatter) getWorkloadStatusInfo(unit api.UnitStatus) statusInfo
 
 func (sf *statusFormatter) getAgentStatusInfo(unit api.UnitStatus) statusInfoContents {
 	return statusInfoContents{
-		Err:     unit.Agent.Err,
-		Current: unit.Agent.Status,
-		Message: unit.Agent.Info,
+		Err:     unit.UnitAgent.Err,
+		Current: unit.UnitAgent.Status,
+		Message: unit.UnitAgent.Info,
 	}
 }
 

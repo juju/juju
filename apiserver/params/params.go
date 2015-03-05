@@ -776,31 +776,26 @@ const (
 // It could be a unit, machine or its agent.
 type Status multiwatcher.Status
 
-// TranslateLegacyStatus returns the status value clients expect to see for Juju 1.x.
-func TranslateLegacyStatus(in Status) Status {
-	switch in {
-	case StatusFailed:
-		return StatusDown
-	case StatusActive: // < 1.24
-		return StatusStarted
-	case StatusMaintenance, StatusUnknown: // 1.24
-		return StatusPending
-	case StatusError, StatusBlocked: // 1.24
-		return StatusError
-	default:
-		return in
-	}
-}
-
 // TranslateLegacyAgentStatus returns the status value clients expect to see for
 // agent-state in versions prior to 1.24
-func TranslateLegacyAgentStatus(in Status) Status {
+func TranslateToLegacyAgentState(in Status) Status {
+	// Originally AgentState (a member of api.UnitStatus) could hold one of:
+	// StatusPending
+	// StatusInstalling
+	// StatusStarted
+	// StatusStopped
+	// StatusError
+	// StatusDown
+	// For compatibility reasons we convert modern states (from V2 uniter) into
+	// three of the old ones: StatusPending, StatusStarted or StatusError.
+	// StatusMaintenance can be StatusPending before the start hook has been run
+	// we dont have enough information for that here so we go for started.
 	switch in {
-	case StatusMaintenance, StatusWaiting:
+	case StatusWaiting:
 		return StatusPending
-	case StatusActive:
+	case StatusActive, StatusBlocked, StatusMaintenance:
 		return StatusStarted
-	case StatusUnknown, StatusTerminated, StatusBlocked:
+	case StatusUnknown, StatusTerminated:
 		return StatusError
 	default:
 		return in
