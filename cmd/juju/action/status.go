@@ -17,11 +17,10 @@ type StatusCommand struct {
 	ActionCommandBase
 	out         cmd.Output
 	requestedId string
-	all         bool
 }
 
 const statusDoc = `
-Show the status of an Action by ID.
+Show the status of Actions matching given ID, partial ID prefix, or all Actions if no ID is supplied.
 `
 
 // Set up the output.
@@ -32,8 +31,8 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *StatusCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "status",
-		Args:    "<action ID>",
-		Purpose: "show results of an action by ID",
+		Args:    "[<action ID>|<action ID prefix>]",
+		Purpose: "show results of all actions filtered by optional ID prefix",
 		Doc:     statusDoc,
 	}
 }
@@ -41,7 +40,6 @@ func (c *StatusCommand) Info() *cmd.Info {
 func (c *StatusCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
-		c.all = true
 		c.requestedId = ""
 		return nil
 	case 1:
@@ -65,7 +63,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if len(actionTags) < 1 {
-		if c.all {
+		if len(c.requestedId) == 0 {
 			return errors.Errorf("no actions found")
 		} else {
 			return errors.Errorf("no actions found matching prefix %q", c.requestedId)

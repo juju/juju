@@ -38,7 +38,9 @@ func (s *StatusSuite) TestRun(c *gc.C) {
 	faketag := "action-" + fakeid
 	faketag2 := "action-" + fakeid2
 
-	args := []string{prefix}
+	emptyArgs := []string{}
+	emptyPrefixArgs := []string{}
+	prefixArgs := []string{prefix}
 	result1 := []params.ActionResult{{Status: "some-random-status"}}
 	result2 := []params.ActionResult{{Status: "a status"}, {Status: "another status"}}
 
@@ -48,16 +50,21 @@ func (s *StatusSuite) TestRun(c *gc.C) {
 
 	tests := []statusTestCase{
 		{expectError: errNotFound},
-		{args: args, expectError: errNotFoundForPrefix},
-		{args: args, expectError: errNotFoundForPrefix, tags: tagsForIdPrefix(prefix)},
-		{args: args, expectError: errNotFoundForPrefix, tags: tagsForIdPrefix(prefix, "bb", "bc")},
-		{args: args, expectError: errFoundTagButNoResults, tags: tagsForIdPrefix(prefix, faketag, faketag2)},
-		{args: args, expectError: errFoundTagButNoResults, tags: tagsForIdPrefix(prefix, faketag)},
-		{args: args, tags: tagsForIdPrefix(prefix, faketag), results: result1},
-		{args: args, tags: tagsForIdPrefix(prefix, faketag, faketag2), results: result2},
+		{args: emptyArgs, expectError: errNotFound},
+		{args: emptyArgs, tags: tagsForIdPrefix("", faketag, faketag2), results: result2},
+		{args: emptyPrefixArgs, expectError: errNotFound},
+		{args: emptyPrefixArgs, tags: tagsForIdPrefix("", faketag, faketag2), results: result2},
+		{args: prefixArgs, expectError: errNotFoundForPrefix},
+		{args: prefixArgs, expectError: errNotFoundForPrefix, tags: tagsForIdPrefix(prefix)},
+		{args: prefixArgs, expectError: errNotFoundForPrefix, tags: tagsForIdPrefix(prefix, "bb", "bc")},
+		{args: prefixArgs, expectError: errFoundTagButNoResults, tags: tagsForIdPrefix(prefix, faketag, faketag2)},
+		{args: prefixArgs, expectError: errFoundTagButNoResults, tags: tagsForIdPrefix(prefix, faketag)},
+		{args: prefixArgs, tags: tagsForIdPrefix(prefix, faketag), results: result1},
+		{args: prefixArgs, tags: tagsForIdPrefix(prefix, faketag, faketag2), results: result2},
 	}
 
-	for _, test := range tests {
+	for i, test := range tests {
+		c.Logf("iteration %d, test case %+v", i, test)
 		s.runTestCase(c, test)
 	}
 }

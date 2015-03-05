@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-var logger = loggo.GetLogger("juju.cmd.action.common")
+var logger = loggo.GetLogger("juju.cmd.juju.action")
 
 // conform ensures all keys of any nested maps are strings.  This is
 // necessary because YAML unmarshals map[interface{}]interface{} in nested
@@ -114,7 +114,7 @@ func getActionTagsFromPrefix(api APIClient, prefix string) ([]names.ActionTag, e
 
 	results, rejects := getActionTags(matches)
 	if len(rejects) > 0 {
-		logger.Debugf("FindActionTagsByPrefix for prefix %q found invalid tags %v", prefix, rejects)
+		logger.Errorf("FindActionTagsByPrefix for prefix %q found invalid tags %v", prefix, rejects)
 	}
 	return results, nil
 }
