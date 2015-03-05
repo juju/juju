@@ -79,7 +79,11 @@ func (s *StorageAPI) getOneUnitStorageAttachments(canAccess common.AuthFunc, uni
 }
 
 func (s *StorageAPI) fromStateStorageAttachment(stateStorageAttachment state.StorageAttachment) (params.StorageAttachment, error) {
-	info, err := common.StorageAttachmentInfo(s.st, stateStorageAttachment)
+	machineTag, err := s.st.UnitAssignedMachine(stateStorageAttachment.Unit())
+	if err != nil {
+		return params.StorageAttachment{}, err
+	}
+	info, err := common.StorageAttachmentInfo(s.st, stateStorageAttachment, machineTag)
 	if err != nil {
 		return params.StorageAttachment{}, err
 	}
@@ -205,7 +209,11 @@ func (s *StorageAPI) watchOneStorageAttachment(id params.StorageAttachmentId, ca
 	if err != nil {
 		return nothing, err
 	}
-	watch, err := common.WatchStorageAttachmentInfo(s.st, storageTag, unitTag)
+	machineTag, err := s.st.UnitAssignedMachine(unitTag)
+	if err != nil {
+		return nothing, err
+	}
+	watch, err := common.WatchStorageAttachmentInfo(s.st, storageTag, machineTag)
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}

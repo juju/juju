@@ -16,24 +16,43 @@ import (
 // StorageInterface is an interface for obtaining information about storage
 // instances and related entities.
 type StorageInterface interface {
-	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
+	// StorageInstance returns the state.StorageInstance corresponding
+	// to the specified storage tag.
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
+
+	// StorageInstanceFilesystem returns the state.Filesystem assigned
+	// to the storage instance with the specified storage tag.
 	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
+
+	// StorageInstanceVolume returns the state.Volume assigned to the
+	// storage instance with the specified storage tag.
 	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
-	UnitAssignedMachine(names.UnitTag) (names.MachineTag, error)
+
+	// FilesystemAttachment returns the state.FilesystemAttachment
+	// corresponding to the identified machine and filesystem.
+	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
+
+	// VolumeAttachment returns the state.VolumeAttachment corresponding
+	// to the identified machine and volume.
 	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
+
+	// WatchFilesystemAttachment watches for changes to the filesystem
+	// attachment corresponding to the identfified machien and filesystem.
 	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
+
+	// WatchVolumeAttachment watches for changes to the volume attachment
+	// corresponding to the identfified machien and volume.
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 }
 
 // StorageAttachmentInfo returns the StorageAttachmentInfo for the specified
 // StorageAttachment by gathering information from related entities (volumes,
 // filesystems).
-func StorageAttachmentInfo(st StorageInterface, att state.StorageAttachment) (*storage.StorageAttachmentInfo, error) {
-	machineTag, err := st.UnitAssignedMachine(att.Unit())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func StorageAttachmentInfo(
+	st StorageInterface,
+	att state.StorageAttachment,
+	machineTag names.MachineTag,
+) (*storage.StorageAttachmentInfo, error) {
 	storageInstance, err := st.StorageInstance(att.StorageInstance())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage instance")
@@ -105,11 +124,11 @@ func filesystemStorageAttachmentInfo(
 // WatchStorageAttachmentInfo returns a state.NotifyWatcher that reacts to changes
 // to the VolumeAttachmentInfo or FilesystemAttachmentInfo corresponding to the tags
 // specified.
-func WatchStorageAttachmentInfo(st StorageInterface, storageTag names.StorageTag, unitTag names.UnitTag) (state.NotifyWatcher, error) {
-	machineTag, err := st.UnitAssignedMachine(unitTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func WatchStorageAttachmentInfo(
+	st StorageInterface,
+	storageTag names.StorageTag,
+	machineTag names.MachineTag,
+) (state.NotifyWatcher, error) {
 	storageInstance, err := st.StorageInstance(storageTag)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage instance")

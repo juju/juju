@@ -359,12 +359,10 @@ func (st *State) SetVolumeAttachmentInfo(machineTag names.MachineTag, volumeTag 
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		var unsetParams bool
-		if _, ok := va.Params(); ok {
-			// volume attachment has parameters, unset them
-			// when we set info for the first time.
-			unsetParams = true
-		}
+		// If the volume attachment has parameters, unset them
+		// when we set info for the first time, ensuring that
+		// params and info are mutually exclusive.
+		_, unsetParams := va.Params()
 		ops := setVolumeAttachmentInfoOps(machineTag, volumeTag, info, unsetParams)
 		return ops, nil
 	}
@@ -411,12 +409,10 @@ func (st *State) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (err error)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		var unsetParams bool
-		if _, ok := v.Params(); ok {
-			// volume has parameters, unset them when
-			// we set info for the first time.
-			unsetParams = true
-		}
+		// If the volume has parameters, unset them when
+		// we set info for the first time, ensuring that
+		// params and info are mutually exclusive.
+		_, unsetParams := v.Params()
 		ops := setVolumeInfoOps(tag, info, unsetParams)
 		return ops, nil
 	}

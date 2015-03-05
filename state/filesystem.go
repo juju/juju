@@ -397,12 +397,10 @@ func (st *State) SetFilesystemInfo(tag names.FilesystemTag, info FilesystemInfo)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		var unsetParams bool
-		if _, ok := fs.Params(); ok {
-			// filesystem has parameters, unset them when
-			// we set info for the first time.
-			unsetParams = true
-		}
+		// If the filesystem has parameters, unset them
+		// when we set info for the first time, ensuring
+		// that params and info are mutually exclusive.
+		_, unsetParams := fs.Params()
 		ops := setFilesystemInfoOps(tag, info, unsetParams)
 		return ops, nil
 	}
@@ -440,12 +438,10 @@ func (st *State) SetFilesystemAttachmentInfo(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		var unsetParams bool
-		if _, ok := fsa.Params(); ok {
-			// filesystem attachment has parameters, unset them
-			// when we set info for the first time.
-			unsetParams = true
-		}
+		// If the filesystem attachment has parameters, unset them
+		// when we set info for the first time, ensuring that params
+		// and info are mutually exclusive.
+		_, unsetParams := fsa.Params()
 		ops := setFilesystemAttachmentInfoOps(machineTag, filesystemTag, info, unsetParams)
 		return ops, nil
 	}
