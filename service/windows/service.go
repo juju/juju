@@ -202,7 +202,7 @@ func NewService(name string, conf common.Conf) *Service {
 	}
 }
 
-// InstallCommands returns shell commands to install and start the service.
+// InstallCommands returns shell commands to install the service.
 func (s *Service) InstallCommands() ([]string, error) {
 	// TODO(ericsnow) Properly quote the arg values in Conf.ExecStart.
 	// TODO(ericsnow) Properly "render" the arg values in Conf.ExecStart.
@@ -212,15 +212,22 @@ func (s *Service) InstallCommands() ([]string, error) {
 		s.Service.Conf.Desc,
 		s.Service.Conf.ExecStart,
 		s.Service.Name,
-		s.Service.Name,
 	)
 	return strings.Split(cmd, "\n"), nil
 }
 
+// StartCommands returns shell commands to start the service.
+func (s *Service) StartCommands() ([]string, error) {
+	// TODO(ericsnow) Merge with the command in Start().
+	cmd := fmt.Sprintf(`Start-Service %s`, s.Service.Name)
+	return []string{cmd}, nil
+}
+
+// TODO(ericsnow) Merge serviceInstallCommands and serviceInstallScript?
+
 const serviceInstallCommands = `
 New-Service -Credential $jujuCreds -Name '%s' -DisplayName '%s' '%s'
-cmd.exe /C sc config %s start=delayed-auto
-Start-Service %s`
+cmd.exe /C sc config %s start=delayed-auto`
 
 const serviceInstallScript = `
 $data = Get-Content "C:\Juju\Jujud.pass"

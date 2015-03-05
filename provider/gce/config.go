@@ -139,28 +139,6 @@ func newConfig(cfg *config.Config) *environConfig {
 	}
 }
 
-// prepareConfig builds a new environConfig from the provided Config and
-// returns it. This includes some GCE-specific updates (including OS
-// environment variables) and applying default values. The resulting
-// config values are validated.
-func prepareConfig(cfg *config.Config) (*environConfig, error) {
-
-	// Make any necessary updates to the config. This needs to happen
-	// before any defaults are applied.
-	updates, err := parseOSEnv()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cfg, err = cfg.Apply(updates)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Finish the config.
-	ecfg, err := newValidConfig(cfg, configDefaults)
-	return ecfg, errors.Trace(err)
-}
-
 // newValidConfig builds a new environConfig from the provided Config
 // and returns it. This includes applying the provided defaults
 // values, if any. The resulting config values are validated.

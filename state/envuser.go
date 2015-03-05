@@ -14,11 +14,10 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-// EnvironmentUser represents a user access to an environment
-// whereas the user could represent a remote user or a user
-// across multiple environments the environment user always represents
-// a single user for a single environment.
-// There should be no more than one EnvironmentUser per user.
+// EnvironmentUser represents a user access to an environment whereas the user
+// could represent a remote user or a user across multiple environments the
+// environment user always represents a single user for a single environment.
+// There should be no more than one EnvironmentUser per environment.
 type EnvironmentUser struct {
 	st  *State
 	doc envUserDoc
