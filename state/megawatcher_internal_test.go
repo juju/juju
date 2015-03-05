@@ -330,7 +330,7 @@ type changeTestCase struct {
 	expectContents []multiwatcher.EntityInfo
 }
 
-// changeTestFunc is a function for the preparation of a test and 
+// changeTestFunc is a function for the preparation of a test and
 // the creation of the according case.
 type changeTestFunc func(c *gc.C, st *State) changeTestCase
 
@@ -386,7 +386,7 @@ func (s *storeManagerStateSuite) TestChangeAnnotations(c *gc.C) {
 					C:  "annotations",
 					Id: st.docID("m#0"),
 				}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "annotation is removed if it's not in backing",
@@ -395,7 +395,7 @@ func (s *storeManagerStateSuite) TestChangeAnnotations(c *gc.C) {
 					C:  "annotations",
 					Id: st.docID("m#0"),
 				}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
@@ -413,7 +413,7 @@ func (s *storeManagerStateSuite) TestChangeAnnotations(c *gc.C) {
 						Tag:         "machine-0",
 						Annotations: map[string]string{"foo": "bar", "arble": "baz"},
 					}}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
@@ -538,7 +538,7 @@ func (s *storeManagerStateSuite) TestChangeMachines(c *gc.C) {
 					C:  "statuses",
 					Id: st.docID("m#0"),
 				}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "no machine in state, no machine in store -> do nothing",
@@ -546,7 +546,7 @@ func (s *storeManagerStateSuite) TestChangeMachines(c *gc.C) {
 					C:  "machines",
 					Id: st.docID("1"),
 				}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "machine is removed if it's not in backing",
@@ -555,7 +555,7 @@ func (s *storeManagerStateSuite) TestChangeMachines(c *gc.C) {
 					C:  "machines",
 					Id: st.docID("1"),
 				}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
@@ -637,7 +637,7 @@ func (s *storeManagerStateSuite) TestChangeMachines(c *gc.C) {
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "failure",
 					}}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
@@ -676,7 +676,7 @@ func (s *storeManagerStateSuite) TestChangeRelations(c *gc.C) {
 					C:  "relations",
 					Id: st.docID("logging:logging-directory wordpress:logging-dir"),
 				}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "relation is removed if it's not in backing",
@@ -685,7 +685,7 @@ func (s *storeManagerStateSuite) TestChangeRelations(c *gc.C) {
 					C:  "relations",
 					Id: st.docID("logging:logging-directory wordpress:logging-dir"),
 				}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			AddTestingService(c, st, "logging", AddTestingCharm(c, st, "logging"), s.owner)
@@ -722,7 +722,7 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 					C:  "services",
 					Id: st.docID("wordpress"),
 				}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "service is removed if it's not in backing",
@@ -731,7 +731,7 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 					C:  "services",
 					Id: st.docID("wordpress"),
 				}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			err := wordpress.SetExposed()
@@ -755,7 +755,7 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 						MinUnits: 42,
 						Config:   charm.Settings{},
 					}}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			setServiceConfigAttr(c, svc, "blog-title", "boring")
@@ -783,7 +783,7 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 						Constraints: constraints.MustParse("mem=99M"),
 						Config:      charm.Settings{"blog-title": "boring"},
 					}}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			setServiceConfigAttr(c, svc, "blog-title", "boring")
@@ -817,7 +817,7 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 					C:  "settings",
 					Id: st.docID("s#wordpress#local:quantal/quantal-wordpress-3"),
 				}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "no change if service is not in backing",
@@ -833,7 +833,7 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 					Name:     "wordpress",
 					CharmURL: "local:quantal/quantal-wordpress-3",
 				}}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			setServiceConfigAttr(c, svc, "blog-title", "foo")
@@ -855,7 +855,7 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 						CharmURL: "local:quantal/quantal-wordpress-3",
 						Config:   charm.Settings{"blog-title": "foo"},
 					}}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			testCharm := AddCustomCharm(
 				c, st, "wordpress",
@@ -881,7 +881,7 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 						CharmURL: "local:quantal/quantal-wordpress-3",
 						Config:   charm.Settings{"key.dotted": "foo"},
 					}}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			setServiceConfigAttr(c, svc, "blog-title", "foo")
@@ -903,7 +903,7 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 						CharmURL: "local:quantal/quantal-wordpress-2",
 						Config:   charm.Settings{"foo": "bar"},
 					}}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "non-service config change is ignored",
@@ -911,7 +911,7 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 					C:  "settings",
 					Id: st.docID("m#0"),
 				}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "service config change with no charm url is ignored",
@@ -924,8 +924,8 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 	s.performChangeTestCases(c, changeTestFuncs)
 }
 
-// TestChangeServiceConstraints tests the changing of service constraints.
-func (s *storeManagerStateSuite) TestChangeServiceConstraints(c *gc.C) {
+// TestChangeServicesConstraints tests the changing of the constraints of services.
+func (s *storeManagerStateSuite) TestChangeServicesConstraints(c *gc.C) {
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
@@ -934,7 +934,7 @@ func (s *storeManagerStateSuite) TestChangeServiceConstraints(c *gc.C) {
 					C:  "constraints",
 					Id: st.docID("s#wordpress"),
 				}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "no change if service is not in backing",
@@ -950,7 +950,7 @@ func (s *storeManagerStateSuite) TestChangeServiceConstraints(c *gc.C) {
 					Name:        "wordpress",
 					Constraints: constraints.MustParse("mem=99M"),
 				}}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			err := svc.SetConstraints(constraints.MustParse("mem=4G cpu-cores= arch=amd64"))
@@ -986,7 +986,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 					C:  "units",
 					Id: st.docID("1"),
 				}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "unit is removed if it's not in backing",
@@ -995,7 +995,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 					C:  "units",
 					Id: st.docID("wordpress/1"),
 				}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
@@ -1041,7 +1041,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "failure",
 					}}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
@@ -1077,7 +1077,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "another failure",
 					}}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
@@ -1113,7 +1113,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 						Id: "0",
 					},
 				}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
@@ -1239,7 +1239,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 						Status:     multiwatcher.Status("started"),
 						StatusData: make(map[string]interface{}),
 					}}}
-		}, 
+		},
 		func(c *gc.C, st *State) changeTestCase {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
@@ -1271,6 +1271,73 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 							"2nd-key": 2,
 							"3rd-key": true,
 						}}}}
+		},
+	}
+	s.performChangeTestCases(c, changeTestFuncs)
+}
+
+// TestChangeUnitsNonNilPorts tests the changing of unit parts returning
+// no nil values.
+func (s *storeManagerStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
+	initEnv := func(c *gc.C, st *State, withNet bool) {
+		wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+		u, err := wordpress.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		m, err := st.AddMachine("quantal", JobHostUnits)
+		c.Assert(err, jc.ErrorIsNil)
+		err = u.AssignToMachine(m)
+		c.Assert(err, jc.ErrorIsNil)
+		if withNet {
+			publicAddress := network.NewAddress("1.2.3.4", network.ScopePublic)
+			privateAddress := network.NewAddress("4.3.2.1", network.ScopeCloudLocal)
+			err = m.SetAddresses(publicAddress, privateAddress)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.OpenPort("tcp", 12345)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
+	changeTestFuncs := []changeTestFunc{
+		func(c *gc.C, st *State) changeTestCase {
+			initEnv(c, st, false)
+
+			return changeTestCase{
+				about: "initialized one unit without network",
+				change: watcher.Change{
+					C:  "units",
+					Id: st.docID("wordpress/0"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						Name:           "wordpress/0",
+						Service:        "wordpress",
+						Series:         "quantal",
+						MachineId:      "0",
+						Ports:          []network.Port{},
+						PortRanges:     []network.PortRange{},
+						Status:         "allocating",
+					}}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			initEnv(c, st, true)
+
+			return changeTestCase{
+				about: "initialized one unit with network",
+				change: watcher.Change{
+					C:  "units",
+					Id: st.docID("wordpress/0"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						Name:           "wordpress/0",
+						Service:        "wordpress",
+						Series:         "quantal",
+						MachineId:      "0",
+						PublicAddress:  "1.2.3.4",
+						PrivateAddress: "4.3.2.1",
+						Ports:          []network.Port{{"tcp", 12345}},
+						PortRanges:     []network.PortRange{{12345, 12345, "tcp"}},
+						Status:         "allocating",
+					}}}
 		},
 	}
 	s.performChangeTestCases(c, changeTestFuncs)
