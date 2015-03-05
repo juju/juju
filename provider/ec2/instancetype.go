@@ -315,50 +315,49 @@ var allInstanceTypes = []instances.InstanceType{
 		VirtType: &paravirtual,
 	},
 
-    { // Compute-optimized, 3rd generation.
-        Name:     "c4.large",
-        Arches:   amd64,
-        CpuCores: 2,
-        Mem:      3840,
-        CpuPower: instances.CpuPower(800),
-        VirtType: &hvm,
-    }, {
-        Name:     "c4.xlarge",
-        Arches:   amd64,
-        CpuCores: 4,
-        Mem:      7680,
-        CpuPower: instances.CpuPower(1600),
-        VirtType: &hvm,
-    }, {
-        Name:     "c4.2xlarge",
-        Arches:   amd64,
-        CpuCores: 8,
-        Mem:      15360,
-        CpuPower: instances.CpuPower(3100),
-        VirtType: &hvm,
-    }, {
-        Name:     "c4.4xlarge",
-        Arches:   amd64,
-        CpuCores: 16,
-        Mem:      30720,
-        CpuPower: instances.CpuPower(6200),
-        VirtType: &hvm,
-    }, {
-        Name:     "c4.8xlarge",
-        Arches:   amd64,
-        // TODO (anastasiamac 2015-03-04)
-        // The source of this information at http://aws.amazon.com/ec2/instance-types/
-        // shows 36 cpu cores. However, I believe it's a typo. All equivalent models, 
-        // for e.g. c3.8xlarge and r3.8xlarge, have 32. 
-        // My guess it is meant to be 32 here to as the memory in GiB is the same all the models.
-        // Contacted AWS to clarify...
-        // https://console.aws.amazon.com/support/home?#/case/?caseId=1349800621&displayId=1349800621&language=en
-        CpuCores: 32,
-        Mem:      61440,
-        CpuPower: instances.CpuPower(13200),
-        VirtType: &hvm,
-    },
-
+	{ // Compute-optimized, 3rd generation.
+		Name:     "c4.large",
+		Arches:   amd64,
+		CpuCores: 2,
+		Mem:      3840,
+		CpuPower: instances.CpuPower(800),
+		VirtType: &hvm,
+	}, {
+		Name:     "c4.xlarge",
+		Arches:   amd64,
+		CpuCores: 4,
+		Mem:      7680,
+		CpuPower: instances.CpuPower(1600),
+		VirtType: &hvm,
+	}, {
+		Name:     "c4.2xlarge",
+		Arches:   amd64,
+		CpuCores: 8,
+		Mem:      15360,
+		CpuPower: instances.CpuPower(3100),
+		VirtType: &hvm,
+	}, {
+		Name:     "c4.4xlarge",
+		Arches:   amd64,
+		CpuCores: 16,
+		Mem:      30720,
+		CpuPower: instances.CpuPower(6200),
+		VirtType: &hvm,
+	}, {
+		Name:   "c4.8xlarge",
+		Arches: amd64,
+		// TODO (anastasiamac 2015-03-04)
+		// The source of this information at http://aws.amazon.com/ec2/instance-types/
+		// shows 36 cpu cores. However, I believe it's a typo. All equivalent models,
+		// for e.g. c3.8xlarge and r3.8xlarge, have 32.
+		// My guess it is meant to be 32 here to as the memory in GiB is the same all the models.
+		// Contacted AWS to clarify...
+		// https://console.aws.amazon.com/support/home?#/case/?caseId=1349800621&displayId=1349800621&language=en
+		CpuCores: 32,
+		Mem:      61440,
+		CpuPower: instances.CpuPower(13200),
+		VirtType: &hvm,
+	},
 }
 
 type instanceTypeCost map[string]uint64
@@ -368,76 +367,76 @@ type regionCosts map[string]instanceTypeCost
 // type in each region.
 var allRegionCosts = regionCosts{
 	"ap-northeast-1": { // Tokyo.
-		"m1.small":   61,
-		"m1.medium":  122,
-		"m1.large":   243,
-		"m1.xlarge":  486,
-        
+		"m1.small":  61,
+		"m1.medium": 122,
+		"m1.large":  243,
+		"m1.xlarge": 486,
+
 		"m3.medium":  101,
 		"m3.large":   203,
 		"m3.xlarge":  405,
 		"m3.2xlarge": 810,
 
-		"c1.medium":   158,
-		"c1.xlarge":   632,
-        
+		"c1.medium": 158,
+		"c1.xlarge": 632,
+
 		"cc2.8xlarge": 2349,
-        
-		"c3.large":    128,
-		"c3.xlarge":   255,
-		"c3.2xlarge":  511,
-		"c3.4xlarge":  1021,
-		"c3.8xlarge":  2043,
+
+		"c3.large":   128,
+		"c3.xlarge":  255,
+		"c3.2xlarge": 511,
+		"c3.4xlarge": 1021,
+		"c3.8xlarge": 2043,
 
 		"g2.2xlarge": 898,
 
-		"m2.xlarge":   287,
-		"m2.2xlarge":  575,
-		"m2.4xlarge":  1150,
-        
+		"m2.xlarge":  287,
+		"m2.2xlarge": 575,
+		"m2.4xlarge": 1150,
+
 		"cr1.8xlarge": 4105,
-        
-		"r3.large":    210,
-		"r3.xlarge":   420,
-		"r3.2xlarge":  840,
-		"r3.4xlarge":  1680,
-		"r3.8xlarge":  3360,
+
+		"r3.large":   210,
+		"r3.xlarge":  420,
+		"r3.2xlarge": 840,
+		"r3.4xlarge": 1680,
+		"r3.8xlarge": 3360,
 
 		"hi1.4xlarge": 3276,
-        
-		"i2.xlarge":   1001,
-		"i2.2xlarge":  2001,
-		"i2.4xlarge":  4002,
-		"i2.8xlarge":  8004,
-        
+
+		"i2.xlarge":  1001,
+		"i2.2xlarge": 2001,
+		"i2.4xlarge": 4002,
+		"i2.8xlarge": 8004,
+
 		"hs1.8xlarge": 5400,
 
 		"t1.micro": 26,
-        
-		"t2.micro": 20,
-		"t2.small": 40,
+
+		"t2.micro":  20,
+		"t2.small":  40,
 		"t2.medium": 80,
-        
-		"c4.large": 147,
-		"c4.xlarge": 294,
+
+		"c4.large":   147,
+		"c4.xlarge":  294,
 		"c4.2xlarge": 588,
 		"c4.4xlarge": 1176,
 		"c4.8xlarge": 2352,
- 	},
+	},
 	"ap-southeast-1": { // Singapore.
-		"m1.small":   58,
-		"m1.medium":  117,
-		"m1.large":   233,
-		"m1.xlarge":  467,
-        
+		"m1.small":  58,
+		"m1.medium": 117,
+		"m1.large":  233,
+		"m1.xlarge": 467,
+
 		"m3.medium":  98,
 		"m3.large":   196,
 		"m3.xlarge":  392,
 		"m3.2xlarge": 784,
 
-		"c1.medium":  164,
-		"c1.xlarge":  655,
-        
+		"c1.medium": 164,
+		"c1.xlarge": 655,
+
 		"c3.large":   132,
 		"c3.xlarge":  265,
 		"c3.2xlarge": 529,
@@ -447,48 +446,48 @@ var allRegionCosts = regionCosts{
 		"m2.xlarge":  296,
 		"m2.2xlarge": 592,
 		"m2.4xlarge": 1183,
-        
+
 		"r3.large":   210,
 		"r3.xlarge":  420,
 		"r3.2xlarge": 840,
 		"r3.4xlarge": 1680,
 		"r3.8xlarge": 3360,
 
-		"i2.xlarge":   1018,
-		"i2.2xlarge":  2035,
-		"i2.4xlarge":  4070,
-		"i2.8xlarge":  8140,
-        
+		"i2.xlarge":  1018,
+		"i2.2xlarge": 2035,
+		"i2.4xlarge": 4070,
+		"i2.8xlarge": 8140,
+
 		"hs1.8xlarge": 5570,
 
 		"t1.micro": 20,
 
-        "t2.micro": 20,
-        "t2.small": 40,
-        "t2.medium": 80,
+		"t2.micro":  20,
+		"t2.small":  40,
+		"t2.medium": 80,
 
-        "c4.large": 152,
-        "c4.xlarge": 304,
-        "c4.2xlarge": 608,
-        "c4.4xlarge": 1216,
-        "c4.8xlarge": 2432,
+		"c4.large":   152,
+		"c4.xlarge":  304,
+		"c4.2xlarge": 608,
+		"c4.4xlarge": 1216,
+		"c4.8xlarge": 2432,
 
-        "g2.2xlarge": 1000,
-    },
+		"g2.2xlarge": 1000,
+	},
 	"ap-southeast-2": { // Sydney.
-		"m1.small":   58,
-		"m1.medium":  117,
-		"m1.large":   233,
-		"m1.xlarge":  467,
-        
+		"m1.small":  58,
+		"m1.medium": 117,
+		"m1.large":  233,
+		"m1.xlarge": 467,
+
 		"m3.medium":  98,
 		"m3.large":   196,
 		"m3.xlarge":  392,
 		"m3.2xlarge": 784,
 
-		"c1.medium":  164,
-		"c1.xlarge":  655,
-        
+		"c1.medium": 164,
+		"c1.xlarge": 655,
+
 		"c3.large":   132,
 		"c3.xlarge":  265,
 		"c3.2xlarge": 529,
@@ -498,99 +497,99 @@ var allRegionCosts = regionCosts{
 		"m2.xlarge":  296,
 		"m2.2xlarge": 592,
 		"m2.4xlarge": 1183,
-        
+
 		"r3.large":   210,
 		"r3.xlarge":  420,
 		"r3.2xlarge": 840,
 		"r3.4xlarge": 1680,
 		"r3.8xlarge": 3360,
 
-		"i2.xlarge":   1018,
-		"i2.2xlarge":  2035,
-		"i2.4xlarge":  4070,
-		"i2.8xlarge":  8140,
-        
+		"i2.xlarge":  1018,
+		"i2.2xlarge": 2035,
+		"i2.4xlarge": 4070,
+		"i2.8xlarge": 8140,
+
 		"hs1.8xlarge": 5570,
 
 		"t1.micro": 20,
 
-        "t2.micro": 20,
-        "t2.small": 40,
-        "t2.medium": 80,
+		"t2.micro":  20,
+		"t2.small":  40,
+		"t2.medium": 80,
 
-        "c4.large": 152,
-        "c4.xlarge": 304,
-        "c4.2xlarge": 608,
-        "c4.4xlarge": 1216,
-        "c4.8xlarge": 2432,
+		"c4.large":   152,
+		"c4.xlarge":  304,
+		"c4.2xlarge": 608,
+		"c4.4xlarge": 1216,
+		"c4.8xlarge": 2432,
 
-       "g2.2xlarge": 898,
-    },
+		"g2.2xlarge": 898,
+	},
 	"eu-west-1": { // Ireland.
-		"m1.small":   47,
-		"m1.medium":  95,
-		"m1.large":   190,
-		"m1.xlarge":  379,
-        
+		"m1.small":  47,
+		"m1.medium": 95,
+		"m1.large":  190,
+		"m1.xlarge": 379,
+
 		"m3.medium":  77,
 		"m3.large":   154,
 		"m3.xlarge":  308,
 		"m3.2xlarge": 616,
 
-		"c1.medium":   148,
-		"c1.xlarge":   592,
-        
+		"c1.medium": 148,
+		"c1.xlarge": 592,
+
 		"cc2.8xlarge": 2250,
-        
-		"c3.large":    120,
-		"c3.xlarge":   239,
-		"c3.2xlarge":  478,
-		"c3.4xlarge":  956,
-		"c3.8xlarge":  1912,
+
+		"c3.large":   120,
+		"c3.xlarge":  239,
+		"c3.2xlarge": 478,
+		"c3.4xlarge": 956,
+		"c3.8xlarge": 1912,
 
 		"cg1.4xlarge": 2360,
-        
-		"g2.2xlarge":  702,
 
-		"m2.xlarge":   275,
-		"m2.2xlarge":  550,
-		"m2.4xlarge":  1100,
-        
+		"g2.2xlarge": 702,
+
+		"m2.xlarge":  275,
+		"m2.2xlarge": 550,
+		"m2.4xlarge": 1100,
+
 		"cr1.8xlarge": 3750,
-        
-		"r3.large":    195,
-		"r3.xlarge":   390,
-		"r3.2xlarge":  780,
-		"r3.4xlarge":  1560,
-		"r3.8xlarge":  3120,
+
+		"r3.large":   195,
+		"r3.xlarge":  390,
+		"r3.2xlarge": 780,
+		"r3.4xlarge": 1560,
+		"r3.8xlarge": 3120,
 
 		"hi1.4xlarge": 3100,
-        
-		"i2.xlarge":   938,
-		"i2.2xlarge":  1876,
-		"i2.4xlarge":  3751,
-		"i2.8xlarge":  7502,
-        
+
+		"i2.xlarge":  938,
+		"i2.2xlarge": 1876,
+		"i2.4xlarge": 3751,
+		"i2.8xlarge": 7502,
+
 		"hs1.8xlarge": 4900,
 
 		"t1.micro": 20,
 
-        "t2.micro": 14,
-        "t2.small": 28,
-        "t2.medium": 56,
+		"t2.micro":  14,
+		"t2.small":  28,
+		"t2.medium": 56,
 
-        "c4.large": 132,
-        "c4.xlarge": 264,
-        "c4.2xlarge": 528,
-        "c4.4xlarge": 1056,
-        "c4.8xlarge": 2112,
+		"c4.large":   132,
+		"c4.xlarge":  264,
+		"c4.2xlarge": 528,
+		"c4.4xlarge": 1056,
+		"c4.8xlarge": 2112,
 	},
 	"sa-east-1": { // Sao Paulo.
-		"m1.small":   58,
-		"m1.medium":  117,
-		"m1.large":   233,
-		"m1.xlarge":  467,
-        
+		"m1.small":  58,
+		"m1.medium": 117,
+		"m1.large":  233,
+		"m1.xlarge": 467,
+
 		"m3.medium":  95,
 		"m3.large":   190,
 		"m3.xlarge":  381,
@@ -605,89 +604,89 @@ var allRegionCosts = regionCosts{
 
 		"t1.micro": 27,
 
-        "t2.micro": 27,
-        "t2.small": 54,
-        "t2.medium": 108,
+		"t2.micro":  27,
+		"t2.small":  54,
+		"t2.medium": 108,
 
-        "c3.large":    163,
-        "c3.xlarge":   325,
-        "c3.2xlarge":  650,
-        "c3.4xlarge":  1300,
-        "c3.8xlarge":  2600,
-    },
+		"c3.large":   163,
+		"c3.xlarge":  325,
+		"c3.2xlarge": 650,
+		"c3.4xlarge": 1300,
+		"c3.8xlarge": 2600,
+	},
 	"us-east-1": { // Northern Virginia.
-		"m1.small":   44,
-		"m1.medium":  87,
-		"m1.large":   175,
-		"m1.xlarge":  350,
-        
+		"m1.small":  44,
+		"m1.medium": 87,
+		"m1.large":  175,
+		"m1.xlarge": 350,
+
 		"m3.medium":  70,
 		"m3.large":   140,
 		"m3.xlarge":  280,
 		"m3.2xlarge": 560,
 
-		"c1.medium":   130,
-		"c1.xlarge":   520,
-        
+		"c1.medium": 130,
+		"c1.xlarge": 520,
+
 		"cc2.8xlarge": 2000,
-        
-		"c3.large":    105,
-		"c3.xlarge":   210,
-		"c3.2xlarge":  420,
-		"c3.4xlarge":  840,
-		"c3.8xlarge":  1680,
+
+		"c3.large":   105,
+		"c3.xlarge":  210,
+		"c3.2xlarge": 420,
+		"c3.4xlarge": 840,
+		"c3.8xlarge": 1680,
 
 		"cg1.4xlarge": 2100,
-        
-		"g2.2xlarge":  650,
 
-		"m2.xlarge":   245,
-		"m2.2xlarge":  490,
-		"m2.4xlarge":  980,
-        
+		"g2.2xlarge": 650,
+
+		"m2.xlarge":  245,
+		"m2.2xlarge": 490,
+		"m2.4xlarge": 980,
+
 		"cr1.8xlarge": 3500,
-        
-		"r3.large":    175,
-		"r3.xlarge":   350,
-		"r3.2xlarge":  700,
-		"r3.4xlarge":  1400,
-		"r3.8xlarge":  2800,
+
+		"r3.large":   175,
+		"r3.xlarge":  350,
+		"r3.2xlarge": 700,
+		"r3.4xlarge": 1400,
+		"r3.8xlarge": 2800,
 
 		"hi1.4xlarge": 3100,
-        
-		"i2.xlarge":   853,
-		"i2.2xlarge":  1705,
-		"i2.4xlarge":  3410,
-		"i2.8xlarge":  6820,
-        
+
+		"i2.xlarge":  853,
+		"i2.2xlarge": 1705,
+		"i2.4xlarge": 3410,
+		"i2.8xlarge": 6820,
+
 		"hs1.8xlarge": 4600,
 
 		"t1.micro": 20,
 
-        "t2.micro": 13,
-        "t2.small": 26,
-        "t2.medium": 52,
+		"t2.micro":  13,
+		"t2.small":  26,
+		"t2.medium": 52,
 
-        "c4.large": 116,
-        "c4.xlarge": 232,
-        "c4.2xlarge": 464,
-        "c4.4xlarge": 928,
-        "c4.8xlarge": 1856,
+		"c4.large":   116,
+		"c4.xlarge":  232,
+		"c4.2xlarge": 464,
+		"c4.4xlarge": 928,
+		"c4.8xlarge": 1856,
 	},
 	"us-west-1": { // Northern California.
-		"m1.small":   47,
-		"m1.medium":  95,
-		"m1.large":   190,
-		"m1.xlarge":  379,
-        
+		"m1.small":  47,
+		"m1.medium": 95,
+		"m1.large":  190,
+		"m1.xlarge": 379,
+
 		"m3.medium":  77,
 		"m3.large":   154,
 		"m3.xlarge":  308,
 		"m3.2xlarge": 616,
 
-		"c1.medium":  148,
-		"c1.xlarge":  592,
-        
+		"c1.medium": 148,
+		"c1.xlarge": 592,
+
 		"c3.large":   120,
 		"c3.xlarge":  239,
 		"c3.2xlarge": 478,
@@ -699,7 +698,7 @@ var allRegionCosts = regionCosts{
 		"m2.xlarge":  275,
 		"m2.2xlarge": 550,
 		"m2.4xlarge": 1100,
-        
+
 		"r3.large":   195,
 		"r3.xlarge":  390,
 		"r3.2xlarge": 780,
@@ -713,37 +712,37 @@ var allRegionCosts = regionCosts{
 
 		"t1.micro": 25,
 
-        "t2.micro": 17,
-        "t2.small": 34,
-        "t2.medium": 68,
+		"t2.micro":  17,
+		"t2.small":  34,
+		"t2.medium": 68,
 
-        "c4.large": 138,
-        "c4.xlarge": 276,
-        "c4.2xlarge": 552,
-        "c4.4xlarge": 1104,
-        "c4.8xlarge": 2208,
+		"c4.large":   138,
+		"c4.xlarge":  276,
+		"c4.2xlarge": 552,
+		"c4.4xlarge": 1104,
+		"c4.8xlarge": 2208,
 	},
 	"us-west-2": { // Oregon.
-		"m1.small":   44,
-		"m1.medium":  87,
-		"m1.large":   175,
-		"m1.xlarge":  350,
-        
+		"m1.small":  44,
+		"m1.medium": 87,
+		"m1.large":  175,
+		"m1.xlarge": 350,
+
 		"m3.medium":  70,
 		"m3.large":   140,
 		"m3.xlarge":  280,
 		"m3.2xlarge": 560,
 
-		"c1.medium":   130,
-		"c1.xlarge":   520,
-        
+		"c1.medium": 130,
+		"c1.xlarge": 520,
+
 		"cc2.8xlarge": 2000,
-        
-		"c3.large":    105,
-		"c3.xlarge":   210,
-		"c3.2xlarge":  420,
-		"c3.4xlarge":  840,
-		"c3.8xlarge":  1680,
+
+		"c3.large":   105,
+		"c3.xlarge":  210,
+		"c3.2xlarge": 420,
+		"c3.4xlarge": 840,
+		"c3.8xlarge": 1680,
 
 		"g2.2xlarge": 650,
 
@@ -751,32 +750,59 @@ var allRegionCosts = regionCosts{
 		"m2.2xlarge":  490,
 		"m2.4xlarge":  980,
 		"cr1.8xlarge": 3500,
-        
-		"r3.large":    175,
-		"r3.xlarge":   350,
-		"r3.2xlarge":  700,
-		"r3.4xlarge":  1400,
-		"r3.8xlarge":  2800,
+
+		"r3.large":   175,
+		"r3.xlarge":  350,
+		"r3.2xlarge": 700,
+		"r3.4xlarge": 1400,
+		"r3.8xlarge": 2800,
 
 		"hi1.4xlarge": 3100,
-        
-		"i2.xlarge":   853,
-		"i2.2xlarge":  1705,
-		"i2.4xlarge":  3410,
-		"i2.8xlarge":  6820,
-        
+
+		"i2.xlarge":  853,
+		"i2.2xlarge": 1705,
+		"i2.4xlarge": 3410,
+		"i2.8xlarge": 6820,
+
 		"hs1.8xlarge": 4600,
 
 		"t1.micro": 20,
 
-        "t2.micro": 13,
-        "t2.small": 26,
-        "t2.medium": 52,
+		"t2.micro":  13,
+		"t2.small":  26,
+		"t2.medium": 52,
 
-        "c4.large": 116,
-        "c4.xlarge": 232,
-        "c4.2xlarge": 464,
-        "c4.4xlarge": 928,
-        "c4.8xlarge": 1856,
+		"c4.large":   116,
+		"c4.xlarge":  232,
+		"c4.2xlarge": 464,
+		"c4.4xlarge": 928,
+		"c4.8xlarge": 1856,
+	},
+	"eu-central-1": { // Frankfurt.
+		"t2.micro":  15,
+		"t2.small":  30,
+		"t2.medium": 60,
+
+		"m3.medium":  83,
+		"m3.large":   166,
+		"m3.xlarge":  332,
+		"m3.2xlarge": 665,
+
+		"c3.large":   129,
+		"c3.xlarge":  258,
+		"c3.2xlarge": 516,
+		"c3.4xlarge": 1032,
+		"c3.8xlarge": 2064,
+
+		"r3.large":   210,
+		"r3.xlarge":  421,
+		"r3.2xlarge": 842,
+		"r3.4xlarge": 1684,
+		"r3.8xlarge": 3369,
+
+		"i2.xlarge":  1013,
+		"i2.2xlarge": 2026,
+		"i2.4xlarge": 4051,
+		"i2.8xlarge": 8102,
 	},
 }
