@@ -98,8 +98,8 @@ func displayActionResult(result params.ActionResult, ctx *cmd.Context, out cmd.O
 	return nil
 }
 
-// getActionTagFromPrefix uses the APIClient to get all ActionTags matching a prefix.
-func getActionTagsFromPrefix(api APIClient, prefix string) ([]names.ActionTag, error) {
+// getActionTagByPrefix uses the APIClient to get all ActionTags matching a prefix.
+func getActionTagsByPrefix(api APIClient, prefix string) ([]names.ActionTag, error) {
 	results := []names.ActionTag{}
 
 	tags, err := api.FindActionTagsByPrefix(params.FindTags{Prefixes: []string{prefix}})
@@ -119,10 +119,10 @@ func getActionTagsFromPrefix(api APIClient, prefix string) ([]names.ActionTag, e
 	return results, nil
 }
 
-// getActionTagFromPrefix uses the APIClient to get an ActionTag from a prefix.
-func getActionTagFromPrefix(api APIClient, prefix string) (names.ActionTag, error) {
+// getActionTagByPrefix uses the APIClient to get an ActionTag from a prefix.
+func getActionTagByPrefix(api APIClient, prefix string) (names.ActionTag, error) {
 	tag := names.ActionTag{}
-	actiontags, err := getActionTagsFromPrefix(api, prefix)
+	actiontags, err := getActionTagsByPrefix(api, prefix)
 	if err != nil {
 		return tag, err
 	}

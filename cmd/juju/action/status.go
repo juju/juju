@@ -57,7 +57,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	actionTags, err := getActionTagsFromPrefix(api, c.requestedId)
+	actionTags, err := getActionTagsByPrefix(api, c.requestedId)
 	if err != nil {
 		return err
 	}
