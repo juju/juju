@@ -89,7 +89,8 @@ func containerInitSystem(series string) (string, error) {
 		return "", errors.Trace(err)
 	}
 	vers := version.Binary{
-		OS: osName,
+		OS:     osName,
+		Series: series,
 	}
 	initSystem, ok := service.VersionInitSystem(vers)
 	if !ok {
