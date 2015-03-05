@@ -568,6 +568,25 @@ type MetricsParams struct {
 	Metrics []MetricsParam
 }
 
+// MetricBatch is a list of metrics with metadata.
+type MetricBatch struct {
+	UUID     string
+	CharmURL string
+	Created  time.Time
+	Metrics  []Metric
+}
+
+// MetricBatchParam contains a single metric batch.
+type MetricBatchParam struct {
+	Tag   string
+	Batch MetricBatch
+}
+
+// MetricBatchParams contains multiple metric batches.
+type MetricBatchParams struct {
+	Batches []MetricBatchParam
+}
+
 // MeterStatusResult holds unit meter status or error.
 type MeterStatusResult struct {
 	Code  string

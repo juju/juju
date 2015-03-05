@@ -27,6 +27,7 @@ import (
 	_ "github.com/juju/juju/apiserver/logger"
 	_ "github.com/juju/juju/apiserver/machine"
 	_ "github.com/juju/juju/apiserver/metricsmanager"
+	_ "github.com/juju/juju/apiserver/metricstorage"
 	_ "github.com/juju/juju/apiserver/networker"
 	_ "github.com/juju/juju/apiserver/provisioner"
 	_ "github.com/juju/juju/apiserver/reboot"
