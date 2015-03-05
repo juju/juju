@@ -350,14 +350,8 @@ var allInstanceTypes = []instances.InstanceType{
 	}, {
 		Name:   "c4.8xlarge",
 		Arches: amd64,
-		// TODO (anastasiamac 2015-03-04)
 		// The source of this information at http://aws.amazon.com/ec2/instance-types/
-		// shows 36 cpu cores. However, I believe it's a typo. All equivalent models,
-		// for e.g. c3.8xlarge and r3.8xlarge, have 32.
-		// My guess it is meant to be 32 here to as the memory in GiB is the same all the models.
-		// Contacted AWS to clarify...
-		// https://console.aws.amazon.com/support/home?#/case/?caseId=1349800621&displayId=1349800621&language=en
-		CpuCores: 32,
+		CpuCores: 36,
 		Mem:      61440,
 		CpuPower: instances.CpuPower(13200),
 		VirtType: &hvm,
@@ -808,11 +802,6 @@ var allRegionCosts = regionCosts{
 		"i2.2xlarge": 2026,
 		"i2.4xlarge": 4051,
 		"i2.8xlarge": 8102,
-
-		// Marked as "unspecified" on
-		// http://aws.amazon.com/ec2/pricing/
-		"g2.2xlarge":  0,
-		"hs1.8xlarge": 0,
 	},
 	"us-gov-west-1": { // Isolated region - US GovCloud.
 		"t2.micro":  15,
@@ -847,20 +836,23 @@ var allRegionCosts = regionCosts{
 		// Instance type information is from
 		// http://www.amazonaws.cn/en/ec2/details/
 		// TODO (anastasiamac 2015-03-05):
-		// cost is unknown.
-		"m3.medium":  0,
-		"m3.large":   0,
-		"m3.xlarge":  0,
-		"m3.2xlarge": 0,
+		// To compensate for lack of pricing, we
+		// are putting in arbitrary values that reflect the relative costs.
+		// This is justified by the fact that, in Juju, we use instance-by-region cost
+		// to identify least expensive machine with desired constraints.
+		"t1.micro": 1,
 
-		"m1.small": 0,
+		"m1.small": 2,
 
-		"c3.large":   0,
-		"c3.xlarge":  0,
-		"c3.2xlarge": 0,
-		"c3.4xlarge": 0,
-		"c3.8xlarge": 0,
+		"m3.medium":  3,
+		"m3.large":   5,
+		"m3.xlarge":  7,
+		"m3.2xlarge": 9,
 
-		"t1.micro": 0,
+		"c3.large":   4,
+		"c3.xlarge":  6,
+		"c3.2xlarge": 8,
+		"c3.4xlarge": 10,
+		"c3.8xlarge": 11,
 	},
 }
