@@ -14,7 +14,7 @@ REVISION_BUILD=${revision_build:-}
 USE_PPA=""
 USE_TMPFS="false"
 LOG_FILE_PATH="/usr/share/distro-info/ubuntu.csv"
-LOG_TXT="17.04,Angsty Antelope,Angsty,2016-10-23,2017-04-30,2018-01-29"
+LOG_TXT="17.04,Angsty Antelope,angsty,2016-10-23,2017-04-30,2018-01-29"
 
 while [[ "${1-}" != "" ]]; do
     case $1 in
@@ -79,7 +79,7 @@ if [[ $INSTANCE_TYPE == "lxc" ]]; then
     while [[ "$instance_name" == "-" ]]; do
         instance_name=$(sudo lxc-ls --fancy |
             grep $instance_id |
-            tr -s ' ' | 
+            tr -s ' ' |
             cut -d ' ' -f 3)
         sleep 2
     done
@@ -91,8 +91,14 @@ elif [[ $INSTANCE_TYPE == "host" ]]; then
     instance_name=$AMI_IMAGE
 else
     instance_id=$($SCRIPTS/ec2-run-instance-get-id)
-    $SCRIPTS/ec2-tag-job-instances $instance_id
-
+    for attempt in $(seq 5); do
+        if $SCRIPTS/ec2-tag-job-instances $instance_id; then
+            break
+        elif [ "$attempt" == "5" ]; then
+            exit 1
+        fi
+        sleep 15
+    done
     set +x
     echo Starting instance $instance_id
     instance_name=$($SCRIPTS/ec2-get-name $instance_id)
