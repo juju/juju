@@ -4,8 +4,6 @@
 package uniter
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
@@ -40,14 +38,20 @@ type LeadershipSettingsAccessor struct {
 func (lsa *LeadershipSettingsAccessor) Merge(serviceId string, settings map[string]string) error {
 
 	if err := lsa.checkApiVersion("Merge"); err != nil {
-		return err
+		return errors.Annotatef(err, "cannot access leadership api")
 	}
 
 	results, err := lsa.bulkMerge(lsa.prepareMerge(serviceId, settings))
 	if err != nil {
-		return errors.Annotate(err, "could not merge settings")
+		return errors.Annotatef(err, "failed to call leadership api")
 	}
-	return results.Results[0].Error
+	if count := len(results.Results); count != 1 {
+		return errors.Errorf("expected 1 result from leadership api, got %d", count)
+	}
+	if results.Results[0].Error != nil {
+		return errors.Annotatef(results.Results[0].Error, "failed to merge leadership settings")
+	}
+	return nil
 }
 
 // Read retrieves the leadership settings for the given service
@@ -55,14 +59,20 @@ func (lsa *LeadershipSettingsAccessor) Merge(serviceId string, settings map[stri
 func (lsa *LeadershipSettingsAccessor) Read(serviceId string) (map[string]string, error) {
 
 	if err := lsa.checkApiVersion("Read"); err != nil {
-		return nil, err
+		return nil, errors.Annotatef(err, "cannot access leadership api")
 	}
 
 	results, err := lsa.bulkRead(lsa.prepareRead(serviceId))
 	if err != nil {
-		return nil, errors.Annotate(err, "could not read leadership settings")
+		return nil, errors.Annotatef(err, "failed to call leadership api")
 	}
-	return results.Results[0].Settings, results.Results[0].Error
+	if count := len(results.Results); count != 1 {
+		return nil, errors.Errorf("expected 1 result from leadership api, got %d", count)
+	}
+	if results.Results[0].Error != nil {
+		return nil, errors.Annotatef(results.Results[0].Error, "failed to read leadership settings")
+	}
+	return results.Results[0].Settings, nil
 }
 
 // WatchLeadershipSettings returns a watcher which can be used to wait
@@ -70,18 +80,22 @@ func (lsa *LeadershipSettingsAccessor) Read(serviceId string) (map[string]string
 func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(serviceId string) (watcher.NotifyWatcher, error) {
 
 	if err := lsa.checkApiVersion("WatchLeadershipSettings"); err != nil {
-		return nil, err
+		return nil, errors.Annotatef(err, "cannot access leadership api")
 	}
-
 	var results params.NotifyWatchResults
 	if err := lsa.facadeCaller(
 		"WatchLeadershipSettings",
 		params.Entities{[]params.Entity{{names.NewServiceTag(serviceId).String()}}},
 		&results,
 	); err != nil {
-		return nil, errors.Annotate(err, "could not watch leadership settings")
+		return nil, errors.Annotate(err, "failed to call leadership api")
 	}
-	fmt.Printf("%v", results)
+	if count := len(results.Results); count != 1 {
+		return nil, errors.Errorf("expected 1 result from leadership api, got %d", count)
+	}
+	if results.Results[0].Error != nil {
+		return nil, errors.Annotatef(results.Results[0].Error, "failed to watch leadership settings")
+	}
 	return lsa.newNotifyWatcher(results.Results[0]), nil
 }
 
