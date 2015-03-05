@@ -194,21 +194,71 @@ func (s *clientSuite) TestShareEnvironmentThreeUsers(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `existing user`)
 }
 
-func (s *clientSuite) TestUnshareEnvironmentRealAPIServer(c *gc.C) {
+func (s *clientSuite) TestUnshareEnvironmentThreeUsers(c *gc.C) {
 	client := s.APIState.Client()
-	user := names.NewUserTag("foo@ubuntuone")
-	err := client.ShareEnvironment(user)
-	c.Assert(err, jc.ErrorIsNil)
+	missingUser := s.Factory.MakeEnvUser(c, nil)
+	localUser := s.Factory.MakeUser(c, nil)
+	newUserTag := names.NewUserTag("foo@bar")
+	cleanup := api.PatchClientFacadeCall(client,
+		func(request string, paramsIn interface{}, response interface{}) error {
+			if users, ok := paramsIn.(params.ModifyEnvironUsers); ok {
+				c.Assert(users.Changes, gc.HasLen, 3)
+				c.Assert(string(users.Changes[0].Action), gc.Equals, string(params.RemoveEnvUser))
+				c.Assert(users.Changes[0].UserTag, gc.Equals, missingUser.UserTag().String())
+				c.Assert(string(users.Changes[1].Action), gc.Equals, string(params.RemoveEnvUser))
+				c.Assert(users.Changes[1].UserTag, gc.Equals, localUser.UserTag().String())
+				c.Assert(string(users.Changes[2].Action), gc.Equals, string(params.RemoveEnvUser))
+				c.Assert(users.Changes[2].UserTag, gc.Equals, newUserTag.String())
+			} else {
+				c.Log("wrong input structure")
+				c.Fail()
+			}
+			if result, ok := response.(*params.ErrorResults); ok {
+				err := &params.Error{Message: "error unsharing user"}
+				*result = params.ErrorResults{Results: []params.ErrorResult{{Error: err}, {Error: nil}, {Error: nil}}}
+			} else {
+				c.Log("wrong output structure")
+				c.Fail()
+			}
+			return nil
+		},
+	)
+	defer cleanup()
 
-	envUser, err := s.State.EnvironmentUser(user)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envUser.UserName(), gc.Equals, user.Username())
+	err := client.UnshareEnvironment(missingUser.UserTag(), localUser.UserTag(), newUserTag)
+	c.Assert(err, gc.ErrorMatches, "error unsharing user")
+}
 
-	err = client.UnshareEnvironment([]names.UserTag{user})
-	c.Assert(err, jc.ErrorIsNil)
+func (s *clientSuite) TestUnshareEnvironmentMissingUser(c *gc.C) {
+	client := s.APIState.Client()
+	user := names.NewUserTag("bob@local")
+	cleanup := api.PatchClientFacadeCall(client,
+		func(request string, paramsIn interface{}, response interface{}) error {
+			if users, ok := paramsIn.(params.ModifyEnvironUsers); ok {
+				c.Assert(users.Changes, gc.HasLen, 1)
+				c.Logf(string(users.Changes[0].Action), gc.Equals, string(params.RemoveEnvUser))
+				c.Logf(users.Changes[0].UserTag, gc.Equals, user.String())
+			} else {
+				c.Fatalf("wrong input structure")
+			}
+			if result, ok := response.(*params.ErrorResults); ok {
+				err := &params.Error{
+					Message: "error message",
+					Code:    params.CodeNotFound,
+				}
+				*result = params.ErrorResults{Results: []params.ErrorResult{{Error: err}}}
+			} else {
+				c.Fatalf("wrong input structure")
+			}
+			return nil
+		},
+	)
+	defer cleanup()
 
-	_, err = s.State.EnvironmentUser(user)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	err := client.UnshareEnvironment(user)
+	c.Assert(err, jc.ErrorIsNil)
+	logMsg := fmt.Sprintf("WARNING juju.api environment was not previously shared with user %s", user.Username())
+	c.Assert(c.GetTestLog(), jc.Contains, logMsg)
 }
 
 func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {

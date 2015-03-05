@@ -38,6 +38,13 @@ func NewShareCommand(api ShareEnvironmentAPI) *ShareCommand {
 	}
 }
 
+// NewUnshareCommand returns an unshareCommand with the api provided as specified.
+func NewUnshareCommand(api UnshareEnvironmentAPI) *UnshareCommand {
+	return &UnshareCommand{
+		api: api,
+	}
+}
+
 // NewCreateCommand returns a CreateCommand with the api provided as specified.
 func NewCreateCommand(api CreateEnvironmentAPI) *CreateCommand {
 	return &CreateCommand{

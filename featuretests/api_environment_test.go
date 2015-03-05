@@ -4,6 +4,8 @@
 package featuretests
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/testing"
@@ -43,4 +45,23 @@ func (s *apiEnvironmentSuite) TestEnvironmentShare(c *gc.C) {
 	c.Assert(envUser.UserName(), gc.Equals, user.Username())
 	c.Assert(envUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Username())
 	c.Assert(envUser.LastConnection(), gc.IsNil)
+}
+
+func (s *apiEnvironmentSuite) TestEnvironmentUnshare(c *gc.C) {
+	// Firt share an environment with a user.
+	user := names.NewUserTag("foo@ubuntuone")
+	err := s.client.ShareEnvironment(user)
+	c.Assert(err, jc.ErrorIsNil)
+
+	envUser, err := s.State.EnvironmentUser(user)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(envUser, gc.NotNil)
+
+	// Then test unsharing the environment.
+	err = s.client.UnshareEnvironment(user)
+	c.Assert(err, jc.ErrorIsNil)
+
+	envUser, err = s.State.EnvironmentUser(user)
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(envUser, gc.IsNil)
 }

@@ -24,6 +24,7 @@ type EnvironmentCommandSuite struct {
 var _ = gc.Suite(&EnvironmentCommandSuite{})
 
 var expectedCommmandNames = []string{
+	"create",
 	"get",
 	"help",
 	"jenv",
@@ -31,6 +32,7 @@ var expectedCommmandNames = []string{
 	"set",
 	"share",
 	"unset",
+	"unshare",
 }
 
 func (s *EnvironmentCommandSuite) TestHelpCommands(c *gc.C) {
@@ -43,10 +45,10 @@ func (s *EnvironmentCommandSuite) TestHelpCommands(c *gc.C) {
 
 	// Remove "share" for the first test because the feature is not
 	// enabled.
-	devFeatures := set.NewStrings("share")
+	devFeatures := set.NewStrings("create", "share", "unshare")
 
-	// Remove features behind dev_flag for the first test
-	// since they are not enabled.
+	// Remove features behind dev_flag for the first test since they are not
+	// enabled.
 	cmdSet := set.NewStrings(expectedCommmandNames...).Difference(devFeatures)
 
 	// Test default commands.
