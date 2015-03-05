@@ -282,7 +282,6 @@ func (s *LeaderSuite) TestWriteLeaderSettingsClearsCache(c *gc.C) {
 		})
 		c.Check(err, jc.ErrorIsNil)
 	})
-
 }
 
 type StubLeadershipSettingsAccessor struct {
