@@ -302,6 +302,7 @@ func (stub *StubLeadershipSettingsAccessor) Merge(serviceName string, settings m
 }
 
 type StubTracker struct {
+	leadership.Tracker
 	*testing.Stub
 	serviceName string
 	results     []StubTicket
