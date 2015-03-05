@@ -12,73 +12,119 @@ import (
 	"path"
 	"regexp"
 	"text/template"
-	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/service/common"
 )
+
+var servicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
+
+// ListServices returns the name of all installed services on the
+// local host.
+func ListServices(initDir string) ([]string, error) {
+	fis, err := ioutil.ReadDir(initDir)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var services []string
+	for _, fi := range fis {
+		if groups := servicesRe.FindStringSubmatch(fi.Name()); len(groups) > 0 {
+			services = append(services, groups[1])
+		}
+	}
+	return services, nil
+}
+
+// ListCommand returns a command that will list the services on a host.
+func ListCommand() string {
+	// TODO(ericsnow) Do "ls /etc/init/*.conf" instead?
+	return `sudo initctl list | awk '{print $1}' | sort | uniq`
+}
 
 var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
 
 // InitDir holds the default init directory name.
 var InitDir = "/etc/init"
 
-var InstallStartRetryAttempts = utils.AttemptStrategy{
-	Total: 1 * time.Second,
-	Delay: 250 * time.Millisecond,
-}
-
 // Service provides visibility into and control over an upstart service.
 type Service struct {
-	Name string
-	Conf common.Conf
+	common.Service
 }
 
 func NewService(name string, conf common.Conf) *Service {
 	if conf.InitDir == "" {
 		conf.InitDir = InitDir
 	}
-	return &Service{Name: name, Conf: conf}
+	return &Service{
+		Service: common.Service{
+			Name: name,
+			Conf: conf,
+		},
+	}
+}
+
+// Name implements service.Service.
+func (s Service) Name() string {
+	return s.Service.Name
+}
+
+// Conf implements service.Service.
+func (s Service) Conf() common.Conf {
+	return s.Service.Conf
 }
 
 // confPath returns the path to the service's configuration file.
 func (s *Service) confPath() string {
-	return path.Join(s.Conf.InitDir, s.Name+".conf")
+	return path.Join(s.Service.Conf.InitDir, s.Service.Name+".conf")
 }
 
-func (s *Service) UpdateConfig(conf common.Conf) {
-	s.Conf = conf
-}
-
-// validate returns an error if the service is not adequately defined.
-func (s *Service) validate() error {
-	if s.Name == "" {
-		return errors.New("missing Name")
+// Validate returns an error if the service is not adequately defined.
+func (s *Service) Validate() error {
+	if err := s.Service.Validate(); err != nil {
+		return errors.Trace(err)
 	}
-	if s.Conf.InitDir == "" {
+
+	if s.Service.Conf.InitDir == "" {
 		return errors.New("missing InitDir")
 	}
-	if s.Conf.Desc == "" {
-		return errors.New("missing Desc")
+
+	if s.Service.Conf.Transient {
+		if len(s.Service.Conf.Env) > 0 {
+			return errors.NotSupportedf("Conf.Env (when transient)")
+		}
+		if len(s.Service.Conf.Limit) > 0 {
+			return errors.NotSupportedf("Conf.Limit (when transient)")
+		}
+		if s.Service.Conf.Output != "" {
+			return errors.NotSupportedf("Conf.Output (when transient)")
+		}
+		if s.Service.Conf.ExtraScript != "" {
+			return errors.NotSupportedf("Conf.ExtraScript (when transient)")
+		}
+	} else {
+		if s.Service.Conf.AfterStopped != "" {
+			return errors.NotSupportedf("Conf.AfterStopped (when not transient)")
+		}
+		if s.Service.Conf.ExecStopPost != "" {
+			return errors.NotSupportedf("Conf.ExecStopPost (when not transient)")
+		}
 	}
-	if s.Conf.Cmd == "" {
-		return errors.New("missing Cmd")
-	}
+
 	return nil
 }
 
 // render returns the upstart configuration for the service as a slice of bytes.
 func (s *Service) render() ([]byte, error) {
-	if err := s.validate(); err != nil {
+	if err := s.Validate(); err != nil {
 		return nil, err
 	}
-	var buf bytes.Buffer
-	if err := confT.Execute(&buf, s.Conf); err != nil {
-		return nil, err
+	conf := s.Conf()
+	if conf.Transient {
+		conf.ExecStopPost = "rm " + s.confPath()
 	}
-	return buf.Bytes(), nil
+	return Serialize(s.Name(), conf)
 }
 
 // Installed returns whether the service configuration exists in the
@@ -119,7 +165,7 @@ func (s *Service) existsAndSame() (exists, same bool, conf []byte, err error) {
 
 // Running returns true if the Service appears to be running.
 func (s *Service) Running() bool {
-	cmd := exec.Command("status", "--system", s.Name)
+	cmd := exec.Command("status", "--system", s.Service.Name)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return false
@@ -132,7 +178,7 @@ func (s *Service) Start() error {
 	if s.Running() {
 		return nil
 	}
-	err := runCommand("start", "--system", s.Name)
+	err := runCommand("start", "--system", s.Service.Name)
 	if err != nil {
 		// Double check to see if we were started before our command ran.
 		if s.Running() {
@@ -159,7 +205,7 @@ func (s *Service) Stop() error {
 	if !s.Running() {
 		return nil
 	}
-	return runCommand("stop", "--system", s.Name)
+	return runCommand("stop", "--system", s.Service.Name)
 }
 
 // StopAndRemove stops the service and then deletes the service
@@ -201,27 +247,43 @@ func (s *Service) Install() error {
 		return errors.Trace(err)
 	}
 
-	// On slower disks, upstart may take a short time to realise
-	// that there is a service there.
-	for attempt := InstallStartRetryAttempts.Start(); attempt.Next(); {
-		if err = s.Start(); err == nil {
-			break
-		}
-	}
-	return err
+	return nil
 }
 
-// InstallCommands returns shell commands to install and start the service.
+// InstallCommands returns shell commands to install the service.
 func (s *Service) InstallCommands() ([]string, error) {
 	conf, err := s.render()
 	if err != nil {
 		return nil, err
 	}
-	return []string{
-		fmt.Sprintf("cat >> %s << 'EOF'\n%sEOF\n", s.confPath(), conf),
-		"start " + s.Name,
-	}, nil
+	cmd := fmt.Sprintf("cat >> %s << 'EOF'\n%sEOF\n", s.confPath(), conf)
+	return []string{cmd}, nil
 }
+
+// StartCommands returns shell commands to start the service.
+func (s *Service) StartCommands() ([]string, error) {
+	if s.Service.Conf.Transient {
+		return nil, nil
+	}
+	return []string{"start " + s.Service.Name}, nil
+}
+
+// Serialize renders the conf as raw bytes.
+func Serialize(name string, conf common.Conf) ([]byte, error) {
+	var buf bytes.Buffer
+	if conf.Transient {
+		if err := transientConfT.Execute(&buf, conf); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := confT.Execute(&buf, conf); err != nil {
+			return nil, err
+		}
+	}
+	return buf.Bytes(), nil
+}
+
+// TODO(ericsnow) Use a different solution than templates?
 
 // BUG: %q quoting does not necessarily match libnih quoting rules
 // (as used by upstart); this may become an issue in the future.
@@ -238,12 +300,27 @@ normal exit 0
 {{end}}
 script
 {{if .ExtraScript}}{{.ExtraScript}}{{end}}
-{{if .Out}}
+{{if .Output}}
   # Ensure log files are properly protected
-  touch {{.Out}}
-  chown syslog:syslog {{.Out}}
-  chmod 0600 {{.Out}}
+  touch {{.Output}}
+  chown syslog:syslog {{.Output}}
+  chmod 0600 {{.Output}}
 {{end}}
-  exec {{.Cmd}}{{if .Out}} >> {{.Out}} 2>&1{{end}}
+  exec {{.ExecStart}}{{if .Output}} >> {{.Output}} 2>&1{{end}}
 end script
+`[1:]))
+
+var transientConfT = template.Must(template.New("").Parse(`
+description "{{.Desc}}"
+author "Juju Team <juju@lists.ubuntu.com>"
+start on stopped {{.AfterStopped}}
+
+script
+  {{.ExecStart}}
+end script
+{{if .ExecStopPost}}
+post-stop script
+  {{.ExecStopPost}}
+end script
+{{end}}
 `[1:]))

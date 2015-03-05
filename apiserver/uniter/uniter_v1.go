@@ -173,7 +173,7 @@ func (u *UniterAPIV1) getOneMachinePorts(canAccess common.AuthFunc, machineTag s
 			unitName := portRangesToUnits[portRange]
 			resultPorts = append(resultPorts, params.MachinePortRange{
 				UnitTag:   names.NewUnitTag(unitName).String(),
-				PortRange: portRange,
+				PortRange: params.FromNetworkPortRange(portRange),
 			})
 		}
 	}

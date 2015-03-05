@@ -69,7 +69,7 @@ var badRelationsTests = []struct {
 }{
 	{
 		nil, []string{"foo-bar-1"},
-		`.* is a directory`,
+		`.* (is a directory|handle is invalid.)`,
 	}, {
 		map[string]string{"foo-1": "'"}, nil,
 		`invalid unit file "foo-1": YAML error: .*`,
@@ -260,7 +260,9 @@ func (s *StateDirSuite) TestRemove(c *gc.C) {
 	dir, err = relation.ReadStateDir(basedir, 99)
 	c.Assert(err, jc.ErrorIsNil)
 	err = dir.Remove()
-	c.Assert(err, gc.ErrorMatches, ".*: directory not empty")
+	// Windows message is The directory is not empty
+	// Unix message is directory not empty
+	c.Assert(err, gc.ErrorMatches, ".* directory (is )?not empty.?")
 }
 
 type ReadAllStateDirsSuite struct{}

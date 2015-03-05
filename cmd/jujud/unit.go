@@ -21,12 +21,10 @@ import (
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
-	"github.com/juju/juju/worker/diskformatter"
 	workerlogger "github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/rsyslog"
@@ -157,6 +155,10 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	}
 
 	runner := worker.NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
+	// start proxyupdater first to ensure proxy settings are correct
+	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
+		return proxyupdater.New(st.Environment(), false), nil
+	})
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		return upgrader.NewUpgrader(
 			st.Upgrader(),
@@ -175,9 +177,6 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		}
 		return uniter.NewUniter(uniterFacade, unitTag, dataDir, hookLock), nil
 	})
-	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
-		return proxyupdater.New(st.Environment(), false), nil
-	})
 
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
 		uniterFacade, err := st.Uniter()
@@ -189,16 +188,6 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
 	})
-	// TODO(axw) stop checking feature flag once storage has graduated.
-	if featureflag.Enabled(storage.FeatureFlag) {
-		runner.StartWorker("diskformatter", func() (worker.Worker, error) {
-			api, err := st.DiskFormatter()
-			if err != nil {
-				return nil, err
-			}
-			return diskformatter.NewWorker(api), nil
-		})
-	}
 	return cmdutil.NewCloseWorker(logger, runner, st), nil
 }
 

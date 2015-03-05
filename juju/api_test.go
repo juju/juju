@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -503,12 +505,13 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 		},
 	})
 
-	expectErr := fmt.Errorf("an error")
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
-		return nil, expectErr
+		return nil, errors.Errorf("an error")
 	}
 	st, err := juju.NewAPIFromStore("noconfig", store, apiOpen)
-	c.Assert(err, gc.Equals, expectErr)
+	// We expect to  get the isNotFound error as it is more important than the
+	// infoConnectError "an error"
+	c.Assert(err, gc.ErrorMatches, "environment \"noconfig\" not found")
 	c.Assert(st, gc.IsNil)
 }
 
@@ -898,7 +901,7 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6True(c 
 		return true
 	})
 	// First test cacheChangedAPIInfo behaves as expected.
-	err := juju.CacheChangedAPIInfo(info, s.hostPorts, s.apiHostPort, s.envTag)
+	err := juju.CacheChangedAPIInfo(info, s.hostPorts, s.apiHostPort, s.envTag.Id(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEndpointsPreferIPv6True(c, info)
 
@@ -922,7 +925,7 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6False(c
 		return false
 	})
 	// First test cacheChangedAPIInfo behaves as expected.
-	err := juju.CacheChangedAPIInfo(info, s.hostPorts, s.apiHostPort, s.envTag)
+	err := juju.CacheChangedAPIInfo(info, s.hostPorts, s.apiHostPort, s.envTag.Id(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEndpointsPreferIPv6False(c, info)
 

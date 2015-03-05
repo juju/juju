@@ -37,7 +37,7 @@ func (s *environmentmanagerSuite) OpenAPI(c *gc.C) *environmentmanager.Client {
 }
 
 func (s *environmentmanagerSuite) TestConfigSkeleton(c *gc.C) {
-	s.SetFeatureFlags(feature.MESS)
+	s.SetFeatureFlags(feature.JES)
 	envManager := s.OpenAPI(c)
 	result, err := envManager.ConfigSkeleton("", "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -70,14 +70,14 @@ func (s *environmentmanagerSuite) TestCreateEnvironmentFeatureNotEnabled(c *gc.C
 }
 
 func (s *environmentmanagerSuite) TestCreateEnvironmentMissingConfig(c *gc.C) {
-	s.SetFeatureFlags(feature.MESS)
+	s.SetFeatureFlags(feature.JES)
 	envManager := s.OpenAPI(c)
 	_, err := envManager.CreateEnvironment("owner", nil, nil)
-	c.Assert(err, gc.ErrorMatches, `name: expected string, got nothing`)
+	c.Assert(err, gc.ErrorMatches, `creating config from values failed: name: expected string, got nothing`)
 }
 
 func (s *environmentmanagerSuite) TestCreateEnvironment(c *gc.C) {
-	s.SetFeatureFlags(feature.MESS)
+	s.SetFeatureFlags(feature.JES)
 	envManager := s.OpenAPI(c)
 	user := s.Factory.MakeUser(c, nil)
 	owner := user.UserTag().Username()
@@ -100,7 +100,7 @@ func (s *environmentmanagerSuite) TestListEnvironmentsBadUser(c *gc.C) {
 }
 
 func (s *environmentmanagerSuite) TestListEnvironments(c *gc.C) {
-	s.SetFeatureFlags(feature.MESS)
+	s.SetFeatureFlags(feature.JES)
 	owner := names.NewUserTag("user@remote")
 	s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "first", Owner: owner}).Close()

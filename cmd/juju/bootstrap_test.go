@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -287,7 +288,7 @@ type mockBootstrapInstance struct {
 }
 
 func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {
-	return []network.Address{network.Address{Value: "localhost"}}, nil
+	return []network.Address{{Value: "localhost"}}, nil
 }
 
 func (s *BootstrapSuite) TestSeriesDeprecation(c *gc.C) {
@@ -321,6 +322,10 @@ func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context
 // In the case where we cannot examine an environment, we want the
 // error to propagate back up to the user.
 func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
+	//TODO(bogdanteleaga): fix this for windows once permissions are fixed
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: this is very platform specific. When/if we will support windows state machine, this will probably be rewritten.")
+	}
 
 	const envName = "devenv"
 	env := resetJujuHome(c, envName)

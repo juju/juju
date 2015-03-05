@@ -5,17 +5,14 @@ package client_test
 
 import (
 	"fmt"
-	"io/ioutil"
-	"path/filepath"
 	"time"
 
-	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/client"
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -51,14 +48,6 @@ func (s *runSuite) TestRemoteParamsForMachinePopulates(c *gc.C) {
 	// have an address to use.
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 	c.Assert(result.Host, gc.Equals, "")
-}
-
-// blockAllChanges blocks all operations that could change environment -
-// setting block-all-changes to true.
-// Asserts that no errors were encountered.
-func (s *runSuite) blockAllChanges(c *gc.C) {
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-all-changes": true}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *runSuite) TestRemoteParamsForMachinePopulatesWithAddress(c *gc.C) {
@@ -171,18 +160,17 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 }
 
 func (s *runSuite) mockSSH(c *gc.C, cmd string) {
-	testbin := c.MkDir()
-	fakessh := filepath.Join(testbin, "ssh")
-	s.PatchEnvPathPrepend(testbin)
-	err := ioutil.WriteFile(fakessh, []byte(cmd), 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	gitjujutesting.PatchExecutable(c, s, "ssh", cmd)
+	gitjujutesting.PatchExecutable(c, s, "scp", cmd)
+	client, _ := ssh.NewOpenSSHClient()
+	s.PatchValue(&ssh.DefaultClient, client)
 }
 
 func (s *runSuite) TestParallelExecuteErrorsOnBlankHost(c *gc.C) {
 	s.mockSSH(c, echoInputShowArgs)
 
 	params := []*client.RemoteExec{
-		&client.RemoteExec{
+		{
 			ExecParams: ssh.ExecParams{
 				Command: "foo",
 				Timeout: testing.LongWait,
@@ -200,7 +188,7 @@ func (s *runSuite) TestParallelExecuteAddsIdentity(c *gc.C) {
 	s.mockSSH(c, echoInputShowArgs)
 
 	params := []*client.RemoteExec{
-		&client.RemoteExec{
+		{
 			ExecParams: ssh.ExecParams{
 				Host:    "localhost",
 				Command: "foo",
@@ -213,14 +201,14 @@ func (s *runSuite) TestParallelExecuteAddsIdentity(c *gc.C) {
 	c.Assert(runResults.Results, gc.HasLen, 1)
 	result := runResults.Results[0]
 	c.Assert(result.Error, gc.Equals, "")
-	c.Assert(string(result.Stderr), jc.Contains, "-i /some/dir/system-identity")
+	c.Assert(string(result.Stderr), jc.Contains, "system-identity")
 }
 
 func (s *runSuite) TestParallelExecuteCopiesAcrossMachineAndUnit(c *gc.C) {
 	s.mockSSH(c, echoInputShowArgs)
 
 	params := []*client.RemoteExec{
-		&client.RemoteExec{
+		{
 			ExecParams: ssh.ExecParams{
 				Host:    "localhost",
 				Command: "foo",
@@ -254,11 +242,12 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 	results, err := client.RunOnAllMachines("hostname", testing.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 3)
+
 	var expectedResults []params.RunResult
 	for i := 0; i < 3; i++ {
 		expectedResults = append(expectedResults,
 			params.RunResult{
-				ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run --no-context 'hostname'\n")},
+				ExecResponse: exec.ExecResponse{Stdout: []byte(expectedCommand[0])},
 
 				MachineId: fmt.Sprint(i),
 			})
@@ -276,10 +265,9 @@ func (s *runSuite) TestBlockRunOnAllMachines(c *gc.C) {
 	s.mockSSH(c, echoInput)
 
 	// block all changes
-	s.blockAllChanges(c)
-	client := s.APIState.Client()
-	_, err := client.RunOnAllMachines("hostname", testing.LongWait)
-	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
+	s.BlockAllChanges(c, "TestBlockRunOnAllMachines")
+	_, err := s.APIState.Client().RunOnAllMachines("hostname", testing.LongWait)
+	s.AssertBlocked(c, err, "TestBlockRunOnAllMachines")
 }
 
 func (s *runSuite) TestRunMachineAndService(c *gc.C) {
@@ -308,18 +296,19 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 3)
+
 	expectedResults := []params.RunResult{
-		params.RunResult{
-			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run --no-context 'hostname'\n")},
+		{
+			ExecResponse: exec.ExecResponse{Stdout: []byte(expectedCommand[0])},
 			MachineId:    "0",
 		},
-		params.RunResult{
-			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run magic/0 'hostname'\n")},
+		{
+			ExecResponse: exec.ExecResponse{Stdout: []byte(expectedCommand[1])},
 			MachineId:    "1",
 			UnitId:       "magic/0",
 		},
-		params.RunResult{
-			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run magic/1 'hostname'\n")},
+		{
+			ExecResponse: exec.ExecResponse{Stdout: []byte(expectedCommand[2])},
 			MachineId:    "2",
 			UnitId:       "magic/1",
 		},
@@ -347,7 +336,7 @@ func (s *runSuite) TestBlockRunMachineAndService(c *gc.C) {
 	client := s.APIState.Client()
 
 	// block all changes
-	s.blockAllChanges(c)
+	s.BlockAllChanges(c, "TestBlockRunMachineAndService")
 	_, err = client.Run(
 		params.RunParams{
 			Commands: "hostname",
@@ -355,21 +344,5 @@ func (s *runSuite) TestBlockRunMachineAndService(c *gc.C) {
 			Machines: []string{"0"},
 			Services: []string{"magic"},
 		})
-	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
+	s.AssertBlocked(c, err, "TestBlockRunMachineAndService")
 }
-
-var echoInputShowArgs = `#!/bin/bash
-# Write the args to stderr
-echo "$*" >&2
-# And echo stdin to stdout
-while read line
-do echo $line
-done <&0
-`
-
-var echoInput = `#!/bin/bash
-# And echo stdin to stdout
-while read line
-do echo $line
-done <&0
-`

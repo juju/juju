@@ -7,11 +7,11 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"net/rpc"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,6 +32,7 @@ import (
 
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -134,41 +135,8 @@ func (ctx *context) apiLogin(c *gc.C) {
 	c.Assert(ctx.api, gc.NotNil)
 }
 
-var goodHook = `
-#!/bin/bash --norc
-juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
-`[1:]
-
-var badHook = `
-#!/bin/bash --norc
-juju-log $JUJU_ENV_UUID fail-%s $JUJU_REMOTE_UNIT
-exit 1
-`[1:]
-
-var rebootHook = `
-#!/bin/bash --norc
-juju-reboot
-`[1:]
-
-var badRebootHook = `
-#!/bin/bash --norc
-juju-reboot
-exit 1
-`[1:]
-
-var rebootNowHook = `
-#!/bin/bash --norc
-
-if [ -f "i_have_risen" ]
-then
-    exit 0
-fi
-touch i_have_risen
-juju-reboot --now
-`[1:]
-
 func (ctx *context) writeExplicitHook(c *gc.C, path string, contents string) {
-	err := ioutil.WriteFile(path, []byte(contents), 0755)
+	err := ioutil.WriteFile(path+cmdSuffix, []byte(contents), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -200,39 +168,9 @@ metrics:
 }
 
 func (ctx *context) writeAction(c *gc.C, path, name string) {
-	var actions = map[string]string{
-		"action-log": `
-#!/bin/bash --norc
-juju-log $JUJU_ENV_UUID action-log
-`[1:],
-		"snapshot": `
-#!/bin/bash --norc
-action-set outfile.name="snapshot-01.tar" outfile.size="10.3GB"
-action-set outfile.size.magnitude="10.3" outfile.size.units="GB"
-action-set completion.status="yes" completion.time="5m"
-action-set completion="yes"
-`[1:],
-		"action-log-fail": `
-#!/bin/bash --norc
-action-fail "I'm afraid I can't let you do that, Dave."
-action-set foo="still works"
-`[1:],
-		"action-log-fail-error": `
-#!/bin/bash --norc
-action-fail too many arguments
-action-set foo="still works"
-action-fail "A real message"
-`[1:],
-		"action-reboot": `
-#!/bin/bash --norc
-juju-reboot || action-set reboot-delayed="good"
-juju-reboot --now || action-set reboot-now="good"
-`[1:],
-	}
-
 	actionPath := filepath.Join(path, "actions", name)
 	action := actions[name]
-	err := ioutil.WriteFile(actionPath, []byte(action), 0755)
+	err := ioutil.WriteFile(actionPath+cmdSuffix, []byte(action), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -687,7 +625,7 @@ func (s waitUnit) step(c *gc.C, ctx *context) {
 				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
 			}
-			status, info, data, err := ctx.unit.Status()
+			status, info, data, err := ctx.unit.AgentStatus()
 			c.Assert(err, jc.ErrorIsNil)
 			if string(status) != string(s.status) {
 				c.Logf("want unit status %q, got %q; still waiting", s.status, status)
@@ -962,7 +900,7 @@ func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 			// to reset the error status, we can avoid a race in which a subsequent
 			// fixUpgradeError lands just before the restarting uniter retries the
 			// upgrade; and thus puts us in an unexpected state for future steps.
-			ctx.unit.SetStatus(state.StatusActive, "", nil)
+			ctx.unit.SetAgentStatus(state.StatusActive, "", nil)
 		}},
 		startUniter{},
 	}
@@ -1230,7 +1168,7 @@ func curl(revision int) *corecharm.URL {
 }
 
 func appendHook(c *gc.C, charm, name, data string) {
-	path := filepath.Join(charm, "hooks", name)
+	path := filepath.Join(charm, "hooks", name+cmdSuffix)
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	defer f.Close()
@@ -1360,11 +1298,16 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		RemoteUnitName: "",
 	}
 
-	socketPath := filepath.Join(ctx.path, "run.socket")
+	var socketPath string
+	if runtime.GOOS == "windows" {
+		socketPath = `\\.\pipe\unit-u-0-run`
+	} else {
+		socketPath = filepath.Join(ctx.path, "run.socket")
+	}
 
 	go func() {
 		// make sure the socket exists
-		client, err := rpc.Dial("unix", socketPath)
+		client, err := sockets.Dial(socketPath)
 		c.Assert(err, jc.ErrorIsNil)
 		defer client.Close()
 

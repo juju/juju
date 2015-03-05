@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
@@ -59,19 +60,31 @@ func (ruw *RevisionUpdateWorker) Wait() error {
 }
 
 func (ruw *RevisionUpdateWorker) loop() error {
-	ruw.updateVersions()
+	err := ruw.updateVersions()
+	if err != nil {
+		return err
+	}
 	for {
 		select {
 		case <-ruw.tomb.Dying():
 			return tomb.ErrDying
 		case <-time.After(interval):
-			ruw.updateVersions()
+			err := ruw.updateVersions()
+			if err != nil {
+				return err
+			}
 		}
 	}
 }
 
-func (ruw *RevisionUpdateWorker) updateVersions() {
+func (ruw *RevisionUpdateWorker) updateVersions() error {
+	return UpdateVersions(ruw)
+}
+
+var UpdateVersions = func(ruw *RevisionUpdateWorker) error {
 	if err := ruw.st.UpdateLatestRevisions(); err != nil {
 		logger.Errorf("cannot process charms: %v", err)
+		return errors.Annotatef(err, "failed updating charms")
 	}
+	return nil
 }

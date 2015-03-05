@@ -69,6 +69,26 @@ func (s *FilterSuite) APILogin(c *gc.C, unit *state.Unit) {
 	c.Assert(s.uniter, gc.NotNil)
 }
 
+// notifyAsserterC creates a coretesting.NotifyAsserterC that will sync the
+// state before running our assertions.
+func (s *FilterSuite) notifyAsserterC(c *gc.C, ch <-chan struct{}) coretesting.NotifyAsserterC {
+	return coretesting.NotifyAsserterC{
+		Precond: s.BackingState.StartSync,
+		C:       c,
+		Chan:    ch,
+	}
+}
+
+// contentAsserterC creates a coretesting.ContentAsserterC that will sync the
+// state before running our assertions.
+func (s *FilterSuite) contentAsserterC(c *gc.C, ch interface{}) coretesting.ContentAsserterC {
+	return coretesting.ContentAsserterC{
+		Precond: s.BackingState.StartSync,
+		C:       c,
+		Chan:    ch,
+	}
+}
+
 // EvilSync starts a state sync (ensuring that any changes will be delivered to
 // the internal watchers "soon") -- and then waits "a while" so that we can be
 // reasonably certain that the events have made it through the api server and
@@ -87,29 +107,25 @@ func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 	defer f.Stop() // no AssertStop, we test for an error below
-	asserter := coretesting.NotifyAsserterC{
-		Precond: func() { s.BackingState.StartSync() },
-		C:       c,
-		Chan:    f.UnitDying(),
-	}
-	asserter.AssertNoReceive()
+	dyingC := s.notifyAsserterC(c, f.UnitDying())
+	dyingC.AssertNoReceive()
 
 	// Irrelevant change.
 	err = s.unit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, jc.ErrorIsNil)
-	asserter.AssertNoReceive()
+	dyingC.AssertNoReceive()
 
 	// Set dying.
-	err = s.unit.SetStatus(state.StatusActive, "", nil)
+	err = s.unit.SetAgentStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	asserter.AssertClosed()
+	dyingC.AssertClosed()
 
 	// Another irrelevant change.
 	err = s.unit.ClearResolved()
 	c.Assert(err, jc.ErrorIsNil)
-	asserter.AssertClosed()
+	dyingC.AssertClosed()
 
 	// Set dead.
 	err = s.unit.EnsureDead()
@@ -118,6 +134,8 @@ func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 }
 
 func (s *FilterSuite) TestUnitRemoval(c *gc.C) {
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 	defer f.Stop() // no AssertStop, we test for an error below
@@ -130,12 +148,8 @@ func (s *FilterSuite) TestUnitRemoval(c *gc.C) {
 
 // Ensure we get a signal on f.Dead()
 func (s *FilterSuite) assertFilterDies(c *gc.C, f filter.Filter) {
-	asserter := coretesting.NotifyAsserterC{
-		Precond: func() { s.BackingState.StartSync() },
-		C:       c,
-		Chan:    f.Dead(),
-	}
-	asserter.AssertClosed()
+	deadC := s.notifyAsserterC(c, f.Dead())
+	deadC.AssertClosed()
 }
 
 func (s *FilterSuite) assertAgentTerminates(c *gc.C, f filter.Filter) {
@@ -147,14 +161,10 @@ func (s *FilterSuite) TestServiceDeath(c *gc.C) {
 	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
-	dyingAsserter := coretesting.NotifyAsserterC{
-		C:       c,
-		Precond: func() { s.BackingState.StartSync() },
-		Chan:    f.UnitDying(),
-	}
-	dyingAsserter.AssertNoReceive()
+	dyingC := s.notifyAsserterC(c, f.UnitDying())
+	dyingC.AssertNoReceive()
 
-	err = s.unit.SetStatus(state.StatusActive, "", nil)
+	err = s.unit.SetAgentStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpress.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -183,43 +193,35 @@ func (s *FilterSuite) TestResolvedEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
-	resolvedAsserter := coretesting.ContentAsserterC{
-		C:       c,
-		Precond: func() { s.BackingState.StartSync() },
-		Chan:    f.ResolvedEvents(),
-	}
-	resolvedAsserter.AssertNoReceive()
+	resolvedC := s.contentAsserterC(c, f.ResolvedEvents())
+	resolvedC.AssertNoReceive()
 
 	// Request an event; no interesting event is available.
 	f.WantResolvedEvent()
-	resolvedAsserter.AssertNoReceive()
+	resolvedC.AssertNoReceive()
 
 	// Change the unit in an irrelevant way; no events.
-	err = s.unit.SetStatus(state.StatusError, "blarg", nil)
+	err = s.unit.SetAgentStatus(state.StatusError, "blarg", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	resolvedAsserter.AssertNoReceive()
+	resolvedC.AssertNoReceive()
 
 	// Change the unit's resolved to an interesting value; new event received.
 	err = s.unit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange := func(expect params.ResolvedMode) {
-		rm := resolvedAsserter.AssertOneReceive().(params.ResolvedMode)
-		c.Assert(rm, gc.Equals, expect)
-	}
-	assertChange(params.ResolvedRetryHooks)
+	resolvedC.AssertOneValue(params.ResolvedRetryHooks)
 
 	// Ask for the event again, and check it's resent.
 	f.WantResolvedEvent()
-	assertChange(params.ResolvedRetryHooks)
+	resolvedC.AssertOneValue(params.ResolvedRetryHooks)
 
 	// Clear the resolved status *via the filter*; check not resent...
 	err = f.ClearResolved()
 	c.Assert(err, jc.ErrorIsNil)
-	resolvedAsserter.AssertNoReceive()
+	resolvedC.AssertNoReceive()
 
 	// ...even when requested.
 	f.WantResolvedEvent()
-	resolvedAsserter.AssertNoReceive()
+	resolvedC.AssertNoReceive()
 
 	// Induce several events; only latest state is reported.
 	err = s.unit.SetResolved(state.ResolvedRetryHooks)
@@ -228,7 +230,7 @@ func (s *FilterSuite) TestResolvedEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange(params.ResolvedNoHooks)
+	resolvedC.AssertOneValue(params.ResolvedNoHooks)
 }
 
 func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
@@ -246,64 +248,45 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 	defer statetesting.AssertStop(c, f)
 
 	// No initial event is sent.
-	assertNoChange := func() {
-		s.BackingState.StartSync()
-		select {
-		case sch := <-f.UpgradeEvents():
-			c.Fatalf("unexpected %#v", sch)
-		case <-time.After(coretesting.ShortWait):
-		}
-	}
-	assertNoChange()
+	upgradeC := s.contentAsserterC(c, f.UpgradeEvents())
+	upgradeC.AssertNoReceive()
 
 	// Setting a charm generates no new events if it already matches.
 	err = f.SetCharm(oldCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
-	assertNoChange()
+	upgradeC.AssertNoReceive()
 
 	// Explicitly request an event relative to the existing state; nothing.
 	f.WantUpgradeEvent(false)
-	assertNoChange()
+	upgradeC.AssertNoReceive()
 
 	// Change the service in an irrelevant way; no events.
 	err = svc.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	assertNoChange()
+	upgradeC.AssertNoReceive()
 
 	// Change the service's charm; new event received.
 	newCharm := s.AddTestingCharm(c, "upgrade2")
 	err = svc.SetCharm(newCharm, false)
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange := func(url *charm.URL) {
-		s.BackingState.StartSync()
-		select {
-		case upgradeCharm := <-f.UpgradeEvents():
-			c.Assert(upgradeCharm, gc.DeepEquals, url)
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out")
-		}
-	}
-	assertChange(newCharm.URL())
-	assertNoChange()
+	upgradeC.AssertOneValue(newCharm.URL())
 
 	// Request a new upgrade *unforced* upgrade event, we should see one.
 	f.WantUpgradeEvent(false)
-	assertChange(newCharm.URL())
-	assertNoChange()
+	upgradeC.AssertOneValue(newCharm.URL())
 
 	// Request only *forced* upgrade events; nothing.
 	f.WantUpgradeEvent(true)
-	assertNoChange()
+	upgradeC.AssertNoReceive()
 
 	// But when we have a forced upgrade to the same URL, no new event.
 	err = svc.SetCharm(oldCharm, true)
 	c.Assert(err, jc.ErrorIsNil)
-	assertNoChange()
+	upgradeC.AssertNoReceive()
 
 	// ...but a *forced* change to a different URL should generate an event.
 	err = svc.SetCharm(newCharm, true)
-	assertChange(newCharm.URL())
-	assertNoChange()
+	upgradeC.AssertOneValue(newCharm.URL())
 }
 
 func (s *FilterSuite) TestConfigEvents(c *gc.C) {
@@ -315,30 +298,13 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Test no changes before the charm URL is set.
-	assertNoChange := func() {
-		s.BackingState.StartSync()
-		select {
-		case <-f.ConfigEvents():
-			c.Fatalf("unexpected config event")
-		case <-time.After(coretesting.ShortWait):
-		}
-	}
-	assertNoChange()
+	configC := s.notifyAsserterC(c, f.ConfigEvents())
+	configC.AssertNoReceive()
 
 	// Set the charm URL to trigger config events.
 	err = f.SetCharm(s.wpcharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange := func() {
-		s.BackingState.StartSync()
-		select {
-		case _, ok := <-f.ConfigEvents():
-			c.Assert(ok, jc.IsTrue)
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out")
-		}
-		assertNoChange()
-	}
-	assertChange()
+	configC.AssertOneReceive()
 
 	// Change the config; new event received.
 	changeConfig := func(title interface{}) {
@@ -348,7 +314,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	changeConfig("20,000 leagues in the cloud")
-	assertChange()
+	configC.AssertOneReceive()
 
 	// Change the config a few more times, then reset the events. We sync to
 	// make sure the events have arrived in the watcher -- and then wait a
@@ -360,13 +326,13 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	changeConfig("the curious incident of the dog in the cloud")
 	s.EvilSync()
 	f.DiscardConfigEvent()
-	assertNoChange()
+	configC.AssertNoReceive()
 
 	// Change the addresses of the unit's assigned machine; new event received.
 	err = s.machine.SetAddresses(network.NewAddress("0.1.2.4", network.ScopeUnknown))
 	c.Assert(err, jc.ErrorIsNil)
 	s.BackingState.StartSync()
-	assertChange()
+	configC.AssertOneReceive()
 
 	// Check that a filter's initial event works with DiscardConfigEvent
 	// as expected.
@@ -375,12 +341,12 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	defer statetesting.AssertStop(c, f)
 	s.BackingState.StartSync()
 	f.DiscardConfigEvent()
-	assertNoChange()
+	configC.AssertNoReceive()
 
 	// Further changes are still collapsed as appropriate.
 	changeConfig("forsooth")
 	changeConfig("imagination failure")
-	assertChange()
+	configC.AssertOneReceive()
 }
 
 func (s *FilterSuite) TestInitialAddressEventIgnored(c *gc.C) {
@@ -393,30 +359,15 @@ func (s *FilterSuite) TestInitialAddressEventIgnored(c *gc.C) {
 
 	// We should not get any config-change events until
 	// setting the charm URL.
-	s.BackingState.StartSync()
-	select {
-	case <-f.ConfigEvents():
-		c.Fatalf("unexpected config event")
-	case <-time.After(coretesting.ShortWait):
-	}
+	configC := s.notifyAsserterC(c, f.ConfigEvents())
+	configC.AssertNoReceive()
 
 	// Set the charm URL to trigger config events.
 	err = f.SetCharm(s.wpcharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should get one config-change event only.
-	s.BackingState.StartSync()
-	select {
-	case _, ok := <-f.ConfigEvents():
-		c.Assert(ok, jc.IsTrue)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out")
-	}
-	select {
-	case <-f.ConfigEvents():
-		c.Fatalf("unexpected config event")
-	case <-time.After(coretesting.ShortWait):
-	}
+	configC.AssertOneReceive()
 }
 
 func (s *FilterSuite) TestConfigAndAddressEvents(c *gc.C) {
@@ -435,31 +386,23 @@ func (s *FilterSuite) TestConfigAndAddressEvents(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertChange := func() {
-		select {
-		case _, ok := <-f.ConfigEvents():
-			c.Assert(ok, jc.IsTrue)
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out")
-		}
-	}
+	configC := s.notifyAsserterC(c, f.ConfigEvents())
 
 	// Config and address events should be coalesced. Start
 	// the synchronisation and sleep a bit to give the filter
 	// a chance to pick them both up.
 	s.EvilSync()
-	assertChange()
-	select {
-	case <-f.ConfigEvents():
-		c.Fatalf("unexpected config event")
-	case <-time.After(coretesting.ShortWait):
-	}
+	configC.AssertOneReceive()
 }
 
 func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
 	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
+
+	// There should be no pending changes yet
+	configC := s.notifyAsserterC(c, f.ConfigEvents())
+	configC.AssertNoReceive()
 
 	// Change the machine addresses.
 	err = s.machine.SetAddresses(
@@ -474,43 +417,24 @@ func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
 	// We should not receive any config-change events.
 	s.EvilSync()
 	f.DiscardConfigEvent()
-	select {
-	case <-f.ConfigEvents():
-		c.Fatalf("unexpected config event")
-	case <-time.After(coretesting.ShortWait):
-	}
+	configC.AssertNoReceive()
 }
 
-// TestActionEvent helper functions
-func getAssertNoActionChange(s *FilterSuite, f filter.Filter, c *gc.C) func() {
-	return func() {
-		s.BackingState.StartSync()
-		select {
-		case <-f.ActionEvents():
-			c.Fatalf("unexpected action event")
-		case <-time.After(coretesting.ShortWait):
-		}
-	}
-}
-
-func getAssertActionChange(s *FilterSuite, f filter.Filter, c *gc.C) func(ids []string) {
+func getAssertActionChange(actionC coretesting.ContentAsserterC) func(ids []string) {
+	// This calls AssertReceive N times for N ids, but allows the
+	// ids to come back in any order.
 	return func(ids []string) {
-		s.BackingState.StartSync()
 		expected := make(map[string]int)
 		seen := make(map[string]int)
 		for _, id := range ids {
 			expected[id] += 1
-			select {
-			case event, ok := <-f.ActionEvents():
-				c.Assert(ok, jc.IsTrue)
-				seen[event.ActionId] += 1
-			case <-time.After(coretesting.LongWait):
-				c.Fatalf("timed out")
-			}
+			actionId := actionC.AssertReceive().(string)
+			seen[actionId] += 1
 		}
-		c.Assert(seen, jc.DeepEquals, expected)
+		actionC.C.Assert(seen, jc.DeepEquals, expected)
 
-		getAssertNoActionChange(s, f, c)()
+		// Ensure that there are no other items remaining
+		actionC.AssertNoReceive()
 	}
 }
 
@@ -529,13 +453,12 @@ func (s *FilterSuite) TestActionEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
-	// Get helper functions
-	assertNoChange := getAssertNoActionChange(s, f, c)
-	assertChange := getAssertActionChange(s, f, c)
+	actionC := s.contentAsserterC(c, f.ActionEvents())
 	addAction := getAddAction(s, c)
+	assertChange := getAssertActionChange(actionC)
 
 	// Test no changes before Actions are added for the Unit.
-	assertNoChange()
+	actionC.AssertNoReceive()
 
 	// Add a new action; event occurs
 	testId := addAction("fakeaction")
@@ -546,7 +469,6 @@ func (s *FilterSuite) TestActionEvents(c *gc.C) {
 	for i := 0; i < 5; i++ {
 		testIds[i] = addAction("fakeaction")
 	}
-
 	assertChange(testIds)
 }
 
@@ -563,13 +485,12 @@ func (s *FilterSuite) TestPreexistingActions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
-	assertNoChange := getAssertNoActionChange(s, f, c)
-	assertChange := getAssertActionChange(s, f, c)
-
+	actionC := s.contentAsserterC(c, f.ActionEvents())
+	assertChange := getAssertActionChange(actionC)
 	assertChange([]string{testId})
 
 	// Let's make sure there were no duplicates.
-	assertNoChange()
+	actionC.AssertNoReceive()
 }
 
 func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
@@ -577,19 +498,12 @@ func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer f.Stop() // no AssertStop, we test for an error below
 
-	assertNoChange := func() {
-		s.BackingState.StartSync()
-		select {
-		case <-f.ConfigEvents():
-			c.Fatalf("unexpected config event")
-		case <-time.After(coretesting.ShortWait):
-		}
-	}
+	configC := s.notifyAsserterC(c, f.ConfigEvents())
 
 	// Check setting an invalid charm URL does not send events.
 	err = f.SetCharm(charm.MustParseURL("cs:missing/one-1"))
 	c.Assert(err, gc.Equals, tomb.ErrDying)
-	assertNoChange()
+	configC.AssertNoReceive()
 	s.assertFilterDies(c, f)
 
 	// Filter died after the error, so restart it.
@@ -600,7 +514,7 @@ func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
 	// Check with a nil charm URL, again no changes.
 	err = f.SetCharm(nil)
 	c.Assert(err, gc.Equals, tomb.ErrDying)
-	assertNoChange()
+	configC.AssertNoReceive()
 	s.assertFilterDies(c, f)
 }
 
@@ -609,30 +523,13 @@ func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
-	assertNoChange := func() {
-		s.BackingState.StartSync()
-		select {
-		case ids := <-f.RelationsEvents():
-			c.Fatalf("unexpected relations event %#v", ids)
-		case <-time.After(coretesting.ShortWait):
-		}
-	}
-	assertNoChange()
+	relationsC := s.contentAsserterC(c, f.RelationsEvents())
+	relationsC.AssertNoReceive()
 
 	// Add a couple of relations; check the event.
 	rel0 := s.addRelation(c)
 	rel1 := s.addRelation(c)
-	assertChange := func(expect []int) {
-		s.BackingState.StartSync()
-		select {
-		case got := <-f.RelationsEvents():
-			c.Assert(got, gc.DeepEquals, expect)
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out")
-		}
-		assertNoChange()
-	}
-	assertChange([]int{0, 1})
+	c.Assert(relationsC.AssertOneReceive(), gc.DeepEquals, []int{0, 1})
 
 	// Add another relation, and change another's Life (by entering scope before
 	// Destroy, thereby setting the relation to Dying); check event.
@@ -643,14 +540,14 @@ func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel0.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange([]int{0, 2})
+	c.Assert(relationsC.AssertOneReceive(), gc.DeepEquals, []int{0, 2})
 
 	// Remove a relation completely; check no event, because the relation
 	// could not have been removed if the unit was in scope, and therefore
 	// the uniter never needs to hear about it.
 	err = rel1.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertNoChange()
+	relationsC.AssertNoReceive()
 	err = f.Stop()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -658,12 +555,13 @@ func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
 	f, err = filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
-	assertChange([]int{0, 2})
+	relationsC = s.contentAsserterC(c, f.RelationsEvents())
+	c.Assert(relationsC.AssertOneReceive(), gc.DeepEquals, []int{0, 2})
 
 	// Check setting the charm URL generates all new relation events.
 	err = f.SetCharm(s.wpcharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange([]int{0, 2})
+	c.Assert(relationsC.AssertOneReceive(), gc.DeepEquals, []int{0, 2})
 }
 
 func (s *FilterSuite) addRelation(c *gc.C) *state.Relation {
@@ -685,36 +583,50 @@ func (s *FilterSuite) TestMeterStatusEvents(c *gc.C) {
 	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
-	assertNoChange := func() {
-		s.BackingState.StartSync()
-		select {
-		case <-f.MeterStatusEvents():
-			c.Fatalf("unexpected meter status event")
-		case <-time.After(coretesting.ShortWait):
-		}
-	}
-	assertChange := func() {
-		s.BackingState.StartSync()
-		select {
-		case _, ok := <-f.MeterStatusEvents():
-			c.Assert(ok, jc.IsTrue)
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out")
-		}
-		assertNoChange()
-	}
+	meterC := s.notifyAsserterC(c, f.MeterStatusEvents())
 	// Initial meter status does not trigger event.
-	assertNoChange()
+	meterC.AssertNoReceive()
 
 	// Set unit meter status to trigger event.
 	err = s.unit.SetMeterStatus("GREEN", "Operating normally.")
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange()
+	meterC.AssertOneReceive()
 
 	// Make sure bundled events arrive properly.
 	for i := 0; i < 5; i++ {
 		err = s.unit.SetMeterStatus("RED", fmt.Sprintf("Update %d.", i))
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	assertChange()
+	meterC.AssertOneReceive()
+}
+
+func (s *FilterSuite) TestStorageEvents(c *gc.C) {
+	storageCharm := s.AddTestingCharm(c, "storage-block2")
+	svc := s.AddTestingServiceWithStorage(c, "storage-block2", storageCharm, map[string]state.StorageConstraints{
+		"multi1to10": state.StorageConstraints{Pool: "loop", Size: 1024, Count: 1},
+		"multi2up":   state.StorageConstraints{Pool: "loop", Size: 1024, Count: 2},
+	})
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	s.APILogin(c, unit)
+
+	f, err := filter.NewFilter(s.uniter, unit.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
+	defer statetesting.AssertStop(c, f)
+	storageC := s.contentAsserterC(c, f.StorageEvents())
+	c.Assert(storageC.AssertOneReceive(), gc.DeepEquals, []names.StorageTag{
+		names.NewStorageTag("multi1to10/0"),
+		names.NewStorageTag("multi2up/1"),
+		names.NewStorageTag("multi2up/2"),
+	})
+
+	err = s.State.DestroyStorageInstance(names.NewStorageTag("multi2up/1"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageC.AssertOneReceive(), gc.DeepEquals, []names.StorageTag{
+		names.NewStorageTag("multi2up/1"),
+	})
 }

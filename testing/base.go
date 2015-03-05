@@ -4,7 +4,9 @@
 package testing
 
 import (
+	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/juju/loggo"
@@ -13,7 +15,9 @@ import (
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/wrench"
 )
 
@@ -26,6 +30,7 @@ var logger = loggo.GetLogger("juju.testing")
 // github.com/juju/testing, and this suite will be removed.
 // Do not use JujuOSEnvSuite when writing new tests.
 type JujuOSEnvSuite struct {
+	oldJujuHome    string
 	oldHomeEnv     string
 	oldEnvironment map[string]string
 }
@@ -52,6 +57,7 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	// Update the feature flag set to be empty (given we have just set the
 	// environment value to the empty string)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.oldJujuHome = osenv.SetJujuHome("")
 }
 
 func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
@@ -59,6 +65,23 @@ func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 		os.Setenv(name, value)
 	}
 	utils.SetHome(s.oldHomeEnv)
+	osenv.SetJujuHome(s.oldJujuHome)
+}
+
+// SkipIfPPC64EL skips the test if the arch is PPC64EL and the
+// compiler is gccgo.
+func SkipIfPPC64EL(c *gc.C, bugID string) {
+	if runtime.Compiler == "gccgo" &&
+		arch.NormaliseArch(runtime.GOARCH) == arch.PPC64EL {
+		c.Skip(fmt.Sprintf("Test disabled on PPC64EL until fixed - see bug %s", bugID))
+	}
+}
+
+// SkipIfI386 skips the test if the arch is I386.
+func SkipIfI386(c *gc.C, bugID string) {
+	if arch.NormaliseArch(runtime.GOARCH) == arch.I386 {
+		c.Skip(fmt.Sprintf("Test disabled on I386 until fixed - see bug %s", bugID))
+	}
 }
 
 func (s *JujuOSEnvSuite) SetFeatureFlags(flag ...string) {
@@ -77,6 +100,8 @@ func (s *JujuOSEnvSuite) SetFeatureFlags(flag ...string) {
 // - protection of user's home directory
 // - scrubbing of env vars
 // TODO (frankban) 2014-06-09: switch to using IsolationSuite.
+// NOTE: there will be many tests that fail when you try to change
+// to the IsolationSuite that rely on external things in PATH.
 type BaseSuite struct {
 	testing.CleanupSuite
 	testing.LoggingSuite
@@ -107,10 +132,47 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	// We can't always just use IsolationSuite because we still need
 	// PATH and possibly a couple other envars.
 	s.PatchEnvironment("BASH_ENV", "")
+	network.ResetGobalPreferIPv6()
 }
 
 func (s *BaseSuite) TearDownTest(c *gc.C) {
 	s.JujuOSEnvSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 	s.CleanupSuite.TearDownTest(c)
+}
+
+// CheckString compares two strings. If they do not match then the spot
+// where they do not match is logged.
+func CheckString(c *gc.C, value, expected string) {
+	if !c.Check(value, gc.Equals, expected) {
+		diffStrings(c, value, expected)
+	}
+}
+
+func diffStrings(c *gc.C, value, expected string) {
+	// If only Go had a diff library.
+	vlines := strings.Split(value, "\n")
+	elines := strings.Split(expected, "\n")
+	vsize := len(vlines)
+	esize := len(elines)
+
+	if vsize < 2 || esize < 2 {
+		return
+	}
+
+	smaller := elines
+	if vsize < esize {
+		smaller = vlines
+	}
+
+	for i := range smaller {
+		vline := vlines[i]
+		eline := elines[i]
+		if vline != eline {
+			c.Logf("first mismatched line (%d/%d):", i, len(smaller))
+			c.Log("expected: " + eline)
+			c.Log("got:      " + vline)
+			break
+		}
+	}
 }

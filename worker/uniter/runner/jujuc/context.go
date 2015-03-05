@@ -9,11 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/storage"
 )
 
 type RebootPriority int
@@ -43,7 +44,7 @@ type Context interface {
 	// AvailabilityZone returns the executing unit's availablilty zone.
 	AvailabilityZone() (string, bool)
 
-	// OpenPorst marks the supplied port range for opening when the
+	// OpenPorts marks the supplied port range for opening when the
 	// executing unit's service is exposed.
 	OpenPorts(protocol string, fromPort, toPort int) error
 
@@ -59,6 +60,19 @@ type Context interface {
 
 	// Config returns the current service configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)
+
+	// IsLeader returns true if the local unit is known to be leader for at
+	// least the next 30s.
+	IsLeader() (bool, error)
+
+	// LeaderSettings returns the current leader settings. Once leader settings
+	// have been read in a given context, they will not be updated other than
+	// via successful calls to WriteLeaderSettings.
+	LeaderSettings() (params.Settings, error)
+
+	// WriteLeaderSettings writes the supplied settings directly to state, or
+	// fails if the local unit is not the service's leader.
+	WriteLeaderSettings(params.Settings) error
 
 	// ActionParams returns the map of params passed with an Action.
 	ActionParams() (map[string]interface{}, error)
@@ -100,12 +114,12 @@ type Context interface {
 	// RequestReboot will set the reboot flag to true on the machine agent
 	RequestReboot(prio RebootPriority) error
 
-	// StorageInstance returns the storage instance with the given id.
-	StorageInstance(storageId string) (*storage.StorageInstance, bool)
+	// StorageAttachment returns the storage attachment with the given tag.
+	StorageAttachment(names.StorageTag) (*params.StorageAttachment, bool)
 
-	// HookStorageInstance returns the storage instance associated
+	// HookStorageAttachment returns the storage attachment associated
 	// the executing hook.
-	HookStorageInstance() (*storage.StorageInstance, bool)
+	HookStorageAttachment() (*params.StorageAttachment, bool)
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.
@@ -183,5 +197,47 @@ func (v *relationIdValue) Set(value string) error {
 	}
 	*v.result = id
 	v.value = value
+	return nil
+}
+
+// newStorageIdValue returns a gnuflag.Value for convenient parsing of storage
+// ids in ctx.
+func newStorageIdValue(ctx Context, result *names.StorageTag) *storageIdValue {
+	v := &storageIdValue{result: result, ctx: ctx}
+	if s, found := ctx.HookStorageAttachment(); found {
+		tag, err := names.ParseStorageTag(s.StorageTag)
+		if err == nil {
+			*v.result = tag
+		}
+	}
+	return v
+}
+
+// storageIdValue implements gnuflag.Value for use in storage commands.
+type storageIdValue struct {
+	result *names.StorageTag
+	ctx    Context
+}
+
+// String returns the current value.
+func (v *storageIdValue) String() string {
+	if *v.result == (names.StorageTag{}) {
+		return ""
+	}
+	return v.result.Id()
+}
+
+// Set interprets value as a storage id, if possible, and returns an error
+// if it is not known to the system. The parsed storage id will be written
+// to v.result.
+func (v *storageIdValue) Set(value string) error {
+	if !names.IsValidStorage(value) {
+		return errors.Errorf("invalid storage ID %q", value)
+	}
+	tag := names.NewStorageTag(value)
+	if _, found := v.ctx.StorageAttachment(tag); !found {
+		return fmt.Errorf("unknown storage attachment")
+	}
+	*v.result = tag
 	return nil
 }

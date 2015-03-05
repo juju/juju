@@ -23,11 +23,12 @@ var keyRule = regexp.MustCompile("^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
 // params
 type DoCommand struct {
 	ActionCommandBase
-	unitTag    names.UnitTag
-	actionName string
-	paramsYAML cmd.FileVar
-	out        cmd.Output
-	args       [][]string
+	unitTag      names.UnitTag
+	actionName   string
+	paramsYAML   cmd.FileVar
+	parseStrings bool
+	out          cmd.Output
+	args         [][]string
 }
 
 const doDoc = `
@@ -35,11 +36,13 @@ Queue an Action for execution on a given unit, with a given set of params.
 Displays the ID of the Action for use with 'juju kill', 'juju status', etc.
 
 Params are validated according to the charm for the unit's service.  The 
-valid params can be seen using "juju action defined <service>".  Params may 
-be in a yaml file which is passed with the --params flag, or they may be
-specified by a key.key.key...=value format.
+valid params can be seen using "juju action defined <service> --schema".
+Params may be in a yaml file which is passed with the --params flag, or they
+may be specified by a key.key.key...=value format (see examples below.)
 
-Note that the explicit format only permits string values at this time.
+Params given in the CLI invocation will be parsed as YAML unless the
+--string-args flag is set.  This can be helpful for values such as 'y', which
+is a boolean true in YAML.
 
 If --params is passed, along with key.key...=value explicit arguments, the
 explicit arguments will override the parameter file.
@@ -47,9 +50,9 @@ explicit arguments will override the parameter file.
 Examples:
 
 $ juju action do mysql/3 backup 
-action: <UUID>
+action: <ID>
 
-$ juju action fetch <UUID>
+$ juju action fetch <ID>
 result:
   status: success
   file:
@@ -87,6 +90,13 @@ file:
   kind: xz
   quality: high
 ...
+
+$ juju action do sleeper/0 pause time=1000
+...
+
+$ juju action do sleeper/0 pause --string-args time=1000
+...
+The value for the "time" param will be the string literal "1000".
 `
 
 // actionNameRule describes the format an action name must match to be valid.
@@ -96,13 +106,14 @@ var actionNameRule = regexp.MustCompile("^[a-z](?:[a-z-]*[a-z])?$")
 func (c *DoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.Var(&c.paramsYAML, "params", "path to yaml-formatted params file")
+	f.BoolVar(&c.parseStrings, "string-args", false, "use raw string values of CLI args")
 }
 
 func (c *DoCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "do",
-		Args:    "<unit> <action name> [<key>=<value> ...]",
-		Purpose: "WIP: queue an action for execution",
+		Args:    "<unit> <action name> [key.key.key...=value]",
+		Purpose: "queue an action for execution",
 		Doc:     doDoc,
 	}
 }
@@ -189,8 +200,15 @@ func (c *DoCommand) Run(ctx *cmd.Context) error {
 		valueIndex := len(argSlice) - 1
 		keys := argSlice[:valueIndex]
 		value := argSlice[valueIndex]
+		cleansedValue := interface{}(value)
+		if !c.parseStrings {
+			err := yaml.Unmarshal([]byte(value), &cleansedValue)
+			if err != nil {
+				return err
+			}
+		}
 		// Insert the value in the map.
-		addValueToMap(keys, value, actionParams)
+		addValueToMap(keys, cleansedValue, actionParams)
 	}
 
 	conformantParams, err := conform(actionParams)

@@ -30,7 +30,7 @@ import (
 // and it's intended for embedding.
 type uniterBaseAPI struct {
 	*common.LifeGetter
-	*common.StatusSetter
+	*StatusAPI
 	*common.DeadEnsurer
 	*common.AgentEntityWatcher
 	*common.APIAddresser
@@ -98,7 +98,7 @@ func newUniterBaseAPI(st *state.State, resources *common.Resources, authorizer c
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
 	return &uniterBaseAPI{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrService),
-		StatusSetter:               common.NewStatusSetter(st, accessUnit),
+		StatusAPI:                  NewStatusAPI(st, accessUnit),
 		DeadEnsurer:                common.NewDeadEnsurer(st, accessUnit),
 		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, resources, accessUnitOrService),
 		APIAddresser:               common.NewAPIAddresser(st, resources),
@@ -1233,7 +1233,6 @@ func (u *uniterBaseAPI) AddMetrics(args params.MetricsParams) (params.ErrorResul
 			if err == nil {
 				metricBatch := make([]state.Metric, len(unitMetrics.Metrics))
 				for j, metric := range unitMetrics.Metrics {
-					// TODO (tasdomas) 2014-08-26: set credentials for metrics when available
 					metricBatch[j] = state.Metric{
 						Key:   metric.Key,
 						Value: metric.Value,

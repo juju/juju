@@ -80,3 +80,9 @@ func newActionOp(actionId string) creator {
 		return factory.NewAction(actionId)
 	}
 }
+
+func newUpdateRelationsOp(ids []int) creator {
+	return func(factory operation.Factory) (operation.Operation, error) {
+		return factory.NewUpdateRelations(ids)
+	}
+}

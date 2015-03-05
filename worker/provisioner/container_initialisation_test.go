@@ -5,8 +5,11 @@ package provisioner_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 
 	"github.com/juju/names"
 	"github.com/juju/testing"
@@ -21,8 +24,10 @@ import (
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/provisioner"
@@ -41,6 +46,10 @@ type ContainerSetupSuite struct {
 var _ = gc.Suite(&ContainerSetupSuite{})
 
 func (s *ContainerSetupSuite) SetUpSuite(c *gc.C) {
+	//TODO(bogdanteleaga): Fix this on windows
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: Skipping container tests on windows")
+	}
 	s.CommonProvisionerSuite.SetUpSuite(c)
 }
 
@@ -134,7 +143,8 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	// A stub worker callback to record what happens.
 	provisionerStarted := false
 	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
-		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker) error {
+		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
+		toolsFinder provisioner.ToolsFinder) error {
 		c.Assert(containerType, gc.Equals, ctype)
 		c.Assert(cfg.Tag(), gc.Equals, host.Tag())
 		provisionerStarted = true
@@ -167,7 +177,61 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 	}
 }
 
-func (s *ContainerSetupSuite) TestLxcContainerUesImageURL(c *gc.C) {
+func (s *ContainerSetupSuite) TestLxcContainerUsesConstraintsArch(c *gc.C) {
+	// LXC should override the architecture in constraints with the
+	// host's architecture.
+	s.PatchValue(&version.Current.Arch, arch.PPC64EL)
+	s.testContainerConstraintsArch(c, instance.LXC, arch.PPC64EL)
+}
+
+func (s *ContainerSetupSuite) TestKvmContainerUsesHostArch(c *gc.C) {
+	// KVM should do what it's told, and use the architecture in
+	// constraints.
+	s.PatchValue(&version.Current.Arch, arch.PPC64EL)
+	s.testContainerConstraintsArch(c, instance.KVM, arch.AMD64)
+}
+
+func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerType instance.ContainerType, expectArch string) {
+	var called bool
+	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
+		return toolsFinderFunc(func(v version.Number, series string, arch *string) (tools.List, error) {
+			called = true
+			c.Assert(arch, gc.NotNil)
+			c.Assert(*arch, gc.Equals, expectArch)
+			result := version.Current
+			result.Number = v
+			result.Series = series
+			result.Arch = *arch
+			return tools.List{{Version: result}}, nil
+		})
+	})
+
+	s.PatchValue(&provisioner.StartProvisioner, func(runner worker.Runner, containerType instance.ContainerType,
+		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
+		toolsFinder provisioner.ToolsFinder) error {
+		amd64 := arch.AMD64
+		toolsFinder.FindTools(version.Current.Number, version.Current.Series, &amd64)
+		return nil
+	})
+
+	// create a machine to host the container.
+	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
+		Series:      coretesting.FakeDefaultSeries,
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: s.defaultConstraints,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetSupportedContainers([]instance.ContainerType{containerType})
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetAgentVersion(version.Current)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.createContainer(c, m, containerType)
+	<-s.aptCmdChan
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *ContainerSetupSuite) TestLxcContainerUsesImageURL(c *gc.C) {
 	// create a machine to host the container.
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
 		Series:      coretesting.FakeDefaultSeries,
@@ -211,7 +275,8 @@ func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
 func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance.ContainerType, packages []string) {
 	// A noop worker callback.
 	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
-		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker) error {
+		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
+		toolsFinder provisioner.ToolsFinder) error {
 		return nil
 	}
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
@@ -273,4 +338,71 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 	err = handler.Handle([]string{"0/lxc/0"})
 	c.Assert(err, gc.ErrorMatches, ".*failed to acquire initialization lock:.*")
 
+}
+
+func AssertFileContains(c *gc.C, filename, expectedContent string) {
+	// TODO(dimitern): We should put this in juju/testing repo and
+	// replace all similar checks with it.
+	data, err := ioutil.ReadFile(filename)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(data), jc.Contains, expectedContent)
+}
+
+type SetIPAndARPForwardingSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&SetIPAndARPForwardingSuite{})
+
+func (s *SetIPAndARPForwardingSuite) TestSuccess(c *gc.C) {
+	// NOTE: Because PatchExecutableAsEchoArgs does not allow us to
+	// assert on earlier invocations of the same binary (each run
+	// overwrites the last args used), we only check sysctl was called
+	// for the second key (arpProxySysctlKey). We do check the config
+	// contains both though.
+	fakeConfig := filepath.Join(c.MkDir(), "sysctl.conf")
+	testing.PatchExecutableAsEchoArgs(c, s, "sysctl")
+	expectKeyVal := fmt.Sprintf("%s=1", provisioner.ARPProxySysctlKey)
+	s.PatchValue(provisioner.SysctlConfig, fakeConfig)
+
+	err := provisioner.SetIPAndARPForwarding(true)
+	c.Assert(err, jc.ErrorIsNil)
+	expectConf := fmt.Sprintf(
+		"%s=1\n%s=1",
+		provisioner.IPForwardSysctlKey,
+		provisioner.ARPProxySysctlKey,
+	)
+	AssertFileContains(c, fakeConfig, expectConf)
+	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
+
+	expectKeyVal = fmt.Sprintf("%s=0", provisioner.ARPProxySysctlKey)
+	err = provisioner.SetIPAndARPForwarding(false)
+	c.Assert(err, jc.ErrorIsNil)
+	expectConf = fmt.Sprintf(
+		"%s=0\n%s=0",
+		provisioner.IPForwardSysctlKey,
+		provisioner.ARPProxySysctlKey,
+	)
+	AssertFileContains(c, fakeConfig, expectConf)
+	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
+}
+
+func (s *SetIPAndARPForwardingSuite) TestFailure(c *gc.C) {
+	fakeConfig := filepath.Join(c.MkDir(), "sysctl.conf")
+	testing.PatchExecutableThrowError(c, s, "sysctl", 123)
+	s.PatchValue(provisioner.SysctlConfig, fakeConfig)
+	expectKeyVal := fmt.Sprintf("%s=1", provisioner.IPForwardSysctlKey)
+
+	err := provisioner.SetIPAndARPForwarding(true)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+		`cannot set %s: unexpected exit code 123`, expectKeyVal),
+	)
+	_, err = os.Stat(fakeConfig)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+}
+
+type toolsFinderFunc func(v version.Number, series string, arch *string) (tools.List, error)
+
+func (t toolsFinderFunc) FindTools(v version.Number, series string, arch *string) (tools.List, error) {
+	return t(v, series, arch)
 }

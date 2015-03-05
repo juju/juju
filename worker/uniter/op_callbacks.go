@@ -66,7 +66,7 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 			status = params.StatusInstalling
 		}
 	}
-	err := opc.u.unit.SetStatus(status, "", nil)
+	err := opc.u.unit.SetAgentStatus(status, "", nil)
 	if err != nil {
 		return "", err
 	}
@@ -82,6 +82,11 @@ func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 		opc.u.ranConfigChanged = true
 	}
 	return nil
+}
+
+// UpdateRelations is part of the operation.Callbacks interface.
+func (opc *operationCallbacks) UpdateRelations(ids []int) error {
+	return opc.u.relations.Update(ids)
 }
 
 func notifyHook(hook string, ctx runner.Context, method func(string)) {

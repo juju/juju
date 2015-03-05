@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v4"
-
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -165,19 +164,17 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 // and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
 	age := time.Now().Add(-(CleanupAge))
+	metricsLogger.Tracef("cleaning up metrics created before %v", age)
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	// Nothing else in the system will interact with sent metrics, and nothing needs
 	// to watch them either; so in this instance it's safe to do an end run around the
 	// mgo/txn package. See State.cleanupRelationSettings for a similar situation.
-	err := c.Remove(bson.M{
+	info, err := c.RemoveAll(bson.M{
 		"sent":    true,
 		"created": bson.M{"$lte": age},
 	})
-	if err == mgo.ErrNotFound {
-		metricsLogger.Infof("no metrics found to cleanup")
-		return nil
-	}
+	metricsLogger.Tracef("cleanup removed %d metrics", info.Removed)
 	return errors.Trace(err)
 }
 

@@ -109,7 +109,7 @@ func MarshalToolsMetadataProductsJSON(
 					Arch:    t.Arch,
 					Version: t.Version,
 					Items: map[string]*simplestreams.ItemCollection{
-						itemsversion: &simplestreams.ItemCollection{
+						itemsversion: {
 							Items: map[string]interface{}{itemid: t},
 						},
 					},

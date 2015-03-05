@@ -1,10 +1,9 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package diskformatter defines a worker that watches for block devices
-// assigned to storage instances owned by the unit that runs this worker,
-// and creates filesystems on them as necessary. Each unit agent runs this
-// worker.
+// Package diskformatter defines a worker that watches for volume attachments
+// owned by the machine that runs this worker, and creates filesystems on
+// them as necessary. Each machine agent runs this worker.
 package diskformatter
 
 import (
@@ -17,7 +16,6 @@ import (
 
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker"
 )
 
@@ -28,127 +26,96 @@ var logger = loggo.GetLogger("juju.worker.diskformatter")
 // storage instance.
 const defaultFilesystemType = "ext4"
 
-// BlockDeviceAccessor is an interface used to watch and retrieve details of
-// the block devices assigned to storage instances owned by the unit.
-type BlockDeviceAccessor interface {
-	WatchBlockDevices() (watcher.StringsWatcher, error)
-	BlockDevices([]names.DiskTag) (params.BlockDeviceResults, error)
-	BlockDeviceStorageInstances([]names.DiskTag) (params.StorageInstanceResults, error)
+// VolumeAccessor is an interface used to watch and retrieve details of
+// the volumes attached to the machine, and related storage instances.
+type VolumeAccessor interface {
+	// WatchAttachedVolumes watches for volumes attached to the machine.
+	WatchAttachedVolumes() (watcher.NotifyWatcher, error)
+	// AttachedVolumes returns the volumes which are attached to the
+	// machine.
+	AttachedVolumes() ([]params.VolumeAttachment, error)
+	// VolumePreparationInfo returns information required to format the
+	// specified volumes.
+	VolumePreparationInfo([]names.VolumeTag) ([]params.VolumePreparationInfoResult, error)
 }
 
-// NewWorker returns a new worker that creates filesystems on block devices
-// assigned to this unit's storage instances.
-func NewWorker(
-	accessor BlockDeviceAccessor,
-) worker.Worker {
-	return worker.NewStringsWorker(newDiskFormatter(accessor))
+// NewWorker returns a new worker that creates filesystems on volumes
+// attached to the machine which are assigned to filesystem-kind storage
+// instances.
+func NewWorker(accessor VolumeAccessor) worker.Worker {
+	return worker.NewNotifyWorker(newDiskFormatter(accessor))
 }
 
-func newDiskFormatter(accessor BlockDeviceAccessor) worker.StringsWatchHandler {
+func newDiskFormatter(accessor VolumeAccessor) worker.NotifyWatchHandler {
 	return &diskFormatter{accessor}
 }
 
 type diskFormatter struct {
-	accessor BlockDeviceAccessor
+	accessor VolumeAccessor
 }
 
-func (f *diskFormatter) SetUp() (watcher.StringsWatcher, error) {
-	return f.accessor.WatchBlockDevices()
+func (f *diskFormatter) SetUp() (watcher.NotifyWatcher, error) {
+	return f.accessor.WatchAttachedVolumes()
 }
 
 func (f *diskFormatter) TearDown() error {
 	return nil
 }
 
-func (f *diskFormatter) Handle(diskNames []string) error {
-	tags := make([]names.DiskTag, len(diskNames))
-	for i, name := range diskNames {
-		tags[i] = names.NewDiskTag(name)
-	}
-
-	// attachedBlockDevices returns the block devices that are
-	// assigned to the caller, and are known to be attached and
-	// visible to their associated machines.
-	blockDevices, err := f.attachedBlockDevices(tags)
+func (f *diskFormatter) Handle() error {
+	attachments, err := f.accessor.AttachedVolumes()
 	if err != nil {
-		return err
+		return errors.Annotate(err, "getting attached volumes")
 	}
 
-	blockDeviceTags := make([]names.DiskTag, len(blockDevices))
-	for i, dev := range blockDevices {
-		blockDeviceTags[i] = names.NewDiskTag(dev.Name)
-	}
-
-	// Map block devices to the storage instances they are assigned to.
-	results, err := f.accessor.BlockDeviceStorageInstances(blockDeviceTags)
-	if err != nil {
-		return errors.Annotate(err, "cannot get assigned storage instances")
-	}
-
-	for i, result := range results.Results {
-		if result.Error != nil {
-			logger.Errorf(
-				"could not determine storage instance for block device %q: %v",
-				blockDevices[i].Name, result.Error,
-			)
-			continue
-		}
-		if blockDevices[i].FilesystemType != "" {
-			logger.Debugf("block device %q already has a filesystem", blockDevices[i].Name)
-			continue
-		}
-		storageInstance := result.Result
-		if storageInstance.Kind != storage.StorageKindFilesystem {
-			logger.Debugf("storage instance %q does not need a filesystem", storageInstance.Id)
-			continue
-		}
-		devicePath, err := storage.BlockDevicePath(blockDevices[i])
+	tags := make([]names.VolumeTag, len(attachments))
+	for i, info := range attachments {
+		tag, err := names.ParseVolumeTag(info.VolumeTag)
 		if err != nil {
-			logger.Errorf("cannot get path for block device %q: %v", blockDevices[i].Name, err)
-			continue
+			return errors.Annotate(err, "parsing disk tag")
 		}
-		if err := createFilesystem(devicePath); err != nil {
-			logger.Errorf("failed to create filesystem on block device %q: %v", blockDevices[i].Name, err)
-			continue
-		}
+		tags[i] = tag
+	}
+	if len(tags) == 0 {
+		return nil
 	}
 
-	return nil
-}
-
-func (f *diskFormatter) attachedBlockDevices(tags []names.DiskTag) ([]storage.BlockDevice, error) {
-	results, err := f.accessor.BlockDevices(tags)
+	info, err := f.accessor.VolumePreparationInfo(tags)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot get block devices")
+		return errors.Annotate(err, "getting volume formatting info")
 	}
-	blockDevices := make([]storage.BlockDevice, 0, len(tags))
-	for i := range results.Results {
-		result := results.Results[i]
-		if result.Error != nil {
-			if !errors.IsNotFound(result.Error) {
-				logger.Errorf("could not get details for block device %q", tags[i])
+
+	for i, tag := range tags {
+		if info[i].Error != nil {
+			if !params.IsCodeNotAssigned(info[i].Error) {
+				logger.Errorf(
+					"failed to get formatting info for volume %q: %v",
+					tag.Id(), info[i].Error,
+				)
 			}
 			continue
 		}
-		blockDevices = append(blockDevices, result.Result)
+		if !info[i].Result.NeedsFilesystem {
+			continue
+		}
+		devicePath := info[i].Result.DevicePath
+		if err := createFilesystem(devicePath); err != nil {
+			logger.Errorf("failed to create filesystem on volume %q: %v", tag.Id(), err)
+			continue
+		}
+		// Filesystem will be reported by diskmanager.
 	}
-	return blockDevices, nil
+
+	return nil
 }
 
 func createFilesystem(devicePath string) error {
 	logger.Debugf("attempting to create filesystem on %q", devicePath)
-	if err := maybeCreateFilesystem(devicePath); err != nil {
-		return err
-	}
-	logger.Infof("created filesystem on %q", devicePath)
-	return nil
-}
-
-func maybeCreateFilesystem(path string) error {
 	mkfscmd := "mkfs." + defaultFilesystemType
-	output, err := exec.Command(mkfscmd, path).CombinedOutput()
+	output, err := exec.Command(mkfscmd, devicePath).CombinedOutput()
 	if err != nil {
 		return errors.Annotatef(err, "%s failed (%q)", mkfscmd, bytes.TrimSpace(output))
 	}
+	logger.Infof("created filesystem on %q", devicePath)
 	return nil
 }

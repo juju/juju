@@ -41,4 +41,30 @@ var (
 			`SQwJ/6QHvf73yksJTncz`,
 		"1d:cf:ab:66:8a:f6:77:fb:4c:b2:59:6f:12:cf:cb:2f",
 	}
+
+	ValidKeyMulti = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDW+8zWO6qqXrHlcMK7obliuYp7D` +
+		`vZBsK6rHlnbeV5Hh38Qn0GUX4Ahm6XeQ/NSx53wqkBQDGOJFY3s4w1a/hbd` +
+		`PyLM2/yFXCYsj5FRf01JmUjAzWhuJMH9ViqzD//l4v8cR/pHC2B8PD6abKd` +
+		`mIH+yLI9Cl3C4ICMKteG54egsUyboBOVKCDIKmWRLAak6sE5DPpqKF53NvD` +
+		`cuDufWtaCfVAOrq6NW8wSQ7PAvfDh8gsG5uvZjY3gcWl9yI3EJVGFHcdxcv` +
+		`4LtQI8mKdeg3JoufnEmeBJTZMoo83Gru5Z7tjv8J4JTUeQpd9uCCED1JAMe` +
+		`cJSKgQ2gZMTbTshobpHr` + "\n" +
+		`ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDSgfrzyGpE5eLiXusvLcxEmoE6e` +
+		`SMUDvTW1dd2BZgfvUVwq+toQdZ6C0C1JmbC3X563n8fmKVUAQGo5JavzABG` +
+		`Kpy90L3cwoGCFtb+A28YsT+bfuP+LdnCbFXm9c3DPJQx6Dch8prnDtzRjRV` +
+		`CorbPvm35NY73liUXVF6g58Owlx5rWtb8OnoTh5KQps9JTSfyNckdV9bFxP` +
+		`7bZvMyRYW5X33KaA+CQGpTNAKDHruSuKdAdaS6rBIZRvzzzSCF28BWwFL7Z` +
+		`ghQo0ADlUMnqIeQ58nwRImZHpmvadsZi47aMKFeykk4JQUQlwjbM0xGi0uj` +
+		`+hlaqGYbNo0Evcjn23cj`
+
+	PartValidKeyMulti = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDZRvG2miYVkbWOr2I+9xHWXqALb` +
+		`eBcyxAlYtbjxBRwrq8oFOw9vtIIZSO0r1FM6+JHzKhLSiPCMR/PK78ZqPgZ` +
+		`fia8Y7cEZKaUWLtZUAl0RF9w8EtsA/2gpuLZErjcoIx6fzfEYFCJcLgcQSc` +
+		`RlKG8VZT6tWIjvoLj9ki6unkG5YGmapkT60afhf3/vd7pCJO/uyszkQ9qU8` +
+		`odUDTTlwftpJtUb8xGmzpEZJTgk1lbZKlZm5pVXwjNEodH7Je88RBzR7PBB` +
+		`Jct+vf8wVJ/UEFXCnamvHLanJTcJIi/I5qRlKns65Bwb8M0HszPYmvTfFRD` +
+		`ZLi3sPUmw6PJCJ0SgATd` + "\n" +
+		`ssh-rsa bad key`
+
+	EmptyKeyMulti = ""
 )

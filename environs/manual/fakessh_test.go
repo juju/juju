@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/service"
 )
 
 // sshscript should only print the result on the first execution,
@@ -149,7 +150,7 @@ func (r fakeSSH) install(c *gc.C) testing.Restorer {
 	if r.Provisioned {
 		checkProvisionedOutput = "/etc/init/jujud-machine-0.conf"
 	}
-	add(manual.CheckProvisionedScript, checkProvisionedOutput, r.CheckProvisionedExitCode)
+	add(service.ListServicesCommand(), checkProvisionedOutput, r.CheckProvisionedExitCode)
 	if r.InitUbuntuUser {
 		add("", nil, 0)
 	}

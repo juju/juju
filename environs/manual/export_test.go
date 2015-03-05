@@ -9,6 +9,5 @@ var (
 )
 
 const (
-	DetectionScript        = detectionScript
-	CheckProvisionedScript = checkProvisionedScript
+	DetectionScript = detectionScript
 )

@@ -4,10 +4,9 @@
 package machine_test
 
 import (
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/machine"
@@ -162,9 +161,9 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	}
 
 	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{
-		{Tag: "machine-1", Addresses: addresses},
-		{Tag: "machine-0", Addresses: addresses},
-		{Tag: "machine-42", Addresses: addresses},
+		{Tag: "machine-1", Addresses: params.FromNetworkAddresses(addresses)},
+		{Tag: "machine-0", Addresses: params.FromNetworkAddresses(addresses)},
+		{Tag: "machine-42", Addresses: params.FromNetworkAddresses(addresses)},
 	}}
 
 	result, err := s.machiner.SetMachineAddresses(args)

@@ -263,6 +263,18 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err = s.State.SetAPIHostPorts(s.APIState.APIHostPorts())
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Make sure the config store has the api endpoint address set
+	info, err := s.ConfigStore.ReadInfo("dummyenv")
+	c.Assert(err, jc.ErrorIsNil)
+	endpoint := info.APIEndpoint()
+	endpoint.Addresses = []string{s.APIState.APIHostPorts()[0][0].String()}
+	info.SetAPIEndpoint(endpoint)
+	err = info.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make sure the jenv file has the local host ports.
+	c.Logf("jenv host ports: %#v", s.APIState.APIHostPorts())
+
 	s.Environ = environ
 
 	// Insert expected values...

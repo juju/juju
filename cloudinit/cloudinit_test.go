@@ -245,7 +245,7 @@ var ctests = []struct {
 	{
 		"Packages with --target-release",
 		map[string]interface{}{"packages": []string{
-			"--target-release 'precise-updates/cloud-tools' 'mongodb-server'",
+			"--target-release precise-updates/cloud-tools mongodb-server",
 		}},
 		func(cfg *cloudinit.Config) {
 			cfg.AddPackageFromTargetRelease("mongodb-server", "precise-updates/cloud-tools")
@@ -389,7 +389,7 @@ func (S) TestPackages(c *gc.C) {
 	expectedPackages := []string{"a b c", "d!"}
 	c.Assert(cfg.Packages(), gc.DeepEquals, expectedPackages)
 	cfg.AddPackageFromTargetRelease("package", "series")
-	expectedPackages = append(expectedPackages, "--target-release 'series' 'package'")
+	expectedPackages = append(expectedPackages, "--target-release series package")
 	c.Assert(cfg.Packages(), gc.DeepEquals, expectedPackages)
 }
 
@@ -422,27 +422,6 @@ func (S) TestSetOutput(c *gc.C) {
 		c.Assert(stdout, gc.Equals, t.stdout)
 		c.Assert(stderr, gc.Equals, t.stderr)
 	}
-}
-
-//#cloud-config
-//packages:
-//- juju
-//- ubuntu
-func ExampleConfig() {
-	cfg := cloudinit.New()
-	cfg.AddPackage("juju")
-	cfg.AddPackage("ubuntu")
-	renderer, err := cloudinit.NewRenderer("quantal")
-	if err != nil {
-		fmt.Printf("render error: %v", err)
-		return
-	}
-	data, err := renderer.Render(cfg)
-	if err != nil {
-		fmt.Printf("render error: %v", err)
-		return
-	}
-	fmt.Printf("%s", data)
 }
 
 func (S) TestUbuntuMkdir(c *gc.C) {

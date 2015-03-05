@@ -6,6 +6,7 @@ package common_test
 import (
 	"fmt"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/names"
 )
 
 type agentEntityWatcherSuite struct{}

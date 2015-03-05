@@ -134,20 +134,6 @@ var configImmutableFields = []string{
 	algorithm,
 }
 
-func prepareConfig(cfg *config.Config) (*config.Config, error) {
-	// Turn an incomplete config into a valid one, if possible.
-	attrs := cfg.UnknownAttrs()
-
-	if nilOrEmptyString(attrs[controlDir]) {
-		uuid, err := utils.NewUUID()
-		if err != nil {
-			return nil, err
-		}
-		attrs[controlDir] = fmt.Sprintf("%x", uuid.Raw())
-	}
-	return cfg.Apply(attrs)
-}
-
 func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	// Check for valid changes for the base config values.
 	if err := config.Validate(cfg, old); err != nil {

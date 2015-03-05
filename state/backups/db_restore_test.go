@@ -4,9 +4,12 @@
 package backups_test
 
 import (
+	"path/filepath"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -19,18 +22,28 @@ type mongoRestoreSuite struct {
 }
 
 func (s *mongoRestoreSuite) TestMongoRestoreArgsForVersion(c *gc.C) {
+	dir := filepath.Join(agent.DefaultDataDir, "db")
 	versionNumber := version.Number{}
 	versionNumber.Major = 1
 	versionNumber.Minor = 21
 	args, err := backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(args, gc.DeepEquals, []string{"--drop", "--dbpath", "/var/lib/juju/db", "/some/fake/path"})
+	c.Assert(args, gc.HasLen, 4)
+	c.Assert(args[0], gc.Equals, "--drop")
+	c.Assert(args[1], gc.Equals, "--dbpath")
+	c.Assert(args[2], jc.SamePath, dir)
+	c.Assert(args[3], gc.Equals, "/some/fake/path")
 
 	versionNumber.Major = 1
 	versionNumber.Minor = 22
 	args, err = backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(args, gc.DeepEquals, []string{"--drop", "--oplogReplay", "--dbpath", "/var/lib/juju/db", "/some/fake/path"})
+	c.Assert(args, gc.HasLen, 5)
+	c.Assert(args[0], gc.Equals, "--drop")
+	c.Assert(args[1], gc.Equals, "--oplogReplay")
+	c.Assert(args[2], gc.Equals, "--dbpath")
+	c.Assert(args[3], jc.SamePath, dir)
+	c.Assert(args[4], gc.Equals, "/some/fake/path")
 
 	versionNumber.Major = 0
 	versionNumber.Minor = 0
@@ -79,6 +92,6 @@ func (s *mongoRestoreSuite) TestPlaceNewMongo(c *gc.C) {
 	expectedCommands := []string{"initctl", "/fake/mongo/restore/path", "initctl"}
 	c.Assert(ranCommands, gc.DeepEquals, expectedCommands)
 	c.Assert(len(ranArgs), gc.Equals, 3)
-	expectedArgs := [][]string{[]string{"stop", "juju-db"}, []string{"a", "set", "of", "args"}, []string{"start", "juju-db"}}
+	expectedArgs := [][]string{{"stop", "juju-db"}, {"a", "set", "of", "args"}, {"start", "juju-db"}}
 	c.Assert(ranArgs, gc.DeepEquals, expectedArgs)
 }

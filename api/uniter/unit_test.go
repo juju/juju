@@ -54,17 +54,87 @@ func (s *unitSuite) TestUnitAndUnitTag(c *gc.C) {
 	c.Assert(s.apiUnit.Tag(), gc.Equals, s.wordpressUnit.Tag().(names.UnitTag))
 }
 
-func (s *unitSuite) TestSetStatus(c *gc.C) {
-	status, info, data, err := s.wordpressUnit.Status()
+func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
+	status, info, data, err := s.wordpressUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusAllocating)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.apiUnit.SetStatus(params.StatusActive, "blah", nil)
+	unitStatus, unitInfo, unitData, err := s.wordpressUnit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitStatus, gc.Equals, state.StatusBusy)
+	c.Assert(unitInfo, gc.Equals, "")
+	c.Assert(unitData, gc.HasLen, 0)
+
+	err = s.apiUnit.SetAgentStatus(params.StatusActive, "blah", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, info, data, err = s.wordpressUnit.AgentStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, state.StatusActive)
+	c.Assert(info, gc.Equals, "blah")
+	c.Assert(data, gc.HasLen, 0)
+
+	// Ensure that unit has not changed.
+	unitStatus, unitInfo, unitData, err = s.wordpressUnit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitStatus, gc.Equals, state.StatusBusy)
+	c.Assert(unitInfo, gc.Equals, "")
+	c.Assert(unitData, gc.HasLen, 0)
+}
+
+func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
+	status, info, data, err := s.wordpressUnit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, state.StatusBusy)
+	c.Assert(info, gc.Equals, "")
+	c.Assert(data, gc.HasLen, 0)
+
+	agentStatus, agentInfo, agentData, err := s.wordpressUnit.AgentStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(agentStatus, gc.Equals, state.StatusAllocating)
+	c.Assert(agentInfo, gc.Equals, "")
+	c.Assert(agentData, gc.HasLen, 0)
+
+	err = s.apiUnit.SetUnitStatus(params.StatusRunning, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, info, data, err = s.wordpressUnit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, state.StatusRunning)
+	c.Assert(info, gc.Equals, "blah")
+	c.Assert(data, gc.HasLen, 0)
+
+	// Ensure unit's agent has not changed.
+	agentStatus, agentInfo, agentData, err = s.wordpressUnit.AgentStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(agentStatus, gc.Equals, state.StatusAllocating)
+	c.Assert(agentInfo, gc.Equals, "")
+	c.Assert(agentData, gc.HasLen, 0)
+}
+
+func (s *unitSuite) TestSetUnitStatusOldServer(c *gc.C) {
+	s.patchNewState(c, uniter.NewStateV1)
+
+	err := s.apiUnit.SetUnitStatus(params.StatusRunning, "blah", nil)
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(err.Error(), gc.Equals, "SetUnitStatus not implemented")
+}
+
+func (s *unitSuite) TestSetAgentStatusOldServer(c *gc.C) {
+	s.patchNewState(c, uniter.NewStateV1)
+
+	status, info, data, err := s.wordpressUnit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, state.StatusBusy)
+	c.Assert(info, gc.Equals, "")
+	c.Assert(data, gc.HasLen, 0)
+
+	err = s.apiUnit.SetAgentStatus(params.StatusActive, "blah", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, info, data, err = s.wordpressUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusActive)
 	c.Assert(info, gc.Equals, "blah")
@@ -157,7 +227,7 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 
 	// Change something other than the lifecycle and make sure it's
 	// not detected.
-	err = s.apiUnit.SetStatus(params.StatusActive, "not really", nil)
+	err = s.apiUnit.SetAgentStatus(params.StatusActive, "not really", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 

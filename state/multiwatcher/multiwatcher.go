@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"gopkg.in/juju/charm.v4"
 
@@ -96,6 +97,8 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		d.Entity = new(RelationInfo)
 	case "annotation":
 		d.Entity = new(AnnotationInfo)
+	case "block":
+		d.Entity = new(BlockInfo)
 	default:
 		return fmt.Errorf("Unexpected entity name %q", entityKind)
 	}
@@ -169,6 +172,7 @@ type UnitInfo struct {
 	PrivateAddress string
 	MachineId      string
 	Ports          []network.Port
+	PortRanges     []network.PortRange
 	Status         Status
 	StatusInfo     string
 	StatusData     map[string]interface{}
@@ -179,6 +183,26 @@ func (i *UnitInfo) EntityId() EntityId {
 	return EntityId{
 		Kind: "unit",
 		Id:   i.Name,
+	}
+}
+
+type ActionInfo struct {
+	Id         string                 `bson:"_id"`
+	Receiver   string                 `bson:"receiver"`
+	Name       string                 `bson:"name"`
+	Parameters map[string]interface{} `bson:"parameters"`
+	Status     string                 `bson:"status"`
+	Message    string                 `bson:"message"`
+	Results    map[string]interface{} `bson:"results"`
+	Enqueued   time.Time              `bson:"enqueued"`
+	Started    time.Time              `bson:"started"`
+	Completed  time.Time              `bson:"completed"`
+}
+
+func (i *ActionInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "action",
+		Id:   i.Id,
 	}
 }
 
@@ -240,3 +264,34 @@ func AnyJobNeedsState(jobs ...MachineJob) bool {
 	}
 	return false
 }
+
+// BlockInfo holds the information about blocks
+// in this environment that are watched.
+type BlockInfo struct {
+	Id      string    `bson:"_id"`
+	Type    BlockType `bson:"type"`
+	Message string    `bson:"message,omitempty"`
+	Tag     string    `bson:"tag"`
+}
+
+// EntityId returns block id.
+func (i *BlockInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "block",
+		Id:   i.Id,
+	}
+}
+
+// BlockType values define environment block type.
+type BlockType string
+
+const (
+	// BlockDestroy type identifies destroy blocks.
+	BlockDestroy BlockType = "BlockDestroy"
+
+	// BlockRemove type identifies remove blocks.
+	BlockRemove BlockType = "BlockRemove"
+
+	// BlockChange type identifies change blocks.
+	BlockChange BlockType = "BlockChange"
+)

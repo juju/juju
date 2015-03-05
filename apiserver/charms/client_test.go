@@ -4,15 +4,16 @@
 package charms_test
 
 import (
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/charms"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
 )
 
 type baseCharmsSuite struct {
@@ -55,7 +56,7 @@ func (s *baseCharmsSuite) TestClientCharmInfo(c *gc.C) {
 			url:   "local:quantal/dummy-1",
 			expectedActions: &charm.Actions{
 				ActionSpecs: map[string]charm.ActionSpec{
-					"snapshot": charm.ActionSpec{
+					"snapshot": {
 						Description: "Take a snapshot of the database.",
 						Params: map[string]interface{}{
 							"type":        "object",
@@ -78,7 +79,7 @@ func (s *baseCharmsSuite) TestClientCharmInfo(c *gc.C) {
 			// Use wordpress for tests so that we can compare Provides and Requires.
 			charm: "wordpress",
 			expectedActions: &charm.Actions{ActionSpecs: map[string]charm.ActionSpec{
-				"fakeaction": charm.ActionSpec{
+				"fakeaction": {
 					Description: "No description",
 					Params: map[string]interface{}{
 						"type":        "object",

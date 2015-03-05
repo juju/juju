@@ -17,18 +17,28 @@ import (
 type AddressState string
 
 const (
-	// AddressStateUnknown is the initial state an IP address is created with
+	// AddressStateUnknown is the initial state an IP address is
+	// created with.
 	AddressStateUnknown AddressState = ""
 
-	// AddressStateAllocated means that the IP address has successfully
-	// been allocated by the provider and is now in use.
+	// AddressStateAllocated means that the IP address has
+	// successfully been allocated by the provider and is now in use
+	// by an interface on a machine.
 	AddressStateAllocated AddressState = "allocated"
 
-	// AddressStateUnavailable means that allocating the address with the
-	// provider failed. We shouldn't use this address, nor should we
-	// attempt to allocate it again in the future.
-	AddressStateUnvailable AddressState = "unavailable"
+	// AddressStateUnavailable means that allocating the address with
+	// the provider failed. We shouldn't use this address, nor should
+	// we attempt to allocate it again in the future.
+	AddressStateUnavailable AddressState = "unavailable"
 )
+
+// String implements fmt.Stringer.
+func (s AddressState) String() string {
+	if s == AddressStateUnknown {
+		return "<unknown>"
+	}
+	return string(s)
+}
 
 // IPAddress represents the state of an IP address.
 type IPAddress struct {
@@ -37,15 +47,15 @@ type IPAddress struct {
 }
 
 type ipaddressDoc struct {
-	DocID       string `bson:"_id"`
-	EnvUUID     string `bson:"env-uuid"`
-	SubnetId    string `bson:",omitempty"`
-	MachineId   string `bson:",omitempty"`
-	InterfaceId string `bson:",omitempty"`
-	Value       string
-	Type        network.AddressType
-	Scope       network.Scope `bson:"networkscope,omitempty"`
-	State       AddressState
+	DocID       string       `bson:"_id"`
+	EnvUUID     string       `bson:"env-uuid"`
+	SubnetId    string       `bson:"subnetid,omitempty"`
+	MachineId   string       `bson:"machineid,omitempty"`
+	InterfaceId string       `bson:"interfaceid,omitempty"`
+	Value       string       `bson:"value"`
+	Type        string       `bson:"type"`
+	Scope       string       `bson:"networkscope,omitempty"`
+	State       AddressState `bson:"state"`
 }
 
 // SubnetId returns the ID of the subnet the IP address is associated with. If
@@ -74,19 +84,19 @@ func (i *IPAddress) Value() string {
 
 // Address returns the network.Address represent the IP address
 func (i *IPAddress) Address() network.Address {
-	return network.NewAddress(i.doc.Value, i.doc.Scope)
+	return network.NewAddress(i.doc.Value, i.Scope())
 }
 
 // Type returns the type of the IP address. The IP address will have a type of
 // IPv4, IPv6 or hostname.
 func (i *IPAddress) Type() network.AddressType {
-	return i.doc.Type
+	return network.AddressType(i.doc.Type)
 }
 
 // Scope returns the scope of the IP address. If the scope is not set this
 // returns "".
 func (i *IPAddress) Scope() network.Scope {
-	return i.doc.Scope
+	return network.Scope(i.doc.Scope)
 }
 
 // State returns the state of an IP address.
@@ -94,9 +104,15 @@ func (i *IPAddress) State() AddressState {
 	return i.doc.State
 }
 
-// Remove removes a no-longer need IP address.
+// String implements fmt.Stringer.
+func (i *IPAddress) String() string {
+	return i.Address().String()
+}
+
+// Remove removes an existing IP address. Trying to remove a missing
+// address is not an error.
 func (i *IPAddress) Remove() (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot remove IP address %v", i)
+	defer errors.DeferredAnnotatef(&err, "cannot remove IP address %q", i)
 
 	ops := []txn.Op{{
 		C:      ipaddressesC,
@@ -106,10 +122,12 @@ func (i *IPAddress) Remove() (err error) {
 	return i.st.runTransaction(ops)
 }
 
-// SetState sets the State of an IPAddress. Valid state transitions are Unknown
-// to Allocated or Unavailable. Any other transition will fail.
+// SetState sets the State of an IPAddress. Valid state transitions
+// are Unknown to Allocated or Unavailable, as well as setting the
+// same state more than once. Any other transition will result in
+// returning an error satisfying errors.IsNotValid().
 func (i *IPAddress) SetState(newState AddressState) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot set IP address %v to state %q", i, newState)
+	defer errors.DeferredAnnotatef(&err, "cannot set IP address %q to state %q", i, newState)
 
 	validStates := []AddressState{AddressStateUnknown, newState}
 	unknownOrSame := bson.D{{"state", bson.D{{"$in", validStates}}}}
@@ -119,20 +137,41 @@ func (i *IPAddress) SetState(newState AddressState) (err error) {
 		Assert: unknownOrSame,
 		Update: bson.D{{"$set", bson.D{{"state", string(newState)}}}},
 	}}
-	return i.st.runTransaction(ops)
+	if err = i.st.runTransaction(ops); err != nil {
+		return onAbort(
+			err,
+			errors.NotValidf("transition from %q", i.doc.State),
+		)
+	}
+	i.doc.State = newState
+	return nil
 }
 
-// AllocateTo sets the machine ID and interface ID of the IP address. It will
-// fail if the state is not AddressStateUnknown.
-func (i *IPAddress) AllocateTo(machineId string, interfaceId string) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot allocate IP address %v to machine %q, interface %q", i, machineId, interfaceId)
+// AllocateTo sets the machine ID and interface ID of the IP address.
+// It will fail if the state is not AddressStateUnknown. On success,
+// the address state will also change to AddressStateAllocated.
+func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot allocate IP address %q to machine %q, interface %q", i, machineId, interfaceId)
 
 	ops := []txn.Op{{
 		C:      ipaddressesC,
 		Id:     i.doc.DocID,
-		Assert: bson.D{{"state", ""}},
-		Update: bson.D{{"$set", bson.D{{"machineid", machineId}, {"interfaceid", interfaceId}}}},
+		Assert: bson.D{{"state", AddressStateUnknown}},
+		Update: bson.D{{"$set", bson.D{
+			{"machineid", machineId},
+			{"interfaceid", interfaceId},
+			{"state", string(AddressStateAllocated)},
+		}}},
 	}}
 
-	return i.st.runTransaction(ops)
+	if err = i.st.runTransaction(ops); err != nil {
+		return onAbort(
+			err,
+			errors.Errorf("already allocated or unavailable"),
+		)
+	}
+	i.doc.MachineId = machineId
+	i.doc.InterfaceId = interfaceId
+	i.doc.State = AddressStateAllocated
+	return nil
 }

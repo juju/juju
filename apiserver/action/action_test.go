@@ -576,7 +576,7 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 
 func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 	actionSchemas := map[string]map[string]interface{}{
-		"snapshot": map[string]interface{}{
+		"snapshot": {
 			"type":        "object",
 			"title":       "snapshot",
 			"description": "Take a snapshot of the database.",
@@ -588,7 +588,7 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 				},
 			},
 		},
-		"fakeaction": map[string]interface{}{
+		"fakeaction": {
 			"type":        "object",
 			"title":       "fakeaction",
 			"description": "No description",
@@ -602,11 +602,11 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 		serviceNames: []string{"dummy"},
 		expectedResults: params.ServicesCharmActionsResults{
 			Results: []params.ServiceCharmActionsResult{
-				params.ServiceCharmActionsResult{
+				{
 					ServiceTag: names.NewServiceTag("dummy").String(),
 					Actions: &charm.Actions{
 						ActionSpecs: map[string]charm.ActionSpec{
-							"snapshot": charm.ActionSpec{
+							"snapshot": {
 								Description: "Take a snapshot of the database.",
 								Params:      actionSchemas["snapshot"],
 							},
@@ -619,11 +619,11 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 		serviceNames: []string{"wordpress"},
 		expectedResults: params.ServicesCharmActionsResults{
 			Results: []params.ServiceCharmActionsResult{
-				params.ServiceCharmActionsResult{
+				{
 					ServiceTag: names.NewServiceTag("wordpress").String(),
 					Actions: &charm.Actions{
 						ActionSpecs: map[string]charm.ActionSpec{
-							"fakeaction": charm.ActionSpec{
+							"fakeaction": {
 								Description: "No description",
 								Params:      actionSchemas["fakeaction"],
 							},
@@ -636,7 +636,7 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 		serviceNames: []string{"nonsense"},
 		expectedResults: params.ServicesCharmActionsResults{
 			Results: []params.ServiceCharmActionsResult{
-				params.ServiceCharmActionsResult{
+				{
 					ServiceTag: names.NewServiceTag("nonsense").String(),
 					Error: &params.Error{
 						Message: `service "nonsense" not found`,

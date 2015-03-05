@@ -4,9 +4,9 @@
 package storage
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
@@ -51,35 +51,31 @@ func NewAPI(
 func (api *API) Show(entities params.Entities) (params.StorageShowResults, error) {
 	all := make([]params.StorageShowResult, len(entities.Entities))
 	for i, entity := range entities.Entities {
-		all[i] = api.createStorageInstanceResult(entity.Tag)
+		instance, err := api.oneStorageInstance(entity.Tag)
+		if err == nil {
+			all[i].Result = instance
+		} else {
+			err := errors.Annotatef(err, "getting %v", entity.Tag)
+			all[i].Error = common.ServerError(err)
+		}
 	}
 	return params.StorageShowResults{Results: all}, nil
 }
 
-func (api *API) createStorageInstanceResult(tag string) params.StorageShowResult {
-	aTag, err := names.ParseTag(tag)
+func (api *API) oneStorageInstance(tag string) (params.StorageInstance, error) {
+	aTag, err := names.ParseStorageTag(tag)
 	if err != nil {
-		return params.StorageShowResult{
-			Error: params.ErrorResult{
-				Error: common.ServerError(errors.Annotatef(common.ErrPerm, "getting %v", tag))},
-		}
+		return params.StorageInstance{}, common.ErrPerm
 	}
-	stateInstance, err := api.storage.StorageInstance(aTag.Id())
+	stateStorageInstance, err := api.storage.StorageInstance(aTag)
 	if err != nil {
-		return params.StorageShowResult{
-			Error: params.ErrorResult{
-				Error: common.ServerError(errors.Annotatef(common.ErrPerm, "getting %v", tag))},
-		}
+		return params.StorageInstance{}, common.ErrPerm
 	}
-	return params.StorageShowResult{Result: api.getStorageInstance(stateInstance)}
-}
-
-func (api *API) getStorageInstance(si state.StorageInstance) params.StorageInstance {
+	// TODO(axw) get the avail/total size for the storage instance.
+	// TODO(axw) return attachments with the instance, including location.
 	return params.StorageInstance{
-		OwnerTag:    si.Owner().String(),
-		StorageTag:  si.Tag().String(),
-		StorageName: si.StorageName(),
-		Location:    "",
-		TotalSize:   0,
-	}
+		StorageTag: stateStorageInstance.Tag().String(),
+		OwnerTag:   stateStorageInstance.Owner().String(),
+		Kind:       params.StorageKind(stateStorageInstance.Kind()),
+	}, nil
 }

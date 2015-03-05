@@ -585,25 +585,30 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	}
 
 	// Create instances of the charm's declared stores.
-	storageInstanceOps, storageInstanceIds, err := s.unitStorageInstanceOps(name)
+	storageOps, numStorageAttachments, err := s.unitStorageOps(name)
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
 
 	docID := s.st.docID(name)
 	globalKey := unitGlobalKey(name)
+	agentGlobalKey := unitAgentGlobalKey(name)
 	udoc := &unitDoc{
-		DocID:            docID,
-		Name:             name,
-		EnvUUID:          s.doc.EnvUUID,
-		Service:          s.doc.Name,
-		Series:           s.doc.Series,
-		Life:             Alive,
-		Principal:        principalName,
-		StorageInstances: storageInstanceIds,
+		DocID:                  docID,
+		Name:                   name,
+		EnvUUID:                s.doc.EnvUUID,
+		Service:                s.doc.Name,
+		Series:                 s.doc.Series,
+		Life:                   Alive,
+		Principal:              principalName,
+		StorageAttachmentCount: numStorageAttachments,
 	}
-	sdoc := statusDoc{
+	agentStatusDoc := statusDoc{
 		Status:  StatusAllocating,
+		EnvUUID: s.st.EnvironUUID(),
+	}
+	unitStatusDoc := statusDoc{
+		Status:  StatusBusy,
 		EnvUUID: s.st.EnvironUUID(),
 	}
 	ops := []txn.Op{
@@ -613,7 +618,8 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 			Assert: txn.DocMissing,
 			Insert: udoc,
 		},
-		createStatusOp(s.st, globalKey, sdoc),
+		createStatusOp(s.st, globalKey, unitStatusDoc),
+		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
 		createMeterStatusOp(s.st, globalKey, &meterStatusDoc{Code: MeterNotSet}),
 		{
 			C:      servicesC,
@@ -622,7 +628,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 			Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
 		},
 	}
-	ops = append(ops, storageInstanceOps...)
+	ops = append(ops, storageOps...)
 
 	if s.doc.Subordinate {
 		ops = append(ops, txn.Op{
@@ -642,29 +648,32 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		if err != nil {
 			return "", nil, err
 		}
-		ops = append(ops, createConstraintsOp(s.st, globalKey, cons))
+		ops = append(ops, createConstraintsOp(s.st, agentGlobalKey, cons))
 	}
 	return name, ops, nil
 }
 
-// createUnitStorageInstanceOps returns transactions operations for
-// creating storage instances for a new unit.
-func (s *Service) unitStorageInstanceOps(unitName string) (ops []txn.Op, storageInstanceIds []string, err error) {
+// unitStorageOps returns operations for creating storage
+// instances and attachments for a new unit. unitStorageOps
+// returns the number of initial storage attachments, to
+// initialise the unit's storage attachment refcount.
+func (s *Service) unitStorageOps(unitName string) (ops []txn.Op, numStorageAttachments int, err error) {
 	cons, err := s.StorageConstraints()
 	if err != nil {
-		return nil, nil, err
+		return nil, -1, err
 	}
 	charm, _, err := s.Charm()
 	if err != nil {
-		return nil, nil, err
+		return nil, -1, err
 	}
 	meta := charm.Meta()
 	tag := names.NewUnitTag(unitName)
-	ops, storageInstanceIds, err = createStorageInstanceOps(s.st, tag, meta, cons)
+	// TODO(wallyworld) - record constraints info in data model - size and pool name
+	ops, numStorageAttachments, err = createStorageOps(s.st, tag, meta, cons)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, -1, errors.Trace(err)
 	}
-	return ops, storageInstanceIds, nil
+	return ops, numStorageAttachments, nil
 }
 
 // SCHEMACHANGE
@@ -725,7 +734,8 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		Assert: append(observedFieldsMatch, asserts...),
 		Remove: true,
 	},
-		removeConstraintsOp(s.st, u.globalKey()),
+		removeConstraintsOp(s.st, u.globalAgentKey()),
+		removeStatusOp(s.st, u.globalAgentKey()),
 		removeStatusOp(s.st, u.globalKey()),
 		removeMeterStatusOp(s.st, u.globalKey()),
 		annotationRemoveOp(s.st, u.globalKey()),

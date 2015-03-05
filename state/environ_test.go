@@ -78,7 +78,7 @@ func (s *EnvironSuite) TestNewEnvironment(c *gc.C) {
 	c.Assert(entity.Tag(), gc.Equals, envTag)
 
 	// Ensure the environment is functional by adding a machine
-	_, err = st.AddMachine("quantal", state.JobManageEnviron)
+	_, err = st.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -138,4 +138,28 @@ func (s *EnvironSuite) TestEnvironmentConfigDifferentEnvThanState(c *gc.C) {
 	c.Assert(exists, jc.IsTrue)
 	c.Assert(uuid, gc.Equals, env.UUID())
 	c.Assert(uuid, gc.Not(gc.Equals), s.State.EnvironUUID())
+}
+
+func (s *EnvironSuite) TestDestroyStateServerEnvironment(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *EnvironSuite) TestDestroyOtherEnvironment(c *gc.C) {
+	st2 := s.factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+	env, err := st2.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *EnvironSuite) TestDestroyStateServerEnvironmentFails(c *gc.C) {
+	st2 := s.factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy environment: state server environment cannot be destroyed before all other environments are destroyed")
 }

@@ -52,15 +52,37 @@ func (u *Unit) Refresh() error {
 	return nil
 }
 
-// SetStatus sets the status of the unit agent.
-func (u *Unit) SetStatus(status params.Status, info string, data map[string]interface{}) error {
+// SetUnitStatus sets the status of the unit.
+func (u *Unit) SetUnitStatus(status params.Status, info string, data map[string]interface{}) error {
+	if u.st.facade.BestAPIVersion() < 2 {
+		return errors.NotImplementedf("SetUnitStatus")
+	}
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
 			{Tag: u.tag.String(), Status: status, Info: info, Data: data},
 		},
 	}
-	err := u.st.facade.FacadeCall("SetStatus", args, &result)
+	err := u.st.facade.FacadeCall("SetUnitStatus", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return result.OneError()
+}
+
+// SetAgentStatus sets the status of the unit agent.
+func (u *Unit) SetAgentStatus(status params.Status, info string, data map[string]interface{}) error {
+	var result params.ErrorResults
+	args := params.SetStatus{
+		Entities: []params.EntityStatus{
+			{Tag: u.tag.String(), Status: status, Info: info, Data: data},
+		},
+	}
+	setStatusFacadeCall := "SetAgentStatus"
+	if u.st.facade.BestAPIVersion() < 2 {
+		setStatusFacadeCall = "SetStatus"
+	}
+	err := u.st.facade.FacadeCall(setStatusFacadeCall, args, &result)
 	if err != nil {
 		return err
 	}
@@ -647,4 +669,10 @@ func (u *Unit) WatchMeterStatus() (watcher.NotifyWatcher, error) {
 	}
 	w := watcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
 	return w, nil
+}
+
+// WatchStorage returns a watcher for observing changes to the
+// unit's storage attachments.
+func (u *Unit) WatchStorage() (watcher.StringsWatcher, error) {
+	return u.st.WatchUnitStorageAttachments(u.tag)
 }

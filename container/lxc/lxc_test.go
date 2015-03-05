@@ -37,10 +37,14 @@ import (
 	instancetest "github.com/juju/juju/instance/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/service"
 	coretesting "github.com/juju/juju/testing"
 )
 
 func Test(t *stdtesting.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("LXC is currently not supported on windows")
+	}
 	gc.TestingT(t)
 }
 
@@ -50,6 +54,7 @@ type LxcSuite struct {
 	events   chan mock.Event
 	useClone bool
 	useAUFS  bool
+	logDir   string
 }
 
 var _ = gc.Suite(&LxcSuite{})
@@ -83,6 +88,7 @@ more bogus content`
 
 func (s *LxcSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
+	s.logDir = c.MkDir()
 	loggo.GetLogger("juju.container.lxc").SetLogLevel(loggo.TRACE)
 	s.events = make(chan mock.Event, 25)
 	s.TestSuite.ContainerFactory.AddListener(s.events)
@@ -310,7 +316,7 @@ func (s *LxcSuite) TestUpdateContainerConfig(c *gc.C) {
 	err = configFile.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedConf := `
+	expectedConf := fmt.Sprintf(`
 # network config
 # interface "eth0"
 lxc.network.type = veth
@@ -330,8 +336,8 @@ lxc.network.name = eth1
 lxc.network.mtu = 4321
 
 
-lxc.mount.entry = /var/log/juju var/log/juju none defaults,bind 0 0
-` + strings.Join(extraLines, "\n") + "\n"
+lxc.mount.entry = %s var/log/juju none defaults,bind 0 0
+`, s.logDir) + strings.Join(extraLines, "\n") + "\n"
 
 	lxcConfContents, err := ioutil.ReadFile(configPath)
 	c.Assert(err, jc.ErrorIsNil)
@@ -589,6 +595,7 @@ func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
 	// Need to ensure use-clone is explicitly set to avoid it
 	// being set based on the OS version.
 	params["use-clone"] = fmt.Sprintf("%v", s.useClone)
+	params["log-dir"] = s.logDir
 	if s.useAUFS {
 		params["use-aufs"] = "true"
 	}
@@ -789,6 +796,28 @@ lxc.network.mtu = 4321
 	return template
 }
 
+func (s *LxcSuite) TestShutdownInitScript(c *gc.C) {
+	script, err := lxc.ShutdownInitScript(service.InitSystemUpstart)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(script, gc.Equals, `
+cat >> /etc/init/juju-template-restart.conf << 'EOF'
+description "juju shutdown job"
+author "Juju Team <juju@lists.ubuntu.com>"
+start on stopped cloud-final
+
+script
+  /sbin/shutdown -h now
+end script
+
+post-stop script
+  rm /etc/init/juju-template-restart.conf
+end script
+
+EOF
+`[1:])
+}
+
 func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplate(c *gc.C) {
 	s.createTemplate(c)
 	s.PatchValue(&s.useClone, true)
@@ -824,7 +853,7 @@ func (s *LxcSuite) TestCreateContainerWithCloneMountsAndAutostarts(c *gc.C) {
 	autostartLink := lxc.RestartSymlink(name)
 	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
 	c.Assert(err, jc.ErrorIsNil)
-	mountLine := "lxc.mount.entry = /var/log/juju var/log/juju none defaults,bind 0 0"
+	mountLine := fmt.Sprintf("lxc.mount.entry = %s var/log/juju none defaults,bind 0 0", s.logDir)
 	c.Assert(string(config), jc.Contains, mountLine)
 	c.Assert(autostartLink, jc.IsSymlink)
 }
@@ -919,7 +948,7 @@ func (s *LxcSuite) TestCreateContainerNoRestartDir(c *gc.C) {
 	autostartLink := lxc.RestartSymlink(name)
 	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
 	c.Assert(err, jc.ErrorIsNil)
-	expected := `
+	expected := fmt.Sprintf(`
 # network config
 # interface "eth0"
 lxc.network.type = veth
@@ -928,8 +957,8 @@ lxc.network.flags = up
 lxc.network.mtu = 4321
 
 lxc.start.auto = 1
-lxc.mount.entry = /var/log/juju var/log/juju none defaults,bind 0 0
-`
+lxc.mount.entry = %s var/log/juju none defaults,bind 0 0
+`, s.logDir)
 	c.Assert(string(config), gc.Equals, expected)
 	c.Assert(autostartLink, jc.DoesNotExist)
 }

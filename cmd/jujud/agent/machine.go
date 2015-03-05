@@ -23,6 +23,7 @@ import (
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
@@ -40,6 +41,7 @@ import (
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
@@ -53,7 +55,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
-	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -63,6 +64,7 @@ import (
 	"github.com/juju/juju/worker/charmrevisionworker"
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/worker/diskformatter"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/envworkermanager"
 	"github.com/juju/juju/worker/firewaller"
@@ -82,7 +84,6 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 const bootstrapMachineId = "0"
@@ -108,13 +109,16 @@ var (
 	getMetricAPI             = metricAPI
 )
 
+// Variable to override in tests, default is true
+var EnableJournaling = true
+
 func init() {
 	stateWorkerDialOpts = mongo.DefaultDialOpts()
 	stateWorkerDialOpts.PostDial = func(session *mgo.Session) error {
 		safe := mgo.Safe{
 			// Wait for group commit if journaling is enabled,
 			// which is always true in production.
-			J: true,
+			J: EnableJournaling,
 		}
 		_, err := replicaset.CurrentConfig(session)
 		if err == nil {
@@ -431,6 +435,14 @@ func (a *MachineAgent) BeginRestore() error {
 	return nil
 }
 
+// EndRestore will flag the agent to allow all commands
+// This being invoked means that restore process failed
+// since success restarts the agent.
+func (a *MachineAgent) EndRestore() {
+	a.restoreMode = false
+	a.restoring = false
+}
+
 // newrestorestatewatcherworker will return a worker or err if there is a failure,
 // the worker takes care of watching the state of restoreInfo doc and put the
 // agent in the different restore modes.
@@ -444,7 +456,7 @@ func (a *MachineAgent) newRestoreStateWatcherWorker(st *state.State) (worker.Wor
 // restoreChanged will be called whenever restoreInfo doc changes signaling a new
 // step in the restore process.
 func (a *MachineAgent) restoreChanged(st *state.State) error {
-	rinfo, err := st.EnsureRestoreInfo()
+	rinfo, err := st.RestoreInfoSetter()
 	if err != nil {
 		return errors.Annotate(err, "cannot read restore state")
 	}
@@ -453,6 +465,8 @@ func (a *MachineAgent) restoreChanged(st *state.State) error {
 		a.PrepareRestore()
 	case state.RestoreInProgress:
 		a.BeginRestore()
+	case state.RestoreFailed:
+		a.EndRestore()
 	}
 	return nil
 }
@@ -594,6 +608,15 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	}
 
 	runner := newConnRunner(st)
+	// TODO(fwereade): this is *still* a hideous layering violation, but at least
+	// it's confined to jujud rather than extending into the worker itself.
+	// Start this worker first to try and get proxy settings in place
+	// before we do anything else.
+	writeSystemFiles := shouldWriteProxyFiles(agentConfig)
+	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
+		return proxyupdater.New(st.Environment(), writeSystemFiles), nil
+	})
+
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
 	})
@@ -615,24 +638,24 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
 
-	// TODO(fwereade): this is *still* a hideous layering violation, but at least
-	// it's confined to jujud rather than extending into the worker itself.
-	writeSystemFiles := shouldWriteProxyFiles(agentConfig)
-	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
-		return proxyupdater.New(st.Environment(), writeSystemFiles), nil
-	})
-
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
 	// TODO(axw) stop checking feature flag once storage has graduated.
-	if featureflag.Enabled(storage.FeatureFlag) {
+	if featureflag.Enabled(feature.Storage) {
 		runner.StartWorker("diskmanager", func() (worker.Worker, error) {
 			api, err := st.DiskManager()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
+		})
+		runner.StartWorker("diskformatter", func() (worker.Worker, error) {
+			api, err := st.DiskFormatter()
+			if err != nil {
+				return nil, err
+			}
+			return diskformatter.NewWorker(api), nil
 		})
 	}
 
@@ -1352,7 +1375,10 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		agentServiceName = os.Getenv("UPSTART_JOB")
 	}
 	if agentServiceName != "" {
-		if err := service.NewService(agentServiceName, common.Conf{}).Remove(); err != nil {
+		svc, err := service.DiscoverService(agentServiceName, common.Conf{})
+		if err != nil {
+			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
+		} else if err := svc.Remove(); err != nil {
 			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
 	}

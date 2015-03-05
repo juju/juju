@@ -23,7 +23,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.environmentmanager")
 
 func init() {
-	common.RegisterStandardFacadeForFeature("EnvironmentManager", 1, NewEnvironmentManagerAPI, feature.MESS)
+	common.RegisterStandardFacadeForFeature("EnvironmentManager", 1, NewEnvironmentManagerAPI, feature.JES)
 }
 
 // EnvironmentManager defines the methods on the environmentmanager API end
@@ -89,6 +89,7 @@ var configValuesFromStateServer = []string{
 	"api-port",
 	"syslog-port",
 	"rsyslog-ca-cert",
+	"rsyslog-ca-key",
 }
 
 // ConfigSkeleton returns config values to be used as a starting point for the
@@ -186,6 +187,22 @@ func (em *EnvironmentManagerAPI) checkVersion(cfg map[string]interface{}) error 
 	return nil
 }
 
+func (em *EnvironmentManagerAPI) validConfig(attrs map[string]interface{}) (*config.Config, error) {
+	cfg, err := config.New(config.UseDefaults, attrs)
+	if err != nil {
+		return nil, errors.Annotate(err, "creating config from values failed")
+	}
+	provider, err := environs.Provider(cfg.Type())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, err = provider.Validate(cfg, nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "provider validation failed")
+	}
+	return cfg, nil
+}
+
 func (em *EnvironmentManagerAPI) newEnvironmentConfig(args params.EnvironmentCreateArgs, source ConfigSource) (*config.Config, error) {
 	// For now, we just smash to the two maps together as we store
 	// the account values and the environment config together in the
@@ -210,24 +227,38 @@ func (em *EnvironmentManagerAPI) newEnvironmentConfig(args params.EnvironmentCre
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Before comparing any values, we need to push the config through
+	// the provider validation code.  One of the reasons for this is that
+	// numbers being serialized through JSON get turned into float64. The
+	// schema code used in config will convert these back into integers.
+	// However, before we can create a valid config, we need to make sure
+	// we copy across fields from the main config that aren't there.
+	for _, field := range fields {
+		if _, found := joint[field]; !found {
+			if baseValue, found := baseMap[field]; found {
+				joint[field] = baseValue
+			}
+		}
+	}
 
+	cfg, err := em.validConfig(joint)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	attrs := cfg.AllAttrs()
 	// Any values that would normally be copied from the state server
 	// config can also be defined, but if they differ from the state server
 	// values, an error is returned.
 	for _, field := range fields {
-		if value, found := joint[field]; found {
+		if value, found := attrs[field]; found {
 			if serverValue := baseMap[field]; value != serverValue {
 				return nil, errors.Errorf(
 					"specified %s \"%v\" does not match apiserver \"%v\"",
 					field, value, serverValue)
 			}
-		} else {
-			if value, found := baseMap[field]; found {
-				joint[field] = value
-			}
 		}
 	}
-	if err := em.checkVersion(joint); err != nil {
+	if err := em.checkVersion(attrs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -236,16 +267,9 @@ func (em *EnvironmentManagerAPI) newEnvironmentConfig(args params.EnvironmentCre
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to generate environment uuid")
 	}
-	joint["uuid"] = uuid.String()
-	cfg, err := config.New(config.UseDefaults, joint)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	provider, err := environs.Provider(cfg.Type())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return provider.Validate(cfg, nil)
+	attrs["uuid"] = uuid.String()
+
+	return em.validConfig(attrs)
 }
 
 // CreateEnvironment creates a new environment using the account and

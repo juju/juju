@@ -93,8 +93,7 @@ type BootstrapParams struct {
 	AvailableTools tools.List
 
 	// ContainerBridgeName, if non-empty, overrides the default
-	// network bridge device to use for LXC and KVM containers. See
-	// environs.DefaultBridgeName.
+	// network bridge device to use for LXC and KVM containers.
 	ContainerBridgeName string
 }
 
@@ -160,7 +159,9 @@ type Environ interface {
 
 	// StateServerInstances returns the IDs of instances corresponding
 	// to Juju state servers. If there are no state server instances,
-	// ErrNotBootstrapped is returned.
+	// ErrNoInstances is returned. If it can be determined that the
+	// environment has not been bootstrapped, then ErrNotBootstrapped
+	// should be returned instead.
 	StateServerInstances() ([]instance.Id, error)
 
 	// Destroy shuts down all known machines and destroys the

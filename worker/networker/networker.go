@@ -12,10 +12,9 @@ import (
 	"sort"
 	"strings"
 
-	"launchpad.net/tomb"
-
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
 	apinetworker "github.com/juju/juju/api/networker"
@@ -35,7 +34,7 @@ const DefaultConfigBaseDir = "/etc/network"
 type Networker struct {
 	tomb tomb.Tomb
 
-	st  *apinetworker.State
+	st  apinetworker.State
 	tag names.MachineTag
 
 	// isVLANSupportInstalled is set to true when the VLAN kernel
@@ -81,7 +80,7 @@ var _ worker.Worker = (*Networker)(nil)
 // configuration. If there is no <configBasePath>/interfaces file, an
 // error is returned.
 func NewNetworker(
-	st *apinetworker.State,
+	st apinetworker.State,
 	agentConfig agent.Config,
 	intrusiveMode bool,
 	configBaseDir string,
@@ -297,7 +296,7 @@ func (nw *Networker) updateInterfaces() error {
 // commands to load the kernal 8021q VLAN module, if not already
 // loaded and when not running inside an LXC container.
 func (nw *Networker) fetchInterfaceInfo() error {
-	interfaceInfo, err := nw.st.MachineNetworkInfo(nw.tag)
+	interfaceInfo, err := nw.st.MachineNetworkConfig(nw.tag)
 	if err != nil {
 		logger.Errorf("failed to retrieve network info: %v", err)
 		return err
