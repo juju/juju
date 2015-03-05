@@ -13,6 +13,7 @@ import string
 import subprocess
 import sys
 from time import sleep
+import json
 
 from jujuconfig import (
     get_jenv_path,
@@ -285,15 +286,30 @@ def dump_euca_console(host_id, directory):
                          stdout=console_file)
 
 
+def assess_juju_run(env):
+    responses = env.client.get_juju_output(env, 'run', '--format',
+                                           'json', '--machine', '1,2', 'uname')
+    responses = json.loads(responses)
+    for machine in responses:
+        if machine.get('ReturnCode', 0) != 0:
+            raise ValueError('juju run on machine %s returned %d: %s' % (
+                             machine.get('MachineId'),
+                             machine.get('ReturnCode'),
+                             machine.get('Stderr')))
+    return responses
+
+
 def test_upgrade(old_env):
     env = Environment.from_config(old_env.environment)
     env.client.debug = old_env.client.debug
+    assess_juju_run(env)
     upgrade_juju(env)
     if env.config['type'] == 'maas':
         timeout = 1200
     else:
         timeout = 600
     env.wait_for_version(env.get_matching_agent_version(), timeout)
+    assess_juju_run(env)
 
 
 def upgrade_juju(environment):
