@@ -341,7 +341,7 @@ def get_job_instances(job_name):
 
 
 def add_path_args(parser):
-    parser.add_argument('--new-juju-bin', default=False,
+    parser.add_argument('--new-juju-bin', default=None,
                         help='Dirctory containing the new Juju binary.')
     parser.add_argument('--run-startup', help='Run common-startup.sh.',
                         action='store_true', default=False)

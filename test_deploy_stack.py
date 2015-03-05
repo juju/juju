@@ -73,6 +73,12 @@ class ArgParserTestCase(TestCase):
         expected = {'run_startup': False, 'new_juju_bin': '/tmp/juju'}
         self.assertEqual(args_dict, expected)
 
+    def test_add_path_args_new_juju_bin_default(self):
+        parser = ArgumentParser('foo')
+        add_path_args(parser)
+        args = parser.parse_args([])
+        self.assertIs(args.new_juju_bin, None)
+
     def test_add_output_args(self):
         parser = ArgumentParser('proc')
         add_output_args(parser)
