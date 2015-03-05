@@ -315,36 +315,32 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 
 func (s *MongoSuite) TestNewServiceWithReplSet(c *gc.C) {
 	dataDir := c.MkDir()
-
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
+	conf := mongo.NewServiceConf(mongo.NewTestMongodOptions(dataDir, false))
 	c.Assert(strings.Contains(conf.ExecStart, "--replSet"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestNewServiceWithNumCtl(c *gc.C) {
 	dataDir := c.MkDir()
-
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, true)
+	conf := mongo.NewServiceConf(mongo.NewTestMongodOptions(dataDir, true))
 	c.Assert(conf.ExtraScript, gc.Not(gc.Matches), "")
 }
 
 func (s *MongoSuite) TestNewServiceIPv6(c *gc.C) {
 	dataDir := c.MkDir()
-
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
+	conf := mongo.NewServiceConf(mongo.NewTestMongodOptions(dataDir, false))
 	c.Assert(strings.Contains(conf.ExecStart, "--ipv6"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestNewServiceWithJournal(c *gc.C) {
 	dataDir := c.MkDir()
-
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
+	conf := mongo.NewServiceConf(mongo.NewTestMongodOptions(dataDir, false))
 	c.Assert(conf.ExecStart, gc.Matches, `.* --journal.*`)
 }
 
 func (s *MongoSuite) TestNoAuthCommandWithJournal(c *gc.C) {
 	dataDir := c.MkDir()
 
-	cmd, err := mongo.NoauthCommand(dataDir, 1234)
+	cmd, err := mongo.NoauthCommand(dataDir, dataDir, 1234)
 	c.Assert(err, jc.ErrorIsNil)
 	var isJournalPresent bool
 	for _, value := range cmd.Args {

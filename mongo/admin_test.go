@@ -64,14 +64,14 @@ func (s *adminSuite) TestEnsureAdminUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	gitjujutesting.AssertEchoArgs(c, "mongod",
 		"--noauth",
-		"--dbpath", "db",
+		"--dbpath", "'db'",
 		"--sslOnNormalPorts",
-		"--sslPEMKeyFile", "server.pem",
+		"--sslPEMKeyFile", "'server.pem'",
 		"--sslPEMKeyPassword", "ignored",
 		"--bind_ip", "127.0.0.1",
 		"--port", portString,
 		"--noprealloc",
-		"--syslog",
+		"--logpath", "'db.log'",
 		"--smallfiles",
 		"--journal",
 	)

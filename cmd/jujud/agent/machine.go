@@ -1253,6 +1253,7 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added boo
 		DialInfo:  dialInfo,
 		Namespace: agentConfig.Value(agent.Namespace),
 		DataDir:   agentConfig.DataDir(),
+		LogDir:    agentConfig.LogDir(),
 		Port:      servingInfo.StatePort,
 		User:      stateInfo.Tag.String(),
 		Password:  stateInfo.Password,
