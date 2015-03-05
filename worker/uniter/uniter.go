@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	coreleadership "github.com/juju/juju/leadership"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -58,7 +59,7 @@ type Uniter struct {
 	operationFactory  operation.Factory
 	operationExecutor operation.Executor
 
-	leadershipManager leadership.Manager
+	leadershipManager coreleadership.LeadershipManager
 	leadershipTracker leadership.Tracker
 
 	hookLock    *fslock.Lock
@@ -81,7 +82,7 @@ type Uniter struct {
 func NewUniter(
 	st *uniter.State,
 	unitTag names.UnitTag,
-	leadershipManager leadership.Manager,
+	leadershipManager coreleadership.LeadershipManager,
 	dataDir string,
 	hookLock *fslock.Lock,
 ) *Uniter {
