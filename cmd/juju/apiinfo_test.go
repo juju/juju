@@ -30,6 +30,7 @@ func (s *APIInfoSuite) TestArgParsing(c *gc.C) {
 		cacert   bool
 		servers  bool
 		envuuid  bool
+		srvuuid  bool
 		errMatch string
 	}{
 		{
@@ -38,6 +39,7 @@ func (s *APIInfoSuite) TestArgParsing(c *gc.C) {
 			cacert:  true,
 			servers: true,
 			envuuid: true,
+			srvuuid: true,
 		}, {
 			message:  "password shown if user specifies",
 			args:     []string{"--password"},
@@ -46,6 +48,7 @@ func (s *APIInfoSuite) TestArgParsing(c *gc.C) {
 			cacert:   true,
 			servers:  true,
 			envuuid:  true,
+			srvuuid:  true,
 		}, {
 			message: "refresh the cache",
 			args:    []string{"--refresh"},
@@ -54,6 +57,7 @@ func (s *APIInfoSuite) TestArgParsing(c *gc.C) {
 			cacert:  true,
 			servers: true,
 			envuuid: true,
+			srvuuid: true,
 		}, {
 			message: "just show the user field",
 			args:    []string{"user"},
@@ -74,6 +78,10 @@ func (s *APIInfoSuite) TestArgParsing(c *gc.C) {
 			message: "just show the envuuid field",
 			args:    []string{"environ-uuid"},
 			envuuid: true,
+		}, {
+			message: "just show the srvuuid field",
+			args:    []string{"server-uuid"},
+			srvuuid: true,
 		}, {
 			message:  "show the user and password field",
 			args:     []string{"user", "password"},
@@ -100,6 +108,7 @@ func (s *APIInfoSuite) TestArgParsing(c *gc.C) {
 			c.Check(command.cacert, gc.Equals, test.cacert)
 			c.Check(command.servers, gc.Equals, test.servers)
 			c.Check(command.envuuid, gc.Equals, test.envuuid)
+			c.Check(command.srvuuid, gc.Equals, test.srvuuid)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errMatch)
 		}
@@ -112,6 +121,7 @@ func (s *APIInfoSuite) TestOutput(c *gc.C) {
 			Addresses:   []string{"localhost:12345", "10.0.3.1:12345"},
 			CACert:      "this is the cacert",
 			EnvironUUID: "deadbeef-dead-beef-dead-deaddeaddead",
+			ServerUUID:  "bad0f00d-dead-beef-0000-01234567899a",
 		}, nil
 	})
 	s.PatchValue(&creds, func(c envcmd.EnvCommandBase) (configstore.APICredentials, error) {
@@ -130,6 +140,7 @@ func (s *APIInfoSuite) TestOutput(c *gc.C) {
 			output: "" +
 				"user: tester\n" +
 				"environ-uuid: deadbeef-dead-beef-dead-deaddeaddead\n" +
+				"server-uuid: bad0f00d-dead-beef-0000-01234567899a\n" +
 				"state-servers:\n" +
 				"- localhost:12345\n" +
 				"- 10.0.3.1:12345\n" +
@@ -140,6 +151,7 @@ func (s *APIInfoSuite) TestOutput(c *gc.C) {
 				"user: tester\n" +
 				"password: sekrit\n" +
 				"environ-uuid: deadbeef-dead-beef-dead-deaddeaddead\n" +
+				"server-uuid: bad0f00d-dead-beef-0000-01234567899a\n" +
 				"state-servers:\n" +
 				"- localhost:12345\n" +
 				"- 10.0.3.1:12345\n" +
@@ -149,6 +161,7 @@ func (s *APIInfoSuite) TestOutput(c *gc.C) {
 			output: "" +
 				"user: tester\n" +
 				"environ-uuid: deadbeef-dead-beef-dead-deaddeaddead\n" +
+				"server-uuid: bad0f00d-dead-beef-0000-01234567899a\n" +
 				"state-servers:\n" +
 				"- localhost:12345\n" +
 				"- 10.0.3.1:12345\n" +
@@ -157,6 +170,7 @@ func (s *APIInfoSuite) TestOutput(c *gc.C) {
 			args: []string{"--format=json"},
 			output: `{"user":"tester",` +
 				`"environ-uuid":"deadbeef-dead-beef-dead-deaddeaddead",` +
+				`"server-uuid":"bad0f00d-dead-beef-0000-01234567899a",` +
 				`"state-servers":["localhost:12345","10.0.3.1:12345"],` +
 				`"ca-cert":"this is the cacert"}` + "\n",
 		}, {
@@ -207,6 +221,34 @@ func (s *APIInfoSuite) TestOutput(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, test.errMatch)
 		}
 	}
+}
+
+func (s *APIInfoSuite) TestOutputNoServerUUID(c *gc.C) {
+	s.PatchValue(&endpoint, func(c envcmd.EnvCommandBase, refresh bool) (configstore.APIEndpoint, error) {
+		return configstore.APIEndpoint{
+			Addresses:   []string{"localhost:12345", "10.0.3.1:12345"},
+			CACert:      "this is the cacert",
+			EnvironUUID: "deadbeef-dead-beef-dead-deaddeaddead",
+		}, nil
+	})
+	s.PatchValue(&creds, func(c envcmd.EnvCommandBase) (configstore.APICredentials, error) {
+		return configstore.APICredentials{
+			User:     "tester",
+			Password: "sekrit",
+		}, nil
+	})
+
+	expected := "" +
+		"user: tester\n" +
+		"environ-uuid: deadbeef-dead-beef-dead-deaddeaddead\n" +
+		"state-servers:\n" +
+		"- localhost:12345\n" +
+		"- 10.0.3.1:12345\n" +
+		"ca-cert: this is the cacert\n"
+	command := &APIInfoCommand{}
+	ctx, err := testing.RunCommand(c, envcmd.Wrap(command))
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(testing.Stdout(ctx), gc.Equals, expected)
 }
 
 func (s *APIInfoSuite) TestEndpointError(c *gc.C) {

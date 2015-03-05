@@ -13,7 +13,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"gopkg.in/amz.v2/aws"
+	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -43,17 +43,18 @@ var testAuth = aws.Auth{"gopher", "long teeth"}
 // when mutated by the mutate function, or that the parse matches the
 // given error.
 type configTest struct {
-	config        map[string]interface{}
-	change        map[string]interface{}
-	expect        map[string]interface{}
-	region        string
-	cbucket       string
-	pbucket       string
-	pbucketRegion string
-	accessKey     string
-	secretKey     string
-	firewallMode  string
-	err           string
+	config             map[string]interface{}
+	change             map[string]interface{}
+	expect             map[string]interface{}
+	region             string
+	cbucket            string
+	pbucket            string
+	pbucketRegion      string
+	accessKey          string
+	secretKey          string
+	firewallMode       string
+	blockStorageSource string
+	err                string
 }
 
 type attrs map[string]interface{}
@@ -203,6 +204,14 @@ var configTests = []configTest{
 		config:       attrs{},
 		firewallMode: config.FwInstance,
 	}, {
+		config:             attrs{},
+		blockStorageSource: "ebs",
+	}, {
+		config: attrs{
+			"default-block-storage-source": "ebs-fast",
+		},
+		blockStorageSource: "ebs-fast",
+	}, {
 		config: attrs{
 			"firewall-mode": "instance",
 		},
@@ -291,6 +300,28 @@ func (s *ConfigSuite) TestMissingAuth(c *gc.C) {
 	test := configTests[0]
 	test.err = ".*environment has no access-key or secret-key"
 	test.check(c)
+}
+
+func (s *ConfigSuite) TestPrepareForCreateInsertsUniqueControlBucket(c *gc.C) {
+	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type": "ec2",
+	})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg1, err := providerInstance.PrepareForCreateEnvironment(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	bucket1 := cfg1.UnknownAttrs()["control-bucket"]
+	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
+
+	cfg2, err := providerInstance.PrepareForCreateEnvironment(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	bucket2 := cfg2.UnknownAttrs()["control-bucket"]
+	c.Assert(bucket2, gc.Matches, "[a-f0-9]{32}")
+
+	c.Assert(bucket1, gc.Not(gc.Equals), bucket2)
 }
 
 func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {

@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	"gopkg.in/amz.v2/ec2"
+	"gopkg.in/amz.v3/ec2"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/storage"

@@ -9,8 +9,15 @@ import (
 )
 
 const (
-	ConfigName       = "name"
-	ConfigLogDir     = "log-dir"
+	ConfigName   = "name"
+	ConfigLogDir = "log-dir"
+
+	// ConfigIPForwarding, if set to a non-empty value, instructs the
+	// container manager to enable IP forwarding as part of the
+	// container initialization. Will be enabled if the enviroment
+	// supports networking.
+	ConfigIPForwarding = "ip-forwarding"
+
 	DefaultNamespace = "juju"
 )
 

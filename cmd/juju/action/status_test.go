@@ -41,7 +41,7 @@ func (s *StatusSuite) TestRun(c *gc.C) {
 	args := []string{prefix}
 	result := []params.ActionResult{{Status: fakestatus}}
 
-	errNotSpecified := "no action identifier specified"
+	errNotSpecified := "no action ID specified"
 	errNotFound := `actions for identifier "` + prefix + `" not found`
 	errNotRecognized := `identifier "` + prefix + `" got unrecognized entity tags .*`
 	errMultipleMatches := `identifier "` + prefix + `" matched multiple actions .*`

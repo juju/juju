@@ -61,6 +61,12 @@ func (s *tmpfsSuite) TestValidateConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *tmpfsSuite) TestSupports(c *gc.C) {
+	p := s.tmpfsProvider(c)
+	c.Assert(p.Supports(storage.StorageKindBlock), jc.IsFalse)
+	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsTrue)
+}
+
 func (s *tmpfsSuite) tmpfsFilesystemSource(c *gc.C) storage.FilesystemSource {
 	s.commands = &mockRunCommand{c: c}
 	return provider.TmpfsFilesystemSource(

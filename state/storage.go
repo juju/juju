@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
@@ -16,9 +17,11 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 )
 
@@ -178,7 +181,7 @@ type storageAttachmentDoc struct {
 	EnvUUID string `bson:"env-uuid"`
 
 	Unit            string `bson:"unitid"`
-	StorageInstance string `bson:"storageinstanceid"`
+	StorageInstance string `bson:"storageid"`
 	Life            Life   `bson:"life"`
 
 	Info *StorageAttachmentInfo `bson:"info"`
@@ -687,6 +690,17 @@ func readStorageConstraints(st *State, key string) (map[string]StorageConstraint
 	return doc.Constraints, nil
 }
 
+func storageKind(storageType charm.StorageType) storage.StorageKind {
+	kind := storage.StorageKindUnknown
+	switch storageType {
+	case charm.StorageBlock:
+		kind = storage.StorageKindBlock
+	case charm.StorageFilesystem:
+		kind = storage.StorageKindFilesystem
+	}
+	return kind
+}
+
 func validateStorageConstraints(st *State, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
 	// TODO(axw) stop checking feature flag once storage has graduated.
 	if !featureflag.Enabled(feature.Storage) {
@@ -716,30 +730,16 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 				charmMeta.Name, name, charmStorage.CountMax, cons.Count,
 			)
 		}
-		// TODO - use charm min size when available
-		if cons.Size == 0 {
-			// TODO(axw) this doesn't really belong in a validation
-			// method. We should separate setting defaults from
-			// validating, the latter of which should be non-modifying.
-			cons.Size = 1024
+		if charmStorage.MinimumSize > 0 && cons.Size < charmStorage.MinimumSize {
+			return errors.Errorf(
+				"charm %q store %q: minimum storage size is %s, %s specified",
+				charmMeta.Name, name, humanize.Bytes(charmStorage.MinimumSize*humanize.MByte), humanize.Bytes(cons.Size*humanize.MByte),
+			)
 		}
-		kind := storage.StorageKindUnknown
-		switch charmStorage.Type {
-		case charm.StorageBlock:
-			kind = storage.StorageKindBlock
-		case charm.StorageFilesystem:
-			kind = storage.StorageKindFilesystem
-		}
-		if poolName, err := validateStoragePool(st, cons.Pool, kind); err != nil {
-			if err == ErrNoDefaultStoragePool {
-				err = errors.Maskf(err, "no storage pool specified and no default available for %q storage", name)
-			}
+		kind := storageKind(charmStorage.Type)
+		if err := validateStoragePool(st, cons.Pool, kind); err != nil {
 			return err
-		} else {
-			cons.Pool = poolName
 		}
-		// Replace in case pool or size were updated.
-		allCons[name] = cons
 	}
 	// Ensure all stores have constraints specified. Defaults should have
 	// been set by this point, if the user didn't specify constraints.
@@ -751,48 +751,146 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 	return nil
 }
 
-// ErrNoDefaultStoragePool is returned when a storage pool is required but none
-// is specified nor available as a default.
-var ErrNoDefaultStoragePool = fmt.Errorf("no storage pool specifed and no default available")
+func validateStoragePool(st *State, poolName string, kind storage.StorageKind) error {
+	if poolName == "" {
+		return errors.New("pool name is required")
+	}
+	providerType, provider, err := poolStorageProvider(st, poolName)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-func validateStoragePool(st *State, poolName string, kind storage.StorageKind) (string, error) {
+	// Ensure the storage provider supports the specified kind.
+	var kindSupported bool
+	switch kind {
+	case storage.StorageKindFilesystem:
+		// Filesystems can be created if either filesystem or block
+		// storage are supported.
+		if provider.Supports(storage.StorageKindBlock) {
+			kindSupported = true
+			break
+		}
+		fallthrough
+	default:
+		kindSupported = provider.Supports(kind)
+	}
+	if !kindSupported {
+		return errors.Errorf("%q provider does not support %q storage", providerType, kind)
+	}
+
+	// Ensure the pool type is supported by the environment.
 	conf, err := st.EnvironConfig()
 	if err != nil {
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
 	envType := conf.Type()
-	// If no pool specified, use the default if registered.
-	if poolName == "" {
-		defaultPool, ok := registry.DefaultPool(envType, kind)
-		if ok {
-			logger.Infof("no storage pool specified, using default pool %q", defaultPool)
-			poolName = defaultPool
-		} else {
-			return "", ErrNoDefaultStoragePool
-		}
-	}
-	// Ensure the pool type is supported by the environment.
-	var providerType storage.ProviderType
-	pm := poolmanager.New(NewStateSettings(st))
-	p, err := pm.Get(poolName)
-	// If there's no pool called poolName, maybe a provider type has been specified directly.
-	if errors.IsNotFound(err) {
-		providerType = storage.ProviderType(poolName)
-		if _, err1 := registry.StorageProvider(providerType); err1 != nil {
-			return "", errors.Trace(err)
-		}
-	} else if err != nil {
-		return "", errors.Trace(err)
-	} else {
-		providerType = p.Provider()
-	}
 	if !registry.IsProviderSupported(envType, providerType) {
-		return "", errors.Errorf(
+		return errors.Errorf(
 			"pool %q uses storage provider %q which is not supported for environments of type %q",
 			poolName,
 			providerType,
 			envType,
 		)
 	}
-	return poolName, nil
+	return nil
+}
+
+func poolStorageProvider(st *State, poolName string) (storage.ProviderType, storage.Provider, error) {
+	poolManager := poolmanager.New(NewStateSettings(st))
+	pool, err := poolManager.Get(poolName)
+	if errors.IsNotFound(err) {
+		// If there's no pool called poolName, maybe a provider type
+		// has been specified directly.
+		providerType := storage.ProviderType(poolName)
+		provider, err1 := registry.StorageProvider(providerType)
+		if err1 != nil {
+			// The name can't be resolved as a storage provider type,
+			// so return the original "pool not found" error.
+			return "", nil, errors.Trace(err)
+		}
+		return providerType, provider, nil
+	} else if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	providerType := pool.Provider()
+	provider, err := registry.StorageProvider(providerType)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	return providerType, provider, nil
+}
+
+// ErrNoDefaultStoragePool is returned when a storage pool is required but none
+// is specified nor available as a default.
+var ErrNoDefaultStoragePool = fmt.Errorf("no storage pool specifed and no default available")
+
+// addDefaultStorageConstraints fills in default constraint values, replacing any empty/missing values
+// in the specified constraints.
+func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
+	// TODO(axw) stop checking feature flag once storage has graduated.
+	if !featureflag.Enabled(feature.Storage) {
+		return nil
+	}
+	conf, err := st.EnvironConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if allCons == nil {
+		allCons = make(map[string]StorageConstraints)
+	}
+	for name, charmStorage := range charmMeta.Storage {
+		cons := allCons[name]
+		kind := storageKind(charmStorage.Type)
+		var err error
+		cons, err = storageConstraintsWithDefaults(conf, kind, charmStorage, cons)
+		if err != nil {
+			if err == ErrNoDefaultStoragePool {
+				err = errors.Maskf(err, "no storage pool specified and no default available for %q storage", name)
+			}
+			return err
+		}
+		// Replace in case pool or size were updated.
+		allCons[name] = cons
+	}
+	return nil
+}
+
+// storageConstraintsWithDefaults returns a constraints derived from cons, with any defaults filled in.
+func storageConstraintsWithDefaults(cfg *config.Config, kind storage.StorageKind,
+	charmStorage charm.Storage, cons StorageConstraints,
+) (StorageConstraints, error) {
+	withDefaults := cons
+	if cons.Pool == "" {
+		poolName, err := defaultStoragePool(cfg, kind)
+		if err != nil {
+			return withDefaults, errors.Annotatef(err, "finding default stoage pool")
+		}
+		withDefaults.Pool = poolName
+	}
+	if cons.Size == 0 {
+		if charmStorage.MinimumSize > 0 {
+			withDefaults.Size = charmStorage.MinimumSize
+		} else {
+			withDefaults.Size = 1024
+		}
+	}
+	if cons.Count == 0 {
+		withDefaults.Count = uint64(charmStorage.CountMin)
+	}
+	return withDefaults, nil
+}
+
+// defaultStoragePool returns the default storage pool for the environment.
+// The default pool is either user specified, or one that is registered by the provider itself.
+func defaultStoragePool(cfg *config.Config, kind storage.StorageKind) (string, error) {
+	switch kind {
+	case storage.StorageKindBlock:
+		defaultPool, ok := cfg.StorageDefaultBlockSource()
+		if !ok {
+			defaultPool = string(provider.LoopProviderType)
+		}
+		return defaultPool, nil
+	}
+	return "", ErrNoDefaultStoragePool
 }

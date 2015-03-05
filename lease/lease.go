@@ -237,7 +237,7 @@ func (m *leaseManager) expireLeases(
 			// minimum time we should wait before cleaning up again.
 			if nextExpiration.After(token.Expiration) {
 				nextExpiration = token.Expiration
-				logger.Debugf("Setting next expiration to %s\n", nextExpiration)
+				logger.Debugf("Setting next expiration to %s", nextExpiration)
 			}
 			continue
 		}

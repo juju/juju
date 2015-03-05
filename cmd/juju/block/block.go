@@ -4,78 +4,47 @@
 package block
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-// BlockCommand blocks specified operation.
-type BlockCommand struct {
-	ProtectionCommand
+// BaseBlockCommand is base command for all
+// commands that enable blocks.
+type BaseBlockCommand struct {
+	envcmd.EnvCommandBase
 	desc string
-}
-
-var (
-	// blockDocEnding - ending of block doc
-	blockDocEnding = `
-
-Examples:
-   To prevent the environment from being destroyed:
-   juju block destroy-environment
-
-   To prevent the machines, services, units and relations from being removed:
-   juju block remove-object
-
-   To prevent changes to the environment:
-   juju block all-changes
-
-See Also:
-   juju help unblock
-
-`
-	// blockDoc formatted block doc
-	blockDoc = fmt.Sprintf(blockBaseDoc, "blocked", blockDocEnding)
-)
-
-// Info provides information about command.
-// Satisfying Command interface.
-func (c *BlockCommand) Info() *cmd.Info {
-	return &cmd.Info{
-		Name:    "block",
-		Args:    blockArgsFmt,
-		Purpose: "block an operation that would alter a running environment",
-		Doc:     blockDoc,
-	}
 }
 
 // Init initializes the command.
 // Satisfying Command interface.
-func (c *BlockCommand) Init(args []string) error {
-	if err := c.assignValidOperation("block", args); err != nil {
-		return err
+func (c *BaseBlockCommand) Init(args []string) error {
+	if len(args) > 1 {
+		return errors.Trace(errors.New("can only specify block message"))
 	}
 
-	if len(args) > 2 {
-		return errors.Trace(errors.New("can only specify block type and its message"))
-	}
-
-	if len(args) == 2 {
-		c.desc = args[1]
+	if len(args) == 1 {
+		c.desc = args[0]
 	}
 	return nil
 }
 
-// Run blocks commands from running successfully.
-// Satisfying Command interface.
-func (c *BlockCommand) Run(_ *cmd.Context) error {
+// internalRun blocks commands from running successfully.
+func (c *BaseBlockCommand) internalRun(operation string) error {
 	client, err := getBlockClientAPI(c)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer client.Close()
 
-	return client.SwitchBlockOn(TranslateOperation(c.operation), c.desc)
+	return client.SwitchBlockOn(TypeFromOperation(operation), c.desc)
+}
+
+// SetFlags implements Command.SetFlags.
+func (c *BaseBlockCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.EnvCommandBase.SetFlags(f)
 }
 
 // BlockClientAPI defines the client API methods that block command uses.
@@ -84,6 +53,148 @@ type BlockClientAPI interface {
 	SwitchBlockOn(blockType, msg string) error
 }
 
-var getBlockClientAPI = func(p *BlockCommand) (BlockClientAPI, error) {
-	return p.NewBlockAPI()
+var getBlockClientAPI = func(p *BaseBlockCommand) (BlockClientAPI, error) {
+	return getBlockAPI(&p.EnvCommandBase)
+}
+
+// DestroyCommand blocks destroy environment.
+type DestroyCommand struct {
+	BaseBlockCommand
+}
+
+var destroyBlockDoc = `
+
+This command allows to block environment destruction. 
+
+To disable the block, run unblock command - see "juju help unblock". 
+To by-pass the block, run destroy-enviornment with --force option.
+
+"juju block destroy-environment" only blocks destroy-environment command.
+   
+Examples:
+   To prevent the environment from being destroyed:
+   juju block destroy-environment
+
+`
+
+// Info provides information about command.
+// Satisfying Command interface.
+func (c *DestroyCommand) Info() *cmd.Info {
+	return &cmd.Info{
+		Name:    "destroy-environment",
+		Purpose: "block an operation that would destroy Juju environment",
+		Doc:     destroyBlockDoc,
+	}
+}
+
+// Satisfying Command interface.
+func (c *DestroyCommand) Run(_ *cmd.Context) error {
+	return c.internalRun(c.Info().Name)
+}
+
+// RemoveCommand blocks commands that remove juju objects.
+type RemoveCommand struct {
+	BaseBlockCommand
+}
+
+var removeBlockDoc = `
+
+This command allows to block all operations that would remove an object 
+from Juju environment.
+
+To disable the block, run unblock command - see "juju help unblock". 
+To by-pass the block, where available, run desired remove command with --force option.
+
+"juju block remove-object" blocks these commands:
+    destroy-environment
+    remove-machine
+    remove-relation
+    remove-service
+    remove-unit
+   
+Examples:
+   To prevent the machines, services, units and relations from being removed:
+   juju block remove-object
+
+`
+
+// Info provides information about command.
+// Satisfying Command interface.
+func (c *RemoveCommand) Info() *cmd.Info {
+	return &cmd.Info{
+		Name:    "remove-object",
+		Purpose: "block an operation that would remove an object",
+		Doc:     removeBlockDoc,
+	}
+}
+
+// Satisfying Command interface.
+func (c *RemoveCommand) Run(_ *cmd.Context) error {
+	return c.internalRun(c.Info().Name)
+}
+
+// ChangeCommand blocks commands that may change environment.
+type ChangeCommand struct {
+	BaseBlockCommand
+}
+
+var changeBlockDoc = `
+
+This command allows to block all operations that would alter
+Juju environment.
+
+To disable the block, run unblock command - see "juju help unblock". 
+To by-pass the block, where available, run desired remove command with --force option.
+
+"juju block all-changes" blocks these commands:
+    add-machine
+    add-relation
+    add-unit
+    authorised-keys add
+    authorised-keys delete
+    authorised-keys import
+    deploy
+    destroy-environment
+    ensure-availability
+    expose
+    remove-machine
+    remove-relation
+    remove-service
+    remove-unit
+    resolved
+    retry-provisioning
+    run
+    set
+    set-constraints
+    set-env
+    sync-tools
+    unexpose
+    unset
+    unset-env
+    upgrade-charm
+    upgrade-juju
+    user add
+    user change-password
+    user disable
+    user enable
+   
+Examples:
+   To prevent changes to the environment:
+   juju block all-changes
+
+`
+
+// Info provides information about command.
+// Satisfying Command interface.
+func (c *ChangeCommand) Info() *cmd.Info {
+	return &cmd.Info{
+		Name:    "all-changes",
+		Purpose: "block operations that could change Juju environment",
+		Doc:     changeBlockDoc,
+	}
+}
+
+// Satisfying Command interface.
+func (c *ChangeCommand) Run(_ *cmd.Context) error {
+	return c.internalRun(c.Info().Name)
 }

@@ -40,6 +40,11 @@ type State struct {
 	// environTag holds the environment tag once we're connected
 	environTag string
 
+	// serverTag holds the server tag once we're connected.
+	// This is only set with newer apiservers where they are using
+	// the v1 login mechansim.
+	serverTag string
+
 	// hostPorts is the API server addresses returned from Login,
 	// which the client may cache and use for failover.
 	hostPorts [][]network.HostPort
@@ -328,6 +333,11 @@ func (s *State) Addr() string {
 // EnvironTag returns the tag of the environment we are connected to.
 func (s *State) EnvironTag() (names.EnvironTag, error) {
 	return names.ParseEnvironTag(s.environTag)
+}
+
+// ServerTag returns the tag of the server we are connected to.
+func (s *State) ServerTag() (names.EnvironTag, error) {
+	return names.ParseEnvironTag(s.serverTag)
 }
 
 // APIHostPorts returns addresses that may be used to connect

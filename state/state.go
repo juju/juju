@@ -67,23 +67,25 @@ const (
 	// actionsC.
 	actionresultsC = "actionresults"
 
-	usersC              = "users"
-	envUsersC           = "envusers"
-	presenceC           = "presence"
-	cleanupsC           = "cleanups"
-	annotationsC        = "annotations"
-	statusesC           = "statuses"
-	stateServersC       = "stateServers"
-	openedPortsC        = "openedPorts"
-	metricsC            = "metrics"
-	upgradeInfoC        = "upgradeInfo"
-	rebootC             = "reboot"
-	blockDevicesC       = "blockdevices"
-	storageAttachmentsC = "storageattachments"
-	storageConstraintsC = "storageconstraints"
-	storageInstancesC   = "storageinstances"
-	volumesC            = "volumes"
-	volumeAttachmentsC  = "volumeattachments"
+	usersC                 = "users"
+	envUsersC              = "envusers"
+	presenceC              = "presence"
+	cleanupsC              = "cleanups"
+	annotationsC           = "annotations"
+	statusesC              = "statuses"
+	stateServersC          = "stateServers"
+	openedPortsC           = "openedPorts"
+	metricsC               = "metrics"
+	upgradeInfoC           = "upgradeInfo"
+	rebootC                = "reboot"
+	blockDevicesC          = "blockdevices"
+	storageAttachmentsC    = "storageattachments"
+	storageConstraintsC    = "storageconstraints"
+	storageInstancesC      = "storageinstances"
+	volumesC               = "volumes"
+	volumeAttachmentsC     = "volumeattachments"
+	filesystemsC           = "filesystems"
+	filesystemAttachmentsC = "filesystemAttachments"
 
 	// leaseC is used to store lease tokens
 	leaseC = "lease"
@@ -1219,6 +1221,9 @@ func (st *State) AddService(
 	if _, err := st.EnvironmentUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := addDefaultStorageConstraints(st, storage, ch.Meta()); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := validateStorageConstraints(st, storage, ch.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1307,8 +1312,8 @@ func (st *State) AddIPAddress(addr network.Address, subnetid string) (ipaddress 
 		State:    AddressStateUnknown,
 		SubnetId: subnetid,
 		Value:    addr.Value,
-		Type:     addr.Type,
-		Scope:    addr.Scope,
+		Type:     string(addr.Type),
+		Scope:    string(addr.Scope),
 	}
 
 	ipaddress = &IPAddress{doc: ipDoc, st: st}

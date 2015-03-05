@@ -61,6 +61,12 @@ func (s *rootfsSuite) TestValidateConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *rootfsSuite) TestSupports(c *gc.C) {
+	p := s.rootfsProvider(c)
+	c.Assert(p.Supports(storage.StorageKindBlock), jc.IsFalse)
+	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsTrue)
+}
+
 func (s *rootfsSuite) rootfsFilesystemSource(c *gc.C) storage.FilesystemSource {
 	s.commands = &mockRunCommand{c: c}
 	return provider.RootfsFilesystemSource(
