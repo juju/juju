@@ -62,6 +62,11 @@ func (e *ebsProvider) ValidateConfig(providerConfig *storage.Config) error {
 	return nil
 }
 
+// Supports is defined on the Provider interface.
+func (e *ebsProvider) Supports(k storage.StorageKind) bool {
+	return k == storage.StorageKindBlock
+}
+
 func TranslateUserEBSOptions(userOptions map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for k, v := range userOptions {

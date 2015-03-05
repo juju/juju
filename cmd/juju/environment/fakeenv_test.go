@@ -4,6 +4,7 @@
 package environment_test
 
 import (
+	"github.com/juju/names"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
@@ -26,9 +27,10 @@ func (s *fakeEnvSuite) SetUpTest(c *gc.C) {
 }
 
 type fakeEnvAPI struct {
-	values map[string]interface{}
-	err    error
-	keys   []string
+	values   map[string]interface{}
+	err      error
+	keys     []string
+	addUsers []names.UserTag
 }
 
 func (f *fakeEnvAPI) Close() error {
@@ -46,5 +48,10 @@ func (f *fakeEnvAPI) EnvironmentSet(config map[string]interface{}) error {
 
 func (f *fakeEnvAPI) EnvironmentUnset(keys ...string) error {
 	f.keys = keys
+	return f.err
+}
+
+func (f *fakeEnvAPI) ShareEnvironment(users ...names.UserTag) error {
+	f.addUsers = users
 	return f.err
 }

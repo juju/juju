@@ -170,10 +170,10 @@ func (s *EnvironSuite) TestListEnvironmentUsers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := addEnvUsers(c, s.State)
-	found, err := env.Users()
+	obtained, err := env.Users()
 	c.Assert(err, gc.IsNil)
 
-	assertFoundUsersMatchExpectedUsers(c, expected, found)
+	assertObtainedUsersMatchExpectedUsers(c, obtained, expected)
 }
 
 func (s *EnvironSuite) TestListUsersTwoEnvironments(c *gc.C) {
@@ -190,13 +190,13 @@ func (s *EnvironSuite) TestListUsersTwoEnvironments(c *gc.C) {
 	expectedUsersOtherEnv := addEnvUsers(c, otherEnvState)
 
 	// test that only the expected users are listed for each environment
-	foundUsers, err := env.Users()
-	c.Assert(err, gc.IsNil)
-	assertFoundUsersMatchExpectedUsers(c, expectedUsers, foundUsers)
+	obtainedUsers, err := env.Users()
+	c.Assert(err, jc.ErrorIsNil)
+	assertObtainedUsersMatchExpectedUsers(c, obtainedUsers, expectedUsers)
 
-	foundUsersOtherEnv, err := otherEnv.Users()
-	c.Assert(err, gc.IsNil)
-	assertFoundUsersMatchExpectedUsers(c, expectedUsersOtherEnv, foundUsersOtherEnv)
+	obtainedUsersOtherEnv, err := otherEnv.Users()
+	c.Assert(err, jc.ErrorIsNil)
+	assertObtainedUsersMatchExpectedUsers(c, obtainedUsersOtherEnv, expectedUsersOtherEnv)
 }
 
 func addEnvUsers(c *gc.C, st *state.State) (expected []*state.EnvironmentUser) {
@@ -216,12 +216,12 @@ func addEnvUsers(c *gc.C, st *state.State) (expected []*state.EnvironmentUser) {
 	}
 }
 
-func assertFoundUsersMatchExpectedUsers(c *gc.C, expectedUsers, foundUsers []*state.EnvironmentUser) {
-	c.Assert(len(foundUsers), gc.Equals, len(expectedUsers))
-	for i, found := range foundUsers {
-		c.Assert(found.EnvironmentTag().Id(), gc.Equals, expectedUsers[i].EnvironmentTag().Id())
-		c.Assert(found.UserName(), gc.Equals, expectedUsers[i].UserName())
-		c.Assert(found.DisplayName(), gc.Equals, expectedUsers[i].DisplayName())
-		c.Assert(found.CreatedBy(), gc.Equals, expectedUsers[i].CreatedBy())
+func assertObtainedUsersMatchExpectedUsers(c *gc.C, obtainedUsers, expectedUsers []*state.EnvironmentUser) {
+	c.Assert(len(obtainedUsers), gc.Equals, len(expectedUsers))
+	for i, obtained := range obtainedUsers {
+		c.Assert(obtained.EnvironmentTag().Id(), gc.Equals, expectedUsers[i].EnvironmentTag().Id())
+		c.Assert(obtained.UserName(), gc.Equals, expectedUsers[i].UserName())
+		c.Assert(obtained.DisplayName(), gc.Equals, expectedUsers[i].DisplayName())
+		c.Assert(obtained.CreatedBy(), gc.Equals, expectedUsers[i].CreatedBy())
 	}
 }

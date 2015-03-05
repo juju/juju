@@ -124,7 +124,10 @@ func (s *clientSuite) TestShareEnvironmentExistingUser(c *gc.C) {
 				c.Fatalf("wrong input structure")
 			}
 			if result, ok := response.(*params.ErrorResults); ok {
-				err := &params.Error{Message: "failed to create environment user: env user already exists"}
+				err := &params.Error{
+					Message: "error message",
+					Code:    params.CodeAlreadyExists,
+				}
 				*result = params.ErrorResults{Results: []params.ErrorResult{{Error: err}}}
 			} else {
 				c.Fatalf("wrong input structure")
@@ -134,8 +137,10 @@ func (s *clientSuite) TestShareEnvironmentExistingUser(c *gc.C) {
 	)
 	defer cleanup()
 
-	err := client.ShareEnvironment([]names.UserTag{user.UserTag()})
-	c.Assert(err, gc.ErrorMatches, "failed to create environment user: env user already exists")
+	err := client.ShareEnvironment(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	logMsg := fmt.Sprintf("WARNING juju.api environment is already shared with %s", user.UserName())
+	c.Assert(c.GetTestLog(), jc.Contains, logMsg)
 }
 
 func (s *clientSuite) TestDestroyEnvironment(c *gc.C) {
@@ -163,12 +168,12 @@ func (s *clientSuite) TestShareEnvironmentThreeUsers(c *gc.C) {
 		func(request string, paramsIn interface{}, response interface{}) error {
 			if users, ok := paramsIn.(params.ModifyEnvironUsers); ok {
 				c.Assert(users.Changes, gc.HasLen, 3)
-				c.Logf(string(users.Changes[0].Action), gc.Equals, string(params.AddEnvUser))
-				c.Logf(users.Changes[0].UserTag, gc.Equals, existingUser.UserTag().String())
-				c.Logf(string(users.Changes[1].Action), gc.Equals, string(params.AddEnvUser))
-				c.Logf(users.Changes[1].UserTag, gc.Equals, localUser.UserTag().String())
-				c.Logf(string(users.Changes[1].Action), gc.Equals, string(params.AddEnvUser))
-				c.Logf(users.Changes[1].UserTag, gc.Equals, newUserTag.String())
+				c.Assert(string(users.Changes[0].Action), gc.Equals, string(params.AddEnvUser))
+				c.Assert(users.Changes[0].UserTag, gc.Equals, existingUser.UserTag().String())
+				c.Assert(string(users.Changes[1].Action), gc.Equals, string(params.AddEnvUser))
+				c.Assert(users.Changes[1].UserTag, gc.Equals, localUser.UserTag().String())
+				c.Assert(string(users.Changes[2].Action), gc.Equals, string(params.AddEnvUser))
+				c.Assert(users.Changes[2].UserTag, gc.Equals, newUserTag.String())
 			} else {
 				c.Log("wrong input structure")
 				c.Fail()
@@ -185,27 +190,14 @@ func (s *clientSuite) TestShareEnvironmentThreeUsers(c *gc.C) {
 	)
 	defer cleanup()
 
-	err := client.ShareEnvironment([]names.UserTag{existingUser.UserTag(), localUser.UserTag(), newUserTag})
+	err := client.ShareEnvironment(existingUser.UserTag(), localUser.UserTag(), newUserTag)
 	c.Assert(err, gc.ErrorMatches, `existing user`)
-}
-
-func (s *clientSuite) TestShareEnvironmentRealAPIServer(c *gc.C) {
-	client := s.APIState.Client()
-	user := names.NewUserTag("foo@ubuntuone")
-	err := client.ShareEnvironment([]names.UserTag{user})
-	c.Assert(err, jc.ErrorIsNil)
-
-	envUser, err := s.State.EnvironmentUser(user)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envUser.UserName(), gc.Equals, user.Username())
-	c.Assert(envUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Username())
-	c.Assert(envUser.LastConnection(), gc.IsNil)
 }
 
 func (s *clientSuite) TestUnshareEnvironmentRealAPIServer(c *gc.C) {
 	client := s.APIState.Client()
 	user := names.NewUserTag("foo@ubuntuone")
-	err := client.ShareEnvironment([]names.UserTag{user})
+	err := client.ShareEnvironment(user)
 	c.Assert(err, jc.ErrorIsNil)
 
 	envUser, err := s.State.EnvironmentUser(user)
