@@ -5,6 +5,7 @@ from StringIO import StringIO
 from textwrap import dedent
 import subprocess
 from unittest import TestCase
+import json
 
 from mock import (
     patch,
@@ -28,10 +29,13 @@ from deploy_stack import (
     GET_TOKEN_SCRIPT,
     parse_euca,
     run_instances,
+    assess_juju_run,
 )
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
+    JujuClientDevel,
+    Environment,
 )
 from test_jujupy import assert_juju_call
 from utility import temp_dir
@@ -263,6 +267,30 @@ class DeployStackTestCase(TestCase):
                     with self.assertRaises(subprocess.CalledProcessError):
                             run_instances(1, 'qux')
         c_mock.assert_called_with(['euca-terminate-instances', 'i-foo'])
+
+    def test_juju_run_test(self):
+        env = SimpleEnvironment('foo', {'type': 'nonlocal'})
+        client = EnvJujuClient(env, None, None)
+        response_ok = json.dumps(
+            [{"MachineId": "1", "Stdout": "Linux\n"},
+             {"MachineId": "2", "Stdout": "Linux\n"}])
+        response_err = json.dumps([
+            {"MachineId": "1", "Stdout": "Linux\n"},
+            {"MachineId": "2",
+             "Stdout": "Linux\n",
+             "ReturnCode": 255,
+             "Stderr": "Permission denied (publickey,password)"}])
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value=response_ok):
+            responses = assess_juju_run(client)
+            for machine in responses:
+                self.assertFalse(machine.get('ReturnCode', False))
+                self.assertIn(machine.get('MachineId'), ["1", "2"])
+            self.assertEqual(len(responses), 2)
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value=response_err):
+            with self.assertRaises(ValueError):
+                responses = assess_juju_run(client)
 
 
 class DumpEnvLogsTestCase(TestCase):
