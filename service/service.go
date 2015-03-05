@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	logger = loggo.GetLogger("juju.mongo")
+	logger = loggo.GetLogger("juju.service")
 )
 
 // These are the names of the init systems regognized by juju.
