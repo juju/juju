@@ -4,6 +4,8 @@
 package common
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 )
 
@@ -29,12 +31,16 @@ type Conf struct {
 	// Currently not used on Windows.
 	Limit map[string]string
 
-	// ExecStart is the command (with arguments) that will be run.
+	// ExecStart is the command (with arguments) that will be run. The
+	// path to the executable must be absolute.
 	// The command will be restarted if it exits with a non-zero exit code.
 	ExecStart string
 
 	// ExecStopPost is the command that will be run after the service stops.
+	// The path to the executable must be absolute.
 	ExecStopPost string
+
+	// TODO(ericsnow) Rename "Output" to "Logfile".
 
 	// Output, if set, indicates where the service's output should be
 	// sent. How that is interpreted depends on the init system. Some
@@ -60,8 +66,64 @@ func (c Conf) Validate() error {
 		return errors.New("missing Desc")
 	}
 
+	if err := c.checkExecStart(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := c.checkExecStopPost(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func executable(cmd string) string {
+	path := strings.Fields(cmd)[0]
+	return Unquote(path)
+}
+
+// Unquote returns the string embedded between matching quotation marks.
+// If there aren't any matching quotation marks then the string is
+// returned as-is.
+func Unquote(str string) string {
+	if len(str) < 2 {
+		return str
+	}
+
+	first, last := string(str[0]), string(str[len(str)-1])
+
+	if first == `"` && last == `"` {
+		return str[1 : len(str)-1]
+	}
+
+	if first == "'" && last == "'" {
+		return str[1 : len(str)-1]
+	}
+
+	return str
+}
+
+func (c Conf) checkExecStart() error {
 	if c.ExecStart == "" {
 		return errors.New("missing ExecStart")
+	}
+
+	path := executable(c.ExecStart)
+	if !strings.HasPrefix(path, "/") {
+		return errors.NotValidf("relative path in ExecStart (%s)", path)
+	}
+
+	return nil
+}
+
+func (c Conf) checkExecStopPost() error {
+	if c.ExecStopPost == "" {
+		return nil
+	}
+
+	path := executable(c.ExecStopPost)
+	if !strings.HasPrefix(path, "/") {
+		return errors.NotValidf("relative path in ExecStopPost (%s)", path)
 	}
 
 	return nil

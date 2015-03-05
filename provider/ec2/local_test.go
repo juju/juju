@@ -15,10 +15,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-	"gopkg.in/amz.v2/aws"
-	amzec2 "gopkg.in/amz.v2/ec2"
-	"gopkg.in/amz.v2/ec2/ec2test"
-	"gopkg.in/amz.v2/s3/s3test"
+	"gopkg.in/amz.v3/aws"
+	amzec2 "gopkg.in/amz.v3/ec2"
+	"gopkg.in/amz.v3/ec2/ec2test"
+	"gopkg.in/amz.v3/s3/s3test"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
@@ -65,7 +65,6 @@ func registerLocalTests() {
 	// has entries in the images/query txt files.
 	aws.Regions["test"] = aws.Region{
 		Name: "test",
-		Sign: aws.SignV2,
 	}
 
 	gc.Suite(&localServerSuite{})
@@ -120,7 +119,6 @@ func (srv *localServer) startServer(c *gc.C) {
 		EC2Endpoint:          srv.ec2srv.URL(),
 		S3Endpoint:           srv.s3srv.URL(),
 		S3LocationConstraint: true,
-		Sign:                 aws.SignV2,
 	}
 	srv.addSpice(c)
 

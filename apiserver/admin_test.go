@@ -85,7 +85,11 @@ var _ = gc.Suite(&loginAncientSuite{
 })
 
 func (s *baseLoginSuite) setupServer(c *gc.C) (*api.State, func()) {
-	info, cleanup := s.setupServerWithValidator(c, nil)
+	return s.setupServerForEnvironment(c, s.State.EnvironTag())
+}
+
+func (s *baseLoginSuite) setupServerForEnvironment(c *gc.C, envTag names.EnvironTag) (*api.State, func()) {
+	info, cleanup := s.setupServerForEnvironmentWithValidator(c, envTag, nil)
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	return st, func() {
@@ -550,13 +554,15 @@ func (s *loginV0Suite) TestLoginReportsEnvironTag(c *gc.C) {
 	}
 	err := st.APICall("Admin", 0, "", "Login", creds, &result)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.EnvironTag, gc.Equals, env.EnvironTag().String())
+	c.Assert(result.EnvironTag, gc.Equals, s.State.EnvironTag().String())
 }
 
-func (s *loginV1Suite) TestLoginReportsEnvironTag(c *gc.C) {
-	st, cleanup := s.setupServer(c)
+func (s *loginV1Suite) TestLoginReportsEnvironAndServerTag(c *gc.C) {
+	otherState := s.Factory.MakeEnvironment(c, nil)
+	defer otherState.Close()
+	newEnvTag := otherState.EnvironTag()
+
+	st, cleanup := s.setupServerForEnvironment(c, newEnvTag)
 	defer cleanup()
 	var result params.LoginResultV1
 	creds := &params.LoginRequest{
@@ -565,9 +571,8 @@ func (s *loginV1Suite) TestLoginReportsEnvironTag(c *gc.C) {
 	}
 	err := st.APICall("Admin", 1, "", "Login", creds, &result)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.EnvironTag, gc.Equals, env.Tag().String())
+	c.Assert(result.EnvironTag, gc.Equals, newEnvTag.String())
+	c.Assert(result.ServerTag, gc.Equals, s.State.EnvironTag().String())
 }
 
 func (s *loginV1Suite) TestLoginV1Valid(c *gc.C) {
@@ -680,6 +685,12 @@ func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.Lo
 }
 
 func (s *baseLoginSuite) setupServerWithValidator(c *gc.C, validator apiserver.LoginValidator) (*api.Info, func()) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	return s.setupServerForEnvironmentWithValidator(c, env.EnvironTag(), validator)
+}
+
+func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, envTag names.EnvironTag, validator apiserver.LoginValidator) (*api.Info, func()) {
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(
@@ -698,12 +709,10 @@ func (s *baseLoginSuite) setupServerWithValidator(c *gc.C, validator apiserver.L
 	} else {
 		panic(nil)
 	}
-	env, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
 	info := &api.Info{
 		Tag:        nil,
 		Password:   "",
-		EnvironTag: env.EnvironTag(),
+		EnvironTag: envTag,
 		Addrs:      []string{srv.Addr()},
 		CACert:     coretesting.CACert,
 	}

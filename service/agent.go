@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent/tools"
@@ -110,4 +111,23 @@ func UnitAgentConf(unitName, dataDir, logDir, os, containerType string) (common.
 	}
 
 	return conf, toolsDir
+}
+
+// ShutdownAfterConf builds a service conf that will cause the host to
+// shut down after the named service stops.
+func ShutdownAfterConf(serviceName string) (common.Conf, error) {
+	if serviceName == "" {
+		return common.Conf{}, errors.New(`missing "after" service name`)
+	}
+	desc := "juju shutdown job"
+	return shutdownAfterConf(serviceName, desc), nil
+}
+
+func shutdownAfterConf(serviceName, desc string) common.Conf {
+	return common.Conf{
+		Desc:         desc,
+		Transient:    true,
+		AfterStopped: serviceName,
+		ExecStart:    "/sbin/shutdown -h now",
+	}
 }

@@ -34,6 +34,11 @@ type APIEndpoint struct {
 	// EnvironUUID holds the UUID for the environment we are connecting to.
 	// This may be empty if the environment has not been bootstrapped.
 	EnvironUUID string
+
+	// ServerUUID holds the UUID for the server environment. This may be empty
+	// if the server is old and not sending the server uuid in the login
+	// repsonse.
+	ServerUUID string
 }
 
 // APICredentials hold credentials for connecting to an API endpoint.

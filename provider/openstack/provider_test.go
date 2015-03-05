@@ -4,30 +4,15 @@
 package openstack_test
 
 import (
-	"flag"
-	"testing"
-
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/openstack"
+	"github.com/juju/juju/testing"
 )
-
-var live = flag.Bool("live", false, "Include live OpenStack tests")
-
-func Test(t *testing.T) {
-	if *live {
-		cred, err := identity.CompleteCredentialsFromEnv()
-		if err != nil {
-			t.Fatalf("Error setting up test suite: %s", err.Error())
-		}
-		registerLiveTests(cred)
-	}
-	registerLocalTests()
-	gc.TestingT(t)
-}
 
 // localTests contains tests which do not require a live service or test double to run.
 type localTests struct{}
@@ -362,4 +347,18 @@ func (*localTests) TestRuleMatchesPortRange(c *gc.C) {
 		c.Logf("test %d: %s", i, t.about)
 		c.Check(openstack.RuleMatchesPortRange(t.rule, t.ports), gc.Equals, t.expected)
 	}
+}
+
+func (t *localTests) TestPrepareSetsControlBucket(c *gc.C) {
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type": "openstack",
+	})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg, err = openstack.ProviderInstance.PrepareForCreateEnvironment(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	bucket := cfg.UnknownAttrs()["control-bucket"]
+	c.Assert(bucket, gc.Matches, "[a-f0-9]{32}")
 }

@@ -107,6 +107,18 @@ func (cl Cmdline) ListAll() ([]string, error) {
 	return strings.Split(out, "\n"), nil
 }
 
+func (cl Cmdline) conf(name string) ([]byte, error) {
+	cmd := cl.commands.conf(name)
+
+	out, err := cl.runCommand(cmd)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	out = strings.TrimSpace(out)
+
+	return []byte(out), nil
+}
+
 func (Cmdline) runCommand(cmd string) (string, error) {
 	resp, err := runCommands(exec.RunParams{
 		Commands: cmd,

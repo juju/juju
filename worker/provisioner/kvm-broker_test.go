@@ -235,7 +235,8 @@ func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
 	broker, err := provisioner.NewKvmBroker(s.provisioner, agentConfig, managerConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	return provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker)
+	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
+	return provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker, toolsFinder)
 }
 
 func (s *kvmProvisionerSuite) TestProvisionerStartStop(c *gc.C) {

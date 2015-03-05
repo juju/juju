@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 
@@ -41,13 +40,12 @@ func (s *UpstartSuite) SetUpTest(c *gc.C) {
 	s.testPath = c.MkDir()
 	s.initDir = c.MkDir()
 	s.PatchEnvPathPrepend(s.testPath)
-	s.PatchValue(&upstart.InstallStartRetryAttempts, utils.AttemptStrategy{})
 	s.PatchValue(&upstart.InitDir, s.initDir)
 	s.service = upstart.NewService(
 		"some-service",
 		common.Conf{
 			Desc:      "some service",
-			ExecStart: "some command",
+			ExecStart: "/path/to/some-command",
 		},
 	)
 }
@@ -105,7 +103,7 @@ func (s *UpstartSuite) TestExists(c *gc.C) {
 
 func (s *UpstartSuite) TestExistsNonEmpty(c *gc.C) {
 	s.goodInstall(c)
-	s.service.Service.Conf.ExecStart = "something else"
+	s.service.Service.Conf.ExecStart = "/path/to/other-command"
 	c.Assert(s.service.Exists(), jc.IsFalse)
 }
 
@@ -196,7 +194,7 @@ func (s *UpstartSuite) TestInstallErrors(c *gc.C) {
 	check("missing Desc")
 	s.service.Service.Conf.Desc = "this is an upstart service"
 	check("missing ExecStart")
-	s.service.Service.Conf.ExecStart = "<a command>"
+	s.service.Service.Conf.ExecStart = "/a/command"
 	check("missing InitDir")
 }
 
@@ -211,7 +209,7 @@ normal exit 0
 func (s *UpstartSuite) dummyConf(c *gc.C) common.Conf {
 	return common.Conf{
 		Desc:      "this is an upstart service",
-		ExecStart: "do something",
+		ExecStart: "/path/to/some-command x y z",
 		InitDir:   s.initDir,
 	}
 }
@@ -226,15 +224,25 @@ func (s *UpstartSuite) assertInstall(c *gc.C, conf common.Conf, expectEnd string
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmds, gc.DeepEquals, []string{
 		"cat >> " + expectPath + " << 'EOF'\n" + expectContent + "EOF\n",
+	})
+	cmds, err = s.service.StartCommands()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmds, gc.DeepEquals, []string{
 		"start some-service",
 	})
 
 	s.MakeTool(c, "start", "exit 99")
 	err = svc.Install()
+	c.Assert(err, jc.ErrorIsNil)
+	err = svc.Start()
 	c.Assert(err, gc.ErrorMatches, ".*exit status 99.*")
+
 	s.MakeTool(c, "start", "exit 0")
 	err = svc.Install()
 	c.Assert(err, jc.ErrorIsNil)
+	err = svc.Start()
+	c.Assert(err, jc.ErrorIsNil)
+
 	content, err := ioutil.ReadFile(expectPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, expectContent)
@@ -242,19 +250,45 @@ func (s *UpstartSuite) assertInstall(c *gc.C, conf common.Conf, expectEnd string
 
 func (s *UpstartSuite) TestInstallSimple(c *gc.C) {
 	conf := s.dummyConf(c)
-	s.assertInstall(c, conf, "\n\nscript\n\n\n  exec do something\nend script\n")
+	s.assertInstall(c, conf, `
+
+script
+
+
+  exec /path/to/some-command x y z
+end script
+`)
 }
 
 func (s *UpstartSuite) TestInstallExtraScript(c *gc.C) {
 	conf := s.dummyConf(c)
 	conf.ExtraScript = "extra lines of script"
-	s.assertInstall(c, conf, "\n\nscript\nextra lines of script\n\n  exec do something\nend script\n")
+	s.assertInstall(c, conf, `
+
+script
+extra lines of script
+
+  exec /path/to/some-command x y z
+end script
+`)
 }
 
 func (s *UpstartSuite) TestInstallOutput(c *gc.C) {
 	conf := s.dummyConf(c)
 	conf.Output = "/some/output/path"
-	s.assertInstall(c, conf, "\n\nscript\n\n\n  # Ensure log files are properly protected\n  touch /some/output/path\n  chown syslog:syslog /some/output/path\n  chmod 0600 /some/output/path\n\n  exec do something >> /some/output/path 2>&1\nend script\n")
+	s.assertInstall(c, conf, `
+
+script
+
+
+  # Ensure log files are properly protected
+  touch /some/output/path
+  chown syslog:syslog /some/output/path
+  chmod 0600 /some/output/path
+
+  exec /path/to/some-command x y z >> /some/output/path 2>&1
+end script
+`)
 }
 
 func (s *UpstartSuite) TestInstallEnv(c *gc.C) {
@@ -267,7 +301,7 @@ env QUX="ping pong"
 script
 
 
-  exec do something
+  exec /path/to/some-command x y z
 end script
 `)
 }
@@ -282,7 +316,7 @@ limit nproc 20000 20000
 script
 
 
-  exec do something
+  exec /path/to/some-command x y z
 end script
 `)
 }

@@ -15,21 +15,28 @@ type ProviderType string
 
 // Provider is an interface for obtaining storage sources.
 type Provider interface {
-	// VolumeSource returns a VolumeSource given the
-	// specified cloud and storage provider configurations.
+	// VolumeSource returns a VolumeSource given the specified cloud
+	// and storage provider configurations, or an error if the provider
+	// does not support creating volumes or the configuration is invalid.
 	//
 	// If the storage provider does not support creating volumes as a
 	// first-class primitive, then VolumeSource must return an error
 	// satisfying errors.IsNotSupported.
 	VolumeSource(environConfig *config.Config, providerConfig *Config) (VolumeSource, error)
 
-	// FilesystemSource returns a FilesystemSource given the
-	// specified cloud and storage provider configurations.
-	//
-	// If the storage provider does not support creating filesystems
-	// as a first-class primitive, then FilesystemSource must return
-	// an error satisfying errors.IsNotSupported.
+	// FilesystemSource returns a FilesystemSource given the specified
+	// cloud and storage provider configurations, or an error if the
+	// provider does not support creating filesystems or the configuration
+	// is invalid.
 	FilesystemSource(environConfig *config.Config, providerConfig *Config) (FilesystemSource, error)
+
+	// Supports reports whether or not the storage provider supports
+	// the specified storage kind.
+	//
+	// A provider that supports volumes but not filesystems can still
+	// be used for creating filesystem storage; Juju will request a
+	// volume from the provider and then manage the filesystem itself.
+	Supports(kind StorageKind) bool
 
 	// ValidateConfig validates the provided storage provider config,
 	// returning an error if it is invalid.

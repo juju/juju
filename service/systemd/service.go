@@ -140,7 +140,7 @@ func (s *Service) UpdateConfig(conf common.Conf) {
 func (s *Service) setConf(conf common.Conf) error {
 	scriptPath := path.Join(s.Dirname, "exec-start.sh")
 
-	normalConf, data := normalize(conf, scriptPath)
+	normalConf, data := normalize(s.Service.Name, conf, scriptPath)
 	if err := validate(s.Service.Name, normalConf); err != nil {
 		return errors.Trace(err)
 	}
@@ -184,22 +184,16 @@ func (s *Service) check() (bool, error) {
 func (s *Service) readConf() (common.Conf, error) {
 	var conf common.Conf
 
-	conn, err := newConn()
+	data, err := Cmdline{}.conf(s.Service.Name)
 	if err != nil {
 		return conf, errors.Trace(err)
 	}
-	defer conn.Close()
 
-	// go-systemd does not appear to provide an easy way to get
-	// a list of UnitOption for an existing unit. So we have to
-	// do build the list manually.
-
-	opts, err := getUnitOptions(conn, s.UnitName, "Service")
+	conf, err = deserialize(data)
 	if err != nil {
 		return conf, errors.Trace(err)
 	}
-	conf, err = deserializeOptions(opts)
-	return conf, errors.Trace(err)
+	return conf, nil
 }
 
 // Running implements Service.
@@ -257,7 +251,7 @@ func (s *Service) wait(op string, statusCh chan string) error {
 	// TODO(ericsnow) Other status values *may* be okay. See:
 	//  https://godoc.org/github.com/coreos/go-systemd/dbus#Conn.StartUnit
 	if status != "done" {
-		return errors.Errorf("failed to %s service %s", op, s.Service.Name)
+		return errors.Errorf("failed to %s service %q (API status %q)", op, s.Service.Name, status)
 	}
 	return nil
 }
@@ -406,11 +400,20 @@ func (s *Service) InstallCommands() ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	cmds := commands{executable}
+	cmds := commands{}
 	cmdList := []string{
 		cmds.writeFile(name, dirname, data),
 		cmds.link(name, dirname),
 		cmds.enable(name),
+	}
+	return cmdList, nil
+}
+
+// StartCommands implements Service.
+func (s *Service) StartCommands() ([]string, error) {
+	name := s.Name()
+	cmds := commands{}
+	cmdList := []string{
 		cmds.start(name),
 	}
 	return cmdList, nil

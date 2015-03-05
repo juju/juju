@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/version"
 )
 
 var (
@@ -62,7 +62,10 @@ func templateUserData(
 	}
 	cloudinit.AddAptCommands(series, aptProxy, aptMirror, config, enablePackageUpdates, enableOSUpgrades)
 
-	initSystem := containerInitSystem()
+	initSystem, err := containerInitSystem(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	script, err := shutdownInitScript(initSystem)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -80,19 +83,29 @@ func templateUserData(
 	return data, nil
 }
 
-func containerInitSystem() string {
-	// TODO(ericsnow) Where to find it...
-	return service.InitSystemUpstart
+func containerInitSystem(series string) (string, error) {
+	osName, err := version.GetOSFromSeries(series)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	vers := version.Binary{
+		OS:     osName,
+		Series: series,
+	}
+	initSystem, ok := service.VersionInitSystem(vers)
+	if !ok {
+		return "", errors.NotFoundf("init system for series %q", series)
+	}
+	return initSystem, nil
 }
 
 func shutdownInitScript(initSystem string) (string, error) {
 	name := "juju-template-restart"
-	conf := common.Conf{
-		Desc:         "Juju lxc template shutdown job",
-		Transient:    true,
-		AfterStopped: "cloud-final",
-		ExecStart:    "shutdown -h now",
+	conf, err := service.ShutdownAfterConf("cloud-final")
+	if err != nil {
+		return "", errors.Trace(err)
 	}
+
 	svc, err := service.NewService(name, conf, initSystem)
 	if err != nil {
 		return "", errors.Trace(err)

@@ -50,7 +50,12 @@ type environ struct {
 	supportedArchitectures []string
 }
 
-func newEnviron(ecfg *environConfig) (*environ, error) {
+func newEnviron(cfg *config.Config) (*environ, error) {
+	ecfg, err := newValidConfig(cfg, configDefaults)
+	if err != nil {
+		return nil, errors.Annotate(err, "invalid config")
+	}
+
 	uuid, ok := ecfg.UUID()
 	if !ok {
 		return nil, errors.New("UUID not set")
