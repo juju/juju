@@ -324,9 +324,18 @@ func setServiceConfigAttr(c *gc.C, svc *Service, attr string, val interface{}) {
 // changeTestCase encapsulates entities to add, a change, and
 // the expected contents for a test.
 type changeTestCase struct {
-	about          string
-	add            []multiwatcher.EntityInfo
-	change         watcher.Change
+	// about describes the test case.
+	about string
+
+	// initialContents contains the infos of the
+	// watcher before signalling the change.
+	initialContents []multiwatcher.EntityInfo
+
+	// change signals the change of the watcher.
+	change watcher.Change
+
+	// expectContents contains the expected infos of
+	// the watcher before signalling the change.
 	expectContents []multiwatcher.EntityInfo
 }
 
@@ -342,7 +351,7 @@ func (s *storeManagerStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs
 		c.Logf("test %d. %s", i, test.about)
 		b := newAllWatcherStateBacking(s.state)
 		all := newStore()
-		for _, info := range test.add {
+		for _, info := range test.initialContents {
 			all.Update(info)
 		}
 		err := b.Changed(all, test.change)
@@ -366,10 +375,10 @@ func (s *storeManagerStateSuite) TestChangeActions(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			started := makeActionInfo(action, st)
 			return changeTestCase{
-				about:          "action change picks up last change",
-				add:            []multiwatcher.EntityInfo{&enqueued, &started},
-				change:         watcher.Change{C: actionsC, Id: st.docID(action.Id())},
-				expectContents: []multiwatcher.EntityInfo{&started},
+				about:           "action change picks up last change",
+				initialContents: []multiwatcher.EntityInfo{&enqueued, &started},
+				change:          watcher.Change{C: actionsC, Id: st.docID(action.Id())},
+				expectContents:  []multiwatcher.EntityInfo{&started},
 			}
 		},
 	}
@@ -389,8 +398,8 @@ func (s *storeManagerStateSuite) TestChangeAnnotations(c *gc.C) {
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
-				about: "annotation is removed if it's not in backing",
-				add:   []multiwatcher.EntityInfo{&multiwatcher.AnnotationInfo{Tag: "machine-0"}},
+				about:           "annotation is removed if it's not in backing",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.AnnotationInfo{Tag: "machine-0"}},
 				change: watcher.Change{
 					C:  "annotations",
 					Id: st.docID("m#0"),
@@ -426,7 +435,7 @@ func (s *storeManagerStateSuite) TestChangeAnnotations(c *gc.C) {
 
 			return changeTestCase{
 				about: "annotation is updated if it's in backing and in multiwatcher.Store",
-				add: []multiwatcher.EntityInfo{&multiwatcher.AnnotationInfo{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.AnnotationInfo{
 					Tag: "machine-0",
 					Annotations: map[string]string{
 						"arble":  "baz",
@@ -467,7 +476,7 @@ func (s *storeManagerStateSuite) TestChangeBlocks(c *gc.C) {
 			blockMsg := "woot"
 			return changeTestCase{
 				about: "no change if block is not in backing",
-				add: []multiwatcher.EntityInfo{&multiwatcher.BlockInfo{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.BlockInfo{
 					Id:      blockId,
 					Type:    blockType,
 					Message: blockMsg,
@@ -549,8 +558,8 @@ func (s *storeManagerStateSuite) TestChangeMachines(c *gc.C) {
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
-				about: "machine is removed if it's not in backing",
-				add:   []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{Id: "1"}},
+				about:           "machine is removed if it's not in backing",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{Id: "1"}},
 				change: watcher.Change{
 					C:  "machines",
 					Id: st.docID("1"),
@@ -591,7 +600,7 @@ func (s *storeManagerStateSuite) TestChangeMachines(c *gc.C) {
 
 			return changeTestCase{
 				about: "machine is updated if it's in backing and in Store",
-				add: []multiwatcher.EntityInfo{
+				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
 						Id:         "0",
 						Status:     multiwatcher.Status("error"),
@@ -622,7 +631,7 @@ func (s *storeManagerStateSuite) TestChangeMachines(c *gc.C) {
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "no change if status is not in backing",
-				add: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{
 					Id:         "0",
 					Status:     multiwatcher.Status("error"),
 					StatusInfo: "failure",
@@ -646,7 +655,7 @@ func (s *storeManagerStateSuite) TestChangeMachines(c *gc.C) {
 
 			return changeTestCase{
 				about: "status is changed if the machine exists in the store",
-				add: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{
 					Id:         "0",
 					Status:     multiwatcher.Status("error"),
 					StatusInfo: "failure",
@@ -679,8 +688,8 @@ func (s *storeManagerStateSuite) TestChangeRelations(c *gc.C) {
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
-				about: "relation is removed if it's not in backing",
-				add:   []multiwatcher.EntityInfo{&multiwatcher.RelationInfo{Key: "logging:logging-directory wordpress:logging-dir"}},
+				about:           "relation is removed if it's not in backing",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.RelationInfo{Key: "logging:logging-directory wordpress:logging-dir"}},
 				change: watcher.Change{
 					C:  "relations",
 					Id: st.docID("logging:logging-directory wordpress:logging-dir"),
@@ -725,8 +734,8 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
-				about: "service is removed if it's not in backing",
-				add:   []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{Name: "wordpress"}},
+				about:           "service is removed if it's not in backing",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{Name: "wordpress"}},
 				change: watcher.Change{
 					C:  "services",
 					Id: st.docID("wordpress"),
@@ -762,7 +771,7 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 
 			return changeTestCase{
 				about: "service is updated if it's in backing and in multiwatcher.Store",
-				add: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
 					Name:        "wordpress",
 					Exposed:     true,
 					CharmURL:    "local:quantal/quantal-wordpress-3",
@@ -790,7 +799,7 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 
 			return changeTestCase{
 				about: "service re-reads config when charm URL changes",
-				add: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
 					Name: "wordpress",
 					// Note: CharmURL has a different revision number from
 					// the wordpress revision in the testing repo.
@@ -821,7 +830,7 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "no change if service is not in backing",
-				add: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
 					Name:     "wordpress",
 					CharmURL: "local:quantal/quantal-wordpress-3",
 				}},
@@ -840,7 +849,7 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 
 			return changeTestCase{
 				about: "service config is changed if service exists in the store with the same URL",
-				add: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
 					Name:     "wordpress",
 					CharmURL: "local:quantal/quantal-wordpress-3",
 					Config:   charm.Settings{"foo": "bar"},
@@ -866,7 +875,7 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 
 			return changeTestCase{
 				about: "service config is unescaped when reading from the backing store",
-				add: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
 					Name:     "wordpress",
 					CharmURL: "local:quantal/quantal-wordpress-3",
 					Config:   charm.Settings{"key.dotted": "bar"},
@@ -888,7 +897,7 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 
 			return changeTestCase{
 				about: "service config is unchanged if service exists in the store with a different URL",
-				add: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
 					Name:     "wordpress",
 					CharmURL: "local:quantal/quantal-wordpress-2", // Note different revno.
 					Config:   charm.Settings{"foo": "bar"},
@@ -938,7 +947,7 @@ func (s *storeManagerStateSuite) TestChangeServicesConstraints(c *gc.C) {
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "no change if service is not in backing",
-				add: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
 					Name:        "wordpress",
 					Constraints: constraints.MustParse("mem=99M"),
 				}},
@@ -958,7 +967,7 @@ func (s *storeManagerStateSuite) TestChangeServicesConstraints(c *gc.C) {
 
 			return changeTestCase{
 				about: "status is changed if the service exists in the store",
-				add: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
 					Name:        "wordpress",
 					Constraints: constraints.MustParse("mem=99M cpu-cores=2 cpu-power=4"),
 				}},
@@ -989,8 +998,8 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
-				about: "unit is removed if it's not in backing",
-				add:   []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{Name: "wordpress/1"}},
+				about:           "unit is removed if it's not in backing",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{Name: "wordpress/1"}},
 				change: watcher.Change{
 					C:  "units",
 					Id: st.docID("wordpress/1"),
@@ -1055,7 +1064,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 
 			return changeTestCase{
 				about: "unit is updated if it's in backing and in multiwatcher.Store",
-				add: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
 					Name:       "wordpress/0",
 					Status:     multiwatcher.Status("error"),
 					StatusInfo: "another failure",
@@ -1091,7 +1100,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 
 			return changeTestCase{
 				about: "unit info is updated if a port is opened on the machine it is placed in",
-				add: []multiwatcher.EntityInfo{
+				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
 						Name: "wordpress/0",
 					},
@@ -1127,7 +1136,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 
 			return changeTestCase{
 				about: "unit is created if a port is opened on the machine it is placed in",
-				add: []multiwatcher.EntityInfo{
+				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
 						Id: "0",
 					},
@@ -1199,7 +1208,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "no change if status is not in backing",
-				add: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
 					Name:       "wordpress/0",
 					Status:     multiwatcher.Status("error"),
 					StatusInfo: "failure",
@@ -1224,7 +1233,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 
 			return changeTestCase{
 				about: "status is changed if the unit exists in the store",
-				add: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
 					Name:       "wordpress/0",
 					Status:     multiwatcher.Status("error"),
 					StatusInfo: "failure",
@@ -1253,7 +1262,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 
 			return changeTestCase{
 				about: "status is changed with additional status data",
-				add: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
 					Name:   "wordpress/0",
 					Status: multiwatcher.Status("started"),
 				}},
@@ -1279,49 +1288,62 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 // TestChangeUnitsNonNilPorts tests the changing of unit parts returning
 // no nil values.
 func (s *storeManagerStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
-	initEnv := func(c *gc.C, st *State, withNet bool) {
+	initEnv := func(c *gc.C, st *State, assignUnit, addNet, closePort bool) {
 		wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 		u, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		m, err := st.AddMachine("quantal", JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
-		err = u.AssignToMachine(m)
-		c.Assert(err, jc.ErrorIsNil)
-		if withNet {
+		if assignUnit {
+			// Assign the unit.
+			err = u.AssignToMachine(m)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		if addNet {
+			// Add a network to the machine and open a port.
 			publicAddress := network.NewAddress("1.2.3.4", network.ScopePublic)
 			privateAddress := network.NewAddress("4.3.2.1", network.ScopeCloudLocal)
 			err = m.SetAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPort("tcp", 12345)
+			if assignUnit {
+				c.Assert(err, jc.ErrorIsNil)
+			} else {
+				c.Assert(err, gc.ErrorMatches, `cannot open ports 12345-12345/tcp ("wordpress/0") for unit "wordpress/0": .*`)
+			}
+		}
+		if addNet && closePort {
+			// Close the port again (only if been opened before).
+			err = u.ClosePort("tcp", 12345)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
-			initEnv(c, st, false)
+			initEnv(c, st, true, false, false)
 
 			return changeTestCase{
-				about: "initialized one unit without network",
+				about: "don't open ports on unit",
 				change: watcher.Change{
 					C:  "units",
 					Id: st.docID("wordpress/0"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						Name:           "wordpress/0",
-						Service:        "wordpress",
-						Series:         "quantal",
-						MachineId:      "0",
-						Ports:          []network.Port{},
-						PortRanges:     []network.PortRange{},
-						Status:         "allocating",
+						Name:       "wordpress/0",
+						Service:    "wordpress",
+						Series:     "quantal",
+						MachineId:  "0",
+						Ports:      []network.Port{},
+						PortRanges: []network.PortRange{},
+						Status:     "allocating",
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			initEnv(c, st, true)
+			initEnv(c, st, true, true, false)
 
 			return changeTestCase{
-				about: "initialized one unit with network",
+				about: "open a port on unit",
 				change: watcher.Change{
 					C:  "units",
 					Id: st.docID("wordpress/0"),
@@ -1337,6 +1359,48 @@ func (s *storeManagerStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 						Ports:          []network.Port{{"tcp", 12345}},
 						PortRanges:     []network.PortRange{{12345, 12345, "tcp"}},
 						Status:         "allocating",
+					}}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			initEnv(c, st, true, true, true)
+
+			return changeTestCase{
+				about: "open a port on unit and close it again",
+				change: watcher.Change{
+					C:  "units",
+					Id: st.docID("wordpress/0"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						Name:           "wordpress/0",
+						Service:        "wordpress",
+						Series:         "quantal",
+						MachineId:      "0",
+						PublicAddress:  "1.2.3.4",
+						PrivateAddress: "4.3.2.1",
+						Ports:          []network.Port{},
+						PortRanges:     []network.PortRange{},
+						Status:         "allocating",
+					}}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			initEnv(c, st, false, true, false)
+
+			return changeTestCase{
+				about: "open ports on an unassigned unit",
+				change: watcher.Change{
+					C:  "units",
+					Id: st.docID("wordpress/0"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						Name:       "wordpress/0",
+						Service:    "wordpress",
+						Series:     "quantal",
+						MachineId:  "0",
+						Ports:      []network.Port{},
+						PortRanges: []network.PortRange{},
+						Status:     "allocating",
 					}}}
 		},
 	}
