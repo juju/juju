@@ -123,7 +123,7 @@ func (s *leadershipSuite) TestReadFailure(c *gc.C) {
 			}}
 		})
 		settings, err := s.lsa.Read("foobar")
-		c.Check(err, gc.ErrorMatches, "cannot read leadership settings: pow")
+		c.Check(err, gc.ErrorMatches, "failed to read leadership settings: pow")
 		c.Check(settings, gc.IsNil)
 	})
 }
@@ -133,7 +133,7 @@ func (s *leadershipSuite) TestReadError(c *gc.C) {
 		s.addResponder(nil)
 		s.stub.Errors = []error{nil, errors.New("blart")}
 		settings, err := s.lsa.Read("foobar")
-		c.Check(err, gc.ErrorMatches, "cannot call leadership api: blart")
+		c.Check(err, gc.ErrorMatches, "failed to call leadership api: blart")
 		c.Check(settings, gc.IsNil)
 	})
 }
@@ -209,7 +209,7 @@ func (s *leadershipSuite) TestMergeFailure(c *gc.C) {
 			"foo": "bar",
 			"baz": "qux",
 		})
-		c.Check(err, gc.ErrorMatches, "cannot merge leadership settings: zap")
+		c.Check(err, gc.ErrorMatches, "failed to merge leadership settings: zap")
 	})
 }
 
@@ -221,7 +221,7 @@ func (s *leadershipSuite) TestMergeError(c *gc.C) {
 			"foo": "bar",
 			"baz": "qux",
 		})
-		c.Check(err, gc.ErrorMatches, "cannot call leadership api: dink")
+		c.Check(err, gc.ErrorMatches, "failed to call leadership api: dink")
 	})
 }
 
@@ -296,7 +296,7 @@ func (s *leadershipSuite) TestWatchFailure(c *gc.C) {
 			}}
 		})
 		watcher, err := s.lsa.WatchLeadershipSettings("foobar")
-		c.Check(err, gc.ErrorMatches, "cannot watch leadership settings: blah")
+		c.Check(err, gc.ErrorMatches, "failed to watch leadership settings: blah")
 		c.Check(watcher, gc.IsNil)
 	})
 }
@@ -306,7 +306,7 @@ func (s *leadershipSuite) TestWatchError(c *gc.C) {
 		s.addResponder(nil)
 		s.stub.Errors = []error{nil, errors.New("snerk")}
 		watcher, err := s.lsa.WatchLeadershipSettings("foobar")
-		c.Check(err, gc.ErrorMatches, "cannot call leadership api: snerk")
+		c.Check(err, gc.ErrorMatches, "failed to call leadership api: snerk")
 		c.Check(watcher, gc.IsNil)
 	})
 }

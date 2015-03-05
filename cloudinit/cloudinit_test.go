@@ -424,27 +424,6 @@ func (S) TestSetOutput(c *gc.C) {
 	}
 }
 
-//#cloud-config
-//packages:
-//- juju
-//- ubuntu
-func ExampleConfig() {
-	cfg := cloudinit.New()
-	cfg.AddPackage("juju")
-	cfg.AddPackage("ubuntu")
-	renderer, err := cloudinit.NewRenderer("quantal")
-	if err != nil {
-		fmt.Printf("render error: %v", err)
-		return
-	}
-	data, err := renderer.Render(cfg)
-	if err != nil {
-		fmt.Printf("render error: %v", err)
-		return
-	}
-	fmt.Printf("%s", data)
-}
-
 func (S) TestUbuntuMkdir(c *gc.C) {
 	compareOutput := "mkdir -p 'fake_dir'"
 	render, err := cloudinit.NewRenderer("precise")
