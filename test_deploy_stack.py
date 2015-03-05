@@ -1,20 +1,25 @@
 import logging
-from mock import patch
 import os
 from StringIO import StringIO
 from textwrap import dedent
 import subprocess
 from unittest import TestCase
 
+from mock import (
+    patch,
+    )
+import yaml
 
 from deploy_stack import (
     copy_remote_logs,
+    deploy_dummy_stack,
     describe_instances,
     destroy_environment,
     destroy_job_instances,
     dump_env_logs,
     dump_logs,
     get_job_instances,
+    GET_TOKEN_SCRIPT,
     parse_euca,
     run_instances,
 )
@@ -22,6 +27,7 @@ from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
 )
+from test_jujupy import assert_juju_call
 from utility import temp_dir
 
 
@@ -323,3 +329,49 @@ class DumpEnvLogsTestCase(TestCase):
              'Could not retrieve some or all logs:',
              'None'],
             self.stream.getvalue().splitlines())
+
+
+class TestDeployDummyStack(TestCase):
+
+    def test_deploy_dummy_stack(self):
+        client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
+
+        def output(args, **kwargs):
+            status = yaml.safe_dump({
+                'machines': {'0': {'agent-state': 'started'}},
+                'services': {}})
+            output = {
+                ('juju', '--show-log', 'status', '-e', 'foo'): status,
+                ('juju', '--show-log', 'ssh', '-e', 'foo', 'dummy-sink/0',
+                 GET_TOKEN_SCRIPT): 'fake-token',
+                }
+            return output[args]
+
+        with patch('subprocess.check_output', side_effect=output,
+                   autospec=True) as co_mock:
+            with patch('subprocess.check_call', autospec=True) as cc_mock:
+                with patch('deploy_stack.get_random_string',
+                           return_value='fake-token', autospec=True):
+                    with patch('sys.stdout', autospec=True):
+                        deploy_dummy_stack(client, 'bar-')
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'deploy', '-e', 'foo',  'bar-dummy-source'),
+            0)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'set', '-e', 'foo',  'dummy-source',
+            'token=fake-token'), 1)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'deploy', '-e', 'foo',  'bar-dummy-sink'), 2)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-relation', '-e', 'foo',
+            'dummy-source', 'dummy-sink'), 3)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'expose', '-e', 'foo', 'dummy-sink'), 4)
+        self.assertEqual(cc_mock.call_count, 5)
+        assert_juju_call(self, co_mock, client, (
+            'juju', '--show-log', 'status', '-e', 'foo'), 0,
+            assign_stderr=True)
+        assert_juju_call(self, co_mock, client, (
+            'juju', '--show-log', 'ssh', '-e', 'foo', 'dummy-sink/0',
+            GET_TOKEN_SCRIPT), 1, assign_stderr=True)
+        self.assertEqual(co_mock.call_count, 2)

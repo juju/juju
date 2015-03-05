@@ -56,7 +56,7 @@ def assert_juju_call(test_case, mock_method, client, expected_args,
     if assign_stderr:
         kwarg_keys = ['stderr'] + kwarg_keys
         test_case.assertEqual(type(kwargs['stderr']), file)
-    test_case.assertEqual(kwargs.keys(), kwarg_keys)
+    test_case.assertItemsEqual(kwargs.keys(), kwarg_keys)
     bin_dir = os.path.dirname(client.full_path)
     test_case.assertRegexpMatches(kwargs['env']['PATH'],
                                   r'^{}\:'.format(bin_dir))

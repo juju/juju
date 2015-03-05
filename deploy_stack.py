@@ -134,12 +134,7 @@ def deploy_dummy_stack(client, charm_prefix):
     check_token(client, token)
 
 
-def check_token(client, token):
-    # Wait up to 120 seconds for token to be created.
-    # Utopic is slower, maybe because the devel series gets more
-    # package updates.
-    logging.info('Retrieving token.')
-    get_token = """
+GET_TOKEN_SCRIPT = """
         for x in $(seq 120); do
           if [ -f /var/run/dummy-sink/token ]; then
             if [ "$(cat /var/run/dummy-sink/token)" != "" ]; then
@@ -150,8 +145,16 @@ def check_token(client, token):
         done
         cat /var/run/dummy-sink/token
     """
+
+
+def check_token(client, token):
+    # Wait up to 120 seconds for token to be created.
+    # Utopic is slower, maybe because the devel series gets more
+    # package updates.
+    logging.info('Retrieving token.')
     try:
-        result = client.get_juju_output('ssh', 'dummy-sink/0', get_token)
+        result = client.get_juju_output('ssh', 'dummy-sink/0',
+                                        GET_TOKEN_SCRIPT)
     except subprocess.CalledProcessError as err:
         print("WARNING: juju ssh failed: {}".format(str(err)))
         print("Falling back to ssh.")
