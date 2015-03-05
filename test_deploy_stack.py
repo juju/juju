@@ -1,11 +1,15 @@
-from argparse import ArgumentParser
+from argparse import (
+    ArgumentParser,
+    Namespace,
+    )
+import json
 import logging
 import os
 from StringIO import StringIO
-from textwrap import dedent
 import subprocess
+import sys
+from textwrap import dedent
 from unittest import TestCase
-import json
 
 from mock import (
     patch,
@@ -87,28 +91,26 @@ class ArgParserTestCase(TestCase):
         expected = {'agent_url': 'some_url', 'series': 'vivid'}
         self.assertEqual(args_dict, expected)
 
-    def test_get_new_juju_path_new_juju_bin(self):
-        parser = ArgumentParser('proc')
-        add_path_args(parser)
-        cmd_line = ['proc', '--new-juju-bin', '/tmp/juju']
-        with patch('sys.argv', cmd_line):
-            args = parser.parse_args()
+    def test_get_juju_path_new_juju_bin(self):
+        args = Namespace(new_juju_bin='/tmp/juju', run_startup=False)
         juju_path = get_juju_path(args)
         self.assertEqual(juju_path, '/tmp/juju/juju')
 
-    def test_get_new_juju_path_run_startup(self):
-        parser = ArgumentParser('proc')
-        parser.add_argument('env')
-        add_path_args(parser)
-        cmd_line = ['proc', '--run-startup', 'foo']
-        with patch('sys.argv', cmd_line):
-            args = parser.parse_args()
+    def test_get_juju_path_run_startup(self):
+        args = Namespace(run_startup=True, env='proc')
         with patch.dict(os.environ, {'PATH': os.environ['PATH']}):
-            with patch('subprocess.check_call') as cc_mock:
-                with patch('subprocess.check_output'):
+            with patch('subprocess.check_call', autospec=True) as cc_mock:
+                with patch('subprocess.check_output',
+                           return_value='foo') as co_mock:
                     juju_path = get_juju_path(args)
-        self.assertIn('common-startup.sh', cc_mock.call_args_list[0][0][0][1])
-        self.assertEqual('foo', juju_path)
+        env = dict(os.environ)
+        scripts = os.path.dirname(os.path.abspath(sys.argv[0]))
+        env['ENV'] = args.env
+        cc_mock.assert_called_once_with(['bash',
+            '{}/common-startup.sh'.format(scripts)], env=env)
+        co_mock.assert_called_once_with(
+            ['find', 'extracted-bin', '-name', 'juju'])
+        self.assertEqual(juju_path, os.path.abspath('foo'))
 
     def test_get_log_level_debug(self):
         parser = ArgumentParser('proc')
