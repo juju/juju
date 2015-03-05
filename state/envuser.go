@@ -110,15 +110,16 @@ func (st *State) EnvironmentUser(user names.UserTag) (*EnvironmentUser, error) {
 }
 
 // AddEnvironmentUser adds a new user to the database.
-func (st *State) AddEnvironmentUser(user, createdBy names.UserTag) (*EnvironmentUser, error) {
-	var displayName string
+func (st *State) AddEnvironmentUser(user, createdBy names.UserTag, displayName string) (*EnvironmentUser, error) {
 	// Ensure local user exists in state before adding them as an environment user.
 	if user.IsLocal() {
 		localUser, err := st.User(user)
 		if err != nil {
 			return nil, errors.Annotate(err, fmt.Sprintf("user %q does not exist locally", user.Name()))
 		}
-		displayName = localUser.DisplayName()
+		if displayName == "" {
+			displayName = localUser.DisplayName()
+		}
 	}
 
 	// Ensure local createdBy user exists.
