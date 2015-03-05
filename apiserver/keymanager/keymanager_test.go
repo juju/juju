@@ -303,12 +303,21 @@ func (s *keyManagerSuite) TestImportKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key
 	key3 := sshtesting.ValidKeyThree.Key
+	keymv := strings.Split(sshtesting.ValidKeyMulti, "\n")
+	keymp := strings.Split(sshtesting.PartValidKeyMulti, "\n")
 	initialKeys := []string{key1, key2, "bad key"}
 	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
 
 	args := params.ModifyUserSSHKeys{
 		User: s.AdminUserTag(c).Name(),
-		Keys: []string{"lp:existing", "lp:validuser", "invalid-key"},
+		Keys: []string{
+			"lp:existing",
+			"lp:validuser",
+			"invalid-key",
+			"lp:multi",
+			"lp:multiempty",
+			"lp:multipartial",
+		},
 	}
 	results, err := s.keymanager.ImportKeys(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -317,9 +326,17 @@ func (s *keyManagerSuite) TestImportKeys(c *gc.C) {
 			{Error: apiservertesting.ServerError(fmt.Sprintf("duplicate ssh key: %s", key2))},
 			{Error: nil},
 			{Error: apiservertesting.ServerError("invalid ssh key id: invalid-key")},
+			{Error: nil},
+			{Error: nil},
+			{Error: apiservertesting.ServerError("invalid ssh key id: lp:multiempty")},
+			{Error: nil},
+			{Error: apiservertesting.ServerError(fmt.Sprintf(
+				`invalid ssh key for lp:multipartial: `+
+					`generating key fingerprint: `+
+					`invalid authorized_key "%s"`, keymp[1]))},
 		},
 	})
-	s.assertEnvironKeys(c, append(initialKeys, key3))
+	s.assertEnvironKeys(c, append(initialKeys, key3, keymv[0], keymv[1], keymp[0]))
 }
 
 func (s *keyManagerSuite) TestBlockImportKeys(c *gc.C) {

@@ -19,17 +19,16 @@ func (*fakeAPI) ConnectionInfo() (params.DeployerConnectionValues, error) {
 	}, nil
 }
 
-func NewTestSimpleContext(agentConfig agent.Config, initDir, logDir string, data *service.FakeServiceData) *SimpleContext {
+func NewTestSimpleContext(agentConfig agent.Config, logDir string, data *service.FakeServiceData) *SimpleContext {
 	return &SimpleContext{
 		api:         &fakeAPI{},
 		agentConfig: agentConfig,
-		initDir:     initDir,
 		discoverService: func(name string, conf common.Conf) deployerService {
 			svc := service.NewFakeService(name, conf)
 			svc.FakeServiceData = data
 			return svc
 		},
-		listServices: func(initDir string) ([]string, error) {
+		listServices: func() ([]string, error) {
 			return data.InstalledNames.Values(), nil
 		},
 	}

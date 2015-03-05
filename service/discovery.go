@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"runtime"
 	"strings"
 
@@ -74,31 +75,6 @@ func VersionInitSystem(vers version.Binary) (string, bool) {
 // system executable on linux.
 const pid1 = "/proc/1/cmdline"
 
-type initSystem struct {
-	executable string
-	name       string
-}
-
-var linuxExecutables = []initSystem{
-	// Note that some systems link /sbin/init to whatever init system
-	// is supported, so in the future we may need some other way to
-	// identify upstart uniquely.
-	{"/sbin/init", InitSystemUpstart},
-	{"/sbin/upstart", InitSystemUpstart},
-	{"/sbin/systemd", InitSystemSystemd},
-	{"/bin/systemd", InitSystemSystemd},
-	{"/lib/systemd/systemd", InitSystemSystemd},
-}
-
-func identifyInitSystem(executable string) (string, bool) {
-	for _, initSystem := range linuxExecutables {
-		if executable == initSystem.executable {
-			return initSystem.name, true
-		}
-	}
-	return "", false
-}
-
 // These exist to allow patching during tests.
 var (
 	runtimeOS = runtime.GOOS
@@ -117,8 +93,7 @@ func discoverLocalInitSystem() (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	out := strings.Trim(strings.TrimSpace(string(data)), "\x00")
-	executable := strings.Fields(out)[0]
+	executable := strings.Split(string(data), "\x00")[0]
 
 	initName, ok := identifyInitSystem(executable)
 	if !ok {
@@ -126,6 +101,67 @@ func discoverLocalInitSystem() (string, error) {
 	}
 	logger.Debugf("discovered init system %q from executable %q", initName, executable)
 	return initName, nil
+}
+
+func identifyInitSystem(executable string) (string, bool) {
+	initSystem, ok := identifyExecutable(executable)
+	if ok {
+		return initSystem, true
+	}
+
+	if _, err := os.Stat(executable); os.IsNotExist(err) {
+		return "", false
+	}
+
+	// TODO(ericsnow) First fall back to following symlinks?
+
+	// Fall back to checking the "version" text.
+	cmd := exec.Command(executable, "--version")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		logger.Errorf(`"%s --version" failed (%v): %s`, executable, err, out)
+		return "", false
+	}
+
+	verText := string(out)
+	switch {
+	case strings.Contains(verText, "upstart"):
+		return InitSystemUpstart, true
+	case strings.Contains(verText, "systemd"):
+		return InitSystemSystemd, true
+	}
+
+	// uh-oh
+	return "", false
+}
+
+func identifyExecutable(executable string) (string, bool) {
+	switch {
+	case strings.Contains(executable, "upstart"):
+		return InitSystemUpstart, true
+	case strings.Contains(executable, "systemd"):
+		return InitSystemSystemd, true
+	default:
+		return "", false
+	}
+}
+
+// TODO(ericsnow) Synchronize newShellSelectCommand with discoverLocalInitSystem.
+
+type initSystem struct {
+	executable string
+	name       string
+}
+
+var linuxExecutables = []initSystem{
+	// Note that some systems link /sbin/init to whatever init system
+	// is supported, so in the future we may need some other way to
+	// identify upstart uniquely.
+	{"/sbin/init", InitSystemUpstart},
+	{"/sbin/upstart", InitSystemUpstart},
+	{"/sbin/systemd", InitSystemSystemd},
+	{"/bin/systemd", InitSystemSystemd},
+	{"/lib/systemd/systemd", InitSystemSystemd},
 }
 
 // TODO(ericsnow) Is it too much to cat once for each executable?

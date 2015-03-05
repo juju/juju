@@ -140,28 +140,6 @@ func (s *initSystemSuite) addListResponse() {
 }
 
 func (s *initSystemSuite) setConf(c *gc.C, conf common.Conf) {
-	s.conn.SetProperty("", "Description", conf.Desc)
-	s.conn.SetProperty("Service", "Description", conf.Desc)
-
-	parts := strings.Fields(conf.ExecStart)
-	var args []interface{}
-	for _, arg := range parts[1:] {
-		args = append(args, arg)
-	}
-	s.conn.SetProperty("Service", "ExecStart", []interface{}{
-		parts[0],
-		args,
-		false, 0, 0, 0, 0, 0, 0, 0,
-	})
-
-	if len(conf.Env) > 0 || len(conf.Limit) > 0 {
-		// For now none of our tests need this.
-		panic("not supported yet")
-	}
-
-	s.conn.SetProperty("Service", "StandardOutput", conf.Output)
-	s.conn.SetProperty("Service", "StandardError", conf.Output)
-
 	data, err := systemd.Serialize(s.name, conf)
 	c.Assert(err, jc.ErrorIsNil)
 	s.exec.Responses = append(s.exec.Responses, exec.ExecResponse{
@@ -250,7 +228,7 @@ func (s *initSystemSuite) TestNewService(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
-	s.conf.Output = "/var/log/juju/machine-0.log"
+	s.conf.Logfile = "/var/log/juju/machine-0.log"
 
 	service, err := systemd.NewService(s.name, s.conf)
 	c.Assert(err, jc.ErrorIsNil)
@@ -326,7 +304,7 @@ func (s *initSystemSuite) TestUpdateConfigMultiline(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestUpdateConfigLogfile(c *gc.C) {
-	s.conf.Output = "/var/log/juju/machine-0.log"
+	s.conf.Logfile = "/var/log/juju/machine-0.log"
 
 	s.service.UpdateConfig(s.conf)
 
@@ -343,7 +321,8 @@ func (s *initSystemSuite) TestInstalledTrue(c *gc.C) {
 	s.addService("juju-mongod", "active")
 	s.addListResponse()
 
-	installed := s.service.Installed()
+	installed, err := s.service.Installed()
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(installed, jc.IsTrue)
 	s.stub.CheckCallNames(c, "RunCommand")
@@ -353,7 +332,8 @@ func (s *initSystemSuite) TestInstalledFalse(c *gc.C) {
 	s.addService("something-else", "error")
 	s.addListResponse()
 
-	installed := s.service.Installed()
+	installed, err := s.service.Installed()
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(installed, jc.IsFalse)
 	s.stub.CheckCallNames(c, "RunCommand")
@@ -367,7 +347,8 @@ func (s *initSystemSuite) TestInstalledError(c *gc.C) {
 	failure := errors.New("<failed>")
 	s.stub.SetErrors(failure)
 
-	installed := s.service.Installed()
+	installed, err := s.service.Installed()
+	c.Assert(errors.Cause(err), gc.Equals, failure)
 
 	c.Check(installed, jc.IsFalse)
 	s.stub.CheckCallNames(c, "RunCommand")
@@ -376,39 +357,36 @@ func (s *initSystemSuite) TestInstalledError(c *gc.C) {
 func (s *initSystemSuite) TestExistsTrue(c *gc.C) {
 	s.setConf(c, s.conf)
 
-	exists := s.service.Exists()
+	exists, err := s.service.Exists()
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(exists, jc.IsTrue)
-	s.stub.CheckCallNames(c,
-		"RunCommand",
-	)
+	s.stub.CheckCallNames(c, "RunCommand")
 }
 
 func (s *initSystemSuite) TestExistsFalse(c *gc.C) {
 	s.setConf(c, common.Conf{
 		Desc:      s.conf.Desc,
 		ExecStart: s.conf.ExecStart,
-		Output:    "syslog",
+		Env:       map[string]string{"a": "b"},
 	})
 
-	exists := s.service.Exists()
+	exists, err := s.service.Exists()
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(exists, jc.IsFalse)
-	s.stub.CheckCallNames(c,
-		"RunCommand",
-	)
+	s.stub.CheckCallNames(c, "RunCommand")
 }
 
 func (s *initSystemSuite) TestExistsError(c *gc.C) {
 	failure := errors.New("<failed>")
 	s.stub.SetErrors(failure)
 
-	exists := s.service.Exists()
+	exists, err := s.service.Exists()
+	c.Assert(errors.Cause(err), gc.Equals, failure)
 
 	c.Check(exists, jc.IsFalse)
-	s.stub.CheckCallNames(c,
-		"RunCommand",
-	)
+	s.stub.CheckCallNames(c, "RunCommand")
 }
 
 func (s *initSystemSuite) TestRunningTrue(c *gc.C) {
@@ -416,7 +394,8 @@ func (s *initSystemSuite) TestRunningTrue(c *gc.C) {
 	s.addService("something-else", "error")
 	s.addService("juju-mongod", "active")
 
-	running := s.service.Running()
+	running, err := s.service.Running()
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(running, jc.IsTrue)
 	s.stub.CheckCallNames(c, "ListUnits", "Close")
@@ -427,7 +406,8 @@ func (s *initSystemSuite) TestRunningFalse(c *gc.C) {
 	s.addService("something-else", "error")
 	s.addService("juju-mongod", "active")
 
-	running := s.service.Running()
+	running, err := s.service.Running()
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(running, jc.IsFalse)
 	s.stub.CheckCallNames(c, "ListUnits", "Close")
@@ -436,7 +416,8 @@ func (s *initSystemSuite) TestRunningFalse(c *gc.C) {
 func (s *initSystemSuite) TestRunningNotEnabled(c *gc.C) {
 	s.addService("something-else", "active")
 
-	running := s.service.Running()
+	running, err := s.service.Running()
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(running, jc.IsFalse)
 	s.stub.CheckCallNames(c, "ListUnits", "Close")
@@ -449,7 +430,8 @@ func (s *initSystemSuite) TestRunningError(c *gc.C) {
 	failure := errors.New("<failed>")
 	s.stub.SetErrors(failure)
 
-	running := s.service.Running()
+	running, err := s.service.Running()
+	c.Assert(errors.Cause(err), gc.Equals, failure)
 
 	c.Check(running, jc.IsFalse)
 	s.stub.CheckCallNames(c, "ListUnits", "Close")
@@ -548,26 +530,6 @@ func (s *initSystemSuite) TestStopNotInstalled(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "ListUnits", "Close")
-}
-
-func (s *initSystemSuite) TestStopAndRemove(c *gc.C) {
-	s.addService("jujud-machine-0", "active")
-	s.ch <- "done"
-	s.addListResponse()
-
-	err := s.service.StopAndRemove()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCallNames(c,
-		"ListUnits",
-		"Close",
-		"StopUnit",
-		"Close",
-		"RunCommand",
-		"DisableUnitFiles",
-		"RemoveAll",
-		"Close",
-	)
 }
 
 func (s *initSystemSuite) TestRemove(c *gc.C) {
@@ -678,7 +640,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 	s.setConf(c, common.Conf{
 		Desc:      s.conf.Desc,
 		ExecStart: s.conf.ExecStart,
-		Output:    "syslog",
+		Env:       map[string]string{"a": "b"},
 	})
 	s.addListResponse()
 	s.ch <- "done"
