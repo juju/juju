@@ -8,11 +8,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/tailer"
 	"launchpad.net/golxc"
@@ -22,23 +22,7 @@ import (
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
-)
-
-const (
-	templateShutdownUpstartFilename = "/etc/init/juju-template-restart.conf"
-	templateShutdownUpstartScript   = `
-description "Juju lxc template shutdown job"
-author "Juju Team <juju@lists.ubuntu.com>"
-start on stopped cloud-final
-
-script
-  shutdown -h now
-end script
-
-post-stop script
-  rm ` + templateShutdownUpstartFilename + `
-end script
-`
+	"github.com/juju/juju/service"
 )
 
 var (
@@ -76,12 +60,13 @@ func templateUserData(
 		cloudinit.MaybeAddCloudArchiveCloudTools(config, series)
 	}
 	cloudinit.AddAptCommands(series, aptProxy, aptMirror, config, enablePackageUpdates, enableOSUpgrades)
-	config.AddScripts(
-		fmt.Sprintf(
-			"printf '%%s\n' %s > %s",
-			utils.ShQuote(templateShutdownUpstartScript),
-			templateShutdownUpstartFilename,
-		))
+
+	initSystem := containerInitSystem()
+	script, err := shutdownInitScript(initSystem)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	config.AddScripts(script)
 
 	renderer, err := corecloudinit.NewRenderer(series)
 	if err != nil {
@@ -92,6 +77,31 @@ func templateUserData(
 		return nil, err
 	}
 	return data, nil
+}
+
+func containerInitSystem() string {
+	// TODO(ericsnow) Where to find it...
+	return service.InitSystemUpstart
+}
+
+func shutdownInitScript(initSystem string) (string, error) {
+	name := "juju-template-restart"
+	conf, err := service.ShutdownAfterConf("cloud-final")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	svc, err := service.NewService(name, conf, initSystem)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	cmds, err := svc.InstallCommands()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return strings.Join(cmds, "\n"), nil
 }
 
 func AcquireTemplateLock(name, message string) (*container.Lock, error) {

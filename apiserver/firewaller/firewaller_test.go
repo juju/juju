@@ -4,6 +4,8 @@
 package firewaller_test
 
 import (
+	"sort"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -108,6 +110,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 		{Tag: s.units[0].Tag().String()},
 	}})
 	result, err := s.firewaller.WatchOpenedPorts(args)
+	sort.Strings(result.Results[0].Changes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{

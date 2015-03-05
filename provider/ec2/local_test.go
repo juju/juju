@@ -15,10 +15,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-	"gopkg.in/amz.v2/aws"
-	amzec2 "gopkg.in/amz.v2/ec2"
-	"gopkg.in/amz.v2/ec2/ec2test"
-	"gopkg.in/amz.v2/s3/s3test"
+	"gopkg.in/amz.v3/aws"
+	amzec2 "gopkg.in/amz.v3/ec2"
+	"gopkg.in/amz.v3/ec2/ec2test"
+	"gopkg.in/amz.v3/s3/s3test"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
@@ -65,7 +65,6 @@ func registerLocalTests() {
 	// has entries in the images/query txt files.
 	aws.Regions["test"] = aws.Region{
 		Name: "test",
-		Sign: aws.SignV2,
 	}
 
 	gc.Suite(&localServerSuite{})
@@ -120,7 +119,6 @@ func (srv *localServer) startServer(c *gc.C) {
 		EC2Endpoint:          srv.ec2srv.URL(),
 		S3Endpoint:           srv.s3srv.URL(),
 		S3LocationConstraint: true,
-		Sign:                 aws.SignV2,
 	}
 	srv.addSpice(c)
 
@@ -814,7 +812,7 @@ func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 	// Releasing a second time tests that the first call actually released
 	// it plus tests the error handling of ReleaseAddress
 	err = env.ReleaseAddress(instId, "", addr)
-	msg := fmt.Sprintf("failed to unassign IP address \"%v\" for instance \"%v\".*", addr.Value, instId)
+	msg := fmt.Sprintf(`failed to release address "8\.0\.0\.4" from instance %q.*`, instId)
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
@@ -829,10 +827,10 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 		ProviderId:       "eni-0",
 		ProviderSubnetId: "subnet-0",
 		VLANTag:          0,
-		InterfaceName:    "eth0",
+		InterfaceName:    "unsupported0",
 		Disabled:         false,
 		NoAutoStart:      false,
-		ConfigType:       "",
+		ConfigType:       network.ConfigDHCP,
 		Address:          network.NewAddress("10.10.0.5", network.ScopeCloudLocal),
 	}}
 	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)
@@ -866,7 +864,7 @@ func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
 
 	_, err := env.Subnets("", []network.Id{"subnet-0", "Missing"})
-	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: \\[Missing\\]")
+	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[Missing\]`)
 }
 
 func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {

@@ -10,3 +10,4 @@ storage:
         type: block
         multiple:
                 range: 2-
+        minimum-size: 2G

@@ -78,19 +78,3 @@ func (s *providerRegistrySuite) TestRegisterEnvironProvidersMultipleCalls(c *gc.
 	c.Assert(registry.IsProviderSupported("ec2", ptypeFoo), jc.IsTrue)
 	c.Assert(registry.IsProviderSupported("ec2", ptypeBar), jc.IsTrue)
 }
-
-func (s *providerRegistrySuite) TestDefaultPool(c *gc.C) {
-	registry.RegisterDefaultPool("ec2", storage.StorageKindBlock, "ebs")
-	registry.RegisterDefaultPool("ec2", storage.StorageKindFilesystem, "nfs")
-	registry.RegisterDefaultPool("local", storage.StorageKindFilesystem, "nfs")
-	pool, ok := registry.DefaultPool("ec2", storage.StorageKindBlock)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(pool, gc.Equals, "ebs")
-	pool, ok = registry.DefaultPool("ec2", storage.StorageKindFilesystem)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(pool, gc.Equals, "nfs")
-	pool, ok = registry.DefaultPool("local", storage.StorageKindBlock)
-	c.Assert(ok, jc.IsFalse)
-	pool, ok = registry.DefaultPool("maas", storage.StorageKindBlock)
-	c.Assert(ok, jc.IsFalse)
-}

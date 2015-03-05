@@ -41,9 +41,9 @@ func FormatOneline(value interface{}) ([]byte, error) {
 		)
 	}
 
-	for _, svcName := range sortStrings(stringKeysFromMap(fs.Services)) {
+	for _, svcName := range sortStringsNaturally(stringKeysFromMap(fs.Services)) {
 		svc := fs.Services[svcName]
-		for _, uName := range sortStrings(stringKeysFromMap(svc.Units)) {
+		for _, uName := range sortStringsNaturally(stringKeysFromMap(svc.Units)) {
 			unit := svc.Units[uName]
 			pprint(uName, unit, 0)
 			recurseUnits(unit, 1, pprint)
@@ -73,7 +73,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 
 	p("[Machines]")
 	p("ID\tSTATE\tVERSION\tDNS\tINS-ID\tSERIES\tHARDWARE")
-	for _, name := range sortStrings(stringKeysFromMap(fs.Machines)) {
+	for _, name := range sortStringsNaturally(stringKeysFromMap(fs.Machines)) {
 		m := fs.Machines[name]
 		p(m.Id, m.AgentState, m.AgentVersion, m.DNSName, m.InstanceId, m.Series, m.Hardware)
 	}
@@ -83,7 +83,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 
 	p("\n[Services]")
 	p("NAME\tEXPOSED\tCHARM")
-	for _, svcName := range sortStrings(stringKeysFromMap(fs.Services)) {
+	for _, svcName := range sortStringsNaturally(stringKeysFromMap(fs.Services)) {
 		svc := fs.Services[svcName]
 		for un, u := range svc.Units {
 			units[un] = u
@@ -105,7 +105,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 
 	p("\n[Units]")
 	p("ID\tSTATE\tVERSION\tMACHINE\tPORTS\tPUBLIC-ADDRESS")
-	for _, name := range sortStrings(stringKeysFromMap(units)) {
+	for _, name := range sortStringsNaturally(stringKeysFromMap(units)) {
 		u := units[name]
 		pUnit(name, u, 0)
 		const indentationLevel = 1
@@ -153,7 +153,7 @@ func FormatSummary(value interface{}) ([]byte, error) {
 	p(" ")
 
 	p("# SERVICES:", fmt.Sprintf(" (%d)", len(fs.Services)))
-	for _, svcName := range sortStrings(stringKeysFromMap(svcExposure)) {
+	for _, svcName := range sortStringsNaturally(stringKeysFromMap(svcExposure)) {
 		s := svcExposure[svcName]
 		p(svcName, fmt.Sprintf("%d/%d\texposed", s[true], s[true]+s[false]))
 	}
@@ -221,7 +221,7 @@ func (f *summaryFormatter) trackUnit(name string, status unitStatus, indentLevel
 }
 
 func (f *summaryFormatter) printStateToCount(m map[params.Status]int) {
-	for _, status := range sortStrings(stringKeysFromMap(m)) {
+	for _, status := range sortStringsNaturally(stringKeysFromMap(m)) {
 		numInStatus := m[params.Status(status)]
 		f.delimitValuesWithTabs(status+":", fmt.Sprintf(" %d ", numInStatus))
 	}
@@ -255,7 +255,7 @@ func (f *summaryFormatter) resolveAndTrackIp(publicDns string) {
 
 func (f *summaryFormatter) aggregateMachineStates(machines map[string]machineStatus) map[params.Status]int {
 	stateToMachine := make(map[params.Status]int)
-	for _, name := range sortStrings(stringKeysFromMap(machines)) {
+	for _, name := range sortStringsNaturally(stringKeysFromMap(machines)) {
 		m := machines[name]
 		f.resolveAndTrackIp(m.DNSName)
 
@@ -270,10 +270,10 @@ func (f *summaryFormatter) aggregateMachineStates(machines map[string]machineSta
 
 func (f *summaryFormatter) aggregateServiceAndUnitStates(services map[string]serviceStatus) map[string]map[bool]int {
 	svcExposure := make(map[string]map[bool]int)
-	for _, name := range sortStrings(stringKeysFromMap(services)) {
+	for _, name := range sortStringsNaturally(stringKeysFromMap(services)) {
 		s := services[name]
 		// Grab unit states
-		for _, un := range sortStrings(stringKeysFromMap(s.Units)) {
+		for _, un := range sortStringsNaturally(stringKeysFromMap(s.Units)) {
 			u := s.Units[un]
 			f.trackUnit(un, u, 0)
 			recurseUnits(u, 1, f.trackUnit)
@@ -288,9 +288,9 @@ func (f *summaryFormatter) aggregateServiceAndUnitStates(services map[string]ser
 	return svcExposure
 }
 
-// sortStrings is syntactic sugar so we can do sorts in one line.
-func sortStrings(s []string) []string {
-	sort.Strings(s)
+// sortStringsNaturally is syntactic sugar so we can do sorts in one line.
+func sortStringsNaturally(s []string) []string {
+	sort.Sort(naturally(s))
 	return s
 }
 
@@ -309,7 +309,7 @@ func recurseUnits(u unitStatus, il int, recurseMap func(string, unitStatus, int)
 	if len(u.Subordinates) == 0 {
 		return
 	}
-	for _, uName := range sortStrings(stringKeysFromMap(u.Subordinates)) {
+	for _, uName := range sortStringsNaturally(stringKeysFromMap(u.Subordinates)) {
 		unit := u.Subordinates[uName]
 		recurseMap(uName, unit, il)
 		recurseUnits(unit, il+1, recurseMap)

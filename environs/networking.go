@@ -28,8 +28,10 @@ type Networking interface {
 	NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error)
 
 	// SupportsAddressAllocation returns whether the given subnetId
-	// supports static IP address allocation using AllocateAddress
-	// and ReleaseAddress.
+	// supports static IP address allocation using AllocateAddress and
+	// ReleaseAddress. If subnetId is network.AnySubnet, the provider
+	// can decide whether it can return true or a false and an error
+	// (e.g. "subnetId must be set").
 	SupportsAddressAllocation(subnetId network.Id) (bool, error)
 }
 

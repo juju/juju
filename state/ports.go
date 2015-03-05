@@ -141,12 +141,12 @@ func (p PortRange) String() string {
 
 // portsDoc represents the state of ports opened on machines for networks
 type portsDoc struct {
-	DocID       string `bson:"_id"`
-	EnvUUID     string `bson:"env-uuid"`
-	MachineID   string `bson:"machine-id"`
-	NetworkName string `bson:"network-name"`
-	Ports       []PortRange
-	TxnRevno    int64 `bson:"txn-revno"`
+	DocID       string      `bson:"_id"`
+	EnvUUID     string      `bson:"env-uuid"`
+	MachineID   string      `bson:"machine-id"`
+	NetworkName string      `bson:"network-name"`
+	Ports       []PortRange `bson:"ports"`
+	TxnRevno    int64       `bson:"txn-revno"`
 }
 
 // Ports represents the state of ports on a machine.

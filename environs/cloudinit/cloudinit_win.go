@@ -12,24 +12,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/juju/paths"
 )
 
 type windowsConfigure struct {
-	mcfg     *MachineConfig
-	conf     *cloudinit.Config
-	renderer cloudinit.Renderer
-}
-
-func (w *windowsConfigure) init() error {
-	renderer, err := cloudinit.NewRenderer(w.mcfg.Series)
-	if err != nil {
-		return err
-	}
-	w.renderer = renderer
-	return nil
+	baseConfigure
 }
 
 // Configure updates the provided cloudinit.Config with
@@ -107,55 +94,4 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		return err
 	}
 	return w.addMachineAgentToBoot(machineTag.String())
-}
-
-// machineAgentWindowsService returns the powershell command for a machine agent service
-// based on the tag and machineId passed in.
-func (w *windowsConfigure) machineAgentWindowsService(name, toolsDir string) []string {
-	jujud := filepath.Join(toolsDir, "jujud.exe")
-
-	serviceString := fmt.Sprintf(`"%s" machine --data-dir "%s" --machine-id "%s" --debug`,
-		w.renderer.FromSlash(jujud),
-		w.renderer.FromSlash(w.mcfg.DataDir),
-		w.mcfg.MachineId)
-
-	cmd := []string{
-		fmt.Sprintf(`New-Service -Credential $jujuCreds -Name '%s' -DisplayName 'Jujud machine agent' '%s'`, name, serviceString),
-		fmt.Sprintf(`cmd.exe /C sc config %s start=delayed-auto`, name),
-		fmt.Sprintf(`Start-Service %s`, name),
-	}
-	return cmd
-}
-
-func (w *windowsConfigure) addMachineAgentToBoot(tag string) error {
-	// Make the agent run via a symbolic link to the actual tools
-	// directory, so it can upgrade itself without needing to change
-	// the init script.
-	toolsDir := tools.ToolsDir(w.mcfg.DataDir, tag)
-	w.conf.AddScripts(
-		fmt.Sprintf(
-			`cmd.exe /C mklink /D %s %v`,
-			w.renderer.FromSlash(toolsDir),
-			w.mcfg.Tools.Version),
-	)
-	name := w.mcfg.MachineAgentServiceName
-	cmds := w.machineAgentWindowsService(name, toolsDir)
-	w.conf.AddScripts(cmds...)
-	return nil
-}
-
-func (w *windowsConfigure) Render() ([]byte, error) {
-	return w.renderer.Render(w.conf)
-}
-
-func newWindowsConfig(mcfg *MachineConfig, conf *cloudinit.Config) (*windowsConfigure, error) {
-	cfg := &windowsConfigure{
-		mcfg: mcfg,
-		conf: conf,
-	}
-	err := cfg.init()
-	if err != nil {
-		return nil, err
-	}
-	return cfg, nil
 }

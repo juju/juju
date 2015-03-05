@@ -273,7 +273,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the jenv file has the local host ports.
-	c.Logf("\n\n%#v\n\n", s.APIState.APIHostPorts())
+	c.Logf("jenv host ports: %#v", s.APIState.APIHostPorts())
 
 	s.Environ = environ
 

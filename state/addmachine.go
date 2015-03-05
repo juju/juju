@@ -66,6 +66,14 @@ type MachineTemplate struct {
 	// volumes to the machine.
 	VolumeAttachments map[names.VolumeTag]VolumeAttachmentParams
 
+	// Filesystems holds the parameters for filesystems that are to be
+	// created and attached to the machine.
+	Filesystems []MachineFilesystemParams
+
+	// FilesystemAttachments holds the parameters for attaching existing
+	// filesystems to the machine.
+	FilesystemAttachments map[names.FilesystemTag]FilesystemAttachmentParams
+
 	// Nonce holds a unique value that can be used to check
 	// if a new instance was really started for this machine.
 	// See Machine.SetProvisioned. This must be set if InstanceId is set.
@@ -89,6 +97,13 @@ type MachineTemplate struct {
 type MachineVolumeParams struct {
 	Volume     VolumeParams
 	Attachment VolumeAttachmentParams
+}
+
+// MachineFilesystemParams holds the parameters for creating a filesystem
+// and attaching it to a new machine.
+type MachineFilesystemParams struct {
+	Filesystem FilesystemParams
+	Attachment FilesystemAttachmentParams
 }
 
 // AddMachineInsideNewMachine creates a new machine within a container
@@ -432,7 +447,7 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 		Principals: template.principals,
 		Life:       Alive,
 		Nonce:      template.Nonce,
-		Addresses:  instanceAddressesToAddresses(template.Addresses),
+		Addresses:  fromNetworkAddresses(template.Addresses),
 		NoVote:     template.NoVote,
 		Placement:  template.Placement,
 	}
@@ -463,24 +478,45 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		createMachineBlockDevicesOp(mdoc.Id),
 	}
 
+	var filesystemOps, volumeOps []txn.Op
+	fsAttachmentParams := make(map[names.FilesystemTag]FilesystemAttachmentParams)
+	volumeAttachmentParams := make(map[names.VolumeTag]VolumeAttachmentParams)
+
+	// Create filesystems and filesystem attachments.
+	for _, f := range template.Filesystems {
+		ops, filesystemTag, volumeTag, err := st.addFilesystemOps(f.Filesystem)
+		if err != nil {
+			return nil, txn.Op{}, errors.Trace(err)
+		}
+		filesystemOps = append(filesystemOps, ops...)
+		fsAttachmentParams[filesystemTag] = f.Attachment
+		if volumeTag != (names.VolumeTag{}) {
+			volumeAttachmentParams[volumeTag] = VolumeAttachmentParams{}
+		}
+	}
+
 	// Create volumes and volume attachments.
 	//
 	// TODO(axw) created volumes must record the attachment
 	// immediately, to prevent the storage provisioner from
 	// attempting to create the volume until after the machine
 	// has been provisioned.
-	var volumeOps []txn.Op
-	attachmentParams := make(map[names.VolumeTag]VolumeAttachmentParams)
 	for _, v := range template.Volumes {
 		op, tag, err := st.addVolumeOp(v.Volume)
 		if err != nil {
 			return nil, txn.Op{}, errors.Trace(err)
 		}
 		volumeOps = append(volumeOps, op)
-		attachmentParams[tag] = v.Attachment
+		volumeAttachmentParams[tag] = v.Attachment
+	}
+
+	if len(filesystemOps) > 0 {
+		attachmentOps := createMachineFilesystemAttachmentsOps(mdoc.Id, fsAttachmentParams)
+		prereqOps = append(prereqOps, filesystemOps...)
+		prereqOps = append(prereqOps, attachmentOps...)
 	}
 	if len(volumeOps) > 0 {
-		attachmentOps := createMachineVolumeAttachmentsOps(mdoc.Id, attachmentParams)
+		attachmentOps := createMachineVolumeAttachmentsOps(mdoc.Id, volumeAttachmentParams)
 		prereqOps = append(prereqOps, volumeOps...)
 		prereqOps = append(prereqOps, attachmentOps...)
 	}

@@ -28,6 +28,12 @@ func (*storageSuite) TestValidateConfigInvalidConfig(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown provider config option "invalid"`)
 }
 
+func (s *storageSuite) TestSupports(c *gc.C) {
+	p := ec2.EBSProvider()
+	c.Assert(p.Supports(storage.StorageKindBlock), jc.IsTrue)
+	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsFalse)
+}
+
 func (*storageSuite) TestTranslateUserEBSOptions(c *gc.C) {
 	for _, vType := range []string{"magnetic", "ssd", "provisioned-iops"} {
 		in := map[string]interface{}{
