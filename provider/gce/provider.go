@@ -16,38 +16,24 @@ var providerInstance environProvider
 
 // Open implements environs.EnvironProvider.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	// The config will have come from either state or from a config
-	// file. In either case, the original config came from the env from
-	// a previous call to the Prepare method. That means there is no
-	// need to update the config, e.g. with defaults and OS env values
-	// before we validate it, so we pass nil.
-	ecfg, err := newValidConfig(cfg, nil)
-	if err != nil {
-		return nil, errors.Annotate(err, "invalid config")
-	}
-
-	env, err := newEnviron(ecfg)
+	env, err := newEnviron(cfg)
 	return env, errors.Trace(err)
 }
 
 // PrepareForBootstrap implements environs.EnvironProvider.
 func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	// The config generate here will be store in a config file and in
-	// the state DB. So this is the only place we have to update the
-	// config with GCE-specific data, e.g. defaults and OS env values.
-	ecfg, err := prepareConfig(cfg)
+	cfg, err := p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
-		return nil, errors.Annotate(err, "invalid config")
+		return nil, errors.Trace(err)
 	}
-
-	env, err := newEnviron(ecfg)
+	env, err := newEnviron(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	if ctx.ShouldVerifyCredentials() {
 		if err := env.gce.VerifyCredentials(); err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	}
 	return env, nil
@@ -55,7 +41,17 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
+	// Make any necessary updates to the config. This needs to happen
+	// before any defaults are applied.
+	updates, err := parseOSEnv()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, err = cfg.Apply(updates)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cfg, nil
 }
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
