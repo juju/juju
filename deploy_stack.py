@@ -537,12 +537,11 @@ def run_deployer():
     add_path_args(parser)
     args = parser.parse_args()
     juju_path = get_juju_path(args)
-    os.environ['PATH'] = '%s:%s' % (juju_path, os.environ['PATH'])
     configure_logging(get_log_level(args))
     env = SimpleEnvironment.from_config(args.env)
     update_env(env, args.job_name, series=args.series,
                agent_url=args.agent_url)
-    client = EnvJujuClient.by_version(env, debug=args.debug)
+    client = EnvJujuClient.by_version(env, juju_path, debug=args.debug)
     juju_home = get_juju_home()
     with temp_bootstrap_env(
             get_juju_home(), client, set_home=False) as juju_home:
