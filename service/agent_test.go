@@ -50,7 +50,7 @@ func (*agentSuite) TestMachineAgentConfLocal(c *gc.C) {
 	c.Check(conf, jc.DeepEquals, common.Conf{
 		Desc:      "juju agent for machine-0",
 		ExecStart: cmd,
-		Logfile:   filepath.Join(logDir, "machine-0.log"),
+		Output:    filepath.Join(logDir, "machine-0.log"),
 		Env:       osenv.FeatureFlags(),
 		Limit: map[string]string{
 			"nofile": "20000 20000",
@@ -74,7 +74,7 @@ func (*agentSuite) TestMachineAgentConfUbuntu(c *gc.C) {
 	c.Check(conf, jc.DeepEquals, common.Conf{
 		Desc:      "juju agent for machine-0",
 		ExecStart: cmd,
-		Logfile:   logDir + "/machine-0.log",
+		Output:    logDir + "/machine-0.log",
 		Env:       osenv.FeatureFlags(),
 		Limit: map[string]string{
 			"nofile": "20000 20000",
@@ -98,7 +98,7 @@ func (*agentSuite) TestMachineAgentConfWindows(c *gc.C) {
 	c.Check(conf, jc.DeepEquals, common.Conf{
 		Desc:      "juju agent for machine-0",
 		ExecStart: cmd,
-		Logfile:   logDir + `\machine-0.log`,
+		Output:    logDir + `\machine-0.log`,
 		Env:       osenv.FeatureFlags(),
 		Limit: map[string]string{
 			"nofile": "20000 20000",
@@ -124,7 +124,7 @@ func (*agentSuite) TestUnitAgentConf(c *gc.C) {
 	c.Check(conf, jc.DeepEquals, common.Conf{
 		Desc:      "juju unit agent for wordpress/0",
 		ExecStart: cmd,
-		Logfile:   filepath.Join(logDir, "unit-wordpress-0.log"),
+		Output:    filepath.Join(logDir, "unit-wordpress-0.log"),
 		Env:       env,
 	})
 }

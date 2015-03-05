@@ -55,10 +55,11 @@ func normalize(name string, conf common.Conf, scriptPath string) (common.Conf, [
 		conf.Limit = nil
 	}
 
-	if conf.Logfile != "" {
-		// Due to isSimpleCommand we can always safely redirect like this.
-		conf.ExecStart += " &> " + conf.Logfile
-		conf.Logfile = ""
+	output := common.Unquote(conf.Output)
+	if strings.HasPrefix(output, "/") {
+		// Due to isSimpleCommand we can always do this safely.
+		conf.ExecStart += " &> " + conf.Output
+		conf.Output = ""
 	}
 
 	if conf.Transient {
@@ -90,10 +91,10 @@ func validate(name string, conf common.Conf) error {
 		return errors.NotValidf("unexpected ExtraScript")
 	}
 
-	if conf.Logfile != "" {
-		return errors.NotValidf("conf.Logfile value %q", conf.Logfile)
+	if conf.Output != "" && conf.Output != "syslog" {
+		return errors.NotValidf("conf.Output value %q (Options are syslog)", conf.Output)
 	}
-	// We ignore Desc.
+	// We ignore Desc and InitDir.
 
 	for k := range conf.Limit {
 		if _, ok := limitMap[k]; !ok {
@@ -169,6 +170,19 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 			Section: "Service",
 			Name:    "Type",
 			Value:   "forking",
+		})
+	}
+
+	if conf.Output != "" {
+		unitOptions = append(unitOptions, &unit.UnitOption{
+			Section: "Service",
+			Name:    "StandardOutput",
+			Value:   conf.Output,
+		})
+		unitOptions = append(unitOptions, &unit.UnitOption{
+			Section: "Service",
+			Name:    "StandardError",
+			Value:   conf.Output,
 		})
 	}
 
@@ -267,6 +281,10 @@ func deserializeOptions(opts []*unit.UnitOption) (common.Conf, error) {
 			switch {
 			case uo.Name == "ExecStart":
 				conf.ExecStart = uo.Value
+			case uo.Name == "StandardError", uo.Name == "StandardOutput":
+				// TODO(wwitzel3) We serialize Standard(Error|Output)
+				// to the same thing, but we should probably make sure they match
+				conf.Output = uo.Value
 			case uo.Name == "Environment":
 				if conf.Env == nil {
 					conf.Env = make(map[string]string)

@@ -77,6 +77,11 @@ func (s *UpstartSuite) RunningStatus(c *gc.C) {
 	s.MakeTool(c, "status", `echo "some-service start/running, process 123"`)
 }
 
+func (s *UpstartSuite) TestInitDir(c *gc.C) {
+	svc := upstart.NewService("blah", common.Conf{})
+	c.Assert(svc.Conf().InitDir, gc.Equals, s.initDir)
+}
+
 func (s *UpstartSuite) goodInstall(c *gc.C) {
 	s.MakeTool(c, "start", "exit 0")
 	err := s.service.Install()
@@ -84,105 +89,95 @@ func (s *UpstartSuite) goodInstall(c *gc.C) {
 }
 
 func (s *UpstartSuite) TestInstalled(c *gc.C) {
-	installed, err := s.service.Installed()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(installed, jc.IsFalse)
-
+	c.Assert(s.service.Installed(), jc.IsFalse)
 	s.goodInstall(c)
-	installed, err = s.service.Installed()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(installed, jc.IsTrue)
+	c.Assert(s.service.Installed(), jc.IsTrue)
 }
 
 func (s *UpstartSuite) TestExists(c *gc.C) {
 	// Setup creates the file, but it is empty.
-	exists, err := s.service.Exists()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(exists, jc.IsFalse)
-
+	c.Assert(s.service.Exists(), jc.IsFalse)
 	s.goodInstall(c)
-	exists, err = s.service.Exists()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(exists, jc.IsTrue)
+	c.Assert(s.service.Exists(), jc.IsTrue)
 }
 
 func (s *UpstartSuite) TestExistsNonEmpty(c *gc.C) {
 	s.goodInstall(c)
 	s.service.Service.Conf.ExecStart = "/path/to/other-command"
-
-	exists, err := s.service.Exists()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(exists, jc.IsFalse)
+	c.Assert(s.service.Exists(), jc.IsFalse)
 }
 
 func (s *UpstartSuite) TestRunning(c *gc.C) {
 	s.MakeTool(c, "status", "exit 1")
-	running, err := s.service.Running()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(running, jc.IsFalse)
-
+	c.Assert(s.service.Running(), jc.IsFalse)
 	s.MakeTool(c, "status", `echo "GIBBERISH NONSENSE"`)
-	running, err = s.service.Running()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(running, jc.IsFalse)
-
+	c.Assert(s.service.Running(), jc.IsFalse)
 	s.RunningStatus(c)
-	running, err = s.service.Running()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(running, jc.IsTrue)
+	c.Assert(s.service.Running(), jc.IsTrue)
 }
 
 func (s *UpstartSuite) TestStart(c *gc.C) {
 	s.RunningStatus(c)
 	s.MakeTool(c, "start", "exit 99")
-	c.Assert(s.service.Start(), jc.ErrorIsNil)
+	c.Assert(s.service.Start(), gc.IsNil)
 	s.StoppedStatus(c)
 	c.Assert(s.service.Start(), gc.ErrorMatches, ".*exit status 99.*")
 	s.MakeTool(c, "start", "exit 0")
-	c.Assert(s.service.Start(), jc.ErrorIsNil)
+	c.Assert(s.service.Start(), gc.IsNil)
 }
 
 func (s *UpstartSuite) TestStop(c *gc.C) {
 	s.StoppedStatus(c)
 	s.MakeTool(c, "stop", "exit 99")
-	c.Assert(s.service.Stop(), jc.ErrorIsNil)
+	c.Assert(s.service.Stop(), gc.IsNil)
 	s.RunningStatus(c)
 	c.Assert(s.service.Stop(), gc.ErrorMatches, ".*exit status 99.*")
 	s.MakeTool(c, "stop", "exit 0")
-	c.Assert(s.service.Stop(), jc.ErrorIsNil)
+	c.Assert(s.service.Stop(), gc.IsNil)
 }
 
 func (s *UpstartSuite) TestRemoveMissing(c *gc.C) {
-	err := s.service.Remove()
-
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(s.service.StopAndRemove(), gc.IsNil)
 }
 
 func (s *UpstartSuite) TestRemoveStopped(c *gc.C) {
 	s.goodInstall(c)
 	s.StoppedStatus(c)
-	err := s.service.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-
-	filename := filepath.Join(upstart.InitDir, "some-service.conf")
-	_, err = os.Stat(filename)
-	c.Check(err, jc.Satisfies, os.IsNotExist)
+	c.Assert(s.service.StopAndRemove(), gc.IsNil)
+	filename := filepath.Join(s.service.Conf().InitDir, "some-service.conf")
+	_, err := os.Stat(filename)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
-func (s *UpstartSuite) TestStopRunning(c *gc.C) {
+func (s *UpstartSuite) TestRemoveRunning(c *gc.C) {
 	s.goodInstall(c)
 	s.RunningStatus(c)
 	s.MakeTool(c, "stop", "exit 99")
-	filename := filepath.Join(upstart.InitDir, "some-service.conf")
-	err := s.service.Stop()
-	c.Assert(err, gc.ErrorMatches, ".*exit status 99.*")
-
-	_, err = os.Stat(filename)
+	filename := filepath.Join(s.service.Conf().InitDir, "some-service.conf")
+	c.Assert(s.service.StopAndRemove(), gc.ErrorMatches, ".*exit status 99.*")
+	_, err := os.Stat(filename)
 	c.Assert(err, jc.ErrorIsNil)
-
 	s.MakeTool(c, "stop", "exit 0")
-	err = s.service.Stop()
+	c.Assert(s.service.StopAndRemove(), gc.IsNil)
+	_, err = os.Stat(filename)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+}
+
+func (s *UpstartSuite) TestStopAndRemove(c *gc.C) {
+	s.goodInstall(c)
+	s.RunningStatus(c)
+	s.MakeTool(c, "stop", "exit 99")
+
+	// StopAndRemove will fail, as it calls stop.
+	c.Assert(s.service.StopAndRemove(), gc.ErrorMatches, ".*exit status 99.*")
+	filename := filepath.Join(s.service.Conf().InitDir, "some-service.conf")
+	_, err := os.Stat(filename)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Plain old Remove will succeed.
+	c.Assert(s.service.Remove(), gc.IsNil)
+	_, err = os.Stat(filename)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
 func (s *UpstartSuite) TestInstallErrors(c *gc.C) {
@@ -199,6 +194,8 @@ func (s *UpstartSuite) TestInstallErrors(c *gc.C) {
 	check("missing Desc")
 	s.service.Service.Conf.Desc = "this is an upstart service"
 	check("missing ExecStart")
+	s.service.Service.Conf.ExecStart = "/a/command"
+	check("missing InitDir")
 }
 
 const expectStart = `description "this is an upstart service"
@@ -213,12 +210,13 @@ func (s *UpstartSuite) dummyConf(c *gc.C) common.Conf {
 	return common.Conf{
 		Desc:      "this is an upstart service",
 		ExecStart: "/path/to/some-command x y z",
+		InitDir:   s.initDir,
 	}
 }
 
 func (s *UpstartSuite) assertInstall(c *gc.C, conf common.Conf, expectEnd string) {
 	expectContent := expectStart + expectEnd
-	expectPath := filepath.Join(upstart.InitDir, "some-service.conf")
+	expectPath := filepath.Join(conf.InitDir, "some-service.conf")
 
 	s.service.Service.Conf = conf
 	svc := s.service
@@ -275,9 +273,9 @@ end script
 `)
 }
 
-func (s *UpstartSuite) TestInstallLogfile(c *gc.C) {
+func (s *UpstartSuite) TestInstallOutput(c *gc.C) {
 	conf := s.dummyConf(c)
-	conf.Logfile = "/some/output/path"
+	conf.Output = "/some/output/path"
 	s.assertInstall(c, conf, `
 
 script
@@ -344,7 +342,5 @@ func (s *UpstartSuite) TestInstallAlreadyRunning(c *gc.C) {
 	s.service.UpdateConfig(conf)
 	err = s.service.Install()
 	c.Assert(err, jc.ErrorIsNil)
-	installed, err := s.service.Running()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(installed, jc.IsTrue)
+	c.Assert(s.service, jc.Satisfies, (*upstart.Service).Running)
 }

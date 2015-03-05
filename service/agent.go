@@ -57,7 +57,7 @@ func MachineAgentConf(machineID, dataDir, logDir, os string) (common.Conf, strin
 	conf := common.Conf{
 		Desc:      fmt.Sprintf("juju agent for %s", machineName),
 		ExecStart: cmd,
-		Logfile:   renderer.FromSlash(logFile),
+		Output:    renderer.FromSlash(logFile),
 		Env:       osenv.FeatureFlags(),
 		Limit: map[string]string{
 			"nofile": fmt.Sprintf("%d %d", maxAgentFiles, maxAgentFiles),
@@ -106,7 +106,7 @@ func UnitAgentConf(unitName, dataDir, logDir, os, containerType string) (common.
 	conf := common.Conf{
 		Desc:      fmt.Sprintf("juju unit agent for %s", unitName),
 		ExecStart: cmd,
-		Logfile:   logFile,
+		Output:    logFile,
 		Env:       envVars,
 	}
 

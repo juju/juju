@@ -129,10 +129,13 @@ func (ss *FakeService) UpdateConfig(conf common.Conf) {
 }
 
 // Running implements Service.
-func (ss *FakeService) Running() (bool, error) {
+func (ss *FakeService) Running() bool {
 	ss.AddCall("Running")
 
-	return ss.running(), ss.NextErr()
+	if ss.NextErr() != nil {
+		return false
+	}
+	return ss.running()
 }
 
 func (ss *FakeService) running() bool {
@@ -160,11 +163,22 @@ func (ss *FakeService) Stop() error {
 	return ss.NextErr()
 }
 
+// StopAndRemove implements Service.
+func (ss *FakeService) StopAndRemove() error {
+	if err := ss.Stop(); err != nil {
+		return err
+	}
+	return ss.Remove()
+}
+
 // Exists implements Service.
-func (ss *FakeService) Exists() (bool, error) {
+func (ss *FakeService) Exists() bool {
 	ss.AddCall("Exists")
 
-	return ss.managed(), ss.NextErr()
+	if ss.NextErr() != nil {
+		return false
+	}
+	return ss.managed()
 }
 
 func (ss *FakeService) managed() bool {
@@ -172,10 +186,13 @@ func (ss *FakeService) managed() bool {
 }
 
 // Installed implements Service.
-func (ss *FakeService) Installed() (bool, error) {
+func (ss *FakeService) Installed() bool {
 	ss.AddCall("Installed")
 
-	return ss.installed(), ss.NextErr()
+	if ss.NextErr() != nil {
+		return false
+	}
+	return ss.installed()
 }
 
 func (ss *FakeService) installed() bool {
