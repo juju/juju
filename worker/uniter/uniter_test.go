@@ -20,9 +20,11 @@ import (
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/lease"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter"
 )
 
@@ -95,6 +97,11 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 		c.Logf("\ntest %d: %s\n", i, t.summary)
 		func() {
 			defer s.Reset(c)
+			workerLoop := lease.WorkerLoop(s.State)
+			leaseWorker := worker.NewSimpleWorker(workerLoop)
+			defer func() {
+				c.Assert(worker.Stop(leaseWorker), jc.ErrorIsNil)
+			}()
 			env, err := s.State.Environment()
 			c.Assert(err, jc.ErrorIsNil)
 			ctx := &context{

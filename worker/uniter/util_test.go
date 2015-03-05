@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/leadership"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
@@ -79,6 +80,7 @@ type context struct {
 	s             *UniterSuite
 	st            *state.State
 	api           *apiuniter.State
+	leader        leadership.LeadershipManager
 	charms        map[string][]byte
 	hooks         []string
 	sch           *state.Charm
@@ -131,6 +133,7 @@ func (ctx *context) apiLogin(c *gc.C) {
 	c.Assert(st, gc.NotNil)
 	c.Logf("API: login as %q successful", ctx.unit.Tag())
 	ctx.api, err = st.Uniter()
+	ctx.leader = st.LeadershipManager()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.api, gc.NotNil)
 }
@@ -413,7 +416,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.dataDir, lock)
+	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.leader, ctx.dataDir, lock)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
 

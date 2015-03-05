@@ -622,3 +622,7 @@ func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "action no longer available")
 	c.Check(err, gc.Equals, runner.ErrActionNotAvailable)
 }
+
+func (s *FactorySuite) TestLeadershipContextMethods(c *gc.C) {
+	c.Fatalf("not done")
+}
