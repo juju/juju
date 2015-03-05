@@ -18,6 +18,10 @@ const JES = "jes"
 // and server-side functionality.
 const Storage = "storage"
 
+// LeaderElection is the name of the feature to enable leadership hooks
+// and hook tools.
+const LeaderElection = "leader-election"
+
 // LogErrorStack is a developer feature flag to have the LoggedErrorStack
 // function in the utils package write out the error stack as defined by the
 // errors package to the logger.  The ability to log the error stack is very

@@ -622,7 +622,3 @@ func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "action no longer available")
 	c.Check(err, gc.Equals, runner.ErrActionNotAvailable)
 }
-
-func (s *FactorySuite) TestLeadershipContext(c *gc.C) {
-	c.Fatalf("oh god tedious")
-}
