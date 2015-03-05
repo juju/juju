@@ -24,7 +24,6 @@ const unknownExecutable = "/sbin/unknown/init/system"
 type discoveryTest struct {
 	os       version.OSType
 	series   string
-	exec     string
 	expected string
 }
 
@@ -45,10 +44,6 @@ func (dt discoveryTest) goos() string {
 }
 
 func (dt discoveryTest) executable(c *gc.C) string {
-	if dt.exec != "" {
-		return dt.exec
-	}
-
 	switch dt.expected {
 	case service.InitSystemUpstart:
 		return "/sbin/upstart"
@@ -64,13 +59,9 @@ func (dt discoveryTest) executable(c *gc.C) string {
 	}
 }
 
-func (dt discoveryTest) log(c *gc.C) {
-	c.Logf("testing {%q, %q, %q}...", dt.os, dt.series, dt.exec)
-}
-
 func (dt discoveryTest) disableLocalDiscovery(c *gc.C, s *discoverySuite) {
 	service.PatchGOOS(s, "<another OS>")
-	service.PatchPid1File(c, s, unknownExecutable, "")
+	service.PatchPid1File(c, s, unknownExecutable)
 }
 
 func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
@@ -79,10 +70,9 @@ func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
 	})
 }
 
-func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) string {
+func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) {
 	service.PatchGOOS(s, dt.goos())
-	verText := "..." + dt.expected + "..."
-	return service.PatchPid1File(c, s, dt.executable(c), verText)
+	service.PatchPid1File(c, s, dt.executable(c))
 }
 
 func (dt discoveryTest) setVersion(s *discoverySuite) version.Binary {
@@ -103,6 +93,9 @@ func (dt discoveryTest) checkService(c *gc.C, svc service.Service, err error, na
 	}
 	switch dt.expected {
 	case service.InitSystemUpstart:
+		if conf.InitDir == "" {
+			conf.InitDir = "/etc/init"
+		}
 		c.Check(svc, gc.FitsTypeOf, &upstart.Service{})
 	case service.InitSystemSystemd:
 		c.Check(svc, gc.FitsTypeOf, &systemd.Service{})
@@ -203,25 +196,9 @@ func (s *discoverySuite) TestDiscoverServiceLocalHost(c *gc.C) {
 	test.checkService(c, svc, err, s.name, s.conf)
 }
 
-func (s *discoverySuite) TestDiscoverServiceGeneric(c *gc.C) {
-	test := discoveryTest{
-		os:       version.Ubuntu,
-		series:   "trusty",
-		exec:     "/sbin/init",
-		expected: service.InitSystemUpstart,
-	}
-
-	test.setLocal(c, s)
-	test.disableVersionDiscovery(s)
-
-	svc, err := service.DiscoverService(s.name, s.conf)
-
-	test.checkService(c, svc, err, s.name, s.conf)
-}
-
-func (s *discoverySuite) TestDiscoverServiceLocalOnly(c *gc.C) {
+func (s *discoverySuite) TestDiscoverServiceVersionLocal(c *gc.C) {
 	for _, test := range discoveryTests {
-		test.log(c)
+		c.Logf("testing {%q, %q}...", test.os, test.series)
 
 		test.setLocal(c, s)
 		test.disableVersionDiscovery(s)
@@ -234,7 +211,7 @@ func (s *discoverySuite) TestDiscoverServiceLocalOnly(c *gc.C) {
 
 func (s *discoverySuite) TestDiscoverServiceVersionFallback(c *gc.C) {
 	for _, test := range discoveryTests {
-		test.log(c)
+		c.Logf("testing {%q, %q}...", test.os, test.series)
 
 		test.disableLocalDiscovery(c, s)
 		test.setVersion(s)
@@ -247,7 +224,7 @@ func (s *discoverySuite) TestDiscoverServiceVersionFallback(c *gc.C) {
 
 func (s *discoverySuite) TestVersionInitSystem(c *gc.C) {
 	for _, test := range discoveryTests {
-		test.log(c)
+		c.Logf("testing {%q, %q}...", test.os, test.series)
 
 		vers := test.setVersion(s)
 

@@ -151,26 +151,26 @@ func (s *Service) setConf(conf common.Conf) error {
 }
 
 // Installed implements Service.
-func (s *Service) Installed() (bool, error) {
+func (s *Service) Installed() bool {
 	names, err := ListServices()
 	if err != nil {
-		return false, errors.Trace(err)
+		return false
 	}
 	for _, name := range names {
 		if name == s.Service.Name {
-			return true, nil
+			return true
 		}
 	}
-	return false, nil
+	return false
 }
 
 // Exists implements Service.
-func (s *Service) Exists() (bool, error) {
+func (s *Service) Exists() bool {
 	same, err := s.check()
 	if err != nil {
-		return false, errors.Trace(err)
+		return false
 	}
-	return same, nil
+	return same
 }
 
 func (s *Service) check() (bool, error) {
@@ -178,9 +178,7 @@ func (s *Service) check() (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	scriptPath := path.Join(s.Dirname, "exec-start.sh")
-	normalConf, _ := normalize(s.Service.Name, s.Service.Conf, scriptPath)
-	return reflect.DeepEqual(normalConf, conf), nil
+	return reflect.DeepEqual(s.Service.Conf, conf), nil
 }
 
 func (s *Service) readConf() (common.Conf, error) {
@@ -199,41 +197,32 @@ func (s *Service) readConf() (common.Conf, error) {
 }
 
 // Running implements Service.
-func (s *Service) Running() (bool, error) {
+func (s *Service) Running() bool {
 	conn, err := newConn()
 	if err != nil {
-		return false, errors.Trace(err)
+		return false
 	}
 	defer conn.Close()
 
 	units, err := conn.ListUnits()
 	if err != nil {
-		return false, errors.Trace(err)
+		return false
 	}
 
 	for _, unit := range units {
 		if unit.Name == s.UnitName {
-			running := unit.LoadState == "loaded" && unit.ActiveState == "active"
-			return running, nil
+			return unit.LoadState == "loaded" && unit.ActiveState == "active"
 		}
 	}
-	return false, nil
+	return false
 }
 
 // Start implements Service.
 func (s *Service) Start() error {
-	installed, err := s.Installed()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !installed {
+	if !s.Installed() {
 		return errors.NotFoundf("service " + s.Service.Name)
 	}
-	running, err := s.Running()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if running {
+	if s.Running() {
 		return nil
 	}
 
@@ -269,11 +258,7 @@ func (s *Service) wait(op string, statusCh chan string) error {
 
 // Stop implements Service.
 func (s *Service) Stop() error {
-	running, err := s.Running()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !running {
+	if !s.Running() {
 		return nil
 	}
 
@@ -296,13 +281,18 @@ func (s *Service) Stop() error {
 	return err
 }
 
-// Remove implements Service.
-func (s *Service) Remove() error {
-	installed, err := s.Installed()
-	if err != nil {
+// StopAndRemove implements Service.
+func (s *Service) StopAndRemove() error {
+	if err := s.Stop(); err != nil {
 		return errors.Trace(err)
 	}
-	if !installed {
+	err := s.Remove()
+	return errors.Trace(err)
+}
+
+// Remove implements Service.
+func (s *Service) Remove() error {
+	if !s.Installed() {
 		return nil
 	}
 
@@ -331,11 +321,7 @@ var removeAll = func(name string) error {
 
 // Install implements Service.
 func (s *Service) Install() error {
-	installed, err := s.Installed()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if installed {
+	if s.Installed() {
 		same, err := s.check()
 		if err != nil {
 			return errors.Trace(err)
@@ -344,10 +330,7 @@ func (s *Service) Install() error {
 			return nil
 		}
 		// An old copy is already running so stop it first.
-		if err := s.Stop(); err != nil {
-			return errors.Annotate(err, "systemd: could not stop old service")
-		}
-		if err := s.Remove(); err != nil {
+		if err := s.StopAndRemove(); err != nil {
 			return errors.Annotate(err, "systemd: could not remove old service")
 		}
 	}
