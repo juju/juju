@@ -18,7 +18,7 @@ from deploy_stack import (
     get_job_instances,
     parse_euca,
     run_instances,
-    test_juju_run,
+    assess_juju_run,
 )
 from jujupy import (
     EnvJujuClient,
@@ -189,25 +189,25 @@ class DeployStackTestCase(TestCase):
         client = JujuClientDevel(None, None)
         env = Environment('foo', client, {'type': 'nonlocal'})
         response_ok = json.dumps(
-            [{"MachineId": "0", "Stdout": "Linux\n"},
-             {"MachineId": "1", "Stdout": "Linux\n"},
+            [{"MachineId": "1", "Stdout": "Linux\n"},
              {"MachineId": "2", "Stdout": "Linux\n"}])
         response_err = json.dumps([
-            {"MachineId": "0", "Stdout": "Linux\n"},
             {"MachineId": "1", "Stdout": "Linux\n"},
             {"MachineId": "2",
              "Stdout": "Linux\n",
              "ReturnCode": 255,
              "Stderr": "Permission denied (publickey,password)"}])
-        with patch.object(client, 'get_juju_output', return_value=response_ok):
-            try:
-                test_juju_run(env)
-            except ValueError:
-                self.fail("test_juju_run() raised ValueError unexpectedly")
-        with patch.object(client, 'get_juju_output',
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value=response_ok):
+            responses = assess_juju_run(env)
+            for machine in responses:
+                self.assertFalse(machine.get('ReturnCode', False))
+                self.assertIn(machine.get('MachineId'), ["1", "2"])
+            self.assertEqual(len(responses), 2)
+        with patch.object(client, 'get_juju_output', autospec=True,
                           return_value=response_err):
             with self.assertRaises(ValueError):
-                test_juju_run(env)
+                responses = assess_juju_run(env)
 
 
 class DumpEnvLogsTestCase(TestCase):
