@@ -110,7 +110,7 @@ func (api *API) getStorageAttachments(instance params.StorageInfo) ([]params.Sto
 	}
 	result := make([]params.StorageInfo, len(stateAttachments))
 	for i, one := range stateAttachments {
-		paramsStorageAttachment, err := createParamsStorageAttachment(instance, one)
+		paramsStorageAttachment, err := api.createParamsStorageAttachment(instance, one)
 		if err != nil {
 			return nil, serverError(err)
 		}
@@ -119,7 +119,7 @@ func (api *API) getStorageAttachments(instance params.StorageInfo) ([]params.Sto
 	return result, nil
 }
 
-func createParamsStorageAttachment(si params.StorageInfo, sa state.StorageAttachment) (params.StorageInfo, error) {
+func (api *API) createParamsStorageAttachment(si params.StorageInfo, sa state.StorageAttachment) (params.StorageInfo, error) {
 	result := params.StorageInfo{}
 	result.StorageTag = sa.StorageInstance().String()
 	if result.StorageTag != si.StorageTag {
@@ -127,15 +127,26 @@ func createParamsStorageAttachment(si params.StorageInfo, sa state.StorageAttach
 	}
 	result.UnitTag = sa.Unit().String()
 	result.Attached = true
-	info, err := sa.Info()
-	// err here is not really an error:
-	// it just means that this attachment is not provisioned
-	if err == nil {
-		result.Location = info.Location
-		result.Provisioned = true
-	}
 	result.OwnerTag = si.OwnerTag
 	result.Kind = si.Kind
+
+	// This is only for provisioned attachments
+	machineTag, err := api.storage.UnitAssignedMachine(sa.Unit())
+	if err != nil {
+		return params.StorageInfo{}, errors.Annotate(err, "getting unit for storage attachment")
+	}
+	info, err := common.StorageAttachmentInfo(api.storage, sa, machineTag)
+	if err != nil {
+		if errors.IsNotProvisioned(err) {
+			// Not provisioned attachment is not an error
+			return result, nil
+		}
+		return params.StorageInfo{}, errors.Annotate(err, "getting storage attachment info")
+	}
+	result.Location = info.Location
+	if result.Location != "" {
+		result.Provisioned = true
+	}
 	return result, nil
 }
 

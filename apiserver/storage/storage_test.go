@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	jujustorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
@@ -46,19 +45,12 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *storageSuite) setupTestStorageSupport(c *gc.C) {
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
 	stsetts := state.NewStateSettings(s.State)
 	poolManager := poolmanager.New(stsetts)
-	_, err = poolManager.Create(testPool, provider.LoopProviderType, map[string]interface{}{"it": "works"})
+	_, err := poolManager.Create(testPool, provider.LoopProviderType, map[string]interface{}{"it": "works"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
-	registry.RegisterDefaultPool(cfg.Type(), jujustorage.StorageKindBlock, testPool)
-	s.AddCleanup(func(_ *gc.C) {
-		registry.RegisterDefaultPool(cfg.Type(), jujustorage.StorageKindBlock, "")
-	})
 }
 
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {

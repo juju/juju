@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	jujustorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
@@ -43,10 +42,7 @@ func (s *apiStorageSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { conn.Close() })
 
-	cfgType := setupTestStorageSupport(c, s.State)
-	s.AddCleanup(func(_ *gc.C) {
-		registry.RegisterDefaultPool(cfgType, jujustorage.StorageKindBlock, "")
-	})
+	setupTestStorageSupport(c, s.State)
 
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -57,18 +53,13 @@ func (s *apiStorageSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.storageClient, gc.NotNil)
 }
 
-func setupTestStorageSupport(c *gc.C, s *state.State) string {
-	cfg, err := s.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
+func setupTestStorageSupport(c *gc.C, s *state.State) {
 	stsetts := state.NewStateSettings(s)
 	poolManager := poolmanager.New(stsetts)
-	_, err = poolManager.Create(testPool, provider.LoopProviderType, map[string]interface{}{"it": "works"})
+	_, err := poolManager.Create(testPool, provider.LoopProviderType, map[string]interface{}{"it": "works"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
-	registry.RegisterDefaultPool(cfg.Type(), jujustorage.StorageKindBlock, testPool)
-	return cfg.Type()
 }
 
 func (s *apiStorageSuite) TearDownTest(c *gc.C) {
@@ -152,10 +143,7 @@ func (s *cmdStorageSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	s.SetFeatureFlags(feature.Storage)
 
-	cfgType := setupTestStorageSupport(c, s.State)
-	s.AddCleanup(func(_ *gc.C) {
-		registry.RegisterDefaultPool(cfgType, jujustorage.StorageKindBlock, "")
-	})
+	setupTestStorageSupport(c, s.State)
 }
 
 func runShow(c *gc.C, args []string) *cmd.Context {
