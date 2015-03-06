@@ -16,6 +16,11 @@ type Service struct {
 	Conf Conf
 }
 
+// NoConf checks whether or not Conf has been set.
+func (s Service) NoConf() bool {
+	return s.Conf.IsZero()
+}
+
 // Validate checks the service's values for correctness.
 func (s Service) Validate() error {
 	if s.Name == "" {
