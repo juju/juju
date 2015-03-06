@@ -238,7 +238,11 @@ func assignVolumeIds(
 ) error {
 	volumesByDeviceName := make(map[string]*storage.Volume)
 	volumeIdsByDeviceName := make(map[string]string)
-	associate := func() bool {
+
+	// assignVolumeIds assigns volume IDs by mapping block devices to
+	// volumes with the same device name. assignVolumeIds returns true
+	// iff all volume IDs are assigned.
+	assignVolumeIds := func() bool {
 		for i, blockDeviceMapping := range inst.BlockDeviceMappings {
 			logger.Debugf("block device mapping %d: %+v", i, blockDeviceMapping)
 			volume, ok := volumesByDeviceName[blockDeviceMapping.DeviceName]
@@ -267,11 +271,11 @@ func assignVolumeIds(
 		}
 		devicePath := devicePrefix + att.DeviceName[len(renamedDevicePrefix):]
 		volumesByDeviceName[devicePath] = volume
-		logger.Infof("waiting for volume ID for volume %q (%v)", att.Volume.Id(), devicePath)
+		logger.Debugf("waiting for volume ID for volume %q (%v)", att.Volume.Id(), devicePath)
 	}
 
 	// Check if the block device mappings are already all there.
-	if associate() {
+	if allAssigned := assignVolumeIds(); allAssigned {
 		return nil
 	}
 	for a := shortAttempt.Start(); a.Next(); {
@@ -285,7 +289,7 @@ func assignVolumeIds(
 			continue
 		}
 		inst = instances[0].(*ec2Instance)
-		if associate() {
+		if allAssigned := assignVolumeIds(); allAssigned {
 			return nil
 		}
 		logger.Debugf(
