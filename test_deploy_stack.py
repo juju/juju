@@ -494,7 +494,7 @@ class TestTestUpgrade(TestCase):
 
     RUN_UNAME = (
         'juju', '--show-log', 'run', '-e', 'foo', '--format', 'json',
-         '--machine', '1,2', 'uname')
+        '--machine', '1,2', 'uname')
     VERSION = ('/bar/juju', '--version')
     STATUS = ('juju', '--show-log', 'status', '-e', 'foo')
     GET_ENV = ('juju', '--show-log', 'get-env', '-e', 'foo',
@@ -507,9 +507,9 @@ class TestTestUpgrade(TestCase):
                 'agent-state': 'started',
                 'agent-version': '1.38'}},
             'services': {}})
-        juju_run_out = json.dumps(
-                [{"MachineId": "1", "Stdout": "Linux\n"},
-                {"MachineId": "2", "Stdout": "Linux\n"}])
+        juju_run_out = json.dumps([
+            {"MachineId": "1", "Stdout": "Linux\n"},
+            {"MachineId": "2", "Stdout": "Linux\n"}])
         output = {
             cls.STATUS: status,
             cls.RUN_UNAME: juju_run_out,
