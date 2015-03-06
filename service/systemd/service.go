@@ -117,6 +117,7 @@ type dbusAPI interface {
 	DisableUnitFiles([]string, bool) ([]dbus.DisableUnitFileChange, error)
 	GetUnitProperties(string) (map[string]interface{}, error)
 	GetUnitTypeProperties(string, string) (map[string]interface{}, error)
+	Reload() error
 }
 
 var newConn = func() (dbusAPI, error) {
@@ -418,6 +419,10 @@ func (s *Service) remove() error {
 		return s.errorf(err, "dbus disable request failed")
 	}
 
+	if err := conn.Reload(); err != nil {
+		return s.errorf(err, "dbus post-disable daemon reload request failed")
+	}
+
 	if err := removeAll(s.Dirname); err != nil {
 		return s.errorf(err, "failed to delete juju-managed conf dir")
 	}
@@ -486,7 +491,10 @@ func (s *Service) install() error {
 		return s.errorf(err, "dbus link request failed")
 	}
 
-	// TODO(ericsnow) This needs SU privs...
+	if err := conn.Reload(); err != nil {
+		return s.errorf(err, "dbus post-link daemon reload request failed")
+	}
+
 	_, _, err = conn.EnableUnitFiles([]string{filename}, runtime, force)
 	if err != nil {
 		return s.errorf(err, "dbus enable request failed")
@@ -545,6 +553,7 @@ func (s *Service) InstallCommands() ([]string, error) {
 	cmdList := []string{
 		cmds.writeFile(name, dirname, data),
 		cmds.link(name, dirname),
+		cmds.reload(),
 		cmds.enable(name),
 	}
 	return cmdList, nil

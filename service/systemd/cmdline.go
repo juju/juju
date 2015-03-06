@@ -74,6 +74,11 @@ func (c commands) disable(name string) string {
 	return c.resolve(args)
 }
 
+func (c commands) reload() string {
+	args := "daemon-reload"
+	return c.resolve(args)
+}
+
 func (c commands) conf(name string) string {
 	args := fmt.Sprintf("cat %s.service", name)
 	return c.resolve(args)

@@ -581,12 +581,6 @@ func (s *initSystemSuite) TestRemove(c *gc.C) {
 	err := s.service.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c,
-		"RunCommand",
-		"DisableUnitFiles",
-		"RemoveAll",
-		"Close",
-	)
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "RunCommand",
 		Args: []interface{}{
@@ -598,6 +592,8 @@ func (s *initSystemSuite) TestRemove(c *gc.C) {
 			[]string{s.name + ".service"},
 			false,
 		},
+	}, {
+		FuncName: "Reload",
 	}, {
 		FuncName: "RemoveAll",
 		Args: []interface{}{
@@ -649,6 +645,8 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 			false,
 			true,
 		},
+	}, {
+		FuncName: "Reload",
 	}, {
 		FuncName: "EnableUnitFiles",
 		Args: []interface{}{
@@ -702,15 +700,17 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 		"Close",
 		"RunCommand",
 		"DisableUnitFiles",
+		"Reload",
 		"RemoveAll",
 		"Close",
 		"MkdirAll",
 		"CreateFile",
 		"LinkUnitFiles",
+		"Reload",
 		"EnableUnitFiles",
 		"Close",
 	)
-	s.checkCreateFileCall(c, 11, s.name, "", 0644)
+	s.checkCreateFileCall(c, 12, s.name, "", 0644)
 }
 
 func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
@@ -728,6 +728,7 @@ func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
 		"CreateFile",
 		"CreateFile",
 		"LinkUnitFiles",
+		"Reload",
 		"EnableUnitFiles",
 		"Close",
 	)
@@ -767,6 +768,7 @@ func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 	c.Check(cmd, jc.HasSuffix, footer)
 	c.Check(commands[1:], jc.DeepEquals, []string{
 		"/bin/systemctl link /tmp/jujud-machine-0.service",
+		"/bin/systemctl daemon-reload",
 		"/bin/systemctl enable jujud-machine-0.service",
 	})
 }
@@ -809,8 +811,6 @@ func (s *initSystemSuite) TestInstallCommandsShutdown(c *gc.C) {
 	commands, err := svc.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(commands, gc.HasLen, 3)
-
 	// Parse the first command.
 	cmd := strings.TrimSpace(commands[0])
 	lines := strings.Split(cmd, "\n")
@@ -842,6 +842,7 @@ ExecStopPost=/bin/systemctl disable juju-shutdown-job.service
 	// Check the remaining commands.
 	c.Check(commands[1:], jc.DeepEquals, []string{
 		"/bin/systemctl link /tmp/juju-shutdown-job.service",
+		"/bin/systemctl daemon-reload",
 		"/bin/systemctl enable juju-shutdown-job.service",
 	})
 }
