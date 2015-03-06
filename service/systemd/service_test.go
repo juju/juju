@@ -393,6 +393,15 @@ func (s *initSystemSuite) TestExistsError(c *gc.C) {
 	s.stub.CheckCallNames(c, "RunCommand")
 }
 
+func (s *initSystemSuite) TestExistsEmptyConf(c *gc.C) {
+	s.service.Service.Conf = common.Conf{}
+
+	_, err := s.service.Exists()
+
+	c.Check(err, gc.ErrorMatches, `.*no conf expected.*`)
+	s.stub.CheckCalls(c, nil)
+}
+
 func (s *initSystemSuite) TestRunningTrue(c *gc.C) {
 	s.addService("jujud-machine-0", "active")
 	s.addService("something-else", "error")
@@ -699,6 +708,15 @@ func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
 	s.checkCreateFileCall(c, 3, filename, content, 0644)
 }
 
+func (s *initSystemSuite) TestInstallEmptyConf(c *gc.C) {
+	s.service.Service.Conf = common.Conf{}
+
+	err := s.service.Install()
+
+	c.Check(err, gc.ErrorMatches, `.*missing conf.*`)
+	s.stub.CheckCalls(c, nil)
+}
+
 func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 	commands, err := s.service.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
@@ -792,6 +810,15 @@ ExecStopPost=/bin/systemctl disable juju-shutdown-job.service`
 		"/bin/systemctl link /tmp/juju-shutdown-job.service",
 		"/bin/systemctl enable juju-shutdown-job.service",
 	})
+}
+
+func (s *initSystemSuite) TestInstallCommandsEmptyConf(c *gc.C) {
+	s.service.Service.Conf = common.Conf{}
+
+	_, err := s.service.InstallCommands()
+
+	c.Check(err, gc.ErrorMatches, `.*missing conf.*`)
+	s.stub.CheckCalls(c, nil)
 }
 
 func (s *initSystemSuite) TestStartCommands(c *gc.C) {
