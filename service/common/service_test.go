@@ -17,6 +17,38 @@ type serviceSuite struct {
 
 var _ = gc.Suite(&serviceSuite{})
 
+func (*serviceSuite) TestNoConfMissing(c *gc.C) {
+	service := common.Service{
+		Name: "a-service",
+	}
+	noConf := service.NoConf()
+
+	c.Check(noConf, jc.IsTrue)
+}
+
+func (*serviceSuite) TestNoConfEmpty(c *gc.C) {
+	service := common.Service{
+		Name: "a-service",
+		Conf: common.Conf{},
+	}
+	noConf := service.NoConf()
+
+	c.Check(noConf, jc.IsTrue)
+}
+
+func (*serviceSuite) TestNoConfFalse(c *gc.C) {
+	service := common.Service{
+		Name: "a-service",
+		Conf: common.Conf{
+			Desc:      "some service",
+			ExecStart: "/path/to/some-command x y z",
+		},
+	}
+	noConf := service.NoConf()
+
+	c.Check(noConf, jc.IsFalse)
+}
+
 func (*serviceSuite) TestValidateOkay(c *gc.C) {
 	service := common.Service{
 		Name: "a-service",
