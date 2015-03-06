@@ -172,6 +172,10 @@ func InstallAndStart(svc ServiceActions) error {
 	// realise that the service has been installed.
 	var err error
 	for attempt := InstallStartRetryAttempts.Start(); attempt.Next(); {
+		if err != nil {
+			logger.Errorf("retrying start request (%v)", err)
+		}
+
 		if err = svc.Start(); err == nil {
 			break
 		}
