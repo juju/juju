@@ -4,8 +4,8 @@
 package storage
 
 import (
-	"github.com/juju/names"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/state"
 )
@@ -15,12 +15,12 @@ type storageAccess interface {
 	AllStorageInstances() ([]state.StorageInstance, error)
 	StorageAttachments(unit names.UnitTag) ([]state.StorageAttachment, error)
 	UnitAssignedMachine(names.UnitTag) (names.MachineTag, error)
-    FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
-    StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
-    StorageInstanceVolume(names.StorageTag) (state.Volume, error)
-    VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
-    WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
-    WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
+	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
+	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
+	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
+	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
+	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 }
 
 type stateShim struct {
