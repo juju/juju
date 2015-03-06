@@ -918,14 +918,17 @@ func (t *localServerSuite) TestStartInstanceVolumes(c *gc.C) {
 	}
 	params := environs.StartInstanceParams{
 		Volumes: []storage.VolumeParams{{
+			Tag:        names.NewVolumeTag("0"),
 			Size:       512, // round up to 1GiB
 			Provider:   ec2.EBS_ProviderType,
 			Attachment: attachmentParams,
 		}, {
+			Tag:        names.NewVolumeTag("1"),
 			Size:       1024, // 1GiB exactly
 			Provider:   ec2.EBS_ProviderType,
 			Attachment: attachmentParams,
 		}, {
+			Tag:        names.NewVolumeTag("2"),
 			Size:       1025, // round up to 2GiB
 			Provider:   ec2.EBS_ProviderType,
 			Attachment: attachmentParams,
@@ -934,9 +937,21 @@ func (t *localServerSuite) TestStartInstanceVolumes(c *gc.C) {
 	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Volumes, gc.HasLen, 3)
-	c.Assert(result.Volumes[0].Size, gc.Equals, uint64(1024))
-	c.Assert(result.Volumes[1].Size, gc.Equals, uint64(1024))
-	c.Assert(result.Volumes[2].Size, gc.Equals, uint64(2048))
+	// vol-1 is assigned to /dev/sda1, which does not feature
+	// in the volumes set in state.
+	c.Assert(result.Volumes, gc.DeepEquals, []storage.Volume{{
+		Tag:      names.NewVolumeTag("0"),
+		VolumeId: "vol-2",
+		Size:     1024,
+	}, {
+		Tag:      names.NewVolumeTag("1"),
+		VolumeId: "vol-3",
+		Size:     1024,
+	}, {
+		Tag:      names.NewVolumeTag("2"),
+		VolumeId: "vol-4",
+		Size:     2048,
+	}})
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
