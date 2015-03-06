@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	coreleadership "github.com/juju/juju/leadership"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/leadership"
@@ -56,6 +55,7 @@ type Uniter struct {
 	f         filter.Filter
 	unit      *uniter.Unit
 	relations Relations
+	cleanups  []cleanup
 
 	deployer          *deployerProxy
 	operationFactory  operation.Factory
@@ -97,22 +97,25 @@ func NewUniter(
 	}
 	go func() {
 		defer u.tomb.Done()
+		defer u.runCleanups()
 		u.tomb.Kill(u.loop(unitTag))
 	}()
 	return u
 }
 
-func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
-	// Start filtering state change events for consumption by modes.
-	u.f, err = filter.NewFilter(u.st, unitTag)
-	if err != nil {
-		return err
-	}
-	defer watcher.Stop(u.f, &u.tomb)
-	go func() {
-		u.tomb.Kill(u.f.Wait())
-	}()
+type cleanup func() error
 
+func (u *Uniter) addCleanup(cleanup cleanup) {
+	u.cleanups = append(u.cleanups, cleanup)
+}
+
+func (u *Uniter) runCleanups() {
+	for _, cleanup := range u.cleanups {
+		u.tomb.Kill(cleanup())
+	}
+}
+
+func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	// Start tracking leadership state.
 	// TODO(fwereade): ideally, this wouldn't be created here; as a worker it's
 	// clearly better off being managed by a Runner. However, we haven't come up
@@ -121,8 +124,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	leadershipTracker := leadership.NewTrackerWorker(
 		unitTag, u.leadershipManager, leadershipGuarantee,
 	)
-	defer func() { u.tomb.Kill(worker.Stop(leadershipTracker)) }()
-	go func() { u.tomb.Kill(leadershipTracker.Wait()) }()
+	u.addCleanup(func() error {
+		return worker.Stop(leadershipTracker)
+	})
 	u.leadershipTracker = leadershipTracker
 
 	if err := u.init(unitTag); err != nil {
@@ -131,8 +135,18 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 		return fmt.Errorf("failed to initialize uniter for %q: %v", unitTag, err)
 	}
-	defer u.runListener.Close()
 	logger.Infof("unit %q started", u.unit)
+
+	// Start filtering state change events for consumption by modes.
+	u.f, err = filter.NewFilter(u.st, unitTag)
+	if err != nil {
+		return err
+	}
+	u.addCleanup(u.f.Stop)
+
+	// Stop the uniter if either of these components fails.
+	go func() { u.tomb.Kill(leadershipTracker.Wait()) }()
+	go func() { u.tomb.Kill(u.f.Wait()) }()
 
 	// Run modes until we encounter an error.
 	mode := ModeContinue
@@ -238,6 +252,11 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return err
 	}
+	u.addCleanup(func() error {
+		// TODO(fwereade): RunListener returns no error on Close. This seems wrong.
+		u.runListener.Close()
+		return nil
+	})
 	// The socket needs to have permissions 777 in order for other users to use it.
 	if version.Current.OS != version.Windows {
 		return os.Chmod(u.paths.Runtime.JujuRunSocket, 0777)

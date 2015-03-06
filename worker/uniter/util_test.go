@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/lease"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
@@ -93,6 +94,7 @@ type context struct {
 	subordinate   *state.Unit
 	ticker        *uniter.ManualTicker
 
+	wg             sync.WaitGroup
 	mu             sync.Mutex
 	hooksCompleted []string
 }
@@ -112,6 +114,13 @@ func (ctx *context) HookFailed(hookName string) {
 }
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
+	// We need this lest leadership calls block forever.
+	workerLoop := lease.WorkerLoop(ctx.st)
+	leaseWorker := worker.NewSimpleWorker(workerLoop)
+	defer func() {
+		c.Assert(worker.Stop(leaseWorker), jc.ErrorIsNil)
+	}()
+
 	defer func() {
 		if ctx.uniter != nil {
 			err := ctx.uniter.Stop()
@@ -1308,7 +1317,9 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		socketPath = filepath.Join(ctx.path, "run.socket")
 	}
 
+	ctx.wg.Add(1)
 	go func() {
+		defer ctx.wg.Done()
 		// make sure the socket exists
 		client, err := sockets.Dial(socketPath)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1321,6 +1332,12 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		c.Check(string(result.Stdout), gc.Equals, "")
 		c.Check(string(result.Stderr), gc.Equals, "")
 	}()
+}
+
+type waitContextWaitGroup struct{}
+
+func (waitContextWaitGroup) step(c *gc.C, ctx *context) {
+	ctx.wg.Wait()
 }
 
 type verifyFile struct {
