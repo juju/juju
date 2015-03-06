@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	logger = loggo.GetLogger("juju.service")
+	logger = loggo.GetLogger("juju.service.systemd")
 )
 
 // ListServices returns the list of installed service names.
