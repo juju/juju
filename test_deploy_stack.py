@@ -2,6 +2,7 @@ from argparse import (
     ArgumentParser,
     Namespace,
     )
+from contextlib import contextmanager
 import json
 import logging
 import os
@@ -491,53 +492,75 @@ class TestDeployDummyStack(TestCase):
 
 class TestTestUpgrade(TestCase):
 
+    RUN_UNAME = (
+        'juju', '--show-log', 'run', '-e', 'foo', '--format', 'json',
+         '--machine', '1,2', 'uname')
+    VERSION = ('/bar/juju', '--version')
+    STATUS = ('juju', '--show-log', 'status', '-e', 'foo')
+    GET_ENV = ('juju', '--show-log', 'get-env', '-e', 'foo',
+               'tools-metadata-url')
+
+    @classmethod
+    def upgrade_output(cls, args, **kwargs):
+        status = yaml.safe_dump({
+            'machines': {'0': {
+                'agent-state': 'started',
+                'agent-version': '1.38'}},
+            'services': {}})
+        juju_run_out = json.dumps(
+                [{"MachineId": "1", "Stdout": "Linux\n"},
+                {"MachineId": "2", "Stdout": "Linux\n"}])
+        output = {
+            cls.STATUS: status,
+            cls.RUN_UNAME: juju_run_out,
+            cls.VERSION: '1.38',
+            cls.GET_ENV: 'testing'
+            }
+        return output[args]
+
+    @contextmanager
+    def upgrade_mocks(self):
+        with patch('subprocess.check_output', side_effect=self.upgrade_output,
+                   autospec=True) as co_mock:
+            with patch('subprocess.check_call', autospec=True) as cc_mock:
+                    with patch('sys.stdout', autospec=True):
+                        yield (co_mock, cc_mock)
+
     def test_test_upgrade(self):
         # Prevent nosetests from attempting to run test_upgrade directly.
         from deploy_stack import test_upgrade
-        old_client = EnvJujuClient(SimpleEnvironment('foo', {'type': 'foo'}),
-                               None, '/foo/juju')
-        RUN_UNAME = (
-            'juju', '--show-log', 'run', '-e', 'foo', '--format', 'json',
-             '--machine', '1,2', 'uname')
-        VERSION = ('/bar/juju', '--version')
-        STATUS = ('juju', '--show-log', 'status', '-e', 'foo')
-        GET_ENV = ('juju', '--show-log', 'get-env', '-e', 'foo',
-                   'tools-metadata-url')
-        def output(args, **kwargs):
-            status = yaml.safe_dump({
-                'machines': {'0': {
-                    'agent-state': 'started',
-                    'agent-version': '1.38'}},
-                'services': {}})
-            juju_run_out = json.dumps(
-                    [{"MachineId": "1", "Stdout": "Linux\n"},
-                    {"MachineId": "2", "Stdout": "Linux\n"}])
-            output = {
-                STATUS: status,
-                RUN_UNAME: juju_run_out,
-                VERSION: '1.38',
-                GET_ENV: 'testing'
-                }
-            return output[args]
-
-        with patch('subprocess.check_output', side_effect=output,
-                   autospec=True) as co_mock:
-            with patch('subprocess.check_call', autospec=True) as cc_mock:
-                test_upgrade(old_client, '/bar/juju')
-        new_client = EnvJujuClient(old_client.env,
-                               None, '/bar/juju')
-        assert_juju_call(self, co_mock, old_client, RUN_UNAME,
+        env = SimpleEnvironment('foo', {'type': 'foo'})
+        old_client = EnvJujuClient(env, None, '/foo/juju')
+        with self.upgrade_mocks() as (co_mock, cc_mock):
+            test_upgrade(old_client, '/bar/juju')
+        new_client = EnvJujuClient(env, None, '/bar/juju')
+        assert_juju_call(self, co_mock, old_client, self.RUN_UNAME,
                          0, assign_stderr=True)
         assert_juju_call(self, cc_mock, new_client, (
             'juju', '--show-log', 'upgrade-juju', '-e', 'foo', '--version',
             '1.38'))
-        self.assertEqual(co_mock.mock_calls[1], call(VERSION))
-        assert_juju_call(self, co_mock, new_client, GET_ENV, 2,
+        self.assertEqual(co_mock.mock_calls[1], call(self.VERSION))
+        assert_juju_call(self, co_mock, new_client, self.GET_ENV, 2,
                          assign_stderr=True)
-        assert_juju_call(self, co_mock, new_client, GET_ENV, 3,
+        assert_juju_call(self, co_mock, new_client, self.GET_ENV, 3,
                          assign_stderr=True)
-        assert_juju_call(self, co_mock, new_client, STATUS, 4,
+        assert_juju_call(self, co_mock, new_client, self.STATUS, 4,
                          assign_stderr=True)
-        assert_juju_call(self, co_mock, new_client, RUN_UNAME, 5,
+        assert_juju_call(self, co_mock, new_client, self.RUN_UNAME, 5,
                          assign_stderr=True)
         self.assertEqual(co_mock.call_count, 6)
+
+    def test_mass_timeout(self):
+        # Prevent nosetests from attempting to run test_upgrade directly.
+        from deploy_stack import test_upgrade
+        config = {'type': 'foo'}
+        old_client = EnvJujuClient(SimpleEnvironment('foo', config),
+                                   None, '/foo/juju')
+        with self.upgrade_mocks():
+            with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
+                test_upgrade(old_client, '/bar/juju')
+            wfv_mock.assert_called_once_with('1.38', 600)
+            config['type'] = 'maas'
+            with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
+                test_upgrade(old_client, '/bar/juju')
+        wfv_mock.assert_called_once_with('1.38', 1200)
