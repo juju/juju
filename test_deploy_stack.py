@@ -538,6 +538,6 @@ class TestTestUpgrade(TestCase):
                          assign_stderr=True)
         assert_juju_call(self, co_mock, new_client, STATUS, 4,
                          assign_stderr=True)
-        assert_juju_call(self, co_mock, old_client, RUN_UNAME, 5,
+        assert_juju_call(self, co_mock, new_client, RUN_UNAME, 5,
                          assign_stderr=True)
         self.assertEqual(co_mock.call_count, 6)

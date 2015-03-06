@@ -311,7 +311,7 @@ def test_upgrade(old_client, juju_path):
     else:
         timeout = 600
     client.wait_for_version(client.get_matching_agent_version(), timeout)
-    assess_juju_run(old_client)
+    assess_juju_run(client)
 
 
 def upgrade_juju(client):
