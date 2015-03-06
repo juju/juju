@@ -1305,26 +1305,26 @@ func (s *storeManagerStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		m, err := st.AddMachine("quantal", JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
-		if flag & assignUnit != 0 {
+		if flag&assignUnit != 0 {
 			// Assign the unit.
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		if flag & openPorts != 0 {
+		if flag&openPorts != 0 {
 			// Add a network to the machine and open a port.
 			publicAddress := network.NewAddress("1.2.3.4", network.ScopePublic)
 			privateAddress := network.NewAddress("4.3.2.1", network.ScopeCloudLocal)
 			err = m.SetAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPort("tcp", 12345)
-			if flag & assignUnit != 0 {
+			if flag&assignUnit != 0 {
 				c.Assert(err, jc.ErrorIsNil)
 			} else {
 				c.Assert(err, gc.ErrorMatches, `cannot open ports 12345-12345/tcp \("wordpress/0"\) for unit "wordpress/0": .*`)
 				c.Assert(err, jc.Satisfies, errors.IsNotAssigned)
 			}
 		}
-		if flag & closePorts != 0 {
+		if flag&closePorts != 0 {
 			// Close the port again (only if been opened before).
 			err = u.ClosePort("tcp", 12345)
 			c.Assert(err, jc.ErrorIsNil)
@@ -1352,7 +1352,7 @@ func (s *storeManagerStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			initEnv(c, st, assignUnit | openPorts)
+			initEnv(c, st, assignUnit|openPorts)
 
 			return changeTestCase{
 				about: "open a port on unit",
@@ -1374,7 +1374,7 @@ func (s *storeManagerStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			initEnv(c, st, assignUnit | openPorts | closePorts)
+			initEnv(c, st, assignUnit|openPorts|closePorts)
 
 			return changeTestCase{
 				about: "open a port on unit and close it again",
