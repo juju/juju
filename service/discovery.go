@@ -57,10 +57,6 @@ func VersionInitSystem(vers version.Binary) (string, bool) {
 		switch vers.Series {
 		case "precise", "quantal", "raring", "saucy", "trusty", "utopic":
 			return InitSystemUpstart, true
-		// TODO(ericsnow) Remove the vivid special-case once it starts
-		// booting with systemd.
-		case "vivid":
-			return InitSystemUpstart, true
 		case "":
 			return "", false
 		default:
