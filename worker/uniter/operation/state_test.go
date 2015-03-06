@@ -197,6 +197,7 @@ var stateTests = []struct {
 			Step:               operation.Pending,
 			Hook:               relhook,
 			CollectMetricsTime: 98765432,
+			Leader:             true,
 		},
 	},
 }

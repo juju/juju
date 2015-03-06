@@ -639,6 +639,7 @@ func volumeAttachmentsToState(in []params.VolumeAttachment) (map[names.VolumeTag
 		}
 		m[volumeTag] = state.VolumeAttachmentInfo{
 			v.DeviceName,
+			false, // not read-only
 		}
 	}
 	return m, nil
