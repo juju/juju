@@ -29,6 +29,7 @@ type MetricsManager struct {
 
 type metricsManagerDoc struct {
 	DocID              string        `bson:"_id"`
+	EnvUUID            string        `bson:"env-uuid"`
 	LastSuccessfulSend time.Time     `bson:"lastsuccessfulsend"`
 	ConsecutiveErrors  int           `bson:"consecutiveerrors"`
 	GracePeriod        time.Duration `bson:"graceperiod"`
@@ -37,6 +38,11 @@ type metricsManagerDoc struct {
 // DocID returns the Document id of the MetricsManager.
 func (m *MetricsManager) DocID() string {
 	return m.doc.DocID
+}
+
+// EnvUUID returns the environment UUID of the Metrics Manager.
+func (m *MetricsManager) EnvUUID() string {
+	return m.doc.EnvUUID
 }
 
 // LastSuccessfulSend returns the time of the last successful send.
@@ -70,33 +76,25 @@ func (st *State) newMetricsManager() (*MetricsManager, error) {
 		st: st,
 		doc: metricsManagerDoc{
 			DocID:              st.docID(metricsManagerKey),
+			EnvUUID:            st.EnvironUUID(),
 			LastSuccessfulSend: time.Time{},
 			ConsecutiveErrors:  0,
 			GracePeriod:        defaultGracePeriod,
 		}}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			coll, closer := st.getCollection(metricsManagerC)
-			defer closer()
-			n, err := coll.FindId(st.docID(metricsManagerKey)).Count()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if n > 0 {
-				return nil, errors.NotFoundf("metrics manager")
-			}
+			return nil, errors.NotFoundf("metrics manager")
 		}
 		return []txn.Op{{
 			C:      metricsManagerC,
 			Id:     st.docID(metricsManagerKey),
 			Assert: txn.DocMissing,
 			Insert: mm.doc,
-		},
-		}, nil
+		}}, nil
 	}
 	err := st.run(buildTxn)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, onAbort(err, errors.NotFoundf("metrics manager"))
 	}
 	return mm, nil
 }
@@ -123,11 +121,18 @@ func (m *MetricsManager) updateMetricsManager(update bson.M) error {
 			Update: update,
 		}}, nil
 	}
-	return m.st.run(buildTxn)
+	err := m.st.run(buildTxn)
+	if err == txn.ErrAborted {
+		err = errors.NotFoundf("metrics manager")
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
-// SetMetricsManagerSuccessfulSend sets the last successful send time to the input time.
-func (m *MetricsManager) SetMetricsManagerSuccessfulSend(t time.Time) error {
+// SetLastSuccessfulSend sets the last successful send time to the input time.
+func (m *MetricsManager) SetLastSuccessfulSend(t time.Time) error {
 	err := m.updateMetricsManager(
 		bson.M{"$set": bson.M{
 			"lastsuccessfulsend": t.UTC(),
@@ -161,12 +166,12 @@ func (m *MetricsManager) gracePeriodExceeded() bool {
 }
 
 // MeterStatus returns the overall state of the MetricsManager as a meter status summary.
-func (m *MetricsManager) MeterStatus() (code, info string) {
+func (m *MetricsManager) MeterStatus() (MeterStatusCode, string) {
 	if m.ConsecutiveErrors() < metricsManagerConsecutiveErrorThreshold {
-		return string(MeterGreen), "ok"
+		return MeterGreen, "ok"
 	}
 	if m.gracePeriodExceeded() {
-		return string(MeterRed), "failed to send metrics, exceeded grace period"
+		return MeterRed, "failed to send metrics, exceeded grace period"
 	}
-	return string(MeterAmber), "failed to send metrics"
+	return MeterAmber, "failed to send metrics"
 }

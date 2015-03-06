@@ -82,7 +82,6 @@ func NewMetricsManagerAPI(
 }
 
 // CleanupOldMetrics removes old metrics from the collection.
-// TODO (mattyw) Returns result with all the delete metrics
 // The single arg params is expected to contain and environment uuid.
 // Even though the call will delete all metrics across environments
 // it serves to validate that the connection has access to at least one environment.
@@ -131,7 +130,7 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 	for i, arg := range args.Entities {
 		tag, err := names.ParseEnvironTag(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		if !canAccess(tag) {
@@ -140,7 +139,7 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 		}
 		unsentMetrics, err := api.state.CountofUnsentMetrics()
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		if unsentMetrics == 0 {
@@ -149,16 +148,18 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 		err = metricsender.SendMetrics(api.state, sender, maxBatchesPerSend)
 		if err != nil {
 			err = errors.Annotate(err, "failed to send metrics")
-			logger.Errorf(err.Error())
+			logger.Warningf("%v", err)
 			result.Results[i].Error = common.ServerError(err)
 			if incErr := api.store.IncrementConsecutiveErrors(); incErr != nil {
-				logger.Warningf("failed to increment error count with error %v, after sending error: %v", incErr, err)
+				logger.Warningf("failed to increment error count %v", incErr)
+				result.Results[i].Error = common.ServerError(errors.Wrap(err, incErr))
 			}
 			continue
 		}
-		if err := api.store.SetMetricsManagerSuccessfulSend(time.Now()); err != nil {
+		if err := api.store.SetLastSuccessfulSend(time.Now()); err != nil {
 			err = errors.Annotate(err, "failed to set successful send time")
-			logger.Warningf(err.Error())
+			logger.Warningf("%v", err)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 	}

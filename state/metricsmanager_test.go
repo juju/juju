@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"time"
 
-	testing "github.com/juju/juju/state/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/state"
+	testing "github.com/juju/juju/state/testing"
 )
 
 type metricsManagerSuite struct {
@@ -25,6 +27,7 @@ func (s *metricsManagerSuite) TestDefaultsWritten(c *gc.C) {
 	c.Assert(mm.LastSuccessfulSend(), gc.DeepEquals, time.Time{})
 	c.Assert(mm.ConsecutiveErrors(), gc.Equals, 0)
 	c.Assert(mm.GracePeriod(), gc.Equals, 24*7*time.Hour)
+	c.Assert(mm.EnvUUID(), gc.Equals, s.State.EnvironUUID())
 }
 
 func (s *metricsManagerSuite) TestMetricsManagerCreatesThenReturns(c *gc.C) {
@@ -37,13 +40,13 @@ func (s *metricsManagerSuite) TestMetricsManagerCreatesThenReturns(c *gc.C) {
 	c.Assert(mm.ConsecutiveErrors(), gc.Equals, mm2.ConsecutiveErrors())
 }
 
-func (s *metricsManagerSuite) TestSetMetricsManagerSuccesfulSend(c *gc.C) {
+func (s *metricsManagerSuite) TestSetLastSuccesfulSend(c *gc.C) {
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	err = mm.IncrementConsecutiveErrors()
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now().Round(time.Second).UTC()
-	err = mm.SetMetricsManagerSuccessfulSend(now)
+	err = mm.SetLastSuccessfulSend(now)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mm.LastSuccessfulSend(), gc.DeepEquals, now)
 	c.Assert(mm.ConsecutiveErrors(), gc.Equals, 0)
@@ -71,31 +74,31 @@ func (s *metricsManagerSuite) TestMeterStatus(c *gc.C) {
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	code, info := mm.MeterStatus()
-	c.Assert(code, gc.Equals, "GREEN")
+	c.Assert(code, gc.Equals, state.MeterGreen)
 	c.Assert(info, gc.Equals, "ok")
 	now := time.Now()
-	err = mm.SetMetricsManagerSuccessfulSend(now)
+	err = mm.SetLastSuccessfulSend(now)
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 3; i++ {
 		err := mm.IncrementConsecutiveErrors()
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	code, info = mm.MeterStatus()
-	c.Assert(code, gc.Equals, "AMBER")
+	c.Assert(code, gc.Equals, state.MeterAmber)
 	c.Assert(info, gc.Equals, "failed to send metrics")
-	err = mm.SetMetricsManagerSuccessfulSend(now.Add(-(24 * 7 * time.Hour)))
+	err = mm.SetLastSuccessfulSend(now.Add(-(24 * 7 * time.Hour)))
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 3; i++ {
 		err := mm.IncrementConsecutiveErrors()
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	code, info = mm.MeterStatus()
-	c.Assert(code, gc.Equals, "RED")
+	c.Assert(code, gc.Equals, state.MeterRed)
 	c.Assert(info, gc.Equals, "failed to send metrics, exceeded grace period")
 
-	err = mm.SetMetricsManagerSuccessfulSend(now)
+	err = mm.SetLastSuccessfulSend(now)
 	c.Assert(err, jc.ErrorIsNil)
 	code, info = mm.MeterStatus()
-	c.Assert(code, gc.Equals, "GREEN")
+	c.Assert(code, gc.Equals, state.MeterGreen)
 	c.Assert(info, gc.Equals, "ok")
 }
