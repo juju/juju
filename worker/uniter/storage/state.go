@@ -1,0 +1,163 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package storage
+
+import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/juju/errors"
+	"github.com/juju/names"
+	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v4/hooks"
+
+	"github.com/juju/juju/worker/uniter/hook"
+)
+
+// state describes the state of a storage attachment.
+type state struct {
+	// Storage is the tag of the storage attachment.
+	storage names.StorageTag
+
+	// Attached records the uniter's knowledge of the
+	// storage attachment state.
+	attached bool
+}
+
+// Validate returns an error if the supplied hook.Info does not represent
+// a valid change to the relation state. Hooks must always be validated
+// against the current state before they are run, to ensure that the system
+// meets its guarantees about hook execution order.
+func (s *state) Validate(hi hook.Info) (err error) {
+	defer errors.DeferredAnnotatef(&err, "inappropriate %q hook for storage %q", hi.Kind, s.storage.Id())
+	if hi.StorageId != s.storage.Id() {
+		return fmt.Errorf("expected storage %q, got storage %q", s.storage.Id(), hi.StorageId)
+	}
+	switch hi.Kind {
+	case hooks.StorageAttached:
+		if s.attached {
+			return errors.New("storage already attached")
+		}
+	case hooks.StorageDetached: // TODO(axw) this should be "detaching"
+		if !s.attached {
+			return errors.New("storage not attached")
+		}
+	}
+	return nil
+}
+
+// stateDir is a filesystem-backed representation of the state of a
+// relation. Concurrent modifications to the underlying state directory
+// will have undefined consequences.
+type stateDir struct {
+	// path identifies the directory holding persistent state.
+	path string
+
+	// state is the cached state of the directory, which is guaranteed
+	// to be synchronized with the true state so long as no concurrent
+	// changes are made to the directory.
+	state state
+}
+
+// State returns the current state of the relation.
+func (d *stateDir) State() state {
+	return d.state
+}
+
+// readStateDir loads a stateDir from the subdirectory of dirPath named
+// for the supplied storage tag. If the directory does not exist, no error
+// is returned,
+func readStateDir(path string, tag names.StorageTag) (d *stateDir, err error) {
+	d = &stateDir{path, state{storage: tag}}
+	defer errors.DeferredAnnotatef(&err, "cannot load storage %q state from %q", tag.Id(), d.path)
+	if _, err := os.Stat(d.path); os.IsNotExist(err) {
+		return d, nil
+	} else if err != nil {
+		return nil, err
+	}
+	var info diskInfo
+	if err := utils.ReadYaml(path, &info); err != nil {
+		return nil, errors.Errorf("invalid storage state file %q: %v", path, err)
+	}
+	if info.Attached == nil {
+		return nil, errors.Errorf("invalid storage state file %q: missing 'attached'", path)
+	}
+	d.state.attached = *info.Attached
+	return d, nil
+}
+
+// readAllStateDirs loads and returns every stateDir persisted inside
+// the supplied dirPath. If dirPath does not exist, no error is returned.
+func readAllStateDirs(dirPath string) (dirs map[names.StorageTag]*stateDir, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot load relations state from %q", dirPath)
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	fis, err := ioutil.ReadDir(dirPath)
+	if err != nil {
+		return nil, err
+	}
+	for _, fi := range fis {
+		if fi.IsDir() {
+			continue
+		}
+		storageId := strings.Replace(fi.Name(), "-", "/", -1)
+		if !names.IsValidStorage(storageId) {
+			continue
+		}
+		tag := names.NewStorageTag(storageId)
+		dir, err := readStateDir(filepath.Join(dirPath, fi.Name()), tag)
+		if err != nil {
+			return nil, err
+		}
+		dirs[tag] = dir
+	}
+	return dirs, nil
+}
+
+// Ensure creates the directory if it does not already exist.
+func (d *stateDir) Ensure() error {
+	return os.MkdirAll(d.path, 0755)
+}
+
+// Write atomically writes to disk the storage state change in hi.
+// It must be called after the respective hook was executed successfully.
+// Write doesn't validate hi but guarantees that successive writes of
+// the same hi are idempotent.
+func (d *stateDir) Write(hi hook.Info) (err error) {
+	defer errors.DeferredAnnotatef(&err, "failed to write %q hook info for %q on state directory", hi.Kind, hi.StorageId)
+	if hi.Kind == hooks.StorageDetached { // TODO(axw) should be detaching
+		return d.Remove()
+	}
+	name := strings.Replace(hi.StorageId, "/", "-", 1)
+	path := filepath.Join(d.path, name)
+	attached := true
+	di := diskInfo{&attached}
+	if err := utils.WriteYaml(path, &di); err != nil {
+		return err
+	}
+	// If write was successful, update own state.
+	d.state.attached = true
+	return nil
+}
+
+// Remove removes the directory if it exists and is empty.
+func (d *stateDir) Remove() error {
+	if err := os.Remove(d.path); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	// If atomic delete succeeded, update own state.
+	d.state.attached = false
+	return nil
+}
+
+// diskInfo defines the storage attachment data serialization.
+type diskInfo struct {
+	Attached *bool `yaml:"attached,omitempty"`
+}
