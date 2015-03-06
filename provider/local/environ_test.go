@@ -271,7 +271,7 @@ func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
 
 type installable interface {
 	Install() error
-	Installed() bool
+	Installed() (bool, error)
 }
 
 func (s *localJujuTestSuite) makeFakeInitScripts(c *gc.C, env environs.Environ) (installable, installable) {
@@ -286,7 +286,9 @@ func (s *localJujuTestSuite) makeFakeInitScripts(c *gc.C, env environs.Environ) 
 	}
 	mongoService := local.NewService(mongoName, mongoConf, s.svcData)
 	s.svcData.SetStatus(mongoName, "installed")
-	c.Assert(mongoService.Installed(), jc.IsTrue)
+	installed, err := mongoService.Installed()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(installed, jc.IsTrue)
 
 	// ...then the machine agent
 	agentName := fmt.Sprintf("juju-agent-%s", namespace)
@@ -296,7 +298,9 @@ func (s *localJujuTestSuite) makeFakeInitScripts(c *gc.C, env environs.Environ) 
 	}
 	agentService := local.NewService(agentName, agentConf, s.svcData)
 	s.svcData.SetStatus(agentName, "installed")
-	c.Assert(agentService.Installed(), jc.IsTrue)
+	installed, err = agentService.Installed()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(installed, jc.IsTrue)
 
 	return mongoService, agentService
 }
@@ -310,8 +314,12 @@ func (s *localJujuTestSuite) TestDestroyRemovesInitServices(c *gc.C) {
 	err := env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(mongoService.Installed(), jc.IsFalse)
-	c.Assert(agentService.Installed(), jc.IsFalse)
+	installed, err := mongoService.Installed()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(installed, jc.IsFalse)
+	installed, err = agentService.Installed()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(installed, jc.IsFalse)
 }
 
 func (s *localJujuTestSuite) TestDestroyRemovesContainers(c *gc.C) {

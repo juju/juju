@@ -515,12 +515,20 @@ func (env *localEnviron) Destroy() error {
 			}
 		}
 	}
-	// Stop the mongo database and machine agent. It's possible that the
-	// service doesn't exist or is not running, so don't check the error.
-	mongoRemoveService(env.config.namespace())
+	// Stop the mongo database and machine agent. We log any errors but
+	// do not fail, so that remaining "destroy" steps will still happen.
+	err = mongoRemoveService(env.config.namespace())
+	if err != nil && !errors.IsNotFound(err) {
+		logger.Errorf("while stopping mongod: %v", err)
+	}
 	svc, err := discoverService(env.machineAgentServiceName())
 	if err == nil {
-		svc.StopAndRemove()
+		if err := svc.Stop(); err != nil {
+			logger.Errorf("while stopping machine agent: %v", err)
+		}
+		if err := svc.Remove(); err != nil {
+			logger.Errorf("while disabling machine agent: %v", err)
+		}
 	}
 
 	// Finally, remove the data-dir.
@@ -539,7 +547,8 @@ func (env *localEnviron) Destroy() error {
 }
 
 type agentService interface {
-	StopAndRemove() error
+	Stop() error
+	Remove() error
 }
 
 var mongoRemoveService = func(namespace string) error {

@@ -49,8 +49,9 @@ fi
 )
 
 type mongoService interface {
-	Exists() bool
-	Running() bool
+	Exists() (bool, error)
+	Installed() (bool, error)
+	Running() (bool, error)
 	Start() error
 	Stop() error
 	Install() error

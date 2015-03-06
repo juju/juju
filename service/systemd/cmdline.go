@@ -95,7 +95,7 @@ type Cmdline struct {
 func (cl Cmdline) ListAll() ([]string, error) {
 	cmd := cl.commands.listAll()
 
-	out, err := cl.runCommand(cmd)
+	out, err := cl.runCommand(cmd, "List")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -110,7 +110,7 @@ func (cl Cmdline) ListAll() ([]string, error) {
 func (cl Cmdline) conf(name string) ([]byte, error) {
 	cmd := cl.commands.conf(name)
 
-	out, err := cl.runCommand(cmd)
+	out, err := cl.runCommand(cmd, "get conf")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -119,21 +119,24 @@ func (cl Cmdline) conf(name string) ([]byte, error) {
 	return []byte(out), nil
 }
 
-func (Cmdline) runCommand(cmd string) (string, error) {
+const runCommandMsg = "%s failed (%s)"
+
+func (Cmdline) runCommand(cmd, label string) (string, error) {
 	resp, err := runCommands(exec.RunParams{
 		Commands: cmd,
 	})
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Annotatef(err, runCommandMsg, label, cmd)
 	}
 	out := string(resp.Stdout)
 
 	if resp.Code != 0 {
-		return out, errors.Errorf(
+		err := errors.Errorf(
 			"error executing %q: %s",
 			executable,
 			strings.Replace(string(resp.Stderr), "\n", "; ", -1),
 		)
+		return out, errors.Annotatef(err, runCommandMsg, label, cmd)
 	}
 	return out, nil
 }
