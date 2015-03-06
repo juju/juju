@@ -614,7 +614,7 @@ func processAgentStatus(agent *api.AgentStatus, getter state.StatusGetter) {
 	agent.Data = filterStatusData(agent.Data)
 }
 
-// processMachineAgent retrieves version and status information from the given entity.
+// processAgent retrieves version and status information from the given entity.
 func processAgent(entity stateAgent) (out api.AgentStatus, compatStatus params.Status, compatInfo string) {
 	out.Life = processLife(entity)
 
@@ -630,8 +630,7 @@ func processAgent(entity stateAgent) (out api.AgentStatus, compatStatus params.S
 	}
 	if out.Status == params.StatusPending || // Need to still check pending for existing deployments.
 		out.Status == params.StatusAllocating ||
-		out.Status == params.StatusInstalling ||
-		out.Status == params.StatusMaintenance {
+		out.Status == params.StatusInstalling {
 		// The status is allocating or installing - there's no point
 		// in enquiring about the agent liveness.
 		return

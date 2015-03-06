@@ -531,9 +531,15 @@ var statusTests = []testCase{
 		openUnitPort{"exposed-service/0", "tcp", 3},
 		openUnitPort{"exposed-service/0", "tcp", 2},
 		// Simulate some status with no info, while the agent is down.
+		// Agent used to be down, we no longer support said state.
+		// now is one of: pending, started, error.
 		setUnitStatus{"dummy-service/0", state.StatusActive, "", nil},
+
+		// dummy-service/0 used to expect "agent-state-info": "(started)",
+		// which is populated as the previous state by adjustInfoIfAgentDown
+		// but sice it no longer is down it no longer applies.
 		expect{
-			"add two units, one alive (in error state), one down",
+			"add two units, one alive (in error state), one started",
 			M{
 				"environment": "dummyenv",
 				"machines": M{
@@ -555,8 +561,7 @@ var statusTests = []testCase{
 									"message": "You Require More Vespene Gas",
 								},
 								"agent-status": M{
-									"current": "error",
-									"message": "You Require More Vespene Gas",
+									"current": "allocating",
 								},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
@@ -570,12 +575,11 @@ var statusTests = []testCase{
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
-								"machine":          "1",
-								"agent-state":      "down",
-								"agent-state-info": "(started)",
-								"workload-status":  M{"current": "active"},
-								"agent-status":     M{"current": "allocating"},
-								"public-address":   "dummyenv-1.dns",
+								"machine":         "1",
+								"agent-state":     "started",
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -648,13 +652,12 @@ var statusTests = []testCase{
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
-								"machine":          "1",
-								"life":             "dying",
-								"agent-state":      "down",
-								"agent-state-info": "(started)",
-								"workload-status":  M{},
-								"agent-status":     M{},
-								"public-address":   "dummyenv-1.dns",
+								"machine":         "1",
+								"life":            "dying",
+								"agent-state":     "started",
+								"workload-status": M{},
+								"agent-status":    M{},
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -2011,8 +2014,11 @@ func (uc setUnitCharmURL) step(c *gc.C, ctx *context) {
 	curl := charm.MustParseURL(uc.charm)
 	err = u.SetCharmURL(curl)
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetAgentStatus(state.StatusActive, "", nil)
+	err = u.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	err = u.SetAgentStatus(state.StatusIdle, "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 }
 
 type openUnitPort struct {
