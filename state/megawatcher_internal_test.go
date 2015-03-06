@@ -8,6 +8,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -1309,7 +1310,8 @@ func (s *storeManagerStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 			if assignUnit {
 				c.Assert(err, jc.ErrorIsNil)
 			} else {
-				c.Assert(err, gc.ErrorMatches, `cannot open ports 12345-12345/tcp ("wordpress/0") for unit "wordpress/0": .*`)
+				c.Assert(err, gc.ErrorMatches, `cannot open ports 12345-12345/tcp \("wordpress/0"\) for unit "wordpress/0": .*`)
+				c.Assert(err, jc.Satisfies, errors.IsNotAssigned)
 			}
 		}
 		if addNet && closePort {
@@ -1397,7 +1399,6 @@ func (s *storeManagerStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 						Name:       "wordpress/0",
 						Service:    "wordpress",
 						Series:     "quantal",
-						MachineId:  "0",
 						Ports:      []network.Port{},
 						PortRanges: []network.PortRange{},
 						Status:     "allocating",
