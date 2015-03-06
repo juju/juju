@@ -184,6 +184,21 @@ func (st *State) storageInstance(tag names.StorageTag) (*storageInstance, error)
 	}
 	return &s, nil
 }
+func (st *State) AllStorageInstances() ([]StorageInstance, error) {
+	coll, closer := st.getCollection(storageInstancesC)
+	defer closer()
+
+	var storageInstances []StorageInstance
+	var doc storageInstanceDoc
+	iter := coll.Find(nil).Iter()
+	for iter.Next(&doc) {
+		storageInstances = append(storageInstances, &storageInstance{st, doc})
+	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Annotate(err, "cannot get storage instances")
+	}
+	return storageInstances, nil
+}
 
 // DestroyStorageInstance ensures that the storage instance and all its
 // attachments will be removed at some point; if the storage instance has

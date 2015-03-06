@@ -60,6 +60,17 @@ const (
 	StorageKindFilesystem
 )
 
+func (k *StorageKind) String() string {
+	switch *k {
+	case StorageKindBlock:
+		return "block"
+	case StorageKindFilesystem:
+		return "file system"
+	default:
+		return "unknown"
+	}
+}
+
 // StorageInstanceResult holds the result of an API call to retrieve details
 // of a storage instance.
 type StorageInstanceResult struct {
@@ -194,11 +205,35 @@ type VolumeAttachmentsResults struct {
 	Results []VolumeAttachmentsResult `json:"results,omitempty"`
 }
 
+// StorageInfo holds information about storage.
+type StorageInfo struct {
+	// StorageTag holds tag for this storage.
+	StorageTag string `json:"storagetag"`
+	// OwnerTag holds tag for the owner of this storage, unit or service.
+	OwnerTag string `json:"ownertag"`
+	// Kind holds what kind of storage this instance is.
+	Kind StorageKind `json:"kind"`
+	// Attached explicitly states if this instance is attached.
+	// Having this information on the struct allows to
+	// have this logic in one place rather than deducing it
+	// every time this instance is used.
+	Attached bool `json:"attached"`
+	// UnitTag holds tag for unit for attached instances.
+	UnitTag string `json:"unittag,omitempty"`
+	// Location holds location for provisioned attached instances.
+	Location string `json:"location,omitempty"`
+	// Provisioned explicitly states if this instance is provisioned.
+	// Having this information on the struct allows to
+	// have this logic in one place rather than deducing it
+	// every time this instance is used.
+	Provisioned bool `json:"provisioned,omitempty"`
+}
+
 // StorageShowResult holds information about a storage instance
 // or error related to its retrieval.
 type StorageShowResult struct {
-	Result StorageInstance `json:"result"`
-	Error  *Error          `json:"error,omitempty"`
+	Result StorageInfo `json:"result,omitempty"`
+	Error  *Error      `json:"error,omitempty"`
 }
 
 // StorageShowResults holds a collection of storage instances.
