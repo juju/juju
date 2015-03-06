@@ -240,6 +240,21 @@ func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
 	})
 }
 
+func (s *initSystemSuite) TestNewServiceEmptyConf(c *gc.C) {
+	service, err := systemd.NewService(s.name, common.Conf{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(service, jc.DeepEquals, &systemd.Service{
+		Service: common.Service{
+			Name: s.name,
+		},
+		ConfName: s.name + ".service",
+		UnitName: s.name + ".service",
+		Dirname:  fmt.Sprintf("%s/init/%s", s.dataDir, s.name),
+	})
+	s.stub.CheckCalls(c, nil)
+}
+
 func (s *initSystemSuite) TestUpdateConfig(c *gc.C) {
 	s.conf.ExecStart = "/path/to/some/other/command"
 	c.Assert(s.service.Service.Conf.ExecStart, gc.Equals, jujud+" machine-0")
@@ -314,6 +329,20 @@ func (s *initSystemSuite) TestUpdateConfigLogfile(c *gc.C) {
 		Desc:      s.conf.Desc,
 		ExecStart: s.conf.ExecStart + " &> /var/log/juju/machine-0.log",
 	})
+}
+
+func (s *initSystemSuite) TestUpdateConfigEmpty(c *gc.C) {
+	s.service.UpdateConfig(common.Conf{})
+
+	c.Check(s.service, jc.DeepEquals, &systemd.Service{
+		Service: common.Service{
+			Name: s.name,
+		},
+		ConfName: s.name + ".service",
+		UnitName: s.name + ".service",
+		Dirname:  fmt.Sprintf("%s/init/%s", s.dataDir, s.name),
+	})
+	s.stub.CheckCalls(c, nil)
 }
 
 func (s *initSystemSuite) TestInstalledTrue(c *gc.C) {

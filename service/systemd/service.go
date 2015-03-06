@@ -185,16 +185,18 @@ func (s *Service) normalize(conf common.Conf) (common.Conf, []byte) {
 }
 
 func (s *Service) setConf(conf common.Conf) error {
-	if !s.NoConf() {
-		normalConf, data := s.normalize(conf)
-		if err := s.validate(normalConf); err != nil {
-			return errors.Trace(err)
-		}
-		conf = normalConf
-
-		s.Script = data
+	if conf.IsZero() {
+		s.Service.Conf = conf
+		return nil
 	}
-	s.Service.Conf = conf
+
+	normalConf, data := s.normalize(conf)
+	if err := s.validate(normalConf); err != nil {
+		return errors.Trace(err)
+	}
+
+	s.Script = data
+	s.Service.Conf = normalConf
 	return nil
 }
 
