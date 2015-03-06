@@ -365,6 +365,9 @@ func (s *initSystemSuite) TestExistsTrue(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestExistsFalse(c *gc.C) {
+	// We force the systemd API to return a slightly different conf.
+	// In this case we simply set Conf.Env, which s.conf does not set.
+	// This causes Service.Exists to return false.
 	s.setConf(c, common.Conf{
 		Desc:      s.conf.Desc,
 		ExecStart: s.conf.ExecStart,
@@ -637,6 +640,9 @@ func (s *initSystemSuite) TestInstallAlreadyInstalled(c *gc.C) {
 func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 	s.addService("jujud-machine-0", "active")
 	s.addListResponse()
+	// We force the systemd API to return a slightly different conf.
+	// In this case we simply set Conf.Env, which s.conf does not set.
+	// This causes Service.Exists to return false.
 	s.setConf(c, common.Conf{
 		Desc:      s.conf.Desc,
 		ExecStart: s.conf.ExecStart,
