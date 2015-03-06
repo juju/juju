@@ -73,6 +73,7 @@ func NewSimpleContext(agentConfig agent.Config, api APICalls) *SimpleContext {
 		api:         api,
 		agentConfig: agentConfig,
 		discoverService: func(name string, conf common.Conf) deployerService {
+			// TODO(ericsnow) We shouldn't just throw away the error here.
 			svc, _ := service.DiscoverService(name, conf)
 			return svc
 		},

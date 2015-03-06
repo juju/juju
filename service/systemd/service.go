@@ -12,10 +12,15 @@ import (
 
 	"github.com/coreos/go-systemd/dbus"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/version"
+)
+
+var (
+	logger = loggo.GetLogger("juju.service")
 )
 
 // ListServices returns the list of installed service names.
@@ -76,7 +81,7 @@ func NewService(name string, conf common.Conf) (*Service, error) {
 	confName := name + ".service"
 	dataDir, err := findDataDir()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "failed to find juju data dir for service %q", name)
 	}
 	dirname := path.Join(dataDir, "init", name)
 
@@ -122,6 +127,20 @@ var newChan = func() chan string {
 	return make(chan string)
 }
 
+func (s *Service) errorf(err error, msg string, args ...interface{}) error {
+	msg += " for service %q"
+	args = append(args, s.Service.Name)
+	if err == nil {
+		err = errors.Errorf(msg, args...)
+	} else {
+		err = errors.Annotatef(err, msg, args...)
+	}
+	err.(*errors.Err).SetLocation(1)
+	logger.Errorf("%v", err)
+	logger.Debugf(errors.ErrorStack(err))
+	return err
+}
+
 // Name implements service.Service.
 func (s Service) Name() string {
 	return s.Service.Name
@@ -137,11 +156,37 @@ func (s *Service) UpdateConfig(conf common.Conf) {
 	s.setConf(conf) // We ignore any error (i.e. when validation fails).
 }
 
-func (s *Service) setConf(conf common.Conf) error {
-	scriptPath := path.Join(s.Dirname, "exec-start.sh")
+func (s *Service) serialize() ([]byte, error) {
+	data, err := serialize(s.UnitName, s.Service.Conf)
+	if err != nil {
+		return nil, s.errorf(err, "failed to serialize conf")
+	}
+	return data, nil
+}
 
-	normalConf, data := normalize(s.Service.Name, conf, scriptPath)
-	if err := validate(s.Service.Name, normalConf); err != nil {
+func (s *Service) deserialize(data []byte) (common.Conf, error) {
+	conf, err := deserialize(data)
+	if err != nil {
+		return conf, s.errorf(err, "failed to deserialize conf")
+	}
+	return conf, nil
+}
+
+func (s *Service) validate(conf common.Conf) error {
+	if err := validate(s.Service.Name, conf); err != nil {
+		return s.errorf(err, "invalid conf")
+	}
+	return nil
+}
+
+func (s *Service) normalize(conf common.Conf) (common.Conf, []byte) {
+	scriptPath := path.Join(s.Dirname, "exec-start.sh")
+	return normalize(s.Service.Name, conf, scriptPath)
+}
+
+func (s *Service) setConf(conf common.Conf) error {
+	normalConf, data := s.normalize(conf)
+	if err := s.validate(normalConf); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -154,7 +199,7 @@ func (s *Service) setConf(conf common.Conf) error {
 func (s *Service) Installed() (bool, error) {
 	names, err := ListServices()
 	if err != nil {
-		return false, errors.Trace(err)
+		return false, s.errorf(err, "failed to list services")
 	}
 	for _, name := range names {
 		if name == s.Service.Name {
@@ -178,8 +223,7 @@ func (s *Service) check() (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	scriptPath := path.Join(s.Dirname, "exec-start.sh")
-	normalConf, _ := normalize(s.Service.Name, s.Service.Conf, scriptPath)
+	normalConf, _ := s.normalize(s.Service.Conf)
 	return reflect.DeepEqual(normalConf, conf), nil
 }
 
@@ -188,19 +232,27 @@ func (s *Service) readConf() (common.Conf, error) {
 
 	data, err := Cmdline{}.conf(s.Service.Name)
 	if err != nil {
-		return conf, errors.Trace(err)
+		return conf, s.errorf(err, "failed to read conf from systemd")
 	}
 
-	conf, err = deserialize(data)
+	conf, err = s.deserialize(data)
 	if err != nil {
 		return conf, errors.Trace(err)
 	}
 	return conf, nil
 }
 
+func (s Service) newConn() (dbusAPI, error) {
+	conn, err := newConn()
+	if err != nil {
+		logger.Errorf("failed to connect to dbus for service %q: %v", s.Service.Name, err)
+	}
+	return conn, err
+}
+
 // Running implements Service.
 func (s *Service) Running() (bool, error) {
-	conn, err := newConn()
+	conn, err := s.newConn()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -208,7 +260,7 @@ func (s *Service) Running() (bool, error) {
 
 	units, err := conn.ListUnits()
 	if err != nil {
-		return false, errors.Trace(err)
+		return false, s.errorf(err, "failed to query services from dbus")
 	}
 
 	for _, unit := range units {
@@ -222,6 +274,19 @@ func (s *Service) Running() (bool, error) {
 
 // Start implements Service.
 func (s *Service) Start() error {
+	err := s.start()
+	if errors.IsAlreadyExists(err) {
+		logger.Debugf("service %q already running", s.Name())
+		return nil
+	} else if err != nil {
+		logger.Errorf("service %q failed to start: %v", s.Name(), err)
+		return err
+	}
+	logger.Debugf("service %q successfully started", s.Name())
+	return nil
+}
+
+func (s *Service) start() error {
 	installed, err := s.Installed()
 	if err != nil {
 		return errors.Trace(err)
@@ -234,10 +299,10 @@ func (s *Service) Start() error {
 		return errors.Trace(err)
 	}
 	if running {
-		return nil
+		return errors.AlreadyExistsf("running service %s", s.Service.Name)
 	}
 
-	conn, err := newConn()
+	conn, err := s.newConn()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -246,7 +311,7 @@ func (s *Service) Start() error {
 	statusCh := newChan()
 	_, err = conn.StartUnit(s.UnitName, "fail", statusCh)
 	if err != nil {
-		return errors.Trace(err)
+		return s.errorf(err, "dbus start request failed")
 	}
 
 	if err := s.wait("start", statusCh); err != nil {
@@ -262,22 +327,35 @@ func (s *Service) wait(op string, statusCh chan string) error {
 	// TODO(ericsnow) Other status values *may* be okay. See:
 	//  https://godoc.org/github.com/coreos/go-systemd/dbus#Conn.StartUnit
 	if status != "done" {
-		return errors.Errorf("failed to %s service %q (API status %q)", op, s.Service.Name, status)
+		return s.errorf(nil, "failed to %s (API status %q)", op, status)
 	}
 	return nil
 }
 
 // Stop implements Service.
 func (s *Service) Stop() error {
+	err := s.stop()
+	if errors.IsNotFound(err) {
+		logger.Debugf("service %q not running", s.Name())
+		return nil
+	} else if err != nil {
+		logger.Errorf("service %q failed to stop: %v", s.Name(), err)
+		return err
+	}
+	logger.Debugf("service %q successfully stopped", s.Name())
+	return nil
+}
+
+func (s *Service) stop() error {
 	running, err := s.Running()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if !running {
-		return nil
+		return errors.NotFoundf("running service %s", s.Service.Name)
 	}
 
-	conn, err := newConn()
+	conn, err := s.newConn()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -286,7 +364,7 @@ func (s *Service) Stop() error {
 	statusCh := newChan()
 	_, err = conn.StopUnit(s.UnitName, "fail", statusCh)
 	if err != nil {
-		return errors.Trace(err)
+		return s.errorf(err, "dbus stop request failed")
 	}
 
 	if err := s.wait("stop", statusCh); err != nil {
@@ -298,15 +376,28 @@ func (s *Service) Stop() error {
 
 // Remove implements Service.
 func (s *Service) Remove() error {
+	err := s.remove()
+	if errors.IsNotFound(err) {
+		logger.Debugf("service %q not installed", s.Name())
+		return nil
+	} else if err != nil {
+		logger.Errorf("failed to remove service %q: %v", s.Name(), err)
+		return err
+	}
+	logger.Debugf("service %q successfully removed", s.Name())
+	return nil
+}
+
+func (s *Service) remove() error {
 	installed, err := s.Installed()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if !installed {
-		return nil
+		return errors.NotFoundf("service %s", s.Service.Name)
 	}
 
-	conn, err := newConn()
+	conn, err := s.newConn()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -315,11 +406,11 @@ func (s *Service) Remove() error {
 	runtime := false
 	_, err = conn.DisableUnitFiles([]string{s.UnitName}, runtime)
 	if err != nil {
-		return errors.Trace(err)
+		return s.errorf(err, "dbus disable request failed")
 	}
 
 	if err := removeAll(s.Dirname); err != nil {
-		return errors.Trace(err)
+		return s.errorf(err, "failed to delete juju-managed conf dir")
 	}
 
 	return nil
@@ -331,6 +422,19 @@ var removeAll = func(name string) error {
 
 // Install implements Service.
 func (s *Service) Install() error {
+	err := s.install()
+	if errors.IsAlreadyExists(err) {
+		logger.Debugf("service %q already installed", s.Name())
+		return nil
+	} else if err != nil {
+		logger.Errorf("failed to install service %q: %v", s.Name(), err)
+		return err
+	}
+	logger.Debugf("service %q successfully installed", s.Name())
+	return nil
+}
+
+func (s *Service) install() error {
 	installed, err := s.Installed()
 	if err != nil {
 		return errors.Trace(err)
@@ -341,7 +445,7 @@ func (s *Service) Install() error {
 			return errors.Trace(err)
 		}
 		if same {
-			return nil
+			return errors.AlreadyExistsf("service %s", s.Service.Name)
 		}
 		// An old copy is already running so stop it first.
 		if err := s.Stop(); err != nil {
@@ -357,7 +461,7 @@ func (s *Service) Install() error {
 		return errors.Trace(err)
 	}
 
-	conn, err := newConn()
+	conn, err := s.newConn()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -366,34 +470,37 @@ func (s *Service) Install() error {
 	runtime, force := false, true
 	_, err = conn.LinkUnitFiles([]string{filename}, runtime, force)
 	if err != nil {
-		return errors.Trace(err)
+		return s.errorf(err, "dbus link request failed")
 	}
 
 	// TODO(ericsnow) This needs SU privs...
 	_, _, err = conn.EnableUnitFiles([]string{filename}, runtime, force)
-	return errors.Trace(err)
+	if err != nil {
+		return s.errorf(err, "dbus enable request failed")
+	}
+	return nil
 }
 
 func (s *Service) writeConf() (string, error) {
-	data, err := serialize(s.UnitName, s.Service.Conf)
+	data, err := s.serialize()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
 	if err := mkdirAll(s.Dirname); err != nil {
-		return "", errors.Trace(err)
+		return "", s.errorf(err, "failed to create juju-managed service dir %q", s.Dirname)
 	}
 	filename := path.Join(s.Dirname, s.ConfName)
 
 	if s.Script != nil {
 		scriptPath := s.Service.Conf.ExecStart
 		if err := createFile(scriptPath, s.Script, 0755); err != nil {
-			return filename, errors.Trace(err)
+			return filename, s.errorf(err, "failed to write script at %q", scriptPath)
 		}
 	}
 
 	if err := createFile(filename, data, 0644); err != nil {
-		return filename, errors.Trace(err)
+		return filename, s.errorf(err, "failed to write conf file %q", filename)
 	}
 
 	return filename, nil
@@ -412,7 +519,7 @@ func (s *Service) InstallCommands() ([]string, error) {
 	name := s.Name()
 	dirname := "/tmp"
 
-	data, err := serialize(s.UnitName, s.Service.Conf)
+	data, err := s.serialize()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

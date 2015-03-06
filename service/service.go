@@ -96,7 +96,7 @@ func NewService(name string, conf common.Conf, initSystem string) (Service, erro
 	case InitSystemSystemd:
 		svc, err := systemd.NewService(name, conf)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "failed to wrap service %q", name)
 		}
 		return svc, nil
 	default:
@@ -115,19 +115,19 @@ func ListServices() ([]string, error) {
 	case InitSystemWindows:
 		services, err := windows.ListServices()
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotatef(err, "failed to list %s services", initName)
 		}
 		return services, nil
 	case InitSystemUpstart:
 		services, err := upstart.ListServices()
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotatef(err, "failed to list %s services", initName)
 		}
 		return services, nil
 	case InitSystemSystemd:
 		services, err := systemd.ListServices()
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotatef(err, "failed to list %s services", initName)
 		}
 		return services, nil
 	default:
