@@ -185,13 +185,16 @@ func (s *Service) normalize(conf common.Conf) (common.Conf, []byte) {
 }
 
 func (s *Service) setConf(conf common.Conf) error {
-	normalConf, data := s.normalize(conf)
-	if err := s.validate(normalConf); err != nil {
-		return errors.Trace(err)
-	}
+	if !s.NoConf() {
+		normalConf, data := s.normalize(conf)
+		if err := s.validate(normalConf); err != nil {
+			return errors.Trace(err)
+		}
+		conf = normalConf
 
-	s.Service.Conf = normalConf
-	s.Script = data
+		s.Script = data
+	}
+	s.Service.Conf = conf
 	return nil
 }
 
@@ -211,6 +214,10 @@ func (s *Service) Installed() (bool, error) {
 
 // Exists implements Service.
 func (s *Service) Exists() (bool, error) {
+	if s.NoConf() {
+		return false, s.errorf(nil, "no conf expected")
+	}
+
 	same, err := s.check()
 	if err != nil {
 		return false, errors.Trace(err)
@@ -422,6 +429,10 @@ var removeAll = func(name string) error {
 
 // Install implements Service.
 func (s *Service) Install() error {
+	if s.NoConf() {
+		return s.errorf(nil, "missing conf")
+	}
+
 	err := s.install()
 	if errors.IsAlreadyExists(err) {
 		logger.Debugf("service %q already installed", s.Name())
@@ -516,6 +527,10 @@ var createFile = func(filename string, data []byte, perm os.FileMode) error {
 
 // InstallCommands implements Service.
 func (s *Service) InstallCommands() ([]string, error) {
+	if s.NoConf() {
+		return nil, s.errorf(nil, "missing conf")
+	}
+
 	name := s.Name()
 	dirname := "/tmp"
 
