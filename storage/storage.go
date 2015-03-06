@@ -40,6 +40,9 @@ type StorageInstance struct {
 // instance. StorageAttachmentInfo is based on either a volume attachment
 // or a filesystem attachment, depending on its kind.
 type StorageAttachmentInfo struct {
+	// Kind is the kind of the storage attachment.
+	Kind StorageKind
+
 	// Location is the storage attachment's location: the mount point
 	// for a filesystem-kind storage attachment, and the device path
 	// for a block-kind.
