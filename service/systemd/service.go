@@ -137,7 +137,7 @@ func (s *Service) errorf(err error, msg string, args ...interface{}) error {
 	}
 	err.(*errors.Err).SetLocation(1)
 	logger.Errorf("%v", err)
-	logger.Debugf(errors.ErrorStack(err))
+	logger.Debugf("stack trace:\n%s", errors.ErrorStack(err))
 	return err
 }
 
