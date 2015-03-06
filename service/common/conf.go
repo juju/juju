@@ -4,6 +4,7 @@
 package common
 
 import (
+	"reflect"
 	"strings"
 
 	"github.com/juju/errors"
@@ -48,6 +49,11 @@ type Conf struct {
 
 	// ExtraScript allows to insert script before command execution.
 	ExtraScript string
+}
+
+// IsZero determines whether or not the conf is a zero value.
+func (c Conf) IsZero() bool {
+	return reflect.DeepEqual(c, Conf{})
 }
 
 // Validate checks the conf's values for correctness.
