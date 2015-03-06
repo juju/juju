@@ -560,7 +560,10 @@ func (p *backingOpenedPorts) updated(st *State, store *multiwatcherStore, id int
 	return nil
 }
 
-func (p *backingOpenedPorts) removed(st *State, store *multiwatcherStore, id interface{}) {}
+func (p *backingOpenedPorts) removed(st *State, store *multiwatcherStore, id interface{}) {
+	logger.Tracef("backingOpenedPorts: removing %v", id)
+	panic("AAAARGH!")
+}
 
 func (p *backingOpenedPorts) mongoId() interface{} {
 	panic("cannot find mongo id from openedPorts document")
