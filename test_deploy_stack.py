@@ -12,6 +12,7 @@ from textwrap import dedent
 from unittest import TestCase
 
 from mock import (
+    call,
     patch,
     )
 import yaml
@@ -20,6 +21,7 @@ from deploy_stack import (
     add_juju_args,
     add_output_args,
     add_path_args,
+    assess_juju_run,
     copy_remote_logs,
     deploy_dummy_stack,
     describe_instances,
@@ -33,7 +35,6 @@ from deploy_stack import (
     GET_TOKEN_SCRIPT,
     parse_euca,
     run_instances,
-    assess_juju_run,
 )
 from jujupy import (
     EnvJujuClient,
@@ -486,3 +487,57 @@ class TestDeployDummyStack(TestCase):
             'juju', '--show-log', 'ssh', '-e', 'foo', 'dummy-sink/0',
             GET_TOKEN_SCRIPT), 1, assign_stderr=True)
         self.assertEqual(co_mock.call_count, 2)
+
+
+class TestTestUpgrade(TestCase):
+
+    def test_test_upgrade(self):
+        # Prevent nosetests from attempting to run test_upgrade directly.
+        from deploy_stack import test_upgrade
+        old_client = EnvJujuClient(SimpleEnvironment('foo', {'type': 'foo'}),
+                               None, '/foo/juju')
+        RUN_UNAME = (
+            'juju', '--show-log', 'run', '-e', 'foo', '--format', 'json',
+             '--machine', '1,2', 'uname')
+        VERSION = ('/bar/juju', '--version')
+        STATUS = ('juju', '--show-log', 'status', '-e', 'foo')
+        GET_ENV = ('juju', '--show-log', 'get-env', '-e', 'foo',
+                   'tools-metadata-url')
+        def output(args, **kwargs):
+            status = yaml.safe_dump({
+                'machines': {'0': {
+                    'agent-state': 'started',
+                    'agent-version': '1.38'}},
+                'services': {}})
+            juju_run_out = json.dumps(
+                    [{"MachineId": "1", "Stdout": "Linux\n"},
+                    {"MachineId": "2", "Stdout": "Linux\n"}])
+            output = {
+                STATUS: status,
+                RUN_UNAME: juju_run_out,
+                VERSION: '1.38',
+                GET_ENV: 'testing'
+                }
+            return output[args]
+
+        with patch('subprocess.check_output', side_effect=output,
+                   autospec=True) as co_mock:
+            with patch('subprocess.check_call', autospec=True) as cc_mock:
+                test_upgrade(old_client, '/bar/juju')
+        new_client = EnvJujuClient(old_client.env,
+                               None, '/bar/juju')
+        assert_juju_call(self, co_mock, old_client, RUN_UNAME,
+                         0, assign_stderr=True)
+        assert_juju_call(self, cc_mock, new_client, (
+            'juju', '--show-log', 'upgrade-juju', '-e', 'foo', '--version',
+            '1.38'))
+        self.assertEqual(co_mock.mock_calls[1], call(VERSION))
+        assert_juju_call(self, co_mock, new_client, GET_ENV, 2,
+                         assign_stderr=True)
+        assert_juju_call(self, co_mock, new_client, GET_ENV, 3,
+                         assign_stderr=True)
+        assert_juju_call(self, co_mock, new_client, STATUS, 4,
+                         assign_stderr=True)
+        assert_juju_call(self, co_mock, old_client, RUN_UNAME, 5,
+                         assign_stderr=True)
+        self.assertEqual(co_mock.call_count, 6)
