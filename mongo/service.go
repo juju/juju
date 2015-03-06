@@ -100,8 +100,9 @@ func sharedSecretPath(dataDir string) string {
 
 // newConf returns the init system config for the mongo state service.
 func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCtl bool) common.Conf {
-	mongoCmd := mongoPath + " --auth" +
-		" --dbpath=" + utils.ShQuote(dbDir) +
+	mongoCmd := mongoPath +
+		" --auth" +
+		" --dbpath " + utils.ShQuote(dbDir) +
 		" --sslOnNormalPorts" +
 		" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(dataDir)) +
 		" --sslPEMKeyPassword ignored" +
@@ -112,7 +113,7 @@ func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCt
 		" --journal" +
 		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)) +
 		" --replSet " + ReplicaSetName +
-		" --ipv6 " +
+		" --ipv6" +
 		" --oplogSize " + strconv.Itoa(oplogSizeMB)
 	extraScript := ""
 	if wantNumaCtl {
