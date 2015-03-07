@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/version"
 )
 
@@ -43,8 +44,19 @@ func templateUserData(
 	aptMirror string,
 	enablePackageUpdates bool,
 	enableOSUpgrades bool,
+	networkConfig *container.NetworkConfig,
+	useAUFS bool,
 ) ([]byte, error) {
-	config := corecloudinit.New()
+	var config *corecloudinit.Config
+	if networkConfig != nil {
+		var err error
+		config, err = container.NewCloudInitConfigWithNetworks(networkConfig)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		config = corecloudinit.New()
+	}
 	config.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
 	)
@@ -66,7 +78,7 @@ func templateUserData(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	script, err := shutdownInitScript(initSystem)
+	script, err := shutdownInitScript(useAUFS, initSystem)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -100,13 +112,39 @@ func containerInitSystem(series string) (string, error) {
 	return initSystem, nil
 }
 
-func shutdownInitScript(initSystem string) (string, error) {
-	name := "juju-template-restart"
-	conf, err := service.ShutdownAfterConf("cloud-final")
-	if err != nil {
-		return "", errors.Trace(err)
+func shutdownInitScript(useAUFS bool, initSystem string) (string, error) {
+	// These files are removed just before the template shuts down.
+	cleanupOnShutdown := []string{
+		// If we leave the pre-rendered network config, cloned
+		// containers will fail to start due to networking issues.
+		// However, when AUFS-backed rootfs is used we don't delete
+		// the config as it won't be pre-rendered in the first place.
+		"/etc/network/interfaces",
+		// We remove any dhclient lease files so there's no chance a
+		// clone to reuse a lease from the template it was cloned
+		// from.
+		"/var/lib/dhcp/dhclient*",
+		// Both of these sets of files below are recreated on boot and
+		// if we leave them in the template's rootfs boot logs coming
+		// from cloned containers will be appended. It's better to
+		// keep clean logs for diagnosing issues / debugging.
+		"/var/log/cloud-init*.log",
+		"/var/log/upstart/*.log",
 	}
-
+	if useAUFS {
+		// Don't remove /etc/network/interfaces when using AUFS.
+		cleanupOnShutdown = cleanupOnShutdown[1:]
+	}
+	paths := strings.Join(cleanupOnShutdown, " ")
+	cmd := fmt.Sprintf("/bin/sh -c 'rm -fr %s ; shutdown -h now'", paths)
+	name := "juju-template-restart"
+	desc := "juju shutdown job"
+	conf := common.Conf{
+		Desc:         desc,
+		Transient:    true,
+		AfterStopped: "cloud-final",
+		ExecStart:    cmd,
+	}
 	svc, err := service.NewService(name, conf, initSystem)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -146,6 +184,7 @@ func EnsureCloneTemplate(
 	enablePackageUpdates bool,
 	enableOSUpgrades bool,
 	imageURLGetter container.ImageURLGetter,
+	useAUFS bool,
 ) (golxc.Container, error) {
 	name := fmt.Sprintf("juju-%s-lxc-template", series)
 	containerDirectory, err := container.NewDirectory(name)
@@ -174,6 +213,8 @@ func EnsureCloneTemplate(
 		aptMirror,
 		enablePackageUpdates,
 		enableOSUpgrades,
+		networkConfig,
+		useAUFS,
 	)
 	if err != nil {
 		logger.Tracef("failed to create template user data for template: %v", err)
