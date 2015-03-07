@@ -4,8 +4,9 @@
 package storage
 
 import (
-	"github.com/juju/juju/storage"
 	"github.com/juju/names"
+
+	"github.com/juju/juju/storage"
 )
 
 // contextStorage is an implementation of jujuc.ContextStorage.

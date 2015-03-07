@@ -21,31 +21,87 @@ var logger = loggo.GetLogger("juju.worker.uniter.storage")
 type StorageAccessor interface {
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)
 	StorageAttachment(names.StorageTag, names.UnitTag) (params.StorageAttachment, error)
+	UnitStorageAttachments(names.UnitTag) ([]params.StorageAttachment, error)
 }
 
 // Attachments generates storage hooks in response to changes to
 // storage attachments, and provides access to information about
 // storage attachments to hooks.
 type Attachments struct {
-	st        StorageAccessor
-	unitTag   names.UnitTag
-	abort     <-chan struct{}
-	hooks     chan hook.Info
-	storagers map[names.StorageTag]*storager
+	st              StorageAccessor
+	unitTag         names.UnitTag
+	abort           <-chan struct{}
+	hooks           chan hook.Info
+	storagers       map[names.StorageTag]*storager
+	storageStateDir string
 }
 
 // NewAttachments returns a new Attachments.
-func NewAttachments(st StorageAccessor, tag names.UnitTag, abort <-chan struct{}) (*Attachments, error) {
+func NewAttachments(
+	st StorageAccessor,
+	tag names.UnitTag,
+	storageStateDir string,
+	abort <-chan struct{},
+) (*Attachments, error) {
 	hooks := make(chan hook.Info)
-	// TODO(axw) at this point we would read the storage state from disk,
-	// so we know which hooks to issue.
-	return &Attachments{
-		st:        st,
-		unitTag:   tag,
-		abort:     abort,
-		hooks:     hooks,
-		storagers: make(map[names.StorageTag]*storager),
-	}, nil
+	a := &Attachments{
+		st:              st,
+		unitTag:         tag,
+		abort:           abort,
+		hooks:           hooks,
+		storagers:       make(map[names.StorageTag]*storager),
+		storageStateDir: storageStateDir,
+	}
+	if err := a.init(); err != nil {
+		return nil, err
+	}
+	return a, nil
+}
+
+// init processes the storage state directory and creates storagers
+// for the state files found.
+func (a *Attachments) init() error {
+	// Query all remote, known storage attachments for the unit,
+	// so we can cull state files, and store current context.
+	attachments, err := a.st.UnitStorageAttachments(a.unitTag)
+	if err != nil {
+		return errors.Annotate(err, "getting unit attachments")
+	}
+	attachmentsByTag := make(map[names.StorageTag]*params.StorageAttachment)
+	for i, attachment := range attachments {
+		storageTag, err := names.ParseStorageTag(attachment.StorageTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		attachmentsByTag[storageTag] = &attachments[i]
+	}
+	stateFiles, err := readAllStateFiles(a.storageStateDir)
+	if err != nil {
+		return errors.Annotate(err, "reading storage state dirs")
+	}
+	for storageTag, stateFile := range stateFiles {
+		attachment, ok := attachmentsByTag[storageTag]
+		if !ok {
+			if err := stateFile.Remove(); err != nil {
+				return errors.Trace(err)
+			}
+			continue
+		}
+		// TODO(axw) pass current state to storager.
+		_ = attachment
+		s, err := newStorager(
+			a.st, a.unitTag, storageTag, stateFile, a.hooks,
+		)
+		if err != nil {
+			return errors.Annotatef(
+				err, "watching storage %q", storageTag.Id(),
+			)
+		}
+		a.storagers[storageTag] = s
+	}
+	// Note: we ignore remote attachments that were not locally recorded;
+	// they will be picked up UpdateStorage.
+	return nil
 }
 
 // Hooks returns the channel on which storage hook execution requests
@@ -66,7 +122,11 @@ func (a *Attachments) UpdateStorage(tags []names.StorageTag) error {
 		if _, ok := a.storagers[tag]; ok {
 			continue
 		}
-		s, err := newStorager(a.st, a.unitTag, tag, a.hooks)
+		storageFile, err := readStateFile(a.storageStateDir, tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		s, err := newStorager(a.st, a.unitTag, tag, storageFile, a.hooks)
 		if err != nil {
 			return errors.Annotatef(err, "watching storage %q", tag.Id())
 		}
@@ -75,6 +135,8 @@ func (a *Attachments) UpdateStorage(tags []names.StorageTag) error {
 	}
 	return nil
 }
+
+//func (a *Attachment) add(
 
 // Storage returns the ContextStorage with the supplied tag if it was
 // found, and whether it was found.

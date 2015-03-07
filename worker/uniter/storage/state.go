@@ -28,11 +28,11 @@ type state struct {
 	attached bool
 }
 
-// Validate returns an error if the supplied hook.Info does not represent
-// a valid change to the relation state. Hooks must always be validated
+// ValidateHook returns an error if the supplied hook.Info does not represent
+// a valid change to the storage state. Hooks must always be validated
 // against the current state before they are run, to ensure that the system
 // meets its guarantees about hook execution order.
-func (s *state) Validate(hi hook.Info) (err error) {
+func (s *state) ValidateHook(hi hook.Info) (err error) {
 	defer errors.DeferredAnnotatef(&err, "inappropriate %q hook for storage %q", hi.Kind, s.storage.Id())
 	if hi.StorageId != s.storage.Id() {
 		return fmt.Errorf("expected storage %q, got storage %q", s.storage.Id(), hi.StorageId)
@@ -50,29 +50,28 @@ func (s *state) Validate(hi hook.Info) (err error) {
 	return nil
 }
 
-// stateDir is a filesystem-backed representation of the state of a
-// relation. Concurrent modifications to the underlying state directory
-// will have undefined consequences.
-type stateDir struct {
+// stateFile is a filesystem-backed representation of the state of a
+// storage attachment. Concurrent modifications to the underlying state
+// file will have undefined consequences.
+type stateFile struct {
 	// path identifies the directory holding persistent state.
 	path string
 
 	// state is the cached state of the directory, which is guaranteed
 	// to be synchronized with the true state so long as no concurrent
 	// changes are made to the directory.
-	state state
+	state
 }
 
-// State returns the current state of the relation.
-func (d *stateDir) State() state {
-	return d.state
-}
-
-// readStateDir loads a stateDir from the subdirectory of dirPath named
+// readStateFile loads a stateFile from the subdirectory of dirPath named
 // for the supplied storage tag. If the directory does not exist, no error
 // is returned,
-func readStateDir(path string, tag names.StorageTag) (d *stateDir, err error) {
-	d = &stateDir{path, state{storage: tag}}
+func readStateFile(dirPath string, tag names.StorageTag) (d *stateFile, err error) {
+	filename := strings.Replace(tag.Id(), "/", "-", -1)
+	d = &stateFile{
+		filepath.Join(dirPath, filename),
+		state{storage: tag},
+	}
 	defer errors.DeferredAnnotatef(&err, "cannot load storage %q state from %q", tag.Id(), d.path)
 	if _, err := os.Stat(d.path); os.IsNotExist(err) {
 		return d, nil
@@ -80,20 +79,20 @@ func readStateDir(path string, tag names.StorageTag) (d *stateDir, err error) {
 		return nil, err
 	}
 	var info diskInfo
-	if err := utils.ReadYaml(path, &info); err != nil {
-		return nil, errors.Errorf("invalid storage state file %q: %v", path, err)
+	if err := utils.ReadYaml(d.path, &info); err != nil {
+		return nil, errors.Errorf("invalid storage state file %q: %v", d.path, err)
 	}
 	if info.Attached == nil {
-		return nil, errors.Errorf("invalid storage state file %q: missing 'attached'", path)
+		return nil, errors.Errorf("invalid storage state file %q: missing 'attached'", d.path)
 	}
 	d.state.attached = *info.Attached
 	return d, nil
 }
 
-// readAllStateDirs loads and returns every stateDir persisted inside
+// readAllStateFiles loads and returns every stateFile persisted inside
 // the supplied dirPath. If dirPath does not exist, no error is returned.
-func readAllStateDirs(dirPath string) (dirs map[names.StorageTag]*stateDir, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot load relations state from %q", dirPath)
+func readAllStateFiles(dirPath string) (files map[names.StorageTag]*stateFile, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot load storage state from %q", dirPath)
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 		return nil, nil
 	} else if err != nil {
@@ -103,6 +102,7 @@ func readAllStateDirs(dirPath string) (dirs map[names.StorageTag]*stateDir, err 
 	if err != nil {
 		return nil, err
 	}
+	files = make(map[names.StorageTag]*stateFile)
 	for _, fi := range fis {
 		if fi.IsDir() {
 			continue
@@ -112,34 +112,32 @@ func readAllStateDirs(dirPath string) (dirs map[names.StorageTag]*stateDir, err 
 			continue
 		}
 		tag := names.NewStorageTag(storageId)
-		dir, err := readStateDir(filepath.Join(dirPath, fi.Name()), tag)
+		f, err := readStateFile(dirPath, tag)
 		if err != nil {
 			return nil, err
 		}
-		dirs[tag] = dir
+		files[tag] = f
 	}
-	return dirs, nil
+	return files, nil
 }
 
 // Ensure creates the directory if it does not already exist.
-func (d *stateDir) Ensure() error {
+func (d *stateFile) Ensure() error {
 	return os.MkdirAll(d.path, 0755)
 }
 
-// Write atomically writes to disk the storage state change in hi.
+// CommitHook atomically writes to disk the storage state change in hi.
 // It must be called after the respective hook was executed successfully.
-// Write doesn't validate hi but guarantees that successive writes of
-// the same hi are idempotent.
-func (d *stateDir) Write(hi hook.Info) (err error) {
+// CommitHook doesn't validate hi but guarantees that successive writes
+// of the same hi are idempotent.
+func (d *stateFile) CommitHook(hi hook.Info) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to write %q hook info for %q on state directory", hi.Kind, hi.StorageId)
 	if hi.Kind == hooks.StorageDetached { // TODO(axw) should be detaching
 		return d.Remove()
 	}
-	name := strings.Replace(hi.StorageId, "/", "-", 1)
-	path := filepath.Join(d.path, name)
 	attached := true
 	di := diskInfo{&attached}
-	if err := utils.WriteYaml(path, &di); err != nil {
+	if err := utils.WriteYaml(d.path, &di); err != nil {
 		return err
 	}
 	// If write was successful, update own state.
@@ -148,7 +146,7 @@ func (d *stateDir) Write(hi hook.Info) (err error) {
 }
 
 // Remove removes the directory if it exists and is empty.
-func (d *stateDir) Remove() error {
+func (d *stateFile) Remove() error {
 	if err := os.Remove(d.path); err != nil && !os.IsNotExist(err) {
 		return err
 	}

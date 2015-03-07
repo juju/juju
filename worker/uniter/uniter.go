@@ -218,7 +218,9 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create relations")
 	}
 	u.relations = relations
-	storageAttachments, err := storage.NewAttachments(u.st, unitTag, u.tomb.Dying())
+	storageAttachments, err := storage.NewAttachments(
+		u.st, unitTag, u.paths.State.StorageDir, u.tomb.Dying(),
+	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create storage hook source")
 	}

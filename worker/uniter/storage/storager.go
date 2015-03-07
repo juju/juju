@@ -14,6 +14,7 @@ type storager struct {
 	st         StorageAccessor
 	unitTag    names.UnitTag
 	storageTag names.StorageTag
+	state      *stateFile
 	source     *storageSource
 	sender     hook.Sender
 }
@@ -22,6 +23,7 @@ func newStorager(
 	st StorageAccessor,
 	unitTag names.UnitTag,
 	storageTag names.StorageTag,
+	state *stateFile,
 	hooks chan<- hook.Info,
 ) (*storager, error) {
 	source, err := newStorageSource(st, unitTag, storageTag)
@@ -33,6 +35,7 @@ func newStorager(
 		st:         st,
 		unitTag:    unitTag,
 		storageTag: storageTag,
+		state:      state,
 		source:     source,
 		sender:     sender,
 	}, nil
