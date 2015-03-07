@@ -50,6 +50,10 @@ const (
 	DefaultLxcBridge = "lxcbr0"
 	// Btrfs is special as we treat it differently for create and clone.
 	Btrfs = "btrfs"
+
+	// etcNetworkInterfaces here is the path (inside the container's
+	// rootfs) where the network config is stored.
+	etcNetworkInterfaces = "/etc/network/interfaces"
 )
 
 // DefaultNetworkConfig returns a valid NetworkConfig to use the
@@ -236,6 +240,7 @@ func (manager *containerManager) CreateContainer(
 			machineConfig.EnableOSRefreshUpdate,
 			machineConfig.EnableOSUpgrade,
 			manager.imageURLGetter,
+			manager.useAUFS,
 		)
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "failed to retrieve the template to clone")
@@ -332,8 +337,28 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "failed to reorder network settings")
 	}
 
-	// Start the lxc container with the appropriate settings for grabbing the
-	// console output and a log file.
+	// To speed-up the initial container startup we pre-render the
+	// /etc/network/interfaces directly inside the rootfs. This won't
+	// work if we use AUFS snapshots, so it's disabled if useAUFS is
+	// true (for now).
+	if networkConfig != nil && len(networkConfig.Interfaces) > 0 {
+		interfacesFile := filepath.Join(LxcContainerDir, name, "rootfs", etcNetworkInterfaces)
+		if manager.useAUFS {
+			logger.Tracef("not pre-rendering %q when using AUFS-backed rootfs", interfacesFile)
+		} else {
+			data, err := container.GenerateNetworkConfig(networkConfig)
+			if err != nil {
+				return nil, nil, errors.Annotatef(err, "failed to generate %q", interfacesFile)
+			}
+			if err := utils.AtomicWriteFile(interfacesFile, data, 0644); err != nil {
+				return nil, nil, errors.Annotatef(err, "cannot write generated %q", interfacesFile)
+			}
+			logger.Tracef("pre-rendered network config in %q", interfacesFile)
+		}
+	}
+
+	// Start the lxc container with the appropriate settings for
+	// grabbing the console output and a log file.
 	consoleFile := filepath.Join(directory, "console.log")
 	lxcContainer.SetLogFile(filepath.Join(directory, "container.log"), golxc.LogDebug)
 	logger.Tracef("start the container")
@@ -884,20 +909,10 @@ func networkConfigTemplate(config container.NetworkConfig) string {
 		if nic.IPv4Address != "" {
 			// LXC expects IPv4 addresses formatted like a CIDR:
 			// 1.2.3.4/5 (but without masking the least significant
-			// octets). So we need to extract the mask part of the
-			// iface.CIDR and append it. If CIDR is empty or invalid
-			// "/24" is used as a sane default.
-			_, ipNet, err := net.ParseCIDR(iface.CIDR)
-			if err != nil {
-				logger.Warningf(
-					"invalid CIDR %q for interface %q, using /24 as fallback",
-					iface.CIDR, nic.Name,
-				)
-				nic.IPv4Address += "/24"
-			} else {
-				ones, _ := ipNet.Mask.Size()
-				nic.IPv4Address += fmt.Sprintf("/%d", ones)
-			}
+			// octets). Because statically configured IP addresses use
+			// the netmask 255.255.255.255, we always use /32 for
+			// here.
+			nic.IPv4Address += "/32"
 		}
 		if nic.NoAutoStart && nic.IPv4Gateway != "" {
 			// LXC refuses to add an ipv4 gateway when the NIC is not

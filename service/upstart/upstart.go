@@ -49,7 +49,7 @@ func ListCommand() string {
 	return `sudo initctl list | awk '{print $1}' | sort | uniq`
 }
 
-var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
+var startedRE = regexp.MustCompile(`^.* start/running(?:, process (\d+))?\n$`)
 
 // Service provides visibility into and control over an upstart service.
 type Service struct {
