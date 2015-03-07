@@ -236,7 +236,7 @@ func (f *factory) newId(name string) string {
 
 // coreContext creates a new context with all unspecialised fields filled in.
 func (f *factory) coreContext() (*HookContext, error) {
-	leadershipContext := NewLeadershipContext(
+	leadershipContext := newLeadershipContext(
 		f.state.LeadershipSettings,
 		f.tracker,
 	)

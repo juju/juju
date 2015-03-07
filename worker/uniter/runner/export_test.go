@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/worker/leadership"
 )
 
 var (
@@ -25,6 +26,14 @@ var (
 
 func RunnerPaths(rnr Runner) Paths {
 	return rnr.(*runner).paths
+}
+
+type LeadershipContextFunc func(LeadershipSettingsAccessor, leadership.Tracker) LeadershipContext
+
+func PatchNewLeadershipContext(f LeadershipContextFunc) func() {
+	var old LeadershipContextFunc
+	old, newLeadershipContext = newLeadershipContext, f
+	return func() { newLeadershipContext = old }
 }
 
 func UpdateCachedSettings(f0 Factory, relId int, unitName string, settings params.Settings) {

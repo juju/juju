@@ -1340,6 +1340,14 @@ func (waitContextWaitGroup) step(c *gc.C, ctx *context) {
 	ctx.wg.Wait()
 }
 
+type verifyLeaderSettings map[string]string
+
+func (verify verifyLeaderSettings) step(c *gc.C, ctx *context) {
+	actual, err := ctx.api.LeadershipSettings.Read("u")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actual, jc.DeepEquals, map[string]string(verify))
+}
+
 type verifyFile struct {
 	filename string
 	content  string
