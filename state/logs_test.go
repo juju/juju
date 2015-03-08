@@ -75,3 +75,85 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 	c.Assert(docs[1]["v"], gc.Equals, int(loggo.ERROR))
 	c.Assert(docs[1]["x"], gc.Equals, "oh noes")
 }
+
+func (s *LogsSuite) TestPruneLogsByTime(c *gc.C) {
+	dbLogger := state.NewDbLogger(s.State, names.NewMachineTag("22"))
+	defer dbLogger.Close()
+	log := func(t time.Time, msg string) {
+		err := dbLogger.Log(t, "module", "loc", loggo.INFO, msg)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	now := time.Now()
+	maxLogTime := now.Add(-time.Minute)
+	log(now, "keep")
+	log(maxLogTime.Add(time.Second), "keep")
+	log(maxLogTime, "keep")
+	log(maxLogTime.Add(-time.Second), "prune")
+	log(maxLogTime.Add(-(2 * time.Second)), "prune")
+
+	sizeNoPrune := int(1e10)
+	err := state.PruneLogs(s.State, maxLogTime, sizeNoPrune)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// After pruning there should just be 3 "keep" messages left.
+	var docs []bson.M
+	err = s.logsColl.Find(nil).All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(docs, gc.HasLen, 3)
+	for _, doc := range docs {
+		c.Assert(doc["x"], gc.Equals, "keep")
+	}
+}
+
+func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
+	// Set up 3 environments and generate different amounts of logs
+	// for them.
+	now := time.Now().Truncate(time.Millisecond)
+	generateLogs := func(st *state.State, count int) {
+		dbLogger := state.NewDbLogger(st, names.NewMachineTag("0"))
+		defer dbLogger.Close()
+		for i := 0; i < count; i++ {
+			ts := now.Add(-time.Duration(i) * time.Second)
+			err := dbLogger.Log(ts, "module", "loc", loggo.INFO, "message")
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
+
+	s0 := s.State
+	generateLogs(s0, 10)
+
+	s1 := s.factory.MakeEnvironment(c, nil)
+	defer s1.Close()
+	generateLogs(s1, 1000)
+
+	s2 := s.factory.MakeEnvironment(c, nil)
+	defer s2.Close()
+	generateLogs(s2, 2000)
+
+	// Prune logs collection back by size.
+	tsNoPrune := time.Now().Add(-24 * time.Hour)
+	err := state.PruneLogs(s.State, tsNoPrune, int(3e5))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check logs were pruned as expected.
+	countLogs := func(st *state.State) int {
+		count, err := s.logsColl.Find(bson.M{"e": st.EnvironUUID()}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		return count
+	}
+	c.Assert(countLogs(s0), gc.Equals, 10)  // Not touched
+	c.Assert(countLogs(s1), gc.Equals, 600) // Evenly truncated
+	c.Assert(countLogs(s2), gc.Equals, 600) // Evenly truncated
+
+	// Ensure that the latest log records are still there.
+	assertLatestTs := func(st *state.State) {
+		var doc bson.M
+		err := s.logsColl.Find(bson.M{"e": st.EnvironUUID()}).Sort("-t").One(&doc)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(doc["t"].(time.Time), gc.Equals, now)
+	}
+	assertLatestTs(s0)
+	assertLatestTs(s1)
+	assertLatestTs(s2)
+}
