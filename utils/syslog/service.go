@@ -18,6 +18,7 @@ func Restart() error {
 		if err := service.Restart(svcName); err != nil {
 			return errors.Annotatef(err, "failed to restart service %q", svcName)
 		}
+		return nil
 	}
 	return errors.Errorf("must be root")
 }
