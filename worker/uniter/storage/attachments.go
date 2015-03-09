@@ -147,10 +147,11 @@ func (a *Attachments) updateOneStorage(storageTag names.StorageTag) error {
 			// else we need to force updates from here.
 			return nil
 		}
+		// Short-circuit removal of the storage.
 		// TODO(axw) EnsureDead
 		fallthrough
 	case params.Dead:
-		// TODO(axw) Remove
+		// TODO(axw) Remove storage attachment from remote state.
 		if storager != nil {
 			if err := storager.Stop(); err != nil {
 				return errors.Trace(err)

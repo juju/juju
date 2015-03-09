@@ -57,6 +57,5 @@ func (s *storager) Context() jujuc.ContextStorage {
 }
 
 func (s *storager) CommitHook(hi hook.Info) error {
-	// TODO(axw)
-	return nil
+	return s.state.CommitHook(hi)
 }

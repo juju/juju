@@ -28,6 +28,11 @@ func StateAttached(s State) bool {
 	return s.(*stateFile).attached
 }
 
+func ValidateHook(tag names.StorageTag, attached bool, hi hook.Info) error {
+	st := &state{tag, attached}
+	return st.ValidateHook(hi)
+}
+
 func ReadStateFile(dirPath string, tag names.StorageTag) (d State, err error) {
 	state, err := readStateFile(dirPath, tag)
 	return state, err

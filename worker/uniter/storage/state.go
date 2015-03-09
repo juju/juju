@@ -121,11 +121,6 @@ func readAllStateFiles(dirPath string) (files map[names.StorageTag]*stateFile, e
 	return files, nil
 }
 
-// Ensure creates the directory if it does not already exist.
-func (d *stateFile) Ensure() error {
-	return os.MkdirAll(d.path, 0755)
-}
-
 // CommitHook atomically writes to disk the storage state change in hi.
 // It must be called after the respective hook was executed successfully.
 // CommitHook doesn't validate hi but guarantees that successive writes

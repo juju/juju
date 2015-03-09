@@ -72,6 +72,13 @@ func (s *stateSuite) TestReadAllStateFilesJunk(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 }
 
+func (s *stateSuite) TestReadAllStateFilesOneBadApple(c *gc.C) {
+	dir := c.MkDir()
+	writeFile(c, filepath.Join(dir, "data-0"), "rubbish")
+	_, err := storage.ReadAllStateFiles(dir)
+	c.Assert(err, gc.ErrorMatches, `cannot load storage state from ".*": cannot load storage "data/0" state from ".*": invalid storage state file ".*": missing 'attached'`)
+}
+
 func (s *stateSuite) TestReadAllStateFilesDirNotExist(c *gc.C) {
 	dir := filepath.Join(c.MkDir(), "doesnotexist")
 	states, err := storage.ReadAllStateFiles(dir)
@@ -122,6 +129,17 @@ func (s *stateSuite) TestReadStateFileDirNotExist(c *gc.C) {
 	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
 }
 
+func (s *stateSuite) TestReadStateFileBadFormat(c *gc.C) {
+	dir := c.MkDir()
+	writeFile(c, filepath.Join(dir, "data-0"), "!@#")
+	_, err := storage.ReadStateFile(dir, names.NewStorageTag("data/0"))
+	c.Assert(err, gc.ErrorMatches, `cannot load storage "data/0" state from ".*": invalid storage state file ".*": YAML error: did not find expected whitespace or line break`)
+
+	writeFile(c, filepath.Join(dir, "data-0"), "icantbelieveitsnotattached: true\n")
+	_, err = storage.ReadStateFile(dir, names.NewStorageTag("data/0"))
+	c.Assert(err, gc.ErrorMatches, `cannot load storage "data/0" state from ".*": invalid storage state file ".*": missing 'attached'`)
+}
+
 func (s *stateSuite) TestCommitHook(c *gc.C) {
 	dir := c.MkDir()
 	state, err := storage.ReadStateFile(dir, names.NewStorageTag("data/0"))
@@ -149,4 +167,35 @@ func (s *stateSuite) TestCommitHook(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(stateFile, jc.DoesNotExist)
 	}
+}
+
+func (s *stateSuite) TestValidateHook(c *gc.C) {
+	const unattached = false
+	const attached = true
+
+	err := storage.ValidateHook(
+		names.NewStorageTag("data/0"), unattached,
+		hook.Info{Kind: hooks.StorageAttached, StorageId: "data/1"},
+	)
+	c.Assert(err, gc.ErrorMatches, `inappropriate "storage-attached" hook for storage "data/0": expected storage "data/0", got storage "data/1"`)
+
+	validate := func(attached bool, kind hooks.Kind) error {
+		return storage.ValidateHook(
+			names.NewStorageTag("data/0"), attached,
+			hook.Info{Kind: kind, StorageId: "data/0"},
+		)
+	}
+	assertValidates := func(attached bool, kind hooks.Kind) {
+		err := validate(attached, kind)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	assertValidateFails := func(attached bool, kind hooks.Kind, expect string) {
+		err := validate(attached, kind)
+		c.Assert(err, gc.ErrorMatches, expect)
+	}
+
+	assertValidates(false, hooks.StorageAttached)
+	assertValidates(true, hooks.StorageDetached)
+	assertValidateFails(false, hooks.StorageDetached, `inappropriate "storage-detached" hook for storage "data/0": storage not attached`)
+	assertValidateFails(true, hooks.StorageAttached, `inappropriate "storage-attached" hook for storage "data/0": storage already attached`)
 }
