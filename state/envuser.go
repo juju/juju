@@ -127,7 +127,7 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag) (*Environment
 	op, doc := createEnvUserOpAndDoc(envuuid, user, createdBy, displayName)
 	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
-		err = errors.New("env user already exists")
+		err = errors.AlreadyExistsf("environment user %q", user.Username())
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
