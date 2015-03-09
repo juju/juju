@@ -962,7 +962,7 @@ class FakeEnvJujuClient(EnvJujuClient):
 
     def wait_for_started(self, start=None):
         with patch('sys.stdout'):
-            return super(FakeEnvJujuClient, self).wait_for_started(0.1,
+            return super(FakeEnvJujuClient, self).wait_for_started(0.01,
                                                                    start=start)
 
     def wait_for_ha(self):

@@ -22,6 +22,7 @@ from jujuconfig import (
 )
 from jujupy import (
     bootstrap_from_env,
+    Environment,
     EnvJujuClient,
     get_local_root,
     SimpleEnvironment,
@@ -38,39 +39,39 @@ from utility import (
     ensure_deleted,
     PortTimeoutError,
     print_now,
+    scoped_environ,
     until_timeout,
     wait_for_port,
 )
 
 
-def prepare_environment(client, already_bootstrapped, machines):
+def prepare_environment(env, already_bootstrapped, machines):
     """Prepare an environment for deployment.
 
     As well as bootstrapping, this ensures the correct agent version is in
     use.
 
-    :param client: An EnvJujuClient to prepare the environment of.
+    :param environment: The name of the environment to use.
     :param already_bootstrapped: If true, the environment is already
         bootstrapped.
-    :param machines: A list of machines to add to the environment.
     """
     if sys.platform == 'win32':
         # Ensure OpenSSH is never in the path for win tests.
         sys.path = [p for p in sys.path if 'OpenSSH' not in p]
     if not already_bootstrapped:
-        client.bootstrap()
-    agent_version = client.get_matching_agent_version()
+        env.bootstrap()
+    agent_version = env.get_matching_agent_version()
     for ignored in until_timeout(30):
-        agent_versions = client.get_status().get_agent_versions()
+        agent_versions = env.get_status().get_agent_versions()
         if 'unknown' not in agent_versions and len(agent_versions) == 1:
             break
     if agent_versions.keys() != [agent_version]:
         print("Current versions: %s" % ', '.join(agent_versions.keys()))
-        client.juju('upgrade-juju', ('--version', agent_version))
-    client.wait_for_version(client.get_matching_agent_version())
+        env.juju('upgrade-juju', '--version', agent_version)
+    env.wait_for_version(env.get_matching_agent_version())
     for machine in machines:
-        client.juju('add-machine', ('ssh:' + machine,))
-    return client
+        env.juju('add-machine', 'ssh:' + machine)
+    return env
 
 
 def destroy_environment(client, instance_tag):
@@ -116,27 +117,32 @@ def run_instances(count, job_name):
         sleep(1)
 
 
-def deploy_dummy_stack(client, charm_prefix):
+def deploy_dummy_stack(env, charm_prefix):
     """"Deploy a dummy stack in the specified environment.
     """
-    client.deploy(charm_prefix + 'dummy-source')
+    env.deploy(charm_prefix + 'dummy-source')
     token = get_random_string()
-    client.juju('set', ('dummy-source', 'token=%s' % token))
-    client.deploy(charm_prefix + 'dummy-sink')
-    client.juju('add-relation', ('dummy-source', 'dummy-sink'))
-    client.juju('expose', ('dummy-sink',))
-    if client.env.kvm:
+    env.juju('set', 'dummy-source', 'token=%s' % token)
+    env.deploy(charm_prefix + 'dummy-sink')
+    env.juju('add-relation', 'dummy-source', 'dummy-sink')
+    env.juju('expose', 'dummy-sink')
+    if env.kvm:
         # A single virtual machine may need up to 30 minutes before
         # "apt-get update" and other initialisation steps are
         # finished; two machines initializing concurrently may
         # need even 40 minutes.
-        client.wait_for_started(3600)
+        env.wait_for_started(3600)
     else:
-        client.wait_for_started()
-    check_token(client, token)
+        env.wait_for_started()
+    check_token(env.client.get_env_client(env), token)
 
 
-GET_TOKEN_SCRIPT = """
+def check_token(client, token):
+    # Wait up to 120 seconds for token to be created.
+    # Utopic is slower, maybe because the devel series gets more
+    # package updates.
+    logging.info('Retrieving token.')
+    get_token = """
         for x in $(seq 120); do
           if [ -f /var/run/dummy-sink/token ]; then
             if [ "$(cat /var/run/dummy-sink/token)" != "" ]; then
@@ -147,16 +153,8 @@ GET_TOKEN_SCRIPT = """
         done
         cat /var/run/dummy-sink/token
     """
-
-
-def check_token(client, token):
-    # Wait up to 120 seconds for token to be created.
-    # Utopic is slower, maybe because the devel series gets more
-    # package updates.
-    logging.info('Retrieving token.')
     try:
-        result = client.get_juju_output('ssh', 'dummy-sink/0',
-                                        GET_TOKEN_SCRIPT)
+        result = client.get_juju_output('ssh', 'dummy-sink/0', get_token)
     except subprocess.CalledProcessError as err:
         print("WARNING: juju ssh failed: {}".format(str(err)))
         print("Falling back to ssh.")
@@ -288,9 +286,9 @@ def dump_euca_console(host_id, directory):
                          stdout=console_file)
 
 
-def assess_juju_run(client):
-    responses = client.get_juju_output('run', '--format', 'json', '--machine',
-                                       '1,2', 'uname')
+def assess_juju_run(env):
+    responses = env.client.get_juju_output(env, 'run', '--format',
+                                           'json', '--machine', '1,2', 'uname')
     responses = json.loads(responses)
     for machine in responses:
         if machine.get('ReturnCode', 0) != 0:
@@ -301,25 +299,25 @@ def assess_juju_run(client):
     return responses
 
 
-def test_upgrade(old_client, juju_path):
-    assess_juju_run(old_client)
-    client = EnvJujuClient.by_version(old_client.env, juju_path,
-                                      old_client.debug)
-    upgrade_juju(client)
-    if client.env.config['type'] == 'maas':
+def test_upgrade(old_env):
+    env = Environment.from_config(old_env.environment)
+    env.client.debug = old_env.client.debug
+    assess_juju_run(env)
+    upgrade_juju(env)
+    if env.config['type'] == 'maas':
         timeout = 1200
     else:
         timeout = 600
-    client.wait_for_version(client.get_matching_agent_version(), timeout)
-    assess_juju_run(client)
+    env.wait_for_version(env.get_matching_agent_version(), timeout)
+    assess_juju_run(env)
 
 
-def upgrade_juju(client):
-    client.set_testing_tools_metadata_url()
-    tools_metadata_url = client.get_env_option('tools-metadata-url')
+def upgrade_juju(environment):
+    environment.set_testing_tools_metadata_url()
     print(
-        'The tools-metadata-url is %s' % tools_metadata_url)
-    client.upgrade_juju()
+        'The tools-metadata-url is %s' % environment.client.get_env_option(
+            environment, 'tools-metadata-url'))
+    environment.upgrade_juju()
 
 
 def describe_instances(instances=None, running=False, job_name=None,
@@ -341,7 +339,7 @@ def get_job_instances(job_name):
 
 
 def add_path_args(parser):
-    parser.add_argument('--new-juju-bin', default=None,
+    parser.add_argument('--new-juju-bin', default=False,
                         help='Dirctory containing the new Juju binary.')
     parser.add_argument('--run-startup', help='Run common-startup.sh.',
                         action='store_true', default=False)
@@ -361,8 +359,10 @@ def add_juju_args(parser):
                         help='Name of the Ubuntu series to use.')
 
 
-def get_juju_path(args):
-    if args.run_startup:
+def get_new_juju_path(args):
+    if not args.run_startup:
+        juju_path = args.new_juju_bin
+    else:
         env = dict(os.environ)
         env.update({
             'ENV': args.env,
@@ -372,13 +372,12 @@ def get_juju_path(args):
             ['bash', '{}/common-startup.sh'.format(scripts)], env=env)
         bin_path = subprocess.check_output(['find', 'extracted-bin', '-name',
                                             'juju'])
-        juju_path = os.path.abspath(bin_path)
-    elif args.new_juju_bin is None:
+        juju_path = os.path.abspath(os.path.dirname(bin_path))
+    if juju_path is None:
         raise Exception('Either --new-juju-bin or --run-startup must be'
                         ' supplied.')
-    else:
-        juju_path = os.path.join(args.new_juju_bin, 'juju')
-    return juju_path
+    new_path = '%s:%s' % (juju_path, os.environ['PATH'])
+    return new_path
 
 
 def get_log_level(args):
@@ -405,14 +404,14 @@ def deploy_job():
     add_path_args(parser)
     args = parser.parse_args()
     configure_logging(get_log_level(args))
-    juju_path = get_juju_path(args)
+    new_path = get_new_juju_path(args)
     series = args.series
     if series is None:
         series = 'precise'
     charm_prefix = 'local:{}/'.format(series)
     return _deploy_job(args.job_name, args.env, args.upgrade,
-                       charm_prefix, args.bootstrap_host, args.machine,
-                       args.series, args.logs, args.debug, juju_path,
+                       charm_prefix, new_path, args.bootstrap_host,
+                       args.machine, args.series, args.logs, args.debug,
                        args.agent_url)
 
 
@@ -428,25 +427,26 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
         env.config['tools-metadata-url'] = agent_url
 
 
-def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
-                machines, series, log_dir, debug, juju_path, agent_url):
+def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
+                bootstrap_host, machines, series, log_dir, debug, agent_url):
     bootstrap_id = None
     created_machines = False
     running_domains = dict()
-    start_juju_path = None if upgrade else juju_path
+    if not upgrade:
+        os.environ['PATH'] = new_path
     if sys.platform == 'win32':
         # Ensure OpenSSH is never in the path for win tests.
         sys.path = [p for p in sys.path if 'OpenSSH' not in p]
-    client = EnvJujuClient.by_version(
-        SimpleEnvironment.from_config(base_env), start_juju_path, debug)
+    env = Environment.from_config(base_env)
     try:
-        if client.env.config['type'] == 'manual' and bootstrap_host is None:
+        env.client.debug = debug
+        if env.config['type'] == 'manual' and bootstrap_host is None:
             instances = run_instances(3, job_name)
             created_machines = True
             bootstrap_host = instances[0][1]
             bootstrap_id = instances[0][0]
             machines.extend(i[1] for i in instances[1:])
-        if client.env.config['type'] == 'maas':
+        if env.config['type'] == 'maas':
             for machine in machines:
                 name, URI = machine.split('@')
                 # Record already running domains, so they can be left running,
@@ -462,7 +462,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
             # No further handling of machines down the line is required.
             machines = []
 
-        update_env(client.env, job_name, series=series,
+        update_env(env, job_name, series=series,
                    bootstrap_host=bootstrap_host, agent_url=agent_url)
         try:
             host = bootstrap_host
@@ -473,44 +473,49 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
                 logging.info('Waiting for port 22 on %s' % machine)
                 wait_for_port(machine, 22, timeout=120)
             juju_home = get_juju_home()
-            ensure_deleted(get_jenv_path(juju_home, client.env.environment))
+            ensure_deleted(get_jenv_path(juju_home, env.environment))
             try:
-                bootstrap_from_env(juju_home, client)
+                bootstrap_from_env(juju_home, env.client.get_env_client(env))
             except:
                 if host is not None:
-                    dump_logs(client, host, log_dir, bootstrap_id)
+                    dump_logs(env.client.get_env_client(env), host, log_dir,
+                              bootstrap_id)
                 raise
             try:
                 if host is None:
-                    host = get_machine_dns_name(client, 0)
+                    host = get_machine_dns_name(env.client.get_env_client(env),
+                                                0)
                 if host is None:
                     raise Exception('Could not get machine 0 host')
                 try:
                     prepare_environment(
-                        client, already_bootstrapped=True, machines=machines)
+                        env, already_bootstrapped=True, machines=machines)
                     if sys.platform in ('win32', 'darwin'):
                         # The win and osx client tests only verify the client
                         # can bootstrap and call the state-server.
                         return
-                    client.juju('status', ())
-                    deploy_dummy_stack(client, charm_prefix)
+                    env.juju('status')
+                    deploy_dummy_stack(env, charm_prefix)
                     if upgrade:
-                        client.juju('status', ())
-                        test_upgrade(client, juju_path)
+                        env.juju('status')
+                        with scoped_environ():
+                            os.environ['PATH'] = new_path
+                            test_upgrade(env)
                 except BaseException as e:
                     logging.exception(e)
                     if host is not None:
                         dump_env_logs(
-                            client, host, log_dir, host_id=bootstrap_id)
+                            env.client.get_env_client(env), host, log_dir,
+                            host_id=bootstrap_id)
                     sys.exit(1)
             finally:
-                client.juju('status', ())
-                client.destroy_environment()
+                env.juju('status')
+                env.destroy_environment()
         finally:
             if created_machines:
                 destroy_job_instances(job_name)
     finally:
-        if client.env.config['type'] == 'maas':
+        if env.config['type'] == 'maas':
             logging.info("Waiting for destroy-environment to complete")
             sleep(90)
             for machine, running in running_domains.items():
@@ -536,12 +541,12 @@ def run_deployer():
     add_output_args(parser)
     add_path_args(parser)
     args = parser.parse_args()
-    juju_path = get_juju_path(args)
+    os.environ['PATH'] = get_new_juju_path(args)
     configure_logging(get_log_level(args))
     env = SimpleEnvironment.from_config(args.env)
     update_env(env, args.job_name, series=args.series,
                agent_url=args.agent_url)
-    client = EnvJujuClient.by_version(env, juju_path, debug=args.debug)
+    client = EnvJujuClient.by_version(env, debug=args.debug)
     juju_home = get_juju_home()
     with temp_bootstrap_env(
             get_juju_home(), client, set_home=False) as juju_home:
@@ -602,14 +607,13 @@ def main():
     parser.add_argument('env', help='The environment to deploy on.')
     args = parser.parse_args()
     try:
-        client = EnvJujuClient.by_version(
-            SimpleEnvironment.from_config(args.env))
-        prepare_environment(client, args.already_bootstrapped, args.machine)
+        env = Environment.from_config(args.env)
+        prepare_environment(env, args.already_bootstrapped, args.machine)
         if sys.platform in ('win32', 'darwin'):
             # The win and osx client tests only verify the client to
             # the state-server.
             return
-        deploy_dummy_stack(client, args.charm_prefix)
+        deploy_dummy_stack(env, args.charm_prefix)
     except Exception as e:
         print('%s (%s)' % (e, type(e).__name__))
         sys.exit(1)
