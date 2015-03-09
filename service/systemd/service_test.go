@@ -791,6 +791,9 @@ func parseConfSections(lines []string) map[string][]string {
 			sections[section] = append(sections[section], line)
 		}
 	}
+	if section != "" {
+		sort.Strings(sections[section])
+	}
 
 	return sections
 }
