@@ -32,7 +32,6 @@ After=network.target
 After=systemd-user-sessions.service
 
 [Service]
-Type=forking
 ExecStart=%s
 RemainAfterExit=yes
 Restart=always

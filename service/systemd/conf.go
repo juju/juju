@@ -164,14 +164,7 @@ func serializeUnit(conf common.Conf) []*unit.UnitOption {
 func serializeService(conf common.Conf) []*unit.UnitOption {
 	var unitOptions []*unit.UnitOption
 
-	// TODO(ericsnow) This should key off Conf.Forking, once added.
-	if !conf.Transient {
-		unitOptions = append(unitOptions, &unit.UnitOption{
-			Section: "Service",
-			Name:    "Type",
-			Value:   "forking",
-		})
-	}
+	// TODO(ericsnow) Support "Type" (e.g. "forking")?
 
 	for k, v := range conf.Env {
 		unitOptions = append(unitOptions, &unit.UnitOption{
