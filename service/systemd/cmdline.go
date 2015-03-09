@@ -5,6 +5,7 @@ package systemd
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/juju/errors"
@@ -84,9 +85,23 @@ func (c commands) conf(name string) string {
 	return c.resolve(args)
 }
 
-func (c commands) writeFile(name, dirname string, data []byte) string {
-	cmd := fmt.Sprintf("cat > %s/%s.service << 'EOF'\n%sEOF", dirname, name, data)
+func (c commands) mkdirs(dirname string) string {
+	cmd := fmt.Sprintf("mkdir -p %s", dirname)
 	return cmd
+}
+
+func (c commands) chmod(name, dirname string, perm os.FileMode) string {
+	cmd := fmt.Sprintf("chmod %04o %s/%s", perm, dirname, name)
+	return cmd
+}
+
+func (c commands) writeFile(name, dirname string, data []byte) string {
+	cmd := fmt.Sprintf("cat > %s/%s << 'EOF'\n%sEOF", dirname, name, data)
+	return cmd
+}
+
+func (c commands) writeConf(name, dirname string, data []byte) string {
+	return c.writeFile(name+".service", dirname, data)
 }
 
 // Cmdline exposes the core operations of interacting with systemd units.

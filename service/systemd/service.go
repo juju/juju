@@ -542,8 +542,7 @@ func (s *Service) InstallCommands() ([]string, error) {
 	}
 
 	name := s.Name()
-	// TODO(ericsnow) Use s.Dirname?
-	dirname := "/tmp"
+	dirname := s.Dirname
 
 	data, err := s.serialize()
 	if err != nil {
@@ -552,11 +551,21 @@ func (s *Service) InstallCommands() ([]string, error) {
 
 	cmds := commands{}
 	cmdList := []string{
-		cmds.writeFile(name, dirname, data),
+		cmds.mkdirs(dirname),
+	}
+	if s.Script != nil {
+		scriptName := path.Base(s.Service.Conf.ExecStart)
+		cmdList = append(cmdList, []string{
+			cmds.writeFile(scriptName, dirname, s.Script),
+			cmds.chmod(scriptName, dirname, 0755),
+		}...)
+	}
+	cmdList = append(cmdList, []string{
+		cmds.writeConf(name, dirname, data),
 		cmds.link(name, dirname),
 		cmds.reload(),
 		cmds.enable(name),
-	}
+	}...)
 	return cmdList, nil
 }
 

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -787,29 +788,47 @@ func (s *initSystemSuite) TestInstallEmptyConf(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
+	name := "jujud-machine-0"
+	s.dataDir = "/tmp/"
+	s.service.Dirname = "/tmp/init/jujud-machine-0"
+
 	commands, err := s.service.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
 
-	content := s.newConfStr("jujud-machine-0", "")
-	header := "cat > /tmp/jujud-machine-0.service << 'EOF'\n"
-	footer := "EOF"
+	// Check the write-conf command.
+	expected := s.newConfStr(name, "")
+	s.checkWriteConf(c, name, commands[1], expected)
 
-	// Parse the ini configurations and compare those.
-	expectedString := commands[0][len(header) : len(commands[0])-len(footer)]
-	expected, err := unit.Deserialize(strings.NewReader(expectedString))
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := unit.Deserialize(strings.NewReader(content))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg, jc.SameContents, expected)
-
-	cmd := commands[0]
-	c.Check(cmd, jc.HasPrefix, header)
-	c.Check(cmd, jc.HasSuffix, footer)
-	c.Check(commands[1:], jc.DeepEquals, []string{
-		"/bin/systemctl link /tmp/jujud-machine-0.service",
+	// Check the remaining commands.
+	c.Check(commands[0], gc.Equals, "mkdir -p /tmp/init/jujud-machine-0")
+	c.Check(commands[2:], jc.DeepEquals, []string{
+		"/bin/systemctl link /tmp/init/jujud-machine-0/jujud-machine-0.service",
 		"/bin/systemctl daemon-reload",
 		"/bin/systemctl enable jujud-machine-0.service",
 	})
+}
+
+func (s *initSystemSuite) checkWriteConf(c *gc.C, name, cmd, expected string) (string, string) {
+	// This check must be done without regard to map order.
+
+	dirname := filepath.Join(s.dataDir, "init", name)
+	unitFile := filepath.Join(dirname, name+".service")
+
+	cmd = strings.TrimSpace(cmd)
+	lines := strings.Split(cmd, "\n")
+	header := lines[0]
+	footer := lines[len(lines)-1]
+	sections := parseConfSections(lines[1 : len(lines)-1])
+
+	// Check the cat portion.
+	c.Check(header, gc.Equals, "cat > "+unitFile+" << 'EOF'")
+	c.Check(footer, gc.Equals, "EOF")
+
+	// Check the conf portion.
+	expectedSections := parseConfSections(strings.Split(expected, "\n"))
+	c.Check(sections, jc.DeepEquals, expectedSections)
+
+	return dirname, unitFile
 }
 
 // parseConfSections is a poor man's ini parser.
@@ -839,8 +858,46 @@ func parseConfSections(lines []string) map[string][]string {
 	return sections
 }
 
+func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
+	name := "jujud-machine-0"
+	s.dataDir = "/tmp"
+	systemd.PatchFindDataDir(s, s.dataDir)
+	s.conf.Logfile = "/var/log/juju/machine-0.log"
+
+	service, err := systemd.NewService(s.name, s.conf)
+	c.Assert(err, jc.ErrorIsNil)
+	commands, err := service.InstallCommands()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check the write-conf command.
+	expected := strings.Replace(
+		s.newConfStr(name, ""),
+		"ExecStart=/var/lib/juju/bin/jujud machine-0",
+		"ExecStart=/tmp/init/jujud-machine-0/exec-start.sh",
+		-1)
+	s.checkWriteConf(c, name, commands[3], expected)
+
+	// Check the remaining commands.
+	c.Check(commands[0], gc.Equals, "mkdir -p /tmp/init/jujud-machine-0")
+	c.Check(strings.Split(commands[1], "\n"), jc.DeepEquals, strings.Split(`
+cat > /tmp/init/jujud-machine-0/exec-start.sh << 'EOF'
+touch /var/log/juju/machine-0.log
+chown syslog:syslog /var/log/juju/machine-0.log
+chmod 0600 /var/log/juju/machine-0.log
+exec > /var/log/juju/machine-0.log
+exec 2>&1
+/var/lib/juju/bin/jujud machine-0EOF`[1:], "\n"))
+	c.Check(commands[2], gc.Equals, "chmod 0755 /tmp/init/jujud-machine-0/exec-start.sh")
+	c.Check(commands[4:], jc.DeepEquals, []string{
+		"/bin/systemctl link /tmp/init/jujud-machine-0/jujud-machine-0.service",
+		"/bin/systemctl daemon-reload",
+		"/bin/systemctl enable jujud-machine-0.service",
+	})
+}
+
 func (s *initSystemSuite) TestInstallCommandsShutdown(c *gc.C) {
-	// This test  must be done without regard to map order.
+	s.dataDir = "/tmp"
+	systemd.PatchFindDataDir(s, s.dataDir)
 
 	name := "juju-shutdown-job"
 	conf, err := service.ShutdownAfterConf("cloud-final")
@@ -850,19 +907,8 @@ func (s *initSystemSuite) TestInstallCommandsShutdown(c *gc.C) {
 	commands, err := svc.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Parse the first command.
-	cmd := strings.TrimSpace(commands[0])
-	lines := strings.Split(cmd, "\n")
-	header := lines[0]
-	footer := lines[len(lines)-1]
-	sections := parseConfSections(lines[1 : len(lines)-1])
-
-	// Check the cat portion.
-	c.Check(header, gc.Equals, "cat > /tmp/juju-shutdown-job.service << 'EOF'")
-	c.Check(footer, gc.Equals, "EOF")
-
-	// Check the conf portion.
-	content := `
+	// Check the write-conf command.
+	s.checkWriteConf(c, name, commands[1], `
 [Unit]
 Description=juju shutdown job
 After=syslog.target
@@ -874,13 +920,12 @@ Conflicts=cloud-final
 [Service]
 ExecStart=/sbin/shutdown -h now
 ExecStopPost=/bin/systemctl disable juju-shutdown-job.service
-`
-	expected := parseConfSections(strings.Split(content[1:], "\n"))
-	c.Check(sections, jc.DeepEquals, expected)
+`[1:])
 
 	// Check the remaining commands.
-	c.Check(commands[1:], jc.DeepEquals, []string{
-		"/bin/systemctl link /tmp/juju-shutdown-job.service",
+	c.Check(commands[0], gc.Equals, "mkdir -p /tmp/init/juju-shutdown-job")
+	c.Check(commands[2:], jc.DeepEquals, []string{
+		"/bin/systemctl link /tmp/init/juju-shutdown-job/juju-shutdown-job.service",
 		"/bin/systemctl daemon-reload",
 		"/bin/systemctl enable juju-shutdown-job.service",
 	})
