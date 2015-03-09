@@ -108,7 +108,7 @@ class ArgParserTestCase(TestCase):
         with patch.dict(os.environ, {'PATH': os.environ['PATH']}):
             with patch('subprocess.check_call', autospec=True) as cc_mock:
                 with patch('subprocess.check_output',
-                           return_value='foo') as co_mock:
+                           return_value='foo\n') as co_mock:
                     juju_path = get_juju_path(args)
         env = dict(os.environ)
         scripts = os.path.dirname(os.path.abspath(sys.argv[0]))

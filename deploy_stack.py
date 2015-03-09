@@ -371,7 +371,7 @@ def get_juju_path(args):
         subprocess.check_call(
             ['bash', '{}/common-startup.sh'.format(scripts)], env=env)
         bin_path = subprocess.check_output(['find', 'extracted-bin', '-name',
-                                            'juju'])
+                                            'juju']).rstrip('\n')
         juju_path = os.path.abspath(bin_path)
     elif args.new_juju_bin is None:
         raise Exception('Either --new-juju-bin or --run-startup must be'
