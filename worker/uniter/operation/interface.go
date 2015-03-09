@@ -125,11 +125,7 @@ type CommandResponseFunc func(*utilexec.ExecResponse, error)
 // It's far from cohesive, and fundamentally represents inappropriate coupling, so
 // it's a prime candidate for future refactoring.
 type Callbacks interface {
-
-	// AcquireExecutionLock acquires the machine-level execution lock, and
-	// returns a func that must be called to unlock it. It's used by all the
-	// operations that execute external code.
-	AcquireExecutionLock(message string) (unlock func(), err error)
+	ExecutionLocker
 
 	// PrepareHook and CommitHook exist so that we can defer worrying about how
 	// to untangle Uniter.relationers from everything else. They're only used by
@@ -179,4 +175,11 @@ type StorageUpdater interface {
 	// UpdateStorage updates local knowledge of the storage attachments
 	// with the specified tags.
 	UpdateStorage([]names.StorageTag) error
+}
+
+// ExecutionLocker is an interface that provides a means of acquiring and
+// releasing a machine-level lock. When acquiring the lock, the caller provides
+// a message which will be recorded to aid in debugging.
+type ExecutionLocker interface {
+	AcquireExecutionLock(message string) (unlock func(), err error)
 }

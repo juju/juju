@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -80,27 +81,24 @@ func (a *Attachments) init() error {
 		return errors.Annotate(err, "reading storage state dirs")
 	}
 	for storageTag, stateFile := range stateFiles {
-		attachment, ok := attachmentsByTag[storageTag]
+		_, ok := attachmentsByTag[storageTag]
 		if !ok {
 			if err := stateFile.Remove(); err != nil {
 				return errors.Trace(err)
 			}
 			continue
 		}
-		// TODO(axw) pass current state to storager.
-		_ = attachment
-		s, err := newStorager(
-			a.st, a.unitTag, storageTag, stateFile, a.hooks,
-		)
-		if err != nil {
-			return errors.Annotatef(
-				err, "watching storage %q", storageTag.Id(),
-			)
+		// Since there's a state file, we must previously have handled
+		// at least "storage-attached", so there is no possibility of
+		// short-circuiting the storage's removal.
+		if err := a.add(storageTag, stateFile); err != nil {
+			return errors.Trace(err)
 		}
-		a.storagers[storageTag] = s
 	}
 	// Note: we ignore remote attachments that were not locally recorded;
-	// they will be picked up UpdateStorage.
+	// they will be picked up by UpdateStorage. We could handle it now, but
+	// we're going to have to refresh the attachment in response to the
+	// watcher anyway.
 	return nil
 }
 
@@ -114,29 +112,66 @@ func (a *Attachments) Hooks() <-chan hook.Info {
 // storage attachments corresponding to the supplied storage tags,
 // sending storage hooks on the channel returned by Hooks().
 func (a *Attachments) UpdateStorage(tags []names.StorageTag) error {
-	// TODO(axw) this method will maintain storage stources based
-	// on lifecycle states of storage attachments corresponding to
-	// the specified tags. For each source, there will be a sender
-	// that sends to a.hooks.
-	for _, tag := range tags {
-		if _, ok := a.storagers[tag]; ok {
-			continue
-		}
-		storageFile, err := readStateFile(a.storageStateDir, tag)
-		if err != nil {
+	for _, storageTag := range tags {
+		if err := a.updateOneStorage(storageTag); err != nil {
 			return errors.Trace(err)
 		}
-		s, err := newStorager(a.st, a.unitTag, tag, storageFile, a.hooks)
-		if err != nil {
-			return errors.Annotatef(err, "watching storage %q", tag.Id())
-		}
-		a.storagers[tag] = s
-		logger.Debugf("watching storage %q", tag.Id())
 	}
 	return nil
 }
 
-//func (a *Attachment) add(
+func (a *Attachments) updateOneStorage(storageTag names.StorageTag) error {
+	// Fetch the attachment's remote state, so we know when we can
+	// stop the storager and possibly short-circuit the attachment's
+	// removal.
+	att, err := a.st.StorageAttachment(storageTag, a.unitTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	stateFile, err := readStateFile(a.storageStateDir, storageTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	storager := a.storagers[storageTag]
+
+	switch att.Life {
+	case params.Dying:
+		if stateFile.state.attached {
+			// Previously ran storage-attached, so we'll
+			// need to run a storage-detaching hook.
+			if storager == nil {
+				panic("missing storager for attached storage")
+			}
+			// TODO(axw) have storager watch both storage
+			// attachment and volume/filesystem attachment,
+			// else we need to force updates from here.
+			return nil
+		}
+		// TODO(axw) EnsureDead
+		fallthrough
+	case params.Dead:
+		// TODO(axw) Remove
+		if storager != nil {
+			if err := storager.Stop(); err != nil {
+				return errors.Trace(err)
+			}
+			delete(a.storagers, storageTag)
+		}
+		return nil
+	}
+	return a.add(storageTag, stateFile)
+}
+
+// add creates a new storager for the specified storage tag.
+func (a *Attachments) add(storageTag names.StorageTag, stateFile *stateFile) error {
+	s, err := newStorager(a.st, a.unitTag, storageTag, stateFile, a.hooks)
+	if err != nil {
+		return errors.Annotatef(err, "watching storage %q", storageTag.Id())
+	}
+	a.storagers[storageTag] = s
+	logger.Debugf("watching storage %q", storageTag.Id())
+	return nil
+}
 
 // Storage returns the ContextStorage with the supplied tag if it was
 // found, and whether it was found.
@@ -145,4 +180,40 @@ func (a *Attachments) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool)
 		return s.Context(), true
 	}
 	return nil, false
+}
+
+// ValidateHook validates the hook against the current state.
+func (a *Attachments) ValidateHook(hi hook.Info) error {
+	storager, err := a.storagerForHook(hi)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return storager.state.ValidateHook(hi)
+}
+
+// CommitHook persists the state change encoded in the supplied storage
+// hook, or returns an error if the hook is invalid given current state.
+func (a *Attachments) CommitHook(hi hook.Info) error {
+	storager, err := a.storagerForHook(hi)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := storager.CommitHook(hi); err != nil {
+		return err
+	}
+	if hi.Kind == hooks.StorageDetached {
+		delete(a.storagers, names.NewStorageTag(hi.StorageId))
+	}
+	return nil
+}
+
+func (a *Attachments) storagerForHook(hi hook.Info) (*storager, error) {
+	if !hi.Kind.IsStorage() {
+		return nil, errors.Errorf("not a storage hook: %#v", hi)
+	}
+	storager, ok := a.storagers[names.NewStorageTag(hi.StorageId)]
+	if !ok {
+		return nil, errors.Errorf("unknown storage %q", hi.StorageId)
+	}
+	return storager, nil
 }

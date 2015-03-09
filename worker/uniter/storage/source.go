@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"sync"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v4/hooks"
@@ -21,34 +23,56 @@ import (
 type storageSource struct {
 	tomb tomb.Tomb
 
+	*storageHookQueue
+	watcher apiwatcher.NotifyWatcher
+	changes chan hook.SourceChange
+}
+
+// storageHookQueue implements a subset of hook.Source, separated from
+// storageSource for simpler testing.
+type storageHookQueue struct {
 	st         StorageAccessor
 	unitTag    names.UnitTag
 	storageTag names.StorageTag
-	watcher    apiwatcher.NotifyWatcher
-	changes    chan hook.SourceChange
 
+	// attached records whether or not the storage-attached
+	// hook has been executed.
+	attached bool
+
+	// hookInfo is the next hook.Info to return, if non-nil.
+	hookInfo *hook.Info
+
+	mu sync.Mutex
 	// context is the most recently retrieved details of the
 	// storage attachment, or nil if none has been retrieved
 	// or the storage attachment is no longer of interest.
 	context *contextStorage
-
-	// hookInfo is the next hook.Info to return, if non-nil.
-	hookInfo *hook.Info
 }
 
 // newStorageSource creates a hook source that watches for changes to,
 // and generates storage hooks for, a single storage attachment.
-func newStorageSource(st StorageAccessor, unitTag names.UnitTag, storageTag names.StorageTag) (*storageSource, error) {
+func newStorageSource(
+	st StorageAccessor,
+	unitTag names.UnitTag,
+	storageTag names.StorageTag,
+	attached bool,
+) (*storageSource, error) {
 	w, err := st.WatchStorageAttachment(storageTag, unitTag)
 	if err != nil {
 		return nil, errors.Annotate(err, "watching storage attachment")
 	}
 	s := &storageSource{
-		st:         st,
-		watcher:    w,
-		changes:    make(chan hook.SourceChange),
-		unitTag:    unitTag,
-		storageTag: storageTag,
+		storageHookQueue: &storageHookQueue{
+			st:         st,
+			unitTag:    unitTag,
+			storageTag: storageTag,
+			attached:   attached,
+			context: &contextStorage{
+				tag: storageTag,
+			},
+		},
+		watcher: w,
+		changes: make(chan hook.SourceChange),
 	}
 	go func() {
 		defer s.tomb.Done()
@@ -105,27 +129,7 @@ func (s *storageSource) Stop() error {
 	return s.tomb.Wait()
 }
 
-// Empty is part of the hook.Source interface.
-func (s *storageSource) Empty() bool {
-	return s.hookInfo == nil
-}
-
-// Next is part of the hook.Source interface.
-func (s *storageSource) Next() hook.Info {
-	if s.Empty() {
-		panic("source is empty")
-	}
-	return *s.hookInfo
-}
-
-// Pop is part of the hook.Source interface.
-func (s *storageSource) Pop() {
-	if s.Empty() {
-		panic("source is empty")
-	}
-	s.hookInfo = nil
-}
-
+// update is called when hook.SourceChanges are applied.
 func (s *storageSource) update() error {
 	attachment, err := s.st.StorageAttachment(s.storageTag, s.unitTag)
 	if params.IsCodeNotFound(err) {
@@ -140,44 +144,55 @@ func (s *storageSource) update() error {
 		logger.Debugf("error refreshing storage details: %v", err)
 		return errors.Annotate(err, "refreshing storage details")
 	}
+	return s.storageHookQueue.update(attachment)
+}
 
-	logger.Debugf("attachment: %+v", attachment)
+// Empty is part of the hook.Source interface.
+func (s *storageHookQueue) Empty() bool {
+	return s.hookInfo == nil
+}
+
+// Next is part of the hook.Source interface.
+func (s *storageHookQueue) Next() hook.Info {
+	if s.Empty() {
+		panic("source is empty")
+	}
+	return *s.hookInfo
+}
+
+// Pop is part of the hook.Source interface.
+func (s *storageHookQueue) Pop() {
+	if s.Empty() {
+		panic("source is empty")
+	}
+	if s.hookInfo.Kind == hooks.StorageAttached {
+		s.attached = true
+	}
+	s.hookInfo = nil
+}
+
+// update updates the hook queue with the freshly acquired information about
+// the storage attachment.
+func (s *storageHookQueue) update(attachment params.StorageAttachment) error {
 	switch attachment.Life {
 	case params.Alive:
 	case params.Dying:
+		if !s.attached {
+			// Nothing to do: attachment is dying, but
+			// the storage-attached hook has not been
+			// consumed.
+			s.hookInfo = nil
+			return nil
+		}
 	case params.Dead:
-		// The uniter must have handled "detaching" for the
-		// attachment to be Dead. The detachment becoming
-		// Dead is just the trigger for the storage provisioner
-		// to remove the attachment.
-		logger.Debugf("storage attachment %q is dead", s.storageTag.Id())
+		// Storage must been Dying to become Dead;
+		// no further action is required.
 		return nil
 	default:
 		return errors.Errorf("unknown lifecycle state %q", attachment.Life)
 	}
 
-	if s.context == nil {
-		// The attachment has not previously been seen.
-		if attachment.Life == params.Dying {
-			// Nothing to do: attachment is dying, but
-			// has not previously been witnessed.
-			// TODO(axw) mark attachment as Dead.
-			logger.Debugf("storage attachment %q is dying", s.storageTag.Id())
-			return nil
-		}
-		s.context = &contextStorage{
-			tag: s.storageTag,
-		}
-	} else if attachment.Life == params.Dying && !s.Empty() && s.Next().Kind == hooks.StorageAttached {
-		// Attachment is dying, but has not previously been witnessed.
-		// Dequeue the "storage-attaching" hook; nothing left to do.
-		s.Pop()
-		// TODO(axw) mark attachment as Dead.
-		return nil
-	}
-
-	s.context.kind = storage.StorageKind(attachment.Kind)
-	s.context.location = attachment.Location
+	s.updateContext(attachment)
 	if s.hookInfo == nil {
 		s.hookInfo = &hook.Info{
 			StorageId: s.storageTag.Id(),
@@ -191,4 +206,18 @@ func (s *storageSource) update() error {
 	}
 	logger.Debugf("queued hook: %v", s.hookInfo)
 	return nil
+}
+
+func (s *storageHookQueue) updateContext(attachment params.StorageAttachment) {
+	s.mu.Lock()
+	s.context.kind = storage.StorageKind(attachment.Kind)
+	s.context.location = attachment.Location
+	s.mu.Unlock()
+}
+
+func (s *storageHookQueue) copyContext() *contextStorage {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ctx := *s.context
+	return &ctx
 }

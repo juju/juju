@@ -19,6 +19,9 @@ type storager struct {
 	sender     hook.Sender
 }
 
+// newStorager creates a new storager, watching for changes to the storage
+// attachment with the specified tags, and generating hooks on the output
+// channel.
 func newStorager(
 	st StorageAccessor,
 	unitTag names.UnitTag,
@@ -26,7 +29,7 @@ func newStorager(
 	state *stateFile,
 	hooks chan<- hook.Info,
 ) (*storager, error) {
-	source, err := newStorageSource(st, unitTag, storageTag)
+	source, err := newStorageSource(st, unitTag, storageTag, state.attached)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating storage event source")
 	}
@@ -49,8 +52,10 @@ func (s *storager) Stop() error {
 }
 
 func (s *storager) Context() *contextStorage {
-	// TODO(axw) source may be updating the context while
-	// we're reading it; ensure that that doesn't happen
-	// until Pop() is called.
-	return s.source.context
+	return s.source.copyContext()
+}
+
+func (s *storager) CommitHook(hi hook.Info) error {
+	// TODO(axw)
+	return nil
 }

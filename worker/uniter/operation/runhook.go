@@ -27,12 +27,15 @@ type runHook struct {
 // String is part of the Operation interface.
 func (rh *runHook) String() string {
 	suffix := ""
-	if rh.info.Kind.IsRelation() {
+	switch {
+	case rh.info.Kind.IsRelation():
 		if rh.info.RemoteUnit == "" {
 			suffix = fmt.Sprintf(" (%d)", rh.info.RelationId)
 		} else {
 			suffix = fmt.Sprintf(" (%d; %s)", rh.info.RelationId, rh.info.RemoteUnit)
 		}
+	case rh.info.Kind.IsStorage():
+		suffix = fmt.Sprintf(" (%d)", rh.info.StorageId)
 	}
 	return fmt.Sprintf("run %s%s hook", rh.info.Kind, suffix)
 }
