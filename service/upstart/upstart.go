@@ -301,7 +301,7 @@ respawn
 normal exit 0
 {{range $k, $v := .Env}}env {{$k}}={{$v|printf "%q"}}
 {{end}}
-{{range $k, $v := .Limit}}limit {{$k}} {{$v}}
+{{range $k, $v := .Limit}}limit {{$k}} {{$v}} {{$v}}
 {{end}}
 script
 {{if .ExtraScript}}{{.ExtraScript}}{{end}}

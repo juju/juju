@@ -52,8 +52,8 @@ func (*agentSuite) TestMachineAgentConfLocal(c *gc.C) {
 		ExecStart: cmd,
 		Logfile:   filepath.Join(logDir, "machine-0.log"),
 		Env:       osenv.FeatureFlags(),
-		Limit: map[string]string{
-			"nofile": "20000 20000",
+		Limit: map[string]int{
+			"nofile": 20000,
 		},
 	})
 }
@@ -76,8 +76,8 @@ func (*agentSuite) TestMachineAgentConfUbuntu(c *gc.C) {
 		ExecStart: cmd,
 		Logfile:   logDir + "/machine-0.log",
 		Env:       osenv.FeatureFlags(),
-		Limit: map[string]string{
-			"nofile": "20000 20000",
+		Limit: map[string]int{
+			"nofile": 20000,
 		},
 	})
 }
@@ -100,8 +100,8 @@ func (*agentSuite) TestMachineAgentConfWindows(c *gc.C) {
 		ExecStart: cmd,
 		Logfile:   logDir + `\machine-0.log`,
 		Env:       osenv.FeatureFlags(),
-		Limit: map[string]string{
-			"nofile": "20000 20000",
+		Limit: map[string]int{
+			"nofile": 20000,
 		},
 	})
 }

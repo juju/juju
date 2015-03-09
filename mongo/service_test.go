@@ -30,9 +30,9 @@ func (s *serviceSuite) TestNewConf(c *gc.C) {
 
 	expected := common.Conf{
 		Desc: "juju state database",
-		Limit: map[string]string{
-			"nofile": "65000 65000",
-			"nproc":  "20000 20000",
+		Limit: map[string]int{
+			"nofile": 65000,
+			"nproc":  20000,
 		},
 		ExecStart: "/mgo/bin/mongod" +
 			" --auth" +

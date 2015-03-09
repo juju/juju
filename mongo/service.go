@@ -122,9 +122,9 @@ func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCt
 	}
 	conf := common.Conf{
 		Desc: "juju state database",
-		Limit: map[string]string{
-			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
-			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
+		Limit: map[string]int{
+			"nofile": maxFiles,
+			"nproc":  maxProcs,
 		},
 		ExtraScript: extraScript,
 		ExecStart:   mongoCmd,

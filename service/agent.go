@@ -59,8 +59,8 @@ func MachineAgentConf(machineID, dataDir, logDir, os string) (common.Conf, strin
 		ExecStart: cmd,
 		Logfile:   renderer.FromSlash(logFile),
 		Env:       osenv.FeatureFlags(),
-		Limit: map[string]string{
-			"nofile": fmt.Sprintf("%d %d", maxAgentFiles, maxAgentFiles),
+		Limit: map[string]int{
+			"nofile": maxAgentFiles,
 		},
 	}
 

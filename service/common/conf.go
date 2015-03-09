@@ -28,9 +28,12 @@ type Conf struct {
 	// Currently not used on Windows.
 	Env map[string]string
 
-	// Limit holds the ulimit values that will be set when the command runs.
+	// TODO(ericsnow) Add a Limit type, since the possible keys are known.
+
+	// Limit holds the ulimit values that will be set when the command
+	// runs. Each value will be used as both the soft and hard limit.
 	// Currently not used on Windows.
-	Limit map[string]string
+	Limit map[string]int
 
 	// ExecStart is the command (with arguments) that will be run. The
 	// path to the executable must be absolute.

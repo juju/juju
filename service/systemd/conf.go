@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"strconv"
 	"strings"
 
 	"github.com/coreos/go-systemd/unit"
@@ -184,7 +185,7 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 		unitOptions = append(unitOptions, &unit.UnitOption{
 			Section: "Service",
 			Name:    limitMap[k],
-			Value:   v,
+			Value:   strconv.Itoa(v),
 		})
 	}
 
@@ -282,11 +283,15 @@ func deserializeOptions(opts []*unit.UnitOption) (common.Conf, error) {
 				conf.Env[parts[0]] = parts[1]
 			case strings.HasPrefix(uo.Name, "Limit"):
 				if conf.Limit == nil {
-					conf.Limit = make(map[string]string)
+					conf.Limit = make(map[string]int)
 				}
 				for k, v := range limitMap {
 					if v == uo.Name {
-						conf.Limit[k] = v
+						n, err := strconv.Atoi(v)
+						if err != nil {
+							return conf, errors.Trace(err)
+						}
+						conf.Limit[k] = n
 						break
 					}
 				}
