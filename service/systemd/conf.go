@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"path"
 	"strconv"
 	"strings"
 
@@ -33,7 +34,8 @@ var limitMap = map[string]string{
 	"stack":      "LimitSTACK",
 }
 
-const redirectAll = `
+const logAll = `
+mkdir -p %s
 exec > %s
 exec 2>&1
 %s`
@@ -45,7 +47,8 @@ func normalize(name string, conf common.Conf, scriptPath string) (common.Conf, [
 	var data []byte
 
 	if conf.Logfile != "" {
-		conf.ExecStart = fmt.Sprintf(redirectAll, conf.Logfile, conf.ExecStart)
+		logDir := path.Dir(conf.Logfile)
+		conf.ExecStart = fmt.Sprintf(logAll[1:], logDir, conf.Logfile, conf.ExecStart)
 		conf.Logfile = ""
 	}
 

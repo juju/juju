@@ -235,9 +235,10 @@ func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	script := `
+mkdir -p /var/log/juju
 exec > /var/log/juju/machine-0.log
 exec 2>&1
-` + jujud + " machine-0"
+`[1:] + jujud + " machine-0"
 	c.Check(service, jc.DeepEquals, &systemd.Service{
 		Service: common.Service{
 			Name: s.name,
@@ -344,9 +345,10 @@ func (s *initSystemSuite) TestUpdateConfigLogfile(c *gc.C) {
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	script := `
+mkdir -p /var/log/juju
 exec > /var/log/juju/machine-0.log
 exec 2>&1
-` + jujud + " machine-0"
+`[1:] + jujud + " machine-0"
 	c.Check(s.service, jc.DeepEquals, &systemd.Service{
 		Service: common.Service{
 			Name: s.name,
