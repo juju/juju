@@ -12,7 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/utils/ssh"
 )
 

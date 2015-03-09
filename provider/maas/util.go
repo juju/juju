@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils"
 	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/paths"

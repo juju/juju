@@ -11,7 +11,7 @@
 // Apache-2.0 license for the external source can be found inside Apache-License.txt.
 // Copyright statement of the external source: Copyright 2012 Aaron Jensen
 
-package cloudinit
+package cloudconfig
 
 var winPowershellHelperFunctions = `
 

@@ -16,10 +16,10 @@ import (
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -443,11 +443,11 @@ func (task *provisionerTask) stopInstances(instances []instance.Instance) error 
 	return nil
 }
 
-func (task *provisionerTask) constructMachineConfig(
+func (task *provisionerTask) constructInstanceConfig(
 	machine *apiprovisioner.Machine,
 	auth authentication.AuthenticationProvider,
 	pInfo *params.ProvisioningInfo,
-) (*cloudinit.MachineConfig, error) {
+) (*instancecfg.InstanceConfig, error) {
 
 	stateInfo, apiInfo, err := auth.SetupAuthentication(machine)
 	if err != nil {
@@ -463,7 +463,7 @@ func (task *provisionerTask) constructMachineConfig(
 	}
 
 	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid)
-	return environs.NewMachineConfig(
+	return instancecfg.NewInstanceConfig(
 		machine.Id(),
 		nonce,
 		task.imageStream,
@@ -477,7 +477,7 @@ func (task *provisionerTask) constructMachineConfig(
 
 func constructStartInstanceParams(
 	machine *apiprovisioner.Machine,
-	machineConfig *cloudinit.MachineConfig,
+	instanceConfig *instancecfg.InstanceConfig,
 	provisioningInfo *params.ProvisioningInfo,
 	possibleTools coretools.List,
 ) (environs.StartInstanceParams, error) {
@@ -518,7 +518,7 @@ func constructStartInstanceParams(
 	return environs.StartInstanceParams{
 		Constraints:       provisioningInfo.Constraints,
 		Tools:             possibleTools,
-		MachineConfig:     machineConfig,
+		InstanceConfig:    instanceConfig,
 		Placement:         provisioningInfo.Placement,
 		DistributionGroup: machine.DistributionGroup,
 		Volumes:           volumes,
@@ -533,12 +533,12 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 			return err
 		}
 
-		machineCfg, err := task.constructMachineConfig(m, task.auth, pInfo)
+		instanceCfg, err := task.constructInstanceConfig(m, task.auth, pInfo)
 		if err != nil {
 			return err
 		}
 
-		assocProvInfoAndMachCfg(pInfo, machineCfg)
+		assocProvInfoAndMachCfg(pInfo, instanceCfg)
 
 		possibleTools, err := task.toolsFinder.FindTools(
 			version.Current.Number,
@@ -551,7 +551,7 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 
 		startInstanceParams, err := constructStartInstanceParams(
 			m,
-			machineCfg,
+			instanceCfg,
 			pInfo,
 			possibleTools,
 		)
@@ -631,7 +631,7 @@ func (task *provisionerTask) startMachine(
 
 	inst := result.Instance
 	hardware := result.Hardware
-	nonce := startInstanceParams.MachineConfig.MachineNonce
+	nonce := startInstanceParams.InstanceConfig.MachineNonce
 	networks, ifaces, err := task.prepareNetworkAndInterfaces(result.NetworkInfo)
 	if err != nil {
 		return task.setErrorStatus("cannot prepare network for machine %q: %v", machine, err)
@@ -664,28 +664,28 @@ func (task *provisionerTask) startMachine(
 }
 
 type provisioningInfo struct {
-	Constraints   constraints.Value
-	Series        string
-	Placement     string
-	MachineConfig *cloudinit.MachineConfig
+	Constraints    constraints.Value
+	Series         string
+	Placement      string
+	InstanceConfig *instancecfg.InstanceConfig
 }
 
 func assocProvInfoAndMachCfg(
 	provInfo *params.ProvisioningInfo,
-	machineConfig *cloudinit.MachineConfig,
+	instanceConfig *instancecfg.InstanceConfig,
 ) *provisioningInfo {
 
-	machineConfig.Networks = provInfo.Networks
+	instanceConfig.Networks = provInfo.Networks
 
 	if len(provInfo.Jobs) > 0 {
-		machineConfig.Jobs = provInfo.Jobs
+		instanceConfig.Jobs = provInfo.Jobs
 	}
 
 	return &provisioningInfo{
-		Constraints:   provInfo.Constraints,
-		Series:        provInfo.Series,
-		Placement:     provInfo.Placement,
-		MachineConfig: machineConfig,
+		Constraints:    provInfo.Constraints,
+		Series:         provInfo.Series,
+		Placement:      provInfo.Placement,
+		InstanceConfig: instanceConfig,
 	}
 }
 

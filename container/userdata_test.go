@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v1"
 
-	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/container"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/network"
@@ -112,10 +112,10 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksNoConfig(c *gc.C) {
 }
 
 func (s *UserDataSuite) TestCloudInitUserData(c *gc.C) {
-	machineConfig, err := containertesting.MockMachineConfig("1/lxc/0")
+	instanceConfig, err := containertesting.MockMachineConfig("1/lxc/0")
 	c.Assert(err, jc.ErrorIsNil)
 	networkConfig := container.BridgeNetworkConfig("foo", nil)
-	data, err := container.CloudInitUserData(machineConfig, networkConfig)
+	data, err := container.CloudInitUserData(instanceConfig, networkConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	// No need to test the exact contents here, as they are already
 	// tested separately.

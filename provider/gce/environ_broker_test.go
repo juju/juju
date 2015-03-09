@@ -127,11 +127,11 @@ func (s *environBrokerSuite) TestStartInstanceOpensAPIPort(c *gc.C) {
 	c.Check(calls[0].PortRanges, jc.DeepEquals, expectPorts)
 }
 
-func (s *environBrokerSuite) TestFinishMachineConfig(c *gc.C) {
-	err := gce.FinishMachineConfig(s.Env, s.StartInstArgs, s.spec)
+func (s *environBrokerSuite) TestFinishInstanceConfig(c *gc.C) {
+	err := gce.FinishInstanceConfig(s.Env, s.StartInstArgs, s.spec)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(s.StartInstArgs.MachineConfig.Tools, gc.NotNil)
+	c.Check(s.StartInstArgs.InstanceConfig.Tools, gc.NotNil)
 }
 
 func (s *environBrokerSuite) TestBuildInstanceSpec(c *gc.C) {

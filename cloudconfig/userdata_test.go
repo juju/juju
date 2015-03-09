@@ -1,7 +1,6 @@
-// Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environs_test
+package cloudconfig_test
 
 import (
 	"path"
@@ -17,9 +16,9 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
-	coreCloudinit "github.com/juju/juju/cloudinit"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/paths"
@@ -34,6 +33,8 @@ import (
 // dummySampleConfig returns the dummy sample config without
 // the state server configured.
 // will not run a state server.
+// This function also exists in environs/config_test
+// Maybe place it in dummy and export it?
 func dummySampleConfig() testing.Attrs {
 	return dummy.SampleConfig().Merge(testing.Attrs{
 		"state-server": false,
@@ -53,14 +54,11 @@ func must(s string, err error) string {
 	return s
 }
 
-var logDir = must(paths.LogDir("precise"))
-var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
-
 func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 
 	userTag := names.NewLocalUserTag("not-touched")
 
-	expectedMcfg := &cloudinit.MachineConfig{
+	expectedMcfg := &instancecfg.InstanceConfig{
 		AuthorizedKeys: "we-are-the-keys",
 		AgentEnvironment: map[string]string{
 			agent.ProviderType:  "dummy",
@@ -79,14 +77,14 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	}))
 	c.Assert(err, jc.ErrorIsNil)
 
-	mcfg := &cloudinit.MachineConfig{
+	icfg := &instancecfg.InstanceConfig{
 		MongoInfo: &mongo.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 	}
-	err = environs.FinishMachineConfig(mcfg, cfg)
+	err = instancecfg.FinishInstanceConfig(icfg, cfg)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mcfg, jc.DeepEquals, expectedMcfg)
+	c.Assert(icfg, jc.DeepEquals, expectedMcfg)
 
 	// Test when updates/upgrades are set to false.
 	cfg, err = config.New(config.NoDefaults, dummySampleConfig().Merge(testing.Attrs{
@@ -95,14 +93,14 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 		"enable-os-upgrade":        false,
 	}))
 	c.Assert(err, jc.ErrorIsNil)
-	err = environs.FinishMachineConfig(mcfg, cfg)
+	err = instancecfg.FinishInstanceConfig(icfg, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedMcfg.EnableOSRefreshUpdate = false
 	expectedMcfg.EnableOSUpgrade = false
-	c.Assert(mcfg, jc.DeepEquals, expectedMcfg)
+	c.Assert(icfg, jc.DeepEquals, expectedMcfg)
 }
 
-func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
+func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
 	userTag := names.NewLocalUserTag("not-touched")
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys":           "we-are-the-keys",
@@ -110,13 +108,13 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	mcfg := &cloudinit.MachineConfig{
+	icfg := &instancecfg.InstanceConfig{
 		MongoInfo: &mongo.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 	}
-	err = environs.FinishMachineConfig(mcfg, cfg)
+	err = instancecfg.FinishInstanceConfig(icfg, cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mcfg, jc.DeepEquals, &cloudinit.MachineConfig{
+	c.Assert(icfg, jc.DeepEquals, &instancecfg.InstanceConfig{
 		AuthorizedKeys: "we-are-the-keys",
 		AgentEnvironment: map[string]string{
 			agent.ProviderType:  "dummy",
@@ -141,30 +139,30 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	oldAttrs := cfg.AllAttrs()
-	mcfg := &cloudinit.MachineConfig{
+	icfg := &instancecfg.InstanceConfig{
 		Bootstrap: true,
 	}
-	err = environs.FinishMachineConfig(mcfg, cfg)
+	err = instancecfg.FinishInstanceConfig(icfg, cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mcfg.AuthorizedKeys, gc.Equals, "we-are-the-keys")
-	c.Check(mcfg.DisableSSLHostnameVerification, jc.IsFalse)
+	c.Check(icfg.AuthorizedKeys, gc.Equals, "we-are-the-keys")
+	c.Check(icfg.DisableSSLHostnameVerification, jc.IsFalse)
 	password := utils.UserPasswordHash("lisboan-pork", utils.CompatSalt)
-	c.Check(mcfg.APIInfo, gc.DeepEquals, &api.Info{
+	c.Check(icfg.APIInfo, gc.DeepEquals, &api.Info{
 		Password: password, CACert: testing.CACert,
 		EnvironTag: testing.EnvironmentTag,
 	})
-	c.Check(mcfg.MongoInfo, gc.DeepEquals, &mongo.MongoInfo{
+	c.Check(icfg.MongoInfo, gc.DeepEquals, &mongo.MongoInfo{
 		Password: password, Info: mongo.Info{CACert: testing.CACert},
 	})
-	c.Check(mcfg.StateServingInfo.StatePort, gc.Equals, cfg.StatePort())
-	c.Check(mcfg.StateServingInfo.APIPort, gc.Equals, cfg.APIPort())
-	c.Check(mcfg.StateServingInfo.CAPrivateKey, gc.Equals, oldAttrs["ca-private-key"])
+	c.Check(icfg.StateServingInfo.StatePort, gc.Equals, cfg.StatePort())
+	c.Check(icfg.StateServingInfo.APIPort, gc.Equals, cfg.APIPort())
+	c.Check(icfg.StateServingInfo.CAPrivateKey, gc.Equals, oldAttrs["ca-private-key"])
 
 	oldAttrs["ca-private-key"] = ""
 	oldAttrs["admin-secret"] = ""
-	c.Check(mcfg.Config.AllAttrs(), gc.DeepEquals, oldAttrs)
-	srvCertPEM := mcfg.StateServingInfo.Cert
-	srvKeyPEM := mcfg.StateServingInfo.PrivateKey
+	c.Check(icfg.Config.AllAttrs(), gc.DeepEquals, oldAttrs)
+	srvCertPEM := icfg.StateServingInfo.Cert
+	srvKeyPEM := icfg.StateServingInfo.PrivateKey
 	_, _, err = cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
 	c.Check(err, jc.ErrorIsNil)
 
@@ -202,7 +200,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		multiwatcher.JobHostUnits,
 		multiwatcher.JobManageNetworking,
 	}
-	cfg := &cloudinit.MachineConfig{
+	cfg := &instancecfg.InstanceConfig{
 		MachineId:    "10",
 		MachineNonce: "5432",
 		Tools:        tools,
@@ -244,11 +242,10 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	}
 	script1 := "script1"
 	script2 := "script2"
-	cloudcfg, err := coreCloudinit.New("quantal")
-	c.Assert(err, jc.ErrorIsNil)
+	cloudcfg := cloudinit.New()
 	cloudcfg.AddRunCmd(script1)
 	cloudcfg.AddRunCmd(script2)
-	result, err := environs.ComposeUserData(cfg, cloudcfg)
+	result, err := cloudconfig.ComposeUserData(cfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	unzipped, err := utils.Gunzip(result)
