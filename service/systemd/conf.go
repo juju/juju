@@ -297,7 +297,7 @@ func deserializeOptions(opts []*unit.UnitOption) (common.Conf, error) {
 				}
 				for k, v := range limitMap {
 					if v == uo.Name {
-						n, err := strconv.Atoi(v)
+						n, err := strconv.Atoi(uo.Value)
 						if err != nil {
 							return conf, errors.Trace(err)
 						}
