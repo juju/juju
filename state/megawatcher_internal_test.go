@@ -1420,56 +1420,64 @@ func (s *storeManagerStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 
 // TestClosedPorts tests the correct reporting of closed ports.
 func (s *storeManagerStateSuite) TestClosedPorts(c *gc.C) {
-	initEnv := func(c *gc.C, st *State, openAndClose bool) {
-		wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
-		u, err := wordpress.AddUnit()
-		c.Assert(err, jc.ErrorIsNil)
-		m, err := st.AddMachine("quantal", JobHostUnits)
-		c.Assert(err, jc.ErrorIsNil)
-		err = u.AssignToMachine(m)
-		c.Assert(err, jc.ErrorIsNil)
-		publicAddress := network.NewAddress("1.2.3.4", network.ScopePublic)
-		privateAddress := network.NewAddress("4.3.2.1", network.ScopeCloudLocal)
-		err = m.SetAddresses(publicAddress, privateAddress)
-		c.Assert(err, jc.ErrorIsNil)
-		err = u.OpenPorts("tcp", 12345, 12345)
-		c.Assert(err, jc.ErrorIsNil)
-		if openAndClose {
-			err = u.ClosePorts("tcp", 12345, 12345)
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
-	changeTestFuncs := []changeTestFunc{
-		func(c *gc.C, st *State) changeTestCase {
-			initEnv(c, st, true)
-
-			return changeTestCase{
-				about: "open and close a port",
-				initialContents: []multiwatcher.EntityInfo{
-					&multiwatcher.UnitInfo{
-						Name: "wordpress/0",
-					},
-					&multiwatcher.MachineInfo{
-						Id: "0",
-					},
-				},
-				change: watcher.Change{
-					C:  openedPortsC,
-					Id: st.docID("m#0#n#juju-public"),
-				},
-				expectContents: []multiwatcher.EntityInfo{
-					&multiwatcher.UnitInfo{
-						Name:       "wordpress/0",
-						Ports:      []network.Port{},
-						PortRanges: []network.PortRange{},
-					},
-					&multiwatcher.MachineInfo{
-						Id: "0",
-					},
-				}}
+	defer s.Reset(c)
+	// Init the test environment.
+	wordpress := AddTestingService(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"), s.owner)
+	u, err := wordpress.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	m, err := s.state.AddMachine("quantal", JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.AssignToMachine(m)
+	c.Assert(err, jc.ErrorIsNil)
+	publicAddress := network.NewAddress("1.2.3.4", network.ScopePublic)
+	privateAddress := network.NewAddress("4.3.2.1", network.ScopeCloudLocal)
+	err = m.SetAddresses(publicAddress, privateAddress)
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.OpenPorts("tcp", 12345, 12345)
+	c.Assert(err, jc.ErrorIsNil)
+	// Create all watcher state backing.
+	b := newAllWatcherStateBacking(s.state)
+	all := newStore()
+	// Check opened ports.
+	err = b.Changed(all, watcher.Change{
+		C:  "units",
+		Id: s.state.docID("wordpress/0"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	assertEntitiesEqual(c, all.All(), []multiwatcher.EntityInfo{
+		&multiwatcher.UnitInfo{
+			Name:           "wordpress/0",
+			Service:        "wordpress",
+			Series:         "quantal",
+			MachineId:      "0",
+			PublicAddress:  "1.2.3.4",
+			PrivateAddress: "4.3.2.1",
+			Ports:          []network.Port{{"tcp", 12345}},
+			PortRanges:     []network.PortRange{{12345, 12345, "tcp"}},
+			Status:         "allocating",
 		},
-	}
-	s.performChangeTestCases(c, changeTestFuncs)
+	})
+	// Close the ports.
+	err = u.ClosePorts("tcp", 12345, 12345)
+	c.Assert(err, jc.ErrorIsNil)
+	err = b.Changed(all, watcher.Change{
+		C:  openedPortsC,
+		Id: s.state.docID("wordpress/0"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	assertEntitiesEqual(c, all.All(), []multiwatcher.EntityInfo{
+		&multiwatcher.UnitInfo{
+			Name:           "wordpress/0",
+			Service:        "wordpress",
+			Series:         "quantal",
+			MachineId:      "0",
+			PublicAddress:  "1.2.3.4",
+			PrivateAddress: "4.3.2.1",
+			Ports:          []network.Port{},
+			PortRanges:     []network.PortRange{},
+			Status:         "allocating",
+		},
+	})
 }
 
 // TestStateWatcher tests the integration of the state watcher

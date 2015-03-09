@@ -535,11 +535,11 @@ type backingOpenedPorts map[string]interface{}
 
 func (p *backingOpenedPorts) updated(st *State, store *multiwatcherStore, id interface{}) error {
 	localID := st.localID(id.(string))
-	parentId, ok := backingEntityIdForOpenedPortsKey(localID)
+	parentID, ok := backingEntityIdForOpenedPortsKey(localID)
 	if !ok {
 		return nil
 	}
-	switch info := store.Get(parentId).(type) {
+	switch info := store.Get(parentID).(type) {
 	case nil:
 		// The parent info doesn't exist. This is unexpected because the port
 		// always refers to a machine. Anyway, ignore the ports for now.
@@ -561,8 +561,16 @@ func (p *backingOpenedPorts) updated(st *State, store *multiwatcherStore, id int
 }
 
 func (p *backingOpenedPorts) removed(st *State, store *multiwatcherStore, id interface{}) {
-	logger.Tracef("backingOpenedPorts: removing %v", id)
-	panic("AAAARGH!")
+	localID := st.localID(id.(string))
+	u, err := st.Unit(localID)
+	if err != nil {
+		logger.Errorf("cannot retrieve unit %q: %v", localID, err)
+		return
+	}
+	err = updateUnitPorts(st, store, u)
+	if err != nil {
+		logger.Errorf("cannot update unit ports for %q: %v", localID, err)
+	}
 }
 
 func (p *backingOpenedPorts) mongoId() interface{} {
