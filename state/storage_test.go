@@ -7,6 +7,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
@@ -235,6 +236,15 @@ func (s *StorageStateSuite) TestAllStorageInstances(c *gc.C) {
 	all, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(all, gc.HasLen, 6)
+
+	nameSet := set.NewStrings("multi1to10", "multi2up")
+	ownerSet := set.NewStrings("unit-storage-block2-0", "unit-storage-block2-1")
+
+	for _, one := range all {
+		c.Assert(one.Kind(), gc.DeepEquals, state.StorageKindBlock)
+		c.Assert(nameSet.Contains(one.StorageName()), jc.IsTrue)
+		c.Assert(ownerSet.Contains(one.Owner().String()), jc.IsTrue)
+	}
 }
 
 func (s *StorageStateSuite) TestAllStorageInstancesEmpty(c *gc.C) {

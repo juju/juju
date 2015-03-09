@@ -37,6 +37,17 @@ func runShow(c *gc.C, args []string) (*cmd.Context, error) {
 	return testing.RunCommand(c, envcmd.Wrap(&storage.ShowCommand{}), args...)
 }
 
+func (s *ShowSuite) TestShowNoMatch(c *gc.C) {
+	s.mockAPI.noMatch = true
+	s.assertValidShow(
+		c,
+		[]string{"fluff/0"},
+		`
+{}
+`[1:],
+	)
+}
+
 func (s *ShowSuite) TestShow(c *gc.C) {
 	s.assertValidShow(
 		c,
@@ -113,6 +124,7 @@ func (s *ShowSuite) assertValidShow(c *gc.C, args []string, expected string) {
 }
 
 type mockShowAPI struct {
+	noMatch bool
 }
 
 func (s mockShowAPI) Close() error {
@@ -120,6 +132,9 @@ func (s mockShowAPI) Close() error {
 }
 
 func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageInfo, error) {
+	if s.noMatch {
+		return nil, nil
+	}
 	all := make([]params.StorageInfo, len(tags)*2)
 	ind := 0
 	for _, tag := range tags {

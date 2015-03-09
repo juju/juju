@@ -23,6 +23,10 @@ type storageAccess interface {
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 }
 
+var getState = func(st *state.State) storageAccess {
+	return stateShim{st}
+}
+
 type stateShim struct {
 	*state.State
 }

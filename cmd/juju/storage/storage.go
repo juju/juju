@@ -73,6 +73,9 @@ type StorageInfo struct {
 // formatStorageInfo takes a set of StorageInstances and creates a
 // mapping from storage instance ID to information structures.
 func formatStorageInfo(storages []params.StorageInfo) (map[string]map[string]StorageInfo, error) {
+	if len(storages) == 0 {
+		return nil, nil
+	}
 	output := make(map[string]map[string]StorageInfo)
 	for _, one := range storages {
 		storageTag, err := names.ParseStorageTag(one.StorageTag)

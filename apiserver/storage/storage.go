@@ -17,10 +17,6 @@ func init() {
 	common.RegisterStandardFacadeForFeature("Storage", 1, NewAPI, feature.Storage)
 }
 
-var getState = func(st *state.State) storageAccess {
-	return stateShim{st}
-}
-
 // API implements the storage interface and is the concrete
 // implementation of the api end point.
 type API struct {
@@ -28,9 +24,9 @@ type API struct {
 	authorizer common.Authorizer
 }
 
-// NewAPI returns a new storage API facade.
-func NewAPI(
-	st *state.State,
+// createAPI returns a new storage API facade.
+func createAPI(
+	st storageAccess,
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
@@ -39,20 +35,31 @@ func NewAPI(
 	}
 
 	return &API{
-		storage:    getState(st),
+		storage:    st,
 		authorizer: authorizer,
 	}, nil
+}
+
+// NewAPI returns a new storage API facade.
+func NewAPI(
+	st *state.State,
+	resources *common.Resources,
+	authorizer common.Authorizer,
+) (*API, error) {
+	return createAPI(getState(st), resources, authorizer)
 }
 
 func (api *API) Show(entities params.Entities) (params.StorageShowResults, error) {
 	var all []params.StorageShowResult
 	for _, entity := range entities.Entities {
-		instance, err := api.getStorageInstance(entity.Tag)
+		found, instance, err := api.getStorageInstance(entity.Tag)
 		if err != nil {
 			all = append(all, params.StorageShowResult{Error: err})
 			continue
 		}
-		all = append(all, api.createStorageShowResult(instance)...)
+        if found {
+            all = append(all, api.createStorageShowResult(instance)...)
+        }
 	}
 	return params.StorageShowResults{Results: all}, nil
 }
@@ -95,7 +102,7 @@ func (api *API) getStorageAttachments(instance params.StorageInfo) ([]params.Sto
 	}
 	aTag, err := names.ParseTag(instance.OwnerTag)
 	if err != nil {
-		return nil, serverError(common.ErrPerm)
+  		return nil, serverError(common.ErrPerm)
 	}
 
 	unitTag, k := aTag.(names.UnitTag)
@@ -150,20 +157,23 @@ func (api *API) createParamsStorageAttachment(si params.StorageInfo, sa state.St
 	return result, nil
 }
 
-func (api *API) getStorageInstance(tag string) (params.StorageInfo, *params.Error) {
+func (api *API) getStorageInstance(tag string) (bool, params.StorageInfo, *params.Error) {
 	nothing := params.StorageInfo{}
 	serverError := func(err error) *params.Error {
 		return common.ServerError(errors.Annotatef(err, "getting %v", tag))
 	}
 	aTag, err := names.ParseStorageTag(tag)
 	if err != nil {
-		return nothing, serverError(common.ErrPerm)
+		return false, nothing, serverError(common.ErrPerm)
 	}
 	stateInstance, err := api.storage.StorageInstance(aTag)
 	if err != nil {
-		return nothing, serverError(common.ErrPerm)
+        if errors.IsNotFound(err) {
+            return false, nothing, nil
+        }
+		return false, nothing, serverError(common.ErrPerm)
 	}
-	return createParamsStorageInstance(stateInstance), nil
+	return true, createParamsStorageInstance(stateInstance), nil
 }
 
 func createParamsStorageInstance(si state.StorageInstance) params.StorageInfo {
