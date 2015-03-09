@@ -145,6 +145,7 @@ func (st *State) envSetupOps(cfg *config.Config, envUUID, serverUUID string, own
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
 		createEnvironmentOp(st, owner, cfg.Name(), envUUID, serverUUID),
+		createUniqueOwnerEnvNameOp(owner, cfg.Name()),
 		envUserOp,
 	}
 	return ops, nil

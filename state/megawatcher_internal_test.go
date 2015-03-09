@@ -60,7 +60,7 @@ func (s *storeManagerStateSuite) newState(c *gc.C) *State {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
-		"name": "testenv",
+		"name": "newtestenv",
 		"uuid": uuid.String(),
 	})
 	_, st, err := s.state.NewEnvironment(cfg, s.owner)
