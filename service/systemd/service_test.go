@@ -791,7 +791,7 @@ func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	content := s.newConfStr("jujud-machine-0", "")
-	header := "cat >> /tmp/jujud-machine-0.service << 'EOF'\n"
+	header := "cat > /tmp/jujud-machine-0.service << 'EOF'\n"
 	footer := "EOF"
 
 	// Parse the ini configurations and compare those.
@@ -858,7 +858,7 @@ func (s *initSystemSuite) TestInstallCommandsShutdown(c *gc.C) {
 	sections := parseConfSections(lines[1 : len(lines)-1])
 
 	// Check the cat portion.
-	c.Check(header, gc.Equals, "cat >> /tmp/juju-shutdown-job.service << 'EOF'")
+	c.Check(header, gc.Equals, "cat > /tmp/juju-shutdown-job.service << 'EOF'")
 	c.Check(footer, gc.Equals, "EOF")
 
 	// Check the conf portion.

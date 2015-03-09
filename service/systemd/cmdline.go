@@ -85,7 +85,7 @@ func (c commands) conf(name string) string {
 }
 
 func (c commands) writeFile(name, dirname string, data []byte) string {
-	cmd := fmt.Sprintf("cat >> %s/%s.service << 'EOF'\n%sEOF", dirname, name, data)
+	cmd := fmt.Sprintf("cat > %s/%s.service << 'EOF'\n%sEOF", dirname, name, data)
 	return cmd
 }
 
