@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"os"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -62,6 +64,9 @@ func NewAttachments(
 // init processes the storage state directory and creates storagers
 // for the state files found.
 func (a *Attachments) init() error {
+	if err := os.MkdirAll(a.storageStateDir, 0755); err != nil {
+		return errors.Annotate(err, "creating storage state dir")
+	}
 	// Query all remote, known storage attachments for the unit,
 	// so we can cull state files, and store current context.
 	attachments, err := a.st.UnitStorageAttachments(a.unitTag)
@@ -106,6 +111,16 @@ func (a *Attachments) init() error {
 // are sent.
 func (a *Attachments) Hooks() <-chan hook.Info {
 	return a.hooks
+}
+
+// Stop stops all of the storagers.
+func (a *Attachments) Stop() error {
+	for _, s := range a.storagers {
+		if err := s.Stop(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // UpdateStorage responds to changes in the lifecycle states of the
@@ -178,7 +193,7 @@ func (a *Attachments) add(storageTag names.StorageTag, stateFile *stateFile) err
 // found, and whether it was found.
 func (a *Attachments) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
 	if s, ok := a.storagers[tag]; ok {
-		return s.Context(), true
+		return s.Context()
 	}
 	return nil, false
 }

@@ -52,7 +52,7 @@ func (s *storager) Stop() error {
 	return s.source.Stop()
 }
 
-func (s *storager) Context() jujuc.ContextStorage {
+func (s *storager) Context() (jujuc.ContextStorage, bool) {
 	return s.source.Context()
 }
 

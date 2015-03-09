@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4/hooks"
 
+	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	corestorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -112,7 +113,8 @@ func (s *storageHookQueueSuite) TestStorageHookQueueDead(c *gc.C) {
 
 func (s *storageHookQueueSuite) TestStorageHookQueueContext(c *gc.C) {
 	q := newHookQueue(initiallyUnattached)
-	c.Assert(q.Context, gc.PanicMatches, "no hooks have been queued")
+	_, ok := q.Context()
+	c.Assert(ok, jc.IsFalse)
 
 	err := q.Update(params.StorageAttachment{
 		Life:     params.Alive,
@@ -122,7 +124,8 @@ func (s *storageHookQueueSuite) TestStorageHookQueueContext(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(q.Empty(), jc.IsFalse)
 
-	ctx := q.Context()
+	ctx, ok := q.Context()
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(ctx.Tag(), gc.Equals, names.NewStorageTag("data/0"))
 	c.Assert(ctx.Kind(), gc.Equals, corestorage.StorageKindFilesystem)
@@ -134,4 +137,22 @@ func (s *storageHookQueueSuite) TestStorageHookQueueEmpty(c *gc.C) {
 	c.Assert(q.Empty(), jc.IsTrue)
 	c.Assert(q.Next, gc.PanicMatches, "source is empty")
 	c.Assert(q.Pop, gc.PanicMatches, "source is empty")
+}
+
+func (s *storageHookQueueSuite) TestStorageSourceStop(c *gc.C) {
+	unitTag := names.NewUnitTag("mysql/0")
+	storageTag := names.NewStorageTag("data/0")
+
+	// Simulate remote state returning a single Alive storage attachment.
+	st := &mockStorageAccessor{
+		watchStorageAttachment: func(s names.StorageTag, u names.UnitTag) (watcher.NotifyWatcher, error) {
+			return newMockNotifyWatcher(), nil
+		},
+	}
+
+	const initiallyUnattached = false
+	source, err := storage.NewStorageSource(st, unitTag, storageTag, initiallyUnattached)
+	c.Assert(err, jc.ErrorIsNil)
+	err = source.Stop()
+	c.Assert(err, jc.ErrorIsNil)
 }

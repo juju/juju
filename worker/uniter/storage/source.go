@@ -92,7 +92,7 @@ func (s *storageSource) loop() error {
 		case _, ok := <-inChanges:
 			logger.Debugf("got storage attachment change")
 			if !ok {
-				return watcher.EnsureErr(s.watcher)
+				return tomb.ErrDying
 			}
 			inChanges = nil
 			outChanges = s.changes
@@ -118,6 +118,7 @@ func (s *storageSource) Changes() <-chan hook.SourceChange {
 
 // Stop is part of the hook.Source interface.
 func (s *storageSource) Stop() error {
+	s.tomb.Kill(nil)
 	watcher.Stop(s.watcher, &s.tomb)
 	return s.tomb.Wait()
 }
@@ -217,9 +218,9 @@ func (s *storageHookQueue) Update(attachment params.StorageAttachment) error {
 	return nil
 }
 
-func (s *storageHookQueue) Context() jujuc.ContextStorage {
-	if s.context == nil {
-		panic("no hooks have been queued")
+func (s *storageHookQueue) Context() (jujuc.ContextStorage, bool) {
+	if s.context != nil {
+		return s.context, true
 	}
-	return s.context
+	return nil, false
 }
