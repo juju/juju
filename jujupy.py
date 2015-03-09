@@ -272,6 +272,12 @@ class EnvJujuClient:
         option_value = "%s=%s" % (option, value)
         return self.juju('set-env', (option_value,))
 
+    def set_testing_tools_metadata_url(self):
+        url = self.get_env_option('tools-metadata-url')
+        if 'testing' not in url:
+            testing_url = url.replace('/tools', '/testing/tools')
+            self.set_env_option('tools-metadata-url', testing_url)
+
     def juju(self, command, args, sudo=False, check=True, include_e=True,
              timeout=None, juju_home=None):
         """Run a command under juju for the current environment."""

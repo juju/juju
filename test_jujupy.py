@@ -56,7 +56,7 @@ def assert_juju_call(test_case, mock_method, client, expected_args,
     if assign_stderr:
         kwarg_keys = ['stderr'] + kwarg_keys
         test_case.assertEqual(type(kwargs['stderr']), file)
-    test_case.assertEqual(kwargs.keys(), kwarg_keys)
+    test_case.assertItemsEqual(kwargs.keys(), kwarg_keys)
     bin_dir = os.path.dirname(client.full_path)
     test_case.assertRegexpMatches(kwargs['env']['PATH'],
                                   r'^{}\:'.format(bin_dir))
@@ -648,6 +648,28 @@ class TestEnvJujuClient(TestCase):
             ('juju', '--show-log', 'set-env', '-e', 'foo',
              'tools-metadata-url=https://example.org/juju/tools'),
             env=os.environ)
+
+    def test_set_testing_tools_metadata_url(self):
+        env = SimpleEnvironment(None, {'type': 'foo'})
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client, 'get_env_option') as mock_get:
+            mock_get.return_value = 'https://example.org/juju/tools'
+            with patch.object(client, 'set_env_option') as mock_set:
+                client.set_testing_tools_metadata_url()
+        mock_get.assert_called_with('tools-metadata-url')
+        mock_set.assert_called_with(
+            'tools-metadata-url',
+            'https://example.org/juju/testing/tools')
+
+    def test_set_testing_tools_metadata_url_noop(self):
+        env = SimpleEnvironment(None, {'type': 'foo'})
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client, 'get_env_option') as mock_get:
+            mock_get.return_value = 'https://example.org/juju/testing/tools'
+            with patch.object(client, 'set_env_option') as mock_set:
+                client.set_testing_tools_metadata_url()
+        mock_get.assert_called_with('tools-metadata-url')
+        self.assertEqual(0, mock_set.call_count)
 
     def test_juju(self):
         env = Environment('qux', '')
