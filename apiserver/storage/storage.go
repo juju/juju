@@ -57,9 +57,9 @@ func (api *API) Show(entities params.Entities) (params.StorageShowResults, error
 			all = append(all, params.StorageShowResult{Error: err})
 			continue
 		}
-        if found {
-            all = append(all, api.createStorageShowResult(instance)...)
-        }
+		if found {
+			all = append(all, api.createStorageShowResult(instance)...)
+		}
 	}
 	return params.StorageShowResults{Results: all}, nil
 }
@@ -102,7 +102,7 @@ func (api *API) getStorageAttachments(instance params.StorageInfo) ([]params.Sto
 	}
 	aTag, err := names.ParseTag(instance.OwnerTag)
 	if err != nil {
-  		return nil, serverError(common.ErrPerm)
+		return nil, serverError(common.ErrPerm)
 	}
 
 	unitTag, k := aTag.(names.UnitTag)
@@ -168,9 +168,9 @@ func (api *API) getStorageInstance(tag string) (bool, params.StorageInfo, *param
 	}
 	stateInstance, err := api.storage.StorageInstance(aTag)
 	if err != nil {
-        if errors.IsNotFound(err) {
-            return false, nothing, nil
-        }
+		if errors.IsNotFound(err) {
+			return false, nothing, nil
+		}
 		return false, nothing, serverError(common.ErrPerm)
 	}
 	return true, createParamsStorageInstance(stateInstance), nil

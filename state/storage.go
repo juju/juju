@@ -193,13 +193,13 @@ func (st *State) AllStorageInstances() (storageInstances []StorageInstance, err 
 
 	sdocs := []storageInstanceDoc{}
 	err = storageCollection.Find(nil).All(&sdocs)
-    if err != nil {
-        return nil, errors.Annotate(err, "cannot get all storage instances")
-    }
-    for _, doc := range sdocs {
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all storage instances")
+	}
+	for _, doc := range sdocs {
 		storageInstances = append(storageInstances, &storageInstance{st, doc})
 	}
-	return 
+	return
 }
 
 // DestroyStorageInstance ensures that the storage instance and all its
