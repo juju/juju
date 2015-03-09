@@ -844,6 +844,31 @@ func (p *ProvisionerAPI) ReleaseContainerAddress(args params.Entities) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// Loop over the passed container tags.
+	for i, entity := range args.Entities {
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		// The auth function (canAccess) checks that the machine is a
+		// top level machine (we filter those out next) or that the
+		// machine has the host as a parent.
+		container, err := p.getMachine(canAccess, tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		} else if !container.IsContainer() {
+			err = errors.Errorf("cannot release address for %q: not a container", tag)
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		} else if ciid, cerr := container.InstanceId(); cerr != nil {
+			result.Results[i].Error = common.ServerError(cerr)
+			continue
+		}
+	}
+
 	return nil
 }
 
