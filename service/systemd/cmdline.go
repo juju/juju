@@ -96,7 +96,7 @@ func (c commands) chmod(name, dirname string, perm os.FileMode) string {
 }
 
 func (c commands) writeFile(name, dirname string, data []byte) string {
-	cmd := fmt.Sprintf("cat > %s/%s << 'EOF'\n%sEOF", dirname, name, data)
+	cmd := fmt.Sprintf("cat > %s/%s << 'EOF'\n%s\nEOF", dirname, name, data)
 	return cmd
 }
 

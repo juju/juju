@@ -886,7 +886,8 @@ chown syslog:syslog /var/log/juju/machine-0.log
 chmod 0600 /var/log/juju/machine-0.log
 exec > /var/log/juju/machine-0.log
 exec 2>&1
-/var/lib/juju/bin/jujud machine-0EOF`[1:], "\n"))
+/var/lib/juju/bin/jujud machine-0
+EOF`[1:], "\n"))
 	c.Check(commands[2], gc.Equals, "chmod 0755 /tmp/init/jujud-machine-0/exec-start.sh")
 	c.Check(commands[4:], jc.DeepEquals, []string{
 		"/bin/systemctl link /tmp/init/jujud-machine-0/jujud-machine-0.service",
