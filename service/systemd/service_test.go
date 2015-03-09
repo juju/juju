@@ -235,7 +235,9 @@ func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	script := `
-mkdir -p /var/log/juju
+touch /var/log/juju/machine-0.log
+chown syslog:syslog /var/log/juju/machine-0.log
+chmod 0600 /var/log/juju/machine-0.log
 exec > /var/log/juju/machine-0.log
 exec 2>&1
 `[1:] + jujud + " machine-0"
@@ -345,7 +347,9 @@ func (s *initSystemSuite) TestUpdateConfigLogfile(c *gc.C) {
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	script := `
-mkdir -p /var/log/juju
+touch /var/log/juju/machine-0.log
+chown syslog:syslog /var/log/juju/machine-0.log
+chmod 0600 /var/log/juju/machine-0.log
 exec > /var/log/juju/machine-0.log
 exec 2>&1
 `[1:] + jujud + " machine-0"

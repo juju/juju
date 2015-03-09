@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"path"
 	"strconv"
 	"strings"
 
@@ -34,11 +33,15 @@ var limitMap = map[string]string{
 	"stack":      "LimitSTACK",
 }
 
+// TODO(ericsnow) We should drop the assumption that the logfile is syslog.
+
 const logAll = `
-mkdir -p %s
-exec > %s
+touch %[1]s
+chown syslog:syslog %[1]s
+chmod 0600 %[1]s
+exec > %[1]s
 exec 2>&1
-%s`
+%[2]s`
 
 // normalize adjusts the conf to more standardized content and
 // returns a new Conf with that updated content. It also returns the
@@ -47,8 +50,7 @@ func normalize(name string, conf common.Conf, scriptPath string) (common.Conf, [
 	var data []byte
 
 	if conf.Logfile != "" {
-		logDir := path.Dir(conf.Logfile)
-		conf.ExecStart = fmt.Sprintf(logAll[1:], logDir, conf.Logfile, conf.ExecStart)
+		conf.ExecStart = fmt.Sprintf(logAll[1:], conf.Logfile, conf.ExecStart)
 		conf.Logfile = ""
 	}
 
