@@ -78,6 +78,12 @@ type Service interface {
 	StartCommands() ([]string, error)
 }
 
+// RestartableService is a service that directly supports restarting.
+type RestartableService interface {
+	// Restart restarts the service.
+	Restart() error
+}
+
 // TODO(ericsnow) bug #1426458
 // Eliminate the need to pass an empty conf for most service methods
 // and several helper functions.
@@ -181,4 +187,37 @@ func InstallAndStart(svc ServiceActions) error {
 		}
 	}
 	return errors.Trace(err)
+}
+
+// TODO(ericsnow) Add one-off helpers for Start and Stop too?
+
+// Restart restarts the named service.
+func Restart(name string) error {
+	svc, err := DiscoverService(name, common.Conf{})
+	if err != nil {
+		return errors.Annotatef(err, "failed to find service %q", name)
+	}
+	if err := restart(svc); err != nil {
+		return errors.Annotatef(err, "failed to restart service %q", name)
+	}
+	return nil
+}
+
+func restart(svc Service) error {
+	// Use the Restart method, if there is one.
+	if svc, ok := svc.(RestartableService); ok {
+		if err := svc.Restart(); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}
+
+	// Otherwise explicitly stop and start the service.
+	if err := svc.Stop(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := svc.Start(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
