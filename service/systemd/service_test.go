@@ -820,7 +820,8 @@ func (s *initSystemSuite) TestInstallCommandsShutdown(c *gc.C) {
 	c.Check(footer, gc.Equals, "EOF")
 
 	// Check the conf portion.
-	content := `[Unit]
+	content := `
+[Unit]
 Description=juju shutdown job
 After=syslog.target
 After=network.target
@@ -830,8 +831,9 @@ Conflicts=cloud-final
 
 [Service]
 ExecStart=/sbin/shutdown -h now
-ExecStopPost=/bin/systemctl disable juju-shutdown-job.service`
-	expected := parseConfSections(strings.Split(content, "\n"))
+ExecStopPost=/bin/systemctl disable juju-shutdown-job.service
+`
+	expected := parseConfSections(strings.Split(content[1:], "\n"))
 	c.Check(sections, jc.DeepEquals, expected)
 
 	// Check the remaining commands.
