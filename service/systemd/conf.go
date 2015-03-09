@@ -305,6 +305,12 @@ func deserializeOptions(opts []*unit.UnitOption) (common.Conf, error) {
 						break
 					}
 				}
+			case uo.Name == "TimeoutSec":
+				timeout, err := strconv.Atoi(uo.Value)
+				if err != nil {
+					return conf, errors.Trace(err)
+				}
+				conf.Timeout = timeout
 			case uo.Name == "Type":
 				// Do nothing until we support it in common.Conf.
 			case uo.Name == "RemainAfterExit":
