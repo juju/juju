@@ -4,7 +4,6 @@
 package mongo
 
 import (
-	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
@@ -13,12 +12,14 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
-	"github.com/juju/utils/apt"
+	"github.com/juju/utils/packaging/config"
+	"github.com/juju/utils/packaging/manager"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/network"
@@ -289,50 +290,69 @@ func logVersion(mongoPath string) {
 	logger.Debugf("using mongod: %s --version: %q", mongoPath, output)
 }
 
+// getPackageManager is a helper function which returns the
+// package manager implementation for the current system.
+func getPackageManager() (manager.PackageManager, error) {
+	return manager.NewPackageManager(version.Current.Series)
+}
+
+// getPackagingConfigurer is a helper function which returns the
+// packaging configuration manager for the current system.
+func getPackagingConfigurer() (config.PackagingConfigurer, error) {
+	return config.NewPackagingConfigurer(version.Current.Series)
+}
+
 func aptGetInstallMongod(numaCtl bool) error {
+	series := version.Current.Series
+
+	pacconfer, err := getPackagingConfigurer()
+	if err != nil {
+		return err
+	}
+
+	pacman, err := getPackageManager()
+	if err != nil {
+		return err
+	}
+
 	// Only Quantal requires the PPA.
-	if version.Current.Series == "quantal" {
-		if err := addAptRepository("ppa:juju/stable"); err != nil {
+	if series == "quantal" {
+		// install python-software-properties:
+		if err := pacman.InstallPrerequisite(); err != nil {
+			return err
+		}
+		if err := pacman.AddRepository("ppa:juju/stable"); err != nil {
 			return err
 		}
 	}
-	mongoPkg := packageForSeries(version.Current.Series)
+	mongoPkg := packageForSeries(series)
 
-	aptPkgs := []string{mongoPkg}
+	pkgs := []string{mongoPkg}
 	if numaCtl {
-		aptPkgs = []string{mongoPkg, numaCtlPkg}
+		pkgs = []string{mongoPkg, numaCtlPkg}
 		logger.Infof("installing %s and %s", mongoPkg, numaCtlPkg)
 	} else {
 		logger.Infof("installing %s", mongoPkg)
 	}
-	cmds := apt.GetPreparePackages(aptPkgs, version.Current.Series)
-	for _, cmd := range cmds {
-		if err := apt.GetInstall(cmd...); err != nil {
+
+	for i, _ := range pkgs {
+		packname, err := pacconfer.GetPackageNameForSeries(pkgs[i], series)
+		if err != nil {
 			return err
 		}
-	}
-	return nil
-}
 
-func addAptRepository(name string) error {
-	// add-apt-repository requires python-software-properties
-	cmds := apt.GetPreparePackages(
-		[]string{"python-software-properties"},
-		version.Current.Series,
-	)
-	logger.Infof("installing python-software-properties")
-	for _, cmd := range cmds {
-		if err := apt.GetInstall(cmd...); err != nil {
+		pkgs[i] = packname
+
+		// apply release targeting if needed.
+		if pacconfer.IsCloudArchivePackage(pkgs[i]) {
+			pkgs[i] = strings.Join(pacconfer.ApplyCloudArchiveTarget(pkgs[i]), " ")
+		}
+
+		if err := pacman.Install(pkgs[i]); err != nil {
 			return err
 		}
 	}
 
-	logger.Infof("adding apt repository %q", name)
-	cmd := exec.Command("add-apt-repository", "-y", name)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("cannot add apt repository: %v (output %s)", err, bytes.TrimSpace(out))
-	}
 	return nil
 }
 

@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gomaasapi"
 
-	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/storage"
 )

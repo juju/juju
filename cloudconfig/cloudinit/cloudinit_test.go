@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	coretesting "github.com/juju/juju/testing"
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
 )
