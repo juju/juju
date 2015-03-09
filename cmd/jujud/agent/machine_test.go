@@ -70,6 +70,7 @@ import (
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
+	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -1185,6 +1186,92 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for block devices to be recorded")
+}
+
+func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
+	// The storage worker should only run with the feature flag set.
+	s.testMachineAgentRunsMachineStorageWorker(c, false, coretesting.ShortWait)
+
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.testMachineAgentRunsMachineStorageWorker(c, true, coretesting.LongWait)
+}
+
+func (s *MachineSuite) testMachineAgentRunsMachineStorageWorker(c *gc.C, shouldRun bool, timeout time.Duration) {
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	started := make(chan struct{})
+	newWorker := func(storageDir string, _ storageprovisioner.VolumeAccessor, _ storageprovisioner.LifecycleManager) worker.Worker {
+		// storageDir is not empty for machine scoped storage provisioners
+		c.Assert(storageDir, gc.Not(gc.Equals), "")
+		close(started)
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newStorageWorker, newWorker)
+
+	// Wait for worker to be started.
+	select {
+	case <-started:
+		if !shouldRun {
+			c.Fatalf("storage worker should not run without feature flag")
+		}
+	case <-time.After(timeout):
+		if shouldRun {
+			c.Fatalf("timeout while waiting for storage worker to start")
+		}
+	}
+}
+
+func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.testMachineAgentRunsEnvironStorageWorkers(c, true, coretesting.LongWait)
+}
+
+func (s *MachineSuite) testMachineAgentRunsEnvironStorageWorkers(c *gc.C, shouldRun bool, timeout time.Duration) {
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	machineWorkerStarted := false
+	environWorkerStarted := false
+	numWorkers := 0
+	started := make(chan struct{})
+	newWorker := func(storageDir string, _ storageprovisioner.VolumeAccessor, _ storageprovisioner.LifecycleManager) worker.Worker {
+		// storageDir is empty for environ storage provisioners
+		if storageDir == "" {
+			environWorkerStarted = true
+			numWorkers = numWorkers + 1
+		}
+		if storageDir != "" {
+			machineWorkerStarted = true
+			numWorkers = numWorkers + 1
+		}
+		if environWorkerStarted && machineWorkerStarted {
+			close(started)
+		}
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newStorageWorker, newWorker)
+
+	// Wait for worker to be started.
+	select {
+	case <-started:
+		if !shouldRun {
+			c.Fatalf("storage worker should not run without feature flag")
+		}
+		c.Assert(numWorkers, gc.Equals, 2)
+	case <-time.After(timeout):
+		if shouldRun {
+			c.Fatalf("timeout while waiting for storage worker to start")
+		}
+	}
 }
 
 func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer(c *gc.C) {
