@@ -215,6 +215,14 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 		})
 	}
 
+	if conf.Timeout > 0 {
+		unitOptions = append(unitOptions, &unit.UnitOption{
+			Section: "Service",
+			Name:    "TimeoutSec",
+			Value:   strconv.Itoa(conf.Timeout),
+		})
+	}
+
 	if conf.ExecStopPost != "" {
 		unitOptions = append(unitOptions, &unit.UnitOption{
 			Section: "Service",

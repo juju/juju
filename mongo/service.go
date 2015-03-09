@@ -126,6 +126,7 @@ func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCt
 			"nofile": maxFiles,
 			"nproc":  maxProcs,
 		},
+		Timeout:     300,
 		ExtraScript: extraScript,
 		ExecStart:   mongoCmd,
 	}

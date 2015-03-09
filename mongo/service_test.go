@@ -34,6 +34,7 @@ func (s *serviceSuite) TestNewConf(c *gc.C) {
 			"nofile": 65000,
 			"nproc":  20000,
 		},
+		Timeout: 300,
 		ExecStart: "/mgo/bin/mongod" +
 			" --auth" +
 			" --dbpath '/var/lib/juju/db'" +

@@ -55,6 +55,7 @@ func (*agentSuite) TestMachineAgentConfLocal(c *gc.C) {
 		Limit: map[string]int{
 			"nofile": 20000,
 		},
+		Timeout: 300,
 	})
 }
 
@@ -79,6 +80,7 @@ func (*agentSuite) TestMachineAgentConfUbuntu(c *gc.C) {
 		Limit: map[string]int{
 			"nofile": 20000,
 		},
+		Timeout: 300,
 	})
 }
 
@@ -103,6 +105,7 @@ func (*agentSuite) TestMachineAgentConfWindows(c *gc.C) {
 		Limit: map[string]int{
 			"nofile": 20000,
 		},
+		Timeout: 300,
 	})
 }
 
@@ -126,6 +129,7 @@ func (*agentSuite) TestUnitAgentConf(c *gc.C) {
 		ExecStart: cmd,
 		Logfile:   filepath.Join(logDir, "unit-wordpress-0.log"),
 		Env:       env,
+		Timeout:   300,
 	})
 }
 

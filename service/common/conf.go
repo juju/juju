@@ -35,6 +35,10 @@ type Conf struct {
 	// Currently not used on Windows.
 	Limit map[string]int
 
+	// Timeout is how many seconds may pass before an exec call (e.g.
+	// ExecStart) times out.
+	Timeout int
+
 	// ExecStart is the command (with arguments) that will be run. The
 	// path to the executable must be absolute.
 	// The command will be restarted if it exits with a non-zero exit code.

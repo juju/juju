@@ -62,6 +62,7 @@ func MachineAgentConf(machineID, dataDir, logDir, os string) (common.Conf, strin
 		Limit: map[string]int{
 			"nofile": maxAgentFiles,
 		},
+		Timeout: 300,
 	}
 
 	return conf, toolsDir
@@ -108,6 +109,7 @@ func UnitAgentConf(unitName, dataDir, logDir, os, containerType string) (common.
 		ExecStart: cmd,
 		Logfile:   logFile,
 		Env:       envVars,
+		Timeout:   300,
 	}
 
 	return conf, toolsDir
