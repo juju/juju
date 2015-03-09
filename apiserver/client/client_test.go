@@ -213,6 +213,29 @@ func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
 	c.Assert(envUser.LastConnection(), gc.IsNil)
 }
 
+func (s *serverSuite) TestShareEnvironmentAddUserTwice(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			UserTag: user.Tag().String(),
+			Action:  params.AddEnvUser,
+		}}}
+
+	_, err := s.client.ShareEnvironment(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.ErrorMatches, "could not share environment: environment user \"foobar@local\" already exists")
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, "could not share environment: environment user \"foobar@local\" already exists")
+	c.Assert(result.Results[0].Error.Code, gc.Matches, params.CodeAlreadyExists)
+
+	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Username())
+}
+
 func (s *serverSuite) TestShareEnvironmentInvalidTags(c *gc.C) {
 	for _, testParam := range []struct {
 		tag      string
