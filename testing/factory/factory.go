@@ -177,8 +177,9 @@ func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.Envir
 		params.User = user.UserTag().Username()
 	}
 	if params.CreatedBy == nil {
-		user := factory.MakeUser(c, nil)
-		params.CreatedBy = user.UserTag()
+		env, err := factory.st.Environment()
+		c.Assert(err, jc.ErrorIsNil)
+		params.CreatedBy = env.Owner()
 	}
 	createdByUserTag := params.CreatedBy.(names.UserTag)
 	envUser, err := factory.st.AddEnvironmentUser(names.NewUserTag(params.User), createdByUserTag)

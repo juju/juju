@@ -32,7 +32,9 @@ func NewSuperCommand() cmd.Command {
 	environmentCmd.Register(envcmd.Wrap(&UnsetCommand{}))
 	environmentCmd.Register(&JenvCommand{})
 	environmentCmd.Register(envcmd.Wrap(&RetryProvisioningCommand{}))
+
 	if featureflag.Enabled(feature.JES) {
+		environmentCmd.Register(envcmd.Wrap(&ShareCommand{}))
 		environmentCmd.Register(envcmd.Wrap(&CreateCommand{}))
 	}
 	return environmentCmd
