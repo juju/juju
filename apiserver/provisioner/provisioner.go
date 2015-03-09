@@ -811,6 +811,42 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 	return result, nil
 }
 
+// ReleaseContainerAddress releases an address allocated to a container. It
+// accepts container tags as arguments.
+func (p *ProvisionerAPI) ReleaseContainerAddress(args params.Entities) error {
+	cfg, err := p.st.EnvironConfig()
+	if err != nil {
+		return errors.Annotate(err, "failed to get environment config")
+	}
+	environ, err := environs.New(cfg)
+	if err != nil {
+		return errors.Annotate(err, "failed to construct an environment from config")
+	}
+	netEnviron, supported := environs.SupportsNetworking(environ)
+	if !supported {
+		// " not supported" will be appended to the message below.
+		return errors.NotSupportedf("environment %q networking", cfg.Name())
+	}
+
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return errors.Annotate(err, "cannot authenticate request")
+	}
+	hostAuthTag := p.authorizer.GetAuthTag()
+	if hostAuthTag == nil {
+		return errors.Errorf("authenticated entity tag is nil")
+	}
+	hostTag, err := names.ParseMachineTag(hostAuthTag.String())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	host, err := p.getMachine(canAccess, hostTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // PrepareContainerInterfaceInfo allocates an address and returns
 // information for configuring networking on a container. It accepts
 // container tags as arguments.
