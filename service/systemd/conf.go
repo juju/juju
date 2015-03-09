@@ -33,11 +33,21 @@ var limitMap = map[string]string{
 	"stack":      "LimitSTACK",
 }
 
+const redirectAll = `
+exec > %s
+exec 2>&1
+%s`
+
 // normalize adjusts the conf to more standardized content and
 // returns a new Conf with that updated content. It also returns the
 // content of any script file that should accompany the conf.
 func normalize(name string, conf common.Conf, scriptPath string) (common.Conf, []byte) {
 	var data []byte
+
+	if conf.Logfile != "" {
+		conf.ExecStart = fmt.Sprintf(redirectAll, conf.Logfile, conf.ExecStart)
+		conf.Logfile = ""
+	}
 
 	if conf.ExtraScript != "" {
 		conf.ExecStart = conf.ExtraScript + "\n" + conf.ExecStart
@@ -54,12 +64,6 @@ func normalize(name string, conf common.Conf, scriptPath string) (common.Conf, [
 
 	if len(conf.Limit) == 0 {
 		conf.Limit = nil
-	}
-
-	if conf.Logfile != "" {
-		// Due to isSimpleCommand we can always safely redirect like this.
-		conf.ExecStart += " &> " + conf.Logfile
-		conf.Logfile = ""
 	}
 
 	if conf.Transient {

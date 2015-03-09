@@ -233,10 +233,26 @@ func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
 	service, err := systemd.NewService(s.name, s.conf)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(service.Service.Conf, jc.DeepEquals, common.Conf{
-		Desc:      s.conf.Desc,
-		ExecStart: s.conf.ExecStart + " &> /var/log/juju/machine-0.log",
+	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
+	script := `
+exec > /var/log/juju/machine-0.log
+exec 2>&1
+` + jujud + " machine-0"
+	c.Check(service, jc.DeepEquals, &systemd.Service{
+		Service: common.Service{
+			Name: s.name,
+			Conf: common.Conf{
+				Desc:      s.conf.Desc,
+				ExecStart: dirname + "/exec-start.sh",
+			},
+		},
+		UnitName: s.name + ".service",
+		ConfName: s.name + ".service",
+		Dirname:  dirname,
+		Script:   []byte(script),
 	})
+	// This gives us a more readable output if they aren't equal.
+	c.Check(string(service.Script), gc.Equals, script)
 }
 
 func (s *initSystemSuite) TestNewServiceEmptyConf(c *gc.C) {
@@ -292,6 +308,7 @@ func (s *initSystemSuite) TestUpdateConfigExtraScript(c *gc.C) {
 		Dirname:  dirname,
 		Script:   []byte(script),
 	})
+	// This gives us a more readable output if they aren't equal.
 	c.Check(string(s.service.Script), gc.Equals, script)
 	s.stub.CheckCalls(c, nil)
 }
@@ -324,10 +341,27 @@ func (s *initSystemSuite) TestUpdateConfigLogfile(c *gc.C) {
 	s.service.UpdateConfig(s.conf)
 
 	// TODO(ericsnow) The error return needs to be checked once there is one.
-	c.Check(s.service.Service.Conf, jc.DeepEquals, common.Conf{
-		Desc:      s.conf.Desc,
-		ExecStart: s.conf.ExecStart + " &> /var/log/juju/machine-0.log",
+
+	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
+	script := `
+exec > /var/log/juju/machine-0.log
+exec 2>&1
+` + jujud + " machine-0"
+	c.Check(s.service, jc.DeepEquals, &systemd.Service{
+		Service: common.Service{
+			Name: s.name,
+			Conf: common.Conf{
+				Desc:      s.conf.Desc,
+				ExecStart: dirname + "/exec-start.sh",
+			},
+		},
+		UnitName: s.name + ".service",
+		ConfName: s.name + ".service",
+		Dirname:  dirname,
+		Script:   []byte(script),
 	})
+	// This gives us a more readable output if they aren't equal.
+	c.Check(string(s.service.Script), gc.Equals, script)
 }
 
 func (s *initSystemSuite) TestUpdateConfigEmpty(c *gc.C) {
