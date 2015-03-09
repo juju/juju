@@ -28,7 +28,7 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	now := state.NowToTheSecond()
 	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoEnvUser: true})
 	createdBy := s.factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	envUser, err := s.State.AddEnvironmentUser(user.UserTag(), createdBy.UserTag())
+	envUser, err := s.State.AddEnvironmentUser(user.UserTag(), createdBy.UserTag(), "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(envUser.ID(), gc.Equals, fmt.Sprintf("%s:validusername@local", s.envTag.Id()))
@@ -50,15 +50,23 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	c.Assert(envUser.LastConnection(), gc.IsNil)
 }
 
+func (s *EnvUserSuite) TestAddEnvironmentDisplayName(c *gc.C) {
+	envUserDefault := s.factory.MakeEnvUser(c, nil)
+	c.Assert(envUserDefault.DisplayName(), gc.Matches, "display name-[0-9]*")
+
+	envUser := s.factory.MakeEnvUser(c, &factory.EnvUserParams{DisplayName: "Override user display name"})
+	c.Assert(envUser.DisplayName(), gc.Equals, "Override user display name")
+}
+
 func (s *EnvUserSuite) TestAddEnvironmentNoUserFails(c *gc.C) {
 	createdBy := s.factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	_, err := s.State.AddEnvironmentUser(names.NewLocalUserTag("validusername"), createdBy.UserTag())
+	_, err := s.State.AddEnvironmentUser(names.NewLocalUserTag("validusername"), createdBy.UserTag(), "")
 	c.Assert(err, gc.ErrorMatches, `user "validusername" does not exist locally: user "validusername" not found`)
 }
 
 func (s *EnvUserSuite) TestAddEnvironmentNoCreatedByUserFails(c *gc.C) {
 	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
-	_, err := s.State.AddEnvironmentUser(user.UserTag(), names.NewLocalUserTag("createdby"))
+	_, err := s.State.AddEnvironmentUser(user.UserTag(), names.NewLocalUserTag("createdby"), "")
 	c.Assert(err, gc.ErrorMatches, `createdBy user "createdby" does not exist locally: user "createdby" not found`)
 }
 
@@ -154,7 +162,7 @@ func (s *EnvUserSuite) newEnvWithUser(c *gc.C, name string, user names.UserTag) 
 	newEnv, err := envState.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = envState.AddEnvironmentUser(user, newEnv.Owner())
+	_, err = envState.AddEnvironmentUser(user, newEnv.Owner(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	return newEnv
 }

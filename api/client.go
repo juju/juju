@@ -517,7 +517,7 @@ func (c *Client) EnvironmentUUID() string {
 }
 
 // ShareEnvironment allows the given users access to the environment.
-func (c *Client) ShareEnvironment(users []names.UserTag) error {
+func (c *Client) ShareEnvironment(users ...names.UserTag) error {
 	var args params.ModifyEnvironUsers
 	for _, user := range users {
 		if &user != nil {
@@ -533,11 +533,18 @@ func (c *Client) ShareEnvironment(users []names.UserTag) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	for i, r := range result.Results {
+		if r.Error != nil && r.Error.Code == params.CodeAlreadyExists {
+			logger.Warningf("environment is already shared with %s", users[i].Username())
+			result.Results[i].Error = nil
+		}
+	}
 	return result.Combine()
 }
 
 // UnshareEnvironment removes access to the environment for the given users.
-func (c *Client) UnshareEnvironment(users []names.UserTag) error {
+func (c *Client) UnshareEnvironment(users ...names.UserTag) error {
 	var args params.ModifyEnvironUsers
 	for _, user := range users {
 		if &user != nil {
@@ -552,6 +559,13 @@ func (c *Client) UnshareEnvironment(users []names.UserTag) error {
 	err := c.facade.FacadeCall("ShareEnvironment", args, &result)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	for i, r := range result.Results {
+		if r.Error != nil && r.Error.Code == params.CodeNotFound {
+			logger.Warningf("environment was not previously shared with user %s", users[i].Username())
+			result.Results[i].Error = nil
+		}
 	}
 	return result.Combine()
 }
