@@ -542,6 +542,7 @@ func (s *Service) InstallCommands() ([]string, error) {
 	}
 
 	name := s.Name()
+	// TODO(ericsnow) Use s.Dirname?
 	dirname := "/tmp"
 
 	data, err := s.serialize()
