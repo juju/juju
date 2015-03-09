@@ -72,7 +72,7 @@ func (env *environ) instances() ([]instance.Instance, error) {
 	// whether or not we got an error.
 	var results []instance.Instance
 	for _, base := range instances {
-		inst := newInstance(&base, env)
+		inst := newInstance(base, env)
 		results = append(results, inst)
 	}
 

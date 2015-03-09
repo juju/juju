@@ -5,12 +5,13 @@ package vmware
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/common"
 )
 
 // PrecheckInstance verifies that the provided series and constraints
@@ -37,16 +38,27 @@ func (env *environ) SupportedArchitectures() ([]string, error) {
 	return archList, nil
 }
 
-var supportedArchitectures = common.SupportedArchitectures
-
 func (env *environ) lookupArchitectures() ([]string, error) {
 	// Create a filter to get all images from our region and for the
 	// correct stream.
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		Stream: env.Config().ImageStream(),
 	})
-	archList, err := supportedArchitectures(env, imageConstraint)
-	return archList, errors.Trace(err)
+	sources, err := environs.ImageMetadataSources(env)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	matchingImages, err := imageMetadataFetch(sources, imageConstraint)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var arches = set.NewStrings()
+	for _, im := range matchingImages {
+		arches.Add(im.Arch)
+	}
+
+	return arches.Values(), nil
 }
 
 var unsupportedConstraints = []string{

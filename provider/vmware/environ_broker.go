@@ -4,12 +4,10 @@
 package vmware
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/vmware/govmomi/vim25/mo"
-	"github.com/vmware/govmomi/vim25/types"
 
+	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -34,6 +32,9 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	}
 
 	img, err := findImageMetadata(env, args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := env.finishMachineConfig(args, img); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -42,6 +43,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	logger.Infof("started instance %q", raw.Name)
 	inst := newInstance(raw, env)
 
@@ -52,13 +54,13 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	return &result, nil
 }
 
-var newRawInstance = func(env *environ, args environs.StartInstanceParams, img *imagemetadata.ImageMetadata) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
+var newRawInstance = func(env *environ, args environs.StartInstanceParams, img *OvfFileMetadata) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
 	return env.newRawInstance(args, img)
 }
 
 // finishMachineConfig updates args.MachineConfig in place. Setting up
 // the API, StateServing, and SSHkeys information.
-func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *imagemetadata.ImageMetadata) error {
+func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *OvfFileMetadata) error {
 	envTools, err := args.Tools.Match(tools.Filter{Arch: img.Arch})
 	if err != nil {
 		return err
@@ -68,11 +70,25 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *
 	return environs.FinishMachineConfig(args.MachineConfig, env.Config())
 }
 
-var findImageMetadata = func(env *environ, args environs.StartInstanceParams) (*imagemetadata.ImageMetadata, error) {
+type OvfFileMetadata struct {
+	Url      string
+	Arch     string `json:"arch"`
+	Size     int    `json:"size"`
+	Path     string `json:"path"`
+	FileType string `json:"ftype"`
+	Sha256   string `json:"sha256"`
+	Md5      string `json:"md5"`
+}
+
+func init() {
+	simplestreams.RegisterStructTags(OvfFileMetadata{})
+}
+
+var findImageMetadata = func(env *environ, args environs.StartInstanceParams) (*OvfFileMetadata, error) {
 	return env.findImageMetadata(args)
 }
 
-func (env *environ) findImageMetadata(args environs.StartInstanceParams) (*imagemetadata.ImageMetadata, error) {
+func (env *environ) findImageMetadata(args environs.StartInstanceParams) (*OvfFileMetadata, error) {
 	arches := args.Tools.Arches()
 	series := args.Tools.OneSeries()
 	ic := &imagemetadata.ImageConstraint{
@@ -86,26 +102,65 @@ func (env *environ) findImageMetadata(args environs.StartInstanceParams) (*image
 		return nil, errors.Trace(err)
 	}
 
-	matchingImages, _, err := imageMetadataFetch(sources, ic, false)
+	matchingImages, err := imageMetadataFetch(sources, ic)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(matchingImages) == 0 {
-		return nil, errors.Errorf("No mathicng images found for given constraints")
+		return nil, errors.Errorf("No mathicng images found for given constraints: %v", ic)
 	}
 
 	return matchingImages[0], nil
 }
 
-var imageMetadataFetch = imagemetadata.Fetch
+var imageMetadataFetch = func(sources []simplestreams.DataSource, cons *imagemetadata.ImageConstraint) ([]*OvfFileMetadata, error) {
+	params := simplestreams.GetMetadataParams{
+		StreamsVersion:   imagemetadata.StreamsVersionV1,
+		OnlySigned:       false,
+		LookupConstraint: cons,
+		ValueParams: simplestreams.ValueParams{
+			DataType:      "image-downloads",
+			FilterFunc:    appendMatchingFunc,
+			ValueTemplate: OvfFileMetadata{},
+		},
+	}
+	items, _, err := simplestreams.GetMetadata(sources, params)
+	if err != nil {
+		return nil, err
+	}
+	metadata := make([]*OvfFileMetadata, len(items))
+	for i, md := range items {
+		metadata[i] = md.(*OvfFileMetadata)
+	}
+	return metadata, nil
+}
+
+var appendMatchingFunc = func(source simplestreams.DataSource, matchingImages []interface{},
+	images map[string]interface{}, cons simplestreams.LookupConstraint) []interface{} {
+
+	for _, val := range images {
+		file := val.(*OvfFileMetadata)
+		if file.FileType == "ovf" {
+			//ignore error for url data source
+			url, _ := source.URL(file.Path)
+			file.Url = url
+			matchingImages = append(matchingImages, file)
+		}
+	}
+	return matchingImages
+}
 
 // newRawInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
-func (env *environ) newRawInstance(args environs.StartInstanceParams, img *imagemetadata.ImageMetadata) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
+func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvfFileMetadata) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
 	machineID := common.MachineFullName(env, args.MachineConfig.MachineId)
 
-	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
+	config := coreCloudinit.New()
+	config.SetAptUpdate(true)
+	config.SetAptUpgrade(true)
+	config.AddPackage("open-vm-tools")
+	userData, err := environs.ComposeUserData(args.MachineConfig, config)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "cannot make user data")
 	}
@@ -128,18 +183,6 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *image
 		mem = *args.Constraints.Mem
 	}
 
-	instSpec := types.VirtualMachineConfigSpec{
-		Name:     machineID,
-		Files:    &types.VirtualMachineFileInfo{VmPathName: fmt.Sprintf("[%s]", env.client.datastore.Name())},
-		NumCPUs:  int(cpuCores),
-		MemoryMB: int64(mem),
-		CpuAllocation: &types.ResourceAllocationInfo{
-			Limit:       int64(cpuPower),
-			Reservation: int64(cpuPower),
-		},
-	}
-
-	inst, err := env.client.CreateInstance(instSpec, img.Id, int64(rootDisk), userData)
 	hwc := &instance.HardwareCharacteristics{
 		Arch:     &img.Arch,
 		Mem:      &mem,
@@ -147,6 +190,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *image
 		CpuPower: &cpuPower,
 		RootDisk: &rootDisk,
 	}
+	inst, err := env.client.CreateInstance(machineID, hwc, img, userData, args.MachineConfig.AuthorizedKeys)
 	return inst, hwc, err
 }
 
