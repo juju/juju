@@ -4,8 +4,6 @@
 package storage
 
 import (
-	"sync"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v4/hooks"
@@ -16,6 +14,7 @@ import (
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 // storageSource is a hook source that generates storage hooks for
@@ -24,6 +23,7 @@ type storageSource struct {
 	tomb tomb.Tomb
 
 	*storageHookQueue
+	st      StorageAccessor
 	watcher apiwatcher.NotifyWatcher
 	changes chan hook.SourceChange
 }
@@ -31,7 +31,6 @@ type storageSource struct {
 // storageHookQueue implements a subset of hook.Source, separated from
 // storageSource for simpler testing.
 type storageHookQueue struct {
-	st         StorageAccessor
 	unitTag    names.UnitTag
 	storageTag names.StorageTag
 
@@ -42,10 +41,7 @@ type storageHookQueue struct {
 	// hookInfo is the next hook.Info to return, if non-nil.
 	hookInfo *hook.Info
 
-	mu sync.Mutex
-	// context is the most recently retrieved details of the
-	// storage attachment, or nil if none has been retrieved
-	// or the storage attachment is no longer of interest.
+	// context contains the details of the storage attachment.
 	context *contextStorage
 }
 
@@ -63,14 +59,11 @@ func newStorageSource(
 	}
 	s := &storageSource{
 		storageHookQueue: &storageHookQueue{
-			st:         st,
 			unitTag:    unitTag,
 			storageTag: storageTag,
 			attached:   attached,
-			context: &contextStorage{
-				tag: storageTag,
-			},
 		},
+		st:      st,
 		watcher: w,
 		changes: make(chan hook.SourceChange),
 	}
@@ -144,7 +137,7 @@ func (s *storageSource) update() error {
 		logger.Debugf("error refreshing storage details: %v", err)
 		return errors.Annotate(err, "refreshing storage details")
 	}
-	return s.storageHookQueue.update(attachment)
+	return s.storageHookQueue.Update(attachment)
 }
 
 // Empty is part of the hook.Source interface.
@@ -171,11 +164,18 @@ func (s *storageHookQueue) Pop() {
 	s.hookInfo = nil
 }
 
-// update updates the hook queue with the freshly acquired information about
+// Update updates the hook queue with the freshly acquired information about
 // the storage attachment.
-func (s *storageHookQueue) update(attachment params.StorageAttachment) error {
+func (s *storageHookQueue) Update(attachment params.StorageAttachment) error {
 	switch attachment.Life {
 	case params.Alive:
+		if s.attached {
+			// Storage attachments currently do not change
+			// (apart from lifecycle) after being provisioned.
+			// We don't process unprovisioned storage here,
+			// so there's nothing to do.
+			return nil
+		}
 	case params.Dying:
 		if !s.attached {
 			// Nothing to do: attachment is dying, but
@@ -188,11 +188,20 @@ func (s *storageHookQueue) update(attachment params.StorageAttachment) error {
 		// Storage must been Dying to become Dead;
 		// no further action is required.
 		return nil
-	default:
-		return errors.Errorf("unknown lifecycle state %q", attachment.Life)
 	}
 
-	s.updateContext(attachment)
+	// Set the storage context when the first hook is generated
+	// for this storager. Later, when we need to handle changing
+	// storage, we'll need to have a cache in the runner like
+	// we have for relations.
+	if s.context == nil {
+		s.context = &contextStorage{
+			tag:      s.storageTag,
+			kind:     storage.StorageKind(attachment.Kind),
+			location: attachment.Location,
+		}
+	}
+
 	if s.hookInfo == nil {
 		s.hookInfo = &hook.Info{
 			StorageId: s.storageTag.Id(),
@@ -208,16 +217,9 @@ func (s *storageHookQueue) update(attachment params.StorageAttachment) error {
 	return nil
 }
 
-func (s *storageHookQueue) updateContext(attachment params.StorageAttachment) {
-	s.mu.Lock()
-	s.context.kind = storage.StorageKind(attachment.Kind)
-	s.context.location = attachment.Location
-	s.mu.Unlock()
-}
-
-func (s *storageHookQueue) copyContext() *contextStorage {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	ctx := *s.context
-	return &ctx
+func (s *storageHookQueue) Context() jujuc.ContextStorage {
+	if s.context == nil {
+		panic("no hooks have been queued")
+	}
+	return s.context
 }

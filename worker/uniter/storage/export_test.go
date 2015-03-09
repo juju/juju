@@ -6,12 +6,22 @@ package storage
 import (
 	"github.com/juju/names"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type State interface {
 	hook.Committer
 	hook.Validator
+}
+
+type StorageHookQueue interface {
+	Empty() bool
+	Next() hook.Info
+	Pop()
+	Update(attachment params.StorageAttachment) error
+	Context() jujuc.ContextStorage
 }
 
 func StateAttached(s State) bool {
@@ -33,4 +43,16 @@ func ReadAllStateFiles(dirPath string) (map[names.StorageTag]State, error) {
 		states[tag] = f
 	}
 	return states, nil
+}
+
+func NewStorageHookQueue(
+	unitTag names.UnitTag,
+	storageTag names.StorageTag,
+	attached bool,
+) StorageHookQueue {
+	return &storageHookQueue{
+		unitTag:    unitTag,
+		storageTag: storageTag,
+		attached:   attached,
+	}
 }

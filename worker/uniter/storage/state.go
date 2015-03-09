@@ -126,11 +126,11 @@ func (d *stateFile) Ensure() error {
 	return os.MkdirAll(d.path, 0755)
 }
 
-// Write atomically writes to disk the storage state change in hi.
+// CommitHook atomically writes to disk the storage state change in hi.
 // It must be called after the respective hook was executed successfully.
 // CommitHook doesn't validate hi but guarantees that successive writes
 // of the same hi are idempotent.
-func (d *stateFile) Write(hi hook.Info) (err error) {
+func (d *stateFile) CommitHook(hi hook.Info) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to write %q hook info for %q on state directory", hi.Kind, hi.StorageId)
 	if hi.Kind == hooks.StorageDetached { // TODO(axw) should be detaching
 		return d.Remove()

@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type storager struct {
@@ -51,8 +52,8 @@ func (s *storager) Stop() error {
 	return s.source.Stop()
 }
 
-func (s *storager) Context() *contextStorage {
-	return s.source.copyContext()
+func (s *storager) Context() jujuc.ContextStorage {
+	return s.source.Context()
 }
 
 func (s *storager) CommitHook(hi hook.Info) error {
