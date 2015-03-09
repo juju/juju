@@ -127,15 +127,12 @@ func PruneLogs(st *State, minLogTime time.Time, maxLogsBytes int) error {
 		if err != nil {
 			return errors.Annotate(err, "log count query failed")
 		}
-
-		// Determine how many logs to remove for the environment. The
-		// oldest 1% (at least 100) will be removed. The minimum,
-		// ensures that the target logs collection size is reached
-		// more quickly, avoiding excessive cycles through this loop.
-		toRemove := int(float64(count) * 0.01)
-		if toRemove < 100 {
-			toRemove = 100
+		if count < 5000 {
+			break // Pruning is not worthwhile
 		}
+
+		// Remove the oldest 1% of log records for the environment.
+		toRemove := int(float64(count) * 0.01)
 
 		// Find the threshold timestammp to start removing from.
 		// NOTE: this assumes that there are no more logs being added
@@ -159,7 +156,6 @@ func PruneLogs(st *State, minLogTime time.Time, maxLogsBytes int) error {
 		if err != nil {
 			return errors.Annotate(err, "log pruning failed")
 		}
-
 		pruneCounts[envUUID] += removeInfo.Removed
 	}
 

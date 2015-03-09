@@ -110,41 +110,27 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 	// Set up 3 environments and generate different amounts of logs
 	// for them.
 	now := time.Now().Truncate(time.Millisecond)
-	generateLogs := func(st *state.State, count int) {
-		dbLogger := state.NewDbLogger(st, names.NewMachineTag("0"))
-		defer dbLogger.Close()
-		for i := 0; i < count; i++ {
-			ts := now.Add(-time.Duration(i) * time.Second)
-			err := dbLogger.Log(ts, "module", "loc", loggo.INFO, "message")
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
 
 	s0 := s.State
-	generateLogs(s0, 10)
+	s.generateLogs(c, s0, now, 10)
 
 	s1 := s.factory.MakeEnvironment(c, nil)
 	defer s1.Close()
-	generateLogs(s1, 1000)
+	s.generateLogs(c, s1, now, 6000)
 
 	s2 := s.factory.MakeEnvironment(c, nil)
 	defer s2.Close()
-	generateLogs(s2, 2000)
+	s.generateLogs(c, s2, now, 7000)
 
 	// Prune logs collection back by size.
-	tsNoPrune := time.Now().Add(-24 * time.Hour)
-	err := state.PruneLogs(s.State, tsNoPrune, int(3e5))
+	tsNoPrune := time.Now().Add(-3 * 24 * time.Hour)
+	err := state.PruneLogs(s.State, tsNoPrune, 2500000)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check logs were pruned as expected.
-	countLogs := func(st *state.State) int {
-		count, err := s.logsColl.Find(bson.M{"e": st.EnvironUUID()}).Count()
-		c.Assert(err, jc.ErrorIsNil)
-		return count
-	}
-	c.Assert(countLogs(s0), gc.Equals, 10)  // Not touched
-	c.Assert(countLogs(s1), gc.Equals, 600) // Evenly truncated
-	c.Assert(countLogs(s2), gc.Equals, 600) // Evenly truncated
+	c.Assert(s.countLogs(c, s0), gc.Equals, 10) // Not touched
+	s.assertLogCountBetween(c, s1, 5100, 5200)  // Should be fairly evenly truncated.
+	s.assertLogCountBetween(c, s2, 5100, 5200)
 
 	// Ensure that the latest log records are still there.
 	assertLatestTs := func(st *state.State) {
@@ -156,4 +142,42 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 	assertLatestTs(s0)
 	assertLatestTs(s1)
 	assertLatestTs(s2)
+}
+
+func (s *LogsSuite) TestPruneLogsWithSmallSizeThreshold(c *gc.C) {
+	// Check behaviour with an unlikely and pathological collection
+	// size limit. Previous implementations of PruneLogs could error
+	// out in this situation.
+
+	now := time.Now()
+	s.generateLogs(c, s.State, now, 6000)
+
+	tsNoPrune := now.Add(-3 * 24 * time.Hour)
+	tinySize := 100
+	err := state.PruneLogs(s.State, tsNoPrune, tinySize)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertLogCountBetween(c, s.State, 4900, 5000)
+}
+
+func (s *LogsSuite) generateLogs(c *gc.C, st *state.State, now time.Time, count int) {
+	dbLogger := state.NewDbLogger(st, names.NewMachineTag("0"))
+	defer dbLogger.Close()
+	for i := 0; i < count; i++ {
+		ts := now.Add(-time.Duration(i) * time.Second)
+		err := dbLogger.Log(ts, "module", "loc", loggo.INFO, "message")
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
+func (s *LogsSuite) assertLogCountBetween(c *gc.C, st *state.State, min, max int) {
+	count := s.countLogs(c, st)
+	c.Assert(count, jc.LessThan, max)
+	c.Assert(count, jc.GreaterThan, min)
+}
+
+func (s *LogsSuite) countLogs(c *gc.C, st *state.State) int {
+	count, err := s.logsColl.Find(bson.M{"e": st.EnvironUUID()}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	return count
 }
