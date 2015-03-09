@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 )
@@ -34,6 +36,14 @@ type FactorySuite struct {
 
 var _ = gc.Suite(&FactorySuite{})
 
+type fakeTracker struct {
+	leadership.Tracker
+}
+
+func (fakeTracker) ServiceName() string {
+	return "service-name"
+}
+
 func (s *FactorySuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
@@ -43,6 +53,7 @@ func (s *FactorySuite) SetUpTest(c *gc.C) {
 	factory, err := runner.NewFactory(
 		s.uniter,
 		s.unit.Tag().(names.UnitTag),
+		fakeTracker{},
 		s.getRelationInfos,
 		s.paths,
 	)
@@ -311,6 +322,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	factory, err := runner.NewFactory(
 		uniter,
 		unit.Tag().(names.UnitTag),
+		fakeTracker{},
 		s.getRelationInfos,
 		s.paths,
 	)
@@ -626,4 +638,67 @@ func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "action no longer available")
 	c.Check(err, gc.Equals, runner.ErrActionNotAvailable)
+}
+
+func (s *FactorySuite) testLeadershipContextWiring(c *gc.C, createRunner func() runner.Runner) {
+	stub := &testing.Stub{
+		Errors: []error{errors.New("bam")},
+	}
+	restore := runner.PatchNewLeadershipContext(
+		func(accessor runner.LeadershipSettingsAccessor, tracker leadership.Tracker) runner.LeadershipContext {
+			stub.AddCall("NewLeadershipContext", accessor, tracker)
+			return &StubLeadershipContext{Stub: stub}
+		},
+	)
+	defer restore()
+
+	rnr := createRunner()
+	isLeader, err := rnr.Context().IsLeader()
+	c.Check(err, gc.ErrorMatches, "bam")
+	c.Check(isLeader, jc.IsFalse)
+
+	stub.CheckCalls(c, []testing.StubCall{{
+		FuncName: "NewLeadershipContext",
+		Args:     []interface{}{s.uniter.LeadershipSettings, fakeTracker{}},
+	}, {
+		FuncName: "IsLeader",
+	}})
+
+}
+
+func (s *FactorySuite) TestNewHookRunnerLeadershipContext(c *gc.C) {
+	s.testLeadershipContextWiring(c, func() runner.Runner {
+		rnr, err := s.factory.NewHookRunner(hook.Info{Kind: hooks.ConfigChanged})
+		c.Assert(err, jc.ErrorIsNil)
+		return rnr
+	})
+}
+
+func (s *FactorySuite) TestNewActionRunnerLeadershipContext(c *gc.C) {
+	s.testLeadershipContextWiring(c, func() runner.Runner {
+		s.SetCharm(c, "dummy")
+		action, err := s.State.EnqueueAction(s.unit.Tag(), "snapshot", nil)
+		c.Assert(err, jc.ErrorIsNil)
+		rnr, err := s.factory.NewActionRunner(action.Id())
+		c.Assert(err, jc.ErrorIsNil)
+		return rnr
+	})
+}
+
+func (s *FactorySuite) TestNewCommandRunnerLeadershipContext(c *gc.C) {
+	s.testLeadershipContextWiring(c, func() runner.Runner {
+		rnr, err := s.factory.NewCommandRunner(runner.CommandInfo{RelationId: -1})
+		c.Assert(err, jc.ErrorIsNil)
+		return rnr
+	})
+}
+
+type StubLeadershipContext struct {
+	runner.LeadershipContext
+	*testing.Stub
+}
+
+func (stub *StubLeadershipContext) IsLeader() (bool, error) {
+	stub.MethodCall(stub, "IsLeader")
+	return false, stub.NextErr()
 }

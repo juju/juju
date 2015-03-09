@@ -42,6 +42,9 @@ type HookContext struct {
 	// not fully there yet.
 	state *uniter.State
 
+	// LeadershipContext supplies several jujuc.Context methods.
+	LeadershipContext
+
 	// privateAddress is the cached value of the unit's private
 	// address.
 	privateAddress string
@@ -251,18 +254,6 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 		result[name] = value
 	}
 	return result, nil
-}
-
-func (ctx *HookContext) IsLeader() (bool, error) {
-	return false, errors.NotImplementedf("IsLeader")
-}
-
-func (ctx *HookContext) LeaderSettings() (params.Settings, error) {
-	return nil, errors.NotImplementedf("IsLeader")
-}
-
-func (ctx *HookContext) WriteLeaderSettings(_ params.Settings) error {
-	return errors.NotImplementedf("IsLeader")
 }
 
 // ActionName returns the name of the action.

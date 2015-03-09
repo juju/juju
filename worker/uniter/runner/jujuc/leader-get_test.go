@@ -10,7 +10,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -165,7 +164,7 @@ type leaderGetContext struct {
 	err      error
 }
 
-func (c *leaderGetContext) LeaderSettings() (params.Settings, error) {
+func (c *leaderGetContext) LeaderSettings() (map[string]string, error) {
 	c.called = true
 	return c.settings, c.err
 }

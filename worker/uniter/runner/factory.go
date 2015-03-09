@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
@@ -55,6 +56,7 @@ type RelationsFunc func() map[int]*RelationInfo
 func NewFactory(
 	state *uniter.State,
 	unitTag names.UnitTag,
+	tracker leadership.Tracker,
 	getRelationInfos RelationsFunc,
 	paths Paths,
 ) (
@@ -83,6 +85,7 @@ func NewFactory(
 	return &factory{
 		unit:             unit,
 		state:            state,
+		tracker:          tracker,
 		paths:            paths,
 		envUUID:          environment.UUID(),
 		envName:          environment.Name(),
@@ -96,8 +99,9 @@ func NewFactory(
 
 type factory struct {
 	// API connection fields; unit should be deprecated, but isn't yet.
-	unit  *uniter.Unit
-	state *uniter.State
+	unit    *uniter.Unit
+	state   *uniter.State
+	tracker leadership.Tracker
 
 	// Fields that shouldn't change in a factory's lifetime.
 	paths      Paths
@@ -232,9 +236,14 @@ func (f *factory) newId(name string) string {
 
 // coreContext creates a new context with all unspecialised fields filled in.
 func (f *factory) coreContext() (*HookContext, error) {
+	leadershipContext := newLeadershipContext(
+		f.state.LeadershipSettings,
+		f.tracker,
+	)
 	ctx := &HookContext{
 		unit:               f.unit,
 		state:              f.state,
+		LeadershipContext:  leadershipContext,
 		uuid:               f.envUUID,
 		envName:            f.envName,
 		unitName:           f.unit.Name(),
