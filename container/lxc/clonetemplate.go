@@ -96,6 +96,7 @@ func containerInitSystem(series string) (string, error) {
 	if !ok {
 		return "", errors.NotFoundf("init system for series %q", series)
 	}
+	logger.Debugf("using init system %q for shutdown script", initSystem)
 	return initSystem, nil
 }
 

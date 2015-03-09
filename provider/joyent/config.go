@@ -118,6 +118,17 @@ var configDefaults = schema.Defaults{
 	privateKey:     schema.Omit,
 }
 
+var requiredFields = []string{
+	sdcUrl,
+	mantaUrl,
+	algorithm,
+	sdcUser,
+	sdcKeyId,
+	mantaUser,
+	mantaKeyId,
+	// privatekey and privatekeypath are handled separately
+}
+
 var configSecretFields = []string{
 	sdcUser,
 	sdcKeyId,
@@ -195,7 +206,7 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	}
 
 	// Check for missing fields.
-	for field := range configFields {
+	for _, field := range requiredFields {
 		if nilOrEmptyString(envConfig.attrs[field]) {
 			return nil, fmt.Errorf("%s: must not be empty", field)
 		}

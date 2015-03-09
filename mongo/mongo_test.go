@@ -175,13 +175,13 @@ func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
 	s.data.SetStatus(mongo.ServiceName(namespace), "running")
-	s.data.SetErrors(nil, nil, errors.New("shouldn't be called"))
+	s.data.SetErrors(nil, nil, nil, errors.New("shouldn't be called"))
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.data.Installed, gc.HasLen, 0)
-	s.data.CheckCallNames(c, "Exists", "Running")
+	s.data.CheckCallNames(c, "Installed", "Exists", "Running")
 }
 
 func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
@@ -196,7 +196,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.data.Installed, gc.HasLen, 0)
-	s.data.CheckCallNames(c, "Exists", "Running", "Start")
+	s.data.CheckCallNames(c, "Installed", "Exists", "Running", "Start")
 }
 
 func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
@@ -207,13 +207,13 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
 
 	s.data.SetStatus(mongo.ServiceName(namespace), "installed")
 	failure := errors.New("won't start")
-	s.data.SetErrors(nil, nil, failure) // Exists, Running, Running, Start
+	s.data.SetErrors(nil, nil, nil, failure) // Installed, Exists, Running, Running, Start
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	c.Check(s.data.Installed, gc.HasLen, 0)
-	s.data.CheckCallNames(c, "Exists", "Running", "Start")
+	s.data.CheckCallNames(c, "Installed", "Exists", "Running", "Start")
 }
 
 func (s *MongoSuite) TestEnsureServerNumaCtl(c *gc.C) {
@@ -246,8 +246,7 @@ func (s *MongoSuite) testEnsureServerNumaCtl(c *gc.C, setNumaPolicy bool) string
 			c.Assert(service.Conf().ExtraScript, gc.Equals, "")
 		}
 		c.Assert(service.Conf().ExecStart, gc.Matches, ".*"+regexp.QuoteMeta(s.mongodPath)+".*")
-		// TODO(nate) set Out so that mongod output goes somewhere useful?
-		c.Assert(service.Conf().Output, gc.Equals, "")
+		c.Assert(service.Conf().Logfile, gc.Equals, "")
 	}
 	assertInstalled()
 	return dataDir
@@ -300,13 +299,13 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 	namespace := "namespace"
 
 	s.data.SetStatus(mongo.ServiceName(namespace), "running")
-	s.data.SetErrors(nil, nil, errors.New("shouldn't be called"))
+	s.data.SetErrors(nil, nil, nil, errors.New("shouldn't be called"))
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.data.Installed, gc.HasLen, 0)
-	s.data.CheckCallNames(c, "Exists", "Running")
+	s.data.CheckCallNames(c, "Installed", "Exists", "Running")
 
 	// We still attempt to install mongodb, despite the service existing.
 	cmds := getMockShellCalls(c, output)

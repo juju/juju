@@ -4,6 +4,7 @@
 package common
 
 import (
+	"reflect"
 	"strings"
 
 	"github.com/juju/errors"
@@ -40,24 +41,19 @@ type Conf struct {
 	// The path to the executable must be absolute.
 	ExecStopPost string
 
-	// TODO(ericsnow) Rename "Output" to "Logfile".
-
-	// Output, if set, indicates where the service's output should be
-	// sent. How that is interpreted depends on the init system. Some
-	// accept paths to files while others only support certain identifiers.
-	Output string
-
-	// TODO(ericsnow) Eliminate InitDir.
-
-	// InitDir is the folder in which the init script should be written
-	// defaults to "/etc/init" on Ubuntu
-	// Currently not used on Windows
-	InitDir string
+	// Logfile, if set, indicates where the service's output should be
+	// written.
+	Logfile string
 
 	// TODO(ericsnow) Turn ExtraScript into ExecStartPre.
 
 	// ExtraScript allows to insert script before command execution.
 	ExtraScript string
+}
+
+// IsZero determines whether or not the conf is a zero value.
+func (c Conf) IsZero() bool {
+	return reflect.DeepEqual(c, Conf{})
 }
 
 // Validate checks the conf's values for correctness.

@@ -54,26 +54,18 @@ type Service interface {
 	// UpdateConfig adds a config to the service, overwriting the current one.
 	UpdateConfig(conf common.Conf)
 
-	// TODO(ericsnow) bug #1426461
-	// Running, Installed, and Exists should return errors.
-
 	// Running returns a boolean value that denotes
 	// whether or not the service is running.
-	Running() bool
+	Running() (bool, error)
 
 	// Exists returns whether the service configuration exists in the
 	// init directory with the same content that this Service would have
 	// if installed.
-	Exists() bool
+	Exists() (bool, error)
 
 	// Installed will return a boolean value that denotes
 	// whether or not the service is installed.
-	Installed() bool
-
-	// TODO(ericsnow) Eliminate StopAndRemove.
-
-	// StopAndRemove will stop the service and remove it.
-	StopAndRemove() error
+	Installed() (bool, error)
 
 	// TODO(ericsnow) Move all the commands into a separate interface.
 
@@ -104,7 +96,7 @@ func NewService(name string, conf common.Conf, initSystem string) (Service, erro
 	case InitSystemSystemd:
 		svc, err := systemd.NewService(name, conf)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "failed to wrap service %q", name)
 		}
 		return svc, nil
 	default:
@@ -113,7 +105,7 @@ func NewService(name string, conf common.Conf, initSystem string) (Service, erro
 }
 
 // ListServices lists all installed services on the running system
-func ListServices(initDir string) ([]string, error) {
+func ListServices() ([]string, error) {
 	initName, ok := VersionInitSystem(version.Current)
 	if !ok {
 		return nil, errors.NotFoundf("init system on local host")
@@ -123,19 +115,19 @@ func ListServices(initDir string) ([]string, error) {
 	case InitSystemWindows:
 		services, err := windows.ListServices()
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotatef(err, "failed to list %s services", initName)
 		}
 		return services, nil
 	case InitSystemUpstart:
-		services, err := upstart.ListServices(initDir)
+		services, err := upstart.ListServices()
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotatef(err, "failed to list %s services", initName)
 		}
 		return services, nil
 	case InitSystemSystemd:
 		services, err := systemd.ListServices()
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotatef(err, "failed to list %s services", initName)
 		}
 		return services, nil
 	default:
@@ -180,6 +172,10 @@ func InstallAndStart(svc ServiceActions) error {
 	// realise that the service has been installed.
 	var err error
 	for attempt := InstallStartRetryAttempts.Start(); attempt.Next(); {
+		if err != nil {
+			logger.Errorf("retrying start request (%v)", errors.Cause(err))
+		}
+
 		if err = svc.Start(); err == nil {
 			break
 		}

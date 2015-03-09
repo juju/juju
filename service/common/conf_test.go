@@ -17,6 +17,23 @@ type confSuite struct {
 
 var _ = gc.Suite(&confSuite{})
 
+func (*confSuite) TestIsZeroTrue(c *gc.C) {
+	var conf common.Conf
+	isZero := conf.IsZero()
+
+	c.Check(isZero, jc.IsTrue)
+}
+
+func (*confSuite) TestIsZero(c *gc.C) {
+	conf := common.Conf{
+		Desc:      "some service",
+		ExecStart: "/path/to/some-command a b c",
+	}
+	isZero := conf.IsZero()
+
+	c.Check(isZero, jc.IsFalse)
+}
+
 func (*confSuite) TestValidateOkay(c *gc.C) {
 	conf := common.Conf{
 		Desc:      "some service",

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"runtime"
 	"strings"
 
@@ -53,6 +54,10 @@ func VersionInitSystem(vers version.Binary) (string, bool) {
 		switch vers.Series {
 		case "precise", "quantal", "raring", "saucy", "trusty", "utopic":
 			return InitSystemUpstart, true
+		// TODO(ericsnow) Remove the vivid special-case once it starts
+		// booting with systemd.
+		case "vivid":
+			return InitSystemUpstart, true
 		case "":
 			return "", false
 		default:
@@ -74,6 +79,82 @@ func VersionInitSystem(vers version.Binary) (string, bool) {
 // system executable on linux.
 const pid1 = "/proc/1/cmdline"
 
+// These exist to allow patching during tests.
+var (
+	runtimeOS = runtime.GOOS
+	pid1File  = pid1
+)
+
+func discoverLocalInitSystem() (string, error) {
+	if runtimeOS == "windows" {
+		return InitSystemWindows, nil
+	}
+
+	data, err := ioutil.ReadFile(pid1File)
+	if os.IsNotExist(err) {
+		return "", errors.NotFoundf("init system (via %q)", pid1File)
+	}
+	if err != nil {
+		return "", errors.Annotatef(err, "failed to identify init system (via %q)", pid1File)
+	}
+	executable := strings.Split(string(data), "\x00")[0]
+
+	initName, ok := identifyInitSystem(executable)
+	if !ok {
+		return "", errors.NotFoundf("init system (based on %q)", executable)
+	}
+	logger.Debugf("discovered init system %q from executable %q", initName, executable)
+	return initName, nil
+}
+
+func identifyInitSystem(executable string) (string, bool) {
+	initSystem, ok := identifyExecutable(executable)
+	if ok {
+		return initSystem, true
+	}
+
+	if _, err := os.Stat(executable); os.IsNotExist(err) {
+		return "", false
+	} else if err != nil {
+		logger.Errorf("failed to find %q: %v", executable, err)
+		// The stat check is just an optimization so we go on anyway.
+	}
+
+	// TODO(ericsnow) First fall back to following symlinks?
+
+	// Fall back to checking the "version" text.
+	cmd := exec.Command(executable, "--version")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		logger.Errorf(`"%s --version" failed (%v): %s`, executable, err, out)
+		return "", false
+	}
+
+	verText := string(out)
+	switch {
+	case strings.Contains(verText, "upstart"):
+		return InitSystemUpstart, true
+	case strings.Contains(verText, "systemd"):
+		return InitSystemSystemd, true
+	}
+
+	// uh-oh
+	return "", false
+}
+
+func identifyExecutable(executable string) (string, bool) {
+	switch {
+	case strings.Contains(executable, "upstart"):
+		return InitSystemUpstart, true
+	case strings.Contains(executable, "systemd"):
+		return InitSystemSystemd, true
+	default:
+		return "", false
+	}
+}
+
+// TODO(ericsnow) Synchronize newShellSelectCommand with discoverLocalInitSystem.
+
 type initSystem struct {
 	executable string
 	name       string
@@ -88,44 +169,6 @@ var linuxExecutables = []initSystem{
 	{"/sbin/systemd", InitSystemSystemd},
 	{"/bin/systemd", InitSystemSystemd},
 	{"/lib/systemd/systemd", InitSystemSystemd},
-}
-
-func identifyInitSystem(executable string) (string, bool) {
-	for _, initSystem := range linuxExecutables {
-		if executable == initSystem.executable {
-			return initSystem.name, true
-		}
-	}
-	return "", false
-}
-
-// These exist to allow patching during tests.
-var (
-	runtimeOS = runtime.GOOS
-	pid1File  = pid1
-)
-
-func discoverLocalInitSystem() (string, error) {
-	if runtimeOS == "windows" {
-		return InitSystemWindows, nil
-	}
-
-	data, err := ioutil.ReadFile(pid1File)
-	if os.IsNotExist(err) {
-		return "", errors.NotFoundf("init system")
-	}
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	out := strings.Trim(strings.TrimSpace(string(data)), "\x00")
-	executable := strings.Fields(out)[0]
-
-	initName, ok := identifyInitSystem(executable)
-	if !ok {
-		return "", errors.NotFoundf("init system (based on %q)", executable)
-	}
-	logger.Debugf("discovered init system %q from executable %q", initName, executable)
-	return initName, nil
 }
 
 // TODO(ericsnow) Is it too much to cat once for each executable?
