@@ -19,7 +19,8 @@ const (
 	maxFiles = 65000
 	maxProcs = 20000
 
-	serviceName = "juju-db"
+	serviceName    = "juju-db"
+	serviceTimeout = 300 // 5 minutes
 
 	// SharedSecretFile is the name of the Mongo shared secret file
 	// located within the Juju data directory.
@@ -126,7 +127,7 @@ func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCt
 			"nofile": maxFiles,
 			"nproc":  maxProcs,
 		},
-		Timeout:     300,
+		Timeout:     serviceTimeout,
 		ExtraScript: extraScript,
 		ExecStart:   mongoCmd,
 	}

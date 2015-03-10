@@ -20,6 +20,8 @@ import (
 
 const (
 	maxAgentFiles = 20000
+
+	agentServiceTimeout = 300 // 5 minutes
 )
 
 // TODO(ericsnow) Factor out the common parts between the two helpers.
@@ -62,7 +64,7 @@ func MachineAgentConf(machineID, dataDir, logDir, os string) (common.Conf, strin
 		Limit: map[string]int{
 			"nofile": maxAgentFiles,
 		},
-		Timeout: 300,
+		Timeout: agentServiceTimeout,
 	}
 
 	return conf, toolsDir
@@ -109,7 +111,7 @@ func UnitAgentConf(unitName, dataDir, logDir, os, containerType string) (common.
 		ExecStart: cmd,
 		Logfile:   logFile,
 		Env:       envVars,
-		Timeout:   300,
+		Timeout:   agentServiceTimeout,
 	}
 
 	return conf, toolsDir
