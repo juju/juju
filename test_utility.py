@@ -18,6 +18,7 @@ from utility import (
     find_candidates,
     get_auth_token,
     get_candidates_path,
+    get_deb_arch,
     temp_dir,
     until_timeout,
     wait_for_port,
@@ -205,3 +206,13 @@ class TestWaitForPort(TestCase):
             call('asdf', 26, socket.AF_INET, socket.SOCK_STREAM),
             ])
         self.assertEqual(socket_mock.call_count, 0)
+
+
+class TestGetDebArch(TestCase):
+
+    def test_get_deb_arch(self):
+        with patch('subprocess.check_output',
+                   return_value=' amd42 \n') as co_mock:
+            arch = get_deb_arch()
+        co_mock.assert_called_once_with(['dpkg', '--print-architecture'])
+        self.assertEqual(arch, 'amd42')

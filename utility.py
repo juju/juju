@@ -220,3 +220,8 @@ def find_candidates(root_dir):
         if stat.st_mtime < a_week_ago:
             continue
         yield candidate_path
+
+
+def get_deb_arch():
+    """Get the debian machine architecture."""
+    return subprocess.check_output(['dpkg', '--print-architecture']).strip()

@@ -22,6 +22,7 @@ from jujuci import (
     PUBLISH_REVISION
 )
 from utility import (
+    get_deb_arch,
     s3_cmd,
     temp_dir,
 )
@@ -107,7 +108,7 @@ def get_artifact_dirs(path):
 def get_package(artifacts_path, version):
     """Return the path to the expected juju-core package for the localhost."""
     release = subprocess.check_output(['lsb_release', '-sr']).strip()
-    arch = subprocess.check_output(['dpkg', '--print-architecture']).strip()
+    arch = get_deb_arch()
     package_name = 'juju-core_{}-0ubuntu1~{}.1~juju1_{}.deb'.format(
         version, release, arch)
     package_path = os.path.join(artifacts_path, package_name)
