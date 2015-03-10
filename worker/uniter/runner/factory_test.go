@@ -19,6 +19,7 @@ import (
 	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -46,7 +47,7 @@ func (fakeTracker) ServiceName() string {
 }
 
 func (s *FactorySuite) SetUpTest(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	s.HookContextSuite.SetUpTest(c)
 	s.paths = NewRealPaths(c)
@@ -334,7 +335,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	rnr, err := factory.NewHookRunner(hook.Info{
 		Kind:      hooks.StorageAttached,

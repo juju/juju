@@ -49,7 +49,7 @@ type mockVolumeAccessor struct {
 	provisioned        map[string]params.Volume
 	done               chan struct{}
 	// If SetVolumeInfo is called with expectedVolumes, then the
-	// volume creation s as expected and the done channel is closed.
+	// volume creation is as expected and the done channel is closed.
 	expectedVolumes []params.Volume
 }
 

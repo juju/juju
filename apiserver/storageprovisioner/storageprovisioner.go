@@ -127,13 +127,13 @@ func (s *StorageProvisionerAPI) WatchVolumes(args params.Entities) (params.Strin
 	for i, arg := range args.Entities {
 		var result params.StringsWatchResult
 		id, changes, err := one(arg)
+		results.Results[i] = result
 		if err != nil {
 			result.Error = common.ServerError(err)
-		} else {
-			result.StringsWatcherId = id
-			result.Changes = changes
+			continue
 		}
-		results.Results[i] = result
+		result.StringsWatcherId = id
+		result.Changes = changes
 	}
 	return results, nil
 }

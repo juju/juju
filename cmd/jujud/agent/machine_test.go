@@ -42,6 +42,7 @@ import (
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
@@ -1127,7 +1128,7 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 	// The disk manager should only run with the feature flag set.
 	s.testMachineAgentRunsDiskManagerWorker(c, false, coretesting.ShortWait)
 
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	s.testMachineAgentRunsDiskManagerWorker(c, true, coretesting.LongWait)
 }
@@ -1160,7 +1161,7 @@ func (s *MachineSuite) testMachineAgentRunsDiskManagerWorker(c *gc.C, shouldRun 
 }
 
 func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
 	expected := []storage.BlockDevice{{DeviceName: "whatever"}}
@@ -1192,7 +1193,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 	// The storage worker should only run with the feature flag set.
 	s.testMachineAgentRunsMachineStorageWorker(c, false, coretesting.ShortWait)
 
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	s.testMachineAgentRunsMachineStorageWorker(c, true, coretesting.LongWait)
 }
@@ -1227,7 +1228,7 @@ func (s *MachineSuite) testMachineAgentRunsMachineStorageWorker(c *gc.C, shouldR
 }
 
 func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	s.testMachineAgentRunsEnvironStorageWorkers(c, true, coretesting.LongWait)
 }

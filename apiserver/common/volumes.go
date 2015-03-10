@@ -7,12 +7,13 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
+
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider/registry"
-	"github.com/juju/names"
 )
 
 type volumeAlreadyProvisionedError struct {

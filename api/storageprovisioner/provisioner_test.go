@@ -140,10 +140,8 @@ func (s *provisionerSuite) TestSetVolumeInfo(c *gc.C) {
 }
 
 func (s *provisionerSuite) testOpWithTags(
-	c *gc.C, opName string, apiCall func(*storageprovisioner.State, []names.Tag,
-	) (
-		[]params.ErrorResult, error,
-	)) {
+	c *gc.C, opName string, apiCall func(*storageprovisioner.State, []names.Tag) ([]params.ErrorResult, error),
+) {
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "StorageProvisioner")
