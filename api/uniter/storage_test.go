@@ -110,7 +110,7 @@ func (s *storageSuite) TestWatchStorageAttachments(c *gc.C) {
 		c.Check(objType, gc.Equals, "Uniter")
 		c.Check(version, gc.Equals, 2)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchStorageAttachments")
+		c.Check(request, gc.Equals, "WatchStorageAttachmentInfos")
 		c.Check(arg, gc.DeepEquals, params.StorageAttachmentIds{
 			Ids: []params.StorageAttachmentId{{
 				StorageTag: "storage-data-0",

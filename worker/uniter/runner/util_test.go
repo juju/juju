@@ -23,7 +23,9 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var noProxies = proxy.Settings{}
@@ -90,6 +92,7 @@ type HookContextSuite struct {
 	machine  *state.Machine
 	relch    *state.Charm
 	relunits map[int]*state.RelationUnit
+	storage  *storageContextAccessor
 
 	st             *api.State
 	uniter         *uniter.State
@@ -142,6 +145,17 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.apiRelunits = map[int]*uniter.RelationUnit{}
 	s.AddContextRelation(c, "db0")
 	s.AddContextRelation(c, "db1")
+
+	storageData0 := names.NewStorageTag("data/0")
+	s.storage = &storageContextAccessor{
+		map[names.StorageTag]*contextStorage{
+			storageData0: &contextStorage{
+				storageData0,
+				storage.StorageKindBlock,
+				"/dev/sdb",
+			},
+		},
+	}
 }
 
 func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Service) *state.Unit {
@@ -304,4 +318,31 @@ func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
 		printf("(sleep 0.2; echo %s; sleep 10) &", spec.background)
 	}
 	printf("exit %d", spec.code)
+}
+
+type storageContextAccessor struct {
+	storage map[names.StorageTag]*contextStorage
+}
+
+func (s *storageContextAccessor) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
+	storage, ok := s.storage[tag]
+	return storage, ok
+}
+
+type contextStorage struct {
+	tag      names.StorageTag
+	kind     storage.StorageKind
+	location string
+}
+
+func (c *contextStorage) Tag() names.StorageTag {
+	return c.tag
+}
+
+func (c *contextStorage) Kind() storage.StorageKind {
+	return c.kind
+}
+
+func (c *contextStorage) Location() string {
+	return c.location
 }
