@@ -5,6 +5,7 @@ package action_test
 
 import (
 	"bytes"
+	"time"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
@@ -70,7 +71,13 @@ func (s *StatusSuite) TestRun(c *gc.C) {
 }
 
 func (s *StatusSuite) runTestCase(c *gc.C, tc statusTestCase) {
-	fakeClient := &fakeAPIClient{actionTagMatches: tc.tags, actionResults: tc.results}
+	fakeClient := makeFakeClient(
+		0*time.Second, // No API delay
+		tc.tags,
+		tc.results,
+		"", // No API error
+	)
+
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
 
