@@ -23,6 +23,9 @@ var (
 	}
 )
 
+// Restart restarts the "rsyslog" service using the local host's
+// currently running init system (e.g. upstart, systemd).  If the caller
+// is not a superuser then Restart returns an error.
 func Restart() error {
 	if getEuid() == 0 {
 		if err := restart(svcName); err != nil {
