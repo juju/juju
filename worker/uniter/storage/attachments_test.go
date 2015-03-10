@@ -4,6 +4,7 @@
 package storage_test
 
 import (
+	"io/ioutil"
 	"path/filepath"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	corestorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/storage"
@@ -168,32 +170,15 @@ func (s *attachmentsSuite) TestAttachmentsUpdate(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	assertNoHooks := func() {
-		select {
-		case <-att.Hooks():
-			c.Fatal("unexpected hook")
-		case <-time.After(testing.ShortWait):
-		}
-	}
-	waitOneHook := func() hook.Info {
-		var hi hook.Info
-		var ok bool
-		select {
-		case hi, ok = <-att.Hooks():
-			c.Assert(ok, jc.IsTrue)
-		case <-time.After(testing.LongWait):
-			c.Fatal("timed out waiting for hook")
-		}
-		assertNoHooks()
-		return hi
-	}
-
 	// data/0 is initially unattached and untracked, so
 	// updating with Alive will cause a storager to be
 	// started and a storage-attached event to be emitted.
-	err = att.UpdateStorage([]names.StorageTag{storageTag0})
-	c.Assert(err, jc.ErrorIsNil)
-	hi := waitOneHook()
+	for i := 0; i < 2; i++ {
+		// Updating twice, to ensure idempotency.
+		err = att.UpdateStorage([]names.StorageTag{storageTag0})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	hi := waitOneHook(c, att.Hooks())
 	c.Assert(hi, gc.Equals, hook.Info{
 		Kind:      hooks.StorageAttached,
 		StorageId: storageTag0.Id(),
@@ -204,7 +189,7 @@ func (s *attachmentsSuite) TestAttachmentsUpdate(c *gc.C) {
 	// be started.
 	err = att.UpdateStorage([]names.StorageTag{storageTag1})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNoHooks()
+	assertNoHooks(c, att.Hooks())
 
 	// Cause an Alive hook to be queued, but don't consume it;
 	// then update to Dying, and ensure no hooks are generated.
@@ -222,12 +207,127 @@ func (s *attachmentsSuite) TestAttachmentsUpdate(c *gc.C) {
 	attachmentsByTag[storageTag1].Life = params.Dying
 	err = att.UpdateStorage([]names.StorageTag{storageTag1})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNoHooks()
+	assertNoHooks(c, att.Hooks())
 	err = att.ValidateHook(hook.Info{
 		Kind:      hooks.StorageAttached,
 		StorageId: storageTag1.Id(),
 	})
 	c.Assert(err, gc.ErrorMatches, `unknown storage "data/1"`)
+}
+
+func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
+	stateDir := c.MkDir()
+	unitTag := names.NewUnitTag("mysql/0")
+	abort := make(chan struct{})
+
+	storageTag := names.NewStorageTag("data/0")
+	attachment := params.StorageAttachment{
+		StorageTag: storageTag.String(),
+		UnitTag:    unitTag.String(),
+		Life:       params.Alive,
+		Kind:       params.StorageKindBlock,
+		Location:   "/dev/sdb",
+	}
+
+	st := &mockStorageAccessor{
+		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachment, error) {
+			c.Assert(u, gc.Equals, unitTag)
+			return nil, nil
+		},
+		watchStorageAttachment: func(s names.StorageTag, u names.UnitTag) (watcher.NotifyWatcher, error) {
+			w := newMockNotifyWatcher()
+			w.changes <- struct{}{}
+			return w, nil
+		},
+		storageAttachment: func(s names.StorageTag, u names.UnitTag) (params.StorageAttachment, error) {
+			c.Assert(s, gc.Equals, storageTag)
+			return attachment, nil
+		},
+	}
+
+	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		err := att.Stop()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	// There should be no context for data/0 until a hook is queued.
+	_, ok := att.Storage(storageTag)
+	c.Assert(ok, jc.IsFalse)
+
+	err = att.UpdateStorage([]names.StorageTag{storageTag})
+	c.Assert(err, jc.ErrorIsNil)
+	hi := waitOneHook(c, att.Hooks())
+	c.Assert(hi, gc.Equals, hook.Info{
+		Kind:      hooks.StorageAttached,
+		StorageId: storageTag.Id(),
+	})
+
+	ctx, ok := att.Storage(storageTag)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(ctx, gc.NotNil)
+	c.Assert(ctx.Tag(), gc.Equals, storageTag)
+	c.Assert(ctx.Kind(), gc.Equals, corestorage.StorageKindBlock)
+	c.Assert(ctx.Location(), gc.Equals, "/dev/sdb")
+}
+
+func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
+	stateDir := c.MkDir()
+	unitTag := names.NewUnitTag("mysql/0")
+	abort := make(chan struct{})
+
+	storageTag := names.NewStorageTag("data/0")
+	attachment := params.StorageAttachment{
+		StorageTag: storageTag.String(),
+		UnitTag:    unitTag.String(),
+		Life:       params.Alive,
+		Kind:       params.StorageKindBlock,
+		Location:   "/dev/sdb",
+	}
+	st := &mockStorageAccessor{
+		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachment, error) {
+			c.Assert(u, gc.Equals, unitTag)
+			return nil, nil
+		},
+		watchStorageAttachment: func(s names.StorageTag, u names.UnitTag) (watcher.NotifyWatcher, error) {
+			w := newMockNotifyWatcher()
+			w.changes <- struct{}{}
+			return w, nil
+		},
+		storageAttachment: func(s names.StorageTag, u names.UnitTag) (params.StorageAttachment, error) {
+			c.Assert(s, gc.Equals, storageTag)
+			return attachment, nil
+		},
+	}
+
+	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		err := att.Stop()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+	err = att.UpdateStorage([]names.StorageTag{storageTag})
+	c.Assert(err, jc.ErrorIsNil)
+
+	stateFile := filepath.Join(stateDir, "data-0")
+	c.Assert(stateFile, jc.DoesNotExist)
+
+	err = att.CommitHook(hook.Info{
+		Kind:      hooks.StorageAttached,
+		StorageId: storageTag.Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := ioutil.ReadFile(stateFile)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(data), gc.Equals, "attached: true\n")
+
+	err = att.CommitHook(hook.Info{
+		Kind:      hooks.StorageDetached,
+		StorageId: storageTag.Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stateFile, jc.DoesNotExist)
 }
 
 type mockStorageAccessor struct {
@@ -277,4 +377,25 @@ func (m *mockNotifyWatcher) Stop() error {
 
 func (m *mockNotifyWatcher) Err() error {
 	return m.tomb.Err()
+}
+
+func assertNoHooks(c *gc.C, hooks <-chan hook.Info) {
+	select {
+	case <-hooks:
+		c.Fatal("unexpected hook")
+	case <-time.After(testing.ShortWait):
+	}
+}
+
+func waitOneHook(c *gc.C, hooks <-chan hook.Info) hook.Info {
+	var hi hook.Info
+	var ok bool
+	select {
+	case hi, ok = <-hooks:
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for hook")
+	}
+	assertNoHooks(c, hooks)
+	return hi
 }
