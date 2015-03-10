@@ -845,7 +845,7 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 		}
 
 		ciid, err := container.InstanceId()
-		if cerr != nil {
+		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
