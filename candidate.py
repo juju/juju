@@ -22,6 +22,7 @@ from jujuci import (
     PUBLISH_REVISION
 )
 from utility import (
+    extract_deb,
     get_deb_arch,
     s3_cmd,
     temp_dir,
@@ -137,9 +138,8 @@ def extract_candidates(path, dry_run=False, verbose=False):
         if verbose:
             print('extracting %s to %s' % (package_path, candidate_path))
         prepare_dir(candidate_path, dry_run, verbose)
-        command = ['dpkg', '-x', package_path, candidate_path]
         if not dry_run:
-            subprocess.check_call(command)
+            extract_deb(package_path, candidate_path)
         if verbose:
             print('Copying %s to %s' % (buildvars_path, candidate_path))
         if not dry_run:

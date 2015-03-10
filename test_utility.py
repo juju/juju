@@ -15,6 +15,7 @@ from mock import (
     )
 
 from utility import (
+    extract_deb,
     find_candidates,
     get_auth_token,
     get_candidates_path,
@@ -206,6 +207,14 @@ class TestWaitForPort(TestCase):
             call('asdf', 26, socket.AF_INET, socket.SOCK_STREAM),
             ])
         self.assertEqual(socket_mock.call_count, 0)
+
+
+class TestExtractDeb(TestCase):
+
+    def test_extract_deb(self):
+        with patch('subprocess.check_call', autospec=True) as cc_mock:
+            extract_deb('foo', 'bar')
+        cc_mock.assert_called_once_with(['dpkg', '-x', 'foo', 'bar'])
 
 
 class TestGetDebArch(TestCase):
