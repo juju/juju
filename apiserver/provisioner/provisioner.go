@@ -811,9 +811,9 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 	return result, nil
 }
 
-// ReleaseContainerAddress releases an address allocated to a container. It
+// ReleaseContainerAddresses releases an address allocated to a container. It
 // accepts container tags as arguments.
-func (p *ProvisionerAPI) ReleaseContainerAddress(args params.Entities) error {
+func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) error {
 	cfg, err := p.st.EnvironConfig()
 	if err != nil {
 		return errors.Annotate(err, "failed to get environment config")
