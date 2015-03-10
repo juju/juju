@@ -977,7 +977,7 @@ func (e *NotAssignedError) Error() string {
 
 // IsNotAssigned verifies that err is an instance of NotAssignedError
 func IsNotAssigned(err error) bool {
-	_, ok := err.(*NotAssignedError)
+	_, ok := errors.Cause(err).(*NotAssignedError)
 	return ok
 }
 
