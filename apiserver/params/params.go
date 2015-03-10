@@ -796,7 +796,12 @@ func TranslateToLegacyAgentState(in, agentStatus Status) Status {
 			return StatusStarted
 		}
 		return StatusPending
-	case StatusActive, StatusBlocked, StatusMaintenance:
+	case StatusMaintenance:
+		if agentStatus == StatusAllocating {
+			return StatusPending
+		}
+		return StatusStarted
+	case StatusActive, StatusBlocked:
 		return StatusStarted
 	case StatusUnknown, StatusTerminated:
 		return StatusError

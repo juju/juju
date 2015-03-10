@@ -881,7 +881,7 @@ var statusTests = []testCase{
 						"units": M{
 							"mysql/0": M{
 								"machine":         "1",
-								"agent-state":     "started",
+								"agent-state":     "pending",
 								"workload-status": M{"current": "maintenance"},
 								"agent-status":    M{"current": "allocating"},
 								"public-address":  "dummyenv-1.dns",
@@ -952,7 +952,7 @@ var statusTests = []testCase{
 						"units": M{
 							"mysql/0": M{
 								"machine":         "1",
-								"agent-state":     "started",
+								"agent-state":     "pending",
 								"workload-status": M{"current": "maintenance"},
 								"agent-status":    M{"current": "allocating"},
 								"public-address":  "dummyenv-1.dns",
@@ -987,7 +987,7 @@ var statusTests = []testCase{
 						"units": M{
 							"dummy-service/0": M{
 								"machine":         "0",
-								"agent-state":     "started",
+								"agent-state":     "pending",
 								"workload-status": M{"current": "maintenance"},
 								"agent-status":    M{"current": "allocating"},
 							},
@@ -1098,7 +1098,7 @@ var statusTests = []testCase{
 						"units": M{
 							"varnish/0": M{
 								"machine":         "3",
-								"agent-state":     "started",
+								"agent-state":     "pending",
 								"workload-status": M{"current": "maintenance"},
 								"agent-status":    M{"current": "allocating"},
 								"public-address":  "dummyenv-3.dns",
@@ -1114,7 +1114,7 @@ var statusTests = []testCase{
 						"units": M{
 							"private/0": M{
 								"machine":         "4",
-								"agent-state":     "started",
+								"agent-state":     "pending",
 								"workload-status": M{"current": "maintenance"},
 								"agent-status":    M{"current": "allocating"},
 								"public-address":  "dummyenv-4.dns",
@@ -1580,7 +1580,7 @@ var statusTests = []testCase{
 						"units": M{
 							"mysql/0": M{
 								"machine":         "1",
-								"agent-state":     "started",
+								"agent-state":     "pending",
 								"workload-status": M{"current": "maintenance"},
 								"agent-status":    M{"current": "allocating"},
 								"public-address":  "dummyenv-1.dns",

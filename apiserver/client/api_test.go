@@ -230,43 +230,73 @@ var scenarioStatus = &api.Status{
 						Info:   "blam",
 						Data:   map[string]interface{}{"relation-id": "0"},
 					},
-					UnitAgent: api.AgentStatus{
+					Workload: api.AgentStatus{
 						Status: "error",
 						Info:   "blam",
-						Data:   make(map[string]interface{}),
+						Data:   map[string]interface{}{"relation-id": "0"},
 					},
-					Workload: api.AgentStatus{
-						Status: "maintenance",
+					UnitAgent: api.AgentStatus{
+						Status: "allocating",
 						Info:   "",
 						Data:   make(map[string]interface{}),
 					},
-					AgentState:     "down",
-					AgentStateInfo: "(error: blam)",
-					Machine:        "1",
+					AgentState: "error",
+					Machine:    "1",
 					Subordinates: map[string]api.UnitStatus{
 						"logging/0": {
 							Agent: api.AgentStatus{
-								Status: "allocating",
+								Status: "pending",
 								Data:   make(map[string]interface{}),
 							},
-							AgentState: "allocating",
+							AgentState: "pending",
+							Workload: api.AgentStatus{
+								Status: "maintenance",
+								Info:   "",
+								Data:   make(map[string]interface{}),
+							},
+							UnitAgent: api.AgentStatus{
+								Status: "allocating",
+								Info:   "",
+								Data:   make(map[string]interface{}),
+							},
 						},
 					},
 				},
 				"wordpress/1": {
 					Agent: api.AgentStatus{
-						Status: "allocating",
+						Status: "pending",
 						Data:   make(map[string]interface{}),
 					},
-					AgentState: "allocating",
-					Machine:    "2",
+					AgentState: "pending",
+					Workload: api.AgentStatus{
+						Status: "maintenance",
+						Info:   "",
+						Data:   make(map[string]interface{}),
+					},
+					UnitAgent: api.AgentStatus{
+						Status: "allocating",
+						Info:   "",
+						Data:   make(map[string]interface{}),
+					},
+
+					Machine: "2",
 					Subordinates: map[string]api.UnitStatus{
 						"logging/1": {
 							Agent: api.AgentStatus{
-								Status: "allocating",
+								Status: "pending",
 								Data:   make(map[string]interface{}),
 							},
-							AgentState: "allocating",
+							AgentState: "pending",
+							Workload: api.AgentStatus{
+								Status: "maintenance",
+								Info:   "",
+								Data:   make(map[string]interface{}),
+							},
+							UnitAgent: api.AgentStatus{
+								Status: "allocating",
+								Info:   "",
+								Data:   make(map[string]interface{}),
+							},
 						},
 					},
 				},
@@ -409,7 +439,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 				"remote-unit": "logging/0",
 				"foo":         "bar",
 			}
-			wu.SetAgentStatus(state.StatusError, "blam", sd)
+			wu.SetStatus(state.StatusError, "blam", sd)
 		}
 
 		// Create the subordinate unit as a side-effect of entering

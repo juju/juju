@@ -1861,7 +1861,7 @@ func (u *Unit) Resolve(retryHooks bool) error {
 	// We currently check agent status to see if a unit is
 	// in error state. As the new Juju Health work is completed,
 	// this will change to checking the unit status.
-	status, _, _, err := u.AgentStatus()
+	status, _, _, err := u.Status()
 	if err != nil {
 		return err
 	}
