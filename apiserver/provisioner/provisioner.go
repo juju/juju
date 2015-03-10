@@ -851,11 +851,10 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 			continue
 		}
 
-		id := container.InstanceId()
 		var doc struct {
 			Address string
 		}
-		iter := addresses.Find(bson.D{{"machineid", id}}).Iter()
+		iter := addresses.Find(bson.D{{"machineid", ciid}}).Iter()
 		for iter.Next(&doc) {
 			addr, _ := p.st.IPAddress(doc.Address)
 			addr.Remove()
