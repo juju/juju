@@ -23,7 +23,7 @@ var _ = gc.Suite(&AddMetricSuite{})
 
 func (s *AddMetricSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, "add-metric")
+	com, err := jujuc.NewCommand(hctx, cmdString("add-metric"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
@@ -106,7 +106,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		c.Logf("test %d: %s", i, t.about)
 		hctx := s.GetHookContext(c, -1, "")
 		hctx.canAddMetrics = t.canAddMetrics
-		com, err := jujuc.NewCommand(hctx, t.cmd[0])
+		com, err := jujuc.NewCommand(hctx, cmdString(t.cmd[0]))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
 		ret := cmd.Main(com, ctx, t.cmd[1:])

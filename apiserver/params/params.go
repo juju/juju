@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -119,25 +118,25 @@ type DestroyRelation struct {
 type AddMachineParams struct {
 	// The following fields hold attributes that will be given to the
 	// new machine when it is created.
-	Series      string
-	Constraints constraints.Value
-	Jobs        []multiwatcher.MachineJob
+	Series      string                    `json:"Series"`
+	Constraints constraints.Value         `json:"Constraints"`
+	Jobs        []multiwatcher.MachineJob `json:"Jobs"`
 
 	// Disks describes constraints for disks that must be attached to
 	// the machine when it is provisioned.
 	//
 	// NOTE: this is ignored unless the "storage" feature flag is enabled.
-	Disks []storage.Constraints
+	Disks []storage.Constraints `json:"Disks"`
 
 	// If Placement is non-nil, it contains a placement directive
 	// that will be used to decide how to instantiate the machine.
-	Placement *instance.Placement
+	Placement *instance.Placement `json:"Placement"`
 
 	// If ParentId is non-empty, it specifies the id of the
 	// parent machine within which the new machine will
 	// be created. In that case, ContainerType must also be
 	// set.
-	ParentId string
+	ParentId string `json:"ParentId"`
 
 	// ContainerType optionally gives the container type of the
 	// new machine. If it is non-empty, the new machine
@@ -145,40 +144,35 @@ type AddMachineParams struct {
 	// but ParentId is empty, a new top level machine will
 	// be created to hold the container with given series,
 	// constraints and jobs.
-	ContainerType instance.ContainerType
+	ContainerType instance.ContainerType `json:"ContainerType"`
 
 	// If InstanceId is non-empty, it will be associated with
 	// the new machine along with the given nonce,
 	// hardware characteristics and addresses.
 	// All the following fields will be ignored if ContainerType
 	// is set.
-	InstanceId              instance.Id
-	Nonce                   string
-	HardwareCharacteristics instance.HardwareCharacteristics
-	// TODO(dimitern): Add explicit JSON serialization tags and use
-	// []string instead in order to break the dependency on the
-	// network package, as this potentially introduces hard to catch
-	// and debug wire-format changes in the protocol when the type
-	// changes!
-	Addrs []network.Address
+	InstanceId              instance.Id                      `json:"InstanceId"`
+	Nonce                   string                           `json:"Nonce"`
+	HardwareCharacteristics instance.HardwareCharacteristics `json:"HardwareCharacteristics"`
+	Addrs                   []Address                        `json:"Addrs"`
 }
 
 // AddMachines holds the parameters for making the
 // AddMachinesWithPlacement call.
 type AddMachines struct {
-	MachineParams []AddMachineParams
+	MachineParams []AddMachineParams `json:"MachineParams"`
 }
 
 // AddMachinesResults holds the results of an AddMachines call.
 type AddMachinesResults struct {
-	Machines []AddMachinesResult
+	Machines []AddMachinesResult `json:"Machines"`
 }
 
 // AddMachinesResults holds the name of a machine added by the
 // api.client.AddMachine call for a single machine.
 type AddMachinesResult struct {
-	Machine string
-	Error   *Error
+	Machine string `json:"Machine"`
+	Error   *Error `json:"Error"`
 }
 
 // DestroyMachines holds parameters for the DestroyMachines call.
@@ -571,23 +565,20 @@ type StatusParams struct {
 // SetRsyslogCertParams holds parameters for the SetRsyslogCert call.
 type SetRsyslogCertParams struct {
 	CACert []byte
+	CAKey  []byte
 }
 
 // RsyslogConfigResult holds the result of a GetRsyslogConfig call.
 type RsyslogConfigResult struct {
-	Error  *Error
-	CACert string
+	Error  *Error `json:"Error"`
+	CACert string `json:"CACert"`
+	CAKey  string `json:"CAKey"`
 	// Port is only used by state servers as the port to listen on.
 	// Clients should use HostPorts for the rsyslog addresses to forward
 	// logs to.
-	Port int
+	Port int `json:"Port"`
 
-	// TODO(dimitern): Add explicit JSON serialization tags and use
-	// []string instead in order to break the dependency on the
-	// network package, as this potentially introduces hard to catch
-	// and debug wire-format changes in the protocol when the type
-	// changes!
-	HostPorts []network.HostPort
+	HostPorts []HostPort `json:"HostPorts"`
 }
 
 // RsyslogConfigResults is the bulk form of RyslogConfigResult
@@ -608,18 +599,6 @@ type DistributionGroupResults struct {
 	Results []DistributionGroupResult
 }
 
-// APIHostPortsResult holds the result of an APIHostPorts
-// call. Each element in the top level slice holds
-// the addresses for one API server.
-type APIHostPortsResult struct {
-	// TODO(dimitern): Add explicit JSON serialization tags and use
-	// [][]string instead in order to break the dependency on the
-	// network package, as this potentially introduces hard to catch
-	// and debug wire-format changes in the protocol when the type
-	// changes!
-	Servers [][]network.HostPort
-}
-
 // FacadeVersions describes the available Facades and what versions of each one
 // are available
 type FacadeVersions struct {
@@ -629,15 +608,10 @@ type FacadeVersions struct {
 
 // LoginResult holds the result of a Login call.
 type LoginResult struct {
-	// TODO(dimitern): Add explicit JSON serialization tags and use
-	// [][]string instead in order to break the dependency on the
-	// network package, as this potentially introduces hard to catch
-	// and debug wire-format changes in the protocol when the type
-	// changes!
-	Servers        [][]network.HostPort
-	EnvironTag     string
-	LastConnection *time.Time
-	Facades        []FacadeVersions
+	Servers        [][]HostPort     `json:"Servers"`
+	EnvironTag     string           `json:"EnvironTag"`
+	LastConnection *time.Time       `json:"LastConnection"`
+	Facades        []FacadeVersions `json:"Facades"`
 }
 
 // ReauthRequest holds a challenge/response token meaningful to the identity
@@ -660,11 +634,8 @@ type AuthUserInfo struct {
 
 // LoginRequestV1 holds the result of an Admin v1 Login call.
 type LoginResultV1 struct {
-	// TODO(dimitern): Use [][]string instead in order to break the
-	// dependency on the network package, as this potentially
-	// introduces hard to catch and debug wire-format changes in the
-	// protocol when the type changes!
-	Servers [][]network.HostPort `json:"servers"`
+	// Servers is the list of API server addresses.
+	Servers [][]HostPort `json:"servers"`
 
 	// EnvironTag is the tag for the environment that is being connected to.
 	EnvironTag string `json:"environ-tag"`

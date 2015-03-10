@@ -38,10 +38,11 @@ Displays the ID of the Action for use with 'juju kill', 'juju status', etc.
 Params are validated according to the charm for the unit's service.  The 
 valid params can be seen using "juju action defined <service> --schema".
 Params may be in a yaml file which is passed with the --params flag, or they
-may be specified by a key.key.key...=value format.
+may be specified by a key.key.key...=value format (see examples below.)
 
 Params given in the CLI invocation will be parsed as YAML unless the
---string-args flag is set.
+--string-args flag is set.  This can be helpful for values such as 'y', which
+is a boolean true in YAML.
 
 If --params is passed, along with key.key...=value explicit arguments, the
 explicit arguments will override the parameter file.
@@ -49,9 +50,9 @@ explicit arguments will override the parameter file.
 Examples:
 
 $ juju action do mysql/3 backup 
-action: <UUID>
+action: <ID>
 
-$ juju action fetch <UUID>
+$ juju action fetch <ID>
 result:
   status: success
   file:
@@ -111,8 +112,8 @@ func (c *DoCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *DoCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "do",
-		Args:    "<unit> <action name> [<key>=<value> ...]",
-		Purpose: "WIP: queue an action for execution",
+		Args:    "<unit> <action name> [key.key.key...=value]",
+		Purpose: "queue an action for execution",
 		Doc:     doDoc,
 	}
 }

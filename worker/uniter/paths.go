@@ -71,7 +71,7 @@ type StatePaths struct {
 	// and/or has done.
 	OperationsFile string
 
-	// RelationsDir holds relation-sepcific information about what the
+	// RelationsDir holds relation-specific information about what the
 	// uniter is doing and/or has done.
 	RelationsDir string
 
@@ -81,6 +81,10 @@ type StatePaths struct {
 	// DeployerDir holds metadata about charms that are installing or have
 	// been installed.
 	DeployerDir string
+
+	// StorageDir holds storage-specific information about what the
+	// uniter is doing and/or has done.
+	StorageDir string
 }
 
 // NewPaths returns the set of filesystem paths that the supplied unit should
@@ -102,8 +106,9 @@ func NewPaths(dataDir string, unitTag names.UnitTag) Paths {
 		return path
 	}
 
+	toolsDir := tools.ToolsDir(dataDir, unitTag.String())
 	return Paths{
-		ToolsDir: tools.ToolsDir(dataDir, unitTag.String()),
+		ToolsDir: filepath.FromSlash(toolsDir),
 		Runtime: RuntimePaths{
 			JujuRunSocket:     socket("run", false),
 			JujucServerSocket: socket("agent", true),
@@ -114,6 +119,7 @@ func NewPaths(dataDir string, unitTag names.UnitTag) Paths {
 			RelationsDir:   join(stateDir, "relations"),
 			BundlesDir:     join(stateDir, "bundles"),
 			DeployerDir:    join(stateDir, "deployer"),
+			StorageDir:     join(stateDir, "storage"),
 		},
 	}
 }

@@ -37,6 +37,7 @@ import (
 	instancetest "github.com/juju/juju/instance/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/service"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -793,6 +794,28 @@ lxc.network.mtu = 4321
 	c.Assert(autostartLink, jc.DoesNotExist)
 
 	return template
+}
+
+func (s *LxcSuite) TestShutdownInitScript(c *gc.C) {
+	script, err := lxc.ShutdownInitScript(service.InitSystemUpstart)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(script, gc.Equals, `
+cat >> /etc/init/juju-template-restart.conf << 'EOF'
+description "juju shutdown job"
+author "Juju Team <juju@lists.ubuntu.com>"
+start on stopped cloud-final
+
+script
+  /sbin/shutdown -h now
+end script
+
+post-stop script
+  rm /etc/init/juju-template-restart.conf
+end script
+
+EOF
+`[1:])
 }
 
 func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplate(c *gc.C) {

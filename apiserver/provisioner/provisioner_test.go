@@ -26,10 +26,8 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -731,10 +729,10 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
-	defer func() {
-		registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
-	}()
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{
+		"storage-default-block-source": "loop-pool",
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("cpu-cores=123 mem=8G networks=^net3,^net4")
 	template := state.MachineTemplate{
@@ -761,7 +759,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(result, gc.DeepEquals, params.ProvisioningInfoResults{
+	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
 				Series:   "quantal",
@@ -775,13 +773,13 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Volumes: []params.VolumeParams{{
-					VolumeTag:  "disk-0",
+					VolumeTag:  "volume-0",
 					Size:       1000,
 					MachineTag: placementMachine.Tag().String(),
 					Provider:   "loop",
 					Attributes: map[string]interface{}{"foo": "bar"},
 				}, {
-					VolumeTag:  "disk-1",
+					VolumeTag:  "volume-1",
 					Size:       2000,
 					MachineTag: placementMachine.Tag().String(),
 					Provider:   "loop",
@@ -792,7 +790,14 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
-	})
+	}
+	// The order of volumes is not predictable, so we make sure we compare the right ones. This only
+	// applies to Results[1] since it is the only result to contain volumes.
+	if expected.Results[1].Result.Volumes[0].VolumeTag != result.Results[1].Result.Volumes[0].VolumeTag {
+		vols := expected.Results[1].Result.Volumes
+		vols[0], vols[1] = vols[1], vols[0]
+	}
+	c.Assert(result, gc.DeepEquals, expected)
 }
 
 func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
@@ -824,7 +829,7 @@ func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Volumes: []params.VolumeParams{{
-					VolumeTag:  "disk-0",
+					VolumeTag:  "volume-0",
 					Size:       1000,
 					MachineTag: placementMachine.Tag().String(),
 					Provider:   "loop",
@@ -990,10 +995,10 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "loop-pool")
-	defer func() {
-		registry.RegisterDefaultPool("dummy", storage.StorageKindBlock, "")
-	}()
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{
+		"storage-default-block-source": "loop-pool",
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Provision machine 0 first.
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
@@ -1085,12 +1090,12 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		InstanceId: "i-am-also",
 		Nonce:      "fake",
 		Volumes: []params.Volume{{
-			VolumeTag: "disk-0",
+			VolumeTag: "volume-0",
 			VolumeId:  "vol-0",
 			Size:      1234,
 		}},
 		VolumeAttachments: []params.VolumeAttachment{{
-			VolumeTag:  "disk-0",
+			VolumeTag:  "volume-0",
 			MachineTag: volumesMachine.Tag().String(),
 			DeviceName: "sda",
 		}},
@@ -1159,13 +1164,13 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		tag, err := names.ParseNetworkTag(networks[i].Tag)
 		c.Assert(err, jc.ErrorIsNil)
 		networkName := tag.Id()
-		network, err := s.State.Network(networkName)
+		nw, err := s.State.Network(networkName)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(network.Name(), gc.Equals, networkName)
-		c.Check(network.ProviderId(), gc.Equals, networks[i].ProviderId)
-		c.Check(network.Tag().String(), gc.Equals, networks[i].Tag)
-		c.Check(network.VLANTag(), gc.Equals, networks[i].VLANTag)
-		c.Check(network.CIDR(), gc.Equals, networks[i].CIDR)
+		c.Check(nw.Name(), gc.Equals, networkName)
+		c.Check(nw.ProviderId(), gc.Equals, network.Id(networks[i].ProviderId))
+		c.Check(nw.Tag().String(), gc.Equals, networks[i].Tag)
+		c.Check(nw.VLANTag(), gc.Equals, networks[i].VLANTag)
+		c.Check(nw.CIDR(), gc.Equals, networks[i].CIDR)
 	}
 
 	// Verify the machine with requested volumes was provisioned, and the
@@ -1253,11 +1258,31 @@ func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }
 
-func (s *withoutStateServerSuite) TestContainerManagerConfig(c *gc.C) {
-	args := params.ContainerManagerConfigParams{Type: instance.KVM}
+func (s *withoutStateServerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType) map[string]string {
+	args := params.ContainerManagerConfigParams{Type: typ}
 	results, err := s.provisioner.ContainerManagerConfig(args)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.ManagerConfig, gc.DeepEquals, map[string]string{
+	c.Assert(err, jc.ErrorIsNil)
+	return results.ManagerConfig
+}
+
+func (s *withoutStateServerSuite) TestContainerManagerConfig(c *gc.C) {
+	cfg := s.getManagerConfig(c, instance.KVM)
+	c.Assert(cfg, jc.DeepEquals, map[string]string{
+		container.ConfigName: "juju",
+
+		// dummy provider supports both networking and address
+		// allocation by default, so IP forwarding should be enabled.
+		container.ConfigIPForwarding: "true",
+	})
+}
+
+func (s *withoutStateServerSuite) TestContainerManagerConfigNoIPForwarding(c *gc.C) {
+	// Break dummy provider's SupportsAddressAllocation method to
+	// ensure ConfigIPForwarding is not set below.
+	s.AssertConfigParameterUpdated(c, "broken", "SupportsAddressAllocation")
+
+	cfg := s.getManagerConfig(c, instance.KVM)
+	c.Assert(cfg, jc.DeepEquals, map[string]string{
 		container.ConfigName: "juju",
 	})
 }
@@ -1411,6 +1436,8 @@ func (s *withStateServerSuite) TestCACert(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestWatchMachineErrorRetry(c *gc.C) {
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	s.PatchValue(&provisioner.ErrorRetryWaitDelay, 2*coretesting.ShortWait)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 

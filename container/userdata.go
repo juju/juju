@@ -58,7 +58,7 @@ iface lo inet loopback{{define "static"}}
 auto {{.InterfaceName}}{{end}}
 iface {{.InterfaceName}} inet static
     address {{.Address.Value}}
-    netmask 255.255.255.255{{if gt (len .DNSServers) 0}}
+    netmask {{.CIDR}}{{if gt (len .DNSServers) 0}}
     dns-nameservers{{range $dns := .DNSServers}} {{$dns.Value}}{{end}}{{end}}
     pre-up ip route add {{.GatewayAddress.Value}} dev {{.InterfaceName}}
     pre-up ip route add default via {{.GatewayAddress.Value}}

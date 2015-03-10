@@ -44,11 +44,11 @@ func (s *ActionCommandSuite) TestHelp(c *gc.C) {
 
 func (s *ActionCommandSuite) checkHelpSubCommands(c *gc.C, ctx *cmd.Context) {
 	var expectedSubCommmands = [][]string{
-		{"defined", "WIP: show actions defined for a service"},
-		{"do", "WIP: queue an action for execution"},
-		{"fetch", "WIP: show results of an action by UUID"},
+		{"defined", "show actions defined for a service"},
+		{"do", "queue an action for execution"},
+		{"fetch", "show results of an action by ID"},
 		{"help", "show help on a command or other topic"},
-		{"status", "WIP: show results of an action by identifier"},
+		{"status", "show results of all actions filtered by optional ID prefix"},
 	}
 
 	// Check that we have registered all the sub commands by

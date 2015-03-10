@@ -89,6 +89,8 @@ func setMachineAddresses(m *machiner.Machine) error {
 	if len(hostAddresses) == 0 {
 		return nil
 	}
+	// Filter out any LXC bridge addresses.
+	hostAddresses = network.FilterLXCAddresses(hostAddresses)
 	logger.Infof("setting addresses for %v to %q", m.Tag(), hostAddresses)
 	return m.SetMachineAddresses(hostAddresses)
 }

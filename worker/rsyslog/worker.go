@@ -67,6 +67,13 @@ type RsyslogConfigHandler struct {
 	// so we can decide whether a change has occurred.
 	syslogPort    int
 	rsyslogCACert string
+	rsyslogCAKey  string
+}
+
+// certPair holds the path and contents for a certificate.
+type certPair struct {
+	path string
+	data string
 }
 
 var _ worker.NotifyWatchHandler = (*RsyslogConfigHandler)(nil)
@@ -209,13 +216,18 @@ func (h *RsyslogConfigHandler) replaceRemoteLogger(caCert string) error {
 }
 
 func (h *RsyslogConfigHandler) Handle() error {
-	// TODO(dfc)
 	cfg, err := h.st.GetRsyslogConfig(h.tag.String())
 	if err != nil {
 		return errors.Annotate(err, "cannot get environ config")
 	}
+
 	rsyslogCACert := cfg.CACert
 	if rsyslogCACert == "" {
+		return nil
+	}
+
+	rsyslogCAKey := cfg.CAKey
+	if rsyslogCAKey == "" {
 		return nil
 	}
 
@@ -228,6 +240,19 @@ func (h *RsyslogConfigHandler) Handle() error {
 			return err
 		}
 	} else {
+		rsyslogCertPEM, rsyslogKeyPEM, err := h.rsyslogServerCerts(rsyslogCACert, rsyslogCAKey)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := writeCertificates([]certPair{
+			{h.syslogConfig.ServerCertPath(), rsyslogCertPEM},
+			{h.syslogConfig.ServerKeyPath(), rsyslogKeyPEM},
+			{h.syslogConfig.CACertPath(), rsyslogCACert},
+		}); err != nil {
+			return errors.Trace(err)
+		}
+
 		data, err := h.syslogConfig.Render()
 		if err != nil {
 			return errors.Annotate(err, "failed to render rsyslog configuration file")
@@ -246,6 +271,7 @@ func (h *RsyslogConfigHandler) Handle() error {
 	// failures.
 	h.syslogPort = cfg.Port
 	h.rsyslogCACert = rsyslogCACert
+	h.rsyslogCAKey = rsyslogCAKey
 	return nil
 }
 
@@ -319,12 +345,6 @@ func (h *RsyslogConfigHandler) ensureCertificates() error {
 		return nil
 	}
 
-	// Files must be chowned to syslog:adm.
-	syslogUid, syslogGid, err := lookupUser("syslog")
-	if err != nil {
-		return err
-	}
-
 	// Generate a new CA and server cert/key pairs.
 	// The CA key will be discarded after the server
 	// cert has been generated.
@@ -334,11 +354,65 @@ func (h *RsyslogConfigHandler) ensureCertificates() error {
 		return err
 	}
 
+	// Update the environment config with the CA cert,
+	// so clients can configure rsyslog.
+	if err := h.st.SetRsyslogCert(caCertPEM, caKeyPEM); err != nil {
+		return err
+	}
+
+	rsyslogCertPEM, rsyslogKeyPEM, err := h.rsyslogServerCerts(caCertPEM, caKeyPEM)
+	if err != nil {
+		return err
+	}
+
+	if err := writeCertificates([]certPair{
+		{h.syslogConfig.ServerCertPath(), rsyslogCertPEM},
+		{h.syslogConfig.ServerKeyPath(), rsyslogKeyPEM},
+		{h.syslogConfig.CACertPath(), caCertPEM},
+	}); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+// writeCertificates persists any certPair to disk. If any
+// of the write attempts fail it will return an error immediately.
+// It is up to the caller to ensure the order of pairs represents
+// a suitable order in the case of failue.
+func writeCertificates(pairs []certPair) error {
+	// Files must be chowned to syslog:adm.
+	syslogUid, syslogGid, err := lookupUser("syslog")
+	if err != nil {
+		return err
+	}
+
+	for _, pair := range pairs {
+		if err := writeFileAtomic(pair.path, []byte(pair.data), 0600, syslogUid, syslogGid); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// rsyslogServerCerts generates new certificates for RsyslogConfigHandler
+// using the provider caCert and caKey. This is used during the setup of the
+// rsyslog worker as well as when handling any changes to the rsyslog configuration,
+// usually adding and removing of state machines through ensure-availability.
+func (h *RsyslogConfigHandler) rsyslogServerCerts(caCert, caKey string) (string, string, error) {
+	if caCert == "" {
+		return "", "", errors.New("CACert is not set")
+	}
+	if caKey == "" {
+		return "", "", errors.New("CAKey is not set")
+	}
+
+	expiry := time.Now().UTC().AddDate(10, 0, 0)
 	// Add rsyslog servers in the subjectAltName so we can
 	// successfully validate when connectiong via SSL
 	hosts, err := h.rsyslogHosts()
 	if err != nil {
-		return err
+		return "", "", err
 	}
 	// Add local IPs to SAN. When connecting via IP address,
 	// the client will validate the server against any IP in
@@ -346,34 +420,10 @@ func (h *RsyslogConfigHandler) ensureCertificates() error {
 	// this does not cause an error
 	ips, err := localIPS()
 	if err != nil {
-		return err
+		return "", "", err
 	}
 	hosts = append(hosts, ips...)
-	rsyslogCertPEM, rsyslogKeyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, hosts)
-	if err != nil {
-		return err
-	}
-
-	// Update the environment config with the CA cert,
-	// so clients can configure rsyslog.
-	if err := h.st.SetRsyslogCert(caCertPEM); err != nil {
-		return err
-	}
-
-	// Write the certificates and key. The CA certificate must be written last for idempotency.
-	for _, pair := range []struct {
-		path string
-		data string
-	}{
-		{h.syslogConfig.ServerCertPath(), rsyslogCertPEM},
-		{h.syslogConfig.ServerKeyPath(), rsyslogKeyPEM},
-		{h.syslogConfig.CACertPath(), caCertPEM},
-	} {
-		if err := writeFileAtomic(pair.path, []byte(pair.data), 0600, syslogUid, syslogGid); err != nil {
-			return err
-		}
-	}
-	return nil
+	return cert.NewServer(caCert, caKey, expiry, hosts)
 }
 
 // ensureLogrotate ensures that the logrotate

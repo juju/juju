@@ -12,6 +12,7 @@ import (
 	"github.com/juju/txn"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/leadership"
 	"github.com/juju/juju/state"
 )
 
@@ -75,9 +76,14 @@ var (
 	ErrTryAgain           = stderrors.New("try again")
 	ErrActionNotAvailable = stderrors.New("action no longer available")
 
-	ErrOperationBlocked = &params.Error{
-		Code:    params.CodeOperationBlocked,
-		Message: "The operation has been blocked.",
+	ErrOperationBlocked = func(msg string) *params.Error {
+		if msg == "" {
+			msg = "The operation has been blocked."
+		}
+		return &params.Error{
+			Code:    params.CodeOperationBlocked,
+			Message: msg,
+		}
 	}
 )
 
@@ -87,6 +93,7 @@ var singletonErrorCodes = map[error]string{
 	state.ErrUnitHasSubordinates: params.CodeUnitHasSubordinates,
 	state.ErrDead:                params.CodeDead,
 	txn.ErrExcessiveContention:   params.CodeExcessiveContention,
+	leadership.ErrClaimDenied:    params.CodeLeadershipClaimDenied,
 	ErrBadId:                     params.CodeNotFound,
 	ErrBadCreds:                  params.CodeUnauthorized,
 	ErrPerm:                      params.CodeUnauthorized,

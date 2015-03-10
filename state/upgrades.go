@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -112,7 +113,7 @@ func validateUnitPorts(st *State, unit *Unit) (
 	validRanges []PortRange,
 ) {
 	// Collapse individual ports into port ranges.
-	mergedRanges = network.CollapsePorts(unit.doc.Ports)
+	mergedRanges = network.CollapsePorts(networkPorts(unit.doc.Ports))
 	upgradesLogger.Debugf("merged raw port ranges for unit %q: %v", unit, mergedRanges)
 
 	skippedRanges = 0
@@ -424,6 +425,73 @@ func AddEnvironmentUUIDToStateServerDoc(st *State) error {
 		}}},
 	}}
 
+	return st.runRawTransaction(ops)
+}
+
+// AddEnvUUIDToEnvUsersDoc adds environment uuid to state server doc.
+func AddEnvUUIDToEnvUsersDoc(st *State) error {
+	envUsers, closer := st.getRawCollection(envUsersC)
+	defer closer()
+
+	var ops []txn.Op
+	var doc bson.M
+	iter := envUsers.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+
+		if _, ok := doc["env-uuid"]; !ok || doc["env-uuid"] == "" {
+			ops = append(ops, txn.Op{
+				C:      envUsersC,
+				Id:     doc["_id"],
+				Assert: txn.DocExists,
+				Update: bson.D{
+					{"$set", bson.D{{"env-uuid", doc["envuuid"]}}},
+					{"$unset", bson.D{{"envuuid", nil}}},
+				},
+			})
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
+func AddUniqueOwnerEnvNameForEnvirons(st *State) error {
+	environs, closer := st.getCollection(environmentsC)
+	defer closer()
+
+	ownerEnvNameMap := map[string]set.Strings{}
+	ensureDoesNotExist := func(owner, envName string) error {
+		if _, ok := ownerEnvNameMap[owner]; ok {
+			if ownerEnvNameMap[owner].Contains(envName) {
+				return errors.AlreadyExistsf("environment %q for %s", envName, owner)
+			}
+			ownerEnvNameMap[owner].Add(envName)
+		} else {
+			ownerEnvNameMap[owner] = set.NewStrings(envName)
+		}
+		return nil
+	}
+
+	var ops []txn.Op
+	var env environmentDoc
+	iter := environs.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&env) {
+		if err := ensureDoesNotExist(env.Owner, env.Name); err != nil {
+			return err
+		}
+
+		ops = append(ops, txn.Op{
+			C:      userenvnameC,
+			Id:     userEnvNameIndex(env.Owner, env.Name),
+			Insert: bson.M{},
+		})
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
 	return st.runRawTransaction(ops)
 }
 

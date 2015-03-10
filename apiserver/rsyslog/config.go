@@ -22,6 +22,7 @@ func newRsyslogConfig(envCfg *config.Config, api *RsyslogAPI) (*apirsyslog.Rsysl
 
 	return &apirsyslog.RsyslogConfig{
 		CACert:    envCfg.RsyslogCACert(),
+		CAKey:     envCfg.RsyslogCAKey(),
 		Port:      port,
 		HostPorts: network.AddressesWithPort(apiAddresses, port),
 	}, nil

@@ -484,7 +484,7 @@ func constructStartInstanceParams(
 
 	volumes := make([]storage.VolumeParams, len(provisioningInfo.Volumes))
 	for i, v := range provisioningInfo.Volumes {
-		volumeTag, err := names.ParseDiskTag(v.VolumeTag)
+		volumeTag, err := names.ParseVolumeTag(v.VolumeTag)
 		if err != nil {
 			return environs.StartInstanceParams{}, errors.Trace(err)
 		}
@@ -500,7 +500,12 @@ func constructStartInstanceParams(
 			v.Size,
 			storage.ProviderType(v.Provider),
 			v.Attributes,
-			&storage.AttachmentParams{machineTag, ""},
+			&storage.VolumeAttachmentParams{
+				AttachmentParams: storage.AttachmentParams{
+					Machine: machineTag,
+				},
+				Volume: volumeTag,
+			},
 		}
 	}
 
@@ -565,17 +570,20 @@ func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisio
 }
 
 func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.InterfaceInfo) (
-	networks []params.Network, ifaces []params.NetworkInterface) {
+	networks []params.Network, ifaces []params.NetworkInterface, err error) {
 	if len(networkInfo) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 	visitedNetworks := set.NewStrings()
 	for _, info := range networkInfo {
+		if !names.IsValidNetwork(info.NetworkName) {
+			return nil, nil, errors.Errorf("invalid network name %q", info.NetworkName)
+		}
 		networkTag := names.NewNetworkTag(info.NetworkName).String()
 		if !visitedNetworks.Contains(networkTag) {
 			networks = append(networks, params.Network{
 				Tag:        networkTag,
-				ProviderId: info.ProviderId,
+				ProviderId: string(info.ProviderId),
 				CIDR:       info.CIDR,
 				VLANTag:    info.VLANTag,
 			})
@@ -589,7 +597,7 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.I
 			Disabled:      info.Disabled,
 		})
 	}
-	return networks, ifaces
+	return networks, ifaces, nil
 }
 
 func (task *provisionerTask) startMachine(
@@ -618,7 +626,10 @@ func (task *provisionerTask) startMachine(
 	inst := result.Instance
 	hardware := result.Hardware
 	nonce := startInstanceParams.MachineConfig.MachineNonce
-	networks, ifaces := task.prepareNetworkAndInterfaces(result.NetworkInfo)
+	networks, ifaces, err := task.prepareNetworkAndInterfaces(result.NetworkInfo)
+	if err != nil {
+		return task.setErrorStatus("cannot prepare network for machine %q: %v", machine, err)
+	}
 	volumes := volumesToApiserver(result.Volumes)
 	volumeAttachments := volumeAttachmentsToApiserver(result.VolumeAttachments)
 

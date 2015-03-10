@@ -62,6 +62,11 @@ func (e *ebsProvider) ValidateConfig(providerConfig *storage.Config) error {
 	return nil
 }
 
+// Supports is defined on the Provider interface.
+func (e *ebsProvider) Supports(k storage.StorageKind) bool {
+	return k == storage.StorageKindBlock
+}
+
 func TranslateUserEBSOptions(userOptions map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for k, v := range userOptions {
@@ -83,6 +88,11 @@ func TranslateUserEBSOptions(userOptions map[string]interface{}) map[string]inte
 // VolumeSource is defined on the Provider interface.
 func (e *ebsProvider) VolumeSource(environConfig *config.Config, providerConfig *storage.Config) (storage.VolumeSource, error) {
 	panic("not implemented")
+}
+
+// FilesystemSource is defined on the Provider interface.
+func (e *ebsProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
+	return nil, errors.NotSupportedf("filesystems")
 }
 
 type ebsVolumeSoucre struct {

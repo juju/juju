@@ -4,6 +4,8 @@
 package firewaller_test
 
 import (
+	"sort"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -108,6 +110,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 		{Tag: s.units[0].Tag().String()},
 	}})
 	result, err := s.firewaller.WatchOpenedPorts(args)
+	sort.Strings(result.Results[0].Changes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
@@ -152,16 +155,16 @@ func (s *firewallerSuite) TestGetMachinePorts(c *gc.C) {
 	}
 	unit0Tag := s.units[0].Tag().String()
 	expectPortsMachine0 := []params.MachinePortRange{
-		{UnitTag: unit0Tag, PortRange: network.PortRange{
+		{UnitTag: unit0Tag, PortRange: params.PortRange{
 			FromPort: 1234, ToPort: 1400, Protocol: "tcp",
 		}},
-		{UnitTag: unit0Tag, PortRange: network.PortRange{
+		{UnitTag: unit0Tag, PortRange: params.PortRange{
 			FromPort: 4321, ToPort: 4321, Protocol: "tcp",
 		}},
 	}
 	unit2Tag := s.units[2].Tag().String()
 	expectPortsMachine2 := []params.MachinePortRange{
-		{UnitTag: unit2Tag, PortRange: network.PortRange{
+		{UnitTag: unit2Tag, PortRange: params.PortRange{
 			FromPort: 1111, ToPort: 2222, Protocol: "udp",
 		}},
 	}

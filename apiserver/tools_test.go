@@ -18,11 +18,13 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	commontesting "github.com/juju/juju/apiserver/common/testing"
 	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/toolstorage"
 	coretools "github.com/juju/juju/tools"
@@ -31,6 +33,7 @@ import (
 
 type toolsSuite struct {
 	authHttpSuite
+	commontesting.BlockHelper
 }
 
 var _ = gc.Suite(&toolsSuite{})
@@ -38,6 +41,12 @@ var _ = gc.Suite(&toolsSuite{})
 func (s *toolsSuite) SetUpSuite(c *gc.C) {
 	s.authHttpSuite.SetUpSuite(c)
 	s.archiveContentType = "application/x-tar-gz"
+}
+
+func (s *toolsSuite) SetUpTest(c *gc.C) {
+	s.authHttpSuite.SetUpTest(c)
+	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
 func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {
@@ -135,18 +144,18 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uploadedData, gc.DeepEquals, expectedData)
 }
+
 func (s *toolsSuite) TestBlockUpload(c *gc.C) {
 	// Make some fake tools.
 	_, vers, toolPath := s.setupToolsForUpload(c)
 	// Block all changes.
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-all-changes": true}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
+	s.BlockAllChanges(c, "TestUpload")
 	// Now try uploading them.
 	resp, err := s.uploadRequest(
 		c, s.toolsURI(c, "?binaryVersion="+vers.String()), true, toolPath)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "The operation has been blocked.")
+	problem := s.assertErrorResponse(c, resp, http.StatusBadRequest, "TestUpload")
+	s.AssertBlocked(c, problem, "TestUpload")
 
 	// Check the contents.
 	storage, err := s.State.ToolsStorage()
@@ -403,11 +412,12 @@ func (s *toolsSuite) assertGetFileResponse(c *gc.C, resp *http.Response, expBody
 	c.Check(string(body), gc.Equals, expBody)
 }
 
-func (s *toolsSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
+func (s *toolsSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) error {
 	body := assertResponse(c, resp, expCode, apihttp.CTypeJSON)
 	err := jsonToolsResponse(c, body).Error
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, expError)
+	return err
 }
 
 func jsonToolsResponse(c *gc.C, body []byte) (jsonResponse params.ToolsResult) {

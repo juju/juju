@@ -38,6 +38,7 @@ func Open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, er
 		return nil, errors.Annotate(err, "could not access state server info")
 	}
 	st.environTag = ssInfo.EnvironmentTag
+	st.serverTag = ssInfo.EnvironmentTag
 	st.startPresenceWatcher()
 	return st, nil
 }
@@ -76,7 +77,9 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	if !ok {
 		return nil, errors.Errorf("environment uuid was not supplied")
 	}
-	st.environTag = names.NewEnvironTag(uuid)
+	envTag := names.NewEnvironTag(uuid)
+	st.environTag = envTag
+	st.serverTag = envTag
 
 	// A valid environment is used as a signal that the
 	// state has already been initalized. If this is the case
@@ -142,6 +145,7 @@ func (st *State) envSetupOps(cfg *config.Config, envUUID, serverUUID string, own
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
 		createEnvironmentOp(st, owner, cfg.Name(), envUUID, serverUUID),
+		createUniqueOwnerEnvNameOp(owner, cfg.Name()),
 		envUserOp,
 	}
 	return ops, nil
@@ -173,14 +177,18 @@ var indexes = []struct {
 	{ipaddressesC, []string{"env-uuid", "state"}, false, false},
 	{ipaddressesC, []string{"env-uuid", "subnetid"}, false, false},
 	{storageInstancesC, []string{"env-uuid", "owner"}, false, false},
+	{storageAttachmentsC, []string{"env-uuid", "storageid"}, false, false},
+	{storageAttachmentsC, []string{"env-uuid", "unitid"}, false, false},
+	{volumesC, []string{"env-uuid", "storageid"}, false, false},
+	{filesystemsC, []string{"env-uuid", "storageid"}, false, false},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.
 // It's tweaked in export_test.go to 1MB to avoid the overhead of
 // creating and deleting the large file repeatedly in tests.
 var (
-	logSize      = 10000000
-	logSizeTests = 1000000
+	txnLogSize      = 10000000
+	txnLogSizeTests = 1000000
 )
 
 func maybeUnauthorized(err error, msg string) error {
@@ -224,27 +232,27 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 	}
 
 	db := session.DB("juju")
+
+	// Create collections used to track client-side transactions (mgo/txn).
+	txnLog := db.C(txnLogC)
+	txnLogInfo := mgo.CollectionInfo{Capped: true, MaxBytes: txnLogSize}
+	err := txnLog.Create(&txnLogInfo)
+	if isCollectionExistsError(err) {
+		return nil, maybeUnauthorized(err, "cannot create transaction log collection")
+	}
+	txns := db.C(txnsC)
+	err = txns.Create(new(mgo.CollectionInfo))
+	if isCollectionExistsError(err) {
+		return nil, maybeUnauthorized(err, "cannot create transaction collection")
+	}
+
+	// Create and set up State.
 	st := &State{
 		mongoInfo: mongoInfo,
 		policy:    policy,
 		db:        db,
+		watcher:   watcher.New(txnLog),
 	}
-	st.LeasePersistor = NewLeasePersistor(leaseC, st.runTransaction, st.getCollection)
-	log := db.C(txnLogC)
-	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
-	// The lack of error code for this error was reported upstream:
-	//     https://jira.mongodb.org/browse/SERVER-6992
-	err := log.Create(&logInfo)
-	if err != nil && err.Error() != "collection already exists" {
-		return nil, maybeUnauthorized(err, "cannot create log collection")
-	}
-	txns := db.C(txnsC)
-	err = txns.Create(&mgo.CollectionInfo{})
-	if err != nil && err.Error() != "collection already exists" {
-		return nil, maybeUnauthorized(err, "cannot create transaction collection")
-	}
-
-	st.watcher = watcher.New(log)
 	defer func() {
 		if resultErr != nil {
 			if err := st.watcher.Stop(); err != nil {
@@ -252,7 +260,9 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 			}
 		}
 	}()
+	st.LeasePersistor = NewLeasePersistor(leaseC, st.runTransaction, st.getCollection)
 
+	// Create DB indexes.
 	for _, item := range indexes {
 		index := mgo.Index{Key: item.key, Unique: item.unique, Sparse: item.sparse}
 		if err := db.C(item.collection).EnsureIndex(index); err != nil {
@@ -261,6 +271,12 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 	}
 
 	return st, nil
+}
+
+func isCollectionExistsError(err error) bool {
+	// The lack of error code for this error was reported upstream:
+	//     https://jira.mongodb.org/browse/SERVER-6992
+	return err != nil && err.Error() != "collection already exists"
 }
 
 // MongoConnectionInfo returns information for connecting to mongo

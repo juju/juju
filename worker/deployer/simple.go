@@ -6,26 +6,21 @@ package deployer
 import (
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
-	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
-	jujunames "github.com/juju/juju/juju/names"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/version"
 )
 
-// InitDir is the default upstart init directory.
-// This is a var so it can be overridden by tests.
-var InitDir = "/etc/init"
+// TODO(ericsnow) Use errors.Trace, etc. in this file.
 
 // APICalls defines the interface to the API that the simple context needs.
 type APICalls interface {
@@ -43,9 +38,11 @@ type SimpleContext struct {
 	// running the deployer.
 	agentConfig agent.Config
 
-	// initDir specifies the directory used by init on the local system.
-	// For upstart, it is typically set to "/etc/init".
-	initDir string
+	// discoverService is a surrogate for service.DiscoverService.
+	discoverService func(string, common.Conf) deployerService
+
+	// listServices is a surrogate for service.ListServices.
+	listServices func() ([]string, error)
 }
 
 var _ Context = (*SimpleContext)(nil)
@@ -75,7 +72,14 @@ func NewSimpleContext(agentConfig agent.Config, api APICalls) *SimpleContext {
 	return &SimpleContext{
 		api:         api,
 		agentConfig: agentConfig,
-		initDir:     InitDir,
+		discoverService: func(name string, conf common.Conf) deployerService {
+			// TODO(ericsnow) We shouldn't just throw away the error here.
+			svc, _ := service.DiscoverService(name, conf)
+			return svc
+		},
+		listServices: func() ([]string, error) {
+			return service.ListServices()
+		},
 	}
 }
 
@@ -86,7 +90,11 @@ func (ctx *SimpleContext) AgentConfig() agent.Config {
 func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err error) {
 	// Check sanity.
 	svc := ctx.service(unitName)
-	if svc.Installed() {
+	installed, err := svc.Installed()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if installed {
 		return fmt.Errorf("unit %q is already deployed", unitName)
 	}
 
@@ -135,54 +143,59 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	defer removeOnErr(&err, conf.Dir())
 
 	// Install an init service that runs the unit agent.
-	logPath := path.Join(logDir, tag.String()+".log")
-	cmd := strings.Join([]string{
-		filepath.FromSlash(path.Join(toolsDir, jujunames.Jujud)), "unit",
-		"--data-dir", dataDir,
-		"--unit-name", unitName,
-		"--debug", // TODO: propagate debug state sensibly
-	}, " ")
-	// TODO(thumper): 2013-09-02 bug 1219630
-	// As much as I'd like to remove JujuContainerType now, it is still
-	// needed as MAAS still needs it at this stage, and we can't fix
-	// everything at once.
-	envVars := map[string]string{
-		osenv.JujuContainerTypeEnvKey: containerType,
-	}
-	osenv.MergeEnvironment(envVars, osenv.FeatureFlags())
-	sconf := common.Conf{
-		Desc:    "juju unit agent for " + unitName,
-		Cmd:     cmd,
-		Out:     logPath,
-		Env:     envVars,
-		InitDir: ctx.initDir,
-	}
+	sconf, _ := service.UnitAgentConf(
+		unitName,
+		dataDir,
+		logDir,
+		"",
+		containerType,
+	)
 	svc.UpdateConfig(sconf)
-	return svc.Install()
+	if err := service.InstallAndStart(svc); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
-// findUpstartJob tries to find an upstart job matching the
+type deployerService interface {
+	UpdateConfig(common.Conf)
+	Installed() (bool, error)
+	Install() error
+	Remove() error
+	Start() error
+	Stop() error
+}
+
+// findUpstartJob tries to find an init system job matching the
 // given unit name in one of these formats:
 //   jujud-<deployer-tag>:<unit-tag>.conf (for compatibility)
 //   jujud-<unit-tag>.conf (default)
-func (ctx *SimpleContext) findUpstartJob(unitName string) service.Service {
-	unitsAndJobs, err := ctx.deployedUnitsUpstartJobs()
+func (ctx *SimpleContext) findInitSystemJob(unitName string) deployerService {
+	unitsAndJobs, err := ctx.deployedUnitsInitSystemJobs()
 	if err != nil {
+		// TODO(ericsnow) Is there a good reason to discard the error
+		// like this?
 		return nil
 	}
 	if job, ok := unitsAndJobs[unitName]; ok {
-		svc := service.NewService(job, common.Conf{InitDir: ctx.initDir})
-		return svc
+		return ctx.discoverService(job, common.Conf{})
 	}
 	return nil
 }
 
 func (ctx *SimpleContext) RecallUnit(unitName string) error {
-	svc := ctx.findUpstartJob(unitName)
-	if svc == nil || !svc.Installed() {
+	svc := ctx.findInitSystemJob(unitName)
+	if svc == nil {
 		return fmt.Errorf("unit %q is not deployed", unitName)
 	}
-	if err := svc.StopAndRemove(); err != nil {
+	installed, err := svc.Installed()
+	if !installed {
+		return fmt.Errorf("unit %q is not deployed", unitName)
+	}
+	if err := svc.Stop(); err != nil {
+		return err
+	}
+	if err := svc.Remove(); err != nil {
 		return err
 	}
 	tag := names.NewUnitTag(unitName)
@@ -190,7 +203,7 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	agentDir := agent.Dir(dataDir, tag)
 	// Recursivley change mode to 777 on windows to avoid
 	// Operation not permitted errors when deleting the agentDir
-	err := recursiveChmod(agentDir, os.FileMode(0777))
+	err = recursiveChmod(agentDir, os.FileMode(0777))
 	if err != nil {
 		return err
 	}
@@ -204,8 +217,8 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 
 var deployedRe = regexp.MustCompile("^(jujud-.*unit-([a-z0-9-]+)-([0-9]+))$")
 
-func (ctx *SimpleContext) deployedUnitsUpstartJobs() (map[string]string, error) {
-	fis, err := service.ListServices(ctx.initDir)
+func (ctx *SimpleContext) deployedUnitsInitSystemJobs() (map[string]string, error) {
+	fis, err := ctx.listServices()
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +239,7 @@ func (ctx *SimpleContext) deployedUnitsUpstartJobs() (map[string]string, error) 
 }
 
 func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
-	unitsAndJobs, err := ctx.deployedUnitsUpstartJobs()
+	unitsAndJobs, err := ctx.deployedUnitsInitSystemJobs()
 	if err != nil {
 		return nil, err
 	}
@@ -239,11 +252,10 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 
 // service returns a service.Service corresponding to the specified
 // unit.
-func (ctx *SimpleContext) service(unitName string) service.Service {
+func (ctx *SimpleContext) service(unitName string) deployerService {
 	tag := names.NewUnitTag(unitName).String()
 	svcName := "jujud-" + tag
-	svc := service.NewService(svcName, common.Conf{InitDir: ctx.initDir})
-	return svc
+	return ctx.discoverService(svcName, common.Conf{})
 }
 
 func removeOnErr(err *error, path string) {

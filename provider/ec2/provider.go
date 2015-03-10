@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"gopkg.in/amz.v2/ec2"
+	"gopkg.in/amz.v3/ec2"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -34,7 +34,15 @@ func (p environProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
+	attrs := cfg.UnknownAttrs()
+	if _, ok := attrs["control-bucket"]; !ok {
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		attrs["control-bucket"] = fmt.Sprintf("%x", uuid.Raw())
+	}
+	return cfg.Apply(attrs)
 }
 
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
@@ -49,15 +57,7 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 }
 
 func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	attrs := cfg.UnknownAttrs()
-	if _, ok := attrs["control-bucket"]; !ok {
-		uuid, err := utils.NewUUID()
-		if err != nil {
-			return nil, err
-		}
-		attrs["control-bucket"] = fmt.Sprintf("%x", uuid.Raw())
-	}
-	cfg, err := cfg.Apply(attrs)
+	cfg, err := p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, err
 	}

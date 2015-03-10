@@ -75,6 +75,16 @@ func (t BlockType) String() string {
 	return string(t.ToParams())
 }
 
+// ParseBlockType returns BlockType from humanly readable type representation.
+func ParseBlockType(str string) BlockType {
+	for _, one := range AllTypes() {
+		if one.String() == str {
+			return one
+		}
+	}
+	panic(fmt.Sprintf("unknown block type %v", str))
+}
+
 type block struct {
 	doc blockDoc
 }

@@ -21,15 +21,4 @@ func init() {
 		providerType,
 		storageprovider.HostLoopProviderType,
 	)
-	// TODO(wallyworld) - implement when available
-	//	registry.RegisterDefaultPool(
-	//		provider.Local,
-	//		storage.StorageKindBlock,
-	//		storageprovider.LoopPool,
-	//	)
-	//	registry.RegisterDefaultPool(
-	//		provider.Local,
-	//		storage.StorageKindFilesystem,
-	//		storageprovider.RootfsPool,
-	//	)
 }

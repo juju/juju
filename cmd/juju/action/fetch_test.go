@@ -42,7 +42,7 @@ func (s *FetchSuite) TestInit(c *gc.C) {
 	}{{
 		should:      "fail with missing arg",
 		args:        []string{},
-		expectError: "no action UUID specified",
+		expectError: "no action ID specified",
 	}, {
 		should:      "fail with multiple args",
 		args:        []string{"12345", "54321"},

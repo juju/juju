@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -37,6 +38,9 @@ exit $EXIT_CODE
 var fakecommands = []string{"tmux"}
 
 func (s *DebugHooksServerSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: Currently debug does not work on windows")
+	}
 	s.fakebin = c.MkDir()
 	s.tmpdir = c.MkDir()
 	s.PatchEnvPathPrepend(s.fakebin)

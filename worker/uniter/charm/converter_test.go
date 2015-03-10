@@ -22,6 +22,7 @@ type ConverterSuite struct {
 var _ = gc.Suite(&ConverterSuite{})
 
 func (s *ConverterSuite) SetUpTest(c *gc.C) {
+	testing.SkipIfGitNotAvailable(c)
 	s.GitSuite.SetUpTest(c)
 	s.targetPath = c.MkDir()
 	s.dataPath = c.MkDir()

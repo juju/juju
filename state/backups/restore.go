@@ -80,7 +80,7 @@ func newDialInfo(privateAddr string, conf agent.Config) (*mgo.DialInfo, error) {
 // updateMongoEntries will update the machine entries in the restored mongo to
 // reflect the real machine instanceid in case it changed (a newly bootstraped
 // server).
-func updateMongoEntries(newInstId instance.Id, newMachineId string, dialInfo *mgo.DialInfo) error {
+func updateMongoEntries(newInstId instance.Id, newMachineId, oldMachineId string, dialInfo *mgo.DialInfo) error {
 	session, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
 		return errors.Annotate(err, "cannot connect to mongo to update")
@@ -88,11 +88,28 @@ func updateMongoEntries(newInstId instance.Id, newMachineId string, dialInfo *mg
 	defer session.Close()
 	// TODO(perrito666): Take the Machine id from an autoritative source
 	err = session.DB("juju").C("machines").Update(
-		bson.M{"machineid": newMachineId},
-		bson.M{"$set": bson.M{"instanceid": string(newInstId)}},
+		bson.M{"machineid": oldMachineId},
+		bson.M{"$set": bson.M{"instanceid": string(newInstId),
+			"machineid": newMachineId}},
 	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot update machine %s instance information", newMachineId)
+	}
+	return nil
+}
+
+// updateMachineAddresses will update the machine doc to the current addresses
+func updateMachineAddresses(machine *state.Machine, privateAddress, publicAddress string) error {
+	privateAddressAddress := network.Address{
+		Value: privateAddress,
+		Type:  network.DeriveAddressType(privateAddress),
+	}
+	publicAddressAddress := network.Address{
+		Value: publicAddress,
+		Type:  network.DeriveAddressType(publicAddress),
+	}
+	if err := machine.SetAddresses(publicAddressAddress, privateAddressAddress); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -227,6 +244,10 @@ func runViaSSH(addr string, script string) error {
 	return nil
 }
 
+// updateBackupMachineTag updates the paths that are stored in the backup
+// to the current machine. This path is tied, among other factors, to the
+// machine tag.
+// Eventually this will change: when backups hold relative paths.
 func updateBackupMachineTag(oldTag, newTag names.Tag) error {
 	oldTagString := oldTag.String()
 	newTagString := newTag.String()

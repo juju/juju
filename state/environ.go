@@ -122,7 +122,24 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 	}
 	err = newState.runTransactionNoEnvAliveAssert(ops)
 	if err == txn.ErrAborted {
-		err = errors.New("environment already exists")
+
+		// We have a  unique key restriction on the "owner" and "name" fields,
+		// which will cause the insert to fail if there is another record with
+		// the same "owner" and "name" in the collection. If the txn is
+		// aborted, check if it is due to the unique key restriction.
+		environments, closer := st.getCollection(environmentsC)
+		defer closer()
+		envCount, countErr := environments.Find(bson.D{
+			{"owner", owner.Username()},
+			{"name", cfg.Name()}},
+		).Count()
+		if countErr != nil {
+			err = errors.Trace(countErr)
+		} else if envCount > 0 {
+			err = errors.AlreadyExistsf("environment %q for %s", cfg.Name(), owner.Username())
+		} else {
+			err = errors.New("environment already exists")
+		}
 	}
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -130,7 +147,7 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 
 	newEnv, err := newState.Environment()
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "could not load new environment")
+		return nil, nil, errors.Trace(err)
 	}
 
 	return newEnv, newState, nil
@@ -157,6 +174,12 @@ func (e *Environment) ServerTag() names.EnvironTag {
 // UUID returns the universally unique identifier of the environment.
 func (e *Environment) UUID() string {
 	return e.doc.UUID
+}
+
+// ServerUUID returns the universally unique identifier of the server in which
+// the environment is running.
+func (e *Environment) ServerUUID() string {
+	return e.doc.ServerUUID
 }
 
 // Name returns the human friendly name of the environment.
@@ -198,7 +221,6 @@ func (e *Environment) globalKey() string {
 func (e *Environment) Refresh() error {
 	environments, closer := e.st.getCollection(environmentsC)
 	defer closer()
-
 	return e.refresh(environments.FindId(e.UUID()))
 }
 
@@ -325,7 +347,6 @@ func checkManualMachines(machines []*Machine) error {
 // ensureDestroyable returns an error if there is more than one environment and the
 // environment to be destroyed is the state server environment.
 func (e *Environment) ensureDestroyable() error {
-	// There's a race here: a client might add a manual machine
 	// after another client checks. Destroy-environment will
 	// still fail, but the environment will be in a state where
 	// entities can only be destroyed.
@@ -373,6 +394,17 @@ func createEnvironmentOp(st *State, owner names.UserTag, name, uuid, server stri
 		Id:     uuid,
 		Assert: txn.DocMissing,
 		Insert: doc,
+	}
+}
+
+// createUniqueOwnerEnvNameOp returns the operation needed to create
+// an userenvnameC document with the given owner and environment name.
+func createUniqueOwnerEnvNameOp(owner names.UserTag, envName string) txn.Op {
+	return txn.Op{
+		C:      userenvnameC,
+		Id:     userEnvNameIndex(owner.Username(), envName),
+		Assert: txn.DocMissing,
+		Insert: bson.M{},
 	}
 }
 

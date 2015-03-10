@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -33,7 +34,8 @@ func bufferString(w io.Writer) string {
 
 type ContextSuite struct {
 	testing.BaseSuite
-	rels map[int]*ContextRelation
+	rels    map[int]*ContextRelation
+	storage map[names.StorageTag]*ContextStorage
 }
 
 func (s *ContextSuite) SetUpTest(c *gc.C) {
@@ -54,6 +56,15 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
+
+	storageData0 := names.NewStorageTag("data/0")
+	s.storage = map[names.StorageTag]*ContextStorage{
+		storageData0: {
+			storageData0,
+			storage.StorageKindBlock,
+			"/dev/sda",
+		},
+	}
 }
 
 func (s *ContextSuite) GetHookContext(c *gc.C, relid int, remote string) *Context {
@@ -62,9 +73,23 @@ func (s *ContextSuite) GetHookContext(c *gc.C, relid int, remote string) *Contex
 		c.Assert(found, jc.IsTrue)
 	}
 	return &Context{
-		relid:  relid,
-		remote: remote,
-		rels:   s.rels,
+		relid:   relid,
+		remote:  remote,
+		rels:    s.rels,
+		storage: s.storage,
+	}
+}
+
+func (s *ContextSuite) GetStorageHookContext(c *gc.C, storageId string) *Context {
+	valid := names.IsValidStorage(storageId)
+	c.Assert(valid, jc.IsTrue)
+	storageTag := names.NewStorageTag(storageId)
+	_, found := s.storage[storageTag]
+	c.Assert(found, jc.IsTrue)
+	return &Context{
+		rels:       s.rels,
+		storage:    s.storage,
+		storageTag: storageTag,
 	}
 }
 
@@ -80,6 +105,7 @@ func setSettings(c *gc.C, ru *state.RelationUnit, settings map[string]interface{
 }
 
 type Context struct {
+	jujuc.Context
 	ports          []network.PortRange
 	relid          int
 	remote         string
@@ -88,6 +114,8 @@ type Context struct {
 	canAddMetrics  bool
 	rebootPriority jujuc.RebootPriority
 	shouldError    bool
+	storageTag     names.StorageTag
+	storage        map[names.StorageTag]*ContextStorage
 }
 
 func (c *Context) AddMetric(key, value string, created time.Time) error {
@@ -114,18 +142,13 @@ func (c *Context) AvailabilityZone() (string, bool) {
 	return "us-east-1a", true
 }
 
-func (c *Context) StorageAttachment(storage names.StorageTag) (*params.StorageAttachment, bool) {
-	return c.HookStorageAttachment()
+func (c *Context) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
+	storage, ok := c.storage[tag]
+	return storage, ok
 }
 
-func (c *Context) HookStorageAttachment() (*params.StorageAttachment, bool) {
-	return &params.StorageAttachment{
-		"storage-data-0",
-		"unit-service-0",
-		"unit-service-0",
-		params.StorageKindBlock,
-		"/dev/sda",
-	}, true
+func (c *Context) HookStorage() (jujuc.ContextStorage, bool) {
+	return c.Storage(c.storageTag)
 }
 
 func (c *Context) OpenPorts(protocol string, fromPort, toPort int) error {
@@ -246,6 +269,24 @@ func (r *ContextRelation) ReadSettings(name string) (params.Settings, error) {
 		return nil, fmt.Errorf("unknown unit %s", name)
 	}
 	return s.Map(), nil
+}
+
+type ContextStorage struct {
+	tag      names.StorageTag
+	kind     storage.StorageKind
+	location string
+}
+
+func (s *ContextStorage) Tag() names.StorageTag {
+	return s.tag
+}
+
+func (s *ContextStorage) Kind() storage.StorageKind {
+	return s.kind
+}
+
+func (s *ContextStorage) Location() string {
+	return s.location
 }
 
 type Settings params.Settings

@@ -23,7 +23,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.environmentmanager")
 
 func init() {
-	common.RegisterStandardFacadeForFeature("EnvironmentManager", 1, NewEnvironmentManagerAPI, feature.MESS)
+	common.RegisterStandardFacadeForFeature("EnvironmentManager", 1, NewEnvironmentManagerAPI, feature.JES)
 }
 
 // EnvironmentManager defines the methods on the environmentmanager API end
@@ -89,6 +89,7 @@ var configValuesFromStateServer = []string{
 	"api-port",
 	"syslog-port",
 	"rsyslog-ca-cert",
+	"rsyslog-ca-key",
 }
 
 // ConfigSkeleton returns config values to be used as a starting point for the

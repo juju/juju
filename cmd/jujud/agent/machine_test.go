@@ -80,12 +80,6 @@ var (
 )
 
 func TestPackage(t *testing.T) {
-	// Change the default init dir in worker/deployer,
-	// so the deployer doesn't try to remove upstart
-	// jobs from tests.
-	restore := gitjujutesting.PatchValue(&deployer.InitDir, mkdtemp("juju-worker-deployer"))
-	defer restore()
-
 	// TODO(waigani) 2014-03-19 bug 1294458
 	// Refactor to use base suites
 
@@ -1309,7 +1303,7 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 
 		modeCh := make(chan bool, 1)
 		s.AgentSuite.PatchValue(&newNetworker, func(
-			st *apinetworker.State,
+			st apinetworker.State,
 			conf agent.Config,
 			intrusiveMode bool,
 			configBaseDir string,

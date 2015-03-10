@@ -7,11 +7,11 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"net/rpc"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,7 +32,10 @@ import (
 
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/lease"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
@@ -78,6 +81,7 @@ type context struct {
 	s             *UniterSuite
 	st            *state.State
 	api           *apiuniter.State
+	leader        leadership.LeadershipManager
 	charms        map[string][]byte
 	hooks         []string
 	sch           *state.Charm
@@ -90,6 +94,7 @@ type context struct {
 	subordinate   *state.Unit
 	ticker        *uniter.ManualTicker
 
+	wg             sync.WaitGroup
 	mu             sync.Mutex
 	hooksCompleted []string
 }
@@ -109,6 +114,13 @@ func (ctx *context) HookFailed(hookName string) {
 }
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
+	// We need this lest leadership calls block forever.
+	workerLoop := lease.WorkerLoop(ctx.st)
+	leaseWorker := worker.NewSimpleWorker(workerLoop)
+	defer func() {
+		c.Assert(worker.Stop(leaseWorker), jc.ErrorIsNil)
+	}()
+
 	defer func() {
 		if ctx.uniter != nil {
 			err := ctx.uniter.Stop()
@@ -130,45 +142,13 @@ func (ctx *context) apiLogin(c *gc.C) {
 	c.Assert(st, gc.NotNil)
 	c.Logf("API: login as %q successful", ctx.unit.Tag())
 	ctx.api, err = st.Uniter()
+	ctx.leader = st.LeadershipManager()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.api, gc.NotNil)
 }
 
-var goodHook = `
-#!/bin/bash --norc
-juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
-`[1:]
-
-var badHook = `
-#!/bin/bash --norc
-juju-log $JUJU_ENV_UUID fail-%s $JUJU_REMOTE_UNIT
-exit 1
-`[1:]
-
-var rebootHook = `
-#!/bin/bash --norc
-juju-reboot
-`[1:]
-
-var badRebootHook = `
-#!/bin/bash --norc
-juju-reboot
-exit 1
-`[1:]
-
-var rebootNowHook = `
-#!/bin/bash --norc
-
-if [ -f "i_have_risen" ]
-then
-    exit 0
-fi
-touch i_have_risen
-juju-reboot --now
-`[1:]
-
 func (ctx *context) writeExplicitHook(c *gc.C, path string, contents string) {
-	err := ioutil.WriteFile(path, []byte(contents), 0755)
+	err := ioutil.WriteFile(path+cmdSuffix, []byte(contents), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -200,39 +180,9 @@ metrics:
 }
 
 func (ctx *context) writeAction(c *gc.C, path, name string) {
-	var actions = map[string]string{
-		"action-log": `
-#!/bin/bash --norc
-juju-log $JUJU_ENV_UUID action-log
-`[1:],
-		"snapshot": `
-#!/bin/bash --norc
-action-set outfile.name="snapshot-01.tar" outfile.size="10.3GB"
-action-set outfile.size.magnitude="10.3" outfile.size.units="GB"
-action-set completion.status="yes" completion.time="5m"
-action-set completion="yes"
-`[1:],
-		"action-log-fail": `
-#!/bin/bash --norc
-action-fail "I'm afraid I can't let you do that, Dave."
-action-set foo="still works"
-`[1:],
-		"action-log-fail-error": `
-#!/bin/bash --norc
-action-fail too many arguments
-action-set foo="still works"
-action-fail "A real message"
-`[1:],
-		"action-reboot": `
-#!/bin/bash --norc
-juju-reboot || action-set reboot-delayed="good"
-juju-reboot --now || action-set reboot-now="good"
-`[1:],
-	}
-
 	actionPath := filepath.Join(path, "actions", name)
 	action := actions[name]
-	err := ioutil.WriteFile(actionPath, []byte(action), 0755)
+	err := ioutil.WriteFile(actionPath+cmdSuffix, []byte(action), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -475,7 +425,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.dataDir, lock)
+	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.leader, ctx.dataDir, lock)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
 
@@ -1230,7 +1180,7 @@ func curl(revision int) *corecharm.URL {
 }
 
 func appendHook(c *gc.C, charm, name, data string) {
-	path := filepath.Join(charm, "hooks", name)
+	path := filepath.Join(charm, "hooks", name+cmdSuffix)
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	defer f.Close()
@@ -1360,11 +1310,18 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		RemoteUnitName: "",
 	}
 
-	socketPath := filepath.Join(ctx.path, "run.socket")
+	var socketPath string
+	if runtime.GOOS == "windows" {
+		socketPath = `\\.\pipe\unit-u-0-run`
+	} else {
+		socketPath = filepath.Join(ctx.path, "run.socket")
+	}
 
+	ctx.wg.Add(1)
 	go func() {
+		defer ctx.wg.Done()
 		// make sure the socket exists
-		client, err := rpc.Dial("unix", socketPath)
+		client, err := sockets.Dial(socketPath)
 		c.Assert(err, jc.ErrorIsNil)
 		defer client.Close()
 
@@ -1375,6 +1332,20 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		c.Check(string(result.Stdout), gc.Equals, "")
 		c.Check(string(result.Stderr), gc.Equals, "")
 	}()
+}
+
+type waitContextWaitGroup struct{}
+
+func (waitContextWaitGroup) step(c *gc.C, ctx *context) {
+	ctx.wg.Wait()
+}
+
+type verifyLeaderSettings map[string]string
+
+func (verify verifyLeaderSettings) step(c *gc.C, ctx *context) {
+	actual, err := ctx.api.LeadershipSettings.Read("u")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actual, jc.DeepEquals, map[string]string(verify))
 }
 
 type verifyFile struct {

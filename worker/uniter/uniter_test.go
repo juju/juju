@@ -10,14 +10,17 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"syscall"
 
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -36,6 +39,11 @@ type UniterSuite struct {
 }
 
 var _ = gc.Suite(&UniterSuite{})
+
+// This guarantees that we get proper platform
+// specific error directly from their source
+// This works on both windows and unix
+var errNotDir = syscall.ENOTDIR.Error()
 
 func (s *UniterSuite) SetUpSuite(c *gc.C) {
 	s.GitSuite.SetUpSuite(c)
@@ -114,7 +122,7 @@ func (s *UniterSuite) TestUniterStartup(c *gc.C) {
 			createCharm{},
 			createServiceAndUnit{},
 			startUniter{},
-			waitUniterDead{`failed to initialize uniter for "unit-u-0": .*not a directory`},
+			waitUniterDead{`failed to initialize uniter for "unit-u-0": .*` + errNotDir},
 		), ut(
 			"unknown unit",
 			// We still need to create a unit, because that's when we also
@@ -141,7 +149,7 @@ func (s *UniterSuite) TestUniterBootstrap(c *gc.C) {
 			serveCharm{},
 			writeFile{"charm", 0644},
 			createUniter{},
-			waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: executing operation "install cs:quantal/wordpress-0": open .*: not a directory`},
+			waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: executing operation "install cs:quantal/wordpress-0": open .*` + errNotDir},
 		), ut(
 			"charm cannot be downloaded",
 			createCharm{},
@@ -311,7 +319,7 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *gc.C) {
 			"steady state config change with config-get verification",
 			createCharm{
 				customize: func(c *gc.C, ctx *context, path string) {
-					appendHook(c, path, "config-changed", "config-get --format yaml --output config.out")
+					appendHook(c, path, "config-changed", appendConfigChanged)
 				},
 			},
 			serveCharm{},
@@ -680,6 +688,8 @@ func (s *UniterSuite) TestUniterErrorStateUpgrade(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
+	coretesting.SkipIfGitNotAvailable(c)
+
 	deployerConversionTests := []uniterTest{
 		ut(
 			"install normally, check not using git",
@@ -848,6 +858,8 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
+	coretesting.SkipIfGitNotAvailable(c)
+
 	// These tests are copies of the old git-deployer-related tests, to test that
 	// the uniter with the manifest-deployer work patched out still works how it
 	// used to; thus demonstrating that the *other* tests that verify manifest
@@ -975,82 +987,6 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 	})
 }
 
-func (s *UniterSuite) TestRunCommand(c *gc.C) {
-	testDir := c.MkDir()
-	testFile := func(name string) string {
-		return filepath.Join(testDir, name)
-	}
-	echoUnitNameToFile := func(name string) string {
-		path := filepath.Join(testDir, name)
-		template := "echo juju run ${JUJU_UNIT_NAME} > %s.tmp; mv %s.tmp %s"
-		return fmt.Sprintf(template, path, path, path)
-	}
-	adminTag := s.AdminUserTag(c)
-
-	s.runUniterTests(c, []uniterTest{
-		ut(
-			"run commands: environment",
-			quickStart{},
-			runCommands{echoUnitNameToFile("run.output")},
-			verifyFile{filepath.Join(testDir, "run.output"), "juju run u/0\n"},
-		), ut(
-			"run commands: jujuc commands",
-			quickStartRelation{},
-			runCommands{
-				fmt.Sprintf("owner-get tag > %s", testFile("jujuc.output")),
-				fmt.Sprintf("unit-get private-address >> %s", testFile("jujuc.output")),
-				fmt.Sprintf("unit-get public-address >> %s", testFile("jujuc.output")),
-			},
-			verifyFile{
-				testFile("jujuc.output"),
-				adminTag.String() + "\nprivate.address.example.com\npublic.address.example.com\n",
-			},
-		), ut(
-			"run commands: jujuc environment",
-			quickStartRelation{},
-			relationRunCommands{
-				fmt.Sprintf("echo $JUJU_RELATION_ID > %s", testFile("jujuc-env.output")),
-				fmt.Sprintf("echo $JUJU_REMOTE_UNIT >> %s", testFile("jujuc-env.output")),
-			},
-			verifyFile{
-				testFile("jujuc-env.output"),
-				"db:0\nmysql/0\n",
-			},
-		), ut(
-			"run commands: proxy settings set",
-			quickStartRelation{},
-			setProxySettings{Http: "http", Https: "https", Ftp: "ftp", NoProxy: "localhost"},
-			runCommands{
-				fmt.Sprintf("echo $http_proxy > %s", testFile("proxy.output")),
-				fmt.Sprintf("echo $HTTP_PROXY >> %s", testFile("proxy.output")),
-				fmt.Sprintf("echo $https_proxy >> %s", testFile("proxy.output")),
-				fmt.Sprintf("echo $HTTPS_PROXY >> %s", testFile("proxy.output")),
-				fmt.Sprintf("echo $ftp_proxy >> %s", testFile("proxy.output")),
-				fmt.Sprintf("echo $FTP_PROXY >> %s", testFile("proxy.output")),
-				fmt.Sprintf("echo $no_proxy >> %s", testFile("proxy.output")),
-				fmt.Sprintf("echo $NO_PROXY >> %s", testFile("proxy.output")),
-			},
-			verifyFile{
-				testFile("proxy.output"),
-				"http\nhttp\nhttps\nhttps\nftp\nftp\nlocalhost\nlocalhost\n",
-			},
-		), ut(
-			"run commands: async using rpc client",
-			quickStart{},
-			asyncRunCommands{echoUnitNameToFile("run.output")},
-			verifyFile{testFile("run.output"), "juju run u/0\n"},
-		), ut(
-			"run commands: waits for lock",
-			quickStart{},
-			acquireHookSyncLock{},
-			asyncRunCommands{echoUnitNameToFile("wait.output")},
-			verifyNoFile{testFile("wait.output")},
-			releaseHookSyncLock,
-			verifyFile{testFile("wait.output"), "juju run u/0\n"},
-		),
-	})
-}
-
 func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		// Relations.
@@ -1130,7 +1066,7 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			"all relations are available to config-changed on bounce, even if state dir is missing",
 			createCharm{
 				customize: func(c *gc.C, ctx *context, path string) {
-					script := "relation-ids db > relations.out && chmod 644 relations.out"
+					script := uniterRelationsCustomizeScript
 					appendHook(c, path, "config-changed", script)
 				},
 			},
@@ -1750,6 +1686,25 @@ func (s *UniterSuite) TestRebootFromJujuRun(c *gc.C) {
 			waitUniterDead{"machine needs to reboot"},
 			startUniter{},
 			waitHooks{},
+		),
+	})
+}
+
+func (s *UniterSuite) TestLeadership(c *gc.C) {
+	// TODO(fwereade): 2015-03-07 bug XXXXXXXXXXXXX
+	// This is a really bad way to test the impact of feature flags, because it
+	// doesn't clean up after itself. We really want something in featureflags
+	// to help test these -- something like `WithFlags([]string, func())`?
+	// Regardless, there are way too many tests like this already and fixing
+	// that deserves its own CL.
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "leader-election")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"leader-set works",
+			quickStart{},
+			runCommands{fmt.Sprintf("leader-set foo=bar baz=qux")},
+			verifyLeaderSettings{"foo": "bar", "baz": "qux"},
 		),
 	})
 }

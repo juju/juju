@@ -298,12 +298,12 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 		IsVirtual:     false,
 	}}
 	volumes := []params.Volume{{
-		VolumeTag: "disk-0",
+		VolumeTag: "volume-0",
 		VolumeId:  "vol-123",
 		Size:      124,
 	}}
 	volumeAttachments := []params.VolumeAttachment{{
-		VolumeTag:  "disk-0",
+		VolumeTag:  "volume-0",
 		MachineTag: "machine-1",
 		DeviceName: "xvdf1",
 	}}
@@ -337,13 +337,13 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 		tag, err := names.ParseNetworkTag(networks[i].Tag)
 		c.Assert(err, jc.ErrorIsNil)
 		networkName := tag.Id()
-		network, err := s.State.Network(networkName)
+		nw, err := s.State.Network(networkName)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(network.Name(), gc.Equals, networkName)
-		c.Check(network.ProviderId(), gc.Equals, networks[i].ProviderId)
-		c.Check(network.Tag().String(), gc.Equals, networks[i].Tag)
-		c.Check(network.VLANTag(), gc.Equals, networks[i].VLANTag)
-		c.Check(network.CIDR(), gc.Equals, networks[i].CIDR)
+		c.Check(nw.Name(), gc.Equals, networkName)
+		c.Check(nw.ProviderId(), gc.Equals, network.Id(networks[i].ProviderId))
+		c.Check(nw.Tag().String(), gc.Equals, networks[i].Tag)
+		c.Check(nw.VLANTag(), gc.Equals, networks[i].VLANTag)
+		c.Check(nw.CIDR(), gc.Equals, networks[i].CIDR)
 	}
 
 	// And the network interfaces as well.
@@ -362,7 +362,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(actual, jc.SameContents, ifaces[:4]) // skip the rest as they are ignored.
 
 	// Now check volumes and volume attachments.
-	volume, err := s.State.Volume(names.NewDiskTag("0"))
+	volume, err := s.State.Volume(names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfo, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
@@ -589,12 +589,32 @@ func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
 	c.Assert(addresses, gc.DeepEquals, stateAddresses)
 }
 
-func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
-	args := params.ContainerManagerConfigParams{Type: instance.KVM}
+func (s *provisionerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType) map[string]string {
+	args := params.ContainerManagerConfigParams{Type: typ}
 	result, err := s.provisioner.ContainerManagerConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.ManagerConfig, gc.DeepEquals, map[string]string{
+	return result.ManagerConfig
+}
+
+func (s *provisionerSuite) TestContainerManagerConfigKNoIPForwarding(c *gc.C) {
+	// Break dummy provider's SupportsAddressAllocation method to
+	// ensure ConfigIPForwarding is not set below.
+	s.AssertConfigParameterUpdated(c, "broken", "SupportsAddressAllocation")
+
+	cfg := s.getManagerConfig(c, instance.KVM)
+	c.Assert(cfg, jc.DeepEquals, map[string]string{
 		container.ConfigName: "juju",
+	})
+}
+
+func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
+	cfg := s.getManagerConfig(c, instance.KVM)
+	c.Assert(cfg, jc.DeepEquals, map[string]string{
+		container.ConfigName: "juju",
+
+		// dummy provider supports both networking and address
+		// allocation by default, so IP forwarding should be enabled.
+		container.ConfigIPForwarding: "true",
 	})
 }
 
@@ -652,11 +672,13 @@ func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
 func (s *provisionerSuite) TestContainerManagerConfigPermissive(c *gc.C) {
 	// ContainerManagerConfig is permissive of container types, and
 	// will just return the basic type-independent configuration.
-	args := params.ContainerManagerConfigParams{Type: "invalid"}
-	result, err := s.provisioner.ContainerManagerConfig(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.ManagerConfig, gc.DeepEquals, map[string]string{
+	cfg := s.getManagerConfig(c, "invalid")
+	c.Assert(cfg, jc.DeepEquals, map[string]string{
 		container.ConfigName: "juju",
+
+		// dummy provider supports both networking and address
+		// allocation by default, so IP forwarding should be enabled.
+		container.ConfigIPForwarding: "true",
 	})
 }
 
@@ -751,4 +773,41 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(apiList, jc.SameContents, toolsList)
 	}
+}
+
+func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
+	// This test exercises just the success path, all the other cases
+	// are already tested in the apiserver package.
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectInfo := []network.InterfaceInfo{{
+		DeviceIndex:      0,
+		MACAddress:       "aa:bb:cc:dd:ee:f0",
+		CIDR:             "0.10.0.0/24",
+		NetworkName:      "juju-private",
+		ProviderId:       "dummy-eth0",
+		ProviderSubnetId: "dummy-private",
+		VLANTag:          0,
+		InterfaceName:    "eth0",
+		Disabled:         false,
+		NoAutoStart:      false,
+		ConfigType:       network.ConfigStatic,
+		// Overwrite the Address field below with the actual one, as
+		// it's chosen randomly.
+		Address:        network.Address{},
+		DNSServers:     network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress: network.NewAddress("0.10.0.2", network.ScopeUnknown),
+		ExtraConfig:    nil,
+	}}
+	ifaceInfo, err := s.provisioner.PrepareContainerInterfaceInfo(container.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ifaceInfo, gc.HasLen, 1)
+	c.Assert(ifaceInfo[0].Address, gc.Not(gc.DeepEquals), network.Address{})
+	expectInfo[0].Address = ifaceInfo[0].Address
+	c.Assert(ifaceInfo, jc.DeepEquals, expectInfo)
 }

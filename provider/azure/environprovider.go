@@ -41,27 +41,31 @@ func (prov azureEnvironProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p azureEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
-}
-
-// PrepareForBootstrap is specified in the EnvironProvider interface.
-func (prov azureEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	// Set availability-sets-enabled to true
 	// by default, unless the user set a value.
 	if _, ok := cfg.AllAttrs()["availability-sets-enabled"]; !ok {
 		var err error
 		cfg, err = cfg.Apply(map[string]interface{}{"availability-sets-enabled": true})
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
+	}
+	return cfg, nil
+}
+
+// PrepareForBootstrap is specified in the EnvironProvider interface.
+func (prov azureEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+	cfg, err := prov.PrepareForCreateEnvironment(cfg)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	env, err := prov.Open(cfg)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if ctx.ShouldVerifyCredentials() {
 		if err := verifyCredentials(env.(*azureEnviron)); err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	}
 	return env, nil

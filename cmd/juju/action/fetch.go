@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Canonical Ltd.
+// Copyright 2014, 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package action
@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// FetchCommand fetches the results of an action by UUID.
+// FetchCommand fetches the results of an action by ID.
 type FetchCommand struct {
 	ActionCommandBase
 	out         cmd.Output
@@ -23,22 +23,20 @@ type FetchCommand struct {
 }
 
 const fetchDoc = `
-Show the results returned by an action.
+Show the results returned by an action with the given ID.  A partial ID may
+also be used.
 `
 
-// Set up the YAML output.
+// Set up the output.
 func (c *FetchCommand) SetFlags(f *gnuflag.FlagSet) {
-	// TODO(binary132) add json output?
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-	})
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 }
 
 func (c *FetchCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "fetch",
-		Args:    "<action UUID>",
-		Purpose: "WIP: show results of an action by UUID",
+		Args:    "<action ID>",
+		Purpose: "show results of an action by ID",
 		Doc:     fetchDoc,
 	}
 }
@@ -47,7 +45,7 @@ func (c *FetchCommand) Info() *cmd.Info {
 func (c *FetchCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
-		return errors.New("no action UUID specified")
+		return errors.New("no action ID specified")
 	case 1:
 		c.requestedId = args[0]
 		return nil
@@ -56,7 +54,7 @@ func (c *FetchCommand) Init(args []string) error {
 	}
 }
 
-// Run issues the API call to get Actions by UUID.
+// Run issues the API call to get Actions by ID.
 func (c *FetchCommand) Run(ctx *cmd.Context) error {
 	api, err := c.NewActionAPIClient()
 	if err != nil {
@@ -64,7 +62,7 @@ func (c *FetchCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	actionTag, err := getActionTagFromPrefix(api, c.requestedId)
+	actionTag, err := getActionTagByPrefix(api, c.requestedId)
 	if err != nil {
 		return err
 	}

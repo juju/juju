@@ -7,9 +7,11 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	"gopkg.in/amz.v2/ec2"
+	"github.com/juju/names"
+	"gopkg.in/amz.v3/ec2"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 )
 
@@ -27,6 +29,14 @@ const (
 	// maxProvisionedIopsSizeRatio is the maximum allowed ratio of IOPS to
 	// size (in GiB), for provisioend IOPS volumes.
 	maxProvisionedIopsSizeRatio = 30
+
+	// devicePrefix is the prefix for device names specified when creating volumes.
+	devicePrefix = "/dev/sd"
+
+	// renamedDevicePrefix is the prefix for device names after they have
+	// been renamed. This should replace "devicePrefix" in the device name
+	// when recording the block device info in state.
+	renamedDevicePrefix = "xvd"
 )
 
 // getBlockDeviceMappings translates a StartInstanceParams into
@@ -197,12 +207,6 @@ func blockDeviceNamer(numbers bool) func() (requestName, actualName string, err 
 		deviceLetterMax = 'p'
 		// deviceNumMax is the maximum value for trailing numbers on block device name.
 		deviceNumMax = 6
-		// devicePrefix is the prefix for device names specified when creating volumes.
-		devicePrefix = "/dev/sd"
-		// renamedDevicePrefix is the prefix for device names after they have
-		// been renamed. This should replace "devicePrefix" in the device name
-		// when recording the block device info in state.
-		renamedDevicePrefix = "xvd"
 	)
 	var n int
 	letterRepeats := 1
@@ -222,4 +226,76 @@ func blockDeviceNamer(numbers bool) func() (requestName, actualName string, err 
 		realDeviceName := renamedDevicePrefix + deviceName[len(devicePrefix):]
 		return deviceName, realDeviceName, nil
 	}
+}
+
+// assignVolumeIds waits until the instance's block device mappings
+// are associated with the instance, and then extracts the volume IDs
+// and assigns them to the volumes.
+func assignVolumeIds(
+	inst *ec2Instance,
+	volumes []storage.Volume,
+	volumeAttachments []storage.VolumeAttachment,
+) error {
+	volumesByDeviceName := make(map[string]*storage.Volume)
+	volumeIdsByDeviceName := make(map[string]string)
+
+	// assignVolumeIds assigns volume IDs by mapping block devices to
+	// volumes with the same device name. assignVolumeIds returns true
+	// iff all volume IDs are assigned.
+	assignVolumeIds := func() bool {
+		for i, blockDeviceMapping := range inst.BlockDeviceMappings {
+			logger.Debugf("block device mapping %d: %+v", i, blockDeviceMapping)
+			volume, ok := volumesByDeviceName[blockDeviceMapping.DeviceName]
+			if !ok {
+				// Ignore block devices we didn't request.
+				continue
+			}
+			volume.VolumeId = blockDeviceMapping.VolumeId
+			volumeIdsByDeviceName[blockDeviceMapping.DeviceName] = blockDeviceMapping.VolumeId
+		}
+		return len(volumeIdsByDeviceName) == len(volumesByDeviceName)
+	}
+
+	// For each volume that was created, map it from the device path
+	// associated with its attachment, so we can match it with a
+	// block device mapping.
+	volumesByTag := make(map[names.VolumeTag]*storage.Volume)
+	for i, volume := range volumes {
+		volumesByTag[volume.Tag] = &volumes[i]
+	}
+	for _, att := range volumeAttachments {
+		volume, ok := volumesByTag[att.Volume]
+		if !ok {
+			// Ignore attachments for volumes we've not created.
+			continue
+		}
+		devicePath := devicePrefix + att.DeviceName[len(renamedDevicePrefix):]
+		volumesByDeviceName[devicePath] = volume
+		logger.Debugf("waiting for volume ID for volume %q (%v)", att.Volume.Id(), devicePath)
+	}
+
+	// Check if the block device mappings are already all there.
+	if allAssigned := assignVolumeIds(); allAssigned {
+		return nil
+	}
+	for a := shortAttempt.Start(); a.Next(); {
+		instances, err := inst.e.Instances([]instance.Id{inst.Id()})
+		if err != nil {
+			if !a.HasNext() {
+				return errors.Annotate(err, "refreshing instance")
+			}
+			// don't fail, because eventual consistency
+			logger.Debugf("error refreshing instance: %v", err)
+			continue
+		}
+		inst = instances[0].(*ec2Instance)
+		if allAssigned := assignVolumeIds(); allAssigned {
+			return nil
+		}
+		logger.Debugf(
+			"matched %d/%d volumes, waiting for the rest",
+			len(volumeIdsByDeviceName), len(volumesByDeviceName),
+		)
+	}
+	return errors.New("timed out waiting for block device mappings to be associated")
 }

@@ -138,6 +138,22 @@ func (s *clientSuite) TestShareEnvironmentExistingUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "failed to create environment user: env user already exists")
 }
 
+func (s *clientSuite) TestDestroyEnvironment(c *gc.C) {
+	client := s.APIState.Client()
+	var called bool
+	cleanup := api.PatchClientFacadeCall(client,
+		func(req string, args interface{}, resp interface{}) error {
+			c.Assert(req, gc.Equals, "DestroyEnvironment")
+			called = true
+			return nil
+		})
+	defer cleanup()
+
+	err := client.DestroyEnvironment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
 func (s *clientSuite) TestShareEnvironmentThreeUsers(c *gc.C) {
 	client := s.APIState.Client()
 	existingUser := s.Factory.MakeEnvUser(c, nil)

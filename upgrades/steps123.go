@@ -32,6 +32,25 @@ func stateStepsFor123() []Step {
 			run: func(context Context) error {
 				return state.DropOldIndexesv123(context.State())
 			},
+		}, &upgradeStep{
+			description: "migrate envuuid to env-uuid in envUsersC",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToEnvUsersDoc(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "move blocks from environment to state",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return moveBlocksFromEnvironToState(context)
+			},
+		}, &upgradeStep{
+			description: "insert userenvnameC doc for each environment",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddUniqueOwnerEnvNameForEnvirons(context.State())
+			},
 		},
 	)
 	return steps

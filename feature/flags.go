@@ -4,16 +4,23 @@
 // The feature package defines the names of the current feature flags.
 package feature
 
-// Actions is the name of the feature to enable action commands.
-const Actions = "action"
+// TODO (anastasiamac 2015-03-02)
+// Features that have commands that can be blocked,
+// command list for "juju block" and "juju unblock"
+// needs to be maintained until we can dynamically discover
+// these commands.
 
-// MESS stands for Multi-Environment State Server and controls access
+// JES stands for Juju Environment Server and controls access
 // to the apiserver endpoints, api client and CLI commands.
-const MESS = "mess"
+const JES = "jes"
 
 // Storage is the name of the feature to enable storage commands
 // and server-side functionality.
 const Storage = "storage"
+
+// LeaderElection is the name of the feature to enable leadership hooks
+// and hook tools.
+const LeaderElection = "leader-election"
 
 // LogErrorStack is a developer feature flag to have the LoggedErrorStack
 // function in the utils package write out the error stack as defined by the

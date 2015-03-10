@@ -85,7 +85,11 @@ var _ = gc.Suite(&loginAncientSuite{
 })
 
 func (s *baseLoginSuite) setupServer(c *gc.C) (*api.State, func()) {
-	info, cleanup := s.setupServerWithValidator(c, nil)
+	return s.setupServerForEnvironment(c, s.State.EnvironTag())
+}
+
+func (s *baseLoginSuite) setupServerForEnvironment(c *gc.C, envTag names.EnvironTag) (*api.State, func()) {
+	info, cleanup := s.setupServerForEnvironmentWithValidator(c, envTag, nil)
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	return st, func() {
@@ -193,29 +197,29 @@ func (s *loginV0Suite) TestLoginSetsLogIdentifier(c *gc.C) {
 		// RequestId starts at 2 here, because we've already attempted a v1 Login.
 		// This is the fallback to v0 Login.
 		`<- \[[0-9A-F]+\] <unknown> {"RequestId":2,"Type":"Admin","Request":"Login",` +
-			`"Params":{"AuthTag":"machine-0","Password":"[^"]*","Nonce":"fake_nonce"}` +
+			`"Params":"'params redacted'"` +
 			`}`,
 		// Now that we are logged in, we see the entity's tag
 		// [0-9.µumns] is to handle timestamps that are ns, µs, ms, or s
 		// long, though we expect it to be in the 'ms' range.
 		// Note: Go1.4 produces µs; Go1.3 produces us.
 		`-> \[[0-9A-F]+\] machine-0 [0-9.µumns]+ {"RequestId":2,"Response":.*} Admin\[""\].Login`,
-		`<- \[[0-9A-F]+\] machine-0 {"RequestId":3,"Type":"Machiner","Request":"Life","Params":{"Entities":\[{"Tag":"machine-0"}\]}}`,
-		`-> \[[0-9A-F]+\] machine-0 [0-9.µumns]+ {"RequestId":3,"Response":{"Results":\[{"Life":"alive","Error":null}\]}} Machiner\[""\]\.Life`,
+		`<- \[[0-9A-F]+\] machine-0 {"RequestId":3,"Type":"Machiner","Request":"Life","Params":"'params redacted'"}`,
+		`-> \[[0-9A-F]+\] machine-0 [0-9.µumns]+ {"RequestId":3,"Response":"'body redacted'"} Machiner\[""\]\.Life`,
 	})
 }
 
 func (s *loginV1Suite) TestLoginSetsLogIdentifier(c *gc.C) {
 	s.runLoginSetsLogIdentifier(c, []string{
 		`<- \[[0-9A-F]+\] <unknown> {"RequestId":1,"Type":"Admin","Version":1,"Request":"Login",` +
-			`"Params":{"auth-tag":"machine-0","credentials":"[^"]*","nonce":"fake_nonce"}` +
+			`"Params":"'params redacted'"` +
 			`}`,
 		// Now that we are logged in, we see the entity's tag
 		// [0-9.umns] is to handle timestamps that are ns, us, ms, or s
 		// long, though we expect it to be in the 'ms' range.
 		`-> \[[0-9A-F]+\] machine-0 [0-9.]+[µumn]?s {"RequestId":1,"Response":.*} Admin\[""\].Login`,
-		`<- \[[0-9A-F]+\] machine-0 {"RequestId":2,"Type":"Machiner","Request":"Life","Params":{"Entities":\[{"Tag":"machine-0"}\]}}`,
-		`-> \[[0-9A-F]+\] machine-0 [0-9.µumns]+ {"RequestId":2,"Response":{"Results":\[{"Life":"alive","Error":null}\]}} Machiner\[""\]\.Life`,
+		`<- \[[0-9A-F]+\] machine-0 {"RequestId":2,"Type":"Machiner","Request":"Life","Params":"'params redacted'"}`,
+		`-> \[[0-9A-F]+\] machine-0 [0-9.µumns]+ {"RequestId":2,"Response":"'body redacted'"} Machiner\[""\]\.Life`,
 	})
 }
 
@@ -550,13 +554,15 @@ func (s *loginV0Suite) TestLoginReportsEnvironTag(c *gc.C) {
 	}
 	err := st.APICall("Admin", 0, "", "Login", creds, &result)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.EnvironTag, gc.Equals, env.EnvironTag().String())
+	c.Assert(result.EnvironTag, gc.Equals, s.State.EnvironTag().String())
 }
 
-func (s *loginV1Suite) TestLoginReportsEnvironTag(c *gc.C) {
-	st, cleanup := s.setupServer(c)
+func (s *loginV1Suite) TestLoginReportsEnvironAndServerTag(c *gc.C) {
+	otherState := s.Factory.MakeEnvironment(c, nil)
+	defer otherState.Close()
+	newEnvTag := otherState.EnvironTag()
+
+	st, cleanup := s.setupServerForEnvironment(c, newEnvTag)
 	defer cleanup()
 	var result params.LoginResultV1
 	creds := &params.LoginRequest{
@@ -565,9 +571,8 @@ func (s *loginV1Suite) TestLoginReportsEnvironTag(c *gc.C) {
 	}
 	err := st.APICall("Admin", 1, "", "Login", creds, &result)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.EnvironTag, gc.Equals, env.Tag().String())
+	c.Assert(result.EnvironTag, gc.Equals, newEnvTag.String())
+	c.Assert(result.ServerTag, gc.Equals, s.State.EnvironTag().String())
 }
 
 func (s *loginV1Suite) TestLoginV1Valid(c *gc.C) {
@@ -680,6 +685,12 @@ func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.Lo
 }
 
 func (s *baseLoginSuite) setupServerWithValidator(c *gc.C, validator apiserver.LoginValidator) (*api.Info, func()) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	return s.setupServerForEnvironmentWithValidator(c, env.EnvironTag(), validator)
+}
+
+func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, envTag names.EnvironTag, validator apiserver.LoginValidator) (*api.Info, func()) {
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(
@@ -698,12 +709,10 @@ func (s *baseLoginSuite) setupServerWithValidator(c *gc.C, validator apiserver.L
 	} else {
 		panic(nil)
 	}
-	env, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
 	info := &api.Info{
 		Tag:        nil,
 		Password:   "",
-		EnvironTag: env.EnvironTag(),
+		EnvironTag: envTag,
 		Addrs:      []string{srv.Addr()},
 		CACert:     coretesting.CACert,
 	}

@@ -6,17 +6,22 @@ package state
 import (
 	"fmt"
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 )
 
@@ -40,10 +45,8 @@ type StorageInstance interface {
 	// but identifies the group that the instances belong to.
 	StorageName() string
 
-	// Info returns the storage instance's StorageInstanceInfo, or a
-	// NotProvisioned error if the storage instance has not yet been
-	// provisioned.
-	Info() (StorageInstanceInfo, error)
+	// Life reports whether the storage instance is Alive, Dying or Dead.
+	Life() Life
 }
 
 // StorageAttachment represents the state of a unit's attachment to a storage
@@ -58,10 +61,8 @@ type StorageAttachment interface {
 	// Unit returns the tag of the corresponding unit.
 	Unit() names.UnitTag
 
-	// Info returns the storage attachments's StorageAttachmentInfo, or
-	// a NotProvisioned error if the storage attachment has not yet been
-	// made.
-	Info() (StorageAttachmentInfo, error)
+	// Life reports whether the storage attachment is Alive, Dying or Dead.
+	Life() Life
 }
 
 // StorageKind defines the type of a store: whether it is a block device
@@ -105,11 +106,8 @@ func (s *storageInstance) StorageName() string {
 	return s.doc.StorageName
 }
 
-func (s *storageInstance) Info() (StorageInstanceInfo, error) {
-	if s.doc.Info == nil {
-		return StorageInstanceInfo{}, errors.NotProvisionedf("storage instance %q", s.doc.Id)
-	}
-	return *s.doc.Info, nil
+func (s *storageInstance) Life() Life {
+	return s.doc.Life
 }
 
 // storageInstanceDoc describes a charm storage instance.
@@ -117,20 +115,12 @@ type storageInstanceDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
 
-	Id           string      `bson:"id"`
-	Kind         StorageKind `bson:"storagekind"`
-	Life         Life        `bson:"life"`
-	Owner        string      `bson:"owner"`
-	StorageName  string      `bson:"storagename"`
-	BlockDevices []string    `bson:"blockdevices,omitempty"`
-
-	Info *StorageInstanceInfo `bson:"info,omitempty"`
-}
-
-// StorageInstanceInfo records information about the storage instance,
-// such as the provisioned size.
-type StorageInstanceInfo struct {
-	Size uint64 `bson:"size"`
+	Id              string      `bson:"id"`
+	Kind            StorageKind `bson:"storagekind"`
+	Life            Life        `bson:"life"`
+	Owner           string      `bson:"owner"`
+	StorageName     string      `bson:"storagename"`
+	AttachmentCount int         `bson:"attachmentcount"`
 }
 
 type storageAttachment struct {
@@ -145,13 +135,8 @@ func (s *storageAttachment) Unit() names.UnitTag {
 	return names.NewUnitTag(s.doc.Unit)
 }
 
-func (s *storageAttachment) Info() (StorageAttachmentInfo, error) {
-	if s.doc.Info == nil {
-		return StorageAttachmentInfo{}, errors.NotProvisionedf(
-			"storage %q on unit %q", s.doc.StorageInstance, s.doc.Unit,
-		)
-	}
-	return *s.doc.Info, nil
+func (s *storageAttachment) Life() Life {
+	return s.doc.Life
 }
 
 // storageAttachmentDoc describes a unit's attachment to a charm storage
@@ -161,22 +146,8 @@ type storageAttachmentDoc struct {
 	EnvUUID string `bson:"env-uuid"`
 
 	Unit            string `bson:"unitid"`
-	StorageInstance string `bson:"storageinstanceid"`
+	StorageInstance string `bson:"storageid"`
 	Life            Life   `bson:"life"`
-
-	Info *StorageAttachmentInfo `bson:"info"`
-}
-
-// StorageAttachmentInfo describes unit-specific information about the
-// storage attachment, such as the location where a filesystem is mounted
-// path to a block device.
-type StorageAttachmentInfo struct {
-	// Location is the location of the storage instance,
-	// e.g. the mount point.
-	Location string `bson:"location"`
-
-	// ReadOnly reports whether the attachment is read-only.
-	ReadOnly bool `bson:"read-only"`
 }
 
 // newStorageInstanceId returns a unique storage instance name. The name
@@ -196,6 +167,11 @@ func storageAttachmentId(unit string, storageInstanceId string) string {
 
 // StorageInstance returns the StorageInstance with the specified tag.
 func (st *State) StorageInstance(tag names.StorageTag) (StorageInstance, error) {
+	s, err := st.storageInstance(tag)
+	return s, err
+}
+
+func (st *State) storageInstance(tag names.StorageTag) (*storageInstance, error) {
 	storageInstances, cleanup := st.getCollection(storageInstancesC)
 	defer cleanup()
 
@@ -209,21 +185,77 @@ func (st *State) StorageInstance(tag names.StorageTag) (StorageInstance, error) 
 	return &s, nil
 }
 
-// RemoveStorageInstance removes the storage instance with the specified tag.
-func (st *State) RemoveStorageInstance(tag names.StorageTag) error {
-	// TODO(axw) ensure we cannot remove storage instance while
-	// there are attachments outstanding.
-	ops := []txn.Op{{
-		C:      storageInstancesC,
-		Id:     tag.Id(),
-		Remove: true,
-	}}
-	return st.runTransaction(ops)
+// DestroyStorageInstance ensures that the storage instance and all its
+// attachments will be removed at some point; if the storage instance has
+// no attachments, it will be removed immediately.
+func (st *State) DestroyStorageInstance(tag names.StorageTag) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot destroy storage %q", tag.Id())
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		s, err := st.storageInstance(tag)
+		if errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		switch ops, err := st.destroyStorageInstanceOps(s); err {
+		case errAlreadyDying:
+			return nil, jujutxn.ErrNoOperations
+		case nil:
+			return ops, nil
+		default:
+			return nil, errors.Trace(err)
+		}
+		return nil, jujutxn.ErrTransientFailure
+	}
+	return st.run(buildTxn)
 }
 
-// createStorageInstanceOps returns txn.Ops for creating storage instances.
+func (st *State) destroyStorageInstanceOps(s *storageInstance) ([]txn.Op, error) {
+	if s.doc.Life == Dying {
+		return nil, errAlreadyDying
+	}
+	if s.doc.AttachmentCount == 0 {
+		// There are no attachments remaining, so we can
+		// remove the storage instance immediately.
+		hasNoAttachments := bson.D{{"attachmentcount", 0}}
+		assert := append(hasNoAttachments, isAliveDoc...)
+		return removeStorageInstanceOps(s.StorageTag(), assert), nil
+	}
+	// There are still attachments: the storage instance will be removed
+	// when the last attachment is removed. We schedule a cleanup to destroy
+	// attachments.
+	notLastRefs := bson.D{
+		{"life", Alive},
+		{"attachmentcount", bson.D{{"$gt", 0}}},
+	}
+	update := bson.D{{"$set", bson.D{{"life", Dying}}}}
+	ops := []txn.Op{
+		st.newCleanupOp(cleanupAttachmentsForDyingStorage, s.doc.Id),
+		{
+			C:      storageInstancesC,
+			Id:     s.doc.Id,
+			Assert: notLastRefs,
+			Update: update,
+		},
+	}
+	return ops, nil
+}
+
+// removeStorageInstanceOps removes the storage instance with the given
+// tag from state, if the specified assertions hold true.
+func removeStorageInstanceOps(tag names.StorageTag, assert bson.D) []txn.Op {
+	return []txn.Op{{
+		C:      storageInstancesC,
+		Id:     tag.Id(),
+		Assert: assert,
+		Remove: true,
+	}}
+}
+
+// createStorageOps returns txn.Ops for creating storage instances
+// and attachments for the newly created unit or service.
 //
-// The owner tag identifies the entity that owns the storage instance:
+// The entity tag identifies the entity that owns the storage instance
 // either a unit or a service. Shared storage instances are owned by a
 // service, and non-shared storage instances are owned by a unit.
 //
@@ -235,12 +267,12 @@ func (st *State) RemoveStorageInstance(tag names.StorageTag) error {
 // instances to be created, keyed on the storage name. These constraints
 // will be correlated with the charm storage metadata for validation
 // and supplementing.
-func createStorageInstanceOps(
+func createStorageOps(
 	st *State,
-	ownerTag names.Tag,
+	entity names.Tag,
 	charmMeta *charm.Meta,
 	cons map[string]StorageConstraints,
-) (ops []txn.Op, storageInstanceIds []string, err error) {
+) (ops []txn.Op, numStorageAttachments int, err error) {
 
 	type template struct {
 		storageName string
@@ -248,22 +280,31 @@ func createStorageInstanceOps(
 		cons        StorageConstraints
 	}
 
-	includeShared := false
-	switch ownerTag.(type) {
+	createdShared := false
+	switch entity := entity.(type) {
 	case names.ServiceTag:
-		includeShared = true
+		createdShared = true
 	case names.UnitTag:
 	default:
-		return nil, nil, errors.Errorf("expected service or unit tag, got %T", ownerTag)
+		return nil, -1, errors.Errorf("expected service or unit tag, got %T", entity)
+	}
+
+	// Create storage instances in order of name, to simplify testing.
+	storageNames := set.NewStrings()
+	for name := range cons {
+		storageNames.Add(name)
 	}
 
 	templates := make([]template, 0, len(cons))
-	for store, cons := range cons {
+	for _, store := range storageNames.SortedValues() {
+		cons := cons[store]
 		charmStorage, ok := charmMeta.Storage[store]
 		if !ok {
-			return nil, nil, errors.NotFoundf("charm storage %q", store)
+			return nil, -1, errors.NotFoundf("charm storage %q", store)
 		}
-		if !includeShared && charmStorage.Shared {
+		if createdShared != charmStorage.Shared {
+			// services only get shared storage instances,
+			// units only get non-shared storage instances.
 			continue
 		}
 		templates = append(templates, template{
@@ -273,10 +314,9 @@ func createStorageInstanceOps(
 		})
 	}
 
-	ops = make([]txn.Op, 0, len(templates))
-	storageInstanceIds = make([]string, 0, len(templates))
+	ops = make([]txn.Op, 0, len(templates)*2)
 	for _, t := range templates {
-		owner := ownerTag.String()
+		owner := entity.String()
 		var kind StorageKind
 		switch t.meta.Type {
 		case charm.StorageBlock:
@@ -284,46 +324,58 @@ func createStorageInstanceOps(
 		case charm.StorageFilesystem:
 			kind = StorageKindFilesystem
 		default:
-			return nil, nil, errors.Errorf("unknown storage type %q", t.meta.Type)
+			return nil, -1, errors.Errorf("unknown storage type %q", t.meta.Type)
 		}
 
 		for i := uint64(0); i < t.cons.Count; i++ {
 			id, err := newStorageInstanceId(st, t.storageName)
 			if err != nil {
-				return nil, nil, errors.Annotate(err, "cannot generate storage instance name")
+				return nil, -1, errors.Annotate(err, "cannot generate storage instance name")
+			}
+			doc := &storageInstanceDoc{
+				Id:          id,
+				Kind:        kind,
+				Owner:       owner,
+				StorageName: t.storageName,
+			}
+			if unit, ok := entity.(names.UnitTag); ok {
+				doc.AttachmentCount = 1
+				storage := names.NewStorageTag(id)
+				ops = append(ops, createStorageAttachmentOp(storage, unit))
+				numStorageAttachments++
 			}
 			ops = append(ops, txn.Op{
 				C:      storageInstancesC,
 				Id:     id,
 				Assert: txn.DocMissing,
-				Insert: &storageInstanceDoc{
-					Id:          id,
-					Kind:        kind,
-					Owner:       owner,
-					StorageName: t.storageName,
-				},
+				Insert: doc,
 			})
-			storageInstanceIds = append(storageInstanceIds, id)
 		}
 	}
-	return ops, storageInstanceIds, nil
+
+	// TODO(axw) create storage attachments for each shared storage
+	// instance owned by the service.
+	//
+	// TODO(axw) prevent creation of shared storage after service
+	// creation, because the only sane time to add storage attachments
+	// is when units are added to said service.
+
+	return ops, numStorageAttachments, nil
 }
 
-// createStorageAttachmentOps returns txn.Ops for creating storage attachments.
-func createStorageAttachmentOps(unit names.UnitTag, storageInstanceIds []string) []txn.Op {
-	ops := make([]txn.Op, len(storageInstanceIds))
-	for i, storageInstanceId := range storageInstanceIds {
-		ops[i] = txn.Op{
-			C:      storageAttachmentsC,
-			Id:     storageAttachmentId(unit.Id(), storageInstanceId),
-			Assert: txn.DocMissing,
-			Insert: &storageAttachmentDoc{
-				Unit:            unit.Id(),
-				StorageInstance: storageInstanceId,
-			},
-		}
+// createStorageAttachmentOps returns a txn.Op for creating a storage attachment.
+// The caller is responsible for updating the attachmentcount field of the storage
+// instance.
+func createStorageAttachmentOp(storage names.StorageTag, unit names.UnitTag) txn.Op {
+	return txn.Op{
+		C:      storageAttachmentsC,
+		Id:     storageAttachmentId(unit.Id(), storage.Id()),
+		Assert: txn.DocMissing,
+		Insert: &storageAttachmentDoc{
+			Unit:            unit.Id(),
+			StorageInstance: storage.Id(),
+		},
 	}
-	return ops
 }
 
 // StorageAttachments returns the StorageAttachments for the specified unit.
@@ -342,18 +394,160 @@ func (st *State) StorageAttachments(unit names.UnitTag) ([]StorageAttachment, er
 	return storageAttachments, nil
 }
 
-// SetStorageAttachmentInfo sets the storage attachment information for the
-// storage attachment relating to the specified storage instance and unit.
-func (st *State) SetStorageAttachmentInfo(
-	storage names.StorageTag, unit names.UnitTag, info StorageAttachmentInfo,
-) error {
+// StorageAttachment returns the StorageAttachment wit hthe specified tags.
+func (st *State) StorageAttachment(storage names.StorageTag, unit names.UnitTag) (StorageAttachment, error) {
+	att, err := st.storageAttachment(storage, unit)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return att, nil
+}
+
+func (st *State) storageAttachment(storage names.StorageTag, unit names.UnitTag) (*storageAttachment, error) {
+	coll, closer := st.getCollection(storageAttachmentsC)
+	defer closer()
+	var s storageAttachment
+	err := coll.FindId(storageAttachmentId(unit.Id(), storage.Id())).One(&s.doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("storage attachment %s:%s", storage.Id(), unit.Id())
+	} else if err != nil {
+		return nil, errors.Annotatef(err, "cannot get storage attachment %s:%s", storage.Id(), unit.Id())
+	}
+	return &s, nil
+}
+
+// DestroyStorageAttachment ensures that the storage attachment will be
+// removed at some point.
+func (st *State) DestroyStorageAttachment(storage names.StorageTag, unit names.UnitTag) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot destroy storage attachment %s:%s", storage.Id(), unit.Id())
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		s, err := st.storageAttachment(storage, unit)
+		if errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if s.doc.Life == Dying {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return destroyStorageAttachmentOps(s), nil
+	}
+	return st.run(buildTxn)
+}
+
+func destroyStorageAttachmentOps(s *storageAttachment) []txn.Op {
 	ops := []txn.Op{{
 		C:      storageAttachmentsC,
-		Id:     storageAttachmentId(unit.Id(), storage.Id()),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"info", &info}}}},
+		Id:     storageAttachmentId(s.doc.Unit, s.doc.StorageInstance),
+		Assert: isAliveDoc,
+		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}}
-	return st.runTransaction(ops)
+	return ops
+}
+
+// EnsureStorageAttachmentDead ensures that the storage attachment is Dead
+// if it exists at all, doing nothing if it does not exist.
+func (st *State) EnsureStorageAttachmentDead(storage names.StorageTag, unit names.UnitTag) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot ensure death of storage attachment %s:%s", storage.Id(), unit.Id())
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		s, err := st.storageAttachment(storage, unit)
+		if errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if s.doc.Life == Dead {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return ensureStorageAttachmentDeadOps(s), nil
+	}
+	return st.run(buildTxn)
+}
+
+func ensureStorageAttachmentDeadOps(s *storageAttachment) []txn.Op {
+	ops := []txn.Op{{
+		C:      storageAttachmentsC,
+		Id:     storageAttachmentId(s.doc.Unit, s.doc.StorageInstance),
+		Assert: notDeadDoc,
+		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+	}}
+	return ops
+}
+
+// Remove removes the storage attachment from state, and may remove its storage
+// instance as well, if the storage instance is Dying and no other references to
+// it exist. It will fail if the storage attachment is not Dead.
+func (st *State) RemoveStorageAttachment(storage names.StorageTag, unit names.UnitTag) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot remove storage attachment %s:%s", storage.Id(), unit.Id())
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		s, err := st.storageAttachment(storage, unit)
+		if errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		inst, err := st.storageInstance(storage)
+		if errors.IsNotFound(err) {
+			// This implies that the attachment was removed
+			// after the call to st.storageAttachment.
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops, err := removeStorageAttachmentOps(s, inst)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return ops, nil
+	}
+	return st.run(buildTxn)
+}
+
+func removeStorageAttachmentOps(s *storageAttachment, si *storageInstance) ([]txn.Op, error) {
+	if s.doc.Life != Dead {
+		return nil, errors.New("storage attachment is not dead")
+	}
+	ops := []txn.Op{{
+		C:      storageAttachmentsC,
+		Id:     storageAttachmentId(s.doc.Unit, s.doc.StorageInstance),
+		Assert: isDeadDoc,
+		Remove: true,
+	}, {
+		C:      unitsC,
+		Id:     s.doc.Unit,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$inc", bson.D{{"storageattachmentcount", -1}}}},
+	}}
+	if si.doc.Life == Dying && si.doc.AttachmentCount == 1 {
+		hasLastRef := bson.D{{"life", Dying}, {"attachmentcount", 1}}
+		ops = append(ops, removeStorageInstanceOps(si.StorageTag(), hasLastRef)...)
+		return ops, nil
+	}
+	decrefOp := txn.Op{
+		C:      storageInstancesC,
+		Id:     si.doc.Id,
+		Update: bson.D{{"$inc", bson.D{{"attachmentcount", -1}}}},
+	}
+	if si.doc.Life == Alive {
+		// This may be the last reference, but the storage instance is
+		// still alive. The storage instance will be removed when its
+		// Destroy method is called, if it has no attachments.
+		decrefOp.Assert = bson.D{
+			{"life", Alive},
+			{"attachmentcount", bson.D{{"$gt", 0}}},
+		}
+	} else {
+		// If it's not the last reference when we checked, we want to
+		// allow for concurrent attachment removals but want to ensure
+		// that we don't drop to zero without removing the storage
+		// instance.
+		decrefOp.Assert = bson.D{
+			{"life", Dying},
+			{"attachmentcount", bson.D{{"$gt", 1}}},
+		}
+	}
+	ops = append(ops, decrefOp)
+	return ops, nil
 }
 
 // removeStorageInstancesOps returns the transaction operations to remove all
@@ -433,6 +627,17 @@ func readStorageConstraints(st *State, key string) (map[string]StorageConstraint
 	return doc.Constraints, nil
 }
 
+func storageKind(storageType charm.StorageType) storage.StorageKind {
+	kind := storage.StorageKindUnknown
+	switch storageType {
+	case charm.StorageBlock:
+		kind = storage.StorageKindBlock
+	case charm.StorageFilesystem:
+		kind = storage.StorageKindFilesystem
+	}
+	return kind
+}
+
 func validateStorageConstraints(st *State, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
 	// TODO(axw) stop checking feature flag once storage has graduated.
 	if !featureflag.Enabled(feature.Storage) {
@@ -462,30 +667,16 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 				charmMeta.Name, name, charmStorage.CountMax, cons.Count,
 			)
 		}
-		// TODO - use charm min size when available
-		if cons.Size == 0 {
-			// TODO(axw) this doesn't really belong in a validation
-			// method. We should separate setting defaults from
-			// validating, the latter of which should be non-modifying.
-			cons.Size = 1024
+		if charmStorage.MinimumSize > 0 && cons.Size < charmStorage.MinimumSize {
+			return errors.Errorf(
+				"charm %q store %q: minimum storage size is %s, %s specified",
+				charmMeta.Name, name, humanize.Bytes(charmStorage.MinimumSize*humanize.MByte), humanize.Bytes(cons.Size*humanize.MByte),
+			)
 		}
-		kind := storage.StorageKindUnknown
-		switch charmStorage.Type {
-		case charm.StorageBlock:
-			kind = storage.StorageKindBlock
-		case charm.StorageFilesystem:
-			kind = storage.StorageKindFilesystem
-		}
-		if poolName, err := validateStoragePool(st, cons.Pool, kind); err != nil {
-			if err == ErrNoDefaultStoragePool {
-				err = errors.Maskf(err, "no storage pool specified and no default available for %q storage", name)
-			}
+		kind := storageKind(charmStorage.Type)
+		if err := validateStoragePool(st, cons.Pool, kind); err != nil {
 			return err
-		} else {
-			cons.Pool = poolName
 		}
-		// Replace in case pool or size were updated.
-		allCons[name] = cons
 	}
 	// Ensure all stores have constraints specified. Defaults should have
 	// been set by this point, if the user didn't specify constraints.
@@ -497,48 +688,146 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 	return nil
 }
 
-// ErrNoDefaultStoragePool is returned when a storage pool is required but none
-// is specified nor available as a default.
-var ErrNoDefaultStoragePool = fmt.Errorf("no storage pool specifed and no default available")
+func validateStoragePool(st *State, poolName string, kind storage.StorageKind) error {
+	if poolName == "" {
+		return errors.New("pool name is required")
+	}
+	providerType, provider, err := poolStorageProvider(st, poolName)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-func validateStoragePool(st *State, poolName string, kind storage.StorageKind) (string, error) {
+	// Ensure the storage provider supports the specified kind.
+	var kindSupported bool
+	switch kind {
+	case storage.StorageKindFilesystem:
+		// Filesystems can be created if either filesystem or block
+		// storage are supported.
+		if provider.Supports(storage.StorageKindBlock) {
+			kindSupported = true
+			break
+		}
+		fallthrough
+	default:
+		kindSupported = provider.Supports(kind)
+	}
+	if !kindSupported {
+		return errors.Errorf("%q provider does not support %q storage", providerType, kind)
+	}
+
+	// Ensure the pool type is supported by the environment.
 	conf, err := st.EnvironConfig()
 	if err != nil {
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
 	envType := conf.Type()
-	// If no pool specified, use the default if registered.
-	if poolName == "" {
-		defaultPool, ok := registry.DefaultPool(envType, kind)
-		if ok {
-			logger.Infof("no storage pool specified, using default pool %q", defaultPool)
-			poolName = defaultPool
-		} else {
-			return "", ErrNoDefaultStoragePool
-		}
-	}
-	// Ensure the pool type is supported by the environment.
-	var providerType storage.ProviderType
-	pm := poolmanager.New(NewStateSettings(st))
-	p, err := pm.Get(poolName)
-	// If there's no pool called poolName, maybe a provider type has been specified directly.
-	if errors.IsNotFound(err) {
-		providerType = storage.ProviderType(poolName)
-		if _, err1 := registry.StorageProvider(providerType); err1 != nil {
-			return "", errors.Trace(err)
-		}
-	} else if err != nil {
-		return "", errors.Trace(err)
-	} else {
-		providerType = p.Provider()
-	}
 	if !registry.IsProviderSupported(envType, providerType) {
-		return "", errors.Errorf(
+		return errors.Errorf(
 			"pool %q uses storage provider %q which is not supported for environments of type %q",
 			poolName,
 			providerType,
 			envType,
 		)
 	}
-	return poolName, nil
+	return nil
+}
+
+func poolStorageProvider(st *State, poolName string) (storage.ProviderType, storage.Provider, error) {
+	poolManager := poolmanager.New(NewStateSettings(st))
+	pool, err := poolManager.Get(poolName)
+	if errors.IsNotFound(err) {
+		// If there's no pool called poolName, maybe a provider type
+		// has been specified directly.
+		providerType := storage.ProviderType(poolName)
+		provider, err1 := registry.StorageProvider(providerType)
+		if err1 != nil {
+			// The name can't be resolved as a storage provider type,
+			// so return the original "pool not found" error.
+			return "", nil, errors.Trace(err)
+		}
+		return providerType, provider, nil
+	} else if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	providerType := pool.Provider()
+	provider, err := registry.StorageProvider(providerType)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	return providerType, provider, nil
+}
+
+// ErrNoDefaultStoragePool is returned when a storage pool is required but none
+// is specified nor available as a default.
+var ErrNoDefaultStoragePool = fmt.Errorf("no storage pool specifed and no default available")
+
+// addDefaultStorageConstraints fills in default constraint values, replacing any empty/missing values
+// in the specified constraints.
+func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
+	// TODO(axw) stop checking feature flag once storage has graduated.
+	if !featureflag.Enabled(feature.Storage) {
+		return nil
+	}
+	conf, err := st.EnvironConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if allCons == nil {
+		allCons = make(map[string]StorageConstraints)
+	}
+	for name, charmStorage := range charmMeta.Storage {
+		cons := allCons[name]
+		kind := storageKind(charmStorage.Type)
+		var err error
+		cons, err = storageConstraintsWithDefaults(conf, kind, charmStorage, cons)
+		if err != nil {
+			if err == ErrNoDefaultStoragePool {
+				err = errors.Maskf(err, "no storage pool specified and no default available for %q storage", name)
+			}
+			return err
+		}
+		// Replace in case pool or size were updated.
+		allCons[name] = cons
+	}
+	return nil
+}
+
+// storageConstraintsWithDefaults returns a constraints derived from cons, with any defaults filled in.
+func storageConstraintsWithDefaults(cfg *config.Config, kind storage.StorageKind,
+	charmStorage charm.Storage, cons StorageConstraints,
+) (StorageConstraints, error) {
+	withDefaults := cons
+	if cons.Pool == "" {
+		poolName, err := defaultStoragePool(cfg, kind)
+		if err != nil {
+			return withDefaults, errors.Annotatef(err, "finding default stoage pool")
+		}
+		withDefaults.Pool = poolName
+	}
+	if cons.Size == 0 {
+		if charmStorage.MinimumSize > 0 {
+			withDefaults.Size = charmStorage.MinimumSize
+		} else {
+			withDefaults.Size = 1024
+		}
+	}
+	if cons.Count == 0 {
+		withDefaults.Count = uint64(charmStorage.CountMin)
+	}
+	return withDefaults, nil
+}
+
+// defaultStoragePool returns the default storage pool for the environment.
+// The default pool is either user specified, or one that is registered by the provider itself.
+func defaultStoragePool(cfg *config.Config, kind storage.StorageKind) (string, error) {
+	switch kind {
+	case storage.StorageKindBlock:
+		defaultPool, ok := cfg.StorageDefaultBlockSource()
+		if !ok {
+			defaultPool = string(provider.LoopProviderType)
+		}
+		return defaultPool, nil
+	}
+	return "", ErrNoDefaultStoragePool
 }

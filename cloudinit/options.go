@@ -145,7 +145,7 @@ func (cfg *Config) AddPackage(name string) {
 // the given release, passed to apt-get with the --target-release
 // argument.
 func (cfg *Config) AddPackageFromTargetRelease(packageName, targetRelease string) {
-	cfg.AddPackage(fmt.Sprintf("--target-release '%s' '%s'", targetRelease, packageName))
+	cfg.AddPackage(fmt.Sprintf("--target-release %s %s", targetRelease, packageName))
 }
 
 // Packages returns a list of packages that will be

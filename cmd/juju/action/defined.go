@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2014, 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package action
@@ -27,9 +27,8 @@ description.  To show the full schema for the actions, use --schema.
 For more information, see also the 'do' subcommand, which executes actions.
 `
 
-// Set up the YAML output.
+// Set up the output.
 func (c *DefinedCommand) SetFlags(f *gnuflag.FlagSet) {
-	// TODO(binary132) add json output?
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.BoolVar(&c.fullSchema, "schema", false, "display the full action schema")
 }
@@ -38,7 +37,7 @@ func (c *DefinedCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "defined",
 		Args:    "<service name>",
-		Purpose: "WIP: show actions defined for a service",
+		Purpose: "show actions defined for a service",
 		Doc:     definedDoc,
 	}
 }

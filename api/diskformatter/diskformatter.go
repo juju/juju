@@ -73,7 +73,7 @@ func (st *State) AttachedVolumes() ([]params.VolumeAttachment, error) {
 
 // VolumePreparationInfo returns the information required to format the
 // specified volumes.
-func (st *State) VolumePreparationInfo(tags []names.DiskTag) ([]params.VolumePreparationInfoResult, error) {
+func (st *State) VolumePreparationInfo(tags []names.VolumeTag) ([]params.VolumePreparationInfoResult, error) {
 	var results params.VolumePreparationInfoResults
 	args := params.VolumeAttachmentIds{
 		Ids: make([]params.VolumeAttachmentId, len(tags)),

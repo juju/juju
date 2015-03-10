@@ -7,6 +7,10 @@ matching the function name. It highlights cases where doc comments
 haven't been updated in step with function name changes or where doc
 comments have been copied and pasted but not updated.
 
+Tests are excluded by the check, unless --tests is given.
+Unexported methods and functions are also excluded, unless --unexported
+is given.
+
 By default, all problems found are emitted but there is also an
 interactive edit mode is available via --fix.
 """
@@ -45,6 +49,10 @@ def cmdline():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--fix', default=False, action='store_true',
                         help='Interactive fix-up mode')
+    parser.add_argument('--tests', default=False, action='store_true',
+                        help='Include test methods in the check')
+    parser.add_argument('--unexported', default=False, action='store_true',
+                        help='Include unexported methods in the check')
     parser.add_argument('root', nargs='?', default=os.getcwd())
     return parser.parse_args()
 
@@ -68,6 +76,15 @@ def main():
             source = sourceFile.read()
         comments = extract_doc_comments(source)
         for func_name, bad_comment in find_bad_doc_comments(comments):
+            if func_name.startswith('Test') and not args.tests:
+                # Skip tests unless told otherwise.
+                continue
+            if 'export_test.go' in filename and not args.tests:
+                # Skip export_test.go unless --tests is given.
+                continue
+            if func_name[0].islower() and not args.unexported:
+                # Skip unexported unless told otherwise.
+                continue
             if args.fix:
                 fix(filename, func_name, bad_comment)
             else:

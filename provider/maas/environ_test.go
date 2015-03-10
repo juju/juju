@@ -197,23 +197,6 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 var expectedCloudinitConfig = []interface{}{
 	"set -xe",
 	"mkdir -p '/var/lib/juju'\ninstall -m 755 /dev/null '/var/lib/juju/MAASmachine.txt'\nprintf '%s\\n' ''\"'\"'hostname: testing.invalid\n'\"'\"'' > '/var/lib/juju/MAASmachine.txt'",
-	"ifdown eth0",
-	`cat >> /etc/network/interfaces << EOF
-
-iface eth0 inet manual
-
-auto juju-br0
-iface juju-br0 inet dhcp
-    bridge_ports eth0
-EOF
-grep -q 'iface eth0 inet dhcp' /etc/network/interfaces && \
-sed -i 's/iface eth0 inet dhcp//' /etc/network/interfaces`,
-	"ifup juju-br0",
-}
-
-var expectedCloudinitConfigWithoutNetworking = []interface{}{
-	"set -xe",
-	"mkdir -p '/var/lib/juju'\ninstall -m 755 /dev/null '/var/lib/juju/MAASmachine.txt'\nprintf '%s\\n' ''\"'\"'hostname: testing.invalid\n'\"'\"'' > '/var/lib/juju/MAASmachine.txt'",
 }
 
 func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
@@ -236,5 +219,5 @@ func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C
 	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "eth0", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
-	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfigWithoutNetworking)
+	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
 }

@@ -8,6 +8,8 @@ import "github.com/juju/juju/storage"
 // CommonProviders returns the storage providers used by all environments.
 func CommonProviders() map[storage.ProviderType]storage.Provider {
 	return map[storage.ProviderType]storage.Provider{
-		LoopProviderType: &loopProvider{logAndExec},
+		LoopProviderType:   &loopProvider{logAndExec},
+		RootfsProviderType: &rootfsProvider{logAndExec},
+		TmpfsProviderType:  &tmpfsProvider{logAndExec},
 	}
 }

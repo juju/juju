@@ -47,7 +47,7 @@ type toolsDownloadHandler struct {
 func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	stateWrapper, err := h.validateEnvironUUID(r)
 	if err != nil {
-		h.sendError(w, http.StatusNotFound, err.Error())
+		h.sendExistingError(w, http.StatusNotFound, err)
 		return
 	}
 	defer stateWrapper.cleanup()
@@ -57,7 +57,7 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		tarball, err := h.processGet(r, stateWrapper.state)
 		if err != nil {
 			logger.Errorf("GET(%s) failed: %v", r.URL, err)
-			h.sendError(w, http.StatusBadRequest, err.Error())
+			h.sendExistingError(w, http.StatusBadRequest, err)
 			return
 		}
 		h.sendTools(w, http.StatusOK, tarball)
@@ -71,7 +71,7 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// on the state connection that is determined during the validation.
 	stateWrapper, err := h.validateEnvironUUID(r)
 	if err != nil {
-		h.sendError(w, http.StatusNotFound, err.Error())
+		h.sendExistingError(w, http.StatusNotFound, err)
 		return
 	}
 	defer stateWrapper.cleanup()
@@ -86,7 +86,7 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Add tools to storage.
 		agentTools, err := h.processPost(r, stateWrapper.state)
 		if err != nil {
-			h.sendError(w, http.StatusBadRequest, err.Error())
+			h.sendExistingError(w, http.StatusBadRequest, err)
 			return
 		}
 		h.sendJSON(w, http.StatusOK, &params.ToolsResult{Tools: agentTools})
@@ -107,10 +107,17 @@ func (h *toolsHandler) sendJSON(w http.ResponseWriter, statusCode int, response 
 	return nil
 }
 
-// sendError sends a JSON-encoded error response.
+// sendError sends a JSON-encoded error response using desired
+// error message.
 func (h *toolsHandler) sendError(w http.ResponseWriter, statusCode int, message string) {
-	logger.Debugf("sending error: %v %v", statusCode, message)
-	err := common.ServerError(errors.New(message))
+	h.sendExistingError(w, statusCode, errors.New(message))
+}
+
+// sendExistingError sends a JSON-encoded error response
+// for errors encountered during processing.
+func (h *toolsHandler) sendExistingError(w http.ResponseWriter, statusCode int, existing error) {
+	logger.Debugf("sending error: %v %v", statusCode, existing)
+	err := common.ServerError(existing)
 	if err := h.sendJSON(w, statusCode, &params.ToolsResult{Error: err}); err != nil {
 		logger.Errorf("failed to send error: %v", err)
 	}
@@ -209,7 +216,7 @@ func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, statusCode int, 
 	w.Header().Set("Content-Length", fmt.Sprint(len(tarball)))
 	w.WriteHeader(statusCode)
 	if _, err := w.Write(tarball); err != nil {
-		h.sendError(w, http.StatusBadRequest, fmt.Sprintf("failed to write tools: %v", err))
+		h.sendExistingError(w, http.StatusBadRequest, errors.Annotatef(err, "failed to write tools"))
 		return
 	}
 }

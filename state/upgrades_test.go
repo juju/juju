@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
@@ -68,6 +69,89 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, keyExists := userMap["_id_"]
 	c.Assert(keyExists, jc.IsFalse)
+}
+
+func (s *upgradesSuite) TestAddUniqueOwnerEnvNameForEnvirons(c *gc.C) {
+	s.userEnvNameSetup(c, [][]string{
+		{"bob", "bobsenv"},
+		{"sam@remote", "samsenv"},
+	})
+
+	err := AddUniqueOwnerEnvNameForEnvirons(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertUserEnvNameObtained(c,
+		"test-admin@local:testenv",
+		"bob@local:bobsenv",
+		"sam@remote:samsenv",
+	)
+}
+
+func (s *upgradesSuite) TestAddUniqueOwnerEnvNameForEnvironsErrors(c *gc.C) {
+	s.userEnvNameSetup(c, [][]string{
+		{"bob", "bobsenv"},
+		{"bob", "bobsenv"},
+	})
+
+	err := AddUniqueOwnerEnvNameForEnvirons(s.state)
+	c.Assert(err, gc.ErrorMatches, `environment "bobsenv" for bob@local already exists`)
+	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
+
+	// we expect the userenvname doc for the server environ as it was inserted
+	// when the environment was initialized.
+	s.assertUserEnvNameObtained(c, "test-admin@local:testenv")
+}
+
+func (s *upgradesSuite) TestAddUniqueOwnerEnvNameForEnvironsIdempotent(c *gc.C) {
+	s.userEnvNameSetup(c, [][]string{
+		{"bob", "bobsenv"},
+		{"sam@remote", "samsenv"},
+	})
+
+	err := AddUniqueOwnerEnvNameForEnvirons(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	err = AddUniqueOwnerEnvNameForEnvirons(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertUserEnvNameObtained(c,
+		"bob@local:bobsenv",
+		"sam@remote:samsenv",
+		"test-admin@local:testenv",
+	)
+}
+
+// userEnvNameSetup adds an environmentsC doc for each {"owner", "envName"} arg.
+func (s *upgradesSuite) userEnvNameSetup(c *gc.C, userEnvNamePairs [][]string) {
+	var ops []txn.Op
+	for _, userEnvNamePair := range userEnvNamePairs {
+		uuid, err := utils.NewUUID()
+		c.Assert(err, jc.ErrorIsNil)
+		ops = append(ops, createEnvironmentOp(
+			s.state,
+			names.NewUserTag(userEnvNamePair[0]),
+			userEnvNamePair[1],
+			uuid.String(),
+			s.state.EnvironUUID(),
+		))
+	}
+	err := s.state.runRawTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// assertUserEnvNameObtained asserts that all (and no more) expectedIds are found in
+// the userenvnameC collection.
+func (s *upgradesSuite) assertUserEnvNameObtained(c *gc.C, expectedIds ...string) {
+	var obtained []bson.M
+	userenvname, closer := s.state.getCollection(userenvnameC)
+	defer closer()
+	err := userenvname.Find(nil).All(&obtained)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var obtainedIds []string
+	for _, userEnvName := range obtained {
+		obtainedIds = append(obtainedIds, userEnvName["_id"].(string))
+	}
+	c.Assert(obtainedIds, jc.SameContents, expectedIds)
 }
 
 func (s *upgradesSuite) TestAddStateUsersToEnviron(c *gc.C) {
@@ -239,6 +323,73 @@ func (s *upgradesSuite) TestAddEnvUUIDToUnitsIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToUnits, unitsC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToEnvUsers(c *gc.C) {
+	uuid := s.state.EnvironUUID()
+	coll, newIDs, count := s.checkEnvUUID(c, AddEnvUUIDToEnvUsersDoc, envUsersC,
+		[]bson.M{{
+			"_id":         uuid + ":sam@local",
+			"createdby":   "test-admin@local",
+			"displayname": "sam",
+			"envuuid":     uuid,
+			"user":        "sam@local",
+		}, {
+			"_id":         uuid + ":ralph@local",
+			"createdby":   "test-admin@local",
+			"displayname": "ralph",
+			"envuuid":     uuid,
+			"user":        "ralph@local",
+		}},
+		false,
+	)
+	// This test expects 3 docs to account for the test-admin user doc.
+	c.Assert(count, gc.Equals, 3)
+
+	var newDoc envUserDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.UserName, gc.Equals, "sam@local")
+	c.Assert(newDoc.CreatedBy, gc.Equals, "test-admin@local")
+	c.Assert(newDoc.DisplayName, gc.Equals, "sam")
+
+	var newBsonDoc bson.M
+	s.FindId(c, coll, newIDs[0], &newBsonDoc)
+	_, ok := newBsonDoc["envuuid"]
+	c.Assert(ok, jc.IsFalse)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.UserName, gc.Equals, "ralph@local")
+	c.Assert(newDoc.CreatedBy, gc.Equals, "test-admin@local")
+	c.Assert(newDoc.DisplayName, gc.Equals, "ralph")
+
+	s.FindId(c, coll, newIDs[1], &newBsonDoc)
+	_, ok = newBsonDoc["envuuid"]
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToEnvUsersIdempotent(c *gc.C) {
+	uuid := s.state.EnvironUUID()
+	oldID := uuid + ":bob@local"
+
+	s.addLegacyDoc(c, envUsersC, bson.M{"_id": oldID, "envuuid": uuid})
+	err := AddEnvUUIDToEnvUsersDoc(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	err = AddEnvUUIDToEnvUsersDoc(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	coll, closer := s.state.getRawCollection(envUsersC)
+	defer closer()
+
+	var docs []map[string]string
+	err = coll.Find(nil).All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(docs, gc.HasLen, 2)
+	c.Assert(docs[0]["user"], gc.Equals, "test-admin@local")
+	c.Assert(docs[1]["_id"], gc.Equals, oldID)
+	c.Assert(docs[1]["env-uuid"], gc.Equals, uuid)
+	if oldUuid, ok := docs[1]["envuuid"]; ok {
+		c.Fatalf("expected nil found %q", oldUuid)
+	}
+}
+
 func (s *upgradesSuite) TestAddEnvUUIDToMachines(c *gc.C) {
 	coll, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToMachines, machinesC,
 		bson.M{
@@ -376,11 +527,11 @@ func (s *upgradesSuite) TestAddEnvUUIDToNetworks(c *gc.C) {
 
 	var newDoc networkDoc
 	s.FindId(c, coll, newIDs[0], &newDoc)
-	c.Assert(newDoc.ProviderId, gc.Equals, network.Id("net1"))
+	c.Assert(network.Id(newDoc.ProviderId), gc.Equals, network.Id("net1"))
 	c.Assert(newDoc.CIDR, gc.Equals, "0.1.2.0/24")
 
 	s.FindId(c, coll, newIDs[1], &newDoc)
-	c.Assert(newDoc.ProviderId, gc.Equals, network.Id("net2"))
+	c.Assert(network.Id(newDoc.ProviderId), gc.Equals, network.Id("net2"))
 	c.Assert(newDoc.CIDR, gc.Equals, "0.2.2.0/24")
 }
 
@@ -1257,7 +1408,7 @@ func (s *upgradesSuite) assertUnitPortsPostMigration(c *gc.C, units map[int][]*U
 			if unit.Name() == units[2][2].Name() {
 				// Only units[2][2] will have ports on its doc, as
 				// it's not assigned to a machine.
-				c.Assert(unit.doc.Ports, jc.DeepEquals, []network.Port{
+				c.Assert(networkPorts(unit.doc.Ports), jc.DeepEquals, []network.Port{
 					{Protocol: "tcp", Number: 80},
 				})
 			} else {

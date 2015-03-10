@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/keyupdater"
+	apileadership "github.com/juju/juju/api/leadership"
 	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/networker"
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/leadership"
 	"github.com/juju/juju/network"
 )
 
@@ -73,32 +75,39 @@ func (st *State) loginV1(tag, password, nonce string) error {
 	// one should have an environ tag set.
 
 	var environTag string
+	var serverTag string
 	var servers [][]network.HostPort
 	var facades []params.FacadeVersions
+	// For quite old servers, it is possible that they don't send down
+	// the environTag.
 	if result.LoginResult.EnvironTag != "" {
 		environTag = result.LoginResult.EnvironTag
-		servers = result.LoginResult.Servers
+		// If the server doesn't support login v1, it doesn't support
+		// multiple environments, so don't store a server tag.
+		servers = params.NetworkHostsPorts(result.LoginResult.Servers)
 		facades = result.LoginResult.Facades
 	} else if result.LoginResultV1.EnvironTag != "" {
 		environTag = result.LoginResultV1.EnvironTag
-		servers = result.LoginResultV1.Servers
+		serverTag = result.LoginResultV1.ServerTag
+		servers = params.NetworkHostsPorts(result.LoginResultV1.Servers)
 		facades = result.LoginResultV1.Facades
 	}
 
-	err = st.setLoginResult(tag, environTag, servers, facades)
+	err = st.setLoginResult(tag, environTag, serverTag, servers, facades)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (st *State) setLoginResult(tag, environTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
+func (st *State) setLoginResult(tag, environTag, serverTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
 	authtag, err := names.ParseTag(tag)
 	if err != nil {
 		return err
 	}
 	st.authTag = authtag
 	st.environTag = environTag
+	st.serverTag = serverTag
 
 	hostPorts, err := addAddress(servers, st.addr)
 	if err != nil {
@@ -126,7 +135,9 @@ func (st *State) loginV0(tag, password, nonce string) error {
 	if err != nil {
 		return err
 	}
-	if err = st.setLoginResult(tag, result.EnvironTag, result.Servers, result.Facades); err != nil {
+	servers := params.NetworkHostsPorts(result.Servers)
+	// Don't set a server tag.
+	if err = st.setLoginResult(tag, result.EnvironTag, "", servers, result.Facades); err != nil {
 		return err
 	}
 	return nil
@@ -193,7 +204,7 @@ func (st *State) Machiner() *machiner.State {
 
 // Networker returns a version of the state that provides functionality
 // required by the networker worker.
-func (st *State) Networker() *networker.State {
+func (st *State) Networker() networker.State {
 	return networker.NewState(st)
 }
 
@@ -211,6 +222,13 @@ func (st *State) Uniter() (*uniter.State, error) {
 		return nil, errors.Errorf("expected UnitTag, got %T %v", st.authTag, st.authTag)
 	}
 	return uniter.NewState(st, unitTag), nil
+}
+
+func (st *State) LeadershipManager() leadership.LeadershipManager {
+	// TODO(fwereade): hm, not sure this really needs the client stuff, but I
+	// don't think it really hurts.
+	facade, caller := base.NewClientFacade(st, "LeadershipService")
+	return apileadership.NewClient(facade, caller)
 }
 
 // DiskManager returns a version of the state that provides functionality

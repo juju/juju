@@ -1375,7 +1375,10 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		agentServiceName = os.Getenv("UPSTART_JOB")
 	}
 	if agentServiceName != "" {
-		if err := service.NewService(agentServiceName, common.Conf{}).Remove(); err != nil {
+		svc, err := service.DiscoverService(agentServiceName, common.Conf{})
+		if err != nil {
+			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
+		} else if err := svc.Remove(); err != nil {
 			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
 	}

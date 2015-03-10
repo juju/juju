@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	jujuerrors "github.com/juju/errors"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
@@ -255,19 +255,19 @@ func (p environProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return nil, jujuerrors.NotImplementedf("PrepareForCreateEnvironment")
-}
-
-func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	attrs := cfg.UnknownAttrs()
 	if _, ok := attrs["control-bucket"]; !ok {
 		uuid, err := utils.NewUUID()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		attrs["control-bucket"] = fmt.Sprintf("%x", uuid.Raw())
 	}
-	cfg, err := cfg.Apply(attrs)
+	return cfg.Apply(attrs)
+}
+
+func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+	cfg, err := p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -621,7 +621,7 @@ func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	if e.availabilityZones == nil {
 		zones, err := novaListAvailabilityZones(e.nova())
 		if gooseerrors.IsNotImplemented(err) {
-			return nil, jujuerrors.NotImplementedf("availability zones")
+			return nil, errors.NotImplementedf("availability zones")
 		}
 		if err != nil {
 			return nil, err
@@ -762,7 +762,7 @@ var authenticateClient = func(e *environ) error {
 		// but provide a readable and helpful error message
 		// to the user.
 		logger.Debugf("authentication failed: %v", err)
-		return jujuerrors.New(`authentication failed.
+		return errors.New(`authentication failed.
 
 Please ensure the credentials are correct. A common mistake is
 to specify the wrong tenant. Use the OpenStack "project" name
@@ -806,7 +806,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 func getKeystoneImageSource(env environs.Environ) (simplestreams.DataSource, error) {
 	e, ok := env.(*environ)
 	if !ok {
-		return nil, jujuerrors.NotSupportedf("non-openstack environment")
+		return nil, errors.NotSupportedf("non-openstack environment")
 	}
 	return e.getKeystoneDataSource(&e.keystoneImageDataSourceMutex, &e.keystoneImageDataSource, "product-streams")
 }
@@ -816,7 +816,7 @@ func getKeystoneImageSource(env environs.Environ) (simplestreams.DataSource, err
 func getKeystoneToolsSource(env environs.Environ) (simplestreams.DataSource, error) {
 	e, ok := env.(*environ)
 	if !ok {
-		return nil, jujuerrors.NotSupportedf("non-openstack environment")
+		return nil, errors.NotSupportedf("non-openstack environment")
 	}
 	return e.getKeystoneDataSource(&e.keystoneToolsDataSourceMutex, &e.keystoneToolsDataSource, "juju-tools")
 }
@@ -835,7 +835,7 @@ func (e *environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 
 	url, err := makeServiceURL(e.client, keystoneName, nil)
 	if err != nil {
-		return nil, jujuerrors.NewNotSupported(err, fmt.Sprintf("cannot make service URL: %v", err))
+		return nil, errors.NewNotSupported(err, fmt.Sprintf("cannot make service URL: %v", err))
 	}
 	verify := utils.VerifySSLHostnames
 	if !e.Config().SSLHostnameVerification() {
@@ -962,7 +962,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 			}
 		}
 		zoneInstances, err := availabilityZoneAllocations(e, group)
-		if jujuerrors.IsNotImplemented(err) {
+		if errors.IsNotImplemented(err) {
 			// Availability zones are an extension, so we may get a
 			// not implemented error; ignore these.
 		} else if err != nil {
@@ -1258,19 +1258,19 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 func (e *environ) Destroy() error {
 	err := common.Destroy(e)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Trace(err)
 	}
 	if err := e.Storage().RemoveAll(); err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Trace(err)
 	}
 	novaClient := e.nova()
 	securityGroups, err := novaClient.ListSecurityGroups()
 	if err != nil {
-		return jujuerrors.Annotate(err, "cannot list security groups")
+		return errors.Annotate(err, "cannot list security groups")
 	}
 	re, err := regexp.Compile(fmt.Sprintf("^%s(-\\d+)?$", e.jujuGroupName()))
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Trace(err)
 	}
 	globalGroupName := e.globalGroupName()
 	for _, group := range securityGroups {

@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/leadership"
 )
 
 /*
@@ -58,29 +60,49 @@ func (s *clientSuite) TestClaimLeadershipTranslation(c *gc.C) {
 
 			typedR, ok := response.(*params.ClaimLeadershipBulkResults)
 			c.Assert(ok, gc.Equals, true)
-			typedR.Results = []params.ClaimLeadershipResults{{
-				ClaimDurationInSec: claimTime.Seconds(),
-			}}
+			typedR.Results = []params.ErrorResult{{}}
 
 			c.Assert(typedP.Params, gc.HasLen, 1)
 			c.Check(typedP.Params[0].ServiceTag, gc.Equals, names.NewServiceTag(StubServiceNm).String())
 			c.Check(typedP.Params[0].UnitTag, gc.Equals, names.NewUnitTag(StubUnitNm).String())
+			c.Check(typedP.Params[0].DurationSeconds, gc.Equals, claimTime.Seconds())
 
 			return nil
 		},
 	}
 
 	client := NewClient(stub, stub)
-	claimInterval, err := client.ClaimLeadership(StubServiceNm, StubUnitNm)
-
-	c.Assert(err, gc.IsNil)
+	err := client.ClaimLeadership(StubServiceNm, StubUnitNm, claimTime)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(claimInterval, gc.Equals, claimTime)
 }
 
-func (s *clientSuite) TestClaimLeadershipErrorTranslation(c *gc.C) {
+func (s *clientSuite) TestClaimLeadershipDeniedError(c *gc.C) {
 
-	// First check translating errors embedded in the result.
+	numStubCalls := 0
+	stub := &stubFacade{
+		FacadeCallFn: func(name string, parameters, response interface{}) error {
+			numStubCalls++
+			typedR, ok := response.(*params.ClaimLeadershipBulkResults)
+			c.Assert(ok, gc.Equals, true)
+			typedR.Results = []params.ErrorResult{{
+				Error: &params.Error{
+					Message: "blah",
+					Code:    params.CodeLeadershipClaimDenied,
+				},
+			}}
+			return nil
+		},
+	}
+
+	client := NewClient(stub, stub)
+	err := client.ClaimLeadership(StubServiceNm, StubUnitNm, 0)
+	c.Check(numStubCalls, gc.Equals, 1)
+	c.Check(err, gc.Equals, leadership.ErrClaimDenied)
+}
+
+func (s *clientSuite) TestClaimLeadershipUnknownError(c *gc.C) {
+
 	errMsg := "I'm trying!"
 	numStubCalls := 0
 	stub := &stubFacade{
@@ -88,7 +110,7 @@ func (s *clientSuite) TestClaimLeadershipErrorTranslation(c *gc.C) {
 			numStubCalls++
 			typedR, ok := response.(*params.ClaimLeadershipBulkResults)
 			c.Assert(ok, gc.Equals, true)
-			typedR.Results = []params.ClaimLeadershipResults{{
+			typedR.Results = []params.ErrorResult{{
 				Error: &params.Error{Message: errMsg},
 			}}
 			return nil
@@ -96,19 +118,23 @@ func (s *clientSuite) TestClaimLeadershipErrorTranslation(c *gc.C) {
 	}
 
 	client := NewClient(stub, stub)
-	_, err := client.ClaimLeadership(StubServiceNm, StubUnitNm)
+	err := client.ClaimLeadership(StubServiceNm, StubUnitNm, 0)
 	c.Check(numStubCalls, gc.Equals, 1)
 	c.Check(err, gc.ErrorMatches, errMsg)
+}
 
-	// Now check errors returned from the function itself.
-	errMsg = "well, I just give up."
-	numStubCalls = 0
-	stub.FacadeCallFn = func(name string, parameters, response interface{}) error {
-		numStubCalls++
-		return fmt.Errorf(errMsg)
+func (s *clientSuite) TestClaimLeadershipFacadeCallError(c *gc.C) {
+	errMsg := "well, I just give up."
+	numStubCalls := 0
+	stub := &stubFacade{
+		FacadeCallFn: func(name string, parameters, response interface{}) error {
+			numStubCalls++
+			return fmt.Errorf(errMsg)
+		},
 	}
 
-	_, err = client.ClaimLeadership(StubServiceNm, StubUnitNm)
+	client := NewClient(stub, stub)
+	err := client.ClaimLeadership(StubServiceNm, StubUnitNm, 0)
 	c.Check(numStubCalls, gc.Equals, 1)
 	c.Check(err, gc.ErrorMatches, "error making a leadership claim: "+errMsg)
 }
@@ -141,7 +167,7 @@ func (s *clientSuite) TestReleaseLeadershipTranslation(c *gc.C) {
 	err := client.ReleaseLeadership(StubServiceNm, StubUnitNm)
 
 	c.Check(numStubCalls, gc.Equals, 1)
-	c.Assert(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *clientSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
@@ -168,5 +194,5 @@ func (s *clientSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 	err := client.BlockUntilLeadershipReleased(StubServiceNm)
 
 	c.Check(numStubCalls, gc.Equals, 1)
-	c.Assert(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }

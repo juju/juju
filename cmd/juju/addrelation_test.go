@@ -4,9 +4,6 @@
 package main
 
 import (
-	"strings"
-
-	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -18,6 +15,14 @@ import (
 
 type AddRelationSuite struct {
 	jujutesting.RepoSuite
+	CmdBlockHelper
+}
+
+func (s *AddRelationSuite) SetUpTest(c *gc.C) {
+	s.RepoSuite.SetUpTest(c)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
+	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
 
 var _ = gc.Suite(&AddRelationSuite{})
@@ -171,7 +176,7 @@ func (s *AddRelationSuite) TestBlockAddRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.BlockAllChanges(c, "TestBlockAddRelation")
 
 	for i, t := range addRelationTests {
 		c.Logf("test %d: %v", i, t.args)
@@ -179,11 +184,7 @@ func (s *AddRelationSuite) TestBlockAddRelation(c *gc.C) {
 		if len(t.args) == 2 {
 			// Only worry about Run being blocked.
 			// For len(t.args) != 2, an Init will fail
-			c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-
-			// msg is logged
-			stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-			c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+			s.AssertBlocked(c, err, ".*TestBlockAddRelation.*")
 		}
 	}
 }

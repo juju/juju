@@ -1,6 +1,11 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// TODO(wallyworld) bug http://pad.lv/1408459
+// Re-enable tests for i386 when these tests are fixed to work on that architecture.
+
+// +build !386
+
 package apiserver_test
 
 import (

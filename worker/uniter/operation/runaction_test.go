@@ -29,7 +29,7 @@ func (s *RunActionSuite) TestPrepareErrorBadActionAndFailSucceeds(c *gc.C) {
 	callbacks := &RunActionCallbacks{
 		MockFailAction: &MockFailAction{err: errors.New("squelch")},
 	}
-	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil)
+	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil, nil)
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -49,7 +49,7 @@ func (s *RunActionSuite) TestPrepareErrorBadActionAndFailErrors(c *gc.C) {
 	callbacks := &RunActionCallbacks{
 		MockFailAction: &MockFailAction{},
 	}
-	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil)
+	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil, nil)
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -65,7 +65,7 @@ func (s *RunActionSuite) TestPrepareErrorActionNotAvailable(c *gc.C) {
 	runnerFactory := &MockRunnerFactory{
 		MockNewActionRunner: &MockNewActionRunner{err: runner.ErrActionNotAvailable},
 	}
-	factory := operation.NewFactory(nil, runnerFactory, nil, nil)
+	factory := operation.NewFactory(nil, runnerFactory, nil, nil, nil)
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -79,7 +79,7 @@ func (s *RunActionSuite) TestPrepareErrorOther(c *gc.C) {
 	runnerFactory := &MockRunnerFactory{
 		MockNewActionRunner: &MockNewActionRunner{err: errors.New("foop")},
 	}
-	factory := operation.NewFactory(nil, runnerFactory, nil, nil)
+	factory := operation.NewFactory(nil, runnerFactory, nil, nil, nil)
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -91,7 +91,7 @@ func (s *RunActionSuite) TestPrepareErrorOther(c *gc.C) {
 
 func (s *RunActionSuite) TestPrepareSuccessCleanState(c *gc.C) {
 	runnerFactory := NewRunActionRunnerFactory(errors.New("should not call"))
-	factory := operation.NewFactory(nil, runnerFactory, nil, nil)
+	factory := operation.NewFactory(nil, runnerFactory, nil, nil, nil)
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -108,7 +108,7 @@ func (s *RunActionSuite) TestPrepareSuccessCleanState(c *gc.C) {
 
 func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
 	runnerFactory := NewRunActionRunnerFactory(errors.New("should not call"))
-	factory := operation.NewFactory(nil, runnerFactory, nil, nil)
+	factory := operation.NewFactory(nil, runnerFactory, nil, nil, nil)
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -131,7 +131,7 @@ func (s *RunActionSuite) TestExecuteLockError(c *gc.C) {
 	callbacks := &RunActionCallbacks{
 		MockAcquireExecutionLock: &MockAcquireExecutionLock{err: errors.New("plonk")},
 	}
-	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil)
+	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil, nil)
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Prepare(operation.State{})
@@ -149,7 +149,7 @@ func (s *RunActionSuite) TestExecuteRunError(c *gc.C) {
 	callbacks := &RunActionCallbacks{
 		MockAcquireExecutionLock: &MockAcquireExecutionLock{},
 	}
-	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil)
+	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil, nil)
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Prepare(operation.State{})
@@ -195,7 +195,7 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 		callbacks := &RunActionCallbacks{
 			MockAcquireExecutionLock: &MockAcquireExecutionLock{},
 		}
-		factory := operation.NewFactory(nil, runnerFactory, callbacks, nil)
+		factory := operation.NewFactory(nil, runnerFactory, callbacks, nil, nil)
 		op, err := factory.NewAction(someActionId)
 		c.Assert(err, jc.ErrorIsNil)
 		midState, err := op.Prepare(test.before)
@@ -237,7 +237,7 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 
 	for i, test := range stateChangeTests {
 		c.Logf("test %d: %s", i, test.description)
-		factory := operation.NewFactory(nil, nil, nil, nil)
+		factory := operation.NewFactory(nil, nil, nil, nil, nil)
 		op, err := factory.NewAction(someActionId)
 		c.Assert(err, jc.ErrorIsNil)
 

@@ -1,7 +1,7 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013 - 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package common
 
 import (
 	"fmt"
@@ -54,6 +54,24 @@ type GetConstraintsCommand struct {
 	envcmd.EnvCommandBase
 	ServiceName string
 	out         cmd.Output
+	api         ConstraintsAPI
+}
+
+// Constraints API defines methods on the client API that
+// the get-constraints and set-constraints commands call
+type ConstraintsAPI interface {
+	Close() error
+	GetEnvironmentConstraints() (constraints.Value, error)
+	GetServiceConstraints(string) (constraints.Value, error)
+	SetEnvironmentConstraints(constraints.Value) error
+	SetServiceConstraints(string, constraints.Value) error
+}
+
+func (c *GetConstraintsCommand) getAPI() (ConstraintsAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
+	return c.NewAPIClient()
 }
 
 func (c *GetConstraintsCommand) Info() *cmd.Info {
@@ -88,7 +106,7 @@ func (c *GetConstraintsCommand) Init(args []string) error {
 }
 
 func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
-	apiclient, err := c.NewAPIClient()
+	apiclient, err := c.getAPI()
 	if err != nil {
 		return err
 	}
@@ -110,7 +128,15 @@ func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
 type SetConstraintsCommand struct {
 	envcmd.EnvCommandBase
 	ServiceName string
+	api         ConstraintsAPI
 	Constraints constraints.Value
+}
+
+func (c *SetConstraintsCommand) getAPI() (ConstraintsAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
+	return c.NewAPIClient()
 }
 
 func (c *SetConstraintsCommand) Info() *cmd.Info {
@@ -136,7 +162,7 @@ func (c *SetConstraintsCommand) Init(args []string) (err error) {
 }
 
 func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
-	apiclient, err := c.NewAPIClient()
+	apiclient, err := c.getAPI()
 	if err != nil {
 		return err
 	}

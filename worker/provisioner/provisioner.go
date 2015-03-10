@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/utils"
 	"github.com/juju/juju/worker"
 )
 
@@ -58,6 +59,7 @@ type provisioner struct {
 	st          *apiprovisioner.State
 	agentConfig agent.Config
 	broker      environs.InstanceBroker
+	toolsFinder ToolsFinder
 	tomb        tomb.Tomb
 }
 
@@ -141,7 +143,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		machineTag,
 		harvestMode,
 		p.st,
-		getToolsFinder(p.st),
+		p.toolsFinder,
 		machineWatcher,
 		retryWatcher,
 		p.broker,
@@ -160,13 +162,14 @@ func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config) P
 		provisioner: provisioner{
 			st:          st,
 			agentConfig: agentConfig,
+			toolsFinder: getToolsFinder(st),
 		},
 	}
 	p.Provisioner = p
 	logger.Tracef("Starting environ provisioner for %q", p.agentConfig.Tag())
 	go func() {
 		defer p.tomb.Done()
-		p.tomb.Kill(p.loop())
+		p.tomb.Kill(errors.Cause(p.loop()))
 	}()
 	return p
 }
@@ -175,21 +178,21 @@ func (p *environProvisioner) loop() error {
 	var environConfigChanges <-chan struct{}
 	environWatcher, err := p.st.WatchForEnvironConfigChanges()
 	if err != nil {
-		return err
+		return utils.LoggedErrorStack(errors.Trace(err))
 	}
 	environConfigChanges = environWatcher.Changes()
 	defer watcher.Stop(environWatcher, &p.tomb)
 
 	p.environ, err = worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
 	if err != nil {
-		return err
+		return utils.LoggedErrorStack(errors.Trace(err))
 	}
 	p.broker = p.environ
 
 	harvestMode := p.environ.Config().ProvisionerHarvestMode()
 	task, err := p.getStartTask(harvestMode)
 	if err != nil {
-		return err
+		return utils.LoggedErrorStack(errors.Trace(err))
 	}
 	defer watcher.Stop(task, &p.tomb)
 
@@ -239,14 +242,20 @@ func (p *environProvisioner) setConfig(environConfig *config.Config) error {
 // NewContainerProvisioner returns a new Provisioner. When new machines
 // are added to the state, it allocates instances from the environment
 // and allocates them to the new machines.
-func NewContainerProvisioner(containerType instance.ContainerType, st *apiprovisioner.State,
-	agentConfig agent.Config, broker environs.InstanceBroker) Provisioner {
+func NewContainerProvisioner(
+	containerType instance.ContainerType,
+	st *apiprovisioner.State,
+	agentConfig agent.Config,
+	broker environs.InstanceBroker,
+	toolsFinder ToolsFinder,
+) Provisioner {
 
 	p := &containerProvisioner{
 		provisioner: provisioner{
 			st:          st,
 			agentConfig: agentConfig,
 			broker:      broker,
+			toolsFinder: toolsFinder,
 		},
 		containerType: containerType,
 	}

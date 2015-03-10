@@ -20,7 +20,6 @@ type EnvironmentCommandSuite struct {
 var _ = gc.Suite(&EnvironmentCommandSuite{})
 
 var expectedCommmandNames = []string{
-	"ensure-availability",
 	"get",
 	"help",
 	"jenv",

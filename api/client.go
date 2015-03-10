@@ -496,6 +496,7 @@ type EnvironmentInfo struct {
 	ProviderType  string
 	Name          string
 	UUID          string
+	ServerUUID    string
 }
 
 // EnvironmentInfo returns details about the Juju environment.
@@ -814,8 +815,8 @@ func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries 
 	}
 	if resp.StatusCode != http.StatusOK {
 		message := fmt.Sprintf("%s", bytes.TrimSpace(body))
-		if resp.StatusCode == http.StatusBadRequest && strings.Contains(message, "The operation has been blocked.") {
-			// Operation Blocked errors must contain correct Error Code
+		if resp.StatusCode == http.StatusBadRequest && strings.Contains(message, params.CodeOperationBlocked) {
+			// Operation Blocked errors must contain correct error code and message.
 			return nil, &params.Error{Code: params.CodeOperationBlocked, Message: message}
 		}
 		return nil, errors.Errorf("tools upload failed: %v (%s)", resp.StatusCode, message)
@@ -837,7 +838,7 @@ func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
 	if err := c.facade.FacadeCall("APIHostPorts", nil, &result); err != nil {
 		return nil, err
 	}
-	return result.Servers, nil
+	return result.NetworkHostsPorts(), nil
 }
 
 // EnsureAvailability ensures the availability of Juju state servers.

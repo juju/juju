@@ -44,3 +44,19 @@ func (environProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.C) {
 	c.Check(env, gc.Equals, nil)
 	c.Check(err, gc.ErrorMatches, ".*environment has no location; you need to set one.*")
 }
+
+func (*environProviderSuite) TestPrepareSetsAvailabilitySets(c *gc.C) {
+	prov := azureEnvironProvider{}
+	attrs := makeAzureConfigMap(c)
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	// Make sure the the value isn't set.
+	_, ok := cfg.AllAttrs()["availability-sets-enabled"]
+	c.Assert(ok, jc.IsFalse)
+
+	cfg, err = prov.PrepareForCreateEnvironment(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	value, ok := cfg.AllAttrs()["availability-sets-enabled"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(value, jc.IsTrue)
+}

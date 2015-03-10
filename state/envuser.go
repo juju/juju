@@ -26,7 +26,7 @@ type EnvironmentUser struct {
 
 type envUserDoc struct {
 	ID             string     `bson:"_id"`
-	EnvUUID        string     `bson:"envuuid"`
+	EnvUUID        string     `bson:"env-uuid"`
 	UserName       string     `bson:"user"`
 	DisplayName    string     `bson:"displayname"`
 	CreatedBy      string     `bson:"createdby"`
@@ -91,20 +91,13 @@ func (e *EnvironmentUser) UpdateLastConnection() error {
 	return nil
 }
 
-// envUserID returns the document id of the environment user with the
-// following format uuid:username@provider.
-func envUserID(envuuid, user string) string {
-	return fmt.Sprintf("%s:%s", envuuid, user)
-}
-
 // EnvironmentUser returns the environment user.
 func (st *State) EnvironmentUser(user names.UserTag) (*EnvironmentUser, error) {
 	envUser := &EnvironmentUser{st: st}
 	envUsers, closer := st.getCollection(envUsersC)
 	defer closer()
 
-	id := envUserID(st.EnvironUUID(), user.Username())
-	err := envUsers.FindId(id).One(&envUser.doc)
+	err := envUsers.FindId(user.Username()).One(&envUser.doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("environment user %q", user.Username())
 	}
@@ -145,9 +138,8 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag) (*Environment
 func createEnvUserOpAndDoc(envuuid string, user, createdBy names.UserTag, displayName string) (txn.Op, *envUserDoc) {
 	username := user.Username()
 	creatorname := createdBy.Username()
-	id := envUserID(envuuid, username)
 	doc := &envUserDoc{
-		ID:          id,
+		ID:          username,
 		EnvUUID:     envuuid,
 		UserName:    username,
 		DisplayName: displayName,
@@ -156,7 +148,7 @@ func createEnvUserOpAndDoc(envuuid string, user, createdBy names.UserTag, displa
 	}
 	op := txn.Op{
 		C:      envUsersC,
-		Id:     id,
+		Id:     username,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
@@ -167,7 +159,7 @@ func createEnvUserOpAndDoc(envuuid string, user, createdBy names.UserTag, displa
 func (st *State) RemoveEnvironmentUser(user names.UserTag) error {
 	ops := []txn.Op{{
 		C:      envUsersC,
-		Id:     envUserID(st.EnvironUUID(), user.Username()),
+		Id:     user.Username(),
 		Assert: txn.DocExists,
 		Remove: true,
 	}}

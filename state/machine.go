@@ -907,8 +907,8 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
 	networks []NetworkInfo, interfaces []NetworkInterfaceInfo,
-	volumes map[names.DiskTag]VolumeInfo,
-	volumeAttachments map[names.DiskTag]VolumeAttachmentInfo,
+	volumes map[names.VolumeTag]VolumeInfo,
+	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
 ) error {
 
 	// Add the networks and interfaces first.
@@ -948,11 +948,11 @@ func mergedAddresses(machineAddresses, providerAddresses []address) []network.Ad
 			continue
 		}
 		providerValues.Add(address.Value)
-		merged = append(merged, address.InstanceAddress())
+		merged = append(merged, address.networkAddress())
 	}
 	for _, address := range machineAddresses {
 		if !providerValues.Contains(address.Value) {
-			merged = append(merged, address.InstanceAddress())
+			merged = append(merged, address.networkAddress())
 		}
 	}
 	return merged
@@ -982,7 +982,7 @@ func (m *Machine) SetAddresses(addresses ...network.Address) (err error) {
 // determined by asking the machine itself.
 func (m *Machine) MachineAddresses() (addresses []network.Address) {
 	for _, address := range m.doc.MachineAddresses {
-		addresses = append(addresses, address.InstanceAddress())
+		addresses = append(addresses, address.networkAddress())
 	}
 	return
 }
@@ -1038,7 +1038,7 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 	}
 
 	network.SortAddresses(addressesToSet, envConfig.PreferIPv6())
-	stateAddresses := instanceAddressesToAddresses(addressesToSet)
+	stateAddresses := fromNetworkAddresses(addressesToSet)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		changed = false
 		if attempt > 0 {
@@ -1054,7 +1054,7 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 			Id:     m.doc.DocID,
 			Assert: append(bson.D{{fieldName, *field}}, notDeadDoc...),
 		}
-		if !addressesEqual(addressesToSet, addressesToInstanceAddresses(*field)) {
+		if !addressesEqual(addressesToSet, networkAddresses(*field)) {
 			op.Update = bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}}
 			changed = true
 		}
