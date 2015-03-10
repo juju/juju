@@ -310,7 +310,10 @@ end script
 
 func (s *UpstartSuite) TestInstallLimit(c *gc.C) {
 	conf := s.dummyConf(c)
-	conf.Limit = map[string]string{"nofile": "65000 65000", "nproc": "20000 20000"}
+	conf.Limit = map[string]int{
+		"nofile": 65000,
+		"nproc":  20000,
+	}
 	s.assertInstall(c, conf, `
 limit nofile 65000 65000
 limit nproc 20000 20000

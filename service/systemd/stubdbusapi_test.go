@@ -101,6 +101,12 @@ func (fda *StubDbusAPI) GetUnitTypeProperties(unit, unitType string) (map[string
 	return fda.TypeProps, fda.NextErr()
 }
 
+func (fda *StubDbusAPI) Reload() error {
+	fda.Stub.AddCall("Reload")
+
+	return fda.Stub.NextErr()
+}
+
 func (fda *StubDbusAPI) Close() {
 	fda.Stub.AddCall("Close")
 

@@ -20,7 +20,7 @@ type serviceInfo interface {
 
 // FakeServiceData holds the results of Service method calls.
 type FakeServiceData struct {
-	testing.Stub
+	*testing.Stub
 
 	// Installed is the list of all services that were installed.
 	Installed []serviceInfo
@@ -47,6 +47,7 @@ type FakeServiceData struct {
 // NewFakeServiceData returns a new FakeServiceData.
 func NewFakeServiceData() *FakeServiceData {
 	return &FakeServiceData{
+		Stub:           &testing.Stub{},
 		ManagedNames:   set.NewStrings(),
 		InstalledNames: set.NewStrings(),
 		RunningNames:   set.NewStrings(),

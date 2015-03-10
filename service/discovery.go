@@ -15,7 +15,9 @@ import (
 )
 
 // This exists to allow patching during tests.
-var jujuVersion = version.Current
+var getVersion = func() version.Binary {
+	return version.Current
+}
 
 // DiscoverService returns an interface to a service apropriate
 // for the current system
@@ -23,6 +25,7 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 	initName, err := discoverLocalInitSystem()
 	if errors.IsNotFound(err) {
 		// Fall back to checking the juju version.
+		jujuVersion := getVersion()
 		versionInitName, ok := VersionInitSystem(jujuVersion)
 		if !ok {
 			// The key error is the one from discoverLocalInitSystem so
@@ -81,23 +84,32 @@ const pid1 = "/proc/1/cmdline"
 
 // These exist to allow patching during tests.
 var (
-	runtimeOS = runtime.GOOS
-	pid1File  = pid1
+	runtimeOS    = func() string { return runtime.GOOS }
+	pid1Filename = func() string { return pid1 }
+
+	initExecutable = func() (string, error) {
+		pid1File := pid1Filename()
+		data, err := ioutil.ReadFile(pid1File)
+		if os.IsNotExist(err) {
+			return "", errors.NotFoundf("init system (via %q)", pid1File)
+		}
+		if err != nil {
+			return "", errors.Annotatef(err, "failed to identify init system (via %q)", pid1File)
+		}
+		executable := strings.Split(string(data), "\x00")[0]
+		return executable, nil
+	}
 )
 
 func discoverLocalInitSystem() (string, error) {
-	if runtimeOS == "windows" {
+	if runtimeOS() == "windows" {
 		return InitSystemWindows, nil
 	}
 
-	data, err := ioutil.ReadFile(pid1File)
-	if os.IsNotExist(err) {
-		return "", errors.NotFoundf("init system (via %q)", pid1File)
-	}
+	executable, err := initExecutable()
 	if err != nil {
-		return "", errors.Annotatef(err, "failed to identify init system (via %q)", pid1File)
+		return "", errors.Trace(err)
 	}
-	executable := strings.Split(string(data), "\x00")[0]
 
 	initName, ok := identifyInitSystem(executable)
 	if !ok {

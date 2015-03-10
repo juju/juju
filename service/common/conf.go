@@ -28,9 +28,17 @@ type Conf struct {
 	// Currently not used on Windows.
 	Env map[string]string
 
-	// Limit holds the ulimit values that will be set when the command runs.
+	// TODO(ericsnow) Add a Limit type, since the possible keys are known.
+
+	// Limit holds the ulimit values that will be set when the command
+	// runs. Each value will be used as both the soft and hard limit.
 	// Currently not used on Windows.
-	Limit map[string]string
+	Limit map[string]int
+
+	// Timeout is how many seconds may pass before an exec call (e.g.
+	// ExecStart) times out. Values less than or equal to 0 (the
+	// default) are treated as though there is no timeout.
+	Timeout int
 
 	// ExecStart is the command (with arguments) that will be run. The
 	// path to the executable must be absolute.

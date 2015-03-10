@@ -7,7 +7,6 @@ import (
 	"runtime"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -69,25 +68,25 @@ func (dt discoveryTest) log(c *gc.C) {
 }
 
 func (dt discoveryTest) disableLocalDiscovery(c *gc.C, s *discoverySuite) {
-	service.PatchGOOS(s, "<another OS>")
-	service.PatchPid1File(c, s, unknownExecutable, "")
+	s.PatchGOOS("<another OS>")
+	s.PatchPid1File(c, unknownExecutable, "")
 }
 
 func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
-	service.PatchVersion(s, version.Binary{
+	s.PatchVersion(version.Binary{
 		OS: version.Unknown,
 	})
 }
 
 func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) string {
-	service.PatchGOOS(s, dt.goos())
+	s.PatchGOOS(dt.goos())
 	verText := "..." + dt.expected + "..."
-	return service.PatchPid1File(c, s, dt.executable(c), verText)
+	return s.PatchPid1File(c, dt.executable(c), verText)
 }
 
 func (dt discoveryTest) setVersion(s *discoverySuite) version.Binary {
 	vers := dt.version()
-	service.PatchVersion(s, vers)
+	s.PatchVersion(vers)
 	return vers
 }
 
@@ -161,7 +160,7 @@ var discoveryTests = []discoveryTest{{
 }}
 
 type discoverySuite struct {
-	testing.IsolationSuite
+	service.BaseSuite
 
 	name string
 	conf common.Conf
@@ -170,7 +169,7 @@ type discoverySuite struct {
 var _ = gc.Suite(&discoverySuite{})
 
 func (s *discoverySuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 
 	s.name = "a-service"
 	s.conf = common.Conf{
