@@ -36,7 +36,8 @@ type Conf struct {
 	Limit map[string]int
 
 	// Timeout is how many seconds may pass before an exec call (e.g.
-	// ExecStart) times out.
+	// ExecStart) times out. Values less than or equal to 0 (the
+	// default) are treated as though there is no timeout.
 	Timeout int
 
 	// ExecStart is the command (with arguments) that will be run. The
