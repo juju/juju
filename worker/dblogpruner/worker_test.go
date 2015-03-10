@@ -76,7 +76,7 @@ func (s *suite) TestPrunesOldLogs(c *gc.C) {
 		pruneRemaining, err := s.logsColl.Find(bson.M{"x": "prune"}).Count()
 		c.Assert(err, jc.ErrorIsNil)
 		if pruneRemaining == 0 {
-			// All the "keep" messages shoudl still be there.
+			// All the "keep" messages should still be there.
 			keepCount, err := s.logsColl.Find(bson.M{"x": "keep"}).Count()
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(keepCount, gc.Equals, 50)
