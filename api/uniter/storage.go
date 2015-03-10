@@ -123,3 +123,40 @@ func (sa *StorageAccessor) WatchStorageAttachment(storageTag names.StorageTag, u
 	w := watcher.NewNotifyWatcher(sa.facade.RawAPICaller(), result)
 	return w, nil
 }
+
+// EnsureStorageAttachmentDead ensures that the storage attachment
+// with the specified unit and storage tags is Dead.
+func (sa *StorageAccessor) EnsureStorageAttachmentDead(storageTag names.StorageTag, unitTag names.UnitTag) error {
+	return sa.ensureDeadOrRemoveStorageAttachment("EnsureStorageAttachmentsDead", storageTag, unitTag)
+}
+
+// RemoveStorageAttachment removes the storage attachment with the
+// specified unit and storage tags from state. This method is only
+// expected to succeed if the storage attachment is Dead.
+func (sa *StorageAccessor) RemoveStorageAttachment(storageTag names.StorageTag, unitTag names.UnitTag) error {
+	return sa.ensureDeadOrRemoveStorageAttachment("RemoveStorageAttachments", storageTag, unitTag)
+}
+
+func (sa *StorageAccessor) ensureDeadOrRemoveStorageAttachment(
+	method string, storageTag names.StorageTag, unitTag names.UnitTag,
+) error {
+	var results params.ErrorResults
+	args := params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{{
+			StorageTag: storageTag.String(),
+			UnitTag:    unitTag.String(),
+		}},
+	}
+	err := sa.facade.FacadeCall(method, args, &results)
+	if err != nil {
+		return err
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
