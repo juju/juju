@@ -531,9 +531,10 @@ var statusTests = []testCase{
 		openUnitPort{"exposed-service/0", "tcp", 3},
 		openUnitPort{"exposed-service/0", "tcp", 2},
 		// Simulate some status with no info, while the agent is down.
-		// Agent used to be down, we no longer support said state.
+		// Status used to be down, we no longer support said state.
 		// now is one of: pending, started, error.
-		setUnitStatus{"dummy-service/0", state.StatusActive, "", nil},
+		setUnitStatus{"dummy-service/0", state.StatusTerminated, "", nil},
+		setAgentStatus{"dummy-service/0", state.StatusIdle, "", nil},
 
 		// dummy-service/0 used to expect "agent-state-info": "(started)",
 		// which is populated as the previous state by adjustInfoIfAgentDown
@@ -576,9 +577,9 @@ var statusTests = []testCase{
 						"units": M{
 							"dummy-service/0": M{
 								"machine":         "1",
-								"agent-state":     "started",
-								"workload-status": M{"current": "active"},
-								"agent-status":    M{"current": "allocating"},
+								"agent-state":     "error",
+								"workload-status": M{"current": "terminated"},
+								"agent-status":    M{"current": "idle"},
 								"public-address":  "dummyenv-1.dns",
 							},
 						},
@@ -638,8 +639,8 @@ var statusTests = []testCase{
 								"machine":          "2",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
-								"workload-status":  M{},
-								"agent-status":     M{},
+								"workload-status":  M{"current": "error", "message": "You Require More Vespene Gas"},
+								"agent-status":     M{"current": "allocating"},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -653,10 +654,10 @@ var statusTests = []testCase{
 						"units": M{
 							"dummy-service/0": M{
 								"machine":         "1",
+								"agent-state":     "error",
 								"life":            "dying",
-								"agent-state":     "started",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"workload-status": M{"current": "terminated"},
+								"agent-status":    M{"current": "idle"},
 								"public-address":  "dummyenv-1.dns",
 							},
 						},
@@ -679,13 +680,12 @@ var statusTests = []testCase{
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
-								"machine":          "1",
-								"life":             "dying",
-								"agent-state":      "down",
-								"agent-state-info": "(started)",
-								"workload-status":  M{},
-								"agent-status":     M{},
-								"public-address":   "dummyenv-1.dns",
+								"machine":         "1",
+								"life":            "dying",
+								"agent-state":     "error",
+								"workload-status": M{"current": "terminated"},
+								"agent-status":    M{"current": "idle"},
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -709,8 +709,8 @@ var statusTests = []testCase{
 								"machine":          "2",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
-								"workload-status":  M{},
-								"agent-status":     M{},
+								"workload-status":  M{"current": "error", "message": "You Require More Vespene Gas"},
+								"agent-status":     M{"current": "allocating"},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -735,13 +735,12 @@ var statusTests = []testCase{
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
-								"machine":          "1",
-								"life":             "dying",
-								"agent-state":      "down",
-								"agent-state-info": "(started)",
-								"workload-status":  M{},
-								"agent-status":     M{},
-								"public-address":   "dummyenv-1.dns",
+								"machine":         "1",
+								"life":            "dying",
+								"agent-state":     "error",
+								"workload-status": M{"current": "terminated"},
+								"agent-status":    M{"current": "idle"},
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -765,8 +764,8 @@ var statusTests = []testCase{
 								"machine":          "2",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
-								"workload-status":  M{},
-								"agent-status":     M{},
+								"workload-status":  M{"current": "error", "message": "You Require More Vespene Gas"},
+								"agent-status":     M{"current": "allocating"},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -792,13 +791,12 @@ var statusTests = []testCase{
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
-								"machine":          "1",
-								"life":             "dying",
-								"agent-state":      "down",
-								"agent-state-info": "(started)",
-								"workload-status":  M{},
-								"agent-status":     M{},
-								"public-address":   "dummyenv-1.dns",
+								"machine":         "1",
+								"life":            "dying",
+								"agent-state":     "error",
+								"workload-status": M{"current": "terminated"},
+								"agent-status":    M{"current": "idle"},
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -810,8 +808,8 @@ var statusTests = []testCase{
 								"machine":          "2",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
-								"workload-status":  M{},
-								"agent-status":     M{},
+								"workload-status":  M{"current": "error", "message": "You Require More Vespene Gas"},
+								"agent-status":     M{"current": "allocating"},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -868,8 +866,8 @@ var statusTests = []testCase{
 								"machine":          "1",
 								"agent-state":      "error",
 								"agent-state-info": "hook failed: some-relation-changed for mysql:server",
-								"workload-status":  M{},
-								"agent-status":     M{},
+								"workload-status":  M{"current": "error", "message": "hook failed: some-relation-changed"},
+								"agent-status":     M{"current": "allocating"},
 								"public-address":   "dummyenv-1.dns",
 							},
 						},
@@ -883,9 +881,9 @@ var statusTests = []testCase{
 						"units": M{
 							"mysql/0": M{
 								"machine":         "1",
-								"agent-state":     "allocating",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"agent-state":     "started",
+								"workload-status": M{"current": "maintenance"},
+								"agent-status":    M{"current": "allocating"},
 								"public-address":  "dummyenv-1.dns",
 							},
 						},
@@ -937,10 +935,10 @@ var statusTests = []testCase{
 						"units": M{
 							"wordpress/0": M{
 								"machine":          "1",
-								"agent-state":      "down",
-								"agent-state-info": "(error: hook failed: some-relation-changed for mysql:server)",
-								"workload-status":  M{},
-								"agent-status":     M{},
+								"agent-state":      "error",
+								"agent-state-info": "hook failed: some-relation-changed for mysql:server",
+								"workload-status":  M{"current": "error", "message": "hook failed: some-relation-changed"},
+								"agent-status":     M{"current": "allocating"},
 								"public-address":   "dummyenv-1.dns",
 							},
 						},
@@ -954,9 +952,9 @@ var statusTests = []testCase{
 						"units": M{
 							"mysql/0": M{
 								"machine":         "1",
-								"agent-state":     "allocating",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"agent-state":     "started",
+								"workload-status": M{"current": "maintenance"},
+								"agent-status":    M{"current": "allocating"},
 								"public-address":  "dummyenv-1.dns",
 							},
 						},
@@ -989,9 +987,9 @@ var statusTests = []testCase{
 						"units": M{
 							"dummy-service/0": M{
 								"machine":         "0",
-								"agent-state":     "allocating",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"agent-state":     "started",
+								"workload-status": M{"current": "maintenance"},
+								"agent-status":    M{"current": "allocating"},
 							},
 						},
 					},
@@ -1068,8 +1066,8 @@ var statusTests = []testCase{
 							"project/0": M{
 								"machine":         "1",
 								"agent-state":     "started",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
 								"public-address":  "dummyenv-1.dns",
 							},
 						},
@@ -1085,8 +1083,8 @@ var statusTests = []testCase{
 							"mysql/0": M{
 								"machine":         "2",
 								"agent-state":     "started",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
 								"public-address":  "dummyenv-2.dns",
 							},
 						},
@@ -1100,9 +1098,9 @@ var statusTests = []testCase{
 						"units": M{
 							"varnish/0": M{
 								"machine":         "3",
-								"agent-state":     "allocating",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"agent-state":     "started",
+								"workload-status": M{"current": "maintenance"},
+								"agent-status":    M{"current": "allocating"},
 								"public-address":  "dummyenv-3.dns",
 							},
 						},
@@ -1116,9 +1114,9 @@ var statusTests = []testCase{
 						"units": M{
 							"private/0": M{
 								"machine":         "4",
-								"agent-state":     "allocating",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"agent-state":     "started",
+								"workload-status": M{"current": "maintenance"},
+								"agent-status":    M{"current": "allocating"},
 								"public-address":  "dummyenv-4.dns",
 							},
 						},
@@ -1177,22 +1175,22 @@ var statusTests = []testCase{
 							"riak/0": M{
 								"machine":         "1",
 								"agent-state":     "started",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
 								"public-address":  "dummyenv-1.dns",
 							},
 							"riak/1": M{
 								"machine":         "2",
 								"agent-state":     "started",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
 								"public-address":  "dummyenv-2.dns",
 							},
 							"riak/2": M{
 								"machine":         "3",
 								"agent-state":     "started",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
 								"public-address":  "dummyenv-3.dns",
 							},
 						},
@@ -1265,13 +1263,13 @@ var statusTests = []testCase{
 							"wordpress/0": M{
 								"machine":         "1",
 								"agent-state":     "started",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
 								"subordinates": M{
 									"logging/0": M{
 										"agent-state":     "started",
-										"workload-status": M{},
-										"agent-status":    M{},
+										"workload-status": M{"current": "active"},
+										"agent-status":    M{"current": "allocating"},
 										"public-address":  "dummyenv-1.dns",
 									},
 								},
@@ -1290,14 +1288,14 @@ var statusTests = []testCase{
 							"mysql/0": M{
 								"machine":         "2",
 								"agent-state":     "started",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
 								"subordinates": M{
 									"logging/1": M{
 										"agent-state":      "error",
 										"agent-state-info": "somehow lost in all those logs",
-										"workload-status":  M{},
-										"agent-status":     M{},
+										"workload-status":  M{"current": "error", "message": "somehow lost in all those logs"},
+										"agent-status":     M{"current": "allocating"},
 										"public-address":   "dummyenv-2.dns",
 									},
 								},
@@ -1340,13 +1338,13 @@ var statusTests = []testCase{
 							"wordpress/0": M{
 								"machine":         "1",
 								"agent-state":     "started",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
 								"subordinates": M{
 									"logging/0": M{
 										"agent-state":     "started",
-										"workload-status": M{},
-										"agent-status":    M{},
+										"workload-status": M{"current": "active"},
+										"agent-status":    M{"current": "allocating"},
 										"public-address":  "dummyenv-1.dns",
 									},
 								},
@@ -1365,13 +1363,13 @@ var statusTests = []testCase{
 							"mysql/0": M{
 								"machine":         "2",
 								"agent-state":     "started",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
 								"subordinates": M{
 									"logging/1": M{
 										"agent-state":      "error",
-										"workload-status":  M{},
-										"agent-status":     M{},
+										"workload-status":  M{"current": "error", "message": "somehow lost in all those logs"},
+										"agent-status":     M{"current": "allocating"},
 										"agent-state-info": "somehow lost in all those logs",
 										"public-address":   "dummyenv-2.dns",
 									},
@@ -1414,13 +1412,13 @@ var statusTests = []testCase{
 							"wordpress/0": M{
 								"machine":         "1",
 								"agent-state":     "started",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
 								"subordinates": M{
 									"logging/0": M{
 										"agent-state":     "started",
-										"workload-status": M{},
-										"agent-status":    M{},
+										"workload-status": M{"current": "active"},
+										"agent-status":    M{"current": "allocating"},
 										"public-address":  "dummyenv-1.dns",
 									},
 								},
@@ -1493,15 +1491,15 @@ var statusTests = []testCase{
 							"mysql/0": M{
 								"machine":         "1",
 								"agent-state":     "started",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
 								"public-address":  "dummyenv-1.dns",
 							},
 							"mysql/1": M{
 								"machine":         "1/lxc/0",
 								"agent-state":     "started",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
 								"public-address":  "dummyenv-2.dns",
 							},
 						},
@@ -1541,8 +1539,8 @@ var statusTests = []testCase{
 							"mysql/1": M{
 								"machine":         "1/lxc/0",
 								"agent-state":     "started",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
 								"public-address":  "dummyenv-2.dns",
 							},
 						},
@@ -1582,9 +1580,9 @@ var statusTests = []testCase{
 						"units": M{
 							"mysql/0": M{
 								"machine":         "1",
-								"agent-state":     "allocating",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"agent-state":     "started",
+								"workload-status": M{"current": "maintenance"},
+								"agent-status":    M{"current": "allocating"},
 								"public-address":  "dummyenv-1.dns",
 							},
 						},
@@ -1626,8 +1624,8 @@ var statusTests = []testCase{
 							"mysql/0": M{
 								"machine":         "1",
 								"agent-state":     "started",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "idle"},
 								"upgrading-from":  "cs:quantal/mysql-1",
 								"public-address":  "dummyenv-1.dns",
 							},
@@ -1672,8 +1670,8 @@ var statusTests = []testCase{
 							"mysql/0": M{
 								"machine":         "1",
 								"agent-state":     "started",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "idle"},
 								"upgrading-from":  "cs:quantal/mysql-1",
 								"public-address":  "dummyenv-1.dns",
 							},
@@ -1717,8 +1715,8 @@ var statusTests = []testCase{
 							"mysql/0": M{
 								"machine":         "1",
 								"agent-state":     "started",
-								"workload-status": M{},
-								"agent-status":    M{},
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "idle"},
 								"upgrading-from":  "cs:quantal/mysql-1",
 								"public-address":  "dummyenv-1.dns",
 							},
@@ -2000,6 +1998,20 @@ func (sus setUnitStatus) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetStatus(sus.status, sus.statusInfo, sus.statusData)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type setAgentStatus struct {
+	unitName   string
+	status     state.Status
+	statusInfo string
+	statusData map[string]interface{}
+}
+
+func (sus setAgentStatus) step(c *gc.C, ctx *context) {
+	u, err := ctx.st.Unit(sus.unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.SetAgentStatus(sus.status, sus.statusInfo, sus.statusData)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

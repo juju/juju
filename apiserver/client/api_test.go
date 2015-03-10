@@ -230,6 +230,16 @@ var scenarioStatus = &api.Status{
 						Info:   "blam",
 						Data:   map[string]interface{}{"relation-id": "0"},
 					},
+					UnitAgent: api.AgentStatus{
+						Status: "error",
+						Info:   "blam",
+						Data:   make(map[string]interface{}),
+					},
+					Workload: api.AgentStatus{
+						Status: "maintenance",
+						Info:   "",
+						Data:   make(map[string]interface{}),
+					},
 					AgentState:     "down",
 					AgentStateInfo: "(error: blam)",
 					Machine:        "1",

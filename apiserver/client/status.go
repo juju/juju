@@ -527,8 +527,7 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 
 	// Until Juju 2.0, we need to continue to display legacy status values.
 	status.Agent = status.Workload
-	status.Agent.Status = params.TranslateToLegacyAgentState(status.Agent.Status)
-
+	status.Agent.Status = status.AgentState
 	status.AgentVersion = status.Workload.Version
 	status.Life = status.Workload.Life
 	status.Err = status.Workload.Err
@@ -601,7 +600,7 @@ func processUnitAgent(unit *state.Unit) (agent api.AgentStatus,
 	workload, _, _ = processAgent(unit)
 	processAgentStatus(&agent, unitAgent)
 
-	compatStatus = params.TranslateToLegacyAgentState(workload.Status)
+	compatStatus = params.TranslateToLegacyAgentState(workload.Status, agent.Status)
 	compatInfo = agent.Info
 	return
 }
