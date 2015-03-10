@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"time"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -155,4 +157,74 @@ func (s *storageHookQueueSuite) TestStorageSourceStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = source.Stop()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *storageHookQueueSuite) TestStorageSourceUpdateErrors(c *gc.C) {
+	unitTag := names.NewUnitTag("mysql/0")
+	storageTag := names.NewStorageTag("data/0")
+
+	// Simulate remote state returning a single Alive storage attachment.
+	var calls int
+	w := newMockNotifyWatcher()
+	st := &mockStorageAccessor{
+		watchStorageAttachment: func(s names.StorageTag, u names.UnitTag) (watcher.NotifyWatcher, error) {
+			return w, nil
+		},
+		storageAttachment: func(s names.StorageTag, u names.UnitTag) (params.StorageAttachment, error) {
+			calls++
+			switch calls {
+			case 1:
+				return params.StorageAttachment{}, &params.Error{Code: params.CodeNotFound}
+			case 2:
+				return params.StorageAttachment{}, &params.Error{Code: params.CodeNotProvisioned}
+			case 3:
+				// This error should cause the source to stop with an error.
+				return params.StorageAttachment{}, &params.Error{
+					Code:    params.CodeUnauthorized,
+					Message: "unauthorized",
+				}
+			}
+			panic("unexpected call to StorageAttachment")
+		},
+	}
+
+	const initiallyUnattached = false
+	source, err := storage.NewStorageSource(st, unitTag, storageTag, initiallyUnattached)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertNoSourceChange := func() {
+		select {
+		case <-source.Changes():
+			c.Fatal("unexpected source change")
+		case <-time.After(testing.ShortWait):
+		}
+	}
+	waitSourceChange := func() hook.SourceChange {
+		select {
+		case ch, ok := <-source.Changes():
+			c.Assert(ok, jc.IsTrue)
+			assertNoSourceChange()
+			return ch
+		case <-time.After(testing.LongWait):
+			c.Fatal("timed out waiting for source change")
+			panic("unreachable")
+		}
+	}
+
+	assertNoSourceChange()
+
+	// First change is "NotFound": not an error.
+	w.changes <- struct{}{}
+	change := waitSourceChange()
+	c.Assert(change(), jc.ErrorIsNil)
+
+	// Second change is "NotProvisioned": not an error.
+	w.changes <- struct{}{}
+	change = waitSourceChange()
+	c.Assert(change(), jc.ErrorIsNil)
+
+	// Third change is "Unauthorized": this *is* an error.
+	w.changes <- struct{}{}
+	change = waitSourceChange()
+	c.Assert(change(), gc.ErrorMatches, "refreshing storage details: unauthorized")
 }

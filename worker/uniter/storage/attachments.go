@@ -175,7 +175,11 @@ func (a *Attachments) updateOneStorage(storageTag names.StorageTag) error {
 		}
 		return nil
 	}
-	return a.add(storageTag, stateFile)
+
+	if storager == nil {
+		return a.add(storageTag, stateFile)
+	}
+	return nil
 }
 
 // add creates a new storager for the specified storage tag.
