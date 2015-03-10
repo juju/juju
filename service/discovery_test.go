@@ -4,12 +4,16 @@
 package service_test
 
 import (
+	"os"
 	"runtime"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
@@ -17,6 +21,14 @@ import (
 	"github.com/juju/juju/service/windows"
 	"github.com/juju/juju/version"
 )
+
+var maybeSystemd = service.InitSystemSystemd
+
+func init() {
+	if featureflag.Enabled(feature.LegacyUpstart) {
+		maybeSystemd = service.InitSystemUpstart
+	}
+}
 
 const unknownExecutable = "/sbin/unknown/init/system"
 
@@ -148,7 +160,7 @@ var discoveryTests = []discoveryTest{{
 }, {
 	os:       version.Ubuntu,
 	series:   "vivid",
-	expected: service.InitSystemSystemd,
+	expected: maybeSystemd,
 }, {
 	os:       version.CentOS,
 	expected: "",
@@ -174,6 +186,18 @@ func (s *discoverySuite) SetUpTest(c *gc.C) {
 		Desc:      "some service",
 		ExecStart: "/path/to/some-command",
 	}
+}
+
+func (s *discoverySuite) unsetLegacyUpstart(c *gc.C) {
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, "")
+	c.Assert(err, jc.ErrorIsNil)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+}
+
+func (s *discoverySuite) setLegacyUpstart(c *gc.C) {
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LegacyUpstart)
+	c.Assert(err, jc.ErrorIsNil)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *discoverySuite) TestDiscoverServiceLocalHost(c *gc.C) {
@@ -254,4 +278,32 @@ func (s *discoverySuite) TestVersionInitSystem(c *gc.C) {
 
 		test.checkInitSystem(c, initSystem, ok)
 	}
+}
+
+func (s *discoverySuite) TestVersionInitSystemLegacyUpstart(c *gc.C) {
+	s.setLegacyUpstart(c)
+	test := discoveryTest{
+		os:       version.Ubuntu,
+		series:   "vivid",
+		expected: service.InitSystemUpstart,
+	}
+	vers := test.setVersion(s)
+
+	initSystem, ok := service.VersionInitSystem(vers)
+
+	test.checkInitSystem(c, initSystem, ok)
+}
+
+func (s *discoverySuite) TestVersionInitSystemNoLegacyUpstart(c *gc.C) {
+	s.unsetLegacyUpstart(c)
+	test := discoveryTest{
+		os:       version.Ubuntu,
+		series:   "vivid",
+		expected: service.InitSystemSystemd,
+	}
+	vers := test.setVersion(s)
+
+	initSystem, ok := service.VersionInitSystem(vers)
+
+	test.checkInitSystem(c, initSystem, ok)
 }
