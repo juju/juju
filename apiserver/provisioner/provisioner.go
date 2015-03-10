@@ -819,7 +819,7 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
 	// Some preparations first.
-	environ, host, canAccess, err := p.prepareAllocationEnvironment()
+	environ, host, canAccess, err := p.prepareContainerAccessEnvironment()
 	if err != nil {
 		return result, err
 	}
@@ -846,11 +846,13 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 			err = errors.Errorf("cannot release address for %q: not a container", tag)
 			result.Results[i].Error = common.ServerError(err)
 			continue
-		} else if ciid, cerr := container.InstanceId(); cerr != nil {
+		}
+
+		ciid, cerr := container.InstanceId()
+		if cerr != nil {
 			result.Results[i].Error = common.ServerError(cerr)
 			continue
 		}
-
 		var doc struct {
 			Address string
 		}
@@ -877,7 +879,7 @@ func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (pa
 		Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
 	}
 	// Some preparations first.
-	environ, host, canAccess, err := p.prepareAllocationEnvironment()
+	environ, host, canAccess, err := p.prepareContainerAccessEnvironment()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -964,9 +966,9 @@ func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (pa
 	return result, nil
 }
 
-// prepareAllocationEnvironment retrieves the environment, host machine, and access
-// for the allocations.
-func (p *ProvisionerAPI) prepareAllocationEnvironment() (environs.NetworkingEnviron, *state.Machine, common.AuthFunc, error) {
+// prepareContainerAccessEnvironment retrieves the environment, host machine, and access
+// for working with containers.
+func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.NetworkingEnviron, *state.Machine, common.AuthFunc, error) {
 	cfg, err := p.st.EnvironConfig()
 	if err != nil {
 		return nil, nil, nil, errors.Annotate(err, "failed to get environment config")
