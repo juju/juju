@@ -10,8 +10,8 @@ import (
 	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
@@ -38,7 +38,7 @@ type liveSource struct {
 	changedPending string
 
 	started bool
-	tomb tomb.Tomb
+	tomb    tomb.Tomb
 	watcher RelationUnitsWatcher
 	changes chan hook.SourceChange
 }
@@ -64,7 +64,6 @@ type unitInfo struct {
 	// unit's next hook.
 	prev, next *unitInfo
 }
-
 
 // NewLiveHookSource returns a new HookSource that aggregates the values
 // obtained from the w watcher and generates the hooks that must be executed

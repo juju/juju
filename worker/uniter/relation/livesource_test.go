@@ -7,10 +7,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/worker/uniter/relation"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/relation"
 )
 
 type LiveSourceSuite struct{}
@@ -20,7 +20,7 @@ var _ = gc.Suite(&LiveSourceSuite{})
 func (s *LiveSourceSuite) TestLiveHookSource(c *gc.C) {
 	for i, t := range aliveHookQueueTests {
 		c.Logf("test %d: %s", i, t.summary)
-		ruw := &RUW{make(chan multiwatcher.RelationUnitsChange), false}
+		ruw := &RUW{in: make(chan multiwatcher.RelationUnitsChange), stopped: false}
 		q := relation.NewLiveHookSource(t.initial, ruw)
 		for i, step := range t.steps {
 			c.Logf("  step %d", i)
@@ -37,7 +37,7 @@ func (s *LiveSourceSuite) TestLiveHookSourceTeardownEvenWhenUnclean(c *gc.C) {
 	// should still teardown (and close its changes channel) even if the
 	// function is never called.
 	initialState := &relation.State{21345, nil, ""}
-	ruw := &RUW{make(chan multiwatcher.RelationUnitsChange, 1), false}
+	ruw := &RUW{in: make(chan multiwatcher.RelationUnitsChange, 1), stopped: false}
 	source := relation.NewLiveHookSource(initialState, ruw)
 	sourceChanges := source.Changes()
 	sourceC := coretesting.ContentAsserterC{C: c, Chan: sourceChanges}
