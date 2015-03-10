@@ -13,9 +13,19 @@ import (
 
 const svcName = "rsyslog"
 
+// These are patched out during tests.
+var (
+	getEuid = func() int {
+		return os.Geteuid()
+	}
+	restart = func(name string) error {
+		return service.Restart(name)
+	}
+)
+
 func Restart() error {
-	if os.Geteuid() == 0 {
-		if err := service.Restart(svcName); err != nil {
+	if getEuid() == 0 {
+		if err := restart(svcName); err != nil {
 			return errors.Annotatef(err, "failed to restart service %q", svcName)
 		}
 		return nil
