@@ -120,9 +120,14 @@ func (q *liveSource) loop() error {
 			// to another change until we get a response
 			inChanges = nil
 			pendingResponse = make(chan struct{})
-			q.changes <- func() error {
+			changeFunc := func() error {
 				defer close(pendingResponse)
 				return q.Update(change)
+			}
+			select {
+			case <-q.tomb.Dying():
+				return tomb.ErrDying
+			case q.changes <- changeFunc:
 			}
 		case <-pendingResponse:
 			// A pending response has completed, we're ready for another message
