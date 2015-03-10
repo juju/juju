@@ -468,6 +468,7 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		case f.outConfig <- nothing:
 			filterLogger.Debugf("sent config event")
 			f.outConfig = nil
+			seenConfigChange = false
 		case f.outAction <- f.nextAction:
 			f.nextAction = f.getNextAction()
 			filterLogger.Debugf("sent action event")
@@ -486,6 +487,8 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		// Handle explicit requests.
 		case curl := <-f.setCharm:
 			filterLogger.Debugf("changing charm to %q", curl)
+			configChanges = nil
+			seenConfigChange = false
 			// We need to restart the config watcher after setting the
 			// charm, because service config settings are distinct for
 			// different service charms.
