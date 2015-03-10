@@ -70,9 +70,8 @@ func VersionInitSystem(vers version.Binary) (string, bool) {
 			// vivid and later
 			if featureflag.Enabled(feature.LegacyUpstart) {
 				return InitSystemUpstart, true
-			} else {
-				return InitSystemSystemd, true
 			}
+			return InitSystemSystemd, true
 		}
 		// TODO(ericsnow) Support other OSes, like version.CentOS.
 	default:
