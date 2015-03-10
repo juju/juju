@@ -56,13 +56,16 @@ def get_build_data(jenkins_url, credentials, job_name,
     return build_data
 
 
+def get_artifact_url(build_data, artifact):
+    return '%sartifact/%s' % (build_data['url'], artifact['relativePath'])
+
+
 def find_artifacts(build_data, glob='*'):
     found = []
     for artifact in build_data['artifacts']:
         file_name = artifact['fileName']
         if fnmatch.fnmatch(file_name, glob):
-            location = '%sartifact/%s' % (
-                build_data['url'], artifact['relativePath'])
+            location = get_artifact_url(build_data, artifact)
             artifact = Artifact(file_name, location)
             found.append(artifact)
     return found
@@ -84,6 +87,23 @@ def retrieve_artifact(credentials, url, local_path, opener=None):
     auth_location = url.replace('http://',
                                 'http://{}:{}@'.format(*credentials))
     opener.retrieve(auth_location, local_path)
+
+
+def get_juju_bin_artifact(package_namer, version, build_data):
+    file_name = package_namer.get_release_package(version)
+    by_filename = dict((a['fileName'], a) for a in build_data['artifacts'])
+    bin_artifact = by_filename[file_name]
+    url = get_artifact_url(build_data, bin_artifact)
+    return Artifact(file_name, url)
+
+
+def get_juju_bin(credentials, workspace, version):
+    build_data = get_build_data(JENKINS_URL, credentials, PUBLISH_REVISION,
+                                'lastBuild')
+    namer = PackageNamer.factory()
+    artifact = get_juju_bin_artifact(namer, version, build_data)
+    target_path = os.path.join(workspace, artifact.file_name)
+    retrieve_artifact(credentials, artifact.location, target_path)
 
 
 def get_artifacts(credentials, job_name, build, glob, path,

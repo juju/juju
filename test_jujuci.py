@@ -13,6 +13,8 @@ from jujuci import (
     find_artifacts,
     get_artifacts,
     get_build_data,
+    get_juju_bin,
+    get_juju_bin_artifact,
     JENKINS_URL,
     list_artifacts,
     PackageNamer,
@@ -209,6 +211,40 @@ class JujuCITestCase(TestCase):
         auth_location = location.replace('http://',
                                          'http://jrandom:1password@')
         self.assertEqual((auth_location, local_path), args)
+
+    def test_get_juju_bin_artifact(self):
+        package_namer = PackageNamer('foo', 'bar')
+        bin_filename = 'juju-core_1.27.32-0ubuntu1~bar.1~juju1_foo.deb'
+        artifact = get_juju_bin_artifact(package_namer, '1.27.32', {
+            'url': 'http://asdf/',
+            'artifacts': [{
+                'relativePath': 'foo',
+                'fileName': bin_filename,
+                }],
+            })
+        self.assertEqual(artifact.location, 'http://asdf/artifact/foo')
+        self.assertEqual(artifact.file_name, bin_filename)
+
+    def test_get_juju_bin(self):
+        namer = PackageNamer('foo', 'bar')
+        build_data = {
+            'url': 'http://foo/',
+            'artifacts': [{
+                'fileName': namer.get_release_package('1.23'),
+                'relativePath': 'baz',
+                }]
+            }
+        credentials = Credentials('jrandom', 'password1')
+        with patch.object(PackageNamer, 'factory', return_value=namer):
+            with temp_dir() as workspace:
+                with patch('jujuci.get_build_data', return_value=build_data,
+                           autospec=True):
+                    with patch('urllib.URLopener.retrieve') as uo_mock:
+                        bin_loc = get_juju_bin(credentials, workspace, '1.23')
+        target_path = os.path.join(workspace,
+                                   namer.get_release_package('1.23'))
+        uo_mock.assert_called_once_with(
+            'http://jrandom:password1@foo/artifact/baz', target_path)
 
     def test_get_artifacts(self):
         build_data = make_build_data(1234)
