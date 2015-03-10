@@ -99,7 +99,7 @@ func (sa *StorageAccessor) StorageAttachment(storageTag names.StorageTag, unitTa
 	return result.Result, nil
 }
 
-// WatchStorageAttachmentInfos start a watcher for changes to the info
+// WatchStorageAttachmentInfos starts a watcher for changes to the info
 // of the storage attachment with the specified unit and storage tags.
 func (sa *StorageAccessor) WatchStorageAttachment(storageTag names.StorageTag, unitTag names.UnitTag) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults

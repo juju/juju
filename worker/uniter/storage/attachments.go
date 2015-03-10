@@ -19,8 +19,16 @@ var logger = loggo.GetLogger("juju.worker.uniter.storage")
 // StorageAccessor is an interface for accessing information about
 // storage attachments.
 type StorageAccessor interface {
+	// WatchStorageAttachment starts a watcher for changes to the
+	// storage attachment with the specified unit and storage tags.
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)
+
+	// StorageAttachment returns details of the storage attachment
+	// with the specified unit and storage tags.
 	StorageAttachment(names.StorageTag, names.UnitTag) (params.StorageAttachment, error)
+
+	// UnitStorageAttachments returns details of all of the storage
+	// attachments for the unit with the specified tag.
 	UnitStorageAttachments(names.UnitTag) ([]params.StorageAttachment, error)
 }
 

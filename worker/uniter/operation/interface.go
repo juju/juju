@@ -181,5 +181,8 @@ type StorageUpdater interface {
 // releasing a machine-level lock. When acquiring the lock, the caller provides
 // a message which will be recorded to aid in debugging.
 type ExecutionLocker interface {
+	// AcquireExecutionLock acquires the machine-level execution lock, and
+	// returns a func that must be called to unlock it. It's used by all the
+	// operations that execute external code.
 	AcquireExecutionLock(message string) (unlock func(), err error)
 }
