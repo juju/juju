@@ -35,7 +35,7 @@ func (rh *runHook) String() string {
 			suffix = fmt.Sprintf(" (%d; %s)", rh.info.RelationId, rh.info.RemoteUnit)
 		}
 	case rh.info.Kind.IsStorage():
-		suffix = fmt.Sprintf(" (%d)", rh.info.StorageId)
+		suffix = fmt.Sprintf(" (%s)", rh.info.StorageId)
 	}
 	return fmt.Sprintf("run %s%s hook", rh.info.Kind, suffix)
 }
