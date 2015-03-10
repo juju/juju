@@ -1059,15 +1059,15 @@ func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
 	// Verify ports can be opened and closed only when the unit has
 	// assigned machine.
 	err := s.unit.OpenPort("tcp", 10)
-	c.Assert(errors.Cause(err), jc.Satisfies, state.IsNotAssigned)
+	c.Assert(err, jc.Satisfies, state.IsNotAssigned)
 	err = s.unit.OpenPorts("tcp", 10, 20)
-	c.Assert(errors.Cause(err), jc.Satisfies, state.IsNotAssigned)
+	c.Assert(err, jc.Satisfies, state.IsNotAssigned)
 	err = s.unit.ClosePort("tcp", 10)
-	c.Assert(errors.Cause(err), jc.Satisfies, state.IsNotAssigned)
+	c.Assert(err, jc.Satisfies, state.IsNotAssigned)
 	err = s.unit.ClosePorts("tcp", 10, 20)
-	c.Assert(errors.Cause(err), jc.Satisfies, state.IsNotAssigned)
+	c.Assert(err, jc.Satisfies, state.IsNotAssigned)
 	open, err := s.unit.OpenedPorts()
-	c.Assert(errors.Cause(err), jc.Satisfies, state.IsNotAssigned)
+	c.Assert(err, jc.Satisfies, state.IsNotAssigned)
 	c.Assert(open, gc.HasLen, 0)
 
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
