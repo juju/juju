@@ -17,6 +17,7 @@ from jujuci import (
     list_artifacts,
     PackageNamer,
     main,
+    retrieve_artifact,
     setup_workspace,
 )
 import jujupy
@@ -194,6 +195,20 @@ class JujuCITestCase(TestCase):
             ['http://juju-ci.vapour.ws:8080/job/build-revision/1234/artifact/'
              'buildvars.bash'],
             files)
+
+    def test_retrieve_artifact(self):
+        location = (
+            'http://juju-ci.vapour.ws:8080/job/build-revision/1234/artifact/'
+            'buildvars.bash')
+        local_path = '%s/buildvars.bash' % os.path.abspath('./')
+        with patch('urllib.URLopener.retrieve') as uo_mock:
+            retrieve_artifact(
+                Credentials('jrandom', '1password'), location, local_path)
+        self.assertEqual(1, uo_mock.call_count)
+        args, kwargs = uo_mock.call_args
+        auth_location = location.replace('http://',
+                                         'http://jrandom:1password@')
+        self.assertEqual((auth_location, local_path), args)
 
     def test_get_artifacts(self):
         build_data = make_build_data(1234)

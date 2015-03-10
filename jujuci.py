@@ -78,6 +78,14 @@ def list_artifacts(credentials, job_name, build, glob, verbose=False):
             print_now(artifact.file_name)
 
 
+def retrieve_artifact(credentials, url, local_path, opener=None):
+    if opener is None:
+        opener = urllib.URLopener()
+    auth_location = url.replace('http://',
+                                'http://{}:{}@'.format(*credentials))
+    opener.retrieve(auth_location, local_path)
+
+
 def get_artifacts(credentials, job_name, build, glob, path,
                   archive=False, dry_run=False, verbose=False):
     full_path = os.path.expanduser(path)
@@ -99,9 +107,8 @@ def get_artifacts(credentials, job_name, build, glob, path,
         else:
             print_now(artifact.file_name)
         if not dry_run:
-            auth_location = artifact.location.replace(
-                'http://', 'http://{}:{}@'.format(*credentials))
-            opener.retrieve(auth_location, local_path)
+            retrieve_artifact(credentials, artifact.location, local_path,
+                              opener)
     return artifacts
 
 
