@@ -9,7 +9,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/featureflag"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/version"
 )
@@ -66,6 +68,9 @@ func VersionInitSystem(vers version.Binary) (string, bool) {
 				return "", false
 			}
 			// vivid and later
+			if featureflag.Enabled(feature.LegacyUpstart) {
+				return InitSystemUpstart, true
+			}
 			return InitSystemSystemd, true
 		}
 		// TODO(ericsnow) Support other OSes, like version.CentOS.

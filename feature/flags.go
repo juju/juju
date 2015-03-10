@@ -29,3 +29,8 @@ const LeaderElection = "leader-election"
 // failure.  This means that the developers with this flag set will see the
 // stack trace in the log output, but normal deployments never will.
 const LogErrorStack = "log-error-stack"
+
+// LegacyUpstart is used to indicate that the version-based init system
+// discovery code (service.VersionInitSystem) should return upstart
+// instead of systemd for vivid and newer.
+const LegacyUpstart = "legacy-upstart"
