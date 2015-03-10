@@ -146,11 +146,9 @@ var discoveryTests = []discoveryTest{{
 	series:   "utopic",
 	expected: service.InitSystemUpstart,
 }, {
-	// TODO(ericsnow) vivid should expect InitSystemSystemd once
-	// vivid switches over.
 	os:       version.Ubuntu,
 	series:   "vivid",
-	expected: service.InitSystemUpstart,
+	expected: service.InitSystemSystemd,
 }, {
 	os:       version.CentOS,
 	expected: "",
