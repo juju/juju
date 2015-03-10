@@ -117,9 +117,9 @@ func (*agentSuite) TestUnitAgentConf(c *gc.C) {
 
 	c.Check(toolsDir, gc.Equals, path.Join(dataDir, "tools", "unit-wordpress-0"))
 	cmd := strings.Join([]string{
-		filepath.Join(toolsDir, "jujud"+cmdSuffix),
+		quote + filepath.Join(toolsDir, "jujud"+cmdSuffix) + quote,
 		"unit",
-		"--data-dir", "'" + dataDir + "'",
+		"--data-dir", quote + dataDir + quote,
 		"--unit-name", "wordpress/0",
 		"--debug",
 	}, " ")

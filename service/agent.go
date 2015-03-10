@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/agent/tools"
@@ -24,44 +23,61 @@ const (
 	agentServiceTimeout = 300 // 5 minutes
 )
 
-// TODO(ericsnow) Factor out the common parts between the two helpers.
 // TODO(ericsnow) Add agent.Info to handle all the agent-related data
 // and pass it as *the* arg to the helpers.
 
-// MachineAgentConf returns the data that defines an init service config
-// for the identified machine.
-func MachineAgentConf(machineID, dataDir, logDir, os string) (common.Conf, string) {
-	machineName := "machine-" + strings.Replace(machineID, "/", "-", -1)
+func agentConf(kind, id, dataDir, logDir, os string) (common.Conf, string) {
+	if os == "" {
+		os = runtime.GOOS
+	}
+	name := kind + "-" + strings.Replace(id, "/", "-", -1)
 
 	renderer, err := shell.NewRenderer(os)
 	if err != nil {
 		// This should not ever happen.
 		panic(err)
 	}
-	toolsDir := renderer.FromSlash(tools.ToolsDir(dataDir, machineName))
+	toolsDir := renderer.FromSlash(tools.ToolsDir(dataDir, name))
 	jujudPath := renderer.Join(toolsDir, "jujud") + renderer.ExeSuffix()
+
+	idOption := "--machine-id"
+	if kind == "unit" {
+		idOption = "--unit-name"
+	}
 
 	cmd := strings.Join([]string{
 		renderer.Quote(jujudPath),
-		"machine",
+		kind,
 		"--data-dir", renderer.Quote(renderer.FromSlash(dataDir)),
-		"--machine-id", machineID, // TODO(ericsnow) double-quote on windows?
+		idOption, id,
 		"--debug",
 	}, " ")
 
-	logFile := path.Join(logDir, machineName+".log")
+	logFile := path.Join(logDir, name+".log")
 
-	// The machine agent always starts with debug turned on.  The logger worker
+	// The agent always starts with debug turned on. The logger worker
 	// will update this to the system logging environment as soon as it starts.
 	conf := common.Conf{
-		Desc:      fmt.Sprintf("juju agent for %s", machineName),
+		Desc:      fmt.Sprintf("juju agent for %s", name),
 		ExecStart: cmd,
 		Logfile:   renderer.FromSlash(logFile),
 		Env:       osenv.FeatureFlags(),
-		Limit: map[string]int{
-			"nofile": maxAgentFiles,
-		},
+		//Limit: map[string]int{
+		//	"nofile": maxAgentFiles,
+		//},
 		Timeout: agentServiceTimeout,
+	}
+
+	return conf, toolsDir
+}
+
+// MachineAgentConf returns the data that defines an init service config
+// for the identified machine.
+func MachineAgentConf(machineID, dataDir, logDir, os string) (common.Conf, string) {
+	conf, toolsDir := agentConf("machine", machineID, dataDir, logDir, os)
+
+	conf.Limit = map[string]int{
+		"nofile": maxAgentFiles,
 	}
 
 	return conf, toolsDir
@@ -70,27 +86,8 @@ func MachineAgentConf(machineID, dataDir, logDir, os string) (common.Conf, strin
 // UnitAgentConf returns the data that defines an init service config
 // for the identified unit.
 func UnitAgentConf(unitName, dataDir, logDir, os, containerType string) (common.Conf, string) {
-	if os == "" {
-		os = runtime.GOOS
-	}
-
-	unitID := "unit-" + strings.Replace(unitName, "/", "-", -1)
-
-	toolsDir := tools.ToolsDir(dataDir, unitID)
-	jujudPath := path.Join(toolsDir, "jujud")
-	if os == "windows" {
-		jujudPath += ".exe"
-	}
-
-	cmd := strings.Join([]string{
-		jujudPath,
-		"unit",
-		"--data-dir", utils.ShQuote(dataDir),
-		"--unit-name", unitName,
-		"--debug",
-	}, " ")
-
-	logFile := path.Join(logDir, unitID+".log")
+	conf, toolsDir := agentConf("unit", unitName, dataDir, logDir, os)
+	conf.Desc = "juju unit agent for " + unitName
 
 	// TODO(thumper): 2013-09-02 bug 1219630
 	// As much as I'd like to remove JujuContainerType now, it is still
@@ -99,17 +96,8 @@ func UnitAgentConf(unitName, dataDir, logDir, os, containerType string) (common.
 	envVars := map[string]string{
 		osenv.JujuContainerTypeEnvKey: containerType,
 	}
-	osenv.MergeEnvironment(envVars, osenv.FeatureFlags())
-
-	// The machine agent always starts with debug turned on.  The logger worker
-	// will update this to the system logging environment as soon as it starts.
-	conf := common.Conf{
-		Desc:      fmt.Sprintf("juju unit agent for %s", unitName),
-		ExecStart: cmd,
-		Logfile:   logFile,
-		Env:       envVars,
-		Timeout:   agentServiceTimeout,
-	}
+	osenv.MergeEnvironment(envVars, conf.Env)
+	conf.Env = envVars
 
 	return conf, toolsDir
 }
