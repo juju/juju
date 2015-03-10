@@ -65,6 +65,11 @@ func (c commands) link(name, dirname string) string {
 	return c.resolve(args)
 }
 
+func (c commands) enableLinked(name, dirname string) string {
+	args := fmt.Sprintf("enable %s/%s.service", dirname, name)
+	return c.resolve(args)
+}
+
 func (c commands) enable(name string) string {
 	args := fmt.Sprintf("enable %s.service", name)
 	return c.resolve(args)

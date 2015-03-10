@@ -567,7 +567,7 @@ func (s *Service) InstallCommands() ([]string, error) {
 		cmds.writeConf(name, dirname, data),
 		cmds.link(name, dirname),
 		cmds.reload(),
-		cmds.enable(name),
+		cmds.enableLinked(name, dirname),
 	}...)
 	return cmdList, nil
 }
