@@ -124,9 +124,11 @@ func timerLoop(api APIClient, requestedId string, wait, tick *time.Timer) (param
 			return result, err
 		}
 
-		// Whether or not we're waiting for a result, if a non
-		// pending result arrives, we're done.
-		if result.Status != params.ActionPending {
+		// Whether or not we're waiting for a result, if a completed
+		// result arrives, we're done.
+		switch result.Status {
+		case params.ActionRunning, params.ActionPending:
+		default:
 			return result, nil
 		}
 

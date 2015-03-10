@@ -73,6 +73,7 @@ func (s *StatusSuite) TestRun(c *gc.C) {
 func (s *StatusSuite) runTestCase(c *gc.C, tc statusTestCase) {
 	fakeClient := makeFakeClient(
 		0*time.Second, // No API delay
+		5*time.Second, // 5 second test timeout
 		tc.tags,
 		tc.results,
 		"", // No API error
