@@ -1855,6 +1855,9 @@ func (u *Unit) RunningActions() ([]*Action, error) {
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
 func (u *Unit) Resolve(retryHooks bool) error {
+	// We currently check agent status to see if a unit is
+	// in error state. As the new Juju Health work is completed,
+	// this will change to checking the unit status.
 	status, _, _, err := u.AgentStatus()
 	if err != nil {
 		return err
