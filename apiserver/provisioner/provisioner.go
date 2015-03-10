@@ -846,17 +846,16 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 			err = errors.Errorf("cannot release address for %q: not a container", tag)
 			result.Results[i].Error = common.ServerError(err)
 			continue
-		}
-
-		ciid, cerr := container.InstanceId()
-		if cerr != nil {
+		} else if ciid, cerr := container.InstanceId(); cerr != nil {
 			result.Results[i].Error = common.ServerError(cerr)
 			continue
 		}
+
+		id := container.Id()
 		var doc struct {
 			Address string
 		}
-		iter := addresses.Find(bson.D{{"machineid", ciid}}).Iter()
+		iter := addresses.Find(bson.D{{"machineid", id}}).Iter()
 		for iter.Next(&doc) {
 			addr, _ := p.st.IPAddress(doc.Address)
 			addr.Remove()
