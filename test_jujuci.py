@@ -235,16 +235,31 @@ class JujuCITestCase(TestCase):
                 }]
             }
         credentials = Credentials('jrandom', 'password1')
+
+        def mock_extract_deb(args):
+            parent = os.path.join(args[3], 'subdir', 'sub-subdir')
+            os.makedirs(parent)
+            with open(os.path.join(parent, 'juju'), 'w') as f:
+                f.write('foo')
+
         with patch.object(PackageNamer, 'factory', return_value=namer):
             with temp_dir() as workspace:
                 with patch('jujuci.get_build_data', return_value=build_data,
                            autospec=True):
                     with patch('urllib.URLopener.retrieve') as uo_mock:
-                        bin_loc = get_juju_bin(credentials, workspace, '1.23')
+                        with patch('subprocess.check_call',
+                                   side_effect=mock_extract_deb) as cc_mock:
+                            bin_loc = get_juju_bin(credentials, workspace,
+                                                   '1.23')
         target_path = os.path.join(workspace,
                                    namer.get_release_package('1.23'))
         uo_mock.assert_called_once_with(
             'http://jrandom:password1@foo/artifact/baz', target_path)
+        out_dir = os.path.join(workspace, 'extracted-bin')
+        cc_mock.assert_called_once_with(['dpkg', '-x', target_path, out_dir])
+        self.assertEqual(
+            bin_loc, os.path.join(workspace, 'extracted-bin', 'subdir',
+                                  'sub-subdir', 'juju'))
 
     def test_get_artifacts(self):
         build_data = make_build_data(1234)

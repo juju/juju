@@ -22,7 +22,10 @@ from jujupy import (
     EnvJujuClient,
 )
 from lsb_release import get_distro_information
-from utility import get_deb_arch
+from utility import (
+    extract_deb,
+    get_deb_arch,
+    )
 
 
 __metaclass__ = type
@@ -102,6 +105,12 @@ def get_juju_bin(credentials, workspace, version):
     artifact = get_juju_bin_artifact(namer, version, build_data)
     target_path = os.path.join(workspace, artifact.file_name)
     retrieve_artifact(credentials, artifact.location, target_path)
+    bin_dir = os.path.join(workspace, 'extracted-bin')
+    extract_deb(target_path, bin_dir)
+    for root, dirs, files in os.walk(bin_dir):
+        if 'juju' in files:
+            return os.path.join(root, 'juju')
+
 
 
 def get_artifacts(credentials, job_name, build, glob, path,
