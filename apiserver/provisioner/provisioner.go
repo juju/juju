@@ -856,11 +856,25 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		for _, addr := range addresses {
-			environ.ReleaseAddress(ciid, "", addr.Address())
-			addr.Remove()
-		}
 
+		releaseErrors := []error{}
+		for _, addr := range addresses {
+			err := environ.ReleaseAddress(ciid, network.Id(addr.SubnetId()), addr.Address())
+			if err != nil {
+				// remove the address from State anyway
+				addr.Remove()
+				releaseErrors = append(releaseErrors, err)
+				continue
+			}
+			err = addr.Remove()
+			if err != nil {
+				releaseErrors = append(releaseErrors, err)
+			}
+		}
+		if len(releaseErrors) != 0 {
+			err = errors.Errorf("failed to release all addresses for container %q: %v", id, releaseErrors)
+			result.Results[i].Error = common.ServerError(err)
+		}
 	}
 
 	return result, nil
