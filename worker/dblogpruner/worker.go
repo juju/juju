@@ -13,21 +13,24 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-// LogPruneParams specifies varies values that control how logs are
-// pruned.
+// LogPruneParams specifies how logs should be pruned.
 type LogPruneParams struct {
 	MaxLogAge          time.Duration
 	MaxCollectionBytes int
 	PruneInterval      time.Duration
 }
 
+const DefaultMaxLogAge = 3 * 24 * time.Hour
+const DefaultMaxCollectionBytes = 4 * 1024 * 1024 * 1024
+const DefaultPruneInterval = 5 * time.Minute
+
 // NewLogPruneParams returns a LogPruneParams initialised with default
 // values.
 func NewLogPruneParams() *LogPruneParams {
 	return &LogPruneParams{
-		MaxLogAge:          3 * 24 * time.Hour,
-		MaxCollectionBytes: 4 * 1024 * 1024 * 1024,
-		PruneInterval:      5 * time.Minute,
+		MaxLogAge:          DefaultMaxLogAge,
+		MaxCollectionBytes: DefaultMaxCollectionBytes,
+		PruneInterval:      DefaultPruneInterval,
 	}
 }
 
