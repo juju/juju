@@ -64,66 +64,6 @@ type RelationUnitsWatcher interface {
 	Changes() <-chan multiwatcher.RelationUnitsChange
 }
 
-// NotifyWatchers combines two NotifyWatcher structs into a single watcher.
-type NotifyWatchers struct {
-	NotifyWatcher
-	w1 NotifyWatcher
-	w2 NotifyWatcher
-}
-
-// Changes implements the NotifyWatcher interface.
-func (n *NotifyWatchers) Changes() <-chan struct{} {
-	r := make(chan struct{})
-	go func() {
-		select {
-		case <-n.w1.Changes():
-			r <- struct{}{}
-		case <-n.w2.Changes():
-			r <- struct{}{}
-		}
-	}()
-	return r
-}
-
-// Kill implements the Watcher interface.
-func (n *NotifyWatchers) Kill() {
-	n.w1.Kill()
-	n.w2.Kill()
-}
-
-// Wait implements the Watcher interface.
-func (n *NotifyWatchers) Wait() error {
-	if err := n.w1.Wait(); err != nil {
-		return err
-	}
-	if err := n.w2.Wait(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Stop implements the Watcher interface.
-func (n *NotifyWatchers) Stop() error {
-	if err := n.w1.Stop(); err != nil {
-		return err
-	}
-	if err := n.w2.Stop(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Err implements the Watcher interface.
-func (n *NotifyWatchers) Err() error {
-	if err := n.w1.Err(); err != nil {
-		return err
-	}
-	if err := n.w2.Err(); err != nil {
-		return err
-	}
-	return nil
-}
-
 // commonWatcher is part of all client watchers.
 type commonWatcher struct {
 	st   *State
@@ -1421,39 +1361,52 @@ func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	return newEntityWatcher(u.st, settingsC, u.st.docID(settingsKey)), nil
 }
 
-// watchUnitMeterStatus returns a watcher observing the changes to the unit's
-// meter status.
-func (u *Unit) watchUnitMeterStatus() NotifyWatcher {
-	return newEntityWatcher(u.st, meterStatusC, u.st.docID(u.globalKey()))
-}
-
 // WatchMeterStatus returns a watcher observing changes that affect the meter status
 // of a unit.
 func (u *Unit) WatchMeterStatus() NotifyWatcher {
-	return &NotifyWatchers{w1: u.watchUnitMeterStatus(), w2: u.st.watchMetricsMangager()}
-}
-
-// watchMetricsMangager returns a watcher observing the changes to the metrics
-// manager collection
-func (st *State) watchMetricsMangager() NotifyWatcher {
-	return newEntityWatcher(st, metricsManagerC, metricsManagerKey)
+	return newDocWatcher(u.st, []docKey{
+		{
+			meterStatusC,
+			u.st.docID(u.globalKey()),
+		}, {
+			metricsManagerC,
+			u.st.docID(metricsManagerKey),
+		},
+	})
 }
 
 func newEntityWatcher(st *State, collName string, key interface{}) NotifyWatcher {
-	w := &entityWatcher{
+	return newDocWatcher(st, []docKey{{collName, key}})
+}
+
+// docWatcher is a watcher that watchers for changes in 1 or more mongo documents
+// across collections.
+type docWatcher struct {
+	commonWatcher
+	out chan struct{}
+}
+
+type docKey struct {
+	coll string
+	key  interface{}
+}
+
+// newDocWatcher returns a new docWatcher
+func newDocWatcher(st *State, docKeys []docKey) NotifyWatcher {
+	w := &docWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan struct{}),
 	}
 	go func() {
 		defer w.tomb.Done()
 		defer close(w.out)
-		w.tomb.Kill(w.loop(collName, key))
+		w.tomb.Kill(w.loop(docKeys))
 	}()
 	return w
 }
 
 // Changes returns the event channel for the entityWatcher.
-func (w *entityWatcher) Changes() <-chan struct{} {
+func (w *docWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
@@ -1474,16 +1427,18 @@ func getTxnRevno(coll stateCollection, key interface{}) (int64, error) {
 	return doc.TxnRevno, nil
 }
 
-func (w *entityWatcher) loop(collName string, key interface{}) error {
-	coll, closer := w.st.getCollection(collName)
-	txnRevno, err := getTxnRevno(coll, key)
-	closer()
-	if err != nil {
-		return err
-	}
+func (w *docWatcher) loop(docKeys []docKey) error {
 	in := make(chan watcher.Change)
-	w.st.watcher.Watch(coll.Name(), key, txnRevno, in)
-	defer w.st.watcher.Unwatch(coll.Name(), key, in)
+	for _, k := range docKeys {
+		coll, closer := w.st.getCollection(k.coll)
+		txnRevno, err := getTxnRevno(coll, k.key)
+		closer()
+		if err != nil {
+			return err
+		}
+		w.st.watcher.Watch(coll.Name(), k.key, txnRevno, in)
+		defer w.st.watcher.Unwatch(coll.Name(), k.key, in)
+	}
 	out := w.out
 	for {
 		select {
