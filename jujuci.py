@@ -15,12 +15,17 @@ import traceback
 import urllib
 import urllib2
 
+from deploy_stack import destroy_environment
 from jujuconfig import NoSuchEnvironment
 from jujupy import (
     SimpleEnvironment,
     EnvJujuClient,
 )
-from deploy_stack import destroy_environment
+from lsb_release import get_distro_information
+from utility import get_deb_arch
+
+
+__metaclass__ = type
 
 
 JENKINS_URL = 'http://juju-ci.vapour.ws:8080'
@@ -227,6 +232,29 @@ def get_credentials(args):
     if None in (args.user, args.password):
         return None
     return Credentials(args.user, args.password)
+
+
+class PackageNamer:
+
+    @classmethod
+    def factory(cls):
+        return cls(get_deb_arch(), get_distro_information()['RELEASE'])
+
+    def __init__(self, arch, distro_release):
+        self.arch = arch
+        self.distro_release = distro_release
+
+    def get_release_package(self, version):
+        return (
+            'juju-core_{version}-0ubuntu1~{distro_release}.1~juju1_{arch}.deb'
+            ).format(version=version, distro_release=self.distro_release,
+                     arch=self.arch)
+
+    def get_certification_package(self, version):
+        return (
+            'juju-core_{version}.{distro_release}.1_{arch}.deb'
+            ).format(version=version, distro_release=self.distro_release,
+                     arch=self.arch)
 
 
 def main(argv):

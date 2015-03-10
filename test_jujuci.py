@@ -10,11 +10,12 @@ from jujuci import (
     Artifact,
     clean_environment,
     Credentials,
+    find_artifacts,
+    get_artifacts,
     get_build_data,
     JENKINS_URL,
-    get_artifacts,
     list_artifacts,
-    find_artifacts,
+    PackageNamer,
     main,
     setup_workspace,
 )
@@ -325,3 +326,25 @@ class JujuCITestCase(TestCase):
                 workspace_dir, ['sub_dir/*.deb'], dry_run=False, verbose=False)
             artifacts = os.listdir(artifacts_dir)
             self.assertEqual(['juju-core-1.2.3.deb'], artifacts)
+
+
+class TestPackageNamer(TestCase):
+
+    def test_factory(self):
+        with patch('subprocess.check_output', return_value=' amd42 \n'):
+            with patch('jujuci.get_distro_information',
+                       return_value={'RELEASE': '42.42'}):
+                package_namer = PackageNamer.factory()
+        self.assertIs(type(package_namer), PackageNamer)
+        self.assertEqual(package_namer.arch, 'amd42')
+        self.assertEqual(package_namer.distro_release, '42.42')
+
+    def test_get_release_package(self):
+        self.assertEqual(
+            PackageNamer('amd42', '42.34').get_release_package('27.6'),
+            'juju-core_27.6-0ubuntu1~42.34.1~juju1_amd42.deb')
+
+    def test_get_certification_package(self):
+        self.assertEqual(
+            PackageNamer('amd42', '42.34').get_certification_package('27.6'),
+            'juju-core_27.6.42.34.1_amd42.deb')
