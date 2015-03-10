@@ -25,10 +25,12 @@ var _ = gc.Suite(&GetSuite{})
 
 var getTests = []struct {
 	service  string
+	format   string
 	expected map[string]interface{}
 }{
 	{
 		"dummy-service",
+		"yaml",
 		map[string]interface{}{
 			"service": "dummy-service",
 			"charm":   "dummy",
@@ -56,8 +58,18 @@ var getTests = []struct {
 				},
 			},
 		},
+	}, {
+		"dummy-service",
+		"set",
+		map[string]interface{}{
+			"dummy-service": map[string]interface{}{
+				"title":       "Nearly There",
+				"skill-level": nil,
+				"username":    "admin001",
+				"outlook":     nil,
+			},
+		},
 	},
-
 	// TODO(dfc) add additional services (need more charms)
 	// TODO(dfc) add set tests
 }
@@ -69,7 +81,7 @@ func (s *GetSuite) TestGetConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	for _, t := range getTests {
 		ctx := coretesting.Context(c)
-		code := cmd.Main(envcmd.Wrap(&GetCommand{}), ctx, []string{t.service})
+		code := cmd.Main(envcmd.Wrap(&GetCommand{}), ctx, []string{"--format", t.format, t.service})
 		c.Check(code, gc.Equals, 0)
 		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 		// round trip via goyaml to avoid being sucked into a quagmire of
