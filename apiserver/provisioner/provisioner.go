@@ -811,7 +811,7 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 	return result, nil
 }
 
-// ReleaseContainerAddresses releases an address allocated to a container. It
+// ReleaseContainerAddresses releases addresses allocated to a container. It
 // accepts container tags as arguments.
 func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
@@ -872,7 +872,7 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 			}
 		}
 		if len(releaseErrors) != 0 {
-			err = errors.Errorf("failed to release all addresses for container %q: %v", id, releaseErrors)
+			err = errors.Errorf("failed to release all addresses for %q: %v", tag, releaseErrors)
 			result.Results[i].Error = common.ServerError(err)
 		}
 	}
