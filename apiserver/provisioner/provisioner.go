@@ -10,7 +10,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -819,13 +818,10 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
 	// Some preparations first.
-	environ, host, canAccess, err := p.prepareContainerAccessEnvironment()
+	environ, _, canAccess, err := p.prepareContainerAccessEnvironment()
 	if err != nil {
 		return result, err
 	}
-
-	addresses, closer := p.st.getCollection(ipaddressesC)
-	defer closer()
 
 	// Loop over the passed container tags.
 	for i, entity := range args.Entities {
@@ -846,23 +842,23 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 			err = errors.Errorf("cannot release address for %q: not a container", tag)
 			result.Results[i].Error = common.ServerError(err)
 			continue
-		} else if ciid, cerr := container.InstanceId(); cerr != nil {
-			result.Results[i].Error = common.ServerError(cerr)
+		}
+
+		ciid, err := container.InstanceId()
+		if cerr != nil {
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 
 		id := container.Id()
-		var doc struct {
-			Address string
-		}
-		iter := addresses.Find(bson.D{{"machineid", id}}).Iter()
-		for iter.Next(&doc) {
-			addr, _ := p.st.IPAddress(doc.Address)
-			addr.Remove()
-		}
-		if err := iter.Close(); err != nil {
+		addresses, err := p.st.AllocatedIPAddresses(id)
+		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
+		}
+		for _, addr := range addresses {
+			environ.ReleaseAddress(ciid, "", addr.Address())
+			addr.Remove()
 		}
 
 	}

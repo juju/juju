@@ -1378,6 +1378,30 @@ func (st *State) IPAddress(value string) (*IPAddress, error) {
 	return &IPAddress{st, *doc}, nil
 }
 
+// AllocatedIPAddresses returns all the allocated addresses for a machine
+func (st *State) AllocatedIPAddresses(machineId string) ([]*IPAddress, error) {
+	addresses, closer := st.getCollection(ipaddressesC)
+	result := []*IPAddress{}
+	defer closer()
+	var doc struct {
+		Address string
+	}
+	iter := addresses.Find(bson.D{{"machineid", machineId}}).Iter()
+	for iter.Next(&doc) {
+		addr, err := st.IPAddress(doc.Address)
+		if err != nil {
+			// shouldn't happen as we're only fetching
+			// addresses we know exist.
+			continue
+		}
+		result = append(result, addr)
+	}
+	if err := iter.Close(); err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
 // AddSubnet creates and returns a new subnet
 func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add subnet %q", args.CIDR)
