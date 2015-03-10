@@ -402,11 +402,11 @@ func (a *backingBlock) mongoId() interface{} {
 type backingStatus statusDoc
 
 func (s *backingStatus) updated(st *State, store *multiwatcherStore, id interface{}) error {
-	parentId, ok := backingEntityIdForGlobalKey(st.localID(id.(string)))
+	parentID, ok := backingEntityIdForGlobalKey(st.localID(id.(string)))
 	if !ok {
 		return nil
 	}
-	info0 := store.Get(parentId)
+	info0 := store.Get(parentID)
 	switch info := info0.(type) {
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
@@ -444,11 +444,11 @@ type backingConstraints constraintsDoc
 
 func (c *backingConstraints) updated(st *State, store *multiwatcherStore, id interface{}) error {
 	localID := st.localID(id.(string))
-	parentId, ok := backingEntityIdForGlobalKey(localID)
+	parentID, ok := backingEntityIdForGlobalKey(localID)
 	if !ok {
 		return nil
 	}
-	info0 := store.Get(parentId)
+	info0 := store.Get(parentID)
 	switch info := info0.(type) {
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
@@ -477,11 +477,11 @@ type backingSettings map[string]interface{}
 
 func (s *backingSettings) updated(st *State, store *multiwatcherStore, id interface{}) error {
 	localID := st.localID(id.(string))
-	parentId, url, ok := backingEntityIdForSettingsKey(localID)
+	parentID, url, ok := backingEntityIdForSettingsKey(localID)
 	if !ok {
 		return nil
 	}
-	info0 := store.Get(parentId)
+	info0 := store.Get(parentID)
 	switch info := info0.(type) {
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
@@ -506,7 +506,24 @@ func (s *backingSettings) updated(st *State, store *multiwatcherStore, id interf
 	return nil
 }
 
-func (s *backingSettings) removed(st *State, store *multiwatcherStore, id interface{}) {}
+func (s *backingSettings) removed(st *State, store *multiwatcherStore, id interface{}) {
+	localID := st.localID(id.(string))
+	parentID, url, ok := backingEntityIdForSettingsKey(localID)
+	if !ok {
+		panic(fmt.Errorf("cannot retrieve parent ID for %v", parentID))
+	}
+	parent := store.Get(parentID)
+	if info, ok := parent.(*multiwatcher.ServiceInfo); ok {
+		if info.CharmURL != url {
+			return
+		}
+		newInfo := *info
+		cleanSettingsMap(*s)
+		newInfo.Config = *s
+		parent = &newInfo
+		store.Update(parent)
+	}
+}
 
 func (s *backingSettings) mongoId() interface{} {
 	panic("cannot find mongo id from settings document")
@@ -564,12 +581,11 @@ func (p *backingOpenedPorts) removed(st *State, store *multiwatcherStore, id int
 	localID := st.localID(id.(string))
 	u, err := st.Unit(localID)
 	if err != nil {
-		logger.Errorf("cannot retrieve unit %q: %v", localID, err)
-		return
+		panic(fmt.Errorf("cannot retrieve unit %q: %v", localID, err))
 	}
 	err = updateUnitPorts(st, store, u)
 	if err != nil {
-		logger.Errorf("cannot update unit ports for %q: %v", localID, err)
+		panic(fmt.Errorf("cannot update unit ports for %q: %v", localID, err))
 	}
 }
 

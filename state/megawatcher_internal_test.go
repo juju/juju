@@ -1418,8 +1418,8 @@ func (s *storeManagerStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 	s.performChangeTestCases(c, changeTestFuncs)
 }
 
-// TestClosedPorts tests the correct reporting of closed ports.
-func (s *storeManagerStateSuite) TestClosedPorts(c *gc.C) {
+// TestClosingPorts tests the correct reporting of closing ports.
+func (s *storeManagerStateSuite) TestClosingPorts(c *gc.C) {
 	defer s.Reset(c)
 	// Init the test environment.
 	wordpress := AddTestingService(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"), s.owner)
@@ -1476,6 +1476,55 @@ func (s *storeManagerStateSuite) TestClosedPorts(c *gc.C) {
 			Ports:          []network.Port{},
 			PortRanges:     []network.PortRange{},
 			Status:         "allocating",
+		},
+	})
+	// Try closing updating on an invalid unit.
+	c.Assert(func() {
+		b.Changed(all, watcher.Change{
+			C:  openedPortsC,
+			Id: s.state.docID("unknown/42"),
+		})}, gc.PanicMatches, `cannot retrieve unit "unknown/42": unit "unknown/42" not found`)
+}
+
+// TestUnsetServices tests the correct reporting of unset services.
+func (s *storeManagerStateSuite) TestUnsetServices(c *gc.C) {
+	defer s.Reset(c)
+	// Init the test environment.
+	svc := AddTestingService(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"), s.owner)
+	setServiceConfigAttr(c, svc, "blog-title", "foo")
+	// Create and init all watcher state backing.
+	b := newAllWatcherStateBacking(s.state)
+	all := newStore()
+	all.Update(&multiwatcher.ServiceInfo{
+		Name:     "wordpress",
+		CharmURL: "local:quantal/quantal-wordpress-3",
+		Config:   charm.Settings{"foo": "bar"},
+	})
+	// Check changed setting.
+	err := b.Changed(all, watcher.Change{
+		C:  "settings",
+		Id: s.state.docID("s#wordpress#local:quantal/quantal-wordpress-3"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	assertEntitiesEqual(c, all.All(), []multiwatcher.EntityInfo{
+		&multiwatcher.ServiceInfo{
+			Name:     "wordpress",
+			CharmURL: "local:quantal/quantal-wordpress-3",
+			Config:   charm.Settings{"blog-title": "foo"},
+		},
+	})
+	// Remove service.
+	err = svc.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = b.Changed(all, watcher.Change{
+		C:  "settings",
+		Id: s.state.docID("s#wordpress#local:quantal/quantal-wordpress-3"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	assertEntitiesEqual(c, all.All(), []multiwatcher.EntityInfo{
+		&multiwatcher.ServiceInfo{
+			Name:     "wordpress",
+			CharmURL: "local:quantal/quantal-wordpress-3",
 		},
 	})
 }
