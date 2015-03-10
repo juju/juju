@@ -515,7 +515,9 @@ func (s *Service) writeConf() (string, error) {
 
 	if s.Script != nil {
 		scriptPath := s.Service.Conf.ExecStart
-		if err := createFile(scriptPath, s.Script, 0755); err != nil {
+		// TODO(ericsnow) bash might be located somewhere else!
+		script := append([]byte("#!/bin/bash\n\n"), s.Script...)
+		if err := createFile(scriptPath, script, 0755); err != nil {
 			return filename, s.errorf(err, "failed to write script at %q", scriptPath)
 		}
 	}
@@ -555,8 +557,9 @@ func (s *Service) InstallCommands() ([]string, error) {
 	}
 	if s.Script != nil {
 		scriptName := path.Base(s.Service.Conf.ExecStart)
+		script := append([]byte("#!/bin/bash\n\n"), s.Script...)
 		cmdList = append(cmdList, []string{
-			cmds.writeFile(scriptName, dirname, s.Script),
+			cmds.writeFile(scriptName, dirname, script),
 			cmds.chmod(scriptName, dirname, 0755),
 		}...)
 	}

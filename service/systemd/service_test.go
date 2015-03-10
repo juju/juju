@@ -881,6 +881,8 @@ func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
 	c.Check(commands[0], gc.Equals, "mkdir -p /tmp/init/jujud-machine-0")
 	c.Check(strings.Split(commands[1], "\n"), jc.DeepEquals, strings.Split(`
 cat > /tmp/init/jujud-machine-0/exec-start.sh << 'EOF'
+#!/bin/bash
+
 touch /var/log/juju/machine-0.log
 chown syslog:syslog /var/log/juju/machine-0.log
 chmod 0600 /var/log/juju/machine-0.log
