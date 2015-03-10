@@ -9,7 +9,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -29,12 +28,14 @@ func init() {
 var quote, cmdSuffix string
 
 type agentSuite struct {
-	testing.IsolationSuite
+	service.BaseSuite
 }
 
 var _ = gc.Suite(&agentSuite{})
 
 func (*agentSuite) TestMachineAgentConfLocal(c *gc.C) {
+	// We use two distinct directories to ensure the paths don't get
+	// mixed up during the call.
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
 	conf, toolsDir := service.MachineAgentConf("0", dataDir, logDir, "")

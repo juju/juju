@@ -160,9 +160,9 @@ func listServicesCommand(initSystem string) (string, bool) {
 	}
 }
 
-// InstallStartRetryAttempts defines how much InstallAndStart retries
+// installStartRetryAttempts defines how much InstallAndStart retries
 // upon Start failures.
-var InstallStartRetryAttempts = utils.AttemptStrategy{
+var installStartRetryAttempts = utils.AttemptStrategy{
 	Total: 1 * time.Second,
 	Delay: 250 * time.Millisecond,
 }
@@ -177,7 +177,7 @@ func InstallAndStart(svc ServiceActions) error {
 	// For various reasons the init system may take a short time to
 	// realise that the service has been installed.
 	var err error
-	for attempt := InstallStartRetryAttempts.Start(); attempt.Next(); {
+	for attempt := installStartRetryAttempts.Start(); attempt.Next(); {
 		if err != nil {
 			logger.Errorf("retrying start request (%v)", errors.Cause(err))
 		}
@@ -189,11 +189,16 @@ func InstallAndStart(svc ServiceActions) error {
 	return errors.Trace(err)
 }
 
+// discoverService is patched out during some tests.
+var discoverService = func(name string) (Service, error) {
+	return DiscoverService(name, common.Conf{})
+}
+
 // TODO(ericsnow) Add one-off helpers for Start and Stop too?
 
 // Restart restarts the named service.
 func Restart(name string) error {
-	svc, err := DiscoverService(name, common.Conf{})
+	svc, err := discoverService(name)
 	if err != nil {
 		return errors.Annotatef(err, "failed to find service %q", name)
 	}
