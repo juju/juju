@@ -224,3 +224,71 @@ func (s *StorageAPI) watchOneStorageAttachment(id params.StorageAttachmentId, ca
 	}
 	return nothing, watcher.EnsureErr(watch)
 }
+
+// EnsureStorageAttachmentsDead ensures that the specified storage
+// attachments are made to be Dead, if they are Alive or Dying.
+func (s *StorageAPI) EnsureStorageAttachmentsDead(args params.StorageAttachmentIds) (params.ErrorResults, error) {
+	canAccess, err := s.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Ids)),
+	}
+	for i, id := range args.Ids {
+		err := s.ensureOneStorageAttachmentDead(id, canAccess)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return results, nil
+}
+
+func (s *StorageAPI) ensureOneStorageAttachmentDead(id params.StorageAttachmentId, canAccess func(names.Tag) bool) error {
+	unitTag, err := names.ParseUnitTag(id.UnitTag)
+	if err != nil {
+		return err
+	}
+	if !canAccess(unitTag) {
+		return common.ErrPerm
+	}
+	storageTag, err := names.ParseStorageTag(id.StorageTag)
+	if err != nil {
+		return err
+	}
+	return s.st.EnsureStorageAttachmentDead(storageTag, unitTag)
+}
+
+// RemoveStorageAttachments removes the specified storage
+// attachments from state.
+func (s *StorageAPI) RemoveStorageAttachments(args params.StorageAttachmentIds) (params.ErrorResults, error) {
+	canAccess, err := s.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Ids)),
+	}
+	for i, id := range args.Ids {
+		err := s.removeOneStorageAttachment(id, canAccess)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return results, nil
+}
+
+func (s *StorageAPI) removeOneStorageAttachment(id params.StorageAttachmentId, canAccess func(names.Tag) bool) error {
+	unitTag, err := names.ParseUnitTag(id.UnitTag)
+	if err != nil {
+		return err
+	}
+	if !canAccess(unitTag) {
+		return common.ErrPerm
+	}
+	storageTag, err := names.ParseStorageTag(id.StorageTag)
+	if err != nil {
+		return err
+	}
+	return s.st.RemoveStorageAttachment(storageTag, unitTag)
+}

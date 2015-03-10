@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"errors"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -185,8 +187,87 @@ func (s *storageSuite) TestWatchStorageAttachmentFilesystem(c *gc.C) {
 	})
 }
 
+func (s *storageSuite) TestEnsureStorageAttachmentsDead(c *gc.C) {
+	setMock := func(st *mockStorageState, f func(s names.StorageTag, u names.UnitTag) error) {
+		st.ensureDead = f
+	}
+	s.testEnsureDeadOrRemoveStorageAttachments(
+		c, setMock, (*uniter.StorageAPI).EnsureStorageAttachmentsDead,
+	)
+}
+
+func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
+	setMock := func(st *mockStorageState, f func(s names.StorageTag, u names.UnitTag) error) {
+		st.remove = f
+	}
+	s.testEnsureDeadOrRemoveStorageAttachments(
+		c, setMock, (*uniter.StorageAPI).RemoveStorageAttachments,
+	)
+}
+
+func (s *storageSuite) testEnsureDeadOrRemoveStorageAttachments(
+	c *gc.C,
+	setMock func(st *mockStorageState, f func(s names.StorageTag, u names.UnitTag) error),
+	stateMethod func(*uniter.StorageAPI, params.StorageAttachmentIds) (params.ErrorResults, error),
+) {
+
+	unitTag0 := names.NewUnitTag("mysql/0")
+	unitTag1 := names.NewUnitTag("mysql/1")
+	storageTag0 := names.NewStorageTag("data/0")
+	storageTag1 := names.NewStorageTag("data/1")
+
+	resources := common.NewResources()
+	getCanAccess := func() (common.AuthFunc, error) {
+		return func(tag names.Tag) bool {
+			return tag == unitTag0
+		}, nil
+	}
+
+	state := &mockStorageState{}
+	setMock(state, func(s names.StorageTag, u names.UnitTag) error {
+		c.Assert(u, gc.DeepEquals, unitTag0)
+		if s == storageTag1 {
+			return errors.New("badness")
+		}
+		return nil
+	})
+
+	storage, err := uniter.NewStorageAPI(state, resources, getCanAccess)
+	c.Assert(err, jc.ErrorIsNil)
+	errors, err := stateMethod(storage, params.StorageAttachmentIds{
+		Ids: []params.StorageAttachmentId{{
+			StorageTag: storageTag0.String(),
+			UnitTag:    unitTag0.String(),
+		}, {
+			StorageTag: storageTag1.String(),
+			UnitTag:    unitTag0.String(),
+		}, {
+			StorageTag: storageTag0.String(),
+			UnitTag:    unitTag1.String(),
+		}, {
+			StorageTag: unitTag0.String(), // oops
+			UnitTag:    unitTag0.String(),
+		}, {
+			StorageTag: storageTag0.String(),
+			UnitTag:    storageTag0.String(), // oops
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errors, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+			{&params.Error{Message: "badness"}},
+			{&params.Error{Code: params.CodeUnauthorized, Message: "permission denied"}},
+			{&params.Error{Message: `"unit-mysql-0" is not a valid storage tag`}},
+			{&params.Error{Message: `"storage-data-0" is not a valid unit tag`}},
+		},
+	})
+}
+
 type mockStorageState struct {
 	uniter.StorageStateInterface
+	remove                    func(names.StorageTag, names.UnitTag) error
+	ensureDead                func(names.StorageTag, names.UnitTag) error
 	storageInstance           func(names.StorageTag) (state.StorageInstance, error)
 	storageInstanceFilesystem func(names.StorageTag) (state.Filesystem, error)
 	storageInstanceVolume     func(names.StorageTag) (state.Volume, error)
@@ -194,6 +275,14 @@ type mockStorageState struct {
 	watchStorageAttachments   func(names.UnitTag) state.StringsWatcher
 	watchFilesystemAttachment func(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 	watchVolumeAttachment     func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+}
+
+func (m *mockStorageState) EnsureStorageAttachmentDead(s names.StorageTag, u names.UnitTag) error {
+	return m.ensureDead(s, u)
+}
+
+func (m *mockStorageState) RemoveStorageAttachment(s names.StorageTag, u names.UnitTag) error {
+	return m.remove(s, u)
 }
 
 func (m *mockStorageState) StorageInstance(s names.StorageTag) (state.StorageInstance, error) {
