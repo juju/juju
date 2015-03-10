@@ -813,36 +813,39 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 
 // ReleaseContainerAddresses releases an address allocated to a container. It
 // accepts container tags as arguments.
-func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) error {
+func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
 	cfg, err := p.st.EnvironConfig()
 	if err != nil {
-		return errors.Annotate(err, "failed to get environment config")
+		return result, errors.Annotate(err, "failed to get environment config")
 	}
 	environ, err := environs.New(cfg)
 	if err != nil {
-		return errors.Annotate(err, "failed to construct an environment from config")
+		return result, errors.Annotate(err, "failed to construct an environment from config")
 	}
 	netEnviron, supported := environs.SupportsNetworking(environ)
 	if !supported {
 		// " not supported" will be appended to the message below.
-		return errors.NotSupportedf("environment %q networking", cfg.Name())
+		return result, errors.NotSupportedf("environment %q networking", cfg.Name())
 	}
 
 	canAccess, err := p.getAuthFunc()
 	if err != nil {
-		return errors.Annotate(err, "cannot authenticate request")
+		return result, errors.Annotate(err, "cannot authenticate request")
 	}
 	hostAuthTag := p.authorizer.GetAuthTag()
 	if hostAuthTag == nil {
-		return errors.Errorf("authenticated entity tag is nil")
+		return result, errors.Errorf("authenticated entity tag is nil")
 	}
 	hostTag, err := names.ParseMachineTag(hostAuthTag.String())
 	if err != nil {
-		return errors.Trace(err)
+		return result, errors.Trace(err)
 	}
 	host, err := p.getMachine(canAccess, hostTag)
 	if err != nil {
-		return errors.Trace(err)
+		return result, errors.Trace(err)
 	}
 	// Loop over the passed container tags.
 	for i, entity := range args.Entities {
@@ -867,9 +870,10 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) error {
 			result.Results[i].Error = common.ServerError(cerr)
 			continue
 		}
+
 	}
 
-	return nil
+	return result, nil
 }
 
 // PrepareContainerInterfaceInfo allocates an address and returns
