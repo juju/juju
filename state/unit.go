@@ -1855,7 +1855,7 @@ func (u *Unit) RunningActions() ([]*Action, error) {
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
 func (u *Unit) Resolve(retryHooks bool) error {
-	status, _, _, err := u.Status()
+	status, _, _, err := u.AgentStatus()
 	if err != nil {
 		return err
 	}
