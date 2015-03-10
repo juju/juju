@@ -161,13 +161,7 @@ func (st *State) ReleaseContainerAddress(containerTag names.MachineTag) (err err
 	if err := st.facade.FacadeCall("ReleaseContainerAddress", args, &result); err != nil {
 		return err
 	}
-	if len(result.Results) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(result.Results))
-	}
-	if err := result.Results[0].Error; err != nil {
-		return err
-	}
-	return nil
+	return result.OneError()
 }
 
 // PrepareContainerInterfaceInfo returns the necessary information to
