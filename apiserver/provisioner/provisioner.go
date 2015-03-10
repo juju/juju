@@ -851,7 +851,7 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 			continue
 		}
 
-		id := container.InstanceID()
+		id := container.InstanceId()
 		var doc struct {
 			Address string
 		}
