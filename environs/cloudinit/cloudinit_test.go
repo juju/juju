@@ -34,6 +34,13 @@ import (
 	"github.com/juju/juju/version"
 )
 
+var (
+	jujuLogDir         = path.Join(logDir, "juju")
+	logDir             = must(paths.LogDir("precise"))
+	dataDir            = must(paths.DataDir("precise"))
+	cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
+)
+
 // Use local suite since this file lives in the ec2 package
 // for testing internals.
 type cloudinitSuite struct {
@@ -89,8 +96,8 @@ func minimalMachineConfig(tweakers ...func(cloudinit.MachineConfig)) cloudinit.M
 			EnvironTag: testing.EnvironmentTag,
 		},
 		Constraints:             envConstraints,
-		DataDir:                 environs.DataDir,
-		LogDir:                  agent.DefaultLogDir,
+		DataDir:                 dataDir,
+		LogDir:                  logDir,
 		Jobs:                    allMachineJobs,
 		CloudInitOutputLog:      cloudInitOutputLog,
 		InstanceId:              "i-bootstrap",
@@ -127,11 +134,6 @@ var stateServingInfo = &params.StateServingInfo{
 	StatePort:    37017,
 	APIPort:      17070,
 }
-
-var jujuLogDir = path.Join(logDir, "juju")
-var logDir = must(paths.LogDir("precise"))
-var dataDir = must(paths.DataDir("precise"))
-var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 
 // Each test gives a cloudinit config - we check the
 // output to see if it looks correct.
@@ -992,8 +994,8 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 			EnvironTag: testing.EnvironmentTag,
 		},
 		Config:                  minimalConfig(c),
-		DataDir:                 environs.DataDir,
-		LogDir:                  agent.DefaultLogDir,
+		DataDir:                 dataDir,
+		LogDir:                  logDir,
 		Jobs:                    normalMachineJobs,
 		CloudInitOutputLog:      cloudInitOutputLog,
 		InstanceId:              "i-bootstrap",

@@ -38,9 +38,9 @@ func (*agentSuite) TestMachineAgentConfLocal(c *gc.C) {
 	// mixed up during the call.
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
-	conf, toolsDir := service.MachineAgentConf("0", dataDir, logDir, "")
+	conf, toolsDir := service.MachineAgentConf("0", dataDir, logDir, runtime.GOOS)
 
-	c.Check(toolsDir, gc.Equals, filepath.Join(dataDir, "tools", "machine-0"))
+	c.Check(toolsDir, jc.SamePath, filepath.Join(dataDir, "tools", "machine-0"))
 	cmd := strings.Join([]string{
 		quote + filepath.Join(toolsDir, "jujud"+cmdSuffix) + quote,
 		"machine",
@@ -113,7 +113,7 @@ func (*agentSuite) TestMachineAgentConfWindows(c *gc.C) {
 func (*agentSuite) TestUnitAgentConf(c *gc.C) {
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
-	conf, toolsDir := service.UnitAgentConf("wordpress/0", dataDir, logDir, "", "cont")
+	conf, toolsDir := service.UnitAgentConf("wordpress/0", dataDir, logDir, runtime.GOOS, "cont")
 
 	c.Check(toolsDir, gc.Equals, path.Join(dataDir, "tools", "unit-wordpress-0"))
 	cmd := strings.Join([]string{

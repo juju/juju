@@ -73,6 +73,15 @@ func RemoveService(namespace string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	isInstalled, err := svc.Installed()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// No need to error if you try to remove a service that does not exist.
+	// The desired state reflects the actual state.
+	if !isInstalled {
+		return nil
+	}
 	if err := svc.Stop(); err != nil {
 		return errors.Trace(err)
 	}
