@@ -630,3 +630,65 @@ func (s *FilterSuite) TestStorageEvents(c *gc.C) {
 		names.NewStorageTag("multi2up/1"),
 	})
 }
+
+func (s *FilterSuite) TestLeaderSettingsEventsSendsInitialChange(c *gc.C) {
+	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
+	defer statetesting.AssertStop(c, f)
+
+	leaderSettingsC := s.notifyAsserterC(c, f.LeaderSettingsEvents())
+	// Assert that we get the initial event
+	leaderSettingsC.AssertOneReceive()
+
+	// And any time we make changes to the leader settings, we get an event
+	// TODO: change leader settings
+	leaderSettingsC.AssertOneReceive()
+
+	// And multiple changes to settings still get collapsed into a single event
+	// TODO: change leader settings
+	// TODO: change leader settings
+	// Do we need EvilSync?
+	leaderSettingsC.AssertOneReceive()
+}
+
+func (s *FilterSuite) TestWantLeaderSettingsEvents(c *gc.C) {
+	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
+	defer statetesting.AssertStop(c, f)
+
+	leaderSettingsC := s.notifyAsserterC(c, f.LeaderSettingsEvents())
+	// Supress the initial event
+	f.WantLeaderSettingsEvents(false)
+	leaderSettingsC.AssertNoReceive()
+	// Also suppresses actual changes
+	// TODO: change leader settings
+	leaderSettingsC.AssertNoReceive()
+
+	// Reenabling the settings gives us an immediate change
+	f.WantLeaderSettingsEvents(true)
+	leaderSettingsC.AssertOneReceive()
+	// And also gives changes when actual changes are made
+	// TODO: change leader settings
+	leaderSettingsC.AssertOneReceive()
+
+}
+
+func (s *FilterSuite) TestDiscardLeaderSettingsEvent(c *gc.C) {
+	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
+	defer statetesting.AssertStop(c, f)
+
+	leaderSettingsC := s.notifyAsserterC(c, f.LeaderSettingsEvents())
+	// Discard the initial event
+	f.DiscardLeaderSettingsEvent()
+	leaderSettingsC.AssertNoReceive()
+	// However, it has not permanently disabled change events, another
+	// change still shows up
+	// TODO: change leader settings
+	leaderSettingsC.AssertOneReceive()
+
+	// But at any point we can discard them
+	// TODO: change leader settings
+	f.DiscardLeaderSettingsEvent()
+	leaderSettingsC.AssertNoReceive()
+}

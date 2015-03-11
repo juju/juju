@@ -34,20 +34,22 @@ type filter struct {
 	// The out* chans, when set to the corresponding out*On chan (rather than
 	// nil) indicate that an event of the appropriate type is ready to send
 	// to the client.
-	outConfig        chan struct{}
-	outConfigOn      chan struct{}
-	outAction        chan string
-	outActionOn      chan string
-	outUpgrade       chan *charm.URL
-	outUpgradeOn     chan *charm.URL
-	outResolved      chan params.ResolvedMode
-	outResolvedOn    chan params.ResolvedMode
-	outRelations     chan []int
-	outRelationsOn   chan []int
-	outMeterStatus   chan struct{}
-	outMeterStatusOn chan struct{}
-	outStorage       chan []names.StorageTag
-	outStorageOn     chan []names.StorageTag
+	outConfig           chan struct{}
+	outConfigOn         chan struct{}
+	outAction           chan string
+	outActionOn         chan string
+	outLeaderSettings   chan struct{}
+	outLeaderSettingsOn chan struct{}
+	outUpgrade          chan *charm.URL
+	outUpgradeOn        chan *charm.URL
+	outResolved         chan params.ResolvedMode
+	outResolvedOn       chan params.ResolvedMode
+	outRelations        chan []int
+	outRelationsOn      chan []int
+	outMeterStatus      chan struct{}
+	outMeterStatusOn    chan struct{}
+	outStorage          chan []names.StorageTag
+	outStorageOn        chan []names.StorageTag
 	// The want* chans are used to indicate that the filter should send
 	// events if it has them available.
 	wantForcedUpgrade chan bool
@@ -104,29 +106,31 @@ type filter struct {
 // supplied unit.
 func NewFilter(st *uniter.State, unitTag names.UnitTag) (Filter, error) {
 	f := &filter{
-		st:                st,
-		outUnitDying:      make(chan struct{}),
-		outConfig:         nil,
-		outConfigOn:       make(chan struct{}),
-		outAction:         nil,
-		outActionOn:       make(chan string),
-		outUpgrade:        nil,
-		outUpgradeOn:      make(chan *charm.URL),
-		outResolved:       nil,
-		outResolvedOn:     make(chan params.ResolvedMode),
-		outRelations:      nil,
-		outRelationsOn:    make(chan []int),
-		outMeterStatus:    nil,
-		outMeterStatusOn:  make(chan struct{}),
-		outStorage:        nil,
-		outStorageOn:      make(chan []names.StorageTag),
-		wantForcedUpgrade: make(chan bool),
-		wantResolved:      make(chan struct{}),
-		discardConfig:     make(chan struct{}),
-		setCharm:          make(chan *charm.URL),
-		didSetCharm:       make(chan struct{}),
-		clearResolved:     make(chan struct{}),
-		didClearResolved:  make(chan struct{}),
+		st:                  st,
+		outUnitDying:        make(chan struct{}),
+		outConfig:           nil,
+		outConfigOn:         make(chan struct{}),
+		outAction:           nil,
+		outActionOn:         make(chan string),
+		outLeaderSettings:   nil,
+		outLeaderSettingsOn: make(chan struct{}),
+		outUpgrade:          nil,
+		outUpgradeOn:        make(chan *charm.URL),
+		outResolved:         nil,
+		outResolvedOn:       make(chan params.ResolvedMode),
+		outRelations:        nil,
+		outRelationsOn:      make(chan []int),
+		outMeterStatus:      nil,
+		outMeterStatusOn:    make(chan struct{}),
+		outStorage:          nil,
+		outStorageOn:        make(chan []names.StorageTag),
+		wantForcedUpgrade:   make(chan bool),
+		wantResolved:        make(chan struct{}),
+		discardConfig:       make(chan struct{}),
+		setCharm:            make(chan *charm.URL),
+		didSetCharm:         make(chan struct{}),
+		clearResolved:       make(chan struct{}),
+		didClearResolved:    make(chan struct{}),
 	}
 	go func() {
 		defer f.tomb.Done()
@@ -261,6 +265,32 @@ func (f *filter) ClearResolved() error {
 		filterLogger.Debugf("resolved clear completed")
 		return nil
 	}
+}
+
+// LeaderSettingsEvents returns a channel that will receive an event whenever
+// there is a leader settings change. Events can be temporarily suspended by
+// calling WantLeaderSettingsEvents(false), and then reenabled by calling
+// WantLeaderSettingsEvents(true)
+func (f *filter) LeaderSettingsEvents() <-chan struct{} {
+	return f.outLeaderSettingsOn
+}
+
+// DiscardLeaderSettingsEvent can be called to discard any pending
+// LeaderSettingsEvents. This is used by code that saw a LeaderSettings change,
+// and has been prepping for a response. Just before they request the current
+// LeaderSettings, they can discard any other pending changes, since they know
+// they will be handling all changes that have occurred before right now.
+func (f *filter) DiscardLeaderSettingsEvent() {
+}
+
+// WantLeaderSettingsEvents can be used to enable/disable events being sent on
+// the LeaderSettingsEvents() channel. This is used when an agent notices that
+// it is the leader, it wants to disable getting events for changes that it is
+// generating. Calling this with sendEvents=false disables getting change
+// events. Calling this with sendEvents=true will enable future changes, and
+// queues up an immediate event so that the agent will refresh its information
+// for any events it might have missed while it thought it was the leader.
+func (f *filter) WantLeaderSettingsEvents(sendEvents bool) {
 }
 
 // DiscardConfigEvent indicates that the filter should discard any pending
