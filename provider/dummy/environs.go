@@ -41,9 +41,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
@@ -151,7 +151,7 @@ type OpBootstrap struct {
 type OpFinalizeBootstrap struct {
 	Context        environs.BootstrapContext
 	Env            string
-	InstanceConfig *cloudinit.InstanceConfig
+	InstanceConfig *instancecfg.InstanceConfig
 }
 
 type OpDestroy struct {
@@ -752,8 +752,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	}
 	estate.bootstrapped = true
 	estate.ops <- OpBootstrap{Context: ctx, Env: e.name, Args: args}
-	finalize := func(ctx environs.BootstrapContext, mcfg *cloudinit.InstanceConfig) error {
-		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, InstanceConfig: mcfg}
+	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
+		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, InstanceConfig: icfg}
 		return nil
 	}
 	return arch, series, finalize, nil

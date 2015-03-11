@@ -43,17 +43,16 @@ type UserdataConfig interface {
 	Render() ([]byte, error)
 }
 
-func NewUserdataConfig(mcfg *instancecfg.InstanceConfig, conf *cloudinit.Config) (UserdataConfig, error) {
+func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf *cloudinit.Config) (UserdataConfig, error) {
 	// TODO(ericsnow) bug #1426217
-	// Protect mcfg and conf better.
-	operatingSystem, err := version.GetOSFromSeries(mcfg.Series)
+	// Protect icfg and conf better.
+	operatingSystem, err := version.GetOSFromSeries(icfg.Series)
 	if err != nil {
 		return nil, err
 	}
 
 	base := baseConfigure{
-		tag:  names.NewMachineTag(mcfg.MachineId),
-		mcfg: mcfg,
+		icfg: icfg,
 		conf: conf,
 		os:   operatingSystem,
 	}
@@ -64,19 +63,24 @@ func NewUserdataConfig(mcfg *instancecfg.InstanceConfig, conf *cloudinit.Config)
 	case version.Windows:
 		return &windowsConfigure{base}, nil
 	default:
-		return nil, errors.NotSupportedf("OS %s", mcfg.Series)
+		return nil, errors.NotSupportedf("OS %s", icfg.Series)
 	}
 }
 
 type baseConfigure struct {
-	mcfg     *instancecfg.InstanceConfig
+	icfg     *instancecfg.InstanceConfig
 	conf     *cloudinit.Config
 	renderer cloudinit.Renderer
 	os       version.OSType
 }
 
-func (c *baseConfigure) Render() ([]byte, error) {
-	return c.conf.Render()
+func (c *baseConfigure) init() error {
+	renderer, err := cloudinit.NewRenderer(c.icfg.Series)
+	if err != nil {
+		return err
+	}
+	c.renderer = renderer
+	return nil
 }
 
 // addAgentInfo adds agent-required information to the agent's directory
@@ -98,12 +102,12 @@ func (c *baseConfigure) addAgentInfo() (agent.Config, error) {
 // addAgentInfo adds agent-required information to the agent's directory
 // and returns the agent directory name.
 func (c *baseConfigure) addAgentInfo(tag names.Tag) (agent.Config, error) {
-	acfg, err := c.mcfg.AgentConfig(tag, c.mcfg.Tools.Version.Number)
+	acfg, err := c.icfg.AgentConfig(tag, c.icfg.Tools.Version.Number)
 	if err != nil {
 		return nil, err
 	}
-	acfg.SetValue(agent.AgentServiceName, c.mcfg.MachineAgentServiceName)
-	cmds, err := acfg.WriteCommands(c.mcfg.Series)
+	acfg.SetValue(agent.AgentServiceName, c.icfg.MachineAgentServiceName)
+	cmds, err := acfg.WriteCommands(c.icfg.Series)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to write commands")
 	}
@@ -112,7 +116,7 @@ func (c *baseConfigure) addAgentInfo(tag names.Tag) (agent.Config, error) {
 }
 
 func (c *baseConfigure) addMachineAgentToBoot(name string) error {
-	svc, toolsDir, err := c.mcfg.InitService()
+	svc, toolsDir, err := c.icfg.InitService()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -134,7 +138,7 @@ func (c *baseConfigure) addMachineAgentToBoot(name string) error {
 	}
 	cmds = append(cmds, startCmds...)
 
-	svcName := c.mcfg.MachineAgentServiceName
+	svcName := c.icfg.MachineAgentServiceName
 	c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", svcName))
 	c.conf.AddScripts(cmds...)
 	return nil
@@ -148,15 +152,15 @@ func (c *baseConfigure) toolsSymlinkCommand(toolsDir string) string {
 	case version.Windows:
 		return fmt.Sprintf(
 			`cmd.exe /C mklink /D %s %v`,
-			c.conf.ShellRenderer.FromSlash(toolsDir),
-			c.mcfg.Tools.Version,
+			c.renderer.FromSlash(toolsDir),
+			c.icfg.Tools.Version,
 		)
 	default:
 		// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that
 		// the target already exists.
 		return fmt.Sprintf(
 			"ln -s %v %s",
-			c.mcfg.Tools.Version,
+			c.icfg.Tools.Version,
 			shquote(toolsDir),
 		)
 	}

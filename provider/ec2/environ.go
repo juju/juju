@@ -16,6 +16,8 @@ import (
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
 
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -483,11 +485,11 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 
 	args.InstanceConfig.Tools = tools[0]
-	if err := environs.FinishMachineConfig(args.InstanceConfig, e.Config()); err != nil {
+	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
 		return nil, err
 	}
 
-	userData, err := environs.ComposeUserData(args.InstanceConfig, nil)
+	userData, err := cloudconfig.ComposeUserData(args.InstanceConfig, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}

@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm/mock"
@@ -93,7 +94,7 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.Value{}
 	possibleTools := coretools.List{&coretools.Tools{
@@ -103,7 +104,7 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	result, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:    cons,
 		Tools:          possibleTools,
-		InstanceConfig: machineConfig,
+		InstanceConfig: instanceConfig,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return result.Instance

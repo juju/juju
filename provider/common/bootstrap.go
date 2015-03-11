@@ -19,10 +19,11 @@ import (
 	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/agent"
-	coreCloudinit "github.com/juju/juju/cloudinit"
-	"github.com/juju/juju/cloudinit/sshinit"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -73,31 +74,31 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		return nil, "", nil, fmt.Errorf("no SSH client available")
 	}
 
-	machineConfig, err := environs.NewBootstrapMachineConfig(args.Constraints, series)
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, series)
 	if err != nil {
 		return nil, "", nil, err
 	}
-	machineConfig.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
-	machineConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
-	maybeSetBridge := func(mcfg *cloudinit.InstanceConfig) {
+	instanceConfig.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
+	instanceConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
+	maybeSetBridge := func(icfg *instancecfg.InstanceConfig) {
 		// If we need to override the default bridge name, do it now. When
 		// args.ContainerBridgeName is empty, the default names for LXC
 		// (lxcbr0) and KVM (virbr0) will be used.
 		if args.ContainerBridgeName != "" {
 			logger.Debugf("using %q as network bridge for all container types", args.ContainerBridgeName)
-			if mcfg.AgentEnvironment == nil {
-				mcfg.AgentEnvironment = make(map[string]string)
+			if icfg.AgentEnvironment == nil {
+				icfg.AgentEnvironment = make(map[string]string)
 			}
-			mcfg.AgentEnvironment[agent.LxcBridge] = args.ContainerBridgeName
+			icfg.AgentEnvironment[agent.LxcBridge] = args.ContainerBridgeName
 		}
 	}
-	maybeSetBridge(machineConfig)
+	maybeSetBridge(instanceConfig)
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
 	result, err := env.StartInstance(environs.StartInstanceParams{
 		Constraints:    args.Constraints,
 		Tools:          availableTools,
-		InstanceConfig: machineConfig,
+		InstanceConfig: instanceConfig,
 		Placement:      args.Placement,
 	})
 	if err != nil {
@@ -105,14 +106,14 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	}
 	fmt.Fprintf(ctx.GetStderr(), " - %s\n", result.Instance.Id())
 
-	finalize := func(ctx environs.BootstrapContext, mcfg *cloudinit.InstanceConfig) error {
-		mcfg.InstanceId = result.Instance.Id()
-		mcfg.HardwareCharacteristics = result.Hardware
-		if err := environs.FinishMachineConfig(mcfg, env.Config()); err != nil {
+	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
+		icfg.InstanceId = result.Instance.Id()
+		icfg.HardwareCharacteristics = result.Hardware
+		if err := instancecfg.FinishInstanceConfig(icfg, env.Config()); err != nil {
 			return err
 		}
-		maybeSetBridge(mcfg)
-		return FinishBootstrap(ctx, client, result.Instance, mcfg)
+		maybeSetBridge(icfg)
+		return FinishBootstrap(ctx, client, result.Instance, icfg)
 	}
 	return result, series, finalize, nil
 }
@@ -121,16 +122,16 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 // to the instance via SSH and carrying out the cloud-config.
 //
 // Note: FinishBootstrap is exposed so it can be replaced for testing.
-var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, machineConfig *cloudinit.InstanceConfig) error {
+var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, instanceConfig *instancecfg.InstanceConfig) error {
 	interrupted := make(chan os.Signal, 1)
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
 	// Each attempt to connect to an address must verify the machine is the
 	// bootstrap machine by checking its nonce file exists and contains the
-	// nonce in the MachineConfig. This also blocks sshinit from proceeding
+	// nonce in the InstanceConfig. This also blocks sshinit from proceeding
 	// until cloud-init has completed, which is necessary to ensure apt
 	// invocations don't trample each other.
-	nonceFile := utils.ShQuote(path.Join(machineConfig.DataDir, cloudinit.NonceFile))
+	nonceFile := utils.ShQuote(path.Join(instanceConfig.DataDir, cloudconfig.NonceFile))
 	checkNonceCommand := fmt.Sprintf(`
 	noncefile=%s
 	if [ ! -e "$noncefile" ]; then
@@ -142,35 +143,35 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 		echo "$noncefile contents do not match machine nonce" >&2
 		exit 1
 	fi
-	`, nonceFile, utils.ShQuote(machineConfig.MachineNonce))
+	`, nonceFile, utils.ShQuote(instanceConfig.MachineNonce))
 	addr, err := waitSSH(
 		ctx,
 		interrupted,
 		client,
 		checkNonceCommand,
 		inst,
-		machineConfig.Config.BootstrapSSHOpts(),
+		instanceConfig.Config.BootstrapSSHOpts(),
 	)
 	if err != nil {
 		return err
 	}
-	return ConfigureMachine(ctx, client, addr, machineConfig)
+	return ConfigureMachine(ctx, client, addr, instanceConfig)
 }
 
-func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host string, machineConfig *cloudinit.InstanceConfig) error {
+func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host string, instanceConfig *instancecfg.InstanceConfig) error {
 	// Bootstrap is synchronous, and will spawn a subprocess
 	// to complete the procedure. If the user hits Ctrl-C,
 	// SIGINT is sent to the foreground process attached to
 	// the terminal, which will be the ssh subprocess at this
 	// point. For that reason, we do not call StopInterruptNotify
 	// until this function completes.
-	cloudcfg := coreCloudinit.New()
+	cloudcfg := cloudinit.New()
 
 	// Set packaging update here
-	cloudcfg.SetAptUpdate(machineConfig.EnableOSRefreshUpdate)
-	cloudcfg.SetAptUpgrade(machineConfig.EnableOSUpgrade)
+	cloudcfg.SetAptUpdate(instanceConfig.EnableOSRefreshUpdate)
+	cloudcfg.SetAptUpgrade(instanceConfig.EnableOSUpgrade)
 
-	udata, err := cloudinit.NewUserdataConfig(machineConfig, cloudcfg)
+	udata, err := cloudconfig.NewUserdataConfig(instanceConfig, cloudcfg)
 	if err != nil {
 		return err
 	}
@@ -181,7 +182,7 @@ func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host str
 	if err != nil {
 		return err
 	}
-	script := shell.DumpFileOnErrorScript(machineConfig.CloudInitOutputLog) + configScript
+	script := shell.DumpFileOnErrorScript(instanceConfig.CloudInitOutputLog) + configScript
 	return sshinit.RunConfigureScript(script, sshinit.ConfigureParams{
 		Host:           "ubuntu@" + host,
 		Client:         client,

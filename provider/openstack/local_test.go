@@ -22,10 +22,10 @@ import (
 	"launchpad.net/goose/testservices/hook"
 	"launchpad.net/goose/testservices/openstackservice"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -251,7 +251,7 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 	// Floating IP address is 10.0.0.1
 	bootstrapFinished := false
-	s.PatchValue(&common.FinishBootstrap, func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, machineConfig *cloudinit.InstanceConfig) error {
+	s.PatchValue(&common.FinishBootstrap, func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, instanceConfig *instancecfg.InstanceConfig) error {
 		addr, err := inst.Addresses()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addr, jc.SameContents, []network.Address{
@@ -279,7 +279,7 @@ func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 
 func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
 	bootstrapFinished := false
-	s.PatchValue(&common.FinishBootstrap, func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, machineConfig *cloudinit.InstanceConfig) error {
+	s.PatchValue(&common.FinishBootstrap, func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, instanceConfig *instancecfg.InstanceConfig) error {
 		addr, err := inst.Addresses()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addr, jc.SameContents, []network.Address{

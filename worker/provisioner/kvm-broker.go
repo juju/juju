@@ -8,6 +8,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
@@ -80,7 +81,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
-	if err := environs.PopulateMachineConfig(
+	if err := instancecfg.PopulateInstanceConfig(
 		args.InstanceConfig,
 		config.ProviderType,
 		config.AuthorizedKeys,

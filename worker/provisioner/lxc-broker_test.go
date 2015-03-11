@@ -22,13 +22,13 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxc/mock"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
 	"github.com/juju/juju/juju/arch"
@@ -107,21 +107,21 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *lxcBrokerSuite) machineConfig(c *gc.C, machineId string) *cloudinit.InstanceConfig {
+func (s *lxcBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.InstanceConfig {
 	machineNonce := "fake-nonce"
 	// To isolate the tests from the host's architecture, we override it here.
 	s.PatchValue(&version.Current.Arch, arch.AMD64)
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure the <rootfs>/etc/network path exists.
 	containertesting.EnsureRootFSEtcNetwork(c, "juju-"+names.NewMachineTag(machineId).String())
-	return machineConfig
+	return instanceConfig
 }
 
 func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string, volumes []storage.VolumeParams) instance.Instance {
-	instanceConfig := s.machineConfig(c, machineId)
+	instanceConfig := s.instanceConfig(c, machineId)
 	cons := constraints.Value{}
 	possibleTools := coretools.List{&coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
@@ -183,10 +183,10 @@ func (s *lxcBrokerSuite) TestStartInstanceLoopMountsDisallowed(c *gc.C) {
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceHostArch(c *gc.C) {
-	machineConfig := s.machineConfig(c, "1/lxc/0")
+	instanceConfig := s.instanceConfig(c, "1/lxc/0")
 
 	// Patch the host's arch, so the LXC broker will filter tools. We don't use PatchValue
-	// because machineConfig already has, so it will restore version.Current.Arch during TearDownTest
+	// because instanceConfig already has, so it will restore version.Current.Arch during TearDownTest
 	version.Current.Arch = arch.PPC64EL
 	possibleTools := coretools.List{&coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
@@ -198,17 +198,17 @@ func (s *lxcBrokerSuite) TestStartInstanceHostArch(c *gc.C) {
 	_, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:    constraints.Value{},
 		Tools:          possibleTools,
-		InstanceConfig: machineConfig,
+		InstanceConfig: instanceConfig,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineConfig.Tools.Version.Arch, gc.Equals, arch.PPC64EL)
+	c.Assert(instanceConfig.Tools.Version.Arch, gc.Equals, arch.PPC64EL)
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceToolsArchNotFound(c *gc.C) {
-	machineConfig := s.machineConfig(c, "1/lxc/0")
+	instanceConfig := s.instanceConfig(c, "1/lxc/0")
 
 	// Patch the host's arch, so the LXC broker will filter tools. We don't use PatchValue
-	// because machineConfig already has, so it will restore version.Current.Arch during TearDownTest
+	// because instanceConfig already has, so it will restore version.Current.Arch during TearDownTest
 	version.Current.Arch = arch.PPC64EL
 	possibleTools := coretools.List{&coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
@@ -217,7 +217,7 @@ func (s *lxcBrokerSuite) TestStartInstanceToolsArchNotFound(c *gc.C) {
 	_, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:    constraints.Value{},
 		Tools:          possibleTools,
-		InstanceConfig: machineConfig,
+		InstanceConfig: instanceConfig,
 	})
 	c.Assert(err, gc.ErrorMatches, "need tools for arch ppc64el, only found \\[amd64\\]")
 }

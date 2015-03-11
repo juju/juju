@@ -10,6 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -95,17 +97,17 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 
 	cons := constraints.Value{InstanceType: &allInstanceTypes[0].Name}
 
-	machineConfig, err := environs.NewBootstrapMachineConfig(cons, "trusty")
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(cons, "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 
-	machineConfig.Tools = tools[0]
-	machineConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
+	instanceConfig.Tools = tools[0]
+	instanceConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
 
-	userData, err := environs.ComposeUserData(machineConfig, nil)
+	userData, err := cloudconfig.ComposeUserData(instanceConfig, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	b64UserData := base64.StdEncoding.EncodeToString([]byte(userData))
 
-	authKeys, err := google.FormatAuthorizedKeys(machineConfig.AuthorizedKeys, "ubuntu")
+	authKeys, err := google.FormatAuthorizedKeys(instanceConfig.AuthorizedKeys, "ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Metadata = map[string]string{
@@ -140,7 +142,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	s.InstName = s.Prefix + "machine-spam"
 
 	s.StartInstArgs = environs.StartInstanceParams{
-		InstanceConfig: machineConfig,
+		InstanceConfig: instanceConfig,
 		Tools:          tools,
 		Constraints:    cons,
 		//Placement: "",

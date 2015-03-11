@@ -12,10 +12,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -91,19 +91,19 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		cons constraints.Value,
 		_ []string,
 		possibleTools tools.List,
-		mcfg *cloudinit.InstanceConfig,
+		icfg *instancecfg.InstanceConfig,
 	) (instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error) {
 		c.Assert(placement, gc.DeepEquals, checkPlacement)
 		c.Assert(cons, gc.DeepEquals, checkCons)
 
 		// The machine config should set its upgrade behavior based on
 		// the environment config.
-		expectedMcfg, err := environs.NewBootstrapMachineConfig(cons, mcfg.Series)
+		expectedMcfg, err := instancecfg.NewBootstrapInstanceConfig(cons, icfg.Series)
 		c.Assert(err, jc.ErrorIsNil)
 		expectedMcfg.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 		expectedMcfg.EnableOSUpgrade = env.Config().EnableOSUpgrade()
 
-		c.Assert(mcfg, gc.DeepEquals, expectedMcfg)
+		c.Assert(icfg, gc.DeepEquals, expectedMcfg)
 		return nil, nil, nil, fmt.Errorf("meh, not started")
 	}
 
@@ -124,7 +124,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
 
 	startInstance := func(
-		_ string, _ constraints.Value, _ []string, _ tools.List, mcfg *cloudinit.InstanceConfig,
+		_ string, _ constraints.Value, _ []string, _ tools.List, icfg *instancecfg.InstanceConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 	) {

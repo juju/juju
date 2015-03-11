@@ -65,7 +65,7 @@ type cloudinitTest struct {
 	inexactMatch bool
 }
 
-func minimalMachineConfig(tweakers ...func(instancecfg.InstanceConfig)) instancecfg.InstanceConfig {
+func minimalInstanceConfig(tweakers ...func(instancecfg.InstanceConfig)) instancecfg.InstanceConfig {
 
 	baseConfig := instancecfg.InstanceConfig{
 		MachineId:        "0",
@@ -131,7 +131,7 @@ var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 var cloudinitTests = []cloudinitTest{
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg: minimalMachineConfig(func(mc instancecfg.InstanceConfig) {
+		cfg: minimalInstanceConfig(func(mc instancecfg.InstanceConfig) {
 			mc.EnableOSRefreshUpdate = false
 			mc.EnableOSUpgrade = false
 		}),
@@ -143,7 +143,7 @@ var cloudinitTests = []cloudinitTest{
 	},
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg: minimalMachineConfig(func(mc instancecfg.InstanceConfig) {
+		cfg: minimalInstanceConfig(func(mc instancecfg.InstanceConfig) {
 			mc.EnableOSRefreshUpdate = true
 			mc.EnableOSUpgrade = false
 		}),
@@ -155,7 +155,7 @@ var cloudinitTests = []cloudinitTest{
 	},
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg: minimalMachineConfig(func(mc instancecfg.InstanceConfig) {
+		cfg: minimalInstanceConfig(func(mc instancecfg.InstanceConfig) {
 			mc.EnableOSRefreshUpdate = false
 			mc.EnableOSUpgrade = true
 		}),
@@ -621,11 +621,11 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 
 func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
-	machineConfig := minimalMachineConfig()
-	machineConfig.Config = minimalConfig(c)
+	instanceConfig := minimalInstanceConfig()
+	instanceConfig.Config = minimalConfig(c)
 
 	cloudcfg := cloudinit.New()
-	udata, err := cloudconfig.NewUserdataConfig(&machineConfig, cloudcfg)
+	udata, err := cloudconfig.NewUserdataConfig(&instanceConfig, cloudcfg)
 
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
@@ -799,7 +799,7 @@ func checkAptSource(c *gc.C, x map[interface{}]interface{}, source, key string, 
 	}
 }
 
-// When mutate is called on a known-good MachineConfig,
+// When mutate is called on a known-good InstanceConfig,
 // there should be an error complaining about the missing
 // field named by the adjacent err.
 var verifyTests = []struct {
@@ -1017,27 +1017,27 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 	}
 }
 
-func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config) *instancecfg.InstanceConfig {
+func (*cloudinitSuite) createInstanceConfig(c *gc.C, environConfig *config.Config) *instancecfg.InstanceConfig {
 	machineId := "42"
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", true, nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	machineConfig.Tools = &tools.Tools{
+	instanceConfig.Tools = &tools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}
-	err = instancecfg.FinishInstanceConfig(machineConfig, environConfig)
+	err = instancecfg.FinishInstanceConfig(instanceConfig, environConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	return machineConfig
+	return instanceConfig
 }
 
 func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
 	environConfig := minimalConfig(c)
-	machineCfg := s.createMachineConfig(c, environConfig)
+	instanceCfg := s.createInstanceConfig(c, environConfig)
 	cloudcfg := cloudinit.New()
-	udata, err := cloudconfig.NewUserdataConfig(machineCfg, cloudcfg)
+	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1052,9 +1052,9 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 		"apt-http-proxy": "http://user@10.0.0.1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	machineCfg := s.createMachineConfig(c, environConfig)
+	instanceCfg := s.createInstanceConfig(c, environConfig)
 	cloudcfg := cloudinit.New()
-	udata, err := cloudconfig.NewUserdataConfig(machineCfg, cloudcfg)
+	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1071,9 +1071,9 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 		"no-proxy":   "localhost,10.0.3.1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	machineCfg := s.createMachineConfig(c, environConfig)
+	instanceCfg := s.createInstanceConfig(c, environConfig)
 	cloudcfg := cloudinit.New()
-	udata, err := cloudconfig.NewUserdataConfig(machineCfg, cloudcfg)
+	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1116,9 +1116,9 @@ func (s *cloudinitSuite) TestAptMirrorNotSet(c *gc.C) {
 }
 
 func (s *cloudinitSuite) testAptMirror(c *gc.C, cfg *config.Config, expect string) {
-	machineCfg := s.createMachineConfig(c, cfg)
+	instanceCfg := s.createInstanceConfig(c, cfg)
 	cloudcfg := cloudinit.New()
-	udata, err := cloudconfig.NewUserdataConfig(machineCfg, cloudcfg)
+	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)

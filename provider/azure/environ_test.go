@@ -22,6 +22,7 @@ import (
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -1489,13 +1490,13 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 		Tag:        machineTag,
 		EnvironTag: coretesting.EnvironmentTag,
 	}
-	mcfg, err := environs.NewMachineConfig("1", "yanonce", imagemetadata.ReleasedStream, "quantal", true, nil, stateInfo, apiInfo)
+	icfg, err := instancecfg.NewInstanceConfig("1", "yanonce", imagemetadata.ReleasedStream, "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	s.params = environs.StartInstanceParams{
 		Tools: envtesting.AssertUploadFakeToolsVersions(
 			c, s.env.storage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), envtesting.V120p...,
 		),
-		InstanceConfig: mcfg,
+		InstanceConfig: icfg,
 	}
 }
 

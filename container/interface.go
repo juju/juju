@@ -4,7 +4,7 @@
 package container
 
 import (
-	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/instance"
 )
 
@@ -31,7 +31,7 @@ type Manager interface {
 	// CreateContainer creates and starts a new container for the specified
 	// machine.
 	CreateContainer(
-		machineConfig *cloudinit.InstanceConfig,
+		instanceConfig *instancecfg.InstanceConfig,
 		series string,
 		network *NetworkConfig,
 		storage *StorageConfig) (instance.Instance, *instance.HardwareCharacteristics, error)

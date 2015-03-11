@@ -14,9 +14,9 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/version"
@@ -101,13 +101,13 @@ var _ container.Manager = (*containerManager)(nil)
 var startParams StartParams
 
 func (manager *containerManager) CreateContainer(
-	machineConfig *cloudinit.InstanceConfig,
+	instanceConfig *instancecfg.InstanceConfig,
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
 ) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
-	name := names.NewMachineTag(machineConfig.MachineId).String()
+	name := names.NewMachineTag(instanceConfig.MachineId).String()
 	if manager.name != "" {
 		name = fmt.Sprintf("%s-%s", manager.name, name)
 	}
@@ -122,15 +122,15 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "failed to create container directory")
 	}
 	logger.Tracef("write cloud-init")
-	userDataFilename, err := container.WriteUserData(machineConfig, networkConfig, directory)
+	userDataFilename, err := container.WriteUserData(instanceConfig, networkConfig, directory)
 	if err != nil {
-		logger.Infof("machine config api %#v", *machineConfig.APIInfo)
+		logger.Infof("machine config api %#v", *instanceConfig.APIInfo)
 		err = errors.Annotate(err, "failed to write user data")
 		logger.Infof(err.Error())
 		return nil, nil, err
 	}
 	// Create the container.
-	startParams = ParseConstraintsToStartParams(machineConfig.Constraints)
+	startParams = ParseConstraintsToStartParams(instanceConfig.Constraints)
 	startParams.Arch = version.Current.Arch
 	startParams.Series = series
 	startParams.Network = networkConfig
@@ -138,8 +138,8 @@ func (manager *containerManager) CreateContainer(
 
 	// If the Simplestream requested is anything but released, update
 	// our StartParams to request it.
-	if machineConfig.ImageStream != imagemetadata.ReleasedStream {
-		startParams.ImageDownloadUrl = imagemetadata.UbuntuCloudImagesURL + "/" + machineConfig.ImageStream
+	if instanceConfig.ImageStream != imagemetadata.ReleasedStream {
+		startParams.ImageDownloadUrl = imagemetadata.UbuntuCloudImagesURL + "/" + instanceConfig.ImageStream
 	}
 
 	var hardware instance.HardwareCharacteristics
@@ -150,7 +150,7 @@ func (manager *containerManager) CreateContainer(
 		logger.Warningf("failed to parse hardware: %v", err)
 	}
 
-	logger.Tracef("create the container, constraints: %v", machineConfig.Constraints)
+	logger.Tracef("create the container, constraints: %v", instanceConfig.Constraints)
 	if err := kvmContainer.Start(startParams); err != nil {
 		err = errors.Annotate(err, "kvm container creation failed")
 		logger.Infof(err.Error())

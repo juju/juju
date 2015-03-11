@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -106,7 +107,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 
 	// If we're uploading, we must override agent-version;
 	// if we're not uploading, we want to ensure we have an
-	// agent-version set anyway, to appease FinishMachineConfig.
+	// agent-version set anyway, to appease FinishInstanceConfig.
 	// In the latter case, setBootstrapTools will later set
 	// agent-version to the correct thing.
 	if cfg, err = cfg.Apply(map[string]interface{}{
@@ -156,13 +157,13 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	ctx.Infof("Installing Juju agent on bootstrap instance")
-	machineConfig, err := environs.NewBootstrapMachineConfig(args.Constraints, series)
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, series)
 	if err != nil {
 		return err
 	}
-	machineConfig.Tools = selectedTools
-	machineConfig.CustomImageMetadata = imageMetadata
-	if err := finalizer(ctx, machineConfig); err != nil {
+	instanceConfig.Tools = selectedTools
+	instanceConfig.CustomImageMetadata = imageMetadata
+	if err := finalizer(ctx, instanceConfig); err != nil {
 		return err
 	}
 	ctx.Infof("Bootstrap complete")

@@ -55,10 +55,10 @@ var (
 	logger = loggo.GetLogger("juju.userdata.instanceconfig")
 )
 
-// MachineConfig represents initialization information for a new juju machine.
+// InstanceConfig represents initialization information for a new juju instance.
 type InstanceConfig struct {
-	// Bootstrap specifies whether the new machine is the bootstrap
-	// machine. When this is true, StateServingInfo should be set
+	// Bootstrap specifies whether the new instance is the bootstrap
+	// instance. When this is true, StateServingInfo should be set
 	// and filled out.
 	Bootstrap bool
 
@@ -69,25 +69,25 @@ type InstanceConfig struct {
 	StateServingInfo *params.StateServingInfo
 
 	// MongoInfo holds the means for the new instance to communicate with the
-	// juju state database. Unless the new machine is running a state server
+	// juju state database. Unless the new instance is running a state server
 	// (StateServer is set), there must be at least one state server address supplied.
-	// The entity name must match that of the machine being started,
+	// The entity name must match that of the instance being started,
 	// or be empty when starting a state server.
 	MongoInfo *mongo.MongoInfo
 
 	// APIInfo holds the means for the new instance to communicate with the
-	// juju state API. Unless the new machine is running a state server (StateServer is
+	// juju state API. Unless the new instance is running a state server (StateServer is
 	// set), there must be at least one state server address supplied.
-	// The entity name must match that of the machine being started,
+	// The entity name must match that of the instance being started,
 	// or be empty when starting a state server.
 	APIInfo *api.Info
 
-	// InstanceId is the instance ID of the machine being initialised.
+	// InstanceId is the instance ID of the instance being initialised.
 	// This is required when bootstrapping, and ignored otherwise.
 	InstanceId instance.Id
 
 	// HardwareCharacteristics contains the harrdware characteristics of
-	// the machine being initialised. This optional, and is only used by
+	// the instance being initialised. This optional, and is only used by
 	// the bootstrap agent during state initialisation.
 	HardwareCharacteristics *instance.HardwareCharacteristics
 
@@ -95,11 +95,11 @@ type InstanceConfig struct {
 	// ensure the agent is running on the correct instance.
 	MachineNonce string
 
-	// Tools is juju tools to be used on the new machine.
+	// Tools is juju tools to be used on the new instance.
 	Tools *coretools.Tools
 
 	// DataDir holds the directory that juju state will be put in the new
-	// machine.
+	// instance.
 	DataDir string
 
 	// LogDir holds the directory that juju logs will be written to.
@@ -225,7 +225,7 @@ func (cfg *InstanceConfig) AgentConfig(
 	toolsVersion version.Number,
 ) (agent.ConfigSetter, error) {
 	// TODO for HAState: the stateHostAddrs and apiHostAddrs here assume that
-	// if the machine is a stateServer then to use localhost.  This may be
+	// if the instance is a stateServer then to use localhost.  This may be
 	// sufficient, but needs thought in the new world order.
 	var password string
 	if cfg.MongoInfo == nil {
@@ -402,7 +402,7 @@ var DataDir = agent.DefaultDataDir
 // may create a folder containing logs
 var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
 
-// NewMachineConfig sets up a basic machine configuration, for a
+// NewInstanceConfig sets up a basic machine configuration, for a
 // non-bootstrap node. You'll still need to supply more information,
 // but this takes care of the fixed entries and the ones that are
 // always needed.
@@ -425,7 +425,7 @@ func NewInstanceConfig(
 		return nil, err
 	}
 	cloudInitOutputLog := path.Join(logDir, "cloud-init-output.log")
-	mcfg := &InstanceConfig{
+	icfg := &InstanceConfig{
 		// Fixed entries.
 		DataDir:                 dataDir,
 		LogDir:                  path.Join(logDir, "juju"),
@@ -445,35 +445,35 @@ func NewInstanceConfig(
 			agent.AllowsSecureConnection: strconv.FormatBool(secureServerConnections),
 		},
 	}
-	return mcfg, nil
+	return icfg, nil
 }
 
-// NewBootstrapMachineConfig sets up a basic machine configuration for a
+// NewBootstrapInstanceConfig sets up a basic machine configuration for a
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
 func NewBootstrapInstanceConfig(cons constraints.Value, series string) (*InstanceConfig, error) {
-	// For a bootstrap instance, FinishMachineConfig will provide the
+	// For a bootstrap instance, FinishInstanceConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
-	mcfg, err := NewInstanceConfig("0", agent.BootstrapNonce, "", series, true, nil, nil, nil)
+	icfg, err := NewInstanceConfig("0", agent.BootstrapNonce, "", series, true, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	mcfg.Bootstrap = true
-	mcfg.Jobs = []multiwatcher.MachineJob{
+	icfg.Bootstrap = true
+	icfg.Jobs = []multiwatcher.MachineJob{
 		multiwatcher.JobManageEnviron,
 		multiwatcher.JobHostUnits,
 	}
-	mcfg.Constraints = cons
-	return mcfg, nil
+	icfg.Constraints = cons
+	return icfg, nil
 }
 
-// PopulateMachineConfig is called both from the FinishMachineConfig below,
+// PopulateInstanceConfig is called both from the FinishInstanceConfig below,
 // which does have access to the environment config, and from the container
 // provisioners, which don't have access to the environment config. Everything
 // that is needed to provision a container needs to be returned to the
 // provisioner in the ContainerConfig structure. Those values are then used to
 // call this function.
-func PopulateInstanceConfig(mcfg *InstanceConfig,
+func PopulateInstanceConfig(icfg *InstanceConfig,
 	providerType, authorizedKeys string,
 	sslHostnameVerification bool,
 	proxySettings, aptProxySettings proxy.Settings,
@@ -485,23 +485,23 @@ func PopulateInstanceConfig(mcfg *InstanceConfig,
 	if authorizedKeys == "" {
 		return fmt.Errorf("environment configuration has no authorized-keys")
 	}
-	mcfg.AuthorizedKeys = authorizedKeys
-	if mcfg.AgentEnvironment == nil {
-		mcfg.AgentEnvironment = make(map[string]string)
+	icfg.AuthorizedKeys = authorizedKeys
+	if icfg.AgentEnvironment == nil {
+		icfg.AgentEnvironment = make(map[string]string)
 	}
-	mcfg.AgentEnvironment[agent.ProviderType] = providerType
-	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
-	mcfg.DisableSSLHostnameVerification = !sslHostnameVerification
-	mcfg.ProxySettings = proxySettings
-	mcfg.AptProxySettings = aptProxySettings
-	mcfg.AptMirror = aptMirror
-	mcfg.PreferIPv6 = preferIPv6
-	mcfg.EnableOSRefreshUpdate = enableOSRefreshUpdates
-	mcfg.EnableOSUpgrade = enableOSUpgrade
+	icfg.AgentEnvironment[agent.ProviderType] = providerType
+	icfg.AgentEnvironment[agent.ContainerType] = string(icfg.MachineContainerType)
+	icfg.DisableSSLHostnameVerification = !sslHostnameVerification
+	icfg.ProxySettings = proxySettings
+	icfg.AptProxySettings = aptProxySettings
+	icfg.AptMirror = aptMirror
+	icfg.PreferIPv6 = preferIPv6
+	icfg.EnableOSRefreshUpdate = enableOSRefreshUpdates
+	icfg.EnableOSUpgrade = enableOSUpgrade
 	return nil
 }
 
-// FinishMachineConfig sets fields on a MachineConfig that can be determined by
+// FinishInstanceConfig sets fields on a InstanceConfig that can be determined by
 // inspecting a plain config.Config and the machine constraints at the last
 // moment before bootstrapping. It assumes that the supplied Config comes from
 // an environment that has passed through all the validation checks in the
@@ -511,11 +511,11 @@ func PopulateInstanceConfig(mcfg *InstanceConfig,
 // it is better that this functionality be collected in one place here than
 // that it be spread out across 3 or 4 providers, but this is its only
 // redeeming feature.
-func FinishInstanceConfig(mcfg *InstanceConfig, cfg *config.Config) (err error) {
+func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot complete machine configuration")
 
 	if err := PopulateInstanceConfig(
-		mcfg,
+		icfg,
 		cfg.Type(),
 		cfg.AuthorizedKeys(),
 		cfg.SSLHostnameVerification(),
@@ -529,20 +529,20 @@ func FinishInstanceConfig(mcfg *InstanceConfig, cfg *config.Config) (err error) 
 		return errors.Trace(err)
 	}
 
-	if isStateMachineConfig(mcfg) {
+	if isStateInstanceConfig(icfg) {
 		// Add NUMACTL preference. Needed to work for both bootstrap and high availability
 		// Only makes sense for state server
 		logger.Debugf("Setting numa ctl preference to %v", cfg.NumaCtlPreference())
 		// Unfortunately, AgentEnvironment can only take strings as values
-		mcfg.AgentEnvironment[agent.NumaCtlPreference] = fmt.Sprintf("%v", cfg.NumaCtlPreference())
+		icfg.AgentEnvironment[agent.NumaCtlPreference] = fmt.Sprintf("%v", cfg.NumaCtlPreference())
 	}
 	// The following settings are only appropriate at bootstrap time. At the
 	// moment, the only state server is the bootstrap node, but this
 	// will probably change.
-	if !mcfg.Bootstrap {
+	if !icfg.Bootstrap {
 		return nil
 	}
-	if mcfg.APIInfo != nil || mcfg.MongoInfo != nil {
+	if icfg.APIInfo != nil || icfg.MongoInfo != nil {
 		return errors.New("machine configuration already has api/state info")
 	}
 	caCert, hasCACert := cfg.CACert()
@@ -558,12 +558,12 @@ func FinishInstanceConfig(mcfg *InstanceConfig, cfg *config.Config) (err error) 
 	if !uuidSet {
 		return errors.New("config missing environment uuid")
 	}
-	mcfg.APIInfo = &api.Info{
+	icfg.APIInfo = &api.Info{
 		Password:   passwordHash,
 		CACert:     caCert,
 		EnvironTag: names.NewEnvironTag(envUUID),
 	}
-	mcfg.MongoInfo = &mongo.MongoInfo{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
+	icfg.MongoInfo = &mongo.MongoInfo{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
 
 	// These really are directly relevant to running a state server.
 	// Initially, generate a state server certificate with no host IP
@@ -584,19 +584,19 @@ func FinishInstanceConfig(mcfg *InstanceConfig, cfg *config.Config) (err error) 
 		PrivateKey:   string(key),
 		CAPrivateKey: caPrivateKey,
 	}
-	mcfg.StateServingInfo = &srvInfo
-	if mcfg.Config, err = BootstrapConfig(cfg); err != nil {
+	icfg.StateServingInfo = &srvInfo
+	if icfg.Config, err = BootstrapConfig(cfg); err != nil {
 		return errors.Trace(err)
 	}
 
 	return nil
 }
 
-// isStateMachineConfig determines if given machine configuration
+// isStateInstanceConfig determines if given machine configuration
 // is for State Server by iterating over machine's jobs.
 // If JobManageEnviron is present, this is a state server.
-func isStateMachineConfig(mcfg *InstanceConfig) bool {
-	for _, aJob := range mcfg.Jobs {
+func isStateInstanceConfig(icfg *InstanceConfig) bool {
+	for _, aJob := range icfg.Jobs {
 		if aJob == multiwatcher.JobManageEnviron {
 			return true
 		}

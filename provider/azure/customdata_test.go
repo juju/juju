@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/multiwatcher"
@@ -39,14 +39,14 @@ func must(s string, err error) string {
 var logDir = must(paths.LogDir("precise"))
 var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 
-// makeMachineConfig produces a valid cloudinit machine config.
-func makeMachineConfig(c *gc.C) *cloudinit.InstanceConfig {
+// makeInstanceConfig produces a valid cloudinit machine config.
+func makeInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 	machineId := "0"
 	machineTag := names.NewMachineTag(machineId)
-	return &cloudinit.InstanceConfig{
+	return &instancecfg.InstanceConfig{
 		MachineId:    machineId,
 		MachineNonce: "gxshasqlnng",
-		DataDir:      environs.DataDir,
+		DataDir:      instancecfg.DataDir,
 		LogDir:       agent.DefaultLogDir,
 		Jobs: []multiwatcher.MachineJob{
 			multiwatcher.JobManageEnviron,
@@ -77,28 +77,28 @@ func makeMachineConfig(c *gc.C) *cloudinit.InstanceConfig {
 	}
 }
 
-// makeBadMachineConfig produces a cloudinit machine config that cloudinit
+// makeBadInstanceConfig produces a cloudinit machine config that cloudinit
 // will reject as invalid.
-func makeBadMachineConfig() *cloudinit.InstanceConfig {
+func makeBadInstanceConfig() *instancecfg.InstanceConfig {
 	// As it happens, a default-initialized config is invalid.
-	return &cloudinit.InstanceConfig{Series: "quantal"}
+	return &instancecfg.InstanceConfig{Series: "quantal"}
 }
 
 func (*customDataSuite) TestMakeCustomDataPropagatesError(c *gc.C) {
-	_, err := makeCustomData(makeBadMachineConfig())
+	_, err := makeCustomData(makeBadInstanceConfig())
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "failure while generating custom data: invalid machine configuration: invalid machine id")
 }
 
 func (*customDataSuite) TestMakeCustomDataEncodesUserData(c *gc.C) {
-	cfg := makeMachineConfig(c)
+	cfg := makeInstanceConfig(c)
 
 	encodedData, err := makeCustomData(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	data, err := base64.StdEncoding.DecodeString(encodedData)
 	c.Assert(err, jc.ErrorIsNil)
-	reference, err := environs.ComposeUserData(cfg, nil)
+	reference, err := cloudconfig.ComposeUserData(cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(data, gc.DeepEquals, reference)
 }

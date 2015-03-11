@@ -7,14 +7,14 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 )
 
 // makeCustomData produces custom data for Azure.  This is a base64-encoded
 // zipfile of cloudinit userdata.
-func makeCustomData(cfg *cloudinit.InstanceConfig) (string, error) {
-	zipData, err := environs.ComposeUserData(cfg, nil)
+func makeCustomData(cfg *instancecfg.InstanceConfig) (string, error) {
+	zipData, err := cloudconfig.ComposeUserData(cfg, nil)
 	if err != nil {
 		return "", fmt.Errorf("failure while generating custom data: %v", err)
 	}

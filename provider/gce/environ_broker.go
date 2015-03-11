@@ -8,9 +8,10 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -22,8 +23,8 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-func isStateServer(mcfg *cloudinit.InstanceConfig) bool {
-	return multiwatcher.AnyJobNeedsState(mcfg.Jobs...)
+func isStateServer(icfg *instancecfg.InstanceConfig) bool {
+	return multiwatcher.AnyJobNeedsState(icfg.Jobs...)
 }
 
 // StartInstance implements environs.InstanceBroker.
@@ -44,7 +45,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 		return nil, errors.Trace(err)
 	}
 
-	if err := env.finishMachineConfig(args, spec); err != nil {
+	if err := env.finishInstanceConfig(args, spec); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -88,16 +89,16 @@ var getHardwareCharacteristics = func(env *environ, spec *instances.InstanceSpec
 	return env.getHardwareCharacteristics(spec, inst)
 }
 
-// finishMachineConfig updates args.MachineConfig in place. Setting up
+// finishInstanceConfig updates args.InstanceConfig in place. Setting up
 // the API, StateServing, and SSHkeys information.
-func (env *environ) finishMachineConfig(args environs.StartInstanceParams, spec *instances.InstanceSpec) error {
+func (env *environ) finishInstanceConfig(args environs.StartInstanceParams, spec *instances.InstanceSpec) error {
 	envTools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
 	args.InstanceConfig.Tools = envTools[0]
-	return environs.FinishMachineConfig(args.InstanceConfig, env.Config())
+	return instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config())
 }
 
 // buildInstanceSpec builds an instance spec from the provided args
@@ -189,7 +190,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 // getMetadata builds the raw "user-defined" metadata for the new
 // instance (relative to the provided args) and returns it.
 func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
-	userData, err := environs.ComposeUserData(args.InstanceConfig, nil)
+	userData, err := cloudconfig.ComposeUserData(args.InstanceConfig, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}

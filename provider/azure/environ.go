@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/set"
 	"launchpad.net/gwacl"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -707,7 +708,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 
-	err := environs.FinishMachineConfig(args.InstanceConfig, env.Config())
+	err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config())
 	if err != nil {
 		return nil, err
 	}

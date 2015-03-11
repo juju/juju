@@ -54,27 +54,27 @@ func testConfig(c *gc.C, stateServer bool, vers version.Binary) *config.Config {
 }
 
 func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.Binary) *cloudinit.Config {
-	var mcfg *instancecfg.InstanceConfig
+	var icfg *instancecfg.InstanceConfig
 	var err error
 	if stateServer {
-		mcfg, err = instancecfg.NewBootstrapInstanceConfig(constraints.Value{}, vers.Series)
+		icfg, err = instancecfg.NewBootstrapInstanceConfig(constraints.Value{}, vers.Series)
 		c.Assert(err, jc.ErrorIsNil)
-		mcfg.InstanceId = "instance-id"
-		mcfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron, multiwatcher.JobHostUnits}
+		icfg.InstanceId = "instance-id"
+		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron, multiwatcher.JobHostUnits}
 	} else {
-		mcfg, err = instancecfg.NewInstanceConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, true, nil, nil, nil)
+		icfg, err = instancecfg.NewInstanceConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, true, nil, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
-		mcfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
+		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	}
-	mcfg.Tools = &tools.Tools{
+	icfg.Tools = &tools.Tools{
 		Version: vers,
 		URL:     "http://testing.invalid/tools.tar.gz",
 	}
 	environConfig := testConfig(c, stateServer, vers)
-	err = instancecfg.FinishInstanceConfig(mcfg, environConfig)
+	err = instancecfg.FinishInstanceConfig(icfg, environConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg := cloudinit.New()
-	udata, err := cloudconfig.NewUserdataConfig(mcfg, cloudcfg)
+	udata, err := cloudconfig.NewUserdataConfig(icfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)

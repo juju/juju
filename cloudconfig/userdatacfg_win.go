@@ -29,15 +29,14 @@ func (w *windowsConfigure) Configure() error {
 
 func (w *windowsConfigure) ConfigureBasic() error {
 
-	series := w.mcfg.Series
+	series := w.icfg.Series
 	tmpDir, err := paths.TempDir(series)
 	if err != nil {
 		return err
 	}
-	renderer := w.conf.ShellRenderer
-	dataDir := renderer.FromSlash(w.mcfg.DataDir)
-	baseDir := renderer.FromSlash(filepath.Dir(tmpDir))
-	binDir := renderer.Join(baseDir, "bin")
+	dataDir := w.renderer.FromSlash(w.icfg.DataDir)
+	baseDir := w.renderer.FromSlash(filepath.Dir(tmpDir))
+	binDir := w.renderer.PathJoin(baseDir, "bin")
 
 	w.conf.AddScripts(
 		fmt.Sprintf(`%s`, winPowershellHelperFunctions),
@@ -51,45 +50,45 @@ func (w *windowsConfigure) ConfigureBasic() error {
 	)
 	noncefile := renderer.Join(dataDir, NonceFile)
 	w.conf.AddScripts(
-		fmt.Sprintf(`Set-Content "%s" "%s"`, noncefile, shquote(w.mcfg.MachineNonce)),
+		fmt.Sprintf(`Set-Content "%s" "%s"`, noncefile, shquote(w.icfg.MachineNonce)),
 	)
 	return nil
 }
 
 func (w *windowsConfigure) ConfigureJuju() error {
-	if err := w.mcfg.VerifyConfig(); err != nil {
+	if err := w.icfg.VerifyConfig(); err != nil {
 		return err
 	}
-	toolsJson, err := json.Marshal(w.mcfg.Tools)
+	toolsJson, err := json.Marshal(w.icfg.Tools)
 	if err != nil {
 		return errors.Annotate(err, "while serializing the tools")
 	}
 	const python = `${env:ProgramFiles(x86)}\Cloudbase Solutions\Cloudbase-Init\Python27\python.exe`
 	renderer := w.conf.ShellRenderer
 	w.conf.AddScripts(
-		fmt.Sprintf(`$binDir="%s"`, w.renderer.FromSlash(w.mcfg.JujuTools())),
+		fmt.Sprintf(`$binDir="%s"`, w.renderer.FromSlash(w.icfg.JujuTools())),
 		`$tmpBinDir=$binDir.Replace('\', '\\')`,
-		fmt.Sprintf(`mkdir '%s'`, renderer.FromSlash(w.mcfg.LogDir)),
+		fmt.Sprintf(`mkdir '%s'`, w.renderer.FromSlash(w.icfg.LogDir)),
 		`mkdir $binDir`,
 		`$WebClient = New-Object System.Net.WebClient`,
 		`[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}`,
-		fmt.Sprintf(`ExecRetry { $WebClient.DownloadFile('%s', "$binDir\tools.tar.gz") }`, w.mcfg.Tools.URL),
+		fmt.Sprintf(`ExecRetry { $WebClient.DownloadFile('%s', "$binDir\tools.tar.gz") }`, w.icfg.Tools.URL),
 		`$dToolsHash = (Get-FileHash -Algorithm SHA256 "$binDir\tools.tar.gz").hash`,
 		fmt.Sprintf(`$dToolsHash > "$binDir\juju%s.sha256"`,
-			w.mcfg.Tools.Version),
+			w.icfg.Tools.Version),
 		fmt.Sprintf(`if ($dToolsHash.ToLower() -ne "%s"){ Throw "Tools checksum mismatch"}`,
-			w.mcfg.Tools.SHA256),
+			w.icfg.Tools.SHA256),
 		fmt.Sprintf(`& "%s" -c "import tarfile;archive = tarfile.open('$tmpBinDir\\tools.tar.gz');archive.extractall(path='$tmpBinDir')"`, python),
 		`rm "$binDir\tools.tar*"`,
 		fmt.Sprintf(`Set-Content $binDir\downloaded-tools.txt '%s'`, string(toolsJson)),
 	)
 
-	if w.mcfg.Bootstrap == true {
+	if w.icfg.Bootstrap == true {
 		// Bootstrap machine not supported on windows
 		return errors.Errorf("Bootstrap node is not supported on Windows.")
 	}
 
-	machineTag := names.NewMachineTag(w.mcfg.MachineId)
+	machineTag := names.NewMachineTag(w.icfg.MachineId)
 	_, err = w.addAgentInfo(machineTag)
 	if err != nil {
 		return errors.Trace(err)

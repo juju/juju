@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -148,7 +149,7 @@ func StartInstanceWithConstraintsAndNetworks(
 // StartInstanceWithParams is a test helper function that starts an instance
 // with the given parameters, and a plausible but invalid configuration, and
 // returns the result of Environ.StartInstance. The provided params's
-// MachineConfig and Tools field values will be ignored.
+// InstanceConfig and Tools field values will be ignored.
 func StartInstanceWithParams(
 	env environs.Environ, machineId string,
 	params environs.StartInstanceParams,
@@ -175,7 +176,7 @@ func StartInstanceWithParams(
 	machineNonce := "fake_nonce"
 	stateInfo := FakeStateInfo(machineId)
 	apiInfo := FakeAPIInfo(machineId)
-	machineConfig, err := environs.NewMachineConfig(
+	instanceConfig, err := instancecfg.NewInstanceConfig(
 		machineId,
 		machineNonce,
 		imagemetadata.ReleasedStream,
@@ -189,6 +190,6 @@ func StartInstanceWithParams(
 		return nil, errors.Trace(err)
 	}
 	params.Tools = possibleTools
-	params.InstanceConfig = machineConfig
+	params.InstanceConfig = instanceConfig
 	return env.StartInstance(params)
 }

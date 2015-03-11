@@ -7,8 +7,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/gce"
 )
@@ -71,7 +71,7 @@ func (s *environSuite) TestConfig(c *gc.C) {
 func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.FakeCommon.Arch = "amd64"
 	s.FakeCommon.Series = "trusty"
-	finalizer := func(environs.BootstrapContext, *cloudinit.InstanceConfig) error {
+	finalizer := func(environs.BootstrapContext, *instancecfg.InstanceConfig) error {
 		return nil
 	}
 	s.FakeCommon.BSFinalizer = finalizer

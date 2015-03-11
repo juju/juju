@@ -557,9 +557,9 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "devenv")
 	c.Assert(<-errc, gc.IsNil)
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "devenv")
-	mcfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
-	c.Assert(mcfg, gc.NotNil)
-	c.Assert(mcfg.Tools.Version.String(), gc.Equals, "1.7.3.1-raring-"+version.Current.Arch)
+	icfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
+	c.Assert(icfg, gc.NotNil)
+	c.Assert(icfg.Tools.Version.String(), gc.Equals, "1.7.3.1-raring-"+version.Current.Arch)
 }
 
 func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {

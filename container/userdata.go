@@ -12,8 +12,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	coreCloudinit "github.com/juju/juju/cloudinit"
-	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 )
 
 var (
@@ -25,11 +26,11 @@ var (
 // the serialized form out to a cloud-init file in the directory
 // specified.
 func WriteUserData(
-	machineConfig *cloudinit.InstanceConfig,
+	instanceConfig *instancecfg.InstanceConfig,
 	networkConfig *NetworkConfig,
 	directory string,
 ) (string, error) {
-	userData, err := cloudInitUserData(machineConfig, networkConfig)
+	userData, err := cloudInitUserData(instanceConfig, networkConfig)
 	if err != nil {
 		logger.Errorf("failed to create user data: %v", err)
 		return "", err
@@ -77,6 +78,7 @@ var networkInterfacesFile = "/etc/network/interfaces"
 // network interfaces, using the given non-nil networkConfig
 // containing a non-empty Interfaces field.
 func GenerateNetworkConfig(networkConfig *NetworkConfig) (string, error) {
+	cloudConfig := cloudinit.New()
 	if networkConfig == nil || len(networkConfig.Interfaces) == 0 {
 		// Don't generate networking config.
 		logger.Tracef("no network config to generate")
@@ -100,11 +102,8 @@ func GenerateNetworkConfig(networkConfig *NetworkConfig) (string, error) {
 // NewCloudInitConfigWithNetworks creates a cloud-init config which
 // might include per-interface networking config if both networkConfig
 // is not nil and its Interfaces field is not empty.
-func NewCloudInitConfigWithNetworks(series string, networkConfig *NetworkConfig) (*coreCloudinit.Config, error) {
-	cloudConfig, err := coreCloudinit.New(series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func NewCloudInitConfigWithNetworks(networkConfig *NetworkConfig) (*cloudinit.Config, error) {
+	cloudConfig := cloudinit.New()
 	config, err := GenerateNetworkConfig(networkConfig)
 	if err != nil || len(config) == 0 {
 		return cloudConfig, errors.Trace(err)
@@ -116,14 +115,11 @@ func NewCloudInitConfigWithNetworks(series string, networkConfig *NetworkConfig)
 }
 
 func cloudInitUserData(
-	machineConfig *cloudinit.InstanceConfig,
+	instanceConfig *instancecfg.InstanceConfig,
 	networkConfig *NetworkConfig,
 ) ([]byte, error) {
-	cloudConfig, err := NewCloudInitConfigWithNetworks(machineConfig.Series, networkConfig)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	udata, err := cloudinit.NewUserdataConfig(machineConfig, cloudConfig)
+	cloudConfig, err := NewCloudInitConfigWithNetworks(networkConfig)
+	udata, err := cloudconfig.NewUserdataConfig(instanceConfig, cloudConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +131,12 @@ func cloudInitUserData(
 	// logged in the host.
 	cloudConfig.AddRunCmd("ifconfig")
 
-	data, err := cloudConfig.Render()
+	renderer, err := cloudinit.NewRenderer(instanceConfig.Series)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := renderer.Render(cloudConfig)
 	if err != nil {
 		return nil, err
 	}

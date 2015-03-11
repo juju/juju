@@ -88,8 +88,8 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Check(result.Hardware, gc.DeepEquals, s.hardware)
 }
 
-func (s *environBrokerSuite) TestFinishMachineConfig(c *gc.C) {
-	err := gce.FinishMachineConfig(s.Env, s.StartInstArgs, s.spec)
+func (s *environBrokerSuite) TestFinishInstanceConfig(c *gc.C) {
+	err := gce.FinishInstanceConfig(s.Env, s.StartInstArgs, s.spec)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(s.StartInstArgs.InstanceConfig.Tools, gc.NotNil)

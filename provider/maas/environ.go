@@ -21,7 +21,9 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/gomaasapi"
 
-	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -864,7 +866,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if err != nil {
 		return nil, err
 	}
-	if err := environs.FinishMachineConfig(args.InstanceConfig, environ.Config()); err != nil {
+	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, environ.Config()); err != nil {
 		return nil, err
 	}
 	series := args.InstanceConfig.Tools.Version.Series
@@ -873,7 +875,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if err != nil {
 		return nil, err
 	}
-	userdata, err := environs.ComposeUserData(args.InstanceConfig, cloudcfg)
+	userdata, err := cloudconfig.ComposeUserData(args.InstanceConfig, cloudcfg)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
 		return nil, msg

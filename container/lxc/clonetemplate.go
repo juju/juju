@@ -17,9 +17,9 @@ import (
 	"github.com/juju/utils/tailer"
 	"launchpad.net/golxc"
 
-	corecloudinit "github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/service"
@@ -54,11 +54,7 @@ func templateUserData(
 			return nil, errors.Trace(err)
 		}
 	} else {
-		var err error
-		config, err = corecloudinit.New(series)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+		config := cloudinit.New()
 	}
 	config.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
@@ -74,9 +70,9 @@ func templateUserData(
 	config.AddSSHAuthorizedKeys(authorizedKeys)
 	// add centos magic here
 	if enablePackageUpdates {
-		cloudinit.MaybeAddCloudArchiveCloudTools(config, series)
+		cloudconfig.MaybeAddCloudArchiveCloudTools(config, series)
 	}
-	cloudinit.AddAptCommands(series, aptProxy, aptMirror, config, enablePackageUpdates, enableOSUpgrades)
+	cloudconfig.AddAptCommands(series, aptProxy, aptMirror, config, enablePackageUpdates, enableOSUpgrades)
 
 	initSystem, err := containerInitSystem(series)
 	if err != nil {
@@ -88,7 +84,11 @@ func templateUserData(
 	}
 	config.AddScripts(strings.Join(cmds, "\n"))
 
-	data, err := config.Render()
+	renderer, err := cloudinit.NewRenderer(series)
+	if err != nil {
+		return nil, err
+	}
+	data, err := renderer.Render(config)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

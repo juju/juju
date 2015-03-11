@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -726,14 +727,14 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig, err := environs.NewMachineConfig(machineId, "", "released", "quantal", true, nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, "", "released", "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.PrepareOnce(c)
 	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.toolsStorage, "released", "released", version.MustParseBinary("5.4.5-trusty-amd64"))
 	result, err := t.Env.StartInstance(environs.StartInstanceParams{
 		Tools:          possibleTools,
-		InstanceConfig: machineConfig,
+		InstanceConfig: instanceConfig,
 	})
 	if result != nil && result.Instance != nil {
 		err := t.Env.StopInstances(result.Instance.Id())

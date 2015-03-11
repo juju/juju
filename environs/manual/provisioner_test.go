@@ -14,9 +14,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/params"
-	coreCloudinit "github.com/juju/juju/cloudinit"
-	"github.com/juju/juju/cloudinit/sshinit"
-	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/environs/manual"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -121,7 +121,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: subprocess encountered error code 255")
 }
 
-func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
+func (s *provisionerSuite) TestFinishInstancConfig(c *gc.C) {
 	const series = coretesting.FakeDefaultSeries
 	const arch = "amd64"
 	defer fakeSSH{
@@ -133,16 +133,16 @@ func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now check what we would've configured it with.
-	mcfg, err := client.InstanceConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
+	icfg, err := client.InstanceConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mcfg, gc.NotNil)
-	c.Check(mcfg.APIInfo, gc.NotNil)
-	c.Check(mcfg.MongoInfo, gc.NotNil)
+	c.Check(icfg, gc.NotNil)
+	c.Check(icfg.APIInfo, gc.NotNil)
+	c.Check(icfg.MongoInfo, gc.NotNil)
 
 	stateInfo := s.MongoInfo(c)
 	apiInfo := s.APIInfo(c)
-	c.Check(mcfg.APIInfo.Addrs, gc.DeepEquals, apiInfo.Addrs)
-	c.Check(mcfg.MongoInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
+	c.Check(icfg.APIInfo.Addrs, gc.DeepEquals, apiInfo.Addrs)
+	c.Check(icfg.MongoInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
 }
 
 func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
@@ -163,15 +163,14 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 		}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	mcfg, err := client.InstanceConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
+	icfg, err := client.InstanceConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
 
 	c.Assert(err, jc.ErrorIsNil)
-	script, err := manual.ProvisioningScript(mcfg)
+	script, err := manual.ProvisioningScript(icfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cloudcfg, err := coreCloudinit.New(series)
-	c.Assert(err, jc.ErrorIsNil)
-	udata, err := cloudinit.NewUserdataConfig(mcfg, cloudcfg)
+	cloudcfg := cloudinit.New()
+	udata, err := cloudconfig.NewUserdataConfig(icfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.ConfigureJuju()
 	c.Assert(err, jc.ErrorIsNil)

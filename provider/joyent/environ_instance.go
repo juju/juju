@@ -15,7 +15,9 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -106,7 +108,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 
 	args.InstanceConfig.Tools = tools[0]
 
-	if err := environs.FinishMachineConfig(args.InstanceConfig, env.Config()); err != nil {
+	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config()); err != nil {
 		return nil, err
 	}
 
@@ -131,7 +133,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 `[1:]
 	cloudcfg.AddBootTextFile("/etc/network/if-up.d/joyent", ifupScript, 0755)
 
-	userData, err := environs.ComposeUserData(args.InstanceConfig, cloudcfg)
+	userData, err := cloudconfig.ComposeUserData(args.InstanceConfig, cloudcfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
@@ -308,11 +310,11 @@ func (env *joyentEnviron) stopInstance(id string) error {
 }
 
 func (env *joyentEnviron) pollMachineState(machineId, state string) bool {
-	machineConfig, err := env.compute.cloudapi.GetMachine(machineId)
+	instanceConfig, err := env.compute.cloudapi.GetMachine(machineId)
 	if err != nil {
 		return false
 	}
-	return strings.EqualFold(machineConfig.State, state)
+	return strings.EqualFold(instanceConfig.State, state)
 }
 
 func (env *joyentEnviron) listInstanceTypes() ([]instances.InstanceType, error) {

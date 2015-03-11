@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/state"
 )
 
@@ -19,7 +19,7 @@ import (
 // is needed for machine cloud-init (for non-state servers only). It
 // is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
-func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*cloudinit.InstanceConfig, error) {
+func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
 	environConfig, err := st.EnvironConfig()
 	if err != nil {
 		return nil, err
@@ -94,19 +94,19 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*cloudin
 		return nil, err
 	}
 	secureServerConnection := info.CAPrivateKey != ""
-	mcfg, err := environs.NewMachineConfig(machineId, nonce, env.Config().ImageStream(), machine.Series(),
+	icfg, err := instancecfg.NewInstanceConfig(machineId, nonce, env.Config().ImageStream(), machine.Series(),
 		secureServerConnection, networks, mongoInfo, apiInfo,
 	)
 	if err != nil {
 		return nil, err
 	}
 	if dataDir != "" {
-		mcfg.DataDir = dataDir
+		icfg.DataDir = dataDir
 	}
-	mcfg.Tools = tools
-	err = environs.FinishMachineConfig(mcfg, environConfig)
+	icfg.Tools = tools
+	err = instancecfg.FinishInstanceConfig(icfg, environConfig)
 	if err != nil {
 		return nil, err
 	}
-	return mcfg, nil
+	return icfg, nil
 }

@@ -77,14 +77,14 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	}))
 	c.Assert(err, jc.ErrorIsNil)
 
-	mcfg := &instancecfg.InstanceConfig{
+	icfg := &instancecfg.InstanceConfig{
 		MongoInfo: &mongo.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 	}
-	err = instancecfg.FinishInstanceConfig(mcfg, cfg)
+	err = instancecfg.FinishInstanceConfig(icfg, cfg)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mcfg, jc.DeepEquals, expectedMcfg)
+	c.Assert(icfg, jc.DeepEquals, expectedMcfg)
 
 	// Test when updates/upgrades are set to false.
 	cfg, err = config.New(config.NoDefaults, dummySampleConfig().Merge(testing.Attrs{
@@ -93,14 +93,14 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 		"enable-os-upgrade":        false,
 	}))
 	c.Assert(err, jc.ErrorIsNil)
-	err = instancecfg.FinishInstanceConfig(mcfg, cfg)
+	err = instancecfg.FinishInstanceConfig(icfg, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedMcfg.EnableOSRefreshUpdate = false
 	expectedMcfg.EnableOSUpgrade = false
-	c.Assert(mcfg, jc.DeepEquals, expectedMcfg)
+	c.Assert(icfg, jc.DeepEquals, expectedMcfg)
 }
 
-func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
+func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
 	userTag := names.NewLocalUserTag("not-touched")
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys":           "we-are-the-keys",
@@ -108,13 +108,13 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	mcfg := &instancecfg.InstanceConfig{
+	icfg := &instancecfg.InstanceConfig{
 		MongoInfo: &mongo.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 	}
-	err = instancecfg.FinishInstanceConfig(mcfg, cfg)
+	err = instancecfg.FinishInstanceConfig(icfg, cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mcfg, jc.DeepEquals, &instancecfg.InstanceConfig{
+	c.Assert(icfg, jc.DeepEquals, &instancecfg.InstanceConfig{
 		AuthorizedKeys: "we-are-the-keys",
 		AgentEnvironment: map[string]string{
 			agent.ProviderType:  "dummy",
@@ -139,30 +139,30 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	oldAttrs := cfg.AllAttrs()
-	mcfg := &instancecfg.InstanceConfig{
+	icfg := &instancecfg.InstanceConfig{
 		Bootstrap: true,
 	}
-	err = instancecfg.FinishInstanceConfig(mcfg, cfg)
+	err = instancecfg.FinishInstanceConfig(icfg, cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mcfg.AuthorizedKeys, gc.Equals, "we-are-the-keys")
-	c.Check(mcfg.DisableSSLHostnameVerification, jc.IsFalse)
+	c.Check(icfg.AuthorizedKeys, gc.Equals, "we-are-the-keys")
+	c.Check(icfg.DisableSSLHostnameVerification, jc.IsFalse)
 	password := utils.UserPasswordHash("lisboan-pork", utils.CompatSalt)
-	c.Check(mcfg.APIInfo, gc.DeepEquals, &api.Info{
+	c.Check(icfg.APIInfo, gc.DeepEquals, &api.Info{
 		Password: password, CACert: testing.CACert,
 		EnvironTag: testing.EnvironmentTag,
 	})
-	c.Check(mcfg.MongoInfo, gc.DeepEquals, &mongo.MongoInfo{
+	c.Check(icfg.MongoInfo, gc.DeepEquals, &mongo.MongoInfo{
 		Password: password, Info: mongo.Info{CACert: testing.CACert},
 	})
-	c.Check(mcfg.StateServingInfo.StatePort, gc.Equals, cfg.StatePort())
-	c.Check(mcfg.StateServingInfo.APIPort, gc.Equals, cfg.APIPort())
-	c.Check(mcfg.StateServingInfo.CAPrivateKey, gc.Equals, oldAttrs["ca-private-key"])
+	c.Check(icfg.StateServingInfo.StatePort, gc.Equals, cfg.StatePort())
+	c.Check(icfg.StateServingInfo.APIPort, gc.Equals, cfg.APIPort())
+	c.Check(icfg.StateServingInfo.CAPrivateKey, gc.Equals, oldAttrs["ca-private-key"])
 
 	oldAttrs["ca-private-key"] = ""
 	oldAttrs["admin-secret"] = ""
-	c.Check(mcfg.Config.AllAttrs(), gc.DeepEquals, oldAttrs)
-	srvCertPEM := mcfg.StateServingInfo.Cert
-	srvKeyPEM := mcfg.StateServingInfo.PrivateKey
+	c.Check(icfg.Config.AllAttrs(), gc.DeepEquals, oldAttrs)
+	srvCertPEM := icfg.StateServingInfo.Cert
+	srvKeyPEM := icfg.StateServingInfo.PrivateKey
 	_, _, err = cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
 	c.Check(err, jc.ErrorIsNil)
 

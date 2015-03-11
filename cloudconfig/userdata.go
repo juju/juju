@@ -15,14 +15,14 @@ var (
 	logger = loggo.GetLogger("juju.userdata")
 )
 
-func configureCloudinit(mcfg *instancecfg.InstanceConfig, cloudcfg *cloudinit.Config) (UserdataConfig, error) {
+func configureCloudinit(icfg *instancecfg.InstanceConfig, cloudcfg *cloudinit.Config) (UserdataConfig, error) {
 	// When bootstrapping, we only want to apt-get update/upgrade
 	// and setup the SSH keys. The rest we leave to cloudinit/sshinit.
-	udata, err := NewUserdataConfig(mcfg, cloudcfg)
+	udata, err := NewUserdataConfig(icfg, cloudcfg)
 	if err != nil {
 		return nil, err
 	}
-	if mcfg.Bootstrap {
+	if icfg.Bootstrap {
 		err = udata.ConfigureBasic()
 		if err != nil {
 			return nil, err
@@ -41,11 +41,11 @@ func configureCloudinit(mcfg *instancecfg.InstanceConfig, cloudcfg *cloudinit.Co
 // and then renders it and returns it as a binary (gzipped) blob of user data.
 //
 // If the provided cloudcfg is nil, a new one will be created internally.
-func ComposeUserData(mcfg *instancecfg.InstanceConfig, cloudcfg *cloudinit.Config) ([]byte, error) {
+func ComposeUserData(icfg *instancecfg.InstanceConfig, cloudcfg *cloudinit.Config) ([]byte, error) {
 	if cloudcfg == nil {
 		cloudcfg = cloudinit.New()
 	}
-	udata, err := configureCloudinit(mcfg, cloudcfg)
+	udata, err := configureCloudinit(icfg, cloudcfg)
 	if err != nil {
 		return nil, err
 	}

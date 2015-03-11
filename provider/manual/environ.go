@@ -16,9 +16,9 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/httpstorage"
 	"github.com/juju/juju/environs/manual"
@@ -123,16 +123,16 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	if err != nil {
 		return "", "", nil, err
 	}
-	finalize := func(ctx environs.BootstrapContext, mcfg *cloudinit.InstanceConfig) error {
-		mcfg.InstanceId = BootstrapInstanceId
-		mcfg.HardwareCharacteristics = &hc
-		if err := environs.FinishMachineConfig(mcfg, e.Config()); err != nil {
+	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
+		icfg.InstanceId = BootstrapInstanceId
+		icfg.HardwareCharacteristics = &hc
+		if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
 			return err
 		}
 		for k, v := range agentEnv {
-			mcfg.AgentEnvironment[k] = v
+			icfg.AgentEnvironment[k] = v
 		}
-		return common.ConfigureMachine(ctx, ssh.DefaultClient, host, mcfg)
+		return common.ConfigureMachine(ctx, ssh.DefaultClient, host, icfg)
 	}
 	return *hc.Arch, series, finalize, nil
 }

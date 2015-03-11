@@ -12,10 +12,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -257,9 +257,9 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(datasources, gc.HasLen, 2)
 	c.Assert(datasources[0].Description(), gc.Equals, "bootstrap metadata")
-	c.Assert(env.machineConfig, gc.NotNil)
-	c.Assert(env.machineConfig.CustomImageMetadata, gc.HasLen, 1)
-	c.Assert(env.machineConfig.CustomImageMetadata[0], gc.DeepEquals, metadata[0])
+	c.Assert(env.instanceConfig, gc.NotNil)
+	c.Assert(env.instanceConfig.CustomImageMetadata, gc.HasLen, 1)
+	c.Assert(env.instanceConfig.CustomImageMetadata[0], gc.DeepEquals, metadata[0])
 }
 
 func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
@@ -293,7 +293,7 @@ type bootstrapEnviron struct {
 	finalizerCount              int
 	supportedArchitecturesCount int
 	args                        environs.BootstrapParams
-	machineConfig               *cloudinit.InstanceConfig
+	instanceConfig              *instancecfg.InstanceConfig
 	storage                     storage.Storage
 }
 
@@ -328,9 +328,9 @@ func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
 func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	e.bootstrapCount++
 	e.args = args
-	finalizer := func(_ environs.BootstrapContext, mcfg *cloudinit.InstanceConfig) error {
+	finalizer := func(_ environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
 		e.finalizerCount++
-		e.machineConfig = mcfg
+		e.instanceConfig = icfg
 		return nil
 	}
 	return version.Current.Arch, version.Current.Series, finalizer, nil

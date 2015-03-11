@@ -45,7 +45,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 1)
 
 	machineId := machines[0].Machine
-	machineConfig, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
+	instanceConfig, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	envConfig, err := s.State.EnvironConfig()
@@ -53,12 +53,12 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	mongoAddrs := s.State.MongoConnectionInfo().Addrs
 	apiAddrs := []string{net.JoinHostPort("localhost", strconv.Itoa(envConfig.APIPort()))}
 
-	c.Check(machineConfig.MongoInfo.Addrs, gc.DeepEquals, mongoAddrs)
-	c.Check(machineConfig.APIInfo.Addrs, gc.DeepEquals, apiAddrs)
+	c.Check(instanceConfig.MongoInfo.Addrs, gc.DeepEquals, mongoAddrs)
+	c.Check(instanceConfig.APIInfo.Addrs, gc.DeepEquals, apiAddrs)
 	toolsURL := fmt.Sprintf("https://%s/environment/%s/tools/%s",
-		apiAddrs[0], jujutesting.EnvironmentTag.Id(), machineConfig.Tools.Version)
-	c.Assert(machineConfig.Tools.URL, gc.Equals, toolsURL)
-	c.Assert(machineConfig.AgentEnvironment[agent.AllowsSecureConnection], gc.Equals, "true")
+		apiAddrs[0], jujutesting.EnvironmentTag.Id(), instanceConfig.Tools.Version)
+	c.Assert(instanceConfig.Tools.URL, gc.Equals, toolsURL)
+	c.Assert(instanceConfig.AgentEnvironment[agent.AllowsSecureConnection], gc.Equals, "true")
 }
 
 func (s *machineConfigSuite) TestSecureConnectionDisallowed(c *gc.C) {
@@ -83,9 +83,9 @@ func (s *machineConfigSuite) TestSecureConnectionDisallowed(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 1)
 
 	machineId := machines[0].Machine
-	machineConfig, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
+	instanceConfig, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineConfig.AgentEnvironment[agent.AllowsSecureConnection], gc.Equals, "false")
+	c.Assert(instanceConfig.AgentEnvironment[agent.AllowsSecureConnection], gc.Equals, "false")
 }
 
 func (s *machineConfigSuite) TestMachineConfigNoArch(c *gc.C) {
