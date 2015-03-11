@@ -650,7 +650,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	// TODO(wallyworld) - we don't want the storage workers running yet, even with feature flag.
 	// Will be enabled in a followup branch.
 	enableStorageWorkers := false
-	if featureflag.Enabled(feature.Storage) && enableStorageWorkers {
+	if featureflag.Enabled(feature.Storage) {
 		runner.StartWorker("diskmanager", func() (worker.Worker, error) {
 			api, err := st.DiskManager()
 			if err != nil {
@@ -665,16 +665,18 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			}
 			return diskformatter.NewWorker(api), nil
 		})
-		runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
-			api := st.StorageProvisioner(agentConfig.Tag())
-			storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-			return newStorageWorker(storageDir, api, api), nil
-		})
-		if isEnvironManager {
-			runner.StartWorker("storageprovisioner-environ", func() (worker.Worker, error) {
-				api := st.StorageProvisioner(agentConfig.Environment())
-				return newStorageWorker("", api, api), nil
+		if enableStorageWorkers {
+			runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
+				api := st.StorageProvisioner(agentConfig.Tag())
+				storageDir := filepath.Join(agentConfig.DataDir(), "storage")
+				return newStorageWorker(storageDir, api, api), nil
 			})
+			if isEnvironManager {
+				runner.StartWorker("storageprovisioner-environ", func() (worker.Worker, error) {
+					api := st.StorageProvisioner(agentConfig.Environment())
+					return newStorageWorker("", api, api), nil
+				})
+			}
 		}
 	}
 
