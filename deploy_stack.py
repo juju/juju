@@ -504,7 +504,6 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
                             client, host, log_dir, host_id=bootstrap_id)
                     sys.exit(1)
             finally:
-                client.juju('status', ())
                 client.destroy_environment()
         finally:
             if created_machines:
