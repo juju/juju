@@ -12,5 +12,4 @@ func init() {
 	for providerType, p := range provider.CommonProviders() {
 		RegisterProvider(providerType, p)
 	}
-
 }
