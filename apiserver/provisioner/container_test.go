@@ -35,7 +35,7 @@ func (s *containerSuite) SetUpTest(c *gc.C) {
 	s.breakEnvironMethods(c)
 }
 
-func (s *containerSuite) newCustomAPI(c *gc.C, hostInstId instance.Id, addContainer bool) *state.Machine {
+func (s *containerSuite) newCustomAPI(c *gc.C, hostInstId instance.Id, addContainer, provisionContainer bool) *state.Machine {
 	anAuthorizer := s.authorizer
 	anAuthorizer.EnvironManager = false
 	anAuthorizer.Tag = s.machines[0].Tag()
@@ -59,24 +59,18 @@ func (s *containerSuite) newCustomAPI(c *gc.C, hostInstId instance.Id, addContai
 			instance.LXC,
 		)
 		c.Assert(err, jc.ErrorIsNil)
-		password, err := utils.RandomPassword()
-		c.Assert(err, jc.ErrorIsNil)
-		err = container.SetPassword(password)
-		c.Assert(err, jc.ErrorIsNil)
-		err = container.SetProvisioned("foo", "fake_nonce", nil)
-		c.Assert(err, jc.ErrorIsNil)
+		if provisionContainer {
+			password, err := utils.RandomPassword()
+			c.Assert(err, jc.ErrorIsNil)
+			err = container.SetPassword(password)
+			c.Assert(err, jc.ErrorIsNil)
+			err = container.SetProvisioned("foo", "fake_nonce", nil)
+			c.Assert(err, jc.ErrorIsNil)
+		}
 		return container
 	}
 
 	return nil
-}
-
-func (s *containerSuite) newAPI(c *gc.C, provisionHost, addContainer bool) *state.Machine {
-	var hostInstId instance.Id
-	if provisionHost {
-		hostInstId = "i-host"
-	}
-	return s.newCustomAPI(c, hostInstId, addContainer)
 }
 
 func (s *containerSuite) makeArgs(machines ...*state.Machine) params.Entities {
@@ -98,6 +92,14 @@ type prepareSuite struct {
 }
 
 var _ = gc.Suite(&prepareSuite{})
+
+func (s *prepareSuite) newAPI(c *gc.C, provisionHost, addContainer bool) *state.Machine {
+	var hostInstId instance.Id
+	if provisionHost {
+		hostInstId = "i-host"
+	}
+	return s.newCustomAPI(c, hostInstId, addContainer, false)
+}
 
 func (s *prepareSuite) makeErrors(errors ...*params.Error) *params.MachineNetworkConfigResults {
 	results := &params.MachineNetworkConfigResults{
@@ -525,7 +527,7 @@ func (s *prepareSuite) TestErrorWhenNoSubnetsAvailable(c *gc.C) {
 	// The magic "i-no-subnets-" instance id prefix for the host
 	// causes the dummy provider to return no results and no errors
 	// from Subnets().
-	container := s.newCustomAPI(c, "i-no-subnets-here", true)
+	container := s.newCustomAPI(c, "i-no-subnets-here", true, false)
 	args := s.makeArgs(container)
 	s.assertCall(c, args, nil, "cannot allocate addresses: no subnets available")
 }
@@ -534,7 +536,7 @@ func (s *prepareSuite) TestErrorWhenNoAllocatableSubnetsAvailable(c *gc.C) {
 	// The magic "i-no-alloc-all" instance id for the host causes the
 	// dummy provider's Subnets() method to return all subnets without
 	// an allocatable range
-	container := s.newCustomAPI(c, "i-no-alloc-all", true)
+	container := s.newCustomAPI(c, "i-no-alloc-all", true, false)
 	args := s.makeArgs(container)
 	err, _ := s.assertCall(c, args, nil, "cannot allocate addresses: address allocation on any available subnets is not supported")
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
@@ -544,7 +546,7 @@ func (s *prepareSuite) TestErrorWhenNoNICSAvailable(c *gc.C) {
 	// The magic "i-no-nics-" instance id prefix for the host
 	// causes the dummy provider to return no results and no errors
 	// from NetworkInterfaces().
-	container := s.newCustomAPI(c, "i-no-nics-here", true)
+	container := s.newCustomAPI(c, "i-no-nics-here", true, false)
 	args := s.makeArgs(container)
 	s.assertCall(c, args, nil, "cannot allocate addresses: no interfaces available")
 }
@@ -587,7 +589,7 @@ func (s *prepareSuite) TestSuccessWhenFirstSubnetNotAllocatable(c *gc.C) {
 	// will cause SupportsAddressAllocation() to return false for it.
 	// We test here that we keep looking for other allocatable
 	// subnets.
-	container := s.newCustomAPI(c, "i-no-alloc-0", true)
+	container := s.newCustomAPI(c, "i-no-alloc-0", true, false)
 	args := s.makeArgs(container)
 	_, testLog := s.assertCall(c, args, s.makeResults([]params.NetworkConfig{{
 		ProviderId:       "dummy-eth1",
@@ -626,6 +628,14 @@ type releaseSuite struct {
 }
 
 var _ = gc.Suite(&releaseSuite{})
+
+func (s *releaseSuite) newAPI(c *gc.C, provisionHost, addContainer bool) *state.Machine {
+	var hostInstId instance.Id
+	if provisionHost {
+		hostInstId = "i-host"
+	}
+	return s.newCustomAPI(c, hostInstId, addContainer, true)
+}
 
 func (s *releaseSuite) makeErrors(errors ...*params.Error) *params.ErrorResults {
 	results := &params.ErrorResults{
