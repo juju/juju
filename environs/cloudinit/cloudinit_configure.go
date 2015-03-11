@@ -84,7 +84,7 @@ func (c *baseConfigure) addAgentInfo() (agent.Config, error) {
 }
 
 func (c *baseConfigure) addMachineAgentToBoot() error {
-	svc, toolsDir, err := c.mcfg.initService()
+	svc, err := c.mcfg.initService()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -92,6 +92,7 @@ func (c *baseConfigure) addMachineAgentToBoot() error {
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the init script.
+	toolsDir := c.mcfg.toolsDir(c.conf.ShellRenderer)
 	c.conf.AddScripts(c.toolsSymlinkCommand(toolsDir))
 
 	name := c.tag.String()

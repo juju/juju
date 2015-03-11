@@ -57,13 +57,13 @@ func NewUnitAgentInfo(id, dataDir, logDir string) AgentInfo {
 	return NewAgentInfo(AgentKindUnit, id, dataDir, logDir)
 }
 
-func (ai AgentInfo) toolsDir(renderer shell.Renderer) string {
+func (ai AgentInfo) ToolsDir(renderer shell.Renderer) string {
 	return renderer.FromSlash(tools.ToolsDir(ai.DataDir, ai.name))
 }
 
 func (ai AgentInfo) jujud(renderer shell.Renderer) string {
 	exeName := "jujud" + renderer.ExeSuffix()
-	return renderer.Join(ai.toolsDir(renderer), exeName)
+	return renderer.Join(ai.ToolsDir(renderer), exeName)
 }
 
 func (ai AgentInfo) cmd(renderer shell.Renderer) string {

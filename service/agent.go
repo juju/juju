@@ -50,6 +50,9 @@ func AgentConf(info AgentInfo, os string) common.Conf {
 	return conf
 }
 
+// TODO(ericsnow) Eliminate ContainerAgentConf once it is no longer
+// used in worker/deployer/simple.go.
+
 // ContainerAgentConf returns the data that defines an init service config
 // for the identified agent running in a container.
 func ContainerAgentConf(info AgentInfo, os, containerType string) common.Conf {
