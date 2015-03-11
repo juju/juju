@@ -16,7 +16,7 @@ type ProviderType string
 // Scope defines the scope of the storage that a provider manages.
 // Machine-scoped storage must be managed from within the machine,
 // whereas environment-level storage must be managed by an environment
-// manager.
+// storage provisioner.
 type Scope int
 
 const (
