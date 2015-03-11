@@ -71,6 +71,77 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 	c.Assert(keyExists, jc.IsFalse)
 }
 
+func (s *upgradesSuite) TestAddNameFieldLowerCaseIdOfUsers(c *gc.C) {
+	s.addCaseSensitiveUsers(c, [][]string{
+		{"BoB", "Bob the Builder"},
+		{"sAm", "Sam Smith"},
+		{"adam", "Adam Apple"},
+	})
+
+	err := AddNameFieldLowerCaseIdOfUsers(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertNameAddedIdLowerCased(c, [][]string{
+		{"adam", "adam", "Adam Apple"},
+		{"bob", "BoB", "Bob the Builder"},
+		{"sam", "sAm", "Sam Smith"},
+		{"test-admin", "test-admin", "test-admin"},
+	})
+}
+
+func (s *upgradesSuite) TestAddNameFieldLowerCaseIdOfUsersIdempotent(c *gc.C) {
+	s.addCaseSensitiveUsers(c, [][]string{
+		{"BoB", "Bob the Builder"},
+		{"sAm", "Sam Smith"},
+	})
+
+	err := AddNameFieldLowerCaseIdOfUsers(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	err = AddNameFieldLowerCaseIdOfUsers(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertNameAddedIdLowerCased(c, [][]string{
+		{"bob", "BoB", "Bob the Builder"},
+		{"sam", "sAm", "Sam Smith"},
+		{"test-admin", "test-admin", "test-admin"},
+	})
+}
+
+// addCaseSensitiveUsers adds a userDoc with a case sensitive "_id" for each
+// {"_id", "displayname"} pair passed in.
+func (s *upgradesSuite) addCaseSensitiveUsers(c *gc.C, oldUsers [][]string) {
+	var ops []txn.Op
+	for _, oldUser := range oldUsers {
+		ops = append(ops, txn.Op{
+			C:  usersC,
+			Id: oldUser[0],
+			Insert: bson.D{
+				{"displayname", oldUser[1]},
+			},
+		})
+	}
+	err := s.state.runRawTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// assertNameAddedIdLowerCased asserts that all users in the usersC collection
+// have the expected lower case _id and case preserved name.
+func (s *upgradesSuite) assertNameAddedIdLowerCased(c *gc.C, expected [][]string) {
+	users, closer := s.state.getCollection("users")
+	defer closer()
+
+	var obtained []bson.M
+	err := users.Find(nil).Sort("_id").All(&obtained)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for i, expectedUser := range expected {
+		c.Assert(obtained[i]["_id"], gc.Equals, expectedUser[0])
+		c.Assert(obtained[i]["name"], gc.Equals, expectedUser[1])
+		c.Assert(obtained[i]["displayname"], gc.Equals, expectedUser[2])
+	}
+	c.Assert(len(obtained), gc.Equals, len(expected))
+}
+
 func (s *upgradesSuite) TestAddUniqueOwnerEnvNameForEnvirons(c *gc.C) {
 	s.userEnvNameSetup(c, [][]string{
 		{"bob", "bobsenv"},
