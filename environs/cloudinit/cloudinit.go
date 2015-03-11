@@ -44,7 +44,7 @@ const (
 )
 
 // MachineConfig represents initialization information for a new juju machine.
-type MachineConfig struct {
+type InstanceConfig struct {
 	// Bootstrap specifies whether the new machine is the bootstrap
 	// machine. When this is true, StateServingInfo should be set
 	// and filled out.
@@ -175,7 +175,7 @@ type MachineConfig struct {
 	EnableOSUpgrade bool
 }
 
-func (cfg *MachineConfig) initService() (service.Service, string, error) {
+func (cfg *InstanceConfig) initService() (service.Service, string, error) {
 	conf, toolsDir := service.MachineAgentConf(
 		cfg.MachineId,
 		cfg.DataDir,
@@ -200,7 +200,7 @@ func (cfg *MachineConfig) initService(renderer shell.Renderer) (service.Service,
 	return svc, errors.Trace(err)
 }
 
-func (cfg *MachineConfig) initSystem() (string, bool) {
+func (cfg *InstanceConfig) initSystem() (string, bool) {
 	return service.VersionInitSystem(cfg.Tools.Version)
 }
 
@@ -208,7 +208,7 @@ var newService = func(name string, conf common.Conf, initSystem string) (service
 	return service.NewService(name, conf, initSystem)
 }
 
-func (cfg *MachineConfig) agentConfig(
+func (cfg *InstanceConfig) agentConfig(
 	tag names.Tag,
 	toolsVersion version.Number,
 ) (agent.ConfigSetter, error) {
@@ -242,11 +242,11 @@ func (cfg *MachineConfig) agentConfig(
 	return agent.NewStateMachineConfig(configParams, *cfg.StateServingInfo)
 }
 
-func (cfg *MachineConfig) jujuTools() string {
+func (cfg *InstanceConfig) jujuTools() string {
 	return agenttools.SharedToolsDir(cfg.DataDir, cfg.Tools.Version)
 }
 
-func (cfg *MachineConfig) stateHostAddrs() []string {
+func (cfg *InstanceConfig) stateHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap {
 		if cfg.PreferIPv6 {
@@ -261,7 +261,7 @@ func (cfg *MachineConfig) stateHostAddrs() []string {
 	return hosts
 }
 
-func (cfg *MachineConfig) apiHostAddrs() []string {
+func (cfg *InstanceConfig) apiHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap {
 		if cfg.PreferIPv6 {
@@ -277,7 +277,7 @@ func (cfg *MachineConfig) apiHostAddrs() []string {
 }
 
 // HasNetworks returns if there are any networks set.
-func (cfg *MachineConfig) HasNetworks() bool {
+func (cfg *InstanceConfig) HasNetworks() bool {
 	return len(cfg.Networks) > 0 || cfg.Constraints.HaveNetworks()
 }
 
@@ -291,7 +291,7 @@ func (e requiresError) Error() string {
 	return "invalid machine configuration: missing " + string(e)
 }
 
-func verifyConfig(cfg *MachineConfig) (err error) {
+func verifyConfig(cfg *InstanceConfig) (err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid machine configuration")
 	if !names.IsValidMachine(cfg.MachineId) {
 		return errors.New("invalid machine id")

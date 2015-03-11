@@ -13,7 +13,7 @@ import (
 
 // makeCustomData produces custom data for Azure.  This is a base64-encoded
 // zipfile of cloudinit userdata.
-func makeCustomData(cfg *cloudinit.MachineConfig) (string, error) {
+func makeCustomData(cfg *cloudinit.InstanceConfig) (string, error) {
 	zipData, err := environs.ComposeUserData(cfg, nil)
 	if err != nil {
 		return "", fmt.Errorf("failure while generating custom data: %v", err)

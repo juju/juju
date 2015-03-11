@@ -140,9 +140,9 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	s.InstName = s.Prefix + "machine-spam"
 
 	s.StartInstArgs = environs.StartInstanceParams{
-		MachineConfig: machineConfig,
-		Tools:         tools,
-		Constraints:   cons,
+		InstanceConfig: machineConfig,
+		Tools:          tools,
+		Constraints:    cons,
 		//Placement: "",
 		//DistributionGroup: nil,
 	}

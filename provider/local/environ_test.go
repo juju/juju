@@ -135,7 +135,7 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(local.CheckIfRoot, func() bool { return false })
 	s.Tests.SetUpTest(c)
 
-	s.PatchValue(local.ExecuteCloudConfig, func(environs.BootstrapContext, *cloudinit.MachineConfig, *coreCloudinit.Config) error {
+	s.PatchValue(local.ExecuteCloudConfig, func(environs.BootstrapContext, *cloudinit.InstanceConfig, *coreCloudinit.Config) error {
 		return nil
 	})
 
@@ -197,7 +197,7 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 
 	minCfg := minimalConfig(c)
 
-	mockFinish := func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) error {
+	mockFinish := func(ctx environs.BootstrapContext, mcfg *cloudinit.InstanceConfig, cloudcfg *coreCloudinit.Config) error {
 
 		envCfgAttrs := minCfg.AllAttrs()
 		if val, ok := envCfgAttrs["enable-os-refresh-update"]; !ok {

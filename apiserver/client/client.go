@@ -885,7 +885,7 @@ func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error)
 // provisions a machine agent on the machine executing the script.
 func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (params.ProvisioningScriptResult, error) {
 	var result params.ProvisioningScriptResult
-	mcfg, err := MachineConfig(c.api.state, args.MachineId, args.Nonce, args.DataDir)
+	mcfg, err := InstanceConfig(c.api.state, args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, err
 	}

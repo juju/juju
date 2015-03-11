@@ -167,9 +167,9 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) (restore gitjujutestin
 
 	opFinalizeBootstrap := (<-opc).(dummy.OpFinalizeBootstrap)
 	c.Check(opFinalizeBootstrap.Env, gc.Equals, "peckham")
-	c.Check(opFinalizeBootstrap.MachineConfig.Tools, gc.NotNil)
+	c.Check(opFinalizeBootstrap.InstanceConfig.Tools, gc.NotNil)
 	if test.upload != "" {
-		c.Check(opFinalizeBootstrap.MachineConfig.Tools.Version.String(), gc.Equals, test.upload)
+		c.Check(opFinalizeBootstrap.InstanceConfig.Tools.Version.String(), gc.Equals, test.upload)
 	}
 
 	store, err := configstore.Default()
@@ -557,7 +557,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "devenv")
 	c.Assert(<-errc, gc.IsNil)
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "devenv")
-	mcfg := (<-opc).(dummy.OpFinalizeBootstrap).MachineConfig
+	mcfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
 	c.Assert(mcfg, gc.NotNil)
 	c.Assert(mcfg.Tools.Version.String(), gc.Equals, "1.7.3.1-raring-"+version.Current.Arch)
 }

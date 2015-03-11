@@ -457,7 +457,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		}
 	}
 
-	if args.MachineConfig.HasNetworks() {
+	if args.InstanceConfig.HasNetworks() {
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 	arches := args.Tools.Arches()
@@ -482,18 +482,18 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	args.MachineConfig.Tools = tools[0]
-	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config()); err != nil {
+	args.InstanceConfig.Tools = tools[0]
+	if err := environs.FinishMachineConfig(args.InstanceConfig, e.Config()); err != nil {
 		return nil, err
 	}
 
-	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
+	userData, err := environs.ComposeUserData(args.InstanceConfig, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
 	cfg := e.Config()
-	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.APIPort())
+	groups, err := e.setUpGroups(args.InstanceConfig.MachineId, cfg.APIPort())
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot set up groups")
 	}
@@ -538,7 +538,14 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	// TODO(axw) tag all resources (instances and volumes), for accounting
 	// and identification.
 
-	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if err := assignVolumeIds(inst, volumes, volumeAttachments); err != nil {
+		if err := e.StopInstances(inst.Id()); err != nil {
+			logger.Errorf("failed to stop instance: %v", err)
+		}
+		return nil, err
+	}
+
+	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}

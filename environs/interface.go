@@ -99,7 +99,7 @@ type BootstrapParams struct {
 
 // BootstrapFinalizer is a function returned from Environ.Bootstrap.
 // The caller must pass a MachineConfig with the Tools field set.
-type BootstrapFinalizer func(BootstrapContext, *cloudinit.MachineConfig) error
+type BootstrapFinalizer func(BootstrapContext, *cloudinit.InstanceConfig) error
 
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.

@@ -53,7 +53,7 @@ func testConfig(c *gc.C, stateServer bool, vers version.Binary) *config.Config {
 }
 
 func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.Binary) *cloudinit.Config {
-	var mcfg *envcloudinit.MachineConfig
+	var mcfg *envcloudinit.InstanceConfig
 	var err error
 	if stateServer {
 		mcfg, err = environs.NewBootstrapMachineConfig(constraints.Value{}, vers.Series)

@@ -25,7 +25,7 @@ var (
 // the serialized form out to a cloud-init file in the directory
 // specified.
 func WriteUserData(
-	machineConfig *cloudinit.MachineConfig,
+	machineConfig *cloudinit.InstanceConfig,
 	networkConfig *NetworkConfig,
 	directory string,
 ) (string, error) {
@@ -116,7 +116,7 @@ func NewCloudInitConfigWithNetworks(series string, networkConfig *NetworkConfig)
 }
 
 func cloudInitUserData(
-	machineConfig *cloudinit.MachineConfig,
+	machineConfig *cloudinit.InstanceConfig,
 	networkConfig *NetworkConfig,
 ) ([]byte, error) {
 	cloudConfig, err := NewCloudInitConfigWithNetworks(machineConfig.Series, networkConfig)

@@ -40,10 +40,10 @@ var logDir = must(paths.LogDir("precise"))
 var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 
 // makeMachineConfig produces a valid cloudinit machine config.
-func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
+func makeMachineConfig(c *gc.C) *cloudinit.InstanceConfig {
 	machineId := "0"
 	machineTag := names.NewMachineTag(machineId)
-	return &cloudinit.MachineConfig{
+	return &cloudinit.InstanceConfig{
 		MachineId:    machineId,
 		MachineNonce: "gxshasqlnng",
 		DataDir:      environs.DataDir,
@@ -79,9 +79,9 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 
 // makeBadMachineConfig produces a cloudinit machine config that cloudinit
 // will reject as invalid.
-func makeBadMachineConfig() *cloudinit.MachineConfig {
+func makeBadMachineConfig() *cloudinit.InstanceConfig {
 	// As it happens, a default-initialized config is invalid.
-	return &cloudinit.MachineConfig{Series: "quantal"}
+	return &cloudinit.InstanceConfig{Series: "quantal"}
 }
 
 func (*customDataSuite) TestMakeCustomDataPropagatesError(c *gc.C) {

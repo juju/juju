@@ -189,6 +189,6 @@ func StartInstanceWithParams(
 		return nil, errors.Trace(err)
 	}
 	params.Tools = possibleTools
-	params.MachineConfig = machineConfig
+	params.InstanceConfig = machineConfig
 	return env.StartInstance(params)
 }

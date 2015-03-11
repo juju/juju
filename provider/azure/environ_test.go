@@ -1495,7 +1495,7 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 		Tools: envtesting.AssertUploadFakeToolsVersions(
 			c, s.env.storage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), envtesting.V120p...,
 		),
-		MachineConfig: mcfg,
+		InstanceConfig: mcfg,
 	}
 }
 
@@ -1571,13 +1571,13 @@ func (s *startInstanceSuite) TestStartInstanceDistributionGroup(c *gc.C) {
 func (s *startInstanceSuite) TestStartInstanceStateServerJobs(c *gc.C) {
 	// If the machine has the JobManagesEnviron job,
 	// we should see stateServer==true.
-	s.params.MachineConfig.Jobs = []multiwatcher.MachineJob{
+	s.params.InstanceConfig.Jobs = []multiwatcher.MachineJob{
 		multiwatcher.JobHostUnits,
 		multiwatcher.JobManageNetworking,
 	}
 	_, stateServer := s.startInstance(c)
 	c.Assert(stateServer, jc.IsFalse)
-	s.params.MachineConfig.Jobs = []multiwatcher.MachineJob{
+	s.params.InstanceConfig.Jobs = []multiwatcher.MachineJob{
 		multiwatcher.JobHostUnits,
 		multiwatcher.JobManageEnviron,
 		multiwatcher.JobManageNetworking,

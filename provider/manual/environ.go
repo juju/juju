@@ -123,7 +123,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	if err != nil {
 		return "", "", nil, err
 	}
-	finalize := func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig) error {
+	finalize := func(ctx environs.BootstrapContext, mcfg *cloudinit.InstanceConfig) error {
 		mcfg.InstanceId = BootstrapInstanceId
 		mcfg.HardwareCharacteristics = &hc
 		if err := environs.FinishMachineConfig(mcfg, e.Config()); err != nil {

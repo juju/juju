@@ -84,7 +84,7 @@ func (env *joyentEnviron) ConstraintsValidator() (constraints.Validator, error) 
 
 func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 
-	if args.MachineConfig.HasNetworks() {
+	if args.InstanceConfig.HasNetworks() {
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 
@@ -104,9 +104,9 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	args.MachineConfig.Tools = tools[0]
+	args.InstanceConfig.Tools = tools[0]
 
-	if err := environs.FinishMachineConfig(args.MachineConfig, env.Config()); err != nil {
+	if err := environs.FinishMachineConfig(args.InstanceConfig, env.Config()); err != nil {
 		return nil, err
 	}
 
@@ -131,7 +131,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 `[1:]
 	cloudcfg.AddBootTextFile("/etc/network/if-up.d/joyent", ifupScript, 0755)
 
-	userData, err := environs.ComposeUserData(args.MachineConfig, cloudcfg)
+	userData, err := environs.ComposeUserData(args.InstanceConfig, cloudcfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
@@ -180,7 +180,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 		env:     env,
 	}
 
-	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
 		if err := common.AddStateInstance(env.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}

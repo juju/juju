@@ -703,22 +703,22 @@ func deploymentNameV2(serviceName string) string {
 
 // StartInstance is specified in the InstanceBroker interface.
 func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	if args.MachineConfig.HasNetworks() {
+	if args.InstanceConfig.HasNetworks() {
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 
-	err := environs.FinishMachineConfig(args.MachineConfig, env.Config())
+	err := environs.FinishMachineConfig(args.InstanceConfig, env.Config())
 	if err != nil {
 		return nil, err
 	}
 
 	// Pick envtools.  Needed for the custom data (which is what we normally
 	// call userdata).
-	args.MachineConfig.Tools = args.Tools[0]
-	logger.Infof("picked tools %q", args.MachineConfig.Tools)
+	args.InstanceConfig.Tools = args.Tools[0]
+	logger.Infof("picked tools %q", args.InstanceConfig.Tools)
 
 	// Compose userdata.
-	userData, err := makeCustomData(args.MachineConfig)
+	userData, err := makeCustomData(args.InstanceConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot compose user data")
 	}
@@ -755,7 +755,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	vhd := env.newOSDisk(sourceImageName)
 	// If we're creating machine-0, we'll want to expose port 22.
 	// All other machines get an auto-generated public port for SSH.
-	stateServer := multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...)
+	stateServer := multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...)
 	role := env.newRole(instanceType.Id, vhd, userData, stateServer)
 	inst, err := createInstance(env, snapshot.api, role, cloudServiceName, stateServer)
 	if err != nil {

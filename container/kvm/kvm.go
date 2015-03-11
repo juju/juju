@@ -101,7 +101,7 @@ var _ container.Manager = (*containerManager)(nil)
 var startParams StartParams
 
 func (manager *containerManager) CreateContainer(
-	machineConfig *cloudinit.MachineConfig,
+	machineConfig *cloudinit.InstanceConfig,
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,

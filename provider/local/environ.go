@@ -122,7 +122,7 @@ func (env *localEnviron) Bootstrap(
 
 // finishBootstrap converts the machine config to cloud-config,
 // converts that to a script, and then executes it locally.
-func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig) error {
+func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cloudinit.InstanceConfig) error {
 	mcfg.InstanceId = bootstrapInstanceId
 	mcfg.DataDir = env.config.rootDir()
 	mcfg.LogDir = fmt.Sprintf("/var/log/juju-%s", env.config.namespace())
@@ -206,7 +206,7 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 	return executeCloudConfig(ctx, mcfg, cloudcfg)
 }
 
-var executeCloudConfig = func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) error {
+var executeCloudConfig = func(ctx environs.BootstrapContext, mcfg *cloudinit.InstanceConfig, cloudcfg *coreCloudinit.Config) error {
 	// Finally, convert cloud-config to a script and execute it.
 	configScript, err := sshinit.ConfigureScript(cloudcfg)
 	if err != nil {
@@ -360,23 +360,23 @@ func (env *localEnviron) ConstraintsValidator() (constraints.Validator, error) {
 
 // StartInstance is specified in the InstanceBroker interface.
 func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	if args.MachineConfig.HasNetworks() {
+	if args.InstanceConfig.HasNetworks() {
 		return nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 	series := args.Tools.OneSeries()
-	logger.Debugf("StartInstance: %q, %s", args.MachineConfig.MachineId, series)
-	args.MachineConfig.Tools = args.Tools[0]
+	logger.Debugf("StartInstance: %q, %s", args.InstanceConfig.MachineId, series)
+	args.InstanceConfig.Tools = args.Tools[0]
 
-	args.MachineConfig.MachineContainerType = env.config.container()
-	logger.Debugf("tools: %#v", args.MachineConfig.Tools)
-	if err := environs.FinishMachineConfig(args.MachineConfig, env.config.Config); err != nil {
+	args.InstanceConfig.MachineContainerType = env.config.container()
+	logger.Debugf("tools: %#v", args.InstanceConfig.Tools)
+	if err := environs.FinishMachineConfig(args.InstanceConfig, env.config.Config); err != nil {
 		return nil, err
 	}
 	// TODO: evaluate the impact of setting the constraints on the
 	// machineConfig for all machines rather than just state server nodes.
-	// This limitation is why the constraints are assigned directly here.
-	args.MachineConfig.Constraints = args.Constraints
-	args.MachineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
+	// This limiation is why the constraints are assigned directly here.
+	args.InstanceConfig.Constraints = args.Constraints
+	args.InstanceConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
 	inst, hardware, err := createContainer(env, args)
 	if err != nil {
 		return nil, err
@@ -397,7 +397,7 @@ var createContainer = func(env *localEnviron, args environs.StartInstanceParams)
 	if isLXC && !allowLoopMounts && storage.AllowMount {
 		return nil, nil, container.ErrLoopMountNotAllowed
 	}
-	inst, hardware, err := env.containerManager.CreateContainer(args.MachineConfig, series, network, storage)
+	inst, hardware, err := env.containerManager.CreateContainer(args.InstanceConfig, series, network, storage)
 	if err != nil {
 		return nil, nil, err
 	}

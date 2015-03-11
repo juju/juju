@@ -60,7 +60,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 
 	userTag := names.NewLocalUserTag("not-touched")
 
-	expectedMcfg := &cloudinit.MachineConfig{
+	expectedMcfg := &cloudinit.InstanceConfig{
 		AuthorizedKeys: "we-are-the-keys",
 		AgentEnvironment: map[string]string{
 			agent.ProviderType:  "dummy",
@@ -79,7 +79,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	}))
 	c.Assert(err, jc.ErrorIsNil)
 
-	mcfg := &cloudinit.MachineConfig{
+	mcfg := &cloudinit.InstanceConfig{
 		MongoInfo: &mongo.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 	}
@@ -110,13 +110,13 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	mcfg := &cloudinit.MachineConfig{
+	mcfg := &cloudinit.InstanceConfig{
 		MongoInfo: &mongo.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 	}
 	err = environs.FinishMachineConfig(mcfg, cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mcfg, jc.DeepEquals, &cloudinit.MachineConfig{
+	c.Assert(mcfg, jc.DeepEquals, &cloudinit.InstanceConfig{
 		AuthorizedKeys: "we-are-the-keys",
 		AgentEnvironment: map[string]string{
 			agent.ProviderType:  "dummy",
@@ -141,7 +141,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	oldAttrs := cfg.AllAttrs()
-	mcfg := &cloudinit.MachineConfig{
+	mcfg := &cloudinit.InstanceConfig{
 		Bootstrap: true,
 	}
 	err = environs.FinishMachineConfig(mcfg, cfg)
@@ -202,7 +202,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		multiwatcher.JobHostUnits,
 		multiwatcher.JobManageNetworking,
 	}
-	cfg := &cloudinit.MachineConfig{
+	cfg := &cloudinit.InstanceConfig{
 		MachineId:    "10",
 		MachineNonce: "5432",
 		Tools:        tools,

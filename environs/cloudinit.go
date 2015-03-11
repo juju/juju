@@ -47,7 +47,7 @@ func NewMachineConfig(
 	networks []string,
 	mongoInfo *mongo.MongoInfo,
 	apiInfo *api.Info,
-) (*cloudinit.MachineConfig, error) {
+) (*cloudinit.InstanceConfig, error) {
 	dataDir, err := paths.DataDir(series)
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func NewMachineConfig(
 		return nil, err
 	}
 	cloudInitOutputLog := path.Join(logDir, "cloud-init-output.log")
-	mcfg := &cloudinit.MachineConfig{
+	mcfg := &cloudinit.InstanceConfig{
 		// Fixed entries.
 		DataDir:                 dataDir,
 		LogDir:                  path.Join(logDir, "juju"),
@@ -83,7 +83,7 @@ func NewMachineConfig(
 // NewBootstrapMachineConfig sets up a basic machine configuration for a
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
-func NewBootstrapMachineConfig(cons constraints.Value, series string) (*cloudinit.MachineConfig, error) {
+func NewBootstrapMachineConfig(cons constraints.Value, series string) (*cloudinit.InstanceConfig, error) {
 	// For a bootstrap instance, FinishMachineConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
 	mcfg, err := NewMachineConfig("0", agent.BootstrapNonce, "", series, true, nil, nil, nil)
@@ -105,7 +105,7 @@ func NewBootstrapMachineConfig(cons constraints.Value, series string) (*cloudini
 // that is needed to provision a container needs to be returned to the
 // provisioner in the ContainerConfig structure. Those values are then used to
 // call this function.
-func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
+func PopulateMachineConfig(mcfg *cloudinit.InstanceConfig,
 	providerType, authorizedKeys string,
 	sslHostnameVerification bool,
 	proxySettings, aptProxySettings proxy.Settings,
@@ -143,7 +143,7 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 // it is better that this functionality be collected in one place here than
 // that it be spread out across 3 or 4 providers, but this is its only
 // redeeming feature.
-func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err error) {
+func FinishMachineConfig(mcfg *cloudinit.InstanceConfig, cfg *config.Config) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot complete machine configuration")
 
 	if err := PopulateMachineConfig(
@@ -227,7 +227,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err
 // isStateMachineConfig determines if given machine configuration
 // is for State Server by iterating over machine's jobs.
 // If JobManageEnviron is present, this is a state server.
-func isStateMachineConfig(mcfg *cloudinit.MachineConfig) bool {
+func isStateMachineConfig(mcfg *cloudinit.InstanceConfig) bool {
 	for _, aJob := range mcfg.Jobs {
 		if aJob == multiwatcher.JobManageEnviron {
 			return true
@@ -236,7 +236,7 @@ func isStateMachineConfig(mcfg *cloudinit.MachineConfig) bool {
 	return false
 }
 
-func configureCloudinit(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) (cloudinit.UserdataConfig, error) {
+func configureCloudinit(mcfg *cloudinit.InstanceConfig, cloudcfg *coreCloudinit.Config) (cloudinit.UserdataConfig, error) {
 	// When bootstrapping, we only want to apt-get update/upgrade
 	// and setup the SSH keys. The rest we leave to cloudinit/sshinit.
 	udata, err := cloudinit.NewUserdataConfig(mcfg, cloudcfg)
@@ -262,7 +262,7 @@ func configureCloudinit(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.C
 // and then renders it and returns it as a binary (gzipped) blob of user data.
 //
 // If the provided cloudcfg is nil, a new one will be created internally.
-func ComposeUserData(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) ([]byte, error) {
+func ComposeUserData(mcfg *cloudinit.InstanceConfig, cloudcfg *coreCloudinit.Config) ([]byte, error) {
 	if cloudcfg == nil {
 		cfg, err := coreCloudinit.New(mcfg.Series)
 		if err != nil {

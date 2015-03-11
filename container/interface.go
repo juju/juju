@@ -31,7 +31,7 @@ type Manager interface {
 	// CreateContainer creates and starts a new container for the specified
 	// machine.
 	CreateContainer(
-		machineConfig *cloudinit.MachineConfig,
+		machineConfig *cloudinit.InstanceConfig,
 		series string,
 		network *NetworkConfig,
 		storage *StorageConfig) (instance.Instance, *instance.HardwareCharacteristics, error)

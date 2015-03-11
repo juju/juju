@@ -202,7 +202,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	return machineParams, nil
 }
 
-var provisionMachineAgent = func(host string, mcfg *cloudinit.MachineConfig, progressWriter io.Writer) error {
+var provisionMachineAgent = func(host string, mcfg *cloudinit.InstanceConfig, progressWriter io.Writer) error {
 	script, err := ProvisioningScript(mcfg)
 	if err != nil {
 		return err
@@ -213,7 +213,7 @@ var provisionMachineAgent = func(host string, mcfg *cloudinit.MachineConfig, pro
 // ProvisioningScript generates a bash script that can be
 // executed on a remote host to carry out the cloud-init
 // configuration.
-func ProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
+func ProvisioningScript(mcfg *cloudinit.InstanceConfig) (string, error) {
 
 	cloudcfg, err := coreCloudinit.New(mcfg.Series)
 	if err != nil {

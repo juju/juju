@@ -31,7 +31,7 @@ type UserdataConfig interface {
 	Render() ([]byte, error)
 }
 
-func NewUserdataConfig(mcfg *MachineConfig, conf *cloudinit.Config) (UserdataConfig, error) {
+func NewUserdataConfig(mcfg *InstanceConfig, conf *cloudinit.Config) (UserdataConfig, error) {
 	// TODO(ericsnow) bug #1426217
 	// Protect mcfg and conf better.
 	operatingSystem, err := version.GetOSFromSeries(mcfg.Series)
@@ -57,10 +57,10 @@ func NewUserdataConfig(mcfg *MachineConfig, conf *cloudinit.Config) (UserdataCon
 }
 
 type baseConfigure struct {
-	tag  names.Tag
-	mcfg *MachineConfig
-	conf *cloudinit.Config
-	os   version.OSType
+	mcfg     *InstanceConfig
+	conf     *cloudinit.Config
+	renderer cloudinit.Renderer
+	os       version.OSType
 }
 
 func (c *baseConfigure) Render() ([]byte, error) {

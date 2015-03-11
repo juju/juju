@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/version"
 )
 
-func MockMachineConfig(machineId string) (*cloudinit.MachineConfig, error) {
+func MockMachineConfig(machineId string) (*cloudinit.InstanceConfig, error) {
 
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
@@ -55,7 +55,7 @@ func CreateContainer(c *gc.C, manager container.Manager, machineId string) insta
 func CreateContainerWithMachineConfig(
 	c *gc.C,
 	manager container.Manager,
-	machineConfig *cloudinit.MachineConfig,
+	machineConfig *cloudinit.InstanceConfig,
 ) instance.Instance {
 
 	networkConfig := container.BridgeNetworkConfig("nic42", nil)
@@ -66,7 +66,7 @@ func CreateContainerWithMachineConfig(
 func CreateContainerWithMachineAndNetworkAndStorageConfig(
 	c *gc.C,
 	manager container.Manager,
-	machineConfig *cloudinit.MachineConfig,
+	machineConfig *cloudinit.InstanceConfig,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
 ) instance.Instance {

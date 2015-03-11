@@ -19,7 +19,7 @@ import (
 // is needed for machine cloud-init (for non-state servers only). It
 // is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
-func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudinit.MachineConfig, error) {
+func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*cloudinit.InstanceConfig, error) {
 	environConfig, err := st.EnvironConfig()
 	if err != nil {
 		return nil, err

@@ -79,7 +79,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	}
 	machineConfig.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 	machineConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
-	maybeSetBridge := func(mcfg *cloudinit.MachineConfig) {
+	maybeSetBridge := func(mcfg *cloudinit.InstanceConfig) {
 		// If we need to override the default bridge name, do it now. When
 		// args.ContainerBridgeName is empty, the default names for LXC
 		// (lxcbr0) and KVM (virbr0) will be used.
@@ -95,17 +95,17 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
 	result, err := env.StartInstance(environs.StartInstanceParams{
-		Constraints:   args.Constraints,
-		Tools:         availableTools,
-		MachineConfig: machineConfig,
-		Placement:     args.Placement,
+		Constraints:    args.Constraints,
+		Tools:          availableTools,
+		InstanceConfig: machineConfig,
+		Placement:      args.Placement,
 	})
 	if err != nil {
 		return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
 	}
 	fmt.Fprintf(ctx.GetStderr(), " - %s\n", result.Instance.Id())
 
-	finalize := func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig) error {
+	finalize := func(ctx environs.BootstrapContext, mcfg *cloudinit.InstanceConfig) error {
 		mcfg.InstanceId = result.Instance.Id()
 		mcfg.HardwareCharacteristics = result.Hardware
 		if err := environs.FinishMachineConfig(mcfg, env.Config()); err != nil {
@@ -121,7 +121,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 // to the instance via SSH and carrying out the cloud-config.
 //
 // Note: FinishBootstrap is exposed so it can be replaced for testing.
-var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
+var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, machineConfig *cloudinit.InstanceConfig) error {
 	interrupted := make(chan os.Signal, 1)
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
@@ -157,7 +157,7 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 	return ConfigureMachine(ctx, client, addr, machineConfig)
 }
 
-func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host string, machineConfig *cloudinit.MachineConfig) error {
+func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host string, machineConfig *cloudinit.InstanceConfig) error {
 	// Bootstrap is synchronous, and will spawn a subprocess
 	// to complete the procedure. If the user hits Ctrl-C,
 	// SIGINT is sent to the foreground process attached to

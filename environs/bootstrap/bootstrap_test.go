@@ -293,7 +293,7 @@ type bootstrapEnviron struct {
 	finalizerCount              int
 	supportedArchitecturesCount int
 	args                        environs.BootstrapParams
-	machineConfig               *cloudinit.MachineConfig
+	machineConfig               *cloudinit.InstanceConfig
 	storage                     storage.Storage
 }
 
@@ -328,7 +328,7 @@ func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
 func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	e.bootstrapCount++
 	e.args = args
-	finalizer := func(_ environs.BootstrapContext, mcfg *cloudinit.MachineConfig) error {
+	finalizer := func(_ environs.BootstrapContext, mcfg *cloudinit.InstanceConfig) error {
 		e.finalizerCount++
 		e.machineConfig = mcfg
 		return nil

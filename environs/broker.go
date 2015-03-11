@@ -24,7 +24,7 @@ type StartInstanceParams struct {
 	Tools tools.List
 
 	// MachineConfig describes the machine's configuration.
-	MachineConfig *cloudinit.MachineConfig
+	InstanceConfig *cloudinit.InstanceConfig
 
 	// Placement, if non-empty, contains an environment-specific
 	// placement directive that may be used to decide how the

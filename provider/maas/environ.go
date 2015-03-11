@@ -816,7 +816,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		availabilityZones = []string{""}
 	}
 
-	requestedNetworks := args.MachineConfig.Networks
+	requestedNetworks := args.InstanceConfig.Networks
 	includeNetworks := append(args.Constraints.IncludeNetworks(), requestedNetworks...)
 	excludeNetworks := args.Constraints.ExcludeNetworks()
 
@@ -852,7 +852,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if err != nil {
 		return nil, err
 	}
-	args.MachineConfig.Tools = selectedTools[0]
+	args.InstanceConfig.Tools = selectedTools[0]
 
 	var networkInfo []network.InterfaceInfo
 	networkInfo, primaryIface, err := environ.setupNetworks(inst, set.NewStrings(excludeNetworks...))
@@ -864,16 +864,16 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if err != nil {
 		return nil, err
 	}
-	if err := environs.FinishMachineConfig(args.MachineConfig, environ.Config()); err != nil {
+	if err := environs.FinishMachineConfig(args.InstanceConfig, environ.Config()); err != nil {
 		return nil, err
 	}
-	series := args.MachineConfig.Tools.Version.Series
+	series := args.InstanceConfig.Tools.Version.Series
 
 	cloudcfg, err := environ.newCloudinitConfig(hostname, primaryIface, series)
 	if err != nil {
 		return nil, err
 	}
-	userdata, err := environs.ComposeUserData(args.MachineConfig, cloudcfg)
+	userdata, err := environs.ComposeUserData(args.InstanceConfig, cloudcfg)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
 		return nil, msg
@@ -885,7 +885,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	logger.Debugf("started instance %q", inst.Id())
 
-	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
 		if err := common.AddStateInstance(environ.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}

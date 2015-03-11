@@ -101,9 +101,9 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}}
 	result, err := s.broker.StartInstance(environs.StartInstanceParams{
-		Constraints:   cons,
-		Tools:         possibleTools,
-		MachineConfig: machineConfig,
+		Constraints:    cons,
+		Tools:          possibleTools,
+		InstanceConfig: machineConfig,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return result.Instance

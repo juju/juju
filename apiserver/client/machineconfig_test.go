@@ -45,7 +45,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 1)
 
 	machineId := machines[0].Machine
-	machineConfig, err := client.MachineConfig(s.State, machineId, apiParams.Nonce, "")
+	machineConfig, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	envConfig, err := s.State.EnvironConfig()
@@ -83,7 +83,7 @@ func (s *machineConfigSuite) TestSecureConnectionDisallowed(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 1)
 
 	machineId := machines[0].Machine
-	machineConfig, err := client.MachineConfig(s.State, machineId, apiParams.Nonce, "")
+	machineConfig, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineConfig.AgentEnvironment[agent.AllowsSecureConnection], gc.Equals, "false")
 }
@@ -97,7 +97,7 @@ func (s *machineConfigSuite) TestMachineConfigNoArch(c *gc.C) {
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 1)
-	_, err = client.MachineConfig(s.State, machines[0].Machine, apiParams.Nonce, "")
+	_, err = client.InstanceConfig(s.State, machines[0].Machine, apiParams.Nonce, "")
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("arch is not set for %q", "machine-"+machines[0].Machine))
 }
 
@@ -115,6 +115,6 @@ func (s *machineConfigSuite) TestMachineConfigNoTools(c *gc.C) {
 	}
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = client.MachineConfig(s.State, machines[0].Machine, apiParams.Nonce, "")
+	_, err = client.InstanceConfig(s.State, machines[0].Machine, apiParams.Nonce, "")
 	c.Assert(err, gc.ErrorMatches, coretools.ErrNoMatches.Error())
 }

@@ -91,7 +91,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		cons constraints.Value,
 		_ []string,
 		possibleTools tools.List,
-		mcfg *cloudinit.MachineConfig,
+		mcfg *cloudinit.InstanceConfig,
 	) (instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error) {
 		c.Assert(placement, gc.DeepEquals, checkPlacement)
 		c.Assert(cons, gc.DeepEquals, checkCons)
@@ -124,7 +124,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
 
 	startInstance := func(
-		_ string, _ constraints.Value, _ []string, _ tools.List, mcfg *cloudinit.MachineConfig,
+		_ string, _ constraints.Value, _ []string, _ tools.List, mcfg *cloudinit.InstanceConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 	) {

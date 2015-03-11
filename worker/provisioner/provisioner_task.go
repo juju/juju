@@ -447,7 +447,7 @@ func (task *provisionerTask) constructMachineConfig(
 	machine *apiprovisioner.Machine,
 	auth authentication.AuthenticationProvider,
 	pInfo *params.ProvisioningInfo,
-) (*cloudinit.MachineConfig, error) {
+) (*cloudinit.InstanceConfig, error) {
 
 	stateInfo, apiInfo, err := auth.SetupAuthentication(machine)
 	if err != nil {
@@ -477,7 +477,7 @@ func (task *provisionerTask) constructMachineConfig(
 
 func constructStartInstanceParams(
 	machine *apiprovisioner.Machine,
-	machineConfig *cloudinit.MachineConfig,
+	machineConfig *cloudinit.InstanceConfig,
 	provisioningInfo *params.ProvisioningInfo,
 	possibleTools coretools.List,
 ) (environs.StartInstanceParams, error) {
@@ -521,7 +521,7 @@ func constructStartInstanceParams(
 	return environs.StartInstanceParams{
 		Constraints:       provisioningInfo.Constraints,
 		Tools:             possibleTools,
-		MachineConfig:     machineConfig,
+		InstanceConfig:    machineConfig,
 		Placement:         provisioningInfo.Placement,
 		DistributionGroup: machine.DistributionGroup,
 		Volumes:           volumes,
@@ -634,7 +634,7 @@ func (task *provisionerTask) startMachine(
 
 	inst := result.Instance
 	hardware := result.Hardware
-	nonce := startInstanceParams.MachineConfig.MachineNonce
+	nonce := startInstanceParams.InstanceConfig.MachineNonce
 	networks, ifaces, err := task.prepareNetworkAndInterfaces(result.NetworkInfo)
 	if err != nil {
 		return task.setErrorStatus("cannot prepare network for machine %q: %v", machine, err)
@@ -667,15 +667,15 @@ func (task *provisionerTask) startMachine(
 }
 
 type provisioningInfo struct {
-	Constraints   constraints.Value
-	Series        string
-	Placement     string
-	MachineConfig *cloudinit.MachineConfig
+	Constraints    constraints.Value
+	Series         string
+	Placement      string
+	InstanceConfig *cloudinit.InstanceConfig
 }
 
 func assocProvInfoAndMachCfg(
 	provInfo *params.ProvisioningInfo,
-	machineConfig *cloudinit.MachineConfig,
+	machineConfig *cloudinit.InstanceConfig,
 ) *provisioningInfo {
 
 	machineConfig.Networks = provInfo.Networks
@@ -685,10 +685,10 @@ func assocProvInfoAndMachCfg(
 	}
 
 	return &provisioningInfo{
-		Constraints:   provInfo.Constraints,
-		Series:        provInfo.Series,
-		Placement:     provInfo.Placement,
-		MachineConfig: machineConfig,
+		Constraints:    provInfo.Constraints,
+		Series:         provInfo.Series,
+		Placement:      provInfo.Placement,
+		InstanceConfig: machineConfig,
 	}
 }
 

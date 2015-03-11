@@ -54,7 +54,7 @@ var normalMachineJobs = []multiwatcher.MachineJob{
 }
 
 type cloudinitTest struct {
-	cfg           cloudinit.MachineConfig
+	cfg           cloudinit.InstanceConfig
 	setEnvConfig  bool
 	expectScripts string
 	// inexactMatch signifies whether we allow extra lines
@@ -65,9 +65,9 @@ type cloudinitTest struct {
 	inexactMatch bool
 }
 
-func minimalMachineConfig(tweakers ...func(cloudinit.MachineConfig)) cloudinit.MachineConfig {
+func minimalMachineConfig(tweakers ...func(cloudinit.InstanceConfig)) cloudinit.InstanceConfig {
 
-	baseConfig := cloudinit.MachineConfig{
+	baseConfig := cloudinit.InstanceConfig{
 		MachineId:        "0",
 		AuthorizedKeys:   "sshkey1",
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
@@ -138,7 +138,7 @@ var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 var cloudinitTests = []cloudinitTest{
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg: minimalMachineConfig(func(mc cloudinit.MachineConfig) {
+		cfg: minimalMachineConfig(func(mc cloudinit.InstanceConfig) {
 			mc.EnableOSRefreshUpdate = false
 			mc.EnableOSUpgrade = false
 		}),
@@ -150,7 +150,7 @@ var cloudinitTests = []cloudinitTest{
 	},
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg: minimalMachineConfig(func(mc cloudinit.MachineConfig) {
+		cfg: minimalMachineConfig(func(mc cloudinit.InstanceConfig) {
 			mc.EnableOSRefreshUpdate = true
 			mc.EnableOSUpgrade = false
 		}),
@@ -162,7 +162,7 @@ var cloudinitTests = []cloudinitTest{
 	},
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg: minimalMachineConfig(func(mc cloudinit.MachineConfig) {
+		cfg: minimalMachineConfig(func(mc cloudinit.InstanceConfig) {
 			mc.EnableOSRefreshUpdate = false
 			mc.EnableOSUpgrade = true
 		}),
@@ -174,7 +174,7 @@ var cloudinitTests = []cloudinitTest{
 	},
 	{
 		// precise state server
-		cfg: cloudinit.MachineConfig{
+		cfg: cloudinit.InstanceConfig{
 			MachineId:        "0",
 			AuthorizedKeys:   "sshkey1",
 			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
@@ -238,7 +238,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
 `,
 	}, {
 		// raring state server - we just test the raring-specific parts of the output.
-		cfg: cloudinit.MachineConfig{
+		cfg: cloudinit.InstanceConfig{
 			MachineId:        "0",
 			AuthorizedKeys:   "sshkey1",
 			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
@@ -282,7 +282,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-raring-amd64\.sha256
 `,
 	}, {
 		// non state server.
-		cfg: cloudinit.MachineConfig{
+		cfg: cloudinit.InstanceConfig{
 			MachineId:          "99",
 			AuthorizedKeys:     "sshkey1",
 			AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
@@ -342,7 +342,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-quantal-amd64\.sha256
 `,
 	}, {
 		// check that it works ok with compound machine ids.
-		cfg: cloudinit.MachineConfig{
+		cfg: cloudinit.InstanceConfig{
 			MachineId:            "2/lxc/1",
 			MachineContainerType: "lxc",
 			AuthorizedKeys:       "sshkey1",
@@ -384,7 +384,7 @@ start jujud-machine-2-lxc-1
 `,
 	}, {
 		// hostname verification disabled.
-		cfg: cloudinit.MachineConfig{
+		cfg: cloudinit.InstanceConfig{
 			MachineId:          "99",
 			AuthorizedKeys:     "sshkey1",
 			AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
@@ -421,7 +421,7 @@ curl .* --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid
 `,
 	}, {
 		// empty contraints.
-		cfg: cloudinit.MachineConfig{
+		cfg: cloudinit.InstanceConfig{
 			MachineId:        "0",
 			AuthorizedKeys:   "sshkey1",
 			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
@@ -457,7 +457,7 @@ curl .* --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid
 `,
 	}, {
 		// custom image metadata.
-		cfg: cloudinit.MachineConfig{
+		cfg: cloudinit.InstanceConfig{
 			MachineId:        "0",
 			AuthorizedKeys:   "sshkey1",
 			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
@@ -815,28 +815,28 @@ func checkAptSource(c *gc.C, x map[interface{}]interface{}, source, key string, 
 // field named by the adjacent err.
 var verifyTests = []struct {
 	err    string
-	mutate func(*cloudinit.MachineConfig)
+	mutate func(*cloudinit.InstanceConfig)
 }{
-	{"invalid machine id", func(cfg *cloudinit.MachineConfig) {
+	{"invalid machine id", func(cfg *cloudinit.InstanceConfig) {
 		cfg.MachineId = "-1"
 	}},
-	{"missing environment configuration", func(cfg *cloudinit.MachineConfig) {
+	{"missing environment configuration", func(cfg *cloudinit.InstanceConfig) {
 		cfg.Config = nil
 	}},
-	{"missing state info", func(cfg *cloudinit.MachineConfig) {
+	{"missing state info", func(cfg *cloudinit.InstanceConfig) {
 		cfg.MongoInfo = nil
 	}},
-	{"missing API info", func(cfg *cloudinit.MachineConfig) {
+	{"missing API info", func(cfg *cloudinit.InstanceConfig) {
 		cfg.APIInfo = nil
 	}},
-	{"missing environment tag", func(cfg *cloudinit.MachineConfig) {
+	{"missing environment tag", func(cfg *cloudinit.InstanceConfig) {
 		cfg.APIInfo = &api.Info{
 			Addrs:  []string{"foo:35"},
 			Tag:    names.NewMachineTag("99"),
 			CACert: testing.CACert,
 		}
 	}},
-	{"missing state hosts", func(cfg *cloudinit.MachineConfig) {
+	{"missing state hosts", func(cfg *cloudinit.InstanceConfig) {
 		cfg.Bootstrap = false
 		cfg.MongoInfo = &mongo.MongoInfo{
 			Tag: names.NewMachineTag("99"),
@@ -851,7 +851,7 @@ var verifyTests = []struct {
 			EnvironTag: testing.EnvironmentTag,
 		}
 	}},
-	{"missing API hosts", func(cfg *cloudinit.MachineConfig) {
+	{"missing API hosts", func(cfg *cloudinit.InstanceConfig) {
 		cfg.Bootstrap = false
 		cfg.MongoInfo = &mongo.MongoInfo{
 			Info: mongo.Info{
@@ -866,10 +866,10 @@ var verifyTests = []struct {
 			EnvironTag: testing.EnvironmentTag,
 		}
 	}},
-	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
+	{"missing CA certificate", func(cfg *cloudinit.InstanceConfig) {
 		cfg.MongoInfo = &mongo.MongoInfo{Info: mongo.Info{Addrs: []string{"host:98765"}}}
 	}},
-	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
+	{"missing CA certificate", func(cfg *cloudinit.InstanceConfig) {
 		cfg.Bootstrap = false
 		cfg.MongoInfo = &mongo.MongoInfo{
 			Tag: names.NewMachineTag("99"),
@@ -878,90 +878,90 @@ var verifyTests = []struct {
 			},
 		}
 	}},
-	{"missing state server certificate", func(cfg *cloudinit.MachineConfig) {
+	{"missing state server certificate", func(cfg *cloudinit.InstanceConfig) {
 		info := *cfg.StateServingInfo
 		info.Cert = ""
 		cfg.StateServingInfo = &info
 	}},
-	{"missing state server private key", func(cfg *cloudinit.MachineConfig) {
+	{"missing state server private key", func(cfg *cloudinit.InstanceConfig) {
 		info := *cfg.StateServingInfo
 		info.PrivateKey = ""
 		cfg.StateServingInfo = &info
 	}},
-	{"missing ca cert private key", func(cfg *cloudinit.MachineConfig) {
+	{"missing ca cert private key", func(cfg *cloudinit.InstanceConfig) {
 		info := *cfg.StateServingInfo
 		info.CAPrivateKey = ""
 		cfg.StateServingInfo = &info
 	}},
-	{"missing state port", func(cfg *cloudinit.MachineConfig) {
+	{"missing state port", func(cfg *cloudinit.InstanceConfig) {
 		info := *cfg.StateServingInfo
 		info.StatePort = 0
 		cfg.StateServingInfo = &info
 	}},
-	{"missing API port", func(cfg *cloudinit.MachineConfig) {
+	{"missing API port", func(cfg *cloudinit.InstanceConfig) {
 		info := *cfg.StateServingInfo
 		info.APIPort = 0
 		cfg.StateServingInfo = &info
 	}},
-	{"missing var directory", func(cfg *cloudinit.MachineConfig) {
+	{"missing var directory", func(cfg *cloudinit.InstanceConfig) {
 		cfg.DataDir = ""
 	}},
-	{"missing log directory", func(cfg *cloudinit.MachineConfig) {
+	{"missing log directory", func(cfg *cloudinit.InstanceConfig) {
 		cfg.LogDir = ""
 	}},
-	{"missing cloud-init output log path", func(cfg *cloudinit.MachineConfig) {
+	{"missing cloud-init output log path", func(cfg *cloudinit.InstanceConfig) {
 		cfg.CloudInitOutputLog = ""
 	}},
-	{"missing tools", func(cfg *cloudinit.MachineConfig) {
+	{"missing tools", func(cfg *cloudinit.InstanceConfig) {
 		cfg.Tools = nil
 	}},
-	{"missing tools URL", func(cfg *cloudinit.MachineConfig) {
+	{"missing tools URL", func(cfg *cloudinit.InstanceConfig) {
 		cfg.Tools = &tools.Tools{}
 	}},
-	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must match started machine", func(cfg *cloudinit.InstanceConfig) {
 		cfg.Bootstrap = false
 		info := *cfg.MongoInfo
 		info.Tag = names.NewMachineTag("0")
 		cfg.MongoInfo = &info
 	}},
-	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must match started machine", func(cfg *cloudinit.InstanceConfig) {
 		cfg.Bootstrap = false
 		info := *cfg.MongoInfo
 		info.Tag = nil // admin user
 		cfg.MongoInfo = &info
 	}},
-	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must match started machine", func(cfg *cloudinit.InstanceConfig) {
 		cfg.Bootstrap = false
 		info := *cfg.APIInfo
 		info.Tag = names.NewMachineTag("0")
 		cfg.APIInfo = &info
 	}},
-	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must match started machine", func(cfg *cloudinit.InstanceConfig) {
 		cfg.Bootstrap = false
 		info := *cfg.APIInfo
 		info.Tag = nil
 		cfg.APIInfo = &info
 	}},
-	{"entity tag must be nil when starting a state server", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must be nil when starting a state server", func(cfg *cloudinit.InstanceConfig) {
 		info := *cfg.MongoInfo
 		info.Tag = names.NewMachineTag("0")
 		cfg.MongoInfo = &info
 	}},
-	{"entity tag must be nil when starting a state server", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must be nil when starting a state server", func(cfg *cloudinit.InstanceConfig) {
 		info := *cfg.APIInfo
 		info.Tag = names.NewMachineTag("0")
 		cfg.APIInfo = &info
 	}},
-	{"missing machine nonce", func(cfg *cloudinit.MachineConfig) {
+	{"missing machine nonce", func(cfg *cloudinit.InstanceConfig) {
 		cfg.MachineNonce = ""
 	}},
-	{"missing machine agent service name", func(cfg *cloudinit.MachineConfig) {
+	{"missing machine agent service name", func(cfg *cloudinit.InstanceConfig) {
 		cfg.MachineAgentServiceName = ""
 	}},
-	{"missing instance-id", func(cfg *cloudinit.MachineConfig) {
+	{"missing instance-id", func(cfg *cloudinit.InstanceConfig) {
 		cfg.InstanceId = ""
 	}},
-	{"state serving info unexpectedly present", func(cfg *cloudinit.MachineConfig) {
+	{"state serving info unexpectedly present", func(cfg *cloudinit.InstanceConfig) {
 		cfg.Bootstrap = false
 		apiInfo := *cfg.APIInfo
 		apiInfo.Tag = names.NewMachineTag("99")
@@ -975,7 +975,7 @@ var verifyTests = []struct {
 // TestCloudInitVerify checks that required fields are appropriately
 // checked for by NewCloudInit.
 func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
-	cfg := &cloudinit.MachineConfig{
+	cfg := &cloudinit.InstanceConfig{
 		Bootstrap:        true,
 		StateServingInfo: stateServingInfo,
 		MachineId:        "99",
@@ -1029,7 +1029,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 	}
 }
 
-func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config) *cloudinit.MachineConfig {
+func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config) *cloudinit.InstanceConfig {
 	machineId := "42"
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
@@ -1172,7 +1172,7 @@ JzPMDvZ0fYS30ukCIA1stlJxpFiCXQuFn0nG+jH4Q52FTv8xxBhrbLOFvHRRAiEA
 
 var windowsCloudinitTests = []cloudinitTest{
 	{
-		cfg: cloudinit.MachineConfig{
+		cfg: cloudinit.InstanceConfig{
 			MachineId:          "10",
 			AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
 			Tools:              newSimpleTools("1.2.3-win8-amd64"),
