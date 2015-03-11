@@ -169,7 +169,7 @@ func (s *Service) existsAndSame() (exists, same bool, conf []byte, err error) {
 func (s *Service) Running() (bool, error) {
 	cmd := exec.Command("status", "--system", s.Service.Name)
 	out, err := cmd.CombinedOutput()
-	logger.Tracef("Running out: %q", out)
+	logger.Tracef("Running \"status --system %s\": %q", s.Service.Name, out)
 	if err == nil {
 		return startedRE.Match(out), nil
 	}
