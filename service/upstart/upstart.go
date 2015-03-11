@@ -18,12 +18,15 @@ import (
 	"github.com/juju/juju/service/common"
 )
 
+// InitDir holds the default init directory name.
+var InitDir = "/etc/init"
+
 var servicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
 
 // ListServices returns the name of all installed services on the
 // local host.
-func ListServices(initDir string) ([]string, error) {
-	fis, err := ioutil.ReadDir(initDir)
+func ListServices() ([]string, error) {
+	fis, err := ioutil.ReadDir(InitDir)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -45,18 +48,12 @@ func ListCommand() string {
 
 var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
 
-// InitDir holds the default init directory name.
-var InitDir = "/etc/init"
-
 // Service provides visibility into and control over an upstart service.
 type Service struct {
 	common.Service
 }
 
 func NewService(name string, conf common.Conf) *Service {
-	if conf.InitDir == "" {
-		conf.InitDir = InitDir
-	}
 	return &Service{
 		Service: common.Service{
 			Name: name,
@@ -77,17 +74,13 @@ func (s Service) Conf() common.Conf {
 
 // confPath returns the path to the service's configuration file.
 func (s *Service) confPath() string {
-	return path.Join(s.Service.Conf.InitDir, s.Service.Name+".conf")
+	return path.Join(InitDir, s.Service.Name+".conf")
 }
 
 // Validate returns an error if the service is not adequately defined.
 func (s *Service) Validate() error {
 	if err := s.Service.Validate(); err != nil {
 		return errors.Trace(err)
-	}
-
-	if s.Service.Conf.InitDir == "" {
-		return errors.New("missing InitDir")
 	}
 
 	if s.Service.Conf.Transient {
@@ -97,8 +90,8 @@ func (s *Service) Validate() error {
 		if len(s.Service.Conf.Limit) > 0 {
 			return errors.NotSupportedf("Conf.Limit (when transient)")
 		}
-		if s.Service.Conf.Output != "" {
-			return errors.NotSupportedf("Conf.Output (when transient)")
+		if s.Service.Conf.Logfile != "" {
+			return errors.NotSupportedf("Conf.Logfile (when transient)")
 		}
 		if s.Service.Conf.ExtraScript != "" {
 			return errors.NotSupportedf("Conf.ExtraScript (when transient)")
@@ -129,22 +122,28 @@ func (s *Service) render() ([]byte, error) {
 
 // Installed returns whether the service configuration exists in the
 // init directory.
-func (s *Service) Installed() bool {
+func (s *Service) Installed() (bool, error) {
 	_, err := os.Stat(s.confPath())
-	return err == nil
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return true, nil
 }
 
 // Exists returns whether the service configuration exists in the
 // init directory with the same content that this Service would have
 // if installed.
-func (s *Service) Exists() bool {
+func (s *Service) Exists() (bool, error) {
 	// In any error case, we just say it doesn't exist with this configuration.
 	// Subsequent calls into the Service will give the caller more useful errors.
 	_, same, _, err := s.existsAndSame()
 	if err != nil {
-		return false
+		return false, errors.Trace(err)
 	}
-	return same
+	return same, nil
 }
 
 func (s *Service) existsAndSame() (exists, same bool, conf []byte, err error) {
@@ -164,24 +163,32 @@ func (s *Service) existsAndSame() (exists, same bool, conf []byte, err error) {
 }
 
 // Running returns true if the Service appears to be running.
-func (s *Service) Running() bool {
+func (s *Service) Running() (bool, error) {
 	cmd := exec.Command("status", "--system", s.Service.Name)
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return false
+	if err == nil {
+		return startedRE.Match(out), nil
 	}
-	return startedRE.Match(out)
+	if err.Error() != "exit status 1" {
+		return false, errors.Trace(err)
+	}
+	return false, nil
 }
 
 // Start starts the service.
 func (s *Service) Start() error {
-	if s.Running() {
+	running, err := s.Running()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if running {
 		return nil
 	}
-	err := runCommand("start", "--system", s.Service.Name)
+	err = runCommand("start", "--system", s.Service.Name)
 	if err != nil {
 		// Double check to see if we were started before our command ran.
-		if s.Running() {
+		// If this fails then we simply trust it's okay.
+		if running, _ := s.Running(); running {
 			return nil
 		}
 	}
@@ -202,27 +209,28 @@ func runCommand(args ...string) error {
 
 // Stop stops the service.
 func (s *Service) Stop() error {
-	if !s.Running() {
+	running, err := s.Running()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !running {
 		return nil
 	}
 	return runCommand("stop", "--system", s.Service.Name)
 }
 
-// StopAndRemove stops the service and then deletes the service
-// configuration from the init directory.
-func (s *Service) StopAndRemove() error {
-	if !s.Installed() {
-		return nil
-	}
-	if err := s.Stop(); err != nil {
-		return err
-	}
-	return os.Remove(s.confPath())
+// Restart restarts the service.
+func (s *Service) Restart() error {
+	return runCommand("restart", s.Service.Name)
 }
 
 // Remove deletes the service configuration from the init directory.
 func (s *Service) Remove() error {
-	if !s.Installed() {
+	installed, err := s.Installed()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !installed {
 		return nil
 	}
 	return os.Remove(s.confPath())
@@ -238,10 +246,12 @@ func (s *Service) Install() error {
 		return nil
 	}
 	if exists {
-		if err := s.StopAndRemove(); err != nil {
+		if err := s.Stop(); err != nil {
+			return errors.Annotate(err, "upstart: could not stop installed service")
+		}
+		if err := s.Remove(); err != nil {
 			return errors.Annotate(err, "upstart: could not remove installed service")
 		}
-
 	}
 	if err := ioutil.WriteFile(s.confPath(), conf, 0644); err != nil {
 		return errors.Trace(err)
@@ -296,17 +306,17 @@ respawn
 normal exit 0
 {{range $k, $v := .Env}}env {{$k}}={{$v|printf "%q"}}
 {{end}}
-{{range $k, $v := .Limit}}limit {{$k}} {{$v}}
+{{range $k, $v := .Limit}}limit {{$k}} {{$v}} {{$v}}
 {{end}}
 script
 {{if .ExtraScript}}{{.ExtraScript}}{{end}}
-{{if .Output}}
+{{if .Logfile}}
   # Ensure log files are properly protected
-  touch {{.Output}}
-  chown syslog:syslog {{.Output}}
-  chmod 0600 {{.Output}}
+  touch {{.Logfile}}
+  chown syslog:syslog {{.Logfile}}
+  chmod 0600 {{.Logfile}}
 {{end}}
-  exec {{.ExecStart}}{{if .Output}} >> {{.Output}} 2>&1{{end}}
+  exec {{.ExecStart}}{{if .Logfile}} >> {{.Logfile}} 2>&1{{end}}
 end script
 `[1:]))
 

@@ -47,11 +47,6 @@ type StorageInstance interface {
 
 	// Life reports whether the storage instance is Alive, Dying or Dead.
 	Life() Life
-
-	// Info returns the storage instance's StorageInstanceInfo, or a
-	// NotProvisioned error if the storage instance has not yet been
-	// provisioned.
-	Info() (StorageInstanceInfo, error)
 }
 
 // StorageAttachment represents the state of a unit's attachment to a storage
@@ -68,11 +63,6 @@ type StorageAttachment interface {
 
 	// Life reports whether the storage attachment is Alive, Dying or Dead.
 	Life() Life
-
-	// Info returns the storage attachments's StorageAttachmentInfo, or
-	// a NotProvisioned error if the storage attachment has not yet been
-	// made.
-	Info() (StorageAttachmentInfo, error)
 }
 
 // StorageKind defines the type of a store: whether it is a block device
@@ -120,13 +110,6 @@ func (s *storageInstance) Life() Life {
 	return s.doc.Life
 }
 
-func (s *storageInstance) Info() (StorageInstanceInfo, error) {
-	if s.doc.Info == nil {
-		return StorageInstanceInfo{}, errors.NotProvisionedf("storage instance %q", s.doc.Id)
-	}
-	return *s.doc.Info, nil
-}
-
 // storageInstanceDoc describes a charm storage instance.
 type storageInstanceDoc struct {
 	DocID   string `bson:"_id"`
@@ -137,16 +120,7 @@ type storageInstanceDoc struct {
 	Life            Life        `bson:"life"`
 	Owner           string      `bson:"owner"`
 	StorageName     string      `bson:"storagename"`
-	BlockDevices    []string    `bson:"blockdevices,omitempty"`
 	AttachmentCount int         `bson:"attachmentcount"`
-
-	Info *StorageInstanceInfo `bson:"info,omitempty"`
-}
-
-// StorageInstanceInfo records information about the storage instance,
-// such as the provisioned size.
-type StorageInstanceInfo struct {
-	Size uint64 `bson:"size"`
 }
 
 type storageAttachment struct {
@@ -165,15 +139,6 @@ func (s *storageAttachment) Life() Life {
 	return s.doc.Life
 }
 
-func (s *storageAttachment) Info() (StorageAttachmentInfo, error) {
-	if s.doc.Info == nil {
-		return StorageAttachmentInfo{}, errors.NotProvisionedf(
-			"storage %q on unit %q", s.doc.StorageInstance, s.doc.Unit,
-		)
-	}
-	return *s.doc.Info, nil
-}
-
 // storageAttachmentDoc describes a unit's attachment to a charm storage
 // instance.
 type storageAttachmentDoc struct {
@@ -183,20 +148,6 @@ type storageAttachmentDoc struct {
 	Unit            string `bson:"unitid"`
 	StorageInstance string `bson:"storageid"`
 	Life            Life   `bson:"life"`
-
-	Info *StorageAttachmentInfo `bson:"info"`
-}
-
-// StorageAttachmentInfo describes unit-specific information about the
-// storage attachment, such as the location where a filesystem is mounted
-// path to a block device.
-type StorageAttachmentInfo struct {
-	// Location is the location of the storage instance,
-	// e.g. the mount point.
-	Location string `bson:"location"`
-
-	// ReadOnly reports whether the attachment is read-only.
-	ReadOnly bool `bson:"read-only"`
 }
 
 // newStorageInstanceId returns a unique storage instance name. The name
@@ -597,20 +548,6 @@ func removeStorageAttachmentOps(s *storageAttachment, si *storageInstance) ([]tx
 	}
 	ops = append(ops, decrefOp)
 	return ops, nil
-}
-
-// SetStorageAttachmentInfo sets the storage attachment information for the
-// storage attachment relating to the specified storage instance and unit.
-func (st *State) SetStorageAttachmentInfo(
-	storage names.StorageTag, unit names.UnitTag, info StorageAttachmentInfo,
-) error {
-	ops := []txn.Op{{
-		C:      storageAttachmentsC,
-		Id:     storageAttachmentId(unit.Id(), storage.Id()),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"info", &info}}}},
-	}}
-	return st.runTransaction(ops)
 }
 
 // removeStorageInstancesOps returns the transaction operations to remove all

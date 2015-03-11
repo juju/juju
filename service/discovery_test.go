@@ -4,13 +4,16 @@
 package service_test
 
 import (
+	"os"
 	"runtime"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
@@ -19,11 +22,20 @@ import (
 	"github.com/juju/juju/version"
 )
 
+var maybeSystemd = service.InitSystemSystemd
+
+func init() {
+	if featureflag.Enabled(feature.LegacyUpstart) {
+		maybeSystemd = service.InitSystemUpstart
+	}
+}
+
 const unknownExecutable = "/sbin/unknown/init/system"
 
 type discoveryTest struct {
 	os       version.OSType
 	series   string
+	exec     string
 	expected string
 }
 
@@ -44,6 +56,10 @@ func (dt discoveryTest) goos() string {
 }
 
 func (dt discoveryTest) executable(c *gc.C) string {
+	if dt.exec != "" {
+		return dt.exec
+	}
+
 	switch dt.expected {
 	case service.InitSystemUpstart:
 		return "/sbin/upstart"
@@ -59,25 +75,30 @@ func (dt discoveryTest) executable(c *gc.C) string {
 	}
 }
 
+func (dt discoveryTest) log(c *gc.C) {
+	c.Logf("testing {%q, %q, %q}...", dt.os, dt.series, dt.exec)
+}
+
 func (dt discoveryTest) disableLocalDiscovery(c *gc.C, s *discoverySuite) {
-	service.PatchGOOS(s, "<another OS>")
-	service.PatchPid1File(c, s, unknownExecutable)
+	s.PatchGOOS("<another OS>")
+	s.PatchPid1File(c, unknownExecutable, "")
 }
 
 func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
-	service.PatchVersion(s, version.Binary{
+	s.PatchVersion(version.Binary{
 		OS: version.Unknown,
 	})
 }
 
-func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) {
-	service.PatchGOOS(s, dt.goos())
-	service.PatchPid1File(c, s, dt.executable(c))
+func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) string {
+	s.PatchGOOS(dt.goos())
+	verText := "..." + dt.expected + "..."
+	return s.PatchPid1File(c, dt.executable(c), verText)
 }
 
 func (dt discoveryTest) setVersion(s *discoverySuite) version.Binary {
 	vers := dt.version()
-	service.PatchVersion(s, vers)
+	s.PatchVersion(vers)
 	return vers
 }
 
@@ -93,9 +114,6 @@ func (dt discoveryTest) checkService(c *gc.C, svc service.Service, err error, na
 	}
 	switch dt.expected {
 	case service.InitSystemUpstart:
-		if conf.InitDir == "" {
-			conf.InitDir = "/etc/init"
-		}
 		c.Check(svc, gc.FitsTypeOf, &upstart.Service{})
 	case service.InitSystemSystemd:
 		c.Check(svc, gc.FitsTypeOf, &systemd.Service{})
@@ -142,7 +160,7 @@ var discoveryTests = []discoveryTest{{
 }, {
 	os:       version.Ubuntu,
 	series:   "vivid",
-	expected: service.InitSystemSystemd,
+	expected: maybeSystemd,
 }, {
 	os:       version.CentOS,
 	expected: "",
@@ -152,7 +170,7 @@ var discoveryTests = []discoveryTest{{
 }}
 
 type discoverySuite struct {
-	testing.IsolationSuite
+	service.BaseSuite
 
 	name string
 	conf common.Conf
@@ -161,13 +179,25 @@ type discoverySuite struct {
 var _ = gc.Suite(&discoverySuite{})
 
 func (s *discoverySuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 
 	s.name = "a-service"
 	s.conf = common.Conf{
 		Desc:      "some service",
 		ExecStart: "/path/to/some-command",
 	}
+}
+
+func (s *discoverySuite) unsetLegacyUpstart(c *gc.C) {
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, "")
+	c.Assert(err, jc.ErrorIsNil)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+}
+
+func (s *discoverySuite) setLegacyUpstart(c *gc.C) {
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LegacyUpstart)
+	c.Assert(err, jc.ErrorIsNil)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *discoverySuite) TestDiscoverServiceLocalHost(c *gc.C) {
@@ -196,9 +226,25 @@ func (s *discoverySuite) TestDiscoverServiceLocalHost(c *gc.C) {
 	test.checkService(c, svc, err, s.name, s.conf)
 }
 
-func (s *discoverySuite) TestDiscoverServiceVersionLocal(c *gc.C) {
+func (s *discoverySuite) TestDiscoverServiceGeneric(c *gc.C) {
+	test := discoveryTest{
+		os:       version.Ubuntu,
+		series:   "trusty",
+		exec:     "/sbin/init",
+		expected: service.InitSystemUpstart,
+	}
+
+	test.setLocal(c, s)
+	test.disableVersionDiscovery(s)
+
+	svc, err := service.DiscoverService(s.name, s.conf)
+
+	test.checkService(c, svc, err, s.name, s.conf)
+}
+
+func (s *discoverySuite) TestDiscoverServiceLocalOnly(c *gc.C) {
 	for _, test := range discoveryTests {
-		c.Logf("testing {%q, %q}...", test.os, test.series)
+		test.log(c)
 
 		test.setLocal(c, s)
 		test.disableVersionDiscovery(s)
@@ -211,7 +257,7 @@ func (s *discoverySuite) TestDiscoverServiceVersionLocal(c *gc.C) {
 
 func (s *discoverySuite) TestDiscoverServiceVersionFallback(c *gc.C) {
 	for _, test := range discoveryTests {
-		c.Logf("testing {%q, %q}...", test.os, test.series)
+		test.log(c)
 
 		test.disableLocalDiscovery(c, s)
 		test.setVersion(s)
@@ -224,7 +270,7 @@ func (s *discoverySuite) TestDiscoverServiceVersionFallback(c *gc.C) {
 
 func (s *discoverySuite) TestVersionInitSystem(c *gc.C) {
 	for _, test := range discoveryTests {
-		c.Logf("testing {%q, %q}...", test.os, test.series)
+		test.log(c)
 
 		vers := test.setVersion(s)
 
@@ -232,4 +278,32 @@ func (s *discoverySuite) TestVersionInitSystem(c *gc.C) {
 
 		test.checkInitSystem(c, initSystem, ok)
 	}
+}
+
+func (s *discoverySuite) TestVersionInitSystemLegacyUpstart(c *gc.C) {
+	s.setLegacyUpstart(c)
+	test := discoveryTest{
+		os:       version.Ubuntu,
+		series:   "vivid",
+		expected: service.InitSystemUpstart,
+	}
+	vers := test.setVersion(s)
+
+	initSystem, ok := service.VersionInitSystem(vers)
+
+	test.checkInitSystem(c, initSystem, ok)
+}
+
+func (s *discoverySuite) TestVersionInitSystemNoLegacyUpstart(c *gc.C) {
+	s.unsetLegacyUpstart(c)
+	test := discoveryTest{
+		os:       version.Ubuntu,
+		series:   "vivid",
+		expected: service.InitSystemSystemd,
+	}
+	vers := test.setVersion(s)
+
+	initSystem, ok := service.VersionInitSystem(vers)
+
+	test.checkInitSystem(c, initSystem, ok)
 }

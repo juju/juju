@@ -6,11 +6,14 @@ package action
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/apiserver/params"
 )
+
+var logger = loggo.GetLogger("juju.cmd.juju.action")
 
 // conform ensures all keys of any nested maps are strings.  This is
 // necessary because YAML unmarshals map[interface{}]interface{} in nested
@@ -95,30 +98,44 @@ func displayActionResult(result params.ActionResult, ctx *cmd.Context, out cmd.O
 	return nil
 }
 
-// getActionTagFromPrefix uses the APIClient to get an ActionTag from a prefix.
-func getActionTagFromPrefix(api APIClient, prefix string) (names.ActionTag, error) {
-	tag := names.ActionTag{}
+// getActionTagByPrefix uses the APIClient to get all ActionTags matching a prefix.
+func getActionTagsByPrefix(api APIClient, prefix string) ([]names.ActionTag, error) {
+	results := []names.ActionTag{}
+
 	tags, err := api.FindActionTagsByPrefix(params.FindTags{Prefixes: []string{prefix}})
+	if err != nil {
+		return results, err
+	}
+
+	matches, ok := tags.Matches[prefix]
+	if !ok || len(matches) < 1 {
+		return results, nil
+	}
+
+	results, rejects := getActionTags(matches)
+	if len(rejects) > 0 {
+		logger.Errorf("FindActionTagsByPrefix for prefix %q found invalid tags %v", prefix, rejects)
+	}
+	return results, nil
+}
+
+// getActionTagByPrefix uses the APIClient to get an ActionTag from a prefix.
+func getActionTagByPrefix(api APIClient, prefix string) (names.ActionTag, error) {
+	tag := names.ActionTag{}
+	actiontags, err := getActionTagsByPrefix(api, prefix)
 	if err != nil {
 		return tag, err
 	}
 
-	results, ok := tags.Matches[prefix]
-	if !ok || len(results) < 1 {
+	if len(actiontags) < 1 {
 		return tag, errors.Errorf("actions for identifier %q not found", prefix)
-	}
-
-	actiontags, rejects := getActionTags(results)
-	if len(rejects) > 0 {
-		return tag, errors.Errorf("identifier %q got unrecognized entity tags %v", prefix, rejects)
 	}
 
 	if len(actiontags) > 1 {
 		return tag, errors.Errorf("identifier %q matched multiple actions %v", prefix, actiontags)
 	}
 
-	tag = actiontags[0]
-	return tag, nil
+	return actiontags[0], nil
 }
 
 // getActionTags converts a slice of params.Entity to a slice of names.ActionTag, and

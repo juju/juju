@@ -20,7 +20,7 @@ type serviceInfo interface {
 
 // FakeServiceData holds the results of Service method calls.
 type FakeServiceData struct {
-	testing.Stub
+	*testing.Stub
 
 	// Installed is the list of all services that were installed.
 	Installed []serviceInfo
@@ -47,6 +47,7 @@ type FakeServiceData struct {
 // NewFakeServiceData returns a new FakeServiceData.
 func NewFakeServiceData() *FakeServiceData {
 	return &FakeServiceData{
+		Stub:           &testing.Stub{},
 		ManagedNames:   set.NewStrings(),
 		InstalledNames: set.NewStrings(),
 		RunningNames:   set.NewStrings(),
@@ -129,13 +130,10 @@ func (ss *FakeService) UpdateConfig(conf common.Conf) {
 }
 
 // Running implements Service.
-func (ss *FakeService) Running() bool {
+func (ss *FakeService) Running() (bool, error) {
 	ss.AddCall("Running")
 
-	if ss.NextErr() != nil {
-		return false
-	}
-	return ss.running()
+	return ss.running(), ss.NextErr()
 }
 
 func (ss *FakeService) running() bool {
@@ -163,22 +161,11 @@ func (ss *FakeService) Stop() error {
 	return ss.NextErr()
 }
 
-// StopAndRemove implements Service.
-func (ss *FakeService) StopAndRemove() error {
-	if err := ss.Stop(); err != nil {
-		return err
-	}
-	return ss.Remove()
-}
-
 // Exists implements Service.
-func (ss *FakeService) Exists() bool {
+func (ss *FakeService) Exists() (bool, error) {
 	ss.AddCall("Exists")
 
-	if ss.NextErr() != nil {
-		return false
-	}
-	return ss.managed()
+	return ss.managed(), ss.NextErr()
 }
 
 func (ss *FakeService) managed() bool {
@@ -186,13 +173,10 @@ func (ss *FakeService) managed() bool {
 }
 
 // Installed implements Service.
-func (ss *FakeService) Installed() bool {
+func (ss *FakeService) Installed() (bool, error) {
 	ss.AddCall("Installed")
 
-	if ss.NextErr() != nil {
-		return false
-	}
-	return ss.installed()
+	return ss.installed(), ss.NextErr()
 }
 
 func (ss *FakeService) installed() bool {

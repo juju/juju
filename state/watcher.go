@@ -1308,9 +1308,18 @@ func (st *State) WatchAPIHostPorts() NotifyWatcher {
 	return newEntityWatcher(st, stateServersC, apiHostPortsKey)
 }
 
-func (st *State) WatchStorageAttachment(storage names.StorageTag, unit names.UnitTag) NotifyWatcher {
-	docID := st.docID(storageAttachmentId(unit.Id(), storage.Id()))
-	return newEntityWatcher(st, storageAttachmentsC, docID)
+// WatchVolumeAttachment returns a watcher for observing changes
+// to a volume attachment.
+func (st *State) WatchVolumeAttachment(m names.MachineTag, v names.VolumeTag) NotifyWatcher {
+	id := volumeAttachmentId(m.Id(), v.Id())
+	return newEntityWatcher(st, volumeAttachmentsC, st.docID(id))
+}
+
+// WatchFilesystemAttachment returns a watcher for observing changes
+// to a filesystem attachment.
+func (st *State) WatchFilesystemAttachment(m names.MachineTag, f names.FilesystemTag) NotifyWatcher {
+	id := filesystemAttachmentId(m.Id(), f.Id())
+	return newEntityWatcher(st, filesystemAttachmentsC, st.docID(id))
 }
 
 // WatchConfigSettings returns a watcher for observing changes to the

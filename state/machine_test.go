@@ -918,7 +918,7 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 
 	invalidVolumes := map[names.VolumeTag]state.VolumeInfo{names.NewVolumeTag("1065"): state.VolumeInfo{}}
 	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidVolumes, nil)
-	c.Assert(err, gc.ErrorMatches, "cannot set provisioned volume info: already provisioned")
+	c.Assert(err, gc.ErrorMatches, `cannot set info for volume \"1065\": volume \"1065\" not found`)
 	assertNotProvisioned()
 
 	// TODO(axw) test invalid volume attachment

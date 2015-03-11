@@ -7,32 +7,17 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
+	"github.com/juju/juju/state/testing"
 )
 
 type FilesystemStateSuite struct {
-	ConnSuite
+	StorageStateSuiteBase
 }
 
 var _ = gc.Suite(&FilesystemStateSuite{})
-
-func (s *FilesystemStateSuite) SetUpTest(c *gc.C) {
-	s.ConnSuite.SetUpTest(c)
-
-	// This suite is all about storage, so enable the feature by default.
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	registry.RegisterEnvironStorageProviders(
-		"someprovider", provider.LoopProviderType, provider.RootfsProviderType,
-	)
-}
 
 func (s *FilesystemStateSuite) TestAddServiceInvalidPool(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-filesystem")
@@ -122,4 +107,102 @@ func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withV
 
 	_, err = s.State.FilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *FilesystemStateSuite) TestWatchFilesystemAttachment(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	assignedMachineId, err := u.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machineTag := names.NewMachineTag(assignedMachineId)
+
+	filesystem, err := s.State.StorageInstanceFilesystem(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	filesystemTag := filesystem.FilesystemTag()
+
+	w := s.State.WatchFilesystemAttachment(machineTag, filesystemTag)
+	defer testing.AssertStop(c, w)
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	err = s.State.SetFilesystemAttachmentInfo(
+		machineTag, filesystemTag, state.FilesystemAttachmentInfo{
+			MountPoint: "/srv",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// filesystem attachment will NOT react to filesystem changes
+	err = s.State.SetFilesystemInfo(filesystemTag, state.FilesystemInfo{
+		FilesystemId: "fs-123",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+}
+
+func (s *FilesystemStateSuite) TestFilesystemInfo(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	assignedMachineId, err := u.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machineTag := names.NewMachineTag(assignedMachineId)
+
+	filesystem, err := s.State.StorageInstanceFilesystem(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	filesystemTag := filesystem.FilesystemTag()
+
+	s.assertFilesystemUnprovisioned(c, filesystemTag)
+	s.assertFilesystemAttachmentUnprovisioned(c, machineTag, filesystemTag)
+
+	filesystemInfo := state.FilesystemInfo{FilesystemId: "fs-123", Size: 456}
+	err = s.State.SetFilesystemInfo(filesystemTag, filesystemInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertFilesystemInfo(c, filesystemTag, filesystemInfo)
+	s.assertFilesystemAttachmentUnprovisioned(c, machineTag, filesystemTag)
+
+	filesystemAttachmentInfo := state.FilesystemAttachmentInfo{MountPoint: "/srv"}
+	err = s.State.SetFilesystemAttachmentInfo(machineTag, filesystemTag, filesystemAttachmentInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertFilesystemAttachmentInfo(c, machineTag, filesystemTag, filesystemAttachmentInfo)
+}
+
+func (s *FilesystemStateSuite) assertFilesystemUnprovisioned(c *gc.C, tag names.FilesystemTag) {
+	filesystem, err := s.State.Filesystem(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = filesystem.Info()
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	_, ok := filesystem.Params()
+	c.Assert(ok, jc.IsTrue)
+}
+
+func (s *FilesystemStateSuite) assertFilesystemInfo(c *gc.C, tag names.FilesystemTag, expect state.FilesystemInfo) {
+	filesystem, err := s.State.Filesystem(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	info, err := filesystem.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, expect)
+	_, ok := filesystem.Params()
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *FilesystemStateSuite) assertFilesystemAttachmentUnprovisioned(c *gc.C, m names.MachineTag, f names.FilesystemTag) {
+	filesystemAttachment, err := s.State.FilesystemAttachment(m, f)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = filesystemAttachment.Info()
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	_, ok := filesystemAttachment.Params()
+	c.Assert(ok, jc.IsTrue)
+}
+
+func (s *FilesystemStateSuite) assertFilesystemAttachmentInfo(c *gc.C, m names.MachineTag, f names.FilesystemTag, expect state.FilesystemAttachmentInfo) {
+	filesystemAttachment, err := s.State.FilesystemAttachment(m, f)
+	c.Assert(err, jc.ErrorIsNil)
+	info, err := filesystemAttachment.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, expect)
+	_, ok := filesystemAttachment.Params()
+	c.Assert(ok, jc.IsFalse)
 }

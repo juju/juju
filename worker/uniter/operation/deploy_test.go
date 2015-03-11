@@ -30,7 +30,7 @@ func (s *DeploySuite) testPrepareAlreadyDone(
 	callbacks := &DeployCallbacks{
 		MockClearResolvedFlag: &MockNoArgs{},
 	}
-	factory := operation.NewFactory(nil, nil, callbacks, nil)
+	factory := operation.NewFactory(nil, nil, callbacks, nil, nil)
 	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Prepare(operation.State{
@@ -79,7 +79,7 @@ func (s *DeploySuite) testClearResolvedFlagError(c *gc.C, newDeploy newDeploy) {
 	callbacks := &DeployCallbacks{
 		MockClearResolvedFlag: &MockNoArgs{err: errors.New("blort")},
 	}
-	factory := operation.NewFactory(nil, nil, callbacks, nil)
+	factory := operation.NewFactory(nil, nil, callbacks, nil, nil)
 	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Prepare(operation.State{})
@@ -109,7 +109,7 @@ func (s *DeploySuite) testNotifyDeployerError(
 	} else {
 		deployer.MockNotifyResolved = expectCall
 	}
-	factory := operation.NewFactory(deployer, nil, callbacks, nil)
+	factory := operation.NewFactory(deployer, nil, callbacks, nil, nil)
 	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -136,7 +136,7 @@ func (s *DeploySuite) testPrepareArchiveInfoError(c *gc.C, newDeploy newDeploy) 
 		MockNotifyRevert:   &MockNoArgs{},
 		MockNotifyResolved: &MockNoArgs{},
 	}
-	factory := operation.NewFactory(deployer, nil, callbacks, nil)
+	factory := operation.NewFactory(deployer, nil, callbacks, nil, nil)
 	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -173,7 +173,7 @@ func (s *DeploySuite) testPrepareStageError(c *gc.C, newDeploy newDeploy) {
 		MockStage:          &MockStage{err: errors.New("squish")},
 	}
 	var abort <-chan struct{} = make(chan struct{})
-	factory := operation.NewFactory(deployer, nil, callbacks, abort)
+	factory := operation.NewFactory(deployer, nil, callbacks, nil, abort)
 	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -211,7 +211,7 @@ func (s *DeploySuite) testPrepareSetCharmError(c *gc.C, newDeploy newDeploy) {
 		MockNotifyResolved: &MockNoArgs{},
 		MockStage:          &MockStage{},
 	}
-	factory := operation.NewFactory(deployer, nil, callbacks, nil)
+	factory := operation.NewFactory(deployer, nil, callbacks, nil, nil)
 	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -244,7 +244,7 @@ func (s *DeploySuite) testPrepareSuccess(c *gc.C, newDeploy newDeploy, before, a
 		MockNotifyResolved: &MockNoArgs{},
 		MockStage:          &MockStage{},
 	}
-	factory := operation.NewFactory(deployer, nil, callbacks, nil)
+	factory := operation.NewFactory(deployer, nil, callbacks, nil, nil)
 	op, err := newDeploy(factory, curl("cs:quantal/nyancat-4"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -360,7 +360,7 @@ func (s *DeploySuite) testExecuteConflictError(c *gc.C, newDeploy newDeploy) {
 		MockStage:          &MockStage{},
 		MockDeploy:         &MockNoArgs{err: charm.ErrConflict},
 	}
-	factory := operation.NewFactory(deployer, nil, callbacks, nil)
+	factory := operation.NewFactory(deployer, nil, callbacks, nil, nil)
 	charmURL := curl("cs:quantal/nyancat-4")
 	op, err := newDeploy(factory, charmURL)
 	c.Assert(err, jc.ErrorIsNil)
@@ -400,7 +400,7 @@ func (s *DeploySuite) testExecuteError(c *gc.C, newDeploy newDeploy) {
 		MockStage:          &MockStage{},
 		MockDeploy:         &MockNoArgs{err: errors.New("rasp")},
 	}
-	factory := operation.NewFactory(deployer, nil, callbacks, nil)
+	factory := operation.NewFactory(deployer, nil, callbacks, nil, nil)
 	op, err := newDeploy(factory, curl("cs:quantal/nyancat-4"))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Prepare(operation.State{})
@@ -433,7 +433,7 @@ func (s *DeploySuite) testExecuteSuccess(
 ) {
 	deployer := NewMockDeployer()
 	callbacks := NewDeployCallbacks()
-	factory := operation.NewFactory(deployer, nil, callbacks, nil)
+	factory := operation.NewFactory(deployer, nil, callbacks, nil, nil)
 	op, err := newDeploy(factory, curl("cs:quantal/lol-1"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -547,7 +547,7 @@ func (s *DeploySuite) TestExecuteSuccess_Upgrade_PreserveNoHook(c *gc.C) {
 
 func (s *DeploySuite) testCommitMetricsError(c *gc.C, newDeploy newDeploy) {
 	callbacks := NewDeployCommitCallbacks(errors.New("glukh"))
-	factory := operation.NewFactory(nil, nil, callbacks, nil)
+	factory := operation.NewFactory(nil, nil, callbacks, nil, nil)
 	op, err := newDeploy(factory, curl("cs:quantal/x-0"))
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Commit(operation.State{})
@@ -573,7 +573,7 @@ func (s *DeploySuite) TestCommitMetricsError_ResolvedUpgrade(c *gc.C) {
 
 func (s *DeploySuite) TestCommitQueueInstallHook(c *gc.C) {
 	callbacks := NewDeployCommitCallbacks(nil)
-	factory := operation.NewFactory(nil, nil, callbacks, nil)
+	factory := operation.NewFactory(nil, nil, callbacks, nil, nil)
 	op, err := factory.NewInstall(curl("cs:quantal/x-0"))
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Commit(operation.State{
@@ -591,7 +591,7 @@ func (s *DeploySuite) TestCommitQueueInstallHook(c *gc.C) {
 
 func (s *DeploySuite) testCommitQueueUpgradeHook(c *gc.C, newDeploy newDeploy) {
 	callbacks := NewDeployCommitCallbacks(nil)
-	factory := operation.NewFactory(nil, nil, callbacks, nil)
+	factory := operation.NewFactory(nil, nil, callbacks, nil, nil)
 	op, err := newDeploy(factory, curl("cs:quantal/x-0"))
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Commit(operation.State{
@@ -621,7 +621,7 @@ func (s *DeploySuite) TestCommitQueueUpgradeHook_ResolvedUpgrade(c *gc.C) {
 
 func (s *DeploySuite) testCommitInterruptedHook(c *gc.C, newDeploy newDeploy) {
 	callbacks := NewDeployCommitCallbacks(nil)
-	factory := operation.NewFactory(nil, nil, callbacks, nil)
+	factory := operation.NewFactory(nil, nil, callbacks, nil, nil)
 	op, err := newDeploy(factory, curl("cs:quantal/x-0"))
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Commit(operation.State{

@@ -6,6 +6,7 @@ package provider
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -223,7 +224,7 @@ func attachLoopDevice(run runCommandFunc, filePath string) (loopDeviceName strin
 
 // detachLoopDevice detaches the loop device with the specified name.
 func detachLoopDevice(run runCommandFunc, deviceName string) error {
-	_, err := run("losetup", "-d", filepath.Join("/dev", deviceName))
+	_, err := run("losetup", "-d", path.Join("/dev", deviceName))
 	if err != nil {
 		return errors.Annotatef(err, "detaching loop device %q", deviceName)
 	}

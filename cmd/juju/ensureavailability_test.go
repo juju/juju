@@ -18,11 +18,17 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type EnsureAvailabilitySuite struct {
-	coretesting.FakeJujuHomeSuite
+	// TODO (cherylj) change this back to a FakeJujuHomeSuite to
+	// remove the mongo dependency once ensure-availability is
+	// moved under a supercommand again.
+	testing.JujuConnSuite
 	fake *fakeHAClient
 }
 
@@ -31,7 +37,7 @@ type EnsureAvailabilitySuite struct {
 const invalidNumServers = -2
 
 func (s *EnsureAvailabilitySuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 
 	// Initialize numStateServers to an invalid number to validate
 	// that ensure-availability doesn't call into the API when its
@@ -236,4 +242,17 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityDefaultsTo0(c *gc.C) {
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
 	c.Assert(s.fake.series, gc.Equals, "")
 	c.Assert(len(s.fake.placement), gc.Equals, 0)
+}
+
+func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityEndToEnd(c *gc.C) {
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobManageEnviron},
+	})
+	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&EnsureAvailabilityCommand{}), "-n", "3")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Machine 0 is demoted because it hasn't reported its presence
+	c.Assert(coretesting.Stdout(ctx), gc.Equals,
+		"adding machines: 1, 2, 3\n"+
+			"demoting machines 0\n\n")
 }

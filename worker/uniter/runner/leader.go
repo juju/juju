@@ -46,6 +46,10 @@ func NewLeadershipContext(accessor LeadershipSettingsAccessor, tracker leadershi
 	}
 }
 
+// newLeadershipContext allows us to swap out the leadership context creator for
+// factory tests.
+var newLeadershipContext = NewLeadershipContext
+
 // IsLeader is part of the jujuc.Context interface.
 func (ctx *leadershipContext) IsLeader() (bool, error) {
 	// This doesn't technically need an error return, but that feels like a

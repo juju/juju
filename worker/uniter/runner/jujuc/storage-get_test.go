@@ -52,7 +52,7 @@ var storageGetTests = []struct {
 func (s *storageGetSuite) TestOutputFormatKey(c *gc.C) {
 	for i, t := range storageGetTests {
 		c.Logf("test %d: %#v", i, t.args)
-		hctx := s.GetHookContext(c, -1, "")
+		hctx := s.GetStorageHookContext(c, "data/0")
 		com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
@@ -77,7 +77,7 @@ func (s *storageGetSuite) TestOutputFormatKey(c *gc.C) {
 }
 
 func (s *storageGetSuite) TestHelp(c *gc.C) {
-	hctx := s.GetHookContext(c, -1, "")
+	hctx := s.GetStorageHookContext(c, "data/0")
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
@@ -100,7 +100,7 @@ When no <key> is supplied, all keys values are printed.
 }
 
 func (s *storageGetSuite) TestOutputPath(c *gc.C) {
-	hctx := s.GetHookContext(c, -1, "")
+	hctx := s.GetStorageHookContext(c, "data/0")
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)

@@ -38,4 +38,7 @@ type BlockDevice struct {
 
 	// InUse indicates that the block device is in use (e.g. mounted).
 	InUse bool `yaml:"inuse"`
+
+	// MountPoint is the path at which the block devices is mounted.
+	MountPoint string `yaml:"mountpoint,omitempty"`
 }

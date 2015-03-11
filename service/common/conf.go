@@ -4,6 +4,7 @@
 package common
 
 import (
+	"reflect"
 	"strings"
 
 	"github.com/juju/errors"
@@ -27,9 +28,17 @@ type Conf struct {
 	// Currently not used on Windows.
 	Env map[string]string
 
-	// Limit holds the ulimit values that will be set when the command runs.
+	// TODO(ericsnow) Add a Limit type, since the possible keys are known.
+
+	// Limit holds the ulimit values that will be set when the command
+	// runs. Each value will be used as both the soft and hard limit.
 	// Currently not used on Windows.
-	Limit map[string]string
+	Limit map[string]int
+
+	// Timeout is how many seconds may pass before an exec call (e.g.
+	// ExecStart) times out. Values less than or equal to 0 (the
+	// default) are treated as though there is no timeout.
+	Timeout int
 
 	// ExecStart is the command (with arguments) that will be run. The
 	// path to the executable must be absolute.
@@ -40,24 +49,19 @@ type Conf struct {
 	// The path to the executable must be absolute.
 	ExecStopPost string
 
-	// TODO(ericsnow) Rename "Output" to "Logfile".
-
-	// Output, if set, indicates where the service's output should be
-	// sent. How that is interpreted depends on the init system. Some
-	// accept paths to files while others only support certain identifiers.
-	Output string
-
-	// TODO(ericsnow) Eliminate InitDir.
-
-	// InitDir is the folder in which the init script should be written
-	// defaults to "/etc/init" on Ubuntu
-	// Currently not used on Windows
-	InitDir string
+	// Logfile, if set, indicates where the service's output should be
+	// written.
+	Logfile string
 
 	// TODO(ericsnow) Turn ExtraScript into ExecStartPre.
 
 	// ExtraScript allows to insert script before command execution.
 	ExtraScript string
+}
+
+// IsZero determines whether or not the conf is a zero value.
+func (c Conf) IsZero() bool {
+	return reflect.DeepEqual(c, Conf{})
 }
 
 // Validate checks the conf's values for correctness.

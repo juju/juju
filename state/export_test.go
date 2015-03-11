@@ -272,6 +272,10 @@ func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 	return out, nil
 }
 
+func UserEnvNameIndex(username, envName string) string {
+	return userEnvNameIndex(username, envName)
+}
+
 func DocID(st *State, id string) string {
 	return st.docID(id)
 }

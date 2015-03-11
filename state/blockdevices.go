@@ -38,6 +38,7 @@ type BlockDeviceInfo struct {
 	Size           uint64 `bson:"size"`
 	FilesystemType string `bson:"fstype,omitempty"`
 	InUse          bool   `bson:"inuse"`
+	MountPoint     string `bson:"mountpoint,omitempty"`
 }
 
 // WatchBlockDevices returns a new NotifyWatcher watching for
