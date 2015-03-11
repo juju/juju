@@ -1229,7 +1229,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetAgentStatus(StatusActive, "", nil)
+			err = u.SetAgentStatus(StatusIdle, "", nil)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -1246,7 +1246,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
 						Name:       "wordpress/0",
-						Status:     multiwatcher.Status("started"),
+						Status:     multiwatcher.Status("idle"),
 						StatusData: make(map[string]interface{}),
 					}}}
 		},
@@ -1265,7 +1265,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 				about: "status is changed with additional status data",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
 					Name:   "wordpress/0",
-					Status: multiwatcher.Status("started"),
+					Status: multiwatcher.Status("idle"),
 				}},
 				change: watcher.Change{
 					C:  "statuses",

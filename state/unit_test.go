@@ -560,21 +560,21 @@ func (s *UnitSuite) TestGetSetUnitStatusWhileAlive(c *gc.C) {
 }
 
 func (s *UnitSuite) TestSetAgentStatus(c *gc.C) {
-	err := s.unit.SetAgentStatus(state.StatusActive, "foo", nil)
+	err := s.unit.SetAgentStatus(state.StatusIdle, "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	status, info, data, err := s.unit.Agent().(*state.UnitAgent).Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusActive)
+	c.Assert(status, gc.Equals, state.StatusIdle)
 	c.Assert(info, gc.Equals, "foo")
 	c.Assert(data, gc.HasLen, 0)
 }
 
 func (s *UnitSuite) TestGetAgentStatus(c *gc.C) {
-	err := s.unit.Agent().(*state.UnitAgent).SetStatus(state.StatusActive, "foo", nil)
+	err := s.unit.Agent().(*state.UnitAgent).SetStatus(state.StatusIdle, "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	status, info, data, err := s.unit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusActive)
+	c.Assert(status, gc.Equals, state.StatusIdle)
 	c.Assert(info, gc.Equals, "foo")
 	c.Assert(data, gc.HasLen, 0)
 }
@@ -1021,7 +1021,7 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	err = s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is not in an error state`)
 
-	err = s.unit.SetAgentStatus(state.StatusError, "gaaah", nil)
+	err = s.unit.SetStatus(state.StatusError, "gaaah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(false)
 	c.Assert(err, jc.ErrorIsNil)
