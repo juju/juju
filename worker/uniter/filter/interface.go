@@ -46,6 +46,10 @@ type Filter interface {
 	// configuration changes, or when an event is explicitly requested.
 	ConfigEvents() <-chan struct{}
 
+	// LeaderSettingsEvents returns a channel that will receive a signal whenever the
+	// service's leader settings change, or when an event is explicitly requested.
+	LeaderSettingsEvents() <-chan struct{}
+
 	// ActionEvents returns a channel that will receive a signal whenever the unit
 	// receives new Actions.
 	ActionEvents() <-chan string
@@ -89,4 +93,11 @@ type Filter interface {
 	// DiscardConfigEvent indicates that the filter should discard any pending
 	// config event.
 	DiscardConfigEvent()
+
+	// WantLeaderSettingsEvents enables or disables the LeaderSettingsEvents channel.
+	WantLeaderSettingsEvents(sendEvents bool)
+
+	// DiscardLeaderSettingsEvent indicates that the filter should discard any
+	// pending leader-settings event.
+	DiscardLeaderSettingsEvent()
 }

@@ -182,6 +182,11 @@ func (f *filter) ConfigEvents() <-chan struct{} {
 	return f.outConfigOn
 }
 
+// LeaderSettingsEvents does nothing, but satisfies the Filter interface.
+func (f *filter) LeaderSettingsEvents() <-chan struct{} {
+	return nil
+}
+
 // ActionEvents returns a channel that will receive a signal whenever the unit
 // receives new Actions.
 func (f *filter) ActionEvents() <-chan string {
@@ -271,6 +276,12 @@ func (f *filter) DiscardConfigEvent() {
 	case f.discardConfig <- nothing:
 	}
 }
+
+// WantLeaderSettingsEvents does nothing, but satisfies the Filter interface.
+func (f *filter) WantLeaderSettingsEvents(_ bool) {}
+
+// DiscardLeaderSettingsEvent does nothing, but satisfies the Filter interface.
+func (f *filter) DiscardLeaderSettingsEvent() {}
 
 func (f *filter) maybeStopWatcher(w watcher.Stopper) {
 	if w != nil {
