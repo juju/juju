@@ -225,6 +225,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create storage hook source")
 	}
 	u.storage = storageAttachments
+	u.addCleanup(storageAttachments.Stop)
 
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,
