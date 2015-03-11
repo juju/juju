@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cloudinit_test
+package cloudconfig_test
 
 import (
 	"encoding/base64"
@@ -19,10 +19,10 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	coreCloudinit "github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/juju/paths"
@@ -54,7 +54,7 @@ var normalMachineJobs = []multiwatcher.MachineJob{
 }
 
 type cloudinitTest struct {
-	cfg           cloudinit.InstanceConfig
+	cfg           instancecfg.InstanceConfig
 	setEnvConfig  bool
 	expectScripts string
 	// inexactMatch signifies whether we allow extra lines
@@ -65,9 +65,9 @@ type cloudinitTest struct {
 	inexactMatch bool
 }
 
-func minimalMachineConfig(tweakers ...func(cloudinit.InstanceConfig)) cloudinit.InstanceConfig {
+func minimalMachineConfig(tweakers ...func(instancecfg.InstanceConfig)) instancecfg.InstanceConfig {
 
-	baseConfig := cloudinit.InstanceConfig{
+	baseConfig := instancecfg.InstanceConfig{
 		MachineId:        "0",
 		AuthorizedKeys:   "sshkey1",
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
@@ -89,7 +89,7 @@ func minimalMachineConfig(tweakers ...func(cloudinit.InstanceConfig)) cloudinit.
 			EnvironTag: testing.EnvironmentTag,
 		},
 		Constraints:             envConstraints,
-		DataDir:                 environs.DataDir,
+		DataDir:                 instancecfg.DataDir,
 		LogDir:                  agent.DefaultLogDir,
 		Jobs:                    allMachineJobs,
 		CloudInitOutputLog:      cloudInitOutputLog,
@@ -113,13 +113,6 @@ func minimalConfig(c *gc.C) *config.Config {
 	return cfg
 }
 
-func must(s string, err error) string {
-	if err != nil {
-		panic(err)
-	}
-	return s
-}
-
 var stateServingInfo = &params.StateServingInfo{
 	Cert:         string(serverCert),
 	PrivateKey:   string(serverKey),
@@ -138,7 +131,7 @@ var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 var cloudinitTests = []cloudinitTest{
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg: minimalMachineConfig(func(mc cloudinit.InstanceConfig) {
+		cfg: minimalMachineConfig(func(mc instancecfg.InstanceConfig) {
 			mc.EnableOSRefreshUpdate = false
 			mc.EnableOSUpgrade = false
 		}),
@@ -150,7 +143,7 @@ var cloudinitTests = []cloudinitTest{
 	},
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg: minimalMachineConfig(func(mc cloudinit.InstanceConfig) {
+		cfg: minimalMachineConfig(func(mc instancecfg.InstanceConfig) {
 			mc.EnableOSRefreshUpdate = true
 			mc.EnableOSUpgrade = false
 		}),
@@ -162,7 +155,7 @@ var cloudinitTests = []cloudinitTest{
 	},
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg: minimalMachineConfig(func(mc cloudinit.InstanceConfig) {
+		cfg: minimalMachineConfig(func(mc instancecfg.InstanceConfig) {
 			mc.EnableOSRefreshUpdate = false
 			mc.EnableOSUpgrade = true
 		}),
@@ -174,7 +167,7 @@ var cloudinitTests = []cloudinitTest{
 	},
 	{
 		// precise state server
-		cfg: cloudinit.InstanceConfig{
+		cfg: instancecfg.InstanceConfig{
 			MachineId:        "0",
 			AuthorizedKeys:   "sshkey1",
 			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
@@ -238,7 +231,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
 `,
 	}, {
 		// raring state server - we just test the raring-specific parts of the output.
-		cfg: cloudinit.InstanceConfig{
+		cfg: instancecfg.InstanceConfig{
 			MachineId:        "0",
 			AuthorizedKeys:   "sshkey1",
 			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
@@ -282,7 +275,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-raring-amd64\.sha256
 `,
 	}, {
 		// non state server.
-		cfg: cloudinit.InstanceConfig{
+		cfg: instancecfg.InstanceConfig{
 			MachineId:          "99",
 			AuthorizedKeys:     "sshkey1",
 			AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
@@ -342,7 +335,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-quantal-amd64\.sha256
 `,
 	}, {
 		// check that it works ok with compound machine ids.
-		cfg: cloudinit.InstanceConfig{
+		cfg: instancecfg.InstanceConfig{
 			MachineId:            "2/lxc/1",
 			MachineContainerType: "lxc",
 			AuthorizedKeys:       "sshkey1",
@@ -384,7 +377,7 @@ start jujud-machine-2-lxc-1
 `,
 	}, {
 		// hostname verification disabled.
-		cfg: cloudinit.InstanceConfig{
+		cfg: instancecfg.InstanceConfig{
 			MachineId:          "99",
 			AuthorizedKeys:     "sshkey1",
 			AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
@@ -421,7 +414,7 @@ curl .* --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid
 `,
 	}, {
 		// empty contraints.
-		cfg: cloudinit.InstanceConfig{
+		cfg: instancecfg.InstanceConfig{
 			MachineId:        "0",
 			AuthorizedKeys:   "sshkey1",
 			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
@@ -457,7 +450,7 @@ curl .* --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid
 `,
 	}, {
 		// custom image metadata.
-		cfg: cloudinit.InstanceConfig{
+		cfg: instancecfg.InstanceConfig{
 			MachineId:        "0",
 			AuthorizedKeys:   "sshkey1",
 			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
@@ -562,9 +555,8 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		if test.setEnvConfig {
 			test.cfg.Config = minimalConfig(c)
 		}
-		ci, err := coreCloudinit.New("quantal")
-		c.Assert(err, jc.ErrorIsNil)
-		udata, err := cloudinit.NewUserdataConfig(&test.cfg, ci)
+		ci := cloudinit.New()
+		udata, err := cloudconfig.NewUserdataConfig(&test.cfg, ci)
 		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
 
@@ -611,7 +603,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		c.Assert(acfg, jc.Contains, "upgradedToVersion: 1.2.3\n")
 		source := "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/cloud-tools main"
 		needCloudArchive := test.cfg.Series == "precise"
-		checkAptSource(c, configKeyValues, source, cloudinit.CanonicalCloudArchiveSigningKey, needCloudArchive)
+		checkAptSource(c, configKeyValues, source, cloudconfig.CanonicalCloudArchiveSigningKey, needCloudArchive)
 	}
 }
 
@@ -619,9 +611,8 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 	for i, test := range cloudinitTests {
 		test.cfg.Config = minimalConfig(c)
 		c.Logf("test %d (Configure)", i)
-		cloudcfg, err := coreCloudinit.New("quantal")
-		c.Assert(err, jc.ErrorIsNil)
-		udata, err := cloudinit.NewUserdataConfig(&test.cfg, cloudcfg)
+		cloudcfg := cloudinit.New()
+		udata, err := cloudconfig.NewUserdataConfig(&test.cfg, cloudcfg)
 		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
 		c.Assert(err, jc.ErrorIsNil)
@@ -633,9 +624,8 @@ func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 	machineConfig := minimalMachineConfig()
 	machineConfig.Config = minimalConfig(c)
 
-	cloudcfg, err := coreCloudinit.New("quantal")
-	c.Assert(err, jc.ErrorIsNil)
-	udata, err := cloudinit.NewUserdataConfig(&machineConfig, cloudcfg)
+	cloudcfg := cloudinit.New()
+	udata, err := cloudconfig.NewUserdataConfig(&machineConfig, cloudcfg)
 
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
@@ -659,12 +649,11 @@ func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 
 func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	// Create a simple cloudinit config with a 'runcmd' statement.
-	cloudcfg, err := coreCloudinit.New("quantal")
-	c.Assert(err, jc.ErrorIsNil)
+	cloudcfg := cloudinit.New()
 	script := "test script"
 	cloudcfg.AddRunCmd(script)
 	cloudinitTests[0].cfg.Config = minimalConfig(c)
-	udata, err := cloudinit.NewUserdataConfig(&cloudinitTests[0].cfg, cloudcfg)
+	udata, err := cloudconfig.NewUserdataConfig(&cloudinitTests[0].cfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)
@@ -815,28 +804,28 @@ func checkAptSource(c *gc.C, x map[interface{}]interface{}, source, key string, 
 // field named by the adjacent err.
 var verifyTests = []struct {
 	err    string
-	mutate func(*cloudinit.InstanceConfig)
+	mutate func(*instancecfg.InstanceConfig)
 }{
-	{"invalid machine id", func(cfg *cloudinit.InstanceConfig) {
+	{"invalid machine id", func(cfg *instancecfg.InstanceConfig) {
 		cfg.MachineId = "-1"
 	}},
-	{"missing environment configuration", func(cfg *cloudinit.InstanceConfig) {
+	{"missing environment configuration", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Config = nil
 	}},
-	{"missing state info", func(cfg *cloudinit.InstanceConfig) {
+	{"missing state info", func(cfg *instancecfg.InstanceConfig) {
 		cfg.MongoInfo = nil
 	}},
-	{"missing API info", func(cfg *cloudinit.InstanceConfig) {
+	{"missing API info", func(cfg *instancecfg.InstanceConfig) {
 		cfg.APIInfo = nil
 	}},
-	{"missing environment tag", func(cfg *cloudinit.InstanceConfig) {
+	{"missing environment tag", func(cfg *instancecfg.InstanceConfig) {
 		cfg.APIInfo = &api.Info{
 			Addrs:  []string{"foo:35"},
 			Tag:    names.NewMachineTag("99"),
 			CACert: testing.CACert,
 		}
 	}},
-	{"missing state hosts", func(cfg *cloudinit.InstanceConfig) {
+	{"missing state hosts", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap = false
 		cfg.MongoInfo = &mongo.MongoInfo{
 			Tag: names.NewMachineTag("99"),
@@ -851,7 +840,7 @@ var verifyTests = []struct {
 			EnvironTag: testing.EnvironmentTag,
 		}
 	}},
-	{"missing API hosts", func(cfg *cloudinit.InstanceConfig) {
+	{"missing API hosts", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap = false
 		cfg.MongoInfo = &mongo.MongoInfo{
 			Info: mongo.Info{
@@ -866,10 +855,10 @@ var verifyTests = []struct {
 			EnvironTag: testing.EnvironmentTag,
 		}
 	}},
-	{"missing CA certificate", func(cfg *cloudinit.InstanceConfig) {
+	{"missing CA certificate", func(cfg *instancecfg.InstanceConfig) {
 		cfg.MongoInfo = &mongo.MongoInfo{Info: mongo.Info{Addrs: []string{"host:98765"}}}
 	}},
-	{"missing CA certificate", func(cfg *cloudinit.InstanceConfig) {
+	{"missing CA certificate", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap = false
 		cfg.MongoInfo = &mongo.MongoInfo{
 			Tag: names.NewMachineTag("99"),
@@ -878,90 +867,90 @@ var verifyTests = []struct {
 			},
 		}
 	}},
-	{"missing state server certificate", func(cfg *cloudinit.InstanceConfig) {
+	{"missing state server certificate", func(cfg *instancecfg.InstanceConfig) {
 		info := *cfg.StateServingInfo
 		info.Cert = ""
 		cfg.StateServingInfo = &info
 	}},
-	{"missing state server private key", func(cfg *cloudinit.InstanceConfig) {
+	{"missing state server private key", func(cfg *instancecfg.InstanceConfig) {
 		info := *cfg.StateServingInfo
 		info.PrivateKey = ""
 		cfg.StateServingInfo = &info
 	}},
-	{"missing ca cert private key", func(cfg *cloudinit.InstanceConfig) {
+	{"missing ca cert private key", func(cfg *instancecfg.InstanceConfig) {
 		info := *cfg.StateServingInfo
 		info.CAPrivateKey = ""
 		cfg.StateServingInfo = &info
 	}},
-	{"missing state port", func(cfg *cloudinit.InstanceConfig) {
+	{"missing state port", func(cfg *instancecfg.InstanceConfig) {
 		info := *cfg.StateServingInfo
 		info.StatePort = 0
 		cfg.StateServingInfo = &info
 	}},
-	{"missing API port", func(cfg *cloudinit.InstanceConfig) {
+	{"missing API port", func(cfg *instancecfg.InstanceConfig) {
 		info := *cfg.StateServingInfo
 		info.APIPort = 0
 		cfg.StateServingInfo = &info
 	}},
-	{"missing var directory", func(cfg *cloudinit.InstanceConfig) {
+	{"missing var directory", func(cfg *instancecfg.InstanceConfig) {
 		cfg.DataDir = ""
 	}},
-	{"missing log directory", func(cfg *cloudinit.InstanceConfig) {
+	{"missing log directory", func(cfg *instancecfg.InstanceConfig) {
 		cfg.LogDir = ""
 	}},
-	{"missing cloud-init output log path", func(cfg *cloudinit.InstanceConfig) {
+	{"missing cloud-init output log path", func(cfg *instancecfg.InstanceConfig) {
 		cfg.CloudInitOutputLog = ""
 	}},
-	{"missing tools", func(cfg *cloudinit.InstanceConfig) {
+	{"missing tools", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Tools = nil
 	}},
-	{"missing tools URL", func(cfg *cloudinit.InstanceConfig) {
+	{"missing tools URL", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Tools = &tools.Tools{}
 	}},
-	{"entity tag must match started machine", func(cfg *cloudinit.InstanceConfig) {
+	{"entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap = false
 		info := *cfg.MongoInfo
 		info.Tag = names.NewMachineTag("0")
 		cfg.MongoInfo = &info
 	}},
-	{"entity tag must match started machine", func(cfg *cloudinit.InstanceConfig) {
+	{"entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap = false
 		info := *cfg.MongoInfo
 		info.Tag = nil // admin user
 		cfg.MongoInfo = &info
 	}},
-	{"entity tag must match started machine", func(cfg *cloudinit.InstanceConfig) {
+	{"entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap = false
 		info := *cfg.APIInfo
 		info.Tag = names.NewMachineTag("0")
 		cfg.APIInfo = &info
 	}},
-	{"entity tag must match started machine", func(cfg *cloudinit.InstanceConfig) {
+	{"entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap = false
 		info := *cfg.APIInfo
 		info.Tag = nil
 		cfg.APIInfo = &info
 	}},
-	{"entity tag must be nil when starting a state server", func(cfg *cloudinit.InstanceConfig) {
+	{"entity tag must be nil when starting a state server", func(cfg *instancecfg.InstanceConfig) {
 		info := *cfg.MongoInfo
 		info.Tag = names.NewMachineTag("0")
 		cfg.MongoInfo = &info
 	}},
-	{"entity tag must be nil when starting a state server", func(cfg *cloudinit.InstanceConfig) {
+	{"entity tag must be nil when starting a state server", func(cfg *instancecfg.InstanceConfig) {
 		info := *cfg.APIInfo
 		info.Tag = names.NewMachineTag("0")
 		cfg.APIInfo = &info
 	}},
-	{"missing machine nonce", func(cfg *cloudinit.InstanceConfig) {
+	{"missing machine nonce", func(cfg *instancecfg.InstanceConfig) {
 		cfg.MachineNonce = ""
 	}},
-	{"missing machine agent service name", func(cfg *cloudinit.InstanceConfig) {
+	{"missing machine agent service name", func(cfg *instancecfg.InstanceConfig) {
 		cfg.MachineAgentServiceName = ""
 	}},
-	{"missing instance-id", func(cfg *cloudinit.InstanceConfig) {
+	{"missing instance-id", func(cfg *instancecfg.InstanceConfig) {
 		cfg.InstanceId = ""
 	}},
-	{"state serving info unexpectedly present", func(cfg *cloudinit.InstanceConfig) {
+	{"state serving info unexpectedly present", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap = false
 		apiInfo := *cfg.APIInfo
 		apiInfo.Tag = names.NewMachineTag("99")
@@ -975,7 +964,7 @@ var verifyTests = []struct {
 // TestCloudInitVerify checks that required fields are appropriately
 // checked for by NewCloudInit.
 func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
-	cfg := &cloudinit.InstanceConfig{
+	cfg := &instancecfg.InstanceConfig{
 		Bootstrap:        true,
 		StateServingInfo: stateServingInfo,
 		MachineId:        "99",
@@ -996,7 +985,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 			EnvironTag: testing.EnvironmentTag,
 		},
 		Config:                  minimalConfig(c),
-		DataDir:                 environs.DataDir,
+		DataDir:                 instancecfg.DataDir,
 		LogDir:                  agent.DefaultLogDir,
 		Jobs:                    normalMachineJobs,
 		CloudInitOutputLog:      cloudInitOutputLog,
@@ -1005,13 +994,12 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		MachineAgentServiceName: "jujud-machine-99",
 	}
 	// check that the base configuration does not give an error
-	ci, err := coreCloudinit.New("quantal")
-	c.Assert(err, jc.ErrorIsNil)
+	ci := cloudinit.New()
 
 	for i, test := range verifyTests {
 		// check that the base configuration does not give an error
 		// and that a previous test hasn't mutated it accidentially.
-		udata, err := cloudinit.NewUserdataConfig(cfg, ci)
+		udata, err := cloudconfig.NewUserdataConfig(cfg, ci)
 		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
 		c.Assert(err, jc.ErrorIsNil)
@@ -1021,7 +1009,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		cfg1 := *cfg
 		test.mutate(&cfg1)
 
-		udata, err = cloudinit.NewUserdataConfig(&cfg1, ci)
+		udata, err = cloudconfig.NewUserdataConfig(&cfg1, ci)
 		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
 		c.Check(err, gc.ErrorMatches, "invalid machine configuration: "+test.err)
@@ -1029,18 +1017,18 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 	}
 }
 
-func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config) *cloudinit.InstanceConfig {
+func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config) *instancecfg.InstanceConfig {
 	machineId := "42"
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", true, nil, stateInfo, apiInfo)
+	machineConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	machineConfig.Tools = &tools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}
-	err = environs.FinishMachineConfig(machineConfig, environConfig)
+	err = instancecfg.FinishInstanceConfig(machineConfig, environConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	return machineConfig
 }
@@ -1048,9 +1036,8 @@ func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config
 func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
 	environConfig := minimalConfig(c)
 	machineCfg := s.createMachineConfig(c, environConfig)
-	cloudcfg, err := coreCloudinit.New("quantal")
-	c.Assert(err, jc.ErrorIsNil)
-	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
+	cloudcfg := cloudinit.New()
+	udata, err := cloudconfig.NewUserdataConfig(machineCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1066,9 +1053,8 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	machineCfg := s.createMachineConfig(c, environConfig)
-	cloudcfg, err := coreCloudinit.New("quantal")
-	c.Assert(err, jc.ErrorIsNil)
-	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
+	cloudcfg := cloudinit.New()
+	udata, err := cloudconfig.NewUserdataConfig(machineCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1086,9 +1072,8 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	machineCfg := s.createMachineConfig(c, environConfig)
-	cloudcfg, err := coreCloudinit.New("quantal")
-	c.Assert(err, jc.ErrorIsNil)
-	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
+	cloudcfg := cloudinit.New()
+	udata, err := cloudconfig.NewUserdataConfig(machineCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1132,9 +1117,8 @@ func (s *cloudinitSuite) TestAptMirrorNotSet(c *gc.C) {
 
 func (s *cloudinitSuite) testAptMirror(c *gc.C, cfg *config.Config, expect string) {
 	machineCfg := s.createMachineConfig(c, cfg)
-	cloudcfg, err := coreCloudinit.New("quantal")
-	c.Assert(err, jc.ErrorIsNil)
-	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
+	cloudcfg := cloudinit.New()
+	udata, err := cloudconfig.NewUserdataConfig(machineCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1172,7 +1156,7 @@ JzPMDvZ0fYS30ukCIA1stlJxpFiCXQuFn0nG+jH4Q52FTv8xxBhrbLOFvHRRAiEA
 
 var windowsCloudinitTests = []cloudinitTest{
 	{
-		cfg: cloudinit.InstanceConfig{
+		cfg: instancecfg.InstanceConfig{
 			MachineId:          "10",
 			AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
 			Tools:              newSimpleTools("1.2.3-win8-amd64"),
@@ -1214,9 +1198,8 @@ func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
 		test.cfg.DataDir = dataDir
 		test.cfg.LogDir = path.Join(logDir, "juju")
 
-		ci, err := coreCloudinit.New("win8")
-		c.Assert(err, jc.ErrorIsNil)
-		udata, err := cloudinit.NewUserdataConfig(&test.cfg, ci)
+		ci := cloudinit.New()
+		udata, err := cloudconfig.NewUserdataConfig(&test.cfg, ci)
 
 		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
@@ -1239,7 +1222,7 @@ func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
 }
 
 func (*cloudinitSuite) TestToolsDownloadCommand(c *gc.C) {
-	command := cloudinit.ToolsDownloadCommand("download", []string{"a", "b", "c"})
+	command := cloudconfig.ToolsDownloadCommand("download", []string{"a", "b", "c"})
 
 	expected := `
 for n in $(seq 5); do

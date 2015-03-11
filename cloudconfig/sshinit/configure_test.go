@@ -9,11 +9,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudinit"
-	"github.com/juju/juju/cloudinit/sshinit"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	envcloudinit "github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
@@ -53,15 +54,15 @@ func testConfig(c *gc.C, stateServer bool, vers version.Binary) *config.Config {
 }
 
 func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.Binary) *cloudinit.Config {
-	var mcfg *envcloudinit.InstanceConfig
+	var mcfg *instancecfg.InstanceConfig
 	var err error
 	if stateServer {
-		mcfg, err = environs.NewBootstrapMachineConfig(constraints.Value{}, vers.Series)
+		mcfg, err = instancecfg.NewBootstrapInstanceConfig(constraints.Value{}, vers.Series)
 		c.Assert(err, jc.ErrorIsNil)
 		mcfg.InstanceId = "instance-id"
 		mcfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron, multiwatcher.JobHostUnits}
 	} else {
-		mcfg, err = environs.NewMachineConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, true, nil, nil, nil)
+		mcfg, err = instancecfg.NewInstanceConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, true, nil, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		mcfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	}
@@ -70,11 +71,10 @@ func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.
 		URL:     "http://testing.invalid/tools.tar.gz",
 	}
 	environConfig := testConfig(c, stateServer, vers)
-	err = environs.FinishMachineConfig(mcfg, environConfig)
+	err = instancecfg.FinishInstanceConfig(mcfg, environConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	cloudcfg, err := cloudinit.New(vers.Series)
-	c.Assert(err, jc.ErrorIsNil)
-	udata, err := envcloudinit.NewUserdataConfig(mcfg, cloudcfg)
+	cloudcfg := cloudinit.New()
+	udata, err := cloudconfig.NewUserdataConfig(mcfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)

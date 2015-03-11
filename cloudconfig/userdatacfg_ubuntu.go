@@ -2,7 +2,7 @@
 // Copyright 2014 Cloudbase Solutions
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cloudinit
+package cloudconfig
 
 import (
 	"bytes"
@@ -22,7 +22,7 @@ import (
 	"github.com/juju/utils/proxy"
 	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 )
@@ -102,7 +102,7 @@ func (w *ubuntuConfigure) ConfigureBasic() error {
 // ConfigureJuju updates the provided cloudinit.Config with configuration
 // to initialise a Juju machine agent.
 func (w *ubuntuConfigure) ConfigureJuju() error {
-	if err := verifyConfig(w.mcfg); err != nil {
+	if err := w.mcfg.VerifyConfig(); err != nil {
 		return err
 	}
 
@@ -162,7 +162,7 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 	)
 
 	w.conf.AddScripts(
-		"bin="+shquote(w.mcfg.jujuTools()),
+		"bin="+shquote(w.mcfg.JujuTools()),
 		"mkdir -p $bin",
 	)
 
@@ -173,7 +173,7 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		if err != nil {
 			return err
 		}
-		w.conf.AddBinaryFile(path.Join(w.mcfg.jujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
+		w.conf.AddBinaryFile(path.Join(w.mcfg.JujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
 	} else {
 		curlCommand := curlCommand
 		var urls []string
@@ -184,7 +184,7 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 			}
 			urls = append(urls, w.mcfg.Tools.URL)
 		} else {
-			for _, addr := range w.mcfg.apiHostAddrs() {
+			for _, addr := range w.mcfg.ApiHostAddrs() {
 				// TODO(axw) encode env UUID in URL when EnvironTag
 				// is guaranteed to be available in APIInfo.
 				url := fmt.Sprintf("https://%s/tools/%s", addr, w.mcfg.Tools.Version)
@@ -272,7 +272,7 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		}
 		w.conf.AddScripts(
 			// The bootstrapping is always run with debug on.
-			w.mcfg.jujuTools() + "/jujud bootstrap-state" +
+			w.mcfg.JujuTools() + "/jujud bootstrap-state" +
 				" --data-dir " + shquote(w.mcfg.DataDir) +
 				" --env-config " + shquote(base64yaml(w.mcfg.Config)) +
 				" --instance-id " + shquote(string(w.mcfg.InstanceId)) +

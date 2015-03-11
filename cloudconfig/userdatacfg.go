@@ -2,17 +2,29 @@
 // Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cloudinit
+package cloudconfig
 
 import (
 	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/version"
+)
+
+// fileSchemePrefix is the prefix for file:// URLs.
+const (
+	fileSchemePrefix = "file://"
+
+	// NonceFile is written by cloud-init as the last thing it does.
+	// The file will contain the machine's nonce. The filename is
+	// relative to the Juju data-dir.
+	NonceFile = "nonce.txt"
 )
 
 type UserdataConfig interface {
@@ -31,7 +43,7 @@ type UserdataConfig interface {
 	Render() ([]byte, error)
 }
 
-func NewUserdataConfig(mcfg *InstanceConfig, conf *cloudinit.Config) (UserdataConfig, error) {
+func NewUserdataConfig(mcfg *instancecfg.InstanceConfig, conf *cloudinit.Config) (UserdataConfig, error) {
 	// TODO(ericsnow) bug #1426217
 	// Protect mcfg and conf better.
 	operatingSystem, err := version.GetOSFromSeries(mcfg.Series)
@@ -57,7 +69,7 @@ func NewUserdataConfig(mcfg *InstanceConfig, conf *cloudinit.Config) (UserdataCo
 }
 
 type baseConfigure struct {
-	mcfg     *InstanceConfig
+	mcfg     *instancecfg.InstanceConfig
 	conf     *cloudinit.Config
 	renderer cloudinit.Renderer
 	os       version.OSType
@@ -86,7 +98,7 @@ func (c *baseConfigure) addAgentInfo() (agent.Config, error) {
 // addAgentInfo adds agent-required information to the agent's directory
 // and returns the agent directory name.
 func (c *baseConfigure) addAgentInfo(tag names.Tag) (agent.Config, error) {
-	acfg, err := c.mcfg.agentConfig(tag, c.mcfg.Tools.Version.Number)
+	acfg, err := c.mcfg.AgentConfig(tag, c.mcfg.Tools.Version.Number)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +112,7 @@ func (c *baseConfigure) addAgentInfo(tag names.Tag) (agent.Config, error) {
 }
 
 func (c *baseConfigure) addMachineAgentToBoot(name string) error {
-	svc, toolsDir, err := c.mcfg.initService()
+	svc, toolsDir, err := c.mcfg.InitService()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -148,4 +160,8 @@ func (c *baseConfigure) toolsSymlinkCommand(toolsDir string) string {
 			shquote(toolsDir),
 		)
 	}
+}
+
+func shquote(p string) string {
+	return utils.ShQuote(p)
 }

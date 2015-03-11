@@ -3,15 +3,13 @@
 
 package testing
 
-import (
-	"github.com/juju/juju/environs"
-)
+import "github.com/juju/juju/cloudconfig/instancecfg"
 
 // PatchDataDir temporarily overrides environs.DataDir for testing purposes.
 // It returns a cleanup function that you must call later to restore the
 // original value.
 func PatchDataDir(path string) func() {
-	originalDataDir := environs.DataDir
-	environs.DataDir = path
-	return func() { environs.DataDir = originalDataDir }
+	originalDataDir := instancecfg.DataDir
+	instancecfg.DataDir = path
+	return func() { instancecfg.DataDir = originalDataDir }
 }

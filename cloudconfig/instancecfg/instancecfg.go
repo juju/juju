@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cloudinit
+package instancecfg
 
 import (
 	"fmt"
@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
@@ -33,18 +32,27 @@ import (
 	"github.com/juju/juju/version"
 )
 
+// BootstrapConfig returns a copy of the supplied configuration with the
+// admin-secret and ca-private-key attributes removed. If the resulting
+// config is not suitable for bootstrapping an environment, an error is
+// returned.
+func BootstrapConfig(cfg *config.Config) (*config.Config, error) {
+	m := cfg.AllAttrs()
+	// We never want to push admin-secret or the root CA private key to the cloud.
+	delete(m, "admin-secret")
+	delete(m, "ca-private-key")
+	cfg, err := config.New(config.NoDefaults, m)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := cfg.AgentVersion(); !ok {
+		return nil, fmt.Errorf("environment configuration has no agent-version")
+	}
+	return cfg, nil
+}
+
 var (
-	logger = loggo.GetLogger("juju.environs.cloudinit")
-)
-
-// fileSchemePrefix is the prefix for file:// URLs.
-const (
-	fileSchemePrefix = "file://"
-
-	// NonceFile is written by cloud-init as the last thing it does.
-	// The file will contain the machine's nonce. The filename is
-	// relative to the Juju data-dir.
-	NonceFile = "nonce.txt"
+	logger = loggo.GetLogger("juju.userdata.instanceconfig")
 )
 
 // MachineConfig represents initialization information for a new juju machine.
@@ -179,7 +187,7 @@ type InstanceConfig struct {
 	EnableOSUpgrade bool
 }
 
-func (cfg *InstanceConfig) initService() (service.Service, string, error) {
+func (cfg *InstanceConfig) InitService() (service.Service, string, error) {
 	conf, toolsDir := service.MachineAgentConf(
 		cfg.MachineId,
 		cfg.DataDir,
@@ -212,7 +220,7 @@ var newService = func(name string, conf common.Conf, initSystem string) (service
 	return service.NewService(name, conf, initSystem)
 }
 
-func (cfg *InstanceConfig) agentConfig(
+func (cfg *InstanceConfig) AgentConfig(
 	tag names.Tag,
 	toolsVersion version.Number,
 ) (agent.ConfigSetter, error) {
@@ -234,7 +242,7 @@ func (cfg *InstanceConfig) agentConfig(
 		Password:          password,
 		Nonce:             cfg.MachineNonce,
 		StateAddresses:    cfg.stateHostAddrs(),
-		APIAddresses:      cfg.apiHostAddrs(),
+		APIAddresses:      cfg.ApiHostAddrs(),
 		CACert:            cfg.MongoInfo.CACert,
 		Values:            cfg.AgentEnvironment,
 		PreferIPv6:        cfg.PreferIPv6,
@@ -246,7 +254,7 @@ func (cfg *InstanceConfig) agentConfig(
 	return agent.NewStateMachineConfig(configParams, *cfg.StateServingInfo)
 }
 
-func (cfg *InstanceConfig) jujuTools() string {
+func (cfg *InstanceConfig) JujuTools() string {
 	return agenttools.SharedToolsDir(cfg.DataDir, cfg.Tools.Version)
 }
 
@@ -265,7 +273,7 @@ func (cfg *InstanceConfig) stateHostAddrs() []string {
 	return hosts
 }
 
-func (cfg *InstanceConfig) apiHostAddrs() []string {
+func (cfg *InstanceConfig) ApiHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap {
 		if cfg.PreferIPv6 {
@@ -285,17 +293,13 @@ func (cfg *InstanceConfig) HasNetworks() bool {
 	return len(cfg.Networks) > 0 || cfg.Constraints.HaveNetworks()
 }
 
-func shquote(p string) string {
-	return utils.ShQuote(p)
-}
-
 type requiresError string
 
 func (e requiresError) Error() string {
 	return "invalid machine configuration: missing " + string(e)
 }
 
-func verifyConfig(cfg *InstanceConfig) (err error) {
+func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid machine configuration")
 	if !names.IsValidMachine(cfg.MachineId) {
 		return errors.New("invalid machine id")
@@ -402,7 +406,7 @@ var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
 // non-bootstrap node. You'll still need to supply more information,
 // but this takes care of the fixed entries and the ones that are
 // always needed.
-func NewMachineConfig(
+func NewInstanceConfig(
 	machineID,
 	machineNonce,
 	imageStream,
@@ -411,7 +415,7 @@ func NewMachineConfig(
 	networks []string,
 	mongoInfo *mongo.MongoInfo,
 	apiInfo *api.Info,
-) (*cloudinit.InstanceConfig, error) {
+) (*InstanceConfig, error) {
 	dataDir, err := paths.DataDir(series)
 	if err != nil {
 		return nil, err
@@ -421,7 +425,7 @@ func NewMachineConfig(
 		return nil, err
 	}
 	cloudInitOutputLog := path.Join(logDir, "cloud-init-output.log")
-	mcfg := &cloudinit.InstanceConfig{
+	mcfg := &InstanceConfig{
 		// Fixed entries.
 		DataDir:                 dataDir,
 		LogDir:                  path.Join(logDir, "juju"),
@@ -447,10 +451,10 @@ func NewMachineConfig(
 // NewBootstrapMachineConfig sets up a basic machine configuration for a
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
-func NewBootstrapMachineConfig(cons constraints.Value, series string) (*cloudinit.InstanceConfig, error) {
+func NewBootstrapInstanceConfig(cons constraints.Value, series string) (*InstanceConfig, error) {
 	// For a bootstrap instance, FinishMachineConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
-	mcfg, err := NewMachineConfig("0", agent.BootstrapNonce, "", series, true, nil, nil, nil)
+	mcfg, err := NewInstanceConfig("0", agent.BootstrapNonce, "", series, true, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -469,7 +473,7 @@ func NewBootstrapMachineConfig(cons constraints.Value, series string) (*cloudini
 // that is needed to provision a container needs to be returned to the
 // provisioner in the ContainerConfig structure. Those values are then used to
 // call this function.
-func PopulateMachineConfig(mcfg *cloudinit.InstanceConfig,
+func PopulateInstanceConfig(mcfg *InstanceConfig,
 	providerType, authorizedKeys string,
 	sslHostnameVerification bool,
 	proxySettings, aptProxySettings proxy.Settings,
@@ -507,10 +511,10 @@ func PopulateMachineConfig(mcfg *cloudinit.InstanceConfig,
 // it is better that this functionality be collected in one place here than
 // that it be spread out across 3 or 4 providers, but this is its only
 // redeeming feature.
-func FinishMachineConfig(mcfg *cloudinit.InstanceConfig, cfg *config.Config) (err error) {
+func FinishInstanceConfig(mcfg *InstanceConfig, cfg *config.Config) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot complete machine configuration")
 
-	if err := PopulateMachineConfig(
+	if err := PopulateInstanceConfig(
 		mcfg,
 		cfg.Type(),
 		cfg.AuthorizedKeys(),
@@ -591,7 +595,7 @@ func FinishMachineConfig(mcfg *cloudinit.InstanceConfig, cfg *config.Config) (er
 // isStateMachineConfig determines if given machine configuration
 // is for State Server by iterating over machine's jobs.
 // If JobManageEnviron is present, this is a state server.
-func isStateMachineConfig(mcfg *cloudinit.InstanceConfig) bool {
+func isStateMachineConfig(mcfg *InstanceConfig) bool {
 	for _, aJob := range mcfg.Jobs {
 		if aJob == multiwatcher.JobManageEnviron {
 			return true

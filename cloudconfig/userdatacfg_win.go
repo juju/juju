@@ -2,7 +2,7 @@
 // Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cloudinit
+package cloudconfig
 
 import (
 	"encoding/json"
@@ -57,8 +57,8 @@ func (w *windowsConfigure) ConfigureBasic() error {
 }
 
 func (w *windowsConfigure) ConfigureJuju() error {
-	if err := verifyConfig(w.mcfg); err != nil {
-		return errors.Annotate(err, "while verifying machine config")
+	if err := w.mcfg.VerifyConfig(); err != nil {
+		return err
 	}
 	toolsJson, err := json.Marshal(w.mcfg.Tools)
 	if err != nil {
@@ -67,7 +67,7 @@ func (w *windowsConfigure) ConfigureJuju() error {
 	const python = `${env:ProgramFiles(x86)}\Cloudbase Solutions\Cloudbase-Init\Python27\python.exe`
 	renderer := w.conf.ShellRenderer
 	w.conf.AddScripts(
-		fmt.Sprintf(`$binDir="%s"`, renderer.FromSlash(w.mcfg.jujuTools())),
+		fmt.Sprintf(`$binDir="%s"`, w.renderer.FromSlash(w.mcfg.JujuTools())),
 		`$tmpBinDir=$binDir.Replace('\', '\\')`,
 		fmt.Sprintf(`mkdir '%s'`, renderer.FromSlash(w.mcfg.LogDir)),
 		`mkdir $binDir`,
