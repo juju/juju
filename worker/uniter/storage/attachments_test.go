@@ -119,107 +119,6 @@ func (s *attachmentsSuite) TestNewAttachmentsInit(c *gc.C) {
 	c.Assert(filepath.Join(stateDir, "data-1"), jc.DoesNotExist)
 }
 
-func (s *attachmentsSuite) TestAttachmentsUpdate(c *gc.C) {
-	stateDir := c.MkDir()
-	unitTag := names.NewUnitTag("mysql/0")
-	abort := make(chan struct{})
-
-	storageTag0 := names.NewStorageTag("data/0")
-	storageTag1 := names.NewStorageTag("data/1")
-	attachmentsByTag := map[names.StorageTag]*params.StorageAttachment{
-		storageTag0: {
-			StorageTag: storageTag0.String(),
-			UnitTag:    unitTag.String(),
-			Life:       params.Alive,
-			Kind:       params.StorageKindBlock,
-			Location:   "/dev/sdb",
-		},
-		storageTag1: {
-			StorageTag: storageTag1.String(),
-			UnitTag:    unitTag.String(),
-			Life:       params.Dying,
-			Kind:       params.StorageKindBlock,
-			Location:   "/dev/sdb",
-		},
-	}
-
-	st := &mockStorageAccessor{
-		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachment, error) {
-			c.Assert(u, gc.Equals, unitTag)
-			return nil, nil
-		},
-		watchStorageAttachment: func(s names.StorageTag, u names.UnitTag) (watcher.NotifyWatcher, error) {
-			w := newMockNotifyWatcher()
-			w.changes <- struct{}{}
-			return w, nil
-		},
-		storageAttachment: func(s names.StorageTag, u names.UnitTag) (params.StorageAttachment, error) {
-			att, ok := attachmentsByTag[s]
-			c.Assert(ok, jc.IsTrue)
-			return *att, nil
-		},
-		ensureDead: func(s names.StorageTag, u names.UnitTag) error {
-			c.Assert(s, gc.Equals, storageTag1)
-			return nil
-		},
-		remove: func(s names.StorageTag, u names.UnitTag) error {
-			c.Assert(s, gc.Equals, storageTag1)
-			return nil
-		},
-	}
-
-	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		err := att.Stop()
-		c.Assert(err, jc.ErrorIsNil)
-	}()
-
-	// data/0 is initially unattached and untracked, so
-	// updating with Alive will cause a storager to be
-	// started and a storage-attached event to be emitted.
-	for i := 0; i < 2; i++ {
-		// Updating twice, to ensure idempotency.
-		err = att.UpdateStorage([]names.StorageTag{storageTag0})
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	hi := waitOneHook(c, att.Hooks())
-	c.Assert(hi, gc.Equals, hook.Info{
-		Kind:      hooks.StorageAttached,
-		StorageId: storageTag0.Id(),
-	})
-
-	// data/1 is initially unattached and untracked, so
-	// updating with Dying will not cause a storager to
-	// be started.
-	err = att.UpdateStorage([]names.StorageTag{storageTag1})
-	c.Assert(err, jc.ErrorIsNil)
-	assertNoHooks(c, att.Hooks())
-
-	// Cause an Alive hook to be queued, but don't consume it;
-	// then update to Dying, and ensure no hooks are generated.
-	// Additionally, the storager should be stopped and no
-	// longer tracked.
-	attachmentsByTag[storageTag1].Life = params.Alive
-	err = att.UpdateStorage([]names.StorageTag{storageTag1})
-	c.Assert(err, jc.ErrorIsNil)
-	err = att.ValidateHook(hook.Info{
-		Kind:      hooks.StorageAttached,
-		StorageId: storageTag1.Id(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	attachmentsByTag[storageTag1].Life = params.Dying
-	err = att.UpdateStorage([]names.StorageTag{storageTag1})
-	c.Assert(err, jc.ErrorIsNil)
-	assertNoHooks(c, att.Hooks())
-	err = att.ValidateHook(hook.Info{
-		Kind:      hooks.StorageAttached,
-		StorageId: storageTag1.Id(),
-	})
-	c.Assert(err, gc.ErrorMatches, `unknown storage "data/1"`)
-}
-
 func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 	stateDir := c.MkDir()
 	unitTag := names.NewUnitTag("mysql/0")
@@ -391,4 +290,122 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateFile, jc.DoesNotExist)
 	c.Assert(ensuredDead, jc.IsTrue)
+}
+
+type attachmentsUpdateSuite struct {
+	testing.BaseSuite
+	unitTag          names.UnitTag
+	storageTag0      names.StorageTag
+	storageTag1      names.StorageTag
+	attachmentsByTag map[names.StorageTag]*params.StorageAttachment
+	att              *storage.Attachments
+}
+
+var _ = gc.Suite(&attachmentsUpdateSuite{})
+
+func (s *attachmentsUpdateSuite) SetUpTest(c *gc.C) {
+	s.unitTag = names.NewUnitTag("mysql/0")
+	s.storageTag0 = names.NewStorageTag("data/0")
+	s.storageTag1 = names.NewStorageTag("data/1")
+	s.attachmentsByTag = map[names.StorageTag]*params.StorageAttachment{
+		s.storageTag0: {
+			StorageTag: s.storageTag0.String(),
+			UnitTag:    s.unitTag.String(),
+			Life:       params.Alive,
+			Kind:       params.StorageKindBlock,
+			Location:   "/dev/sdb",
+		},
+		s.storageTag1: {
+			StorageTag: s.storageTag1.String(),
+			UnitTag:    s.unitTag.String(),
+			Life:       params.Dying,
+			Kind:       params.StorageKindBlock,
+			Location:   "/dev/sdb",
+		},
+	}
+
+	st := &mockStorageAccessor{
+		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachment, error) {
+			c.Assert(u, gc.Equals, s.unitTag)
+			return nil, nil
+		},
+		watchStorageAttachment: func(storageTag names.StorageTag, u names.UnitTag) (watcher.NotifyWatcher, error) {
+			w := newMockNotifyWatcher()
+			w.changes <- struct{}{}
+			return w, nil
+		},
+		storageAttachment: func(storageTag names.StorageTag, u names.UnitTag) (params.StorageAttachment, error) {
+			att, ok := s.attachmentsByTag[storageTag]
+			c.Assert(ok, jc.IsTrue)
+			return *att, nil
+		},
+		ensureDead: func(storageTag names.StorageTag, u names.UnitTag) error {
+			c.Assert(storageTag, gc.Equals, s.storageTag1)
+			return nil
+		},
+		remove: func(storageTag names.StorageTag, u names.UnitTag) error {
+			c.Assert(storageTag, gc.Equals, s.storageTag1)
+			return nil
+		},
+	}
+
+	stateDir := c.MkDir()
+	abort := make(chan struct{})
+	var err error
+	s.att, err = storage.NewAttachments(st, s.unitTag, stateDir, abort)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		err := s.att.Stop()
+		c.Assert(err, jc.ErrorIsNil)
+	})
+}
+
+func (s *attachmentsUpdateSuite) TestAttachmentsUpdateUntrackedAlive(c *gc.C) {
+	// data/0 is initially unattached and untracked, so
+	// updating with Alive will cause a storager to be
+	// started and a storage-attached event to be emitted.
+	for i := 0; i < 2; i++ {
+		// Updating twice, to ensure idempotency.
+		err := s.att.UpdateStorage([]names.StorageTag{s.storageTag0})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	hi := waitOneHook(c, s.att.Hooks())
+	c.Assert(hi, gc.Equals, hook.Info{
+		Kind:      hooks.StorageAttached,
+		StorageId: s.storageTag0.Id(),
+	})
+}
+
+func (s *attachmentsUpdateSuite) TestAttachmentsUpdateUntrackedDying(c *gc.C) {
+	// data/1 is initially unattached and untracked, so
+	// updating with Dying will not cause a storager to
+	// be started.
+	err := s.att.UpdateStorage([]names.StorageTag{s.storageTag1})
+	c.Assert(err, jc.ErrorIsNil)
+	assertNoHooks(c, s.att.Hooks())
+}
+
+func (s *attachmentsUpdateSuite) TestAttachmentsUpdateShortCircuitNoHooks(c *gc.C) {
+	// Cause an Alive hook to be queued, but don't consume it;
+	// then update to Dying, and ensure no hooks are generated.
+	// Additionally, the storager should be stopped and no
+	// longer tracked.
+	s.attachmentsByTag[s.storageTag1].Life = params.Alive
+	err := s.att.UpdateStorage([]names.StorageTag{s.storageTag1})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.att.ValidateHook(hook.Info{
+		Kind:      hooks.StorageAttached,
+		StorageId: s.storageTag1.Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.attachmentsByTag[s.storageTag1].Life = params.Dying
+	err = s.att.UpdateStorage([]names.StorageTag{s.storageTag1})
+	c.Assert(err, jc.ErrorIsNil)
+	assertNoHooks(c, s.att.Hooks())
+	err = s.att.ValidateHook(hook.Info{
+		Kind:      hooks.StorageAttached,
+		StorageId: s.storageTag1.Id(),
+	})
+	c.Assert(err, gc.ErrorMatches, `unknown storage "data/1"`)
 }
