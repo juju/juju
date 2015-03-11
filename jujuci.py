@@ -25,6 +25,8 @@ from lsb_release import get_distro_information
 from utility import (
     extract_deb,
     get_deb_arch,
+    get_revision_build,
+    temp_dir,
     )
 
 
@@ -93,14 +95,31 @@ def retrieve_artifact(credentials, url, local_path, opener=None):
 
 def get_juju_bin_artifact(package_namer, version, build_data):
     file_name = package_namer.get_release_package(version)
+    return get_filename_artifact(file_name, build_data)
+
+
+def get_filename_artifact(file_name, build_data):
     by_filename = dict((a['fileName'], a) for a in build_data['artifacts'])
     bin_artifact = by_filename[file_name]
     return make_artifact(build_data, bin_artifact)
 
 
-def get_juju_bin(credentials, workspace, version):
+def retrieve_buildvars(credentials, build_number):
+    build_data = get_build_data(JENKINS_URL, credentials, BUILD_REVISION,
+                                build_number)
+    artifact = get_filename_artifact('buildvars.json', build_data)
+    with temp_dir() as bv_dir:
+        target_path = os.path.join(bv_dir, 'buildvars.json')
+        retrieve_artifact(credentials, artifact.location, target_path)
+        with open(target_path) as f:
+            return json.load(f)
+
+
+def get_juju_bin(credentials, workspace):
     build_data = get_build_data(JENKINS_URL, credentials, PUBLISH_REVISION,
                                 'lastBuild')
+    revision_build = get_revision_build(build_data)
+    version = retrieve_buildvars(credentials, revision_build)['version']
     namer = PackageNamer.factory()
     artifact = get_juju_bin_artifact(namer, version, build_data)
     target_path = os.path.join(workspace, artifact.file_name)
@@ -255,6 +274,11 @@ def parse_args(args=None):
         help='Ensure the env resources are freed or deleted.')
     parser_workspace.add_argument(
         'path', help="The path to the existing workspace directory.")
+    parser_get_juju_bin = subparsers.add_parser(
+        'get-juju-bin', help='Retrieve and extract juju binaries.')
+    parser_get_juju_bin.add_argument('workspace', nargs='?', default='.',
+                                     help='The place to store binaries.')
+    add_credential_args(parser_get_juju_bin)
     parsed_args = parser.parse_args(args)
     credentials = get_credentials(parsed_args)
     return parsed_args, credentials
@@ -308,6 +332,8 @@ def main(argv):
             setup_workspace(
                 args.path, env=args.clean_env,
                 dry_run=args.dry_run, verbose=args.verbose)
+        elif args.command == 'get-juju-bin':
+            print(get_juju_bin(credentials, args.workspace))
     except Exception as e:
         print(e)
         if args.verbose:
