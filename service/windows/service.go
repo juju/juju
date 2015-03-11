@@ -116,7 +116,6 @@ func (s *Service) Installed() (bool, error) {
 		// if we try to get the status of a non existent service
 		// TODO (gsamfira): This module will soon be replaced with a native alternative
 		// removing the exec calls.
-		logger.Debugf("Service status query returned: %s", err)
 		return false, nil
 	}
 	return true, nil
