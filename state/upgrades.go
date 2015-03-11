@@ -457,6 +457,54 @@ func AddEnvUUIDToEnvUsersDoc(st *State) error {
 	return st.runRawTransaction(ops)
 }
 
+func AddNameFieldLowerCaseIdOfUsers(st *State) error {
+	users, closer := st.getCollection(usersC)
+	defer closer()
+
+	var ops []txn.Op
+	var user bson.M
+	iter := users.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&user) {
+		// if the user already has a name field, then it has already been
+		// upgraded.
+		if name, ok := user["name"]; ok && name != "" {
+			continue
+		}
+
+		// set name to old, case sensitive, _id and lowercase new _id.
+		user["name"], user["_id"] = user["_id"], strings.ToLower(user["_id"].(string))
+
+		if user["name"] != user["_id"] {
+			// if we need to update the _id, remove old doc and add a new one with
+			// lowercased _id.
+			ops = append(ops, txn.Op{
+				C:      usersC,
+				Id:     user["name"],
+				Remove: true,
+			}, txn.Op{
+				C:      usersC,
+				Id:     user["_id"],
+				Insert: user,
+			})
+		} else {
+			// otherwise, just update the name field.
+			ops = append(ops, txn.Op{
+				C:  usersC,
+				Id: user["_id"],
+				Update: bson.D{{"$set", bson.D{
+					{"name", user["name"]},
+				}}},
+			})
+		}
+		user = nil
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
 func AddUniqueOwnerEnvNameForEnvirons(st *State) error {
 	environs, closer := st.getCollection(environmentsC)
 	defer closer()

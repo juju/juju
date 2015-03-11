@@ -230,7 +230,7 @@ func (st *State) EnvironUUID() string {
 
 // userEnvNameIndex returns a string to be used as a userenvnameC unique index.
 func userEnvNameIndex(username, envName string) string {
-	return username + ":" + envName
+	return strings.ToLower(username) + ":" + envName
 }
 
 // EnsureEnvironmentRemoved returns an error if any multi-enviornment

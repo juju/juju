@@ -11,6 +11,7 @@ package state
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -46,9 +47,11 @@ func (st *State) AddUser(name, displayName, password, creator string) (*User, er
 	if err != nil {
 		return nil, err
 	}
+	nameToLower := strings.ToLower(name)
 	user := &User{
 		st: st,
 		doc: userDoc{
+			DocID:        nameToLower,
 			Name:         name,
 			DisplayName:  displayName,
 			PasswordHash: utils.UserPasswordHash(password, salt),
@@ -59,13 +62,13 @@ func (st *State) AddUser(name, displayName, password, creator string) (*User, er
 	}
 	ops := []txn.Op{{
 		C:      usersC,
-		Id:     name,
+		Id:     nameToLower,
 		Assert: txn.DocMissing,
 		Insert: &user.doc,
 	}}
 	err = st.runTransaction(ops)
 	if err == txn.ErrAborted {
-		err = errors.New("user already exists")
+		err = errors.AlreadyExistsf("user")
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -74,7 +77,9 @@ func (st *State) AddUser(name, displayName, password, creator string) (*User, er
 }
 
 func createInitialUserOp(st *State, user names.UserTag, password string) txn.Op {
+	nameToLower := strings.ToLower(user.Name())
 	doc := userDoc{
+		DocID:        nameToLower,
 		Name:         user.Name(),
 		DisplayName:  user.Name(),
 		PasswordHash: password,
@@ -84,7 +89,7 @@ func createInitialUserOp(st *State, user names.UserTag, password string) txn.Op 
 	}
 	return txn.Op{
 		C:      usersC,
-		Id:     doc.Name,
+		Id:     nameToLower,
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}
@@ -96,14 +101,18 @@ func (st *State) getUser(name string, udoc *userDoc) error {
 	users, closer := st.getCollection(usersC)
 	defer closer()
 
+	name = strings.ToLower(name)
 	err := users.Find(bson.D{{"_id", name}}).One(udoc)
 	if err == mgo.ErrNotFound {
 		err = errors.NotFoundf("user %q", name)
 	}
+	// DateCreated is inserted as UTC, but read out as local time. So we
+	// convert it back to UTC here.
+	udoc.DateCreated = udoc.DateCreated.UTC()
 	return err
 }
 
-// User returns the state User for the given name,
+// User returns the state User for the given name.
 func (st *State) User(tag names.UserTag) (*User, error) {
 	if !tag.IsLocal() {
 		return nil, errors.NotFoundf("user %q", tag.Username())
@@ -148,7 +157,8 @@ type User struct {
 }
 
 type userDoc struct {
-	Name        string `bson:"_id"`
+	DocID       string `bson:"_id"`
+	Name        string `bson:"name"`
 	DisplayName string `bson:"displayname"`
 	// Removing users means they still exist, but are marked deactivated
 	Deactivated  bool       `bson:"deactivated"`
