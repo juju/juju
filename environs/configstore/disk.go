@@ -149,12 +149,7 @@ func (d *diskStore) ReadInfo(envName string) (EnvironInfo, error) {
 	// NOTE: any reading or writing from the directory should be done with a
 	// fslock to make sure we have a consistent read or write.  Also worth
 	// noting, we should use a very short timeout.
-
-	lock, err := fslock.NewLock(d.dir, lockName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	err = lock.LockWithTimeout(lockTimeout, "reading")
+	lock, err := acquireEnvironmentLock(d.dir, "reading")
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot read info")
 	}
@@ -270,11 +265,7 @@ func (info *environInfo) Location() string {
 func (info *environInfo) Write() error {
 	info.mu.Lock()
 	defer info.mu.Unlock()
-	lock, err := fslock.NewLock(info.environmentDir, lockName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = lock.LockWithTimeout(lockTimeout, "writing")
+	lock, err := acquireEnvironmentLock(info.environmentDir, "writing")
 	if err != nil {
 		return errors.Annotatef(err, "cannot write info")
 	}
@@ -327,11 +318,7 @@ func (info *environInfo) Write() error {
 func (info *environInfo) Destroy() error {
 	info.mu.Lock()
 	defer info.mu.Unlock()
-	lock, err := fslock.NewLock(info.environmentDir, lockName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = lock.LockWithTimeout(lockTimeout, "destroying")
+	lock, err := acquireEnvironmentLock(info.environmentDir, "destroying")
 	if err != nil {
 		return errors.Annotatef(err, "cannot destroy environment info")
 	}
@@ -408,7 +395,10 @@ func (info *environInfo) ensureNoJENV() error {
 	if os.IsNotExist(err) {
 		return nil
 	}
-	return ErrEnvironInfoAlreadyExists
+	if err == nil {
+		return ErrEnvironInfoAlreadyExists
+	}
+	return err
 }
 
 // Kept primarily for testing purposes now.
@@ -449,4 +439,16 @@ func (info *environInfo) writeJENVFile() error {
 	file.Close()
 	info.path = path
 	return errors.Annotate(err, "cannot write file")
+}
+
+func acquireEnvironmentLock(dir, operation string) (*fslock.Lock, error) {
+	lock, err := fslock.NewLock(dir, lockName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	err = lock.LockWithTimeout(lockTimeout, operation)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return lock, nil
 }

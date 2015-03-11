@@ -44,8 +44,9 @@ type ServerData struct {
 // EnvironmentData represents a single environment running in a Juju
 // Environment Server.
 type EnvironmentData struct {
-	ServerUser
+	User            string `yaml:"user"`
 	EnvironmentUUID string `yaml:"env-uuid"`
+	ServerUUID      string `yaml:"server-uuid"`
 }
 
 // All synchronisation locking is expected to be done outside the
@@ -65,13 +66,6 @@ func readCacheFile(filename string) (CacheFile, error) {
 		}
 		return content, err
 	}
-	if len(data) == 0 {
-		return CacheFile{
-			Server:      make(map[string]ServerUser),
-			ServerData:  make(map[string]ServerData),
-			Environment: make(map[string]EnvironmentData),
-		}, nil
-	}
 	if err := goyaml.Unmarshal(data, &content); err != nil {
 		return content, errors.Annotatef(err, "error unmarshalling %q", filename)
 	}
@@ -83,19 +77,7 @@ func writeCacheFile(filename string, content CacheFile) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot marshal cache file")
 	}
-	// We now use a fslock to sync reads and writes across the environment,
-	// so we don't need to use a temporary file any more.
-	flags := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
-	file, err := os.OpenFile(filename, flags, 0600)
-	if err != nil {
-		return errors.Annotate(err, "cannot open cache file")
-	}
-
-	_, err = file.Write(data)
-	file.Close()
-
-	// If there was an error writing, we annotate it, otherwise
-	// the annotation passes the nil through.
+	err = ioutil.WriteFile(filename, data, 0600)
 	return errors.Annotate(err, "cannot write file")
 }
 
@@ -159,8 +141,9 @@ func (cache *CacheFile) updateInfo(info *environInfo) error {
 	}
 
 	cache.Environment[info.name] = EnvironmentData{
-		ServerUser:      serverUser,
+		User:            info.user,
 		EnvironmentUUID: info.environmentUUID,
+		ServerUUID:      info.serverUUID,
 	}
 
 	// Check to see if the cache file has some info for the server already.
