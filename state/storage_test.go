@@ -14,8 +14,10 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/storage/provider/registry"
 )
 
@@ -27,6 +29,24 @@ var _ = gc.Suite(&StorageStateSuite{})
 
 type StorageStateSuiteBase struct {
 	ConnSuite
+}
+
+func (s *StorageStateSuiteBase) SetUpSuite(c *gc.C) {
+	s.ConnSuite.SetUpSuite(c)
+
+	registry.RegisterProvider("environscoped", &dummy.StorageProvider{
+		StorageScope: storage.ScopeEnviron,
+	})
+	registry.RegisterProvider("machinescoped", &dummy.StorageProvider{
+		StorageScope: storage.ScopeMachine,
+	})
+	registry.RegisterEnvironStorageProviders(
+		"someprovider", "environscoped", "machinescoped",
+	)
+	s.AddSuiteCleanup(func(c *gc.C) {
+		registry.RegisterProvider("environscoped", nil)
+		registry.RegisterProvider("machinescoped", nil)
+	})
 }
 
 func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
@@ -43,12 +63,12 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 }
 
-func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind string) (*state.Service, *state.Unit, names.StorageTag) {
+func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (*state.Service, *state.Unit, names.StorageTag) {
 	// There are test charms called "storage-block" and
 	// "storage-filesystem" which are what you'd expect.
 	ch := s.AddTestingCharm(c, "storage-"+kind)
 	storage := map[string]state.StorageConstraints{
-		"data": makeStorageCons("loop-pool", 1024, 1),
+		"data": makeStorageCons(pool, 1024, 1),
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-"+kind, ch, storage)
 	unit, err := service.AddUnit()
@@ -226,7 +246,7 @@ func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
-	_, u, storageTag := s.setupSingleStorage(c, "block")
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	// destroying a unit with storage attachments is fine; this is what
 	// will trigger the death and removal of storage attachments.
 	err := u.Destroy()
@@ -251,7 +271,7 @@ func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *gc.C) {
-	_, u, storageTag := s.setupSingleStorage(c, "block")
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 
 	// Mark the storage instance as Dying, so that it will be removed
 	// when the last attachment is removed.
@@ -271,7 +291,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *
 }
 
 func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAttachmentsRemovesInstance(c *gc.C) {
-	_, u, storageTag := s.setupSingleStorage(c, "block")
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := s.State.EnsureStorageAttachmentDead(storageTag, u.UnitTag())
@@ -291,7 +311,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAtt
 }
 
 func (s *StorageStateSuite) TestConcurrentRemoveStorageAttachment(c *gc.C) {
-	_, u, storageTag := s.setupSingleStorage(c, "block")
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 
 	err := s.State.DestroyStorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -313,7 +333,7 @@ func (s *StorageStateSuite) TestConcurrentRemoveStorageAttachment(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestRemoveAliveStorageAttachmentError(c *gc.C) {
-	_, u, storageTag := s.setupSingleStorage(c, "block")
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 
 	err := s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, gc.ErrorMatches, "cannot remove storage attachment data/0:storage-block/0: storage attachment is not dead")
@@ -325,7 +345,7 @@ func (s *StorageStateSuite) TestRemoveAliveStorageAttachmentError(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachmentsRemovesInstance(c *gc.C) {
-	_, u, storageTag := s.setupSingleStorage(c, "block")
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		// Concurrently mark the storage instance as Dying,
@@ -347,7 +367,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachment
 }
 
 func (s *StorageStateSuite) TestConcurrentDestroyStorageInstance(c *gc.C) {
-	_, _, storageTag := s.setupSingleStorage(c, "block")
+	_, _, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := s.State.DestroyStorageInstance(storageTag)

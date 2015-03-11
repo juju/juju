@@ -110,7 +110,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withV
 }
 
 func (s *FilesystemStateSuite) TestWatchFilesystemAttachment(c *gc.C) {
-	_, u, storageTag := s.setupSingleStorage(c, "filesystem")
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "loop-pool")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 	assignedMachineId, err := u.AssignedMachineId()
@@ -143,7 +143,7 @@ func (s *FilesystemStateSuite) TestWatchFilesystemAttachment(c *gc.C) {
 }
 
 func (s *FilesystemStateSuite) TestFilesystemInfo(c *gc.C) {
-	_, u, storageTag := s.setupSingleStorage(c, "filesystem")
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "loop-pool")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 	assignedMachineId, err := u.AssignedMachineId()
