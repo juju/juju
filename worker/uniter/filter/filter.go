@@ -384,6 +384,11 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		return err
 	}
 	defer watcher.Stop(storagew, &f.tomb)
+	leaderSettingsw, err := f.st.LeadershipSettings.WatchLeadershipSettings()
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop(leaderSettingsw, &f.tomb)
 
 	// Config events cannot be meaningfully discarded until one is available;
 	// once we receive the initial config and address changes, we unblock

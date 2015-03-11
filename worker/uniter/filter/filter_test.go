@@ -631,6 +631,14 @@ func (s *FilterSuite) TestStorageEvents(c *gc.C) {
 	})
 }
 
+func (s *FilterSuite) setLeaderSetting(c *gc.C, key, value string) {
+	currentSettings, err := s.State.ReadLeadershipSettings(s.unit.Tag().Id())
+	c.Assert(err, jc.ErrorIsNil)
+	currentSettings.Update(map[string]interface{}{key: value})
+	_, err = currentSettings.Write()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *FilterSuite) TestLeaderSettingsEventsSendsInitialChange(c *gc.C) {
 	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
@@ -641,12 +649,13 @@ func (s *FilterSuite) TestLeaderSettingsEventsSendsInitialChange(c *gc.C) {
 	leaderSettingsC.AssertOneReceive()
 
 	// And any time we make changes to the leader settings, we get an event
-	// TODO: change leader settings
+	s.setLeaderSetting("foo", "bar-1")
 	leaderSettingsC.AssertOneReceive()
 
 	// And multiple changes to settings still get collapsed into a single event
-	// TODO: change leader settings
-	// TODO: change leader settings
+	s.setLeaderSetting("foo", "bar-2")
+	s.setLeaderSetting("foo", "bar-3")
+	s.setLeaderSetting("foo", "bar-4")
 	// Do we need EvilSync?
 	leaderSettingsC.AssertOneReceive()
 }
@@ -661,15 +670,18 @@ func (s *FilterSuite) TestWantLeaderSettingsEvents(c *gc.C) {
 	f.WantLeaderSettingsEvents(false)
 	leaderSettingsC.AssertNoReceive()
 	// Also suppresses actual changes
-	// TODO: change leader settings
+	s.setLeaderSetting("foo", "baz-1")
 	leaderSettingsC.AssertNoReceive()
 
 	// Reenabling the settings gives us an immediate change
 	f.WantLeaderSettingsEvents(true)
 	leaderSettingsC.AssertOneReceive()
 	// And also gives changes when actual changes are made
-	// TODO: change leader settings
+	s.setLeaderSetting("foo", "baz-2")
 	leaderSettingsC.AssertOneReceive()
+	// Setting a value to the same thing doesn't trigger a change
+	s.setLeaderSetting("foo", "baz-2")
+	leaderSettingsC.AssertNoReceive()
 
 }
 
@@ -684,11 +696,11 @@ func (s *FilterSuite) TestDiscardLeaderSettingsEvent(c *gc.C) {
 	leaderSettingsC.AssertNoReceive()
 	// However, it has not permanently disabled change events, another
 	// change still shows up
-	// TODO: change leader settings
+	s.setLeaderSetting("foo", "bing-1")
 	leaderSettingsC.AssertOneReceive()
 
 	// But at any point we can discard them
-	// TODO: change leader settings
+	s.setLeaderSetting("foo", "bing-2")
 	f.DiscardLeaderSettingsEvent()
 	leaderSettingsC.AssertNoReceive()
 }
