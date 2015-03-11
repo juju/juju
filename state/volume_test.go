@@ -38,7 +38,7 @@ func (s *VolumeStateSuite) TestAddMachine(c *gc.C) {
 
 	volume, err := s.State.StorageInstanceVolume(storageInstance.StorageTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volume.VolumeTag(), gc.Equals, names.NewVolumeTag("0"))
+	c.Assert(volume.VolumeTag(), gc.Equals, names.NewVolumeTag("0/0"))
 	volumeStorageTag, err := volume.StorageInstance()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeStorageTag, gc.Equals, storageInstance.StorageTag())
