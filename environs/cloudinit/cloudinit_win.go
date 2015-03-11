@@ -89,7 +89,8 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		return errors.Errorf("Bootstrap node is not supported on Windows.")
 	}
 
-	_, err = w.addAgentInfo()
+	machineTag := names.NewMachineTag(w.mcfg.MachineId)
+	_, err = w.addAgentInfo(machineTag)
 	if err != nil {
 		return errors.Trace(err)
 	}

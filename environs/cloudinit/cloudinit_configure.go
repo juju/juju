@@ -83,8 +83,24 @@ func (c *baseConfigure) addAgentInfo() (agent.Config, error) {
 	return acfg, nil
 }
 
-func (c *baseConfigure) addMachineAgentToBoot() error {
-	svc, err := c.mcfg.initService(c.conf.ShellRenderer)
+// addAgentInfo adds agent-required information to the agent's directory
+// and returns the agent directory name.
+func (c *baseConfigure) addAgentInfo(tag names.Tag) (agent.Config, error) {
+	acfg, err := c.mcfg.agentConfig(tag, c.mcfg.Tools.Version.Number)
+	if err != nil {
+		return nil, err
+	}
+	acfg.SetValue(agent.AgentServiceName, c.mcfg.MachineAgentServiceName)
+	cmds, err := acfg.WriteCommands(c.mcfg.Series)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to write commands")
+	}
+	c.conf.AddScripts(cmds...)
+	return acfg, nil
+}
+
+func (c *baseConfigure) addMachineAgentToBoot(name string) error {
+	svc, toolsDir, err := c.mcfg.initService()
 	if err != nil {
 		return errors.Trace(err)
 	}
