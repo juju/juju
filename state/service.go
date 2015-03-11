@@ -608,7 +608,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		EnvUUID: s.st.EnvironUUID(),
 	}
 	unitStatusDoc := statusDoc{
-		Status:  StatusBusy,
+		Status:  StatusMaintenance,
 		EnvUUID: s.st.EnvironUUID(),
 	}
 	ops := []txn.Op{
