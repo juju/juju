@@ -201,7 +201,13 @@ func (u *User) Tag() names.Tag {
 
 // UserTag returns the Tag for the User.
 func (u *User) UserTag() names.UserTag {
-	return names.NewLocalUserTag(u.doc.Name)
+	name := u.doc.Name
+	if name == "" {
+		// TODO(waigani) This is a hack for upgrades to 1.23. Once we are no
+		// longer tied to 1.23, we can confidently always use u.doc.Name.
+		name = u.doc.DocID
+	}
+	return names.NewLocalUserTag(name)
 }
 
 // LastLogin returns when this User last connected through the API in UTC.
