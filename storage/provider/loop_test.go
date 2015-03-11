@@ -146,14 +146,14 @@ func (s *loopSuite) TestDestroyVolumesDetachFails(c *gc.C) {
 
 	errs := source.DestroyVolumes([]string{"volume-0"})
 	c.Assert(errs, gc.HasLen, 1)
-	c.Assert(errs[0], gc.ErrorMatches, `detaching loop device "loop0": oy`)
+	c.Assert(errs[0], gc.ErrorMatches, `.* detaching loop device "loop0": oy`)
 }
 
 func (s *loopSuite) TestDestroyVolumesInvalidVolumeId(c *gc.C) {
 	source := s.loopVolumeSource(c)
 	errs := source.DestroyVolumes([]string{"../super/important/stuff"})
 	c.Assert(errs, gc.HasLen, 1)
-	c.Assert(errs[0], gc.ErrorMatches, `invalid loop volume ID "\.\./super/important/stuff"`)
+	c.Assert(errs[0], gc.ErrorMatches, `.* invalid loop volume ID "\.\./super/important/stuff"`)
 }
 
 func (s *loopSuite) TestDescribeVolumes(c *gc.C) {
