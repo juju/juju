@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -57,6 +58,12 @@ func (s *containerSuite) newCustomAPI(c *gc.C, hostInstId instance.Id, addContai
 			s.machines[0].Id(),
 			instance.LXC,
 		)
+		c.Assert(err, jc.ErrorIsNil)
+		password, err := utils.RandomPassword()
+		c.Assert(err, jc.ErrorIsNil)
+		err = container.SetPassword(password)
+		c.Assert(err, jc.ErrorIsNil)
+		err = container.SetProvisioned("foo", "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		return container
 	}
@@ -751,15 +758,11 @@ func (s *releaseSuite) TestErrorWithFailingReleaseAddress(c *gc.C) {
 	container := s.newAPI(c, true, true)
 	args := s.makeArgs(container)
 
-	s.allocateAddresses(c, container.Id(), 5)
+	s.allocateAddresses(c, container.Id(), 2)
 	s.breakEnvironMethods(c, "ReleaseAddress")
 	s.assertCall(c, args, s.makeErrors(
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
+		apiservertesting.ServerError(
+			`failed to release all addresses for "machine-0"`,
+		),
 	), "")
 }
