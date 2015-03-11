@@ -33,14 +33,14 @@ func (s *diskSuite) TestDiskSpecTooSmallTrue(c *gc.C) {
 func (s *diskSuite) TestDiskSpecSizeGB(c *gc.C) {
 	size := s.DiskSpec.SizeGB()
 
-	c.Check(size, gc.Equals, uint64(5))
+	c.Check(size, gc.Equals, uint64(15))
 }
 
 func (s *diskSuite) TestDiskSpecSizeGBMin(c *gc.C) {
 	s.DiskSpec.SizeHintGB = 0
 	size := s.DiskSpec.SizeGB()
 
-	c.Check(size, gc.Equals, uint64(1))
+	c.Check(size, gc.Equals, uint64(10))
 }
 
 type attachedInfo struct {

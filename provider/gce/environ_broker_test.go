@@ -154,7 +154,7 @@ func (s *environBrokerSuite) TestGetHardwareCharacteristics(c *gc.C) {
 	c.Check(*hwc.CpuCores, gc.Equals, uint64(1))
 	c.Check(*hwc.CpuPower, gc.Equals, uint64(275))
 	c.Check(*hwc.Mem, gc.Equals, uint64(3750))
-	c.Check(*hwc.RootDisk, gc.Equals, uint64(5120))
+	c.Check(*hwc.RootDisk, gc.Equals, uint64(15360))
 }
 
 func (s *environBrokerSuite) TestAllInstances(c *gc.C) {

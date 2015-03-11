@@ -80,7 +80,7 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 
 func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	diskSpec := google.DiskSpec{
-		SizeHintGB: 5,
+		SizeHintGB: 15,
 		ImageURL:   "some/image/path",
 		Boot:       true,
 		Scratch:    false,
