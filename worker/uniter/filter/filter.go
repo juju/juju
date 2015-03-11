@@ -59,6 +59,10 @@ type filter struct {
 	// should be discarded.
 	discardConfig chan struct{}
 
+	// discardLeaderSettings is used to indicate any pending Leader
+	// Settings event should be discarded.
+	discardLeaderSettings chan struct{}
+
 	// setCharm is used to request that the unit's charm URL be set to
 	// a new value. This must be done in the filter's goroutine, so
 	// that config watches can be stopped and restarted pointing to
@@ -106,31 +110,32 @@ type filter struct {
 // supplied unit.
 func NewFilter(st *uniter.State, unitTag names.UnitTag) (Filter, error) {
 	f := &filter{
-		st:                  st,
-		outUnitDying:        make(chan struct{}),
-		outConfig:           nil,
-		outConfigOn:         make(chan struct{}),
-		outAction:           nil,
-		outActionOn:         make(chan string),
-		outLeaderSettings:   nil,
-		outLeaderSettingsOn: make(chan struct{}),
-		outUpgrade:          nil,
-		outUpgradeOn:        make(chan *charm.URL),
-		outResolved:         nil,
-		outResolvedOn:       make(chan params.ResolvedMode),
-		outRelations:        nil,
-		outRelationsOn:      make(chan []int),
-		outMeterStatus:      nil,
-		outMeterStatusOn:    make(chan struct{}),
-		outStorage:          nil,
-		outStorageOn:        make(chan []names.StorageTag),
-		wantForcedUpgrade:   make(chan bool),
-		wantResolved:        make(chan struct{}),
-		discardConfig:       make(chan struct{}),
-		setCharm:            make(chan *charm.URL),
-		didSetCharm:         make(chan struct{}),
-		clearResolved:       make(chan struct{}),
-		didClearResolved:    make(chan struct{}),
+		st:                    st,
+		outUnitDying:          make(chan struct{}),
+		outConfig:             nil,
+		outConfigOn:           make(chan struct{}),
+		outAction:             nil,
+		outActionOn:           make(chan string),
+		outLeaderSettings:     nil,
+		outLeaderSettingsOn:   make(chan struct{}),
+		outUpgrade:            nil,
+		outUpgradeOn:          make(chan *charm.URL),
+		outResolved:           nil,
+		outResolvedOn:         make(chan params.ResolvedMode),
+		outRelations:          nil,
+		outRelationsOn:        make(chan []int),
+		outMeterStatus:        nil,
+		outMeterStatusOn:      make(chan struct{}),
+		outStorage:            nil,
+		outStorageOn:          make(chan []names.StorageTag),
+		wantForcedUpgrade:     make(chan bool),
+		wantResolved:          make(chan struct{}),
+		discardConfig:         make(chan struct{}),
+		discardLeaderSettings: make(chan struct{}),
+		setCharm:              make(chan *charm.URL),
+		didSetCharm:           make(chan struct{}),
+		clearResolved:         make(chan struct{}),
+		didClearResolved:      make(chan struct{}),
 	}
 	go func() {
 		defer f.tomb.Done()
@@ -281,6 +286,11 @@ func (f *filter) LeaderSettingsEvents() <-chan struct{} {
 // LeaderSettings, they can discard any other pending changes, since they know
 // they will be handling all changes that have occurred before right now.
 func (f *filter) DiscardLeaderSettingsEvent() {
+	filterLogger.Debugf("requesting discard leader settings")
+	select {
+	case <-f.tomb.Dying():
+	case f.discardLeaderSettings <- nothing:
+	}
 }
 
 // WantLeaderSettingsEvents can be used to enable/disable events being sent on
@@ -384,7 +394,7 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		return err
 	}
 	defer watcher.Stop(storagew, &f.tomb)
-	leaderSettingsw, err := f.st.LeadershipSettings.WatchLeadershipSettings()
+	leaderSettingsw, err := f.st.LeadershipSettings.WatchLeadershipSettings(f.service.Tag().Id())
 	if err != nil {
 		return err
 	}
@@ -492,6 +502,14 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 				tags[i] = tag
 			}
 			f.storageChanged(tags)
+		case _, ok = <-leaderSettingsw.Changes():
+			filterLogger.Debugf("got leader settings change: %t", ok)
+			if !ok {
+				filterLogger.Debugf("leader error: %s", leaderSettingsw.Err())
+				return watcher.EnsureErr(leaderSettingsw)
+			}
+			seenConfigChange = true
+			f.outLeaderSettings = f.outLeaderSettingsOn
 
 		// Send events on active out chans.
 		case f.outUpgrade <- f.upgrade:
@@ -503,6 +521,9 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		case f.outConfig <- nothing:
 			filterLogger.Debugf("sent config event")
 			f.outConfig = nil
+		case f.outLeaderSettings <- nothing:
+			filterLogger.Debugf("sent leader settings event")
+			f.outLeaderSettings = nil
 		case f.outAction <- f.nextAction:
 			f.nextAction = f.getNextAction()
 			filterLogger.Debugf("sent action event")
@@ -585,6 +606,9 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		case <-discardConfig:
 			filterLogger.Debugf("discarded config event")
 			f.outConfig = nil
+		case <-f.discardLeaderSettings:
+			filterLogger.Debugf("discarded leader settings event")
+			f.outLeaderSettings = nil
 		}
 	}
 }

@@ -632,10 +632,19 @@ func (s *FilterSuite) TestStorageEvents(c *gc.C) {
 }
 
 func (s *FilterSuite) setLeaderSetting(c *gc.C, key, value string) {
-	currentSettings, err := s.State.ReadLeadershipSettings(s.unit.Tag().Id())
-	c.Assert(err, jc.ErrorIsNil)
-	currentSettings.Update(map[string]interface{}{key: value})
-	_, err = currentSettings.Write()
+	// s.wordpress is the service object
+	/// currentSettings, err := s.State.ReadLeadershipSettings(s.wordpress.Tag().Id())
+	/// c.Assert(err, jc.ErrorIsNil)
+	/// currentSettings.Update(map[string]interface{}{key: value})
+	/// _, err = currentSettings.Write()
+	/// c.Assert(err, jc.ErrorIsNil)
+	// This is how we would set LeadershipSettings if we are the Leader,
+	// but as we are not guaranteed to be leader and we just want to test
+	// them getting changed, we poke directly into state
+	err := s.uniter.LeadershipSettings.Merge(
+		s.wordpress.Tag().Id(),
+		map[string]string{key: value},
+		)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -649,13 +658,13 @@ func (s *FilterSuite) TestLeaderSettingsEventsSendsInitialChange(c *gc.C) {
 	leaderSettingsC.AssertOneReceive()
 
 	// And any time we make changes to the leader settings, we get an event
-	s.setLeaderSetting("foo", "bar-1")
+	s.setLeaderSetting(c, "foo", "bar-1")
 	leaderSettingsC.AssertOneReceive()
 
 	// And multiple changes to settings still get collapsed into a single event
-	s.setLeaderSetting("foo", "bar-2")
-	s.setLeaderSetting("foo", "bar-3")
-	s.setLeaderSetting("foo", "bar-4")
+	s.setLeaderSetting(c, "foo", "bar-2")
+	s.setLeaderSetting(c, "foo", "bar-3")
+	s.setLeaderSetting(c, "foo", "bar-4")
 	// Do we need EvilSync?
 	leaderSettingsC.AssertOneReceive()
 }
@@ -670,17 +679,17 @@ func (s *FilterSuite) TestWantLeaderSettingsEvents(c *gc.C) {
 	f.WantLeaderSettingsEvents(false)
 	leaderSettingsC.AssertNoReceive()
 	// Also suppresses actual changes
-	s.setLeaderSetting("foo", "baz-1")
+	s.setLeaderSetting(c, "foo", "baz-1")
 	leaderSettingsC.AssertNoReceive()
 
 	// Reenabling the settings gives us an immediate change
 	f.WantLeaderSettingsEvents(true)
 	leaderSettingsC.AssertOneReceive()
 	// And also gives changes when actual changes are made
-	s.setLeaderSetting("foo", "baz-2")
+	s.setLeaderSetting(c, "foo", "baz-2")
 	leaderSettingsC.AssertOneReceive()
 	// Setting a value to the same thing doesn't trigger a change
-	s.setLeaderSetting("foo", "baz-2")
+	s.setLeaderSetting(c, "foo", "baz-2")
 	leaderSettingsC.AssertNoReceive()
 
 }
@@ -696,11 +705,11 @@ func (s *FilterSuite) TestDiscardLeaderSettingsEvent(c *gc.C) {
 	leaderSettingsC.AssertNoReceive()
 	// However, it has not permanently disabled change events, another
 	// change still shows up
-	s.setLeaderSetting("foo", "bing-1")
+	s.setLeaderSetting(c, "foo", "bing-1")
 	leaderSettingsC.AssertOneReceive()
 
 	// But at any point we can discard them
-	s.setLeaderSetting("foo", "bing-2")
+	s.setLeaderSetting(c, "foo", "bing-2")
 	f.DiscardLeaderSettingsEvent()
 	leaderSettingsC.AssertNoReceive()
 }
