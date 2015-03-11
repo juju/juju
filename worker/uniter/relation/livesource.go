@@ -104,10 +104,28 @@ func (q *liveSource) loop() error {
 	// its underlying tomb.Wait inside of the Stop method)
 	// go func() { q.tomb.Kill(q.watcher.Wait()) }()
 
-	inChanges := q.watcher.Changes()
+
+	// The state machine here is:
+	// inChanges != nil,  outChanges = nil, outChange = nil, !ready
+	//   we are listening for changes, we have no pending update to apply
+	//   when we get a change, we will transition to:
+	// inChanges = nil, outChanges != nil, outChange != nil, !ready
+	//   we received a change, and are waiting to send the update mutating
+	//   function to outChanges
+	//   once we can send the change we transition to
+	// inChanges = nil, outChanges == nil, outChange == nil, !ready
+	//   we were able to send the changes on our out channel, but it has
+	//   not been called yet. we are waiting for it to be called, and when
+	//   that call completes an event will be sent to ready
+	// inChanges = nil, outChanges == nil, outChange == nil, ready
+	//   the function has been called, we are ready to start listening for
+	//   changes now, so we transition back to the first state
+
+	var inChanges <-chan multiwatcher.RelationUnitsChange
 	var outChanges chan<- hook.SourceChange
 	var outChange hook.SourceChange
-	ready := make(chan struct{})
+	ready := make(chan struct{}, 1)
+	ready <- struct{}{}
 	defer close(ready)
 	for {
 		select {
@@ -129,7 +147,7 @@ func (q *liveSource) loop() error {
 				defer func() {
 					ready <- struct{}{}
 				}()
-				return q.Update(change)
+				return q.Update(inChange)
 			}
 		case outChanges <- outChange:
 			outChanges = nil
