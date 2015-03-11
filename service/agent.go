@@ -5,14 +5,10 @@ package service
 
 import (
 	"fmt"
-	"path"
-	"runtime"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/shell"
 
-	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service/common"
 )
@@ -23,71 +19,41 @@ const (
 	agentServiceTimeout = 300 // 5 minutes
 )
 
-// TODO(ericsnow) Add agent.Info to handle all the agent-related data
-// and pass it as *the* arg to the helpers.
+// TODO(ericsnow) Pass a renderer to agentConf rather than os.
 
-func agentConf(kind, id, dataDir, logDir, os string) (common.Conf, string) {
-	if os == "" {
-		os = runtime.GOOS
-	}
-	name := kind + "-" + strings.Replace(id, "/", "-", -1)
-
+// AgentConf returns the data that defines an init service config
+// for the identified agent.
+func AgentConf(info AgentInfo, os string) common.Conf {
 	renderer, err := shell.NewRenderer(os)
 	if err != nil {
 		// This should not ever happen.
 		panic(err)
 	}
-	toolsDir := renderer.FromSlash(tools.ToolsDir(dataDir, name))
-	jujudPath := renderer.Join(toolsDir, "jujud") + renderer.ExeSuffix()
 
-	idOption := "--machine-id"
-	if kind == "unit" {
-		idOption = "--unit-name"
-	}
-
-	cmd := strings.Join([]string{
-		renderer.Quote(jujudPath),
-		kind,
-		"--data-dir", renderer.Quote(renderer.FromSlash(dataDir)),
-		idOption, id,
-		"--debug",
-	}, " ")
-
-	logFile := path.Join(logDir, name+".log")
-
-	// The agent always starts with debug turned on. The logger worker
-	// will update this to the system logging environment as soon as it starts.
 	conf := common.Conf{
-		Desc:      fmt.Sprintf("juju agent for %s", name),
-		ExecStart: cmd,
-		Logfile:   renderer.FromSlash(logFile),
+		Desc:      fmt.Sprintf("juju agent for %s", info.name),
+		ExecStart: info.cmd(renderer),
+		Logfile:   info.logFile(renderer),
 		Env:       osenv.FeatureFlags(),
-		//Limit: map[string]int{
-		//	"nofile": maxAgentFiles,
-		//},
-		Timeout: agentServiceTimeout,
+		Timeout:   agentServiceTimeout,
 	}
 
-	return conf, toolsDir
-}
-
-// MachineAgentConf returns the data that defines an init service config
-// for the identified machine.
-func MachineAgentConf(machineID, dataDir, logDir, os string) (common.Conf, string) {
-	conf, toolsDir := agentConf("machine", machineID, dataDir, logDir, os)
-
-	conf.Limit = map[string]int{
-		"nofile": maxAgentFiles,
+	switch info.Kind {
+	case AgentKindMachine:
+		conf.Limit = map[string]int{
+			"nofile": maxAgentFiles,
+		}
+	case AgentKindUnit:
+		conf.Desc = "juju unit agent for " + info.ID
 	}
 
-	return conf, toolsDir
+	return conf
 }
 
-// UnitAgentConf returns the data that defines an init service config
-// for the identified unit.
-func UnitAgentConf(unitName, dataDir, logDir, os, containerType string) (common.Conf, string) {
-	conf, toolsDir := agentConf("unit", unitName, dataDir, logDir, os)
-	conf.Desc = "juju unit agent for " + unitName
+// ContainerAgentConf returns the data that defines an init service config
+// for the identified agent running in a container.
+func ContainerAgentConf(info AgentInfo, os, containerType string) common.Conf {
+	conf := AgentConf(info, os)
 
 	// TODO(thumper): 2013-09-02 bug 1219630
 	// As much as I'd like to remove JujuContainerType now, it is still
@@ -99,7 +65,7 @@ func UnitAgentConf(unitName, dataDir, logDir, os, containerType string) (common.
 	osenv.MergeEnvironment(envVars, conf.Env)
 	conf.Env = envVars
 
-	return conf, toolsDir
+	return conf
 }
 
 // ShutdownAfterConf builds a service conf that will cause the host to

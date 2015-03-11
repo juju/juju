@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/utils/shell"
+
 	"github.com/juju/juju/agent/tools"
 )
 
@@ -55,28 +57,28 @@ func NewUnitAgentInfo(id, dataDir, logDir string) AgentInfo {
 	return NewAgentInfo(AgentKindUnit, id, dataDir, logDir)
 }
 
-func (ai AgentInfo) toolsDir(renderer renderer) string {
+func (ai AgentInfo) toolsDir(renderer shell.Renderer) string {
 	return renderer.FromSlash(tools.ToolsDir(ai.DataDir, ai.name))
 }
 
-func (ai AgentInfo) jujud(renderer renderer) string {
-	exeName := "jujud" + renderer.exeSuffix
-	return renderer.PathJoin(ai.toolsDir(renderer), exeName)
+func (ai AgentInfo) jujud(renderer shell.Renderer) string {
+	exeName := "jujud" + renderer.ExeSuffix()
+	return renderer.Join(ai.toolsDir(renderer), exeName)
 }
 
-func (ai AgentInfo) cmd(renderer renderer) string {
+func (ai AgentInfo) cmd(renderer shell.Renderer) string {
 	// The agent always starts with debug turned on. The logger worker
 	// will update this to the system logging environment as soon as
 	// it starts.
 	return strings.Join([]string{
-		renderer.shquote(ai.jujud(renderer)),
+		renderer.Quote(ai.jujud(renderer)),
 		string(ai.Kind),
-		"--data-dir", renderer.shquote(renderer.FromSlash(ai.DataDir)),
+		"--data-dir", renderer.Quote(renderer.FromSlash(ai.DataDir)),
 		idOptions[ai.Kind], ai.ID,
 		"--debug",
 	}, " ")
 }
 
-func (ai AgentInfo) logFile(renderer renderer) string {
-	return renderer.PathJoin(renderer.FromSlash(ai.LogDir), ai.name+".log")
+func (ai AgentInfo) logFile(renderer shell.Renderer) string {
+	return renderer.Join(renderer.FromSlash(ai.LogDir), ai.name+".log")
 }
