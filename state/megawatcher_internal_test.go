@@ -1504,7 +1504,7 @@ func (s *storeManagerStateSuite) TestClosingPorts(c *gc.C) {
 			Status:         "allocating",
 		},
 	})
-	// Try closing updating on an invalid unit.
+	// Try closing and updating with an invalid unit.
 	c.Assert(func() {
 		b.Changed(all, watcher.Change{
 			C:  openedPortsC,
@@ -1512,8 +1512,8 @@ func (s *storeManagerStateSuite) TestClosingPorts(c *gc.C) {
 		})}, gc.PanicMatches, `cannot retrieve unit "unknown/42": unit "unknown/42" not found`)
 }
 
-// TestUnsetServices tests the correct reporting of unset services.
-func (s *storeManagerStateSuite) TestUnsetServices(c *gc.C) {
+// TestSettings tests the correct reporting of unset service settings.
+func (s *storeManagerStateSuite) TestSettings(c *gc.C) {
 	defer s.Reset(c)
 	// Init the test environment.
 	svc := AddTestingService(c, s.state, "dummy-service", AddTestingCharm(c, s.state, "dummy"), s.owner)
