@@ -724,3 +724,27 @@ func (s *releaseSuite) TestErrorsWithNonMachineOrInvalidTags(c *gc.C) {
 		apiservertesting.ErrUnauthorized,
 	), "")
 }
+
+func (s *releaseSuite) allocateAddresses(c *gc.C, conatinerId string, numAllocated int) {
+	// Create the 0.10.0.0/24 subnet in state and pre-allocate up to
+	// numAllocated of the range. It also allocates them to the specified
+	// container.
+	subInfo := state.SubnetInfo{
+		ProviderId:        "dummy-private",
+		CIDR:              "0.10.0.0/24",
+		VLANTag:           0,
+		AllocatableIPLow:  "0.10.0.0",
+		AllocatableIPHigh: "0.10.0.10",
+	}
+	sub, err := s.BackingState.AddSubnet(subInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	for i := 0; i <= numAllocated; i++ {
+		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i), network.ScopeUnknown)
+		ipaddr, err := s.BackingState.AddIPAddress(addr, sub.ID())
+		c.Check(err, jc.ErrorIsNil)
+		err = ipaddr.SetState(state.AddressStateAllocated)
+		c.Check(err, jc.ErrorIsNil)
+		err = ipaddr.AllocateTo(containerId, "")
+		c.Check(err, jc.ErrorIsNil)
+	}
+}
