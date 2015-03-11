@@ -745,7 +745,7 @@ func (s *releaseSuite) allocateAddresses(c *gc.C, containerId string, numAllocat
 	}
 	sub, err := s.BackingState.AddSubnet(subInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	for i := 0; i <= numAllocated; i++ {
+	for i := 0; i < numAllocated; i++ {
 		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i), network.ScopeUnknown)
 		ipaddr, err := s.BackingState.AddIPAddress(addr, sub.ID())
 		c.Check(err, jc.ErrorIsNil)
@@ -762,7 +762,8 @@ func (s *releaseSuite) TestErrorWithFailingReleaseAddress(c *gc.C) {
 	s.breakEnvironMethods(c, "ReleaseAddress")
 	s.assertCall(c, args, s.makeErrors(
 		apiservertesting.ServerError(
-			`failed to release all addresses for "machine-0"`,
+			`failed to release all addresses for "machine-0-lxc-0": `+
+				`[dummy.ReleaseAddress is broken dummy.ReleaseAddress is broken]`,
 		),
 	), "")
 }

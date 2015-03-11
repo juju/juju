@@ -1386,11 +1386,11 @@ func (st *State) AllocatedIPAddresses(machineId string) ([]*IPAddress, error) {
 	result := []*IPAddress{}
 	defer closer()
 	var doc struct {
-		Address string
+		Value string
 	}
 	iter := addresses.Find(bson.D{{"machineid", machineId}}).Iter()
 	for iter.Next(&doc) {
-		addr, err := st.IPAddress(doc.Address)
+		addr, err := st.IPAddress(doc.Value)
 		if err != nil {
 			// shouldn't happen as we're only fetching
 			// addresses we know exist.
