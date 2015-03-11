@@ -661,20 +661,12 @@ func (s *releaseSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 	return err, tw.Log()
 }
 
-func (s *releaseSuite) TestErrorWithNonProvisionedHost(c *gc.C) {
-	container := s.newAPI(c, false, true)
-	args := s.makeArgs(container)
-	s.assertCall(c, args, nil,
-		`cannot allocate addresses: host machine "0" not provisioned`,
-	)
-}
-
 func (s *releaseSuite) TestErrorWithHostInsteadOfContainer(c *gc.C) {
 	s.newAPI(c, true, false)
 	args := s.makeArgs(s.machines[0])
 	s.assertCall(c, args, s.makeErrors(
 		apiservertesting.ServerError(
-			`cannot allocate address for "machine-0": not a container`,
+			`cannot release address for "machine-0": not a container`,
 		),
 	), "")
 }
