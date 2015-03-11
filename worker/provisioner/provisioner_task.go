@@ -703,6 +703,7 @@ func volumeAttachmentsToApiserver(attachments []storage.VolumeAttachment) []para
 			a.Volume.String(),
 			a.Machine.String(),
 			a.DeviceName,
+			a.ReadOnly,
 		}
 	}
 	return result

@@ -25,7 +25,7 @@ type Volume struct {
 	// TODO(axw) record volume persistence
 }
 
-// VolumeAttachment decsribes machine-specific volume attachment information,
+// VolumeAttachment describes machine-specific volume attachment information,
 // including how the volume is exposed on the machine.
 type VolumeAttachment struct {
 	// Volume is the unique tag assigned by Juju for the volume
@@ -41,4 +41,7 @@ type VolumeAttachment struct {
 	// If the device name may change (e.g. on machine restart), then this
 	// field must be left blank.
 	DeviceName string
+
+	// ReadOnly signifies whether the volume is read only or writable.
+	ReadOnly bool
 }

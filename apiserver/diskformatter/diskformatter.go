@@ -160,6 +160,7 @@ func (a *DiskFormatterAPI) oneAttachedVolumes(tag names.MachineTag) ([]params.Vo
 				attachment.Volume().String(),
 				attachment.Machine().String(),
 				attachmentInfo.DeviceName,
+				attachmentInfo.ReadOnly,
 			})
 		}
 	}

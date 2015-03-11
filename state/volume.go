@@ -22,6 +22,16 @@ type Volume interface {
 	// VolumeTag returns the tag for the volume.
 	VolumeTag() names.VolumeTag
 
+	// TODO(axw)
+	// Scope is the tag of the entity that the volume is scoped to.
+	// Volumes which are inherently bound to a machine (e.g. loop devices)
+	// are scoped to that machine; other volumes are scoped to the
+	// environment.
+	// Owner() names.Tag
+
+	// Life returns the life of the volume.
+	Life() Life
+
 	// StorageInstance returns the tag of the storage instance that this
 	// volume is assigned to, if any. If the volume is not assigned to
 	// a storage instance, an error satisfying errors.IsNotAssigned will
@@ -129,6 +139,11 @@ func (v *volume) VolumeTag() names.VolumeTag {
 	return names.NewVolumeTag(v.doc.Name)
 }
 
+// Life returns the volume's current lifecycle state.
+func (v *volume) Life() Life {
+	return v.doc.Life
+}
+
 // StorageInstance is required to implement Volume.
 func (v *volume) StorageInstance() (names.StorageTag, error) {
 	if v.doc.StorageId == "" {
@@ -230,15 +245,33 @@ func (st *State) VolumeAttachment(machine names.MachineTag, volume names.VolumeT
 // MachineVolumeAttachments returns all of the VolumeAttachments for the
 // specified machine.
 func (st *State) MachineVolumeAttachments(machine names.MachineTag) ([]VolumeAttachment, error) {
+	attachments, err := st.volumeAttachments(bson.D{{"machineid", machine.Id()}})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting volume attachments for machine %q", machine.Id())
+	}
+	return attachments, nil
+}
+
+// VolumeAttachments returns all of the VolumeAttachments for the specified
+// volume.
+func (st *State) VolumeAttachments(volume names.VolumeTag) ([]VolumeAttachment, error) {
+	attachments, err := st.volumeAttachments(bson.D{{"volumeid", volume.Id()}})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting volume attachments for volume %q", volume.Id())
+	}
+	return attachments, nil
+}
+
+func (st *State) volumeAttachments(query bson.D) ([]VolumeAttachment, error) {
 	coll, cleanup := st.getCollection(volumeAttachmentsC)
 	defer cleanup()
 
 	var docs []volumeAttachmentDoc
-	err := coll.Find(bson.D{{"machineid", machine.Id()}}).All(&docs)
+	err := coll.Find(query).All(&docs)
 	if err == mgo.ErrNotFound {
 		return nil, nil
 	} else if err != nil {
-		return nil, errors.Annotatef(err, "getting volume attachments for machine %q", machine.Id())
+		return nil, errors.Trace(err)
 	}
 	attachments := make([]VolumeAttachment, len(docs))
 	for i, doc := range docs {
