@@ -14,6 +14,7 @@ import (
 	"text/template"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/service/common"
 )
@@ -22,6 +23,8 @@ import (
 var InitDir = "/etc/init"
 
 var servicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
+
+var logger = loggo.GetLogger("juju.service.upstart")
 
 // ListServices returns the name of all installed services on the
 // local host.
@@ -166,6 +169,7 @@ func (s *Service) existsAndSame() (exists, same bool, conf []byte, err error) {
 func (s *Service) Running() (bool, error) {
 	cmd := exec.Command("status", "--system", s.Service.Name)
 	out, err := cmd.CombinedOutput()
+	logger.Tracef("Running \"status --system %s\": %q", s.Service.Name, out)
 	if err == nil {
 		return startedRE.Match(out), nil
 	}
