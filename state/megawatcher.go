@@ -510,7 +510,9 @@ func (s *backingSettings) removed(st *State, store *multiwatcherStore, id interf
 	localID := st.localID(id.(string))
 	parentID, url, ok := backingEntityIdForSettingsKey(localID)
 	if !ok {
-		panic(fmt.Errorf("cannot retrieve parent ID for %v", parentID))
+		// Only log missing id parts to stay compatible with former version.
+		logger.Debugf("cannot get backing entity ID for %v", localID)
+		return
 	}
 	parent := store.Get(parentID)
 	if info, ok := parent.(*multiwatcher.ServiceInfo); ok {
