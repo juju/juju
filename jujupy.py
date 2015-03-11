@@ -361,6 +361,7 @@ class EnvJujuClient:
                 break
             reporter.update(states)
         else:
+            reporter.finish()
             logging.error(status.status_text)
             raise AgentsNotStarted(self.env.environment, status)
         return status
@@ -378,6 +379,7 @@ class EnvJujuClient:
                 break
             reporter.update(versions)
         else:
+            reporter.finish()
             raise Exception('Some versions did not update.')
 
     def wait_for_ha(self, timeout=1200):
@@ -402,6 +404,7 @@ class EnvJujuClient:
                     return
             reporter.update(states)
         else:
+            reporter.finish()
             raise Exception('Timed out waiting for voting to be enabled.')
 
     def wait_for_deploy_started(self, service_count=1, timeout=1200):
