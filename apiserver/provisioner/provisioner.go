@@ -850,8 +850,8 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 		for _, addr := range addresses {
 			err := environ.ReleaseAddress(ciid, network.Id(addr.SubnetId()), addr.Address())
 			if err != nil {
-				// remove the address from State anyway
-				addr.Remove()
+				// Don't remove the address from state so we
+				// can retry releasing the address later.
 				releaseErrors = append(releaseErrors, err)
 				continue
 			}
