@@ -744,9 +744,17 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 		Volumes: []state.MachineVolumeParams{
 			{Volume: state.VolumeParams{Size: 1000, Pool: "loop-pool"}},
 			{Volume: state.VolumeParams{Size: 2000, Pool: "loop-pool"}},
+			{Volume: state.VolumeParams{Size: 3000, Pool: "loop-pool"}},
 		},
 	}
 	placementMachine, err := s.State.AddOneMachine(template)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Provision volume 2 so that it is excluded from any ProvisioningInfo() results.
+	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
+	err = placementMachine.SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil, map[names.VolumeTag]state.VolumeInfo{
+		names.NewVolumeTag("2"): state.VolumeInfo{VolumeId: "123", Size: 1024},
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{

@@ -58,7 +58,7 @@ type VolumeSource interface {
 
 	// DestroyVolumes destroys the volumes with the specified provider
 	// volume IDs.
-	DestroyVolumes(volIds []string) error
+	DestroyVolumes(volIds []string) []error
 
 	// ValidateVolumeParams validates the provided volume creation
 	// parameters, returning an error if they are invalid.

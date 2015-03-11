@@ -714,6 +714,8 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		} else {
 			return st.Charm(url)
 		}
+	case names.VolumeTag:
+		return st.Volume(tag)
 	default:
 		return nil, errors.Errorf("unsupported tag %T", tag)
 	}

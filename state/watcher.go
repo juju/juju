@@ -171,6 +171,8 @@ func (st *State) WatchEnvironments() StringsWatcher {
 
 // WatchVolumes returns a StringsWatcher that notifies of changes to
 // the lifecycles of all volumes.
+// TODO(wallyworld) - this currently watches all volumes; we need separate
+// methods to watch environ and specific machine volumes.
 func (st *State) WatchVolumes() StringsWatcher {
 	return newLifecycleWatcher(st, volumesC, nil, nil, nil)
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/rsyslog"
+	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver/params"
@@ -249,6 +250,16 @@ func (st *State) DiskFormatter() (*diskformatter.State, error) {
 		return nil, errors.Errorf("expected MachineTag, got %#v", st.authTag)
 	}
 	return diskformatter.NewState(st, machineTag), nil
+}
+
+// StorageProvisioner returns a version of the state that provides
+// functionality required by the storageprovisioner worker.
+// The scope tag defines the type of storage that is provisioned, either
+// either attached directly to a specified machine (machine scoped),
+// or provisioned on the underlying cloud for use by any machine in a
+// specified environment (environ scoped).
+func (st *State) StorageProvisioner(scope names.Tag) *storageprovisioner.State {
+	return storageprovisioner.NewState(st, scope)
 }
 
 // Firewaller returns a version of the state that provides functionality
