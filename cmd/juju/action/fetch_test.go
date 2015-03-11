@@ -63,6 +63,7 @@ func (s *FetchSuite) TestRun(c *gc.C) {
 		withClientWait    string
 		withClientQueryID string
 		withAPIDelay      time.Duration
+		withAPITimeout    time.Duration
 		withTags          params.FindTagsResults
 		withAPIResponse   []params.ActionResult
 		withAPIError      string
@@ -76,6 +77,7 @@ func (s *FetchSuite) TestRun(c *gc.C) {
 		should:            "timeout if result never comes",
 		withClientWait:    "3s",
 		withAPIDelay:      6 * time.Second,
+		withAPITimeout:    10 * time.Second,
 		withClientQueryID: validActionId,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse:   []params.ActionResult{{}},
@@ -88,37 +90,61 @@ timing:
 	}, {
 		should:            "pass api error through properly",
 		withClientQueryID: validActionId,
+		withAPITimeout:    10 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIError:      "api call error",
 		expectedErr:       "api call error",
 	}, {
 		should:            "fail with no tag matches",
 		withClientQueryID: validActionId,
+		withAPITimeout:    10 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId),
 		expectedErr:       `actions for identifier "` + validActionId + `" not found`,
 	}, {
 		should:            "fail with no results",
 		withClientQueryID: validActionId,
+		withAPITimeout:    10 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse:   []params.ActionResult{},
 		expectedErr:       "no results for action " + validActionId,
 	}, {
 		should:            "error correctly with multiple results",
 		withClientQueryID: validActionId,
+		withAPITimeout:    10 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse:   []params.ActionResult{{}, {}},
 		expectedErr:       "too many results for action " + validActionId,
 	}, {
 		should:            "pass through an error from the API server",
 		withClientQueryID: validActionId,
+		withAPITimeout:    10 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
 			Error: common.ServerError(errors.New("an apiserver error")),
 		}},
 		expectedErr: "an apiserver error",
 	}, {
+		should:            "only return once status is no longer running or pending",
+		withAPIDelay:      2 * time.Second,
+		withClientWait:    "6s",
+		withClientQueryID: validActionId,
+		withAPITimeout:    4 * time.Second,
+		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
+		withAPIResponse: []params.ActionResult{{
+			Status: "running",
+			Output: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "baz",
+				},
+			},
+			Enqueued: time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+			Started:  time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
+		}},
+		expectedErr: "test timed out before wait time",
+	}, {
 		should:            "pretty-print action output",
 		withClientQueryID: validActionId,
+		withAPITimeout:    10 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
 			Status:  "complete",
@@ -146,6 +172,7 @@ timing:
 	}, {
 		should:            "pretty-print action output with no completed time",
 		withClientQueryID: validActionId,
+		withAPITimeout:    10 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
 			Status: "pending",
@@ -169,6 +196,7 @@ timing:
 	}, {
 		should:            "pretty-print action output with no enqueued time",
 		withClientQueryID: validActionId,
+		withAPITimeout:    10 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
 			Status: "pending",
@@ -192,6 +220,7 @@ timing:
 	}, {
 		should:            "pretty-print action output with no started time",
 		withClientQueryID: validActionId,
+		withAPITimeout:    10 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
 			Status: "pending",
@@ -215,8 +244,9 @@ timing:
 	}, {
 		should:            "set an appropriate timer and wait, get a result",
 		withClientQueryID: validActionId,
-		withClientWait:    "7s",
-		withAPIDelay:      4 * time.Second,
+		withAPITimeout:    10 * time.Second,
+		withClientWait:    "4s",
+		withAPIDelay:      2 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
 			Status: "completed",
@@ -245,6 +275,7 @@ timing:
 			c, s,
 			makeFakeClient(
 				t.withAPIDelay,
+				t.withAPITimeout,
 				t.withTags,
 				t.withAPIResponse,
 				t.withAPIError),
@@ -274,14 +305,14 @@ func testRunHelper(c *gc.C, s *FetchSuite, client *fakeAPIClient, expectedErr, e
 }
 
 func makeFakeClient(
-	delay time.Duration,
+	delay, timeout time.Duration,
 	tags params.FindTagsResults,
 	response []params.ActionResult,
 	errStr string,
 ) *fakeAPIClient {
 	client := &fakeAPIClient{
 		delay:            time.NewTimer(delay),
-		timeout:          time.NewTimer(10 * time.Second),
+		timeout:          time.NewTimer(timeout),
 		actionTagMatches: tags,
 		actionResults:    response,
 	}

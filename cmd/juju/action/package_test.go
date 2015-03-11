@@ -189,9 +189,8 @@ func (c *fakeAPIClient) Actions(args params.Entities) (params.ActionResults, err
 	// to prevent the test hanging.  If the given wait is up, then return
 	// the results; otherwise, return a pending status.
 
-	// First, wait for a split second to avoid timer problems.
-	tmp := time.NewTimer(0 * time.Second)
-	_ = <-tmp.C
+	// First, sync.
+	_ = <-time.NewTimer(0 * time.Second).C
 
 	select {
 	case _ = <-c.delay.C:
