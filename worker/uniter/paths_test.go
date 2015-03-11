@@ -49,6 +49,7 @@ func (s *PathsSuite) TestWindows(c *gc.C) {
 			RelationsDir:   relAgent("state", "relations"),
 			BundlesDir:     relAgent("state", "bundles"),
 			DeployerDir:    relAgent("state", "deployer"),
+			StorageDir:     relAgent("state", "storage"),
 		},
 	})
 }
@@ -74,6 +75,7 @@ func (s *PathsSuite) TestOther(c *gc.C) {
 			RelationsDir:   relAgent("state", "relations"),
 			BundlesDir:     relAgent("state", "bundles"),
 			DeployerDir:    relAgent("state", "deployer"),
+			StorageDir:     relAgent("state", "storage"),
 		},
 	})
 }

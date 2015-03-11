@@ -540,7 +540,7 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 }
 
 // machineVolumeParams retrieves VolumeParams for the volumes that should be
-// provisioned with and attached to the machine. The client should ignore
+// provisioned with, and attached to, the machine. The client should ignore
 // parameters that it does not know how to handle.
 func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeParams, error) {
 	volumeAttachments, err := m.VolumeAttachments()
@@ -550,38 +550,27 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 	if len(volumeAttachments) == 0 {
 		return nil, nil
 	}
-	volumeParams := make([]params.VolumeParams, 0, len(volumeAttachments))
+	poolManager := poolmanager.New(state.NewStateSettings(p.st))
+	allVolumeParams := make([]params.VolumeParams, 0, len(volumeAttachments))
 	for _, volumeAttachment := range volumeAttachments {
 		volumeTag := volumeAttachment.Volume()
 		volume, err := p.st.Volume(volumeTag)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting volume %q", volumeTag.Id())
 		}
-		stateVolumeParams, ok := volume.Params()
-		if !ok {
+		volumeParams, err := common.VolumeParams(volume, poolManager)
+		if common.IsVolumeAlreadyProvisioned(err) {
 			// Volume is already provisioned; let the dynamic
 			// storage provisioner handle the attachment.
 			continue
+		} else if err != nil {
+			return nil, errors.Annotatef(err, "getting volume %q parameters", volumeTag.Id())
 		}
 		// Not provisioned yet, so ask the cloud provisioner do it.
-		var providerType storage.ProviderType
-		var options map[string]interface{}
-		if stateVolumeParams.Pool == "" {
-			return nil, errors.Errorf("storage pool name not specified")
-		}
-		providerType, options, err = storageConfig(p.st, stateVolumeParams.Pool)
-		if err != nil {
-			return nil, errors.Errorf("cannot get options for pool %q", stateVolumeParams.Pool)
-		}
-		volumeParams = append(volumeParams, params.VolumeParams{
-			volumeTag.String(),
-			stateVolumeParams.Size,
-			string(providerType),
-			options,
-			m.Tag().String(),
-		})
+		volumeParams.MachineTag = m.Tag().String()
+		allVolumeParams = append(allVolumeParams, volumeParams)
 	}
-	return volumeParams, nil
+	return allVolumeParams, nil
 }
 
 // storageConfig returns the provider type and config attributes for the
@@ -768,11 +757,11 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 		if err != nil {
 			return err
 		}
-		volumes, err := volumesToState(arg.Volumes)
+		volumes, err := common.VolumesToState(arg.Volumes)
 		if err != nil {
 			return err
 		}
-		volumeAttachments, err := volumeAttachmentsToState(arg.VolumeAttachments)
+		volumeAttachments, err := common.VolumeAttachmentsToState(arg.VolumeAttachments)
 		if err != nil {
 			return err
 		}

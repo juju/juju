@@ -78,6 +78,12 @@ type Service interface {
 	StartCommands() ([]string, error)
 }
 
+// RestartableService is a service that directly supports restarting.
+type RestartableService interface {
+	// Restart restarts the service.
+	Restart() error
+}
+
 // TODO(ericsnow) bug #1426458
 // Eliminate the need to pass an empty conf for most service methods
 // and several helper functions.
@@ -154,9 +160,9 @@ func listServicesCommand(initSystem string) (string, bool) {
 	}
 }
 
-// InstallStartRetryAttempts defines how much InstallAndStart retries
+// installStartRetryAttempts defines how much InstallAndStart retries
 // upon Start failures.
-var InstallStartRetryAttempts = utils.AttemptStrategy{
+var installStartRetryAttempts = utils.AttemptStrategy{
 	Total: 1 * time.Second,
 	Delay: 250 * time.Millisecond,
 }
@@ -171,7 +177,7 @@ func InstallAndStart(svc ServiceActions) error {
 	// For various reasons the init system may take a short time to
 	// realise that the service has been installed.
 	var err error
-	for attempt := InstallStartRetryAttempts.Start(); attempt.Next(); {
+	for attempt := installStartRetryAttempts.Start(); attempt.Next(); {
 		if err != nil {
 			logger.Errorf("retrying start request (%v)", errors.Cause(err))
 		}
@@ -181,4 +187,42 @@ func InstallAndStart(svc ServiceActions) error {
 		}
 	}
 	return errors.Trace(err)
+}
+
+// discoverService is patched out during some tests.
+var discoverService = func(name string) (Service, error) {
+	return DiscoverService(name, common.Conf{})
+}
+
+// TODO(ericsnow) Add one-off helpers for Start and Stop too?
+
+// Restart restarts the named service.
+func Restart(name string) error {
+	svc, err := discoverService(name)
+	if err != nil {
+		return errors.Annotatef(err, "failed to find service %q", name)
+	}
+	if err := restart(svc); err != nil {
+		return errors.Annotatef(err, "failed to restart service %q", name)
+	}
+	return nil
+}
+
+func restart(svc Service) error {
+	// Use the Restart method, if there is one.
+	if svc, ok := svc.(RestartableService); ok {
+		if err := svc.Restart(); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}
+
+	// Otherwise explicitly stop and start the service.
+	if err := svc.Stop(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := svc.Start(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

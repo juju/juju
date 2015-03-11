@@ -95,31 +95,31 @@ func (e *ebsProvider) FilesystemSource(environConfig *config.Config, providerCon
 	return nil, errors.NotSupportedf("filesystems")
 }
 
-type ebsVolumeSoucre struct {
+type ebsVolumeSource struct {
 }
 
-var _ storage.VolumeSource = (*ebsVolumeSoucre)(nil)
+var _ storage.VolumeSource = (*ebsVolumeSource)(nil)
 
-func (v *ebsVolumeSoucre) CreateVolumes([]storage.VolumeParams) ([]storage.Volume, []storage.VolumeAttachment, error) {
+func (v *ebsVolumeSource) CreateVolumes([]storage.VolumeParams) ([]storage.Volume, []storage.VolumeAttachment, error) {
 	panic("not implemented")
 }
 
-func (v *ebsVolumeSoucre) DescribeVolumes(volIds []string) ([]storage.Volume, error) {
+func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.Volume, error) {
 	panic("not implemented")
 }
 
-func (v *ebsVolumeSoucre) DestroyVolumes(volIds []string) error {
+func (v *ebsVolumeSource) DestroyVolumes(volIds []string) []error {
 	panic("not implemented")
 }
 
-func (v *ebsVolumeSoucre) ValidateVolumeParams(params storage.VolumeParams) error {
+func (v *ebsVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
 	panic("not implemented")
 }
 
-func (v *ebsVolumeSoucre) AttachVolumes([]storage.VolumeAttachmentParams) ([]storage.VolumeAttachment, error) {
+func (v *ebsVolumeSource) AttachVolumes([]storage.VolumeAttachmentParams) ([]storage.VolumeAttachment, error) {
 	panic("not implemented")
 }
 
-func (v *ebsVolumeSoucre) DetachVolumes([]storage.VolumeAttachmentParams) error {
+func (v *ebsVolumeSource) DetachVolumes([]storage.VolumeAttachmentParams) error {
 	panic("not implemented")
 }

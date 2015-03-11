@@ -192,6 +192,7 @@ func (m *leaseManager) workerLoop(stop <-chan struct{}) error {
 		case claim := <-m.claimLease:
 			lease := claimLease(leaseCache, claim.Token)
 			if lease.Id == claim.Token.Id {
+				// TODO(fwereade): we should *definitely* not be ignoring this error.
 				m.leasePersistor.WriteToken(lease.Namespace, lease)
 				if lease.Expiration.Before(nextExpiration) {
 					nextExpiration = lease.Expiration

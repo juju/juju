@@ -526,7 +526,7 @@ func (s *UnitSuite) TestRefresh(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
+func (s *UnitSuite) TestGetSetUnitStatusWhileAlive(c *gc.C) {
 	err := s.unit.SetStatus(state.StatusError, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "error" without info`)
 	err = s.unit.SetStatus(state.Status("vliegkat"), "orville", nil)
@@ -559,7 +559,27 @@ func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	})
 }
 
-func (s *UnitSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
+func (s *UnitSuite) TestSetAgentStatus(c *gc.C) {
+	err := s.unit.SetAgentStatus(state.StatusActive, "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	status, info, data, err := s.unit.Agent().(*state.UnitAgent).Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, state.StatusActive)
+	c.Assert(info, gc.Equals, "foo")
+	c.Assert(data, gc.HasLen, 0)
+}
+
+func (s *UnitSuite) TestGetAgentStatus(c *gc.C) {
+	err := s.unit.Agent().(*state.UnitAgent).SetStatus(state.StatusActive, "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	status, info, data, err := s.unit.AgentStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, state.StatusActive)
+	c.Assert(info, gc.Equals, "foo")
+	c.Assert(data, gc.HasLen, 0)
+}
+
+func (s *UnitSuite) TestGetSetUnitStatusWhileNotAlive(c *gc.C) {
 	err := s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetStatus(state.StatusRunning, "not really", nil)
@@ -1001,7 +1021,7 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	err = s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is not in an error state`)
 
-	err = s.unit.SetStatus(state.StatusError, "gaaah", nil)
+	err = s.unit.SetAgentStatus(state.StatusError, "gaaah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(false)
 	c.Assert(err, jc.ErrorIsNil)

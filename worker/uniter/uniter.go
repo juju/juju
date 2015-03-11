@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -18,17 +19,23 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state/watcher"
+	coreleadership "github.com/juju/juju/leadership"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/filter"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/uniter/storage"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")
+
+// leadershipGuarantee defines the period of time for which a successful call
+// to the is-leader hook tool guarantees continued leadership.
+var leadershipGuarantee = 30 * time.Second
 
 // A UniterExecutionObserver gets the appropriate methods called when a hook
 // is executed and either succeeds or fails.  Missing hooks don't get reported
@@ -49,10 +56,15 @@ type Uniter struct {
 	f         filter.Filter
 	unit      *uniter.Unit
 	relations Relations
+	cleanups  []cleanup
+	storage   *storage.Attachments
 
 	deployer          *deployerProxy
 	operationFactory  operation.Factory
 	operationExecutor operation.Executor
+
+	leadershipManager coreleadership.LeadershipManager
+	leadershipTracker leadership.Tracker
 
 	hookLock    *fslock.Lock
 	runListener *RunListener
@@ -71,28 +83,60 @@ type Uniter struct {
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
 // hooks and operations provoked by changes in st.
-func NewUniter(st *uniter.State, unitTag names.UnitTag, dataDir string, hookLock *fslock.Lock) *Uniter {
+func NewUniter(
+	st *uniter.State,
+	unitTag names.UnitTag,
+	leadershipManager coreleadership.LeadershipManager,
+	dataDir string,
+	hookLock *fslock.Lock,
+) *Uniter {
 	u := &Uniter{
-		st:               st,
-		paths:            NewPaths(dataDir, unitTag),
-		hookLock:         hookLock,
-		collectMetricsAt: inactiveMetricsTimer,
+		st:                st,
+		paths:             NewPaths(dataDir, unitTag),
+		hookLock:          hookLock,
+		leadershipManager: leadershipManager,
+		collectMetricsAt:  inactiveMetricsTimer,
 	}
 	go func() {
 		defer u.tomb.Done()
+		defer u.runCleanups()
 		u.tomb.Kill(u.loop(unitTag))
 	}()
 	return u
 }
 
+type cleanup func() error
+
+func (u *Uniter) addCleanup(cleanup cleanup) {
+	u.cleanups = append(u.cleanups, cleanup)
+}
+
+func (u *Uniter) runCleanups() {
+	for _, cleanup := range u.cleanups {
+		u.tomb.Kill(cleanup())
+	}
+}
+
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
+	// Start tracking leadership state.
+	// TODO(fwereade): ideally, this wouldn't be created here; as a worker it's
+	// clearly better off being managed by a Runner. However, we haven't come up
+	// with a clean way to reference one (lineage of a...) worker from another,
+	// so for now the tracker is accessible only to its unit.
+	leadershipTracker := leadership.NewTrackerWorker(
+		unitTag, u.leadershipManager, leadershipGuarantee,
+	)
+	u.addCleanup(func() error {
+		return worker.Stop(leadershipTracker)
+	})
+	u.leadershipTracker = leadershipTracker
+
 	if err := u.init(unitTag); err != nil {
 		if err == worker.ErrTerminateAgent {
 			return err
 		}
 		return fmt.Errorf("failed to initialize uniter for %q: %v", unitTag, err)
 	}
-	defer u.runListener.Close()
 	logger.Infof("unit %q started", u.unit)
 
 	// Start filtering state change events for consumption by modes.
@@ -100,10 +144,11 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return err
 	}
-	defer watcher.Stop(u.f, &u.tomb)
-	go func() {
-		u.tomb.Kill(u.f.Wait())
-	}()
+	u.addCleanup(u.f.Stop)
+
+	// Stop the uniter if either of these components fails.
+	go func() { u.tomb.Kill(leadershipTracker.Wait()) }()
+	go func() { u.tomb.Kill(u.f.Wait()) }()
 
 	// Run modes until we encounter an error.
 	mode := ModeContinue
@@ -173,6 +218,14 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create relations")
 	}
 	u.relations = relations
+	storageAttachments, err := storage.NewAttachments(
+		u.st, unitTag, u.paths.State.StorageDir, u.tomb.Dying(),
+	)
+	if err != nil {
+		return errors.Annotatef(err, "cannot create storage hook source")
+	}
+	u.storage = storageAttachments
+	u.addCleanup(storageAttachments.Stop)
 
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,
@@ -184,7 +237,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	u.deployer = &deployerProxy{deployer}
 	runnerFactory, err := runner.NewFactory(
-		u.st, unitTag, u.relations.GetInfo, u.paths,
+		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.storage, u.paths,
 	)
 	if err != nil {
 		return err
@@ -193,6 +246,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		u.deployer,
 		runnerFactory,
 		&operationCallbacks{u},
+		u.storage,
 		u.tomb.Dying(),
 	)
 
@@ -209,6 +263,11 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return err
 	}
+	u.addCleanup(func() error {
+		// TODO(fwereade): RunListener returns no error on Close. This seems wrong.
+		u.runListener.Close()
+		return nil
+	})
 	// The socket needs to have permissions 777 in order for other users to use it.
 	if version.Current.OS != version.Windows {
 		return os.Chmod(u.paths.Runtime.JujuRunSocket, 0777)

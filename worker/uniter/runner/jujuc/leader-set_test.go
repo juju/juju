@@ -10,7 +10,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -81,7 +80,7 @@ type leaderSetContext struct {
 	err         error
 }
 
-func (s *leaderSetContext) WriteLeaderSettings(settings params.Settings) error {
+func (s *leaderSetContext) WriteLeaderSettings(settings map[string]string) error {
 	s.gotSettings = settings
 	return s.err
 }

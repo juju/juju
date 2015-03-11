@@ -135,8 +135,7 @@ func getActionTagByPrefix(api APIClient, prefix string) (names.ActionTag, error)
 		return tag, errors.Errorf("identifier %q matched multiple actions %v", prefix, actiontags)
 	}
 
-	tag = actiontags[0]
-	return tag, nil
+	return actiontags[0], nil
 }
 
 // getActionTags converts a slice of params.Entity to a slice of names.ActionTag, and

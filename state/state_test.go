@@ -79,10 +79,8 @@ func (s *StateSuite) TestIsStateServer(c *gc.C) {
 }
 
 func (s *StateSuite) TestUserEnvNameIndex(c *gc.C) {
-	username := "bob"
-	envName := "testing"
-	index := state.UserEnvNameIndex(username, envName)
-	c.Assert(index, gc.Equals, username+":"+envName)
+	index := state.UserEnvNameIndex("BoB", "testing")
+	c.Assert(index, gc.Equals, "bob:testing")
 }
 
 func (s *StateSuite) TestDocID(c *gc.C) {

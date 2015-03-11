@@ -95,7 +95,10 @@ func volumeStorageAttachmentInfo(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &storage.StorageAttachmentInfo{devicePath}, nil
+	return &storage.StorageAttachmentInfo{
+		storage.StorageKindBlock,
+		devicePath,
+	}, nil
 }
 
 func filesystemStorageAttachmentInfo(
@@ -117,6 +120,7 @@ func filesystemStorageAttachmentInfo(
 		return nil, errors.Annotate(err, "getting filesystem attachment info")
 	}
 	return &storage.StorageAttachmentInfo{
+		storage.StorageKindFilesystem,
 		filesystemAttachmentInfo.MountPoint,
 	}, nil
 }

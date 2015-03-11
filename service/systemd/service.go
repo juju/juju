@@ -117,6 +117,7 @@ type dbusAPI interface {
 	DisableUnitFiles([]string, bool) ([]dbus.DisableUnitFileChange, error)
 	GetUnitProperties(string) (map[string]interface{}, error)
 	GetUnitTypeProperties(string, string) (map[string]interface{}, error)
+	Reload() error
 }
 
 var newConn = func() (dbusAPI, error) {
@@ -137,7 +138,7 @@ func (s *Service) errorf(err error, msg string, args ...interface{}) error {
 	}
 	err.(*errors.Err).SetLocation(1)
 	logger.Errorf("%v", err)
-	logger.Debugf(errors.ErrorStack(err))
+	logger.Debugf("stack trace:\n%s", errors.ErrorStack(err))
 	return err
 }
 
@@ -418,6 +419,10 @@ func (s *Service) remove() error {
 		return s.errorf(err, "dbus disable request failed")
 	}
 
+	if err := conn.Reload(); err != nil {
+		return s.errorf(err, "dbus post-disable daemon reload request failed")
+	}
+
 	if err := removeAll(s.Dirname); err != nil {
 		return s.errorf(err, "failed to delete juju-managed conf dir")
 	}
@@ -486,7 +491,10 @@ func (s *Service) install() error {
 		return s.errorf(err, "dbus link request failed")
 	}
 
-	// TODO(ericsnow) This needs SU privs...
+	if err := conn.Reload(); err != nil {
+		return s.errorf(err, "dbus post-link daemon reload request failed")
+	}
+
 	_, _, err = conn.EnableUnitFiles([]string{filename}, runtime, force)
 	if err != nil {
 		return s.errorf(err, "dbus enable request failed")
@@ -507,7 +515,9 @@ func (s *Service) writeConf() (string, error) {
 
 	if s.Script != nil {
 		scriptPath := s.Service.Conf.ExecStart
-		if err := createFile(scriptPath, s.Script, 0755); err != nil {
+		// TODO(ericsnow) bash might be located somewhere else!
+		script := append([]byte("#!/bin/bash\n\n"), s.Script...)
+		if err := createFile(scriptPath, script, 0755); err != nil {
 			return filename, s.errorf(err, "failed to write script at %q", scriptPath)
 		}
 	}
@@ -534,7 +544,7 @@ func (s *Service) InstallCommands() ([]string, error) {
 	}
 
 	name := s.Name()
-	dirname := "/tmp"
+	dirname := s.Dirname
 
 	data, err := s.serialize()
 	if err != nil {
@@ -543,10 +553,22 @@ func (s *Service) InstallCommands() ([]string, error) {
 
 	cmds := commands{}
 	cmdList := []string{
-		cmds.writeFile(name, dirname, data),
-		cmds.link(name, dirname),
-		cmds.enable(name),
+		cmds.mkdirs(dirname),
 	}
+	if s.Script != nil {
+		scriptName := path.Base(s.Service.Conf.ExecStart)
+		script := append([]byte("#!/bin/bash\n\n"), s.Script...)
+		cmdList = append(cmdList, []string{
+			cmds.writeFile(scriptName, dirname, script),
+			cmds.chmod(scriptName, dirname, 0755),
+		}...)
+	}
+	cmdList = append(cmdList, []string{
+		cmds.writeConf(name, dirname, data),
+		cmds.link(name, dirname),
+		cmds.reload(),
+		cmds.enableLinked(name, dirname),
+	}...)
 	return cmdList, nil
 }
 

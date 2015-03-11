@@ -11,6 +11,8 @@ import (
 )
 
 type storageStateInterface interface {
+	EnsureStorageAttachmentDead(names.StorageTag, names.UnitTag) error
+	RemoveStorageAttachment(names.StorageTag, names.UnitTag) error
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
 	StorageInstanceVolume(names.StorageTag) (state.Volume, error)

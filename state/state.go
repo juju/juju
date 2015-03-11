@@ -230,7 +230,7 @@ func (st *State) EnvironUUID() string {
 
 // userEnvNameIndex returns a string to be used as a userenvnameC unique index.
 func userEnvNameIndex(username, envName string) string {
-	return username + ":" + envName
+	return strings.ToLower(username) + ":" + envName
 }
 
 // EnsureEnvironmentRemoved returns an error if any multi-enviornment
@@ -714,6 +714,8 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		} else {
 			return st.Charm(url)
 		}
+	case names.VolumeTag:
+		return st.Volume(tag)
 	default:
 		return nil, errors.Errorf("unsupported tag %T", tag)
 	}
