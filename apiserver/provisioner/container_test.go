@@ -20,23 +20,21 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// prepareSuite contains only tests around
-// PrepareContainerInterfaceInfo method.
-type prepareSuite struct {
+// containerSuite has methods useful to tests working with containers. Notably
+// around testing PrepareContainerInterfaceInfo and ReleaseContainerAddresses.
+type containerSuite struct {
 	provisionerSuite
 
 	provAPI *provisioner.ProvisionerAPI
 }
 
-var _ = gc.Suite(&prepareSuite{})
-
-func (s *prepareSuite) SetUpTest(c *gc.C) {
+func (s *containerSuite) SetUpTest(c *gc.C) {
 	s.setUpTest(c, false)
 	// Reset any "broken" dummy provider methods.
 	s.breakEnvironMethods(c)
 }
 
-func (s *prepareSuite) newCustomAPI(c *gc.C, hostInstId instance.Id, addContainer bool) *state.Machine {
+func (s *containerSuite) newCustomAPI(c *gc.C, hostInstId instance.Id, addContainer bool) *state.Machine {
 	anAuthorizer := s.authorizer
 	anAuthorizer.EnvironManager = false
 	anAuthorizer.Tag = s.machines[0].Tag()
@@ -66,7 +64,7 @@ func (s *prepareSuite) newCustomAPI(c *gc.C, hostInstId instance.Id, addContaine
 	return nil
 }
 
-func (s *prepareSuite) newAPI(c *gc.C, provisionHost, addContainer bool) *state.Machine {
+func (s *containerSuite) newAPI(c *gc.C, provisionHost, addContainer bool) *state.Machine {
 	var hostInstId instance.Id
 	if provisionHost {
 		hostInstId = "i-host"
@@ -74,12 +72,34 @@ func (s *prepareSuite) newAPI(c *gc.C, provisionHost, addContainer bool) *state.
 	return s.newCustomAPI(c, hostInstId, addContainer)
 }
 
-func (s *prepareSuite) makeArgs(machines ...*state.Machine) params.Entities {
+func (s *containerSuite) makeArgs(machines ...*state.Machine) params.Entities {
 	args := params.Entities{Entities: make([]params.Entity, len(machines))}
 	for i, m := range machines {
 		args.Entities[i].Tag = m.Tag().String()
 	}
 	return args
+}
+
+func (s *containerSuite) breakEnvironMethods(c *gc.C, methods ...string) {
+	s.AssertConfigParameterUpdated(c, "broken", strings.Join(methods, " "))
+}
+
+// prepareSuite contains only tests around
+// PrepareContainerInterfaceInfo method.
+type prepareSuite struct {
+	containerSuite
+}
+
+var _ = gc.Suite(&prepareSuite{})
+
+func (s *prepareSuite) makeErrors(errors ...*params.Error) *params.MachineNetworkConfigResults {
+	results := &params.MachineNetworkConfigResults{
+		Results: make([]params.MachineNetworkConfigResult, len(errors)),
+	}
+	for i, err := range errors {
+		results.Results[i].Error = err
+	}
+	return results
 }
 
 func (s *prepareSuite) makeResults(cfgs ...[]params.NetworkConfig) *params.MachineNetworkConfigResults {
@@ -88,16 +108,6 @@ func (s *prepareSuite) makeResults(cfgs ...[]params.NetworkConfig) *params.Machi
 	}
 	for i, cfg := range cfgs {
 		results.Results[i].Config = cfg
-	}
-	return results
-}
-
-func (s *prepareSuite) makeErrors(errors ...*params.Error) *params.MachineNetworkConfigResults {
-	results := &params.MachineNetworkConfigResults{
-		Results: make([]params.MachineNetworkConfigResult, len(errors)),
-	}
-	for i, err := range errors {
-		results.Results[i].Error = err
 	}
 	return results
 }
@@ -146,10 +156,6 @@ func (s *prepareSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 		}
 	}
 	return err, tw.Log()
-}
-
-func (s *prepareSuite) breakEnvironMethods(c *gc.C, methods ...string) {
-	s.AssertConfigParameterUpdated(c, "broken", strings.Join(methods, " "))
 }
 
 func (s *prepareSuite) TestErrorWithNonProvisionedHost(c *gc.C) {
@@ -604,4 +610,125 @@ func (s *prepareSuite) TestSuccessWhenFirstSubnetNotAllocatable(c *gc.C) {
 		loggo.INFO,
 		`assigned address ".+" to container "0/lxc/0"`,
 	}})
+}
+
+// releaseSuite contains only tests around
+// ReleaseContainerAddresses method.
+type releaseSuite struct {
+	containerSuite
+}
+
+var _ = gc.Suite(&releaseSuite{})
+
+func (s *releaseSuite) makeErrors(errors ...*params.Error) *params.ErrorResults {
+	results := &params.ErrorResults{
+		Results: make([]params.ErrorResult, len(errors)),
+	}
+	for i, err := range errors {
+		results.Results[i].Error = err
+	}
+	return results
+}
+
+func (s *releaseSuite) assertCall(c *gc.C, args params.Entities, expectResults *params.ErrorResults, expectErr string) (error, []loggo.TestLogValues) {
+
+	// Capture the logs for later inspection.
+	logger := loggo.GetLogger("juju.apiserver.provisioner")
+	defer logger.SetLogLevel(logger.LogLevel())
+	logger.SetLogLevel(loggo.TRACE)
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("test", &tw, loggo.TRACE), gc.IsNil)
+	defer loggo.RemoveWriter("test")
+
+	results, err := s.provAPI.ReleaseContainerAddresses(args)
+	c.Logf("ReleaseContainerAddresses returned: err=%v, results=%v", err, results)
+	c.Assert(results.Results, gc.HasLen, len(args.Entities))
+	if expectErr == "" {
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(expectResults, gc.NotNil)
+		c.Assert(results.Results, gc.HasLen, len(expectResults.Results))
+		c.Assert(results, jc.DeepEquals, *expectResults)
+	} else {
+		c.Assert(err, gc.ErrorMatches, expectErr)
+		if len(args.Entities) > 0 {
+			result := results.Results[0]
+			// Not using jc.ErrorIsNil below because
+			// (*params.Error)(nil) does not satisfy the error
+			// interface.
+			c.Assert(result.Error, gc.IsNil)
+		}
+	}
+	return err, tw.Log()
+}
+
+func (s *releaseSuite) TestErrorWithNonProvisionedHost(c *gc.C) {
+	container := s.newAPI(c, false, true)
+	args := s.makeArgs(container)
+	s.assertCall(c, args, nil,
+		`cannot allocate addresses: host machine "0" not provisioned`,
+	)
+}
+
+func (s *releaseSuite) TestErrorWithHostInsteadOfContainer(c *gc.C) {
+	s.newAPI(c, true, false)
+	args := s.makeArgs(s.machines[0])
+	s.assertCall(c, args, s.makeErrors(
+		apiservertesting.ServerError(
+			`cannot allocate address for "machine-0": not a container`,
+		),
+	), "")
+}
+
+func (s *releaseSuite) TestErrorsWithDifferentHosts(c *gc.C) {
+	s.newAPI(c, true, false)
+	args := s.makeArgs(s.machines[1], s.machines[2])
+	s.assertCall(c, args, s.makeErrors(
+		apiservertesting.ErrUnauthorized,
+		apiservertesting.ErrUnauthorized,
+	), "")
+}
+
+func (s *releaseSuite) TestErrorsWithContainersOnDifferentHost(c *gc.C) {
+	s.newAPI(c, true, false)
+	var containers []*state.Machine
+	for i := 0; i < 2; i++ {
+		container, err := s.State.AddMachineInsideMachine(
+			state.MachineTemplate{
+				Series: "quantal",
+				Jobs:   []state.MachineJob{state.JobHostUnits},
+			},
+			s.machines[1].Id(),
+			instance.LXC,
+		)
+		c.Assert(err, jc.ErrorIsNil)
+		containers = append(containers, container)
+	}
+	args := s.makeArgs(containers...)
+	s.assertCall(c, args, s.makeErrors(
+		apiservertesting.ErrUnauthorized,
+		apiservertesting.ErrUnauthorized,
+	), "")
+}
+
+func (s *releaseSuite) TestErrorsWithNonMachineOrInvalidTags(c *gc.C) {
+	s.newAPI(c, true, false)
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-wordpress-0"},
+		{Tag: "service-wordpress"},
+		{Tag: "network-foo"},
+		{Tag: "anything-invalid"},
+		{Tag: "42"},
+		{Tag: "machine-42"},
+		{Tag: ""},
+	}}
+
+	s.assertCall(c, args, s.makeErrors(
+		apiservertesting.ErrUnauthorized,
+		apiservertesting.ErrUnauthorized,
+		apiservertesting.ErrUnauthorized,
+		apiservertesting.ErrUnauthorized,
+		apiservertesting.ErrUnauthorized,
+		apiservertesting.ErrUnauthorized,
+		apiservertesting.ErrUnauthorized,
+	), "")
 }
