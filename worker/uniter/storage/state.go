@@ -4,7 +4,6 @@
 package storage
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -35,7 +34,7 @@ type state struct {
 func (s *state) ValidateHook(hi hook.Info) (err error) {
 	defer errors.DeferredAnnotatef(&err, "inappropriate %q hook for storage %q", hi.Kind, s.storage.Id())
 	if hi.StorageId != s.storage.Id() {
-		return fmt.Errorf("expected storage %q, got storage %q", s.storage.Id(), hi.StorageId)
+		return errors.Errorf("expected storage %q, got storage %q", s.storage.Id(), hi.StorageId)
 	}
 	switch hi.Kind {
 	case hooks.StorageAttached:
@@ -65,7 +64,7 @@ type stateFile struct {
 
 // readStateFile loads a stateFile from the subdirectory of dirPath named
 // for the supplied storage tag. If the directory does not exist, no error
-// is returned,
+// is returned.
 func readStateFile(dirPath string, tag names.StorageTag) (d *stateFile, err error) {
 	filename := strings.Replace(tag.Id(), "/", "-", -1)
 	d = &stateFile{
