@@ -53,7 +53,7 @@ func (c *Client) convert(found []params.StorageShowResult) ([]params.StorageInfo
 	return storages, allErr.Combine()
 }
 
-// List list all current storage instances.
+// List lists all storage.
 func (c *Client) List() ([]params.StorageInfo, error) {
 	found := params.StorageShowResults{}
 	if err := c.facade.FacadeCall("List", nil, &found); err != nil {
