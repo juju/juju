@@ -528,14 +528,6 @@ func (s *RunHookSuite) testQueueHook_Preserve(c *gc.C, cause, effect hooks.Kind)
 	}
 }
 
-func (s *RunHookSuite) TestQueueHook_Install_BlankSlate(c *gc.C) {
-	s.testQueueHook_BlankSlate(c, hooks.Install, hooks.ConfigChanged)
-}
-
-func (s *RunHookSuite) TestQueueHook_Install_Preserve(c *gc.C) {
-	s.testQueueHook_Preserve(c, hooks.Install, hooks.ConfigChanged)
-}
-
 func (s *RunHookSuite) TestQueueHook_UpgradeCharm_BlankSlate(c *gc.C) {
 	s.testQueueHook_BlankSlate(c, hooks.UpgradeCharm, hooks.ConfigChanged)
 }
@@ -584,6 +576,18 @@ func (s *RunHookSuite) testQueueNothing_Preserve(c *gc.C, hookInfo hook.Info) {
 			},
 		)
 	}
+}
+
+func (s *RunHookSuite) TestQueueNothing_Install_BlankSlate(c *gc.C) {
+	s.testQueueNothing_BlankSlate(c, hook.Info{
+		Kind: hooks.Install,
+	})
+}
+
+func (s *RunHookSuite) TestQueueNothing_Install_Preserve(c *gc.C) {
+	s.testQueueNothing_Preserve(c, hook.Info{
+		Kind: hooks.Install,
+	})
 }
 
 func (s *RunHookSuite) TestQueueNothing_Stop_BlankSlate(c *gc.C) {
