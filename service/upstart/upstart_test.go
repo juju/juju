@@ -233,6 +233,7 @@ func (s *UpstartSuite) assertInstall(c *gc.C, conf common.Conf, expectEnd string
 		"start some-service",
 	})
 
+	s.MakeTool(c, "status", `echo "some-service stop/waiting"`)
 	s.MakeTool(c, "start", "exit 99")
 	err = svc.Install()
 	c.Assert(err, jc.ErrorIsNil)
