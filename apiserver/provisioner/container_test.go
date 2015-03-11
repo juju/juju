@@ -777,3 +777,13 @@ func (s *releaseSuite) TestErrorWithFailingReleaseAddress(c *gc.C) {
 		),
 	), "")
 }
+
+func (s *releaseSuite) TestReleaseContainerAddresses(c *gc.C) {
+	container := s.newAPI(c, true, true)
+	args := s.makeArgs(container)
+
+	s.allocateAddresses(c, container.Id(), 2)
+	s.breakEnvironMethods(c, "ReleaseAddress")
+	s.assertCall(c, args, s.makeErrors(nil), "")
+
+}
