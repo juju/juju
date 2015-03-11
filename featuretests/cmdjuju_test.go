@@ -12,10 +12,13 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	// TODO(dimitern): Don't import a main package into a library
 	// package, pulling in main() along with it.
+	"github.com/juju/juju/cmd/envcmd"
 	cmdjuju "github.com/juju/juju/cmd/juju"
+	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -100,4 +103,45 @@ func (s *cmdJujuSuite) TestServiceGetConstraints(c *gc.C) {
 	context, err := runCommand(c, "service", "get-constraints", "svc")
 	c.Assert(testing.Stdout(context), gc.Equals, "cpu-cores=64\n")
 	c.Assert(testing.Stderr(context), gc.Equals, "")
+}
+
+func (s *cmdJujuSuite) TestServiceSet(c *gc.C) {
+	ch := s.AddTestingCharm(c, "dummy")
+	svc := s.AddTestingService(c, "dummy-service", ch)
+
+	_, err := testing.RunCommand(c, envcmd.Wrap(&service.SetCommand{}), "dummy-service",
+		"username=hello", "outlook=hello@world.tld")
+	c.Assert(err, jc.ErrorIsNil)
+
+	expect := charm.Settings{
+		"username": "hello",
+		"outlook":  "hello@world.tld",
+	}
+
+	settings, err := svc.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, expect)
+}
+
+func (s *cmdJujuSuite) TestServiceUnset(c *gc.C) {
+	ch := s.AddTestingCharm(c, "dummy")
+	svc := s.AddTestingService(c, "dummy-service", ch)
+
+	settings := charm.Settings{
+		"username": "hello",
+		"outlook":  "hello@world.tld",
+	}
+
+	err := svc.UpdateConfigSettings(settings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = testing.RunCommand(c, envcmd.Wrap(&service.UnsetCommand{}), "dummy-service", "username")
+	c.Assert(err, jc.ErrorIsNil)
+
+	expect := charm.Settings{
+		"outlook": "hello@world.tld",
+	}
+	settings, err = svc.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, expect)
 }

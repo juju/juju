@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/service"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
@@ -37,7 +38,7 @@ func deployHelpText() string {
 }
 
 func setHelpText() string {
-	return cmdtesting.HelpText(envcmd.Wrap(&SetCommand{}), "juju set")
+	return cmdtesting.HelpText(envcmd.Wrap(&service.SetCommand{}), "juju service set")
 }
 
 func syncToolsHelpText() string {
