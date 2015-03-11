@@ -835,6 +835,7 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 
 		ciid, err := container.InstanceId()
 		if err != nil {
+			logger.Warningf("failed to get InstanceId for container %q: %v", tag, err)
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -842,6 +843,7 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 		id := container.Id()
 		addresses, err := p.st.AllocatedIPAddresses(id)
 		if err != nil {
+			logger.Warningf("failed to get Id for container %q: %v", tag, err)
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -852,11 +854,13 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 			if err != nil {
 				// Don't remove the address from state so we
 				// can retry releasing the address later.
+				logger.Warningf("failed to release address %v for container %q: %v", addr.Value, tag, err)
 				releaseErrors = append(releaseErrors, err)
 				continue
 			}
 			err = addr.Remove()
 			if err != nil {
+				logger.Warningf("failed to remove address %v for container %q: %v", addr.Value, tag, err)
 				releaseErrors = append(releaseErrors, err)
 			}
 		}

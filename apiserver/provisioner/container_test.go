@@ -725,7 +725,7 @@ func (s *releaseSuite) TestErrorsWithNonMachineOrInvalidTags(c *gc.C) {
 	), "")
 }
 
-func (s *releaseSuite) allocateAddresses(c *gc.C, conatinerId string, numAllocated int) {
+func (s *releaseSuite) allocateAddresses(c *gc.C, containerId string, numAllocated int) {
 	// Create the 0.10.0.0/24 subnet in state and pre-allocate up to
 	// numAllocated of the range. It also allocates them to the specified
 	// container.
@@ -742,9 +742,24 @@ func (s *releaseSuite) allocateAddresses(c *gc.C, conatinerId string, numAllocat
 		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i), network.ScopeUnknown)
 		ipaddr, err := s.BackingState.AddIPAddress(addr, sub.ID())
 		c.Check(err, jc.ErrorIsNil)
-		err = ipaddr.SetState(state.AddressStateAllocated)
-		c.Check(err, jc.ErrorIsNil)
 		err = ipaddr.AllocateTo(containerId, "")
 		c.Check(err, jc.ErrorIsNil)
 	}
+}
+
+func (s *releaseSuite) TestErrorWithFailingReleaseAddress(c *gc.C) {
+	container := s.newAPI(c, true, true)
+	args := s.makeArgs(container)
+
+	s.allocateAddresses(c, container.Id(), 5)
+	s.breakEnvironMethods(c, "ReleaseAddress")
+	s.assertCall(c, args, s.makeErrors(
+		apiservertesting.ErrUnauthorized,
+		apiservertesting.ErrUnauthorized,
+		apiservertesting.ErrUnauthorized,
+		apiservertesting.ErrUnauthorized,
+		apiservertesting.ErrUnauthorized,
+		apiservertesting.ErrUnauthorized,
+		apiservertesting.ErrUnauthorized,
+	), "")
 }
