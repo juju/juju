@@ -647,16 +647,7 @@ func (s *releaseSuite) makeErrors(errors ...*params.Error) *params.ErrorResults 
 	return results
 }
 
-func (s *releaseSuite) assertCall(c *gc.C, args params.Entities, expectResults *params.ErrorResults, expectErr string) (error, []loggo.TestLogValues) {
-
-	// Capture the logs for later inspection.
-	logger := loggo.GetLogger("juju.apiserver.provisioner")
-	defer logger.SetLogLevel(logger.LogLevel())
-	logger.SetLogLevel(loggo.TRACE)
-	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("test", &tw, loggo.TRACE), gc.IsNil)
-	defer loggo.RemoveWriter("test")
-
+func (s *releaseSuite) assertCall(c *gc.C, args params.Entities, expectResults *params.ErrorResults, expectErr string) error {
 	results, err := s.provAPI.ReleaseContainerAddresses(args)
 	c.Logf("ReleaseContainerAddresses returned: err=%v, results=%v", err, results)
 	c.Assert(results.Results, gc.HasLen, len(args.Entities))
@@ -675,26 +666,28 @@ func (s *releaseSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 			c.Assert(result.Error, gc.IsNil)
 		}
 	}
-	return err, tw.Log()
+	return err
 }
 
 func (s *releaseSuite) TestErrorWithHostInsteadOfContainer(c *gc.C) {
 	s.newAPI(c, true, false)
 	args := s.makeArgs(s.machines[0])
-	s.assertCall(c, args, s.makeErrors(
+	err := s.assertCall(c, args, s.makeErrors(
 		apiservertesting.ServerError(
 			`cannot release address for "machine-0": not a container`,
 		),
 	), "")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *releaseSuite) TestErrorsWithDifferentHosts(c *gc.C) {
 	s.newAPI(c, true, false)
 	args := s.makeArgs(s.machines[1], s.machines[2])
-	s.assertCall(c, args, s.makeErrors(
+	err := s.assertCall(c, args, s.makeErrors(
 		apiservertesting.ErrUnauthorized,
 		apiservertesting.ErrUnauthorized,
 	), "")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *releaseSuite) TestErrorsWithContainersOnDifferentHost(c *gc.C) {
@@ -713,10 +706,11 @@ func (s *releaseSuite) TestErrorsWithContainersOnDifferentHost(c *gc.C) {
 		containers = append(containers, container)
 	}
 	args := s.makeArgs(containers...)
-	s.assertCall(c, args, s.makeErrors(
+	err := s.assertCall(c, args, s.makeErrors(
 		apiservertesting.ErrUnauthorized,
 		apiservertesting.ErrUnauthorized,
 	), "")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *releaseSuite) TestErrorsWithNonMachineOrInvalidTags(c *gc.C) {
@@ -731,7 +725,7 @@ func (s *releaseSuite) TestErrorsWithNonMachineOrInvalidTags(c *gc.C) {
 		{Tag: ""},
 	}}
 
-	s.assertCall(c, args, s.makeErrors(
+	err := s.assertCall(c, args, s.makeErrors(
 		apiservertesting.ErrUnauthorized,
 		apiservertesting.ErrUnauthorized,
 		apiservertesting.ErrUnauthorized,
@@ -740,6 +734,7 @@ func (s *releaseSuite) TestErrorsWithNonMachineOrInvalidTags(c *gc.C) {
 		apiservertesting.ErrUnauthorized,
 		apiservertesting.ErrUnauthorized,
 	), "")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *releaseSuite) allocateAddresses(c *gc.C, containerId string, numAllocated int) {
@@ -770,12 +765,13 @@ func (s *releaseSuite) TestErrorWithFailingReleaseAddress(c *gc.C) {
 
 	s.allocateAddresses(c, container.Id(), 2)
 	s.breakEnvironMethods(c, "ReleaseAddress")
-	s.assertCall(c, args, s.makeErrors(
+	err := s.assertCall(c, args, s.makeErrors(
 		apiservertesting.ServerError(
 			`failed to release all addresses for "machine-0-lxc-0": `+
 				`[dummy.ReleaseAddress is broken dummy.ReleaseAddress is broken]`,
 		),
 	), "")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *releaseSuite) TestReleaseContainerAddresses(c *gc.C) {
@@ -783,7 +779,8 @@ func (s *releaseSuite) TestReleaseContainerAddresses(c *gc.C) {
 	args := s.makeArgs(container)
 
 	s.allocateAddresses(c, container.Id(), 2)
-	s.assertCall(c, args, s.makeErrors(nil), "")
+	err := s.assertCall(c, args, s.makeErrors(nil), "")
+	c.Assert(err, jc.ErrorIsNil)
 	addresses, err := s.BackingState.AllocatedIPAddresses(container.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, jc.DeepEquals, []*state.IPAddress{})
