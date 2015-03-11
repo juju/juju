@@ -849,6 +849,7 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 		}
 
 		releaseErrors := []error{}
+		logger.Debugf("for container %q found addresses %v", tag, addresses)
 		for _, addr := range addresses {
 			err := environ.ReleaseAddress(ciid, network.Id(addr.SubnetId()), addr.Address())
 			if err != nil {

@@ -213,3 +213,27 @@ func (s *IPAddressSuite) TestAddress(c *gc.C) {
 	c.Assert(ipAddr.Address(), jc.DeepEquals, addr)
 
 }
+
+func (s *IPAddressSuite) TestAllocatedIPAddresses(c *gc.C) {
+	addresses := [][]string{
+		{"0.1.2.3", "wibble"},
+		{"0.1.2.4", "wibble"},
+		{"0.1.2.5", "wobble"},
+	}
+	for _, details := range addresses {
+		addr := network.NewAddress(details[0], network.ScopePublic)
+		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+		c.Assert(err, jc.ErrorIsNil)
+		err = ipAddr.AllocateTo(details[1], "wobble")
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	result, err := s.State.AllocatedIPAddresses("wibble")
+	c.Assert(err, jc.ErrorIsNil)
+	addr1, err := s.State.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+	addr2, err := s.State.IPAddress("0.1.2.4")
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []*state.IPAddress{addr1, addr2}
+	c.Assert(result, jc.SameContents, expected)
+
+}
