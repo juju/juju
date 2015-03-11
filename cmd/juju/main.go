@@ -144,8 +144,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Configuration commands.
 	r.Register(&InitCommand{})
 	r.Register(wrapEnvCommand(&GetCommand{}))
-	r.Register(wrapEnvCommand(&SetCommand{}))
-	r.Register(wrapEnvCommand(&UnsetCommand{}))
 	r.RegisterDeprecated(wrapEnvCommand(&common.GetConstraintsCommand{}),
 		twoDotOhDeprecation("environment get-constraints or service get-constraints"))
 	r.RegisterDeprecated(wrapEnvCommand(&common.SetConstraintsCommand{}),
@@ -199,6 +197,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage and control services
 	r.Register(service.NewSuperCommand())
+	r.RegisterSuperAlias("set", "service", "set", twoDotOhDeprecation("service set"))
+	r.RegisterSuperAlias("unset", "service", "unset", twoDotOhDeprecation("service unset"))
 
 	// Operation protection commands
 	r.Register(block.NewSuperBlockCommand())

@@ -28,6 +28,8 @@ func NewSuperCommand() cmd.Command {
 
 	environmentCmd.Register(envcmd.Wrap(&ServiceGetConstraintsCommand{}))
 	environmentCmd.Register(envcmd.Wrap(&ServiceSetConstraintsCommand{}))
+	environmentCmd.Register(envcmd.Wrap(&SetCommand{}))
+	environmentCmd.Register(envcmd.Wrap(&UnsetCommand{}))
 
 	return environmentCmd
 }

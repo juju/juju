@@ -1,7 +1,7 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package service
 
 import (
 	"errors"
@@ -18,6 +18,7 @@ type UnsetCommand struct {
 	envcmd.EnvCommandBase
 	ServiceName string
 	Options     []string
+	api         UnsetServiceAPI
 }
 
 const unsetDoc = `
@@ -47,9 +48,23 @@ func (c *UnsetCommand) Init(args []string) error {
 	return nil
 }
 
+// UnsetServiceAPI defines the methods on the client API
+// that the service unset command calls.
+type UnsetServiceAPI interface {
+	Close() error
+	ServiceUnset(service string, options []string) error
+}
+
+func (c *UnsetCommand) getAPI() (UnsetServiceAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
+	return c.NewAPIClient()
+}
+
 // Run resets the configuration of a service.
 func (c *UnsetCommand) Run(ctx *cmd.Context) error {
-	apiclient, err := c.NewAPIClient()
+	apiclient, err := c.getAPI()
 	if err != nil {
 		return err
 	}

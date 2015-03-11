@@ -22,7 +22,9 @@ var _ = gc.Suite(&ServiceCommandSuite{})
 var expectedCommmandNames = []string{
 	"get-constraints",
 	"help",
+	"set",
 	"set-constraints",
+	"unset",
 }
 
 func (s *ServiceCommandSuite) TestHelp(c *gc.C) {
