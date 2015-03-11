@@ -783,7 +783,8 @@ func (s *releaseSuite) TestReleaseContainerAddresses(c *gc.C) {
 	args := s.makeArgs(container)
 
 	s.allocateAddresses(c, container.Id(), 2)
-	s.breakEnvironMethods(c, "ReleaseAddress")
 	s.assertCall(c, args, s.makeErrors(nil), "")
-
+	addresses, err := s.BackingState.AllocatedIPAddresses(container.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addresses, jc.DeepEquals, []*state.IPAddress{})
 }
