@@ -105,12 +105,17 @@ func (q *liveSource) loop() error {
 	// go func() { q.tomb.Kill(q.watcher.Wait()) }()
 
 	inChanges := q.watcher.Changes()
-	var pendingResponse chan struct{}
+	var outChanges chan<- hook.SourceChange
+	var outChange hook.SourceChange
+	ready := make(chan struct{})
+	defer close(ready)
 	for {
 		select {
 		case <-q.tomb.Dying():
 			return tomb.ErrDying
-		case change, ok := <-inChanges:
+		case <-ready:
+			inChanges = q.watcher.Changes()
+		case inChange, ok := <-inChanges:
 			if !ok {
 				// Watcher's Changes() channel was closed,
 				// ensure that we propagate an error
@@ -119,20 +124,16 @@ func (q *liveSource) loop() error {
 			// We got a change from the Watcher, suspend listening
 			// to another change until we get a response
 			inChanges = nil
-			pendingResponse = make(chan struct{})
-			changeFunc := func() error {
-				defer close(pendingResponse)
+			outChanges = q.changes
+			outChange = func() error {
+				defer func() {
+					ready <- struct{}{}
+				}()
 				return q.Update(change)
 			}
-			select {
-			case <-q.tomb.Dying():
-				return tomb.ErrDying
-			case q.changes <- changeFunc:
-			}
-		case <-pendingResponse:
-			// A pending response has completed, we're ready for another message
-			inChanges = q.watcher.Changes()
-			pendingResponse = nil
+		case outChanges <- outChange:
+			outChanges = nil
+			outChange = nil
 		}
 	}
 }
