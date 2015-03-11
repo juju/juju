@@ -1509,7 +1509,8 @@ func (s *storeManagerStateSuite) TestClosingPorts(c *gc.C) {
 		b.Changed(all, watcher.Change{
 			C:  openedPortsC,
 			Id: s.state.docID("unknown/42"),
-		})}, gc.PanicMatches, `cannot retrieve unit "unknown/42": unit "unknown/42" not found`)
+		})
+	}, gc.PanicMatches, `cannot retrieve unit "unknown/42": unit "unknown/42" not found`)
 }
 
 // TestSettings tests the correct reporting of unset service settings.
