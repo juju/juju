@@ -13,6 +13,17 @@ import (
 // ProviderType uniquely identifies a storage provider, such as "ebs" or "loop".
 type ProviderType string
 
+// Scope defines the scope of the storage that a provider manages.
+// Machine-scoped storage must be managed from within the machine,
+// whereas environment-level storage must be managed by an environment
+// manager.
+type Scope int
+
+const (
+	ScopeEnviron Scope = iota
+	ScopeMachine
+)
+
 // Provider is an interface for obtaining storage sources.
 type Provider interface {
 	// VolumeSource returns a VolumeSource given the specified cloud
@@ -37,6 +48,9 @@ type Provider interface {
 	// be used for creating filesystem storage; Juju will request a
 	// volume from the provider and then manage the filesystem itself.
 	Supports(kind StorageKind) bool
+
+	// Scope returns the scope of storage managed by this provider.
+	Scope() Scope
 
 	// ValidateConfig validates the provided storage provider config,
 	// returning an error if it is invalid.
