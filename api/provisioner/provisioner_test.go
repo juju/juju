@@ -811,3 +811,23 @@ func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
 	expectInfo[0].Address = ifaceInfo[0].Address
 	c.Assert(ifaceInfo, jc.DeepEquals, expectInfo)
 }
+
+func (s *provisionerSuite) TestReleaseContainerAddresses(c *gc.C) {
+	// This test exercises just the success path, all the other cases
+	// are already tested in the apiserver package.
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
+	c.Assert(err, jc.ErrorIsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	err = container.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+	err = container.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.provisioner.ReleaseContainerAddresses(container.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+}
