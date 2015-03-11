@@ -647,8 +647,10 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
-	// TODO(axw) stop checking feature flag once storage has graduated.
-	if featureflag.Enabled(feature.Storage) {
+	// TODO(wallyworld) - we don't want the storage workers running yet, even with feature flag.
+	// Will be enabled in a followup branch.
+	enableStorageWorkers := false
+	if featureflag.Enabled(feature.Storage) && enableStorageWorkers {
 		runner.StartWorker("diskmanager", func() (worker.Worker, error) {
 			api, err := st.DiskManager()
 			if err != nil {

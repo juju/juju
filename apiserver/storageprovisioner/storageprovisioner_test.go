@@ -119,6 +119,8 @@ func (s *provisionerSuite) TestVolumeParamsEmptyArgs(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
+// TODO - add test for watching environ volumes when volume watcher
+// is properly implemented in state.
 func (s *provisionerSuite) TestWatchVolumes(c *gc.C) {
 	s.setupVolumes(c)
 	s.factory.MakeMachine(c, nil)

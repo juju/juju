@@ -22,6 +22,8 @@ type State struct {
 
 // NewState creates a new client-side StorageProvisioner facade.
 func NewState(caller base.APICaller, scope names.Tag) *State {
+	// TODO(wallyworld) - validate that scope matches current environ
+	// if it is an environment tag.
 	return &State{
 		base.NewFacadeCaller(caller, storageProvisionerFacade),
 		scope,
