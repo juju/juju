@@ -147,6 +147,19 @@ func (m *MetricsManager) SetLastSuccessfulSend(t time.Time) error {
 	return nil
 }
 
+func (m *MetricsManager) SetGracePeriod(t time.Duration) error {
+	err := m.updateMetricsManager(
+		bson.M{"$set": bson.M{
+			"graceperiod": t,
+		}},
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	m.doc.GracePeriod = t
+	return nil
+}
+
 // IncrementConsecutiveErrors adds 1 to the consecutive errors count.
 func (m *MetricsManager) IncrementConsecutiveErrors() error {
 	err := m.updateMetricsManager(

@@ -70,6 +70,18 @@ func (s *metricsManagerSuite) TestIncrementConsecutiveErrors(c *gc.C) {
 	c.Assert(m.ConsecutiveErrors(), gc.Equals, 1)
 }
 
+func (s *metricsManagerSuite) TestSetGracePeriod(c *gc.C) {
+	mm, err := s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mm.GracePeriod(), gc.Equals, time.Hour*24*7)
+	err = mm.SetGracePeriod(time.Hour)
+	c.Assert(err, jc.ErrorIsNil)
+
+	m, err := s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.GracePeriod(), gc.Equals, time.Hour)
+}
+
 func (s *metricsManagerSuite) TestMeterStatus(c *gc.C) {
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)

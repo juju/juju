@@ -21,6 +21,43 @@ type MetricSender interface {
 	Send([]*wireformat.MetricBatch) (*wireformat.Response, error)
 }
 
+func handleResponse(st *state.State, response wireformat.Response) error {
+	for _, envResp := range response.EnvResponses {
+		err := st.SetMetricBatchesSent(envResp.AcknowledgedBatches)
+		if err != nil {
+			sendLogger.Errorf("failed to set sent on metrics %v", err)
+			return errors.Trace(err)
+		}
+		for unitName, status := range envResp.UnitStatuses {
+			unit, err := st.Unit(unitName)
+			if err != nil {
+				sendLogger.Errorf("failed to retrieve unit %q: %v", unitName, err)
+				return errors.Trace(err)
+			} else {
+				err := unit.SetMeterStatus(status.Status, status.Info)
+				if err != nil {
+					sendLogger.Errorf("failed to set unit %q meter status to %v: %v", unitName, status, err)
+					return errors.Trace(err)
+				}
+			}
+		}
+	}
+	if response.NewGracePeriod > 0 {
+		mm, err := st.MetricsManager()
+		if err != nil {
+			sendLogger.Errorf("failed to set new grace period %v", err)
+			return errors.Trace(err)
+		}
+		err = mm.SetGracePeriod(response.NewGracePeriod)
+		if err != nil {
+			sendLogger.Errorf("failed to set new grace period %v", err)
+			panic(response.NewGracePeriod)
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 // SendMetrics will send any unsent metrics
 // over the MetricSender interface in batches
 // no larger than batchSize.
@@ -44,23 +81,9 @@ func SendMetrics(st *state.State, sender MetricSender, batchSize int) error {
 			return errors.Trace(err)
 		}
 		if response != nil {
-			for _, envResp := range response.EnvResponses {
-				err = st.SetMetricBatchesSent(envResp.AcknowledgedBatches)
-				if err != nil {
-					sendLogger.Errorf("failed to set sent on metrics %v", err)
-				}
-				for unitName, status := range envResp.UnitStatuses {
-					unit, err := st.Unit(unitName)
-					if err != nil {
-						sendLogger.Errorf("failed to retrieve unit %q: %v", unitName, err)
-					} else {
-						err = unit.SetMeterStatus(status.Status, status.Info)
-						if err != nil {
-							sendLogger.Errorf("failed to set unit %q meter status to %v: %v", unitName, status, err)
-						}
-					}
-				}
-			}
+			// We are currently ignoring errors during response handling.
+			// Not sure how long this situation should continue.
+			handleResponse(st, *response)
 		}
 	}
 
