@@ -117,9 +117,9 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 	// different 10.x.x.x/21 networks and adding this route allows
 	// them to talk despite this. See:
 	// https://bugs.launchpad.net/juju-core/+bug/1401130
-	cloudcfg, err := cloudinit.New(series)
+	cloudcfg, err := cloudinit.New(args.InstanceConfig.Series)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "cannot create cloudinit template")
 	}
 	ifupScript := `
 #!/bin/bash

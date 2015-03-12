@@ -171,9 +171,12 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, icfg *in
 	icfg.ProxySettings = proxy.Settings{}
 	icfg.AptMirror = ""
 
-	cloudcfg := cloudinit.New()
-	cloudcfg.SetAptUpdate(icfg.EnableOSRefreshUpdate)
-	cloudcfg.SetAptUpgrade(icfg.EnableOSUpgrade)
+	cloudcfg, err := cloudinit.New(icfg.Series)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	cloudcfg.SetSystemUpdate(icfg.EnableOSRefreshUpdate)
+	cloudcfg.SetSystemUpgrade(icfg.EnableOSUpgrade)
 
 	// Since rsyslogd is restricted by apparmor to only write to /var/log/**
 	// we now provide a symlink to the written file in the local log dir.
@@ -204,7 +207,7 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, icfg *in
 	return executeCloudConfig(ctx, icfg, cloudcfg)
 }
 
-var executeCloudConfig = func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, cloudcfg *cloudinit.Config) error {
+var executeCloudConfig = func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudConfig) error {
 	// Finally, convert cloud-config to a script and execute it.
 	configScript, err := sshinit.ConfigureScript(cloudcfg)
 	if err != nil {

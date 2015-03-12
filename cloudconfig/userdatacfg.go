@@ -43,7 +43,7 @@ type UserdataConfig interface {
 	Render() ([]byte, error)
 }
 
-func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf *cloudinit.Config) (UserdataConfig, error) {
+func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudConfig) (UserdataConfig, error) {
 	// TODO(ericsnow) bug #1426217
 	// Protect icfg and conf better.
 	operatingSystem, err := version.GetOSFromSeries(icfg.Series)
@@ -59,7 +59,9 @@ func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf *cloudinit.Config)
 
 	switch operatingSystem {
 	case version.Ubuntu:
-		return &ubuntuConfigure{base}, nil
+		return &unixConfigure{base}, nil
+	case version.CentOS:
+		return &unixConfigure{base}, nil
 	case version.Windows:
 		return &windowsConfigure{base}, nil
 	default:
@@ -69,7 +71,7 @@ func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf *cloudinit.Config)
 
 type baseConfigure struct {
 	icfg     *instancecfg.InstanceConfig
-	conf     *cloudinit.Config
+	conf     cloudinit.CloudConfig
 	renderer cloudinit.Renderer
 	os       version.OSType
 }
