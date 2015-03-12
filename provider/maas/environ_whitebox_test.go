@@ -1155,7 +1155,7 @@ func (suite *environSuite) TestSubnets(c *gc.C) {
 func (suite *environSuite) TestSubnetsNoNetIds(c *gc.C) {
 	testInstance := suite.createSubnets(c, false)
 	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{})
-	c.Assert(err, gc.ErrorMatches, "netIds must not be empty")
+	c.Assert(err, gc.ErrorMatches, "subnetIds must not be empty")
 }
 
 func (suite *environSuite) TestSubnetsMissingNetwork(c *gc.C) {

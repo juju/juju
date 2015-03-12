@@ -386,6 +386,11 @@ func discoverPrimaryNIC() (string, network.Address, error) {
 	return "", network.Address{}, errors.Errorf("cannot detect the primary network interface")
 }
 
+// MACAddressTemplate is used to generate a unique MAC address for a
+// container. Every 'x' is replaced by a random hexadecimal digit,
+// while the rest is kept as-is.
+const MACAddressTemplate = "00:16:3e:xx:xx:xx"
+
 // maybeAllocateStaticIP tries to allocate a static IP address for the
 // given containerId using the provisioner API. If it fails, it's not
 // critical - just a warning, and it won't cause StartInstance to
@@ -429,10 +434,15 @@ func maybeAllocateStaticIP(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Generate the final configuration for each container interface.
 	for i, _ := range finalIfaceInfo {
-		// The interface name on the container depends on the device
-		// index.
-		finalIfaceInfo[i].InterfaceName = fmt.Sprintf("eth%d", finalIfaceInfo[i].DeviceIndex)
+		// Always start at the first device index and generate the
+		// interface name based on that. We need to do this otherwise
+		// the container will inherit the host's device index and
+		// interface name.
+		finalIfaceInfo[i].DeviceIndex = i
+		finalIfaceInfo[i].InterfaceName = fmt.Sprintf("eth%d", i)
+		finalIfaceInfo[i].MACAddress = MACAddressTemplate
 		finalIfaceInfo[i].ConfigType = network.ConfigStatic
 		finalIfaceInfo[i].DNSServers = dnsServers
 		finalIfaceInfo[i].GatewayAddress = primaryAddr
