@@ -268,7 +268,7 @@ func (s *uniterLeadershipSuite) TestSettingsChangeNotifier(c *gc.C) {
 	watcher, err := client.LeadershipSettings.WatchLeadershipSettings(s.serviceId)
 	c.Assert(err, gc.IsNil)
 
-	defer statetesting.AssertStop(watcher)
+	defer statetesting.AssertStop(c, watcher)
 
 	leadershipC := statetesting.NewNotifyWatcherC(c, s.BackingState, watcher)
 	// Inital event
