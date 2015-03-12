@@ -670,7 +670,7 @@ func (s *FilterSuite) TestLeaderSettingsEventsSendsChanges(c *gc.C) {
 	leaderSettingsC.AssertOneReceive()
 }
 
-func (s *FilterSuite) DONTTestWantLeaderSettingsEvents(c *gc.C) {
+func (s *FilterSuite) TestWantLeaderSettingsEvents(c *gc.C) {
 	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
@@ -679,13 +679,17 @@ func (s *FilterSuite) DONTTestWantLeaderSettingsEvents(c *gc.C) {
 	// Supress the initial event
 	f.WantLeaderSettingsEvents(false)
 	leaderSettingsC.AssertNoReceive()
+	c.Logf("no receive after WantLeaderSettingsEvents(false)")
 	// Also suppresses actual changes
 	s.setLeaderSetting(c, "foo", "baz-1")
+	time.Sleep(200*time.Millisecond)
 	leaderSettingsC.AssertNoReceive()
+	c.Logf("no receive after applying changes with want=false")
 
 	// Reenabling the settings gives us an immediate change
 	f.WantLeaderSettingsEvents(true)
 	leaderSettingsC.AssertOneReceive()
+	c.Logf("receive after applying want=true")
 	// And also gives changes when actual changes are made
 	s.setLeaderSetting(c, "foo", "baz-2")
 	leaderSettingsC.AssertOneReceive()

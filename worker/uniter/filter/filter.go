@@ -54,6 +54,7 @@ type filter struct {
 	// events if it has them available.
 	wantForcedUpgrade chan bool
 	wantResolved      chan struct{}
+	wantLeaderSettings chan bool
 
 	// discardConfig is used to indicate that any pending config event
 	// should be discarded.
@@ -130,6 +131,7 @@ func NewFilter(st *uniter.State, unitTag names.UnitTag) (Filter, error) {
 		outStorageOn:          make(chan []names.StorageTag),
 		wantForcedUpgrade:     make(chan bool),
 		wantResolved:          make(chan struct{}),
+		wantLeaderSettings:     make(chan bool),
 		discardConfig:         make(chan struct{}),
 		discardLeaderSettings: make(chan struct{}),
 		setCharm:              make(chan *charm.URL),
@@ -286,7 +288,6 @@ func (f *filter) LeaderSettingsEvents() <-chan struct{} {
 // LeaderSettings, they can discard any other pending changes, since they know
 // they will be handling all changes that have occurred before right now.
 func (f *filter) DiscardLeaderSettingsEvent() {
-	filterLogger.Debugf("requesting discard leader settings")
 	select {
 	case <-f.tomb.Dying():
 	case f.discardLeaderSettings <- nothing:
@@ -301,6 +302,10 @@ func (f *filter) DiscardLeaderSettingsEvent() {
 // queues up an immediate event so that the agent will refresh its information
 // for any events it might have missed while it thought it was the leader.
 func (f *filter) WantLeaderSettingsEvents(sendEvents bool) {
+	select {
+	case <-f.tomb.Dying():
+	case f.wantLeaderSettings <- sendEvents:
+	}
 }
 
 // DiscardConfigEvent indicates that the filter should discard any pending
@@ -401,6 +406,8 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 	defer watcher.Stop(leaderSettingsw, &f.tomb)
 	// We start out not listening until we see the first leader settings change
 	var discardLeaderSettings <-chan struct{}
+	// By default we send all leaderSettings onwards.
+	sendLeaderSettings := true
 
 	// Config events cannot be meaningfully discarded until one is available;
 	// once we receive the initial config and address changes, we unblock
@@ -505,12 +512,17 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 			}
 			f.storageChanged(tags)
 		case _, ok = <-leaderSettingsw.Changes():
-			filterLogger.Debugf("got leader settings change: %t", ok)
+			filterLogger.Debugf("got leader settings change: ok=%t", ok)
 			if !ok {
-				filterLogger.Debugf("leader error: %s", leaderSettingsw.Err())
 				return watcher.EnsureErr(leaderSettingsw)
 			}
-			f.outLeaderSettings = f.outLeaderSettingsOn
+			if sendLeaderSettings {
+				// only send the leader settings changed event
+				// if it hasn't been explicitly disabled
+				f.outLeaderSettings = f.outLeaderSettingsOn
+			} else {
+				filterLogger.Debugf("not sending leader settings change (want=false)")
+			}
 			discardLeaderSettings = f.discardLeaderSettings
 
 		// Send events on active out chans.
@@ -590,6 +602,17 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 			filterLogger.Debugf("want resolved event")
 			if f.resolved != params.ResolvedNone {
 				f.outResolved = f.outResolvedOn
+			}
+		case sendEvents := <-f.wantLeaderSettings:
+			filterLogger.Debugf("want leader settings event: %t", sendEvents)
+			sendLeaderSettings = sendEvents
+			if sendEvents {
+				// go ahead and send an event right now,
+				// they're waiting for us
+				f.outLeaderSettings = f.outLeaderSettingsOn
+			} else {
+				// Make sure we don't have a pending event
+				f.outLeaderSettings = nil
 			}
 		case <-f.clearResolved:
 			filterLogger.Debugf("resolved event handled")
