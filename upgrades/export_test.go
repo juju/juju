@@ -42,4 +42,5 @@ var (
 	AddEnvironmentUUIDToAgentConfig = addEnvironmentUUIDToAgentConfig
 	AddDefaultStoragePools          = addDefaultStoragePools
 	MoveBlocksFromEnvironToState    = moveBlocksFromEnvironToState
+	AddStoppedFieldToUniterState    = addStoppedFieldToUniterState
 )
