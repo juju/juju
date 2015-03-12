@@ -69,6 +69,12 @@ Requirements
 Some manual workflow steps require the `rbt` commandline tool.  More
 details on installation and usage are found below.
 
+Also the package `python-rbtools` is required:
+
+```bash
+$ sudo apt-get install python-rbtools
+```
+
 .reviewboardrc
 --------------
 
