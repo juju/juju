@@ -65,7 +65,7 @@ func (k *StorageKind) String() string {
 	case StorageKindBlock:
 		return "block"
 	case StorageKindFilesystem:
-		return "file system"
+		return "filesystem"
 	default:
 		return "unknown"
 	}
