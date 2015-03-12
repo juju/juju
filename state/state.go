@@ -76,6 +76,7 @@ const (
 	stateServersC          = "stateServers"
 	openedPortsC           = "openedPorts"
 	metricsC               = "metrics"
+	metricsManagerC        = "metricsmanager"
 	upgradeInfoC           = "upgradeInfo"
 	rebootC                = "reboot"
 	blockDevicesC          = "blockdevices"

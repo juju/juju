@@ -6,6 +6,8 @@
 package metricsmanager
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -38,6 +40,10 @@ type MetricsManager interface {
 type MetricsManagerAPI struct {
 	state *state.State
 
+	// Backing store for the state of the sender.
+	// We only ever write to this store.
+	store *state.MetricsManager
+
 	accessEnviron common.GetAuthFunc
 }
 
@@ -63,14 +69,19 @@ func NewMetricsManagerAPI(
 		}, nil
 	}
 
+	store, err := st.MetricsManager()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &MetricsManagerAPI{
 		state:         st,
 		accessEnviron: accessEnviron,
+		store:         store,
 	}, nil
 }
 
 // CleanupOldMetrics removes old metrics from the collection.
-// TODO (mattyw) Returns result with all the delete metrics
 // The single arg params is expected to contain and environment uuid.
 // Even though the call will delete all metrics across environments
 // it serves to validate that the connection has access to at least one environment.
@@ -119,17 +130,37 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 	for i, arg := range args.Entities {
 		tag, err := names.ParseEnvironTag(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		if !canAccess(tag) {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
+		unsentMetrics, err := api.state.CountofUnsentMetrics()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if unsentMetrics == 0 {
+			continue
+		}
 		err = metricsender.SendMetrics(api.state, sender, maxBatchesPerSend)
 		if err != nil {
 			err = errors.Annotate(err, "failed to send metrics")
+			logger.Warningf("%v", err)
 			result.Results[i].Error = common.ServerError(err)
+			if incErr := api.store.IncrementConsecutiveErrors(); incErr != nil {
+				logger.Warningf("failed to increment error count %v", incErr)
+				result.Results[i].Error = common.ServerError(errors.Wrap(err, incErr))
+			}
+			continue
+		}
+		if err := api.store.SetLastSuccessfulSend(time.Now()); err != nil {
+			err = errors.Annotate(err, "failed to set successful send time")
+			logger.Warningf("%v", err)
+			result.Results[i].Error = common.ServerError(err)
+			continue
 		}
 	}
 	return result, nil

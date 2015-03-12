@@ -31,3 +31,14 @@ func (m *MockSender) Send(d []*wireformat.MetricBatch) (*wireformat.Response, er
 		EnvResponses: envResponses,
 	}, nil
 }
+
+// ErrorSender implements the metric sender interface and is used
+// to return errors during testing
+type ErrorSender struct {
+	Err error
+}
+
+// Send implements the Send interface returning errors specified in the ErrorSender.
+func (e *ErrorSender) Send(d []*wireformat.MetricBatch) (*wireformat.Response, error) {
+	return &wireformat.Response{}, e.Err
+}
