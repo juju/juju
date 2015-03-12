@@ -37,6 +37,7 @@ from deploy_stack import (
     parse_euca,
     prepare_environment,
     run_instances,
+    assess_upgrade,
 )
 from jujupy import (
     EnvJujuClient,
@@ -529,7 +530,6 @@ class TestTestUpgrade(TestCase):
 
     def test_assess_upgrade(self):
         # Prevent nosetests from attempting to run assess_upgrade directly.
-        from deploy_stack import assess_upgrade
         env = SimpleEnvironment('foo', {'type': 'foo'})
         old_client = EnvJujuClient(env, None, '/foo/juju')
         with self.upgrade_mocks() as (co_mock, cc_mock):
@@ -551,7 +551,6 @@ class TestTestUpgrade(TestCase):
 
     def test_mass_timeout(self):
         # Prevent nosetests from attempting to run assess_upgrade directly.
-        from deploy_stack import assess_upgrade
         config = {'type': 'foo'}
         old_client = EnvJujuClient(SimpleEnvironment('foo', config),
                                    None, '/foo/juju')
