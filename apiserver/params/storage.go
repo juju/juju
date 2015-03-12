@@ -226,13 +226,13 @@ type StorageInfo struct {
 	// Having this information on the struct allows to
 	// have this logic in one place rather than deducing it
 	// every time this instance is used.
-	Provisioned bool `json:"provisioned,omitempty"`
+	Provisioned bool `json:"provisioned"`
 }
 
 // StorageShowResult holds information about a storage instance
 // or error related to its retrieval.
 type StorageShowResult struct {
-	Result StorageInfo `json:"result,omitempty"`
+	Result StorageInfo `json:"result"`
 	Error  *Error      `json:"error,omitempty"`
 }
 
