@@ -7,6 +7,11 @@
 
 set -eu
 
+# XXX sinzui 2015-03-12: Lp has not removed the superceded .1~juju
+# version from disk. lftp segfaults working with two sets of packages.
+# This value can be set to 1 after the PPA is clean, or the next release.
+PATCH="2"
+
 SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
 SIGNING_PASSPHRASE_FILE=${SIGNING_PASSPHRASE_FILE:-}
 
@@ -175,7 +180,7 @@ retrieve_packages() {
         for archive in $ALL_ARCHIVES; do
             safe_archive=$(echo "$archive" | sed -e 's,//.*@,//,')
             echo "checking $safe_archive for $RELEASE."
-            lftp -c mirror -I "juju-core_${RELEASE}*.deb" $archive;
+            lftp -c mirror -I "juju-core_${RELEASE}*.$PATCH~juj*.deb" $archive;
         done
         if [ -d $DEST_DEBS/juju-core ]; then
             found=$(find $DEST_DEBS/juju-core/ -name "*deb")
