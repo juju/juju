@@ -58,6 +58,8 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		// it should be vanishingly rare to hit that code path. (Make it impossible?)
 		isLeader := u.leadershipTracker.ClaimLeader().Wait()
 		if isLeader == opState.Leader {
+			logger.Infof("leadership status is up-to-date")
+		} else {
 			creator := newResignLeadershipOp()
 			if isLeader {
 				creator = newAcceptLeadershipOp()
@@ -69,8 +71,6 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 				return nil, errors.Trace(err)
 			}
 			logger.Infof("cannot accept leadership yet, choosing next mode")
-		} else {
-			logger.Infof("leadership status is up-to-date")
 		}
 	}
 
