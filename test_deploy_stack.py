@@ -529,7 +529,6 @@ class TestTestUpgrade(TestCase):
                         yield (co_mock, cc_mock)
 
     def test_assess_upgrade(self):
-        # Prevent nosetests from attempting to run assess_upgrade directly.
         env = SimpleEnvironment('foo', {'type': 'foo'})
         old_client = EnvJujuClient(env, None, '/foo/juju')
         with self.upgrade_mocks() as (co_mock, cc_mock):
@@ -550,7 +549,6 @@ class TestTestUpgrade(TestCase):
         self.assertEqual(co_mock.call_count, 5)
 
     def test_mass_timeout(self):
-        # Prevent nosetests from attempting to run assess_upgrade directly.
         config = {'type': 'foo'}
         old_client = EnvJujuClient(SimpleEnvironment('foo', config),
                                    None, '/foo/juju')
