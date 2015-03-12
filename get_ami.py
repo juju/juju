@@ -33,6 +33,7 @@ def parse_args(args=None):
     parser.add_argument('arch', help='Architecture for image')
     return parser.parse_args(args)
 
+
 def main():
     args = parse_args()
     try:

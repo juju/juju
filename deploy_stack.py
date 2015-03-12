@@ -98,7 +98,6 @@ def parse_euca(euca_output):
 
 def run_instances(count, job_name):
     environ = dict(os.environ)
-    # GZ: Previously IMAGE   ami-36aa4d5e    ubuntu-us-east-1/images/ubuntu-precise-12.04-amd64-server-20140428.manifest.xml 099720109477    available       public  x86_64  machineaki-919dcaf8                     instance-store  paravirtual     xen
     ami = get_ami.query_ami("precise", "amd64")
     command = [
         'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
