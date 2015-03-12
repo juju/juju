@@ -10,11 +10,13 @@ from mock import patch
 from jujuci import (
     add_artifacts,
     Artifact,
+    CERTIFY_UBUNTU_PACKAGES,
     clean_environment,
     Credentials,
     find_artifacts,
     get_artifacts,
     get_build_data,
+    get_certification_bin,
     get_juju_bin,
     get_juju_binary,
     get_juju_bin_artifact,
@@ -22,6 +24,7 @@ from jujuci import (
     JENKINS_URL,
     list_artifacts,
     PackageNamer,
+    PUBLISH_REVISION,
     main,
     retrieve_artifact,
     setup_workspace,
@@ -266,15 +269,43 @@ class JujuCITestCase(TestCase):
         credentials = Credentials('jrandom', 'password1')
 
         with self.get_juju_binary_mocks() as (workspace, cc_mock, uo_mock):
-                with patch('jujuci.get_build_data', return_value=build_data,
-                           autospec=True):
-                    with patch(
-                            'jujuci.get_release_package_filename',
-                            return_value='steve', autospec=True) as grpf_mock:
-                        bin_loc = get_juju_bin(credentials, workspace)
+            with patch('jujuci.get_build_data', return_value=build_data,
+                       autospec=True) as gbd_mock:
+                with patch(
+                        'jujuci.get_release_package_filename',
+                        return_value='steve', autospec=True) as grpf_mock:
+                    bin_loc = get_juju_bin(credentials, workspace)
         self.assertEqual(bin_loc, os.path.join(
             workspace, 'extracted-bin', 'subdir', 'sub-subdir', 'juju'))
         grpf_mock.assert_called_once_with(credentials, build_data)
+        gbd_mock.assert_called_once_with(
+            JENKINS_URL, credentials, PUBLISH_REVISION, 'lastBuild')
+
+    def test_get_certification_bin(self):
+        package_namer = PackageNamer('foo', 'bar')
+        build_data = {
+            'url': 'http://foo/',
+            'artifacts': [{
+                'fileName': 'juju-core_fish.bar.1_foo.deb',
+                'relativePath': 'baz',
+                }]
+            }
+        credentials = Credentials('jrandom', 'password1')
+
+        with self.get_juju_binary_mocks() as (workspace, ur_mock, cc_mock):
+            with patch('jujuci.get_build_data', return_value=build_data,
+                       autospec=True) as gbd_mock:
+                with patch.object(PackageNamer, 'factory',
+                                  return_value=package_namer):
+                    bin_loc = get_certification_bin(credentials, 'fish',
+                                                    workspace)
+        self.assertEqual(bin_loc, os.path.join(
+            workspace, 'extracted-bin', 'subdir', 'sub-subdir', 'juju'))
+        ur_mock.assert_called_once_with(
+            'http://jrandom:password1@foo/artifact/baz',
+            os.path.join(workspace, 'juju-core_fish.bar.1_foo.deb'))
+        gbd_mock.assert_called_once_with(
+            JENKINS_URL, credentials, CERTIFY_UBUNTU_PACKAGES, 'lastBuild')
 
     @contextmanager
     def get_juju_binary_mocks(self):
@@ -285,10 +316,10 @@ class JujuCITestCase(TestCase):
                 f.write('foo')
 
         with temp_dir() as workspace:
-            with patch('urllib.urlretrieve') as uo_mock:
+            with patch('urllib.urlretrieve') as ur_mock:
                 with patch('subprocess.check_call',
                            side_effect=mock_extract_deb) as cc_mock:
-                    yield workspace, uo_mock, cc_mock
+                    yield workspace, ur_mock, cc_mock
 
     def test_get_juju_binary(self):
         build_data = {
@@ -299,11 +330,11 @@ class JujuCITestCase(TestCase):
                 }]
             }
         credentials = Credentials('jrandom', 'password1')
-        with self.get_juju_binary_mocks() as (workspace, uo_mock, cc_mock):
+        with self.get_juju_binary_mocks() as (workspace, ur_mock, cc_mock):
             bin_loc = get_juju_binary(credentials, 'steve', build_data,
                                       workspace)
         target_path = os.path.join(workspace, 'steve')
-        uo_mock.assert_called_once_with(
+        ur_mock.assert_called_once_with(
             'http://jrandom:password1@foo/artifact/baz', target_path)
         out_dir = os.path.join(workspace, 'extracted-bin')
         cc_mock.assert_called_once_with(['dpkg', '-x', target_path, out_dir])

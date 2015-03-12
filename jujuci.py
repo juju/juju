@@ -35,6 +35,7 @@ __metaclass__ = type
 JENKINS_URL = 'http://juju-ci.vapour.ws:8080'
 BUILD_REVISION = 'build-revision'
 PUBLISH_REVISION = 'publish-revision'
+CERTIFY_UBUNTU_PACKAGES = 'certify-ubuntu-packages'
 
 Artifact = namedtuple('Artifact', ['file_name', 'location'])
 
@@ -120,6 +121,13 @@ def get_juju_bin(credentials, workspace):
     build_data = get_build_data(JENKINS_URL, credentials, PUBLISH_REVISION,
                                 'lastBuild')
     file_name = get_release_package_filename(credentials, build_data)
+    return get_juju_binary(credentials, file_name, build_data, workspace)
+
+
+def get_certification_bin(credentials, version, workspace):
+    build_data = get_build_data(JENKINS_URL, credentials,
+                                CERTIFY_UBUNTU_PACKAGES, 'lastBuild')
+    file_name = PackageNamer.factory().get_certification_package(version)
     return get_juju_binary(credentials, file_name, build_data, workspace)
 
 
@@ -279,6 +287,15 @@ def parse_args(args=None):
     parser_get_juju_bin.add_argument('workspace', nargs='?', default='.',
                                      help='The place to store binaries.')
     add_credential_args(parser_get_juju_bin)
+    parser_get_certification_bin = subparsers.add_parser(
+        'get-certification-bin',
+        help='Retrieve and extract juju binaries for certification.')
+    parser_get_certification_bin.add_argument(
+        'version', help='The version to get certification for.')
+    parser_get_certification_bin.add_argument(
+        'workspace', nargs='?', default='.',
+        help='The place to store binaries.')
+    add_credential_args(parser_get_certification_bin)
     parsed_args = parser.parse_args(args)
     credentials = get_credentials(parsed_args)
     return parsed_args, credentials
@@ -334,6 +351,10 @@ def main(argv):
                 dry_run=args.dry_run, verbose=args.verbose)
         elif args.command == 'get-juju-bin':
             print(get_juju_bin(credentials, args.workspace))
+        elif args.command == 'get-certification-bin':
+            path = get_certification_bin(credentials, args.version,
+                                         args.workspace)
+            print(path)
     except Exception as e:
         print(e)
         if args.verbose:
