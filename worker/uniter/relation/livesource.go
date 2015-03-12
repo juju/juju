@@ -167,7 +167,6 @@ func (q *liveSource) Changes() <-chan hook.SourceChange {
 
 // Stop cleans up the liveSource's resources and stops sending changes.
 func (q *liveSource) Stop() error {
-	q.tomb.Kill(q.watcher.Stop())
 	return q.tomb.Wait()
 }
 
