@@ -354,6 +354,8 @@ func (s *workerSuite) TestFatalErrors(c *gc.C) {
 }
 
 func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)

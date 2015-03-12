@@ -27,7 +27,7 @@ func NewUniterAPIV2(st *state.State, resources *common.Resources, authorizer com
 	if err != nil {
 		return nil, err
 	}
-	storageAPI, err := NewStorageAPI(st, resources, baseAPI.accessUnit)
+	storageAPI, err := newStorageAPI(getStorageState(st), resources, baseAPI.accessUnit)
 	if err != nil {
 		return nil, err
 	}

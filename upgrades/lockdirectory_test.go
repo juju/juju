@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"runtime"
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -34,6 +35,10 @@ echo $@ | tee $0.args
 `
 
 func (s *ensureLockDirSuite) SetUpTest(c *gc.C) {
+	//TODO(bogdanteleaga): Fix this on windows
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: tests use bash scripts, will be fixed later on windows")
+	}
 	s.FakeJujuHomeSuite.SetUpTest(c)
 
 	s.bin = c.MkDir()

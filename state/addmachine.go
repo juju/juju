@@ -58,9 +58,21 @@ type MachineTemplate struct {
 	// should be part of.
 	RequestedNetworks []string
 
-	// BlockDevices holds the parameters for block devices that should be
+	// Volumes holds the parameters for volumes that are to be created
+	// and attached to the machine.
+	Volumes []MachineVolumeParams
+
+	// VolumeAttachments holds the parameters for attaching existing
+	// volumes to the machine.
+	VolumeAttachments map[names.VolumeTag]VolumeAttachmentParams
+
+	// Filesystems holds the parameters for filesystems that are to be
 	// created and attached to the machine.
-	BlockDevices []BlockDeviceParams
+	Filesystems []MachineFilesystemParams
+
+	// FilesystemAttachments holds the parameters for attaching existing
+	// filesystems to the machine.
+	FilesystemAttachments map[names.FilesystemTag]FilesystemAttachmentParams
 
 	// Nonce holds a unique value that can be used to check
 	// if a new instance was really started for this machine.
@@ -78,6 +90,20 @@ type MachineTemplate struct {
 	// principals holds the principal units that will
 	// associated with the machine.
 	principals []string
+}
+
+// MachineVolumeParams holds the parameters for creating a volume and
+// attaching it to a new machine.
+type MachineVolumeParams struct {
+	Volume     VolumeParams
+	Attachment VolumeAttachmentParams
+}
+
+// MachineFilesystemParams holds the parameters for creating a filesystem
+// and attaching it to a new machine.
+type MachineFilesystemParams struct {
+	Filesystem FilesystemParams
+	Attachment FilesystemAttachmentParams
 }
 
 // AddMachineInsideNewMachine creates a new machine within a container
@@ -235,7 +261,7 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 // based on the given template. It also returns the machine document
 // that will be inserted.
 func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op, error) {
-	template, err := st.effectiveMachineTemplate(template, true)
+	template, err := st.effectiveMachineTemplate(template, st.IsStateServer())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -421,7 +447,7 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 		Principals: template.principals,
 		Life:       Alive,
 		Nonce:      template.Nonce,
-		Addresses:  instanceAddressesToAddresses(template.Addresses),
+		Addresses:  fromNetworkAddresses(template.Addresses),
 		NoVote:     template.NoVote,
 		Placement:  template.Placement,
 	}
@@ -449,13 +475,51 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		// provisioning, we should check the given networks are valid
 		// and known before setting them.
 		createRequestedNetworksOp(st, machineGlobalKey(mdoc.Id), template.RequestedNetworks),
+		createMachineBlockDevicesOp(mdoc.Id),
 	}
 
-	diskOps, _, err := createMachineBlockDeviceOps(st, mdoc.Id, template.BlockDevices...)
-	if err != nil {
-		return nil, txn.Op{}, errors.Trace(err)
+	var filesystemOps, volumeOps []txn.Op
+	fsAttachmentParams := make(map[names.FilesystemTag]FilesystemAttachmentParams)
+	volumeAttachmentParams := make(map[names.VolumeTag]VolumeAttachmentParams)
+
+	// Create filesystems and filesystem attachments.
+	for _, f := range template.Filesystems {
+		ops, filesystemTag, volumeTag, err := st.addFilesystemOps(f.Filesystem)
+		if err != nil {
+			return nil, txn.Op{}, errors.Trace(err)
+		}
+		filesystemOps = append(filesystemOps, ops...)
+		fsAttachmentParams[filesystemTag] = f.Attachment
+		if volumeTag != (names.VolumeTag{}) {
+			volumeAttachmentParams[volumeTag] = VolumeAttachmentParams{}
+		}
 	}
-	prereqOps = append(prereqOps, diskOps...)
+
+	// Create volumes and volume attachments.
+	//
+	// TODO(axw) created volumes must record the attachment
+	// immediately, to prevent the storage provisioner from
+	// attempting to create the volume until after the machine
+	// has been provisioned.
+	for _, v := range template.Volumes {
+		op, tag, err := st.addVolumeOp(v.Volume)
+		if err != nil {
+			return nil, txn.Op{}, errors.Trace(err)
+		}
+		volumeOps = append(volumeOps, op)
+		volumeAttachmentParams[tag] = v.Attachment
+	}
+
+	if len(filesystemOps) > 0 {
+		attachmentOps := createMachineFilesystemAttachmentsOps(mdoc.Id, fsAttachmentParams)
+		prereqOps = append(prereqOps, filesystemOps...)
+		prereqOps = append(prereqOps, attachmentOps...)
+	}
+	if len(volumeOps) > 0 {
+		attachmentOps := createMachineVolumeAttachmentsOps(mdoc.Id, volumeAttachmentParams)
+		prereqOps = append(prereqOps, volumeOps...)
+		prereqOps = append(prereqOps, attachmentOps...)
+	}
 
 	return prereqOps, machineOp, nil
 }
@@ -469,7 +533,7 @@ func hasJob(jobs []MachineJob, job MachineJob) bool {
 	return false
 }
 
-var errStateServerNotAllowed = errors.New("state server jobs specified without calling EnsureAvailability")
+var errStateServerNotAllowed = errors.New("state server jobs specified but not allowed")
 
 // maintainStateServersOps returns a set of operations that will maintain
 // the state server information when the given machine documents

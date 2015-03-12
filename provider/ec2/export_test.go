@@ -6,16 +6,21 @@ package ec2
 import (
 	"io"
 
-	"gopkg.in/amz.v2/aws"
-	"gopkg.in/amz.v2/ec2"
-	"gopkg.in/amz.v2/s3"
+	"gopkg.in/amz.v3/aws"
+	"gopkg.in/amz.v3/ec2"
+	"gopkg.in/amz.v3/s3"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
+	jujustorage "github.com/juju/juju/storage"
 )
+
+func EBSProvider() jujustorage.Provider {
+	return &ebsProvider{}
+}
 
 func ControlBucketName(e environs.Environ) string {
 	return e.(*environ).ecfg().controlBucket()

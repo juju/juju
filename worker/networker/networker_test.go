@@ -41,7 +41,7 @@ type networkerSuite struct {
 	lastCommands          chan []string
 
 	apiState  *api.State
-	apiFacade *apinetworker.State
+	apiFacade apinetworker.State
 }
 
 var _ = gc.Suite(&networkerSuite{})
@@ -251,7 +251,7 @@ func (s *networkerSuite) TestNoModprobeWhenRunningInLXC(c *gc.C) {
 		{Index: 2, MTU: 1500, Name: "eth0", Flags: net.FlagUp},
 	}
 
-	err = lxcMachine.SetInstanceInfo("i-am-lxc", "fake_nonce", nil, s.stateNetworks, lxcInterfaces, nil)
+	err = lxcMachine.SetInstanceInfo("i-am-lxc", "fake_nonce", nil, s.stateNetworks, lxcInterfaces, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Login to the API as the machine agent of lxcMachine.
@@ -359,7 +359,7 @@ func (s *networkerSuite) setUpMachine(c *gc.C) {
 		NetworkName:   "net2",
 		IsVirtual:     false,
 	}}
-	err = s.stateMachine.SetInstanceInfo("i-am", "fake_nonce", nil, s.stateNetworks, s.stateInterfaces, nil)
+	err = s.stateMachine.SetInstanceInfo("i-am", "fake_nonce", nil, s.stateNetworks, s.stateInterfaces, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.apiState = s.OpenAPIAsMachine(c, s.stateMachine.Tag(), password, "fake_nonce")
 	c.Assert(s.apiState, gc.NotNil)
@@ -411,7 +411,7 @@ func (s *networkerSuite) executeCommandsHook(c *gc.C, commands []string) error {
 
 func (s *networkerSuite) newCustomNetworker(
 	c *gc.C,
-	facade *apinetworker.State,
+	facade apinetworker.State,
 	machineId string,
 	intrusiveMode bool,
 	initInterfaces bool,

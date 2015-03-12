@@ -127,6 +127,38 @@ func (s *interfaceSuite) TestWrite(c *gc.C) {
 	c.Assert(info.APICredentials(), gc.DeepEquals, expectCreds)
 }
 
+func (s *interfaceSuite) TestWriteTwice(c *gc.C) {
+	store := s.NewStore(c)
+
+	// Create the info.
+	info := store.CreateInfo("someenv")
+
+	// Set it up with some actual data and write it out.
+	expectCreds := configstore.APICredentials{
+		User:     "foobie",
+		Password: "bletch",
+	}
+	info.SetAPICredentials(expectCreds)
+	err := info.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectEndpoint := configstore.APIEndpoint{
+		Addresses:   []string{"0.1.2.3"},
+		Hostnames:   []string{"example.invalid"},
+		CACert:      "a cert",
+		EnvironUUID: "dead-beef",
+	}
+	info.SetAPIEndpoint(expectEndpoint)
+	err = info.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check we can read the information back
+	again, err := store.ReadInfo("someenv")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(again.APICredentials(), gc.DeepEquals, expectCreds)
+	c.Assert(again.APIEndpoint(), gc.DeepEquals, expectEndpoint)
+}
+
 func (s *interfaceSuite) TestDestroy(c *gc.C) {
 	store := s.NewStore(c)
 

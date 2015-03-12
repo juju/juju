@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -27,12 +28,15 @@ var _ = gc.Suite(&storageGetSuite{})
 
 func (s *storageGetSuite) SetUpTest(c *gc.C) {
 	s.ContextSuite.SetUpTest(c)
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 var (
-	storageLocation = map[string]interface{}{"location": "/dev/sda"}
+	storageAttributes = map[string]interface{}{
+		"location": "/dev/sda",
+		"kind":     "block",
+	}
 )
 
 var storageGetTests = []struct {
@@ -40,16 +44,16 @@ var storageGetTests = []struct {
 	format int
 	out    interface{}
 }{
-	{[]string{"1234", "location", "--format", "yaml"}, formatYaml, storageLocation},
-	{[]string{"1234", "location", "--format", "json"}, formatJson, storageLocation},
-	{[]string{"1234", "location", "kind"}, -1, "kind: 1\nlocation: /dev/sda\n"},
-	{[]string{"1234", "location"}, -1, "/dev/sda\n"},
+	{[]string{"--format", "yaml"}, formatYaml, storageAttributes},
+	{[]string{"--format", "json"}, formatJson, storageAttributes},
+	{[]string{}, formatYaml, storageAttributes},
+	{[]string{"location"}, -1, "/dev/sda\n"},
 }
 
 func (s *storageGetSuite) TestOutputFormatKey(c *gc.C) {
 	for i, t := range storageGetTests {
 		c.Logf("test %d: %#v", i, t.args)
-		hctx := s.GetHookContext(c, -1, "")
+		hctx := s.GetStorageHookContext(c, "data/0")
 		com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
@@ -74,13 +78,13 @@ func (s *storageGetSuite) TestOutputFormatKey(c *gc.C) {
 }
 
 func (s *storageGetSuite) TestHelp(c *gc.C) {
-	hctx := s.GetHookContext(c, -1, "")
+	hctx := s.GetStorageHookContext(c, "data/0")
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: storage-get [options] <storageInstanceId> <key> [<key>]*
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: storage-get [options] [<key>]
 purpose: print information for storage instance with specified id
 
 options:
@@ -88,19 +92,20 @@ options:
     specify output format (json|smart|yaml)
 -o, --output (= "")
     specify an output file
+-s  (= data/0)
+    specify a storage instance by id
 
 When no <key> is supplied, all keys values are printed.
 `)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }
 
-//
 func (s *storageGetSuite) TestOutputPath(c *gc.C) {
-	hctx := s.GetHookContext(c, -1, "")
+	hctx := s.GetStorageHookContext(c, "data/0")
 	com, err := jujuc.NewCommand(hctx, cmdString("storage-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
-	code := cmd.Main(com, ctx, []string{"--format", "yaml", "--output", "some-file", "1234", "location"})
+	code := cmd.Main(com, ctx, []string{"--format", "yaml", "--output", "some-file", "-s", "data/0"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
@@ -109,5 +114,5 @@ func (s *storageGetSuite) TestOutputPath(c *gc.C) {
 
 	var out map[string]interface{}
 	c.Assert(goyaml.Unmarshal(content, &out), gc.IsNil)
-	c.Assert(out, gc.DeepEquals, storageLocation)
+	c.Assert(out, gc.DeepEquals, storageAttributes)
 }

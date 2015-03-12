@@ -76,7 +76,7 @@ func NewNetworkerAPI(
 	}, nil
 }
 
-func (n *NetworkerAPI) oneMachineInfo(id string) ([]params.NetworkInfo, error) {
+func (n *NetworkerAPI) oneMachineConfig(id string) ([]params.NetworkConfig, error) {
 	machine, err := n.st.Machine(id)
 	if err != nil {
 		return nil, err
@@ -85,17 +85,17 @@ func (n *NetworkerAPI) oneMachineInfo(id string) ([]params.NetworkInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	info := make([]params.NetworkInfo, len(ifaces))
+	configs := make([]params.NetworkConfig, len(ifaces))
 	for i, iface := range ifaces {
 		nw, err := n.st.Network(iface.NetworkName())
 		if err != nil {
 			return nil, err
 		}
-		info[i] = params.NetworkInfo{
+		configs[i] = params.NetworkConfig{
 			MACAddress:    iface.MACAddress(),
 			CIDR:          nw.CIDR(),
 			NetworkName:   iface.NetworkName(),
-			ProviderId:    nw.ProviderId(),
+			ProviderId:    string(nw.ProviderId()),
 			VLANTag:       nw.VLANTag(),
 			InterfaceName: iface.RawInterfaceName(),
 			Disabled:      iface.IsDisabled(),
@@ -103,13 +103,21 @@ func (n *NetworkerAPI) oneMachineInfo(id string) ([]params.NetworkInfo, error) {
 			// store them in state.
 		}
 	}
-	return info, nil
+	return configs, nil
 }
 
-// Networks returns the list of networks with related interfaces for a given set of machines.
-func (n *NetworkerAPI) MachineNetworkInfo(args params.Entities) (params.MachineNetworkInfoResults, error) {
-	result := params.MachineNetworkInfoResults{
-		Results: make([]params.MachineNetworkInfoResult, len(args.Entities)),
+// MachineNetworkInfo returns the list of networks with related interfaces for a
+// given set of machines.
+// DEPRECATED: Use MachineNetworkConfig() instead.
+func (n *NetworkerAPI) MachineNetworkInfo(args params.Entities) (params.MachineNetworkConfigResults, error) {
+	return n.MachineNetworkConfig(args)
+}
+
+// MachineNetworkConfig returns the list of networks with related interfaces
+// for a given set of machines.
+func (n *NetworkerAPI) MachineNetworkConfig(args params.Entities) (params.MachineNetworkConfigResults, error) {
+	result := params.MachineNetworkConfigResults{
+		Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
 	}
 	canAccess, err := n.getAuthFunc()
 	if err != nil {
@@ -128,7 +136,7 @@ func (n *NetworkerAPI) MachineNetworkInfo(args params.Entities) (params.MachineN
 			tag, ok := tag.(names.MachineTag)
 			if ok {
 				id := tag.Id()
-				result.Results[i].Info, err = n.oneMachineInfo(id)
+				result.Results[i].Config, err = n.oneMachineConfig(id)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)

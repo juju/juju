@@ -7,10 +7,10 @@ package version_test
 import (
 	"sort"
 
-	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 

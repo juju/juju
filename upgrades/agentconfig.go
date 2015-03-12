@@ -5,12 +5,12 @@ package upgrades
 
 import (
 	"fmt"
-	"github.com/juju/errors"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strconv"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils/symlink"
 
 	"github.com/juju/juju/agent"

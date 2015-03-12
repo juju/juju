@@ -22,6 +22,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/keyvalues"
 	"github.com/juju/utils/symlink"
 	"launchpad.net/golxc"
 
@@ -31,7 +32,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/version"
-	"github.com/juju/utils/keyvalues"
 )
 
 var logger = loggo.GetLogger("juju.container.lxc")

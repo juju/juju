@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/version"
@@ -97,6 +98,15 @@ func InitializeState(adminUser names.UserTag, c ConfigSetter, envCfg *config.Con
 	}()
 	servingInfo.SharedSecret = machineCfg.SharedSecret
 	c.SetStateServingInfo(servingInfo)
+
+	// Filter out any LXC bridge addresses from the machine addresses,
+	// except for local environments. See LP bug #1416928.
+	if !isLocalEnv(envCfg) {
+		machineCfg.Addresses = network.FilterLXCAddresses(machineCfg.Addresses)
+	} else {
+		logger.Debugf("local environment - not filtering addresses from %v", machineCfg.Addresses)
+	}
+
 	if err = initAPIHostPorts(c, st, machineCfg.Addresses, servingInfo.APIPort); err != nil {
 		return nil, nil, err
 	}
@@ -109,6 +119,12 @@ func InitializeState(adminUser names.UserTag, c ConfigSetter, envCfg *config.Con
 		return nil, nil, err
 	}
 	return st, m, nil
+}
+
+// isLocalEnv returns true if the given config is for a local
+// environment. Defined like this for testing.
+var isLocalEnv = func(cfg *config.Config) bool {
+	return cfg.Type() == provider.Local
 }
 
 func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) state.StateServingInfo {

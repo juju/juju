@@ -11,19 +11,19 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	stdtesting "testing"
 
 	"github.com/juju/cmd"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gnuflag"
 
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/juju/names"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -51,12 +51,6 @@ func mktemp(prefix string, content string) string {
 }
 
 func TestPackage(t *stdtesting.T) {
-	// Change the default init dir in worker/deployer,
-	// so the deployer doesn't try to remove upstart
-	// jobs from tests.
-	restore := testing.PatchValue(&deployer.InitDir, mkdtemp("juju-worker-deployer"))
-	defer restore()
-
 	// TODO(waigani) 2014-03-19 bug 1294458
 	// Refactor to use base suites
 
@@ -87,7 +81,7 @@ func TestRunMain(t *stdtesting.T) {
 }
 
 func checkMessage(c *gc.C, msg string, cmd ...string) {
-	args := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "jujud"}, cmd...)
+	args := append([]string{"-test.run", "TestRunMain", "-run-main", "--", names.Jujud}, cmd...)
 	c.Logf("check %#v", args)
 	ps := exec.Command(os.Args[0], args...)
 	output, err := ps.CombinedOutput()
@@ -204,6 +198,14 @@ type JujuCMainSuite struct {
 
 var _ = gc.Suite(&JujuCMainSuite{})
 
+func osDependentSockPath(c *gc.C) string {
+	sockPath := filepath.Join(c.MkDir(), "test.sock")
+	if runtime.GOOS == "windows" {
+		return `\\.\pipe` + sockPath[2:]
+	}
+	return sockPath
+}
+
 func (s *JujuCMainSuite) SetUpSuite(c *gc.C) {
 	factory := func(contextId, cmdName string) (cmd.Command, error) {
 		if contextId != "bill" {
@@ -214,7 +216,7 @@ func (s *JujuCMainSuite) SetUpSuite(c *gc.C) {
 		}
 		return &RemoteCommand{}, nil
 	}
-	s.sockPath = filepath.Join(c.MkDir(), "test.sock")
+	s.sockPath = osDependentSockPath(c)
 	srv, err := jujuc.NewServer(factory, s.sockPath)
 	c.Assert(err, jc.ErrorIsNil)
 	s.server = srv
@@ -245,6 +247,9 @@ var argsTests = []struct {
 }
 
 func (s *JujuCMainSuite) TestArgs(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
+	}
 	for _, t := range argsTests {
 		c.Log(t.args)
 		output := run(c, s.sockPath, "bill", t.code, t.args...)
@@ -253,21 +258,33 @@ func (s *JujuCMainSuite) TestArgs(c *gc.C) {
 }
 
 func (s *JujuCMainSuite) TestNoClientId(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
+	}
 	output := run(c, s.sockPath, "", 1, "remote")
 	c.Assert(output, gc.Equals, "error: JUJU_CONTEXT_ID not set\n")
 }
 
 func (s *JujuCMainSuite) TestBadClientId(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
+	}
 	output := run(c, s.sockPath, "ben", 1, "remote")
 	c.Assert(output, gc.Equals, "error: bad request: bad context: ben\n")
 }
 
 func (s *JujuCMainSuite) TestNoSockPath(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
+	}
 	output := run(c, "", "bill", 1, "remote")
 	c.Assert(output, gc.Equals, "error: JUJU_AGENT_SOCKET not set\n")
 }
 
 func (s *JujuCMainSuite) TestBadSockPath(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
+	}
 	badSock := filepath.Join(c.MkDir(), "bad.sock")
 	output := run(c, badSock, "bill", 1, "remote")
 	err := fmt.Sprintf("error: dial unix %s: .*\n", badSock)

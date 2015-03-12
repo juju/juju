@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/juju/juju/testcharms"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
@@ -18,6 +17,9 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/testcharms"
 )
 
 const (
@@ -29,31 +31,31 @@ const (
 	UnitsC             = unitsC
 	UsersC             = usersC
 	BlockDevicesC      = blockDevicesC
+	StorageInstancesC  = storageInstancesC
 )
 
 var (
-	ToolstorageNewStorage         = &toolstorageNewStorage
-	ImageStorageNewStorage        = &imageStorageNewStorage
-	MachineIdLessThan             = machineIdLessThan
-	NewAddress                    = newAddress
-	StateServerAvailable          = &stateServerAvailable
-	GetOrCreatePorts              = getOrCreatePorts
-	GetPorts                      = getPorts
-	PortsGlobalKey                = portsGlobalKey
-	CurrentUpgradeId              = currentUpgradeId
-	NowToTheSecond                = nowToTheSecond
-	PickAddress                   = &pickAddress
-	CreateMachineBlockDeviceOps   = createMachineBlockDeviceOps
-	SetProvisionedBlockDeviceInfo = setProvisionedBlockDeviceInfo
+	ToolstorageNewStorage  = &toolstorageNewStorage
+	ImageStorageNewStorage = &imageStorageNewStorage
+	MachineIdLessThan      = machineIdLessThan
+	StateServerAvailable   = &stateServerAvailable
+	GetOrCreatePorts       = getOrCreatePorts
+	GetPorts               = getPorts
+	PortsGlobalKey         = portsGlobalKey
+	CurrentUpgradeId       = currentUpgradeId
+	NowToTheSecond         = nowToTheSecond
+	MultiEnvCollections    = multiEnvCollections
+	PickAddress            = &pickAddress
+	AddVolumeOp            = (*State).addVolumeOp
 )
 
 type (
-	CharmDoc       charmDoc
-	MachineDoc     machineDoc
-	RelationDoc    relationDoc
-	ServiceDoc     serviceDoc
-	UnitDoc        unitDoc
-	BlockDeviceDoc blockDeviceDoc
+	CharmDoc        charmDoc
+	MachineDoc      machineDoc
+	RelationDoc     relationDoc
+	ServiceDoc      serviceDoc
+	UnitDoc         unitDoc
+	BlockDevicesDoc blockDevicesDoc
 )
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
@@ -192,7 +194,7 @@ func GetPasswordHash(e Authenticator) string {
 }
 
 func init() {
-	logSize = logSizeTests
+	txnLogSize = txnLogSizeTests
 }
 
 // TxnRevno returns the txn-revno field of the document
@@ -270,6 +272,10 @@ func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 	return out, nil
 }
 
+func UserEnvNameIndex(username, envName string) string {
+	return userEnvNameIndex(username, envName)
+}
+
 func DocID(st *State, id string) string {
 	return st.docID(id)
 }
@@ -306,9 +312,9 @@ func Sequence(st *State, name string) (int, error) {
 	return st.sequence(name)
 }
 
-// TODO(mjs) - This is a temporary and naive environment destruction
-// function, used to test environment watching. Once the environment
-// destroying work is completed it can go away.
+// This is a naive environment destruction function, used to test environment
+// watching after the client calls DestroyEnvironment and the environ doc is removed.
+// It is also used to test annotations.
 func RemoveEnvironment(st *State, uuid string) error {
 	ops := []txn.Op{{
 		C:      environmentsC,
@@ -317,4 +323,52 @@ func RemoveEnvironment(st *State, uuid string) error {
 		Remove: true,
 	}}
 	return st.runTransaction(ops)
+}
+
+type MockGlobalEntity struct {
+}
+
+func (m MockGlobalEntity) globalKey() string {
+	return "globalKey"
+}
+func (m MockGlobalEntity) Tag() names.Tag {
+	return names.NewMachineTag("42")
+}
+
+var (
+	_                    GlobalEntity = (*MockGlobalEntity)(nil)
+	TagToCollectionAndId              = (*State).tagToCollectionAndId
+)
+
+func AssertAddressConversion(c *gc.C, netAddr network.Address) {
+	addr := fromNetworkAddress(netAddr)
+	newNetAddr := addr.networkAddress()
+	c.Assert(netAddr, gc.DeepEquals, newNetAddr)
+
+	size := 5
+	netAddrs := make([]network.Address, size)
+	for i := 0; i < size; i++ {
+		netAddrs[i] = netAddr
+	}
+	addrs := fromNetworkAddresses(netAddrs)
+	newNetAddrs := networkAddresses(addrs)
+	c.Assert(netAddrs, gc.DeepEquals, newNetAddrs)
+}
+
+func AssertHostPortConversion(c *gc.C, netHostPort network.HostPort) {
+	hostPort := fromNetworkHostPort(netHostPort)
+	newNetHostPort := hostPort.networkHostPort()
+	c.Assert(netHostPort, gc.DeepEquals, newNetHostPort)
+
+	size := 5
+	netHostsPorts := make([][]network.HostPort, size)
+	for i := 0; i < size; i++ {
+		netHostsPorts[i] = make([]network.HostPort, size)
+		for j := 0; j < size; j++ {
+			netHostsPorts[i][j] = netHostPort
+		}
+	}
+	hostsPorts := fromNetworkHostsPorts(netHostsPorts)
+	newNetHostsPorts := networkHostsPorts(hostsPorts)
+	c.Assert(netHostsPorts, gc.DeepEquals, newNetHostsPorts)
 }

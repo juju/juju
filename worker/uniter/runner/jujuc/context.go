@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/params"
@@ -43,7 +45,7 @@ type Context interface {
 	// AvailabilityZone returns the executing unit's availablilty zone.
 	AvailabilityZone() (string, bool)
 
-	// OpenPorst marks the supplied port range for opening when the
+	// OpenPorts marks the supplied port range for opening when the
 	// executing unit's service is exposed.
 	OpenPorts(protocol string, fromPort, toPort int) error
 
@@ -59,6 +61,19 @@ type Context interface {
 
 	// Config returns the current service configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)
+
+	// IsLeader returns true if the local unit is known to be leader for at
+	// least the next 30s.
+	IsLeader() (bool, error)
+
+	// LeaderSettings returns the current leader settings. Once leader settings
+	// have been read in a given context, they will not be updated other than
+	// via successful calls to WriteLeaderSettings.
+	LeaderSettings() (map[string]string, error)
+
+	// WriteLeaderSettings writes the supplied settings directly to state, or
+	// fails if the local unit is not the service's leader.
+	WriteLeaderSettings(map[string]string) error
 
 	// ActionParams returns the map of params passed with an Action.
 	ActionParams() (map[string]interface{}, error)
@@ -100,12 +115,13 @@ type Context interface {
 	// RequestReboot will set the reboot flag to true on the machine agent
 	RequestReboot(prio RebootPriority) error
 
-	// StorageInstance returns the storage instance with the given id.
-	StorageInstance(storageId string) (*storage.StorageInstance, bool)
+	// Storage returns the ContextStorage with the supplied tag if it was
+	// found, and whether it was found.
+	Storage(names.StorageTag) (ContextStorage, bool)
 
-	// HookStorageInstance returns the storage instance associated
-	// the executing hook.
-	HookStorageInstance() (*storage.StorageInstance, bool)
+	// HookStorageAttachment returns the storage attachment associated
+	// the executing hook if it was found, and whether it was found.
+	HookStorage() (ContextStorage, bool)
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.
@@ -132,6 +148,22 @@ type ContextRelation interface {
 
 	// ReadSettings returns the settings of any remote unit in the relation.
 	ReadSettings(unit string) (params.Settings, error)
+}
+
+// ContextStorage expresses the capabilities of a hook with respect to a
+// storage attachment.
+type ContextStorage interface {
+
+	// Tag returns a tag which uniquely identifies the storage attachment
+	// in the context of the unit.
+	Tag() names.StorageTag
+
+	// Kind returns the kind of the storage.
+	Kind() storage.StorageKind
+
+	// Location returns the location of the storage: the mount point for
+	// filesystem-kind stores, and the device path for block-kind stores.
+	Location() string
 }
 
 // Settings is implemented by types that manipulate unit settings.
@@ -183,5 +215,44 @@ func (v *relationIdValue) Set(value string) error {
 	}
 	*v.result = id
 	v.value = value
+	return nil
+}
+
+// newStorageIdValue returns a gnuflag.Value for convenient parsing of storage
+// ids in ctx.
+func newStorageIdValue(ctx Context, result *names.StorageTag) *storageIdValue {
+	v := &storageIdValue{result: result, ctx: ctx}
+	if s, found := ctx.HookStorage(); found {
+		*v.result = s.Tag()
+	}
+	return v
+}
+
+// storageIdValue implements gnuflag.Value for use in storage commands.
+type storageIdValue struct {
+	result *names.StorageTag
+	ctx    Context
+}
+
+// String returns the current value.
+func (v *storageIdValue) String() string {
+	if *v.result == (names.StorageTag{}) {
+		return ""
+	}
+	return v.result.Id()
+}
+
+// Set interprets value as a storage id, if possible, and returns an error
+// if it is not known to the system. The parsed storage id will be written
+// to v.result.
+func (v *storageIdValue) Set(value string) error {
+	if !names.IsValidStorage(value) {
+		return errors.Errorf("invalid storage ID %q", value)
+	}
+	tag := names.NewStorageTag(value)
+	if _, found := v.ctx.Storage(tag); !found {
+		return fmt.Errorf("unknown storage ID")
+	}
+	*v.result = tag
 	return nil
 }

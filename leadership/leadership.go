@@ -12,7 +12,6 @@ import (
 )
 
 const (
-	leadershipDuration        = 30 * time.Second
 	leadershipNamespaceSuffix = "-leadership"
 )
 
@@ -36,18 +35,18 @@ func (m *Manager) Leader(sid, uid string) bool {
 }
 
 // ClaimLeadership implements the LeadershipManager interface.
-func (m *Manager) ClaimLeadership(sid, uid string) (time.Duration, error) {
+func (m *Manager) ClaimLeadership(sid, uid string, duration time.Duration) error {
 
-	_, err := m.leaseMgr.ClaimLease(leadershipNamespace(sid), uid, leadershipDuration)
+	_, err := m.leaseMgr.ClaimLease(leadershipNamespace(sid), uid, duration)
 	if err != nil {
 		if errors.Cause(err) == lease.LeaseClaimDeniedErr {
-			err = errors.Wrap(err, LeadershipClaimDeniedErr)
+			err = errors.Wrap(err, ErrClaimDenied)
 		} else {
-			err = errors.Annotate(err, "unable to make a leadership claim.")
+			err = errors.Annotate(err, "unable to make a leadership claim")
 		}
 	}
 
-	return leadershipDuration, err
+	return err
 }
 
 // ReleaseLeadership implements the LeadershipManager interface.

@@ -138,25 +138,6 @@ var stateTests = []struct {
 			Step: operation.Pending,
 			Hook: relhook,
 		},
-	}, {
-		st: operation.State{
-			Kind: operation.RunHook,
-			Step: operation.Pending,
-			Hook: &hook.Info{
-				Kind:     hooks.Action,
-				ActionId: "feedface-dead-4567-beef-123456789012",
-			},
-		},
-	}, {
-		st: operation.State{
-			Kind: operation.RunHook,
-			Step: operation.Pending,
-			Hook: &hook.Info{
-				Kind:     hooks.Action,
-				ActionId: "foo",
-			},
-		},
-		err: `action id "foo" cannot be parsed as an action tag`,
 	},
 	// Upgrade operation.
 	{
@@ -216,6 +197,7 @@ var stateTests = []struct {
 			Step:               operation.Pending,
 			Hook:               relhook,
 			CollectMetricsTime: 98765432,
+			Leader:             true,
 		},
 	},
 }

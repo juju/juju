@@ -43,15 +43,7 @@ func (s *ShowSuite) TestShow(c *gc.C) {
 		[]string{"shared-fs/0"},
 		// Default format is yaml
 		`- storage-tag: storage-shared-fs-0
-  storage-name: storage-name
   owner-tag: unitTag
-  location: witty
-  available-size: 30
-  total-size: 100
-  tags:
-  - tests
-  - well
-  - maybe
 `,
 	)
 }
@@ -60,7 +52,7 @@ func (s *ShowSuite) TestShowJSON(c *gc.C) {
 	s.assertValidShow(
 		c,
 		[]string{"shared-fs/0", "--format", "json"},
-		`[{"storage-tag":"storage-shared-fs-0","storage-name":"storage-name","owner-tag":"unitTag","location":"witty","available-size":30,"total-size":100,"tags":["tests","well","maybe"]}]
+		`[{"storage-tag":"storage-shared-fs-0","owner-tag":"unitTag"}]
 `,
 	)
 }
@@ -70,25 +62,9 @@ func (s *ShowSuite) TestShowMultipleReturn(c *gc.C) {
 		c,
 		[]string{"shared-fs/0", "db-dir/1000"},
 		`- storage-tag: storage-shared-fs-0
-  storage-name: storage-name
   owner-tag: unitTag
-  location: witty
-  available-size: 30
-  total-size: 100
-  tags:
-  - tests
-  - well
-  - maybe
 - storage-tag: storage-db-dir-1000
-  storage-name: storage-name
   owner-tag: unitTag
-  location: witty
-  available-size: 30
-  total-size: 100
-  tags:
-  - tests
-  - well
-  - maybe
 `,
 	)
 }
@@ -113,13 +89,8 @@ func (s mockStorageAPI) Show(tags []names.StorageTag) ([]params.StorageInstance,
 
 	for i, tag := range tags {
 		results[i] = params.StorageInstance{
-			StorageTag:    tag.String(),
-			StorageName:   "storage-name",
-			OwnerTag:      "unitTag",
-			Location:      "witty",
-			AvailableSize: 30,
-			TotalSize:     100,
-			Tags:          []string{"tests", "well", "maybe"},
+			StorageTag: tag.String(),
+			OwnerTag:   "unitTag",
 		}
 	}
 	return results, nil

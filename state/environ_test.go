@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -39,6 +41,40 @@ func (s *EnvironSuite) TestNewEnvironmentNonExistentLocalUser(c *gc.C) {
 
 	_, _, err := s.State.NewEnvironment(cfg, owner)
 	c.Assert(err, gc.ErrorMatches, `cannot create environment: user "non-existent" not found`)
+}
+
+func (s *EnvironSuite) TestNewEnvironmentSameUserSameNameFails(c *gc.C) {
+	cfg, _ := s.createTestEnvConfig(c)
+	owner := s.factory.MakeUser(c, nil).UserTag()
+
+	// Create the first environment.
+	_, st1, err := s.State.NewEnvironment(cfg, owner)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st1.Close()
+
+	// Attempt to create another environment with a different UUID but the
+	// same owner and name as the first.
+	newUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg2 := testing.CustomEnvironConfig(c, testing.Attrs{
+		"name": cfg.Name(),
+		"uuid": newUUID.String(),
+	})
+	_, _, err = s.State.NewEnvironment(cfg2, owner)
+	errMsg := fmt.Sprintf("environment %q for %s already exists", cfg2.Name(), owner.Username())
+	c.Assert(err, gc.ErrorMatches, errMsg)
+	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
+
+	// Remove the first environment.
+	err = st1.RemoveAllEnvironDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We should now be able to create the other environment.
+	env2, st2, err := s.State.NewEnvironment(cfg2, owner)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st2.Close()
+	c.Assert(env2, gc.NotNil)
+	c.Assert(st2, gc.NotNil)
 }
 
 func (s *EnvironSuite) TestNewEnvironment(c *gc.C) {
@@ -78,7 +114,7 @@ func (s *EnvironSuite) TestNewEnvironment(c *gc.C) {
 	c.Assert(entity.Tag(), gc.Equals, envTag)
 
 	// Ensure the environment is functional by adding a machine
-	_, err = st.AddMachine("quantal", state.JobManageEnviron)
+	_, err = st.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -138,4 +174,28 @@ func (s *EnvironSuite) TestEnvironmentConfigDifferentEnvThanState(c *gc.C) {
 	c.Assert(exists, jc.IsTrue)
 	c.Assert(uuid, gc.Equals, env.UUID())
 	c.Assert(uuid, gc.Not(gc.Equals), s.State.EnvironUUID())
+}
+
+func (s *EnvironSuite) TestDestroyStateServerEnvironment(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *EnvironSuite) TestDestroyOtherEnvironment(c *gc.C) {
+	st2 := s.factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+	env, err := st2.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *EnvironSuite) TestDestroyStateServerEnvironmentFails(c *gc.C) {
+	st2 := s.factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy environment: state server environment cannot be destroyed before all other environments are destroyed")
 }

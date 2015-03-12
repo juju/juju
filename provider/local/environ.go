@@ -37,8 +37,8 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/service"
 	servicecommon "github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -242,7 +242,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		logger.Errorf("failed to create new environ config: %v", err)
-		return err
+		return errors.Trace(err)
 	}
 	env.localMutex.Lock()
 	defer env.localMutex.Unlock()
@@ -274,7 +274,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.containerManager, err = factory.NewContainerManager(
 		containerType, managerConfig, imageURLGetter)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// When the localEnviron value is created on the client
@@ -295,11 +295,11 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	// from the command line, so it is ok to work on the assumption that we
 	// have direct access to the directories.
 	if err := env.config.createDirs(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	// Record the network bridge address and create a filestorage.
 	if err := env.resolveBridgeAddress(cfg); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return env.setLocalStorage()
 }
@@ -515,10 +515,21 @@ func (env *localEnviron) Destroy() error {
 			}
 		}
 	}
-	// Stop the mongo database and machine agent. It's possible that the
-	// service doesn't exist or is not running, so don't check the error.
-	mongo.RemoveService(env.config.namespace())
-	upstart.NewService(env.machineAgentServiceName(), servicecommon.Conf{}).StopAndRemove()
+	// Stop the mongo database and machine agent. We log any errors but
+	// do not fail, so that remaining "destroy" steps will still happen.
+	err = mongoRemoveService(env.config.namespace())
+	if err != nil && !errors.IsNotFound(err) {
+		logger.Errorf("while stopping mongod: %v", err)
+	}
+	svc, err := discoverService(env.machineAgentServiceName())
+	if err == nil {
+		if err := svc.Stop(); err != nil {
+			logger.Errorf("while stopping machine agent: %v", err)
+		}
+		if err := svc.Remove(); err != nil {
+			logger.Errorf("while disabling machine agent: %v", err)
+		}
+	}
 
 	// Finally, remove the data-dir.
 	if err := os.RemoveAll(env.config.rootDir()); err != nil && !os.IsNotExist(err) {
@@ -533,6 +544,19 @@ func (env *localEnviron) Destroy() error {
 		return err
 	}
 	return nil
+}
+
+type agentService interface {
+	Stop() error
+	Remove() error
+}
+
+var mongoRemoveService = func(namespace string) error {
+	return mongo.RemoveService(namespace)
+}
+
+var discoverService = func(name string) (agentService, error) {
+	return service.DiscoverService(name, servicecommon.Conf{})
 }
 
 // OpenPorts is specified in the Environ interface.

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
-	"github.com/juju/names"
 )
 
 type apiStorageSuite struct {

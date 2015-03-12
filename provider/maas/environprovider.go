@@ -24,10 +24,6 @@ var _ environs.EnvironProvider = (*maasEnvironProvider)(nil)
 
 var providerInstance maasEnvironProvider
 
-func init() {
-	environs.RegisterProvider("maas", maasEnvironProvider{})
-}
-
 func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Debugf("opening environment %q.", cfg.Name())
 	env, err := NewEnviron(cfg)
@@ -47,10 +43,6 @@ func (p maasEnvironProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p maasEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
-}
-
-func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	attrs := cfg.UnknownAttrs()
 	oldName, found := attrs["maas-agent-name"]
 	if found && oldName != "" {
@@ -61,7 +53,11 @@ func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, 
 		return nil, err
 	}
 	attrs["maas-agent-name"] = uuid.String()
-	cfg, err = cfg.Apply(attrs)
+	return cfg.Apply(attrs)
+}
+
+func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+	cfg, err := p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, err
 	}

@@ -4,66 +4,74 @@
 package block_test
 
 import (
-	gc "gopkg.in/check.v1"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 )
 
 type BlockCommandSuite struct {
 	ProtectionCommandSuite
+	mockClient *block.MockBlockClient
+}
+
+func (s *BlockCommandSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.mockClient = &block.MockBlockClient{}
+	s.PatchValue(block.BlockClient, func(p *block.BaseBlockCommand) (block.BlockClientAPI, error) {
+		return s.mockClient, nil
+	})
 }
 
 var _ = gc.Suite(&BlockCommandSuite{})
 
-func runBlockCommand(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&block.BlockCommand{}), args...)
-	return err
+func (s *BlockCommandSuite) assertBlock(c *gc.C, operation, message string) {
+	expectedOp := block.TypeFromOperation(operation)
+	c.Assert(s.mockClient.BlockType, gc.DeepEquals, expectedOp)
+	c.Assert(s.mockClient.Msg, gc.DeepEquals, message)
 }
 
-func (s *BlockCommandSuite) runBlockTestAndCompare(c *gc.C, operation string, expectedValue bool) {
-	err := runBlockCommand(c, operation)
+func (s *BlockCommandSuite) TestBlockCmdMoreArgs(c *gc.C) {
+	_, err := testing.RunCommand(c, envcmd.Wrap(&block.DestroyCommand{}), "change", "too much")
+	c.Assert(
+		err,
+		gc.ErrorMatches,
+		`.*can only specify block message.*`)
+}
+
+func (s *BlockCommandSuite) TestBlockCmdNoMessage(c *gc.C) {
+	command := block.DestroyCommand{}
+	_, err := testing.RunCommand(c, envcmd.Wrap(&command))
 	c.Assert(err, jc.ErrorIsNil)
-
-	expectedOp := config.BlockKeyPrefix + strings.ToLower(operation)
-	expectedCfg := map[string]interface{}{expectedOp: expectedValue}
-	c.Assert(s.mockClient.cfg, gc.DeepEquals, expectedCfg)
+	s.assertBlock(c, command.Info().Name, "")
 }
 
-func (s *BlockCommandSuite) TestBlockCmdNoOperation(c *gc.C) {
-	s.assertErrorMatches(c, runBlockCommand(c), `.*must specify one of.*`)
+func (s *BlockCommandSuite) TestBlockDestroyOperations(c *gc.C) {
+	command := block.DestroyCommand{}
+	_, err := testing.RunCommand(c, envcmd.Wrap(&command), "TestBlockDestroyOperations")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertBlock(c, command.Info().Name, "TestBlockDestroyOperations")
 }
 
-func (s *BlockCommandSuite) TestBlockCmdMoreThanOneOperation(c *gc.C) {
-	s.assertErrorMatches(c, runBlockCommand(c, "destroy-environment", "change"), `.*must specify one of.*`)
+func (s *BlockCommandSuite) TestBlockRemoveOperations(c *gc.C) {
+	command := block.RemoveCommand{}
+	_, err := testing.RunCommand(c, envcmd.Wrap(&command), "TestBlockRemoveOperations")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertBlock(c, command.Info().Name, "TestBlockRemoveOperations")
 }
 
-func (s *BlockCommandSuite) TestBlockCmdOperationWithSeparator(c *gc.C) {
-	s.assertErrorMatches(c, runBlockCommand(c, "destroy-environment|"), `.*valid argument.*`)
-}
-
-func (s *BlockCommandSuite) TestBlockCmdUnknownJujuOperation(c *gc.C) {
-	s.assertErrorMatches(c, runBlockCommand(c, "add-machine"), `.*valid argument.*`)
-}
-
-func (s *BlockCommandSuite) TestBlockCmdUnknownOperation(c *gc.C) {
-	s.assertErrorMatches(c, runBlockCommand(c, "blah"), `.*valid argument.*`)
-}
-
-func (s *BlockCommandSuite) TestBlockCmdValidDestroyEnvOperationUpperCase(c *gc.C) {
-	s.runBlockTestAndCompare(c, "DESTROY-ENVIRONMENT", true)
-}
-
-func (s *BlockCommandSuite) TestBlockCmdValidDestroyEnvOperation(c *gc.C) {
-	s.runBlockTestAndCompare(c, "destroy-environment", true)
+func (s *BlockCommandSuite) TestBlockChangeOperations(c *gc.C) {
+	command := block.ChangeCommand{}
+	_, err := testing.RunCommand(c, envcmd.Wrap(&command), "TestBlockChangeOperations")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertBlock(c, command.Info().Name, "TestBlockChangeOperations")
 }
 
 func (s *BlockCommandSuite) processErrorTest(c *gc.C, tstError error, blockType block.Block, expectedError error, expectedWarning string) {
@@ -78,8 +86,8 @@ func (s *BlockCommandSuite) processErrorTest(c *gc.C, tstError error, blockType 
 }
 
 func (s *BlockCommandSuite) TestProcessErrOperationBlocked(c *gc.C) {
-	s.processErrorTest(c, common.ErrOperationBlocked, block.BlockRemove, cmd.ErrSilent, ".*operations that remove.*")
-	s.processErrorTest(c, common.ErrOperationBlocked, block.BlockDestroy, cmd.ErrSilent, ".*destroy-environment operation has been blocked.*")
+	s.processErrorTest(c, common.ErrOperationBlocked("operations that remove"), block.BlockRemove, cmd.ErrSilent, ".*operations that remove.*")
+	s.processErrorTest(c, common.ErrOperationBlocked("destroy-environment operation has been blocked"), block.BlockDestroy, cmd.ErrSilent, ".*destroy-environment operation has been blocked.*")
 }
 
 func (s *BlockCommandSuite) TestProcessErrNil(c *gc.C) {

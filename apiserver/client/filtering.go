@@ -138,7 +138,7 @@ func unitMatchUnitName(u *state.Unit, patterns []string) (bool, bool, error) {
 }
 
 func unitMatchAgentStatus(u *state.Unit, patterns []string) (bool, bool, error) {
-	status, _, _, err := u.Status()
+	status, _, _, err := u.AgentStatus()
 	if err != nil {
 		return false, false, err
 	}

@@ -21,12 +21,10 @@ import (
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
-	"github.com/juju/juju/worker/diskformatter"
 	workerlogger "github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/rsyslog"
@@ -177,7 +175,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return uniter.NewUniter(uniterFacade, unitTag, dataDir, hookLock), nil
+		return uniter.NewUniter(uniterFacade, unitTag, st.LeadershipManager(), dataDir, hookLock), nil
 	})
 
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
@@ -190,16 +188,6 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
 	})
-	// TODO(axw) stop checking feature flag once storage has graduated.
-	if featureflag.Enabled(storage.FeatureFlag) {
-		runner.StartWorker("diskformatter", func() (worker.Worker, error) {
-			api, err := st.DiskFormatter()
-			if err != nil {
-				return nil, err
-			}
-			return diskformatter.NewWorker(api), nil
-		})
-	}
 	return cmdutil.NewCloseWorker(logger, runner, st), nil
 }
 

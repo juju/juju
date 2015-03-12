@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2014, 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package action
@@ -17,8 +17,8 @@ import (
 
 var actionDoc = `
 "juju action" executes and manages actions on units; it queues up new actions,
-monitors the status of the running actions, and retrieves the results of the
-completed actions.
+monitors the status of running actions, and retrieves the results of completed
+actions.
 `
 
 var actionPurpose = "execute, manage, monitor, and retrieve results of actions"

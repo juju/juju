@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/storage"
 )
 
 // Machine represents a juju machine as seen by the provisioner worker.
@@ -183,18 +182,20 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 // instance id cannot be changed.
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
-	networks []params.Network, interfaces []params.NetworkInterface, volumes []storage.BlockDevice,
+	networks []params.Network, interfaces []params.NetworkInterface, volumes []params.Volume,
+	volumeAttachments []params.VolumeAttachment,
 ) error {
 	var result params.ErrorResults
 	args := params.InstancesInfo{
 		Machines: []params.InstanceInfo{{
-			Tag:             m.tag.String(),
-			InstanceId:      id,
-			Nonce:           nonce,
-			Characteristics: characteristics,
-			Networks:        networks,
-			Interfaces:      interfaces,
-			Volumes:         volumes,
+			Tag:               m.tag.String(),
+			InstanceId:        id,
+			Nonce:             nonce,
+			Characteristics:   characteristics,
+			Networks:          networks,
+			Interfaces:        interfaces,
+			Volumes:           volumes,
+			VolumeAttachments: volumeAttachments,
 		}},
 	}
 	err := m.st.facade.FacadeCall("SetInstanceInfo", args, &result)

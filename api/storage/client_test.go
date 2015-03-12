@@ -6,13 +6,13 @@ package storage_test
 import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
-	"github.com/juju/utils/set"
 )
 
 type storageMockSuite struct {

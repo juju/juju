@@ -97,6 +97,8 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		d.Entity = new(RelationInfo)
 	case "annotation":
 		d.Entity = new(AnnotationInfo)
+	case "block":
+		d.Entity = new(BlockInfo)
 	default:
 		return fmt.Errorf("Unexpected entity name %q", entityKind)
 	}
@@ -170,6 +172,7 @@ type UnitInfo struct {
 	PrivateAddress string
 	MachineId      string
 	Ports          []network.Port
+	PortRanges     []network.PortRange
 	Status         Status
 	StatusInfo     string
 	StatusData     map[string]interface{}
@@ -261,3 +264,34 @@ func AnyJobNeedsState(jobs ...MachineJob) bool {
 	}
 	return false
 }
+
+// BlockInfo holds the information about blocks
+// in this environment that are watched.
+type BlockInfo struct {
+	Id      string    `bson:"_id"`
+	Type    BlockType `bson:"type"`
+	Message string    `bson:"message,omitempty"`
+	Tag     string    `bson:"tag"`
+}
+
+// EntityId returns block id.
+func (i *BlockInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "block",
+		Id:   i.Id,
+	}
+}
+
+// BlockType values define environment block type.
+type BlockType string
+
+const (
+	// BlockDestroy type identifies destroy blocks.
+	BlockDestroy BlockType = "BlockDestroy"
+
+	// BlockRemove type identifies remove blocks.
+	BlockRemove BlockType = "BlockRemove"
+
+	// BlockChange type identifies change blocks.
+	BlockChange BlockType = "BlockChange"
+)

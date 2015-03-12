@@ -10,6 +10,9 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 )
 
 var (
@@ -21,11 +24,13 @@ var (
 	UserCurrent        = &userCurrent
 )
 
-// ConfigNamespace returns the result of the namespace call on the
+// CheckConfigNamespace checks the result of the namespace call on the
 // localConfig.
-func ConfigNamespace(cfg *config.Config) string {
-	env, _ := providerInstance.Open(cfg)
-	return env.(*localEnviron).config.namespace()
+func CheckConfigNamespace(c *gc.C, cfg *config.Config, expected string) {
+	env, err := providerInstance.Open(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	namespace := env.(*localEnviron).config.namespace()
+	c.Assert(namespace, gc.Equals, expected)
 }
 
 // CreateDirs calls createDirs on the localEnviron.
@@ -82,4 +87,21 @@ func PatchCreateContainer(s *testing.CleanupSuite, c *gc.C, expectedURL string) 
 	}
 	s.PatchValue(&createContainer, mockFunc)
 	return mockFunc
+}
+
+func PatchServices(patchValue func(interface{}, interface{}), data *service.FakeServiceData) {
+	patchValue(&mongoRemoveService, func(namespace string) error {
+		data.AddCall("RemoveService", namespace)
+		data.SetStatus(mongo.ServiceName(namespace), "")
+		return data.NextErr()
+	})
+	patchValue(&discoverService, func(name string) (agentService, error) {
+		return NewService(name, common.Conf{}, data), nil
+	})
+}
+
+func NewService(name string, conf common.Conf, data *service.FakeServiceData) *service.FakeService {
+	svc := service.NewFakeService(name, conf)
+	svc.FakeServiceData = data
+	return svc
 }

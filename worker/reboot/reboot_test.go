@@ -5,6 +5,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/fslock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -15,7 +16,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/reboot"
-	"github.com/juju/utils/fslock"
 )
 
 func TestPackage(t *stdtesting.T) {

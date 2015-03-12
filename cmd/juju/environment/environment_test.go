@@ -8,10 +8,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/environment"
-	"github.com/juju/juju/testing"
-
 	// Bring in the dummy provider definition.
 	_ "github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/testing"
 )
 
 type EnvironmentCommandSuite struct {
@@ -21,7 +20,6 @@ type EnvironmentCommandSuite struct {
 var _ = gc.Suite(&EnvironmentCommandSuite{})
 
 var expectedCommmandNames = []string{
-	"ensure-availability",
 	"get",
 	"help",
 	"jenv",

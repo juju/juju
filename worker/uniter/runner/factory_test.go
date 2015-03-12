@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
@@ -18,10 +19,12 @@ import (
 	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 )
@@ -35,8 +38,16 @@ type FactorySuite struct {
 
 var _ = gc.Suite(&FactorySuite{})
 
+type fakeTracker struct {
+	leadership.Tracker
+}
+
+func (fakeTracker) ServiceName() string {
+	return "service-name"
+}
+
 func (s *FactorySuite) SetUpTest(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	s.HookContextSuite.SetUpTest(c)
 	s.paths = NewRealPaths(c)
@@ -44,7 +55,9 @@ func (s *FactorySuite) SetUpTest(c *gc.C) {
 	factory, err := runner.NewFactory(
 		s.uniter,
 		s.unit.Tag().(names.UnitTag),
+		fakeTracker{},
 		s.getRelationInfos,
+		s.storage,
 		s.paths,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -131,15 +144,18 @@ func (s *FactorySuite) AssertNotActionContext(c *gc.C, ctx runner.Context) {
 }
 
 func (s *FactorySuite) AssertNotStorageContext(c *gc.C, ctx runner.Context) {
-	storageInstances, ok := ctx.HookStorageInstance()
-	c.Assert(storageInstances, gc.IsNil)
+	storageAttachment, ok := ctx.HookStorage()
+	c.Assert(storageAttachment, gc.IsNil)
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (s *FactorySuite) AssertStorageContext(c *gc.C, ctx runner.Context, instance storage.StorageInstance) {
-	fromCache, ok := ctx.HookStorageInstance()
+func (s *FactorySuite) AssertStorageContext(c *gc.C, ctx runner.Context, id string, attachment storage.StorageAttachmentInfo) {
+	fromCache, ok := ctx.HookStorage()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(instance, jc.DeepEquals, *fromCache)
+	c.Assert(fromCache, gc.NotNil)
+	c.Assert(fromCache.Tag().Id(), gc.Equals, id)
+	c.Assert(fromCache.Kind(), gc.Equals, attachment.Kind)
+	c.Assert(fromCache.Location(), gc.Equals, attachment.Location)
 }
 
 func (s *FactorySuite) AssertRelationContext(c *gc.C, ctx runner.Context, relId int, remoteUnit string) *runner.ContextRelation {
@@ -275,8 +291,33 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 		"data": {Pool: "", Size: 1024, Count: 1},
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, sCons)
-
+	s.machine = nil // allocate a new machine
 	unit := s.AddUnit(c, service)
+
+	storageAttachments, err := s.State.StorageAttachments(unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageAttachments, gc.HasLen, 1)
+	storageTag := storageAttachments[0].StorageInstance()
+
+	volume, err := s.State.StorageInstanceVolume(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	volumeTag := volume.VolumeTag()
+	machineTag := s.machine.MachineTag()
+
+	err = s.State.SetVolumeInfo(
+		volumeTag, state.VolumeInfo{
+			VolumeId: "vol-123",
+			Size:     456,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetVolumeAttachmentInfo(
+		machineTag, volumeTag, state.VolumeAttachmentInfo{
+			DeviceName: "sdb",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	password, err := utils.RandomPassword()
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
@@ -287,12 +328,14 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	factory, err := runner.NewFactory(
 		uniter,
 		unit.Tag().(names.UnitTag),
+		fakeTracker{},
 		s.getRelationInfos,
+		s.storage,
 		s.paths,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	rnr, err := factory.NewHookRunner(hook.Info{
 		Kind:      hooks.StorageAttached,
@@ -302,9 +345,10 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	s.AssertPaths(c, rnr)
 	ctx := rnr.Context()
 	c.Assert(ctx.UnitName(), gc.Equals, "storage-block/0")
-	s.AssertStorageContext(c, ctx, storage.StorageInstance{
-		Id: "data/0", Kind: storage.StorageKindBlock, Location: ""},
-	)
+	s.AssertStorageContext(c, ctx, "data/0", storage.StorageAttachmentInfo{
+		Kind:     storage.StorageKindBlock,
+		Location: "/dev/sdb",
+	})
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
 }
@@ -597,4 +641,67 @@ func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "action no longer available")
 	c.Check(err, gc.Equals, runner.ErrActionNotAvailable)
+}
+
+func (s *FactorySuite) testLeadershipContextWiring(c *gc.C, createRunner func() runner.Runner) {
+	stub := &testing.Stub{
+		Errors: []error{errors.New("bam")},
+	}
+	restore := runner.PatchNewLeadershipContext(
+		func(accessor runner.LeadershipSettingsAccessor, tracker leadership.Tracker) runner.LeadershipContext {
+			stub.AddCall("NewLeadershipContext", accessor, tracker)
+			return &StubLeadershipContext{Stub: stub}
+		},
+	)
+	defer restore()
+
+	rnr := createRunner()
+	isLeader, err := rnr.Context().IsLeader()
+	c.Check(err, gc.ErrorMatches, "bam")
+	c.Check(isLeader, jc.IsFalse)
+
+	stub.CheckCalls(c, []testing.StubCall{{
+		FuncName: "NewLeadershipContext",
+		Args:     []interface{}{s.uniter.LeadershipSettings, fakeTracker{}},
+	}, {
+		FuncName: "IsLeader",
+	}})
+
+}
+
+func (s *FactorySuite) TestNewHookRunnerLeadershipContext(c *gc.C) {
+	s.testLeadershipContextWiring(c, func() runner.Runner {
+		rnr, err := s.factory.NewHookRunner(hook.Info{Kind: hooks.ConfigChanged})
+		c.Assert(err, jc.ErrorIsNil)
+		return rnr
+	})
+}
+
+func (s *FactorySuite) TestNewActionRunnerLeadershipContext(c *gc.C) {
+	s.testLeadershipContextWiring(c, func() runner.Runner {
+		s.SetCharm(c, "dummy")
+		action, err := s.State.EnqueueAction(s.unit.Tag(), "snapshot", nil)
+		c.Assert(err, jc.ErrorIsNil)
+		rnr, err := s.factory.NewActionRunner(action.Id())
+		c.Assert(err, jc.ErrorIsNil)
+		return rnr
+	})
+}
+
+func (s *FactorySuite) TestNewCommandRunnerLeadershipContext(c *gc.C) {
+	s.testLeadershipContextWiring(c, func() runner.Runner {
+		rnr, err := s.factory.NewCommandRunner(runner.CommandInfo{RelationId: -1})
+		c.Assert(err, jc.ErrorIsNil)
+		return rnr
+	})
+}
+
+type StubLeadershipContext struct {
+	runner.LeadershipContext
+	*testing.Stub
+}
+
+func (stub *StubLeadershipContext) IsLeader() (bool, error) {
+	stub.MethodCall(stub, "IsLeader")
+	return false, stub.NextErr()
 }

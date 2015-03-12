@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/juju/names"
@@ -22,7 +23,9 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var noProxies = proxy.Settings{}
@@ -52,11 +55,19 @@ type RealPaths struct {
 	socket string
 }
 
+func osDependentSockPath(c *gc.C) string {
+	sockPath := filepath.Join(c.MkDir(), "test.sock")
+	if runtime.GOOS == "windows" {
+		return `\\.\pipe` + sockPath[2:]
+	}
+	return sockPath
+}
+
 func NewRealPaths(c *gc.C) RealPaths {
 	return RealPaths{
 		tools:  c.MkDir(),
 		charm:  c.MkDir(),
-		socket: filepath.Join(c.MkDir(), "jujuc.socket"),
+		socket: osDependentSockPath(c),
 	}
 }
 
@@ -81,6 +92,7 @@ type HookContextSuite struct {
 	machine  *state.Machine
 	relch    *state.Charm
 	relunits map[int]*state.RelationUnit
+	storage  *storageContextAccessor
 
 	st             *api.State
 	uniter         *uniter.State
@@ -133,22 +145,39 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.apiRelunits = map[int]*uniter.RelationUnit{}
 	s.AddContextRelation(c, "db0")
 	s.AddContextRelation(c, "db1")
+
+	storageData0 := names.NewStorageTag("data/0")
+	s.storage = &storageContextAccessor{
+		map[names.StorageTag]*contextStorage{
+			storageData0: &contextStorage{
+				storageData0,
+				storage.StorageKindBlock,
+				"/dev/sdb",
+			},
+		},
+	}
 }
 
 func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Service) *state.Unit {
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	if s.machine == nil {
-		s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	if s.machine != nil {
+		err = unit.AssignToMachine(s.machine)
 		c.Assert(err, jc.ErrorIsNil)
-		zone := "a-zone"
-		hwc := instance.HardwareCharacteristics{
-			AvailabilityZone: &zone,
-		}
-		err = s.machine.SetProvisioned("i-exist", "fake_nonce", &hwc)
-		c.Assert(err, jc.ErrorIsNil)
+		return unit
 	}
-	err = unit.AssignToMachine(s.machine)
+
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	machineId, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	s.machine, err = s.State.Machine(machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	zone := "a-zone"
+	hwc := instance.HardwareCharacteristics{
+		AvailabilityZone: &zone,
+	}
+	err = s.machine.SetProvisioned("i-exist", "fake_nonce", &hwc)
 	c.Assert(err, jc.ErrorIsNil)
 	return unit
 }
@@ -270,8 +299,10 @@ func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
 		_, err := fmt.Fprintf(hook, f+"\n", a...)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	printf("#!/bin/bash")
-	printf("echo $$ > pid")
+	if runtime.GOOS != "windows" {
+		printf("#!/bin/bash")
+	}
+	printf(echoPidScript)
 	if spec.stdout != "" {
 		printf("echo %s", spec.stdout)
 	}
@@ -287,4 +318,31 @@ func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
 		printf("(sleep 0.2; echo %s; sleep 10) &", spec.background)
 	}
 	printf("exit %d", spec.code)
+}
+
+type storageContextAccessor struct {
+	storage map[names.StorageTag]*contextStorage
+}
+
+func (s *storageContextAccessor) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
+	storage, ok := s.storage[tag]
+	return storage, ok
+}
+
+type contextStorage struct {
+	tag      names.StorageTag
+	kind     storage.StorageKind
+	location string
+}
+
+func (c *contextStorage) Tag() names.StorageTag {
+	return c.tag
+}
+
+func (c *contextStorage) Kind() storage.StorageKind {
+	return c.kind
+}
+
+func (c *contextStorage) Location() string {
+	return c.location
 }

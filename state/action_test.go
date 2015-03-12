@@ -171,6 +171,114 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 	}
 }
 
+func (s *ActionSuite) TestAddActionInsertsDefaults(c *gc.C) {
+	units := make(map[string]*state.Unit)
+	schemas := map[string]string{
+		"simple": `
+act:
+  params:
+    val:
+      type: string
+      default: somestr
+`[1:],
+		"complicated": `
+act:
+  params:
+    val:
+      type: object
+      properties:
+        foo:
+          type: string
+        bar:
+          type: object
+          properties:
+            baz:
+              type: string
+              default: woz
+`[1:],
+		"none": `
+act:
+  params:
+    val:
+      type: string
+`[1:]}
+
+	// Prepare the units for this test
+	makeUnits(c, s, units, schemas)
+
+	for i, t := range []struct {
+		should         string
+		params         map[string]interface{}
+		schema         string
+		expectedParams map[string]interface{}
+	}{{
+		should:         "do nothing with no defaults",
+		params:         map[string]interface{}{},
+		schema:         "none",
+		expectedParams: map[string]interface{}{},
+	}, {
+		should: "insert a simple default value",
+		params: map[string]interface{}{"foo": "bar"},
+		schema: "simple",
+		expectedParams: map[string]interface{}{
+			"foo": "bar",
+			"val": "somestr",
+		},
+	}, {
+		should: "insert a nested default value",
+		params: map[string]interface{}{"foo": "bar"},
+		schema: "complicated",
+		expectedParams: map[string]interface{}{
+			"foo": "bar",
+			"val": map[string]interface{}{
+				"bar": map[string]interface{}{
+					"baz": "woz",
+				}}},
+	}} {
+		c.Logf("test %d: should %s", i, t.should)
+		u := units[t.schema]
+		// Note that AddAction will only result in errors in the case
+		// of malformed schemas, and schema objects can only be
+		// created from valid schemas.  The error handling for this
+		// is tested in the gojsonschema package.
+		action, err := u.AddAction("act", t.params)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(action.Parameters(), jc.DeepEquals, t.expectedParams)
+	}
+}
+
+// makeUnits prepares units with given Action schemas
+func makeUnits(c *gc.C, s *ActionSuite, units map[string]*state.Unit, schemas map[string]string) {
+	// A few dummy charms that haven't been used yet
+	freeCharms := map[string]string{
+		"simple":      "mysql",
+		"complicated": "mysql-alternative",
+		"none":        "wordpress",
+	}
+
+	for name, schema := range schemas {
+		svcName := name + "-defaults-service"
+
+		// Add a testing service
+		ch := s.AddActionsCharm(c, freeCharms[name], schema, 1)
+		svc := s.AddTestingService(c, svcName, ch)
+
+		// Get its charm URL
+		sUrl, _ := svc.CharmURL()
+		c.Assert(sUrl, gc.NotNil)
+
+		// Add a unit
+		var err error
+		u, err := svc.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(u.Series(), gc.Equals, "quantal")
+		err = u.SetCharmURL(sUrl)
+		c.Assert(err, jc.ErrorIsNil)
+
+		units[name] = u
+	}
+}
+
 func (s *ActionSuite) TestEnqueueActionRequiresName(c *gc.C) {
 	name := ""
 

@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -32,6 +33,13 @@ func TestAll(t *stdtesting.T) {
 
 type baseSuite struct {
 	testing.JujuConnSuite
+	commontesting.BlockHelper
+}
+
+func (s *baseSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
 var _ = gc.Suite(&baseSuite{})
@@ -391,7 +399,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 				"remote-unit": "logging/0",
 				"foo":         "bar",
 			}
-			wu.SetStatus(state.StatusError, "blam", sd)
+			wu.SetAgentStatus(state.StatusError, "blam", sd)
 		}
 
 		// Create the subordinate unit as a side-effect of entering

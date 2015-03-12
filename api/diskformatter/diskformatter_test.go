@@ -6,15 +6,14 @@ package diskformatter_test
 import (
 	"errors"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/diskformatter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/names"
 )
 
 var _ = gc.Suite(&DiskFormatterSuite{})
@@ -23,54 +22,52 @@ type DiskFormatterSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *DiskFormatterSuite) TestBlockDevices(c *gc.C) {
-	devices := []params.BlockDeviceResult{{
-		Result: storage.BlockDevice{DeviceName: "sda", Size: 123},
-	}, {
-		Error: &params.Error{Message: "MSG", Code: "621"},
-	}}
+func (s *DiskFormatterSuite) TestAttachedVolumes(c *gc.C) {
+	attachments := []params.VolumeAttachment{{}}
 
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "DiskFormatter")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "BlockDevices")
+		c.Check(request, gc.Equals, "AttachedVolumes")
 		c.Check(arg, gc.DeepEquals, params.Entities{
-			Entities: []params.Entity{{Tag: "disk-0"}, {Tag: "disk-1"}},
+			Entities: []params.Entity{{Tag: "machine-0"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.BlockDeviceResults{})
-		*(result.(*params.BlockDeviceResults)) = params.BlockDeviceResults{
-			devices,
+		c.Assert(result, gc.FitsTypeOf, &params.VolumeAttachmentsResults{})
+		*(result.(*params.VolumeAttachmentsResults)) = params.VolumeAttachmentsResults{
+			Results: []params.VolumeAttachmentsResult{{
+				Attachments: attachments,
+			}},
 		}
 		called = true
 		return nil
 	})
 
-	st := diskformatter.NewState(apiCaller, names.NewUnitTag("service/0"))
-	results, err := st.BlockDevices([]names.DiskTag{
-		names.NewDiskTag("0"),
-		names.NewDiskTag("1"),
-	})
+	st := diskformatter.NewState(apiCaller, names.NewMachineTag("0"))
+	result, err := st.AttachedVolumes()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)
-	c.Assert(results.Results, gc.DeepEquals, devices)
+	c.Assert(result, gc.DeepEquals, attachments)
 }
 
 func (s *DiskFormatterSuite) TestBlockDeviceResultCountMismatch(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.BlockDeviceResults)) = params.BlockDeviceResults{
-			[]params.BlockDeviceResult{{}, {}},
+		*(result.(*params.VolumeAttachmentsResults)) = params.VolumeAttachmentsResults{
+			Results: []params.VolumeAttachmentsResult{{}, {}},
 		}
 		return nil
 	})
-	st := diskformatter.NewState(apiCaller, names.NewUnitTag("service/0"))
-	c.Assert(func() { st.BlockDevices(nil) }, gc.PanicMatches, "expected 0 results, got 2")
+	st := diskformatter.NewState(apiCaller, names.NewMachineTag("0"))
+	c.Assert(func() { st.AttachedVolumes() }, gc.PanicMatches, "expected 1 result, got 2")
 }
 
-func (s *DiskFormatterSuite) TestBlockDeviceStorageInstances(c *gc.C) {
-	storageInstances := []params.StorageInstanceResult{{
-		Result: storage.StorageInstance{Id: "whatever"},
+func (s *DiskFormatterSuite) TestVolumePreparationInfo(c *gc.C) {
+	expected := []params.VolumePreparationInfoResult{{
+		Result: params.VolumePreparationInfo{
+			DevicePath:      "/dev/sdx",
+			NeedsFilesystem: true,
+		},
 	}, {
 		Error: &params.Error{Message: "MSG", Code: "621"},
 	}}
@@ -80,35 +77,38 @@ func (s *DiskFormatterSuite) TestBlockDeviceStorageInstances(c *gc.C) {
 		c.Check(objType, gc.Equals, "DiskFormatter")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "BlockDeviceStorageInstances")
-		c.Check(arg, gc.DeepEquals, params.Entities{
-			Entities: []params.Entity{{Tag: "disk-0"}, {Tag: "disk-1"}},
+		c.Check(request, gc.Equals, "VolumePreparationInfo")
+		c.Check(arg, gc.DeepEquals, params.VolumeAttachmentIds{
+			Ids: []params.VolumeAttachmentId{
+				{MachineTag: "machine-0", VolumeTag: "volume-0"},
+				{MachineTag: "machine-0", VolumeTag: "volume-1"},
+			},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StorageInstanceResults{})
-		*(result.(*params.StorageInstanceResults)) = params.StorageInstanceResults{
-			storageInstances,
+		c.Assert(result, gc.FitsTypeOf, &params.VolumePreparationInfoResults{})
+		*(result.(*params.VolumePreparationInfoResults)) = params.VolumePreparationInfoResults{
+			expected,
 		}
 		called = true
 		return nil
 	})
 
-	st := diskformatter.NewState(apiCaller, names.NewUnitTag("service/0"))
-	results, err := st.BlockDeviceStorageInstances([]names.DiskTag{
-		names.NewDiskTag("0"),
-		names.NewDiskTag("1"),
+	st := diskformatter.NewState(apiCaller, names.NewMachineTag("0"))
+	results, err := st.VolumePreparationInfo([]names.VolumeTag{
+		names.NewVolumeTag("0"),
+		names.NewVolumeTag("1"),
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)
-	c.Assert(results.Results, gc.DeepEquals, storageInstances)
+	c.Assert(results, gc.DeepEquals, expected)
 }
 
 func (s *DiskFormatterSuite) TestAPIErrors(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("blargh")
 	})
-	st := diskformatter.NewState(apiCaller, names.NewUnitTag("service/0"))
-	_, err := st.BlockDevices(nil)
+	st := diskformatter.NewState(apiCaller, names.NewMachineTag("0"))
+	_, err := st.AttachedVolumes()
 	c.Check(err, gc.ErrorMatches, "blargh")
-	_, err = st.BlockDeviceStorageInstances(nil)
+	_, err = st.VolumePreparationInfo(nil)
 	c.Check(err, gc.ErrorMatches, "blargh")
 }

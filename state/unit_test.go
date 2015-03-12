@@ -1,4 +1,4 @@
-// Copyright 2012-2015 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state_test
@@ -526,27 +526,23 @@ func (s *UnitSuite) TestRefresh(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
+func (s *UnitSuite) TestGetSetUnitStatusWhileAlive(c *gc.C) {
 	err := s.unit.SetStatus(state.StatusError, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "error" without info`)
-	err = s.unit.SetStatus(state.StatusAllocating, "", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status "allocating"`)
-	err = s.unit.SetStatus(state.StatusFailed, "", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status "failed"`)
 	err = s.unit.SetStatus(state.Status("vliegkat"), "orville", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	status, info, data, err := s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusAllocating)
+	c.Assert(status, gc.Equals, state.StatusBusy)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.unit.SetStatus(state.StatusActive, "", nil)
+	err = s.unit.SetStatus(state.StatusRunning, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	status, info, data, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusActive)
+	c.Assert(status, gc.Equals, state.StatusRunning)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
@@ -563,24 +559,44 @@ func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	})
 }
 
-func (s *UnitSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
+func (s *UnitSuite) TestSetAgentStatus(c *gc.C) {
+	err := s.unit.SetAgentStatus(state.StatusActive, "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	status, info, data, err := s.unit.Agent().(*state.UnitAgent).Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, state.StatusActive)
+	c.Assert(info, gc.Equals, "foo")
+	c.Assert(data, gc.HasLen, 0)
+}
+
+func (s *UnitSuite) TestGetAgentStatus(c *gc.C) {
+	err := s.unit.Agent().(*state.UnitAgent).SetStatus(state.StatusActive, "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	status, info, data, err := s.unit.AgentStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, state.StatusActive)
+	c.Assert(info, gc.Equals, "foo")
+	c.Assert(data, gc.HasLen, 0)
+}
+
+func (s *UnitSuite) TestGetSetUnitStatusWhileNotAlive(c *gc.C) {
 	err := s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.SetStatus(state.StatusActive, "not really", nil)
+	err = s.unit.SetStatus(state.StatusRunning, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.SetStatus(state.StatusActive, "not really", nil)
+	err = s.unit.SetStatus(state.StatusRunning, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 }
 
 func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
-	err := s.unit.SetStatus(state.StatusActive, "", nil)
+	err := s.unit.SetStatus(state.StatusRunning, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -605,7 +621,7 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 }
 
 func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
-	err := s.unit.SetStatus(state.StatusActive, "", nil)
+	err := s.unit.SetStatus(state.StatusRunning, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -632,7 +648,7 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 }
 
 func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
-	err := s.unit.SetStatus(state.StatusActive, "", nil)
+	err := s.unit.SetStatus(state.StatusRunning, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -658,12 +674,12 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	})
 
 	// Set status data to nil, so an empty map will be returned.
-	err = s.unit.SetStatus(state.StatusActive, "", nil)
+	err = s.unit.SetStatus(state.StatusRunning, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, info, data, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusActive)
+	c.Assert(status, gc.Equals, state.StatusRunning)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 }
@@ -778,7 +794,7 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.unit.SetStatus(state.StatusActive, "", nil)
+		err := s.unit.SetAgentStatus(state.StatusActive, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func() {
 		assertLife(c, s.unit, state.Dying)
@@ -893,7 +909,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithStatus(c *gc.C) {
 		c.Logf("test %d: %s", i, test.status)
 		unit, err := s.service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetStatus(test.status, test.info, nil)
+		err = unit.SetAgentStatus(test.status, test.info, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		err = unit.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -1005,7 +1021,7 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	err = s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is not in an error state`)
 
-	err = s.unit.SetStatus(state.StatusError, "gaaah", nil)
+	err = s.unit.SetAgentStatus(state.StatusError, "gaaah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1059,15 +1075,15 @@ func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
 	// Verify ports can be opened and closed only when the unit has
 	// assigned machine.
 	err := s.unit.OpenPort("tcp", 10)
-	c.Assert(errors.Cause(err), jc.Satisfies, state.IsNotAssigned)
+	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
 	err = s.unit.OpenPorts("tcp", 10, 20)
-	c.Assert(errors.Cause(err), jc.Satisfies, state.IsNotAssigned)
+	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
 	err = s.unit.ClosePort("tcp", 10)
-	c.Assert(errors.Cause(err), jc.Satisfies, state.IsNotAssigned)
+	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
 	err = s.unit.ClosePorts("tcp", 10, 20)
-	c.Assert(errors.Cause(err), jc.Satisfies, state.IsNotAssigned)
+	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
 	open, err := s.unit.OpenedPorts()
-	c.Assert(errors.Cause(err), jc.Satisfies, state.IsNotAssigned)
+	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
 	c.Assert(open, gc.HasLen, 0)
 
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)

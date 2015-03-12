@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
@@ -29,6 +30,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/version"
 )
 
@@ -287,10 +289,10 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	}
 	curl, err := charm.ParseURL(args.CharmUrl)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if curl.Revision < 0 {
-		return fmt.Errorf("charm url must include revision")
+		return errors.Errorf("charm url must include revision")
 	}
 
 	if args.ToMachineSpec != "" && names.IsValidMachine(args.ToMachineSpec) {
@@ -309,19 +311,23 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		}
 		err = c.AddCharm(params.CharmURL{args.CharmUrl})
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		ch, err = c.api.state.Charm(curl)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	} else if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// TODO(axw) stop checking feature flag once storage has graduated.
 	var storageConstraints map[string]storage.Constraints
-	if featureflag.Enabled(storage.FeatureFlag) {
+	if featureflag.Enabled(feature.Storage) {
+		storageConstraints = args.Storage
+		if storageConstraints == nil {
+			storageConstraints = make(map[string]storage.Constraints)
+		}
 		// Validate the storage parameters against the charm metadata,
 		// and ensure there are no conflicting parameters.
 		if err := validateCharmStorage(args, ch); err != nil {
@@ -342,15 +348,24 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 					store,
 				)
 			}
-			// TODO(axw) when storage pools, providers etc. are implemented,
-			// and we have a "loop" storage provider, we should create minimal
-			// constraints with the "loop" pool here.
-			return errors.Errorf(
-				"no constraints specified for charm storage %q, loop not implemented",
-				store,
-			)
+			if charmStorage.CountMin <= 0 {
+				continue
+			}
+			if charmStorage.Type != charm.StorageFilesystem {
+				// TODO(axw) clarify what the rules are for "block" kind when
+				// no constraints are specified. For "filesystem" we use rootfs.
+				return errors.Errorf(
+					"no constraints specified for %v charm storage %q",
+					charmStorage.Type,
+					store,
+				)
+			}
+			storageConstraints[store] = storage.Constraints{
+				// The pool is the provider type since rootfs provider has no configuration.
+				Pool:  string(provider.RootfsProviderType),
+				Count: uint64(charmStorage.CountMin),
+			}
 		}
-		storageConstraints = args.Storage
 	}
 
 	var settings charm.Settings
@@ -361,12 +376,12 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		settings, err = parseSettingsCompatible(ch, args.Config)
 	}
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	// Convert network tags to names for any given networks.
 	requestedNetworks, err := networkTagsToNames(args.Networks)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	_, err = jjj.DeployService(c.api.state,
@@ -789,26 +804,23 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 	}
 
 	// TODO(axw) stop checking feature flag once storage has graduated.
-	var blockDeviceParams []state.BlockDeviceParams
-	if featureflag.Enabled(storage.FeatureFlag) {
-		// TODO(axw) unify storage and free block device constraints in state.
+	var volumes []state.MachineVolumeParams
+	if featureflag.Enabled(feature.Storage) {
+		volumes = make([]state.MachineVolumeParams, 0, len(p.Disks))
 		for _, cons := range p.Disks {
-			if cons.Pool != "" {
-				// TODO(axw) implement pools. If pool is not specified,
-				// determine default pool and set here.
-				return nil, errors.Errorf("storage pools not implemented")
-			}
-			if cons.Size == 0 {
-				return nil, errors.Errorf("invalid size %v", cons.Size)
-			}
 			if cons.Count == 0 {
-				return nil, errors.Errorf("invalid count %v", cons.Count)
+				return nil, errors.Errorf("invalid volume params: count not specified")
 			}
-			params := state.BlockDeviceParams{
+			// Pool and Size are validated by AddMachineX.
+			volumeParams := state.VolumeParams{
+				Pool: cons.Pool,
 				Size: cons.Size,
 			}
+			volumeAttachmentParams := state.VolumeAttachmentParams{}
 			for i := uint64(0); i < cons.Count; i++ {
-				blockDeviceParams = append(blockDeviceParams, params)
+				volumes = append(volumes, state.MachineVolumeParams{
+					volumeParams, volumeAttachmentParams,
+				})
 			}
 		}
 	}
@@ -818,14 +830,14 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		return nil, err
 	}
 	template := state.MachineTemplate{
-		Series:       p.Series,
-		Constraints:  p.Constraints,
-		BlockDevices: blockDeviceParams,
-		InstanceId:   p.InstanceId,
-		Jobs:         jobs,
-		Nonce:        p.Nonce,
+		Series:      p.Series,
+		Constraints: p.Constraints,
+		Volumes:     volumes,
+		InstanceId:  p.InstanceId,
+		Jobs:        jobs,
+		Nonce:       p.Nonce,
 		HardwareCharacteristics: p.HardwareCharacteristics,
-		Addresses:               p.Addrs,
+		Addresses:               params.NetworkAddresses(p.Addrs),
 		Placement:               placementDirective,
 	}
 	if p.ContainerType == "" {
@@ -963,6 +975,7 @@ func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
 		ProviderType:  conf.Type(),
 		Name:          conf.Name(),
 		UUID:          env.UUID(),
+		ServerUUID:    env.ServerUUID(),
 	}
 	return info, nil
 }
@@ -1122,14 +1135,7 @@ func (c *Client) EnvironmentGet() (params.EnvironmentConfigResults, error) {
 // set-environment CLI command.
 func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 	if err := c.check.ChangeAllowed(); err != nil {
-		// if trying to change value for block-changes, we would want to let it go.
-		if v, present := args.Config[config.PreventAllChangesKey]; !present {
-			return errors.Trace(err)
-		} else if block, ok := v.(bool); ok && block {
-			// still want to block changes
-			return errors.Trace(err)
-		}
-		// else if block is false, we want to unblock changes
+		return errors.Trace(err)
 	}
 	// Make sure we don't allow changing agent-version.
 	checkAgentVersion := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
@@ -1350,9 +1356,11 @@ func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, erro
 
 // APIHostPorts returns the API host/port addresses stored in state.
 func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
-	if result.Servers, err = c.api.state.APIHostPorts(); err != nil {
+	var servers [][]network.HostPort
+	if servers, err = c.api.state.APIHostPorts(); err != nil {
 		return params.APIHostPortsResult{}, err
 	}
+	result.Servers = params.FromNetworkHostsPorts(servers)
 	return result, nil
 }
 

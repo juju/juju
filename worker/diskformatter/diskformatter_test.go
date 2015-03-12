@@ -8,14 +8,14 @@ import (
 	"time"
 
 	"github.com/juju/names"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/diskformatter"
-	"github.com/juju/testing"
 )
 
 var _ = gc.Suite(&DiskFormatterWorkerSuite{})
@@ -25,95 +25,56 @@ type DiskFormatterWorkerSuite struct {
 }
 
 func (s *DiskFormatterWorkerSuite) TestWorker(c *gc.C) {
-	ids := []string{
-		"0", "1", "2", "3", "4", "5",
+	volumeAttachments := []params.VolumeAttachment{
+		{VolumeTag: "volume-0"},
+		{VolumeTag: "volume-1"},
+		{VolumeTag: "volume-2"},
+		{VolumeTag: "volume-3"},
 	}
 
-	blockDeviceResults := []params.BlockDeviceResult{{
-		Result: storage.BlockDevice{
-			Name:       "0",
-			DeviceName: "sda",
-			Label:      "dev0-label",
-			UUID:       "9aade75c-6528-4acf-ab69-258b8dc51798",
+	volumeFormattingInfoResults := []params.VolumePreparationInfoResult{{
+		Result: params.VolumePreparationInfo{
+			DevicePath:      "/dev/xvdf1",
+			NeedsFilesystem: false,
 		},
 	}, {
-		Result: storage.BlockDevice{
-			Name:           "1",
-			DeviceName:     "sdb",
-			UUID:           "edc2348a-a2bc-4b15-b7f3-cb951b3489ad",
-			FilesystemType: "btrfs",
-		},
-	}, {
-		Result: storage.BlockDevice{
-			Name:       "2",
-			DeviceName: "sdc",
-		},
-	}, {
-		Result: storage.BlockDevice{
-			Name:       "3",
-			DeviceName: "sdd",
-		},
-	}, {
-		Result: storage.BlockDevice{
-			Name:       "4",
-			DeviceName: "sde",
+		Result: params.VolumePreparationInfo{
+			DevicePath:      "/dev/xvdf2",
+			NeedsFilesystem: true,
 		},
 	}, {
 		Error: &params.Error{
 			Code:    params.CodeNotFound,
-			Message: "block device 5 not found",
-		},
-	}}
-
-	blockDeviceStorageInstanceResults := []params.StorageInstanceResult{{
-		Result: storage.StorageInstance{
-			Id:   "needs-a-filesystem",
-			Kind: storage.StorageKindFilesystem,
-		},
-	}, {
-		Result: storage.StorageInstance{
-			Id:   "already-has-a-filesystem",
-			Kind: storage.StorageKindFilesystem,
-		},
-	}, {
-		Result: storage.StorageInstance{
-			Id:   "doesnt-need-a-filesystem",
-			Kind: storage.StorageKindBlock,
+			Message: "volume 2 not found",
 		},
 	}, {
 		Error: &params.Error{
 			Code:    params.CodeNotAssigned,
-			Message: "3 is not assigned to a storage instance",
+			Message: "volume 2 not assigned",
 		},
 	}}
 
-	accessor := &mockBlockDeviceAccessor{
-		changes: make(chan []string),
-		blockDevices: func(tags []names.DiskTag) (params.BlockDeviceResults, error) {
-			expect := make([]names.DiskTag, len(ids))
-			for i, id := range ids {
-				expect[i] = names.NewDiskTag(id)
-			}
-			c.Assert(tags, gc.DeepEquals, expect)
-			return params.BlockDeviceResults{blockDeviceResults}, nil
+	accessor := &mockVolumeAccessor{
+		changes: make(chan struct{}),
+		attachedVolumes: func() ([]params.VolumeAttachment, error) {
+			return volumeAttachments, nil
 		},
-		blockDeviceStorageInstances: func(tags []names.DiskTag) (params.StorageInstanceResults, error) {
-			expect := make([]names.DiskTag, 0, len(blockDeviceResults))
-			for i, result := range blockDeviceResults {
-				if result.Error != nil {
-					continue
-				}
-				expect = append(expect, names.NewDiskTag(ids[i]))
+		volumeFormattingInfo: func(tags []names.VolumeTag) ([]params.VolumePreparationInfoResult, error) {
+			expect := make([]names.VolumeTag, len(volumeAttachments))
+			for i, att := range volumeAttachments {
+				tag, err := names.ParseTag(att.VolumeTag)
+				c.Assert(err, jc.ErrorIsNil)
+				expect[i] = tag.(names.VolumeTag)
 			}
 			c.Assert(tags, gc.DeepEquals, expect)
-			return params.StorageInstanceResults{blockDeviceStorageInstanceResults}, nil
+			return volumeFormattingInfoResults, nil
 		},
 	}
 
 	testing.PatchExecutableAsEchoArgs(c, s, "mkfs.ext4")
 
 	w := diskformatter.NewWorker(accessor)
-	accessor.changes <- ids
+	accessor.changes <- struct{}{}
 	done := make(chan struct{})
 	go func() {
 		w.Kill()
@@ -123,117 +84,108 @@ func (s *DiskFormatterWorkerSuite) TestWorker(c *gc.C) {
 
 	select {
 	case <-done:
-		testing.AssertEchoArgs(c, "mkfs.ext4", "/dev/disk/by-label/dev0-label")
+		testing.AssertEchoArgs(c, "mkfs.ext4", "/dev/xvdf2")
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for diskformatter to update")
 	}
 }
 
 func (s *DiskFormatterWorkerSuite) TestMakeDefaultFilesystem(c *gc.C) {
-	accessor := &mockBlockDeviceAccessor{
-		blockDevices: func([]names.DiskTag) (params.BlockDeviceResults, error) {
-			return params.BlockDeviceResults{[]params.BlockDeviceResult{{
-				Result: storage.BlockDevice{
-					Name:       "0",
-					DeviceName: "sda",
-					Label:      "dev0-label",
-					UUID:       "9aade75c-6528-4acf-ab69-258b8dc51798",
-				},
-			}}}, nil
+	accessor := &mockVolumeAccessor{
+		attachedVolumes: func() ([]params.VolumeAttachment, error) {
+			return []params.VolumeAttachment{{
+				VolumeTag: "volume-0",
+			}}, nil
 		},
-		blockDeviceStorageInstances: func(tags []names.DiskTag) (params.StorageInstanceResults, error) {
-			return params.StorageInstanceResults{[]params.StorageInstanceResult{{
-				Result: storage.StorageInstance{
-					Id:   "needs-a-filesystem",
-					Kind: storage.StorageKindFilesystem,
+		volumeFormattingInfo: func(tags []names.VolumeTag) ([]params.VolumePreparationInfoResult, error) {
+			return []params.VolumePreparationInfoResult{{
+				Result: params.VolumePreparationInfo{
+					NeedsFilesystem: true,
+					DevicePath:      "/dev/xvdf1",
 				},
-			}}}, nil
+			}}, nil
 		},
 	}
 
 	testing.PatchExecutableAsEchoArgs(c, s, "mkfs.ext4")
 	formatter := diskformatter.NewDiskFormatter(accessor)
-	err := formatter.Handle([]string{"0"})
+	err := formatter.Handle()
 	c.Assert(err, gc.IsNil)
-	testing.AssertEchoArgs(c, "mkfs.ext4", "/dev/disk/by-label/dev0-label")
+	testing.AssertEchoArgs(c, "mkfs.ext4", "/dev/xvdf1")
 }
 
-func (s *DiskFormatterWorkerSuite) TestBlockDeviceError(c *gc.C) {
-	accessor := &mockBlockDeviceAccessor{
-		blockDevices: func(tags []names.DiskTag) (params.BlockDeviceResults, error) {
-			return params.BlockDeviceResults{}, errors.New("BlockDevice failed")
+func (s *DiskFormatterWorkerSuite) TestAttachedVolumesError(c *gc.C) {
+	accessor := &mockVolumeAccessor{
+		attachedVolumes: func() ([]params.VolumeAttachment, error) {
+			return nil, errors.New("AttachedVolumes failed")
 		},
 	}
 	formatter := diskformatter.NewDiskFormatter(accessor)
-	err := formatter.Handle([]string{"0"})
-	c.Assert(err, gc.ErrorMatches, "cannot get block devices: BlockDevice failed")
+	err := formatter.Handle()
+	c.Assert(err, gc.ErrorMatches, "getting attached volumes: AttachedVolumes failed")
 }
 
 func (s *DiskFormatterWorkerSuite) TestBlockDeviceStorageInstanceError(c *gc.C) {
-	accessor := &mockBlockDeviceAccessor{
-		blockDevices: func([]names.DiskTag) (params.BlockDeviceResults, error) {
-			return params.BlockDeviceResults{[]params.BlockDeviceResult{{
-				Result: storage.BlockDevice{Name: "0", DeviceName: "sda"},
-			}}}, nil
+	accessor := &mockVolumeAccessor{
+		attachedVolumes: func() ([]params.VolumeAttachment, error) {
+			return []params.VolumeAttachment{{VolumeTag: "volume-0"}}, nil
 		},
-		blockDeviceStorageInstances: func(tags []names.DiskTag) (params.StorageInstanceResults, error) {
-			return params.StorageInstanceResults{}, errors.New("BlockDeviceStorageInstance failed")
+		volumeFormattingInfo: func(tags []names.VolumeTag) ([]params.VolumePreparationInfoResult, error) {
+			return []params.VolumePreparationInfoResult{}, errors.New("VolumePreparationInfo failed")
 		},
 	}
 	formatter := diskformatter.NewDiskFormatter(accessor)
-	err := formatter.Handle([]string{"0"})
-	c.Assert(err, gc.ErrorMatches, "cannot get assigned storage instances: BlockDeviceStorageInstance failed")
+	err := formatter.Handle()
+	c.Assert(err, gc.ErrorMatches, "getting volume formatting info: VolumePreparationInfo failed")
 }
 
 func (s *DiskFormatterWorkerSuite) TestCannotMakeFilesystem(c *gc.C) {
-	accessor := &mockBlockDeviceAccessor{
-		blockDevices: func(tags []names.DiskTag) (params.BlockDeviceResults, error) {
-			return params.BlockDeviceResults{[]params.BlockDeviceResult{{
-				Result: storage.BlockDevice{Name: "0", DeviceName: "sda"},
-			}}}, nil
+	accessor := &mockVolumeAccessor{
+		attachedVolumes: func() ([]params.VolumeAttachment, error) {
+			return []params.VolumeAttachment{{VolumeTag: "volume-0"}}, nil
 		},
-		blockDeviceStorageInstances: func(tags []names.DiskTag) (params.StorageInstanceResults, error) {
-			return params.StorageInstanceResults{[]params.StorageInstanceResult{{
-				Result: storage.StorageInstance{
-					Id:   "needs-a-filesystem",
-					Kind: storage.StorageKindFilesystem,
+		volumeFormattingInfo: func(tags []names.VolumeTag) ([]params.VolumePreparationInfoResult, error) {
+			return []params.VolumePreparationInfoResult{{
+				Result: params.VolumePreparationInfo{
+					NeedsFilesystem: true,
+					DevicePath:      "/dev/xvdf1",
 				},
-			}}}, nil
+			}}, nil
 		},
 	}
 	// Failure to create a filesystem should not cause the handler to error.
 	testing.PatchExecutableThrowError(c, s, "mkfs.ext4", 1)
 	formatter := diskformatter.NewDiskFormatter(accessor)
-	err := formatter.Handle([]string{"0"})
-	c.Assert(err, gc.IsNil)
+	err := formatter.Handle()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
-type mockBlockDeviceAccessor struct {
-	changes                     chan []string
-	blockDevices                func([]names.DiskTag) (params.BlockDeviceResults, error)
-	blockDeviceStorageInstances func([]names.DiskTag) (params.StorageInstanceResults, error)
+type mockVolumeAccessor struct {
+	changes              chan struct{}
+	attachedVolumes      func() ([]params.VolumeAttachment, error)
+	volumeFormattingInfo func([]names.VolumeTag) ([]params.VolumePreparationInfoResult, error)
 }
 
-func (m *mockBlockDeviceAccessor) Changes() <-chan []string {
+func (m *mockVolumeAccessor) Changes() <-chan struct{} {
 	return m.changes
 }
 
-func (m *mockBlockDeviceAccessor) Stop() error {
+func (m *mockVolumeAccessor) Stop() error {
 	return nil
 }
 
-func (m *mockBlockDeviceAccessor) Err() error {
+func (m *mockVolumeAccessor) Err() error {
 	return nil
 }
 
-func (m *mockBlockDeviceAccessor) WatchBlockDevices() (watcher.StringsWatcher, error) {
+func (m *mockVolumeAccessor) WatchAttachedVolumes() (watcher.NotifyWatcher, error) {
 	return m, nil
 }
 
-func (m *mockBlockDeviceAccessor) BlockDevices(tags []names.DiskTag) (params.BlockDeviceResults, error) {
-	return m.blockDevices(tags)
+func (m *mockVolumeAccessor) AttachedVolumes() ([]params.VolumeAttachment, error) {
+	return m.attachedVolumes()
 }
 
-func (m *mockBlockDeviceAccessor) BlockDeviceStorageInstances(tags []names.DiskTag) (params.StorageInstanceResults, error) {
-	return m.blockDeviceStorageInstances(tags)
+func (m *mockVolumeAccessor) VolumePreparationInfo(tags []names.VolumeTag) ([]params.VolumePreparationInfoResult, error) {
+	return m.volumeFormattingInfo(tags)
 }

@@ -597,8 +597,20 @@ func processAgent(entity stateAgent) (out api.AgentStatus, compatStatus params.S
 		out.Version = t.Version.Number.String()
 	}
 
+	// TODO(wallyworld) - this is ok for now, but status needs to support returning 3 values
+	// for unit:
+	// - legacy agent status
+	// - new agent status
+	// - unit status
+	// so it will no longer be appropriate to use a common processAgent()
+	// method for both machines and units
 	var st state.Status
-	st, out.Info, out.Data, out.Err = entity.Status()
+	unit, ok := entity.(*state.Unit)
+	if ok {
+		st, out.Info, out.Data, out.Err = unit.AgentStatus()
+	} else {
+		st, out.Info, out.Data, out.Err = entity.Status()
+	}
 	out.Status = params.Status(st)
 	compatStatus = out.Status
 	compatInfo = out.Info

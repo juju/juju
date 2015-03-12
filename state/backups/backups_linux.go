@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -25,7 +24,7 @@ import (
 // * updates existing db entries to make sure they hold no references to
 // old instances
 // * updates config in all agents.
-func (b *backups) Restore(backupId string, args params.RestoreArgs) error {
+func (b *backups) Restore(backupId string, args RestoreArgs) error {
 	meta, backupReader, err := b.Get(backupId)
 	if err != nil {
 		return errors.Annotatef(err, "could not fetch backup %q", backupId)
@@ -57,6 +56,8 @@ func (b *backups) Restore(backupId string, args params.RestoreArgs) error {
 	}
 
 	var agentConfig agent.ConfigSetterWriter
+	// The path for the config file might change if the tag changed
+	// and also the rest of the path, so we assume as little as possible.
 	datadir, err := paths.DataDir(args.NewInstSeries)
 	if err != nil {
 		return errors.Annotate(err, "cannot determine DataDir for the restored machine")
@@ -69,6 +70,7 @@ func (b *backups) Restore(backupId string, args params.RestoreArgs) error {
 	if !ok {
 		return errors.Errorf("cannot determine state serving info")
 	}
+	// The machine tag might have changed, we update it.
 	agentConfig.SetValue("tag", args.NewInstTag.String())
 	APIHostPort := network.HostPort{
 		Address: network.Address{
@@ -98,7 +100,7 @@ func (b *backups) Restore(backupId string, args params.RestoreArgs) error {
 		return errors.Annotate(err, "cannot reset replicaSet")
 	}
 
-	err = updateMongoEntries(args.NewInstId, args.NewInstTag.Id(), dialInfo)
+	err = updateMongoEntries(args.NewInstId, args.NewInstTag.Id(), backupMachine.Id(), dialInfo)
 	if err != nil {
 		return errors.Annotate(err, "cannot update mongo entries")
 	}
@@ -115,6 +117,16 @@ func (b *backups) Restore(backupId string, args params.RestoreArgs) error {
 	}
 	defer st.Close()
 
+	machine, err := st.Machine(args.NewInstTag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = updateMachineAddresses(machine, args.PrivateAddress, args.PublicAddress)
+	if err != nil {
+		return errors.Annotate(err, "cannot update api server machine addresses")
+	}
+
 	// update all agents known to the new state server.
 	// TODO(perrito666): We should never stop process because of this.
 	// updateAllMachines will not return errors for individual
@@ -127,7 +139,7 @@ func (b *backups) Restore(backupId string, args params.RestoreArgs) error {
 		return errors.Annotate(err, "cannot update agents")
 	}
 
-	info, err := st.EnsureRestoreInfo()
+	info, err := st.RestoreInfoSetter()
 
 	if err != nil {
 		return errors.Trace(err)

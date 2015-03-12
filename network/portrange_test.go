@@ -262,6 +262,22 @@ func (*PortRangeSuite) TestParsePortRangeNonIntPort(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `invalid port "spam".*`)
 }
 
+func (*PortRangeSuite) TestMustParsePortRange(c *gc.C) {
+	portRange := network.MustParsePortRange("8000-8099/tcp")
+
+	c.Check(portRange.Protocol, gc.Equals, "tcp")
+	c.Check(portRange.FromPort, gc.Equals, 8000)
+	c.Check(portRange.ToPort, gc.Equals, 8099)
+}
+
+func (*PortRangeSuite) TestMustParsePortRangeInvalid(c *gc.C) {
+	f := func() {
+		network.MustParsePortRange("10-55-100")
+	}
+
+	c.Check(f, gc.PanicMatches, `invalid port range "10-55-100".*`)
+}
+
 func (*PortRangeSuite) TestParsePortRanges(c *gc.C) {
 	portRanges, err := network.ParsePortRanges("80/tcp,8000-8099/tcp")
 	c.Assert(err, jc.ErrorIsNil)

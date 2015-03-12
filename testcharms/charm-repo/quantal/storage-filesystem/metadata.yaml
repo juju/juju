@@ -1,0 +1,6 @@
+name: storage-filesystem
+summary: A charm needing filesystem storage
+description: See above
+storage:
+    data:
+        type: filesystem

@@ -6,9 +6,6 @@ package main
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"strings"
-
-	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -19,6 +16,14 @@ import (
 
 type ResolvedSuite struct {
 	jujutesting.RepoSuite
+	CmdBlockHelper
+}
+
+func (s *ResolvedSuite) SetUpTest(c *gc.C) {
+	s.RepoSuite.SetUpTest(c)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
+	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
 
 var _ = gc.Suite(&ResolvedSuite{})
@@ -84,7 +89,7 @@ func (s *ResolvedSuite) TestResolved(c *gc.C) {
 	for _, name := range []string{"dummy/2", "dummy/3", "dummy/4"} {
 		u, err := s.State.Unit(name)
 		c.Assert(err, jc.ErrorIsNil)
-		err = u.SetStatus(state.StatusError, "lol borken", nil)
+		err = u.SetAgentStatus(state.StatusError, "lol borken", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -117,10 +122,7 @@ func (s *ResolvedSuite) TestBlockResolved(c *gc.C) {
 	}
 
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.BlockAllChanges(c, "TestBlockResolved")
 	err = runResolved(c, []string{"dummy/2"})
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	s.AssertBlocked(c, err, ".*TestBlockResolved.*")
 }

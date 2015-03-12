@@ -4,8 +4,9 @@
 package annotations_test
 
 import (
-	gc "gopkg.in/check.v1"
 	"testing"
+
+	gc "gopkg.in/check.v1"
 )
 
 func TestAll(t *testing.T) {

@@ -15,7 +15,7 @@ const (
 // MiBToGiB converts the provided megabytes (base-2) into the nearest
 // gigabytes (base-2), rounding up. This is useful for providers that
 // deal in gigabytes (while juju deals in megabytes).
-func MBToGiB(m uint64) uint64 {
+func MiBToGiB(m uint64) uint64 {
 	return (m + 1023) / 1024
 }
 

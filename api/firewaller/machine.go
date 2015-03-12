@@ -130,7 +130,7 @@ func (m *Machine) OpenedPorts(networkTag names.NetworkTag) (map[network.PortRang
 		if err != nil {
 			return nil, err
 		}
-		endResult[ports.PortRange] = unitTag
+		endResult[ports.PortRange.NetworkPortRange()] = unitTag
 	}
 	return endResult, nil
 }

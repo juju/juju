@@ -210,8 +210,9 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 	a.root.rpcConn.ServeFinder(authedApi, serverError)
 
 	return params.LoginResultV1{
-		Servers:    hostPorts,
+		Servers:    params.FromNetworkHostsPorts(hostPorts),
 		EnvironTag: environ.Tag().String(),
+		ServerTag:  environ.ServerTag().String(),
 		Facades:    DescribeFacades(),
 		UserInfo:   maybeUserInfo,
 	}, nil

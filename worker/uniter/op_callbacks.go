@@ -56,6 +56,17 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 		if err != nil {
 			return "", err
 		}
+	case hi.Kind.IsStorage():
+		if err := opc.u.storage.ValidateHook(hi); err != nil {
+			return "", err
+		}
+		storageName, err := names.StorageName(hi.StorageId)
+		if err != nil {
+			return "", err
+		}
+		name = fmt.Sprintf("%s-%s", storageName, hi.Kind)
+		// TODO(axw) if the agent is not installed yet,
+		// set the status to "preparing storage".
 	case hi.Kind == hooks.Stop:
 		status = params.StatusStopping
 	case hi.Kind == hooks.ConfigChanged:
@@ -66,7 +77,7 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 			status = params.StatusInstalling
 		}
 	}
-	err := opc.u.unit.SetStatus(status, "", nil)
+	err := opc.u.unit.SetAgentStatus(status, "", nil)
 	if err != nil {
 		return "", err
 	}
@@ -75,10 +86,12 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 
 // CommitHook is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
-	if hi.Kind.IsRelation() {
+	switch {
+	case hi.Kind.IsRelation():
 		return opc.u.relations.CommitHook(hi)
-	}
-	if hi.Kind == hooks.ConfigChanged {
+	case hi.Kind.IsStorage():
+		return opc.u.storage.CommitHook(hi)
+	case hi.Kind == hooks.ConfigChanged:
 		opc.u.ranConfigChanged = true
 	}
 	return nil

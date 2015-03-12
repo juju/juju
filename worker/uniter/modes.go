@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
-	ucharm "github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
@@ -76,7 +75,9 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	return continueAfter(u, creator)
 }
 
-// ModeInstalling is responsible for the initial charm deployment.
+// ModeInstalling is responsible for the initial charm deployment. If an install
+// operation were to set an appropriate status, it shouldn't be necessary; but see
+// ModeUpgrading for discussion relevant to both.
 func ModeInstalling(curl *charm.URL) (next Mode, err error) {
 	name := fmt.Sprintf("ModeInstalling %s", curl)
 	return func(u *Uniter) (next Mode, err error) {
@@ -85,36 +86,30 @@ func ModeInstalling(curl *charm.URL) (next Mode, err error) {
 		// This SetStatus call should probably be inside the operation somehow;
 		// which in turn implies that the SetStatus call in PrepareHook is
 		// also misplaced, and should also be explicitly part of the operation.
-		if err = u.unit.SetStatus(params.StatusInstalling, "", nil); err != nil {
+		if err = u.unit.SetAgentStatus(params.StatusInstalling, "", nil); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return continueAfter(u, newInstallOp(curl))
 	}, nil
 }
 
-// ModeUpgrading is responsible for upgrading the charm.
+// ModeUpgrading is responsible for upgrading the charm. It shouldn't really
+// need to be a mode at all -- it's just running a single operation -- but
+// it's not safe to call it inside arbitrary other modes, because failing to
+// pass through ModeContinue on the way out could cause a queued hook to be
+// accidentally skipped.
 func ModeUpgrading(curl *charm.URL) Mode {
 	name := fmt.Sprintf("ModeUpgrading %s", curl)
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext(name, &err)()
-		// TODO(fwereade) 2015-01-19
-		// If we encoded the failed charm URL in ErrConflict -- or alternatively
-		// if we recorded a bit more info in operation.State -- we could move this
-		// code into the error->mode transform in Uniter.loop().
-		err = u.runOperation(newUpgradeOp(curl))
-		if errors.Cause(err) == ucharm.ErrConflict {
-			return ModeConflicted(curl), nil
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return ModeContinue, nil
+		return continueAfter(u, newUpgradeOp(curl))
 	}
 }
 
 // ModeTerminating marks the unit dead and returns ErrTerminateAgent.
 func ModeTerminating(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeTerminating", &err)()
-	if err = u.unit.SetStatus(params.StatusStopping, "", nil); err != nil {
+	if err = u.unit.SetAgentStatus(params.StatusStopping, "", nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 	w, err := u.unit.Watch()
@@ -126,8 +121,8 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
-		case info := <-u.f.ActionEvents():
-			creator := newActionOp(info.ActionId)
+		case actionId := <-u.f.ActionEvents():
+			creator := newActionOp(actionId)
 			if err := u.runOperation(creator); err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -173,7 +168,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if !opState.Started {
 		return continueAfter(u, newSimpleRunHookOp(hooks.Start))
 	}
-	if err = u.unit.SetStatus(params.StatusActive, "", nil); err != nil {
+	if err = u.unit.SetAgentStatus(params.StatusActive, "", nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 	u.f.WantUpgradeEvent(false)
@@ -214,8 +209,10 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			return ModeUpgrading(curl), nil
 		case ids := <-u.f.RelationsEvents():
 			creator = newUpdateRelationsOp(ids)
-		case info := <-u.f.ActionEvents():
-			creator = newActionOp(info.ActionId)
+		case actionId := <-u.f.ActionEvents():
+			creator = newActionOp(actionId)
+		case tags := <-u.f.StorageEvents():
+			creator = newUpdateStorageOp(tags)
 		case <-u.f.ConfigEvents():
 			creator = newSimpleRunHookOp(hooks.ConfigChanged)
 		case <-u.f.MeterStatusEvents():
@@ -223,6 +220,8 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 		case <-collectMetricsSignal:
 			creator = newSimpleRunHookOp(hooks.CollectMetrics)
 		case hookInfo := <-u.relations.Hooks():
+			creator = newRunHookOp(hookInfo)
+		case hookInfo := <-u.storage.Hooks():
 			creator = newRunHookOp(hookInfo)
 		}
 		if err := u.runOperation(creator); err != nil {
@@ -251,8 +250,8 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
-		case info := <-u.f.ActionEvents():
-			creator = newActionOp(info.ActionId)
+		case actionId := <-u.f.ActionEvents():
+			creator = newActionOp(actionId)
 		case <-u.f.ConfigEvents():
 			creator = newSimpleRunHookOp(hooks.ConfigChanged)
 		case hookInfo := <-u.relations.Hooks():
@@ -293,7 +292,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	u.f.WantResolvedEvent()
 	u.f.WantUpgradeEvent(true)
 	for {
-		if err = u.unit.SetStatus(params.StatusError, statusMessage, statusData); err != nil {
+		if err = u.unit.SetAgentStatus(params.StatusError, statusMessage, statusData); err != nil {
 			return nil, errors.Trace(err)
 		}
 		select {
@@ -329,7 +328,7 @@ func ModeConflicted(curl *charm.URL) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext("ModeConflicted", &err)()
 		// TODO(mue) Add helpful data here too in later CL.
-		if err = u.unit.SetStatus(params.StatusError, "upgrade failed", nil); err != nil {
+		if err = u.unit.SetAgentStatus(params.StatusError, "upgrade failed", nil); err != nil {
 			return nil, errors.Trace(err)
 		}
 		u.f.WantResolvedEvent()
@@ -343,17 +342,7 @@ func ModeConflicted(curl *charm.URL) Mode {
 		case <-u.f.ResolvedEvents():
 			creator = newResolvedUpgradeOp(curl)
 		}
-		err = u.runOperation(creator)
-		// TODO(fwereade) 2015-01-19
-		// If we encoded the failed charm URL in ErrConflict -- or alternatively
-		// if we recorded a bit more info in operation.State -- we could move this
-		// code into the error->mode transform in Uniter.loop().
-		if errors.Cause(err) == ucharm.ErrConflict {
-			return ModeConflicted(curl), nil
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return ModeContinue, nil
+		return continueAfter(u, creator)
 	}
 }
 

@@ -7,9 +7,10 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
+
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/names"
 )
 
 // Remover implements a common Remove method for use by various facades.

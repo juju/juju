@@ -17,25 +17,25 @@ const diskFormatterFacade = "DiskFormatter"
 // State provides access to a diskformatter worker's view of the state.
 type State struct {
 	facade base.FacadeCaller
-	tag    names.UnitTag
+	tag    names.MachineTag
 }
 
 // NewState creates a new client-side DiskFormatter facade.
-func NewState(caller base.APICaller, authTag names.UnitTag) *State {
+func NewState(caller base.APICaller, authTag names.MachineTag) *State {
 	return &State{
 		base.NewFacadeCaller(caller, diskFormatterFacade),
 		authTag,
 	}
 }
 
-// WatchBlockDevices watches the block devices attached to the machine
-// that hosts the authenticated unit agent.
-func (st *State) WatchBlockDevices() (watcher.StringsWatcher, error) {
-	var results params.StringsWatchResults
+// WatchAttachedVolumes watches for changes in the machine's volume
+// attachments.
+func (st *State) WatchAttachedVolumes() (watcher.NotifyWatcher, error) {
+	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: st.tag.String()}},
 	}
-	err := st.facade.FacadeCall("WatchBlockDevices", args, &results)
+	err := st.facade.FacadeCall("WatchAttachedVolumes", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -46,45 +46,48 @@ func (st *State) WatchBlockDevices() (watcher.StringsWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
+	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
-// BlockDevices returns details of attached block devices with the specified tags.
-func (st *State) BlockDevices(tags []names.DiskTag) (params.BlockDeviceResults, error) {
-	var result params.BlockDeviceResults
+// AttachedVolumes returns details of volumes attached to the machine
+// running the authenticated agent.
+func (st *State) AttachedVolumes() ([]params.VolumeAttachment, error) {
 	args := params.Entities{
-		Entities: make([]params.Entity, len(tags)),
+		Entities: []params.Entity{{st.tag.String()}},
 	}
-	for i, tag := range tags {
-		args.Entities[i].Tag = tag.String()
-	}
-	err := st.facade.FacadeCall("BlockDevices", args, &result)
+	var results params.VolumeAttachmentsResults
+	err := st.facade.FacadeCall("AttachedVolumes", args, &results)
 	if err != nil {
-		return params.BlockDeviceResults{}, err
+		return nil, errors.Trace(err)
 	}
-	if len(result.Results) != len(tags) {
-		panic(errors.Errorf("expected %d results, got %d", len(tags), len(result.Results)))
+	if len(results.Results) != 1 {
+		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
 	}
-	return result, nil
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.Attachments, nil
 }
 
-// BlockDeviceStorageInstances returns the details of storage instance that
-// each named block device is assigned to.
-func (st *State) BlockDeviceStorageInstances(tags []names.DiskTag) (params.StorageInstanceResults, error) {
-	var results params.StorageInstanceResults
-	args := params.Entities{
-		Entities: make([]params.Entity, len(tags)),
+// VolumePreparationInfo returns the information required to format the
+// specified volumes.
+func (st *State) VolumePreparationInfo(tags []names.VolumeTag) ([]params.VolumePreparationInfoResult, error) {
+	var results params.VolumePreparationInfoResults
+	args := params.VolumeAttachmentIds{
+		Ids: make([]params.VolumeAttachmentId, len(tags)),
 	}
 	for i, tag := range tags {
-		args.Entities[i].Tag = tag.String()
+		args.Ids[i].MachineTag = st.tag.String()
+		args.Ids[i].VolumeTag = tag.String()
 	}
-	err := st.facade.FacadeCall("BlockDeviceStorageInstances", args, &results)
+	err := st.facade.FacadeCall("VolumePreparationInfo", args, &results)
 	if err != nil {
-		return params.StorageInstanceResults{}, err
+		return nil, errors.Trace(err)
 	}
-	if len(results.Results) != len(tags) {
-		panic(errors.Errorf("expected %d results, got %d", len(tags), len(results.Results)))
+	if len(results.Results) != len(args.Ids) {
+		panic(errors.Errorf("expected %d results, got %d", len(args.Ids), len(results.Results)))
 	}
-	return results, nil
+	return results.Results, nil
 }

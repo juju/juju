@@ -54,7 +54,7 @@ func (s *ToolsSuite) testEnsureSymlinks(c *gc.C, dir string) {
 	assertLink := func(path string) time.Time {
 		target, err := symlink.Read(path)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(target, gc.Equals, jujudPath)
+		c.Assert(target, jc.SamePath, jujudPath)
 		fi, err := os.Lstat(path)
 		c.Assert(err, jc.ErrorIsNil)
 		return fi.ModTime()

@@ -11,10 +11,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn"
+	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -22,6 +23,9 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -69,7 +73,7 @@ func (s *MachineSuite) TestSetRebootFlagDeadMachine(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetRebootFlagDeadMachineRace(c *gc.C) {
-	setFlag := txn.TestHook{
+	setFlag := jujutxn.TestHook{
 		Before: func() {
 			err := s.machine.EnsureDead()
 			c.Assert(err, jc.ErrorIsNil)
@@ -349,7 +353,7 @@ func (s *MachineSuite) TestDestroyContention(c *gc.C) {
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
-	perturb := txn.TestHook{
+	perturb := jujutxn.TestHook{
 		Before: func() { c.Assert(unit.AssignToMachine(s.machine), gc.IsNil) },
 		After:  func() { c.Assert(unit.UnassignFromMachine(), gc.IsNil) },
 	}
@@ -903,40 +907,39 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 
 	assertNotProvisioned()
 	invalidNetworks := []state.NetworkInfo{{Name: ""}}
-	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, invalidNetworks, nil, nil)
+	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, invalidNetworks, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add network "": name must be not empty`)
 	assertNotProvisioned()
 
 	invalidInterfaces := []state.NetworkInterfaceInfo{{MACAddress: ""}}
-	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, invalidInterfaces, nil)
+	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, invalidInterfaces, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add network interface "" to machine "1": MAC address must be not empty`)
 	assertNotProvisioned()
 
-	invalidBlockDevices := map[string]state.BlockDeviceInfo{"1065": {}}
-	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidBlockDevices)
-	c.Assert(err, gc.ErrorMatches, "cannot set provisioned block device info: already provisioned")
+	invalidVolumes := map[names.VolumeTag]state.VolumeInfo{names.NewVolumeTag("1065"): state.VolumeInfo{}}
+	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidVolumes, nil)
+	c.Assert(err, gc.ErrorMatches, `cannot set info for volume \"1065\": volume \"1065\" not found`)
 	assertNotProvisioned()
 
-	// Create a disk associated with a different machine, and ensure that trying
-	// to SetInstanceInfo with that disk fails.
-	blockDeviceName := s.createBlockDeviceParams(c, s.machine0.Id(), state.BlockDeviceParams{Size: 1000})
-	invalidBlockDevices = map[string]state.BlockDeviceInfo{blockDeviceName: {}}
-	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidBlockDevices)
-	c.Assert(err, gc.ErrorMatches, "cannot set provisioned block device info: already provisioned")
-	assertNotProvisioned()
+	// TODO(axw) test invalid volume attachment
 }
 
-func (s *MachineSuite) createBlockDeviceParams(c *gc.C, machineId string, params state.BlockDeviceParams) string {
-	ops, names, err := state.CreateMachineBlockDeviceOps(s.State, machineId, params)
+func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams) names.VolumeTag {
+	op, tag, err := state.AddVolumeOp(s.State, params)
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.RunTransaction(s.State, ops)
+	err = state.RunTransaction(s.State, []txn.Op{op})
 	c.Assert(err, jc.ErrorIsNil)
-	return names[0]
+	return tag
 }
 
 func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+
 	// Must create the requested block device prior to SetInstanceInfo.
-	s.createBlockDeviceParams(c, s.machine.Id(), state.BlockDeviceParams{Size: 1000})
+	volumeTag := s.addVolume(c, state.VolumeParams{Size: 1000, Pool: "loop-pool"})
 
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
 	networks := []state.NetworkInfo{
@@ -945,10 +948,13 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	interfaces := []state.NetworkInterfaceInfo{
 		{MACAddress: "aa:bb:cc:dd:ee:ff", NetworkName: "net1", InterfaceName: "eth0", IsVirtual: false},
 	}
-	blockDeviceInfo := map[string]state.BlockDeviceInfo{
-		"0": {Size: 1234},
+	volumes := map[names.VolumeTag]state.VolumeInfo{
+		volumeTag: state.VolumeInfo{
+			VolumeId: "storage-123",
+			Size:     1234,
+		},
 	}
-	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces, blockDeviceInfo)
+	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces, volumes, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsTrue)
 	network, err := s.State.Network(networks[0].Name)
@@ -965,12 +971,12 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Check(ifaces[0].MACAddress(), gc.Equals, interfaces[0].MACAddress)
 	c.Check(ifaces[0].MachineTag(), gc.Equals, s.machine.Tag())
 	c.Check(ifaces[0].IsVirtual(), gc.Equals, interfaces[0].IsVirtual)
-	blockDevices, err := s.machine.BlockDevices()
+
+	volume, err := s.State.Volume(volumeTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockDevices, gc.HasLen, 1)
-	info, err := blockDevices[0].Info()
+	info, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.Equals, blockDeviceInfo["0"])
+	c.Assert(info, gc.Equals, volumes[volumeTag])
 }
 
 func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *gc.C) {
@@ -1038,7 +1044,7 @@ func (s *MachineSuite) TestRefreshWhenNotAlive(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
-	// Check that Machine.Units works correctly.
+	// Check that Machine.Units and st.UnitsFor work correctly.
 
 	// Make three machines, three services and three units for each service;
 	// variously assign units to machines and check that Machine.Units
@@ -1078,6 +1084,7 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 	}
 	units[3], err = s3.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sortedUnitNames(units[3]), jc.DeepEquals, []string{"s3/0", "s3/1", "s3/2"})
 
 	assignments := []struct {
 		machine      *state.Machine
@@ -1098,10 +1105,17 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 
 	for i, a := range assignments {
 		c.Logf("test %d", i)
+		expect := sortedUnitNames(append(a.units, a.subordinates...))
+
+		// The units can be retrieved from the machine model.
 		got, err := a.machine.Units()
 		c.Assert(err, jc.ErrorIsNil)
-		expect := sortedUnitNames(append(a.units, a.subordinates...))
-		c.Assert(sortedUnitNames(got), gc.DeepEquals, expect)
+		c.Assert(sortedUnitNames(got), jc.DeepEquals, expect)
+
+		// The units can be retrieved from the machine id.
+		got, err = s.State.UnitsFor(a.machine.Id())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(sortedUnitNames(got), jc.DeepEquals, expect)
 	}
 }
 
@@ -1232,7 +1246,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(state.StatusActive, "", nil)
+	err = mysql0.SetAgentStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1261,7 +1275,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(state.StatusActive, "", nil)
+	err = logging0.SetAgentStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1336,7 +1350,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(state.StatusActive, "", nil)
+	err = mysql0.SetAgentStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1366,7 +1380,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(state.StatusActive, "", nil)
+	err = logging0.SetAgentStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -2141,7 +2155,7 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 		NetworkName:   "vlan42",
 		IsVirtual:     true,
 	}}
-	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces, nil)
+	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Read dynamically generated document Ids.
@@ -2218,7 +2232,7 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 		NetworkName:   "vlan42",
 		IsVirtual:     true,
 	}}
-	err = machine2.SetInstanceInfo("m-too", "fake_nonce", nil, networks, interfaces2, nil)
+	err = machine2.SetInstanceInfo("m-too", "fake_nonce", nil, networks, interfaces2, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ifaces, gc.HasLen, 3)
 	wc.AssertNoChange()

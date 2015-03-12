@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -42,6 +41,9 @@ type HookContext struct {
 	// over fully to API calls on State.  This adds that ability, but we're
 	// not fully there yet.
 	state *uniter.State
+
+	// LeadershipContext supplies several jujuc.Context methods.
+	LeadershipContext
 
 	// privateAddress is the cached value of the unit's private
 	// address.
@@ -129,11 +131,11 @@ type HookContext struct {
 	// the hook will be killed and requeued
 	rebootPriority jujuc.RebootPriority
 
-	// storageInstances contains the storageInstances associated with a unit,
-	storageInstances []storage.StorageInstance
+	// storage provides access to the information about storage attached to the unit.
+	storage StorageContextAccessor
 
-	// storageId is the id of the storage instance associated with the running hook.
-	storageId string
+	// storageId is the tag of the storage instance associated with the running hook.
+	storageTag names.StorageTag
 }
 
 func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
@@ -195,17 +197,12 @@ func (ctx *HookContext) AvailabilityZone() (string, bool) {
 	return ctx.availabilityzone, ctx.availabilityzone != ""
 }
 
-func (ctx *HookContext) HookStorageInstance() (*storage.StorageInstance, bool) {
-	return ctx.StorageInstance(ctx.storageId)
+func (ctx *HookContext) HookStorage() (jujuc.ContextStorage, bool) {
+	return ctx.Storage(ctx.storageTag)
 }
 
-func (ctx *HookContext) StorageInstance(storageId string) (*storage.StorageInstance, bool) {
-	for _, storageInstance := range ctx.storageInstances {
-		if storageInstance.Id == ctx.storageId {
-			return &storageInstance, true
-		}
-	}
-	return nil, false
+func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
+	return ctx.storage.Storage(tag)
 }
 
 func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {

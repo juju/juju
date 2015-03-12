@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -479,15 +480,43 @@ func constructStartInstanceParams(
 	machineConfig *cloudinit.MachineConfig,
 	provisioningInfo *params.ProvisioningInfo,
 	possibleTools coretools.List,
-) environs.StartInstanceParams {
+) (environs.StartInstanceParams, error) {
+
+	volumes := make([]storage.VolumeParams, len(provisioningInfo.Volumes))
+	for i, v := range provisioningInfo.Volumes {
+		volumeTag, err := names.ParseVolumeTag(v.VolumeTag)
+		if err != nil {
+			return environs.StartInstanceParams{}, errors.Trace(err)
+		}
+		machineTag, err := names.ParseMachineTag(v.MachineTag)
+		if err != nil {
+			return environs.StartInstanceParams{}, errors.Trace(err)
+		}
+		if machineTag != machine.Tag() {
+			return environs.StartInstanceParams{}, errors.Errorf("volume params has invalid machine tag")
+		}
+		volumes[i] = storage.VolumeParams{
+			volumeTag,
+			v.Size,
+			storage.ProviderType(v.Provider),
+			v.Attributes,
+			&storage.VolumeAttachmentParams{
+				AttachmentParams: storage.AttachmentParams{
+					Machine: machineTag,
+				},
+				Volume: volumeTag,
+			},
+		}
+	}
+
 	return environs.StartInstanceParams{
 		Constraints:       provisioningInfo.Constraints,
 		Tools:             possibleTools,
 		MachineConfig:     machineConfig,
 		Placement:         provisioningInfo.Placement,
 		DistributionGroup: machine.DistributionGroup,
-		Volumes:           provisioningInfo.Volumes,
-	}
+		Volumes:           volumes,
+	}, nil
 }
 
 func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) error {
@@ -514,12 +543,15 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 			return task.setErrorStatus("cannot find tools for machine %q: %v", m, err)
 		}
 
-		startInstanceParams := constructStartInstanceParams(
+		startInstanceParams, err := constructStartInstanceParams(
 			m,
 			machineCfg,
 			pInfo,
 			possibleTools,
 		)
+		if err != nil {
+			return task.setErrorStatus("cannot construct params for machine %q: %v", m, err)
+		}
 
 		if err := task.startMachine(m, pInfo, startInstanceParams); err != nil {
 			return errors.Annotatef(err, "cannot start machine %v", m)
@@ -538,17 +570,20 @@ func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisio
 }
 
 func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.InterfaceInfo) (
-	networks []params.Network, ifaces []params.NetworkInterface) {
+	networks []params.Network, ifaces []params.NetworkInterface, err error) {
 	if len(networkInfo) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 	visitedNetworks := set.NewStrings()
 	for _, info := range networkInfo {
+		if !names.IsValidNetwork(info.NetworkName) {
+			return nil, nil, errors.Errorf("invalid network name %q", info.NetworkName)
+		}
 		networkTag := names.NewNetworkTag(info.NetworkName).String()
 		if !visitedNetworks.Contains(networkTag) {
 			networks = append(networks, params.Network{
 				Tag:        networkTag,
-				ProviderId: info.ProviderId,
+				ProviderId: string(info.ProviderId),
 				CIDR:       info.CIDR,
 				VLANTag:    info.VLANTag,
 			})
@@ -562,7 +597,7 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.I
 			Disabled:      info.Disabled,
 		})
 	}
-	return networks, ifaces
+	return networks, ifaces, nil
 }
 
 func (task *provisionerTask) startMachine(
@@ -591,19 +626,26 @@ func (task *provisionerTask) startMachine(
 	inst := result.Instance
 	hardware := result.Hardware
 	nonce := startInstanceParams.MachineConfig.MachineNonce
-	networks, ifaces := task.prepareNetworkAndInterfaces(result.NetworkInfo)
-	volumes := result.Volumes
+	networks, ifaces, err := task.prepareNetworkAndInterfaces(result.NetworkInfo)
+	if err != nil {
+		return task.setErrorStatus("cannot prepare network for machine %q: %v", machine, err)
+	}
+	volumes := volumesToApiserver(result.Volumes)
+	volumeAttachments := volumeAttachmentsToApiserver(result.VolumeAttachments)
 
 	// TODO(dimitern) In a newer Provisioner API version, change
 	// SetInstanceInfo or add a new method that takes and saves in
 	// state all the information available on a network.InterfaceInfo
 	// for each interface, so we can later manage interfaces
 	// dynamically at run-time.
-	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networks, ifaces, volumes)
+	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networks, ifaces, volumes, volumeAttachments)
 	if err != nil && params.IsCodeNotImplemented(err) {
 		return fmt.Errorf("cannot provision instance %v for machine %q with networks: not implemented", inst.Id(), machine)
 	} else if err == nil {
-		logger.Infof("started machine %s as instance %s with hardware %q, networks %v, interfaces %v, volumes %v", machine, inst.Id(), hardware, networks, ifaces, volumes)
+		logger.Infof(
+			"started machine %s as instance %s with hardware %q, networks %v, interfaces %v, volumes %v, volume attachments %v",
+			machine, inst.Id(), hardware, networks, ifaces, volumes, volumeAttachments,
+		)
 		return nil
 	}
 	// We need to stop the instance right away here, set error status and go on.
@@ -639,6 +681,32 @@ func assocProvInfoAndMachCfg(
 		Placement:     provInfo.Placement,
 		MachineConfig: machineConfig,
 	}
+}
+
+func volumesToApiserver(volumes []storage.Volume) []params.Volume {
+	result := make([]params.Volume, len(volumes))
+	for i, v := range volumes {
+		result[i] = params.Volume{
+			v.Tag.String(),
+			v.VolumeId,
+			v.Serial,
+			v.Size,
+		}
+	}
+	return result
+}
+
+func volumeAttachmentsToApiserver(attachments []storage.VolumeAttachment) []params.VolumeAttachment {
+	result := make([]params.VolumeAttachment, len(attachments))
+	for i, a := range attachments {
+		result[i] = params.VolumeAttachment{
+			a.Volume.String(),
+			a.Machine.String(),
+			a.DeviceName,
+			a.ReadOnly,
+		}
+	}
+	return result
 }
 
 // ProvisioningInfo is new in 1.20; wait for the API server to be

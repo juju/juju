@@ -6,11 +6,13 @@ package environment
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/feature"
 )
 
-var logger = loggo.GetLogger("juju.cmd.juju.machine")
+var logger = loggo.GetLogger("juju.cmd.juju.environment")
 
 const commandDoc = `
 "juju environment" provides commands to interact with the Juju environment.
@@ -29,7 +31,9 @@ func NewSuperCommand() cmd.Command {
 	environmentCmd.Register(envcmd.Wrap(&SetCommand{}))
 	environmentCmd.Register(envcmd.Wrap(&UnsetCommand{}))
 	environmentCmd.Register(&JenvCommand{})
-	environmentCmd.Register(envcmd.Wrap(&EnsureAvailabilityCommand{}))
 	environmentCmd.Register(envcmd.Wrap(&RetryProvisioningCommand{}))
+	if featureflag.Enabled(feature.JES) {
+		environmentCmd.Register(envcmd.Wrap(&CreateCommand{}))
+	}
 	return environmentCmd
 }

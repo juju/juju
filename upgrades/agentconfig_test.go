@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -34,6 +35,9 @@ type migrateLocalProviderAgentConfigSuite struct {
 var _ = gc.Suite(&migrateLocalProviderAgentConfigSuite{})
 
 func (s *migrateLocalProviderAgentConfigSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("No need to test local provider on windows")
+	}
 	s.JujuConnSuite.SetUpTest(c)
 	// Make sure we fallback to SUDO_USER if USER is root.
 	s.PatchEnvironment("USER", "root")

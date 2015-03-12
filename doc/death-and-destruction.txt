@@ -10,9 +10,9 @@ destruction differ by entity, but there are common features:
 
   * Only Alive entities can be destroyed; if destruction is already in progress,
     as evidenced by an entity not being Alive, its "destruction" is a no-op.
-  * Entities might be removed immediately they are destroyed, but this is not
+  * Entities might be removed immediately when they are destroyed, but this is not
     guaranteed.
-  * If an entity is not removed immediately it is destroyed, its eventual
+  * If an entity is not removed immediately when it is destroyed, its eventual
     removal is very likely; but it is not currently guaranteed, for the
     following reasons:
       * Hardware failure, even when detected and corrected by a Provisioner, can

@@ -9,8 +9,10 @@ import (
 	"net"
 	"path"
 	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/apt"
@@ -27,9 +29,15 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+)
+
+var (
+	logger = loggo.GetLogger("juju.environs.cloudinit")
 )
 
 // fileSchemePrefix is the prefix for file:// URLs.
@@ -185,6 +193,7 @@ const NonceFile = "nonce.txt"
 // packages, the request to do the apt-get update/upgrade on boot, and adds
 // the apt proxy and mirror settings if there are any.
 func AddAptCommands(
+	series string,
 	proxySettings proxy.Settings,
 	aptMirror string,
 	c *cloudinit.Config,
@@ -199,6 +208,13 @@ func AddAptCommands(
 	// Set the APT mirror.
 	c.SetAptMirror(aptMirror)
 
+	// For LTS series which need support for the cloud-tools archive,
+	// we need to enable apt-get update regardless of the environ
+	// setting, otherwise bootstrap or provisioning will fail.
+	if series == "precise" && !addUpdateScripts {
+		addUpdateScripts = true
+	}
+
 	// Bring packages up-to-date.
 	c.SetAptUpdate(addUpdateScripts)
 	c.SetAptUpgrade(addUpgradeScripts)
@@ -207,24 +223,77 @@ func AddAptCommands(
 	// If we're not doing an update, adding these packages is
 	// meaningless.
 	if addUpdateScripts {
-		c.AddPackage("curl")
-		c.AddPackage("cpu-checker")
-		// TODO(axw) 2014-07-02 #1277359
-		// Don't install bridge-utils in cloud-init;
-		// leave it to the networker worker.
-		c.AddPackage("bridge-utils")
-		c.AddPackage("rsyslog-gnutls")
+		requiredPackages := []string{
+			"curl",
+			"cpu-checker",
+			// TODO(axw) 2014-07-02 #1277359
+			// Don't install bridge-utils in cloud-init;
+			// leave it to the networker worker.
+			"bridge-utils",
+			"rsyslog-gnutls",
+			"cloud-utils",
+			"cloud-image-utils",
+		}
+
+		// The required packages need to come from the correct repo.
+		// For precise, that might require an explicit --target-release parameter.
+		for _, pkg := range requiredPackages {
+			// We cannot just pass requiredPackages below, because
+			// this will generate install commands which older
+			// versions of cloud-init (e.g. 0.6.3 in precise) will
+			// interpret incorrectly (see bug http://pad.lv/1424777).
+			cmds := apt.GetPreparePackages([]string{pkg}, series)
+			if len(cmds) != 1 {
+				// One package given, one command (with possibly
+				// multiple args) expected.
+				panic(fmt.Sprintf("expected one install command per package, got %v", cmds))
+			}
+			for _, p := range cmds[0] {
+				// We need to add them one package at a time. Also for
+				// precise where --target-release
+				// precise-updates/cloud-tools is needed for some packages
+				// we need to pass these as "packages", otherwise the
+				// aforementioned older cloud-init will also fail to
+				// interpret the command correctly.
+				c.AddPackage(p)
+			}
+		}
 	}
 
 	// Write out the apt proxy settings
 	if (proxySettings != proxy.Settings{}) {
 		filename := apt.ConfFile
 		c.AddBootCmd(fmt.Sprintf(
-			`[ -f %s ] || (printf '%%s\n' %s > %s)`,
-			filename,
+			`printf '%%s\n' %s > %s`,
 			shquote(apt.ProxyContent(proxySettings)),
 			filename))
 	}
+}
+
+func (cfg *MachineConfig) initService() (service.Service, string, error) {
+	conf, toolsDir := service.MachineAgentConf(
+		cfg.MachineId,
+		cfg.DataDir,
+		cfg.LogDir,
+		strings.ToLower(cfg.Tools.Version.OS.String()),
+	)
+
+	name := cfg.MachineAgentServiceName
+	initSystem, ok := cfg.initSystem()
+	if !ok {
+		return nil, "", errors.New("could not identify init system")
+	}
+	logger.Debugf("using init system %q for machine agent script", initSystem)
+	svc, err := newService(name, conf, initSystem)
+	return svc, toolsDir, errors.Trace(err)
+}
+
+func (cfg *MachineConfig) initSystem() (string, bool) {
+	return service.VersionInitSystem(cfg.Tools.Version)
+}
+
+var newService = func(name string, conf common.Conf, initSystem string) (service.Service, error) {
+	return service.NewService(name, conf, initSystem)
 }
 
 func (cfg *MachineConfig) dataFile(name string) string {

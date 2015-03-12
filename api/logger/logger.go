@@ -48,7 +48,7 @@ func (st *State) LoggingConfig(agentTag names.Tag) (string, error) {
 }
 
 // WatchLoggingConfig returns a notify watcher that looks for changes in the
-// logging-config for the agent specifed by agentTag.
+// logging-config for the agent specified by agentTag.
 func (st *State) WatchLoggingConfig(agentTag names.Tag) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{

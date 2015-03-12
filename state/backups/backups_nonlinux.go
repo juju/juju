@@ -7,12 +7,10 @@ package backups
 
 import (
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/apiserver/params"
 )
 
 // Restore satisfies the Backups interface on non-Linux OSes (e.g.
 // windows, darwin).
-func (*backups) Restore(_ string, _ params.RestoreArgs) error {
+func (*backups) Restore(_ string, _ RestoreArgs) error {
 	return errors.Errorf("backups supported only on Linux")
 }

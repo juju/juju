@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/storage"
 )
@@ -136,7 +137,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set service constraints")
 	f.StringVar(&c.Networks, "networks", "", "bind the service to specific networks")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
-	if featureflag.Enabled(storage.FeatureFlag) {
+	if featureflag.Enabled(feature.Storage) {
 		// NOTE: if/when the feature flag is removed, bump the client
 		// facade and check that the ServiceDeployWithNetworks facade
 		// version supports storage, and error if it doesn't.

@@ -12,9 +12,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/amz.v2/aws"
-	"gopkg.in/amz.v2/ec2"
-	"gopkg.in/amz.v2/s3"
+	"gopkg.in/amz.v3/aws"
+	"gopkg.in/amz.v3/ec2"
+	"gopkg.in/amz.v3/s3"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
+	envstorage "github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
@@ -62,7 +62,7 @@ type environ struct {
 	ecfgUnlocked    *environConfig
 	ec2Unlocked     *ec2.EC2
 	s3Unlocked      *s3.S3
-	storageUnlocked storage.Storage
+	storageUnlocked envstorage.Storage
 
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
@@ -71,7 +71,8 @@ type environ struct {
 	cachedDefaultVpc *defaultVpc
 }
 
-var _ environs.Environ = (*environ)(nil)
+// Ensure EC2 provider supports environs.NetworkingEnviron.
+var _ environs.NetworkingEnviron = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
 var _ state.Prechecker = (*environ)(nil)
 var _ state.InstanceDistributor = (*environ)(nil)
@@ -101,14 +102,25 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 
 	auth := aws.Auth{ecfg.accessKey(), ecfg.secretKey()}
 	region := aws.Regions[ecfg.region()]
-	e.ec2Unlocked = ec2.New(auth, region)
+
+	// TODO(katco-): Eventually we want to migrate to v4, but this
+	// change is designed to be least impactful. We are currently only
+	// trying to support the China region.
+	signer := aws.SignV2
+	if region == aws.CNNorth {
+		signer = aws.SignV4Factory(region.Name, "ec2")
+	}
+	e.ec2Unlocked = ec2.New(auth, region, signer)
 	e.s3Unlocked = s3.New(auth, region)
+
+	bucket, err := e.s3Unlocked.Bucket(ecfg.controlBucket())
+	if err != nil {
+		return err
+	}
 
 	// create new storage instances, existing instances continue
 	// to reference their existing configuration.
-	e.storageUnlocked = &ec2storage{
-		bucket: e.s3Unlocked.Bucket(ecfg.controlBucket()),
-	}
+	e.storageUnlocked = &ec2storage{bucket: bucket}
 	return nil
 }
 
@@ -169,7 +181,7 @@ func (e *environ) Name() string {
 	return e.name
 }
 
-func (e *environ) Storage() storage.Storage {
+func (e *environ) Storage() envstorage.Storage {
 	e.ecfgMutex.Lock()
 	stor := e.storageUnlocked
 	e.ecfgMutex.Unlock()
@@ -205,7 +217,7 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.
-func (e *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
+func (e *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
 	_, hasDefaultVpc, err := e.defaultVpc()
 	if err != nil {
 		return false, errors.Trace(err)
@@ -479,7 +491,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	var instResp *ec2.RunInstancesResp
 
-	blockDeviceMappings, volumes, err := getBlockDeviceMappings(
+	blockDeviceMappings, volumes, volumeAttachments, err := getBlockDeviceMappings(
 		*spec.InstanceType.VirtType, &args,
 	)
 	if err != nil {
@@ -517,9 +529,15 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	logger.Infof("started instance %q in %q", inst.Id(), inst.Instance.AvailZone)
 
-	// TODO(axw) extract volume ID, store in BlockDevice.ProviderId field,
-	// and tag all resources (instances and volumes). We can't do this until
-	// goamz's BlockDeviceMapping structure is updated to include VolumeId.
+	// TODO(axw) tag all resources (instances and volumes), for accounting
+	// and identification.
+
+	if err := assignVolumeIds(inst, volumes, volumeAttachments); err != nil {
+		if err := e.StopInstances(inst.Id()); err != nil {
+			logger.Errorf("failed to stop instance: %v", err)
+		}
+		return nil, err
+	}
 
 	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
@@ -537,9 +555,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		AvailabilityZone: &inst.Instance.AvailZone,
 	}
 	return &environs.StartInstanceResult{
-		Instance: inst,
-		Hardware: &hc,
-		Volumes:  volumes,
+		Instance:          inst,
+		Hardware:          &hc,
+		Volumes:           volumes,
+		VolumeAttachments: volumeAttachments,
 	}, nil
 }
 
@@ -698,6 +717,7 @@ func (e *environ) fetchNetworkInterfaceId(ec2Inst *ec2.EC2, instId instance.Id) 
 		if err == nil {
 			break
 		}
+		logger.Tracef("Instances(%q) returned: %v", instId, err)
 	}
 	if err != nil {
 		// either the instance doesn't exist or we couldn't get through to
@@ -706,10 +726,10 @@ func (e *environ) fetchNetworkInterfaceId(ec2Inst *ec2.EC2, instId instance.Id) 
 	}
 
 	if len(instancesResp.Reservations) == 0 {
-		return "", errors.New("unexpected AWS response: instance not found")
+		return "", errors.New("unexpected AWS response: reservation not found")
 	}
 	if len(instancesResp.Reservations[0].Instances) == 0 {
-		return "", errors.New("unexpected AWS response: reservation not found")
+		return "", errors.New("unexpected AWS response: instance not found")
 	}
 	if len(instancesResp.Reservations[0].Instances[0].NetworkInterfaces) == 0 {
 		return "", errors.New("unexpected AWS response: network interface not found")
@@ -718,82 +738,95 @@ func (e *environ) fetchNetworkInterfaceId(ec2Inst *ec2.EC2, instId instance.Id) 
 	return networkInterfaceId, nil
 }
 
-// AllocateAddress requests an address to be allocated for the
-// given instance on the given network. This is not implemented by the
-// EC2 provider yet.
-func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address) error {
+// AllocateAddress requests an address to be allocated for the given
+// instance on the given subnet. Implements NetworkingEnviron.AllocateAddress.
+func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address) (err error) {
+	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
+
+	var nicId string
 	ec2Inst := e.ec2()
-	networkInterfaceId, err := e.fetchNetworkInterfaceId(ec2Inst, instId)
+	nicId, err = e.fetchNetworkInterfaceId(ec2Inst, instId)
 	if err != nil {
-		return errors.Annotatef(err, "failed to assign IP address %q to instance %q", addr, instId)
+		return errors.Trace(err)
 	}
 	for a := shortAttempt.Start(); a.Next(); {
-		err = AssignPrivateIPAddress(ec2Inst, networkInterfaceId, addr)
+		err = AssignPrivateIPAddress(ec2Inst, nicId, addr)
+		logger.Tracef("AssignPrivateIPAddresses(%v, %v) returned: %v", nicId, addr, err)
 		if err == nil {
+			logger.Tracef("allocated address %v for instance %v, NIC %v", addr, instId, nicId)
 			break
 		}
 		if ec2Err, ok := err.(*ec2.Error); ok {
 			if ec2Err.Code == invalidParameterValue {
 				// Note: this Code is also used if we specify
 				// an IP address outside the subnet. Take care!
+				logger.Tracef("address %q not available for allocation", addr)
 				return environs.ErrIPAddressUnavailable
 			} else if ec2Err.Code == privateAddressLimitExceeded {
+				logger.Tracef("no more addresses available on the subnet")
 				return environs.ErrIPAddressesExhausted
 			}
 		}
 
 	}
-	if err != nil {
-		return errors.Annotatef(err, "failed to assign IP address %q to instance %q", addr, instId)
-	}
-	return nil
+	return err
 }
 
 // ReleaseAddress releases a specific address previously allocated with
-// AllocateAddress.
-func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address) error {
+// AllocateAddress. Implements NetworkingEnviron.ReleaseAddress.
+func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address) (err error) {
+	defer errors.DeferredAnnotatef(&err, "failed to release address %q from instance %q", addr, instId)
+
+	var nicId string
 	ec2Inst := e.ec2()
-	networkInterfaceId, err := e.fetchNetworkInterfaceId(ec2Inst, instId)
+	nicId, err = e.fetchNetworkInterfaceId(ec2Inst, instId)
 	if err != nil {
-		return errors.Annotatef(err, "failed to unassign IP address %q to instance %q", addr, instId)
+		return errors.Trace(err)
 	}
 	for a := shortAttempt.Start(); a.Next(); {
-		_, err = ec2Inst.UnassignPrivateIPAddresses(networkInterfaceId, []string{addr.Value})
+		_, err = ec2Inst.UnassignPrivateIPAddresses(nicId, []string{addr.Value})
+		logger.Tracef("UnassignPrivateIPAddresses(%q, %q) returned: %v", nicId, addr, err)
 		if err == nil {
+			logger.Tracef("released address %q from instance %q, NIC %q", addr, instId, nicId)
 			break
 		}
-
 	}
-	if err != nil {
-		return errors.Annotatef(err, "failed to unassign IP address %q for instance %q", addr, instId)
-	}
-	return nil
+	return err
 }
 
-// NetworkInterfaces implements Environ.NetworkInterfaces.
+// NetworkInterfaces implements NetworkingEnviron.NetworkInterfaces.
 func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
 	ec2Client := e.ec2()
 	var err error
 	var networkInterfacesResp *ec2.NetworkInterfacesResp
 	for a := shortAttempt.Start(); a.Next(); {
+		logger.Tracef("retrieving NICs for instance %q", instId)
 		filter := ec2.NewFilter()
 		filter.Add("attachment.instance-id", string(instId))
 		networkInterfacesResp, err = ec2Client.NetworkInterfaces(nil, filter)
-		if err == nil {
-			break
+		logger.Tracef("instance %q NICs: %#v (err: %v)", instId, networkInterfacesResp, err)
+		if err != nil {
+			logger.Warningf("failed to get instance %q interfaces: %v (retrying)", instId, err)
+			continue
 		}
+		if len(networkInterfacesResp.Interfaces) == 0 {
+			logger.Tracef("instance %q has no NIC attachment yet, retrying...", instId)
+			continue
+		}
+		logger.Tracef("found instance %q NICS: %#v", instId, networkInterfacesResp.Interfaces)
+		break
 	}
 	if err != nil {
 		// either the instance doesn't exist or we couldn't get through to
 		// the ec2 api
-		return nil, errors.Annotatef(err, "cannot get instance %v network interfaces", instId)
+		return nil, errors.Annotatef(err, "cannot get instance %q network interfaces", instId)
 	}
 	ec2Interfaces := networkInterfacesResp.Interfaces
 	result := make([]network.InterfaceInfo, len(ec2Interfaces))
 	for i, iface := range ec2Interfaces {
 		resp, err := ec2Client.Subnets([]string{iface.SubnetId}, nil)
 		if err != nil {
-			return nil, errors.Annotatef(err, "failed to retrieve subnet %v info", iface.SubnetId)
+			return nil, errors.Annotatef(err, "failed to retrieve subnet %q info", iface.SubnetId)
 		}
 		if len(resp.Subnets) != 1 {
 			return nil, errors.Errorf("expected 1 subnet, got %d", len(resp.Subnets))
@@ -809,11 +842,11 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 			ProviderId:       network.Id(iface.Id),
 			ProviderSubnetId: network.Id(iface.SubnetId),
 			VLANTag:          0, // Not supported on EC2.
-			// Not supported on EC2, so fake it.
-			InterfaceName: fmt.Sprintf("eth%d", iface.Attachment.DeviceIndex),
+			// Getting the interface name is not supported on EC2, so fake it.
+			InterfaceName: fmt.Sprintf("unsupported%d", iface.Attachment.DeviceIndex),
 			Disabled:      false,
 			NoAutoStart:   false,
-			ConfigType:    network.ConfigUnknown,
+			ConfigType:    network.ConfigDHCP,
 			Address:       network.NewAddress(iface.PrivateIPAddress, network.ScopeCloudLocal),
 		}
 	}
@@ -821,7 +854,8 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 }
 
 // Subnets returns basic information about the specified subnets known
-// by the provider for the specified instance. subnetIds must not be empty.
+// by the provider for the specified instance. subnetIds must not be
+// empty. Implements NetworkingEnviron.Subnets.
 func (e *environ) Subnets(_ instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	// At some point in the future an empty netIds may mean "fetch all subnets"
 	// but until that functionality is needed it's an error.
@@ -829,24 +863,25 @@ func (e *environ) Subnets(_ instance.Id, subnetIds []network.Id) ([]network.Subn
 		return nil, errors.Errorf("subnetIds must not be empty")
 	}
 	ec2Inst := e.ec2()
-	// TODO: (mfoord 2014-12-15) can we filter by instance ID here?
+	// We can't filter by instance id here, unfortunately.
 	resp, err := ec2Inst.Subnets(nil, nil)
 	if err != nil {
-		return nil, errors.Annotatef(err, "failed to retrieve subnet info")
+		return nil, errors.Annotatef(err, "failed to retrieve subnets")
 	}
 
-	netIdSet := make(map[string]bool)
-	for _, netId := range subnetIds {
-		netIdSet[string(netId)] = false
+	subIdSet := make(map[string]bool)
+	for _, subId := range subnetIds {
+		subIdSet[string(subId)] = false
 	}
 
 	var results []network.SubnetInfo
 	for _, subnet := range resp.Subnets {
-		_, ok := netIdSet[subnet.Id]
+		_, ok := subIdSet[subnet.Id]
 		if !ok {
+			logger.Tracef("subnet %q not in %v, skipping", subnet.Id, subnetIds)
 			continue
 		}
-		netIdSet[subnet.Id] = true
+		subIdSet[subnet.Id] = true
 
 		cidr := subnet.CIDRBlock
 		ip, ipnet, err := net.ParseCIDR(cidr)
@@ -860,7 +895,7 @@ func (e *environ) Subnets(_ instance.Id, subnetIds []network.Id) ([]network.Subn
 			logger.Warningf("skipping subnet %q, invalid IP: %v", cidr, err)
 			continue
 		}
-		// the first four addresses in a subnet are reserved, see
+		// First four addresses in a subnet are reserved, see
 		// http://goo.gl/rrWTIo
 		allocatableLow := network.DecimalToIPv4(start + 4)
 
@@ -868,27 +903,28 @@ func (e *environ) Subnets(_ instance.Id, subnetIds []network.Id) ([]network.Subn
 		zeros := bits - ones
 		numIPs := uint32(1) << uint32(zeros)
 		highIP := start + numIPs - 1
-		// the last address in a subnet is reserved
+		// The last address in a subnet is also reserved (see same ref).
 		allocatableHigh := network.DecimalToIPv4(highIP - 1)
 
-		// No VLANTag available
 		info := network.SubnetInfo{
 			CIDR:              cidr,
 			ProviderId:        network.Id(subnet.Id),
+			VLANTag:           0, // Not supported on EC2
 			AllocatableIPLow:  allocatableLow,
 			AllocatableIPHigh: allocatableHigh,
 		}
+		logger.Tracef("found subnet with info %#v", info)
 		results = append(results, info)
 	}
 
 	notFound := []string{}
-	for netId, found := range netIdSet {
+	for subId, found := range subIdSet {
 		if !found {
-			notFound = append(notFound, netId)
+			notFound = append(notFound, subId)
 		}
 	}
 	if len(notFound) != 0 {
-		return nil, errors.Errorf("failed to find the following subnets: %v", notFound)
+		return nil, errors.Errorf("failed to find the following subnet ids: %v", notFound)
 	}
 
 	return results, nil
@@ -1285,6 +1321,8 @@ func isZoneConstrainedError(err error) bool {
 			// if the AZ does not have a default subnet. Until we have proper
 			// support for networks, we'll skip over these.
 			return strings.HasPrefix(err.Message, "No default subnet for availability zone")
+		case "VolumeTypeNotAvailableInZone":
+			return true
 		}
 	}
 	return false

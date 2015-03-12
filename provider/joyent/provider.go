@@ -12,6 +12,7 @@ import (
 	"github.com/joyent/gosign/auth"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -27,10 +28,6 @@ var _ environs.EnvironProvider = providerInstance
 
 var _ simplestreams.HasRegion = (*joyentEnviron)(nil)
 
-func init() {
-	environs.RegisterProvider("joyent", providerInstance)
-}
-
 var errNotImplemented = errors.New("not implemented in Joyent provider")
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
@@ -40,21 +37,31 @@ func (joyentProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (joyentProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
+	// Turn an incomplete config into a valid one, if possible.
+	attrs := cfg.UnknownAttrs()
+
+	if _, ok := attrs["control-dir"]; !ok {
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		attrs["control-dir"] = fmt.Sprintf("%x", uuid.Raw())
+	}
+	return cfg.Apply(attrs)
 }
 
-func (joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	preparedCfg, err := prepareConfig(cfg)
+func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+	cfg, err := p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	e, err := providerInstance.Open(preparedCfg)
+	e, err := p.Open(cfg)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if ctx.ShouldVerifyCredentials() {
 		if err := verifyCredentials(e.(*joyentEnviron)); err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	}
 	return e, nil
@@ -90,7 +97,7 @@ var verifyCredentials = func(e *joyentEnviron) error {
 func credentials(cfg *environConfig) (*auth.Credentials, error) {
 	authentication, err := auth.NewAuth(cfg.mantaUser(), cfg.privateKey(), cfg.algorithm())
 	if err != nil {
-		return nil, fmt.Errorf("cannot create credentials: %v", err)
+		return nil, errors.Errorf("cannot create credentials: %v", err)
 	}
 	return &auth.Credentials{
 		UserAuthentication: authentication,
@@ -112,7 +119,7 @@ func (joyentProvider) Open(cfg *config.Config) (environs.Environ, error) {
 func (joyentProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	newEcfg, err := validateConfig(cfg, old)
 	if err != nil {
-		return nil, fmt.Errorf("invalid Joyent provider config: %v", err)
+		return nil, errors.Errorf("invalid Joyent provider config: %v", err)
 	}
 	return cfg.Apply(newEcfg.attrs)
 }
@@ -132,7 +139,7 @@ func (joyentProvider) SecretAttrs(cfg *config.Config) (map[string]string, error)
 				// All your secret attributes must be strings at the moment. Sorry.
 				// It's an expedient and hopefully temporary measure that helps us
 				// plug a security hole in the API.
-				return nil, fmt.Errorf(
+				return nil, errors.Errorf(
 					"secret %q field must have a string value; got %v",
 					field, value,
 				)
@@ -155,7 +162,7 @@ func GetProviderInstance() environs.EnvironProvider {
 // find matching image information.
 func (p joyentProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
-		return nil, fmt.Errorf("region must be specified")
+		return nil, errors.Errorf("region must be specified")
 	}
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,

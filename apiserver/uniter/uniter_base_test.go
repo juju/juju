@@ -126,9 +126,9 @@ func (s *uniterBaseSuite) testSetStatus(
 		SetStatus(args params.SetStatus) (params.ErrorResults, error)
 	},
 ) {
-	err := s.wordpressUnit.SetStatus(state.StatusActive, "blah", nil)
+	err := s.wordpressUnit.SetAgentStatus(state.StatusActive, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysqlUnit.SetStatus(state.StatusStopping, "foo", nil)
+	err = s.mysqlUnit.SetAgentStatus(state.StatusStopping, "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
@@ -148,14 +148,92 @@ func (s *uniterBaseSuite) testSetStatus(
 	})
 
 	// Verify mysqlUnit - no change.
-	status, info, _, err := s.mysqlUnit.Status()
+	status, info, _, err := s.mysqlUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusStopping)
 	c.Assert(info, gc.Equals, "foo")
 	// ...wordpressUnit is fine though.
-	status, info, _, err = s.wordpressUnit.Status()
+	status, info, _, err = s.wordpressUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusStopping)
+	c.Assert(info, gc.Equals, "foobar")
+}
+
+func (s *uniterBaseSuite) testSetAgentStatus(
+	c *gc.C,
+	facade interface {
+		SetAgentStatus(args params.SetStatus) (params.ErrorResults, error)
+	},
+) {
+	err := s.wordpressUnit.SetAgentStatus(state.StatusActive, "blah", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysqlUnit.SetAgentStatus(state.StatusStopping, "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.SetStatus{
+		Entities: []params.EntityStatus{
+			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
+			{Tag: "unit-wordpress-0", Status: params.StatusStopping, Info: "foobar"},
+			{Tag: "unit-foo-42", Status: params.StatusActive, Info: "blah"},
+		}}
+	result, err := facade.SetAgentStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify mysqlUnit - no change.
+	status, info, _, err := s.mysqlUnit.AgentStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, state.StatusStopping)
+	c.Assert(info, gc.Equals, "foo")
+	// ...wordpressUnit is fine though.
+	status, info, _, err = s.wordpressUnit.AgentStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, state.StatusStopping)
+	c.Assert(info, gc.Equals, "foobar")
+}
+
+func (s *uniterBaseSuite) testSetUnitStatus(
+	c *gc.C,
+	facade interface {
+		SetUnitStatus(args params.SetStatus) (params.ErrorResults, error)
+	},
+) {
+	err := s.wordpressUnit.SetStatus(state.StatusRunning, "blah", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysqlUnit.SetStatus(state.StatusRemoving, "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.SetStatus{
+		Entities: []params.EntityStatus{
+			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
+			{Tag: "unit-wordpress-0", Status: params.StatusRemoving, Info: "foobar"},
+			{Tag: "unit-foo-42", Status: params.StatusRunning, Info: "blah"},
+		}}
+	result, err := facade.SetUnitStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify mysqlUnit - no change.
+	status, info, _, err := s.mysqlUnit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, state.StatusRemoving)
+	c.Assert(info, gc.Equals, "foo")
+	// ...wordpressUnit is fine though.
+	status, info, _, err = s.wordpressUnit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, state.StatusRemoving)
 	c.Assert(info, gc.Equals, "foobar")
 }
 

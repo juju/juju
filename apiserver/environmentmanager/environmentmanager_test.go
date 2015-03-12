@@ -13,11 +13,9 @@ import (
 	"github.com/juju/juju/apiserver/environmentmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
-
 	// Register the providers for the field check test
 	_ "github.com/juju/juju/provider/azure"
 	_ "github.com/juju/juju/provider/ec2"
@@ -25,6 +23,9 @@ import (
 	_ "github.com/juju/juju/provider/local"
 	_ "github.com/juju/juju/provider/maas"
 	_ "github.com/juju/juju/provider/openstack"
+	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type envManagerSuite struct {
@@ -125,30 +126,30 @@ func (s *envManagerSuite) TestRestrictedProviderFields(c *gc.C) {
 		{
 			provider: "azure",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert",
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
 				"location"},
 		}, {
 			provider: "dummy",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert"},
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key"},
 		}, {
 			provider: "joyent",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert"},
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key"},
 		}, {
 			provider: "local",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert",
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
 				"container", "network-bridge", "root-dir"},
 		}, {
 			provider: "maas",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert",
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
 				"maas-server"},
 		}, {
 			provider: "openstack",
 			expected: []string{
-				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert",
+				"type", "ca-cert", "state-port", "api-port", "syslog-port", "rsyslog-ca-cert", "rsyslog-ca-key",
 				"region", "auth-url", "auth-mode"},
 		},
 	} {
@@ -191,7 +192,7 @@ func (s *envManagerSuite) TestCreateEnvironmentValidatesConfig(c *gc.C) {
 	args := s.createArgs(c, admin)
 	delete(args.Config, "state-server")
 	_, err := s.envmanager.CreateEnvironment(args)
-	c.Assert(err, gc.ErrorMatches, "state-server: expected bool, got nothing")
+	c.Assert(err, gc.ErrorMatches, "provider validation failed: state-server: expected bool, got nothing")
 }
 
 func (s *envManagerSuite) TestCreateEnvironmentBadConfig(c *gc.C) {
@@ -208,12 +209,12 @@ func (s *envManagerSuite) TestCreateEnvironmentBadConfig(c *gc.C) {
 			errMatch: `uuid is generated, you cannot specify one`,
 		}, {
 			key:      "type",
-			value:    "other",
-			errMatch: `specified type "other" does not match apiserver "dummy"`,
+			value:    "fake",
+			errMatch: `specified type "fake" does not match apiserver "dummy"`,
 		}, {
 			key:      "ca-cert",
-			value:    "some-cert",
-			errMatch: `(?s)specified ca-cert "some-cert" does not match apiserver ".*"`,
+			value:    coretesting.OtherCACert,
+			errMatch: `(?s)specified ca-cert ".*" does not match apiserver ".*"`,
 		}, {
 			key:      "state-port",
 			value:    9876,
@@ -231,6 +232,10 @@ func (s *envManagerSuite) TestCreateEnvironmentBadConfig(c *gc.C) {
 			key:      "rsyslog-ca-cert",
 			value:    "some-cert",
 			errMatch: `specified rsyslog-ca-cert "some-cert" does not match apiserver ".*"`,
+		}, {
+			key:      "rsyslog-ca-key",
+			value:    "some-key",
+			errMatch: `specified rsyslog-ca-key "some-key" does not match apiserver ".*"`,
 		},
 	} {
 		c.Logf("%d: %s", i, test.key)
@@ -266,10 +271,10 @@ func (s *envManagerSuite) TestCreateEnvironmentBadAgentVersion(c *gc.C) {
 	}{
 		{
 			value:    42,
-			errMatch: "agent-version must be a string but has type 'int'",
+			errMatch: `creating config from values failed: agent-version: expected string, got int\(42\)`,
 		}, {
 			value:    "not a number",
-			errMatch: `invalid version "not a number"`,
+			errMatch: `creating config from values failed: invalid agent version in environment configuration: "not a number"`,
 		}, {
 			value:    bigger.String(),
 			errMatch: "agent-version cannot be greater than the server: .*",
@@ -325,4 +330,16 @@ func (s *envManagerSuite) TestListEnvironmentsDenied(c *gc.C) {
 	other := names.NewUserTag("other@remote")
 	_, err := s.envmanager.ListEnvironments(params.Entity{other.String()})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+type fakeProvider struct {
+	environs.EnvironProvider
+}
+
+func (*fakeProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
+	return cfg, nil
+}
+
+func init() {
+	environs.RegisterProvider("fake", &fakeProvider{})
 }

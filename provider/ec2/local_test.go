@@ -11,12 +11,14 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"gopkg.in/amz.v2/aws"
-	amzec2 "gopkg.in/amz.v2/ec2"
-	"gopkg.in/amz.v2/ec2/ec2test"
-	"gopkg.in/amz.v2/s3/s3test"
+	"github.com/juju/utils/set"
+	"gopkg.in/amz.v3/aws"
+	amzec2 "gopkg.in/amz.v3/ec2"
+	"gopkg.in/amz.v3/ec2/ec2test"
+	"gopkg.in/amz.v3/s3/s3test"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
@@ -63,7 +65,6 @@ func registerLocalTests() {
 	// has entries in the images/query txt files.
 	aws.Regions["test"] = aws.Region{
 		Name: "test",
-		Sign: aws.SignV2,
 	}
 
 	gc.Suite(&localServerSuite{})
@@ -118,7 +119,6 @@ func (srv *localServer) startServer(c *gc.C) {
 		EC2Endpoint:          srv.ec2srv.URL(),
 		S3Endpoint:           srv.s3srv.URL(),
 		S3LocationConstraint: true,
-		Sign:                 aws.SignV2,
 	}
 	srv.addSpice(c)
 
@@ -477,6 +477,11 @@ var azConstrainedErr = &amzec2.Error{
 	Message: "The requested Availability Zone is currently constrained etc.",
 }
 
+var azVolumeTypeNotAvailableInZoneErr = &amzec2.Error{
+	Code:    "VolumeTypeNotAvailableInZone",
+	Message: "blah blah",
+}
+
 var azInsufficientInstanceCapacityErr = &amzec2.Error{
 	Code: "InsufficientInstanceCapacity",
 	Message: "We currently do not have sufficient m1.small capacity in the " +
@@ -493,6 +498,10 @@ var azNoDefaultSubnetErr = &amzec2.Error{
 
 func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
 	t.testStartInstanceAvailZoneAllConstrained(c, azConstrainedErr)
+}
+
+func (t *localServerSuite) TestStartInstanceVolumeTypeNotAvailable(c *gc.C) {
+	t.testStartInstanceAvailZoneAllConstrained(c, azVolumeTypeNotAvailableInZoneErr)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneAllInsufficientInstanceCapacity(c *gc.C) {
@@ -803,7 +812,7 @@ func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 	// Releasing a second time tests that the first call actually released
 	// it plus tests the error handling of ReleaseAddress
 	err = env.ReleaseAddress(instId, "", addr)
-	msg := fmt.Sprintf("failed to unassign IP address \"%v\" for instance \"%v\".*", addr.Value, instId)
+	msg := fmt.Sprintf(`failed to release address "8\.0\.0\.4" from instance %q.*`, instId)
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
@@ -818,10 +827,10 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 		ProviderId:       "eni-0",
 		ProviderSubnetId: "subnet-0",
 		VLANTag:          0,
-		InterfaceName:    "eth0",
+		InterfaceName:    "unsupported0",
 		Disabled:         false,
 		NoAutoStart:      false,
-		ConfigType:       "",
+		ConfigType:       network.ConfigDHCP,
 		Address:          network.NewAddress("10.10.0.5", network.ScopeCloudLocal),
 	}}
 	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)
@@ -855,7 +864,7 @@ func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
 
 	_, err := env.Subnets("", []network.Id{"subnet-0", "Missing"})
-	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: \\[Missing\\]")
+	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[Missing\]`)
 }
 
 func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {
@@ -902,21 +911,47 @@ func (t *localServerSuite) TestStartInstanceVolumes(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
+	attachmentParams := &storage.VolumeAttachmentParams{
+		AttachmentParams: storage.AttachmentParams{
+			Machine: names.NewMachineTag("0"),
+		},
+	}
 	params := environs.StartInstanceParams{
 		Volumes: []storage.VolumeParams{{
-			Size: 512, // round up to 1GiB
+			Tag:        names.NewVolumeTag("0"),
+			Size:       512, // round up to 1GiB
+			Provider:   ec2.EBS_ProviderType,
+			Attachment: attachmentParams,
 		}, {
-			Size: 1024, // 1GiB exactly
+			Tag:        names.NewVolumeTag("1"),
+			Size:       1024, // 1GiB exactly
+			Provider:   ec2.EBS_ProviderType,
+			Attachment: attachmentParams,
 		}, {
-			Size: 1025, // round up to 2GiB
+			Tag:        names.NewVolumeTag("2"),
+			Size:       1025, // round up to 2GiB
+			Provider:   ec2.EBS_ProviderType,
+			Attachment: attachmentParams,
 		}},
 	}
 	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Volumes, gc.HasLen, 3)
-	c.Assert(result.Volumes[0].Size, gc.Equals, uint64(1024))
-	c.Assert(result.Volumes[1].Size, gc.Equals, uint64(1024))
-	c.Assert(result.Volumes[2].Size, gc.Equals, uint64(2048))
+	// vol-1 is assigned to /dev/sda1, which does not feature
+	// in the volumes set in state.
+	c.Assert(result.Volumes, gc.DeepEquals, []storage.Volume{{
+		Tag:      names.NewVolumeTag("0"),
+		VolumeId: "vol-2",
+		Size:     1024,
+	}, {
+		Tag:      names.NewVolumeTag("1"),
+		VolumeId: "vol-3",
+		Size:     1024,
+	}, {
+		Tag:      names.NewVolumeTag("2"),
+		VolumeId: "vol-4",
+		Size:     2048,
+	}})
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
@@ -1016,8 +1051,12 @@ func CheckPackage(c *gc.C, userDataMap map[interface{}]interface{}, pkg string, 
 	found := false
 	for _, p0 := range pkgs {
 		p := p0.(string)
-		if p == pkg {
+		// p might be a space separate list of packages eg 'foo bar qed' so split them up
+		manyPkgs := set.NewStrings(strings.Split(p, " ")...)
+		hasPkg := manyPkgs.Contains(pkg)
+		if p == pkg || hasPkg {
 			found = true
+			break
 		}
 	}
 	switch {

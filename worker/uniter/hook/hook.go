@@ -7,11 +7,11 @@ package hook
 import (
 	"fmt"
 
-	"github.com/juju/utils/featureflag"
-
-	"github.com/juju/juju/storage"
 	"github.com/juju/names"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v4/hooks"
+
+	"github.com/juju/juju/feature"
 )
 
 // Info holds details required to execute a hook. Not all fields are
@@ -31,11 +31,7 @@ type Info struct {
 	// associated with RemoteUnit. It is only set when RemoteUnit is set.
 	ChangeVersion int64 `yaml:"change-version,omitempty"`
 
-	// ActionId is the state State.actions ID of the Action document to
-	// be retrieved by RunHook.
-	ActionId string `yaml:"action-id,omitempty"`
-
-	// StorageId is the id of the storage instance relevant to the hook.
+	// StorageId is the ID of the storage instance relevant to the hook.
 	StorageId string `yaml:"storage-id,omitempty"`
 }
 
@@ -50,15 +46,27 @@ func (hi Info) Validate() error {
 	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken, hooks.CollectMetrics, hooks.MeterStatusChanged:
 		return nil
 	case hooks.Action:
-		if !names.IsValidAction(hi.ActionId) {
-			return fmt.Errorf("action id %q cannot be parsed as an action tag", hi.ActionId)
-		}
-		return nil
+		return fmt.Errorf("hooks.Kind Action is deprecated")
 	case hooks.StorageAttached, hooks.StorageDetached:
 		// TODO: stop checking feature flag once storage has graduated.
-		if featureflag.Enabled(storage.FeatureFlag) {
+		if featureflag.Enabled(feature.Storage) {
+			if !names.IsValidStorage(hi.StorageId) {
+				return fmt.Errorf("invalid storage ID %q", hi.StorageId)
+			}
 			return nil
 		}
 	}
 	return fmt.Errorf("unknown hook kind %q", hi.Kind)
+}
+
+// Committer is an interface that may be used to convey the fact that the
+// specified hook has been successfully executed, and committed.
+type Committer interface {
+	CommitHook(Info) error
+}
+
+// Validator is an interface that may be used to validate a hook execution
+// request prior to executing it.
+type Validator interface {
+	ValidateHook(Info) error
 }

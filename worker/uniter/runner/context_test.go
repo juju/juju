@@ -5,17 +5,18 @@ package runner_test
 
 import (
 	"os"
+	"runtime"
 	"syscall"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	"github.com/juju/utils/exec"
 )
 
 type InterfaceSuite struct {
@@ -211,12 +212,15 @@ func (s *InterfaceSuite) startProcess(c *gc.C) *os.Process {
 }
 
 func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: Cannot send sigterm on windows")
+	}
 	ctx := runner.HookContext{}
 	p := s.startProcess(c)
 	ctx.SetProcess(p)
 	err := ctx.RequestReboot(jujuc.RebootAfterHook)
 	c.Assert(err, jc.ErrorIsNil)
-	err = syscall.Kill(p.Pid, syscall.SIGTERM)
+	err = p.Signal(syscall.SIGTERM)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = p.Wait()
 	c.Assert(err, jc.ErrorIsNil)

@@ -78,11 +78,15 @@ var marshalTestCases = []struct {
 			Service:  "Shazam",
 			Series:   "precise",
 			CharmURL: "cs:~user/precise/wordpress-42",
-			Ports: []network.Port{
-				{
-					Protocol: "http",
-					Number:   80},
-			},
+			Ports: []network.Port{{
+				Protocol: "http",
+				Number:   80,
+			}},
+			PortRanges: []network.PortRange{{
+				FromPort: 80,
+				ToPort:   80,
+				Protocol: "http",
+			}},
 			PublicAddress:  "testing.invalid",
 			PrivateAddress: "10.0.0.1",
 			MachineId:      "1",
@@ -90,7 +94,7 @@ var marshalTestCases = []struct {
 			StatusInfo:     "foo",
 		},
 	},
-	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "testing.invalid", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Ports": [{"Protocol": "http", "Number": 80}], "Status": "error", "StatusInfo": "foo", "StatusData": null, "Subordinate": false}]`,
+	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "testing.invalid", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Ports": [{"Protocol": "http", "Number": 80}], "PortRanges": [{"FromPort": 80, "ToPort": 80, "Protocol": "http"}], "Status": "error", "StatusInfo": "foo", "StatusData": null, "Subordinate": false}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: multiwatcher.Delta{
@@ -167,128 +171,6 @@ func (s *MarshalSuite) TestDeltaMarshalJSONUnknownOperation(c *gc.C) {
 func (s *MarshalSuite) TestDeltaMarshalJSONUnknownEntity(c *gc.C) {
 	err := json.Unmarshal([]byte(`["qwan","change",{}]`), new(multiwatcher.Delta))
 	c.Check(err, gc.ErrorMatches, `Unexpected entity name "qwan"`)
-}
-
-// TODO(dimitern): apiserver/params should not depend on the network
-// package: network types used as fields in request/response structs
-// should be replaced with equivalent string, []string, or [][]string
-// types, so the wire-format of the API protocol will remain stable,
-// even if a network type changes its serialization format.
-//
-// This test ensures the following network package types used as
-// fields are still properly serialized and deserialized:
-//
-// params.PortsResult.Ports                []network.Port
-// params.MachinePortRange.PortRange       network.PortRange
-// params.MachineAddresses.Addresses       []network.Address
-// params.AddMachineParams.Addrs           []network.Address
-// params.RsyslogConfigResult.HostPorts    []network.HostPort
-// params.APIHostPortsResult.Servers       [][]network.HostPort
-// params.LoginResult.Servers              [][]network.HostPort
-// params.LoginResultV1.Servers            [][]network.HostPort
-func (s *MarshalSuite) TestNetworkEntities(c *gc.C) {
-
-	allAddressesCombos := []network.Address{
-		{Value: "foo0", Type: "bar0", NetworkName: "baz0", Scope: "none0"},
-		{Type: "bar1", NetworkName: "baz1", Scope: "none1"},
-		{Value: "foo2", NetworkName: "baz2", Scope: "none2"},
-		{Value: "foo3", Type: "bar3", Scope: "none3"},
-		{Value: "foo4", Type: "bar4", NetworkName: "baz4"},
-		{Value: "foo5", Type: "bar5"},
-		{Value: "foo6"},
-		{},
-	}
-	allHostPortCombos := network.AddressesWithPort(allAddressesCombos, 1234)
-	allHostPortCombos = append(allHostPortCombos,
-		network.AddressesWithPort(allAddressesCombos, 0)...,
-	)
-	allServerHostPorts := [][]network.HostPort{
-		allHostPortCombos,
-		network.AddressesWithPort(allAddressesCombos, 0),
-		network.AddressesWithPort(allAddressesCombos, 1234),
-		{},
-	}
-
-	for i, test := range []struct {
-		about string
-		input interface{}
-	}{{
-		about: "params.PortResult.Ports",
-		input: []params.PortsResult{{
-			Ports: []network.Port{
-				{Protocol: "foo", Number: 42},
-				{Protocol: "bar"},
-				{Number: 99},
-				{},
-			},
-		}, {},
-		},
-	}, {
-		about: "params.MachinePortRange.PortRange",
-		input: []params.MachinePortRange{{
-			UnitTag:     "foo",
-			RelationTag: "bar",
-			PortRange:   network.PortRange{FromPort: 42, ToPort: 69, Protocol: "baz"},
-		}, {
-			PortRange: network.PortRange{ToPort: 69, Protocol: "foo"},
-		}, {
-			PortRange: network.PortRange{FromPort: 42, Protocol: "bar"},
-		}, {
-			PortRange: network.PortRange{Protocol: "baz"},
-		}, {
-			PortRange: network.PortRange{FromPort: 42, ToPort: 69},
-		}, {
-			PortRange: network.PortRange{},
-		}, {},
-		},
-	}, {
-		about: "params.MachineAddresses.Addresses",
-		input: []params.MachineAddresses{{
-			Tag:       "foo",
-			Addresses: allAddressesCombos,
-		}, {},
-		},
-	}, {
-		about: "params.AddMachineParams.Addrs",
-		input: []params.AddMachineParams{{
-			Series:    "foo",
-			ParentId:  "bar",
-			Placement: nil,
-			Addrs:     allAddressesCombos,
-		}, {},
-		},
-	}, {
-		about: "params.RsyslogConfigResult.HostPorts",
-		input: []params.RsyslogConfigResult{{
-			CACert:    "fake",
-			HostPorts: allHostPortCombos,
-		}, {},
-		},
-	}, {
-		about: "params.APIHostPortsResult.Servers",
-		input: []params.APIHostPortsResult{{
-			Servers: allServerHostPorts,
-		}, {},
-		},
-	}, {
-		about: "params.LoginResult.Servers",
-		input: []params.LoginResult{{
-			Servers: allServerHostPorts,
-		}, {},
-		},
-	}, {
-		about: "params.LoginResultV1.Servers",
-		input: []params.LoginResultV1{{
-			Servers: allServerHostPorts,
-		}, {},
-		},
-	}} {
-		c.Logf("\ntest %d: %s", i, test.about)
-		output, err := json.Marshal(test.input)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Logf("\nJSON output:\n%v", string(output))
-		c.Assert(string(output), jc.JSONEquals, test.input)
-	}
 }
 
 type ErrorResultsSuite struct{}

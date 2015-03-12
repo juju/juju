@@ -4,14 +4,11 @@
 package main
 
 import (
-	"strings"
-
-	"github.com/juju/cmd"
-	"github.com/juju/juju/cmd/envcmd"
-	jujutesting "github.com/juju/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/envcmd"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
@@ -19,9 +16,17 @@ import (
 
 type RemoveServiceSuite struct {
 	jujutesting.RepoSuite
+	CmdBlockHelper
 }
 
 var _ = gc.Suite(&RemoveServiceSuite{})
+
+func (s *RemoveServiceSuite) SetUpTest(c *gc.C) {
+	s.RepoSuite.SetUpTest(c)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
+	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
+}
 
 func runRemoveService(c *gc.C, args ...string) error {
 	_, err := testing.RunCommand(c, envcmd.Wrap(&RemoveServiceCommand{}), args...)
@@ -48,16 +53,12 @@ func (s *RemoveServiceSuite) TestBlockRemoveService(c *gc.C) {
 	s.setupTestService(c)
 
 	// block operation
-	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
+	s.BlockRemoveObject(c, "TestBlockRemoveService")
 	err := runRemoveService(c, "riak")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	s.AssertBlocked(c, err, ".*TestBlockRemoveService.*")
 	riak, err := s.State.Service("riak")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(riak.Life(), gc.Equals, state.Alive)
-
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock removal.*")
 }
 
 func (s *RemoveServiceSuite) TestFailure(c *gc.C) {

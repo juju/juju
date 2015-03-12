@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -149,6 +150,9 @@ type lifecycleWatcher struct {
 	members bson.D
 	// filter is used to exclude events not affecting interesting entities.
 	filter func(interface{}) bool
+	// transform, if non-nil, is used to transform a document ID immediately
+	// prior to emitting to the out channel.
+	transform func(string) string
 	// life holds the most recent known life states of interesting entities.
 	life map[string]Life
 }
@@ -162,13 +166,41 @@ func collFactory(st *State, collName string) func() (stateCollection, func()) {
 // WatchEnvironments returns a StringsWatcher that notifies of changes
 // to the lifecycles of all environments.
 func (st *State) WatchEnvironments() StringsWatcher {
-	return newLifecycleWatcher(st, environmentsC, nil, nil)
+	return newLifecycleWatcher(st, environmentsC, nil, nil, nil)
+}
+
+// WatchVolumes returns a StringsWatcher that notifies of changes to
+// the lifecycles of all volumes.
+// TODO(wallyworld) - this currently watches all volumes; we need separate
+// methods to watch environ and specific machine volumes.
+func (st *State) WatchVolumes() StringsWatcher {
+	return newLifecycleWatcher(st, volumesC, nil, nil, nil)
 }
 
 // WatchServices returns a StringsWatcher that notifies of changes to
 // the lifecycles of the services in the environment.
 func (st *State) WatchServices() StringsWatcher {
-	return newLifecycleWatcher(st, servicesC, nil, st.isForStateEnv)
+	return newLifecycleWatcher(st, servicesC, nil, st.isForStateEnv, nil)
+}
+
+// WatchStorageAttachments returns a StringsWatcher that notifies of
+// changes to the lifecycles of all storage instances attached to the
+// specified unit.
+func (st *State) WatchStorageAttachments(unit names.UnitTag) StringsWatcher {
+	members := bson.D{{"unitid", unit.Id()}}
+	prefix := unitGlobalKey(unit.Id()) + "#"
+	filter := func(id interface{}) bool {
+		k, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		return strings.HasPrefix(k, prefix)
+	}
+	tr := func(id string) string {
+		// Transform storage attachment document ID to storage ID.
+		return id[len(prefix):]
+	}
+	return newLifecycleWatcher(st, storageAttachmentsC, members, filter, tr)
 }
 
 // WatchUnits returns a StringsWatcher that notifies of changes to the
@@ -183,7 +215,7 @@ func (s *Service) WatchUnits() StringsWatcher {
 		}
 		return strings.HasPrefix(unitName, prefix)
 	}
-	return newLifecycleWatcher(s.st, unitsC, members, filter)
+	return newLifecycleWatcher(s.st, unitsC, members, filter, nil)
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to the
@@ -201,7 +233,7 @@ func (s *Service) WatchRelations() StringsWatcher {
 	}
 
 	members := bson.D{{"endpoints.servicename", s.doc.Name}}
-	return newLifecycleWatcher(s.st, relationsC, members, filter)
+	return newLifecycleWatcher(s.st, relationsC, members, filter, nil)
 }
 
 // WatchEnvironMachines returns a StringsWatcher that notifies of changes to
@@ -218,7 +250,7 @@ func (st *State) WatchEnvironMachines() StringsWatcher {
 		}
 		return !strings.Contains(k, "/")
 	}
-	return newLifecycleWatcher(st, machinesC, members, filter)
+	return newLifecycleWatcher(st, machinesC, members, filter, nil)
 }
 
 // WatchContainers returns a StringsWatcher that notifies of changes to the
@@ -246,16 +278,23 @@ func (m *Machine) containersWatcher(isChildRegexp string) StringsWatcher {
 		}
 		return compiled.MatchString(k)
 	}
-	return newLifecycleWatcher(m.st, machinesC, members, filter)
+	return newLifecycleWatcher(m.st, machinesC, members, filter, nil)
 }
 
-func newLifecycleWatcher(st *State, collName string, members bson.D, filter func(key interface{}) bool) StringsWatcher {
+func newLifecycleWatcher(
+	st *State,
+	collName string,
+	members bson.D,
+	filter func(key interface{}) bool,
+	transform func(id string) string,
+) StringsWatcher {
 	w := &lifecycleWatcher{
 		commonWatcher: commonWatcher{st: st},
 		coll:          collFactory(st, collName),
 		collName:      collName,
 		members:       members,
 		filter:        filter,
+		transform:     transform,
 		life:          make(map[string]Life),
 		out:           make(chan []string),
 	}
@@ -374,6 +413,12 @@ func (w *lifecycleWatcher) loop() error {
 	}
 	out := w.out
 	for {
+		values := ids.Values()
+		if w.transform != nil {
+			for i, v := range values {
+				values[i] = w.transform(v)
+			}
+		}
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
@@ -390,7 +435,7 @@ func (w *lifecycleWatcher) loop() error {
 			if !ids.IsEmpty() {
 				out = w.out
 			}
-		case out <- ids.Values():
+		case out <- values:
 			ids = make(set.Strings)
 			out = nil
 		}
@@ -1263,6 +1308,20 @@ func (st *State) WatchForEnvironConfigChanges() NotifyWatcher {
 // when the set of API addresses changes.
 func (st *State) WatchAPIHostPorts() NotifyWatcher {
 	return newEntityWatcher(st, stateServersC, apiHostPortsKey)
+}
+
+// WatchVolumeAttachment returns a watcher for observing changes
+// to a volume attachment.
+func (st *State) WatchVolumeAttachment(m names.MachineTag, v names.VolumeTag) NotifyWatcher {
+	id := volumeAttachmentId(m.Id(), v.Id())
+	return newEntityWatcher(st, volumeAttachmentsC, st.docID(id))
+}
+
+// WatchFilesystemAttachment returns a watcher for observing changes
+// to a filesystem attachment.
+func (st *State) WatchFilesystemAttachment(m names.MachineTag, f names.FilesystemTag) NotifyWatcher {
+	id := filesystemAttachmentId(m.Id(), f.Id())
+	return newEntityWatcher(st, filesystemAttachmentsC, st.docID(id))
 }
 
 // WatchConfigSettings returns a watcher for observing changes to the
@@ -2382,28 +2441,91 @@ func (w *rebootWatcher) loop() error {
 	}
 }
 
+// WatchLeadershipSettings returns a LeadershipSettingsWatcher for
+// watching -- wait for it -- leadership settings.
+func (st *State) WatchLeadershipSettings(serviceId string) *LeadershipSettingsWatcher {
+	return NewLeadershipSettingsWatcher(st, LeadershipSettingsDocId(serviceId))
+}
+
+// NewLeadershipSettingsWatcher returns a new
+// LeadershipSettingsWatcher.
+func NewLeadershipSettingsWatcher(state *State, key string) *LeadershipSettingsWatcher {
+
+	w := &LeadershipSettingsWatcher{
+		commonWatcher: commonWatcher{st: state},
+		out:           make(chan struct{}),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop(key))
+	}()
+	return w
+}
+
+// LeadershipSettingsWatcher provides a type that can watch settings
+// for a provided key.
+type LeadershipSettingsWatcher struct {
+	commonWatcher
+
+	out chan struct{}
+}
+
+var _ NotifyWatcher = (*LeadershipSettingsWatcher)(nil)
+
+// Changes implements NotifyWatcher.
+func (w *LeadershipSettingsWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+func (w *LeadershipSettingsWatcher) loop(key string) (err error) {
+	ch := make(chan watcher.Change)
+	revno := int64(-1)
+	settings, err := readSettings(w.st, key)
+	if err == nil {
+		revno = settings.txnRevno
+	} else if !errors.IsNotFound(err) {
+		return err
+	}
+	w.st.watcher.Watch(settingsC, w.st.docID(key), revno, ch)
+	defer w.st.watcher.Unwatch(settingsC, w.st.docID(key), ch)
+	out := w.out
+	if revno == -1 {
+		out = nil
+	}
+	for {
+		select {
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-ch:
+			settings, err = readSettings(w.st, key)
+			if err != nil {
+				return err
+			}
+			out = w.out
+		case out <- struct{}{}:
+			out = nil
+		}
+	}
+}
+
 // blockDevicesWatcher notifies about changes to all block devices
-// attached to a machine, optionally filtering to those assigned to
-// a specific unit's datastores.
+// associated with a machine.
 type blockDevicesWatcher struct {
 	commonWatcher
 	machineId string
-	out       chan []string
+	out       chan struct{}
 }
 
-var _ StringsWatcher = (*blockDevicesWatcher)(nil)
+var _ NotifyWatcher = (*blockDevicesWatcher)(nil)
 
-// WatchBlockDevices returns a new StringsWatcher watching for
-// block devices associated with m.
-func (m *Machine) WatchBlockDevices() StringsWatcher {
-	return newBlockDevicesWatcher(m.st, m.Id())
-}
-
-func newBlockDevicesWatcher(st *State, machineId string) StringsWatcher {
+func newBlockDevicesWatcher(st *State, machineId string) NotifyWatcher {
 	w := &blockDevicesWatcher{
 		commonWatcher: commonWatcher{st: st},
 		machineId:     machineId,
-		out:           make(chan []string),
+		out:           make(chan struct{}),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -2414,119 +2536,43 @@ func newBlockDevicesWatcher(st *State, machineId string) StringsWatcher {
 }
 
 // Changes returns the event channel for w.
-func (w *blockDevicesWatcher) Changes() <-chan []string {
+func (w *blockDevicesWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-// current retrieves the currently attached block devices.
-func (w *blockDevicesWatcher) current() (map[string]blockDeviceDoc, error) {
-	blockDevices, closer := w.st.getCollection(blockDevicesC)
-	defer closer()
-	known := make(map[string]blockDeviceDoc)
-	iter := blockDevices.Find(bson.D{{"machineid", w.machineId}}).Iter()
-	var doc blockDeviceDoc
-	for iter.Next(&doc) {
-		known[doc.DocID] = doc
-	}
-	if err := iter.Close(); err != nil {
-		return nil, err
-	}
-	return known, nil
-}
-
-// merge compares a number of updates to the known state
-// and modifies changes accordingly.
-func (w *blockDevicesWatcher) merge(changed set.Strings, previous map[string]blockDeviceDoc, updates map[interface{}]bool) (err error) {
-	blockDevices, closer := w.st.getCollection(blockDevicesC)
-	defer closer()
-	for id, exists := range updates {
-		switch id := id.(type) {
-		case string:
-			previousDoc, known := previous[id]
-			if known && !exists {
-				// Previously known document has been removed.
-				delete(previous, id)
-				changed.Add(previousDoc.Name)
-				continue
-			}
-			var doc blockDeviceDoc
-			err := blockDevices.FindId(id).One(&doc)
-			if err != nil && err != mgo.ErrNotFound {
-				return err
-			}
-			if doc.Machine == w.machineId {
-				if !known || previousDoc != doc {
-					// New or changed doc.
-					previous[id] = doc
-					changed.Add(doc.Name)
-				}
-			} else if known {
-				// No longer associated with this machine.
-				delete(previous, id)
-				changed.Add(doc.Name)
-			}
-		default:
-			return errors.Errorf("id is not of type object ID, got %T", id)
-		}
-	}
-	return nil
-}
-
 func (w *blockDevicesWatcher) loop() error {
-	in := make(chan watcher.Change)
-	w.st.watcher.WatchCollectionWithFilter(blockDevicesC, in, w.st.isForStateEnv)
-	defer w.st.watcher.UnwatchCollection(blockDevicesC, in)
-
-	current, err := w.current()
+	docID := w.st.docID(w.machineId)
+	coll, closer := w.st.getCollection(blockDevicesC)
+	revno, err := getTxnRevno(coll, docID)
+	closer()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	names := make(set.Strings)
-	for _, doc := range current {
-		names.Add(doc.Name)
+	changes := make(chan watcher.Change)
+	w.st.watcher.Watch(blockDevicesC, docID, revno, changes)
+	defer w.st.watcher.Unwatch(blockDevicesC, docID, changes)
+	blockDevices, err := w.st.blockDevices(w.machineId)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	out := w.out
-
 	for {
 		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
 		case <-w.st.watcher.Dead():
 			return stateWatcherDeadError(w.st.watcher.Err())
-		case ch := <-in:
-			updates, ok := collect(ch, in, w.tomb.Dying())
-			if !ok {
-				return tomb.ErrDying
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-changes:
+			newBlockDevices, err := w.st.blockDevices(w.machineId)
+			if err != nil {
+				return errors.Trace(err)
 			}
-			if err := w.merge(names, current, updates); err != nil {
-				return err
-			}
-			if len(names) > 0 {
+			if !reflect.DeepEqual(newBlockDevices, blockDevices) {
+				blockDevices = newBlockDevices
 				out = w.out
-			} else {
-				out = nil
 			}
-		case out <- names.Values():
-			names = make(set.Strings)
+		case out <- struct{}{}:
 			out = nil
 		}
 	}
-}
-
-// WatchLeadershipSettings returns a LeadershipSettingsWatcher for
-// watching -- wait for it -- leadership settings.
-func (st *State) WatchLeadershipSettings(serviceId string) *LeadershipSettingsWatcher {
-	return NewLeadershipSettingsWatcher(st, LeadershipSettingsDocId(serviceId))
-}
-
-// NewLeadershipSettingsWatcher returns a new
-// LeadershipSettingsWatcher.
-func NewLeadershipSettingsWatcher(state *State, key string) *LeadershipSettingsWatcher {
-	return &LeadershipSettingsWatcher{state.watchSettings(key)}
-}
-
-// LeadershipSettingsWatcher provides a type that can watch settings
-// for a provided key.
-type LeadershipSettingsWatcher struct {
-	*settingsWatcher
 }

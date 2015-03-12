@@ -1912,7 +1912,7 @@ type setUnitStatus struct {
 func (sus setUnitStatus) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetStatus(sus.status, sus.statusInfo, sus.statusData)
+	err = u.SetAgentStatus(sus.status, sus.statusInfo, sus.statusData)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1927,7 +1927,7 @@ func (uc setUnitCharmURL) step(c *gc.C, ctx *context) {
 	curl := charm.MustParseURL(uc.charm)
 	err = u.SetCharmURL(curl)
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetStatus(state.StatusActive, "", nil)
+	err = u.SetAgentStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

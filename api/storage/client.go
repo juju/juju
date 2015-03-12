@@ -40,8 +40,8 @@ func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInstance, error)
 	all := []params.StorageInstance{}
 	allErr := params.ErrorResults{}
 	for _, result := range found.Results {
-		if result.Error.Error != nil {
-			allErr.Results = append(allErr.Results, result.Error)
+		if result.Error != nil {
+			allErr.Results = append(allErr.Results, params.ErrorResult{result.Error})
 			continue
 		}
 		all = append(all, result.Result)

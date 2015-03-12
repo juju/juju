@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state/multiwatcher"
@@ -119,7 +120,7 @@ func (c *AddCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "series", "", "the charm series")
 	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "additional machine constraints")
-	if featureflag.Enabled(storage.FeatureFlag) {
+	if featureflag.Enabled(feature.Storage) {
 		// NOTE: if/when the feature flag is removed, bump the client
 		// facade and check that the AddMachines facade version supports
 		// disks, and error if it doesn't.

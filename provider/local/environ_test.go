@@ -31,8 +31,8 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/local"
+	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -107,9 +107,9 @@ func (*environSuite) TestSupportsNetworking(c *gc.C) {
 type localJujuTestSuite struct {
 	baseProviderSuite
 	jujutest.Tests
-	oldUpstartLocation string
-	testPath           string
-	fakesudo           string
+	testPath string
+	fakesudo string
+	svcData  *service.FakeServiceData
 }
 
 func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
@@ -135,6 +135,9 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(local.ExecuteCloudConfig, func(environs.BootstrapContext, *cloudinit.MachineConfig, *coreCloudinit.Config) error {
 		return nil
 	})
+
+	s.svcData = service.NewFakeServiceData()
+	local.PatchServices(s.PatchValue, s.svcData)
 }
 
 func (s *localJujuTestSuite) TearDownTest(c *gc.C) {
@@ -266,46 +269,57 @@ func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
 	c.Assert(string(data), gc.Equals, strings.Join(expected, " ")+"\n")
 }
 
-func (s *localJujuTestSuite) makeFakeUpstartScripts(c *gc.C, env environs.Environ,
-) (mongoService *upstart.Service, machineAgent *upstart.Service) {
-	upstartDir := c.MkDir()
-	s.PatchValue(&upstart.InitDir, upstartDir)
-	s.MakeTool(c, "start", `echo "some-service start/running, process 123"`)
-
-	namespace := env.Config().AllAttrs()["namespace"].(string)
-	mongoConf := common.Conf{
-		Desc: "fake mongo",
-		Cmd:  "echo FAKE",
-	}
-	mongoService = upstart.NewService(mongo.ServiceName(namespace), mongoConf)
-	err := mongoService.Install()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mongoService.Installed(), jc.IsTrue)
-
-	agentConf := common.Conf{
-		Desc: "fake agent",
-		Cmd:  "echo FAKE",
-	}
-	machineAgent = upstart.NewService(fmt.Sprintf("juju-agent-%s", namespace), agentConf)
-
-	err = machineAgent.Install()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineAgent.Installed(), jc.IsTrue)
-
-	return mongoService, machineAgent
+type installable interface {
+	Install() error
+	Installed() (bool, error)
 }
 
-func (s *localJujuTestSuite) TestDestroyRemovesUpstartServices(c *gc.C) {
+func (s *localJujuTestSuite) makeFakeInitScripts(c *gc.C, env environs.Environ) (installable, installable) {
+	s.MakeTool(c, "start", `echo "some-service start/running, process 123"`)
+	namespace := env.Config().AllAttrs()["namespace"].(string)
+
+	// Mongo first...
+	mongoName := mongo.ServiceName(namespace)
+	mongoConf := common.Conf{
+		Desc:      "fake mongo",
+		ExecStart: "echo FAKE",
+	}
+	mongoService := local.NewService(mongoName, mongoConf, s.svcData)
+	s.svcData.SetStatus(mongoName, "installed")
+	installed, err := mongoService.Installed()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(installed, jc.IsTrue)
+
+	// ...then the machine agent
+	agentName := fmt.Sprintf("juju-agent-%s", namespace)
+	agentConf := common.Conf{
+		Desc:      "fake agent",
+		ExecStart: "echo FAKE",
+	}
+	agentService := local.NewService(agentName, agentConf, s.svcData)
+	s.svcData.SetStatus(agentName, "installed")
+	installed, err = agentService.Installed()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(installed, jc.IsTrue)
+
+	return mongoService, agentService
+}
+
+func (s *localJujuTestSuite) TestDestroyRemovesInitServices(c *gc.C) {
 	env := s.testBootstrap(c, minimalConfig(c))
 	s.makeAgentsDir(c, env)
-	mongo, machineAgent := s.makeFakeUpstartScripts(c, env)
+	mongoService, agentService := s.makeFakeInitScripts(c, env)
 	s.PatchValue(local.CheckIfRoot, func() bool { return true })
 
 	err := env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(mongo.Installed(), jc.IsFalse)
-	c.Assert(machineAgent.Installed(), jc.IsFalse)
+	installed, err := mongoService.Installed()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(installed, jc.IsFalse)
+	installed, err = agentService.Installed()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(installed, jc.IsFalse)
 }
 
 func (s *localJujuTestSuite) TestDestroyRemovesContainers(c *gc.C) {
