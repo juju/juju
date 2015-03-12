@@ -41,8 +41,8 @@ class TestParseArgs(TestCase):
                 parse_args([
                     'foo', '--suite', suite, '--user', 'u', '--password',
                     'p'])[0],
-                 Namespace(root_dir='foo', suite=[suite], jobs=None,
-                           user='u', password='p'))
+                Namespace(root_dir='foo', suite=[suite], jobs=None,
+                          user='u', password='p'))
 
     def test_parse_args_bad_suite(self):
         with parse_error(self) as stderr:
