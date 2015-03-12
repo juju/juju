@@ -37,6 +37,7 @@ from deploy_stack import (
     parse_euca,
     prepare_environment,
     run_instances,
+    assess_upgrade,
 )
 from jujupy import (
     EnvJujuClient,
@@ -531,43 +532,37 @@ class TestTestUpgrade(TestCase):
                     with patch('sys.stdout', autospec=True):
                         yield (co_mock, cc_mock)
 
-    def test_test_upgrade(self):
-        # Prevent nosetests from attempting to run test_upgrade directly.
-        from deploy_stack import test_upgrade
+    def test_assess_upgrade(self):
         env = SimpleEnvironment('foo', {'type': 'foo'})
         old_client = EnvJujuClient(env, None, '/foo/juju')
         with self.upgrade_mocks() as (co_mock, cc_mock):
-            test_upgrade(old_client, '/bar/juju')
+            assess_upgrade(old_client, '/bar/juju')
         new_client = EnvJujuClient(env, None, '/bar/juju')
-        assert_juju_call(self, co_mock, old_client, self.RUN_UNAME,
-                         0, assign_stderr=True)
         assert_juju_call(self, cc_mock, new_client, (
             'juju', '--show-log', 'upgrade-juju', '-e', 'foo', '--version',
             '1.38'))
-        self.assertEqual(co_mock.mock_calls[1], call(self.VERSION))
+        self.assertEqual(co_mock.mock_calls[0], call(self.VERSION))
+        assert_juju_call(self, co_mock, new_client, self.GET_ENV, 1,
+                         assign_stderr=True)
         assert_juju_call(self, co_mock, new_client, self.GET_ENV, 2,
                          assign_stderr=True)
-        assert_juju_call(self, co_mock, new_client, self.GET_ENV, 3,
+        assert_juju_call(self, co_mock, new_client, self.STATUS, 3,
                          assign_stderr=True)
-        assert_juju_call(self, co_mock, new_client, self.STATUS, 4,
+        assert_juju_call(self, co_mock, new_client, self.RUN_UNAME, 4,
                          assign_stderr=True)
-        assert_juju_call(self, co_mock, new_client, self.RUN_UNAME, 5,
-                         assign_stderr=True)
-        self.assertEqual(co_mock.call_count, 6)
+        self.assertEqual(co_mock.call_count, 5)
 
     def test_mass_timeout(self):
-        # Prevent nosetests from attempting to run test_upgrade directly.
-        from deploy_stack import test_upgrade
         config = {'type': 'foo'}
         old_client = EnvJujuClient(SimpleEnvironment('foo', config),
                                    None, '/foo/juju')
         with self.upgrade_mocks():
             with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
-                test_upgrade(old_client, '/bar/juju')
+                assess_upgrade(old_client, '/bar/juju')
             wfv_mock.assert_called_once_with('1.38', 600)
             config['type'] = 'maas'
             with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
-                test_upgrade(old_client, '/bar/juju')
+                assess_upgrade(old_client, '/bar/juju')
         wfv_mock.assert_called_once_with('1.38', 1200)
 
 
