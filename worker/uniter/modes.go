@@ -298,8 +298,9 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 		case hookInfo := <-u.storage.Hooks():
 			creator = newRunHookOp(hookInfo)
 		case <-leaderElected:
-			leaderElected = nil
-			creator = newAcceptLeadershipOp()
+			// This operation queues a hook, better to let ModeContinue pick up
+			// after it than to duplicate queued-hook handling here.
+			return continueAfter(u, newAcceptLeadershipOp())
 		case <-leaderDeposed:
 			leaderDeposed = nil
 			creator = newResignLeadershipOp()
