@@ -25,9 +25,10 @@ const (
 // for the identified agent.
 func AgentConf(info AgentInfo, os string) common.Conf {
 	renderer, err := shell.NewRenderer(os)
-	if err != nil {
-		// This should not ever happen.
-		panic(err)
+	if errors.IsNotFound(err) {
+		renderer, _ = shell.NewRenderer("ubuntu")
+	} else if err != nil {
+		panic("unexpected error: " + err.Error())
 	}
 
 	conf := common.Conf{
