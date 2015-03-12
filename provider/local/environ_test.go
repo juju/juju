@@ -132,7 +132,7 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(local.CheckIfRoot, func() bool { return false })
 	s.Tests.SetUpTest(c)
 
-	s.PatchValue(local.ExecuteCloudConfig, func(environs.BootstrapContext, *instancecfg.InstanceConfig, *cloudinit.Config) error {
+	s.PatchValue(local.ExecuteCloudConfig, func(environs.BootstrapContext, *instancecfg.InstanceConfig, cloudinit.CloudConfig) error {
 		return nil
 	})
 
@@ -194,19 +194,19 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 
 	minCfg := minimalConfig(c)
 
-	mockFinish := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, cloudcfg *cloudinit.Config) error {
+	mockFinish := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudConfig) error {
 
 		envCfgAttrs := minCfg.AllAttrs()
 		if val, ok := envCfgAttrs["enable-os-refresh-update"]; !ok {
-			c.Check(cloudcfg.AptUpdate(), jc.IsFalse)
+			c.Check(cloudcfg.SystemUpdate(), jc.IsFalse)
 		} else {
-			c.Check(cloudcfg.AptUpdate(), gc.Equals, val)
+			c.Check(cloudcfg.SystemUpdate(), gc.Equals, val)
 		}
 
 		if val, ok := envCfgAttrs["enable-os-upgrade"]; !ok {
-			c.Check(cloudcfg.AptUpgrade(), jc.IsFalse)
+			c.Check(cloudcfg.SystemUpgrade(), jc.IsFalse)
 		} else {
-			c.Check(cloudcfg.AptUpgrade(), gc.Equals, val)
+			c.Check(cloudcfg.SystemUpgrade(), gc.Equals, val)
 		}
 
 		if !icfg.EnableOSRefreshUpdate {

@@ -195,6 +195,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
 
+	series := "quantal"
 	allJobs := []multiwatcher.MachineJob{
 		multiwatcher.JobManageEnviron,
 		multiwatcher.JobHostUnits,
@@ -204,7 +205,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		MachineId:    "10",
 		MachineNonce: "5432",
 		Tools:        tools,
-		Series:       "quantal",
+		Series:       series,
 		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  []string{"127.0.0.1:1234"},
@@ -242,7 +243,8 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	}
 	script1 := "script1"
 	script2 := "script2"
-	cloudcfg := cloudinit.New()
+	cloudcfg, err := cloudinit.New(series)
+	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg.AddRunCmd(script1)
 	cloudcfg.AddRunCmd(script2)
 	result, err := cloudconfig.ComposeUserData(cfg, cloudcfg)

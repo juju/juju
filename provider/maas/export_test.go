@@ -28,7 +28,7 @@ func GetMAASClient(env environs.Environ) *gomaasapi.MAASObject {
 	return env.(*maasEnviron).getMAASClient()
 }
 
-func NewCloudinitConfig(env environs.Environ, hostname, iface, series string) (*cloudinit.Config, error) {
+func NewCloudinitConfig(env environs.Environ, hostname, iface, series string) (cloudinit.CloudConfig, error) {
 	return env.(*maasEnviron).newCloudinitConfig(hostname, iface, series)
 }
 

@@ -215,10 +215,12 @@ var provisionMachineAgent = func(host string, icfg *instancecfg.InstanceConfig, 
 // executed on a remote host to carry out the cloud-init
 // configuration.
 func ProvisioningScript(icfg *instancecfg.InstanceConfig) (string, error) {
-
-	cloudcfg := cloudinit.New()
-	cloudcfg.SetAptUpdate(icfg.EnableOSRefreshUpdate)
-	cloudcfg.SetAptUpgrade(icfg.EnableOSUpgrade)
+	cloudcfg, err := cloudinit.New(icfg.Series)
+	if err != nil {
+		return "", errors.Annotate(err, "error generating cloud-config")
+	}
+	cloudcfg.SetSystemUpdate(icfg.EnableOSRefreshUpdate)
+	cloudcfg.SetSystemUpgrade(icfg.EnableOSUpgrade)
 
 	udata, err := cloudconfig.NewUserdataConfig(icfg, cloudcfg)
 	if err != nil {
