@@ -9,6 +9,7 @@
 package provisioner_test
 
 import (
+	"fmt"
 	stdtesting "testing"
 
 	"github.com/juju/errors"
@@ -810,4 +811,46 @@ func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
 	c.Assert(ifaceInfo[0].Address, gc.Not(gc.DeepEquals), network.Address{})
 	expectInfo[0].Address = ifaceInfo[0].Address
 	c.Assert(ifaceInfo, jc.DeepEquals, expectInfo)
+}
+
+func (s *provisionerSuite) TestReleaseContainerAddresses(c *gc.C) {
+	// This test exercises just the success path, all the other cases
+	// are already tested in the apiserver package.
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
+
+	// allocate some addresses to release
+	subInfo := state.SubnetInfo{
+		ProviderId:        "dummy-private",
+		CIDR:              "0.10.0.0/24",
+		VLANTag:           0,
+		AllocatableIPLow:  "0.10.0.0",
+		AllocatableIPHigh: "0.10.0.10",
+	}
+	sub, err := s.State.AddSubnet(subInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	for i := 0; i < 3; i++ {
+		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i), network.ScopeUnknown)
+		ipaddr, err := s.State.AddIPAddress(addr, sub.ID())
+		c.Check(err, jc.ErrorIsNil)
+		err = ipaddr.AllocateTo(container.Id(), "")
+		c.Check(err, jc.ErrorIsNil)
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	err = container.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+	err = container.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.provisioner.ReleaseContainerAddresses(container.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	addresses, err := s.State.AllocatedIPAddresses(container.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addresses, jc.DeepEquals, []*state.IPAddress{})
 }

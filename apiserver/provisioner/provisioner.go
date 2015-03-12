@@ -800,6 +800,80 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 	return result, nil
 }
 
+// ReleaseContainerAddresses releases addresses allocated to a container. It
+// accepts container tags as arguments.
+func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	// Some preparations first.
+	environ, _, canAccess, err := p.prepareContainerAccessEnvironment()
+	if err != nil {
+		return result, err
+	}
+
+	// Loop over the passed container tags.
+	for i, entity := range args.Entities {
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		// The auth function (canAccess) checks that the machine is a
+		// top level machine (we filter those out next) or that the
+		// machine has the host as a parent.
+		container, err := p.getMachine(canAccess, tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		} else if !container.IsContainer() {
+			err = errors.Errorf("cannot release address for %q: not a container", tag)
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		ciid, err := container.InstanceId()
+		if err != nil {
+			logger.Warningf("failed to get InstanceId for container %q: %v", tag, err)
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		id := container.Id()
+		addresses, err := p.st.AllocatedIPAddresses(id)
+		if err != nil {
+			logger.Warningf("failed to get Id for container %q: %v", tag, err)
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		releaseErrors := []error{}
+		logger.Debugf("for container %q found addresses %v", tag, addresses)
+		for _, addr := range addresses {
+			err := environ.ReleaseAddress(ciid, network.Id(addr.SubnetId()), addr.Address())
+			if err != nil {
+				// Don't remove the address from state so we
+				// can retry releasing the address later.
+				logger.Warningf("failed to release address %v for container %q: %v", addr.Value, tag, err)
+				releaseErrors = append(releaseErrors, err)
+				continue
+			}
+			err = addr.Remove()
+			if err != nil {
+				logger.Warningf("failed to remove address %v for container %q: %v", addr.Value, tag, err)
+				releaseErrors = append(releaseErrors, err)
+			}
+		}
+		if len(releaseErrors) != 0 {
+			err = errors.Errorf("failed to release all addresses for %q: %v", tag, releaseErrors)
+			result.Results[i].Error = common.ServerError(err)
+		}
+	}
+
+	return result, nil
+}
+
 // PrepareContainerInterfaceInfo allocates an address and returns
 // information for configuring networking on a container. It accepts
 // container tags as arguments.
@@ -808,7 +882,7 @@ func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (pa
 		Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
 	}
 	// Some preparations first.
-	environ, host, canAccess, err := p.prepareAllocationEnvironment()
+	environ, host, canAccess, err := p.prepareContainerAccessEnvironment()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -895,9 +969,9 @@ func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (pa
 	return result, nil
 }
 
-// prepareAllocationEnvironment retrieves the environment, host machine, and access
-// for the allocations.
-func (p *ProvisionerAPI) prepareAllocationEnvironment() (environs.NetworkingEnviron, *state.Machine, common.AuthFunc, error) {
+// prepareContainerAccessEnvironment retrieves the environment, host machine, and access
+// for working with containers.
+func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.NetworkingEnviron, *state.Machine, common.AuthFunc, error) {
 	cfg, err := p.st.EnvironConfig()
 	if err != nil {
 		return nil, nil, nil, errors.Annotate(err, "failed to get environment config")

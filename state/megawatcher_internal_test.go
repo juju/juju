@@ -725,6 +725,7 @@ func (s *storeManagerStateSuite) TestChangeRelations(c *gc.C) {
 // TestChangeServices tests the changing of services.
 func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 	changeTestFuncs := []changeTestFunc{
+		// Services.
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "no service in state, no service in store -> do nothing",
@@ -820,98 +821,123 @@ func (s *storeManagerStateSuite) TestChangeServices(c *gc.C) {
 						Config:   charm.Settings{"blog-title": "boring"},
 					}}}
 		},
+		// Settings.
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "no service in state -> do nothing",
 				change: watcher.Change{
 					C:  "settings",
-					Id: st.docID("s#wordpress#local:quantal/quantal-wordpress-3"),
+					Id: st.docID("s#dummy-service#local:quantal/quantal-dummy-1"),
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "no change if service is not in backing",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
-					Name:     "wordpress",
-					CharmURL: "local:quantal/quantal-wordpress-3",
+					Name:     "dummy-service",
+					CharmURL: "local:quantal/quantal-dummy-1",
 				}},
 				change: watcher.Change{
 					C:  "settings",
-					Id: st.docID("s#wordpress#local:quantal/quantal-wordpress-3"),
+					Id: st.docID("s#dummy-service#local:quantal/quantal-dummy-1"),
 				},
 				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
-					Name:     "wordpress",
-					CharmURL: "local:quantal/quantal-wordpress-3",
+					Name:     "dummy-service",
+					CharmURL: "local:quantal/quantal-dummy-1",
 				}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
-			setServiceConfigAttr(c, svc, "blog-title", "foo")
+			svc := AddTestingService(c, st, "dummy-service", AddTestingCharm(c, st, "dummy"), s.owner)
+			setServiceConfigAttr(c, svc, "username", "foo")
+			setServiceConfigAttr(c, svc, "outlook", "foo@bar")
 
 			return changeTestCase{
 				about: "service config is changed if service exists in the store with the same URL",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
-					Name:     "wordpress",
-					CharmURL: "local:quantal/quantal-wordpress-3",
-					Config:   charm.Settings{"foo": "bar"},
+					Name:     "dummy-service",
+					CharmURL: "local:quantal/quantal-dummy-1",
 				}},
 				change: watcher.Change{
 					C:  "settings",
-					Id: st.docID("s#wordpress#local:quantal/quantal-wordpress-3"),
+					Id: st.docID("s#dummy-service#local:quantal/quantal-dummy-1"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ServiceInfo{
-						Name:     "wordpress",
-						CharmURL: "local:quantal/quantal-wordpress-3",
-						Config:   charm.Settings{"blog-title": "foo"},
+						Name:     "dummy-service",
+						CharmURL: "local:quantal/quantal-dummy-1",
+						Config:   charm.Settings{"username": "foo", "outlook": "foo@bar"},
+					}}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			svc := AddTestingService(c, st, "dummy-service", AddTestingCharm(c, st, "dummy"), s.owner)
+			setServiceConfigAttr(c, svc, "username", "foo")
+			setServiceConfigAttr(c, svc, "outlook", "foo@bar")
+			setServiceConfigAttr(c, svc, "username", nil)
+
+			return changeTestCase{
+				about: "service config is changed after removing of a setting",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
+					Name:     "dummy-service",
+					CharmURL: "local:quantal/quantal-dummy-1",
+					Config:   charm.Settings{"username": "foo", "outlook": "foo@bar"},
+				}},
+				change: watcher.Change{
+					C:  "settings",
+					Id: st.docID("s#dummy-service#local:quantal/quantal-dummy-1"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.ServiceInfo{
+						Name:     "dummy-service",
+						CharmURL: "local:quantal/quantal-dummy-1",
+						Config:   charm.Settings{"outlook": "foo@bar"},
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			testCharm := AddCustomCharm(
-				c, st, "wordpress",
+				c, st, "dummy",
 				"config.yaml", dottedConfig,
-				"quantal", 3)
-			svc := AddTestingService(c, st, "wordpress", testCharm, s.owner)
+				"quantal", 1)
+			svc := AddTestingService(c, st, "dummy-service", testCharm, s.owner)
 			setServiceConfigAttr(c, svc, "key.dotted", "foo")
 
 			return changeTestCase{
 				about: "service config is unescaped when reading from the backing store",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
-					Name:     "wordpress",
-					CharmURL: "local:quantal/quantal-wordpress-3",
+					Name:     "dummy-service",
+					CharmURL: "local:quantal/quantal-dummy-1",
 					Config:   charm.Settings{"key.dotted": "bar"},
 				}},
 				change: watcher.Change{
 					C:  "settings",
-					Id: st.docID("s#wordpress#local:quantal/quantal-wordpress-3"),
+					Id: st.docID("s#dummy-service#local:quantal/quantal-dummy-1"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ServiceInfo{
-						Name:     "wordpress",
-						CharmURL: "local:quantal/quantal-wordpress-3",
+						Name:     "dummy-service",
+						CharmURL: "local:quantal/quantal-dummy-1",
 						Config:   charm.Settings{"key.dotted": "foo"},
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
-			setServiceConfigAttr(c, svc, "blog-title", "foo")
+			svc := AddTestingService(c, st, "dummy-service", AddTestingCharm(c, st, "dummy"), s.owner)
+			setServiceConfigAttr(c, svc, "username", "foo")
 
 			return changeTestCase{
 				about: "service config is unchanged if service exists in the store with a different URL",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
-					Name:     "wordpress",
-					CharmURL: "local:quantal/quantal-wordpress-2", // Note different revno.
-					Config:   charm.Settings{"foo": "bar"},
+					Name:     "dummy-service",
+					CharmURL: "local:quantal/quantal-dummy-2", // Note different revno.
+					Config:   charm.Settings{"username": "bar"},
 				}},
 				change: watcher.Change{
 					C:  "settings",
-					Id: st.docID("s#wordpress#local:quantal/quantal-wordpress-3"),
+					Id: st.docID("s#dummy-service#local:quantal/quantal-dummy-1"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ServiceInfo{
-						Name:     "wordpress",
-						CharmURL: "local:quantal/quantal-wordpress-2",
-						Config:   charm.Settings{"foo": "bar"},
+						Name:     "dummy-service",
+						CharmURL: "local:quantal/quantal-dummy-2",
+						Config:   charm.Settings{"username": "bar"},
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
@@ -1416,6 +1442,117 @@ func (s *storeManagerStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 		},
 	}
 	s.performChangeTestCases(c, changeTestFuncs)
+}
+
+// TestClosingPorts tests the correct reporting of closing ports.
+func (s *storeManagerStateSuite) TestClosingPorts(c *gc.C) {
+	defer s.Reset(c)
+	// Init the test environment.
+	wordpress := AddTestingService(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"), s.owner)
+	u, err := wordpress.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	m, err := s.state.AddMachine("quantal", JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.AssignToMachine(m)
+	c.Assert(err, jc.ErrorIsNil)
+	publicAddress := network.NewAddress("1.2.3.4", network.ScopePublic)
+	privateAddress := network.NewAddress("4.3.2.1", network.ScopeCloudLocal)
+	err = m.SetAddresses(publicAddress, privateAddress)
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.OpenPorts("tcp", 12345, 12345)
+	c.Assert(err, jc.ErrorIsNil)
+	// Create all watcher state backing.
+	b := newAllWatcherStateBacking(s.state)
+	all := newStore()
+	// Check opened ports.
+	err = b.Changed(all, watcher.Change{
+		C:  "units",
+		Id: s.state.docID("wordpress/0"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	assertEntitiesEqual(c, all.All(), []multiwatcher.EntityInfo{
+		&multiwatcher.UnitInfo{
+			Name:           "wordpress/0",
+			Service:        "wordpress",
+			Series:         "quantal",
+			MachineId:      "0",
+			PublicAddress:  "1.2.3.4",
+			PrivateAddress: "4.3.2.1",
+			Ports:          []network.Port{{"tcp", 12345}},
+			PortRanges:     []network.PortRange{{12345, 12345, "tcp"}},
+			Status:         "allocating",
+		},
+	})
+	// Close the ports.
+	err = u.ClosePorts("tcp", 12345, 12345)
+	c.Assert(err, jc.ErrorIsNil)
+	err = b.Changed(all, watcher.Change{
+		C:  openedPortsC,
+		Id: s.state.docID("wordpress/0"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	assertEntitiesEqual(c, all.All(), []multiwatcher.EntityInfo{
+		&multiwatcher.UnitInfo{
+			Name:           "wordpress/0",
+			Service:        "wordpress",
+			Series:         "quantal",
+			MachineId:      "0",
+			PublicAddress:  "1.2.3.4",
+			PrivateAddress: "4.3.2.1",
+			Ports:          []network.Port{},
+			PortRanges:     []network.PortRange{},
+			Status:         "allocating",
+		},
+	})
+	// Try closing and updating with an invalid unit.
+	c.Assert(func() {
+		b.Changed(all, watcher.Change{
+			C:  openedPortsC,
+			Id: s.state.docID("unknown/42"),
+		})
+	}, gc.PanicMatches, `cannot retrieve unit "unknown/42": unit "unknown/42" not found`)
+}
+
+// TestSettings tests the correct reporting of unset service settings.
+func (s *storeManagerStateSuite) TestSettings(c *gc.C) {
+	defer s.Reset(c)
+	// Init the test environment.
+	svc := AddTestingService(c, s.state, "dummy-service", AddTestingCharm(c, s.state, "dummy"), s.owner)
+	b := newAllWatcherStateBacking(s.state)
+	all := newStore()
+	// 1st scenario part: set settings and signal change.
+	setServiceConfigAttr(c, svc, "username", "foo")
+	setServiceConfigAttr(c, svc, "outlook", "foo@bar")
+	all.Update(&multiwatcher.ServiceInfo{
+		Name:     "dummy-service",
+		CharmURL: "local:quantal/quantal-dummy-1",
+	})
+	err := b.Changed(all, watcher.Change{
+		C:  "settings",
+		Id: s.state.docID("s#dummy-service#local:quantal/quantal-dummy-1"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	assertEntitiesEqual(c, all.All(), []multiwatcher.EntityInfo{
+		&multiwatcher.ServiceInfo{
+			Name:     "dummy-service",
+			CharmURL: "local:quantal/quantal-dummy-1",
+			Config:   charm.Settings{"outlook": "foo@bar", "username": "foo"},
+		},
+	})
+	// 2nd scenario part: destroy the service and signal change.
+	err = svc.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = b.Changed(all, watcher.Change{
+		C:  "settings",
+		Id: s.state.docID("s#dummy-service#local:quantal/quantal-dummy-1"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	assertEntitiesEqual(c, all.All(), []multiwatcher.EntityInfo{
+		&multiwatcher.ServiceInfo{
+			Name:     "dummy-service",
+			CharmURL: "local:quantal/quantal-dummy-1",
+		},
+	})
 }
 
 // TestStateWatcher tests the integration of the state watcher

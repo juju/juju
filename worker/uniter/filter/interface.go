@@ -46,10 +46,6 @@ type Filter interface {
 	// configuration changes, or when an event is explicitly requested.
 	ConfigEvents() <-chan struct{}
 
-	// LeaderSettingsEvents returns a channel that will receive a signal whenever the
-	// service's leader settings change, or when an event is explicitly requested.
-	LeaderSettingsEvents() <-chan struct{}
-
 	// ActionEvents returns a channel that will receive a signal whenever the unit
 	// receives new Actions.
 	ActionEvents() <-chan string
@@ -94,10 +90,25 @@ type Filter interface {
 	// config event.
 	DiscardConfigEvent()
 
-	// WantLeaderSettingsEvents enables or disables the LeaderSettingsEvents channel.
-	WantLeaderSettingsEvents(sendEvents bool)
+	// LeaderSettingsEvents returns a channel that will receive an event whenever
+	// there is a leader settings change. Events can be temporarily suspended by
+	// calling WantLeaderSettingsEvents(false), and then reenabled by calling
+	// WantLeaderSettingsEvents(true)
+	LeaderSettingsEvents() <-chan struct{}
 
-	// DiscardLeaderSettingsEvent indicates that the filter should discard any
-	// pending leader-settings event.
+	// DiscardLeaderSettingsEvent can be called to discard any pending
+	// LeaderSettingsEvents. This is used by code that saw a LeaderSettings change,
+	// and has been prepping for a response. Just before they request the current
+	// LeaderSettings, they can discard any other pending changes, since they know
+	// they will be handling all changes that have occurred before right now.
 	DiscardLeaderSettingsEvent()
+
+	// WantLeaderSettingsEvents can be used to enable/disable events being sent on
+	// the LeaderSettingsEvents() channel. This is used when an agent notices that
+	// it is the leader, it wants to disable getting events for changes that it is
+	// generating. Calling this with sendEvents=false disables getting change
+	// events. Calling this with sendEvents=true will enable future changes, and
+	// queues up an immediate event so that the agent will refresh its information
+	// for any events it might have missed while it thought it was the leader.
+	WantLeaderSettingsEvents(sendEvents bool)
 }

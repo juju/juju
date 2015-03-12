@@ -26,6 +26,7 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -264,17 +265,33 @@ func (s *uniterLeadershipSuite) TestSettingsChangeNotifier(c *gc.C) {
 	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))
 
 	// Listen for changes
-	sawChanges := make(chan struct{})
-	go func() {
-		watcher, err := client.LeadershipSettings.WatchLeadershipSettings(s.serviceId)
-		c.Assert(err, gc.IsNil)
-		sawChanges <- <-watcher.Changes()
-	}()
-
-	err = client.LeadershipSettings.Merge(s.serviceId, map[string]string{"foo": "bar"})
+	watcher, err := client.LeadershipSettings.WatchLeadershipSettings(s.serviceId)
 	c.Assert(err, gc.IsNil)
 
-	<-sawChanges
+	defer statetesting.AssertStop(c, watcher)
+
+	leadershipC := statetesting.NewNotifyWatcherC(c, s.BackingState, watcher)
+	// Inital event
+	leadershipC.AssertOneChange()
+
+	// Make some changes
+	err = client.LeadershipSettings.Merge(s.serviceId, map[string]string{"foo": "bar"})
+	c.Assert(err, gc.IsNil)
+	leadershipC.AssertOneChange()
+
+	// And check that the changes were actually applied
+	settings, err := client.LeadershipSettings.Read(s.serviceId)
+	c.Assert(err, gc.IsNil)
+
+	c.Check(settings["foo"], gc.Equals, "bar")
+
+	// Make a couple of changes, and then check that they have been
+	// coalesced into a single event
+	err = client.LeadershipSettings.Merge(s.serviceId, map[string]string{"foo": "baz"})
+	c.Assert(err, gc.IsNil)
+	err = client.LeadershipSettings.Merge(s.serviceId, map[string]string{"bing": "bong"})
+	c.Assert(err, gc.IsNil)
+	leadershipC.AssertOneChange()
 }
 
 func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {
