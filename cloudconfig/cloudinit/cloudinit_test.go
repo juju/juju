@@ -273,7 +273,7 @@ var ctests = []struct {
 			"ifconfig",
 		}},
 		func(cfg cloudinit.CloudConfig) {
-			cfg.AddScript(
+			cfg.AddScripts(
 				"echo 'Hello World'",
 				"ifconfig",
 			)
@@ -326,7 +326,10 @@ var ctests = []struct {
 func (S) TestOutput(c *gc.C) {
 	for i, t := range ctests {
 		c.Logf("test %d: %s", i, t.name)
-		cfg, err := cloudinit.New("quantal")
+		cfg, err := cloudinit.New("trusty")
+		c.Assert(err, jc.ErrorIsNil)
+		t.setOption(cfg)
+		renderer, err := cloudinit.NewRenderer("quantal")
 		c.Assert(err, jc.ErrorIsNil)
 		t.setOption(cfg)
 		data, err := cfg.Render()
@@ -337,10 +340,10 @@ func (S) TestOutput(c *gc.C) {
 }
 
 func (S) TestRunCmds(c *gc.C) {
-	cfg, err := cloudinit.New("quantal")
+	cfg, err := cloudinit.New("trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.RunCmds(), gc.HasLen, 0)
-	cfg.AddScript("a", "b")
+	cfg.AddScripts("a", "b")
 	cfg.AddRunCmd("e")
 	c.Assert(cfg.RunCmds(), gc.DeepEquals, []interface{}{
 		"a", "b", "e",
@@ -348,7 +351,7 @@ func (S) TestRunCmds(c *gc.C) {
 }
 
 func (S) TestPackages(c *gc.C) {
-	cfg, err := cloudinit.New("quantal")
+	cfg, err := cloudinit.New("trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Packages(), gc.HasLen, 0)
 	cfg.AddPackage("a b c")
@@ -375,7 +378,7 @@ func (S) TestSetOutput(c *gc.C) {
 		cloudinit.OutAll, "", "",
 	}}
 
-	cfg, err := cloudinit.New("quantal")
+	cfg, err := cloudinit.New("trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	stdout, stderr := cfg.Output(cloudinit.OutAll)
 	c.Assert(stdout, gc.Equals, "")
@@ -391,7 +394,10 @@ func (S) TestSetOutput(c *gc.C) {
 
 func (S) TestWindowsRender(c *gc.C) {
 	compareOutput := "#ps1_sysnative\r\n\r\npowershell"
-	cfg, err := cloudinit.New("win8")
+	cfg, err := cloudinit.New("trusty")
+	c.Assert(err, jc.ErrorIsNil)
+	cfg.AddRunCmd("powershell")
+	render, err := cloudinit.NewRenderer("win8")
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.AddRunCmd("powershell")
 	data, err := cfg.Render()

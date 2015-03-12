@@ -44,18 +44,18 @@ func (cfg *CentOSCloudConfig) PackageProxy() string {
 
 // SetPackageMirror satisfies the cloudinit.PackageMirrorConfig interface
 func (cfg *CentOSCloudConfig) SetPackageMirror(url string) {
-	cfg.AddRunCmd(fmt.Sprintf(`sed -r -i 's|^mirrorlist|#mirrorlist|g'`, packaging.CentOSSourcesFile))
+	cfg.AddRunCmd(fmt.Sprintf(`sed -r -i 's|^mirrorlist|#mirrorlist|g' %s`, packaging.CentOSSourcesFile))
 	cfg.AddRunCmd(fmt.Sprintf(`sed -r -i 's|#baseurl=http://mirror.centos.org/(.*)/\$releasever/(.*)/\$basearch/|baseurl=%s/\$releasever/\2/\$basearch/|g' %s`,
 		url, packaging.CentOSSourcesFile))
 }
 
 // UnsetPackageMirror satisfies the cloudinit.PackageMirrorConfig interface
-func (cfg *cloudConfig) UnsetPackageMirror() {
+func (cfg *CentOSCloudConfig) UnsetPackageMirror() {
 	cfg.attrs["runcmds"] = removeRegexpFromSlice(cfg.RunCmds(), fmt.Sprintf(".*(%s)$", packaging.CentOSSourcesFile))
 }
 
 // PackageMirror satisfies the cloudinit.PackageMirrorConfig interface
-func (cfg *cloudConfig) PackageMirror() string {
+func (cfg *CentOSCloudConfig) PackageMirror() string {
 	found := extractRegexpsFromSlice(cfg.RunCmds(), ".*\\|baseurl=(.*)/..releasever.*")
 
 	if len(found) == 0 {
@@ -66,13 +66,13 @@ func (cfg *cloudConfig) PackageMirror() string {
 }
 
 // AddPackageSource satisfies the cloudinit.PackageSourcesConfig
-func (cfg *cloudConfig) AddPackageSource(src packaging.Source) {
+func (cfg *CentOSCloudConfig) AddPackageSource(src packaging.Source) {
 	pm := packaging.CentOSPackageManager()
 	cfg.AddRunCmd(pm.AddRepository(src.Url))
 }
 
 // PackageSources satisfies the cloudinit.PackageSourcesConfig interface
-func (cfg *cloudConfig) PackageSources() []packaging.Source {
+func (cfg *CentOSCloudConfig) PackageSources() []packaging.Source {
 	sources := []packaging.Source{}
 	pm := packaging.CentOSPackageManager()
 
@@ -81,4 +81,9 @@ func (cfg *cloudConfig) PackageSources() []packaging.Source {
 	}
 
 	return sources
+}
+
+// AddPackagePreferences implements PackageSourcesConfig.
+func (cfg *CentOSCloudConfig) AddPackagePreferences(prefs packaging.PackagePreferences) {
+	cfg.AddBootTextFile(prefs.Path, prefs.FileContents(), 0644)
 }

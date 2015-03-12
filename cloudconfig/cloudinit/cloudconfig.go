@@ -58,17 +58,17 @@ type cloudConfig struct {
 	attrs map[string]interface{}
 }
 
-// SetAttr implements CloudConfig.
+// SetAttr implements cloudConfig.
 func (cfg *cloudConfig) SetAttr(name string, value interface{}) {
 	cfg.attrs[name] = value
 }
 
-// UnsetAttr implements CloudConfig.
+// UnsetAttr implements cloudConfig.
 func (cfg *cloudConfig) UnsetAttr(name string) {
 	delete(cfg.attrs, name)
 }
 
-// getAttrs implements CloudConfig.
+// getAttrs implements cloudConfig.
 func (cfg *cloudConfig) getAttrs() map[string]interface{} {
 	return cfg.attrs
 }
@@ -142,8 +142,8 @@ func (cfg *cloudConfig) AddRunCmd(args ...string) {
 	cfg.attrs["runcmd"] = append(cfg.RunCmds(), strings.Join(args, " "))
 }
 
-// AddScript implements RunCmdsConfig.
-func (cfg *cloudConfig) AddScript(script ...string) {
+// AddScripts implements RunCmdsConfig.
+func (cfg *cloudConfig) AddScripts(script ...string) {
 	for _, line := range script {
 		cfg.AddRunCmd(line)
 	}
@@ -305,7 +305,7 @@ func (cfg *cloudConfig) DisableRoot() bool {
 
 // AddRunTextFile implements WrittenFilesConfig.
 func (cfg *cloudConfig) AddRunTextFile(filename, contents string, perm uint) {
-	cfg.AddScript(addFileCmds(filename, []byte(contents), perm, false)...)
+	cfg.AddScripts(addFileCmds(filename, []byte(contents), perm, false)...)
 }
 
 // AddBootTextFile implements WrittenFilesConfig.
@@ -317,5 +317,5 @@ func (cfg *cloudConfig) AddBootTextFile(filename, contents string, perm uint) {
 
 // AddRunBinaryFile implements WrittenFilesConfig.
 func (cfg *cloudConfig) AddRunBinaryFile(filename string, data []byte, mode uint) {
-	cfg.AddScript(addFileCmds(filename, data, mode, true)...)
+	cfg.AddScripts(addFileCmds(filename, data, mode, true)...)
 }

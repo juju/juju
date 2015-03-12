@@ -27,7 +27,7 @@ type ConfigureParams struct {
 	Client ssh.Client
 
 	// Config is the cloudinit config to carry out.
-	Config *cloudinit.Config
+	Config cloudinit.CloudConfig
 
 	// ProgressWriter is an io.Writer to which progress will be written,
 	// for realtime feedback.
@@ -62,7 +62,7 @@ func RunConfigureScript(script string, params ConfigureParams) error {
 
 // ConfigureScript generates the bash script that applies
 // the specified cloud-config.
-func ConfigureScript(cloudcfg *cloudinit.Config) (string, error) {
+func ConfigureScript(cloudcfg cloudinit.CloudConfig) (string, error) {
 	if cloudcfg == nil {
 		panic("cloudcfg is nil")
 	}
@@ -79,10 +79,11 @@ func ConfigureScript(cloudcfg *cloudinit.Config) (string, error) {
 
 	// Bootcmds must be run before anything else,
 	// as they may affect package installation.
-	bootcmds, err := cmdlist(cloudcfg.BootCmds())
-	if err != nil {
-		return "", err
-	}
+	//bootcmds, err := cmdlist(cloudcfg.BootCmds())
+	bootcmds := cloudcfg.BootCmds()
+	//if err != nil {
+	//return "", err
+	//}
 
 	// Depending on cloudcfg, potentially add package sources and packages.
 	pkgcmds, err := addPackageCommands(cloudcfg)
@@ -91,7 +92,8 @@ func ConfigureScript(cloudcfg *cloudinit.Config) (string, error) {
 	}
 
 	// Runcmds come last.
-	runcmds, err := cmdlist(cloudcfg.RunCmds())
+	//runcmds, err := cmdlist(cloudcfg.RunCmds())
+	runcmds := cloudcfg.RunCmds()
 	if err != nil {
 		return "", err
 	}
@@ -149,27 +151,28 @@ function apt_get_loop {
 
 // addPackageCommands returns a slice of commands that, when run,
 // will add the required apt repositories and packages.
-func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
+func addPackageCommands(cfg cloudinit.CloudConfig) ([]string, error) {
 	if cfg == nil {
 		panic("cfg is nil")
-	} else if !cfg.AptUpdate() && len(cfg.AptSources()) > 0 {
+	} else if !cfg.SystemUpdate() && len(cfg.PackageSources()) > 0 {
 		return nil, fmt.Errorf("update sources were specified, but OS updates have been disabled.")
 	}
 
 	// If apt_get_wrapper is specified, then prepend it to aptget.
-	aptget := aptget
-	wrapper := cfg.AptGetWrapper()
-	switch wrapper.Enabled {
-	case true:
-		aptget = utils.ShQuote(wrapper.Command) + " " + aptget
-	case "auto":
-		aptget = fmt.Sprintf("$(which %s || true) %s", utils.ShQuote(wrapper.Command), aptget)
-	}
+	//aptget := aptget
+	//wrapper := cfg.AptGetWrapper()
+	//switch wrapper.Enabled {
+	//case true:
+	//aptget = utils.ShQuote(wrapper.Command) + " " + aptget
+	//case "auto":
+	//aptget = fmt.Sprintf("$(which %s || true) %s", utils.ShQuote(wrapper.Command), aptget)
+	//}
 
 	var cmds []string
 
 	// If a mirror is specified, rewrite sources.list and rename cached index files.
-	if newMirror, _ := cfg.AptMirror(); newMirror != "" {
+	//if newMirror, _ := cfg.PackageMirror(); newMirror != "" {
+	if newMirror := cfg.PackageMirror(); newMirror != "" {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Changing apt mirror to "+newMirror))
 		cmds = append(cmds, "old_mirror=$("+extractAptSource+")")
 		cmds = append(cmds, "new_mirror="+newMirror)
@@ -177,22 +180,22 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 		cmds = append(cmds, renameAptListFilesCommands("$new_mirror", "$old_mirror")...)
 	}
 
-	if len(cfg.AptSources()) > 0 {
+	if len(cfg.PackageSources()) > 0 {
 		// Ensure add-apt-repository is available.
 		cmds = append(cmds, cloudinit.LogProgressCmd("Installing add-apt-repository"))
 		cmds = append(cmds, aptget+"install python-software-properties")
 	}
-	for _, src := range cfg.AptSources() {
+	for _, src := range cfg.PackageSources() {
 		// PPA keys are obtained by add-apt-repository, from launchpad.
-		if !strings.HasPrefix(src.Source, "ppa:") {
+		if !strings.HasPrefix(src.Url, "ppa:") {
 			if src.Key != "" {
 				key := utils.ShQuote(src.Key)
 				cmd := fmt.Sprintf("printf '%%s\\n' %s | apt-key add -", key)
 				cmds = append(cmds, cmd)
 			}
 		}
-		cmds = append(cmds, cloudinit.LogProgressCmd("Adding apt repository: %s", src.Source))
-		cmds = append(cmds, "add-apt-repository -y "+utils.ShQuote(src.Source))
+		cmds = append(cmds, cloudinit.LogProgressCmd("Adding apt repository: %s", src.Url))
+		cmds = append(cmds, "add-apt-repository -y "+utils.ShQuote(src.Url))
 		if src.Prefs != nil {
 			path := utils.ShQuote(src.Prefs.Path)
 			contents := utils.ShQuote(src.Prefs.FileContents())
@@ -203,13 +206,13 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 
 	// Define the "apt_get_loop" function, and wrap apt-get with it.
 	cmds = append(cmds, aptgetLoopFunction)
-	aptget = "apt_get_loop " + aptget
+	//aptget = "apt_get_loop " + aptget
 
-	if cfg.AptUpdate() {
+	if cfg.SystemUpdate() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Running apt-get update"))
 		cmds = append(cmds, aptget+"update")
 	}
-	if cfg.AptUpgrade() {
+	if cfg.SystemUpgrade() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Running apt-get upgrade"))
 		cmds = append(cmds, aptget+"upgrade")
 	}

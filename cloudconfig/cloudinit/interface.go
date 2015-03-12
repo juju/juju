@@ -161,11 +161,11 @@ type RunCmdsConfig interface {
 	// NOTE: metacharacters will *not* be escaped!
 	AddRunCmd(...string)
 
-	// AddScript simply calls AddRunCmd on every string passed to it.
+	// AddScripts simply calls AddRunCmd on every string passed to it.
 	// NOTE: this means that each given string must be a full command plus
 	// all of its arguments.
 	// NOTE: metacharacters will not be escaped.
-	AddScript(...string)
+	AddScripts(...string)
 
 	// RemoveRunCmd removes the given command from the list of commands to be
 	// run on first boot. If it has not been previously added, no error occurs.
@@ -316,8 +316,22 @@ type WrittenFilesConfig interface {
 }
 
 // New returns a new Config with no options set.
-func New() CloudConfig {
-	return nil
+func New(series string) (CloudConfig, error) {
+	os, err := version.GetOSFromSeries(series)
+	if err != nil {
+		return nil, err
+	}
+	switch os {
+	case version.Windows:
+		// Doesn't really matter what we return here since windows only uses
+		// runcmd anyway
+		return &UbuntuCloudConfig{&cloudConfig{make(map[string]interface{})}}, nil
+	case version.Ubuntu:
+		return &UbuntuCloudConfig{&cloudConfig{make(map[string]interface{})}}, nil
+	case version.CentOS:
+		return &CentOSCloudConfig{&cloudConfig{make(map[string]interface{})}}, nil
+	}
+	return nil, err
 }
 
 type Renderer interface {

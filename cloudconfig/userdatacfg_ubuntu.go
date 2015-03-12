@@ -23,6 +23,7 @@ import (
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit/packaging"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 )
@@ -95,7 +96,7 @@ func (w *ubuntuConfigure) ConfigureBasic() error {
 	// the presence of the nonce file is used to gate the remainder
 	// of synchronous bootstrap.
 	noncefile := path.Join(w.icfg.DataDir, NonceFile)
-	w.conf.AddTextFile(noncefile, w.icfg.MachineNonce, 0644)
+	w.conf.AddRunTextFile(noncefile, w.icfg.MachineNonce, 0644)
 	return nil
 }
 
@@ -173,7 +174,7 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		if err != nil {
 			return err
 		}
-		w.conf.AddBinaryFile(path.Join(w.icfg.JujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
+		w.conf.AddRunBinaryFile(path.Join(w.icfg.JujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
 	} else {
 		curlCommand := curlCommand
 		var urls []string
@@ -234,7 +235,7 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 	// Add the cloud archive cloud-tools pocket to apt sources
 	// for series that need it. This gives us up-to-date LXC,
 	// MongoDB, and other infrastructure.
-	if w.conf.AptUpdate() {
+	if w.conf.SystemUpdate() {
 		MaybeAddCloudArchiveCloudTools(w.conf, w.icfg.Tools.Version.Series)
 	}
 
@@ -248,8 +249,8 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 			}
 			indexFile := path.Join(metadataDir, imagemetadata.IndexStoragePath())
 			productFile := path.Join(metadataDir, imagemetadata.ProductMetadataStoragePath())
-			w.conf.AddTextFile(indexFile, string(index), 0644)
-			w.conf.AddTextFile(productFile, string(products), 0644)
+			w.conf.AddRunTextFile(indexFile, string(index), 0644)
+			w.conf.AddRunTextFile(productFile, string(products), 0644)
 			metadataDir = "  --image-metadata " + shquote(metadataDir)
 		}
 
@@ -293,7 +294,7 @@ func AddAptCommands(
 	series string,
 	proxySettings proxy.Settings,
 	aptMirror string,
-	c *cloudinit.Config,
+	c cloudinit.CloudConfig,
 	addUpdateScripts bool,
 	addUpgradeScripts bool,
 ) {
@@ -303,7 +304,7 @@ func AddAptCommands(
 	}
 
 	// Set the APT mirror.
-	c.SetAptMirror(aptMirror)
+	c.SetPackageMirror(aptMirror)
 
 	// For LTS series which need support for the cloud-tools archive,
 	// we need to enable apt-get update regardless of the environ
@@ -313,9 +314,9 @@ func AddAptCommands(
 	}
 
 	// Bring packages up-to-date.
-	c.SetAptUpdate(addUpdateScripts)
-	c.SetAptUpgrade(addUpgradeScripts)
-	c.SetAptGetWrapper("eatmydata")
+	c.SetSystemUpdate(addUpdateScripts)
+	c.SetSystemUpgrade(addUpgradeScripts)
+	//c.SetAptGetWrapper("eatmydata")
 
 	// If we're not doing an update, adding these packages is
 	// meaningless.
@@ -367,9 +368,13 @@ func AddAptCommands(
 	}
 }
 
+// CloudToolsPrefsPath defines the default location of
+// apt_preferences(5) file for the cloud-tools pocket.
+const CloudToolsPrefsPath = "/etc/apt/preferences.d/50-cloud-tools"
+
 // MaybeAddCloudArchiveCloudTools adds the cloud-archive cloud-tools
 // pocket to apt sources, if the series requires it.
-func MaybeAddCloudArchiveCloudTools(c *cloudinit.Config, series string) {
+func MaybeAddCloudArchiveCloudTools(c cloudinit.CloudConfig, series string) {
 	if series != "precise" {
 		// Currently only precise; presumably we'll
 		// need to add each LTS in here as they're
@@ -378,14 +383,19 @@ func MaybeAddCloudArchiveCloudTools(c *cloudinit.Config, series string) {
 	}
 	const url = "http://ubuntu-cloud.archive.canonical.com/ubuntu"
 	name := fmt.Sprintf("deb %s %s-updates/cloud-tools main", url, series)
-	prefs := &cloudinit.AptPreferences{
-		Path:        cloudinit.CloudToolsPrefsPath,
+	prefs := &packaging.PackagePreferences{
+		Path:        CloudToolsPrefsPath,
 		Explanation: "Pin with lower priority, not to interfere with charms",
 		Package:     "*",
 		Pin:         fmt.Sprintf("release n=%s-updates/cloud-tools", series),
-		PinPriority: 400,
+		Priority:    400,
 	}
-	c.AddAptSource(name, CanonicalCloudArchiveSigningKey, prefs)
+	source := packaging.Source{
+		Url:   name,
+		Key:   CanonicalCloudArchiveSigningKey,
+		Prefs: prefs,
+	}
+	c.AddPackageSource(source)
 }
 
 // toolsDownloadCommand takes a curl command minus the source URL,

@@ -555,7 +555,8 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		if test.setEnvConfig {
 			test.cfg.Config = minimalConfig(c)
 		}
-		ci := cloudinit.New()
+		ci, err := cloudinit.New("quantal")
+		c.Assert(err, jc.ErrorIsNil)
 		udata, err := cloudconfig.NewUserdataConfig(&test.cfg, ci)
 		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
@@ -611,7 +612,8 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 	for i, test := range cloudinitTests {
 		test.cfg.Config = minimalConfig(c)
 		c.Logf("test %d (Configure)", i)
-		cloudcfg := cloudinit.New()
+		cloudcfg, err := cloudinit.New("quantal")
+		c.Assert(err, jc.ErrorIsNil)
 		udata, err := cloudconfig.NewUserdataConfig(&test.cfg, cloudcfg)
 		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
@@ -624,7 +626,8 @@ func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 	instanceConfig := minimalInstanceConfig()
 	instanceConfig.Config = minimalConfig(c)
 
-	cloudcfg := cloudinit.New()
+	cloudcfg, err := cloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(&instanceConfig, cloudcfg)
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -649,7 +652,8 @@ func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 
 func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	// Create a simple cloudinit config with a 'runcmd' statement.
-	cloudcfg := cloudinit.New()
+	cloudcfg, err := cloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	script := "test script"
 	cloudcfg.AddRunCmd(script)
 	cloudinitTests[0].cfg.Config = minimalConfig(c)
@@ -994,7 +998,8 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		MachineAgentServiceName: "jujud-machine-99",
 	}
 	// check that the base configuration does not give an error
-	ci := cloudinit.New()
+	ci, err := cloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i, test := range verifyTests {
 		// check that the base configuration does not give an error
@@ -1036,7 +1041,8 @@ func (*cloudinitSuite) createInstanceConfig(c *gc.C, environConfig *config.Confi
 func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
 	environConfig := minimalConfig(c)
 	instanceCfg := s.createInstanceConfig(c, environConfig)
-	cloudcfg := cloudinit.New()
+	cloudcfg, err := cloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
@@ -1053,7 +1059,8 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	instanceCfg := s.createInstanceConfig(c, environConfig)
-	cloudcfg := cloudinit.New()
+	cloudcfg, err := cloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
@@ -1072,7 +1079,8 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	instanceCfg := s.createInstanceConfig(c, environConfig)
-	cloudcfg := cloudinit.New()
+	cloudcfg, err := cloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
@@ -1117,14 +1125,16 @@ func (s *cloudinitSuite) TestAptMirrorNotSet(c *gc.C) {
 
 func (s *cloudinitSuite) testAptMirror(c *gc.C, cfg *config.Config, expect string) {
 	instanceCfg := s.createInstanceConfig(c, cfg)
-	cloudcfg := cloudinit.New()
+	cloudcfg, err := cloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)
-	mirror, ok := cloudcfg.AptMirror()
+	//mirror, ok := cloudcfg.AptMirror()
+	mirror := cloudcfg.PackageMirror()
 	c.Assert(mirror, gc.Equals, expect)
-	c.Assert(ok, gc.Equals, expect != "")
+	//c.Assert(ok, gc.Equals, expect != "")
 }
 
 var serverCert = []byte(`
@@ -1198,7 +1208,8 @@ func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
 		test.cfg.DataDir = dataDir
 		test.cfg.LogDir = path.Join(logDir, "juju")
 
-		ci := cloudinit.New()
+		ci, err := cloudinit.New("win8")
+		c.Assert(err, jc.ErrorIsNil)
 		udata, err := cloudconfig.NewUserdataConfig(&test.cfg, ci)
 
 		c.Assert(err, jc.ErrorIsNil)

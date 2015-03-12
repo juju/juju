@@ -205,7 +205,7 @@ func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "eth0", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
+	c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
 }
 
@@ -218,6 +218,6 @@ func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "eth0", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
+	c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
 }

@@ -54,7 +54,10 @@ func templateUserData(
 			return nil, errors.Trace(err)
 		}
 	} else {
-		config := cloudinit.New()
+		config, err := cloudinit.New(series)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	config.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
