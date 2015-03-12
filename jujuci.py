@@ -47,6 +47,10 @@ def print_now(string):
 Credentials = namedtuple('Credentials', ['user', 'password'])
 
 
+class CredentialsMissing(Exception):
+    """Raised when no credentials are supplied."""
+
+
 def get_jenkins_json(credentials, url):
     req = urllib2.Request(url)
     encoded = base64.encodestring(
@@ -305,6 +309,8 @@ def get_credentials(args):
     if 'user' not in args:
         return None
     if None in (args.user, args.password):
+        raise CredentialsMissing(
+            'Jenkins username and/or password not supplied.')
         return None
     return Credentials(args.user, args.password)
 
@@ -334,7 +340,11 @@ class PackageNamer:
 
 def main(argv):
     """Manage list and get files from Juju CI builds."""
-    args, credentials = parse_args(argv)
+    try:
+        args, credentials = parse_args(argv)
+    except CredentialsMissing as e:
+        print(e)
+        sys.exit(2)
     try:
         if args.command == 'list':
             list_artifacts(

@@ -1,3 +1,4 @@
+from argparse import Namespace
 from contextlib import contextmanager
 import json
 import os
@@ -13,10 +14,12 @@ from jujuci import (
     CERTIFY_UBUNTU_PACKAGES,
     clean_environment,
     Credentials,
+    CredentialsMissing,
     find_artifacts,
     get_artifacts,
     get_build_data,
     get_certification_bin,
+    get_credentials,
     get_juju_bin,
     get_juju_binary,
     get_juju_bin_artifact,
@@ -98,6 +101,24 @@ def make_build_data(number='lastSuccessfulBuild'):
 
 
 class JujuCITestCase(TestCase):
+
+    def test_get_credentials(self):
+        self.assertEqual(
+            get_credentials(Namespace(user='jrandom', password='password1')),
+            Credentials('jrandom', 'password1'))
+
+    def test_get_credentials_no_user(self):
+        self.assertIs(get_credentials(Namespace()), None)
+
+    def test_get_credentials_no_value(self):
+        with self.assertRaisesRegexp(
+                CredentialsMissing,
+                'Jenkins username and/or password not supplied.'):
+            get_credentials(Namespace(user=None, password='password1'))
+        with self.assertRaisesRegexp(
+                CredentialsMissing,
+                'Jenkins username and/or password not supplied.'):
+            get_credentials(Namespace(user='jrandom', password=None))
 
     def test_main_list_options(self):
         with patch('jujuci.list_artifacts') as mock:
