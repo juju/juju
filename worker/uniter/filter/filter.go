@@ -399,6 +399,8 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		return err
 	}
 	defer watcher.Stop(leaderSettingsw, &f.tomb)
+	// We start out not listening until we see the first leader settings change
+	var discardLeaderSettings <-chan struct{}
 
 	// Config events cannot be meaningfully discarded until one is available;
 	// once we receive the initial config and address changes, we unblock
@@ -508,8 +510,8 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 				filterLogger.Debugf("leader error: %s", leaderSettingsw.Err())
 				return watcher.EnsureErr(leaderSettingsw)
 			}
-			seenConfigChange = true
 			f.outLeaderSettings = f.outLeaderSettingsOn
+			discardLeaderSettings = f.discardLeaderSettings
 
 		// Send events on active out chans.
 		case f.outUpgrade <- f.upgrade:
@@ -606,7 +608,7 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		case <-discardConfig:
 			filterLogger.Debugf("discarded config event")
 			f.outConfig = nil
-		case <-f.discardLeaderSettings:
+		case <-discardLeaderSettings:
 			filterLogger.Debugf("discarded leader settings event")
 			f.outLeaderSettings = nil
 		}
