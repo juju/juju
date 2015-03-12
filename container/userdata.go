@@ -76,25 +76,25 @@ var networkInterfacesFile = "/etc/network/interfaces"
 // GenerateNetworkConfig renders a network config for one or more
 // network interfaces, using the given non-nil networkConfig
 // containing a non-empty Interfaces field.
-func GenerateNetworkConfig(networkConfig *NetworkConfig) ([]byte, error) {
+func GenerateNetworkConfig(networkConfig *NetworkConfig) (string, error) {
 	if networkConfig == nil || len(networkConfig.Interfaces) == 0 {
 		// Don't generate networking config.
 		logger.Tracef("no network config to generate")
-		return nil, nil
+		return "", nil
 	}
 
 	// Render the config first.
 	tmpl, err := template.New("config").Parse(networkConfigTemplate)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot parse network config template")
+		return "", errors.Annotate(err, "cannot parse network config template")
 	}
 
 	var buf bytes.Buffer
 	if err = tmpl.Execute(&buf, networkConfig.Interfaces); err != nil {
-		return nil, errors.Annotate(err, "cannot render network config")
+		return "", errors.Annotate(err, "cannot render network config")
 	}
 
-	return buf.Bytes(), nil
+	return buf.String(), nil
 }
 
 // NewCloudInitConfigWithNetworks creates a cloud-init config which
@@ -103,12 +103,12 @@ func GenerateNetworkConfig(networkConfig *NetworkConfig) ([]byte, error) {
 func NewCloudInitConfigWithNetworks(networkConfig *NetworkConfig) (*coreCloudinit.Config, error) {
 	cloudConfig := coreCloudinit.New()
 	config, err := GenerateNetworkConfig(networkConfig)
-	if err != nil || config == nil {
+	if err != nil || len(config) == 0 {
 		return cloudConfig, errors.Trace(err)
 	}
 
 	// Now add it to cloud-init as a file created early in the boot process.
-	cloudConfig.AddBootTextFile(networkInterfacesFile, string(config), 0644)
+	cloudConfig.AddBootTextFile(networkInterfacesFile, config, 0644)
 	return cloudConfig, nil
 }
 

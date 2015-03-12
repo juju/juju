@@ -785,7 +785,7 @@ func (s *lxcProvisionerSuite) expectStopped(c *gc.C, instId string) {
 		c.Assert(event.Action, gc.Equals, mock.Destroyed)
 		c.Assert(event.InstanceId, gc.Equals, instId)
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting the mock container get destroyed")
+		c.Fatalf("timeout while waiting the mock container to get destroyed")
 	}
 }
 

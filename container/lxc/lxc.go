@@ -350,7 +350,7 @@ func (manager *containerManager) CreateContainer(
 			if err != nil {
 				return nil, nil, errors.Annotatef(err, "failed to generate %q", interfacesFile)
 			}
-			if err := utils.AtomicWriteFile(interfacesFile, data, 0644); err != nil {
+			if err := utils.AtomicWriteFile(interfacesFile, []byte(data), 0644); err != nil {
 				return nil, nil, errors.Annotatef(err, "cannot write generated %q", interfacesFile)
 			}
 			logger.Tracef("pre-rendered network config in %q", interfacesFile)

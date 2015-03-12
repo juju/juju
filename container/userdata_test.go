@@ -23,7 +23,7 @@ type UserDataSuite struct {
 
 	networkInterfacesFile string
 	fakeInterfaces        []network.InterfaceInfo
-	expectNetConfig       string
+	expectedNetConfig     string
 }
 
 var _ = gc.Suite(&UserDataSuite{})
@@ -44,7 +44,7 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 		ConfigType:    network.ConfigDHCP,
 		NoAutoStart:   true,
 	}}
-	s.expectNetConfig = `
+	s.expectedNetConfig = `
 # loopback interface
 auto lo
 iface lo inet loopback
@@ -63,7 +63,6 @@ iface eth0 inet manual
 # interface "eth1"
 iface eth1 inet dhcp
 `
-
 	s.PatchValue(container.NetworkInterfacesFile, s.networkInterfacesFile)
 }
 
@@ -71,17 +70,17 @@ func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
 	// No config or no interfaces - no error, but also noting to generate.
 	data, err := container.GenerateNetworkConfig(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.IsNil)
+	c.Assert(data, gc.HasLen, 0)
 	netConfig := container.BridgeNetworkConfig("foo", nil)
 	data, err = container.GenerateNetworkConfig(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.IsNil)
+	c.Assert(data, gc.HasLen, 0)
 
 	// Test with all interface types.
 	netConfig = container.BridgeNetworkConfig("foo", s.fakeInterfaces)
 	data, err = container.GenerateNetworkConfig(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, s.expectNetConfig)
+	c.Assert(data, gc.Equals, s.expectedNetConfig)
 }
 
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworks(c *gc.C) {
@@ -90,7 +89,7 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// We need to indent expectNetConfig to make it valid YAML,
 	// dropping the last new line and using unindented blank lines.
-	lines := strings.Split(s.expectNetConfig, "\n")
+	lines := strings.Split(s.expectedNetConfig, "\n")
 	indentedNetConfig := strings.Join(lines[:len(lines)-1], "\n  ")
 	indentedNetConfig = strings.Replace(indentedNetConfig, "\n  \n", "\n\n", -1)
 	expected := `
