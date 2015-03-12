@@ -298,12 +298,12 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 		IsVirtual:     false,
 	}}
 	volumes := []params.Volume{{
-		VolumeTag: "volume-0",
+		VolumeTag: "volume-1-0",
 		VolumeId:  "vol-123",
 		Size:      124,
 	}}
 	volumeAttachments := []params.VolumeAttachment{{
-		VolumeTag:  "volume-0",
+		VolumeTag:  "volume-1-0",
 		MachineTag: "machine-1",
 		DeviceName: "xvdf1",
 	}}
@@ -362,7 +362,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(actual, jc.SameContents, ifaces[:4]) // skip the rest as they are ignored.
 
 	// Now check volumes and volume attachments.
-	volume, err := s.State.Volume(names.NewVolumeTag("0"))
+	volume, err := s.State.Volume(names.NewVolumeTag("1/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfo, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
