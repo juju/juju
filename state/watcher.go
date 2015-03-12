@@ -2450,13 +2450,65 @@ func (st *State) WatchLeadershipSettings(serviceId string) *LeadershipSettingsWa
 // NewLeadershipSettingsWatcher returns a new
 // LeadershipSettingsWatcher.
 func NewLeadershipSettingsWatcher(state *State, key string) *LeadershipSettingsWatcher {
-	return &LeadershipSettingsWatcher{state.watchSettings(key)}
+
+	w := &LeadershipSettingsWatcher{
+		commonWatcher: commonWatcher{st: state},
+		out:           make(chan struct{}),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop(key))
+	}()
+	return w
 }
 
 // LeadershipSettingsWatcher provides a type that can watch settings
 // for a provided key.
 type LeadershipSettingsWatcher struct {
-	*settingsWatcher
+	commonWatcher
+
+	out chan struct{}
+}
+
+var _ NotifyWatcher = (*LeadershipSettingsWatcher)(nil)
+
+// Changes implements NotifyWatcher.
+func (w *LeadershipSettingsWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+func (w *LeadershipSettingsWatcher) loop(key string) (err error) {
+	ch := make(chan watcher.Change)
+	revno := int64(-1)
+	settings, err := readSettings(w.st, key)
+	if err == nil {
+		revno = settings.txnRevno
+	} else if !errors.IsNotFound(err) {
+		return err
+	}
+	w.st.watcher.Watch(settingsC, w.st.docID(key), revno, ch)
+	defer w.st.watcher.Unwatch(settingsC, w.st.docID(key), ch)
+	out := w.out
+	if revno == -1 {
+		out = nil
+	}
+	for {
+		select {
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-ch:
+			settings, err = readSettings(w.st, key)
+			if err != nil {
+				return err
+			}
+			out = w.out
+		case out <- struct{}{}:
+			out = nil
+		}
+	}
 }
 
 // blockDevicesWatcher notifies about changes to all block devices
