@@ -8,11 +8,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/tailer"
 	"launchpad.net/golxc"
@@ -22,23 +22,8 @@ import (
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
-)
-
-const (
-	templateShutdownUpstartFilename = "/etc/init/juju-template-restart.conf"
-	templateShutdownUpstartScript   = `
-description "Juju lxc template shutdown job"
-author "Juju Team <juju@lists.ubuntu.com>"
-start on stopped cloud-final
-
-script
-  shutdown -h now
-end script
-
-post-stop script
-  rm ` + templateShutdownUpstartFilename + `
-end script
-`
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/version"
 )
 
 var (
@@ -63,17 +48,29 @@ func templateUserData(
 	config.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
 	)
+	// For LTS series which need support for the cloud-tools archive,
+	// we need to enable apt-get update regardless of the environ
+	// setting, otherwise provisioning will fail.
+	if series == "precise" && !enablePackageUpdates {
+		logger.Warningf("series %q requires cloud-tools archive: enabling updates", series)
+		enablePackageUpdates = true
+	}
+
 	config.AddSSHAuthorizedKeys(authorizedKeys)
 	if enablePackageUpdates {
 		cloudinit.MaybeAddCloudArchiveCloudTools(config, series)
 	}
-	cloudinit.AddAptCommands(aptProxy, aptMirror, config, enablePackageUpdates, enableOSUpgrades)
-	config.AddScripts(
-		fmt.Sprintf(
-			"printf '%%s\n' %s > %s",
-			utils.ShQuote(templateShutdownUpstartScript),
-			templateShutdownUpstartFilename,
-		))
+	cloudinit.AddAptCommands(series, aptProxy, aptMirror, config, enablePackageUpdates, enableOSUpgrades)
+
+	initSystem, err := containerInitSystem(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	script, err := shutdownInitScript(initSystem)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	config.AddScripts(script)
 
 	renderer, err := corecloudinit.NewRenderer(series)
 	if err != nil {
@@ -84,6 +81,43 @@ func templateUserData(
 		return nil, err
 	}
 	return data, nil
+}
+
+func containerInitSystem(series string) (string, error) {
+	osName, err := version.GetOSFromSeries(series)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	vers := version.Binary{
+		OS:     osName,
+		Series: series,
+	}
+	initSystem, ok := service.VersionInitSystem(vers)
+	if !ok {
+		return "", errors.NotFoundf("init system for series %q", series)
+	}
+	logger.Debugf("using init system %q for shutdown script", initSystem)
+	return initSystem, nil
+}
+
+func shutdownInitScript(initSystem string) (string, error) {
+	name := "juju-template-restart"
+	conf, err := service.ShutdownAfterConf("cloud-final")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	svc, err := service.NewService(name, conf, initSystem)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	cmds, err := svc.InstallCommands()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return strings.Join(cmds, "\n"), nil
 }
 
 func AcquireTemplateLock(name, message string) (*container.Lock, error) {

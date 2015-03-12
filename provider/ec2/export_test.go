@@ -6,9 +6,9 @@ package ec2
 import (
 	"io"
 
-	"gopkg.in/amz.v2/aws"
-	"gopkg.in/amz.v2/ec2"
-	"gopkg.in/amz.v2/s3"
+	"gopkg.in/amz.v3/aws"
+	"gopkg.in/amz.v3/ec2"
+	"gopkg.in/amz.v3/s3"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"

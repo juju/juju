@@ -307,6 +307,24 @@ func (*suite) TestBootstrapConfig(c *gc.C) {
 	c.Assert(cfg1.AllAttrs(), gc.DeepEquals, expect)
 }
 
+func (s *suite) TestDisallowedInBootstrap(c *gc.C) {
+	content := `
+environments:
+    dummy:
+        type: dummy
+        state-server: false
+`
+	for key, value := range map[string]interface{}{
+		"storage-default-block-source": "loop",
+	} {
+		envContent := fmt.Sprintf("%s\n        %s: %s", content, key, value)
+		envs, err := environs.ReadEnvironsBytes([]byte(envContent))
+		c.Check(err, jc.ErrorIsNil)
+		_, err = envs.Config("dummy")
+		c.Assert(err, gc.ErrorMatches, "attribute .* is not allowed in bootstrap configurations")
+	}
+}
+
 type dummyProvider struct {
 	environs.EnvironProvider
 }
@@ -503,4 +521,14 @@ func (s *ConfigDeprecationSuite) TestDeprecatedToolsStreamWIthAgentWarning(c *gc
 	}
 	expected := fmt.Sprintf(standardDeprecationWarningWithNew)
 	s.checkDeprecationWarning(c, attrs, expected)
+}
+
+func (s *ConfigDeprecationSuite) TestDeprecatedBlockWarning(c *gc.C) {
+	assertBlockWarning := func(tst string) {
+		attrs := testing.Attrs{tst: true}
+		s.checkDeprecationWarning(c, attrs, ".*is deprecated and will be ignored since.*")
+	}
+	assertBlockWarning("block-destroy-environment")
+	assertBlockWarning("block-remove-object")
+	assertBlockWarning("block-all-changes")
 }

@@ -24,7 +24,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/filter"
-	"github.com/juju/juju/worker/uniter/hook"
 )
 
 type FilterSuite struct {
@@ -135,6 +134,8 @@ func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 }
 
 func (s *FilterSuite) TestUnitRemoval(c *gc.C) {
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 	defer f.Stop() // no AssertStop, we test for an error below
@@ -427,8 +428,8 @@ func getAssertActionChange(actionC coretesting.ContentAsserterC) func(ids []stri
 		seen := make(map[string]int)
 		for _, id := range ids {
 			expected[id] += 1
-			event := actionC.AssertReceive().(*hook.Info)
-			seen[event.ActionId] += 1
+			actionId := actionC.AssertReceive().(string)
+			seen[actionId] += 1
 		}
 		actionC.C.Assert(seen, jc.DeepEquals, expected)
 
@@ -597,4 +598,35 @@ func (s *FilterSuite) TestMeterStatusEvents(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	meterC.AssertOneReceive()
+}
+
+func (s *FilterSuite) TestStorageEvents(c *gc.C) {
+	storageCharm := s.AddTestingCharm(c, "storage-block2")
+	svc := s.AddTestingServiceWithStorage(c, "storage-block2", storageCharm, map[string]state.StorageConstraints{
+		"multi1to10": state.StorageConstraints{Pool: "loop", Size: 1024, Count: 1},
+		"multi2up":   state.StorageConstraints{Pool: "loop", Size: 1024, Count: 2},
+	})
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	s.APILogin(c, unit)
+
+	f, err := filter.NewFilter(s.uniter, unit.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
+	defer statetesting.AssertStop(c, f)
+	storageC := s.contentAsserterC(c, f.StorageEvents())
+	c.Assert(storageC.AssertOneReceive(), gc.DeepEquals, []names.StorageTag{
+		names.NewStorageTag("multi1to10/0"),
+		names.NewStorageTag("multi2up/1"),
+		names.NewStorageTag("multi2up/2"),
+	})
+
+	err = s.State.DestroyStorageInstance(names.NewStorageTag("multi2up/1"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageC.AssertOneReceive(), gc.DeepEquals, []names.StorageTag{
+		names.NewStorageTag("multi2up/1"),
+	})
 }

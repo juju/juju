@@ -670,3 +670,9 @@ func (u *Unit) WatchMeterStatus() (watcher.NotifyWatcher, error) {
 	w := watcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
 	return w, nil
 }
+
+// WatchStorage returns a watcher for observing changes to the
+// unit's storage attachments.
+func (u *Unit) WatchStorage() (watcher.StringsWatcher, error) {
+	return u.st.WatchUnitStorageAttachments(u.tag)
+}

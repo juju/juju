@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/lease"
@@ -62,20 +63,23 @@ func (s *leaseStub) RetrieveLease(namespace string) lease.Token {
 }
 
 func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
+
+	numStubCalls := 0
 	stub := &leaseStub{
 		ClaimLeaseFn: func(namespace, id string, forDur time.Duration) (string, error) {
+			numStubCalls++
 			c.Check(namespace, gc.Equals, leadershipNamespace(StubServiceNm))
 			c.Check(id, gc.Equals, StubUnitNm)
-			c.Check(forDur, gc.Equals, leadershipDuration)
+			c.Check(forDur, gc.Equals, 30*time.Second)
 			return id, nil
 		},
 	}
 
 	leaderMgr := NewLeadershipManager(stub)
-	leadDur, err := leaderMgr.ClaimLeadership(StubServiceNm, StubUnitNm)
+	err := leaderMgr.ClaimLeadership(StubServiceNm, StubUnitNm, 30*time.Second)
 
-	c.Check(leadDur, gc.Equals, leadershipDuration)
-	c.Check(err, gc.IsNil)
+	c.Check(numStubCalls, gc.Equals, 1)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *leadershipSuite) TestReleaseLeadershipTranslation(c *gc.C) {
@@ -94,7 +98,7 @@ func (s *leadershipSuite) TestReleaseLeadershipTranslation(c *gc.C) {
 	err := leaderMgr.ReleaseLeadership(StubServiceNm, StubUnitNm)
 
 	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
@@ -115,5 +119,5 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 	err := leaderMgr.BlockUntilLeadershipReleased(StubServiceNm)
 
 	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }

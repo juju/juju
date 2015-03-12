@@ -5,6 +5,8 @@
 package cloudinit
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
@@ -50,18 +52,95 @@ func addAgentInfo(
 	return acfg, nil
 }
 
-func NewUserdataConfig(cfg *MachineConfig, c *cloudinit.Config) (UserdataConfig, error) {
-	operatingSystem, err := version.GetOSFromSeries(cfg.Series)
+func NewUserdataConfig(mcfg *MachineConfig, conf *cloudinit.Config) (UserdataConfig, error) {
+	// TODO(ericsnow) bug #1426217
+	// Protect mcfg and conf better.
+	operatingSystem, err := version.GetOSFromSeries(mcfg.Series)
 	if err != nil {
 		return nil, err
 	}
 
+	base := baseConfigure{
+		mcfg: mcfg,
+		conf: conf,
+		os:   operatingSystem,
+	}
+	if err := base.init(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	switch operatingSystem {
 	case version.Ubuntu:
-		return newUbuntuConfig(cfg, c)
+		return &ubuntuConfigure{base}, nil
 	case version.Windows:
-		return newWindowsConfig(cfg, c)
+		return &windowsConfigure{base}, nil
 	default:
-		return nil, errors.Errorf("Unsupported OS %s", cfg.Series)
+		return nil, errors.NotSupportedf("OS %s", mcfg.Series)
+	}
+}
+
+type baseConfigure struct {
+	mcfg     *MachineConfig
+	conf     *cloudinit.Config
+	renderer cloudinit.Renderer
+	os       version.OSType
+}
+
+func (c *baseConfigure) init() error {
+	renderer, err := cloudinit.NewRenderer(c.mcfg.Series)
+	if err != nil {
+		return err
+	}
+	c.renderer = renderer
+	return nil
+}
+
+func (c *baseConfigure) Render() ([]byte, error) {
+	return c.renderer.Render(c.conf)
+}
+
+func (c *baseConfigure) addMachineAgentToBoot(name string) error {
+	svc, toolsDir, err := c.mcfg.initService()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Make the agent run via a symbolic link to the actual tools
+	// directory, so it can upgrade itself without needing to change
+	// the init script.
+	c.conf.AddScripts(c.toolsSymlinkCommand(toolsDir))
+
+	cmds, err := svc.InstallCommands()
+	if err != nil {
+		return errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
+	}
+	startCmds, err := svc.StartCommands()
+	if err != nil {
+		return errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
+	}
+	cmds = append(cmds, startCmds...)
+
+	svcName := c.mcfg.MachineAgentServiceName
+	c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", svcName))
+	c.conf.AddScripts(cmds...)
+	return nil
+}
+
+func (c *baseConfigure) toolsSymlinkCommand(toolsDir string) string {
+	switch c.os {
+	case version.Windows:
+		return fmt.Sprintf(
+			`cmd.exe /C mklink /D %s %v`,
+			c.renderer.FromSlash(toolsDir),
+			c.mcfg.Tools.Version,
+		)
+	default:
+		// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that
+		// the target already exists.
+		return fmt.Sprintf(
+			"ln -s %v %s",
+			c.mcfg.Tools.Version,
+			shquote(toolsDir),
+		)
 	}
 }

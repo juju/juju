@@ -1,6 +1,7 @@
 package juju_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api"
@@ -33,6 +34,10 @@ func (s *mockAPIState) APIHostPorts() [][]network.HostPort {
 
 func (s *mockAPIState) EnvironTag() (names.EnvironTag, error) {
 	return names.ParseEnvironTag(s.environTag)
+}
+
+func (s *mockAPIState) ServerTag() (names.EnvironTag, error) {
+	return names.EnvironTag{}, errors.NotImplementedf("ServerTag")
 }
 
 func panicAPIOpen(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {

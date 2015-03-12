@@ -16,26 +16,43 @@ import (
 const networkerFacade = "Networker"
 
 // State provides access to an networker worker's view of the state.
-type State struct {
+//
+// NOTE: This is defined as an interface due to PPC64 bug #1424669 -
+// if it were a type build errors happen (due to a linker bug).
+type State interface {
+	MachineNetworkConfig(names.MachineTag) ([]network.InterfaceInfo, error)
+	WatchInterfaces(names.MachineTag) (watcher.NotifyWatcher, error)
+}
+
+var _ State = (*state)(nil)
+
+// state implements State.
+type state struct {
 	facade base.FacadeCaller
 }
 
 // NewState creates a new client-side Machiner facade.
-func NewState(caller base.APICaller) *State {
-	return &State{base.NewFacadeCaller(caller, networkerFacade)}
+func NewState(caller base.APICaller) State {
+	return &state{base.NewFacadeCaller(caller, networkerFacade)}
 }
 
-// MachineNetworkInfo returns information about network interfaces to
+// MachineNetworkConfig returns information about network interfaces to
 // setup only for a single machine.
-func (st *State) MachineNetworkInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
+func (st *state) MachineNetworkConfig(tag names.MachineTag) ([]network.InterfaceInfo, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	var results params.MachineNetworkConfigResults
-	err := st.facade.FacadeCall("MachineNetworkInfo", args, &results)
+	err := st.facade.FacadeCall("MachineNetworkConfig", args, &results)
 	if err != nil {
-		// TODO: Not directly tested
-		return nil, err
+		if params.IsCodeNotImplemented(err) {
+			// Fallback to former name.
+			err = st.facade.FacadeCall("MachineNetworkInfo", args, &results)
+		}
+		if err != nil {
+			// TODO: Not directly tested.
+			return nil, err
+		}
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
@@ -66,7 +83,7 @@ func (st *State) MachineNetworkInfo(tag names.MachineTag) ([]network.InterfaceIn
 
 // WatchInterfaces returns a NotifyWatcher that notifies of changes to network
 // interfaces on the machine.
-func (st *State) WatchInterfaces(tag names.MachineTag) (watcher.NotifyWatcher, error) {
+func (st *state) WatchInterfaces(tag names.MachineTag) (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}

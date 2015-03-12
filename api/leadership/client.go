@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/leadership"
 )
 
 var logger = loggo.GetLogger("juju.api.leadership")
@@ -35,16 +36,23 @@ func NewClient(facade base.ClientFacade, caller facadeCaller) LeadershipClient {
 }
 
 // ClaimLeadership implements LeadershipManager.
-func (c *client) ClaimLeadership(serviceId, unitId string) (time.Duration, error) {
+func (c *client) ClaimLeadership(serviceId, unitId string, duration time.Duration) error {
 
-	results, err := c.bulkClaimLeadership(c.prepareClaimLeadership(serviceId, unitId))
+	results, err := c.bulkClaimLeadership(c.prepareClaimLeadership(serviceId, unitId, duration))
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	// We should have our 1 result. If not, we rightfully panic.
-	result := results.Results[0]
-	return time.Duration(result.ClaimDurationInSec) * time.Second, result.Error
+	// TODO(fwereade): this is not a rightful panic; we don't know who'll be using
+	// this client, and/or whether or not we're running critical code in the same
+	// process.
+	if err := results.Results[0].Error; err != nil {
+		if params.IsCodeLeadershipClaimDenied(err) {
+			return leadership.ErrClaimDenied
+		}
+		return err
+	}
+	return nil
 }
 
 // ReleaseLeadership implements LeadershipManager.
@@ -54,8 +62,13 @@ func (c *client) ReleaseLeadership(serviceId, unitId string) error {
 		return err
 	}
 
-	// We should have our 1 result. If not, we rightfully panic.
-	return results.Results[0].Error
+	// TODO(fwereade): this is not a rightful panic; we don't know who'll be using
+	// this client, and/or whether or not we're running critical code in the same
+	// process.
+	if err := results.Results[0].Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 // BlockUntilLeadershipReleased implements LeadershipManager.
@@ -77,10 +90,11 @@ func (c *client) BlockUntilLeadershipReleased(serviceId string) error {
 
 // prepareClaimLeadership creates a single set of params in
 // preperation for making a bulk call.
-func (c *client) prepareClaimLeadership(serviceId, unitId string) params.ClaimLeadershipParams {
+func (c *client) prepareClaimLeadership(serviceId, unitId string, duration time.Duration) params.ClaimLeadershipParams {
 	return params.ClaimLeadershipParams{
 		names.NewServiceTag(serviceId).String(),
 		names.NewUnitTag(unitId).String(),
+		duration.Seconds(),
 	}
 }
 

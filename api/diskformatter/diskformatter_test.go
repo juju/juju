@@ -80,8 +80,8 @@ func (s *DiskFormatterSuite) TestVolumePreparationInfo(c *gc.C) {
 		c.Check(request, gc.Equals, "VolumePreparationInfo")
 		c.Check(arg, gc.DeepEquals, params.VolumeAttachmentIds{
 			Ids: []params.VolumeAttachmentId{
-				{MachineTag: "machine-0", VolumeTag: "disk-0"},
-				{MachineTag: "machine-0", VolumeTag: "disk-1"},
+				{MachineTag: "machine-0", VolumeTag: "volume-0"},
+				{MachineTag: "machine-0", VolumeTag: "volume-1"},
 			},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.VolumePreparationInfoResults{})
@@ -93,9 +93,9 @@ func (s *DiskFormatterSuite) TestVolumePreparationInfo(c *gc.C) {
 	})
 
 	st := diskformatter.NewState(apiCaller, names.NewMachineTag("0"))
-	results, err := st.VolumePreparationInfo([]names.DiskTag{
-		names.NewDiskTag("0"),
-		names.NewDiskTag("1"),
+	results, err := st.VolumePreparationInfo([]names.VolumeTag{
+		names.NewVolumeTag("0"),
+		names.NewVolumeTag("1"),
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)

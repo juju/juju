@@ -80,25 +80,3 @@ func IsProviderSupported(envType string, providerType storage.ProviderType) bool
 	}
 	return false
 }
-
-type defaultStoragePool map[storage.StorageKind]string
-
-// defaultPools records the default block and filesystem pools to be
-// used for an environment, if none is specified by the user when deploying.
-var defaultPools map[string]defaultStoragePool = make(map[string]defaultStoragePool)
-
-// RegisterDefaultPool records the default pool for the storage kind and environment.
-// NOTE: the pool is not validated as to whether it exists, or if its type is
-// supported by the environment. This is expected to be done by the caller.
-func RegisterDefaultPool(envType string, kind storage.StorageKind, pool string) {
-	if _, ok := defaultPools[envType]; !ok {
-		defaultPools[envType] = make(defaultStoragePool)
-	}
-	defaultPools[envType][kind] = pool
-}
-
-// DefaultPool returns the default storage pool for the storage kind and environment.
-func DefaultPool(envType string, kind storage.StorageKind) (string, bool) {
-	pool, ok := defaultPools[envType][kind]
-	return pool, ok && pool != ""
-}

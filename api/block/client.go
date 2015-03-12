@@ -57,7 +57,10 @@ func (c *Client) SwitchBlockOn(blockType, msg string) error {
 	if err := c.facade.FacadeCall("SwitchBlockOn", args, &result); err != nil {
 		return errors.Trace(err)
 	}
-	return result.Error
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
 }
 
 // SwitchBlockOff switches desired block off for the current environment.
@@ -70,5 +73,8 @@ func (c *Client) SwitchBlockOff(blockType string) error {
 	if err := c.facade.FacadeCall("SwitchBlockOff", args, &result); err != nil {
 		return errors.Trace(err)
 	}
-	return result.Error
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
 }

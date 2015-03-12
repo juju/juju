@@ -24,17 +24,16 @@ func NewUnsetCommand(api UnsetEnvironmentAPI) *UnsetCommand {
 	}
 }
 
-// NewEnsureAvailabilityCommand returns an EnsureAvailabilityCommand with the
-// haClient provided as specified.
-func NewEnsureAvailabilityCommand(haClient EnsureAvailabilityClient) *EnsureAvailabilityCommand {
-	return &EnsureAvailabilityCommand{
-		haClient: haClient,
-	}
-}
-
 // NewRetryProvisioningCommand returns a RetryProvisioningCommand with the api provided as specified.
 func NewRetryProvisioningCommand(api RetryProvisioningAPI) *RetryProvisioningCommand {
 	return &RetryProvisioningCommand{
+		api: api,
+	}
+}
+
+// NewCreateCommand returns a CreateCommand with the api provided as specified.
+func NewCreateCommand(api CreateEnvironmentAPI) *CreateCommand {
+	return &CreateCommand{
 		api: api,
 	}
 }

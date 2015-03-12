@@ -212,6 +212,7 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 	return params.LoginResultV1{
 		Servers:    params.FromNetworkHostsPorts(hostPorts),
 		EnvironTag: environ.Tag().String(),
+		ServerTag:  environ.ServerTag().String(),
 		Facades:    DescribeFacades(),
 		UserInfo:   maybeUserInfo,
 	}, nil

@@ -43,6 +43,7 @@ var facadeVersions = map[string]int{
 	"Rsyslog":              0,
 	"Service":              1,
 	"Storage":              1,
+	"StorageProvisioner":   1,
 	"StringsWatcher":       0,
 	"Upgrader":             0,
 	"Uniter":               2,

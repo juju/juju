@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 
@@ -39,10 +40,9 @@ const boilerplateConfig = `joyent:
 
   # Auth config
   # private-key-path is the private key used to sign Joyent requests.
-  # Defaults to ~/.ssh/id_rsa, override if a different ssh key is used.
   # Alternatively, you can supply "private-key" with the content of the private
   # key instead supplying the path to a file.
-  # private-key-path: ~/.ssh/id_rsa
+  # private-key-path: ~/.ssh/foo_id
   # algorithm defaults to rsa-sha256, override if required
   # algorithm: rsa-sha256
 
@@ -70,72 +70,79 @@ const (
 	MantaKeyId          = "MANTA_KEY_ID"
 	MantaUrl            = "MANTA_URL"
 	MantaPrivateKeyFile = "MANTA_PRIVATE_KEY_FILE"
-	DefaultPrivateKey   = "~/.ssh/id_rsa"
+
+	sdcUser        = "sdc-user"
+	sdcKeyId       = "sdc-key-id"
+	sdcUrl         = "sdc-url"
+	mantaUser      = "manta-user"
+	mantaKeyId     = "manta-key-id"
+	mantaUrl       = "manta-url"
+	privateKeyPath = "private-key-path"
+	algorithm      = "algorithm"
+	controlDir     = "control-dir"
+	privateKey     = "private-key"
 )
 
 var environmentVariables = map[string]string{
-	"sdc-user":         SdcAccount,
-	"sdc-key-id":       SdcKeyId,
-	"sdc-url":          SdcUrl,
-	"manta-user":       MantaUser,
-	"manta-key-id":     MantaKeyId,
-	"manta-url":        MantaUrl,
-	"private-key-path": MantaPrivateKeyFile,
+	sdcUser:        SdcAccount,
+	sdcKeyId:       SdcKeyId,
+	sdcUrl:         SdcUrl,
+	mantaUser:      MantaUser,
+	mantaKeyId:     MantaKeyId,
+	mantaUrl:       MantaUrl,
+	privateKeyPath: MantaPrivateKeyFile,
 }
 
 var configFields = schema.Fields{
-	"sdc-user":         schema.String(),
-	"sdc-key-id":       schema.String(),
-	"sdc-url":          schema.String(),
-	"manta-user":       schema.String(),
-	"manta-key-id":     schema.String(),
-	"manta-url":        schema.String(),
-	"private-key-path": schema.String(),
-	"algorithm":        schema.String(),
-	"control-dir":      schema.String(),
-	"private-key":      schema.String(),
+	sdcUser:        schema.String(),
+	sdcKeyId:       schema.String(),
+	sdcUrl:         schema.String(),
+	mantaUser:      schema.String(),
+	mantaKeyId:     schema.String(),
+	mantaUrl:       schema.String(),
+	privateKeyPath: schema.String(),
+	algorithm:      schema.String(),
+	controlDir:     schema.String(),
+	privateKey:     schema.String(),
 }
 
 var configDefaults = schema.Defaults{
-	"sdc-url":          "https://us-west-1.api.joyentcloud.com",
-	"manta-url":        "https://us-east.manta.joyent.com",
-	"algorithm":        "rsa-sha256",
-	"private-key-path": schema.Omit,
-	"sdc-user":         schema.Omit,
-	"sdc-key-id":       schema.Omit,
-	"manta-user":       schema.Omit,
-	"manta-key-id":     schema.Omit,
-	"private-key":      schema.Omit,
+	sdcUrl:         "https://us-west-1.api.joyentcloud.com",
+	mantaUrl:       "https://us-east.manta.joyent.com",
+	algorithm:      "rsa-sha256",
+	privateKeyPath: schema.Omit,
+	sdcUser:        schema.Omit,
+	sdcKeyId:       schema.Omit,
+	mantaUser:      schema.Omit,
+	mantaKeyId:     schema.Omit,
+	privateKey:     schema.Omit,
+}
+
+var requiredFields = []string{
+	sdcUrl,
+	mantaUrl,
+	algorithm,
+	sdcUser,
+	sdcKeyId,
+	mantaUser,
+	mantaKeyId,
+	// privatekey and privatekeypath are handled separately
 }
 
 var configSecretFields = []string{
-	"sdc-user",
-	"sdc-key-id",
-	"manta-user",
-	"manta-key-id",
-	"private-key",
+	sdcUser,
+	sdcKeyId,
+	mantaUser,
+	mantaKeyId,
+	privateKey,
 }
 
 var configImmutableFields = []string{
-	"sdc-url",
-	"manta-url",
-	"private-key-path",
-	"private-key",
-	"algorithm",
-}
-
-func prepareConfig(cfg *config.Config) (*config.Config, error) {
-	// Turn an incomplete config into a valid one, if possible.
-	attrs := cfg.UnknownAttrs()
-
-	if _, ok := attrs["control-dir"]; !ok {
-		uuid, err := utils.NewUUID()
-		if err != nil {
-			return nil, err
-		}
-		attrs["control-dir"] = fmt.Sprintf("%x", uuid.Raw())
-	}
-	return cfg.Apply(attrs)
+	sdcUrl,
+	mantaUrl,
+	privateKeyPath,
+	privateKey,
+	algorithm,
 }
 
 func validateConfig(cfg, old *config.Config) (*environConfig, error) {
@@ -168,47 +175,59 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	// Read env variables to fill in any missing fields.
 	for field, envVar := range environmentVariables {
 		// If field is not set, get it from env variables
-		if fieldValue, ok := envConfig.attrs[field]; !ok || fieldValue == "" {
+		if nilOrEmptyString(envConfig.attrs[field]) {
 			localEnvVariable := os.Getenv(envVar)
 			if localEnvVariable != "" {
 				envConfig.attrs[field] = localEnvVariable
 			} else {
-				if field != "private-key-path" {
+				if field != privateKeyPath {
 					return nil, fmt.Errorf("cannot get %s value from environment variable %s", field, envVar)
 				}
 			}
 		}
 	}
 
-	// Ensure private-key-path is set - if it's not in config or an env var, use a default value.
-	if v, ok := envConfig.attrs["private-key-path"]; !ok || v == "" {
-		v = os.Getenv(environmentVariables["private-key-path"])
-		if v == "" {
-			v = DefaultPrivateKey
-		}
-		envConfig.attrs["private-key-path"] = v
+	if err := ensurePrivateKeyOrPath(envConfig); err != nil {
+		return nil, err
 	}
+
 	// Now that we've ensured private-key-path is properly set, we go back and set
 	// up the private key - this is used to sign requests.
-	if fieldValue, ok := envConfig.attrs["private-key"]; !ok || fieldValue == "" {
-		keyFile, err := utils.NormalizePath(envConfig.attrs["private-key-path"].(string))
+	if nilOrEmptyString(envConfig.attrs[privateKey]) {
+		keyFile, err := utils.NormalizePath(envConfig.attrs[privateKeyPath].(string))
 		if err != nil {
 			return nil, err
 		}
-		privateKey, err := ioutil.ReadFile(keyFile)
+		priv, err := ioutil.ReadFile(keyFile)
 		if err != nil {
 			return nil, err
 		}
-		envConfig.attrs["private-key"] = string(privateKey)
+		envConfig.attrs[privateKey] = string(priv)
 	}
 
 	// Check for missing fields.
-	for field := range configFields {
-		if envConfig.attrs[field] == "" {
+	for _, field := range requiredFields {
+		if nilOrEmptyString(envConfig.attrs[field]) {
 			return nil, fmt.Errorf("%s: must not be empty", field)
 		}
 	}
 	return envConfig, nil
+}
+
+// Ensure private-key-path is set.
+func ensurePrivateKeyOrPath(envConfig *environConfig) error {
+	if !nilOrEmptyString(envConfig.attrs[privateKeyPath]) {
+		return nil
+	}
+	if path := os.Getenv(environmentVariables[privateKeyPath]); path != "" {
+		envConfig.attrs[privateKeyPath] = path
+		return nil
+	}
+	if !nilOrEmptyString(envConfig.attrs[privateKey]) {
+		return nil
+	}
+
+	return errors.New("no ssh private key specified in joyent configuration")
 }
 
 type environConfig struct {
@@ -221,42 +240,42 @@ func (ecfg *environConfig) GetAttrs() map[string]interface{} {
 }
 
 func (ecfg *environConfig) sdcUrl() string {
-	return ecfg.attrs["sdc-url"].(string)
+	return ecfg.attrs[sdcUrl].(string)
 }
 
 func (ecfg *environConfig) sdcUser() string {
-	return ecfg.attrs["sdc-user"].(string)
+	return ecfg.attrs[sdcUser].(string)
 }
 
 func (ecfg *environConfig) sdcKeyId() string {
-	return ecfg.attrs["sdc-key-id"].(string)
+	return ecfg.attrs[sdcKeyId].(string)
 }
 
 func (ecfg *environConfig) mantaUrl() string {
-	return ecfg.attrs["manta-url"].(string)
+	return ecfg.attrs[mantaUrl].(string)
 }
 
 func (ecfg *environConfig) mantaUser() string {
-	return ecfg.attrs["manta-user"].(string)
+	return ecfg.attrs[mantaUser].(string)
 }
 
 func (ecfg *environConfig) mantaKeyId() string {
-	return ecfg.attrs["manta-key-id"].(string)
+	return ecfg.attrs[mantaKeyId].(string)
 }
 
 func (ecfg *environConfig) privateKey() string {
-	if v, ok := ecfg.attrs["private-key"]; ok {
+	if v, ok := ecfg.attrs[privateKey]; ok {
 		return v.(string)
 	}
 	return ""
 }
 
 func (ecfg *environConfig) algorithm() string {
-	return ecfg.attrs["algorithm"].(string)
+	return ecfg.attrs[algorithm].(string)
 }
 
 func (c *environConfig) controlDir() string {
-	return c.attrs["control-dir"].(string)
+	return c.attrs[controlDir].(string)
 }
 
 func (c *environConfig) ControlDir() string {
@@ -286,4 +305,8 @@ func isLocalhost(u string) bool {
 	}
 
 	return false
+}
+
+func nilOrEmptyString(i interface{}) bool {
+	return i == nil || i == ""
 }

@@ -8,7 +8,7 @@ import "github.com/juju/names"
 // Volume describes a volume (disk, logical volume, etc.)
 type Volume struct {
 	// Name is a unique name assigned by Juju to the volume.
-	Tag names.DiskTag
+	Tag names.VolumeTag
 
 	// VolumeId is a unique provider-supplied ID for the volume.
 	// VolumeId is required to be unique for the lifetime of the
@@ -25,14 +25,14 @@ type Volume struct {
 	// TODO(axw) record volume persistence
 }
 
-// VolumeAttachment decsribes machine-specific volume attachment information,
+// VolumeAttachment describes machine-specific volume attachment information,
 // including how the volume is exposed on the machine.
 type VolumeAttachment struct {
 	// Volume is the unique tag assigned by Juju for the volume
 	// that this attachment corresponds to.
-	Volume names.DiskTag
+	Volume names.VolumeTag
 
-	// MachineId is the unique tag assigned by Juju for the machine that
+	// Machine is the unique tag assigned by Juju for the machine that
 	// this attachment corresponds to.
 	Machine names.MachineTag
 
@@ -41,4 +41,7 @@ type VolumeAttachment struct {
 	// If the device name may change (e.g. on machine restart), then this
 	// field must be left blank.
 	DeviceName string
+
+	// ReadOnly signifies whether the volume is read only or writable.
+	ReadOnly bool
 }

@@ -4,13 +4,11 @@
 package filter
 
 import (
-	"sort"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
@@ -18,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/uniter/hook"
 )
 
 var filterLogger = loggo.GetLogger("juju.worker.uniter.filter")
@@ -39,8 +36,8 @@ type filter struct {
 	// to the client.
 	outConfig        chan struct{}
 	outConfigOn      chan struct{}
-	outAction        chan *hook.Info
-	outActionOn      chan *hook.Info
+	outAction        chan string
+	outActionOn      chan string
 	outUpgrade       chan *charm.URL
 	outUpgradeOn     chan *charm.URL
 	outResolved      chan params.ResolvedMode
@@ -49,6 +46,8 @@ type filter struct {
 	outRelationsOn   chan []int
 	outMeterStatus   chan struct{}
 	outMeterStatusOn chan struct{}
+	outStorage       chan []names.StorageTag
+	outStorageOn     chan []names.StorageTag
 	// The want* chans are used to indicate that the filter should send
 	// events if it has them available.
 	wantForcedUpgrade chan bool
@@ -92,8 +91,9 @@ type filter struct {
 	upgradeAvailable serviceCharm
 	upgrade          *charm.URL
 	relations        []int
+	storage          []names.StorageTag
 	actionsPending   []string
-	nextAction       *hook.Info
+	nextAction       string
 
 	// meterStatusCode and meterStatusInfo reflect the meter status values of the unit.
 	meterStatusCode string
@@ -109,7 +109,7 @@ func NewFilter(st *uniter.State, unitTag names.UnitTag) (Filter, error) {
 		outConfig:         nil,
 		outConfigOn:       make(chan struct{}),
 		outAction:         nil,
-		outActionOn:       make(chan *hook.Info),
+		outActionOn:       make(chan string),
 		outUpgrade:        nil,
 		outUpgradeOn:      make(chan *charm.URL),
 		outResolved:       nil,
@@ -118,6 +118,8 @@ func NewFilter(st *uniter.State, unitTag names.UnitTag) (Filter, error) {
 		outRelationsOn:    make(chan []int),
 		outMeterStatus:    nil,
 		outMeterStatusOn:  make(chan struct{}),
+		outStorage:        nil,
+		outStorageOn:      make(chan []names.StorageTag),
 		wantForcedUpgrade: make(chan bool),
 		wantResolved:      make(chan struct{}),
 		discardConfig:     make(chan struct{}),
@@ -182,7 +184,7 @@ func (f *filter) ConfigEvents() <-chan struct{} {
 
 // ActionEvents returns a channel that will receive a signal whenever the unit
 // receives new Actions.
-func (f *filter) ActionEvents() <-chan *hook.Info {
+func (f *filter) ActionEvents() <-chan string {
 	return f.outActionOn
 }
 
@@ -190,6 +192,12 @@ func (f *filter) ActionEvents() <-chan *hook.Info {
 // relations whose Life status has changed.
 func (f *filter) RelationsEvents() <-chan []int {
 	return f.outRelationsOn
+}
+
+// StorageEvents returns a channel that will receive the tags of all the unit's
+// associated storage instances.
+func (f *filter) StorageEvents() <-chan []names.StorageTag {
+	return f.outStorageOn
 }
 
 // WantUpgradeEvent controls whether the filter will generate upgrade
@@ -341,6 +349,11 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		return err
 	}
 	defer watcher.Stop(addressesw, &f.tomb)
+	storagew, err := f.unit.WatchStorage()
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop(storagew, &f.tomb)
 
 	// Config events cannot be meaningfully discarded until one is available;
 	// once we receive the initial config and address changes, we unblock
@@ -433,6 +446,17 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 				}
 			}
 			f.relationsChanged(ids)
+		case ids, ok := <-storagew.Changes():
+			filterLogger.Debugf("got storage change")
+			if !ok {
+				return watcher.EnsureErr(storagew)
+			}
+			tags := make([]names.StorageTag, len(ids))
+			for i, id := range ids {
+				tag := names.NewStorageTag(id)
+				tags[i] = tag
+			}
+			f.storageChanged(tags)
 
 		// Send events on active out chans.
 		case f.outUpgrade <- f.upgrade:
@@ -454,6 +478,10 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		case f.outMeterStatus <- nothing:
 			filterLogger.Debugf("sent meter status change event")
 			f.outMeterStatus = nil
+		case f.outStorage <- f.storage:
+			filterLogger.Debugf("sent storage event")
+			f.outStorage = nil
+			f.storage = nil
 
 		// Handle explicit requests.
 		case curl := <-f.setCharm:
@@ -623,38 +651,49 @@ func (f *filter) upgradeChanged() (err error) {
 }
 
 // relationsChanged responds to service relation changes.
-func (f *filter) relationsChanged(ids []int) {
-outer:
-	for _, id := range ids {
-		for _, existing := range f.relations {
-			if id == existing {
-				continue outer
-			}
-		}
-		f.relations = append(f.relations, id)
+func (f *filter) relationsChanged(changed []int) {
+	ids := set.NewInts(f.relations...)
+	for _, id := range changed {
+		ids.Add(id)
 	}
-	if len(f.relations) != 0 {
-		sort.Ints(f.relations)
+	if len(f.relations) != len(ids) {
+		f.relations = ids.SortedValues()
 		f.outRelations = f.outRelationsOn
 	}
 }
 
-func (f *filter) getNextAction() *hook.Info {
-	if len(f.actionsPending) > 0 {
-		nextAction := hook.Info{
-			Kind:     hooks.Action,
-			ActionId: f.actionsPending[0],
+// storageChanged responds to unit storage changes.
+func (f *filter) storageChanged(changed []names.StorageTag) {
+	tags := set.NewTags() // f.storage is []StorageTag, not []Tag
+	for _, tag := range f.storage {
+		tags.Add(tag)
+	}
+	for _, tag := range changed {
+		tags.Add(tag)
+	}
+	if len(f.storage) != len(tags) {
+		storage := make([]names.StorageTag, len(tags))
+		for i, tag := range tags.SortedValues() {
+			storage[i] = tag.(names.StorageTag)
 		}
+		f.storage = storage
+		f.outStorage = f.outStorageOn
+	}
+}
+
+func (f *filter) getNextAction() string {
+	if len(f.actionsPending) > 0 {
+		actionId := f.actionsPending[0]
 
 		f.outAction = f.outActionOn
 		f.actionsPending = f.actionsPending[1:]
 
-		return &nextAction
+		return actionId
 	} else {
 		f.outAction = nil
 	}
 
-	return nil
+	return ""
 }
 
 // serviceCharm holds information about a charm.

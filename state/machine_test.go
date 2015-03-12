@@ -916,15 +916,15 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 	c.Assert(err, gc.ErrorMatches, `cannot add network interface "" to machine "1": MAC address must be not empty`)
 	assertNotProvisioned()
 
-	invalidVolumes := map[names.DiskTag]state.VolumeInfo{names.NewDiskTag("1065"): state.VolumeInfo{}}
+	invalidVolumes := map[names.VolumeTag]state.VolumeInfo{names.NewVolumeTag("1065"): state.VolumeInfo{}}
 	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidVolumes, nil)
-	c.Assert(err, gc.ErrorMatches, "cannot set provisioned volume info: already provisioned")
+	c.Assert(err, gc.ErrorMatches, `cannot set info for volume \"1065\": volume \"1065\" not found`)
 	assertNotProvisioned()
 
 	// TODO(axw) test invalid volume attachment
 }
 
-func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams) names.DiskTag {
+func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams) names.VolumeTag {
 	op, tag, err := state.AddVolumeOp(s.State, params)
 	c.Assert(err, jc.ErrorIsNil)
 	err = state.RunTransaction(s.State, []txn.Op{op})
@@ -948,7 +948,7 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	interfaces := []state.NetworkInterfaceInfo{
 		{MACAddress: "aa:bb:cc:dd:ee:ff", NetworkName: "net1", InterfaceName: "eth0", IsVirtual: false},
 	}
-	volumes := map[names.DiskTag]state.VolumeInfo{
+	volumes := map[names.VolumeTag]state.VolumeInfo{
 		volumeTag: state.VolumeInfo{
 			VolumeId: "storage-123",
 			Size:     1234,

@@ -10,8 +10,11 @@ import (
 )
 
 var importResponses = map[string]string{
-	"lp:validuser": sshtesting.ValidKeyThree.Key,
-	"lp:existing":  sshtesting.ValidKeyTwo.Key,
+	"lp:validuser":    sshtesting.ValidKeyThree.Key,
+	"lp:existing":     sshtesting.ValidKeyTwo.Key,
+	"lp:multi":        sshtesting.ValidKeyMulti,
+	"lp:multipartial": sshtesting.PartValidKeyMulti,
+	"lp:multiempty":   sshtesting.EmptyKeyMulti,
 }
 
 var FakeImport = func(keyId string) (string, error) {

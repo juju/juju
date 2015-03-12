@@ -17,19 +17,17 @@ type AddressSuite struct{}
 
 var _ = gc.Suite(&AddressSuite{})
 
-func (s *AddressSuite) TestNewAddress(c *gc.C) {
-	instanceaddress := network.Address{"0.0.0.0", network.IPv4Address,
+func (s *AddressSuite) TestAddressConversion(c *gc.C) {
+	netAddress := network.Address{"0.0.0.0", network.IPv4Address,
 		"net", network.ScopeUnknown}
-	stateaddress := state.NewAddress(instanceaddress)
-	c.Assert(stateaddress, gc.NotNil)
+	state.AssertAddressConversion(c, netAddress)
 }
 
-func (s *AddressSuite) TestInstanceAddressRoundtrips(c *gc.C) {
-	instanceaddress := network.Address{"0.0.0.0", network.IPv4Address,
+func (s *AddressSuite) TestHostPortConversion(c *gc.C) {
+	netAddress := network.Address{"0.0.0.0", network.IPv4Address,
 		"net", network.ScopeUnknown}
-	stateaddress := state.NewAddress(instanceaddress)
-	addr := stateaddress.InstanceAddress()
-	c.Assert(addr, gc.Equals, instanceaddress)
+	netHostPort := network.HostPort{netAddress, 4711}
+	state.AssertHostPortConversion(c, netHostPort)
 }
 
 type StateServerAddressesSuite struct {

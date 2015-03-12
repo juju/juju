@@ -6,6 +6,7 @@ package leadership
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
@@ -21,6 +22,14 @@ const (
 	// to register the service, and for the client to resolve the
 	// service endpoint.
 	FacadeName = "LeadershipService"
+
+	// MinLeaseRequest is the shortest duration for which we will accept
+	// a leadership claim.
+	MinLeaseRequest = 5 * time.Second
+
+	// MaxLeaseRequest is the longest duration for which we will accept
+	// a leadership claim.
+	MaxLeaseRequest = 5 * time.Minute
 )
 
 var (
@@ -87,19 +96,18 @@ type leadershipService struct {
 // ClaimLeadership implements the LeadershipService interface.
 func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParams) (params.ClaimLeadershipBulkResults, error) {
 
-	var dur time.Duration
-	claim := callWithIds(func(sid, uid string) (err error) {
-		dur, err = m.LeadershipManager.ClaimLeadership(sid, uid)
-		return err
-	})
-
-	results := make([]params.ClaimLeadershipResults, len(args.Params))
+	results := make([]params.ErrorResult, len(args.Params))
 	for pIdx, p := range args.Params {
 
 		result := &results[pIdx]
-		svcTag, unitTag, err := parseServiceAndUnitTags(p.ServiceTag, p.UnitTag)
+		serviceTag, unitTag, err := parseServiceAndUnitTags(p.ServiceTag, p.UnitTag)
 		if err != nil {
-			result.Error = err
+			result.Error = common.ServerError(err)
+			continue
+		}
+		duration := time.Duration(p.DurationSeconds * float64(time.Second))
+		if duration > MaxLeaseRequest || duration < MinLeaseRequest {
+			result.Error = common.ServerError(errors.New("invalid duration"))
 			continue
 		}
 
@@ -109,13 +117,12 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 		if !m.authorizer.AuthUnitAgent() || !m.authorizer.AuthOwner(unitTag) {
 			result.Error = common.ServerError(common.ErrPerm)
 			continue
-		} else if err := claim(svcTag, unitTag).Error; err != nil {
-			result.Error = err
-			continue
 		}
 
-		result.ClaimDurationInSec = dur.Seconds()
-		result.ServiceTag = p.ServiceTag
+		err = m.LeadershipManager.ClaimLeadership(serviceTag.Id(), unitTag.Id(), duration)
+		if err != nil {
+			result.Error = common.ServerError(err)
+		}
 	}
 
 	return params.ClaimLeadershipBulkResults{results}, nil
@@ -124,15 +131,14 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 // ReleaseLeadership implements the LeadershipService interface.
 func (m *leadershipService) ReleaseLeadership(args params.ReleaseLeadershipBulkParams) (params.ReleaseLeadershipBulkResults, error) {
 
-	release := callWithIds(m.LeadershipManager.ReleaseLeadership)
 	results := make([]params.ErrorResult, len(args.Params))
 
 	for paramIdx, p := range args.Params {
 
 		result := &results[paramIdx]
-		svcTag, unitTag, err := parseServiceAndUnitTags(p.ServiceTag, p.UnitTag)
+		serviceTag, unitTag, err := parseServiceAndUnitTags(p.ServiceTag, p.UnitTag)
 		if err != nil {
-			result.Error = err
+			result.Error = common.ServerError(err)
 			continue
 		}
 
@@ -144,7 +150,10 @@ func (m *leadershipService) ReleaseLeadership(args params.ReleaseLeadershipBulkP
 			continue
 		}
 
-		result.Error = release(svcTag, unitTag).Error
+		err = m.LeadershipManager.ReleaseLeadership(serviceTag.Id(), unitTag.Id())
+		if err != nil {
+			result.Error = common.ServerError(err)
+		}
 	}
 
 	return params.ReleaseLeadershipBulkResults{results}, nil
@@ -162,33 +171,25 @@ func (m *leadershipService) BlockUntilLeadershipReleased(serviceTag names.Servic
 	return params.ErrorResult{}, nil
 }
 
-// callWithIds transforms a common Leadership Election function
-// signature into one that is conducive to use in the API Server.
-func callWithIds(fn func(string, string) error) func(st, ut names.Tag) params.ErrorResult {
-	return func(st, ut names.Tag) (result params.ErrorResult) {
-		if err := fn(st.Id(), ut.Id()); err != nil {
-			result.Error = common.ServerError(err)
-		}
-		return result
-	}
-}
-
 // parseServiceAndUnitTags takes in string representations of service
-// and unit tags and parses them into structs.
-//
-// NOTE: we return permissions errors when parsing fails to obfuscate
-// the parse-failure. This is for security purposes.
+// and unit tags and returns their corresponding tags.
 func parseServiceAndUnitTags(
 	serviceTagString, unitTagString string,
-) (serviceTag names.ServiceTag, unitTag names.UnitTag, _ *params.Error) {
+) (
+	names.ServiceTag, names.UnitTag, error,
+) {
+	// TODO(fwereade) 2015-02-25 bug #1425506
+	// These permissions errors are not appropriate -- there's no permission or
+	// security issue in play here, because our tag format is public, and the
+	// error only triggers when the strings fail to match that format.
 	serviceTag, err := names.ParseServiceTag(serviceTagString)
 	if err != nil {
-		return serviceTag, unitTag, common.ServerError(common.ErrPerm)
+		return names.ServiceTag{}, names.UnitTag{}, common.ErrPerm
 	}
 
-	unitTag, err = names.ParseUnitTag(unitTagString)
+	unitTag, err := names.ParseUnitTag(unitTagString)
 	if err != nil {
-		return serviceTag, unitTag, common.ServerError(common.ErrPerm)
+		return names.ServiceTag{}, names.UnitTag{}, common.ErrPerm
 	}
 
 	return serviceTag, unitTag, nil

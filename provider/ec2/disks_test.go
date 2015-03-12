@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	amzec2 "gopkg.in/amz.v2/ec2"
+	amzec2 "gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -82,8 +82,8 @@ func (*DisksSuite) TestBlockDeviceNamer(c *gc.C) {
 }
 
 func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
-	volume0 := names.NewDiskTag("0")
-	volume1 := names.NewDiskTag("1")
+	volume0 := names.NewVolumeTag("0")
+	volume1 := names.NewVolumeTag("1")
 	machine0 := names.NewMachineTag("0")
 
 	mapping, volumes, volumeAttachments, err := ec2.GetBlockDeviceMappings(
@@ -94,8 +94,10 @@ func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 			Tag:      volume0,
 			Size:     1234,
 			Provider: ec2.EBS_ProviderType,
-			Attachment: &storage.AttachmentParams{
-				Machine: machine0,
+			Attachment: &storage.VolumeAttachmentParams{
+				AttachmentParams: storage.AttachmentParams{
+					Machine: machine0,
+				},
 			},
 		}, {
 			Tag:      volume1,
@@ -105,8 +107,10 @@ func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 				"volume-type": "io1",
 				"iops":        "1234",
 			},
-			Attachment: &storage.AttachmentParams{
-				Machine: machine0,
+			Attachment: &storage.VolumeAttachmentParams{
+				AttachmentParams: storage.AttachmentParams{
+					Machine: machine0,
+				},
 			},
 		}}},
 	)
@@ -146,7 +150,7 @@ func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 }
 
 func (*DisksSuite) TestGetBlockDeviceMappingErrors(c *gc.C) {
-	volume0 := names.NewDiskTag("0")
+	volume0 := names.NewVolumeTag("0")
 	machine0 := names.NewMachineTag("0")
 
 	for _, test := range []struct {
@@ -163,8 +167,10 @@ func (*DisksSuite) TestGetBlockDeviceMappingErrors(c *gc.C) {
 			params: storage.VolumeParams{
 				Size:     100000000,
 				Provider: ec2.EBS_ProviderType,
-				Attachment: &storage.AttachmentParams{
-					Machine: machine0,
+				Attachment: &storage.VolumeAttachmentParams{
+					AttachmentParams: storage.AttachmentParams{
+						Machine: machine0,
+					},
 				},
 			},
 			err: "invalid volume parameters: 97657 GiB exceeds the maximum of 1024 GiB",
@@ -178,8 +184,10 @@ func (*DisksSuite) TestGetBlockDeviceMappingErrors(c *gc.C) {
 					"volume-type": "io1",
 					"iops":        "1234",
 				},
-				Attachment: &storage.AttachmentParams{
-					Machine: machine0,
+				Attachment: &storage.VolumeAttachmentParams{
+					AttachmentParams: storage.AttachmentParams{
+						Machine: machine0,
+					},
 				},
 			},
 			err: "invalid volume parameters: volume size is 1 GiB, must be at least 10 GiB for provisioned IOPS",
@@ -193,8 +201,10 @@ func (*DisksSuite) TestGetBlockDeviceMappingErrors(c *gc.C) {
 					"volume-type": "io1",
 					"iops":        "1234",
 				},
-				Attachment: &storage.AttachmentParams{
-					Machine: machine0,
+				Attachment: &storage.VolumeAttachmentParams{
+					AttachmentParams: storage.AttachmentParams{
+						Machine: machine0,
+					},
 				},
 			},
 			err: "invalid volume parameters: volume size is 10 GiB, must be at least 41 GiB to support 1234 IOPS",
@@ -208,8 +218,10 @@ func (*DisksSuite) TestGetBlockDeviceMappingErrors(c *gc.C) {
 					"volume-type": "standard",
 					"iops":        "1234",
 				},
-				Attachment: &storage.AttachmentParams{
-					Machine: machine0,
+				Attachment: &storage.VolumeAttachmentParams{
+					AttachmentParams: storage.AttachmentParams{
+						Machine: machine0,
+					},
 				},
 			},
 			err: `invalid volume parameters: IOPS specified, but volume type is "standard"`,

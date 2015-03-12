@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/networker"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -35,7 +36,7 @@ type networkerSuite struct {
 	nestedContainerIfaces []state.NetworkInterfaceInfo
 
 	st        *api.State
-	networker *networker.State
+	networker networker.State
 }
 
 var _ = gc.Suite(&networkerSuite{})
@@ -168,14 +169,39 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.networker, gc.NotNil)
 }
 
-func (s *networkerSuite) TestMachineNetworkInfoPermissionDenied(c *gc.C) {
-	info, err := s.networker.MachineNetworkInfo(names.NewMachineTag("1"))
+func (s *networkerSuite) TestMachineNetworkConfigPermissionDenied(c *gc.C) {
+	info, err := s.networker.MachineNetworkConfig(names.NewMachineTag("1"))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(info, gc.IsNil)
 }
 
-func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
+func (s *networkerSuite) TestMachineNetworkConfigNameChange(c *gc.C) {
+	var called bool
+	networker.PatchFacadeCall(s, s.networker, func(request string, args, response interface{}) error {
+		if !called {
+			called = true
+			c.Assert(request, gc.Equals, "MachineNetworkConfig")
+			return &params.Error{"MachineNetworkConfig", params.CodeNotImplemented}
+		}
+		c.Assert(request, gc.Equals, "MachineNetworkInfo")
+		expected := params.Entities{
+			Entities: []params.Entity{{Tag: names.NewMachineTag("42").String()}},
+		}
+		c.Assert(args, gc.DeepEquals, expected)
+		result := response.(*params.MachineNetworkConfigResults)
+		result.Results = make([]params.MachineNetworkConfigResult, 1)
+		result.Results[0].Error = common.ServerError(common.ErrPerm)
+		return nil
+	})
+	// Make a call, in this case result is "permission denied".
+	info, err := s.networker.MachineNetworkConfig(names.NewMachineTag("42"))
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(info, gc.IsNil)
+}
+
+func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 	// TODO(bogdanteleaga): Find out what's the problem with this test
 	// It seems to work on some machines
 	if runtime.GOOS == "windows" {
@@ -250,15 +276,15 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		InterfaceName: "eth0",
 	}}
 
-	results, err := s.networker.MachineNetworkInfo(names.NewMachineTag("0"))
+	results, err := s.networker.MachineNetworkConfig(names.NewMachineTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, expectedMachineInfo)
 
-	results, err = s.networker.MachineNetworkInfo(names.NewMachineTag("0/lxc/0"))
+	results, err = s.networker.MachineNetworkConfig(names.NewMachineTag("0/lxc/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, expectedContainerInfo)
 
-	results, err = s.networker.MachineNetworkInfo(names.NewMachineTag("0/lxc/0/lxc/0"))
+	results, err = s.networker.MachineNetworkConfig(names.NewMachineTag("0/lxc/0/lxc/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, expectedNestedContainerInfo)
 }

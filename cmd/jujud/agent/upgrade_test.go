@@ -433,6 +433,8 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	//TODO(bogdanteleaga): Fix this to behave properly
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: this fails half of the time on windows because files are not closed properly")

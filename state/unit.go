@@ -62,29 +62,48 @@ const (
 	ResolvedNoHooks    ResolvedMode = "no-hooks"
 )
 
+// port identifies a network port number for a particular protocol.
+// TODO(mue) Not really used anymore, se bellow. Can be removed when
+// cleaning unitDoc.
+type port struct {
+	Protocol string `bson:"protocol"`
+	Number   int    `bson:"number"`
+}
+
+// networkPorts is a convenience helper to return the state type
+// as network type, here for a slice of Port.
+func networkPorts(ports []port) []network.Port {
+	netPorts := make([]network.Port, len(ports))
+	for i, port := range ports {
+		netPorts[i] = network.Port{port.Protocol, port.Number}
+	}
+	return netPorts
+}
+
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in apiserver/params.
 type unitDoc struct {
-	DocID            string `bson:"_id"`
-	Name             string `bson:"name"`
-	EnvUUID          string `bson:"env-uuid"`
-	Service          string
-	Series           string
-	CharmURL         *charm.URL
-	Principal        string
-	Subordinates     []string
-	StorageInstances []string `bson:"storageinstances,omitempty"`
-	MachineId        string
-	Resolved         ResolvedMode
-	Tools            *tools.Tools `bson:",omitempty"`
-	Life             Life
-	TxnRevno         int64 `bson:"txn-revno"`
-	PasswordHash     string
+	DocID                  string `bson:"_id"`
+	Name                   string `bson:"name"`
+	EnvUUID                string `bson:"env-uuid"`
+	Service                string
+	Series                 string
+	CharmURL               *charm.URL
+	Principal              string
+	Subordinates           []string
+	StorageAttachmentCount int `bson:"storageattachmentcount"`
+	MachineId              string
+	Resolved               ResolvedMode
+	Tools                  *tools.Tools `bson:",omitempty"`
+	Life                   Life
+	TxnRevno               int64 `bson:"txn-revno"`
+	PasswordHash           string
 
-	// No longer used - to be removed.
-	Ports          []network.Port
-	PublicAddress  string
-	PrivateAddress string
+	// TODO(mue) No longer actively used, only in upgrades.go.
+	// To be removed later.
+	Ports          []port `bson:"ports"`
+	PublicAddress  string `bson:"publicaddress"`
+	PrivateAddress string `bson:"privateaddress"`
 }
 
 // Unit represents the state of a service unit.
@@ -342,7 +361,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	}, cleanupOp, minUnitsOp}
 	if u.doc.Principal != "" {
 		return setDyingOps, nil
-	} else if len(u.doc.Subordinates)+len(u.doc.StorageInstances) != 0 {
+	} else if len(u.doc.Subordinates)+u.doc.StorageAttachmentCount != 0 {
 		return setDyingOps, nil
 	}
 
@@ -364,7 +383,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	removeAsserts := append(isAliveDoc, bson.DocElem{
 		"$and", []bson.D{
 			unitHasNoSubordinates,
-			unitHasNoStorageInstances,
+			unitHasNoStorageAttachments,
 		},
 	})
 	removeOps, err := u.removeOps(removeAsserts)
@@ -494,15 +513,15 @@ var unitHasNoSubordinates = bson.D{{
 	},
 }}
 
-// ErrUnitHasStorageInstances is a standard error to indicate that a Unit
-// cannot complete an operation to end its life because it still has
-// storage instances.
-var ErrUnitHasStorageInstances = stderrors.New("unit has storage instances")
+// ErrUnitHasStorageAttachments is a standard error to indicate that
+// a Unit cannot complete an operation to end its life because it still
+// has storage attachments.
+var ErrUnitHasStorageAttachments = stderrors.New("unit has storage attachments")
 
-var unitHasNoStorageInstances = bson.D{{
+var unitHasNoStorageAttachments = bson.D{{
 	"$or", []bson.D{
-		{{"storageinstances", bson.D{{"$size", 0}}}},
-		{{"storageinstances", bson.D{{"$exists", false}}}},
+		{{"storageattachmentcount", 0}},
+		{{"storageattachmentcount", bson.D{{"$exists", false}}}},
 	},
 }}
 
@@ -522,7 +541,7 @@ func (u *Unit) EnsureDead() (err error) {
 	assert := append(notDeadDoc, bson.DocElem{
 		"$and", []bson.D{
 			unitHasNoSubordinates,
-			unitHasNoStorageInstances,
+			unitHasNoStorageAttachments,
 		},
 	})
 	ops := []txn.Op{{
@@ -547,7 +566,7 @@ func (u *Unit) EnsureDead() (err error) {
 	if len(u.doc.Subordinates) > 0 {
 		return ErrUnitHasSubordinates
 	}
-	return ErrUnitHasStorageInstances
+	return ErrUnitHasStorageAttachments
 }
 
 // Remove removes the unit from state, and may remove its service as well, if
@@ -619,14 +638,6 @@ func (u *Unit) SubordinateNames() []string {
 	names := make([]string, len(u.doc.Subordinates))
 	copy(names, u.doc.Subordinates)
 	return names
-}
-
-// StorageInstanceIds returns the IDs of any storage instances owned by
-// the unit.
-func (u *Unit) StorageInstanceIds() []string {
-	ids := make([]string, len(u.doc.StorageInstances))
-	copy(ids, u.doc.StorageInstances)
-	return ids
 }
 
 // RelationsJoined returns the relations for which the unit has entered scope
@@ -1366,85 +1377,132 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	if err != nil {
 		return err
 	}
-	volumes, volumeAttachments, err := u.newMachineVolumeParams()
+	storageParams, err := u.newMachineStorageParams()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	template := MachineTemplate{
-		Series:            u.doc.Series,
-		Constraints:       *cons,
-		Jobs:              []MachineJob{JobHostUnits},
-		RequestedNetworks: requestedNetworks,
-		Volumes:           volumes,
-		VolumeAttachments: volumeAttachments,
+		Series:                u.doc.Series,
+		Constraints:           *cons,
+		Jobs:                  []MachineJob{JobHostUnits},
+		RequestedNetworks:     requestedNetworks,
+		Volumes:               storageParams.volumes,
+		VolumeAttachments:     storageParams.volumeAttachments,
+		Filesystems:           storageParams.filesystems,
+		FilesystemAttachments: storageParams.filesystemAttachments,
 	}
 	return u.assignToNewMachine(template, "", containerType)
 }
 
-// newMachineVolumeParams returns parameters for creating volumes and volume
-// attachments for a new machine that the unit will be assigned to.
-func (u *Unit) newMachineVolumeParams() ([]MachineVolumeParams, map[names.DiskTag]VolumeAttachmentParams, error) {
+type storageParams struct {
+	volumes               []MachineVolumeParams
+	volumeAttachments     map[names.VolumeTag]VolumeAttachmentParams
+	filesystems           []MachineFilesystemParams
+	filesystemAttachments map[names.FilesystemTag]FilesystemAttachmentParams
+}
+
+// newMachineStorageParams returns parameters for creating volumes/filesystems
+// and volume/filesystem attachments for a new machine that the unit will be
+// assigned to.
+func (u *Unit) newMachineStorageParams() (*storageParams, error) {
 	storageAttachments, err := u.st.StorageAttachments(u.UnitTag())
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "getting storage attachments")
+		return nil, errors.Annotate(err, "getting storage attachments")
 	}
 	svc, err := u.Service()
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	curl, _ := svc.CharmURL()
 	if curl == nil {
-		return nil, nil, errors.Errorf("no URL set for service %q", svc.Name())
+		return nil, errors.Errorf("no URL set for service %q", svc.Name())
 	}
 	ch, err := u.st.Charm(curl)
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "getting charm")
+		return nil, errors.Annotate(err, "getting charm")
 	}
 	allCons, err := u.StorageConstraints()
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "getting storage constraints")
+		return nil, errors.Annotatef(err, "getting storage constraints")
 	}
 
 	var volumes []MachineVolumeParams
-	volumeAttachments := make(map[names.DiskTag]VolumeAttachmentParams)
+	var filesystems []MachineFilesystemParams
+	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
+	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
 	for _, storageAttachment := range storageAttachments {
-		// TODO(axw) consult storage provider to see if we need to request
-		// a volume for the storage instance. Otherwise create a Filesystem
-		// and FilesystemAttachment.
-		storageInstance, err := u.st.StorageInstance(storageAttachment.StorageInstance())
+		storage, err := u.st.StorageInstance(storageAttachment.StorageInstance())
 		if err != nil {
-			return nil, nil, errors.Annotatef(err, "getting storage instance")
+			return nil, errors.Annotatef(err, "getting storage instance")
 		}
 
-		charmStorage := ch.Meta().Storage[storageInstance.StorageName()]
-		volumeAttachmentParams := VolumeAttachmentParams{
-			charmStorage.ReadOnly,
-		}
+		charmStorage := ch.Meta().Storage[storage.StorageName()]
 
-		if storageInstance.Owner() == u.Tag() {
-			// The storage instance is owned by the unit, so we'll need
-			// to create a volume.
-			cons := allCons[storageInstance.StorageName()]
-			volumeParams := VolumeParams{
-				storage: storageInstance.StorageTag(),
-				Pool:    cons.Pool,
-				Size:    cons.Size,
+		switch storage.Kind() {
+		case StorageKindBlock:
+			volumeAttachmentParams := VolumeAttachmentParams{
+				charmStorage.ReadOnly,
 			}
-			volumes = append(volumes, MachineVolumeParams{
-				volumeParams, volumeAttachmentParams,
-			})
-		} else {
-			// The storage instance is owned by the service, so there
-			// should be a (shared) volume already, for which we will
-			// just add an attachment.
-			volume, err := u.st.StorageInstanceVolume(storageInstance.StorageTag())
-			if err != nil {
-				return nil, nil, errors.Annotatef(err, "getting volume for storage %q", storageInstance.Tag().Id())
+			if storage.Owner() == u.Tag() {
+				// The storage instance is owned by the unit, so we'll need
+				// to create a volume.
+				cons := allCons[storage.StorageName()]
+				volumeParams := VolumeParams{
+					storage: storage.StorageTag(),
+					Pool:    cons.Pool,
+					Size:    cons.Size,
+				}
+				volumes = append(volumes, MachineVolumeParams{
+					volumeParams, volumeAttachmentParams,
+				})
+			} else {
+				// The storage instance is owned by the service, so there
+				// should be a (shared) volume already, for which we will
+				// just add an attachment.
+				volume, err := u.st.StorageInstanceVolume(storage.StorageTag())
+				if err != nil {
+					return nil, errors.Annotatef(err, "getting volume for storage %q", storage.Tag().Id())
+				}
+				volumeAttachments[volume.VolumeTag()] = volumeAttachmentParams
 			}
-			volumeAttachments[volume.VolumeTag()] = volumeAttachmentParams
+		case StorageKindFilesystem:
+			filesystemAttachmentParams := FilesystemAttachmentParams{
+				charmStorage.Location,
+				charmStorage.ReadOnly,
+			}
+			if storage.Owner() == u.Tag() {
+				// The storage instance is owned by the unit, so we'll need
+				// to create a filesystem.
+				cons := allCons[storage.StorageName()]
+				filesystemParams := FilesystemParams{
+					storage: storage.StorageTag(),
+					Pool:    cons.Pool,
+					Size:    cons.Size,
+				}
+				filesystems = append(filesystems, MachineFilesystemParams{
+					filesystemParams, filesystemAttachmentParams,
+				})
+			} else {
+				// The storage instance is owned by the service, so there
+				// should be a (shared) filesystem already, for which we will
+				// just add an attachment.
+				filesystem, err := u.st.StorageInstanceFilesystem(storage.StorageTag())
+				if err != nil {
+					return nil, errors.Annotatef(err, "getting filesystem for storage %q", storage.Tag().Id())
+				}
+				filesystemAttachments[filesystem.FilesystemTag()] = filesystemAttachmentParams
+			}
+		default:
+			return nil, errors.Errorf("invalid storage kind %v", storage.Kind())
 		}
 	}
-	return volumes, volumeAttachments, nil
+	result := &storageParams{
+		volumes,
+		volumeAttachments,
+		filesystems,
+		filesystemAttachments,
+	}
+	return result, nil
 }
 
 var noCleanMachines = stderrors.New("all eligible machines in use")
@@ -1797,7 +1855,10 @@ func (u *Unit) RunningActions() ([]*Action, error) {
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
 func (u *Unit) Resolve(retryHooks bool) error {
-	status, _, _, err := u.Status()
+	// We currently check agent status to see if a unit is
+	// in error state. As the new Juju Health work is completed,
+	// this will change to checking the unit status.
+	status, _, _, err := u.AgentStatus()
 	if err != nil {
 		return err
 	}

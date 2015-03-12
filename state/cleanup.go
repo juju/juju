@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -22,6 +23,7 @@ const (
 	cleanupRemovedUnit                 cleanupKind = "removedUnit"
 	cleanupServicesForDyingEnvironment cleanupKind = "services"
 	cleanupForceDestroyedMachine       cleanupKind = "machine"
+	cleanupAttachmentsForDyingStorage  cleanupKind = "storageAttachments"
 )
 
 // cleanupDoc represents a potentially large set of documents that should be
@@ -84,6 +86,8 @@ func (st *State) Cleanup() error {
 			err = st.cleanupServicesForDyingEnvironment()
 		case cleanupForceDestroyedMachine:
 			err = st.cleanupForceDestroyedMachine(doc.Prefix)
+		case cleanupAttachmentsForDyingStorage:
+			err = st.cleanupAttachmentsForDyingStorage(doc.Prefix)
 		default:
 			err = fmt.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
@@ -329,4 +333,32 @@ func (st *State) obliterateUnit(unitName string) error {
 		return err
 	}
 	return unit.Remove()
+}
+
+// cleanupAttachmentsForDyingStorage sets all storage attachments related
+// to the specified storage instance to Dying, if they are not already Dying
+// or Dead. It's expected to be used when a storage instance is destroyed.
+func (st *State) cleanupAttachmentsForDyingStorage(storageId string) error {
+	storageTag := names.NewStorageTag(storageId)
+
+	// This won't miss attachments, because a Dying service cannot have
+	// attachments added to it. But we do have to remove the attachments
+	// themselves via individual transactions, because they could be in
+	// any state at all.
+	coll, closer := st.getCollection(storageAttachmentsC)
+	defer closer()
+
+	var doc storageAttachmentDoc
+	fields := bson.D{{"unitid", 1}}
+	iter := coll.Find(bson.D{{"storageid", storageId}}).Select(fields).Iter()
+	for iter.Next(&doc) {
+		unitTag := names.NewUnitTag(doc.Unit)
+		if err := st.DestroyStorageAttachment(storageTag, unitTag); err != nil {
+			return errors.Annotate(err, "destroying storage attachment")
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Annotate(err, "cannot read storage attachment document")
+	}
+	return nil
 }

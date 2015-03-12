@@ -5,7 +5,6 @@ package joyent_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/juju/testing"
@@ -85,14 +84,16 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-var newConfigTests = []struct {
+type configtest struct {
 	info    string
 	insert  coretesting.Attrs
 	remove  []string
 	envVars map[string]string
 	expect  coretesting.Attrs
 	err     string
-}{{
+}
+
+var newConfigTests = []configtest{{
 	info:   "sdc-user is required",
 	remove: []string{"sdc-user"},
 	err:    ".* cannot get sdc-user value from environment variable .*",
@@ -203,10 +204,6 @@ var newConfigTests = []struct {
 	insert: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
 	expect: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
 }, {
-	info:   "private-key-path is inserted if missing",
-	remove: []string{"private-key-path"},
-	expect: coretesting.Attrs{"private-key-path": "~/.ssh/id_rsa"},
-}, {
 	info:   "can get private-key-path from env variable",
 	insert: coretesting.Attrs{"private-key-path": ""},
 	expect: coretesting.Attrs{"private-key-path": "some-file"},
@@ -231,31 +228,40 @@ var newConfigTests = []struct {
 	info:   "unknown field is not touched",
 	insert: coretesting.Attrs{"unknown-field": 12345},
 	expect: coretesting.Attrs{"unknown-field": 12345},
+}, {
+	info:   "can specify just private-key",
+	remove: []string{"private-key-path"},
+	insert: coretesting.Attrs{"private-key": "foo"},
 }}
 
 func (s *ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 	for i, test := range newConfigTests {
-		c.Logf("test %d: %s", i, test.info)
-		for k, v := range test.envVars {
-			os.Setenv(k, v)
+		doTest(s, i, test, c)
+	}
+}
+
+func doTest(s *ConfigSuite, i int, test configtest, c *gc.C) {
+	c.Logf("test %d: %s", i, test.info)
+	for k, v := range test.envVars {
+		os.Setenv(k, v)
+		defer os.Setenv(k, "")
+	}
+	attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
+	attrs["private-key"] = s.privateKeyData
+	testConfig := newConfig(c, attrs)
+	environ, err := environs.New(testConfig)
+	if test.err == "" {
+		c.Check(err, jc.ErrorIsNil)
+		if err != nil {
+			return
 		}
-		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
-		attrs["private-key"] = s.privateKeyData
-		testConfig := newConfig(c, attrs)
-		environ, err := environs.New(testConfig)
-		if test.err == "" {
-			c.Check(err, jc.ErrorIsNil)
-			if err != nil {
-				continue
-			}
-			attrs := environ.Config().AllAttrs()
-			for field, value := range test.expect {
-				c.Check(attrs[field], gc.Equals, value)
-			}
-		} else {
-			c.Check(environ, gc.IsNil)
-			c.Check(err, gc.ErrorMatches, test.err)
+		attrs := environ.Config().AllAttrs()
+		for field, value := range test.expect {
+			c.Check(attrs[field], gc.Equals, value)
 		}
+	} else {
+		c.Check(environ, gc.IsNil)
+		c.Check(err, gc.ErrorMatches, test.err)
 	}
 }
 
@@ -389,21 +395,4 @@ func (s *ConfigSuite) TestPrepareForBootstrap(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, test.err)
 		}
 	}
-}
-
-func (s *ConfigSuite) TestPrepareWithDefaultKeyFile(c *gc.C) {
-	ctx := envtesting.BootstrapContext(c)
-	// By default "private-key-path isn't set until after validateConfig has been called.
-	attrs := validAttrs().Delete("private-key-path", "private-key")
-	keyFilePath, err := utils.NormalizePath(jp.DefaultPrivateKey)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(keyFilePath, []byte(testPrivateKey), 400)
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.Remove(keyFilePath)
-	testConfig := newConfig(c, attrs)
-	preparedConfig, err := jp.Provider.PrepareForBootstrap(ctx, testConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	attrs = preparedConfig.Config().AllAttrs()
-	c.Check(attrs["private-key-path"], gc.Equals, jp.DefaultPrivateKey)
-	c.Check(attrs["private-key"], gc.Equals, testPrivateKey)
 }

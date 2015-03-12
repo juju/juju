@@ -157,7 +157,7 @@ type stopper interface {
 
 // stop stops a stopper.
 func stop(c *gc.C, s stopper) {
-	c.Assert(s.Stop(), gc.IsNil)
+	c.Assert(s.Stop(), jc.ErrorIsNil)
 }
 
 func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instance.Instance {
@@ -422,7 +422,7 @@ func (s *CommonProvisionerSuite) ensureAvailability(c *gc.C, n int) []*state.Mac
 
 func (s *ProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
-	c.Assert(p.Stop(), gc.IsNil)
+	c.Assert(p.Stop(), jc.ErrorIsNil)
 }
 
 func (s *ProvisionerSuite) TestSimple(c *gc.C) {
@@ -716,7 +716,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *gc.C) {
 
 func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
+	defer p.Stop()
 
 	// Add and provision a machine with networks specified.
 	requestedNetworks := []string{"net1", "net2"}
@@ -760,6 +760,58 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C
 	c.Assert(m.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, inst)
 	s.waitRemoved(c, m)
+}
+
+func (s *ProvisionerSuite) TestProvisioningMachinesWithInvalidNetwork(c *gc.C) {
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// "invalid-" prefix for networks causes the dummy provider to
+	// return network.InterfaceInfo with an invalid network name.
+	networks := []string{"invalid-net1"}
+	expectNetworkInfo := []network.InterfaceInfo{
+		{ProviderId: "invalid-net1", NetworkName: "$$invalid-net1", CIDR: "0.1.2.0/24"},
+	}
+	m, err := s.addMachineWithRequestedNetworks(networks, constraints.Value{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.checkStartInstanceCustom(
+		c, m, "pork", constraints.Value{},
+		networks, expectNetworkInfo, false,
+		nil, false,
+	)
+
+	// Ensure machine error status was set.
+	t0 := time.Now()
+	for time.Since(t0) < coretesting.LongWait {
+		// And check the machine status is set to error.
+		status, info, _, err := m.Status()
+		c.Assert(err, jc.ErrorIsNil)
+		if status == state.StatusPending {
+			time.Sleep(coretesting.ShortWait)
+			continue
+		}
+		c.Assert(status, gc.Equals, state.StatusError)
+		c.Assert(info, gc.Matches, `invalid network name "\$\$invalid-net1"`)
+		break
+	}
+
+	// Make sure the task didn't stop with an error
+	died := make(chan error)
+	go func() {
+		died <- p.Wait()
+	}()
+	select {
+	case <-time.After(coretesting.ShortWait):
+	case err = <-died:
+		c.Fatalf("provisioner task died unexpectedly with err: %v", err)
+	}
+
+	// Restart the PA to make sure the machine is not retried.
+	stop(c, p)
+	p = s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	s.checkNoOperations(c)
 }
 
 func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInstanceButKeepsGoing(c *gc.C) {

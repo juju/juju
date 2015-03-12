@@ -155,34 +155,16 @@ func (a *DiskFormatterAPI) oneAttachedVolumes(tag names.MachineTag) ([]params.Vo
 		} else if err != nil {
 			return nil, errors.Annotate(err, "getting volume attachment info")
 		}
-		if _, ok := matchingBlockDevice(blockDevices, volumeInfo, attachmentInfo); ok {
+		if _, ok := common.MatchingBlockDevice(blockDevices, volumeInfo, attachmentInfo); ok {
 			result = append(result, params.VolumeAttachment{
 				attachment.Volume().String(),
 				attachment.Machine().String(),
 				attachmentInfo.DeviceName,
+				attachmentInfo.ReadOnly,
 			})
 		}
 	}
 	return result, nil
-}
-
-// matchingBlockDevice finds the block device that matches the
-// provided volume info and volume attachment info.
-func matchingBlockDevice(
-	blockDevices []state.BlockDeviceInfo,
-	volumeInfo state.VolumeInfo,
-	attachmentInfo state.VolumeAttachmentInfo,
-) (*state.BlockDeviceInfo, bool) {
-	for _, dev := range blockDevices {
-		if volumeInfo.Serial != "" {
-			if volumeInfo.Serial == dev.Serial {
-				return &dev, true
-			}
-		} else if attachmentInfo.DeviceName == dev.DeviceName {
-			return &dev, true
-		}
-	}
-	return nil, false
 }
 
 // VolumePreparationInfo returns the information required to format the
@@ -201,7 +183,7 @@ func (a *DiskFormatterAPI) VolumePreparationInfo(args params.VolumeAttachmentIds
 		if err != nil || !canAccess(machineTag) {
 			return params.VolumePreparationInfo{}, common.ErrPerm
 		}
-		volumeTag, err := names.ParseDiskTag(id.VolumeTag)
+		volumeTag, err := names.ParseVolumeTag(id.VolumeTag)
 		if err != nil {
 			return params.VolumePreparationInfo{}, common.ErrPerm
 		}
@@ -217,7 +199,7 @@ func (a *DiskFormatterAPI) VolumePreparationInfo(args params.VolumeAttachmentIds
 
 func (a *DiskFormatterAPI) oneVolumePreparationInfo(
 	machineTag names.MachineTag,
-	volumeTag names.DiskTag,
+	volumeTag names.VolumeTag,
 	machineBlockDevices map[names.MachineTag][]state.BlockDeviceInfo,
 ) (params.VolumePreparationInfo, error) {
 	var result params.VolumePreparationInfo
@@ -246,7 +228,7 @@ func (a *DiskFormatterAPI) oneVolumePreparationInfo(
 		}
 		machineBlockDevices[machineTag] = blockDevices
 	}
-	blockDevice, ok := matchingBlockDevice(blockDevices, *volumeInfo, *attachmentInfo)
+	blockDevice, ok := common.MatchingBlockDevice(blockDevices, *volumeInfo, *attachmentInfo)
 	if !ok {
 		// volume is not visible yet.
 		return result, errors.NotFoundf(
@@ -273,7 +255,7 @@ func (a *DiskFormatterAPI) oneVolumePreparationInfo(
 // storage instance that the volume is assigned to.
 func (a *DiskFormatterAPI) attachedVolumeInfo(
 	machineTag names.MachineTag,
-	volumeTag names.DiskTag,
+	volumeTag names.VolumeTag,
 ) (*state.VolumeInfo, *state.VolumeAttachmentInfo, *names.StorageTag, error) {
 	volume, err := a.st.Volume(volumeTag)
 	if err != nil {
@@ -308,6 +290,7 @@ func stateBlockDevicePath(blockDevice *state.BlockDeviceInfo) (string, error) {
 		blockDevice.Size,
 		blockDevice.FilesystemType,
 		blockDevice.InUse,
+		blockDevice.MountPoint,
 	})
 	if err != nil {
 		return "", errors.Annotate(err, "determining block device path")

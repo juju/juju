@@ -81,6 +81,19 @@ type StorageAttachment struct {
 
 	Kind     StorageKind
 	Location string
+	Life     Life
+}
+
+// StorageAttachmentId identifies a storage attachment by the tags of the
+// related unit and storage instance.
+type StorageAttachmentId struct {
+	StorageTag string `json:"storagetag"`
+	UnitTag    string `json:"unittag"`
+}
+
+// StorageAttachmentIds holds a set of storage attachment identifiers.
+type StorageAttachmentIds struct {
+	Ids []StorageAttachmentId `json:"ids"`
 }
 
 // StorageAttachmentsResult holds the result of an API call to retrieve details
@@ -96,6 +109,19 @@ type StorageAttachmentsResults struct {
 	Results []StorageAttachmentsResult `json:"results,omitempty"`
 }
 
+// StorageAttachmentResult holds the result of an API call to retrieve details
+// of a storage attachment.
+type StorageAttachmentResult struct {
+	Result StorageAttachment `json:"result"`
+	Error  *Error            `json:"error,omitempty"`
+}
+
+// StorageAttachmentResults holds the result of an API call to retrieve details
+// of multiple storage attachments.
+type StorageAttachmentResults struct {
+	Results []StorageAttachmentResult `json:"results,omitempty"`
+}
+
 // Volume describes a storage volume in the environment.
 type Volume struct {
 	VolumeTag string `json:"volumetag"`
@@ -103,6 +129,11 @@ type Volume struct {
 	Serial    string `json:"serial"`
 	// Size is the size of the volume in MiB.
 	Size uint64 `json:"size"`
+}
+
+// Volumes describes a set of storage volumes in the environment.
+type Volumes struct {
+	Volumes []Volume `json:"volumes"`
 }
 
 // VolumeAttachmentId identifies a volume attachment by the tags of the
@@ -122,6 +153,7 @@ type VolumeAttachment struct {
 	VolumeTag  string `json:"volumetag"`
 	MachineTag string `json:"machinetag"`
 	DeviceName string `json:"devicename,omitempty"`
+	ReadOnly   bool   `json:"readonly"`
 }
 
 // VolumeParams holds the parameters for creating a storage volume.
@@ -166,6 +198,28 @@ type VolumeAttachmentsResult struct {
 // a set of machines.
 type VolumeAttachmentsResults struct {
 	Results []VolumeAttachmentsResult `json:"results,omitempty"`
+}
+
+// VolumeResult holds information about a volume.
+type VolumeResult struct {
+	Result Volume `json:"result"`
+	Error  *Error `json:"error,omitempty"`
+}
+
+// VolumeResults holds information about multiple volumes.
+type VolumeResults struct {
+	Results []VolumeResult `json:"results,omitempty"`
+}
+
+// VolumeParamsResults holds provisioning parameters for a volume.
+type VolumeParamsResult struct {
+	Result VolumeParams `json:"result"`
+	Error  *Error       `json:"error,omitempty"`
+}
+
+// VolumeParamsResults holds provisioning parameters for multiple volumes.
+type VolumeParamsResults struct {
+	Results []VolumeParamsResult `json:"results,omitempty"`
 }
 
 // StorageShowResult holds information about a storage instance

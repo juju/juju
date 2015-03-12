@@ -150,6 +150,9 @@ type lifecycleWatcher struct {
 	members bson.D
 	// filter is used to exclude events not affecting interesting entities.
 	filter func(interface{}) bool
+	// transform, if non-nil, is used to transform a document ID immediately
+	// prior to emitting to the out channel.
+	transform func(string) string
 	// life holds the most recent known life states of interesting entities.
 	life map[string]Life
 }
@@ -163,19 +166,41 @@ func collFactory(st *State, collName string) func() (stateCollection, func()) {
 // WatchEnvironments returns a StringsWatcher that notifies of changes
 // to the lifecycles of all environments.
 func (st *State) WatchEnvironments() StringsWatcher {
-	return newLifecycleWatcher(st, environmentsC, nil, nil)
+	return newLifecycleWatcher(st, environmentsC, nil, nil, nil)
 }
 
 // WatchVolumes returns a StringsWatcher that notifies of changes to
 // the lifecycles of all volumes.
+// TODO(wallyworld) - this currently watches all volumes; we need separate
+// methods to watch environ and specific machine volumes.
 func (st *State) WatchVolumes() StringsWatcher {
-	return newLifecycleWatcher(st, volumesC, nil, nil)
+	return newLifecycleWatcher(st, volumesC, nil, nil, nil)
 }
 
 // WatchServices returns a StringsWatcher that notifies of changes to
 // the lifecycles of the services in the environment.
 func (st *State) WatchServices() StringsWatcher {
-	return newLifecycleWatcher(st, servicesC, nil, st.isForStateEnv)
+	return newLifecycleWatcher(st, servicesC, nil, st.isForStateEnv, nil)
+}
+
+// WatchStorageAttachments returns a StringsWatcher that notifies of
+// changes to the lifecycles of all storage instances attached to the
+// specified unit.
+func (st *State) WatchStorageAttachments(unit names.UnitTag) StringsWatcher {
+	members := bson.D{{"unitid", unit.Id()}}
+	prefix := unitGlobalKey(unit.Id()) + "#"
+	filter := func(id interface{}) bool {
+		k, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		return strings.HasPrefix(k, prefix)
+	}
+	tr := func(id string) string {
+		// Transform storage attachment document ID to storage ID.
+		return id[len(prefix):]
+	}
+	return newLifecycleWatcher(st, storageAttachmentsC, members, filter, tr)
 }
 
 // WatchUnits returns a StringsWatcher that notifies of changes to the
@@ -190,7 +215,7 @@ func (s *Service) WatchUnits() StringsWatcher {
 		}
 		return strings.HasPrefix(unitName, prefix)
 	}
-	return newLifecycleWatcher(s.st, unitsC, members, filter)
+	return newLifecycleWatcher(s.st, unitsC, members, filter, nil)
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to the
@@ -208,7 +233,7 @@ func (s *Service) WatchRelations() StringsWatcher {
 	}
 
 	members := bson.D{{"endpoints.servicename", s.doc.Name}}
-	return newLifecycleWatcher(s.st, relationsC, members, filter)
+	return newLifecycleWatcher(s.st, relationsC, members, filter, nil)
 }
 
 // WatchEnvironMachines returns a StringsWatcher that notifies of changes to
@@ -225,7 +250,7 @@ func (st *State) WatchEnvironMachines() StringsWatcher {
 		}
 		return !strings.Contains(k, "/")
 	}
-	return newLifecycleWatcher(st, machinesC, members, filter)
+	return newLifecycleWatcher(st, machinesC, members, filter, nil)
 }
 
 // WatchContainers returns a StringsWatcher that notifies of changes to the
@@ -253,16 +278,23 @@ func (m *Machine) containersWatcher(isChildRegexp string) StringsWatcher {
 		}
 		return compiled.MatchString(k)
 	}
-	return newLifecycleWatcher(m.st, machinesC, members, filter)
+	return newLifecycleWatcher(m.st, machinesC, members, filter, nil)
 }
 
-func newLifecycleWatcher(st *State, collName string, members bson.D, filter func(key interface{}) bool) StringsWatcher {
+func newLifecycleWatcher(
+	st *State,
+	collName string,
+	members bson.D,
+	filter func(key interface{}) bool,
+	transform func(id string) string,
+) StringsWatcher {
 	w := &lifecycleWatcher{
 		commonWatcher: commonWatcher{st: st},
 		coll:          collFactory(st, collName),
 		collName:      collName,
 		members:       members,
 		filter:        filter,
+		transform:     transform,
 		life:          make(map[string]Life),
 		out:           make(chan []string),
 	}
@@ -381,6 +413,12 @@ func (w *lifecycleWatcher) loop() error {
 	}
 	out := w.out
 	for {
+		values := ids.Values()
+		if w.transform != nil {
+			for i, v := range values {
+				values[i] = w.transform(v)
+			}
+		}
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
@@ -397,7 +435,7 @@ func (w *lifecycleWatcher) loop() error {
 			if !ids.IsEmpty() {
 				out = w.out
 			}
-		case out <- ids.Values():
+		case out <- values:
 			ids = make(set.Strings)
 			out = nil
 		}
@@ -1270,6 +1308,20 @@ func (st *State) WatchForEnvironConfigChanges() NotifyWatcher {
 // when the set of API addresses changes.
 func (st *State) WatchAPIHostPorts() NotifyWatcher {
 	return newEntityWatcher(st, stateServersC, apiHostPortsKey)
+}
+
+// WatchVolumeAttachment returns a watcher for observing changes
+// to a volume attachment.
+func (st *State) WatchVolumeAttachment(m names.MachineTag, v names.VolumeTag) NotifyWatcher {
+	id := volumeAttachmentId(m.Id(), v.Id())
+	return newEntityWatcher(st, volumeAttachmentsC, st.docID(id))
+}
+
+// WatchFilesystemAttachment returns a watcher for observing changes
+// to a filesystem attachment.
+func (st *State) WatchFilesystemAttachment(m names.MachineTag, f names.FilesystemTag) NotifyWatcher {
+	id := filesystemAttachmentId(m.Id(), f.Id())
+	return newEntityWatcher(st, filesystemAttachmentsC, st.docID(id))
 }
 
 // WatchConfigSettings returns a watcher for observing changes to the

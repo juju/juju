@@ -36,7 +36,7 @@ type VolumeAccessor interface {
 	AttachedVolumes() ([]params.VolumeAttachment, error)
 	// VolumePreparationInfo returns information required to format the
 	// specified volumes.
-	VolumePreparationInfo([]names.DiskTag) ([]params.VolumePreparationInfoResult, error)
+	VolumePreparationInfo([]names.VolumeTag) ([]params.VolumePreparationInfoResult, error)
 }
 
 // NewWorker returns a new worker that creates filesystems on volumes
@@ -68,9 +68,9 @@ func (f *diskFormatter) Handle() error {
 		return errors.Annotate(err, "getting attached volumes")
 	}
 
-	tags := make([]names.DiskTag, len(attachments))
+	tags := make([]names.VolumeTag, len(attachments))
 	for i, info := range attachments {
-		tag, err := names.ParseDiskTag(info.VolumeTag)
+		tag, err := names.ParseVolumeTag(info.VolumeTag)
 		if err != nil {
 			return errors.Annotate(err, "parsing disk tag")
 		}

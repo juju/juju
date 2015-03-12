@@ -71,6 +71,18 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestIsStateServer(c *gc.C) {
+	c.Assert(s.State.IsStateServer(), jc.IsTrue)
+	st2 := s.Factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+	c.Assert(st2.IsStateServer(), jc.IsFalse)
+}
+
+func (s *StateSuite) TestUserEnvNameIndex(c *gc.C) {
+	index := state.UserEnvNameIndex("BoB", "testing")
+	c.Assert(index, gc.Equals, "bob:testing")
+}
+
 func (s *StateSuite) TestDocID(c *gc.C) {
 	id := "wordpress"
 	docID := state.DocID(s.State, id)
@@ -132,7 +144,7 @@ func (s *StateSuite) TestEnvironUUID(c *gc.C) {
 
 func (s *StateSuite) TestNoEnvDocs(c *gc.C) {
 	c.Assert(s.State.EnsureEnvironmentRemoved(), gc.ErrorMatches,
-		fmt.Sprintf("found documents for environment with uuid %s: 1 constraints doc, 1 settings doc", s.State.EnvironUUID()))
+		fmt.Sprintf("found documents for environment with uuid %s: 1 constraints doc, 1 envusers doc, 1 settings doc", s.State.EnvironUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -1077,6 +1089,11 @@ func (s *StateSuite) TestAddMachine(c *gc.C) {
 	c.Assert(m, gc.HasLen, 2)
 	check(m[0], "0", "quantal", allJobs)
 	check(m[1], "1", "blahblah", oneJob)
+
+	st2 := s.Factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+	_, err = st2.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: state server jobs specified but not allowed")
 }
 
 func (s *StateSuite) TestAddMachines(c *gc.C) {
@@ -1174,7 +1191,7 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 		Size: 123,
 	}
 	volume1 := state.VolumeParams{
-		Pool: "loop-pool",
+		Pool: "", // use default
 		Size: 456,
 	}
 	volumeAttachment0 := state.VolumeAttachmentParams{}
@@ -1201,10 +1218,14 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 	m, err := s.State.Machine(machines[0].Id())
 	c.Assert(err, jc.ErrorIsNil)
 
+	// When adding the machine, the default pool should
+	// have been set on the volume params.
+	machineTemplate.Volumes[1].Volume.Pool = "loop"
+
 	volumeAttachments, err := s.State.MachineVolumeAttachments(m.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 2)
-	if volumeAttachments[0].Volume() == names.NewDiskTag("1") {
+	if volumeAttachments[0].Volume() == names.NewVolumeTag("1") {
 		va := volumeAttachments
 		va[0], va[1] = va[1], va[0]
 	}
@@ -1518,7 +1539,7 @@ func (s *StateSuite) TestAddMachineCanOnlyAddStateServerForMachine0(c *gc.C) {
 	c.Assert(info.MachineIds, gc.DeepEquals, []string{"0"})
 	c.Assert(info.VotingMachineIds, gc.DeepEquals, []string{"0"})
 
-	const errCannotAdd = "cannot add a new machine: state server jobs specified without calling EnsureAvailability"
+	const errCannotAdd = "cannot add a new machine: state server jobs specified but not allowed"
 	m, err = s.State.AddOneMachine(template)
 	c.Assert(err, gc.ErrorMatches, errCannotAdd)
 
@@ -2617,9 +2638,9 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	// insert one doc for each multiEnvCollection
 	var ops []mgotxn.Op
 	for collName := range state.MultiEnvCollections {
-		// skip adding constraints and settings as they were added when the
+		// skip adding constraints, envuser and settings as they were added when the
 		// environment was created
-		if collName == "constraints" || collName == "settings" {
+		if collName == "constraints" || collName == "envusers" || collName == "settings" {
 			continue
 		}
 		ops = append(ops, mgotxn.Op{
@@ -2639,8 +2660,23 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 		c.Assert(n, gc.Equals, 1)
 	}
 
+	// test that we can find the user:envName unique index
+	env, err := st.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	indexColl, closer := state.GetCollection(st, "userenvname")
+	defer closer()
+	id := state.UserEnvNameIndex(env.Owner().Username(), env.Name())
+	n, err := indexColl.FindId(id).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 1)
+
 	err = st.RemoveAllEnvironDocs()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// test that we can not find the user:envName unique index
+	n, err = indexColl.FindId(id).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 0)
 
 	// ensure all docs for all multiEnvCollections are removed
 	for collName := range state.MultiEnvCollections {

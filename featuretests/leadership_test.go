@@ -130,10 +130,23 @@ func (s *leadershipSuite) TestClaimLeadership(c *gc.C) {
 	client := leadership.NewClient(s.clientFacade, s.facadeCaller)
 	defer func() { err := client.Close(); c.Assert(err, gc.IsNil) }()
 
-	duration, err := client.ClaimLeadership(s.serviceId, s.unitId)
-
+	err := client.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
 	c.Assert(err, gc.IsNil)
-	c.Check(duration, gc.Equals, 30*time.Second)
+
+	unblocked := make(chan struct{})
+	go func() {
+		err := client.BlockUntilLeadershipReleased(s.serviceId)
+		c.Check(err, gc.IsNil)
+		unblocked <- struct{}{}
+	}()
+
+	time.Sleep(coretesting.ShortWait)
+
+	select {
+	case <-time.After(15 * time.Second):
+		c.Errorf("Timed out waiting for leadership to release.")
+	case <-unblocked:
+	}
 }
 
 func (s *leadershipSuite) TestReleaseLeadership(c *gc.C) {
@@ -141,7 +154,7 @@ func (s *leadershipSuite) TestReleaseLeadership(c *gc.C) {
 	client := leadership.NewClient(s.clientFacade, s.facadeCaller)
 	defer func() { err := client.Close(); c.Assert(err, gc.IsNil) }()
 
-	_, err := client.ClaimLeadership(s.serviceId, s.unitId)
+	err := client.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
 	c.Assert(err, gc.IsNil)
 
 	err = client.ReleaseLeadership(s.serviceId, s.unitId)
@@ -153,7 +166,7 @@ func (s *leadershipSuite) TestUnblock(c *gc.C) {
 	client := leadership.NewClient(s.clientFacade, s.facadeCaller)
 	defer func() { err := client.Close(); c.Assert(err, gc.IsNil) }()
 
-	_, err := client.ClaimLeadership(s.serviceId, s.unitId)
+	err := client.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
 	c.Assert(err, gc.IsNil)
 
 	unblocked := make(chan struct{})
@@ -191,7 +204,7 @@ func (s *uniterLeadershipSuite) TestReadLeadershipSettings(c *gc.C) {
 	// First, the unit must be elected leader; otherwise merges will be denied.
 	leaderClient := leadership.NewClient(s.clientFacade, s.facadeCaller)
 	defer func() { err := leaderClient.Close(); c.Assert(err, gc.IsNil) }()
-	_, err := leaderClient.ClaimLeadership(s.serviceId, s.unitId)
+	err := leaderClient.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
 	c.Assert(err, gc.IsNil)
 
 	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))
@@ -215,7 +228,7 @@ func (s *uniterLeadershipSuite) TestMergeLeadershipSettings(c *gc.C) {
 	// First, the unit must be elected leader; otherwise merges will be denied.
 	leaderClient := leadership.NewClient(s.clientFacade, s.facadeCaller)
 	defer func() { err := leaderClient.Close(); c.Assert(err, gc.IsNil) }()
-	_, err := leaderClient.ClaimLeadership(s.serviceId, s.unitId)
+	err := leaderClient.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
 	c.Assert(err, gc.IsNil)
 
 	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))
@@ -245,7 +258,7 @@ func (s *uniterLeadershipSuite) TestSettingsChangeNotifier(c *gc.C) {
 	// First, the unit must be elected leader; otherwise merges will be denied.
 	leadershipClient := leadership.NewClient(s.clientFacade, s.facadeCaller)
 	defer func() { err := leadershipClient.Close(); c.Assert(err, gc.IsNil) }()
-	_, err := leadershipClient.ClaimLeadership(s.serviceId, s.unitId)
+	err := leadershipClient.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
 	c.Assert(err, gc.IsNil)
 
 	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))

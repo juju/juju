@@ -121,8 +121,8 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
-		case info := <-u.f.ActionEvents():
-			creator := newActionOp(info.ActionId)
+		case actionId := <-u.f.ActionEvents():
+			creator := newActionOp(actionId)
 			if err := u.runOperation(creator); err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -209,8 +209,10 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			return ModeUpgrading(curl), nil
 		case ids := <-u.f.RelationsEvents():
 			creator = newUpdateRelationsOp(ids)
-		case info := <-u.f.ActionEvents():
-			creator = newActionOp(info.ActionId)
+		case actionId := <-u.f.ActionEvents():
+			creator = newActionOp(actionId)
+		case tags := <-u.f.StorageEvents():
+			creator = newUpdateStorageOp(tags)
 		case <-u.f.ConfigEvents():
 			creator = newSimpleRunHookOp(hooks.ConfigChanged)
 		case <-u.f.MeterStatusEvents():
@@ -218,6 +220,8 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 		case <-collectMetricsSignal:
 			creator = newSimpleRunHookOp(hooks.CollectMetrics)
 		case hookInfo := <-u.relations.Hooks():
+			creator = newRunHookOp(hookInfo)
+		case hookInfo := <-u.storage.Hooks():
 			creator = newRunHookOp(hookInfo)
 		}
 		if err := u.runOperation(creator); err != nil {
@@ -246,8 +250,8 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
-		case info := <-u.f.ActionEvents():
-			creator = newActionOp(info.ActionId)
+		case actionId := <-u.f.ActionEvents():
+			creator = newActionOp(actionId)
 		case <-u.f.ConfigEvents():
 			creator = newSimpleRunHookOp(hooks.ConfigChanged)
 		case hookInfo := <-u.relations.Hooks():

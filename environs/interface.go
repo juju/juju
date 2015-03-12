@@ -93,8 +93,7 @@ type BootstrapParams struct {
 	AvailableTools tools.List
 
 	// ContainerBridgeName, if non-empty, overrides the default
-	// network bridge device to use for LXC and KVM containers. See
-	// environs.DefaultBridgeName.
+	// network bridge device to use for LXC and KVM containers.
 	ContainerBridgeName string
 }
 

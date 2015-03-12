@@ -1345,9 +1345,6 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["lxc-clone-aufs"] = false
 	attrs["prefer-ipv6"] = false
 	attrs["set-numa-control-policy"] = false
-	attrs["block-destroy-environment"] = false
-	attrs["block-remove-object"] = false
-	attrs["block-all-changes"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
