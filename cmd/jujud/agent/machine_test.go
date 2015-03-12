@@ -247,18 +247,13 @@ var perEnvSingularWorkers = []string{
 
 const initialMachinePassword = "machine-password-1234567890"
 
-func (s *MachineSuite) NewMockMetricAPI() *mockMetricAPI {
-	cleanup := make(chan struct{})
-	sender := make(chan struct{})
-	return &mockMetricAPI{cleanup, sender}
-}
-
 func (s *MachineSuite) SetUpTest(c *gc.C) {
-	s.metricAPI = s.NewMockMetricAPI()
+	s.commonMachineSuite.SetUpTest(c)
+	s.metricAPI = newMockMetricAPI()
 	s.PatchValue(&getMetricAPI, func(_ *api.State) apimetricsmanager.MetricsManagerClient {
 		return s.metricAPI
 	})
-	s.commonMachineSuite.SetUpTest(c)
+	s.AddCleanup(func(*gc.C) { s.metricAPI.Stop() })
 }
 
 func (s *MachineSuite) TestParseNonsense(c *gc.C) {
@@ -1787,19 +1782,37 @@ func newDummyWorker() worker.Worker {
 }
 
 type mockMetricAPI struct {
+	stop          chan struct{}
 	cleanUpCalled chan struct{}
 	sendCalled    chan struct{}
 }
 
+func newMockMetricAPI() *mockMetricAPI {
+	return &mockMetricAPI{
+		stop:          make(chan struct{}),
+		cleanUpCalled: make(chan struct{}),
+		sendCalled:    make(chan struct{}),
+	}
+}
+
 func (m *mockMetricAPI) CleanupOldMetrics() error {
 	go func() {
-		m.cleanUpCalled <- struct{}{}
+		select {
+		case m.cleanUpCalled <- struct{}{}:
+		case <-m.stop:
+			break
+		}
 	}()
 	return nil
 }
+
 func (m *mockMetricAPI) SendMetrics() error {
 	go func() {
-		m.sendCalled <- struct{}{}
+		select {
+		case m.sendCalled <- struct{}{}:
+		case <-m.stop:
+			break
+		}
 	}()
 	return nil
 }
@@ -1810,6 +1823,10 @@ func (m *mockMetricAPI) SendCalled() <-chan struct{} {
 
 func (m *mockMetricAPI) CleanupCalled() <-chan struct{} {
 	return m.cleanUpCalled
+}
+
+func (m *mockMetricAPI) Stop() {
+	close(m.stop)
 }
 
 func mkdtemp(prefix string) string {

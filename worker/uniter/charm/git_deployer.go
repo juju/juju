@@ -199,7 +199,7 @@ func (d *gitDeployer) upgrade() error {
 func collectGitOrphans(dataPath string) {
 	current, err := symlink.Read(filepath.Join(dataPath, gitCurrentPath))
 	if os.IsNotExist(err) {
-		logger.Warningf("no current staging repo")
+		logger.Debugf("no current staging repo")
 	} else if err != nil {
 		logger.Warningf("cannot read current staging repo: %v", err)
 		return
