@@ -153,7 +153,7 @@ func (st *State) FindTools(v version.Number, series string, arch *string) (tools
 // ReleaseContainerAddresses releases a static IP address allocated to a
 // container.
 func (st *State) ReleaseContainerAddresses(containerTag names.MachineTag) (err error) {
-	defer errors.DeferredAnnotatef(&err, "ReleaseAddress for %v failed", containerTag)
+	defer errors.DeferredAnnotatef(&err, "cannot release static addresses for %q", containerTag.Id())
 	var result params.ErrorResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
