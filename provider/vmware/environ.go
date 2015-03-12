@@ -39,7 +39,7 @@ func newEnviron(ecfg *environConfig) (*environ, error) {
 
 	client, err := newClient(ecfg)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotatef(err, "Failed to create new client")
 	}
 
 	env := &environ{

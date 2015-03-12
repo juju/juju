@@ -45,7 +45,6 @@ func (env *environ) globalFirewallName() string {
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) OpenPorts(ports []network.PortRange) error {
-	//err := env.gce.OpenPorts(env.globalFirewallName(), ports)
 	return errors.Trace(errors.NotImplementedf(""))
 }
 
@@ -53,8 +52,6 @@ func (env *environ) OpenPorts(ports []network.PortRange) error {
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) ClosePorts(ports []network.PortRange) error {
-	//err := env.gce.ClosePorts(env.globalFirewallName(), ports)
-	//return errors.Trace(err)
 	return errors.Trace(errors.NotImplementedf(""))
 }
 
@@ -62,7 +59,5 @@ func (env *environ) ClosePorts(ports []network.PortRange) error {
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) Ports() ([]network.PortRange, error) {
-	//ports, err := env.gce.Ports(env.globalFirewallName())
-	//return ports, errors.Trace(err)
 	return nil, errors.Trace(errors.NotImplementedf(""))
 }

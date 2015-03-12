@@ -30,7 +30,7 @@ vmware:
 //  Some description
 `[1:]
 
-// configFields is the spec for each GCE config value's type.
+// configFields is the spec for each vmware config value's type.
 var configFields = schema.Fields{
 	cfgHost:         schema.String(),
 	cfgUser:         schema.String(),
@@ -68,9 +68,7 @@ func newConfig(cfg *config.Config) *environConfig {
 }
 
 // prepareConfig builds a new environConfig from the provided Config and
-// returns it. This includes some GCE-specific updates (including OS
-// environment variables) and applying default values. The resulting
-// config values are validated.
+// returns it. The resulting config values are validated.
 func prepareConfig(cfg *config.Config) (*environConfig, error) {
 	// Finish the config.
 	ecfg, err := newValidConfig(cfg, configDefaults)
@@ -78,8 +76,7 @@ func prepareConfig(cfg *config.Config) (*environConfig, error) {
 }
 
 // newValidConfig builds a new environConfig from the provided Config
-// and returns it. This includes applying the provided defaults
-// values, if any. The resulting config values are validated.
+// and returns it. The resulting config values are validated.
 func newValidConfig(cfg *config.Config, defaults map[string]interface{}) (*environConfig, error) {
 	// Ensure that the provided config is valid.
 	if err := config.Validate(cfg, nil); err != nil {

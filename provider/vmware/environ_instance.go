@@ -27,7 +27,7 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 		// for each ID into the result. If there is a problem then we
 		// will return either ErrPartialInstances or ErrNoInstances.
 		// TODO(ericsnow) Skip returning here only for certain errors?
-		logger.Errorf("failed to get instances from GCE: %v", err)
+		logger.Errorf("failed to get instances from vmware: %v", err)
 		err = errors.Trace(err)
 	}
 
@@ -95,8 +95,8 @@ func (env *environ) StateServerInstances() ([]instance.Id, error) {
 		metadata := inst.Config.ExtraConfig
 		for _, item := range metadata {
 			value := item.GetOptionValue()
-			if value.Key == metadataKeyIsState && value.Value.(bool) {
-				results = append(results, instance.Id(inst.Name))
+			if value.Key == metadataKeyIsState {
+				results = append(results, instance.Id(inst.Config.Name))
 				break
 			}
 		}
