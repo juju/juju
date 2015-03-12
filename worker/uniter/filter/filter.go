@@ -52,8 +52,8 @@ type filter struct {
 	outStorageOn        chan []names.StorageTag
 	// The want* chans are used to indicate that the filter should send
 	// events if it has them available.
-	wantForcedUpgrade chan bool
-	wantResolved      chan struct{}
+	wantForcedUpgrade  chan bool
+	wantResolved       chan struct{}
 	wantLeaderSettings chan bool
 
 	// discardConfig is used to indicate that any pending config event
@@ -131,7 +131,7 @@ func NewFilter(st *uniter.State, unitTag names.UnitTag) (Filter, error) {
 		outStorageOn:          make(chan []names.StorageTag),
 		wantForcedUpgrade:     make(chan bool),
 		wantResolved:          make(chan struct{}),
-		wantLeaderSettings:     make(chan bool),
+		wantLeaderSettings:    make(chan bool),
 		discardConfig:         make(chan struct{}),
 		discardLeaderSettings: make(chan struct{}),
 		setCharm:              make(chan *charm.URL),
@@ -404,8 +404,10 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		return err
 	}
 	defer watcher.Stop(leaderSettingsw, &f.tomb)
-	// We start out not listening until we see the first leader settings change
+
+	// Ignore external requests for leader settings behavioour until we see the first change.
 	var discardLeaderSettings <-chan struct{}
+	var wantLeaderSettings <-chan bool
 	// By default we send all leaderSettings onwards.
 	sendLeaderSettings := true
 
@@ -524,6 +526,7 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 				filterLogger.Debugf("not sending leader settings change (want=false)")
 			}
 			discardLeaderSettings = f.discardLeaderSettings
+			wantLeaderSettings = f.wantLeaderSettings
 
 		// Send events on active out chans.
 		case f.outUpgrade <- f.upgrade:
@@ -603,7 +606,7 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 			if f.resolved != params.ResolvedNone {
 				f.outResolved = f.outResolvedOn
 			}
-		case sendEvents := <-f.wantLeaderSettings:
+		case sendEvents := <-wantLeaderSettings:
 			filterLogger.Debugf("want leader settings event: %t", sendEvents)
 			sendLeaderSettings = sendEvents
 			if sendEvents {

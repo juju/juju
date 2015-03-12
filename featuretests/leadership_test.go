@@ -291,7 +291,6 @@ func (s *uniterLeadershipSuite) TestSettingsChangeNotifier(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = client.LeadershipSettings.Merge(s.serviceId, map[string]string{"bing": "bong"})
 	c.Assert(err, gc.IsNil)
-	// TODO: we may need the awful EvilSync here...
 	leadershipC.AssertOneChange()
 }
 
