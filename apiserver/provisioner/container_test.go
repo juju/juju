@@ -49,28 +49,27 @@ func (s *containerSuite) newCustomAPI(c *gc.C, hostInstId instance.Id, addContai
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	if addContainer {
-		container, err := s.State.AddMachineInsideMachine(
-			state.MachineTemplate{
-				Series: "quantal",
-				Jobs:   []state.MachineJob{state.JobHostUnits},
-			},
-			s.machines[0].Id(),
-			instance.LXC,
-		)
-		c.Assert(err, jc.ErrorIsNil)
-		if provisionContainer {
-			password, err := utils.RandomPassword()
-			c.Assert(err, jc.ErrorIsNil)
-			err = container.SetPassword(password)
-			c.Assert(err, jc.ErrorIsNil)
-			err = container.SetProvisioned("foo", "fake_nonce", nil)
-			c.Assert(err, jc.ErrorIsNil)
-		}
-		return container
+	if !addContainer {
+		return nil
 	}
-
-	return nil
+	container, err := s.State.AddMachineInsideMachine(
+		state.MachineTemplate{
+			Series: "quantal",
+			Jobs:   []state.MachineJob{state.JobHostUnits},
+		},
+		s.machines[0].Id(),
+		instance.LXC,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	if provisionContainer {
+		password, err := utils.RandomPassword()
+		c.Assert(err, jc.ErrorIsNil)
+		err = container.SetPassword(password)
+		c.Assert(err, jc.ErrorIsNil)
+		err = container.SetProvisioned("foo", "fake_nonce", nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	return container
 }
 
 func (s *containerSuite) makeArgs(machines ...*state.Machine) params.Entities {
