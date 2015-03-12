@@ -5,12 +5,13 @@ package relation
 
 import (
 	"sort"
-	"sync"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v4/hooks"
+	"launchpad.net/tomb"
 
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
@@ -37,6 +38,7 @@ type liveSource struct {
 	changedPending string
 
 	started bool
+	tomb    tomb.Tomb
 	watcher RelationUnitsWatcher
 	changes chan hook.SourceChange
 }
@@ -78,7 +80,7 @@ func NewLiveHookSource(initial *State, w RelationUnitsWatcher) hook.Source {
 			joined:  true,
 		}
 	}
-	s := &liveSource{
+	q := &liveSource{
 		watcher:        w,
 		info:           info,
 		relationId:     initial.RelationId,
@@ -86,21 +88,72 @@ func NewLiveHookSource(initial *State, w RelationUnitsWatcher) hook.Source {
 		changes:        make(chan hook.SourceChange),
 	}
 	go func() {
-		defer close(s.changes)
-		// w's out channel will be closed when the source is Stop()ped.
-		// We use a waitgroup to ensure the current change is processed
-		// before any more changes are accepted.
-		var wg sync.WaitGroup
-		for c := range w.Changes() {
-			wg.Add(1)
-			s.changes <- func() error {
-				defer wg.Done()
-				return s.Update(c)
-			}
-			wg.Wait()
-		}
+		defer q.tomb.Done()
+		defer watcher.Stop(q.watcher, &q.tomb)
+		q.tomb.Kill(q.loop())
 	}()
-	return s
+	return q
+}
+
+func (q *liveSource) loop() error {
+	defer close(q.changes)
+	// if Watcher stops early, make sure to notice and kill our own Tomb so
+	// that we will cleanup
+	// XXX: jam we can't do this today because while the Watcher interface
+	// exposes Stop() it doesn't expose a Wait() (even though it does use
+	// its underlying tomb.Wait inside of the Stop method)
+	// go func() { q.tomb.Kill(q.watcher.Wait()) }()
+
+
+	// The state machine here is:
+	// inChanges != nil,  outChanges = nil, outChange = nil, !ready
+	//   we are listening for changes, we have no pending update to apply
+	//   when we get a change, we will transition to:
+	// inChanges = nil, outChanges != nil, outChange != nil, !ready
+	//   we received a change, and are waiting to send the update mutating
+	//   function to outChanges
+	//   once we can send the change we transition to
+	// inChanges = nil, outChanges == nil, outChange == nil, !ready
+	//   we were able to send the changes on our out channel, but it has
+	//   not been called yet. we are waiting for it to be called, and when
+	//   that call completes an event will be sent to ready
+	// inChanges = nil, outChanges == nil, outChange == nil, ready
+	//   the function has been called, we are ready to start listening for
+	//   changes now, so we transition back to the first state
+
+	var inChanges <-chan multiwatcher.RelationUnitsChange
+	var outChanges chan<- hook.SourceChange
+	var outChange hook.SourceChange
+	ready := make(chan struct{}, 1)
+	ready <- struct{}{}
+	defer close(ready)
+	for {
+		select {
+		case <-q.tomb.Dying():
+			return tomb.ErrDying
+		case <-ready:
+			inChanges = q.watcher.Changes()
+		case inChange, ok := <-inChanges:
+			if !ok {
+				// Watcher's Changes() channel was closed,
+				// ensure that we propagate an error
+				return watcher.EnsureErr(q.watcher)
+			}
+			// We got a change from the Watcher, suspend listening
+			// to another change until we get a response
+			inChanges = nil
+			outChanges = q.changes
+			outChange = func() error {
+				defer func() {
+					ready <- struct{}{}
+				}()
+				return q.Update(inChange)
+			}
+		case outChanges <- outChange:
+			outChanges = nil
+			outChange = nil
+		}
+	}
 }
 
 // Changes returns a channel sending a stream of hook.SourceChange events
@@ -114,7 +167,7 @@ func (q *liveSource) Changes() <-chan hook.SourceChange {
 
 // Stop cleans up the liveSource's resources and stops sending changes.
 func (q *liveSource) Stop() error {
-	return q.watcher.Stop()
+	return q.tomb.Wait()
 }
 
 // Update modifies the queue such that the hook.Info values it sends will

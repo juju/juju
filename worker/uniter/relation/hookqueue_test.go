@@ -4,6 +4,7 @@
 package relation_test
 
 import (
+	"sync"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -166,7 +167,7 @@ func (s *HookQueueSuite) TestAliveHookQueue(c *gc.C) {
 		c.Logf("test %d: %s", i, t.summary)
 		out := make(chan hook.Info)
 		in := make(chan multiwatcher.RelationUnitsChange)
-		ruw := &RUW{in, false}
+		ruw := &RUW{in: in, stopped: false}
 		q := relation.NewAliveHookQueue(t.initial, out, ruw)
 		for i, step := range t.steps {
 			c.Logf("  step %d", i)
@@ -216,6 +217,7 @@ func (s *HookQueueSuite) TestDyingHookQueue(c *gc.C) {
 type RUW struct {
 	in      chan multiwatcher.RelationUnitsChange
 	stopped bool
+	m       sync.Mutex
 }
 
 func (w *RUW) Changes() <-chan multiwatcher.RelationUnitsChange {
@@ -223,7 +225,12 @@ func (w *RUW) Changes() <-chan multiwatcher.RelationUnitsChange {
 }
 
 func (w *RUW) Stop() error {
-	close(w.in)
+	w.m.Lock()
+	defer w.m.Unlock()
+	// Stop() should be idempotent, but close(chan) is not, so guard it.
+	if !w.stopped {
+		close(w.in)
+	}
 	w.stopped = true
 	return nil
 }
