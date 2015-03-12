@@ -262,19 +262,16 @@ class JujuCITestCase(TestCase):
             }
         credentials = Credentials('jrandom', 'password1')
 
-        with temp_dir() as workspace:
-            with patch('jujuci.get_juju_binary', autospec=True,
-                       return_value='foobar') as gjb_mock:
+        with self.get_juju_binary_mocks() as (workspace, cc_mock, uo_mock):
                 with patch('jujuci.get_build_data', return_value=build_data,
                            autospec=True):
                     with patch(
                             'jujuci.get_release_package_filename',
                             return_value='steve', autospec=True) as grpf_mock:
                         bin_loc = get_juju_bin(credentials, workspace)
-        self.assertEqual(bin_loc, 'foobar')
+        self.assertEqual(bin_loc, os.path.join(
+            workspace, 'extracted-bin', 'subdir', 'sub-subdir', 'juju'))
         grpf_mock.assert_called_once_with(credentials, build_data)
-        gjb_mock.assert_called_once_with(credentials, 'steve', build_data,
-                                         workspace)
 
     @contextmanager
     def get_juju_binary_mocks(self):
