@@ -56,6 +56,18 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	if bridgeDevice == "" {
 		bridgeDevice = kvm.DefaultKvmBridge
 	}
+
+	allocatedInfo, err := maybeAllocateStaticIP(
+		machineId, bridgeDevice, broker.api, args.NetworkInfo,
+	)
+	if err != nil {
+		// It's fine, just ignore it. The effect will be that the
+		// container won't have a static address configured.
+		logger.Infof("not allocating static IP for container %q: %v", machineId, err)
+	} else {
+		args.NetworkInfo = allocatedInfo
+	}
+
 	network := container.BridgeNetworkConfig(bridgeDevice, args.NetworkInfo)
 
 	series := args.Tools.OneSeries()

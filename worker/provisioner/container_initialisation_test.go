@@ -362,7 +362,6 @@ func (s *SetIPAndARPForwardingSuite) TestSuccess(c *gc.C) {
 	// contains both though.
 	fakeConfig := filepath.Join(c.MkDir(), "sysctl.conf")
 	testing.PatchExecutableAsEchoArgs(c, s, "sysctl")
-	expectKeyVal := fmt.Sprintf("%s=1", provisioner.ARPProxySysctlKey)
 	s.PatchValue(provisioner.SysctlConfig, fakeConfig)
 
 	err := provisioner.SetIPAndARPForwarding(true)
@@ -373,9 +372,11 @@ func (s *SetIPAndARPForwardingSuite) TestSuccess(c *gc.C) {
 		provisioner.ARPProxySysctlKey,
 	)
 	AssertFileContains(c, fakeConfig, expectConf)
+	expectKeyVal := fmt.Sprintf("%s=1", provisioner.IPForwardSysctlKey)
+	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
+	expectKeyVal = fmt.Sprintf("%s=1", provisioner.ARPProxySysctlKey)
 	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
 
-	expectKeyVal = fmt.Sprintf("%s=0", provisioner.ARPProxySysctlKey)
 	err = provisioner.SetIPAndARPForwarding(false)
 	c.Assert(err, jc.ErrorIsNil)
 	expectConf = fmt.Sprintf(
@@ -384,6 +385,9 @@ func (s *SetIPAndARPForwardingSuite) TestSuccess(c *gc.C) {
 		provisioner.ARPProxySysctlKey,
 	)
 	AssertFileContains(c, fakeConfig, expectConf)
+	expectKeyVal = fmt.Sprintf("%s=0", provisioner.IPForwardSysctlKey)
+	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
+	expectKeyVal = fmt.Sprintf("%s=0", provisioner.ARPProxySysctlKey)
 	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
 }
 
