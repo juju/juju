@@ -115,13 +115,20 @@ def retrieve_buildvars(credentials, build_number):
             return json.load(f)
 
 
+def get_release_package_filename(credentials, build_data):
+    revision_build = get_revision_build(build_data)
+    version = retrieve_buildvars(credentials, revision_build)['version']
+    return PackageNamer.factory().get_release_package(version)
+
+
 def get_juju_bin(credentials, workspace):
     build_data = get_build_data(JENKINS_URL, credentials, PUBLISH_REVISION,
                                 'lastBuild')
-    revision_build = get_revision_build(build_data)
-    version = retrieve_buildvars(credentials, revision_build)['version']
-    namer = PackageNamer.factory()
-    artifact = get_juju_bin_artifact(namer, version, build_data)
+    file_name = get_release_package_filename(credentials, build_data)
+    return get_juju_binary(credentials, file_name, build_data, workspace)
+
+def get_juju_binary(credentials, file_name, build_data, workspace):
+    artifact = get_filename_artifact(file_name, build_data)
     target_path = os.path.join(workspace, artifact.file_name)
     retrieve_artifact(credentials, artifact.location, target_path)
     bin_dir = os.path.join(workspace, 'extracted-bin')
