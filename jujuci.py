@@ -26,7 +26,6 @@ from utility import (
     extract_deb,
     get_deb_arch,
     get_revision_build,
-    temp_dir,
     )
 
 
@@ -47,18 +46,20 @@ def print_now(string):
 Credentials = namedtuple('Credentials', ['user', 'password'])
 
 
-def get_build_data(jenkins_url, credentials, job_name,
-                   build='lastSuccessfulBuild'):
-    """Return a dict of the build data for a job build number."""
-    req = urllib2.Request(
-        '%s/job/%s/%s/api/json' % (jenkins_url, job_name, build))
-
+def get_jenkins_json(credentials, url):
+    req = urllib2.Request(url)
     encoded = base64.encodestring(
         '{}:{}'.format(*credentials)).replace('\n', '')
     req.add_header('Authorization', 'Basic {}'.format(encoded))
     build_data = urllib2.urlopen(req)
-    build_data = json.load(build_data)
-    return build_data
+    return json.load(build_data)
+
+
+def get_build_data(jenkins_url, credentials, job_name,
+                   build='lastSuccessfulBuild'):
+    """Return a dict of the build data for a job build number."""
+    url = '%s/job/%s/%s/api/json' % (jenkins_url, job_name, build)
+    return get_jenkins_json(credentials, url)
 
 
 def make_artifact(build_data, artifact):
@@ -106,11 +107,7 @@ def retrieve_buildvars(credentials, build_number):
     build_data = get_build_data(JENKINS_URL, credentials, BUILD_REVISION,
                                 build_number)
     artifact = get_filename_artifact('buildvars.json', build_data)
-    with temp_dir() as bv_dir:
-        target_path = os.path.join(bv_dir, 'buildvars.json')
-        retrieve_artifact(credentials, artifact.location, target_path)
-        with open(target_path) as f:
-            return json.load(f)
+    return get_jenkins_json(credentials, artifact.location)
 
 
 def get_release_package_filename(credentials, build_data):
@@ -125,6 +122,7 @@ def get_juju_bin(credentials, workspace):
     file_name = get_release_package_filename(credentials, build_data)
     return get_juju_binary(credentials, file_name, build_data, workspace)
 
+
 def get_juju_binary(credentials, file_name, build_data, workspace):
     artifact = get_filename_artifact(file_name, build_data)
     target_path = os.path.join(workspace, artifact.file_name)
@@ -134,7 +132,6 @@ def get_juju_binary(credentials, file_name, build_data, workspace):
     for root, dirs, files in os.walk(bin_dir):
         if 'juju' in files:
             return os.path.join(root, 'juju')
-
 
 
 def get_artifacts(credentials, job_name, build, glob, path,

@@ -233,23 +233,26 @@ class JujuCITestCase(TestCase):
         package_namer = PackageNamer('foo', 'bar')
         credentials = ('jrandom', 'password1')
         publish_build_data = {'actions': [], }
-        build_revision_data = StringIO(json.dumps({
+        build_revision_data = json.dumps({
             'artifacts': [{
                 'fileName': 'buildvars.json',
                 'relativePath': 'buildvars.json'
                 }],
-            'url': 'http://foo/'}))
-        def mock_retrieve(location, local_path):
-            with open(local_path, 'w') as buildvars:
-                json.dump({'version': '1.42'}, buildvars)
+            'url': 'http://foo/'})
+
+        def mock_urlopen(request):
+            if request.get_full_url() == 'http://foo/artifact/buildvars.json':
+                data = json.dumps({'version': '1.42'})
+            else:
+                data = build_revision_data
+            return StringIO(data)
+
         with patch('urllib2.urlopen', autospec=True,
-                   return_value=build_revision_data):
-            with patch('urllib.urlretrieve', autospec=True,
-                    side_effect=mock_retrieve):
-                with patch.object(PackageNamer, 'factory',
-                                  return_value=package_namer):
-                    file_name = get_release_package_filename(
-                            credentials, publish_build_data)
+                   side_effect=mock_urlopen):
+            with patch.object(PackageNamer, 'factory',
+                              return_value=package_namer):
+                file_name = get_release_package_filename(
+                    credentials, publish_build_data)
         self.assertEqual(file_name, package_namer.get_release_package('1.42'))
 
     def test_get_juju_bin(self):
