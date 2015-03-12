@@ -85,12 +85,10 @@ def list_artifacts(credentials, job_name, build, glob, verbose=False):
             print_now(artifact.file_name)
 
 
-def retrieve_artifact(credentials, url, local_path, opener=None):
-    if opener is None:
-        opener = urllib.URLopener()
+def retrieve_artifact(credentials, url, local_path):
     auth_location = url.replace('http://',
                                 'http://{}:{}@'.format(*credentials))
-    opener.retrieve(auth_location, local_path)
+    urllib.urlretrieve(auth_location, local_path)
 
 
 def get_juju_bin_artifact(package_namer, version, build_data):
@@ -151,7 +149,6 @@ def get_artifacts(credentials, job_name, build, glob, path,
         os.makedirs(full_path)
     build_data = get_build_data(JENKINS_URL, credentials, job_name, build)
     artifacts = find_artifacts(build_data, glob)
-    opener = urllib.URLopener()
     for artifact in artifacts:
         local_path = os.path.abspath(
             os.path.join(full_path, artifact.file_name))
@@ -160,8 +157,7 @@ def get_artifacts(credentials, job_name, build, glob, path,
         else:
             print_now(artifact.file_name)
         if not dry_run:
-            retrieve_artifact(credentials, artifact.location, local_path,
-                              opener)
+            retrieve_artifact(credentials, artifact.location, local_path)
     return artifacts
 
 

@@ -207,7 +207,7 @@ class JujuCITestCase(TestCase):
             'http://juju-ci.vapour.ws:8080/job/build-revision/1234/artifact/'
             'buildvars.bash')
         local_path = '%s/buildvars.bash' % os.path.abspath('./')
-        with patch('urllib.URLopener.retrieve') as uo_mock:
+        with patch('urllib.urlretrieve') as uo_mock:
             retrieve_artifact(
                 Credentials('jrandom', '1password'), location, local_path)
         self.assertEqual(1, uo_mock.call_count)
@@ -239,12 +239,12 @@ class JujuCITestCase(TestCase):
                 'relativePath': 'buildvars.json'
                 }],
             'url': 'http://foo/'}))
-        def mock_retrieve(self, location, local_path):
+        def mock_retrieve(location, local_path):
             with open(local_path, 'w') as buildvars:
                 json.dump({'version': '1.42'}, buildvars)
         with patch('urllib2.urlopen', autospec=True,
                    return_value=build_revision_data):
-            with patch('urllib.URLopener.retrieve', autospec=True,
+            with patch('urllib.urlretrieve', autospec=True,
                     side_effect=mock_retrieve):
                 with patch.object(PackageNamer, 'factory',
                                   return_value=package_namer):
@@ -285,7 +285,7 @@ class JujuCITestCase(TestCase):
                 f.write('foo')
 
         with temp_dir() as workspace:
-            with patch('urllib.URLopener.retrieve') as uo_mock:
+            with patch('urllib.urlretrieve') as uo_mock:
                 with patch('subprocess.check_call',
                            side_effect=mock_extract_deb) as cc_mock:
                     yield workspace, uo_mock, cc_mock
@@ -314,7 +314,7 @@ class JujuCITestCase(TestCase):
     def test_get_artifacts(self):
         build_data = make_build_data(1234)
         with patch('jujuci.get_build_data', return_value=build_data):
-            with patch('urllib.URLopener.retrieve') as uo_mock:
+            with patch('urllib.urlretrieve') as uo_mock:
                 with patch('jujuci.print_now') as pn_mock:
                     found = get_artifacts(
                         Credentials('jrandom', '1password'), 'foo', '1234',
@@ -340,7 +340,7 @@ class JujuCITestCase(TestCase):
     def test_get_artifacts_with_dry_run(self):
         build_data = make_build_data(1234)
         with patch('jujuci.get_build_data', return_value=build_data):
-            with patch('urllib.URLopener.retrieve') as uo_mock:
+            with patch('urllib.urlretrieve') as uo_mock:
                 get_artifacts(
                     Credentials('jrandom', '1password'), 'foo', '1234',
                     '*.bash', './', dry_run=True)
@@ -349,7 +349,7 @@ class JujuCITestCase(TestCase):
     def test_get_artifacts_with_archive(self):
         build_data = make_build_data(1234)
         with patch('jujuci.get_build_data', return_value=build_data):
-            with patch('urllib.URLopener.retrieve'):
+            with patch('urllib.urlretrieve'):
                 with temp_dir() as base_dir:
                     path = os.path.join(base_dir, 'foo')
                     os.mkdir(path)
@@ -365,7 +365,7 @@ class JujuCITestCase(TestCase):
     def test_get_artifacts_with_archive_error(self):
         build_data = make_build_data(1234)
         with patch('jujuci.get_build_data', return_value=build_data):
-            with patch('urllib.URLopener.retrieve'):
+            with patch('urllib.urlretrieve'):
                 with self.assertRaises(ValueError):
                     get_artifacts(
                         Credentials('jrandom', '1password'), 'foo', '1234',
