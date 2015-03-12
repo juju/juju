@@ -53,24 +53,34 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		// that can handle them anyway.
 		logger.Infof("checking leadership status")
 
+		// If the unit's shutting down, we shouldn't attempt to accept leadership;
+		// if we've already accepted leadership, we don't need to try; and if we're
+		// in an unexpected mode (eg pending hook) we shouldn't try either.
+		canAcceptLeader := !opState.Leader
+		select {
+		case <-u.f.UnitDying():
+			canAcceptLeader = false
+		default:
+			if opState.Kind != operation.Continue {
+				canAcceptLeader = false
+			}
+		}
+
 		// NOTE: the wait looks scary, but a ClaimLeadership ticket should always
 		// complete quickly; worst-case is API latency time, but it's designed that
-		// it should be vanishingly rare to hit that code path. (Make it impossible?)
+		// it should be vanishingly rare to hit that code path.
 		isLeader := u.leadershipTracker.ClaimLeader().Wait()
-		if isLeader == opState.Leader {
-			logger.Infof("leadership status is up-to-date")
+		var creator creator
+		switch {
+		case isLeader && canAcceptLeader:
+			creator = newAcceptLeadershipOp()
+		case opState.Leader && !isLeader:
+			creator = newResignLeadershipOp()
+		}
+		if creator != nil {
+			return continueAfter(u, creator)
 		} else {
-			creator := newResignLeadershipOp()
-			if isLeader {
-				creator = newAcceptLeadershipOp()
-			}
-			err := u.runOperation(creator)
-			if err == nil {
-				return ModeContinue, nil
-			} else if errors.Cause(err) != operation.ErrCannotAcceptLeadership {
-				return nil, errors.Trace(err)
-			}
-			logger.Infof("cannot accept leadership yet, choosing next mode")
+			logger.Infof("leadership status is up-to-date")
 		}
 	}
 
@@ -251,8 +261,10 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 		if featureflag.Enabled(feature.LeaderElection) {
 			if leaderElected == nil && leaderDeposed == nil {
 				if u.operationState().Leader {
+					logger.Infof("waiting to lose leadership")
 					leaderDeposed = u.leadershipTracker.WaitMinion().Ready()
 				} else {
+					logger.Infof("waiting to gain leadership")
 					leaderElected = u.leadershipTracker.WaitLeader().Ready()
 				}
 			}
