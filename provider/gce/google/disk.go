@@ -27,7 +27,6 @@ const (
 // the image size. See gceapi messsage.
 //
 // gceapi: Requested disk size cannot be smaller than the image size (10 GB)
-
 const MinDiskSizeGB uint64 = 10
 
 // DiskSpec holds all the data needed to request a new disk on GCE.
