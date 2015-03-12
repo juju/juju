@@ -112,6 +112,8 @@ func (s *lxcBrokerSuite) machineConfig(c *gc.C, machineId string) *cloudinit.Mac
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
+	// Ensure the <rootfs>/etc/network path exists.
+	containertesting.EnsureRootFSEtcNetwork(c, "juju-"+names.NewMachineTag(machineId).String())
 	return machineConfig
 }
 
@@ -700,6 +702,7 @@ func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
 		CIDR:           "0.1.2.0/24",
 		ConfigType:     network.ConfigStatic,
 		InterfaceName:  "eth0", // generated from the device index.
+		MACAddress:     provisioner.MACAddressTemplate,
 		DNSServers:     network.NewAddresses("ns1.dummy"),
 		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
 		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
@@ -740,15 +743,26 @@ func (s *lxcProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) str
 	// indefinitely quite often on i386.
 	coretesting.SkipIfI386(c, "lp:1425569")
 
+	var event mock.Event
 	s.State.StartSync()
-	event := <-s.events
-	c.Assert(event.Action, gc.Equals, mock.Created)
-	argsSet := set.NewStrings(event.TemplateArgs...)
-	c.Assert(argsSet.Contains("imageURL"), jc.IsTrue)
-	event = <-s.events
-	c.Assert(event.Action, gc.Equals, mock.Started)
-	err := machine.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case event = <-s.events:
+		c.Assert(event.Action, gc.Equals, mock.Created)
+		argsSet := set.NewStrings(event.TemplateArgs...)
+		c.Assert(argsSet.Contains("imageURL"), jc.IsTrue)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting the mock container to get created")
+	}
+
+	select {
+	case event = <-s.events:
+		c.Assert(event.Action, gc.Equals, mock.Started)
+		err := machine.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting the mock container to start")
+	}
+
 	s.waitInstanceId(c, machine, instance.Id(event.InstanceId))
 	return event.InstanceId
 }
@@ -759,11 +773,20 @@ func (s *lxcProvisionerSuite) expectStopped(c *gc.C, instId string) {
 	coretesting.SkipIfI386(c, "lp:1425569")
 
 	s.State.StartSync()
-	event := <-s.events
-	c.Assert(event.Action, gc.Equals, mock.Stopped)
-	event = <-s.events
-	c.Assert(event.Action, gc.Equals, mock.Destroyed)
-	c.Assert(event.InstanceId, gc.Equals, instId)
+	select {
+	case event := <-s.events:
+		c.Assert(event.Action, gc.Equals, mock.Stopped)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting the mock container to stop")
+	}
+
+	select {
+	case event := <-s.events:
+		c.Assert(event.Action, gc.Equals, mock.Destroyed)
+		c.Assert(event.InstanceId, gc.Equals, instId)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting the mock container to get destroyed")
+	}
 }
 
 func (s *lxcProvisionerSuite) expectNoEvents(c *gc.C) {
@@ -837,6 +860,8 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	defer stop(c, p)
 
 	container := s.addContainer(c)
+	name := "juju-" + container.Tag().String()
+	containertesting.EnsureRootFSEtcNetwork(c, name)
 	instId := s.expectStarted(c, container)
 
 	// ...and removed, along with the machine, when the machine is Dead.
@@ -865,6 +890,7 @@ func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag) ([]network
 	}
 	return []network.InterfaceInfo{{
 		DeviceIndex:    0,
+		MACAddress:     "aa:bb:cc:dd:ee:ff",
 		CIDR:           "0.1.2.0/24",
 		InterfaceName:  "dummy0",
 		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),

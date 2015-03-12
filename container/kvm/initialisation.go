@@ -46,7 +46,7 @@ You could try running 'kvm-ok' yourself as root to get the full rationale as to
 why it isn't supported, or potentially some BIOS settings to change to enable
 KVM support.`
 
-const neetToInstallKVMOk = `kvm-ok is not installed. Please install the cpu-checker package.
+const needToInstallKVMOk = `kvm-ok is not installed. Please install the cpu-checker package.
     sudo apt-get install cpu-checker`
 
 const missingKVMDeps = `Some required packages are missing for KVM to work:
@@ -63,7 +63,7 @@ func VerifyKVMEnabled() error {
 	supported, err := IsKVMSupported()
 	if err != nil {
 		// Missing the kvm-ok package.
-		return fmt.Errorf(neetToInstallKVMOk)
+		return fmt.Errorf(needToInstallKVMOk)
 	}
 	if !supported {
 		return fmt.Errorf(kvmNotSupported)
