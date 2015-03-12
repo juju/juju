@@ -604,7 +604,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		c.Assert(acfg, jc.Contains, "upgradedToVersion: 1.2.3\n")
 		source := "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/cloud-tools main"
 		needCloudArchive := test.cfg.Series == "precise"
-		checkAptSource(c, configKeyValues, source, cloudconfig.CanonicalCloudArchiveSigningKey, needCloudArchive)
+		checkAptSource(c, configKeyValues, source, cloudinit.CanonicalCloudArchiveSigningKey, needCloudArchive)
 	}
 }
 

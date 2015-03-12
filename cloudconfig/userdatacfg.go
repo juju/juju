@@ -59,7 +59,9 @@ func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudCon
 
 	switch operatingSystem {
 	case version.Ubuntu:
-		return &ubuntuConfigure{base}, nil
+		return &unixConfigure{base}, nil
+	case version.CentOS:
+		return &unixConfigure{base}, nil
 	case version.Windows:
 		return &windowsConfigure{base}, nil
 	default:

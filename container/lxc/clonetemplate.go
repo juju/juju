@@ -17,7 +17,6 @@ import (
 	"github.com/juju/utils/tailer"
 	"launchpad.net/golxc"
 
-	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
@@ -73,9 +72,9 @@ func templateUserData(
 	config.AddSSHAuthorizedKeys(authorizedKeys)
 	// add centos magic here
 	if enablePackageUpdates {
-		cloudconfig.MaybeAddCloudArchiveCloudTools(config, series)
+		cloudinit.MaybeAddCloudArchiveCloudTools(config, series)
 	}
-	cloudconfig.AddAptCommands(series, aptProxy, aptMirror, config, enablePackageUpdates, enableOSUpgrades)
+	cloudinit.AddPackageCommands(series, aptProxy, aptMirror, config, enablePackageUpdates, enableOSUpgrades)
 
 	initSystem, err := containerInitSystem(series)
 	if err != nil {

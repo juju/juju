@@ -81,3 +81,7 @@ func extractRegexpsFromSlice(slice []string, rex string) []string {
 
 	return matches
 }
+
+func shquote(p string) string {
+	return utils.ShQuote(p)
+}
