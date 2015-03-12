@@ -651,7 +651,7 @@ cleanup() {
     find ${DEST_DEBS} -name "*.deb" -delete
     find ${DEST_DEBS} -name "*.tgz" -delete
     # Remove the unused separate tree.
-    if [[ $PURPOSE =~ ^(devel)$ ]]; then
+    if [[ $PURPOSE =~ ^(devel|proposed)$ ]]; then
         rm -r $DESTINATION/juju-dist/$PURPOSE/tools/releases/* || true
         rm -r $DESTINATION/juju-dist/$PURPOSE/tools/streams/v1/* || true
     fi
@@ -748,6 +748,7 @@ IGNORED=""
 check_deps
 build_tool_tree
 if [[ $RESIGN == "false" ]]; then
+    cleanup
     if [[ $GET_RELEASED_TOOL == "true" ]]; then
         sync_released_tools
     fi
