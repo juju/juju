@@ -96,6 +96,8 @@ func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 		return opc.u.storage.CommitHook(hi)
 	case hi.Kind == hooks.ConfigChanged:
 		opc.u.ranConfigChanged = true
+	case hi.Kind == hooks.Kind("leader-settings-changed"):
+		opc.u.ranLeaderSettingsChanged = true
 	}
 	return nil
 }

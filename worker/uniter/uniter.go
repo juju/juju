@@ -69,7 +69,8 @@ type Uniter struct {
 	hookLock    *fslock.Lock
 	runListener *RunListener
 
-	ranConfigChanged bool
+	ranLeaderSettingsChanged bool
+	ranConfigChanged         bool
 
 	// The execution observer is only used in tests at this stage. Should this
 	// need to be extended, perhaps a list of observers would be needed.
