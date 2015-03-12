@@ -501,13 +501,22 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesIPTablesAddError(c *gc.C) {
 	gitjujutesting.PatchExecutable(c, s, "iptables", script)
 	gitjujutesting.PatchExecutableThrowError(c, s, "ip", 123)
 
+	fakeptablesRules := map[string]provisioner.IptablesRule{
+		"IPTablesSNAT": {
+			"nat",
+			"POSTROUTING",
+			"{{.HostIF}} {{.HostIP}}",
+		},
+	}
+	s.PatchValue(provisioner.IptablesRules, fakeptablesRules)
+
 	ifaceInfo := []network.InterfaceInfo{{
 		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
 	}}
 
 	addr := network.NewAddress("0.1.2.1", network.ScopeUnknown)
 	err := provisioner.SetupRoutesAndIPTables("nic", addr, "bridge", ifaceInfo)
-	c.Assert(err, gc.ErrorMatches, `command "iptables -t nat -A .*" failed with exit code 42`)
+	c.Assert(err, gc.ErrorMatches, `command "iptables -t nat -I .*" failed with exit code 42`)
 }
 
 func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesIPRouteError(c *gc.C) {
@@ -533,15 +542,16 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesAddsRuleIfMissing(c *gc.C) {
 	// same binary, we need to replace the iptables commands with
 	// separate ones. The check returns code=1 to trigger calling
 	// add.
-	fakeIPTablesCheck := provisioner.MustParseTemplate("iptablesCheckNAT", `
-iptables-check {{.HostIF}} {{.HostIP}} ; exit 1`[1:])
-	s.PatchValue(provisioner.IPTablesCheckSNAT, fakeIPTablesCheck)
-	fakeIPTablesAdd := provisioner.MustParseTemplate("iptablesAddSNAT", `
-iptables-add {{.HostIF}} {{.HostIP}}`[1:])
-	s.PatchValue(provisioner.IPTablesAddSNAT, fakeIPTablesAdd)
+	fakeptablesRules := map[string]provisioner.IptablesRule{
+		"IPTablesSNAT": {
+			"nat",
+			"POSTROUTING",
+			"{{.HostIF}} {{.HostIP}}",
+		},
+	}
+	s.PatchValue(provisioner.IptablesRules, fakeptablesRules)
 
-	gitjujutesting.PatchExecutableAsEchoArgs(c, s, "iptables-check")
-	gitjujutesting.PatchExecutableAsEchoArgs(c, s, "iptables-add")
+	gitjujutesting.PatchExecutableAsEchoArgs(c, s, "iptables", 1, 0)
 	gitjujutesting.PatchExecutableAsEchoArgs(c, s, "ip")
 
 	ifaceInfo := []network.InterfaceInfo{{
@@ -555,8 +565,8 @@ iptables-add {{.HostIF}} {{.HostIP}}`[1:])
 	// Now verify the expected commands - since check returns 1, add
 	// will be called before ip route add.
 
-	gitjujutesting.AssertEchoArgs(c, "iptables-check", "nic", "0.1.2.1")
-	gitjujutesting.AssertEchoArgs(c, "iptables-add", "nic", "0.1.2.1")
+	gitjujutesting.AssertEchoArgs(c, "iptables", "-t", "nat", "-C", "POSTROUTING", "nic", "0.1.2.1")
+	gitjujutesting.AssertEchoArgs(c, "iptables", "-t", "nat", "-I", "POSTROUTING", "1", "nic", "0.1.2.1")
 	gitjujutesting.AssertEchoArgs(c, "ip", "route", "add", "0.1.2.3", "dev", "bridge")
 }
 
