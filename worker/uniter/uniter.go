@@ -13,12 +13,14 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fslock"
 	corecharm "gopkg.in/juju/charm.v4"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	coreleadership "github.com/juju/juju/leadership"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -150,6 +152,13 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	// Stop the uniter if either of these components fails.
 	go func() { u.tomb.Kill(leadershipTracker.Wait()) }()
 	go func() { u.tomb.Kill(u.f.Wait()) }()
+
+	// This possibly isn't quite the right place for this code?
+	if featureflag.Enabled(feature.LeaderElection) {
+		u.f.WantLeaderSettingsEvents(!u.operationState().Leader)
+	} else {
+		u.f.WantLeaderSettingsEvents(false)
+	}
 
 	// Run modes until we encounter an error.
 	mode := ModeContinue
@@ -384,6 +393,14 @@ func (u *Uniter) runOperation(creator creator) error {
 	op, err := creator(u.operationFactory)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create operation")
+	}
+	if featureflag.Enabled(feature.LeaderElection) {
+		before := u.operationState()
+		defer func() {
+			if after := u.operationState(); before.Leader != after.Leader {
+				u.f.WantLeaderSettingsEvents(before.Leader)
+			}
+		}()
 	}
 	return u.operationExecutor.Run(op)
 }

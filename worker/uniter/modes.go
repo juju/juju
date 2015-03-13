@@ -206,13 +206,6 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	}
 
 	if featureflag.Enabled(feature.LeaderElection) {
-		// This behaviour is essentially modelled on that of config-changed.
-		// Note that we ask for events *before* we run the hook, so that the
-		// event-discard caused by running the hook resets the events correctly.
-		// And we don't `return continueAfter(...` for the same reason -- we
-		// need to have started watching for events before we run the guaranteed
-		// one.
-		u.f.WantLeaderSettingsEvents(!opState.Leader)
 		if !opState.Leader && !u.ranLeaderSettingsChanged {
 			// TODO(fwereade): define in charm/hooks
 			creator := newSimpleRunHookOp(hooks.Kind("leader-settings-changed"))
@@ -220,8 +213,6 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 				return nil, errors.Trace(err)
 			}
 		}
-	} else {
-		u.f.WantLeaderSettingsEvents(false)
 	}
 
 	if !u.ranConfigChanged {
