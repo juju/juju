@@ -13,7 +13,8 @@ STREAM_INDEX = "http://cloud-images.ubuntu.com/releases/streams/v1/index.json"
 
 def query_ami(series, arch):
     try:
-        out = subprocess.check_output(["sstream-query", STREAM_INDEX,
+        out = subprocess.check_output([
+            "sstream-query", STREAM_INDEX,
             "endpoint~ec2.us-east-1.amazonaws.com", "arch=" + arch,
             "release=" + series, "label=release", "virt=hvm", "root_store=ebs",
             "--output-format", "%(id)s"])

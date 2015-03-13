@@ -37,9 +37,12 @@ class TestParseArgs(TestCase):
 
     def test_parse_args_suite_supports_known_suites(self):
         for suite in suites.keys():
-            self.assertEqual(parse_args(['foo', '--suite', suite])[0],
-                             Namespace(root_dir='foo', suite=[suite],
-                                       jobs=None, user=None, password=None))
+            self.assertEqual(
+                parse_args([
+                    'foo', '--suite', suite, '--user', 'u', '--password',
+                    'p'])[0],
+                Namespace(root_dir='foo', suite=[suite], jobs=None,
+                          user='u', password='p'))
 
     def test_parse_args_bad_suite(self):
         with parse_error(self) as stderr:
@@ -48,18 +51,21 @@ class TestParseArgs(TestCase):
                                  ".*invalid choice: 'foo'.*")
 
     def test_parse_args_multi_suite(self):
-        args = parse_args(['foo', '--suite', FULL, '--suite', UPGRADE])[0]
+        args = parse_args(['foo', '--suite', FULL, '--suite', UPGRADE,
+                           '--user=u', '--password=p'])[0]
         self.assertEqual(args.suite, [FULL, UPGRADE])
 
     def test_parse_jobs(self):
         self.assertEqual(
-            parse_args(['foo', 'bar'])[0],
-            Namespace(root_dir='foo', suite=[], jobs=['bar'], user=None,
-                      password=None))
+            parse_args(['foo', 'bar', '--user', 'jrandom', '--password',
+                        'password1'])[0],
+            Namespace(root_dir='foo', suite=[], jobs=['bar'], user='jrandom',
+                      password='password1'))
         self.assertEqual(
-            parse_args(['foo', 'bar', 'baz'])[0],
+            parse_args(['foo', 'bar', 'baz', '--user', 'jrandom',
+                        '--password', 'password1'])[0],
             Namespace(root_dir='foo', suite=[], jobs=['bar', 'baz'],
-                      user=None, password=None))
+                      user='jrandom', password='password1'))
 
 
 class TestBuildJob(TestCase):

@@ -15,9 +15,11 @@ from mock import (
     )
 
 from utility import (
+    extract_deb,
     find_candidates,
     get_auth_token,
     get_candidates_path,
+    get_deb_arch,
     temp_dir,
     until_timeout,
     wait_for_port,
@@ -205,3 +207,21 @@ class TestWaitForPort(TestCase):
             call('asdf', 26, socket.AF_INET, socket.SOCK_STREAM),
             ])
         self.assertEqual(socket_mock.call_count, 0)
+
+
+class TestExtractDeb(TestCase):
+
+    def test_extract_deb(self):
+        with patch('subprocess.check_call', autospec=True) as cc_mock:
+            extract_deb('foo', 'bar')
+        cc_mock.assert_called_once_with(['dpkg', '-x', 'foo', 'bar'])
+
+
+class TestGetDebArch(TestCase):
+
+    def test_get_deb_arch(self):
+        with patch('subprocess.check_output',
+                   return_value=' amd42 \n') as co_mock:
+            arch = get_deb_arch()
+        co_mock.assert_called_once_with(['dpkg', '--print-architecture'])
+        self.assertEqual(arch, 'amd42')

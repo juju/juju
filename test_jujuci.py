@@ -1,21 +1,35 @@
+from argparse import Namespace
+from contextlib import contextmanager
 import json
-from mock import patch
 import os
 from StringIO import StringIO
 from unittest import TestCase
 import urllib2
 
+from mock import patch
+
 from jujuci import (
     add_artifacts,
     Artifact,
+    CERTIFY_UBUNTU_PACKAGES,
     clean_environment,
     Credentials,
-    get_build_data,
-    JENKINS_URL,
-    get_artifacts,
-    list_artifacts,
+    CredentialsMissing,
     find_artifacts,
+    get_artifacts,
+    get_build_data,
+    get_certification_bin,
+    get_credentials,
+    get_juju_bin,
+    get_juju_binary,
+    get_juju_bin_artifact,
+    get_release_package_filename,
+    JENKINS_URL,
+    list_artifacts,
+    PackageNamer,
+    PUBLISH_REVISION,
     main,
+    retrieve_artifact,
     setup_workspace,
 )
 import jujupy
@@ -87,6 +101,24 @@ def make_build_data(number='lastSuccessfulBuild'):
 
 
 class JujuCITestCase(TestCase):
+
+    def test_get_credentials(self):
+        self.assertEqual(
+            get_credentials(Namespace(user='jrandom', password='password1')),
+            Credentials('jrandom', 'password1'))
+
+    def test_get_credentials_no_user(self):
+        self.assertIs(get_credentials(Namespace()), None)
+
+    def test_get_credentials_no_value(self):
+        with self.assertRaisesRegexp(
+                CredentialsMissing,
+                'Jenkins username and/or password not supplied.'):
+            get_credentials(Namespace(user=None, password='password1'))
+        with self.assertRaisesRegexp(
+                CredentialsMissing,
+                'Jenkins username and/or password not supplied.'):
+            get_credentials(Namespace(user='jrandom', password=None))
 
     def test_main_list_options(self):
         with patch('jujuci.list_artifacts') as mock:
@@ -194,10 +226,147 @@ class JujuCITestCase(TestCase):
              'buildvars.bash'],
             files)
 
+    def test_retrieve_artifact(self):
+        location = (
+            'http://juju-ci.vapour.ws:8080/job/build-revision/1234/artifact/'
+            'buildvars.bash')
+        local_path = '%s/buildvars.bash' % os.path.abspath('./')
+        with patch('urllib.urlretrieve') as uo_mock:
+            retrieve_artifact(
+                Credentials('jrandom', '1password'), location, local_path)
+        self.assertEqual(1, uo_mock.call_count)
+        args, kwargs = uo_mock.call_args
+        auth_location = location.replace('http://',
+                                         'http://jrandom:1password@')
+        self.assertEqual((auth_location, local_path), args)
+
+    def test_get_juju_bin_artifact(self):
+        package_namer = PackageNamer('foo', 'bar')
+        bin_filename = 'juju-core_1.27.32-0ubuntu1~bar.1~juju1_foo.deb'
+        artifact = get_juju_bin_artifact(package_namer, '1.27.32', {
+            'url': 'http://asdf/',
+            'artifacts': [{
+                'relativePath': 'foo',
+                'fileName': bin_filename,
+                }],
+            })
+        self.assertEqual(artifact.location, 'http://asdf/artifact/foo')
+        self.assertEqual(artifact.file_name, bin_filename)
+
+    def test_get_release_package_filename(self):
+        package_namer = PackageNamer('foo', 'bar')
+        credentials = ('jrandom', 'password1')
+        publish_build_data = {'actions': [], }
+        build_revision_data = json.dumps({
+            'artifacts': [{
+                'fileName': 'buildvars.json',
+                'relativePath': 'buildvars.json'
+                }],
+            'url': 'http://foo/'})
+
+        def mock_urlopen(request):
+            if request.get_full_url() == 'http://foo/artifact/buildvars.json':
+                data = json.dumps({'version': '1.42'})
+            else:
+                data = build_revision_data
+            return StringIO(data)
+
+        with patch('urllib2.urlopen', autospec=True,
+                   side_effect=mock_urlopen):
+            with patch.object(PackageNamer, 'factory',
+                              return_value=package_namer):
+                file_name = get_release_package_filename(
+                    credentials, publish_build_data)
+        self.assertEqual(file_name, package_namer.get_release_package('1.42'))
+
+    def test_get_juju_bin(self):
+        build_data = {
+            'url': 'http://foo/',
+            'artifacts': [{
+                'fileName': 'steve',
+                'relativePath': 'baz',
+                }]
+            }
+        credentials = Credentials('jrandom', 'password1')
+
+        with self.get_juju_binary_mocks() as (workspace, cc_mock, uo_mock):
+            with patch('jujuci.get_build_data', return_value=build_data,
+                       autospec=True) as gbd_mock:
+                with patch(
+                        'jujuci.get_release_package_filename',
+                        return_value='steve', autospec=True) as grpf_mock:
+                    bin_loc = get_juju_bin(credentials, workspace)
+        self.assertEqual(bin_loc, os.path.join(
+            workspace, 'extracted-bin', 'subdir', 'sub-subdir', 'juju'))
+        grpf_mock.assert_called_once_with(credentials, build_data)
+        gbd_mock.assert_called_once_with(
+            JENKINS_URL, credentials, PUBLISH_REVISION, 'lastBuild')
+
+    def test_get_certification_bin(self):
+        package_namer = PackageNamer('foo', 'bar')
+        build_data = {
+            'url': 'http://foo/',
+            'artifacts': [{
+                'fileName': 'juju-core_fish.bar.1_foo.deb',
+                'relativePath': 'baz',
+                }]
+            }
+        credentials = Credentials('jrandom', 'password1')
+
+        with self.get_juju_binary_mocks() as (workspace, ur_mock, cc_mock):
+            with patch('jujuci.get_build_data', return_value=build_data,
+                       autospec=True) as gbd_mock:
+                with patch.object(PackageNamer, 'factory',
+                                  return_value=package_namer):
+                    bin_loc = get_certification_bin(credentials, 'fish',
+                                                    workspace)
+        self.assertEqual(bin_loc, os.path.join(
+            workspace, 'extracted-bin', 'subdir', 'sub-subdir', 'juju'))
+        ur_mock.assert_called_once_with(
+            'http://jrandom:password1@foo/artifact/baz',
+            os.path.join(workspace, 'juju-core_fish.bar.1_foo.deb'))
+        gbd_mock.assert_called_once_with(
+            JENKINS_URL, credentials, CERTIFY_UBUNTU_PACKAGES, 'lastBuild')
+
+    @contextmanager
+    def get_juju_binary_mocks(self):
+        def mock_extract_deb(args):
+            parent = os.path.join(args[3], 'subdir', 'sub-subdir')
+            os.makedirs(parent)
+            with open(os.path.join(parent, 'juju'), 'w') as f:
+                f.write('foo')
+
+        with temp_dir() as workspace:
+            with patch('urllib.urlretrieve') as ur_mock:
+                with patch('subprocess.check_call',
+                           side_effect=mock_extract_deb) as cc_mock:
+                    yield workspace, ur_mock, cc_mock
+
+    def test_get_juju_binary(self):
+        build_data = {
+            'url': 'http://foo/',
+            'artifacts': [{
+                'fileName': 'steve',
+                'relativePath': 'baz',
+                }]
+            }
+        credentials = Credentials('jrandom', 'password1')
+        with self.get_juju_binary_mocks() as (workspace, ur_mock, cc_mock):
+            bin_loc = get_juju_binary(credentials, 'steve', build_data,
+                                      workspace)
+        target_path = os.path.join(workspace, 'steve')
+        ur_mock.assert_called_once_with(
+            'http://jrandom:password1@foo/artifact/baz', target_path)
+        out_dir = os.path.join(workspace, 'extracted-bin')
+        cc_mock.assert_called_once_with(['dpkg', '-x', target_path, out_dir])
+        self.assertEqual(
+            bin_loc, os.path.join(workspace, 'extracted-bin', 'subdir',
+                                  'sub-subdir', 'juju'))
+
     def test_get_artifacts(self):
         build_data = make_build_data(1234)
         with patch('jujuci.get_build_data', return_value=build_data):
-            with patch('urllib.URLopener.retrieve') as uo_mock:
+            with patch('urllib.urlretrieve') as uo_mock:
                 with patch('jujuci.print_now') as pn_mock:
                     found = get_artifacts(
                         Credentials('jrandom', '1password'), 'foo', '1234',
@@ -223,7 +392,7 @@ class JujuCITestCase(TestCase):
     def test_get_artifacts_with_dry_run(self):
         build_data = make_build_data(1234)
         with patch('jujuci.get_build_data', return_value=build_data):
-            with patch('urllib.URLopener.retrieve') as uo_mock:
+            with patch('urllib.urlretrieve') as uo_mock:
                 get_artifacts(
                     Credentials('jrandom', '1password'), 'foo', '1234',
                     '*.bash', './', dry_run=True)
@@ -232,7 +401,7 @@ class JujuCITestCase(TestCase):
     def test_get_artifacts_with_archive(self):
         build_data = make_build_data(1234)
         with patch('jujuci.get_build_data', return_value=build_data):
-            with patch('urllib.URLopener.retrieve'):
+            with patch('urllib.urlretrieve'):
                 with temp_dir() as base_dir:
                     path = os.path.join(base_dir, 'foo')
                     os.mkdir(path)
@@ -248,7 +417,7 @@ class JujuCITestCase(TestCase):
     def test_get_artifacts_with_archive_error(self):
         build_data = make_build_data(1234)
         with patch('jujuci.get_build_data', return_value=build_data):
-            with patch('urllib.URLopener.retrieve'):
+            with patch('urllib.urlretrieve'):
                 with self.assertRaises(ValueError):
                     get_artifacts(
                         Credentials('jrandom', '1password'), 'foo', '1234',
@@ -325,3 +494,25 @@ class JujuCITestCase(TestCase):
                 workspace_dir, ['sub_dir/*.deb'], dry_run=False, verbose=False)
             artifacts = os.listdir(artifacts_dir)
             self.assertEqual(['juju-core-1.2.3.deb'], artifacts)
+
+
+class TestPackageNamer(TestCase):
+
+    def test_factory(self):
+        with patch('subprocess.check_output', return_value=' amd42 \n'):
+            with patch('jujuci.get_distro_information',
+                       return_value={'RELEASE': '42.42'}):
+                package_namer = PackageNamer.factory()
+        self.assertIs(type(package_namer), PackageNamer)
+        self.assertEqual(package_namer.arch, 'amd42')
+        self.assertEqual(package_namer.distro_release, '42.42')
+
+    def test_get_release_package(self):
+        self.assertEqual(
+            PackageNamer('amd42', '42.34').get_release_package('27.6'),
+            'juju-core_27.6-0ubuntu1~42.34.1~juju1_amd42.deb')
+
+    def test_get_certification_package(self):
+        self.assertEqual(
+            PackageNamer('amd42', '42.34').get_certification_package('27.6'),
+            'juju-core_27.6.42.34.1_amd42.deb')

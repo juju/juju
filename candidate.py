@@ -22,6 +22,8 @@ from jujuci import (
     PUBLISH_REVISION
 )
 from utility import (
+    extract_deb,
+    get_deb_arch,
     s3_cmd,
     temp_dir,
 )
@@ -107,7 +109,7 @@ def get_artifact_dirs(path):
 def get_package(artifacts_path, version):
     """Return the path to the expected juju-core package for the localhost."""
     release = subprocess.check_output(['lsb_release', '-sr']).strip()
-    arch = subprocess.check_output(['dpkg', '--print-architecture']).strip()
+    arch = get_deb_arch()
     package_name = 'juju-core_{}-0ubuntu1~{}.1~juju1_{}.deb'.format(
         version, release, arch)
     package_path = os.path.join(artifacts_path, package_name)
@@ -136,9 +138,8 @@ def extract_candidates(path, dry_run=False, verbose=False):
         if verbose:
             print('extracting %s to %s' % (package_path, candidate_path))
         prepare_dir(candidate_path, dry_run, verbose)
-        command = ['dpkg', '-x', package_path, candidate_path]
         if not dry_run:
-            subprocess.check_call(command)
+            extract_deb(package_path, candidate_path)
         if verbose:
             print('Copying %s to %s' % (buildvars_path, candidate_path))
         if not dry_run:

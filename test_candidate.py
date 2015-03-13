@@ -23,8 +23,6 @@ from utility import temp_dir
 class CandidateTestCase(TestCase):
 
     def test_parse_args_download(self):
-        args, credentials = parse_args(['download', 'branch', 'path'])
-        self.assertIs(credentials, None)
         args, credentials = parse_args([
             'download', 'branch', 'path', '--user', 'jrandom', '--password',
             'password1'])
