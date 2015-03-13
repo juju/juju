@@ -20,9 +20,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-var (
-	testPool = "block"
-)
+const testPool = "block"
 
 func setupTestStorageSupport(c *gc.C, s *state.State) {
 	stsetts := state.NewStateSettings(s)
