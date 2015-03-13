@@ -103,10 +103,12 @@ EOT2
 ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
 
 report_network() {
+    echo
     echo $1
     ip link
     ip route
     ip addr
+    sudo iptables-save
 }
 
 report_network "The starting network conditions:"
@@ -142,6 +144,8 @@ for x in $(seq 30); do
 done
 juju status
 report_network "The failing network conditions:"
+# Restore some routing so that staff can do an autopsy
+sudo route add default gw $gateway eth0
 exit 1
 EOT
 result=$?
