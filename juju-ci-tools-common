@@ -5,7 +5,7 @@ Standards-Version: 3.9.2
 Package: juju-ci-tools.common
 Version: 0.1.0-0
 Depends: python-mock, s3cmd, python-requests, python-boto, python-jenkins,
-  python-novaclient, euca2ools, uvtool-libvirt, uvtool, simplestreams
+  python-novaclient, euca2ools, uvtool-libvirt, uvtool
 Architecture: all
 Description: juju-ci-tools-common
  A metapackage providing the dependencies for juju-reports
