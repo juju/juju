@@ -255,3 +255,20 @@ func (s *IPAddressSuite) TestAllocatedIPAddresses(c *gc.C) {
 	c.Assert(result, jc.SameContents, expected)
 
 }
+
+func (s *IPAddressSuite) TestRefresh(c *gc.C) {
+	rawAddr := network.NewAddress("0.1.2.3", network.ScopeUnknown)
+	addr, err := s.State.AddIPAddress(rawAddr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrCopy, err := s.State.IPAddress(rawAddr.Value)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = addr.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(addrCopy.Life(), gc.Equals, state.Alive)
+	err = addrCopy.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrCopy.Life(), gc.Equals, state.Dead)
+}
