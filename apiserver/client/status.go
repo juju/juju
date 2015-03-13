@@ -526,8 +526,6 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 	status.UnitAgent, status.Workload, status.AgentState, status.AgentStateInfo = processUnitAgent(unit)
 
 	// Until Juju 2.0, we need to continue to display legacy status values.
-	status.Agent = status.Workload
-	status.Agent.Status = status.AgentState
 	status.AgentVersion = status.Workload.Version
 	status.Life = status.Workload.Life
 	status.Err = status.Workload.Err

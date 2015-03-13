@@ -225,11 +225,6 @@ var scenarioStatus = &api.Status{
 			SubordinateTo: []string{},
 			Units: map[string]api.UnitStatus{
 				"wordpress/0": {
-					Agent: api.AgentStatus{
-						Status: "error",
-						Info:   "blam",
-						Data:   map[string]interface{}{"relation-id": "0"},
-					},
 					Workload: api.AgentStatus{
 						Status: "error",
 						Info:   "blam",
@@ -244,10 +239,6 @@ var scenarioStatus = &api.Status{
 					Machine:    "1",
 					Subordinates: map[string]api.UnitStatus{
 						"logging/0": {
-							Agent: api.AgentStatus{
-								Status: "pending",
-								Data:   make(map[string]interface{}),
-							},
 							AgentState: "pending",
 							Workload: api.AgentStatus{
 								Status: "maintenance",
@@ -263,10 +254,6 @@ var scenarioStatus = &api.Status{
 					},
 				},
 				"wordpress/1": {
-					Agent: api.AgentStatus{
-						Status: "pending",
-						Data:   make(map[string]interface{}),
-					},
 					AgentState: "pending",
 					Workload: api.AgentStatus{
 						Status: "maintenance",
@@ -282,10 +269,6 @@ var scenarioStatus = &api.Status{
 					Machine: "2",
 					Subordinates: map[string]api.UnitStatus{
 						"logging/1": {
-							Agent: api.AgentStatus{
-								Status: "pending",
-								Data:   make(map[string]interface{}),
-							},
 							AgentState: "pending",
 							Workload: api.AgentStatus{
 								Status: "maintenance",

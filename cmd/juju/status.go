@@ -438,13 +438,13 @@ func (sf *statusFormatter) getAgentStatusInfo(unit api.UnitStatus) statusInfoCon
 }
 
 func (sf *statusFormatter) getUnitStatusInfo(unit api.UnitStatus, serviceName string) string {
-	if unit.Agent.Status == "" {
+	if unit.Workload.Status == "" {
 		// Old server that doesn't support this field and others.
 		// Just return the info string as-is.
 		return unit.AgentStateInfo
 	}
-	statusInfo := unit.Agent.Info
-	if unit.Agent.Status == params.StatusError {
+	statusInfo := unit.Workload.Info
+	if unit.Workload.Status == params.StatusError {
 		if relation, ok := sf.relations[getRelationIdFromData(unit)]; ok {
 			// Append the details of the other endpoint on to the status info string.
 			if ep, ok := findOtherEndpoint(relation.Endpoints, serviceName); ok {
@@ -452,7 +452,7 @@ func (sf *statusFormatter) getUnitStatusInfo(unit api.UnitStatus, serviceName st
 			}
 		}
 	}
-	return adjustInfoIfAgentDown(unit.AgentState, unit.Agent.Status, statusInfo)
+	return adjustInfoIfAgentDown(unit.AgentState, unit.Workload.Status, statusInfo)
 }
 
 func (sf *statusFormatter) formatNetwork(network api.NetworkStatus) networkStatus {
@@ -480,7 +480,7 @@ func makeHAStatus(hasVote, wantsVote bool) string {
 }
 
 func getRelationIdFromData(unit api.UnitStatus) int {
-	if relationId_, ok := unit.Agent.Data["relation-id"]; ok {
+	if relationId_, ok := unit.Workload.Data["relation-id"]; ok {
 		if relationId, ok := relationId_.(float64); ok {
 			return int(relationId)
 		} else {
