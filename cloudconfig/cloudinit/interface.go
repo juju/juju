@@ -255,12 +255,12 @@ type OutputConfig interface {
 	// Valid values include:
 	//	- init:		the output of cloudinit itself
 	//	- config:	cloud-config caused output
-	// 	- final:	the final output of cloudinit (plus that set with SetFinalMessage)
-	// 	- all:		all of the above
+	//	- final:	the final output of cloudinit (plus that set with SetFinalMessage)
+	//	- all:		all of the above
 	// Both stdout and stderr can take the following forms:
-	// 	- > file:	write to given file. Will truncate of file exists
-	// 	- >>file:	append to given file
-	// 	- | command:	pipe output to given command
+	//	- > file:	write to given file. Will truncate of file exists
+	//	- >>file:	append to given file
+	//	- | command:	pipe output to given command
 	SetOutput(OutputKind, string, string)
 
 	// Output returns the destination set by SetOutput for the given OutputKind.
@@ -299,7 +299,7 @@ type RootUserConfig interface {
 
 // WrittenFilesConfig is the interface for all
 type WrittenFilesConfig interface {
-	// AddTextFile simply issues some AddRunCmd's to set the contents of a
+	// AddRunTextFile simply issues some AddRunCmd's to set the contents of a
 	// given file with the specified file permissions on *first* boot.
 	// NOTE: if the file already exists, it will be truncated.
 	AddRunTextFile(string, string, uint)
@@ -309,7 +309,7 @@ type WrittenFilesConfig interface {
 	// NOTE: if the file already exists, it will be truncated.
 	AddBootTextFile(string, string, uint)
 
-	// AddBinaryFile simply issues some AddRunCmd's to set the binary contents
+	// AddRunBinaryFile simply issues some AddRunCmd's to set the binary contents
 	// of a given file with the specified file permissions on *first* boot.
 	// NOTE: if the file already exists, it will be truncated.
 	AddRunBinaryFile(string, []byte, uint)
@@ -365,7 +365,9 @@ func NewRenderer(series string) (Renderer, error) {
 	case version.Windows:
 		return &WindowsRenderer{}, nil
 	case version.Ubuntu:
-		return &UbuntuRenderer{}, nil
+		return &UbuntuRenderer{linuxRenderer{}}, nil
+	case version.CentOS:
+		return &CentOSRenderer{linuxRenderer{}}, nil
 	default:
 		return nil, errors.Errorf("No renderer could be found for %s", series)
 	}

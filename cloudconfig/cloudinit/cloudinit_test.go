@@ -185,7 +185,7 @@ var ctests = []struct {
 			},
 		}},
 		func(cfg cloudinit.CloudConfig) {
-			cfg.AddPackageSource(packaging.Source{"keyName", "someKey", nil})
+			cfg.AddPackageSource(packaging.Source{Name: "keyName", Key: "someKey"})
 		},
 	},
 	{
@@ -214,7 +214,8 @@ var ctests = []struct {
 				Pin:         "release n=series",
 				Priority:    123,
 			}
-			cfg.AddPackageSource(packaging.Source{"keyName", "someKey", &prefs})
+			cfg.AddPackageSource(packaging.Source{Name: "keyName", Key: "someKey"})
+			cfg.AddPackagePreferences(prefs)
 		},
 	},
 	{
