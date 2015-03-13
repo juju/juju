@@ -281,25 +281,35 @@ func (st *State) volumeAttachments(query bson.D) ([]VolumeAttachment, error) {
 }
 
 // newVolumeName returns a unique volume name.
-func newVolumeName(st *State) (string, error) {
+// If the machine ID supplied is non-empty, the
+// volume ID will incorporate it as the volume's
+// machine scope.
+func newVolumeName(st *State, machineId string) (string, error) {
 	seq, err := st.sequence("volume")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return fmt.Sprint(seq), nil
+	id := fmt.Sprint(seq)
+	if machineId != "" {
+		id = machineId + "/" + id
+	}
+	return id, nil
 }
 
 // addVolumeOp returns a txn.Op to create a new volume with the specified
-// parameters.
-func (st *State) addVolumeOp(params VolumeParams) (txn.Op, names.VolumeTag, error) {
+// parameters. If the supplied machine ID is non-empty, and the storage
+// provider is machine-scoped, then the volume will be scoped to that
+// machine.
+func (st *State) addVolumeOp(params VolumeParams, machineId string) (txn.Op, names.VolumeTag, error) {
 	params, err := st.volumeParamsWithDefaults(params)
 	if err != nil {
 		return txn.Op{}, names.VolumeTag{}, errors.Trace(err)
 	}
-	if err := st.validateVolumeParams(params); err != nil {
+	machineId, err = st.validateVolumeParams(params, machineId)
+	if err != nil {
 		return txn.Op{}, names.VolumeTag{}, errors.Annotate(err, "validating volume params")
 	}
-	name, err := newVolumeName(st)
+	name, err := newVolumeName(st, machineId)
 	if err != nil {
 		return txn.Op{}, names.VolumeTag{}, errors.Annotate(err, "cannot generate volume name")
 	}
@@ -332,14 +342,16 @@ func (st *State) volumeParamsWithDefaults(params VolumeParams) (VolumeParams, er
 	return params, nil
 }
 
-func (st *State) validateVolumeParams(params VolumeParams) error {
-	if err := validateStoragePool(st, params.Pool, storage.StorageKindBlock); err != nil {
-		return err
+// validateVolumeParams validates the volume parameters, and returns the
+// machine ID to use as the scope in the volume tag.
+func (st *State) validateVolumeParams(params VolumeParams, machineId string) (maybeMachineId string, _ error) {
+	if err := validateStoragePool(st, params.Pool, storage.StorageKindBlock, &machineId); err != nil {
+		return "", err
 	}
 	if params.Size == 0 {
-		return errors.New("invalid size 0")
+		return "", errors.New("invalid size 0")
 	}
-	return nil
+	return machineId, nil
 }
 
 // volumeAttachmentId returns a volume attachment document ID,

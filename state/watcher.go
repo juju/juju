@@ -169,12 +169,35 @@ func (st *State) WatchEnvironments() StringsWatcher {
 	return newLifecycleWatcher(st, environmentsC, nil, nil, nil)
 }
 
-// WatchVolumes returns a StringsWatcher that notifies of changes to
-// the lifecycles of all volumes.
-// TODO(wallyworld) - this currently watches all volumes; we need separate
-// methods to watch environ and specific machine volumes.
-func (st *State) WatchVolumes() StringsWatcher {
-	return newLifecycleWatcher(st, volumesC, nil, nil, nil)
+// WatchEnvironVolumes returns a StringsWatcher that notifies of changes to
+// the lifecycles of all environment-scoped volumes.
+func (st *State) WatchEnvironVolumes() StringsWatcher {
+	pattern := fmt.Sprintf("^%s$", st.docID(names.NumberSnippet))
+	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
+	filter := func(id interface{}) bool {
+		k, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		return !strings.Contains(k, "/")
+	}
+	return newLifecycleWatcher(st, volumesC, members, filter, nil)
+}
+
+// WatchMachineVolumes returns a StringsWatcher that notifies of changes to
+// the lifecycles of all volumes scoped to the specified machine.
+func (st *State) WatchMachineVolumes(m names.MachineTag) StringsWatcher {
+	pattern := fmt.Sprintf("^%s/%s$", st.docID(m.Id()), names.NumberSnippet)
+	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
+	prefix := m.Id() + "/"
+	filter := func(id interface{}) bool {
+		k, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		return strings.HasPrefix(k, prefix)
+	}
+	return newLifecycleWatcher(st, volumesC, members, filter, nil)
 }
 
 // WatchServices returns a StringsWatcher that notifies of changes to

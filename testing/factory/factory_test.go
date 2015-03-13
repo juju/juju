@@ -239,7 +239,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	c.Assert(machine.CheckProvisioned(nonce), jc.IsTrue)
 	c.Assert(machine.PasswordValid(password), jc.IsTrue)
 
-	volume, err := s.State.Volume(names.NewVolumeTag("0"))
+	volume, err := s.State.Volume(names.NewVolumeTag(machine.Id() + "/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	volParams, ok := volume.Params()
 	c.Assert(ok, jc.IsTrue)

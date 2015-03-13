@@ -24,7 +24,7 @@ type VolumeStateSuite struct {
 var _ = gc.Suite(&VolumeStateSuite{})
 
 func (s *VolumeStateSuite) TestAddMachine(c *gc.C) {
-	_, unit, _ := s.setupSingleStorage(c, "block")
+	_, unit, _ := s.setupSingleStorage(c, "block", "loop-pool")
 	err := s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 	assignedMachineId, err := unit.AssignedMachineId()
@@ -38,7 +38,7 @@ func (s *VolumeStateSuite) TestAddMachine(c *gc.C) {
 
 	volume, err := s.State.StorageInstanceVolume(storageInstance.StorageTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volume.VolumeTag(), gc.Equals, names.NewVolumeTag("0"))
+	c.Assert(volume.VolumeTag(), gc.Equals, names.NewVolumeTag("0/0"))
 	volumeStorageTag, err := volume.StorageInstance()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeStorageTag, gc.Equals, storageInstance.StorageTag())
@@ -117,7 +117,7 @@ func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestSetVolumeInfo(c *gc.C) {
-	_, u, storageTag := s.setupSingleStorage(c, "block")
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -176,7 +176,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfoNoStorageAssigned(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
-	_, u, storageTag := s.setupSingleStorage(c, "block")
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 	assignedMachineId, err := u.AssignedMachineId()
@@ -204,6 +204,63 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 	err = s.State.SetVolumeInfo(volumeTag, state.VolumeInfo{VolumeId: "vol-123"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+}
+
+func (s *VolumeStateSuite) TestWatchEnvironVolumes(c *gc.C) {
+	service := s.setupMixedScopeStorageService(c)
+	addUnit := func() {
+		u, err := service.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	addUnit()
+
+	w := s.State.WatchEnvironVolumes()
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChangeInSingleEvent("0") // initial
+	wc.AssertNoChange()
+
+	addUnit()
+	wc.AssertChangeInSingleEvent("3")
+	wc.AssertNoChange()
+
+	// TODO(axw) respond to Dying/Dead when we have
+	// the means to progress Volume lifecycle.
+}
+
+func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
+	service := s.setupMixedScopeStorageService(c)
+	addUnit := func() {
+		u, err := service.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	addUnit()
+
+	w := s.State.WatchMachineVolumes(names.NewMachineTag("0"))
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChangeInSingleEvent("0/1", "0/2") // initial
+	wc.AssertNoChange()
+
+	addUnit()
+	// no change, since we're only interested in the one machine.
+	wc.AssertNoChange()
+
+	// TODO(axw) respond to Dying/Dead when we have
+	// the means to progress Volume lifecycle.
+}
+
+func (s *VolumeStateSuite) setupMixedScopeStorageService(c *gc.C) *state.Service {
+	storageCons := map[string]state.StorageConstraints{
+		"multi1to10": makeStorageCons("environscoped", 1024, 1),
+		"multi2up":   makeStorageCons("machinescoped", 2048, 2),
+	}
+	ch := s.AddTestingCharm(c, "storage-block2")
+	return s.AddTestingServiceWithStorage(c, "storage-block2", ch, storageCons)
 }
 
 func (s *VolumeStateSuite) assertVolumeUnprovisioned(c *gc.C, tag names.VolumeTag) {

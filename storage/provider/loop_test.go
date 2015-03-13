@@ -72,6 +72,11 @@ func (s *loopSuite) TestSupports(c *gc.C) {
 	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsFalse)
 }
 
+func (s *loopSuite) TestScope(c *gc.C) {
+	p := s.loopProvider(c)
+	c.Assert(p.Scope(), gc.Equals, storage.ScopeMachine)
+}
+
 func (s *loopSuite) loopVolumeSource(c *gc.C) storage.VolumeSource {
 	s.commands = &mockRunCommand{c: c}
 	return provider.LoopVolumeSource(

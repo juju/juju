@@ -32,6 +32,20 @@ func (s *providerRegistrySuite) TestRegisterProvider(c *gc.C) {
 	c.Assert(p, gc.Equals, p1)
 }
 
+func (s *providerRegistrySuite) TestUnregisterProvider(c *gc.C) {
+	ptype := storage.ProviderType("foo")
+
+	// No-op, since there's nothing registered yet.
+	registry.RegisterProvider(ptype, nil)
+
+	// Register and then unregister, ensure that the provider cannot
+	// be accessed.
+	registry.RegisterProvider(ptype, &mockProvider{})
+	registry.RegisterProvider(ptype, nil)
+	_, err := registry.StorageProvider(storage.ProviderType("foo"))
+	c.Assert(err, gc.ErrorMatches, `storage provider "foo" not found`)
+}
+
 func (s *providerRegistrySuite) TestNoSuchProvider(c *gc.C) {
 	_, err := registry.StorageProvider(storage.ProviderType("foo"))
 	c.Assert(err, gc.ErrorMatches, `storage provider "foo" not found`)

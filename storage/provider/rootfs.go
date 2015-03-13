@@ -74,6 +74,11 @@ func (*rootfsProvider) Supports(k storage.StorageKind) bool {
 	return k == storage.StorageKindFilesystem
 }
 
+// Scope is defined on the Provider interface.
+func (*rootfsProvider) Scope() storage.Scope {
+	return storage.ScopeMachine
+}
+
 type rootfsFilesystemSource struct {
 	dirFuncs   dirFuncs
 	run        runCommandFunc

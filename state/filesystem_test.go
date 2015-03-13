@@ -68,7 +68,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withV
 
 	filesystem, err := s.State.StorageInstanceFilesystem(storageInstance.StorageTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(filesystem.FilesystemTag(), gc.Equals, names.NewFilesystemTag("0"))
+	c.Assert(filesystem.FilesystemTag(), gc.Equals, names.NewFilesystemTag("0/0"))
 	filesystemStorageTag, err := filesystem.Storage()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystemStorageTag, gc.Equals, storageInstance.StorageTag())
@@ -80,7 +80,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withV
 	volume, err := s.State.StorageInstanceVolume(storageInstance.StorageTag())
 	if withVolume {
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(volume.VolumeTag(), gc.Equals, names.NewVolumeTag("0"))
+		c.Assert(volume.VolumeTag(), gc.Equals, names.NewVolumeTag("0/0"))
 		volumeStorageTag, err := volume.StorageInstance()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(volumeStorageTag, gc.Equals, storageInstance.StorageTag())
@@ -110,7 +110,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withV
 }
 
 func (s *FilesystemStateSuite) TestWatchFilesystemAttachment(c *gc.C) {
-	_, u, storageTag := s.setupSingleStorage(c, "filesystem")
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "loop-pool")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 	assignedMachineId, err := u.AssignedMachineId()
@@ -143,7 +143,7 @@ func (s *FilesystemStateSuite) TestWatchFilesystemAttachment(c *gc.C) {
 }
 
 func (s *FilesystemStateSuite) TestFilesystemInfo(c *gc.C) {
-	_, u, storageTag := s.setupSingleStorage(c, "filesystem")
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "loop-pool")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 	assignedMachineId, err := u.AssignedMachineId()
