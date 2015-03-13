@@ -308,12 +308,14 @@ class DeployStackTestCase(TestCase):
                 responses = assess_juju_run(client)
 
     def test_safe_print_status(self):
-        def se(*args, **kwargs):
-            raise subprocess.CalledProcessError(1, 'status', 'status error')
         env = SimpleEnvironment('foo', {'type': 'nonlocal'})
         client = EnvJujuClient(env, None, None)
-        with patch.object(client, 'juju', autospec=True, side_effect=se):
-                safe_print_status(client)
+        with patch.object(client, 'juju', autospec=True, side_effect=
+                          subprocess.CalledProcessError(1, 'status',
+                                                        'status error')
+                          ) as mock:
+            safe_print_status(client)
+        mock.assert_called_once_with('status', ())
 
 
 class DumpEnvLogsTestCase(TestCase):
