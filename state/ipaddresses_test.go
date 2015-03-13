@@ -87,7 +87,7 @@ func (s *IPAddressSuite) TestEnsureDeadRemove(c *gc.C) {
 	// Should not be able to remove an Alive IP address.
 	c.Assert(ipAddr.Life(), gc.Equals, state.Alive)
 	err = ipAddr.Remove()
-	msg := fmt.Sprintf("cannot remove IP address %q: IP address is not dead", ipAddr)
+	msg := fmt.Sprintf("cannot remove IP address %q: IP address is not dead", ipAddr.String())
 	c.Assert(err, gc.ErrorMatches, msg)
 
 	err = ipAddr.EnsureDead()
