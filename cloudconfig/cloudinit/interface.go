@@ -255,12 +255,12 @@ type OutputConfig interface {
 	// Valid values include:
 	//	- init:		the output of cloudinit itself
 	//	- config:	cloud-config caused output
-	// 	- final:	the final output of cloudinit (plus that set with SetFinalMessage)
-	// 	- all:		all of the above
+	//	- final:	the final output of cloudinit (plus that set with SetFinalMessage)
+	//	- all:		all of the above
 	// Both stdout and stderr can take the following forms:
-	// 	- > file:	write to given file. Will truncate of file exists
-	// 	- >>file:	append to given file
-	// 	- | command:	pipe output to given command
+	//	- > file:	write to given file. Will truncate of file exists
+	//	- >>file:	append to given file
+	//	- | command:	pipe output to given command
 	SetOutput(OutputKind, string, string)
 
 	// Output returns the destination set by SetOutput for the given OutputKind.
@@ -365,6 +365,8 @@ func NewRenderer(series string) (Renderer, error) {
 	case version.Windows:
 		return &WindowsRenderer{}, nil
 	case version.Ubuntu:
+		return &UbuntuRenderer{}, nil
+	case version.CentOS:
 		return &UbuntuRenderer{}, nil
 	default:
 		return nil, errors.Errorf("No renderer could be found for %s", series)

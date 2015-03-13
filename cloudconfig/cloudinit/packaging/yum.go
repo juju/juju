@@ -22,8 +22,7 @@ const (
 name={{.Name}} (added by Juju)
 baseurl={{.Url}}
 {{if .Key}}gpgcheck=1
-gpgkey=%s
-{{end}}
+gpgkey=%s{{end}}
 enabled=1
 `
 )

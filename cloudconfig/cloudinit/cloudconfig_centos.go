@@ -79,7 +79,7 @@ func (cfg *CentOSCloudConfig) AddPackageSource(src packaging.Source) {
 func (cfg *CentOSCloudConfig) PackageSources() []packaging.Source {
 	sources := []packaging.Source{}
 
-	for _, source := range extractRegexpsFromSlice(cfg.RunCmds(), "install -D -m 0644 /dev/null (.*)") {
+	for _, source := range extractRegexpsFromSlice(cfg.RunCmds(), "install -D -m 644 /dev/null (.*)") {
 		sources = append(sources, packaging.Source{Name: source})
 	}
 

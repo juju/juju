@@ -34,7 +34,7 @@ func (s *Source) RenderCentOS() string {
 
 	// check if gpg key required and add path to keyfile if so.
 	if s.Key != "" {
-		fmt.Sprintf(contents, "file://"+s.KeyfilePath())
+		contents = fmt.Sprintf(contents, "file://"+s.KeyfilePath())
 	}
 
 	return contents

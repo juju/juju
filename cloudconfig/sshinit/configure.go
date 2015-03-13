@@ -196,12 +196,12 @@ func addPackageCommands(cfg cloudinit.CloudConfig) ([]string, error) {
 		}
 		cmds = append(cmds, cloudinit.LogProgressCmd("Adding apt repository: %s", src.Url))
 		cmds = append(cmds, "add-apt-repository -y "+utils.ShQuote(src.Url))
-		if src.Prefs != nil {
-			path := utils.ShQuote(src.Prefs.Path)
-			contents := utils.ShQuote(src.Prefs.FileContents())
-			cmds = append(cmds, "install -D -m 644 /dev/null "+path)
-			cmds = append(cmds, `printf '%s\n' `+contents+` > `+path)
-		}
+		// if src.Prefs != nil {
+		//	path := utils.ShQuote(src.Prefs.Path)
+		//	contents := utils.ShQuote(src.Prefs.FileContents())
+		//	cmds = append(cmds, "install -D -m 644 /dev/null "+path)
+		//	cmds = append(cmds, `printf '%s\n' `+contents+` > `+path)
+		//}
 	}
 
 	// Define the "apt_get_loop" function, and wrap apt-get with it.
