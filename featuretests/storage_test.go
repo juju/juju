@@ -127,12 +127,7 @@ func runList(c *gc.C) *cmd.Context {
 
 func (s *cmdStorageSuite) TestStorageListEmpty(c *gc.C) {
 	context := runList(c)
-	expected := `
-[Storage] 
-OWNER     ID NAME ATTACHED LOCATION KIND 
-
-`[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	c.Assert(testing.Stdout(context), gc.Equals, "")
 }
 
 func (s *cmdStorageSuite) TestStorageList(c *gc.C) {

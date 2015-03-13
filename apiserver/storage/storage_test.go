@@ -83,15 +83,10 @@ func (s *storageSuite) TestStorageList(c *gc.C) {
 	s.assertCalls(c, expectedCalls)
 
 	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error, gc.IsNil)
-	one := found.Results[0].Result
-	c.Assert(one.StorageTag, gc.DeepEquals, s.storageTag.String())
-	c.Assert(one.Kind, gc.DeepEquals, params.StorageKindFilesystem)
-	c.Assert(one.OwnerTag, gc.DeepEquals, s.unitTag.String())
-	c.Assert(one.UnitTag, gc.DeepEquals, s.unitTag.String())
-	c.Assert(one.Location, gc.DeepEquals, "")
-	c.Assert(one.Provisioned, jc.IsFalse)
-	c.Assert(one.Attached, jc.IsTrue)
+	wantedDetails := s.createTestStorageInfo()
+	wantedDetails.UnitTag = s.unitTag.String()
+	wantedDetails.Attached = true
+	s.assertInstanceInfoError(c, found.Results[0], wantedDetails, "")
 }
 
 func (s *storageSuite) TestStorageListError(c *gc.C) {
@@ -134,7 +129,9 @@ func (s *storageSuite) TestStorageListInstanceError(c *gc.C) {
 	}
 	s.assertCalls(c, expectedCalls)
 	c.Assert(found.Results, gc.HasLen, 1)
-	s.assertInstanceError(c, found.Results[0], msg)
+	wanted := s.createTestStorageInfoWithError("",
+		fmt.Sprintf("getting storage attachment info: getting storage instance: %v", msg))
+	s.assertInstanceInfoError(c, found.Results[0], wanted, msg)
 }
 
 func (s *storageSuite) TestStorageListAttachmentError(c *gc.C) {
@@ -155,7 +152,11 @@ func (s *storageSuite) TestStorageListAttachmentError(c *gc.C) {
 	}
 	s.assertCalls(c, expectedCalls)
 	c.Assert(found.Results, gc.HasLen, 1)
-	s.assertInstanceError(c, found.Results[0], "permission denied")
+	expectedErr := "permission denied"
+	wanted := s.createTestStorageInfoWithError(
+		"unauthorized access",
+		expectedErr)
+	s.assertInstanceInfoError(c, found.Results[0], wanted, expectedErr)
 }
 
 func (s *storageSuite) TestStorageListMachineError(c *gc.C) {
@@ -178,7 +179,9 @@ func (s *storageSuite) TestStorageListMachineError(c *gc.C) {
 	}
 	s.assertCalls(c, expectedCalls)
 	c.Assert(found.Results, gc.HasLen, 1)
-	s.assertInstanceError(c, found.Results[0], msg)
+	wanted := s.createTestStorageInfoWithError("",
+		fmt.Sprintf("getting unit for storage attachment: %v", msg))
+	s.assertInstanceInfoError(c, found.Results[0], wanted, msg)
 }
 
 func (s *storageSuite) TestStorageListFilesystemError(c *gc.C) {
@@ -203,7 +206,9 @@ func (s *storageSuite) TestStorageListFilesystemError(c *gc.C) {
 	}
 	s.assertCalls(c, expectedCalls)
 	c.Assert(found.Results, gc.HasLen, 1)
-	s.assertInstanceError(c, found.Results[0], msg)
+	wanted := s.createTestStorageInfoWithError("",
+		fmt.Sprintf("getting storage attachment info: getting filesystem: %v", msg))
+	s.assertInstanceInfoError(c, found.Results[0], wanted, msg)
 }
 
 func (s *storageSuite) TestStorageListFilesystemAttachmentError(c *gc.C) {
@@ -226,7 +231,27 @@ func (s *storageSuite) TestStorageListFilesystemAttachmentError(c *gc.C) {
 	}
 	s.assertCalls(c, expectedCalls)
 	c.Assert(found.Results, gc.HasLen, 1)
-	s.assertInstanceError(c, found.Results[0], msg)
+	wanted := s.createTestStorageInfoWithError("",
+		fmt.Sprintf("getting unit for storage attachment: %v", msg))
+	s.assertInstanceInfoError(c, found.Results[0], wanted, msg)
+}
+
+func (s *storageSuite) createTestStorageInfoWithError(code, msg string) params.StorageInfo {
+	wanted := s.createTestStorageInfo()
+	wanted.Error = &params.Error{Code: code,
+		Message: fmt.Sprintf("getting attachments for owner unit-mysql-0: %v", msg)}
+	return wanted
+}
+
+func (s *storageSuite) createTestStorageInfo() params.StorageInfo {
+	return params.StorageInfo{
+		params.StorageDetails{
+			StorageTag: s.storageTag.String(),
+			OwnerTag:   s.unitTag.String(),
+			Kind:       params.StorageKindFilesystem,
+		},
+		nil,
+	}
 }
 
 func (s *storageSuite) constructState(c *gc.C) *mockState {
@@ -285,17 +310,13 @@ func (s *storageSuite) assertCalls(c *gc.C, expectedCalls []string) {
 	c.Assert(s.calls, jc.SameContents, expectedCalls)
 }
 
-func (s *storageSuite) assertInstanceError(c *gc.C, instance params.StorageShowResult, expected string) {
-	c.Assert(errors.Cause(instance.Error), gc.ErrorMatches, fmt.Sprintf(".*%v.*", expected))
-	// check returned storage instance is empty
-	one := instance.Result
-	c.Assert(one.StorageTag, gc.Equals, "")
-	c.Assert(one.Kind, gc.DeepEquals, params.StorageKindUnknown)
-	c.Assert(one.OwnerTag, gc.Equals, "")
-	c.Assert(one.UnitTag, gc.Equals, "")
-	c.Assert(one.Location, gc.Equals, "")
-	c.Assert(one.Provisioned, jc.IsFalse)
-	c.Assert(one.Attached, jc.IsFalse)
+func (s *storageSuite) assertInstanceInfoError(c *gc.C, obtained params.StorageInfo, wanted params.StorageInfo, expected string) {
+	if expected != "" {
+		c.Assert(errors.Cause(obtained.Error), gc.ErrorMatches, fmt.Sprintf(".*%v.*", expected))
+	} else {
+		c.Assert(obtained.Error, gc.IsNil)
+	}
+	c.Assert(obtained, gc.DeepEquals, wanted)
 }
 
 func (s *storageSuite) TestShowStorageEmpty(c *gc.C) {
@@ -330,14 +351,15 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 
 	one := found.Results[0]
 	c.Assert(one.Error, gc.IsNil)
-	att := one.Result
-	c.Assert(att.StorageTag, gc.DeepEquals, s.storageTag.String())
-	c.Assert(att.OwnerTag, gc.DeepEquals, s.unitTag.String())
-	c.Assert(att.Kind, gc.DeepEquals, params.StorageKindFilesystem)
-	c.Assert(att.UnitTag, gc.Equals, s.unitTag.String())
-	c.Assert(att.Location, gc.Equals, "")
-	c.Assert(att.Provisioned, jc.IsFalse)
-	c.Assert(att.Attached, jc.IsTrue)
+
+	expected := params.StorageDetails{
+		StorageTag: s.storageTag.String(),
+		OwnerTag:   s.unitTag.String(),
+		Kind:       params.StorageKindFilesystem,
+		UnitTag:    s.unitTag.String(),
+		Attached:   true,
+	}
+	c.Assert(one.Result, gc.DeepEquals, expected)
 }
 
 func (s *storageSuite) TestShowStorageInvalidId(c *gc.C) {
@@ -350,7 +372,12 @@ func (s *storageSuite) TestShowStorageInvalidId(c *gc.C) {
 	found, err := api.Show(params.Entities{Entities: []params.Entity{entity}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
-	s.assertInstanceError(c, found.Results[0], "permission denied")
+
+	instance := found.Results[0]
+	c.Assert(errors.Cause(instance.Error), gc.ErrorMatches, ".*permission denied.*")
+
+	expected := params.StorageDetails{Kind: params.StorageKindUnknown}
+	c.Assert(instance.Result, gc.DeepEquals, expected)
 }
 
 type mockState struct {

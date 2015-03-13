@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
@@ -64,7 +66,20 @@ func (c *ListCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	output, err := formatStorageInfo(found)
+	// filter out valid output, if any
+	var valid []params.StorageDetails
+	for _, one := range found {
+		if one.Error == nil {
+			valid = append(valid, one.StorageDetails)
+			continue
+		}
+		// display individual error
+		fmt.Fprintf(ctx.Stderr, "%v\n", one.Error)
+	}
+	if len(valid) == 0 {
+		return nil
+	}
+	output, err := formatStorageInfo(valid)
 	if err != nil {
 		return err
 	}

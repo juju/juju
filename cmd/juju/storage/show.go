@@ -100,7 +100,7 @@ var (
 // StorageAPI defines the API methods that the storage commands use.
 type StorageShowAPI interface {
 	Close() error
-	Show(tags []names.StorageTag) ([]params.StorageInfo, error)
+	Show(tags []names.StorageTag) ([]params.StorageDetails, error)
 }
 
 func (c *ShowCommand) getStorageShowAPI() (StorageShowAPI, error) {

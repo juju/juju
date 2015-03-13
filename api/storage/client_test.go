@@ -48,18 +48,18 @@ func (s *storageMockSuite) TestShow(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Entities, gc.HasLen, 2)
 
-			if results, k := result.(*params.StorageShowResults); k {
-				instances := []params.StorageShowResult{
-					params.StorageShowResult{
-						Result: params.StorageInfo{StorageTag: oneTag.String()},
+			if results, k := result.(*params.StorageDetailsResults); k {
+				instances := []params.StorageDetailsResult{
+					params.StorageDetailsResult{
+						Result: params.StorageDetails{StorageTag: oneTag.String()},
 					},
-					params.StorageShowResult{
-						Result: params.StorageInfo{
+					params.StorageDetailsResult{
+						Result: params.StorageDetails{
 							StorageTag: twoTag.String(),
 							Attached:   true,
 						},
 					},
-					params.StorageShowResult{Error: common.ServerError(errors.New(msg))},
+					params.StorageDetailsResult{Error: common.ServerError(errors.New(msg))},
 				}
 				results.Results = instances
 			}
@@ -109,7 +109,6 @@ func (s *storageMockSuite) TestList(c *gc.C) {
 	oneTag := names.NewStorageTag(one)
 	two := "db-dir/1000"
 	twoTag := names.NewStorageTag(two)
-	expected := set.NewStrings(oneTag.String(), twoTag.String())
 	msg := "call failure"
 
 	apiCaller := basetesting.APICallerFunc(
@@ -124,18 +123,19 @@ func (s *storageMockSuite) TestList(c *gc.C) {
 			c.Check(request, gc.Equals, "List")
 			c.Check(a, gc.IsNil)
 
-			if results, k := result.(*params.StorageShowResults); k {
-				instances := []params.StorageShowResult{
-					params.StorageShowResult{
-						Result: params.StorageInfo{StorageTag: oneTag.String()},
+			if results, k := result.(*params.StorageInfosResult); k {
+				instances := []params.StorageInfo{
+					params.StorageInfo{
+						params.StorageDetails{StorageTag: oneTag.String()},
+						common.ServerError(errors.New(msg)),
 					},
-					params.StorageShowResult{
-						Result: params.StorageInfo{
+					params.StorageInfo{
+						params.StorageDetails{
 							StorageTag: twoTag.String(),
 							Attached:   true,
 						},
+						nil,
 					},
-					params.StorageShowResult{Error: common.ServerError(errors.New(msg))},
 				}
 				results.Results = instances
 			}
@@ -144,10 +144,22 @@ func (s *storageMockSuite) TestList(c *gc.C) {
 		})
 	storageClient := storage.NewClient(apiCaller)
 	found, err := storageClient.List()
-	c.Check(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(found, gc.HasLen, 2)
-	c.Assert(expected.Contains(found[0].StorageTag), jc.IsTrue)
-	c.Assert(expected.Contains(found[1].StorageTag), jc.IsTrue)
+	expected := []params.StorageInfo{
+		params.StorageInfo{
+			StorageDetails: params.StorageDetails{
+				StorageTag: "storage-shared-fs-0"},
+			Error: &params.Error{Message: msg},
+		},
+		params.StorageInfo{
+			params.StorageDetails{
+				StorageTag: "storage-db-dir-1000",
+				Attached:   true},
+			nil},
+	}
+
+	c.Assert(found, jc.DeepEquals, expected)
 	c.Assert(called, jc.IsTrue)
 }
 

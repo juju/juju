@@ -49,54 +49,67 @@ func NewAPI(
 	return createAPI(getState(st), resources, authorizer)
 }
 
-func (api *API) Show(entities params.Entities) (params.StorageShowResults, error) {
-	var all []params.StorageShowResult
+func (api *API) Show(entities params.Entities) (params.StorageDetailsResults, error) {
+	var all []params.StorageDetailsResult
 	for _, entity := range entities.Entities {
 		found, instance, err := api.getStorageInstance(entity.Tag)
 		if err != nil {
-			all = append(all, params.StorageShowResult{Error: err})
+			all = append(all, params.StorageDetailsResult{Error: err})
 			continue
 		}
 		if found {
-			all = append(all, api.createStorageShowResult(instance)...)
+			all = append(all, api.createStorageDetailsResult(instance)...)
 		}
 	}
-	return params.StorageShowResults{Results: all}, nil
+	return params.StorageDetailsResults{Results: all}, nil
 }
 
-func (api *API) List() (params.StorageShowResults, error) {
+func (api *API) List() (params.StorageInfosResult, error) {
 	stateInstances, err := api.storage.AllStorageInstances()
 	if err != nil {
-		return params.StorageShowResults{}, common.ServerError(err)
+		return params.StorageInfosResult{}, common.ServerError(err)
 	}
-	var infos []params.StorageShowResult
+	var infos []params.StorageInfo
 	for _, stateInstance := range stateInstances {
 		instance := createParamsStorageInstance(stateInstance)
-		infos = append(infos, api.createStorageShowResult(instance)...)
+
+		// It is possible to encounter errors here related to getting individual
+		// storage details such as getting attachments, getting machine from the unit,
+		// etc.
+		// There are 3 ways to approach this (thank you, axw!):
+		//     1. error out the whole command (seems kind of drastic);
+		//     2. ignore this storage (seems kind of rude);
+		//     3. add error to storage info.
+		// Current approach is to do what status command does - 3.
+		attachments := api.createStorageDetailsResult(instance)
+		for _, one := range attachments {
+			aParam := params.StorageInfo{one.Result, one.Error}
+			infos = append(infos, aParam)
+		}
 	}
-	return params.StorageShowResults{Results: infos}, nil
+	return params.StorageInfosResult{Results: infos}, nil
 }
 
-func (api *API) createStorageShowResult(instance params.StorageInfo) []params.StorageShowResult {
+func (api *API) createStorageDetailsResult(instance params.StorageDetails) []params.StorageDetailsResult {
 	attachments, err := api.getStorageAttachments(instance)
 	if err != nil {
-		return []params.StorageShowResult{params.StorageShowResult{Error: err}}
+		return []params.StorageDetailsResult{params.StorageDetailsResult{Result: instance, Error: err}}
 	}
 	if len(attachments) > 0 {
 		// If any attachments were found for this storage instance,
 		// return them instead.
-		result := make([]params.StorageShowResult, len(attachments))
+		result := make([]params.StorageDetailsResult, len(attachments))
 		for i, attachment := range attachments {
-			result[i] = params.StorageShowResult{Result: attachment}
+			result[i] = params.StorageDetailsResult{Result: attachment}
 		}
 		return result
 	}
 	// If we are here then this storage instance is unattached.
-	return []params.StorageShowResult{params.StorageShowResult{Result: instance}}
+	return []params.StorageDetailsResult{params.StorageDetailsResult{Result: instance}}
 
 }
 
-func (api *API) getStorageAttachments(instance params.StorageInfo) ([]params.StorageInfo, *params.Error) {
+func (api *API) getStorageAttachments(instance params.StorageDetails) ([]params.StorageDetails, *params.Error) {
 	serverError := func(err error) *params.Error {
 		return common.ServerError(errors.Annotatef(err, "getting attachments for owner %v", instance.OwnerTag))
 	}
@@ -115,7 +128,7 @@ func (api *API) getStorageAttachments(instance params.StorageInfo) ([]params.Sto
 	if err != nil {
 		return nil, serverError(common.ErrPerm)
 	}
-	result := make([]params.StorageInfo, len(stateAttachments))
+	result := make([]params.StorageDetails, len(stateAttachments))
 	for i, one := range stateAttachments {
 		paramsStorageAttachment, err := api.createParamsStorageAttachment(instance, one)
 		if err != nil {
@@ -126,8 +139,8 @@ func (api *API) getStorageAttachments(instance params.StorageInfo) ([]params.Sto
 	return result, nil
 }
 
-func (api *API) createParamsStorageAttachment(si params.StorageInfo, sa state.StorageAttachment) (params.StorageInfo, error) {
-	result := params.StorageInfo{}
+func (api *API) createParamsStorageAttachment(si params.StorageDetails, sa state.StorageAttachment) (params.StorageDetails, error) {
+	result := params.StorageDetails{}
 	result.StorageTag = sa.StorageInstance().String()
 	if result.StorageTag != si.StorageTag {
 		panic("attachment does not belong to storage instance")
@@ -140,7 +153,7 @@ func (api *API) createParamsStorageAttachment(si params.StorageInfo, sa state.St
 	// This is only for provisioned attachments
 	machineTag, err := api.storage.UnitAssignedMachine(sa.Unit())
 	if err != nil {
-		return params.StorageInfo{}, errors.Annotate(err, "getting unit for storage attachment")
+		return params.StorageDetails{}, errors.Annotate(err, "getting unit for storage attachment")
 	}
 	info, err := common.StorageAttachmentInfo(api.storage, sa, machineTag)
 	if err != nil {
@@ -148,7 +161,7 @@ func (api *API) createParamsStorageAttachment(si params.StorageInfo, sa state.St
 			// Not provisioned attachment is not an error
 			return result, nil
 		}
-		return params.StorageInfo{}, errors.Annotate(err, "getting storage attachment info")
+		return params.StorageDetails{}, errors.Annotate(err, "getting storage attachment info")
 	}
 	result.Location = info.Location
 	if result.Location != "" {
@@ -157,8 +170,8 @@ func (api *API) createParamsStorageAttachment(si params.StorageInfo, sa state.St
 	return result, nil
 }
 
-func (api *API) getStorageInstance(tag string) (bool, params.StorageInfo, *params.Error) {
-	nothing := params.StorageInfo{}
+func (api *API) getStorageInstance(tag string) (bool, params.StorageDetails, *params.Error) {
+	nothing := params.StorageDetails{}
 	serverError := func(err error) *params.Error {
 		return common.ServerError(errors.Annotatef(err, "getting %v", tag))
 	}
@@ -176,8 +189,8 @@ func (api *API) getStorageInstance(tag string) (bool, params.StorageInfo, *param
 	return true, createParamsStorageInstance(stateInstance), nil
 }
 
-func createParamsStorageInstance(si state.StorageInstance) params.StorageInfo {
-	result := params.StorageInfo{
+func createParamsStorageInstance(si state.StorageInstance) params.StorageDetails {
+	result := params.StorageDetails{
 		OwnerTag:   si.Owner().String(),
 		StorageTag: si.Tag().String(),
 		Kind:       params.StorageKind(si.Kind()),

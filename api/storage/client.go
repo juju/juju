@@ -29,8 +29,8 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 // Show retrieves information about desired storage instances.
-func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInfo, error) {
-	found := params.StorageShowResults{}
+func (c *Client) Show(tags []names.StorageTag) ([]params.StorageDetails, error) {
+	found := params.StorageDetailsResults{}
 	entities := make([]params.Entity, len(tags))
 	for i, tag := range tags {
 		entities[i] = params.Entity{Tag: tag.String()}
@@ -40,8 +40,9 @@ func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInfo, error) {
 	}
 	return c.convert(found.Results)
 }
-func (c *Client) convert(found []params.StorageShowResult) ([]params.StorageInfo, error) {
-	var storages []params.StorageInfo
+
+func (c *Client) convert(found []params.StorageDetailsResult) ([]params.StorageDetails, error) {
+	var storages []params.StorageDetails
 	var allErr params.ErrorResults
 	for _, result := range found {
 		if result.Error != nil {
@@ -55,9 +56,9 @@ func (c *Client) convert(found []params.StorageShowResult) ([]params.StorageInfo
 
 // List lists all storage.
 func (c *Client) List() ([]params.StorageInfo, error) {
-	found := params.StorageShowResults{}
+	found := params.StorageInfosResult{}
 	if err := c.facade.FacadeCall("List", nil, &found); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.convert(found.Results)
+	return found.Results, nil
 }

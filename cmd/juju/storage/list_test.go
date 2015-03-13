@@ -50,6 +50,7 @@ transcode    shared-fs/0 shared-fs                      unknown
 transcode/0  shared-fs/0 shared-fs transcode/0 here     block   
 
 `[1:],
+		"",
 	)
 }
 
@@ -82,6 +83,7 @@ transcode/0:
     location: here
     provisioned: true
 `[1:],
+		"",
 	)
 }
 
@@ -93,25 +95,31 @@ func (s *ListSuite) TestListOwnerStorageIdSort(c *gc.C) {
 		// Default format is tabular
 		`
 [Storage]    
-OWNER        ID          NAME      ATTACHED    LOCATION KIND        
-postgresql/0 db-dir/1000 db-dir    transcode/0 there    unknown     
-transcode    db-dir/1000 db-dir                         file system 
-transcode    shared-fs/0 shared-fs                      unknown     
-transcode    shared-fs/5 shared-fs                      unknown     
-transcode/0  db-dir/1000 db-dir    transcode/0          block       
-transcode/0  shared-fs/0 shared-fs transcode/0 here     block       
-transcode/0  shared-fs/5 shared-fs transcode/0 nowhere  unknown     
+OWNER        ID          NAME      ATTACHED    LOCATION KIND       
+postgresql/0 db-dir/1000 db-dir    transcode/0 there    unknown    
+transcode    db-dir/1000 db-dir                         filesystem 
+transcode    shared-fs/0 shared-fs                      unknown    
+transcode    shared-fs/5 shared-fs                      unknown    
+transcode/0  shared-fs/0 shared-fs transcode/0 here     block      
+transcode/0  shared-fs/5 shared-fs transcode/0 nowhere  unknown    
 
+`[1:],
+		`
+error for storage-db-dir-1010
+error for test storage-db-dir-1010
 `[1:],
 	)
 }
 
-func (s *ListSuite) assertValidList(c *gc.C, args []string, expected string) {
+func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid, expectedErr string) {
 	context, err := runList(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtained := testing.Stdout(context)
-	c.Assert(obtained, gc.Equals, expected)
+	obtainedErr := testing.Stderr(context)
+	c.Assert(obtainedErr, gc.Equals, expectedErr)
+
+	obtainedValid := testing.Stdout(context)
+	c.Assert(obtainedValid, gc.Equals, expectedValid)
 }
 
 type mockListAPI struct {
@@ -131,50 +139,55 @@ func (s mockListAPI) List() ([]params.StorageInfo, error) {
 
 func getTestAttachments(chaos bool) []params.StorageInfo {
 	results := []params.StorageInfo{{
-		StorageTag:  "storage-shared-fs-0",
-		OwnerTag:    "unit-transcode-0",
-		UnitTag:     "unit-transcode-0",
-		Kind:        params.StorageKindBlock,
-		Location:    "here",
-		Provisioned: true,
-		Attached:    true,
-	}, {
-		StorageTag:  "storage-db-dir-1000",
-		OwnerTag:    "unit-postgresql-0",
-		UnitTag:     "unit-transcode-0",
-		Kind:        params.StorageKindUnknown,
-		Location:    "there",
-		Provisioned: true,
-		Attached:    true,
-	}}
-
-	if chaos {
-		last := params.StorageInfo{
-			StorageTag:  "storage-shared-fs-5",
-			OwnerTag:    "unit-transcode-0",
-			UnitTag:     "unit-transcode-0",
-			Kind:        params.StorageKindUnknown,
-			Location:    "nowhere",
-			Provisioned: true,
-			Attached:    true,
-		}
-		second := params.StorageInfo{
-			StorageTag:  "storage-db-dir-1000",
+		params.StorageDetails{
+			StorageTag:  "storage-shared-fs-0",
 			OwnerTag:    "unit-transcode-0",
 			UnitTag:     "unit-transcode-0",
 			Kind:        params.StorageKindBlock,
-			Location:    "",
+			Location:    "here",
 			Provisioned: true,
 			Attached:    true,
-		}
-		first := params.StorageInfo{
+		}, nil}, {
+		params.StorageDetails{
 			StorageTag:  "storage-db-dir-1000",
-			OwnerTag:    "service-transcode",
+			OwnerTag:    "unit-postgresql-0",
 			UnitTag:     "unit-transcode-0",
-			Kind:        params.StorageKindFilesystem,
+			Kind:        params.StorageKindUnknown,
+			Location:    "there",
 			Provisioned: true,
 			Attached:    true,
-		}
+		}, nil}}
+
+	if chaos {
+		last := params.StorageInfo{
+			params.StorageDetails{
+				StorageTag:  "storage-shared-fs-5",
+				OwnerTag:    "unit-transcode-0",
+				UnitTag:     "unit-transcode-0",
+				Kind:        params.StorageKindUnknown,
+				Location:    "nowhere",
+				Provisioned: true,
+				Attached:    true,
+			}, nil}
+		second := params.StorageInfo{
+			params.StorageDetails{
+				StorageTag:  "storage-db-dir-1010",
+				OwnerTag:    "unit-transcode-0",
+				UnitTag:     "unit-transcode-0",
+				Kind:        params.StorageKindBlock,
+				Location:    "",
+				Provisioned: true,
+				Attached:    true,
+			}, &params.Error{Message: "error for storage-db-dir-1010"}}
+		first := params.StorageInfo{
+			params.StorageDetails{
+				StorageTag:  "storage-db-dir-1000",
+				OwnerTag:    "service-transcode",
+				UnitTag:     "unit-transcode-0",
+				Kind:        params.StorageKindFilesystem,
+				Provisioned: true,
+				Attached:    true,
+			}, nil}
 		results = append(results, last)
 		results = append(results, second)
 		results = append(results, first)
@@ -184,32 +197,39 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 
 func getTestInstances(chaos bool) []params.StorageInfo {
 
-	results := []params.StorageInfo{{
-		StorageTag: "storage-shared-fs-0",
-		OwnerTag:   "service-transcode",
-		Kind:       params.StorageKindUnknown,
-	}, {
-		StorageTag: "storage-db-dir-1000",
-		OwnerTag:   "service-transcode",
-		Kind:       params.StorageKindBlock,
-	}}
+	results := []params.StorageInfo{
+		{
+			params.StorageDetails{
+				StorageTag: "storage-shared-fs-0",
+				OwnerTag:   "service-transcode",
+				Kind:       params.StorageKindUnknown,
+			}, nil},
+		{
+			params.StorageDetails{
+				StorageTag: "storage-db-dir-1000",
+				OwnerTag:   "service-transcode",
+				Kind:       params.StorageKindBlock,
+			}, nil}}
 
 	if chaos {
 		last := params.StorageInfo{
-			StorageTag: "storage-shared-fs-5",
-			OwnerTag:   "service-transcode",
-			Kind:       params.StorageKindUnknown,
-		}
+			params.StorageDetails{
+				StorageTag: "storage-shared-fs-5",
+				OwnerTag:   "service-transcode",
+				Kind:       params.StorageKindUnknown,
+			}, nil}
 		second := params.StorageInfo{
-			StorageTag: "storage-db-dir-1000",
-			OwnerTag:   "service-transcode",
-			Kind:       params.StorageKindBlock,
-		}
+			params.StorageDetails{
+				StorageTag: "storage-db-dir-1010",
+				OwnerTag:   "service-transcode",
+				Kind:       params.StorageKindBlock,
+			}, &params.Error{Message: "error for test storage-db-dir-1010"}}
 		first := params.StorageInfo{
-			StorageTag: "storage-db-dir-1000",
-			OwnerTag:   "service-transcode",
-			Kind:       params.StorageKindFilesystem,
-		}
+			params.StorageDetails{
+				StorageTag: "storage-db-dir-1000",
+				OwnerTag:   "service-transcode",
+				Kind:       params.StorageKindFilesystem,
+			}, nil}
 		results = append(results, last)
 		results = append(results, second)
 		results = append(results, first)

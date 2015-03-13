@@ -131,14 +131,14 @@ func (s mockShowAPI) Close() error {
 	return nil
 }
 
-func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageInfo, error) {
+func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageDetails, error) {
 	if s.noMatch {
 		return nil, nil
 	}
-	all := make([]params.StorageInfo, len(tags)*2)
+	all := make([]params.StorageDetails, len(tags)*2)
 	ind := 0
 	for _, tag := range tags {
-		all[ind] = params.StorageInfo{
+		all[ind] = params.StorageDetails{
 			StorageTag: tag.String(),
 			OwnerTag:   "service-postgresql",
 			Kind:       params.StorageKindBlock,
@@ -146,7 +146,7 @@ func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageInfo, error)
 		ind++
 	}
 	for _, tag := range tags {
-		all[ind] = params.StorageInfo{
+		all[ind] = params.StorageDetails{
 			StorageTag:  tag.String(),
 			OwnerTag:    "unit-postgresql-0",
 			UnitTag:     "unit-postgresql-0",

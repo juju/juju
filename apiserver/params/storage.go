@@ -205,8 +205,8 @@ type VolumeAttachmentsResults struct {
 	Results []VolumeAttachmentsResult `json:"results,omitempty"`
 }
 
-// StorageInfo holds information about storage.
-type StorageInfo struct {
+// StorageDetails holds information about storage.
+type StorageDetails struct {
 	// StorageTag holds tag for this storage.
 	StorageTag string `json:"storagetag"`
 	// OwnerTag holds tag for the owner of this storage, unit or service.
@@ -229,14 +229,26 @@ type StorageInfo struct {
 	Provisioned bool `json:"provisioned"`
 }
 
-// StorageShowResult holds information about a storage instance
+// StorageDetailsResult holds information about a storage instance
 // or error related to its retrieval.
-type StorageShowResult struct {
-	Result StorageInfo `json:"result"`
-	Error  *Error      `json:"error,omitempty"`
+type StorageDetailsResult struct {
+	Result StorageDetails `json:"result"`
+	Error  *Error         `json:"error,omitempty"`
 }
 
-// StorageShowResults holds a collection of storage instances.
-type StorageShowResults struct {
-	Results []StorageShowResult `json:"results,omitempty"`
+// StorageDetailsResults holds results for storage details or related storage error.
+type StorageDetailsResults struct {
+	Results []StorageDetailsResult `json:"results,omitempty"`
+}
+
+// StorageInfo contains information about a storage as well as
+// potentially an error related to information retrieval.
+type StorageInfo struct {
+	StorageDetails `json:"result"`
+	Error          *Error `json:"error,omitempty"`
+}
+
+// StorageInfosResult holds storage details.
+type StorageInfosResult struct {
+	Results []StorageInfo `json:"results,omitempty"`
 }
