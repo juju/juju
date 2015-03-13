@@ -20,6 +20,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	goyaml "gopkg.in/yaml.v1"
 
@@ -92,7 +93,9 @@ func (w *unixConfigure) ConfigureBasic() error {
 		w.conf.AddSSHAuthorizedKeys(w.icfg.AuthorizedKeys)
 	case version.CentOS:
 		//TODO: Need to add user and set SSH keys for CentOS
-		w.conf.AddSSHAuthorizedKeys(w.icfg.AuthorizedKeys)
+		script := fmt.Sprintf(initUbuntuScript, utils.ShQuote(w.icfg.AuthorizedKeys))
+		w.conf.AddScripts(script)
+		//w.conf.AddSSHAuthorizedKeys(w.icfg.AuthorizedKeys)
 	}
 	w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.icfg.CloudInitOutputLog, "")
 	// Create a file in a well-defined location containing the machine's
@@ -325,3 +328,17 @@ func base64yaml(m *config.Config) string {
 	}
 	return base64.StdEncoding.EncodeToString(data)
 }
+
+const initUbuntuScript = `
+set -e
+(id ubuntu &> /dev/null) || useradd -m ubuntu -s /bin/bash
+umask 0077
+temp=$(mktemp)
+echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > $temp
+install -m 0440 $temp /etc/sudoers.d/90-juju-ubuntu
+rm $temp
+su ubuntu -c 'install -D -m 0600 /dev/null ~/.ssh/authorized_keys'
+export authorized_keys=%s
+if [ ! -z "$authorized_keys" ]; then
+    su ubuntu -c 'printf "%%s\n" "$authorized_keys" >> ~/.ssh/authorized_keys'
+fi`
