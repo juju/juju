@@ -22,13 +22,33 @@ class GetAmi(unittest.TestCase):
             'arch=amd64',
             'release=precise',
             'label=release',
-            'virt=hvm',
-            'root_store=ebs',
+            'root_store=ssd',
+            'virt=pv',
             '--output-format', '%(id)s'
         ]
         with mock.patch("subprocess.check_output", return_value=results,
                         autospec=True) as co_mock:
             ami = get_ami.query_ami("precise", "amd64")
+            self.assertEqual(ami, "ami-first")
+        co_mock.assert_called_once_with(expected_args)
+
+    def test_query_ami_optional_params(self):
+        results = "ami-first\nami-second\nami-third\n"
+        expected_args = [
+            'sstream-query',
+            get_ami.STREAM_INDEX,
+            'endpoint~ec2.us-east-1.amazonaws.com',
+            'arch=amd64',
+            'release=trusty',
+            'label=release',
+            'root_store=ebs',
+            'virt=hvm',
+            '--output-format', '%(id)s'
+        ]
+        with mock.patch("subprocess.check_output", return_value=results,
+                        autospec=True) as co_mock:
+            ami = get_ami.query_ami("trusty", "amd64", root_store="ebs",
+                                    virt="hvm")
             self.assertEqual(ami, "ami-first")
         co_mock.assert_called_once_with(expected_args)
 
@@ -43,7 +63,10 @@ class GetAmi(unittest.TestCase):
         self.assertEqual(co_mock.called, 1)
 
     def test_query_no_results(self):
-        message = "No amis for series=precise arch=amd64"
+        message = (
+            "No amis for arch=amd64 release=precise label=release"
+            " root_store=ssd virt=pv"
+        )
         with mock.patch("subprocess.check_output", return_value="",
                         autospec=True) as co_mock:
             with self.assertRaises(ValueError) as ctx:
