@@ -211,7 +211,7 @@ func localDNSServers() ([]network.Address, error) {
 }
 
 // ipRouteAdd is the command template to add a static route for
-// .ContainerIP using the .HostBridge device (usually lxcbr0).
+// .ContainerIP using the .HostBridge device (usually lxcbr0 or virbr0).
 var ipRouteAdd = mustParseTemplate("ipRouteAdd", `
 ip route add {{.ContainerIP}} dev {{.HostBridge}}`[1:])
 
@@ -233,16 +233,16 @@ var iptablesRules = map[string]IptablesRule{
 		"POSTROUTING",
 		"-o {{.HostIF}} -j SNAT --to-source {{.HostIP}}",
 	}, "iptablesForwardOut": {
-		// Ensure that we have ACCEPT rules that apply to the containers
-		// that we are creating so any DROP rules further down the chain
-		// don't disrupt wanted traffic.
+		// Ensure that we have ACCEPT rules that apply to the containers that
+		// we are creating so any DROP rules added by libvirt while setting
+		// up virbr0 further down the chain don't disrupt wanted traffic.
 		"filter",
 		"FORWARD",
 		"-d {{.ContainerCIDR}} -o {{.HostBridge}} -j ACCEPT",
 	}, "iptablesForwardIn": {
 		"filter",
 		"FORWARD",
-		"-d {{.ContainerCIDR}} -i {{.HostBridge}} -j ACCEPT",
+		"-s {{.ContainerCIDR}} -i {{.HostBridge}} -j ACCEPT",
 	}}
 
 // mustParseTemplate works like template.Parse, but panics on error.
