@@ -129,6 +129,14 @@ func (s *debugLogSuite) TestReplayFromStart(c *gc.C) {
 	c.Assert(linesRead, jc.DeepEquals, logLines)
 }
 
+func (s *debugLogSuite) TestJustCat(c *gc.C) {
+	s.ensureLogFile(c)
+
+	reader := s.openWebsocket(c, url.Values{"cat": {"true"}})
+	s.assertLogFollowing(c, reader)
+	s.assertWebsocketClosed(c, reader)
+}
+
 func (s *debugLogSuite) TestBacklog(c *gc.C) {
 	s.writeLogLines(c, 10)
 

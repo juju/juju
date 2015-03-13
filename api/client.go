@@ -918,6 +918,9 @@ type DebugLogParams struct {
 	// Replay tells the server to start at the start of the log file rather
 	// than the end. If replay is true, backlog is ignored.
 	Replay bool
+
+	// Cat tells the server to just cat the file and close the connection.
+	Cat bool
 }
 
 // WatchDebugLog returns a ReadCloser that the caller can read the log
@@ -949,6 +952,9 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	}
 	if args.Level != loggo.UNSPECIFIED {
 		attrs.Set("level", fmt.Sprint(args.Level))
+	}
+	if args.Cat {
+		attrs.Set("cat", fmt.Sprint(args.Cat))
 	}
 	attrs["includeEntity"] = args.IncludeEntity
 	attrs["includeModule"] = args.IncludeModule
