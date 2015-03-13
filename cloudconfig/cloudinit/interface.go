@@ -299,7 +299,7 @@ type RootUserConfig interface {
 
 // WrittenFilesConfig is the interface for all
 type WrittenFilesConfig interface {
-	// AddTextFile simply issues some AddRunCmd's to set the contents of a
+	// AddRunTextFile simply issues some AddRunCmd's to set the contents of a
 	// given file with the specified file permissions on *first* boot.
 	// NOTE: if the file already exists, it will be truncated.
 	AddRunTextFile(string, string, uint)
@@ -309,7 +309,7 @@ type WrittenFilesConfig interface {
 	// NOTE: if the file already exists, it will be truncated.
 	AddBootTextFile(string, string, uint)
 
-	// AddBinaryFile simply issues some AddRunCmd's to set the binary contents
+	// AddRunBinaryFile simply issues some AddRunCmd's to set the binary contents
 	// of a given file with the specified file permissions on *first* boot.
 	// NOTE: if the file already exists, it will be truncated.
 	AddRunBinaryFile(string, []byte, uint)

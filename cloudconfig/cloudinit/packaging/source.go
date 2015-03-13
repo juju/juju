@@ -6,14 +6,38 @@ package packaging
 
 import (
 	"bytes"
+	"fmt"
 	"text/template"
 )
 
 // Source contains all the data required of a package source.
 type Source struct {
-	Url   string              // name/url of the source
-	Key   string              // key for the source, optional
-	Prefs *PackagePreferences // preferences, optional
+	Name string `yaml:"-"`             // name of the source
+	Url  string `yaml:"source"`        // url of the source
+	Key  string `yaml:"key,omitempty"` // key for the source, optional
+}
+
+// KeyfileName returns the path of the gpg keyfile associated to this source.
+func (s *Source) KeyfilePath() string {
+	return CentOSYumKeyfileDir + s.Name + ".key"
+}
+
+// RenderCentOS returns the source rendered as a yum sourcefile.
+func (s *Source) RenderCentOS() string {
+	var buf bytes.Buffer
+	t := template.Must(template.New("").Parse(YumSourceTemplate[1:]))
+
+	if err := t.Execute(&buf, s); err != nil {
+		panic(err)
+	}
+	contents := buf.String()
+
+	// check if gpg key required and add path to keyfile if so.
+	if s.Key != "" {
+		fmt.Sprintf(contents, "file://"+s.KeyfilePath())
+	}
+
+	return contents
 }
 
 // AptPreferences is a set of apt_preferences(5) compatible preferences for an
@@ -30,15 +54,9 @@ type PackagePreferences struct {
 // FileContents returns contents of the package-manager specific config file
 // of this paritcular package source.
 func (s *PackagePreferences) FileContents() string {
-	const prefTemplate = `
-Explanation: {{.Explanation}}
-Package: {{.Package}}
-Pin: {{.Pin}}
-Pin-Priority: {{.PinPriority}}
-`
-
 	var buf bytes.Buffer
-	t := template.Must(template.New("").Parse(prefTemplate[1:]))
+
+	t := template.Must(template.New("").Parse(AptPreferenceTemplate[1:]))
 	err := t.Execute(&buf, s)
 	if err != nil {
 		panic(err)

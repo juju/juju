@@ -13,25 +13,25 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit/packaging"
 )
 
-// CentOSCloudConfig is the cloudconfig type specific to CentOS machines
+// CentOSCloudConfig is the cloudconfig type specific to CentOS machines.
 // It simply contains a cloudConfig and adds the package management related
-// methods for CentOS, which are mostly modeled as runcmds
-// It satisfies the cloudinit.Config interface
+// methods for CentOS, which are mostly modeled as runcmds.
+// It implements the cloudinit.Config interface.
 type CentOSCloudConfig struct {
 	*cloudConfig
 }
 
-// SetPackageProxy satisfies the cloudinit.PackageProxyConfig interface
+// SetPackageProxy implements PackageProxyConfig.
 func (cfg *CentOSCloudConfig) SetPackageProxy(url string) {
 	cfg.AddRunCmd(fmt.Sprintf("/bin/echo 'proxy=%s' >> /etc/yum.conf", url))
 }
 
-// UnsetPackageProxy satisfies the cloudinit.PackageProxyConfig interface
+// UnsetPackageProxy implements PackageProxyConfig.
 func (cfg *CentOSCloudConfig) UnsetPackageProxy() {
 	cfg.attrs["runcmds"] = removeRegexpFromSlice(cfg.RunCmds(), `/bin/echo 'proxy=.*' >> /etc/yum\.conf`)
 }
 
-// PackageProxy satisfies the cloudinit.PackageProxyConfig interface
+// PackageProxy implements PackageProxyConfig.
 func (cfg *CentOSCloudConfig) PackageProxy() string {
 	found := extractRegexpsFromSlice(cfg.RunCmds(), `/bin/echo \'proxy=(.*)\' >> /etc/yum\.conf`)
 
@@ -42,19 +42,19 @@ func (cfg *CentOSCloudConfig) PackageProxy() string {
 	}
 }
 
-// SetPackageMirror satisfies the cloudinit.PackageMirrorConfig interface
+// SetPackageMirror implements PackageMirrorConfig.
 func (cfg *CentOSCloudConfig) SetPackageMirror(url string) {
 	cfg.AddRunCmd(fmt.Sprintf(`sed -r -i 's|^mirrorlist|#mirrorlist|g' %s`, packaging.CentOSSourcesFile))
-	cfg.AddRunCmd(fmt.Sprintf(`sed -r -i 's|#baseurl=http://mirror.centos.org/(.*)/\$releasever/(.*)/\$basearch/|baseurl=%s/\$releasever/\2/\$basearch/|g' %s`,
+	cfg.AddRunCmd(fmt.Sprintf(`sed -r -i 's|#baseurl=.*|baseurl=%s|g' %s`,
 		url, packaging.CentOSSourcesFile))
 }
 
-// UnsetPackageMirror satisfies the cloudinit.PackageMirrorConfig interface
+// UnsetPackageMirror implements PackageMirrorConfig.
 func (cfg *CentOSCloudConfig) UnsetPackageMirror() {
 	cfg.attrs["runcmds"] = removeRegexpFromSlice(cfg.RunCmds(), fmt.Sprintf(".*(%s)$", packaging.CentOSSourcesFile))
 }
 
-// PackageMirror satisfies the cloudinit.PackageMirrorConfig interface
+// PackageMirror implements PackageMirrorConfig.
 func (cfg *CentOSCloudConfig) PackageMirror() string {
 	found := extractRegexpsFromSlice(cfg.RunCmds(), ".*\\|baseurl=(.*)/..releasever.*")
 
@@ -65,19 +65,22 @@ func (cfg *CentOSCloudConfig) PackageMirror() string {
 	}
 }
 
-// AddPackageSource satisfies the cloudinit.PackageSourcesConfig
+// AddPackageSource implements PackageSourcesConfig.
 func (cfg *CentOSCloudConfig) AddPackageSource(src packaging.Source) {
-	pm := packaging.CentOSPackageManager()
-	cfg.AddRunCmd(pm.AddRepository(src.Url))
+	// if keyfile is required, add it first
+	if src.Key != "" {
+		cfg.AddRunTextFile(src.KeyfilePath(), src.Key, 0644)
+	}
+
+	cfg.AddRunTextFile(packaging.CentOSSourcesDir, src.RenderCentOS(), 0644)
 }
 
-// PackageSources satisfies the cloudinit.PackageSourcesConfig interface
+// PackageSources implements PackageSourcesConfig.
 func (cfg *CentOSCloudConfig) PackageSources() []packaging.Source {
 	sources := []packaging.Source{}
-	pm := packaging.CentOSPackageManager()
 
-	for _, source := range extractRegexpsFromSlice(cfg.RunCmds(), pm.AddRepository("(.*)")) {
-		sources = append(sources, packaging.Source{Url: source})
+	for _, source := range extractRegexpsFromSlice(cfg.RunCmds(), "install -D -m 0644 /dev/null (.*)") {
+		sources = append(sources, packaging.Source{Name: source})
 	}
 
 	return sources
@@ -85,5 +88,6 @@ func (cfg *CentOSCloudConfig) PackageSources() []packaging.Source {
 
 // AddPackagePreferences implements PackageSourcesConfig.
 func (cfg *CentOSCloudConfig) AddPackagePreferences(prefs packaging.PackagePreferences) {
-	cfg.AddBootTextFile(prefs.Path, prefs.FileContents(), 0644)
+	// TODO (aznashwan): research a way of using yum-priorities in
+	// the context of a single package.
 }
