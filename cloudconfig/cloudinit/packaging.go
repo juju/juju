@@ -120,17 +120,17 @@ func MaybeAddCloudArchiveCloudTools(c CloudConfig, series string) {
 	}
 	const url = "http://ubuntu-cloud.archive.canonical.com/ubuntu"
 	name := fmt.Sprintf("deb %s %s-updates/cloud-tools main", url, series)
-	prefs := &packaging.PackagePreferences{
+	prefs := packaging.PackagePreferences{
 		Path:        CloudToolsPrefsPath,
 		Explanation: "Pin with lower priority, not to interfere with charms",
 		Package:     "*",
 		Pin:         fmt.Sprintf("release n=%s-updates/cloud-tools", series),
 		Priority:    400,
 	}
+	c.AddPackagePreferences(prefs)
 	source := packaging.Source{
-		Url:   name,
-		Key:   CanonicalCloudArchiveSigningKey,
-		Prefs: prefs,
+		Url: name,
+		Key: CanonicalCloudArchiveSigningKey,
 	}
 	c.AddPackageSource(source)
 }

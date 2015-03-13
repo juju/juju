@@ -4,9 +4,19 @@
 
 package packaging
 
-// UbuntuAptSourcesFile is the default file which list all core sources for apt
-// packages on an Ubuntu system.
-var UbuntuAptSourcesFile = "/etc/apt/sources.list"
+const (
+	// UbuntuAptSourcesFile is the default file which list all core
+	// sources for apt packages on an Ubuntu system.
+	UbuntuAptSourcesFile = "/etc/apt/sources.list"
+
+	// AptPreferenceTemplate is the template specific to an apt preference file.
+	AptPreferenceTemplate = `
+Explanation: {{.Explanation}}
+Package: {{.Package}}
+Pin: {{.Pin}}
+Pin-Priority: {{.PinPriority}}
+`
+)
 
 const (
 	// the basic command for all apt-get calls

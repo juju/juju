@@ -8,16 +8,16 @@ import (
 	"gopkg.in/yaml.v1"
 )
 
-// UbuntuRenderer represents an Ubuntu specific script render
-// type that is responsible for this particular OS. It implements
-// the Renderer interface
-type UbuntuRenderer struct{}
+// linuxRenderer represents the Linux-specific cloud-init
+// cloudconfig render type that is responsible for general
+// operations of this specific OS.
+type linuxRenderer struct{}
 
-func (w *UbuntuRenderer) Mkdir(path string) []string {
+func (l *linuxRenderer) Mkdir(path string) []string {
 	return []string{fmt.Sprintf(`mkdir -p %s`, utils.ShQuote(path))}
 }
 
-func (w *UbuntuRenderer) WriteFile(filename string, contents string, permission int) []string {
+func (l *linuxRenderer) WriteFile(filename string, contents string, permission int) []string {
 	quotedFilename := utils.ShQuote(filename)
 	quotedContents := utils.ShQuote(contents)
 	return []string{
@@ -26,15 +26,59 @@ func (w *UbuntuRenderer) WriteFile(filename string, contents string, permission 
 	}
 }
 
-func (w *UbuntuRenderer) FromSlash(filepath string) string {
+func (l *linuxRenderer) FromSlash(filepath string) string {
 	return filepath
 }
 
-func (w *UbuntuRenderer) PathJoin(filepath ...string) string {
+func (l *linuxRenderer) PathJoin(filepath ...string) string {
 	return path.Join(filepath...)
 }
 
-func (w *UbuntuRenderer) Render(conf CloudConfig) ([]byte, error) {
+// UbuntuRenderer represents an Ubuntu specific script render
+// type that is responsible for this particular OS.
+// It contains all the expected operation implementations
+// for a linux-based OS, plus the config rendering for
+// Ubuntu's version of cloud-init.
+// It implements the Renderer interface.
+type UbuntuRenderer struct {
+	linuxRenderer
+}
+
+func (u *UbuntuRenderer) Render(conf CloudConfig) ([]byte, error) {
+	data, err := yaml.Marshal(conf.getAttrs())
+	if err != nil {
+		return nil, err
+	}
+	return append([]byte("#cloud-config\n"), data...), nil
+}
+
+// CentOSRenderer represents a CentOS specific script render
+// type that is responsible for this particular OS.
+// It contains all the expected operation implementations
+// for a linux-based OS plus the config rendering for
+// CentOS's version of cloud-init.
+type CentOSRenderer struct {
+	linuxRenderer
+}
+
+// Render implements the Renderer interface.
+func (c *CentOSRenderer) Render(conf CloudConfig) ([]byte, error) {
+	// check for package proxy setting and add commands:
+	if proxy := conf.PackageProxy(); proxy != "" {
+		addPackageProxyCmds(conf, proxy)
+		conf.UnsetPackageProxy()
+	}
+
+	// check for package mirror settings and add commands:
+	if mirror := conf.PackageMirror(); mirror != "" {
+		addPackageMirrorCmds(conf, mirror)
+	}
+
+	// add appropriate commands for package sources configuration:
+	for _, src := range conf.PackageSources() {
+		addPackageSourceCmds(conf, src)
+	}
+
 	data, err := yaml.Marshal(conf.getAttrs())
 	if err != nil {
 		return nil, errors.Trace(err)
