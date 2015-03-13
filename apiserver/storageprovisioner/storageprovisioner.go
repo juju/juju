@@ -318,8 +318,20 @@ func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.Volum
 			return params.VolumeParams{}, err
 		}
 		if len(volumeAttachments) == 1 {
-			volumeParams.Attachment = &params.VolumeAttachmentParams{
-				MachineTag: volumeAttachments[0].Machine().String(),
+			machineTag := volumeAttachments[0].Machine()
+			instanceId, err := s.st.MachineInstanceId(machineTag)
+			if errors.IsNotProvisioned(err) {
+				// Leave the attachment until later.
+			} else if err != nil {
+				return params.VolumeParams{}, err
+			} else {
+				volumeParams.Attachment = &params.VolumeAttachmentParams{
+					MachineTag: volumeAttachments[0].Machine().String(),
+					VolumeTag:  tag.String(),
+					InstanceId: string(instanceId),
+					Provider:   volumeParams.Provider,
+					// TODO(axw) other attachment params (e.g. ReadOnly)
+				}
 			}
 		}
 		return volumeParams, nil

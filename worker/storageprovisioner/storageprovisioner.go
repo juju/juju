@@ -21,33 +21,58 @@ var logger = loggo.GetLogger("juju.worker.storageprovisioner")
 // VolumeAccessor defines an interface used to allow a storage provisioner
 // worker to perform volume related operations.
 type VolumeAccessor interface {
-	// WatchVolumes watches for changes to volumes scoped to the
-	// entity with the tag passed to NewState.
+	// WatchVolumes watches for changes to volumes that this storage
+	// provisioner is responsible for.
 	WatchVolumes() (apiwatcher.StringsWatcher, error)
+
+	// WatchVolumeAttachments watches for changes to volume attachments
+	// that this storage provisioner is responsible for.
+	WatchVolumeAttachments() (apiwatcher.MachineStorageIdsWatcher, error)
 
 	// Volumes returns details of volumes with the specified tags.
 	Volumes([]names.VolumeTag) ([]params.VolumeResult, error)
+
+	// VolumeAttachments returns details of volume attachments with
+	// the specified tags.
+	VolumeAttachments([]params.MachineStorageId) ([]params.VolumeAttachmentResult, error)
 
 	// VolumeParams returns the parameters for creating the volumes
 	// with the specified tags.
 	VolumeParams([]names.VolumeTag) ([]params.VolumeParamsResult, error)
 
+	// VolumeAttachmentParams returns the parameters for creating the
+	// volume attachments with the specified tags.
+	VolumeAttachmentParams([]params.MachineStorageId) ([]params.VolumeAttachmentParamsResult, error)
+
 	// SetVolumeInfo records the details of newly provisioned volumes.
 	SetVolumeInfo([]params.Volume) ([]params.ErrorResult, error)
+
+	// SetVolumeAttachmentInfo records the details of newly provisioned
+	// volume attachments.
+	SetVolumeAttachmentInfo([]params.VolumeAttachment) ([]params.ErrorResult, error)
 }
 
-// LifecycleManager defines an interface used to allow a storage provisioner
-// worker to perform volume lifecycle operations.
+// LifecycleManager defines an interface used to enable a storage provisioner
+// worker to perform lifcycle-related operations on storage entities and
+// attachments.
 type LifecycleManager interface {
-	// Life requests the life cycle of the entities with the specified tags.
+	// Life returns the lifecycle state of the specified entities.
 	Life([]names.Tag) ([]params.LifeResult, error)
 
-	// EnsureDead progresses the entities with the specified tags to the Dead
-	// life cycle state, if they are Alive or Dying.
+	// EnsureDead ensures that the specified entities become Dead if
+	// they are Alive or Dying.
 	EnsureDead([]names.Tag) ([]params.ErrorResult, error)
 
-	// Remove removes the entities with the specified tags from state.
+	// Remove removes the specified entities from state.
 	Remove([]names.Tag) ([]params.ErrorResult, error)
+
+	// AttachmentLife returns the lifecycle state of the specified
+	// machine/entity attachments.
+	AttachmentLife([]params.MachineStorageId) ([]params.LifeResult, error)
+
+	// RemoveAttachments removes the specified machine/entity attachments
+	// from state.
+	RemoveAttachments([]params.MachineStorageId) ([]params.ErrorResult, error)
 }
 
 // NewStorageProvisioner returns a Worker which manages
@@ -58,7 +83,11 @@ type LifecycleManager interface {
 // a storage directory, while environment-scoped workers
 // will not. If the directory path is non-empty, then it
 // will be passed to the storage source via its config.
-func NewStorageProvisioner(storageDir string, v VolumeAccessor, l LifecycleManager) worker.Worker {
+func NewStorageProvisioner(
+	storageDir string,
+	v VolumeAccessor,
+	l LifecycleManager,
+) worker.Worker {
 	w := &storageprovisioner{
 		storageDir: storageDir,
 		volumes:    v,
@@ -112,6 +141,13 @@ func (w *storageprovisioner) loop() error {
 	defer watcher.Stop(volumesWatcher, &w.tomb)
 	volumesChanges := volumesWatcher.Changes()
 
+	volumeAttachmentsWatcher, err := w.volumes.WatchVolumeAttachments()
+	if err != nil {
+		return errors.Annotate(err, "watching volume attachments")
+	}
+	defer watcher.Stop(volumeAttachmentsWatcher, &w.tomb)
+	volumeAttachmentsChanges := volumeAttachmentsWatcher.Changes()
+
 	ctx := context{
 		environConfig: environConfig,
 		storageDir:    w.storageDir,
@@ -128,6 +164,13 @@ func (w *storageprovisioner) loop() error {
 				return watcher.EnsureErr(volumesWatcher)
 			}
 			if err := volumesChanged(&ctx, changes); err != nil {
+				return errors.Trace(err)
+			}
+		case changes, ok := <-volumeAttachmentsChanges:
+			if !ok {
+				return watcher.EnsureErr(volumeAttachmentsWatcher)
+			}
+			if err := volumeAttachmentsChanged(&ctx, changes); err != nil {
 				return errors.Trace(err)
 			}
 		}
