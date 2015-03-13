@@ -766,7 +766,14 @@ func mountHostLogDir(name, logDir string) error {
 func allowLoopbackBlockDevices(name string) error {
 	const allowLoopDevicesCfg = `
 lxc.aa_profile = lxc-container-default-with-mounting
-lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = b 7:0 rwm
+lxc.cgroup.devices.allow = b 7:1 rwm
+lxc.cgroup.devices.allow = b 7:2 rwm
+lxc.cgroup.devices.allow = b 7:3 rwm
+lxc.cgroup.devices.allow = b 7:4 rwm
+lxc.cgroup.devices.allow = b 7:5 rwm
+lxc.cgroup.devices.allow = b 7:6 rwm
+lxc.cgroup.devices.allow = b 7:7 rwm
 lxc.cgroup.devices.allow = c 10:237 rwm
 `
 	return appendToContainerConfig(name, allowLoopDevicesCfg)

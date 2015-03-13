@@ -342,7 +342,14 @@ lxc.network.mtu = 4321
 lxc.mount.entry = %s var/log/juju none defaults,bind 0 0
 
 lxc.aa_profile = lxc-container-default-with-mounting
-lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = b 7:0 rwm
+lxc.cgroup.devices.allow = b 7:1 rwm
+lxc.cgroup.devices.allow = b 7:2 rwm
+lxc.cgroup.devices.allow = b 7:3 rwm
+lxc.cgroup.devices.allow = b 7:4 rwm
+lxc.cgroup.devices.allow = b 7:5 rwm
+lxc.cgroup.devices.allow = b 7:6 rwm
+lxc.cgroup.devices.allow = b 7:7 rwm
 lxc.cgroup.devices.allow = c 10:237 rwm
 `, s.logDir) + strings.Join(extraLines, "\n") + "\n"
 
@@ -392,7 +399,14 @@ lxc.network.mtu = 4321
 
 
 lxc.aa_profile = lxc-container-default-with-mounting
-lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = b 7:0 rwm
+lxc.cgroup.devices.allow = b 7:1 rwm
+lxc.cgroup.devices.allow = b 7:2 rwm
+lxc.cgroup.devices.allow = b 7:3 rwm
+lxc.cgroup.devices.allow = b 7:4 rwm
+lxc.cgroup.devices.allow = b 7:5 rwm
+lxc.cgroup.devices.allow = b 7:6 rwm
+lxc.cgroup.devices.allow = b 7:7 rwm
 lxc.cgroup.devices.allow = c 10:237 rwm
 lxc.rootfs = /foo/bar
 
@@ -1022,7 +1036,14 @@ lxc.start.auto = 1
 lxc.mount.entry = %s var/log/juju none defaults,bind 0 0
 
 lxc.aa_profile = lxc-container-default-with-mounting
-lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = b 7:0 rwm
+lxc.cgroup.devices.allow = b 7:1 rwm
+lxc.cgroup.devices.allow = b 7:2 rwm
+lxc.cgroup.devices.allow = b 7:3 rwm
+lxc.cgroup.devices.allow = b 7:4 rwm
+lxc.cgroup.devices.allow = b 7:5 rwm
+lxc.cgroup.devices.allow = b 7:6 rwm
+lxc.cgroup.devices.allow = b 7:7 rwm
 lxc.cgroup.devices.allow = c 10:237 rwm
 `, s.logDir)
 	c.Assert(string(config), gc.Equals, expected)
