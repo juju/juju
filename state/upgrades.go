@@ -457,6 +457,38 @@ func AddEnvUUIDToEnvUsersDoc(st *State) error {
 	return st.runRawTransaction(ops)
 }
 
+// AddLifeFieldOfIPAddresses sets the Life field to Alive for all IP addresses
+// that don't have this field.
+func AddLifeFieldOfIPAddresses(st *State) error {
+	addresses, closer := st.getCollection(ipaddressesC)
+	defer closer()
+
+	var ops []txn.Op
+	var address bson.M
+	iter := addresses.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&address) {
+		// if the address already has a Life field, then it has already been
+		// upgraded.
+		if _, ok := address["life"]; ok {
+			continue
+		}
+
+		ops = append(ops, txn.Op{
+			C:  ipaddressesC,
+			Id: address["_id"],
+			Update: bson.D{{"$set", bson.D{
+				{"life", Alive},
+			}}},
+		})
+		address = nil
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
 func AddNameFieldLowerCaseIdOfUsers(st *State) error {
 	users, closer := st.getCollection(usersC)
 	defer closer()
