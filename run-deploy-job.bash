@@ -1,16 +1,18 @@
 #!/bin/bash
+# Script to run deploy_job against current binaries.
+# usage: run-deploy-job.bash {deploy,upgrade} SERIES BASE_ENVIRONMENT TIMEOUT
 set -eu
 : ${SCRIPTS=$(readlink -f $(dirname $0))}
 export SCRIPTS
 export USER=jenkins
 export JUJU_REPOSITORY=$HOME/repository
 export JUJU_HOME=$HOME/cloud-city
-export ENV=$1
+export ENV=$3
 source $JUJU_HOME/juju-qa.jujuci
 set -x
-if [ "$2" = "upgrade" ]; then
+if [ "$1" = "upgrade" ]; then
   extra_args="--upgrade"
-elif [ "$2" = "deploy" ]; then
+elif [ "$1" = "deploy" ]; then
   extra_args=""
 else
   echo "Unknown action $2"
@@ -25,5 +27,5 @@ source buildvars.bash
 rev=${REVNO-$(echo $REVISION_ID | head -c7)}
 echo "Testing $BRANCH $rev on $ENV"
 EOT
-timeout -s INT $3 $SCRIPTS/deploy_job.py --new-juju-bin $JUJU_BIN\
-  --series trusty $ENV $WORKSPACE/artifacts $JOB_NAME $extra_args
+timeout -s INT $4 $SCRIPTS/deploy_job.py --new-juju-bin $JUJU_BIN\
+  --series $2 $ENV $WORKSPACE/artifacts $JOB_NAME $extra_args
