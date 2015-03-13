@@ -388,7 +388,8 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 var createContainer = func(env *localEnviron, args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := args.Tools.OneSeries()
 	network := container.BridgeNetworkConfig(env.config.networkBridge(), args.NetworkInfo)
-	inst, hardware, err := env.containerManager.CreateContainer(args.MachineConfig, series, network)
+	storage := container.NewStorageConfig(args.Volumes)
+	inst, hardware, err := env.containerManager.CreateContainer(args.MachineConfig, series, network, storage)
 	if err != nil {
 		return nil, nil, err
 	}

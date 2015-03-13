@@ -35,6 +35,8 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -117,7 +119,7 @@ func (s *lxcBrokerSuite) machineConfig(c *gc.C, machineId string) *cloudinit.Mac
 	return machineConfig
 }
 
-func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
+func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string, volumes []storage.VolumeParams) instance.Instance {
 	machineConfig := s.machineConfig(c, machineId)
 	cons := constraints.Value{}
 	possibleTools := coretools.List{&coretools.Tools{
@@ -128,6 +130,7 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 		Constraints:   cons,
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,
+		Volumes:       volumes,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return result.Instance
@@ -135,7 +138,7 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 
 func (s *lxcBrokerSuite) TestStartInstance(c *gc.C) {
 	machineId := "1/lxc/0"
-	lxc := s.startInstance(c, machineId)
+	lxc := s.startInstance(c, machineId, nil)
 	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
@@ -144,6 +147,21 @@ func (s *lxcBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.type = veth")
 	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = lxcbr0")
+	containerConfigContents, err := ioutil.ReadFile(filepath.Join(s.LxcDir, string(lxc.Id()), "config"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(containerConfigContents), gc.Not(jc.Contains), "lxc.aa_profile = lxc-container-default-with-mounting")
+}
+
+func (s *lxcBrokerSuite) TestStartInstanceWithStorage(c *gc.C) {
+	machineId := "1/lxc/0"
+	lxc := s.startInstance(c, machineId, []storage.VolumeParams{{Provider: provider.LoopProviderType}})
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
+	s.assertInstances(c, lxc)
+	// Check storage config.
+	containerConfigContents, err := ioutil.ReadFile(filepath.Join(s.LxcDir, string(lxc.Id()), "config"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(containerConfigContents), jc.Contains, "lxc.aa_profile = lxc-container-default-with-mounting")
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceHostArch(c *gc.C) {
@@ -189,7 +207,7 @@ func (s *lxcBrokerSuite) TestStartInstanceToolsArchNotFound(c *gc.C) {
 func (s *lxcBrokerSuite) TestStartInstanceWithBridgeEnviron(c *gc.C) {
 	s.agentConfig.SetValue(agent.LxcBridge, "br0")
 	machineId := "1/lxc/0"
-	lxc := s.startInstance(c, machineId)
+	lxc := s.startInstance(c, machineId, nil)
 	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
@@ -201,9 +219,9 @@ func (s *lxcBrokerSuite) TestStartInstanceWithBridgeEnviron(c *gc.C) {
 }
 
 func (s *lxcBrokerSuite) TestStopInstance(c *gc.C) {
-	lxc0 := s.startInstance(c, "1/lxc/0")
-	lxc1 := s.startInstance(c, "1/lxc/1")
-	lxc2 := s.startInstance(c, "1/lxc/2")
+	lxc0 := s.startInstance(c, "1/lxc/0", nil)
+	lxc1 := s.startInstance(c, "1/lxc/1", nil)
+	lxc2 := s.startInstance(c, "1/lxc/2", nil)
 
 	err := s.broker.StopInstances(lxc0.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -217,13 +235,13 @@ func (s *lxcBrokerSuite) TestStopInstance(c *gc.C) {
 }
 
 func (s *lxcBrokerSuite) TestAllInstances(c *gc.C) {
-	lxc0 := s.startInstance(c, "1/lxc/0")
-	lxc1 := s.startInstance(c, "1/lxc/1")
+	lxc0 := s.startInstance(c, "1/lxc/0", nil)
+	lxc1 := s.startInstance(c, "1/lxc/1", nil)
 	s.assertInstances(c, lxc0, lxc1)
 
 	err := s.broker.StopInstances(lxc1.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	lxc2 := s.startInstance(c, "1/lxc/2")
+	lxc2 := s.startInstance(c, "1/lxc/2", nil)
 	s.assertInstances(c, lxc0, lxc2)
 }
 
