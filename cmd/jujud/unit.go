@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
+	"github.com/juju/juju/worker/converter"
 	workerlogger "github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/rsyslog"
@@ -177,13 +178,19 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		}
 		return uniter.NewUniter(uniterFacade, unitTag, st.LeadershipManager(), dataDir, hookLock), nil
 	})
-
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
 		uniterFacade, err := st.Uniter()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return apiaddressupdater.NewAPIAddressUpdater(uniterFacade, a), nil
+	})
+	runner.StartWorker("converter", func() (worker.Worker, error) {
+		uniterFacade, err := st.Uniter()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return converter.NewUnitConverter(uniterFacade, entity), nil
 	})
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)

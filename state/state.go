@@ -56,6 +56,7 @@ const (
 	unitsC             = "units"
 	subnetsC           = "subnets"
 	ipaddressesC       = "ipaddresses"
+	jobsC              = "jobs"
 
 	// actionsC and related collections store state of Actions that
 	// have been enqueued.
