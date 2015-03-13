@@ -365,9 +365,9 @@ func NewRenderer(series string) (Renderer, error) {
 	case version.Windows:
 		return &WindowsRenderer{}, nil
 	case version.Ubuntu:
-		return &UbuntuRenderer{}, nil
+		return &UbuntuRenderer{linuxRenderer{}}, nil
 	case version.CentOS:
-		return &UbuntuRenderer{}, nil
+		return &CentOSRenderer{linuxRenderer{}}, nil
 	default:
 		return nil, errors.Errorf("No renderer could be found for %s", series)
 	}

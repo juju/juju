@@ -23,27 +23,34 @@ type CentOSCloudConfig struct {
 
 // SetPackageProxy implements PackageProxyConfig.
 func (cfg *CentOSCloudConfig) SetPackageProxy(url string) {
+	cfg.SetAttr("package_proxy", url)
+}
+
+// setPackageProxy is a helper function which adds the corresponding runcmd
+// to apply the package proxy settings on a CentOS machine.
+func addPackageProxyCmds(cfg CloudConfig, url string) {
 	cfg.AddRunCmd(fmt.Sprintf("/bin/echo 'proxy=%s' >> /etc/yum.conf", url))
 }
 
 // UnsetPackageProxy implements PackageProxyConfig.
 func (cfg *CentOSCloudConfig) UnsetPackageProxy() {
-	cfg.attrs["runcmds"] = removeRegexpFromSlice(cfg.RunCmds(), `/bin/echo 'proxy=.*' >> /etc/yum\.conf`)
+	cfg.UnsetAttr("package_proxy")
 }
 
 // PackageProxy implements PackageProxyConfig.
 func (cfg *CentOSCloudConfig) PackageProxy() string {
-	found := extractRegexpsFromSlice(cfg.RunCmds(), `/bin/echo \'proxy=(.*)\' >> /etc/yum\.conf`)
-
-	if len(found) == 0 {
-		return ""
-	} else {
-		return found[0]
-	}
+	proxy, _ := cfg.attrs["package_proxy"].(string)
+	return proxy
 }
 
 // SetPackageMirror implements PackageMirrorConfig.
 func (cfg *CentOSCloudConfig) SetPackageMirror(url string) {
+	cfg.SetAttr("package_mirror", url)
+}
+
+// setPackageMirror is a helper function that adds the corresponding runcmds
+// to apply the package mirror settings on a CentOS machine.
+func addPackageMirrorCmds(cfg CloudConfig, url string) {
 	cfg.AddRunCmd(fmt.Sprintf(`sed -r -i 's|^mirrorlist|#mirrorlist|g' %s`, packaging.CentOSSourcesFile))
 	cfg.AddRunCmd(fmt.Sprintf(`sed -r -i 's|#baseurl=.*|baseurl=%s|g' %s`,
 		url, packaging.CentOSSourcesFile))
@@ -51,22 +58,23 @@ func (cfg *CentOSCloudConfig) SetPackageMirror(url string) {
 
 // UnsetPackageMirror implements PackageMirrorConfig.
 func (cfg *CentOSCloudConfig) UnsetPackageMirror() {
-	cfg.attrs["runcmds"] = removeRegexpFromSlice(cfg.RunCmds(), fmt.Sprintf(".*(%s)$", packaging.CentOSSourcesFile))
+	cfg.UnsetAttr("package_mirror")
 }
 
 // PackageMirror implements PackageMirrorConfig.
 func (cfg *CentOSCloudConfig) PackageMirror() string {
-	found := extractRegexpsFromSlice(cfg.RunCmds(), ".*\\|baseurl=(.*)/..releasever.*")
-
-	if len(found) == 0 {
-		return ""
-	} else {
-		return found[0]
-	}
+	mirror, _ := cfg.attrs["package_mirror"].(string)
+	return mirror
 }
 
 // AddPackageSource implements PackageSourcesConfig.
 func (cfg *CentOSCloudConfig) AddPackageSource(src packaging.Source) {
+	cfg.attrs["package_source"] = append(cfg.PackageSources(), src)
+}
+
+// addPackageSourceCmds is a helper function that adds the corresponding
+// runcmds to apply the package source settings on a CentOS machine.
+func addPackageSourceCmds(cfg CloudConfig, src packaging.Source) {
 	// if keyfile is required, add it first
 	if src.Key != "" {
 		cfg.AddRunTextFile(src.KeyfilePath(), src.Key, 0644)
@@ -77,17 +85,12 @@ func (cfg *CentOSCloudConfig) AddPackageSource(src packaging.Source) {
 
 // PackageSources implements PackageSourcesConfig.
 func (cfg *CentOSCloudConfig) PackageSources() []packaging.Source {
-	sources := []packaging.Source{}
-
-	for _, source := range extractRegexpsFromSlice(cfg.RunCmds(), "install -D -m 644 /dev/null (.*)") {
-		sources = append(sources, packaging.Source{Name: source})
-	}
-
+	sources, _ := cfg.attrs["package_sources"].([]packaging.Source)
 	return sources
 }
 
 // AddPackagePreferences implements PackageSourcesConfig.
 func (cfg *CentOSCloudConfig) AddPackagePreferences(prefs packaging.PackagePreferences) {
-	// TODO (aznashwan): research a way of using yum-priorities in
-	// the context of a single package.
+	// TODO (aznashwan): research a way of using yum-priorities in the
+	// context of a single package and implement the appropriate runcmds.
 }

@@ -37,6 +37,12 @@ type cloudConfig struct {
 	// apt_mirror			string/bool
 	// apt_sources			[]*AptSource
 	//
+	// instead, the following corresponding options are used temporarily,
+	// but are translated to runcmds and removed right before rendering:
+	// package_proxy
+	// package_mirror
+	// package_sources
+	//
 	// old TODO's:
 	// byobu
 	// grub_dpkg
