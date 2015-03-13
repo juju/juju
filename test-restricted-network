@@ -101,6 +101,16 @@ environments:
     tools-metadata-url: http://juju-dist.s3.amazonaws.com/testing/tools
 EOT2
 ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
+
+report_network() {
+    echo $1
+    ip link
+    ip route
+    ip addr
+}
+
+report_network "The starting network conditions:"
+echo "Restricting the network:"
 login_ip=$(netstat --tcp -n|sed -nr 's/.*:22 *([^ ]*):.* .*/\1/p')
 gateway=$(route -n | sed -rn 's/^0.0.0.0 *([0-7.]*) .*/\1/p')
 nameservers="$(sed /etc/resolv.conf -nr -e 's/nameserver (.*)/\1/p')"
@@ -114,6 +124,7 @@ for ip in $(dig archive.ubuntu.com ubuntu-cloud.archive.canonical.com\
 done
 sudo route add -net 172.16.0.0 netmask 255.240.0.0 gw $gateway
 sudo route del default gw $gateway
+report_network "The final network conditions:"
 juju bootstrap --show-log
 for x in $(seq 6); do
   if juju deploy --show-log local:$SERIES/ubuntu; then
@@ -130,6 +141,7 @@ for x in $(seq 30); do
   sleep 10
 done
 juju status
+report_network "The failing network conditions:"
 exit 1
 EOT
 result=$?
