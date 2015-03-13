@@ -102,7 +102,7 @@ environments:
 EOT2
 ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
 
-def report_network() {
+report_network() {
     echo $1
     ip link
     ip route
