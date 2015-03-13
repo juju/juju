@@ -556,8 +556,17 @@ def run_deployer():
         logging.exception(e)
         sys.exit(1)
     finally:
-        client.juju('status', ())
+        try:
+            # Added this try block in case status fails within finally block,
+            # we want destroy_environment to execute
+            ex = None
+            client.juju('status', ())
+        except Exception as ex:
+            print_now("Status failed")
         client.destroy_environment()
+        # If status generated any exception, regenerate the same exception
+        if ex:
+            raise ex
 
 
 def get_machine_dns_name(client, machine):
