@@ -15,7 +15,6 @@ import sys
 from time import sleep
 import json
 
-import get_ami
 from jujuconfig import (
     get_jenv_path,
     get_juju_home,
@@ -98,10 +97,9 @@ def parse_euca(euca_output):
 
 def run_instances(count, job_name):
     environ = dict(os.environ)
-    ami = get_ami.query_ami("precise", "amd64")
     command = [
         'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
-        '-t', 'm1.large', '-g', 'manual-juju-test', ami]
+        '-t', 'm1.large', '-g', 'manual-juju-test', 'ami-36aa4d5e']
     run_output = subprocess.check_output(command, env=environ).strip()
     machine_ids = dict(parse_euca(run_output)).keys()
     for remaining in until_timeout(300):

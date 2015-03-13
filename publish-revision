@@ -28,8 +28,7 @@ do
     series=$(echo "$dsc" | cut -d '~' -f 2 | cut -d '.' -f 1,2)
     if [[ $series == '12.04' ]]; then
         echo "Building precise amd64"
-        AMI=$($SCRIPTS/get_ami.py precise amd64)
-        $RELEASE_TOOLS/build-package-with-dsc.bash m1.large $AMI $dsc
+        $RELEASE_TOOLS/build-package-with-dsc.bash m1.large ami-36aa4d5e $dsc
     elif [[ $series == '13.10' ]]; then
         echo "Skipping Saucy"
     elif [[ $series == '14.04' ]]; then
@@ -43,16 +42,14 @@ do
             echo "Skipping trusty ppc64"
         fi
         echo "Building trusty amd64"
-        AMI=$($SCRIPTS/get_ami.py trusty amd64)
-        $RELEASE_TOOLS/build-package-with-dsc.bash m1.large $AMI $dsc
+        $RELEASE_TOOLS/build-package-with-dsc.bash m1.large ami-b027efd8 $dsc
         echo "Building trusty i386"
         if [[ -n ${I386_SSH_OPTIONS:-} ]]; then
             $RELEASE_TOOLS/build-package-with-dsc.bash ubuntu@i386-slave \
                     "$I386_SSH_OPTIONS" $dsc
         else
-            AMI=$($SCRIPTS/get_ami.py trusty i386)
             $RELEASE_TOOLS/build-package-with-dsc.bash \
-                m1.medium $AMI $dsc
+                m1.medium ami-81dee0e8 $dsc
         fi
         if [[ -n ${ARM_SSH_OPTIONS:-} ]]; then
             echo "Building trusty arm64"
