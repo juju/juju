@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -38,6 +39,11 @@ func (s AddressState) String() string {
 		return "<unknown>"
 	}
 	return string(s)
+}
+
+// GoString implements fmt.GoStringer.
+func (i *IPAddress) GoString() string {
+	return i.String()
 }
 
 // IPAddress represents the state of an IP address.
@@ -118,7 +124,7 @@ func (i *IPAddress) String() string {
 // EnsureDead sets the Life of the IP address to Dead, if it's Alive. It
 // does nothing otherwise.
 func (i *IPAddress) EnsureDead() (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot set subnet %q to dead", i)
+	defer errors.DeferredAnnotatef(&err, "cannot set address %q to dead", i)
 
 	if i.doc.Life == Dead {
 		return nil
@@ -206,5 +212,22 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
 	i.doc.MachineId = machineId
 	i.doc.InterfaceId = interfaceId
 	i.doc.State = AddressStateAllocated
+	return nil
+}
+
+// Refresh refreshes the contents of the IPAddress from the underlying
+// state. It an error that satisfies errors.IsNotFound if the Subnet has
+// been removed.
+func (i *IPAddress) Refresh() error {
+	addresses, closer := i.st.getCollection(ipaddressesC)
+	defer closer()
+
+	err := addresses.FindId(i.doc.DocID).One(&i.doc)
+	if err == mgo.ErrNotFound {
+		return errors.NotFoundf("subnet %q", i)
+	}
+	if err != nil {
+		return errors.Errorf("cannot refresh subnet %q: %v", i, err)
+	}
 	return nil
 }
