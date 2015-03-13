@@ -337,6 +337,10 @@ lxc.network.mtu = 4321
 
 
 lxc.mount.entry = %s var/log/juju none defaults,bind 0 0
+
+lxc.aa_profile = lxc-container-default-with-mounting
+lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = c 10:237 rwm
 `, s.logDir) + strings.Join(extraLines, "\n") + "\n"
 
 	lxcConfContents, err := ioutil.ReadFile(configPath)
@@ -383,6 +387,10 @@ lxc.network.name = em1
 lxc.network.mtu = 4321
 
 
+
+lxc.aa_profile = lxc-container-default-with-mounting
+lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = c 10:237 rwm
 lxc.rootfs = /foo/bar
 
   # just comment  
@@ -980,6 +988,10 @@ lxc.network.mtu = 4321
 
 lxc.start.auto = 1
 lxc.mount.entry = %s var/log/juju none defaults,bind 0 0
+
+lxc.aa_profile = lxc-container-default-with-mounting
+lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = c 10:237 rwm
 `, s.logDir)
 	c.Assert(string(config), gc.Equals, expected)
 	c.Assert(autostartLink, jc.DoesNotExist)
