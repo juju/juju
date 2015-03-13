@@ -859,6 +859,12 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 				releaseErrors = append(releaseErrors, err)
 				continue
 			}
+			err = addr.EnsureDead()
+			if err != nil {
+				logger.Warningf("failed to remove address %v for container %q: %v", addr.Value, tag, err)
+				releaseErrors = append(releaseErrors, err)
+				continue
+			}
 			err = addr.Remove()
 			if err != nil {
 				logger.Warningf("failed to remove address %v for container %q: %v", addr.Value, tag, err)
