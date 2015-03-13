@@ -156,6 +156,7 @@ func (i *IPAddress) Remove() (err error) {
 	ops := []txn.Op{{
 		C:      ipaddressesC,
 		Id:     i.doc.DocID,
+		Assert: isDeadDoc,
 		Remove: true,
 	}}
 	return i.st.runTransaction(ops)
@@ -224,10 +225,10 @@ func (i *IPAddress) Refresh() error {
 
 	err := addresses.FindId(i.doc.DocID).One(&i.doc)
 	if err == mgo.ErrNotFound {
-		return errors.NotFoundf("subnet %q", i)
+		return errors.NotFoundf("IP address %q", i)
 	}
 	if err != nil {
-		return errors.Errorf("cannot refresh subnet %q: %v", i, err)
+		return errors.Errorf("cannot refresh IP address %q: %v", i, err)
 	}
 	return nil
 }
