@@ -49,6 +49,7 @@ type IPAddress struct {
 type ipaddressDoc struct {
 	DocID       string       `bson:"_id"`
 	EnvUUID     string       `bson:"env-uuid"`
+	Life        Life         `bson:"life"`
 	SubnetId    string       `bson:"subnetid,omitempty"`
 	MachineId   string       `bson:"machineid,omitempty"`
 	InterfaceId string       `bson:"interfaceid,omitempty"`
@@ -56,6 +57,11 @@ type ipaddressDoc struct {
 	Type        string       `bson:"type"`
 	Scope       string       `bson:"networkscope,omitempty"`
 	State       AddressState `bson:"state"`
+}
+
+// Life returns whether the IP address is Alive, Dying or Dead.
+func (i *IPAddress) Life() Life {
+	return i.doc.Life
 }
 
 // SubnetId returns the ID of the subnet the IP address is associated with. If
@@ -109,10 +115,37 @@ func (i *IPAddress) String() string {
 	return i.Address().String()
 }
 
+// EnsureDead sets the Life of the IP address to Dead, if it's Alive. It
+// does nothing otherwise.
+func (i *IPAddress) EnsureDead() (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set subnet %q to dead", i)
+
+	if i.doc.Life == Dead {
+		return nil
+	}
+
+	ops := []txn.Op{{
+		C:      subnetsC,
+		Id:     i.doc.DocID,
+		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+		Assert: isAliveDoc,
+	}}
+	if err = i.st.runTransaction(ops); err != nil {
+		// Ignore ErrAborted if it happens, otherwise return err.
+		return onAbort(err, nil)
+	}
+	i.doc.Life = Dead
+	return nil
+}
+
 // Remove removes an existing IP address. Trying to remove a missing
 // address is not an error.
 func (i *IPAddress) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove IP address %q", i)
+
+	if i.doc.Life != Dead {
+		return errors.New("IP address is not dead")
+	}
 
 	ops := []txn.Op{{
 		C:      ipaddressesC,

@@ -174,6 +174,7 @@ func (s *IPAddressSuite) TestSetState(c *gc.C) {
 		}
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(ipAddr.State(), gc.Equals, test.changeTo)
+		c.Check(ipAddr.EnsureDead(), jc.ErrorIsNil)
 		c.Check(ipAddr.Remove(), jc.ErrorIsNil)
 	}
 }
