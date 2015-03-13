@@ -158,7 +158,7 @@ func (api *API) createParamsStorageAttachment(si params.StorageDetails, sa state
 	info, err := common.StorageAttachmentInfo(api.storage, sa, machineTag)
 	if err != nil {
 		if errors.IsNotProvisioned(err) {
-			// Not provisioned attachment is not an error
+			// If Info returns an error, then the storage has not yet been provisioned.
 			return result, nil
 		}
 		return params.StorageDetails{}, errors.Annotate(err, "getting storage attachment info")
