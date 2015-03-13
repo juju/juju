@@ -64,11 +64,11 @@ func SendMetrics(st *state.State, sender MetricSender, batchSize int) error {
 		}
 	}
 
-	unsent, err := st.CountofUnsentMetrics()
+	unsent, err := st.CountOfUnsentMetrics()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	sent, err := st.CountofSentMetrics()
+	sent, err := st.CountOfSentMetrics()
 	if err != nil {
 		return errors.Trace(err)
 	}
