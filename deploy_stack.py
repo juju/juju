@@ -303,8 +303,7 @@ def assess_juju_run(client):
     return responses
 
 
-def test_upgrade(old_client, juju_path):
-    assess_juju_run(old_client)
+def assess_upgrade(old_client, juju_path):
     client = EnvJujuClient.by_version(old_client.env, juju_path,
                                       old_client.debug)
     upgrade_juju(client)
@@ -496,9 +495,10 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
                         return
                     client.juju('status', ())
                     deploy_dummy_stack(client, charm_prefix)
+                    assess_juju_run(client)
                     if upgrade:
                         client.juju('status', ())
-                        test_upgrade(client, juju_path)
+                        assess_upgrade(client, juju_path)
                 except BaseException as e:
                     logging.exception(e)
                     if host is not None:
