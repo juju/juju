@@ -38,6 +38,7 @@ from deploy_stack import (
     prepare_environment,
     run_instances,
     assess_upgrade,
+    safe_print_status,
 )
 from jujupy import (
     EnvJujuClient,
@@ -278,7 +279,7 @@ class DeployStackTestCase(TestCase):
                             run_instances(1, 'qux')
         c_mock.assert_called_with(['euca-terminate-instances', 'i-foo'])
 
-    def test_juju_run_test(self):
+    def test_assess_juju_run(self):
         env = SimpleEnvironment('foo', {'type': 'nonlocal'})
         client = EnvJujuClient(env, None, None)
         response_ok = json.dumps(
@@ -301,6 +302,16 @@ class DeployStackTestCase(TestCase):
                           return_value=response_err):
             with self.assertRaises(ValueError):
                 responses = assess_juju_run(client)
+
+    def test_safe_print_status(self):
+        env = SimpleEnvironment('foo', {'type': 'nonlocal'})
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client, 'juju', autospec=True, side_effect=
+                          subprocess.CalledProcessError(1, 'status',
+                                                        'status error')
+                          ) as mock:
+            safe_print_status(client)
+        mock.assert_called_once_with('status', ())
 
 
 class DumpEnvLogsTestCase(TestCase):

@@ -504,6 +504,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
                             client, host, log_dir, host_id=bootstrap_id)
                     sys.exit(1)
             finally:
+                safe_print_status(client)
                 client.destroy_environment()
         finally:
             if created_machines:
@@ -554,8 +555,16 @@ def run_deployer():
         logging.exception(e)
         sys.exit(1)
     finally:
-        client.juju('status', ())
+        safe_print_status(client)
         client.destroy_environment()
+
+
+def safe_print_status(client):
+    """Show the output of juju status without raising exceptions."""
+    try:
+        client.juju('status', ())
+    except Exception as e:
+        logging.exception(e)
 
 
 def get_machine_dns_name(client, machine):
