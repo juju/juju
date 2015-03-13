@@ -46,6 +46,7 @@ func (s *IPAddressSuite) TestAddIPAddress(c *gc.C) {
 		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertAddress(c, ipAddr, addr, state.AddressStateUnknown, "", "", "foobar")
+		c.Assert(ipAddr.Life(), gc.Equals, state.Alive)
 
 		// verify the address was stored in the state
 		ipAddr, err = s.State.IPAddress(test)
@@ -78,7 +79,7 @@ func (s *IPAddressSuite) TestIPAddressNotFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `IP address "0.1.2.3" not found`)
 }
 
-func (s *IPAddressSuite) TestRemove(c *gc.C) {
+func (s *IPAddressSuite) TestEnsureDeadRemove(c *gc.C) {
 	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
@@ -91,10 +92,15 @@ func (s *IPAddressSuite) TestRemove(c *gc.C) {
 
 	err = ipAddr.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// EnsureDead twice should not be an error
+	err = ipAddr.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = ipAddr.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Doing it twice is also fine.
+	// Remove twice is also fine.
 	err = ipAddr.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
