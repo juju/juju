@@ -2,6 +2,7 @@
 set -eu
 : ${SCRIPTS=$(readlink -f $(dirname $0))}
 export SCRIPTS
+export USER=jenkins
 export JUJU_REPOSITORY=$HOME/repository
 export JUJU_HOME=$HOME/cloud-city
 export ENV=$1
@@ -21,8 +22,8 @@ $SCRIPTS/jujuci.py get build-revision buildvars.bash ./
 # Avoid polluting environment when printing branch/revision
 bash -eu <<'EOT'
 source buildvars.bash
-rev=${REVNO-$(echo $REVISION_ID | head -c8)}
+rev=${REVNO-$(echo $REVISION_ID | head -c7)}
 echo "Testing $BRANCH $rev on $ENV"
 EOT
-timeout -s INT 40m $SCRIPTS/deploy_job.py --new-juju-bin $JUJU_BIN\
+timeout -s INT $3 $SCRIPTS/deploy_job.py --new-juju-bin $JUJU_BIN\
   --series trusty $ENV $WORKSPACE/artifacts $JOB_NAME $extra_args
