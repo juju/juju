@@ -315,8 +315,8 @@ func (u *Unit) Destroy() (err error) {
 	return err
 }
 
-// unitNotInstalled actually refers to the unit's agent.
-var unitNotInstalled = bson.D{
+// unitAgentAllocating actually refers to the unit's agent.
+var unitAgentAllocating = bson.D{
 	{"$or", []bson.D{
 		{{"status", StatusAllocating}},
 	}}}
@@ -381,7 +381,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	ops := []txn.Op{{
 		C:      statusesC,
 		Id:     u.st.docID(agentStatusDocId),
-		Assert: unitNotInstalled,
+		Assert: unitAgentAllocating,
 	}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, bson.DocElem{
 		"$and", []bson.D{

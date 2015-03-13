@@ -371,6 +371,7 @@ func newUnitStatusDoc(status Status, info string, data map[string]interface{}) (
 func unitStatusValid(status Status) bool {
 	switch status {
 	case
+		StatusBusy,
 		StatusBlocked,
 		StatusMaintenance,
 		StatusWaiting,

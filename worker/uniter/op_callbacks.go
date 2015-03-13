@@ -69,7 +69,7 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 		// set the status to "preparing storage".
 	case hi.Kind == hooks.Stop:
 		// TODO(perrito666) I dont know if this should be Lost.
-		status = params.StatusLost
+		status = params.StatusExecuting
 	case hi.Kind == hooks.ConfigChanged:
 		opc.u.f.DiscardConfigEvent()
 		fallthrough

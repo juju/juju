@@ -86,7 +86,7 @@ func ModeInstalling(curl *charm.URL) (next Mode, err error) {
 		// This SetUnitStatus call should probably be inside the operation somehow;
 		// which in turn implies that the SetUnitStatus call in PrepareHook is
 		// also misplaced, and should also be explicitly part of the operation.
-		if err = u.unit.SetUnitStatus(params.StatusWaiting, "", nil); err != nil {
+		if err = u.unit.SetUnitStatus(params.StatusMaintenance, "", nil); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return continueAfter(u, newInstallOp(curl))
@@ -109,14 +109,25 @@ func ModeUpgrading(curl *charm.URL) Mode {
 // ModeTerminating marks the unit dead and returns ErrTerminateAgent.
 func ModeTerminating(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeTerminating", &err)()
-	if err = u.unit.SetUnitStatus(params.StatusTerminated, "", nil); err != nil {
+	if err = u.unit.SetUnitStatus(params.StatusMaintenance, "", nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 	w, err := u.unit.Watch()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	defer watcher.Stop(w, &u.tomb)
+
+	//TODO(perrito666) Should this be a mode?
+	defer func() {
+		if err != worker.ErrTerminateAgent {
+			return
+		}
+		if err = u.unit.SetUnitStatus(params.StatusTerminated, "", nil); err != nil {
+			logger.Errorf("cannot set unit status to %q: %v", params.StatusTerminated, err)
+		}
+	}()
 	for {
 		select {
 		case <-u.tomb.Dying():
@@ -328,7 +339,7 @@ func ModeConflicted(curl *charm.URL) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext("ModeConflicted", &err)()
 		// TODO(mue) Add helpful data here too in later CL.
-		if err = u.unit.SetUnitStatus(params.StatusError, "upgrade failed", nil); err != nil {
+		if err = u.unit.SetUnitStatus(params.StatusBlocked, "upgrade failed", nil); err != nil {
 			return nil, errors.Trace(err)
 		}
 		u.f.WantResolvedEvent()
