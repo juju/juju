@@ -21,7 +21,12 @@ from jujupy import (
     SimpleEnvironment,
     EnvJujuClient,
 )
-from lsb_release import get_distro_information
+try:
+    from lsb_release import get_distro_information
+except ImportError:
+    def get_distro_information():
+        raise NotImplementedError('Not supported on this platform!')
+
 from utility import (
     extract_deb,
     get_deb_arch,
