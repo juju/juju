@@ -506,6 +506,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
                             client, host, log_dir, host_id=bootstrap_id)
                     sys.exit(1)
             finally:
+                safe_print_status(client)
                 client.destroy_environment()
         finally:
             if created_machines:
@@ -556,17 +557,16 @@ def run_deployer():
         logging.exception(e)
         sys.exit(1)
     finally:
-        try:
-            # Added this try block in case status fails within finally block,
-            # we want destroy_environment to execute
-            ex = None
-            client.juju('status', ())
-        except Exception as ex:
-            print_now("Status failed")
+        safe_print_status(client)
         client.destroy_environment()
-        # If status generated any exception, regenerate the same exception
-        if ex:
-            raise ex
+
+
+def safe_print_status(client):
+    """Show the output of juju status without raising exceptions."""
+    try:
+        client.juju('status', ())
+    except Exception as e:
+        logging.exception(e)
 
 
 def get_machine_dns_name(client, machine):
