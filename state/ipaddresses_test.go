@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -81,6 +83,14 @@ func (s *IPAddressSuite) TestRemove(c *gc.C) {
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 
+	// should not be able to remove an Alive IP address
+	c.Assert(ipAddr.Life(), gc.Equals, state.Alive)
+	err = ipAddr.Remove()
+	msg := fmt.Sprintf("cannot remove IP address %q: IP address is not dead", ipAddr)
+	c.Assert(err, gc.ErrorMatches, msg)
+
+	err = ipAddr.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
 	err = ipAddr.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -169,6 +179,7 @@ func (s *IPAddressSuite) TestSetState(c *gc.C) {
 		if test.err != "" {
 			c.Check(err, gc.ErrorMatches, test.err)
 			c.Check(err, jc.Satisfies, errors.IsNotValid)
+			c.Check(ipAddr.EnsureDead(), jc.ErrorIsNil)
 			c.Check(ipAddr.Remove(), jc.ErrorIsNil)
 			continue
 		}

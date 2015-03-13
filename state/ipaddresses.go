@@ -125,7 +125,7 @@ func (i *IPAddress) EnsureDead() (err error) {
 	}
 
 	ops := []txn.Op{{
-		C:      subnetsC,
+		C:      ipaddressesC,
 		Id:     i.doc.DocID,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 		Assert: isAliveDoc,
