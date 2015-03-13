@@ -242,7 +242,7 @@ var iptablesRules = map[string]IptablesRule{
 	}, "iptablesForwardIn": {
 		"filter",
 		"FORWARD",
-		"-d {{.ContainerCIDR}} -i {{.HostBridge}} -j ACCEPT",
+		"-s {{.ContainerCIDR}} -i {{.HostBridge}} -j ACCEPT",
 	}}
 
 // mustParseTemplate works like template.Parse, but panics on error.
