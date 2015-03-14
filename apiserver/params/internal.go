@@ -476,6 +476,20 @@ type RelationUnitsWatchResults struct {
 	Results []RelationUnitsWatchResult
 }
 
+// VolumeAttachmentsWatchResult holds a VolumeAttachmentsWatcher id, changes
+// and an error (if any).
+type VolumeAttachmentsWatchResult struct {
+	VolumeAttachmentsWatcherId string
+	Changes                    []VolumeAttachmentId
+	Error                      *Error
+}
+
+// VolumeAttachmentsWatchResults holds the results for any API call which ends up
+// returning a list of VolumeAttachmentsWatchers.
+type VolumeAttachmentsWatchResults struct {
+	Results []VolumeAttachmentsWatchResult
+}
+
 // CharmsResponse is the server response to charm upload or GET requests.
 type CharmsResponse struct {
 	Error    string   `json:",omitempty"`

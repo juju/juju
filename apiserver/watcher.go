@@ -28,6 +28,10 @@ func init() {
 		"RelationUnitsWatcher", 0, newRelationUnitsWatcher,
 		reflect.TypeOf((*srvRelationUnitsWatcher)(nil)),
 	)
+	common.RegisterFacade(
+		"VolumeAttachmentsWatcher", 1, newVolumeAttachmentsWatcher,
+		reflect.TypeOf((*srvVolumeAttachmentsWatcher)(nil)),
+	)
 }
 
 func newClientAllWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
@@ -199,5 +203,58 @@ func (w *srvRelationUnitsWatcher) Next() (params.RelationUnitsWatchResult, error
 
 // Stop stops the watcher.
 func (w *srvRelationUnitsWatcher) Stop() error {
+	return w.resources.Stop(w.id)
+}
+
+// srvVolumeAttachmentsWatcher defines the API wrapping a state.StringsWatcher
+// watching volume attachments. This watcher notifies about volumes attaching
+// and detaching from machines.
+//
+// TODO(axw) state needs a new watcher, this is a dirty hack. State watchers
+// could do with some deduplication of logic, and I don't want to add to the
+// mess right now.
+type srvVolumeAttachmentsWatcher struct {
+	watcher   state.StringsWatcher
+	id        string
+	resources *common.Resources
+}
+
+func newVolumeAttachmentsWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
+	if !isAgent(auth) {
+		return nil, common.ErrPerm
+	}
+	watcher, ok := resources.Get(id).(state.StringsWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvVolumeAttachmentsWatcher{
+		watcher:   watcher,
+		id:        id,
+		resources: resources,
+	}, nil
+}
+
+// Next returns when a change has occured to an entity of the
+// collection being watched since the most recent call to Next
+// or the Watch call that created the srvVolumeAttachmentsWatcher.
+func (w *srvVolumeAttachmentsWatcher) Next() (params.VolumeAttachmentsWatchResult, error) {
+	if stringChanges, ok := <-w.watcher.Changes(); ok {
+		changes, err := common.ParseVolumeAttachmentIds(stringChanges)
+		if err != nil {
+			return params.VolumeAttachmentsWatchResult{}, err
+		}
+		return params.VolumeAttachmentsWatchResult{
+			Changes: changes,
+		}, nil
+	}
+	err := w.watcher.Err()
+	if err == nil {
+		err = common.ErrStoppedWatcher
+	}
+	return params.VolumeAttachmentsWatchResult{}, err
+}
+
+// Stop stops the watcher.
+func (w *srvVolumeAttachmentsWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }
