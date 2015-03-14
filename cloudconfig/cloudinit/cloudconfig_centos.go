@@ -69,7 +69,7 @@ func (cfg *CentOSCloudConfig) PackageMirror() string {
 
 // AddPackageSource implements PackageSourcesConfig.
 func (cfg *CentOSCloudConfig) AddPackageSource(src packaging.Source) {
-	cfg.attrs["package_source"] = append(cfg.PackageSources(), src)
+	cfg.attrs["package_sources"] = append(cfg.PackageSources(), src)
 }
 
 // addPackageSourceCmds is a helper function that adds the corresponding
