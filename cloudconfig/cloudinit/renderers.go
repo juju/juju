@@ -72,11 +72,13 @@ func (c *CentOSRenderer) Render(conf CloudConfig) ([]byte, error) {
 	// check for package mirror settings and add commands:
 	if mirror := conf.PackageMirror(); mirror != "" {
 		addPackageMirrorCmds(conf, mirror)
+		conf.UnsetPackageMirror()
 	}
 
 	// add appropriate commands for package sources configuration:
 	for _, src := range conf.PackageSources() {
 		addPackageSourceCmds(conf, src)
+		conf.UnsetAttr("package_sources")
 	}
 
 	data, err := yaml.Marshal(conf.getAttrs())

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
@@ -122,7 +123,7 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "failed to create container directory")
 	}
 	logger.Tracef("write cloud-init")
-	userDataFilename, err := container.WriteUserData(instanceConfig, networkConfig, directory)
+	userDataFilename, err := containerinit.WriteUserData(instanceConfig, networkConfig, directory)
 	if err != nil {
 		logger.Infof("machine config api %#v", *instanceConfig.APIInfo)
 		err = errors.Annotate(err, "failed to write user data")

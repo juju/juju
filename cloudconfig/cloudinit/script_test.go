@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package sshinit_test
+package cloudinit_test
 
 import (
 	"regexp"
@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/cloudinit/packaging"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -92,12 +91,12 @@ func checkIff(checker gc.Checker, condition bool) gc.Checker {
 	return gc.Not(checker)
 }
 
-var aptgetRegexp = "(.|\n)*" + regexp.QuoteMeta(sshinit.Aptget)
+var aptgetRegexp = "(.|\n)*" + regexp.QuoteMeta("apt-get --assume-yes --option Dpkg::Options::=--force-confold ")
 
 func (s *configureSuite) TestAptSources(c *gc.C) {
 	for _, series := range allSeries {
 		vers := version.MustParseBinary("1.16.0-" + series + "-amd64")
-		script, err := sshinit.ConfigureScript(s.getCloudConfig(c, true, vers))
+		script, err := cloudinit.ConfigureScript(s.getCloudConfig(c, true, vers), "quantal")
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Only Precise requires the cloud-tools pocket.
@@ -137,7 +136,7 @@ func (s *configureSuite) TestAptSources(c *gc.C) {
 }
 
 func assertScriptMatches(c *gc.C, cfg cloudinit.CloudConfig, pattern string, match bool) {
-	script, err := sshinit.ConfigureScript(cfg)
+	script, err := cloudinit.ConfigureScript(cfg, "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	checker := gc.Matches
 	if !match {
@@ -162,12 +161,12 @@ func (s *configureSuite) TestAptUpdate(c *gc.C) {
 	// If we add sources, but disable updates, display an error.
 	cfg.SetSystemUpdate(false)
 	source := packaging.Source{
-		Url:   "source",
-		Key:   "key",
-		Prefs: nil,
+		Name: "source",
+		Url:  "source",
+		Key:  "key",
 	}
 	cfg.AddPackageSource(source)
-	_, err = sshinit.ConfigureScript(cfg)
+	_, err = cloudinit.ConfigureScript(cfg, "quantal")
 	c.Check(err, gc.ErrorMatches, "update sources were specified, but OS updates have been disabled.")
 }
 
@@ -178,9 +177,9 @@ func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.SetSystemUpdate(true)
 	source := packaging.Source{
-		Url:   "source",
-		Key:   "key",
-		Prefs: nil,
+		Name: "source",
+		Url:  "source",
+		Key:  "key",
 	}
 	cfg.AddPackageSource(source)
 	assertScriptMatches(c, cfg, aptGetUpgradePattern, false)

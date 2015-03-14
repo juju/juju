@@ -1,9 +1,10 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cloudconfig_test
+package providerinit_test
 
 import (
 	"path"
+	gotesting "testing"
 	"time"
 
 	"github.com/juju/names"
@@ -16,9 +17,9 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
-	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/paths"
@@ -29,6 +30,10 @@ import (
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
+
+func Test(t *gotesting.T) {
+	gc.TestingT(t)
+}
 
 // dummySampleConfig returns the dummy sample config without
 // the state server configured.
@@ -224,7 +229,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		DataDir:                 dataDir,
 		LogDir:                  path.Join(logDir, "juju"),
 		Jobs:                    allJobs,
-		CloudInitOutputLog:      cloudInitOutputLog,
+		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
 		Config:                  envConfig,
 		AgentEnvironment:        map[string]string{agent.ProviderType: "dummy"},
 		AuthorizedKeys:          "wheredidileavemykeys",
@@ -247,7 +252,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg.AddRunCmd(script1)
 	cloudcfg.AddRunCmd(script2)
-	result, err := cloudconfig.ComposeUserData(cfg, cloudcfg)
+	result, err := providerinit.ComposeUserData(cfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	unzipped, err := utils.Gunzip(result)

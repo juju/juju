@@ -6,7 +6,11 @@
 // available on different distributions.
 package packaging
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/juju/juju/version"
+)
 
 // PackageManager is a struct which returns system-specific commands for all
 // the operations that may be required of a package management system.
@@ -26,14 +30,18 @@ type PackageManager struct {
 	cmds map[string]string
 }
 
-// CentOSPackageManager returns the PackageManager for yum-specific work
-func CentOSPackageManager() *PackageManager {
-	return &PackageManager{yumCmds}
-}
-
-// UbuntuPackageManager returns the PackageManager for apt-specific work
-func UbuntuPackageManager() *PackageManager {
-	return &PackageManager{aptCmds}
+func New(series string) (*PackageManager, error) {
+	os, err := version.GetOSFromSeries(series)
+	if err != nil {
+		return nil, err
+	}
+	switch os {
+	case version.Ubuntu:
+		return &PackageManager{aptCmds}, nil
+	case version.CentOS:
+		return &PackageManager{yumCmds}, nil
+	}
+	return nil, err
 }
 
 // Update returns the command that refreshes the local package list.

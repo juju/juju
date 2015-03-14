@@ -1,12 +1,15 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cloudconfig
+// This package offers userdata in a gzipped format to be used by different
+// cloud providers
+package providerinit
 
 import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 )
@@ -15,10 +18,10 @@ var (
 	logger = loggo.GetLogger("juju.userdata")
 )
 
-func configureCloudinit(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudConfig) (UserdataConfig, error) {
+func configureCloudinit(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudConfig) (cloudconfig.UserdataConfig, error) {
 	// When bootstrapping, we only want to apt-get update/upgrade
 	// and setup the SSH keys. The rest we leave to cloudinit/sshinit.
-	udata, err := NewUserdataConfig(icfg, cloudcfg)
+	udata, err := cloudconfig.NewUserdataConfig(icfg, cloudcfg)
 	if err != nil {
 		return nil, err
 	}
