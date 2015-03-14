@@ -199,19 +199,33 @@ func (i *IPAddress) SetState(newState AddressState) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set IP address %q to state %q", i, newState)
 
 	validStates := []AddressState{AddressStateUnknown, newState}
-	unknownOrSame := bson.D{{"state", bson.D{{"$in", validStates}}}}
-	ops := []txn.Op{{
-		C:      ipaddressesC,
-		Id:     i.doc.DocID,
-		Assert: unknownOrSame,
-		Update: bson.D{{"$set", bson.D{{"state", string(newState)}}}},
-	}}
-	if err = i.st.runTransaction(ops); err != nil {
-		return onAbort(
-			err,
-			errors.NotValidf("transition from %q", i.doc.State),
-		)
+	unknownOrSame := bson.DocElem{"state", bson.D{{"$in", validStates}}}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := i.Refresh(); errors.IsNotFound(err) {
+				return nil, err
+			} else if i.Life() == Dead {
+				return nil, errors.New("address is dead")
+			} else if err == txn.ErrAborted {
+				return nil, errors.NotValidf("transition from %q", i.doc.State)
+			} else if err != nil {
+				return nil, err
+			}
+
+		}
+		return []txn.Op{{
+			C:      ipaddressesC,
+			Id:     i.doc.DocID,
+			Assert: append(isAliveDoc, unknownOrSame),
+			Update: bson.D{{"$set", bson.D{{"state", string(newState)}}}},
+		}}, nil
 	}
+
+	err = i.st.run(buildTxn)
+	if err != nil {
+		return err
+	}
+
 	i.doc.State = newState
 	return nil
 }
