@@ -7,14 +7,14 @@ package packaging
 const (
 	// CentOSSourcesDir is the default directory in which yum sourcefiles
 	// may be found.
-	CentOSSourcesDir = "/etc/yum/repos.d/"
+	CentOSSourcesDir = "/etc/yum/repos.d"
 
 	// CentOSYumKeyfileDir is the default directory for yum repository keys.
 	CentOSYumKeyfileDir = "/etc/pki/rpm-gpg/"
 
 	// CentOSSourcesFile is the default file which lists all core sources
 	// for yum packages on CentOS.
-	CentOSSourcesFile = CentOSSourcesDir + "CentOS-Base.repo"
+	CentOSSourcesFile = "/etc/yum/repos.d/CentOS-Base.repo"
 
 	// yumSourceTemplate is the template specific to a yum source file.
 	YumSourceTemplate = `
