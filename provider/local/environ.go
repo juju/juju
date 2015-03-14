@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
@@ -209,7 +208,7 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, icfg *in
 
 var executeCloudConfig = func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudConfig) error {
 	// Finally, convert cloud-config to a script and execute it.
-	configScript, err := sshinit.ConfigureScript(cloudcfg)
+	configScript, err := cloudinit.ConfigureScript(cloudcfg, icfg.Series)
 	if err != nil {
 		return nil
 	}

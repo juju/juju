@@ -230,7 +230,7 @@ func ProvisioningScript(icfg *instancecfg.InstanceConfig) (string, error) {
 		return "", errors.Annotate(err, "error generating cloud-config")
 	}
 
-	configScript, err := sshinit.ConfigureScript(cloudcfg)
+	configScript, err := cloudinit.ConfigureScript(cloudcfg, icfg.Series)
 	if err != nil {
 		return "", errors.Annotate(err, "error converting cloud-config to script")
 	}
