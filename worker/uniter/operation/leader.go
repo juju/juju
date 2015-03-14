@@ -12,10 +12,12 @@ import (
 
 type acceptLeadership struct{}
 
+// String is part of the Operation interface.
 func (al *acceptLeadership) String() string {
 	return "accept leadership"
 }
 
+// Prepare is part of the Operation interface.
 func (al *acceptLeadership) Prepare(state State) (*State, error) {
 	if err := al.checkState(state); err != nil {
 		return nil, err
@@ -23,10 +25,12 @@ func (al *acceptLeadership) Prepare(state State) (*State, error) {
 	return nil, ErrSkipExecute
 }
 
+// Execute is part of the Operation interface.
 func (al *acceptLeadership) Execute(state State) (*State, error) {
 	return nil, errors.New("prepare always errors; Execute is never valid")
 }
 
+// Commit is part of the Operation interface.
 func (al *acceptLeadership) Commit(state State) (*State, error) {
 	if err := al.checkState(state); err != nil {
 		return nil, err
@@ -57,10 +61,12 @@ func (al *acceptLeadership) checkState(state State) error {
 
 type resignLeadership struct{}
 
+// String is part of the Operation interface.
 func (rl *resignLeadership) String() string {
 	return "resign leadership"
 }
 
+// Prepare is part of the Operation interface.
 func (rl *resignLeadership) Prepare(state State) (*State, error) {
 	if !state.Leader {
 		// Nothing needs to be done -- state.Leader should only be set to
@@ -71,6 +77,7 @@ func (rl *resignLeadership) Prepare(state State) (*State, error) {
 	return nil, nil
 }
 
+// Execute is part of the Operation interface.
 func (rl *resignLeadership) Execute(state State) (*State, error) {
 	// TODO(fwereade): this hits a lot of interestingly intersecting problems.
 	//
@@ -106,6 +113,7 @@ func (rl *resignLeadership) Execute(state State) (*State, error) {
 	return nil, nil
 }
 
+// Commit is part of the Operation interface.
 func (rl *resignLeadership) Commit(state State) (*State, error) {
 	state.Leader = false
 	return &state, nil
