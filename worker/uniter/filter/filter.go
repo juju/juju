@@ -113,21 +113,13 @@ func NewFilter(st *uniter.State, unitTag names.UnitTag) (Filter, error) {
 	f := &filter{
 		st:                    st,
 		outUnitDying:          make(chan struct{}),
-		outConfig:             nil,
 		outConfigOn:           make(chan struct{}),
-		outAction:             nil,
 		outActionOn:           make(chan string),
-		outLeaderSettings:     nil,
 		outLeaderSettingsOn:   make(chan struct{}),
-		outUpgrade:            nil,
 		outUpgradeOn:          make(chan *charm.URL),
-		outResolved:           nil,
 		outResolvedOn:         make(chan params.ResolvedMode),
-		outRelations:          nil,
 		outRelationsOn:        make(chan []int),
-		outMeterStatus:        nil,
 		outMeterStatusOn:      make(chan struct{}),
-		outStorage:            nil,
 		outStorageOn:          make(chan []names.StorageTag),
 		wantForcedUpgrade:     make(chan bool),
 		wantResolved:          make(chan struct{}),
@@ -405,7 +397,7 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 	}
 	defer watcher.Stop(leaderSettingsw, &f.tomb)
 
-	// Ignore external requests for leader settings behavioour until we see the first change.
+	// Ignore external requests for leader settings behaviour until we see the first change.
 	var discardLeaderSettings <-chan struct{}
 	var wantLeaderSettings <-chan bool
 	// By default we send all leaderSettings onwards.
