@@ -136,10 +136,31 @@ func (i *IPAddress) EnsureDead() (err error) {
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 		Assert: isAliveDoc,
 	}}
-	if err = i.st.runTransaction(ops); err != nil {
-		// Ignore ErrAborted if it happens, otherwise return err.
-		return onAbort(err, nil)
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := i.Refresh(); err != nil {
+				// Address is either gone or
+				// another error occurred.
+				return nil, err
+			}
+			if i.Life() == Dead {
+				return nil, jujutxn.ErrNoOperations
+			}
+			return nil, errors.Errorf("unexpected life value: %s", i.Life().String())
+		}
+		return []txn.Op{{
+			C:      ipaddressesC,
+			Id:     i.doc.DocID,
+			Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+			Assert: isAliveDoc,
+		}}, nil
 	}
+
+	err = i.st.run(buildTxn)
+	if err != nil {
+		return err
+	}
+
 	i.doc.Life = Dead
 	return nil
 }
