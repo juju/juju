@@ -148,6 +148,52 @@ func (s *StorageProvisionerAPI) WatchVolumes(args params.Entities) (params.Strin
 	return results, nil
 }
 
+// WatchVolumeAttachments watches for changes to volume attachments scoped to
+// the entity with the tag passed to NewState.
+func (s *StorageProvisionerAPI) WatchVolumeAttachments(args params.Entities) (params.VolumeAttachmentsWatchResults, error) {
+	canAccess, err := s.getScopeAuthFunc()
+	if err != nil {
+		return params.VolumeAttachmentsWatchResults{}, common.ServerError(common.ErrPerm)
+	}
+	results := params.VolumeAttachmentsWatchResults{
+		Results: make([]params.VolumeAttachmentsWatchResult, len(args.Entities)),
+	}
+	one := func(arg params.Entity) (string, []params.VolumeAttachmentId, error) {
+		tag, err := names.ParseTag(arg.Tag)
+		if err != nil || !canAccess(tag) {
+			return "", nil, common.ErrPerm
+		}
+		var w state.StringsWatcher
+		if tag, ok := tag.(names.MachineTag); ok {
+			w = s.st.WatchMachineVolumeAttachments(tag)
+		} else {
+			// TODO(axw) implement me
+			return "", nil, errors.NotImplementedf("watching environ-scoped volume attachments")
+		}
+		if stringChanges, ok := <-w.Changes(); ok {
+			changes, err := common.ParseVolumeAttachmentIds(stringChanges)
+			if err != nil {
+				w.Stop()
+				return "", nil, err
+			}
+			return s.resources.Register(w), changes, nil
+		}
+		return "", nil, watcher.EnsureErr(w)
+	}
+	for i, arg := range args.Entities {
+		var result params.VolumeAttachmentsWatchResult
+		id, changes, err := one(arg)
+		if err != nil {
+			result.Error = common.ServerError(err)
+		} else {
+			result.VolumeAttachmentsWatcherId = id
+			result.Changes = changes
+		}
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
 // Volumes returns details of volumes with the specified tags.
 func (s *StorageProvisionerAPI) Volumes(args params.Entities) (params.VolumeResults, error) {
 	canAccess, err := s.getVolumeAuthFunc()
