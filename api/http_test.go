@@ -22,6 +22,16 @@ type httpSuite struct {
 
 var _ = gc.Suite(&httpSuite{})
 
+func (s *httpSuite) SetUpSuite(c *gc.C) {
+	s.HTTPSuite.SetUpSuite(c)
+	s.JujuConnSuite.SetUpSuite(c)
+}
+
+func (s *httpSuite) TearDownSuite(c *gc.C) {
+	s.HTTPSuite.TearDownSuite(c)
+	s.JujuConnSuite.TearDownSuite(c)
+}
+
 func (s *httpSuite) SetUpTest(c *gc.C) {
 	s.HTTPSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
@@ -32,6 +42,11 @@ func (s *httpSuite) SetUpTest(c *gc.C) {
 			return s.Fake
 		},
 	)
+}
+
+func (s *httpSuite) TearDownTest(c *gc.C) {
+	s.HTTPSuite.TearDownTest(c)
+	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *httpSuite) TestNewHTTPRequestSuccess(c *gc.C) {

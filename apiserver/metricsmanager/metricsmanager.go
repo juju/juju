@@ -137,7 +137,7 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		unsentMetrics, err := api.state.CountofUnsentMetrics()
+		unsentMetrics, err := api.state.CountOfUnsentMetrics()
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
