@@ -10,6 +10,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/network"
+	jujutxn "github.com/juju/txn"
 )
 
 // AddressState represents the states an IP address can be in. They are created
@@ -130,12 +131,6 @@ func (i *IPAddress) EnsureDead() (err error) {
 		return nil
 	}
 
-	ops := []txn.Op{{
-		C:      ipaddressesC,
-		Id:     i.doc.DocID,
-		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
-		Assert: isAliveDoc,
-	}}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := i.Refresh(); err != nil {
@@ -174,13 +169,26 @@ func (i *IPAddress) Remove() (err error) {
 		return errors.New("IP address is not dead")
 	}
 
-	ops := []txn.Op{{
-		C:      ipaddressesC,
-		Id:     i.doc.DocID,
-		Assert: isDeadDoc,
-		Remove: true,
-	}}
-	return i.st.runTransaction(ops)
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := i.Refresh(); errors.IsNotFound(err) {
+				return nil, jujutxn.ErrNoOperations
+			} else if err != nil {
+				return nil, err
+			}
+			if i.Life() != Dead {
+				return nil, errors.New("address is not dead")
+			}
+		}
+		return []txn.Op{{
+			C:      ipaddressesC,
+			Id:     i.doc.DocID,
+			Assert: isDeadDoc,
+			Remove: true,
+		}}, nil
+	}
+
+	return i.st.run(buildTxn)
 }
 
 // SetState sets the State of an IPAddress. Valid state transitions
