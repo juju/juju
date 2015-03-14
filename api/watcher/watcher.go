@@ -291,3 +291,58 @@ func (w *relationUnitsWatcher) loop(initialChanges multiwatcher.RelationUnitsCha
 func (w *relationUnitsWatcher) Changes() <-chan multiwatcher.RelationUnitsChange {
 	return w.out
 }
+
+// volumeAttachmentsWatcher will sends notifications of units entering and
+// leaving the scope of a VolumeAttachment, and changes to the settings of
+// those units known to have entered.
+type volumeAttachmentsWatcher struct {
+	commonWatcher
+	caller                     base.APICaller
+	volumeAttachmentsWatcherId string
+	out                        chan []params.VolumeAttachmentId
+}
+
+func NewVolumeAttachmentsWatcher(caller base.APICaller, result params.VolumeAttachmentsWatchResult) VolumeAttachmentsWatcher {
+	w := &volumeAttachmentsWatcher{
+		caller: caller,
+		volumeAttachmentsWatcherId: result.VolumeAttachmentsWatcherId,
+		out: make(chan []params.VolumeAttachmentId),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop(result.Changes))
+	}()
+	return w
+}
+
+func (w *volumeAttachmentsWatcher) loop(initialChanges []params.VolumeAttachmentId) error {
+	changes := initialChanges
+	w.newResult = func() interface{} { return new(params.VolumeAttachmentsWatchResult) }
+	w.call = makeWatcherAPICaller(w.caller, "VolumeAttachmentsWatcher", w.volumeAttachmentsWatcherId)
+	w.commonWatcher.init()
+	go w.commonLoop()
+
+	for {
+		select {
+		// Send the initial event or subsequent change.
+		case w.out <- changes:
+		case <-w.tomb.Dying():
+			return nil
+		}
+		// Read the next change.
+		data, ok := <-w.in
+		if !ok {
+			// The tomb is already killed with the correct error
+			// at this point, so just return.
+			return nil
+		}
+		changes = data.(*params.VolumeAttachmentsWatchResult).Changes
+	}
+}
+
+// Changes returns a channel that will receive the IDs of volume
+// attachments which have changed.
+func (w *volumeAttachmentsWatcher) Changes() <-chan []params.VolumeAttachmentId {
+	return w.out
+}
