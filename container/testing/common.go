@@ -5,12 +5,16 @@ package testing
 
 import (
 	"io/ioutil"
+	"os"
+	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
@@ -65,11 +69,26 @@ func CreateContainerWithMachineAndNetworkConfig(
 	networkConfig *container.NetworkConfig,
 ) instance.Instance {
 
+	if networkConfig != nil && len(networkConfig.Interfaces) > 0 {
+		name := "test-" + names.NewMachineTag(machineConfig.MachineId).String()
+		EnsureRootFSEtcNetwork(c, name)
+	}
 	inst, hardware, err := manager.CreateContainer(machineConfig, "quantal", networkConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	c.Assert(hardware.String(), gc.Not(gc.Equals), "")
 	return inst
+}
+
+func EnsureRootFSEtcNetwork(c *gc.C, containerName string) {
+	// Pre-create the mock rootfs dir for the container and
+	// /etc/network/ inside it, where the interfaces file will be
+	// pre-rendered (unless AUFS is used).
+	etcNetwork := filepath.Join(lxc.LxcContainerDir, containerName, "rootfs", "etc", "network")
+	err := os.MkdirAll(etcNetwork, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filepath.Join(etcNetwork, "interfaces"), []byte("#empty"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func AssertCloudInit(c *gc.C, filename string) []byte {

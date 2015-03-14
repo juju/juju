@@ -1765,7 +1765,8 @@ func (u *Unit) UnassignFromMachine() (err error) {
 type ActionSpecsByName map[string]charm.ActionSpec
 
 // AddAction adds a new Action of type name and using arguments payload to
-// this Unit, and returns its ID.
+// this Unit, and returns its ID.  Note that the use of spec.InsertDefaults
+// mutates payload.
 func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, error) {
 	if len(name) == 0 {
 		return nil, errors.New("no action name given")
@@ -1783,11 +1784,11 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 	if err != nil {
 		return nil, err
 	}
-	err = spec.InsertDefaults(payload)
+	payloadWithDefaults, err := spec.InsertDefaults(payload)
 	if err != nil {
 		return nil, err
 	}
-	return u.st.EnqueueAction(u.Tag(), name, payload)
+	return u.st.EnqueueAction(u.Tag(), name, payloadWithDefaults)
 }
 
 // ActionSpecs gets the ActionSpec map for the Unit's charm.
