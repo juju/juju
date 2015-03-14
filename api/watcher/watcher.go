@@ -292,34 +292,38 @@ func (w *relationUnitsWatcher) Changes() <-chan multiwatcher.RelationUnitsChange
 	return w.out
 }
 
-// volumeAttachmentsWatcher will sends notifications of units entering and
-// leaving the scope of a VolumeAttachment, and changes to the settings of
+// machineAttachmentsWatcher will sends notifications of units entering and
+// leaving the scope of a MachineAttachment, and changes to the settings of
 // those units known to have entered.
-type volumeAttachmentsWatcher struct {
+type machineAttachmentsWatcher struct {
 	commonWatcher
-	caller                     base.APICaller
-	volumeAttachmentsWatcherId string
-	out                        chan []params.VolumeAttachmentId
+	caller                      base.APICaller
+	machineAttachmentsWatcherId string
+	out                         chan []params.MachineAttachmentId
 }
 
-func NewVolumeAttachmentsWatcher(caller base.APICaller, result params.VolumeAttachmentsWatchResult) VolumeAttachmentsWatcher {
-	w := &volumeAttachmentsWatcher{
+func NewVolumeAttachmentsWatcher(caller base.APICaller, result params.MachineAttachmentsWatchResult) MachineAttachmentsWatcher {
+	return newMachineAttachmentsWatcher("VolumeAttachmentsWatcher", caller, result)
+}
+
+func newMachineAttachmentsWatcher(facade string, caller base.APICaller, result params.MachineAttachmentsWatchResult) MachineAttachmentsWatcher {
+	w := &machineAttachmentsWatcher{
 		caller: caller,
-		volumeAttachmentsWatcherId: result.VolumeAttachmentsWatcherId,
-		out: make(chan []params.VolumeAttachmentId),
+		machineAttachmentsWatcherId: result.MachineAttachmentsWatcherId,
+		out: make(chan []params.MachineAttachmentId),
 	}
 	go func() {
 		defer w.tomb.Done()
 		defer close(w.out)
-		w.tomb.Kill(w.loop(result.Changes))
+		w.tomb.Kill(w.loop(facade, result.Changes))
 	}()
 	return w
 }
 
-func (w *volumeAttachmentsWatcher) loop(initialChanges []params.VolumeAttachmentId) error {
+func (w *machineAttachmentsWatcher) loop(facade string, initialChanges []params.MachineAttachmentId) error {
 	changes := initialChanges
-	w.newResult = func() interface{} { return new(params.VolumeAttachmentsWatchResult) }
-	w.call = makeWatcherAPICaller(w.caller, "VolumeAttachmentsWatcher", w.volumeAttachmentsWatcherId)
+	w.newResult = func() interface{} { return new(params.MachineAttachmentsWatchResult) }
+	w.call = makeWatcherAPICaller(w.caller, facade, w.machineAttachmentsWatcherId)
 	w.commonWatcher.init()
 	go w.commonLoop()
 
@@ -337,12 +341,12 @@ func (w *volumeAttachmentsWatcher) loop(initialChanges []params.VolumeAttachment
 			// at this point, so just return.
 			return nil
 		}
-		changes = data.(*params.VolumeAttachmentsWatchResult).Changes
+		changes = data.(*params.MachineAttachmentsWatchResult).Changes
 	}
 }
 
-// Changes returns a channel that will receive the IDs of volume
-// attachments which have changed.
-func (w *volumeAttachmentsWatcher) Changes() <-chan []params.VolumeAttachmentId {
+// Changes returns a channel that will receive the IDs of machine
+// storage entity attachments which have changed.
+func (w *machineAttachmentsWatcher) Changes() <-chan []params.MachineAttachmentId {
 	return w.out
 }

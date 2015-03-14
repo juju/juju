@@ -32,10 +32,10 @@ type RelationUnitsWatcher interface {
 	Err() error
 }
 
-// VolumeAttachmentsWatcher will send events when something changes.
-// The content for the changes is a list of params.VolumeAttachmentId.
-type VolumeAttachmentsWatcher interface {
-	Changes() <-chan []params.VolumeAttachmentId
+// MachineAttachmentsWatcher will send events when something changes.
+// The content for the changes is a list of params.MachineAttachmentId.
+type MachineAttachmentsWatcher interface {
+	Changes() <-chan []params.MachineAttachmentId
 	Stop() error
 	Err() error
 }
