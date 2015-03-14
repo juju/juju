@@ -283,7 +283,7 @@ func (i *IPAddress) Refresh() error {
 		return errors.NotFoundf("IP address %q", i)
 	}
 	if err != nil {
-		return errors.Errorf("cannot refresh IP address %q: %v", i, err)
+		return errors.Annotatef(err, "cannot refresh IP address %q", i)
 	}
 	return nil
 }
