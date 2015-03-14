@@ -365,17 +365,11 @@ func volumeAttachmentId(machineId, volumeName string) string {
 // returning the machine and volume components.
 func ParseVolumeAttachmentId(id string) (names.MachineTag, names.VolumeTag, error) {
 	fields := strings.SplitN(id, ":", 2)
-	if len(fields) != 2 {
+	if len(fields) != 2 || !names.IsValidMachine(fields[0]) || !names.IsValidVolume(fields[1]) {
 		return names.MachineTag{}, names.VolumeTag{}, errors.Errorf("invalid volume attachment ID %q", id)
 	}
-	machineTag, err := names.ParseMachineTag(fields[0])
-	if err != nil {
-		return names.MachineTag{}, names.VolumeTag{}, errors.Annotate(err, "parsing machine tag")
-	}
-	volumeTag, err := names.ParseVolumeTag(fields[1])
-	if err != nil {
-		return names.MachineTag{}, names.VolumeTag{}, errors.Annotate(err, "parsing volume tag")
-	}
+	machineTag := names.NewMachineTag(fields[0])
+	volumeTag := names.NewVolumeTag(fields[1])
 	return machineTag, volumeTag, nil
 }
 
