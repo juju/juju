@@ -1598,7 +1598,7 @@ func leadershipSettingsAccessorFactory(
 	// should support a native read of this format straight from
 	// state.
 	getSettings := func(serviceId string) (map[string]string, error) {
-		settings, err := st.ReadSettings(state.LeadershipSettingsDocId(serviceId))
+		settings, err := st.ReadLeadershipSettings(serviceId)
 		if err != nil {
 			return nil, err
 		}
