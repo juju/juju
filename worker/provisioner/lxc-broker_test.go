@@ -51,8 +51,9 @@ type lxcSuite struct {
 
 type lxcBrokerSuite struct {
 	lxcSuite
-	broker      environs.InstanceBroker
-	agentConfig agent.ConfigSetterWriter
+	broker             environs.InstanceBroker
+	agentConfig        agent.ConfigSetterWriter
+	allowLXCLoopMounts bool
 }
 
 var _ = gc.Suite(&lxcBrokerSuite{})
@@ -102,7 +103,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 		"log-dir":            c.MkDir(),
 		"use-clone":          "false",
 	}
-	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, s.agentConfig, managerConfig, nil)
+	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{c, s}, s.agentConfig, managerConfig, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -153,6 +154,7 @@ func (s *lxcBrokerSuite) TestStartInstance(c *gc.C) {
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceWithStorage(c *gc.C) {
+	s.allowLXCLoopMounts = true
 	machineId := "1/lxc/0"
 	lxc := s.startInstance(c, machineId, []storage.VolumeParams{{Provider: provider.LoopProviderType}})
 	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
@@ -162,6 +164,22 @@ func (s *lxcBrokerSuite) TestStartInstanceWithStorage(c *gc.C) {
 	containerConfigContents, err := ioutil.ReadFile(filepath.Join(s.LxcDir, string(lxc.Id()), "config"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(containerConfigContents), jc.Contains, "lxc.aa_profile = lxc-container-default-with-mounting")
+}
+
+func (s *lxcBrokerSuite) TestStartInstanceLoopMountsDisallowed(c *gc.C) {
+	machineConfig := s.machineConfig(c, "1/lxc/0")
+
+	possibleTools := coretools.List{&coretools.Tools{
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	}}
+	_, err := s.broker.StartInstance(environs.StartInstanceParams{
+		Constraints:   constraints.Value{},
+		Tools:         possibleTools,
+		MachineConfig: machineConfig,
+		Volumes:       []storage.VolumeParams{{Provider: provider.LoopProviderType}},
+	})
+	c.Assert(err, gc.Equals, container.ErrLoopMountNotAllowed)
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceHostArch(c *gc.C) {
@@ -707,13 +725,13 @@ func (s *lxcBrokerSuite) TestMaybeAllocateStaticIP(c *gc.C) {
 	// When ifaceInfo is not empty it shouldn't do anything and both
 	// the error and the result are nil.
 	ifaceInfo := []network.InterfaceInfo{{DeviceIndex: 0}}
-	result, err := provisioner.MaybeAllocateStaticIP("42", "bridge", &fakeAPI{c}, ifaceInfo)
+	result, err := provisioner.MaybeAllocateStaticIP("42", "bridge", &fakeAPI{c, nil}, ifaceInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.IsNil)
 
 	// When it's not empty, result should be populated as expected.
 	ifaceInfo = []network.InterfaceInfo{}
-	result, err = provisioner.MaybeAllocateStaticIP("42", "bridge", &fakeAPI{c}, ifaceInfo)
+	result, err = provisioner.MaybeAllocateStaticIP("42", "bridge", &fakeAPI{c, nil}, ifaceInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:    0,
@@ -889,17 +907,19 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 }
 
 type fakeAPI struct {
-	c *gc.C
+	c     *gc.C
+	suite *lxcBrokerSuite
 }
 
 var _ provisioner.APICalls = (*fakeAPI)(nil)
 
-func (*fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
+func (f *fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
 	return params.ContainerConfig{
 		UpdateBehavior:          &params.UpdateBehavior{true, true},
 		ProviderType:            "fake",
 		AuthorizedKeys:          coretesting.FakeAuthKeys,
-		SSLHostnameVerification: true}, nil
+		SSLHostnameVerification: true,
+		AllowLXCLoopMounts:      f.suite.allowLXCLoopMounts}, nil
 }
 
 func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {

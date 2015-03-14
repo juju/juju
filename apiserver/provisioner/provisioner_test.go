@@ -1297,7 +1297,8 @@ func (s *withoutStateServerSuite) TestContainerManagerConfigNoIPForwarding(c *gc
 
 func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 	attrs := map[string]interface{}{
-		"http-proxy": "http://proxy.example.com:9000",
+		"http-proxy":            "http://proxy.example.com:9000",
+		"allow-lxc-loop-mounts": true,
 	}
 	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1314,6 +1315,7 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.PreferIPv6, jc.IsTrue)
+	c.Check(results.AllowLXCLoopMounts, jc.IsTrue)
 }
 
 func (s *withoutStateServerSuite) TestSetSupportedContainers(c *gc.C) {

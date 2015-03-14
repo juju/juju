@@ -4,9 +4,16 @@
 package container
 
 import (
+	"errors"
+
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 )
+
+var ErrLoopMountNotAllowed = errors.New(`
+Mounting of loop devices inside LXC containers must be explicltly enabled using this environment config setting:
+  allow-lxc-loop-mounts=true
+`[1:])
 
 // StorageConfig defines how the container will be configured to support
 // storage requirements.
