@@ -55,8 +55,8 @@ func (*formatSuite) TestWriteCommands(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(commands, gc.HasLen, 3)
 	c.Assert(commands[0], gc.Matches, `mkdir -p '\S+/agents/machine-1'`)
-	c.Assert(commands[1], gc.Matches, `install -m 600 /dev/null '\S+/agents/machine-1/agent.conf'`)
-	c.Assert(commands[2], gc.Matches, `printf '%s\\n' '(.|\n)*' > '\S+/agents/machine-1/agent.conf'`)
+	c.Assert(commands[1], gc.Matches, `cat > '\S+/agents/machine-1/agent.conf' << 'EOF'\n(.|\n)*\nEOF`)
+	c.Assert(commands[2], gc.Matches, `chmod 0600 '\S+/agents/machine-1/agent.conf'`)
 }
 
 func (*formatSuite) TestWindowsWriteCommands(c *gc.C) {
@@ -64,7 +64,7 @@ func (*formatSuite) TestWindowsWriteCommands(c *gc.C) {
 	commands, err := config.WriteCommands("win8")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(commands, gc.HasLen, 2)
-	c.Assert(commands[0], gc.Matches, `mkdir \S+\\agents\\machine-1`)
+	c.Assert(commands[0], gc.Matches, `mkdir '\S+\\agents\\machine-1'`)
 	c.Assert(commands[1], gc.Matches, `Set-Content '\S+/agents/machine-1/agent.conf' @"
 (.|\n)*
 "@`)
