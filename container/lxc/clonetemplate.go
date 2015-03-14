@@ -45,15 +45,15 @@ func templateUserData(
 	enableOSUpgrades bool,
 	networkConfig *container.NetworkConfig,
 ) ([]byte, error) {
-	var config *corecloudinit.Config
+	var config cloudinit.CloudConfig
+	var err error
 	if networkConfig != nil {
-		var err error
 		config, err = container.NewCloudInitConfigWithNetworks(series, networkConfig)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	} else {
-		config, err := cloudinit.New(series)
+		config, err = cloudinit.New(series)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -72,7 +72,7 @@ func templateUserData(
 	config.AddSSHAuthorizedKeys(authorizedKeys)
 	// add centos magic here
 	if enablePackageUpdates {
-		err = cloudinit.MaybeAddCloudArchiveCloudTools(config, series)
+		err := cloudinit.MaybeAddCloudArchiveCloudTools(config, series)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
