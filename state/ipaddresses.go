@@ -236,22 +236,34 @@ func (i *IPAddress) SetState(newState AddressState) (err error) {
 func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot allocate IP address %q to machine %q, interface %q", i, machineId, interfaceId)
 
-	ops := []txn.Op{{
-		C:      ipaddressesC,
-		Id:     i.doc.DocID,
-		Assert: bson.D{{"state", AddressStateUnknown}},
-		Update: bson.D{{"$set", bson.D{
-			{"machineid", machineId},
-			{"interfaceid", interfaceId},
-			{"state", string(AddressStateAllocated)},
-		}}},
-	}}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := i.Refresh(); errors.IsNotFound(err) {
+				return nil, err
+			} else if i.Life() == Dead {
+				return nil, errors.New("address is dead")
+			} else if err == txn.ErrAborted {
+				return nil, errors.Errorf("already allocated or unavailable")
+			} else if err != nil {
+				return nil, err
+			}
 
-	if err = i.st.runTransaction(ops); err != nil {
-		return onAbort(
-			err,
-			errors.Errorf("already allocated or unavailable"),
-		)
+		}
+		return []txn.Op{{
+			C:      ipaddressesC,
+			Id:     i.doc.DocID,
+			Assert: append(isAliveDoc, bson.DocElem{"state", AddressStateUnknown}),
+			Update: bson.D{{"$set", bson.D{
+				{"machineid", machineId},
+				{"interfaceid", interfaceId},
+				{"state", string(AddressStateAllocated)},
+			}}},
+		}}, nil
+	}
+
+	err = i.st.run(buildTxn)
+	if err != nil {
+		return err
 	}
 	i.doc.MachineId = machineId
 	i.doc.InterfaceId = interfaceId
