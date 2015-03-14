@@ -82,7 +82,7 @@ func NewUserdataConfig(mcfg *MachineConfig, conf *cloudinit.Config) (UserdataCon
 type baseConfigure struct {
 	mcfg     *MachineConfig
 	conf     *cloudinit.Config
-	renderer cloudinit.Renderer
+	renderer *cloudinit.Renderer
 	os       version.OSType
 }
 

@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service/common"
 )
@@ -33,21 +33,18 @@ const (
 func MachineAgentConf(machineID, dataDir, logDir, os string) (common.Conf, string) {
 	machineName := "machine-" + strings.Replace(machineID, "/", "-", -1)
 
-	var renderer cloudinit.Renderer = &cloudinit.UbuntuRenderer{}
-	jujudSuffix := ""
-	shquote := utils.ShQuote
-	if os == "windows" {
-		renderer = &cloudinit.WindowsRenderer{}
-		jujudSuffix = ".exe"
-		shquote = func(path string) string { return `"` + path + `"` }
+	renderer, err := shell.NewRenderer(os)
+	if err != nil {
+		// This should not ever happen.
+		panic(err)
 	}
 	toolsDir := renderer.FromSlash(tools.ToolsDir(dataDir, machineName))
-	jujudPath := renderer.PathJoin(toolsDir, "jujud") + jujudSuffix
+	jujudPath := renderer.Join(toolsDir, "jujud") + renderer.ExeSuffix()
 
 	cmd := strings.Join([]string{
-		shquote(jujudPath),
+		renderer.Quote(jujudPath),
 		"machine",
-		"--data-dir", shquote(renderer.FromSlash(dataDir)),
+		"--data-dir", renderer.Quote(renderer.FromSlash(dataDir)),
 		"--machine-id", machineID, // TODO(ericsnow) double-quote on windows?
 		"--debug",
 	}, " ")

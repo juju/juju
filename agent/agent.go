@@ -657,8 +657,10 @@ func (c *configInternal) WriteCommands(series string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	commands := renderer.Mkdir(c.Dir())
-	commands = append(commands, renderer.WriteFile(c.File(agentConfigFilename), string(data), 0600)...)
+	commands := renderer.MkdirAll(c.Dir())
+	filename := c.File(agentConfigFilename)
+	commands = append(commands, renderer.WriteFile(filename, data)...)
+	commands = append(commands, renderer.Chmod(filename, 0600)...)
 	return commands, nil
 }
 

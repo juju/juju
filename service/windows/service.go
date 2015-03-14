@@ -213,7 +213,7 @@ func (s *Service) InstallCommands() ([]string, error) {
 	cmd := fmt.Sprintf(serviceInstallCommands[1:],
 		s.Service.Name,
 		s.Service.Conf.Desc,
-		s.Service.Conf.ExecStart,
+		strings.Replace(s.Service.Conf.ExecStart, "'", "''", -1),
 		s.Service.Name,
 	)
 	return strings.Split(cmd, "\n"), nil

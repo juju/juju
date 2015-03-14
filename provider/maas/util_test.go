@@ -46,7 +46,7 @@ func (*utilSuite) TestMachineInfoCloudinitRunCmd(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	yaml, err := goyaml.Marshal(info)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := fmt.Sprintf("mkdir -p '%s'\ninstall -m 755 /dev/null '%s'\nprintf '%%s\\n' ''\"'\"'%s'\"'\"'' > '%s'", dataDir, filename, yaml, filename)
+	expected := fmt.Sprintf("mkdir -p '%s'\ncat > '%s' << 'EOF'\n'%s'\nEOF\nchmod 0755 '%s'", dataDir, filename, yaml, filename)
 	c.Check(script, gc.Equals, expected)
 }
 

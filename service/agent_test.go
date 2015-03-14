@@ -86,15 +86,15 @@ func (*agentSuite) TestMachineAgentConfUbuntu(c *gc.C) {
 }
 
 func (*agentSuite) TestMachineAgentConfWindows(c *gc.C) {
-	dataDir := `c:\Juju\lib\juju`
-	logDir := `c:\Juju\logs\juju`
+	dataDir := `C:\Juju\lib\juju`
+	logDir := `C:\Juju\logs\juju`
 	conf, toolsDir := service.MachineAgentConf("0", dataDir, logDir, "windows")
 
 	c.Check(toolsDir, gc.Equals, dataDir+`\tools\machine-0`)
 	cmd := strings.Join([]string{
-		`"` + toolsDir + `\jujud.exe"`,
+		`'` + toolsDir + `\jujud.exe'`,
 		"machine",
-		"--data-dir", `"` + dataDir + `"`,
+		"--data-dir", `'` + dataDir + `'`,
 		"--machine-id", "0",
 		"--debug",
 	}, " ")

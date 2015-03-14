@@ -37,7 +37,7 @@ func (w *windowsConfigure) ConfigureBasic() error {
 	}
 	dataDir := w.renderer.FromSlash(w.mcfg.DataDir)
 	baseDir := w.renderer.FromSlash(filepath.Dir(tmpDir))
-	binDir := w.renderer.PathJoin(baseDir, "bin")
+	binDir := w.renderer.Join(baseDir, "bin")
 
 	w.conf.AddScripts(
 		fmt.Sprintf(`%s`, winPowershellHelperFunctions),
@@ -49,7 +49,7 @@ func (w *windowsConfigure) ConfigureBasic() error {
 		fmt.Sprintf(`mkdir "%s\locks"`, w.renderer.FromSlash(dataDir)),
 		fmt.Sprintf(`Start-ProcessAsUser -Command $cmdExe -Arguments '/C setx PATH "%%PATH%%;C:\Juju\bin"' -Credential $jujuCreds`),
 	)
-	noncefile := w.renderer.PathJoin(dataDir, NonceFile)
+	noncefile := w.renderer.Join(dataDir, NonceFile)
 	w.conf.AddScripts(
 		fmt.Sprintf(`Set-Content "%s" "%s"`, noncefile, shquote(w.mcfg.MachineNonce)),
 	)
