@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/multiwatcher"
@@ -98,7 +98,7 @@ func (*customDataSuite) TestMakeCustomDataEncodesUserData(c *gc.C) {
 
 	data, err := base64.StdEncoding.DecodeString(encodedData)
 	c.Assert(err, jc.ErrorIsNil)
-	reference, err := cloudconfig.ComposeUserData(cfg, nil)
+	reference, err := providerinit.ComposeUserData(cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(data, gc.DeepEquals, reference)
 }

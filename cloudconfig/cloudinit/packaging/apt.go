@@ -16,9 +16,7 @@ Package: {{.Package}}
 Pin: {{.Pin}}
 Pin-Priority: {{.PinPriority}}
 `
-)
 
-const (
 	// the basic command for all apt-get calls
 	//		--assume-yes to never prompt for confirmation
 	//		--force-confold is passed to dpkg to never overwrite config files

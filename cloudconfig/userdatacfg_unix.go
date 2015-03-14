@@ -110,6 +110,18 @@ func (w *unixConfigure) ConfigureBasic() error {
 	return nil
 }
 
+func (w *unixConfigure) setDataDirPermissions() string {
+	os, _ := version.GetOSFromSeries(w.icfg.Series)
+	var user string
+	switch os {
+	case version.CentOS:
+		user = "root"
+	default:
+		user = "syslog"
+	}
+	return fmt.Sprintf("chown %s:adm %s", user, w.icfg.LogDir)
+}
+
 // ConfigureJuju updates the provided cloudinit.Config with configuration
 // to initialise a Juju machine agent.
 func (w *unixConfigure) ConfigureJuju() error {
@@ -169,7 +181,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 		// We only try to change ownership if there is an ubuntu user defined.
 		fmt.Sprintf("(id ubuntu &> /dev/null) && chown ubuntu:ubuntu %s", lockDir),
 		fmt.Sprintf("mkdir -p %s", w.icfg.LogDir),
-		fmt.Sprintf("chown syslog:adm %s", w.icfg.LogDir),
+		w.setDataDirPermissions(),
 	)
 
 	w.conf.AddScripts(

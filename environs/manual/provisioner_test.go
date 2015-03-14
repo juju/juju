@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/environs/manual"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -176,10 +175,10 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	err = udata.ConfigureJuju()
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg.SetSystemUpgrade(false)
-	sshinitScript, err := sshinit.ConfigureScript(cloudcfg)
+	provisioningScript, err := cloudinit.ConfigureScript(cloudcfg, icfg.Series)
 	c.Assert(err, jc.ErrorIsNil)
 
 	removeLogFile := "rm -f '/var/log/cloud-init-output.log'\n"
-	expectedScript := removeLogFile + shell.DumpFileOnErrorScript("/var/log/cloud-init-output.log") + sshinitScript
+	expectedScript := removeLogFile + shell.DumpFileOnErrorScript("/var/log/cloud-init-output.log") + provisioningScript
 	c.Assert(script, gc.Equals, expectedScript)
 }

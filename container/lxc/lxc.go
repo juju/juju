@@ -27,6 +27,7 @@ import (
 	"launchpad.net/golxc"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
@@ -226,7 +227,7 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "failed to create a directory for the container")
 	}
 	logger.Tracef("write cloud-init")
-	userDataFilename, err := container.WriteUserData(instanceConfig, networkConfig, directory)
+	userDataFilename, err := containerinit.WriteUserData(instanceConfig, networkConfig, directory)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to write user data")
 	}
@@ -355,7 +356,7 @@ func (manager *containerManager) CreateContainer(
 		if manager.useAUFS {
 			logger.Tracef("not pre-rendering %q when using AUFS-backed rootfs", interfacesFile)
 		} else {
-			data, err := container.GenerateNetworkConfig(networkConfig)
+			data, err := containerinit.GenerateNetworkConfig(networkConfig)
 			if err != nil {
 				return nil, nil, errors.Annotatef(err, "failed to generate %q", interfacesFile)
 			}
