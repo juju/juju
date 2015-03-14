@@ -118,7 +118,7 @@ func (rh *runHook) Commit(state State) (*State, error) {
 		Step: Queued,
 	}
 	switch rh.info.Kind {
-	case hooks.Install, hooks.UpgradeCharm:
+	case hooks.UpgradeCharm:
 		change.Hook = &hook.Info{Kind: hooks.ConfigChanged}
 	case hooks.ConfigChanged:
 		if !state.Started {

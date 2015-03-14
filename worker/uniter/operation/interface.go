@@ -103,6 +103,14 @@ type Factory interface {
 	// NewUpdateStorage creates an operation to ensure the supplied storage
 	// tags are known and tracked.
 	NewUpdateStorage(tags []names.StorageTag) (Operation, error)
+
+	// NewAcceptLeadership creates an operation to ensure the uniter acts as
+	// service leader.
+	NewAcceptLeadership() (Operation, error)
+
+	// NewResignLeadership creates an operation to ensure the uniter does not
+	// act as service leader.
+	NewResignLeadership() (Operation, error)
 }
 
 // CommandArgs stores the arguments for a Command operation.
