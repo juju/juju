@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -357,7 +358,25 @@ func (st *State) validateVolumeParams(params VolumeParams, machineId string) (ma
 // volumeAttachmentId returns a volume attachment document ID,
 // given the corresponding volume name and machine ID.
 func volumeAttachmentId(machineId, volumeName string) string {
-	return fmt.Sprintf("%s#%s", machineGlobalKey(machineId), volumeName)
+	return fmt.Sprintf("%s:%s", machineId, volumeName)
+}
+
+// ParseVolumeAttachmentId parses a string as a volume attachment ID,
+// returning the machine and volume components.
+func ParseVolumeAttachmentId(id string) (names.MachineTag, names.VolumeTag, error) {
+	fields := strings.SplitN(id, ":", 2)
+	if len(fields) != 2 {
+		return names.MachineTag{}, names.VolumeTag{}, errors.Errorf("invalid volume attachment ID %q", id)
+	}
+	machineTag, err := names.ParseMachineTag(fields[0])
+	if err != nil {
+		return names.MachineTag{}, names.VolumeTag{}, errors.Annotate(err, "parsing machine tag")
+	}
+	volumeTag, err := names.ParseVolumeTag(fields[1])
+	if err != nil {
+		return names.MachineTag{}, names.VolumeTag{}, errors.Annotate(err, "parsing volume tag")
+	}
+	return machineTag, volumeTag, nil
 }
 
 // createMachineVolumeAttachmentInfo creates volume attachments
