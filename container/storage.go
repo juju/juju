@@ -10,6 +10,9 @@ import (
 	"github.com/juju/juju/storage/provider"
 )
 
+// ErrLoopMountNotAllowed is used when loop devices are requested to be
+// mounted inside an LXC container, but this has not been allowed using
+// an environment config setting.
 var ErrLoopMountNotAllowed = errors.New(`
 Mounting of loop devices inside LXC containers must be explicitly enabled using this environment config setting:
   allow-lxc-loop-mounts=true
