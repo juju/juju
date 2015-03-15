@@ -5,9 +5,12 @@ package storage
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/api/storage"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 )
 
@@ -37,6 +40,7 @@ func NewSuperCommand() cmd.Command {
 				Purpose:     storageCmdPurpose,
 			})}
 	storagecmd.Register(envcmd.Wrap(&ShowCommand{}))
+	storagecmd.Register(envcmd.Wrap(&ListCommand{}))
 	return &storagecmd
 }
 
@@ -54,4 +58,62 @@ func (c *StorageCommandBase) NewStorageAPI() (*storage.Client, error) {
 		return nil, err
 	}
 	return storage.NewClient(root), nil
+}
+
+// StorageInfo defines the serialization behaviour of the storage information.
+type StorageInfo struct {
+	StorageName string `yaml:"storage" json:"storage"`
+	Kind        string `yaml:"kind" json:"kind"`
+	UnitId      string `yaml:"unit_id,omitempty" json:"unit_id,omitempty"`
+	Attached    string `yaml:"attached_status,omitempty" json:"attached_status,omitempty"`
+	Location    string `yaml:"location,omitempty" json:"location,omitempty"`
+	Provisioned string `yaml:"provisioned_status,omitempty" json:"provisioned_status,omitempty"`
+}
+
+// formatStorageDetails takes a set of StorageDetail and creates a
+// mapping keyed on unit and storage id.
+func formatStorageDetails(storages []params.StorageDetails) (map[string]map[string]StorageInfo, error) {
+	if len(storages) == 0 {
+		return nil, nil
+	}
+	output := make(map[string]map[string]StorageInfo)
+	isAttached := func(inspect params.StorageAttachedStatus) bool {
+		return inspect == params.StorageAttachedStatusAttached
+	}
+	for _, one := range storages {
+		storageTag, err := names.ParseStorageTag(one.StorageTag)
+		if err != nil {
+			return nil, errors.Annotate(err, "invalid storage tag")
+		}
+		ownerTag, err := names.ParseTag(one.OwnerTag)
+		if err != nil {
+			return nil, errors.Annotate(err, "invalid owner tag")
+		}
+		storageName, err := names.StorageName(storageTag.Id())
+		if err != nil {
+			panic(err) // impossible
+		}
+		si := StorageInfo{
+			StorageName: storageName,
+			Kind:        one.Kind.String(),
+			Attached:    one.Attached.String(),
+			Location:    one.Location,
+			Provisioned: one.Provisioned.String(),
+		}
+		if isAttached(one.Attached) {
+			unitTag, err := names.ParseTag(one.UnitTag)
+			if err != nil {
+				return nil, errors.Annotate(err, "invalid unit tag")
+			}
+			si.UnitId = unitTag.Id()
+		}
+		owner := ownerTag.Id()
+		ownerColl, ok := output[owner]
+		if !ok {
+			ownerColl = map[string]StorageInfo{}
+			output[owner] = ownerColl
+		}
+		ownerColl[storageTag.Id()] = si
+	}
+	return output, nil
 }
