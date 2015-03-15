@@ -69,23 +69,10 @@ func (s byStorageId) Swap(a, b int) {
 }
 
 func (s byStorageId) Less(a, b int) bool {
-	apos := strings.LastIndex(s[a], "/")
-	bpos := strings.LastIndex(s[b], "/")
-	if apos == -1 || bpos == -1 {
-		panic("invalid storage ID")
+	sa := strings.SplitN(s[a], "/", 2)
+	sb := strings.SplitN(s[b], "/", 2)
+	if sa[0] < sb[0] {
+		return true
 	}
-	aname := s[a][:apos]
-	bname := s[b][:bpos]
-	if aname == bname {
-		aid, err := strconv.Atoi(s[a][apos+1:])
-		if err != nil {
-			panic(err)
-		}
-		bid, err := strconv.Atoi(s[b][bpos+1:])
-		if err != nil {
-			panic(err)
-		}
-		return aid < bid
-	}
-	return aname < bname
+	return sa[0] == sb[0] && sa[1] < sb[1]
 }

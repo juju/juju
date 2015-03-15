@@ -79,7 +79,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) (err error) {
 	if len(valid) == 0 {
 		return nil
 	}
-	output, err := formatStorageInfo(valid)
+	output, err := formatStorageDetails(valid)
 	if err != nil {
 		return err
 	}

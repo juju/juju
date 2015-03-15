@@ -75,7 +75,7 @@ func (c *ShowCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	output, err := formatStorageInfo(found)
+	output, err := formatStorageDetails(found)
 	if err != nil {
 		return err
 	}

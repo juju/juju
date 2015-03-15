@@ -70,9 +70,9 @@ type StorageInfo struct {
 	Provisioned string `yaml:"provisioned_status,omitempty" json:"provisioned_status,omitempty"`
 }
 
-// formatStorageInfo takes a set of StorageInstances and creates a
-// mapping from storage instance ID to information structures.
-func formatStorageInfo(storages []params.StorageDetails) (map[string]map[string]StorageInfo, error) {
+// formatStorageDetails takes a set of StorageDetail and creates a
+// mapping keyed on unit and storage id.
+func formatStorageDetails(storages []params.StorageDetails) (map[string]map[string]StorageInfo, error) {
 	if len(storages) == 0 {
 		return nil, nil
 	}
