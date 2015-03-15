@@ -798,7 +798,7 @@ lxc.network.mtu = 4321
 }
 
 func (s *LxcSuite) TestShutdownInitScript(c *gc.C) {
-	script, err := lxc.ShutdownInitScript(false, service.InitSystemUpstart)
+	script, err := lxc.ShutdownInitScript(service.InitSystemUpstart)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(script, jc.DeepEquals, `
@@ -808,28 +808,17 @@ author "Juju Team <juju@lists.ubuntu.com>"
 start on stopped cloud-final
 
 script
-  /bin/sh -c 'rm -fr /etc/network/interfaces /var/lib/dhcp/dhclient* /var/log/cloud-init*.log /var/log/upstart/*.log ; shutdown -h now'
-end script
+  /bin/cat > /etc/network/interfaces << EOC
+# loopback interface
+auto lo
+iface lo inet loopback
 
-post-stop script
-  rm /etc/init/juju-template-restart.conf
-end script
-
-EOF
-`[1:])
-
-	// With AUFS /etc/network/interfaces should not be removed.
-	script, err = lxc.ShutdownInitScript(true, service.InitSystemUpstart)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(script, jc.DeepEquals, `
-cat >> /etc/init/juju-template-restart.conf << 'EOF'
-description "juju shutdown job"
-author "Juju Team <juju@lists.ubuntu.com>"
-start on stopped cloud-final
-
-script
-  /bin/sh -c 'rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log /var/log/upstart/*.log ; shutdown -h now'
+# primary interface
+auto eth0
+iface eth0 inet dhcp
+EOC
+  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log /var/log/upstart/*.log
+  /sbin/shutdown -h now
 end script
 
 post-stop script
