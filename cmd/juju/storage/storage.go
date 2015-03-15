@@ -77,9 +77,9 @@ func formatStorageInfo(storages []params.StorageDetails) (map[string]map[string]
 		return nil, nil
 	}
 	output := make(map[string]map[string]StorageInfo)
-    isAttached := func(inspect params.StorageAttachedStatus) bool {
-        return inspect == params.StorageAttachedStatusAttached
-    }
+	isAttached := func(inspect params.StorageAttachedStatus) bool {
+		return inspect == params.StorageAttachedStatusAttached
+	}
 	for _, one := range storages {
 		storageTag, err := names.ParseStorageTag(one.StorageTag)
 		if err != nil {
