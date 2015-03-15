@@ -65,9 +65,9 @@ type StorageInfo struct {
 	StorageName string `yaml:"storage" json:"storage"`
 	Kind        string `yaml:"kind" json:"kind"`
 	UnitId      string `yaml:"unit_id,omitempty" json:"unit_id,omitempty"`
-	Attached    bool   `yaml:"attached,omitempty" json:"attached,omitempty"`
+	Attached    string `yaml:"attached_status,omitempty" json:"attached_status,omitempty"`
 	Location    string `yaml:"location,omitempty" json:"location,omitempty"`
-	Provisioned bool   `yaml:"provisioned,omitempty" json:"provisioned,omitempty"`
+	Provisioned string `yaml:"provisioned_status,omitempty" json:"provisioned_status,omitempty"`
 }
 
 // formatStorageInfo takes a set of StorageInstances and creates a
@@ -77,6 +77,9 @@ func formatStorageInfo(storages []params.StorageDetails) (map[string]map[string]
 		return nil, nil
 	}
 	output := make(map[string]map[string]StorageInfo)
+    isAttached := func(inspect params.StorageAttachedStatus) bool {
+        return inspect == params.StorageAttachedStatusAttached
+    }
 	for _, one := range storages {
 		storageTag, err := names.ParseStorageTag(one.StorageTag)
 		if err != nil {
@@ -93,11 +96,11 @@ func formatStorageInfo(storages []params.StorageDetails) (map[string]map[string]
 		si := StorageInfo{
 			StorageName: storageName,
 			Kind:        one.Kind.String(),
-			Attached:    one.Attached,
+			Attached:    one.Attached.String(),
 			Location:    one.Location,
-			Provisioned: one.Provisioned,
+			Provisioned: one.Provisioned.String(),
 		}
-		if si.Attached {
+		if isAttached(one.Attached) {
 			unitTag, err := names.ParseTag(one.UnitTag)
 			if err != nil {
 				return nil, errors.Annotate(err, "invalid unit tag")

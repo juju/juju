@@ -205,6 +205,47 @@ type VolumeAttachmentsResults struct {
 	Results []VolumeAttachmentsResult `json:"results,omitempty"`
 }
 
+// StorageAttachedStatus describes where storage attaching is at.
+type StorageAttachedStatus int
+
+const (
+	StorageAttachedStatusUnknown StorageAttachedStatus = iota
+	StorageAttachedStatusAttached
+)
+
+func (k *StorageAttachedStatus) String() string {
+	switch *k {
+	case StorageAttachedStatusAttached:
+		return "attached"
+	case StorageAttachedStatusUnknown:
+		return "unknown"
+	default:
+		return ""
+	}
+}
+
+// StorageProvisionedStatus describes where storage provisioning is at.
+type StorageProvisionedStatus int
+
+const (
+	StorageProvisionedStatusUnknown StorageProvisionedStatus = iota
+	StorageProvisionedStatusPending
+	StorageProvisionedStatusProvisioned
+)
+
+func (k *StorageProvisionedStatus) String() string {
+	switch *k {
+	case StorageProvisionedStatusPending:
+		return "pending"
+	case StorageProvisionedStatusProvisioned:
+		return "provisioned"
+	case StorageProvisionedStatusUnknown:
+		return "unknown"
+	default:
+		return ""
+	}
+}
+
 // StorageDetails holds information about storage.
 type StorageDetails struct {
 	// StorageTag holds tag for this storage.
@@ -217,7 +258,7 @@ type StorageDetails struct {
 	// Having this information on the struct allows to
 	// have this logic in one place rather than deducing it
 	// every time this instance is used.
-	Attached bool `json:"attached"`
+	Attached StorageAttachedStatus `json:"attached"`
 	// UnitTag holds tag for unit for attached instances.
 	UnitTag string `json:"unittag,omitempty"`
 	// Location holds location for provisioned attached instances.
@@ -226,7 +267,7 @@ type StorageDetails struct {
 	// Having this information on the struct allows to
 	// have this logic in one place rather than deducing it
 	// every time this instance is used.
-	Provisioned bool `json:"provisioned"`
+	Provisioned StorageProvisionedStatus `json:"provisioned"`
 }
 
 // StorageDetailsResult holds information about a storage instance

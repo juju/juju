@@ -44,7 +44,7 @@ func (s *ListSuite) TestList(c *gc.C) {
 		`
 [Storage]    
 OWNER        ID          NAME      ATTACHED    LOCATION KIND    
-postgresql/0 db-dir/1000 db-dir    transcode/0 there    unknown 
+postgresql/0 db-dir/1000 db-dir                there    unknown 
 transcode    db-dir/1000 db-dir                         block   
 transcode    shared-fs/0 shared-fs                      unknown 
 transcode/0  shared-fs/0 shared-fs transcode/0 here     block   
@@ -63,25 +63,28 @@ postgresql/0:
   db-dir/1000:
     storage: db-dir
     kind: unknown
-    unit_id: transcode/0
-    attached: true
+    attached_status: unknown
     location: there
-    provisioned: true
+    provisioned_status: provisioned
 transcode:
   db-dir/1000:
     storage: db-dir
     kind: block
+    attached_status: unknown
+    provisioned_status: unknown
   shared-fs/0:
     storage: shared-fs
     kind: unknown
+    attached_status: unknown
+    provisioned_status: unknown
 transcode/0:
   shared-fs/0:
     storage: shared-fs
     kind: block
     unit_id: transcode/0
-    attached: true
+    attached_status: attached
     location: here
-    provisioned: true
+    provisioned_status: pending
 `[1:],
 		"",
 	)
@@ -96,7 +99,7 @@ func (s *ListSuite) TestListOwnerStorageIdSort(c *gc.C) {
 		`
 [Storage]    
 OWNER        ID          NAME      ATTACHED    LOCATION KIND       
-postgresql/0 db-dir/1000 db-dir    transcode/0 there    unknown    
+postgresql/0 db-dir/1000 db-dir                there    unknown    
 transcode    db-dir/1000 db-dir                         filesystem 
 transcode    shared-fs/0 shared-fs                      unknown    
 transcode    shared-fs/5 shared-fs                      unknown    
@@ -145,8 +148,8 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 			UnitTag:     "unit-transcode-0",
 			Kind:        params.StorageKindBlock,
 			Location:    "here",
-			Provisioned: true,
-			Attached:    true,
+			Provisioned: params.StorageProvisionedStatusPending,
+			Attached:    params.StorageAttachedStatusAttached,
 		}, nil}, {
 		params.StorageDetails{
 			StorageTag:  "storage-db-dir-1000",
@@ -154,8 +157,8 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 			UnitTag:     "unit-transcode-0",
 			Kind:        params.StorageKindUnknown,
 			Location:    "there",
-			Provisioned: true,
-			Attached:    true,
+			Provisioned: params.StorageProvisionedStatusProvisioned,
+			Attached:    params.StorageAttachedStatusUnknown,
 		}, nil}}
 
 	if chaos {
@@ -166,8 +169,8 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 				UnitTag:     "unit-transcode-0",
 				Kind:        params.StorageKindUnknown,
 				Location:    "nowhere",
-				Provisioned: true,
-				Attached:    true,
+				Provisioned: params.StorageProvisionedStatusProvisioned,
+				Attached:    params.StorageAttachedStatusAttached,
 			}, nil}
 		second := params.StorageInfo{
 			params.StorageDetails{
@@ -176,17 +179,16 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 				UnitTag:     "unit-transcode-0",
 				Kind:        params.StorageKindBlock,
 				Location:    "",
-				Provisioned: true,
-				Attached:    true,
+				Provisioned: params.StorageProvisionedStatusUnknown,
+				Attached:    params.StorageAttachedStatusUnknown,
 			}, &params.Error{Message: "error for storage-db-dir-1010"}}
 		first := params.StorageInfo{
 			params.StorageDetails{
-				StorageTag:  "storage-db-dir-1000",
-				OwnerTag:    "service-transcode",
-				UnitTag:     "unit-transcode-0",
-				Kind:        params.StorageKindFilesystem,
-				Provisioned: true,
-				Attached:    true,
+				StorageTag: "storage-db-dir-1000",
+				OwnerTag:   "service-transcode",
+				UnitTag:    "unit-transcode-0",
+				Kind:       params.StorageKindFilesystem,
+				Attached:   params.StorageAttachedStatusAttached,
 			}, nil}
 		results = append(results, last)
 		results = append(results, second)

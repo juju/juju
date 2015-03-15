@@ -58,14 +58,16 @@ postgresql:
   shared-fs/0:
     storage: shared-fs
     kind: block
+    attached_status: unknown
+    provisioned_status: unknown
 postgresql/0:
   shared-fs/0:
     storage: shared-fs
     kind: block
     unit_id: postgresql/0
-    attached: true
+    attached_status: attached
     location: a location
-    provisioned: true
+    provisioned_status: provisioned
 `[1:],
 	)
 }
@@ -79,7 +81,7 @@ func (s *ShowSuite) TestShowJSON(c *gc.C) {
 	s.assertValidShow(
 		c,
 		[]string{"shared-fs/0", "--format", "json"},
-		`{"postgresql":{"shared-fs/0":{"storage":"shared-fs","kind":"block"}},"postgresql/0":{"shared-fs/0":{"storage":"shared-fs","kind":"block","unit_id":"postgresql/0","attached":true,"location":"a location","provisioned":true}}}
+		`{"postgresql":{"shared-fs/0":{"storage":"shared-fs","kind":"block","attached_status":"unknown","provisioned_status":"unknown"}},"postgresql/0":{"shared-fs/0":{"storage":"shared-fs","kind":"block","unit_id":"postgresql/0","attached_status":"attached","location":"a location","provisioned_status":"provisioned"}}}
 `,
 	)
 }
@@ -93,24 +95,28 @@ postgresql:
   db-dir/1000:
     storage: db-dir
     kind: block
+    attached_status: unknown
+    provisioned_status: unknown
   shared-fs/0:
     storage: shared-fs
     kind: block
+    attached_status: unknown
+    provisioned_status: unknown
 postgresql/0:
   db-dir/1000:
     storage: db-dir
     kind: block
     unit_id: postgresql/0
-    attached: true
+    attached_status: attached
     location: a location
-    provisioned: true
+    provisioned_status: provisioned
   shared-fs/0:
     storage: shared-fs
     kind: block
     unit_id: postgresql/0
-    attached: true
+    attached_status: attached
     location: a location
-    provisioned: true
+    provisioned_status: provisioned
 `[1:],
 	)
 }
@@ -152,8 +158,8 @@ func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageDetails, err
 			UnitTag:     "unit-postgresql-0",
 			Kind:        params.StorageKindBlock,
 			Location:    "a location",
-			Attached:    true,
-			Provisioned: true,
+			Attached:    params.StorageAttachedStatusAttached,
+			Provisioned: params.StorageProvisionedStatusProvisioned,
 		}
 		ind++
 	}

@@ -85,7 +85,8 @@ func (s *storageSuite) TestStorageList(c *gc.C) {
 	c.Assert(found.Results, gc.HasLen, 1)
 	wantedDetails := s.createTestStorageInfo()
 	wantedDetails.UnitTag = s.unitTag.String()
-	wantedDetails.Attached = true
+	wantedDetails.Attached = params.StorageAttachedStatusAttached
+	wantedDetails.Provisioned = params.StorageProvisionedStatusPending
 	s.assertInstanceInfoError(c, found.Results[0], wantedDetails, "")
 }
 
@@ -353,11 +354,12 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 	c.Assert(one.Error, gc.IsNil)
 
 	expected := params.StorageDetails{
-		StorageTag: s.storageTag.String(),
-		OwnerTag:   s.unitTag.String(),
-		Kind:       params.StorageKindFilesystem,
-		UnitTag:    s.unitTag.String(),
-		Attached:   true,
+		StorageTag:  s.storageTag.String(),
+		OwnerTag:    s.unitTag.String(),
+		Kind:        params.StorageKindFilesystem,
+		UnitTag:     s.unitTag.String(),
+		Attached:    params.StorageAttachedStatusAttached,
+		Provisioned: params.StorageProvisionedStatusPending,
 	}
 	c.Assert(one.Result, gc.DeepEquals, expected)
 }
