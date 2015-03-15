@@ -11,7 +11,7 @@ import (
 )
 
 var ErrLoopMountNotAllowed = errors.New(`
-Mounting of loop devices inside LXC containers must be explicltly enabled using this environment config setting:
+Mounting of loop devices inside LXC containers must be explicitly enabled using this environment config setting:
   allow-lxc-loop-mounts=true
 `[1:])
 
