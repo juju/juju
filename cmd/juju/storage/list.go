@@ -39,7 +39,7 @@ func (c *ListCommand) Init(args []string) (err error) {
 func (c *ListCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
-		Purpose: "lists storage instances",
+		Purpose: "lists storage",
 		Doc:     ListCommandDoc,
 	}
 }

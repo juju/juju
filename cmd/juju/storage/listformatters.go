@@ -30,7 +30,7 @@ func formatListTabular(value interface{}) ([]byte, error) {
 		fmt.Fprintln(tw)
 	}
 	p("[Storage]")
-	p("OWNER\tID\tNAME\tATTACHED\tLOCATION\tKIND")
+	p("UNIT\tID\tLOCATION")
 
 	// First sort by owners
 	owners := make([]string, 0, len(storageInfo))
@@ -50,7 +50,7 @@ func formatListTabular(value interface{}) ([]byte, error) {
 
 		for _, storageId := range storageIds {
 			info := all[storageId]
-			p(owner, storageId, info.StorageName, info.UnitId, info.Location, info.Kind)
+			p(info.UnitId, storageId, info.Location)
 		}
 	}
 	tw.Flush()

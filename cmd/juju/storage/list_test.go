@@ -42,12 +42,12 @@ func (s *ListSuite) TestList(c *gc.C) {
 		nil,
 		// Default format is tabular
 		`
-[Storage]    
-OWNER        ID          NAME      ATTACHED    LOCATION KIND    
-postgresql/0 db-dir/1000 db-dir                there    unknown 
-transcode    db-dir/1000 db-dir                         block   
-transcode    shared-fs/0 shared-fs                      unknown 
-transcode/0  shared-fs/0 shared-fs transcode/0 here     block   
+[Storage]   
+UNIT        ID          LOCATION 
+            db-dir/1000 there    
+            db-dir/1000          
+            shared-fs/0          
+transcode/0 shared-fs/0 here     
 
 `[1:],
 		"",
@@ -97,14 +97,14 @@ func (s *ListSuite) TestListOwnerStorageIdSort(c *gc.C) {
 		nil,
 		// Default format is tabular
 		`
-[Storage]    
-OWNER        ID          NAME      ATTACHED    LOCATION KIND       
-postgresql/0 db-dir/1000 db-dir                there    unknown    
-transcode    db-dir/1000 db-dir                         filesystem 
-transcode    shared-fs/0 shared-fs                      unknown    
-transcode    shared-fs/5 shared-fs                      unknown    
-transcode/0  shared-fs/0 shared-fs transcode/0 here     block      
-transcode/0  shared-fs/5 shared-fs transcode/0 nowhere  unknown    
+[Storage]   
+UNIT        ID          LOCATION 
+            db-dir/1000 there    
+            db-dir/1000          
+            shared-fs/0          
+            shared-fs/5          
+transcode/0 shared-fs/0 here     
+transcode/0 shared-fs/5 nowhere  
 
 `[1:],
 		`

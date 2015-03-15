@@ -136,8 +136,8 @@ func (s *cmdStorageSuite) TestStorageList(c *gc.C) {
 	context := runList(c)
 	expected := `
 [Storage]       
-OWNER           ID     NAME ATTACHED        LOCATION KIND  
-storage-block/0 data/0 data storage-block/0          block 
+UNIT            ID     LOCATION 
+storage-block/0 data/0          
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
