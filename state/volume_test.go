@@ -230,6 +230,30 @@ func (s *VolumeStateSuite) TestWatchEnvironVolumes(c *gc.C) {
 	// the means to progress Volume lifecycle.
 }
 
+func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
+	service := s.setupMixedScopeStorageService(c)
+	addUnit := func() {
+		u, err := service.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	addUnit()
+
+	w := s.State.WatchEnvironVolumeAttachments()
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChangeInSingleEvent("0:0") // initial
+	wc.AssertNoChange()
+
+	addUnit()
+	wc.AssertChangeInSingleEvent("1:3")
+	wc.AssertNoChange()
+
+	// TODO(axw) respond to Dying/Dead when we have
+	// the means to progress Volume lifecycle.
+}
+
 func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 	service := s.setupMixedScopeStorageService(c)
 	addUnit := func() {
@@ -252,6 +276,53 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 
 	// TODO(axw) respond to Dying/Dead when we have
 	// the means to progress Volume lifecycle.
+}
+
+func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
+	service := s.setupMixedScopeStorageService(c)
+	addUnit := func() {
+		u, err := service.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	addUnit()
+
+	w := s.State.WatchMachineVolumeAttachments(names.NewMachineTag("0"))
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChangeInSingleEvent("0:0", "0:0/1", "0:0/2") // initial
+	wc.AssertNoChange()
+
+	addUnit()
+	// no change, since we're only interested in the one machine.
+	wc.AssertNoChange()
+
+	// TODO(axw) respond to Dying/Dead when we have
+	// the means to progress Volume lifecycle.
+}
+
+func (s *VolumeStateSuite) TestParseVolumeAttachmentId(c *gc.C) {
+	assertValid := func(id string, m names.MachineTag, v names.VolumeTag) {
+		machineTag, volumeTag, err := state.ParseVolumeAttachmentId(id)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(machineTag, gc.Equals, m)
+		c.Assert(volumeTag, gc.Equals, v)
+	}
+	assertValid("0:0", names.NewMachineTag("0"), names.NewVolumeTag("0"))
+	assertValid("0:0/1", names.NewMachineTag("0"), names.NewVolumeTag("0/1"))
+	assertValid("0/lxc/0:1", names.NewMachineTag("0/lxc/0"), names.NewVolumeTag("1"))
+}
+
+func (s *VolumeStateSuite) TestParseVolumeAttachmentIdError(c *gc.C) {
+	assertError := func(id, expect string) {
+		_, _, err := state.ParseVolumeAttachmentId(id)
+		c.Assert(err, gc.ErrorMatches, expect)
+	}
+	assertError("", `invalid volume attachment ID ""`)
+	assertError("0", `invalid volume attachment ID "0"`)
+	assertError("0:foo", `invalid volume attachment ID "0:foo"`)
+	assertError("bar:0", `invalid volume attachment ID "bar:0"`)
 }
 
 func (s *VolumeStateSuite) setupMixedScopeStorageService(c *gc.C) *state.Service {
