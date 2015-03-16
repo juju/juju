@@ -49,6 +49,9 @@ func NewAPI(
 	return createAPI(getState(st), resources, authorizer)
 }
 
+// Show retrieves and returns detailed information about desired storage
+// identified by supplied tags. If specified storage cannot be retrieved,
+// individual error is returned instead of storage information.
 func (api *API) Show(entities params.Entities) (params.StorageDetailsResults, error) {
 	var all []params.StorageDetailsResult
 	for _, entity := range entities.Entities {
@@ -64,6 +67,9 @@ func (api *API) Show(entities params.Entities) (params.StorageDetailsResults, er
 	return params.StorageDetailsResults{Results: all}, nil
 }
 
+// List returns all currently known storage. Unlike Show(), 
+// if errors encountered while retrieving a particular
+// storage, this error is treated as part of the returned storage detail.
 func (api *API) List() (params.StorageInfosResult, error) {
 	stateInstances, err := api.storage.AllStorageInstances()
 	if err != nil {
@@ -118,8 +124,8 @@ func (api *API) getStorageAttachments(instance params.StorageDetails) ([]params.
 		return nil, serverError(common.ErrPerm)
 	}
 
-	unitTag, k := aTag.(names.UnitTag)
-	if !k {
+	unitTag, ok := aTag.(names.UnitTag)
+	if !ok {
 		// Definitely no attachments
 		return nil, nil
 	}
