@@ -2251,3 +2251,19 @@ func countOldIndexes(c *gc.C, coll *mgo.Collection) (foundCount, oldCount int) {
 	}
 	return
 }
+
+func (s *upgradesSuite) TestIPAddressesLife(c *gc.C) {
+	addresses, closer := s.state.getRawCollection(ipaddressesC)
+	defer closer()
+
+	uuid := s.state.EnvironUUID()
+
+	err := addresses.Insert(
+		bson.D{
+			{"name", "ok"},
+			{"env-uuid", uuid},
+			{"counter", 1},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
