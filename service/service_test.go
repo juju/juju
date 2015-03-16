@@ -68,15 +68,12 @@ func (s *serviceSuite) TestListServices(c *gc.C) {
 func (*serviceSuite) TestListServicesScript(c *gc.C) {
 	script := service.ListServicesScript()
 
-	// Add the write lines.
 	expected := []string{
 		"cat > /tmp/discover_init_system.sh << 'EOF'",
 	}
 	expected = append(expected, strings.Split(service.DiscoverInitSystemScript, "\n")...)
 	expected = append(expected, "EOF")
-	// Add the chmod line.
 	expected = append(expected, "chmod 0755 /tmp/discover_init_system.sh")
-	// Add the switch lines.
 	expected = append(expected, []string{
 		"init_system=$(/tmp/discover_init_system.sh) " +
 			`if [[ $init_system == "systemd" ]]; then ` +
