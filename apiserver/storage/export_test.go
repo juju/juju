@@ -3,7 +3,4 @@
 
 package storage
 
-var (
-	GetStorageShowAPI = &getStorageShowAPI
-	GetStorageListAPI = &getStorageListAPI
-)
+var CreateAPI = createAPI
