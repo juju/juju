@@ -214,6 +214,67 @@ func (s *provisionerSuite) TestWatchVolumes(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
+	s.setupVolumes(c)
+	s.factory.MakeMachine(c, nil)
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{"machine-0"},
+		{s.State.EnvironTag().String()},
+		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
+		{"machine-1"},
+		{"machine-42"}},
+	}
+	result, err := s.api.WatchVolumeAttachments(args)
+	c.Assert(err, jc.ErrorIsNil)
+	sort.Sort(byMachineAndEntity(result.Results[0].Changes))
+	c.Assert(result, jc.DeepEquals, params.MachineStorageIdsWatchResults{
+		Results: []params.MachineStorageIdsWatchResult{
+			{
+				MachineStorageIdsWatcherId: "1",
+				Changes: []params.MachineStorageId{{
+					MachineTag:    "machine-0",
+					AttachmentTag: "volume-0-0",
+				}, {
+					MachineTag:    "machine-0",
+					AttachmentTag: "volume-1",
+				}, {
+					MachineTag:    "machine-0",
+					AttachmentTag: "volume-2",
+				}},
+			},
+			{
+				MachineStorageIdsWatcherId: "2",
+				Changes: []params.MachineStorageId{{
+					MachineTag:    "machine-0",
+					AttachmentTag: "volume-1",
+				}, {
+					MachineTag:    "machine-0",
+					AttachmentTag: "volume-2",
+				}},
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 2)
+	v0Watcher := s.resources.Get("1")
+	defer statetesting.AssertStop(c, v0Watcher)
+	v1Watcher := s.resources.Get("2")
+	defer statetesting.AssertStop(c, v1Watcher)
+
+	// Check that the Watch has consumed the initial events ("returned" in
+	// the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, v0Watcher.(state.StringsWatcher))
+	wc.AssertNoChange()
+	wc = statetesting.NewStringsWatcherC(c, s.State, v1Watcher.(state.StringsWatcher))
+	wc.AssertNoChange()
+}
+
 func (s *provisionerSuite) TestLife(c *gc.C) {
 	s.setupVolumes(c)
 	args := params.Entities{Entities: []params.Entity{{"volume-0-0"}, {"volume-1"}, {"volume-42"}}}
@@ -241,4 +302,21 @@ func (s *provisionerSuite) TestEnsureDead(c *gc.C) {
 			{Error: common.ServerError(errors.NotFoundf(`volume "42"`))},
 		},
 	})
+}
+
+type byMachineAndEntity []params.MachineStorageId
+
+func (b byMachineAndEntity) Len() int {
+	return len(b)
+}
+
+func (b byMachineAndEntity) Less(i, j int) bool {
+	if b[i].MachineTag == b[j].MachineTag {
+		return b[i].AttachmentTag < b[j].AttachmentTag
+	}
+	return b[i].MachineTag < b[j].MachineTag
+}
+
+func (b byMachineAndEntity) Swap(i, j int) {
+	b[i], b[j] = b[j], b[i]
 }
