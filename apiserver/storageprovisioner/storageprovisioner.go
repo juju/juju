@@ -259,7 +259,9 @@ func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.Volum
 			return params.VolumeParams{}, err
 		}
 		if len(volumeAttachments) == 1 {
-			volumeParams.MachineTag = volumeAttachments[0].Machine().String()
+			volumeParams.Attachment = &params.VolumeAttachmentParams{
+				MachineTag: volumeAttachments[0].Machine().String(),
+			}
 		}
 		return volumeParams, nil
 	}

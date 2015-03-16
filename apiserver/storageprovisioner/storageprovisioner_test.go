@@ -162,7 +162,14 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.VolumeParamsResults{
 		Results: []params.VolumeParamsResult{
 			{Error: &params.Error{`volume "0/0" is already provisioned`, ""}},
-			{Result: params.VolumeParams{VolumeTag: "volume-1", Size: 2048, Provider: "environscoped", MachineTag: "machine-0"}},
+			{Result: params.VolumeParams{
+				VolumeTag: "volume-1",
+				Size:      2048,
+				Provider:  "environscoped",
+				Attachment: &params.VolumeAttachmentParams{
+					MachineTag: "machine-0",
+				},
+			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},
 	})
@@ -188,7 +195,7 @@ func (s *provisionerSuite) TestWatchVolumes(c *gc.C) {
 	}
 	result, err := s.api.WatchVolumes(args)
 	c.Assert(err, jc.ErrorIsNil)
-	sort.Strings(result.Results[0].Changes)
+	sort.Strings(result.Results[1].Changes)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{StringsWatcherId: "1", Changes: []string{"0/0"}},
