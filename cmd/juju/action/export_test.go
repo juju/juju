@@ -3,7 +3,11 @@
 
 package action
 
-import "github.com/juju/names"
+import (
+	"github.com/juju/names"
+
+	"github.com/juju/juju/apiserver/params"
+)
 
 var (
 	NewActionAPIClient = &newAPIClient
@@ -35,4 +39,8 @@ func (c *DoCommand) KeyValueDoArgs() [][]string {
 
 func (c *DoCommand) ParseStrings() bool {
 	return c.parseStrings
+}
+
+func ActionResultsToMap(results []params.ActionResult) map[string]interface{} {
+	return resultsToMap(results)
 }

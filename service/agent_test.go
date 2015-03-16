@@ -9,7 +9,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -29,12 +28,14 @@ func init() {
 var quote, cmdSuffix string
 
 type agentSuite struct {
-	testing.IsolationSuite
+	service.BaseSuite
 }
 
 var _ = gc.Suite(&agentSuite{})
 
 func (*agentSuite) TestMachineAgentConfLocal(c *gc.C) {
+	// We use two distinct directories to ensure the paths don't get
+	// mixed up during the call.
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
 	conf, toolsDir := service.MachineAgentConf("0", dataDir, logDir, "")
@@ -50,11 +51,12 @@ func (*agentSuite) TestMachineAgentConfLocal(c *gc.C) {
 	c.Check(conf, jc.DeepEquals, common.Conf{
 		Desc:      "juju agent for machine-0",
 		ExecStart: cmd,
-		Output:    filepath.Join(logDir, "machine-0.log"),
+		Logfile:   filepath.Join(logDir, "machine-0.log"),
 		Env:       osenv.FeatureFlags(),
-		Limit: map[string]string{
-			"nofile": "20000 20000",
+		Limit: map[string]int{
+			"nofile": 20000,
 		},
+		Timeout: 300,
 	})
 }
 
@@ -74,11 +76,12 @@ func (*agentSuite) TestMachineAgentConfUbuntu(c *gc.C) {
 	c.Check(conf, jc.DeepEquals, common.Conf{
 		Desc:      "juju agent for machine-0",
 		ExecStart: cmd,
-		Output:    logDir + "/machine-0.log",
+		Logfile:   logDir + "/machine-0.log",
 		Env:       osenv.FeatureFlags(),
-		Limit: map[string]string{
-			"nofile": "20000 20000",
+		Limit: map[string]int{
+			"nofile": 20000,
 		},
+		Timeout: 300,
 	})
 }
 
@@ -98,11 +101,12 @@ func (*agentSuite) TestMachineAgentConfWindows(c *gc.C) {
 	c.Check(conf, jc.DeepEquals, common.Conf{
 		Desc:      "juju agent for machine-0",
 		ExecStart: cmd,
-		Output:    logDir + `\machine-0.log`,
+		Logfile:   logDir + `\machine-0.log`,
 		Env:       osenv.FeatureFlags(),
-		Limit: map[string]string{
-			"nofile": "20000 20000",
+		Limit: map[string]int{
+			"nofile": 20000,
 		},
+		Timeout: 300,
 	})
 }
 
@@ -124,8 +128,9 @@ func (*agentSuite) TestUnitAgentConf(c *gc.C) {
 	c.Check(conf, jc.DeepEquals, common.Conf{
 		Desc:      "juju unit agent for wordpress/0",
 		ExecStart: cmd,
-		Output:    filepath.Join(logDir, "unit-wordpress-0.log"),
+		Logfile:   filepath.Join(logDir, "unit-wordpress-0.log"),
 		Env:       env,
+		Timeout:   300,
 	})
 }
 

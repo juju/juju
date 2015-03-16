@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/version"
 )
 
@@ -43,8 +44,18 @@ func templateUserData(
 	aptMirror string,
 	enablePackageUpdates bool,
 	enableOSUpgrades bool,
+	networkConfig *container.NetworkConfig,
 ) ([]byte, error) {
-	config := corecloudinit.New()
+	var config *corecloudinit.Config
+	if networkConfig != nil {
+		var err error
+		config, err = container.NewCloudInitConfigWithNetworks(networkConfig)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		config = corecloudinit.New()
+	}
 	config.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
 	)
@@ -96,16 +107,57 @@ func containerInitSystem(series string) (string, error) {
 	if !ok {
 		return "", errors.NotFoundf("init system for series %q", series)
 	}
+	logger.Debugf("using init system %q for shutdown script", initSystem)
 	return initSystem, nil
 }
 
+// defaultEtcNetworkInterfaces is the contents of
+// /etc/network/interfaces file which is left on the template LXC
+// container on shutdown. This is needed to allow cloned containers to
+// start in case no network config is provided during cloud-init, e.g.
+// when AUFS is used or with the local provider (see bug #1431888).
+const defaultEtcNetworkInterfaces = `
+# loopback interface
+auto lo
+iface lo inet loopback
+
+# primary interface
+auto eth0
+iface eth0 inet dhcp
+`
+
 func shutdownInitScript(initSystem string) (string, error) {
-	name := "juju-template-restart"
-	conf, err := service.ShutdownAfterConf("cloud-final")
-	if err != nil {
-		return "", errors.Trace(err)
+	// These files are removed just before the template shuts down.
+	cleanupOnShutdown := []string{
+		// We remove any dhclient lease files so there's no chance a
+		// clone to reuse a lease from the template it was cloned
+		// from.
+		"/var/lib/dhcp/dhclient*",
+		// Both of these sets of files below are recreated on boot and
+		// if we leave them in the template's rootfs boot logs coming
+		// from cloned containers will be appended. It's better to
+		// keep clean logs for diagnosing issues / debugging.
+		"/var/log/cloud-init*.log",
+		"/var/log/upstart/*.log",
 	}
 
+	// Using EOC below as the template shutdown script is itself
+	// passed through cat > ... < EOF.
+	replaceNetConfCmd := fmt.Sprintf(
+		"/bin/cat > /etc/network/interfaces << EOC%sEOC\n  ",
+		defaultEtcNetworkInterfaces,
+	)
+	paths := strings.Join(cleanupOnShutdown, " ")
+	removeCmd := fmt.Sprintf("/bin/rm -fr %s\n  ", paths)
+	shutdownCmd := "/sbin/shutdown -h now"
+	name := "juju-template-restart"
+	desc := "juju shutdown job"
+	conf := common.Conf{
+		Desc:         desc,
+		Transient:    true,
+		AfterStopped: "cloud-final",
+		ExecStart:    replaceNetConfCmd + removeCmd + shutdownCmd,
+	}
 	svc, err := service.NewService(name, conf, initSystem)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -145,6 +197,7 @@ func EnsureCloneTemplate(
 	enablePackageUpdates bool,
 	enableOSUpgrades bool,
 	imageURLGetter container.ImageURLGetter,
+	useAUFS bool,
 ) (golxc.Container, error) {
 	name := fmt.Sprintf("juju-%s-lxc-template", series)
 	containerDirectory, err := container.NewDirectory(name)
@@ -173,6 +226,7 @@ func EnsureCloneTemplate(
 		aptMirror,
 		enablePackageUpdates,
 		enableOSUpgrades,
+		networkConfig,
 	)
 	if err != nil {
 		logger.Tracef("failed to create template user data for template: %v", err)

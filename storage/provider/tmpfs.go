@@ -72,6 +72,11 @@ func (*tmpfsProvider) Supports(k storage.StorageKind) bool {
 	return k == storage.StorageKindFilesystem
 }
 
+// Scope is defined on the Provider interface.
+func (*tmpfsProvider) Scope() storage.Scope {
+	return storage.ScopeMachine
+}
+
 type tmpfsFilesystemSource struct {
 	dirFuncs   dirFuncs
 	run        runCommandFunc

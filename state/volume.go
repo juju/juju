@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -21,6 +22,16 @@ type Volume interface {
 
 	// VolumeTag returns the tag for the volume.
 	VolumeTag() names.VolumeTag
+
+	// TODO(axw)
+	// Scope is the tag of the entity that the volume is scoped to.
+	// Volumes which are inherently bound to a machine (e.g. loop devices)
+	// are scoped to that machine; other volumes are scoped to the
+	// environment.
+	// Owner() names.Tag
+
+	// Life returns the life of the volume.
+	Life() Life
 
 	// StorageInstance returns the tag of the storage instance that this
 	// volume is assigned to, if any. If the volume is not assigned to
@@ -110,6 +121,7 @@ type VolumeInfo struct {
 // VolumeAttachmentInfo describes information about a volume attachment.
 type VolumeAttachmentInfo struct {
 	DeviceName string `bson:"devicename,omitempty"`
+	ReadOnly   bool   `bson:"read-only"`
 }
 
 // VolumeAttachmentParams records parameters for attaching a volume to a
@@ -126,6 +138,11 @@ func (v *volume) Tag() names.Tag {
 // VolumeTag is required to implement Volume.
 func (v *volume) VolumeTag() names.VolumeTag {
 	return names.NewVolumeTag(v.doc.Name)
+}
+
+// Life returns the volume's current lifecycle state.
+func (v *volume) Life() Life {
+	return v.doc.Life
 }
 
 // StorageInstance is required to implement Volume.
@@ -229,15 +246,33 @@ func (st *State) VolumeAttachment(machine names.MachineTag, volume names.VolumeT
 // MachineVolumeAttachments returns all of the VolumeAttachments for the
 // specified machine.
 func (st *State) MachineVolumeAttachments(machine names.MachineTag) ([]VolumeAttachment, error) {
+	attachments, err := st.volumeAttachments(bson.D{{"machineid", machine.Id()}})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting volume attachments for machine %q", machine.Id())
+	}
+	return attachments, nil
+}
+
+// VolumeAttachments returns all of the VolumeAttachments for the specified
+// volume.
+func (st *State) VolumeAttachments(volume names.VolumeTag) ([]VolumeAttachment, error) {
+	attachments, err := st.volumeAttachments(bson.D{{"volumeid", volume.Id()}})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting volume attachments for volume %q", volume.Id())
+	}
+	return attachments, nil
+}
+
+func (st *State) volumeAttachments(query bson.D) ([]VolumeAttachment, error) {
 	coll, cleanup := st.getCollection(volumeAttachmentsC)
 	defer cleanup()
 
 	var docs []volumeAttachmentDoc
-	err := coll.Find(bson.D{{"machineid", machine.Id()}}).All(&docs)
+	err := coll.Find(query).All(&docs)
 	if err == mgo.ErrNotFound {
 		return nil, nil
 	} else if err != nil {
-		return nil, errors.Annotatef(err, "getting volume attachments for machine %q", machine.Id())
+		return nil, errors.Trace(err)
 	}
 	attachments := make([]VolumeAttachment, len(docs))
 	for i, doc := range docs {
@@ -247,25 +282,35 @@ func (st *State) MachineVolumeAttachments(machine names.MachineTag) ([]VolumeAtt
 }
 
 // newVolumeName returns a unique volume name.
-func newVolumeName(st *State) (string, error) {
+// If the machine ID supplied is non-empty, the
+// volume ID will incorporate it as the volume's
+// machine scope.
+func newVolumeName(st *State, machineId string) (string, error) {
 	seq, err := st.sequence("volume")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return fmt.Sprint(seq), nil
+	id := fmt.Sprint(seq)
+	if machineId != "" {
+		id = machineId + "/" + id
+	}
+	return id, nil
 }
 
 // addVolumeOp returns a txn.Op to create a new volume with the specified
-// parameters.
-func (st *State) addVolumeOp(params VolumeParams) (txn.Op, names.VolumeTag, error) {
+// parameters. If the supplied machine ID is non-empty, and the storage
+// provider is machine-scoped, then the volume will be scoped to that
+// machine.
+func (st *State) addVolumeOp(params VolumeParams, machineId string) (txn.Op, names.VolumeTag, error) {
 	params, err := st.volumeParamsWithDefaults(params)
 	if err != nil {
 		return txn.Op{}, names.VolumeTag{}, errors.Trace(err)
 	}
-	if err := st.validateVolumeParams(params); err != nil {
+	machineId, err = st.validateVolumeParams(params, machineId)
+	if err != nil {
 		return txn.Op{}, names.VolumeTag{}, errors.Annotate(err, "validating volume params")
 	}
-	name, err := newVolumeName(st)
+	name, err := newVolumeName(st, machineId)
 	if err != nil {
 		return txn.Op{}, names.VolumeTag{}, errors.Annotate(err, "cannot generate volume name")
 	}
@@ -298,20 +343,34 @@ func (st *State) volumeParamsWithDefaults(params VolumeParams) (VolumeParams, er
 	return params, nil
 }
 
-func (st *State) validateVolumeParams(params VolumeParams) error {
-	if err := validateStoragePool(st, params.Pool, storage.StorageKindBlock); err != nil {
-		return err
+// validateVolumeParams validates the volume parameters, and returns the
+// machine ID to use as the scope in the volume tag.
+func (st *State) validateVolumeParams(params VolumeParams, machineId string) (maybeMachineId string, _ error) {
+	if err := validateStoragePool(st, params.Pool, storage.StorageKindBlock, &machineId); err != nil {
+		return "", err
 	}
 	if params.Size == 0 {
-		return errors.New("invalid size 0")
+		return "", errors.New("invalid size 0")
 	}
-	return nil
+	return machineId, nil
 }
 
 // volumeAttachmentId returns a volume attachment document ID,
 // given the corresponding volume name and machine ID.
 func volumeAttachmentId(machineId, volumeName string) string {
-	return fmt.Sprintf("%s#%s", machineGlobalKey(machineId), volumeName)
+	return fmt.Sprintf("%s:%s", machineId, volumeName)
+}
+
+// ParseVolumeAttachmentId parses a string as a volume attachment ID,
+// returning the machine and volume components.
+func ParseVolumeAttachmentId(id string) (names.MachineTag, names.VolumeTag, error) {
+	fields := strings.SplitN(id, ":", 2)
+	if len(fields) != 2 || !names.IsValidMachine(fields[0]) || !names.IsValidVolume(fields[1]) {
+		return names.MachineTag{}, names.VolumeTag{}, errors.Errorf("invalid volume attachment ID %q", id)
+	}
+	machineTag := names.NewMachineTag(fields[0])
+	volumeTag := names.NewVolumeTag(fields[1])
+	return machineTag, volumeTag, nil
 }
 
 // createMachineVolumeAttachmentInfo creates volume attachments
@@ -340,49 +399,98 @@ func createMachineVolumeAttachmentsOps(machineId string, params map[names.Volume
 // structure is keyed by the name of the volume it corresponds
 // to.
 func setMachineVolumeAttachmentInfo(st *State, machineId string, attachments map[names.VolumeTag]VolumeAttachmentInfo) error {
-	ops := make([]txn.Op, 0, len(attachments)*3)
+	machineTag := names.NewMachineTag(machineId)
 	for volumeTag, info := range attachments {
-		infoCopy := info
-		ops = append(ops, txn.Op{
-			C:  volumeAttachmentsC,
-			Id: volumeAttachmentId(machineId, volumeTag.Id()),
-			Assert: append(isAliveDoc, bson.DocElem{
-				"info", bson.D{{"$exists", false}},
-			}),
-			Update: bson.D{
-				{"$set", bson.D{{"info", &infoCopy}}},
-			},
-		})
-	}
-	if err := st.runTransaction(ops); err != nil {
-		return errors.Annotate(err, "cannot set volume attachment info")
+		if err := st.SetVolumeAttachmentInfo(machineTag, volumeTag, info); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
+}
+
+// SetVolumeAttachmentInfo sets the VolumeAttachmentInfo for the specified
+// volume attachment.
+func (st *State) SetVolumeAttachmentInfo(machineTag names.MachineTag, volumeTag names.VolumeTag, info VolumeAttachmentInfo) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set info for volume attachment %s:%s", volumeTag.Id(), machineTag.Id())
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		va, err := st.VolumeAttachment(machineTag, volumeTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// If the volume attachment has parameters, unset them
+		// when we set info for the first time, ensuring that
+		// params and info are mutually exclusive.
+		_, unsetParams := va.Params()
+		ops := setVolumeAttachmentInfoOps(machineTag, volumeTag, info, unsetParams)
+		return ops, nil
+	}
+	return st.run(buildTxn)
+}
+
+func setVolumeAttachmentInfoOps(machine names.MachineTag, volume names.VolumeTag, info VolumeAttachmentInfo, unsetParams bool) []txn.Op {
+	asserts := isAliveDoc
+	update := bson.D{
+		{"$set", bson.D{{"info", &info}}},
+	}
+	if unsetParams {
+		asserts = append(asserts, bson.DocElem{"info", bson.D{{"$exists", false}}})
+		asserts = append(asserts, bson.DocElem{"params", bson.D{{"$exists", true}}})
+		update = append(update, bson.DocElem{"$unset", bson.D{{"params", nil}}})
+	}
+	return []txn.Op{{
+		C:      volumeAttachmentsC,
+		Id:     volumeAttachmentId(machine.Id(), volume.Id()),
+		Assert: asserts,
+		Update: update,
+	}}
 }
 
 // setProvisionedVolumeInfo sets the initial info for newly
 // provisioned volumes. If non-empty, machineId must be the
 // machine ID associated with the volumes.
 func setProvisionedVolumeInfo(st *State, volumes map[names.VolumeTag]VolumeInfo) error {
-	ops := make([]txn.Op, 0, len(volumes))
 	for volumeTag, info := range volumes {
-		infoCopy := info
-		assert := bson.D{
-			{"info", bson.D{{"$exists", false}}},
-			{"params", bson.D{{"$exists", true}}},
+		if err := st.SetVolumeInfo(volumeTag, info); err != nil {
+			return errors.Trace(err)
 		}
-		ops = append(ops, txn.Op{
-			C:      volumesC,
-			Id:     volumeTag.Id(),
-			Assert: assert,
-			Update: bson.D{
-				{"$set", bson.D{{"info", &infoCopy}}},
-				{"$unset", bson.D{{"params", nil}}},
-			},
-		})
-	}
-	if err := st.runTransaction(ops); err != nil {
-		return errors.Errorf("cannot set provisioned volume info: already provisioned")
 	}
 	return nil
+}
+
+// SetVolumeInfo sets the VolumeInfo for the specified volume.
+func (st *State) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set info for volume %q", tag.Id())
+	// TODO(axw) we should reject info without VolumeId set; can't do this
+	// until the providers all set it correctly.
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		v, err := st.Volume(tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// If the volume has parameters, unset them when
+		// we set info for the first time, ensuring that
+		// params and info are mutually exclusive.
+		_, unsetParams := v.Params()
+		ops := setVolumeInfoOps(tag, info, unsetParams)
+		return ops, nil
+	}
+	return st.run(buildTxn)
+}
+
+func setVolumeInfoOps(tag names.VolumeTag, info VolumeInfo, unsetParams bool) []txn.Op {
+	asserts := isAliveDoc
+	update := bson.D{
+		{"$set", bson.D{{"info", &info}}},
+	}
+	if unsetParams {
+		asserts = append(asserts, bson.DocElem{"info", bson.D{{"$exists", false}}})
+		asserts = append(asserts, bson.DocElem{"params", bson.D{{"$exists", true}}})
+		update = append(update, bson.DocElem{"$unset", bson.D{{"params", nil}}})
+	}
+	return []txn.Op{{
+		C:      volumesC,
+		Id:     tag.Id(),
+		Assert: asserts,
+		Update: update,
+	}}
 }

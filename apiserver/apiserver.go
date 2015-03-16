@@ -264,14 +264,21 @@ func (n *requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
 		return
 	}
 	// TODO(rog) 2013-10-11 remove secrets from some requests.
-	logger.Debugf("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
+	// Until secrets are removed, we only log the body of the requests at trace level
+	// which is below the default level of debug.
+	logger.Debugf("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, "'params redacted'"))
+	logger.Tracef("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
 }
 
 func (n *requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}, timeSpent time.Duration) {
 	if req.Type == "Pinger" && req.Action == "Ping" {
 		return
 	}
-	logger.Debugf("-> [%X] %s %s %s %s[%q].%s", n.id, n.tag(), timeSpent, jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
+	// TODO(rog) 2013-10-11 remove secrets from some responses.
+	// Until secrets are removed, we only log the body of the requests at trace level
+	// which is below the default level of debug.
+	logger.Debugf("-> [%X] %s %s %s %s[%q].%s", n.id, n.tag(), timeSpent, jsoncodec.DumpRequest(hdr, "'body redacted'"), req.Type, req.Id, req.Action)
+	logger.Tracef("-> [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
 }
 
 func (n *requestNotifier) join(req *http.Request) {

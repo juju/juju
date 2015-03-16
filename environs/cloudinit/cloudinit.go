@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/apt"
@@ -33,6 +34,10 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+)
+
+var (
+	logger = loggo.GetLogger("juju.environs.cloudinit")
 )
 
 // fileSchemePrefix is the prefix for file:// URLs.
@@ -278,6 +283,7 @@ func (cfg *MachineConfig) initService() (service.Service, string, error) {
 	if !ok {
 		return nil, "", errors.New("could not identify init system")
 	}
+	logger.Debugf("using init system %q for machine agent script", initSystem)
 	svc, err := newService(name, conf, initSystem)
 	return svc, toolsDir, errors.Trace(err)
 }

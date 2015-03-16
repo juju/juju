@@ -45,6 +45,18 @@ func stateStepsFor123() []Step {
 			run: func(context Context) error {
 				return moveBlocksFromEnvironToState(context)
 			},
+		}, &upgradeStep{
+			description: "insert userenvnameC doc for each environment",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddUniqueOwnerEnvNameForEnvirons(context.State())
+			},
+		}, &upgradeStep{
+			description: "add name field to users and lowercase _id field",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddNameFieldLowerCaseIdOfUsers(context.State())
+			},
 		},
 	)
 	return steps

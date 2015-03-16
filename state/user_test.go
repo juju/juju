@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -198,6 +200,31 @@ func (s *UserSuite) TestCantDisableAdmin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = user.Disable()
 	c.Assert(err, gc.ErrorMatches, "cannot disable state server environment owner")
+}
+
+func (s *UserSuite) TestCaseSensitiveUsersErrors(c *gc.C) {
+	s.factory.MakeUser(c, &factory.UserParams{Name: "Bob"})
+
+	_, err := s.State.AddUser(
+		"boB", "ignored", "ignored", "ignored")
+	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
+	c.Assert(err, gc.ErrorMatches, "user already exists")
+}
+
+func (s *UserSuite) TestCaseInsensitiveLookup(c *gc.C) {
+	expectedUser := s.factory.MakeUser(c, &factory.UserParams{Name: "Bob"})
+
+	assertCaseInsensitiveLookup := func(name string) {
+		userTag := names.NewUserTag(name)
+		obtainedUser, err := s.State.User(userTag)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(obtainedUser, gc.DeepEquals, expectedUser)
+	}
+
+	assertCaseInsensitiveLookup("bob")
+	assertCaseInsensitiveLookup("bOb")
+	assertCaseInsensitiveLookup("boB")
+	assertCaseInsensitiveLookup("BOB")
 }
 
 func (s *UserSuite) TestAllUsers(c *gc.C) {

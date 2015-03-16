@@ -476,6 +476,20 @@ type RelationUnitsWatchResults struct {
 	Results []RelationUnitsWatchResult
 }
 
+// MachineStorageIdsWatchResult holds a MachineStorageIdsWatcher id,
+// changes and an error (if any).
+type MachineStorageIdsWatchResult struct {
+	MachineStorageIdsWatcherId string
+	Changes                    []MachineStorageId
+	Error                      *Error
+}
+
+// MachineStorageIdsWatchResults holds the results for any API call which ends
+// up returning a list of MachineStorageIdsWatchers.
+type MachineStorageIdsWatchResults struct {
+	Results []MachineStorageIdsWatchResult
+}
+
 // CharmsResponse is the server response to charm upload or GET requests.
 type CharmsResponse struct {
 	Error    string   `json:",omitempty"`

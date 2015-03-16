@@ -5,6 +5,7 @@ package systemd
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/juju/errors"
@@ -64,6 +65,11 @@ func (c commands) link(name, dirname string) string {
 	return c.resolve(args)
 }
 
+func (c commands) enableLinked(name, dirname string) string {
+	args := fmt.Sprintf("enable %s/%s.service", dirname, name)
+	return c.resolve(args)
+}
+
 func (c commands) enable(name string) string {
 	args := fmt.Sprintf("enable %s.service", name)
 	return c.resolve(args)
@@ -74,14 +80,33 @@ func (c commands) disable(name string) string {
 	return c.resolve(args)
 }
 
+func (c commands) reload() string {
+	args := "daemon-reload"
+	return c.resolve(args)
+}
+
 func (c commands) conf(name string) string {
 	args := fmt.Sprintf("cat %s.service", name)
 	return c.resolve(args)
 }
 
-func (c commands) writeFile(name, dirname string, data []byte) string {
-	cmd := fmt.Sprintf("cat >> %s/%s.service << 'EOF'\n%sEOF", dirname, name, data)
+func (c commands) mkdirs(dirname string) string {
+	cmd := fmt.Sprintf("mkdir -p %s", dirname)
 	return cmd
+}
+
+func (c commands) chmod(name, dirname string, perm os.FileMode) string {
+	cmd := fmt.Sprintf("chmod %04o %s/%s", perm, dirname, name)
+	return cmd
+}
+
+func (c commands) writeFile(name, dirname string, data []byte) string {
+	cmd := fmt.Sprintf("cat > %s/%s << 'EOF'\n%s\nEOF", dirname, name, data)
+	return cmd
+}
+
+func (c commands) writeConf(name, dirname string, data []byte) string {
+	return c.writeFile(name+".service", dirname, data)
 }
 
 // Cmdline exposes the core operations of interacting with systemd units.
@@ -95,7 +120,7 @@ type Cmdline struct {
 func (cl Cmdline) ListAll() ([]string, error) {
 	cmd := cl.commands.listAll()
 
-	out, err := cl.runCommand(cmd)
+	out, err := cl.runCommand(cmd, "List")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -110,7 +135,7 @@ func (cl Cmdline) ListAll() ([]string, error) {
 func (cl Cmdline) conf(name string) ([]byte, error) {
 	cmd := cl.commands.conf(name)
 
-	out, err := cl.runCommand(cmd)
+	out, err := cl.runCommand(cmd, "get conf")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -119,21 +144,24 @@ func (cl Cmdline) conf(name string) ([]byte, error) {
 	return []byte(out), nil
 }
 
-func (Cmdline) runCommand(cmd string) (string, error) {
+const runCommandMsg = "%s failed (%s)"
+
+func (Cmdline) runCommand(cmd, label string) (string, error) {
 	resp, err := runCommands(exec.RunParams{
 		Commands: cmd,
 	})
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Annotatef(err, runCommandMsg, label, cmd)
 	}
 	out := string(resp.Stdout)
 
 	if resp.Code != 0 {
-		return out, errors.Errorf(
+		err := errors.Errorf(
 			"error executing %q: %s",
 			executable,
 			strings.Replace(string(resp.Stderr), "\n", "; ", -1),
 		)
+		return out, errors.Annotatef(err, runCommandMsg, label, cmd)
 	}
 	return out, nil
 }

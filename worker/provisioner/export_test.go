@@ -23,19 +23,21 @@ func GetRetryWatcher(p Provisioner) (watcher.NotifyWatcher, error) {
 }
 
 var (
-	ContainerManagerConfig = containerManagerConfig
-	GetToolsFinder         = &getToolsFinder
-	SysctlConfig           = &sysctlConfig
-	ResolvConf             = &resolvConf
-	LocalDNSServers        = localDNSServers
-	MustParseTemplate      = mustParseTemplate
-	RunTemplateCommand     = runTemplateCommand
-	IPTablesCheckSNAT      = &iptablesCheckSNAT
-	IPTablesAddSNAT        = &iptablesAddSNAT
-	NetInterfaces          = &netInterfaces
-	InterfaceAddrs         = &interfaceAddrs
-	DiscoverPrimaryNIC     = discoverPrimaryNIC
-	MaybeAllocateStaticIP  = maybeAllocateStaticIP
+	ContainerManagerConfig     = containerManagerConfig
+	GetToolsFinder             = &getToolsFinder
+	SysctlConfig               = &sysctlConfig
+	ResolvConf                 = &resolvConf
+	LocalDNSServers            = localDNSServers
+	MustParseTemplate          = mustParseTemplate
+	RunTemplateCommand         = runTemplateCommand
+	IptablesRules              = &iptablesRules
+	NetInterfaces              = &netInterfaces
+	InterfaceAddrs             = &interfaceAddrs
+	DiscoverPrimaryNIC         = discoverPrimaryNIC
+	MaybeAllocateStaticIP      = maybeAllocateStaticIP
+	MaybeOverrideDefaultLXCNet = maybeOverrideDefaultLXCNet
+	EtcDefaultLXCNetPath       = &etcDefaultLXCNetPath
+	EtcDefaultLXCNet           = etcDefaultLXCNet
 )
 
 const (

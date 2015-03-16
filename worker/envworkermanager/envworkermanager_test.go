@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
@@ -116,11 +117,57 @@ func (s *suite) TestKillPropogates(c *gc.C) {
 	c.Assert(runners[1].killed, jc.IsFalse)
 
 	m.Kill()
-	err := waitOrPanic(m.Wait)
+	err := waitOrFatal(c, m.Wait)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(runners[0].killed, jc.IsTrue)
 	c.Assert(runners[1].killed, jc.IsTrue)
+}
+
+// stateWithFailingGetEnvironment wraps a *state.State, overriding the
+// GetEnvironment to generate an error.
+type stateWithFailingGetEnvironment struct {
+	*stateWithFakeWatcher
+	shouldFail bool
+}
+
+func newStateWithFailingGetEnvironment(realSt *state.State) *stateWithFailingGetEnvironment {
+	return &stateWithFailingGetEnvironment{
+		stateWithFakeWatcher: newStateWithFakeWatcher(realSt),
+		shouldFail:           false,
+	}
+}
+func (s *stateWithFailingGetEnvironment) GetEnvironment(tag names.EnvironTag) (*state.Environment, error) {
+	if s.shouldFail {
+		return nil, errors.New("unable to GetEnvironment")
+	}
+	return s.State.GetEnvironment(tag)
+}
+
+func (s *suite) TestLoopExitKillsRunner(c *gc.C) {
+	// If something causes EnvWorkerManager.loop to exit that isn't Kill() then it should stop the runner.
+	// Currently the best way to cause this is to make
+	// m.st.GetEnvironment(tag) fail with any error other than NotFound
+	st := newStateWithFailingGetEnvironment(s.State)
+	uuid := st.EnvironUUID()
+	m := envworkermanager.NewEnvWorkerManager(st, s.startEnvWorkers)
+	defer m.Kill()
+
+	// First time: runners started
+	st.sendEnvChange(uuid)
+	runners := s.seeRunnersStart(c, 1)
+	c.Assert(runners[0].killed, jc.IsFalse)
+
+	// Now we start failing
+	st.shouldFail = true
+	st.sendEnvChange(uuid)
+
+	// This should kill the manager
+	err := waitOrFatal(c, m.Wait)
+	c.Assert(err, gc.ErrorMatches, "error loading environment .*: unable to GetEnvironment")
+
+	// And that should kill all the runners
+	c.Assert(runners[0].killed, jc.IsTrue)
 }
 
 func (s *suite) TestNothingHappensWhenEnvIsSeenAgain(c *gc.C) {
@@ -164,7 +211,7 @@ func (s *suite) TestFatalErrorKillsEnvWorkerManager(c *gc.C) {
 	runner.tomb.Kill(worker.ErrTerminateAgent)
 	runner.tomb.Done()
 
-	err := waitOrPanic(m.Wait)
+	err := waitOrFatal(c, m.Wait)
 	c.Assert(errors.Cause(err), gc.Equals, worker.ErrTerminateAgent)
 }
 
@@ -187,7 +234,7 @@ func (s *suite) TestStateIsClosedIfStartEnvWorkersFails(c *gc.C) {
 	// panic.
 	s.startErr = worker.ErrTerminateAgent // This will make envWorkerManager exit.
 	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorkers)
-	waitOrPanic(m.Wait)
+	waitOrFatal(c, m.Wait)
 }
 
 func (s *suite) seeRunnersStart(c *gc.C, expectedCount int) []*fakeRunner {
@@ -239,7 +286,7 @@ func (s *suite) startEnvWorkers(ssSt envworkermanager.InitialState, st *state.St
 	return runner, nil
 }
 
-func waitOrPanic(wait func() error) error {
+func waitOrFatal(c *gc.C, wait func() error) error {
 	errC := make(chan error)
 	go func() {
 		errC <- wait()
@@ -249,8 +296,9 @@ func waitOrPanic(wait func() error) error {
 	case err := <-errC:
 		return err
 	case <-time.After(testing.LongWait):
-		panic("waited too long")
+		c.Fatal("waited too long")
 	}
+	return nil
 }
 
 // fakeRunner minimally implements the worker.Runner interface. It

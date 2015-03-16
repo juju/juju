@@ -1,7 +1,7 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package service
 
 import (
 	"errors"
@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/keyvalues"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 )
@@ -25,6 +26,7 @@ type SetCommand struct {
 	ServiceName     string
 	SettingsStrings map[string]string
 	SettingsYAML    cmd.FileVar
+	api             SetServiceAPI
 }
 
 const setDoc = `
@@ -71,9 +73,25 @@ func (c *SetCommand) Init(args []string) error {
 	return nil
 }
 
+// SetServiceAPI defines the methods on the client API
+// that the service set command calls.
+type SetServiceAPI interface {
+	Close() error
+	ServiceSetYAML(service string, yaml string) error
+	ServiceGet(service string) (*params.ServiceGetResults, error)
+	ServiceSet(service string, options map[string]string) error
+}
+
+func (c *SetCommand) getAPI() (SetServiceAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
+	return c.NewAPIClient()
+}
+
 // Run updates the configuration of a service.
 func (c *SetCommand) Run(ctx *cmd.Context) error {
-	api, err := c.NewAPIClient()
+	api, err := c.getAPI()
 	if err != nil {
 		return err
 	}

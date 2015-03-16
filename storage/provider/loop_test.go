@@ -72,6 +72,11 @@ func (s *loopSuite) TestSupports(c *gc.C) {
 	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsFalse)
 }
 
+func (s *loopSuite) TestScope(c *gc.C) {
+	p := s.loopProvider(c)
+	c.Assert(p.Scope(), gc.Equals, storage.ScopeMachine)
+}
+
 func (s *loopSuite) loopVolumeSource(c *gc.C) storage.VolumeSource {
 	s.commands = &mockRunCommand{c: c}
 	return provider.LoopVolumeSource(
@@ -131,8 +136,9 @@ func (s *loopSuite) TestDestroyVolumes(c *gc.C) {
 	err := ioutil.WriteFile(fileName, nil, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = source.DestroyVolumes([]string{"volume-0"})
-	c.Assert(err, jc.ErrorIsNil)
+	errs := source.DestroyVolumes([]string{"volume-0"})
+	c.Assert(errs, gc.HasLen, 1)
+	c.Assert(errs[0], jc.ErrorIsNil)
 }
 
 func (s *loopSuite) TestDestroyVolumesDetachFails(c *gc.C) {
@@ -143,14 +149,16 @@ func (s *loopSuite) TestDestroyVolumesDetachFails(c *gc.C) {
 	cmd = s.commands.expect("losetup", "-d", "/dev/loop0")
 	cmd.respond("", errors.New("oy"))
 
-	err := source.DestroyVolumes([]string{"volume-0"})
-	c.Assert(err, gc.ErrorMatches, `detaching loop device "loop0": oy`)
+	errs := source.DestroyVolumes([]string{"volume-0"})
+	c.Assert(errs, gc.HasLen, 1)
+	c.Assert(errs[0], gc.ErrorMatches, `.* detaching loop device "loop0": oy`)
 }
 
 func (s *loopSuite) TestDestroyVolumesInvalidVolumeId(c *gc.C) {
 	source := s.loopVolumeSource(c)
-	err := source.DestroyVolumes([]string{"../super/important/stuff"})
-	c.Assert(err, gc.ErrorMatches, `invalid loop volume ID "\.\./super/important/stuff"`)
+	errs := source.DestroyVolumes([]string{"../super/important/stuff"})
+	c.Assert(errs, gc.HasLen, 1)
+	c.Assert(errs[0], gc.ErrorMatches, `.* invalid loop volume ID "\.\./super/important/stuff"`)
 }
 
 func (s *loopSuite) TestDescribeVolumes(c *gc.C) {

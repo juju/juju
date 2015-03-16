@@ -195,17 +195,17 @@ func (s *MetricSuite) TestMetricCredentials(c *gc.C) {
 }
 
 // TestCountMetrics asserts the correct values are returned
-// by CountofUnsentMetrics and CountofSentMetrics.
+// by CountOfUnsentMetrics and CountOfSentMetrics.
 func (s *MetricSuite) TestCountMetrics(c *gc.C) {
 	now := time.Now()
 	m := []state.Metric{{Key: "pings", Value: "123", Time: now}}
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: m})
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: m})
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &now, Metrics: m})
-	sent, err := s.State.CountofSentMetrics()
+	sent, err := s.State.CountOfSentMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sent, gc.Equals, 1)
-	unsent, err := s.State.CountofUnsentMetrics()
+	unsent, err := s.State.CountOfUnsentMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsent, gc.Equals, 2)
 	c.Assert(unsent+sent, gc.Equals, 3)
@@ -224,7 +224,7 @@ func (s *MetricSuite) TestSetMetricBatchesSent(c *gc.C) {
 	}
 	err := s.State.SetMetricBatchesSent(uuids)
 	c.Assert(err, jc.ErrorIsNil)
-	sent, err := s.State.CountofSentMetrics()
+	sent, err := s.State.CountOfSentMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sent, gc.Equals, 3)
 
@@ -344,7 +344,7 @@ func (s *MetricSuite) TestMetricsAcrossEnvironments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 2)
 
-	unsent, err := s.State.CountofUnsentMetrics()
+	unsent, err := s.State.CountOfUnsentMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsent, gc.Equals, 2)
 
@@ -357,7 +357,7 @@ func (s *MetricSuite) TestMetricsAcrossEnvironments(c *gc.C) {
 	err = m2.SetSent()
 	c.Assert(err, jc.ErrorIsNil)
 
-	sent, err := s.State.CountofSentMetrics()
+	sent, err := s.State.CountOfSentMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sent, gc.Equals, 2)
 

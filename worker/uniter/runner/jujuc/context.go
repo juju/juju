@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/storage"
 )
 
 type RebootPriority int
@@ -68,11 +69,11 @@ type Context interface {
 	// LeaderSettings returns the current leader settings. Once leader settings
 	// have been read in a given context, they will not be updated other than
 	// via successful calls to WriteLeaderSettings.
-	LeaderSettings() (params.Settings, error)
+	LeaderSettings() (map[string]string, error)
 
 	// WriteLeaderSettings writes the supplied settings directly to state, or
 	// fails if the local unit is not the service's leader.
-	WriteLeaderSettings(params.Settings) error
+	WriteLeaderSettings(map[string]string) error
 
 	// ActionParams returns the map of params passed with an Action.
 	ActionParams() (map[string]interface{}, error)
@@ -114,12 +115,13 @@ type Context interface {
 	// RequestReboot will set the reboot flag to true on the machine agent
 	RequestReboot(prio RebootPriority) error
 
-	// StorageAttachment returns the storage attachment with the given tag.
-	StorageAttachment(names.StorageTag) (*params.StorageAttachment, bool)
+	// Storage returns the ContextStorage with the supplied tag if it was
+	// found, and whether it was found.
+	Storage(names.StorageTag) (ContextStorage, bool)
 
 	// HookStorageAttachment returns the storage attachment associated
-	// the executing hook.
-	HookStorageAttachment() (*params.StorageAttachment, bool)
+	// the executing hook if it was found, and whether it was found.
+	HookStorage() (ContextStorage, bool)
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.
@@ -146,6 +148,22 @@ type ContextRelation interface {
 
 	// ReadSettings returns the settings of any remote unit in the relation.
 	ReadSettings(unit string) (params.Settings, error)
+}
+
+// ContextStorage expresses the capabilities of a hook with respect to a
+// storage attachment.
+type ContextStorage interface {
+
+	// Tag returns a tag which uniquely identifies the storage attachment
+	// in the context of the unit.
+	Tag() names.StorageTag
+
+	// Kind returns the kind of the storage.
+	Kind() storage.StorageKind
+
+	// Location returns the location of the storage: the mount point for
+	// filesystem-kind stores, and the device path for block-kind stores.
+	Location() string
 }
 
 // Settings is implemented by types that manipulate unit settings.
@@ -204,11 +222,8 @@ func (v *relationIdValue) Set(value string) error {
 // ids in ctx.
 func newStorageIdValue(ctx Context, result *names.StorageTag) *storageIdValue {
 	v := &storageIdValue{result: result, ctx: ctx}
-	if s, found := ctx.HookStorageAttachment(); found {
-		tag, err := names.ParseStorageTag(s.StorageTag)
-		if err == nil {
-			*v.result = tag
-		}
+	if s, found := ctx.HookStorage(); found {
+		*v.result = s.Tag()
 	}
 	return v
 }
@@ -235,8 +250,8 @@ func (v *storageIdValue) Set(value string) error {
 		return errors.Errorf("invalid storage ID %q", value)
 	}
 	tag := names.NewStorageTag(value)
-	if _, found := v.ctx.StorageAttachment(tag); !found {
-		return fmt.Errorf("unknown storage attachment")
+	if _, found := v.ctx.Storage(tag); !found {
+		return fmt.Errorf("unknown storage ID")
 	}
 	*v.result = tag
 	return nil
