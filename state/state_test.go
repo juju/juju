@@ -2136,6 +2136,26 @@ func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	c.Assert(econs, gc.DeepEquals, cons)
 }
 
+func (s *StateSuite) TestWatchIPAddresses(c *gc.C) {
+	w := s.State.WatchEnvironments()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange(s.State.EnvironUUID())
+	wc.AssertNoChange()
+
+	// add an IP address
+	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.3", network.ScopePublic), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(s.State.EnvironUUID())
+	wc.AssertNoChange()
+
+	// Make it Dead: reported.
+	err = addr.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(addr.Id())
+	wc.AssertNoChange()
+}
+
 func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
 	// Alive environment...
 	alive, err := s.State.Environment()

@@ -42,11 +42,6 @@ func (s AddressState) String() string {
 	return string(s)
 }
 
-// GoString implements fmt.GoStringer.
-func (i *IPAddress) GoString() string {
-	return i.String()
-}
-
 // IPAddress represents the state of an IP address.
 type IPAddress struct {
 	st  *State
@@ -64,6 +59,16 @@ type ipaddressDoc struct {
 	Type        string       `bson:"type"`
 	Scope       string       `bson:"networkscope,omitempty"`
 	State       AddressState `bson:"state"`
+}
+
+// Id returns the DocID of the IP address.
+func (i *IPAddress) Id() string {
+	return i.doc.DocID
+}
+
+// GoString implements fmt.GoStringer.
+func (i *IPAddress) GoString() string {
+	return i.String()
 }
 
 // Life returns whether the IP address is Alive, Dying or Dead.
