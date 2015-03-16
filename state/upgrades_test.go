@@ -2312,7 +2312,7 @@ func (s *upgradesSuite) TestIPAddressesLife(c *gc.C) {
 			{"value", "0.1.2.5"},
 			{"state", AddressStateAllocated},
 		},
-		// this one should be set to Dead the machine is set to missing
+		// this one should be set to Dead as the machine is missing
 		bson.D{
 			{"_id", uuid + ":0.1.2.6"},
 			{"env-uuid", uuid},
