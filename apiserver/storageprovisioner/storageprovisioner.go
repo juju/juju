@@ -481,3 +481,50 @@ func (s *StorageProvisionerAPI) SetVolumeAttachmentInfo(
 	}
 	return results, nil
 }
+
+// AttachmentLife returns the lifecycle state of each specified machine
+// storage attachment.
+func (s *StorageProvisionerAPI) AttachmentLife(args params.MachineStorageIds) (params.LifeResults, error) {
+	canAccess, err := s.getAttachmentAuthFunc()
+	if err != nil {
+		return params.LifeResults{}, err
+	}
+	results := params.LifeResults{
+		Results: make([]params.LifeResult, len(args.Ids)),
+	}
+	one := func(arg params.MachineStorageId) (params.Life, error) {
+		machineTag, err := names.ParseMachineTag(arg.MachineTag)
+		if err != nil {
+			return "", err
+		}
+		attachmentTag, err := names.ParseTag(arg.AttachmentTag)
+		if err != nil {
+			return "", err
+		}
+		if !canAccess(machineTag, attachmentTag) {
+			return "", common.ErrPerm
+		}
+		var lifer state.Lifer
+		switch attachmentTag := attachmentTag.(type) {
+		case names.VolumeTag:
+			lifer, err = s.st.VolumeAttachment(machineTag, attachmentTag)
+		case names.FilesystemTag:
+			lifer, err = s.st.FilesystemAttachment(machineTag, attachmentTag)
+		}
+		if errors.IsNotFound(err) {
+			return "", common.ErrPerm
+		} else if err != nil {
+			return "", errors.Trace(err)
+		}
+		return params.Life(lifer.Life().String()), nil
+	}
+	for i, arg := range args.Ids {
+		life, err := one(arg)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		} else {
+			results.Results[i].Life = life
+		}
+	}
+	return results, nil
+}

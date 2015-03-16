@@ -18,6 +18,7 @@ type provisionerState interface {
 	WatchEnvironVolumeAttachments() state.StringsWatcher
 	WatchMachineVolumes(names.MachineTag) state.StringsWatcher
 	WatchMachineVolumeAttachments(names.MachineTag) state.StringsWatcher
+	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
 	Volume(names.VolumeTag) (state.Volume, error)
 	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 	VolumeAttachments(names.VolumeTag) ([]state.VolumeAttachment, error)

@@ -27,6 +27,9 @@ type Filesystem interface {
 	// FilesystemTag returns the tag for the filesystem.
 	FilesystemTag() names.FilesystemTag
 
+	// Life returns the life of the filesystem.
+	Life() Life
+
 	// Storage returns the tag of the storage instance that this
 	// filesystem is assigned to, if any. If the filesystem is not
 	// assigned to a storage instance, an error satisfying
@@ -58,6 +61,9 @@ type FilesystemAttachment interface {
 
 	// Machine returns the tag of the related Machine.
 	Machine() names.MachineTag
+
+	// Life returns the life of the filesystem attachment.
+	Life() Life
 
 	// Info returns the filesystem attachment's FilesystemAttachmentInfo, or a
 	// NotProvisioned error if the attachment has not yet been made.
@@ -152,6 +158,11 @@ func (f *filesystem) FilesystemTag() names.FilesystemTag {
 	return names.NewFilesystemTag(f.doc.FilesystemId)
 }
 
+// Life is required to implement Filesystem.
+func (f *filesystem) Life() Life {
+	return f.doc.Life
+}
+
 // Storage is required to implement Filesystem.
 func (f *filesystem) Storage() (names.StorageTag, error) {
 	if f.doc.StorageId == "" {
@@ -193,6 +204,11 @@ func (f *filesystemAttachment) Filesystem() names.FilesystemTag {
 // Machine is required to implement FilesystemAttachment.
 func (f *filesystemAttachment) Machine() names.MachineTag {
 	return names.NewMachineTag(f.doc.Machine)
+}
+
+// Life is required to implement FilesystemAttachment.
+func (f *filesystemAttachment) Life() Life {
+	return f.doc.Life
 }
 
 // Info is required to implement FilesystemAttachment.

@@ -433,6 +433,39 @@ func (s *provisionerSuite) TestLife(c *gc.C) {
 	})
 }
 
+func (s *provisionerSuite) TestAttachmentLife(c *gc.C) {
+	s.setupVolumes(c)
+	s.authorizer.EnvironManager = true
+
+	// TODO(axw) test filesystem attachment life
+	// TODO(axw) test Dying
+
+	results, err := s.api.AttachmentLife(params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-0-0",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-1",
+		}, {
+			MachineTag:    "machine-2",
+			AttachmentTag: "volume-3",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-42",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.LifeResults{
+		Results: []params.LifeResult{
+			{Life: params.Alive},
+			{Life: params.Alive},
+			{Life: params.Alive},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+		},
+	})
+}
+
 func (s *provisionerSuite) TestEnsureDead(c *gc.C) {
 	s.setupVolumes(c)
 	args := params.Entities{Entities: []params.Entity{{"volume-0-0"}, {"volume-1"}, {"volume-42"}}}

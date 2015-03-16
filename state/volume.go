@@ -23,13 +23,6 @@ type Volume interface {
 	// VolumeTag returns the tag for the volume.
 	VolumeTag() names.VolumeTag
 
-	// TODO(axw)
-	// Scope is the tag of the entity that the volume is scoped to.
-	// Volumes which are inherently bound to a machine (e.g. loop devices)
-	// are scoped to that machine; other volumes are scoped to the
-	// environment.
-	// Owner() names.Tag
-
 	// Life returns the life of the volume.
 	Life() Life
 
@@ -59,6 +52,9 @@ type VolumeAttachment interface {
 
 	// Machine returns the tag of the related Machine.
 	Machine() names.MachineTag
+
+	// Life returns the life of the volume attachment.
+	Life() Life
 
 	// Info returns the volume attachment's VolumeAttachmentInfo, or a
 	// NotProvisioned error if the attachment has not yet been made.
@@ -179,6 +175,11 @@ func (v *volumeAttachment) Volume() names.VolumeTag {
 // Machine is required to implement VolumeAttachment.
 func (v *volumeAttachment) Machine() names.MachineTag {
 	return names.NewMachineTag(v.doc.Machine)
+}
+
+// Life is required to implement VolumeAttachment.
+func (v *volumeAttachment) Life() Life {
+	return v.doc.Life
 }
 
 // Info is required to implement VolumeAttachment.
