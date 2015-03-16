@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -150,11 +151,11 @@ func ListServices() ([]string, error) {
 
 // ListServicesScript returns the commands that should be run to get
 // a list of service names on a host.
-func ListServicesScript() []string {
+func ListServicesScript() string {
 	filename := "/tmp/discover_init_system.sh"
 	commands := writeDiscoverInitSystemScript(filename)
 	commands = append(commands, newShellSelectCommand(filename, listServicesCommand))
-	return commands
+	return strings.Join(commands, "\n")
 }
 
 func listServicesCommand(initSystem string) (string, bool) {
