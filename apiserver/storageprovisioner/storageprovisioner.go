@@ -167,8 +167,7 @@ func (s *StorageProvisionerAPI) WatchVolumeAttachments(args params.Entities) (pa
 		if tag, ok := tag.(names.MachineTag); ok {
 			w = s.st.WatchMachineVolumeAttachments(tag)
 		} else {
-			// TODO(axw) implement me
-			return "", nil, errors.NotImplementedf("watching environ-scoped volume attachments")
+			w = s.st.WatchEnvironVolumeAttachments()
 		}
 		if stringChanges, ok := <-w.Changes(); ok {
 			changes, err := common.ParseVolumeAttachmentIds(stringChanges)
