@@ -4,7 +4,6 @@
 package service_test
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
@@ -66,47 +65,28 @@ func (s *serviceSuite) TestListServices(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-// checkShellSwitch examines the contents a fragment of shell script that implements a switch
-// using an if, elif, else chain. It tests that each command in expectedCommands is used once
-// and that the whole script fragment ends with "else exit 1". The order of commands in
-// script doesn't matter.
-func checkShellSwitch(c *gc.C, script string, expectedCommands []string) {
-	cmds := strings.Split(script, "\n")
+func (*serviceSuite) TestListServicesScript(c *gc.C) {
+	commands := service.ListServicesScript()
 
-	// Ensure that we terminate the if, elif, else chain correctly
-	last := len(cmds) - 1
-	c.Check(cmds[last-1], gc.Equals, "else exit 1")
-	c.Check(cmds[last], gc.Equals, "fi")
-
-	// First line must start with if
-	c.Check(cmds[0][0:3], gc.Equals, "if ")
-
-	// Further lines must start with elif. Convert them to if <statement>
-	for i := 1; i < last-1; i++ {
-		c.Check(cmds[i][0:5], gc.Equals, "elif ")
-		cmds[i] = cmds[i][2:]
-	}
-
-	c.Check(cmds[0:last-1], jc.SameContents, expectedCommands)
-}
-
-func (*serviceSuite) TestListServicesCommand(c *gc.C) {
-	cmd := service.ListServicesCommand()
-
-	line := `if [[ "$(cat /proc/1/cmdline | awk '{print $1}')" == "%s" ]]; then %s`
-	upstart := `sudo initctl list | awk '{print $1}' | sort | uniq`
-	systemd := `/bin/systemctl list-unit-files --no-legend --no-page -t service` +
-		` | grep -o -P '^\w[\S]*(?=\.service)'`
-
-	lines := []string{
-		fmt.Sprintf(line, "/sbin/init", upstart),
-		fmt.Sprintf(line, "/sbin/upstart", upstart),
-		fmt.Sprintf(line, "/sbin/systemd", systemd),
-		fmt.Sprintf(line, "/bin/systemd", systemd),
-		fmt.Sprintf(line, "/lib/systemd/systemd", systemd),
-	}
-
-	checkShellSwitch(c, cmd, lines)
+	writeLines := "cat > /tmp/discover_init_system.sh << 'EOF'\n" +
+		service.DiscoverInitSystemScript + "\n" +
+		"EOF"
+	switchLines := "" +
+		"init_system=$(/tmp/discover_init_system.sh) " +
+		`if [[ $init_system == "systemd" ]]; then ` +
+		`/bin/systemctl list-unit-files --no-legend --no-page -t service` +
+		` | grep -o -P '^\w[\S]*(?=\.service)'` + "\n" +
+		`elif [[ $init_system == "upstart" ]]; then ` +
+		`sudo initctl list | awk '{print $1}' | sort | uniq` + "\n" +
+		`else exit 1` + "\n" +
+		`fi`
+	c.Check(commands, jc.DeepEquals, []string{
+		writeLines,
+		"chmod 0755 /tmp/discover_init_system.sh",
+		switchLines,
+	})
+	c.Check(strings.Split(commands[0], "\n"), jc.DeepEquals, strings.Split(writeLines, "\n"))
+	c.Check(strings.Split(commands[2], "\n"), jc.DeepEquals, strings.Split(switchLines, "\n"))
 }
 
 func (s *serviceSuite) TestInstallAndStartOkay(c *gc.C) {
