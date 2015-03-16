@@ -180,7 +180,7 @@ func processAliveVolumes(ctx *context, tags []names.Tag, volumeResults []params.
 		if err != nil {
 			return errors.Annotate(err, "publishing volumes to state")
 		}
-		if err := errorResults.Combine(); err != nil {
+		if err := (params.ErrorResults{errorResults}.Combine()); err != nil {
 			return errors.Annotate(err, "publishing volumes to state")
 		}
 		// TODO(axw) record volume attachment info in state.
