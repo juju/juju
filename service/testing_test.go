@@ -74,9 +74,9 @@ func (s *Stub) DiscoverService(name string) (Service, error) {
 	return s.Service, s.NextErr()
 }
 
-// Stat stubs out os.Stat.
-func (s *Stub) Stat(filename string) (os.FileInfo, error) {
-	s.AddCall("Stat", filename)
+// LStat stubs out os.LStat.
+func (s *Stub) Lstat(filename string) (os.FileInfo, error) {
+	s.AddCall("Lstat", filename)
 
 	return s.FileInfo, s.NextErr()
 }
@@ -176,7 +176,7 @@ func (s *BaseSuite) PatchPid1File(c *gc.C, executable, verText string) string {
 
 func (s *BaseSuite) PatchLink(c *gc.C, linked string) {
 	s.Patched.FileInfo = &StubSymlinkInfo{}
-	s.PatchValue(&osStat, s.Patched.Stat)
+	s.PatchValue(&osLstat, s.Patched.Lstat)
 
 	s.Patched.Linked = linked
 	s.PatchValue(&osReadlink, s.Patched.Readlink)
