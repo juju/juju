@@ -484,7 +484,7 @@ func AddLifeFieldOfIPAddresses(st *State) error {
 		// if state was missing, we pretend the IP address is
 		// unallocated. State can't be empty anyway, so this shouldn't
 		// happen.
-		if !ok || allocatedState == string(AddressStateAllocated) {
+		if ok && allocatedState == string(AddressStateAllocated) {
 			addressAllocated = true
 		}
 
