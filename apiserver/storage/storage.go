@@ -67,7 +67,7 @@ func (api *API) Show(entities params.Entities) (params.StorageDetailsResults, er
 	return params.StorageDetailsResults{Results: all}, nil
 }
 
-// List returns all currently known storage. Unlike Show(), 
+// List returns all currently known storage. Unlike Show(),
 // if errors encountered while retrieving a particular
 // storage, this error is treated as part of the returned storage detail.
 func (api *API) List() (params.StorageInfosResult, error) {

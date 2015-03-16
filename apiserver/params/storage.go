@@ -238,14 +238,14 @@ type VolumeParamsResults struct {
 type StorageStatus int
 
 const (
-    
-    // StorageStatusPending indicates that storage is pending.
+
+	// StorageStatusPending indicates that storage is pending.
 	StorageStatusPending StorageStatus = iota
-    
-    // StorageStatusProvisioned indicates that storage is provisioned.
+
+	// StorageStatusProvisioned indicates that storage is provisioned.
 	StorageStatusProvisioned
-    
-    // StorageStatusAttached indicates that storage is attached.
+
+	// StorageStatusAttached indicates that storage is attached.
 	StorageStatusAttached
 )
 
