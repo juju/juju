@@ -166,48 +166,95 @@ func identifyExecutable(executable string) (string, bool) {
 	}
 }
 
-// TODO(ericsnow) Synchronize newShellSelectCommand with discoverLocalInitSystem.
+// TODO(ericsnow) Build this script more dynamically (using shell.Renderer).
+// TODO(ericsnow) Use a case statement in the script?
 
-type initSystem struct {
-	executable string
-	name       string
+// DiscoverInitSystemScript is the shell script to use when
+// discovering the local init system.
+const DiscoverInitSystemScript = `#!/usr/bin/env bash
+
+# Find the executable.
+executable=$(cat /proc/1/cmdline | awk -F"\0" '{print $1}')
+if [[ $? ]]; then
+    exit 1
+fi
+
+# Check the executable.
+if [[ $executable == *"systemd"* ]]; then
+    echo -n systemd
+    exit $?
+elif [[ $executable == *"upstart"* ]]; then
+    echo -n upstart
+    exit $?
+fi
+
+# First fall back to following symlinks.
+if [[ -L $executable ]]; then
+    linked=$(readlink "$(executable)")
+    if [[ ! $? ]]; then
+        executable=$linked
+    fi
+
+    # Check the linked executable.
+    if [[ $executable == *"systemd"* ]]; then
+        echo -n systemd
+        exit $?
+    elif [[ $executable == *"upstart"* ]]; then
+        echo -n upstart
+        exit $?
+    fi
+fi
+
+# Fall back to checking the "version" text.
+verText=$("${executable}" --version)
+if [[ $? ]]; then
+    exit 1
+else
+    if [[ $verText == *"systemd"* ]]; then
+        echo -n systemd
+        exit $?
+    elif [[ $verText == *"upstart"* ]]; then
+        echo -n upstart
+        exit $?
+    fi
+fi
+
+# uh-oh
+exit 1
+`
+
+func writeDiscoverInitSystemScript(filename string) []string {
+	// TODO(ericsnow) Use utils.shell.Renderer.WriteScript.
+	return []string{
+		fmt.Sprintf(`
+cat > %s << 'EOF'
+%s
+EOF`[1:], filename, DiscoverInitSystemScript),
+		"chmod 0755 " + filename,
+	}
 }
-
-var linuxExecutables = []initSystem{
-	// Note that some systems link /sbin/init to whatever init system
-	// is supported, so in the future we may need some other way to
-	// identify upstart uniquely.
-	{"/sbin/init", InitSystemUpstart},
-	{"/sbin/upstart", InitSystemUpstart},
-	{"/sbin/systemd", InitSystemSystemd},
-	{"/bin/systemd", InitSystemSystemd},
-	{"/lib/systemd/systemd", InitSystemSystemd},
-}
-
-// TODO(ericsnow) Is it too much to cat once for each executable?
-const initSystemTest = `[[ "$(cat ` + pid1 + ` | awk '{print $1}')" == "%s" ]]`
 
 // newShellSelectCommand creates a bash if statement with an if
 // (or elif) clause for each of the executables in linuxExecutables.
 // The body of each clause comes from calling the provided handler with
 // the init system name. If the handler does not support the args then
 // it returns a false "ok" value.
-func newShellSelectCommand(handler func(string) (string, bool)) string {
-	// TODO(ericsnow) Allow passing in "initSystems ...string".
-	executables := linuxExecutables
-
-	// TODO(ericsnow) build the command in a better way?
+func newShellSelectCommand(discoverScript string, handler func(string) (string, bool)) string {
+	// TODO(ericsnow) Build the command in a better way?
+	// TODO(ericsnow) Use a case statement?
 
 	cmdAll := ""
-	for _, initSystem := range executables {
-		cmd, ok := handler(initSystem.name)
+	for _, initSystem := range linuxInitSystems {
+		cmd, ok := handler(initSystem)
 		if !ok {
 			continue
 		}
 
-		test := fmt.Sprintf(initSystemTest, initSystem.executable)
+		test := fmt.Sprintf("[[ $init_system == %q ]]", initSystem)
 		cmd = fmt.Sprintf("if %s; then %s\n", test, cmd)
-		if cmdAll != "" {
+		if cmdAll == "" {
+			cmd = "init_system=$(" + discoverScript + ") " + cmd
+		} else {
 			cmd = "el" + cmd
 		}
 		cmdAll += cmd
