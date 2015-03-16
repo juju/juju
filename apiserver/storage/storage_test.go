@@ -85,7 +85,7 @@ func (s *storageSuite) TestStorageList(c *gc.C) {
 	c.Assert(found.Results, gc.HasLen, 1)
 	wantedDetails := s.createTestStorageInfo()
 	wantedDetails.UnitTag = s.unitTag.String()
-	wantedDetails.Status = params.StorageStatusAttached
+	wantedDetails.Status = "attached"
 	s.assertInstanceInfoError(c, found.Results[0], wantedDetails, "")
 }
 
@@ -249,6 +249,7 @@ func (s *storageSuite) createTestStorageInfo() params.StorageInfo {
 			StorageTag: s.storageTag.String(),
 			OwnerTag:   s.unitTag.String(),
 			Kind:       params.StorageKindFilesystem,
+			Status:     "pending",
 		},
 		nil,
 	}
@@ -357,7 +358,7 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 		OwnerTag:   s.unitTag.String(),
 		Kind:       params.StorageKindFilesystem,
 		UnitTag:    s.unitTag.String(),
-		Status:     params.StorageStatusAttached,
+		Status:     "attached",
 	}
 	c.Assert(one.Result, gc.DeepEquals, expected)
 }

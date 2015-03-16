@@ -92,7 +92,7 @@ func formatStorageDetails(storages []params.StorageDetails) (map[string]map[stri
 		si := StorageInfo{
 			StorageName: storageName,
 			Kind:        one.Kind.String(),
-			Status:      one.Status.String(),
+			Status:      one.Status,
 			Location:    one.Location,
 		}
 		unit := unitTag.Id()

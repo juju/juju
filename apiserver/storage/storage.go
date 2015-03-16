@@ -143,7 +143,7 @@ func (api *API) getStorageAttachments(instance params.StorageDetails) ([]params.
 }
 
 func (api *API) createParamsStorageAttachment(si params.StorageDetails, sa state.StorageAttachment) (params.StorageDetails, error) {
-	result := params.StorageDetails{}
+	result := params.StorageDetails{Status: "pending"}
 	result.StorageTag = sa.StorageInstance().String()
 	if result.StorageTag != si.StorageTag {
 		panic("attachment does not belong to storage instance")
@@ -151,7 +151,7 @@ func (api *API) createParamsStorageAttachment(si params.StorageDetails, sa state
 	result.UnitTag = sa.Unit().String()
 	result.OwnerTag = si.OwnerTag
 	result.Kind = si.Kind
-	result.Status = params.StorageStatusAttached
+	result.Status = "attached"
 
 	// This is only for provisioned attachments
 	machineTag, err := api.storage.UnitAssignedMachine(sa.Unit())
@@ -168,7 +168,7 @@ func (api *API) createParamsStorageAttachment(si params.StorageDetails, sa state
 	}
 	result.Location = info.Location
 	if result.Location != "" {
-		result.Status = params.StorageStatusProvisioned
+		result.Status = "provisioned"
 	}
 	return result, nil
 }
@@ -197,6 +197,7 @@ func createParamsStorageInstance(si state.StorageInstance) params.StorageDetails
 		OwnerTag:   si.Owner().String(),
 		StorageTag: si.Tag().String(),
 		Kind:       params.StorageKind(si.Kind()),
+		Status:     "pending",
 	}
 	return result
 }

@@ -147,7 +147,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 			UnitTag:    "unit-transcode-0",
 			Kind:       params.StorageKindBlock,
 			Location:   "here",
-			Status:     params.StorageStatusAttached,
+			Status:     "attached",
 		}, nil}, {
 		params.StorageDetails{
 			StorageTag: "storage-db-dir-1000",
@@ -155,7 +155,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 			UnitTag:    "unit-transcode-0",
 			Kind:       params.StorageKindUnknown,
 			Location:   "there",
-			Status:     params.StorageStatusProvisioned,
+			Status:     "provisioned",
 		}, nil}}
 
 	if chaos {
@@ -166,7 +166,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 				UnitTag:    "unit-transcode-0",
 				Kind:       params.StorageKindUnknown,
 				Location:   "nowhere",
-				Status:     params.StorageStatusPending,
+				Status:     "pending",
 			}, nil}
 		second := params.StorageInfo{
 			params.StorageDetails{
@@ -175,7 +175,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 				UnitTag:    "unit-transcode-1",
 				Kind:       params.StorageKindBlock,
 				Location:   "",
-				Status:     params.StorageStatus(4),
+				Status:     "pending",
 			}, &params.Error{Message: "error for storage-db-dir-1010"}}
 		first := params.StorageInfo{
 			params.StorageDetails{
@@ -183,7 +183,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 				OwnerTag:   "unit-transcode-1",
 				UnitTag:    "unit-transcode-1",
 				Kind:       params.StorageKindFilesystem,
-				Status:     params.StorageStatusAttached,
+				Status:     "attached",
 			}, nil}
 		results = append(results, last)
 		results = append(results, second)
@@ -201,6 +201,7 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 				OwnerTag:   "service-transcode",
 				UnitTag:    "unit-transcode-0",
 				Kind:       params.StorageKindUnknown,
+				Status:     "pending",
 			}, nil},
 		{
 			params.StorageDetails{
@@ -208,18 +209,21 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 				OwnerTag:   "service-transcode",
 				UnitTag:    "unit-transcode-1",
 				Kind:       params.StorageKindUnknown,
+				Status:     "pending",
 			}, nil},
 		{
 			params.StorageDetails{
 				StorageTag: "storage-db-dir-1100",
 				UnitTag:    "unit-postgresql-0",
 				Kind:       params.StorageKindFilesystem,
+				Status:     "pending",
 			}, nil},
 		{
 			params.StorageDetails{
 				StorageTag: "storage-db-dir-1100",
 				UnitTag:    "unit-transcode-0",
 				Kind:       params.StorageKindFilesystem,
+				Status:     "pending",
 			}, nil},
 		{
 			params.StorageDetails{
@@ -227,6 +231,7 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 				OwnerTag:   "unit-transcode-0",
 				UnitTag:    "unit-transcode-0",
 				Kind:       params.StorageKindBlock,
+				Status:     "pending",
 			}, nil}}
 
 	if chaos {
@@ -236,24 +241,28 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 				OwnerTag:   "service-transcode",
 				UnitTag:    "unit-transcode-0",
 				Kind:       params.StorageKindUnknown,
+				Status:     "pending",
 			}, nil}
 		second := params.StorageInfo{
 			params.StorageDetails{
 				StorageTag: "storage-db-dir-1010",
 				UnitTag:    "unit-transcode-1",
 				Kind:       params.StorageKindBlock,
+				Status:     "pending",
 			}, &params.Error{Message: "error for test storage-db-dir-1010"}}
 		first := params.StorageInfo{
 			params.StorageDetails{
 				StorageTag: "storage-db-dir-1000",
 				UnitTag:    "unit-transcode-1",
 				Kind:       params.StorageKindFilesystem,
+				Status:     "pending",
 			}, nil}
 		zero := params.StorageInfo{
 			params.StorageDetails{
 				StorageTag: "storage-db-dir-1100",
 				UnitTag:    "unit-postgresql-0",
 				Kind:       params.StorageKindFilesystem,
+				Status:     "pending",
 			}, nil}
 		results = append(results, last)
 		results = append(results, second)

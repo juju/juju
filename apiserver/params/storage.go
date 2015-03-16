@@ -234,35 +234,6 @@ type VolumeParamsResults struct {
 	Results []VolumeParamsResult `json:"results,omitempty"`
 }
 
-// StorageStatus indicates where storage is at.
-type StorageStatus int
-
-const (
-
-	// StorageStatusPending indicates that storage is pending.
-	StorageStatusPending StorageStatus = iota
-
-	// StorageStatusProvisioned indicates that storage is provisioned.
-	StorageStatusProvisioned
-
-	// StorageStatusAttached indicates that storage is attached.
-	StorageStatusAttached
-)
-
-// String returns representation of StorageStatus for readability.
-func (k *StorageStatus) String() string {
-	switch *k {
-	case StorageStatusPending:
-		return "pending"
-	case StorageStatusProvisioned:
-		return "provisioned"
-	case StorageStatusAttached:
-		return "attached"
-	default:
-		return "unknown"
-	}
-}
-
 // StorageDetails holds information about storage.
 type StorageDetails struct {
 
@@ -275,9 +246,8 @@ type StorageDetails struct {
 	// Kind holds what kind of storage this instance is.
 	Kind StorageKind `json:"kind"`
 
-	// Status indicates storage status.
-	// For example, pending, provisioned, attached...
-	Status StorageStatus `json:"status"`
+	// Status indicates storage status, e.g. pending, provisioned, attached.
+	Status string `json:"status,omitempty"`
 
 	// UnitTag holds tag for unit for attached instances.
 	UnitTag string `json:"unittag,omitempty"`

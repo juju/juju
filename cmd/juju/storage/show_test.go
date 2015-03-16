@@ -135,6 +135,7 @@ func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageDetails, err
 			StorageTag: tag.String(),
 			UnitTag:    "unit-postgresql-0",
 			Kind:       params.StorageKindBlock,
+			Status:     "pending",
 		}
 	}
 	for _, tag := range tags {
@@ -145,7 +146,7 @@ func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageDetails, err
 				UnitTag:    "unit-transcode-0",
 				Kind:       params.StorageKindFilesystem,
 				Location:   "a location",
-				Status:     params.StorageStatusAttached,
+				Status:     "attached",
 			})
 		}
 	}
