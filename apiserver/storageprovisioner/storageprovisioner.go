@@ -228,6 +228,48 @@ func (s *StorageProvisionerAPI) Volumes(args params.Entities) (params.VolumeResu
 	return results, nil
 }
 
+// VolumeAttachments returns details of volume attachments with the specified IDs.
+func (s *StorageProvisionerAPI) VolumeAttachments(args params.MachineStorageIds) (params.VolumeAttachmentResults, error) {
+	canAccess, err := s.getScopeAuthFunc()
+	if err != nil {
+		return params.VolumeAttachmentResults{}, common.ServerError(common.ErrPerm)
+	}
+	results := params.VolumeAttachmentResults{
+		Results: make([]params.VolumeAttachmentResult, len(args.Ids)),
+	}
+	one := func(arg params.MachineStorageId) (params.VolumeAttachment, error) {
+		machineTag, err := names.ParseMachineTag(arg.MachineTag)
+		if err != nil {
+			return params.VolumeAttachment{}, err
+		}
+		if !canAccess(machineTag) {
+			return params.VolumeAttachment{}, common.ErrPerm
+		}
+		volumeTag, err := names.ParseVolumeTag(arg.AttachmentTag)
+		if err != nil {
+			return params.VolumeAttachment{}, err
+		}
+		volumeAttachment, err := s.st.VolumeAttachment(machineTag, volumeTag)
+		if errors.IsNotFound(err) {
+			return params.VolumeAttachment{}, common.ErrPerm
+		} else if err != nil {
+			return params.VolumeAttachment{}, err
+		}
+		return common.VolumeAttachmentFromState(volumeAttachment)
+	}
+	for i, arg := range args.Ids {
+		var result params.VolumeAttachmentResult
+		volumeAttachment, err := one(arg)
+		if err != nil {
+			result.Error = common.ServerError(err)
+		} else {
+			result.Result = volumeAttachment
+		}
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
 // VolumeParams returns the parameters for creating the volumes
 // with the specified tags.
 func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.VolumeParamsResults, error) {

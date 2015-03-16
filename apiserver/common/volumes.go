@@ -106,6 +106,20 @@ func VolumeFromState(v state.Volume) (params.Volume, error) {
 	}, nil
 }
 
+// VolumeAttachmentFromState converts a state.VolumeAttachment to params.VolumeAttachment.
+func VolumeAttachmentFromState(v state.VolumeAttachment) (params.VolumeAttachment, error) {
+	info, err := v.Info()
+	if err != nil {
+		return params.VolumeAttachment{}, errors.Trace(err)
+	}
+	return params.VolumeAttachment{
+		v.Volume().String(),
+		v.Machine().String(),
+		info.DeviceName,
+		info.ReadOnly,
+	}, nil
+}
+
 // VolumeAttachmentsToState converts a slice of storage.VolumeAttachment to a
 // mapping of volume tags to state.VolumeAttachmentInfo.
 func VolumeAttachmentsToState(in []params.VolumeAttachment) (map[names.VolumeTag]state.VolumeAttachmentInfo, error) {

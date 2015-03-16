@@ -16,6 +16,7 @@ type provisionerState interface {
 	WatchMachineVolumes(names.MachineTag) state.StringsWatcher
 	WatchMachineVolumeAttachments(names.MachineTag) state.StringsWatcher
 	Volume(names.VolumeTag) (state.Volume, error)
+	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 	VolumeAttachments(names.VolumeTag) ([]state.VolumeAttachment, error)
 	SetVolumeInfo(names.VolumeTag, state.VolumeInfo) error
 }

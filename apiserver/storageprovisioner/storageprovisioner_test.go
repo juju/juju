@@ -153,6 +153,51 @@ func (s *provisionerSuite) TestVolumesEmptyArgs(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
+func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
+	s.setupVolumes(c)
+	s.authorizer.EnvironManager = false
+
+	err := s.State.SetVolumeAttachmentInfo(
+		names.NewMachineTag("0"),
+		names.NewVolumeTag("0/0"),
+		state.VolumeAttachmentInfo{DeviceName: "xvdf1"},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := s.api.VolumeAttachments(params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-0-0",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-2", // volume attachment not provisioned
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-1", // volume not provisioned
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-42",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.VolumeAttachmentResults{
+		Results: []params.VolumeAttachmentResult{
+			{Result: params.VolumeAttachment{
+				VolumeTag: "volume-0-0", MachineTag: "machine-0", DeviceName: "xvdf1",
+			}},
+			{Error: &params.Error{
+				Code:    params.CodeNotProvisioned,
+				Message: `volume attachment "2" on "0" not provisioned`,
+			}},
+			{Error: &params.Error{
+				Code:    params.CodeNotProvisioned,
+				Message: `volume attachment "1" on "0" not provisioned`,
+			}},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+		},
+	})
+}
+
 func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 	s.setupVolumes(c)
 	results, err := s.api.VolumeParams(params.Entities{
@@ -236,6 +281,7 @@ func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 	result, err := s.api.WatchVolumeAttachments(args)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Sort(byMachineAndEntity(result.Results[0].Changes))
+	sort.Sort(byMachineAndEntity(result.Results[1].Changes))
 	c.Assert(result, jc.DeepEquals, params.MachineStorageIdsWatchResults{
 		Results: []params.MachineStorageIdsWatchResult{
 			{
