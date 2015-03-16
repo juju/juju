@@ -2256,14 +2256,37 @@ func (s *upgradesSuite) TestIPAddressesLife(c *gc.C) {
 	addresses, closer := s.state.getRawCollection(ipaddressesC)
 	defer closer()
 
+	addMachine := func(machineID int, life Life) {
+
+		mDoc := bson.M{
+			"_id":        machineID,
+			"instanceid": "foobar",
+			"life":       life,
+		}
+		ops := []txn.Op{
+			{
+				C:      machinesC,
+				Id:     machineID,
+				Assert: txn.DocMissing,
+				Insert: mDoc,
+			},
+		}
+		err := s.state.runRawTransaction(ops)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	addMachine(1, Alive)
+	addMachine(2, Alive)
+	addMachine(3, Dead)
+
 	uuid := s.state.EnvironUUID()
 
 	err := addresses.Insert(
+		// this one should have Life set to Alive
 		bson.D{
 			{"_id", uuid + ":0.1.2.3"},
 			{"env-uuid", uuid},
 			{"subnetid", "foo"},
-			{"machineid", "bar"},
+			{"machineid", 1},
 			{"interfaceid", "bam"},
 			{"value", "0.1.2.3"},
 			{"state", ""},
@@ -2274,10 +2297,30 @@ func (s *upgradesSuite) TestIPAddressesLife(c *gc.C) {
 			{"env-uuid", uuid},
 			{"life", Dead},
 			{"subnetid", "foo"},
-			{"machineid", "bar"},
+			{"machineid", 2},
 			{"interfaceid", "bam"},
 			{"value", "0.1.2.4"},
 			{"state", ""},
+		},
+		// this one should be set to Dead as the machine is Dead
+		bson.D{
+			{"_id", uuid + ":0.1.2.5"},
+			{"env-uuid", uuid},
+			{"subnetid", "foo"},
+			{"machineid", 3},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.5"},
+			{"state", AddressStateAllocated},
+		},
+		// this one should be set to Dead the machine is set to missing
+		bson.D{
+			{"_id", uuid + ":0.1.2.6"},
+			{"env-uuid", uuid},
+			{"subnetid", "foo"},
+			{"machineid", 4},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.6"},
+			{"state", AddressStateAllocated},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
