@@ -30,8 +30,7 @@ var (
 	LocalDNSServers            = localDNSServers
 	MustParseTemplate          = mustParseTemplate
 	RunTemplateCommand         = runTemplateCommand
-	IPTablesCheckSNAT          = &iptablesCheckSNAT
-	IPTablesAddSNAT            = &iptablesAddSNAT
+	IptablesRules              = &iptablesRules
 	NetInterfaces              = &netInterfaces
 	InterfaceAddrs             = &interfaceAddrs
 	DiscoverPrimaryNIC         = discoverPrimaryNIC
