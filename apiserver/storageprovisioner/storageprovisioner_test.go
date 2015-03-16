@@ -280,6 +280,40 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 	})
 }
 
+func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
+	s.setupVolumes(c)
+	s.authorizer.EnvironManager = true
+
+	results, err := s.api.SetVolumeAttachmentInfo(params.VolumeAttachments{
+		VolumeAttachments: []params.VolumeAttachment{{
+			MachineTag: "machine-0",
+			VolumeTag:  "volume-0-0",
+			DeviceName: "sda",
+		}, {
+			MachineTag: "machine-0",
+			VolumeTag:  "volume-1",
+			DeviceName: "sdb",
+		}, {
+			MachineTag: "machine-2",
+			VolumeTag:  "volume-3",
+			DeviceName: "sdc",
+		}, {
+			MachineTag: "machine-0",
+			VolumeTag:  "volume-42",
+			DeviceName: "sdd",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{},
+			{}, // TODO(axw) this should fail, since volume is not provisioned
+			{}, // TODO(axw) this should fail, since machine is not provisioned
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+		},
+	})
+}
+
 func (s *provisionerSuite) TestWatchVolumes(c *gc.C) {
 	s.setupVolumes(c)
 	s.factory.MakeMachine(c, nil)
@@ -295,10 +329,10 @@ func (s *provisionerSuite) TestWatchVolumes(c *gc.C) {
 	result, err := s.api.WatchVolumes(args)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(result.Results[1].Changes)
-	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{StringsWatcherId: "1", Changes: []string{"0/0"}},
-			{StringsWatcherId: "2", Changes: []string{"1", "2"}},
+			{StringsWatcherId: "2", Changes: []string{"1", "2", "3"}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -359,6 +393,9 @@ func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 				}, {
 					MachineTag:    "machine-0",
 					AttachmentTag: "volume-2",
+				}, {
+					MachineTag:    "machine-2",
+					AttachmentTag: "volume-3",
 				}},
 			},
 			{Error: apiservertesting.ErrUnauthorized},

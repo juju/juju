@@ -135,19 +135,31 @@ func VolumeAttachmentFromState(v state.VolumeAttachment) (params.VolumeAttachmen
 func VolumeAttachmentsToState(in []params.VolumeAttachment) (map[names.VolumeTag]state.VolumeAttachmentInfo, error) {
 	m := make(map[names.VolumeTag]state.VolumeAttachmentInfo)
 	for _, v := range in {
-		if v.VolumeTag == "" {
-			return nil, errors.New("Tag is empty")
-		}
-		volumeTag, err := names.ParseVolumeTag(v.VolumeTag)
+		_, volumeTag, info, err := VolumeAttachmentToState(v)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		m[volumeTag] = state.VolumeAttachmentInfo{
-			v.DeviceName,
-			v.ReadOnly,
-		}
+		m[volumeTag] = info
 	}
 	return m, nil
+}
+
+// VolumeAttachmentToState converts a storage.VolumeAttachment
+// to a state.VolumeAttachmentInfo.
+func VolumeAttachmentToState(in params.VolumeAttachment) (names.MachineTag, names.VolumeTag, state.VolumeAttachmentInfo, error) {
+	machineTag, err := names.ParseMachineTag(in.MachineTag)
+	if err != nil {
+		return names.MachineTag{}, names.VolumeTag{}, state.VolumeAttachmentInfo{}, err
+	}
+	volumeTag, err := names.ParseVolumeTag(in.VolumeTag)
+	if err != nil {
+		return names.MachineTag{}, names.VolumeTag{}, state.VolumeAttachmentInfo{}, err
+	}
+	info := state.VolumeAttachmentInfo{
+		in.DeviceName,
+		in.ReadOnly,
+	}
+	return machineTag, volumeTag, info, nil
 }
 
 // ParseMachineStorageIds parses the strings, returning machine attachment IDs.

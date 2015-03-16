@@ -22,6 +22,7 @@ type provisionerState interface {
 	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 	VolumeAttachments(names.VolumeTag) ([]state.VolumeAttachment, error)
 	SetVolumeInfo(names.VolumeTag, state.VolumeInfo) error
+	SetVolumeAttachmentInfo(names.MachineTag, names.VolumeTag, state.VolumeAttachmentInfo) error
 }
 
 type stateShim struct {
