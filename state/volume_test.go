@@ -46,7 +46,6 @@ func (s *VolumeStateSuite) TestAddMachine(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 	_, ok := volume.Params()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(volume.Persistent(), jc.IsFalse)
 
 	machine, err := s.State.Machine(assignedMachineId)
 	c.Assert(err, jc.ErrorIsNil)
@@ -117,18 +116,6 @@ func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 	})
 }
 
-func (s *VolumeStateSuite) TestAddServicePersistentVolume(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("persistent-block", provider.LoopProviderType, map[string]interface{}{"persistent": "true"})
-	c.Assert(err, jc.ErrorIsNil)
-	_, u, storageTag := s.setupSingleStorage(c, "block", "persistent-block")
-	err = s.State.AssignUnit(u, state.AssignCleanEmpty)
-	c.Assert(err, jc.ErrorIsNil)
-	volume, err := s.State.StorageInstanceVolume(storageTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volume.Persistent(), jc.IsTrue)
-}
-
 func (s *VolumeStateSuite) TestSetVolumeInfo(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
@@ -139,7 +126,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfo(c *gc.C) {
 	volumeTag := volume.VolumeTag()
 	s.assertVolumeUnprovisioned(c, volumeTag)
 
-	volumeInfoSet := state.VolumeInfo{Size: 123}
+	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true}
 	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfoSet.Pool = "loop-pool" // taken from params
@@ -386,13 +373,22 @@ func (s *VolumeStateSuite) TestPersistentVolumes(c *gc.C) {
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 
-	volume, err := s.State.StorageInstanceVolume(names.NewStorageTag("multi1to10/0"))
+	volume1, err := s.State.StorageInstanceVolume(names.NewStorageTag("multi1to10/0"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true}
+	err = s.State.SetVolumeInfo(volume1.VolumeTag(), volumeInfoSet)
+	c.Assert(err, jc.ErrorIsNil)
+
+	volume2, err := s.State.StorageInstanceVolume(names.NewStorageTag("multi2up/1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumeInfoSet = state.VolumeInfo{Size: 456, Persistent: false}
+	err = s.State.SetVolumeInfo(volume2.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
 	v, err := s.State.PersistentVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(v, gc.HasLen, 1)
-	c.Assert(v[0], gc.DeepEquals, volume)
-
-	// TODO(wallyworld) - test dying/dead volumes excluded
+	c.Assert(v[0].VolumeTag(), gc.DeepEquals, volume1.VolumeTag())
 }

@@ -144,7 +144,7 @@ func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 	}})
 	c.Assert(volumes, gc.DeepEquals, []storage.Volume{
 		{Tag: volume0, Size: 2048},
-		{Tag: volume1, Size: 45056},
+		{Tag: volume1, Size: 45056, Persistent: true},
 	})
 	c.Assert(volumeAttachments, gc.DeepEquals, []storage.VolumeAttachment{
 		{Volume: volume0, Machine: machine0, DeviceName: "xvdf1"},

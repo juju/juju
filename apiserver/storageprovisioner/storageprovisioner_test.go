@@ -91,9 +91,10 @@ func (s *provisionerSuite) setupVolumes(c *gc.C) {
 	})
 	// Only provision the first and third volumes.
 	err := s.State.SetVolumeInfo(names.NewVolumeTag("0/0"), state.VolumeInfo{
-		Serial:   "123",
-		VolumeId: "abc",
-		Size:     1024,
+		Serial:     "123",
+		VolumeId:   "abc",
+		Size:       1024,
+		Persistent: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetVolumeInfo(names.NewVolumeTag("2"), state.VolumeInfo{
@@ -129,7 +130,7 @@ func (s *provisionerSuite) TestVolumesMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.VolumeResults{
 		Results: []params.VolumeResult{
-			{Result: params.Volume{VolumeTag: "volume-0-0", VolumeId: "abc", Serial: "123", Size: 1024}},
+			{Result: params.Volume{VolumeTag: "volume-0-0", VolumeId: "abc", Serial: "123", Size: 1024, Persistent: true}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},

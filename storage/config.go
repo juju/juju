@@ -21,7 +21,7 @@ const (
 	ConfigStorageDir = "storage-dir"
 
 	// Persistent is true if storage survives the lifecycle of the
-	// unit to which it is attached.
+	// machine to which it is attached.
 	Persistent = "persistent"
 )
 
@@ -73,11 +73,8 @@ func (c *Config) ValueString(name string) (string, bool) {
 	return v, ok
 }
 
-// IsPersistent returns true if config has persistent set to true..
+// IsPersistent returns true if config has persistent set to true.
 func (c *Config) IsPersistent() bool {
-	if v, ok := c.attrs[Persistent].(bool); !ok {
-		return false
-	} else {
-		return v
-	}
+	v, _ := c.attrs[Persistent].(bool)
+	return v
 }

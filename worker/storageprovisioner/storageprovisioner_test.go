@@ -80,9 +80,10 @@ func (v *mockVolumeAccessor) VolumeParams(volumes []names.VolumeTag) ([]params.V
 			})
 		} else {
 			result = append(result, params.VolumeParamsResult{Result: params.VolumeParams{
-				VolumeTag: tag.String(),
-				Size:      1024,
-				Provider:  "dummy",
+				VolumeTag:  tag.String(),
+				Size:       1024,
+				Provider:   "dummy",
+				Attributes: map[string]interface{}{"persistent": tag.String() == "volume-1"},
 			}})
 		}
 	}
@@ -169,11 +170,13 @@ func (*dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storag
 	var volumes []storage.Volume
 	var volumeAttachments []storage.VolumeAttachment
 	for _, p := range params {
+		persistent, _ := p.Attributes["persistent"].(bool)
 		volumes = append(volumes, storage.Volume{
-			Tag:      p.Tag,
-			Size:     p.Size,
-			Serial:   "serial-" + p.Tag.Id(),
-			VolumeId: "id-" + p.Tag.Id(),
+			Tag:        p.Tag,
+			Size:       p.Size,
+			Serial:     "serial-" + p.Tag.Id(),
+			VolumeId:   "id-" + p.Tag.Id(),
+			Persistent: persistent,
 		})
 		volumeAttachments = append(volumeAttachments, storage.VolumeAttachment{
 			Volume:     p.Tag,
@@ -189,7 +192,7 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 	updated := make(chan struct{})
 	changes := make(chan []string)
 	expectedVolumes := []params.Volume{
-		{VolumeTag: "volume-1", VolumeId: "id-1", Serial: "serial-1", Size: 1024},
+		{VolumeTag: "volume-1", VolumeId: "id-1", Serial: "serial-1", Size: 1024, Persistent: true},
 		{VolumeTag: "volume-2", VolumeId: "id-2", Serial: "serial-2", Size: 1024},
 	}
 	worker := storageprovisioner.NewStorageProvisioner(

@@ -14,7 +14,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
 )
 
 // Volume describes a volume (disk, logical volume, etc.) in the environment.
@@ -26,13 +25,6 @@ type Volume interface {
 
 	// Life returns the life of the volume.
 	Life() Life
-
-	// Persistent returns whether this volume is persistent.
-	// Persistent volumes are not destroyed allow with the unit to which they
-	// are attached. It would normally be expected that environ scoped volumes
-	// could be made persistent, although it is still possible to make machine
-	// scoped volumes persistent if the user so chooses.
-	Persistent() bool
 
 	// StorageInstance returns the tag of the storage instance that this
 	// volume is assigned to, if any. If the volume is not assigned to
@@ -87,14 +79,13 @@ type volumeAttachment struct {
 
 // volumeDoc records information about a volume in the environment.
 type volumeDoc struct {
-	DocID      string        `bson:"_id"`
-	Name       string        `bson:"name"`
-	EnvUUID    string        `bson:"env-uuid"`
-	Life       Life          `bson:"life"`
-	StorageId  string        `bson:"storageid,omitempty"`
-	Persistent bool          `bson:"persistent"`
-	Info       *VolumeInfo   `bson:"info,omitempty"`
-	Params     *VolumeParams `bson:"params,omitempty"`
+	DocID     string        `bson:"_id"`
+	Name      string        `bson:"name"`
+	EnvUUID   string        `bson:"env-uuid"`
+	Life      Life          `bson:"life"`
+	StorageId string        `bson:"storageid,omitempty"`
+	Info      *VolumeInfo   `bson:"info,omitempty"`
+	Params    *VolumeParams `bson:"params,omitempty"`
 }
 
 // volumeAttachmentDoc records information about a volume attachment.
@@ -125,6 +116,7 @@ type VolumeInfo struct {
 	Size     uint64 `bson:"size"`
 	Pool     string `bson:"pool"`
 	VolumeId string `bson:"volumeid"`
+	Persistent bool   `bson:"persistent"`
 }
 
 // VolumeAttachmentInfo describes information about a volume attachment.
@@ -152,11 +144,6 @@ func (v *volume) VolumeTag() names.VolumeTag {
 // Life returns the volume's current lifecycle state.
 func (v *volume) Life() Life {
 	return v.doc.Life
-}
-
-// Persistent returns whether this volume is persistent.
-func (v *volume) Persistent() bool {
-	return v.doc.Persistent
 }
 
 // StorageInstance is required to implement Volume.
@@ -237,7 +224,7 @@ func (st *State) PersistentVolumes() ([]Volume, error) {
 
 	var vDocs []volumeDoc
 	err := coll.Find(
-		bson.D{{"persistent", true}, {"life", Alive}},
+		bson.D{{"info.persistent", true}},
 	).All(&vDocs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get persistent volumes")
@@ -348,14 +335,6 @@ func (st *State) addVolumeOp(params VolumeParams, machineId string) (txn.Op, nam
 	if err != nil {
 		return txn.Op{}, names.VolumeTag{}, errors.Annotate(err, "validating volume params")
 	}
-	// Pools can be configured to specify that volumes be marked as persistent.
-	persistent := false
-	poolManager := poolmanager.New(NewStateSettings(st))
-	if pool, err := poolManager.Get(params.Pool); err == nil {
-		persistent = pool.IsPersistent()
-	} else if !errors.IsNotFound(err) {
-		return txn.Op{}, names.VolumeTag{}, errors.Annotatef(err, "reading pool data")
-	}
 
 	name, err := newVolumeName(st, machineId)
 	if err != nil {
@@ -366,10 +345,9 @@ func (st *State) addVolumeOp(params VolumeParams, machineId string) (txn.Op, nam
 		Id:     name,
 		Assert: txn.DocMissing,
 		Insert: &volumeDoc{
-			Name:       name,
-			StorageId:  params.storage.Id(),
-			Params:     &params,
-			Persistent: persistent,
+			Name:      name,
+			StorageId: params.storage.Id(),
+			Params:    &params,
 		},
 	}
 	return op, names.NewVolumeTag(name), nil

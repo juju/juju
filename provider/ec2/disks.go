@@ -135,8 +135,9 @@ func getBlockDeviceMappings(
 		mapping.DeviceName = requestDeviceName
 
 		volume := storage.Volume{
-			Tag:  params.Tag,
-			Size: gibToMib(uint64(mapping.VolumeSize)),
+			Tag:        params.Tag,
+			Size:       gibToMib(uint64(mapping.VolumeSize)),
+			Persistent: !mapping.DeleteOnTermination,
 			// VolumeId will be filled in once the instance has
 			// been created, which will create the volumes too.
 		}

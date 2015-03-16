@@ -21,6 +21,10 @@ type Volume struct {
 
 	// Size is the size of the volume, in MiB.
 	Size uint64
+
+	// Persistent reflects whether the volume is destroyed with the
+	// machine to which it is attached.
+	Persistent bool
 }
 
 // VolumeAttachment describes machine-specific volume attachment information,
