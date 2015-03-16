@@ -124,13 +124,13 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 
 	// Prune logs collection back by size.
 	tsNoPrune := time.Now().Add(-3 * 24 * time.Hour)
-	err := state.PruneLogs(s.State, tsNoPrune, 2500000)
+	err := state.PruneLogs(s.State, tsNoPrune, 250000)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check logs were pruned as expected.
 	c.Assert(s.countLogs(c, s0), gc.Equals, 10) // Not touched
-	s.assertLogCountBetween(c, s1, 5100, 5200)  // Should be fairly evenly truncated.
-	s.assertLogCountBetween(c, s2, 5100, 5200)
+	c.Assert(s.countLogs(c, s1), jc.LessThan, 6000)
+	c.Assert(s.countLogs(c, s2), jc.LessThan, 6000)
 
 	// Ensure that the latest log records are still there.
 	assertLatestTs := func(st *state.State) {
@@ -156,8 +156,7 @@ func (s *LogsSuite) TestPruneLogsWithSmallSizeThreshold(c *gc.C) {
 	tinySize := 100
 	err := state.PruneLogs(s.State, tsNoPrune, tinySize)
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.assertLogCountBetween(c, s.State, 4900, 5000)
+	c.Assert(s.countLogs(c, s.State), jc.LessThan, 6000)
 }
 
 func (s *LogsSuite) generateLogs(c *gc.C, st *state.State, now time.Time, count int) {
@@ -168,12 +167,6 @@ func (s *LogsSuite) generateLogs(c *gc.C, st *state.State, now time.Time, count 
 		err := dbLogger.Log(ts, "module", "loc", loggo.INFO, "message")
 		c.Assert(err, jc.ErrorIsNil)
 	}
-}
-
-func (s *LogsSuite) assertLogCountBetween(c *gc.C, st *state.State, min, max int) {
-	count := s.countLogs(c, st)
-	c.Assert(count, jc.LessThan, max)
-	c.Assert(count, jc.GreaterThan, min)
 }
 
 func (s *LogsSuite) countLogs(c *gc.C, st *state.State) int {
