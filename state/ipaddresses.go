@@ -61,16 +61,6 @@ type ipaddressDoc struct {
 	State       AddressState `bson:"state"`
 }
 
-// Id returns the DocID of the IP address.
-func (i *IPAddress) Id() string {
-	return i.doc.DocID
-}
-
-// GoString implements fmt.GoStringer.
-func (i *IPAddress) GoString() string {
-	return i.String()
-}
-
 // Life returns whether the IP address is Alive, Dying or Dead.
 func (i *IPAddress) Life() Life {
 	return i.doc.Life
@@ -125,6 +115,11 @@ func (i *IPAddress) State() AddressState {
 // String implements fmt.Stringer.
 func (i *IPAddress) String() string {
 	return i.Address().String()
+}
+
+// GoString implements fmt.GoStringer.
+func (i *IPAddress) GoString() string {
+	return i.String()
 }
 
 // EnsureDead sets the Life of the IP address to Dead, if it's Alive. It

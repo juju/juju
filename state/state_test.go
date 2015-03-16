@@ -2137,22 +2137,22 @@ func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchIPAddresses(c *gc.C) {
-	w := s.State.WatchEnvironments()
+	w := s.State.WatchIPAddresses()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChange(s.State.EnvironUUID())
+	wc.AssertChanges()
 	wc.AssertNoChange()
 
 	// add an IP address
 	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.3", network.ScopePublic), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(s.State.EnvironUUID())
+	wc.AssertChange(addr.Value())
 	wc.AssertNoChange()
 
 	// Make it Dead: reported.
-	err = addr.Remove()
+	err = addr.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(addr.Id())
+	wc.AssertChange(addr.Value())
 	wc.AssertNoChange()
 }
 
