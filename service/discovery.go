@@ -31,9 +31,7 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 		versionInitName, ok := VersionInitSystem(jujuVersion)
 		if !ok {
 			// The key error is the one from discoverLocalInitSystem so
-			// that is what we return. However, we at least log the
-			// failed fallback attempt.
-			logger.Errorf("could not identify init system from %v", jujuVersion)
+			// that is what we return.
 			return nil, errors.Trace(err)
 		}
 		initName = versionInitName
@@ -52,6 +50,16 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 // version info. If one cannot be identified then false if returned
 // for the second return value.
 func VersionInitSystem(vers version.Binary) (string, bool) {
+	initName, ok := versionInitSystem(vers)
+	if !ok {
+		logger.Errorf("could not identify init system from juju version info (%#v)", vers)
+		return "", false
+	}
+	logger.Debugf("discovered init system %q from juju version info (%#v)", initName, vers)
+	return initName, true
+}
+
+func versionInitSystem(vers version.Binary) (string, bool) {
 	switch vers.OS {
 	case version.Windows:
 		return InitSystemWindows, true
@@ -87,6 +95,8 @@ const pid1 = "/proc/1/cmdline"
 var (
 	runtimeOS    = func() string { return runtime.GOOS }
 	pid1Filename = func() string { return pid1 }
+	osStat       = os.Stat
+	osReadlink   = os.Readlink
 
 	initExecutable = func() (string, error) {
 		pid1File := pid1Filename()
@@ -112,7 +122,8 @@ func discoverLocalInitSystem() (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	initName, ok := identifyInitSystem(executable)
+	followLink := true
+	initName, ok := identifyInitSystem(executable, followLink)
 	if !ok {
 		return "", errors.NotFoundf("init system (based on %q)", executable)
 	}
@@ -120,20 +131,34 @@ func discoverLocalInitSystem() (string, error) {
 	return initName, nil
 }
 
-func identifyInitSystem(executable string) (string, bool) {
+func identifyInitSystem(executable string, followLink bool) (string, bool) {
 	initSystem, ok := identifyExecutable(executable)
 	if ok {
 		return initSystem, true
 	}
 
-	if _, err := os.Stat(executable); os.IsNotExist(err) {
+	finfo, err := osStat(executable)
+	if os.IsNotExist(err) {
 		return "", false
 	} else if err != nil {
 		logger.Errorf("failed to find %q: %v", executable, err)
 		// The stat check is just an optimization so we go on anyway.
 	}
 
-	// TODO(ericsnow) First fall back to following symlinks?
+	// First fall back to following symlinks.
+	if followLink && (finfo.Mode()&os.ModeSymlink) != 0 {
+		linked, err := osReadlink(executable)
+		if err != nil {
+			logger.Errorf("could not follow link %q (%v)", executable, err)
+			// TODO(ericsnow) Try checking the version anyway?
+			return "", false
+		}
+		// We do not follow any more links since we want to avoid
+		// infinite recursion and it's unlikely the original link
+		// points to another link.
+		followLink = false
+		return identifyInitSystem(linked, followLink)
+	}
 
 	// Fall back to checking the "version" text.
 	cmd := exec.Command(executable, "--version")
