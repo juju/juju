@@ -115,6 +115,7 @@ type VolumeParams struct {
 type VolumeInfo struct {
 	Serial   string `bson:"serial,omitempty"`
 	Size     uint64 `bson:"size"`
+	Pool     string `bson:"pool"`
 	VolumeId string `bson:"volumeid"`
 }
 
@@ -470,7 +471,11 @@ func (st *State) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (err error)
 		// If the volume has parameters, unset them when
 		// we set info for the first time, ensuring that
 		// params and info are mutually exclusive.
-		_, unsetParams := v.Params()
+		var unsetParams bool
+		if params, ok := v.Params(); ok {
+			info.Pool = params.Pool
+			unsetParams = true
+		}
 		ops := setVolumeInfoOps(tag, info, unsetParams)
 		return ops, nil
 	}

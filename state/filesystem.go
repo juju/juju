@@ -61,6 +61,11 @@ type FilesystemAttachment interface {
 
 	// Info returns the filesystem attachment's FilesystemAttachmentInfo, or a
 	// NotProvisioned error if the attachment has not yet been made.
+	//
+	// Note that the presence of FilesystemAttachmentInfo does not necessarily
+	// imply that the filesystem is mounted; environment storage providers may
+	// need to prepare a filesystem for attachment to a machine before it can
+	// be mounted.
 	Info() (FilesystemAttachmentInfo, error)
 
 	// Params returns the parameters for creating the filesystem attachment,
@@ -114,6 +119,7 @@ type FilesystemParams struct {
 // FilesystemInfo describes information about a filesystem.
 type FilesystemInfo struct {
 	Size uint64 `bson:"size"`
+	Pool string `bson:"pool"`
 
 	// FilesystemId is the provider-allocated unique ID of the
 	// filesystem. This will be unspecified for filesystems
@@ -123,6 +129,9 @@ type FilesystemInfo struct {
 
 // FilesystemAttachmentInfo describes information about a filesystem attachment.
 type FilesystemAttachmentInfo struct {
+	// MountPoint is the path at which the filesystem is mounted on the
+	// machine. MountPoint may be empty, meaning that the filesystem is
+	// not mounted yet.
 	MountPoint string `bson:"mountpoint"`
 }
 
@@ -410,7 +419,11 @@ func (st *State) SetFilesystemInfo(tag names.FilesystemTag, info FilesystemInfo)
 		// If the filesystem has parameters, unset them
 		// when we set info for the first time, ensuring
 		// that params and info are mutually exclusive.
-		_, unsetParams := fs.Params()
+		var unsetParams bool
+		if params, ok := fs.Params(); ok {
+			info.Pool = params.Pool
+			unsetParams = true
+		}
 		ops := setFilesystemInfoOps(tag, info, unsetParams)
 		return ops, nil
 	}
