@@ -109,6 +109,36 @@ func (s *IPAddressSuite) TestEnsureDeadRemove(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `IP address "0.1.2.3" not found`)
 }
 
+func (s *IPAddressSuite) TestSetStateDead(c *gc.C) {
+	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
+	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	copyIPAddr, err := s.State.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+	err = copyIPAddr.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ipAddr.SetState(state.AddressStateAllocated)
+	msg := fmt.Sprintf(`cannot set IP address %q to state "allocated": address is dead`, ipAddr.String())
+	c.Assert(err, gc.ErrorMatches, msg)
+}
+
+func (s *IPAddressSuite) TestAllocateToDead(c *gc.C) {
+	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
+	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	copyIPAddr, err := s.State.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+	err = copyIPAddr.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	msg := fmt.Sprintf(`cannot allocate IP address %q to machine "foobar", interface "wibble": address is dead`, ipAddr.String())
+	err = ipAddr.AllocateTo("foobar", "wibble")
+	c.Assert(err, gc.ErrorMatches, msg)
+}
+
 func (s *IPAddressSuite) TestAddressStateString(c *gc.C) {
 	for i, test := range []struct {
 		ipState state.AddressState
