@@ -103,7 +103,7 @@ const pid1 = "/proc/1/cmdline"
 var (
 	runtimeOS    = func() string { return runtime.GOOS }
 	pid1Filename = func() string { return pid1 }
-	osStat       = os.Stat
+	osLstat      = os.Lstat
 	osReadlink   = os.Readlink
 
 	initExecutable = func() (string, error) {
@@ -145,7 +145,7 @@ func identifyInitSystem(executable string, followLink bool) (string, bool) {
 		return initSystem, true
 	}
 
-	finfo, err := osStat(executable)
+	finfo, err := osLstat(executable)
 	if os.IsNotExist(err) {
 		return "", false
 	} else if err != nil {
