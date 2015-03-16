@@ -82,6 +82,14 @@ func (s *metricsManagerSuite) TestSetGracePeriod(c *gc.C) {
 	c.Assert(m.GracePeriod(), gc.Equals, time.Hour)
 }
 
+func (s *metricsManagerSuite) TestNegativeGracePeriod(c *gc.C) {
+	mm, err := s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mm.GracePeriod(), gc.Equals, time.Hour*24*7)
+	err = mm.SetGracePeriod(-time.Hour)
+	c.Assert(err, gc.ErrorMatches, "grace period can't be negative")
+}
+
 func (s *metricsManagerSuite) TestMeterStatus(c *gc.C) {
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)

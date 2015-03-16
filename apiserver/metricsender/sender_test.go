@@ -274,3 +274,29 @@ func (s *SenderSuite) TestGracePeriodResponse(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mm.GracePeriod(), gc.Equals, 47*time.Hour)
 }
+
+func (s *SenderSuite) TestNegativeGracePeriodResponse(c *gc.C) {
+	_ = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false})
+
+	cleanup := s.startServer(c, testHandler(c, nil, nil, -47*time.Hour))
+	defer cleanup()
+	var sender metricsender.DefaultSender
+	err := metricsender.SendMetrics(s.State, &sender, 10)
+	c.Assert(err, jc.ErrorIsNil)
+	mm, err := s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mm.GracePeriod(), gc.Equals, 24*time.Hour*7) //Default (unchanged)
+}
+
+func (s *SenderSuite) TestZeroGracePeriodResponse(c *gc.C) {
+	_ = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false})
+
+	cleanup := s.startServer(c, testHandler(c, nil, nil, 0))
+	defer cleanup()
+	var sender metricsender.DefaultSender
+	err := metricsender.SendMetrics(s.State, &sender, 10)
+	c.Assert(err, jc.ErrorIsNil)
+	mm, err := s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mm.GracePeriod(), gc.Equals, 24*time.Hour*7) //Default (unchanged)
+}

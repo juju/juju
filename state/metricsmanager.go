@@ -148,6 +148,9 @@ func (m *MetricsManager) SetLastSuccessfulSend(t time.Time) error {
 }
 
 func (m *MetricsManager) SetGracePeriod(t time.Duration) error {
+	if t < 0 {
+		return errors.New("grace period can't be negative")
+	}
 	err := m.updateMetricsManager(
 		bson.M{"$set": bson.M{
 			"graceperiod": t,
