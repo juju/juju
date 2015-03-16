@@ -31,9 +31,7 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 		versionInitName, ok := VersionInitSystem(jujuVersion)
 		if !ok {
 			// The key error is the one from discoverLocalInitSystem so
-			// that is what we return. However, we at least log the
-			// failed fallback attempt.
-			logger.Errorf("could not identify init system from %v", jujuVersion)
+			// that is what we return.
 			return nil, errors.Trace(err)
 		}
 		initName = versionInitName
@@ -52,6 +50,16 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 // version info. If one cannot be identified then false if returned
 // for the second return value.
 func VersionInitSystem(vers version.Binary) (string, bool) {
+	initName, ok := versionInitSystem(vers)
+	if !ok {
+		logger.Errorf("could not identify init system from juju version info (%#v)", vers)
+		return "", false
+	}
+	logger.Debugf("discovered init system %q from juju version info (%#v)", initName, vers)
+	return initName, true
+}
+
+func versionInitSystem(vers version.Binary) (string, bool) {
 	switch vers.OS {
 	case version.Windows:
 		return InitSystemWindows, true
