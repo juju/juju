@@ -5,12 +5,12 @@ package state
 
 import (
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/network"
-	jujutxn "github.com/juju/txn"
 )
 
 // AddressState represents the states an IP address can be in. They are created
