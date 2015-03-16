@@ -87,7 +87,7 @@ func (s *IPAddressSuite) TestEnsureDeadRemove(c *gc.C) {
 	// Should not be able to remove an Alive IP address.
 	c.Assert(ipAddr.Life(), gc.Equals, state.Alive)
 	err = ipAddr.Remove()
-	msg := fmt.Sprintf("cannot remove IP address %q: IP address is not dead", ipAddr)
+	msg := fmt.Sprintf("cannot remove IP address %q: IP address is not dead", ipAddr.String())
 	c.Assert(err, gc.ErrorMatches, msg)
 
 	err = ipAddr.EnsureDead()
@@ -107,6 +107,36 @@ func (s *IPAddressSuite) TestEnsureDeadRemove(c *gc.C) {
 	_, err = s.State.IPAddress("0.1.2.3")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, `IP address "0.1.2.3" not found`)
+}
+
+func (s *IPAddressSuite) TestSetStateDead(c *gc.C) {
+	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
+	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	copyIPAddr, err := s.State.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+	err = copyIPAddr.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ipAddr.SetState(state.AddressStateAllocated)
+	msg := fmt.Sprintf(`cannot set IP address %q to state "allocated": address is dead`, ipAddr.String())
+	c.Assert(err, gc.ErrorMatches, msg)
+}
+
+func (s *IPAddressSuite) TestAllocateToDead(c *gc.C) {
+	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
+	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	copyIPAddr, err := s.State.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+	err = copyIPAddr.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	msg := fmt.Sprintf(`cannot allocate IP address %q to machine "foobar", interface "wibble": address is dead`, ipAddr.String())
+	err = ipAddr.AllocateTo("foobar", "wibble")
+	c.Assert(err, gc.ErrorMatches, msg)
 }
 
 func (s *IPAddressSuite) TestAddressStateString(c *gc.C) {
@@ -254,4 +284,21 @@ func (s *IPAddressSuite) TestAllocatedIPAddresses(c *gc.C) {
 	expected := []*state.IPAddress{addr1, addr2}
 	c.Assert(result, jc.SameContents, expected)
 
+}
+
+func (s *IPAddressSuite) TestRefresh(c *gc.C) {
+	rawAddr := network.NewAddress("0.1.2.3", network.ScopeUnknown)
+	addr, err := s.State.AddIPAddress(rawAddr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrCopy, err := s.State.IPAddress(rawAddr.Value)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = addr.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(addrCopy.Life(), gc.Equals, state.Alive)
+	err = addrCopy.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrCopy.Life(), gc.Equals, state.Dead)
 }
