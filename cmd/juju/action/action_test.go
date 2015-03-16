@@ -48,7 +48,7 @@ func (s *ActionCommandSuite) checkHelpSubCommands(c *gc.C, ctx *cmd.Context) {
 		{"do", "queue an action for execution"},
 		{"fetch", "show results of an action by ID"},
 		{"help", "show help on a command or other topic"},
-		{"status", "show results of an action by ID"},
+		{"status", "show results of all actions filtered by optional ID prefix"},
 	}
 
 	// Check that we have registered all the sub commands by

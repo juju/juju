@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 
@@ -28,13 +29,14 @@ import (
 // are created on the given machine. It will set up the machine to be able
 // to create containers and start a suitable provisioner.
 type ContainerSetup struct {
-	runner              worker.Runner
-	supportedContainers []instance.ContainerType
-	imageURLGetter      container.ImageURLGetter
-	provisioner         *apiprovisioner.State
-	machine             *apiprovisioner.Machine
-	config              agent.Config
-	initLock            *fslock.Lock
+	runner                worker.Runner
+	supportedContainers   []instance.ContainerType
+	imageURLGetter        container.ImageURLGetter
+	provisioner           *apiprovisioner.State
+	machine               *apiprovisioner.Machine
+	config                agent.Config
+	initLock              *fslock.Lock
+	addressableContainers bool
 
 	// Save the workerName so the worker thread can be stopped.
 	workerName string
@@ -148,6 +150,37 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.C
 	return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker, toolsFinder)
 }
 
+const etcDefaultLXCNet = `
+# Modified by Juju to enable addressable LXC containers.
+USE_LXC_BRIDGE="true"
+LXC_BRIDGE="lxcbr0"
+LXC_ADDR="10.0.3.1"
+LXC_NETMASK="255.255.255.0"
+LXC_NETWORK="10.0.3.0/24"
+LXC_DHCP_RANGE="10.0.3.2,10.0.3.254,infinite"
+LXC_DHCP_MAX="253"
+`
+
+var etcDefaultLXCNetPath = "/etc/default/lxc-net"
+
+// maybeOverrideDefaultLXCNet writes a modified version of
+// /etc/default/lxc-net file on the host before installing the lxc
+// package, if we're about to start an addressable LXC container. This
+// is needed to guarantee stable statically assigned IP addresses for
+// the container. See also runInitialiser.
+func maybeOverrideDefaultLXCNet(containerType instance.ContainerType, addressable bool) error {
+	if containerType != instance.LXC || !addressable {
+		// Nothing to do.
+		return nil
+	}
+
+	err := utils.AtomicWriteFile(etcDefaultLXCNetPath, []byte(etcDefaultLXCNet), 0644)
+	if err != nil {
+		return errors.Annotatef(err, "cannot write %q", etcDefaultLXCNetPath)
+	}
+	return nil
+}
+
 // runInitialiser runs the container initialiser with the initialisation hook held.
 func (cs *ContainerSetup) runInitialiser(containerType instance.ContainerType, initialiser container.Initialiser) error {
 	logger.Debugf("running initialiser for %s containers", containerType)
@@ -155,7 +188,27 @@ func (cs *ContainerSetup) runInitialiser(containerType instance.ContainerType, i
 		return errors.Annotate(err, "failed to acquire initialization lock")
 	}
 	defer cs.initLock.Unlock()
-	return initialiser.Initialise()
+
+	// In order to guarantee stable statically assigned IP addresses
+	// for LXC containers, we need to install a custom version of
+	// /etc/default/lxc-net before we install the lxc package. The
+	// custom version of lxc-net is almost the same as the original,
+	// but the defined LXC_DHCP_RANGE (used by dnsmasq to give away
+	// 10.0.3.x addresses to containers bound to lxcbr0) has infinite
+	// lease time. This is necessary, because with the default lease
+	// time of 1h, dhclient running inside each container will request
+	// a renewal from dnsmasq and replace our statically configured IP
+	// address within an hour after starting the container.
+	err := maybeOverrideDefaultLXCNet(containerType, cs.addressableContainers)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := initialiser.Initialise(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 // TearDown is defined on the StringsWatchHandler interface.
@@ -183,6 +236,15 @@ func (cs *ContainerSetup) getContainerArtifacts(
 	managerConfig, err := containerManagerConfig(containerType, cs.provisioner, cs.config)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+
+	// Enable IP forwarding and ARP proxying if needed.
+	if ipfwd := managerConfig.PopValue(container.ConfigIPForwarding); ipfwd != "" {
+		if err := setIPAndARPForwarding(true); err != nil {
+			return nil, nil, nil, errors.Trace(err)
+		}
+		cs.addressableContainers = true
+		logger.Infof("enabled IP forwarding and ARP proxying for containers")
 	}
 
 	switch containerType {
@@ -241,13 +303,6 @@ func containerManagerConfig(
 	}
 	managerConfig := container.ManagerConfig(managerConfigResult.ManagerConfig)
 
-	// Enable IP and ARP forwarding if needed.
-	if _, ok := managerConfig[container.ConfigIPForwarding]; ok {
-		if err := setIPAndARPForwarding(true); err != nil {
-			return nil, errors.Trace(err)
-		}
-		logger.Infof("enabled IP forwarding for containers")
-	}
 	return managerConfig, nil
 }
 

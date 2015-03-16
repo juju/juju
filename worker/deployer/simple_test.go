@@ -5,7 +5,6 @@ package deployer_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -136,7 +135,6 @@ func (s *SimpleContextSuite) TestOldDeployedUnitsCanBeRecalled(c *gc.C) {
 type SimpleToolsFixture struct {
 	dataDir  string
 	logDir   string
-	initDir  string
 	origPath string
 	binDir   string
 
@@ -147,7 +145,6 @@ var fakeJujud = "#!/bin/bash --norc\n# fake-jujud\nexit 0\n"
 
 func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 	fix.dataDir = dataDir
-	fix.initDir = c.MkDir()
 	fix.logDir = c.MkDir()
 	toolsDir := tools.SharedToolsDir(fix.dataDir, version.Current)
 	err := os.MkdirAll(toolsDir, 0755)
@@ -189,18 +186,15 @@ func (fix *SimpleToolsFixture) assertUpstartCount(c *gc.C, count int) {
 
 func (fix *SimpleToolsFixture) getContext(c *gc.C) *deployer.SimpleContext {
 	config := agentConfig(names.NewMachineTag("99"), fix.dataDir, fix.logDir)
-	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir, fix.data)
+	return deployer.NewTestSimpleContext(config, fix.logDir, fix.data)
 }
 
 func (fix *SimpleToolsFixture) getContextForMachine(c *gc.C, machineTag names.Tag) *deployer.SimpleContext {
 	config := agentConfig(machineTag, fix.dataDir, fix.logDir)
-	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir, fix.data)
+	return deployer.NewTestSimpleContext(config, fix.logDir, fix.data)
 }
 
-func (fix *SimpleToolsFixture) paths(tag names.Tag) (confPath, agentDir, toolsDir string) {
-	// TODO(ericsnow) Drop confPath.
-	confName := fmt.Sprintf("jujud-%s.conf", tag)
-	confPath = filepath.Join(fix.initDir, confName)
+func (fix *SimpleToolsFixture) paths(tag names.Tag) (agentDir, toolsDir string) {
 	agentDir = agent.Dir(fix.dataDir, tag)
 	toolsDir = tools.ToolsDir(fix.dataDir, tag.String())
 	return
@@ -233,7 +227,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 		c.Fatalf("Test is not built to handle more than one exec line.")
 	}
 
-	_, _, toolsDir := fix.paths(tag)
+	_, toolsDir := fix.paths(tag)
 	jujudPath := filepath.Join(toolsDir, "jujud")
 
 	logPath := filepath.Join(fix.logDir, tag.String()+".log")
@@ -265,7 +259,7 @@ func (fix *SimpleToolsFixture) checkUnitRemoved(c *gc.C, name string) {
 
 	c.Assert(name, gc.Not(jc.Satisfies), fix.data.InstalledNames.Contains)
 
-	_, agentDir, toolsDir := fix.paths(tag)
+	agentDir, toolsDir := fix.paths(tag)
 	for _, path := range []string{agentDir, toolsDir} {
 		_, err := ioutil.ReadFile(path)
 		if err == nil {

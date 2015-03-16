@@ -264,17 +264,41 @@ func (s *uniterLeadershipSuite) TestSettingsChangeNotifier(c *gc.C) {
 	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))
 
 	// Listen for changes
+	readyForChanges := make(chan struct{})
 	sawChanges := make(chan struct{})
 	go func() {
 		watcher, err := client.LeadershipSettings.WatchLeadershipSettings(s.serviceId)
 		c.Assert(err, gc.IsNil)
-		sawChanges <- <-watcher.Changes()
+
+		// Ignore the initial event
+		<-watcher.Changes()
+		readyForChanges <- struct{}{}
+
+		if change, ok := <-watcher.Changes(); ok {
+			sawChanges <- change
+		} else {
+			c.Fatalf("watcher failed to send a change: %s", watcher.Err())
+		}
 	}()
 
+	select {
+	case <-readyForChanges:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("timed out")
+	}
+
+	c.Log("Writing changes...")
 	err = client.LeadershipSettings.Merge(s.serviceId, map[string]string{"foo": "bar"})
 	c.Assert(err, gc.IsNil)
 
-	<-sawChanges
+	c.Log("Waiting to see that watcher saw changes...")
+	notifyAsserter := coretesting.NotifyAsserterC{C: c, Chan: sawChanges}
+	notifyAsserter.AssertOneReceive()
+
+	settings, err := client.LeadershipSettings.Read(s.serviceId)
+	c.Assert(err, gc.IsNil)
+
+	c.Check(settings["foo"], gc.Equals, "bar")
 }
 
 func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
@@ -207,7 +208,7 @@ func (s *AddMachineSuite) TestAddMachineWithDisks(c *gc.C) {
 	_, err := s.run(c, "--disks", "2,1G", "--disks", "2G")
 	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: --disks")
 
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
 	_, err = s.run(c, "--disks", "2,1G", "--disks", "2G")

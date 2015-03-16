@@ -1064,7 +1064,6 @@ func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr
 	if err := env.checkBroken("ReleaseAddress"); err != nil {
 		return err
 	}
-
 	estate, err := env.state()
 	if err != nil {
 		return err

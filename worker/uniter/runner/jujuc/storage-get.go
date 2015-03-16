@@ -66,13 +66,13 @@ func storageKindString(k params.StorageKind) string {
 }
 
 func (c *StorageGetCommand) Run(ctx *cmd.Context) error {
-	storageAttachment, ok := c.ctx.StorageAttachment(c.storageTag)
+	storage, ok := c.ctx.Storage(c.storageTag)
 	if !ok {
 		return nil
 	}
 	values := map[string]interface{}{
-		"kind":     storageKindString(storageAttachment.Kind),
-		"location": storageAttachment.Location,
+		"kind":     storage.Kind().String(),
+		"location": storage.Location(),
 	}
 	if c.key == "" {
 		return c.out.Write(ctx, values)

@@ -78,6 +78,11 @@ func (s *StateSuite) TestIsStateServer(c *gc.C) {
 	c.Assert(st2.IsStateServer(), jc.IsFalse)
 }
 
+func (s *StateSuite) TestUserEnvNameIndex(c *gc.C) {
+	index := state.UserEnvNameIndex("BoB", "testing")
+	c.Assert(index, gc.Equals, "bob:testing")
+}
+
 func (s *StateSuite) TestDocID(c *gc.C) {
 	id := "wordpress"
 	docID := state.DocID(s.State, id)
@@ -2655,8 +2660,23 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 		c.Assert(n, gc.Equals, 1)
 	}
 
+	// test that we can find the user:envName unique index
+	env, err := st.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	indexColl, closer := state.GetCollection(st, "userenvname")
+	defer closer()
+	id := state.UserEnvNameIndex(env.Owner().Username(), env.Name())
+	n, err := indexColl.FindId(id).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 1)
+
 	err = st.RemoveAllEnvironDocs()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// test that we can not find the user:envName unique index
+	n, err = indexColl.FindId(id).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 0)
 
 	// ensure all docs for all multiEnvCollections are removed
 	for collName := range state.MultiEnvCollections {

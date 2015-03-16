@@ -76,6 +76,7 @@ const (
 	stateServersC          = "stateServers"
 	openedPortsC           = "openedPorts"
 	metricsC               = "metrics"
+	metricsManagerC        = "metricsmanager"
 	upgradeInfoC           = "upgradeInfo"
 	rebootC                = "reboot"
 	blockDevicesC          = "blockdevices"
@@ -111,6 +112,11 @@ const (
 
 	// blocksC is used to identify collection of environment blocks.
 	blocksC = "blocks"
+
+	// The following mongo collections are used as unique key restraints. The
+	// _id field of each collection is a concatenation of multiple fields
+	// that form a compound index.
+	userenvnameC = "userenvname"
 )
 
 // State represents the state of an environment
@@ -160,26 +166,42 @@ func (st *State) IsStateServer() bool {
 // this method. Otherwise, there is a race condition in which collections
 // could be added to during or after the running of this method.
 func (st *State) RemoveAllEnvironDocs() error {
-	for collName := range multiEnvCollections {
-		coll, closer := st.getCollection(collName)
-		defer closer()
-		changeInfo, err := coll.RemoveAll(nil)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if changeInfo.Removed > 0 {
-			logger.Infof("removed %d %s documents", changeInfo.Removed, collName)
-		}
-	}
-
-	environments, closer := st.getCollection(environmentsC)
-	defer closer()
-	err := environments.RemoveId(st.EnvironUUID())
+	env, err := st.Environment()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("removed environment document")
-	return nil
+	id := userEnvNameIndex(env.Owner().Username(), env.Name())
+	ops := []txn.Op{{
+		// Cleanup the owner:envName unique key.
+		C:      userenvnameC,
+		Id:     id,
+		Remove: true,
+	}, {
+		C:      environmentsC,
+		Id:     st.EnvironUUID(),
+		Remove: true,
+	}}
+
+	// add all multiEnv docs to the txn
+	var ids []bson.M
+	for collName := range multiEnvCollections {
+		coll, closer := st.getCollection(collName)
+		defer closer()
+		err := coll.Find(nil).Select(bson.D{{"_id", 1}}).All(&ids)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, id := range ids {
+			ops = append(ops, txn.Op{
+				C:      collName,
+				Id:     id["_id"],
+				Remove: true,
+			})
+		}
+		ids = nil
+	}
+
+	return st.runTransaction(ops)
 }
 
 // ForEnviron returns a connection to mongo for the specified environment. The
@@ -205,6 +227,11 @@ func (st *State) EnvironTag() names.EnvironTag {
 // controlled by this state instance.
 func (st *State) EnvironUUID() string {
 	return st.environTag.Id()
+}
+
+// userEnvNameIndex returns a string to be used as a userenvnameC unique index.
+func userEnvNameIndex(username, envName string) string {
+	return strings.ToLower(username) + ":" + envName
 }
 
 // EnsureEnvironmentRemoved returns an error if any multi-enviornment
@@ -688,6 +715,8 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		} else {
 			return st.Charm(url)
 		}
+	case names.VolumeTag:
+		return st.Volume(tag)
 	default:
 		return nil, errors.Errorf("unsupported tag %T", tag)
 	}
@@ -1309,6 +1338,7 @@ func (st *State) AddIPAddress(addr network.Address, subnetid string) (ipaddress 
 	ipDoc := ipaddressDoc{
 		DocID:    addressID,
 		EnvUUID:  st.EnvironUUID(),
+		Life:     Alive,
 		State:    AddressStateUnknown,
 		SubnetId: subnetid,
 		Value:    addr.Value,
@@ -1350,6 +1380,30 @@ func (st *State) IPAddress(value string) (*IPAddress, error) {
 		return nil, errors.Annotatef(err, "cannot get IP address %q", value)
 	}
 	return &IPAddress{st, *doc}, nil
+}
+
+// AllocatedIPAddresses returns all the allocated addresses for a machine
+func (st *State) AllocatedIPAddresses(machineId string) ([]*IPAddress, error) {
+	addresses, closer := st.getCollection(ipaddressesC)
+	result := []*IPAddress{}
+	defer closer()
+	var doc struct {
+		Value string
+	}
+	iter := addresses.Find(bson.D{{"machineid", machineId}}).Iter()
+	for iter.Next(&doc) {
+		addr, err := st.IPAddress(doc.Value)
+		if err != nil {
+			// shouldn't happen as we're only fetching
+			// addresses we know exist.
+			continue
+		}
+		result = append(result, addr)
+	}
+	if err := iter.Close(); err != nil {
+		return result, err
+	}
+	return result, nil
 }
 
 // AddSubnet creates and returns a new subnet

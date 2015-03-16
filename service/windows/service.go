@@ -95,25 +95,25 @@ func (s *Service) Status() (string, error) {
 }
 
 // Running returns true if the Service appears to be running.
-func (s *Service) Running() bool {
+func (s *Service) Running() (bool, error) {
 	status, err := s.Status()
 	logger.Infof("Service %q Status %q", s.Service.Name, status)
 	if err != nil {
-		return false
+		return false, errors.Trace(err)
 	}
 	if strings.TrimSpace(status) == "Stopped" {
-		return false
+		return false, nil
 	}
-	return true
+	return true, nil
 }
 
 // Installed returns whether the service is installed
-func (s *Service) Installed() bool {
+func (s *Service) Installed() (bool, error) {
 	_, err := s.Status()
-	if err == nil {
-		return true
+	if err != nil {
+		return false, errors.Trace(err)
 	}
-	return false
+	return true, nil
 }
 
 // Exists returns whether the service configuration exists in the
@@ -121,29 +121,37 @@ func (s *Service) Installed() bool {
 // if installed.
 // TODO (gabriel-samfira): 2014-07-30 bug 1350171
 // Needs a proper implementation when testing is improved
-func (s *Service) Exists() bool {
-	return false
+func (s *Service) Exists() (bool, error) {
+	return false, nil
 }
 
 // Start starts the service.
 func (s *Service) Start() error {
 	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; Start-Service  "%s"`, s.Service.Name)
 	logger.Infof("Starting service %q", s.Service.Name)
-	if s.Running() {
+	running, err := s.Running()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if running {
 		logger.Infof("Service %q already running", s.Service.Name)
 		return nil
 	}
-	_, err := runPsCommand(cmd)
+	_, err = runPsCommand(cmd)
 	return err
 }
 
 // Stop stops the service.
 func (s *Service) Stop() error {
-	if !s.Running() {
+	running, err := s.Running()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !running {
 		return nil
 	}
 	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; Stop-Service  "%s"`, s.Service.Name)
-	_, err := runPsCommand(cmd)
+	_, err = runPsCommand(cmd)
 	return err
 }
 
@@ -158,22 +166,17 @@ func (s *Service) Remove() error {
 	return err
 }
 
-// StopAndRemove stops the service and then deletes the service.
-func (s *Service) StopAndRemove() error {
-	err := s.Stop()
-	if err != nil {
-		return err
-	}
-	return s.Remove()
-}
-
 // Install installs and starts the service.
 func (s *Service) Install() error {
 	err := s.Validate()
 	if err != nil {
 		return err
 	}
-	if s.Installed() {
+	installed, err := s.Installed()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if installed {
 		return errors.New(fmt.Sprintf("Service %s already installed", s.Service.Name))
 	}
 

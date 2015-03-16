@@ -18,6 +18,8 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -209,12 +211,14 @@ func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeMachine(c *gc.C) {
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	series := "quantal"
 	jobs := []state.MachineJob{state.JobManageEnviron}
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	nonce := "some-nonce"
 	id := instance.Id("some-id")
+	volumes := []state.MachineVolumeParams{{Volume: state.VolumeParams{Size: 1024}}}
 
 	machine, pwd := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Series:     series,
@@ -222,6 +226,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 		Password:   password,
 		Nonce:      nonce,
 		InstanceId: id,
+		Volumes:    volumes,
 	})
 	c.Assert(machine, gc.NotNil)
 	c.Assert(pwd, gc.Equals, password)
@@ -233,6 +238,16 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	c.Assert(machineInstanceId, gc.Equals, id)
 	c.Assert(machine.CheckProvisioned(nonce), jc.IsTrue)
 	c.Assert(machine.PasswordValid(password), jc.IsTrue)
+
+	volume, err := s.State.Volume(names.NewVolumeTag(machine.Id() + "/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	volParams, ok := volume.Params()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(volParams, jc.DeepEquals, state.VolumeParams{Pool: "loop", Size: 1024})
+	volAttachments, err := s.State.MachineVolumeAttachments(machine.Tag().(names.MachineTag))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volAttachments, gc.HasLen, 1)
+	c.Assert(volAttachments[0].Machine(), gc.Equals, machine.Tag())
 
 	saved, err := s.State.Machine(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)

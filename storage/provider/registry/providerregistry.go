@@ -19,7 +19,15 @@ import (
 var providers = make(map[storage.ProviderType]storage.Provider)
 
 // RegisterProvider registers a new storage provider of the given type.
+//
+// If the provider is nil, then any previously registered provider with
+// the same type will be unregistered; this is purely available for
+// testing.
 func RegisterProvider(providerType storage.ProviderType, p storage.Provider) {
+	if p == nil {
+		delete(providers, providerType)
+		return
+	}
 	if providers[providerType] != nil {
 		panic(errors.Errorf("juju: duplicate storage provider type %q", providerType))
 	}

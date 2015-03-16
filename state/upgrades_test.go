@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
@@ -68,6 +69,173 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, keyExists := userMap["_id_"]
 	c.Assert(keyExists, jc.IsFalse)
+}
+
+func (s *upgradesSuite) TestUserTagNameFallsBackToId(c *gc.C) {
+	// Make old style user without name field set.
+	user := User{
+		st: s.state,
+		doc: userDoc{
+			DocID: "BoB",
+		},
+	}
+
+	tag := user.UserTag()
+	c.Assert(tag.Name(), gc.Equals, "BoB")
+}
+
+func (s *upgradesSuite) TestAddNameFieldLowerCaseIdOfUsers(c *gc.C) {
+	s.addCaseSensitiveUsers(c, [][]string{
+		{"BoB", "Bob the Builder"},
+		{"sAm", "Sam Smith"},
+		{"adam", "Adam Apple"},
+	})
+
+	err := AddNameFieldLowerCaseIdOfUsers(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertNameAddedIdLowerCased(c, [][]string{
+		{"adam", "adam", "Adam Apple"},
+		{"bob", "BoB", "Bob the Builder"},
+		{"sam", "sAm", "Sam Smith"},
+		{"test-admin", "test-admin", "test-admin"},
+	})
+}
+
+func (s *upgradesSuite) TestAddNameFieldLowerCaseIdOfUsersIdempotent(c *gc.C) {
+	s.addCaseSensitiveUsers(c, [][]string{
+		{"BoB", "Bob the Builder"},
+		{"sAm", "Sam Smith"},
+	})
+
+	err := AddNameFieldLowerCaseIdOfUsers(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	err = AddNameFieldLowerCaseIdOfUsers(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertNameAddedIdLowerCased(c, [][]string{
+		{"bob", "BoB", "Bob the Builder"},
+		{"sam", "sAm", "Sam Smith"},
+		{"test-admin", "test-admin", "test-admin"},
+	})
+}
+
+// addCaseSensitiveUsers adds a userDoc with a case sensitive "_id" for each
+// {"_id", "displayname"} pair passed in.
+func (s *upgradesSuite) addCaseSensitiveUsers(c *gc.C, oldUsers [][]string) {
+	var ops []txn.Op
+	for _, oldUser := range oldUsers {
+		ops = append(ops, txn.Op{
+			C:  usersC,
+			Id: oldUser[0],
+			Insert: bson.D{
+				{"displayname", oldUser[1]},
+			},
+		})
+	}
+	err := s.state.runRawTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// assertNameAddedIdLowerCased asserts that all users in the usersC collection
+// have the expected lower case _id and case preserved name.
+func (s *upgradesSuite) assertNameAddedIdLowerCased(c *gc.C, expected [][]string) {
+	users, closer := s.state.getCollection("users")
+	defer closer()
+
+	var obtained []bson.M
+	err := users.Find(nil).Sort("_id").All(&obtained)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for i, expectedUser := range expected {
+		c.Assert(obtained[i]["_id"], gc.Equals, expectedUser[0])
+		c.Assert(obtained[i]["name"], gc.Equals, expectedUser[1])
+		c.Assert(obtained[i]["displayname"], gc.Equals, expectedUser[2])
+	}
+	c.Assert(len(obtained), gc.Equals, len(expected))
+}
+
+func (s *upgradesSuite) TestAddUniqueOwnerEnvNameForEnvirons(c *gc.C) {
+	s.userEnvNameSetup(c, [][]string{
+		{"bob", "bobsenv"},
+		{"sam@remote", "samsenv"},
+	})
+
+	err := AddUniqueOwnerEnvNameForEnvirons(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertUserEnvNameObtained(c,
+		"test-admin@local:testenv",
+		"bob@local:bobsenv",
+		"sam@remote:samsenv",
+	)
+}
+
+func (s *upgradesSuite) TestAddUniqueOwnerEnvNameForEnvironsErrors(c *gc.C) {
+	s.userEnvNameSetup(c, [][]string{
+		{"bob", "bobsenv"},
+		{"bob", "bobsenv"},
+	})
+
+	err := AddUniqueOwnerEnvNameForEnvirons(s.state)
+	c.Assert(err, gc.ErrorMatches, `environment "bobsenv" for bob@local already exists`)
+	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
+
+	// we expect the userenvname doc for the server environ as it was inserted
+	// when the environment was initialized.
+	s.assertUserEnvNameObtained(c, "test-admin@local:testenv")
+}
+
+func (s *upgradesSuite) TestAddUniqueOwnerEnvNameForEnvironsIdempotent(c *gc.C) {
+	s.userEnvNameSetup(c, [][]string{
+		{"bob", "bobsenv"},
+		{"sam@remote", "samsenv"},
+	})
+
+	err := AddUniqueOwnerEnvNameForEnvirons(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	err = AddUniqueOwnerEnvNameForEnvirons(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertUserEnvNameObtained(c,
+		"bob@local:bobsenv",
+		"sam@remote:samsenv",
+		"test-admin@local:testenv",
+	)
+}
+
+// userEnvNameSetup adds an environmentsC doc for each {"owner", "envName"} arg.
+func (s *upgradesSuite) userEnvNameSetup(c *gc.C, userEnvNamePairs [][]string) {
+	var ops []txn.Op
+	for _, userEnvNamePair := range userEnvNamePairs {
+		uuid, err := utils.NewUUID()
+		c.Assert(err, jc.ErrorIsNil)
+		ops = append(ops, createEnvironmentOp(
+			s.state,
+			names.NewUserTag(userEnvNamePair[0]),
+			userEnvNamePair[1],
+			uuid.String(),
+			s.state.EnvironUUID(),
+		))
+	}
+	err := s.state.runRawTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// assertUserEnvNameObtained asserts that all (and no more) expectedIds are found in
+// the userenvnameC collection.
+func (s *upgradesSuite) assertUserEnvNameObtained(c *gc.C, expectedIds ...string) {
+	var obtained []bson.M
+	userenvname, closer := s.state.getCollection(userenvnameC)
+	defer closer()
+	err := userenvname.Find(nil).All(&obtained)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var obtainedIds []string
+	for _, userEnvName := range obtained {
+		obtainedIds = append(obtainedIds, userEnvName["_id"].(string))
+	}
+	c.Assert(obtainedIds, jc.SameContents, expectedIds)
 }
 
 func (s *upgradesSuite) TestAddStateUsersToEnviron(c *gc.C) {

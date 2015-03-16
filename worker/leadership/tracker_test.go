@@ -257,6 +257,92 @@ func (s *TrackerSuite) TestFailGainLeadership(c *gc.C) {
 	}})
 }
 
+func (s *TrackerSuite) TestWaitLeaderAlreadyLeader(c *gc.C) {
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	defer assertStop(c, tracker)
+
+	// Check the ticket succeeds.
+	assertWaitLeader(c, tracker, true)
+
+	// Stop the tracker before trying to look at its stub.
+	assertStop(c, tracker)
+	s.manager.CheckCalls(c, []testing.StubCall{{
+		FuncName: "ClaimLeadership",
+		Args: []interface{}{
+			"led-service", "led-service/123", leaseDuration,
+		},
+	}})
+}
+
+func (s *TrackerSuite) TestWaitLeaderBecomeLeader(c *gc.C) {
+	s.manager.Stub.Errors = []error{coreleadership.ErrClaimDenied, nil, nil}
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	defer assertStop(c, tracker)
+
+	// Check initial ticket fails.
+	assertWaitLeader(c, tracker, false)
+
+	// Unblock the release goroutine...
+	s.unblockRelease(c)
+
+	// ...and, uh, voodoo sleep a bit, but not long enough to trigger a refresh...
+	<-time.After(refreshes(0))
+
+	// ...then check the next ticket succeeds.
+	assertWaitLeader(c, tracker, true)
+
+	// Stop the tracker before trying to look at its stub.
+	assertStop(c, tracker)
+	s.manager.CheckCalls(c, []testing.StubCall{{
+		FuncName: "ClaimLeadership",
+		Args: []interface{}{
+			"led-service", "led-service/123", leaseDuration,
+		},
+	}, {
+		FuncName: "BlockUntilLeadershipReleased",
+		Args: []interface{}{
+			"led-service",
+		},
+	}, {
+		FuncName: "ClaimLeadership",
+		Args: []interface{}{
+			"led-service", "led-service/123", leaseDuration,
+		},
+	}})
+}
+
+func (s *TrackerSuite) TestWaitLeaderNeverBecomeLeader(c *gc.C) {
+	s.manager.Stub.Errors = []error{coreleadership.ErrClaimDenied, nil}
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	defer assertStop(c, tracker)
+
+	// Check initial ticket fails.
+	assertWaitLeader(c, tracker, false)
+
+	// Get a new ticket and stop the tracker while it's pending.
+	ticket := tracker.WaitLeader()
+	assertStop(c, tracker)
+
+	// Check the ticket got closed without sending true.
+	assertTicket(c, ticket, false)
+	assertTicket(c, ticket, false)
+
+	// Unblock the release goroutine and stop the tracker before trying to
+	// look at its stub.
+	s.unblockRelease(c)
+	s.manager.CheckCalls(c, []testing.StubCall{{
+		FuncName: "ClaimLeadership",
+		Args: []interface{}{
+			"led-service", "led-service/123", leaseDuration,
+		},
+	}, {
+		FuncName: "BlockUntilLeadershipReleased",
+		Args: []interface{}{
+			"led-service",
+		},
+	}})
+}
+
 func assertClaimLeader(c *gc.C, tracker leadership.Tracker, expect bool) {
 	// Grab a ticket...
 	ticket := tracker.ClaimLeader()
@@ -266,15 +352,27 @@ func assertClaimLeader(c *gc.C, tracker leadership.Tracker, expect bool) {
 	assertTicket(c, ticket, expect)
 }
 
+func assertWaitLeader(c *gc.C, tracker leadership.Tracker, expect bool) {
+	ticket := tracker.WaitLeader()
+	if expect {
+		assertTicket(c, ticket, true)
+		assertTicket(c, ticket, true)
+		return
+	}
+	select {
+	case <-time.After(coretesting.ShortWait):
+	case <-ticket.Ready():
+		c.Fatalf("got unexpected readiness: %v", ticket.Wait())
+	}
+}
+
 func assertTicket(c *gc.C, ticket leadership.Ticket, expect bool) {
 	// Wait for the ticket to give a value...
-	success := make(chan bool)
-	go func() { success <- ticket.Wait() }()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("value not sent")
-	case actual := <-success:
-		c.Assert(actual, gc.Equals, expect)
+	case <-ticket.Ready():
+		c.Assert(ticket.Wait(), gc.Equals, expect)
 	}
 }
 

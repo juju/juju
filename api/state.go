@@ -19,15 +19,18 @@ import (
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/keyupdater"
+	apileadership "github.com/juju/juju/api/leadership"
 	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/rsyslog"
+	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/leadership"
 	"github.com/juju/juju/network"
 )
 
@@ -222,6 +225,13 @@ func (st *State) Uniter() (*uniter.State, error) {
 	return uniter.NewState(st, unitTag), nil
 }
 
+func (st *State) LeadershipManager() leadership.LeadershipManager {
+	// TODO(fwereade): hm, not sure this really needs the client stuff, but I
+	// don't think it really hurts.
+	facade, caller := base.NewClientFacade(st, "LeadershipService")
+	return apileadership.NewClient(facade, caller)
+}
+
 // DiskManager returns a version of the state that provides functionality
 // required by the diskmanager worker.
 func (st *State) DiskManager() (*diskmanager.State, error) {
@@ -240,6 +250,16 @@ func (st *State) DiskFormatter() (*diskformatter.State, error) {
 		return nil, errors.Errorf("expected MachineTag, got %#v", st.authTag)
 	}
 	return diskformatter.NewState(st, machineTag), nil
+}
+
+// StorageProvisioner returns a version of the state that provides
+// functionality required by the storageprovisioner worker.
+// The scope tag defines the type of storage that is provisioned, either
+// either attached directly to a specified machine (machine scoped),
+// or provisioned on the underlying cloud for use by any machine in a
+// specified environment (environ scoped).
+func (st *State) StorageProvisioner(scope names.Tag) *storageprovisioner.State {
+	return storageprovisioner.NewState(st, scope)
 }
 
 // Firewaller returns a version of the state that provides functionality

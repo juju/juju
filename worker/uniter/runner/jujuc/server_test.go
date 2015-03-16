@@ -21,6 +21,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testing"
@@ -222,7 +223,7 @@ var newCommandTests = []struct {
 }
 
 func (s *NewCommandSuite) TestNewCommand(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	ctx := s.GetHookContext(c, 0, "")
 	for _, t := range newCommandTests {
