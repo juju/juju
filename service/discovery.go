@@ -145,7 +145,7 @@ func identifyInitSystem(executable string, followLink bool) (string, bool) {
 		return initSystem, true
 	}
 
-	finfo, err := osLstat(executable)
+	fInfo, err := osLstat(executable)
 	if os.IsNotExist(err) {
 		return "", false
 	} else if err != nil {
@@ -154,7 +154,7 @@ func identifyInitSystem(executable string, followLink bool) (string, bool) {
 	}
 
 	// First fall back to following symlinks.
-	if followLink && (finfo.Mode()&os.ModeSymlink) != 0 {
+	if followLink && (fInfo.Mode()&os.ModeSymlink) != 0 {
 		linked, err := osReadlink(executable)
 		if err != nil {
 			logger.Errorf("could not follow link %q (%v)", executable, err)
