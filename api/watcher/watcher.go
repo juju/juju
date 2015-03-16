@@ -302,6 +302,9 @@ type machineAttachmentsWatcher struct {
 	out                         chan []params.MachineStorageId
 }
 
+// NewVolumeAttachmentsWatcher returns a MachineStorageIdsWatcher which
+// communicates with the VolumeAttachmentsWatcher API facade to watch
+// volume attachments.
 func NewVolumeAttachmentsWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) MachineStorageIdsWatcher {
 	return newMachineStorageIdsWatcher("VolumeAttachmentsWatcher", caller, result)
 }

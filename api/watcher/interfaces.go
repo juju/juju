@@ -32,8 +32,9 @@ type RelationUnitsWatcher interface {
 	Err() error
 }
 
-// MachineStorageIdsWatcher will send events when something changes.
-// The content for the changes is a list of params.MachineStorageId.
+// MachineStorageIdsWatcher will send events when the lifecycle states
+// of machine/storage entities change. The content for the changes is a
+// list of params.MachineStorageId.
 type MachineStorageIdsWatcher interface {
 	Changes() <-chan []params.MachineStorageId
 	Stop() error

@@ -298,6 +298,8 @@ func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 	// no change, since we're only interested in the one machine.
 	wc.AssertNoChange()
 
+	// TODO(axw) respond to changes to the same machine when we support
+	// dynamic storage and/or placement.
 	// TODO(axw) respond to Dying/Dead when we have
 	// the means to progress Volume lifecycle.
 }

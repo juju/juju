@@ -207,8 +207,8 @@ func (w *srvRelationUnitsWatcher) Stop() error {
 }
 
 // srvMachineStorageIdsWatcher defines the API wrapping a state.StringsWatcher
-// watching machine/entity attachments. This watcher notifies about entities
-// being attached to and detached from machines.
+// watching machine/storage attachments. This watcher notifies about storage
+// entities (volumes/filesystems) being attached to and detached from machines.
 //
 // TODO(axw) state needs a new watcher, this is a bt of a hack. State watchers
 // could do with some deduplication of logic, and I don't want to add to that
