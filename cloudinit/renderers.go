@@ -13,7 +13,8 @@ import (
 type Renderer struct {
 	shell.Renderer
 
-	render func(conf *Config) ([]byte, error)
+	// Render renders the userdata script for a particular OS type.
+	Render func(conf *Config) ([]byte, error)
 }
 
 // NewRenderer returns a new cloudinit script renderer for the
@@ -28,23 +29,18 @@ func NewRenderer(series string) (*Renderer, error) {
 	case version.Windows:
 		renderer := &Renderer{
 			Renderer: &shell.PowershellRenderer{},
-			render:   powershellRender,
+			Render:   powershellRender,
 		}
 		return renderer, nil
 	case version.Ubuntu:
 		renderer := &Renderer{
 			Renderer: &shell.BashRenderer{},
-			render:   ubuntuRender,
+			Render:   ubuntuRender,
 		}
 		return renderer, nil
 	default:
 		return nil, errors.Errorf("No renderer could be found for %s", series)
 	}
-}
-
-// Render renders the userdata script for a particular OS type.
-func (r Renderer) Render(conf *Config) ([]byte, error) {
-	return r.render(conf)
 }
 
 func ubuntuRender(conf *Config) ([]byte, error) {
