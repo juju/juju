@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -28,6 +29,8 @@ type Stub struct {
 	PID1Filename string
 	Executable   string
 	Service      Service
+	FileInfo     os.FileInfo
+	Linked       string
 }
 
 // GetVersion stubs out .
@@ -70,6 +73,37 @@ func (s *Stub) DiscoverService(name string) (Service, error) {
 
 	return s.Service, s.NextErr()
 }
+
+// Stat stubs out os.Stat.
+func (s *Stub) Stat(filename string) (os.FileInfo, error) {
+	s.AddCall("Stat", filename)
+
+	return s.FileInfo, s.NextErr()
+}
+
+// DiscoverService stubs out service.DiscoverService.
+func (s *Stub) Readlink(filename string) (string, error) {
+	s.AddCall("Readlink", filename)
+
+	return s.Linked, s.NextErr()
+}
+
+// TODO(ericsnow) StubFileInfo belongs in utils/fs.
+
+// StubFileInfo implements os.FileInfo.
+type StubFileInfo struct{}
+
+func (StubFileInfo) Name() string       { return "" }
+func (StubFileInfo) Size() int64        { return 0 }
+func (StubFileInfo) Mode() os.FileMode  { return 0 }
+func (StubFileInfo) ModTime() time.Time { return time.Time{} }
+func (StubFileInfo) IsDir() bool        { return false }
+func (StubFileInfo) Sys() interface{}   { return nil }
+
+// StubFileInfo implements os.FileInfo for symlinks.
+type StubSymlinkInfo struct{ StubFileInfo }
+
+func (StubSymlinkInfo) Mode() os.FileMode { return os.ModeSymlink }
 
 // BaseSuite is the base test suite for the service package.
 type BaseSuite struct {
@@ -138,6 +172,18 @@ func (s *BaseSuite) PatchPid1File(c *gc.C, executable, verText string) string {
 	s.Patched.PID1Filename = filename
 	s.PatchValue(&pid1Filename, s.Patched.GetPID1Filename)
 	return exeName
+}
+
+func (s *BaseSuite) PatchLink(c *gc.C, linked string) {
+	s.Patched.FileInfo = &StubSymlinkInfo{}
+	s.PatchValue(&osStat, s.Patched.Stat)
+
+	s.Patched.Linked = linked
+	s.PatchValue(&osReadlink, s.Patched.Readlink)
+}
+
+func (s *BaseSuite) UnpatchLink(c *gc.C) {
+	s.Patched.FileInfo = &StubFileInfo{}
 }
 
 func (s *BaseSuite) resolveExecutable(executable string) string {
