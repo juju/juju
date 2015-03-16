@@ -129,13 +129,13 @@ func VolumeAttachmentsToState(in []params.VolumeAttachment) (map[names.VolumeTag
 func ParseVolumeAttachmentIds(stringIds []string) ([]params.MachineStorageId, error) {
 	ids := make([]params.MachineStorageId, len(stringIds))
 	for i, s := range stringIds {
-		m, e, err := state.ParseVolumeAttachmentId(s)
+		m, v, err := state.ParseVolumeAttachmentId(s)
 		if err != nil {
 			return nil, err
 		}
 		ids[i] = params.MachineStorageId{
-			MachineTag: m.String(),
-			EntityTag:  e.String(),
+			MachineTag:    m.String(),
+			AttachmentTag: v.String(),
 		}
 	}
 	return ids, nil

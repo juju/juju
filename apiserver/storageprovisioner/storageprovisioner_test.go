@@ -234,24 +234,24 @@ func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 			{
 				MachineStorageIdsWatcherId: "1",
 				Changes: []params.MachineStorageId{{
-					MachineTag: "machine-0",
-					EntityTag:  "volume-0-0",
+					MachineTag:    "machine-0",
+					AttachmentTag: "volume-0-0",
 				}, {
-					MachineTag: "machine-0",
-					EntityTag:  "volume-1",
+					MachineTag:    "machine-0",
+					AttachmentTag: "volume-1",
 				}, {
-					MachineTag: "machine-0",
-					EntityTag:  "volume-2",
+					MachineTag:    "machine-0",
+					AttachmentTag: "volume-2",
 				}},
 			},
 			{
 				MachineStorageIdsWatcherId: "2",
 				Changes: []params.MachineStorageId{{
-					MachineTag: "machine-0",
-					EntityTag:  "volume-1",
+					MachineTag:    "machine-0",
+					AttachmentTag: "volume-1",
 				}, {
-					MachineTag: "machine-0",
-					EntityTag:  "volume-2",
+					MachineTag:    "machine-0",
+					AttachmentTag: "volume-2",
 				}},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -312,7 +312,7 @@ func (b byMachineAndEntity) Len() int {
 
 func (b byMachineAndEntity) Less(i, j int) bool {
 	if b[i].MachineTag == b[j].MachineTag {
-		return b[i].EntityTag < b[j].EntityTag
+		return b[i].AttachmentTag < b[j].AttachmentTag
 	}
 	return b[i].MachineTag < b[j].MachineTag
 }

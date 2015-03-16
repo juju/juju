@@ -228,8 +228,8 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 	case changes, ok := <-w.Changes():
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(changes, jc.SameContents, []params.MachineStorageId{{
-			MachineTag: "machine-1",
-			EntityTag:  "volume-0",
+			MachineTag:    "machine-1",
+			AttachmentTag: "volume-0",
 		}})
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for change")

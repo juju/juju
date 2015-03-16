@@ -183,7 +183,7 @@ func (a *DiskFormatterAPI) VolumePreparationInfo(args params.MachineStorageIds) 
 		if err != nil || !canAccess(machineTag) {
 			return params.VolumePreparationInfo{}, common.ErrPerm
 		}
-		volumeTag, err := names.ParseVolumeTag(id.EntityTag)
+		volumeTag, err := names.ParseVolumeTag(id.AttachmentTag)
 		if err != nil {
 			return params.VolumePreparationInfo{}, common.ErrPerm
 		}

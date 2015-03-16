@@ -140,9 +140,9 @@ type Volumes struct {
 // to a machine, by their tags.
 type MachineStorageId struct {
 	MachineTag string `json:"machinetag"`
-	// EntityTag is the tag of the volume or filesystem whose
+	// AttachmentTag is the tag of the volume or filesystem whose
 	// attachment to the machine is represented.
-	EntityTag string `json:"entitytag"`
+	AttachmentTag string `json:"attachmenttag"`
 }
 
 // MachineStorageIds holds a set of machine/storage-entity

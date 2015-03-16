@@ -80,7 +80,7 @@ func (st *State) VolumePreparationInfo(tags []names.VolumeTag) ([]params.VolumeP
 	}
 	for i, tag := range tags {
 		args.Ids[i].MachineTag = st.tag.String()
-		args.Ids[i].EntityTag = tag.String()
+		args.Ids[i].AttachmentTag = tag.String()
 	}
 	err := st.facade.FacadeCall("VolumePreparationInfo", args, &results)
 	if err != nil {
