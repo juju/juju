@@ -106,6 +106,7 @@ func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 			Attributes: map[string]interface{}{
 				"volume-type": "io1",
 				"iops":        "1234",
+				"persistent":  true,
 			},
 			Attachment: &storage.VolumeAttachmentParams{
 				AttachmentParams: storage.AttachmentParams{
@@ -131,13 +132,15 @@ func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 		VirtualName: "ephemeral3",
 		DeviceName:  "/dev/sde",
 	}, {
-		VolumeSize: 2,
-		DeviceName: "/dev/sdf1",
+		VolumeSize:          2,
+		DeviceName:          "/dev/sdf1",
+		DeleteOnTermination: true,
 	}, {
-		VolumeSize: 44,
-		DeviceName: "/dev/sdf2",
-		VolumeType: "io1",
-		IOPS:       1234,
+		VolumeSize:          44,
+		DeviceName:          "/dev/sdf2",
+		VolumeType:          "io1",
+		IOPS:                1234,
+		DeleteOnTermination: false,
 	}})
 	c.Assert(volumes, gc.DeepEquals, []storage.Volume{
 		{Tag: volume0, Size: 2048},

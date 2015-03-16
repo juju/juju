@@ -46,6 +46,7 @@ func (s *VolumeStateSuite) TestAddMachine(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 	_, ok := volume.Params()
 	c.Assert(ok, jc.IsTrue)
+	c.Assert(volume.Persistent(), jc.IsFalse)
 
 	machine, err := s.State.Machine(assignedMachineId)
 	c.Assert(err, jc.ErrorIsNil)
@@ -114,6 +115,18 @@ func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 			Count: 1,
 		},
 	})
+}
+
+func (s *VolumeStateSuite) TestAddServicePersistentVolume(c *gc.C) {
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("persistent-block", provider.LoopProviderType, map[string]interface{}{"persistent": "true"})
+	c.Assert(err, jc.ErrorIsNil)
+	_, u, storageTag := s.setupSingleStorage(c, "block", "persistent-block")
+	err = s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	volume, err := s.State.StorageInstanceVolume(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volume.Persistent(), jc.IsTrue)
 }
 
 func (s *VolumeStateSuite) TestSetVolumeInfo(c *gc.C) {
@@ -355,4 +368,31 @@ func (s *VolumeStateSuite) assertVolumeInfo(c *gc.C, tag names.VolumeTag, expect
 	c.Assert(info, jc.DeepEquals, expect)
 	_, ok := volume.Params()
 	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *VolumeStateSuite) TestPersistentVolumes(c *gc.C) {
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("persistent-block", provider.LoopProviderType, map[string]interface{}{"persistent": "true"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch := s.AddTestingCharm(c, "storage-block2")
+	storage := map[string]state.StorageConstraints{
+		"multi1to10": makeStorageCons("persistent-block", 1024, 1),
+		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-block2", ch, storage)
+	unit, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	volume, err := s.State.StorageInstanceVolume(names.NewStorageTag("multi1to10/0"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	v, err := s.State.PersistentVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(v, gc.HasLen, 1)
+	c.Assert(v[0], gc.DeepEquals, volume)
+
+	// TODO(wallyworld) - test dying/dead volumes excluded
 }

@@ -103,7 +103,6 @@ func getBlockDeviceMappings(
 		}
 		mapping := ec2.BlockDeviceMapping{
 			VolumeSize: int64(mibToGib(params.Size)),
-			// TODO(axw) DeleteOnTermination
 		}
 		// Translate user values for storage provider parameters.
 		// TODO(wallyworld) - remove type assertions when juju/schema is used
@@ -117,6 +116,11 @@ func getBlockDeviceMappings(
 			if err != nil {
 				return nil, nil, nil, errors.Annotatef(err, "invalid iops value %v, expected integer", v)
 			}
+		}
+		if v, ok := options[storage.Persistent].(bool); ok {
+			mapping.DeleteOnTermination = !v
+		} else {
+			mapping.DeleteOnTermination = true
 		}
 
 		// Check mapping is valid (minus the device name).
