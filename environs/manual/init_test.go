@@ -115,25 +115,26 @@ func (s *initialisationSuite) TestDetectHardwareCharacteristics(c *gc.C) {
 }
 
 func (s *initialisationSuite) TestCheckProvisioned(c *gc.C) {
-	defer installFakeSSH(c, service.ListServicesCommand(), "", 0)()
+	listCmd := strings.Join(service.ListServicesScript(), "\n")
+	defer installFakeSSH(c, listCmd, "", 0)()
 	provisioned, err := manual.CheckProvisioned("example.com")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provisioned, jc.IsFalse)
 
-	defer installFakeSSH(c, service.ListServicesCommand(), "juju...", 0)()
+	defer installFakeSSH(c, listCmd, "juju...", 0)()
 	provisioned, err = manual.CheckProvisioned("example.com")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provisioned, jc.IsTrue)
 
 	// stderr should not affect result.
-	defer installFakeSSH(c, service.ListServicesCommand(), []string{"", "non-empty-stderr"}, 0)()
+	defer installFakeSSH(c, listCmd, []string{"", "non-empty-stderr"}, 0)()
 	provisioned, err = manual.CheckProvisioned("example.com")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provisioned, jc.IsFalse)
 
 	// if the script fails for whatever reason, then checkProvisioned
 	// will return an error. stderr will be included in the error message.
-	defer installFakeSSH(c, service.ListServicesCommand(), []string{"non-empty-stdout", "non-empty-stderr"}, 255)()
+	defer installFakeSSH(c, listCmd, []string{"non-empty-stdout", "non-empty-stderr"}, 255)()
 	_, err = manual.CheckProvisioned("example.com")
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 255 \\(non-empty-stderr\\)")
 }
