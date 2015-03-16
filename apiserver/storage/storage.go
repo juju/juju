@@ -82,11 +82,8 @@ func (api *API) List() (params.StorageInfosResult, error) {
 		// It is possible to encounter errors here related to getting individual
 		// storage details such as getting attachments, getting machine from the unit,
 		// etc.
-		// There are 3 ways to approach this (thank you, axw!):
-		//     1. error out the whole command (seems kind of drastic);
-		//     2. ignore this storage (seems kind of rude);
-		//     3. add error to storage info.
-		// Current approach is to do what status command does - 3.
+		// Current approach is to do what status command does - treat error
+		// as another valid property, i.e. augment storage details.
 		attachments := api.createStorageDetailsResult(instance)
 		for _, one := range attachments {
 			aParam := params.StorageInfo{one.Result, one.Error}
