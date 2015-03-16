@@ -150,7 +150,7 @@ func (r fakeSSH) install(c *gc.C) testing.Restorer {
 	if r.Provisioned {
 		checkProvisionedOutput = "/etc/init/jujud-machine-0.conf"
 	}
-	listCmd := strings.Join(service.ListServicesScript(), "\n")
+	listCmd := service.ListServicesScript()
 	add(listCmd, checkProvisionedOutput, r.CheckProvisionedExitCode)
 	if r.InitUbuntuUser {
 		add("", nil, 0)
