@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"strings"
+
 	"github.com/juju/cmd"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -54,16 +56,15 @@ func (s *ShowSuite) TestShow(c *gc.C) {
 		[]string{"shared-fs/0"},
 		// Default format is yaml
 		`
-postgresql:
-  shared-fs/0:
-    storage: shared-fs
-    kind: block
-    status: pending
 postgresql/0:
   shared-fs/0:
     storage: shared-fs
     kind: block
-    unit_id: postgresql/0
+    status: pending
+transcode/0:
+  shared-fs/0:
+    storage: shared-fs
+    kind: filesystem
     status: attached
     location: a location
 `[1:],
@@ -79,7 +80,7 @@ func (s *ShowSuite) TestShowJSON(c *gc.C) {
 	s.assertValidShow(
 		c,
 		[]string{"shared-fs/0", "--format", "json"},
-		`{"postgresql":{"shared-fs/0":{"storage":"shared-fs","kind":"block","status":"pending"}},"postgresql/0":{"shared-fs/0":{"storage":"shared-fs","kind":"block","unit_id":"postgresql/0","status":"attached","location":"a location"}}}
+		`{"postgresql/0":{"shared-fs/0":{"storage":"shared-fs","kind":"block","status":"pending"}},"transcode/0":{"shared-fs/0":{"storage":"shared-fs","kind":"filesystem","status":"attached","location":"a location"}}}
 `,
 	)
 }
@@ -89,26 +90,19 @@ func (s *ShowSuite) TestShowMultipleReturn(c *gc.C) {
 		c,
 		[]string{"shared-fs/0", "db-dir/1000"},
 		`
-postgresql:
-  db-dir/1000:
-    storage: db-dir
-    kind: block
-    status: pending
-  shared-fs/0:
-    storage: shared-fs
-    kind: block
-    status: pending
 postgresql/0:
   db-dir/1000:
     storage: db-dir
     kind: block
-    unit_id: postgresql/0
-    status: attached
-    location: a location
+    status: pending
   shared-fs/0:
     storage: shared-fs
     kind: block
-    unit_id: postgresql/0
+    status: pending
+transcode/0:
+  shared-fs/0:
+    storage: shared-fs
+    kind: filesystem
     status: attached
     location: a location
 `[1:],
@@ -135,26 +129,25 @@ func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageDetails, err
 	if s.noMatch {
 		return nil, nil
 	}
-	all := make([]params.StorageDetails, len(tags)*2)
-	ind := 0
-	for _, tag := range tags {
-		all[ind] = params.StorageDetails{
+	all := make([]params.StorageDetails, len(tags))
+	for i, tag := range tags {
+		all[i] = params.StorageDetails{
 			StorageTag: tag.String(),
-			OwnerTag:   "service-postgresql",
-			Kind:       params.StorageKindBlock,
-		}
-		ind++
-	}
-	for _, tag := range tags {
-		all[ind] = params.StorageDetails{
-			StorageTag: tag.String(),
-			OwnerTag:   "unit-postgresql-0",
 			UnitTag:    "unit-postgresql-0",
 			Kind:       params.StorageKindBlock,
-			Location:   "a location",
-			Status:     params.StorageStatusAttached,
 		}
-		ind++
+	}
+	for _, tag := range tags {
+		if strings.Contains(tag.String(), "shared") {
+			all = append(all, params.StorageDetails{
+				StorageTag: tag.String(),
+				OwnerTag:   "unit-transcode-0",
+				UnitTag:    "unit-transcode-0",
+				Kind:       params.StorageKindFilesystem,
+				Location:   "a location",
+				Status:     params.StorageStatusAttached,
+			})
+		}
 	}
 	return all, nil
 }

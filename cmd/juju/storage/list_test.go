@@ -42,12 +42,13 @@ func (s *ListSuite) TestList(c *gc.C) {
 		nil,
 		// Default format is tabular
 		`
-[Storage]   
-UNIT        ID          LOCATION 
-transcode/0 db-dir/1000 there    
-            db-dir/1000          
-            shared-fs/0          
-transcode/0 shared-fs/0 here     
+[Storage]    
+UNIT         ID          LOCATION STATUS  
+postgresql/0 db-dir/1100          pending 
+transcode/0  db-dir/1000          pending 
+transcode/0  db-dir/1100          pending 
+transcode/0  shared-fs/0          pending 
+transcode/1  shared-fs/0          pending 
 
 `[1:],
 		"",
@@ -60,28 +61,28 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 		[]string{"--format", "yaml"},
 		`
 postgresql/0:
-  db-dir/1000:
+  db-dir/1100:
     storage: db-dir
-    kind: unknown
-    unit_id: transcode/0
-    status: provisioned
-    location: there
-transcode:
-  db-dir/1000:
-    storage: db-dir
-    kind: block
-    status: pending
-  shared-fs/0:
-    storage: shared-fs
-    kind: unknown
+    kind: filesystem
     status: pending
 transcode/0:
+  db-dir/1000:
+    storage: db-dir
+    kind: block
+    status: pending
+  db-dir/1100:
+    storage: db-dir
+    kind: filesystem
+    status: pending
   shared-fs/0:
     storage: shared-fs
-    kind: block
-    unit_id: transcode/0
-    status: attached
-    location: here
+    kind: unknown
+    status: pending
+transcode/1:
+  shared-fs/0:
+    storage: shared-fs
+    kind: unknown
+    status: pending
 `[1:],
 		"",
 	)
@@ -94,14 +95,15 @@ func (s *ListSuite) TestListOwnerStorageIdSort(c *gc.C) {
 		nil,
 		// Default format is tabular
 		`
-[Storage]   
-UNIT        ID          LOCATION 
-transcode/0 db-dir/1000 there    
-            db-dir/1000          
-            shared-fs/0          
-            shared-fs/5          
-transcode/0 shared-fs/0 here     
-transcode/0 shared-fs/5 nowhere  
+[Storage]    
+UNIT         ID          LOCATION STATUS  
+postgresql/0 db-dir/1100          pending 
+transcode/0  db-dir/1000          pending 
+transcode/0  db-dir/1100          pending 
+transcode/0  shared-fs/0          pending 
+transcode/0  shared-fs/5          pending 
+transcode/1  db-dir/1000          pending 
+transcode/1  shared-fs/0          pending 
 
 `[1:],
 		`
@@ -141,7 +143,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 	results := []params.StorageInfo{{
 		params.StorageDetails{
 			StorageTag: "storage-shared-fs-0",
-			OwnerTag:   "unit-transcode-0",
+			OwnerTag:   "service-transcode",
 			UnitTag:    "unit-transcode-0",
 			Kind:       params.StorageKindBlock,
 			Location:   "here",
@@ -149,7 +151,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 		}, nil}, {
 		params.StorageDetails{
 			StorageTag: "storage-db-dir-1000",
-			OwnerTag:   "unit-postgresql-0",
+			OwnerTag:   "unit-transcode-0",
 			UnitTag:    "unit-transcode-0",
 			Kind:       params.StorageKindUnknown,
 			Location:   "there",
@@ -160,7 +162,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 		last := params.StorageInfo{
 			params.StorageDetails{
 				StorageTag: "storage-shared-fs-5",
-				OwnerTag:   "unit-transcode-0",
+				OwnerTag:   "service-transcode",
 				UnitTag:    "unit-transcode-0",
 				Kind:       params.StorageKindUnknown,
 				Location:   "nowhere",
@@ -169,8 +171,8 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 		second := params.StorageInfo{
 			params.StorageDetails{
 				StorageTag: "storage-db-dir-1010",
-				OwnerTag:   "unit-transcode-0",
-				UnitTag:    "unit-transcode-0",
+				OwnerTag:   "unit-transcode-1",
+				UnitTag:    "unit-transcode-1",
 				Kind:       params.StorageKindBlock,
 				Location:   "",
 				Status:     params.StorageStatus(4),
@@ -178,8 +180,8 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 		first := params.StorageInfo{
 			params.StorageDetails{
 				StorageTag: "storage-db-dir-1000",
-				OwnerTag:   "service-transcode",
-				UnitTag:    "unit-transcode-0",
+				OwnerTag:   "unit-transcode-1",
+				UnitTag:    "unit-transcode-1",
 				Kind:       params.StorageKindFilesystem,
 				Status:     params.StorageStatusAttached,
 			}, nil}
@@ -197,12 +199,33 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 			params.StorageDetails{
 				StorageTag: "storage-shared-fs-0",
 				OwnerTag:   "service-transcode",
+				UnitTag:    "unit-transcode-0",
 				Kind:       params.StorageKindUnknown,
 			}, nil},
 		{
 			params.StorageDetails{
-				StorageTag: "storage-db-dir-1000",
+				StorageTag: "storage-shared-fs-0",
 				OwnerTag:   "service-transcode",
+				UnitTag:    "unit-transcode-1",
+				Kind:       params.StorageKindUnknown,
+			}, nil},
+		{
+			params.StorageDetails{
+				StorageTag: "storage-db-dir-1100",
+				UnitTag:    "unit-postgresql-0",
+				Kind:       params.StorageKindFilesystem,
+			}, nil},
+		{
+			params.StorageDetails{
+				StorageTag: "storage-db-dir-1100",
+				UnitTag:    "unit-transcode-0",
+				Kind:       params.StorageKindFilesystem,
+			}, nil},
+		{
+			params.StorageDetails{
+				StorageTag: "storage-db-dir-1000",
+				OwnerTag:   "unit-transcode-0",
+				UnitTag:    "unit-transcode-0",
 				Kind:       params.StorageKindBlock,
 			}, nil}}
 
@@ -211,22 +234,30 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 			params.StorageDetails{
 				StorageTag: "storage-shared-fs-5",
 				OwnerTag:   "service-transcode",
+				UnitTag:    "unit-transcode-0",
 				Kind:       params.StorageKindUnknown,
 			}, nil}
 		second := params.StorageInfo{
 			params.StorageDetails{
 				StorageTag: "storage-db-dir-1010",
-				OwnerTag:   "service-transcode",
+				UnitTag:    "unit-transcode-1",
 				Kind:       params.StorageKindBlock,
 			}, &params.Error{Message: "error for test storage-db-dir-1010"}}
 		first := params.StorageInfo{
 			params.StorageDetails{
 				StorageTag: "storage-db-dir-1000",
-				OwnerTag:   "service-transcode",
+				UnitTag:    "unit-transcode-1",
+				Kind:       params.StorageKindFilesystem,
+			}, nil}
+		zero := params.StorageInfo{
+			params.StorageDetails{
+				StorageTag: "storage-db-dir-1100",
+				UnitTag:    "unit-postgresql-0",
 				Kind:       params.StorageKindFilesystem,
 			}, nil}
 		results = append(results, last)
 		results = append(results, second)
+		results = append(results, zero)
 		results = append(results, first)
 	}
 	return results

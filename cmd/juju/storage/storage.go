@@ -64,7 +64,6 @@ func (c *StorageCommandBase) NewStorageAPI() (*storage.Client, error) {
 type StorageInfo struct {
 	StorageName string `yaml:"storage" json:"storage"`
 	Kind        string `yaml:"kind" json:"kind"`
-	UnitId      string `yaml:"unit_id,omitempty" json:"unit_id,omitempty"`
 	Status      string `yaml:"status,omitempty" json:"status,omitempty"`
 	Location    string `yaml:"location,omitempty" json:"location,omitempty"`
 }
@@ -81,10 +80,11 @@ func formatStorageDetails(storages []params.StorageDetails) (map[string]map[stri
 		if err != nil {
 			return nil, errors.Annotate(err, "invalid storage tag")
 		}
-		ownerTag, err := names.ParseTag(one.OwnerTag)
+		unitTag, err := names.ParseTag(one.UnitTag)
 		if err != nil {
-			return nil, errors.Annotate(err, "invalid owner tag")
+			return nil, errors.Annotate(err, "invalid unit tag")
 		}
+
 		storageName, err := names.StorageName(storageTag.Id())
 		if err != nil {
 			panic(err) // impossible
@@ -95,20 +95,13 @@ func formatStorageDetails(storages []params.StorageDetails) (map[string]map[stri
 			Status:      one.Status.String(),
 			Location:    one.Location,
 		}
-		if one.UnitTag != "" {
-			unitTag, err := names.ParseTag(one.UnitTag)
-			if err != nil {
-				return nil, errors.Annotate(err, "invalid unit tag")
-			}
-			si.UnitId = unitTag.Id()
-		}
-		owner := ownerTag.Id()
-		ownerColl, ok := output[owner]
+		unit := unitTag.Id()
+		unitColl, ok := output[unit]
 		if !ok {
-			ownerColl = map[string]StorageInfo{}
-			output[owner] = ownerColl
+			unitColl = map[string]StorageInfo{}
+			output[unit] = unitColl
 		}
-		ownerColl[storageTag.Id()] = si
+		unitColl[storageTag.Id()] = si
 	}
 	return output, nil
 }

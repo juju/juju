@@ -90,7 +90,6 @@ storage-block/0:
   data/0:
     storage: data
     kind: block
-    unit_id: storage-block/0
     status: attached
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
@@ -105,7 +104,6 @@ storage-block/0:
   data/0:
     storage: data
     kind: block
-    unit_id: storage-block/0
     status: attached
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
@@ -134,8 +132,8 @@ func (s *cmdStorageSuite) TestStorageList(c *gc.C) {
 	context := runList(c)
 	expected := `
 [Storage]       
-UNIT            ID     LOCATION 
-storage-block/0 data/0          
+UNIT            ID     LOCATION STATUS   
+storage-block/0 data/0          attached 
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
