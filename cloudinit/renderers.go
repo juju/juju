@@ -8,6 +8,8 @@ import (
 	"github.com/juju/juju/version"
 )
 
+// Renderer is used to render a cloud-init config into the corresponding
+// script to write to disk.
 type Renderer struct {
 	shell.Renderer
 
