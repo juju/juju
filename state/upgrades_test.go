@@ -2252,31 +2252,31 @@ func countOldIndexes(c *gc.C, coll *mgo.Collection) (foundCount, oldCount int) {
 	return
 }
 
+func (s *upgradesSuite) addMachineWithLife(c *gc.C, machineID int, life Life) {
+	mDoc := bson.M{
+		"_id":        machineID,
+		"instanceid": "foobar",
+		"life":       life,
+	}
+	ops := []txn.Op{
+		{
+			C:      machinesC,
+			Id:     machineID,
+			Assert: txn.DocMissing,
+			Insert: mDoc,
+		},
+	}
+	err := s.state.runRawTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *upgradesSuite) TestIPAddressesLife(c *gc.C) {
 	addresses, closer := s.state.getRawCollection(ipaddressesC)
 	defer closer()
 
-	addMachine := func(machineID int, life Life) {
-
-		mDoc := bson.M{
-			"_id":        machineID,
-			"instanceid": "foobar",
-			"life":       life,
-		}
-		ops := []txn.Op{
-			{
-				C:      machinesC,
-				Id:     machineID,
-				Assert: txn.DocMissing,
-				Insert: mDoc,
-			},
-		}
-		err := s.state.runRawTransaction(ops)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	addMachine(1, Alive)
-	addMachine(2, Alive)
-	addMachine(3, Dead)
+	s.addMachineWithLife(c, 1, Alive)
+	s.addMachineWithLife(c, 2, Alive)
+	s.addMachineWithLife(c, 3, Dead)
 
 	uuid := s.state.EnvironUUID()
 
@@ -2339,6 +2339,38 @@ func (s *upgradesSuite) TestIPAddressesLife(c *gc.C) {
 	ipAddr, err = s.state.IPAddress("0.1.2.6")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ipAddr.Life(), gc.Equals, Dead)
+
+	doc := ipaddressDoc{}
+	err = addresses.FindId(uuid + ":0.1.2.3").One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(doc.Life, gc.Equals, Alive)
+}
+
+func (s *upgradesSuite) TestIPAddressLifeIdempotent(c *gc.C) {
+	addresses, closer := s.state.getRawCollection(ipaddressesC)
+	defer closer()
+
+	s.addMachineWithLife(c, 1, Alive)
+	uuid := s.state.EnvironUUID()
+
+	err := addresses.Insert(
+		// this one should have Life set to Alive
+		bson.D{
+			{"_id", uuid + ":0.1.2.3"},
+			{"env-uuid", uuid},
+			{"subnetid", "foo"},
+			{"machineid", 1},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.3"},
+			{"state", ""},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = AddLifeFieldOfIPAddresses(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	err = AddLifeFieldOfIPAddresses(s.state)
+	c.Assert(err, jc.ErrorIsNil)
 
 	doc := ipaddressDoc{}
 	err = addresses.FindId(uuid + ":0.1.2.3").One(&doc)
