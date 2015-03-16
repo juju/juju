@@ -2332,6 +2332,14 @@ func (s *upgradesSuite) TestIPAddressesLife(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ipAddr.Life(), gc.Equals, Dead)
 
+	ipAddr, err = s.state.IPAddress("0.1.2.5")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.Life(), gc.Equals, Dead)
+
+	ipAddr, err = s.state.IPAddress("0.1.2.6")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.Life(), gc.Equals, Dead)
+
 	doc := ipaddressDoc{}
 	err = addresses.FindId(uuid + ":0.1.2.3").One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
