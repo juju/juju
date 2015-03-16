@@ -200,8 +200,28 @@ func (st *State) WatchMachineVolumes(m names.MachineTag) StringsWatcher {
 	return newLifecycleWatcher(st, volumesC, members, filter, nil)
 }
 
+// WatchEnvironVolumeAttachments returns a StringsWatcher that notifies of
+// changes to the lifecycles of all volume attachments related to environ-
+// scoped volumes.
+func (st *State) WatchEnvironVolumeAttachments() StringsWatcher {
+	pattern := fmt.Sprintf("^%s.*:%s$", st.docID(""), names.NumberSnippet)
+	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
+	filter := func(id interface{}) bool {
+		k, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		colon := strings.IndexRune(k, ':')
+		if colon == -1 {
+			return false
+		}
+		return !strings.Contains(k[colon+1:], "/")
+	}
+	return newLifecycleWatcher(st, volumeAttachmentsC, members, filter, nil)
+}
+
 // WatchMachineVolumeAttachments returns a StringsWatcher that notifies of
-// changes to the lifecycles of all volume attachments related to specified
+// changes to the lifecycles of all volume attachments related to the specified
 // machine.
 func (st *State) WatchMachineVolumeAttachments(m names.MachineTag) StringsWatcher {
 	pattern := fmt.Sprintf("^%s:.*", st.docID(m.Id()))
