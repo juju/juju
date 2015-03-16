@@ -37,19 +37,9 @@ func VolumeParams(v state.Volume, poolManager poolmanager.PoolManager) (params.V
 		return params.VolumeParams{}, err
 	}
 
-	var providerType storage.ProviderType
-	var attrs map[string]interface{}
-	if pool, err := poolManager.Get(stateVolumeParams.Pool); errors.IsNotFound(err) {
-		// If not a storage pool, then maybe a provider type.
-		providerType = storage.ProviderType(stateVolumeParams.Pool)
-		if _, err1 := registry.StorageProvider(providerType); err1 != nil {
-			return params.VolumeParams{}, errors.Trace(err)
-		}
-	} else if err != nil {
-		return params.VolumeParams{}, errors.Annotate(err, "getting pool")
-	} else {
-		providerType = pool.Provider()
-		attrs = pool.Attrs()
+	providerType, attrs, err := StoragePoolConfig(stateVolumeParams.Pool, poolManager)
+	if err != nil {
+		return params.VolumeParams{}, errors.Trace(err)
 	}
 	return params.VolumeParams{
 		v.Tag().String(),
@@ -58,6 +48,26 @@ func VolumeParams(v state.Volume, poolManager poolmanager.PoolManager) (params.V
 		attrs,
 		nil, // attachment params set by the caller
 	}, nil
+}
+
+// StoragePoolConfig returns the storage provider type and
+// configuration attributes for a named storage pool. If
+// there is no such pool with the specified name, but it
+// identifies a storage provider, then that type will be
+// returned with a nil configuration.
+func StoragePoolConfig(name string, poolManager poolmanager.PoolManager) (storage.ProviderType, map[string]interface{}, error) {
+	pool, err := poolManager.Get(name)
+	if errors.IsNotFound(err) {
+		// If not a storage pool, then maybe a provider type.
+		providerType := storage.ProviderType(name)
+		if _, err1 := registry.StorageProvider(providerType); err1 != nil {
+			return "", nil, errors.Trace(err)
+		}
+		return providerType, nil, nil
+	} else if err != nil {
+		return "", nil, errors.Annotatef(err, "getting pool %q", name)
+	}
+	return pool.Provider(), pool.Attrs(), nil
 }
 
 // VolumesToState converts a slice of params.Volume to a mapping

@@ -83,7 +83,6 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 func (s *provisionerSuite) setupVolumes(c *gc.C) {
 	s.factory.MakeMachine(c, &factory.MachineParams{
 		InstanceId: instance.Id("inst-id"),
-		Nonce:      "nonce",
 		Volumes: []state.MachineVolumeParams{
 			{Volume: state.VolumeParams{Pool: "machinescoped", Size: 1024}},
 			{Volume: state.VolumeParams{Pool: "environscoped", Size: 2048}},
@@ -103,8 +102,21 @@ func (s *provisionerSuite) setupVolumes(c *gc.C) {
 		Size:     4096,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	// Make another machine for tests to use.
+
+	// Make a machine without storage for tests to use.
 	s.factory.MakeMachine(c, nil)
+
+	// Make an unprovisioned machine with storage for tests to use.
+	// TODO(axw) extend testing/factory to allow creating unprovisioned
+	// machines.
+	_, err = s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Volumes: []state.MachineVolumeParams{
+			{Volume: state.VolumeParams{Pool: "environscoped", Size: 2048}},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *provisionerSuite) TestVolumesMachine(c *gc.C) {
@@ -224,6 +236,48 @@ func (s *provisionerSuite) TestVolumeParamsEmptyArgs(c *gc.C) {
 	results, err := s.api.VolumeParams(params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
+}
+
+func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
+	s.setupVolumes(c)
+	s.authorizer.EnvironManager = true
+
+	results, err := s.api.VolumeAttachmentParams(params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-0-0",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-1",
+		}, {
+			MachineTag:    "machine-2",
+			AttachmentTag: "volume-3",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "volume-42",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.VolumeAttachmentParamsResults{
+		Results: []params.VolumeAttachmentParamsResult{
+			{Result: params.VolumeAttachmentParams{
+				MachineTag: "machine-0",
+				VolumeTag:  "volume-0-0",
+				InstanceId: "inst-id",
+				VolumeId:   "abc",
+				Provider:   "machinescoped",
+			}},
+			{Error: &params.Error{
+				Code:    params.CodeNotProvisioned,
+				Message: `volume "1" not provisioned`,
+			}},
+			{Error: &params.Error{
+				Code:    params.CodeNotProvisioned,
+				Message: `machine 2 not provisioned`,
+			}},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+		},
+	})
 }
 
 func (s *provisionerSuite) TestWatchVolumes(c *gc.C) {

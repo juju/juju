@@ -4,13 +4,16 @@
 package storageprovisioner
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
 
 type provisionerState interface {
 	state.EntityFinder
+	MachineInstanceId(names.MachineTag) (instance.Id, error)
 	WatchEnvironVolumes() state.StringsWatcher
 	WatchEnvironVolumeAttachments() state.StringsWatcher
 	WatchMachineVolumes(names.MachineTag) state.StringsWatcher
@@ -23,4 +26,12 @@ type provisionerState interface {
 
 type stateShim struct {
 	*state.State
+}
+
+func (s stateShim) MachineInstanceId(tag names.MachineTag) (instance.Id, error) {
+	m, err := s.Machine(tag.Id())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return m.InstanceId()
 }
