@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
@@ -130,7 +131,46 @@ func DefaultDialOpts() DialOpts {
 	}
 }
 
+// Open establishes a connection to the API server using the Info
+// given, returning a State instance which can be used to make API
+// requests.
+//
+// See Connect for details of the connection mechanics.
 func Open(info *Info, opts DialOpts) (*State, error) {
+	conn, err := Connect(info, opts)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
+	client.Start()
+	st := &State{
+		client:     client,
+		conn:       conn,
+		addr:       conn.Config().Location.Host,
+		serverRoot: "https://" + conn.Config().Location.Host,
+		// why are the contents of the tag (username and password) written into the
+		// state structure BEFORE login ?!?
+		tag:      toString(info.Tag),
+		password: info.Password,
+		certPool: conn.Config().TlsConfig.RootCAs,
+	}
+	if info.Tag != nil || info.Password != "" {
+		if err := st.Login(info.Tag.String(), info.Password, info.Nonce); err != nil {
+			conn.Close()
+			return nil, err
+		}
+	}
+	st.broken = make(chan struct{})
+	st.closed = make(chan struct{})
+	go st.heartbeatMonitor()
+	return st, nil
+}
+
+// Connect establishes a websocket connection to the API server using
+// the Info given. If multiple API addresses are provided they will be
+// tried concurrently - the first successful connection wins.
+func Connect(info *Info, opts DialOpts) (*websocket.Conn, error) {
 	if len(info.Addrs) == 0 {
 		return nil, fmt.Errorf("no API addresses to connect to")
 	}
@@ -178,30 +218,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	}
 	conn := result.(*websocket.Conn)
 	logger.Infof("connection established to %q", conn.RemoteAddr())
-
-	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
-	client.Start()
-	st := &State{
-		client:     client,
-		conn:       conn,
-		addr:       conn.Config().Location.Host,
-		serverRoot: "https://" + conn.Config().Location.Host,
-		// why are the contents of the tag (username and password) written into the
-		// state structure BEFORE login ?!?
-		tag:      toString(info.Tag),
-		password: info.Password,
-		certPool: pool,
-	}
-	if info.Tag != nil || info.Password != "" {
-		if err := st.Login(info.Tag.String(), info.Password, info.Nonce); err != nil {
-			conn.Close()
-			return nil, err
-		}
-	}
-	st.broken = make(chan struct{})
-	st.closed = make(chan struct{})
-	go st.heartbeatMonitor()
-	return st, nil
+	return conn, nil
 }
 
 // toString returns the value of a tag's String method, or "" if the tag is nil.
