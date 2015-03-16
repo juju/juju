@@ -226,6 +226,8 @@ EOF`[1:], filename, DiscoverInitSystemScript),
 	}
 }
 
+const caseLine = "%sif [[ $init_system == %q ]]; then %s\n"
+
 // newShellSelectCommand creates a bash if statement with an if
 // (or elif) clause for each of the executables in linuxExecutables.
 // The body of each clause comes from calling the provided handler with
@@ -235,26 +237,23 @@ func newShellSelectCommand(discoverScript string, handler func(string) (string, 
 	// TODO(ericsnow) Build the command in a better way?
 	// TODO(ericsnow) Use a case statement?
 
-	cmdAll := ""
+	prefix := "init_system=$(" + discoverScript + ") "
+	lines := ""
 	for _, initSystem := range linuxInitSystems {
 		cmd, ok := handler(initSystem)
 		if !ok {
 			continue
 		}
+		lines += fmt.Sprintf(caseLine, prefix, initSystem, cmd)
 
-		test := fmt.Sprintf("[[ $init_system == %q ]]", initSystem)
-		cmd = fmt.Sprintf("if %s; then %s\n", test, cmd)
-		if cmdAll == "" {
-			cmd = "init_system=$(" + discoverScript + ") " + cmd
-		} else {
-			cmd = "el" + cmd
+		if prefix != "el" {
+			prefix = "el"
 		}
-		cmdAll += cmd
 	}
-	if cmdAll != "" {
-		cmdAll += "" +
+	if lines != "" {
+		lines += "" +
 			"else exit 1\n" +
 			"fi"
 	}
-	return cmdAll
+	return lines
 }
