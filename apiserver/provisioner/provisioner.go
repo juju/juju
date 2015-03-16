@@ -566,8 +566,20 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 		} else if err != nil {
 			return nil, errors.Annotatef(err, "getting volume %q parameters", volumeTag.Id())
 		}
+		instanceId, err := m.InstanceId()
+		if errors.IsNotProvisioned(err) {
+			instanceId = ""
+		} else if err != nil {
+			return nil, errors.Annotatef(err, "getting machine %q instance ID", m.Id())
+		}
 		// Not provisioned yet, so ask the cloud provisioner do it.
-		volumeParams.MachineTag = m.Tag().String()
+		volumeParams.Attachment = &params.VolumeAttachmentParams{
+			volumeTag.String(),
+			m.Tag().String(),
+			string(instanceId),
+			"", // volume not created yet, so has no volume ID.
+			volumeParams.Provider,
+		}
 		allVolumeParams = append(allVolumeParams, volumeParams)
 	}
 	return allVolumeParams, nil
@@ -591,27 +603,6 @@ func storageConfig(st *state.State, poolName string) (storage.ProviderType, map[
 		return "", nil, errors.Trace(err)
 	}
 	return p.Provider(), p.Attrs(), nil
-}
-
-// volumesToState converts a slice of storage.Volume to a mapping
-// of volume names to state.VolumeInfo.
-func volumesToState(in []params.Volume) (map[names.VolumeTag]state.VolumeInfo, error) {
-	m := make(map[names.VolumeTag]state.VolumeInfo)
-	for _, v := range in {
-		if v.VolumeTag == "" {
-			return nil, errors.New("Tag is empty")
-		}
-		volumeTag, err := names.ParseVolumeTag(v.VolumeTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		m[volumeTag] = state.VolumeInfo{
-			v.Serial,
-			v.Size,
-			v.VolumeId,
-		}
-	}
-	return m, nil
 }
 
 // volumeAttachmentsToState converts a slice of storage.VolumeAttachment to a

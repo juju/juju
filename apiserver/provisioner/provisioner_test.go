@@ -783,15 +783,25 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Volumes: []params.VolumeParams{{
 					VolumeTag:  "volume-" + placementMachine.Id() + "-0",
 					Size:       1000,
-					MachineTag: placementMachine.Tag().String(),
 					Provider:   "loop",
 					Attributes: map[string]interface{}{"foo": "bar"},
+					Attachment: &params.VolumeAttachmentParams{
+						MachineTag: placementMachine.Tag().String(),
+						VolumeTag:  "volume-" + placementMachine.Id() + "-0",
+						InstanceId: "i-am",
+						Provider:   "loop",
+					},
 				}, {
 					VolumeTag:  "volume-" + placementMachine.Id() + "-1",
 					Size:       2000,
-					MachineTag: placementMachine.Tag().String(),
 					Provider:   "loop",
 					Attributes: map[string]interface{}{"foo": "bar"},
+					Attachment: &params.VolumeAttachmentParams{
+						MachineTag: placementMachine.Tag().String(),
+						VolumeTag:  "volume-" + placementMachine.Id() + "-1",
+						InstanceId: "i-am",
+						Provider:   "loop",
+					},
 				}},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
@@ -805,7 +815,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 		vols := expected.Results[1].Result.Volumes
 		vols[0], vols[1] = vols[1], vols[0]
 	}
-	c.Assert(result, gc.DeepEquals, expected)
+	c.Assert(result, jc.DeepEquals, expected)
 }
 
 func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
@@ -828,7 +838,7 @@ func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(result, gc.DeepEquals, params.ProvisioningInfoResults{
+	c.Assert(result, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
 				Series:      "quantal",
@@ -839,9 +849,13 @@ func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 				Volumes: []params.VolumeParams{{
 					VolumeTag:  "volume-" + placementMachine.Id() + "-0",
 					Size:       1000,
-					MachineTag: placementMachine.Tag().String(),
 					Provider:   "loop",
 					Attributes: nil,
+					Attachment: &params.VolumeAttachmentParams{
+						MachineTag: placementMachine.Tag().String(),
+						VolumeTag:  "volume-" + placementMachine.Id() + "-0",
+						Provider:   "loop",
+					},
 				}},
 			}},
 		},
@@ -1193,7 +1207,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfo, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volumeInfo, gc.Equals, state.VolumeInfo{VolumeId: "vol-0", Size: 1234})
+	c.Assert(volumeInfo, gc.Equals, state.VolumeInfo{VolumeId: "vol-0", Pool: "loop-pool", Size: 1234})
 
 	// Verify the machine without requested volumes still has no volume
 	// attachments recorded in state.

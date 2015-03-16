@@ -56,7 +56,7 @@ func VolumeParams(v state.Volume, poolManager poolmanager.PoolManager) (params.V
 		stateVolumeParams.Size,
 		string(providerType),
 		attrs,
-		"", // machine tag is set by the machine provisioner
+		nil, // attachment params set by the caller
 	}, nil
 }
 
@@ -87,6 +87,7 @@ func VolumeToState(v params.Volume) (names.VolumeTag, state.VolumeInfo, error) {
 	return volumeTag, state.VolumeInfo{
 		v.Serial,
 		v.Size,
+		"", // pool is set by state
 		v.VolumeId,
 	}, nil
 }
