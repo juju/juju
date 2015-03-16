@@ -206,7 +206,7 @@ func (i *IPAddress) SetState(newState AddressState) (err error) {
 				return nil, err
 			} else if i.Life() == Dead {
 				return nil, errors.New("address is dead")
-			} else if err == txn.ErrAborted {
+			} else if i.State() != AddressStateUnknown {
 				return nil, errors.NotValidf("transition from %q", i.doc.State)
 			} else if err != nil {
 				return nil, err
@@ -242,7 +242,7 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
 				return nil, err
 			} else if i.Life() == Dead {
 				return nil, errors.New("address is dead")
-			} else if err == txn.ErrAborted {
+			} else if i.State() != AddressStateUnknown {
 				return nil, errors.Errorf("already allocated or unavailable")
 			} else if err != nil {
 				return nil, err
