@@ -52,6 +52,28 @@ func (st *State) WatchVolumes() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
+// WatchVolumeAttachments watches for changes to volume attachments
+// scoped to the entity with the tag passed to NewState.
+func (st *State) WatchVolumeAttachments() (watcher.MachineStorageIdsWatcher, error) {
+	var results params.MachineStorageIdsWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: st.scope.String()}},
+	}
+	err := st.facade.FacadeCall("WatchVolumeAttachments", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewVolumeAttachmentsWatcher(st.facade.RawAPICaller(), result)
+	return w, nil
+}
+
 // Volumes returns details of volumes with the specified tags.
 func (st *State) Volumes(tags []names.VolumeTag) ([]params.VolumeResult, error) {
 	args := params.Entities{

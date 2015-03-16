@@ -218,13 +218,13 @@ func (s *DiskFormatterSuite) TestVolumePreparationInfo(c *gc.C) {
 		&state.VolumeAttachmentInfo{DeviceName: "sdd"},
 	}}
 
-	results, err := s.api.VolumePreparationInfo(params.VolumeAttachmentIds{
-		Ids: []params.VolumeAttachmentId{
-			{MachineTag: "machine-0", VolumeTag: "volume-0"},
-			{MachineTag: "machine-0", VolumeTag: "volume-1"},
-			{MachineTag: "machine-0", VolumeTag: "volume-2"},
-			{MachineTag: "machine-0", VolumeTag: "volume-3"},
-			{MachineTag: "machine-1", VolumeTag: "volume-0"},
+	results, err := s.api.VolumePreparationInfo(params.MachineStorageIds{
+		Ids: []params.MachineStorageId{
+			{MachineTag: "machine-0", EntityTag: "volume-0"},
+			{MachineTag: "machine-0", EntityTag: "volume-1"},
+			{MachineTag: "machine-0", EntityTag: "volume-2"},
+			{MachineTag: "machine-0", EntityTag: "volume-3"},
+			{MachineTag: "machine-1", EntityTag: "volume-0"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)

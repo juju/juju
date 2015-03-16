@@ -30,7 +30,7 @@ func init() {
 	)
 	common.RegisterFacade(
 		"VolumeAttachmentsWatcher", 1, newVolumeAttachmentsWatcher,
-		reflect.TypeOf((*srvMachineAttachmentsWatcher)(nil)),
+		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
 	)
 }
 
@@ -206,18 +206,18 @@ func (w *srvRelationUnitsWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }
 
-// srvMachineAttachmentsWatcher defines the API wrapping a state.StringsWatcher
+// srvMachineStorageIdsWatcher defines the API wrapping a state.StringsWatcher
 // watching machine/entity attachments. This watcher notifies about entities
 // being attached to and detached from machines.
 //
-// TODO(axw) state needs a new watcher, this is a dirty hack. State watchers
+// TODO(axw) state needs a new watcher, this is a bt of a hack. State watchers
 // could do with some deduplication of logic, and I don't want to add to that
 // spaghetti right now.
-type srvMachineAttachmentsWatcher struct {
+type srvMachineStorageIdsWatcher struct {
 	watcher   state.StringsWatcher
 	id        string
 	resources *common.Resources
-	parser    func([]string) ([]params.MachineAttachmentId, error)
+	parser    func([]string) ([]params.MachineStorageId, error)
 }
 
 func newVolumeAttachmentsWatcher(
@@ -226,17 +226,17 @@ func newVolumeAttachmentsWatcher(
 	auth common.Authorizer,
 	id string,
 ) (interface{}, error) {
-	return newMachineAttachmentsWatcher(
+	return newMachineStorageIdsWatcher(
 		st, resources, auth, id, common.ParseVolumeAttachmentIds,
 	)
 }
 
-func newMachineAttachmentsWatcher(
+func newMachineStorageIdsWatcher(
 	st *state.State,
 	resources *common.Resources,
 	auth common.Authorizer,
 	id string,
-	parser func([]string) ([]params.MachineAttachmentId, error),
+	parser func([]string) ([]params.MachineStorageId, error),
 ) (interface{}, error) {
 	if !isAgent(auth) {
 		return nil, common.ErrPerm
@@ -245,7 +245,7 @@ func newMachineAttachmentsWatcher(
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
-	return &srvMachineAttachmentsWatcher{
+	return &srvMachineStorageIdsWatcher{
 		watcher:   watcher,
 		id:        id,
 		resources: resources,
@@ -254,14 +254,14 @@ func newMachineAttachmentsWatcher(
 
 // Next returns when a change has occured to an entity of the
 // collection being watched since the most recent call to Next
-// or the Watch call that created the srvMachineAttachmentsWatcher.
-func (w *srvMachineAttachmentsWatcher) Next() (params.MachineAttachmentsWatchResult, error) {
+// or the Watch call that created the srvMachineStorageIdsWatcher.
+func (w *srvMachineStorageIdsWatcher) Next() (params.MachineStorageIdsWatchResult, error) {
 	if stringChanges, ok := <-w.watcher.Changes(); ok {
 		changes, err := common.ParseVolumeAttachmentIds(stringChanges)
 		if err != nil {
-			return params.MachineAttachmentsWatchResult{}, err
+			return params.MachineStorageIdsWatchResult{}, err
 		}
-		return params.MachineAttachmentsWatchResult{
+		return params.MachineStorageIdsWatchResult{
 			Changes: changes,
 		}, nil
 	}
@@ -269,10 +269,10 @@ func (w *srvMachineAttachmentsWatcher) Next() (params.MachineAttachmentsWatchRes
 	if err == nil {
 		err = common.ErrStoppedWatcher
 	}
-	return params.MachineAttachmentsWatchResult{}, err
+	return params.MachineStorageIdsWatchResult{}, err
 }
 
 // Stop stops the watcher.
-func (w *srvMachineAttachmentsWatcher) Stop() error {
+func (w *srvMachineStorageIdsWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }

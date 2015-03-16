@@ -136,17 +136,19 @@ type Volumes struct {
 	Volumes []Volume `json:"volumes"`
 }
 
-// MachineAttachmentId identifies the attachment of a storage entity
+// MachineStorageId identifies the attachment of a storage entity
 // to a machine, by their tags.
-type MachineAttachmentId struct {
-	EntityTag  string `json:"entitytag"`
+type MachineStorageId struct {
 	MachineTag string `json:"machinetag"`
+	// EntityTag is the tag of the volume or filesystem whose
+	// attachment to the machine is represented.
+	EntityTag string `json:"entitytag"`
 }
 
-// MachineAttachmentIds holds a set of machine/storage-entity
+// MachineStorageIds holds a set of machine/storage-entity
 // attachment identifiers.
-type MachineAttachmentIds struct {
-	Ids []MachineAttachmentId `json:"ids"`
+type MachineStorageIds struct {
+	Ids []MachineStorageId `json:"ids"`
 }
 
 // VolumeAttachment describes a volume attachment.

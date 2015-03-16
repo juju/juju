@@ -293,24 +293,24 @@ func (w *relationUnitsWatcher) Changes() <-chan multiwatcher.RelationUnitsChange
 }
 
 // machineAttachmentsWatcher will sends notifications of units entering and
-// leaving the scope of a MachineAttachment, and changes to the settings of
+// leaving the scope of a MachineStorageId, and changes to the settings of
 // those units known to have entered.
 type machineAttachmentsWatcher struct {
 	commonWatcher
 	caller                      base.APICaller
 	machineAttachmentsWatcherId string
-	out                         chan []params.MachineAttachmentId
+	out                         chan []params.MachineStorageId
 }
 
-func NewVolumeAttachmentsWatcher(caller base.APICaller, result params.MachineAttachmentsWatchResult) MachineAttachmentsWatcher {
-	return newMachineAttachmentsWatcher("VolumeAttachmentsWatcher", caller, result)
+func NewVolumeAttachmentsWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) MachineStorageIdsWatcher {
+	return newMachineStorageIdsWatcher("VolumeAttachmentsWatcher", caller, result)
 }
 
-func newMachineAttachmentsWatcher(facade string, caller base.APICaller, result params.MachineAttachmentsWatchResult) MachineAttachmentsWatcher {
+func newMachineStorageIdsWatcher(facade string, caller base.APICaller, result params.MachineStorageIdsWatchResult) MachineStorageIdsWatcher {
 	w := &machineAttachmentsWatcher{
 		caller: caller,
-		machineAttachmentsWatcherId: result.MachineAttachmentsWatcherId,
-		out: make(chan []params.MachineAttachmentId),
+		machineAttachmentsWatcherId: result.MachineStorageIdsWatcherId,
+		out: make(chan []params.MachineStorageId),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -320,9 +320,9 @@ func newMachineAttachmentsWatcher(facade string, caller base.APICaller, result p
 	return w
 }
 
-func (w *machineAttachmentsWatcher) loop(facade string, initialChanges []params.MachineAttachmentId) error {
+func (w *machineAttachmentsWatcher) loop(facade string, initialChanges []params.MachineStorageId) error {
 	changes := initialChanges
-	w.newResult = func() interface{} { return new(params.MachineAttachmentsWatchResult) }
+	w.newResult = func() interface{} { return new(params.MachineStorageIdsWatchResult) }
 	w.call = makeWatcherAPICaller(w.caller, facade, w.machineAttachmentsWatcherId)
 	w.commonWatcher.init()
 	go w.commonLoop()
@@ -341,12 +341,12 @@ func (w *machineAttachmentsWatcher) loop(facade string, initialChanges []params.
 			// at this point, so just return.
 			return nil
 		}
-		changes = data.(*params.MachineAttachmentsWatchResult).Changes
+		changes = data.(*params.MachineStorageIdsWatchResult).Changes
 	}
 }
 
 // Changes returns a channel that will receive the IDs of machine
 // storage entity attachments which have changed.
-func (w *machineAttachmentsWatcher) Changes() <-chan []params.MachineAttachmentId {
+func (w *machineAttachmentsWatcher) Changes() <-chan []params.MachineStorageId {
 	return w.out
 }

@@ -150,15 +150,15 @@ func (s *StorageProvisionerAPI) WatchVolumes(args params.Entities) (params.Strin
 
 // WatchVolumeAttachments watches for changes to volume attachments scoped to
 // the entity with the tag passed to NewState.
-func (s *StorageProvisionerAPI) WatchVolumeAttachments(args params.Entities) (params.VolumeAttachmentsWatchResults, error) {
+func (s *StorageProvisionerAPI) WatchVolumeAttachments(args params.Entities) (params.MachineStorageIdsWatchResults, error) {
 	canAccess, err := s.getScopeAuthFunc()
 	if err != nil {
-		return params.VolumeAttachmentsWatchResults{}, common.ServerError(common.ErrPerm)
+		return params.MachineStorageIdsWatchResults{}, common.ServerError(common.ErrPerm)
 	}
-	results := params.VolumeAttachmentsWatchResults{
-		Results: make([]params.VolumeAttachmentsWatchResult, len(args.Entities)),
+	results := params.MachineStorageIdsWatchResults{
+		Results: make([]params.MachineStorageIdsWatchResult, len(args.Entities)),
 	}
-	one := func(arg params.Entity) (string, []params.VolumeAttachmentId, error) {
+	one := func(arg params.Entity) (string, []params.MachineStorageId, error) {
 		tag, err := names.ParseTag(arg.Tag)
 		if err != nil || !canAccess(tag) {
 			return "", nil, common.ErrPerm
@@ -180,12 +180,12 @@ func (s *StorageProvisionerAPI) WatchVolumeAttachments(args params.Entities) (pa
 		return "", nil, watcher.EnsureErr(w)
 	}
 	for i, arg := range args.Entities {
-		var result params.VolumeAttachmentsWatchResult
+		var result params.MachineStorageIdsWatchResult
 		id, changes, err := one(arg)
 		if err != nil {
 			result.Error = common.ServerError(err)
 		} else {
-			result.VolumeAttachmentsWatcherId = id
+			result.MachineStorageIdsWatcherId = id
 			result.Changes = changes
 		}
 		results.Results[i] = result

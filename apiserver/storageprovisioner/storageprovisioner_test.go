@@ -229,11 +229,11 @@ func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 	result, err := s.api.WatchVolumeAttachments(args)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Sort(byMachineAndEntity(result.Results[0].Changes))
-	c.Assert(result, jc.DeepEquals, params.MachineAttachmentsWatchResults{
-		Results: []params.MachineAttachmentsWatchResult{
+	c.Assert(result, jc.DeepEquals, params.MachineStorageIdsWatchResults{
+		Results: []params.MachineStorageIdsWatchResult{
 			{
-				MachineAttachmentsWatcherId: "1",
-				Changes: []params.MachineAttachmentId{{
+				MachineStorageIdsWatcherId: "1",
+				Changes: []params.MachineStorageId{{
 					MachineTag: "machine-0",
 					EntityTag:  "volume-0-0",
 				}, {
@@ -245,8 +245,8 @@ func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 				}},
 			},
 			{
-				MachineAttachmentsWatcherId: "2",
-				Changes: []params.MachineAttachmentId{{
+				MachineStorageIdsWatcherId: "2",
+				Changes: []params.MachineStorageId{{
 					MachineTag: "machine-0",
 					EntityTag:  "volume-1",
 				}, {
@@ -304,7 +304,7 @@ func (s *provisionerSuite) TestEnsureDead(c *gc.C) {
 	})
 }
 
-type byMachineAndEntity []params.MachineAttachmentId
+type byMachineAndEntity []params.MachineStorageId
 
 func (b byMachineAndEntity) Len() int {
 	return len(b)

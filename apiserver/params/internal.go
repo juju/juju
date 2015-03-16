@@ -320,7 +320,7 @@ type InstanceInfo struct {
 	Networks        []Network
 	Interfaces      []NetworkInterface
 	Volumes         []Volume
-	// TODO(axw) we should return map[names.VolumeTag]MachineAttachmentInfo
+	// TODO(axw) we should return map[names.VolumeTag]VolumeAttachmentInfo
 	// here, containing only the information regarding the attachment.
 	// The rest can be inferred from the context.
 	VolumeAttachments []VolumeAttachment
@@ -476,18 +476,18 @@ type RelationUnitsWatchResults struct {
 	Results []RelationUnitsWatchResult
 }
 
-// MachineAttachmentsWatchResult holds a MachineAttachmentsWatcher id,
+// MachineStorageIdsWatchResult holds a MachineStorageIdsWatcher id,
 // changes and an error (if any).
-type MachineAttachmentsWatchResult struct {
-	MachineAttachmentsWatcherId string
-	Changes                     []MachineAttachmentId
-	Error                       *Error
+type MachineStorageIdsWatchResult struct {
+	MachineStorageIdsWatcherId string
+	Changes                    []MachineStorageId
+	Error                      *Error
 }
 
-// MachineAttachmentsWatchResults holds the results for any API call which ends up
-// returning a list of MachineAttachmentsWatchers.
-type MachineAttachmentsWatchResults struct {
-	Results []MachineAttachmentsWatchResult
+// MachineStorageIdsWatchResults holds the results for any API call which ends
+// up returning a list of MachineStorageIdsWatchers.
+type MachineStorageIdsWatchResults struct {
+	Results []MachineStorageIdsWatchResult
 }
 
 // CharmsResponse is the server response to charm upload or GET requests.

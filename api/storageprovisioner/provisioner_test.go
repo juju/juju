@@ -45,6 +45,29 @@ func (s *provisionerSuite) TestWatchVolumes(c *gc.C) {
 	c.Check(callCount, gc.Equals, 1)
 }
 
+func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "StorageProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchVolumeAttachments")
+		c.Assert(result, gc.FitsTypeOf, &params.MachineStorageIdsWatchResults{})
+		*(result.(*params.MachineStorageIdsWatchResults)) = params.MachineStorageIdsWatchResults{
+			Results: []params.MachineStorageIdsWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+
+	st := storageprovisioner.NewState(apiCaller, names.NewMachineTag("123"))
+	_, err := st.WatchVolumeAttachments()
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
+
 func (s *provisionerSuite) TestVolumes(c *gc.C) {
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

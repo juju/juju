@@ -75,8 +75,8 @@ func (st *State) AttachedVolumes() ([]params.VolumeAttachment, error) {
 // specified volumes.
 func (st *State) VolumePreparationInfo(tags []names.VolumeTag) ([]params.VolumePreparationInfoResult, error) {
 	var results params.VolumePreparationInfoResults
-	args := params.MachineAttachmentIds{
-		Ids: make([]params.MachineAttachmentId, len(tags)),
+	args := params.MachineStorageIds{
+		Ids: make([]params.MachineStorageId, len(tags)),
 	}
 	for i, tag := range tags {
 		args.Ids[i].MachineTag = st.tag.String()
