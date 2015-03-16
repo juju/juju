@@ -42,7 +42,7 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	s.state = s.constructState(c)
 }
 
-var (
+const (
 	allStorageInstancesCall                 = "allStorageInstances"
 	storageInstanceAttachmentsCall          = "storageInstanceAttachments"
 	unitAssignedMachineCall                 = "UnitAssignedMachine"
