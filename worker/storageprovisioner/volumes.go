@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider/registry"
 )
@@ -196,16 +195,14 @@ func volumeParamsFromParams(in params.VolumeParams) (storage.VolumeParams, error
 		return storage.VolumeParams{}, errors.Trace(err)
 	}
 	var attachment *storage.VolumeAttachmentParams
-	if in.MachineTag != "" {
-		machineTag, err := names.ParseMachineTag(in.MachineTag)
+	if in.Attachment != nil {
+		machineTag, err := names.ParseMachineTag(in.Attachment.MachineTag)
 		if err != nil {
 			return storage.VolumeParams{}, errors.Trace(err)
 		}
 		attachment = &storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
 				Machine: machineTag,
-				// TODO(axw) we need to pass the instance ID over the API too.
-				InstanceId: instance.Id(""),
 			},
 			Volume: volumeTag,
 		}
