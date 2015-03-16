@@ -173,6 +173,16 @@ func identifyExecutable(executable string) (string, bool) {
 // discovering the local init system.
 const DiscoverInitSystemScript = `#!/usr/bin/env bash
 
+function checkInitSystem() {
+    if [[ $1 == *"systemd"* ]]; then
+        echo -n systemd
+        exit $?
+    elif [[ $1 == *"upstart"* ]]; then
+        echo -n upstart
+        exit $?
+    fi
+}
+
 # Find the executable.
 executable=$(cat /proc/1/cmdline | awk -F"\0" '{print $1}')
 if [[ $? ]]; then
@@ -180,13 +190,7 @@ if [[ $? ]]; then
 fi
 
 # Check the executable.
-if [[ $executable == *"systemd"* ]]; then
-    echo -n systemd
-    exit $?
-elif [[ $executable == *"upstart"* ]]; then
-    echo -n upstart
-    exit $?
-fi
+checkInitSystem($executable)
 
 # First fall back to following symlinks.
 if [[ -L $executable ]]; then
@@ -196,13 +200,7 @@ if [[ -L $executable ]]; then
     fi
 
     # Check the linked executable.
-    if [[ $executable == *"systemd"* ]]; then
-        echo -n systemd
-        exit $?
-    elif [[ $executable == *"upstart"* ]]; then
-        echo -n upstart
-        exit $?
-    fi
+    checkInitSystem($executable)
 fi
 
 # Fall back to checking the "version" text.
@@ -210,13 +208,7 @@ verText=$("${executable}" --version)
 if [[ $? ]]; then
     exit 1
 else
-    if [[ $verText == *"systemd"* ]]; then
-        echo -n systemd
-        exit $?
-    elif [[ $verText == *"upstart"* ]]; then
-        echo -n upstart
-        exit $?
-    fi
+    checkInitSystem($verText)
 fi
 
 # uh-oh
