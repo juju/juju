@@ -197,12 +197,25 @@ var configTests = []configTest{
 			"lxc-clone":     true,
 		},
 	}, {
-		about:       "Allow LXC loop mounts",
+		about:       "Allow LXC loop mounts true",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type":                  "my-type",
 			"name":                  "my-name",
 			"allow-lxc-loop-mounts": "true",
+		},
+	}, {
+		about:       "Allow LXC loop mounts default",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"allow-lxc-loop-mounts": "false",
+		},
+		expected: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"allow-lxc-loop-mounts": false,
 		},
 	}, {
 		about:       "CA cert & key from path",

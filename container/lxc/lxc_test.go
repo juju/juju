@@ -396,9 +396,9 @@ lxc.cgroup.devices.allow = b 7:* rwm
 lxc.cgroup.devices.allow = c 10:237 rwm
 lxc.rootfs = /foo/bar
 
-  # just comment  
+  # just comment
 lxc.network.vlan.id = 69
-something else  # ignore  
+something else  # ignore
 lxc.network.type = phys
 lxc.network.link = foo  # comment
 lxc.network.hwaddr = deadbeef
