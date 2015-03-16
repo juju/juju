@@ -1694,7 +1694,6 @@ func (s *UniterSuite) TestRebootFromJujuRun(c *gc.C) {
 func (s *UniterSuite) TestLeadership(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, feature.LeaderElection)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	s.PatchValue(uniter.LeadershipGuarantee, coretesting.ShortWait)
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"hook tools when leader",
