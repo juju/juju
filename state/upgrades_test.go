@@ -2260,10 +2260,37 @@ func (s *upgradesSuite) TestIPAddressesLife(c *gc.C) {
 
 	err := addresses.Insert(
 		bson.D{
-			{"name", "ok"},
+			{"_id", uuid + ":0.1.2.3"},
 			{"env-uuid", uuid},
-			{"counter", 1},
+			{"subnetid", "foo"},
+			{"machineid", "bar"},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.3"},
+			{"state", ""},
+		},
+		// this one should be untouched
+		bson.D{
+			{"_id", uuid + ":0.1.2.4"},
+			{"env-uuid", uuid},
+			{"life", Dead},
+			{"subnetid", "foo"},
+			{"machineid", "bar"},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.4"},
+			{"state", ""},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = AddLifeFieldOfIPAddresses(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ipAddr, err := s.state.IPAddress("0.1.2.4")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.Life(), gc.Equals, Dead)
+
+	doc := ipaddressDoc{}
+	err = addresses.FindId(uuid + ":0.1.2.3").One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(doc.Life, gc.Equals, Alive)
 }
