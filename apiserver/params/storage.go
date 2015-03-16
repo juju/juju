@@ -60,6 +60,7 @@ const (
 	StorageKindFilesystem
 )
 
+// String returns representation of StorageKind for readability.
 func (k *StorageKind) String() string {
 	switch *k {
 	case StorageKindBlock:
@@ -233,69 +234,50 @@ type VolumeParamsResults struct {
 	Results []VolumeParamsResult `json:"results,omitempty"`
 }
 
-// StorageAttachedStatus describes where storage attaching is at.
-type StorageAttachedStatus int
+// StorageStatus indicates where storage is at.
+type StorageStatus int
 
 const (
-	StorageAttachedStatusUnknown StorageAttachedStatus = iota
-	StorageAttachedStatusAttached
+	StorageStatusPending StorageStatus = iota
+	StorageStatusProvisioned
+	StorageStatusAttached
 )
 
-func (k *StorageAttachedStatus) String() string {
+// String returns representation of StorageStatus for readability.
+func (k *StorageStatus) String() string {
 	switch *k {
-	case StorageAttachedStatusAttached:
-		return "attached"
-	case StorageAttachedStatusUnknown:
-		return "unknown"
-	default:
-		return ""
-	}
-}
-
-// StorageProvisionedStatus describes where storage provisioning is at.
-type StorageProvisionedStatus int
-
-const (
-	StorageProvisionedStatusUnknown StorageProvisionedStatus = iota
-	StorageProvisionedStatusPending
-	StorageProvisionedStatusProvisioned
-)
-
-func (k *StorageProvisionedStatus) String() string {
-	switch *k {
-	case StorageProvisionedStatusPending:
+	case StorageStatusPending:
 		return "pending"
-	case StorageProvisionedStatusProvisioned:
+	case StorageStatusProvisioned:
 		return "provisioned"
-	case StorageProvisionedStatusUnknown:
-		return "unknown"
+	case StorageStatusAttached:
+		return "attached"
 	default:
-		return ""
+		return "unknown"
 	}
 }
 
 // StorageDetails holds information about storage.
 type StorageDetails struct {
+
 	// StorageTag holds tag for this storage.
 	StorageTag string `json:"storagetag"`
+
 	// OwnerTag holds tag for the owner of this storage, unit or service.
 	OwnerTag string `json:"ownertag"`
+
 	// Kind holds what kind of storage this instance is.
 	Kind StorageKind `json:"kind"`
-	// Attached explicitly states if this instance is attached.
-	// Having this information on the struct allows to
-	// have this logic in one place rather than deducing it
-	// every time this instance is used.
-	Attached StorageAttachedStatus `json:"attached"`
+
+	// Status indicates storage status.
+	// For example, pending, provisioned, attached...
+	Status StorageStatus `json:"status"`
+
 	// UnitTag holds tag for unit for attached instances.
 	UnitTag string `json:"unittag,omitempty"`
+
 	// Location holds location for provisioned attached instances.
 	Location string `json:"location,omitempty"`
-	// Provisioned explicitly states if this instance is provisioned.
-	// Having this information on the struct allows to
-	// have this logic in one place rather than deducing it
-	// every time this instance is used.
-	Provisioned StorageProvisionedStatus `json:"provisioned"`
 }
 
 // StorageDetailsResult holds information about a storage instance

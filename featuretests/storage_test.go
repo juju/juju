@@ -91,8 +91,7 @@ storage-block/0:
     storage: data
     kind: block
     unit_id: storage-block/0
-    attached_status: attached
-    provisioned_status: pending
+    status: attached
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
@@ -107,8 +106,7 @@ storage-block/0:
     storage: data
     kind: block
     unit_id: storage-block/0
-    attached_status: attached
-    provisioned_status: pending
+    status: attached
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }

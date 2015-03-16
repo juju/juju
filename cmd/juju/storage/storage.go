@@ -65,9 +65,8 @@ type StorageInfo struct {
 	StorageName string `yaml:"storage" json:"storage"`
 	Kind        string `yaml:"kind" json:"kind"`
 	UnitId      string `yaml:"unit_id,omitempty" json:"unit_id,omitempty"`
-	Attached    string `yaml:"attached_status,omitempty" json:"attached_status,omitempty"`
+	Status      string `yaml:"status,omitempty" json:"status,omitempty"`
 	Location    string `yaml:"location,omitempty" json:"location,omitempty"`
-	Provisioned string `yaml:"provisioned_status,omitempty" json:"provisioned_status,omitempty"`
 }
 
 // formatStorageDetails takes a set of StorageDetail and creates a
@@ -77,9 +76,6 @@ func formatStorageDetails(storages []params.StorageDetails) (map[string]map[stri
 		return nil, nil
 	}
 	output := make(map[string]map[string]StorageInfo)
-	isAttached := func(inspect params.StorageAttachedStatus) bool {
-		return inspect == params.StorageAttachedStatusAttached
-	}
 	for _, one := range storages {
 		storageTag, err := names.ParseStorageTag(one.StorageTag)
 		if err != nil {
@@ -96,11 +92,10 @@ func formatStorageDetails(storages []params.StorageDetails) (map[string]map[stri
 		si := StorageInfo{
 			StorageName: storageName,
 			Kind:        one.Kind.String(),
-			Attached:    one.Attached.String(),
+			Status:      one.Status.String(),
 			Location:    one.Location,
-			Provisioned: one.Provisioned.String(),
 		}
-		if isAttached(one.Attached) {
+		if one.UnitTag != "" {
 			unitTag, err := names.ParseTag(one.UnitTag)
 			if err != nil {
 				return nil, errors.Annotate(err, "invalid unit tag")

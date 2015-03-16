@@ -148,14 +148,13 @@ func (api *API) createParamsStorageAttachment(si params.StorageDetails, sa state
 	result.UnitTag = sa.Unit().String()
 	result.OwnerTag = si.OwnerTag
 	result.Kind = si.Kind
-	result.Attached = params.StorageAttachedStatusAttached
+	result.Status = params.StorageStatusAttached
 
 	// This is only for provisioned attachments
 	machineTag, err := api.storage.UnitAssignedMachine(sa.Unit())
 	if err != nil {
 		return params.StorageDetails{}, errors.Annotate(err, "getting unit for storage attachment")
 	}
-	result.Provisioned = params.StorageProvisionedStatusPending
 	info, err := common.StorageAttachmentInfo(api.storage, sa, machineTag)
 	if err != nil {
 		if errors.IsNotProvisioned(err) {
@@ -166,7 +165,7 @@ func (api *API) createParamsStorageAttachment(si params.StorageDetails, sa state
 	}
 	result.Location = info.Location
 	if result.Location != "" {
-		result.Provisioned = params.StorageProvisionedStatusProvisioned
+		result.Status = params.StorageStatusProvisioned
 	}
 	return result, nil
 }

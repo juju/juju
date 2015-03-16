@@ -44,7 +44,7 @@ func (s *ListSuite) TestList(c *gc.C) {
 		`
 [Storage]   
 UNIT        ID          LOCATION 
-            db-dir/1000 there    
+transcode/0 db-dir/1000 there    
             db-dir/1000          
             shared-fs/0          
 transcode/0 shared-fs/0 here     
@@ -63,28 +63,25 @@ postgresql/0:
   db-dir/1000:
     storage: db-dir
     kind: unknown
-    attached_status: unknown
+    unit_id: transcode/0
+    status: provisioned
     location: there
-    provisioned_status: provisioned
 transcode:
   db-dir/1000:
     storage: db-dir
     kind: block
-    attached_status: unknown
-    provisioned_status: unknown
+    status: pending
   shared-fs/0:
     storage: shared-fs
     kind: unknown
-    attached_status: unknown
-    provisioned_status: unknown
+    status: pending
 transcode/0:
   shared-fs/0:
     storage: shared-fs
     kind: block
     unit_id: transcode/0
-    attached_status: attached
+    status: attached
     location: here
-    provisioned_status: pending
 `[1:],
 		"",
 	)
@@ -99,7 +96,7 @@ func (s *ListSuite) TestListOwnerStorageIdSort(c *gc.C) {
 		`
 [Storage]   
 UNIT        ID          LOCATION 
-            db-dir/1000 there    
+transcode/0 db-dir/1000 there    
             db-dir/1000          
             shared-fs/0          
             shared-fs/5          
@@ -143,44 +140,40 @@ func (s mockListAPI) List() ([]params.StorageInfo, error) {
 func getTestAttachments(chaos bool) []params.StorageInfo {
 	results := []params.StorageInfo{{
 		params.StorageDetails{
-			StorageTag:  "storage-shared-fs-0",
-			OwnerTag:    "unit-transcode-0",
-			UnitTag:     "unit-transcode-0",
-			Kind:        params.StorageKindBlock,
-			Location:    "here",
-			Provisioned: params.StorageProvisionedStatusPending,
-			Attached:    params.StorageAttachedStatusAttached,
+			StorageTag: "storage-shared-fs-0",
+			OwnerTag:   "unit-transcode-0",
+			UnitTag:    "unit-transcode-0",
+			Kind:       params.StorageKindBlock,
+			Location:   "here",
+			Status:     params.StorageStatusAttached,
 		}, nil}, {
 		params.StorageDetails{
-			StorageTag:  "storage-db-dir-1000",
-			OwnerTag:    "unit-postgresql-0",
-			UnitTag:     "unit-transcode-0",
-			Kind:        params.StorageKindUnknown,
-			Location:    "there",
-			Provisioned: params.StorageProvisionedStatusProvisioned,
-			Attached:    params.StorageAttachedStatusUnknown,
+			StorageTag: "storage-db-dir-1000",
+			OwnerTag:   "unit-postgresql-0",
+			UnitTag:    "unit-transcode-0",
+			Kind:       params.StorageKindUnknown,
+			Location:   "there",
+			Status:     params.StorageStatusProvisioned,
 		}, nil}}
 
 	if chaos {
 		last := params.StorageInfo{
 			params.StorageDetails{
-				StorageTag:  "storage-shared-fs-5",
-				OwnerTag:    "unit-transcode-0",
-				UnitTag:     "unit-transcode-0",
-				Kind:        params.StorageKindUnknown,
-				Location:    "nowhere",
-				Provisioned: params.StorageProvisionedStatusProvisioned,
-				Attached:    params.StorageAttachedStatusAttached,
+				StorageTag: "storage-shared-fs-5",
+				OwnerTag:   "unit-transcode-0",
+				UnitTag:    "unit-transcode-0",
+				Kind:       params.StorageKindUnknown,
+				Location:   "nowhere",
+				Status:     params.StorageStatusPending,
 			}, nil}
 		second := params.StorageInfo{
 			params.StorageDetails{
-				StorageTag:  "storage-db-dir-1010",
-				OwnerTag:    "unit-transcode-0",
-				UnitTag:     "unit-transcode-0",
-				Kind:        params.StorageKindBlock,
-				Location:    "",
-				Provisioned: params.StorageProvisionedStatusUnknown,
-				Attached:    params.StorageAttachedStatusUnknown,
+				StorageTag: "storage-db-dir-1010",
+				OwnerTag:   "unit-transcode-0",
+				UnitTag:    "unit-transcode-0",
+				Kind:       params.StorageKindBlock,
+				Location:   "",
+				Status:     params.StorageStatus(4),
 			}, &params.Error{Message: "error for storage-db-dir-1010"}}
 		first := params.StorageInfo{
 			params.StorageDetails{
@@ -188,7 +181,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 				OwnerTag:   "service-transcode",
 				UnitTag:    "unit-transcode-0",
 				Kind:       params.StorageKindFilesystem,
-				Attached:   params.StorageAttachedStatusAttached,
+				Status:     params.StorageStatusAttached,
 			}, nil}
 		results = append(results, last)
 		results = append(results, second)

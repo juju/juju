@@ -56,7 +56,7 @@ func (s *storageMockSuite) TestShow(c *gc.C) {
 					params.StorageDetailsResult{
 						Result: params.StorageDetails{
 							StorageTag: twoTag.String(),
-							Attached:   params.StorageAttachedStatusAttached,
+							Status:     params.StorageStatusAttached,
 						},
 					},
 					params.StorageDetailsResult{Error: common.ServerError(errors.New(msg))},
@@ -132,7 +132,7 @@ func (s *storageMockSuite) TestList(c *gc.C) {
 					params.StorageInfo{
 						params.StorageDetails{
 							StorageTag: twoTag.String(),
-							Attached:   params.StorageAttachedStatusAttached,
+							Status:     params.StorageStatusAttached,
 						},
 						nil,
 					},
@@ -155,7 +155,7 @@ func (s *storageMockSuite) TestList(c *gc.C) {
 		params.StorageInfo{
 			params.StorageDetails{
 				StorageTag: "storage-db-dir-1000",
-				Attached:   params.StorageAttachedStatusAttached},
+				Status:     params.StorageStatusAttached},
 			nil},
 	}
 
