@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/service/common"
 )
@@ -207,14 +208,12 @@ func NewService(name string, conf common.Conf) *Service {
 
 // InstallCommands returns shell commands to install the service.
 func (s *Service) InstallCommands() ([]string, error) {
-	// TODO(ericsnow) Properly quote the arg values in Conf.ExecStart.
-	// TODO(ericsnow) Properly "render" the arg values in Conf.ExecStart.
-	// (see cloudinit.WindowsRendrer.FromSlash).
+	renderer := &shell.PowershellRenderer{}
 	cmd := fmt.Sprintf(serviceInstallCommands[1:],
-		s.Service.Name,
-		s.Service.Conf.Desc,
-		strings.Replace(s.Service.Conf.ExecStart, "'", "''", -1),
-		s.Service.Name,
+		renderer.Quote(s.Service.Name),
+		renderer.Quote(s.Service.Conf.Desc),
+		renderer.Quote(s.Service.Conf.ExecStart),
+		renderer.Quote(s.Service.Name),
 	)
 	return strings.Split(cmd, "\n"), nil
 }
@@ -229,7 +228,7 @@ func (s *Service) StartCommands() ([]string, error) {
 // TODO(ericsnow) Merge serviceInstallCommands and serviceInstallScript?
 
 const serviceInstallCommands = `
-New-Service -Credential $jujuCreds -Name '%s' -DisplayName '%s' '%s'
+New-Service -Credential $jujuCreds -Name %s -DisplayName %s %s
 cmd.exe /C sc config %s start=delayed-auto`
 
 const serviceInstallScript = `
