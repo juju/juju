@@ -24,18 +24,22 @@ func NewRenderer(series string) (*Renderer, error) {
 		return nil, errors.Trace(err)
 	}
 
-	renderer := &Renderer{}
 	switch operatingSystem {
 	case version.Windows:
-		renderer.Renderer = &shell.PowershellRenderer{}
-		renderer.render = powershellRender
+		renderer := &Renderer{
+			Renderer: &shell.PowershellRenderer{},
+			render:   powershellRender,
+		}
+		return renderer, nil
 	case version.Ubuntu:
-		renderer.Renderer = &shell.BashRenderer{}
-		renderer.render = ubuntuRender
+		renderer := &Renderer{
+			Renderer: &shell.BashRenderer{},
+			render:   ubuntuRender,
+		}
+		return renderer, nil
 	default:
 		return nil, errors.Errorf("No renderer could be found for %s", series)
 	}
-	return renderer, nil
 }
 
 // Render renders the userdata script for a particular OS type.
