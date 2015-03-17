@@ -16,7 +16,11 @@ import (
 	"github.com/juju/juju/service/common"
 )
 
-var logger = loggo.GetLogger("juju.worker.deployer.service")
+var (
+	logger = loggo.GetLogger("juju.worker.deployer.service")
+
+	renderer = &shell.PowershellRenderer{}
+)
 
 // ListServices returns the name of all installed services on the
 // local host.
@@ -208,7 +212,6 @@ func NewService(name string, conf common.Conf) *Service {
 
 // InstallCommands returns shell commands to install the service.
 func (s *Service) InstallCommands() ([]string, error) {
-	renderer := &shell.PowershellRenderer{}
 	cmd := fmt.Sprintf(serviceInstallCommands[1:],
 		renderer.Quote(s.Service.Name),
 		renderer.Quote(s.Service.Conf.Desc),
@@ -221,7 +224,7 @@ func (s *Service) InstallCommands() ([]string, error) {
 // StartCommands returns shell commands to start the service.
 func (s *Service) StartCommands() ([]string, error) {
 	// TODO(ericsnow) Merge with the command in Start().
-	cmd := fmt.Sprintf(`Start-Service %s`, s.Service.Name)
+	cmd := fmt.Sprintf(`Start-Service %s`, renderer.Quote(s.Service.Name))
 	return []string{cmd}, nil
 }
 
