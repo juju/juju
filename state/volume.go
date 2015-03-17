@@ -112,10 +112,10 @@ type VolumeParams struct {
 
 // VolumeInfo describes information about a volume.
 type VolumeInfo struct {
-	Serial   string `bson:"serial,omitempty"`
-	Size     uint64 `bson:"size"`
-	Pool     string `bson:"pool"`
-	VolumeId string `bson:"volumeid"`
+	Serial     string `bson:"serial,omitempty"`
+	Size       uint64 `bson:"size"`
+	Pool       string `bson:"pool"`
+	VolumeId   string `bson:"volumeid"`
 	Persistent bool   `bson:"persistent"`
 }
 

@@ -11,10 +11,12 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 )
 
 type VolumeStateSuite struct {
@@ -358,8 +360,9 @@ func (s *VolumeStateSuite) assertVolumeInfo(c *gc.C, tag names.VolumeTag, expect
 }
 
 func (s *VolumeStateSuite) TestPersistentVolumes(c *gc.C) {
+	registry.RegisterEnvironStorageProviders("someprovider", ec2.EBS_ProviderType)
 	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("persistent-block", provider.LoopProviderType, map[string]interface{}{"persistent": "true"})
+	_, err := pm.Create("persistent-block", ec2.EBS_ProviderType, map[string]interface{}{"persistent": "true"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch := s.AddTestingCharm(c, "storage-block2")
