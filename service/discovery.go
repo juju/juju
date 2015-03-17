@@ -232,7 +232,7 @@ EOF`[1:], filename, DiscoverInitSystemScript),
 	}
 }
 
-const caseLine = "%sif [[ $%s == %q ]]; then %s\n"
+const caseLine = "%sif [[ $%s == \"%s\" ]]; then %s\n"
 
 // newShellSelectCommand creates a bash if statement with an if
 // (or elif) clause for each of the executables in linuxExecutables.
