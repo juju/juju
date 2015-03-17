@@ -291,5 +291,6 @@ func (s *EnvironSuite) TestDestroyEnvironmentWithPersistentVolumesFails(c *gc.C)
 
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(wallyworld) when we can destroy/remove volume, ensure env can then be destroyed
 	c.Assert(errors.Cause(env.Destroy()), gc.Equals, state.ErrPersistentVolumesExist)
 }
