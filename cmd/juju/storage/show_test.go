@@ -61,11 +61,13 @@ postgresql/0:
     storage: shared-fs
     kind: block
     status: pending
+    persistent: false
 transcode/0:
   shared-fs/0:
     storage: shared-fs
     kind: filesystem
     status: attached
+    persistent: false
     location: a location
 `[1:],
 	)
@@ -80,7 +82,7 @@ func (s *ShowSuite) TestShowJSON(c *gc.C) {
 	s.assertValidShow(
 		c,
 		[]string{"shared-fs/0", "--format", "json"},
-		`{"postgresql/0":{"shared-fs/0":{"storage":"shared-fs","kind":"block","status":"pending"}},"transcode/0":{"shared-fs/0":{"storage":"shared-fs","kind":"filesystem","status":"attached","location":"a location"}}}
+		`{"postgresql/0":{"shared-fs/0":{"storage":"shared-fs","kind":"block","status":"pending","persistent":false}},"transcode/0":{"shared-fs/0":{"storage":"shared-fs","kind":"filesystem","status":"attached","persistent":false,"location":"a location"}}}
 `,
 	)
 }
@@ -95,15 +97,18 @@ postgresql/0:
     storage: db-dir
     kind: block
     status: pending
+    persistent: true
   shared-fs/0:
     storage: shared-fs
     kind: block
     status: pending
+    persistent: false
 transcode/0:
   shared-fs/0:
     storage: shared-fs
     kind: filesystem
     status: attached
+    persistent: false
     location: a location
 `[1:],
 	)
@@ -136,6 +141,9 @@ func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageDetails, err
 			UnitTag:    "unit-postgresql-0",
 			Kind:       params.StorageKindBlock,
 			Status:     "pending",
+		}
+		if i == 1 {
+			all[i].Persistent = true
 		}
 	}
 	for _, tag := range tags {

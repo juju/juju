@@ -29,7 +29,8 @@ var (
 
 // ValidateConfig is defined on the Provider interface.
 func (p *tmpfsProvider) ValidateConfig(cfg *storage.Config) error {
-	return ValidateConfig(p, cfg)
+	// Tmpfs provider has no configuration.
+	return nil
 }
 
 // validateFullConfig validates a fully-constructed storage config,

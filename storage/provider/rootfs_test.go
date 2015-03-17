@@ -61,14 +61,6 @@ func (s *rootfsSuite) TestValidateConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *rootfsSuite) TestPersistentNotAllowed(c *gc.C) {
-	p := s.rootfsProvider(c)
-	cfg, err := storage.NewConfig("name", provider.RootfsProviderType, map[string]interface{}{"persistent": true})
-	c.Assert(err, jc.ErrorIsNil)
-	err = p.ValidateConfig(cfg)
-	c.Assert(err, gc.ErrorMatches, `machine scoped storage provider "name" does not support persistent storage`)
-}
-
 func (s *rootfsSuite) TestSupports(c *gc.C) {
 	p := s.rootfsProvider(c)
 	c.Assert(p.Supports(storage.StorageKindBlock), jc.IsFalse)

@@ -295,6 +295,9 @@ type StorageDetails struct {
 
 	// Location holds location for provisioned attached instances.
 	Location string `json:"location,omitempty"`
+
+	// Persistent indicates whether the storage is persistent or not.
+	Persistent bool `json:"persistent"`
 }
 
 // StorageDetailsResult holds information about a storage instance

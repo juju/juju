@@ -6,6 +6,7 @@ package featuretests
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -13,6 +14,7 @@ import (
 	cmdstorage "github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -20,25 +22,31 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-const testPool = "block"
+const (
+	testPool           = "block"
+	testPersistentPool = "block-persistent"
+)
 
 func setupTestStorageSupport(c *gc.C, s *state.State) {
 	stsetts := state.NewStateSettings(s)
 	poolManager := poolmanager.New(stsetts)
 	_, err := poolManager.Create(testPool, provider.LoopProviderType, map[string]interface{}{"it": "works"})
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = poolManager.Create(testPersistentPool, ec2.EBS_ProviderType, map[string]interface{}{"persistent": true})
+	c.Assert(err, jc.ErrorIsNil)
 
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+	registry.RegisterEnvironStorageProviders("dummy", ec2.EBS_ProviderType)
 }
 
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 	return state.StorageConstraints{Pool: pool, Size: size, Count: count}
 }
 
-func createUnitWithStorage(c *gc.C, s *jujutesting.JujuConnSuite) string {
+func createUnitWithStorage(c *gc.C, s *jujutesting.JujuConnSuite, poolName string) string {
 	ch := s.AddTestingCharm(c, "storage-block")
 	storage := map[string]state.StorageConstraints{
-		"data": makeStorageCons(testPool, 1024, 1),
+		"data": makeStorageCons(poolName, 1024, 1),
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
 	unit, err := service.AddUnit()
@@ -82,7 +90,7 @@ func (s *cmdStorageSuite) TestStorageShowInvalidId(c *gc.C) {
 }
 
 func (s *cmdStorageSuite) TestStorageShow(c *gc.C) {
-	createUnitWithStorage(c, &s.JujuConnSuite)
+	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
 	context := runShow(c, []string{"data/0"})
 	expected := `
@@ -91,12 +99,13 @@ storage-block/0:
     storage: data
     kind: block
     status: attached
+    persistent: false
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
 
 func (s *cmdStorageSuite) TestStorageShowOneMatchingFilter(c *gc.C) {
-	createUnitWithStorage(c, &s.JujuConnSuite)
+	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
 	context := runShow(c, []string{"data/0", "fluff/0"})
 	expected := `
@@ -105,12 +114,13 @@ storage-block/0:
     storage: data
     kind: block
     status: attached
+    persistent: false
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
 
 func (s *cmdStorageSuite) TestStorageShowNoMatch(c *gc.C) {
-	createUnitWithStorage(c, &s.JujuConnSuite)
+	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 	context := runShow(c, []string{"fluff/0"})
 	c.Assert(testing.Stdout(context), gc.Equals, "{}\n")
 }
@@ -127,14 +137,64 @@ func (s *cmdStorageSuite) TestStorageListEmpty(c *gc.C) {
 }
 
 func (s *cmdStorageSuite) TestStorageList(c *gc.C) {
-	createUnitWithStorage(c, &s.JujuConnSuite)
+	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
 	context := runList(c)
 	expected := `
 [Storage]       
-UNIT            ID     LOCATION STATUS   
-storage-block/0 data/0          attached 
+UNIT            ID     LOCATION STATUS   PERSISTENT 
+storage-block/0 data/0          attached false      
 
+`[1:]
+	c.Assert(testing.Stdout(context), gc.Equals, expected)
+}
+
+func (s *cmdStorageSuite) TestStorageListPersistent(c *gc.C) {
+	createUnitWithStorage(c, &s.JujuConnSuite, testPersistentPool)
+
+	context := runList(c)
+	expected := `
+[Storage]       
+UNIT            ID     LOCATION STATUS   PERSISTENT 
+storage-block/0 data/0          attached true       
+
+`[1:]
+	c.Assert(testing.Stdout(context), gc.Equals, expected)
+}
+
+func (s *cmdStorageSuite) TestStoragePersistentProvisioned(c *gc.C) {
+	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
+	vol, err := s.State.StorageInstanceVolume(names.NewStorageTag("data/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.State.SetVolumeInfo(vol.VolumeTag(), state.VolumeInfo{
+		Size:       1024,
+		Persistent: true,
+	})
+
+	context := runShow(c, []string{"data/0"})
+	expected := `
+storage-block/0:
+  data/0:
+    storage: data
+    kind: block
+    status: attached
+    persistent: true
+`[1:]
+	c.Assert(testing.Stdout(context), gc.Equals, expected)
+}
+
+func (s *cmdStorageSuite) TestStoragePersistentUnprovisioned(c *gc.C) {
+	createUnitWithStorage(c, &s.JujuConnSuite, testPersistentPool)
+
+	context := runShow(c, []string{"data/0"})
+	// TODO(wallyworld) - status should be pending below but there's a bug in apiserver/storage
+	expected := `
+storage-block/0:
+  data/0:
+    storage: data
+    kind: block
+    status: attached
+    persistent: true
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }

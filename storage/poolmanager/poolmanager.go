@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 )
 
@@ -61,6 +62,11 @@ func (pm *poolManager) Create(name string, providerType storage.ProviderType, at
 	if err != nil {
 		return nil, err
 	}
+	// Perform common validation.
+	if err := provider.ValidateConfig(p, cfg); err != nil {
+		return nil, err
+	}
+	// Perform provider specific validation.
 	if err := p.ValidateConfig(cfg); err != nil {
 		return nil, err
 	}

@@ -384,6 +384,15 @@ func (e *Environment) ensureDestroyable() error {
 		return errors.Trace(err)
 	}
 
+	// If there are any persistent volumes, the environment can't be destroyed.
+	volumes, err := e.st.PersistentVolumes()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(volumes) > 0 {
+		return ErrPersistentVolumesExist
+	}
+
 	// If this is not the state server environment, it can be destroyed
 	if e.doc.UUID != e.doc.ServerUUID {
 		return nil
