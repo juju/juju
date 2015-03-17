@@ -89,24 +89,24 @@ func (s *storageSuite) TestStorageListEmpty(c *gc.C) {
 }
 
 func (s *storageSuite) TestStorageList(c *gc.C) {
-	_, err := s.api.List()
+	found, err := s.api.List()
 	c.Assert(err, jc.ErrorIsNil)
 
-	//	expectedCalls := []string{
-	//		allStorageInstancesCall,
-	//		storageInstanceAttachmentsCall,
-	//		unitAssignedMachineCall,
-	//		storageInstanceCall,
-	//		storageInstanceFilesystemCall,
-	//		storageInstanceFilesystemAttachmentCall,
-	//	}
-	//	s.assertCalls(c, expectedCalls)
-	//
-	//	c.Assert(found.Results, gc.HasLen, 1)
-	//	wantedDetails := s.createTestStorageInfo()
-	//	wantedDetails.UnitTag = s.unitTag.String()
-	//	wantedDetails.Status = "attached"
-	//	s.assertInstanceInfoError(c, found.Results[0], wantedDetails, "")
+	expectedCalls := []string{
+		allStorageInstancesCall,
+		storageInstanceVolumeCall,
+		storageInstanceAttachmentsCall,
+		unitAssignedMachineCall,
+		storageInstanceCall,
+		storageInstanceFilesystemCall,
+		storageInstanceFilesystemAttachmentCall,
+	}
+	s.assertCalls(c, expectedCalls)
+
+	c.Assert(found.Results, gc.HasLen, 1)
+	wantedDetails := s.createTestStorageInfo()
+	wantedDetails.UnitTag = s.unitTag.String()
+	s.assertInstanceInfoError(c, found.Results[0], wantedDetails, "")
 }
 
 func (s *storageSuite) TestStorageListError(c *gc.C) {
@@ -327,7 +327,6 @@ func (s *storageSuite) constructState(c *gc.C) *mockState {
 }
 
 func (s *storageSuite) assertCalls(c *gc.C, expectedCalls []string) {
-	c.Assert(s.calls, gc.HasLen, len(expectedCalls))
 	c.Assert(s.calls, jc.SameContents, expectedCalls)
 }
 
