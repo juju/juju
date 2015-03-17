@@ -914,12 +914,16 @@ type fakeAPI struct {
 var _ provisioner.APICalls = (*fakeAPI)(nil)
 
 func (f *fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
-	return params.ContainerConfig{
+	p := params.ContainerConfig{
 		UpdateBehavior:          &params.UpdateBehavior{true, true},
 		ProviderType:            "fake",
 		AuthorizedKeys:          coretesting.FakeAuthKeys,
 		SSLHostnameVerification: true,
-		AllowLXCLoopMounts:      f.suite.allowLXCLoopMounts}, nil
+	}
+	if f.suite != nil {
+		p.AllowLXCLoopMounts = f.suite.allowLXCLoopMounts
+	}
+	return p, nil
 }
 
 func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
