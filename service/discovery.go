@@ -202,7 +202,7 @@ checkInitSystem "$executable"
 
 # First fall back to following symlinks.
 if [[ -L $executable ]]; then
-    linked=$(readlink "$executable")
+    linked=$(readlink -f "$executable")
     if [[ $? ]]; then
         executable=$linked
 
