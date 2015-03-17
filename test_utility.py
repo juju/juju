@@ -1,3 +1,7 @@
+from argparse import (
+    ArgumentParser,
+    Namespace,
+)
 from datetime import (
     datetime,
     timedelta,
@@ -15,6 +19,7 @@ from mock import (
     )
 
 from utility import (
+    add_basic_testing_arguments,
     extract_deb,
     find_candidates,
     get_auth_token,
@@ -225,3 +230,58 @@ class TestGetDebArch(TestCase):
             arch = get_deb_arch()
         co_mock.assert_called_once_with(['dpkg', '--print-architecture'])
         self.assertEqual(arch, 'amd42')
+
+
+class TestAddBasicTestingArguments(TestCase):
+
+    def test_add_basic_testing_arguments_positional_args(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        expected = Namespace(
+            agent_url=None, debug=False, env='local', job_name='testtest',
+            juju_bin='/foo/juju', logs='/tmp/logs', series=None,
+            verbose='logging.INFO')
+        self.assertEqual(args, expected)
+
+    def test_add_basic_testing_arguments_debug(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--debug']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        expected = Namespace(
+            agent_url=None, debug=True, env='local', job_name='testtest',
+            juju_bin='/foo/juju', logs='/tmp/logs', series=None,
+            verbose='logging.INFO')
+        self.assertEqual(args, expected)
+
+    def test_add_basic_testing_arguments_verbose(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--verbose']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        expected = Namespace(
+            agent_url=None, debug=False, env='local', job_name='testtest',
+            juju_bin='/foo/juju', logs='/tmp/logs', series=None,
+            verbose='logging.DEBUG')
+        self.assertEqual(args, expected)
+
+    def test_add_basic_testing_arguments_agent_url(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+                    '--agent-url', 'http://example.org']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        expected = Namespace(
+            agent_url='http://example.org', debug=False, env='local',
+            job_name='testtest', juju_bin='/foo/juju', logs='/tmp/logs',
+            series=None, verbose='logging.INFO')
+        self.assertEqual(args, expected)
+
+    def test_add_basic_testing_arguments_series(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--series',
+                    'vivid']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        expected = Namespace(
+            agent_url=None, debug=False, env='local', job_name='testtest',
+            juju_bin='/foo/juju', logs='/tmp/logs', series='vivid',
+            verbose='logging.INFO')
+        self.assertEqual(args, expected)
