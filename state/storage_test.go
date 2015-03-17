@@ -232,7 +232,7 @@ func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
 	for i := 0; i < 2; i++ {
 		u, err := service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		storageAttachments, err := s.State.StorageAttachments(u.UnitTag())
+		storageAttachments, err := s.State.UnitStorageAttachments(u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
 		count := make(map[string]int)
 		for _, att := range storageAttachments {
@@ -265,6 +265,30 @@ func (s *StorageStateSuite) TestAllStorageInstances(c *gc.C) {
 		c.Assert(nameSet.Contains(one.StorageName()), jc.IsTrue)
 		c.Assert(ownerSet.Contains(one.Owner().String()), jc.IsTrue)
 	}
+}
+
+func (s *StorageStateSuite) TestStorageAttachments(c *gc.C) {
+	s.assertStorageUnitsAdded(c)
+
+	assertAttachments := func(tag names.StorageTag, expect ...names.UnitTag) {
+		attachments, err := s.State.StorageAttachments(tag)
+		c.Assert(err, jc.ErrorIsNil)
+		units := make([]names.UnitTag, len(attachments))
+		for i, a := range attachments {
+			units[i] = a.Unit()
+		}
+		c.Assert(units, jc.SameContents, expect)
+	}
+
+	u0 := names.NewUnitTag("storage-block2/0")
+	u1 := names.NewUnitTag("storage-block2/1")
+
+	assertAttachments(names.NewStorageTag("multi1to10/0"), u0)
+	assertAttachments(names.NewStorageTag("multi2up/1"), u0)
+	assertAttachments(names.NewStorageTag("multi2up/2"), u0)
+	assertAttachments(names.NewStorageTag("multi1to10/3"), u1)
+	assertAttachments(names.NewStorageTag("multi2up/4"), u1)
+	assertAttachments(names.NewStorageTag("multi2up/5"), u1)
 }
 
 func (s *StorageStateSuite) TestAllStorageInstancesEmpty(c *gc.C) {
@@ -366,7 +390,7 @@ func (s *StorageStateSuite) TestRemoveAliveStorageAttachmentError(c *gc.C) {
 	err := s.State.RemoveStorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, gc.ErrorMatches, "cannot remove storage attachment data/0:storage-block/0: storage attachment is not dead")
 
-	attachments, err := s.State.StorageAttachments(u.UnitTag())
+	attachments, err := s.State.UnitStorageAttachments(u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachments, gc.HasLen, 1)
 	c.Assert(attachments[0].StorageInstance(), gc.Equals, storageTag)
