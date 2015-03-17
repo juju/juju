@@ -4088,6 +4088,10 @@ type mockStorageProvider struct {
 	kind storage.StorageKind
 }
 
+func (m *mockStorageProvider) Scope() storage.Scope {
+	return storage.ScopeMachine
+}
+
 func (m *mockStorageProvider) Supports(k storage.StorageKind) bool {
 	return k == m.kind
 }

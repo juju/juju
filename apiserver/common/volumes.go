@@ -63,7 +63,7 @@ func StoragePoolConfig(name string, poolManager poolmanager.PoolManager) (storag
 		if _, err1 := registry.StorageProvider(providerType); err1 != nil {
 			return "", nil, errors.Trace(err)
 		}
-		return providerType, nil, nil
+		return providerType, &storage.Config{}, nil
 	} else if err != nil {
 		return "", nil, errors.Annotatef(err, "getting pool %q", name)
 	}

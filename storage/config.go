@@ -59,8 +59,11 @@ func (c *Config) Provider() ProviderType {
 }
 
 // Attrs returns the configuration attributes for a storage source.
-func (c *Config) Attrs() map[string]interface{} {
-	attrs := make(map[string]interface{})
+func (c *Config) Attrs() (attrs map[string]interface{}) {
+	if c.attrs == nil {
+		return attrs
+	}
+	attrs = make(map[string]interface{})
 	for k, v := range c.attrs {
 		attrs[k] = v
 	}
