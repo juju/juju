@@ -6,12 +6,15 @@ package addresser
 import (
 	"fmt"
 
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
 )
+
+var logger = loggo.GetLogger("juju.worker.addresser")
 
 type addresserWorker struct {
 	st   *state.State
