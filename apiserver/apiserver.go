@@ -19,10 +19,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
@@ -327,6 +329,13 @@ func (srv *Server) run(lis net.Listener) {
 			httpHandler: httpHandler{ssState: srv.state},
 			logDir:      srv.logDir},
 	)
+	if featureflag.Enabled(feature.DbLog) {
+		handleAll(mux, "/environment/:envuuid/logsink",
+			&logSinkHandler{
+				httpHandler: httpHandler{ssState: srv.state},
+			},
+		)
+	}
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
 			httpHandler: httpHandler{ssState: srv.state},

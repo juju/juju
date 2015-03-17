@@ -52,7 +52,7 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "POST":
-		if err := stateWrapper.authenticate(r); err != nil {
+		if err := stateWrapper.authenticateUser(r); err != nil {
 			h.authError(w, h)
 			return
 		}
