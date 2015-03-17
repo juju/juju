@@ -11,10 +11,12 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 )
 
 type VolumeStateSuite struct {
@@ -126,7 +128,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfo(c *gc.C) {
 	volumeTag := volume.VolumeTag()
 	s.assertVolumeUnprovisioned(c, volumeTag)
 
-	volumeInfoSet := state.VolumeInfo{Size: 123}
+	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true}
 	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfoSet.Pool = "loop-pool" // taken from params
@@ -355,4 +357,41 @@ func (s *VolumeStateSuite) assertVolumeInfo(c *gc.C, tag names.VolumeTag, expect
 	c.Assert(info, jc.DeepEquals, expect)
 	_, ok := volume.Params()
 	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *VolumeStateSuite) TestPersistentVolumes(c *gc.C) {
+	registry.RegisterEnvironStorageProviders("someprovider", ec2.EBS_ProviderType)
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("persistent-block", ec2.EBS_ProviderType, map[string]interface{}{"persistent": "true"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch := s.AddTestingCharm(c, "storage-block2")
+	storage := map[string]state.StorageConstraints{
+		"multi1to10": makeStorageCons("persistent-block", 1024, 1),
+		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-block2", ch, storage)
+	unit, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	volume1, err := s.State.StorageInstanceVolume(names.NewStorageTag("multi1to10/0"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true}
+	err = s.State.SetVolumeInfo(volume1.VolumeTag(), volumeInfoSet)
+	c.Assert(err, jc.ErrorIsNil)
+
+	volume2, err := s.State.StorageInstanceVolume(names.NewStorageTag("multi2up/1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumeInfoSet = state.VolumeInfo{Size: 456, Persistent: false}
+	err = s.State.SetVolumeInfo(volume2.VolumeTag(), volumeInfoSet)
+	c.Assert(err, jc.ErrorIsNil)
+
+	v, err := s.State.PersistentVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(v, gc.HasLen, 1)
+	c.Assert(v[0].VolumeTag(), gc.DeepEquals, volume1.VolumeTag())
 }

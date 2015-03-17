@@ -140,7 +140,8 @@ type Volume struct {
 	VolumeId  string `json:"volumeid"`
 	Serial    string `json:"serial"`
 	// Size is the size of the volume in MiB.
-	Size uint64 `json:"size"`
+	Size       uint64 `json:"size"`
+	Persistent bool   `json:"persistent"`
 }
 
 // Volumes describes a set of storage volumes in the environment.

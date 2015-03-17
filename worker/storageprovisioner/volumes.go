@@ -284,6 +284,7 @@ func volumesFromStorage(in []storage.Volume) []params.Volume {
 			v.VolumeId,
 			v.Serial,
 			v.Size,
+			v.Persistent,
 		}
 	}
 	return out

@@ -233,7 +233,7 @@ func (s *provisionerSuite) TestSetVolumeInfo(c *gc.C) {
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "SetVolumeInfo")
 		c.Check(arg, gc.DeepEquals, params.Volumes{
-			Volumes: []params.Volume{{VolumeTag: "volume-100", VolumeId: "123", Serial: "abc", Size: 1024}},
+			Volumes: []params.Volume{{VolumeTag: "volume-100", VolumeId: "123", Serial: "abc", Size: 1024, Persistent: true}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
@@ -244,7 +244,7 @@ func (s *provisionerSuite) TestSetVolumeInfo(c *gc.C) {
 	})
 
 	st := storageprovisioner.NewState(apiCaller, names.NewMachineTag("123"))
-	volumes := []params.Volume{{VolumeTag: "volume-100", VolumeId: "123", Serial: "abc", Size: 1024}}
+	volumes := []params.Volume{{VolumeTag: "volume-100", VolumeId: "123", Serial: "abc", Size: 1024, Persistent: true}}
 	errorResults, err := st.SetVolumeInfo(volumes)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)

@@ -113,6 +113,11 @@ func (s *poolSuite) TestCreateMissingType(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "provider type is missing")
 }
 
+func (s *poolSuite) TestCreateInvalidConfig(c *gc.C) {
+	_, err := s.poolManager.Create("testpool", storage.ProviderType("loop"), map[string]interface{}{"persistent": true})
+	c.Assert(err, gc.ErrorMatches, `machine scoped storage provider "testpool" does not support persistent storage`)
+}
+
 func (s *poolSuite) TestDelete(c *gc.C) {
 	s.createSettings(c)
 	err := s.poolManager.Delete("testpool")

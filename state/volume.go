@@ -112,10 +112,11 @@ type VolumeParams struct {
 
 // VolumeInfo describes information about a volume.
 type VolumeInfo struct {
-	Serial   string `bson:"serial,omitempty"`
-	Size     uint64 `bson:"size"`
-	Pool     string `bson:"pool"`
-	VolumeId string `bson:"volumeid"`
+	Serial     string `bson:"serial,omitempty"`
+	Size       uint64 `bson:"size"`
+	Pool       string `bson:"pool"`
+	VolumeId   string `bson:"volumeid"`
+	Persistent bool   `bson:"persistent"`
 }
 
 // VolumeAttachmentInfo describes information about a volume attachment.
@@ -214,6 +215,25 @@ func (st *State) Volume(tag names.VolumeTag) (Volume, error) {
 		return nil, errors.Annotate(err, "cannot get volume")
 	}
 	return &v, nil
+}
+
+// PersistentVolumes returns any alive persistent Volumes scoped to the environment or any machine.
+func (st *State) PersistentVolumes() ([]Volume, error) {
+	coll, cleanup := st.getCollection(volumesC)
+	defer cleanup()
+
+	var vDocs []volumeDoc
+	err := coll.Find(
+		bson.D{{"info.persistent", true}},
+	).All(&vDocs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get persistent volumes")
+	}
+	v := make([]Volume, len(vDocs))
+	for i, vDoc := range vDocs {
+		v[i] = &volume{vDoc}
+	}
+	return v, nil
 }
 
 // StorageInstanceVolume returns the Volume assigned to the specified
@@ -315,6 +335,7 @@ func (st *State) addVolumeOp(params VolumeParams, machineId string) (txn.Op, nam
 	if err != nil {
 		return txn.Op{}, names.VolumeTag{}, errors.Annotate(err, "validating volume params")
 	}
+
 	name, err := newVolumeName(st, machineId)
 	if err != nil {
 		return txn.Op{}, names.VolumeTag{}, errors.Annotate(err, "cannot generate volume name")

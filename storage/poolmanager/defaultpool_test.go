@@ -26,8 +26,8 @@ func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *gc.C) {
 	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
-	p1, err := storage.NewConfig("pool1", storage.ProviderType("foo"), map[string]interface{}{"1": "2"})
-	p2, err := storage.NewConfig("pool2", storage.ProviderType("bar"), map[string]interface{}{"3": "4"})
+	p1, err := storage.NewConfig("pool1", storage.ProviderType("loop"), map[string]interface{}{"1": "2"})
+	p2, err := storage.NewConfig("pool2", storage.ProviderType("tmpfs"), map[string]interface{}{"3": "4"})
 	c.Assert(err, jc.ErrorIsNil)
 	defaultPools := []*storage.Config{p1, p2}
 	poolmanager.RegisterDefaultStoragePools(defaultPools)

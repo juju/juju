@@ -4091,3 +4091,7 @@ type mockStorageProvider struct {
 func (m *mockStorageProvider) Supports(k storage.StorageKind) bool {
 	return k == m.kind
 }
+
+func (m *mockStorageProvider) ValidateConfig(*storage.Config) error {
+	return nil
+}

@@ -700,6 +700,7 @@ func volumesToApiserver(volumes []storage.Volume) []params.Volume {
 			v.VolumeId,
 			v.Serial,
 			v.Size,
+			v.Persistent,
 		}
 	}
 	return result

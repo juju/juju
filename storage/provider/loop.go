@@ -33,8 +33,7 @@ var _ storage.Provider = (*loopProvider)(nil)
 
 // ValidateConfig is defined on the Provider interface.
 func (lp *loopProvider) ValidateConfig(cfg *storage.Config) error {
-	// Loop provider has no configuration.
-	return nil
+	return ValidateConfig(lp, cfg)
 }
 
 // validateFullConfig validates a fully-constructed storage config,
