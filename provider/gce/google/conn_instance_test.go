@@ -92,7 +92,7 @@ func (s *instanceSuite) TestConnectionAddInstanceAPI(c *gc.C) {
 		Mode:       "READ_WRITE",
 		AutoDelete: true,
 		InitializeParams: &compute.AttachedDiskInitializeParams{
-			DiskSizeGb:  5,
+			DiskSizeGb:  15,
 			SourceImage: "some/image/path",
 		},
 	}}
