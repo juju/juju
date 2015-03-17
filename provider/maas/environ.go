@@ -64,7 +64,7 @@ func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
 	params := url.Values{}
 	params.Add("network", cidr)
-	params.Add("ip", addr.Value)
+	params.Add("requested_address", addr.Value)
 	_, err := ipaddresses.CallPost("reserve", params)
 	return err
 }
