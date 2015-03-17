@@ -193,7 +193,7 @@ function checkInitSystem() {
 
 # Find the executable.
 executable=$(cat /proc/1/cmdline | awk -F"\0" '{print $1}')
-if [[ ! $? ]]; then
+if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
@@ -203,7 +203,7 @@ checkInitSystem "$executable"
 # First fall back to following symlinks.
 if [[ -L $executable ]]; then
     linked=$(readlink -f "$executable")
-    if [[ $? ]]; then
+    if [[ $? -eq 0 ]]; then
         executable=$linked
 
         # Check the linked executable.
@@ -213,7 +213,7 @@ fi
 
 # Fall back to checking the "version" text.
 verText=$("${executable}" --version)
-if [[ $? ]]; then
+if [[ $? -eq 0 ]]; then
     checkInitSystem "$verText"
 fi
 
