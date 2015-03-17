@@ -2,6 +2,7 @@
 set -eux
 
 BUILD_PACKAGES=${BUILD_PACKAGES:-true}
+BUILD_i386=${BUILD_i386:-true}
 TARFILE=$($SCRIPTS/jujuci.py get build-revision 'juju-core_*.tar.gz' ./)
 VERSION=$(basename $TARFILE .tar.gz | cut -d '_' -f2)
 
@@ -43,13 +44,17 @@ do
         fi
         echo "Building trusty amd64"
         $RELEASE_TOOLS/build-package-with-dsc.bash m1.large ami-b027efd8 $dsc
-        echo "Building trusty i386"
-        if [[ -n ${I386_SSH_OPTIONS:-} ]]; then
-            $RELEASE_TOOLS/build-package-with-dsc.bash ubuntu@i386-slave \
-                    "$I386_SSH_OPTIONS" $dsc
+        if [[ $BUILD_i386 == "true" ]]
+            echo "Building trusty i386"
+            if [[ -n ${I386_SSH_OPTIONS:-} ]]; then
+                $RELEASE_TOOLS/build-package-with-dsc.bash ubuntu@i386-slave \
+                        "$I386_SSH_OPTIONS" $dsc
+            else
+                $RELEASE_TOOLS/build-package-with-dsc.bash \
+                    m1.medium ami-81dee0e8 $dsc
+            fi
         else
-            $RELEASE_TOOLS/build-package-with-dsc.bash \
-                m1.medium ami-81dee0e8 $dsc
+            echo "Skipping trusty i386"
         fi
         if [[ -n ${ARM_SSH_OPTIONS:-} ]]; then
             echo "Building trusty arm64"
