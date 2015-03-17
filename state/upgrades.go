@@ -485,6 +485,7 @@ func AddNameFieldLowerCaseIdOfUsers(st *State) error {
 			}, txn.Op{
 				C:      usersC,
 				Id:     user["_id"],
+				Assert: txn.DocMissing,
 				Insert: user,
 			})
 		} else {
@@ -495,6 +496,39 @@ func AddNameFieldLowerCaseIdOfUsers(st *State) error {
 				Update: bson.D{{"$set", bson.D{
 					{"name", user["name"]},
 				}}},
+			})
+		}
+		user = nil
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
+func LowerCaseEnvUsersID(st *State) error {
+	users, closer := st.getRawCollection(envUsersC)
+	defer closer()
+
+	var ops []txn.Op
+	var user bson.M
+	iter := users.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&user) {
+		oldId := user["_id"].(string)
+		newId := strings.ToLower(oldId)
+
+		if oldId != newId {
+			user["_id"] = newId
+			ops = append(ops, txn.Op{
+				C:      envUsersC,
+				Id:     oldId,
+				Remove: true,
+			}, txn.Op{
+				C:      envUsersC,
+				Id:     user["_id"],
+				Assert: txn.DocMissing,
+				Insert: user,
 			})
 		}
 		user = nil

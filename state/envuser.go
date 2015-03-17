@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -102,10 +103,14 @@ func (st *State) EnvironmentUser(user names.UserTag) (*EnvironmentUser, error) {
 	envUsers, closer := st.getCollection(envUsersC)
 	defer closer()
 
-	err := envUsers.FindId(user.Username()).One(&envUser.doc)
+	username := strings.ToLower(user.Username())
+	err := envUsers.FindId(username).One(&envUser.doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("environment user %q", user.Username())
 	}
+	// DateCreated is inserted as UTC, but read out as local time. So we
+	// convert it back to UTC here.
+	envUser.doc.DateCreated = envUser.doc.DateCreated.UTC()
 	return envUser, nil
 }
 
@@ -143,9 +148,10 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag, displayName s
 
 func createEnvUserOpAndDoc(envuuid string, user, createdBy names.UserTag, displayName string) (txn.Op, *envUserDoc) {
 	username := user.Username()
+	usernameLowerCase := strings.ToLower(username)
 	creatorname := createdBy.Username()
 	doc := &envUserDoc{
-		ID:          username,
+		ID:          usernameLowerCase,
 		EnvUUID:     envuuid,
 		UserName:    username,
 		DisplayName: displayName,
@@ -154,7 +160,7 @@ func createEnvUserOpAndDoc(envuuid string, user, createdBy names.UserTag, displa
 	}
 	op := txn.Op{
 		C:      envUsersC,
-		Id:     username,
+		Id:     usernameLowerCase,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}

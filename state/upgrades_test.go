@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -69,6 +70,133 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, keyExists := userMap["_id_"]
 	c.Assert(keyExists, jc.IsFalse)
+}
+
+func (s *upgradesSuite) TestLowerCaseEnvUsersID(c *gc.C) {
+	UUID := s.state.EnvironUUID()
+	s.addCaseSensitiveEnvUsers(c, UUID, [][]string{
+		{"BoB@local", "Bob the Builder"},
+		{"sAm@cRAZyCaSe", "Sam Smith"},
+		{"adam@alllower", "Adam Apple"},
+	})
+
+	err := LowerCaseEnvUsersID(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertEnvUserIDLowerCased(c, [][]string{
+		{UUID, "bob@local", "BoB@local", "Bob the Builder"},
+		{UUID, "adam@alllower", "adam@alllower", "Adam Apple"},
+		{UUID, "sam@crazycase", "sAm@cRAZyCaSe", "Sam Smith"},
+		{UUID, "test-admin@local", "test-admin@local", "test-admin"},
+	})
+}
+
+func (s *upgradesSuite) TestDupeCaseSensitive(c *gc.C) {
+	UUID := s.state.EnvironUUID()
+	s.addCaseSensitiveEnvUsers(c, UUID, [][]string{
+		{"BoB@local", "Bob the Builder"},
+		{"bob@local", "Bobby Brown"},
+	})
+
+	err := LowerCaseEnvUsersID(s.state)
+	// Yes, this means the upgrade step fails if there are two existing users
+	// with the same username but different case.
+	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+}
+
+func (s *upgradesSuite) TestLowerCaseEnvUsersIDMultiEnvs(c *gc.C) {
+	UUID1 := "6983ac70-b0aa-45c5-80fe-9f207bbb18d9"
+	s.addCaseSensitiveEnvUsers(c, UUID1, [][]string{
+		{"BoB@local", "Bob the Builder"},
+		{"sAm@cRAZyCaSe", "Sam Smith"},
+		{"adam@alllower", "Adam Apple"},
+	})
+
+	UUID2 := "7983ac70-b0aa-45c5-80fe-9f207bbb18d9"
+	s.addCaseSensitiveEnvUsers(c, UUID2, [][]string{
+		{"BoB@local", "Bob the Builder"},
+		{"Joe@Yo", "Joe Yo"},
+		{"adam@alllower", "Young Apple"},
+	})
+
+	err := LowerCaseEnvUsersID(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	stUUID := s.state.EnvironUUID()
+	s.assertEnvUserIDLowerCased(c, [][]string{
+		{UUID1, "bob@local", "BoB@local", "Bob the Builder"},
+		{UUID2, "bob@local", "BoB@local", "Bob the Builder"},
+		{UUID2, "joe@yo", "Joe@Yo", "Joe Yo"},
+		{UUID1, "adam@alllower", "adam@alllower", "Adam Apple"},
+		{UUID2, "adam@alllower", "adam@alllower", "Young Apple"},
+		{UUID1, "sam@crazycase", "sAm@cRAZyCaSe", "Sam Smith"},
+		{stUUID, "test-admin@local", "test-admin@local", "test-admin"},
+	})
+}
+
+func (s *upgradesSuite) TestLowerCaseEnvUsersIDIdempotent(c *gc.C) {
+	UUID := s.state.EnvironUUID()
+	s.addCaseSensitiveEnvUsers(c, UUID, [][]string{
+		{"BoB@local", "Bob the Builder"},
+		{"sAm@cRAZyCaSe", "Sam Smith"},
+		{"adam@alllower", "Adam Apple"},
+	})
+
+	err := LowerCaseEnvUsersID(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	err = LowerCaseEnvUsersID(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertEnvUserIDLowerCased(c, [][]string{
+		{UUID, "bob@local", "BoB@local", "Bob the Builder"},
+		{UUID, "adam@alllower", "adam@alllower", "Adam Apple"},
+		{UUID, "sam@crazycase", "sAm@cRAZyCaSe", "Sam Smith"},
+		{UUID, "test-admin@local", "test-admin@local", "test-admin"},
+	})
+}
+
+// addCaseSensitiveEnvUsers adds an envUserDoc with a case sensitive "_id" for
+// each {"_id", "displayname"} pair passed in.
+func (s *upgradesSuite) addCaseSensitiveEnvUsers(c *gc.C, envUUID string, oldUsers [][]string) {
+	c.Assert(utils.IsValidUUIDString(envUUID), jc.IsTrue)
+	var ops []txn.Op
+	for _, oldUser := range oldUsers {
+		ops = append(ops, txn.Op{
+			C:  envUsersC,
+			Id: envUUID + ":" + oldUser[0],
+			Insert: bson.D{
+				{"user", oldUser[0]},
+				{"displayname", oldUser[1]},
+			}})
+	}
+	err := s.state.runRawTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// assertEnvUserIDLowerCased asserts across all environments that the
+// <localID> part of each envUser's _id field, which has the format
+// "<uuid>:<localID>", matches the respective expected lower-cased id.
+func (s *upgradesSuite) assertEnvUserIDLowerCased(c *gc.C, expected [][]string) {
+	users, closer := s.state.getRawCollection(envUsersC)
+	defer closer()
+
+	var obtained []bson.M
+	err := users.Find(nil).Sort("user").All(&obtained)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for i, expectedUser := range expected {
+		ID := obtained[i]["_id"].(string)
+		parts := strings.Split(ID, ":")
+		c.Assert(parts, gc.HasLen, 2)
+		UUID, name := parts[0], parts[1]
+
+		c.Assert(UUID, gc.Equals, expectedUser[0])
+		c.Assert(name, gc.Equals, expectedUser[1])
+		c.Assert(obtained[i]["_id"], gc.Equals, expectedUser[0]+":"+expectedUser[1])
+		c.Assert(obtained[i]["user"], gc.Equals, expectedUser[2])
+		c.Assert(obtained[i]["displayname"], gc.Equals, expectedUser[3])
+	}
+	c.Assert(obtained, gc.HasLen, len(expected))
 }
 
 func (s *upgradesSuite) TestUserTagNameFallsBackToId(c *gc.C) {

@@ -50,6 +50,47 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	c.Assert(envUser.LastConnection(), gc.IsNil)
 }
 
+func (s *EnvUserSuite) TestCaseSensitiveEnvUserErrors(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	s.factory.MakeEnvUser(c, &factory.EnvUserParams{User: "Bob@ubuntuone"})
+
+	_, err = s.State.AddEnvironmentUser(names.NewUserTag("boB@ubuntuone"), env.Owner(), "")
+	c.Assert(err, gc.ErrorMatches, `environment user "boB@ubuntuone" already exists`)
+	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
+}
+
+func (s *EnvUserSuite) TestCaseInsensitiveLookupInMultiEnvirons(c *gc.C) {
+	assertIsolated := func(st1, st2 *state.State, usernames ...string) {
+		f := factory.NewFactory(st1)
+		expectedUser := f.MakeEnvUser(c, &factory.EnvUserParams{User: usernames[0]})
+
+		// assert case insensitive lookup for each username
+		for _, username := range usernames {
+			userTag := names.NewUserTag(username)
+			obtainedUser, err := st1.EnvironmentUser(userTag)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(obtainedUser, gc.DeepEquals, expectedUser)
+
+			_, err = st2.EnvironmentUser(userTag)
+			c.Assert(errors.IsNotFound(err), jc.IsTrue)
+		}
+	}
+
+	otherSt := s.factory.MakeEnvironment(c, nil)
+	defer otherSt.Close()
+	assertIsolated(s.State, otherSt,
+		"Bob@UbuntuOne",
+		"bob@ubuntuone",
+		"BOB@UBUNTUONE",
+	)
+	assertIsolated(otherSt, s.State,
+		"Sam@UbuntuOne",
+		"sam@ubuntuone",
+		"SAM@UBUNTUONE",
+	)
+}
+
 func (s *EnvUserSuite) TestAddEnvironmentDisplayName(c *gc.C) {
 	envUserDefault := s.factory.MakeEnvUser(c, nil)
 	c.Assert(envUserDefault.DisplayName(), gc.Matches, "display name-[0-9]*")
