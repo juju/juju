@@ -24,6 +24,19 @@ var getVersion = func() version.Binary {
 // DiscoverService returns an interface to a service apropriate
 // for the current system
 func DiscoverService(name string, conf common.Conf) (Service, error) {
+	initName, err := discoverInitSystem()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	service, err := NewService(name, conf, initName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return service, nil
+}
+
+func discoverInitSystem() (string, error) {
 	initName, err := discoverLocalInitSystem()
 	if errors.IsNotFound(err) {
 		// Fall back to checking the juju version.
@@ -34,18 +47,13 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 			// that is what we return. However, we at least log the
 			// failed fallback attempt.
 			logger.Errorf("could not identify init system from %v", jujuVersion)
-			return nil, errors.Trace(err)
+			return "", errors.Trace(err)
 		}
 		initName = versionInitName
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-
-	service, err := NewService(name, conf, initName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return service, nil
+	return initName, nil
 }
 
 // VersionInitSystem returns an init system name based on the provided
