@@ -28,7 +28,7 @@ func (s *internalEnvUserSuite) TestCaseUserNameVsId(c *gc.C) {
 	env, err := s.state.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 
-	user, err := s.state.AddEnvironmentUser(names.NewUserTag("Bob@RandomProvider"), env.Owner())
+	user, err := s.state.AddEnvironmentUser(names.NewUserTag("Bob@RandomProvider"), env.Owner(), "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(user.UserName(), gc.Equals, "Bob@RandomProvider")
 	c.Assert(user.doc.ID, gc.Equals, s.state.docID("bob@randomprovider"))

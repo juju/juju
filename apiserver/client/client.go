@@ -980,7 +980,7 @@ func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
 	return info, nil
 }
 
-// ShareEnvironment allows the given user(s) access to the environment.
+// ShareEnvironment manages allowing and denying the given user(s) access to the environment.
 func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params.ErrorResults, err error) {
 	var createdBy names.UserTag
 	var ok bool
@@ -1004,7 +1004,7 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 		}
 		switch arg.Action {
 		case params.AddEnvUser:
-			_, err := c.api.state.AddEnvironmentUser(user, createdBy)
+			_, err := c.api.state.AddEnvironmentUser(user, createdBy, "")
 			if err != nil {
 				err = errors.Annotate(err, "could not share environment")
 				result.Results[i].Error = common.ServerError(err)
@@ -1020,6 +1020,32 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 		}
 	}
 	return result, nil
+}
+
+// EnvUserInfo returns information on all users in the environment.
+func (c *Client) EnvUserInfo() (params.EnvUserInfoResults, error) {
+	var results params.EnvUserInfoResults
+	env, err := c.api.state.Environment()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	users, err := env.Users()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
+	for _, user := range users {
+		results.Results = append(results.Results, params.EnvUserInfoResult{
+			Result: &params.EnvUserInfo{
+				UserName:       user.UserName(),
+				DisplayName:    user.DisplayName(),
+				CreatedBy:      user.CreatedBy(),
+				DateCreated:    user.DateCreated(),
+				LastConnection: user.LastConnection(),
+			},
+		})
+	}
+	return results, nil
 }
 
 // GetAnnotations returns annotations about a given entity.

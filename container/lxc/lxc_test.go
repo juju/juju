@@ -38,6 +38,8 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/service"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -285,6 +287,7 @@ func (s *LxcSuite) TestUpdateContainerConfig(c *gc.C) {
 		DeviceIndex:   1,
 		InterfaceName: "eth1",
 	}})
+	storageConfig := container.NewStorageConfig([]storage.VolumeParams{{Provider: provider.LoopProviderType}})
 
 	manager := s.makeManager(c, "test")
 	machineConfig, err := containertesting.MockMachineConfig("1/lxc/0")
@@ -292,8 +295,8 @@ func (s *LxcSuite) TestUpdateContainerConfig(c *gc.C) {
 	envConfig, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	machineConfig.Config = envConfig
-	instance := containertesting.CreateContainerWithMachineAndNetworkConfig(
-		c, manager, machineConfig, networkConfig,
+	instance := containertesting.CreateContainerWithMachineAndNetworkAndStorageConfig(
+		c, manager, machineConfig, networkConfig, storageConfig,
 	)
 	name := string(instance.Id())
 
@@ -301,9 +304,9 @@ func (s *LxcSuite) TestUpdateContainerConfig(c *gc.C) {
 	extraLines := []string{
 		"  lxc.rootfs =  /some/thing  # else ",
 		"",
-		"  # just comment  ",
+		"  # just comment",
 		"lxc.network.vlan.id=42",
-		"something else  # ignore  ",
+		"something else  # ignore",
 		"lxc.network.type=veth",
 		"lxc.network.link = foo  # comment",
 		"lxc.network.hwaddr = bar",
@@ -337,6 +340,10 @@ lxc.network.mtu = 4321
 
 
 lxc.mount.entry = %s var/log/juju none defaults,bind 0 0
+
+lxc.aa_profile = lxc-container-default-with-mounting
+lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = c 10:237 rwm
 `, s.logDir) + strings.Join(extraLines, "\n") + "\n"
 
 	lxcConfContents, err := ioutil.ReadFile(configPath)
@@ -383,11 +390,15 @@ lxc.network.name = em1
 lxc.network.mtu = 4321
 
 
+
+lxc.aa_profile = lxc-container-default-with-mounting
+lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = c 10:237 rwm
 lxc.rootfs = /foo/bar
 
-  # just comment  
+  # just comment
 lxc.network.vlan.id = 69
-something else  # ignore  
+something else  # ignore
 lxc.network.type = phys
 lxc.network.link = foo  # comment
 lxc.network.hwaddr = deadbeef
@@ -969,6 +980,39 @@ lxc.network.mtu = 4321
 
 lxc.start.auto = 1
 lxc.mount.entry = %s var/log/juju none defaults,bind 0 0
+`, s.logDir)
+	c.Assert(string(config), gc.Equals, expected)
+	c.Assert(autostartLink, jc.DoesNotExist)
+}
+
+func (s *LxcSuite) TestCreateContainerWithBlockStorage(c *gc.C) {
+	err := os.Remove(s.RestartDir)
+	c.Assert(err, jc.ErrorIsNil)
+
+	manager := s.makeManager(c, "test")
+	machineConfig, err := containertesting.MockMachineConfig("1/lxc/0")
+	c.Assert(err, jc.ErrorIsNil)
+	storageConfig := container.NewStorageConfig([]storage.VolumeParams{{Provider: provider.LoopProviderType}})
+	networkConfig := container.BridgeNetworkConfig("nic42", nil)
+	instance := containertesting.CreateContainerWithMachineAndNetworkAndStorageConfig(c, manager, machineConfig, networkConfig, storageConfig)
+	name := string(instance.Id())
+	autostartLink := lxc.RestartSymlink(name)
+	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
+	c.Assert(err, jc.ErrorIsNil)
+	expected := fmt.Sprintf(`
+# network config
+# interface "eth0"
+lxc.network.type = veth
+lxc.network.link = nic42
+lxc.network.flags = up
+lxc.network.mtu = 4321
+
+lxc.start.auto = 1
+lxc.mount.entry = %s var/log/juju none defaults,bind 0 0
+
+lxc.aa_profile = lxc-container-default-with-mounting
+lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = c 10:237 rwm
 `, s.logDir)
 	c.Assert(string(config), gc.Equals, expected)
 	c.Assert(autostartLink, jc.DoesNotExist)

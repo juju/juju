@@ -15,11 +15,10 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-// EnvironmentUser represents a user access to an environment
-// whereas the user could represent a remote user or a user
-// across multiple environments the environment user always represents
-// a single user for a single environment.
-// There should be no more than one EnvironmentUser per user
+// EnvironmentUser represents a user access to an environment whereas the user
+// could represent a remote user or a user across multiple environments the
+// environment user always represents a single user for a single environment.
+// There should be no more than one EnvironmentUser per environment.
 type EnvironmentUser struct {
 	st  *State
 	doc envUserDoc
@@ -65,14 +64,20 @@ func (e *EnvironmentUser) CreatedBy() string {
 	return e.doc.CreatedBy
 }
 
-// DateCreated returns the date the environment user.
+// DateCreated returns the date the environment user was created in UTC.
 func (e *EnvironmentUser) DateCreated() time.Time {
-	return e.doc.DateCreated
+	return e.doc.DateCreated.UTC()
 }
 
-// LastConnection returns the last connection time of the environment user.
+// LastLogin returns when this EnvironmentUser last connected through the API
+// in UTC. The resulting time will be nil if the user has never logged in.
 func (e *EnvironmentUser) LastConnection() *time.Time {
-	return e.doc.LastConnection
+	when := e.doc.LastConnection
+	if when == nil {
+		return nil
+	}
+	result := when.UTC()
+	return &result
 }
 
 // UpdateLastConnection updates the last connection time of the environment user.
@@ -110,15 +115,16 @@ func (st *State) EnvironmentUser(user names.UserTag) (*EnvironmentUser, error) {
 }
 
 // AddEnvironmentUser adds a new user to the database.
-func (st *State) AddEnvironmentUser(user, createdBy names.UserTag) (*EnvironmentUser, error) {
-	var displayName string
+func (st *State) AddEnvironmentUser(user, createdBy names.UserTag, displayName string) (*EnvironmentUser, error) {
 	// Ensure local user exists in state before adding them as an environment user.
 	if user.IsLocal() {
 		localUser, err := st.User(user)
 		if err != nil {
 			return nil, errors.Annotate(err, fmt.Sprintf("user %q does not exist locally", user.Name()))
 		}
-		displayName = localUser.DisplayName()
+		if displayName == "" {
+			displayName = localUser.DisplayName()
+		}
 	}
 
 	// Ensure local createdBy user exists.
@@ -132,7 +138,7 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag) (*Environment
 	op, doc := createEnvUserOpAndDoc(envuuid, user, createdBy, displayName)
 	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
-		err = errors.AlreadyExistsf("env user")
+		err = errors.AlreadyExistsf("environment user %q", user.Username())
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
