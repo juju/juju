@@ -33,7 +33,7 @@ type VolumeAccessor interface {
 	VolumeParams([]names.VolumeTag) ([]params.VolumeParamsResult, error)
 
 	// SetVolumeInfo records the details of newly provisioned volumes.
-	SetVolumeInfo([]params.Volume) (params.ErrorResults, error)
+	SetVolumeInfo([]params.Volume) ([]params.ErrorResult, error)
 }
 
 // LifecycleManager defines an interface used to allow a storage provisioner

@@ -3,7 +3,10 @@
 
 package watcher
 
-import "github.com/juju/juju/state/multiwatcher"
+import (
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state/multiwatcher"
+)
 
 // NotifyWatcher will send events when something changes.
 // It does not send content for those changes.
@@ -25,6 +28,15 @@ type StringsWatcher interface {
 // The content for the changes is a params.RelationUnitsChange struct.
 type RelationUnitsWatcher interface {
 	Changes() <-chan multiwatcher.RelationUnitsChange
+	Stop() error
+	Err() error
+}
+
+// MachineStorageIdsWatcher will send events when the lifecycle states
+// of machine/storage entities change. The content for the changes is a
+// list of params.MachineStorageId.
+type MachineStorageIdsWatcher interface {
+	Changes() <-chan []params.MachineStorageId
 	Stop() error
 	Err() error
 }

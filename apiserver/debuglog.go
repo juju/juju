@@ -64,7 +64,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			defer stateWrapper.cleanup()
 			// TODO (thumper): We need to work out how we are going to filter
 			// logging information based on environment.
-			if err := stateWrapper.authenticate(req); err != nil {
+			if err := stateWrapper.authenticateUser(req); err != nil {
 				h.sendError(socket, fmt.Errorf("auth failed: %v", err))
 				socket.Close()
 				return

@@ -488,12 +488,21 @@ func constructStartInstanceParams(
 		if err != nil {
 			return environs.StartInstanceParams{}, errors.Trace(err)
 		}
-		machineTag, err := names.ParseMachineTag(v.MachineTag)
+		if v.Attachment == nil {
+			return environs.StartInstanceParams{}, errors.Errorf("volume params missing attachment")
+		}
+		machineTag, err := names.ParseMachineTag(v.Attachment.MachineTag)
 		if err != nil {
 			return environs.StartInstanceParams{}, errors.Trace(err)
 		}
 		if machineTag != machine.Tag() {
-			return environs.StartInstanceParams{}, errors.Errorf("volume params has invalid machine tag")
+			return environs.StartInstanceParams{}, errors.Errorf("volume attachment params has invalid machine tag")
+		}
+		if v.Attachment.VolumeId != "" {
+			return environs.StartInstanceParams{}, errors.Errorf("volume attachment params specifies volume ID")
+		}
+		if v.Attachment.InstanceId != "" {
+			return environs.StartInstanceParams{}, errors.Errorf("volume attachment params specifies instance ID")
 		}
 		volumes[i] = storage.VolumeParams{
 			volumeTag,
@@ -691,6 +700,7 @@ func volumesToApiserver(volumes []storage.Volume) []params.Volume {
 			v.VolumeId,
 			v.Serial,
 			v.Size,
+			v.Persistent,
 		}
 	}
 	return result

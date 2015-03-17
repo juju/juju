@@ -37,27 +37,37 @@ func VolumeParams(v state.Volume, poolManager poolmanager.PoolManager) (params.V
 		return params.VolumeParams{}, err
 	}
 
-	var providerType storage.ProviderType
-	var attrs map[string]interface{}
-	if pool, err := poolManager.Get(stateVolumeParams.Pool); errors.IsNotFound(err) {
-		// If not a storage pool, then maybe a provider type.
-		providerType = storage.ProviderType(stateVolumeParams.Pool)
-		if _, err1 := registry.StorageProvider(providerType); err1 != nil {
-			return params.VolumeParams{}, errors.Trace(err)
-		}
-	} else if err != nil {
-		return params.VolumeParams{}, errors.Annotate(err, "getting pool")
-	} else {
-		providerType = pool.Provider()
-		attrs = pool.Attrs()
+	providerType, attrs, err := StoragePoolConfig(stateVolumeParams.Pool, poolManager)
+	if err != nil {
+		return params.VolumeParams{}, errors.Trace(err)
 	}
 	return params.VolumeParams{
 		v.Tag().String(),
 		stateVolumeParams.Size,
 		string(providerType),
 		attrs,
-		"", // machine tag is set by the machine provisioner
+		nil, // attachment params set by the caller
 	}, nil
+}
+
+// StoragePoolConfig returns the storage provider type and
+// configuration attributes for a named storage pool. If
+// there is no such pool with the specified name, but it
+// identifies a storage provider, then that type will be
+// returned with a nil configuration.
+func StoragePoolConfig(name string, poolManager poolmanager.PoolManager) (storage.ProviderType, map[string]interface{}, error) {
+	pool, err := poolManager.Get(name)
+	if errors.IsNotFound(err) {
+		// If not a storage pool, then maybe a provider type.
+		providerType := storage.ProviderType(name)
+		if _, err1 := registry.StorageProvider(providerType); err1 != nil {
+			return "", nil, errors.Trace(err)
+		}
+		return providerType, nil, nil
+	} else if err != nil {
+		return "", nil, errors.Annotatef(err, "getting pool %q", name)
+	}
+	return pool.Provider(), pool.Attrs(), nil
 }
 
 // VolumesToState converts a slice of params.Volume to a mapping
@@ -87,7 +97,9 @@ func VolumeToState(v params.Volume) (names.VolumeTag, state.VolumeInfo, error) {
 	return volumeTag, state.VolumeInfo{
 		v.Serial,
 		v.Size,
+		"", // pool is set by state
 		v.VolumeId,
+		v.Persistent,
 	}, nil
 }
 
@@ -102,6 +114,21 @@ func VolumeFromState(v state.Volume) (params.Volume, error) {
 		info.VolumeId,
 		info.Serial,
 		info.Size,
+		info.Persistent,
+	}, nil
+}
+
+// VolumeAttachmentFromState converts a state.VolumeAttachment to params.VolumeAttachment.
+func VolumeAttachmentFromState(v state.VolumeAttachment) (params.VolumeAttachment, error) {
+	info, err := v.Info()
+	if err != nil {
+		return params.VolumeAttachment{}, errors.Trace(err)
+	}
+	return params.VolumeAttachment{
+		v.Volume().String(),
+		v.Machine().String(),
+		info.DeviceName,
+		info.ReadOnly,
 	}, nil
 }
 
@@ -110,17 +137,45 @@ func VolumeFromState(v state.Volume) (params.Volume, error) {
 func VolumeAttachmentsToState(in []params.VolumeAttachment) (map[names.VolumeTag]state.VolumeAttachmentInfo, error) {
 	m := make(map[names.VolumeTag]state.VolumeAttachmentInfo)
 	for _, v := range in {
-		if v.VolumeTag == "" {
-			return nil, errors.New("Tag is empty")
-		}
-		volumeTag, err := names.ParseVolumeTag(v.VolumeTag)
+		_, volumeTag, info, err := VolumeAttachmentToState(v)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		m[volumeTag] = state.VolumeAttachmentInfo{
-			v.DeviceName,
-			v.ReadOnly,
-		}
+		m[volumeTag] = info
 	}
 	return m, nil
+}
+
+// VolumeAttachmentToState converts a storage.VolumeAttachment
+// to a state.VolumeAttachmentInfo.
+func VolumeAttachmentToState(in params.VolumeAttachment) (names.MachineTag, names.VolumeTag, state.VolumeAttachmentInfo, error) {
+	machineTag, err := names.ParseMachineTag(in.MachineTag)
+	if err != nil {
+		return names.MachineTag{}, names.VolumeTag{}, state.VolumeAttachmentInfo{}, err
+	}
+	volumeTag, err := names.ParseVolumeTag(in.VolumeTag)
+	if err != nil {
+		return names.MachineTag{}, names.VolumeTag{}, state.VolumeAttachmentInfo{}, err
+	}
+	info := state.VolumeAttachmentInfo{
+		in.DeviceName,
+		in.ReadOnly,
+	}
+	return machineTag, volumeTag, info, nil
+}
+
+// ParseMachineStorageIds parses the strings, returning machine attachment IDs.
+func ParseVolumeAttachmentIds(stringIds []string) ([]params.MachineStorageId, error) {
+	ids := make([]params.MachineStorageId, len(stringIds))
+	for i, s := range stringIds {
+		m, v, err := state.ParseVolumeAttachmentId(s)
+		if err != nil {
+			return nil, err
+		}
+		ids[i] = params.MachineStorageId{
+			MachineTag:    m.String(),
+			AttachmentTag: v.String(),
+		}
+	}
+	return ids, nil
 }

@@ -76,7 +76,7 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer stateWrapper.cleanup()
 
-	if err := stateWrapper.authenticate(r); err != nil {
+	if err := stateWrapper.authenticateUser(r); err != nil {
 		h.authError(w, h)
 		return
 	}

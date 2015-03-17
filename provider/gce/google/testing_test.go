@@ -52,7 +52,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.FakeConn = fake
 
 	s.DiskSpec = DiskSpec{
-		SizeHintGB: 5,
+		SizeHintGB: 15,
 		ImageURL:   "some/image/path",
 		Boot:       true,
 		Scratch:    false,
@@ -65,7 +65,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		Mode:       "READ_WRITE",
 		AutoDelete: true,
 		InitializeParams: &compute.AttachedDiskInitializeParams{
-			DiskSizeGb:  1,
+			DiskSizeGb:  10,
 			SourceImage: "some/image/path",
 		},
 	}

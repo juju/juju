@@ -7,6 +7,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
@@ -129,8 +130,8 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsValidation(c *gc.C) 
 	storageCons["multi2up"] = makeStorageCons("loop-pool", 2048, 2)
 	storageCons["multi1to10"] = makeStorageCons("loop-pool", 1024, 11)
 	assertErr(storageCons, `cannot add service "storage-block2": charm "storage-block2" store "multi1to10": at most 10 instances supported, 11 specified`)
-	storageCons["multi1to10"] = makeStorageCons("ebs", 1024, 10)
-	assertErr(storageCons, `cannot add service "storage-block2": pool "ebs" not found`)
+	storageCons["multi1to10"] = makeStorageCons("ebs-fast", 1024, 10)
+	assertErr(storageCons, `cannot add service "storage-block2": pool "ebs-fast" not found`)
 	storageCons["multi1to10"] = makeStorageCons("loop-pool", 1024, 10)
 	_, err := addService(storageCons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -211,6 +212,10 @@ func (s *StorageStateSuite) TestProviderFallbackToType(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
+	s.assertStorageUnitsAdded(c)
+}
+
+func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{
 		"storage-default-block-source": "loop-pool",
 	}, nil, nil)
@@ -243,6 +248,29 @@ func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
 		})
 		// TODO(wallyworld) - test pool name stored in data model
 	}
+}
+
+func (s *StorageStateSuite) TestAllStorageInstances(c *gc.C) {
+	s.assertStorageUnitsAdded(c)
+
+	all, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 6)
+
+	nameSet := set.NewStrings("multi1to10", "multi2up")
+	ownerSet := set.NewStrings("unit-storage-block2-0", "unit-storage-block2-1")
+
+	for _, one := range all {
+		c.Assert(one.Kind(), gc.DeepEquals, state.StorageKindBlock)
+		c.Assert(nameSet.Contains(one.StorageName()), jc.IsTrue)
+		c.Assert(ownerSet.Contains(one.Owner().String()), jc.IsTrue)
+	}
+}
+
+func (s *StorageStateSuite) TestAllStorageInstancesEmpty(c *gc.C) {
+	all, err := s.State.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 0)
 }
 
 func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
