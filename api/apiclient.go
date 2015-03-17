@@ -6,7 +6,6 @@ package api
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -172,12 +171,12 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 // tried concurrently - the first successful connection wins.
 func Connect(info *Info, opts DialOpts) (*websocket.Conn, error) {
 	if len(info.Addrs) == 0 {
-		return nil, fmt.Errorf("no API addresses to connect to")
+		return nil, errors.New("no API addresses to connect to")
 	}
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert(info.CACert)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "cert pool creation failed")
 	}
 	pool.AddCert(xcert)
 
@@ -204,7 +203,7 @@ func Connect(info *Info, opts DialOpts) (*websocket.Conn, error) {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		select {
 		case <-time.After(opts.DialAddressInterval):
@@ -214,7 +213,7 @@ func Connect(info *Info, opts DialOpts) (*websocket.Conn, error) {
 	try.Close()
 	result, err := try.Result()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	conn := result.(*websocket.Conn)
 	logger.Infof("connection established to %q", conn.RemoteAddr())
@@ -248,7 +247,7 @@ func setUpWebsocket(addr, environUUID string, rootCAs *x509.CertPool) (*websocke
 	}
 	cfg, err := websocket.NewConfig("wss://"+addr+tail, origin)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	cfg.TlsConfig = &tls.Config{
 		RootCAs:    rootCAs,
@@ -280,7 +279,7 @@ func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct
 				logger.Debugf("error dialing %q, will retry: %v", cfg.Location, err)
 			} else {
 				logger.Infof("error dialing %q: %v", cfg.Location, err)
-				return nil, fmt.Errorf("unable to connect to %q", cfg.Location)
+				return nil, errors.Errorf("unable to connect to %q", cfg.Location)
 			}
 		}
 		panic("unreachable")
