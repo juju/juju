@@ -19,18 +19,9 @@ const (
 	agentServiceTimeout = 300 // 5 minutes
 )
 
-// TODO(ericsnow) Pass a renderer to agentConf rather than os.
-
 // AgentConf returns the data that defines an init service config
 // for the identified agent.
-func AgentConf(info AgentInfo, os string) common.Conf {
-	renderer, err := shell.NewRenderer(os)
-	if errors.IsNotFound(err) {
-		renderer, _ = shell.NewRenderer("ubuntu")
-	} else if err != nil {
-		panic("unexpected error: " + err.Error())
-	}
-
+func AgentConf(info AgentInfo, renderer shell.Renderer) common.Conf {
 	conf := common.Conf{
 		Desc:      fmt.Sprintf("juju agent for %s", info.name),
 		ExecStart: info.cmd(renderer),
@@ -56,8 +47,8 @@ func AgentConf(info AgentInfo, os string) common.Conf {
 
 // ContainerAgentConf returns the data that defines an init service config
 // for the identified agent running in a container.
-func ContainerAgentConf(info AgentInfo, os, containerType string) common.Conf {
-	conf := AgentConf(info, os)
+func ContainerAgentConf(info AgentInfo, renderer shell.Renderer, containerType string) common.Conf {
+	conf := AgentConf(info, renderer)
 
 	// TODO(thumper): 2013-09-02 bug 1219630
 	// As much as I'd like to remove JujuContainerType now, it is still

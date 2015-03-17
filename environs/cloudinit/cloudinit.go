@@ -9,7 +9,6 @@ import (
 	"net"
 	"path"
 	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -283,9 +282,8 @@ func (cfg *MachineConfig) toolsDir(renderer shell.Renderer) string {
 	return cfg.agentInfo().ToolsDir(renderer)
 }
 
-func (cfg *MachineConfig) initService() (service.Service, error) {
-	os := strings.ToLower(cfg.Tools.Version.OS.String())
-	conf := service.AgentConf(cfg.agentInfo(), os)
+func (cfg *MachineConfig) initService(renderer shell.Renderer) (service.Service, error) {
+	conf := service.AgentConf(cfg.agentInfo(), renderer)
 
 	name := cfg.MachineAgentServiceName
 	initSystem, ok := cfg.initSystem()

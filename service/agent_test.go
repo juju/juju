@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/shell"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/osenv"
@@ -38,7 +39,9 @@ func (*agentSuite) TestAgentConfMachineLocal(c *gc.C) {
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
 	info := service.NewMachineAgentInfo("0", dataDir, logDir)
-	conf := service.AgentConf(info, "")
+	renderer, err := shell.NewRenderer("")
+	c.Assert(err, jc.ErrorIsNil)
+	conf := service.AgentConf(info, renderer)
 
 	cmd := strings.Join([]string{
 		quote + filepath.Join(dataDir, "tools", "machine-0", "jujud"+cmdSuffix) + quote,
@@ -63,7 +66,9 @@ func (*agentSuite) TestAgentConfMachineUbuntu(c *gc.C) {
 	dataDir := "/var/lib/juju"
 	logDir := "/var/log/juju"
 	info := service.NewMachineAgentInfo("0", dataDir, logDir)
-	conf := service.AgentConf(info, "ubuntu")
+	renderer, err := shell.NewRenderer("ubuntu")
+	c.Assert(err, jc.ErrorIsNil)
+	conf := service.AgentConf(info, renderer)
 
 	cmd := strings.Join([]string{
 		"'" + dataDir + "/tools/machine-0/jujud'",
@@ -88,7 +93,9 @@ func (*agentSuite) TestAgentConfMachineWindows(c *gc.C) {
 	dataDir := `C:\Juju\lib\juju`
 	logDir := `C:\Juju\logs\juju`
 	info := service.NewMachineAgentInfo("0", dataDir, logDir)
-	conf := service.AgentConf(info, "windows")
+	renderer, err := shell.NewRenderer("windows")
+	c.Assert(err, jc.ErrorIsNil)
+	conf := service.AgentConf(info, renderer)
 
 	cmd := strings.Join([]string{
 		`'` + dataDir + `\tools\machine-0\jujud.exe'`,
@@ -113,7 +120,9 @@ func (*agentSuite) TestAgentConfUnit(c *gc.C) {
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
 	info := service.NewUnitAgentInfo("wordpress/0", dataDir, logDir)
-	conf := service.AgentConf(info, "")
+	renderer, err := shell.NewRenderer("")
+	c.Assert(err, jc.ErrorIsNil)
+	conf := service.AgentConf(info, renderer)
 
 	cmd := strings.Join([]string{
 		quote + filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud"+cmdSuffix) + quote,
@@ -135,7 +144,9 @@ func (*agentSuite) TestContainerAgentConf(c *gc.C) {
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
 	info := service.NewUnitAgentInfo("wordpress/0", dataDir, logDir)
-	conf := service.ContainerAgentConf(info, "", "cont")
+	renderer, err := shell.NewRenderer("")
+	c.Assert(err, jc.ErrorIsNil)
+	conf := service.ContainerAgentConf(info, renderer, "cont")
 
 	cmd := strings.Join([]string{
 		quote + filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud"+cmdSuffix) + quote,

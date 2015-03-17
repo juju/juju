@@ -84,7 +84,7 @@ func (c *baseConfigure) addAgentInfo() (agent.Config, error) {
 }
 
 func (c *baseConfigure) addMachineAgentToBoot() error {
-	svc, err := c.mcfg.initService()
+	svc, err := c.mcfg.initService(c.conf.ShellRenderer)
 	if err != nil {
 		return errors.Trace(err)
 	}
