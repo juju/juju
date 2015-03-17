@@ -22,6 +22,20 @@ type provisionerSuite struct {
 	coretesting.BaseSuite
 }
 
+func (s *provisionerSuite) TestNewState(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return nil
+	})
+
+	st := storageprovisioner.NewState(apiCaller, names.NewMachineTag("123"))
+	c.Assert(st, gc.NotNil)
+	st = storageprovisioner.NewState(apiCaller, names.NewEnvironTag("87927ace-9e41-4fd5-8103-1a6fb5ff7eb4"))
+	c.Assert(st, gc.NotNil)
+	c.Assert(func() {
+		storageprovisioner.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	}, gc.PanicMatches, "expected EnvironTag or MachineTag, got names.UnitTag")
+}
+
 func (s *provisionerSuite) TestWatchVolumes(c *gc.C) {
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -102,6 +116,43 @@ func (s *provisionerSuite) TestVolumes(c *gc.C) {
 	}})
 }
 
+func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
+	volumeAttachmentResults := []params.VolumeAttachmentResult{{
+		Result: params.VolumeAttachment{
+			MachineTag: "machine-100",
+			VolumeTag:  "volume-100",
+			DeviceName: "xvdf1",
+		},
+	}}
+
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "StorageProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "VolumeAttachments")
+		c.Check(arg, gc.DeepEquals, params.MachineStorageIds{
+			Ids: []params.MachineStorageId{{
+				MachineTag: "machine-100", AttachmentTag: "volume-100",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.VolumeAttachmentResults{})
+		*(result.(*params.VolumeAttachmentResults)) = params.VolumeAttachmentResults{
+			Results: volumeAttachmentResults,
+		}
+		callCount++
+		return nil
+	})
+
+	st := storageprovisioner.NewState(apiCaller, names.NewMachineTag("123"))
+	volumes, err := st.VolumeAttachments([]params.MachineStorageId{{
+		MachineTag: "machine-100", AttachmentTag: "volume-100",
+	}})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(callCount, gc.Equals, 1)
+	c.Assert(volumes, jc.DeepEquals, volumeAttachmentResults)
+}
+
 func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -114,10 +165,9 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 		*(result.(*params.VolumeParamsResults)) = params.VolumeParamsResults{
 			Results: []params.VolumeParamsResult{{
 				Result: params.VolumeParams{
-					VolumeTag:  "volume-100",
-					Size:       1024,
-					Provider:   "loop",
-					MachineTag: "machine-200",
+					VolumeTag: "volume-100",
+					Size:      1024,
+					Provider:  "loop",
 				},
 			}},
 		}
@@ -131,9 +181,48 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 	c.Check(callCount, gc.Equals, 1)
 	c.Assert(volumeParams, jc.DeepEquals, []params.VolumeParamsResult{{
 		Result: params.VolumeParams{
-			VolumeTag: "volume-100", Size: 1024, Provider: "loop", MachineTag: "machine-200",
+			VolumeTag: "volume-100", Size: 1024, Provider: "loop",
 		},
 	}})
+}
+
+func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
+	paramsResults := []params.VolumeAttachmentParamsResult{{
+		Result: params.VolumeAttachmentParams{
+			MachineTag: "machine-100",
+			VolumeTag:  "volume-100",
+			VolumeId:   "vol-ume",
+			InstanceId: "inst-ance",
+			Provider:   "loop",
+		},
+	}}
+
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "StorageProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "VolumeAttachmentParams")
+		c.Check(arg, gc.DeepEquals, params.MachineStorageIds{
+			Ids: []params.MachineStorageId{{
+				MachineTag: "machine-100", AttachmentTag: "volume-100",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.VolumeAttachmentParamsResults{})
+		*(result.(*params.VolumeAttachmentParamsResults)) = params.VolumeAttachmentParamsResults{
+			Results: paramsResults,
+		}
+		callCount++
+		return nil
+	})
+
+	st := storageprovisioner.NewState(apiCaller, names.NewMachineTag("123"))
+	volumeParams, err := st.VolumeAttachmentParams([]params.MachineStorageId{{
+		MachineTag: "machine-100", AttachmentTag: "volume-100",
+	}})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(callCount, gc.Equals, 1)
+	c.Assert(volumeParams, jc.DeepEquals, paramsResults)
 }
 
 func (s *provisionerSuite) TestSetVolumeInfo(c *gc.C) {
@@ -159,7 +248,36 @@ func (s *provisionerSuite) TestSetVolumeInfo(c *gc.C) {
 	errorResults, err := st.SetVolumeInfo(volumes)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
-	c.Assert(errorResults.OneError(), jc.ErrorIsNil)
+	c.Assert(errorResults, gc.HasLen, 1)
+	c.Assert(errorResults[0].Error, gc.IsNil)
+}
+
+func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
+	volumeAttachments := []params.VolumeAttachment{{
+		VolumeTag: "volume-100", MachineTag: "machine-200", DeviceName: "xvdf1",
+	}}
+
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "StorageProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "SetVolumeAttachmentInfo")
+		c.Check(arg, jc.DeepEquals, params.VolumeAttachments{volumeAttachments})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{Error: nil}},
+		}
+		callCount++
+		return nil
+	})
+
+	st := storageprovisioner.NewState(apiCaller, names.NewMachineTag("123"))
+	errorResults, err := st.SetVolumeAttachmentInfo(volumeAttachments)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(callCount, gc.Equals, 1)
+	c.Assert(errorResults, gc.HasLen, 1)
+	c.Assert(errorResults[0].Error, gc.IsNil)
 }
 
 func (s *provisionerSuite) testOpWithTags(
@@ -246,18 +364,28 @@ func (s *provisionerSuite) TestVolumesClientError(c *gc.C) {
 		return err
 	})
 }
+
 func (s *provisionerSuite) TestVolumeParamsClientError(c *gc.C) {
 	s.testClientError(c, func(st *storageprovisioner.State) error {
 		_, err := st.VolumeParams(nil)
 		return err
 	})
 }
+
 func (s *provisionerSuite) TestRemoveClientError(c *gc.C) {
 	s.testClientError(c, func(st *storageprovisioner.State) error {
 		_, err := st.Remove(nil)
 		return err
 	})
 }
+
+func (s *provisionerSuite) TestRemoveAttachmentsClientError(c *gc.C) {
+	s.testClientError(c, func(st *storageprovisioner.State) error {
+		_, err := st.RemoveAttachments(nil)
+		return err
+	})
+}
+
 func (s *provisionerSuite) TestSetVolumeInfoClientError(c *gc.C) {
 	s.testClientError(c, func(st *storageprovisioner.State) error {
 		_, err := st.SetVolumeInfo(nil)
@@ -275,6 +403,13 @@ func (s *provisionerSuite) TestEnsureDeadClientError(c *gc.C) {
 func (s *provisionerSuite) TestLifeClientError(c *gc.C) {
 	s.testClientError(c, func(st *storageprovisioner.State) error {
 		_, err := st.Life(nil)
+		return err
+	})
+}
+
+func (s *provisionerSuite) TestAttachmentLifeClientError(c *gc.C) {
+	s.testClientError(c, func(st *storageprovisioner.State) error {
+		_, err := st.AttachmentLife(nil)
 		return err
 	})
 }
@@ -308,6 +443,7 @@ func (s *provisionerSuite) TestVolumesServerError(c *gc.C) {
 	c.Assert(results, gc.HasLen, 1)
 	c.Check(results[0].Error, gc.ErrorMatches, "MSG")
 }
+
 func (s *provisionerSuite) TestVolumeParamsServerError(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.VolumeParamsResults)) = params.VolumeParamsResults{
@@ -338,8 +474,8 @@ func (s *provisionerSuite) TestSetVolumeInfoServerError(c *gc.C) {
 		VolumeTag: names.NewVolumeTag("100").String(),
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.OneError(), gc.ErrorMatches, "MSG")
+	c.Assert(results, gc.HasLen, 1)
+	c.Check(results[0].Error, gc.ErrorMatches, "MSG")
 }
 
 func (s *provisionerSuite) testServerError(c *gc.C, apiCall func(*storageprovisioner.State, []names.Tag) ([]params.ErrorResult, error)) {

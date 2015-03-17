@@ -84,7 +84,7 @@ type AddUserAPI interface {
 
 // ShareEnvironmentAPI defines the client API methods that the add command uses.
 type ShareEnvironmentAPI interface {
-	ShareEnvironment(users []names.UserTag) error
+	ShareEnvironment(users ...names.UserTag) error
 	Close() error
 }
 
@@ -132,7 +132,7 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 	// it makes no sense at all to create a user and not have that user
 	// able to log in and use the one and only environment.
 	// So we share the existing environment with the user here and now.
-	err = shareClient.ShareEnvironment([]names.UserTag{tag})
+	err = shareClient.ShareEnvironment(tag)
 	if err != nil {
 		return err
 	}

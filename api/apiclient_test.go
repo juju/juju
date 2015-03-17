@@ -9,6 +9,8 @@ import (
 	"net"
 	"strconv"
 
+	"code.google.com/p/go.net/websocket"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/parallel"
@@ -32,7 +34,7 @@ type websocketSuite struct {
 
 var _ = gc.Suite(&websocketSuite{})
 
-func (s *apiclientSuite) TestOpenPrefersLocalhostIfPresent(c *gc.C) {
+func (s *apiclientSuite) TestConnectPrefersLocalhostIfPresent(c *gc.C) {
 	// Create a socket that proxies to the API server though our localhost address.
 	info := s.APIInfo(c)
 	serverAddr := info.Addrs[0]
@@ -63,13 +65,13 @@ func (s *apiclientSuite) TestOpenPrefersLocalhostIfPresent(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	expectedHostPort := fmt.Sprintf("localhost:%d", portNum)
 	info.Addrs = []string{"fakeAddress:1", "fakeAddress:1", expectedHostPort}
-	st, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Connect(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-	c.Assert(st.Addr(), gc.Equals, expectedHostPort)
+	defer conn.Close()
+	assertConnAddr(c, conn, expectedHostPort)
 }
 
-func (s *apiclientSuite) TestOpenMultiple(c *gc.C) {
+func (s *apiclientSuite) TestConnectMultiple(c *gc.C) {
 	// Create a socket that proxies to the API server.
 	info := s.APIInfo(c)
 	serverAddr := info.Addrs[0]
@@ -93,22 +95,22 @@ func (s *apiclientSuite) TestOpenMultiple(c *gc.C) {
 	// Check that we can use the proxy to connect.
 	proxyAddr := listener.Addr().String()
 	info.Addrs = []string{proxyAddr}
-	st, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Connect(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-	c.Assert(st.Addr(), gc.Equals, proxyAddr)
+	conn.Close()
+	assertConnAddr(c, conn, proxyAddr)
 
 	// Now break Addrs[0], and ensure that Addrs[1]
 	// is successfully connected to.
 	info.Addrs = []string{proxyAddr, serverAddr}
 	listener.Close()
-	st, err = api.Open(info, api.DialOpts{})
+	conn, err = api.Connect(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-	c.Assert(st.Addr(), gc.Equals, serverAddr)
+	conn.Close()
+	assertConnAddr(c, conn, serverAddr)
 }
 
-func (s *apiclientSuite) TestOpenMultipleError(c *gc.C) {
+func (s *apiclientSuite) TestConnectMultipleError(c *gc.C) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, jc.ErrorIsNil)
 	defer listener.Close()
@@ -124,29 +126,45 @@ func (s *apiclientSuite) TestOpenMultipleError(c *gc.C) {
 	info := s.APIInfo(c)
 	addr := listener.Addr().String()
 	info.Addrs = []string{addr, addr, addr}
-	_, err = api.Open(info, api.DialOpts{})
+	_, err = api.Connect(info, api.DialOpts{})
 	c.Assert(err, gc.ErrorMatches, `unable to connect to "wss://.*/environment/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/api"`)
+}
+
+func (s *apiclientSuite) TestOpen(c *gc.C) {
+	info := s.APIInfo(c)
+	st, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	c.Assert(st.Addr(), gc.Equals, info.Addrs[0])
+	envTag, err := st.EnvironTag()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(envTag, gc.Equals, s.State.EnvironTag())
 }
 
 func (s *apiclientSuite) TestOpenPassesEnvironTag(c *gc.C) {
 	info := s.APIInfo(c)
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
+
 	// TODO(jam): 2014-06-05 http://pad.lv/1326802
 	// we want to test this eventually, but for now s.APIInfo uses
 	// conn.StateInfo() which doesn't know about EnvironTag.
 	// c.Check(info.EnvironTag, gc.Equals, env.Tag())
 	// c.Assert(info.EnvironTag, gc.Not(gc.Equals), "")
+
 	// We start by ensuring we have an invalid tag, and Open should fail.
 	info.EnvironTag = names.NewEnvironTag("bad-tag")
 	_, err = api.Open(info, api.DialOpts{})
 	c.Check(err, gc.ErrorMatches, `unknown environment: "bad-tag"`)
 	c.Check(params.ErrCode(err), gc.Equals, params.CodeNotFound)
+
 	// Now set it to the right tag, and we should succeed.
 	info.EnvironTag = env.EnvironTag()
 	st, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
+
 	// Backwards compatibility, we should succeed if we do not set an
 	// environ tag
 	info.EnvironTag = names.NewEnvironTag("")
@@ -176,4 +194,8 @@ func (*websocketSuite) TestSetUpWebsocketConfigHandlesEnvironUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(conf.Location.String(), gc.Equals, "wss://0.1.2.3:1234/environment/dead-beef-1234/api")
 	c.Check(conf.Origin.String(), gc.Equals, "http://localhost/")
+}
+
+func assertConnAddr(c *gc.C, conn *websocket.Conn, expectedAddr string) {
+	c.Assert(conn.RemoteAddr(), gc.Matches, "^wss://"+expectedAddr+"/.+")
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type EnvironSuite struct {
@@ -198,4 +199,65 @@ func (s *EnvironSuite) TestDestroyStateServerEnvironmentFails(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy environment: state server environment cannot be destroyed before all other environments are destroyed")
+}
+
+func (s *EnvironSuite) TestListEnvironmentUsers(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := addEnvUsers(c, s.State)
+	obtained, err := env.Users()
+	c.Assert(err, gc.IsNil)
+
+	assertObtainedUsersMatchExpectedUsers(c, obtained, expected)
+}
+
+func (s *EnvironSuite) TestListUsersTwoEnvironments(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	otherEnvState := s.Factory.MakeEnvironment(c, nil)
+	defer otherEnvState.Close()
+	otherEnv, err := otherEnvState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add users to both environments
+	expectedUsers := addEnvUsers(c, s.State)
+	expectedUsersOtherEnv := addEnvUsers(c, otherEnvState)
+
+	// test that only the expected users are listed for each environment
+	obtainedUsers, err := env.Users()
+	c.Assert(err, jc.ErrorIsNil)
+	assertObtainedUsersMatchExpectedUsers(c, obtainedUsers, expectedUsers)
+
+	obtainedUsersOtherEnv, err := otherEnv.Users()
+	c.Assert(err, jc.ErrorIsNil)
+	assertObtainedUsersMatchExpectedUsers(c, obtainedUsersOtherEnv, expectedUsersOtherEnv)
+}
+
+func addEnvUsers(c *gc.C, st *state.State) (expected []*state.EnvironmentUser) {
+	// get the environment owner
+	testAdmin := names.NewUserTag("test-admin")
+	owner, err := st.EnvironmentUser(testAdmin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	f := factory.NewFactory(st)
+	return []*state.EnvironmentUser{
+		// we expect the owner to be an existing environment user
+		owner,
+		// add new users to the environment
+		f.MakeEnvUser(c, nil),
+		f.MakeEnvUser(c, nil),
+		f.MakeEnvUser(c, nil),
+	}
+}
+
+func assertObtainedUsersMatchExpectedUsers(c *gc.C, obtainedUsers, expectedUsers []*state.EnvironmentUser) {
+	c.Assert(len(obtainedUsers), gc.Equals, len(expectedUsers))
+	for i, obtained := range obtainedUsers {
+		c.Assert(obtained.EnvironmentTag().Id(), gc.Equals, expectedUsers[i].EnvironmentTag().Id())
+		c.Assert(obtained.UserName(), gc.Equals, expectedUsers[i].UserName())
+		c.Assert(obtained.DisplayName(), gc.Equals, expectedUsers[i].DisplayName())
+		c.Assert(obtained.CreatedBy(), gc.Equals, expectedUsers[i].CreatedBy())
+	}
 }
