@@ -15,9 +15,12 @@ if [ "$1" = "upgrade" ]; then
 elif [ "$1" = "deploy" ]; then
   extra_args=""
 else
-  echo "Unknown action $2"
+  echo "Unknown action $1"
   exit 1
 fi
+series=$2
+timeout=$4
+shift 4
 $SCRIPTS/jujuci.py -v setup-workspace --clean-env $JOB_NAME $WORKSPACE
 JUJU_BIN=$(dirname $($SCRIPTS/jujuci.py get-juju-bin))
 $SCRIPTS/jujuci.py get build-revision buildvars.bash ./
@@ -27,5 +30,5 @@ source buildvars.bash
 rev=${REVNO-$(echo $REVISION_ID | head -c7)}
 echo "Testing $BRANCH $rev on $ENV"
 EOT
-timeout -s INT $4 $SCRIPTS/deploy_job.py --new-juju-bin $JUJU_BIN\
-  --series $2 $ENV $WORKSPACE/artifacts $JOB_NAME $extra_args
+timeout -s INT $timeout $SCRIPTS/deploy_job.py --new-juju-bin $JUJU_BIN\
+  --series $series $ENV $WORKSPACE/artifacts $JOB_NAME $extra_args "$@"
