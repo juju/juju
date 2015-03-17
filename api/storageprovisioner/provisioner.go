@@ -22,8 +22,12 @@ type State struct {
 
 // NewState creates a new client-side StorageProvisioner facade.
 func NewState(caller base.APICaller, scope names.Tag) *State {
-	// TODO(wallyworld) - validate that scope matches current environ
-	// if it is an environment tag.
+	switch scope.(type) {
+	case names.EnvironTag:
+	case names.MachineTag:
+	default:
+		panic(errors.Errorf("expected EnvironTag or MachineTag, got %T", scope))
+	}
 	return &State{
 		base.NewFacadeCaller(caller, storageProvisionerFacade),
 		scope,
@@ -93,6 +97,20 @@ func (st *State) Volumes(tags []names.VolumeTag) ([]params.VolumeResult, error) 
 	return results.Results, nil
 }
 
+// VolumeAttachments returns details of volume attachments with the specified IDs.
+func (st *State) VolumeAttachments(ids []params.MachineStorageId) ([]params.VolumeAttachmentResult, error) {
+	args := params.MachineStorageIds{ids}
+	var results params.VolumeAttachmentResults
+	err := st.facade.FacadeCall("VolumeAttachments", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != len(ids) {
+		panic(errors.Errorf("expected %d result(s), got %d", len(ids), len(results.Results)))
+	}
+	return results.Results, nil
+}
+
 // VolumeParams returns the parameters for creating the volumes
 // with the specified tags.
 func (st *State) VolumeParams(tags []names.VolumeTag) ([]params.VolumeParamsResult, error) {
@@ -113,18 +131,47 @@ func (st *State) VolumeParams(tags []names.VolumeTag) ([]params.VolumeParamsResu
 	return results.Results, nil
 }
 
+// VolumeAttachmentParams returns the parameters for creating the volume
+// attachments with the specified tags.
+func (st *State) VolumeAttachmentParams(ids []params.MachineStorageId) ([]params.VolumeAttachmentParamsResult, error) {
+	args := params.MachineStorageIds{ids}
+	var results params.VolumeAttachmentParamsResults
+	err := st.facade.FacadeCall("VolumeAttachmentParams", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != len(ids) {
+		panic(errors.Errorf("expected %d result(s), got %d", len(ids), len(results.Results)))
+	}
+	return results.Results, nil
+}
+
 // SetVolumeInfo records the details of newly provisioned volumes.
-func (st *State) SetVolumeInfo(volumes []params.Volume) (params.ErrorResults, error) {
+func (st *State) SetVolumeInfo(volumes []params.Volume) ([]params.ErrorResult, error) {
 	args := params.Volumes{Volumes: volumes}
 	var results params.ErrorResults
 	err := st.facade.FacadeCall("SetVolumeInfo", args, &results)
 	if err != nil {
-		return results, err
+		return nil, err
 	}
 	if len(results.Results) != len(volumes) {
 		panic(errors.Errorf("expected %d result(s), got %d", len(volumes), len(results.Results)))
 	}
-	return results, nil
+	return results.Results, nil
+}
+
+// SetVolumeAttachmentInfo records the details of newly provisioned volume attachments.
+func (st *State) SetVolumeAttachmentInfo(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {
+	args := params.VolumeAttachments{VolumeAttachments: volumeAttachments}
+	var results params.ErrorResults
+	err := st.facade.FacadeCall("SetVolumeAttachmentInfo", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != len(volumeAttachments) {
+		panic(errors.Errorf("expected %d result(s), got %d", len(volumeAttachments), len(results.Results)))
+	}
+	return results.Results, nil
 }
 
 // Life requests the life cycle of the entities with the specified tags.
@@ -141,6 +188,19 @@ func (st *State) Life(tags []names.Tag) ([]params.LifeResult, error) {
 	}
 	if len(results.Results) != len(tags) {
 		return nil, errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results))
+	}
+	return results.Results, nil
+}
+
+// AttachmentLife requests the life cycle of the attachments with the specified IDs.
+func (st *State) AttachmentLife(ids []params.MachineStorageId) ([]params.LifeResult, error) {
+	var results params.LifeResults
+	args := params.MachineStorageIds{ids}
+	if err := st.facade.FacadeCall("AttachmentLife", args, &results); err != nil {
+		return nil, err
+	}
+	if len(results.Results) != len(ids) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(ids), len(results.Results))
 	}
 	return results.Results, nil
 }
@@ -178,6 +238,19 @@ func (st *State) Remove(tags []names.Tag) ([]params.ErrorResult, error) {
 	}
 	if len(results.Results) != len(tags) {
 		return nil, errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results))
+	}
+	return results.Results, nil
+}
+
+// RemoveAttachments removes the attachments with the specified IDs from state.
+func (st *State) RemoveAttachments(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
+	var results params.ErrorResults
+	args := params.MachineStorageIds{ids}
+	if err := st.facade.FacadeCall("RemoveAttachment", args, &results); err != nil {
+		return nil, err
+	}
+	if len(results.Results) != len(ids) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(ids), len(results.Results))
 	}
 	return results.Results, nil
 }

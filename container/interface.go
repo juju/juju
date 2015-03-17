@@ -33,7 +33,8 @@ type Manager interface {
 	CreateContainer(
 		machineConfig *cloudinit.MachineConfig,
 		series string,
-		network *NetworkConfig) (instance.Instance, *instance.HardwareCharacteristics, error)
+		network *NetworkConfig,
+		storage *StorageConfig) (instance.Instance, *instance.HardwareCharacteristics, error)
 
 	// DestroyContainer stops and destroyes the container identified by
 	// instance id.

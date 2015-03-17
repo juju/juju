@@ -34,7 +34,7 @@ var CheckProvisioned = checkProvisioned
 func checkProvisioned(host string) (bool, error) {
 	logger.Infof("Checking if %s is already provisioned", host)
 
-	script := service.ListServicesCommand()
+	script := service.ListServicesScript()
 
 	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
 	var stdout, stderr bytes.Buffer

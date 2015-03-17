@@ -76,7 +76,7 @@ func (result ErrorResults) OneError() error {
 }
 
 // Combine returns one error from the result which is an accumulation of the
-// errors.  If there are no errors in the result, the return value is nil.
+// errors. If there are no errors in the result, the return value is nil.
 // Otherwise the error values are combined with new-line characters.
 func (result ErrorResults) Combine() error {
 	var errorStrings []string
@@ -481,6 +481,7 @@ type ContainerConfig struct {
 	AptProxy                proxy.Settings
 	AptMirror               string
 	PreferIPv6              bool
+	AllowLXCLoopMounts      bool
 	*UpdateBehavior
 }
 
@@ -504,50 +505,6 @@ type ProvisioningScriptParams struct {
 // ProvisioningScript client API call.
 type ProvisioningScriptResult struct {
 	Script string
-}
-
-// EnvironmentConfigResults contains the result of client API calls
-// to get environment config values.
-type EnvironmentConfigResults struct {
-	Config map[string]interface{}
-}
-
-// EnvironmentSet contains the arguments for EnvironmentSet client API
-// call.
-type EnvironmentSet struct {
-	Config map[string]interface{}
-}
-
-// EnvironmentUnset contains the arguments for EnvironmentUnset client API
-// call.
-type EnvironmentUnset struct {
-	Keys []string
-}
-
-// ModifyEnvironUsers holds the parameters for making Client ShareEnvironment calls.
-type ModifyEnvironUsers struct {
-	Changes []ModifyEnvironUser
-}
-
-// EnvironAction is an action that can be preformed on an environment.
-type EnvironAction string
-
-// Actions that can be preformed on an environment.
-const (
-	AddEnvUser    EnvironAction = "add"
-	RemoveEnvUser EnvironAction = "remove"
-)
-
-// ModifyEnvironUser stores the parameters used for a Client.ShareEnvironment call.
-type ModifyEnvironUser struct {
-	UserTag string        `json:"user-tag"`
-	Action  EnvironAction `json:"action"`
-}
-
-// SetEnvironAgentVersion contains the arguments for
-// SetEnvironAgentVersion client API call.
-type SetEnvironAgentVersion struct {
-	Version version.Number
 }
 
 // DeployerConnectionValues containers the result of deployer.ConnectionInfo

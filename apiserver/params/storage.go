@@ -60,6 +60,18 @@ const (
 	StorageKindFilesystem
 )
 
+// String returns representation of StorageKind for readability.
+func (k *StorageKind) String() string {
+	switch *k {
+	case StorageKindBlock:
+		return "block"
+	case StorageKindFilesystem:
+		return "filesystem"
+	default:
+		return "unknown"
+	}
+}
+
 // StorageInstanceResult holds the result of an API call to retrieve details
 // of a storage instance.
 type StorageInstanceResult struct {
@@ -166,14 +178,11 @@ type VolumeAttachments struct {
 
 // VolumeParams holds the parameters for creating a storage volume.
 type VolumeParams struct {
-	VolumeTag  string                 `json:"volumetag"`
-	Size       uint64                 `json:"size"`
-	Provider   string                 `json:"provider"`
-	Attributes map[string]interface{} `json:"attributes,omitempty"`
-
-	// Machine is the tag of the machine that the volume should
-	// be initially attached to, if any.
-	MachineTag string `json:"machinetag,omitempty"`
+	VolumeTag  string                  `json:"volumetag"`
+	Size       uint64                  `json:"size"`
+	Provider   string                  `json:"provider"`
+	Attributes map[string]interface{}  `json:"attributes,omitempty"`
+	Attachment *VolumeAttachmentParams `json:"attachment,omitempty"`
 }
 
 // VolumeAttachmentParams holds the parameters for creating a volume
@@ -265,14 +274,48 @@ type VolumeAttachmentParamsResults struct {
 	Results []VolumeAttachmentParamsResult `json:"results,omitempty"`
 }
 
-// StorageShowResult holds information about a storage instance
-// or error related to its retrieval.
-type StorageShowResult struct {
-	Result StorageInstance `json:"result"`
-	Error  *Error          `json:"error,omitempty"`
+// StorageDetails holds information about storage.
+type StorageDetails struct {
+
+	// StorageTag holds tag for this storage.
+	StorageTag string `json:"storagetag"`
+
+	// OwnerTag holds tag for the owner of this storage, unit or service.
+	OwnerTag string `json:"ownertag"`
+
+	// Kind holds what kind of storage this instance is.
+	Kind StorageKind `json:"kind"`
+
+	// Status indicates storage status, e.g. pending, provisioned, attached.
+	Status string `json:"status,omitempty"`
+
+	// UnitTag holds tag for unit for attached instances.
+	UnitTag string `json:"unittag,omitempty"`
+
+	// Location holds location for provisioned attached instances.
+	Location string `json:"location,omitempty"`
 }
 
-// StorageShowResults holds a collection of storage instances.
-type StorageShowResults struct {
-	Results []StorageShowResult `json:"results,omitempty"`
+// StorageDetailsResult holds information about a storage instance
+// or error related to its retrieval.
+type StorageDetailsResult struct {
+	Result StorageDetails `json:"result"`
+	Error  *Error         `json:"error,omitempty"`
+}
+
+// StorageDetailsResults holds results for storage details or related storage error.
+type StorageDetailsResults struct {
+	Results []StorageDetailsResult `json:"results,omitempty"`
+}
+
+// StorageInfo contains information about a storage as well as
+// potentially an error related to information retrieval.
+type StorageInfo struct {
+	StorageDetails `json:"result"`
+	Error          *Error `json:"error,omitempty"`
+}
+
+// StorageInfosResult holds storage details.
+type StorageInfosResult struct {
+	Results []StorageInfo `json:"results,omitempty"`
 }

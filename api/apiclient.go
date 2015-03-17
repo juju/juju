@@ -6,12 +6,12 @@ package api
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"io"
 	"strings"
 	"time"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
@@ -130,54 +130,16 @@ func DefaultDialOpts() DialOpts {
 	}
 }
 
+// Open establishes a connection to the API server using the Info
+// given, returning a State instance which can be used to make API
+// requests.
+//
+// See Connect for details of the connection mechanics.
 func Open(info *Info, opts DialOpts) (*State, error) {
-	if len(info.Addrs) == 0 {
-		return nil, fmt.Errorf("no API addresses to connect to")
-	}
-	pool := x509.NewCertPool()
-	xcert, err := cert.ParseCert(info.CACert)
+	conn, err := Connect(info, opts)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	pool.AddCert(xcert)
-
-	var environUUID string
-	if info.EnvironTag.Id() != "" {
-		environUUID = info.EnvironTag.Id()
-	}
-	// Dial all addresses at reasonable intervals.
-	try := parallel.NewTry(0, nil)
-	defer try.Kill()
-	var addrs []string
-	for _, addr := range info.Addrs {
-		if strings.HasPrefix(addr, "localhost:") {
-			addrs = append(addrs, addr)
-			break
-		}
-	}
-	if len(addrs) == 0 {
-		addrs = info.Addrs
-	}
-	for _, addr := range addrs {
-		err := dialWebsocket(addr, environUUID, opts, pool, try)
-		if err == parallel.ErrStopped {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-		select {
-		case <-time.After(opts.DialAddressInterval):
-		case <-try.Dead():
-		}
-	}
-	try.Close()
-	result, err := try.Result()
-	if err != nil {
-		return nil, err
-	}
-	conn := result.(*websocket.Conn)
-	logger.Infof("connection established to %q", conn.RemoteAddr())
 
 	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
 	client.Start()
@@ -190,7 +152,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		// state structure BEFORE login ?!?
 		tag:      toString(info.Tag),
 		password: info.Password,
-		certPool: pool,
+		certPool: conn.Config().TlsConfig.RootCAs,
 	}
 	if info.Tag != nil || info.Password != "" {
 		if err := st.Login(info.Tag.String(), info.Password, info.Nonce); err != nil {
@@ -202,6 +164,63 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	st.closed = make(chan struct{})
 	go st.heartbeatMonitor()
 	return st, nil
+}
+
+// Connect establishes a websocket connection to the API server using
+// the Info given. If multiple API addresses are provided they will be
+// tried concurrently - the first successful connection wins.
+func Connect(info *Info, opts DialOpts) (*websocket.Conn, error) {
+	if len(info.Addrs) == 0 {
+		return nil, errors.New("no API addresses to connect to")
+	}
+	pool := x509.NewCertPool()
+	xcert, err := cert.ParseCert(info.CACert)
+	if err != nil {
+		return nil, errors.Annotate(err, "cert pool creation failed")
+	}
+	pool.AddCert(xcert)
+
+	var environUUID string
+	if info.EnvironTag.Id() != "" {
+		environUUID = info.EnvironTag.Id()
+	}
+
+	// If they exist, only use localhost addresses.
+	var addrs []string
+	for _, addr := range info.Addrs {
+		if strings.HasPrefix(addr, "localhost:") {
+			addrs = append(addrs, addr)
+			break
+		}
+	}
+	if len(addrs) == 0 {
+		addrs = info.Addrs
+	}
+
+	// Dial all addresses at reasonable intervals.
+	try := parallel.NewTry(0, nil)
+	defer try.Kill()
+	for _, addr := range addrs {
+		err := dialWebsocket(addr, environUUID, opts, pool, try)
+		if err == parallel.ErrStopped {
+			break
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		select {
+		case <-time.After(opts.DialAddressInterval):
+		case <-try.Dead():
+		}
+	}
+	try.Close()
+	result, err := try.Result()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	conn := result.(*websocket.Conn)
+	logger.Infof("connection established to %q", conn.RemoteAddr())
+	return conn, nil
 }
 
 // toString returns the value of a tag's String method, or "" if the tag is nil.
@@ -231,7 +250,7 @@ func setUpWebsocket(addr, environUUID string, rootCAs *x509.CertPool) (*websocke
 	}
 	cfg, err := websocket.NewConfig("wss://"+addr+tail, origin)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	cfg.TlsConfig = &tls.Config{
 		RootCAs:    rootCAs,
@@ -263,7 +282,7 @@ func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct
 				logger.Debugf("error dialing %q, will retry: %v", cfg.Location, err)
 			} else {
 				logger.Infof("error dialing %q: %v", cfg.Location, err)
-				return nil, fmt.Errorf("unable to connect to %q", cfg.Location)
+				return nil, errors.Errorf("unable to connect to %q", cfg.Location)
 			}
 		}
 		panic("unreachable")
