@@ -185,9 +185,6 @@ func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
 			AttachmentTag: "volume-2", // volume attachment not provisioned
 		}, {
 			MachineTag:    "machine-0",
-			AttachmentTag: "volume-1", // volume not provisioned
-		}, {
-			MachineTag:    "machine-0",
 			AttachmentTag: "volume-42",
 		}},
 	})
@@ -200,10 +197,6 @@ func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
 			{Error: &params.Error{
 				Code:    params.CodeNotProvisioned,
 				Message: `volume attachment "2" on "0" not provisioned`,
-			}},
-			{Error: &params.Error{
-				Code:    params.CodeNotProvisioned,
-				Message: `volume attachment "1" on "0" not provisioned`,
 			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},

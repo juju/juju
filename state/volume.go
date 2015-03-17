@@ -58,6 +58,9 @@ type VolumeAttachment interface {
 
 	// Info returns the volume attachment's VolumeAttachmentInfo, or a
 	// NotProvisioned error if the attachment has not yet been made.
+	//
+	// TODO(axw) use a different error, rather than NotProvisioned
+	// (say, NotAttached or NotAssociated).
 	Info() (VolumeAttachmentInfo, error)
 
 	// Params returns the parameters for creating the volume attachment,
