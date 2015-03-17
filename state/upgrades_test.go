@@ -1296,7 +1296,7 @@ func (s *upgradesSuite) setUpPortsMigration(c *gc.C) ([]*Machine, map[int][]*Uni
 	stateOwner, err := s.state.AddUser("bob", "notused", "notused", "bob")
 	c.Assert(err, jc.ErrorIsNil)
 	ownerTag := stateOwner.UserTag()
-	_, err = s.state.AddEnvironmentUser(ownerTag, ownerTag)
+	_, err = s.state.AddEnvironmentUser(ownerTag, ownerTag, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i := range services {
@@ -1719,7 +1719,7 @@ func (s *upgradesSuite) setUpMeterStatusCreation(c *gc.C) []*Unit {
 	stateOwner, err := s.state.AddUser("bob", "notused", "notused", "bob")
 	c.Assert(err, jc.ErrorIsNil)
 	ownerTag := stateOwner.UserTag()
-	_, err = s.state.AddEnvironmentUser(ownerTag, ownerTag)
+	_, err = s.state.AddEnvironmentUser(ownerTag, ownerTag, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i := 0; i < 3; i++ {
