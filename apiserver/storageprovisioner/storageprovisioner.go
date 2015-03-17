@@ -26,12 +26,13 @@ type StorageProvisionerAPI struct {
 	*common.LifeGetter
 	*common.DeadEnsurer
 
-	st                provisionerState
-	settings          poolmanager.SettingsManager
-	resources         *common.Resources
-	authorizer        common.Authorizer
-	getScopeAuthFunc  common.GetAuthFunc
-	getVolumeAuthFunc common.GetAuthFunc
+	st                    provisionerState
+	settings              poolmanager.SettingsManager
+	resources             *common.Resources
+	authorizer            common.Authorizer
+	getScopeAuthFunc      common.GetAuthFunc
+	getVolumeAuthFunc     common.GetAuthFunc
+	getAttachmentAuthFunc func() (func(names.MachineTag, names.Tag) bool, error)
 }
 
 var getState = func(st *state.State) provisionerState {
@@ -47,7 +48,7 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
-	canAccessVolumeMachine := func(tag names.MachineTag) bool {
+	canAccessVolumeMachine := func(tag names.MachineTag, allowEnvironManager bool) bool {
 		authEntityTag := authorizer.GetAuthTag()
 		if tag == authEntityTag {
 			// Machine agents can access volumes
@@ -56,7 +57,7 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 		}
 		parentId := state.ParentId(tag.Id())
 		if parentId == "" {
-			return false
+			return allowEnvironManager && authorizer.AuthEnvironManager()
 		}
 		// All containers with the authenticated
 		// machine as a parent are accessible by it.
@@ -74,7 +75,7 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 				isEnvironManager := authorizer.AuthEnvironManager()
 				return isEnvironManager && tag == st.EnvironTag()
 			case names.MachineTag:
-				return canAccessVolumeMachine(tag)
+				return canAccessVolumeMachine(tag, false)
 			default:
 				return false
 			}
@@ -86,7 +87,7 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 			case names.VolumeTag:
 				machineTag, ok := names.VolumeMachine(tag)
 				if ok {
-					return canAccessVolumeMachine(machineTag)
+					return canAccessVolumeMachine(machineTag, false)
 				}
 				return authorizer.AuthEnvironManager()
 			default:
@@ -94,17 +95,46 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 			}
 		}, nil
 	}
+	getAttachmentAuthFunc := func() (func(names.MachineTag, names.Tag) bool, error) {
+		// getAttachmentAuthFunc returns a function that validates
+		// access by the authenticated user to an attachment.
+		return func(machineTag names.MachineTag, attachmentTag names.Tag) bool {
+			// Machine agents can access their own machine, and
+			// machines contained. Environment managers can access
+			// top-level machines.
+			if !canAccessVolumeMachine(machineTag, true) {
+				return false
+			}
+			// Environment managers can access environment-scoped
+			// volumes and volumes scoped to their own machines.
+			// Other machine agents can access volumes regardless
+			// of their scope.
+			if !authorizer.AuthEnvironManager() {
+				return true
+			}
+			var machineScope names.MachineTag
+			var hasMachineScope bool
+			switch attachmentTag := attachmentTag.(type) {
+			case names.VolumeTag:
+				machineScope, hasMachineScope = names.VolumeMachine(attachmentTag)
+			case names.FilesystemTag:
+				machineScope, hasMachineScope = names.FilesystemMachine(attachmentTag)
+			}
+			return !hasMachineScope || machineScope == authorizer.GetAuthTag()
+		}, nil
+	}
 	stateInterface := getState(st)
 	settings := getSettingsManager(st)
 	return &StorageProvisionerAPI{
-		LifeGetter:        common.NewLifeGetter(stateInterface, getVolumeAuthFunc),
-		DeadEnsurer:       common.NewDeadEnsurer(stateInterface, getVolumeAuthFunc),
-		st:                stateInterface,
-		settings:          settings,
-		resources:         resources,
-		authorizer:        authorizer,
-		getScopeAuthFunc:  getScopeAuthFunc,
-		getVolumeAuthFunc: getVolumeAuthFunc,
+		LifeGetter:            common.NewLifeGetter(stateInterface, getVolumeAuthFunc),
+		DeadEnsurer:           common.NewDeadEnsurer(stateInterface, getVolumeAuthFunc),
+		st:                    stateInterface,
+		settings:              settings,
+		resources:             resources,
+		authorizer:            authorizer,
+		getScopeAuthFunc:      getScopeAuthFunc,
+		getVolumeAuthFunc:     getVolumeAuthFunc,
+		getAttachmentAuthFunc: getAttachmentAuthFunc,
 	}, nil
 }
 
@@ -228,6 +258,35 @@ func (s *StorageProvisionerAPI) Volumes(args params.Entities) (params.VolumeResu
 	return results, nil
 }
 
+// VolumeAttachments returns details of volume attachments with the specified IDs.
+func (s *StorageProvisionerAPI) VolumeAttachments(args params.MachineStorageIds) (params.VolumeAttachmentResults, error) {
+	canAccess, err := s.getAttachmentAuthFunc()
+	if err != nil {
+		return params.VolumeAttachmentResults{}, common.ServerError(common.ErrPerm)
+	}
+	results := params.VolumeAttachmentResults{
+		Results: make([]params.VolumeAttachmentResult, len(args.Ids)),
+	}
+	one := func(arg params.MachineStorageId) (params.VolumeAttachment, error) {
+		volumeAttachment, err := s.oneVolumeAttachment(arg, canAccess)
+		if err != nil {
+			return params.VolumeAttachment{}, err
+		}
+		return common.VolumeAttachmentFromState(volumeAttachment)
+	}
+	for i, arg := range args.Ids {
+		var result params.VolumeAttachmentResult
+		volumeAttachment, err := one(arg)
+		if err != nil {
+			result.Error = common.ServerError(err)
+		} else {
+			result.Result = volumeAttachment
+		}
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
 // VolumeParams returns the parameters for creating the volumes
 // with the specified tags.
 func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.VolumeParamsResults, error) {
@@ -259,7 +318,9 @@ func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.Volum
 			return params.VolumeParams{}, err
 		}
 		if len(volumeAttachments) == 1 {
-			volumeParams.MachineTag = volumeAttachments[0].Machine().String()
+			volumeParams.Attachment = &params.VolumeAttachmentParams{
+				MachineTag: volumeAttachments[0].Machine().String(),
+			}
 		}
 		return volumeParams, nil
 	}
@@ -274,6 +335,89 @@ func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.Volum
 		results.Results[i] = result
 	}
 	return results, nil
+}
+
+// VolumeAttachmentParams returns the parameters for creating the volume
+// attachments with the specified IDs.
+func (s *StorageProvisionerAPI) VolumeAttachmentParams(
+	args params.MachineStorageIds,
+) (params.VolumeAttachmentParamsResults, error) {
+	canAccess, err := s.getAttachmentAuthFunc()
+	if err != nil {
+		return params.VolumeAttachmentParamsResults{}, common.ServerError(common.ErrPerm)
+	}
+	results := params.VolumeAttachmentParamsResults{
+		Results: make([]params.VolumeAttachmentParamsResult, len(args.Ids)),
+	}
+	poolManager := poolmanager.New(s.settings)
+	one := func(arg params.MachineStorageId) (params.VolumeAttachmentParams, error) {
+		volumeAttachment, err := s.oneVolumeAttachment(arg, canAccess)
+		if err != nil {
+			return params.VolumeAttachmentParams{}, err
+		}
+		instanceId, err := s.st.MachineInstanceId(volumeAttachment.Machine())
+		if err != nil {
+			// Can't attach a volume to a machine that
+			// hasn't been provisioned yet.
+			return params.VolumeAttachmentParams{}, err
+		}
+		volume, err := s.st.Volume(volumeAttachment.Volume())
+		if err != nil && !errors.IsNotProvisioned(err) {
+			return params.VolumeAttachmentParams{}, err
+		}
+		volumeInfo, err := volume.Info()
+		if err != nil {
+			// Can't attach a volume that hasn't been
+			// provisioned yet.
+			return params.VolumeAttachmentParams{}, err
+		}
+		providerType, _, err := common.StoragePoolConfig(volumeInfo.Pool, poolManager)
+		if err != nil {
+			return params.VolumeAttachmentParams{}, errors.Trace(err)
+		}
+		return params.VolumeAttachmentParams{
+			volumeAttachment.Volume().String(),
+			volumeAttachment.Machine().String(),
+			string(instanceId),
+			volumeInfo.VolumeId,
+			string(providerType),
+			// TODO(axw) other attachment params (e.g. ReadOnly)
+		}, nil
+	}
+	for i, arg := range args.Ids {
+		var result params.VolumeAttachmentParamsResult
+		volumeAttachment, err := one(arg)
+		if err != nil {
+			result.Error = common.ServerError(err)
+		} else {
+			result.Result = volumeAttachment
+		}
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
+func (s *StorageProvisionerAPI) oneVolumeAttachment(
+	id params.MachineStorageId, canAccessMachine func(names.MachineTag, names.Tag) bool,
+) (state.VolumeAttachment, error) {
+	machineTag, err := names.ParseMachineTag(id.MachineTag)
+	if err != nil {
+		return nil, err
+	}
+	volumeTag, err := names.ParseVolumeTag(id.AttachmentTag)
+	if err != nil {
+		return nil, err
+	}
+	if !canAccessMachine(machineTag, volumeTag) {
+		return nil, common.ErrPerm
+	}
+	volumeAttachment, err := s.st.VolumeAttachment(machineTag, volumeTag)
+	if errors.IsNotFound(err) {
+		return nil, common.ErrPerm
+	} else if err != nil {
+		return nil, err
+	}
+	return volumeAttachment, nil
 }
 
 // SetVolumeInfo records the details of newly provisioned volumes.
@@ -301,6 +445,86 @@ func (s *StorageProvisionerAPI) SetVolumeInfo(args params.Volumes) (params.Error
 	for i, arg := range args.Volumes {
 		err := one(arg)
 		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+// SetVolumeAttachmentInfo records the details of newly provisioned volume
+// attachments.
+func (s *StorageProvisionerAPI) SetVolumeAttachmentInfo(
+	args params.VolumeAttachments,
+) (params.ErrorResults, error) {
+	canAccess, err := s.getAttachmentAuthFunc()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.VolumeAttachments)),
+	}
+	one := func(arg params.VolumeAttachment) error {
+		machineTag, volumeTag, volumeAttachmentInfo, err := common.VolumeAttachmentToState(arg)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !canAccess(machineTag, volumeTag) {
+			return common.ErrPerm
+		}
+		err = s.st.SetVolumeAttachmentInfo(machineTag, volumeTag, volumeAttachmentInfo)
+		if errors.IsNotFound(err) {
+			return common.ErrPerm
+		}
+		return errors.Trace(err)
+	}
+	for i, arg := range args.VolumeAttachments {
+		err := one(arg)
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+// AttachmentLife returns the lifecycle state of each specified machine
+// storage attachment.
+func (s *StorageProvisionerAPI) AttachmentLife(args params.MachineStorageIds) (params.LifeResults, error) {
+	canAccess, err := s.getAttachmentAuthFunc()
+	if err != nil {
+		return params.LifeResults{}, err
+	}
+	results := params.LifeResults{
+		Results: make([]params.LifeResult, len(args.Ids)),
+	}
+	one := func(arg params.MachineStorageId) (params.Life, error) {
+		machineTag, err := names.ParseMachineTag(arg.MachineTag)
+		if err != nil {
+			return "", err
+		}
+		attachmentTag, err := names.ParseTag(arg.AttachmentTag)
+		if err != nil {
+			return "", err
+		}
+		if !canAccess(machineTag, attachmentTag) {
+			return "", common.ErrPerm
+		}
+		var lifer state.Lifer
+		switch attachmentTag := attachmentTag.(type) {
+		case names.VolumeTag:
+			lifer, err = s.st.VolumeAttachment(machineTag, attachmentTag)
+		case names.FilesystemTag:
+			lifer, err = s.st.FilesystemAttachment(machineTag, attachmentTag)
+		}
+		if errors.IsNotFound(err) {
+			return "", common.ErrPerm
+		} else if err != nil {
+			return "", errors.Trace(err)
+		}
+		return params.Life(lifer.Life().String()), nil
+	}
+	for i, arg := range args.Ids {
+		life, err := one(arg)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		} else {
+			results.Results[i].Life = life
+		}
 	}
 	return results, nil
 }

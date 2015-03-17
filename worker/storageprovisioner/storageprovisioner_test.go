@@ -89,24 +89,24 @@ func (v *mockVolumeAccessor) VolumeParams(volumes []names.VolumeTag) ([]params.V
 	return result, nil
 }
 
-func (v *mockVolumeAccessor) SetVolumeInfo(volumes []params.Volume) (params.ErrorResults, error) {
+func (v *mockVolumeAccessor) SetVolumeInfo(volumes []params.Volume) ([]params.ErrorResult, error) {
 	for _, vol := range volumes {
 		v.provisioned[vol.VolumeTag] = vol
 	}
 	// See if we have the expected volumes, using json serialisation to do the comparison.
 	jsonVolInfo, err := json.Marshal(volumes)
 	if err != nil {
-		return params.ErrorResults{Results: []params.ErrorResult{{Error: common.ServerError(err)}}}, nil
+		return []params.ErrorResult{{Error: common.ServerError(err)}}, nil
 	}
 	jsonExpectedInfo, err := json.Marshal(v.expectedVolumes)
 	if err != nil {
-		return params.ErrorResults{Results: []params.ErrorResult{{Error: common.ServerError(err)}}}, nil
+		return []params.ErrorResult{{Error: common.ServerError(err)}}, nil
 	}
 	// If we have what we expect, close the done channel.
 	if string(jsonVolInfo) == string(jsonExpectedInfo) {
 		close(v.done)
 	}
-	return params.ErrorResults{}, nil
+	return nil, nil
 }
 
 func newMockVolumeAccessor(changes <-chan []string, done chan struct{}, expectedVolumes []params.Volume) storageprovisioner.VolumeAccessor {

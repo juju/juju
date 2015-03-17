@@ -369,6 +369,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeInfo, gc.Equals, state.VolumeInfo{
 		VolumeId: "vol-123",
+		Pool:     "loop-pool",
 		Size:     124,
 	})
 	stateVolumeAttachments, err := s.State.MachineVolumeAttachments(names.NewMachineTag("1"))

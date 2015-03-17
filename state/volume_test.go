@@ -129,6 +129,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfo(c *gc.C) {
 	volumeInfoSet := state.VolumeInfo{Size: 123}
 	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
+	volumeInfoSet.Pool = "loop-pool" // taken from params
 	s.assertVolumeInfo(c, volumeTag, volumeInfoSet)
 }
 
@@ -172,6 +173,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfoNoStorageAssigned(c *gc.C) {
 	volumeInfoSet := state.VolumeInfo{Size: 123}
 	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
+	volumeInfoSet.Pool = "loop-pool" // taken from params
 	s.assertVolumeInfo(c, volumeTag, volumeInfoSet)
 }
 

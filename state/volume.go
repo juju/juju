@@ -23,13 +23,6 @@ type Volume interface {
 	// VolumeTag returns the tag for the volume.
 	VolumeTag() names.VolumeTag
 
-	// TODO(axw)
-	// Scope is the tag of the entity that the volume is scoped to.
-	// Volumes which are inherently bound to a machine (e.g. loop devices)
-	// are scoped to that machine; other volumes are scoped to the
-	// environment.
-	// Owner() names.Tag
-
 	// Life returns the life of the volume.
 	Life() Life
 
@@ -60,8 +53,14 @@ type VolumeAttachment interface {
 	// Machine returns the tag of the related Machine.
 	Machine() names.MachineTag
 
+	// Life returns the life of the volume attachment.
+	Life() Life
+
 	// Info returns the volume attachment's VolumeAttachmentInfo, or a
 	// NotProvisioned error if the attachment has not yet been made.
+	//
+	// TODO(axw) use a different error, rather than NotProvisioned
+	// (say, NotAttached or NotAssociated).
 	Info() (VolumeAttachmentInfo, error)
 
 	// Params returns the parameters for creating the volume attachment,
@@ -115,6 +114,7 @@ type VolumeParams struct {
 type VolumeInfo struct {
 	Serial   string `bson:"serial,omitempty"`
 	Size     uint64 `bson:"size"`
+	Pool     string `bson:"pool"`
 	VolumeId string `bson:"volumeid"`
 }
 
@@ -178,6 +178,11 @@ func (v *volumeAttachment) Volume() names.VolumeTag {
 // Machine is required to implement VolumeAttachment.
 func (v *volumeAttachment) Machine() names.MachineTag {
 	return names.NewMachineTag(v.doc.Machine)
+}
+
+// Life is required to implement VolumeAttachment.
+func (v *volumeAttachment) Life() Life {
+	return v.doc.Life
 }
 
 // Info is required to implement VolumeAttachment.
@@ -470,7 +475,11 @@ func (st *State) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (err error)
 		// If the volume has parameters, unset them when
 		// we set info for the first time, ensuring that
 		// params and info are mutually exclusive.
-		_, unsetParams := v.Params()
+		var unsetParams bool
+		if params, ok := v.Params(); ok {
+			info.Pool = params.Pool
+			unsetParams = true
+		}
 		ops := setVolumeInfoOps(tag, info, unsetParams)
 		return ops, nil
 	}

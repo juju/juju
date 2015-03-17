@@ -178,14 +178,11 @@ type VolumeAttachments struct {
 
 // VolumeParams holds the parameters for creating a storage volume.
 type VolumeParams struct {
-	VolumeTag  string                 `json:"volumetag"`
-	Size       uint64                 `json:"size"`
-	Provider   string                 `json:"provider"`
-	Attributes map[string]interface{} `json:"attributes,omitempty"`
-
-	// Machine is the tag of the machine that the volume should
-	// be initially attached to, if any.
-	MachineTag string `json:"machinetag,omitempty"`
+	VolumeTag  string                  `json:"volumetag"`
+	Size       uint64                  `json:"size"`
+	Provider   string                  `json:"provider"`
+	Attributes map[string]interface{}  `json:"attributes,omitempty"`
+	Attachment *VolumeAttachmentParams `json:"attachment,omitempty"`
 }
 
 // VolumeAttachmentParams holds the parameters for creating a volume

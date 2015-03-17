@@ -949,12 +949,11 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	interfaces := []state.NetworkInterfaceInfo{
 		{MACAddress: "aa:bb:cc:dd:ee:ff", NetworkName: "net1", InterfaceName: "eth0", IsVirtual: false},
 	}
-	volumes := map[names.VolumeTag]state.VolumeInfo{
-		volumeTag: state.VolumeInfo{
-			VolumeId: "storage-123",
-			Size:     1234,
-		},
+	volumeInfo := state.VolumeInfo{
+		VolumeId: "storage-123",
+		Size:     1234,
 	}
+	volumes := map[names.VolumeTag]state.VolumeInfo{volumeTag: volumeInfo}
 	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces, volumes, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsTrue)
@@ -977,7 +976,8 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.Equals, volumes[volumeTag])
+	volumeInfo.Pool = "loop-pool" // taken from params
+	c.Assert(info, gc.Equals, volumeInfo)
 }
 
 func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *gc.C) {
