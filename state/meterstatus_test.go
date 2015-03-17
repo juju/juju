@@ -133,23 +133,6 @@ func assertMeterStatusChanged(c *gc.C, w state.NotifyWatcher) {
 	}
 }
 
-func (s *MeterStateSuite) TestMeterStatusWithAmberMetricsManager(c *gc.C) {
-	for i := 0; i < 3; i++ {
-		err := s.metricsManager.IncrementConsecutiveErrors()
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	err := s.metricsManager.SetMetricsManagerSuccessfulSend(time.Now())
-	c.Assert(err, jc.ErrorIsNil)
-	code, _ := s.metricsManager.MeterStatus()
-	c.Assert(code, gc.Equals, "AMBER")
-	err = s.unit.SetMeterStatus("GREEN", "Information.")
-	c.Assert(err, jc.ErrorIsNil)
-	code, info, err := s.unit.GetMeterStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(code, gc.Equals, "AMBER")
-	c.Assert(info, gc.Equals, "failed to send metrics")
-}
-
 // TestMeterStatusMetricsManagerCombinations test every possible combination
 // of meter status from the unit and the metrics manager.
 func (s *MeterStateSuite) TestMeterStatusMetricsManagerCombinations(c *gc.C) {
@@ -259,7 +242,7 @@ func (s *MeterStateSuite) TestMeterStatusMetricsManagerCombinations(c *gc.C) {
 		c.Check(code, gc.Equals, test.expectedCode)
 		c.Check(info, gc.Equals, test.expectedInfo)
 	}
-	err := s.metricsManager.SetMetricsManagerSuccessfulSend(time.Now())
+	err := s.metricsManager.SetLastSuccessfulSend(time.Now())
 	c.Assert(err, jc.ErrorIsNil)
 	code, _ := s.metricsManager.MeterStatus()
 	c.Assert(code, gc.Equals, "AMBER")

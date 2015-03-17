@@ -13,37 +13,33 @@ import (
 
 var meterStatusLogger = loggo.GetLogger("juju.state.meterstatus")
 
-// MeterStatusCode represents the meter status code of a unit.
-type MeterStatusCode string
-
 const (
-	MeterNotSet       MeterStatusCode = "NOT SET"
-	MeterNotAvailable MeterStatusCode = "NOT AVAILABLE"
-	MeterGreen        MeterStatusCode = "GREEN"
-	MeterAmber        MeterStatusCode = "AMBER"
-	MeterRed          MeterStatusCode = "RED"
+	MeterNotSet       string = "NOT SET"
+	MeterNotAvailable string = "NOT AVAILABLE"
+	MeterGreen        string = "GREEN"
+	MeterAmber        string = "AMBER"
+	MeterRed          string = "RED"
 )
 
 var (
-	meterSeverity = map[MeterStatusCode]int{
-		MeterNotAvailable: 0,
-		MeterRed:          0,
+	meterSeverity = map[string]int{
+		MeterGreen:        0,
 		MeterNotSet:       1,
 		MeterAmber:        1,
-		MeterGreen:        2,
+		MeterNotAvailable: 2,
+		MeterRed:          2,
 	}
 )
 
 type meterStatusDoc struct {
-	DocID   string          `bson:"_id"`
-	EnvUUID string          `bson:"env-uuid"`
-	Code    MeterStatusCode `bson:"code"`
-	Info    string          `bson:"info"`
+	DocID   string `bson:"_id"`
+	EnvUUID string `bson:"env-uuid"`
+	Code    string `bson:"code"`
+	Info    string `bson:"info"`
 }
 
 // SetMeterStatus sets the meter status for the unit.
-func (u *Unit) SetMeterStatus(codeRaw, info string) error {
-	code := MeterStatusCode(codeRaw)
+func (u *Unit) SetMeterStatus(code, info string) error {
 	switch code {
 	case MeterGreen, MeterAmber, MeterRed:
 	default:
@@ -121,7 +117,7 @@ func (u *Unit) GetMeterStatus() (code, info string, err error) {
 
 	metricManagerCode, metricManagerInfo := mm.MeterStatus()
 
-	if metricManagerCode == MeterRed || meterSeverity[metricManagerCode] < meterSeverity[status.Code] {
+	if metricManagerCode == MeterRed || meterSeverity[metricManagerCode] > meterSeverity[status.Code] {
 		return string(metricManagerCode), metricManagerInfo, nil
 	}
 
