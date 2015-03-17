@@ -82,6 +82,7 @@ import (
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
+	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
 )
@@ -103,6 +104,7 @@ var (
 	newNetworker             = networker.NewNetworker
 	newFirewaller            = firewaller.NewFirewaller
 	newDiskManager           = diskmanager.NewWorker
+	newStorageWorker         = storageprovisioner.NewStorageProvisioner
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
 	reportOpenedState        = func(interface{}) {}
 	reportOpenedAPI          = func(interface{}) {}
@@ -598,13 +600,17 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	entity *apiagent.Entity,
 ) (worker.Worker, error) {
 
-	rsyslogMode := rsyslog.RsyslogModeForwarding
-	var err error
+	var isEnvironManager bool
 	for _, job := range entity.Jobs() {
 		if job == multiwatcher.JobManageEnviron {
-			rsyslogMode = rsyslog.RsyslogModeAccumulate
+			isEnvironManager = true
 			break
 		}
+	}
+
+	rsyslogMode := rsyslog.RsyslogModeForwarding
+	if isEnvironManager {
+		rsyslogMode = rsyslog.RsyslogModeAccumulate
 	}
 
 	runner := newConnRunner(st)
@@ -641,7 +647,9 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
-	// TODO(axw) stop checking feature flag once storage has graduated.
+	// TODO(wallyworld) - we don't want the storage workers running yet, even with feature flag.
+	// Will be enabled in a followup branch.
+	enableStorageWorkers := false
 	if featureflag.Enabled(feature.Storage) {
 		runner.StartWorker("diskmanager", func() (worker.Worker, error) {
 			api, err := st.DiskManager()
@@ -657,6 +665,19 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			}
 			return diskformatter.NewWorker(api), nil
 		})
+		if enableStorageWorkers {
+			runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
+				api := st.StorageProvisioner(agentConfig.Tag())
+				storageDir := filepath.Join(agentConfig.DataDir(), "storage")
+				return newStorageWorker(storageDir, api, api), nil
+			})
+			if isEnvironManager {
+				runner.StartWorker("storageprovisioner-environ", func() (worker.Worker, error) {
+					api := st.StorageProvisioner(agentConfig.Environment())
+					return newStorageWorker("", api, api), nil
+				})
+			}
+		}
 	}
 
 	// Check if the network management is disabled.

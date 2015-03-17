@@ -6,6 +6,7 @@ package provider
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -79,6 +80,11 @@ func (*loopProvider) Supports(k storage.StorageKind) bool {
 	return k == storage.StorageKindBlock
 }
 
+// Scope is defined on the Provider interface.
+func (*loopProvider) Scope() storage.Scope {
+	return storage.ScopeMachine
+}
+
 // loopVolumeSource provides common functionality to handle
 // loop devices for rootfs and host loop volume sources.
 type loopVolumeSource struct {
@@ -147,27 +153,35 @@ func (lvs *loopVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.Volu
 }
 
 // DestroyVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) DestroyVolumes(volumeIds []string) error {
-	for _, volumeId := range volumeIds {
-		if _, err := names.ParseVolumeTag(volumeId); err != nil {
-			return errors.Errorf("invalid loop volume ID %q", volumeId)
+func (lvs *loopVolumeSource) DestroyVolumes(volumeIds []string) []error {
+	results := make([]error, len(volumeIds))
+	for i, volumeId := range volumeIds {
+		if err := lvs.destroyVolume(volumeId); err != nil {
+			results[i] = errors.Annotatef(err, "destroying %q", volumeId)
 		}
-		loopFilePath := lvs.volumeFilePath(volumeId)
-		deviceNames, err := associatedLoopDevices(lvs.run, loopFilePath)
-		if err != nil {
-			return errors.Annotate(err, "locating loop device")
+	}
+	return results
+}
+
+func (lvs *loopVolumeSource) destroyVolume(volumeId string) error {
+	if _, err := names.ParseVolumeTag(volumeId); err != nil {
+		return errors.Errorf("invalid loop volume ID %q", volumeId)
+	}
+	loopFilePath := lvs.volumeFilePath(volumeId)
+	deviceNames, err := associatedLoopDevices(lvs.run, loopFilePath)
+	if err != nil {
+		return errors.Annotate(err, "locating loop device")
+	}
+	if len(deviceNames) > 1 {
+		logger.Warningf("expected 1 loop device, got %d", len(deviceNames))
+	}
+	for _, deviceName := range deviceNames {
+		if err := detachLoopDevice(lvs.run, deviceName); err != nil {
+			return errors.Trace(err)
 		}
-		if len(deviceNames) > 1 {
-			logger.Warningf("expected 1 loop device, got %d", len(deviceNames))
-		}
-		for _, deviceName := range deviceNames {
-			if err := detachLoopDevice(lvs.run, deviceName); err != nil {
-				return errors.Trace(err)
-			}
-		}
-		if err := os.Remove(loopFilePath); err != nil {
-			return errors.Annotate(err, "removing loop backing file")
-		}
+	}
+	if err := os.Remove(loopFilePath); err != nil {
+		return errors.Annotate(err, "removing loop backing file")
 	}
 	return nil
 }
@@ -223,7 +237,7 @@ func attachLoopDevice(run runCommandFunc, filePath string) (loopDeviceName strin
 
 // detachLoopDevice detaches the loop device with the specified name.
 func detachLoopDevice(run runCommandFunc, deviceName string) error {
-	_, err := run("losetup", "-d", filepath.Join("/dev", deviceName))
+	_, err := run("losetup", "-d", path.Join("/dev", deviceName))
 	if err != nil {
 		return errors.Annotatef(err, "detaching loop device %q", deviceName)
 	}

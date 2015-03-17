@@ -31,8 +31,9 @@ func NewEnvWorkerManager(
 	}
 	m.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant)
 	go func() {
+		defer m.tomb.Done()
+		defer m.runner.Kill()
 		m.tomb.Kill(m.loop())
-		m.tomb.Done()
 	}()
 	return m
 }
@@ -67,6 +68,10 @@ func (m *envWorkerManager) Wait() error {
 }
 
 func (m *envWorkerManager) loop() error {
+	go func() {
+		// When the runner stops, make sure we stop the envWorker as well
+		m.tomb.Kill(m.runner.Wait())
+	}()
 	w := m.st.WatchEnvironments()
 	defer w.Stop()
 	for {
@@ -78,10 +83,6 @@ func (m *envWorkerManager) loop() error {
 					return errors.Trace(err)
 				}
 			}
-		case <-m.runner.Dying():
-			// The master runner is dying: wait for it to finish dying
-			// and report its error (if any).
-			return m.runner.Wait()
 		case <-m.tomb.Dying():
 			// The envWorkerManager has been asked to die: kill the
 			// master runner and stop.

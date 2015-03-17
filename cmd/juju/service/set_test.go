@@ -1,7 +1,7 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package service_test
 
 import (
 	"bytes"
@@ -14,19 +14,17 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/cmd/juju/service"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type SetSuite struct {
-	testing.JujuConnSuite
-	svc *state.Service
-	dir string
-	CmdBlockHelper
+	coretesting.FakeJujuHomeSuite
+	dir  string
+	fake *fakeServiceAPI
 }
 
 var _ = gc.Suite(&SetSuite{})
@@ -34,13 +32,13 @@ var _ = gc.Suite(&SetSuite{})
 var (
 	validSetTestValue   = "a value with spaces\nand newline\nand UTF-8 characters: \U0001F604 / \U0001F44D"
 	invalidSetTestValue = "a value with an invalid UTF-8 sequence: " + string([]byte{0xFF, 0xFF})
+	yamlConfigValue     = "dummy-service:\n  skill-level: 9000\n  username: admin001\n\n"
 )
 
 func (s *SetSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	ch := s.AddTestingCharm(c, "dummy")
-	svc := s.AddTestingService(c, "dummy-service", ch)
-	s.svc = svc
+	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.fake = &fakeServiceAPI{servName: "dummy-service", values: make(map[string]interface{})}
+
 	s.dir = c.MkDir()
 	c.Assert(utf8.ValidString(validSetTestValue), jc.IsTrue)
 	c.Assert(utf8.ValidString(invalidSetTestValue), jc.IsFalse)
@@ -48,94 +46,109 @@ func (s *SetSuite) SetUpTest(c *gc.C) {
 	setupValueFile(c, s.dir, "invalid.txt", invalidSetTestValue)
 	setupBigFile(c, s.dir)
 	setupConfigFile(c, s.dir)
+}
 
-	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
-	c.Assert(s.CmdBlockHelper, gc.NotNil)
-	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
+func (*SetSuite) TestSetCommandInit(c *gc.C) {
+	// missing args
+	err := coretesting.InitCommand(&service.SetCommand{}, []string{})
+	c.Assert(err, gc.ErrorMatches, "no service name specified")
+
+	// missing service name
+	err = coretesting.InitCommand(&service.SetCommand{}, []string{"name=foo"})
+	c.Assert(err, gc.ErrorMatches, "no service name specified")
+
+	// --config path, but no service
+	err = coretesting.InitCommand(&service.SetCommand{}, []string{"--config", "testconfig.yaml"})
+	c.Assert(err, gc.ErrorMatches, "no service name specified")
+
+	// --config and options specified
+	err = coretesting.InitCommand(&service.SetCommand{}, []string{"service", "--config", "testconfig.yaml", "bees="})
+	c.Assert(err, gc.ErrorMatches, "cannot specify --config when using key=value arguments")
 }
 
 func (s *SetSuite) TestSetOptionSuccess(c *gc.C) {
-	assertSetSuccess(c, s.dir, s.svc, []string{
+	s.assertSetSuccess(c, s.dir, []string{
 		"username=hello",
 		"outlook=hello@world.tld",
-	}, charm.Settings{
+	}, map[string]interface{}{
 		"username": "hello",
 		"outlook":  "hello@world.tld",
 	})
-	assertSetSuccess(c, s.dir, s.svc, []string{
+	s.assertSetSuccess(c, s.dir, []string{
 		"username=hello=foo",
-	}, charm.Settings{
+	}, map[string]interface{}{
 		"username": "hello=foo",
 		"outlook":  "hello@world.tld",
 	})
-	assertSetSuccess(c, s.dir, s.svc, []string{
+	s.assertSetSuccess(c, s.dir, []string{
 		"username=@valid.txt",
-	}, charm.Settings{
+	}, map[string]interface{}{
 		"username": validSetTestValue,
 		"outlook":  "hello@world.tld",
 	})
-	assertSetSuccess(c, s.dir, s.svc, []string{
+	s.assertSetSuccess(c, s.dir, []string{
 		"username=",
-	}, charm.Settings{
+	}, map[string]interface{}{
 		"username": "",
 		"outlook":  "hello@world.tld",
 	})
 }
 
 func (s *SetSuite) TestSetSameValue(c *gc.C) {
-	assertSetSuccess(c, s.dir, s.svc, []string{
+	s.assertSetSuccess(c, s.dir, []string{
 		"username=hello",
 		"outlook=hello@world.tld",
-	}, charm.Settings{
+	}, map[string]interface{}{
 		"username": "hello",
 		"outlook":  "hello@world.tld",
 	})
-	assertSetWarning(c, s.dir, []string{
+	s.assertSetWarning(c, s.dir, []string{
 		"username=hello",
 	}, "the configuration setting \"username\" already has the value \"hello\"")
-	assertSetWarning(c, s.dir, []string{
+	s.assertSetWarning(c, s.dir, []string{
 		"outlook=hello@world.tld",
 	}, "the configuration setting \"outlook\" already has the value \"hello@world.tld\"")
 
 }
 
 func (s *SetSuite) TestSetOptionFail(c *gc.C) {
-	assertSetFail(c, s.dir, []string{"foo", "bar"}, "error: expected \"key=value\", got \"foo\"\n")
-	assertSetFail(c, s.dir, []string{"=bar"}, "error: expected \"key=value\", got \"=bar\"\n")
-	assertSetFail(c, s.dir, []string{
+	s.assertSetFail(c, s.dir, []string{"foo", "bar"}, "error: expected \"key=value\", got \"foo\"\n")
+	s.assertSetFail(c, s.dir, []string{"=bar"}, "error: expected \"key=value\", got \"=bar\"\n")
+	s.assertSetFail(c, s.dir, []string{
 		"username=@missing.txt",
 	}, "error: cannot read option from file \"missing.txt\": .* "+utils.NoSuchFileErrRegexp+"\n")
-	assertSetFail(c, s.dir, []string{
+	s.assertSetFail(c, s.dir, []string{
 		"username=@big.txt",
 	}, "error: size of option file is larger than 5M\n")
-	assertSetFail(c, s.dir, []string{
+	s.assertSetFail(c, s.dir, []string{
 		"username=@invalid.txt",
 	}, "error: value for option \"username\" contains non-UTF-8 sequences\n")
 }
 
 func (s *SetSuite) TestSetConfig(c *gc.C) {
-	assertSetFail(c, s.dir, []string{
+	s.assertSetFail(c, s.dir, []string{
 		"--config",
 		"missing.yaml",
 	}, "error.* "+utils.NoSuchFileErrRegexp+"\n")
 
-	assertSetSuccess(c, s.dir, s.svc, []string{
+	ctx := coretesting.ContextForDir(c, s.dir)
+	code := cmd.Main(envcmd.Wrap(service.NewSetCommand(s.fake)), ctx, []string{
+		"dummy-service",
 		"--config",
-		"testconfig.yaml",
-	}, charm.Settings{
-		"username":    "admin001",
-		"skill-level": int64(9000),
-	})
+		"testconfig.yaml"})
+
+	c.Check(code, gc.Equals, 0)
+	c.Check(s.fake.config, gc.Equals, yamlConfigValue)
 }
 
 func (s *SetSuite) TestBlockSetConfig(c *gc.C) {
 	// Block operation
-	s.BlockAllChanges(c, "TestBlockSetConfig")
+	s.fake.err = common.ErrOperationBlocked("TestBlockSetConfig")
 	ctx := coretesting.ContextForDir(c, s.dir)
-	code := cmd.Main(envcmd.Wrap(&SetCommand{}), ctx, append([]string{"dummy-service"}, []string{
+	code := cmd.Main(envcmd.Wrap(service.NewSetCommand(s.fake)), ctx, []string{
+		"dummy-service",
 		"--config",
-		"testconfig.yaml",
-	}...))
+		"testconfig.yaml"})
 	c.Check(code, gc.Equals, 1)
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
@@ -143,26 +156,24 @@ func (s *SetSuite) TestBlockSetConfig(c *gc.C) {
 }
 
 // assertSetSuccess sets configuration options and checks the expected settings.
-func assertSetSuccess(c *gc.C, dir string, svc *state.Service, args []string, expect charm.Settings) {
+func (s *SetSuite) assertSetSuccess(c *gc.C, dir string, args []string, expect map[string]interface{}) {
 	ctx := coretesting.ContextForDir(c, dir)
-	code := cmd.Main(envcmd.Wrap(&SetCommand{}), ctx, append([]string{"dummy-service"}, args...))
+	code := cmd.Main(envcmd.Wrap(service.NewSetCommand(s.fake)), ctx, append([]string{"dummy-service"}, args...))
 	c.Check(code, gc.Equals, 0)
-	settings, err := svc.ConfigSettings()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, expect)
+	c.Assert(s.fake.values, gc.DeepEquals, expect)
 }
 
 // assertSetFail sets configuration options and checks the expected error.
-func assertSetFail(c *gc.C, dir string, args []string, err string) {
+func (s *SetSuite) assertSetFail(c *gc.C, dir string, args []string, err string) {
 	ctx := coretesting.ContextForDir(c, dir)
-	code := cmd.Main(envcmd.Wrap(&SetCommand{}), ctx, append([]string{"dummy-service"}, args...))
+	code := cmd.Main(envcmd.Wrap(service.NewSetCommand(s.fake)), ctx, append([]string{"dummy-service"}, args...))
 	c.Check(code, gc.Not(gc.Equals), 0)
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, err)
 }
 
-func assertSetWarning(c *gc.C, dir string, args []string, w string) {
+func (s *SetSuite) assertSetWarning(c *gc.C, dir string, args []string, w string) {
 	ctx := coretesting.ContextForDir(c, dir)
-	code := cmd.Main(envcmd.Wrap(&SetCommand{}), ctx, append([]string{"dummy-service"}, args...))
+	code := cmd.Main(envcmd.Wrap(service.NewSetCommand(s.fake)), ctx, append([]string{"dummy-service"}, args...))
 	c.Check(code, gc.Equals, 0)
 
 	c.Assert(strings.Replace(c.GetTestLog(), "\n", " ", -1), gc.Matches, ".*WARNING.*"+w+".*")
@@ -203,7 +214,7 @@ func setupBigFile(c *gc.C, dir string) string {
 func setupConfigFile(c *gc.C, dir string) string {
 	ctx := coretesting.ContextForDir(c, dir)
 	path := ctx.AbsPath("testconfig.yaml")
-	content := []byte("dummy-service:\n  skill-level: 9000\n  username: admin001\n\n")
+	content := []byte(yamlConfigValue)
 	err := ioutil.WriteFile(path, content, 0666)
 	c.Assert(err, jc.ErrorIsNil)
 	return path

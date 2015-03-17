@@ -41,6 +41,7 @@ type ContainerSetupSuite struct {
 	aptCmdChan  <-chan *exec.Cmd
 	initLockDir string
 	initLock    *fslock.Lock
+	fakeLXCNet  string
 }
 
 var _ = gc.Suite(&ContainerSetupSuite{})
@@ -79,6 +80,10 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	initLock, err := fslock.NewLock(s.initLockDir, "container-init")
 	c.Assert(err, jc.ErrorIsNil)
 	s.initLock = initLock
+
+	// Patch to isolate the test from the host machine.
+	s.fakeLXCNet = filepath.Join(c.MkDir(), "lxc-net")
+	s.PatchValue(provisioner.EtcDefaultLXCNetPath, s.fakeLXCNet)
 }
 
 func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
@@ -292,7 +297,21 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetAgentVersion(version.Current)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Before starting /etc/default/lxc-net should be missing.
+	c.Assert(s.fakeLXCNet, jc.DoesNotExist)
+
 	s.createContainer(c, m, ctype)
+
+	// After initialisation starts, but before running the
+	// initializer, lxc-net should be created if ctype is LXC, as the
+	// dummy provider supports static address allocation by default.
+	if ctype == instance.LXC {
+		AssertFileContains(c, s.fakeLXCNet, provisioner.EtcDefaultLXCNet)
+		defer os.Remove(s.fakeLXCNet)
+	} else {
+		c.Assert(s.fakeLXCNet, jc.DoesNotExist)
+	}
 
 	cmd := <-s.aptCmdChan
 	c.Assert(cmd.Env[len(cmd.Env)-1], gc.Equals, "DEBIAN_FRONTEND=noninteractive")
@@ -340,6 +359,33 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 
 }
 
+func (s *ContainerSetupSuite) TestMaybeOverrideDefaultLXCNet(c *gc.C) {
+	for i, test := range []struct {
+		ctype          instance.ContainerType
+		addressable    bool
+		expectOverride bool
+	}{
+		{instance.KVM, false, false},
+		{instance.KVM, true, false},
+		{instance.LXC, false, false},
+		{instance.LXC, true, true}, // the only case when we override; also last
+	} {
+		c.Logf(
+			"test %d: ctype: %q, addressable: %v -> expectOverride: %v",
+			i, test.ctype, test.addressable, test.expectOverride,
+		)
+		err := provisioner.MaybeOverrideDefaultLXCNet(test.ctype, test.addressable)
+		if !c.Check(err, jc.ErrorIsNil) {
+			continue
+		}
+		if !test.expectOverride {
+			c.Check(s.fakeLXCNet, jc.DoesNotExist)
+		} else {
+			AssertFileContains(c, s.fakeLXCNet, provisioner.EtcDefaultLXCNet)
+		}
+	}
+}
+
 func AssertFileContains(c *gc.C, filename, expectedContent string) {
 	// TODO(dimitern): We should put this in juju/testing repo and
 	// replace all similar checks with it.
@@ -362,7 +408,6 @@ func (s *SetIPAndARPForwardingSuite) TestSuccess(c *gc.C) {
 	// contains both though.
 	fakeConfig := filepath.Join(c.MkDir(), "sysctl.conf")
 	testing.PatchExecutableAsEchoArgs(c, s, "sysctl")
-	expectKeyVal := fmt.Sprintf("%s=1", provisioner.ARPProxySysctlKey)
 	s.PatchValue(provisioner.SysctlConfig, fakeConfig)
 
 	err := provisioner.SetIPAndARPForwarding(true)
@@ -373,9 +418,11 @@ func (s *SetIPAndARPForwardingSuite) TestSuccess(c *gc.C) {
 		provisioner.ARPProxySysctlKey,
 	)
 	AssertFileContains(c, fakeConfig, expectConf)
+	expectKeyVal := fmt.Sprintf("%s=1", provisioner.IPForwardSysctlKey)
+	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
+	expectKeyVal = fmt.Sprintf("%s=1", provisioner.ARPProxySysctlKey)
 	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
 
-	expectKeyVal = fmt.Sprintf("%s=0", provisioner.ARPProxySysctlKey)
 	err = provisioner.SetIPAndARPForwarding(false)
 	c.Assert(err, jc.ErrorIsNil)
 	expectConf = fmt.Sprintf(
@@ -384,6 +431,9 @@ func (s *SetIPAndARPForwardingSuite) TestSuccess(c *gc.C) {
 		provisioner.ARPProxySysctlKey,
 	)
 	AssertFileContains(c, fakeConfig, expectConf)
+	expectKeyVal = fmt.Sprintf("%s=0", provisioner.IPForwardSysctlKey)
+	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
+	expectKeyVal = fmt.Sprintf("%s=0", provisioner.ARPProxySysctlKey)
 	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
 }
 

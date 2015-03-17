@@ -58,3 +58,15 @@ func (hi Info) Validate() error {
 	}
 	return fmt.Errorf("unknown hook kind %q", hi.Kind)
 }
+
+// Committer is an interface that may be used to convey the fact that the
+// specified hook has been successfully executed, and committed.
+type Committer interface {
+	CommitHook(Info) error
+}
+
+// Validator is an interface that may be used to validate a hook execution
+// request prior to executing it.
+type Validator interface {
+	ValidateHook(Info) error
+}

@@ -200,9 +200,9 @@ func (st *State) MetricsToSend(batchSize int) ([]*MetricBatch, error) {
 	return batch, nil
 }
 
-// CountofUnsentMetrics returns the number of metrics that
+// CountOfUnsentMetrics returns the number of metrics that
 // haven't been sent to the collection service.
-func (st *State) CountofUnsentMetrics() (int, error) {
+func (st *State) CountOfUnsentMetrics() (int, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	return c.Find(bson.M{
@@ -210,10 +210,10 @@ func (st *State) CountofUnsentMetrics() (int, error) {
 	}).Count()
 }
 
-// CountofSentMetrics returns the number of metrics that
+// CountOfSentMetrics returns the number of metrics that
 // have been sent to the collection service and have not
 // been removed by the cleanup worker.
-func (st *State) CountofSentMetrics() (int, error) {
+func (st *State) CountOfSentMetrics() (int, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	return c.Find(bson.M{

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"strconv"
 	"strings"
 
 	"github.com/coreos/go-systemd/unit"
@@ -32,11 +33,26 @@ var limitMap = map[string]string{
 	"stack":      "LimitSTACK",
 }
 
+// TODO(ericsnow) We should drop the assumption that the logfile is syslog.
+
+const logAll = `
+touch %[1]s
+chown syslog:syslog %[1]s
+chmod 0600 %[1]s
+exec > %[1]s
+exec 2>&1
+%[2]s`
+
 // normalize adjusts the conf to more standardized content and
 // returns a new Conf with that updated content. It also returns the
 // content of any script file that should accompany the conf.
 func normalize(name string, conf common.Conf, scriptPath string) (common.Conf, []byte) {
 	var data []byte
+
+	if conf.Logfile != "" {
+		conf.ExecStart = fmt.Sprintf(logAll[1:], conf.Logfile, conf.ExecStart)
+		conf.Logfile = ""
+	}
 
 	if conf.ExtraScript != "" {
 		conf.ExecStart = conf.ExtraScript + "\n" + conf.ExecStart
@@ -53,13 +69,6 @@ func normalize(name string, conf common.Conf, scriptPath string) (common.Conf, [
 
 	if len(conf.Limit) == 0 {
 		conf.Limit = nil
-	}
-
-	output := common.Unquote(conf.Output)
-	if strings.HasPrefix(output, "/") {
-		// Due to isSimpleCommand we can always do this safely.
-		conf.ExecStart += " &> " + conf.Output
-		conf.Output = ""
 	}
 
 	if conf.Transient {
@@ -91,10 +100,10 @@ func validate(name string, conf common.Conf) error {
 		return errors.NotValidf("unexpected ExtraScript")
 	}
 
-	if conf.Output != "" && conf.Output != "syslog" {
-		return errors.NotValidf("conf.Output value %q (Options are syslog)", conf.Output)
+	if conf.Logfile != "" {
+		return errors.NotValidf("conf.Logfile value %q", conf.Logfile)
 	}
-	// We ignore Desc and InitDir.
+	// We ignore Desc.
 
 	for k := range conf.Limit {
 		if _, ok := limitMap[k]; !ok {
@@ -164,27 +173,7 @@ func serializeUnit(conf common.Conf) []*unit.UnitOption {
 func serializeService(conf common.Conf) []*unit.UnitOption {
 	var unitOptions []*unit.UnitOption
 
-	// TODO(ericsnow) This should key off Conf.Forking, once added.
-	if !conf.Transient {
-		unitOptions = append(unitOptions, &unit.UnitOption{
-			Section: "Service",
-			Name:    "Type",
-			Value:   "forking",
-		})
-	}
-
-	if conf.Output != "" {
-		unitOptions = append(unitOptions, &unit.UnitOption{
-			Section: "Service",
-			Name:    "StandardOutput",
-			Value:   conf.Output,
-		})
-		unitOptions = append(unitOptions, &unit.UnitOption{
-			Section: "Service",
-			Name:    "StandardError",
-			Value:   conf.Output,
-		})
-	}
+	// TODO(ericsnow) Support "Type" (e.g. "forking")?
 
 	for k, v := range conf.Env {
 		unitOptions = append(unitOptions, &unit.UnitOption{
@@ -198,7 +187,7 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 		unitOptions = append(unitOptions, &unit.UnitOption{
 			Section: "Service",
 			Name:    limitMap[k],
-			Value:   v,
+			Value:   strconv.Itoa(v),
 		})
 	}
 
@@ -225,6 +214,14 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 			Section: "Service",
 			Name:    "Restart",
 			Value:   "always",
+		})
+	}
+
+	if conf.Timeout > 0 {
+		unitOptions = append(unitOptions, &unit.UnitOption{
+			Section: "Service",
+			Name:    "TimeoutSec",
+			Value:   strconv.Itoa(conf.Timeout),
 		})
 	}
 
@@ -281,10 +278,6 @@ func deserializeOptions(opts []*unit.UnitOption) (common.Conf, error) {
 			switch {
 			case uo.Name == "ExecStart":
 				conf.ExecStart = uo.Value
-			case uo.Name == "StandardError", uo.Name == "StandardOutput":
-				// TODO(wwitzel3) We serialize Standard(Error|Output)
-				// to the same thing, but we should probably make sure they match
-				conf.Output = uo.Value
 			case uo.Name == "Environment":
 				if conf.Env == nil {
 					conf.Env = make(map[string]string)
@@ -300,14 +293,24 @@ func deserializeOptions(opts []*unit.UnitOption) (common.Conf, error) {
 				conf.Env[parts[0]] = parts[1]
 			case strings.HasPrefix(uo.Name, "Limit"):
 				if conf.Limit == nil {
-					conf.Limit = make(map[string]string)
+					conf.Limit = make(map[string]int)
 				}
 				for k, v := range limitMap {
 					if v == uo.Name {
-						conf.Limit[k] = v
+						n, err := strconv.Atoi(uo.Value)
+						if err != nil {
+							return conf, errors.Trace(err)
+						}
+						conf.Limit[k] = n
 						break
 					}
 				}
+			case uo.Name == "TimeoutSec":
+				timeout, err := strconv.Atoi(uo.Value)
+				if err != nil {
+					return conf, errors.Trace(err)
+				}
+				conf.Timeout = timeout
 			case uo.Name == "Type":
 				// Do nothing until we support it in common.Conf.
 			case uo.Name == "RemainAfterExit":

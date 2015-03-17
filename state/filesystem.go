@@ -202,6 +202,21 @@ func (f *filesystemAttachment) Params() (FilesystemAttachmentParams, bool) {
 	return *f.doc.Params, true
 }
 
+// Filesystem returns the Filesystem with the specified name.
+func (st *State) Filesystem(tag names.FilesystemTag) (Filesystem, error) {
+	coll, cleanup := st.getCollection(filesystemsC)
+	defer cleanup()
+
+	var fs filesystem
+	err := coll.FindId(tag.Id()).One(&fs.doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("filesystem %q", tag.Id())
+	} else if err != nil {
+		return nil, errors.Annotate(err, "cannot get filesystem")
+	}
+	return &fs, nil
+}
+
 // StorageInstanceFilesystem returns the Filesystem assigned to the specified
 // storage instance.
 func (st *State) StorageInstanceFilesystem(tag names.StorageTag) (Filesystem, error) {
@@ -261,24 +276,32 @@ func filesystemAttachmentId(machineId, filesystemId string) string {
 }
 
 // newFilesystemId returns a unique filesystem ID.
-func newFilesystemId(st *State) (string, error) {
+// If the machine ID supplied is non-empty, the
+// filesystem ID will incorporate it as the
+// filesystem's machine scope.
+func newFilesystemId(st *State, machineId string) (string, error) {
 	seq, err := st.sequence("filesystem")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return fmt.Sprint(seq), nil
+	id := fmt.Sprint(seq)
+	if machineId != "" {
+		id = machineId + "/" + id
+	}
+	return id, nil
 }
 
 // addFilesystemOps returns txn.Ops to create a new filesystem with the
 // specified parameters. If the storage source cannot create filesystems
 // directly, a volume will be created and Juju will manage a filesystem
 // on it.
-func (st *State) addFilesystemOps(params FilesystemParams) ([]txn.Op, names.FilesystemTag, names.VolumeTag, error) {
+func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]txn.Op, names.FilesystemTag, names.VolumeTag, error) {
 	params, err := st.filesystemParamsWithDefaults(params)
 	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Trace(err)
 	}
-	if err := st.validateFilesystemParams(&params); err != nil {
+	machineId, err = st.validateFilesystemParams(params, machineId)
+	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Annotate(err, "validating filesystem params")
 	}
 
@@ -297,7 +320,7 @@ func (st *State) addFilesystemOps(params FilesystemParams) ([]txn.Op, names.File
 			params.Pool,
 			params.Size,
 		}
-		volumeOp, volumeTag, err = st.addVolumeOp(volumeParams)
+		volumeOp, volumeTag, err = st.addVolumeOp(volumeParams, machineId)
 		if err != nil {
 			return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Annotate(err, "creating backing volume")
 		}
@@ -305,7 +328,7 @@ func (st *State) addFilesystemOps(params FilesystemParams) ([]txn.Op, names.File
 		ops = append(ops, volumeOp)
 	}
 
-	id, err := newFilesystemId(st)
+	id, err := newFilesystemId(st, machineId)
 	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Annotate(err, "cannot generate filesystem name")
 	}
@@ -340,15 +363,17 @@ func (st *State) filesystemParamsWithDefaults(params FilesystemParams) (Filesyst
 	return params, nil
 }
 
-func (st *State) validateFilesystemParams(params *FilesystemParams) error {
-	err := validateStoragePool(st, params.Pool, storage.StorageKindFilesystem)
+// validateFilesystemParams validates the filesystem parameters, and returns the
+// machine ID to use as the scope in the filesystem tag.
+func (st *State) validateFilesystemParams(params FilesystemParams, machineId string) (maybeMachineId string, _ error) {
+	err := validateStoragePool(st, params.Pool, storage.StorageKindFilesystem, &machineId)
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	if params.Size == 0 {
-		return errors.New("invalid size 0")
+		return "", errors.New("invalid size 0")
 	}
-	return nil
+	return machineId, nil
 }
 
 // createMachineFilesystemAttachmentInfo creates filesystem
@@ -370,4 +395,88 @@ func createMachineFilesystemAttachmentsOps(machineId string, params map[names.Fi
 		})
 	}
 	return ops
+}
+
+// SetFilesystemInfo sets the FilesystemInfo for the specified filesystem.
+func (st *State) SetFilesystemInfo(tag names.FilesystemTag, info FilesystemInfo) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set info for filesystem %q", tag.Id())
+	// TODO(axw) we should reject info without FilesystemId set; can't do this
+	// until the providers all set it correctly.
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		fs, err := st.Filesystem(tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// If the filesystem has parameters, unset them
+		// when we set info for the first time, ensuring
+		// that params and info are mutually exclusive.
+		_, unsetParams := fs.Params()
+		ops := setFilesystemInfoOps(tag, info, unsetParams)
+		return ops, nil
+	}
+	return st.run(buildTxn)
+}
+
+func setFilesystemInfoOps(tag names.FilesystemTag, info FilesystemInfo, unsetParams bool) []txn.Op {
+	asserts := isAliveDoc
+	update := bson.D{
+		{"$set", bson.D{{"info", &info}}},
+	}
+	if unsetParams {
+		asserts = append(asserts, bson.DocElem{"info", bson.D{{"$exists", false}}})
+		asserts = append(asserts, bson.DocElem{"params", bson.D{{"$exists", true}}})
+		update = append(update, bson.DocElem{"$unset", bson.D{{"params", nil}}})
+	}
+	return []txn.Op{{
+		C:      filesystemsC,
+		Id:     tag.Id(),
+		Assert: asserts,
+		Update: update,
+	}}
+}
+
+// SetFilesystemAttachmentInfo sets the FilesystemAttachmentInfo for the
+// specified filesystem attachment.
+func (st *State) SetFilesystemAttachmentInfo(
+	machineTag names.MachineTag,
+	filesystemTag names.FilesystemTag,
+	info FilesystemAttachmentInfo,
+) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set info for filesystem attachment %s:%s", filesystemTag.Id(), machineTag.Id())
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		fsa, err := st.FilesystemAttachment(machineTag, filesystemTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// If the filesystem attachment has parameters, unset them
+		// when we set info for the first time, ensuring that params
+		// and info are mutually exclusive.
+		_, unsetParams := fsa.Params()
+		ops := setFilesystemAttachmentInfoOps(machineTag, filesystemTag, info, unsetParams)
+		return ops, nil
+	}
+	return st.run(buildTxn)
+}
+
+func setFilesystemAttachmentInfoOps(
+	machine names.MachineTag,
+	filesystem names.FilesystemTag,
+	info FilesystemAttachmentInfo,
+	unsetParams bool,
+) []txn.Op {
+	asserts := isAliveDoc
+	update := bson.D{
+		{"$set", bson.D{{"info", &info}}},
+	}
+	if unsetParams {
+		asserts = append(asserts, bson.DocElem{"info", bson.D{{"$exists", false}}})
+		asserts = append(asserts, bson.DocElem{"params", bson.D{{"$exists", true}}})
+		update = append(update, bson.DocElem{"$unset", bson.D{{"params", nil}}})
+	}
+	return []txn.Op{{
+		C:      filesystemAttachmentsC,
+		Id:     filesystemAttachmentId(machine.Id(), filesystem.Id()),
+		Assert: asserts,
+		Update: update,
+	}}
 }

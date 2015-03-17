@@ -13,6 +13,17 @@ import (
 // ProviderType uniquely identifies a storage provider, such as "ebs" or "loop".
 type ProviderType string
 
+// Scope defines the scope of the storage that a provider manages.
+// Machine-scoped storage must be managed from within the machine,
+// whereas environment-level storage must be managed by an environment
+// storage provisioner.
+type Scope int
+
+const (
+	ScopeEnviron Scope = iota
+	ScopeMachine
+)
+
 // Provider is an interface for obtaining storage sources.
 type Provider interface {
 	// VolumeSource returns a VolumeSource given the specified cloud
@@ -38,6 +49,9 @@ type Provider interface {
 	// volume from the provider and then manage the filesystem itself.
 	Supports(kind StorageKind) bool
 
+	// Scope returns the scope of storage managed by this provider.
+	Scope() Scope
+
 	// ValidateConfig validates the provided storage provider config,
 	// returning an error if it is invalid.
 	ValidateConfig(*Config) error
@@ -58,7 +72,7 @@ type VolumeSource interface {
 
 	// DestroyVolumes destroys the volumes with the specified provider
 	// volume IDs.
-	DestroyVolumes(volIds []string) error
+	DestroyVolumes(volIds []string) []error
 
 	// ValidateVolumeParams validates the provided volume creation
 	// parameters, returning an error if they are invalid.

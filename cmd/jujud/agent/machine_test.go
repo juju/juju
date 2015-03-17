@@ -42,6 +42,7 @@ import (
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
@@ -70,6 +71,7 @@ import (
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
+	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -80,12 +82,6 @@ var (
 )
 
 func TestPackage(t *testing.T) {
-	// Change the default init dir in worker/deployer,
-	// so the deployer doesn't try to remove upstart
-	// jobs from tests.
-	restore := gitjujutesting.PatchValue(&deployer.InitDir, mkdtemp("juju-worker-deployer"))
-	defer restore()
-
 	// TODO(waigani) 2014-03-19 bug 1294458
 	// Refactor to use base suites
 
@@ -251,18 +247,13 @@ var perEnvSingularWorkers = []string{
 
 const initialMachinePassword = "machine-password-1234567890"
 
-func (s *MachineSuite) NewMockMetricAPI() *mockMetricAPI {
-	cleanup := make(chan struct{})
-	sender := make(chan struct{})
-	return &mockMetricAPI{cleanup, sender}
-}
-
 func (s *MachineSuite) SetUpTest(c *gc.C) {
-	s.metricAPI = s.NewMockMetricAPI()
+	s.commonMachineSuite.SetUpTest(c)
+	s.metricAPI = newMockMetricAPI()
 	s.PatchValue(&getMetricAPI, func(_ *api.State) apimetricsmanager.MetricsManagerClient {
 		return s.metricAPI
 	})
-	s.commonMachineSuite.SetUpTest(c)
+	s.AddCleanup(func(*gc.C) { s.metricAPI.Stop() })
 }
 
 func (s *MachineSuite) TestParseNonsense(c *gc.C) {
@@ -1132,7 +1123,7 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 	// The disk manager should only run with the feature flag set.
 	s.testMachineAgentRunsDiskManagerWorker(c, false, coretesting.ShortWait)
 
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	s.testMachineAgentRunsDiskManagerWorker(c, true, coretesting.LongWait)
 }
@@ -1165,7 +1156,7 @@ func (s *MachineSuite) testMachineAgentRunsDiskManagerWorker(c *gc.C, shouldRun 
 }
 
 func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
 	expected := []storage.BlockDevice{{DeviceName: "whatever"}}
@@ -1191,6 +1182,94 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for block devices to be recorded")
+}
+
+func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
+	// The storage worker should only run with the feature flag set.
+	s.testMachineAgentRunsMachineStorageWorker(c, false, coretesting.ShortWait)
+
+	s.SetFeatureFlags(feature.Storage)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	// TODO(wallyworld) - worker is currently disabled even with feature flag
+	s.testMachineAgentRunsMachineStorageWorker(c, false, coretesting.LongWait)
+}
+
+func (s *MachineSuite) testMachineAgentRunsMachineStorageWorker(c *gc.C, shouldRun bool, timeout time.Duration) {
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	started := make(chan struct{})
+	newWorker := func(storageDir string, _ storageprovisioner.VolumeAccessor, _ storageprovisioner.LifecycleManager) worker.Worker {
+		// storageDir is not empty for machine scoped storage provisioners
+		c.Assert(storageDir, gc.Not(gc.Equals), "")
+		close(started)
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newStorageWorker, newWorker)
+
+	// Wait for worker to be started.
+	select {
+	case <-started:
+		if !shouldRun {
+			c.Fatalf("storage worker should not run without feature flag")
+		}
+	case <-time.After(timeout):
+		if shouldRun {
+			c.Fatalf("timeout while waiting for storage worker to start")
+		}
+	}
+}
+
+func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
+	s.SetFeatureFlags(feature.Storage)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	// TODO(wallyworld) - worker is currently disabled even with feature flag
+	s.testMachineAgentRunsEnvironStorageWorkers(c, false, coretesting.LongWait)
+}
+
+func (s *MachineSuite) testMachineAgentRunsEnvironStorageWorkers(c *gc.C, shouldRun bool, timeout time.Duration) {
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	machineWorkerStarted := false
+	environWorkerStarted := false
+	numWorkers := 0
+	started := make(chan struct{})
+	newWorker := func(storageDir string, _ storageprovisioner.VolumeAccessor, _ storageprovisioner.LifecycleManager) worker.Worker {
+		// storageDir is empty for environ storage provisioners
+		if storageDir == "" {
+			environWorkerStarted = true
+			numWorkers = numWorkers + 1
+		}
+		if storageDir != "" {
+			machineWorkerStarted = true
+			numWorkers = numWorkers + 1
+		}
+		if environWorkerStarted && machineWorkerStarted {
+			close(started)
+		}
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newStorageWorker, newWorker)
+
+	// Wait for worker to be started.
+	select {
+	case <-started:
+		if !shouldRun {
+			c.Fatalf("storage worker should not run without feature flag")
+		}
+		c.Assert(numWorkers, gc.Equals, 2)
+	case <-time.After(timeout):
+		if shouldRun {
+			c.Fatalf("timeout while waiting for storage worker to start")
+		}
+	}
 }
 
 func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer(c *gc.C) {
@@ -1703,19 +1782,37 @@ func newDummyWorker() worker.Worker {
 }
 
 type mockMetricAPI struct {
+	stop          chan struct{}
 	cleanUpCalled chan struct{}
 	sendCalled    chan struct{}
 }
 
+func newMockMetricAPI() *mockMetricAPI {
+	return &mockMetricAPI{
+		stop:          make(chan struct{}),
+		cleanUpCalled: make(chan struct{}),
+		sendCalled:    make(chan struct{}),
+	}
+}
+
 func (m *mockMetricAPI) CleanupOldMetrics() error {
 	go func() {
-		m.cleanUpCalled <- struct{}{}
+		select {
+		case m.cleanUpCalled <- struct{}{}:
+		case <-m.stop:
+			break
+		}
 	}()
 	return nil
 }
+
 func (m *mockMetricAPI) SendMetrics() error {
 	go func() {
-		m.sendCalled <- struct{}{}
+		select {
+		case m.sendCalled <- struct{}{}:
+		case <-m.stop:
+			break
+		}
 	}()
 	return nil
 }
@@ -1726,6 +1823,10 @@ func (m *mockMetricAPI) SendCalled() <-chan struct{} {
 
 func (m *mockMetricAPI) CleanupCalled() <-chan struct{} {
 	return m.cleanUpCalled
+}
+
+func (m *mockMetricAPI) Stop() {
+	close(m.stop)
 }
 
 func mkdtemp(prefix string) string {

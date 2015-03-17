@@ -34,6 +34,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/lease"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
@@ -79,6 +81,7 @@ type context struct {
 	s             *UniterSuite
 	st            *state.State
 	api           *apiuniter.State
+	leader        leadership.LeadershipManager
 	charms        map[string][]byte
 	hooks         []string
 	sch           *state.Charm
@@ -91,6 +94,7 @@ type context struct {
 	subordinate   *state.Unit
 	ticker        *uniter.ManualTicker
 
+	wg             sync.WaitGroup
 	mu             sync.Mutex
 	hooksCompleted []string
 }
@@ -110,6 +114,13 @@ func (ctx *context) HookFailed(hookName string) {
 }
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
+	// We need this lest leadership calls block forever.
+	workerLoop := lease.WorkerLoop(ctx.st)
+	leaseWorker := worker.NewSimpleWorker(workerLoop)
+	defer func() {
+		c.Assert(worker.Stop(leaseWorker), jc.ErrorIsNil)
+	}()
+
 	defer func() {
 		if ctx.uniter != nil {
 			err := ctx.uniter.Stop()
@@ -131,6 +142,7 @@ func (ctx *context) apiLogin(c *gc.C) {
 	c.Assert(st, gc.NotNil)
 	c.Logf("API: login as %q successful", ctx.unit.Tag())
 	ctx.api, err = st.Uniter()
+	ctx.leader = st.LeadershipManager()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.api, gc.NotNil)
 }
@@ -413,7 +425,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.dataDir, lock)
+	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.leader, ctx.dataDir, lock)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
 
@@ -1305,7 +1317,9 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		socketPath = filepath.Join(ctx.path, "run.socket")
 	}
 
+	ctx.wg.Add(1)
 	go func() {
+		defer ctx.wg.Done()
 		// make sure the socket exists
 		client, err := sockets.Dial(socketPath)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1318,6 +1332,20 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		c.Check(string(result.Stdout), gc.Equals, "")
 		c.Check(string(result.Stderr), gc.Equals, "")
 	}()
+}
+
+type waitContextWaitGroup struct{}
+
+func (waitContextWaitGroup) step(c *gc.C, ctx *context) {
+	ctx.wg.Wait()
+}
+
+type verifyLeaderSettings map[string]string
+
+func (verify verifyLeaderSettings) step(c *gc.C, ctx *context) {
+	actual, err := ctx.api.LeadershipSettings.Read("u")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actual, jc.DeepEquals, map[string]string(verify))
 }
 
 type verifyFile struct {

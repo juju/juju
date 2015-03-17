@@ -39,7 +39,7 @@ func (s *instanceSuite) TestNewInstanceNoSpec(c *gc.C) {
 func (s *instanceSuite) TestInstanceRootDiskGB(c *gc.C) {
 	size := s.Instance.RootDiskGB()
 
-	c.Check(size, gc.Equals, uint64(5))
+	c.Check(size, gc.Equals, uint64(15))
 }
 
 func (s *instanceSuite) TestInstanceRootDiskGBNilSpec(c *gc.C) {

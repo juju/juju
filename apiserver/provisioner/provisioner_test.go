@@ -744,9 +744,17 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 		Volumes: []state.MachineVolumeParams{
 			{Volume: state.VolumeParams{Size: 1000, Pool: "loop-pool"}},
 			{Volume: state.VolumeParams{Size: 2000, Pool: "loop-pool"}},
+			{Volume: state.VolumeParams{Size: 3000, Pool: "loop-pool"}},
 		},
 	}
 	placementMachine, err := s.State.AddOneMachine(template)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Provision volume 2 so that it is excluded from any ProvisioningInfo() results.
+	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
+	err = placementMachine.SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil, map[names.VolumeTag]state.VolumeInfo{
+		names.NewVolumeTag(placementMachine.Id() + "/2"): state.VolumeInfo{VolumeId: "123", Size: 1024},
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -773,13 +781,13 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Volumes: []params.VolumeParams{{
-					VolumeTag:  "volume-0",
+					VolumeTag:  "volume-" + placementMachine.Id() + "-0",
 					Size:       1000,
 					MachineTag: placementMachine.Tag().String(),
 					Provider:   "loop",
 					Attributes: map[string]interface{}{"foo": "bar"},
 				}, {
-					VolumeTag:  "volume-1",
+					VolumeTag:  "volume-" + placementMachine.Id() + "-1",
 					Size:       2000,
 					MachineTag: placementMachine.Tag().String(),
 					Provider:   "loop",
@@ -829,7 +837,7 @@ func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Volumes: []params.VolumeParams{{
-					VolumeTag:  "volume-0",
+					VolumeTag:  "volume-" + placementMachine.Id() + "-0",
 					Size:       1000,
 					MachineTag: placementMachine.Tag().String(),
 					Provider:   "loop",
@@ -1090,12 +1098,12 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		InstanceId: "i-am-also",
 		Nonce:      "fake",
 		Volumes: []params.Volume{{
-			VolumeTag: "volume-0",
+			VolumeTag: "volume-" + volumesMachine.Id() + "-0",
 			VolumeId:  "vol-0",
 			Size:      1234,
 		}},
 		VolumeAttachments: []params.VolumeAttachment{{
-			VolumeTag:  "volume-0",
+			VolumeTag:  "volume-" + volumesMachine.Id() + "-0",
 			MachineTag: volumesMachine.Tag().String(),
 			DeviceName: "sda",
 		}},

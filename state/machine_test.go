@@ -918,14 +918,14 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 
 	invalidVolumes := map[names.VolumeTag]state.VolumeInfo{names.NewVolumeTag("1065"): state.VolumeInfo{}}
 	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidVolumes, nil)
-	c.Assert(err, gc.ErrorMatches, "cannot set provisioned volume info: already provisioned")
+	c.Assert(err, gc.ErrorMatches, `cannot set info for volume \"1065\": volume \"1065\" not found`)
 	assertNotProvisioned()
 
 	// TODO(axw) test invalid volume attachment
 }
 
-func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams) names.VolumeTag {
-	op, tag, err := state.AddVolumeOp(s.State, params)
+func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams, machineId string) names.VolumeTag {
+	op, tag, err := state.AddVolumeOp(s.State, params, machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	err = state.RunTransaction(s.State, []txn.Op{op})
 	c.Assert(err, jc.ErrorIsNil)
@@ -939,7 +939,8 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 
 	// Must create the requested block device prior to SetInstanceInfo.
-	volumeTag := s.addVolume(c, state.VolumeParams{Size: 1000, Pool: "loop-pool"})
+	volumeTag := s.addVolume(c, state.VolumeParams{Size: 1000, Pool: "loop-pool"}, "123")
+	c.Assert(volumeTag, gc.Equals, names.NewVolumeTag("123/0"))
 
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
 	networks := []state.NetworkInfo{

@@ -169,10 +169,72 @@ func (st *State) WatchEnvironments() StringsWatcher {
 	return newLifecycleWatcher(st, environmentsC, nil, nil, nil)
 }
 
-// WatchVolumes returns a StringsWatcher that notifies of changes to
-// the lifecycles of all volumes.
-func (st *State) WatchVolumes() StringsWatcher {
-	return newLifecycleWatcher(st, volumesC, nil, nil, nil)
+// WatchEnvironVolumes returns a StringsWatcher that notifies of changes to
+// the lifecycles of all environment-scoped volumes.
+func (st *State) WatchEnvironVolumes() StringsWatcher {
+	pattern := fmt.Sprintf("^%s$", st.docID(names.NumberSnippet))
+	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
+	filter := func(id interface{}) bool {
+		k, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		return !strings.Contains(k, "/")
+	}
+	return newLifecycleWatcher(st, volumesC, members, filter, nil)
+}
+
+// WatchMachineVolumes returns a StringsWatcher that notifies of changes to
+// the lifecycles of all volumes scoped to the specified machine.
+func (st *State) WatchMachineVolumes(m names.MachineTag) StringsWatcher {
+	pattern := fmt.Sprintf("^%s/%s$", st.docID(m.Id()), names.NumberSnippet)
+	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
+	prefix := m.Id() + "/"
+	filter := func(id interface{}) bool {
+		k, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		return strings.HasPrefix(k, prefix)
+	}
+	return newLifecycleWatcher(st, volumesC, members, filter, nil)
+}
+
+// WatchEnvironVolumeAttachments returns a StringsWatcher that notifies of
+// changes to the lifecycles of all volume attachments related to environ-
+// scoped volumes.
+func (st *State) WatchEnvironVolumeAttachments() StringsWatcher {
+	pattern := fmt.Sprintf("^%s.*:%s$", st.docID(""), names.NumberSnippet)
+	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
+	filter := func(id interface{}) bool {
+		k, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		colon := strings.IndexRune(k, ':')
+		if colon == -1 {
+			return false
+		}
+		return !strings.Contains(k[colon+1:], "/")
+	}
+	return newLifecycleWatcher(st, volumeAttachmentsC, members, filter, nil)
+}
+
+// WatchMachineVolumeAttachments returns a StringsWatcher that notifies of
+// changes to the lifecycles of all volume attachments related to the specified
+// machine.
+func (st *State) WatchMachineVolumeAttachments(m names.MachineTag) StringsWatcher {
+	pattern := fmt.Sprintf("^%s:.*", st.docID(m.Id()))
+	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
+	prefix := m.Id() + ":"
+	filter := func(id interface{}) bool {
+		k, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		return strings.HasPrefix(k, prefix)
+	}
+	return newLifecycleWatcher(st, volumeAttachmentsC, members, filter, nil)
 }
 
 // WatchServices returns a StringsWatcher that notifies of changes to
@@ -1308,9 +1370,18 @@ func (st *State) WatchAPIHostPorts() NotifyWatcher {
 	return newEntityWatcher(st, stateServersC, apiHostPortsKey)
 }
 
-func (st *State) WatchStorageAttachment(storage names.StorageTag, unit names.UnitTag) NotifyWatcher {
-	docID := st.docID(storageAttachmentId(unit.Id(), storage.Id()))
-	return newEntityWatcher(st, storageAttachmentsC, docID)
+// WatchVolumeAttachment returns a watcher for observing changes
+// to a volume attachment.
+func (st *State) WatchVolumeAttachment(m names.MachineTag, v names.VolumeTag) NotifyWatcher {
+	id := volumeAttachmentId(m.Id(), v.Id())
+	return newEntityWatcher(st, volumeAttachmentsC, st.docID(id))
+}
+
+// WatchFilesystemAttachment returns a watcher for observing changes
+// to a filesystem attachment.
+func (st *State) WatchFilesystemAttachment(m names.MachineTag, f names.FilesystemTag) NotifyWatcher {
+	id := filesystemAttachmentId(m.Id(), f.Id())
+	return newEntityWatcher(st, filesystemAttachmentsC, st.docID(id))
 }
 
 // WatchConfigSettings returns a watcher for observing changes to the
@@ -2439,13 +2510,65 @@ func (st *State) WatchLeadershipSettings(serviceId string) *LeadershipSettingsWa
 // NewLeadershipSettingsWatcher returns a new
 // LeadershipSettingsWatcher.
 func NewLeadershipSettingsWatcher(state *State, key string) *LeadershipSettingsWatcher {
-	return &LeadershipSettingsWatcher{state.watchSettings(key)}
+
+	w := &LeadershipSettingsWatcher{
+		commonWatcher: commonWatcher{st: state},
+		out:           make(chan struct{}),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop(key))
+	}()
+	return w
 }
 
 // LeadershipSettingsWatcher provides a type that can watch settings
 // for a provided key.
 type LeadershipSettingsWatcher struct {
-	*settingsWatcher
+	commonWatcher
+
+	out chan struct{}
+}
+
+var _ NotifyWatcher = (*LeadershipSettingsWatcher)(nil)
+
+// Changes implements NotifyWatcher.
+func (w *LeadershipSettingsWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+func (w *LeadershipSettingsWatcher) loop(key string) (err error) {
+	ch := make(chan watcher.Change)
+	revno := int64(-1)
+	settings, err := readSettings(w.st, key)
+	if err == nil {
+		revno = settings.txnRevno
+	} else if !errors.IsNotFound(err) {
+		return err
+	}
+	w.st.watcher.Watch(settingsC, w.st.docID(key), revno, ch)
+	defer w.st.watcher.Unwatch(settingsC, w.st.docID(key), ch)
+	out := w.out
+	if revno == -1 {
+		out = nil
+	}
+	for {
+		select {
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-ch:
+			settings, err = readSettings(w.st, key)
+			if err != nil {
+				return err
+			}
+			out = w.out
+		case out <- struct{}{}:
+			out = nil
+		}
+	}
 }
 
 // blockDevicesWatcher notifies about changes to all block devices

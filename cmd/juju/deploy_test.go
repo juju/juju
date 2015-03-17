@@ -4,6 +4,7 @@
 package main
 
 import (
+	"io/ioutil"
 	"strings"
 
 	"github.com/juju/errors"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
@@ -213,7 +215,7 @@ func (s *DeploySuite) TestStorageWithoutFeatureFlag(c *gc.C) {
 }
 
 func (s *DeploySuite) TestStorage(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
@@ -353,4 +355,15 @@ func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 func (s *DeployLocalSuite) TestLocalCannotHostUnits(c *gc.C) {
 	err := runDeploy(c, "--to", "0", "local:dummy", "portlandia")
 	c.Assert(err, gc.ErrorMatches, "machine 0 is the state server for a local environment and cannot host units")
+}
+
+// setupConfigFile creates a configuration file for testing set
+// with the --config argument specifying a configuration file.
+func setupConfigFile(c *gc.C, dir string) string {
+	ctx := coretesting.ContextForDir(c, dir)
+	path := ctx.AbsPath("testconfig.yaml")
+	content := []byte("dummy-service:\n  skill-level: 9000\n  username: admin001\n\n")
+	err := ioutil.WriteFile(path, content, 0666)
+	c.Assert(err, jc.ErrorIsNil)
+	return path
 }

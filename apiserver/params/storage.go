@@ -60,6 +60,18 @@ const (
 	StorageKindFilesystem
 )
 
+// String returns representation of StorageKind for readability.
+func (k *StorageKind) String() string {
+	switch *k {
+	case StorageKindBlock:
+		return "block"
+	case StorageKindFilesystem:
+		return "filesystem"
+	default:
+		return "unknown"
+	}
+}
+
 // StorageInstanceResult holds the result of an API call to retrieve details
 // of a storage instance.
 type StorageInstanceResult struct {
@@ -131,16 +143,24 @@ type Volume struct {
 	Size uint64 `json:"size"`
 }
 
-// VolumeAttachmentId identifies a volume attachment by the tags of the
-// related machine and volume.
-type VolumeAttachmentId struct {
-	VolumeTag  string `json:"volumetag"`
-	MachineTag string `json:"machinetag"`
+// Volumes describes a set of storage volumes in the environment.
+type Volumes struct {
+	Volumes []Volume `json:"volumes"`
 }
 
-// VolumeAttachmentIds holds a set of volume attachment identifiers.
-type VolumeAttachmentIds struct {
-	Ids []VolumeAttachmentId `json:"ids"`
+// MachineStorageId identifies the attachment of a storage entity
+// to a machine, by their tags.
+type MachineStorageId struct {
+	MachineTag string `json:"machinetag"`
+	// AttachmentTag is the tag of the volume or filesystem whose
+	// attachment to the machine is represented.
+	AttachmentTag string `json:"attachmenttag"`
+}
+
+// MachineStorageIds holds a set of machine/storage-entity
+// attachment identifiers.
+type MachineStorageIds struct {
+	Ids []MachineStorageId `json:"ids"`
 }
 
 // VolumeAttachment describes a volume attachment.
@@ -148,6 +168,12 @@ type VolumeAttachment struct {
 	VolumeTag  string `json:"volumetag"`
 	MachineTag string `json:"machinetag"`
 	DeviceName string `json:"devicename,omitempty"`
+	ReadOnly   bool   `json:"readonly"`
+}
+
+// VolumeAttachments describes a set of storage volume attachments.
+type VolumeAttachments struct {
+	VolumeAttachments []VolumeAttachment `json:"volumeattachments"`
 }
 
 // VolumeParams holds the parameters for creating a storage volume.
@@ -160,6 +186,16 @@ type VolumeParams struct {
 	// Machine is the tag of the machine that the volume should
 	// be initially attached to, if any.
 	MachineTag string `json:"machinetag,omitempty"`
+}
+
+// VolumeAttachmentParams holds the parameters for creating a volume
+// attachment.
+type VolumeAttachmentParams struct {
+	VolumeTag  string `json:"volumetag"`
+	MachineTag string `json:"machinetag"`
+	InstanceId string `json:"instanceid,omitempty"`
+	VolumeId   string `json:"volumeid,omitempty"`
+	Provider   string `json:"provider"`
 }
 
 // VolumePreparationInfo holds the information regarding preparing
@@ -188,20 +224,101 @@ type VolumeAttachmentsResult struct {
 	Error       *Error             `json:"error,omitempty"`
 }
 
-// VolumeAttachmensResult holds a set of VolumeAttachmentsResults for
+// VolumeAttachmentsResults holds a set of VolumeAttachmentsResults for
 // a set of machines.
 type VolumeAttachmentsResults struct {
 	Results []VolumeAttachmentsResult `json:"results,omitempty"`
 }
 
-// StorageShowResult holds information about a storage instance
-// or error related to its retrieval.
-type StorageShowResult struct {
-	Result StorageInstance `json:"result"`
-	Error  *Error          `json:"error,omitempty"`
+// VolumeAttachmentResult holds the details of a single volume attachment,
+// or an error.
+type VolumeAttachmentResult struct {
+	Result VolumeAttachment `json:"result"`
+	Error  *Error           `json:"error,omitempty"`
 }
 
-// StorageShowResults holds a collection of storage instances.
-type StorageShowResults struct {
-	Results []StorageShowResult `json:"results,omitempty"`
+// VolumeAttachmentResults holds a set of VolumeAttachmentResults.
+type VolumeAttachmentResults struct {
+	Results []VolumeAttachmentResult `json:"results,omitempty"`
+}
+
+// VolumeResult holds information about a volume.
+type VolumeResult struct {
+	Result Volume `json:"result"`
+	Error  *Error `json:"error,omitempty"`
+}
+
+// VolumeResults holds information about multiple volumes.
+type VolumeResults struct {
+	Results []VolumeResult `json:"results,omitempty"`
+}
+
+// VolumeParamsResults holds provisioning parameters for a volume.
+type VolumeParamsResult struct {
+	Result VolumeParams `json:"result"`
+	Error  *Error       `json:"error,omitempty"`
+}
+
+// VolumeParamsResults holds provisioning parameters for multiple volumes.
+type VolumeParamsResults struct {
+	Results []VolumeParamsResult `json:"results,omitempty"`
+}
+
+// VolumeAttachmentParamsResults holds provisioning parameters for a volume
+// attachment.
+type VolumeAttachmentParamsResult struct {
+	Result VolumeAttachmentParams `json:"result"`
+	Error  *Error                 `json:"error,omitempty"`
+}
+
+// VolumeAttachmentParamsResults holds provisioning parameters for multiple
+// volume attachments.
+type VolumeAttachmentParamsResults struct {
+	Results []VolumeAttachmentParamsResult `json:"results,omitempty"`
+}
+
+// StorageDetails holds information about storage.
+type StorageDetails struct {
+
+	// StorageTag holds tag for this storage.
+	StorageTag string `json:"storagetag"`
+
+	// OwnerTag holds tag for the owner of this storage, unit or service.
+	OwnerTag string `json:"ownertag"`
+
+	// Kind holds what kind of storage this instance is.
+	Kind StorageKind `json:"kind"`
+
+	// Status indicates storage status, e.g. pending, provisioned, attached.
+	Status string `json:"status,omitempty"`
+
+	// UnitTag holds tag for unit for attached instances.
+	UnitTag string `json:"unittag,omitempty"`
+
+	// Location holds location for provisioned attached instances.
+	Location string `json:"location,omitempty"`
+}
+
+// StorageDetailsResult holds information about a storage instance
+// or error related to its retrieval.
+type StorageDetailsResult struct {
+	Result StorageDetails `json:"result"`
+	Error  *Error         `json:"error,omitempty"`
+}
+
+// StorageDetailsResults holds results for storage details or related storage error.
+type StorageDetailsResults struct {
+	Results []StorageDetailsResult `json:"results,omitempty"`
+}
+
+// StorageInfo contains information about a storage as well as
+// potentially an error related to information retrieval.
+type StorageInfo struct {
+	StorageDetails `json:"result"`
+	Error          *Error `json:"error,omitempty"`
+}
+
+// StorageInfosResult holds storage details.
+type StorageInfosResult struct {
+	Results []StorageInfo `json:"results,omitempty"`
 }

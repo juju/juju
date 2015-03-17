@@ -54,8 +54,9 @@ func ToWire(mb *state.MetricBatch) *MetricBatch {
 
 // Response represents the response from the metrics collector.
 type Response struct {
-	UUID         string               `json:"uuid"`
-	EnvResponses EnvironmentResponses `json:"env-responses"`
+	UUID           string               `json:"uuid"`
+	EnvResponses   EnvironmentResponses `json:"env-responses"`
+	NewGracePeriod time.Duration        `json:"new-grace-period"`
 }
 
 type EnvironmentResponses map[string]EnvResponse
