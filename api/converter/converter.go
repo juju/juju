@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package converter
@@ -17,13 +17,10 @@ type State struct {
 	facade base.FacadeCaller
 }
 
-// NewAPIAddresser returns a new APIAddresser that makes API calls
-// using caller and the specified facade name.
 func NewState(caller base.APICaller) *State {
 	return &State{base.NewFacadeCaller(caller, converterAPI)}
 }
 
-// WatchAPIHostPorts watches the host/port addresses of the API servers.
 func (c *State) WatchForJobsChanges(tag string) (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
 	args := params.Entities{

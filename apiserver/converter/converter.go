@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package converter
@@ -26,7 +26,6 @@ type ConverterAPI struct {
 	authorizer common.Authorizer
 }
 
-// NewUpgraderAPI creates a new server-side UpgraderAPI facade.
 func NewConverterAPI(
 	st *state.State,
 	resources *common.Resources,
