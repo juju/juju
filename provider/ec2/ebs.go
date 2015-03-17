@@ -67,6 +67,11 @@ func (e *ebsProvider) Supports(k storage.StorageKind) bool {
 	return k == storage.StorageKindBlock
 }
 
+// Scope is defined on the Provider interface.
+func (e *ebsProvider) Scope() storage.Scope {
+	return storage.ScopeEnviron
+}
+
 func TranslateUserEBSOptions(userOptions map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for k, v := range userOptions {

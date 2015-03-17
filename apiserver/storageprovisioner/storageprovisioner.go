@@ -26,12 +26,12 @@ type StorageProvisionerAPI struct {
 	*common.LifeGetter
 	*common.DeadEnsurer
 
-	st                 provisionerState
-	settings           poolmanager.SettingsManager
-	resources          *common.Resources
-	authorizer         common.Authorizer
-	getMachineAuthFunc common.GetAuthFunc
-	getVolumeAuthFunc  common.GetAuthFunc
+	st                provisionerState
+	settings          poolmanager.SettingsManager
+	resources         *common.Resources
+	authorizer        common.Authorizer
+	getScopeAuthFunc  common.GetAuthFunc
+	getVolumeAuthFunc common.GetAuthFunc
 }
 
 var getState = func(st *state.State) provisionerState {
@@ -47,28 +47,34 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
-	isEnvironManager := authorizer.AuthEnvironManager()
-	authEntityTag := authorizer.GetAuthTag()
-	getMachineAuthFunc := func() (common.AuthFunc, error) {
+	canAccessVolumeMachine := func(tag names.MachineTag) bool {
+		authEntityTag := authorizer.GetAuthTag()
+		if tag == authEntityTag {
+			// Machine agents can access volumes
+			// scoped to their own machine.
+			return true
+		}
+		parentId := state.ParentId(tag.Id())
+		if parentId == "" {
+			return false
+		}
+		// All containers with the authenticated
+		// machine as a parent are accessible by it.
+		return names.NewMachineTag(parentId) == authEntityTag
+	}
+	getScopeAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			switch tag := tag.(type) {
 			case names.EnvironTag:
 				// Environment managers can access all volumes
 				// scoped to the environment.
-				return isEnvironManager
+				//
+				// TODO(axw) allow watching volumes in alternative
+				// environments? Need to check with thumper.
+				isEnvironManager := authorizer.AuthEnvironManager()
+				return isEnvironManager && tag == st.EnvironTag()
 			case names.MachineTag:
-				if tag == authEntityTag {
-					// Machine agents can access volumes
-					// scoped to their own machine.
-					return true
-				}
-				parentId := state.ParentId(tag.Id())
-				if parentId == "" {
-					return false
-				}
-				// All containers with the authenticated
-				// machine as a parent are accessible by it.
-				return names.NewMachineTag(parentId) == authEntityTag
+				return canAccessVolumeMachine(tag)
 			default:
 				return false
 			}
@@ -76,12 +82,13 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 	}
 	getVolumeAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
-			switch tag.(type) {
+			switch tag := tag.(type) {
 			case names.VolumeTag:
-				// TODO(axw) volume tag should include machine
-				// scope, which we can then use for authentication
-				// and watching purposes.
-				return true
+				machineTag, ok := names.VolumeMachine(tag)
+				if ok {
+					return canAccessVolumeMachine(machineTag)
+				}
+				return authorizer.AuthEnvironManager()
 			default:
 				return false
 			}
@@ -90,21 +97,21 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 	stateInterface := getState(st)
 	settings := getSettingsManager(st)
 	return &StorageProvisionerAPI{
-		LifeGetter:         common.NewLifeGetter(stateInterface, getVolumeAuthFunc),
-		DeadEnsurer:        common.NewDeadEnsurer(stateInterface, getVolumeAuthFunc),
-		st:                 stateInterface,
-		settings:           settings,
-		resources:          resources,
-		authorizer:         authorizer,
-		getMachineAuthFunc: getMachineAuthFunc,
-		getVolumeAuthFunc:  getVolumeAuthFunc,
+		LifeGetter:        common.NewLifeGetter(stateInterface, getVolumeAuthFunc),
+		DeadEnsurer:       common.NewDeadEnsurer(stateInterface, getVolumeAuthFunc),
+		st:                stateInterface,
+		settings:          settings,
+		resources:         resources,
+		authorizer:        authorizer,
+		getScopeAuthFunc:  getScopeAuthFunc,
+		getVolumeAuthFunc: getVolumeAuthFunc,
 	}, nil
 }
 
 // WatchVolumes watches for changes to volumes scoped to the
 // entity with the tag passed to NewState.
 func (s *StorageProvisionerAPI) WatchVolumes(args params.Entities) (params.StringsWatchResults, error) {
-	canAccess, err := s.getMachineAuthFunc()
+	canAccess, err := s.getScopeAuthFunc()
 	if err != nil {
 		return params.StringsWatchResults{}, common.ServerError(common.ErrPerm)
 	}
@@ -116,9 +123,12 @@ func (s *StorageProvisionerAPI) WatchVolumes(args params.Entities) (params.Strin
 		if err != nil || !canAccess(tag) {
 			return "", nil, common.ErrPerm
 		}
-		// TODO(axw) record a scope for volumes, and watch
-		// only volumes in that scope.
-		w := s.st.WatchVolumes()
+		var w state.StringsWatcher
+		if tag, ok := tag.(names.MachineTag); ok {
+			w = s.st.WatchMachineVolumes(tag)
+		} else {
+			w = s.st.WatchEnvironVolumes()
+		}
 		if changes, ok := <-w.Changes(); ok {
 			return s.resources.Register(w), changes, nil
 		}
@@ -131,6 +141,51 @@ func (s *StorageProvisionerAPI) WatchVolumes(args params.Entities) (params.Strin
 			result.Error = common.ServerError(err)
 		} else {
 			result.StringsWatcherId = id
+			result.Changes = changes
+		}
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
+// WatchVolumeAttachments watches for changes to volume attachments scoped to
+// the entity with the tag passed to NewState.
+func (s *StorageProvisionerAPI) WatchVolumeAttachments(args params.Entities) (params.MachineStorageIdsWatchResults, error) {
+	canAccess, err := s.getScopeAuthFunc()
+	if err != nil {
+		return params.MachineStorageIdsWatchResults{}, common.ServerError(common.ErrPerm)
+	}
+	results := params.MachineStorageIdsWatchResults{
+		Results: make([]params.MachineStorageIdsWatchResult, len(args.Entities)),
+	}
+	one := func(arg params.Entity) (string, []params.MachineStorageId, error) {
+		tag, err := names.ParseTag(arg.Tag)
+		if err != nil || !canAccess(tag) {
+			return "", nil, common.ErrPerm
+		}
+		var w state.StringsWatcher
+		if tag, ok := tag.(names.MachineTag); ok {
+			w = s.st.WatchMachineVolumeAttachments(tag)
+		} else {
+			w = s.st.WatchEnvironVolumeAttachments()
+		}
+		if stringChanges, ok := <-w.Changes(); ok {
+			changes, err := common.ParseVolumeAttachmentIds(stringChanges)
+			if err != nil {
+				w.Stop()
+				return "", nil, err
+			}
+			return s.resources.Register(w), changes, nil
+		}
+		return "", nil, watcher.EnsureErr(w)
+	}
+	for i, arg := range args.Entities {
+		var result params.MachineStorageIdsWatchResult
+		id, changes, err := one(arg)
+		if err != nil {
+			result.Error = common.ServerError(err)
+		} else {
+			result.MachineStorageIdsWatcherId = id
 			result.Changes = changes
 		}
 		results.Results[i] = result

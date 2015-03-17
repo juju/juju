@@ -185,6 +185,23 @@ func (st *State) storageInstance(tag names.StorageTag) (*storageInstance, error)
 	return &s, nil
 }
 
+// AllStorageInstances lists all storage instances currently in state
+// for this Juju environment.
+func (st *State) AllStorageInstances() (storageInstances []StorageInstance, err error) {
+	storageCollection, closer := st.getCollection(storageInstancesC)
+	defer closer()
+
+	sdocs := []storageInstanceDoc{}
+	err = storageCollection.Find(nil).All(&sdocs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all storage instances")
+	}
+	for _, doc := range sdocs {
+		storageInstances = append(storageInstances, &storageInstance{st, doc})
+	}
+	return
+}
+
 // DestroyStorageInstance ensures that the storage instance and all its
 // attachments will be removed at some point; if the storage instance has
 // no attachments, it will be removed immediately.
@@ -674,7 +691,7 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 			)
 		}
 		kind := storageKind(charmStorage.Type)
-		if err := validateStoragePool(st, cons.Pool, kind); err != nil {
+		if err := validateStoragePool(st, cons.Pool, kind, nil); err != nil {
 			return err
 		}
 	}
@@ -688,7 +705,13 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 	return nil
 }
 
-func validateStoragePool(st *State, poolName string, kind storage.StorageKind) error {
+// validateStoragePool validates the storage pool for the environment.
+// If machineId is non-nil, the storage scope will be validated against
+// the machineId; if the storage is not machine-scoped, then the machineId
+// will be updated to "".
+func validateStoragePool(
+	st *State, poolName string, kind storage.StorageKind, machineId *string,
+) error {
 	if poolName == "" {
 		return errors.New("pool name is required")
 	}
@@ -713,6 +736,21 @@ func validateStoragePool(st *State, poolName string, kind storage.StorageKind) e
 	}
 	if !kindSupported {
 		return errors.Errorf("%q provider does not support %q storage", providerType, kind)
+	}
+
+	// Check the storage scope.
+	if machineId != nil {
+		switch provider.Scope() {
+		case storage.ScopeMachine:
+			if *machineId == "" {
+				return errors.Annotate(err, "machine unspecified for machine-scoped storage")
+			}
+		default:
+			// The storage is not machine-scoped, so we clear out
+			// the machine ID to inform the caller that the storage
+			// scope should be the environment.
+			*machineId = ""
+		}
 	}
 
 	// Ensure the pool type is supported by the environment.

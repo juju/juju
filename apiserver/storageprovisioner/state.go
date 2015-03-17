@@ -11,7 +11,10 @@ import (
 
 type provisionerState interface {
 	state.EntityFinder
-	WatchVolumes() state.StringsWatcher
+	WatchEnvironVolumes() state.StringsWatcher
+	WatchEnvironVolumeAttachments() state.StringsWatcher
+	WatchMachineVolumes(names.MachineTag) state.StringsWatcher
+	WatchMachineVolumeAttachments(names.MachineTag) state.StringsWatcher
 	Volume(names.VolumeTag) (state.Volume, error)
 	VolumeAttachments(names.VolumeTag) ([]state.VolumeAttachment, error)
 	SetVolumeInfo(names.VolumeTag, state.VolumeInfo) error

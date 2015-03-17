@@ -84,7 +84,7 @@ func (s *MetricSenderSuite) TestDontSendWithNopSender(c *gc.C) {
 	}
 	err := metricsender.SendMetrics(s.State, metricsender.NopSender{}, 10)
 	c.Assert(err, jc.ErrorIsNil)
-	sent, err := s.State.CountofSentMetrics()
+	sent, err := s.State.CountOfSentMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sent, gc.Equals, 3)
 }

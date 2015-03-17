@@ -71,6 +71,19 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 	c.Assert(keyExists, jc.IsFalse)
 }
 
+func (s *upgradesSuite) TestUserTagNameFallsBackToId(c *gc.C) {
+	// Make old style user without name field set.
+	user := User{
+		st: s.state,
+		doc: userDoc{
+			DocID: "BoB",
+		},
+	}
+
+	tag := user.UserTag()
+	c.Assert(tag.Name(), gc.Equals, "BoB")
+}
+
 func (s *upgradesSuite) TestAddNameFieldLowerCaseIdOfUsers(c *gc.C) {
 	s.addCaseSensitiveUsers(c, [][]string{
 		{"BoB", "Bob the Builder"},

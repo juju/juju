@@ -924,8 +924,8 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 	// TODO(axw) test invalid volume attachment
 }
 
-func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams) names.VolumeTag {
-	op, tag, err := state.AddVolumeOp(s.State, params)
+func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams, machineId string) names.VolumeTag {
+	op, tag, err := state.AddVolumeOp(s.State, params, machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	err = state.RunTransaction(s.State, []txn.Op{op})
 	c.Assert(err, jc.ErrorIsNil)
@@ -939,7 +939,8 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 
 	// Must create the requested block device prior to SetInstanceInfo.
-	volumeTag := s.addVolume(c, state.VolumeParams{Size: 1000, Pool: "loop-pool"})
+	volumeTag := s.addVolume(c, state.VolumeParams{Size: 1000, Pool: "loop-pool"}, "123")
+	c.Assert(volumeTag, gc.Equals, names.NewVolumeTag("123/0"))
 
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
 	networks := []state.NetworkInfo{

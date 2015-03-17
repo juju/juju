@@ -276,24 +276,32 @@ func filesystemAttachmentId(machineId, filesystemId string) string {
 }
 
 // newFilesystemId returns a unique filesystem ID.
-func newFilesystemId(st *State) (string, error) {
+// If the machine ID supplied is non-empty, the
+// filesystem ID will incorporate it as the
+// filesystem's machine scope.
+func newFilesystemId(st *State, machineId string) (string, error) {
 	seq, err := st.sequence("filesystem")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return fmt.Sprint(seq), nil
+	id := fmt.Sprint(seq)
+	if machineId != "" {
+		id = machineId + "/" + id
+	}
+	return id, nil
 }
 
 // addFilesystemOps returns txn.Ops to create a new filesystem with the
 // specified parameters. If the storage source cannot create filesystems
 // directly, a volume will be created and Juju will manage a filesystem
 // on it.
-func (st *State) addFilesystemOps(params FilesystemParams) ([]txn.Op, names.FilesystemTag, names.VolumeTag, error) {
+func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]txn.Op, names.FilesystemTag, names.VolumeTag, error) {
 	params, err := st.filesystemParamsWithDefaults(params)
 	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Trace(err)
 	}
-	if err := st.validateFilesystemParams(&params); err != nil {
+	machineId, err = st.validateFilesystemParams(params, machineId)
+	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Annotate(err, "validating filesystem params")
 	}
 
@@ -312,7 +320,7 @@ func (st *State) addFilesystemOps(params FilesystemParams) ([]txn.Op, names.File
 			params.Pool,
 			params.Size,
 		}
-		volumeOp, volumeTag, err = st.addVolumeOp(volumeParams)
+		volumeOp, volumeTag, err = st.addVolumeOp(volumeParams, machineId)
 		if err != nil {
 			return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Annotate(err, "creating backing volume")
 		}
@@ -320,7 +328,7 @@ func (st *State) addFilesystemOps(params FilesystemParams) ([]txn.Op, names.File
 		ops = append(ops, volumeOp)
 	}
 
-	id, err := newFilesystemId(st)
+	id, err := newFilesystemId(st, machineId)
 	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Annotate(err, "cannot generate filesystem name")
 	}
@@ -355,15 +363,17 @@ func (st *State) filesystemParamsWithDefaults(params FilesystemParams) (Filesyst
 	return params, nil
 }
 
-func (st *State) validateFilesystemParams(params *FilesystemParams) error {
-	err := validateStoragePool(st, params.Pool, storage.StorageKindFilesystem)
+// validateFilesystemParams validates the filesystem parameters, and returns the
+// machine ID to use as the scope in the filesystem tag.
+func (st *State) validateFilesystemParams(params FilesystemParams, machineId string) (maybeMachineId string, _ error) {
+	err := validateStoragePool(st, params.Pool, storage.StorageKindFilesystem, &machineId)
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	if params.Size == 0 {
-		return errors.New("invalid size 0")
+		return "", errors.New("invalid size 0")
 	}
-	return nil
+	return machineId, nil
 }
 
 // createMachineFilesystemAttachmentInfo creates filesystem

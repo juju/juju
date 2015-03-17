@@ -324,7 +324,7 @@ lxc.network.link = nic42
 lxc.network.flags = up
 lxc.network.name = eth0
 lxc.network.hwaddr = aa:bb:cc:dd:ee:f0
-lxc.network.ipv4 = 0.1.2.3/20
+lxc.network.ipv4 = 0.1.2.3/32
 lxc.network.ipv4.gateway = 0.1.2.1
 lxc.network.mtu = 4321
 
@@ -371,7 +371,7 @@ lxc.network.type = bar
 lxc.network.flags = up
 lxc.network.name = em0
 lxc.network.hwaddr = ff:ee:dd:cc:bb:aa
-lxc.network.ipv4 = 0.1.2.3/20
+lxc.network.ipv4 = 0.1.2.3/32
 lxc.network.ipv4.gateway = 0.1.2.1
 lxc.network.mtu = 1234
 
@@ -765,6 +765,7 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 		true,
 		true,
 		&containertesting.MockURLGetter{},
+		false,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(template.Name(), gc.Equals, name)
@@ -800,13 +801,23 @@ func (s *LxcSuite) TestShutdownInitScript(c *gc.C) {
 	script, err := lxc.ShutdownInitScript(service.InitSystemUpstart)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(script, gc.Equals, `
+	c.Check(script, jc.DeepEquals, `
 cat >> /etc/init/juju-template-restart.conf << 'EOF'
 description "juju shutdown job"
 author "Juju Team <juju@lists.ubuntu.com>"
 start on stopped cloud-final
 
 script
+  /bin/cat > /etc/network/interfaces << EOC
+# loopback interface
+auto lo
+iface lo inet loopback
+
+# primary interface
+auto eth0
+iface eth0 inet dhcp
+EOC
+  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log /var/log/upstart/*.log
   /sbin/shutdown -h now
 end script
 
@@ -1097,7 +1108,7 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.flags = up",
 			"lxc.network.name = eth1",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
-			"lxc.network.ipv4 = 0.1.2.3/20",
+			"lxc.network.ipv4 = 0.1.2.3/32",
 			"lxc.network.ipv4.gateway = 0.1.2.1",
 			"lxc.network.mtu = 9000",
 
@@ -1118,10 +1129,9 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.flags = up",
 			"lxc.network.name = eth1",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
-			"lxc.network.ipv4 = 0.1.2.3/24",
+			"lxc.network.ipv4 = 0.1.2.3/32",
 			"lxc.network.ipv4.gateway = 0.1.2.1",
 		},
-		logContains: `WARNING juju.container.lxc invalid CIDR "" for interface "eth1", using /24 as fallback`,
 	}, {
 		config: container.BridgeNetworkConfig("foo", []network.InterfaceInfo{staticNICBadCIDR}),
 		nics:   []network.InterfaceInfo{staticNICBadCIDR},
@@ -1131,10 +1141,9 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.flags = up",
 			"lxc.network.name = eth1",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
-			"lxc.network.ipv4 = 0.1.2.3/24",
+			"lxc.network.ipv4 = 0.1.2.3/32",
 			"lxc.network.ipv4.gateway = 0.1.2.1",
 		},
-		logContains: `WARNING juju.container.lxc invalid CIDR "bad" for interface "eth1", using /24 as fallback`,
 	}, {
 		config: container.BridgeNetworkConfig("foo", []network.InterfaceInfo{staticNICNoAutoWithGW}),
 		nics:   []network.InterfaceInfo{staticNICNoAutoWithGW},
@@ -1143,7 +1152,7 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.link = foo",
 			"lxc.network.name = eth1",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
-			"lxc.network.ipv4 = 0.1.2.3/20",
+			"lxc.network.ipv4 = 0.1.2.3/32",
 		},
 		logContains: `WARNING juju.container.lxc not setting IPv4 gateway "0.1.2.1" for non-auto start interface "eth1"`,
 	}} {

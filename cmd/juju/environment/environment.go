@@ -32,6 +32,9 @@ func NewSuperCommand() cmd.Command {
 	environmentCmd.Register(envcmd.Wrap(&UnsetCommand{}))
 	environmentCmd.Register(&JenvCommand{})
 	environmentCmd.Register(envcmd.Wrap(&RetryProvisioningCommand{}))
+	environmentCmd.Register(envcmd.Wrap(&EnvSetConstraintsCommand{}))
+	environmentCmd.Register(envcmd.Wrap(&EnvGetConstraintsCommand{}))
+
 	if featureflag.Enabled(feature.JES) {
 		environmentCmd.Register(envcmd.Wrap(&CreateCommand{}))
 	}

@@ -67,6 +67,11 @@ func (s *tmpfsSuite) TestSupports(c *gc.C) {
 	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsTrue)
 }
 
+func (s *tmpfsSuite) TestScope(c *gc.C) {
+	p := s.tmpfsProvider(c)
+	c.Assert(p.Scope(), gc.Equals, storage.ScopeMachine)
+}
+
 func (s *tmpfsSuite) tmpfsFilesystemSource(c *gc.C) storage.FilesystemSource {
 	s.commands = &mockRunCommand{c: c}
 	return provider.TmpfsFilesystemSource(
