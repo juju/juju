@@ -790,8 +790,10 @@ func TranslateToLegacyAgentState(in, agentStatus Status) Status {
 	// three of the old ones: StatusPending, StatusStarted or StatusError.
 	// StatusMaintenance can be StatusPending before the start hook has been run
 	// we dont have enough information for that here so we go for started.
+	// TODO (perrito666) add more information to this function to make the conversion
+	// more accurate.
 	switch in {
-	case StatusWaiting:
+	case StatusWaiting, StatusUnknown:
 		if agentStatus == StatusIdle || agentStatus == StatusExecuting {
 			return StatusStarted
 		}
@@ -803,8 +805,8 @@ func TranslateToLegacyAgentState(in, agentStatus Status) Status {
 		return StatusStarted
 	case StatusActive, StatusBlocked:
 		return StatusStarted
-	case StatusUnknown, StatusTerminated:
-		return StatusError
+	case StatusTerminated:
+		return StatusStopped
 	}
 	return in
 }
