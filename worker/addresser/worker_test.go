@@ -4,10 +4,16 @@
 package addresser_test
 
 import (
-	"github.com/juju/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
+
+func TestPackage(t *stdtesting.T) {
+	coretesting.MgoTestPackage(t)
+}
 
 var _ = gc.Suite(&workerSuite{})
 
