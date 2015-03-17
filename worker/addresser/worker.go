@@ -73,7 +73,7 @@ func (a *addresserWorker) checkAddresses(ids []string) error {
 	return nil
 }
 
-func watchAddressesLoop(addresser addresserWorker, w state.StringsWatcher) (err error) {
+func watchAddressesLoop(addresser *addresserWorker, w state.StringsWatcher) (err error) {
 	defer func() {
 		if stopErr := w.Stop(); stopErr != nil {
 			if err == nil {
