@@ -30,18 +30,13 @@ const (
 
 var DefaultMaxCollectionBytes int
 
-const (
+func init() {
 	// See bug #1433116 - to avoid i386 overflow we have different
 	// defaults for i386 and other (64-bit) architectures.
-	defaultMaxCollectionBytesInt64 = 4 * 1024 * 1024 * 1024
-	defaultMaxCollectionBytesInt32 = math.MaxInt32
-)
-
-func init() {
 	if arch.NormaliseArch(runtime.GOARCH) == arch.I386 {
-		DefaultMaxCollectionBytes = defaultMaxCollectionBytesInt32
+		DefaultMaxCollectionBytes = math.MaxInt32
 	} else {
-		DefaultMaxCollectionBytes = defaultMaxCollectionBytesInt64
+		DefaultMaxCollectionBytes = 4 * 1024 * 1024 * 1024
 	}
 }
 
