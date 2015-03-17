@@ -1215,8 +1215,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 
 	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	// TODO(wallyworld) - worker is currently disabled even with feature flag
-	s.testMachineAgentRunsMachineStorageWorker(c, false, coretesting.LongWait)
+	s.testMachineAgentRunsMachineStorageWorker(c, true, coretesting.LongWait)
 }
 
 func (s *MachineSuite) testMachineAgentRunsMachineStorageWorker(c *gc.C, shouldRun bool, timeout time.Duration) {
@@ -1252,7 +1251,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	// TODO(wallyworld) - worker is currently disabled even with feature flag
-	s.testMachineAgentRunsEnvironStorageWorkers(c, false, coretesting.LongWait)
+	s.testMachineAgentRunsEnvironStorageWorkers(c, true, coretesting.LongWait)
 }
 
 func (s *MachineSuite) testMachineAgentRunsEnvironStorageWorkers(c *gc.C, shouldRun bool, timeout time.Duration) {
