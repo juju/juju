@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -131,9 +132,87 @@ func (s *serverSuite) TestBlockEnsureAvailabilityDeprecated(c *gc.C) {
 	s.AssertBlocked(c, err, "TestBlockEnsureAvailabilityDeprecated")
 	c.Assert(results.Results, gc.HasLen, 0)
 
-	machines, err := s.State.AllMachines() //there
+	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
+}
+
+func (s *serverSuite) TestEnvUsersInfo(c *gc.C) {
+	testAdmin := s.AdminUserTag(c)
+	owner, err := s.State.EnvironmentUser(testAdmin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	localUser1 := s.makeLocalEnvUser(c, "ralphdoe", "Ralph Doe")
+	localUser2 := s.makeLocalEnvUser(c, "samsmith", "Sam Smith")
+	remoteUser1 := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns"})
+	remoteUser2 := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw"})
+
+	results, err := s.client.EnvUserInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	expected := params.EnvUserInfoResults{
+		Results: []params.EnvUserInfoResult{
+			{
+				Result: &params.EnvUserInfo{
+					UserName:       owner.UserName(),
+					DisplayName:    owner.DisplayName(),
+					CreatedBy:      owner.UserName(),
+					DateCreated:    owner.DateCreated(),
+					LastConnection: owner.LastConnection(),
+				},
+			}, {
+				Result: &params.EnvUserInfo{
+					UserName:       "ralphdoe@local",
+					DisplayName:    "Ralph Doe",
+					CreatedBy:      owner.UserName(),
+					DateCreated:    localUser1.DateCreated(),
+					LastConnection: localUser1.LastConnection(),
+				},
+			}, {
+				Result: &params.EnvUserInfo{
+					UserName:       "samsmith@local",
+					DisplayName:    "Sam Smith",
+					CreatedBy:      owner.UserName(),
+					DateCreated:    localUser2.DateCreated(),
+					LastConnection: localUser2.LastConnection(),
+				},
+			}, {
+				Result: &params.EnvUserInfo{
+					UserName:       "bobjohns@ubuntuone",
+					DisplayName:    "Bob Johns",
+					CreatedBy:      owner.UserName(),
+					DateCreated:    remoteUser1.DateCreated(),
+					LastConnection: remoteUser1.LastConnection(),
+				},
+			}, {
+				Result: &params.EnvUserInfo{
+					UserName:       "nicshaw@idprovider",
+					DisplayName:    "Nic Shaw",
+					CreatedBy:      owner.UserName(),
+					DateCreated:    remoteUser2.DateCreated(),
+					LastConnection: remoteUser2.LastConnection(),
+				},
+			}},
+	}
+
+	sort.Sort(ByUserName(expected.Results))
+	sort.Sort(ByUserName(results.Results))
+	c.Assert(results, jc.DeepEquals, expected)
+}
+
+// ByUserName implements sort.Interface for []params.EnvUserInfoResult based on
+// the UserName field.
+type ByUserName []params.EnvUserInfoResult
+
+func (a ByUserName) Len() int           { return len(a) }
+func (a ByUserName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByUserName) Less(i, j int) bool { return a[i].Result.UserName < a[j].Result.UserName }
+
+func (s *serverSuite) makeLocalEnvUser(c *gc.C, username, displayname string) *state.EnvironmentUser {
+	// factory.MakeUser will create an EnvUser for a local user by defalut
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: username, DisplayName: displayname})
+	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	return envUser
 }
 
 func (s *serverSuite) TestShareEnvironmentAddMissingLocalFails(c *gc.C) {

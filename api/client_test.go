@@ -111,6 +111,36 @@ func (s *clientSuite) TestClientEnvironmentUUID(c *gc.C) {
 	c.Assert(client.EnvironmentUUID(), gc.Equals, environ.Tag().Id())
 }
 
+func (s *clientSuite) TestClientEnvironmentUsers(c *gc.C) {
+	client := s.APIState.Client()
+	cleanup := api.PatchClientFacadeCall(client,
+		func(request string, paramsIn interface{}, response interface{}) error {
+			c.Assert(paramsIn, gc.IsNil)
+			if response, ok := response.(*params.EnvUserInfoResults); ok {
+				response.Results = []params.EnvUserInfoResult{
+					{Result: &params.EnvUserInfo{UserName: "one"}},
+					{Result: &params.EnvUserInfo{UserName: "two"}},
+					{Result: &params.EnvUserInfo{UserName: "three"}},
+				}
+			} else {
+				c.Log("wrong output structure")
+				c.Fail()
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+
+	obtained, err := client.EnvironmentUserInfo()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(obtained, jc.DeepEquals, []params.EnvUserInfo{
+		{UserName: "one"},
+		{UserName: "two"},
+		{UserName: "three"},
+	})
+}
+
 func (s *clientSuite) TestShareEnvironmentExistingUser(c *gc.C) {
 	client := s.APIState.Client()
 	user := s.Factory.MakeEnvUser(c, nil)

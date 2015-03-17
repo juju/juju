@@ -5,13 +5,15 @@ package featuretests
 
 import (
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/juju"
-	"github.com/juju/juju/juju/testing"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type apiEnvironmentSuite struct {
@@ -64,4 +66,30 @@ func (s *apiEnvironmentSuite) TestEnvironmentUnshare(c *gc.C) {
 	envUser, err = s.State.EnvironmentUser(user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 	c.Assert(envUser, gc.IsNil)
+}
+
+func (s *apiEnvironmentSuite) TestEnvironmentUserInfo(c *gc.C) {
+	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns"})
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	owner, err := s.State.EnvironmentUser(env.Owner())
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtained, err := s.client.EnvironmentUserInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, []params.EnvUserInfo{
+		{
+			UserName:       owner.UserName(),
+			DisplayName:    owner.DisplayName(),
+			CreatedBy:      owner.UserName(),
+			DateCreated:    owner.DateCreated(),
+			LastConnection: owner.LastConnection(),
+		}, {
+			UserName:       "bobjohns@ubuntuone",
+			DisplayName:    "Bob Johns",
+			CreatedBy:      owner.UserName(),
+			DateCreated:    envUser.DateCreated(),
+			LastConnection: envUser.LastConnection(),
+		},
+	})
 }
