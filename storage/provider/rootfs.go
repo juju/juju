@@ -31,8 +31,7 @@ var (
 
 // ValidateConfig is defined on the Provider interface.
 func (p *rootfsProvider) ValidateConfig(cfg *storage.Config) error {
-	// Rootfs provider has no configuration.
-	return nil
+	return ValidateConfig(p, cfg)
 }
 
 // validateFullConfig validates a fully-constructed storage config,

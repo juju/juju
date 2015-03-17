@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -831,7 +830,7 @@ func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.
 func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C) {
 	// Set up a persistent pool.
 	poolManager := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := poolManager.Create("persistent-pool", provider.LoopProviderType, map[string]interface{}{"persistent": true})
+	_, err := poolManager.Create("persistent-pool", "dummy", map[string]interface{}{"persistent": true})
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := s.newEnvironProvisioner(c)

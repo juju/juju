@@ -61,6 +61,14 @@ func (s *tmpfsSuite) TestValidateConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *tmpfsSuite) TestPersistentNotAllowed(c *gc.C) {
+	p := s.tmpfsProvider(c)
+	cfg, err := storage.NewConfig("name", provider.TmpfsProviderType, map[string]interface{}{"persistent": true})
+	c.Assert(err, jc.ErrorIsNil)
+	err = p.ValidateConfig(cfg)
+	c.Assert(err, gc.ErrorMatches, `machine scoped storage provider "name" does not support persistent storage`)
+}
+
 func (s *tmpfsSuite) TestSupports(c *gc.C) {
 	p := s.tmpfsProvider(c)
 	c.Assert(p.Supports(storage.StorageKindBlock), jc.IsFalse)
