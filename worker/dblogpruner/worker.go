@@ -4,11 +4,14 @@
 package dblogpruner
 
 import (
+	"math"
+	"runtime"
 	"time"
 
 	"github.com/juju/errors"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 )
@@ -21,12 +24,26 @@ type LogPruneParams struct {
 }
 
 const (
-	DefaultMaxLogAge = 3 * 24 * time.Hour
-	// See bug #1433116 - explictly casting to uint32 and then back to
-	// avoid overflowing on i386.
-	DefaultMaxCollectionBytes = int(uint32(4*1024*1024*1024 - 1))
-	DefaultPruneInterval      = 5 * time.Minute
+	DefaultMaxLogAge     = 3 * 24 * time.Hour
+	DefaultPruneInterval = 5 * time.Minute
 )
+
+var DefaultMaxCollectionBytes int
+
+const (
+	// See bug #1433116 - to avoid i386 overflow we have different
+	// defaults for i386 and other (64-bit) architectures.
+	defaultMaxCollectionBytesInt64 = 4 * 1024 * 1024 * 1024
+	defaultMaxCollectionBytesInt32 = math.MaxInt32
+)
+
+func init() {
+	if arch.NormaliseArch(runtime.GOARCH) == arch.I386 {
+		DefaultMaxCollectionBytes = defaultMaxCollectionBytesInt32
+	} else {
+		DefaultMaxCollectionBytes = defaultMaxCollectionBytesInt64
+	}
+}
 
 // NewLogPruneParams returns a LogPruneParams initialised with default
 // values.
