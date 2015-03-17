@@ -182,10 +182,10 @@ func identifyExecutable(executable string) (string, bool) {
 const DiscoverInitSystemScript = `#!/usr/bin/env bash
 
 function checkInitSystem() {
-    if [[ $1 == *"systemd"* ]]; then
+    if [[ $@ == *"systemd"* ]]; then
         echo -n systemd
         exit $?
-    elif [[ $1 == *"upstart"* ]]; then
+    elif [[ $@ == *"upstart"* ]]; then
         echo -n upstart
         exit $?
     fi
@@ -193,30 +193,28 @@ function checkInitSystem() {
 
 # Find the executable.
 executable=$(cat /proc/1/cmdline | awk -F"\0" '{print $1}')
-if [[ $? ]]; then
+if [[ ! $? ]]; then
     exit 1
 fi
 
 # Check the executable.
-checkInitSystem($executable)
+checkInitSystem $executable
 
 # First fall back to following symlinks.
 if [[ -L $executable ]]; then
     linked=$(readlink "$(executable)")
-    if [[ ! $? ]]; then
+    if [[ $? ]]; then
         executable=$linked
-    fi
 
-    # Check the linked executable.
-    checkInitSystem($executable)
+        # Check the linked executable.
+        checkInitSystem $linked
+    fi
 fi
 
 # Fall back to checking the "version" text.
 verText=$("${executable}" --version)
 if [[ $? ]]; then
-    exit 1
-else
-    checkInitSystem($verText)
+    checkInitSystem $verText
 fi
 
 # uh-oh
