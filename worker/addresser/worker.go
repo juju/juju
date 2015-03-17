@@ -32,7 +32,7 @@ func NewWorker(st *state.State) worker.Worker {
 	// wait for environment
 	go func() {
 		defer a.tomb.Done()
-		a.tomb.Kill(u.loop())
+		a.tomb.Kill(a.loop())
 	}()
 	return a
 }
@@ -42,7 +42,7 @@ func (a *addresserWorker) Kill() {
 }
 
 func (a *addresserWorker) Wait() error {
-	return u.tomb.Wait()
+	return a.tomb.Wait()
 }
 
 func (a *addresserWorker) loop() (err error) {
