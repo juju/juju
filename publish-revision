@@ -44,7 +44,7 @@ do
         fi
         echo "Building trusty amd64"
         $RELEASE_TOOLS/build-package-with-dsc.bash m1.large ami-b027efd8 $dsc
-        if [[ $BUILD_i386 == "true" ]]
+        if [[ $BUILD_i386 == "true" ]]; then
             echo "Building trusty i386"
             if [[ -n ${I386_SSH_OPTIONS:-} ]]; then
                 $RELEASE_TOOLS/build-package-with-dsc.bash ubuntu@i386-slave \
