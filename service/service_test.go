@@ -74,9 +74,9 @@ func (*serviceSuite) TestListServicesScript(c *gc.C) {
 	expected = append(expected, strings.Split(service.DiscoverInitSystemScript, "\n")...)
 	expected = append(expected, "EOF")
 	expected = append(expected, "chmod 0755 /tmp/discover_init_system.sh")
+	expected = append(expected, "init_system=$(/tmp/discover_init_system.sh)")
 	expected = append(expected, []string{
-		"init_system=$(/tmp/discover_init_system.sh) " +
-			`if [[ $init_system == "systemd" ]]; then ` +
+		`if [[ $init_system == "systemd" ]]; then ` +
 			`/bin/systemctl list-unit-files --no-legend --no-page -t service` +
 			` | grep -o -P '^\w[\S]*(?=\.service)'`,
 		`elif [[ $init_system == "upstart" ]]; then ` +
