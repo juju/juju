@@ -497,6 +497,7 @@ func AddLifeFieldOfIPAddresses(st *State) error {
 				life = Dead
 			}
 		}
+		logger.Debugf("adding life %q to address %q", life, address["value"])
 
 		ops = append(ops, txn.Op{
 			C:  ipaddressesC,
@@ -508,6 +509,7 @@ func AddLifeFieldOfIPAddresses(st *State) error {
 		address = nil
 	}
 	if err := iter.Err(); err != nil {
+		logger.Errorf("error fetched IP addresses: %v", err)
 		return errors.Trace(err)
 	}
 	return st.runRawTransaction(ops)
