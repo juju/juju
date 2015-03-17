@@ -1310,6 +1310,12 @@ func (st *State) WatchAPIHostPorts() NotifyWatcher {
 	return newEntityWatcher(st, stateServersC, apiHostPortsKey)
 }
 
+// WatchForJobsChanges returns a NotifyWatcher that notifies
+// when the set of jobs for machine change.
+func (st *State) WatchForJobsChanges(m names.MachineTag) NotifyWatcher {
+	return newEntityWatcher(st, jobsC, m.Id())
+}
+
 // WatchVolumeAttachment returns a watcher for observing changes
 // to a volume attachment.
 func (st *State) WatchVolumeAttachment(m names.MachineTag, v names.VolumeTag) NotifyWatcher {

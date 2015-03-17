@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
+	"github.com/juju/juju/api/converter"
 	"github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/diskformatter"
 	"github.com/juju/juju/api/diskmanager"
@@ -317,4 +318,9 @@ func (st *State) CharmRevisionUpdater() *charmrevisionupdater.State {
 // Rsyslog returns access to the Rsyslog API
 func (st *State) Rsyslog() *rsyslog.State {
 	return rsyslog.NewState(st)
+}
+
+// Converter returns access to the Converter API
+func (st *State) Converter() *converter.State {
+	return converter.NewState(st)
 }

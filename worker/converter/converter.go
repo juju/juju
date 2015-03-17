@@ -1,66 +1,53 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package converter
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
+	"launchpad.net/tomb"
 
-	"github.com/juju/juju/api/agent"
-	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/converter"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.converter")
 
-var _ worker.NotifyWatchHandler = (*UnitConverter)(nil)
-
-type Environment struct {
-	facade base.FacadeCaller
+// Converter ...
+type Converter struct {
+	tomb tomb.Tomb
+	st   *converter.State
+	tag  names.Tag
 }
 
-type UnitConverter struct {
-	entity    *agent.Entity
-	converter Converter
+type converterState interface {
+	WatchForJobsChanges(names.MachineTag) (watcher.NotifyWatcher, error)
 }
 
-type Converter interface {
-	WatchAPIHostPorts() (watcher.NotifyWatcher, error)
-}
-
-func NewUnitConverter(converter Converter, entity *agent.Entity) worker.Worker {
-	return worker.NewNotifyWorker(&UnitConverter{
-		converter: converter,
-		entity:    entity,
+// NewConverter ...
+func NewConverter(
+	st *converter.State,
+	agentConfig agent.Config,
+) worker.Worker {
+	return worker.NewNotifyWorker(&Converter{
+		st:  st,
+		tag: agentConfig.Tag(),
 	})
 }
 
-func (c *UnitConverter) checkForManageEnvironJob() bool {
-	logger.Infof("checking if unit has been converted")
-	for _, job := range c.entity.Jobs() {
-		if job.NeedsState() {
-			return true
-		}
-	}
-	return false
+func (c *Converter) SetUp() (watcher.NotifyWatcher, error) {
+	logger.Infof("Setting up Converter watcher.")
+	return c.st.WatchForJobsChanges(c.tag.String())
 }
 
-func (c *UnitConverter) SetUp() (watcher.NotifyWatcher, error) {
-	logger.Debugf("converter worker setup")
-	if c.checkForManageEnvironJob() {
-		return nil, errors.Errorf("already a state server, cannot convert")
-	}
-	return c.converter.WatchAPIHostPorts()
-}
-
-func (c *UnitConverter) Handle() error {
-	if c.checkForManageEnvironJob() {
-		logger.Debugf("we have been converted *sip kool-aid*")
-		return worker.ErrTerminateAgent
-	}
+func (c *Converter) Handle() (err error) {
+	logger.Infof("Jobs for %q have been changed. Check for ManageJob. Start conversion.", c.tag.String())
 	return nil
 }
 
-func (r *UnitConverter) TearDown() error {
-	// nothing to teardown.
+func (c *Converter) TearDown() error {
 	return nil
 }

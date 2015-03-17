@@ -1,72 +1,65 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package converter_test
 
 import (
-	"net"
+	"os"
+	"os/signal"
+	"runtime"
 	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/converter"
 )
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+	gc.TestingT(t)
 }
 
-type UnitConverterSuite struct {
-	jujutesting.JujuConnSuite
+var _ = gc.Suite(&ConverterSuite{})
+
+type ConverterSuite struct {
+	testing.BaseSuite
+	// c is a channel that will wait for the termination
+	// signal, to prevent signals terminating the process.
+	c chan os.Signal
 }
 
-var _ = gc.Suite(&UnitConverterSuite{})
+func (s *ConverterSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.c = make(chan os.Signal, 1)
+	signal.Notify(s.c, converter.TerminationSignal)
+}
 
-func (s *UnitConverterSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	err := s.State.SetAPIHostPorts(nil)
+func (s *ConverterSuite) TearDownTest(c *gc.C) {
+	close(s.c)
+	signal.Stop(s.c)
+	s.BaseSuite.TearDownTest(c)
+}
+
+func (s *ConverterSuite) TestStartStop(c *gc.C) {
+	w := converter.NewWorker()
+	w.Kill()
+	err := w.Wait()
 	c.Assert(err, jc.ErrorIsNil)
-	// By default mock these to better isolate the test from the real machine.
-	s.PatchValue(&network.InterfaceByNameAddrs, func(string) ([]net.Addr, error) {
-		return nil, nil
-	})
-	s.PatchValue(&network.LXCNetDefaultConfig, "")
 }
 
-func (s *UnitConverterSuite) TestStartStop(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker := converter.NewUnitConverter(st.Machiner(), &apiAddressSetter{})
-	worker.Kill()
-	c.Assert(worker.Wait(), gc.IsNil)
+func (s *ConverterSuite) TestSignal(c *gc.C) {
+	//TODO(bogdanteleaga): Inspect this further on windows
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: sending this signal is not supported on windows")
+	}
+	w := converter.NewWorker()
+	proc, err := os.FindProcess(os.Getpid())
+	c.Assert(err, jc.ErrorIsNil)
+	defer proc.Release()
+	err = proc.Signal(converter.TerminationSignal)
+	c.Assert(err, jc.ErrorIsNil)
+	err = w.Wait()
+	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }
-
-/*
-func (s *converterSuite) TestWorkerCatchesConverterEvent(c *gc.C) {
-	wrk, err := converter.NewConverter(s.converterState, s.AgentConfigForTag(c, s.machine.Tag()), s.lock)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.converterState.RequestConverter()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wrk.Wait(), gc.Equals, worker.ErrConverterMachine)
-}
-
-func (s *converterSuite) TestContainerCatchesParentFlag(c *gc.C) {
-	wrk, err := converter.NewConverter(s.ctConverterState, s.AgentConfigForTag(c, s.ct.Tag()), s.lock)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.converterState.RequestConverter()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wrk.Wait(), gc.Equals, worker.ErrShutdownMachine)
-}
-
-func (s *converterSuite) TestCleanupIsDoneOnBoot(c *gc.C) {
-	s.lock.Lock(converter.ConverterMessage)
-
-	wrk, err := converter.NewConverter(s.converterState, s.AgentConfigForTag(c, s.machine.Tag()), s.lock)
-	c.Assert(err, jc.ErrorIsNil)
-	wrk.Kill()
-	c.Assert(wrk.Wait(), gc.IsNil)
-
-	c.Assert(s.lock.IsLocked(), jc.IsFalse)
-}
-*/

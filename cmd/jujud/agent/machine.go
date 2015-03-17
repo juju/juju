@@ -63,6 +63,7 @@ import (
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevisionworker"
 	"github.com/juju/juju/worker/cleaner"
+	"github.com/juju/juju/worker/converter"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskformatter"
 	"github.com/juju/juju/worker/diskmanager"
@@ -589,6 +590,12 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	// All other workers must wait for the upgrade steps to complete before starting.
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
 		return a.postUpgradeAPIWorker(st, agentConfig, entity)
+	})
+	a.startWorkerAfterUpgrade(runner, "converter", func() (worker.Worker, error) {
+		return converter.NewConverter(
+			st.Converter(),
+			agentConfig,
+		), nil
 	})
 
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
