@@ -85,6 +85,10 @@ type VolumeSource interface {
 	// AttachVolumes attaches the volumes with the specified provider
 	// volume IDs to the instances with the corresponding index.
 	//
+	// AttachVolumes must be idempotent; it may be called even if the
+	// attachment already exists, to ensure that it exists, e.g. over
+	// machine restarts.
+	//
 	// TODO(axw) we need to validate attachment requests prior to
 	// recording in state. For example, the ec2 provider must reject
 	// an attempt to attach a volume to an instance if they are in
@@ -131,7 +135,8 @@ type VolumeParams struct {
 	Provider ProviderType
 
 	// Attributes is the set of provider-specific attributes to pass to
-	// the storage provider when creating the volume.
+	// the storage provider when creating the volume. Attributes is derived
+	// from the storage pool configuration.
 	Attributes map[string]interface{}
 
 	// Attachment identifies the machine that the volume should be attached
@@ -164,6 +169,10 @@ type VolumeAttachmentParams struct {
 // AttachmentParams describes the parameters for attaching a volume or
 // filesystem to a machine.
 type AttachmentParams struct {
+	// Provider is the name of the storage provider that is to be used to
+	// create the attachment.
+	Provider ProviderType
+
 	// Machine is the tag of the Juju machine that the storage should be
 	// attached to. Storage providers may use this to perform machine-
 	// specific operations, such as configuring access controls for the

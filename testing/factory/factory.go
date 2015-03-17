@@ -155,7 +155,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	if !params.NoEnvUser {
-		_, err := factory.st.AddEnvironmentUser(user.UserTag(), names.NewUserTag(user.CreatedBy()))
+		_, err := factory.st.AddEnvironmentUser(user.UserTag(), names.NewUserTag(user.CreatedBy()), params.DisplayName)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	if params.Disabled {
@@ -177,12 +177,16 @@ func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.Envir
 		user := factory.MakeUser(c, &UserParams{NoEnvUser: true})
 		params.User = user.UserTag().Username()
 	}
+	if params.DisplayName == "" {
+		params.DisplayName = uniqueString("display name")
+	}
 	if params.CreatedBy == nil {
-		user := factory.MakeUser(c, nil)
-		params.CreatedBy = user.UserTag()
+		env, err := factory.st.Environment()
+		c.Assert(err, jc.ErrorIsNil)
+		params.CreatedBy = env.Owner()
 	}
 	createdByUserTag := params.CreatedBy.(names.UserTag)
-	envUser, err := factory.st.AddEnvironmentUser(names.NewUserTag(params.User), createdByUserTag)
+	envUser, err := factory.st.AddEnvironmentUser(names.NewUserTag(params.User), createdByUserTag, params.DisplayName)
 	c.Assert(err, jc.ErrorIsNil)
 	return envUser
 }

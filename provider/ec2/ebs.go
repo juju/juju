@@ -46,6 +46,7 @@ type ebsProvider struct{}
 var _ storage.Provider = (*ebsProvider)(nil)
 
 var validConfigOptions = set.NewStrings(
+	storage.Persistent,
 	EBS_VolumeType,
 	EBS_IOPS,
 	EBS_Encrypted,
