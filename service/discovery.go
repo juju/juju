@@ -232,25 +232,25 @@ EOF`[1:], filename, DiscoverInitSystemScript),
 	}
 }
 
-const caseLine = "%sif [[ $init_system == %q ]]; then %s\n"
+const caseLine = "%sif [[ $%s == %q ]]; then %s\n"
 
 // newShellSelectCommand creates a bash if statement with an if
 // (or elif) clause for each of the executables in linuxExecutables.
 // The body of each clause comes from calling the provided handler with
 // the init system name. If the handler does not support the args then
 // it returns a false "ok" value.
-func newShellSelectCommand(discoverScript string, handler func(string) (string, bool)) string {
+func newShellSelectCommand(envVarName string, handler func(string) (string, bool)) string {
 	// TODO(ericsnow) Build the command in a better way?
 	// TODO(ericsnow) Use a case statement?
 
-	prefix := "init_system=$(" + discoverScript + ") "
+	prefix := ""
 	lines := ""
 	for _, initSystem := range linuxInitSystems {
 		cmd, ok := handler(initSystem)
 		if !ok {
 			continue
 		}
-		lines += fmt.Sprintf(caseLine, prefix, initSystem, cmd)
+		lines += fmt.Sprintf(caseLine, prefix, envVarName, initSystem, cmd)
 
 		if prefix != "el" {
 			prefix = "el"
