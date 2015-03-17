@@ -304,9 +304,9 @@ func (s *LxcSuite) TestUpdateContainerConfig(c *gc.C) {
 	extraLines := []string{
 		"  lxc.rootfs =  /some/thing  # else ",
 		"",
-		"  # just comment  ",
+		"  # just comment",
 		"lxc.network.vlan.id=42",
-		"something else  # ignore  ",
+		"something else  # ignore",
 		"lxc.network.type=veth",
 		"lxc.network.link = foo  # comment",
 		"lxc.network.hwaddr = bar",
