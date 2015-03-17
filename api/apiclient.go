@@ -184,9 +184,8 @@ func Connect(info *Info, opts DialOpts) (*websocket.Conn, error) {
 	if info.EnvironTag.Id() != "" {
 		environUUID = info.EnvironTag.Id()
 	}
-	// Dial all addresses at reasonable intervals.
-	try := parallel.NewTry(0, nil)
-	defer try.Kill()
+
+	// If they exist, only use localhost addresses.
 	var addrs []string
 	for _, addr := range info.Addrs {
 		if strings.HasPrefix(addr, "localhost:") {
@@ -197,6 +196,10 @@ func Connect(info *Info, opts DialOpts) (*websocket.Conn, error) {
 	if len(addrs) == 0 {
 		addrs = info.Addrs
 	}
+
+	// Dial all addresses at reasonable intervals.
+	try := parallel.NewTry(0, nil)
+	defer try.Kill()
 	for _, addr := range addrs {
 		err := dialWebsocket(addr, environUUID, opts, pool, try)
 		if err == parallel.ErrStopped {
