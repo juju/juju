@@ -20,9 +20,13 @@ type LogPruneParams struct {
 	PruneInterval      time.Duration
 }
 
-const DefaultMaxLogAge = 3 * 24 * time.Hour
-const DefaultMaxCollectionBytes = int(uint32(4*1024*1024*1024 - 1))
-const DefaultPruneInterval = 5 * time.Minute
+const (
+	DefaultMaxLogAge = 3 * 24 * time.Hour
+	// See bug #1433116 - explictly casting to uint32 and then back to
+	// avoid overflowing on i386.
+	DefaultMaxCollectionBytes = int(uint32(4*1024*1024*1024 - 1))
+	DefaultPruneInterval      = 5 * time.Minute
+)
 
 // NewLogPruneParams returns a LogPruneParams initialised with default
 // values.
