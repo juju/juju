@@ -195,6 +195,7 @@ func (manager *containerManager) CreateContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,
 	networkConfig *container.NetworkConfig,
+	storageConfig *container.StorageConfig,
 ) (inst instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 	// Check our preconditions
 	if manager == nil {
@@ -203,6 +204,8 @@ func (manager *containerManager) CreateContainer(
 		panic("series not set")
 	} else if networkConfig == nil {
 		panic("networkConfig is nil")
+	} else if storageConfig == nil {
+		panic("storageConfig is nil")
 	}
 
 	// Log how long the start took
@@ -317,6 +320,12 @@ func (manager *containerManager) CreateContainer(
 	}
 	if err := mountHostLogDir(name, manager.logdir); err != nil {
 		return nil, nil, errors.Annotate(err, "failed to mount the directory to log to")
+	}
+	if storageConfig.AllowMount {
+		// Add config to allow loop devices to be mounted inside the container.
+		if err := allowLoopbackBlockDevices(name); err != nil {
+			return nil, nil, errors.Annotate(err, "failed to configure the container for loopback devices")
+		}
 	}
 	// Update the network settings inside the run-time config of the
 	// container (e.g. /var/lib/lxc/<name>/config) before starting it.
@@ -752,6 +761,15 @@ func mountHostLogDir(name, logDir string) error {
 		"lxc.mount.entry = %s var/log/juju none defaults,bind 0 0\n",
 		logDir)
 	return appendToContainerConfig(name, line)
+}
+
+func allowLoopbackBlockDevices(name string) error {
+	const allowLoopDevicesCfg = `
+lxc.aa_profile = lxc-container-default-with-mounting
+lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = c 10:237 rwm
+`
+	return appendToContainerConfig(name, allowLoopDevicesCfg)
 }
 
 func (manager *containerManager) DestroyContainer(id instance.Id) error {

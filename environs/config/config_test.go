@@ -197,6 +197,27 @@ var configTests = []configTest{
 			"lxc-clone":     true,
 		},
 	}, {
+		about:       "Allow LXC loop mounts true",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"allow-lxc-loop-mounts": "true",
+		},
+	}, {
+		about:       "Allow LXC loop mounts default",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"allow-lxc-loop-mounts": "false",
+		},
+		expected: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"allow-lxc-loop-mounts": false,
+		},
+	}, {
 		about:       "CA cert & key from path",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -1345,6 +1366,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["lxc-clone-aufs"] = false
 	attrs["prefer-ipv6"] = false
 	attrs["set-numa-control-policy"] = false
+	attrs["allow-lxc-loop-mounts"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
