@@ -316,10 +316,37 @@ func (s *discoverySuite) TestDiscoverInitSystemScript(c *gc.C) {
 		c.Skip("not supported on windows")
 	}
 
+	script, filename := s.newDiscoverInitSystemScript(c)
+	script += filename
+	response, err := exec.RunCommands(exec.RunParams{
+		Commands: script,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	initSystem, err := service.DiscoverInitSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(response.Code, gc.Equals, 0)
+	c.Check(string(response.Stdout), gc.Equals, initSystem)
+	c.Check(string(response.Stderr), gc.Equals, "")
+}
+
+func (s *discoverySuite) newDiscoverInitSystemScript(c *gc.C) (string, string) {
 	filename := filepath.Join(c.MkDir(), "discover_init_system.sh")
 	commands := service.WriteDiscoverInitSystemScript(filename)
-	script := strings.Join(commands, "\n")
-	script += "\n" + filename
+	script := strings.Join(commands, "\n") + "\n"
+	return script, filename
+}
+
+func (s *discoverySuite) TestNewShellSelectCommand(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("not supported on windows")
+	}
+
+	script, filename := s.newDiscoverInitSystemScript(c)
+	handler := func(initSystem string) (string, bool) {
+		return "echo " + initSystem, true
+	}
+	script += service.NewShellSelectCommand(filename, handler)
 	response, err := exec.RunCommands(exec.RunParams{
 		Commands: script,
 	})
