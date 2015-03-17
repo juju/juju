@@ -21,7 +21,7 @@ type LogPruneParams struct {
 }
 
 const DefaultMaxLogAge = 3 * 24 * time.Hour
-const DefaultMaxCollectionBytes = 4 * 1024 * 1024 * 1024
+const DefaultMaxCollectionBytes = int(uint32(4*1024*1024*1024 - 1))
 const DefaultPruneInterval = 5 * time.Minute
 
 // NewLogPruneParams returns a LogPruneParams initialised with default
