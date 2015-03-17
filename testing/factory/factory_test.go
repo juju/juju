@@ -144,14 +144,15 @@ func (s *factorySuite) TestMakeEnvUserPartialParams(c *gc.C) {
 func (s *factorySuite) TestMakeEnvUserParams(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	s.Factory.MakeUser(c, &factory.UserParams{
-		Name:        "foobar",
-		DisplayName: "Foo Bar",
-		Creator:     names.NewUserTag("createdby"),
-		NoEnvUser:   true,
+		Name:      "foobar",
+		Creator:   names.NewUserTag("createdby"),
+		NoEnvUser: true,
 	})
+
 	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
-		User:      "foobar",
-		CreatedBy: names.NewUserTag("createdby"),
+		User:        "foobar",
+		CreatedBy:   names.NewUserTag("createdby"),
+		DisplayName: "Foo Bar",
 	})
 
 	saved, err := s.State.EnvironmentUser(envUser.UserTag())
