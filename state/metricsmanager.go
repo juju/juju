@@ -182,7 +182,7 @@ func (m *MetricsManager) gracePeriodExceeded() bool {
 }
 
 // MeterStatus returns the overall state of the MetricsManager as a meter status summary.
-func (m *MetricsManager) MeterStatus() (string, string) {
+func (m *MetricsManager) MeterStatus() (MeterStatusCode, string) {
 	if m.ConsecutiveErrors() < metricsManagerConsecutiveErrorThreshold {
 		return MeterGreen, "ok"
 	}
