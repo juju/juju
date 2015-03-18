@@ -51,9 +51,9 @@ func (b *backups) Restore(backupId string, args RestoreArgs) error {
 		return errors.Annotate(err, "cannot obtain system files from backup")
 	}
 
-	if err := updateBackupMachineTag(backupMachine, args.NewInstTag); err != nil {
-		return errors.Annotate(err, "cannot update paths to reflect current machine id")
-	}
+	//if err := updateBackupMachineTag(backupMachine, args.NewInstTag); err != nil {
+	//	return errors.Annotate(err, "cannot update paths to reflect current machine id")
+	//}
 
 	var agentConfig agent.ConfigSetterWriter
 	// The path for the config file might change if the tag changed
@@ -62,7 +62,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot determine DataDir for the restored machine")
 	}
-	agentConfigFile := agent.ConfigPath(datadir, args.NewInstTag)
+	agentConfigFile := agent.ConfigPath(datadir, backupMachine)
 	if agentConfig, err = agent.ReadConfig(agentConfigFile); err != nil {
 		return errors.Annotate(err, "cannot load agent config from disk")
 	}
@@ -71,7 +71,6 @@ func (b *backups) Restore(backupId string, args RestoreArgs) error {
 		return errors.Errorf("cannot determine state serving info")
 	}
 	// The machine tag might have changed, we update it.
-	agentConfig.SetValue("tag", args.NewInstTag.String())
 	APIHostPort := network.HostPort{
 		Address: network.Address{
 			Value: args.PrivateAddress,
@@ -117,7 +116,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) error {
 	}
 	defer st.Close()
 
-	machine, err := st.Machine(args.NewInstTag.Id())
+	machine, err := st.Machine(backupMachine.Id())
 	if err != nil {
 		return errors.Trace(err)
 	}

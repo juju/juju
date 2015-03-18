@@ -74,6 +74,27 @@ func newDialInfo(privateAddr string, conf agent.Config) (*mgo.DialInfo, error) {
 	}
 	dialInfo.Username = "admin"
 	dialInfo.Password = conf.OldPassword()
+	if dialInfo.Password == "" {
+		dialInfo.Password, err = utils.RandomPassword()
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot generate mongo admin user passsword")
+		}
+		userParams := mongo.EnsureAdminUserParams{
+			DialInfo:  dialInfo,
+			Namespace: conf.Value(agent.Namespace),
+			DataDir:   conf.DataDir(),
+			Port:      ssi.StatePort,
+			User:      "admin",
+			Password:  dialInfo.Password,
+		}
+		added, err := mongo.EnsureAdminUser(userParams)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot find or generate admin user")
+		}
+		if !added {
+			return nil, errors.Errorf("cannot obtain admin access to mongo")
+		}
+	}
 	return dialInfo, nil
 }
 
@@ -89,8 +110,7 @@ func updateMongoEntries(newInstId instance.Id, newMachineId, oldMachineId string
 	// TODO(perrito666): Take the Machine id from an autoritative source
 	err = session.DB("juju").C("machines").Update(
 		bson.M{"machineid": oldMachineId},
-		bson.M{"$set": bson.M{"instanceid": string(newInstId),
-			"machineid": newMachineId}},
+		bson.M{"$set": bson.M{"instanceid": string(newInstId)}},
 	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot update machine %s instance information", newMachineId)
