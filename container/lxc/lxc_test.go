@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
@@ -808,12 +809,12 @@ lxc.network.mtu = 4321
 	return template
 }
 
-func (s *LxcSuite) TestShutdownInitScript(c *gc.C) {
-	script, err := lxc.ShutdownInitScript(service.InitSystemUpstart)
+func (s *LxcSuite) TestShutdownInitCommandsUpstart(c *gc.C) {
+	cmds, err := lxc.ShutdownInitCommands(service.InitSystemUpstart)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(script, jc.DeepEquals, `
-cat >> /etc/init/juju-template-restart.conf << 'EOF'
+	filename := "/etc/init/juju-template-restart.conf"
+	script := `
 description "juju shutdown job"
 author "Juju Team <juju@lists.ubuntu.com>"
 start on stopped cloud-final
@@ -835,9 +836,45 @@ end script
 post-stop script
   rm /etc/init/juju-template-restart.conf
 end script
+`[1:]
+	c.Check(cmds, gc.HasLen, 1)
+	coretesting.CheckWriteFileCommand(c, cmds[0], filename, script, nil)
+}
 
-EOF
-`[1:])
+func (s *LxcSuite) TestShutdownInitCommandsSystemd(c *gc.C) {
+	commands, err := lxc.ShutdownInitCommands(service.InitSystemSystemd)
+	c.Assert(err, jc.ErrorIsNil)
+
+	test := systemd.WriteConfTest{
+		Service: "juju-template-restart",
+		DataDir: "/var/lib/juju",
+		Expected: `
+[Unit]
+Description=juju shutdown job
+After=syslog.target
+After=network.target
+After=systemd-user-sessions.service
+After=cloud-final
+Conflicts=cloud-final
+
+[Service]
+ExecStart=/var/lib/juju/init/juju-template-restart/exec-start.sh
+ExecStopPost=/bin/systemctl disable juju-template-restart.service
+`[1:],
+		Script: `
+/bin/cat > /etc/network/interfaces << EOC
+# loopback interface
+auto lo
+iface lo inet loopback
+
+# primary interface
+auto eth0
+iface eth0 inet dhcp
+EOC
+  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log /var/log/upstart/*.log
+  /sbin/shutdown -h now`[1:],
+	}
+	test.CheckCommands(c, commands)
 }
 
 func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplate(c *gc.C) {
