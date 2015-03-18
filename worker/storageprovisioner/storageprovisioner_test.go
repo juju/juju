@@ -30,10 +30,9 @@ func (s *storageProvisionerSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
-	changes := make(chan []string)
 	worker := storageprovisioner.NewStorageProvisioner(
 		"dir",
-		newMockVolumeAccessor(changes, nil, nil),
+		newMockVolumeAccessor(),
 		&mockLifecycleManager{},
 	)
 	worker.Kill()
