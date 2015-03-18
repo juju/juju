@@ -22,7 +22,7 @@ func CheckWriteFileCommand(c *gc.C, cmd, filename, expected string, parse func(l
 		}
 	}
 
-	lines := strings.Split(cmd, "\n")
+	lines := strings.Split(strings.TrimSpace(cmd), "\n")
 	header := lines[0]
 	footer := lines[len(lines)-1]
 	parsed := parse(lines[1 : len(lines)-1])
