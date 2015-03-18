@@ -29,8 +29,7 @@ type Stub struct {
 	PID1Filename string
 	Executable   string
 	Service      Service
-	FileInfo     os.FileInfo
-	Linked       string
+	NotASymlink  string
 }
 
 // GetVersion stubs out .
@@ -74,18 +73,11 @@ func (s *Stub) DiscoverService(name string) (Service, error) {
 	return s.Service, s.NextErr()
 }
 
-// LStat stubs out os.LStat.
-func (s *Stub) Lstat(filename string) (os.FileInfo, error) {
-	s.AddCall("Lstat", filename)
+// EvalSymlinks stubs out filepath.EvalSymlinks.
+func (s *Stub) EvalSymlinks(filename string) (string, error) {
+	s.AddCall("EvalSymlinks", filename)
 
-	return s.FileInfo, s.NextErr()
-}
-
-// DiscoverService stubs out service.DiscoverService.
-func (s *Stub) Readlink(filename string) (string, error) {
-	s.AddCall("Readlink", filename)
-
-	return s.Linked, s.NextErr()
+	return s.NotASymlink, s.NextErr()
 }
 
 // TODO(ericsnow) StubFileInfo belongs in utils/fs.
@@ -174,16 +166,9 @@ func (s *BaseSuite) PatchPid1File(c *gc.C, executable, verText string) string {
 	return exeName
 }
 
-func (s *BaseSuite) PatchLink(c *gc.C, linked string) {
-	s.Patched.FileInfo = &StubSymlinkInfo{}
-	s.PatchValue(&osLstat, s.Patched.Lstat)
-
-	s.Patched.Linked = linked
-	s.PatchValue(&osReadlink, s.Patched.Readlink)
-}
-
-func (s *BaseSuite) UnpatchLink(c *gc.C) {
-	s.Patched.FileInfo = &StubFileInfo{}
+func (s *BaseSuite) PatchLink(c *gc.C, executable string) {
+	s.Patched.NotASymlink = executable
+	s.PatchValue(&evalSymlinks, s.Patched.EvalSymlinks)
 }
 
 func (s *BaseSuite) resolveExecutable(executable string) string {
