@@ -86,7 +86,7 @@ func (dt discoveryTest) log(c *gc.C) {
 func (dt discoveryTest) disableLocalDiscovery(c *gc.C, s *discoverySuite) {
 	s.PatchGOOS("<another OS>")
 	s.PatchPid1File(c, unknownExecutable, "")
-	s.UnpatchLink(c)
+	s.Patched.NotASymlink = unknownExecutable
 }
 
 func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
@@ -102,10 +102,10 @@ func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) string {
 		s.PatchLink(c, exec)
 		exec = dt.link
 	} else {
-		s.UnpatchLink(c)
+		s.Patched.NotASymlink = exec
 	}
 	verText := "..." + dt.expected + "..."
-	return s.PatchPid1File(c, dt.executable(c), verText)
+	return s.PatchPid1File(c, exec, verText)
 }
 
 func (dt discoveryTest) setVersion(s *discoverySuite) version.Binary {

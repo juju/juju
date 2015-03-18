@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -103,8 +104,7 @@ const pid1 = "/proc/1/cmdline"
 var (
 	runtimeOS    = func() string { return runtime.GOOS }
 	pid1Filename = func() string { return pid1 }
-	osLstat      = os.Lstat
-	osReadlink   = os.Readlink
+	evalSymlinks = filepath.EvalSymlinks
 
 	initExecutable = func() (string, error) {
 		pid1File := pid1Filename()
@@ -130,8 +130,7 @@ func discoverLocalInitSystem() (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	followLink := true
-	initName, ok := identifyInitSystem(executable, followLink)
+	initName, ok := identifyInitSystem(executable)
 	if !ok {
 		return "", errors.NotFoundf("init system (based on %q)", executable)
 	}
@@ -139,36 +138,21 @@ func discoverLocalInitSystem() (string, error) {
 	return initName, nil
 }
 
-func identifyInitSystem(executable string, followLink bool) (string, bool) {
+func identifyInitSystem(executable string) (string, bool) {
 	initSystem, ok := identifyExecutable(executable)
 	if ok {
 		return initSystem, true
 	}
 
-	fInfo, err := osLstat(executable)
-	if os.IsNotExist(err) {
-		return "", false
-	} else if err != nil {
+	// First fall back to following symlinks (if any).
+	executable, err := evalSymlinks(executable)
+	if err != nil {
 		logger.Errorf("failed to find %q: %v", executable, err)
-		if followLink {
-			return "", false
-		}
-		// The stat check is just an optimization so we go on anyway.
+		return "", false
 	}
-
-	// First fall back to following symlinks.
-	if followLink && (fInfo.Mode()&os.ModeSymlink) != 0 {
-		linked, err := osReadlink(executable)
-		if err != nil {
-			logger.Errorf("could not follow link %q (%v)", executable, err)
-			// TODO(ericsnow) Try checking the version anyway?
-			return "", false
-		}
-		// We do not follow any more links since we want to avoid
-		// infinite recursion and it's unlikely the original link
-		// points to another link.
-		followLink = false
-		return identifyInitSystem(linked, followLink)
+	initSystem, ok = identifyExecutable(executable)
+	if ok {
+		return initSystem, true
 	}
 
 	// Fall back to checking the "version" text.
