@@ -193,6 +193,7 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 		adminApiFactories: map[int]adminApiFactory{
 			0: newAdminApiV0,
 			1: newAdminApiV1,
+			2: newAdminApiV2,
 		},
 	}
 	// TODO(rog) check that *srvRoot is a valid type for using
@@ -266,8 +267,11 @@ func (n *requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
 	// TODO(rog) 2013-10-11 remove secrets from some requests.
 	// Until secrets are removed, we only log the body of the requests at trace level
 	// which is below the default level of debug.
-	logger.Debugf("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, "'params redacted'"))
-	logger.Tracef("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
+	if logger.IsTraceEnabled() {
+		logger.Tracef("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
+	} else {
+		logger.Debugf("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, "'params redacted'"))
+	}
 }
 
 func (n *requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}, timeSpent time.Duration) {
@@ -277,8 +281,11 @@ func (n *requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body int
 	// TODO(rog) 2013-10-11 remove secrets from some responses.
 	// Until secrets are removed, we only log the body of the requests at trace level
 	// which is below the default level of debug.
-	logger.Debugf("-> [%X] %s %s %s %s[%q].%s", n.id, n.tag(), timeSpent, jsoncodec.DumpRequest(hdr, "'body redacted'"), req.Type, req.Id, req.Action)
-	logger.Tracef("-> [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
+	if logger.IsTraceEnabled() {
+		logger.Tracef("-> [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
+	} else {
+		logger.Debugf("-> [%X] %s %s %s %s[%q].%s", n.id, n.tag(), timeSpent, jsoncodec.DumpRequest(hdr, "'body redacted'"), req.Type, req.Id, req.Action)
+	}
 }
 
 func (n *requestNotifier) join(req *http.Request) {
@@ -438,7 +445,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	var h *apiHandler
 	st, _, err := validateEnvironUUID(validateArgs{st: srv.state, envUUID: envUUID})
 	if err == nil {
-		h, err = newApiHandler(srv, st, conn, reqNotifier)
+		h, err = newApiHandler(srv, st, conn, reqNotifier, envUUID)
 	}
 	if err != nil {
 		conn.Serve(&errRoot{err}, serverError)

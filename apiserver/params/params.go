@@ -611,6 +611,10 @@ type LoginResultV1 struct {
 	// Facades describes all the available API facade versions to the
 	// authenticated client.
 	Facades []FacadeVersions `json:"facades"`
+
+	// ServerVersion is the string representation of the server version
+	// if the server supports it.
+	ServerVersion string `json:"server-version,omitempty"`
 }
 
 // StateServersSpec contains arguments for
