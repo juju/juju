@@ -577,7 +577,7 @@ var statusTests = []testCase{
 						"units": M{
 							"dummy-service/0": M{
 								"machine":         "1",
-								"agent-state":     "error",
+								"agent-state":     "stopped",
 								"workload-status": M{"current": "terminated"},
 								"agent-status":    M{"current": "idle"},
 								"public-address":  "dummyenv-1.dns",
@@ -654,7 +654,7 @@ var statusTests = []testCase{
 						"units": M{
 							"dummy-service/0": M{
 								"machine":         "1",
-								"agent-state":     "error",
+								"agent-state":     "stopped",
 								"life":            "dying",
 								"workload-status": M{"current": "terminated"},
 								"agent-status":    M{"current": "idle"},
@@ -682,7 +682,7 @@ var statusTests = []testCase{
 							"dummy-service/0": M{
 								"machine":         "1",
 								"life":            "dying",
-								"agent-state":     "error",
+								"agent-state":     "stopped",
 								"workload-status": M{"current": "terminated"},
 								"agent-status":    M{"current": "idle"},
 								"public-address":  "dummyenv-1.dns",
@@ -737,7 +737,7 @@ var statusTests = []testCase{
 							"dummy-service/0": M{
 								"machine":         "1",
 								"life":            "dying",
-								"agent-state":     "error",
+								"agent-state":     "stopped",
 								"workload-status": M{"current": "terminated"},
 								"agent-status":    M{"current": "idle"},
 								"public-address":  "dummyenv-1.dns",
@@ -793,7 +793,7 @@ var statusTests = []testCase{
 							"dummy-service/0": M{
 								"machine":         "1",
 								"life":            "dying",
-								"agent-state":     "error",
+								"agent-state":     "stopped",
 								"workload-status": M{"current": "terminated"},
 								"agent-status":    M{"current": "idle"},
 								"public-address":  "dummyenv-1.dns",
