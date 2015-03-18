@@ -185,6 +185,31 @@ def s3_cmd(params, drop_output=False):
         return subprocess.check_output(command)
 
 
+def add_basic_testing_arguments(parser):
+    """Returns the parser loaded with basic testing arguments."""
+    # Required possitional arguments.
+    # (name, help)
+    positional_args = [
+        ('env', 'The juju environment to base the temp test environment on.'),
+        ('juju_bin', 'Full path to the Juju binary.'),
+        ('logs', 'A directory in which to store logs.'),
+        ('temp_env_name', 'A temporary test environment name.'),
+    ]
+    for p_arg in positional_args:
+        name, help_txt = p_arg
+        parser.add_argument(name, help=help_txt)
+    parser.add_argument('--agent-url', action='store', default=None,
+                        help='URL for retrieving agent binaries.')
+    parser.add_argument('--debug', action='store_true', default=False,
+                        help='Pass --debug to Juju.')
+    parser.add_argument('--series', action='store', default=None,
+                        help='Name of the Ubuntu series to use.')
+    parser.add_argument('--verbose', action='store_const',
+                        default='logging.INFO', const='logging.DEBUG',
+                        help='Verbose test harness output.')
+    return parser
+
+
 def configure_logging(log_level):
     logging.basicConfig(
         level=log_level, format='%(asctime)s %(levelname)s %(message)s',

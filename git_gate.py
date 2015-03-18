@@ -75,19 +75,21 @@ def parse_args(args=None):
     """Parse arguments for gating script."""
     parser = argparse.ArgumentParser()
     project_group = parser.add_argument_group()
-    project_group.add_argument("--project", required=True,
-        help="Go import path of package to test.")
-    project_group.add_argument("--project-url",
-        help="URL to git repository of package.")
-    project_group.add_argument("--project-ref",
-        help="Branch name or tag to use as basis.")
+    project_group.add_argument(
+        "--project", required=True, help="Go import path of package to test.")
+    project_group.add_argument(
+        "--project-url", help="URL to git repository of package.")
+    project_group.add_argument(
+        "--project-ref", help="Branch name or tag to use as basis.")
     merge_group = parser.add_argument_group()
-    merge_group.add_argument("--merge-url",
-        help="URL to git repository to merge before testing.")
-    merge_group.add_argument("--merge-ref", default="HEAD",
+    merge_group.add_argument(
+        "--merge-url", help="URL to git repository to merge before testing.")
+    merge_group.add_argument(
+        "--merge-ref", default="HEAD",
         help="Branch name or tag to merge before testing.")
     dep_group = parser.add_mutually_exclusive_group()
-    dep_group.add_argument("--dependency", "-d", action="append", default=[],
+    dep_group.add_argument(
+        "--dependency", "-d", action="append", default=[],
         help="Go import path of package needed to for build or testing.")
     # GZ: Add dependencies.tsv argument option
     return parser.parse_args(args)
@@ -98,7 +100,7 @@ def main():
     with temp_dir() as d:
         try:
             go_test(d, args.project, args.project_url, args.project_ref,
-                args.merge_url, args.merge_ref, args.dependency)
+                    args.merge_url, args.merge_ref, args.dependency)
         except SubcommandError as err:
             print(err, file=sys.stderr)
             return 1
