@@ -24,6 +24,19 @@ var getVersion = func() version.Binary {
 // DiscoverService returns an interface to a service apropriate
 // for the current system
 func DiscoverService(name string, conf common.Conf) (Service, error) {
+	initName, err := discoverInitSystem()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	service, err := NewService(name, conf, initName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return service, nil
+}
+
+func discoverInitSystem() (string, error) {
 	initName, err := discoverLocalInitSystem()
 	if errors.IsNotFound(err) {
 		// Fall back to checking the juju version.
@@ -34,18 +47,13 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 			// that is what we return. However, we at least log the
 			// failed fallback attempt.
 			logger.Errorf("could not identify init system from %v", jujuVersion)
-			return nil, errors.Trace(err)
+			return "", errors.Trace(err)
 		}
 		initName = versionInitName
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-
-	service, err := NewService(name, conf, initName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return service, nil
+	return initName, nil
 }
 
 // VersionInitSystem returns an init system name based on the provided
@@ -185,30 +193,28 @@ function checkInitSystem() {
 
 # Find the executable.
 executable=$(cat /proc/1/cmdline | awk -F"\0" '{print $1}')
-if [[ $? ]]; then
+if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
 # Check the executable.
-checkInitSystem($executable)
+checkInitSystem "$executable"
 
 # First fall back to following symlinks.
 if [[ -L $executable ]]; then
-    linked=$(readlink "$(executable)")
-    if [[ ! $? ]]; then
+    linked=$(readlink -f "$executable")
+    if [[ $? -eq 0 ]]; then
         executable=$linked
-    fi
 
-    # Check the linked executable.
-    checkInitSystem($executable)
+        # Check the linked executable.
+        checkInitSystem "$linked"
+    fi
 fi
 
 # Fall back to checking the "version" text.
 verText=$("${executable}" --version)
-if [[ $? ]]; then
-    exit 1
-else
-    checkInitSystem($verText)
+if [[ $? -eq 0 ]]; then
+    checkInitSystem "$verText"
 fi
 
 # uh-oh
@@ -226,25 +232,25 @@ EOF`[1:], filename, DiscoverInitSystemScript),
 	}
 }
 
-const caseLine = "%sif [[ $init_system == %q ]]; then %s\n"
+const caseLine = "%sif [[ $%s == \"%s\" ]]; then %s\n"
 
 // newShellSelectCommand creates a bash if statement with an if
 // (or elif) clause for each of the executables in linuxExecutables.
 // The body of each clause comes from calling the provided handler with
 // the init system name. If the handler does not support the args then
 // it returns a false "ok" value.
-func newShellSelectCommand(discoverScript string, handler func(string) (string, bool)) string {
+func newShellSelectCommand(envVarName string, handler func(string) (string, bool)) string {
 	// TODO(ericsnow) Build the command in a better way?
 	// TODO(ericsnow) Use a case statement?
 
-	prefix := "init_system=$(" + discoverScript + ") "
+	prefix := ""
 	lines := ""
 	for _, initSystem := range linuxInitSystems {
 		cmd, ok := handler(initSystem)
 		if !ok {
 			continue
 		}
-		lines += fmt.Sprintf(caseLine, prefix, initSystem, cmd)
+		lines += fmt.Sprintf(caseLine, prefix, envVarName, initSystem, cmd)
 
 		if prefix != "el" {
 			prefix = "el"
