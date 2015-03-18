@@ -2,8 +2,6 @@ package service
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -96,27 +94,21 @@ func versionInitSystem(vers version.Binary) (string, bool) {
 	}
 }
 
-// pid1 is the path to the "file" that contains the path to the init
-// system executable on linux.
-const pid1 = "/proc/1/cmdline"
-
 // These exist to allow patching during tests.
 var (
 	runtimeOS    = func() string { return runtime.GOOS }
-	pid1Filename = func() string { return pid1 }
 	evalSymlinks = filepath.EvalSymlinks
+	psPID1       = func() ([]byte, error) {
+		cmd := exec.Command("/bin/ps", "-p", "1", "-o", "cmd", "--no-headers")
+		return cmd.Output()
+	}
 
 	initExecutable = func() (string, error) {
-		pid1File := pid1Filename()
-		data, err := ioutil.ReadFile(pid1File)
-		if os.IsNotExist(err) {
-			return "", errors.NotFoundf("init system (via %q)", pid1File)
-		}
+		psOutput, err := psPID1()
 		if err != nil {
-			return "", errors.Annotatef(err, "failed to identify init system (via %q)", pid1File)
+			return "", errors.Annotate(err, "failed to identify init system using ps")
 		}
-		executable := strings.Split(string(data), "\x00")[0]
-		return executable, nil
+		return strings.Fields(string(psOutput))[0], nil
 	}
 )
 
@@ -205,7 +197,7 @@ function checkInitSystem() {
 }
 
 # Find the executable.
-executable=$(cat /proc/1/cmdline | awk -F"\0" '{print $1}')
+executable=$(ps -p 1 -o cmd --no-headers | awk '{print $1}')
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
