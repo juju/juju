@@ -70,7 +70,9 @@ newAnonRoot, and to the factory methods for the admin APIs.
 
 Implementation Notes:
 
-The login process for both v0 and v1 logins are handled in the method *admin.doLogin (in admin.go).  The method *Conn.ServeFinder on the *rpc.Conn attribute of the apiHandler is initially given the anonymous root here:
+The login process for both v0 and v1 logins are handled in the method
+*admin.doLogin (in admin.go).  The method *Conn.ServeFinder on the *rpc.Conn
+attribute of the apiHandler is initially given the anonymous root here:
 
 ```go
 func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifier, envUUID string) error {
@@ -79,7 +81,9 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	// ...
 ```
 
-If login is successful, the doLogin method changes out the method finder that is used for the RPC connection just before the end of the return statement at the end of the method.
+If login is successful, the doLogin method changes out the method finder that
+is used for the RPC connection just before the end of the return statement at
+the end of the method.
 
 ```go
 	// a *admin
@@ -88,5 +92,9 @@ If login is successful, the doLogin method changes out the method finder that is
 	a.root.rpcConn.ServeFinder(authedApi, serverError)
 ```
 
-In order to supply a restricted api at the root, the doLogin method will need to take a version number.  Just before we replace the method finder for the RPC connection, we check the version number and the envUUID of the api handler, and wrap the authedApi in a restricted root method finder implemented in a similar manner to the upgradingRoot method finder.
+In order to supply a restricted api at the root, the doLogin method will need
+to take a version number.  Just before we replace the method finder for the
+RPC connection, we check the version number and the envUUID of the api
+handler, and wrap the authedApi in a restricted root method finder implemented
+in a similar manner to the upgradingRoot method finder.
 

@@ -51,6 +51,13 @@ func (r *restrictedRootSuite) TestFindDisallowedMethod(c *gc.C) {
 	c.Assert(caller, gc.IsNil)
 }
 
+func (r *restrictedRootSuite) TestNonExistentFacade(c *gc.C) {
+	caller, err := r.root.FindMethod("NonExistent", 0, "Method")
+
+	c.Assert(err, gc.ErrorMatches, `unknown object type "NonExistent"`)
+	c.Assert(caller, gc.IsNil)
+}
+
 func (r *restrictedRootSuite) TestFindNonExistentMethod(c *gc.C) {
 	caller, err := r.root.FindMethod("EnvironmentManager", 1, "Bar")
 

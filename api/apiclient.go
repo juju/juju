@@ -146,9 +146,8 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 }
 
 // This unexported open method is used both directly above in the Open
-// function, and it is exported through the OpenWithLoginV1 in the
-// export_test.go file to explicitly cause the API server to think that the
-// client is older than it really is.
+// function, and also the OpenWithVersion function below to explicitly cause
+// the API server to think that the client is older than it really is.
 func open(info *Info, opts DialOpts, loginFunc func(st *State, tag, pwd, nonce string) error) (*State, error) {
 	conn, err := Connect(info, opts)
 	if err != nil {
@@ -181,18 +180,21 @@ func open(info *Info, opts DialOpts, loginFunc func(st *State, tag, pwd, nonce s
 }
 
 // OpenWithVersion uses an explicit version of the Admin facade to call Login
-// on.  This allows the caller to pretends to be an older client, and is used
+// on. This allows the caller to pretend to be an older client, and is used
 // only in testing.
 func OpenWithVersion(info *Info, opts DialOpts, loginVersion int) (*State, error) {
+	var loginFunc func(st *State, tag, pwd, nonce string) error
 	switch loginVersion {
 	case 0:
-		return open(info, opts, (*State).loginV0)
+		loginFunc = (*State).loginV0
 	case 1:
-		return open(info, opts, (*State).loginV1)
+		loginFunc = (*State).loginV1
 	case 2:
-		return open(info, opts, (*State).loginV2)
+		loginFunc = (*State).loginV2
+	default:
+		return nil, errors.NotSupportedf("loginVersion %d", loginVersion)
 	}
-	return nil, errors.NotSupportedf("loginVersion %d", loginVersion)
+	return open(info, opts, loginFunc)
 }
 
 // Connect establishes a websocket connection to the API server using
