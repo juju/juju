@@ -89,24 +89,24 @@ func (s *storageSuite) TestStorageListEmpty(c *gc.C) {
 }
 
 func (s *storageSuite) TestStorageList(c *gc.C) {
-	_, err := s.api.List()
+	found, err := s.api.List()
 	c.Assert(err, jc.ErrorIsNil)
 
-	//	expectedCalls := []string{
-	//		allStorageInstancesCall,
-	//		storageInstanceAttachmentsCall,
-	//		unitAssignedMachineCall,
-	//		storageInstanceCall,
-	//		storageInstanceFilesystemCall,
-	//		storageInstanceFilesystemAttachmentCall,
-	//	}
-	//	s.assertCalls(c, expectedCalls)
-	//
-	//	c.Assert(found.Results, gc.HasLen, 1)
-	//	wantedDetails := s.createTestStorageInfo()
-	//	wantedDetails.UnitTag = s.unitTag.String()
-	//	wantedDetails.Status = "attached"
-	//	s.assertInstanceInfoError(c, found.Results[0], wantedDetails, "")
+	expectedCalls := []string{
+		allStorageInstancesCall,
+		storageInstanceVolumeCall,
+		storageInstanceAttachmentsCall,
+		unitAssignedMachineCall,
+		storageInstanceCall,
+		storageInstanceFilesystemCall,
+		storageInstanceFilesystemAttachmentCall,
+	}
+	s.assertCalls(c, expectedCalls)
+
+	c.Assert(found.Results, gc.HasLen, 1)
+	wantedDetails := s.createTestStorageInfo()
+	wantedDetails.UnitTag = s.unitTag.String()
+	s.assertInstanceInfoError(c, found.Results[0], wantedDetails, "")
 }
 
 func (s *storageSuite) TestStorageListError(c *gc.C) {
@@ -152,9 +152,9 @@ func (s *storageSuite) TestStorageListInstanceError(c *gc.C) {
 }
 
 func (s *storageSuite) TestStorageListAttachmentError(c *gc.C) {
-	s.state.storageInstanceAttachments = func(unit names.UnitTag) ([]state.StorageAttachment, error) {
+	s.state.storageInstanceAttachments = func(tag names.StorageTag) ([]state.StorageAttachment, error) {
 		s.calls = append(s.calls, storageInstanceAttachmentsCall)
-		c.Assert(unit, gc.DeepEquals, s.unitTag)
+		c.Assert(tag, gc.DeepEquals, s.storageTag)
 		return []state.StorageAttachment{}, errors.Errorf("list test error")
 	}
 
@@ -252,7 +252,7 @@ func (s *storageSuite) TestStorageListFilesystemAttachmentError(c *gc.C) {
 func (s *storageSuite) createTestStorageInfoWithError(code, msg string) params.StorageInfo {
 	wanted := s.createTestStorageInfo()
 	wanted.Error = &params.Error{Code: code,
-		Message: fmt.Sprintf("getting attachments for owner unit-mysql-0: %v", msg)}
+		Message: fmt.Sprintf("getting attachments for storage data/0: %v", msg)}
 	return wanted
 }
 
@@ -297,9 +297,9 @@ func (s *storageSuite) constructState(c *gc.C) *mockState {
 			c.Assert(sTag, gc.DeepEquals, s.storageTag)
 			return mockInstance, nil
 		},
-		storageInstanceAttachments: func(unit names.UnitTag) ([]state.StorageAttachment, error) {
+		storageInstanceAttachments: func(tag names.StorageTag) ([]state.StorageAttachment, error) {
 			s.calls = append(s.calls, storageInstanceAttachmentsCall)
-			c.Assert(unit, gc.DeepEquals, s.unitTag)
+			c.Assert(tag, gc.DeepEquals, s.storageTag)
 			return []state.StorageAttachment{storageInstanceAttachment}, nil
 		},
 		storageInstanceFilesystem: func(sTag names.StorageTag) (state.Filesystem, error) {
@@ -327,7 +327,6 @@ func (s *storageSuite) constructState(c *gc.C) *mockState {
 }
 
 func (s *storageSuite) assertCalls(c *gc.C, expectedCalls []string) {
-	c.Assert(s.calls, gc.HasLen, len(expectedCalls))
 	c.Assert(s.calls, jc.SameContents, expectedCalls)
 }
 
@@ -369,7 +368,7 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 		OwnerTag:   s.unitTag.String(),
 		Kind:       params.StorageKindFilesystem,
 		UnitTag:    s.unitTag.String(),
-		Status:     "attached",
+		Status:     "pending",
 	}
 	c.Assert(one.Result, gc.DeepEquals, expected)
 }
@@ -383,7 +382,7 @@ func (s *storageSuite) TestShowStorageInvalidId(c *gc.C) {
 	c.Assert(found.Results, gc.HasLen, 1)
 
 	instance := found.Results[0]
-	c.Assert(errors.Cause(instance.Error), gc.ErrorMatches, ".*permission denied.*")
+	c.Assert(instance.Error, gc.ErrorMatches, `"foo" is not a valid tag`)
 
 	expected := params.StorageDetails{Kind: params.StorageKindUnknown}
 	c.Assert(instance.Result, gc.DeepEquals, expected)
@@ -393,7 +392,7 @@ type mockState struct {
 	storageInstance     func(names.StorageTag) (state.StorageInstance, error)
 	allStorageInstances func() ([]state.StorageInstance, error)
 
-	storageInstanceAttachments func(unit names.UnitTag) ([]state.StorageAttachment, error)
+	storageInstanceAttachments func(names.StorageTag) ([]state.StorageAttachment, error)
 
 	unitAssignedMachine func(u names.UnitTag) (names.MachineTag, error)
 
@@ -415,8 +414,8 @@ func (st *mockState) AllStorageInstances() ([]state.StorageInstance, error) {
 	return st.allStorageInstances()
 }
 
-func (st *mockState) StorageAttachments(unit names.UnitTag) ([]state.StorageAttachment, error) {
-	return st.storageInstanceAttachments(unit)
+func (st *mockState) StorageAttachments(tag names.StorageTag) ([]state.StorageAttachment, error) {
+	return st.storageInstanceAttachments(tag)
 }
 
 func (st *mockState) UnitAssignedMachine(unit names.UnitTag) (names.MachineTag, error) {

@@ -59,7 +59,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withV
 	assignedMachineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 
-	storageAttachments, err := s.State.StorageAttachments(unit.UnitTag())
+	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 	storageInstance, err := s.State.StorageInstance(storageAttachments[0].StorageInstance())

@@ -98,7 +98,7 @@ storage-block/0:
   data/0:
     storage: data
     kind: block
-    status: attached
+    status: pending
     persistent: false
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
@@ -113,7 +113,7 @@ storage-block/0:
   data/0:
     storage: data
     kind: block
-    status: attached
+    status: pending
     persistent: false
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
@@ -142,8 +142,8 @@ func (s *cmdStorageSuite) TestStorageList(c *gc.C) {
 	context := runList(c)
 	expected := `
 [Storage]       
-UNIT            ID     LOCATION STATUS   PERSISTENT 
-storage-block/0 data/0          attached false      
+UNIT            ID     LOCATION STATUS  PERSISTENT 
+storage-block/0 data/0          pending false      
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
@@ -155,8 +155,8 @@ func (s *cmdStorageSuite) TestStorageListPersistent(c *gc.C) {
 	context := runList(c)
 	expected := `
 [Storage]       
-UNIT            ID     LOCATION STATUS   PERSISTENT 
-storage-block/0 data/0          attached true       
+UNIT            ID     LOCATION STATUS  PERSISTENT 
+storage-block/0 data/0          pending true       
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
@@ -177,7 +177,7 @@ storage-block/0:
   data/0:
     storage: data
     kind: block
-    status: attached
+    status: pending
     persistent: true
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
@@ -187,13 +187,12 @@ func (s *cmdStorageSuite) TestStoragePersistentUnprovisioned(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPersistentPool)
 
 	context := runShow(c, []string{"data/0"})
-	// TODO(wallyworld) - status should be pending below but there's a bug in apiserver/storage
 	expected := `
 storage-block/0:
   data/0:
     storage: data
     kind: block
-    status: attached
+    status: pending
     persistent: true
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)

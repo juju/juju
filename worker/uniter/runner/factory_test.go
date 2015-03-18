@@ -294,7 +294,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	s.machine = nil // allocate a new machine
 	unit := s.AddUnit(c, service)
 
-	storageAttachments, err := s.State.StorageAttachments(unit.UnitTag())
+	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 	storageTag := storageAttachments[0].StorageInstance()

@@ -400,14 +400,34 @@ func createStorageAttachmentOp(storage names.StorageTag, unit names.UnitTag) txn
 	}
 }
 
-// StorageAttachments returns the StorageAttachments for the specified unit.
-func (st *State) StorageAttachments(unit names.UnitTag) ([]StorageAttachment, error) {
+// StorageAttachments returns the StorageAttachments for the specified storage
+// instance.
+func (st *State) StorageAttachments(storage names.StorageTag) ([]StorageAttachment, error) {
+	query := bson.D{{"storageid", storage.Id()}}
+	attachments, err := st.storageAttachments(query)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get storage attachments for storage %s", storage.Id())
+	}
+	return attachments, nil
+}
+
+// UnitStorageAttachments returns the StorageAttachments for the specified unit.
+func (st *State) UnitStorageAttachments(unit names.UnitTag) ([]StorageAttachment, error) {
+	query := bson.D{{"unitid", unit.Id()}}
+	attachments, err := st.storageAttachments(query)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get storage attachments for unit %s", unit.Id())
+	}
+	return attachments, nil
+}
+
+func (st *State) storageAttachments(query bson.D) ([]StorageAttachment, error) {
 	coll, closer := st.getCollection(storageAttachmentsC)
 	defer closer()
 
 	var docs []storageAttachmentDoc
-	if err := coll.Find(bson.D{{"unitid", unit.Id()}}).All(&docs); err != nil {
-		return nil, errors.Annotatef(err, "cannot get storage attachments for %s", unit.Id())
+	if err := coll.Find(query).All(&docs); err != nil {
+		return nil, err
 	}
 	storageAttachments := make([]StorageAttachment, len(docs))
 	for i, doc := range docs {
