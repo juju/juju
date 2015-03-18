@@ -103,7 +103,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	instanceConfig.Tools = tools[0]
 	instanceConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
 
-	userData, err := cloudconfig.ComposeUserData(instanceConfig, nil)
+	userData, err := providerinit.ComposeUserData(instanceConfig, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	b64UserData := base64.StdEncoding.EncodeToString([]byte(userData))
 

@@ -489,7 +489,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		return nil, err
 	}
 
-	userData, err := cloudconfig.ComposeUserData(args.InstanceConfig, nil)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}

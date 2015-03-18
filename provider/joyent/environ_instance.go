@@ -133,7 +133,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 `[1:]
 	cloudcfg.AddBootTextFile("/etc/network/if-up.d/joyent", ifupScript, 0755)
 
-	userData, err := cloudconfig.ComposeUserData(args.InstanceConfig, cloudcfg)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}

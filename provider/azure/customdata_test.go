@@ -98,7 +98,7 @@ func (*customDataSuite) TestMakeCustomDataEncodesUserData(c *gc.C) {
 
 	data, err := base64.StdEncoding.DecodeString(encodedData)
 	c.Assert(err, jc.ErrorIsNil)
-	reference, err := cloudconfig.ComposeUserData(cfg, nil)
+	reference, err := providerinit.ComposeUserData(cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(data, gc.DeepEquals, reference)
 }
