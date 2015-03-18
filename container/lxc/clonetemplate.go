@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -17,13 +16,10 @@ import (
 	"github.com/juju/utils/tailer"
 	"launchpad.net/golxc"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/version"
 )
 
 var (
@@ -31,149 +27,6 @@ var (
 
 	TemplateStopTimeout = 5 * time.Minute
 )
-
-// templateUserData returns a minimal user data necessary for the template.
-// This should have the authorized keys, base packages, the cloud archive if
-// necessary,  initial apt proxy config, and it should do the apt-get
-// update/upgrade initially.
-func templateUserData(
-	series string,
-	authorizedKeys string,
-	aptProxy proxy.Settings,
-	aptMirror string,
-	enablePackageUpdates bool,
-	enableOSUpgrades bool,
-	networkConfig *container.NetworkConfig,
-) ([]byte, error) {
-	var config cloudinit.CloudConfig
-	var err error
-	if networkConfig != nil {
-		config, err = container.NewCloudInitConfigWithNetworks(series, networkConfig)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	} else {
-		config, err = cloudinit.New(series)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	config.AddScripts(
-		"set -xe", // ensure we run all the scripts or abort.
-	)
-	// For LTS series which need support for the cloud-tools archive,
-	// we need to enable apt-get update regardless of the environ
-	// setting, otherwise provisioning will fail.
-	if series == "precise" && !enablePackageUpdates {
-		logger.Warningf("series %q requires cloud-tools archive: enabling updates", series)
-		enablePackageUpdates = true
-	}
-
-	config.AddSSHAuthorizedKeys(authorizedKeys)
-	// add centos magic here
-	if enablePackageUpdates {
-		err := cloudinit.MaybeAddCloudArchiveCloudTools(config, series)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	cloudinit.AddPackageCommands(series, aptProxy, aptMirror, config, enablePackageUpdates, enableOSUpgrades)
-
-	initSystem, err := containerInitSystem(series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cmds, err := shutdownInitCommands(initSystem)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	config.AddScripts(strings.Join(cmds, "\n"))
-
-	renderer, err := cloudinit.NewRenderer(series)
-	if err != nil {
-		return nil, err
-	}
-	data, err := renderer.Render(config)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return data, nil
-}
-
-func containerInitSystem(series string) (string, error) {
-	osName, err := version.GetOSFromSeries(series)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	vers := version.Binary{
-		OS:     osName,
-		Series: series,
-	}
-	initSystem, ok := service.VersionInitSystem(vers)
-	if !ok {
-		return "", errors.NotFoundf("init system for series %q", series)
-	}
-	logger.Debugf("using init system %q for shutdown script", initSystem)
-	return initSystem, nil
-}
-
-// defaultEtcNetworkInterfaces is the contents of
-// /etc/network/interfaces file which is left on the template LXC
-// container on shutdown. This is needed to allow cloned containers to
-// start in case no network config is provided during cloud-init, e.g.
-// when AUFS is used or with the local provider (see bug #1431888).
-const defaultEtcNetworkInterfaces = `
-# loopback interface
-auto lo
-iface lo inet loopback
-
-# primary interface
-auto eth0
-iface eth0 inet dhcp
-`
-
-func shutdownInitCommands(initSystem string) ([]string, error) {
-	// These files are removed just before the template shuts down.
-	cleanupOnShutdown := []string{
-		// We remove any dhclient lease files so there's no chance a
-		// clone to reuse a lease from the template it was cloned
-		// from.
-		"/var/lib/dhcp/dhclient*",
-		// Both of these sets of files below are recreated on boot and
-		// if we leave them in the template's rootfs boot logs coming
-		// from cloned containers will be appended. It's better to
-		// keep clean logs for diagnosing issues / debugging.
-		"/var/log/cloud-init*.log",
-	}
-
-	// Using EOC below as the template shutdown script is itself
-	// passed through cat > ... < EOF.
-	replaceNetConfCmd := fmt.Sprintf(
-		"/bin/cat > /etc/network/interfaces << EOC%sEOC\n  ",
-		defaultEtcNetworkInterfaces,
-	)
-	paths := strings.Join(cleanupOnShutdown, " ")
-	removeCmd := fmt.Sprintf("/bin/rm -fr %s\n  ", paths)
-	shutdownCmd := "/sbin/shutdown -h now"
-	name := "juju-template-restart"
-	desc := "juju shutdown job"
-	conf := common.Conf{
-		Desc:         desc,
-		Transient:    true,
-		AfterStopped: "cloud-final",
-		ExecStart:    replaceNetConfCmd + removeCmd + shutdownCmd,
-	}
-	svc, err := service.NewService(name, conf, initSystem)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	cmds, err := svc.InstallCommands()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return cmds, nil
-}
 
 func AcquireTemplateLock(name, message string) (*container.Lock, error) {
 	logger.Infof("wait for flock on %v", name)
@@ -223,7 +76,7 @@ func EnsureCloneTemplate(
 	}
 	logger.Infof("template does not exist, creating")
 
-	userData, err := templateUserData(
+	userData, err := containerinit.TemplateUserData(
 		series,
 		authorizedKeys,
 		aptProxy,
@@ -236,7 +89,7 @@ func EnsureCloneTemplate(
 		logger.Tracef("failed to create template user data for template: %v", err)
 		return nil, err
 	}
-	userDataFilename, err := container.WriteCloudInitFile(containerDirectory, userData)
+	userDataFilename, err := containerinit.WriteCloudInitFile(containerDirectory, userData)
 	if err != nil {
 		return nil, err
 	}

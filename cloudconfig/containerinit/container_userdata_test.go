@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package container_test
+package containerinit_test
 
 import (
 	"path/filepath"
@@ -12,9 +12,11 @@ import (
 	"gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/container"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/service"
 	"github.com/juju/juju/testing"
 )
 
@@ -63,29 +65,29 @@ iface eth0 inet manual
 # interface "eth1"
 iface eth1 inet dhcp
 `
-	s.PatchValue(container.NetworkInterfacesFile, s.networkInterfacesFile)
+	s.PatchValue(containerinit.NetworkInterfacesFile, s.networkInterfacesFile)
 }
 
 func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
 	// No config or no interfaces - no error, but also noting to generate.
-	data, err := container.GenerateNetworkConfig(nil)
+	data, err := containerinit.GenerateNetworkConfig(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.HasLen, 0)
 	netConfig := container.BridgeNetworkConfig("foo", nil)
-	data, err = container.GenerateNetworkConfig(netConfig)
+	data, err = containerinit.GenerateNetworkConfig(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.HasLen, 0)
 
 	// Test with all interface types.
 	netConfig = container.BridgeNetworkConfig("foo", s.fakeInterfaces)
-	data, err = container.GenerateNetworkConfig(netConfig)
+	data, err = containerinit.GenerateNetworkConfig(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.Equals, s.expectedNetConfig)
 }
 
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworks(c *gc.C) {
 	netConfig := container.BridgeNetworkConfig("foo", s.fakeInterfaces)
-	cloudConf, err := container.NewCloudInitConfigWithNetworks("quantal", netConfig)
+	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	// We need to indent expectNetConfig to make it valid YAML,
 	// dropping the last new line and using unindented blank lines.
@@ -105,7 +107,7 @@ bootcmd:
 
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksNoConfig(c *gc.C) {
 	netConfig := container.BridgeNetworkConfig("foo", nil)
-	cloudConf, err := container.NewCloudInitConfigWithNetworks("quantal", netConfig)
+	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := "#cloud-config\n{}\n"
 	assertUserData(c, cloudConf, expected)
@@ -115,7 +117,7 @@ func (s *UserDataSuite) TestCloudInitUserData(c *gc.C) {
 	instanceConfig, err := containertesting.MockMachineConfig("1/lxc/0")
 	c.Assert(err, jc.ErrorIsNil)
 	networkConfig := container.BridgeNetworkConfig("foo", nil)
-	data, err := container.CloudInitUserData(instanceConfig, networkConfig)
+	data, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	// No need to test the exact contents here, as they are already
 	// tested separately.
@@ -137,4 +139,36 @@ func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
 	} else {
 		c.Assert(out["bootcmd"], gc.IsNil)
 	}
+}
+
+func (s *UserDataSuite) TestShutdownInitScript(c *gc.C) {
+	script, err := containerinit.ShutdownInitScript(service.InitSystemUpstart)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(script, jc.DeepEquals, `
+cat >> /etc/init/juju-template-restart.conf << 'EOF'
+description "juju shutdown job"
+author "Juju Team <juju@lists.ubuntu.com>"
+start on stopped cloud-final
+
+script
+  /bin/cat > /etc/network/interfaces << EOC
+# loopback interface
+auto lo
+iface lo inet loopback
+
+# primary interface
+auto eth0
+iface eth0 inet dhcp
+EOC
+  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log /var/log/upstart/*.log
+  /sbin/shutdown -h now
+end script
+
+post-stop script
+  rm /etc/init/juju-template-restart.conf
+end script
+
+EOF
+`[1:])
 }
