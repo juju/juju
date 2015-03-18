@@ -5,7 +5,6 @@ package operation
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 )
@@ -44,7 +43,7 @@ func (al *acceptLeadership) Commit(state State) (*State, error) {
 	newState := stateChange{
 		Kind: RunHook,
 		Step: Queued,
-		Hook: &hook.Info{Kind: hooks.Kind("leader-elected")},
+		Hook: &hook.Info{Kind: hook.LeaderElected},
 	}.apply(state)
 	newState.Leader = true
 	return newState, nil

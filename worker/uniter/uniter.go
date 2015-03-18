@@ -153,7 +153,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	go func() { u.tomb.Kill(leadershipTracker.Wait()) }()
 	go func() { u.tomb.Kill(u.f.Wait()) }()
 
-	// This possibly isn't quite the right place for this code?
+	// Start handling leader settings events, or not, as appropriate.
 	if featureflag.Enabled(feature.LeaderElection) {
 		u.f.WantLeaderSettingsEvents(!u.operationState().Leader)
 	} else {
