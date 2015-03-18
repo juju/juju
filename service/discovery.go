@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -44,9 +45,7 @@ func discoverInitSystem() (string, error) {
 		versionInitName, ok := VersionInitSystem(jujuVersion)
 		if !ok {
 			// The key error is the one from discoverLocalInitSystem so
-			// that is what we return. However, we at least log the
-			// failed fallback attempt.
-			logger.Errorf("could not identify init system from %v", jujuVersion)
+			// that is what we return.
 			return "", errors.Trace(err)
 		}
 		initName = versionInitName
@@ -60,6 +59,16 @@ func discoverInitSystem() (string, error) {
 // version info. If one cannot be identified then false if returned
 // for the second return value.
 func VersionInitSystem(vers version.Binary) (string, bool) {
+	initName, ok := versionInitSystem(vers)
+	if !ok {
+		logger.Errorf("could not identify init system from juju version info (%#v)", vers)
+		return "", false
+	}
+	logger.Debugf("discovered init system %q from juju version info (%#v)", initName, vers)
+	return initName, true
+}
+
+func versionInitSystem(vers version.Binary) (string, bool) {
 	switch vers.OS {
 	case version.Windows:
 		return InitSystemWindows, true
@@ -95,6 +104,7 @@ const pid1 = "/proc/1/cmdline"
 var (
 	runtimeOS    = func() string { return runtime.GOOS }
 	pid1Filename = func() string { return pid1 }
+	evalSymlinks = filepath.EvalSymlinks
 
 	initExecutable = func() (string, error) {
 		pid1File := pid1Filename()
@@ -134,14 +144,17 @@ func identifyInitSystem(executable string) (string, bool) {
 		return initSystem, true
 	}
 
-	if _, err := os.Stat(executable); os.IsNotExist(err) {
-		return "", false
-	} else if err != nil {
+	// First fall back to following symlinks (if any).
+	resolved, err := evalSymlinks(executable)
+	if err != nil {
 		logger.Errorf("failed to find %q: %v", executable, err)
-		// The stat check is just an optimization so we go on anyway.
+		return "", false
 	}
-
-	// TODO(ericsnow) First fall back to following symlinks?
+	executable = resolved
+	initSystem, ok = identifyExecutable(executable)
+	if ok {
+		return initSystem, true
+	}
 
 	// Fall back to checking the "version" text.
 	cmd := exec.Command(executable, "--version")
