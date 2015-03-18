@@ -48,7 +48,7 @@ func NewConverter(
 }
 
 func (c *Converter) SetUp() (watcher.NotifyWatcher, error) {
-	logger.Infof("Setting up Converter watcher.")
+	logger.Infof("Setting up Converter watcher for %s.", c.config.Tag().String())
 	return c.st.WatchForJobsChanges(c.config.Tag().String())
 }
 

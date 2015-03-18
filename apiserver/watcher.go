@@ -42,12 +42,12 @@ func newClientAllWatcher(st *state.State, resources *common.Resources, auth comm
 	r := resources.Get(id)
 	if r == nil {
 		logger.Errorf("watcher %q not found", id)
-		panic(errors.Trace(common.ErrUnknownWatcher))
+		return nil, errors.Trace(common.ErrUnknownWatcher)
 	}
 	watcher, ok := r.(*state.Multiwatcher)
 	if !ok {
 		logger.Errorf("unknown watcher type for %q: %T, expected state.Multiwatcher", id, r)
-		panic(common.ErrUnknownWatcher)
+		return nil, errors.Trace(common.ErrUnknownWatcher)
 	}
 	return &srvClientAllWatcher{
 		watcher:   watcher,
@@ -95,12 +95,12 @@ func newNotifyWatcher(st *state.State, resources *common.Resources, auth common.
 	r := resources.Get(id)
 	if r == nil {
 		logger.Errorf("watcher %q not found", id)
-		panic(common.ErrUnknownWatcher)
+		return nil, errors.Trace(common.ErrUnknownWatcher)
 	}
 	watcher, ok := r.(state.NotifyWatcher)
 	if !ok {
 		logger.Errorf("unknown watcher type for %q: %#T, expected state.NotifyWatcher", id, r)
-		panic(common.ErrUnknownWatcher)
+		return nil, errors.Trace(common.ErrUnknownWatcher)
 	}
 
 	return &srvNotifyWatcher{
@@ -147,12 +147,12 @@ func newStringsWatcher(st *state.State, resources *common.Resources, auth common
 	r := resources.Get(id)
 	if r == nil {
 		logger.Errorf("watcher %q not found", id)
-		panic(common.ErrUnknownWatcher)
+		return nil, errors.Trace(common.ErrUnknownWatcher)
 	}
 	watcher, ok := r.(state.StringsWatcher)
 	if !ok {
 		logger.Errorf("unknown watcher type for %q: %#T, expected state.StringsWatcher", id, r)
-		panic(common.ErrUnknownWatcher)
+		return nil, errors.Trace(common.ErrUnknownWatcher)
 	}
 	return &srvStringsWatcher{
 		watcher:   watcher,
@@ -199,12 +199,12 @@ func newRelationUnitsWatcher(st *state.State, resources *common.Resources, auth 
 	r := resources.Get(id)
 	if r == nil {
 		logger.Errorf("watcher %q not found", id)
-		panic(common.ErrUnknownWatcher)
+		return nil, errors.Trace(common.ErrUnknownWatcher)
 	}
 	watcher, ok := r.(state.RelationUnitsWatcher)
 	if !ok {
 		logger.Errorf("unknown watcher type for %q: %#T, expected state.RelationUnitsWatcher", id, r)
-		panic(common.ErrUnknownWatcher)
+		return nil, errors.Trace(common.ErrUnknownWatcher)
 	}
 
 	return &srvRelationUnitsWatcher{
@@ -274,12 +274,12 @@ func newMachineStorageIdsWatcher(
 	r := resources.Get(id)
 	if r == nil {
 		logger.Errorf("watcher %q not found", id)
-		panic(common.ErrUnknownWatcher)
+		return nil, errors.Trace(common.ErrUnknownWatcher)
 	}
 	watcher, ok := r.(state.StringsWatcher)
 	if !ok {
 		logger.Errorf("unknown watcher type for %q: %#T, expected state.StringsWatcher", id, r)
-		panic(common.ErrUnknownWatcher)
+		return nil, errors.Trace(common.ErrUnknownWatcher)
 	}
 
 	return &srvMachineStorageIdsWatcher{
