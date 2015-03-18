@@ -821,8 +821,6 @@ func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
 			"ExecStart=/tmp/init/jujud-machine-0/exec-start.sh",
 			-1),
 		Script: `
-#!/bin/bash
-
 touch /var/log/juju/machine-0.log
 chown syslog:syslog /var/log/juju/machine-0.log
 chmod 0600 /var/log/juju/machine-0.log
