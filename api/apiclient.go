@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io"
+	"net/http"
 	"strings"
 	"time"
 
@@ -149,7 +150,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 // function, and also the OpenWithVersion function below to explicitly cause
 // the API server to think that the client is older than it really is.
 func open(info *Info, opts DialOpts, loginFunc func(st *State, tag, pwd, nonce string) error) (*State, error) {
-	conn, err := Connect(info, opts)
+	conn, err := Connect(info, "", nil, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -198,23 +199,26 @@ func OpenWithVersion(info *Info, opts DialOpts, loginVersion int) (*State, error
 }
 
 // Connect establishes a websocket connection to the API server using
-// the Info given. If multiple API addresses are provided they will be
-// tried concurrently - the first successful connection wins.
-func Connect(info *Info, opts DialOpts) (*websocket.Conn, error) {
+// the Info, API path tail and (optional) request headers provided. If
+// multiple API addresses are provided in Info they will be tried
+// concurrently - the first successful connection wins.
+//
+// The path tail may be blank, in which case the default value will be
+// used. Otherwise, it must start with a "/".
+func Connect(info *Info, pathTail string, header http.Header, opts DialOpts) (*websocket.Conn, error) {
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no API addresses to connect to")
 	}
+	if pathTail != "" && !strings.HasPrefix(pathTail, "/") {
+		return nil, errors.New(`path tail must start with "/"`)
+	}
+
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert(info.CACert)
 	if err != nil {
 		return nil, errors.Annotate(err, "cert pool creation failed")
 	}
 	pool.AddCert(xcert)
-
-	var environUUID string
-	if info.EnvironTag.Id() != "" {
-		environUUID = info.EnvironTag.Id()
-	}
 
 	// If they exist, only use localhost addresses.
 	var addrs []string
@@ -228,11 +232,13 @@ func Connect(info *Info, opts DialOpts) (*websocket.Conn, error) {
 		addrs = info.Addrs
 	}
 
+	path := makeAPIPath(info.EnvironTag.Id(), pathTail)
+
 	// Dial all addresses at reasonable intervals.
 	try := parallel.NewTry(0, nil)
 	defer try.Kill()
 	for _, addr := range addrs {
-		err := dialWebsocket(addr, environUUID, opts, pool, try)
+		err := dialWebsocket(addr, path, header, opts, pool, try)
 		if err == parallel.ErrStopped {
 			break
 		}
@@ -254,6 +260,21 @@ func Connect(info *Info, opts DialOpts) (*websocket.Conn, error) {
 	return conn, nil
 }
 
+// makeAPIPath builds the path to connect to based on the tail given
+// and whether the environment UUID is set.
+func makeAPIPath(envUUID, tail string) string {
+	if envUUID == "" {
+		if tail == "" {
+			tail = "/"
+		}
+		return tail
+	}
+	if tail == "" {
+		tail = "/api"
+	}
+	return "/environment/" + envUUID + tail
+}
+
 // toString returns the value of a tag's String method, or "" if the tag is nil.
 func toString(tag names.Tag) string {
 	if tag == nil {
@@ -262,24 +283,20 @@ func toString(tag names.Tag) string {
 	return tag.String()
 }
 
-func dialWebsocket(addr, environUUID string, opts DialOpts, rootCAs *x509.CertPool, try *parallel.Try) error {
-	cfg, err := setUpWebsocket(addr, environUUID, rootCAs)
+func dialWebsocket(addr, path string, header http.Header, opts DialOpts, rootCAs *x509.CertPool, try *parallel.Try) error {
+	cfg, err := setUpWebsocket(addr, path, header, rootCAs)
 	if err != nil {
 		return err
 	}
 	return try.Start(newWebsocketDialer(cfg, opts))
 }
 
-func setUpWebsocket(addr, environUUID string, rootCAs *x509.CertPool) (*websocket.Config, error) {
+func setUpWebsocket(addr, path string, header http.Header, rootCAs *x509.CertPool) (*websocket.Config, error) {
 	// origin is required by the WebSocket API, used for "origin policy"
 	// in websockets. We pass localhost to satisfy the API; it is
 	// inconsequential to us.
 	const origin = "http://localhost/"
-	tail := "/"
-	if environUUID != "" {
-		tail = "/environment/" + environUUID + "/api"
-	}
-	cfg, err := websocket.NewConfig("wss://"+addr+tail, origin)
+	cfg, err := websocket.NewConfig("wss://"+addr+path, origin)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -287,12 +304,15 @@ func setUpWebsocket(addr, environUUID string, rootCAs *x509.CertPool) (*websocke
 		RootCAs:    rootCAs,
 		ServerName: "juju-apiserver",
 	}
+	cfg.Header = header
 	return cfg, nil
 }
 
 // newWebsocketDialer returns a function that
 // can be passed to utils/parallel.Try.Start.
-func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct{}) (io.Closer, error) {
+var newWebsocketDialer = createWebsocketDialer
+
+func createWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct{}) (io.Closer, error) {
 	openAttempt := utils.AttemptStrategy{
 		Total: opts.Timeout,
 		Delay: opts.RetryDelay,
