@@ -150,6 +150,9 @@ func identifyInitSystem(executable string, followLink bool) (string, bool) {
 		return "", false
 	} else if err != nil {
 		logger.Errorf("failed to find %q: %v", executable, err)
+		if followLink {
+			return "", false
+		}
 		// The stat check is just an optimization so we go on anyway.
 	}
 
