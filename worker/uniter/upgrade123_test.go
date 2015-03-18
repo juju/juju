@@ -109,21 +109,27 @@ func (s *upgradeStateContextSuite) TestUpgradeIdempotent(c *gc.C) {
 	s.confirmUpgradeIdempotent(c, given, expectUpgrade)
 }
 
+func (s *upgradeStateContextSuite) TestUpgradeMissingStateFile(c *gc.C) {
+	s.confirmUniterStateFileMissing(c)
+	s.confirmUpgradeNoErrors(c)
+	s.confirmUniterStateFileMissing(c)
+}
+
 func (s *upgradeStateContextSuite) confirmUpgrade(c *gc.C, given, expect *operation.State) {
 	s.writeState(c, given)
-	s.applyUpgrade(c)
-	after := s.readState(c)
-	c.Assert(after, jc.DeepEquals, expect)
+
+	s.confirmUpgradeNoErrors(c)
+	s.confirmUniterStateFileMatches(c, expect)
 }
 
 func (s *upgradeStateContextSuite) confirmUpgradeIdempotent(c *gc.C, given, expect *operation.State) {
 	s.writeState(c, given)
-	s.applyUpgrade(c)
-	after := s.readState(c)
-	c.Assert(after, jc.DeepEquals, expect)
-	s.applyUpgrade(c)
-	second := s.readState(c)
-	c.Assert(second, jc.DeepEquals, expect)
+
+	s.confirmUpgradeNoErrors(c)
+	s.confirmUniterStateFileMatches(c, expect)
+
+	s.confirmUpgradeNoErrors(c)
+	s.confirmUniterStateFileMatches(c, expect)
 }
 
 func (s *upgradeStateContextSuite) writeState(c *gc.C, state *operation.State) {
@@ -137,9 +143,19 @@ func (s *upgradeStateContextSuite) readState(c *gc.C) *operation.State {
 	return state
 }
 
-func (s *upgradeStateContextSuite) applyUpgrade(c *gc.C) {
+func (s *upgradeStateContextSuite) confirmUpgradeNoErrors(c *gc.C) {
 	err := uniter.AddStoppedFieldToUniterState(s.unitTag, s.datadir)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradeStateContextSuite) confirmUniterStateFileMatches(c *gc.C, expect *operation.State) {
+	after := s.readState(c)
+	c.Assert(after, jc.DeepEquals, expect)
+}
+
+func (s *upgradeStateContextSuite) confirmUniterStateFileMissing(c *gc.C) {
+	_, err := s.statefile.Read()
+	c.Assert(err, gc.ErrorMatches, "uniter state file does not exist")
 }
 
 func (s *upgradeStateContextSuite) initializeContext(c *gc.C, utag names.UnitTag) {
