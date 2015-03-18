@@ -24,12 +24,12 @@ import (
 type Stub struct {
 	*testing.Stub
 
-	Version      version.Binary
-	GOOS         string
-	PID1Filename string
-	Executable   string
-	Service      Service
-	NotASymlink  string
+	Version     version.Binary
+	GOOS        string
+	PSOutput    string
+	Executable  string
+	Service     Service
+	NotASymlink string
 }
 
 // GetVersion stubs out .
@@ -50,13 +50,11 @@ func (s *Stub) GetOS() string {
 	return s.GOOS
 }
 
-// GetPID1Filename stubs out /proc/1/cmdline.
-func (s *Stub) GetPID1Filename() string {
+// PsPid1 stubs out ps -p 1 ...
+func (s *Stub) PsPid1() ([]byte, error) {
 	s.AddCall("GetPID1Filename")
 
-	// Pop the next error off the queue, even though we don't use it.
-	s.NextErr()
-	return s.PID1Filename
+	return []byte(s.PSOutput), s.NextErr()
 }
 
 // GetInitSystemExecutable stubs out the contents of /proc/1/cmdline.
@@ -156,13 +154,8 @@ func (s *BaseSuite) PatchPid1File(c *gc.C, executable, verText string) string {
 		s.writeExecutable(c, exeName, verText)
 	}
 
-	// Now write the actual fake /proc/1/cmdline file.
-	filename := filepath.Join(s.Dirname, "pid1cmdline")
-	err := ioutil.WriteFile(filename, []byte(exeName), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.Patched.PID1Filename = filename
-	s.PatchValue(&pid1Filename, s.Patched.GetPID1Filename)
+	s.Patched.PSOutput = exeName
+	s.PatchValue(&psPID1, s.Patched.PsPid1)
 	return exeName
 }
 
