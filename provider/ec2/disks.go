@@ -103,7 +103,6 @@ func getBlockDeviceMappings(
 		}
 		mapping := ec2.BlockDeviceMapping{
 			VolumeSize: int64(mibToGib(params.Size)),
-			// TODO(axw) DeleteOnTermination
 		}
 		// Translate user values for storage provider parameters.
 		// TODO(wallyworld) - remove type assertions when juju/schema is used
@@ -118,6 +117,11 @@ func getBlockDeviceMappings(
 				return nil, nil, nil, errors.Annotatef(err, "invalid iops value %v, expected integer", v)
 			}
 		}
+		if v, ok := options[storage.Persistent].(bool); ok {
+			mapping.DeleteOnTermination = !v
+		} else {
+			mapping.DeleteOnTermination = true
+		}
 
 		// Check mapping is valid (minus the device name).
 		if err := validateBlockDeviceMapping(mapping); err != nil {
@@ -131,8 +135,9 @@ func getBlockDeviceMappings(
 		mapping.DeviceName = requestDeviceName
 
 		volume := storage.Volume{
-			Tag:  params.Tag,
-			Size: gibToMib(uint64(mapping.VolumeSize)),
+			Tag:        params.Tag,
+			Size:       gibToMib(uint64(mapping.VolumeSize)),
+			Persistent: !mapping.DeleteOnTermination,
 			// VolumeId will be filled in once the instance has
 			// been created, which will create the volumes too.
 		}

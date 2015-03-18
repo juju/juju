@@ -40,7 +40,11 @@ func NewConverter(
 
 func (c *Converter) SetUp() (watcher.NotifyWatcher, error) {
 	logger.Infof("Setting up Converter watcher.")
-	return c.st.WatchForJobsChanges(c.tag.String())
+	watcher, err := c.st.WatchForJobsChanges(c.tag.String())
+	if err != nil {
+		logger.Errorf("%q", err)
+	}
+	return watcher, err
 }
 
 func (c *Converter) Handle() (err error) {

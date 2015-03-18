@@ -753,7 +753,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 	// Provision volume 2 so that it is excluded from any ProvisioningInfo() results.
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
 	err = placementMachine.SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil, map[names.VolumeTag]state.VolumeInfo{
-		names.NewVolumeTag("2"): state.VolumeInfo{VolumeId: "123", Size: 1024},
+		names.NewVolumeTag(placementMachine.Id() + "/2"): state.VolumeInfo{VolumeId: "123", Size: 1024},
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -781,17 +781,27 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Volumes: []params.VolumeParams{{
-					VolumeTag:  "volume-0",
+					VolumeTag:  "volume-" + placementMachine.Id() + "-0",
 					Size:       1000,
-					MachineTag: placementMachine.Tag().String(),
 					Provider:   "loop",
 					Attributes: map[string]interface{}{"foo": "bar"},
+					Attachment: &params.VolumeAttachmentParams{
+						MachineTag: placementMachine.Tag().String(),
+						VolumeTag:  "volume-" + placementMachine.Id() + "-0",
+						InstanceId: "i-am",
+						Provider:   "loop",
+					},
 				}, {
-					VolumeTag:  "volume-1",
+					VolumeTag:  "volume-" + placementMachine.Id() + "-1",
 					Size:       2000,
-					MachineTag: placementMachine.Tag().String(),
 					Provider:   "loop",
 					Attributes: map[string]interface{}{"foo": "bar"},
+					Attachment: &params.VolumeAttachmentParams{
+						MachineTag: placementMachine.Tag().String(),
+						VolumeTag:  "volume-" + placementMachine.Id() + "-1",
+						InstanceId: "i-am",
+						Provider:   "loop",
+					},
 				}},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
@@ -805,7 +815,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 		vols := expected.Results[1].Result.Volumes
 		vols[0], vols[1] = vols[1], vols[0]
 	}
-	c.Assert(result, gc.DeepEquals, expected)
+	c.Assert(result, jc.DeepEquals, expected)
 }
 
 func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
@@ -828,7 +838,7 @@ func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(result, gc.DeepEquals, params.ProvisioningInfoResults{
+	c.Assert(result, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
 				Series:      "quantal",
@@ -837,11 +847,15 @@ func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Volumes: []params.VolumeParams{{
-					VolumeTag:  "volume-0",
+					VolumeTag:  "volume-" + placementMachine.Id() + "-0",
 					Size:       1000,
-					MachineTag: placementMachine.Tag().String(),
 					Provider:   "loop",
 					Attributes: nil,
+					Attachment: &params.VolumeAttachmentParams{
+						MachineTag: placementMachine.Tag().String(),
+						VolumeTag:  "volume-" + placementMachine.Id() + "-0",
+						Provider:   "loop",
+					},
 				}},
 			}},
 		},
@@ -1098,12 +1112,12 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		InstanceId: "i-am-also",
 		Nonce:      "fake",
 		Volumes: []params.Volume{{
-			VolumeTag: "volume-0",
+			VolumeTag: "volume-" + volumesMachine.Id() + "-0",
 			VolumeId:  "vol-0",
 			Size:      1234,
 		}},
 		VolumeAttachments: []params.VolumeAttachment{{
-			VolumeTag:  "volume-0",
+			VolumeTag:  "volume-" + volumesMachine.Id() + "-0",
 			MachineTag: volumesMachine.Tag().String(),
 			DeviceName: "sda",
 		}},
@@ -1193,7 +1207,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfo, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volumeInfo, gc.Equals, state.VolumeInfo{VolumeId: "vol-0", Size: 1234})
+	c.Assert(volumeInfo, gc.Equals, state.VolumeInfo{VolumeId: "vol-0", Pool: "loop-pool", Size: 1234})
 
 	// Verify the machine without requested volumes still has no volume
 	// attachments recorded in state.
@@ -1297,7 +1311,8 @@ func (s *withoutStateServerSuite) TestContainerManagerConfigNoIPForwarding(c *gc
 
 func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 	attrs := map[string]interface{}{
-		"http-proxy": "http://proxy.example.com:9000",
+		"http-proxy":            "http://proxy.example.com:9000",
+		"allow-lxc-loop-mounts": true,
 	}
 	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1314,6 +1329,7 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.PreferIPv6, jc.IsTrue)
+	c.Check(results.AllowLXCLoopMounts, jc.IsTrue)
 }
 
 func (s *withoutStateServerSuite) TestSetSupportedContainers(c *gc.C) {

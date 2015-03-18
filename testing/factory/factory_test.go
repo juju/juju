@@ -148,9 +148,11 @@ func (s *factorySuite) TestMakeEnvUserParams(c *gc.C) {
 		Creator:   names.NewUserTag("createdby"),
 		NoEnvUser: true,
 	})
+
 	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
-		User:      "foobar",
-		CreatedBy: names.NewUserTag("createdby"),
+		User:        "foobar",
+		CreatedBy:   names.NewUserTag("createdby"),
+		DisplayName: "Foo Bar",
 	})
 
 	saved, err := s.State.EnvironmentUser(envUser.UserTag())
@@ -158,6 +160,7 @@ func (s *factorySuite) TestMakeEnvUserParams(c *gc.C) {
 	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar@local")
 	c.Assert(saved.CreatedBy(), gc.Equals, "createdby@local")
+	c.Assert(saved.DisplayName(), gc.Equals, "Foo Bar")
 }
 
 func (s *factorySuite) TestMakeEnvUserInvalidCreatedBy(c *gc.C) {
@@ -177,14 +180,16 @@ func (s *factorySuite) TestMakeEnvUserInvalidCreatedBy(c *gc.C) {
 func (s *factorySuite) TestMakeEnvUserNonLocalUser(c *gc.C) {
 	creator := s.Factory.MakeUser(c, &factory.UserParams{Name: "created-by"})
 	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
-		User:      "foobar@ubuntuone",
-		CreatedBy: creator.UserTag(),
+		User:        "foobar@ubuntuone",
+		DisplayName: "Foo Bar",
+		CreatedBy:   creator.UserTag(),
 	})
 
 	saved, err := s.State.EnvironmentUser(envUser.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar@ubuntuone")
+	c.Assert(saved.DisplayName(), gc.Equals, "Foo Bar")
 	c.Assert(saved.CreatedBy(), gc.Equals, creator.UserTag().Username())
 }
 
@@ -239,7 +244,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	c.Assert(machine.CheckProvisioned(nonce), jc.IsTrue)
 	c.Assert(machine.PasswordValid(password), jc.IsTrue)
 
-	volume, err := s.State.Volume(names.NewVolumeTag("0"))
+	volume, err := s.State.Volume(names.NewVolumeTag(machine.Id() + "/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	volParams, ok := volume.Params()
 	c.Assert(ok, jc.IsTrue)

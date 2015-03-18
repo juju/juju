@@ -29,6 +29,8 @@ func (s *steps123Suite) TestStateStepsFor123(c *gc.C) {
 		"move blocks from environment to state",
 		"insert userenvnameC doc for each environment",
 		"add name field to users and lowercase _id field",
+		"add life field to IP addresses",
+		"lower case _id of envUsers",
 	}
 	assertStateSteps(c, version.MustParse("1.23.0"), expected)
 }

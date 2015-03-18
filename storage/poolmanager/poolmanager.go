@@ -7,6 +7,8 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 )
 
 const (
@@ -55,6 +57,20 @@ func (pm *poolManager) Create(name string, providerType storage.ProviderType, at
 	for k, v := range attrs {
 		poolAttrs[k] = v
 	}
+	// Instantiate the provider to validate config.
+	p, err := registry.StorageProvider(providerType)
+	if err != nil {
+		return nil, err
+	}
+	// Perform common validation.
+	if err := provider.ValidateConfig(p, cfg); err != nil {
+		return nil, err
+	}
+	// Perform provider specific validation.
+	if err := p.ValidateConfig(cfg); err != nil {
+		return nil, err
+	}
+
 	poolAttrs[Name] = name
 	poolAttrs[Type] = string(providerType)
 	if err := pm.settings.CreateSettings(globalKey(name), poolAttrs); err != nil {

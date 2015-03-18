@@ -27,6 +27,9 @@ type Filesystem interface {
 	// FilesystemTag returns the tag for the filesystem.
 	FilesystemTag() names.FilesystemTag
 
+	// Life returns the life of the filesystem.
+	Life() Life
+
 	// Storage returns the tag of the storage instance that this
 	// filesystem is assigned to, if any. If the filesystem is not
 	// assigned to a storage instance, an error satisfying
@@ -59,8 +62,16 @@ type FilesystemAttachment interface {
 	// Machine returns the tag of the related Machine.
 	Machine() names.MachineTag
 
+	// Life returns the life of the filesystem attachment.
+	Life() Life
+
 	// Info returns the filesystem attachment's FilesystemAttachmentInfo, or a
 	// NotProvisioned error if the attachment has not yet been made.
+	//
+	// Note that the presence of FilesystemAttachmentInfo does not necessarily
+	// imply that the filesystem is mounted; environment storage providers may
+	// need to prepare a filesystem for attachment to a machine before it can
+	// be mounted.
 	Info() (FilesystemAttachmentInfo, error)
 
 	// Params returns the parameters for creating the filesystem attachment,
@@ -114,6 +125,7 @@ type FilesystemParams struct {
 // FilesystemInfo describes information about a filesystem.
 type FilesystemInfo struct {
 	Size uint64 `bson:"size"`
+	Pool string `bson:"pool"`
 
 	// FilesystemId is the provider-allocated unique ID of the
 	// filesystem. This will be unspecified for filesystems
@@ -123,6 +135,9 @@ type FilesystemInfo struct {
 
 // FilesystemAttachmentInfo describes information about a filesystem attachment.
 type FilesystemAttachmentInfo struct {
+	// MountPoint is the path at which the filesystem is mounted on the
+	// machine. MountPoint may be empty, meaning that the filesystem is
+	// not mounted yet.
 	MountPoint string `bson:"mountpoint"`
 }
 
@@ -141,6 +156,11 @@ func (f *filesystem) Tag() names.Tag {
 // FilesystemTag is required to implement Filesystem.
 func (f *filesystem) FilesystemTag() names.FilesystemTag {
 	return names.NewFilesystemTag(f.doc.FilesystemId)
+}
+
+// Life is required to implement Filesystem.
+func (f *filesystem) Life() Life {
+	return f.doc.Life
 }
 
 // Storage is required to implement Filesystem.
@@ -184,6 +204,11 @@ func (f *filesystemAttachment) Filesystem() names.FilesystemTag {
 // Machine is required to implement FilesystemAttachment.
 func (f *filesystemAttachment) Machine() names.MachineTag {
 	return names.NewMachineTag(f.doc.Machine)
+}
+
+// Life is required to implement FilesystemAttachment.
+func (f *filesystemAttachment) Life() Life {
+	return f.doc.Life
 }
 
 // Info is required to implement FilesystemAttachment.
@@ -276,24 +301,32 @@ func filesystemAttachmentId(machineId, filesystemId string) string {
 }
 
 // newFilesystemId returns a unique filesystem ID.
-func newFilesystemId(st *State) (string, error) {
+// If the machine ID supplied is non-empty, the
+// filesystem ID will incorporate it as the
+// filesystem's machine scope.
+func newFilesystemId(st *State, machineId string) (string, error) {
 	seq, err := st.sequence("filesystem")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return fmt.Sprint(seq), nil
+	id := fmt.Sprint(seq)
+	if machineId != "" {
+		id = machineId + "/" + id
+	}
+	return id, nil
 }
 
 // addFilesystemOps returns txn.Ops to create a new filesystem with the
 // specified parameters. If the storage source cannot create filesystems
 // directly, a volume will be created and Juju will manage a filesystem
 // on it.
-func (st *State) addFilesystemOps(params FilesystemParams) ([]txn.Op, names.FilesystemTag, names.VolumeTag, error) {
+func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]txn.Op, names.FilesystemTag, names.VolumeTag, error) {
 	params, err := st.filesystemParamsWithDefaults(params)
 	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Trace(err)
 	}
-	if err := st.validateFilesystemParams(&params); err != nil {
+	machineId, err = st.validateFilesystemParams(params, machineId)
+	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Annotate(err, "validating filesystem params")
 	}
 
@@ -312,7 +345,7 @@ func (st *State) addFilesystemOps(params FilesystemParams) ([]txn.Op, names.File
 			params.Pool,
 			params.Size,
 		}
-		volumeOp, volumeTag, err = st.addVolumeOp(volumeParams)
+		volumeOp, volumeTag, err = st.addVolumeOp(volumeParams, machineId)
 		if err != nil {
 			return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Annotate(err, "creating backing volume")
 		}
@@ -320,7 +353,7 @@ func (st *State) addFilesystemOps(params FilesystemParams) ([]txn.Op, names.File
 		ops = append(ops, volumeOp)
 	}
 
-	id, err := newFilesystemId(st)
+	id, err := newFilesystemId(st, machineId)
 	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Annotate(err, "cannot generate filesystem name")
 	}
@@ -355,15 +388,17 @@ func (st *State) filesystemParamsWithDefaults(params FilesystemParams) (Filesyst
 	return params, nil
 }
 
-func (st *State) validateFilesystemParams(params *FilesystemParams) error {
-	err := validateStoragePool(st, params.Pool, storage.StorageKindFilesystem)
+// validateFilesystemParams validates the filesystem parameters, and returns the
+// machine ID to use as the scope in the filesystem tag.
+func (st *State) validateFilesystemParams(params FilesystemParams, machineId string) (maybeMachineId string, _ error) {
+	err := validateStoragePool(st, params.Pool, storage.StorageKindFilesystem, &machineId)
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	if params.Size == 0 {
-		return errors.New("invalid size 0")
+		return "", errors.New("invalid size 0")
 	}
-	return nil
+	return machineId, nil
 }
 
 // createMachineFilesystemAttachmentInfo creates filesystem
@@ -400,7 +435,11 @@ func (st *State) SetFilesystemInfo(tag names.FilesystemTag, info FilesystemInfo)
 		// If the filesystem has parameters, unset them
 		// when we set info for the first time, ensuring
 		// that params and info are mutually exclusive.
-		_, unsetParams := fs.Params()
+		var unsetParams bool
+		if params, ok := fs.Params(); ok {
+			info.Pool = params.Pool
+			unsetParams = true
+		}
 		ops := setFilesystemInfoOps(tag, info, unsetParams)
 		return ops, nil
 	}

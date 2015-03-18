@@ -46,6 +46,7 @@ type ebsProvider struct{}
 var _ storage.Provider = (*ebsProvider)(nil)
 
 var validConfigOptions = set.NewStrings(
+	storage.Persistent,
 	EBS_VolumeType,
 	EBS_IOPS,
 	EBS_Encrypted,
@@ -65,6 +66,11 @@ func (e *ebsProvider) ValidateConfig(providerConfig *storage.Config) error {
 // Supports is defined on the Provider interface.
 func (e *ebsProvider) Supports(k storage.StorageKind) bool {
 	return k == storage.StorageKindBlock
+}
+
+// Scope is defined on the Provider interface.
+func (e *ebsProvider) Scope() storage.Scope {
+	return storage.ScopeEnviron
 }
 
 func TranslateUserEBSOptions(userOptions map[string]interface{}) map[string]interface{} {

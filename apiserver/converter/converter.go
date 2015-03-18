@@ -17,7 +17,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.converter")
 
 func init() {
-	common.RegisterStandardFacade("Converter", 0, NewConverterAPI)
+	common.RegisterStandardFacade("Converter", 1, NewConverterAPI)
 }
 
 type ConverterAPI struct {

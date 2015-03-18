@@ -18,7 +18,7 @@ type State struct {
 }
 
 func NewState(caller base.APICaller) *State {
-	return &State{base.NewFacadeCaller(caller, converterAPI)}
+	return &State{facade: base.NewFacadeCaller(caller, converterAPI)}
 }
 
 func (c *State) WatchForJobsChanges(tag string) (watcher.NotifyWatcher, error) {
@@ -26,9 +26,11 @@ func (c *State) WatchForJobsChanges(tag string) (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
+
 	err := c.facade.FacadeCall("WatchForJobsChanges", args, &result)
 	if err != nil {
 		return nil, err
 	}
+
 	return watcher.NewNotifyWatcher(c.facade.RawAPICaller(), result), nil
 }

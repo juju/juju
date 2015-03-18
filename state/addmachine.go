@@ -484,7 +484,7 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 
 	// Create filesystems and filesystem attachments.
 	for _, f := range template.Filesystems {
-		ops, filesystemTag, volumeTag, err := st.addFilesystemOps(f.Filesystem)
+		ops, filesystemTag, volumeTag, err := st.addFilesystemOps(f.Filesystem, mdoc.Id)
 		if err != nil {
 			return nil, txn.Op{}, errors.Trace(err)
 		}
@@ -502,7 +502,7 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	// attempting to create the volume until after the machine
 	// has been provisioned.
 	for _, v := range template.Volumes {
-		op, tag, err := st.addVolumeOp(v.Volume)
+		op, tag, err := st.addVolumeOp(v.Volume, mdoc.Id)
 		if err != nil {
 			return nil, txn.Op{}, errors.Trace(err)
 		}

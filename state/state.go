@@ -77,6 +77,7 @@ const (
 	stateServersC          = "stateServers"
 	openedPortsC           = "openedPorts"
 	metricsC               = "metrics"
+	metricsManagerC        = "metricsmanager"
 	upgradeInfoC           = "upgradeInfo"
 	rebootC                = "reboot"
 	blockDevicesC          = "blockdevices"
@@ -1338,6 +1339,7 @@ func (st *State) AddIPAddress(addr network.Address, subnetid string) (ipaddress 
 	ipDoc := ipaddressDoc{
 		DocID:    addressID,
 		EnvUUID:  st.EnvironUUID(),
+		Life:     Alive,
 		State:    AddressStateUnknown,
 		SubnetId: subnetid,
 		Value:    addr.Value,

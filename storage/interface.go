@@ -13,6 +13,17 @@ import (
 // ProviderType uniquely identifies a storage provider, such as "ebs" or "loop".
 type ProviderType string
 
+// Scope defines the scope of the storage that a provider manages.
+// Machine-scoped storage must be managed from within the machine,
+// whereas environment-level storage must be managed by an environment
+// storage provisioner.
+type Scope int
+
+const (
+	ScopeEnviron Scope = iota
+	ScopeMachine
+)
+
 // Provider is an interface for obtaining storage sources.
 type Provider interface {
 	// VolumeSource returns a VolumeSource given the specified cloud
@@ -37,6 +48,9 @@ type Provider interface {
 	// be used for creating filesystem storage; Juju will request a
 	// volume from the provider and then manage the filesystem itself.
 	Supports(kind StorageKind) bool
+
+	// Scope returns the scope of storage managed by this provider.
+	Scope() Scope
 
 	// ValidateConfig validates the provided storage provider config,
 	// returning an error if it is invalid.
@@ -70,6 +84,10 @@ type VolumeSource interface {
 
 	// AttachVolumes attaches the volumes with the specified provider
 	// volume IDs to the instances with the corresponding index.
+	//
+	// AttachVolumes must be idempotent; it may be called even if the
+	// attachment already exists, to ensure that it exists, e.g. over
+	// machine restarts.
 	//
 	// TODO(axw) we need to validate attachment requests prior to
 	// recording in state. For example, the ec2 provider must reject
@@ -117,7 +135,8 @@ type VolumeParams struct {
 	Provider ProviderType
 
 	// Attributes is the set of provider-specific attributes to pass to
-	// the storage provider when creating the volume.
+	// the storage provider when creating the volume. Attributes is derived
+	// from the storage pool configuration.
 	Attributes map[string]interface{}
 
 	// Attachment identifies the machine that the volume should be attached
@@ -150,6 +169,10 @@ type VolumeAttachmentParams struct {
 // AttachmentParams describes the parameters for attaching a volume or
 // filesystem to a machine.
 type AttachmentParams struct {
+	// Provider is the name of the storage provider that is to be used to
+	// create the attachment.
+	Provider ProviderType
+
 	// Machine is the tag of the Juju machine that the storage should be
 	// attached to. Storage providers may use this to perform machine-
 	// specific operations, such as configuring access controls for the

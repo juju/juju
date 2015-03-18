@@ -924,8 +924,8 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 	// TODO(axw) test invalid volume attachment
 }
 
-func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams) names.VolumeTag {
-	op, tag, err := state.AddVolumeOp(s.State, params)
+func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams, machineId string) names.VolumeTag {
+	op, tag, err := state.AddVolumeOp(s.State, params, machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	err = state.RunTransaction(s.State, []txn.Op{op})
 	c.Assert(err, jc.ErrorIsNil)
@@ -939,7 +939,8 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 
 	// Must create the requested block device prior to SetInstanceInfo.
-	volumeTag := s.addVolume(c, state.VolumeParams{Size: 1000, Pool: "loop-pool"})
+	volumeTag := s.addVolume(c, state.VolumeParams{Size: 1000, Pool: "loop-pool"}, "123")
+	c.Assert(volumeTag, gc.Equals, names.NewVolumeTag("123/0"))
 
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
 	networks := []state.NetworkInfo{
@@ -948,12 +949,11 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	interfaces := []state.NetworkInterfaceInfo{
 		{MACAddress: "aa:bb:cc:dd:ee:ff", NetworkName: "net1", InterfaceName: "eth0", IsVirtual: false},
 	}
-	volumes := map[names.VolumeTag]state.VolumeInfo{
-		volumeTag: state.VolumeInfo{
-			VolumeId: "storage-123",
-			Size:     1234,
-		},
+	volumeInfo := state.VolumeInfo{
+		VolumeId: "storage-123",
+		Size:     1234,
 	}
+	volumes := map[names.VolumeTag]state.VolumeInfo{volumeTag: volumeInfo}
 	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces, volumes, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsTrue)
@@ -976,7 +976,8 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.Equals, volumes[volumeTag])
+	volumeInfo.Pool = "loop-pool" // taken from params
+	c.Assert(info, gc.Equals, volumeInfo)
 }
 
 func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *gc.C) {
