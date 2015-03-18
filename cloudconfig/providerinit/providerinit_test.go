@@ -4,6 +4,7 @@ package providerinit_test
 
 import (
 	"path"
+	gotesting "testing"
 	"time"
 
 	"github.com/juju/names"
@@ -29,6 +30,10 @@ import (
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
+
+func Test(t *gotesting.T) {
+	gc.TestingT(t)
+}
 
 // dummySampleConfig returns the dummy sample config without
 // the state server configured.

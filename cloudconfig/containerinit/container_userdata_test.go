@@ -6,6 +6,7 @@ package containerinit_test
 import (
 	"path/filepath"
 	"strings"
+	gotesting "testing"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -19,6 +20,10 @@ import (
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/testing"
 )
+
+func Test(t *gotesting.T) {
+	gc.TestingT(t)
+}
 
 type UserDataSuite struct {
 	testing.BaseSuite
