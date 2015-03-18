@@ -173,6 +173,7 @@ func (engine *engine) Install(name string, manifold Manifold) error {
 // gotInstall handles the params originally supplied to Install. It must only be
 // called from the loop goroutine.
 func (engine *engine) gotInstall(name string, manifold Manifold) error {
+	logger.Infof("installing %s manifold...", name)
 	if _, found := engine.manifolds[name]; found {
 		return errors.Errorf("%s manifold already installled", name)
 	}
