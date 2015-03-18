@@ -367,7 +367,6 @@ func (s *discoverySuite) TestNewShellSelectCommand(c *gc.C) {
 	}
 	script += "init_system=$(" + filename + ")\n"
 	script += service.NewShellSelectCommand("init_system", handler)
-	c.Logf(script)
 	response, err := exec.RunCommands(exec.RunParams{
 		Commands: script,
 	})
