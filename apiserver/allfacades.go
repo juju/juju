@@ -15,6 +15,7 @@ import (
 	_ "github.com/juju/juju/apiserver/charmrevisionupdater"
 	_ "github.com/juju/juju/apiserver/charms"
 	_ "github.com/juju/juju/apiserver/client"
+	_ "github.com/juju/juju/apiserver/converter"
 	_ "github.com/juju/juju/apiserver/deployer"
 	_ "github.com/juju/juju/apiserver/diskformatter"
 	_ "github.com/juju/juju/apiserver/diskmanager"

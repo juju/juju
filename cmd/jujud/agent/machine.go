@@ -63,6 +63,7 @@ import (
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevisionworker"
 	"github.com/juju/juju/worker/cleaner"
+	"github.com/juju/juju/worker/converter"
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskformatter"
@@ -648,6 +649,11 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
+
+	runner.StartWorker("converter", func() (worker.Worker, error) {
+		return converter.NewConverter(st.Converter(), agentConfig), nil
+	})
+
 	// TODO(wallyworld) - we don't want the storage workers running yet, even with feature flag.
 	// Will be enabled in a followup branch.
 	enableStorageWorkers := false
