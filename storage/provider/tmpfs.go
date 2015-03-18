@@ -77,6 +77,11 @@ func (*tmpfsProvider) Scope() storage.Scope {
 	return storage.ScopeMachine
 }
 
+// Dynamic is defined on the Provider interface.
+func (*tmpfsProvider) Dynamic() bool {
+	return true
+}
+
 type tmpfsFilesystemSource struct {
 	dirFuncs   dirFuncs
 	run        runCommandFunc

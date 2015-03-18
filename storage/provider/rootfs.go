@@ -79,6 +79,11 @@ func (*rootfsProvider) Scope() storage.Scope {
 	return storage.ScopeMachine
 }
 
+// Dynamic is defined on the Provider interface.
+func (*rootfsProvider) Dynamic() bool {
+	return true
+}
+
 type rootfsFilesystemSource struct {
 	dirFuncs   dirFuncs
 	run        runCommandFunc
