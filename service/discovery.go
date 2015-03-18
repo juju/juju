@@ -205,7 +205,7 @@ function checkInitSystem() {
 }
 
 # Find the executable.
-executable=$(cat /proc/1/cmdline | awk -F"\0" '{print $1}')
+executable=$(ps -p 1 -o cmd --no-headers | awk '{print $1}')
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
