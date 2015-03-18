@@ -93,3 +93,15 @@ func newUpdateStorageOp(tags []names.StorageTag) creator {
 		return factory.NewUpdateStorage(tags)
 	}
 }
+
+func newAcceptLeadershipOp() creator {
+	return func(factory operation.Factory) (operation.Operation, error) {
+		return factory.NewAcceptLeadership()
+	}
+}
+
+func newResignLeadershipOp() creator {
+	return func(factory operation.Factory) (operation.Operation, error) {
+		return factory.NewResignLeadership()
+	}
+}

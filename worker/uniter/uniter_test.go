@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -1691,20 +1692,56 @@ func (s *UniterSuite) TestRebootFromJujuRun(c *gc.C) {
 }
 
 func (s *UniterSuite) TestLeadership(c *gc.C) {
-	// TODO(fwereade): 2015-03-07 bug XXXXXXXXXXXXX
-	// This is a really bad way to test the impact of feature flags, because it
-	// doesn't clean up after itself. We really want something in featureflags
-	// to help test these -- something like `WithFlags([]string, func())`?
-	// Regardless, there are way too many tests like this already and fixing
-	// that deserves its own CL.
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "leader-election")
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, feature.LeaderElection)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	s.runUniterTests(c, []uniterTest{
 		ut(
-			"leader-set works",
+			"hook tools when leader",
 			quickStart{},
-			runCommands{fmt.Sprintf("leader-set foo=bar baz=qux")},
+			runCommands{"leader-set foo=bar baz=qux"},
 			verifyLeaderSettings{"foo": "bar", "baz": "qux"},
+		), ut(
+			"hook tools when not leader",
+			quickStart{minion: true},
+			runCommands{`if [ $(is-leader) != "False" ]; then exit -1; fi`},
+		), ut(
+			"leader-elected triggers when elected",
+			quickStart{minion: true},
+			forceLeader{},
+			waitHooks{"leader-elected"},
+		), ut(
+			"leader-settings-changed triggers when leader settings change",
+			quickStart{minion: true},
+			setLeaderSettings{"ping": "pong"},
+			waitHooks{"leader-settings-changed"},
+		), ut(
+			"leader-settings-changed triggers when bounced",
+			quickStart{minion: true},
+			verifyRunning{minion: true},
+		), ut(
+			"leader-settings-changed triggers when deposed (while stopped)",
+			quickStart{},
+			stopUniter{},
+			forceMinion{},
+			verifyRunning{minion: true},
+		),
+	})
+}
+
+func (s *UniterSuite) TestLeadershipUnexpectedDepose(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, feature.LeaderElection)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.PatchValue(uniter.LeadershipGuarantee, coretesting.ShortWait)
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			// NOTE: this is a strange and ugly test, intended to detect what
+			// *would* happen if the uniter suddenly failed to renew its lease;
+			// it depends on an artificially shortened tracker refresh time to
+			// run in a reasonable amount of time.
+			"leader-settings-changed triggers when deposed (while running)",
+			quickStart{},
+			forceMinion{},
+			waitHooks{"leader-settings-changed"},
 		),
 	})
 }

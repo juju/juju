@@ -170,6 +170,7 @@ func (t *tracker) setLeader(untilTime time.Time) error {
 	t.renewLease = time.After(renewTime.Sub(time.Now()))
 
 	for len(t.waitingLeader) > 0 {
+		logger.Infof("notifying %s ticket of impending %s leadership", t.unitName, t.serviceName)
 		var ticketCh chan bool
 		ticketCh, t.waitingLeader = t.waitingLeader[0], t.waitingLeader[1:]
 		defer close(ticketCh)
@@ -204,6 +205,7 @@ func (t *tracker) setMinion() error {
 	}
 
 	for len(t.waitingMinion) > 0 {
+		logger.Infof("notifying %s ticket of impending loss of %s leadership", t.unitName, t.serviceName)
 		var ticketCh chan bool
 		ticketCh, t.waitingMinion = t.waitingMinion[0], t.waitingMinion[1:]
 		defer close(ticketCh)

@@ -24,6 +24,7 @@ import (
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
 	utilexec "github.com/juju/utils/exec"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
@@ -32,6 +33,7 @@ import (
 
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/leadership"
@@ -142,9 +144,9 @@ func (ctx *context) apiLogin(c *gc.C) {
 	c.Assert(st, gc.NotNil)
 	c.Logf("API: login as %q successful", ctx.unit.Tag())
 	ctx.api, err = st.Uniter()
-	ctx.leader = st.LeadershipManager()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.api, gc.NotNil)
+	ctx.leader = leadership.NewLeadershipManager(lease.Manager())
 }
 
 func (ctx *context) writeExplicitHook(c *gc.C, path string, contents string) {
@@ -287,15 +289,37 @@ type createCharm struct {
 	customize func(*gc.C, *context, string)
 }
 
-var charmHooks = []string{
-	"install", "start", "config-changed", "upgrade-charm", "stop",
-	"db-relation-joined", "db-relation-changed", "db-relation-departed",
-	"db-relation-broken", "meter-status-changed", "collect-metrics",
+var (
+	baseCharmHooks = []string{
+		"install", "start", "config-changed", "upgrade-charm", "stop",
+		"db-relation-joined", "db-relation-changed", "db-relation-departed",
+		"db-relation-broken", "meter-status-changed", "collect-metrics",
+	}
+	leaderCharmHooks = []string{
+		"leader-elected", "leader-deposed", "leader-settings-changed",
+	}
+)
+
+func startupHooks(minion bool) []string {
+	if featureflag.Enabled(feature.LeaderElection) {
+		leaderHook := "leader-elected"
+		if minion {
+			leaderHook = "leader-settings-changed"
+		}
+		return []string{"install", leaderHook, "config-changed", "start"}
+	}
+	return []string{"install", "config-changed", "start"}
 }
 
 func (s createCharm) step(c *gc.C, ctx *context) {
 	base := testcharms.Repo.ClonedDirPath(c.MkDir(), "wordpress")
-	for _, name := range charmHooks {
+
+	allCharmHooks := baseCharmHooks
+	if featureflag.Enabled(feature.LeaderElection) {
+		allCharmHooks = append(allCharmHooks, leaderCharmHooks...)
+	}
+
+	for _, name := range allCharmHooks {
 		path := filepath.Join(base, "hooks", name)
 		good := true
 		for _, bad := range s.badHooks {
@@ -367,11 +391,16 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 	ctx.apiLogin(c)
 }
 
-type createUniter struct{}
+type createUniter struct {
+	minion bool
+}
 
-func (createUniter) step(c *gc.C, ctx *context) {
+func (s createUniter) step(c *gc.C, ctx *context) {
 	step(c, ctx, ensureStateWorker{})
 	step(c, ctx, createServiceAndUnit{})
+	if s.minion {
+		step(c, ctx, forceMinion{})
+	}
 	step(c, ctx, startUniter{})
 	step(c, ctx, waitAddresses{})
 }
@@ -487,6 +516,10 @@ type stopUniter struct {
 
 func (s stopUniter) step(c *gc.C, ctx *context) {
 	u := ctx.uniter
+	if u == nil {
+		c.Logf("uniter not started, skipping stopUniter{}")
+		return
+	}
 	ctx.uniter = nil
 	err := u.Stop()
 	if s.err == "" {
@@ -504,12 +537,19 @@ func (s verifyWaiting) step(c *gc.C, ctx *context) {
 	step(c, ctx, waitHooks{})
 }
 
-type verifyRunning struct{}
+type verifyRunning struct {
+	minion bool
+}
 
 func (s verifyRunning) step(c *gc.C, ctx *context) {
 	step(c, ctx, stopUniter{})
 	step(c, ctx, startUniter{})
-	step(c, ctx, waitHooks{"config-changed"})
+	var hooks []string
+	if s.minion && featureflag.Enabled(feature.LeaderElection) {
+		hooks = append(hooks, "leader-settings-changed")
+	}
+	hooks = append(hooks, "config-changed")
+	step(c, ctx, waitHooks(hooks))
 }
 
 type startupErrorWithCustomCharm struct {
@@ -528,7 +568,7 @@ func (s startupErrorWithCustomCharm) step(c *gc.C, ctx *context) {
 		status: params.StatusError,
 		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
-	for _, hook := range []string{"install", "config-changed", "start"} {
+	for _, hook := range startupHooks(false) {
 		if hook == s.badHook {
 			step(c, ctx, waitHooks{"fail-" + hook})
 			break
@@ -550,7 +590,7 @@ func (s startupError) step(c *gc.C, ctx *context) {
 		status: params.StatusError,
 		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
-	for _, hook := range []string{"install", "config-changed", "start"} {
+	for _, hook := range startupHooks(false) {
 		if hook == s.badHook {
 			step(c, ctx, waitHooks{"fail-" + hook})
 			break
@@ -560,14 +600,16 @@ func (s startupError) step(c *gc.C, ctx *context) {
 	step(c, ctx, verifyCharm{})
 }
 
-type quickStart struct{}
+type quickStart struct {
+	minion bool
+}
 
 func (s quickStart) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{})
 	step(c, ctx, serveCharm{})
-	step(c, ctx, createUniter{})
+	step(c, ctx, createUniter{minion: s.minion})
 	step(c, ctx, waitUnit{status: params.StatusActive})
-	step(c, ctx, waitHooks{"install", "config-changed", "start"})
+	step(c, ctx, waitHooks(startupHooks(s.minion)))
 	step(c, ctx, verifyCharm{})
 }
 
@@ -590,7 +632,7 @@ func (s startupRelationError) step(c *gc.C, ctx *context) {
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
 	step(c, ctx, waitUnit{status: params.StatusActive})
-	step(c, ctx, waitHooks{"install", "config-changed", "start"})
+	step(c, ctx, waitHooks(startupHooks(false)))
 	step(c, ctx, verifyCharm{})
 	step(c, ctx, addRelation{})
 	step(c, ctx, addRelationUnit{})
@@ -873,7 +915,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		waitUnit{
 			status: params.StatusActive,
 		},
-		waitHooks{"install", "config-changed", "start"},
+		waitHooks(startupHooks(false)),
 		verifyCharm{},
 
 		createCharm{revision: 1},
@@ -1340,10 +1382,65 @@ func (waitContextWaitGroup) step(c *gc.C, ctx *context) {
 	ctx.wg.Wait()
 }
 
+const otherLeader = "some-other-unit/123"
+
+type forceMinion struct{}
+
+func (forceMinion) step(c *gc.C, ctx *context) {
+	// TODO(fwereade): this is designed to work when the uniter is still running,
+	// which is... unexpected, because the uniter's running a tracker that will
+	// do its best to maintain leadership. But... it's possible for us to make it
+	// resign by going via the lease manager directly, and we can be confident
+	// that the uniter's tracker *will* see the problem when it fails to renew.
+	// This lets us test the uniter's behaviour under bizarre/adverse conditions
+	// (in addition to working just fine when the uniter's not running).
+	for i := 0; i < 3; i++ {
+		c.Logf("deposing local unit (attempt %d)", i)
+		err := ctx.leader.ReleaseLeadership(ctx.svc.Name(), ctx.unit.Name())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Logf("promoting other unit (attempt %d)", i)
+		err = ctx.leader.ClaimLeadership(ctx.svc.Name(), otherLeader, coretesting.LongWait)
+		if err == nil {
+			return
+		} else if err != leadership.ErrClaimDenied {
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
+	c.Fatalf("failed to promote a different leader")
+}
+
+type forceLeader struct{}
+
+func (forceLeader) step(c *gc.C, ctx *context) {
+	c.Logf("deposing other unit")
+	err := ctx.leader.ReleaseLeadership(ctx.svc.Name(), otherLeader)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("promoting local unit")
+	err = ctx.leader.ClaimLeadership(ctx.svc.Name(), ctx.unit.Name(), coretesting.LongWait)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type setLeaderSettings map[string]string
+
+func (s setLeaderSettings) step(c *gc.C, ctx *context) {
+	// We do this directly on State, not the API, so we don't have to worry
+	// about getting an API conn for whatever unit's meant to be leader.
+	settings, err := ctx.st.ReadLeadershipSettings(ctx.svc.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	for key := range settings.Map() {
+		settings.Delete(key)
+	}
+	for key, value := range s {
+		settings.Set(key, value)
+	}
+	_, err = settings.Write()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type verifyLeaderSettings map[string]string
 
 func (verify verifyLeaderSettings) step(c *gc.C, ctx *context) {
-	actual, err := ctx.api.LeadershipSettings.Read("u")
+	actual, err := ctx.api.LeadershipSettings.Read(ctx.svc.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, jc.DeepEquals, map[string]string(verify))
 }
@@ -1481,7 +1578,7 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		waitUnit{
 			status: params.StatusActive,
 		},
-		waitHooks{"install", "config-changed", "start"},
+		waitHooks(startupHooks(false)),
 		verifyGitCharm{dirty: true},
 
 		createCharm{

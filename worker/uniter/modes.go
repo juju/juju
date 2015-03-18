@@ -8,13 +8,16 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
@@ -41,6 +44,39 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	// currently deployed.
 	if err := u.initializeMetricsCollector(); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	if featureflag.Enabled(feature.LeaderElection) {
+		// Check for any leadership change, and enact it if possible.
+		logger.Infof("checking leadership status")
+		// If we've already accepted leadership, we don't need to do it again.
+		canAcceptLeader := !opState.Leader
+		select {
+		// If the unit's shutting down, we shouldn't accept it.
+		case <-u.f.UnitDying():
+			canAcceptLeader = false
+		default:
+			// If we're in an unexpected mode (eg pending hook) we shouldn't try either.
+			if opState.Kind != operation.Continue {
+				canAcceptLeader = false
+			}
+		}
+
+		// NOTE: the Wait() looks scary, but a ClaimLeadership ticket should always
+		// complete quickly; worst-case is API latency time, but it's designed that
+		// it should be vanishingly rare to hit that code path.
+		isLeader := u.leadershipTracker.ClaimLeader().Wait()
+		var creator creator
+		switch {
+		case isLeader && canAcceptLeader:
+			creator = newAcceptLeadershipOp()
+		case opState.Leader && !isLeader:
+			creator = newResignLeadershipOp()
+		}
+		if creator != nil {
+			return continueAfter(u, creator)
+		}
+		logger.Infof("leadership status is up-to-date")
 	}
 
 	var creator creator
@@ -153,6 +189,7 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 // * charm upgrade requests
 // * relation changes
 // * unit death
+// * acquisition or loss of service leadership
 func ModeAbide(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeAbide", &err)()
 	opState := u.operationState()
@@ -162,6 +199,16 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if err := u.deployer.Fix(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	if featureflag.Enabled(feature.LeaderElection) {
+		if !opState.Leader && !u.ranLeaderSettingsChanged {
+			creator := newSimpleRunHookOp(hook.LeaderSettingsChanged)
+			if err := u.runOperation(creator); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+	}
+
 	if !u.ranConfigChanged {
 		return continueAfter(u, newSimpleRunHookOp(hooks.ConfigChanged))
 	}
@@ -194,7 +241,22 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 // modeAbideAliveLoop handles all state changes for ModeAbide when the unit
 // is in an Alive state.
 func modeAbideAliveLoop(u *Uniter) (Mode, error) {
+	var leaderElected, leaderDeposed <-chan struct{}
 	for {
+		if featureflag.Enabled(feature.LeaderElection) {
+			// We expect one or none of these vars to be non-nil; and if none
+			// are, we set the one that should trigger when our leadership state
+			// differs from what we have recorded locally.
+			if leaderElected == nil && leaderDeposed == nil {
+				if u.operationState().Leader {
+					logger.Infof("waiting to lose leadership")
+					leaderDeposed = u.leadershipTracker.WaitMinion().Ready()
+				} else {
+					logger.Infof("waiting to gain leadership")
+					leaderElected = u.leadershipTracker.WaitLeader().Ready()
+				}
+			}
+		}
 		lastCollectMetrics := time.Unix(u.operationState().CollectMetricsTime, 0)
 		collectMetricsSignal := u.collectMetricsAt(
 			time.Now(), lastCollectMetrics, metricsPollInterval,
@@ -223,6 +285,15 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			creator = newRunHookOp(hookInfo)
 		case hookInfo := <-u.storage.Hooks():
 			creator = newRunHookOp(hookInfo)
+		case <-leaderElected:
+			// This operation queues a hook, better to let ModeContinue pick up
+			// after it than to duplicate queued-hook handling here.
+			return continueAfter(u, newAcceptLeadershipOp())
+		case <-leaderDeposed:
+			leaderDeposed = nil
+			creator = newResignLeadershipOp()
+		case <-u.f.LeaderSettingsEvents():
+			creator = newSimpleRunHookOp(hook.LeaderSettingsChanged)
 		}
 		if err := u.runOperation(creator); err != nil {
 			return nil, errors.Trace(err)
@@ -242,6 +313,19 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 	if err := u.relations.SetDying(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if featureflag.Enabled(feature.LeaderElection) {
+		if u.operationState().Leader {
+			if err := u.runOperation(newResignLeadershipOp()); err != nil {
+				return nil, errors.Trace(err)
+			}
+			// TODO(fwereade): we ought to inform the tracker that we're shutting down
+			// (and no longer wish to continue renewing our lease) so that the tracker
+			// can then report minionhood at all times, and thus prevent the is-leader
+			// and leader-set hook tools from acting in a correct but misleading way
+			// (ie continuing to act as though leader after leader-deposed has run).
+			// tool from returning true but misleading reports of leadership while dying.
+		}
+	}
 	for {
 		if len(u.relations.GetInfo()) == 0 {
 			return continueAfter(u, newSimpleRunHookOp(hooks.Stop))
@@ -254,6 +338,8 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 			creator = newActionOp(actionId)
 		case <-u.f.ConfigEvents():
 			creator = newSimpleRunHookOp(hooks.ConfigChanged)
+		case <-u.f.LeaderSettingsEvents():
+			creator = newSimpleRunHookOp(hook.LeaderSettingsChanged)
 		case hookInfo := <-u.relations.Hooks():
 			creator = newRunHookOp(hookInfo)
 		}
@@ -266,12 +352,14 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 // ModeHookError is responsible for watching and responding to:
 // * user resolution of hook errors
 // * forced charm upgrade requests
+// * loss of service leadership
 func ModeHookError(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeHookError", &err)()
 	opState := u.operationState()
 	if opState.Kind != operation.RunHook || opState.Step != operation.Pending {
 		return nil, errors.Errorf("insane uniter state: %#v", u.operationState())
 	}
+
 	// Create error information for status.
 	hookInfo := *opState.Hook
 	hookName := string(hookInfo.Kind)
@@ -289,9 +377,20 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	}
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookName)
+
+	// Run the select loop.
 	u.f.WantResolvedEvent()
 	u.f.WantUpgradeEvent(true)
+	var leaderDeposed <-chan struct{}
+	if featureflag.Enabled(feature.LeaderElection) {
+		if opState.Leader {
+			leaderDeposed = u.leadershipTracker.WaitMinion().Ready()
+		}
+	}
 	for {
+		// We set status inside the loop so we can be sure we *reset* status after a
+		// failed re-execute of the current hook (which will set Active while rerunning
+		// it) or a leader-deposed (which won't, but better safe than sorry).
 		if err = u.unit.SetAgentStatus(params.StatusError, statusMessage, statusData); err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -317,6 +416,13 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 				return nil, errors.Trace(err)
 			}
 			return ModeContinue, nil
+		case <-leaderDeposed:
+			// This should trigger at most once -- we can't reaccept leadership while
+			// in an error state.
+			leaderDeposed = nil
+			if err := u.runOperation(newResignLeadershipOp()); err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
 	}
 }
@@ -351,7 +457,7 @@ func ModeConflicted(curl *charm.URL) Mode {
 func modeContext(name string, err *error) func() {
 	logger.Infof("%s starting", name)
 	return func() {
-		logger.Debugf("%s exiting", name)
+		logger.Infof("%s exiting", name)
 		*err = errors.Annotatef(*err, name)
 	}
 }
