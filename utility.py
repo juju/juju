@@ -190,10 +190,10 @@ def add_basic_testing_arguments(parser):
     # Required possitional arguments.
     # (name, help)
     positional_args = [
-        ('env', 'The juju environment to test.'),
+        ('env', 'The juju environment to base the temp test environment on.'),
         ('juju_bin', 'Full path to the Juju binary.'),
         ('logs', 'A directory in which to store logs.'),
-        ('job_name', 'A temporary test environment name.'),
+        ('temp_env_name', 'A temporary test environment name.'),
     ]
     for p_arg in positional_args:
         name, help_txt = p_arg
