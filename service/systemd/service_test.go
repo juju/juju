@@ -814,19 +814,10 @@ func (s *initSystemSuite) checkWriteConf(c *gc.C, name, cmd, expected string) (s
 	dirname := filepath.Join(s.dataDir, "init", name)
 	unitFile := filepath.Join(dirname, name+".service")
 
-	cmd = strings.TrimSpace(cmd)
-	lines := strings.Split(cmd, "\n")
-	header := lines[0]
-	footer := lines[len(lines)-1]
-	sections := parseConfSections(lines[1 : len(lines)-1])
-
-	// Check the cat portion.
-	c.Check(header, gc.Equals, "cat > "+unitFile+" << 'EOF'")
-	c.Check(footer, gc.Equals, "EOF")
-
-	// Check the conf portion.
-	expectedSections := parseConfSections(strings.Split(expected, "\n"))
-	c.Check(sections, jc.DeepEquals, expectedSections)
+	parse := func(lines []string) interface{} {
+		return parseConfSections(lines)
+	}
+	coretesting.CheckWriteFileCommand(c, cmd, unitFile, expected, parse)
 
 	return dirname, unitFile
 }
