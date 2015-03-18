@@ -8,6 +8,7 @@ package state
 import (
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -88,8 +89,8 @@ func (logger *DbLogger) Close() {
 // PruneLogs removes old log documents in order to control the size of
 // logs collection. All logs older than minLogTime are
 // removed. Further removal is also performed if the logs collection
-// size is greater than maxLogsBytes.
-func PruneLogs(st *State, minLogTime time.Time, maxLogsBytes int) error {
+// size is greater than maxLogsMB.
+func PruneLogs(st *State, minLogTime time.Time, maxLogsMB int) error {
 	session, logsColl := initLogsSession(st)
 	defer session.Close()
 
@@ -115,11 +116,11 @@ func PruneLogs(st *State, minLogTime time.Time, maxLogsBytes int) error {
 
 	// Do further pruning if the logs collection is over the maximum size.
 	for {
-		collSize, err := getCollectionSize(logsColl)
+		collMB, err := getCollectionMB(logsColl)
 		if err != nil {
 			return errors.Annotate(err, "failed to retrieve log counts")
 		}
-		if collSize <= maxLogsBytes {
+		if collMB <= maxLogsMB {
 			break
 		}
 
@@ -182,11 +183,14 @@ func initLogsSession(st *State) (*mgo.Session, *mgo.Collection) {
 	return session, db.C(logsC).With(session)
 }
 
-// getCollectionSize returns the size of a MongoDB collection (in
+// getCollectionMB returns the size of a MongoDB collection (in
 // bytes), excluding space used by indexes.
-func getCollectionSize(coll *mgo.Collection) (int, error) {
+func getCollectionMB(coll *mgo.Collection) (int, error) {
 	var result bson.M
-	err := coll.Database.Run(bson.M{"collStats": coll.Name}, &result)
+	err := coll.Database.Run(bson.M{
+		"collStats": coll.Name,
+		"scale":     humanize.MiByte,
+	}, &result)
 	if err != nil {
 		return 0, errors.Trace(err)
 	}
