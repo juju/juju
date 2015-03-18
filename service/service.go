@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -20,10 +21,17 @@ var (
 
 // These are the names of the init systems regognized by juju.
 const (
-	InitSystemWindows = "windows"
-	InitSystemUpstart = "upstart"
 	InitSystemSystemd = "systemd"
+	InitSystemUpstart = "upstart"
+	InitSystemWindows = "windows"
 )
+
+// linuxInitSystems lists the names of the init systems that juju might
+// find on a linux host.
+var linuxInitSystems = []string{
+	InitSystemSystemd,
+	InitSystemUpstart,
+}
 
 // ServiceActions represents the actions that may be requested for
 // an init system service.
@@ -141,10 +149,14 @@ func ListServices() ([]string, error) {
 	}
 }
 
-// ListServicesCommand returns the command that should be run to get
+// ListServicesScript returns the commands that should be run to get
 // a list of service names on a host.
-func ListServicesCommand() string {
-	return newShellSelectCommand(listServicesCommand)
+func ListServicesScript() string {
+	const filename = "/tmp/discover_init_system.sh"
+	commands := writeDiscoverInitSystemScript(filename)
+	commands = append(commands, "init_system=$("+filename+")")
+	commands = append(commands, newShellSelectCommand("init_system", listServicesCommand))
+	return strings.Join(commands, "\n")
 }
 
 func listServicesCommand(initSystem string) (string, bool) {

@@ -65,6 +65,7 @@ type StorageInfo struct {
 	StorageName string `yaml:"storage" json:"storage"`
 	Kind        string `yaml:"kind" json:"kind"`
 	Status      string `yaml:"status,omitempty" json:"status,omitempty"`
+	Persistent  bool   `yaml:"persistent" json:"persistent"`
 	Location    string `yaml:"location,omitempty" json:"location,omitempty"`
 }
 
@@ -94,6 +95,7 @@ func formatStorageDetails(storages []params.StorageDetails) (map[string]map[stri
 			Kind:        one.Kind.String(),
 			Status:      one.Status,
 			Location:    one.Location,
+			Persistent:  one.Persistent,
 		}
 		unit := unitTag.Id()
 		unitColl, ok := output[unit]

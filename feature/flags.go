@@ -41,3 +41,7 @@ const EnvironmentsCacheFile = "env-cache"
 // discovery code (service.VersionInitSystem) should return upstart
 // instead of systemd for vivid and newer.
 const LegacyUpstart = "legacy-upstart"
+
+// DbLog is the the feature which has Juju's logs go to
+// MongoDB instead of to all-machines.log using rsyslog.
+const DbLog = "db-log"

@@ -596,6 +596,31 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 	}
 }
 
+func (s *MachineSuite) TestManageEnvironRunsDbLogPrunerIfFeatureFlagEnabled(c *gc.C) {
+	s.SetFeatureFlags(feature.DbLog)
+
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+
+	runner := s.singularRecord.nextRunner(c)
+	runner.waitForWorker(c, "dblogpruner")
+}
+
+func (s *MachineSuite) TestManageEnvironDoesntRunDbLogPrunerByDefault(c *gc.C) {
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+
+	// Wait for the resumer to be started. This is started just after
+	// dblogpruner would be started.
+	runner := s.singularRecord.nextRunner(c)
+	started := set.NewStrings(runner.waitForWorker(c, "resumer")...)
+	c.Assert(started.Contains("dblogpruner"), jc.IsFalse)
+}
+
 func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	// If it has been enabled, the JobManageEnviron agent should call utils.UseMultipleCPUs
 	usefulVersion := version.Current

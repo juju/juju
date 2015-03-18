@@ -150,6 +150,11 @@ const (
 	// The default block storage source.
 	StorageDefaultBlockSourceKey = "storage-default-block-source"
 
+	// For LXC containers, is the container allowed to mount block
+	// devices. A theoretical security issue, so must be explicitly
+	// allowed by the user.
+	AllowLXCLoopMounts = "allow-lxc-loop-mounts"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -1124,6 +1129,13 @@ func (c *Config) StorageDefaultBlockSource() (string, bool) {
 	return bs, bs != ""
 }
 
+// AllowLXCLoopMounts returns whether loop devices are allowed
+// to be mounted inside lxc containers.
+func (c *Config) AllowLXCLoopMounts() (bool, bool) {
+	v, ok := c.defined[AllowLXCLoopMounts].(bool)
+	return v, ok
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1215,6 +1227,7 @@ var fields = schema.Fields{
 	PreventRemoveObjectKey:       schema.Bool(),
 	PreventAllChangesKey:         schema.Bool(),
 	StorageDefaultBlockSourceKey: schema.String(),
+	AllowLXCLoopMounts:           schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    schema.String(),
@@ -1257,6 +1270,7 @@ var alwaysOptional = schema.Defaults{
 	"disable-network-management": schema.Omit,
 	AgentStreamKey:               schema.Omit,
 	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
+	AllowLXCLoopMounts:           false,
 
 	// Storage related config.
 	// Environ providers will specify their own defaults.

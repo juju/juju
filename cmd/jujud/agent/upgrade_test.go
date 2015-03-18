@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -862,6 +863,30 @@ func readConfigFromDisk(c *gc.C, dir string, tag names.Tag) agent.Config {
 }
 
 func (s *UpgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectFullApi exposedAPI) {
+	var err error
+	// Multiple attempts may be necessary because there is a small gap
+	// between the post-upgrade version being written to the agent's
+	// config (as observed by waitForUpgradeToFinish) and the end of
+	// "upgrade mode" (i.e. when the agent's UpgradeComplete channel
+	// is closed). Without this tests that call checkLoginToAPIAsUser
+	// can occasionally fail.
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		err = s.attemptRestrictedAPIAsUser(c, conf)
+		switch expectFullApi {
+		case FullAPIExposed:
+			if err == nil {
+				return
+			}
+		case RestrictedAPIExposed:
+			if err != nil && strings.HasPrefix(err.Error(), "upgrade in progress") {
+				return
+			}
+		}
+	}
+	c.Fatalf("timed out waiting for expected API behaviour. last error was: %v", err)
+}
+
+func (s *UpgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) error {
 	info := conf.APIInfo()
 	info.Tag = s.AdminUserTag(c)
 	info.Password = "dummy-secret"
@@ -877,12 +902,7 @@ func (s *UpgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectF
 	c.Assert(err, jc.ErrorIsNil)
 
 	// this call should only work if API is not restricted
-	err = apiState.APICall("Client", 0, "", "DestroyEnvironment", nil, nil)
-	if expectFullApi {
-		c.Assert(err, jc.ErrorIsNil)
-	} else {
-		c.Assert(err, gc.ErrorMatches, "upgrade in progress .+")
-	}
+	return apiState.APICall("Client", 0, "", "WatchAll", nil, nil)
 }
 
 func canLoginToAPIAsMachine(c *gc.C, fromConf, toConf agent.Config) bool {

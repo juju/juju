@@ -85,6 +85,7 @@ func (d *DiskManagerAPI) SetMachineBlockDevices(args params.SetMachineBlockDevic
 			// the diskmanager publishing block devices and erroneously creating
 			// volumes.
 			err = d.st.SetMachineBlockDevices(tag.Id(), stateBlockDeviceInfo(arg.BlockDevices))
+			// TODO(axw) set volume/filesystem attachment info.
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}

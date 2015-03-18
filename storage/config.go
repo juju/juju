@@ -3,6 +3,11 @@
 
 package storage
 
+import (
+	"github.com/juju/errors"
+	"github.com/juju/schema"
+)
+
 const (
 	// ConfigStorageDir is the path to the directory which a
 	// machine-scoped storage source may use to contain storage
@@ -14,6 +19,10 @@ const (
 	// should not be relied upon until a storage source is
 	// constructed.
 	ConfigStorageDir = "storage-dir"
+
+	// Persistent is true if storage survives the lifecycle of the
+	// machine to which it is attached.
+	Persistent = "persistent"
 )
 
 // Config defines the configuration for a storage source.
@@ -26,6 +35,15 @@ type Config struct {
 // NewConfig creates a new Config for instantiating a storage source.
 func NewConfig(name string, provider ProviderType, attrs map[string]interface{}) (*Config, error) {
 	// TODO(axw) validate attributes.
+	// TODO(wallyworld) use config schema
+	checker := schema.Bool()
+	if _, ok := attrs[Persistent]; ok {
+		persistent, err := checker.Coerce(attrs[Persistent], nil)
+		if err != nil {
+			return nil, errors.Annotatef(err, "invalid value for pool attribute %q", Persistent)
+		}
+		attrs[Persistent] = persistent
+	}
 	return &Config{name, provider, attrs}, nil
 }
 
@@ -41,8 +59,11 @@ func (c *Config) Provider() ProviderType {
 }
 
 // Attrs returns the configuration attributes for a storage source.
-func (c *Config) Attrs() map[string]interface{} {
-	attrs := make(map[string]interface{})
+func (c *Config) Attrs() (attrs map[string]interface{}) {
+	if c.attrs == nil {
+		return attrs
+	}
+	attrs = make(map[string]interface{})
 	for k, v := range c.attrs {
 		attrs[k] = v
 	}
@@ -53,4 +74,10 @@ func (c *Config) Attrs() map[string]interface{} {
 func (c *Config) ValueString(name string) (string, bool) {
 	v, ok := c.attrs[name].(string)
 	return v, ok
+}
+
+// IsPersistent returns true if config has persistent set to true.
+func (c *Config) IsPersistent() bool {
+	v, _ := c.attrs[Persistent].(bool)
+	return v
 }

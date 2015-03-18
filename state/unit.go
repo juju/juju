@@ -1408,7 +1408,7 @@ type storageParams struct {
 // and volume/filesystem attachments for a new machine that the unit will be
 // assigned to.
 func (u *Unit) newMachineStorageParams() (*storageParams, error) {
-	storageAttachments, err := u.st.StorageAttachments(u.UnitTag())
+	storageAttachments, err := u.st.UnitStorageAttachments(u.UnitTag())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage attachments")
 	}

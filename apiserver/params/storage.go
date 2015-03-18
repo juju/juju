@@ -140,7 +140,8 @@ type Volume struct {
 	VolumeId  string `json:"volumeid"`
 	Serial    string `json:"serial"`
 	// Size is the size of the volume in MiB.
-	Size uint64 `json:"size"`
+	Size       uint64 `json:"size"`
+	Persistent bool   `json:"persistent"`
 }
 
 // Volumes describes a set of storage volumes in the environment.
@@ -178,14 +179,11 @@ type VolumeAttachments struct {
 
 // VolumeParams holds the parameters for creating a storage volume.
 type VolumeParams struct {
-	VolumeTag  string                 `json:"volumetag"`
-	Size       uint64                 `json:"size"`
-	Provider   string                 `json:"provider"`
-	Attributes map[string]interface{} `json:"attributes,omitempty"`
-
-	// Machine is the tag of the machine that the volume should
-	// be initially attached to, if any.
-	MachineTag string `json:"machinetag,omitempty"`
+	VolumeTag  string                  `json:"volumetag"`
+	Size       uint64                  `json:"size"`
+	Provider   string                  `json:"provider"`
+	Attributes map[string]interface{}  `json:"attributes,omitempty"`
+	Attachment *VolumeAttachmentParams `json:"attachment,omitempty"`
 }
 
 // VolumeAttachmentParams holds the parameters for creating a volume
@@ -297,6 +295,9 @@ type StorageDetails struct {
 
 	// Location holds location for provisioned attached instances.
 	Location string `json:"location,omitempty"`
+
+	// Persistent indicates whether the storage is persistent or not.
+	Persistent bool `json:"persistent"`
 }
 
 // StorageDetailsResult holds information about a storage instance

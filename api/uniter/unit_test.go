@@ -757,6 +757,18 @@ func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
+	mm, err := s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	err = mm.SetLastSuccessfulSend(time.Now())
+	c.Assert(err, jc.ErrorIsNil)
+	for i := 0; i < 3; i++ {
+		err := mm.IncrementConsecutiveErrors()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	code, _ := mm.MeterStatus()
+	c.Assert(code, gc.Equals, state.MeterAmber) // Confirm meter status has changed
+	wc.AssertOneChange()
+
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
 }

@@ -24,6 +24,19 @@ var getVersion = func() version.Binary {
 // DiscoverService returns an interface to a service apropriate
 // for the current system
 func DiscoverService(name string, conf common.Conf) (Service, error) {
+	initName, err := discoverInitSystem()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	service, err := NewService(name, conf, initName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return service, nil
+}
+
+func discoverInitSystem() (string, error) {
 	initName, err := discoverLocalInitSystem()
 	if errors.IsNotFound(err) {
 		// Fall back to checking the juju version.
@@ -34,18 +47,13 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 			// that is what we return. However, we at least log the
 			// failed fallback attempt.
 			logger.Errorf("could not identify init system from %v", jujuVersion)
-			return nil, errors.Trace(err)
+			return "", errors.Trace(err)
 		}
 		initName = versionInitName
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-
-	service, err := NewService(name, conf, initName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return service, nil
+	return initName, nil
 }
 
 // VersionInitSystem returns an init system name based on the provided
@@ -166,56 +174,92 @@ func identifyExecutable(executable string) (string, bool) {
 	}
 }
 
-// TODO(ericsnow) Synchronize newShellSelectCommand with discoverLocalInitSystem.
+// TODO(ericsnow) Build this script more dynamically (using shell.Renderer).
+// TODO(ericsnow) Use a case statement in the script?
 
-type initSystem struct {
-	executable string
-	name       string
+// DiscoverInitSystemScript is the shell script to use when
+// discovering the local init system.
+const DiscoverInitSystemScript = `#!/usr/bin/env bash
+
+function checkInitSystem() {
+    if [[ $1 == *"systemd"* ]]; then
+        echo -n systemd
+        exit $?
+    elif [[ $1 == *"upstart"* ]]; then
+        echo -n upstart
+        exit $?
+    fi
 }
 
-var linuxExecutables = []initSystem{
-	// Note that some systems link /sbin/init to whatever init system
-	// is supported, so in the future we may need some other way to
-	// identify upstart uniquely.
-	{"/sbin/init", InitSystemUpstart},
-	{"/sbin/upstart", InitSystemUpstart},
-	{"/sbin/systemd", InitSystemSystemd},
-	{"/bin/systemd", InitSystemSystemd},
-	{"/lib/systemd/systemd", InitSystemSystemd},
+# Find the executable.
+executable=$(cat /proc/1/cmdline | awk -F"\0" '{print $1}')
+if [[ $? -ne 0 ]]; then
+    exit 1
+fi
+
+# Check the executable.
+checkInitSystem "$executable"
+
+# First fall back to following symlinks.
+if [[ -L $executable ]]; then
+    linked=$(readlink -f "$executable")
+    if [[ $? -eq 0 ]]; then
+        executable=$linked
+
+        # Check the linked executable.
+        checkInitSystem "$linked"
+    fi
+fi
+
+# Fall back to checking the "version" text.
+verText=$("${executable}" --version)
+if [[ $? -eq 0 ]]; then
+    checkInitSystem "$verText"
+fi
+
+# uh-oh
+exit 1
+`
+
+func writeDiscoverInitSystemScript(filename string) []string {
+	// TODO(ericsnow) Use utils.shell.Renderer.WriteScript.
+	return []string{
+		fmt.Sprintf(`
+cat > %s << 'EOF'
+%s
+EOF`[1:], filename, DiscoverInitSystemScript),
+		"chmod 0755 " + filename,
+	}
 }
 
-// TODO(ericsnow) Is it too much to cat once for each executable?
-const initSystemTest = `[[ "$(cat ` + pid1 + ` | awk '{print $1}')" == "%s" ]]`
+const caseLine = "%sif [[ $%s == \"%s\" ]]; then %s\n"
 
 // newShellSelectCommand creates a bash if statement with an if
 // (or elif) clause for each of the executables in linuxExecutables.
 // The body of each clause comes from calling the provided handler with
 // the init system name. If the handler does not support the args then
 // it returns a false "ok" value.
-func newShellSelectCommand(handler func(string) (string, bool)) string {
-	// TODO(ericsnow) Allow passing in "initSystems ...string".
-	executables := linuxExecutables
+func newShellSelectCommand(envVarName string, handler func(string) (string, bool)) string {
+	// TODO(ericsnow) Build the command in a better way?
+	// TODO(ericsnow) Use a case statement?
 
-	// TODO(ericsnow) build the command in a better way?
-
-	cmdAll := ""
-	for _, initSystem := range executables {
-		cmd, ok := handler(initSystem.name)
+	prefix := ""
+	lines := ""
+	for _, initSystem := range linuxInitSystems {
+		cmd, ok := handler(initSystem)
 		if !ok {
 			continue
 		}
+		lines += fmt.Sprintf(caseLine, prefix, envVarName, initSystem, cmd)
 
-		test := fmt.Sprintf(initSystemTest, initSystem.executable)
-		cmd = fmt.Sprintf("if %s; then %s\n", test, cmd)
-		if cmdAll != "" {
-			cmd = "el" + cmd
+		if prefix != "el" {
+			prefix = "el"
 		}
-		cmdAll += cmd
 	}
-	if cmdAll != "" {
-		cmdAll += "" +
+	if lines != "" {
+		lines += "" +
 			"else exit 1\n" +
 			"fi"
 	}
-	return cmdAll
+	return lines
 }

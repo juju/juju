@@ -5,10 +5,13 @@ package service_test
 
 import (
 	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/exec"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
@@ -306,4 +309,54 @@ func (s *discoverySuite) TestVersionInitSystemNoLegacyUpstart(c *gc.C) {
 	initSystem, ok := service.VersionInitSystem(vers)
 
 	test.checkInitSystem(c, initSystem, ok)
+}
+
+func (s *discoverySuite) TestDiscoverInitSystemScript(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("not supported on windows")
+	}
+
+	script, filename := s.newDiscoverInitSystemScript(c)
+	script += filename
+	response, err := exec.RunCommands(exec.RunParams{
+		Commands: script,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	initSystem, err := service.DiscoverInitSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(response.Code, gc.Equals, 0)
+	c.Check(string(response.Stdout), gc.Equals, initSystem)
+	c.Check(string(response.Stderr), gc.Equals, "")
+}
+
+func (s *discoverySuite) newDiscoverInitSystemScript(c *gc.C) (string, string) {
+	filename := filepath.Join(c.MkDir(), "discover_init_system.sh")
+	commands := service.WriteDiscoverInitSystemScript(filename)
+	script := strings.Join(commands, "\n") + "\n"
+	return script, filename
+}
+
+func (s *discoverySuite) TestNewShellSelectCommand(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("not supported on windows")
+	}
+
+	script, filename := s.newDiscoverInitSystemScript(c)
+	handler := func(initSystem string) (string, bool) {
+		return "echo -n " + initSystem, true
+	}
+	script += "init_system=$(" + filename + ")\n"
+	script += service.NewShellSelectCommand("init_system", handler)
+	c.Logf(script)
+	response, err := exec.RunCommands(exec.RunParams{
+		Commands: script,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	initSystem, err := service.DiscoverInitSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(response.Code, gc.Equals, 0)
+	c.Check(string(response.Stdout), gc.Equals, initSystem)
+	c.Check(string(response.Stderr), gc.Equals, "")
 }

@@ -80,33 +80,34 @@ func (v *mockVolumeAccessor) VolumeParams(volumes []names.VolumeTag) ([]params.V
 			})
 		} else {
 			result = append(result, params.VolumeParamsResult{Result: params.VolumeParams{
-				VolumeTag: tag.String(),
-				Size:      1024,
-				Provider:  "dummy",
+				VolumeTag:  tag.String(),
+				Size:       1024,
+				Provider:   "dummy",
+				Attributes: map[string]interface{}{"persistent": tag.String() == "volume-1"},
 			}})
 		}
 	}
 	return result, nil
 }
 
-func (v *mockVolumeAccessor) SetVolumeInfo(volumes []params.Volume) (params.ErrorResults, error) {
+func (v *mockVolumeAccessor) SetVolumeInfo(volumes []params.Volume) ([]params.ErrorResult, error) {
 	for _, vol := range volumes {
 		v.provisioned[vol.VolumeTag] = vol
 	}
 	// See if we have the expected volumes, using json serialisation to do the comparison.
 	jsonVolInfo, err := json.Marshal(volumes)
 	if err != nil {
-		return params.ErrorResults{Results: []params.ErrorResult{{Error: common.ServerError(err)}}}, nil
+		return []params.ErrorResult{{Error: common.ServerError(err)}}, nil
 	}
 	jsonExpectedInfo, err := json.Marshal(v.expectedVolumes)
 	if err != nil {
-		return params.ErrorResults{Results: []params.ErrorResult{{Error: common.ServerError(err)}}}, nil
+		return []params.ErrorResult{{Error: common.ServerError(err)}}, nil
 	}
 	// If we have what we expect, close the done channel.
 	if string(jsonVolInfo) == string(jsonExpectedInfo) {
 		close(v.done)
 	}
-	return params.ErrorResults{}, nil
+	return nil, nil
 }
 
 func newMockVolumeAccessor(changes <-chan []string, done chan struct{}, expectedVolumes []params.Volume) storageprovisioner.VolumeAccessor {
@@ -169,11 +170,13 @@ func (*dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storag
 	var volumes []storage.Volume
 	var volumeAttachments []storage.VolumeAttachment
 	for _, p := range params {
+		persistent, _ := p.Attributes["persistent"].(bool)
 		volumes = append(volumes, storage.Volume{
-			Tag:      p.Tag,
-			Size:     p.Size,
-			Serial:   "serial-" + p.Tag.Id(),
-			VolumeId: "id-" + p.Tag.Id(),
+			Tag:        p.Tag,
+			Size:       p.Size,
+			Serial:     "serial-" + p.Tag.Id(),
+			VolumeId:   "id-" + p.Tag.Id(),
+			Persistent: persistent,
 		})
 		volumeAttachments = append(volumeAttachments, storage.VolumeAttachment{
 			Volume:     p.Tag,
@@ -189,7 +192,7 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 	updated := make(chan struct{})
 	changes := make(chan []string)
 	expectedVolumes := []params.Volume{
-		{VolumeTag: "volume-1", VolumeId: "id-1", Serial: "serial-1", Size: 1024},
+		{VolumeTag: "volume-1", VolumeId: "id-1", Serial: "serial-1", Size: 1024, Persistent: true},
 		{VolumeTag: "volume-2", VolumeId: "id-2", Serial: "serial-2", Size: 1024},
 	}
 	worker := storageprovisioner.NewStorageProvisioner(

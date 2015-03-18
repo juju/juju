@@ -400,6 +400,10 @@ func (a *mockVolumeAttachment) Machine() names.MachineTag {
 	return a.machine
 }
 
+func (a *mockVolumeAttachment) Life() state.Life {
+	return state.Alive
+}
+
 func (a *mockVolumeAttachment) Info() (state.VolumeAttachmentInfo, error) {
 	if a.info == nil {
 		return state.VolumeAttachmentInfo{}, errors.NotProvisionedf(

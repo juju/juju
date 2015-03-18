@@ -13,7 +13,7 @@ import (
 type storageAccess interface {
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	AllStorageInstances() ([]state.StorageInstance, error)
-	StorageAttachments(unit names.UnitTag) ([]state.StorageAttachment, error)
+	StorageAttachments(names.StorageTag) ([]state.StorageAttachment, error)
 	UnitAssignedMachine(names.UnitTag) (names.MachineTag, error)
 	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
 	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)

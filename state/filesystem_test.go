@@ -59,7 +59,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withV
 	assignedMachineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 
-	storageAttachments, err := s.State.StorageAttachments(unit.UnitTag())
+	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 	storageInstance, err := s.State.StorageInstance(storageAttachments[0].StorageInstance())
@@ -160,6 +160,7 @@ func (s *FilesystemStateSuite) TestFilesystemInfo(c *gc.C) {
 	filesystemInfo := state.FilesystemInfo{FilesystemId: "fs-123", Size: 456}
 	err = s.State.SetFilesystemInfo(filesystemTag, filesystemInfo)
 	c.Assert(err, jc.ErrorIsNil)
+	filesystemInfo.Pool = "loop-pool" // taken from params
 	s.assertFilesystemInfo(c, filesystemTag, filesystemInfo)
 	s.assertFilesystemAttachmentUnprovisioned(c, machineTag, filesystemTag)
 
