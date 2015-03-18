@@ -399,23 +399,28 @@ func ParseVolumeAttachmentId(id string) (names.MachineTag, names.VolumeTag, erro
 	return machineTag, volumeTag, nil
 }
 
+type volumeAttachmentTemplate struct {
+	tag    names.VolumeTag
+	params VolumeAttachmentParams
+}
+
 // createMachineVolumeAttachmentInfo creates volume attachments
 // for the specified machine, and attachment parameters keyed
 // by volume tags.
-func createMachineVolumeAttachmentsOps(machineId string, params map[names.VolumeTag]VolumeAttachmentParams) []txn.Op {
-	ops := make([]txn.Op, 0, len(params))
-	for volumeTag, params := range params {
-		paramsCopy := params
-		ops = append(ops, txn.Op{
+func createMachineVolumeAttachmentsOps(machineId string, attachments []volumeAttachmentTemplate) []txn.Op {
+	ops := make([]txn.Op, len(attachments))
+	for i, attachment := range attachments {
+		paramsCopy := attachment.params
+		ops[i] = txn.Op{
 			C:      volumeAttachmentsC,
-			Id:     volumeAttachmentId(machineId, volumeTag.Id()),
+			Id:     volumeAttachmentId(machineId, attachment.tag.Id()),
 			Assert: txn.DocMissing,
 			Insert: &volumeAttachmentDoc{
-				Volume:  volumeTag.Id(),
+				Volume:  attachment.tag.Id(),
 				Machine: machineId,
 				Params:  &paramsCopy,
 			},
-		})
+		}
 	}
 	return ops
 }

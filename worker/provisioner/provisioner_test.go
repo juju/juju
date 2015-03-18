@@ -837,16 +837,13 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 	defer p.Stop()
 
 	// Add and provision a machine with volumes specified.
-	requestedVolumes := []state.MachineVolumeParams{
-		{
-			Volume:     state.VolumeParams{Pool: "loop", Size: 1024},
-			Attachment: state.VolumeAttachmentParams{},
-		},
-		{
-			Volume:     state.VolumeParams{Pool: "persistent-pool", Size: 2048},
-			Attachment: state.VolumeAttachmentParams{},
-		},
-	}
+	requestedVolumes := []state.MachineVolumeParams{{
+		Volume:     state.VolumeParams{Pool: "loop", Size: 1024},
+		Attachment: state.VolumeAttachmentParams{},
+	}, {
+		Volume:     state.VolumeParams{Pool: "persistent-pool", Size: 2048},
+		Attachment: state.VolumeAttachmentParams{},
+	}}
 	cons := constraints.MustParse(s.defaultConstraints.String(), "networks=^net3,^net4")
 	expectVolumeInfo := []storage.Volume{{
 		Tag:  names.NewVolumeTag("1"),
