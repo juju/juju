@@ -138,7 +138,6 @@ func shutdownInitCommands(initSystem string) ([]string, error) {
 		// from cloned containers will be appended. It's better to
 		// keep clean logs for diagnosing issues / debugging.
 		"/var/log/cloud-init*.log",
-		"/var/log/upstart/*.log",
 	}
 
 	// Using EOC below as the template shutdown script is itself

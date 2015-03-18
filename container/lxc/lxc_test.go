@@ -829,7 +829,7 @@ iface lo inet loopback
 auto eth0
 iface eth0 inet dhcp
 EOC
-  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log /var/log/upstart/*.log
+  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
   /sbin/shutdown -h now
 end script
 
@@ -871,7 +871,7 @@ iface lo inet loopback
 auto eth0
 iface eth0 inet dhcp
 EOC
-  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log /var/log/upstart/*.log
+  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
   /sbin/shutdown -h now`[1:],
 	}
 	test.CheckCommands(c, commands)
