@@ -500,11 +500,6 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	}
 
 	// Create volumes and volume attachments.
-	//
-	// TODO(axw) created volumes must record the attachment
-	// immediately, to prevent the storage provisioner from
-	// attempting to create the volume until after the machine
-	// has been provisioned.
 	for _, v := range template.Volumes {
 		op, tag, err := st.addVolumeOp(v.Volume, mdoc.Id)
 		if err != nil {
