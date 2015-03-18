@@ -592,13 +592,6 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
 		return a.postUpgradeAPIWorker(st, agentConfig, entity)
 	})
-	a.startWorkerAfterUpgrade(runner, "converter", func() (worker.Worker, error) {
-		return converter.NewConverter(
-			st.Converter(),
-			agentConfig,
-		), nil
-	})
-
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
@@ -656,9 +649,11 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
 
-	runner.StartWorker("converter", func() (worker.Worker, error) {
-		return converter.NewConverter(st.Converter(), agentConfig), nil
-	})
+	if !isEnvironManager {
+		runner.StartWorker("converter", func() (worker.Worker, error) {
+			return converter.NewConverter(entity, st.Converter(), agentConfig), nil
+		})
+	}
 
 	// TODO(wallyworld) - we don't want the storage workers running yet, even with feature flag.
 	// Will be enabled in a followup branch.
