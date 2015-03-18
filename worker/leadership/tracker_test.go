@@ -38,6 +38,7 @@ func refreshes(count int) time.Duration {
 }
 
 func (s *TrackerSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
 	s.unitTag = names.NewUnitTag("led-service/123")
 	s.manager = &StubLeadershipManager{
 		Stub:     &testing.Stub{},
@@ -52,12 +53,13 @@ func (s *TrackerSuite) TearDownTest(c *gc.C) {
 		close(s.manager.releases)
 		s.manager = nil
 	}
+	s.IsolationSuite.TearDownTest(c)
 }
 
 func (s *TrackerSuite) unblockRelease(c *gc.C) {
 	select {
 	case s.manager.releases <- struct{}{}:
-	default:
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("did nobody call BlockUntilLeadershipReleased?")
 	}
 }
@@ -449,7 +451,9 @@ func assertWaitLeader(c *gc.C, tracker leadership.Tracker, expect bool) {
 		return
 	}
 	select {
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(trackerDuration / 4):
+		// This wait needs to be small, compared to the resolution we run the
+		// tests at, so as not to disturb client timing too much.
 	case <-ticket.Ready():
 		c.Fatalf("got unexpected readiness: %v", ticket.Wait())
 	}
@@ -463,7 +467,9 @@ func assertWaitMinion(c *gc.C, tracker leadership.Tracker, expect bool) {
 		return
 	}
 	select {
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(trackerDuration / 4):
+		// This wait needs to be small, compared to the resolution we run the
+		// tests at, so as not to disturb client timing too much.
 	case <-ticket.Ready():
 		c.Fatalf("got unexpected readiness: %v", ticket.Wait())
 	}
