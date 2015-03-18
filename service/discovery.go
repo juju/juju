@@ -145,11 +145,12 @@ func identifyInitSystem(executable string) (string, bool) {
 	}
 
 	// First fall back to following symlinks (if any).
-	executable, err := evalSymlinks(executable)
+	resolved, err := evalSymlinks(executable)
 	if err != nil {
 		logger.Errorf("failed to find %q: %v", executable, err)
 		return "", false
 	}
+	executable = resolved
 	initSystem, ok = identifyExecutable(executable)
 	if ok {
 		return initSystem, true
