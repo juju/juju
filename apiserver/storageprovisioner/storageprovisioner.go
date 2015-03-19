@@ -367,6 +367,35 @@ func (s *StorageProvisionerAPI) VolumeAttachments(args params.MachineStorageIds)
 	return results, nil
 }
 
+// FilesystemAttachments returns details of filesystem attachments with the specified IDs.
+func (s *StorageProvisionerAPI) FilesystemAttachments(args params.MachineStorageIds) (params.FilesystemAttachmentResults, error) {
+	canAccess, err := s.getAttachmentAuthFunc()
+	if err != nil {
+		return params.FilesystemAttachmentResults{}, common.ServerError(common.ErrPerm)
+	}
+	results := params.FilesystemAttachmentResults{
+		Results: make([]params.FilesystemAttachmentResult, len(args.Ids)),
+	}
+	one := func(arg params.MachineStorageId) (params.FilesystemAttachment, error) {
+		filesystemAttachment, err := s.oneFilesystemAttachment(arg, canAccess)
+		if err != nil {
+			return params.FilesystemAttachment{}, err
+		}
+		return common.FilesystemAttachmentFromState(filesystemAttachment)
+	}
+	for i, arg := range args.Ids {
+		var result params.FilesystemAttachmentResult
+		filesystemAttachment, err := one(arg)
+		if err != nil {
+			result.Error = common.ServerError(err)
+		} else {
+			result.Result = filesystemAttachment
+		}
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
 // VolumeParams returns the parameters for creating the volumes
 // with the specified tags.
 func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.VolumeParamsResults, error) {
@@ -531,6 +560,77 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 	return results, nil
 }
 
+// FilesystemAttachmentParams returns the parameters for creating the filesystem
+// attachments with the specified IDs.
+func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
+	args params.MachineStorageIds,
+) (params.FilesystemAttachmentParamsResults, error) {
+	canAccess, err := s.getAttachmentAuthFunc()
+	if err != nil {
+		return params.FilesystemAttachmentParamsResults{}, common.ServerError(common.ErrPerm)
+	}
+	results := params.FilesystemAttachmentParamsResults{
+		Results: make([]params.FilesystemAttachmentParamsResult, len(args.Ids)),
+	}
+	poolManager := poolmanager.New(s.settings)
+	one := func(arg params.MachineStorageId) (params.FilesystemAttachmentParams, error) {
+		filesystemAttachment, err := s.oneFilesystemAttachment(arg, canAccess)
+		if err != nil {
+			return params.FilesystemAttachmentParams{}, err
+		}
+		instanceId, err := s.st.MachineInstanceId(filesystemAttachment.Machine())
+		if err != nil {
+			// Can't attach a filesystem to a machine that
+			// hasn't been provisioned yet.
+			return params.FilesystemAttachmentParams{}, err
+		}
+		filesystem, err := s.st.Filesystem(filesystemAttachment.Filesystem())
+		if err != nil && !errors.IsNotProvisioned(err) {
+			return params.FilesystemAttachmentParams{}, err
+		}
+		filesystemInfo, err := filesystem.Info()
+		if err != nil {
+			// Can't attach a filesystem that hasn't been
+			// provisioned yet.
+			return params.FilesystemAttachmentParams{}, err
+		}
+		providerType, _, err := common.StoragePoolConfig(filesystemInfo.Pool, poolManager)
+		if err != nil {
+			return params.FilesystemAttachmentParams{}, errors.Trace(err)
+		}
+		filesystemAttachmentParams, ok := filesystemAttachment.Params()
+		if !ok {
+			return params.FilesystemAttachmentParams{}, errors.Errorf(
+				"filesystem %q is already attached to machine %q",
+				filesystemAttachment.Filesystem().Id(),
+				filesystemAttachment.Machine().Id(),
+			)
+		}
+		return params.FilesystemAttachmentParams{
+			filesystemAttachment.Filesystem().String(),
+			filesystemAttachment.Machine().String(),
+			string(instanceId),
+			filesystemInfo.FilesystemId,
+			string(providerType),
+			// TODO(axw) dealias MountPoint. We now have
+			// Path, MountPoint and Location in different
+			// parts of the codebase.
+			filesystemAttachmentParams.Location,
+		}, nil
+	}
+	for i, arg := range args.Ids {
+		var result params.FilesystemAttachmentParamsResult
+		filesystemAttachment, err := one(arg)
+		if err != nil {
+			result.Error = common.ServerError(err)
+		} else {
+			result.Result = filesystemAttachment
+		}
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
 func (s *StorageProvisionerAPI) oneVolumeAttachment(
 	id params.MachineStorageId, canAccessMachine func(names.MachineTag, names.Tag) bool,
 ) (state.VolumeAttachment, error) {
@@ -552,6 +652,29 @@ func (s *StorageProvisionerAPI) oneVolumeAttachment(
 		return nil, err
 	}
 	return volumeAttachment, nil
+}
+
+func (s *StorageProvisionerAPI) oneFilesystemAttachment(
+	id params.MachineStorageId, canAccessMachine func(names.MachineTag, names.Tag) bool,
+) (state.FilesystemAttachment, error) {
+	machineTag, err := names.ParseMachineTag(id.MachineTag)
+	if err != nil {
+		return nil, err
+	}
+	filesystemTag, err := names.ParseFilesystemTag(id.AttachmentTag)
+	if err != nil {
+		return nil, err
+	}
+	if !canAccessMachine(machineTag, filesystemTag) {
+		return nil, common.ErrPerm
+	}
+	filesystemAttachment, err := s.st.FilesystemAttachment(machineTag, filesystemTag)
+	if errors.IsNotFound(err) {
+		return nil, common.ErrPerm
+	} else if err != nil {
+		return nil, err
+	}
+	return filesystemAttachment, nil
 }
 
 // SetVolumeInfo records the details of newly provisioned volumes.
@@ -639,6 +762,39 @@ func (s *StorageProvisionerAPI) SetVolumeAttachmentInfo(
 		return errors.Trace(err)
 	}
 	for i, arg := range args.VolumeAttachments {
+		err := one(arg)
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+// SetFilesystemAttachmentInfo records the details of newly provisioned filesystem
+// attachments.
+func (s *StorageProvisionerAPI) SetFilesystemAttachmentInfo(
+	args params.FilesystemAttachments,
+) (params.ErrorResults, error) {
+	canAccess, err := s.getAttachmentAuthFunc()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.FilesystemAttachments)),
+	}
+	one := func(arg params.FilesystemAttachment) error {
+		machineTag, filesystemTag, filesystemAttachmentInfo, err := common.FilesystemAttachmentToState(arg)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !canAccess(machineTag, filesystemTag) {
+			return common.ErrPerm
+		}
+		err = s.st.SetFilesystemAttachmentInfo(machineTag, filesystemTag, filesystemAttachmentInfo)
+		if errors.IsNotFound(err) {
+			return common.ErrPerm
+		}
+		return errors.Trace(err)
+	}
+	for i, arg := range args.FilesystemAttachments {
 		err := one(arg)
 		results.Results[i].Error = common.ServerError(err)
 	}

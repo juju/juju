@@ -529,6 +529,8 @@ func (st *State) SetFilesystemAttachmentInfo(
 ) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set info for filesystem attachment %s:%s", filesystemTag.Id(), machineTag.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// TODO(axw) attempting to set filesystem attachment info for a
+		// filesystem that hasn't been provisioned should fail.
 		fsa, err := st.FilesystemAttachment(machineTag, filesystemTag)
 		if err != nil {
 			return nil, errors.Trace(err)
