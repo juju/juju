@@ -4,13 +4,17 @@
 package storage
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
 
@@ -238,4 +242,61 @@ func (api *API) isPersistent(tag names.StorageTag) (bool, error) {
 		return false, err
 	}
 	return info.Persistent, nil
+}
+
+// ListPools returns a list of pools.
+// If filter is provided, returned list only contains pools that match
+// the filter.
+// Pools can be filtered on names and provider types.
+// If both names and types are provided as filter,
+// pools that match either are returned.
+// If no filter is provided, all pools are returned.
+func (a *API) ListPools(
+	filter params.StoragePoolFilter,
+) (params.StoragePoolsResult, error) {
+
+	all, err := a.poolManager.List()
+	if err != nil {
+		return params.StoragePoolsResult{}, err
+	}
+	results := []params.StoragePool{}
+	// Convert to sets as easier to deal with
+	providerSet := set.NewStrings(filter.Providers...)
+	nameSet := set.NewStrings(filter.Names...)
+	for _, apool := range all {
+		if poolMatchesFilters(apool, providerSet, nameSet) {
+			results = append(results,
+				params.StoragePool{
+					Name:     apool.Name(),
+					Provider: fmt.Sprintf("%v", apool.Provider()),
+					Attrs:    apool.Attrs(),
+				})
+		}
+	}
+	return params.StoragePoolsResult{Results: results}, nil
+}
+
+func poolMatchesFilters(
+	apool *storage.Config,
+	providerFilter,
+	nameFilter set.Strings,
+) bool {
+	// no filters supplied
+	if providerFilter.IsEmpty() && nameFilter.IsEmpty() {
+		return true
+	}
+
+	// TODO (anastasiamac 2015-03-19) not catering for LIKE... should I?
+	// Or should it only be an exact match?...
+	return nameFilter.Contains(apool.Name()) ||
+		providerFilter.Contains(fmt.Sprintf("%v", apool.Provider()))
+}
+
+// CreatePool creates a new pool with specified parameters.
+func (a *API) CreatePool(p params.StoragePool) error {
+	_, err := a.poolManager.Create(
+		p.Name,
+		storage.ProviderType(p.Provider),
+		p.Attrs)
+	return err
 }

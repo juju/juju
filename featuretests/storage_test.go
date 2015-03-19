@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing"
+	"github.com/juju/utils/set"
 )
 
 const (
@@ -196,4 +197,145 @@ storage-block/0:
     persistent: true
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
+}
+
+func runPoolList(c *gc.C, args []string) *cmd.Context {
+	context, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolListCommand{}), args...)
+	c.Assert(err, jc.ErrorIsNil)
+	return context
+}
+
+func (s *cmdStorageSuite) TestListPools(c *gc.C) {
+	context := runPoolList(c, []string{""})
+	expected := `
+block:
+  provider: loop
+  attrs:
+    it: works
+block-persistent:
+  provider: ebs
+  attrs:
+    persistent: true
+`[1:]
+	c.Assert(testing.Stdout(context), gc.Equals, expected)
+}
+
+func (s *cmdStorageSuite) TestListPoolsName(c *gc.C) {
+	context := runPoolList(c, []string{"--name", "block"})
+	expected := `
+block:
+  provider: loop
+  attrs:
+    it: works
+`[1:]
+	c.Assert(testing.Stdout(context), gc.Equals, expected)
+}
+
+func (s *cmdStorageSuite) TestListPoolsNameNoMatch(c *gc.C) {
+	context := runPoolList(c, []string{"--name", "cranky"})
+	c.Assert(testing.Stdout(context), gc.Equals, "")
+}
+
+func (s *cmdStorageSuite) TestListPoolsProvider(c *gc.C) {
+	context := runPoolList(c, []string{"--type", "ebs"})
+	expected := `
+block-persistent:
+  provider: ebs
+  attrs:
+    persistent: true
+`[1:]
+	c.Assert(testing.Stdout(context), gc.Equals, expected)
+}
+
+func (s *cmdStorageSuite) TestListPoolsProviderNoMatch(c *gc.C) {
+	context := runPoolList(c, []string{"--type", "oops"})
+	c.Assert(testing.Stdout(context), gc.Equals, "")
+}
+
+func (s *cmdStorageSuite) TestListPoolsNameAndProvider(c *gc.C) {
+	context := runPoolList(c, []string{"--name", "block", "--type", "ebs"})
+	expected := `
+block:
+  provider: loop
+  attrs:
+    it: works
+block-persistent:
+  provider: ebs
+  attrs:
+    persistent: true
+`[1:]
+	c.Assert(testing.Stdout(context), gc.Equals, expected)
+}
+
+func (s *cmdStorageSuite) TestListPoolsProviderAndNotName(c *gc.C) {
+	context := runPoolList(c, []string{"--name", "fluff", "--type", "ebs"})
+	expected := `
+block-persistent:
+  provider: ebs
+  attrs:
+    persistent: true
+`[1:]
+	c.Assert(testing.Stdout(context), gc.Equals, expected)
+}
+
+func (s *cmdStorageSuite) TestListPoolsNameAndNotProvider(c *gc.C) {
+	context := runPoolList(c, []string{"--name", "block", "--type", "oops"})
+	expected := `
+block:
+  provider: loop
+  attrs:
+    it: works
+`[1:]
+	c.Assert(testing.Stdout(context), gc.Equals, expected)
+}
+
+func (s *cmdStorageSuite) TestListPoolsNotNameAndNotProvider(c *gc.C) {
+	context := runPoolList(c, []string{"--name", "fluff", "--type", "oops"})
+	c.Assert(testing.Stdout(context), gc.Equals, "")
+}
+
+func runPoolCreate(c *gc.C, args []string) *cmd.Context {
+	context, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), args...)
+	c.Assert(err, jc.ErrorIsNil)
+	return context
+}
+
+func (s *cmdStorageSuite) TestCreatePool(c *gc.C) {
+	pname := "ftPool"
+	context := runPoolCreate(c, []string{"-t", "loop", pname, "smth=one"})
+	c.Assert(testing.Stdout(context), gc.Equals, "")
+	assertPoolByName(c, s.State, pname)
+}
+
+func (s *cmdStorageSuite) TestCreatePoolErrorNoAttrs(c *gc.C) {
+	pname := "ftPool"
+	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), "-t", "loop", pname)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*no pool config specified.*")
+}
+
+func (s *cmdStorageSuite) TestCreatePoolErrorProvider(c *gc.C) {
+	pname := "oops provider"
+	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), "-t", "oops", pname, "smth=one")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*not found.*")
+}
+
+func (s *cmdStorageSuite) TestCreatePoolErrorNoProvider(c *gc.C) {
+	pname := "oops provider"
+	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), pname, "smth=one")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*no provider type for pool specified.*")
+}
+
+func assertPoolByName(c *gc.C, st *state.State, pname string) {
+	stsetts := state.NewStateSettings(st)
+	poolManager := poolmanager.New(stsetts)
+
+	found, err := poolManager.List()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(found) > 0, jc.IsTrue)
+
+	namesSet := make(set.Strings)
+	for _, one := range found {
+		namesSet.Add(one.Name())
+	}
+	c.Assert(namesSet.Contains(pname), jc.IsTrue)
 }
