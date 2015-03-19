@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/service/common"
@@ -182,7 +183,8 @@ func identifyExecutable(executable string) (string, bool) {
 // TODO(ericsnow) Build this script more dynamically (using shell.Renderer).
 
 // DiscoverInitSystemScript is the shell script to use when
-// discovering the local init system.
+// discovering the local init system. The script is quite specific to
+// bash, so it includes an explicit bash shbang.
 const DiscoverInitSystemScript = `#!/usr/bin/env bash
 
 function checkInitSystem() {
@@ -232,14 +234,11 @@ exit 1
 `
 
 func writeDiscoverInitSystemScript(filename string) []string {
-	// TODO(ericsnow) Use utils.shell.Renderer.WriteScript.
-	return []string{
-		fmt.Sprintf(`
-cat > %s << 'EOF'
-%s
-EOF`[1:], filename, DiscoverInitSystemScript),
-		"chmod 0755 " + filename,
-	}
+	renderer := shell.BashRenderer{}
+	cmds := renderer.WriteFile(filename, []byte(DiscoverInitSystemScript))
+	perm := renderer.ScriptPermissions()
+	cmds = append(cmds, renderer.Chmod(filename, perm)...)
+	return cmds
 }
 
 const shellCase = `
