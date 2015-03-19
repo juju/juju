@@ -444,6 +444,8 @@ func setMachineVolumeAttachmentInfo(st *State, machineId string, attachments map
 func (st *State) SetVolumeAttachmentInfo(machineTag names.MachineTag, volumeTag names.VolumeTag, info VolumeAttachmentInfo) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set info for volume attachment %s:%s", volumeTag.Id(), machineTag.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// TODO(axw) attempting to set volume attachment info for a
+		// volume that hasn't been provisioned should fail.
 		va, err := st.VolumeAttachment(machineTag, volumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)

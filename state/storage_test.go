@@ -78,6 +78,15 @@ func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (
 	return service, unit, storageTag
 }
 
+func (s *StorageStateSuiteBase) setupMixedScopeStorageService(c *gc.C, kind string) *state.Service {
+	storageCons := map[string]state.StorageConstraints{
+		"multi1to10": makeStorageCons("environscoped", 1024, 1),
+		"multi2up":   makeStorageCons("machinescoped", 2048, 2),
+	}
+	ch := s.AddTestingCharm(c, "storage-"+kind+"2")
+	return s.AddTestingServiceWithStorage(c, "storage-"+kind+"2", ch, storageCons)
+}
+
 func (s *StorageStateSuite) storageInstanceExists(c *gc.C, tag names.StorageTag) bool {
 	_, err := state.TxnRevno(
 		s.State,

@@ -120,6 +120,47 @@ func (s *provisionerSuite) setupVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *provisionerSuite) setupFilesystems(c *gc.C) {
+	s.factory.MakeMachine(c, &factory.MachineParams{
+		InstanceId: instance.Id("inst-id"),
+		Filesystems: []state.MachineFilesystemParams{{
+			Filesystem: state.FilesystemParams{Pool: "machinescoped", Size: 1024},
+			Attachment: state.FilesystemAttachmentParams{Location: "/srv"},
+		}, {
+			Filesystem: state.FilesystemParams{Pool: "environscoped", Size: 2048},
+		}, {
+			Filesystem: state.FilesystemParams{Pool: "environscoped", Size: 4096},
+		}},
+	})
+
+	// Only provision the first and third filesystems.
+	err := s.State.SetFilesystemInfo(names.NewFilesystemTag("0/0"), state.FilesystemInfo{
+		FilesystemId: "abc",
+		Size:         1024,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetFilesystemInfo(names.NewFilesystemTag("2"), state.FilesystemInfo{
+		FilesystemId: "def",
+		Size:         4096,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make a machine without storage for tests to use.
+	s.factory.MakeMachine(c, nil)
+
+	// Make an unprovisioned machine with storage for tests to use.
+	// TODO(axw) extend testing/factory to allow creating unprovisioned
+	// machines.
+	_, err = s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Filesystems: []state.MachineFilesystemParams{{
+			Filesystem: state.FilesystemParams{Pool: "environscoped", Size: 2048},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *provisionerSuite) TestVolumesMachine(c *gc.C) {
 	s.setupVolumes(c)
 	s.authorizer.EnvironManager = false
@@ -166,6 +207,29 @@ func (s *provisionerSuite) TestVolumesEmptyArgs(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
+func (s *provisionerSuite) TestFilesystems(c *gc.C) {
+	s.setupFilesystems(c)
+	s.authorizer.Tag = names.NewMachineTag("2") // neither 0 nor 1
+
+	results, err := s.api.Filesystems(params.Entities{
+		Entities: []params.Entity{
+			{"filesystem-0-0"},
+			{"filesystem-1"},
+			{"filesystem-2"},
+			{"filesystem-42"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.FilesystemResults{
+		Results: []params.FilesystemResult{
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: common.ServerError(errors.NotProvisionedf(`filesystem "1"`))},
+			{Result: params.Filesystem{FilesystemTag: "filesystem-2", FilesystemId: "def", Size: 4096}},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+		},
+	})
+}
+
 func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
 	s.setupVolumes(c)
 	s.authorizer.EnvironManager = false
@@ -204,6 +268,46 @@ func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
 	})
 }
 
+func (s *provisionerSuite) TestFilesystemAttachments(c *gc.C) {
+	s.setupFilesystems(c)
+	s.authorizer.EnvironManager = false
+
+	err := s.State.SetFilesystemAttachmentInfo(
+		names.NewMachineTag("0"),
+		names.NewFilesystemTag("0/0"),
+		state.FilesystemAttachmentInfo{MountPoint: "/srv"},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := s.api.FilesystemAttachments(params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    "machine-0",
+			AttachmentTag: "filesystem-0-0",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "filesystem-2", // filesystem attachment not provisioned
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "filesystem-42",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.FilesystemAttachmentResults{
+		Results: []params.FilesystemAttachmentResult{
+			{Result: params.FilesystemAttachment{
+				FilesystemTag: "filesystem-0-0",
+				MachineTag:    "machine-0",
+				MountPoint:    "/srv",
+			}},
+			{Error: &params.Error{
+				Code:    params.CodeNotProvisioned,
+				Message: `filesystem attachment "2" on "0" not provisioned`,
+			}},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+		},
+	})
+}
+
 func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 	s.setupVolumes(c)
 	results, err := s.api.VolumeParams(params.Entities{
@@ -233,6 +337,25 @@ func (s *provisionerSuite) TestVolumeParamsEmptyArgs(c *gc.C) {
 	results, err := s.api.VolumeParams(params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
+}
+
+func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
+	s.setupFilesystems(c)
+	results, err := s.api.FilesystemParams(params.Entities{
+		Entities: []params.Entity{{"filesystem-0-0"}, {"filesystem-1"}, {"filesystem-42"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.FilesystemParamsResults{
+		Results: []params.FilesystemParamsResult{
+			{Error: &params.Error{`filesystem "0/0" is already provisioned`, ""}},
+			{Result: params.FilesystemParams{
+				FilesystemTag: "filesystem-1",
+				Size:          2048,
+				Provider:      "environscoped",
+			}},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+		},
+	})
 }
 
 func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
@@ -277,6 +400,49 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 	})
 }
 
+func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
+	s.setupFilesystems(c)
+	s.authorizer.EnvironManager = true
+
+	results, err := s.api.FilesystemAttachmentParams(params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    "machine-0",
+			AttachmentTag: "filesystem-0-0",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "filesystem-1",
+		}, {
+			MachineTag:    "machine-2",
+			AttachmentTag: "filesystem-3",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "filesystem-42",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.FilesystemAttachmentParamsResults{
+		Results: []params.FilesystemAttachmentParamsResult{
+			{Result: params.FilesystemAttachmentParams{
+				MachineTag:    "machine-0",
+				FilesystemTag: "filesystem-0-0",
+				InstanceId:    "inst-id",
+				FilesystemId:  "abc",
+				Provider:      "machinescoped",
+				MountPoint:    "/srv",
+			}},
+			{Error: &params.Error{
+				Code:    params.CodeNotProvisioned,
+				Message: `filesystem "1" not provisioned`,
+			}},
+			{Error: &params.Error{
+				Code:    params.CodeNotProvisioned,
+				Message: `machine 2 not provisioned`,
+			}},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+		},
+	})
+}
+
 func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
 	s.setupVolumes(c)
 	s.authorizer.EnvironManager = true
@@ -305,6 +471,40 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
 		Results: []params.ErrorResult{
 			{},
 			{}, // TODO(axw) this should fail, since volume is not provisioned
+			{}, // TODO(axw) this should fail, since machine is not provisioned
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestSetFilesystemAttachmentInfo(c *gc.C) {
+	s.setupFilesystems(c)
+	s.authorizer.EnvironManager = true
+
+	results, err := s.api.SetFilesystemAttachmentInfo(params.FilesystemAttachments{
+		FilesystemAttachments: []params.FilesystemAttachment{{
+			MachineTag:    "machine-0",
+			FilesystemTag: "filesystem-0-0",
+			MountPoint:    "/srv/a",
+		}, {
+			MachineTag:    "machine-0",
+			FilesystemTag: "filesystem-1",
+			MountPoint:    "/srv/b",
+		}, {
+			MachineTag:    "machine-2",
+			FilesystemTag: "filesystem-3",
+			MountPoint:    "/srv/c",
+		}, {
+			MachineTag:    "machine-0",
+			FilesystemTag: "filesystem-42",
+			MountPoint:    "/srv/d",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{},
+			{}, // TODO(axw) this should fail, since filesystem is not provisioned
 			{}, // TODO(axw) this should fail, since machine is not provisioned
 			{Error: &params.Error{"permission denied", "unauthorized access"}},
 		},
@@ -393,6 +593,115 @@ func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 				}, {
 					MachineTag:    "machine-2",
 					AttachmentTag: "volume-3",
+				}},
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 2)
+	v0Watcher := s.resources.Get("1")
+	defer statetesting.AssertStop(c, v0Watcher)
+	v1Watcher := s.resources.Get("2")
+	defer statetesting.AssertStop(c, v1Watcher)
+
+	// Check that the Watch has consumed the initial events ("returned" in
+	// the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, v0Watcher.(state.StringsWatcher))
+	wc.AssertNoChange()
+	wc = statetesting.NewStringsWatcherC(c, s.State, v1Watcher.(state.StringsWatcher))
+	wc.AssertNoChange()
+}
+
+func (s *provisionerSuite) TestWatchFilesystems(c *gc.C) {
+	s.setupFilesystems(c)
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{"machine-0"},
+		{s.State.EnvironTag().String()},
+		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
+		{"machine-1"},
+		{"machine-42"}},
+	}
+	result, err := s.api.WatchFilesystems(args)
+	c.Assert(err, jc.ErrorIsNil)
+	sort.Strings(result.Results[1].Changes)
+	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{
+				StringsWatcherId: "1",
+				Changes:          []string{"0/0"},
+			},
+			{
+				StringsWatcherId: "2",
+				Changes:          []string{"1", "2", "3"},
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 2)
+	v0Watcher := s.resources.Get("1")
+	defer statetesting.AssertStop(c, v0Watcher)
+	v1Watcher := s.resources.Get("2")
+	defer statetesting.AssertStop(c, v1Watcher)
+
+	// Check that the Watch has consumed the initial events ("returned" in
+	// the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, v0Watcher.(state.StringsWatcher))
+	wc.AssertNoChange()
+	wc = statetesting.NewStringsWatcherC(c, s.State, v1Watcher.(state.StringsWatcher))
+	wc.AssertNoChange()
+}
+
+func (s *provisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
+	s.setupFilesystems(c)
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{"machine-0"},
+		{s.State.EnvironTag().String()},
+		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
+		{"machine-1"},
+		{"machine-42"}},
+	}
+	result, err := s.api.WatchFilesystemAttachments(args)
+	c.Assert(err, jc.ErrorIsNil)
+	sort.Sort(byMachineAndEntity(result.Results[0].Changes))
+	sort.Sort(byMachineAndEntity(result.Results[1].Changes))
+	c.Assert(result, jc.DeepEquals, params.MachineStorageIdsWatchResults{
+		Results: []params.MachineStorageIdsWatchResult{
+			{
+				MachineStorageIdsWatcherId: "1",
+				Changes: []params.MachineStorageId{{
+					MachineTag:    "machine-0",
+					AttachmentTag: "filesystem-0-0",
+				}, {
+					MachineTag:    "machine-0",
+					AttachmentTag: "filesystem-1",
+				}, {
+					MachineTag:    "machine-0",
+					AttachmentTag: "filesystem-2",
+				}},
+			},
+			{
+				MachineStorageIdsWatcherId: "2",
+				Changes: []params.MachineStorageId{{
+					MachineTag:    "machine-0",
+					AttachmentTag: "filesystem-1",
+				}, {
+					MachineTag:    "machine-0",
+					AttachmentTag: "filesystem-2",
+				}, {
+					MachineTag:    "machine-2",
+					AttachmentTag: "filesystem-3",
 				}},
 			},
 			{Error: apiservertesting.ErrUnauthorized},

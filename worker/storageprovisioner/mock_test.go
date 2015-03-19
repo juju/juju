@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/worker/storageprovisioner"
 )
 
 const attachedVolumeId = "1"
@@ -175,6 +176,14 @@ func newMockVolumeAccessor() *mockVolumeAccessor {
 		provisionedVolumes:     make(map[string]params.Volume),
 		provisionedAttachments: make(map[params.MachineStorageId]params.VolumeAttachment),
 	}
+}
+
+type mockFilesystemAccessor struct {
+	storageprovisioner.FilesystemAccessor
+}
+
+func newMockFilesystemAccessor() *mockFilesystemAccessor {
+	return &mockFilesystemAccessor{}
 }
 
 type mockLifecycleManager struct {
