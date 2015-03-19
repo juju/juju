@@ -20,7 +20,7 @@ func volumesChanged(ctx *context, changes []string) error {
 	for i, change := range changes {
 		tags[i] = names.NewVolumeTag(change)
 	}
-	alive, dying, dead, err := entityLife(ctx, tags)
+	alive, dying, dead, err := storageEntityLife(ctx, tags)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -15,10 +15,10 @@ import (
 	"github.com/juju/juju/storage/provider/registry"
 )
 
-// entityLife queries the lifecycle state of each specified
-// entity (volume or filesystem), and then partitions the tags
-// by them.
-func entityLife(ctx *context, tags []names.Tag) (alive, dying, dead []names.Tag, _ error) {
+// storageEntityLife queries the lifecycle state of each specified
+// storage entity (volume or filesystem), and then partitions the
+// tags by them.
+func storageEntityLife(ctx *context, tags []names.Tag) (alive, dying, dead []names.Tag, _ error) {
 	lifeResults, err := ctx.life.Life(tags)
 	if err != nil {
 		return nil, nil, nil, errors.Annotate(err, "getting storage entity life")
