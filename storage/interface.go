@@ -157,6 +157,12 @@ type VolumeParams struct {
 	Attachment *VolumeAttachmentParams
 }
 
+// IsPersistent returns true if the params has persistent set to true.
+func (p *VolumeParams) IsPersistent() bool {
+	v, _ := p.Attributes[Persistent].(bool)
+	return v
+}
+
 // VolumeAttachmentParams is a set of parameters for volume attachment or
 // detachment.
 type VolumeAttachmentParams struct {
