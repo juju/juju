@@ -302,27 +302,24 @@ func runPoolCreate(c *gc.C, args []string) *cmd.Context {
 
 func (s *cmdStorageSuite) TestCreatePool(c *gc.C) {
 	pname := "ftPool"
-	context := runPoolCreate(c, []string{"-t", "loop", pname, "smth=one"})
+	context := runPoolCreate(c, []string{pname, "loop", "smth=one"})
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 	assertPoolByName(c, s.State, pname)
 }
 
 func (s *cmdStorageSuite) TestCreatePoolErrorNoAttrs(c *gc.C) {
-	pname := "ftPool"
-	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), "-t", "loop", pname)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*no pool config specified.*")
-}
-
-func (s *cmdStorageSuite) TestCreatePoolErrorProvider(c *gc.C) {
-	pname := "oops provider"
-	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), "-t", "oops", pname, "smth=one")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*not found.*")
+	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), "loop", "ftPool")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*pool creation requires names, provider type and attrs for configuration.*")
 }
 
 func (s *cmdStorageSuite) TestCreatePoolErrorNoProvider(c *gc.C) {
-	pname := "oops provider"
-	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), pname, "smth=one")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*no provider type for pool specified.*")
+	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), "oops provider", "smth=one")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*pool creation requires names, provider type and attrs for configuration.*")
+}
+
+func (s *cmdStorageSuite) TestCreatePoolErrorProviderType(c *gc.C) {
+	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), "loop", "ftPool", "smth=one")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*not found.*")
 }
 
 func assertPoolByName(c *gc.C, st *state.State, pname string) {

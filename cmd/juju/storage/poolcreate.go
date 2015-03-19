@@ -4,9 +4,8 @@
 package storage
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
 	"launchpad.net/gnuflag"
 )
@@ -34,9 +33,9 @@ options:
         specify an output file
     <name>
         pool name
-    -t
-        pool type
-    [<key>=<value>]*
+    <provider type>
+        pool provider type
+    [<key>=<value>]+
 `
 
 // PoolCreateCommand lists storage pools.
@@ -51,21 +50,14 @@ type PoolCreateCommand struct {
 
 // Init implements Command.Init.
 func (c *PoolCreateCommand) Init(args []string) (err error) {
-	if c.ptype == "" {
-		return fmt.Errorf("no provider type for pool specified")
-	}
-
-	if len(args) == 0 {
-		return fmt.Errorf("no pool name specified")
-	}
-
-	if len(args) == 1 {
-		return fmt.Errorf("no pool config specified")
+	if len(args) < 3 {
+		return errors.New("pool creation requires names, provider type and attrs for configuration")
 	}
 
 	c.pname = args[0]
+	c.ptype = args[1]
 
-	options, err := keyvalues.Parse(args[1:], true)
+	options, err := keyvalues.Parse(args[2:], true)
 	if err != nil {
 		return err
 	}
@@ -89,8 +81,6 @@ func (c *PoolCreateCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *PoolCreateCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
-
-	f.StringVar(&c.ptype, "t", "", "provider type for storage pool")
 }
 
 // Run implements Command.Run.
