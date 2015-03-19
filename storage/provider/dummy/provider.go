@@ -9,12 +9,18 @@ import (
 	"github.com/juju/juju/storage"
 )
 
+var _ storage.Provider = (*StorageProvider)(nil)
+
 // StorageProvider is an implementation of storage.Provider, suitable for testing.
 // Each method's default behaviour may be overridden by setting the corresponding
 // Func field.
 type StorageProvider struct {
 	// StorageScope defines the scope of storage managed by this provider.
 	StorageScope storage.Scope
+
+	// IsDynamic defines whether or not the provider reports that it supports
+	// dynamic provisioning.
+	IsDynamic bool
 
 	// VolumeSourceFunc will be called by VolumeSource, if non-nil;
 	// otherwise VolumeSource will return a NotSupported error.
@@ -68,4 +74,9 @@ func (p *StorageProvider) Supports(kind storage.StorageKind) bool {
 // Scope is defined on storage.Provider.
 func (p *StorageProvider) Scope() storage.Scope {
 	return p.StorageScope
+}
+
+// Dynamic is defined on storage.Provider.
+func (p *StorageProvider) Dynamic() bool {
+	return p.IsDynamic
 }
