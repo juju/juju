@@ -4,10 +4,10 @@
 package jujuc
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 )
 
@@ -50,6 +50,9 @@ func (c *OwnerGetCommand) Run(ctx *cmd.Context) error {
 	if c.Key != "tag" {
 		return fmt.Errorf("%s not set", c.Key)
 	}
-
-	return c.out.Write(ctx, c.ctx.OwnerTag())
+	ownerTag, err := c.ctx.OwnerTag()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return c.out.Write(ctx, ownerTag)
 }

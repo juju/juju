@@ -100,18 +100,28 @@ func (s *FactorySuite) AssertPaths(c *gc.C, rnr runner.Runner) {
 
 func (s *FactorySuite) AssertCoreContext(c *gc.C, ctx runner.Context) {
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
-	c.Assert(ctx.OwnerTag(), gc.Equals, s.service.GetOwnerTag())
+	ownerTag, err := ctx.OwnerTag()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ownerTag, gc.Equals, s.service.GetOwnerTag())
 	c.Assert(runner.ContextMachineTag(ctx), jc.DeepEquals, names.NewMachineTag("0"))
 
 	expect, expectOK := s.unit.PrivateAddress()
 	actual, actualOK := ctx.PrivateAddress()
 	c.Assert(actual, gc.Equals, expect)
-	c.Assert(actualOK, gc.Equals, expectOK)
+	if expectOK {
+		c.Assert(actualOK, jc.ErrorIsNil)
+	} else {
+		c.Assert(actualOK, jc.Satisfies, errors.IsNotFound)
+	}
 
 	expect, expectOK = s.unit.PublicAddress()
 	actual, actualOK = ctx.PublicAddress()
 	c.Assert(actual, gc.Equals, expect)
-	c.Assert(actualOK, gc.Equals, expectOK)
+	if expectOK {
+		c.Assert(actualOK, jc.ErrorIsNil)
+	} else {
+		c.Assert(err, gc.Equals, jujuc.ErrIsolatedContext)
+	}
 
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -119,15 +129,17 @@ func (s *FactorySuite) AssertCoreContext(c *gc.C, ctx runner.Context) {
 	c.Assert(name, gc.Equals, env.Name())
 	c.Assert(uuid, gc.Equals, env.UUID())
 
-	c.Assert(ctx.RelationIds(), gc.HasLen, 2)
+	relIds, err := ctx.RelationIds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relIds, gc.HasLen, 2)
 
-	r, found := ctx.Relation(0)
-	c.Assert(found, jc.IsTrue)
+	r, err := ctx.Relation(0)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Name(), gc.Equals, "db")
 	c.Assert(r.FakeId(), gc.Equals, "db:0")
 
-	r, found = ctx.Relation(1)
-	c.Assert(found, jc.IsTrue)
+	r, err = ctx.Relation(1)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Name(), gc.Equals, "db")
 	c.Assert(r.FakeId(), gc.Equals, "db:1")
 }
@@ -139,14 +151,14 @@ func (s *FactorySuite) AssertNotActionContext(c *gc.C, ctx runner.Context) {
 }
 
 func (s *FactorySuite) AssertNotStorageContext(c *gc.C, ctx runner.Context) {
-	storageAttachment, ok := ctx.HookStorage()
+	storageAttachment, err := ctx.HookStorage()
 	c.Assert(storageAttachment, gc.IsNil)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *FactorySuite) AssertStorageContext(c *gc.C, ctx runner.Context, id string, attachment storage.StorageAttachmentInfo) {
-	fromCache, ok := ctx.HookStorage()
-	c.Assert(ok, jc.IsTrue)
+	fromCache, err := ctx.HookStorage()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fromCache, gc.NotNil)
 	c.Assert(fromCache.Tag().Id(), gc.Equals, id)
 	c.Assert(fromCache.Kind(), gc.Equals, attachment.Kind)
@@ -156,16 +168,16 @@ func (s *FactorySuite) AssertStorageContext(c *gc.C, ctx runner.Context, id stri
 func (s *FactorySuite) AssertRelationContext(c *gc.C, ctx runner.Context, relId int, remoteUnit string) *runner.ContextRelation {
 	actualRemoteUnit, _ := ctx.RemoteUnitName()
 	c.Assert(actualRemoteUnit, gc.Equals, remoteUnit)
-	rel, found := ctx.HookRelation()
-	c.Assert(found, jc.IsTrue)
+	rel, ok := ctx.HookRelation()
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(rel.Id(), gc.Equals, relId)
 	return rel.(*runner.ContextRelation)
 }
 
 func (s *FactorySuite) AssertNotRelationContext(c *gc.C, ctx runner.Context) {
-	rel, found := ctx.HookRelation()
+	rel, ok := ctx.HookRelation()
 	c.Assert(rel, gc.IsNil)
-	c.Assert(found, jc.IsFalse)
+	c.Assert(ok, jc.IsFalse)
 }
 
 func (s *FactorySuite) TestNewCommandRunnerNoRelation(c *gc.C) {
@@ -382,8 +394,8 @@ func (s *FactorySuite) TestNewHookRunnerPrunesNonMemberCaches(c *gc.C) {
 	c.Assert(settings1, gc.IsNil)
 
 	// Check the caches are being used by the context relations.
-	relCtx, found := ctx.Relation(0)
-	c.Assert(found, jc.IsTrue)
+	relCtx, err := ctx.Relation(0)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify that the settings really were cached by trying to look them up.
 	// Nothing's really in scope, so the call would fail if they weren't.

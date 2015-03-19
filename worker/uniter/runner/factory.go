@@ -54,7 +54,7 @@ type StorageContextAccessor interface {
 
 	// Storage returns the jujuc.ContextStorage with the supplied tag if
 	// it was found, and whether it was found.
-	Storage(names.StorageTag) (jujuc.ContextStorage, bool)
+	Storage(names.StorageTag) (jujuc.ContextStorage, error)
 }
 
 // RelationsFunc is used to get snapshots of relation membership at context
@@ -177,8 +177,10 @@ func (f *factory) NewHookRunner(hookInfo hook.Info) (Runner, error) {
 	}
 	if hookInfo.Kind.IsStorage() {
 		ctx.storageTag = names.NewStorageTag(hookInfo.StorageId)
-		if _, found := ctx.storage.Storage(ctx.storageTag); !found {
-			return nil, errors.Errorf("unknown storage id: %v", hookInfo.StorageId)
+		if _, err := ctx.storage.Storage(ctx.storageTag); errors.IsNotFound(err) {
+			return nil, errors.Annotatef(err, "unknown storage id: %v", hookInfo.StorageId)
+		} else if err != nil {
+			return nil, errors.Trace(err)
 		}
 		storageName, err := names.StorageName(hookInfo.StorageId)
 		if err != nil {

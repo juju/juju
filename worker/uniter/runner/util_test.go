@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -334,9 +335,12 @@ type storageContextAccessor struct {
 	storage map[names.StorageTag]*contextStorage
 }
 
-func (s *storageContextAccessor) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
+func (s *storageContextAccessor) Storage(tag names.StorageTag) (jujuc.ContextStorage, error) {
 	storage, ok := s.storage[tag]
-	return storage, ok
+	if !ok {
+		return storage, errors.NotFoundf("storage not found")
+	}
+	return storage, nil
 }
 
 type contextStorage struct {

@@ -53,9 +53,8 @@ func (s *storager) Stop() error {
 }
 
 // Context returns the ContextStorage for the storage that this storager
-// corresponds to, and whether there is any context available yet. There
-// will be context beginning from when the first hook is queued.
-func (s *storager) Context() (jujuc.ContextStorage, bool) {
+// corresponds to. There will be context beginning from when the first hook is queued.
+func (s *storager) Context() (jujuc.ContextStorage, error) {
 	return s.source.Context()
 }
 

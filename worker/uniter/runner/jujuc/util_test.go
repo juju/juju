@@ -11,6 +11,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -144,24 +145,27 @@ func (c *Context) SetUnitStatus(status jujuc.StatusInfo) error {
 	return nil
 }
 
-func (c *Context) PublicAddress() (string, bool) {
-	return "gimli.minecraft.testing.invalid", true
+func (c *Context) PublicAddress() (string, error) {
+	return "gimli.minecraft.testing.invalid", nil
 }
 
-func (c *Context) PrivateAddress() (string, bool) {
-	return "192.168.0.99", true
+func (c *Context) PrivateAddress() (string, error) {
+	return "192.168.0.99", nil
 }
 
-func (c *Context) AvailabilityZone() (string, bool) {
-	return "us-east-1a", true
+func (c *Context) AvailabilityZone() (string, error) {
+	return "us-east-1a", nil
 }
 
-func (c *Context) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
+func (c *Context) Storage(tag names.StorageTag) (jujuc.ContextStorage, error) {
 	storage, ok := c.storage[tag]
-	return storage, ok
+	if !ok {
+		return storage, errors.NotFoundf("storage not found")
+	}
+	return storage, nil
 }
 
-func (c *Context) HookStorage() (jujuc.ContextStorage, bool) {
+func (c *Context) HookStorage() (jujuc.ContextStorage, error) {
 	return c.Storage(c.storageTag)
 }
 
@@ -191,8 +195,8 @@ func (c *Context) ClosePorts(protocol string, fromPort, toPort int) error {
 	return nil
 }
 
-func (c *Context) OpenedPorts() []network.PortRange {
-	return c.ports
+func (c *Context) OpenedPorts() ([]network.PortRange, error) {
+	return c.ports, nil
 }
 
 func (c *Context) ConfigSettings() (charm.Settings, error) {
@@ -222,28 +226,35 @@ func (c *Context) SetActionMessage(message string) error {
 }
 
 func (c *Context) HookRelation() (jujuc.ContextRelation, bool) {
-	return c.Relation(c.relid)
+	r, err := c.Relation(c.relid)
+	return r, err == nil
 }
 
-func (c *Context) RemoteUnitName() (string, bool) {
-	return c.remote, c.remote != ""
+func (c *Context) RemoteUnitName() (string, error) {
+	if c.remote == "" {
+		return "", errors.NotFoundf("remote unit")
+	}
+	return c.remote, nil
 }
 
-func (c *Context) Relation(id int) (jujuc.ContextRelation, bool) {
+func (c *Context) Relation(id int) (jujuc.ContextRelation, error) {
 	r, found := c.rels[id]
-	return r, found
+	if !found {
+		return r, errors.NotFoundf("relation")
+	}
+	return r, nil
 }
 
-func (c *Context) RelationIds() []int {
+func (c *Context) RelationIds() ([]int, error) {
 	ids := []int{}
 	for id := range c.rels {
 		ids = append(ids, id)
 	}
-	return ids
+	return ids, nil
 }
 
-func (c *Context) OwnerTag() string {
-	return "test-owner"
+func (c *Context) OwnerTag() (string, error) {
+	return "test-owner", nil
 }
 
 type ContextRelation struct {

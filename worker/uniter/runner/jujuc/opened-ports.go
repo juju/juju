@@ -5,6 +5,7 @@ package jujuc
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 )
 
@@ -38,7 +39,10 @@ func (c *OpenedPortsCommand) Init(args []string) error {
 }
 
 func (c *OpenedPortsCommand) Run(ctx *cmd.Context) error {
-	unitPorts := c.ctx.OpenedPorts()
+	unitPorts, err := c.ctx.OpenedPorts()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	results := make([]string, len(unitPorts))
 	for i, portRange := range unitPorts {
 		results[i] = portRange.String()

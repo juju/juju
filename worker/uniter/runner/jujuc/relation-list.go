@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 )
 
@@ -24,7 +25,7 @@ func NewRelationListCommand(ctx Context) cmd.Command {
 
 func (c *RelationListCommand) Info() *cmd.Info {
 	doc := "-r must be specified when not in a relation hook"
-	if _, found := c.ctx.HookRelation(); found {
+	if _, ok := c.ctx.HookRelation(); ok {
 		doc = ""
 	}
 	return &cmd.Info{
@@ -50,9 +51,11 @@ func (c *RelationListCommand) Init(args []string) (err error) {
 }
 
 func (c *RelationListCommand) Run(ctx *cmd.Context) error {
-	r, found := c.ctx.Relation(c.RelationId)
-	if !found {
+	r, err := c.ctx.Relation(c.RelationId)
+	if err != nil && errors.IsNotFound(err) {
 		return fmt.Errorf("unknown relation id")
+	} else if err != nil {
+		return errors.Trace(err)
 	}
 	unitNames := r.UnitNames()
 	if unitNames == nil {

@@ -6,6 +6,7 @@ package storage_test
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -115,10 +116,10 @@ func (s *storageHookQueueSuite) TestStorageHookQueueDead(c *gc.C) {
 
 func (s *storageHookQueueSuite) TestStorageHookQueueContext(c *gc.C) {
 	q := newHookQueue(initiallyUnattached)
-	_, ok := q.Context()
-	c.Assert(ok, jc.IsFalse)
+	_, err := q.Context()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	err := q.Update(params.StorageAttachment{
+	err = q.Update(params.StorageAttachment{
 		Life:     params.Alive,
 		Kind:     params.StorageKindFilesystem,
 		Location: "/srv",
@@ -126,8 +127,8 @@ func (s *storageHookQueueSuite) TestStorageHookQueueContext(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(q.Empty(), jc.IsFalse)
 
-	ctx, ok := q.Context()
-	c.Assert(ok, jc.IsTrue)
+	ctx, err := q.Context()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(ctx.Tag(), gc.Equals, names.NewStorageTag("data/0"))
 	c.Assert(ctx.Kind(), gc.Equals, corestorage.StorageKindFilesystem)

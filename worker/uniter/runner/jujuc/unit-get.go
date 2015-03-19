@@ -4,10 +4,10 @@
 package jujuc
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 )
 
@@ -47,13 +47,14 @@ func (c *UnitGetCommand) Init(args []string) error {
 }
 
 func (c *UnitGetCommand) Run(ctx *cmd.Context) error {
-	value, ok := "", false
+	var err error
+	value := ""
 	if c.Key == "private-address" {
-		value, ok = c.ctx.PrivateAddress()
+		value, err = c.ctx.PrivateAddress()
 	} else {
-		value, ok = c.ctx.PublicAddress()
+		value, err = c.ctx.PublicAddress()
 	}
-	if !ok {
+	if err != nil {
 		return fmt.Errorf("%s not set", c.Key)
 	}
 	return c.out.Write(ctx, value)

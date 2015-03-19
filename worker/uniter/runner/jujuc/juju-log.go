@@ -4,11 +4,11 @@
 package jujuc
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 )
@@ -69,7 +69,7 @@ func (c *JujuLogCommand) Run(ctx *cmd.Context) error {
 	}
 
 	prefix := ""
-	if r, found := c.ctx.HookRelation(); found {
+	if r, ok := c.ctx.HookRelation(); ok {
 		prefix = r.FakeId() + ": "
 	}
 

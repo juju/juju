@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 )
 
@@ -26,7 +27,7 @@ func NewRelationIdsCommand(ctx Context) cmd.Command {
 func (c *RelationIdsCommand) Info() *cmd.Info {
 	args := "<name>"
 	doc := ""
-	if r, found := c.ctx.HookRelation(); found {
+	if r, ok := c.ctx.HookRelation(); ok {
 		args = "[<name>]"
 		doc = fmt.Sprintf("Current default relation name is %q.", r.Name())
 	}
@@ -43,7 +44,7 @@ func (c *RelationIdsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *RelationIdsCommand) Init(args []string) error {
-	if r, found := c.ctx.HookRelation(); found {
+	if r, ok := c.ctx.HookRelation(); ok {
 		c.Name = r.Name()
 	}
 	if len(args) > 0 {
@@ -57,9 +58,15 @@ func (c *RelationIdsCommand) Init(args []string) error {
 
 func (c *RelationIdsCommand) Run(ctx *cmd.Context) error {
 	result := []string{}
-	for _, id := range c.ctx.RelationIds() {
-		if r, found := c.ctx.Relation(id); found && r.Name() == c.Name {
+	ids, err := c.ctx.RelationIds()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, id := range ids {
+		if r, err := c.ctx.Relation(id); err == nil && r.Name() == c.Name {
 			result = append(result, r.FakeId())
+		} else if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
 		}
 	}
 	sort.Strings(result)

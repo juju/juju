@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -32,7 +33,7 @@ func (c *RelationGetCommand) Info() *cmd.Info {
 relation-get prints the value of a unit's relation setting, specified by key.
 If no key is given, or if the key is "-", all keys and values will be printed.
 `
-	if name, found := c.ctx.RemoteUnitName(); found {
+	if name, err := c.ctx.RemoteUnitName(); err == nil {
 		args = "[<key> [<unit id>]]"
 		doc += fmt.Sprintf("Current default unit id is %q.", name)
 	}
@@ -63,8 +64,10 @@ func (c *RelationGetCommand) Init(args []string) error {
 		}
 		args = args[1:]
 	}
-	if name, found := c.ctx.RemoteUnitName(); found {
+	if name, err := c.ctx.RemoteUnitName(); err == nil {
 		c.UnitName = name
+	} else if !errors.IsNotFound(err) {
+		return errors.Trace(err)
 	}
 	if len(args) > 0 {
 		c.UnitName = args[0]
@@ -77,9 +80,11 @@ func (c *RelationGetCommand) Init(args []string) error {
 }
 
 func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
-	r, found := c.ctx.Relation(c.RelationId)
-	if !found {
+	r, err := c.ctx.Relation(c.RelationId)
+	if errors.IsNotFound(err) {
 		return fmt.Errorf("unknown relation id")
+	} else if err != nil {
+		return errors.Trace(err)
 	}
 	var settings params.Settings
 	if c.UnitName == c.ctx.UnitName() {

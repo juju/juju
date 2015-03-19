@@ -21,7 +21,7 @@ type StorageHookQueue interface {
 	Next() hook.Info
 	Pop()
 	Update(attachment params.StorageAttachment) error
-	Context() (jujuc.ContextStorage, bool)
+	Context() (jujuc.ContextStorage, error)
 }
 
 func StateAttached(s State) bool {
