@@ -30,30 +30,6 @@ const (
 	// URL scheme prefix, and finally translating slashes to
 	// underscores.
 	aptSourceListPrefix = `sed 's,.*://,,' | sed 's,/$,,' | tr / _`
-
-	// aptgetLoopFunction is a bash function that executes its arguments
-	// in a loop with a delay until either the command either returns
-	// with an exit code other than 100.
-	//TODO: probably move this inside packaging and have a installWithLoop
-	//function or something
-	aptgetLoopFunction = `
-function apt_get_loop {
-    local rc=
-    while true; do
-        if ($*); then
-                return 0
-        else
-                rc=$?
-        fi
-        if [ $rc -eq 100 ]; then
-		sleep 10s
-                continue
-        fi
-        return $rc
-    done
-}
-`
-
 	// CloudToolsPrefsPath defines the default location of
 	// apt_preferences(5) file for the cloud-tools pocket.
 	CloudToolsPrefsPath = "/etc/apt/preferences.d/50-cloud-tools"

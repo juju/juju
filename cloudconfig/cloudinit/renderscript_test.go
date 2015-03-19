@@ -187,23 +187,6 @@ func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 	assertScriptMatches(c, cfg, aptGetUpgradePattern, true)
 }
 
-//func (s *configureSuite) TestAptGetWrapper(c *gc.C) {
-//aptgetRegexp := "(.|\n)*\\$\\(which eatmydata || true\\) " + regexp.QuoteMeta(sshinit.Aptget) + "(.|\n)*"
-//cfg, err := cloudinit.New("quantal")
-//c.Assert(err, jc.ErrorIsNil)
-//cfg.SetSystemUpdate(true)
-//cfg.SetAptGetWrapper("eatmydata")
-//assertScriptMatches(c, cfg, aptgetRegexp, true)
-//}
-
-//func (s *configureSuite) TestAptGetRetry(c *gc.C) {
-//aptgetRegexp := "(.|\n)*apt_get_loop.*" + regexp.QuoteMeta(sshinit.Aptget) + "(.|\n)*"
-//cfg := cloudinit.New()
-//cfg.SetSystemUpdate(true)
-//cfg.SetAptGetWrapper("eatmydata")
-//assertScriptMatches(c, cfg, aptgetRegexp, true)
-//}
-
 func (s *configureSuite) TestAptMirrorWrapper(c *gc.C) {
 	expectedCommands := regexp.QuoteMeta(`
 echo 'Changing apt mirror to http://woat.com' >&9

@@ -91,11 +91,14 @@ func (w *unixConfigure) ConfigureBasic() error {
 	switch w.os {
 	case version.Ubuntu:
 		w.conf.AddSSHAuthorizedKeys(w.icfg.AuthorizedKeys)
+	// On unix systems that are not ubuntu we create an ubuntu user so that we
+	// are able to ssh in the machine and have all the functionality dependant
+	// on having an ubuntu user there.
+	// Hopefully in the future we are going to move all the distirbutions to
+	// having a "juju" user
 	case version.CentOS:
-		//TODO: Need to add user and set SSH keys for CentOS
 		script := fmt.Sprintf(initUbuntuScript, utils.ShQuote(w.icfg.AuthorizedKeys))
 		w.conf.AddScripts(script)
-		//w.conf.AddSSHAuthorizedKeys(w.icfg.AuthorizedKeys)
 	}
 	w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.icfg.CloudInitOutputLog, "")
 	// Create a file in a well-defined location containing the machine's

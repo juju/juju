@@ -160,11 +160,6 @@ func (cfg *UbuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 		return nil, fmt.Errorf("update sources were specified, but OS updates have been disabled.")
 	}
 
-	// the basic command for all apt-get calls
-	//		--assume-yes to never prompt for confirmation
-	//		--force-confold is passed to dpkg to never overwrite config files
-	aptget := "apt-get --assume-yes --option Dpkg::Options::=--force-confold "
-
 	var cmds []string
 
 	// If a mirror is specified, rewrite sources.list and rename cached index files.
@@ -201,19 +196,16 @@ func (cfg *UbuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 		cmds = append(cmds, `printf '%s\n' `+contents+` > `+path)
 	}
 
-	// Define the "apt_get_loop" function, and wrap apt-get with it.
-	// TODO: If we do this hack here we can't use the package manager anymore
-	// Maybe wrap it inside packageManager?
-	cmds = append(cmds, aptgetLoopFunction)
-	aptget = "apt_get_loop " + aptget
+	// Define the "package_get_loop" function
+	cmds = append(cmds, packageGetLoopFunction)
 
 	if cfg.SystemUpdate() {
 		cmds = append(cmds, LogProgressCmd("Running apt-get update"))
-		cmds = append(cmds, aptget+"update")
+		cmds = append(cmds, "package_get_loop "+cfg.pacman.Update())
 	}
 	if cfg.SystemUpgrade() {
 		cmds = append(cmds, LogProgressCmd("Running apt-get upgrade"))
-		cmds = append(cmds, aptget+"upgrade")
+		cmds = append(cmds, "package_get_loop "+cfg.pacman.Upgrade())
 	}
 
 	pkgs := cfg.Packages()
@@ -242,8 +234,7 @@ func (cfg *UbuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 			skipNext = 2
 		}
 		cmds = append(cmds, LogProgressCmd("Installing package: %s", pkg))
-		cmd := fmt.Sprintf(aptget+"install %s", pkg)
-		cmds = append(cmds, cmd)
+		cmds = append(cmds, "package_get_loop "+cfg.pacman.Install(pkg))
 	}
 	if len(cmds) > 0 {
 		// setting DEBIAN_FRONTEND=noninteractive prevents debconf

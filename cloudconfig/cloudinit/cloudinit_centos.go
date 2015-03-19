@@ -135,6 +135,8 @@ func (cfg *CentOSCloudConfig) RenderYAML() ([]byte, error) {
 	}
 
 	//restore
+	//TODO(centos): check that this actually works
+	// We have the same thing in ubuntu as well
 	cfg.SetPackageProxy(proxy)
 	cfg.SetPackageMirror(mirror)
 	cfg.SetAttr("package_sources", srcs)
@@ -143,7 +145,6 @@ func (cfg *CentOSCloudConfig) RenderYAML() ([]byte, error) {
 }
 
 func (cfg *CentOSCloudConfig) RenderScript() (string, error) {
-	//TODO: &cfg?
 	return cfg.common.renderScriptCommon(cfg)
 }
 
@@ -154,7 +155,6 @@ func (cfg *CentOSCloudConfig) AddPackageCommands(
 	addUpgradeScripts bool,
 ) {
 	cfg.common.addPackageCommandsCommon(
-		//TODO &cfg?
 		cfg,
 		aptProxySettings,
 		aptMirror,
@@ -164,29 +164,23 @@ func (cfg *CentOSCloudConfig) AddPackageCommands(
 	)
 }
 
-//TODO: add this to CentOS at the right time
 func (cfg *CentOSCloudConfig) MaybeAddCloudArchiveCloudTools() {
+	//TODO(centos): Implement this on centOS if/when necessary. For now, it implements the
+	//cloudcfg interface.
 }
 
 func (cfg *CentOSCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	var cmds []string
 
-	// If a mirror is specified, rewrite sources.list and rename cached index files.
-	//if newMirror, _ := cfg.PackageMirror(); newMirror != "" {
 	if newMirror := cfg.PackageMirror(); newMirror != "" {
-		cmds = append(cmds, LogProgressCmd("Changing package mirror to "+newMirror))
-		// TODO: Change mirror on CentOS?
+		cmds = append(cmds, LogProgressCmd("Changing package mirror does not yet work on CentOS"))
+		// TODO(centos): This should be done in a further PR once we add more mirror
+		// options values to environs.Config
 	}
 
-	// TODO: Do we need this on CentOS?
-	//if len(cfg.PackageSources()) > 0 {
-	//Ensure add-apt-repository is available.
-	//cmds = append(cmds, LogProgressCmd("Installing add-apt-repository"))
-	//cmds = append(cmds, pacman.Install("python-software-properties"))
-	//}
 	for _, src := range cfg.PackageSources() {
-		// PPA keys are obtained by add-apt-repository, from launchpad.
-		// TODO: Repo keys on CentOS?
+		// TODO(centos): Keys are usually offered by repositories, and you need to
+		// accept them. Check how this can be done non interactively.
 		//if !strings.HasPrefix(src.Url, "ppa:") {
 		//if src.Key != "" {
 		//key := utils.ShQuote(src.Key)
@@ -196,43 +190,30 @@ func (cfg *CentOSCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 		//}
 		cmds = append(cmds, LogProgressCmd("Adding yum repository: %s", src.Url))
 		cmds = append(cmds, cfg.pacman.AddRepository(src.Url))
-		//TODO: Package prefs on CentOS?
-		// if src.Prefs != nil {
-		//	path := utils.ShQuote(src.Prefs.Path)
-		//	contents := utils.ShQuote(src.Prefs.FileContents())
-		//	cmds = append(cmds, "install -D -m 644 /dev/null "+path)
-		//	cmds = append(cmds, `printf '%s\n' `+contents+` > `+path)
-		//}
 	}
 
-	// Define the "apt_get_loop" function, and wrap apt-get with it.
-	// TODO: Do we need this on CentOS?
-	//cmds = append(cmds, aptgetLoopFunction)
-	//aptget = "apt_get_loop " + aptget
+	//TODO(centos): Don't forget about PackagePreferences on CentOS
+	//for _, pref := range cfg.PackagePreferences() {
+	//}
+
+	// Define the "package_get_loop" function
+	cmds = append(cmds, packageGetLoopFunction)
 
 	if cfg.SystemUpdate() {
 		cmds = append(cmds, LogProgressCmd("Running yum update"))
-		cmds = append(cmds, cfg.pacman.Update())
+		cmds = append(cmds, "package_get_loop "+cfg.pacman.Update())
 	}
 	if cfg.SystemUpgrade() {
 		cmds = append(cmds, LogProgressCmd("Running yum upgrade"))
-		cmds = append(cmds, cfg.pacman.Upgrade())
+		cmds = append(cmds, "package_get_loop "+cfg.pacman.Upgrade())
 	}
 
 	pkgs := cfg.Packages()
 	for _, pkg := range pkgs {
-		// TODO: Do we need some sort of hacks on CentOS?
 		cmds = append(cmds, LogProgressCmd("Installing package: %s", pkg))
-		cmds = append(cmds, cfg.pacman.Install(pkg))
+		cmds = append(cmds, "package_get_loop "+cfg.pacman.Install(pkg))
 	}
-	// TODO: wat?
-	//if len(cmds) > 0 {
-	//setting DEBIAN_FRONTEND=noninteractive prevents debconf
-	//from prompting, always taking default values instead.
-	//cmds = append([]string{"export DEBIAN_FRONTEND=noninteractive"}, cmds...)
-	//}
 	return cmds, nil
-
 }
 
 func (cfg *CentOSCloudConfig) updatePackages() {
@@ -246,8 +227,10 @@ func (cfg *CentOSCloudConfig) updatePackages() {
 	cfg.common.updatePackagesCommon(cfg, list, cfg.series)
 }
 
-//TODO: is this the same as doing addPackageProxyCommands?
+//TODO(centos): is this the same as doing addPackageProxyCommands?
 // either way implement something
-// This may replace the SetProxy func. See parent for info
+// Ubuntu uses the equivalent for this when rendering cloudInit as a script
+// In CentOS we use it in both YAML and bash rendering. We could use the same
+// thing for both I guess
 func (cfg *CentOSCloudConfig) updateProxySettings(proxySettings proxy.Settings) {
 }

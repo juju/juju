@@ -20,6 +20,36 @@ type WindowsCloudConfig struct {
 	*cloudConfig
 }
 
+// RenderYAML implements RenderConfig
+func (cfg *WindowsCloudConfig) RenderYAML() ([]byte, error) {
+	return cfg.renderWindows()
+}
+
+// RenderScript implements RenderConfig
+// This shouldn't really be called on windows as it's used only for initialization via ssh or on local providers
+func (cfg *WindowsCloudConfig) RenderScript() (string, error) {
+	script, err := cfg.renderWindows()
+	if err != nil {
+		return "", err
+	}
+	//TODO: good enough?
+	return string(script), err
+}
+
+func (cfg *WindowsCloudConfig) renderWindows() ([]byte, error) {
+	winCmds := cfg.RunCmds()
+	var script []byte
+	newline := "\r\n"
+	header := "#ps1_sysnative\r\n"
+	script = append(script, header...)
+	for _, cmd := range winCmds {
+		script = append(script, newline...)
+		script = append(script, cmd...)
+
+	}
+	return script, nil
+}
+
 // SetPackageProxy implements PackageProxyConfig.
 func (cfg *WindowsCloudConfig) SetPackageProxy(url string) {
 	return
@@ -63,36 +93,6 @@ func (cfg *WindowsCloudConfig) PackageSources() []packaging.Source {
 // AddPackagePreferences implements PackageSourcesConfig.
 func (cfg *WindowsCloudConfig) AddPackagePreferences(prefs packaging.PackagePreferences) {
 	return
-}
-
-// RenderYAML implements RenderConfig
-func (cfg *WindowsCloudConfig) RenderYAML() ([]byte, error) {
-	return cfg.renderWindows()
-}
-
-// RenderScript implements RenderConfig
-// This shouldn't really be called on windows as it's used only for initialization via ssh or on local providers
-func (cfg *WindowsCloudConfig) RenderScript() (string, error) {
-	script, err := cfg.renderWindows()
-	if err != nil {
-		return "", err
-	}
-	//TODO: good enough?
-	return string(script), err
-}
-
-func (cfg *WindowsCloudConfig) renderWindows() ([]byte, error) {
-	winCmds := cfg.RunCmds()
-	var script []byte
-	newline := "\r\n"
-	header := "#ps1_sysnative\r\n"
-	script = append(script, header...)
-	for _, cmd := range winCmds {
-		script = append(script, newline...)
-		script = append(script, cmd...)
-
-	}
-	return script, nil
 }
 
 func (cfg *WindowsCloudConfig) AddPackageCommands(
