@@ -181,7 +181,7 @@ func (s *Service) validate(conf common.Conf) error {
 
 func (s *Service) normalize(conf common.Conf) (common.Conf, []byte) {
 	scriptPath := renderer.ScriptFilename("exec-start", s.Dirname)
-	return normalize(s.Service.Name, conf, scriptPath, renderer)
+	return normalize(s.Service.Name, conf, scriptPath, &renderer)
 }
 
 func (s *Service) setConf(conf common.Conf) error {
@@ -518,10 +518,8 @@ func (s *Service) writeConf() (string, error) {
 			err := errors.Errorf("wrong script path: expected %q, got %q", scriptPath, s.Service.Conf.ExecStart)
 			return filename, s.errorf(err, "failed to write script at %q", scriptPath)
 		}
-		// TODO(ericsnow) Use shell.RenderScript.
-		// TODO(ericsnow) bash might be located somewhere else!
-		script := append([]byte("#!/bin/bash\n\n"), s.Script...)
-		if err := createFile(scriptPath, script, 0755); err != nil {
+		// TODO(ericsnow) Use the renderer here for the perms.
+		if err := createFile(scriptPath, s.Script, 0755); err != nil {
 			return filename, s.errorf(err, "failed to write script at %q", scriptPath)
 		}
 	}
@@ -560,10 +558,9 @@ func (s *Service) InstallCommands() ([]string, error) {
 	}
 	if s.Script != nil {
 		scriptName := renderer.Base(renderer.ScriptFilename("exec-start", ""))
-		// TODO(ericsnow) Use shell.RenderScript.
-		script := append([]byte("#!/bin/bash\n\n"), s.Script...)
 		cmdList = append(cmdList, []string{
-			cmds.writeFile(scriptName, dirname, script),
+			// TODO(ericsnow) Use the renderer here.
+			cmds.writeFile(scriptName, dirname, s.Script),
 			cmds.chmod(scriptName, dirname, 0755),
 		}...)
 	}

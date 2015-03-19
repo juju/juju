@@ -34,41 +34,44 @@ var limitMap = map[string]string{
 	"stack":      "LimitSTACK",
 }
 
-// TODO(ericsnow) Move to common.Conf.Normalize.
+// TODO(ericsnow) Move normalize to common.Conf.Normalize.
+
+type confRenderer interface {
+	shell.Renderer
+	shell.ScriptRenderer
+}
 
 // normalize adjusts the conf to more standardized content and
 // returns a new Conf with that updated content. It also returns the
 // content of any script file that should accompany the conf.
-func normalize(name string, conf common.Conf, scriptPath string, renderer shell.Renderer) (common.Conf, []byte) {
+func normalize(name string, conf common.Conf, scriptPath string, renderer confRenderer) (common.Conf, []byte) {
 	var data []byte
 
+	var cmds []string
 	if conf.Logfile != "" {
 		filename := conf.Logfile
-		lines := []string{
-			"# Set up logging.",
-		}
-		lines = append(lines, renderer.Touch(filename, nil)...)
+		cmds = append(cmds, "# Set up logging.")
+		cmds = append(cmds, renderer.Touch(filename, nil)...)
 		// TODO(ericsnow) We should drop the assumption that the logfile
 		// is syslog.
-		lines = append(lines, renderer.Chown(filename, "syslog", "syslog")...)
-		lines = append(lines, renderer.Chmod(filename, 0600)...)
-		lines = append(lines, renderer.RedirectOutput(filename)...)
-		lines = append(lines, renderer.RedirectFD("out", "err")...)
-		lines = append(lines,
+		cmds = append(cmds, renderer.Chown(filename, "syslog", "syslog")...)
+		cmds = append(cmds, renderer.Chmod(filename, 0600)...)
+		cmds = append(cmds, renderer.RedirectOutput(filename)...)
+		cmds = append(cmds, renderer.RedirectFD("out", "err")...)
+		cmds = append(cmds,
 			"",
 			"# Run the script.",
-			conf.ExecStart,
 		)
-		conf.ExecStart = strings.Join(lines, "\n")
 		// We leave conf.Logfile alone (it will be ignored during validation).
 	}
+	cmds = append(cmds, conf.ExecStart)
 
 	if conf.ExtraScript != "" {
-		conf.ExecStart = conf.ExtraScript + "\n" + conf.ExecStart
+		cmds = append([]string{conf.ExtraScript}, cmds...)
 		conf.ExtraScript = ""
 	}
-	if !isSimpleCommand(conf.ExecStart) {
-		data = []byte(conf.ExecStart)
+	if !isSimpleCommand(strings.Join(cmds, "\n")) {
+		data = renderer.RenderScript(cmds)
 		conf.ExecStart = renderer.Quote(scriptPath)
 	}
 

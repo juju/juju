@@ -234,6 +234,8 @@ func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	script := `
+#!/usr/bin/env bash
+
 # Set up logging.
 touch '/var/log/juju/machine-0.log'
 chown syslog:syslog '/var/log/juju/machine-0.log'
@@ -302,7 +304,11 @@ func (s *initSystemSuite) TestNewServiceExtraScript(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
-	script := "'/path/to/another/command'\n" + jujud + " machine-0"
+	script := `
+#!/usr/bin/env bash
+
+'/path/to/another/command'
+`[1:] + jujud + " machine-0"
 	c.Check(svc, jc.DeepEquals, &systemd.Service{
 		Service: common.Service{
 			Name: s.name,
@@ -328,6 +334,12 @@ func (s *initSystemSuite) TestNewServiceMultiline(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
+	script := `
+#!/usr/bin/env bash
+
+a
+b
+c`[1:]
 	c.Check(svc, jc.DeepEquals, &systemd.Service{
 		Service: common.Service{
 			Name: s.name,
@@ -339,8 +351,10 @@ func (s *initSystemSuite) TestNewServiceMultiline(c *gc.C) {
 		UnitName: s.name + ".service",
 		ConfName: s.name + ".service",
 		Dirname:  dirname,
-		Script:   []byte("a\nb\nc"),
+		Script:   []byte(script),
 	})
+	// This gives us a more readable output if they aren't equal.
+	c.Check(string(svc.Script), gc.Equals, script)
 	s.stub.CheckCalls(c, nil)
 }
 
