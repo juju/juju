@@ -583,6 +583,35 @@ func (s *StorageProvisionerAPI) SetVolumeInfo(args params.Volumes) (params.Error
 	return results, nil
 }
 
+// SetFilesystemInfo records the details of newly provisioned filesystems.
+func (s *StorageProvisionerAPI) SetFilesystemInfo(args params.Filesystems) (params.ErrorResults, error) {
+	canAccessFilesystem, err := s.getStorageEntityAuthFunc()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Filesystems)),
+	}
+	one := func(arg params.Filesystem) error {
+		filesystemTag, filesystemInfo, err := common.FilesystemToState(arg)
+		if err != nil {
+			return errors.Trace(err)
+		} else if !canAccessFilesystem(filesystemTag) {
+			return common.ErrPerm
+		}
+		err = s.st.SetFilesystemInfo(filesystemTag, filesystemInfo)
+		if errors.IsNotFound(err) {
+			return common.ErrPerm
+		}
+		return errors.Trace(err)
+	}
+	for i, arg := range args.Filesystems {
+		err := one(arg)
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
 // SetVolumeAttachmentInfo records the details of newly provisioned volume
 // attachments.
 func (s *StorageProvisionerAPI) SetVolumeAttachmentInfo(

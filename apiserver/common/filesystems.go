@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/names"
 )
 
 type filesystemAlreadyProvisionedError struct {
@@ -43,6 +44,34 @@ func FilesystemParams(v state.Filesystem, poolManager poolmanager.PoolManager) (
 		string(providerType),
 		cfg.Attrs(),
 		nil, // attachment params set by the caller
+	}, nil
+}
+
+// FilesystemsToState converts a slice of params.Filesystem to a mapping
+// of filesystem tags to state.FilesystemInfo.
+func FilesystemsToState(in []params.Filesystem) (map[names.FilesystemTag]state.FilesystemInfo, error) {
+	m := make(map[names.FilesystemTag]state.FilesystemInfo)
+	for _, v := range in {
+		tag, filesystemInfo, err := FilesystemToState(v)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		m[tag] = filesystemInfo
+	}
+	return m, nil
+}
+
+// FilesystemToState converts a params.Filesystem to state.FilesystemInfo
+// and names.FilesystemTag.
+func FilesystemToState(v params.Filesystem) (names.FilesystemTag, state.FilesystemInfo, error) {
+	filesystemTag, err := names.ParseFilesystemTag(v.FilesystemTag)
+	if err != nil {
+		return names.FilesystemTag{}, state.FilesystemInfo{}, errors.Trace(err)
+	}
+	return filesystemTag, state.FilesystemInfo{
+		v.Size,
+		"", // pool is set by state
+		v.FilesystemId,
 	}, nil
 }
 
