@@ -224,14 +224,18 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	nonce := "some-nonce"
 	id := instance.Id("some-id")
 	volumes := []state.MachineVolumeParams{{Volume: state.VolumeParams{Size: 1024}}}
+	filesystems := []state.MachineFilesystemParams{{
+		Filesystem: state.FilesystemParams{Pool: "loop", Size: 2048},
+	}}
 
 	machine, pwd := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Series:     series,
-		Jobs:       jobs,
-		Password:   password,
-		Nonce:      nonce,
-		InstanceId: id,
-		Volumes:    volumes,
+		Series:      series,
+		Jobs:        jobs,
+		Password:    password,
+		Nonce:       nonce,
+		InstanceId:  id,
+		Volumes:     volumes,
+		Filesystems: filesystems,
 	})
 	c.Assert(machine, gc.NotNil)
 	c.Assert(pwd, gc.Equals, password)
@@ -244,15 +248,29 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	c.Assert(machine.CheckProvisioned(nonce), jc.IsTrue)
 	c.Assert(machine.PasswordValid(password), jc.IsTrue)
 
-	volume, err := s.State.Volume(names.NewVolumeTag(machine.Id() + "/0"))
+	assertVolume := func(name string, size uint64) {
+		volume, err := s.State.Volume(names.NewVolumeTag(name))
+		c.Assert(err, jc.ErrorIsNil)
+		volParams, ok := volume.Params()
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(volParams, jc.DeepEquals, state.VolumeParams{Pool: "loop", Size: size})
+		volAttachments, err := s.State.VolumeAttachments(volume.VolumeTag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(volAttachments, gc.HasLen, 1)
+		c.Assert(volAttachments[0].Machine(), gc.Equals, machine.Tag())
+	}
+	assertVolume(machine.Id()+"/0", 2048) // backing the filesystem
+	assertVolume(machine.Id()+"/1", 1024)
+
+	filesystem, err := s.State.Filesystem(names.NewFilesystemTag(machine.Id() + "/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	volParams, ok := volume.Params()
+	fsParams, ok := filesystem.Params()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(volParams, jc.DeepEquals, state.VolumeParams{Pool: "loop", Size: 1024})
-	volAttachments, err := s.State.MachineVolumeAttachments(machine.Tag().(names.MachineTag))
+	c.Assert(fsParams, jc.DeepEquals, state.FilesystemParams{Pool: "loop", Size: 2048})
+	fsAttachments, err := s.State.MachineFilesystemAttachments(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volAttachments, gc.HasLen, 1)
-	c.Assert(volAttachments[0].Machine(), gc.Equals, machine.Tag())
+	c.Assert(fsAttachments, gc.HasLen, 1)
+	c.Assert(fsAttachments[0].Machine(), gc.Equals, machine.Tag())
 
 	saved, err := s.State.Machine(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)

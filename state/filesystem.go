@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/storage"
@@ -310,7 +311,19 @@ func (st *State) MachineFilesystemAttachments(machine names.MachineTag) ([]Files
 // filesystemAttachmentId returns a filesystem attachment document ID,
 // given the corresponding filesystem name and machine ID.
 func filesystemAttachmentId(machineId, filesystemId string) string {
-	return fmt.Sprintf("%s#%s", machineGlobalKey(machineId), filesystemId)
+	return fmt.Sprintf("%s:%s", machineId, filesystemId)
+}
+
+// ParseFilesystemAttachmentId parses a string as a filesystem attachment ID,
+// returning the machine and filesystem components.
+func ParseFilesystemAttachmentId(id string) (names.MachineTag, names.FilesystemTag, error) {
+	fields := strings.SplitN(id, ":", 2)
+	if len(fields) != 2 || !names.IsValidMachine(fields[0]) || !names.IsValidFilesystem(fields[1]) {
+		return names.MachineTag{}, names.FilesystemTag{}, errors.Errorf("invalid filesystem attachment ID %q", id)
+	}
+	machineTag := names.NewMachineTag(fields[0])
+	filesystemTag := names.NewFilesystemTag(fields[1])
+	return machineTag, filesystemTag, nil
 }
 
 // newFilesystemId returns a unique filesystem ID.

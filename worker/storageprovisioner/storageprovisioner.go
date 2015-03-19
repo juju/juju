@@ -52,6 +52,40 @@ type VolumeAccessor interface {
 	SetVolumeAttachmentInfo([]params.VolumeAttachment) ([]params.ErrorResult, error)
 }
 
+// FilesystemAccessor defines an interface used to allow a storage provisioner
+// worker to perform filesystem related operations.
+type FilesystemAccessor interface {
+	// WatchFilesystems watches for changes to filesystems that this
+	// storage provisioner is responsible for.
+	WatchFilesystems() (apiwatcher.StringsWatcher, error)
+
+	// WatchFilesystemAttachments watches for changes to filesystem attachments
+	// that this storage provisioner is responsible for.
+	WatchFilesystemAttachments() (apiwatcher.MachineStorageIdsWatcher, error)
+
+	// Filesystems returns details of filesystems with the specified tags.
+	Filesystems([]names.FilesystemTag) ([]params.FilesystemResult, error)
+
+	// FilesystemAttachments returns details of filesystem attachments with
+	// the specified tags.
+	FilesystemAttachments([]params.MachineStorageId) ([]params.FilesystemAttachmentResult, error)
+
+	// FilesystemParams returns the parameters for creating the filesystems
+	// with the specified tags.
+	FilesystemParams([]names.FilesystemTag) ([]params.FilesystemParamsResult, error)
+
+	// FilesystemAttachmentParams returns the parameters for creating the
+	// filesystem attachments with the specified tags.
+	FilesystemAttachmentParams([]params.MachineStorageId) ([]params.FilesystemAttachmentParamsResult, error)
+
+	// SetFilesystemInfo records the details of newly provisioned filesystems.
+	SetFilesystemInfo([]params.Filesystem) ([]params.ErrorResult, error)
+
+	// SetFilesystemAttachmentInfo records the details of newly provisioned
+	// filesystem attachments.
+	SetFilesystemAttachmentInfo([]params.FilesystemAttachment) ([]params.ErrorResult, error)
+}
+
 // LifecycleManager defines an interface used to enable a storage provisioner
 // worker to perform lifcycle-related operations on storage entities and
 // attachments.
@@ -86,12 +120,14 @@ type LifecycleManager interface {
 func NewStorageProvisioner(
 	storageDir string,
 	v VolumeAccessor,
+	f FilesystemAccessor,
 	l LifecycleManager,
 ) worker.Worker {
 	w := &storageprovisioner{
-		storageDir: storageDir,
-		volumes:    v,
-		life:       l,
+		storageDir:  storageDir,
+		volumes:     v,
+		filesystems: f,
+		life:        l,
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -101,10 +137,11 @@ func NewStorageProvisioner(
 }
 
 type storageprovisioner struct {
-	tomb       tomb.Tomb
-	storageDir string
-	volumes    VolumeAccessor
-	life       LifecycleManager
+	tomb        tomb.Tomb
+	storageDir  string
+	volumes     VolumeAccessor
+	filesystems FilesystemAccessor
+	life        LifecycleManager
 }
 
 // Kill implements Worker.Kill().
@@ -148,10 +185,15 @@ func (w *storageprovisioner) loop() error {
 	defer watcher.Stop(volumeAttachmentsWatcher, &w.tomb)
 	volumeAttachmentsChanges := volumeAttachmentsWatcher.Changes()
 
+	// TODO(axw) watch filesystem attachments when
+	// apiserver/storageprovisioner implements the
+	// filesystem-attachment methods.
+
 	ctx := context{
 		environConfig: environConfig,
 		storageDir:    w.storageDir,
 		volumes:       w.volumes,
+		filesystems:   w.filesystems,
 		life:          w.life,
 	}
 
@@ -181,5 +223,6 @@ type context struct {
 	environConfig *config.Config
 	storageDir    string
 	volumes       VolumeAccessor
+	filesystems   FilesystemAccessor
 	life          LifecycleManager
 }

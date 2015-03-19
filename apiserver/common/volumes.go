@@ -164,7 +164,7 @@ func VolumeAttachmentToState(in params.VolumeAttachment) (names.MachineTag, name
 	return machineTag, volumeTag, info, nil
 }
 
-// ParseMachineStorageIds parses the strings, returning machine attachment IDs.
+// ParseVolumeAttachmentIds parses the strings, returning machine storage IDs.
 func ParseVolumeAttachmentIds(stringIds []string) ([]params.MachineStorageId, error) {
 	ids := make([]params.MachineStorageId, len(stringIds))
 	for i, s := range stringIds {
