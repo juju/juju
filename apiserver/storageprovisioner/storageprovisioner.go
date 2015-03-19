@@ -645,6 +645,39 @@ func (s *StorageProvisionerAPI) SetVolumeAttachmentInfo(
 	return results, nil
 }
 
+// SetFilesystemAttachmentInfo records the details of newly provisioned filesystem
+// attachments.
+func (s *StorageProvisionerAPI) SetFilesystemAttachmentInfo(
+	args params.FilesystemAttachments,
+) (params.ErrorResults, error) {
+	canAccess, err := s.getAttachmentAuthFunc()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.FilesystemAttachments)),
+	}
+	one := func(arg params.FilesystemAttachment) error {
+		machineTag, filesystemTag, filesystemAttachmentInfo, err := common.FilesystemAttachmentToState(arg)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !canAccess(machineTag, filesystemTag) {
+			return common.ErrPerm
+		}
+		err = s.st.SetFilesystemAttachmentInfo(machineTag, filesystemTag, filesystemAttachmentInfo)
+		if errors.IsNotFound(err) {
+			return common.ErrPerm
+		}
+		return errors.Trace(err)
+	}
+	for i, arg := range args.FilesystemAttachments {
+		err := one(arg)
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
 // AttachmentLife returns the lifecycle state of each specified machine
 // storage attachment.
 func (s *StorageProvisionerAPI) AttachmentLife(args params.MachineStorageIds) (params.LifeResults, error) {

@@ -391,6 +391,40 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
 	})
 }
 
+func (s *provisionerSuite) TestSetFilesystemAttachmentInfo(c *gc.C) {
+	s.setupFilesystems(c)
+	s.authorizer.EnvironManager = true
+
+	results, err := s.api.SetFilesystemAttachmentInfo(params.FilesystemAttachments{
+		FilesystemAttachments: []params.FilesystemAttachment{{
+			MachineTag:    "machine-0",
+			FilesystemTag: "filesystem-0-0",
+			MountPoint:    "/srv/a",
+		}, {
+			MachineTag:    "machine-0",
+			FilesystemTag: "filesystem-1",
+			MountPoint:    "/srv/b",
+		}, {
+			MachineTag:    "machine-2",
+			FilesystemTag: "filesystem-3",
+			MountPoint:    "/srv/c",
+		}, {
+			MachineTag:    "machine-0",
+			FilesystemTag: "filesystem-42",
+			MountPoint:    "/srv/d",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{},
+			{}, // TODO(axw) this should fail, since filesystem is not provisioned
+			{}, // TODO(axw) this should fail, since machine is not provisioned
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+		},
+	})
+}
+
 func (s *provisionerSuite) TestWatchVolumes(c *gc.C) {
 	s.setupVolumes(c)
 	s.factory.MakeMachine(c, nil)

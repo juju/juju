@@ -89,6 +89,23 @@ func FilesystemFromState(v state.Filesystem) (params.Filesystem, error) {
 	}, nil
 }
 
+// FilesystemAttachmentToState converts a storage.FilesystemAttachment
+// to a state.FilesystemAttachmentInfo.
+func FilesystemAttachmentToState(in params.FilesystemAttachment) (names.MachineTag, names.FilesystemTag, state.FilesystemAttachmentInfo, error) {
+	machineTag, err := names.ParseMachineTag(in.MachineTag)
+	if err != nil {
+		return names.MachineTag{}, names.FilesystemTag{}, state.FilesystemAttachmentInfo{}, err
+	}
+	filesystemTag, err := names.ParseFilesystemTag(in.FilesystemTag)
+	if err != nil {
+		return names.MachineTag{}, names.FilesystemTag{}, state.FilesystemAttachmentInfo{}, err
+	}
+	info := state.FilesystemAttachmentInfo{
+		in.MountPoint,
+	}
+	return machineTag, filesystemTag, info, nil
+}
+
 // ParseFilesystemAttachmentIds parses the strings, returning machine storage IDs.
 func ParseFilesystemAttachmentIds(stringIds []string) ([]params.MachineStorageId, error) {
 	ids := make([]params.MachineStorageId, len(stringIds))
