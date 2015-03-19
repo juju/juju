@@ -70,15 +70,40 @@ func (c Conf) Validate() error {
 		return errors.New("missing Desc")
 	}
 
-	if err := c.checkExecStart(); err != nil {
-		return errors.Trace(err)
+	// Check the Exec* fields.
+	if c.ExecStart == "" {
+		return errors.New("missing ExecStart")
 	}
-
-	if err := c.checkExecStopPost(); err != nil {
-		return errors.Trace(err)
+	for field, cmd := range map[string]string{
+		"ExecStart":    c.ExecStart,
+		"ExecStopPost": c.ExecStopPost,
+	} {
+		if cmd == "" {
+			continue
+		}
+		if err := c.checkExec(field, cmd); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	return nil
+}
+
+func (c Conf) checkExec(name, cmd string) error {
+	path := executable(cmd)
+	if !isAbs(path) {
+		return errors.NotValidf("relative path in %s (%s)", name, path)
+	}
+	return nil
+}
+
+// TODO(ericsnow) Add an IsAbs method to shell.Renderer?
+
+func isAbs(path string) bool {
+	if !strings.HasPrefix(path, "/") {
+		return false
+	}
+	return true
 }
 
 func executable(cmd string) string {
@@ -105,30 +130,4 @@ func Unquote(str string) string {
 	}
 
 	return str
-}
-
-func (c Conf) checkExecStart() error {
-	if c.ExecStart == "" {
-		return errors.New("missing ExecStart")
-	}
-
-	path := executable(c.ExecStart)
-	if !strings.HasPrefix(path, "/") {
-		return errors.NotValidf("relative path in ExecStart (%s)", path)
-	}
-
-	return nil
-}
-
-func (c Conf) checkExecStopPost() error {
-	if c.ExecStopPost == "" {
-		return nil
-	}
-
-	path := executable(c.ExecStopPost)
-	if !strings.HasPrefix(path, "/") {
-		return errors.NotValidf("relative path in ExecStopPost (%s)", path)
-	}
-
-	return nil
 }
