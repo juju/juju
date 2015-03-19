@@ -144,7 +144,7 @@ func (s *apiclientSuite) TestOpen(c *gc.C) {
 
 	remoteVersion, versionSet := st.ServerVersion()
 	c.Assert(versionSet, jc.IsTrue)
-	c.Assert(removeVersion, gc.Equals, version.Cuurrent.Number)
+	c.Assert(remoteVersion, gc.Equals, version.Current.Number)
 }
 
 func (s *apiclientSuite) TestOpenPassesEnvironTag(c *gc.C) {
