@@ -72,7 +72,7 @@ func (*serviceSuite) TestListServicesScript(c *gc.C) {
 	expected := []string{
 		"cat > '/tmp/discover_init_system.sh' << 'EOF'",
 	}
-	expected = append(expected, strings.Split(service.DiscoverInitSystemScript, "\n")...)
+	expected = append(expected, strings.Split(service.DiscoverInitSystemScript(), "\n")...)
 	expected = append(expected, "EOF")
 	expected = append(expected, "chmod 0755 '/tmp/discover_init_system.sh'")
 	expected = append(expected, "init_system=$(/tmp/discover_init_system.sh)")

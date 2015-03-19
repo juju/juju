@@ -180,14 +180,11 @@ func identifyExecutable(executable string) (string, bool) {
 	}
 }
 
-// TODO(ericsnow) Build this script more dynamically (using shell.Renderer).
-
-// DiscoverInitSystemScript is the shell script to use when
-// discovering the local init system. The script is quite specific to
-// bash, so it includes an explicit bash shbang.
-const DiscoverInitSystemScript = `#!/usr/bin/env bash
+const discoverInitSystemScript = `#!/usr/bin/env bash
 
 function checkInitSystem() {
+    # Match the init system name from the arg.
+    %s
     case "$1" in
     *"systemd"*)
         echo -n systemd
@@ -233,9 +230,23 @@ fi
 exit 1
 `
 
+// DiscoverInitSystemScript returns the shell script to use when
+// discovering the local init system. The script is quite specific to
+// bash, so it includes an explicit bash shbang.
+func DiscoverInitSystemScript() string {
+	dflt := "# Do nothing and continue."
+	caseStmt := newShellSelectCommand("1", dflt, func(name string) (string, bool) {
+		return fmt.Sprintf("echo -n %s\n    exit $?", name), true
+	})
+	caseStmt = "    " + strings.Replace(caseStmt, "\n", "\n    ", -1)
+	return fmt.Sprintf(discoverInitSystemScript, caseStmt)
+}
+
 func writeDiscoverInitSystemScript(filename string) []string {
+
 	renderer := shell.BashRenderer{}
-	cmds := renderer.WriteFile(filename, []byte(DiscoverInitSystemScript))
+	script := DiscoverInitSystemScript()
+	cmds := renderer.WriteFile(filename, []byte(script))
 	perm := renderer.ScriptPermissions()
 	cmds = append(cmds, renderer.Chmod(filename, perm)...)
 	return cmds
@@ -245,7 +256,7 @@ const shellCase = `
 case "$%s" in
 %s
 *)
-    exit 1
+    %s
     ;;
 esac`
 
@@ -253,7 +264,7 @@ esac`
 // each of the linux init systems. The body of each clause comes from
 // calling the provided handler with the init system name. If the
 // handler does not support the args then it returns a false "ok" value.
-func newShellSelectCommand(envVarName string, handler func(string) (string, bool)) string {
+func newShellSelectCommand(envVarName, dflt string, handler func(string) (string, bool)) string {
 	var cases []string
 	for _, initSystem := range linuxInitSystems {
 		cmd, ok := handler(initSystem)
@@ -266,5 +277,5 @@ func newShellSelectCommand(envVarName string, handler func(string) (string, bool
 		return ""
 	}
 
-	return fmt.Sprintf(shellCase[1:], envVarName, strings.Join(cases, "\n"))
+	return fmt.Sprintf(shellCase[1:], envVarName, strings.Join(cases, "\n"), dflt)
 }

@@ -155,7 +155,7 @@ func ListServicesScript() string {
 	const filename = "/tmp/discover_init_system.sh"
 	commands := writeDiscoverInitSystemScript(filename)
 	commands = append(commands, "init_system=$("+filename+")")
-	commands = append(commands, newShellSelectCommand("init_system", listServicesCommand))
+	commands = append(commands, newShellSelectCommand("init_system", "exit 1", listServicesCommand))
 	return strings.Join(commands, "\n")
 }
 
