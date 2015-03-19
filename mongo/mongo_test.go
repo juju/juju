@@ -365,7 +365,7 @@ func (s *MongoSuite) TestRemoveService(c *gc.C) {
 		c.Check(s.data.Removed[0].Name(), gc.Equals, "juju-db-namespace")
 		c.Check(s.data.Removed[0].Conf(), jc.DeepEquals, common.Conf{})
 	}
-	s.data.CheckCallNames(c, "Stop", "Remove")
+	s.data.CheckCallNames(c, "Installed", "Stop", "Remove")
 }
 
 func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {

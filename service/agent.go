@@ -76,7 +76,10 @@ func UnitAgentConf(unitName, dataDir, logDir, os, containerType string) (common.
 	if os == "" {
 		os = runtime.GOOS
 	}
-
+	var renderer cloudinit.Renderer = &cloudinit.UbuntuRenderer{}
+	if os == "windows" {
+		renderer = &cloudinit.WindowsRenderer{}
+	}
 	unitID := "unit-" + strings.Replace(unitName, "/", "-", -1)
 
 	toolsDir := tools.ToolsDir(dataDir, unitID)
@@ -86,9 +89,9 @@ func UnitAgentConf(unitName, dataDir, logDir, os, containerType string) (common.
 	}
 
 	cmd := strings.Join([]string{
-		jujudPath,
+		renderer.FromSlash(jujudPath),
 		"unit",
-		"--data-dir", utils.ShQuote(dataDir),
+		"--data-dir", utils.ShQuote(renderer.FromSlash(dataDir)),
 		"--unit-name", unitName,
 		"--debug",
 	}, " ")
@@ -109,7 +112,7 @@ func UnitAgentConf(unitName, dataDir, logDir, os, containerType string) (common.
 	conf := common.Conf{
 		Desc:      fmt.Sprintf("juju unit agent for %s", unitName),
 		ExecStart: cmd,
-		Logfile:   logFile,
+		Logfile:   renderer.FromSlash(logFile),
 		Env:       envVars,
 		Timeout:   agentServiceTimeout,
 	}

@@ -63,7 +63,10 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 	if err != nil {
 		return err
 	}
-	defer os.Remove(f.Name())
+	defer func() {
+		f.Close()
+		os.Remove(f.Name())
+	}()
 	// TODO(wallyworld) - 2013-09-24 bug=1229512
 	// When we can ensure all tools records have valid checksums recorded,
 	// we can remove this test short circuit.

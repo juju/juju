@@ -111,7 +111,12 @@ func (s *Service) Running() (bool, error) {
 func (s *Service) Installed() (bool, error) {
 	_, err := s.Status()
 	if err != nil {
-		return false, errors.Trace(err)
+		// There is no reason for windows to return an error
+		// if the service is installed. It does throw an error
+		// if we try to get the status of a non existent service
+		// TODO (gsamfira): This module will soon be replaced with a native alternative
+		// removing the exec calls.
+		return false, nil
 	}
 	return true, nil
 }

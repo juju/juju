@@ -97,7 +97,10 @@ func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
 	// Create an empty file.
 	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
 	c.Assert(err, jc.ErrorIsNil)
-
+	defer func() {
+		tempFile.Close()
+		os.Remove(tempFile.Name())
+	}()
 	// Pretend we upload a zip by setting the Content-Type, so we can
 	// check the error at extraction time later.
 	resp, err := s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), true, tempFile.Name())
@@ -142,8 +145,10 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	// Now bundle the dir.
 	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
 	c.Assert(err, jc.ErrorIsNil)
-	defer tempFile.Close()
-	defer os.Remove(tempFile.Name())
+	defer func() {
+		tempFile.Close()
+		os.Remove(tempFile.Name())
+	}()
 	err = dir.ArchiveTo(tempFile)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -232,8 +237,10 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	dir.Path = rootDir
 	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
 	c.Assert(err, jc.ErrorIsNil)
-	defer tempFile.Close()
-	defer os.Remove(tempFile.Name())
+	defer func() {
+		tempFile.Close()
+		os.Remove(tempFile.Name())
+	}()
 	err = dir.ArchiveTo(tempFile)
 	c.Assert(err, jc.ErrorIsNil)
 
