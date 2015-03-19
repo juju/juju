@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
+	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.api")
@@ -44,6 +45,11 @@ type State struct {
 	// This is only set with newer apiservers where they are using
 	// the v1 login mechansim.
 	serverTag string
+
+	// serverVersion holds the version of the API server that we are
+	// connected to.  It is possible that this version is 0 if the
+	// server does not report this during login.
+	serverVersion version.Number
 
 	// hostPorts is the API server addresses returned from Login,
 	// which the client may cache and use for failover.
@@ -136,6 +142,13 @@ func DefaultDialOpts() DialOpts {
 //
 // See Connect for details of the connection mechanics.
 func Open(info *Info, opts DialOpts) (*State, error) {
+	return open(info, opts, (*State).Login)
+}
+
+// This unexported open method is used both directly above in the Open
+// function, and also the OpenWithVersion function below to explicitly cause
+// the API server to think that the client is older than it really is.
+func open(info *Info, opts DialOpts, loginFunc func(st *State, tag, pwd, nonce string) error) (*State, error) {
 	conn, err := Connect(info, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -155,7 +168,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		certPool: conn.Config().TlsConfig.RootCAs,
 	}
 	if info.Tag != nil || info.Password != "" {
-		if err := st.Login(info.Tag.String(), info.Password, info.Nonce); err != nil {
+		if err := loginFunc(st, info.Tag.String(), info.Password, info.Nonce); err != nil {
 			conn.Close()
 			return nil, err
 		}
@@ -164,6 +177,24 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	st.closed = make(chan struct{})
 	go st.heartbeatMonitor()
 	return st, nil
+}
+
+// OpenWithVersion uses an explicit version of the Admin facade to call Login
+// on. This allows the caller to pretend to be an older client, and is used
+// only in testing.
+func OpenWithVersion(info *Info, opts DialOpts, loginVersion int) (*State, error) {
+	var loginFunc func(st *State, tag, pwd, nonce string) error
+	switch loginVersion {
+	case 0:
+		loginFunc = (*State).loginV0
+	case 1:
+		loginFunc = (*State).loginV1
+	case 2:
+		loginFunc = (*State).loginV2
+	default:
+		return nil, errors.NotSupportedf("loginVersion %d", loginVersion)
+	}
+	return open(info, opts, loginFunc)
 }
 
 // Connect establishes a websocket connection to the API server using

@@ -987,10 +987,22 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	attrs["excludeEntity"] = args.ExcludeEntity
 	attrs["excludeModule"] = args.ExcludeModule
 
+	path := "/log"
+	if _, ok := c.st.ServerVersion(); ok {
+		// If the server version is set, then we know the server is capable of
+		// serving debug log at the environment path. We also fully expect
+		// that the server has returned a valid environment tag.
+		envTag, err := c.st.EnvironTag()
+		if err != nil {
+			return nil, errors.Annotate(err, "very unexpected")
+		}
+		path = fmt.Sprintf("/environment/%s/log", envTag.Id())
+	}
+
 	target := url.URL{
 		Scheme:   "wss",
 		Host:     c.st.addr,
-		Path:     "/log",
+		Path:     path,
 		RawQuery: attrs.Encode(),
 	}
 	cfg, err := websocket.NewConfig(target.String(), "http://localhost/")

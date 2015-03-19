@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type apiclientSuite struct {
@@ -140,6 +141,10 @@ func (s *apiclientSuite) TestOpen(c *gc.C) {
 	envTag, err := st.EnvironTag()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envTag, gc.Equals, s.State.EnvironTag())
+
+	remoteVersion, versionSet := st.ServerVersion()
+	c.Assert(versionSet, jc.IsTrue)
+	c.Assert(remoteVersion, gc.Equals, version.Current.Number)
 }
 
 func (s *apiclientSuite) TestOpenPassesEnvironTag(c *gc.C) {
