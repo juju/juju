@@ -72,6 +72,7 @@ type MachineParams struct {
 	Characteristics *instance.HardwareCharacteristics
 	Addresses       []network.Address
 	Volumes         []state.MachineVolumeParams
+	Filesystems     []state.MachineFilesystemParams
 }
 
 // ServiceParams is used when specifying parameters for a new service.
@@ -259,9 +260,10 @@ func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machi
 func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachineParams) (*state.Machine, string) {
 	params = factory.paramsFillDefaults(c, params)
 	machineTemplate := state.MachineTemplate{
-		Series:  params.Series,
-		Jobs:    params.Jobs,
-		Volumes: params.Volumes,
+		Series:      params.Series,
+		Jobs:        params.Jobs,
+		Volumes:     params.Volumes,
+		Filesystems: params.Filesystems,
 	}
 	machine, err := factory.st.AddOneMachine(machineTemplate)
 	c.Assert(err, jc.ErrorIsNil)
