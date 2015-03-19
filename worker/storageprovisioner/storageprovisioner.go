@@ -55,19 +55,31 @@ type VolumeAccessor interface {
 // FilesystemAccessor defines an interface used to allow a storage provisioner
 // worker to perform filesystem related operations.
 type FilesystemAccessor interface {
-	// TODO(axw) extend to support filesystem entities.
+	// WatchFilesystems watches for changes to filesystems that this
+	// storage provisioner is responsible for.
+	WatchFilesystems() (apiwatcher.StringsWatcher, error)
 
 	// WatchFilesystemAttachments watches for changes to filesystem attachments
 	// that this storage provisioner is responsible for.
 	WatchFilesystemAttachments() (apiwatcher.MachineStorageIdsWatcher, error)
 
+	// Filesystems returns details of filesystems with the specified tags.
+	Filesystems([]names.FilesystemTag) ([]params.FilesystemResult, error)
+
 	// FilesystemAttachments returns details of filesystem attachments with
 	// the specified tags.
 	FilesystemAttachments([]params.MachineStorageId) ([]params.FilesystemAttachmentResult, error)
 
+	// FilesystemParams returns the parameters for creating the filesystems
+	// with the specified tags.
+	FilesystemParams([]names.FilesystemTag) ([]params.FilesystemParamsResult, error)
+
 	// FilesystemAttachmentParams returns the parameters for creating the
 	// filesystem attachments with the specified tags.
 	FilesystemAttachmentParams([]params.MachineStorageId) ([]params.FilesystemAttachmentParamsResult, error)
+
+	// SetFilesystemInfo records the details of newly provisioned filesystems.
+	SetFilesystemInfo([]params.Filesystem) ([]params.ErrorResult, error)
 
 	// SetFilesystemAttachmentInfo records the details of newly provisioned
 	// filesystem attachments.
