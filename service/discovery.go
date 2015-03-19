@@ -180,7 +180,6 @@ func identifyExecutable(executable string) (string, bool) {
 }
 
 // TODO(ericsnow) Build this script more dynamically (using shell.Renderer).
-// TODO(ericsnow) Use a case statement in the script?
 
 // DiscoverInitSystemScript is the shell script to use when
 // discovering the local init system.
@@ -243,34 +242,30 @@ EOF`[1:], filename, DiscoverInitSystemScript),
 	}
 }
 
-const caseLine = "%sif [[ $%s == \"%s\" ]]; then %s\n"
+const shellCase = `
+case "$%s" in
+%s
+*)
+    exit 1
+    ;;
+esac`
 
-// newShellSelectCommand creates a bash if statement with an if
-// (or elif) clause for each of the executables in linuxExecutables.
-// The body of each clause comes from calling the provided handler with
-// the init system name. If the handler does not support the args then
-// it returns a false "ok" value.
+// newShellSelectCommand creates a bash case statement with clause for
+// each of the linux init systems. The body of each clause comes from
+// calling the provided handler with the init system name. If the
+// handler does not support the args then it returns a false "ok" value.
 func newShellSelectCommand(envVarName string, handler func(string) (string, bool)) string {
-	// TODO(ericsnow) Build the command in a better way?
-	// TODO(ericsnow) Use a case statement?
-
-	prefix := ""
-	lines := ""
+	var cases []string
 	for _, initSystem := range linuxInitSystems {
 		cmd, ok := handler(initSystem)
 		if !ok {
 			continue
 		}
-		lines += fmt.Sprintf(caseLine, prefix, envVarName, initSystem, cmd)
+		cases = append(cases, initSystem+")", "    "+cmd, "    ;;")
+	}
+	if len(cases) == 0 {
+		return ""
+	}
 
-		if prefix != "el" {
-			prefix = "el"
-		}
-	}
-	if lines != "" {
-		lines += "" +
-			"else exit 1\n" +
-			"fi"
-	}
-	return lines
+	return fmt.Sprintf(shellCase[1:], envVarName, strings.Join(cases, "\n"))
 }
