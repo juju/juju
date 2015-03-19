@@ -2,98 +2,63 @@
 // Copyright 2015 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// The cloudinit package implements a way of creating
+// a cloud-init configuration file.
+// See https://help.ubuntu.com/community/CloudInit.
 package cloudinit
 
-import (
-	"fmt"
+// A list of constants used by ubuntu
+// All of these are used inside cloudconfig_ubuntu.go
 
-	"github.com/juju/juju/cloudconfig/cloudinit/packaging"
-	"github.com/juju/utils/apt"
-	"github.com/juju/utils/proxy"
-)
+const (
+	// aptSourcesList is the location of the APT sources list
+	// configuration file.
+	aptSourcesList = "/etc/apt/sources.list"
 
-func updatePackagesUbuntu(cfg CloudConfig, series string) {
-	requiredPackages := []string{
-		"curl",
-		"cpu-checker",
-		// TODO(axw) 2014-07-02 #1277359
-		// Don't install bridge-utils in cloud-init;
-		// leave it to the networker worker.
-		"bridge-utils",
-		"rsyslog-gnutls",
-		"cloud-utils",
-		"cloud-image-utils",
-	}
+	// aptListsDirectory is the location of the APT lists directory.
+	aptListsDirectory = "/var/lib/apt/lists"
 
-	// The required packages need to come from the correct repo.
-	// For precise, that might require an explicit --target-release parameter.
-	for _, pkg := range requiredPackages {
-		// We cannot just pass requiredPackages below, because
-		// this will generate install commands which older
-		// versions of cloud-init (e.g. 0.6.3 in precise) will
-		// interpret incorrectly (see bug http://pad.lv/1424777).
-		cmds := apt.GetPreparePackages([]string{pkg}, series)
-		if len(cmds) != 1 {
-			// One package given, one command (with possibly
-			// multiple args) expected.
-			panic(fmt.Sprintf("expected one install command per package, got %v", cmds))
-		}
-		for _, p := range cmds[0] {
-			// We need to add them one package at a time. Also for
-			// precise where --target-release
-			// precise-updates/cloud-tools is needed for some packages
-			// we need to pass these as "packages", otherwise the
-			// aforementioned older cloud-init will also fail to
-			// interpret the command correctly.
-			cfg.AddPackage(p)
-		}
-	}
+	// extractAptSource is a shell command that will extract the
+	// currently configured APT source location. We assume that
+	// the first source for "main" in the file is the one that
+	// should be replaced throughout the file.
+	extractAptSource = `awk "/^deb .* $(lsb_release -sc) .*main.*\$/{print \$2;exit}" ` + aptSourcesList
 
+	// aptSourceListPrefix is a shell program that translates an
+	// APT source (piped from stdin) to a file prefix. The algorithm
+	// involves stripping up to one trailing slash, stripping the
+	// URL scheme prefix, and finally translating slashes to
+	// underscores.
+	aptSourceListPrefix = `sed 's,.*://,,' | sed 's,/$,,' | tr / _`
+
+	// aptgetLoopFunction is a bash function that executes its arguments
+	// in a loop with a delay until either the command either returns
+	// with an exit code other than 100.
+	//TODO: probably move this inside packaging and have a installWithLoop
+	//function or something
+	aptgetLoopFunction = `
+function apt_get_loop {
+    local rc=
+    while true; do
+        if ($*); then
+                return 0
+        else
+                rc=$?
+        fi
+        if [ $rc -eq 100 ]; then
+		sleep 10s
+                continue
+        fi
+        return $rc
+    done
 }
+`
 
-func updateProxySettingsUbuntu(cfg CloudConfig, proxySettings proxy.Settings) {
-	// Write out the apt proxy settings
-	if (proxySettings != proxy.Settings{}) {
-		filename := apt.ConfFile
-		cfg.AddBootCmd(fmt.Sprintf(
-			`printf '%%s\n' %s > %s`,
-			shquote(apt.ProxyContent(proxySettings)),
-			filename))
-	}
+	// CloudToolsPrefsPath defines the default location of
+	// apt_preferences(5) file for the cloud-tools pocket.
+	CloudToolsPrefsPath = "/etc/apt/preferences.d/50-cloud-tools"
 
-}
-
-// CloudToolsPrefsPath defines the default location of
-// apt_preferences(5) file for the cloud-tools pocket.
-const CloudToolsPrefsPath = "/etc/apt/preferences.d/50-cloud-tools"
-
-// MaybeAddCloudArchiveCloudTools adds the cloud-archive cloud-tools
-// pocket to apt sources, if the series requires it.
-func maybeAddCloudArchiveCloudToolsUbuntu(c CloudConfig, series string) {
-	if series != "precise" {
-		// Currently only precise; presumably we'll
-		// need to add each LTS in here as they're
-		// added to the cloud archive.
-		return
-	}
-	const url = "http://ubuntu-cloud.archive.canonical.com/ubuntu"
-	name := fmt.Sprintf("deb %s %s-updates/cloud-tools main", url, series)
-	prefs := packaging.PackagePreferences{
-		Path:        CloudToolsPrefsPath,
-		Explanation: "Pin with lower priority, not to interfere with charms",
-		Package:     "*",
-		Pin:         fmt.Sprintf("release n=%s-updates/cloud-tools", series),
-		Priority:    400,
-	}
-	c.AddPackagePreferences(prefs)
-	source := packaging.Source{
-		Url: name,
-		Key: CanonicalCloudArchiveSigningKey,
-	}
-	c.AddPackageSource(source)
-}
-
-const CanonicalCloudArchiveSigningKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
+	CanonicalCloudArchiveSigningKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: SKS 1.1.4
 Comment: Hostname: keyserver.ubuntu.com
 
@@ -141,3 +106,4 @@ jEL+9KQwrGNFEVNe85Un5MJfYIjgyqX3nJcwypYxidntnhMhr2VD3HL2R/4CiswBOa4g9309
 p/+af/HU1smBrOfIeRoxb8jQoHu3
 =xg4S
 -----END PGP PUBLIC KEY BLOCK-----`
+)

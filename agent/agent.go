@@ -23,7 +23,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -649,7 +648,15 @@ func (c *configInternal) fileContents() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (c *configInternal) WriteCommands(renderer shell.Renderer) ([]string, error) {
+func (c *configInternal) WriteCommands(series string) ([]string, error) {
+	os, err := version.GetOSFromSeries(series)
+	if err != nil {
+		return nil, err
+	}
+	renderer, err := shell.NewRenderer(os.String())
+	if err != nil {
+		return nil, err
+	}
 	data, err := c.fileContents()
 	if err != nil {
 		return nil, errors.Trace(err)

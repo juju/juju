@@ -41,7 +41,7 @@ type ConfigureParams struct {
 // I really suggest deleting it
 func Configure(params ConfigureParams) error {
 	logger.Infof("Provisioning machine agent on %s", params.Host)
-	script, err := cloudinit.ConfigureScript(params.Config, params.Series)
+	script, err := params.Config.RenderScript()
 	if err != nil {
 		return err
 	}

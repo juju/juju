@@ -208,7 +208,7 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, icfg *in
 
 var executeCloudConfig = func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudConfig) error {
 	// Finally, convert cloud-config to a script and execute it.
-	configScript, err := cloudinit.ConfigureScript(cloudcfg, icfg.Series)
+	configScript, err := cloudcfg.RenderScript()
 	if err != nil {
 		return nil
 	}

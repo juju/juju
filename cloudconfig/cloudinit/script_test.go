@@ -96,7 +96,7 @@ var aptgetRegexp = "(.|\n)*" + regexp.QuoteMeta("apt-get --assume-yes --option D
 func (s *configureSuite) TestAptSources(c *gc.C) {
 	for _, series := range allSeries {
 		vers := version.MustParseBinary("1.16.0-" + series + "-amd64")
-		script, err := cloudinit.ConfigureScript(s.getCloudConfig(c, true, vers), "quantal")
+		script, err := s.getCloudConfig(c, true, vers).RenderScript()
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Only Precise requires the cloud-tools pocket.
@@ -136,7 +136,7 @@ func (s *configureSuite) TestAptSources(c *gc.C) {
 }
 
 func assertScriptMatches(c *gc.C, cfg cloudinit.CloudConfig, pattern string, match bool) {
-	script, err := cloudinit.ConfigureScript(cfg, "quantal")
+	script, err := cfg.RenderScript()
 	c.Assert(err, jc.ErrorIsNil)
 	checker := gc.Matches
 	if !match {
@@ -166,7 +166,7 @@ func (s *configureSuite) TestAptUpdate(c *gc.C) {
 		Key:  "key",
 	}
 	cfg.AddPackageSource(source)
-	_, err = cloudinit.ConfigureScript(cfg, "quantal")
+	_, err = cfg.RenderScript()
 	c.Check(err, gc.ErrorMatches, "update sources were specified, but OS updates have been disabled.")
 }
 

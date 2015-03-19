@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -38,9 +39,6 @@ type UserdataConfig interface {
 	// ConfigureJuju updates the provided cloudinit.Config with configuration
 	// to initialise a Juju machine agent.
 	ConfigureJuju() error
-	// Render renders the cloudinit/cloudbase-init userdata needed to initialize
-	// the juju agent
-	Render() ([]byte, error)
 }
 
 func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudConfig) (UserdataConfig, error) {
@@ -72,33 +70,21 @@ func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudCon
 type baseConfigure struct {
 	icfg     *instancecfg.InstanceConfig
 	conf     cloudinit.CloudConfig
-	renderer cloudinit.Renderer
+	renderer shell.Renderer
 	os       version.OSType
 }
 
 func (c *baseConfigure) init() error {
-	renderer, err := cloudinit.NewRenderer(c.icfg.Series)
+	os, err := version.GetOSFromSeries(c.icfg.Series)
+	if err != nil {
+		return err
+	}
+	renderer, err := shell.NewRenderer(os.String())
 	if err != nil {
 		return err
 	}
 	c.renderer = renderer
 	return nil
-}
-
-// addAgentInfo adds agent-required information to the agent's directory
-// and returns the agent directory name.
-func (c *baseConfigure) addAgentInfo() (agent.Config, error) {
-	acfg, err := c.mcfg.agentConfig(c.tag, c.mcfg.Tools.Version.Number)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	acfg.SetValue(agent.AgentServiceName, c.mcfg.MachineAgentServiceName)
-	cmds, err := acfg.WriteCommands(c.conf.ShellRenderer)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to write commands")
-	}
-	c.conf.AddScripts(cmds...)
-	return acfg, nil
 }
 
 // addAgentInfo adds agent-required information to the agent's directory

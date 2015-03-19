@@ -44,6 +44,13 @@ var _ = gc.Suite(&cloudinitSuite{})
 
 var envConstraints = constraints.MustParse("mem=2G")
 
+func must(s string, err error) string {
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
 var allMachineJobs = []multiwatcher.MachineJob{
 	multiwatcher.JobManageEnviron,
 	multiwatcher.JobHostUnits,
@@ -567,7 +574,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		// back to a map so we can introspect it without
 		// worrying about internal details of the cloudinit
 		// package.
-		data, err := udata.Render()
+		data, err := ci.RenderYAML()
 		c.Assert(err, jc.ErrorIsNil)
 
 		configKeyValues := make(map[interface{}]interface{})
@@ -633,7 +640,7 @@ func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := udata.Render()
+	data, err := cloudcfg.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
 	configKeyValues := make(map[interface{}]interface{})
 	err = goyaml.Unmarshal(data, &configKeyValues)
@@ -661,7 +668,7 @@ func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := udata.Render()
+	data, err := cloudcfg.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
 
 	ciContent := make(map[interface{}]interface{})
@@ -1217,7 +1224,7 @@ func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
 
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(ci, gc.NotNil)
-		data, err := udata.Render()
+		data, err := ci.RenderYAML()
 		c.Assert(err, jc.ErrorIsNil)
 
 		stringData := strings.Replace(string(data), "\r\n", "\n", -1)

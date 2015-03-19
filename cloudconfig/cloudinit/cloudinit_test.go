@@ -330,10 +330,7 @@ func (S) TestOutput(c *gc.C) {
 		cfg, err := cloudinit.New("trusty")
 		c.Assert(err, jc.ErrorIsNil)
 		t.setOption(cfg)
-		renderer, err := cloudinit.NewRenderer("quantal")
-		c.Assert(err, jc.ErrorIsNil)
-		t.setOption(cfg)
-		data, err := cfg.Render()
+		data, err := cfg.RenderYAML()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(data, gc.NotNil)
 		c.Assert(string(data), jc.YAMLEquals, t.expect)
@@ -395,13 +392,10 @@ func (S) TestSetOutput(c *gc.C) {
 
 func (S) TestWindowsRender(c *gc.C) {
 	compareOutput := "#ps1_sysnative\r\n\r\npowershell"
-	cfg, err := cloudinit.New("trusty")
+	cfg, err := cloudinit.New("win8")
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.AddRunCmd("powershell")
-	render, err := cloudinit.NewRenderer("win8")
-	c.Assert(err, jc.ErrorIsNil)
-	cfg.AddRunCmd("powershell")
-	data, err := cfg.Render()
+	data, err := cfg.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.NotNil)
 	c.Assert(string(data), gc.Equals, compareOutput, gc.Commentf("test %q output differs", "windows renderer"))

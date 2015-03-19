@@ -61,7 +61,8 @@ type cloudConfig struct {
 	// timezone
 	// update_etc_hosts
 	// update_hostname
-	attrs map[string]interface{}
+	attrs  map[string]interface{}
+	series string
 }
 
 // SetAttr implements cloudConfig.

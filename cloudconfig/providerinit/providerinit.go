@@ -52,11 +52,11 @@ func ComposeUserData(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudC
 			return nil, err
 		}
 	}
-	udata, err := configureCloudinit(icfg, cloudcfg)
+	_, err := configureCloudinit(icfg, cloudcfg)
 	if err != nil {
 		return nil, err
 	}
-	data, err := udata.Render()
+	data, err := cloudcfg.RenderYAML()
 	logger.Tracef("Generated cloud init:\n%s", string(data))
 	if err != nil {
 		return nil, err

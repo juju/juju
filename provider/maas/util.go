@@ -10,12 +10,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/shell"
 	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/version"
 )
 
 // extractSystemId extracts the 'system_id' part from an InstanceId.
@@ -59,6 +60,15 @@ func (info *machineInfo) cloudinitRunCmd(cloudcfg *cloudinit.Config) (string, er
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	os, err := version.GetOSFromSeries(series)
+	if err != nil {
+		return "", err
+	}
+	renderer, err := shell.NewRenderer(os.String())
+	if err != nil {
+		return "", err
+	}
+
 	yaml, err := goyaml.Marshal(info)
 	if err != nil {
 		return "", errors.Trace(err)

@@ -8,9 +8,9 @@
 package cloudinit
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/juju/cloudconfig/cloudinit/packaging"
 	"github.com/juju/juju/version"
+	"github.com/juju/utils/proxy"
 )
 
 // CloudConfig is the interface of all cloud-init cloudconfig options.
@@ -46,6 +46,8 @@ type CloudConfig interface {
 	SSHKeysConfig
 	RootUserConfig
 	WrittenFilesConfig
+	RenderConfig
+	AdvancedPackageCommands
 }
 
 // UserConfig is the interface for managing all user-related settings.
@@ -315,6 +317,46 @@ type WrittenFilesConfig interface {
 	AddRunBinaryFile(string, []byte, uint)
 }
 
+// Provides various way to display the current cloud config
+type RenderConfig interface {
+	// Renders the current cloud config as valid YAML
+	RenderYAML() ([]byte, error)
+
+	// Renders a script that will execute the cloud config
+	// It is eiher used over ssh for bootstrapping and manual or locally by
+	// the local provider
+	RenderScript() (string, error)
+
+	// Helper for RenderScript to return proper commands for adding packages /
+	// distribution
+	getCommandsForAddingPackages() ([]string, error)
+}
+
+// Makes two more advanced package commands available
+type AdvancedPackageCommands interface {
+	// Adds the necessary commands for installing the required packages for
+	// each OS is they are necessary
+	AddPackageCommands(
+		aptProxySettings proxy.Settings,
+		aptMirror string,
+		addUpdateScripts bool,
+		addUpgradeScripts bool,
+	)
+
+	// This is a helper to add the proper packages that we want to update per
+	// distro
+	updatePackages()
+
+	//TODO: this might be the same as the exported proxy setting up above, need
+	//to investigate how they're used
+	// If we don't really find anything just leave both
+	updateProxySettings(proxy.Settings)
+
+	// Depending on the version of the distribution it may add commands to
+	// the cloud config to facilitate updating old tools
+	MaybeAddCloudArchiveCloudTools()
+}
+
 // New returns a new Config with no options set.
 func New(series string) (CloudConfig, error) {
 	os, err := version.GetOSFromSeries(series)
@@ -323,54 +365,23 @@ func New(series string) (CloudConfig, error) {
 	}
 	switch os {
 	case version.Windows:
-		// Doesn't really matter what we return here since windows only uses
-		// runcmd anyway
-		return &UbuntuCloudConfig{&cloudConfig{make(map[string]interface{})}}, nil
+		return &WindowsCloudConfig{&cloudConfig{make(map[string]interface{}), series}}, nil
 	case version.Ubuntu:
-		return &UbuntuCloudConfig{&cloudConfig{make(map[string]interface{})}}, nil
+		pacman, err := packaging.New(series)
+		if err != nil {
+			return nil, err
+		}
+		//TODO: This is recursive and needs to be fixed
+		return &UbuntuCloudConfig{&cloudConfig{make(map[string]interface{}), series}, pacman, &unixCloudConfig{}}, nil
 	case version.CentOS:
-		return &CentOSCloudConfig{&cloudConfig{make(map[string]interface{})}}, nil
+		pacman, err := packaging.New(series)
+		if err != nil {
+			return nil, err
+		}
+		//TODO: This is recursive and needs to be fixed
+		return &CentOSCloudConfig{&cloudConfig{make(map[string]interface{}), series}, pacman, &unixCloudConfig{}}, nil
 	}
 	return nil, err
-}
-
-type Renderer interface {
-	// Mkdir returns an OS specific script for creating a directory
-	Mkdir(path string) []string
-
-	// WriteFile returns a command to write data
-	WriteFile(filename string, contents string, permission int) []string
-
-	// Render renders the userdata script for a particular OS type
-	Render(conf CloudConfig) ([]byte, error)
-
-	// FromSlash returns the result of replacing each slash ('/') character
-	// in path with a separator character. Multiple slashes are replaced by
-	// multiple separators.
-	FromSlash(path string) string
-
-	// PathJoin will join a path using OS specific path separator.
-	// This works for selected OS instead of current OS
-	PathJoin(path ...string) string
-}
-
-// NewRenderer returns a Renderer interface for selected series
-func NewRenderer(series string) (Renderer, error) {
-	operatingSystem, err := version.GetOSFromSeries(series)
-	if err != nil {
-		return nil, err
-	}
-
-	switch operatingSystem {
-	case version.Windows:
-		return &WindowsRenderer{}, nil
-	case version.Ubuntu:
-		return &UbuntuRenderer{linuxRenderer{}}, nil
-	case version.CentOS:
-		return &CentOSRenderer{linuxRenderer{}}, nil
-	default:
-		return nil, errors.Errorf("No renderer could be found for %s", series)
-	}
 }
 
 // SSHKeyType is the type of the four used key types passed to cloudinit

@@ -145,11 +145,9 @@ func (w *unixConfigure) ConfigureJuju() error {
 		w.conf.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on remote host", w.icfg.CloudInitOutputLog))
 	}
 
-	cloudinit.AddPackageCommands(
-		w.icfg.Series,
+	w.conf.AddPackageCommands(
 		w.icfg.AptProxySettings,
 		w.icfg.AptMirror,
-		w.conf,
 		w.icfg.EnableOSRefreshUpdate,
 		w.icfg.EnableOSUpgrade,
 	)
@@ -259,7 +257,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 	// MongoDB, and other infrastructure.
 	// This is only done on ubuntu
 	if w.conf.SystemUpdate() {
-		cloudinit.MaybeAddCloudArchiveCloudTools(w.conf, w.icfg.Tools.Version.Series)
+		w.conf.MaybeAddCloudArchiveCloudTools()
 	}
 
 	if w.icfg.Bootstrap {

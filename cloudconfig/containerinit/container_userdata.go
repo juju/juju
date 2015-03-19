@@ -140,12 +140,7 @@ func cloudInitUserData(
 	// logged in the host.
 	cloudConfig.AddRunCmd("ifconfig")
 
-	renderer, err := cloudinit.NewRenderer(instanceConfig.Series)
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := renderer.Render(cloudConfig)
+	data, err := cloudConfig.RenderYAML()
 	if err != nil {
 		return nil, err
 	}
@@ -190,14 +185,10 @@ func TemplateUserData(
 	}
 
 	config.AddSSHAuthorizedKeys(authorizedKeys)
-	// add centos magic here
 	if enablePackageUpdates {
-		err := cloudinit.MaybeAddCloudArchiveCloudTools(config, series)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+		config.MaybeAddCloudArchiveCloudTools()
 	}
-	cloudinit.AddPackageCommands(series, aptProxy, aptMirror, config, enablePackageUpdates, enableOSUpgrades)
+	config.AddPackageCommands(aptProxy, aptMirror, enablePackageUpdates, enableOSUpgrades)
 
 	initSystem, err := containerInitSystem(series)
 	if err != nil {
@@ -209,11 +200,7 @@ func TemplateUserData(
 	}
 	config.AddScripts(script)
 
-	renderer, err := cloudinit.NewRenderer(series)
-	if err != nil {
-		return nil, err
-	}
-	data, err := renderer.Render(config)
+	data, err := config.RenderYAML()
 	if err != nil {
 		return nil, err
 	}
