@@ -5,9 +5,9 @@ package sshinit
 
 import (
 	"io"
-	"strings"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/utils/ssh"
@@ -57,8 +57,14 @@ func RunConfigureScript(script string, params ConfigureParams) error {
 	if client == nil {
 		client = ssh.DefaultClient
 	}
-	cmd := ssh.Command(params.Host, []string{"sudo", "/bin/bash"}, nil)
-	cmd.Stdin = strings.NewReader(script)
+	options := &ssh.Options{}
+	switch params.Series {
+	case "centos7":
+		options.EnablePTY()
+	default:
+		options = nil
+	}
+	cmd := ssh.Command(params.Host, []string{"sudo", "/bin/bash -c " + utils.ShQuote(script)}, options)
 	cmd.Stderr = params.ProgressWriter
 	return cmd.Run()
 }
