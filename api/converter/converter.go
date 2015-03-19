@@ -39,3 +39,17 @@ func (c *State) WatchForJobsChanges(tag string) (watcher.NotifyWatcher, error) {
 
 	return watcher.NewNotifyWatcher(c.facade.RawAPICaller(), result.Results[0]), nil
 }
+
+func (c *State) Jobs(tag string) (*params.JobsResult, error) {
+	var results params.JobsResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: tag}},
+	}
+
+	logger.Infof("calling facade Jobs")
+	err := c.facade.FacadeCall("Jobs", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	return &results.Results[0], nil
+}

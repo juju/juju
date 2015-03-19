@@ -543,6 +543,14 @@ type RsyslogConfigResults struct {
 	Results []RsyslogConfigResult
 }
 
+type JobsResult struct {
+	Jobs []multiwatcher.MachineJob `json:"Jobs"`
+}
+
+type JobsResults struct {
+	Results []JobsResult
+}
+
 // DistributionGroupResult contains the result of
 // the DistributionGroup provisioner API call.
 type DistributionGroupResult struct {

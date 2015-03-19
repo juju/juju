@@ -49,7 +49,13 @@ func (c *Converter) SetUp() (watcher.NotifyWatcher, error) {
 
 func (c *Converter) Handle() error {
 	logger.Infof("environment for %q has been changed", c.config.Tag())
-	for _, job := range c.ent.Jobs() {
+
+	jobs, err := c.st.Jobs(c.config.Tag().String())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, job := range jobs.Jobs {
 		logger.Infof("job found: %q", job)
 		logger.Infof("job details: #v", job)
 		if job.NeedsState() {
@@ -62,6 +68,7 @@ func (c *Converter) Handle() error {
 				return errors.Trace(err)
 			}
 			// change agentConfig too?
+			// restart juju
 		}
 	}
 	return nil

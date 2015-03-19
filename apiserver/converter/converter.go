@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -47,6 +48,35 @@ func (c *ConverterAPI) getMachine(tag names.Tag) (*state.Machine, error) {
 		return nil, err
 	}
 	return entity.(*state.Machine), nil
+}
+
+func (c *ConverterAPI) Jobs(args params.Entities) (params.JobsResults, error) {
+	result := params.JobsResults{
+		Results: make([]params.JobsResult, len(args.Entities)),
+	}
+
+	for i, agent := range args.Entities {
+		tag, err := names.ParseMachineTag(agent.Tag)
+		if err != nil {
+			return params.JobsResults{}, errors.Trace(err)
+		}
+
+		err = common.ErrPerm
+		if c.authorizer.AuthOwner(tag) {
+			logger.Infof("watching for jobs on %#v", tag)
+			machine, err := c.getMachine(tag)
+			if err != nil {
+				return params.JobsResults{}, errors.Trace(err)
+			}
+			machineJobs := machine.Jobs()
+			jobs := make([]multiwatcher.MachineJob, len(machineJobs))
+			for i, job := range machineJobs {
+				jobs[i] = job.ToParams()
+			}
+			result.Results[i].Jobs = jobs
+		}
+	}
+	return result, nil
 }
 
 func (c *ConverterAPI) WatchForJobsChanges(args params.Entities) (params.NotifyWatchResults, error) {
