@@ -33,6 +33,7 @@ func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 	worker := storageprovisioner.NewStorageProvisioner(
 		"dir",
 		newMockVolumeAccessor(),
+		newMockFilesystemAccessor(),
 		&mockLifecycleManager{},
 	)
 	worker.Kill()
@@ -74,7 +75,11 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 	}
 	lifecycleManager := &mockLifecycleManager{}
 
-	worker := storageprovisioner.NewStorageProvisioner("storage-dir", volumeAccessor, lifecycleManager)
+	filesystemAccessor := newMockFilesystemAccessor()
+
+	worker := storageprovisioner.NewStorageProvisioner(
+		"storage-dir", volumeAccessor, filesystemAccessor, lifecycleManager,
+	)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
@@ -124,7 +129,11 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 		VolumeTag:  "volume-1",
 	}
 
-	worker := storageprovisioner.NewStorageProvisioner("storage-dir", volumeAccessor, lifecycleManager)
+	filesystemAccessor := newMockFilesystemAccessor()
+
+	worker := storageprovisioner.NewStorageProvisioner(
+		"storage-dir", volumeAccessor, filesystemAccessor, lifecycleManager,
+	)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
