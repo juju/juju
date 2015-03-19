@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/metricsender"
+	"github.com/juju/juju/apiserver/metricsender/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -22,7 +23,7 @@ type MetricSenderSuite struct {
 
 var _ = gc.Suite(&MetricSenderSuite{})
 
-var _ metricsender.MetricSender = (*metricsender.MockSender)(nil)
+var _ metricsender.MetricSender = (*testing.MockSender)(nil)
 
 var _ metricsender.MetricSender = (*metricsender.NopSender)(nil)
 
@@ -37,7 +38,7 @@ func (s *MetricSenderSuite) SetUpTest(c *gc.C) {
 // and checks that the 2 unsent metrics get sent and have their
 // sent field set to true.
 func (s *MetricSenderSuite) TestSendMetrics(c *gc.C) {
-	var sender metricsender.MockSender
+	var sender testing.MockSender
 	now := time.Now()
 	unsent1 := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Time: &now})
 	unsent2 := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Time: &now})
@@ -61,7 +62,7 @@ func (s *MetricSenderSuite) TestSendMetrics(c *gc.C) {
 // to send batches of 10 metrics. If we create 100 metrics 10 calls
 // will be made to the sender
 func (s *MetricSenderSuite) TestSendBulkMetrics(c *gc.C) {
-	var sender metricsender.MockSender
+	var sender testing.MockSender
 	now := time.Now()
 	for i := 0; i < 100; i++ {
 		s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Time: &now})
