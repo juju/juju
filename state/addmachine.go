@@ -479,8 +479,8 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	}
 
 	var filesystemOps, volumeOps []txn.Op
-	fsAttachmentParams := make(map[names.FilesystemTag]FilesystemAttachmentParams)
-	volumeAttachmentParams := make(map[names.VolumeTag]VolumeAttachmentParams)
+	var fsAttachments []filesystemAttachmentTemplate
+	var volumeAttachments []volumeAttachmentTemplate
 
 	// Create filesystems and filesystem attachments.
 	for _, f := range template.Filesystems {
@@ -489,9 +489,13 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 			return nil, txn.Op{}, errors.Trace(err)
 		}
 		filesystemOps = append(filesystemOps, ops...)
-		fsAttachmentParams[filesystemTag] = f.Attachment
+		fsAttachments = append(fsAttachments, filesystemAttachmentTemplate{
+			filesystemTag, f.Attachment,
+		})
 		if volumeTag != (names.VolumeTag{}) {
-			volumeAttachmentParams[volumeTag] = VolumeAttachmentParams{}
+			volumeAttachments = append(volumeAttachments, volumeAttachmentTemplate{
+				volumeTag, VolumeAttachmentParams{},
+			})
 		}
 	}
 
@@ -507,16 +511,18 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 			return nil, txn.Op{}, errors.Trace(err)
 		}
 		volumeOps = append(volumeOps, op)
-		volumeAttachmentParams[tag] = v.Attachment
+		volumeAttachments = append(volumeAttachments, volumeAttachmentTemplate{
+			tag, v.Attachment,
+		})
 	}
 
 	if len(filesystemOps) > 0 {
-		attachmentOps := createMachineFilesystemAttachmentsOps(mdoc.Id, fsAttachmentParams)
+		attachmentOps := createMachineFilesystemAttachmentsOps(mdoc.Id, fsAttachments)
 		prereqOps = append(prereqOps, filesystemOps...)
 		prereqOps = append(prereqOps, attachmentOps...)
 	}
 	if len(volumeOps) > 0 {
-		attachmentOps := createMachineVolumeAttachmentsOps(mdoc.Id, volumeAttachmentParams)
+		attachmentOps := createMachineVolumeAttachmentsOps(mdoc.Id, volumeAttachments)
 		prereqOps = append(prereqOps, volumeOps...)
 		prereqOps = append(prereqOps, attachmentOps...)
 	}

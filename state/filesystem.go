@@ -401,23 +401,28 @@ func (st *State) validateFilesystemParams(params FilesystemParams, machineId str
 	return machineId, nil
 }
 
+type filesystemAttachmentTemplate struct {
+	tag    names.FilesystemTag
+	params FilesystemAttachmentParams
+}
+
 // createMachineFilesystemAttachmentInfo creates filesystem
 // attachments for the specified machine, and attachment
 // parameters keyed by filesystem tags.
-func createMachineFilesystemAttachmentsOps(machineId string, params map[names.FilesystemTag]FilesystemAttachmentParams) []txn.Op {
-	ops := make([]txn.Op, 0, len(params))
-	for fsTag, params := range params {
-		paramsCopy := params
-		ops = append(ops, txn.Op{
+func createMachineFilesystemAttachmentsOps(machineId string, attachments []filesystemAttachmentTemplate) []txn.Op {
+	ops := make([]txn.Op, len(attachments))
+	for i, attachment := range attachments {
+		paramsCopy := attachment.params
+		ops[i] = txn.Op{
 			C:      filesystemAttachmentsC,
-			Id:     filesystemAttachmentId(machineId, fsTag.Id()),
+			Id:     filesystemAttachmentId(machineId, attachment.tag.Id()),
 			Assert: txn.DocMissing,
 			Insert: &filesystemAttachmentDoc{
-				Filesystem: fsTag.Id(),
+				Filesystem: attachment.tag.Id(),
 				Machine:    machineId,
 				Params:     &paramsCopy,
 			},
-		})
+		}
 	}
 	return ops
 }
