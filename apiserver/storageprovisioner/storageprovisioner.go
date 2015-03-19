@@ -303,6 +303,41 @@ func (s *StorageProvisionerAPI) Volumes(args params.Entities) (params.VolumeResu
 	return results, nil
 }
 
+// Filesystems returns details of filesystems with the specified tags.
+func (s *StorageProvisionerAPI) Filesystems(args params.Entities) (params.FilesystemResults, error) {
+	canAccess, err := s.getStorageEntityAuthFunc()
+	if err != nil {
+		return params.FilesystemResults{}, common.ServerError(common.ErrPerm)
+	}
+	results := params.FilesystemResults{
+		Results: make([]params.FilesystemResult, len(args.Entities)),
+	}
+	one := func(arg params.Entity) (params.Filesystem, error) {
+		tag, err := names.ParseFilesystemTag(arg.Tag)
+		if err != nil || !canAccess(tag) {
+			return params.Filesystem{}, common.ErrPerm
+		}
+		filesystem, err := s.st.Filesystem(tag)
+		if errors.IsNotFound(err) {
+			return params.Filesystem{}, common.ErrPerm
+		} else if err != nil {
+			return params.Filesystem{}, err
+		}
+		return common.FilesystemFromState(filesystem)
+	}
+	for i, arg := range args.Entities {
+		var result params.FilesystemResult
+		filesystem, err := one(arg)
+		if err != nil {
+			result.Error = common.ServerError(err)
+		} else {
+			result.Result = filesystem
+		}
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
 // VolumeAttachments returns details of volume attachments with the specified IDs.
 func (s *StorageProvisionerAPI) VolumeAttachments(args params.MachineStorageIds) (params.VolumeAttachmentResults, error) {
 	canAccess, err := s.getAttachmentAuthFunc()

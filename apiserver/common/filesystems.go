@@ -4,9 +4,23 @@
 package common
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
+
+// FilesystemFromState converts a state.Filesystem to params.Filesystem.
+func FilesystemFromState(v state.Filesystem) (params.Filesystem, error) {
+	info, err := v.Info()
+	if err != nil {
+		return params.Filesystem{}, errors.Trace(err)
+	}
+	return params.Filesystem{
+		v.FilesystemTag().String(),
+		info.FilesystemId,
+		info.Size,
+	}, nil
+}
 
 // ParseFilesystemAttachmentIds parses the strings, returning machine storage IDs.
 func ParseFilesystemAttachmentIds(stringIds []string) ([]params.MachineStorageId, error) {
