@@ -419,13 +419,13 @@ func (s *localJujuTestSuite) TestStateInstanceLoopMountsDisallowed(c *gc.C) {
 		Version: version.Current,
 		URL:     "http://testing.invalid/tools.tar.gz",
 	}}
-	mcfg, err := environs.NewMachineConfig("0", "ya", imagemetadata.ReleasedStream, version.Current.Series, true, nil, nil, nil)
+	icfg, err := instancecfg.NewInstanceConfig("0", "ya", imagemetadata.ReleasedStream, version.Current.Series, true, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = env.StartInstance(environs.StartInstanceParams{
-		MachineConfig: mcfg,
-		Tools:         availableTools,
-		Volumes:       []storage.VolumeParams{{Provider: provider.LoopProviderType}},
+		InstanceConfig: icfg,
+		Tools:          availableTools,
+		Volumes:        []storage.VolumeParams{{Provider: provider.LoopProviderType}},
 	})
 	c.Assert(err, gc.Equals, container.ErrLoopMountNotAllowed)
 }
