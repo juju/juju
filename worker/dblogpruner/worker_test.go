@@ -38,11 +38,11 @@ func (s *suite) SetUpTest(c *gc.C) {
 	s.logsColl = s.State.MongoSession().DB("logs").C("logs")
 }
 
-func (s *suite) StartWorker(c *gc.C, maxLogAge time.Duration, maxCollectionBytes int) {
+func (s *suite) StartWorker(c *gc.C, maxLogAge time.Duration, maxCollectionMB int) {
 	params := &dblogpruner.LogPruneParams{
-		MaxLogAge:          maxLogAge,
-		MaxCollectionBytes: maxCollectionBytes,
-		PruneInterval:      time.Millisecond, // Speed up pruning interval for testing
+		MaxLogAge:       maxLogAge,
+		MaxCollectionMB: maxCollectionMB,
+		PruneInterval:   time.Millisecond, // Speed up pruning interval for testing
 	}
 	s.pruner = dblogpruner.New(s.State, params)
 	s.AddCleanup(func(*gc.C) {
@@ -53,8 +53,8 @@ func (s *suite) StartWorker(c *gc.C, maxLogAge time.Duration, maxCollectionBytes
 
 func (s *suite) TestPrunesOldLogs(c *gc.C) {
 	maxLogAge := 24 * time.Hour
-	noPrune := int(1e9)
-	s.StartWorker(c, maxLogAge, noPrune)
+	noPruneMB := int(1e9)
+	s.StartWorker(c, maxLogAge, noPruneMB)
 
 	now := time.Now()
 	addLogsToPrune := func(count int) {
@@ -87,15 +87,19 @@ func (s *suite) TestPrunesOldLogs(c *gc.C) {
 }
 
 func (s *suite) TestPrunesLogsBySize(c *gc.C) {
-	s.addLogs(c, time.Now(), "stuff", 6000)
+	startingLogCount := 25000
+	s.addLogs(c, time.Now(), "stuff", startingLogCount)
 
-	noPrune := 999 * time.Hour
-	s.StartWorker(c, noPrune, 250000)
+	noPruneAge := 999 * time.Hour
+	s.StartWorker(c, noPruneAge, 2)
 
 	for attempt := testing.LongAttempt.Start(); attempt.Next(); {
 		count, err := s.logsColl.Count()
 		c.Assert(err, jc.ErrorIsNil)
-		if count < 5000 {
+		// The space used by MongoDB by the collection isn't that
+		// predictable, so just treat any pruning due to size as
+		// success.
+		if count < startingLogCount {
 			return
 		}
 	}
