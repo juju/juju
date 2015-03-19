@@ -210,7 +210,7 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 		Entities: []params.Entity{{"volume-0-0"}, {"volume-1"}, {"volume-42"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.VolumeParamsResults{
+	c.Assert(results, jc.DeepEquals, params.VolumeParamsResults{
 		Results: []params.VolumeParamsResult{
 			{Error: &params.Error{`volume "0/0" is already provisioned`, ""}},
 			{Result: params.VolumeParams{
@@ -219,6 +219,9 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 				Provider:  "environscoped",
 				Attachment: &params.VolumeAttachmentParams{
 					MachineTag: "machine-0",
+					VolumeTag:  "volume-1",
+					Provider:   "environscoped",
+					InstanceId: "inst-id",
 				},
 			}},
 			{Error: &params.Error{"permission denied", "unauthorized access"}},

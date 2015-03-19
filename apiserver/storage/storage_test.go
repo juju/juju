@@ -16,6 +16,8 @@ import (
 	"github.com/juju/juju/apiserver/storage"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
+	jujustorage "github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -25,6 +27,7 @@ type storageSuite struct {
 	resources  *common.Resources
 	authorizer testing.FakeAuthorizer
 
+	api        *storage.API
 	state      *mockState
 	storageTag names.StorageTag
 	unitTag    names.UnitTag
@@ -40,6 +43,27 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	s.authorizer = testing.FakeAuthorizer{names.NewUserTag("testuser"), true}
 	s.calls = []string{}
 	s.state = s.constructState(c)
+	var err error
+	s.api, err = storage.CreateAPI(s.state, &mockPoolManager{}, s.resources, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type mockPoolManager struct{}
+
+func (*mockPoolManager) Get(name string) (*jujustorage.Config, error) {
+	return jujustorage.NewConfig("foo", provider.LoopProviderType, nil)
+}
+
+func (*mockPoolManager) Create(name string, providerType jujustorage.ProviderType, attrs map[string]interface{}) (*jujustorage.Config, error) {
+	panic("not implemented")
+}
+
+func (*mockPoolManager) Delete(name string) error {
+	panic("not implemented")
+}
+
+func (*mockPoolManager) List() ([]*jujustorage.Config, error) {
+	panic("not implemented")
 }
 
 const (
@@ -49,6 +73,7 @@ const (
 	storageInstanceCall                     = "StorageInstance"
 	storageInstanceFilesystemCall           = "StorageInstanceFilesystem"
 	storageInstanceFilesystemAttachmentCall = "storageInstanceFilesystemAttachment"
+	storageInstanceVolumeCall               = "storageInstanceVolume"
 )
 
 func (s *storageSuite) TestStorageListEmpty(c *gc.C) {
@@ -56,24 +81,20 @@ func (s *storageSuite) TestStorageListEmpty(c *gc.C) {
 		s.calls = append(s.calls, allStorageInstancesCall)
 		return []state.StorageInstance{}, nil
 	}
-	api, err := storage.CreateAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
 
-	found, err := api.List()
+	found, err := s.api.List()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 0)
 	s.assertCalls(c, []string{allStorageInstancesCall})
 }
 
 func (s *storageSuite) TestStorageList(c *gc.C) {
-	api, err := storage.CreateAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
-
-	found, err := api.List()
+	found, err := s.api.List()
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedCalls := []string{
 		allStorageInstancesCall,
+		storageInstanceVolumeCall,
 		storageInstanceAttachmentsCall,
 		unitAssignedMachineCall,
 		storageInstanceCall,
@@ -85,7 +106,6 @@ func (s *storageSuite) TestStorageList(c *gc.C) {
 	c.Assert(found.Results, gc.HasLen, 1)
 	wantedDetails := s.createTestStorageInfo()
 	wantedDetails.UnitTag = s.unitTag.String()
-	wantedDetails.Status = "attached"
 	s.assertInstanceInfoError(c, found.Results[0], wantedDetails, "")
 }
 
@@ -95,10 +115,8 @@ func (s *storageSuite) TestStorageListError(c *gc.C) {
 		s.calls = append(s.calls, allStorageInstancesCall)
 		return []state.StorageInstance{}, errors.Errorf(msg)
 	}
-	api, err := storage.CreateAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
 
-	found, err := api.List()
+	found, err := s.api.List()
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 
 	expectedCalls := []string{
@@ -115,14 +133,13 @@ func (s *storageSuite) TestStorageListInstanceError(c *gc.C) {
 		c.Assert(sTag, gc.DeepEquals, s.storageTag)
 		return nil, errors.Errorf(msg)
 	}
-	api, err := storage.CreateAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
 
-	found, err := api.List()
+	found, err := s.api.List()
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedCalls := []string{
 		allStorageInstancesCall,
+		storageInstanceVolumeCall,
 		storageInstanceAttachmentsCall,
 		unitAssignedMachineCall,
 		storageInstanceCall,
@@ -135,19 +152,18 @@ func (s *storageSuite) TestStorageListInstanceError(c *gc.C) {
 }
 
 func (s *storageSuite) TestStorageListAttachmentError(c *gc.C) {
-	s.state.storageInstanceAttachments = func(unit names.UnitTag) ([]state.StorageAttachment, error) {
+	s.state.storageInstanceAttachments = func(tag names.StorageTag) ([]state.StorageAttachment, error) {
 		s.calls = append(s.calls, storageInstanceAttachmentsCall)
-		c.Assert(unit, gc.DeepEquals, s.unitTag)
+		c.Assert(tag, gc.DeepEquals, s.storageTag)
 		return []state.StorageAttachment{}, errors.Errorf("list test error")
 	}
-	api, err := storage.CreateAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
 
-	found, err := api.List()
+	found, err := s.api.List()
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedCalls := []string{
 		allStorageInstancesCall,
+		storageInstanceVolumeCall,
 		storageInstanceAttachmentsCall,
 	}
 	s.assertCalls(c, expectedCalls)
@@ -166,14 +182,13 @@ func (s *storageSuite) TestStorageListMachineError(c *gc.C) {
 		c.Assert(u, gc.DeepEquals, s.unitTag)
 		return names.MachineTag{}, errors.Errorf(msg)
 	}
-	api, err := storage.CreateAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
 
-	found, err := api.List()
+	found, err := s.api.List()
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedCalls := []string{
 		allStorageInstancesCall,
+		storageInstanceVolumeCall,
 		storageInstanceAttachmentsCall,
 		unitAssignedMachineCall,
 	}
@@ -191,14 +206,13 @@ func (s *storageSuite) TestStorageListFilesystemError(c *gc.C) {
 		c.Assert(sTag, gc.DeepEquals, s.storageTag)
 		return nil, errors.Errorf(msg)
 	}
-	api, err := storage.CreateAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
 
-	found, err := api.List()
+	found, err := s.api.List()
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedCalls := []string{
 		allStorageInstancesCall,
+		storageInstanceVolumeCall,
 		storageInstanceAttachmentsCall,
 		unitAssignedMachineCall,
 		storageInstanceCall,
@@ -218,14 +232,13 @@ func (s *storageSuite) TestStorageListFilesystemAttachmentError(c *gc.C) {
 		c.Assert(u, gc.DeepEquals, s.unitTag)
 		return s.machineTag, errors.Errorf(msg)
 	}
-	api, err := storage.CreateAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
 
-	found, err := api.List()
+	found, err := s.api.List()
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedCalls := []string{
 		allStorageInstancesCall,
+		storageInstanceVolumeCall,
 		storageInstanceAttachmentsCall,
 		unitAssignedMachineCall,
 	}
@@ -239,7 +252,7 @@ func (s *storageSuite) TestStorageListFilesystemAttachmentError(c *gc.C) {
 func (s *storageSuite) createTestStorageInfoWithError(code, msg string) params.StorageInfo {
 	wanted := s.createTestStorageInfo()
 	wanted.Error = &params.Error{Code: code,
-		Message: fmt.Sprintf("getting attachments for owner unit-mysql-0: %v", msg)}
+		Message: fmt.Sprintf("getting attachments for storage data/0: %v", msg)}
 	return wanted
 }
 
@@ -269,9 +282,11 @@ func (s *storageSuite) constructState(c *gc.C) *mockState {
 
 	s.machineTag = names.NewMachineTag("66")
 	filesystemTag := names.NewFilesystemTag("104")
+	volumeTag := names.NewVolumeTag("22")
 	filesystem := &mockFilesystem{tag: filesystemTag}
-
 	filesystemAttachment := &mockFilesystemAttachment{}
+	volume := &mockVolume{tag: volumeTag}
+
 	return &mockState{
 		allStorageInstances: func() ([]state.StorageInstance, error) {
 			s.calls = append(s.calls, allStorageInstancesCall)
@@ -282,9 +297,9 @@ func (s *storageSuite) constructState(c *gc.C) *mockState {
 			c.Assert(sTag, gc.DeepEquals, s.storageTag)
 			return mockInstance, nil
 		},
-		storageInstanceAttachments: func(unit names.UnitTag) ([]state.StorageAttachment, error) {
+		storageInstanceAttachments: func(tag names.StorageTag) ([]state.StorageAttachment, error) {
 			s.calls = append(s.calls, storageInstanceAttachmentsCall)
-			c.Assert(unit, gc.DeepEquals, s.unitTag)
+			c.Assert(tag, gc.DeepEquals, s.storageTag)
 			return []state.StorageAttachment{storageInstanceAttachment}, nil
 		},
 		storageInstanceFilesystem: func(sTag names.StorageTag) (state.Filesystem, error) {
@@ -298,6 +313,11 @@ func (s *storageSuite) constructState(c *gc.C) *mockState {
 			c.Assert(f, gc.DeepEquals, filesystemTag)
 			return filesystemAttachment, nil
 		},
+		storageInstanceVolume: func(t names.StorageTag) (state.Volume, error) {
+			s.calls = append(s.calls, storageInstanceVolumeCall)
+			c.Assert(t, gc.DeepEquals, s.storageTag)
+			return volume, nil
+		},
 		unitAssignedMachine: func(u names.UnitTag) (names.MachineTag, error) {
 			s.calls = append(s.calls, unitAssignedMachineCall)
 			c.Assert(u, gc.DeepEquals, s.unitTag)
@@ -307,7 +327,6 @@ func (s *storageSuite) constructState(c *gc.C) *mockState {
 }
 
 func (s *storageSuite) assertCalls(c *gc.C, expectedCalls []string) {
-	c.Assert(s.calls, gc.HasLen, len(expectedCalls))
 	c.Assert(s.calls, jc.SameContents, expectedCalls)
 }
 
@@ -321,20 +340,14 @@ func (s *storageSuite) assertInstanceInfoError(c *gc.C, obtained params.StorageI
 }
 
 func (s *storageSuite) TestShowStorageEmpty(c *gc.C) {
-	api, err := storage.CreateAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
-
-	found, err := api.Show(params.Entities{})
+	found, err := s.api.Show(params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Nothing should have matched the filter :D
 	c.Assert(found.Results, gc.HasLen, 0)
 }
 
 func (s *storageSuite) TestShowStorageNoFilter(c *gc.C) {
-	api, err := storage.CreateAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
-
-	found, err := api.Show(params.Entities{Entities: []params.Entity{}})
+	found, err := s.api.Show(params.Entities{Entities: []params.Entity{}})
 	c.Assert(err, jc.ErrorIsNil)
 	// Nothing should have matched the filter :D
 	c.Assert(found.Results, gc.HasLen, 0)
@@ -343,10 +356,7 @@ func (s *storageSuite) TestShowStorageNoFilter(c *gc.C) {
 func (s *storageSuite) TestShowStorage(c *gc.C) {
 	entity := params.Entity{Tag: s.storageTag.String()}
 
-	api, err := storage.CreateAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
-
-	found, err := api.Show(params.Entities{Entities: []params.Entity{entity}})
+	found, err := s.api.Show(params.Entities{Entities: []params.Entity{entity}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 
@@ -358,7 +368,7 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 		OwnerTag:   s.unitTag.String(),
 		Kind:       params.StorageKindFilesystem,
 		UnitTag:    s.unitTag.String(),
-		Status:     "attached",
+		Status:     "pending",
 	}
 	c.Assert(one.Result, gc.DeepEquals, expected)
 }
@@ -367,15 +377,12 @@ func (s *storageSuite) TestShowStorageInvalidId(c *gc.C) {
 	storageTag := "foo"
 	entity := params.Entity{Tag: storageTag}
 
-	api, err := storage.CreateAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
-
-	found, err := api.Show(params.Entities{Entities: []params.Entity{entity}})
+	found, err := s.api.Show(params.Entities{Entities: []params.Entity{entity}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 
 	instance := found.Results[0]
-	c.Assert(errors.Cause(instance.Error), gc.ErrorMatches, ".*permission denied.*")
+	c.Assert(instance.Error, gc.ErrorMatches, `"foo" is not a valid tag`)
 
 	expected := params.StorageDetails{Kind: params.StorageKindUnknown}
 	c.Assert(instance.Result, gc.DeepEquals, expected)
@@ -385,7 +392,7 @@ type mockState struct {
 	storageInstance     func(names.StorageTag) (state.StorageInstance, error)
 	allStorageInstances func() ([]state.StorageInstance, error)
 
-	storageInstanceAttachments func(unit names.UnitTag) ([]state.StorageAttachment, error)
+	storageInstanceAttachments func(names.StorageTag) ([]state.StorageAttachment, error)
 
 	unitAssignedMachine func(u names.UnitTag) (names.MachineTag, error)
 
@@ -407,8 +414,8 @@ func (st *mockState) AllStorageInstances() ([]state.StorageInstance, error) {
 	return st.allStorageInstances()
 }
 
-func (st *mockState) StorageAttachments(unit names.UnitTag) ([]state.StorageAttachment, error) {
-	return st.storageInstanceAttachments(unit)
+func (st *mockState) StorageAttachments(tag names.StorageTag) ([]state.StorageAttachment, error) {
+	return st.storageInstanceAttachments(tag)
 }
 
 func (st *mockState) UnitAssignedMachine(unit names.UnitTag) (names.MachineTag, error) {
@@ -455,6 +462,17 @@ type mockVolume struct {
 
 func (m *mockVolume) VolumeTag() names.VolumeTag {
 	return m.tag
+}
+
+func (m *mockVolume) Params() (state.VolumeParams, bool) {
+	return state.VolumeParams{
+		Pool: "loop",
+		Size: 1024,
+	}, true
+}
+
+func (m *mockVolume) Info() (state.VolumeInfo, error) {
+	return state.VolumeInfo{}, errors.NotProvisionedf("%v", m.tag)
 }
 
 type mockFilesystem struct {

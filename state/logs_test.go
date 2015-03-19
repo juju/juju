@@ -92,8 +92,8 @@ func (s *LogsSuite) TestPruneLogsByTime(c *gc.C) {
 	log(maxLogTime.Add(-time.Second), "prune")
 	log(maxLogTime.Add(-(2 * time.Second)), "prune")
 
-	sizeNoPrune := int(1e10)
-	err := state.PruneLogs(s.State, maxLogTime, sizeNoPrune)
+	noPruneMB := 100
+	err := state.PruneLogs(s.State, maxLogTime, noPruneMB)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// After pruning there should just be 3 "keep" messages left.
@@ -112,25 +112,33 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 	now := time.Now().Truncate(time.Millisecond)
 
 	s0 := s.State
-	s.generateLogs(c, s0, now, 10)
+	startingLogsS0 := 10
+	s.generateLogs(c, s0, now, startingLogsS0)
 
 	s1 := s.factory.MakeEnvironment(c, nil)
 	defer s1.Close()
-	s.generateLogs(c, s1, now, 6000)
+	startingLogsS1 := 10000
+	s.generateLogs(c, s1, now, startingLogsS1)
 
 	s2 := s.factory.MakeEnvironment(c, nil)
 	defer s2.Close()
-	s.generateLogs(c, s2, now, 7000)
+	startingLogsS2 := 12000
+	s.generateLogs(c, s2, now, startingLogsS2)
 
-	// Prune logs collection back by size.
+	// Prune logs collection back to 1 MiB.
 	tsNoPrune := time.Now().Add(-3 * 24 * time.Hour)
-	err := state.PruneLogs(s.State, tsNoPrune, 250000)
+	err := state.PruneLogs(s.State, tsNoPrune, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check logs were pruned as expected.
-	c.Assert(s.countLogs(c, s0), gc.Equals, 10) // Not touched
-	c.Assert(s.countLogs(c, s1), jc.LessThan, 6000)
-	c.Assert(s.countLogs(c, s2), jc.LessThan, 6000)
+	// Logs for first env should not be touched.
+	c.Assert(s.countLogs(c, s0), gc.Equals, startingLogsS0)
+
+	// Logs for second env should be pruned.
+	c.Assert(s.countLogs(c, s1), jc.LessThan, startingLogsS1)
+
+	// Logs for third env should be pruned to a similar level as
+	// second env.
+	c.Assert(s.countLogs(c, s2), jc.LessThan, startingLogsS1)
 
 	// Ensure that the latest log records are still there.
 	assertLatestTs := func(st *state.State) {
@@ -142,21 +150,6 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 	assertLatestTs(s0)
 	assertLatestTs(s1)
 	assertLatestTs(s2)
-}
-
-func (s *LogsSuite) TestPruneLogsWithSmallSizeThreshold(c *gc.C) {
-	// Check behaviour with an unlikely and pathological collection
-	// size limit. Previous implementations of PruneLogs could error
-	// out in this situation.
-
-	now := time.Now()
-	s.generateLogs(c, s.State, now, 6000)
-
-	tsNoPrune := now.Add(-3 * 24 * time.Hour)
-	tinySize := 100
-	err := state.PruneLogs(s.State, tsNoPrune, tinySize)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.countLogs(c, s.State), jc.LessThan, 6000)
 }
 
 func (s *LogsSuite) generateLogs(c *gc.C, st *state.State, now time.Time, count int) {

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage/poolmanager"
 )
 
 func init() {
@@ -20,13 +21,15 @@ func init() {
 // API implements the storage interface and is the concrete
 // implementation of the api end point.
 type API struct {
-	storage    storageAccess
-	authorizer common.Authorizer
+	storage     storageAccess
+	poolManager poolmanager.PoolManager
+	authorizer  common.Authorizer
 }
 
 // createAPI returns a new storage API facade.
 func createAPI(
 	st storageAccess,
+	pm poolmanager.PoolManager,
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
@@ -35,8 +38,9 @@ func createAPI(
 	}
 
 	return &API{
-		storage:    st,
-		authorizer: authorizer,
+		storage:     st,
+		poolManager: pm,
+		authorizer:  authorizer,
 	}, nil
 }
 
@@ -46,7 +50,11 @@ func NewAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
-	return createAPI(getState(st), resources, authorizer)
+	return createAPI(getState(st), poolManager(st), resources, authorizer)
+}
+
+func poolManager(st *state.State) poolmanager.PoolManager {
+	return poolmanager.New(state.NewStateSettings(st))
 }
 
 // Show retrieves and returns detailed information about desired storage
@@ -55,13 +63,21 @@ func NewAPI(
 func (api *API) Show(entities params.Entities) (params.StorageDetailsResults, error) {
 	var all []params.StorageDetailsResult
 	for _, entity := range entities.Entities {
-		found, instance, err := api.getStorageInstance(entity.Tag)
+		storageTag, err := names.ParseStorageTag(entity.Tag)
 		if err != nil {
-			all = append(all, params.StorageDetailsResult{Error: err})
+			all = append(all, params.StorageDetailsResult{
+				Error: common.ServerError(err),
+			})
+			continue
+		}
+		found, instance, serverErr := api.getStorageInstance(storageTag)
+		if err != nil {
+			all = append(all, params.StorageDetailsResult{Error: serverErr})
 			continue
 		}
 		if found {
-			all = append(all, api.createStorageDetailsResult(instance)...)
+			results := api.createStorageDetailsResult(storageTag, instance)
+			all = append(all, results...)
 		}
 	}
 	return params.StorageDetailsResults{Results: all}, nil
@@ -77,14 +93,19 @@ func (api *API) List() (params.StorageInfosResult, error) {
 	}
 	var infos []params.StorageInfo
 	for _, stateInstance := range stateInstances {
-		instance := createParamsStorageInstance(stateInstance)
+		storageTag := stateInstance.StorageTag()
+		persistent, err := api.isPersistent(storageTag)
+		if err != nil {
+			return params.StorageInfosResult{}, err
+		}
+		instance := createParamsStorageInstance(stateInstance, persistent)
 
 		// It is possible to encounter errors here related to getting individual
 		// storage details such as getting attachments, getting machine from the unit,
 		// etc.
 		// Current approach is to do what status command does - treat error
 		// as another valid property, i.e. augment storage details.
-		attachments := api.createStorageDetailsResult(instance)
+		attachments := api.createStorageDetailsResult(storageTag, instance)
 		for _, one := range attachments {
 			aParam := params.StorageInfo{one.Result, one.Error}
 			infos = append(infos, aParam)
@@ -93,8 +114,11 @@ func (api *API) List() (params.StorageInfosResult, error) {
 	return params.StorageInfosResult{Results: infos}, nil
 }
 
-func (api *API) createStorageDetailsResult(instance params.StorageDetails) []params.StorageDetailsResult {
-	attachments, err := api.getStorageAttachments(instance)
+func (api *API) createStorageDetailsResult(
+	storageTag names.StorageTag,
+	instance params.StorageDetails,
+) []params.StorageDetailsResult {
+	attachments, err := api.getStorageAttachments(storageTag, instance)
 	if err != nil {
 		return []params.StorageDetailsResult{params.StorageDetailsResult{Result: instance, Error: err}}
 	}
@@ -109,25 +133,16 @@ func (api *API) createStorageDetailsResult(instance params.StorageDetails) []par
 	}
 	// If we are here then this storage instance is unattached.
 	return []params.StorageDetailsResult{params.StorageDetailsResult{Result: instance}}
-
 }
 
-func (api *API) getStorageAttachments(instance params.StorageDetails) ([]params.StorageDetails, *params.Error) {
+func (api *API) getStorageAttachments(
+	storageTag names.StorageTag,
+	instance params.StorageDetails,
+) ([]params.StorageDetails, *params.Error) {
 	serverError := func(err error) *params.Error {
-		return common.ServerError(errors.Annotatef(err, "getting attachments for owner %v", instance.OwnerTag))
+		return common.ServerError(errors.Annotatef(err, "getting attachments for storage %v", storageTag.Id()))
 	}
-	aTag, err := names.ParseTag(instance.OwnerTag)
-	if err != nil {
-		return nil, serverError(common.ErrPerm)
-	}
-
-	unitTag, ok := aTag.(names.UnitTag)
-	if !ok {
-		// Definitely no attachments
-		return nil, nil
-	}
-
-	stateAttachments, err := api.storage.StorageAttachments(unitTag)
+	stateAttachments, err := api.storage.StorageAttachments(storageTag)
 	if err != nil {
 		return nil, serverError(common.ErrPerm)
 	}
@@ -151,7 +166,8 @@ func (api *API) createParamsStorageAttachment(si params.StorageDetails, sa state
 	result.UnitTag = sa.Unit().String()
 	result.OwnerTag = si.OwnerTag
 	result.Kind = si.Kind
-	result.Status = "attached"
+	result.Persistent = si.Persistent
+	// TODO(axw) set status according to whether storage has been provisioned.
 
 	// This is only for provisioned attachments
 	machineTag, err := api.storage.UnitAssignedMachine(sa.Unit())
@@ -168,36 +184,58 @@ func (api *API) createParamsStorageAttachment(si params.StorageDetails, sa state
 	}
 	result.Location = info.Location
 	if result.Location != "" {
-		result.Status = "provisioned"
+		result.Status = "attached"
 	}
 	return result, nil
 }
 
-func (api *API) getStorageInstance(tag string) (bool, params.StorageDetails, *params.Error) {
+func (api *API) getStorageInstance(tag names.StorageTag) (bool, params.StorageDetails, *params.Error) {
 	nothing := params.StorageDetails{}
 	serverError := func(err error) *params.Error {
 		return common.ServerError(errors.Annotatef(err, "getting %v", tag))
 	}
-	aTag, err := names.ParseStorageTag(tag)
-	if err != nil {
-		return false, nothing, serverError(common.ErrPerm)
-	}
-	stateInstance, err := api.storage.StorageInstance(aTag)
+	stateInstance, err := api.storage.StorageInstance(tag)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return false, nothing, nil
 		}
 		return false, nothing, serverError(common.ErrPerm)
 	}
-	return true, createParamsStorageInstance(stateInstance), nil
+	persistent, err := api.isPersistent(tag)
+	if err != nil {
+		return false, nothing, serverError(err)
+	}
+	return true, createParamsStorageInstance(stateInstance, persistent), nil
 }
 
-func createParamsStorageInstance(si state.StorageInstance) params.StorageDetails {
+func createParamsStorageInstance(si state.StorageInstance, persistent bool) params.StorageDetails {
 	result := params.StorageDetails{
 		OwnerTag:   si.Owner().String(),
 		StorageTag: si.Tag().String(),
 		Kind:       params.StorageKind(si.Kind()),
 		Status:     "pending",
+		Persistent: persistent,
 	}
 	return result
+}
+
+func (api *API) isPersistent(tag names.StorageTag) (bool, error) {
+	volume, err := api.storage.StorageInstanceVolume(tag)
+	if err != nil {
+		return false, common.ErrPerm
+	}
+	// If the volume is not provisioned, we read its config attributes.
+	if params, ok := volume.Params(); ok {
+		_, cfg, err := common.StoragePoolConfig(params.Pool, api.poolManager)
+		if err != nil {
+			return false, err
+		}
+		return cfg.IsPersistent(), nil
+	}
+	// If the volume is provisioned, we look at its provisioning info.
+	info, err := volume.Info()
+	if err != nil {
+		return false, err
+	}
+	return info.Persistent, nil
 }

@@ -479,8 +479,8 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	}
 
 	var filesystemOps, volumeOps []txn.Op
-	fsAttachmentParams := make(map[names.FilesystemTag]FilesystemAttachmentParams)
-	volumeAttachmentParams := make(map[names.VolumeTag]VolumeAttachmentParams)
+	var fsAttachments []filesystemAttachmentTemplate
+	var volumeAttachments []volumeAttachmentTemplate
 
 	// Create filesystems and filesystem attachments.
 	for _, f := range template.Filesystems {
@@ -489,34 +489,35 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 			return nil, txn.Op{}, errors.Trace(err)
 		}
 		filesystemOps = append(filesystemOps, ops...)
-		fsAttachmentParams[filesystemTag] = f.Attachment
+		fsAttachments = append(fsAttachments, filesystemAttachmentTemplate{
+			filesystemTag, f.Attachment,
+		})
 		if volumeTag != (names.VolumeTag{}) {
-			volumeAttachmentParams[volumeTag] = VolumeAttachmentParams{}
+			volumeAttachments = append(volumeAttachments, volumeAttachmentTemplate{
+				volumeTag, VolumeAttachmentParams{},
+			})
 		}
 	}
 
 	// Create volumes and volume attachments.
-	//
-	// TODO(axw) created volumes must record the attachment
-	// immediately, to prevent the storage provisioner from
-	// attempting to create the volume until after the machine
-	// has been provisioned.
 	for _, v := range template.Volumes {
 		op, tag, err := st.addVolumeOp(v.Volume, mdoc.Id)
 		if err != nil {
 			return nil, txn.Op{}, errors.Trace(err)
 		}
 		volumeOps = append(volumeOps, op)
-		volumeAttachmentParams[tag] = v.Attachment
+		volumeAttachments = append(volumeAttachments, volumeAttachmentTemplate{
+			tag, v.Attachment,
+		})
 	}
 
 	if len(filesystemOps) > 0 {
-		attachmentOps := createMachineFilesystemAttachmentsOps(mdoc.Id, fsAttachmentParams)
+		attachmentOps := createMachineFilesystemAttachmentsOps(mdoc.Id, fsAttachments)
 		prereqOps = append(prereqOps, filesystemOps...)
 		prereqOps = append(prereqOps, attachmentOps...)
 	}
 	if len(volumeOps) > 0 {
-		attachmentOps := createMachineVolumeAttachmentsOps(mdoc.Id, volumeAttachmentParams)
+		attachmentOps := createMachineVolumeAttachmentsOps(mdoc.Id, volumeAttachments)
 		prereqOps = append(prereqOps, volumeOps...)
 		prereqOps = append(prereqOps, attachmentOps...)
 	}

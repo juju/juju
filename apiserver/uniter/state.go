@@ -16,7 +16,7 @@ type storageStateInterface interface {
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
 	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
-	StorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
+	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 	StorageAttachment(names.StorageTag, names.UnitTag) (state.StorageAttachment, error)
 	UnitAssignedMachine(names.UnitTag) (names.MachineTag, error)
 	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)

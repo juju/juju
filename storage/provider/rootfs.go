@@ -31,7 +31,8 @@ var (
 
 // ValidateConfig is defined on the Provider interface.
 func (p *rootfsProvider) ValidateConfig(cfg *storage.Config) error {
-	return ValidateConfig(p, cfg)
+	// Rootfs provider has no configuration.
+	return nil
 }
 
 // validateFullConfig validates a fully-constructed storage config,
@@ -76,6 +77,11 @@ func (*rootfsProvider) Supports(k storage.StorageKind) bool {
 // Scope is defined on the Provider interface.
 func (*rootfsProvider) Scope() storage.Scope {
 	return storage.ScopeMachine
+}
+
+// Dynamic is defined on the Provider interface.
+func (*rootfsProvider) Dynamic() bool {
+	return true
 }
 
 type rootfsFilesystemSource struct {

@@ -551,12 +551,6 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 	if len(volumeAttachments) == 0 {
 		return nil, nil
 	}
-	instanceId, err := m.InstanceId()
-	if errors.IsNotProvisioned(err) {
-		instanceId = ""
-	} else if err != nil {
-		return nil, errors.Annotatef(err, "getting machine %q instance ID", m.Id())
-	}
 	poolManager := poolmanager.New(state.NewStateSettings(p.st))
 	allVolumeParams := make([]params.VolumeParams, 0, len(volumeAttachments))
 	for _, volumeAttachment := range volumeAttachments {
@@ -567,17 +561,24 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 		}
 		volumeParams, err := common.VolumeParams(volume, poolManager)
 		if common.IsVolumeAlreadyProvisioned(err) {
-			// Volume is already provisioned; let the dynamic
-			// storage provisioner handle the attachment.
+			// Already provisioned, so must be dynamic.
 			continue
 		} else if err != nil {
 			return nil, errors.Annotatef(err, "getting volume %q parameters", volumeTag.Id())
+		}
+		provider, err := registry.StorageProvider(storage.ProviderType(volumeParams.Provider))
+		if err != nil {
+			return nil, errors.Annotate(err, "getting storage provider")
+		}
+		if provider.Dynamic() {
+			// Leave dynamic storage to the storage provisioner.
+			continue
 		}
 		// Not provisioned yet, so ask the cloud provisioner do it.
 		volumeParams.Attachment = &params.VolumeAttachmentParams{
 			volumeTag.String(),
 			m.Tag().String(),
-			string(instanceId),
+			"", // we're creating the machine, so it has no instance ID.
 			"", // volume not created yet, so has no volume ID.
 			volumeParams.Provider,
 		}

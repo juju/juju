@@ -29,7 +29,8 @@ var (
 
 // ValidateConfig is defined on the Provider interface.
 func (p *tmpfsProvider) ValidateConfig(cfg *storage.Config) error {
-	return ValidateConfig(p, cfg)
+	// Tmpfs provider has no configuration.
+	return nil
 }
 
 // validateFullConfig validates a fully-constructed storage config,
@@ -74,6 +75,11 @@ func (*tmpfsProvider) Supports(k storage.StorageKind) bool {
 // Scope is defined on the Provider interface.
 func (*tmpfsProvider) Scope() storage.Scope {
 	return storage.ScopeMachine
+}
+
+// Dynamic is defined on the Provider interface.
+func (*tmpfsProvider) Dynamic() bool {
+	return true
 }
 
 type tmpfsFilesystemSource struct {

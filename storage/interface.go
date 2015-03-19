@@ -52,6 +52,11 @@ type Provider interface {
 	// Scope returns the scope of storage managed by this provider.
 	Scope() Scope
 
+	// Dynamic reports whether or not the storage provider is capable
+	// of dynamic storage provisioning. Non-dynamic storage must be
+	// created at the time a machine is provisioned.
+	Dynamic() bool
+
 	// ValidateConfig validates the provided storage provider config,
 	// returning an error if it is invalid.
 	ValidateConfig(*Config) error

@@ -16,15 +16,10 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/version"
 )
 
 type adminApiFactory func(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{}
-
-// adminApiV0 implements the API that a client first sees when connecting to
-// the API. We start serving a different API once the user has logged in.
-type adminApiV0 struct {
-	admin *adminV0
-}
 
 // admin is the only object that unlogged-in clients can access. It holds any
 // methods that are needed to log in.
@@ -37,64 +32,13 @@ type admin struct {
 	loggedIn bool
 }
 
-type adminV0 struct {
-	*admin
-}
-
-func newAdminApiV0(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
-	return &adminApiV0{
-		admin: &adminV0{
-			&admin{
-				srv:         srv,
-				root:        root,
-				reqNotifier: reqNotifier,
-			},
-		},
-	}
-}
-
-// Admin returns an object that provides API access to methods that can be
-// called even when not authenticated.
-func (r *adminApiV0) Admin(id string) (*adminV0, error) {
-	if id != "" {
-		// Safeguard id for possible future use.
-		return nil, common.ErrBadId
-	}
-	return r.admin, nil
-}
-
 var UpgradeInProgressError = errors.New("upgrade in progress")
 var AboutToRestoreError = errors.New("restore preparation in progress")
 var RestoreInProgressError = errors.New("restore in progress")
 var MaintenanceNoLoginError = errors.New("login failed - maintenance in progress")
 var errAlreadyLoggedIn = errors.New("already logged in")
 
-// Login logs in with the provided credentials.  All subsequent requests on the
-// connection will act as the authenticated user.
-func (a *adminV0) Login(c params.Creds) (params.LoginResult, error) {
-	var fail params.LoginResult
-
-	resultV1, err := a.doLogin(params.LoginRequest{
-		AuthTag:     c.AuthTag,
-		Credentials: c.Password,
-		Nonce:       c.Nonce,
-	})
-	if err != nil {
-		return fail, err
-	}
-
-	resultV0 := params.LoginResult{
-		Servers:    resultV1.Servers,
-		EnvironTag: resultV1.EnvironTag,
-		Facades:    resultV1.Facades,
-	}
-	if resultV1.UserInfo != nil {
-		resultV0.LastConnection = resultV1.UserInfo.LastConnection
-	}
-	return resultV0, nil
-}
-
-func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
+func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.LoginResultV1, error) {
 	var fail params.LoginResultV1
 
 	a.mu.Lock()
@@ -207,15 +151,35 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 		return fail, err
 	}
 
+	loginResult := params.LoginResultV1{
+		Servers:       params.FromNetworkHostsPorts(hostPorts),
+		EnvironTag:    environ.Tag().String(),
+		ServerTag:     environ.ServerTag().String(),
+		Facades:       DescribeFacades(),
+		UserInfo:      maybeUserInfo,
+		ServerVersion: version.Current.Number.String(),
+	}
+
+	// For sufficiently modern login versions, stop serving the
+	// state server environment at the root of the API.
+	if loginVersion > 1 && a.root.envUUID == "" {
+		authedApi = newRestrictedRoot(authedApi)
+		// Remove the EnvironTag from the response as there is no
+		// environment here.
+		loginResult.EnvironTag = ""
+		// Strip out the facades that are not supported from the result.
+		var facades []params.FacadeVersions
+		for _, facade := range loginResult.Facades {
+			if restrictedRootNames.Contains(facade.Name) {
+				facades = append(facades, facade)
+			}
+		}
+		loginResult.Facades = facades
+	}
+
 	a.root.rpcConn.ServeFinder(authedApi, serverError)
 
-	return params.LoginResultV1{
-		Servers:    params.FromNetworkHostsPorts(hostPorts),
-		EnvironTag: environ.Tag().String(),
-		ServerTag:  environ.ServerTag().String(),
-		Facades:    DescribeFacades(),
-		UserInfo:   maybeUserInfo,
-	}, nil
+	return loginResult, nil
 }
 
 // checkCredsOfStateServerMachine checks the special case of a state server

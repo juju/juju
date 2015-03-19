@@ -361,8 +361,6 @@ func (s *clientSuite) TestParamsEncoded(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	connectURL := connectURLFromReader(c, reader)
-
-	c.Assert(connectURL.Path, gc.Matches, "/log")
 	values := connectURL.Query()
 	c.Assert(values, jc.DeepEquals, url.Values{
 		"includeEntity": params.IncludeEntity,
@@ -382,7 +380,7 @@ func (s *clientSuite) TestDebugLogRootPath(c *gc.C) {
 	// If the server is old, we log at "/log"
 	info := s.APIInfo(c)
 	info.EnvironTag = names.NewEnvironTag("")
-	apistate, err := api.Open(info, api.DialOpts{})
+	apistate, err := api.OpenWithVersion(info, api.DialOpts{}, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	defer apistate.Close()
 	reader, err := apistate.Client().WatchDebugLog(api.DebugLogParams{})
@@ -404,8 +402,7 @@ func (s *clientSuite) TestDebugLogAtUUIDLogPath(c *gc.C) {
 	reader, err := apistate.Client().WatchDebugLog(api.DebugLogParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	connectURL := connectURLFromReader(c, reader)
-	c.ExpectFailure("debug log always goes to /log for compatibility http://pad.lv/1326799")
-	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/%s/log", environ.UUID()))
+	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/environment/%s/log", environ.UUID()))
 }
 
 func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {

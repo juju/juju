@@ -32,7 +32,7 @@ func (s *VolumeStateSuite) TestAddMachine(c *gc.C) {
 	assignedMachineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 
-	storageAttachments, err := s.State.StorageAttachments(unit.UnitTag())
+	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 	storageInstance, err := s.State.StorageInstance(storageAttachments[0].StorageInstance())
@@ -176,6 +176,29 @@ func (s *VolumeStateSuite) TestSetVolumeInfoNoStorageAssigned(c *gc.C) {
 	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfoSet.Pool = "loop-pool" // taken from params
+	s.assertVolumeInfo(c, volumeTag, volumeInfoSet)
+}
+
+func (s *VolumeStateSuite) TestSetVolumeInfoImmutable(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	volume, err := s.State.StorageInstanceVolume(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	volumeTag := volume.VolumeTag()
+
+	volumeInfoSet := state.VolumeInfo{Size: 123}
+	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The first call to SetVolumeInfo takes the pool name from
+	// the params; the second does not, but it must not change
+	// either. Callers are expected to get the existing info and
+	// update it, leaving immutable values intact.
+	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
+	c.Assert(err, gc.ErrorMatches, `cannot set info for volume "0/0": cannot change pool from "loop-pool" to ""`)
+
+	volumeInfoSet.Pool = "loop-pool"
 	s.assertVolumeInfo(c, volumeTag, volumeInfoSet)
 }
 

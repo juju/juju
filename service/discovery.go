@@ -2,9 +2,8 @@ package service
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -24,20 +23,8 @@ var getVersion = func() version.Binary {
 // DiscoverService returns an interface to a service apropriate
 // for the current system
 func DiscoverService(name string, conf common.Conf) (Service, error) {
-	initName, err := discoverLocalInitSystem()
-	if errors.IsNotFound(err) {
-		// Fall back to checking the juju version.
-		jujuVersion := getVersion()
-		versionInitName, ok := VersionInitSystem(jujuVersion)
-		if !ok {
-			// The key error is the one from discoverLocalInitSystem so
-			// that is what we return. However, we at least log the
-			// failed fallback attempt.
-			logger.Errorf("could not identify init system from %v", jujuVersion)
-			return nil, errors.Trace(err)
-		}
-		initName = versionInitName
-	} else if err != nil {
+	initName, err := discoverInitSystem()
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -48,10 +35,38 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 	return service, nil
 }
 
+func discoverInitSystem() (string, error) {
+	initName, err := discoverLocalInitSystem()
+	if errors.IsNotFound(err) {
+		// Fall back to checking the juju version.
+		jujuVersion := getVersion()
+		versionInitName, ok := VersionInitSystem(jujuVersion)
+		if !ok {
+			// The key error is the one from discoverLocalInitSystem so
+			// that is what we return.
+			return "", errors.Trace(err)
+		}
+		initName = versionInitName
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+	return initName, nil
+}
+
 // VersionInitSystem returns an init system name based on the provided
 // version info. If one cannot be identified then false if returned
 // for the second return value.
 func VersionInitSystem(vers version.Binary) (string, bool) {
+	initName, ok := versionInitSystem(vers)
+	if !ok {
+		logger.Errorf("could not identify init system from juju version info (%#v)", vers)
+		return "", false
+	}
+	logger.Debugf("discovered init system %q from juju version info (%#v)", initName, vers)
+	return initName, true
+}
+
+func versionInitSystem(vers version.Binary) (string, bool) {
 	switch vers.OS {
 	case version.Windows:
 		return InitSystemWindows, true
@@ -79,26 +94,21 @@ func VersionInitSystem(vers version.Binary) (string, bool) {
 	}
 }
 
-// pid1 is the path to the "file" that contains the path to the init
-// system executable on linux.
-const pid1 = "/proc/1/cmdline"
-
 // These exist to allow patching during tests.
 var (
 	runtimeOS    = func() string { return runtime.GOOS }
-	pid1Filename = func() string { return pid1 }
+	evalSymlinks = filepath.EvalSymlinks
+	psPID1       = func() ([]byte, error) {
+		cmd := exec.Command("/bin/ps", "-p", "1", "-o", "cmd", "--no-headers")
+		return cmd.Output()
+	}
 
 	initExecutable = func() (string, error) {
-		pid1File := pid1Filename()
-		data, err := ioutil.ReadFile(pid1File)
-		if os.IsNotExist(err) {
-			return "", errors.NotFoundf("init system (via %q)", pid1File)
-		}
+		psOutput, err := psPID1()
 		if err != nil {
-			return "", errors.Annotatef(err, "failed to identify init system (via %q)", pid1File)
+			return "", errors.Annotate(err, "failed to identify init system using ps")
 		}
-		executable := strings.Split(string(data), "\x00")[0]
-		return executable, nil
+		return strings.Fields(string(psOutput))[0], nil
 	}
 )
 
@@ -126,14 +136,17 @@ func identifyInitSystem(executable string) (string, bool) {
 		return initSystem, true
 	}
 
-	if _, err := os.Stat(executable); os.IsNotExist(err) {
-		return "", false
-	} else if err != nil {
+	// First fall back to following symlinks (if any).
+	resolved, err := evalSymlinks(executable)
+	if err != nil {
 		logger.Errorf("failed to find %q: %v", executable, err)
-		// The stat check is just an optimization so we go on anyway.
+		return "", false
 	}
-
-	// TODO(ericsnow) First fall back to following symlinks?
+	executable = resolved
+	initSystem, ok = identifyExecutable(executable)
+	if ok {
+		return initSystem, true
+	}
 
 	// Fall back to checking the "version" text.
 	cmd := exec.Command(executable, "--version")
@@ -184,31 +197,29 @@ function checkInitSystem() {
 }
 
 # Find the executable.
-executable=$(cat /proc/1/cmdline | awk -F"\0" '{print $1}')
-if [[ $? ]]; then
+executable=$(ps -p 1 -o cmd --no-headers | awk '{print $1}')
+if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
 # Check the executable.
-checkInitSystem($executable)
+checkInitSystem "$executable"
 
 # First fall back to following symlinks.
 if [[ -L $executable ]]; then
-    linked=$(readlink "$(executable)")
-    if [[ ! $? ]]; then
+    linked=$(readlink -f "$executable")
+    if [[ $? -eq 0 ]]; then
         executable=$linked
-    fi
 
-    # Check the linked executable.
-    checkInitSystem($executable)
+        # Check the linked executable.
+        checkInitSystem "$linked"
+    fi
 fi
 
 # Fall back to checking the "version" text.
 verText=$("${executable}" --version)
-if [[ $? ]]; then
-    exit 1
-else
-    checkInitSystem($verText)
+if [[ $? -eq 0 ]]; then
+    checkInitSystem "$verText"
 fi
 
 # uh-oh
@@ -226,25 +237,25 @@ EOF`[1:], filename, DiscoverInitSystemScript),
 	}
 }
 
-const caseLine = "%sif [[ $init_system == %q ]]; then %s\n"
+const caseLine = "%sif [[ $%s == \"%s\" ]]; then %s\n"
 
 // newShellSelectCommand creates a bash if statement with an if
 // (or elif) clause for each of the executables in linuxExecutables.
 // The body of each clause comes from calling the provided handler with
 // the init system name. If the handler does not support the args then
 // it returns a false "ok" value.
-func newShellSelectCommand(discoverScript string, handler func(string) (string, bool)) string {
+func newShellSelectCommand(envVarName string, handler func(string) (string, bool)) string {
 	// TODO(ericsnow) Build the command in a better way?
 	// TODO(ericsnow) Use a case statement?
 
-	prefix := "init_system=$(" + discoverScript + ") "
+	prefix := ""
 	lines := ""
 	for _, initSystem := range linuxInitSystems {
 		cmd, ok := handler(initSystem)
 		if !ok {
 			continue
 		}
-		lines += fmt.Sprintf(caseLine, prefix, initSystem, cmd)
+		lines += fmt.Sprintf(caseLine, prefix, envVarName, initSystem, cmd)
 
 		if prefix != "el" {
 			prefix = "el"

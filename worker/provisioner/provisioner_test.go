@@ -38,6 +38,8 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
+	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -829,24 +831,24 @@ func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.
 
 func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C) {
 	// Set up a persistent pool.
+	registry.RegisterProvider("static", &dummystorage.StorageProvider{IsDynamic: false})
+	registry.RegisterEnvironStorageProviders("dummy", "static")
+	defer registry.RegisterProvider("static", nil)
 	poolManager := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := poolManager.Create("persistent-pool", "dummy", map[string]interface{}{"persistent": true})
+	_, err := poolManager.Create("persistent-pool", "static", map[string]interface{}{"persistent": true})
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := s.newEnvironProvisioner(c)
 	defer p.Stop()
 
 	// Add and provision a machine with volumes specified.
-	requestedVolumes := []state.MachineVolumeParams{
-		{
-			Volume:     state.VolumeParams{Pool: "loop", Size: 1024},
-			Attachment: state.VolumeAttachmentParams{},
-		},
-		{
-			Volume:     state.VolumeParams{Pool: "persistent-pool", Size: 2048},
-			Attachment: state.VolumeAttachmentParams{},
-		},
-	}
+	requestedVolumes := []state.MachineVolumeParams{{
+		Volume:     state.VolumeParams{Pool: "static", Size: 1024},
+		Attachment: state.VolumeAttachmentParams{},
+	}, {
+		Volume:     state.VolumeParams{Pool: "persistent-pool", Size: 2048},
+		Attachment: state.VolumeAttachmentParams{},
+	}}
 	cons := constraints.MustParse(s.defaultConstraints.String(), "networks=^net3,^net4")
 	expectVolumeInfo := []storage.Volume{{
 		Tag:  names.NewVolumeTag("1"),

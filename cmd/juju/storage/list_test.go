@@ -43,12 +43,12 @@ func (s *ListSuite) TestList(c *gc.C) {
 		// Default format is tabular
 		`
 [Storage]    
-UNIT         ID          LOCATION STATUS  
-postgresql/0 db-dir/1100          pending 
-transcode/0  db-dir/1000          pending 
-transcode/0  db-dir/1100          pending 
-transcode/0  shared-fs/0          pending 
-transcode/1  shared-fs/0          pending 
+UNIT         ID          LOCATION STATUS  PERSISTENT 
+postgresql/0 db-dir/1100          pending false      
+transcode/0  db-dir/1000          pending true       
+transcode/0  db-dir/1100          pending false      
+transcode/0  shared-fs/0          pending false      
+transcode/1  shared-fs/0          pending false      
 
 `[1:],
 		"",
@@ -65,24 +65,29 @@ postgresql/0:
     storage: db-dir
     kind: filesystem
     status: pending
+    persistent: false
 transcode/0:
   db-dir/1000:
     storage: db-dir
     kind: block
     status: pending
+    persistent: true
   db-dir/1100:
     storage: db-dir
     kind: filesystem
     status: pending
+    persistent: false
   shared-fs/0:
     storage: shared-fs
     kind: unknown
     status: pending
+    persistent: false
 transcode/1:
   shared-fs/0:
     storage: shared-fs
     kind: unknown
     status: pending
+    persistent: false
 `[1:],
 		"",
 	)
@@ -96,14 +101,14 @@ func (s *ListSuite) TestListOwnerStorageIdSort(c *gc.C) {
 		// Default format is tabular
 		`
 [Storage]    
-UNIT         ID          LOCATION STATUS  
-postgresql/0 db-dir/1100          pending 
-transcode/0  db-dir/1000          pending 
-transcode/0  db-dir/1100          pending 
-transcode/0  shared-fs/0          pending 
-transcode/0  shared-fs/5          pending 
-transcode/1  db-dir/1000          pending 
-transcode/1  shared-fs/0          pending 
+UNIT         ID          LOCATION STATUS  PERSISTENT 
+postgresql/0 db-dir/1100          pending false      
+transcode/0  db-dir/1000          pending true       
+transcode/0  db-dir/1100          pending false      
+transcode/0  shared-fs/0          pending false      
+transcode/0  shared-fs/5          pending false      
+transcode/1  db-dir/1000          pending true       
+transcode/1  shared-fs/0          pending false      
 
 `[1:],
 		`
@@ -156,6 +161,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 			Kind:       params.StorageKindUnknown,
 			Location:   "there",
 			Status:     "provisioned",
+			Persistent: true,
 		}, nil}}
 
 	if chaos {
@@ -184,6 +190,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 				UnitTag:    "unit-transcode-1",
 				Kind:       params.StorageKindFilesystem,
 				Status:     "attached",
+				Persistent: true,
 			}, nil}
 		results = append(results, last)
 		results = append(results, second)
@@ -232,6 +239,7 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 				UnitTag:    "unit-transcode-0",
 				Kind:       params.StorageKindBlock,
 				Status:     "pending",
+				Persistent: true,
 			}, nil}}
 
 	if chaos {
@@ -256,6 +264,7 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 				UnitTag:    "unit-transcode-1",
 				Kind:       params.StorageKindFilesystem,
 				Status:     "pending",
+				Persistent: true,
 			}, nil}
 		zero := params.StorageInfo{
 			params.StorageDetails{

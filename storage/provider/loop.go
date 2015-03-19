@@ -33,7 +33,8 @@ var _ storage.Provider = (*loopProvider)(nil)
 
 // ValidateConfig is defined on the Provider interface.
 func (lp *loopProvider) ValidateConfig(cfg *storage.Config) error {
-	return ValidateConfig(lp, cfg)
+	// Loop provider has no configuration.
+	return nil
 }
 
 // validateFullConfig validates a fully-constructed storage config,
@@ -82,6 +83,11 @@ func (*loopProvider) Supports(k storage.StorageKind) bool {
 // Scope is defined on the Provider interface.
 func (*loopProvider) Scope() storage.Scope {
 	return storage.ScopeMachine
+}
+
+// Dynamic is defined on the Provider interface.
+func (*loopProvider) Dynamic() bool {
+	return true
 }
 
 // loopVolumeSource provides common functionality to handle
