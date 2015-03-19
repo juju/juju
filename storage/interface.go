@@ -4,8 +4,6 @@
 package storage
 
 import (
-	"errors"
-
 	"github.com/juju/names"
 
 	"github.com/juju/juju/environs/config"
@@ -25,10 +23,6 @@ const (
 	ScopeEnviron Scope = iota
 	ScopeMachine
 )
-
-// ErrVolumeInstanceNotRunning is returned if an attempt is made to attach
-// a volume to an instance that is not running.
-var ErrVolumeInstanceNotRunning = errors.New("volumes can only be attached to running instances")
 
 // Provider is an interface for obtaining storage sources.
 type Provider interface {

@@ -311,9 +311,9 @@ func (s *ebsVolumeSuite) setupAttachVolumesTest(
 
 func (s *ebsVolumeSuite) TestAttachVolumesNotRunning(c *gc.C) {
 	vs := s.volumeSource(c, nil)
-	params := s.setupAttachVolumesTest(c, vs, "us-east-1", ec2test.Pending)
+	params := s.setupAttachVolumesTest(c, vs, "us-east-1c", ec2test.Pending)
 	_, err := vs.AttachVolumes(params)
-	c.Assert(errors.Cause(err), gc.Equals, storage.ErrVolumeInstanceNotRunning)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, ".* these instances are not running: i-3")
 }
 
 func (s *ebsVolumeSuite) TestAttachVolumesWrongZone(c *gc.C) {
@@ -321,15 +321,6 @@ func (s *ebsVolumeSuite) TestAttachVolumesWrongZone(c *gc.C) {
 	params := s.setupAttachVolumesTest(c, vs, "us-east-1", ec2test.Running)
 	_, err := vs.AttachVolumes(params)
 	c.Assert(err, gc.ErrorMatches, `.* volume availability zone "us-east-1" must match instance zone "us-east-1c" .*`)
-}
-
-func (s *ebsVolumeSuite) TestAttachVolumesAlreadyAttached(c *gc.C) {
-	vs := s.volumeSource(c, nil)
-	params := s.setupAttachVolumesTest(c, vs, "us-east-1c", ec2test.Running)
-	_, err := vs.AttachVolumes(params)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = vs.AttachVolumes(params)
-	c.Assert(err, gc.ErrorMatches, `.* Volume vol-0 is already attached .*`)
 }
 
 func (s *ebsVolumeSuite) TestAttachVolumes(c *gc.C) {
@@ -356,6 +347,17 @@ func (s *ebsVolumeSuite) TestAttachVolumes(c *gc.C) {
 		Device:     "/dev/sdf",
 		Status:     "attaching",
 	}})
+
+	// Test idempotent.
+	result, err = vs.AttachVolumes(params)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+	c.Assert(result[0], gc.Equals, storage.VolumeAttachment{
+		Volume:     names.NewVolumeTag("0"),
+		Machine:    names.NewMachineTag("1"),
+		DeviceName: "/dev/sdf",
+		ReadOnly:   false,
+	})
 }
 
 func (s *ebsVolumeSuite) TestDetachVolumes(c *gc.C) {
@@ -372,4 +374,8 @@ func (s *ebsVolumeSuite) TestDetachVolumes(c *gc.C) {
 	c.Assert(ec2Vols.Volumes, gc.HasLen, 2)
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(ec2Vols.Volumes[0].Attachments, gc.HasLen, 0)
+
+	// Test idempotent
+	err = vs.DetachVolumes(params)
+	c.Assert(err, jc.ErrorIsNil)
 }
