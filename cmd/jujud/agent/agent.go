@@ -28,13 +28,26 @@ import (
 )
 
 var (
-	apiOpen = api.Open
+	apiOpen = openAPIForAgent
 
 	checkProvisionedStrategy = utils.AttemptStrategy{
 		Total: 1 * time.Minute,
 		Delay: 5 * time.Second,
 	}
 )
+
+// openAPIForAgent exists to handle the edge case that exists
+// when an environment is jumping several versions and doesn't
+// yet have the environment UUID cached in the agent config.
+// This happens only the first time an agent tries to connect
+// after an upgrade.  If there is no environment UUID set, then
+// use login version 1.
+func openAPIForAgent(info *api.Info, opts api.DialOpts) (*api.State, error) {
+	if info.EnvironTag.Id() == "" {
+		return api.OpenWithVersion(info, opts, 1)
+	}
+	return api.Open(info, opts)
+}
 
 // AgentConf handles command-line flags shared by all agents.
 type AgentConf struct {
@@ -135,10 +148,6 @@ func isleep(d time.Duration, stop <-chan struct{}) bool {
 	case <-time.After(d):
 	}
 	return true
-}
-
-type apiOpener interface {
-	OpenAPI(api.DialOpts) (*api.State, string, error)
 }
 
 type configChanger func(c *agent.Config)
