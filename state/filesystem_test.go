@@ -98,7 +98,7 @@ func (s *FilesystemStateSuite) TestSetFilesystemInfoImmutable(c *gc.C) {
 	// either. Callers are expected to get the existing info and
 	// update it, leaving immutable values intact.
 	err = s.State.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfoSet)
-	c.Assert(err, gc.ErrorMatches, `cannot set info for filesystem "0/0": validating info change: cannot change pool from "loop-pool" to ""`)
+	c.Assert(err, gc.ErrorMatches, `cannot set info for filesystem "0/0": cannot change pool from "loop-pool" to ""`)
 
 	filesystemInfoSet.Pool = "loop-pool"
 	s.assertFilesystemInfo(c, filesystemTag, filesystemInfoSet)

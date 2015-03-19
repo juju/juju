@@ -507,7 +507,7 @@ func (st *State) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (err error)
 				return nil, err
 			}
 			if err := validateVolumeInfoChange(info, oldInfo); err != nil {
-				return nil, errors.Annotate(err, "validating info change")
+				return nil, err
 			}
 		}
 		ops := setVolumeInfoOps(tag, info, unsetParams)

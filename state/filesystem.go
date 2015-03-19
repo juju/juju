@@ -459,7 +459,7 @@ func (st *State) SetFilesystemInfo(tag names.FilesystemTag, info FilesystemInfo)
 				return nil, err
 			}
 			if err := validateFilesystemInfoChange(info, oldInfo); err != nil {
-				return nil, errors.Annotate(err, "validating info change")
+				return nil, err
 			}
 		}
 		ops := setFilesystemInfoOps(tag, info, unsetParams)
