@@ -68,7 +68,9 @@ func (c *Converter) Handle() error {
 				return errors.Trace(err)
 			}
 			// change agentConfig too?
-			// restart juju
+
+			// restart juju, probably a better way?
+			return worker.ErrRebootMachine
 		}
 	}
 	return nil
