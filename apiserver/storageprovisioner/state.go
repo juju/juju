@@ -13,12 +13,14 @@ import (
 
 type provisionerState interface {
 	state.EntityFinder
+	WatchEnvironFilesystemAttachments() state.StringsWatcher
+	WatchMachineFilesystemAttachments(names.MachineTag) state.StringsWatcher
+	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
 	MachineInstanceId(names.MachineTag) (instance.Id, error)
 	WatchEnvironVolumes() state.StringsWatcher
 	WatchEnvironVolumeAttachments() state.StringsWatcher
 	WatchMachineVolumes(names.MachineTag) state.StringsWatcher
 	WatchMachineVolumeAttachments(names.MachineTag) state.StringsWatcher
-	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
 	Volume(names.VolumeTag) (state.Volume, error)
 	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 	VolumeAttachments(names.VolumeTag) ([]state.VolumeAttachment, error)

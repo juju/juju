@@ -120,6 +120,32 @@ func (s *provisionerSuite) setupVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *provisionerSuite) setupFilesystems(c *gc.C) {
+	s.factory.MakeMachine(c, &factory.MachineParams{
+		InstanceId: instance.Id("inst-id"),
+		Filesystems: []state.MachineFilesystemParams{
+			{Filesystem: state.FilesystemParams{Pool: "machinescoped", Size: 1024}},
+			{Filesystem: state.FilesystemParams{Pool: "environscoped", Size: 2048}},
+			{Filesystem: state.FilesystemParams{Pool: "environscoped", Size: 4096}},
+		},
+	})
+
+	// Make a machine without storage for tests to use.
+	s.factory.MakeMachine(c, nil)
+
+	// Make an unprovisioned machine with storage for tests to use.
+	// TODO(axw) extend testing/factory to allow creating unprovisioned
+	// machines.
+	_, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Filesystems: []state.MachineFilesystemParams{{
+			Filesystem: state.FilesystemParams{Pool: "environscoped", Size: 2048},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *provisionerSuite) TestVolumesMachine(c *gc.C) {
 	s.setupVolumes(c)
 	s.authorizer.EnvironManager = false
@@ -393,6 +419,70 @@ func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 				}, {
 					MachineTag:    "machine-2",
 					AttachmentTag: "volume-3",
+				}},
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 2)
+	v0Watcher := s.resources.Get("1")
+	defer statetesting.AssertStop(c, v0Watcher)
+	v1Watcher := s.resources.Get("2")
+	defer statetesting.AssertStop(c, v1Watcher)
+
+	// Check that the Watch has consumed the initial events ("returned" in
+	// the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, v0Watcher.(state.StringsWatcher))
+	wc.AssertNoChange()
+	wc = statetesting.NewStringsWatcherC(c, s.State, v1Watcher.(state.StringsWatcher))
+	wc.AssertNoChange()
+}
+
+func (s *provisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
+	s.setupFilesystems(c)
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{"machine-0"},
+		{s.State.EnvironTag().String()},
+		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
+		{"machine-1"},
+		{"machine-42"}},
+	}
+	result, err := s.api.WatchFilesystemAttachments(args)
+	c.Assert(err, jc.ErrorIsNil)
+	sort.Sort(byMachineAndEntity(result.Results[0].Changes))
+	sort.Sort(byMachineAndEntity(result.Results[1].Changes))
+	c.Assert(result, jc.DeepEquals, params.MachineStorageIdsWatchResults{
+		Results: []params.MachineStorageIdsWatchResult{
+			{
+				MachineStorageIdsWatcherId: "1",
+				Changes: []params.MachineStorageId{{
+					MachineTag:    "machine-0",
+					AttachmentTag: "filesystem-0-0",
+				}, {
+					MachineTag:    "machine-0",
+					AttachmentTag: "filesystem-1",
+				}, {
+					MachineTag:    "machine-0",
+					AttachmentTag: "filesystem-2",
+				}},
+			},
+			{
+				MachineStorageIdsWatcherId: "2",
+				Changes: []params.MachineStorageId{{
+					MachineTag:    "machine-0",
+					AttachmentTag: "filesystem-1",
+				}, {
+					MachineTag:    "machine-0",
+					AttachmentTag: "filesystem-2",
+				}, {
+					MachineTag:    "machine-2",
+					AttachmentTag: "filesystem-3",
 				}},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
