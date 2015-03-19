@@ -6,6 +6,7 @@ package addresser
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
@@ -69,7 +70,19 @@ func (a *addresserWorker) killAll(err error) {
 }
 
 func (a *addresserWorker) checkAddresses(ids []string) error {
-
+	for _, id := range ids {
+		addr, err := a.st.IPAddress(id)
+		if err != nil {
+			return err
+		}
+		if addr.Life() != state.Dead {
+			continue
+		}
+		err = addr.Remove()
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -83,6 +96,29 @@ func watchAddressesLoop(addresser *addresserWorker, w state.StringsWatcher) (err
 			}
 		}
 	}()
+
+	dead, err := addresser.st.DeadIPAddresses()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	deadQueue := make(chan *state.IPAddress, len(dead))
+	for _, deadAddr := range dead {
+		deadQueue <- deadAddr
+	}
+	go func() {
+		select {
+		case addr := <-deadQueue:
+			err := addr.Remove()
+			if err != nil {
+				logger.Warningf("error releasing dead IP address %q: %v", addr, err)
+			}
+		case <-addresser.dying():
+			return
+		default:
+			return
+		}
+	}()
+
 	for {
 		select {
 		case ids, ok := <-w.Changes():
