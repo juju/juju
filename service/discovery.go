@@ -187,13 +187,19 @@ func identifyExecutable(executable string) (string, bool) {
 const DiscoverInitSystemScript = `#!/usr/bin/env bash
 
 function checkInitSystem() {
-    if [[ $1 == *"systemd"* ]]; then
+    case "$1" in
+    *"systemd"*)
         echo -n systemd
         exit $?
-    elif [[ $1 == *"upstart"* ]]; then
+        ;;
+    *"upstart"*)
         echo -n upstart
         exit $?
-    fi
+        ;;
+    *)
+        # Do nothing and continue.
+        ;;
+    esac
 }
 
 # Find the executable.
