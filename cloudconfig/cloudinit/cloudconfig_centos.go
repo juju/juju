@@ -221,15 +221,11 @@ func (cfg *CentOSCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 
 func (cfg *CentOSCloudConfig) updatePackages() {
 	list := []string{
+		"epel-release",
 		"curl",
-		"cpu-checker",
-		// TODO(axw) 2014-07-02 #1277359
-		// Don't install bridge-utils in cloud-init;
-		// leave it to the networker worker.
 		"bridge-utils",
 		"rsyslog-gnutls",
 		"cloud-utils",
-		"cloud-image-utils",
 	}
 	cfg.common.updatePackagesCommon(cfg, list, cfg.series)
 }
