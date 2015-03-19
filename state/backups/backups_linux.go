@@ -24,17 +24,17 @@ import (
 // * updates existing db entries to make sure they hold no references to
 // old instances
 // * updates config in all agents.
-func (b *backups) Restore(backupId string, args RestoreArgs) error {
+func (b *backups) Restore(backupId string, args RestoreArgs) (string, error) {
 	meta, backupReader, err := b.Get(backupId)
 	if err != nil {
-		return errors.Annotatef(err, "could not fetch backup %q", backupId)
+		return "", errors.Annotatef(err, "could not fetch backup %q", backupId)
 	}
 
 	defer backupReader.Close()
 
 	workspace, err := NewArchiveWorkspaceReader(backupReader)
 	if err != nil {
-		return errors.Annotate(err, "cannot unpack backup file")
+		return "", errors.Annotate(err, "cannot unpack backup file")
 	}
 	defer workspace.Close()
 
@@ -44,33 +44,28 @@ func (b *backups) Restore(backupId string, args RestoreArgs) error {
 
 	// delete all the files to be replaced
 	if err := PrepareMachineForRestore(); err != nil {
-		return errors.Annotate(err, "cannot delete existing files")
+		return "", errors.Annotate(err, "cannot delete existing files")
 	}
 
 	if err := workspace.UnpackFilesBundle(filesystemRoot()); err != nil {
-		return errors.Annotate(err, "cannot obtain system files from backup")
+		return "", errors.Annotate(err, "cannot obtain system files from backup")
 	}
-
-	//if err := updateBackupMachineTag(backupMachine, args.NewInstTag); err != nil {
-	//	return errors.Annotate(err, "cannot update paths to reflect current machine id")
-	//}
 
 	var agentConfig agent.ConfigSetterWriter
 	// The path for the config file might change if the tag changed
 	// and also the rest of the path, so we assume as little as possible.
 	datadir, err := paths.DataDir(args.NewInstSeries)
 	if err != nil {
-		return errors.Annotate(err, "cannot determine DataDir for the restored machine")
+		return "", errors.Annotate(err, "cannot determine DataDir for the restored machine")
 	}
 	agentConfigFile := agent.ConfigPath(datadir, backupMachine)
 	if agentConfig, err = agent.ReadConfig(agentConfigFile); err != nil {
-		return errors.Annotate(err, "cannot load agent config from disk")
+		return "", errors.Annotate(err, "cannot load agent config from disk")
 	}
 	ssi, ok := agentConfig.StateServingInfo()
 	if !ok {
-		return errors.Errorf("cannot determine state serving info")
+		return "", errors.Errorf("cannot determine state serving info")
 	}
-	// The machine tag might have changed, we update it.
 	APIHostPort := network.HostPort{
 		Address: network.Address{
 			Value: args.PrivateAddress,
@@ -79,51 +74,51 @@ func (b *backups) Restore(backupId string, args RestoreArgs) error {
 		Port: ssi.APIPort}
 	agentConfig.SetAPIHostPorts([][]network.HostPort{{APIHostPort}})
 	if err := agentConfig.Write(); err != nil {
-		return errors.Annotate(err, "cannot write new agent configuration")
+		return "", errors.Annotate(err, "cannot write new agent configuration")
 	}
 
 	// Restore mongodb from backup
 	if err := placeNewMongo(workspace.DBDumpDir, version); err != nil {
-		return errors.Annotate(err, "error restoring state from backup")
+		return "", errors.Annotate(err, "error restoring state from backup")
 	}
 
 	// Re-start replicaset with the new value for server address
 	dialInfo, err := newDialInfo(args.PrivateAddress, agentConfig)
 	if err != nil {
-		return errors.Annotate(err, "cannot produce dial information")
+		return "", errors.Annotate(err, "cannot produce dial information")
 	}
 
 	memberHostPort := fmt.Sprintf("%s:%d", args.PrivateAddress, ssi.StatePort)
 	err = resetReplicaSet(dialInfo, memberHostPort)
 	if err != nil {
-		return errors.Annotate(err, "cannot reset replicaSet")
+		return "", errors.Annotate(err, "cannot reset replicaSet")
 	}
 
-	err = updateMongoEntries(args.NewInstId, args.NewInstTag.Id(), backupMachine.Id(), dialInfo)
+	err = updateMongoEntries(args.NewInstId, backupMachine.Id(), dialInfo)
 	if err != nil {
-		return errors.Annotate(err, "cannot update mongo entries")
+		return "", errors.Annotate(err, "cannot update mongo entries")
 	}
 
 	// From here we work with the restored state server
 	mgoInfo, ok := agentConfig.MongoInfo()
 	if !ok {
-		return errors.Errorf("cannot retrieve info to connect to mongo")
+		return "", errors.Errorf("cannot retrieve info to connect to mongo")
 	}
 
 	st, err := newStateConnection(mgoInfo)
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	defer st.Close()
 
 	machine, err := st.Machine(backupMachine.Id())
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	err = updateMachineAddresses(machine, args.PrivateAddress, args.PublicAddress)
 	if err != nil {
-		return errors.Annotate(err, "cannot update api server machine addresses")
+		return "", errors.Annotate(err, "cannot update api server machine addresses")
 	}
 
 	// update all agents known to the new state server.
@@ -132,21 +127,20 @@ func (b *backups) Restore(backupId string, args RestoreArgs) error {
 	// agent update failures
 	machines, err := st.AllMachines()
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	if err = updateAllMachines(args.PrivateAddress, machines); err != nil {
-		return errors.Annotate(err, "cannot update agents")
+		return "", errors.Annotate(err, "cannot update agents")
 	}
 
 	info, err := st.RestoreInfoSetter()
-
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	// Mark restoreInfo as Finished so upon restart of the apiserver
 	// the client can reconnect and determine if we where succesful.
 	err = info.SetStatus(state.RestoreFinished)
 
-	return errors.Annotate(err, "failed to set status to finished")
+	return backupMachine.Tag().String(), errors.Annotate(err, "failed to set status to finished")
 }

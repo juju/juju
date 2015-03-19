@@ -4,6 +4,7 @@
 package backups
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/juju/errors"
@@ -12,10 +13,11 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/utils"
 )
 
 // Restore implements the server side of Backups.Restore.
-func (a *API) Restore(p params.RestoreArgs) error {
+func (a *API) Restore(p params.RestoreArgs) (string, error) {
 
 	// Get hold of a backup file Reader
 	backup, closer := newBackups(a.st)
@@ -57,17 +59,27 @@ func (a *API) Restore(p params.RestoreArgs) error {
 
 	logger.Infof("beginning server side restore of backup %q", p.BackupId)
 	// Restore
+	newMachineTag := machine.Tag()
 	restoreArgs := backups.RestoreArgs{
 		PrivateAddress: addr,
 		PublicAddress:  publicAddress,
 		NewInstId:      instanceId,
-		NewInstTag:     machine.Tag(),
+		NewInstTag:     newMachineTag,
 		NewInstSeries:  machine.Series(),
 	}
-	if err := backup.Restore(p.BackupId, restoreArgs); err != nil {
+	err, oldMachineTagString := backup.Restore(p.BackupId, restoreArgs)
+	if err != nil {
 		return errors.Annotate(err, "restore failed")
 	}
 
+	if oldMachineTagString != "machine-0" {
+		err = utils.RunCommand("initctl", "start", fmt.Sprintf("jujud-%s", oldMachineTagString))
+		if err != nil {
+			return errors.Annotate(err, "failed to start the restored juju")
+		}
+		// We dont want machine-0 to restart since the new one has a different tag.
+		os.Exit(0)
+	}
 	// After restoring, the api server needs a forced restart, tomb will not work
 	// this is because we change all of juju configuration files and mongo too.
 	// Exiting with 0 would prevent upstart to respawn the process
