@@ -259,6 +259,7 @@ exec 2>&1
 	})
 	// This gives us a more readable output if they aren't equal.
 	c.Check(string(service.Script), gc.Equals, script)
+	c.Check(strings.Split(string(service.Script), "\n"), jc.DeepEquals, strings.Split(script, "\n"))
 }
 
 func (s *initSystemSuite) TestNewServiceEmptyConf(c *gc.C) {

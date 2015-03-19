@@ -34,19 +34,6 @@ var limitMap = map[string]string{
 	"stack":      "LimitSTACK",
 }
 
-// TODO(ericsnow) We should drop the assumption that the logfile is syslog.
-
-const logAll = `
-# Set up logging.
-touch %[1]s
-chown syslog:syslog %[1]s
-chmod 0600 %[1]s
-exec > %[1]s
-exec 2>&1
-
-# Run the script.
-%[2]s`
-
 // TODO(ericsnow) Move to common.Conf.Normalize.
 
 // normalize adjusts the conf to more standardized content and
@@ -56,9 +43,23 @@ func normalize(name string, conf common.Conf, scriptPath string, renderer shell.
 	var data []byte
 
 	if conf.Logfile != "" {
-		// TODO(ericsnow) Use commands.Chmod, Chown, and RedirectOutput.
-		filename := renderer.Quote(conf.Logfile)
-		conf.ExecStart = fmt.Sprintf(logAll[1:], filename, conf.ExecStart)
+		filename := conf.Logfile
+		lines := []string{
+			"# Set up logging.",
+		}
+		lines = append(lines, renderer.Touch(filename, nil)...)
+		// TODO(ericsnow) We should drop the assumption that the logfile
+		// is syslog.
+		lines = append(lines, renderer.Chown(filename, "syslog", "syslog")...)
+		lines = append(lines, renderer.Chmod(filename, 0600)...)
+		lines = append(lines, renderer.RedirectOutput(filename)...)
+		lines = append(lines, renderer.RedirectFD("out", "err")...)
+		lines = append(lines,
+			"",
+			"# Run the script.",
+			conf.ExecStart,
+		)
+		conf.ExecStart = strings.Join(lines, "\n")
 		// We leave conf.Logfile alone (it will be ignored during validation).
 	}
 
