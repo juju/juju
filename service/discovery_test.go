@@ -39,6 +39,7 @@ type discoveryTest struct {
 	os       version.OSType
 	series   string
 	exec     string
+	link     string
 	expected string
 }
 
@@ -79,12 +80,13 @@ func (dt discoveryTest) executable(c *gc.C) string {
 }
 
 func (dt discoveryTest) log(c *gc.C) {
-	c.Logf("testing {%q, %q, %q}...", dt.os, dt.series, dt.exec)
+	c.Logf(" - testing {%q, %q, %q, %q}...", dt.os, dt.series, dt.exec, dt.link)
 }
 
 func (dt discoveryTest) disableLocalDiscovery(c *gc.C, s *discoverySuite) {
 	s.PatchGOOS("<another OS>")
 	s.PatchPid1File(c, unknownExecutable, "")
+	s.Patched.NotASymlink = unknownExecutable
 }
 
 func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
@@ -95,8 +97,15 @@ func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
 
 func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) string {
 	s.PatchGOOS(dt.goos())
+	exec := dt.executable(c)
+	if dt.link != "" {
+		s.PatchLink(c, exec)
+		exec = dt.link
+	} else {
+		s.Patched.NotASymlink = exec
+	}
 	verText := "..." + dt.expected + "..."
-	return s.PatchPid1File(c, dt.executable(c), verText)
+	return s.PatchPid1File(c, exec, verText)
 }
 
 func (dt discoveryTest) setVersion(s *discoverySuite) version.Binary {
@@ -158,12 +167,22 @@ var discoveryTests = []discoveryTest{{
 	expected: service.InitSystemUpstart,
 }, {
 	os:       version.Ubuntu,
+	series:   "precise",
+	link:     "/sbin/init",
+	expected: service.InitSystemUpstart,
+}, {
+	os:       version.Ubuntu,
 	series:   "utopic",
 	expected: service.InitSystemUpstart,
 }, {
 	os:       version.Ubuntu,
 	series:   "vivid",
 	expected: maybeSystemd,
+}, {
+	os:       version.Ubuntu,
+	series:   "vivid",
+	link:     "/sbin/init",
+	expected: service.InitSystemSystemd,
 }, {
 	os:       version.CentOS,
 	expected: "",
@@ -233,7 +252,7 @@ func (s *discoverySuite) TestDiscoverServiceGeneric(c *gc.C) {
 	test := discoveryTest{
 		os:       version.Ubuntu,
 		series:   "trusty",
-		exec:     "/sbin/init",
+		link:     "/sbin/init",
 		expected: service.InitSystemUpstart,
 	}
 
@@ -348,7 +367,6 @@ func (s *discoverySuite) TestNewShellSelectCommand(c *gc.C) {
 	}
 	script += "init_system=$(" + filename + ")\n"
 	script += service.NewShellSelectCommand("init_system", handler)
-	c.Logf(script)
 	response, err := exec.RunCommands(exec.RunParams{
 		Commands: script,
 	})
