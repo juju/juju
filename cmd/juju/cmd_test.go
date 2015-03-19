@@ -281,17 +281,6 @@ func (*CmdSuite) TestSCPCommandInit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "at least two arguments required")
 }
 
-func initGetCommand(args ...string) (*GetCommand, error) {
-	com := &GetCommand{}
-	return com, coretesting.InitCommand(com, args)
-}
-
-func (*CmdSuite) TestGetCommandInit(c *gc.C) {
-	// missing args
-	_, err := initGetCommand()
-	c.Assert(err, gc.ErrorMatches, "no service name specified")
-}
-
 func initRemoveUnitCommand(args ...string) (*RemoveUnitCommand, error) {
 	com := &RemoveUnitCommand{}
 	return com, coretesting.InitCommand(com, args)
