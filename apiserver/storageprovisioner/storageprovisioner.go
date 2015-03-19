@@ -147,6 +147,20 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 // WatchVolumes watches for changes to volumes scoped to the
 // entity with the tag passed to NewState.
 func (s *StorageProvisionerAPI) WatchVolumes(args params.Entities) (params.StringsWatchResults, error) {
+	return s.watchStorage(args, s.st.WatchEnvironVolumes, s.st.WatchMachineVolumes)
+}
+
+// WatchFilesystems watches for changes to filesystems scoped
+// to the entity with the tag passed to NewState.
+func (s *StorageProvisionerAPI) WatchFilesystems(args params.Entities) (params.StringsWatchResults, error) {
+	return s.watchStorage(args, s.st.WatchEnvironFilesystems, s.st.WatchMachineFilesystems)
+}
+
+func (s *StorageProvisionerAPI) watchStorage(
+	args params.Entities,
+	watchEnvironStorage func() state.StringsWatcher,
+	watchMachineStorage func(names.MachineTag) state.StringsWatcher,
+) (params.StringsWatchResults, error) {
 	canAccess, err := s.getScopeAuthFunc()
 	if err != nil {
 		return params.StringsWatchResults{}, common.ServerError(common.ErrPerm)
@@ -161,9 +175,9 @@ func (s *StorageProvisionerAPI) WatchVolumes(args params.Entities) (params.Strin
 		}
 		var w state.StringsWatcher
 		if tag, ok := tag.(names.MachineTag); ok {
-			w = s.st.WatchMachineVolumes(tag)
+			w = watchMachineStorage(tag)
 		} else {
-			w = s.st.WatchEnvironVolumes()
+			w = watchEnvironStorage()
 		}
 		if changes, ok := <-w.Changes(); ok {
 			return s.resources.Register(w), changes, nil

@@ -442,6 +442,51 @@ func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *provisionerSuite) TestWatchFilesystems(c *gc.C) {
+	s.setupFilesystems(c)
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{"machine-0"},
+		{s.State.EnvironTag().String()},
+		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
+		{"machine-1"},
+		{"machine-42"}},
+	}
+	result, err := s.api.WatchFilesystems(args)
+	c.Assert(err, jc.ErrorIsNil)
+	sort.Strings(result.Results[1].Changes)
+	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{
+				StringsWatcherId: "1",
+				Changes:          []string{"0/0"},
+			},
+			{
+				StringsWatcherId: "2",
+				Changes:          []string{"1", "2", "3"},
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 2)
+	v0Watcher := s.resources.Get("1")
+	defer statetesting.AssertStop(c, v0Watcher)
+	v1Watcher := s.resources.Get("2")
+	defer statetesting.AssertStop(c, v1Watcher)
+
+	// Check that the Watch has consumed the initial events ("returned" in
+	// the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, v0Watcher.(state.StringsWatcher))
+	wc.AssertNoChange()
+	wc = statetesting.NewStringsWatcherC(c, s.State, v1Watcher.(state.StringsWatcher))
+	wc.AssertNoChange()
+}
+
 func (s *provisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 	s.setupFilesystems(c)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
