@@ -316,8 +316,8 @@ type FilesystemAttachmentParams struct {
 	MachineTag    string `json:"machinetag"`
 	InstanceId    string `json:"instanceid,omitempty"`
 	FilesystemId  string `json:"filesystemid,omitempty"`
-	MountPoint    string `json:"mountpoint,omitempty"`
 	Provider      string `json:"provider"`
+	MountPoint    string `json:"mountpoint,omitempty"`
 }
 
 // FilesystemAttachmentResult holds the details of a single filesystem attachment,

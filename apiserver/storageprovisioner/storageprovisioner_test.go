@@ -123,11 +123,14 @@ func (s *provisionerSuite) setupVolumes(c *gc.C) {
 func (s *provisionerSuite) setupFilesystems(c *gc.C) {
 	s.factory.MakeMachine(c, &factory.MachineParams{
 		InstanceId: instance.Id("inst-id"),
-		Filesystems: []state.MachineFilesystemParams{
-			{Filesystem: state.FilesystemParams{Pool: "machinescoped", Size: 1024}},
-			{Filesystem: state.FilesystemParams{Pool: "environscoped", Size: 2048}},
-			{Filesystem: state.FilesystemParams{Pool: "environscoped", Size: 4096}},
-		},
+		Filesystems: []state.MachineFilesystemParams{{
+			Filesystem: state.FilesystemParams{Pool: "machinescoped", Size: 1024},
+			Attachment: state.FilesystemAttachmentParams{Location: "/srv"},
+		}, {
+			Filesystem: state.FilesystemParams{Pool: "environscoped", Size: 2048},
+		}, {
+			Filesystem: state.FilesystemParams{Pool: "environscoped", Size: 4096},
+		}},
 	})
 
 	// Only provision the first and third filesystems.
@@ -265,6 +268,46 @@ func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
 	})
 }
 
+func (s *provisionerSuite) TestFilesystemAttachments(c *gc.C) {
+	s.setupFilesystems(c)
+	s.authorizer.EnvironManager = false
+
+	err := s.State.SetFilesystemAttachmentInfo(
+		names.NewMachineTag("0"),
+		names.NewFilesystemTag("0/0"),
+		state.FilesystemAttachmentInfo{MountPoint: "/srv"},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := s.api.FilesystemAttachments(params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    "machine-0",
+			AttachmentTag: "filesystem-0-0",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "filesystem-2", // filesystem attachment not provisioned
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "filesystem-42",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.FilesystemAttachmentResults{
+		Results: []params.FilesystemAttachmentResult{
+			{Result: params.FilesystemAttachment{
+				FilesystemTag: "filesystem-0-0",
+				MachineTag:    "machine-0",
+				MountPoint:    "/srv",
+			}},
+			{Error: &params.Error{
+				Code:    params.CodeNotProvisioned,
+				Message: `filesystem attachment "2" on "0" not provisioned`,
+			}},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+		},
+	})
+}
+
 func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 	s.setupVolumes(c)
 	results, err := s.api.VolumeParams(params.Entities{
@@ -347,6 +390,49 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 			{Error: &params.Error{
 				Code:    params.CodeNotProvisioned,
 				Message: `volume "1" not provisioned`,
+			}},
+			{Error: &params.Error{
+				Code:    params.CodeNotProvisioned,
+				Message: `machine 2 not provisioned`,
+			}},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
+	s.setupFilesystems(c)
+	s.authorizer.EnvironManager = true
+
+	results, err := s.api.FilesystemAttachmentParams(params.MachineStorageIds{
+		Ids: []params.MachineStorageId{{
+			MachineTag:    "machine-0",
+			AttachmentTag: "filesystem-0-0",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "filesystem-1",
+		}, {
+			MachineTag:    "machine-2",
+			AttachmentTag: "filesystem-3",
+		}, {
+			MachineTag:    "machine-0",
+			AttachmentTag: "filesystem-42",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.FilesystemAttachmentParamsResults{
+		Results: []params.FilesystemAttachmentParamsResult{
+			{Result: params.FilesystemAttachmentParams{
+				MachineTag:    "machine-0",
+				FilesystemTag: "filesystem-0-0",
+				InstanceId:    "inst-id",
+				FilesystemId:  "abc",
+				Provider:      "machinescoped",
+				MountPoint:    "/srv",
+			}},
+			{Error: &params.Error{
+				Code:    params.CodeNotProvisioned,
+				Message: `filesystem "1" not provisioned`,
 			}},
 			{Error: &params.Error{
 				Code:    params.CodeNotProvisioned,
