@@ -27,6 +27,8 @@ const (
 	NonceFile = "nonce.txt"
 )
 
+// UserdataConfig is the bridge between instancecfg and cloudinit
+// It supports different levels of configuration for instances
 type UserdataConfig interface {
 	// Configure is a convenience function that updates the cloudinit.Config
 	// with appropriate configuration. It will run ConfigureBasic() and
@@ -38,11 +40,11 @@ type UserdataConfig interface {
 	// ConfigureJuju updates the provided cloudinit.Config with configuration
 	// to initialise a Juju machine agent.
 	ConfigureJuju() error
-	// Render renders the cloudinit/cloudbase-init userdata needed to initialize
-	// the juju agent
-	Render() ([]byte, error)
 }
 
+// UserdataConfig is supposed to take in an instanceConfig as well as a
+// cloudinit.cloudConfig and add attributes in the cloudinit structure based on
+// the values inside instanceConfig and on the series
 func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudConfig) (UserdataConfig, error) {
 	// TODO(ericsnow) bug #1426217
 	// Protect icfg and conf better.
@@ -52,6 +54,7 @@ func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudCon
 	}
 
 	base := baseConfigure{
+		tag:  names.NewMachineTag(icfg.MachineId),
 		icfg: icfg,
 		conf: conf,
 		os:   operatingSystem,
@@ -70,35 +73,10 @@ func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudCon
 }
 
 type baseConfigure struct {
-	icfg     *instancecfg.InstanceConfig
-	conf     cloudinit.CloudConfig
-	renderer cloudinit.Renderer
-	os       version.OSType
-}
-
-func (c *baseConfigure) init() error {
-	renderer, err := cloudinit.NewRenderer(c.icfg.Series)
-	if err != nil {
-		return err
-	}
-	c.renderer = renderer
-	return nil
-}
-
-// addAgentInfo adds agent-required information to the agent's directory
-// and returns the agent directory name.
-func (c *baseConfigure) addAgentInfo() (agent.Config, error) {
-	acfg, err := c.mcfg.agentConfig(c.tag, c.mcfg.Tools.Version.Number)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	acfg.SetValue(agent.AgentServiceName, c.mcfg.MachineAgentServiceName)
-	cmds, err := acfg.WriteCommands(c.conf.ShellRenderer)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to write commands")
-	}
-	c.conf.AddScripts(cmds...)
-	return acfg, nil
+	tag  names.Tag
+	icfg *instancecfg.InstanceConfig
+	conf cloudinit.CloudConfig
+	os   version.OSType
 }
 
 // addAgentInfo adds agent-required information to the agent's directory
@@ -109,7 +87,7 @@ func (c *baseConfigure) addAgentInfo(tag names.Tag) (agent.Config, error) {
 		return nil, err
 	}
 	acfg.SetValue(agent.AgentServiceName, c.icfg.MachineAgentServiceName)
-	cmds, err := acfg.WriteCommands(c.icfg.Series)
+	cmds, err := acfg.WriteCommands(c.conf.ShellRenderer())
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to write commands")
 	}
@@ -117,8 +95,8 @@ func (c *baseConfigure) addAgentInfo(tag names.Tag) (agent.Config, error) {
 	return acfg, nil
 }
 
-func (c *baseConfigure) addMachineAgentToBoot(name string) error {
-	svc, toolsDir, err := c.icfg.InitService()
+func (c *baseConfigure) addMachineAgentToBoot() error {
+	svc, err := c.icfg.InitService(c.conf.ShellRenderer())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -126,7 +104,7 @@ func (c *baseConfigure) addMachineAgentToBoot(name string) error {
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the init script.
-	toolsDir := c.mcfg.toolsDir(c.conf.ShellRenderer)
+	toolsDir := c.icfg.ToolsDir(c.conf.ShellRenderer())
 	c.conf.AddScripts(c.toolsSymlinkCommand(toolsDir))
 
 	name := c.tag.String()
@@ -154,7 +132,7 @@ func (c *baseConfigure) toolsSymlinkCommand(toolsDir string) string {
 	case version.Windows:
 		return fmt.Sprintf(
 			`cmd.exe /C mklink /D %s %v`,
-			c.renderer.FromSlash(toolsDir),
+			c.conf.ShellRenderer().FromSlash(toolsDir),
 			c.icfg.Tools.Version,
 		)
 	default:

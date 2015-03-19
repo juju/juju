@@ -4,7 +4,7 @@ package providerinit_test
 
 import (
 	"path"
-	gotesting "testing"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names"
@@ -31,13 +31,12 @@ import (
 	"github.com/juju/juju/version"
 )
 
-func Test(t *gotesting.T) {
+func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
 // dummySampleConfig returns the dummy sample config without
 // the state server configured.
-// will not run a state server.
 // This function also exists in environs/config_test
 // Maybe place it in dummy and export it?
 func dummySampleConfig() testing.Attrs {
@@ -292,7 +291,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		// Just check that the cloudinit config looks good,
 		// and that there are more runcmds than the additional
 		// ones we passed into ComposeUserData.
-		c.Check(config["apt_upgrade"], jc.IsTrue)
+		c.Check(config["package_upgrade"], jc.IsTrue)
 		c.Check(len(runCmd) > 2, jc.IsTrue)
 	}
 }

@@ -4,6 +4,8 @@
 
 package cloudinit_test
 
-import "github.com/juju/juju/cloudconfig/cloudinit"
+import (
+	"github.com/juju/juju/cloudconfig/cloudinit"
+)
 
 var _ cloudinit.CloudConfig = (*cloudinit.UbuntuCloudConfig)(nil)

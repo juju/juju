@@ -3,6 +3,4 @@
 
 package cloudconfig
 
-var (
-	ToolsDownloadCommand = toolsDownloadCommand
-)
+var ToolsDownloadCommand = toolsDownloadCommand

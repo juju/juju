@@ -9,13 +9,14 @@ import (
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/apt"
+	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type prereqsSuite struct {
@@ -61,7 +62,10 @@ func (s *prereqsSuite) SetUpTest(c *gc.C) {
 	// simulate package installation query responses.
 	err = symlink.New("/bin/true", filepath.Join(s.tmpdir, "dpkg-query"))
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(&isPackageInstalled, apt.IsPackageInstalled)
+	s.PatchValue(&isPackageInstalled, func(pack string) bool {
+		pacman, _ := manager.NewPackageManager(version.Current.Series)
+		return pacman.IsInstalled(pack)
+	})
 }
 
 func (*prereqsSuite) TestSupportedOS(c *gc.C) {

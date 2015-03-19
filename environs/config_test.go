@@ -36,7 +36,6 @@ func (s *suite) TearDownTest(c *gc.C) {
 
 // dummySampleConfig returns the dummy sample config without
 // the state server configured.
-// will not run a state server.
 // This function also exists in cloudconfig/userdata_test
 // Maybe place it in dummy and export it?
 func dummySampleConfig() testing.Attrs {

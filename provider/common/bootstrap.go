@@ -181,7 +181,7 @@ func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host str
 	if err := udata.ConfigureJuju(); err != nil {
 		return err
 	}
-	configScript, err := cloudinit.ConfigureScript(cloudcfg, instanceConfig.Series)
+	configScript, err := cloudcfg.RenderScript()
 	if err != nil {
 		return err
 	}

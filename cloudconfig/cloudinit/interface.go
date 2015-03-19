@@ -9,7 +9,12 @@ package cloudinit
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/cloudconfig/cloudinit/packaging"
+	"github.com/juju/utils/packaging"
+	"github.com/juju/utils/packaging/commands"
+	"github.com/juju/utils/packaging/config"
+	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/shell"
+
 	"github.com/juju/juju/version"
 )
 
@@ -24,8 +29,8 @@ type CloudConfig interface {
 	// If the attribute has not been previously set, no error occurs.
 	UnsetAttr(string)
 
-	// getAttrs returns the attributes map of this particular cloudinit config.
-	getAttrs() map[string]interface{}
+	// GetSeries returns the series this CloudConfig was made for.
+	GetSeries() string
 
 	// CloudConfig also contains all the smaller interfaces for config
 	// management:
@@ -46,6 +51,8 @@ type CloudConfig interface {
 	SSHKeysConfig
 	RootUserConfig
 	WrittenFilesConfig
+	RenderConfig
+	AdvancedPackagingConfig
 }
 
 // UserConfig is the interface for managing all user-related settings.
@@ -65,7 +72,7 @@ type UserConfig interface {
 
 // SystemUpdateConfig is the interface for managing all system update options.
 type SystemUpdateConfig interface {
-	// SetSystemUpdate sets wether the system should refresh the local package
+	// SetSystemUpdate sets whether the system should refresh the local package
 	// database on first boot.
 	// NOTE: This option is active in cloudinit by default and must be
 	// explicitly set to false if it is not desired.
@@ -130,14 +137,17 @@ type PackageMirrorConfig interface {
 type PackageSourcesConfig interface {
 	// AddPackageSource adds a new repository and optional key to be
 	// used as a package source by the system's specific package manager.
-	AddPackageSource(packaging.Source)
+	AddPackageSource(packaging.PackageSource)
 
 	// PackageSources returns all sources set with AddPackageSource.
-	PackageSources() []packaging.Source
+	PackageSources() []packaging.PackageSource
 
 	// AddPackagePreferences adds the necessary options and/or bootcmds to
 	// enable the given packaging.PackagePreferences.
 	AddPackagePreferences(packaging.PackagePreferences)
+
+	// PackagePreferences returns the previously-added PackagePreferences.
+	PackagePreferences() []packaging.PackagePreferences
 }
 
 // PackagingConfig is the interface for all packaging-related operations.
@@ -146,7 +156,7 @@ type PackagingConfig interface {
 	AddPackage(string)
 
 	// RemovePackage removes a package from the list of to be installed packages
-	// It will not return an error if the package has not been previously added.
+	// If the package has not been previously installed, no error occurs.
 	RemovePackage(string)
 
 	// Packages returns a list of all packages that will be installed.
@@ -243,7 +253,7 @@ type LocaleConfig interface {
 // DeviceMountConfig is the interface for all device mounting settings.
 type DeviceMountConfig interface {
 	// AddMount adds takes arguments for installing a mount point in /etc/fstab
-	// The options are of the oder and format specific to fstab entries:
+	// The options are of the order and format specific to fstab entries:
 	// <device> <mountpoint> <filesystem> <options> <backup setting> <fsck priority>
 	AddMount(...string)
 }
@@ -297,7 +307,7 @@ type RootUserConfig interface {
 	DisableRoot() bool
 }
 
-// WrittenFilesConfig is the interface for all
+// WrittenFilesConfig is the interface for all file writing operaions.
 type WrittenFilesConfig interface {
 	// AddRunTextFile simply issues some AddRunCmd's to set the contents of a
 	// given file with the specified file permissions on *first* boot.
@@ -315,6 +325,58 @@ type WrittenFilesConfig interface {
 	AddRunBinaryFile(string, []byte, uint)
 }
 
+// RenderConfig provides various ways to render a CloudConfig.
+type RenderConfig interface {
+	// Renders the current cloud config as valid YAML
+	RenderYAML() ([]byte, error)
+
+	// Renders a script that will execute the cloud config
+	// It is eiher used over ssh for bootstrapping and manual or locally by
+	// the local provider
+	RenderScript() (string, error)
+
+	// ShellRenderer renturns the shell renderer of this particular instance.
+	ShellRenderer() shell.Renderer
+
+	// getCommandsForAddingPackages is a helper function which returns all the
+	// necessary shell commands for adding all the configured package settings.
+	getCommandsForAddingPackages() ([]string, error)
+}
+
+// Makes two more advanced package commands available
+type AdvancedPackagingConfig interface {
+	// Adds the necessary commands for installing the required packages for
+	// each OS is they are necessary.
+	AddPackageCommands(
+		aptProxySettings proxy.Settings,
+		aptMirror string,
+		addUpdateScripts bool,
+		addUpgradeScripts bool,
+	)
+
+	// getPackageCommander returns the PackageCommander of the CloudConfig.
+	getPackageCommander() commands.PackageCommander
+
+	// getPackagingConfigurer returns the PackagingConfigurer of the CloudConfig.
+	getPackagingConfigurer() config.PackagingConfigurer
+
+	// This is a helper to add the proper packages that we want to update per
+	// distribution.
+	updatePackages()
+
+	//TODO(bogdanteleaga): this might be the same as the exported proxy setting up above, need
+	//to investigate how they're used
+	updateProxySettings(proxy.Settings)
+
+	// RequiresCloudArchiveCloudTools determines whether the cloudconfig
+	// requires the configuration of the cloud archive depending on its series.
+	RequiresCloudArchiveCloudTools() bool
+
+	// AddCloudArchiveCloudTools configures the cloudconfig to set up the cloud
+	// archive if it is required (eg: LTS'es).
+	AddCloudArchiveCloudTools()
+}
+
 // New returns a new Config with no options set.
 func New(series string) (CloudConfig, error) {
 	os, err := version.GetOSFromSeries(series)
@@ -323,53 +385,38 @@ func New(series string) (CloudConfig, error) {
 	}
 	switch os {
 	case version.Windows:
-		// Doesn't really matter what we return here since windows only uses
-		// runcmd anyway
-		return &UbuntuCloudConfig{&cloudConfig{make(map[string]interface{})}}, nil
+		renderer, _ := shell.NewRenderer("powershell")
+		return &WindowsCloudConfig{
+			&cloudConfig{
+				series:   series,
+				renderer: renderer,
+				attrs:    make(map[string]interface{}),
+			},
+		}, nil
 	case version.Ubuntu:
-		return &UbuntuCloudConfig{&cloudConfig{make(map[string]interface{})}}, nil
+		renderer, _ := shell.NewRenderer("bash")
+		return &UbuntuCloudConfig{
+			&cloudConfig{
+				series:    series,
+				paccmder:  commands.NewAptPackageCommander(),
+				pacconfer: config.NewAptPackagingConfigurer(series),
+				renderer:  renderer,
+				attrs:     make(map[string]interface{}),
+			},
+		}, nil
 	case version.CentOS:
-		return &CentOSCloudConfig{&cloudConfig{make(map[string]interface{})}}, nil
-	}
-	return nil, err
-}
-
-type Renderer interface {
-	// Mkdir returns an OS specific script for creating a directory
-	Mkdir(path string) []string
-
-	// WriteFile returns a command to write data
-	WriteFile(filename string, contents string, permission int) []string
-
-	// Render renders the userdata script for a particular OS type
-	Render(conf CloudConfig) ([]byte, error)
-
-	// FromSlash returns the result of replacing each slash ('/') character
-	// in path with a separator character. Multiple slashes are replaced by
-	// multiple separators.
-	FromSlash(path string) string
-
-	// PathJoin will join a path using OS specific path separator.
-	// This works for selected OS instead of current OS
-	PathJoin(path ...string) string
-}
-
-// NewRenderer returns a Renderer interface for selected series
-func NewRenderer(series string) (Renderer, error) {
-	operatingSystem, err := version.GetOSFromSeries(series)
-	if err != nil {
-		return nil, err
-	}
-
-	switch operatingSystem {
-	case version.Windows:
-		return &WindowsRenderer{}, nil
-	case version.Ubuntu:
-		return &UbuntuRenderer{linuxRenderer{}}, nil
-	case version.CentOS:
-		return &CentOSRenderer{linuxRenderer{}}, nil
+		renderer, _ := shell.NewRenderer("bash")
+		return &CentOSCloudConfig{
+			&cloudConfig{
+				series:    series,
+				paccmder:  commands.NewYumPackageCommander(),
+				pacconfer: config.NewYumPackagingConfigurer(series),
+				renderer:  renderer,
+				attrs:     make(map[string]interface{}),
+			},
+		}, nil
 	default:
-		return nil, errors.Errorf("No renderer could be found for %s", series)
+		return nil, errors.NotFoundf("cloudconfig for series %q", series)
 	}
 }
 
