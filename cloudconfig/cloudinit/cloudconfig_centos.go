@@ -78,13 +78,15 @@ func (cfg *CentOSCloudConfig) AddPackageSource(src packaging.Source) {
 
 // addPackageSourceCmds is a helper function that adds the corresponding
 // runcmds to apply the package source settings on a CentOS machine.
-func addPackageSourceCmds(cfg CloudConfig, src packaging.Source) {
-	// if keyfile is required, add it first
-	if src.Key != "" {
-		cfg.AddRunTextFile(src.KeyfilePath(), src.Key, 0644)
-	}
+func addPackageSourceCmds(cfg CloudConfig, srcs []packaging.Source) {
+	for _, src := range srcs {
+		// if keyfile is required, add it first
+		if src.Key != "" {
+			cfg.AddRunTextFile(src.KeyfilePath(), src.Key, 0644)
+		}
 
-	cfg.AddRunTextFile(packaging.CentOSSourcesDir, src.RenderCentOS(), 0644)
+		cfg.AddRunTextFile(packaging.CentOSSourcesDir, src.RenderCentOS(), 0644)
+	}
 }
 
 // PackageSources implements PackageSourcesConfig.
@@ -99,23 +101,31 @@ func (cfg *CentOSCloudConfig) AddPackagePreferences(prefs packaging.PackagePrefe
 	// context of a single package and implement the appropriate runcmds.
 }
 
+func (cfg *CentOSCloudConfig) PackagePreferences() []packaging.PackagePreferences {
+	prefs, _ := cfg.attrs["package_preferences"].([]packaging.PackagePreferences)
+	return prefs
+}
+
 // Render implements the Renderer interface.
 func (cfg *CentOSCloudConfig) RenderYAML() ([]byte, error) {
 	// check for package proxy setting and add commands:
-	if proxy := cfg.PackageProxy(); proxy != "" {
+	var proxy string
+	if proxy = cfg.PackageProxy(); proxy != "" {
 		addPackageProxyCmds(cfg, proxy)
 		cfg.UnsetPackageProxy()
 	}
 
 	// check for package mirror settings and add commands:
-	if mirror := cfg.PackageMirror(); mirror != "" {
+	var mirror string
+	if mirror = cfg.PackageMirror(); mirror != "" {
 		addPackageMirrorCmds(cfg, mirror)
 		cfg.UnsetPackageMirror()
 	}
 
 	// add appropriate commands for package sources configuration:
-	for _, src := range cfg.PackageSources() {
-		addPackageSourceCmds(cfg, src)
+	var srcs []packaging.Source
+	if srcs = cfg.PackageSources(); srcs != nil {
+		addPackageSourceCmds(cfg, srcs)
 		cfg.UnsetAttr("package_sources")
 	}
 
@@ -123,6 +133,12 @@ func (cfg *CentOSCloudConfig) RenderYAML() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	//restore
+	cfg.SetPackageProxy(proxy)
+	cfg.SetPackageMirror(mirror)
+	cfg.SetAttr("package_sources", srcs)
+
 	return append([]byte("#cloud-config\n"), data...), nil
 }
 

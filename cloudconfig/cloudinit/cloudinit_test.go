@@ -42,14 +42,14 @@ var ctests = []struct {
 	},
 	{
 		"PackageUpgrade",
-		map[string]interface{}{"apt_upgrade": true},
+		map[string]interface{}{"package_upgrade": true},
 		func(cfg cloudinit.CloudConfig) {
 			cfg.SetSystemUpgrade(true)
 		},
 	},
 	{
 		"PackageUpdate",
-		map[string]interface{}{"apt_update": true},
+		map[string]interface{}{"package_update": true},
 		func(cfg cloudinit.CloudConfig) {
 			cfg.SetSystemUpdate(true)
 		},
@@ -185,7 +185,7 @@ var ctests = []struct {
 			},
 		}},
 		func(cfg cloudinit.CloudConfig) {
-			cfg.AddPackageSource(packaging.Source{Name: "keyName", Key: "someKey"})
+			cfg.AddPackageSource(packaging.Source{Url: "keyName", Key: "someKey"})
 		},
 	},
 	{
@@ -214,7 +214,7 @@ var ctests = []struct {
 				Pin:         "release n=series",
 				Priority:    123,
 			}
-			cfg.AddPackageSource(packaging.Source{Name: "keyName", Key: "someKey"})
+			cfg.AddPackageSource(packaging.Source{Url: "keyName", Key: "someKey"})
 			cfg.AddPackagePreferences(prefs)
 		},
 	},
@@ -231,9 +231,9 @@ var ctests = []struct {
 	},
 	{
 		"BootCmd",
-		map[string]interface{}{"bootcmd": []interface{}{
+		map[string]interface{}{"bootcmd": []string{
 			"ls > /dev",
-			[]string{"ls", ">with space"},
+			"ls >with space",
 		}},
 		func(cfg cloudinit.CloudConfig) {
 			cfg.AddBootCmd("ls > /dev")
@@ -343,7 +343,7 @@ func (S) TestRunCmds(c *gc.C) {
 	c.Assert(cfg.RunCmds(), gc.HasLen, 0)
 	cfg.AddScripts("a", "b")
 	cfg.AddRunCmd("e")
-	c.Assert(cfg.RunCmds(), gc.DeepEquals, []interface{}{
+	c.Assert(cfg.RunCmds(), gc.DeepEquals, []string{
 		"a", "b", "e",
 	})
 }

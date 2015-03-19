@@ -292,7 +292,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		// Just check that the cloudinit config looks good,
 		// and that there are more runcmds than the additional
 		// ones we passed into ComposeUserData.
-		c.Check(config["apt_upgrade"], jc.IsTrue)
+		c.Check(config["package_upgrade"], jc.IsTrue)
 		c.Check(len(runCmd) > 2, jc.IsTrue)
 	}
 }

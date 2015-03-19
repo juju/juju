@@ -256,17 +256,20 @@ func (cfg *cloudConfig) SetOutput(kind OutputKind, stdout, stderr string) {
 }
 
 // Output implements OutputConfig.
-func (cfg *cloudConfig) Output(kind OutputKind) (string, string) {
+func (cfg *cloudConfig) Output(kind OutputKind) (stdout, stderr string) {
 	if out, ok := cfg.attrs["output"].(map[string]interface{}); ok {
 		switch out := out[string(kind)].(type) {
 		case string:
-			return out, out
+			//return out, out
+			stdout = out
 		case []string:
-			return out[0], out[1]
+			//return out[0], out[1]
+			stdout, stderr = out[0], out[1]
 		}
 	}
 
-	return "", ""
+	//return "", ""
+	return stdout, stderr
 }
 
 // AddSSHKey implements SSHKeyConfig
@@ -274,10 +277,10 @@ func (cfg *cloudConfig) AddSSHKey(keyType SSHKeyType, key string) {
 	keys, _ := cfg.attrs["ssh_keys"].(map[SSHKeyType]string)
 	if keys == nil {
 		keys = make(map[SSHKeyType]string)
+		cfg.SetAttr("ssh_keys", keys)
 	}
 
 	keys[keyType] = key
-	cfg.SetAttr("ssh_Keys", keys)
 }
 
 // AddSSHAuthorizedKeys implements SSHKeysConfig.

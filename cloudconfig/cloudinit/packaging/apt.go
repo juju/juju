@@ -14,7 +14,7 @@ const (
 Explanation: {{.Explanation}}
 Package: {{.Package}}
 Pin: {{.Pin}}
-Pin-Priority: {{.PinPriority}}
+Pin-Priority: {{.Priority}}
 `
 
 	// the basic command for all apt-get calls

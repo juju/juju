@@ -72,21 +72,43 @@ func (cfg *UbuntuCloudConfig) PackageSources() []packaging.Source {
 	return srcs
 }
 
+func addPackagePreferencesCmds(cfg CloudConfig, prefs []packaging.PackagePreferences) {
+	for _, pref := range prefs {
+		cfg.AddBootTextFile(pref.Path, pref.FileContents(), 0644)
+	}
+}
+
 // AddPackagePreferences implements PackageSourcesConfig.
-func (cfg *UbuntuCloudConfig) AddPackagePreferences(prefs packaging.PackagePreferences) {
-	cfg.AddBootTextFile(prefs.Path, prefs.FileContents(), 0644)
+func (cfg *UbuntuCloudConfig) AddPackagePreferences(pref packaging.PackagePreferences) {
+	cfg.attrs["package_preferences"] = append(cfg.PackagePreferences(), pref)
+}
+
+// AddPackagePreferences implements PackageSourcesConfig.
+func (cfg *UbuntuCloudConfig) PackagePreferences() []packaging.PackagePreferences {
+	prefs, _ := cfg.attrs["package_preferences"].([]packaging.PackagePreferences)
+	return prefs
 }
 
 func (cfg *UbuntuCloudConfig) RenderYAML() ([]byte, error) {
+	// check for package proxy setting and add commands:
+	var prefs []packaging.PackagePreferences
+	if prefs = cfg.PackagePreferences(); prefs != nil {
+		addPackagePreferencesCmds(cfg, prefs)
+		cfg.UnsetAttr("package_preferences")
+	}
+
 	data, err := yaml.Marshal(cfg.attrs)
 	if err != nil {
 		return nil, err
 	}
+
+	//restore
+	cfg.SetAttr("package_preferences", prefs)
+
 	return append([]byte("#cloud-config\n"), data...), nil
 }
 
 func (cfg *UbuntuCloudConfig) RenderScript() (string, error) {
-	//TODO: &cfg?
 	return cfg.common.renderScriptCommon(cfg)
 }
 
@@ -97,7 +119,6 @@ func (cfg *UbuntuCloudConfig) AddPackageCommands(
 	addUpgradeScripts bool,
 ) {
 	cfg.common.addPackageCommandsCommon(
-		//TODO &cfg?
 		cfg,
 		aptProxySettings,
 		aptMirror,
@@ -144,17 +165,6 @@ func (cfg *UbuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	//		--force-confold is passed to dpkg to never overwrite config files
 	aptget := "apt-get --assume-yes --option Dpkg::Options::=--force-confold "
 
-	// If apt_get_wrapper is specified, then prepend it to aptget.
-	//TODO: so we're deleting this?
-	//aptget := aptget
-	//wrapper := cfg.AptGetWrapper()
-	//switch wrapper.Enabled {
-	//case true:
-	//aptget = utils.ShQuote(wrapper.Command) + " " + aptget
-	//case "auto":
-	//aptget = fmt.Sprintf("$(which %s || true) %s", utils.ShQuote(wrapper.Command), aptget)
-	//}
-
 	var cmds []string
 
 	// If a mirror is specified, rewrite sources.list and rename cached index files.
@@ -181,15 +191,14 @@ func (cfg *UbuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 			}
 		}
 		cmds = append(cmds, LogProgressCmd("Adding apt repository: %s", src.Url))
-		//cmds = append(cmds, "add-apt-repository -y "+utils.ShQuote(src.Url))
 		cmds = append(cmds, cfg.pacman.AddRepository(src.Url))
-		//TODO: Do we keep this?
-		// if src.Prefs != nil {
-		//	path := utils.ShQuote(src.Prefs.Path)
-		//	contents := utils.ShQuote(src.Prefs.FileContents())
-		//	cmds = append(cmds, "install -D -m 644 /dev/null "+path)
-		//	cmds = append(cmds, `printf '%s\n' `+contents+` > `+path)
-		//}
+	}
+
+	for _, pref := range cfg.PackagePreferences() {
+		path := utils.ShQuote(pref.Path)
+		contents := utils.ShQuote(pref.FileContents())
+		cmds = append(cmds, "install -D -m 644 /dev/null "+path)
+		cmds = append(cmds, `printf '%s\n' `+contents+` > `+path)
 	}
 
 	// Define the "apt_get_loop" function, and wrap apt-get with it.

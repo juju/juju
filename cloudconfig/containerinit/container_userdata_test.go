@@ -138,7 +138,12 @@ func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
 	err = yaml.Unmarshal(data, &out)
 	c.Assert(err, jc.ErrorIsNil)
 	if len(cloudConf.BootCmds()) > 0 {
-		c.Assert(out["bootcmd"], jc.DeepEquals, cloudConf.BootCmds())
+		outcmds := out["bootcmd"].([]interface{})
+		confcmds := cloudConf.BootCmds()
+		c.Assert(len(outcmds), gc.Equals, len(confcmds))
+		for i, _ := range outcmds {
+			c.Assert(outcmds[i].(string), gc.Equals, confcmds[i])
+		}
 	} else {
 		c.Assert(out["bootcmd"], gc.IsNil)
 	}

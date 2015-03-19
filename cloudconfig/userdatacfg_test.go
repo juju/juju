@@ -562,7 +562,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		if test.setEnvConfig {
 			test.cfg.Config = minimalConfig(c)
 		}
-		ci, err := cloudinit.New("quantal")
+		ci, err := cloudinit.New(test.cfg.Series)
 		c.Assert(err, jc.ErrorIsNil)
 		udata, err := cloudconfig.NewUserdataConfig(&test.cfg, ci)
 		c.Assert(err, jc.ErrorIsNil)
@@ -581,21 +581,16 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		err = goyaml.Unmarshal(data, &configKeyValues)
 		c.Assert(err, jc.ErrorIsNil)
 
-		c.Check(configKeyValues["apt_get_wrapper"], gc.DeepEquals, map[interface{}]interface{}{
-			"command": "eatmydata",
-			"enabled": "auto",
-		})
-
 		if test.cfg.EnableOSRefreshUpdate {
-			c.Check(configKeyValues["apt_update"], jc.IsTrue)
+			c.Check(configKeyValues["package_update"], jc.IsTrue)
 		} else {
-			c.Check(configKeyValues["apt_update"], gc.IsNil)
+			c.Check(configKeyValues["package_update"], jc.IsFalse)
 		}
 
 		if test.cfg.EnableOSUpgrade {
-			c.Check(configKeyValues["apt_upgrade"], jc.IsTrue)
+			c.Check(configKeyValues["package_upgrade"], jc.IsTrue)
 		} else {
-			c.Check(configKeyValues["apt_upgrade"], gc.IsNil)
+			c.Check(configKeyValues["package_upgrade"], jc.IsFalse)
 		}
 
 		scripts := getScripts(configKeyValues)
@@ -1056,7 +1051,7 @@ func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cmds := cloudcfg.BootCmds()
-	c.Assert(cmds, jc.DeepEquals, []interface{}{})
+	c.Assert(cmds, jc.DeepEquals, []string(nil))
 }
 
 func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
@@ -1075,7 +1070,7 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 
 	cmds := cloudcfg.BootCmds()
 	expected := "printf '%s\\n' 'Acquire::http::Proxy \"http://user@10.0.0.1\";' > /etc/apt/apt.conf.d/42-juju-proxy-settings"
-	c.Assert(cmds, jc.DeepEquals, []interface{}{expected})
+	c.Assert(cmds, jc.DeepEquals, []string{expected})
 }
 
 func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
@@ -1095,7 +1090,7 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 
 	cmds := cloudcfg.RunCmds()
 	first := `([ ! -e /home/ubuntu/.profile ] || grep -q '.juju-proxy' /home/ubuntu/.profile) || printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`
-	expected := []interface{}{
+	expected := []string{
 		`export http_proxy=http://user@10.0.0.1`,
 		`export HTTP_PROXY=http://user@10.0.0.1`,
 		`export no_proxy=localhost,10.0.3.1`,
