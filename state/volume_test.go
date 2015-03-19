@@ -234,7 +234,7 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestWatchEnvironVolumes(c *gc.C) {
-	service := s.setupMixedScopeStorageService(c)
+	service := s.setupMixedScopeStorageService(c, "block")
 	addUnit := func() {
 		u, err := service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
@@ -258,7 +258,7 @@ func (s *VolumeStateSuite) TestWatchEnvironVolumes(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
-	service := s.setupMixedScopeStorageService(c)
+	service := s.setupMixedScopeStorageService(c, "block")
 	addUnit := func() {
 		u, err := service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
@@ -282,7 +282,7 @@ func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
-	service := s.setupMixedScopeStorageService(c)
+	service := s.setupMixedScopeStorageService(c, "block")
 	addUnit := func() {
 		u, err := service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
@@ -306,7 +306,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
-	service := s.setupMixedScopeStorageService(c)
+	service := s.setupMixedScopeStorageService(c, "block")
 	addUnit := func() {
 		u, err := service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
@@ -352,15 +352,6 @@ func (s *VolumeStateSuite) TestParseVolumeAttachmentIdError(c *gc.C) {
 	assertError("0", `invalid volume attachment ID "0"`)
 	assertError("0:foo", `invalid volume attachment ID "0:foo"`)
 	assertError("bar:0", `invalid volume attachment ID "bar:0"`)
-}
-
-func (s *VolumeStateSuite) setupMixedScopeStorageService(c *gc.C) *state.Service {
-	storageCons := map[string]state.StorageConstraints{
-		"multi1to10": makeStorageCons("environscoped", 1024, 1),
-		"multi2up":   makeStorageCons("machinescoped", 2048, 2),
-	}
-	ch := s.AddTestingCharm(c, "storage-block2")
-	return s.AddTestingServiceWithStorage(c, "storage-block2", ch, storageCons)
 }
 
 func (s *VolumeStateSuite) assertVolumeUnprovisioned(c *gc.C, tag names.VolumeTag) {
