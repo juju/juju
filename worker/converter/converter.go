@@ -10,8 +10,9 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/converter"
+	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker"
 )
@@ -20,13 +21,11 @@ var logger = loggo.GetLogger("juju.worker.converter")
 
 // Converter ...
 type Converter struct {
-	st     *converter.State
-	ent    Entity
-	config agent.Config
-}
-
-type converterState interface {
-	WatchForJobsChanges(names.MachineTag) (watcher.NotifyWatcher, error)
+	st      *machiner.State
+	ent     Entity
+	config  agent.Config
+	tag     names.MachineTag
+	machine *machiner.Machine
 }
 
 type Entity interface {
@@ -37,19 +36,28 @@ type Entity interface {
 // NewConverter ...
 func NewConverter(
 	ent Entity,
-	st *converter.State,
+	st *machiner.State,
 	agentConfig agent.Config,
 ) worker.Worker {
 	return worker.NewNotifyWorker(&Converter{
 		ent:    ent,
 		st:     st,
 		config: agentConfig,
+		tag:    agentConfig.Tag().(names.MachineTag),
 	})
 }
 
 func (c *Converter) SetUp() (watcher.NotifyWatcher, error) {
 	logger.Infof("Setting up Converter watcher for %s.", c.config.Tag().String())
-	return c.st.WatchForJobsChanges(c.config.Tag().String())
+	m, err := c.st.Machine(c.tag)
+	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
+		return nil, worker.ErrTerminateAgent
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	c.machine = m
+	return m.Watch()
 }
 
 func (c *Converter) Handle() error {

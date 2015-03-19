@@ -41,6 +41,14 @@ func NewConverterAPI(
 	}, nil
 }
 
+func (c *ConverterAPI) getMachine(tag names.Tag) (*state.Machine, error) {
+	entity, err := c.st.FindEntity(tag)
+	if err != nil {
+		return nil, err
+	}
+	return entity.(*state.Machine), nil
+}
+
 func (c *ConverterAPI) WatchForJobsChanges(args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
@@ -54,7 +62,12 @@ func (c *ConverterAPI) WatchForJobsChanges(args params.Entities) (params.NotifyW
 		err = common.ErrPerm
 		if c.authorizer.AuthOwner(tag) {
 			logger.Infof("Watching for jobs on %#v", tag)
-			watch := c.st.WatchForJobsChanges(tag)
+			machine, err := c.getMachine(tag)
+			if err != nil {
+				return params.NotifyWatchResults{}, errors.Trace(err)
+			}
+
+			watch := machine.Watch()
 			// Consume the initial event. Technically, API
 			// calls to Watch 'transmit' the initial event
 			// in the Watch response. But NotifyWatchers
