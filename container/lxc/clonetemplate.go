@@ -77,11 +77,11 @@ func templateUserData(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	script, err := shutdownInitScript(initSystem)
+	cmds, err := shutdownInitCommands(initSystem)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	config.AddScripts(script)
+	config.AddScripts(strings.Join(cmds, "\n"))
 
 	renderer, err := corecloudinit.NewRenderer(series)
 	if err != nil {
@@ -126,7 +126,7 @@ auto eth0
 iface eth0 inet dhcp
 `
 
-func shutdownInitScript(initSystem string) (string, error) {
+func shutdownInitCommands(initSystem string) ([]string, error) {
 	// These files are removed just before the template shuts down.
 	cleanupOnShutdown := []string{
 		// We remove any dhclient lease files so there's no chance a
@@ -138,7 +138,6 @@ func shutdownInitScript(initSystem string) (string, error) {
 		// from cloned containers will be appended. It's better to
 		// keep clean logs for diagnosing issues / debugging.
 		"/var/log/cloud-init*.log",
-		"/var/log/upstart/*.log",
 	}
 
 	// Using EOC below as the template shutdown script is itself
@@ -160,15 +159,14 @@ func shutdownInitScript(initSystem string) (string, error) {
 	}
 	svc, err := service.NewService(name, conf, initSystem)
 	if err != nil {
-		return "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	cmds, err := svc.InstallCommands()
 	if err != nil {
-		return "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-
-	return strings.Join(cmds, "\n"), nil
+	return cmds, nil
 }
 
 func AcquireTemplateLock(name, message string) (*container.Lock, error) {

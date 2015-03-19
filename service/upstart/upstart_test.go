@@ -235,7 +235,7 @@ func (s *UpstartSuite) assertInstall(c *gc.C, conf common.Conf, expectEnd string
 	cmds, err := s.service.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmds, gc.DeepEquals, []string{
-		"cat >> " + expectPath + " << 'EOF'\n" + expectContent + "EOF\n",
+		"cat > " + expectPath + " << 'EOF'\n" + expectContent + "EOF\n",
 	})
 	cmds, err = s.service.StartCommands()
 	c.Assert(err, jc.ErrorIsNil)
