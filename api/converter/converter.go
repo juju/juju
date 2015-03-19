@@ -22,7 +22,7 @@ func NewState(caller base.APICaller) *State {
 }
 
 func (c *State) WatchForJobsChanges(tag string) (watcher.NotifyWatcher, error) {
-	var result params.NotifyWatchResult
+	var result params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
@@ -32,5 +32,5 @@ func (c *State) WatchForJobsChanges(tag string) (watcher.NotifyWatcher, error) {
 		return nil, err
 	}
 
-	return watcher.NewNotifyWatcher(c.facade.RawAPICaller(), result), nil
+	return watcher.NewNotifyWatcher(c.facade.RawAPICaller(), result.Results[0]), nil
 }
