@@ -46,7 +46,79 @@ func (s *FilesystemStateSuite) TestAddFilesystemWithBackingVolume(c *gc.C) {
 	s.addUnitWithFilesystem(c, "loop", true)
 }
 
-func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withVolume bool) {
+func (s *FilesystemStateSuite) TestSetVolumeInfoSetsFilesystemInfo(c *gc.C) {
+	filesystemAttachment := s.addUnitWithFilesystem(c, "loop", true)
+	filesystem, err := s.State.Filesystem(filesystemAttachment.Filesystem())
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = filesystem.Info()
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+
+	volumeTag, err := filesystem.Volume()
+	c.Assert(err, jc.ErrorIsNil)
+	volume, err := s.State.Volume(volumeTag)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = volume.Info()
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+
+	// Set the volume's info multiple times; each time we should update
+	// the info of the filesystem on the volume.
+	for _, size := range []uint64{1024, 2048} {
+		err := s.State.SetVolumeInfo(volumeTag, state.VolumeInfo{
+			Size:     size,
+			Pool:     "loop",
+			VolumeId: "vol-123",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+
+		filesystem, err := s.State.Filesystem(filesystem.FilesystemTag())
+		c.Assert(err, jc.ErrorIsNil)
+		filesystemInfo, err := filesystem.Info()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(filesystemInfo, gc.Equals, state.FilesystemInfo{
+			Size: size,
+			Pool: "loop",
+		})
+	}
+}
+
+func (s *FilesystemStateSuite) TestSetFilesystemInfoImmutable(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "loop-pool")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	filesystem, err := s.State.StorageInstanceFilesystem(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	filesystemTag := filesystem.FilesystemTag()
+
+	filesystemInfoSet := state.FilesystemInfo{Size: 123}
+	err = s.State.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfoSet)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The first call to SetFilesystemInfo takes the pool name from
+	// the params; the second does not, but it must not change
+	// either. Callers are expected to get the existing info and
+	// update it, leaving immutable values intact.
+	err = s.State.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfoSet)
+	c.Assert(err, gc.ErrorMatches, `cannot set info for filesystem "0/0": cannot change pool from "loop-pool" to ""`)
+
+	filesystemInfoSet.Pool = "loop-pool"
+	s.assertFilesystemInfo(c, filesystemTag, filesystemInfoSet)
+}
+
+func (s *FilesystemStateSuite) TestVolumeFilesystem(c *gc.C) {
+	filesystemAttachment := s.addUnitWithFilesystem(c, "loop", true)
+	filesystem, err := s.State.Filesystem(filesystemAttachment.Filesystem())
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = filesystem.Info()
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+
+	volumeTag, err := filesystem.Volume()
+	c.Assert(err, jc.ErrorIsNil)
+	filesystem, err = s.State.VolumeFilesystem(volumeTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filesystem.FilesystemTag(), gc.Equals, filesystemAttachment.Filesystem())
+}
+
+func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withVolume bool) state.FilesystemAttachment {
 	ch := s.AddTestingCharm(c, "storage-filesystem")
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
@@ -105,8 +177,9 @@ func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withV
 	_, ok = filesystemAttachments[0].Params()
 	c.Assert(ok, jc.IsTrue)
 
-	_, err = s.State.FilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+	att, err := s.State.FilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
+	return att
 }
 
 func (s *FilesystemStateSuite) TestWatchFilesystemAttachment(c *gc.C) {

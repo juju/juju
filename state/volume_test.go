@@ -179,6 +179,29 @@ func (s *VolumeStateSuite) TestSetVolumeInfoNoStorageAssigned(c *gc.C) {
 	s.assertVolumeInfo(c, volumeTag, volumeInfoSet)
 }
 
+func (s *VolumeStateSuite) TestSetVolumeInfoImmutable(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	volume, err := s.State.StorageInstanceVolume(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	volumeTag := volume.VolumeTag()
+
+	volumeInfoSet := state.VolumeInfo{Size: 123}
+	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The first call to SetVolumeInfo takes the pool name from
+	// the params; the second does not, but it must not change
+	// either. Callers are expected to get the existing info and
+	// update it, leaving immutable values intact.
+	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
+	c.Assert(err, gc.ErrorMatches, `cannot set info for volume "0/0": cannot change pool from "loop-pool" to ""`)
+
+	volumeInfoSet.Pool = "loop-pool"
+	s.assertVolumeInfo(c, volumeTag, volumeInfoSet)
+}
+
 func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)

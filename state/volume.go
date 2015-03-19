@@ -505,11 +505,57 @@ func (st *State) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (err error)
 		if params, ok := v.Params(); ok {
 			info.Pool = params.Pool
 			unsetParams = true
+		} else {
+			// Ensure immutable properties do not change.
+			oldInfo, err := v.Info()
+			if err != nil {
+				return nil, err
+			}
+			if err := validateVolumeInfoChange(info, oldInfo); err != nil {
+				return nil, err
+			}
 		}
 		ops := setVolumeInfoOps(tag, info, unsetParams)
+
+		// If there's a filesystem destined for the volume,
+		// set the filesystem info.
+		f, err := st.VolumeFilesystem(tag)
+		if err == nil {
+			filesystemInfo := FilesystemInfo{
+				info.Size,
+				info.Pool,
+				// FilesystemId is set to "" for
+				// filesystems backed by volumes.
+				"",
+			}
+			filesystemOps := setFilesystemInfoOps(
+				f.FilesystemTag(),
+				filesystemInfo,
+				unsetParams,
+			)
+			ops = append(ops, filesystemOps...)
+		} else if !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
 		return ops, nil
 	}
 	return st.run(buildTxn)
+}
+
+func validateVolumeInfoChange(newInfo, oldInfo VolumeInfo) error {
+	if newInfo.Pool != oldInfo.Pool {
+		return errors.Errorf(
+			"cannot change pool from %q to %q",
+			oldInfo.Pool, newInfo.Pool,
+		)
+	}
+	if newInfo.VolumeId != oldInfo.VolumeId {
+		return errors.Errorf(
+			"cannot change volume ID from %q to %q",
+			oldInfo.VolumeId, newInfo.VolumeId,
+		)
+	}
+	return nil
 }
 
 func setVolumeInfoOps(tag names.VolumeTag, info VolumeInfo, unsetParams bool) []txn.Op {
