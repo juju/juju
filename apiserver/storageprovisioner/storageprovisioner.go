@@ -429,6 +429,48 @@ func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.Volum
 	return results, nil
 }
 
+// FilesystemParams returns the parameters for creating the filesystems
+// with the specified tags.
+func (s *StorageProvisionerAPI) FilesystemParams(args params.Entities) (params.FilesystemParamsResults, error) {
+	canAccess, err := s.getStorageEntityAuthFunc()
+	if err != nil {
+		return params.FilesystemParamsResults{}, err
+	}
+	results := params.FilesystemParamsResults{
+		Results: make([]params.FilesystemParamsResult, len(args.Entities)),
+	}
+	poolManager := poolmanager.New(s.settings)
+	one := func(arg params.Entity) (params.FilesystemParams, error) {
+		tag, err := names.ParseFilesystemTag(arg.Tag)
+		if err != nil || !canAccess(tag) {
+			return params.FilesystemParams{}, common.ErrPerm
+		}
+		filesystem, err := s.st.Filesystem(tag)
+		if errors.IsNotFound(err) {
+			return params.FilesystemParams{}, common.ErrPerm
+		} else if err != nil {
+			return params.FilesystemParams{}, err
+		}
+		filesystemParams, err := common.FilesystemParams(filesystem, poolManager)
+		if err != nil {
+			return params.FilesystemParams{}, err
+		}
+		// TODO(axw) drop Attachments from VolumeParams and FilesystemParams
+		return filesystemParams, nil
+	}
+	for i, arg := range args.Entities {
+		var result params.FilesystemParamsResult
+		filesystemParams, err := one(arg)
+		if err != nil {
+			result.Error = common.ServerError(err)
+		} else {
+			result.Result = filesystemParams
+		}
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
 // VolumeAttachmentParams returns the parameters for creating the volume
 // attachments with the specified IDs.
 func (s *StorageProvisionerAPI) VolumeAttachmentParams(

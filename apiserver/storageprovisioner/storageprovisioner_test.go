@@ -296,6 +296,25 @@ func (s *provisionerSuite) TestVolumeParamsEmptyArgs(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
+func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
+	s.setupFilesystems(c)
+	results, err := s.api.FilesystemParams(params.Entities{
+		Entities: []params.Entity{{"filesystem-0-0"}, {"filesystem-1"}, {"filesystem-42"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.FilesystemParamsResults{
+		Results: []params.FilesystemParamsResult{
+			{Error: &params.Error{`filesystem "0/0" is already provisioned`, ""}},
+			{Result: params.FilesystemParams{
+				FilesystemTag: "filesystem-1",
+				Size:          2048,
+				Provider:      "environscoped",
+			}},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+		},
+	})
+}
+
 func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 	s.setupVolumes(c)
 	s.authorizer.EnvironManager = true
