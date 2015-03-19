@@ -54,14 +54,14 @@ func (c *ConverterAPI) WatchForJobsChanges(args params.Entities) (params.NotifyW
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
 	for i, agent := range args.Entities {
-		logger.Infof("Watching on entity %#v", agent)
+		logger.Infof("watching on entity %#v", agent)
 		tag, err := names.ParseMachineTag(agent.Tag)
 		if err != nil {
 			return params.NotifyWatchResults{}, errors.Trace(err)
 		}
 		err = common.ErrPerm
 		if c.authorizer.AuthOwner(tag) {
-			logger.Infof("Watching for jobs on %#v", tag)
+			logger.Infof("watching for jobs on %#v", tag)
 			machine, err := c.getMachine(tag)
 			if err != nil {
 				return params.NotifyWatchResults{}, errors.Trace(err)

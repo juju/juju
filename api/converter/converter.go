@@ -4,10 +4,14 @@
 package converter
 
 import (
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.converter")
 
 const converterAPI = "Converter"
 
@@ -27,6 +31,7 @@ func (c *State) WatchForJobsChanges(tag string) (watcher.NotifyWatcher, error) {
 		Entities: []params.Entity{{Tag: tag}},
 	}
 
+	logger.Infof("calling facade WatchForJobsChanges")
 	err := c.facade.FacadeCall("WatchForJobsChanges", args, &result)
 	if err != nil {
 		return nil, err

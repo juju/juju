@@ -651,7 +651,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 
 	if !isEnvironManager {
 		runner.StartWorker("converter", func() (worker.Worker, error) {
-			return converter.NewConverter(entity, st.Machiner(), agentConfig), nil
+			return converter.NewConverter(entity, st.Converter(), agentConfig), nil
 		})
 	}
 
