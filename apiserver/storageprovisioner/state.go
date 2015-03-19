@@ -13,7 +13,9 @@ import (
 
 type provisionerState interface {
 	state.EntityFinder
+	WatchEnvironFilesystems() state.StringsWatcher
 	WatchEnvironFilesystemAttachments() state.StringsWatcher
+	WatchMachineFilesystems(names.MachineTag) state.StringsWatcher
 	WatchMachineFilesystemAttachments(names.MachineTag) state.StringsWatcher
 	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
 	MachineInstanceId(names.MachineTag) (instance.Id, error)
