@@ -243,6 +243,30 @@ func (s *FilesystemStateSuite) TestFilesystemInfo(c *gc.C) {
 	s.assertFilesystemAttachmentInfo(c, machineTag, filesystemTag, filesystemAttachmentInfo)
 }
 
+func (s *FilesystemStateSuite) TestWatchEnvironFilesystems(c *gc.C) {
+	service := s.setupMixedScopeStorageService(c, "filesystem")
+	addUnit := func() {
+		u, err := service.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	addUnit()
+
+	w := s.State.WatchEnvironFilesystems()
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChangeInSingleEvent("0") // initial
+	wc.AssertNoChange()
+
+	addUnit()
+	wc.AssertChangeInSingleEvent("3")
+	wc.AssertNoChange()
+
+	// TODO(axw) respond to Dying/Dead when we have
+	// the means to progress Filesystem lifecycle.
+}
+
 func (s *FilesystemStateSuite) TestWatchEnvironFilesystemAttachments(c *gc.C) {
 	service := s.setupMixedScopeStorageService(c, "filesystem")
 	addUnit := func() {
@@ -265,6 +289,30 @@ func (s *FilesystemStateSuite) TestWatchEnvironFilesystemAttachments(c *gc.C) {
 
 	// TODO(axw) respond to Dying/Dead when we have
 	// the means to progress Volume lifecycle.
+}
+
+func (s *FilesystemStateSuite) TestWatchMachineFilesystems(c *gc.C) {
+	service := s.setupMixedScopeStorageService(c, "filesystem")
+	addUnit := func() {
+		u, err := service.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	addUnit()
+
+	w := s.State.WatchMachineFilesystems(names.NewMachineTag("0"))
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChangeInSingleEvent("0/1", "0/2") // initial
+	wc.AssertNoChange()
+
+	addUnit()
+	// no change, since we're only interested in the one machine.
+	wc.AssertNoChange()
+
+	// TODO(axw) respond to Dying/Dead when we have
+	// the means to progress Filesystem lifecycle.
 }
 
 func (s *FilesystemStateSuite) TestWatchMachineFilesystemAttachments(c *gc.C) {
