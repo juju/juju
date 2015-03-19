@@ -130,13 +130,25 @@ func (s *provisionerSuite) setupFilesystems(c *gc.C) {
 		},
 	})
 
+	// Only provision the first and third filesystems.
+	err := s.State.SetFilesystemInfo(names.NewFilesystemTag("0/0"), state.FilesystemInfo{
+		FilesystemId: "abc",
+		Size:         1024,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetFilesystemInfo(names.NewFilesystemTag("2"), state.FilesystemInfo{
+		FilesystemId: "def",
+		Size:         4096,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Make a machine without storage for tests to use.
 	s.factory.MakeMachine(c, nil)
 
 	// Make an unprovisioned machine with storage for tests to use.
 	// TODO(axw) extend testing/factory to allow creating unprovisioned
 	// machines.
-	_, err := s.State.AddOneMachine(state.MachineTemplate{
+	_, err = s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.MachineFilesystemParams{{
@@ -190,6 +202,29 @@ func (s *provisionerSuite) TestVolumesEmptyArgs(c *gc.C) {
 	results, err := s.api.Volumes(params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
+}
+
+func (s *provisionerSuite) TestFilesystems(c *gc.C) {
+	s.setupFilesystems(c)
+	s.authorizer.Tag = names.NewMachineTag("2") // neither 0 nor 1
+
+	results, err := s.api.Filesystems(params.Entities{
+		Entities: []params.Entity{
+			{"filesystem-0-0"},
+			{"filesystem-1"},
+			{"filesystem-2"},
+			{"filesystem-42"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.FilesystemResults{
+		Results: []params.FilesystemResult{
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+			{Error: common.ServerError(errors.NotProvisionedf(`filesystem "1"`))},
+			{Result: params.Filesystem{FilesystemTag: "filesystem-2", FilesystemId: "def", Size: 4096}},
+			{Error: &params.Error{"permission denied", "unauthorized access"}},
+		},
+	})
 }
 
 func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
