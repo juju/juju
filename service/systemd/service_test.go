@@ -276,13 +276,13 @@ func (s *initSystemSuite) TestNewServiceEmptyConf(c *gc.C) {
 	s.stub.CheckCalls(c, nil)
 }
 
-func (s *initSystemSuite) TestUpdateConfig(c *gc.C) {
+func (s *initSystemSuite) TestNewServiceBasic(c *gc.C) {
 	s.conf.ExecStart = "'/path/to/some/other/command'"
-	c.Assert(s.service.Service.Conf.ExecStart, gc.Equals, jujud+" machine-0")
 
-	s.service.UpdateConfig(s.conf)
+	svc, err := systemd.NewService(s.name, s.conf)
+	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.service, jc.DeepEquals, &systemd.Service{
+	c.Check(svc, jc.DeepEquals, &systemd.Service{
 		Service: common.Service{
 			Name: s.name,
 			Conf: s.conf,
@@ -294,14 +294,15 @@ func (s *initSystemSuite) TestUpdateConfig(c *gc.C) {
 	s.stub.CheckCalls(c, nil)
 }
 
-func (s *initSystemSuite) TestUpdateConfigExtraScript(c *gc.C) {
+func (s *initSystemSuite) TestNewServiceExtraScript(c *gc.C) {
 	s.conf.ExtraScript = "'/path/to/another/command'"
 
-	s.service.UpdateConfig(s.conf)
+	svc, err := systemd.NewService(s.name, s.conf)
+	c.Assert(err, jc.ErrorIsNil)
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	script := "'/path/to/another/command'\n" + jujud + " machine-0"
-	c.Check(s.service, jc.DeepEquals, &systemd.Service{
+	c.Check(svc, jc.DeepEquals, &systemd.Service{
 		Service: common.Service{
 			Name: s.name,
 			Conf: common.Conf{
@@ -315,17 +316,18 @@ func (s *initSystemSuite) TestUpdateConfigExtraScript(c *gc.C) {
 		Script:   []byte(script),
 	})
 	// This gives us a more readable output if they aren't equal.
-	c.Check(string(s.service.Script), gc.Equals, script)
+	c.Check(string(svc.Script), gc.Equals, script)
 	s.stub.CheckCalls(c, nil)
 }
 
-func (s *initSystemSuite) TestUpdateConfigMultiline(c *gc.C) {
+func (s *initSystemSuite) TestNewServiceMultiline(c *gc.C) {
 	s.conf.ExecStart = "a\nb\nc"
 
-	s.service.UpdateConfig(s.conf)
+	svc, err := systemd.NewService(s.name, s.conf)
+	c.Assert(err, jc.ErrorIsNil)
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
-	c.Check(s.service, jc.DeepEquals, &systemd.Service{
+	c.Check(svc, jc.DeepEquals, &systemd.Service{
 		Service: common.Service{
 			Name: s.name,
 			Conf: common.Conf{
@@ -337,56 +339,6 @@ func (s *initSystemSuite) TestUpdateConfigMultiline(c *gc.C) {
 		ConfName: s.name + ".service",
 		Dirname:  dirname,
 		Script:   []byte("a\nb\nc"),
-	})
-	s.stub.CheckCalls(c, nil)
-}
-
-func (s *initSystemSuite) TestUpdateConfigLogfile(c *gc.C) {
-	s.conf.Logfile = "/var/log/juju/machine-0.log"
-
-	s.service.UpdateConfig(s.conf)
-
-	// TODO(ericsnow) The error return needs to be checked once there is one.
-
-	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
-	script := `
-# Set up logging.
-touch '/var/log/juju/machine-0.log'
-chown syslog:syslog '/var/log/juju/machine-0.log'
-chmod 0600 '/var/log/juju/machine-0.log'
-exec > '/var/log/juju/machine-0.log'
-exec 2>&1
-
-# Run the script.
-`[1:] + jujud + " machine-0"
-	c.Check(s.service, jc.DeepEquals, &systemd.Service{
-		Service: common.Service{
-			Name: s.name,
-			Conf: common.Conf{
-				Desc:      s.conf.Desc,
-				ExecStart: "'" + dirname + "/exec-start.sh'",
-				Logfile:   "/var/log/juju/machine-0.log",
-			},
-		},
-		UnitName: s.name + ".service",
-		ConfName: s.name + ".service",
-		Dirname:  dirname,
-		Script:   []byte(script),
-	})
-	// This gives us a more readable output if they aren't equal.
-	c.Check(string(s.service.Script), gc.Equals, script)
-}
-
-func (s *initSystemSuite) TestUpdateConfigEmpty(c *gc.C) {
-	s.service.UpdateConfig(common.Conf{})
-
-	c.Check(s.service, jc.DeepEquals, &systemd.Service{
-		Service: common.Service{
-			Name: s.name,
-		},
-		ConfName: s.name + ".service",
-		UnitName: s.name + ".service",
-		Dirname:  fmt.Sprintf("%s/init/%s", s.dataDir, s.name),
 	})
 	s.stub.CheckCalls(c, nil)
 }

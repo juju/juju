@@ -62,9 +62,6 @@ type Service interface {
 	// Conf returns the service's conf data.
 	Conf() common.Conf
 
-	// UpdateConfig adds a config to the service, overwriting the current one.
-	UpdateConfig(conf common.Conf)
-
 	// Running returns a boolean value that denotes
 	// whether or not the service is running.
 	Running() (bool, error)

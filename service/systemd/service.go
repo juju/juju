@@ -156,11 +156,6 @@ func (s Service) Conf() common.Conf {
 	return s.Service.Conf
 }
 
-// UpdateConfig implements Service.
-func (s *Service) UpdateConfig(conf common.Conf) {
-	s.setConf(conf) // We ignore any error (i.e. when validation fails).
-}
-
 func (s *Service) serialize() ([]byte, error) {
 	data, err := serialize(s.UnitName, s.Service.Conf)
 	if err != nil {
