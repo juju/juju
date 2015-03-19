@@ -92,8 +92,8 @@ func (s *LogsSuite) TestPruneLogsByTime(c *gc.C) {
 	log(maxLogTime.Add(-time.Second), "prune")
 	log(maxLogTime.Add(-(2 * time.Second)), "prune")
 
-	sizeNoPrune := int(1e10)
-	err := state.PruneLogs(s.State, maxLogTime, sizeNoPrune)
+	noPruneMB := 100
+	err := state.PruneLogs(s.State, maxLogTime, noPruneMB)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// After pruning there should just be 3 "keep" messages left.
