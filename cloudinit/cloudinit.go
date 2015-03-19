@@ -8,17 +8,31 @@ package cloudinit
 
 import (
 	"bytes"
+	"strings"
 	"text/template"
+
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/version"
 )
 
 // Config represents a set of cloud-init configuration options.
 type Config struct {
-	attrs map[string]interface{}
+	attrs  map[string]interface{}
+	osName string
 }
 
 // New returns a new Config with no options set.
-func New() *Config {
-	return &Config{make(map[string]interface{})}
+func New(series string) (*Config, error) {
+	osName, err := version.GetOSFromSeries(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg := &Config{
+		attrs:  make(map[string]interface{}),
+		osName: strings.ToLower(string(osName)),
+	}
+	return cfg, nil
 }
 
 func (cfg *Config) set(opt string, yes bool, value interface{}) {

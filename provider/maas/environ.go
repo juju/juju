@@ -1005,7 +1005,10 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series st
 		return nil, err
 	}
 
-	cloudcfg := cloudinit.New()
+	cloudcfg, err := cloudinit.New(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	operatingSystem, err := version.GetOSFromSeries(series)
 	if err != nil {
 		return nil, err

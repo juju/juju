@@ -100,8 +100,11 @@ func GenerateNetworkConfig(networkConfig *NetworkConfig) (string, error) {
 // NewCloudInitConfigWithNetworks creates a cloud-init config which
 // might include per-interface networking config if both networkConfig
 // is not nil and its Interfaces field is not empty.
-func NewCloudInitConfigWithNetworks(networkConfig *NetworkConfig) (*coreCloudinit.Config, error) {
-	cloudConfig := coreCloudinit.New()
+func NewCloudInitConfigWithNetworks(series string, networkConfig *NetworkConfig) (*coreCloudinit.Config, error) {
+	cloudConfig, err := coreCloudinit.New(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	config, err := GenerateNetworkConfig(networkConfig)
 	if err != nil || len(config) == 0 {
 		return cloudConfig, errors.Trace(err)
@@ -116,7 +119,10 @@ func cloudInitUserData(
 	machineConfig *cloudinit.MachineConfig,
 	networkConfig *NetworkConfig,
 ) ([]byte, error) {
-	cloudConfig, err := NewCloudInitConfigWithNetworks(networkConfig)
+	cloudConfig, err := NewCloudInitConfigWithNetworks(machineConfig.Series, networkConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	udata, err := cloudinit.NewUserdataConfig(machineConfig, cloudConfig)
 	if err != nil {
 		return nil, err

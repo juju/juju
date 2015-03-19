@@ -170,7 +170,10 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 	mcfg.ProxySettings = proxy.Settings{}
 	mcfg.AptMirror = ""
 
-	cloudcfg := coreCloudinit.New()
+	cloudcfg, err := coreCloudinit.New(mcfg.Series)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	cloudcfg.SetAptUpdate(mcfg.EnableOSRefreshUpdate)
 	cloudcfg.SetAptUpgrade(mcfg.EnableOSUpgrade)
 

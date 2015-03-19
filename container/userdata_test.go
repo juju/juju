@@ -85,7 +85,7 @@ func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
 
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworks(c *gc.C) {
 	netConfig := container.BridgeNetworkConfig("foo", s.fakeInterfaces)
-	cloudConf, err := container.NewCloudInitConfigWithNetworks(netConfig)
+	cloudConf, err := container.NewCloudInitConfigWithNetworks("quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	// We need to indent expectNetConfig to make it valid YAML,
 	// dropping the last new line and using unindented blank lines.
@@ -105,7 +105,7 @@ bootcmd:
 
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksNoConfig(c *gc.C) {
 	netConfig := container.BridgeNetworkConfig("foo", nil)
-	cloudConf, err := container.NewCloudInitConfigWithNetworks(netConfig)
+	cloudConf, err := container.NewCloudInitConfigWithNetworks("quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := "#cloud-config\n{}\n"
 	assertUserData(c, cloudConf, expected)

@@ -215,7 +215,10 @@ var provisionMachineAgent = func(host string, mcfg *cloudinit.MachineConfig, pro
 // configuration.
 func ProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
 
-	cloudcfg := coreCloudinit.New()
+	cloudcfg, err := coreCloudinit.New(mcfg.Series)
+	if err != nil {
+		return "", errors.Annotate(err, "error generating cloud-config")
+	}
 	cloudcfg.SetAptUpdate(mcfg.EnableOSRefreshUpdate)
 	cloudcfg.SetAptUpgrade(mcfg.EnableOSUpgrade)
 

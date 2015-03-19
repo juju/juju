@@ -562,7 +562,8 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		if test.setEnvConfig {
 			test.cfg.Config = minimalConfig(c)
 		}
-		ci := coreCloudinit.New()
+		ci, err := coreCloudinit.New("quantal")
+		c.Assert(err, jc.ErrorIsNil)
 		udata, err := cloudinit.NewUserdataConfig(&test.cfg, ci)
 		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
@@ -618,7 +619,8 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 	for i, test := range cloudinitTests {
 		test.cfg.Config = minimalConfig(c)
 		c.Logf("test %d (Configure)", i)
-		cloudcfg := coreCloudinit.New()
+		cloudcfg, err := coreCloudinit.New("quantal")
+		c.Assert(err, jc.ErrorIsNil)
 		udata, err := cloudinit.NewUserdataConfig(&test.cfg, cloudcfg)
 		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
@@ -631,7 +633,8 @@ func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 	machineConfig := minimalMachineConfig()
 	machineConfig.Config = minimalConfig(c)
 
-	cloudcfg := coreCloudinit.New()
+	cloudcfg, err := coreCloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudinit.NewUserdataConfig(&machineConfig, cloudcfg)
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -656,7 +659,8 @@ func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 
 func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	// Create a simple cloudinit config with a 'runcmd' statement.
-	cloudcfg := coreCloudinit.New()
+	cloudcfg, err := coreCloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	script := "test script"
 	cloudcfg.AddRunCmd(script)
 	cloudinitTests[0].cfg.Config = minimalConfig(c)
@@ -1001,7 +1005,8 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		MachineAgentServiceName: "jujud-machine-99",
 	}
 	// check that the base configuration does not give an error
-	ci := coreCloudinit.New()
+	ci, err := coreCloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i, test := range verifyTests {
 		// check that the base configuration does not give an error
@@ -1043,7 +1048,8 @@ func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config
 func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
 	environConfig := minimalConfig(c)
 	machineCfg := s.createMachineConfig(c, environConfig)
-	cloudcfg := coreCloudinit.New()
+	cloudcfg, err := coreCloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
@@ -1060,7 +1066,8 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	machineCfg := s.createMachineConfig(c, environConfig)
-	cloudcfg := coreCloudinit.New()
+	cloudcfg, err := coreCloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
@@ -1079,7 +1086,8 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	machineCfg := s.createMachineConfig(c, environConfig)
-	cloudcfg := coreCloudinit.New()
+	cloudcfg, err := coreCloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
@@ -1124,7 +1132,8 @@ func (s *cloudinitSuite) TestAptMirrorNotSet(c *gc.C) {
 
 func (s *cloudinitSuite) testAptMirror(c *gc.C, cfg *config.Config, expect string) {
 	machineCfg := s.createMachineConfig(c, cfg)
-	cloudcfg := coreCloudinit.New()
+	cloudcfg, err := coreCloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
@@ -1205,7 +1214,8 @@ func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
 		test.cfg.DataDir = dataDir
 		test.cfg.LogDir = path.Join(logDir, "juju")
 
-		ci := coreCloudinit.New()
+		ci, err := coreCloudinit.New("win8")
+		c.Assert(err, jc.ErrorIsNil)
 		udata, err := cloudinit.NewUserdataConfig(&test.cfg, ci)
 
 		c.Assert(err, jc.ErrorIsNil)
