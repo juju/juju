@@ -91,11 +91,14 @@ func (w *unixConfigure) ConfigureBasic() error {
 	switch w.os {
 	case version.Ubuntu:
 		w.conf.AddSSHAuthorizedKeys(w.icfg.AuthorizedKeys)
+	// On unix systems that are not ubuntu we create an ubuntu user so that we
+	// are able to ssh in the machine and have all the functionality dependant
+	// on having an ubuntu user there.
+	// Hopefully in the future we are going to move all the distirbutions to
+	// having a "juju" user
 	case version.CentOS:
-		//TODO: Need to add user and set SSH keys for CentOS
 		script := fmt.Sprintf(initUbuntuScript, utils.ShQuote(w.icfg.AuthorizedKeys))
 		w.conf.AddScripts(script)
-		//w.conf.AddSSHAuthorizedKeys(w.icfg.AuthorizedKeys)
 	}
 	w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.icfg.CloudInitOutputLog, "")
 	// Create a file in a well-defined location containing the machine's
@@ -145,11 +148,9 @@ func (w *unixConfigure) ConfigureJuju() error {
 		w.conf.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on remote host", w.icfg.CloudInitOutputLog))
 	}
 
-	cloudinit.AddPackageCommands(
-		w.icfg.Series,
+	w.conf.AddPackageCommands(
 		w.icfg.AptProxySettings,
 		w.icfg.AptMirror,
-		w.conf,
 		w.icfg.EnableOSRefreshUpdate,
 		w.icfg.EnableOSUpgrade,
 	)
@@ -262,8 +263,8 @@ func (w *unixConfigure) ConfigureJuju() error {
 	// for series that need it. This gives us up-to-date LXC,
 	// MongoDB, and other infrastructure.
 	// This is only done on ubuntu
-	if w.conf.SystemUpdate() {
-		cloudinit.MaybeAddCloudArchiveCloudTools(w.conf, w.icfg.Tools.Version.Series)
+	if w.conf.SystemUpdate() && w.conf.RequiresCloudArchiveCloudTools() {
+		w.conf.AddCloudArchiveCloudTools()
 	}
 
 	if w.icfg.Bootstrap {

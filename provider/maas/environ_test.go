@@ -194,7 +194,7 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 	c.Check(env.Config().Name(), gc.Equals, "testenv")
 }
 
-var expectedCloudinitConfig = []interface{}{
+var expectedCloudinitConfig = []string{
 	"set -xe",
 	"mkdir -p '/var/lib/juju'\ncat > '/var/lib/juju/MAASmachine.txt' << 'EOF'\n'hostname: testing.invalid\n'\nEOF\nchmod 0755 '/var/lib/juju/MAASmachine.txt'",
 }

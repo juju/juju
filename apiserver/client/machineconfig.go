@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// MachineConfig returns information from the environment config that
+// InstanceConfig returns information from the environment config that
 // is needed for machine cloud-init (for non-state servers only). It
 // is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.

@@ -167,17 +167,17 @@ func (s *lxcBrokerSuite) TestStartInstanceWithStorage(c *gc.C) {
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceLoopMountsDisallowed(c *gc.C) {
-	machineConfig := s.machineConfig(c, "1/lxc/0")
+	instanceConfig := s.instanceConfig(c, "1/lxc/0")
 
 	possibleTools := coretools.List{&coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}}
 	_, err := s.broker.StartInstance(environs.StartInstanceParams{
-		Constraints:   constraints.Value{},
-		Tools:         possibleTools,
-		MachineConfig: machineConfig,
-		Volumes:       []storage.VolumeParams{{Provider: provider.LoopProviderType}},
+		Constraints:    constraints.Value{},
+		Tools:          possibleTools,
+		InstanceConfig: instanceConfig,
+		Volumes:        []storage.VolumeParams{{Provider: provider.LoopProviderType}},
 	})
 	c.Assert(err, gc.Equals, container.ErrLoopMountNotAllowed)
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	pacconf "github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
@@ -34,23 +35,35 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// Use local suite since this file lives in the ec2 package
-// for testing internals.
 type cloudinitSuite struct {
 	testing.BaseSuite
 }
 
 var _ = gc.Suite(&cloudinitSuite{})
 
-var envConstraints = constraints.MustParse("mem=2G")
+var (
+	envConstraints = constraints.MustParse("mem=2G")
 
-var allMachineJobs = []multiwatcher.MachineJob{
-	multiwatcher.JobManageEnviron,
-	multiwatcher.JobHostUnits,
-	multiwatcher.JobManageNetworking,
-}
-var normalMachineJobs = []multiwatcher.MachineJob{
-	multiwatcher.JobHostUnits,
+	allMachineJobs = []multiwatcher.MachineJob{
+		multiwatcher.JobManageEnviron,
+		multiwatcher.JobHostUnits,
+		multiwatcher.JobManageNetworking,
+	}
+	normalMachineJobs = []multiwatcher.MachineJob{
+		multiwatcher.JobHostUnits,
+	}
+
+	jujuLogDir         = path.Join(logDir, "juju")
+	logDir             = must(paths.LogDir("precise"))
+	dataDir            = must(paths.DataDir("precise"))
+	cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
+)
+
+func must(s string, err error) string {
+	if err != nil {
+		panic(err)
+	}
+	return s
 }
 
 type cloudinitTest struct {
@@ -120,11 +133,6 @@ var stateServingInfo = &params.StateServingInfo{
 	StatePort:    37017,
 	APIPort:      17070,
 }
-
-var jujuLogDir = path.Join(logDir, "juju")
-var logDir = must(paths.LogDir("precise"))
-var dataDir = must(paths.DataDir("precise"))
-var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 
 // Each test gives a cloudinit config - we check the
 // output to see if it looks correct.
@@ -555,7 +563,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		if test.setEnvConfig {
 			test.cfg.Config = minimalConfig(c)
 		}
-		ci, err := cloudinit.New("quantal")
+		ci, err := cloudinit.New(test.cfg.Series)
 		c.Assert(err, jc.ErrorIsNil)
 		udata, err := cloudconfig.NewUserdataConfig(&test.cfg, ci)
 		c.Assert(err, jc.ErrorIsNil)
@@ -567,28 +575,23 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		// back to a map so we can introspect it without
 		// worrying about internal details of the cloudinit
 		// package.
-		data, err := udata.Render()
+		data, err := ci.RenderYAML()
 		c.Assert(err, jc.ErrorIsNil)
 
 		configKeyValues := make(map[interface{}]interface{})
 		err = goyaml.Unmarshal(data, &configKeyValues)
 		c.Assert(err, jc.ErrorIsNil)
 
-		c.Check(configKeyValues["apt_get_wrapper"], gc.DeepEquals, map[interface{}]interface{}{
-			"command": "eatmydata",
-			"enabled": "auto",
-		})
-
 		if test.cfg.EnableOSRefreshUpdate {
-			c.Check(configKeyValues["apt_update"], jc.IsTrue)
+			c.Check(configKeyValues["package_update"], jc.IsTrue)
 		} else {
-			c.Check(configKeyValues["apt_update"], gc.IsNil)
+			c.Check(configKeyValues["package_update"], jc.IsFalse)
 		}
 
 		if test.cfg.EnableOSUpgrade {
-			c.Check(configKeyValues["apt_upgrade"], jc.IsTrue)
+			c.Check(configKeyValues["package_upgrade"], jc.IsTrue)
 		} else {
-			c.Check(configKeyValues["apt_upgrade"], gc.IsNil)
+			c.Check(configKeyValues["package_upgrade"], jc.IsFalse)
 		}
 
 		scripts := getScripts(configKeyValues)
@@ -604,7 +607,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		c.Assert(acfg, jc.Contains, "upgradedToVersion: 1.2.3\n")
 		source := "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/cloud-tools main"
 		needCloudArchive := test.cfg.Series == "precise"
-		checkAptSource(c, configKeyValues, source, cloudinit.CanonicalCloudArchiveSigningKey, needCloudArchive)
+		checkAptSource(c, configKeyValues, source, pacconf.UbuntuCloudArchiveSigningKey, needCloudArchive)
 	}
 }
 
@@ -633,7 +636,7 @@ func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := udata.Render()
+	data, err := cloudcfg.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
 	configKeyValues := make(map[interface{}]interface{})
 	err = goyaml.Unmarshal(data, &configKeyValues)
@@ -661,7 +664,7 @@ func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := udata.Render()
+	data, err := cloudcfg.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
 
 	ciContent := make(map[interface{}]interface{})
@@ -1049,7 +1052,7 @@ func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cmds := cloudcfg.BootCmds()
-	c.Assert(cmds, jc.DeepEquals, []interface{}{})
+	c.Assert(cmds, jc.DeepEquals, []string(nil))
 }
 
 func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
@@ -1068,7 +1071,7 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 
 	cmds := cloudcfg.BootCmds()
 	expected := "printf '%s\\n' 'Acquire::http::Proxy \"http://user@10.0.0.1\";' > /etc/apt/apt.conf.d/42-juju-proxy-settings"
-	c.Assert(cmds, jc.DeepEquals, []interface{}{expected})
+	c.Assert(cmds, jc.DeepEquals, []string{expected})
 }
 
 func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
@@ -1088,7 +1091,7 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 
 	cmds := cloudcfg.RunCmds()
 	first := `([ ! -e /home/ubuntu/.profile ] || grep -q '.juju-proxy' /home/ubuntu/.profile) || printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`
-	expected := []interface{}{
+	expected := []string{
 		`export http_proxy=http://user@10.0.0.1`,
 		`export HTTP_PROXY=http://user@10.0.0.1`,
 		`export no_proxy=localhost,10.0.3.1`,
@@ -1164,37 +1167,36 @@ JzPMDvZ0fYS30ukCIA1stlJxpFiCXQuFn0nG+jH4Q52FTv8xxBhrbLOFvHRRAiEA
 -----END RSA PRIVATE KEY-----
 `[1:])
 
-var windowsCloudinitTests = []cloudinitTest{
-	{
-		cfg: instancecfg.InstanceConfig{
-			MachineId:          "10",
-			AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
-			Tools:              newSimpleTools("1.2.3-win8-amd64"),
-			Series:             "win8",
-			Bootstrap:          false,
-			Jobs:               normalMachineJobs,
-			MachineNonce:       "FAKE_NONCE",
-			CloudInitOutputLog: cloudInitOutputLog,
-			MongoInfo: &mongo.MongoInfo{
-				Tag:      names.NewMachineTag("10"),
-				Password: "arble",
-				Info: mongo.Info{
-					CACert: "CA CERT\n" + string(serverCert),
-					Addrs:  []string{"state-addr.testing.invalid:12345"},
-				},
+var windowsCloudinitTests = []cloudinitTest{{
+	cfg: instancecfg.InstanceConfig{
+		MachineId:          "10",
+		AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
+		Tools:              newSimpleTools("1.2.3-win8-amd64"),
+		Series:             "win8",
+		Bootstrap:          false,
+		Jobs:               normalMachineJobs,
+		MachineNonce:       "FAKE_NONCE",
+		CloudInitOutputLog: cloudInitOutputLog,
+		MongoInfo: &mongo.MongoInfo{
+			Tag:      names.NewMachineTag("10"),
+			Password: "arble",
+			Info: mongo.Info{
+				CACert: "CA CERT\n" + string(serverCert),
+				Addrs:  []string{"state-addr.testing.invalid:12345"},
 			},
-			APIInfo: &api.Info{
-				Addrs:      []string{"state-addr.testing.invalid:54321"},
-				Password:   "bletch",
-				CACert:     "CA CERT\n" + string(serverCert),
-				Tag:        names.NewMachineTag("10"),
-				EnvironTag: testing.EnvironmentTag,
-			},
-			MachineAgentServiceName: "jujud-machine-10",
 		},
-		setEnvConfig:  false,
-		expectScripts: WindowsUserdata,
+		APIInfo: &api.Info{
+			Addrs:      []string{"state-addr.testing.invalid:54321"},
+			Password:   "bletch",
+			CACert:     "CA CERT\n" + string(serverCert),
+			Tag:        names.NewMachineTag("10"),
+			EnvironTag: testing.EnvironmentTag,
+		},
+		MachineAgentServiceName: "jujud-machine-10",
 	},
+	setEnvConfig:  false,
+	expectScripts: WindowsUserdata,
+},
 }
 
 func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
@@ -1217,7 +1219,7 @@ func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
 
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(ci, gc.NotNil)
-		data, err := udata.Render()
+		data, err := ci.RenderYAML()
 		c.Assert(err, jc.ErrorIsNil)
 
 		stringData := strings.Replace(string(data), "\r\n", "\n", -1)

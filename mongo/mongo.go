@@ -185,7 +185,7 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	if err := aptGetInstallMongod(args.SetNumaControlPolicy); err != nil {
+	if err := installMongod(args.SetNumaControlPolicy); err != nil {
 		return fmt.Errorf("cannot install mongod: %v", err)
 	}
 	mongoPath, err := Path()
@@ -302,7 +302,7 @@ func getPackagingConfigurer() (config.PackagingConfigurer, error) {
 	return config.NewPackagingConfigurer(version.Current.Series)
 }
 
-func aptGetInstallMongod(numaCtl bool) error {
+func installMongod(numaCtl bool) error {
 	series := version.Current.Series
 
 	pacconfer, err := getPackagingConfigurer()
@@ -325,6 +325,14 @@ func aptGetInstallMongod(numaCtl bool) error {
 			return err
 		}
 	}
+	// CentOS requires "epel-release" for the epel repo mongodb-server is in.
+	if series == "centos7" {
+		// install epel-release
+		if err := pacman.Install("epel-release"); err != nil {
+			return err
+		}
+	}
+
 	mongoPkg := packageForSeries(series)
 
 	pkgs := []string{mongoPkg}
@@ -336,13 +344,6 @@ func aptGetInstallMongod(numaCtl bool) error {
 	}
 
 	for i, _ := range pkgs {
-		packname, err := pacconfer.GetPackageNameForSeries(pkgs[i], series)
-		if err != nil {
-			return err
-		}
-
-		pkgs[i] = packname
-
 		// apply release targeting if needed.
 		if pacconfer.IsCloudArchivePackage(pkgs[i]) {
 			pkgs[i] = strings.Join(pacconfer.ApplyCloudArchiveTarget(pkgs[i]), " ")
@@ -360,7 +361,7 @@ func aptGetInstallMongod(numaCtl bool) error {
 // of the machine that it is going to be running on.
 func packageForSeries(series string) string {
 	switch series {
-	case "precise", "quantal", "raring", "saucy":
+	case "precise", "quantal", "raring", "saucy", "centos7":
 		return "mongodb-server"
 	default:
 		// trusty and onwards

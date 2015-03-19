@@ -7,11 +7,11 @@ import (
 	"regexp"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/packaging"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/cloudconfig/cloudinit/packaging"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -82,7 +82,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.
 	return cloudcfg
 }
 
-var allSeries = [...]string{"precise", "quantal", "raring", "saucy"}
+var allSeries = []string{"precise", "quantal", "raring", "saucy"}
 
 func checkIff(checker gc.Checker, condition bool) gc.Checker {
 	if condition {
@@ -91,12 +91,12 @@ func checkIff(checker gc.Checker, condition bool) gc.Checker {
 	return gc.Not(checker)
 }
 
-var aptgetRegexp = "(.|\n)*" + regexp.QuoteMeta("apt-get --assume-yes --option Dpkg::Options::=--force-confold ")
+var aptgetRegexp = "(.|\n)*" + regexp.QuoteMeta("apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::options::=--force-unsafe-io --assume-yes --quiet ")
 
 func (s *configureSuite) TestAptSources(c *gc.C) {
 	for _, series := range allSeries {
 		vers := version.MustParseBinary("1.16.0-" + series + "-amd64")
-		script, err := cloudinit.ConfigureScript(s.getCloudConfig(c, true, vers), "quantal")
+		script, err := s.getCloudConfig(c, true, vers).RenderScript()
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Only Precise requires the cloud-tools pocket.
@@ -136,7 +136,7 @@ func (s *configureSuite) TestAptSources(c *gc.C) {
 }
 
 func assertScriptMatches(c *gc.C, cfg cloudinit.CloudConfig, pattern string, match bool) {
-	script, err := cloudinit.ConfigureScript(cfg, "quantal")
+	script, err := cfg.RenderScript()
 	c.Assert(err, jc.ErrorIsNil)
 	checker := gc.Matches
 	if !match {
@@ -160,13 +160,13 @@ func (s *configureSuite) TestAptUpdate(c *gc.C) {
 
 	// If we add sources, but disable updates, display an error.
 	cfg.SetSystemUpdate(false)
-	source := packaging.Source{
+	source := packaging.PackageSource{
 		Name: "source",
-		Url:  "source",
+		URL:  "source",
 		Key:  "key",
 	}
 	cfg.AddPackageSource(source)
-	_, err = cloudinit.ConfigureScript(cfg, "quantal")
+	_, err = cfg.RenderScript()
 	c.Check(err, gc.ErrorMatches, "update sources were specified, but OS updates have been disabled.")
 }
 
@@ -176,9 +176,9 @@ func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 	cfg, err := cloudinit.New("quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.SetSystemUpdate(true)
-	source := packaging.Source{
+	source := packaging.PackageSource{
 		Name: "source",
-		Url:  "source",
+		URL:  "source",
 		Key:  "key",
 	}
 	cfg.AddPackageSource(source)
@@ -186,23 +186,6 @@ func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 	cfg.SetSystemUpgrade(true)
 	assertScriptMatches(c, cfg, aptGetUpgradePattern, true)
 }
-
-//func (s *configureSuite) TestAptGetWrapper(c *gc.C) {
-//aptgetRegexp := "(.|\n)*\\$\\(which eatmydata || true\\) " + regexp.QuoteMeta(sshinit.Aptget) + "(.|\n)*"
-//cfg, err := cloudinit.New("quantal")
-//c.Assert(err, jc.ErrorIsNil)
-//cfg.SetSystemUpdate(true)
-//cfg.SetAptGetWrapper("eatmydata")
-//assertScriptMatches(c, cfg, aptgetRegexp, true)
-//}
-
-//func (s *configureSuite) TestAptGetRetry(c *gc.C) {
-//aptgetRegexp := "(.|\n)*apt_get_loop.*" + regexp.QuoteMeta(sshinit.Aptget) + "(.|\n)*"
-//cfg := cloudinit.New()
-//cfg.SetSystemUpdate(true)
-//cfg.SetAptGetWrapper("eatmydata")
-//assertScriptMatches(c, cfg, aptgetRegexp, true)
-//}
 
 func (s *configureSuite) TestAptMirrorWrapper(c *gc.C) {
 	expectedCommands := regexp.QuoteMeta(`

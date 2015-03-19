@@ -105,7 +105,7 @@ func (s *environBrokerSuite) TestStartInstanceOpensAPIPort(c *gc.C) {
 
 	// When StateServingInfo is not nil, verify OpenPorts was called
 	// for the API port.
-	s.StartInstArgs.MachineConfig.StateServingInfo = &params.StateServingInfo{
+	s.StartInstArgs.InstanceConfig.StateServingInfo = &params.StateServingInfo{
 		APIPort: apiPort,
 	}
 

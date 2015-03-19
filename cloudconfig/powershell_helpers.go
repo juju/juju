@@ -1,3 +1,6 @@
+// Copyright 2015 Canonical Ltd.
+// Copyright 2015 Cloudbase Solutions SRL
+
 package cloudconfig
 
 var winPowershellHelperFunctions = `

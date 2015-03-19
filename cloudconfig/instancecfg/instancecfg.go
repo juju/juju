@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -32,28 +33,7 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// BootstrapConfig returns a copy of the supplied configuration with the
-// admin-secret and ca-private-key attributes removed. If the resulting
-// config is not suitable for bootstrapping an environment, an error is
-// returned.
-func BootstrapConfig(cfg *config.Config) (*config.Config, error) {
-	m := cfg.AllAttrs()
-	// We never want to push admin-secret or the root CA private key to the cloud.
-	delete(m, "admin-secret")
-	delete(m, "ca-private-key")
-	cfg, err := config.New(config.NoDefaults, m)
-	if err != nil {
-		return nil, err
-	}
-	if _, ok := cfg.AgentVersion(); !ok {
-		return nil, fmt.Errorf("environment configuration has no agent-version")
-	}
-	return cfg, nil
-}
-
-var (
-	logger = loggo.GetLogger("juju.userdata.instanceconfig")
-)
+var logger = loggo.GetLogger("juju.cloudconfig.instancecfg")
 
 // InstanceConfig represents initialization information for a new juju instance.
 type InstanceConfig struct {
@@ -187,19 +167,19 @@ type InstanceConfig struct {
 	EnableOSUpgrade bool
 }
 
-func (cfg *InstanceConfig) InitService() (service.Service, string, error) {
-	conf, toolsDir := service.MachineAgentConf(
+func (cfg *InstanceConfig) agentInfo() service.AgentInfo {
+	return service.NewMachineAgentInfo(
 		cfg.MachineId,
 		cfg.DataDir,
 		cfg.LogDir,
 	)
 }
 
-func (cfg *MachineConfig) toolsDir(renderer shell.Renderer) string {
+func (cfg *InstanceConfig) ToolsDir(renderer shell.Renderer) string {
 	return cfg.agentInfo().ToolsDir(renderer)
 }
 
-func (cfg *MachineConfig) initService(renderer shell.Renderer) (service.Service, error) {
+func (cfg *InstanceConfig) InitService(renderer shell.Renderer) (service.Service, error) {
 	conf := service.AgentConf(cfg.agentInfo(), renderer)
 
 	name := cfg.MachineAgentServiceName
@@ -585,11 +565,31 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 		CAPrivateKey: caPrivateKey,
 	}
 	icfg.StateServingInfo = &srvInfo
-	if icfg.Config, err = BootstrapConfig(cfg); err != nil {
+	if icfg.Config, err = bootstrapConfig(cfg); err != nil {
 		return errors.Trace(err)
 	}
 
 	return nil
+}
+
+// bootstrapConfig returns a copy of the supplied configuration with the
+// admin-secret and ca-private-key attributes removed. If the resulting
+// config is not suitable for bootstrapping an environment, an error is
+// returned.
+// This function is copied from environs in here so we can avoid an import loop
+func bootstrapConfig(cfg *config.Config) (*config.Config, error) {
+	m := cfg.AllAttrs()
+	// We never want to push admin-secret or the root CA private key to the cloud.
+	delete(m, "admin-secret")
+	delete(m, "ca-private-key")
+	cfg, err := config.New(config.NoDefaults, m)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := cfg.AgentVersion(); !ok {
+		return nil, fmt.Errorf("environment configuration has no agent-version")
+	}
+	return cfg, nil
 }
 
 // isStateInstanceConfig determines if given machine configuration

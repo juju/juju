@@ -8,5 +8,5 @@ var (
 	CloudInitUserData              = cloudInitUserData
 	NetworkInterfacesFile          = &networkInterfacesFile
 	NewCloudInitConfigWithNetworks = newCloudInitConfigWithNetworks
-	ShutdownInitScript             = shutdownInitScript
+	ShutdownInitCommands           = shutdownInitCommands
 )

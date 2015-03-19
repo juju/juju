@@ -14,8 +14,8 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/apt"
 	"github.com/juju/utils/fslock"
+	"github.com/juju/utils/packaging/manager"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -68,7 +68,7 @@ func noImportance(err0, err1 error) bool {
 
 func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
-	aptCmdChan := s.HookCommandOutput(&apt.CommandOutput, []byte{}, nil)
+	aptCmdChan := s.HookCommandOutput(&manager.CommandOutput, []byte{}, nil)
 	s.aptCmdChan = aptCmdChan
 
 	// Set up provisioner for the state machine.

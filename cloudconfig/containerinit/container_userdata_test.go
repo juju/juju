@@ -6,7 +6,7 @@ package containerinit_test
 import (
 	"path/filepath"
 	"strings"
-	gotesting "testing"
+	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -18,10 +18,11 @@ import (
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/testing"
 )
 
-func Test(t *gotesting.T) {
+func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
@@ -130,9 +131,7 @@ func (s *UserDataSuite) TestCloudInitUserData(c *gc.C) {
 }
 
 func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
-	renderer, err := cloudinit.NewRenderer("quantal")
-	c.Assert(err, jc.ErrorIsNil)
-	data, err := renderer.Render(cloudConf)
+	data, err := cloudConf.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, expected)
 	// Make sure it's valid YAML as well.
@@ -140,18 +139,23 @@ func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
 	err = yaml.Unmarshal(data, &out)
 	c.Assert(err, jc.ErrorIsNil)
 	if len(cloudConf.BootCmds()) > 0 {
-		c.Assert(out["bootcmd"], jc.DeepEquals, cloudConf.BootCmds())
+		outcmds := out["bootcmd"].([]interface{})
+		confcmds := cloudConf.BootCmds()
+		c.Assert(len(outcmds), gc.Equals, len(confcmds))
+		for i, _ := range outcmds {
+			c.Assert(outcmds[i].(string), gc.Equals, confcmds[i])
+		}
 	} else {
 		c.Assert(out["bootcmd"], gc.IsNil)
 	}
 }
 
-func (s *UserDataSuite) TestShutdownInitScript(c *gc.C) {
-	script, err := containerinit.ShutdownInitScript(service.InitSystemUpstart)
+func (s *UserDataSuite) TestShutdownInitCommandsUpstart(c *gc.C) {
+	cmds, err := containerinit.ShutdownInitCommands(service.InitSystemUpstart)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(script, jc.DeepEquals, `
-cat >> /etc/init/juju-template-restart.conf << 'EOF'
+	filename := "/etc/init/juju-template-restart.conf"
+	script := `
 description "juju shutdown job"
 author "Juju Team <juju@lists.ubuntu.com>"
 start on stopped cloud-final
@@ -166,14 +170,50 @@ iface lo inet loopback
 auto eth0
 iface eth0 inet dhcp
 EOC
-  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log /var/log/upstart/*.log
+  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
   /sbin/shutdown -h now
 end script
 
 post-stop script
   rm /etc/init/juju-template-restart.conf
 end script
+`[1:]
+	c.Check(cmds, gc.HasLen, 1)
+	testing.CheckWriteFileCommand(c, cmds[0], filename, script, nil)
+}
 
-EOF
-`[1:])
+func (s *UserDataSuite) TestShutdownInitCommandsSystemd(c *gc.C) {
+	commands, err := containerinit.ShutdownInitCommands(service.InitSystemSystemd)
+	c.Assert(err, jc.ErrorIsNil)
+
+	test := systemd.WriteConfTest{
+		Service: "juju-template-restart",
+		DataDir: "/var/lib/juju",
+		Expected: `
+[Unit]
+Description=juju shutdown job
+After=syslog.target
+After=network.target
+After=systemd-user-sessions.service
+After=cloud-final
+Conflicts=cloud-final
+
+[Service]
+ExecStart='/var/lib/juju/init/juju-template-restart/exec-start.sh'
+ExecStopPost=/bin/systemctl disable juju-template-restart.service
+`[1:],
+		Script: `
+/bin/cat > /etc/network/interfaces << EOC
+# loopback interface
+auto lo
+iface lo inet loopback
+
+# primary interface
+auto eth0
+iface eth0 inet dhcp
+EOC
+  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
+  /sbin/shutdown -h now`[1:],
+	}
+	test.CheckCommands(c, commands)
 }

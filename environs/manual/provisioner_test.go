@@ -175,7 +175,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	err = udata.ConfigureJuju()
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg.SetSystemUpgrade(false)
-	provisioningScript, err := cloudinit.ConfigureScript(cloudcfg, icfg.Series)
+	provisioningScript, err := cloudcfg.RenderScript()
 	c.Assert(err, jc.ErrorIsNil)
 
 	removeLogFile := "rm -f '/var/log/cloud-init-output.log'\n"
