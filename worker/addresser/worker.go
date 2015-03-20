@@ -10,6 +10,8 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -19,24 +21,39 @@ import (
 var logger = loggo.GetLogger("juju.worker.addresser")
 
 type addresserWorker struct {
-	st   *state.State
-	tomb tomb.Tomb
+	st      *state.State
+	tomb    tomb.Tomb
+	environ environs.NetworkingEnviron
 
 	observer *worker.EnvironObserver
 }
 
 // NewWorker returns a worker that keeps track of
 // IP address lifecycles, removing Dead addresses.
-func NewWorker(st *state.State) worker.Worker {
+func NewWorker(st *state.State) (worker.Worker, error) {
+	config, err := st.EnvironConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	environ, err := environs.New(config)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	netEnviron, ok := environs.SupportsNetworking(environ)
+	if !ok {
+		return nil, errors.New("environment does not support networking")
+	}
+
 	a := &addresserWorker{
-		st: st,
+		st:      st,
+		environ: netEnviron,
 	}
 	// wait for environment
 	go func() {
 		defer a.tomb.Done()
 		a.tomb.Kill(a.loop())
 	}()
-	return a
+	return a, err
 }
 
 func (a *addresserWorker) Kill() {
@@ -90,7 +107,7 @@ func (a *addresserWorker) checkAddresses(ids []string) error {
 func (a *addresserWorker) removeIPAddress(addr *state.IPAddress) error {
 	// XXX addr.MachineId is wrong here, it needs to be instance ID which we
 	// get from state
-	err := a.environ.ReleaseAddress(addr.MachineId(), network.Id(addr.SubnetId()), addr.Address())
+	err := a.environ.ReleaseAddress(instance.Id(addr.MachineId()), network.Id(addr.SubnetId()), addr.Address())
 	if err != nil {
 		// Don't remove the address from state so we
 		// can retry releasing the address later.
