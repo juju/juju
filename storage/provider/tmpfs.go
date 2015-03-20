@@ -6,8 +6,11 @@ package provider
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
@@ -95,71 +98,122 @@ func (s *tmpfsFilesystemSource) ValidateFilesystemParams(params storage.Filesyst
 	// ValidateFilesystemParams may be called on a machine other than the
 	// machine where the filesystem will be mounted, so we cannot check
 	// available size until we get to createFilesystem.
-	if params.Attachment == nil {
-		return errors.NotSupportedf(
-			"creating filesystem without machine attachment",
-		)
-	}
 	return nil
 }
 
 // CreateFilesystems is defined on the FilesystemSource interface.
-func (s *tmpfsFilesystemSource) CreateFilesystems(args []storage.FilesystemParams,
-) ([]storage.Filesystem, []storage.FilesystemAttachment, error) {
+func (s *tmpfsFilesystemSource) CreateFilesystems(args []storage.FilesystemParams) ([]storage.Filesystem, error) {
 	filesystems := make([]storage.Filesystem, 0, len(args))
-	filesystemAttachments := make([]storage.FilesystemAttachment, 0, len(args))
 	for _, arg := range args {
-		filesystem, filesystemAttachment, err := s.createFilesystem(arg)
+		filesystem, err := s.createFilesystem(arg)
 		if err != nil {
-			return nil, nil, errors.Annotate(err, "creating filesystem")
+			return nil, errors.Annotate(err, "creating filesystem")
 		}
 		filesystems = append(filesystems, filesystem)
-		filesystemAttachments = append(filesystemAttachments, filesystemAttachment)
 	}
-	return filesystems, filesystemAttachments, nil
-
+	return filesystems, nil
 }
 
-func (s *tmpfsFilesystemSource) createFilesystem(params storage.FilesystemParams) (storage.Filesystem, storage.FilesystemAttachment, error) {
-	var filesystem storage.Filesystem
-	var filesystemAttachment storage.FilesystemAttachment
+var getpagesize = os.Getpagesize
+
+func (s *tmpfsFilesystemSource) createFilesystem(params storage.FilesystemParams) (storage.Filesystem, error) {
 	if err := s.ValidateFilesystemParams(params); err != nil {
-		return filesystem, filesystemAttachment, errors.Trace(err)
+		return storage.Filesystem{}, errors.Trace(err)
 	}
-	path := params.Attachment.Path
-	if path == "" {
-		return filesystem, filesystemAttachment, errors.New("cannot create a filesystem mount without specifying a path")
-	}
-	if err := validatePath(s.dirFuncs, path); err != nil {
-		return filesystem, filesystemAttachment, err
-	}
-	if _, err := s.run(
-		"mount", "-t", "tmpfs", "none", path, "-o", fmt.Sprintf("size=%d", params.Size*1024*1024),
-	); err != nil {
-		os.Remove(path)
-		return filesystem, filesystemAttachment, errors.Annotate(err, "cannot mount tmpfs")
+	// Align size to the page size in MiB.
+	sizeInMiB := params.Size
+	pageSizeInMiB := uint64(getpagesize()) / (1024 * 1024)
+	if pageSizeInMiB > 0 {
+		x := (sizeInMiB + pageSizeInMiB - 1)
+		sizeInMiB = x - x%pageSizeInMiB
 	}
 
-	// Just to be sure, we still need to double check the size here because
-	//the allocation above is rounded to the nearest page size.
-	sizeInMiB, err := s.dirFuncs.calculateSize(path)
-	if err != nil {
-		os.Remove(path)
-		return filesystem, filesystemAttachment, errors.Annotate(err, "getting size")
-	}
-	if sizeInMiB < params.Size {
-		os.Remove(path)
-		return filesystem, filesystemAttachment, errors.Errorf("filesystem is not big enough (%dM < %dM)", sizeInMiB, params.Size)
-	}
-
-	filesystem = storage.Filesystem{
+	info := storage.Filesystem{
 		Tag:  params.Tag,
 		Size: sizeInMiB,
 	}
-	filesystemAttachment = storage.FilesystemAttachment{
-		Filesystem: params.Tag,
-		Machine:    params.Attachment.Machine,
-		Path:       path,
+
+	// Creating the mount is the responsibility of AttachFilesystems.
+	// AttachFilesystems needs to know the size so it can pass it onto
+	// "mount"; write the size of the filesystem to a file in the
+	// storage directory.
+	if err := s.writeFilesystemInfo(info); err != nil {
+		return storage.Filesystem{}, err
 	}
-	return filesystem, filesystemAttachment, nil
+
+	return info, nil
+}
+
+func (s *tmpfsFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.FilesystemAttachment, error) {
+	attachments := make([]storage.FilesystemAttachment, len(args))
+	for i, arg := range args {
+		attachment, err := s.attachFilesystem(arg)
+		if err != nil {
+			return nil, errors.Annotatef(err, "attaching %s", names.ReadableString(arg.Filesystem))
+		}
+		attachments[i] = attachment
+	}
+	return attachments, nil
+}
+
+func (s *tmpfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmentParams) (storage.FilesystemAttachment, error) {
+	path := arg.Path
+	if path == "" {
+		return storage.FilesystemAttachment{}, errNoMountPoint
+	}
+	info, err := s.readFilesystemInfo(arg.Filesystem)
+	if err != nil {
+		return storage.FilesystemAttachment{}, err
+	}
+
+	// Check if the mount already exists, and mount if not.
+	if _, err := s.run("findmnt", path); err != nil {
+		if err := validatePath(s.dirFuncs, path); err != nil {
+			return storage.FilesystemAttachment{}, err
+		}
+		if _, err := s.run(
+			"mount", "-t", "tmpfs", "none", path,
+			"-o", fmt.Sprintf("size=%dm", info.Size),
+		); err != nil {
+			os.Remove(path)
+			return storage.FilesystemAttachment{}, errors.Annotate(err, "cannot mount tmpfs")
+		}
+	}
+
+	return storage.FilesystemAttachment{
+		Filesystem: arg.Filesystem,
+		Machine:    arg.Machine,
+		Path:       path,
+	}, nil
+}
+
+func (s *tmpfsFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachmentParams) error {
+	return errors.NotImplementedf("DetachFilesystems")
+}
+
+func (s *tmpfsFilesystemSource) writeFilesystemInfo(info storage.Filesystem) error {
+	err := utils.WriteYaml(s.filesystemInfoFile(info.Tag), filesystemInfo{&info.Size})
+	if err != nil {
+		return errors.Annotate(err, "writing filesystem info to disk")
+	}
+	return err
+}
+
+func (s *tmpfsFilesystemSource) readFilesystemInfo(tag names.FilesystemTag) (storage.Filesystem, error) {
+	var info filesystemInfo
+	if err := utils.ReadYaml(s.filesystemInfoFile(tag), &info); err != nil {
+		return storage.Filesystem{}, errors.Annotate(err, "reading filesystem info from disk")
+	}
+	if info.Size == nil {
+		return storage.Filesystem{}, errors.New("invalid filesystem info: missing size")
+	}
+	return storage.Filesystem{Tag: tag, Size: *info.Size}, nil
+}
+
+func (s *tmpfsFilesystemSource) filesystemInfoFile(tag names.FilesystemTag) string {
+	return filepath.Join(s.storageDir, tag.Id()+".info")
+}
+
+type filesystemInfo struct {
+	Size *uint64 `yaml:"size,omitempty"`
 }

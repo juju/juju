@@ -6,10 +6,12 @@ package provider
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
@@ -97,6 +99,7 @@ type dirFuncs interface {
 	lstat(path string) (fi os.FileInfo, err error)
 	fileCount(path string) (int, error)
 	calculateSize(path string) (sizeInMib uint64, _ error)
+	symlink(oldpath, newpath string) error
 }
 
 // The real directory related functions.
@@ -133,6 +136,10 @@ func (o *osDirFuncs) calculateSize(path string) (sizeInMib uint64, _ error) {
 	return numBlocks / 1024, nil
 }
 
+func (o *osDirFuncs) symlink(oldpath, newpath string) error {
+	return os.Symlink(oldpath, newpath)
+}
+
 // validatePath ensures the specified path is suitable as the mount
 // point for a filesystem storage.
 func validatePath(d dirFuncs, path string) error {
@@ -164,62 +171,86 @@ func (s *rootfsFilesystemSource) ValidateFilesystemParams(params storage.Filesys
 	// ValidateFilesystemParams may be called on a machine other than the
 	// machine where the filesystem will be mounted, so we cannot check
 	// available size until we get to CreateFilesystem.
-	if params.Attachment == nil {
-		return errors.NotSupportedf(
-			"creating filesystem without machine attachment",
-		)
-	}
 	return nil
 }
 
 // CreateFilesystems is defined on the FilesystemSource interface.
-func (s *rootfsFilesystemSource) CreateFilesystems(args []storage.FilesystemParams,
-) ([]storage.Filesystem, []storage.FilesystemAttachment, error) {
+func (s *rootfsFilesystemSource) CreateFilesystems(args []storage.FilesystemParams) ([]storage.Filesystem, error) {
 	filesystems := make([]storage.Filesystem, 0, len(args))
-	filesystemAttachments := make([]storage.FilesystemAttachment, 0, len(args))
 	for _, arg := range args {
-		filesystem, filesystemAttachment, err := s.createFilesystem(arg)
+		filesystem, err := s.createFilesystem(arg)
 		if err != nil {
-			return nil, nil, errors.Annotate(err, "creating filesystem")
+			return nil, errors.Annotate(err, "creating filesystem")
 		}
 		filesystems = append(filesystems, filesystem)
-		filesystemAttachments = append(filesystemAttachments, filesystemAttachment)
 	}
-	return filesystems, filesystemAttachments, nil
-
+	return filesystems, nil
 }
 
-func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParams) (storage.Filesystem, storage.FilesystemAttachment, error) {
+func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParams) (storage.Filesystem, error) {
 	var filesystem storage.Filesystem
-	var filesystemAttachment storage.FilesystemAttachment
 	if err := s.ValidateFilesystemParams(params); err != nil {
-		return filesystem, filesystemAttachment, errors.Trace(err)
+		return filesystem, errors.Trace(err)
 	}
-	path := params.Attachment.Path
-	if path == "" {
-		return filesystem, filesystemAttachment, errors.New("cannot create a filesystem mount without specifying a path")
-	}
+	path := filepath.Join(s.storageDir, params.Tag.Id())
 	if err := validatePath(s.dirFuncs, path); err != nil {
-		return filesystem, filesystemAttachment, err
+		return filesystem, err
 	}
-	sizeInMiB, err := s.dirFuncs.calculateSize(path)
+	sizeInMiB, err := s.dirFuncs.calculateSize(s.storageDir)
 	if err != nil {
-		os.Remove(path)
-		return filesystem, filesystemAttachment, errors.Annotate(err, "getting size")
+		return filesystem, errors.Annotate(err, "getting size")
 	}
 	if sizeInMiB < params.Size {
-		os.Remove(path)
-		return filesystem, filesystemAttachment, errors.Errorf("filesystem is not big enough (%dM < %dM)", sizeInMiB, params.Size)
+		return filesystem, errors.Errorf("filesystem is not big enough (%dM < %dM)", sizeInMiB, params.Size)
+	}
+	filesystem = storage.Filesystem{
+		params.Tag,
+		params.Tag.Id(), // FilesystemId
+		sizeInMiB,
+	}
+	return filesystem, nil
+}
+
+func (s *rootfsFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.FilesystemAttachment, error) {
+	attachments := make([]storage.FilesystemAttachment, len(args))
+	for i, arg := range args {
+		attachment, err := s.attachFilesystem(arg)
+		if err != nil {
+			return nil, errors.Annotatef(err, "attaching %s", names.ReadableString(arg.Filesystem))
+		}
+		attachments[i] = attachment
+	}
+	return attachments, nil
+}
+
+func (s *rootfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmentParams) (storage.FilesystemAttachment, error) {
+	// The filesystem is created at <storage-dir>/<storage-id>.
+	// If it is different to the attachment path, create a symlink.
+	fsPath := filepath.Join(s.storageDir, arg.Filesystem.Id())
+
+	mountPoint := arg.Path
+	if mountPoint == "" {
+		return storage.FilesystemAttachment{}, errNoMountPoint
+	}
+	if mountPoint != fsPath {
+		parentDir := filepath.Dir(mountPoint)
+		if err := s.dirFuncs.mkDirAll(parentDir, 0755); err != nil {
+			return storage.FilesystemAttachment{}, err
+		}
+		err := s.dirFuncs.symlink(fsPath, mountPoint)
+		if err != nil && !os.IsExist(err) {
+			return storage.FilesystemAttachment{}, errors.Annotate(err, "creating symlink")
+		}
 	}
 
-	filesystem = storage.Filesystem{
-		Tag:  params.Tag,
-		Size: sizeInMiB,
-	}
-	filesystemAttachment = storage.FilesystemAttachment{
-		Filesystem: params.Tag,
-		Machine:    params.Attachment.Machine,
-		Path:       path,
-	}
-	return filesystem, filesystemAttachment, nil
+	return storage.FilesystemAttachment{
+		Filesystem: arg.Filesystem,
+		Machine:    arg.Machine,
+		Path:       mountPoint,
+	}, nil
+}
+
+func (s *rootfsFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachmentParams) error {
+	// TODO(axw)
+	return errors.NotImplementedf("DetachFilesystems")
 }
