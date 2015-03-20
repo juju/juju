@@ -135,12 +135,7 @@ func cloudInitUserData(
 	// logged in the host.
 	cloudConfig.AddRunCmd("ifconfig")
 
-	renderer, err := coreCloudinit.NewRenderer(machineConfig.Series)
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := renderer.Render(cloudConfig)
+	data, err := cloudConfig.Render()
 	if err != nil {
 		return nil, err
 	}

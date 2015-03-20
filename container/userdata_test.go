@@ -123,9 +123,7 @@ func (s *UserDataSuite) TestCloudInitUserData(c *gc.C) {
 }
 
 func assertUserData(c *gc.C, cloudConf *cloudinit.Config, expected string) {
-	renderer, err := cloudinit.NewRenderer("quantal")
-	c.Assert(err, jc.ErrorIsNil)
-	data, err := renderer.Render(cloudConf)
+	data, err := cloudConf.Render()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, expected)
 	// Make sure it's valid YAML as well.

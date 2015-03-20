@@ -58,6 +58,16 @@ func (cfg *Config) set(opt string, yes bool, value interface{}) {
 	}
 }
 
+// Render converts the cloudinit config into the corresponding script
+// to write to disk.
+func (cfg *Config) Render() ([]byte, error) {
+	if cfg.osName == "windows" {
+		return renderWindows(cfg)
+	} else {
+		return renderUnix(cfg)
+	}
+}
+
 // AptSource is an apt(8) source, comprising a source location,
 // with an optional Key, and optional apt_preferences(5).
 type AptSource struct {

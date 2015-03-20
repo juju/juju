@@ -45,9 +45,6 @@ func NewUserdataConfig(mcfg *MachineConfig, conf *cloudinit.Config) (UserdataCon
 		conf: conf,
 		os:   operatingSystem,
 	}
-	if err := base.init(); err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	switch operatingSystem {
 	case version.Ubuntu:
@@ -60,24 +57,14 @@ func NewUserdataConfig(mcfg *MachineConfig, conf *cloudinit.Config) (UserdataCon
 }
 
 type baseConfigure struct {
-	tag      names.Tag
-	mcfg     *MachineConfig
-	conf     *cloudinit.Config
-	renderer *cloudinit.Renderer
-	os       version.OSType
-}
-
-func (c *baseConfigure) init() error {
-	renderer, err := cloudinit.NewRenderer(c.mcfg.Series)
-	if err != nil {
-		return err
-	}
-	c.renderer = renderer
-	return nil
+	tag  names.Tag
+	mcfg *MachineConfig
+	conf *cloudinit.Config
+	os   version.OSType
 }
 
 func (c *baseConfigure) Render() ([]byte, error) {
-	return c.renderer.Render(c.conf)
+	return c.conf.Render()
 }
 
 // addAgentInfo adds agent-required information to the agent's directory
@@ -123,6 +110,9 @@ func (c *baseConfigure) addMachineAgentToBoot() error {
 	c.conf.AddScripts(cmds...)
 	return nil
 }
+
+// TODO(ericsnow) toolsSymlinkCommand should just be replaced with a
+// call to shell.Renderer.Symlink.
 
 func (c *baseConfigure) toolsSymlinkCommand(toolsDir string) string {
 	switch c.os {

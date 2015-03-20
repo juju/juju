@@ -651,7 +651,7 @@ func (c *configInternal) fileContents() ([]byte, error) {
 func (c *configInternal) WriteCommands(renderer shell.Renderer) ([]string, error) {
 	data, err := c.fileContents()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	commands := renderer.MkdirAll(c.Dir())
 	filename := c.File(agentConfigFilename)

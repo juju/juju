@@ -87,13 +87,9 @@ func templateUserData(
 	}
 	config.AddScripts(strings.Join(cmds, "\n"))
 
-	renderer, err := corecloudinit.NewRenderer(series)
+	data, err := config.Render()
 	if err != nil {
-		return nil, err
-	}
-	data, err := renderer.Render(config)
-	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return data, nil
 }
