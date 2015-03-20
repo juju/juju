@@ -69,6 +69,11 @@ func (s *PoolCreateSuite) TestPoolCreateOneAttr(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
+func (s *PoolCreateSuite) TestPoolCreateEmptyAttr(c *gc.C) {
+	_, err := runPoolCreate(c, []string{"sunshine", "lollypop", ""})
+	c.Check(err, gc.ErrorMatches, `expected "key=value", got ""`)
+}
+
 func (s *PoolCreateSuite) TestPoolCreateManyAttrs(c *gc.C) {
 	_, err := runPoolCreate(c, []string{"sunshine", "lollypop", "something=too", "another=one"})
 	c.Check(err, jc.ErrorIsNil)

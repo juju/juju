@@ -67,6 +67,9 @@ func (c *PoolCreateCommand) Init(args []string) (err error) {
 		return err
 	}
 
+	if len(options) == 0 {
+		return errors.New("pool creation requires attrs for configuration")
+	}
 	c.attrs = make(map[string]interface{})
 	for key, value := range options {
 		c.attrs[key] = value
