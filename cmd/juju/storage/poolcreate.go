@@ -41,11 +41,11 @@ options:
 // PoolCreateCommand lists storage pools.
 type PoolCreateCommand struct {
 	PoolCommandBase
-	pname string
+	poolName string
 	// TODO(anastasiamac 2015-01-29) type will need to become optional
 	// if type is unspecified, use the environment's default provider type
-	ptype string
-	pcfg  map[string]interface{}
+	provider string
+	attrs    map[string]interface{}
 }
 
 // Init implements Command.Init.
@@ -54,17 +54,17 @@ func (c *PoolCreateCommand) Init(args []string) (err error) {
 		return errors.New("pool creation requires names, provider type and attrs for configuration")
 	}
 
-	c.pname = args[0]
-	c.ptype = args[1]
+	c.poolName = args[0]
+	c.provider = args[1]
 
 	options, err := keyvalues.Parse(args[2:], true)
 	if err != nil {
 		return err
 	}
 
-	c.pcfg = make(map[string]interface{})
+	c.attrs = make(map[string]interface{})
 	for key, value := range options {
-		c.pcfg[key] = value
+		c.attrs[key] = value
 	}
 	return nil
 }
@@ -91,7 +91,7 @@ func (c *PoolCreateCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	return api.CreatePool(c.pname, c.ptype, c.pcfg)
+	return api.CreatePool(c.poolName, c.provider, c.attrs)
 }
 
 var (
