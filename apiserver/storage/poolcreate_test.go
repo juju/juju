@@ -22,13 +22,13 @@ var _ = gc.Suite(&poolCreateSuite{})
 func (s *poolCreateSuite) TestCreatePool(c *gc.C) {
 	const (
 		pname = "pname"
-		ptype = "loop"
+		ptype = string(provider.LoopProviderType)
 	)
 	expected, _ := jujustorage.NewConfig(pname, provider.LoopProviderType, nil)
 
 	err := s.api.CreatePool(params.StoragePool{
 		Name:     pname,
-		Provider: string(provider.LoopProviderType),
+		Provider: ptype,
 		Attrs:    nil,
 	})
 	c.Assert(err, jc.ErrorIsNil)
