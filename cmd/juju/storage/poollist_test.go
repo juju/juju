@@ -49,7 +49,7 @@ func (s *PoolListSuite) TestPoolListNoMatch(c *gc.C) {
 func (s *PoolListSuite) TestPoolList(c *gc.C) {
 	s.assertValidList(
 		c,
-		[]string{"--type", "a", "--type", "b", "--name", "xyz", "--name", "abc"},
+		[]string{"--provider", "a", "--provider", "b", "--name", "xyz", "--name", "abc"},
 		// Default format is yaml
 		`
 abc:
@@ -84,7 +84,7 @@ func (s *PoolListSuite) TestPoolListNoType(c *gc.C) {
 	s.mockAPI.emptyType = true
 	s.assertValidList(
 		c,
-		[]string{"--type", "a", "--type", "b", "--name", "xyz", "--name", "abc"},
+		[]string{"--provider", "a", "--provider", "b", "--name", "xyz", "--name", "abc"},
 		// Default format is yaml
 		`
 abc:
@@ -115,7 +115,7 @@ func (s *PoolListSuite) TestPoolListNoCfg(c *gc.C) {
 	s.mockAPI.emptyConfig = true
 	s.assertValidList(
 		c,
-		[]string{"--type", "a", "--type", "b", "--name", "xyz", "--name", "abc"},
+		[]string{"--provider", "a", "--provider", "b", "--name", "xyz", "--name", "abc"},
 		// Default format is yaml
 		`
 abc:
@@ -133,7 +133,7 @@ xyz:
 func (s *PoolListSuite) TestPoolListJSON(c *gc.C) {
 	s.assertValidList(
 		c,
-		[]string{"--type", "a", "--type", "b",
+		[]string{"--provider", "a", "--provider", "b",
 			"--name", "xyz", "--name", "abc",
 			"--format", "json"},
 		`{"abc":{"provider":"testType","attrs":{"one":true,"three":"maybe","two":"well"}},"testName0":{"provider":"a","attrs":{"one":true,"three":"maybe","two":"well"}},"testName1":{"provider":"b","attrs":{"one":true,"three":"maybe","two":"well"}},"xyz":{"provider":"testType","attrs":{"one":true,"three":"maybe","two":"well"}}}
@@ -144,7 +144,7 @@ func (s *PoolListSuite) TestPoolListJSON(c *gc.C) {
 func (s *PoolListSuite) TestPoolListTabular(c *gc.C) {
 	s.assertValidList(
 		c,
-		[]string{"--type", "a", "--type", "b",
+		[]string{"--provider", "a", "--provider", "b",
 			"--name", "xyz", "--name", "abc",
 			"--format", "tabular"},
 		`

@@ -237,7 +237,7 @@ func (s *cmdStorageSuite) TestListPoolsNameNoMatch(c *gc.C) {
 }
 
 func (s *cmdStorageSuite) TestListPoolsProvider(c *gc.C) {
-	context := runPoolList(c, []string{"--type", "ebs"})
+	context := runPoolList(c, []string{"--provider", "ebs"})
 	expected := `
 block-persistent:
   provider: ebs
@@ -248,12 +248,12 @@ block-persistent:
 }
 
 func (s *cmdStorageSuite) TestListPoolsProviderNoMatch(c *gc.C) {
-	context := runPoolList(c, []string{"--type", "oops"})
+	context := runPoolList(c, []string{"--provider", "oops"})
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 }
 
 func (s *cmdStorageSuite) TestListPoolsNameAndProvider(c *gc.C) {
-	context := runPoolList(c, []string{"--name", "block", "--type", "ebs"})
+	context := runPoolList(c, []string{"--name", "block", "--provider", "ebs"})
 	expected := `
 block:
   provider: loop
@@ -268,7 +268,7 @@ block-persistent:
 }
 
 func (s *cmdStorageSuite) TestListPoolsProviderAndNotName(c *gc.C) {
-	context := runPoolList(c, []string{"--name", "fluff", "--type", "ebs"})
+	context := runPoolList(c, []string{"--name", "fluff", "--provider", "ebs"})
 	expected := `
 block-persistent:
   provider: ebs
@@ -279,7 +279,7 @@ block-persistent:
 }
 
 func (s *cmdStorageSuite) TestListPoolsNameAndNotProvider(c *gc.C) {
-	context := runPoolList(c, []string{"--name", "block", "--type", "oops"})
+	context := runPoolList(c, []string{"--name", "block", "--provider", "oops"})
 	expected := `
 block:
   provider: loop
@@ -290,7 +290,7 @@ block:
 }
 
 func (s *cmdStorageSuite) TestListPoolsNotNameAndNotProvider(c *gc.C) {
-	context := runPoolList(c, []string{"--name", "fluff", "--type", "oops"})
+	context := runPoolList(c, []string{"--name", "fluff", "--provider", "oops"})
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 }
 

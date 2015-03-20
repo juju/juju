@@ -23,8 +23,8 @@ options:
    specify an output file
 --format (= yaml)
    specify output format (json|tabular|yaml)
---type
-   pool type
+--provider
+   pool provider type
 --name
    pool name
 
@@ -33,9 +33,9 @@ options:
 // PoolListCommand lists storage pools.
 type PoolListCommand struct {
 	PoolCommandBase
-	Type []string
-	Name []string
-	out  cmd.Output
+	Providers []string
+	Names     []string
+	out       cmd.Output
 }
 
 // Init implements Command.Init.
@@ -55,8 +55,8 @@ func (c *PoolListCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *PoolListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
-	f.Var(cmd.NewAppendStringsValue(&c.Type), "type", "only show pools of these types")
-	f.Var(cmd.NewAppendStringsValue(&c.Name), "name", "only show pools with these names")
+	f.Var(cmd.NewAppendStringsValue(&c.Providers), "provider", "only show pools of these provider types")
+	f.Var(cmd.NewAppendStringsValue(&c.Names), "name", "only show pools with these names")
 
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
@@ -73,7 +73,7 @@ func (c *PoolListCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	result, err := api.ListPools(c.Type, c.Name)
+	result, err := api.ListPools(c.Providers, c.Names)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ var (
 // PoolListAPI defines the API methods that the storage commands use.
 type PoolListAPI interface {
 	Close() error
-	ListPools(types, names []string) ([]params.StoragePool, error)
+	ListPools(providers, names []string) ([]params.StoragePool, error)
 }
 
 func (c *PoolListCommand) getPoolListAPI() (PoolListAPI, error) {
