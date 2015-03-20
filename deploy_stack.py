@@ -14,6 +14,7 @@ import subprocess
 import sys
 from time import sleep
 import json
+import shutil
 
 import get_ami
 from jujuconfig import (
@@ -180,7 +181,8 @@ def get_random_string():
     return ''.join(random.choice(allowed_chars) for n in range(20))
 
 
-def dump_env_logs(client, bootstrap_host, directory, host_id=None):
+def dump_env_logs(client, bootstrap_host, directory, host_id=None,
+                  jenv_path=None):
     machine_addrs = get_machines_for_logs(client, bootstrap_host)
 
     for machine_id, addr in machine_addrs.iteritems():
@@ -192,6 +194,20 @@ def dump_env_logs(client, bootstrap_host, directory, host_id=None):
                   local_state_server=local_state_server)
 
     dump_euca_console(host_id, directory)
+    retain_jenv(jenv_path, directory)
+
+
+def retain_jenv(jenv_path, log_directory):
+    if not jenv_path:
+        return False
+
+    try:
+        shutil.copy(jenv_path, log_directory)
+        return True
+    except IOError:
+        print_now("Failed to copy jenv file. Source: %s Destination: %s" %
+                  (jenv_path, log_directory))
+    return False
 
 
 def get_machines_for_logs(client, bootstrap_host):
@@ -474,7 +490,8 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
                 logging.info('Waiting for port 22 on %s' % machine)
                 wait_for_port(machine, 22, timeout=120)
             juju_home = get_juju_home()
-            ensure_deleted(get_jenv_path(juju_home, client.env.environment))
+            jenv_path = get_jenv_path(juju_home, client.env.environment)
+            ensure_deleted(jenv_path)
             try:
                 bootstrap_from_env(juju_home, client)
             except:
@@ -503,7 +520,8 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
                     logging.exception(e)
                     if host is not None:
                         dump_env_logs(
-                            client, host, log_dir, host_id=bootstrap_id)
+                            client, host, log_dir, host_id=bootstrap_id,
+                            jenv_path=jenv_path)
                     sys.exit(1)
             finally:
                 safe_print_status(client)
