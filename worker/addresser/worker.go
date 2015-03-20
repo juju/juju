@@ -22,7 +22,7 @@ var logger = loggo.GetLogger("juju.worker.addresser")
 
 type releaser interface {
 	// ReleaseAddress has the same signature as the same method in the
-	// NetworkingEnviron
+	// NetworkingEnviron.
 	ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address) error
 }
 
@@ -114,14 +114,20 @@ func (a *addresserWorker) checkAddresses(ids []string) error {
 	return nil
 }
 
-func (a *addresserWorker) removeIPAddress(addr *state.IPAddress) error {
-	// XXX addr.MachineId is wrong here, it needs to be instance ID which we
-	// get from state
-	err := a.releaser.ReleaseAddress(instance.Id(addr.MachineId()), network.Id(addr.SubnetId()), addr.Address())
+func (a *addresserWorker) removeIPAddress(addr *state.IPAddress) (err error) {
+	defer errors.DeferredAnnotatef(&err, "failed to release address %v", addr.Value)
+	machine, err := a.st.Machine(addr.MachineId())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	instId, err := machine.InstanceId()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = a.releaser.ReleaseAddress(instId, network.Id(addr.SubnetId()), addr.Address())
 	if err != nil {
 		// Don't remove the address from state so we
 		// can retry releasing the address later.
-		logger.Warningf("failed to release address %v: %v", addr.Value, err)
 		return errors.Trace(err)
 	}
 
