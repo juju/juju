@@ -4,7 +4,10 @@
 package uniter
 
 import (
+	"os"
+
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/worker/uniter/operation"
@@ -14,11 +17,11 @@ func AddStoppedFieldToUniterState(tag names.UnitTag, dataDir string) error {
 	logger.Tracef("entering upgrade step AddStoppedFieldToUniterState")
 	defer logger.Tracef("leaving upgrade step AddStoppedFieldToUniterState")
 
-	statefile := getUniterStateFile(dataDir, tag)
-	state, err := statefile.ReadUnsafe()
+	opsFile := getUniterStateFile(dataDir, tag)
+	state, err := readUnsafe(opsFile)
 	switch err {
 	case nil:
-		return performUpgrade(statefile, state)
+		return performUpgrade(opsFile, state)
 	case operation.ErrNoStateFile:
 		logger.Warningf("no uniter state file found for unit %s, skipping uniter upgrade step", tag)
 		return nil
@@ -28,17 +31,27 @@ func AddStoppedFieldToUniterState(tag names.UnitTag, dataDir string) error {
 
 }
 
-func getUniterStateFile(dataDir string, tag names.UnitTag) *operation.StateFile {
+func getUniterStateFile(dataDir string, tag names.UnitTag) string {
 	paths := NewPaths(dataDir, tag)
-	opsFile := paths.State.OperationsFile
-	return operation.NewStateFile(opsFile)
+	return paths.State.OperationsFile
 }
 
-func performUpgrade(statefile *operation.StateFile, state *operation.State) error {
+func performUpgrade(opsFile string, state *operation.State) error {
+	statefile := operation.NewStateFile(opsFile)
 	if state.Kind == operation.Continue && state.Hook != nil && state.Hook.Kind == hooks.Stop {
 		state.Stopped = true
 		state.Hook = nil
 		return statefile.Write(state)
 	}
 	return nil
+}
+
+func readUnsafe(opsfile string) (*operation.State, error) {
+	var st operation.State
+	if err := utils.ReadYaml(opsfile, &st); err != nil {
+		if os.IsNotExist(err) {
+			return nil, operation.ErrNoStateFile
+		}
+	}
+	return &st, nil
 }

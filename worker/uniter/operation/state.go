@@ -208,21 +208,3 @@ func (f *StateFile) Write(st *State) error {
 	}
 	return utils.WriteYaml(f.path, st)
 }
-
-// ReadUnsafe reads a State from the file, without verifying state
-// validity. If the file does not exist it returns ErrNoStateFile.
-func (f *StateFile) ReadUnsafe() (*State, error) {
-	var st State
-	if err := utils.ReadYaml(f.path, &st); err != nil {
-		if os.IsNotExist(err) {
-			return nil, ErrNoStateFile
-		}
-	}
-	return &st, nil
-}
-
-// WriteUnsafe stores the supplied state to the file, without
-// verifying the state validity.
-func (f *StateFile) WriteUnsafe(st *State) error {
-	return utils.WriteYaml(f.path, st)
-}

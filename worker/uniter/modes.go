@@ -104,7 +104,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 			logger.Infof("opState.Stopped == true; transition to ModeTerminating")
 			return ModeTerminating, nil
 		}
-		logger.Infof("continuing after hook")
+		logger.Infof("no operations in progress; waiting for changes")
 		return ModeAbide, nil
 	default:
 		return nil, errors.Errorf("unknown operation kind %v", opState.Kind)

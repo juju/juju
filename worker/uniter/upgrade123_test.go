@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
@@ -20,9 +21,10 @@ import (
 )
 
 type upgradeStateContextSuite struct {
-	datadir   string
-	unitTag   names.UnitTag
-	statefile *operation.StateFile
+	datadir         string
+	unitTag         names.UnitTag
+	uniterStateFile string
+	statefile       *operation.StateFile
 }
 
 var _ = gc.Suite(&upgradeStateContextSuite{})
@@ -38,7 +40,7 @@ func (s *upgradeStateContextSuite) SetUpTest(c *gc.C) {
 
 func (s *upgradeStateContextSuite) TestContextUpgradeWithUnitTag(c *gc.C) {
 	given, expectUpgrade :=
-		&operation.State{
+		&oldState{
 			Kind: operation.Continue,
 			Step: operation.Pending,
 			Hook: &hook.Info{
@@ -53,49 +55,66 @@ func (s *upgradeStateContextSuite) TestContextUpgradeWithUnitTag(c *gc.C) {
 }
 
 func (s *upgradeStateContextSuite) TestUpgradeNoStopHookNoChange(c *gc.C) {
-	given := &operation.State{
+	given, expectNoChange := &oldState{
 		Kind: operation.Continue,
-		Step: operation.Pending}
-	expectNoChange := given
+		Step: operation.Pending,
+	}, &operation.State{
+		Kind: operation.Continue,
+		Step: operation.Pending,
+	}
 
 	s.confirmUpgrade(c, given, expectNoChange)
 }
 
 func (s *upgradeStateContextSuite) TestUpgradeRunHookNoChange(c *gc.C) {
-	given := &operation.State{
+	given, expectNoChange := &oldState{
 		Kind: operation.RunHook,
 		Step: operation.Pending,
 		Hook: &hook.Info{
 			Kind: hooks.Stop,
-		}}
-	expectNoChange := given
+		},
+	}, &operation.State{
+		Kind: operation.RunHook,
+		Step: operation.Pending,
+		Hook: &hook.Info{
+			Kind: hooks.Stop,
+		},
+	}
 
 	s.confirmUpgrade(c, given, expectNoChange)
 }
 
 func (s *upgradeStateContextSuite) TestUpgradeInstallOpNoChange(c *gc.C) {
-	given := &operation.State{
+	given, expectNoChange := &oldState{
 		Kind:     operation.Install,
 		Step:     operation.Pending,
-		CharmURL: &charm.URL{}}
-	expectNoChange := given
+		CharmURL: &charm.URL{},
+	}, &operation.State{
+		Kind:     operation.Install,
+		Step:     operation.Pending,
+		CharmURL: &charm.URL{},
+	}
 
 	s.confirmUpgrade(c, given, expectNoChange)
 }
 
 func (s *upgradeStateContextSuite) TestUpgradeUpgradeOpNoChange(c *gc.C) {
-	given := &operation.State{
+	given, expectNoChange := &oldState{
 		Kind:     operation.Upgrade,
 		Step:     operation.Pending,
-		CharmURL: &charm.URL{}}
-	expectNoChange := given
+		CharmURL: &charm.URL{},
+	}, &operation.State{
+		Kind:     operation.Upgrade,
+		Step:     operation.Pending,
+		CharmURL: &charm.URL{},
+	}
 
 	s.confirmUpgrade(c, given, expectNoChange)
 }
 
 func (s *upgradeStateContextSuite) TestUpgradeIdempotent(c *gc.C) {
 	given, expectUpgrade :=
-		&operation.State{
+		&oldState{
 			Kind: operation.Continue,
 			Step: operation.Pending,
 			Hook: &hook.Info{
@@ -115,15 +134,15 @@ func (s *upgradeStateContextSuite) TestUpgradeMissingStateFile(c *gc.C) {
 	s.confirmUniterStateFileMissing(c)
 }
 
-func (s *upgradeStateContextSuite) confirmUpgrade(c *gc.C, given, expect *operation.State) {
-	s.writeState(c, given)
+func (s *upgradeStateContextSuite) confirmUpgrade(c *gc.C, given *oldState, expect *operation.State) {
+	s.writeOldState(c, given)
 
 	s.confirmUpgradeNoErrors(c)
 	s.confirmUniterStateFileMatches(c, expect)
 }
 
-func (s *upgradeStateContextSuite) confirmUpgradeIdempotent(c *gc.C, given, expect *operation.State) {
-	s.writeState(c, given)
+func (s *upgradeStateContextSuite) confirmUpgradeIdempotent(c *gc.C, given *oldState, expect *operation.State) {
+	s.writeOldState(c, given)
 
 	s.confirmUpgradeNoErrors(c)
 	s.confirmUniterStateFileMatches(c, expect)
@@ -132,8 +151,8 @@ func (s *upgradeStateContextSuite) confirmUpgradeIdempotent(c *gc.C, given, expe
 	s.confirmUniterStateFileMatches(c, expect)
 }
 
-func (s *upgradeStateContextSuite) writeState(c *gc.C, state *operation.State) {
-	err := s.statefile.WriteUnsafe(state)
+func (s *upgradeStateContextSuite) writeOldState(c *gc.C, state *oldState) {
+	err := utils.WriteYaml(s.uniterStateFile, state)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -160,8 +179,17 @@ func (s *upgradeStateContextSuite) confirmUniterStateFileMissing(c *gc.C) {
 
 func (s *upgradeStateContextSuite) initializeContext(c *gc.C, utag names.UnitTag) {
 	paths := uniter.NewPaths(s.datadir, utag)
-	opsfile := paths.State.OperationsFile
-	s.statefile = operation.NewStateFile(opsfile)
-	c.Assert(os.MkdirAll(filepath.Dir(opsfile), 0755), gc.IsNil)
+	s.uniterStateFile = paths.State.OperationsFile
+	s.statefile = operation.NewStateFile(s.uniterStateFile)
+	c.Assert(os.MkdirAll(filepath.Dir(s.uniterStateFile), 0755), gc.IsNil)
 	s.unitTag = utag
+}
+
+// oldState is a surrogate type to imitate the relevant parts of the
+// pre-1.23 operation.State struct.
+type oldState struct {
+	Kind     operation.Kind `yaml:"op"`
+	Step     operation.Step `yaml:"opstep"`
+	Hook     *hook.Info     `yaml:"hook,omitempty"`
+	CharmURL *charm.URL     `yaml:"charm,omitempty"`
 }
