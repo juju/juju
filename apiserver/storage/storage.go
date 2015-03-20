@@ -94,7 +94,7 @@ func (api *API) List() (params.StorageInfosResult, error) {
 	var infos []params.StorageInfo
 	for _, stateInstance := range stateInstances {
 		storageTag := stateInstance.StorageTag()
-		persistent, err := api.isPersistent(storageTag)
+		persistent, err := api.isPersistent(stateInstance)
 		if err != nil {
 			return params.StorageInfosResult{}, err
 		}
@@ -144,7 +144,7 @@ func (api *API) getStorageAttachments(
 	}
 	stateAttachments, err := api.storage.StorageAttachments(storageTag)
 	if err != nil {
-		return nil, serverError(common.ErrPerm)
+		return nil, serverError(err)
 	}
 	result := make([]params.StorageDetails, len(stateAttachments))
 	for i, one := range stateAttachments {
@@ -199,9 +199,9 @@ func (api *API) getStorageInstance(tag names.StorageTag) (bool, params.StorageDe
 		if errors.IsNotFound(err) {
 			return false, nothing, nil
 		}
-		return false, nothing, serverError(common.ErrPerm)
+		return false, nothing, serverError(err)
 	}
-	persistent, err := api.isPersistent(tag)
+	persistent, err := api.isPersistent(stateInstance)
 	if err != nil {
 		return false, nothing, serverError(err)
 	}
@@ -219,10 +219,18 @@ func createParamsStorageInstance(si state.StorageInstance, persistent bool) para
 	return result
 }
 
-func (api *API) isPersistent(tag names.StorageTag) (bool, error) {
-	volume, err := api.storage.StorageInstanceVolume(tag)
+// TODO(axw) move this and createParamsStorageInstance to
+// apiserver/common/storage.go, alongside StorageAttachmentInfo.
+func (api *API) isPersistent(si state.StorageInstance) (bool, error) {
+	if si.Kind() != state.StorageKindBlock {
+		// TODO(axw) when we support persistent filesystems,
+		// e.g. CephFS, we'll need to do the same thing as
+		// we do for volumes for filesystems.
+		return false, nil
+	}
+	volume, err := api.storage.StorageInstanceVolume(si.StorageTag())
 	if err != nil {
-		return false, common.ErrPerm
+		return false, err
 	}
 	// If the volume is not provisioned, we read its config attributes.
 	if params, ok := volume.Params(); ok {
