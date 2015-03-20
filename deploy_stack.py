@@ -198,7 +198,7 @@ def dump_env_logs(client, bootstrap_host, directory, host_id=None,
 
 
 def retain_jenv(jenv_path, log_directory):
-    if not jenv_path or not log_directory:
+    if not jenv_path:
         return False
 
     try:
