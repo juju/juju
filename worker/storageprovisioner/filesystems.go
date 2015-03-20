@@ -213,9 +213,7 @@ func processAliveFilesystems(ctx *context, tags []names.Tag, filesystemResults [
 		}
 		filesystemParams = append(filesystemParams, params)
 	}
-	filesystems, filesystemAttachments, err := createFilesystems(
-		ctx.environConfig, ctx.storageDir, filesystemParams,
-	)
+	filesystems, err := createFilesystems(ctx.environConfig, ctx.storageDir, filesystemParams)
 	if err != nil {
 		return errors.Annotate(err, "creating filesystems")
 	}
@@ -235,14 +233,6 @@ func processAliveFilesystems(ctx *context, tags []names.Tag, filesystemResults [
 					filesystems[i].FilesystemTag,
 				)
 			}
-		}
-		// Note: the storage provisioner that creates a filesystem is also
-		// responsible for creating the filesystem attachment. It is therefore
-		// safe to set the filesystem attachment info after the filesystem info,
-		// without leading to the possibility of concurrent, duplicate
-		// attachments.
-		if err := setFilesystemAttachmentInfo(ctx, filesystemAttachments); err != nil {
-			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -352,7 +342,7 @@ func createFilesystems(
 	environConfig *config.Config,
 	baseStorageDir string,
 	params []storage.FilesystemParams,
-) ([]params.Filesystem, []params.FilesystemAttachment, error) {
+) ([]params.Filesystem, error) {
 	// TODO(axw) later we may have multiple instantiations (sources)
 	// for a storage provider, e.g. multiple Ceph installations. For
 	// now we assume a single source for each provider type, with no
@@ -369,25 +359,23 @@ func createFilesystems(
 			environConfig, baseStorageDir, sourceName, params.Provider,
 		)
 		if err != nil {
-			return nil, nil, errors.Annotate(err, "getting filesystem source")
+			return nil, errors.Annotate(err, "getting filesystem source")
 		}
 		filesystemSources[sourceName] = filesystemSource
 	}
 	var allFilesystems []storage.Filesystem
-	var allFilesystemAttachments []storage.FilesystemAttachment
 	for sourceName, params := range paramsBySource {
 		filesystemSource := filesystemSources[sourceName]
-		filesystems, filesystemAttachments, err := filesystemSource.CreateFilesystems(params)
+		filesystems, err := filesystemSource.CreateFilesystems(params)
 		if err != nil {
-			return nil, nil, errors.Annotatef(err, "creating filesystems from source %q", sourceName)
+			return nil, errors.Annotatef(err, "creating filesystems from source %q", sourceName)
 		}
 		allFilesystems = append(allFilesystems, filesystems...)
-		allFilesystemAttachments = append(allFilesystemAttachments, filesystemAttachments...)
 	}
-	return filesystemsFromStorage(allFilesystems), filesystemAttachmentsFromStorage(allFilesystemAttachments), nil
+	return filesystemsFromStorage(allFilesystems), nil
 }
 
-// createFilesystems creates filesystems with the specified parameters.
+// createFilesystemAttachments creates filesystem attachments with the specified parameters.
 func createFilesystemAttachments(
 	environConfig *config.Config,
 	baseStorageDir string,
@@ -468,7 +456,6 @@ func filesystemParamsFromParams(in params.FilesystemParams) (storage.FilesystemP
 		in.Size,
 		providerType,
 		in.Attributes,
-		nil, // attachments done separately
 	}, nil
 }
 
