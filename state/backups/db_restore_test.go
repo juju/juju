@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/service"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -68,7 +69,11 @@ func (s *mongoRestoreSuite) TestPlaceNewMongo(c *gc.C) {
 		ranCommands = append(ranCommands, command)
 		return nil
 	}
+
+	doNothingWithMongoService := func(_ service.Service) error { return nil }
 	s.PatchValue(backups.RunCommand, runCommand)
+	s.PatchValue(backups.StartMongoService, doNothingWithMongoService)
+	s.PatchValue(backups.StopMongoService, doNothingWithMongoService)
 
 	restorePath := func() (string, error) {
 		restorePathCalled = true
@@ -89,9 +94,9 @@ func (s *mongoRestoreSuite) TestPlaceNewMongo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(argsVersion, gc.DeepEquals, ver)
 	c.Assert(newMongoDumpPath, gc.Equals, "fakemongopath")
-	expectedCommands := []string{"initctl", "/fake/mongo/restore/path", "initctl"}
+	expectedCommands := []string{"/fake/mongo/restore/path"}
 	c.Assert(ranCommands, gc.DeepEquals, expectedCommands)
-	c.Assert(len(ranArgs), gc.Equals, 3)
-	expectedArgs := [][]string{{"stop", "juju-db"}, {"a", "set", "of", "args"}, {"start", "juju-db"}}
+	c.Assert(len(ranArgs), gc.Equals, 1)
+	expectedArgs := [][]string{{"a", "set", "of", "args"}}
 	c.Assert(ranArgs, gc.DeepEquals, expectedArgs)
 }

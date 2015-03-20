@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state/imagestorage"
 	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
@@ -236,6 +238,22 @@ func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, 
 var restorePath = paths.MongorestorePath
 var restoreArgsForVersion = mongoRestoreArgsForVersion
 
+// startService starts the provided service.
+func startService(srv service.Service) error {
+	return srv.Start()
+}
+
+// startMongoService is for testing purposes.
+var startMongoService = startService
+
+// stopService is just for testing purposes.
+func stopService(srv service.Service) error {
+	return srv.Stop()
+}
+
+// stopMongoService is just for testing purposes.
+var stopMongoService = stopService
+
 // placeNewMongo tries to use mongorestore to replace an existing
 // mongo with the dump in newMongoDumpPath returns an error if its not possible.
 func placeNewMongo(newMongoDumpPath string, ver version.Number) error {
@@ -248,19 +266,22 @@ func placeNewMongo(newMongoDumpPath string, ver version.Number) error {
 	if err != nil {
 		return errors.Errorf("cannot restore this backup version")
 	}
-	err = runCommand("initctl", "stop", mongo.ServiceName(""))
+
+	mongodService, err := service.DiscoverService(mongo.ServiceName(""), common.Conf{})
 	if err != nil {
-		return errors.Annotate(err, "failed to stop mongo")
+		return errors.Annotate(err, "cannot get mongo service")
+	}
+
+	if err := stopMongoService(mongodService); err != nil {
+		return errors.Annotate(err, "cannot start mongo service")
 	}
 
 	err = runCommand(mongoRestore, mgoRestoreArgs...)
-
 	if err != nil {
 		return errors.Annotate(err, "failed to restore database dump")
 	}
 
-	err = runCommand("initctl", "start", mongo.ServiceName(""))
-	if err != nil {
+	if err := stopMongoService(mongodService); err != nil {
 		return errors.Annotate(err, "failed to start mongo")
 	}
 

@@ -9,22 +9,16 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"path"
-	"path/filepath"
-	"strings"
 	"sync"
 	"text/template"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/symlink"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -58,7 +52,7 @@ func getFilesystemRoot() string {
 
 // newDialInfo returns mgo.DialInfo with the given address using the minimal
 // possible setup.
-func newDialInfo(privateAddr string, conf agent.Config) (*mgo.DialInfo, error) {
+func newDialInfo(privateAddr string, conf agent.ConfigSetterWriter) (*mgo.DialInfo, error) {
 	dialOpts := mongo.DialOpts{Direct: true}
 	ssi, ok := conf.StateServingInfo()
 	if !ok {
@@ -72,15 +66,22 @@ func newDialInfo(privateAddr string, conf agent.Config) (*mgo.DialInfo, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot produce a dial info")
 	}
-	dialInfo.Username = "admin"
-	dialInfo.Password = conf.OldPassword()
+	username := "admin"
+	password := conf.OldPassword()
+	if password == "" {
+		apiInfo := conf.APIInfo()
+		username = apiInfo.Tag.String()
+		password = apiInfo.Password
+	}
+	dialInfo.Username = username
+	dialInfo.Password = password
 	return dialInfo, nil
 }
 
 // updateMongoEntries will update the machine entries in the restored mongo to
 // reflect the real machine instanceid in case it changed (a newly bootstraped
 // server).
-func updateMongoEntries(newInstId instance.Id, newMachineId, oldMachineId string, dialInfo *mgo.DialInfo) error {
+func updateMongoEntries(newInstId instance.Id, oldMachineId string, dialInfo *mgo.DialInfo) error {
 	session, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
 		return errors.Annotate(err, "cannot connect to mongo to update")
@@ -89,11 +90,10 @@ func updateMongoEntries(newInstId instance.Id, newMachineId, oldMachineId string
 	// TODO(perrito666): Take the Machine id from an autoritative source
 	err = session.DB("juju").C("machines").Update(
 		bson.M{"machineid": oldMachineId},
-		bson.M{"$set": bson.M{"instanceid": string(newInstId),
-			"machineid": newMachineId}},
+		bson.M{"$set": bson.M{"instanceid": string(newInstId)}},
 	)
 	if err != nil {
-		return errors.Annotatef(err, "cannot update machine %s instance information", newMachineId)
+		return errors.Annotatef(err, "cannot update machine %s instance information", oldMachineId)
 	}
 	return nil
 }
@@ -242,28 +242,4 @@ func runViaSSH(addr string, script string) error {
 		return errors.Annotatef(err, "ssh command failed: %q", stderrBuf.String())
 	}
 	return nil
-}
-
-// updateBackupMachineTag updates the paths that are stored in the backup
-// to the current machine. This path is tied, among other factors, to the
-// machine tag.
-// Eventually this will change: when backups hold relative paths.
-func updateBackupMachineTag(oldTag, newTag names.Tag) error {
-	oldTagString := oldTag.String()
-	newTagString := newTag.String()
-
-	if oldTagString == newTagString {
-		return nil
-	}
-	oldTagPath := path.Join(agent.DefaultDataDir, oldTagString)
-	newTagPath := path.Join(agent.DefaultDataDir, newTagString)
-
-	oldToolsDir := tools.ToolsDir(agent.DefaultDataDir, oldTagString)
-	oldLink, err := filepath.EvalSymlinks(oldToolsDir)
-
-	os.Rename(oldTagPath, newTagPath)
-	newToolsDir := tools.ToolsDir(agent.DefaultDataDir, newTagString)
-	newToolsPath := strings.Replace(oldLink, oldTagPath, newTagPath, -1)
-	err = symlink.Replace(newToolsDir, newToolsPath)
-	return errors.Annotatef(err, "cannot set the new tools path")
 }

@@ -99,7 +99,7 @@ type Backups interface {
 	Remove(id string) error
 
 	// Restore updates juju's state to the contents of the backup archive.
-	Restore(backupId string, args RestoreArgs) error
+	Restore(backupId string, args RestoreArgs) (string, error)
 }
 
 type backups struct {
