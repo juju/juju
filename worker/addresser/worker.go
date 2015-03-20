@@ -89,25 +89,21 @@ func (a *addresserHandler) removeIPAddress(addr *state.IPAddress) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to release address %v", addr.Value)
 	machine, err := a.st.Machine(addr.MachineId())
 	if err != nil {
-		errors.Annotatef(err, "failed to remove address %v", addr.Value)
 		return err
 	}
 	instId, err := machine.InstanceId()
 	if err != nil {
-		errors.Annotatef(err, "failed to remove address %v", addr.Value)
 		return err
 	}
 	err = a.releaser.ReleaseAddress(instId, network.Id(addr.SubnetId()), addr.Address())
 	if err != nil {
 		// Don't remove the address from state so we
 		// can retry releasing the address later.
-		errors.Annotatef(err, "failed to remove address %v", addr.Value)
 		return err
 	}
 
 	err = addr.Remove()
 	if err != nil {
-		errors.Annotatef(err, "failed to remove address %v", addr.Value)
 		return err
 	}
 	return nil
