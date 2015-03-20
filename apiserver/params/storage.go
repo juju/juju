@@ -330,7 +330,7 @@ type StoragePool struct {
 	// Name is the pool's name.
 	Name string `json:"name"`
 
-	// Provider is the type of storage provider this pool represents, eg "loop", "ebs.
+	// Provider is the type of storage provider this pool represents, eg "loop", "ebs".
 	Provider string `json:"provider"`
 
 	// Attrs are the pool's configuration attributes.
