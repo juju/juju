@@ -27,7 +27,8 @@ type workerSuite struct {
 
 func (s *workerSuite) TestWorker(c *gc.C) {
 	s.State.StartSync()
-	w := addresser.NewWorker(s.State)
+	w, err := addresser.NewWorker(s.State)
+	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		c.Assert(worker.Stop(w), gc.IsNil)
 	}()
