@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/juju/paths"
 )
@@ -59,11 +58,11 @@ func (w *windowsConfigure) ConfigureBasic() error {
 
 func (w *windowsConfigure) ConfigureJuju() error {
 	if err := verifyConfig(w.mcfg); err != nil {
-		return err
+		return errors.Annotate(err, "while verifying machine config")
 	}
 	toolsJson, err := json.Marshal(w.mcfg.Tools)
 	if err != nil {
-		return err
+		return errors.Annotate(err, "while serializing the tools")
 	}
 	const python = `${env:ProgramFiles(x86)}\Cloudbase Solutions\Cloudbase-Init\Python27\python.exe`
 	renderer := w.conf.ShellRenderer
@@ -90,10 +89,9 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		return errors.Errorf("Bootstrap node is not supported on Windows.")
 	}
 
-	machineTag := names.NewMachineTag(w.mcfg.MachineId)
-	_, err = addAgentInfo(w.mcfg, w.conf, machineTag, w.mcfg.Tools.Version.Number)
+	_, err = w.addAgentInfo()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	return w.addMachineAgentToBoot(machineTag.String())
+	return w.addMachineAgentToBoot()
 }

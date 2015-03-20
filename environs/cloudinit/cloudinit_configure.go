@@ -31,27 +31,6 @@ type UserdataConfig interface {
 	Render() ([]byte, error)
 }
 
-// addAgentInfo adds agent-required information to the agent's directory
-// and returns the agent directory name.
-func addAgentInfo(
-	cfg *MachineConfig,
-	c *cloudinit.Config,
-	tag names.Tag,
-	toolsVersion version.Number,
-) (agent.Config, error) {
-	acfg, err := cfg.agentConfig(tag, toolsVersion)
-	if err != nil {
-		return nil, err
-	}
-	acfg.SetValue(agent.AgentServiceName, cfg.MachineAgentServiceName)
-	cmds, err := acfg.WriteCommands(c.ShellRenderer)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to write commands")
-	}
-	c.AddScripts(cmds...)
-	return acfg, nil
-}
-
 func NewUserdataConfig(mcfg *MachineConfig, conf *cloudinit.Config) (UserdataConfig, error) {
 	// TODO(ericsnow) bug #1426217
 	// Protect mcfg and conf better.
@@ -61,6 +40,7 @@ func NewUserdataConfig(mcfg *MachineConfig, conf *cloudinit.Config) (UserdataCon
 	}
 
 	base := baseConfigure{
+		tag:  names.NewMachineTag(mcfg.MachineId),
 		mcfg: mcfg,
 		conf: conf,
 		os:   operatingSystem,
@@ -80,6 +60,7 @@ func NewUserdataConfig(mcfg *MachineConfig, conf *cloudinit.Config) (UserdataCon
 }
 
 type baseConfigure struct {
+	tag      names.Tag
 	mcfg     *MachineConfig
 	conf     *cloudinit.Config
 	renderer *cloudinit.Renderer
@@ -99,7 +80,23 @@ func (c *baseConfigure) Render() ([]byte, error) {
 	return c.renderer.Render(c.conf)
 }
 
-func (c *baseConfigure) addMachineAgentToBoot(name string) error {
+// addAgentInfo adds agent-required information to the agent's directory
+// and returns the agent directory name.
+func (c *baseConfigure) addAgentInfo() (agent.Config, error) {
+	acfg, err := c.mcfg.agentConfig(c.tag, c.mcfg.Tools.Version.Number)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	acfg.SetValue(agent.AgentServiceName, c.mcfg.MachineAgentServiceName)
+	cmds, err := acfg.WriteCommands(c.conf.ShellRenderer)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to write commands")
+	}
+	c.conf.AddScripts(cmds...)
+	return acfg, nil
+}
+
+func (c *baseConfigure) addMachineAgentToBoot() error {
 	svc, toolsDir, err := c.mcfg.initService()
 	if err != nil {
 		return errors.Trace(err)
@@ -110,6 +107,7 @@ func (c *baseConfigure) addMachineAgentToBoot(name string) error {
 	// the init script.
 	c.conf.AddScripts(c.toolsSymlinkCommand(toolsDir))
 
+	name := c.tag.String()
 	cmds, err := svc.InstallCommands()
 	if err != nil {
 		return errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
