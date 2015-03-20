@@ -175,7 +175,7 @@ func (engine *engine) Install(name string, manifold Manifold) error {
 func (engine *engine) gotInstall(name string, manifold Manifold) error {
 	logger.Infof("installing %s manifold...", name)
 	if _, found := engine.manifolds[name]; found {
-		return errors.Errorf("%s manifold already installled", name)
+		return errors.Errorf("%s manifold already installed", name)
 	}
 	for _, input := range manifold.Inputs {
 		if _, found := engine.manifolds[input]; !found {
@@ -303,25 +303,26 @@ func (engine *engine) runWorker(name string, manifold Manifold, delay time.Durat
 // gotStarted updates the engine to reflect the creation of a worker. It must
 // only be called from the loop goroutine.
 func (engine *engine) gotStarted(name string, worker worker.Worker) {
-	logger.Infof("%s manifold worker started: %v", name, worker)
-
 	// Copy current info; check preconditions and abort the workers if we've
 	// already been asked to stop it.
 	info := engine.current[name]
-	if !info.stopped() {
+	switch {
+	case info.worker != nil:
 		engine.tomb.Kill(errors.Errorf("fatal: unexpected %s manifold worker start", name))
-		return
-	} else if info.stopping {
+		fallthrough
+	case info.stopping, engine.isDying():
+		logger.Infof("%s manifold worker no longer required", name)
 		worker.Kill()
+	default:
+		// It's fine to use this worker; update info and copy back.
+		logger.Infof("%s manifold worker started: %v", name, worker)
+		info.starting = false
+		info.worker = worker
+		engine.current[name] = info
+
+		// Any manifold that declares this one as an input needs to be restarted.
+		engine.bounceDependents(name)
 	}
-
-	// Update info and copy back.
-	info.starting = false
-	info.worker = worker
-	engine.current[name] = info
-
-	// Any manifold that declares this one as an input needs to be restarted.
-	engine.bounceDependents(name)
 }
 
 // gotStopped updates the engine to reflect the demise of (or failure to create)
