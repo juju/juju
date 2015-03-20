@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
@@ -82,6 +83,23 @@ func (a *addresserWorker) checkAddresses(ids []string) error {
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (a *addresserWorker) removeIPAddress(addr *state.IPAddress) error {
+	err := a.environ.ReleaseAddress(ciid, network.Id(addr.SubnetId()), addr.Address())
+	if err != nil {
+		// Don't remove the address from state so we
+		// can retry releasing the address later.
+		logger.Warningf("failed to release address %v for container %q: %v", addr.Value, tag, err)
+		return errors.Trace(err)
+	}
+
+	err = addr.Remove()
+	if err != nil {
+		logger.Warningf("failed to remove address %v for container %q: %v", addr.Value, tag, err)
+		return errors.Trace(err)
 	}
 	return nil
 }
