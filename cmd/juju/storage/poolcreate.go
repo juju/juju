@@ -19,11 +19,9 @@ they will use to satisfy service storage requirements.
 A single pool might be used for storage from units of many different services - 
 it is a resource from which different stores may be drawn.
 
-A pool describes the underlying characteristics of the storage,
-such as the credentials, location of storage and performance or
-durability characteristics of that storage
-(tagged disks/volume groups in MAAS,
-EBS with ssd/magnetic/iops characteristics).
+A pool describes provider-specific parameters for creating storage, 
+such as performance (e.g. IOPS), media type (e.g. magnetic vs. SSD), 
+or durability.
 
 For many providers, there will be a shared resource
 where storage can be requested (e.g. EBS in amazon).
