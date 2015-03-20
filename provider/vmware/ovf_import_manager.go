@@ -9,10 +9,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/vmware/govmomi"
+	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/progress"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
+	"golang.org/x/net/context"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
@@ -32,8 +33,8 @@ type ovfImportManager struct {
 	client *client
 }
 
-func (m *ovfImportManager) importOvf(machineID string, hwc *instance.HardwareCharacteristics, img *OvfFileMetadata, userData []byte, sshKey string, isState bool) (*govmomi.VirtualMachine, error) {
-	folders, err := m.client.datacenter.Folders()
+func (m *ovfImportManager) importOvf(machineID string, hwc *instance.HardwareCharacteristics, img *OvfFileMetadata, userData []byte, sshKey string, isState bool) (*object.VirtualMachine, error) {
+	folders, err := m.client.datacenter.Folders(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -51,7 +52,8 @@ func (m *ovfImportManager) importOvf(machineID string, hwc *instance.HardwareCha
 		},
 	}
 
-	spec, err := m.client.connection.OvfManager().CreateImportSpec(string(ovf), m.client.resourcePool, m.client.datastore, cisp)
+	ovfManager := object.NewOvfManager(m.client.connection.Client)
+	spec, err := ovfManager.CreateImportSpec(context.TODO(), string(ovf), m.client.resourcePool, m.client.datastore, cisp)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -81,12 +83,12 @@ func (m *ovfImportManager) importOvf(machineID string, hwc *instance.HardwareCha
 		}
 	}
 
-	lease, err := m.client.resourcePool.ImportVApp(spec.ImportSpec, folders.VmFolder, nil)
+	lease, err := m.client.resourcePool.ImportVApp(context.TODO(), spec.ImportSpec, folders.VmFolder, nil)
 	if err != nil {
 		return nil, errors.Annotatef(err, "Error while importing vapp")
 	}
 
-	info, err := lease.Wait()
+	info, err := lease.Wait(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -118,8 +120,8 @@ func (m *ovfImportManager) importOvf(machineID string, hwc *instance.HardwareCha
 			return nil, errors.Trace(err)
 		}
 	}
-	lease.HttpNfcLeaseComplete()
-	return govmomi.NewVirtualMachine(m.client.connection, info.Entity), nil
+	lease.HttpNfcLeaseComplete(context.TODO())
+	return object.NewVirtualMachine(m.client.connection.Client, info.Entity), nil
 }
 
 func (m *ovfImportManager) downloadOvf(url string) (string, error) {

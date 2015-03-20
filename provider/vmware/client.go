@@ -1,12 +1,15 @@
 package vmware
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/find"
+	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
+	"golang.org/x/net/context"
 
 	"github.com/juju/juju/instance"
 )
@@ -17,33 +20,33 @@ const (
 
 type client struct {
 	connection   *govmomi.Client
-	datacenter   *govmomi.Datacenter
-	datastore    *govmomi.Datastore
-	resourcePool *govmomi.ResourcePool
+	datacenter   *object.Datacenter
+	datastore    *object.Datastore
+	resourcePool *object.ResourcePool
 	finder       *find.Finder
 }
 
-func newClient(ecfg *environConfig) (*client, error) {
+var newClient = func(ecfg *environConfig) (*client, error) {
 	url, err := ecfg.url()
 	if err != nil {
 		return nil, err
 	}
-	connection, err := govmomi.NewClient(*url, true)
+	connection, err := newConnection(url)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	finder := find.NewFinder(connection, true)
-	datacenter, err := finder.Datacenter(ecfg.datacenter())
+	finder := find.NewFinder(connection.Client, true)
+	//datacenter, err := finder.Datacenter(context.TODO(), ecfg.datacenter())
+	datacenter, err := finder.DefaultDatacenter(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	finder.SetDatacenter(datacenter)
-	datastore, err := finder.Datastore(ecfg.datastore())
+	datastore, err := finder.Datastore(context.TODO(), ecfg.datastore())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	resourcePool, err := finder.ResourcePool(ecfg.resourcePool())
+	resourcePool, err := finder.ResourcePool(context.TODO(), ecfg.resourcePool())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -56,23 +59,26 @@ func newClient(ecfg *environConfig) (*client, error) {
 	}, nil
 }
 
-func (c *client) CreateInstance(machineID string, hwc *instance.HardwareCharacteristics, img *OvfFileMetadata, userData []byte, sshKey string, isState bool) (*mo.VirtualMachine, error) {
+var newConnection = func(url *url.URL) (*govmomi.Client, error) {
+	return govmomi.NewClient(context.TODO(), url, true)
+}
 
+func (c *client) CreateInstance(machineID string, hwc *instance.HardwareCharacteristics, img *OvfFileMetadata, userData []byte, sshKey string, isState bool) (*mo.VirtualMachine, error) {
 	manager := &ovfImportManager{client: c}
 	vm, err := manager.importOvf(machineID, hwc, img, userData, sshKey, isState)
 	if err != nil {
 		return nil, errors.Annotatef(err, "Failed to import ovf file")
 	}
-	task, err := vm.PowerOn()
+	task, err := vm.PowerOn(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	taskInfo, err := task.WaitForResult(nil)
+	taskInfo, err := task.WaitForResult(context.TODO(), nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var res mo.VirtualMachine
-	err = c.connection.Properties(*taskInfo.Entity, nil, &res)
+	err = c.connection.RetrieveOne(context.TODO(), *taskInfo.Entity, nil, &res)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -81,14 +87,14 @@ func (c *client) CreateInstance(machineID string, hwc *instance.HardwareCharacte
 
 func (c *client) RemoveInstances(ids ...string) error {
 	var firstError error
-	tasks := make([]*govmomi.Task, len(ids))
+	tasks := make([]*object.Task, len(ids))
 	for _, id := range ids {
-		vm, err := c.finder.VirtualMachine(id)
+		vm, err := c.finder.VirtualMachine(context.TODO(), id)
 		if err != nil && firstError == nil {
 			firstError = err
 			continue
 		}
-		task, err := vm.Destroy()
+		task, err := vm.Destroy(context.TODO())
 		if err != nil && firstError == nil {
 			firstError = err
 			continue
@@ -99,7 +105,7 @@ func (c *client) RemoveInstances(ids ...string) error {
 	}
 
 	for _, task := range tasks {
-		_, err := task.WaitForResult(nil)
+		_, err := task.WaitForResult(context.TODO(), nil)
 		if err != nil && firstError == nil {
 			firstError = err
 			continue
@@ -109,7 +115,7 @@ func (c *client) RemoveInstances(ids ...string) error {
 }
 
 func (c *client) Instances(prefix string) ([]*mo.VirtualMachine, error) {
-	items, err := c.finder.VirtualMachineList("*")
+	items, err := c.finder.VirtualMachineList(context.TODO(), "*")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -118,7 +124,7 @@ func (c *client) Instances(prefix string) ([]*mo.VirtualMachine, error) {
 	vms = make([]*mo.VirtualMachine, len(vms))
 	for _, item := range items {
 		var vm mo.VirtualMachine
-		err = c.connection.Properties(item.Reference(), nil, &vm)
+		err = c.connection.RetrieveOne(context.TODO(), item.Reference(), nil, &vm)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -131,12 +137,12 @@ func (c *client) Instances(prefix string) ([]*mo.VirtualMachine, error) {
 }
 
 func (c *client) Refresh(v *mo.VirtualMachine) error {
-	item, err := c.finder.VirtualMachine(v.Config.Name)
+	item, err := c.finder.VirtualMachine(context.TODO(), v.Config.Name)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	var vm mo.VirtualMachine
-	err = c.connection.Properties(item.Reference(), nil, &vm)
+	err = c.connection.RetrieveOne(context.TODO(), item.Reference(), nil, &vm)
 	if err != nil {
 		return errors.Trace(err)
 	}
