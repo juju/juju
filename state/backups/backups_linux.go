@@ -142,5 +142,5 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (string, error) {
 	// the client can reconnect and determine if we where succesful.
 	err = info.SetStatus(state.RestoreFinished)
 
-	return backupMachine.Tag().String(), errors.Annotate(err, "failed to set status to finished")
+	return backupMachine.String(), errors.Annotate(err, "failed to set status to finished")
 }

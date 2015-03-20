@@ -11,13 +11,14 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
-	"github.com/juju/juju/utils"
 )
 
 // Restore implements the server side of Backups.Restore.
-func (a *API) Restore(p params.RestoreArgs) (string, error) {
+func (a *API) Restore(p params.RestoreArgs) error {
 
 	// Get hold of a backup file Reader
 	backup, closer := newBackups(a.st)
@@ -67,15 +68,19 @@ func (a *API) Restore(p params.RestoreArgs) (string, error) {
 		NewInstTag:     newMachineTag,
 		NewInstSeries:  machine.Series(),
 	}
-	err, oldMachineTagString := backup.Restore(p.BackupId, restoreArgs)
+	oldMachineTagString, err := backup.Restore(p.BackupId, restoreArgs)
 	if err != nil {
 		return errors.Annotate(err, "restore failed")
 	}
 
 	if oldMachineTagString != "machine-0" {
-		err = utils.RunCommand("initctl", "start", fmt.Sprintf("jujud-%s", oldMachineTagString))
+		jujudServiceName := fmt.Sprintf("jujud-%s", oldMachineTagString)
+		jujudService, err := service.DiscoverService(jujudServiceName, common.Conf{})
 		if err != nil {
-			return errors.Annotate(err, "failed to start the restored juju")
+			return errors.Annotatef(err, "cannot find %q service", jujudServiceName)
+		}
+		if err := jujudService.Start(); err != nil {
+			return errors.Annotatef(err, "cannot start %q service", jujudServiceName)
 		}
 		// We dont want machine-0 to restart since the new one has a different tag.
 		os.Exit(0)

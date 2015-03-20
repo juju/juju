@@ -96,11 +96,11 @@ func (b *FakeBackups) Remove(id string) error {
 }
 
 // Restore restores a machine to a backed up status.
-func (b *FakeBackups) Restore(bkpId string, args backups.RestoreArgs) error {
+func (b *FakeBackups) Restore(bkpId string, args backups.RestoreArgs) (string, error) {
 	b.Calls = append(b.Calls, "Restore")
 	b.PrivateAddr = args.PrivateAddress
 	b.InstanceId = args.NewInstId
-	return errors.Trace(b.Error)
+	return "", errors.Trace(b.Error)
 }
 
 // TODO(ericsnow) FakeStorage should probably move over to the utils repo.

@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state/imagestorage"
 	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
@@ -248,19 +250,22 @@ func placeNewMongo(newMongoDumpPath string, ver version.Number) error {
 	if err != nil {
 		return errors.Errorf("cannot restore this backup version")
 	}
-	err = runCommand("initctl", "stop", mongo.ServiceName(""))
+
+	mongodService, err := service.DiscoverService(mongo.ServiceName(""), common.Conf{})
 	if err != nil {
-		return errors.Annotate(err, "failed to stop mongo")
+		return errors.Annotate(err, "cannot get mongo service")
+	}
+
+	if err := mongodService.Stop(); err != nil {
+		return errors.Annotate(err, "cannot start mongo service")
 	}
 
 	err = runCommand(mongoRestore, mgoRestoreArgs...)
-
 	if err != nil {
 		return errors.Annotate(err, "failed to restore database dump")
 	}
 
-	err = runCommand("initctl", "start", mongo.ServiceName(""))
-	if err != nil {
+	if err := mongodService.Start(); err != nil {
 		return errors.Annotate(err, "failed to start mongo")
 	}
 
