@@ -286,8 +286,8 @@ func (s *storageMockSuite) TestCreatePool(c *gc.C) {
 
 			args, ok := a.(params.StoragePool)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.Name, gc.DeepEquals, poolName)
-			c.Assert(args.Provider, gc.DeepEquals, poolType)
+			c.Assert(args.Name, gc.Equals, poolName)
+			c.Assert(args.Provider, gc.Equals, poolType)
 			c.Assert(args.Attrs, gc.DeepEquals, poolConfig)
 
 			return nil
