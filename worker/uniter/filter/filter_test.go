@@ -89,20 +89,6 @@ func (s *FilterSuite) contentAsserterC(c *gc.C, ch interface{}) coretesting.Cont
 	}
 }
 
-// EvilSync starts a state sync (ensuring that any changes will be delivered to
-// the internal watchers "soon") -- and then waits "a while" so that we can be
-// reasonably certain that the events have made it through the api server and
-// then delivered from the api-level watcher to the filter itself.
-//
-// It's important to be clear that this *is* evil, and we should be testing
-// with a mocked-out watcher we can control directly; the only reason this
-// method exists is because we already perpetrated this crime -- but not
-// consistently -- and we're concentrating the evil in one place.
-func (s *FilterSuite) EvilSync() {
-	s.BackingState.StartSync()
-	time.Sleep(250 * time.Millisecond)
-}
-
 func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
@@ -294,11 +280,13 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
+	configC := s.notifyAsserterC(c, f.ConfigEvents())
+
+	// Trigger an additional address change after the initial one.
 	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Test no changes before the charm URL is set.
-	configC := s.notifyAsserterC(c, f.ConfigEvents())
 	configC.AssertNoReceive()
 
 	// Set the charm URL to trigger config events.
@@ -316,22 +304,20 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	changeConfig("20,000 leagues in the cloud")
 	configC.AssertOneReceive()
 
-	// Change the config a few more times, then reset the events. We sync to
-	// make sure the events have arrived in the watcher -- and then wait a
-	// little longer, to allow for the delay while the events are coalesced
-	// -- before we tell it to discard all received events. This would be
-	// much better tested by controlling a mocked-out watcher directly, but
-	// that's a bit inconvenient for this change.
+	// Change the config a few more times, then reset the events. Due
+	// to the complexity of watcher interactions, we cannot guarantee
+	// we won't seee at least one of the events, especially when the
+	// machine running this test is under load (e.g. CI jobs). This
+	// would be much better tested by controlling a mocked-out watcher
+	// directly, but that's a bit inconvenient for this change.
 	changeConfig(nil)
 	changeConfig("the curious incident of the dog in the cloud")
-	s.EvilSync()
 	f.DiscardConfigEvent()
-	configC.AssertNoReceive()
+	configC.AssertReceiveBetween(0, 2)
 
 	// Change the addresses of the unit's assigned machine; new event received.
 	err = s.machine.SetAddresses(network.NewAddress("0.1.2.4", network.ScopeUnknown))
 	c.Assert(err, jc.ErrorIsNil)
-	s.BackingState.StartSync()
 	configC.AssertOneReceive()
 
 	// Check that a filter's initial event works with DiscardConfigEvent
@@ -339,7 +325,6 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	f, err = filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
-	s.BackingState.StartSync()
 	f.DiscardConfigEvent()
 	configC.AssertNoReceive()
 
@@ -354,15 +339,14 @@ func (s *FilterSuite) TestInitialAddressEventIgnored(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
-	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
-	c.Assert(err, jc.ErrorIsNil)
-
-	// We should not get any config-change events until
-	// setting the charm URL.
+	// We should not get any config-change events until setting the
+	// charm URL. Because the addresses watcher always triggers an
+	// initial event, not having a charm URL set is the only thing
+	// keeping the filter from reporting a config change.
 	configC := s.notifyAsserterC(c, f.ConfigEvents())
 	configC.AssertNoReceive()
 
-	// Set the charm URL to trigger config events.
+	// Set the charm URL, to trigger config events.
 	err = f.SetCharm(s.wpcharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -375,9 +359,18 @@ func (s *FilterSuite) TestConfigAndAddressEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
+	// Check there are no events reported yet, as there is an initial
+	// address change (reported by the notify watcher automatically),
+	// but no config change yet as there's no charm installed.
+	configC := s.notifyAsserterC(c, f.ConfigEvents())
+	configC.AssertNoReceive()
+
 	// Set the charm URL to trigger config events.
 	err = f.SetCharm(s.wpcharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Check one event is reported now.
+	configC.AssertOneReceive()
 
 	// Changing the machine addresses should also result in
 	// a config-change event.
@@ -385,14 +378,54 @@ func (s *FilterSuite) TestConfigAndAddressEvents(c *gc.C) {
 		network.NewAddress("0.1.2.3", network.ScopeUnknown),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-
-	configC := s.notifyAsserterC(c, f.ConfigEvents())
-
-	// Config and address events should be coalesced. Start
-	// the synchronisation and sleep a bit to give the filter
-	// a chance to pick them both up.
-	s.EvilSync()
 	configC.AssertOneReceive()
+
+	// Change the address again, twice this time, and check between
+	// one and two events are reported. The reason why we're having a
+	// fuzzy check like this is because we can't reliably guarantee
+	// the order of watcher evens in state and apiserver. We need a
+	// mockable watcher for the filter to be able to control exactly
+	// what events are reported.
+	err = s.machine.SetAddresses(
+		network.NewAddress("0.2.3.4", network.ScopeUnknown),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetAddresses(
+		network.NewAddress("0.4.3.2", network.ScopeUnknown),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	configC.AssertReceiveBetween(1, 2)
+
+	// Change the config again, twice - ensure a single event is
+	// reported.
+	err = s.wordpress.UpdateConfigSettings(charm.Settings{
+		"blog-title": "something else",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.wordpress.UpdateConfigSettings(charm.Settings{
+		"blog-title": "entirely different",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	configC.AssertOneReceive()
+
+	// Change both the config and address - ensure one or two separate
+	// events are reported. See above for the reason.
+	err = s.wordpress.UpdateConfigSettings(charm.Settings{
+		"blog-title": "now what?",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetAddresses(
+		network.NewAddress("0.3.3.3", network.ScopeUnknown),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	configC.AssertReceiveBetween(1, 2)
+
+	// Change only the config - ensure at least one event is reported.
+	err = s.wordpress.UpdateConfigSettings(charm.Settings{
+		"blog-title": "untitled",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	configC.AssertReceiveBetween(1, 2)
 }
 
 func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
@@ -400,7 +433,10 @@ func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
-	// There should be no pending changes yet
+	// There should be no pending changes yet, except for the
+	// (automatic) initial address change sent by the watcher, but
+	// since there's no charm URL set it won't trigger a config
+	// changed.
 	configC := s.notifyAsserterC(c, f.ConfigEvents())
 	configC.AssertNoReceive()
 
@@ -410,12 +446,18 @@ func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Still no events, as the charm URL is not yet set..
+	configC.AssertNoReceive()
+
 	// Set the charm URL to trigger config events.
 	err = f.SetCharm(s.wpcharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	// We should not receive any config-change events.
-	s.EvilSync()
+	// We should not receive any config-change events. We're calling
+	// DiscardConfigEvent() twice because we have 2 potential pending
+	// changes - for the address and config change. The underlying
+	// reason is the same as for the fuzzy checks above.
+	f.DiscardConfigEvent()
 	f.DiscardConfigEvent()
 	configC.AssertNoReceive()
 }
@@ -424,6 +466,18 @@ func getAssertActionChange(actionC coretesting.ContentAsserterC) func(ids []stri
 	// This calls AssertReceive N times for N ids, but allows the
 	// ids to come back in any order.
 	return func(ids []string) {
+		if actionC.Precond != nil {
+			// Ensure we only call Precond() once, so the sequence of
+			// events seen by the watcher is uniform.
+			actionC.Precond()
+
+			orgPrecond := actionC.Precond
+			actionC.Precond = nil
+			defer func() {
+				actionC.Precond = orgPrecond
+			}()
+		}
+
 		expected := make(map[string]int)
 		seen := make(map[string]int)
 		for _, id := range ids {
@@ -593,7 +647,7 @@ func (s *FilterSuite) TestMeterStatusEvents(c *gc.C) {
 	meterC.AssertOneReceive()
 
 	// Make sure bundled events arrive properly.
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 2; i++ {
 		err = s.unit.SetMeterStatus("RED", fmt.Sprintf("Update %d.", i))
 		c.Assert(err, jc.ErrorIsNil)
 	}

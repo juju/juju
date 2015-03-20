@@ -37,8 +37,76 @@ func (a *NotifyAsserterC) AssertReceive() {
 	}
 }
 
+// AssertReceiveBetween will ensure that we get between min and max
+// events on the channel and the channel is not closed.
+func (a *NotifyAsserterC) AssertReceiveBetween(min, max int) {
+	a.C.Assert(min <= max, jc.IsTrue, gc.Commentf("expected min (%d) <= max (%d)", min, max))
+	a.C.Assert(min >= 0, jc.IsTrue, gc.Commentf("expected min >= 0, got %d", min))
+	a.C.Assert(max, jc.GreaterThan, 0, gc.Commentf("expected max > 0, got %d", max))
+
+	if a.Precond != nil {
+		a.Precond()
+	}
+
+	received := 0
+	timeout := time.After(LongWait)
+	gotEnough := false
+	for {
+		select {
+		case _, ok := <-a.Chan:
+			a.C.Assert(ok, jc.IsTrue)
+			received++
+
+			switch {
+			case received < min:
+				// Got not nearly enough yet, still waiting.
+				a.C.Logf("got %d events; expecting at least %d", received, min)
+				timeout = time.After(LongWait)
+			case received == max:
+				// We got as much as we wanted, wait a bit more to
+				// ensure no other events are received.
+				a.C.Logf("got %d events; not expecting more", received)
+				gotEnough = true
+				timeout = time.After(ShortWait)
+			case received > max:
+				a.C.Fatalf("got too many events: %d, expected %d to %d", received, min, max)
+			default:
+				// We have enough now, but wait a bit more in case
+				// there are more on the way.
+				a.C.Logf("got %d events; expecting up to %d", received, max)
+				gotEnough = true
+				timeout = time.After(ShortWait)
+			}
+		case <-timeout:
+			if gotEnough {
+				// All OK - received enough events and within the
+				// short timeout after the last event no more
+				// events were received.
+				return
+			}
+			// We didn't get an event within the long timeout.
+			a.C.Fatalf(
+				"timeout while waiting for events; got %d, expected %d to %d",
+				received, min, max,
+			)
+		}
+	}
+}
+
 // AssertOneReceive checks that we have exactly one message, and no more
 func (a *NotifyAsserterC) AssertOneReceive() {
+	if a.Precond != nil {
+		// Ensure we only call Precond() once, so the sequence of
+		// events seen by the watcher is uniform.
+		a.Precond()
+
+		orgPrecond := a.Precond
+		a.Precond = nil
+		defer func() {
+			a.Precond = orgPrecond
+		}()
+	}
+
 	a.AssertReceive()
 	a.AssertNoReceive()
 }
@@ -58,6 +126,9 @@ func (a *NotifyAsserterC) AssertClosed() {
 
 // Assert that we fail to receive on the channel after a short wait.
 func (a *NotifyAsserterC) AssertNoReceive() {
+	if a.Precond != nil {
+		a.Precond()
+	}
 	select {
 	case <-a.Chan:
 		a.C.Fatalf("unexpected receive")
@@ -115,6 +186,18 @@ func (a *ContentAsserterC) AssertReceive() interface{} {
 
 // AssertOneReceive checks that we have exactly one message, and no more
 func (a *ContentAsserterC) AssertOneReceive() interface{} {
+	if a.Precond != nil {
+		// Ensure we only call Precond() once, so the sequence of
+		// events seen by the watcher is uniform.
+		a.Precond()
+
+		orgPrecond := a.Precond
+		a.Precond = nil
+		defer func() {
+			a.Precond = orgPrecond
+		}()
+	}
+
 	res := a.AssertReceive()
 	a.AssertNoReceive()
 	return res
@@ -123,6 +206,18 @@ func (a *ContentAsserterC) AssertOneReceive() interface{} {
 // AssertOneValue checks that exactly 1 message was sent, and that the content DeepEquals the value.
 // It also returns the value in case further inspection is desired.
 func (a *ContentAsserterC) AssertOneValue(val interface{}) interface{} {
+	if a.Precond != nil {
+		// Ensure we only call Precond() once, so the sequence of
+		// events seen by the watcher is uniform.
+		a.Precond()
+
+		orgPrecond := a.Precond
+		a.Precond = nil
+		defer func() {
+			a.Precond = orgPrecond
+		}()
+	}
+
 	res := a.AssertReceive()
 	a.C.Assert(val, gc.DeepEquals, res)
 	a.AssertNoReceive()
