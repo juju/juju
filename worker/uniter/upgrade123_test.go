@@ -6,7 +6,6 @@ package uniter_test
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -30,9 +29,6 @@ type upgradeStateContextSuite struct {
 var _ = gc.Suite(&upgradeStateContextSuite{})
 
 func (s *upgradeStateContextSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("No need to test upgrading state context windows")
-	}
 	s.datadir = c.MkDir()
 	s.statefile = nil
 	s.initializeContext(c, names.NewUnitTag("mysql/0"))
