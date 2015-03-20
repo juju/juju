@@ -4,8 +4,6 @@
 package storage
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
@@ -268,7 +266,7 @@ func (a *API) ListPools(
 			results = append(results,
 				params.StoragePool{
 					Name:     apool.Name(),
-					Provider: fmt.Sprintf("%v", apool.Provider()),
+					Provider: string(apool.Provider()),
 					Attrs:    apool.Attrs(),
 				})
 		}
@@ -289,7 +287,7 @@ func poolMatchesFilters(
 	// TODO (anastasiamac 2015-03-19) not catering for LIKE... should I?
 	// Or should it only be an exact match?...
 	return nameFilter.Contains(apool.Name()) ||
-		providerFilter.Contains(fmt.Sprintf("%v", apool.Provider()))
+		providerFilter.Contains(string(apool.Provider()))
 }
 
 // CreatePool creates a new pool with specified parameters.
