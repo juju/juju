@@ -32,14 +32,13 @@ func formatPoolsTabular(pools map[string]PoolInfo) ([]byte, error) {
 		flags    = 0
 	)
 	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	p := func(values ...interface{}) {
-		for _, v := range values {
-			fmt.Fprintf(tw, "%v\t", v)
-		}
+	print := func(values ...string) {
+		fmt.Fprintf(tw, strings.Join(values, "\t"))
+		// Output newline after each pool
 		fmt.Fprintln(tw)
 	}
 
-	p("NAME\tPROVIDER\tATTRS")
+	print("NAME\tPROVIDER\tATTRS")
 
 	poolNames := make([]string, 0, len(pools))
 	for name := range pools {
@@ -54,7 +53,7 @@ func formatPoolsTabular(pools map[string]PoolInfo) ([]byte, error) {
 			traits[i] = fmt.Sprintf("%v=%v", key, value)
 			i++
 		}
-		p(name, pool.Provider, strings.Join(traits, ","))
+		print(name, pool.Provider, strings.Join(traits, ","))
 	}
 	tw.Flush()
 

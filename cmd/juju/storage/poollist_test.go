@@ -152,11 +152,11 @@ func (s *PoolListSuite) TestPoolListTabular(c *gc.C) {
 			"--name", "xyz", "--name", "abc",
 			"--format", "tabular"},
 		`
-NAME       PROVIDER  ATTRS                          
-abc        testType  one=true,two=well,three=maybe  
-testName0  a         one=true,two=well,three=maybe  
-testName1  b         one=true,two=well,three=maybe  
-xyz        testType  one=true,two=well,three=maybe  
+NAME       PROVIDER  ATTRS
+abc        testType  one=true,two=well,three=maybe
+testName0  a         one=true,two=well,three=maybe
+testName1  b         one=true,two=well,three=maybe
+xyz        testType  one=true,two=well,three=maybe
 
 `[1:])
 }
@@ -167,10 +167,10 @@ func (s *PoolListSuite) TestPoolListTabularSorted(c *gc.C) {
 		[]string{"--name", "myaw", "--name", "xyz", "--name", "abc",
 			"--format", "tabular"},
 		`
-NAME  PROVIDER  ATTRS                          
-abc   testType  one=true,two=well,three=maybe  
-myaw  testType  one=true,two=well,three=maybe  
-xyz   testType  one=true,two=well,three=maybe  
+NAME  PROVIDER  ATTRS
+abc   testType  one=true,two=well,three=maybe
+myaw  testType  one=true,two=well,three=maybe
+xyz   testType  one=true,two=well,three=maybe
 
 `[1:])
 }
