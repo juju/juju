@@ -168,3 +168,5 @@ var PlaceNewMongo = placeNewMongo
 var MongoRestoreArgsForVersion = mongoRestoreArgsForVersion
 var RestorePath = &restorePath
 var RestoreArgsForVersion = &restoreArgsForVersion
+var StartMongoService = &startMongoService
+var StopMongoService = &stopMongoService

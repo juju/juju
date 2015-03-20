@@ -238,6 +238,22 @@ func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, 
 var restorePath = paths.MongorestorePath
 var restoreArgsForVersion = mongoRestoreArgsForVersion
 
+// startService starts the provided service.
+func startService(srv service.Service) error {
+	return srv.Start()
+}
+
+// startMongoService is for testing purposes.
+var startMongoService = startService
+
+// stopService is just for testing purposes.
+func stopService(srv service.Service) error {
+	return srv.Stop()
+}
+
+// stopMongoService is just for testing purposes.
+var stopMongoService = stopService
+
 // placeNewMongo tries to use mongorestore to replace an existing
 // mongo with the dump in newMongoDumpPath returns an error if its not possible.
 func placeNewMongo(newMongoDumpPath string, ver version.Number) error {
@@ -256,7 +272,7 @@ func placeNewMongo(newMongoDumpPath string, ver version.Number) error {
 		return errors.Annotate(err, "cannot get mongo service")
 	}
 
-	if err := mongodService.Stop(); err != nil {
+	if err := stopMongoService(mongodService); err != nil {
 		return errors.Annotate(err, "cannot start mongo service")
 	}
 
@@ -265,7 +281,7 @@ func placeNewMongo(newMongoDumpPath string, ver version.Number) error {
 		return errors.Annotate(err, "failed to restore database dump")
 	}
 
-	if err := mongodService.Start(); err != nil {
+	if err := stopMongoService(mongodService); err != nil {
 		return errors.Annotate(err, "failed to start mongo")
 	}
 
