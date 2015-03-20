@@ -74,7 +74,7 @@ func (s *cmdStorageSuite) SetUpTest(c *gc.C) {
 	setupTestStorageSupport(c, s.State)
 }
 
-func runShow(c *gc.C, args []string) *cmd.Context {
+func runShow(c *gc.C, args ...string) *cmd.Context {
 	context, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.ShowCommand{}), args...)
 	c.Assert(err, jc.ErrorIsNil)
 	return context
@@ -93,7 +93,7 @@ func (s *cmdStorageSuite) TestStorageShowInvalidId(c *gc.C) {
 func (s *cmdStorageSuite) TestStorageShow(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
-	context := runShow(c, []string{"data/0"})
+	context := runShow(c, "data/0")
 	expected := `
 storage-block/0:
   data/0:
@@ -108,7 +108,7 @@ storage-block/0:
 func (s *cmdStorageSuite) TestStorageShowOneMatchingFilter(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
-	context := runShow(c, []string{"data/0", "fluff/0"})
+	context := runShow(c, "data/0", "fluff/0")
 	expected := `
 storage-block/0:
   data/0:
@@ -122,7 +122,7 @@ storage-block/0:
 
 func (s *cmdStorageSuite) TestStorageShowNoMatch(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
-	context := runShow(c, []string{"fluff/0"})
+	context := runShow(c, "fluff/0")
 	c.Assert(testing.Stdout(context), gc.Equals, "{}\n")
 }
 
@@ -172,7 +172,7 @@ func (s *cmdStorageSuite) TestStoragePersistentProvisioned(c *gc.C) {
 		Persistent: true,
 	})
 
-	context := runShow(c, []string{"data/0"})
+	context := runShow(c, "data/0")
 	expected := `
 storage-block/0:
   data/0:
@@ -187,7 +187,7 @@ storage-block/0:
 func (s *cmdStorageSuite) TestStoragePersistentUnprovisioned(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPersistentPool)
 
-	context := runShow(c, []string{"data/0"})
+	context := runShow(c, "data/0")
 	expected := `
 storage-block/0:
   data/0:
@@ -199,14 +199,14 @@ storage-block/0:
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
 
-func runPoolList(c *gc.C, args []string) *cmd.Context {
+func runPoolList(c *gc.C, args ...string) *cmd.Context {
 	context, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolListCommand{}), args...)
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
 
 func (s *cmdStorageSuite) TestListPools(c *gc.C) {
-	context := runPoolList(c, []string{""})
+	context := runPoolList(c)
 	expected := `
 block:
   provider: loop
@@ -221,7 +221,7 @@ block-persistent:
 }
 
 func (s *cmdStorageSuite) TestListPoolsName(c *gc.C) {
-	context := runPoolList(c, []string{"--name", "block"})
+	context := runPoolList(c, "--name", "block")
 	expected := `
 block:
   provider: loop
@@ -232,12 +232,12 @@ block:
 }
 
 func (s *cmdStorageSuite) TestListPoolsNameNoMatch(c *gc.C) {
-	context := runPoolList(c, []string{"--name", "cranky"})
+	context := runPoolList(c, "--name", "cranky")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 }
 
 func (s *cmdStorageSuite) TestListPoolsProvider(c *gc.C) {
-	context := runPoolList(c, []string{"--provider", "ebs"})
+	context := runPoolList(c, "--provider", "ebs")
 	expected := `
 block-persistent:
   provider: ebs
@@ -248,12 +248,12 @@ block-persistent:
 }
 
 func (s *cmdStorageSuite) TestListPoolsProviderNoMatch(c *gc.C) {
-	context := runPoolList(c, []string{"--provider", "oops"})
+	context := runPoolList(c, "--provider", "oops")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 }
 
 func (s *cmdStorageSuite) TestListPoolsNameAndProvider(c *gc.C) {
-	context := runPoolList(c, []string{"--name", "block", "--provider", "ebs"})
+	context := runPoolList(c, "--name", "block", "--provider", "ebs")
 	expected := `
 block:
   provider: loop
@@ -268,7 +268,7 @@ block-persistent:
 }
 
 func (s *cmdStorageSuite) TestListPoolsProviderAndNotName(c *gc.C) {
-	context := runPoolList(c, []string{"--name", "fluff", "--provider", "ebs"})
+	context := runPoolList(c, "--name", "fluff", "--provider", "ebs")
 	expected := `
 block-persistent:
   provider: ebs
@@ -279,7 +279,7 @@ block-persistent:
 }
 
 func (s *cmdStorageSuite) TestListPoolsNameAndNotProvider(c *gc.C) {
-	context := runPoolList(c, []string{"--name", "block", "--provider", "oops"})
+	context := runPoolList(c, "--name", "block", "--provider", "oops")
 	expected := `
 block:
   provider: loop
@@ -290,11 +290,11 @@ block:
 }
 
 func (s *cmdStorageSuite) TestListPoolsNotNameAndNotProvider(c *gc.C) {
-	context := runPoolList(c, []string{"--name", "fluff", "--provider", "oops"})
+	context := runPoolList(c, "--name", "fluff", "--provider", "oops")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 }
 
-func runPoolCreate(c *gc.C, args []string) *cmd.Context {
+func runPoolCreate(c *gc.C, args ...string) *cmd.Context {
 	context, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), args...)
 	c.Assert(err, jc.ErrorIsNil)
 	return context
@@ -302,7 +302,7 @@ func runPoolCreate(c *gc.C, args []string) *cmd.Context {
 
 func (s *cmdStorageSuite) TestCreatePool(c *gc.C) {
 	pname := "ftPool"
-	context := runPoolCreate(c, []string{pname, "loop", "smth=one"})
+	context := runPoolCreate(c, pname, "loop", "smth=one")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 	assertPoolByName(c, s.State, pname)
 }
@@ -324,7 +324,7 @@ func (s *cmdStorageSuite) TestCreatePoolErrorProviderType(c *gc.C) {
 
 func (s *cmdStorageSuite) TestCreatePoolDuplicateName(c *gc.C) {
 	pname := "ftPool"
-	context := runPoolCreate(c, []string{pname, "loop", "smth=one"})
+	context := runPoolCreate(c, pname, "loop", "smth=one")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 	assertPoolByName(c, s.State, pname)
 
