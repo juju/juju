@@ -38,7 +38,7 @@ func formatPoolsTabular(pools map[string]PoolInfo) ([]byte, error) {
 		fmt.Fprintln(tw)
 	}
 
-	print("NAME\tPROVIDER\tATTRS")
+	print("NAME", "PROVIDER", "ATTRS")
 
 	poolNames := make([]string, 0, len(pools))
 	for name := range pools {
