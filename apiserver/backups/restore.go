@@ -60,27 +60,26 @@ func (a *API) Restore(p params.RestoreArgs) error {
 
 	logger.Infof("beginning server side restore of backup %q", p.BackupId)
 	// Restore
-	newMachineTag := machine.Tag()
 	restoreArgs := backups.RestoreArgs{
 		PrivateAddress: addr,
 		PublicAddress:  publicAddress,
 		NewInstId:      instanceId,
-		NewInstTag:     newMachineTag,
+		NewInstTag:     machine.Tag(),
 		NewInstSeries:  machine.Series(),
 	}
-	oldMachineTagString, err := backup.Restore(p.BackupId, restoreArgs)
+	oldTagString, err := backup.Restore(p.BackupId, restoreArgs)
 	if err != nil {
 		return errors.Annotate(err, "restore failed")
 	}
 
-	if oldMachineTagString != "machine-0" {
-		jujudServiceName := fmt.Sprintf("jujud-%s", oldMachineTagString)
-		jujudService, err := service.DiscoverService(jujudServiceName, common.Conf{})
+	if oldTagString != "machine-0" {
+		srvName := fmt.Sprintf("jujud-%s", oldTagString)
+		srv, err := service.DiscoverService(srvName, common.Conf{})
 		if err != nil {
-			return errors.Annotatef(err, "cannot find %q service", jujudServiceName)
+			return errors.Annotatef(err, "cannot find %q service", srvName)
 		}
-		if err := jujudService.Start(); err != nil {
-			return errors.Annotatef(err, "cannot start %q service", jujudServiceName)
+		if err := srv.Start(); err != nil {
+			return errors.Annotatef(err, "cannot start %q service", srvName)
 		}
 		// We dont want machine-0 to restart since the new one has a different tag.
 		os.Exit(0)
