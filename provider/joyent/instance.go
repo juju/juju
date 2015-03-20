@@ -32,7 +32,7 @@ func (inst *joyentInstance) Refresh() error {
 func (inst *joyentInstance) Addresses() ([]network.Address, error) {
 	addresses := make([]network.Address, 0, len(inst.machine.IPs))
 	for _, ip := range inst.machine.IPs {
-		address := network.NewAddress(ip, network.ScopeUnknown)
+		address := network.NewAddress(ip)
 		if ip == inst.machine.PrimaryIP {
 			address.Scope = network.ScopePublic
 		} else {

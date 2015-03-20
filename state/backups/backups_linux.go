@@ -72,13 +72,10 @@ func (b *backups) Restore(backupId string, args RestoreArgs) error {
 	}
 	// The machine tag might have changed, we update it.
 	agentConfig.SetValue("tag", args.NewInstTag.String())
-	APIHostPort := network.HostPort{
-		Address: network.Address{
-			Value: args.PrivateAddress,
-			Type:  network.DeriveAddressType(args.PrivateAddress),
-		},
-		Port: ssi.APIPort}
-	agentConfig.SetAPIHostPorts([][]network.HostPort{{APIHostPort}})
+	apiHostPorts := [][]network.HostPort{
+		network.NewHostPorts(ssi.APIPort, args.PrivateAddress),
+	}
+	agentConfig.SetAPIHostPorts(apiHostPorts)
 	if err := agentConfig.Write(); err != nil {
 		return errors.Annotate(err, "cannot write new agent configuration")
 	}

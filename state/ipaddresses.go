@@ -97,7 +97,7 @@ func (i *IPAddress) Value() string {
 
 // Address returns the network.Address represent the IP address
 func (i *IPAddress) Address() network.Address {
-	return network.NewAddress(i.doc.Value, i.Scope())
+	return network.NewScopedAddress(i.doc.Value, i.Scope())
 }
 
 // Type returns the type of the IP address. The IP address will have a type of
