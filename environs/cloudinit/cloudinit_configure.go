@@ -44,7 +44,7 @@ func addAgentInfo(
 		return nil, err
 	}
 	acfg.SetValue(agent.AgentServiceName, cfg.MachineAgentServiceName)
-	cmds, err := acfg.WriteCommands(cfg.Series)
+	cmds, err := acfg.WriteCommands(c.ShellRenderer)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to write commands")
 	}
