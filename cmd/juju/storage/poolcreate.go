@@ -13,6 +13,12 @@ import (
 const PoolCreateCommandDoc = `
 Create or define a storage pool.
 
+Pools are a mechanism for administrators to define sources of storage that 
+they will use to satisfy service storage requirements. 
+
+A single pool might be used for storage from units of many different services - 
+it is a resource from which different stores may be drawn.
+
 A pool describes the underlying characteristics of the storage,
 such as the credentials, location of storage and performance or
 durability characteristics of that storage
@@ -36,7 +42,7 @@ options:
     <provider type>
         pool provider type
     [<key>=<value>]+
-        pool configuration attributes
+        pool configuration attributes, for e.g. tags, size, path, etc...
 `
 
 // PoolCreateCommand lists storage pools.
