@@ -38,7 +38,11 @@ func (s *DependencySuite) TestInstallNoInputs(c *gc.C) {
 }
 
 func (s *DependencySuite) TestInstallUnknownInputs(c *gc.C) {
-	c.Fatalf("xxx")
+	err := s.engine.Install("some-task", dependency.Manifold{
+		Start:  degenerateStart,
+		Inputs: []string{"unknown-task"},
+	})
+	c.Assert(err, gc.ErrorMatches, "some-task manifold depends on unknown unknown-task manifold")
 }
 
 func (s *DependencySuite) TestDoubleInstall(c *gc.C) {
