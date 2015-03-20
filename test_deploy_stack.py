@@ -39,6 +39,7 @@ from deploy_stack import (
     run_instances,
     assess_upgrade,
     safe_print_status,
+    retain_jenv,
 )
 from jujupy import (
     EnvJujuClient,
@@ -313,8 +314,7 @@ class DeployStackTestCase(TestCase):
         with patch.object(
                 client, 'juju', autospec=True,
                 side_effect=subprocess.CalledProcessError(
-                    1, 'status',
-                    'status error')
+                    1, 'status', 'status error')
         ) as mock:
             safe_print_status(client)
         mock.assert_called_once_with('status', ())
@@ -461,6 +461,22 @@ class DumpEnvLogsTestCase(TestCase):
              'Could not retrieve some or all logs:',
              'None'],
             self.stream.getvalue().splitlines())
+
+    def test_retain_jenv(self):
+        with temp_dir() as jenv_dir:
+            jenv_path = os.path.join(jenv_dir, "temp.jenv")
+            with open(jenv_path, 'w') as f:
+                f.write('jenv data')
+                with temp_dir() as log_dir:
+                    status = retain_jenv(jenv_path, log_dir)
+                    self.assertIs(status, True)
+                    self.assertEqual(['temp.jenv'], os.listdir(log_dir))
+
+        with patch('shutil.copy', autospec=True,
+                   side_effect=IOError) as rj_mock:
+            status = retain_jenv('src', 'dst')
+        self.assertIs(status, False)
+        rj_mock.assert_called_with('src', 'dst')
 
 
 class TestDeployDummyStack(TestCase):
