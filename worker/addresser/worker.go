@@ -88,17 +88,19 @@ func (a *addresserWorker) checkAddresses(ids []string) error {
 }
 
 func (a *addresserWorker) removeIPAddress(addr *state.IPAddress) error {
-	err := a.environ.ReleaseAddress(ciid, network.Id(addr.SubnetId()), addr.Address())
+	// XXX addr.MachineId is wrong here, it needs to be instance ID which we
+	// get from state
+	err := a.environ.ReleaseAddress(addr.MachineId(), network.Id(addr.SubnetId()), addr.Address())
 	if err != nil {
 		// Don't remove the address from state so we
 		// can retry releasing the address later.
-		logger.Warningf("failed to release address %v for container %q: %v", addr.Value, tag, err)
+		logger.Warningf("failed to release address %v: %v", addr.Value, err)
 		return errors.Trace(err)
 	}
 
 	err = addr.Remove()
 	if err != nil {
-		logger.Warningf("failed to remove address %v for container %q: %v", addr.Value, tag, err)
+		logger.Warningf("failed to remove address %v: %v", addr.Value, err)
 		return errors.Trace(err)
 	}
 	return nil
