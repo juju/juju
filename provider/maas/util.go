@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 	goyaml "gopkg.in/yaml.v1"
 
@@ -53,20 +54,16 @@ var _MAASInstanceFilename = path.Join(maasDataDir, "MAASmachine.txt")
 // cloudinitRunCmd returns the shell command that, when run, will create the
 // "machine info" file containing the hostname of a machine.
 // That command is destined to be used by cloudinit.
-func (info *machineInfo) cloudinitRunCmd(series string) (string, error) {
-	dataDir, err := paths.DataDir(series)
+func (info *machineInfo) cloudinitRunCmd(cloudcfg *cloudinit.Config) (string, error) {
+	dataDir, err := paths.DataDir(cloudcfg.Series)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
-	renderer, err := cloudinit.NewRenderer(series)
-	if err != nil {
-		return "", err
-	}
-
 	yaml, err := goyaml.Marshal(info)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
+	renderer := cloudcfg.ShellRenderer
 	fileName := renderer.Join(renderer.FromSlash(dataDir), "MAASmachine.txt")
 	script := renderer.MkdirAll(dataDir)
 	contents := renderer.Quote(string(yaml))

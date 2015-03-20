@@ -12,6 +12,7 @@ import (
 	"text/template"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/version"
 )
@@ -20,17 +21,31 @@ import (
 type Config struct {
 	attrs  map[string]interface{}
 	osName string
+
+	// Series is the series that this config is targeting.
+	Series string
+
+	// ShellRenderer is the shell renderer to use for any commands
+	// added to this config.
+	ShellRenderer shell.Renderer
 }
 
 // New returns a new Config with no options set.
 func New(series string) (*Config, error) {
-	osName, err := version.GetOSFromSeries(series)
+	os, err := version.GetOSFromSeries(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	osName := strings.ToLower(os.String())
+	shellRenderer, err := shell.NewRenderer(osName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	cfg := &Config{
-		attrs:  make(map[string]interface{}),
-		osName: strings.ToLower(string(osName)),
+		attrs:         make(map[string]interface{}),
+		osName:        osName,
+		Series:        series,
+		ShellRenderer: shellRenderer,
 	}
 	return cfg, nil
 }

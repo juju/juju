@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
+	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/paths"
 )
@@ -42,7 +43,9 @@ func (*utilSuite) TestMachineInfoCloudinitRunCmd(c *gc.C) {
 	filename := "/var/lib/juju/MAASmachine.txt"
 	dataDir, err := paths.DataDir("quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	script, err := info.cloudinitRunCmd("quantal")
+	cloudcfg, err := cloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
+	script, err := info.cloudinitRunCmd(cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	yaml, err := goyaml.Marshal(info)
 	c.Assert(err, jc.ErrorIsNil)

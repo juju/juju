@@ -131,7 +131,7 @@ func (c *baseConfigure) toolsSymlinkCommand(toolsDir string) string {
 	case version.Windows:
 		return fmt.Sprintf(
 			`cmd.exe /C mklink /D %s %v`,
-			c.renderer.FromSlash(toolsDir),
+			c.conf.ShellRenderer.FromSlash(toolsDir),
 			c.mcfg.Tools.Version,
 		)
 	default:
