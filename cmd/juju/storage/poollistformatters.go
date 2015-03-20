@@ -10,12 +10,18 @@ import (
 	"github.com/juju/errors"
 )
 
-// formatPoolListTabular returns a tabular summary of pool instances.
+// formatPoolListTabular returns a tabular summary of pool instances or
+// errors out if parameter is not a map of PoolInfo.
 func formatPoolListTabular(value interface{}) ([]byte, error) {
 	pools, ok := value.(map[string]PoolInfo)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", pools, value)
 	}
+	return formatPoolsTabular(pools)
+}
+
+// formatPoolsTabular returns a tabular summary of pool instances.
+func formatPoolsTabular(pools map[string]PoolInfo) ([]byte, error) {
 	var out bytes.Buffer
 	const (
 		// To format things into columns.
