@@ -220,6 +220,17 @@ block-persistent:
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
 
+func (s *cmdStorageSuite) TestListPoolsTabular(c *gc.C) {
+	context := runPoolList(c, "--format", "tabular")
+	expected := `
+NAME              PROVIDER  ATTRS
+block             loop      it=works
+block-persistent  ebs       persistent=true
+
+`[1:]
+	c.Assert(testing.Stdout(context), gc.Equals, expected)
+}
+
 func (s *cmdStorageSuite) TestListPoolsName(c *gc.C) {
 	context := runPoolList(c, "--name", "block")
 	expected := `

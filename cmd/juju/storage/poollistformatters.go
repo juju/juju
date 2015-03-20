@@ -53,7 +53,7 @@ func formatPoolsTabular(pools map[string]PoolInfo) ([]byte, error) {
 			attrs[i] = fmt.Sprintf("%v=%v", key, value)
 			i++
 		}
-		print(name, pool.Provider, strings.Join(attrs, ","))
+		print(name, pool.Provider, strings.Join(attrs, " "))
 	}
 	tw.Flush()
 
