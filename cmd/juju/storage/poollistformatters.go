@@ -47,13 +47,13 @@ func formatPoolsTabular(pools map[string]PoolInfo) ([]byte, error) {
 	sort.Strings(poolNames)
 	for _, name := range poolNames {
 		pool := pools[name]
-		traits := make([]string, len(pool.Attrs))
+		attrs := make([]string, len(pool.Attrs))
 		var i int
 		for key, value := range pool.Attrs {
-			traits[i] = fmt.Sprintf("%v=%v", key, value)
+			attrs[i] = fmt.Sprintf("%v=%v", key, value)
 			i++
 		}
-		print(name, pool.Provider, strings.Join(traits, ","))
+		print(name, pool.Provider, strings.Join(attrs, ","))
 	}
 	tw.Flush()
 
