@@ -194,12 +194,12 @@ func (s *storageMockSuite) TestListFacadeCallError(c *gc.C) {
 
 func (s *storageMockSuite) TestListPools(c *gc.C) {
 	var called bool
-	want := 3
 	expected := []params.StoragePool{
 		params.StoragePool{Name: "name0", Provider: "type0"},
 		params.StoragePool{Name: "name1", Provider: "type1"},
 		params.StoragePool{Name: "name2", Provider: "type2"},
 	}
+	want := len(expected)
 
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
