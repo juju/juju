@@ -5,7 +5,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/worker"
@@ -38,14 +37,6 @@ type installTicket struct {
 	name     string
 	manifold Manifold
 	result   chan<- error
-}
-
-// requestTicket is used by engine to request resources managed by the named
-// manifold and communicate success or failure.
-type requestTicket struct {
-	name   string
-	out    interface{}
-	result chan<- bool
 }
 
 // startedTicket is used by engine to notify the loop of the creation of a
@@ -88,7 +79,6 @@ type engine struct {
 	current map[string]workerInfo
 
 	install chan installTicket
-	request chan requestTicket
 	started chan startedTicket
 	stopped chan stoppedTicket
 }
@@ -107,7 +97,6 @@ func NewEngine(isFatal func(error) bool, errorDelay, bounceDelay time.Duration) 
 		current:    map[string]workerInfo{},
 
 		install: make(chan installTicket),
-		request: make(chan requestTicket),
 		started: make(chan startedTicket),
 		stopped: make(chan stoppedTicket),
 	}
@@ -130,9 +119,6 @@ func (engine *engine) loop() error {
 		case ticket := <-engine.install:
 			// This is safe so long as the Install method reads the result.
 			ticket.result <- engine.gotInstall(ticket.name, ticket.manifold)
-		case ticket := <-engine.request:
-			// This is safe so long as the getResource func reads the result.
-			ticket.result <- engine.gotRequest(ticket.name, ticket.out)
 		case ticket := <-engine.started:
 			engine.gotStarted(ticket.name, ticket.worker)
 		case ticket := <-engine.stopped:
@@ -191,30 +177,6 @@ func (engine *engine) gotInstall(name string, manifold Manifold) error {
 	return nil
 }
 
-// gotRequest returns whether the named manifold's output func was able to assign
-// a suitable value to the out pointer.
-func (engine *engine) gotRequest(name string, out interface{}) bool {
-	worker := engine.current[name].worker
-	if worker == nil {
-		// No worker exists; the dependency cannot be satisfied.
-		return false
-	}
-	if out == nil {
-		// The client doesn't need a response; existence is enough; the dependecy
-		// is satisfied.
-		return true
-	}
-	manifold := engine.manifolds[name]
-	if manifold.Output == nil {
-		// The client needs a response, but the manifold can't supply one; the
-		// dependency cannot be satisfied.
-		return false
-	}
-	// Let the manifold tell us whether it was able to supply an appropriate
-	// response.
-	return manifold.Output(worker, out)
-}
-
 // start invokes a runWorker goroutine for the manifold with the supplied name.
 func (engine *engine) start(name string, delay time.Duration) {
 
@@ -249,26 +211,62 @@ func (engine *engine) start(name string, delay time.Duration) {
 // should only be called from the start method (which validates preconditions).
 func (engine *engine) runWorker(name string, manifold Manifold, delay time.Duration) {
 
-	// We restrict the accessible dependencies to those the manifold declared; to do
-	// otherwise would necessitate alarmingly complex dynamic dependency management.
-	validNames := set.NewStrings(manifold.Inputs...)
+	// We snapshot the resources available at invocation time, rather than adding an
+	// additional communicate-resource-request channel. The latter approach is not
+	// unreasonable... but is prone to inelegant scrambles. For example:
+	//
+	//  * Install manifold A; loop starts worker A
+	//  * Install manifold B; loop starts worker B
+	//  * A communicates its worker back to loop; main thread bounces B
+	//  * B asks for A, gets A, doesn't react to bounce (*)
+	//  * B communicates its worker back to loop; loop kills it immediately in
+	//    response to earlier bounce
+	//  * loop starts worker B again, now everything's fine; but, still, yuck.
+	//
+	// The problem, of course, is in the (*); the main thread does know that B
+	// needs to bounce, and it could communicate that fact back via an error
+	// over a channel back into getResource; the StartFunc could then just return
+	// (say) that ErrResourceChanged and avoid the hassle of creating a worker.
+	//
+	// But there's a fundamental race regardless -- we could *always* see a new
+	// dependency land just after we cede control to user code in the dependent,
+	// and at that point we have to bounce a fresh worker. Reducing occurrences
+	// of this is laudable, but the complexity cost is too high for the benefits
+	// we see; and the chosen appproach behaves well in the (common) scenario
+	// detailed above:
+	//
+	//  * Install manifold A; loop starts worker A
+	//  * Install manifold B; loop starts worker B with empty resource snapshot
+	//  * A communicates its worker back to loop; main thread bounces B
+	//  * B asks for A, gets nothing, can actually just return a degenerate
+	//    worker that immediately exits nil (indicating "given the available
+	//    dependencies I have done everything I can possibly do, and nothing
+	//    actually went *wrong* specifically...").
+	//  * loop restarts worker B with an up-to-date snapshot, B works fine
+	//
+	// We assume that, in the common case, most workers run without error most
+	// of the time; and, thus, that the vast majority of worker startups will
+	// happen as an agent starts. StartFuncs should be comfortable with
+	// returning nil workers when hard dependencies are unmet; and workers
+	// should be prepared to be stopped at any time, as they must already be.
+	outputs := map[string]OutputFunc{}
+	workers := map[string]worker.Worker{}
+	for _, resourceName := range manifold.Inputs {
+		outputs[resourceName] = engine.manifolds[resourceName].Output
+		workers[resourceName] = engine.current[resourceName].worker
+	}
 	getResource := func(resourceName string, out interface{}) bool {
-		if !validNames.Contains(resourceName) {
-			logger.Errorf("%s manifold start func requested undeclared %s resource", name, resourceName)
+		switch {
+		case workers[resourceName] == nil:
 			return false
+		case outputs[resourceName] == nil:
+			return out == nil
 		}
-		result := make(chan bool)
-		select {
-		case <-engine.tomb.Dying():
-			return false
-		case engine.request <- requestTicket{name, out, result}:
-			// This is safe so long as the loop sends a result.
-			return <-result
-		}
+		return outputs[resourceName](workers[resourceName], out)
 	}
 
 	// run is defined separately from its invocation so that the handling of its
-	// result -- which must be sent to engine.stopped -- stands out appropriately.
+	// result -- which *must* be sent to engine.stopped -- stands out properly.
 	run := func() error {
 		logger.Infof("starting %s manifold worker in %s...", name, delay)
 		select {
