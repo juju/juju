@@ -168,11 +168,14 @@ func (s *tmpfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmen
 
 	// Check if the mount already exists, and mount if not.
 	if _, err := s.run("findmnt", path); err != nil {
-		if err := validatePath(s.dirFuncs, path); err != nil {
+		if err := ensureDir(s.dirFuncs, path); err != nil {
+			return storage.FilesystemAttachment{}, err
+		}
+		if err := ensureEmptyDir(s.dirFuncs, path); err != nil {
 			return storage.FilesystemAttachment{}, err
 		}
 		if _, err := s.run(
-			"mount", "-t", "tmpfs", "none", path,
+			"mount", "-t", "tmpfs", arg.Filesystem.String(), path,
 			"-o", fmt.Sprintf("size=%dm", info.Size),
 		); err != nil {
 			os.Remove(path)

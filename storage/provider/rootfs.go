@@ -99,6 +99,7 @@ type dirFuncs interface {
 	lstat(path string) (fi os.FileInfo, err error)
 	fileCount(path string) (int, error)
 	calculateSize(path string) (sizeInMib uint64, _ error)
+	symlink(oldpath, newpath string) error
 }
 
 // The real directory related functions.
@@ -122,39 +123,53 @@ func (*osDirFuncs) fileCount(path string) (int, error) {
 	return len(files), nil
 }
 
+func (*osDirFuncs) symlink(oldpath, newpath string) error {
+	return os.Symlink(oldpath, newpath)
+}
+
 func (o *osDirFuncs) calculateSize(path string) (sizeInMib uint64, _ error) {
-	dfOutput, err := o.run("df", "--output=size", path)
+	output, err := df(o.run, path, "size")
 	if err != nil {
 		return 0, errors.Annotate(err, "getting size")
 	}
-	lines := strings.SplitN(dfOutput, "\n", 2)
-	numBlocks, err := strconv.ParseUint(strings.TrimSpace(lines[1]), 10, 64)
+	numBlocks, err := strconv.ParseUint(output, 10, 64)
 	if err != nil {
 		return 0, errors.Annotate(err, "parsing size")
 	}
 	return numBlocks / 1024, nil
 }
 
-// validatePath ensures the specified path is suitable as the mount
-// point for a filesystem storage.
-func validatePath(d dirFuncs, path string) error {
+// ensureDir ensures the specified path is a directory, or
+// if it does not exist, that a directory can be created there.
+func ensureDir(d dirFuncs, path string) error {
 	// If path already exists, we check that it is empty.
 	// It is up to the storage provisioner to ensure that any
 	// shared storage constraints and attachments with the same
 	// path are validated etc. So the check here is more a sanity check.
-	if fi, err := d.lstat(path); os.IsNotExist(err) {
-		if err := d.mkDirAll(path, 0755); err != nil {
-			return errors.Annotate(err, "could not create directory")
+	fi, err := d.lstat(path)
+	if err == nil {
+		if !fi.IsDir() {
+			return errors.Errorf("path %q must be a directory", path)
 		}
-	} else if !fi.IsDir() {
-		return errors.Errorf("path %q must be a directory", path)
+		return nil
 	}
+	if !os.IsNotExist(err) {
+		return errors.Trace(err)
+	}
+	if err := d.mkDirAll(path, 0755); err != nil {
+		return errors.Annotate(err, "could not create directory")
+	}
+	return nil
+}
+
+// ensureEmptyDir ensures the specified directory is empty.
+func ensureEmptyDir(d dirFuncs, path string) error {
 	fileCount, err := d.fileCount(path)
 	if err != nil {
 		return errors.Annotate(err, "could not read directory")
 	}
 	if fileCount > 0 {
-		return errors.New("path must be empty")
+		return errors.Errorf("%q is not empty", path)
 	}
 	return nil
 }
@@ -171,13 +186,13 @@ func (s *rootfsFilesystemSource) ValidateFilesystemParams(params storage.Filesys
 
 // CreateFilesystems is defined on the FilesystemSource interface.
 func (s *rootfsFilesystemSource) CreateFilesystems(args []storage.FilesystemParams) ([]storage.Filesystem, error) {
-	filesystems := make([]storage.Filesystem, 0, len(args))
-	for _, arg := range args {
+	filesystems := make([]storage.Filesystem, len(args))
+	for i, arg := range args {
 		filesystem, err := s.createFilesystem(arg)
 		if err != nil {
 			return nil, errors.Annotate(err, "creating filesystem")
 		}
-		filesystems = append(filesystems, filesystem)
+		filesystems[i] = filesystem
 	}
 	return filesystems, nil
 }
@@ -188,8 +203,11 @@ func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParam
 		return filesystem, errors.Trace(err)
 	}
 	path := filepath.Join(s.storageDir, params.Tag.Id())
-	if err := validatePath(s.dirFuncs, path); err != nil {
-		return filesystem, err
+	if err := ensureDir(s.dirFuncs, path); err != nil {
+		return filesystem, errors.Trace(err)
+	}
+	if err := ensureEmptyDir(s.dirFuncs, path); err != nil {
+		return filesystem, errors.Trace(err)
 	}
 	sizeInMiB, err := s.dirFuncs.calculateSize(s.storageDir)
 	if err != nil {
@@ -227,8 +245,7 @@ func (s *rootfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachme
 	}
 	// The filesystem is created at <storage-dir>/<storage-id>.
 	// If it is different to the attachment path, bind mount.
-	fsPath := filepath.Join(s.storageDir, arg.Filesystem.Id())
-	if err := s.mount(fsPath, mountPoint); err != nil {
+	if err := s.mount(arg.Filesystem, mountPoint); err != nil {
 		return storage.FilesystemAttachment{}, err
 	}
 	return storage.FilesystemAttachment{
@@ -238,20 +255,80 @@ func (s *rootfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachme
 	}, nil
 }
 
-func (s *rootfsFilesystemSource) mount(fsPath, mountPoint string) error {
-	// TODO(axw) use symlink, since bind mounting won't fly with LXC.
-	if mountPoint == fsPath {
+func (s *rootfsFilesystemSource) mount(tag names.FilesystemTag, target string) error {
+	fsPath := filepath.Join(s.storageDir, tag.Id())
+	if target == fsPath {
 		return nil
 	}
-	if _, err := s.run("findmnt", mountPoint); err == nil {
-		// Already mounted; nothing to do.
-		return nil
+	logger.Debugf("mounting filesystem %q at %q", fsPath, target)
+
+	if err := ensureDir(s.dirFuncs, target); err != nil {
+		return errors.Trace(err)
 	}
-	if err := validatePath(s.dirFuncs, mountPoint); err != nil {
+
+	mounted, err := s.tryBindMount(fsPath, target)
+	if mounted || err != nil {
+		return errors.Trace(err)
+	}
+	// We couldn't bind-mount over the designated directory;
+	// carry on and check if it's on the same filesystem. If
+	// it is, and it's empty, then claim it as our own.
+
+	if err := s.validateSameMountPoints(fsPath, target); err != nil {
 		return err
 	}
-	if _, err := s.run("mount", "--bind", fsPath, mountPoint); err != nil {
-		return errors.Annotate(err, "bind mounting")
+
+	// The first time we try to take the existing directory, we'll
+	// ensure that it's empty and create a file to "claim" it.
+	// Future attachments will simply ensure that the claim file
+	// exists.
+	targetClaimPath := filepath.Join(fsPath, "juju-target-claimed")
+	_, err = s.dirFuncs.lstat(targetClaimPath)
+	if err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return errors.Trace(err)
+	}
+	if err := ensureEmptyDir(s.dirFuncs, target); err != nil {
+		return errors.Trace(err)
+	}
+	if err := s.dirFuncs.mkDirAll(targetClaimPath, 0755); err != nil {
+		return errors.Annotate(err, "writing claim file")
+	}
+	return nil
+}
+
+func (s *rootfsFilesystemSource) tryBindMount(source, target string) (bool, error) {
+	targetSource, err := df(s.run, target, "source")
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if targetSource == source {
+		// Already bind mounted.
+		return true, nil
+	}
+	if _, err := s.run("mount", "--bind", source, target); err == nil {
+		return true, nil
+	} else {
+		logger.Debugf("cannot bind-mount: %v", err)
+	}
+	return false, nil
+}
+
+func (s *rootfsFilesystemSource) validateSameMountPoints(source, target string) error {
+	sourceMountPoint, err := df(s.run, source, "target")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	targetMountPoint, err := df(s.run, target, "target")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if sourceMountPoint != targetMountPoint {
+		return errors.Errorf(
+			"%q (%q) and %q (%q) are on different filesystems",
+			source, sourceMountPoint, target, targetMountPoint,
+		)
 	}
 	return nil
 }
@@ -259,4 +336,14 @@ func (s *rootfsFilesystemSource) mount(fsPath, mountPoint string) error {
 func (s *rootfsFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachmentParams) error {
 	// TODO(axw)
 	return errors.NotImplementedf("DetachFilesystems")
+}
+
+func df(run runCommandFunc, path, field string) (string, error) {
+	output, err := run("df", "--output="+field, path)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	// the first line contains the headers
+	lines := strings.SplitN(output, "\n", 2)
+	return strings.TrimSpace(lines[1]), nil
 }

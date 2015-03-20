@@ -5,6 +5,7 @@ package provider_test
 
 import (
 	"errors"
+	"path/filepath"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -19,8 +20,9 @@ var _ = gc.Suite(&rootfsSuite{})
 
 type rootfsSuite struct {
 	testing.BaseSuite
-	storageDir string
-	commands   *mockRunCommand
+	storageDir   string
+	commands     *mockRunCommand
+	mockDirFuncs *provider.MockDirFuncs
 }
 
 func (s *rootfsSuite) SetUpTest(c *gc.C) {
@@ -77,10 +79,9 @@ func (s *rootfsSuite) TestScope(c *gc.C) {
 
 func (s *rootfsSuite) rootfsFilesystemSource(c *gc.C) storage.FilesystemSource {
 	s.commands = &mockRunCommand{c: c}
-	return provider.RootfsFilesystemSource(
-		s.storageDir,
-		s.commands.run,
-	)
+	source, d := provider.RootfsFilesystemSource(s.storageDir, s.commands.run)
+	s.mockDirFuncs = d
+	return source
 }
 
 func (s *rootfsSuite) TestCreateFilesystems(c *gc.C) {
@@ -116,13 +117,11 @@ func (s *rootfsSuite) TestCreateFilesystemsIsUse(c *gc.C) {
 		Tag:  names.NewFilesystemTag("666"), // magic; see mockDirFuncs
 		Size: 1,
 	}})
-	c.Assert(err, gc.ErrorMatches, ".* path must be empty")
+	c.Assert(err, gc.ErrorMatches, "creating filesystem: \".*/666\" is not empty")
 }
 
 func (s *rootfsSuite) TestAttachFilesystemsPathNotDir(c *gc.C) {
 	source := s.rootfsFilesystemSource(c)
-	cmd := s.commands.expect("findmnt", "file")
-	cmd.respond("", errors.New("not mounted"))
 	_, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("6"),
 		FilesystemId: "6",
@@ -162,4 +161,146 @@ func (s *rootfsSuite) TestAttachFilesystemsNoPathSpecified(c *gc.C) {
 		FilesystemId: "6",
 	}})
 	c.Assert(err, gc.ErrorMatches, "attaching filesystem 6: filesystem mount point not specified")
+}
+
+func (s *rootfsSuite) TestAttachFilesystemsBind(c *gc.C) {
+	source := s.rootfsFilesystemSource(c)
+
+	cmd := s.commands.expect("df", "--output=source", "/srv")
+	cmd.respond("headers\n/src/of/root", nil)
+
+	cmd = s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv")
+	cmd.respond("", nil)
+
+	info, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+		Filesystem:   names.NewFilesystemTag("6"),
+		FilesystemId: "6",
+		Path:         "/srv",
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, []storage.FilesystemAttachment{{
+		Filesystem: names.NewFilesystemTag("6"),
+		Path:       "/srv",
+	}})
+}
+
+func (s *rootfsSuite) TestAttachFilesystemsBound(c *gc.C) {
+	source := s.rootfsFilesystemSource(c)
+
+	// already bind-mounted storage-dir/6 to the target
+	cmd := s.commands.expect("df", "--output=source", "/srv")
+	cmd.respond("headers\n"+filepath.Join(s.storageDir, "6"), nil)
+
+	info, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+		Filesystem:   names.NewFilesystemTag("6"),
+		FilesystemId: "6",
+		Path:         "/srv",
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, []storage.FilesystemAttachment{{
+		Filesystem: names.NewFilesystemTag("6"),
+		Path:       "/srv",
+	}})
+}
+
+func (s *rootfsSuite) TestAttachFilesystemsBindFailsDifferentFS(c *gc.C) {
+	source := s.rootfsFilesystemSource(c)
+
+	cmd := s.commands.expect("df", "--output=source", "/srv")
+	cmd.respond("headers\n/src/of/root", nil)
+
+	cmd = s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv")
+	cmd.respond("", errors.New("mount --bind fails"))
+
+	cmd = s.commands.expect("df", "--output=target", filepath.Join(s.storageDir, "6"))
+	cmd.respond("headers\n/dev", nil)
+
+	cmd = s.commands.expect("df", "--output=target", "/srv")
+	cmd.respond("headers\n/proc", nil)
+
+	_, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+		Filesystem:   names.NewFilesystemTag("6"),
+		FilesystemId: "6",
+		Path:         "/srv",
+	}})
+	c.Assert(err, gc.ErrorMatches, `attaching filesystem 6: ".*/6" \("/dev"\) and "/srv" \("/proc"\) are on different filesystems`)
+}
+
+func (s *rootfsSuite) TestAttachFilesystemsBindSameFSEmptyDir(c *gc.C) {
+	source := s.rootfsFilesystemSource(c)
+
+	cmd := s.commands.expect("df", "--output=source", "/srv")
+	cmd.respond("headers\n/src/of/root", nil)
+
+	cmd = s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv")
+	cmd.respond("", errors.New("mount --bind fails"))
+
+	cmd = s.commands.expect("df", "--output=target", filepath.Join(s.storageDir, "6"))
+	cmd.respond("headers\n/dev", nil)
+
+	cmd = s.commands.expect("df", "--output=target", "/srv")
+	cmd.respond("headers\n/dev", nil)
+
+	info, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+		Filesystem:   names.NewFilesystemTag("6"),
+		FilesystemId: "6",
+		Path:         "/srv",
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, []storage.FilesystemAttachment{{
+		Filesystem: names.NewFilesystemTag("6"),
+		Path:       "/srv",
+	}})
+}
+
+func (s *rootfsSuite) TestAttachFilesystemsBindSameFSNonEmptyDirUnclaimed(c *gc.C) {
+	source := s.rootfsFilesystemSource(c)
+
+	cmd := s.commands.expect("df", "--output=source", "/srv/666")
+	cmd.respond("headers\n/src/of/root", nil)
+
+	cmd = s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv/666")
+	cmd.respond("", errors.New("mount --bind fails"))
+
+	cmd = s.commands.expect("df", "--output=target", filepath.Join(s.storageDir, "6"))
+	cmd.respond("headers\n/dev", nil)
+
+	cmd = s.commands.expect("df", "--output=target", "/srv/666")
+	cmd.respond("headers\n/dev", nil)
+
+	_, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+		Filesystem:   names.NewFilesystemTag("6"),
+		FilesystemId: "6",
+		Path:         "/srv/666",
+	}})
+	c.Assert(err, gc.ErrorMatches, `attaching filesystem 6: "/srv/666" is not empty`)
+}
+
+func (s *rootfsSuite) TestAttachFilesystemsBindSameFSNonEmptyDirClaimed(c *gc.C) {
+	source := s.rootfsFilesystemSource(c)
+
+	cmd := s.commands.expect("df", "--output=source", "/srv/666")
+	cmd.respond("headers\n/src/of/root", nil)
+
+	cmd = s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv/666")
+	cmd.respond("", errors.New("mount --bind fails"))
+
+	cmd = s.commands.expect("df", "--output=target", filepath.Join(s.storageDir, "6"))
+	cmd.respond("headers\n/dev", nil)
+
+	cmd = s.commands.expect("df", "--output=target", "/srv/666")
+	cmd.respond("headers\n/dev", nil)
+
+	s.mockDirFuncs.Dirs.Add(filepath.Join(s.storageDir, "6", "juju-target-claimed"))
+
+	info, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+		Filesystem:   names.NewFilesystemTag("6"),
+		FilesystemId: "6",
+		Path:         "/srv/666",
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, []storage.FilesystemAttachment{{
+		Filesystem: names.NewFilesystemTag("6"),
+		Path:       "/srv/666",
+	}})
 }
