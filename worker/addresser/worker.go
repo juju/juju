@@ -4,17 +4,14 @@
 package addresser
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"launchpad.net/tomb"
 
+	apiWatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -26,12 +23,10 @@ type releaser interface {
 	ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address) error
 }
 
-type addresserWorker struct {
+type addresserHandler struct {
+	dying    chan struct{}
 	st       *state.State
-	tomb     tomb.Tomb
 	releaser releaser
-
-	observer *worker.EnvironObserver
 }
 
 // NewWorker returns a worker that keeps track of
@@ -54,50 +49,16 @@ func NewWorker(st *state.State) (worker.Worker, error) {
 }
 
 func NewWorkerWithReleaser(st *state.State, releaser releaser) worker.Worker {
-	a := &addresserWorker{
+	a := &addresserHandler{
 		st:       st,
 		releaser: releaser,
+		dying:    make(chan struct{}),
 	}
-	// wait for environment
-	go func() {
-		defer a.tomb.Done()
-		a.tomb.Kill(a.loop())
-	}()
-	return a
+	w := worker.NewStringsWorker(a)
+	return w
 }
 
-func (a *addresserWorker) Kill() {
-	a.tomb.Kill(nil)
-}
-
-func (a *addresserWorker) Wait() error {
-	return a.tomb.Wait()
-}
-
-func (a *addresserWorker) loop() (err error) {
-	a.observer, err = worker.NewEnvironObserver(a.st)
-	if err != nil {
-		return err
-	}
-	logger.Infof("addresser received inital environment configuration")
-	defer func() {
-		obsErr := worker.Stop(a.observer)
-		if err == nil {
-			err = obsErr
-		}
-	}()
-	return watchAddressesLoop(a, a.st.WatchIPAddresses())
-}
-
-func (a *addresserWorker) dying() <-chan struct{} {
-	return a.tomb.Dying()
-}
-
-func (a *addresserWorker) killAll(err error) {
-	a.tomb.Kill(err)
-}
-
-func (a *addresserWorker) checkAddresses(ids []string) error {
+func (a *addresserHandler) Handle(ids []string) error {
 	for _, id := range ids {
 		addr, err := a.st.IPAddress(id)
 		if err != nil {
@@ -114,7 +75,7 @@ func (a *addresserWorker) checkAddresses(ids []string) error {
 	return nil
 }
 
-func (a *addresserWorker) removeIPAddress(addr *state.IPAddress) (err error) {
+func (a *addresserHandler) removeIPAddress(addr *state.IPAddress) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to release address %v", addr.Value)
 	machine, err := a.st.Machine(addr.MachineId())
 	if err != nil {
@@ -142,20 +103,11 @@ func (a *addresserWorker) removeIPAddress(addr *state.IPAddress) (err error) {
 	return nil
 }
 
-func watchAddressesLoop(addresser *addresserWorker, w state.StringsWatcher) (err error) {
-	defer func() {
-		if stopErr := w.Stop(); stopErr != nil {
-			if err == nil {
-				err = fmt.Errorf("error stopping watcher: %v", stopErr)
-			} else {
-				logger.Warningf("ignoring error when stopping watcher: %v", stopErr)
-			}
-		}
-	}()
-
-	dead, err := addresser.st.DeadIPAddresses()
+func (a *addresserHandler) SetUp() (apiWatcher.StringsWatcher, error) {
+	w := a.st.WatchIPAddresses()
+	dead, err := a.st.DeadIPAddresses()
 	if err != nil {
-		return errors.Trace(err)
+		return w, errors.Trace(err)
 	}
 	deadQueue := make(chan *state.IPAddress, len(dead))
 	for _, deadAddr := range dead {
@@ -164,28 +116,20 @@ func watchAddressesLoop(addresser *addresserWorker, w state.StringsWatcher) (err
 	go func() {
 		select {
 		case addr := <-deadQueue:
-			err := addresser.removeIPAddress(addr)
+			err := a.removeIPAddress(addr)
 			if err != nil {
 				logger.Warningf("error releasing dead IP address %q: %v", addr, err)
 			}
-		case <-addresser.dying():
+		case <-a.dying:
 			return
 		default:
 			return
 		}
 	}()
+	return w, nil
+}
 
-	for {
-		select {
-		case ids, ok := <-w.Changes():
-			if !ok {
-				return watcher.EnsureErr(w)
-			}
-			if err := addresser.checkAddresses(ids); err != nil {
-				return err
-			}
-		case <-addresser.dying():
-			return nil
-		}
-	}
+func (a *addresserHandler) TearDown() error {
+	close(a.dying)
+	return nil
 }
