@@ -19,7 +19,11 @@ import (
 
 // Config represents a set of cloud-init configuration options.
 type Config struct {
-	attrs  map[string]interface{}
+	attrs map[string]interface{}
+
+	// osName is the name of the OS derived from the series. It will
+	// be the lower-cased. Currently it only matters if it is
+	// "windows" or not "windows".
 	osName string
 
 	// Series is the series that this config is targeting.
