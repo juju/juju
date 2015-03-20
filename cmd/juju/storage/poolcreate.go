@@ -13,7 +13,7 @@ import (
 const PoolCreateCommandDoc = `
 Create or define a storage pool.
 
-Pools are a mechanism for administrators to define sources of storage that 
+Pools are a mechanism for administrators to define sources of storage that
 they will use to satisfy service storage requirements. 
 
 A single pool might be used for storage from units of many different services - 

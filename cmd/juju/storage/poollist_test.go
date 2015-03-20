@@ -84,56 +84,6 @@ xyz:
 	)
 }
 
-func (s *PoolListSuite) TestPoolListNoType(c *gc.C) {
-	s.mockAPI.emptyType = true
-	s.assertValidList(
-		c,
-		[]string{"--provider", "a", "--provider", "b", "--name", "xyz", "--name", "abc"},
-		// Default format is yaml
-		`
-abc:
-  attrs:
-    one: true
-    three: maybe
-    two: well
-testName0:
-  attrs:
-    one: true
-    three: maybe
-    two: well
-testName1:
-  attrs:
-    one: true
-    three: maybe
-    two: well
-xyz:
-  attrs:
-    one: true
-    three: maybe
-    two: well
-`[1:],
-	)
-}
-
-func (s *PoolListSuite) TestPoolListNoCfg(c *gc.C) {
-	s.mockAPI.emptyConfig = true
-	s.assertValidList(
-		c,
-		[]string{"--provider", "a", "--provider", "b", "--name", "xyz", "--name", "abc"},
-		// Default format is yaml
-		`
-abc:
-  provider: testType
-testName0:
-  provider: a
-testName1:
-  provider: b
-xyz:
-  provider: testType
-`[1:],
-	)
-}
-
 func (s *PoolListSuite) TestPoolListJSON(c *gc.C) {
 	s.assertValidList(
 		c,
@@ -183,9 +133,7 @@ func (s *PoolListSuite) assertValidList(c *gc.C, args []string, expected string)
 	c.Assert(obtained, gc.Equals, expected)
 }
 
-type mockPoolListAPI struct {
-	emptyConfig, emptyType bool
-}
+type mockPoolListAPI struct{}
 
 func (s mockPoolListAPI) Close() error {
 	return nil
@@ -208,16 +156,9 @@ func (s mockPoolListAPI) ListPools(types []string, names []string) ([]params.Sto
 }
 
 func (s mockPoolListAPI) createTestPoolInstance(aname, atype string) params.StoragePool {
-	if s.emptyType {
-		atype = ""
-	}
-	attrs := make(map[string]interface{})
-	if !s.emptyConfig {
-		attrs = map[string]interface{}{"one": true, "two": "well", "three": "maybe"}
-	}
 	return params.StoragePool{
 		Name:     aname,
 		Provider: atype,
-		Attrs:    attrs,
+		Attrs:    map[string]interface{}{"one": true, "two": "well", "three": "maybe"},
 	}
 }

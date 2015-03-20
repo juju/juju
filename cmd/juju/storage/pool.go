@@ -40,8 +40,8 @@ type PoolCommandBase struct {
 
 // PoolInfo defines the serialization behaviour of the storage pool information.
 type PoolInfo struct {
-	Provider string                 `yaml:"provider,omitempty" json:"provider,omitempty"`
-	Attrs    map[string]interface{} `yaml:"attrs,omitempty" json:"attrs,omitempty"`
+	Provider string                 `yaml:"provider" json:"provider"`
+	Attrs    map[string]interface{} `yaml:"attrs" json:"attrs"`
 }
 
 func formatPoolInfo(all []params.StoragePool) map[string]PoolInfo {

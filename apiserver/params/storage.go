@@ -334,7 +334,7 @@ type StoragePool struct {
 	Provider string `json:"provider"`
 
 	// Attrs are the pool's configuration attributes.
-	Attrs map[string]interface{} `json:"attrs,omitempty"`
+	Attrs map[string]interface{} `json:"attrs"`
 }
 
 // StoragePoolFilter holds a filter for pool API call.
