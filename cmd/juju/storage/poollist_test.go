@@ -38,7 +38,11 @@ func runPoolList(c *gc.C, args []string) (*cmd.Context, error) {
 	return testing.RunCommand(c, envcmd.Wrap(&storage.PoolListCommand{}), args...)
 }
 
-func (s *PoolListSuite) TestPoolListNoMatch(c *gc.C) {
+func (s *PoolListSuite) TestPoolListEmpty(c *gc.C) {
+	// Both arguments - names and provider types - are optional.
+	// When none are supplied, all registered pools are listed.
+	// As this test uses mock api, no pools are registered by default.
+	// Returned list should be empty.
 	s.assertValidList(
 		c,
 		[]string{""},
