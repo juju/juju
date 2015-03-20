@@ -106,7 +106,7 @@ func (a *addresserWorker) checkAddresses(ids []string) error {
 		if addr.Life() != state.Dead {
 			continue
 		}
-		err = addr.Remove()
+		err = a.removeIPAddress(addr)
 		if err != nil {
 			return err
 		}
@@ -118,23 +118,26 @@ func (a *addresserWorker) removeIPAddress(addr *state.IPAddress) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to release address %v", addr.Value)
 	machine, err := a.st.Machine(addr.MachineId())
 	if err != nil {
-		return errors.Trace(err)
+		errors.Annotatef(err, "failed to remove address %v", addr.Value)
+		return err
 	}
 	instId, err := machine.InstanceId()
 	if err != nil {
-		return errors.Trace(err)
+		errors.Annotatef(err, "failed to remove address %v", addr.Value)
+		return err
 	}
 	err = a.releaser.ReleaseAddress(instId, network.Id(addr.SubnetId()), addr.Address())
 	if err != nil {
 		// Don't remove the address from state so we
 		// can retry releasing the address later.
-		return errors.Trace(err)
+		errors.Annotatef(err, "failed to remove address %v", addr.Value)
+		return err
 	}
 
 	err = addr.Remove()
 	if err != nil {
-		logger.Warningf("failed to remove address %v: %v", addr.Value, err)
-		return errors.Trace(err)
+		errors.Annotatef(err, "failed to remove address %v", addr.Value)
+		return err
 	}
 	return nil
 }
