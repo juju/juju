@@ -9,7 +9,7 @@ set -eu
 
 # lftp segfaults working with two sets of packages.
 # This value can be set to the patch number of the package we need.
-PATCH="2"
+PATCH="1"
 
 SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
 SIGNING_PASSPHRASE_FILE=${SIGNING_PASSPHRASE_FILE:-}
