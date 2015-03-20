@@ -126,7 +126,7 @@ func watchAddressesLoop(addresser *addresserWorker, w state.StringsWatcher) (err
 	go func() {
 		select {
 		case addr := <-deadQueue:
-			err := addr.Remove()
+			err := addresser.removeIPAddress(addr)
 			if err != nil {
 				logger.Warningf("error releasing dead IP address %q: %v", addr, err)
 			}
