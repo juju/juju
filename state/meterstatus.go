@@ -73,10 +73,10 @@ var (
 )
 
 type meterStatusDoc struct {
-	DocID   string          `bson:"_id"`
-	EnvUUID string          `bson:"env-uuid"`
-	Code    MeterStatusCode `bson:"code"`
-	Info    string          `bson:"info"`
+	DocID   string `bson:"_id"`
+	EnvUUID string `bson:"env-uuid"`
+	Code    string `bson:"code"`
+	Info    string `bson:"info"`
 }
 
 // SetMeterStatus sets the meter status for the unit.
@@ -91,7 +91,7 @@ func (u *Unit) SetMeterStatus(codeStr, info string) error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot update meter status for unit %s", u.Name())
 	}
-	if meterDoc.Code == code && meterDoc.Info == info {
+	if meterDoc.Code == code.String() && meterDoc.Info == info {
 		return nil
 	}
 
@@ -105,7 +105,7 @@ func (u *Unit) SetMeterStatus(codeStr, info string) error {
 			if err != nil {
 				return nil, errors.Annotatef(err, "cannot update meter status for unit %s", u.Name())
 			}
-			if meterDoc.Code == code && meterDoc.Info == info {
+			if meterDoc.Code == code.String() && meterDoc.Info == info {
 				return nil, jujutxn.ErrNoOperations
 			}
 		}
@@ -118,7 +118,7 @@ func (u *Unit) SetMeterStatus(codeStr, info string) error {
 				C:      meterStatusC,
 				Id:     u.st.docID(u.globalKey()),
 				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{{"code", code}, {"info", info}}}},
+				Update: bson.D{{"$set", bson.D{{"code", code.String()}, {"info", info}}}},
 			}}, nil
 	}
 	return errors.Annotatef(u.st.run(buildTxn), "cannot set meter state for unit %s", u.Name())
@@ -147,26 +147,26 @@ func removeMeterStatusOp(st *State, globalKey string) txn.Op {
 }
 
 // GetMeterStatus returns the meter status for the unit.
-func (u *Unit) GetMeterStatus() (MeterStatusCode, string, error) {
+func (u *Unit) GetMeterStatus() (MeterStatus, error) {
 	mm, err := u.st.MetricsManager()
 	if err != nil {
-		return MeterNotAvailable, "", errors.Annotatef(err, "cannot retrieve meter status for metrics manager")
+		return MeterStatus{MeterNotAvailable, ""}, errors.Annotatef(err, "cannot retrieve meter status for metrics manager")
 	}
+
+	mmStatus := mm.MeterStatus()
+	if mmStatus.Code == MeterRed {
+		return mmStatus, nil
+	}
+
 	status, err := u.getMeterStatusDoc()
 	if err != nil {
-		return MeterNotAvailable, "", errors.Annotatef(err, "cannot retrieve meter status for unit %s", u.Name())
+		return MeterStatus{MeterNotAvailable, ""}, errors.Annotatef(err, "cannot retrieve meter status for unit %s", u.Name())
 	}
 
-	code, info := mm.MeterStatus()
-	if code == MeterRed {
-		return code, info, nil
-	}
+	code := MeterStatusFromString(status.Code)
 
-	mmMeterStatus := MeterStatus{code, info}
-	unitMeterStatus := MeterStatus{status.Code, status.Info}
-	ms := combineMeterStatus(mmMeterStatus, unitMeterStatus)
-
-	return ms.Code, ms.Info, nil
+	unitMeterStatus := MeterStatus{code, status.Info}
+	return combineMeterStatus(mmStatus, unitMeterStatus), nil
 }
 
 func combineMeterStatus(a, b MeterStatus) MeterStatus {

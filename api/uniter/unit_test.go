@@ -769,8 +769,8 @@ func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
 		err := mm.IncrementConsecutiveErrors()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	code, _ := mm.MeterStatus()
-	c.Assert(code, gc.Equals, state.MeterAmber) // Confirm meter status has changed
+	status := mm.MeterStatus()
+	c.Assert(status.Code, gc.Equals, state.MeterAmber) // Confirm meter status has changed
 	wc.AssertOneChange()
 
 	statetesting.AssertStop(c, w)

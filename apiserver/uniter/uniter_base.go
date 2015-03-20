@@ -1263,21 +1263,16 @@ func (u *uniterBaseAPI) GetMeterStatus(args params.Entities) (params.MeterStatus
 			continue
 		}
 		err = common.ErrPerm
-		var code state.MeterStatusCode
-		var info string
+		var status state.MeterStatus
 		if canAccess(unitTag) {
 			var unit *state.Unit
 			unit, err = u.getUnit(unitTag)
 			if err == nil {
-				code, info, err = unit.GetMeterStatus()
-				if err != nil {
-					result.Results[i].Error = common.ServerError(err)
-					continue
-				}
+				status, err = unit.GetMeterStatus()
 			}
+			result.Results[i].Code = status.Code.String()
+			result.Results[i].Info = status.Info
 		}
-		result.Results[i].Code = string(code)
-		result.Results[i].Info = info
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
