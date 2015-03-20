@@ -322,6 +322,16 @@ func (s *cmdStorageSuite) TestCreatePoolErrorProviderType(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*not found.*")
 }
 
+func (s *cmdStorageSuite) TestCreatePoolDuplicateName(c *gc.C) {
+	pname := "ftPool"
+	context := runPoolCreate(c, []string{pname, "loop", "smth=one"})
+	c.Assert(testing.Stdout(context), gc.Equals, "")
+	assertPoolByName(c, s.State, pname)
+
+	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), pname, "loop", "smth=one")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*cannot overwrite existing settings*")
+}
+
 func assertPoolByName(c *gc.C, st *state.State, pname string) {
 	stsetts := state.NewStateSettings(st)
 	poolManager := poolmanager.New(stsetts)
