@@ -14,13 +14,13 @@ const PoolCreateCommandDoc = `
 Create or define a storage pool.
 
 Pools are a mechanism for administrators to define sources of storage that
-they will use to satisfy service storage requirements. 
+they will use to satisfy service storage requirements.
 
-A single pool might be used for storage from units of many different services - 
+A single pool might be used for storage from units of many different services -
 it is a resource from which different stores may be drawn.
 
-A pool describes provider-specific parameters for creating storage, 
-such as performance (e.g. IOPS), media type (e.g. magnetic vs. SSD), 
+A pool describes provider-specific parameters for creating storage,
+such as performance (e.g. IOPS), media type (e.g. magnetic vs. SSD),
 or durability.
 
 For many providers, there will be a shared resource
@@ -62,7 +62,7 @@ func (c *PoolCreateCommand) Init(args []string) (err error) {
 	c.poolName = args[0]
 	c.provider = args[1]
 
-	options, err := keyvalues.Parse(args[2:], true)
+	options, err := keyvalues.Parse(args[2:], false)
 	if err != nil {
 		return err
 	}
