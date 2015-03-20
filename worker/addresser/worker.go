@@ -9,6 +9,7 @@ import (
 
 	apiWatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -23,15 +24,24 @@ type releaser interface {
 	ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address) error
 }
 
+// stateAddresser defines the State methods used by the addresserHandler
+type stateAddresser interface {
+	DeadIPAddresses() ([]*state.IPAddress, error)
+	EnvironConfig() (*config.Config, error)
+	IPAddress(string) (*state.IPAddress, error)
+	Machine(string) (*state.Machine, error)
+	WatchIPAddresses() state.StringsWatcher
+}
+
 type addresserHandler struct {
 	dying    chan struct{}
-	st       *state.State
+	st       stateAddresser
 	releaser releaser
 }
 
 // NewWorker returns a worker that keeps track of
 // IP address lifecycles, removing Dead addresses.
-func NewWorker(st *state.State) (worker.Worker, error) {
+func NewWorker(st stateAddresser) (worker.Worker, error) {
 	config, err := st.EnvironConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -48,7 +58,7 @@ func NewWorker(st *state.State) (worker.Worker, error) {
 	return a, nil
 }
 
-func NewWorkerWithReleaser(st *state.State, releaser releaser) worker.Worker {
+func NewWorkerWithReleaser(st stateAddresser, releaser releaser) worker.Worker {
 	a := &addresserHandler{
 		st:       st,
 		releaser: releaser,
