@@ -5,6 +5,7 @@ package provider
 
 import (
 	"os"
+	"strings"
 	"time"
 
 	"github.com/juju/utils/set"
@@ -68,7 +69,7 @@ func (m *mockDirFuncs) lstat(name string) (os.FileInfo, error) {
 }
 
 func (m *mockDirFuncs) fileCount(name string) (int, error) {
-	if name == "/mnt/notempty" {
+	if strings.HasSuffix(name, "/666") {
 		return 2, nil
 	}
 	return 0, nil

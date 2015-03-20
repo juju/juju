@@ -26,7 +26,9 @@ func (s *tmpfsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *tmpfsSuite) TearDownTest(c *gc.C) {
-	s.commands.assertDrained()
+	if s.commands != nil {
+		s.commands.assertDrained()
+	}
 	s.BaseSuite.TearDownTest(c)
 }
 

@@ -99,7 +99,6 @@ type dirFuncs interface {
 	lstat(path string) (fi os.FileInfo, err error)
 	fileCount(path string) (int, error)
 	calculateSize(path string) (sizeInMib uint64, _ error)
-	symlink(oldpath, newpath string) error
 }
 
 // The real directory related functions.
@@ -134,10 +133,6 @@ func (o *osDirFuncs) calculateSize(path string) (sizeInMib uint64, _ error) {
 		return 0, errors.Annotate(err, "parsing size")
 	}
 	return numBlocks / 1024, nil
-}
-
-func (o *osDirFuncs) symlink(oldpath, newpath string) error {
-	return os.Symlink(oldpath, newpath)
 }
 
 // validatePath ensures the specified path is suitable as the mount
@@ -198,9 +193,11 @@ func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParam
 	}
 	sizeInMiB, err := s.dirFuncs.calculateSize(s.storageDir)
 	if err != nil {
+		os.Remove(path)
 		return filesystem, errors.Annotate(err, "getting size")
 	}
 	if sizeInMiB < params.Size {
+		os.Remove(path)
 		return filesystem, errors.Errorf("filesystem is not big enough (%dM < %dM)", sizeInMiB, params.Size)
 	}
 	filesystem = storage.Filesystem{
@@ -224,30 +221,39 @@ func (s *rootfsFilesystemSource) AttachFilesystems(args []storage.FilesystemAtta
 }
 
 func (s *rootfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmentParams) (storage.FilesystemAttachment, error) {
-	// The filesystem is created at <storage-dir>/<storage-id>.
-	// If it is different to the attachment path, create a symlink.
-	fsPath := filepath.Join(s.storageDir, arg.Filesystem.Id())
-
 	mountPoint := arg.Path
 	if mountPoint == "" {
 		return storage.FilesystemAttachment{}, errNoMountPoint
 	}
-	if mountPoint != fsPath {
-		parentDir := filepath.Dir(mountPoint)
-		if err := s.dirFuncs.mkDirAll(parentDir, 0755); err != nil {
-			return storage.FilesystemAttachment{}, err
-		}
-		err := s.dirFuncs.symlink(fsPath, mountPoint)
-		if err != nil && !os.IsExist(err) {
-			return storage.FilesystemAttachment{}, errors.Annotate(err, "creating symlink")
-		}
+	// The filesystem is created at <storage-dir>/<storage-id>.
+	// If it is different to the attachment path, bind mount.
+	fsPath := filepath.Join(s.storageDir, arg.Filesystem.Id())
+	if err := s.mount(fsPath, mountPoint); err != nil {
+		return storage.FilesystemAttachment{}, err
 	}
-
 	return storage.FilesystemAttachment{
 		Filesystem: arg.Filesystem,
 		Machine:    arg.Machine,
 		Path:       mountPoint,
 	}, nil
+}
+
+func (s *rootfsFilesystemSource) mount(fsPath, mountPoint string) error {
+	// TODO(axw) use symlink, since bind mounting won't fly with LXC.
+	if mountPoint == fsPath {
+		return nil
+	}
+	if _, err := s.run("findmnt", mountPoint); err == nil {
+		// Already mounted; nothing to do.
+		return nil
+	}
+	if err := validatePath(s.dirFuncs, mountPoint); err != nil {
+		return err
+	}
+	if _, err := s.run("mount", "--bind", fsPath, mountPoint); err != nil {
+		return errors.Annotate(err, "bind mounting")
+	}
+	return nil
 }
 
 func (s *rootfsFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachmentParams) error {
