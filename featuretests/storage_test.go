@@ -307,19 +307,21 @@ func (s *cmdStorageSuite) TestCreatePool(c *gc.C) {
 	assertPoolByName(c, s.State, pname)
 }
 
+func (s *cmdStorageSuite) assertCreatePoolError(c *gc.C, expected string, args ...string) {
+	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), args...)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, expected)
+}
+
 func (s *cmdStorageSuite) TestCreatePoolErrorNoAttrs(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), "loop", "ftPool")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*pool creation requires names, provider type and attrs for configuration.*")
+	s.assertCreatePoolError(c, ".*pool creation requires names, provider type and attrs for configuration.*", "loop", "ftPool")
 }
 
 func (s *cmdStorageSuite) TestCreatePoolErrorNoProvider(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), "oops provider", "smth=one")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*pool creation requires names, provider type and attrs for configuration.*")
+	s.assertCreatePoolError(c, ".*pool creation requires names, provider type and attrs for configuration.*", "oops provider", "smth=one")
 }
 
 func (s *cmdStorageSuite) TestCreatePoolErrorProviderType(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), "loop", "ftPool", "smth=one")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*not found.*")
+	s.assertCreatePoolError(c, ".*not found.*", "loop", "ftPool", "smth=one")
 }
 
 func (s *cmdStorageSuite) TestCreatePoolDuplicateName(c *gc.C) {
@@ -327,9 +329,7 @@ func (s *cmdStorageSuite) TestCreatePoolDuplicateName(c *gc.C) {
 	context := runPoolCreate(c, pname, "loop", "smth=one")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 	assertPoolByName(c, s.State, pname)
-
-	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), pname, "loop", "smth=one")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*cannot overwrite existing settings*")
+	s.assertCreatePoolError(c, ".*cannot overwrite existing settings*", pname, "loop", "smth=one")
 }
 
 func assertPoolByName(c *gc.C, st *state.State, pname string) {
