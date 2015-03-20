@@ -418,9 +418,7 @@ func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 }
 
 func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) {
-	addrs := []network.Address{
-		network.NewAddress("0.1.2.3", network.ScopeUnknown),
-	}
+	addrs := network.NewAddresses("0.1.2.3")
 	err := machine.SetAddresses(addrs...)
 	c.Assert(err, jc.ErrorIsNil)
 	// Set the addresses in the environ instance as well so that if the instance poller
@@ -554,7 +552,7 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 	m, instId := s.waitProvisioned(c, units[0])
 	insts, err := s.Environ.Instances([]instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
-	addrs := []network.Address{network.NewAddress("1.2.3.4", network.ScopeUnknown)}
+	addrs := network.NewAddresses("1.2.3.4")
 	dummy.SetInstanceAddresses(insts[0], addrs)
 	dummy.SetInstanceStatus(insts[0], "running")
 

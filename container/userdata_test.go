@@ -36,9 +36,9 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 		CIDR:           "0.1.2.0/24",
 		ConfigType:     network.ConfigStatic,
 		NoAutoStart:    false,
-		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
+		Address:        network.NewAddress("0.1.2.3"),
 		DNSServers:     network.NewAddresses("ns1.invalid", "ns2.invalid"),
-		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		GatewayAddress: network.NewAddress("0.1.2.1"),
 	}, {
 		InterfaceName: "eth1",
 		ConfigType:    network.ConfigDHCP,

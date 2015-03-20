@@ -4203,10 +4203,9 @@ func (s *StateSuite) TestWatchAPIHostPorts(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
-	err := s.State.SetAPIHostPorts([][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    99,
-	}}})
+	err := s.State.SetAPIHostPorts([][]network.HostPort{
+		network.NewHostPorts(99, "0.1.2.3"),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertOneChange()
@@ -4232,27 +4231,27 @@ func (s *StateSuite) TestWatchMachineAddresses(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Set machine addresses: reported.
-	err = machine.SetMachineAddresses(network.NewAddress("abc", network.ScopeUnknown))
+	err = machine.SetMachineAddresses(network.NewAddress("abc"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set provider addresses eclipsing machine addresses: reported.
-	err = machine.SetAddresses(network.NewAddress("abc", network.ScopePublic))
+	err = machine.SetAddresses(network.NewScopedAddress("abc", network.ScopePublic))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set same machine eclipsed by provider addresses: not reported.
-	err = machine.SetMachineAddresses(network.NewAddress("abc", network.ScopeCloudLocal))
+	err = machine.SetMachineAddresses(network.NewScopedAddress("abc", network.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Set different machine addresses: reported.
-	err = machine.SetMachineAddresses(network.NewAddress("def", network.ScopeUnknown))
+	err = machine.SetMachineAddresses(network.NewAddress("def"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set different provider addresses: reported.
-	err = machine.SetMachineAddresses(network.NewAddress("def", network.ScopePublic))
+	err = machine.SetMachineAddresses(network.NewScopedAddress("def", network.ScopePublic))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 

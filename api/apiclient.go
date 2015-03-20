@@ -419,6 +419,8 @@ func (s *State) ServerTag() (names.EnvironTag, error) {
 // be invoked both within and outside the environment (think
 // private clouds).
 func (s *State) APIHostPorts() [][]network.HostPort {
+	// NOTE: We're making a copy of s.hostPorts before returning it,
+	// for safety.
 	hostPorts := make([][]network.HostPort, len(s.hostPorts))
 	for i, server := range s.hostPorts {
 		hostPorts[i] = append([]network.HostPort{}, server...)

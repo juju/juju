@@ -1107,7 +1107,7 @@ func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
 		ConfigType:       network.ConfigDHCP,
 		ExtraConfig:      nil,
 		GatewayAddress:   network.Address{},
-		Address:          network.NewAddress("192.168.1.1", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress("192.168.1.1", network.ScopeCloudLocal),
 	}, {
 		DeviceIndex:      1,
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
@@ -1120,7 +1120,7 @@ func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
 		ConfigType:       network.ConfigDHCP,
 		ExtraConfig:      nil,
 		GatewayAddress:   network.Address{},
-		Address:          network.NewAddress("192.168.2.1", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress("192.168.2.1", network.ScopeCloudLocal),
 	}, {
 		DeviceIndex:      2,
 		MACAddress:       "aa:bb:cc:dd:ee:f2",
@@ -1133,7 +1133,7 @@ func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
 		ConfigType:       network.ConfigDHCP,
 		ExtraConfig:      nil,
 		GatewayAddress:   network.Address{},
-		Address:          network.NewAddress("192.168.3.1", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress("192.168.3.1", network.ScopeCloudLocal),
 	}}
 	network.SortInterfaceInfo(netInfo)
 	c.Assert(netInfo, jc.DeepEquals, expectedInfo)

@@ -282,8 +282,8 @@ func (s *LxcSuite) TestUpdateContainerConfig(c *gc.C) {
 		CIDR:           "0.1.2.0/20",
 		InterfaceName:  "eth0",
 		MACAddress:     "aa:bb:cc:dd:ee:f0",
-		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		Address:        network.NewAddress("0.1.2.3"),
+		GatewayAddress: network.NewAddress("0.1.2.1"),
 	}, {
 		DeviceIndex:   1,
 		InterfaceName: "eth1",
@@ -1094,8 +1094,8 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 		CIDR:           "0.1.2.0/20", // used to infer the subnet mask.
 		MACAddress:     "aa:bb:cc:dd:ee:f1",
 		InterfaceName:  "eth1",
-		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		Address:        network.NewAddress("0.1.2.3"),
+		GatewayAddress: network.NewAddress("0.1.2.1"),
 		// The rest is passed to cloud-init.
 		ConfigType: network.ConfigStatic,
 		DNSServers: network.NewAddresses("ns1.invalid", "ns2.invalid"),

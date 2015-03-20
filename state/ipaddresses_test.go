@@ -42,7 +42,7 @@ func (s *IPAddressSuite) assertAddress(
 func (s *IPAddressSuite) TestAddIPAddress(c *gc.C) {
 	for i, test := range []string{"0.1.2.3", "2001:db8::1"} {
 		c.Logf("test %d: %q", i, test)
-		addr := network.NewAddress(test, network.ScopePublic)
+		addr := network.NewScopedAddress(test, network.ScopePublic)
 		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertAddress(c, ipAddr, addr, state.AddressStateUnknown, "", "", "foobar")
@@ -63,7 +63,7 @@ func (s *IPAddressSuite) TestAddIPAddressInvalid(c *gc.C) {
 }
 
 func (s *IPAddressSuite) TestAddIPAddressAlreadyExists(c *gc.C) {
-	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
+	addr := network.NewScopedAddress("0.1.2.3", network.ScopePublic)
 	_, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddIPAddress(addr, "foobar")
@@ -80,7 +80,7 @@ func (s *IPAddressSuite) TestIPAddressNotFound(c *gc.C) {
 }
 
 func (s *IPAddressSuite) TestEnsureDeadRemove(c *gc.C) {
-	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
+	addr := network.NewScopedAddress("0.1.2.3", network.ScopePublic)
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -110,7 +110,7 @@ func (s *IPAddressSuite) TestEnsureDeadRemove(c *gc.C) {
 }
 
 func (s *IPAddressSuite) TestSetStateDead(c *gc.C) {
-	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
+	addr := network.NewScopedAddress("0.1.2.3", network.ScopePublic)
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -125,7 +125,7 @@ func (s *IPAddressSuite) TestSetStateDead(c *gc.C) {
 }
 
 func (s *IPAddressSuite) TestAllocateToDead(c *gc.C) {
-	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
+	addr := network.NewScopedAddress("0.1.2.3", network.ScopePublic)
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -159,7 +159,7 @@ func (s *IPAddressSuite) TestAddressStateString(c *gc.C) {
 }
 
 func (s *IPAddressSuite) TestSetState(c *gc.C) {
-	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
+	addr := network.NewScopedAddress("0.1.2.3", network.ScopePublic)
 
 	for i, test := range []struct {
 		initial, changeTo state.AddressState
@@ -227,7 +227,7 @@ func (s *IPAddressSuite) TestSetState(c *gc.C) {
 }
 
 func (s *IPAddressSuite) TestAllocateTo(c *gc.C) {
-	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
+	addr := network.NewScopedAddress("0.1.2.3", network.ScopePublic)
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ipAddr.State(), gc.Equals, state.AddressStateUnknown)
@@ -255,7 +255,7 @@ func (s *IPAddressSuite) TestAllocateTo(c *gc.C) {
 }
 
 func (s *IPAddressSuite) TestAddress(c *gc.C) {
-	addr := network.NewAddress("0.1.2.3", network.ScopePublic)
+	addr := network.NewScopedAddress("0.1.2.3", network.ScopePublic)
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ipAddr.Address(), jc.DeepEquals, addr)
@@ -269,7 +269,7 @@ func (s *IPAddressSuite) TestAllocatedIPAddresses(c *gc.C) {
 		{"0.1.2.5", "wobble"},
 	}
 	for _, details := range addresses {
-		addr := network.NewAddress(details[0], network.ScopePublic)
+		addr := network.NewScopedAddress(details[0], network.ScopePublic)
 		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 		c.Assert(err, jc.ErrorIsNil)
 		err = ipAddr.AllocateTo(details[1], "wobble")
@@ -287,7 +287,7 @@ func (s *IPAddressSuite) TestAllocatedIPAddresses(c *gc.C) {
 }
 
 func (s *IPAddressSuite) TestRefresh(c *gc.C) {
-	rawAddr := network.NewAddress("0.1.2.3", network.ScopeUnknown)
+	rawAddr := network.NewAddress("0.1.2.3")
 	addr, err := s.State.AddIPAddress(rawAddr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 
