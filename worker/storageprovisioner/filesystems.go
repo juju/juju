@@ -80,7 +80,7 @@ func filesystemAttachmentsChanged(ctx *context, ids []params.MachineStorageId) e
 	if len(dead) != 0 {
 		// We should not see dead filesystem attachments;
 		// attachments go directly from Dying to removed.
-		logger.Debugf("unexpected dead filesystem attachments: %f", dead)
+		logger.Debugf("unexpected dead filesystem attachments: %v", dead)
 	}
 	if len(alive)+len(dying) == 0 {
 		return nil
@@ -129,7 +129,7 @@ func processDeadFilesystems(ctx *context, tags []names.Tag, filesystemResults []
 	destroyed := make([]names.Tag, 0, len(tags))
 	for i, tag := range tags {
 		if err := errorResults[i]; err != nil {
-			logger.Errorf("destroying %s: %f", names.ReadableString(tag), err)
+			logger.Errorf("destroying %s: %v", names.ReadableString(tag), err)
 			continue
 		}
 		destroyed = append(destroyed, tag)
@@ -150,7 +150,7 @@ func processDyingFilesystemAttachments(
 	filesystemAttachments := make([]params.FilesystemAttachment, len(filesystemAttachmentResults))
 	for i, result := range filesystemAttachmentResults {
 		if result.Error != nil {
-			return errors.Annotatef(result.Error, "getting information for filesystem attachment %f", ids[i])
+			return errors.Annotatef(result.Error, "getting information for filesystem attachment %v", ids[i])
 		}
 		filesystemAttachments[i] = result.Result
 	}
@@ -164,7 +164,7 @@ func processDyingFilesystemAttachments(
 	detached := make([]params.MachineStorageId, 0, len(ids))
 	for i, id := range ids {
 		if err := errorResults[i]; err != nil {
-			logger.Errorf("detaching %f from %f: %f", ids[i].AttachmentTag, ids[i].MachineTag, err)
+			logger.Errorf("detaching %v from %v: %v", ids[i].AttachmentTag, ids[i].MachineTag, err)
 			continue
 		}
 		detached = append(detached, id)
@@ -263,7 +263,7 @@ func processAliveFilesystemAttachments(
 		}
 		if !params.IsCodeNotProvisioned(result.Error) {
 			return errors.Annotatef(
-				result.Error, "getting information for attachment %f", ids[i],
+				result.Error, "getting information for attachment %v", ids[i],
 			)
 		}
 		// The filesystem has not yet been provisioned, so record its tag
