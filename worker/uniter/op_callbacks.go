@@ -71,8 +71,11 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 		status = params.StatusStopping
 	case hi.Kind == hooks.ConfigChanged:
 		opc.u.f.DiscardConfigEvent()
-		fallthrough
-	default:
+	case hi.Kind == hooks.Kind("leader-settings-changed"):
+		// TODO(fwereade): define hooks properly in charm/hooks
+		opc.u.f.DiscardLeaderSettingsEvent()
+	}
+	if status == params.StatusActive {
 		if !opc.u.operationState().Started {
 			status = params.StatusInstalling
 		}
@@ -93,6 +96,8 @@ func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 		return opc.u.storage.CommitHook(hi)
 	case hi.Kind == hooks.ConfigChanged:
 		opc.u.ranConfigChanged = true
+	case hi.Kind == hooks.Kind("leader-settings-changed"):
+		opc.u.ranLeaderSettingsChanged = true
 	}
 	return nil
 }
