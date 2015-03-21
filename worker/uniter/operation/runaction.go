@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
@@ -52,16 +51,16 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 	ra.runner = rnr
 
 	state.Prev = &State{
-		Kind: state.Kind,
-		Step: state.Step,
-		Hook: state.Hook,
+		Kind:     state.Kind,
+		Step:     state.Step,
+		Hook:     state.Hook,
+		CharmURL: state.CharmURL,
 	}
 
 	st := stateChange{
 		Kind:     RunAction,
 		Step:     Pending,
 		ActionId: &ra.actionId,
-		Hook:     nil,
 	}.apply(state)
 
 	return st, nil
@@ -87,26 +86,24 @@ func (ra *runAction) Execute(state State) (*State, error) {
 		Kind:     RunAction,
 		Step:     Done,
 		ActionId: &ra.actionId,
-		Hook:     nil,
 	}.apply(state), nil
 }
 
-// Commit preserves the recorded hook, and returns the previous state.
+// Commit returns the previous state.
 // Commit is part of the Operation interface.
 func (ra *runAction) Commit(state State) (*State, error) {
-	var kind Kind = Continue
-	var step Step = Pending
-	var hook *hook.Info = nil
-
-	if state.Prev != nil {
-		kind = state.Prev.Kind
-		step = state.Prev.Step
-		hook = state.Prev.Hook
-		state.Prev = nil
+	if state.Prev == nil {
+		return nil, errors.Errorf("unexpected state running action operation Commit, missing previous state")
 	}
-	return stateChange{
-		Kind: kind,
-		Step: step,
-		Hook: hook,
-	}.apply(state), nil
+
+	updatedState := stateChange{
+		Kind:     state.Prev.Kind,
+		Step:     state.Prev.Step,
+		Hook:     state.Prev.Hook,
+		CharmURL: state.Prev.CharmURL,
+	}.apply(state)
+
+	updatedState.Prev = nil
+
+	return updatedState, nil
 }

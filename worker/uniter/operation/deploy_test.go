@@ -22,6 +22,12 @@ type DeploySuite struct {
 
 var _ = gc.Suite(&DeploySuite{})
 
+func (s *DeploySuite) SetUpSuite(c *gc.C) {
+	// TODO(jcw4) overwriteState is not a valid uniter state; should we
+	// be using it in the tests? Uncomment this when it's valid.
+	//validateStates(c, &overwriteState)
+}
+
 type newDeploy func(operation.Factory, *corecharm.URL) (operation.Operation, error)
 
 func (s *DeploySuite) testPrepareAlreadyDone(

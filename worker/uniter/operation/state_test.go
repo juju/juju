@@ -75,8 +75,16 @@ var stateTests = []struct {
 		st: operation.State{
 			Kind: operation.RunAction,
 			Step: operation.Pending,
+			Prev: &operation.State{},
 		},
 		err: `missing action id`,
+	}, {
+		st: operation.State{
+			Kind:     operation.RunAction,
+			Step:     operation.Pending,
+			ActionId: &someActionId,
+		},
+		err: `missing Prev state with Kind RunAction`,
 	}, {
 		st: operation.State{
 			Kind:     operation.RunAction,
@@ -89,6 +97,7 @@ var stateTests = []struct {
 			Kind:     operation.RunAction,
 			Step:     operation.Pending,
 			ActionId: &someActionId,
+			Prev:     &operation.State{},
 		},
 	},
 	// RunHook operation.

@@ -23,6 +23,12 @@ type RunHookSuite struct {
 
 var _ = gc.Suite(&RunHookSuite{})
 
+func (s *RunHookSuite) SetUpSuite(c *gc.C) {
+	// TODO(jcw4) overwriteState is not a valid uniter state; should we
+	// be using it in the tests? Uncomment this when it's valid.
+	//validateStates(c, &overwriteState)
+}
+
 type newHook func(operation.Factory, hook.Info) (operation.Operation, error)
 
 func (s *RunHookSuite) testClearResolvedFlagError(c *gc.C, newHook newHook) {
