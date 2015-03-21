@@ -92,6 +92,10 @@ type State struct {
 	// It's set to nil if the hook was not run at all. Recording time as int64
 	// because the yaml encoder cannot encode the time.Time struct.
 	CollectMetricsTime int64 `yaml:"collectmetricstime,omitempty"`
+
+	// Prev holds an optional record of the previous state.  Useful when running
+	// Actions while in ModeHookError for example.
+	Prev *State `yaml:"previous,omitempty"`
 }
 
 // validate returns an error if the state violates expectations.

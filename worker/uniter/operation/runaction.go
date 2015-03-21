@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
@@ -49,12 +50,21 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 	}
 	ra.name = actionData.ActionName
 	ra.runner = rnr
-	return stateChange{
+
+	state.Prev = &State{
+		Kind: state.Kind,
+		Step: state.Step,
+		Hook: state.Hook,
+	}
+
+	st := stateChange{
 		Kind:     RunAction,
 		Step:     Pending,
 		ActionId: &ra.actionId,
-		Hook:     state.Hook,
-	}.apply(state), nil
+		Hook:     nil,
+	}.apply(state)
+
+	return st, nil
 }
 
 // Execute runs the action, and preserves any hook recorded in the supplied state.
@@ -77,16 +87,26 @@ func (ra *runAction) Execute(state State) (*State, error) {
 		Kind:     RunAction,
 		Step:     Done,
 		ActionId: &ra.actionId,
-		Hook:     state.Hook,
+		Hook:     nil,
 	}.apply(state), nil
 }
 
-// Commit preserves the recorded hook, and returns a neutral state.
+// Commit preserves the recorded hook, and returns the previous state.
 // Commit is part of the Operation interface.
 func (ra *runAction) Commit(state State) (*State, error) {
+	var kind Kind = Continue
+	var step Step = Pending
+	var hook *hook.Info = nil
+
+	if state.Prev != nil {
+		kind = state.Prev.Kind
+		step = state.Prev.Step
+		hook = state.Prev.Hook
+		state.Prev = nil
+	}
 	return stateChange{
-		Kind: Continue,
-		Step: Pending,
-		Hook: state.Hook,
+		Kind: kind,
+		Step: step,
+		Hook: hook,
 	}.apply(state), nil
 }
