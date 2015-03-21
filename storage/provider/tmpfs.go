@@ -166,8 +166,12 @@ func (s *tmpfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmen
 		return storage.FilesystemAttachment{}, err
 	}
 
-	// Check if the mount already exists, and mount if not.
-	if _, err := s.run("findmnt", path); err != nil {
+	// Check if the mount already exists.
+	source, err := df(s.run, path, "source")
+	if err != nil {
+		return storage.FilesystemAttachment{}, errors.Trace(err)
+	}
+	if source != arg.Filesystem.String() {
 		if err := ensureDir(s.dirFuncs, path); err != nil {
 			return storage.FilesystemAttachment{}, err
 		}
@@ -195,7 +199,11 @@ func (s *tmpfsFilesystemSource) DetachFilesystems(args []storage.FilesystemAttac
 }
 
 func (s *tmpfsFilesystemSource) writeFilesystemInfo(info storage.Filesystem) error {
-	err := utils.WriteYaml(s.filesystemInfoFile(info.Tag), filesystemInfo{&info.Size})
+	filename := s.filesystemInfoFile(info.Tag)
+	if _, err := os.Stat(filename); err == nil {
+		return errors.Errorf("filesystem %v already exists", info.Tag.Id())
+	}
+	err := utils.WriteYaml(filename, filesystemInfo{&info.Size})
 	if err != nil {
 		return errors.Annotate(err, "writing filesystem info to disk")
 	}
