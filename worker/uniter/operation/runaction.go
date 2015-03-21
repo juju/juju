@@ -50,7 +50,7 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 	ra.name = actionData.ActionName
 	ra.runner = rnr
 
-	state.Prev = &State{
+	prev := &State{
 		Kind:     state.Kind,
 		Step:     state.Step,
 		Hook:     state.Hook,
@@ -63,6 +63,7 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 		ActionId: &ra.actionId,
 	}.apply(state)
 
+	st.Prev = prev
 	return st, nil
 }
 
@@ -76,34 +77,47 @@ func (ra *runAction) Execute(state State) (*State, error) {
 	}
 	defer unlock()
 
+	prev := ensurePrev(state.Prev, "Execute")
+
 	err = ra.runner.RunAction(ra.name)
 	if err != nil {
 		// This indicates an actual error -- an action merely failing should
 		// be handled inside the Runner, and returned as nil.
 		return nil, errors.Annotatef(err, "running action %q", ra.name)
 	}
-	return stateChange{
+	st := stateChange{
 		Kind:     RunAction,
 		Step:     Done,
 		ActionId: &ra.actionId,
-	}.apply(state), nil
+	}.apply(state)
+
+	st.Prev = prev
+	return st, nil
 }
 
 // Commit returns the previous state.
 // Commit is part of the Operation interface.
 func (ra *runAction) Commit(state State) (*State, error) {
-	if state.Prev == nil {
-		return nil, errors.Errorf("unexpected state running action operation Commit, missing previous state")
-	}
+	prev := ensurePrev(state.Prev, "Commit")
 
-	updatedState := stateChange{
-		Kind:     state.Prev.Kind,
-		Step:     state.Prev.Step,
-		Hook:     state.Prev.Hook,
-		CharmURL: state.Prev.CharmURL,
+	st := stateChange{
+		Kind:     prev.Kind,
+		Step:     prev.Step,
+		Hook:     prev.Hook,
+		CharmURL: prev.CharmURL,
 	}.apply(state)
 
-	updatedState.Prev = nil
+	st.Prev = nil
+	return st, nil
+}
 
-	return updatedState, nil
+func ensurePrev(prev *State, step string) *State {
+	if prev == nil {
+		logger.Warningf("state.Prev was unexpectedly nil in operation runAction, %s step", step)
+		prev = &State{
+			Kind: Continue,
+			Step: Pending,
+		}
+	}
+	return prev
 }
