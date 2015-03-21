@@ -55,6 +55,11 @@ func (hi Info) Validate() error {
 			}
 			return nil
 		}
+	// TODO(fwereade): define these in charm/hooks...
+	case hooks.Kind("leader-elected"), hooks.Kind("leader-deposed"), hooks.Kind("leader-settings-changed"):
+		if featureflag.Enabled(feature.LeaderElection) {
+			return nil
+		}
 	}
 	return fmt.Errorf("unknown hook kind %q", hi.Kind)
 }
