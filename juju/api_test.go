@@ -342,18 +342,18 @@ func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 
 	apiHostPorts := [][]network.HostPort{}
 	if hasHostPort {
-		ipv4Address := network.NewAddress("0.1.2.3", network.ScopeUnknown)
-		ipv6Address := network.NewAddress("2001:db8::1", network.ScopeUnknown)
+		var apiAddrs []network.Address
+		ipv4Address := network.NewAddress("0.1.2.3")
+		ipv6Address := network.NewAddress("2001:db8::1")
 		if preferIPv6 {
 			addr = net.JoinHostPort(ipv6Address.Value, "1234")
-			apiHostPorts = [][]network.HostPort{
-				network.AddressesWithPort([]network.Address{ipv6Address, ipv4Address}, 1234),
-			}
+			apiAddrs = append(apiAddrs, ipv6Address, ipv4Address)
 		} else {
 			addr = net.JoinHostPort(ipv4Address.Value, "1234")
-			apiHostPorts = [][]network.HostPort{
-				network.AddressesWithPort([]network.Address{ipv4Address, ipv6Address}, 1234),
-			}
+			apiAddrs = append(apiAddrs, ipv4Address, ipv6Address)
+		}
+		apiHostPorts = [][]network.HostPort{
+			network.AddressesWithPort(apiAddrs, 1234),
 		}
 	}
 	environTag := ""
@@ -1220,10 +1220,7 @@ func (s *CacheAPIEndpointsSuite) nextHostPorts(host string, types ...network.Add
 			addr = fmt.Sprintf("fc00::%d", s.resolveSeq+num6)
 			num6++
 		}
-		result[i] = network.HostPort{
-			Address: network.NewAddress(addr, network.ScopeUnknown),
-			Port:    1234,
-		}
+		result[i] = network.NewHostPorts(1234, addr)[0]
 	}
 	s.resolveSeq += num4 + num6
 	s.gocheckC.Logf("resolving %q as %v", host, result)

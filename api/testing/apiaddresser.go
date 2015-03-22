@@ -33,10 +33,9 @@ type APIAddresserFacade interface {
 }
 
 func (s *APIAddresserTests) TestAPIAddresses(c *gc.C) {
-	hostPorts := [][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    1234,
-	}}}
+	hostPorts := [][]network.HostPort{
+		network.NewHostPorts(1234, "0.1.2.3"),
+	}
 
 	err := s.state.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -47,21 +46,15 @@ func (s *APIAddresserTests) TestAPIAddresses(c *gc.C) {
 }
 
 func (s *APIAddresserTests) TestAPIHostPorts(c *gc.C) {
-	expectServerAddrs := [][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.24", network.ScopeUnknown),
-		Port:    999,
-	}, {
-		Address: network.NewAddress("example.com", network.ScopeUnknown),
-		Port:    1234,
-	}}, {{
-		Address: network.Address{
-			Value:       "2001:DB8::1",
-			Type:        network.IPv6Address,
-			NetworkName: "someNetwork",
-			Scope:       network.ScopeCloudLocal,
-		},
-		Port: 999,
-	}}}
+	ipv6Addr := network.NewScopedAddress(
+		"2001:DB8::1", network.ScopeCloudLocal,
+	)
+	ipv6Addr.NetworkName = "someNetwork"
+	expectServerAddrs := [][]network.HostPort{
+		network.NewHostPorts(999, "0.1.2.24"),
+		network.NewHostPorts(1234, "example.com"),
+		network.AddressesWithPort([]network.Address{ipv6Addr}, 999),
+	}
 
 	err := s.state.SetAPIHostPorts(expectServerAddrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -78,10 +71,9 @@ func (s *APIAddresserTests) TestCACert(c *gc.C) {
 }
 
 func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
-	expectServerAddrs := [][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    1234,
-	}}}
+	expectServerAddrs := [][]network.HostPort{
+		network.NewHostPorts(1234, "0.1.2.3"),
+	}
 	err := s.state.SetAPIHostPorts(expectServerAddrs)
 	c.Assert(err, jc.ErrorIsNil)
 

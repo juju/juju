@@ -207,7 +207,7 @@ func localDNSServers() ([]network.Address, error) {
 				address = address[:strings.Index(address, "#")]
 			}
 			address = strings.TrimSpace(address)
-			addresses = append(addresses, network.NewAddress(address, network.ScopeUnknown))
+			addresses = append(addresses, network.NewAddress(address))
 		}
 	}
 
@@ -418,7 +418,7 @@ func discoverPrimaryNIC() (string, network.Address, error) {
 				addr = ip.String()
 
 				logger.Tracef("primary network interface is %q, address %q", iface.Name, addr)
-				return iface.Name, network.NewAddress(addr, network.ScopeUnknown), nil
+				return iface.Name, network.NewAddress(addr), nil
 			}
 		}
 	}

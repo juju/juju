@@ -55,7 +55,7 @@ func verifyRsyslogCACert(c *gc.C, st *apirsyslog.State, expectedCA, expectedKey 
 
 func (s *rsyslogSuite) TestSetRsyslogCert(c *gc.C) {
 	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err := m.SetAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.Rsyslog().SetRsyslogCert(coretesting.CACert, coretesting.CAKey)
@@ -65,7 +65,7 @@ func (s *rsyslogSuite) TestSetRsyslogCert(c *gc.C) {
 
 func (s *rsyslogSuite) TestSetRsyslogCertNil(c *gc.C) {
 	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err := m.SetAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.Rsyslog().SetRsyslogCert("", "")
@@ -75,7 +75,7 @@ func (s *rsyslogSuite) TestSetRsyslogCertNil(c *gc.C) {
 
 func (s *rsyslogSuite) TestSetRsyslogCertInvalid(c *gc.C) {
 	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err := m.SetAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.Rsyslog().SetRsyslogCert(string(pem.EncodeToMemory(&pem.Block{
@@ -90,7 +90,7 @@ func (s *rsyslogSuite) TestSetRsyslogCertPerms(c *gc.C) {
 	// create a machine-0 so we have an addresss to log to
 	m, err := s.State.AddMachine("trusty", state.JobManageEnviron)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err = m.SetAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	unitState, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)

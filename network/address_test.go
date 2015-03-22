@@ -19,7 +19,7 @@ type AddressSuite struct {
 
 var _ = gc.Suite(&AddressSuite{})
 
-func (s *AddressSuite) TestNewAddressIPv4(c *gc.C) {
+func (s *AddressSuite) TestNewScopedAddressIPv4(c *gc.C) {
 	type test struct {
 		value         string
 		scope         network.Scope
@@ -58,14 +58,14 @@ func (s *AddressSuite) TestNewAddressIPv4(c *gc.C) {
 
 	for i, t := range tests {
 		c.Logf("test %d: %s %s", i, t.value, t.scope)
-		addr := network.NewAddress(t.value, t.scope)
+		addr := network.NewScopedAddress(t.value, t.scope)
 		c.Check(addr.Value, gc.Equals, t.value)
 		c.Check(addr.Type, gc.Equals, network.IPv4Address)
 		c.Check(addr.Scope, gc.Equals, t.expectedScope)
 	}
 }
 
-func (s *AddressSuite) TestNewAddressIPv6(c *gc.C) {
+func (s *AddressSuite) TestNewScopedAddressIPv6(c *gc.C) {
 	// Examples below taken from
 	// http://en.wikipedia.org/wiki/IPv6_address
 	testAddresses := []struct {
@@ -107,11 +107,39 @@ func (s *AddressSuite) TestNewAddressIPv6(c *gc.C) {
 	}
 	for i, test := range testAddresses {
 		c.Logf("test %d: %q -> %q", i, test.value, test.scope)
-		addr := network.NewAddress(test.value, network.ScopeUnknown)
+		addr := network.NewScopedAddress(test.value, network.ScopeUnknown)
 		c.Check(addr.Value, gc.Equals, test.value)
 		c.Check(addr.Type, gc.Equals, network.IPv6Address)
 		c.Check(addr.Scope, gc.Equals, test.scope)
 	}
+}
+
+func (s *AddressSuite) TestNewAddressIPv4(c *gc.C) {
+	value := "0.1.2.3"
+	addr1 := network.NewScopedAddress(value, network.ScopeUnknown)
+	addr2 := network.NewAddress(value)
+	addr3 := network.NewScopedAddress(value, network.ScopeLinkLocal)
+	// NewAddress behaves exactly like NewScopedAddress with ScopeUnknown
+	c.Assert(addr1, jc.DeepEquals, addr2)
+	c.Assert(addr2.Scope, gc.Equals, network.ScopePublic) // derived from value
+	c.Assert(addr2.Value, gc.Equals, value)
+	c.Assert(addr2.Type, gc.Equals, network.IPv4Address)
+	c.Assert(addr2.Scope, gc.Not(gc.Equals), addr3.Scope) // different scope
+	c.Assert(addr3.Scope, gc.Equals, network.ScopeLinkLocal)
+}
+
+func (s *AddressSuite) TestNewAddressIPv6(c *gc.C) {
+	value := "2001:db8::1"
+	addr1 := network.NewScopedAddress(value, network.ScopeUnknown)
+	addr2 := network.NewAddress(value)
+	addr3 := network.NewScopedAddress(value, network.ScopeLinkLocal)
+	// NewAddress behaves exactly like NewScopedAddress with ScopeUnknown
+	c.Assert(addr1, jc.DeepEquals, addr2)
+	c.Assert(addr2.Scope, gc.Equals, network.ScopePublic) // derived from value
+	c.Assert(addr2.Value, gc.Equals, value)
+	c.Assert(addr2.Type, gc.Equals, network.IPv6Address)
+	c.Assert(addr2.Scope, gc.Not(gc.Equals), addr3.Scope) // different scope
+	c.Assert(addr3.Scope, gc.Equals, network.ScopeLinkLocal)
 }
 
 func (s *AddressSuite) TestNewAddresses(c *gc.C) {
@@ -169,12 +197,12 @@ func (s *AddressSuite) TestNewAddresses(c *gc.C) {
 	}
 }
 
-func (s *AddressSuite) TestNewAddressHostname(c *gc.C) {
-	addr := network.NewAddress("localhost", network.ScopeUnknown)
+func (s *AddressSuite) TestNewScopedAddressHostname(c *gc.C) {
+	addr := network.NewScopedAddress("localhost", network.ScopeUnknown)
 	c.Check(addr.Value, gc.Equals, "localhost")
 	c.Check(addr.Type, gc.Equals, network.HostName)
 	c.Check(addr.Scope, gc.Equals, network.ScopeUnknown)
-	addr = network.NewAddress("example.com", network.ScopeUnknown)
+	addr = network.NewScopedAddress("example.com", network.ScopeUnknown)
 	c.Check(addr.Value, gc.Equals, "example.com")
 	c.Check(addr.Type, gc.Equals, network.HostName)
 	c.Check(addr.Scope, gc.Equals, network.ScopeUnknown)

@@ -855,7 +855,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 			Disabled:      false,
 			NoAutoStart:   false,
 			ConfigType:    network.ConfigDHCP,
-			Address:       network.NewAddress(iface.PrivateIPAddress, network.ScopeCloudLocal),
+			Address:       network.NewScopedAddress(iface.PrivateIPAddress, network.ScopeCloudLocal),
 		}
 	}
 	return result, nil

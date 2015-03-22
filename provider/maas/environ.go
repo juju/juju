@@ -1266,7 +1266,7 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 			mask := net.IPMask(net.ParseIP(details.Mask))
 			cidr := net.IPNet{net.ParseIP(details.IP), mask}
 			ifaceInfo.CIDR = cidr.String()
-			ifaceInfo.Address = network.NewAddress(cidr.IP.String(), network.ScopeUnknown)
+			ifaceInfo.Address = network.NewAddress(cidr.IP.String())
 		} else {
 			logger.Debugf("no subnet information for MAC address %q, instance %q", serial, instId)
 		}

@@ -207,12 +207,8 @@ func addAddress(servers [][]network.HostPort, addr string) ([][]network.HostPort
 	if err != nil {
 		return nil, err
 	}
-	hostPort := network.HostPort{
-		Address: network.NewAddress(host, network.ScopeUnknown),
-		Port:    port,
-	}
 	result := make([][]network.HostPort, 0, len(servers)+1)
-	result = append(result, []network.HostPort{hostPort})
+	result = append(result, network.NewHostPorts(port, host))
 	result = append(result, servers...)
 	return result, nil
 }

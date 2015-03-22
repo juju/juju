@@ -69,7 +69,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
-	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create the provisioner API facade.
@@ -580,7 +580,7 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	stateAddresses, err := s.State.Addresses()
@@ -803,7 +803,7 @@ func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
 		// it's chosen randomly.
 		Address:        network.Address{},
 		DNSServers:     network.NewAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress: network.NewAddress("0.10.0.2", network.ScopeUnknown),
+		GatewayAddress: network.NewAddress("0.10.0.2"),
 		ExtraConfig:    nil,
 	}}
 	ifaceInfo, err := s.provisioner.PrepareContainerInterfaceInfo(container.MachineTag())
@@ -834,7 +834,7 @@ func (s *provisionerSuite) TestReleaseContainerAddresses(c *gc.C) {
 	sub, err := s.State.AddSubnet(subInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 3; i++ {
-		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i), network.ScopeUnknown)
+		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i))
 		ipaddr, err := s.State.AddIPAddress(addr, sub.ID())
 		c.Check(err, jc.ErrorIsNil)
 		err = ipaddr.AllocateTo(container.Id(), "")

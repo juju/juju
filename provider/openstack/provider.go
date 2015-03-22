@@ -462,7 +462,7 @@ func (inst *openstackInstance) Addresses() ([]network.Address, error) {
 func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress) []network.Address {
 	var machineAddresses []network.Address
 	if publicIP != "" {
-		publicAddr := network.NewAddress(publicIP, network.ScopePublic)
+		publicAddr := network.NewScopedAddress(publicIP, network.ScopePublic)
 		publicAddr.NetworkName = "public"
 		machineAddresses = append(machineAddresses, publicAddr)
 	}
@@ -484,7 +484,7 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 			if address.Version == 6 {
 				addrtype = network.IPv6Address
 			}
-			machineAddr := network.NewAddress(address.Address, networkScope)
+			machineAddr := network.NewScopedAddress(address.Address, networkScope)
 			machineAddr.NetworkName = netName
 			if machineAddr.Type != addrtype {
 				logger.Warningf("derived address type %v, nova reports %v", machineAddr.Type, addrtype)

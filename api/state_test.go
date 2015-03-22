@@ -60,19 +60,17 @@ func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 	// the other addresses, but always see this one as well.
 	info := s.APIInfo(c)
 	// We intentionally set this to invalid values
-	badValue := network.HostPort{network.Address{
-		Value:       "0.1.2.3",
-		Type:        network.IPv4Address,
-		NetworkName: "",
-		Scope:       network.ScopeMachineLocal,
-	}, 1234}
-	badServer := []network.HostPort{badValue}
+	badServer := network.NewHostPorts(1234, "0.1.2.3")
+	badServer[0].Scope = network.ScopeMachineLocal
 	s.State.SetAPIHostPorts([][]network.HostPort{badServer})
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apistate.Close()
 	hostports := apistate.APIHostPorts()
-	c.Check(hostports, gc.DeepEquals, [][]network.HostPort{serverhostports, badServer})
+	c.Check(hostports, gc.DeepEquals, [][]network.HostPort{
+		serverhostports,
+		badServer,
+	})
 }
 
 func (s *stateSuite) TestLoginSetsEnvironTag(c *gc.C) {
@@ -157,7 +155,9 @@ func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 		NetworkName: "",
 		Scope:       network.ScopeMachineLocal,
 	}, 9012}
-	serverExtra := []network.HostPort{extraAddress, goodAddress, extraAddress2}
+	serverExtra := []network.HostPort{
+		extraAddress, goodAddress, extraAddress2,
+	}
 	current := [][]network.HostPort{badServer, serverExtra}
 	s.State.SetAPIHostPorts(current)
 	apistate, err := api.Open(info, api.DialOpts{})
@@ -166,42 +166,26 @@ func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 	hostports := apistate.APIHostPorts()
 	// We should have rotate the server we connected to as the first item,
 	// and the address of that server as the first address
-	sortedServer := []network.HostPort{goodAddress, extraAddress, extraAddress2}
+	sortedServer := []network.HostPort{
+		goodAddress, extraAddress, extraAddress2,
+	}
 	expected := [][]network.HostPort{sortedServer, badServer}
 	c.Check(hostports, gc.DeepEquals, expected)
 }
 
-var exampleHostPorts = []network.HostPort{
-	{
-		Address: network.Address{
-			Value:       "0.1.2.3",
-			Type:        network.IPv4Address,
-			NetworkName: "",
-			Scope:       network.ScopeUnknown,
-		}, Port: 1234,
-	}, {
-		Address: network.Address{
-			Value:       "0.1.2.4",
-			Type:        network.IPv4Address,
-			NetworkName: "",
-			Scope:       network.ScopeUnknown,
-		}, Port: 5678,
-	}, {
-		Address: network.Address{
-			Value:       "0.1.2.1",
-			Type:        network.IPv4Address,
-			NetworkName: "",
-			Scope:       network.ScopeUnknown,
-		}, Port: 9012,
-	}, {
-		Address: network.Address{
-			Value:       "0.1.9.1",
-			Type:        network.IPv4Address,
-			NetworkName: "",
-			Scope:       network.ScopeUnknown,
-		}, Port: 8888,
-	},
-}
+var exampleHostPorts = []network.HostPort{{
+	Address: network.NewAddress("0.1.2.3"),
+	Port:    1234,
+}, {
+	Address: network.NewAddress("0.1.2.4"),
+	Port:    5678,
+}, {
+	Address: network.NewAddress("0.1.2.1"),
+	Port:    9012,
+}, {
+	Address: network.NewAddress("0.1.9.1"),
+	Port:    8888,
+}}
 
 func (s *slideSuite) TestSlideToFrontNoOp(c *gc.C) {
 	servers := [][]network.HostPort{
