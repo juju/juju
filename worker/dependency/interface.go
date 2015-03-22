@@ -1,6 +1,8 @@
 package dependency
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/worker"
 )
 
@@ -40,7 +42,9 @@ type Manifold struct {
 	Output OutputFunc
 }
 
-// Engine maintains a set of named worker and the dependencies between them.
+// Engine runs the worker for every installed manifold, restarting them when they
+// error out, and as their inputs are started or stopped. Workers that exit with
+// no error will not be restarted until their dependencies change.
 type Engine interface {
 
 	// Engine is just another Worker.
@@ -51,3 +55,14 @@ type Engine interface {
 	// fails and when its inputs' workers change, until the Engine shuts down.
 	Install(name string, manifold Manifold) error
 }
+
+// IsFatalFunc is used to configure an Engine such that, if any worker returns
+// an error that satisfies the engine's IsFatalFunc, the engine will stop all
+// its workers, shut itself down, and return the original fatal error via Wait().
+type IsFatalFunc func(err error) bool
+
+// ErrUnmetDependencies can be returned by a StartFunc or a worker to indicate to
+// the engine that it can't be usefully restarted until at least one of its
+// dependencies changes. There's no way to specify *which* dependency you need,
+// because that's a lot of implementation hassle for little practicall gain.
+var ErrUnmetDependencies = errors.New("cannot run with available dependencies")
