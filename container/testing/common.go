@@ -5,12 +5,16 @@ package testing
 
 import (
 	"io/ioutil"
+	"os"
+	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
@@ -55,21 +59,38 @@ func CreateContainerWithMachineConfig(
 ) instance.Instance {
 
 	networkConfig := container.BridgeNetworkConfig("nic42", nil)
-	return CreateContainerWithMachineAndNetworkConfig(c, manager, machineConfig, networkConfig)
+	storageConfig := container.NewStorageConfig(nil)
+	return CreateContainerWithMachineAndNetworkAndStorageConfig(c, manager, machineConfig, networkConfig, storageConfig)
 }
 
-func CreateContainerWithMachineAndNetworkConfig(
+func CreateContainerWithMachineAndNetworkAndStorageConfig(
 	c *gc.C,
 	manager container.Manager,
 	machineConfig *cloudinit.MachineConfig,
 	networkConfig *container.NetworkConfig,
+	storageConfig *container.StorageConfig,
 ) instance.Instance {
 
-	inst, hardware, err := manager.CreateContainer(machineConfig, "quantal", networkConfig)
+	if networkConfig != nil && len(networkConfig.Interfaces) > 0 {
+		name := "test-" + names.NewMachineTag(machineConfig.MachineId).String()
+		EnsureRootFSEtcNetwork(c, name)
+	}
+	inst, hardware, err := manager.CreateContainer(machineConfig, "quantal", networkConfig, storageConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	c.Assert(hardware.String(), gc.Not(gc.Equals), "")
 	return inst
+}
+
+func EnsureRootFSEtcNetwork(c *gc.C, containerName string) {
+	// Pre-create the mock rootfs dir for the container and
+	// /etc/network/ inside it, where the interfaces file will be
+	// pre-rendered (unless AUFS is used).
+	etcNetwork := filepath.Join(lxc.LxcContainerDir, containerName, "rootfs", "etc", "network")
+	err := os.MkdirAll(etcNetwork, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filepath.Join(etcNetwork, "interfaces"), []byte("#empty"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func AssertCloudInit(c *gc.C, filename string) []byte {
@@ -95,8 +116,9 @@ func CreateContainerTest(c *gc.C, manager container.Manager, machineId string) (
 	machineConfig.Config = envConfig
 
 	network := container.BridgeNetworkConfig("nic42", nil)
+	storage := container.NewStorageConfig(nil)
 
-	inst, hardware, err := manager.CreateContainer(machineConfig, "quantal", network)
+	inst, hardware, err := manager.CreateContainer(machineConfig, "quantal", network, storage)
 
 	if err != nil {
 		return nil, errors.Trace(err)

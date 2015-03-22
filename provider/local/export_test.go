@@ -79,16 +79,6 @@ func (inst *mockInstance) Id() instance.Id {
 
 type startInstanceFunc func(*localEnviron, environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error)
 
-func PatchCreateContainer(s *testing.CleanupSuite, c *gc.C, expectedURL string) startInstanceFunc {
-	mockFunc := func(_ *localEnviron, args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-		c.Assert(args.Tools, gc.HasLen, 1)
-		c.Assert(args.Tools[0].URL, gc.Equals, expectedURL)
-		return &mockInstance{id: "mock"}, nil, nil
-	}
-	s.PatchValue(&createContainer, mockFunc)
-	return mockFunc
-}
-
 func PatchServices(patchValue func(interface{}, interface{}), data *service.FakeServiceData) {
 	patchValue(&mongoRemoveService, func(namespace string) error {
 		data.AddCall("RemoveService", namespace)

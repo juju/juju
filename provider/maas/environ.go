@@ -64,7 +64,7 @@ func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
 	params := url.Values{}
 	params.Add("network", cidr)
-	params.Add("ip", addr.Value)
+	params.Add("requested_address", addr.Value)
 	_, err := ipaddresses.CallPost("reserve", params)
 	return err
 }
@@ -279,39 +279,39 @@ func (env *maasEnviron) getNodegroupInterfaces(nodegroups []string) map[string][
 		interfacesObject := nodegroupsObject.GetSubObject(uuid).GetSubObject("interfaces")
 		interfacesResult, err := interfacesObject.CallGet("list", nil)
 		if err != nil {
-			logger.Warningf("could not fetch nodegroup-interfaces for nodegroup %v: %v", uuid, err)
+			logger.Debugf("cannot list interfaces for nodegroup %v: %v", uuid, err)
 			continue
 		}
 		interfaces, err := interfacesResult.GetArray()
 		if err != nil {
-			logger.Warningf("could not fetch nodegroup-interfaces for nodegroup %v: %v", uuid, err)
+			logger.Debugf("cannot get interfaces for nodegroup %v: %v", uuid, err)
 			continue
 		}
 		for _, interfaceResult := range interfaces {
 			nic, err := interfaceResult.GetMap()
 			if err != nil {
-				logger.Warningf("could not fetch interface %v for nodegroup %v: %v", nic, uuid, err)
+				logger.Debugf("cannot get interface %v for nodegroup %v: %v", nic, uuid, err)
 				continue
 			}
 			ip, err := nic["ip"].GetString()
 			if err != nil {
-				logger.Warningf("could not fetch interface %v for nodegroup %v: %v", nic, uuid, err)
+				logger.Debugf("cannot get interface IP %v for nodegroup %v: %v", nic, uuid, err)
 				continue
 			}
 			static_low, err := nic["static_ip_range_low"].GetString()
 			if err != nil {
-				logger.Warningf("could not fetch static IP range lower bound for interface %v on nodegroup %v: %v", nic, uuid, err)
+				logger.Debugf("cannot get static IP range lower bound for interface %v on nodegroup %v: %v", nic, uuid, err)
 				continue
 			}
 			static_high, err := nic["static_ip_range_high"].GetString()
 			if err != nil {
-				logger.Warningf("could not fetch static IP range higher bound for interface %v on nodegroup %v: %v", nic, uuid, err)
+				logger.Infof("cannot get static IP range higher bound for interface %v on nodegroup %v: %v", nic, uuid, err)
 				continue
 			}
 			static_low_ip := net.ParseIP(static_low)
 			static_high_ip := net.ParseIP(static_high)
 			if static_low_ip == nil || static_high_ip == nil {
-				logger.Warningf("invalid IP in static range for interface %v on nodegroup %v: %q %q", nic, uuid, static_low_ip, static_high_ip)
+				logger.Debugf("invalid IP in static range for interface %v on nodegroup %v: %q %q", nic, uuid, static_low_ip, static_high_ip)
 				continue
 			}
 			nodegroupsInterfacesMap[ip] = []net.IP{static_low_ip, static_high_ip}
@@ -749,11 +749,11 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 	var interfaceInfo []network.InterfaceInfo
 	for _, info := range tempInterfaceInfo {
 		if info.ProviderId == "" || info.NetworkName == "" || info.CIDR == "" {
-			logger.Warningf("ignoring network interface %q: missing network information", info.InterfaceName)
+			logger.Infof("ignoring interface %q: missing subnet info", info.InterfaceName)
 			continue
 		}
 		if info.MACAddress == "" || info.InterfaceName == "" {
-			logger.Warningf("ignoring network %q: missing network interface information", info.ProviderId)
+			logger.Infof("ignoring subnet %q: missing interface info", info.ProviderId)
 			continue
 		}
 		interfaceInfo = append(interfaceInfo, info)
@@ -1167,7 +1167,7 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 		return errors.Trace(err)
 	}
 	if len(subnets) != 1 {
-		return errors.Errorf("could not find network matching %v", subnetId)
+		return errors.Errorf("could not find subnet matching %q", subnetId)
 	}
 	foundSub := subnets[0]
 	logger.Tracef("found subnet %#v", foundSub)
@@ -1226,8 +1226,7 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 	inst := instances[0]
 	interfaces, _, err := environ.getInstanceNetworkInterfaces(inst)
 	if err != nil {
-		errors.Annotatef(err, "failed to get instance %q network interfaces", instId)
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "failed to get instance %q network interfaces", instId)
 	}
 
 	networks, err := environ.getInstanceNetworks(inst)
@@ -1267,7 +1266,7 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 			mask := net.IPMask(net.ParseIP(details.Mask))
 			cidr := net.IPNet{net.ParseIP(details.IP), mask}
 			ifaceInfo.CIDR = cidr.String()
-			ifaceInfo.Address = network.NewAddress(cidr.IP.String(), network.ScopeUnknown)
+			ifaceInfo.Address = network.NewAddress(cidr.IP.String())
 		} else {
 			logger.Debugf("no subnet information for MAC address %q, instance %q", serial, instId)
 		}
@@ -1312,7 +1311,7 @@ func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) 
 	// At some point in the future an empty netIds may mean "fetch all subnets"
 	// but until that functionality is needed it's an error.
 	if len(subnetIds) == 0 {
-		return nil, errors.Errorf("netIds must not be empty")
+		return nil, errors.Errorf("subnetIds must not be empty")
 	}
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
 	if err != nil {
@@ -1381,7 +1380,7 @@ func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) 
 		// Verify we filled-in everything for all networks
 		// and drop incomplete records.
 		if subnetInfo.ProviderId == "" || subnetInfo.CIDR == "" {
-			logger.Warningf("ignoring subnet  %q: missing information (%#v)", subnet.Name, subnetInfo)
+			logger.Infof("ignoring subnet  %q: missing information (%#v)", subnet.Name, subnetInfo)
 			continue
 		}
 

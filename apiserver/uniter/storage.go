@@ -58,7 +58,7 @@ func (s *StorageAPI) getOneUnitStorageAttachments(canAccess common.AuthFunc, uni
 	if err != nil || !canAccess(tag) {
 		return nil, common.ErrPerm
 	}
-	stateStorageAttachments, err := s.st.StorageAttachments(tag)
+	stateStorageAttachments, err := s.st.UnitStorageAttachments(tag)
 	if errors.IsNotFound(err) {
 		return nil, common.ErrPerm
 	} else if err != nil {

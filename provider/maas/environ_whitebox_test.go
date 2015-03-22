@@ -1107,7 +1107,7 @@ func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
 		ConfigType:       network.ConfigDHCP,
 		ExtraConfig:      nil,
 		GatewayAddress:   network.Address{},
-		Address:          network.NewAddress("192.168.1.1", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress("192.168.1.1", network.ScopeCloudLocal),
 	}, {
 		DeviceIndex:      1,
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
@@ -1120,7 +1120,7 @@ func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
 		ConfigType:       network.ConfigDHCP,
 		ExtraConfig:      nil,
 		GatewayAddress:   network.Address{},
-		Address:          network.NewAddress("192.168.2.1", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress("192.168.2.1", network.ScopeCloudLocal),
 	}, {
 		DeviceIndex:      2,
 		MACAddress:       "aa:bb:cc:dd:ee:f2",
@@ -1133,7 +1133,7 @@ func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
 		ConfigType:       network.ConfigDHCP,
 		ExtraConfig:      nil,
 		GatewayAddress:   network.Address{},
-		Address:          network.NewAddress("192.168.3.1", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress("192.168.3.1", network.ScopeCloudLocal),
 	}}
 	network.SortInterfaceInfo(netInfo)
 	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
@@ -1155,7 +1155,7 @@ func (suite *environSuite) TestSubnets(c *gc.C) {
 func (suite *environSuite) TestSubnetsNoNetIds(c *gc.C) {
 	testInstance := suite.createSubnets(c, false)
 	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{})
-	c.Assert(err, gc.ErrorMatches, "netIds must not be empty")
+	c.Assert(err, gc.ErrorMatches, "subnetIds must not be empty")
 }
 
 func (suite *environSuite) TestSubnetsMissingNetwork(c *gc.C) {

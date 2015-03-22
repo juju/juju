@@ -98,7 +98,9 @@ func (s *relationUnitSuite) TestPrivateAddress(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no private address set`)
 
 	// Set an address and try again.
-	err = s.wordpressMachine.SetAddresses(network.NewAddress("1.2.3.4", network.ScopeCloudLocal))
+	err = s.wordpressMachine.SetAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	address, err = apiRelUnit.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)

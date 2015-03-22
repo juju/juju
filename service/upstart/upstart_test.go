@@ -73,7 +73,11 @@ func (s *UpstartSuite) StoppedStatus(c *gc.C) {
 	s.MakeTool(c, "status", `echo "some-service stop/waiting"`)
 }
 
-func (s *UpstartSuite) RunningStatus(c *gc.C) {
+func (s *UpstartSuite) RunningStatusNoProcessID(c *gc.C) {
+	s.MakeTool(c, "status", `echo "some-service start/running"`)
+}
+
+func (s *UpstartSuite) RunningStatusWithProcessID(c *gc.C) {
 	s.MakeTool(c, "status", `echo "some-service start/running, process 123"`)
 }
 
@@ -126,14 +130,19 @@ func (s *UpstartSuite) TestRunning(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(running, jc.IsFalse)
 
-	s.RunningStatus(c)
+	s.RunningStatusNoProcessID(c)
+	running, err = s.service.Running()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(running, jc.IsTrue)
+
+	s.RunningStatusWithProcessID(c)
 	running, err = s.service.Running()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(running, jc.IsTrue)
 }
 
 func (s *UpstartSuite) TestStart(c *gc.C) {
-	s.RunningStatus(c)
+	s.RunningStatusWithProcessID(c)
 	s.MakeTool(c, "start", "exit 99")
 	c.Assert(s.service.Start(), jc.ErrorIsNil)
 	s.StoppedStatus(c)
@@ -146,7 +155,7 @@ func (s *UpstartSuite) TestStop(c *gc.C) {
 	s.StoppedStatus(c)
 	s.MakeTool(c, "stop", "exit 99")
 	c.Assert(s.service.Stop(), jc.ErrorIsNil)
-	s.RunningStatus(c)
+	s.RunningStatusWithProcessID(c)
 	c.Assert(s.service.Stop(), gc.ErrorMatches, ".*exit status 99.*")
 	s.MakeTool(c, "stop", "exit 0")
 	c.Assert(s.service.Stop(), jc.ErrorIsNil)
@@ -161,6 +170,7 @@ func (s *UpstartSuite) TestRemoveMissing(c *gc.C) {
 func (s *UpstartSuite) TestRemoveStopped(c *gc.C) {
 	s.goodInstall(c)
 	s.StoppedStatus(c)
+
 	err := s.service.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -171,7 +181,7 @@ func (s *UpstartSuite) TestRemoveStopped(c *gc.C) {
 
 func (s *UpstartSuite) TestStopRunning(c *gc.C) {
 	s.goodInstall(c)
-	s.RunningStatus(c)
+	s.RunningStatusWithProcessID(c)
 	s.MakeTool(c, "stop", "exit 99")
 	filename := filepath.Join(upstart.InitDir, "some-service.conf")
 	err := s.service.Stop()
@@ -225,7 +235,7 @@ func (s *UpstartSuite) assertInstall(c *gc.C, conf common.Conf, expectEnd string
 	cmds, err := s.service.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmds, gc.DeepEquals, []string{
-		"cat >> " + expectPath + " << 'EOF'\n" + expectContent + "EOF\n",
+		"cat > " + expectPath + " << 'EOF'\n" + expectContent + "EOF\n",
 	})
 	cmds, err = s.service.StartCommands()
 	c.Assert(err, jc.ErrorIsNil)

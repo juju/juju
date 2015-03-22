@@ -80,6 +80,16 @@ func (*loopProvider) Supports(k storage.StorageKind) bool {
 	return k == storage.StorageKindBlock
 }
 
+// Scope is defined on the Provider interface.
+func (*loopProvider) Scope() storage.Scope {
+	return storage.ScopeMachine
+}
+
+// Dynamic is defined on the Provider interface.
+func (*loopProvider) Dynamic() bool {
+	return true
+}
+
 // loopVolumeSource provides common functionality to handle
 // loop devices for rootfs and host loop volume sources.
 type loopVolumeSource struct {

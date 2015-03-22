@@ -52,6 +52,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 )
@@ -194,6 +195,7 @@ type OpStartInstance struct {
 	Constraints      constraints.Value
 	Networks         []string
 	NetworkInfo      []network.InterfaceInfo
+	Volumes          []storage.Volume
 	Info             *mongo.MongoInfo
 	Jobs             []multiwatcher.MachineJob
 	APIInfo          *api.Info
@@ -870,7 +872,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
 	addrs := network.NewAddresses(idString+".dns", "127.0.0.1")
 	if estate.preferIPv6 {
-		addrs = append(addrs, network.NewAddress(fmt.Sprintf("fc00::%x", estate.maxId+1), network.ScopeUnknown))
+		addrs = append(addrs, network.NewAddress(fmt.Sprintf("fc00::%x", estate.maxId+1)))
 	}
 	logger.Debugf("StartInstance addresses: %v", addrs)
 	i := &dummyInstance{
@@ -946,6 +948,16 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		// TODO(dimitern) Add the rest of the network.InterfaceInfo
 		// fields when we can use them.
 	}
+	// Simulate creating volumes when requested.
+	volumes := make([]storage.Volume, len(args.Volumes))
+	for i, v := range args.Volumes {
+		persistent, _ := v.Attributes[storage.Persistent].(bool)
+		volumes[i] = storage.Volume{
+			Tag:        names.NewVolumeTag(strconv.Itoa(i + 1)),
+			Size:       v.Size,
+			Persistent: persistent,
+		}
+	}
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
@@ -956,6 +968,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		Constraints:      args.Constraints,
 		Networks:         args.MachineConfig.Networks,
 		NetworkInfo:      networkInfo,
+		Volumes:          volumes,
 		Instance:         i,
 		Jobs:             args.MachineConfig.Jobs,
 		Info:             args.MachineConfig.MongoInfo,
@@ -1064,7 +1077,6 @@ func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr
 	if err := env.checkBroken("ReleaseAddress"); err != nil {
 		return err
 	}
-
 	estate, err := env.state()
 	if err != nil {
 		return err
@@ -1113,12 +1125,10 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 			ConfigType:       network.ConfigDHCP,
 			Address: network.NewAddress(
 				fmt.Sprintf("0.%d.0.%d", (i+1)*10, estate.maxAddr+2),
-				network.ScopeUnknown,
 			),
 			DNSServers: network.NewAddresses("ns1.dummy", "ns2.dummy"),
 			GatewayAddress: network.NewAddress(
 				fmt.Sprintf("0.%d.0.1", (i+1)*10),
-				network.ScopeUnknown,
 			),
 		}
 	}

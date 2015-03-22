@@ -91,14 +91,11 @@ func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func (e *environ) SetConfig(cfg *config.Config) error {
+func awsClients(cfg *config.Config) (*ec2.EC2, *s3.S3, *environConfig, error) {
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
-		return err
+		return nil, nil, nil, err
 	}
-	e.ecfgMutex.Lock()
-	defer e.ecfgMutex.Unlock()
-	e.ecfgUnlocked = ecfg
 
 	auth := aws.Auth{ecfg.accessKey(), ecfg.secretKey()}
 	region := aws.Regions[ecfg.region()]
@@ -110,8 +107,19 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	if region == aws.CNNorth {
 		signer = aws.SignV4Factory(region.Name, "ec2")
 	}
-	e.ec2Unlocked = ec2.New(auth, region, signer)
-	e.s3Unlocked = s3.New(auth, region)
+	return ec2.New(auth, region, signer), s3.New(auth, region), ecfg, nil
+}
+
+func (e *environ) SetConfig(cfg *config.Config) error {
+	ec2Client, s3Client, ecfg, err := awsClients(cfg)
+	if err != nil {
+		return err
+	}
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+	e.ecfgUnlocked = ecfg
+	e.ec2Unlocked = ec2Client
+	e.s3Unlocked = s3Client
 
 	bucket, err := e.s3Unlocked.Bucket(ecfg.controlBucket())
 	if err != nil {
@@ -847,7 +855,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 			Disabled:      false,
 			NoAutoStart:   false,
 			ConfigType:    network.ConfigDHCP,
-			Address:       network.NewAddress(iface.PrivateIPAddress, network.ScopeCloudLocal),
+			Address:       network.NewScopedAddress(iface.PrivateIPAddress, network.ScopeCloudLocal),
 		}
 	}
 	return result, nil

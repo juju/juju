@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package metricsender
+package testing
 
 import (
 	"github.com/juju/utils"
@@ -30,4 +30,15 @@ func (m *MockSender) Send(d []*wireformat.MetricBatch) (*wireformat.Response, er
 		UUID:         respUUID.String(),
 		EnvResponses: envResponses,
 	}, nil
+}
+
+// ErrorSender implements the metric sender interface and is used
+// to return errors during testing
+type ErrorSender struct {
+	Err error
+}
+
+// Send implements the Send interface returning errors specified in the ErrorSender.
+func (e *ErrorSender) Send(d []*wireformat.MetricBatch) (*wireformat.Response, error) {
+	return &wireformat.Response{}, e.Err
 }

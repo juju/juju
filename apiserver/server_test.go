@@ -17,7 +17,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -57,34 +57,29 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer srv.Stop()
 
-	stm, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = stm.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = stm.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	machine, password := s.Factory.MakeMachineReturningPassword(
+		c, &factory.MachineParams{Nonce: "fake_nonce"})
 
 	// Note we can't use openAs because we're not connecting to
 	apiInfo := &api.Info{
-		Tag:      stm.Tag(),
-		Password: password,
-		Nonce:    "fake_nonce",
-		Addrs:    []string{srv.Addr()},
-		CACert:   coretesting.CACert,
+		Tag:        machine.Tag(),
+		Password:   password,
+		Nonce:      "fake_nonce",
+		Addrs:      []string{srv.Addr()},
+		CACert:     coretesting.CACert,
+		EnvironTag: s.State.EnvironTag(),
 	}
 	st, err := api.Open(apiInfo, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	_, err = st.Machiner().Machine(stm.Tag().(names.MachineTag))
+	_, err = st.Machiner().Machine(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = srv.Stop()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = st.Machiner().Machine(stm.Tag().(names.MachineTag))
+	_, err = st.Machiner().Machine(machine.MachineTag())
 	// The client has not necessarily seen the server shutdown yet,
 	// so there are two possible errors.
 	if err != rpc.ErrShutdown && err != io.ErrUnexpectedEOF {
@@ -124,32 +119,27 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 	port, err := strconv.Atoi(portString)
 	c.Assert(err, jc.ErrorIsNil)
 
-	stm, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = stm.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = stm.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	machine, password := s.Factory.MakeMachineReturningPassword(
+		c, &factory.MachineParams{Nonce: "fake_nonce"})
 
 	// Now connect twice - using IPv4 and IPv6 endpoints.
 	apiInfo := &api.Info{
-		Tag:      stm.Tag(),
-		Password: password,
-		Nonce:    "fake_nonce",
-		Addrs:    []string{net.JoinHostPort("127.0.0.1", portString)},
-		CACert:   coretesting.CACert,
+		Tag:        machine.Tag(),
+		Password:   password,
+		Nonce:      "fake_nonce",
+		Addrs:      []string{net.JoinHostPort("127.0.0.1", portString)},
+		CACert:     coretesting.CACert,
+		EnvironTag: s.State.EnvironTag(),
 	}
 	ipv4State, err := api.Open(apiInfo, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer ipv4State.Close()
 	c.Assert(ipv4State.Addr(), gc.Equals, net.JoinHostPort("127.0.0.1", portString))
 	c.Assert(ipv4State.APIHostPorts(), jc.DeepEquals, [][]network.HostPort{
-		{{network.NewAddress("127.0.0.1", network.ScopeMachineLocal), port}},
+		network.NewHostPorts(port, "127.0.0.1"),
 	})
 
-	_, err = ipv4State.Machiner().Machine(stm.Tag().(names.MachineTag))
+	_, err = ipv4State.Machiner().Machine(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiInfo.Addrs = []string{net.JoinHostPort("::1", portString)}
@@ -158,10 +148,10 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 	defer ipv6State.Close()
 	c.Assert(ipv6State.Addr(), gc.Equals, net.JoinHostPort("::1", portString))
 	c.Assert(ipv6State.APIHostPorts(), jc.DeepEquals, [][]network.HostPort{
-		{{network.NewAddress("::1", network.ScopeMachineLocal), port}},
+		network.NewHostPorts(port, "::1"),
 	})
 
-	_, err = ipv6State.Machiner().Machine(stm.Tag().(names.MachineTag))
+	_, err = ipv6State.Machiner().Machine(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -171,19 +161,14 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 		c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
 		c.Assert(err, gc.ErrorMatches, `machine \d+ not provisioned`)
 	}
-	stm, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = stm.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = stm.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+
+	machine, password := s.Factory.MakeMachineReturningPassword(
+		c, &factory.MachineParams{Nonce: "fake_nonce"})
 
 	// This does almost exactly the same as OpenAPIAsMachine but checks
 	// for failures instead.
 	info := s.APIInfo(c)
-	info.Tag = stm.Tag()
+	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "invalid-nonce"
 	st, err := api.Open(info, fastDialOpts)
@@ -221,14 +206,8 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 	// This is the same steps as OpenAPIAsNewMachine but we need to assert
 	// the agent is not alive before we actually open the API.
 	// Create a new machine to verify "agent alive" behavior.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	machine, password := s.Factory.MakeMachineReturningPassword(
+		c, &factory.MachineParams{Nonce: "fake_nonce"})
 
 	// Not alive yet.
 	s.assertAlive(c, machine, false)
@@ -252,13 +231,7 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 
 func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
 	// Create a new service and unit to verify "agent alive" behavior.
-	service := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := service.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	unit, password := s.Factory.MakeUnitReturningPassword(c, nil)
 
 	// Not alive yet.
 	s.assertAlive(c, unit, false)

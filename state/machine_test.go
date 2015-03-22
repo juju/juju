@@ -924,8 +924,8 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 	// TODO(axw) test invalid volume attachment
 }
 
-func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams) names.VolumeTag {
-	op, tag, err := state.AddVolumeOp(s.State, params)
+func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams, machineId string) names.VolumeTag {
+	op, tag, err := state.AddVolumeOp(s.State, params, machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	err = state.RunTransaction(s.State, []txn.Op{op})
 	c.Assert(err, jc.ErrorIsNil)
@@ -939,7 +939,8 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 
 	// Must create the requested block device prior to SetInstanceInfo.
-	volumeTag := s.addVolume(c, state.VolumeParams{Size: 1000, Pool: "loop-pool"})
+	volumeTag := s.addVolume(c, state.VolumeParams{Size: 1000, Pool: "loop-pool"}, "123")
+	c.Assert(volumeTag, gc.Equals, names.NewVolumeTag("123/0"))
 
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
 	networks := []state.NetworkInfo{
@@ -948,12 +949,11 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	interfaces := []state.NetworkInterfaceInfo{
 		{MACAddress: "aa:bb:cc:dd:ee:ff", NetworkName: "net1", InterfaceName: "eth0", IsVirtual: false},
 	}
-	volumes := map[names.VolumeTag]state.VolumeInfo{
-		volumeTag: state.VolumeInfo{
-			VolumeId: "storage-123",
-			Size:     1234,
-		},
+	volumeInfo := state.VolumeInfo{
+		VolumeId: "storage-123",
+		Size:     1234,
 	}
+	volumes := map[names.VolumeTag]state.VolumeInfo{volumeTag: volumeInfo}
 	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces, volumes, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsTrue)
@@ -976,7 +976,8 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.Equals, volumes[volumeTag])
+	volumeInfo.Pool = "loop-pool" // taken from params
+	c.Assert(info, gc.Equals, volumeInfo)
 }
 
 func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *gc.C) {
@@ -1698,19 +1699,13 @@ func (s *MachineSuite) TestSetAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	addresses := []network.Address{
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-		network.NewAddress("8.8.8.8", network.ScopeUnknown),
-	}
+	addresses := network.NewAddresses("127.0.0.1", "8.8.8.8")
 	err = machine.SetAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedAddresses := []network.Address{
-		network.NewAddress("8.8.8.8", network.ScopeUnknown),
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-	}
+	expectedAddresses := network.NewAddresses("8.8.8.8", "127.0.0.1")
 	c.Assert(machine.Addresses(), jc.DeepEquals, expectedAddresses)
 }
 
@@ -1739,21 +1734,18 @@ func (s *MachineSuite) TestSetAddressesWithContainers(c *gc.C) {
 
 	// When setting all addresses the subnet addresses have to be
 	// filtered out.
-	addresses := []network.Address{
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-		network.NewAddress("8.8.8.8", network.ScopeUnknown),
-		ipAddr1.Address(),
-		ipAddr2.Address(),
-	}
+	addresses := network.NewAddresses(
+		"127.0.0.1",
+		"8.8.8.8",
+		ipAddr1.Value(),
+		ipAddr2.Value(),
+	)
 	err = machine.SetAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedAddresses := []network.Address{
-		network.NewAddress("8.8.8.8", network.ScopeUnknown),
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-	}
+	expectedAddresses := network.NewAddresses("8.8.8.8", "127.0.0.1")
 	c.Assert(machine.Addresses(), jc.DeepEquals, expectedAddresses)
 }
 
@@ -1785,19 +1777,13 @@ func (s *MachineSuite) TestSetAddressesOnContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// When setting all addresses the subnet address has to accepted.
-	addresses := []network.Address{
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-		ipAddr.Address(),
-	}
+	addresses := network.NewAddresses("127.0.0.1", ipAddr.Value())
 	err = container.SetAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = container.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedAddresses := []network.Address{
-		ipAddr.Address(),
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-	}
+	expectedAddresses := network.NewAddresses(ipAddr.Value(), "127.0.0.1")
 	c.Assert(container.Addresses(), jc.DeepEquals, expectedAddresses)
 }
 
@@ -1806,19 +1792,13 @@ func (s *MachineSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	addresses := []network.Address{
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-		network.NewAddress("8.8.8.8", network.ScopeUnknown),
-	}
+	addresses := network.NewAddresses("127.0.0.1", "8.8.8.8")
 	err = machine.SetMachineAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedAddresses := []network.Address{
-		network.NewAddress("8.8.8.8", network.ScopeUnknown),
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-	}
+	expectedAddresses := network.NewAddresses("8.8.8.8", "127.0.0.1")
 	c.Assert(machine.MachineAddresses(), jc.DeepEquals, expectedAddresses)
 }
 
@@ -1909,8 +1889,8 @@ func (s *MachineSuite) TestSetAddressesConcurrentChangeDifferent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	addr0 := network.NewAddress("127.0.0.1", network.ScopeUnknown)
-	addr1 := network.NewAddress("8.8.8.8", network.ScopeUnknown)
+	addr0 := network.NewAddress("127.0.0.1")
+	addr1 := network.NewAddress("8.8.8.8")
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		machine, err := s.State.Machine(machine.Id())
@@ -1932,8 +1912,8 @@ func (s *MachineSuite) TestSetAddressesConcurrentChangeEqual(c *gc.C) {
 	revno0, err := state.TxnRevno(s.State, "machines", machineDocID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	addr0 := network.NewAddress("127.0.0.1", network.ScopeUnknown)
-	addr1 := network.NewAddress("8.8.8.8", network.ScopeUnknown)
+	addr0 := network.NewAddress("127.0.0.1")
+	addr1 := network.NewAddress("8.8.8.8")
 
 	var revno1 int64
 	defer state.SetBeforeHooks(c, s.State, func() {

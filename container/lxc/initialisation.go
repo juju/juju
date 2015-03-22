@@ -32,8 +32,9 @@ func (ci *containerInitialiser) Initialise() error {
 	return ensureDependencies(ci.series)
 }
 
-// ensureDependencies creates a set of install packages using AptGetPreparePackages
-// and runs each set of packages through AptGetInstall
+// ensureDependencies creates a set of install packages using
+// apt.GetPreparePackages and runs each set of packages through
+// apt.GetInstall.
 func ensureDependencies(series string) error {
 	var err error
 	aptGetInstallCommandList := apt.GetPreparePackages(requiredPackages, series)

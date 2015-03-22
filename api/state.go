@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/leadership"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/version"
 )
 
 // Login authenticates as the entity with the given name and password.
@@ -39,12 +40,38 @@ import (
 // method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
 func (st *State) Login(tag, password, nonce string) error {
-	err := st.loginV1(tag, password, nonce)
+	err := st.loginV2(tag, password, nonce)
 	if params.IsCodeNotImplemented(err) {
-		// TODO (cmars): remove fallback once we can drop v0 compatibility
-		return st.loginV0(tag, password, nonce)
+		err = st.loginV1(tag, password, nonce)
+		if params.IsCodeNotImplemented(err) {
+			// TODO (cmars): remove fallback once we can drop v0 compatibility
+			return st.loginV0(tag, password, nonce)
+		}
 	}
 	return err
+}
+
+func (st *State) loginV2(tag, password, nonce string) error {
+	var result params.LoginResultV1
+	request := &params.LoginRequest{
+		AuthTag:     tag,
+		Credentials: password,
+		Nonce:       nonce,
+	}
+	err := st.APICall("Admin", 2, "", "Login", request, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	servers := params.NetworkHostsPorts(result.Servers)
+	err = st.setLoginResult(tag, result.EnvironTag, result.ServerTag, servers, result.Facades)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	st.serverVersion, err = version.Parse(result.ServerVersion)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (st *State) loginV1(tag, password, nonce string) error {
@@ -180,12 +207,8 @@ func addAddress(servers [][]network.HostPort, addr string) ([][]network.HostPort
 	if err != nil {
 		return nil, err
 	}
-	hostPort := network.HostPort{
-		Address: network.NewAddress(host, network.ScopeUnknown),
-		Port:    port,
-	}
 	result := make([][]network.HostPort, 0, len(servers)+1)
-	result = append(result, []network.HostPort{hostPort})
+	result = append(result, network.NewHostPorts(port, host))
 	result = append(result, servers...)
 	return result, nil
 }
@@ -317,4 +340,12 @@ func (st *State) CharmRevisionUpdater() *charmrevisionupdater.State {
 // Rsyslog returns access to the Rsyslog API
 func (st *State) Rsyslog() *rsyslog.State {
 	return rsyslog.NewState(st)
+}
+
+// ServerVersion holds the version of the API server that we are connected to.
+// It is possible that this version is Zero if the server does not report this
+// during login. The second result argument indicates if the version number is
+// set.
+func (st *State) ServerVersion() (version.Number, bool) {
+	return st.serverVersion, st.serverVersion != version.Zero
 }

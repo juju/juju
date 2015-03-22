@@ -281,66 +281,6 @@ func (*CmdSuite) TestSCPCommandInit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "at least two arguments required")
 }
 
-func initGetCommand(args ...string) (*GetCommand, error) {
-	com := &GetCommand{}
-	return com, coretesting.InitCommand(com, args)
-}
-
-func (*CmdSuite) TestGetCommandInit(c *gc.C) {
-	// missing args
-	_, err := initGetCommand()
-	c.Assert(err, gc.ErrorMatches, "no service name specified")
-}
-
-func initSetCommand(args ...string) (*SetCommand, error) {
-	com := &SetCommand{}
-	return com, coretesting.InitCommand(com, args)
-}
-
-func (*CmdSuite) TestSetCommandInit(c *gc.C) {
-	// missing args
-	_, err := initSetCommand()
-	c.Assert(err, gc.ErrorMatches, "no service name specified")
-	// missing service name
-	_, err = initSetCommand("name=cow")
-	c.Assert(err, gc.ErrorMatches, "no service name specified")
-
-	// test --config path
-	expected := []byte("this: is some test data")
-	ctx := coretesting.Context(c)
-	path := ctx.AbsPath("testconfig.yaml")
-	file, err := os.Create(path)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = file.Write(expected)
-	c.Assert(err, jc.ErrorIsNil)
-	file.Close()
-	com, err := initSetCommand("--config", "testconfig.yaml", "service")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(com.SettingsYAML.Path, gc.Equals, "testconfig.yaml")
-	actual, err := com.SettingsYAML.Read(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actual, gc.DeepEquals, expected)
-
-	// --config path, but no service
-	com, err = initSetCommand("--config", "testconfig")
-	c.Assert(err, gc.ErrorMatches, "no service name specified")
-
-	// --config and options specified
-	com, err = initSetCommand("service", "--config", "testconfig", "bees=")
-	c.Assert(err, gc.ErrorMatches, "cannot specify --config when using key=value arguments")
-}
-
-func initUnsetCommand(args ...string) (*UnsetCommand, error) {
-	com := &UnsetCommand{}
-	return com, coretesting.InitCommand(com, args)
-}
-
-func (*CmdSuite) TestUnsetCommandInit(c *gc.C) {
-	// missing args
-	_, err := initUnsetCommand()
-	c.Assert(err, gc.ErrorMatches, "no service name specified")
-}
-
 func initRemoveUnitCommand(args ...string) (*RemoveUnitCommand, error) {
 	com := &RemoveUnitCommand{}
 	return com, coretesting.InitCommand(com, args)

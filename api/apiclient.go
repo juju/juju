@@ -6,12 +6,13 @@ package api
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"time"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
+	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.api")
@@ -44,6 +46,11 @@ type State struct {
 	// This is only set with newer apiservers where they are using
 	// the v1 login mechansim.
 	serverTag string
+
+	// serverVersion holds the version of the API server that we are
+	// connected to.  It is possible that this version is 0 if the
+	// server does not report this during login.
+	serverVersion version.Number
 
 	// hostPorts is the API server addresses returned from Login,
 	// which the client may cache and use for failover.
@@ -130,54 +137,23 @@ func DefaultDialOpts() DialOpts {
 	}
 }
 
+// Open establishes a connection to the API server using the Info
+// given, returning a State instance which can be used to make API
+// requests.
+//
+// See Connect for details of the connection mechanics.
 func Open(info *Info, opts DialOpts) (*State, error) {
-	if len(info.Addrs) == 0 {
-		return nil, fmt.Errorf("no API addresses to connect to")
-	}
-	pool := x509.NewCertPool()
-	xcert, err := cert.ParseCert(info.CACert)
-	if err != nil {
-		return nil, err
-	}
-	pool.AddCert(xcert)
+	return open(info, opts, (*State).Login)
+}
 
-	var environUUID string
-	if info.EnvironTag.Id() != "" {
-		environUUID = info.EnvironTag.Id()
-	}
-	// Dial all addresses at reasonable intervals.
-	try := parallel.NewTry(0, nil)
-	defer try.Kill()
-	var addrs []string
-	for _, addr := range info.Addrs {
-		if strings.HasPrefix(addr, "localhost:") {
-			addrs = append(addrs, addr)
-			break
-		}
-	}
-	if len(addrs) == 0 {
-		addrs = info.Addrs
-	}
-	for _, addr := range addrs {
-		err := dialWebsocket(addr, environUUID, opts, pool, try)
-		if err == parallel.ErrStopped {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
-		select {
-		case <-time.After(opts.DialAddressInterval):
-		case <-try.Dead():
-		}
-	}
-	try.Close()
-	result, err := try.Result()
+// This unexported open method is used both directly above in the Open
+// function, and also the OpenWithVersion function below to explicitly cause
+// the API server to think that the client is older than it really is.
+func open(info *Info, opts DialOpts, loginFunc func(st *State, tag, pwd, nonce string) error) (*State, error) {
+	conn, err := Connect(info, "", nil, opts)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	conn := result.(*websocket.Conn)
-	logger.Infof("connection established to %q", conn.RemoteAddr())
 
 	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
 	client.Start()
@@ -190,10 +166,10 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		// state structure BEFORE login ?!?
 		tag:      toString(info.Tag),
 		password: info.Password,
-		certPool: pool,
+		certPool: conn.Config().TlsConfig.RootCAs,
 	}
 	if info.Tag != nil || info.Password != "" {
-		if err := st.Login(info.Tag.String(), info.Password, info.Nonce); err != nil {
+		if err := loginFunc(st, info.Tag.String(), info.Password, info.Nonce); err != nil {
 			conn.Close()
 			return nil, err
 		}
@@ -204,6 +180,101 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	return st, nil
 }
 
+// OpenWithVersion uses an explicit version of the Admin facade to call Login
+// on. This allows the caller to pretend to be an older client, and is used
+// only in testing.
+func OpenWithVersion(info *Info, opts DialOpts, loginVersion int) (*State, error) {
+	var loginFunc func(st *State, tag, pwd, nonce string) error
+	switch loginVersion {
+	case 0:
+		loginFunc = (*State).loginV0
+	case 1:
+		loginFunc = (*State).loginV1
+	case 2:
+		loginFunc = (*State).loginV2
+	default:
+		return nil, errors.NotSupportedf("loginVersion %d", loginVersion)
+	}
+	return open(info, opts, loginFunc)
+}
+
+// Connect establishes a websocket connection to the API server using
+// the Info, API path tail and (optional) request headers provided. If
+// multiple API addresses are provided in Info they will be tried
+// concurrently - the first successful connection wins.
+//
+// The path tail may be blank, in which case the default value will be
+// used. Otherwise, it must start with a "/".
+func Connect(info *Info, pathTail string, header http.Header, opts DialOpts) (*websocket.Conn, error) {
+	if len(info.Addrs) == 0 {
+		return nil, errors.New("no API addresses to connect to")
+	}
+	if pathTail != "" && !strings.HasPrefix(pathTail, "/") {
+		return nil, errors.New(`path tail must start with "/"`)
+	}
+
+	pool := x509.NewCertPool()
+	xcert, err := cert.ParseCert(info.CACert)
+	if err != nil {
+		return nil, errors.Annotate(err, "cert pool creation failed")
+	}
+	pool.AddCert(xcert)
+
+	// If they exist, only use localhost addresses.
+	var addrs []string
+	for _, addr := range info.Addrs {
+		if strings.HasPrefix(addr, "localhost:") {
+			addrs = append(addrs, addr)
+			break
+		}
+	}
+	if len(addrs) == 0 {
+		addrs = info.Addrs
+	}
+
+	path := makeAPIPath(info.EnvironTag.Id(), pathTail)
+
+	// Dial all addresses at reasonable intervals.
+	try := parallel.NewTry(0, nil)
+	defer try.Kill()
+	for _, addr := range addrs {
+		err := dialWebsocket(addr, path, header, opts, pool, try)
+		if err == parallel.ErrStopped {
+			break
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		select {
+		case <-time.After(opts.DialAddressInterval):
+		case <-try.Dead():
+		}
+	}
+	try.Close()
+	result, err := try.Result()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	conn := result.(*websocket.Conn)
+	logger.Infof("connection established to %q", conn.RemoteAddr())
+	return conn, nil
+}
+
+// makeAPIPath builds the path to connect to based on the tail given
+// and whether the environment UUID is set.
+func makeAPIPath(envUUID, tail string) string {
+	if envUUID == "" {
+		if tail == "" {
+			tail = "/"
+		}
+		return tail
+	}
+	if tail == "" {
+		tail = "/api"
+	}
+	return "/environment/" + envUUID + tail
+}
+
 // toString returns the value of a tag's String method, or "" if the tag is nil.
 func toString(tag names.Tag) string {
 	if tag == nil {
@@ -212,37 +283,36 @@ func toString(tag names.Tag) string {
 	return tag.String()
 }
 
-func dialWebsocket(addr, environUUID string, opts DialOpts, rootCAs *x509.CertPool, try *parallel.Try) error {
-	cfg, err := setUpWebsocket(addr, environUUID, rootCAs)
+func dialWebsocket(addr, path string, header http.Header, opts DialOpts, rootCAs *x509.CertPool, try *parallel.Try) error {
+	cfg, err := setUpWebsocket(addr, path, header, rootCAs)
 	if err != nil {
 		return err
 	}
 	return try.Start(newWebsocketDialer(cfg, opts))
 }
 
-func setUpWebsocket(addr, environUUID string, rootCAs *x509.CertPool) (*websocket.Config, error) {
+func setUpWebsocket(addr, path string, header http.Header, rootCAs *x509.CertPool) (*websocket.Config, error) {
 	// origin is required by the WebSocket API, used for "origin policy"
 	// in websockets. We pass localhost to satisfy the API; it is
 	// inconsequential to us.
 	const origin = "http://localhost/"
-	tail := "/"
-	if environUUID != "" {
-		tail = "/environment/" + environUUID + "/api"
-	}
-	cfg, err := websocket.NewConfig("wss://"+addr+tail, origin)
+	cfg, err := websocket.NewConfig("wss://"+addr+path, origin)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	cfg.TlsConfig = &tls.Config{
 		RootCAs:    rootCAs,
 		ServerName: "juju-apiserver",
 	}
+	cfg.Header = header
 	return cfg, nil
 }
 
 // newWebsocketDialer returns a function that
 // can be passed to utils/parallel.Try.Start.
-func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct{}) (io.Closer, error) {
+var newWebsocketDialer = createWebsocketDialer
+
+func createWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct{}) (io.Closer, error) {
 	openAttempt := utils.AttemptStrategy{
 		Total: opts.Timeout,
 		Delay: opts.RetryDelay,
@@ -263,7 +333,7 @@ func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct
 				logger.Debugf("error dialing %q, will retry: %v", cfg.Location, err)
 			} else {
 				logger.Infof("error dialing %q: %v", cfg.Location, err)
-				return nil, fmt.Errorf("unable to connect to %q", cfg.Location)
+				return nil, errors.Errorf("unable to connect to %q", cfg.Location)
 			}
 		}
 		panic("unreachable")
@@ -349,6 +419,8 @@ func (s *State) ServerTag() (names.EnvironTag, error) {
 // be invoked both within and outside the environment (think
 // private clouds).
 func (s *State) APIHostPorts() [][]network.HostPort {
+	// NOTE: We're making a copy of s.hostPorts before returning it,
+	// for safety.
 	hostPorts := make([][]network.HostPort, len(s.hostPorts))
 	for i, server := range s.hostPorts {
 		hostPorts[i] = append([]network.HostPort{}, server...)

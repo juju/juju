@@ -63,6 +63,7 @@ import (
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevisionworker"
 	"github.com/juju/juju/worker/cleaner"
+	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskformatter"
 	"github.com/juju/juju/worker/diskmanager"
@@ -647,9 +648,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
-	// TODO(wallyworld) - we don't want the storage workers running yet, even with feature flag.
-	// Will be enabled in a followup branch.
-	enableStorageWorkers := false
 	if featureflag.Enabled(feature.Storage) {
 		runner.StartWorker("diskmanager", func() (worker.Worker, error) {
 			api, err := st.DiskManager()
@@ -665,18 +663,19 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			}
 			return diskformatter.NewWorker(api), nil
 		})
-		if enableStorageWorkers {
-			runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
-				api := st.StorageProvisioner(agentConfig.Tag())
-				storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-				return newStorageWorker(storageDir, api, api), nil
+		runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
+			api := st.StorageProvisioner(agentConfig.Tag())
+			storageDir := filepath.Join(agentConfig.DataDir(), "storage")
+			return newStorageWorker(storageDir, api, api, api), nil
+		})
+		// TODO(axw) enable environ storage provisioner when it
+		// ignores non-dynamic storage. Until then, we have a
+		// race condition.
+		if isEnvironManager && false {
+			runner.StartWorker("storageprovisioner-environ", func() (worker.Worker, error) {
+				api := st.StorageProvisioner(agentConfig.Environment())
+				return newStorageWorker("", api, api, api), nil
 			})
-			if isEnvironManager {
-				runner.StartWorker("storageprovisioner-environ", func() (worker.Worker, error) {
-					api := st.StorageProvisioner(agentConfig.Environment())
-					return newStorageWorker("", api, api), nil
-				})
-			}
 		}
 	}
 
@@ -922,12 +921,19 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
 				return newCertificateUpdater(m, agentConfig, st, stateServingSetter, certChangedChan), nil
 			})
+
+			if featureflag.Enabled(feature.DbLog) {
+				a.startWorkerAfterUpgrade(singularRunner, "dblogpruner", func() (worker.Worker, error) {
+					return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
+				})
+			}
 			a.startWorkerAfterUpgrade(singularRunner, "resumer", func() (worker.Worker, error) {
 				// The action of resumer is so subtle that it is not tested,
 				// because we can't figure out how to do so without brutalising
 				// the transaction log.
 				return resumer.NewResumer(st), nil
 			})
+
 		case state.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:

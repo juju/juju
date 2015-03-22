@@ -4,11 +4,14 @@
 package state_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -92,4 +95,36 @@ func (s *UnitSuite) TestMeterStatusRemovedWithUnit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot retrieve meter status for unit .*: not found")
 	c.Assert(code, gc.Equals, "NOT AVAILABLE")
 	c.Assert(info, gc.Equals, "")
+}
+
+func (s *MeterStateSuite) TestMeterStatusWatcherRespondstoMeterStatus(c *gc.C) {
+	watcher := s.unit.WatchMeterStatus()
+	err := s.unit.SetMeterStatus("GREEN", "Information.")
+	c.Assert(err, jc.ErrorIsNil)
+	assertMeterStatusChanged(c, watcher)
+}
+
+func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManager(c *gc.C) {
+	mm, err := s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	watcher := s.unit.WatchMeterStatus()
+	err = mm.SetLastSuccessfulSend(time.Now())
+	c.Assert(err, jc.ErrorIsNil)
+	for i := 0; i < 3; i++ {
+		err := mm.IncrementConsecutiveErrors()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	code, _ := mm.MeterStatus()
+	c.Assert(code, gc.Equals, state.MeterAmber) // Confirm meter status has changed
+	assertMeterStatusChanged(c, watcher)
+}
+
+func assertMeterStatusChanged(c *gc.C, w state.NotifyWatcher) {
+	for i := 0; i < 2; i++ {
+		select {
+		case <-w.Changes():
+		case <-time.After(testing.LongWait):
+			c.Fatalf("expected event from watcher by now")
+		}
+	}
 }

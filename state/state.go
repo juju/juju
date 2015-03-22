@@ -76,6 +76,7 @@ const (
 	stateServersC          = "stateServers"
 	openedPortsC           = "openedPorts"
 	metricsC               = "metrics"
+	metricsManagerC        = "metricsmanager"
 	upgradeInfoC           = "upgradeInfo"
 	rebootC                = "reboot"
 	blockDevicesC          = "blockdevices"
@@ -1337,6 +1338,7 @@ func (st *State) AddIPAddress(addr network.Address, subnetid string) (ipaddress 
 	ipDoc := ipaddressDoc{
 		DocID:    addressID,
 		EnvUUID:  st.EnvironUUID(),
+		Life:     Alive,
 		State:    AddressStateUnknown,
 		SubnetId: subnetid,
 		Value:    addr.Value,
@@ -1378,6 +1380,30 @@ func (st *State) IPAddress(value string) (*IPAddress, error) {
 		return nil, errors.Annotatef(err, "cannot get IP address %q", value)
 	}
 	return &IPAddress{st, *doc}, nil
+}
+
+// AllocatedIPAddresses returns all the allocated addresses for a machine
+func (st *State) AllocatedIPAddresses(machineId string) ([]*IPAddress, error) {
+	addresses, closer := st.getCollection(ipaddressesC)
+	result := []*IPAddress{}
+	defer closer()
+	var doc struct {
+		Value string
+	}
+	iter := addresses.Find(bson.D{{"machineid", machineId}}).Iter()
+	for iter.Next(&doc) {
+		addr, err := st.IPAddress(doc.Value)
+		if err != nil {
+			// shouldn't happen as we're only fetching
+			// addresses we know exist.
+			continue
+		}
+		result = append(result, addr)
+	}
+	if err := iter.Close(); err != nil {
+		return result, err
+	}
+	return result, nil
 }
 
 // AddSubnet creates and returns a new subnet

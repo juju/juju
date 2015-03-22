@@ -150,6 +150,20 @@ func (st *State) FindTools(v version.Number, series string, arch *string) (tools
 	return result.List, nil
 }
 
+// ReleaseContainerAddresses releases a static IP address allocated to a
+// container.
+func (st *State) ReleaseContainerAddresses(containerTag names.MachineTag) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot release static addresses for %q", containerTag.Id())
+	var result params.ErrorResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: containerTag.String()}},
+	}
+	if err := st.facade.FacadeCall("ReleaseContainerAddresses", args, &result); err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
 // PrepareContainerInterfaceInfo returns the necessary information to
 // configure network interfaces of a container with allocated static
 // IP addresses.
@@ -185,9 +199,9 @@ func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) ([
 			Disabled:         netInfo.Disabled,
 			NoAutoStart:      netInfo.NoAutoStart,
 			ConfigType:       network.InterfaceConfigType(netInfo.ConfigType),
-			Address:          network.NewAddress(netInfo.Address, network.ScopeUnknown),
+			Address:          network.NewAddress(netInfo.Address),
 			DNSServers:       network.NewAddresses(netInfo.DNSServers...),
-			GatewayAddress:   network.NewAddress(netInfo.GatewayAddress, network.ScopeUnknown),
+			GatewayAddress:   network.NewAddress(netInfo.GatewayAddress),
 			ExtraConfig:      netInfo.ExtraConfig,
 		}
 	}

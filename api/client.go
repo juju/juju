@@ -517,7 +517,7 @@ func (c *Client) EnvironmentUUID() string {
 }
 
 // ShareEnvironment allows the given users access to the environment.
-func (c *Client) ShareEnvironment(users []names.UserTag) error {
+func (c *Client) ShareEnvironment(users ...names.UserTag) error {
 	var args params.ModifyEnvironUsers
 	for _, user := range users {
 		if &user != nil {
@@ -533,11 +533,36 @@ func (c *Client) ShareEnvironment(users []names.UserTag) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	for i, r := range result.Results {
+		if r.Error != nil && r.Error.Code == params.CodeAlreadyExists {
+			logger.Warningf("environment is already shared with %s", users[i].Username())
+			result.Results[i].Error = nil
+		}
+	}
 	return result.Combine()
 }
 
+// EnvironmentUserInfo returns information on all users in the environment.
+func (c *Client) EnvironmentUserInfo() ([]params.EnvUserInfo, error) {
+	var results params.EnvUserInfoResults
+	err := c.facade.FacadeCall("EnvUserInfo", nil, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	info := []params.EnvUserInfo{}
+	for i, result := range results.Results {
+		if result.Result == nil {
+			return nil, errors.Errorf("unexpected nil result at position %d", i)
+		}
+		info = append(info, *result.Result)
+	}
+	return info, nil
+}
+
 // UnshareEnvironment removes access to the environment for the given users.
-func (c *Client) UnshareEnvironment(users []names.UserTag) error {
+func (c *Client) UnshareEnvironment(users ...names.UserTag) error {
 	var args params.ModifyEnvironUsers
 	for _, user := range users {
 		if &user != nil {
@@ -552,6 +577,13 @@ func (c *Client) UnshareEnvironment(users []names.UserTag) error {
 	err := c.facade.FacadeCall("ShareEnvironment", args, &result)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	for i, r := range result.Results {
+		if r.Error != nil && r.Error.Code == params.CodeNotFound {
+			logger.Warningf("environment was not previously shared with user %s", users[i].Username())
+			result.Results[i].Error = nil
+		}
 	}
 	return result.Combine()
 }
@@ -955,10 +987,22 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	attrs["excludeEntity"] = args.ExcludeEntity
 	attrs["excludeModule"] = args.ExcludeModule
 
+	path := "/log"
+	if _, ok := c.st.ServerVersion(); ok {
+		// If the server version is set, then we know the server is capable of
+		// serving debug log at the environment path. We also fully expect
+		// that the server has returned a valid environment tag.
+		envTag, err := c.st.EnvironTag()
+		if err != nil {
+			return nil, errors.Annotate(err, "very unexpected")
+		}
+		path = fmt.Sprintf("/environment/%s/log", envTag.Id())
+	}
+
 	target := url.URL{
 		Scheme:   "wss",
 		Host:     c.st.addr,
-		Path:     "/log",
+		Path:     path,
 		RawQuery: attrs.Encode(),
 	}
 	cfg, err := websocket.NewConfig(target.String(), "http://localhost/")

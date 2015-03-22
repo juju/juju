@@ -85,7 +85,8 @@ func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
 
 	// Change remote state.
 	err := s.machine.SetAddresses(
-		network.NewAddress("blah.testing.invalid", network.ScopePublic))
+		network.NewScopedAddress("blah.testing.invalid", network.ScopePublic),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Local view is unchanged.

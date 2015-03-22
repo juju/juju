@@ -435,7 +435,9 @@ func (s *uniterBaseSuite) testPublicAddress(
 	})
 
 	// Now set it an try again.
-	err = s.machine0.SetAddresses(network.NewAddress("1.2.3.4", network.ScopePublic))
+	err = s.machine0.SetAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopePublic),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	address, ok := s.wordpressUnit.PublicAddress()
 	c.Assert(address, gc.Equals, "1.2.3.4")
@@ -478,7 +480,9 @@ func (s *uniterBaseSuite) testPrivateAddress(
 	})
 
 	// Now set it and try again.
-	err = s.machine0.SetAddresses(network.NewAddress("1.2.3.4", network.ScopeCloudLocal))
+	err = s.machine0.SetAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	address, ok := s.wordpressUnit.PrivateAddress()
 	c.Assert(address, gc.Equals, "1.2.3.4")
@@ -1190,16 +1194,15 @@ func (s *uniterBaseSuite) testCharmArchiveURLs(
 ) {
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 
-	hostPorts := [][]network.HostPort{{{
-		Address: network.NewAddress("1.2.3.4", network.ScopePublic),
-		Port:    1234,
-	}, {
-		Address: network.NewAddress("0.1.2.3", network.ScopeCloudLocal),
-		Port:    1234,
-	}}, {{
-		Address: network.NewAddress("1.2.3.5", network.ScopePublic),
-		Port:    1234,
-	}}}
+	hostPorts := [][]network.HostPort{
+		network.AddressesWithPort([]network.Address{
+			network.NewScopedAddress("1.2.3.4", network.ScopePublic),
+			network.NewScopedAddress("0.1.2.3", network.ScopeCloudLocal),
+		}, 1234),
+		network.AddressesWithPort([]network.Address{
+			network.NewScopedAddress("1.2.3.5", network.ScopePublic),
+		}, 1234),
+	}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1220,7 +1223,7 @@ func (s *uniterBaseSuite) testCharmArchiveURLs(
 		fmt.Sprintf("https://1.2.3.5:1234/environment/%s/charms?file=%%2A&url=local%%3Aquantal%%2Fdummy-1", coretesting.EnvironmentTag.Id()),
 	}
 
-	c.Assert(result, gc.DeepEquals, params.StringsResults{
+	c.Assert(result, jc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Result: wordpressURLs},
@@ -1618,7 +1621,9 @@ func (s *uniterBaseSuite) testEnterScope(
 	},
 ) {
 	// Set wordpressUnit's private address first.
-	err := s.machine0.SetAddresses(network.NewAddress("1.2.3.4", network.ScopeCloudLocal))
+	err := s.machine0.SetAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	rel := s.addRelation(c, "wordpress", "mysql")
@@ -2102,11 +2107,9 @@ func (s *uniterBaseSuite) testAPIAddresses(
 		APIAddresses() (params.StringsResult, error)
 	},
 ) {
-	hostPorts := [][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    1234,
-	}}}
-
+	hostPorts := [][]network.HostPort{
+		network.NewHostPorts(1234, "0.1.2.3"),
+	}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 

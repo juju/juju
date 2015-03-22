@@ -5,10 +5,13 @@ package service_test
 
 import (
 	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/exec"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
@@ -36,6 +39,7 @@ type discoveryTest struct {
 	os       version.OSType
 	series   string
 	exec     string
+	link     string
 	expected string
 }
 
@@ -76,12 +80,13 @@ func (dt discoveryTest) executable(c *gc.C) string {
 }
 
 func (dt discoveryTest) log(c *gc.C) {
-	c.Logf("testing {%q, %q, %q}...", dt.os, dt.series, dt.exec)
+	c.Logf(" - testing {%q, %q, %q, %q}...", dt.os, dt.series, dt.exec, dt.link)
 }
 
 func (dt discoveryTest) disableLocalDiscovery(c *gc.C, s *discoverySuite) {
 	s.PatchGOOS("<another OS>")
 	s.PatchPid1File(c, unknownExecutable, "")
+	s.Patched.NotASymlink = unknownExecutable
 }
 
 func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
@@ -92,8 +97,15 @@ func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
 
 func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) string {
 	s.PatchGOOS(dt.goos())
+	exec := dt.executable(c)
+	if dt.link != "" {
+		s.PatchLink(c, exec)
+		exec = dt.link
+	} else {
+		s.Patched.NotASymlink = exec
+	}
 	verText := "..." + dt.expected + "..."
-	return s.PatchPid1File(c, dt.executable(c), verText)
+	return s.PatchPid1File(c, exec, verText)
 }
 
 func (dt discoveryTest) setVersion(s *discoverySuite) version.Binary {
@@ -155,12 +167,22 @@ var discoveryTests = []discoveryTest{{
 	expected: service.InitSystemUpstart,
 }, {
 	os:       version.Ubuntu,
+	series:   "precise",
+	link:     "/sbin/init",
+	expected: service.InitSystemUpstart,
+}, {
+	os:       version.Ubuntu,
 	series:   "utopic",
 	expected: service.InitSystemUpstart,
 }, {
 	os:       version.Ubuntu,
 	series:   "vivid",
 	expected: maybeSystemd,
+}, {
+	os:       version.Ubuntu,
+	series:   "vivid",
+	link:     "/sbin/init",
+	expected: service.InitSystemSystemd,
 }, {
 	os:       version.CentOS,
 	expected: "",
@@ -230,7 +252,7 @@ func (s *discoverySuite) TestDiscoverServiceGeneric(c *gc.C) {
 	test := discoveryTest{
 		os:       version.Ubuntu,
 		series:   "trusty",
-		exec:     "/sbin/init",
+		link:     "/sbin/init",
 		expected: service.InitSystemUpstart,
 	}
 
@@ -306,4 +328,53 @@ func (s *discoverySuite) TestVersionInitSystemNoLegacyUpstart(c *gc.C) {
 	initSystem, ok := service.VersionInitSystem(vers)
 
 	test.checkInitSystem(c, initSystem, ok)
+}
+
+func (s *discoverySuite) TestDiscoverInitSystemScript(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("not supported on windows")
+	}
+
+	script, filename := s.newDiscoverInitSystemScript(c)
+	script += filename
+	response, err := exec.RunCommands(exec.RunParams{
+		Commands: script,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	initSystem, err := service.DiscoverInitSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(response.Code, gc.Equals, 0)
+	c.Check(string(response.Stdout), gc.Equals, initSystem)
+	c.Check(string(response.Stderr), gc.Equals, "")
+}
+
+func (s *discoverySuite) newDiscoverInitSystemScript(c *gc.C) (string, string) {
+	filename := filepath.Join(c.MkDir(), "discover_init_system.sh")
+	commands := service.WriteDiscoverInitSystemScript(filename)
+	script := strings.Join(commands, "\n") + "\n"
+	return script, filename
+}
+
+func (s *discoverySuite) TestNewShellSelectCommand(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("not supported on windows")
+	}
+
+	script, filename := s.newDiscoverInitSystemScript(c)
+	handler := func(initSystem string) (string, bool) {
+		return "echo -n " + initSystem, true
+	}
+	script += "init_system=$(" + filename + ")\n"
+	script += service.NewShellSelectCommand("init_system", handler)
+	response, err := exec.RunCommands(exec.RunParams{
+		Commands: script,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	initSystem, err := service.DiscoverInitSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(response.Code, gc.Equals, 0)
+	c.Check(string(response.Stdout), gc.Equals, initSystem)
+	c.Check(string(response.Stderr), gc.Equals, "")
 }

@@ -28,8 +28,9 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInstance, error) {
-	found := params.StorageShowResults{}
+// Show retrieves information about desired storage instances.
+func (c *Client) Show(tags []names.StorageTag) ([]params.StorageDetails, error) {
+	found := params.StorageDetailsResults{}
 	entities := make([]params.Entity, len(tags))
 	for i, tag := range tags {
 		entities[i] = params.Entity{Tag: tag.String()}
@@ -37,14 +38,27 @@ func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInstance, error)
 	if err := c.facade.FacadeCall("Show", params.Entities{Entities: entities}, &found); err != nil {
 		return nil, errors.Trace(err)
 	}
-	all := []params.StorageInstance{}
-	allErr := params.ErrorResults{}
-	for _, result := range found.Results {
+	return c.convert(found.Results)
+}
+
+func (c *Client) convert(found []params.StorageDetailsResult) ([]params.StorageDetails, error) {
+	var storages []params.StorageDetails
+	var allErr params.ErrorResults
+	for _, result := range found {
 		if result.Error != nil {
 			allErr.Results = append(allErr.Results, params.ErrorResult{result.Error})
 			continue
 		}
-		all = append(all, result.Result)
+		storages = append(storages, result.Result)
 	}
-	return all, allErr.Combine()
+	return storages, allErr.Combine()
+}
+
+// List lists all storage.
+func (c *Client) List() ([]params.StorageInfo, error) {
+	found := params.StorageInfosResult{}
+	if err := c.facade.FacadeCall("List", nil, &found); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return found.Results, nil
 }

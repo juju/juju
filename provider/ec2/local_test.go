@@ -831,7 +831,7 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigDHCP,
-		Address:          network.NewAddress("10.10.0.5", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress("10.10.0.5", network.ScopeCloudLocal),
 	}}
 	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)
 }
@@ -932,6 +932,7 @@ func (t *localServerSuite) TestStartInstanceVolumes(c *gc.C) {
 			Size:       1025, // round up to 2GiB
 			Provider:   ec2.EBS_ProviderType,
 			Attachment: attachmentParams,
+			Attributes: map[string]interface{}{"persistent": true},
 		}},
 	}
 	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
@@ -948,9 +949,10 @@ func (t *localServerSuite) TestStartInstanceVolumes(c *gc.C) {
 		VolumeId: "vol-3",
 		Size:     1024,
 	}, {
-		Tag:      names.NewVolumeTag("2"),
-		VolumeId: "vol-4",
-		Size:     2048,
+		Tag:        names.NewVolumeTag("2"),
+		VolumeId:   "vol-4",
+		Size:       2048,
+		Persistent: true,
 	}})
 }
 
