@@ -33,9 +33,7 @@ func formatPoolsTabular(pools map[string]PoolInfo) ([]byte, error) {
 	)
 	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
 	print := func(values ...string) {
-		fmt.Fprintf(tw, strings.Join(values, "\t"))
-		// Output newline after each pool
-		fmt.Fprintln(tw)
+		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
 
 	print("NAME", "PROVIDER", "ATTRS")
