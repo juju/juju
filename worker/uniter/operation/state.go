@@ -117,6 +117,8 @@ func (st State) validate() (err error) {
 		switch {
 		case !hasActionId:
 			return errors.New("missing action id")
+		case hasCharm:
+			return errors.New("unexpected charm URL")
 		}
 	case RunHook:
 		switch {

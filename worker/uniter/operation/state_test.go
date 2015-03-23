@@ -81,14 +81,14 @@ var stateTests = []struct {
 		st: operation.State{
 			Kind:     operation.RunAction,
 			Step:     operation.Pending,
-			ActionId: &someActionId,
+			CharmURL: stcurl,
 		},
+		err: `unexpected charm URL`,
 	}, {
 		st: operation.State{
 			Kind:     operation.RunAction,
 			Step:     operation.Pending,
 			ActionId: &someActionId,
-			CharmURL: stcurl,
 		},
 	},
 	// RunHook operation.

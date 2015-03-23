@@ -121,7 +121,6 @@ func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
 		ActionId:           &someActionId,
 		Started:            true,
 		CollectMetricsTime: 1234567,
-		CharmURL:           curl("cs:quantal/wordpress-2"),
 		Hook:               &hook.Info{Kind: hooks.Install},
 	})
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
@@ -185,7 +184,6 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 			Step:               operation.Done,
 			ActionId:           &someActionId,
 			Hook:               &hook.Info{Kind: hooks.Install},
-			CharmURL:           curl("cs:quantal/wordpress-2"),
 			Started:            true,
 			CollectMetricsTime: 1234567,
 		},
@@ -226,7 +224,7 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 			Step: operation.Pending,
 		},
 	}, {
-		description: "preserves appropriate fields no hook",
+		description: "preserves only appropriate fields, no hook",
 		before: operation.State{
 			Kind:               operation.Continue,
 			Step:               operation.Pending,
@@ -238,12 +236,11 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 		after: operation.State{
 			Kind:               operation.Continue,
 			Step:               operation.Pending,
-			CharmURL:           curl("cs:quantal/wordpress-2"),
 			Started:            true,
 			CollectMetricsTime: 1234567,
 		},
 	}, {
-		description: "preserves appropriate fields with hook",
+		description: "preserves only appropriate fields, with hook",
 		before: operation.State{
 			Kind:               operation.Continue,
 			Step:               operation.Pending,
@@ -257,7 +254,6 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 			Kind:               operation.RunHook,
 			Step:               operation.Pending,
 			Hook:               &hook.Info{Kind: hooks.Install},
-			CharmURL:           curl("cs:quantal/wordpress-2"),
 			Started:            true,
 			CollectMetricsTime: 1234567,
 		},

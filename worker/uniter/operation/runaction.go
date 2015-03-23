@@ -54,7 +54,6 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 		Step:     Pending,
 		ActionId: &ra.actionId,
 		Hook:     state.Hook,
-		CharmURL: state.CharmURL,
 	}.apply(state), nil
 }
 
@@ -79,7 +78,6 @@ func (ra *runAction) Execute(state State) (*State, error) {
 		Step:     Done,
 		ActionId: &ra.actionId,
 		Hook:     state.Hook,
-		CharmURL: state.CharmURL,
 	}.apply(state), nil
 }
 
@@ -91,9 +89,8 @@ func (ra *runAction) Commit(state State) (*State, error) {
 		kind = RunHook
 	}
 	return stateChange{
-		Kind:     kind,
-		Step:     Pending,
-		Hook:     state.Hook,
-		CharmURL: state.CharmURL,
+		Kind: kind,
+		Step: Pending,
+		Hook: state.Hook,
 	}.apply(state), nil
 }

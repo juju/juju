@@ -1481,12 +1481,6 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			verifyWaiting{},
 			resolveError{state.ResolvedNoHooks},
 			waitUnit{status: params.StatusActive},
-			waitActionResults{[]actionResult{{
-				name:    "action-log",
-				results: map[string]interface{}{},
-				status:  params.ActionCompleted,
-			}}},
-			waitUnit{status: params.StatusActive},
 		),
 	})
 }
