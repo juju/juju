@@ -115,12 +115,10 @@ func (st State) validate() (err error) {
 		}
 	case RunAction:
 		switch {
-		case hasHook:
-			return errors.New("unexpected hook info with Kind RunAction")
-		case hasCharm:
-			return errors.New("unexpected charm URL")
 		case !hasActionId:
 			return errors.New("missing action id")
+		case hasCharm:
+			return errors.New("unexpected charm URL")
 		}
 	case RunHook:
 		switch {
