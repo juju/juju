@@ -8,16 +8,16 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
+	gc "gopkg.in/check.v1"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -37,6 +37,9 @@ type workerSuite struct {
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	// unbreak provider methods
+	s.AssertConfigParameterUpdated(c, "broken", "")
+
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	s.machine = machine
 	c.Assert(err, jc.ErrorIsNil)
@@ -76,7 +79,10 @@ func (s *workerSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
 	defer func() {
 		c.Assert(worker.Stop(w), gc.IsNil)
 	}()
+	s.waitForInitialDead(c)
+}
 
+func (s *workerSuite) waitForInitialDead(c *gc.C) {
 	for a := shortAttempt.Start(); a.Next(); {
 		dead, err := s.State.DeadIPAddresses()
 		c.Assert(err, jc.ErrorIsNil)
@@ -110,4 +116,40 @@ func (s *workerSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
 			c.Fail()
 		}
 	}
+}
+
+func (s *workerSuite) TestWorkerHandlesProviderError(c *gc.C) {
+	w, err := addresser.NewWorker(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		c.Assert(worker.Stop(w), gc.IsNil)
+	}()
+	s.waitForInitialDead(c)
+
+	// now break the ReleaseAddress provider method
+	s.AssertConfigParameterUpdated(c, "broken", "ReleaseAddress")
+	opsChan := make(chan dummy.Operation)
+	dummy.Listen(opsChan)
+
+	addr, err := s.State.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+	err = addr.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// wait for ReleaseAddress attempt
+	op := <-opsChan
+	releaseOp, ok := op.(dummy.OpReleaseAddress)
+	c.Assert(ok, jc.IsTrue)
+	expected := dummy.OpReleaseAddress{
+		Env:        "dummyenv",
+		InstanceId: "foo",
+		SubnetId:   "foobar",
+		Address:    network.NewAddress("0.1.2.3"),
+	}
+	c.Assert(releaseOp, jc.DeepEquals, expected)
+
+	// As we failed to release the address it should not have been removed
+	// from state.
+	_, err = s.State.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
 }

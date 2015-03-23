@@ -21,7 +21,7 @@ var logger = loggo.GetLogger("juju.worker.addresser")
 type releaser interface {
 	// ReleaseAddress has the same signature as the same method in the
 	// NetworkingEnviron.
-	ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address) error
+	ReleaseAddress(instance.Id, network.Id, network.Address) error
 }
 
 // stateAddresser defines the State methods used by the addresserHandler
