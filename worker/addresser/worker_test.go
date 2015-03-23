@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
@@ -30,24 +31,27 @@ var shortAttempt = utils.AttemptStrategy{
 
 type workerSuite struct {
 	testing.JujuConnSuite
+	machine *state.Machine
 }
 
-//func (s *workerSuite) SetUpTest(c *gc.C) {
-//	s.AssertConfigParameterUpdated(c, "broken", []string{})
-//}
+func (s *workerSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	s.machine = machine
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
 
 func (s *workerSuite) createAddresses(c *gc.C) {
-	addresses := [][]string{
-		{"0.1.2.3", "wibble"},
-		{"0.1.2.4", "wibble"},
-		{"0.1.2.5", "wobble"},
-		{"0.1.2.6", "wobble"},
+	addresses := []string{
+		"0.1.2.3", "0.1.2.4", "0.1.2.5", "0.1.2.6",
 	}
-	for i, details := range addresses {
-		addr := network.NewScopedAddress(details[0], network.ScopePublic)
+	for i, rawAddr := range addresses {
+		addr := network.NewScopedAddress(rawAddr, network.ScopePublic)
 		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 		c.Assert(err, jc.ErrorIsNil)
-		err = ipAddr.AllocateTo(details[1], "wobble")
+		err = ipAddr.AllocateTo(s.machine.Id(), "wobble")
 		c.Assert(err, jc.ErrorIsNil)
 		if i%2 == 1 {
 			// two of the addresses start out Dead
