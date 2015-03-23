@@ -19,12 +19,6 @@ type LeaderSuite struct {
 
 var _ = gc.Suite(&LeaderSuite{})
 
-func (s *LeaderSuite) SetUpSuite(c *gc.C) {
-	// TODO(jcw4) overwriteState is not a valid uniter state; should we
-	// be using it in the tests? Uncomment this when it's valid.
-	//validateStates(c, &overwriteState)
-}
-
 func (s *LeaderSuite) TestAcceptLeadership_Prepare_BadState(c *gc.C) {
 	factory := operation.NewFactory(nil, nil, nil, nil, nil)
 	op, err := factory.NewAcceptLeadership()
