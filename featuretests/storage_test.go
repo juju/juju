@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing"
-	"github.com/juju/utils/set"
+	"strings"
 )
 
 const (
@@ -315,7 +315,7 @@ func (s *cmdStorageSuite) TestCreatePool(c *gc.C) {
 	pname := "ftPool"
 	context := runPoolCreate(c, pname, "loop", "smth=one")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
-	assertPoolByName(c, s.State, pname)
+	assertPoolExists(c, s.State, pname, "loop", "smth=one")
 }
 
 func (s *cmdStorageSuite) assertCreatePoolError(c *gc.C, expected string, args ...string) {
@@ -339,11 +339,11 @@ func (s *cmdStorageSuite) TestCreatePoolDuplicateName(c *gc.C) {
 	pname := "ftPool"
 	context := runPoolCreate(c, pname, "loop", "smth=one")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
-	assertPoolByName(c, s.State, pname)
+	assertPoolExists(c, s.State, pname, "loop", "smth=one")
 	s.assertCreatePoolError(c, ".*cannot overwrite existing settings*", pname, "loop", "smth=one")
 }
 
-func assertPoolByName(c *gc.C, st *state.State, pname string) {
+func assertPoolExists(c *gc.C, st *state.State, pname, provider, attr string) {
 	stsetts := state.NewStateSettings(st)
 	poolManager := poolmanager.New(stsetts)
 
@@ -351,9 +351,17 @@ func assertPoolByName(c *gc.C, st *state.State, pname string) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(found) > 0, jc.IsTrue)
 
-	namesSet := make(set.Strings)
+	exists := false
 	for _, one := range found {
-		namesSet.Add(one.Name())
+		if one.Name() == pname {
+			exists = true
+			c.Assert(string(one.Provider()), gc.Equals, provider)
+			// At this stage, only 1 attr is expected and checked
+			expectedAttrs := strings.Split(attr, "=")
+			value, ok := one.Attrs()[expectedAttrs[0]]
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(value, gc.Equals, expectedAttrs[1])
+		}
 	}
-	c.Assert(namesSet.Contains(pname), jc.IsTrue)
+	c.Assert(exists, jc.IsTrue)
 }
