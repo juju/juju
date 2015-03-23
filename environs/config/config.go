@@ -1379,7 +1379,7 @@ func (cfg *Config) GenerateStateServerCertAndKey(hostAddresses []string) (string
 	if !hasCAKey {
 		return "", "", fmt.Errorf("environment configuration has no ca-private-key")
 	}
-	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), hostAddresses)
+	return cert.NewDefaultServer(caCert, caKey, hostAddresses)
 }
 
 // SpecializeCharmRepo customizes a repository for a given configuration.
