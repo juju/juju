@@ -67,9 +67,12 @@ type State struct {
 	tag      string
 	password string
 
-	// serverRoot holds the cached API server address and port we used
-	// to login, with a https:// prefix.
-	serverRoot string
+	// serverRootAddress holds the cached API server address and port used
+	// to login.
+	serverRootAddress string
+
+	// serverScheme is the URI scheme of the API Server
+	serverScheme string
 
 	// certPool holds the cert pool that is used to authenticate the tls
 	// connections to the API.
@@ -182,10 +185,11 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
 	client.Start()
 	st := &State{
-		client:     client,
-		conn:       conn,
-		addr:       conn.Config().Location.Host,
-		serverRoot: "https://" + conn.Config().Location.Host,
+		client:            client,
+		conn:              conn,
+		addr:              conn.Config().Location.Host,
+		serverScheme:      "https",
+		serverRootAddress: conn.Config().Location.Host,
 		// why are the contents of the tag (username and password) written into the
 		// state structure BEFORE login ?!?
 		tag:      toString(info.Tag),
@@ -373,4 +377,10 @@ func (s *State) AllFacadeVersions() map[string][]int {
 // reports to us, with the versions that our client knows how to use.
 func (s *State) BestFacadeVersion(facade string) int {
 	return bestVersion(facadeVersions[facade], s.facadeVersions[facade])
+}
+
+// serverRoot returns the cached API server address and port used
+// to login, prefixed with "<URI scheme>://" (usually https).
+func (s *State) serverRoot() string {
+	return s.serverScheme + "://" + s.serverRootAddress
 }
