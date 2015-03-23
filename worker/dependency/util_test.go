@@ -14,28 +14,28 @@ import (
 	"github.com/juju/juju/worker/dependency"
 )
 
-type errorWorkerStarter struct {
+type manifoldHarness struct {
 	inputs []string
 	errors chan error
 	starts chan struct{}
 }
 
-func newErrorWorkerStarter(inputs ...string) *errorWorkerStarter {
-	return &errorWorkerStarter{
+func newManifoldHarness(inputs ...string) *manifoldHarness {
+	return &manifoldHarness{
 		inputs: inputs,
 		errors: make(chan error, 1000),
 		starts: make(chan struct{}, 1000),
 	}
 }
 
-func (ews *errorWorkerStarter) Manifold() dependency.Manifold {
+func (ews *manifoldHarness) Manifold() dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: ews.inputs,
 		Start:  ews.start,
 	}
 }
 
-func (ews *errorWorkerStarter) start(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+func (ews *manifoldHarness) start(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 	for _, resourceName := range ews.inputs {
 		if !getResource(resourceName, nil) {
 			return nil, dependency.ErrUnmetDependencies
@@ -54,12 +54,12 @@ func (ews *errorWorkerStarter) start(getResource dependency.GetResourceFunc) (wo
 	return w, nil
 }
 
-func (ews *errorWorkerStarter) AssertOneStart(c *gc.C) {
+func (ews *manifoldHarness) AssertOneStart(c *gc.C) {
 	ews.AssertStart(c)
 	ews.AssertNoStart(c)
 }
 
-func (ews *errorWorkerStarter) AssertStart(c *gc.C) {
+func (ews *manifoldHarness) AssertStart(c *gc.C) {
 	select {
 	case <-ews.starts:
 	case <-time.After(coretesting.LongWait):
@@ -67,7 +67,7 @@ func (ews *errorWorkerStarter) AssertStart(c *gc.C) {
 	}
 }
 
-func (ews *errorWorkerStarter) AssertNoStart(c *gc.C) {
+func (ews *manifoldHarness) AssertNoStart(c *gc.C) {
 	select {
 	case <-time.After(coretesting.ShortWait):
 	case <-ews.starts:
@@ -75,7 +75,7 @@ func (ews *errorWorkerStarter) AssertNoStart(c *gc.C) {
 	}
 }
 
-func (ews *errorWorkerStarter) InjectError(c *gc.C, err error) {
+func (ews *manifoldHarness) InjectError(c *gc.C, err error) {
 	select {
 	case ews.errors <- err:
 	case <-time.After(coretesting.LongWait):

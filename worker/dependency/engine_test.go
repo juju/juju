@@ -46,62 +46,88 @@ func (s *EngineSuite) stopEngine(c *gc.C) {
 }
 
 func (s *EngineSuite) TestInstallNoInputs(c *gc.C) {
-	ews := newErrorWorkerStarter()
-	err := s.engine.Install("some-task", ews.Manifold())
+
+	// Install a worker, check it starts.
+	mh1 := newManifoldHarness()
+	err := s.engine.Install("some-task", mh1.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
-	ews.AssertOneStart(c)
+	mh1.AssertOneStart(c)
+
+	// Install a second independent worker; check the first in untouched.
+	mh2 := newManifoldHarness()
+	err = s.engine.Install("other-task", mh2.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh2.AssertOneStart(c)
+	mh1.AssertNoStart(c)
 }
 
 func (s *EngineSuite) TestInstallUnknownInputs(c *gc.C) {
-	ews := newErrorWorkerStarter("unknown-task")
-	err := s.engine.Install("some-task", ews.Manifold())
-	c.Assert(err, gc.ErrorMatches, "some-task manifold depends on unknown unknown-task manifold")
-	ews.AssertNoStart(c)
+
+	// Install a worker with an unmet dependency, check it doesn't start
+	// (because the implementation returns ErrUnmetDependencies).
+	mh1 := newManifoldHarness("later-task")
+	err := s.engine.Install("some-task", mh1.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh1.AssertNoStart(c)
+
+	// Install its dependency; check both start.
+	mh2 := newManifoldHarness()
+	err = s.engine.Install("later-task", mh2.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh2.AssertOneStart(c)
+	mh1.AssertOneStart(c)
 }
 
 func (s *EngineSuite) TestDoubleInstall(c *gc.C) {
-	ews := newErrorWorkerStarter()
-	err := s.engine.Install("some-task", ews.Manifold())
-	c.Assert(err, jc.ErrorIsNil)
-	ews.AssertOneStart(c)
 
-	err = s.engine.Install("some-task", ews.Manifold())
+	// Install a worker.
+	mh := newManifoldHarness()
+	err := s.engine.Install("some-task", mh.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh.AssertOneStart(c)
+
+	// Can't install another worker with the same name.
+	err = s.engine.Install("some-task", mh.Manifold())
 	c.Assert(err, gc.ErrorMatches, "some-task manifold already installed")
-	ews.AssertNoStart(c)
+	mh.AssertNoStart(c)
 }
 
 func (s *EngineSuite) TestInstallAlreadyStopped(c *gc.C) {
+
+	// Shut down the engine.
 	err := worker.Stop(s.engine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ews := newErrorWorkerStarter()
-	err = s.engine.Install("some-task", ews.Manifold())
+	// Can't start a new task.
+	mh := newManifoldHarness()
+	err = s.engine.Install("some-task", mh.Manifold())
 	c.Assert(err, gc.ErrorMatches, "engine is shutting down")
-	ews.AssertNoStart(c)
+	mh.AssertNoStart(c)
 }
 
 func (s *EngineSuite) TestStartGetResourceExistenceOnly(c *gc.C) {
 
 	// Start a task with a dependency.
-	ews1 := newErrorWorkerStarter()
-	err := s.engine.Install("some-task", ews1.Manifold())
+	mh1 := newManifoldHarness()
+	err := s.engine.Install("some-task", mh1.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
-	ews2 := newErrorWorkerStarter("some-task")
-	err = s.engine.Install("other-task", ews2.Manifold())
-	c.Assert(err, jc.ErrorIsNil)
+	mh1.AssertOneStart(c)
 
-	// Each task should successfully start exactly once.
-	ews1.AssertOneStart(c)
-	ews2.AssertOneStart(c)
+	// Start another task that depends on it, ourselves depennding on the
+	// implementation of errorWorkerStarter, which calls getResource(foo, nil).
+	mh2 := newManifoldHarness("some-task")
+	err = s.engine.Install("other-task", mh2.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh2.AssertOneStart(c)
 }
 
 func (s *EngineSuite) TestStartGetResourceUndeclaredName(c *gc.C) {
 
 	// Install a task and make sure it's started.
-	ews1 := newErrorWorkerStarter()
-	err := s.engine.Install("some-task", ews1.Manifold())
+	mh1 := newManifoldHarness()
+	err := s.engine.Install("some-task", mh1.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
-	ews1.AssertOneStart(c)
+	mh1.AssertOneStart(c)
 
 	// Install another task with an undeclared dependency on the started task.
 	done := make(chan struct{})
@@ -129,8 +155,8 @@ func (s *EngineSuite) testStartGetResource(c *gc.C, accept bool) {
 	// Start a task with an Output func that checks what it's passed, and wait for it to start.
 	var target interface{}
 	expectTarget := &target
-	ews1 := newErrorWorkerStarter()
-	manifold := ews1.Manifold()
+	mh1 := newManifoldHarness()
+	manifold := mh1.Manifold()
 	manifold.Output = func(worker worker.Worker, target interface{}) bool {
 		// Check we got passed what we expect regardless...
 		c.Check(target, gc.DeepEquals, expectTarget)
@@ -139,7 +165,7 @@ func (s *EngineSuite) testStartGetResource(c *gc.C, accept bool) {
 	}
 	err := s.engine.Install("some-task", manifold)
 	c.Assert(err, jc.ErrorIsNil)
-	ews1.AssertOneStart(c)
+	mh1.AssertOneStart(c)
 
 	// Start another that tries to use the above dependency.
 	done := make(chan struct{})
@@ -175,102 +201,103 @@ func (s *EngineSuite) TestStartGetResourceAccept(c *gc.C) {
 func (s *EngineSuite) TestErrorRestartsDependents(c *gc.C) {
 
 	// Start two tasks, one dependent on the other.
-	ews1 := newErrorWorkerStarter()
-	err := s.engine.Install("error-task", ews1.Manifold())
+	mh1 := newManifoldHarness()
+	err := s.engine.Install("error-task", mh1.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
-	ews2 := newErrorWorkerStarter("error-task")
-	err = s.engine.Install("some-task", ews2.Manifold())
+	mh1.AssertOneStart(c)
+
+	mh2 := newManifoldHarness("error-task")
+	err = s.engine.Install("some-task", mh2.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
-	ews1.AssertOneStart(c)
-	ews2.AssertOneStart(c)
+	mh2.AssertOneStart(c)
 
 	// Induce an error in the dependency...
-	ews1.InjectError(c, errors.New("ZAP"))
+	mh1.InjectError(c, errors.New("ZAP"))
 
 	// ...and check that each task restarts once.
-	ews1.AssertOneStart(c)
-	ews2.AssertOneStart(c)
+	mh1.AssertOneStart(c)
+	mh2.AssertOneStart(c)
 }
 
 func (s *EngineSuite) TestErrorPreservesDependencies(c *gc.C) {
 
 	// Start two tasks, one dependent on the other.
-	ews1 := newErrorWorkerStarter()
-	err := s.engine.Install("some-task", ews1.Manifold())
+	mh1 := newManifoldHarness()
+	err := s.engine.Install("some-task", mh1.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
-	ews2 := newErrorWorkerStarter("some-task")
-	err = s.engine.Install("error-task", ews2.Manifold())
+	mh1.AssertOneStart(c)
+	mh2 := newManifoldHarness("some-task")
+	err = s.engine.Install("error-task", mh2.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
-	ews1.AssertOneStart(c)
-	ews2.AssertOneStart(c)
+	mh2.AssertOneStart(c)
 
 	// Induce an error in the dependent...
-	ews2.InjectError(c, errors.New("BLAM"))
+	mh2.InjectError(c, errors.New("BLAM"))
 
 	// ...and check that only the dependent restarts.
-	ews1.AssertNoStart(c)
-	ews2.AssertOneStart(c)
+	mh1.AssertNoStart(c)
+	mh2.AssertOneStart(c)
 }
 
 func (s *EngineSuite) TestCompletedWorkerNotRestartedOnExit(c *gc.C) {
 
 	// Start a task.
-	ews1 := newErrorWorkerStarter()
-	err := s.engine.Install("stop-task", ews1.Manifold())
+	mh1 := newManifoldHarness()
+	err := s.engine.Install("stop-task", mh1.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
-	ews1.AssertOneStart(c)
+	mh1.AssertOneStart(c)
 
 	// Stop it without error, and check it doesn't start again.
-	ews1.InjectError(c, nil)
-	ews1.AssertNoStart(c)
+	mh1.InjectError(c, nil)
+	mh1.AssertNoStart(c)
 }
 
 func (s *EngineSuite) TestCompletedWorkerRestartedByDependencyChange(c *gc.C) {
 
 	// Start a task with a dependency.
-	ews1 := newErrorWorkerStarter()
-	err := s.engine.Install("some-task", ews1.Manifold())
+	mh1 := newManifoldHarness()
+	err := s.engine.Install("some-task", mh1.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
-	ews2 := newErrorWorkerStarter("some-task")
-	err = s.engine.Install("stop-task", ews2.Manifold())
+	mh1.AssertOneStart(c)
+	mh2 := newManifoldHarness("some-task")
+	err = s.engine.Install("stop-task", mh2.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
-	ews1.AssertOneStart(c)
-	ews2.AssertOneStart(c)
+	mh2.AssertOneStart(c)
 
 	// Complete the dependent task successfully.
-	ews2.InjectError(c, nil)
-	ews2.AssertNoStart(c)
+	mh2.InjectError(c, nil)
+	mh2.AssertNoStart(c)
 
 	// Bounce the dependency, and check the dependent is started again.
-	ews1.InjectError(c, errors.New("CLUNK"))
-	ews1.AssertOneStart(c)
-	ews2.AssertOneStart(c)
+	mh1.InjectError(c, errors.New("CLUNK"))
+	mh1.AssertOneStart(c)
+	mh2.AssertOneStart(c)
 }
 
 func (s *EngineSuite) TestRestartRestartsDependents(c *gc.C) {
 
 	// Start a dependency chain of 3 workers.
-	ews1 := newErrorWorkerStarter()
-	err := s.engine.Install("error-task", ews1.Manifold())
+	mh1 := newManifoldHarness()
+	err := s.engine.Install("error-task", mh1.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
-	ews2 := newErrorWorkerStarter("error-task")
-	err = s.engine.Install("restart-task", ews2.Manifold())
+	mh1.AssertOneStart(c)
+	mh2 := newManifoldHarness("error-task")
+	err = s.engine.Install("restart-task", mh2.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
-	ews3 := newErrorWorkerStarter("restart-task")
-	err = s.engine.Install("consequent-restart-task", ews3.Manifold())
+	mh2.AssertOneStart(c)
+	mh3 := newManifoldHarness("restart-task")
+	err = s.engine.Install("consequent-restart-task", mh3.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
-	ews1.AssertOneStart(c)
-	ews2.AssertOneStart(c)
-	ews3.AssertOneStart(c)
+	mh3.AssertOneStart(c)
 
 	// Once they're all running, induce an error at the top level, which will
 	// cause the next level to be killed cleanly....
-	ews1.InjectError(c, errors.New("ZAP"))
+	mh1.InjectError(c, errors.New("ZAP"))
 
 	// ...but should still cause all 3 workers to bounce.
-	ews1.AssertOneStart(c)
-	ews2.AssertOneStart(c)
-	ews3.AssertOneStart(c)
+	mh1.AssertOneStart(c)
+	mh2.AssertOneStart(c)
+	mh3.AssertOneStart(c)
 }
 
 func (s *EngineSuite) TestIsFatal(c *gc.C) {
@@ -283,25 +310,25 @@ func (s *EngineSuite) TestIsFatal(c *gc.C) {
 	})
 
 	// Start two independent workers.
-	ews1 := newErrorWorkerStarter()
-	err := s.engine.Install("some-task", ews1.Manifold())
+	mh1 := newManifoldHarness()
+	err := s.engine.Install("some-task", mh1.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
-	ews2 := newErrorWorkerStarter()
-	err = s.engine.Install("other-task", ews2.Manifold())
+	mh1.AssertOneStart(c)
+	mh2 := newManifoldHarness()
+	err = s.engine.Install("other-task", mh2.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
-	ews1.AssertOneStart(c)
-	ews2.AssertOneStart(c)
+	mh2.AssertOneStart(c)
 
 	// Bounce one worker with Just Some Error; check that worker bounces.
-	ews1.InjectError(c, errors.New("splort"))
-	ews1.AssertOneStart(c)
-	ews2.AssertNoStart(c)
+	mh1.InjectError(c, errors.New("splort"))
+	mh1.AssertOneStart(c)
+	mh2.AssertNoStart(c)
 
-	// Bounce another worker with the fatal error; check the engine exist with
+	// Bounce another worker with the fatal error; check the engine exits with
 	// the right error.
-	ews2.InjectError(c, fatalError)
-	ews1.AssertNoStart(c)
-	ews2.AssertNoStart(c)
+	mh2.InjectError(c, fatalError)
+	mh1.AssertNoStart(c)
+	mh2.AssertNoStart(c)
 	err = worker.Stop(s.engine)
 	c.Assert(err, gc.Equals, fatalError)
 
@@ -316,32 +343,32 @@ func (s *EngineSuite) TestErrUnmetDependencies(c *gc.C) {
 	// this test explores its behaviour in pathological cases.
 
 	// Start a simple dependency.
-	ews1 := newErrorWorkerStarter()
-	err := s.engine.Install("some-task", ews1.Manifold())
+	mh1 := newManifoldHarness()
+	err := s.engine.Install("some-task", mh1.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
-	ews1.AssertOneStart(c)
+	mh1.AssertOneStart(c)
 
 	// Start a dependent that always complains ErrUnmetDependencies.
-	ews2 := newErrorWorkerStarter("some-task")
-	manifold := ews2.Manifold()
+	mh2 := newManifoldHarness("some-task")
+	manifold := mh2.Manifold()
 	manifold.Start = func(_ dependency.GetResourceFunc) (worker.Worker, error) {
-		ews2.starts <- struct{}{}
+		mh2.starts <- struct{}{}
 		return nil, dependency.ErrUnmetDependencies
 	}
 	err = s.engine.Install("unmet-task", manifold)
 	c.Assert(err, jc.ErrorIsNil)
-	ews2.AssertOneStart(c)
+	mh2.AssertOneStart(c)
 
 	// Bounce the dependency; check the dependent bounces once or twice (it will
 	// react to both the stop and the start of the dependency, but may be lucky
 	// enough to only restart once).
-	ews1.InjectError(c, errors.New("kerrang"))
-	ews1.AssertOneStart(c)
+	mh1.InjectError(c, errors.New("kerrang"))
+	mh1.AssertOneStart(c)
 	startCount := 0
 	stable := false
 	for !stable {
 		select {
-		case <-ews2.starts:
+		case <-mh2.starts:
 			startCount++
 		case <-time.After(coretesting.ShortWait):
 			stable = true
@@ -352,7 +379,7 @@ func (s *EngineSuite) TestErrUnmetDependencies(c *gc.C) {
 	c.Assert(startCount < 3, jc.IsTrue)
 
 	// Stop the dependency for good; check the dependent is restarted just once.
-	ews1.InjectError(c, nil)
-	ews1.AssertNoStart(c)
-	ews2.AssertOneStart(c)
+	mh1.InjectError(c, nil)
+	mh1.AssertNoStart(c)
+	mh2.AssertOneStart(c)
 }
