@@ -1389,6 +1389,51 @@ func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 	}
 }
 
+func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
+	// Disable the certificate work so it doesn't update the certificate.
+	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
+		certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+	) worker.Worker {
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newCertificateUpdater, newUpdater)
+
+	// Set up the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+
+	// Set up check that certificate has been updated when the agent starts.
+	updated := make(chan struct{})
+	expectedDnsNames := set.NewStrings("local", "juju-apiserver", "juju-mongodb")
+	go func() {
+		for {
+			stateInfo, _ := a.CurrentConfig().StateServingInfo()
+			srvCert, err := cert.ParseCert(stateInfo.Cert)
+			c.Assert(err, jc.ErrorIsNil)
+			certDnsNames := set.NewStrings(srvCert.DNSNames...)
+			if !expectedDnsNames.Difference(certDnsNames).IsEmpty() {
+				continue
+			}
+			pemContent, err := ioutil.ReadFile(filepath.Join(s.DataDir(), "server.pem"))
+			c.Assert(err, jc.ErrorIsNil)
+			if string(pemContent) == stateInfo.Cert+"\n"+stateInfo.PrivateKey {
+				close(updated)
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+	// Wait for certificate to be updated.
+	select {
+	case <-updated:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for certificate to be updated")
+	}
+}
+
 func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 	tests := []struct {
 		about          string
