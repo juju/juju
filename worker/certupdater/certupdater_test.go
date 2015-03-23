@@ -134,9 +134,12 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 		c.Fatalf("timed out waiting for certificate to be updated")
 	}
 
-	// The server certificates must report "juju-apiserver" as a DNS name
-	// for backwards-compatibility with API clients.
-	c.Assert(srvCert.DNSNames, gc.DeepEquals, []string{"localhost", "juju-apiserver"})
+	// The server certificates must report "juju-apiserver" as a DNS
+	// name for backwards-compatibility with API clients. They must
+	// also report "juju-mongodb" because these certicates are also
+	// used for serving MongoDB connections.
+	c.Assert(srvCert.DNSNames, gc.DeepEquals,
+		[]string{"localhost", "juju-apiserver", "juju-mongodb"})
 }
 
 type mockStateServingGetterNoCAKey struct{}
