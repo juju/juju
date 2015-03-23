@@ -21,7 +21,6 @@ func init() {
 	quote = "'"
 	if runtime.GOOS == "windows" {
 		cmdSuffix = ".exe"
-		quote = `"`
 	}
 }
 
