@@ -81,6 +81,7 @@ var stateTests = []struct {
 		st: operation.State{
 			Kind:     operation.RunAction,
 			Step:     operation.Pending,
+			ActionId: &someActionId,
 			CharmURL: stcurl,
 		},
 		err: `unexpected charm URL`,
@@ -218,6 +219,6 @@ func (s *StateFileSuite) TestStates(c *gc.C) {
 		write()
 		st, err := file.Read()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(*st, gc.DeepEquals, t.st)
+		c.Assert(st, jc.DeepEquals, &t.st)
 	}
 }
