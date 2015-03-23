@@ -144,6 +144,7 @@ func (s *tmpfsFilesystemSource) createFilesystem(params storage.FilesystemParams
 	return info, nil
 }
 
+// AttachFilesystems is defined on the FilesystemSource interface.
 func (s *tmpfsFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.FilesystemAttachment, error) {
 	attachments := make([]storage.FilesystemAttachment, len(args))
 	for i, arg := range args {
@@ -167,7 +168,7 @@ func (s *tmpfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmen
 	}
 
 	// Check if the mount already exists.
-	source, err := df(s.run, path, "source")
+	source, err := s.dirFuncs.mountPointSource(path)
 	if err != nil {
 		return storage.FilesystemAttachment{}, errors.Trace(err)
 	}
@@ -194,7 +195,9 @@ func (s *tmpfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmen
 	}, nil
 }
 
+// DetachFilesystems is defined on the FilesystemSource interface.
 func (s *tmpfsFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachmentParams) error {
+	// TODO(axw)
 	return errors.NotImplementedf("DetachFilesystems")
 }
 

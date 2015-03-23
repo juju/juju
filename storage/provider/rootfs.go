@@ -4,11 +4,8 @@
 package provider
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -90,53 +87,6 @@ type rootfsFilesystemSource struct {
 	dirFuncs   dirFuncs
 	run        runCommandFunc
 	storageDir string
-}
-
-// dirFuncs is used to allow the real directory operations to
-// be stubbed out for testing.
-type dirFuncs interface {
-	mkDirAll(path string, perm os.FileMode) error
-	lstat(path string) (fi os.FileInfo, err error)
-	fileCount(path string) (int, error)
-	calculateSize(path string) (sizeInMib uint64, _ error)
-	symlink(oldpath, newpath string) error
-}
-
-// The real directory related functions.
-type osDirFuncs struct {
-	run runCommandFunc
-}
-
-func (*osDirFuncs) mkDirAll(path string, perm os.FileMode) error {
-	return os.MkdirAll(path, perm)
-}
-
-func (*osDirFuncs) lstat(path string) (fi os.FileInfo, err error) {
-	return os.Lstat(path)
-}
-
-func (*osDirFuncs) fileCount(path string) (int, error) {
-	files, err := ioutil.ReadDir(path)
-	if err != nil {
-		return 0, errors.Annotate(err, "could not read directory")
-	}
-	return len(files), nil
-}
-
-func (*osDirFuncs) symlink(oldpath, newpath string) error {
-	return os.Symlink(oldpath, newpath)
-}
-
-func (o *osDirFuncs) calculateSize(path string) (sizeInMib uint64, _ error) {
-	output, err := df(o.run, path, "size")
-	if err != nil {
-		return 0, errors.Annotate(err, "getting size")
-	}
-	numBlocks, err := strconv.ParseUint(output, 10, 64)
-	if err != nil {
-		return 0, errors.Annotate(err, "parsing size")
-	}
-	return numBlocks / 1024, nil
 }
 
 // ensureDir ensures the specified path is a directory, or
@@ -226,6 +176,7 @@ func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParam
 	return filesystem, nil
 }
 
+// AttachFilesystems is defined on the FilesystemSource interface.
 func (s *rootfsFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.FilesystemAttachment, error) {
 	attachments := make([]storage.FilesystemAttachment, len(args))
 	for i, arg := range args {
@@ -299,28 +250,28 @@ func (s *rootfsFilesystemSource) mount(tag names.FilesystemTag, target string) e
 }
 
 func (s *rootfsFilesystemSource) tryBindMount(source, target string) (bool, error) {
-	targetSource, err := df(s.run, target, "source")
+	targetSource, err := s.dirFuncs.mountPointSource(target)
 	if err != nil {
-		return false, errors.Trace(err)
+		return false, errors.Annotate(err, "getting target mount-point source")
 	}
 	if targetSource == source {
 		// Already bind mounted.
 		return true, nil
 	}
-	if _, err := s.run("mount", "--bind", source, target); err == nil {
-		return true, nil
-	} else {
+	if err := s.dirFuncs.bindMount(source, target); err != nil {
 		logger.Debugf("cannot bind-mount: %v", err)
+	} else {
+		return true, nil
 	}
 	return false, nil
 }
 
 func (s *rootfsFilesystemSource) validateSameMountPoints(source, target string) error {
-	sourceMountPoint, err := df(s.run, source, "target")
+	sourceMountPoint, err := s.dirFuncs.mountPoint(source)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	targetMountPoint, err := df(s.run, target, "target")
+	targetMountPoint, err := s.dirFuncs.mountPoint(target)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -333,17 +284,8 @@ func (s *rootfsFilesystemSource) validateSameMountPoints(source, target string) 
 	return nil
 }
 
+// DetachFilesystems is defined on the FilesystemSource interface.
 func (s *rootfsFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachmentParams) error {
 	// TODO(axw)
 	return errors.NotImplementedf("DetachFilesystems")
-}
-
-func df(run runCommandFunc, path, field string) (string, error) {
-	output, err := run("df", "--output="+field, path)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	// the first line contains the headers
-	lines := strings.SplitN(output, "\n", 2)
-	return strings.TrimSpace(lines[1]), nil
 }
