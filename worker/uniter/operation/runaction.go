@@ -84,13 +84,20 @@ func (ra *runAction) Execute(state State) (*State, error) {
 // Commit preserves the recorded hook, and returns a neutral state.
 // Commit is part of the Operation interface.
 func (ra *runAction) Commit(state State) (*State, error) {
-	kind := Continue
-	if state.Hook != nil {
-		kind = RunHook
-	}
 	return stateChange{
-		Kind: kind,
+		Kind: continuationKind(state),
 		Step: Pending,
 		Hook: state.Hook,
 	}.apply(state), nil
+}
+
+// continuationKind determines what State Kind the operation
+// should return after Commit.
+func continuationKind(state State) Kind {
+	switch {
+	case state.Hook != nil:
+		return RunHook
+	default:
+		return Continue
+	}
 }

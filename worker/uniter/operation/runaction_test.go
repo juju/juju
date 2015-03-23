@@ -97,8 +97,7 @@ func (s *RunActionSuite) TestPrepareSuccessCleanState(c *gc.C) {
 
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newState, gc.NotNil)
-	c.Assert(*newState, jc.DeepEquals, operation.State{
+	c.Assert(newState, jc.DeepEquals, &operation.State{
 		Kind:     operation.RunAction,
 		Step:     operation.Pending,
 		ActionId: &someActionId,
@@ -114,8 +113,7 @@ func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
 
 	newState, err := op.Prepare(overwriteState)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newState, gc.NotNil)
-	c.Assert(*newState, jc.DeepEquals, operation.State{
+	c.Assert(newState, jc.DeepEquals, &operation.State{
 		Kind:               operation.RunAction,
 		Step:               operation.Pending,
 		ActionId:           &someActionId,
@@ -204,8 +202,7 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 
 		newState, err := op.Execute(*midState)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(newState, gc.NotNil)
-		c.Assert(*newState, jc.DeepEquals, test.after)
+		c.Assert(newState, jc.DeepEquals, &test.after)
 		c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running action some-action-name")
 		c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
 		c.Assert(*runnerFactory.MockNewActionRunner.runner.MockRunAction.gotName, gc.Equals, "some-action-name")
@@ -266,7 +263,6 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		newState, err := op.Commit(test.before)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(*newState, jc.DeepEquals, test.after)
+		c.Assert(newState, jc.DeepEquals, &test.after)
 	}
 }
