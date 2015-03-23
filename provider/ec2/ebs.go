@@ -27,21 +27,19 @@ const (
 	//   "gp2" for General Purpose (SSD) volumes
 	//   "io1" for Provisioned IOPS (SSD) volumes,
 	//   "standard" for Magnetic volumes.
-	EBS_VolumeType = "volume-type" // top level directory where loop devices are created.
+	EBS_VolumeType = "volume-type"
 
 	// The number of I/O operations per second (IOPS) to provision for the volume.
 	// Only valid for Provisioned IOPS (SSD) volumes.
-	EBS_IOPS = "iops" // optional subdirectory for loop devices.
+	EBS_IOPS = "iops"
 
 	// Specifies whether the volume should be encrypted.
 	EBS_Encrypted = "encrypted"
-
-	// The availability zone in which the volume will be created.
-	EBS_AvailabilityZone = "availability-zone"
 )
 
 // AWS error codes
 const (
+	deviceInUse        = "InvalidDevice.InUse"
 	volumeInUse        = "VolumeInUse"
 	attachmentNotFound = "InvalidAttachment.NotFound"
 )
@@ -88,7 +86,6 @@ var validConfigOptions = set.NewStrings(
 	EBS_VolumeType,
 	EBS_IOPS,
 	EBS_Encrypted,
-	EBS_AvailabilityZone,
 )
 
 // ValidateConfig is defined on the Provider interface.
@@ -166,12 +163,6 @@ func parseVolumeOptions(size uint64, attr map[string]interface{}) (ec2.CreateVol
 		VolumeSize: int(mibToGib(size)),
 	}
 
-	availabilityZone, _ := attr[EBS_AvailabilityZone].(string)
-	if availabilityZone == "" {
-		return vol, errors.New("missing availability zone")
-	}
-	vol.AvailZone = availabilityZone
-
 	// TODO(wallyworld) - remove type assertions when juju/schema is used
 	options := TranslateUserEBSOptions(attr)
 	if v, ok := options[EBS_VolumeType]; ok && v != "" {
@@ -192,12 +183,15 @@ func parseVolumeOptions(size uint64, attr map[string]interface{}) (ec2.CreateVol
 }
 
 // CreateVolumes is specified on the storage.VolumeSource interface.
-func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (vols []storage.Volume, _ []storage.VolumeAttachment, err error) {
+func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []storage.Volume, _ []storage.VolumeAttachment, err error) {
+	volumes := make([]storage.Volume, 0, len(params))
+	volumeAttachments := make([]storage.VolumeAttachment, 0, len(params))
+
 	// If there's an error, we delete any ones that are created.
 	defer func() {
-		if err != nil && len(vols) > 0 {
-			volIds := make([]string, len(vols))
-			for i, v := range vols {
+		if err != nil && len(volumes) > 0 {
+			volIds := make([]string, len(volumes))
+			for i, v := range volumes {
 				volIds[i] = v.VolumeId
 			}
 			err2 := v.DestroyVolumes(volIds)
@@ -205,7 +199,7 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (vols []s
 				if volErr == nil {
 					continue
 				}
-				logger.Warningf("error cleaning up volume %v: %v", vols[i].Tag, volErr)
+				logger.Warningf("error cleaning up volume %v: %v", volumes[i].Tag, volErr)
 			}
 		}
 	}()
@@ -216,26 +210,62 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (vols []s
 	// unmap ephemeral0 in cloud-init.
 
 	// First, validate the params before we use them.
+	instanceIds := set.NewStrings()
 	for _, p := range params {
 		if err := v.ValidateVolumeParams(p); err != nil {
-			return vols, nil, errors.Trace(err)
+			return nil, nil, errors.Trace(err)
 		}
+		instanceIds.Add(string(p.Attachment.InstanceId))
+	}
+	instances, err := v.instances(instanceIds.Values())
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "querying instance details")
 	}
 
 	for _, p := range params {
+		instId := string(p.Attachment.InstanceId)
 		vol, _ := parseVolumeOptions(p.Size, p.Attributes)
+		vol.AvailZone = instances[instId].AvailZone
 		resp, err := v.ec2.CreateVolume(vol)
 		if err != nil {
 			return nil, nil, err
 		}
-		vols = append(vols, storage.Volume{
+		volumeId := resp.Id
+		persistent, _ := p.Attributes["persistent"].(bool)
+		volumes = append(volumes, storage.Volume{
 			Tag:        p.Tag,
-			VolumeId:   resp.Id,
+			VolumeId:   volumeId,
 			Size:       gibToMib(uint64(resp.Size)),
-			Persistent: p.IsPersistent(),
+			Persistent: persistent,
+		})
+
+		// For EC2, we always create volumes with attachments.
+		nextDeviceName := blockDeviceNamer(instances[instId].VirtType == paravirtual)
+		requestDeviceName, actualDeviceName, err := v.attachOneVolume(nextDeviceName, resp.Volume.Id, instId, false)
+		if err != nil {
+			return nil, nil, errors.Annotatef(err, "attaching %v to %v", resp.Volume.Id, instId)
+		}
+		if !persistent {
+			// TODO(axw) modify instance's block device mapping so that
+			// it will delete the volume on instance termination.
+			_, err := v.ec2.ModifyInstanceAttribute(&ec2.ModifyInstanceAttribute{
+				BlockDeviceMappings: []ec2.InstanceBlockDeviceMapping{{
+					DeviceName:          requestDeviceName,
+					VolumeId:            volumeId,
+					DeleteOnTermination: true,
+				}},
+			}, ec2.NewFilter())
+			if err != nil {
+				return nil, nil, errors.Annotate(err, "binding termination of %v to %v")
+			}
+		}
+		volumeAttachments = append(volumeAttachments, storage.VolumeAttachment{
+			Volume:     p.Tag,
+			Machine:    p.Attachment.Machine,
+			DeviceName: actualDeviceName,
 		})
 	}
-	return vols, nil, nil
+	return volumes, volumeAttachments, nil
 }
 
 // DescribeVolumes is specified on the storage.VolumeSource interface.
@@ -274,6 +304,9 @@ func (v *ebsVolumeSource) DestroyVolumes(volIds []string) []error {
 
 // ValidateVolumeParams is specified on the storage.VolumeSource interface.
 func (v *ebsVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
+	if params.Attachment == nil || params.Attachment.InstanceId == "" {
+		return storage.ErrVolumeNeedsInstance
+	}
 	vol, err := parseVolumeOptions(params.Size, params.Attributes)
 	if err != nil {
 		return err
@@ -324,71 +357,85 @@ func (v *ebsVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentP
 	for _, p := range attachParams {
 		instIds.Add(string(p.InstanceId))
 	}
-	instVirtTypes, err := v.virtTypes(instIds.Values())
+	instances, err := v.instances(instIds.Values())
 	if err != nil {
 		return nil, errors.Annotate(err, "finding virtulisation types for instances")
 	}
 
 	for _, params := range attachParams {
 		instId := string(params.InstanceId)
-		nextDeviceName := blockDeviceNamer(instVirtTypes[instId] == paravirtual)
-		requestDeviceName, _, err := nextDeviceName()
+		nextDeviceName := blockDeviceNamer(instances[instId].VirtType == paravirtual)
+		_, deviceName, err := v.attachOneVolume(nextDeviceName, params.VolumeId, instId, false)
 		if err != nil {
-			// Can't attach any more volumes.
-			return nil, err
-		}
-		device, err := v.attachOneVolume(params.VolumeId, instId, requestDeviceName)
-		if err != nil {
-			return nil, errors.Annotatef(err, "attaching %v to %v as %s", params.Volume, params.Machine, requestDeviceName)
+			return nil, errors.Annotatef(err, "attaching %v to %v", params.VolumeId, params.InstanceId)
 		}
 		attached = append(attached, params)
 		attachments = append(attachments, storage.VolumeAttachment{
 			Volume:     params.Volume,
 			Machine:    params.Machine,
-			DeviceName: device,
-			// TODO(wallyworld) - read-only
+			DeviceName: deviceName,
 		})
 	}
 	return attachments, nil
 }
 
-func (v *ebsVolumeSource) attachOneVolume(volumeId, instId, requestDeviceName string) (string, error) {
-	resp, err := v.ec2.AttachVolume(volumeId, instId, requestDeviceName)
+func (v *ebsVolumeSource) attachOneVolume(
+	nextDeviceName func() (string, string, error),
+	volumeId, instId string,
+	deleteOnTermination bool,
+) (string, string, error) {
 	// TODO(wallyworld) - retry on IncorrectState error (volume being created)
 	// Process aws specific error information.
-	var device string
-	if err == nil {
-		device = resp.Device
-	} else {
+	for {
+		requestDeviceName, actualDeviceName, err := nextDeviceName()
+		if err != nil {
+			// Can't attach any more volumes.
+			return "", "", err
+		}
+		_, err = v.ec2.AttachVolume(volumeId, instId, requestDeviceName)
 		if ec2Err, ok := err.(*ec2.Error); ok {
 			switch ec2Err.Code {
-			// volumeInUse means this volume is already attached.
-			// TODO(wallyworld) - check that the volume is attached to the expected machine.
+			case deviceInUse:
+				// deviceInUse means that the requested device name
+				// is in use already. Try again with the next name.
+				continue
+
 			case volumeInUse:
-				// We need to fetch the device as the response won't have it.
+				// volumeInUse means this volume is already attached.
+				// query the volume and verify that the attachment is
+				// for this machine.
 				var attachedVols *ec2.VolumesResp
 				attachedVols, err = v.ec2.Volumes([]string{volumeId}, nil)
-				if err == nil {
-					attachments := attachedVols.Volumes[0].Attachments
-					if len(attachments) != 1 {
-						return "", errors.Annotatef(err, "volume %v has unexpected attachment count: %v", volumeId, len(attachments))
-					}
-					device = attachments[0].Device
+				if err != nil {
+					return "", "", errors.Annotate(err, "querying volume")
+				}
+				attachments := attachedVols.Volumes[0].Attachments
+				if len(attachments) != 1 {
+					return "", "", errors.Annotatef(err, "volume %v has unexpected attachment count: %v", volumeId, len(attachments))
+				}
+				if attachments[0].InstanceId != instId {
+					return "", "", errors.Annotatef(err, "volume %v is attached to %v", volumeId, attachments[0].InstanceId)
+				}
+				if requestDeviceName != attachments[0].Device {
+					requestDeviceName = attachments[0].Device
+					actualDeviceName = renamedDevicePrefix + requestDeviceName[len(devicePrefix):]
 				}
 			}
 		}
 		if err != nil {
-			return "", err
+			return "", "", errors.Annotate(err, "attaching volume")
 		}
+		return requestDeviceName, actualDeviceName, nil
 	}
-	return device, nil
 }
 
-// virtTypes determines a mapping from instance id to virtualisation type.
-func (v *ebsVolumeSource) virtTypes(instIds []string) (map[string]string, error) {
-	instVirtTypes := make(map[string]string)
-	filter := ec2.NewFilter()
+// instances returns a mapping from the specified instance IDs to ec2.Instance
+// structures. If any of the specified IDs does not refer to a running instance,
+// it will cause an error to be returned.
+func (v *ebsVolumeSource) instances(instIds []string) (map[string]ec2.Instance, error) {
+	instances := make(map[string]ec2.Instance)
 	// Can only attach to running instances.
+	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "running")
 	resp, err := v.ec2.Instances(instIds, filter)
 	if err != nil {
@@ -397,13 +444,13 @@ func (v *ebsVolumeSource) virtTypes(instIds []string) (map[string]string, error)
 	for j := range resp.Reservations {
 		r := &resp.Reservations[j]
 		for _, inst := range r.Instances {
-			instVirtTypes[inst.InstanceId] = inst.VirtType
+			instances[inst.InstanceId] = inst
 		}
 	}
 	// TODO(wallyworld) - retry to allow instances to get to running state.
-	if len(instVirtTypes) < len(instIds) {
+	if len(instances) < len(instIds) {
 		notRunning := set.NewStrings(instIds...)
-		for id, _ := range instVirtTypes {
+		for id, _ := range instances {
 			notRunning.Remove(id)
 		}
 		return nil, errors.Errorf(
@@ -411,7 +458,7 @@ func (v *ebsVolumeSource) virtTypes(instIds []string) (map[string]string, error)
 			strings.Join(notRunning.Values(), ","),
 		)
 	}
-	return instVirtTypes, nil
+	return instances, nil
 }
 
 // DetachVolumes is specified on the storage.VolumeSource interface.
