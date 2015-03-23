@@ -109,6 +109,7 @@ func (s *baseStorageSuite) constructState(c *gc.C) *mockState {
 			c.Assert(u, gc.DeepEquals, s.unitTag)
 			return s.machineTag, nil
 		},
+		envName: "storagetest",
 	}
 }
 
@@ -180,6 +181,8 @@ type mockState struct {
 
 	watchFilesystemAttachment func(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 	watchVolumeAttachment     func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+
+	envName string
 }
 
 func (st *mockState) StorageInstance(s names.StorageTag) (state.StorageInstance, error) {
@@ -220,6 +223,10 @@ func (st *mockState) WatchFilesystemAttachment(mtag names.MachineTag, f names.Fi
 
 func (st *mockState) WatchVolumeAttachment(mtag names.MachineTag, v names.VolumeTag) state.NotifyWatcher {
 	return st.watchVolumeAttachment(mtag, v)
+}
+
+func (st *mockState) EnvName() (string, error) {
+	return st.envName, nil
 }
 
 type mockNotifyWatcher struct {

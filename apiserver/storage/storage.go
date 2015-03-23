@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider/registry"
 )
 
 func init() {
@@ -258,6 +259,9 @@ func (a *API) ListPools(
 		return params.StoragePoolsResult{}, err
 	}
 	results := []params.StoragePool{}
+	if ok, err := a.isValidPoolListFilter(filter); !ok {
+		return params.StoragePoolsResult{}, err
+	}
 	// Convert to sets as easier to deal with
 	providerSet := set.NewStrings(filter.Providers...)
 	nameSet := set.NewStrings(filter.Names...)
@@ -272,6 +276,44 @@ func (a *API) ListPools(
 		}
 	}
 	return params.StoragePoolsResult{Results: results}, nil
+}
+
+func (a *API) isValidPoolListFilter(
+	filter params.StoragePoolFilter,
+) (bool, error) {
+	if len(filter.Providers) != 0 {
+		if valid, err := a.isValidProviderCriteria(filter.Providers); !valid {
+			return false, errors.Trace(err)
+		}
+	}
+	if len(filter.Names) != 0 {
+		if valid, err := a.isValidNameCriteria(filter.Names); !valid {
+			return false, errors.Trace(err)
+		}
+	}
+	return true, nil
+}
+
+func (a *API) isValidNameCriteria(names []string) (bool, error) {
+	for _, n := range names {
+		if !storage.IsValidPoolName(n) {
+			return false, errors.NotValidf("pool name %q", n)
+		}
+	}
+	return true, nil
+}
+
+func (a *API) isValidProviderCriteria(providers []string) (bool, error) {
+	envName, err := a.storage.EnvName()
+	if err != nil {
+		return false, errors.Annotate(err, "getting env name")
+	}
+	for _, p := range providers {
+		if !registry.IsProviderSupported(envName, storage.ProviderType(p)) {
+			return false, errors.NotSupportedf("%q for environment %q", p, envName)
+		}
+	}
+	return true, nil
 }
 
 func poolMatchesFilters(
