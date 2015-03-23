@@ -19,6 +19,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/charm.v4"
@@ -33,6 +34,7 @@ import (
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container"
@@ -314,6 +316,48 @@ func (a *MachineAgent) Dying() <-chan struct{} {
 	return a.tomb.Dying()
 }
 
+// upgradeCertificateDNSNames ensure that the state server certificate
+// recorded in the agent config and also mongo server.pem contains the
+// DNSNames entires required by Juju/
+func (a *MachineAgent) upgradeCertificateDNSNames() error {
+	agentConfig := a.CurrentConfig()
+	si, ok := agentConfig.StateServingInfo()
+	if !ok || si.CAPrivateKey == "" {
+		// No certificate information exists yet, nothing to do.
+		return nil
+	}
+	// Parse the current certificate to get the current dns names.
+	serverCert, err := cert.ParseCert(si.Cert)
+	if err != nil {
+		return err
+	}
+	update := false
+	dnsNames := set.NewStrings(serverCert.DNSNames...)
+	requiredDNSNames := []string{"local", "juju-apiserver", "juju-mongodb"}
+	for _, dnsName := range requiredDNSNames {
+		if dnsNames.Contains(dnsName) {
+			continue
+		}
+		dnsNames.Add(dnsName)
+		update = true
+	}
+	if !update {
+		return nil
+	}
+	// Write a new certificate to the mongp pem and agent config files.
+	si.Cert, si.PrivateKey, err = cert.NewDefaultServer(agentConfig.CACert(), si.CAPrivateKey, dnsNames.Values())
+	if err != nil {
+		return err
+	}
+	if err := mongo.UpdateSSLKey(agentConfig.DataDir(), si.Cert, si.PrivateKey); err != nil {
+		return err
+	}
+	return a.AgentConfigWriter.ChangeConfig(func(config agent.ConfigSetter) error {
+		config.SetStateServingInfo(si)
+		return nil
+	})
+}
+
 // Run runs a machine agent.
 func (a *MachineAgent) Run(*cmd.Context) error {
 
@@ -321,12 +365,20 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
-	agentConfig := a.CurrentConfig()
 
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
+
+	// Before doing anything else, we need to make sure the certificate generated for
+	// use by mongo to validate state server connections is correct. This needs to be done
+	// before any possible restart of the mongo service.
+	// See bug http://pad.lv/1434680
+	if err := a.upgradeCertificateDNSNames(); err != nil {
+		return errors.Annotate(err, "error upgrading server certificate")
+	}
+	agentConfig := a.CurrentConfig()
 
 	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
 		return errors.Annotate(err, "error during upgradeWorkerContext initialisation")
