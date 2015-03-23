@@ -61,8 +61,8 @@ func prepareRestore(newClient ClientConnection) error {
 	return errors.Annotatef(err, "could not start restore process: %v", remoteError)
 }
 
-// RestoreReader restores the contents of backupFile as backup.
-func (c *Client) RestoreReader(r io.Reader, meta *params.BackupsMetadataResult, newClient ClientConnection) error {
+// RecoverReader restores the contents of backupFile as backup.
+func (c *Client) RecoverReader(r io.Reader, meta *params.BackupsMetadataResult, newClient ClientConnection) error {
 	if err := prepareRestore(newClient); err != nil {
 		return errors.Trace(err)
 	}
@@ -78,8 +78,8 @@ func (c *Client) RestoreReader(r io.Reader, meta *params.BackupsMetadataResult, 
 	return c.restore(backupId, newClient)
 }
 
-// Restore performs restore using a backup id corresponding to a backup stored in the server.
-func (c *Client) Restore(backupId string, newClient ClientConnection) error {
+// Recover performs recover using a backup id corresponding to a backup stored in the server.
+func (c *Client) Recover(backupId string, newClient ClientConnection) error {
 	if err := prepareRestore(newClient); err != nil {
 		return errors.Trace(err)
 	}

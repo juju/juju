@@ -194,10 +194,10 @@ func (c *fakeAPIClient) Close() error {
 	return nil
 }
 
-func (c *fakeAPIClient) RestoreReader(io.Reader, *params.BackupsMetadataResult, apibackups.ClientConnection) error {
+func (c *fakeAPIClient) RecoverReader(io.Reader, *params.BackupsMetadataResult, apibackups.ClientConnection) error {
 	return nil
 }
 
-func (c *fakeAPIClient) Restore(string, apibackups.ClientConnection) error {
+func (c *fakeAPIClient) Recover(string, apibackups.ClientConnection) error {
 	return nil
 }
