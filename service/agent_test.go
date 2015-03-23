@@ -175,8 +175,7 @@ func (*agentSuite) TestShutdownAfterConf(c *gc.C) {
 		AfterStopped: "spam",
 		ExecStart:    "/sbin/shutdown -h now",
 	})
-	renderer, err := shell.NewRenderer("")
-	c.Assert(err, jc.ErrorIsNil)
+	renderer := &shell.BashRenderer{}
 	c.Check(conf.Validate(renderer), jc.ErrorIsNil)
 }
 
