@@ -54,6 +54,7 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 		Step:     Pending,
 		ActionId: &ra.actionId,
 		Hook:     state.Hook,
+		CharmURL: state.CharmURL,
 	}.apply(state), nil
 }
 
@@ -78,15 +79,21 @@ func (ra *runAction) Execute(state State) (*State, error) {
 		Step:     Done,
 		ActionId: &ra.actionId,
 		Hook:     state.Hook,
+		CharmURL: state.CharmURL,
 	}.apply(state), nil
 }
 
 // Commit preserves the recorded hook, and returns a neutral state.
 // Commit is part of the Operation interface.
 func (ra *runAction) Commit(state State) (*State, error) {
+	kind := Continue
+	if state.Hook != nil {
+		kind = RunHook
+	}
 	return stateChange{
-		Kind: Continue,
-		Step: Pending,
-		Hook: state.Hook,
+		Kind:     kind,
+		Step:     Pending,
+		Hook:     state.Hook,
+		CharmURL: state.CharmURL,
 	}.apply(state), nil
 }
