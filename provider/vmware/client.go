@@ -36,8 +36,7 @@ var newClient = func(ecfg *environConfig) (*client, error) {
 		return nil, errors.Trace(err)
 	}
 	finder := find.NewFinder(connection.Client, true)
-	//datacenter, err := finder.Datacenter(context.TODO(), ecfg.datacenter())
-	datacenter, err := finder.DefaultDatacenter(context.TODO())
+	datacenter, err := finder.Datacenter(context.TODO(), ecfg.datacenter())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

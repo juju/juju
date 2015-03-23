@@ -26,8 +26,8 @@ var (
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
 		"type":          "vmware",
 		"uuid":          "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
-		"datastore":     "datastore1",
 		"datacenter":    "/datacenter1",
+		"datastore":     "datastore1",
 		"resource-pool": "resource-pool1",
 		"host":          "host1",
 		"user":          "user1",
@@ -118,16 +118,28 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 }
 
 type fakeApiHandler func(req, res soap.HasFault)
+type fakePropertiesHandler func(req, res *methods.RetrievePropertiesBody)
 
 type fakeClient struct {
-	handlers map[string]fakeApiHandler
+	handlers         map[string]fakeApiHandler
+	propertyHandlers map[string]fakePropertiesHandler
 }
 
 func (c *fakeClient) RoundTrip(ctx context.Context, req, res soap.HasFault) error {
 	reqType := reflect.ValueOf(req).Elem().FieldByName("Req").Elem().Type().Name()
-	logger.Infof("Executing RoundTrip method, type: %s", reqType)
-	handler := c.handlers[reqType]
-	handler(req, res)
+
+	if reqType == "RetrieveProperties" {
+		reqBody := req.(*methods.RetrievePropertiesBody)
+		resBody := res.(*methods.RetrievePropertiesBody)
+		obj := reqBody.Req.SpecSet[0].ObjectSet[0].Obj.Value
+		logger.Debugf("executing RetrieveProperties for object %s", obj)
+		handler := c.propertyHandlers[obj]
+		handler(reqBody, resBody)
+	} else {
+		logger.Infof("Executing RoundTrip method, type: %s", reqType)
+		handler := c.handlers[reqType]
+		handler(req, res)
+	}
 	return nil
 }
 
@@ -135,12 +147,20 @@ func (c *fakeClient) SetProxyHandler(method string, handler fakeApiHandler) {
 	c.handlers[method] = handler
 }
 
+func (c *fakeClient) SetPropertyProxyHandler(obj string, handler fakePropertiesHandler) {
+	c.propertyHandlers[obj] = handler
+}
+
 var newFakeConnection = func(url *url.URL) (*govmomi.Client, error) {
 	fakeClient := &fakeClient{
-		handlers: make(map[string]fakeApiHandler),
+		handlers:         make(map[string]fakeApiHandler),
+		propertyHandlers: make(map[string]fakePropertiesHandler),
 	}
 
-	fakeClient.SetProxyHandler("RetrieveProperties", fakeRetrieveProperties)
+	fakeClient.SetPropertyProxyHandler("FakeRootFolder", retrieveDatacenter)
+	fakeClient.SetPropertyProxyHandler("FakeDatacenter", retrieveDatacenterProperties)
+	fakeClient.SetPropertyProxyHandler("FakeDatastoreFolder", retrieveDatastore)
+	fakeClient.SetPropertyProxyHandler("FakeHostFolder", retrieveResourcePool)
 
 	vimClient := &vim25.Client{
 		//Client:         soapClient,
@@ -160,22 +180,53 @@ var newFakeConnection = func(url *url.URL) (*govmomi.Client, error) {
 	return c, nil
 }
 
-var fakeRetrieveProperties = func(req, res soap.HasFault) {
-	reqBody := req.(*methods.RetrievePropertiesBody)
-	resBody := res.(*methods.RetrievePropertiesBody)
-
-	if reqBody.Req.SpecSet[0].ObjectSet[0].Obj.Value == "FakeRootFolder" {
-		resBody.Res = &types.RetrievePropertiesResponse{
-			Returnval: []types.ObjectContent{
-				types.ObjectContent{
-					Obj: types.ManagedObjectReference{
-						Type: "Datacenter",
-					},
-					PropSet: []types.DynamicProperty{
-						types.DynamicProperty{Name: "Name", Val: "datacenter1"},
-					},
+var commonRetrieveProperties = func(resBody *methods.RetrievePropertiesBody, objType, objValue, propName string, propValue interface{}) {
+	resBody.Res = &types.RetrievePropertiesResponse{
+		Returnval: []types.ObjectContent{
+			types.ObjectContent{
+				Obj: types.ManagedObjectReference{
+					Type:  objType,
+					Value: objValue,
+				},
+				PropSet: []types.DynamicProperty{
+					types.DynamicProperty{Name: propName, Val: propValue},
 				},
 			},
-		}
+		},
+	}
+}
+
+var retrieveDatacenter = func(reqBody, resBody *methods.RetrievePropertiesBody) {
+	commonRetrieveProperties(resBody, "Datacenter", "FakeDatacenter", "name", "datacenter1")
+}
+
+var retrieveDatastore = func(reqBody, resBody *methods.RetrievePropertiesBody) {
+	commonRetrieveProperties(resBody, "Datastore", "FakeDatastore", "name", "datastore1")
+}
+
+var retrieveResourcePool = func(reqBody, resBody *methods.RetrievePropertiesBody) {
+	commonRetrieveProperties(resBody, "ResourcePool", "FakeResourcePool", "name", "resource-pool1")
+}
+
+var retrieveDatacenterProperties = func(reqBody, resBody *methods.RetrievePropertiesBody) {
+	resBody.Res = &types.RetrievePropertiesResponse{
+		Returnval: []types.ObjectContent{
+			types.ObjectContent{
+				Obj: types.ManagedObjectReference{
+					Type:  "Datacenter",
+					Value: "FakeDatacenter",
+				},
+				PropSet: []types.DynamicProperty{
+					types.DynamicProperty{Name: "datastoreFolder", Val: types.ManagedObjectReference{
+						Type:  "Folder",
+						Value: "FakeDatastoreFolder",
+					}},
+					types.DynamicProperty{Name: "hostFolder", Val: types.ManagedObjectReference{
+						Type:  "Folder",
+						Value: "FakeHostFolder",
+					}},
+				},
+			},
+		},
 	}
 }
