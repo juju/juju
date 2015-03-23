@@ -187,9 +187,9 @@ func initLogsSession(st *State) (*mgo.Session, *mgo.Collection) {
 // bytes), excluding space used by indexes.
 func getCollectionMB(coll *mgo.Collection) (int, error) {
 	var result bson.M
-	err := coll.Database.Run(bson.M{
-		"collStats": coll.Name,
-		"scale":     humanize.MiByte,
+	err := coll.Database.Run(bson.D{
+		{"collStats", coll.Name},
+		{"scale", humanize.MiByte},
 	}, &result)
 	if err != nil {
 		return 0, errors.Trace(err)
