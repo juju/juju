@@ -104,9 +104,9 @@ func PruneLogs(st *State, minLogTime time.Time, maxLogsMB int) error {
 	// Remove old log entries (per environment UUID to take advantage
 	// of indexes on the logs collection).
 	for _, envUUID := range envUUIDs {
-		removeInfo, err := logsColl.RemoveAll(bson.M{
-			"e": envUUID,
-			"t": bson.M{"$lt": minLogTime},
+		removeInfo, err := logsColl.RemoveAll(bson.D{
+			{"e", envUUID},
+			{"t", bson.D{{"$lt", minLogTime}}},
 		})
 		if err != nil {
 			return errors.Annotate(err, "failed to prune logs by time")
@@ -139,9 +139,9 @@ func PruneLogs(st *State, minLogTime time.Time, maxLogsMB int) error {
 		// NOTE: this assumes that there are no more logs being added
 		// for the time range being pruned (which should be true for
 		// any realistic minimum log collection size).
-		tsQuery := logsColl.Find(bson.M{"e": envUUID}).Sort("t")
+		tsQuery := logsColl.Find(bson.D{{"e", envUUID}}).Sort("t")
 		tsQuery = tsQuery.Skip(toRemove)
-		tsQuery = tsQuery.Select(bson.M{"t": 1})
+		tsQuery = tsQuery.Select(bson.D{{"t", 1}})
 		var doc bson.M
 		err = tsQuery.One(&doc)
 		if err != nil {
@@ -150,9 +150,9 @@ func PruneLogs(st *State, minLogTime time.Time, maxLogsMB int) error {
 		thresholdTs := doc["t"].(time.Time)
 
 		// Remove old records.
-		removeInfo, err := logsColl.RemoveAll(bson.M{
-			"e": envUUID,
-			"t": bson.M{"$lt": thresholdTs},
+		removeInfo, err := logsColl.RemoveAll(bson.D{
+			{"e", envUUID},
+			{"t", bson.D{{"$lt", thresholdTs}}},
 		})
 		if err != nil {
 			return errors.Annotate(err, "log pruning failed")
@@ -230,7 +230,7 @@ func findEnvWithMostLogs(logsColl *mgo.Collection, envUUIDs []string) (string, i
 // getLogCountForEnv returns the number of log records stored for a
 // given environment.
 func getLogCountForEnv(coll *mgo.Collection, envUUID string) (int, error) {
-	count, err := coll.Find(bson.M{"e": envUUID}).Count()
+	count, err := coll.Find(bson.D{{"e", envUUID}}).Count()
 	if err != nil {
 		return -1, errors.Annotate(err, "failed to get log count")
 	}
