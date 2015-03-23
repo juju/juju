@@ -36,8 +36,9 @@ func setupTestStorageSupport(c *gc.C, s *state.State) {
 	_, err = poolManager.Create(testPersistentPool, ec2.EBS_ProviderType, map[string]interface{}{"persistent": true})
 	c.Assert(err, jc.ErrorIsNil)
 
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+	//	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	registry.RegisterEnvironStorageProviders("dummy", ec2.EBS_ProviderType)
+	registry.RegisterEnvironStorageProviders("dummyenv", ec2.EBS_ProviderType)
 }
 
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
@@ -247,6 +248,11 @@ func (s *cmdStorageSuite) TestListPoolsNameNoMatch(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 }
 
+func (s *cmdStorageSuite) TestListPoolsNameInvalid(c *gc.C) {
+	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolListCommand{}), "--name", "9oops")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*not valid.*")
+}
+
 func (s *cmdStorageSuite) TestListPoolsProvider(c *gc.C) {
 	context := runPoolList(c, "--provider", "ebs")
 	expected := `
@@ -258,9 +264,22 @@ block-persistent:
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
 
+func (s *cmdStorageSuite) registerTmpProviderType(c *gc.C) {
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	// This call would also indirectly register all other provider types needed.
+	registry.RegisterEnvironStorageProviders(cfg.Name(), provider.TmpfsProviderType)
+}
+
 func (s *cmdStorageSuite) TestListPoolsProviderNoMatch(c *gc.C) {
-	context := runPoolList(c, "--provider", "oops")
+	s.registerTmpProviderType(c)
+	context := runPoolList(c, "--provider", string(provider.TmpfsProviderType))
 	c.Assert(testing.Stdout(context), gc.Equals, "")
+}
+
+func (s *cmdStorageSuite) TestListPoolsProviderUnregistered(c *gc.C) {
+	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolListCommand{}), "--provider", "oops")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*not supported.*")
 }
 
 func (s *cmdStorageSuite) TestListPoolsNameAndProvider(c *gc.C) {
@@ -290,7 +309,8 @@ block-persistent:
 }
 
 func (s *cmdStorageSuite) TestListPoolsNameAndNotProvider(c *gc.C) {
-	context := runPoolList(c, "--name", "block", "--provider", "oops")
+	s.registerTmpProviderType(c)
+	context := runPoolList(c, "--name", "block", "--provider", string(provider.TmpfsProviderType))
 	expected := `
 block:
   provider: loop
@@ -301,7 +321,8 @@ block:
 }
 
 func (s *cmdStorageSuite) TestListPoolsNotNameAndNotProvider(c *gc.C) {
-	context := runPoolList(c, "--name", "fluff", "--provider", "oops")
+	s.registerTmpProviderType(c)
+	context := runPoolList(c, "--name", "fluff", "--provider", string(provider.TmpfsProviderType))
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 }
 
