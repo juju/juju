@@ -321,13 +321,17 @@ func poolMatchesFilters(
 	providerFilter,
 	nameFilter set.Strings,
 ) bool {
-	// no filters supplied
+	// no filters supplied = pool matches criteria
 	if providerFilter.IsEmpty() && nameFilter.IsEmpty() {
 		return true
 	}
 
-	// TODO (anastasiamac 2015-03-19) not catering for LIKE... should I?
-	// Or should it only be an exact match?...
+	// if at least 1 name and type are supplied, use AND to match
+	if !providerFilter.IsEmpty() && !nameFilter.IsEmpty() {
+		return nameFilter.Contains(apool.Name()) &&
+			providerFilter.Contains(string(apool.Provider()))
+	}
+	// Otherwise, if only names or types are supplied, use OR to match
 	return nameFilter.Contains(apool.Name()) ||
 		providerFilter.Contains(string(apool.Provider()))
 }

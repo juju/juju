@@ -14,7 +14,14 @@ const PoolListCommandDoc = `
 Lists storage pools.
 The user can filter on pool type, name.
 
-* note use of positional arguments
+If no filter is specified, all current pools are listed.
+If at least 1 name and type is specified, only pools that can match both a name
+AND a type from criteria are listed. 
+If only names are specified, only mentioned pools will be listed. 
+If only types are specified, all pools of the specified types will be listed. 
+
+Both pool types and names must be valid. 
+Valid pool types are pool types that are registered for Juju environment.
 
 options:
 -e, --environment (= "")
