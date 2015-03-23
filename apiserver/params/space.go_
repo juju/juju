@@ -3,10 +3,6 @@
 
 package params
 
-import (
-	"github.com/juju/juju/network"
-)
-
 // -----
 // Parameters field types.
 // -----

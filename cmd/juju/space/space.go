@@ -6,8 +6,6 @@ package space
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
-
-	"github.com/juju/juju/cmd/envcmd"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.spaces")
@@ -25,7 +23,6 @@ func NewSuperCommand() cmd.Command {
 		UsagePrefix: "juju",
 		Purpose:     "manage network spaces",
 	})
-	spaceCmd.Register(envcmd.Wrap(&CreateCommand{}))
 
 	return spaceCmd
 }

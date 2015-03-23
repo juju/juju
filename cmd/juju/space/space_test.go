@@ -60,3 +60,4 @@ func (s *spaceSuite) TestHelp(c *gc.C) {
 	c.Check(testing.Stdout(ctx), gc.Matches, expected)
 
 	s.checkHelpCommands(c)
+}
