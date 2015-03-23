@@ -4,6 +4,8 @@
 package storageprovisioner
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
@@ -351,11 +353,11 @@ func createVolumes(
 	// for a storage provider, e.g. multiple Ceph installations. For
 	// now we assume a single source for each provider type, with no
 	// configuration.
+
+	// Create volume sources.
 	volumeSources := make(map[string]storage.VolumeSource)
-	paramsBySource := make(map[string][]storage.VolumeParams)
 	for _, params := range params {
 		sourceName := string(params.Provider)
-		paramsBySource[sourceName] = append(paramsBySource[sourceName], params)
 		if _, ok := volumeSources[sourceName]; ok {
 			continue
 		}
@@ -367,6 +369,29 @@ func createVolumes(
 		}
 		volumeSources[sourceName] = volumeSource
 	}
+
+	// Validate and gather volume parameters.
+	paramsBySource := make(map[string][]storage.VolumeParams)
+	for _, params := range params {
+		sourceName := string(params.Provider)
+		volumeSource := volumeSources[sourceName]
+		err := volumeSource.ValidateVolumeParams(params)
+		switch errors.Cause(err) {
+		case nil:
+			paramsBySource[sourceName] = append(paramsBySource[sourceName], params)
+		case storage.ErrVolumeNeedsInstance:
+			// TODO(axw) defer creation of volume until instance
+			// is created. This requires that we watch machines.
+			//
+			// For now, rely on the worker bouncing to retry.
+			time.Sleep(5 * time.Second)
+			return nil, nil, err
+		default:
+			// TODO(axw) we should set an error status for params.Tag here.
+			logger.Errorf("ignoring invalid volume parameters: %v", err)
+		}
+	}
+
 	var allVolumes []storage.Volume
 	var allVolumeAttachments []storage.VolumeAttachment
 	for sourceName, params := range paramsBySource {
