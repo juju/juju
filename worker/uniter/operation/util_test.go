@@ -5,7 +5,9 @@ package operation_test
 
 import (
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	utilexec "github.com/juju/utils/exec"
+	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 
@@ -458,4 +460,73 @@ var someCommandArgs = operation.CommandArgs{
 	RelationId:      123,
 	RemoteUnitName:  "foo/456",
 	ForceRemoteUnit: true,
+}
+
+func validateStates(c *gc.C, states ...*operation.State) {
+	for ix, state := range states {
+		c.Logf("check %d state", ix)
+		err := operation.ValidateState(state)
+		c.Check(err, jc.ErrorIsNil)
+	}
+}
+
+func makePrev(state operation.State) *operation.State {
+	return &operation.State{
+		Kind:     state.Kind,
+		Step:     state.Step,
+		Hook:     state.Hook,
+		CharmURL: state.CharmURL,
+	}
+}
+
+var beginStateModeAbide = operation.State{
+	Kind: operation.Continue,
+	Step: operation.Pending,
+}
+
+var beginStateUpgrade = operation.State{
+	Kind:     operation.Upgrade,
+	Step:     operation.Pending,
+	Hook:     &hook.Info{Kind: hooks.UpgradeCharm},
+	CharmURL: curl("cs:quantal/wordpress-2"),
+}
+
+var beginStateModeHookError = operation.State{
+	Kind:               operation.RunHook,
+	Step:               operation.Pending,
+	Hook:               &hook.Info{Kind: hooks.Install},
+	CollectMetricsTime: 1234567,
+	Started:            true,
+}
+
+var actionPreparedModeAbide = operation.State{
+	Kind:     operation.RunAction,
+	Step:     operation.Pending,
+	ActionId: &randomActionId,
+	Prev:     makePrev(beginStateModeAbide),
+}
+
+var actionPreparedModeHookError = operation.State{
+	Kind:               operation.RunAction,
+	Step:               operation.Pending,
+	ActionId:           &randomActionId,
+	CollectMetricsTime: 1234567,
+	Prev:               makePrev(beginStateModeHookError),
+	Started:            true,
+}
+
+var actionExecutedModeAbide = operation.State{
+	Kind:     operation.RunAction,
+	Step:     operation.Done,
+	ActionId: &someActionId,
+	Prev:     makePrev(beginStateModeAbide),
+}
+
+var actionExecutedModeHookError = operation.State{
+	Kind:               operation.RunAction,
+	Step:               operation.Done,
+	ActionId:           &someActionId,
+	CollectMetricsTime: 1234567,
+	Prev:               makePrev(beginStateModeHookError),
+	Started:            true,
 }

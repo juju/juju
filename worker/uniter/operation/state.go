@@ -92,6 +92,10 @@ type State struct {
 	// It's set to nil if the hook was not run at all. Recording time as int64
 	// because the yaml encoder cannot encode the time.Time struct.
 	CollectMetricsTime int64 `yaml:"collectmetricstime,omitempty"`
+
+	// Prev holds an optional record of the previous state.  Useful when running
+	// Actions while in ModeHookError for example.
+	Prev *State `yaml:"previous,omitempty"`
 }
 
 // validate returns an error if the state violates expectations.
@@ -100,6 +104,7 @@ func (st State) validate() (err error) {
 	hasHook := st.Hook != nil
 	hasActionId := st.ActionId != nil
 	hasCharm := st.CharmURL != nil
+	hasPrev := st.Prev != nil
 	switch st.Kind {
 	case Install:
 		if hasHook {
@@ -112,6 +117,8 @@ func (st State) validate() (err error) {
 			return errors.New("missing charm URL")
 		case hasActionId:
 			return errors.New("unexpected action id")
+		case hasPrev:
+			return errors.New("unexpected Prev state with Kind Upgrade")
 		}
 	case RunAction:
 		switch {
@@ -121,6 +128,8 @@ func (st State) validate() (err error) {
 			return errors.New("unexpected charm URL")
 		case !hasActionId:
 			return errors.New("missing action id")
+		case !hasPrev:
+			return errors.New("missing Prev state with Kind RunAction")
 		}
 	case RunHook:
 		switch {
@@ -130,6 +139,8 @@ func (st State) validate() (err error) {
 			return errors.New("unexpected charm URL")
 		case hasActionId:
 			return errors.New("unexpected action id")
+		case hasPrev:
+			return errors.New("unexpected Prev state with Kind RunHook")
 		}
 	case Continue:
 		switch {
@@ -139,6 +150,8 @@ func (st State) validate() (err error) {
 			return errors.New("unexpected charm URL")
 		case hasActionId:
 			return errors.New("unexpected action id")
+		case hasPrev:
+			return errors.New("unexpected Prev state with Kind Continue")
 		}
 	default:
 		return errors.Errorf("unknown operation %q", st.Kind)

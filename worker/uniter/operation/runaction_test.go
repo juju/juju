@@ -8,9 +8,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4/hooks"
 
-	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner"
 )
@@ -20,6 +18,18 @@ type RunActionSuite struct {
 }
 
 var _ = gc.Suite(&RunActionSuite{})
+
+func (s *RunActionSuite) SetUpSuite(c *gc.C) {
+	toVerify := []*operation.State{
+		&beginStateModeAbide,
+		&beginStateUpgrade,
+		&beginStateModeHookError,
+		&actionPreparedModeHookError,
+		&actionExecutedModeAbide,
+		&actionExecutedModeHookError,
+	}
+	validateStates(c, toVerify...)
+}
 
 func (s *RunActionSuite) TestPrepareErrorBadActionAndFailSucceeds(c *gc.C) {
 	errBadAction := runner.NewBadActionError("some-action-id", "splat")
@@ -98,10 +108,11 @@ func (s *RunActionSuite) TestPrepareSuccessCleanState(c *gc.C) {
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.NotNil)
-	c.Assert(*newState, gc.DeepEquals, operation.State{
+	c.Assert(*newState, jc.DeepEquals, operation.State{
 		Kind:     operation.RunAction,
 		Step:     operation.Pending,
 		ActionId: &someActionId,
+		Prev:     &operation.State{},
 	})
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
 }
@@ -112,16 +123,16 @@ func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(overwriteState)
+	newState, err := op.Prepare(actionPreparedModeHookError)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.NotNil)
-	c.Assert(*newState, gc.DeepEquals, operation.State{
+	c.Assert(*newState, jc.DeepEquals, operation.State{
 		Kind:               operation.RunAction,
 		Step:               operation.Pending,
 		ActionId:           &someActionId,
 		Started:            true,
 		CollectMetricsTime: 1234567,
-		Hook:               &hook.Info{Kind: hooks.Install},
+		Prev:               makePrev(actionPreparedModeHookError),
 	})
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
 }
@@ -170,23 +181,13 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 		before      operation.State
 		after       operation.State
 	}{{
-		description: "empty state",
-		after: operation.State{
-			Kind:     operation.RunAction,
-			Step:     operation.Done,
-			ActionId: &someActionId,
-		},
+		description: "state ModeHookError",
+		before:      beginStateModeHookError,
+		after:       actionExecutedModeHookError,
 	}, {
-		description: "preserves appropriate fields",
-		before:      overwriteState,
-		after: operation.State{
-			Kind:               operation.RunAction,
-			Step:               operation.Done,
-			ActionId:           &someActionId,
-			Hook:               &hook.Info{Kind: hooks.Install},
-			Started:            true,
-			CollectMetricsTime: 1234567,
-		},
+		description: "state ModeAbide",
+		before:      beginStateModeAbide,
+		after:       actionExecutedModeAbide,
 	}}
 
 	for i, test := range stateChangeTests {
@@ -201,11 +202,14 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 		midState, err := op.Prepare(test.before)
 		c.Assert(midState, gc.NotNil)
 		c.Assert(err, jc.ErrorIsNil)
+		c.Logf("prepared %d: %+v", i, *midState)
 
 		newState, err := op.Execute(*midState)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(newState, gc.NotNil)
-		c.Assert(*newState, gc.DeepEquals, test.after)
+		c.Logf("executed %d: %+v", i, *newState)
+
+		c.Assert(*newState, jc.DeepEquals, test.after)
 		c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running action some-action-name")
 		c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
 		c.Assert(*runnerFactory.MockNewActionRunner.runner.MockRunAction.gotName, gc.Equals, "some-action-name")
@@ -218,21 +222,13 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 		before      operation.State
 		after       operation.State
 	}{{
-		description: "empty state",
-		after: operation.State{
-			Kind: operation.Continue,
-			Step: operation.Pending,
-		},
+		description: "state ModeHookError",
+		before:      actionExecutedModeHookError,
+		after:       beginStateModeHookError,
 	}, {
-		description: "preserves appropriate fields",
-		before:      overwriteState,
-		after: operation.State{
-			Kind:               operation.Continue,
-			Step:               operation.Pending,
-			Hook:               &hook.Info{Kind: hooks.Install},
-			Started:            true,
-			CollectMetricsTime: 1234567,
-		},
+		description: "state ModeAbide",
+		before:      actionExecutedModeAbide,
+		after:       beginStateModeAbide,
 	}}
 
 	for i, test := range stateChangeTests {
@@ -243,6 +239,6 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 
 		newState, err := op.Commit(test.before)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(*newState, gc.DeepEquals, test.after)
+		c.Assert(*newState, jc.DeepEquals, test.after)
 	}
 }
