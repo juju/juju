@@ -39,8 +39,9 @@ options:
         pool name
     <provider type>
         pool provider type
-    [<key>=<value>]+
-        pool configuration attributes, for e.g. tags, size, path, etc...
+    <key>=<value> (<key>=<value> ...)
+        pool configuration attributes as space-separated pairs, 
+        for e.g. tags, size, path, etc...
 `
 
 // PoolCreateCommand lists storage pools.
