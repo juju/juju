@@ -66,15 +66,17 @@ func (s *workerSuite) createAddresses(c *gc.C) {
 }
 
 func (s *workerSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
+	// we start with two dead addresses
+	dead, err := s.State.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(dead), gc.Equals, 2)
+
 	w, err := addresser.NewWorker(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		c.Assert(worker.Stop(w), gc.IsNil)
 	}()
 
-	dead, err := s.State.DeadIPAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(dead), gc.Equals, 2)
 	for a := shortAttempt.Start(); a.Next(); {
 		dead, err := s.State.DeadIPAddresses()
 		c.Assert(err, jc.ErrorIsNil)
