@@ -70,6 +70,9 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 		c.Assert(worker.Stop(w), gc.IsNil)
 	}()
 
+	dead, err := s.State.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(dead), gc.Equals, 2)
 	for a := shortAttempt.Start(); a.Next(); {
 		dead, err := s.State.DeadIPAddresses()
 		c.Assert(err, jc.ErrorIsNil)
