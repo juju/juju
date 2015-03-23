@@ -88,7 +88,7 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	// Patch things out.
-	s.dataDir = c.MkDir()
+	s.dataDir = "/juju/data/dir" // This is never used concretely in tests.
 	systemd.PatchFindDataDir(s, s.dataDir)
 	s.ch = systemd.PatchNewChan(s)
 
