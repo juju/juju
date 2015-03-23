@@ -663,6 +663,7 @@ type StateServersChanges struct {
 	Removed    []string `json:"removed,omitempty"`
 	Promoted   []string `json:"promoted,omitempty"`
 	Demoted    []string `json:"demoted,omitempty"`
+	Converted  []string `json:"converted,omitempty"`
 }
 
 // FindToolsParams defines parameters for the FindTools method.

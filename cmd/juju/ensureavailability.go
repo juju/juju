@@ -103,6 +103,10 @@ func formatSimple(value interface{}) ([]byte, error) {
 			"demoting machines %s\n",
 			ensureAvailabilityResult.Demoted,
 		},
+		{
+			"converting machines %s\n",
+			ensureAvailabilityResult.Converted,
+		},
 	} {
 		if len(machineList.list) == 0 {
 			continue
@@ -146,7 +150,6 @@ func (c *EnsureAvailabilityCommand) Init(args []string) error {
 		c.Placement = make([]string, len(placementSpecs))
 		for i, spec := range placementSpecs {
 			p, err := instance.ParsePlacement(strings.TrimSpace(spec))
-			fmt.Println(p, err)
 			if err == nil && p.Scope == instance.MachineScope {
 				// targeting machines is ok
 				c.Placement[i] = p.String()
@@ -168,6 +171,7 @@ type availabilityInfo struct {
 	Added      []string `json:"added,omitempty" yaml:"added,flow,omitempty"`
 	Promoted   []string `json:"promoted,omitempty" yaml:"promoted,flow,omitempty"`
 	Demoted    []string `json:"demoted,omitempty" yaml:"demoted,flow,omitempty"`
+	Converted  []string `json:"converted,omitempty" yaml:"converted,flow,omitempty"`
 }
 
 // EnsureAvailabilityClient defines the methods
@@ -219,6 +223,7 @@ func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
 		Maintained: machineTagsToIds(ensureAvailabilityResult.Maintained...),
 		Promoted:   machineTagsToIds(ensureAvailabilityResult.Promoted...),
 		Demoted:    machineTagsToIds(ensureAvailabilityResult.Demoted...),
+		Converted:  machineTagsToIds(ensureAvailabilityResult.Converted...),
 	}
 	return c.out.Write(ctx, result)
 }
