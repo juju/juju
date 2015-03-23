@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
@@ -29,7 +30,7 @@ import (
 
 type DeployCommand struct {
 	envcmd.EnvCommandBase
-	UnitCommandBase
+	service.UnitCommandBase
 	CharmName    string
 	ServiceName  string
 	Config       cmd.FileVar
@@ -174,12 +175,12 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	conf, err := getClientConfig(client)
+	conf, err := service.GetClientConfig(client)
 	if err != nil {
 		return err
 	}
 
-	if err := c.checkProvider(conf); err != nil {
+	if err := c.CheckProvider(conf); err != nil {
 		return err
 	}
 

@@ -887,6 +887,21 @@ func (s *clientSuite) TestClientAddServiceUnits(c *gc.C) {
 	c.Assert(assignedMachine, gc.Equals, "0")
 }
 
+func (s *clientSuite) TestClientAddServiceUnitsToNewContainer(c *gc.C) {
+	svc := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.APIState.Client().AddServiceUnits("dummy", 1, "lxc:"+machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := svc.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	mid, err := units[0].AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mid, gc.Equals, machine.Id()+"/lxc/0")
+}
+
 func (s *clientSuite) assertAddServiceUnits(c *gc.C) {
 	units, err := s.APIState.Client().AddServiceUnits("dummy", 3, "")
 	c.Assert(err, jc.ErrorIsNil)
