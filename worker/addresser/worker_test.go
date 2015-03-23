@@ -32,9 +32,9 @@ type workerSuite struct {
 	testing.JujuConnSuite
 }
 
-func (s *workerSuite) SetUpTest(c *gc.C) {
-	s.AssertConfigParameterUpdated(c, "broken", []string{})
-}
+//func (s *workerSuite) SetUpTest(c *gc.C) {
+//	s.AssertConfigParameterUpdated(c, "broken", []string{})
+//}
 
 func (s *workerSuite) createAddresses(c *gc.C) {
 	addresses := [][]string{
