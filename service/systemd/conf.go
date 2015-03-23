@@ -99,12 +99,12 @@ func isSimpleCommand(cmd string) bool {
 	return true
 }
 
-func validate(name string, conf common.Conf) error {
+func validate(name string, conf common.Conf, renderer shell.Renderer) error {
 	if name == "" {
 		return errors.NotValidf("missing service name")
 	}
 
-	if err := conf.Validate(); err != nil {
+	if err := conf.Validate(renderer); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -125,8 +125,8 @@ func validate(name string, conf common.Conf) error {
 
 // serialize returns the data that should be written to disk for the
 // provided Conf, rendered in the systemd unit file format.
-func serialize(name string, conf common.Conf) ([]byte, error) {
-	if err := validate(name, conf); err != nil {
+func serialize(name string, conf common.Conf, renderer shell.Renderer) ([]byte, error) {
+	if err := validate(name, conf, renderer); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -261,15 +261,15 @@ func serializeInstall(conf common.Conf) []*unit.UnitOption {
 
 // deserialize parses the provided data (in the systemd unit file
 // format) and populates a new Conf with the result.
-func deserialize(data []byte) (common.Conf, error) {
+func deserialize(data []byte, renderer shell.Renderer) (common.Conf, error) {
 	opts, err := unit.Deserialize(bytes.NewBuffer(data))
 	if err != nil {
 		return common.Conf{}, errors.Trace(err)
 	}
-	return deserializeOptions(opts)
+	return deserializeOptions(opts, renderer)
 }
 
-func deserializeOptions(opts []*unit.UnitOption) (common.Conf, error) {
+func deserializeOptions(opts []*unit.UnitOption, renderer shell.Renderer) (common.Conf, error) {
 	var conf common.Conf
 
 	for _, uo := range opts {
@@ -343,6 +343,6 @@ func deserializeOptions(opts []*unit.UnitOption) (common.Conf, error) {
 		}
 	}
 
-	err := validate("<>", conf)
+	err := validate("<>", conf, renderer)
 	return conf, errors.Trace(err)
 }

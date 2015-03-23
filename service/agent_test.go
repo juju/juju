@@ -175,7 +175,9 @@ func (*agentSuite) TestShutdownAfterConf(c *gc.C) {
 		AfterStopped: "spam",
 		ExecStart:    "/sbin/shutdown -h now",
 	})
-	c.Check(conf.Validate(), jc.ErrorIsNil)
+	renderer, err := shell.NewRenderer("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(conf.Validate(renderer), jc.ErrorIsNil)
 }
 
 func (*agentSuite) TestShutdownAfterConfMissingServiceName(c *gc.C) {

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/shell"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/service"
@@ -22,6 +23,8 @@ import (
 	"github.com/juju/juju/service/systemd"
 	coretesting "github.com/juju/juju/testing"
 )
+
+var renderer = &shell.BashRenderer{}
 
 const confStr = `
 [Unit]
@@ -139,7 +142,7 @@ func (s *initSystemSuite) addListResponse() {
 }
 
 func (s *initSystemSuite) setConf(c *gc.C, conf common.Conf) {
-	data, err := systemd.Serialize(s.name, conf)
+	data, err := systemd.Serialize(s.name, conf, renderer)
 	c.Assert(err, jc.ErrorIsNil)
 	s.exec.Responses = append(s.exec.Responses, exec.ExecResponse{
 		Code:   0,

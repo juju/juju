@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/shell"
 )
 
 // Conf is responsible for defining services. Its fields
@@ -65,7 +66,7 @@ func (c Conf) IsZero() bool {
 }
 
 // Validate checks the conf's values for correctness.
-func (c Conf) Validate() error {
+func (c Conf) Validate(renderer shell.Renderer) error {
 	if c.Desc == "" {
 		return errors.New("missing Desc")
 	}
@@ -81,7 +82,7 @@ func (c Conf) Validate() error {
 		if cmd == "" {
 			continue
 		}
-		if err := c.checkExec(field, cmd); err != nil {
+		if err := c.checkExec(field, cmd, renderer); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -89,9 +90,9 @@ func (c Conf) Validate() error {
 	return nil
 }
 
-func (c Conf) checkExec(name, cmd string) error {
+func (c Conf) checkExec(name, cmd string, renderer shell.Renderer) error {
 	path := executable(cmd)
-	if !isAbs(path) {
+	if !isAbs(path, renderer) {
 		return errors.NotValidf("relative path in %s (%s)", name, path)
 	}
 	return nil
@@ -99,7 +100,7 @@ func (c Conf) checkExec(name, cmd string) error {
 
 // TODO(ericsnow) Add an IsAbs method to shell.Renderer?
 
-func isAbs(path string) bool {
+func isAbs(path string, renderer shell.Renderer) bool {
 	if !strings.HasPrefix(path, "/") {
 		return false
 	}

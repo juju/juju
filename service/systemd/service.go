@@ -157,7 +157,7 @@ func (s Service) Conf() common.Conf {
 }
 
 func (s *Service) serialize() ([]byte, error) {
-	data, err := serialize(s.UnitName, s.Service.Conf)
+	data, err := serialize(s.UnitName, s.Service.Conf, renderer)
 	if err != nil {
 		return nil, s.errorf(err, "failed to serialize conf")
 	}
@@ -165,7 +165,7 @@ func (s *Service) serialize() ([]byte, error) {
 }
 
 func (s *Service) deserialize(data []byte) (common.Conf, error) {
-	conf, err := deserialize(data)
+	conf, err := deserialize(data, renderer)
 	if err != nil {
 		return conf, s.errorf(err, "failed to deserialize conf")
 	}
@@ -173,7 +173,7 @@ func (s *Service) deserialize(data []byte) (common.Conf, error) {
 }
 
 func (s *Service) validate(conf common.Conf) error {
-	if err := validate(s.Service.Name, conf); err != nil {
+	if err := validate(s.Service.Name, conf, &renderer); err != nil {
 		return s.errorf(err, "invalid conf")
 	}
 	return nil
