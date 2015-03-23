@@ -92,19 +92,10 @@ func (c Conf) Validate(renderer shell.Renderer) error {
 
 func (c Conf) checkExec(name, cmd string, renderer shell.Renderer) error {
 	path := executable(cmd)
-	if !isAbs(path, renderer) {
+	if !renderer.IsAbs(path) {
 		return errors.NotValidf("relative path in %s (%s)", name, path)
 	}
 	return nil
-}
-
-// TODO(ericsnow) Add an IsAbs method to shell.Renderer?
-
-func isAbs(path string, renderer shell.Renderer) bool {
-	if !strings.HasPrefix(path, "/") {
-		return false
-	}
-	return true
 }
 
 func executable(cmd string) string {
