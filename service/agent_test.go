@@ -4,12 +4,12 @@
 package service_test
 
 import (
-	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/shell"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/osenv"
@@ -33,16 +33,18 @@ type agentSuite struct {
 
 var _ = gc.Suite(&agentSuite{})
 
-func (*agentSuite) TestMachineAgentConfLocal(c *gc.C) {
+func (*agentSuite) TestAgentConfMachineLocal(c *gc.C) {
 	// We use two distinct directories to ensure the paths don't get
 	// mixed up during the call.
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
-	conf, toolsDir := service.MachineAgentConf("0", dataDir, logDir, "")
+	info := service.NewMachineAgentInfo("0", dataDir, logDir)
+	renderer, err := shell.NewRenderer("")
+	c.Assert(err, jc.ErrorIsNil)
+	conf := service.AgentConf(info, renderer)
 
-	c.Check(toolsDir, gc.Equals, filepath.Join(dataDir, "tools", "machine-0"))
 	cmd := strings.Join([]string{
-		quote + filepath.Join(toolsDir, "jujud"+cmdSuffix) + quote,
+		quote + filepath.Join(dataDir, "tools", "machine-0", "jujud"+cmdSuffix) + quote,
 		"machine",
 		"--data-dir", quote + dataDir + quote,
 		"--machine-id", "0",
@@ -60,14 +62,16 @@ func (*agentSuite) TestMachineAgentConfLocal(c *gc.C) {
 	})
 }
 
-func (*agentSuite) TestMachineAgentConfUbuntu(c *gc.C) {
+func (*agentSuite) TestAgentConfMachineUbuntu(c *gc.C) {
 	dataDir := "/var/lib/juju"
 	logDir := "/var/log/juju"
-	conf, toolsDir := service.MachineAgentConf("0", dataDir, logDir, "ubuntu")
+	info := service.NewMachineAgentInfo("0", dataDir, logDir)
+	renderer, err := shell.NewRenderer("ubuntu")
+	c.Assert(err, jc.ErrorIsNil)
+	conf := service.AgentConf(info, renderer)
 
-	c.Check(toolsDir, gc.Equals, dataDir+"/tools/machine-0")
 	cmd := strings.Join([]string{
-		"'" + toolsDir + "/jujud'",
+		"'" + dataDir + "/tools/machine-0/jujud'",
 		"machine",
 		"--data-dir", "'" + dataDir + "'",
 		"--machine-id", "0",
@@ -85,14 +89,16 @@ func (*agentSuite) TestMachineAgentConfUbuntu(c *gc.C) {
 	})
 }
 
-func (*agentSuite) TestMachineAgentConfWindows(c *gc.C) {
+func (*agentSuite) TestAgentConfMachineWindows(c *gc.C) {
 	dataDir := `C:\Juju\lib\juju`
 	logDir := `C:\Juju\logs\juju`
-	conf, toolsDir := service.MachineAgentConf("0", dataDir, logDir, "windows")
+	info := service.NewMachineAgentInfo("0", dataDir, logDir)
+	renderer, err := shell.NewRenderer("windows")
+	c.Assert(err, jc.ErrorIsNil)
+	conf := service.AgentConf(info, renderer)
 
-	c.Check(toolsDir, gc.Equals, dataDir+`\tools\machine-0`)
 	cmd := strings.Join([]string{
-		`'` + toolsDir + `\jujud.exe'`,
+		`'` + dataDir + `\tools\machine-0\jujud.exe'`,
 		"machine",
 		"--data-dir", `'` + dataDir + `'`,
 		"--machine-id", "0",
@@ -110,16 +116,42 @@ func (*agentSuite) TestMachineAgentConfWindows(c *gc.C) {
 	})
 }
 
-func (*agentSuite) TestUnitAgentConf(c *gc.C) {
+func (*agentSuite) TestAgentConfUnit(c *gc.C) {
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
-	conf, toolsDir := service.UnitAgentConf("wordpress/0", dataDir, logDir, "", "cont")
+	info := service.NewUnitAgentInfo("wordpress/0", dataDir, logDir)
+	renderer, err := shell.NewRenderer("")
+	c.Assert(err, jc.ErrorIsNil)
+	conf := service.AgentConf(info, renderer)
 
-	c.Check(toolsDir, gc.Equals, path.Join(dataDir, "tools", "unit-wordpress-0"))
 	cmd := strings.Join([]string{
-		filepath.Join(toolsDir, "jujud"+cmdSuffix),
+		quote + filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud"+cmdSuffix) + quote,
 		"unit",
-		"--data-dir", "'" + dataDir + "'",
+		"--data-dir", quote + dataDir + quote,
+		"--unit-name", "wordpress/0",
+		"--debug",
+	}, " ")
+	c.Check(conf, jc.DeepEquals, common.Conf{
+		Desc:      "juju unit agent for wordpress/0",
+		ExecStart: cmd,
+		Logfile:   filepath.Join(logDir, "unit-wordpress-0.log"),
+		Env:       osenv.FeatureFlags(),
+		Timeout:   300,
+	})
+}
+
+func (*agentSuite) TestContainerAgentConf(c *gc.C) {
+	dataDir := c.MkDir()
+	logDir := c.MkDir()
+	info := service.NewUnitAgentInfo("wordpress/0", dataDir, logDir)
+	renderer, err := shell.NewRenderer("")
+	c.Assert(err, jc.ErrorIsNil)
+	conf := service.ContainerAgentConf(info, renderer, "cont")
+
+	cmd := strings.Join([]string{
+		quote + filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud"+cmdSuffix) + quote,
+		"unit",
+		"--data-dir", quote + dataDir + quote,
 		"--unit-name", "wordpress/0",
 		"--debug",
 	}, " ")

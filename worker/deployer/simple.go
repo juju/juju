@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
@@ -143,13 +144,22 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	defer removeOnErr(&err, conf.Dir())
 
 	// Install an init service that runs the unit agent.
-	sconf, _ := service.UnitAgentConf(
+	info := service.NewAgentInfo(
+		service.AgentKindUnit,
 		unitName,
 		dataDir,
 		logDir,
-		"",
-		containerType,
 	)
+	renderer, err := shell.NewRenderer("")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// TODO(thumper): 2013-09-02 bug 1219630
+	// As much as I'd like to remove JujuContainerType now, it is still
+	// needed as MAAS still needs it at this stage, and we can't fix
+	// everything at once.
+	sconf := service.ContainerAgentConf(info, renderer, containerType)
+
 	svc.UpdateConfig(sconf)
 	if err := service.InstallAndStart(svc); err != nil {
 		return errors.Trace(err)

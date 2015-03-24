@@ -5,15 +5,10 @@ package service
 
 import (
 	"fmt"
-	"path"
-	"runtime"
-	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	"github.com/juju/utils/shell"
 
-	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service/common"
 )
@@ -24,73 +19,36 @@ const (
 	agentServiceTimeout = 300 // 5 minutes
 )
 
-// TODO(ericsnow) Factor out the common parts between the two helpers.
-// TODO(ericsnow) Add agent.Info to handle all the agent-related data
-// and pass it as *the* arg to the helpers.
-
-// MachineAgentConf returns the data that defines an init service config
-// for the identified machine.
-func MachineAgentConf(machineID, dataDir, logDir, os string) (common.Conf, string) {
-	machineName := "machine-" + strings.Replace(machineID, "/", "-", -1)
-
-	renderer, err := shell.NewRenderer(os)
-	if err != nil {
-		// This should not ever happen.
-		panic(err)
-	}
-	toolsDir := renderer.FromSlash(tools.ToolsDir(dataDir, machineName))
-	jujudPath := renderer.Join(toolsDir, "jujud") + renderer.ExeSuffix()
-
-	cmd := strings.Join([]string{
-		renderer.Quote(jujudPath),
-		"machine",
-		"--data-dir", renderer.Quote(renderer.FromSlash(dataDir)),
-		"--machine-id", machineID, // TODO(ericsnow) double-quote on windows?
-		"--debug",
-	}, " ")
-
-	logFile := path.Join(logDir, machineName+".log")
-
-	// The machine agent always starts with debug turned on.  The logger worker
-	// will update this to the system logging environment as soon as it starts.
+// AgentConf returns the data that defines an init service config
+// for the identified agent.
+func AgentConf(info AgentInfo, renderer shell.Renderer) common.Conf {
 	conf := common.Conf{
-		Desc:      fmt.Sprintf("juju agent for %s", machineName),
-		ExecStart: cmd,
-		Logfile:   renderer.FromSlash(logFile),
+		Desc:      fmt.Sprintf("juju agent for %s", info.name),
+		ExecStart: info.cmd(renderer),
+		Logfile:   info.logFile(renderer),
 		Env:       osenv.FeatureFlags(),
-		Limit: map[string]int{
-			"nofile": maxAgentFiles,
-		},
-		Timeout: agentServiceTimeout,
+		Timeout:   agentServiceTimeout,
 	}
 
-	return conf, toolsDir
+	switch info.Kind {
+	case AgentKindMachine:
+		conf.Limit = map[string]int{
+			"nofile": maxAgentFiles,
+		}
+	case AgentKindUnit:
+		conf.Desc = "juju unit agent for " + info.ID
+	}
+
+	return conf
 }
 
-// UnitAgentConf returns the data that defines an init service config
-// for the identified unit.
-func UnitAgentConf(unitName, dataDir, logDir, os, containerType string) (common.Conf, string) {
-	if os == "" {
-		os = runtime.GOOS
-	}
+// TODO(ericsnow) Eliminate ContainerAgentConf once it is no longer
+// used in worker/deployer/simple.go.
 
-	unitID := "unit-" + strings.Replace(unitName, "/", "-", -1)
-
-	toolsDir := tools.ToolsDir(dataDir, unitID)
-	jujudPath := path.Join(toolsDir, "jujud")
-	if os == "windows" {
-		jujudPath += ".exe"
-	}
-
-	cmd := strings.Join([]string{
-		jujudPath,
-		"unit",
-		"--data-dir", utils.ShQuote(dataDir),
-		"--unit-name", unitName,
-		"--debug",
-	}, " ")
-
-	logFile := path.Join(logDir, unitID+".log")
+// ContainerAgentConf returns the data that defines an init service config
+// for the identified agent running in a container.
+func ContainerAgentConf(info AgentInfo, renderer shell.Renderer, containerType string) common.Conf {
+	conf := AgentConf(info, renderer)
 
 	// TODO(thumper): 2013-09-02 bug 1219630
 	// As much as I'd like to remove JujuContainerType now, it is still
@@ -99,19 +57,10 @@ func UnitAgentConf(unitName, dataDir, logDir, os, containerType string) (common.
 	envVars := map[string]string{
 		osenv.JujuContainerTypeEnvKey: containerType,
 	}
-	osenv.MergeEnvironment(envVars, osenv.FeatureFlags())
+	osenv.MergeEnvironment(envVars, conf.Env)
+	conf.Env = envVars
 
-	// The machine agent always starts with debug turned on.  The logger worker
-	// will update this to the system logging environment as soon as it starts.
-	conf := common.Conf{
-		Desc:      fmt.Sprintf("juju unit agent for %s", unitName),
-		ExecStart: cmd,
-		Logfile:   logFile,
-		Env:       envVars,
-		Timeout:   agentServiceTimeout,
-	}
-
-	return conf, toolsDir
+	return conf
 }
 
 // ShutdownAfterConf builds a service conf that will cause the host to
