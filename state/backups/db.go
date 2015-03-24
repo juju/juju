@@ -141,6 +141,7 @@ func NewDBDumper(info *DBInfo) (DBDumper, error) {
 func (md *mongoDumper) options(dumpDir string) []string {
 	options := []string{
 		"--ssl",
+		"--journal",
 		"--authenticationDatabase", "admin",
 		"--host", md.Address,
 		"--username", md.Username,
@@ -227,9 +228,9 @@ func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, 
 	dbDir := filepath.Join(agent.DefaultDataDir, "db")
 	switch {
 	case ver.Major == 1 && ver.Minor < 22:
-		return []string{"--drop", "--dbpath", dbDir, dumpPath}, nil
+		return []string{"--drop", "--journal", "--dbpath", dbDir, dumpPath}, nil
 	case ver.Major == 1 && ver.Minor >= 22:
-		return []string{"--drop", "--oplogReplay", "--dbpath", dbDir, dumpPath}, nil
+		return []string{"--drop", "--journal", "--oplogReplay", "--dbpath", dbDir, dumpPath}, nil
 	default:
 		return nil, errors.Errorf("this backup file is incompatible with the current version of juju")
 	}
