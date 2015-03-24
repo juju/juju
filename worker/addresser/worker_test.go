@@ -8,6 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
@@ -15,9 +19,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	gc "gopkg.in/check.v1"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -125,9 +126,9 @@ func (s *workerSuite) TestWorkerHandlesProviderError(c *gc.C) {
 		c.Assert(worker.Stop(w), gc.IsNil)
 	}()
 	s.waitForInitialDead(c)
-
 	// now break the ReleaseAddress provider method
 	s.AssertConfigParameterUpdated(c, "broken", "ReleaseAddress")
+
 	opsChan := make(chan dummy.Operation)
 	dummy.Listen(opsChan)
 
