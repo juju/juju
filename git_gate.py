@@ -9,6 +9,7 @@ import subprocess
 import sys
 
 from utility import (
+    print_now,
     temp_dir,
 )
 
@@ -42,33 +43,34 @@ class SubcommandRunner(object):
             raise SubcommandError(self.command, subcommand, e)
 
 
-def go_test(gopath, project, project_url, project_ref, merge_url, merge_ref,
-            dependencies):
+def go_test(args, gopath):
     """Download, build and test a go package."""
     goenv = dict(os.environ)
     goenv["GOPATH"] = gopath
     go = SubcommandRunner("go", goenv)
     git = SubcommandRunner("git")
-    directory = os.path.join(gopath, "src", project)
-    if project_url:
-        print("Cloning {} from {}".format(project, project_url))
-        git("clone", project_url, directory)
-    else:
-        print("Getting {} using go".format(project))
-        go("get", "-v", project)
+    project_ellipsis = args.project + "/..."
+    directory = os.path.join(gopath, "src", args.project)
+    if args.project_url:
+        print_now("Cloning {} from {}".format(args.project, args.project_url))
+        git("clone", args.project_url, directory)
+    if args.go_get_all:
+        print_now("Getting {} and dependencies using go".format(args.project))
+        go("get", "-v", "-d", "-t", project_ellipsis)
     os.chdir(directory)
-    if project_ref:
-        print("Switching repository to {}".format(project_ref))
-        git("checkout", project_ref)
-    if merge_url:
-        print("Merging {} ref {}".format(merge_url, merge_ref))
-        git("fetch", merge_url, merge_ref)
-        git("merge", "--no-ff", "-m", "Merged " + merge_ref, "FETCH_HEAD")
-    for dep in dependencies:
-        print("Getting {} using go".format(dep))
-        go("get", "-v", dep)
-    go("build", project + "/...")
-    go("test", project + "/...")
+    if args.project_ref:
+        print_now("Switching repository to {}".format(args.project_ref))
+        git("checkout", args.project_ref)
+    if args.merge_url:
+        print_now("Merging {} ref {}".format(args.merge_url, args.merge_ref))
+        git("fetch", args.merge_url, args.merge_ref)
+        git("merge", "--no-ff", "-m", "Merged " + args.merge_ref, "FETCH_HEAD")
+    if args.dependencies:
+        for dep in args.dependencies:
+            print_now("Getting {} and dependencies using go".format(dep))
+            go("get", "-v", "-d", dep)
+    go("build", project_ellipsis)
+    go("test", project_ellipsis)
 
 
 def parse_args(args=None):
@@ -89,18 +91,23 @@ def parse_args(args=None):
         help="Branch name or tag to merge before testing.")
     dep_group = parser.add_mutually_exclusive_group()
     dep_group.add_argument(
-        "--dependency", "-d", action="append", default=[],
+        "--dependencies", nargs="+",
+        help="Any number of package import paths needed for build or testing.")
+    dep_group.add_argument(
+        "--go-get-all", action="store_true",
         help="Go import path of package needed to for build or testing.")
     # GZ: Add dependencies.tsv argument option
-    return parser.parse_args(args)
+    args = parser.parse_args(args)
+    if args.project_url is None and not args.go_get_all:
+        parser.error("Must supply either --project-url or --go-get-all")
+    return args
 
 
 def main():
     args = parse_args()
     with temp_dir() as d:
         try:
-            go_test(d, args.project, args.project_url, args.project_ref,
-                    args.merge_url, args.merge_ref, args.dependency)
+            go_test(args, d)
         except SubcommandError as err:
             print(err, file=sys.stderr)
             return 1
