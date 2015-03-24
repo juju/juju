@@ -2140,11 +2140,10 @@ func (s *StateSuite) TestWatchIPAddresses(c *gc.C) {
 	w := s.State.WatchIPAddresses()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChanges()
-	wc.AssertNoChange()
+	wc.AssertChangeInSingleEvent()
 
 	// add an IP address
-	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.3", network.ScopePublic), "foo")
+	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.3"), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(addr.Value())
 	wc.AssertNoChange()
