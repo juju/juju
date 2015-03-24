@@ -36,9 +36,17 @@ class TestParseArgs(unittest.TestCase):
     def test_project_with_deps(self):
         args = git_gate.parse_args(
             ["--project", "git.testing/project",
-             "-d", "git.testing/a", "-d", "git.testing/b"])
+             "--dependencies", "git.testing/a", "git.testing/b"])
         self.assertEqual(args.project, "git.testing/project")
-        self.assertEqual(args.dependency, ["git.testing/a", "git.testing/b"])
+        self.assertEqual(args.dependencies, ["git.testing/a", "git.testing/b"])
+        self.assertEqual(args.go_get_all, False)
+
+    def test_project_with_go_deps(self):
+        args = git_gate.parse_args(
+            ["--project", "git.testing/project", "--go-get-all"])
+        self.assertEqual(args.project, "git.testing/project")
+        self.assertEqual(args.dependencies, None)
+        self.assertEqual(args.go_get_all, True)
 
 
 class TestSubcommandError(unittest.TestCase):
