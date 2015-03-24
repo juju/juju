@@ -6,15 +6,14 @@ package addresser_test
 import (
 	"fmt"
 	stdtesting "testing"
-	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -27,10 +26,6 @@ func TestPackage(t *stdtesting.T) {
 }
 
 var _ = gc.Suite(&workerSuite{})
-var shortAttempt = utils.AttemptStrategy{
-	Total: 5 * time.Second,
-	Delay: 200 * time.Millisecond,
-}
 
 type workerSuite struct {
 	testing.JujuConnSuite
@@ -115,7 +110,7 @@ func (s *workerSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
 }
 
 func (s *workerSuite) waitForInitialDead(c *gc.C) {
-	for a := shortAttempt.Start(); a.Next(); {
+	for a := common.ShortAttempt.Start(); a.Next(); {
 		dead, err := s.State.DeadIPAddresses()
 		c.Assert(err, jc.ErrorIsNil)
 		if len(dead) == 0 {
@@ -146,7 +141,7 @@ func (s *workerSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
 	c.Assert(op, jc.DeepEquals, makeReleaseOp(3))
 
 	// The address should have been removed from state.
-	for a := shortAttempt.Start(); a.Next(); {
+	for a := common.ShortAttempt.Start(); a.Next(); {
 		_, err := s.State.IPAddress("0.1.2.3")
 		if errors.IsNotFound(err) {
 			break

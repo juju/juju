@@ -78,7 +78,11 @@ func (a *addresserHandler) Handle(ids []string) error {
 		if addr.Life() != state.Dead {
 			continue
 		}
-		err = a.removeIPAddress(addr)
+		err = a.releaseIPAddress(addr)
+		if err != nil {
+			return err
+		}
+		err = addr.Remove()
 		if err != nil {
 			return err
 		}
@@ -86,7 +90,7 @@ func (a *addresserHandler) Handle(ids []string) error {
 	return nil
 }
 
-func (a *addresserHandler) removeIPAddress(addr *state.IPAddress) (err error) {
+func (a *addresserHandler) releaseIPAddress(addr *state.IPAddress) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to release address %v", addr.Value)
 	var machine *state.Machine
 	machine, err = a.st.Machine(addr.MachineId())
@@ -97,28 +101,26 @@ func (a *addresserHandler) removeIPAddress(addr *state.IPAddress) (err error) {
 	var instId instance.Id
 	instId, err = machine.InstanceId()
 	if err != nil {
-		return err
+		return errors.Annotatef(err, "cannot get machine %q instance ID", addr.MachineId())
 	}
 	err = a.releaser.ReleaseAddress(instId, network.Id(addr.SubnetId()), addr.Address())
 	if err != nil {
 		// Don't remove the address from state so we
 		// can retry releasing the address later.
-		return err
+		logger.Warningf("cannot release address %q: %v (will retry)", addr.Value, err)
+		return errors.Trace(err)
 	}
 
-	err = addr.Remove()
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
+// SetUp is part of the StringsWorker interface.
 func (a *addresserHandler) SetUp() (apiWatcher.StringsWatcher, error) {
-	w := a.st.WatchIPAddresses()
 	dead, err := a.st.DeadIPAddresses()
 	if err != nil {
-		return w, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
+	w := a.st.WatchIPAddresses()
 	deadQueue := make(chan *state.IPAddress, len(dead))
 	for _, deadAddr := range dead {
 		deadQueue <- deadAddr
@@ -126,9 +128,14 @@ func (a *addresserHandler) SetUp() (apiWatcher.StringsWatcher, error) {
 	go func() {
 		select {
 		case addr := <-deadQueue:
-			err := a.removeIPAddress(addr)
+			err := a.releaseIPAddress(addr)
 			if err != nil {
 				logger.Warningf("error releasing dead IP address %q: %v", addr, err)
+			} else {
+				err = addr.Remove()
+				if err != nil {
+					logger.Warningf("error removing dead IP address %q: %v", addr, err)
+				}
 			}
 		case <-a.dying:
 			return
