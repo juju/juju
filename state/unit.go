@@ -315,11 +315,10 @@ func (u *Unit) Destroy() (err error) {
 	return err
 }
 
-var unitNotInstalled = bson.D{
+// unitAgentAllocating actually refers to the unit's agent.
+var unitAgentAllocating = bson.D{
 	{"$or", []bson.D{
-		{{"status", StatusPending}},
 		{{"status", StatusAllocating}},
-		{{"status", StatusInstalling}},
 	}}}
 
 // destroyOps returns the operations required to destroy the unit. If it
@@ -365,20 +364,24 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 		return setDyingOps, nil
 	}
 
-	sdocId := u.globalAgentKey()
-	sdoc, err := getStatus(u.st, sdocId)
-	if errors.IsNotFound(err) {
+	agentStatusDocId := u.globalAgentKey()
+	agentStatusDoc, agentErr := getStatus(u.st, agentStatusDocId)
+
+	if errors.IsNotFound(agentErr) {
 		return nil, errAlreadyDying
-	} else if err != nil {
-		return nil, err
+	} else if agentErr != nil {
+		return nil, errors.Trace(agentErr)
 	}
-	if sdoc.Status != StatusPending && sdoc.Status != StatusAllocating && sdoc.Status != StatusInstalling {
+
+	// TODO(perrito666) Is there any workload status to be taken in account here?
+	if agentStatusDoc.Status != StatusAllocating && agentStatusDoc.Status != StatusRebooting {
 		return setDyingOps, nil
 	}
+	// TODO(perrito666) Ensure that no workload status is required here.
 	ops := []txn.Op{{
 		C:      statusesC,
-		Id:     u.st.docID(sdocId),
-		Assert: unitNotInstalled,
+		Id:     u.st.docID(agentStatusDocId),
+		Assert: unitAgentAllocating,
 	}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, bson.DocElem{
 		"$and", []bson.D{
@@ -1859,7 +1862,7 @@ func (u *Unit) Resolve(retryHooks bool) error {
 	// We currently check agent status to see if a unit is
 	// in error state. As the new Juju Health work is completed,
 	// this will change to checking the unit status.
-	status, _, _, err := u.AgentStatus()
+	status, _, _, err := u.Status()
 	if err != nil {
 		return err
 	}

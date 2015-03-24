@@ -116,7 +116,7 @@ func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 	dyingC.AssertNoReceive()
 
 	// Set dying.
-	err = s.unit.SetAgentStatus(state.StatusActive, "", nil)
+	err = s.unit.SetAgentStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -164,7 +164,7 @@ func (s *FilterSuite) TestServiceDeath(c *gc.C) {
 	dyingC := s.notifyAsserterC(c, f.UnitDying())
 	dyingC.AssertNoReceive()
 
-	err = s.unit.SetAgentStatus(state.StatusActive, "", nil)
+	err = s.unit.SetAgentStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpress.Destroy()
 	c.Assert(err, jc.ErrorIsNil)

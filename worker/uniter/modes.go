@@ -84,10 +84,10 @@ func ModeInstalling(curl *charm.URL) (next Mode, err error) {
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext(name, &err)()
 		// TODO(fwereade) 2015-01-19
-		// This SetStatus call should probably be inside the operation somehow;
-		// which in turn implies that the SetStatus call in PrepareHook is
+		// This SetUnitStatus call should probably be inside the operation somehow;
+		// which in turn implies that the SetUnitStatus call in PrepareHook is
 		// also misplaced, and should also be explicitly part of the operation.
-		if err = u.unit.SetAgentStatus(params.StatusInstalling, "", nil); err != nil {
+		if err = u.unit.SetUnitStatus(params.StatusMaintenance, "", nil); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return continueAfter(u, newInstallOp(curl))
@@ -110,14 +110,25 @@ func ModeUpgrading(curl *charm.URL) Mode {
 // ModeTerminating marks the unit dead and returns ErrTerminateAgent.
 func ModeTerminating(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeTerminating", &err)()
-	if err = u.unit.SetAgentStatus(params.StatusStopping, "", nil); err != nil {
+	if err = u.unit.SetUnitStatus(params.StatusMaintenance, "", nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 	w, err := u.unit.Watch()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	defer watcher.Stop(w, &u.tomb)
+
+	//TODO(perrito666) Should this be a mode?
+	defer func() {
+		if err != worker.ErrTerminateAgent {
+			return
+		}
+		if err = u.unit.SetUnitStatus(params.StatusTerminated, "", nil); err != nil {
+			logger.Errorf("cannot set unit status to %q: %v", params.StatusTerminated, err)
+		}
+	}()
 	for {
 		select {
 		case <-u.tomb.Dying():
@@ -169,7 +180,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if !opState.Started {
 		return continueAfter(u, newSimpleRunHookOp(hooks.Start))
 	}
-	if err = u.unit.SetAgentStatus(params.StatusActive, "", nil); err != nil {
+	if err = u.unit.SetUnitStatus(params.StatusActive, "", nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 	u.f.WantUpgradeEvent(false)
@@ -293,7 +304,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	u.f.WantResolvedEvent()
 	u.f.WantUpgradeEvent(true)
 	for {
-		if err = u.unit.SetAgentStatus(params.StatusError, statusMessage, statusData); err != nil {
+		if err = u.unit.SetUnitStatus(params.StatusError, statusMessage, statusData); err != nil {
 			return nil, errors.Trace(err)
 		}
 		select {
@@ -329,7 +340,7 @@ func ModeConflicted(curl *charm.URL) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext("ModeConflicted", &err)()
 		// TODO(mue) Add helpful data here too in later CL.
-		if err = u.unit.SetAgentStatus(params.StatusError, "upgrade failed", nil); err != nil {
+		if err = u.unit.SetUnitStatus(params.StatusBlocked, "upgrade failed", nil); err != nil {
 			return nil, errors.Trace(err)
 		}
 		u.f.WantResolvedEvent()

@@ -913,7 +913,7 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 			serveCharm{},
 			upgradeCharm{revision: 1},
 			waitUnit{
-				status: params.StatusError,
+				status: params.StatusBlocked,
 				info:   "upgrade failed",
 				charm:  1,
 			},
