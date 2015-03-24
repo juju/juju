@@ -77,6 +77,7 @@ func readSeries() (string, error) {
 	if err != nil {
 		return "unknown", err
 	}
+	updateSeriesVersions()
 	switch values["ID"] {
 	case strings.ToLower(Ubuntu.String()):
 		return getValue(ubuntuSeries, values["VERSION_ID"])
