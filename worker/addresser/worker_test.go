@@ -52,7 +52,7 @@ func (s *workerSuite) createAddresses(c *gc.C) {
 		"0.1.2.3", "0.1.2.4", "0.1.2.5", "0.1.2.6",
 	}
 	for i, rawAddr := range addresses {
-		addr := network.NewScopedAddress(rawAddr, network.ScopePublic)
+		addr := network.NewAddress(rawAddr)
 		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 		c.Assert(err, jc.ErrorIsNil)
 		err = ipAddr.AllocateTo(s.machine.Id(), "wobble")
@@ -119,6 +119,29 @@ func (s *workerSuite) waitForInitialDead(c *gc.C) {
 		if !a.HasNext() {
 			c.Fail()
 		}
+	}
+}
+
+func (s *workerSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
+	w, err := addresser.NewWorker(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		c.Assert(worker.Stop(w), gc.IsNil)
+	}()
+	s.waitForInitialDead(c)
+
+	// Add a new alive address.
+	addr := network.NewAddress("0.1.2.9")
+	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+	err = ipAddr.AllocateTo(s.machine.Id(), "wobble")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The worker must not kill this address.
+	for a := common.ShortAttempt.Start(); a.Next(); {
+		ipAddr, err := s.State.IPAddress("0.1.2.9")
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(ipAddr.Life(), gc.Equals, state.Alive)
 	}
 }
 
