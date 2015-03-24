@@ -205,7 +205,7 @@ def add_basic_testing_arguments(parser):
     parser.add_argument('--series', action='store', default=None,
                         help='Name of the Ubuntu series to use.')
     parser.add_argument('--verbose', action='store_const',
-                        default='logging.INFO', const='logging.DEBUG',
+                        default=logging.INFO, const=logging.DEBUG,
                         help='Verbose test harness output.')
     return parser
 
