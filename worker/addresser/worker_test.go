@@ -4,6 +4,7 @@
 package addresser_test
 
 import (
+	"fmt"
 	stdtesting "testing"
 	"time"
 
@@ -69,11 +70,35 @@ func (s *workerSuite) createAddresses(c *gc.C) {
 	}
 }
 
+func dummyListen() chan dummy.Operation {
+	opsChan := make(chan dummy.Operation, 5)
+	dummy.Listen(opsChan)
+	return opsChan
+}
+
+func waitForReleaseOp(c *gc.C, opsChan chan dummy.Operation) dummy.OpReleaseAddress {
+	op := <-opsChan
+	releaseOp, ok := op.(dummy.OpReleaseAddress)
+	c.Assert(ok, jc.IsTrue)
+	return releaseOp
+}
+
+func makeReleaseOp(digit int) dummy.OpReleaseAddress {
+	return dummy.OpReleaseAddress{
+		Env:        "dummyenv",
+		InstanceId: "foo",
+		SubnetId:   "foobar",
+		Address:    network.NewAddress(fmt.Sprintf("0.1.2.%d", digit)),
+	}
+}
+
 func (s *workerSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
 	// we start with two dead addresses
 	dead, err := s.State.DeadIPAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(dead), gc.Equals, 2)
+
+	opsChan := dummyListen()
 
 	w, err := addresser.NewWorker(s.State)
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,6 +106,12 @@ func (s *workerSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
 		c.Assert(worker.Stop(w), gc.IsNil)
 	}()
 	s.waitForInitialDead(c)
+
+	op1 := waitForReleaseOp(c, opsChan)
+	op2 := waitForReleaseOp(c, opsChan)
+
+	expectedDummyOps := []dummy.OpReleaseAddress{makeReleaseOp(4), makeReleaseOp(6)}
+	c.Assert([]dummy.OpReleaseAddress{op1, op2}, jc.SameContents, expectedDummyOps)
 }
 
 func (s *workerSuite) waitForInitialDead(c *gc.C) {
@@ -102,12 +133,19 @@ func (s *workerSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
 	defer func() {
 		c.Assert(worker.Stop(w), gc.IsNil)
 	}()
+	s.waitForInitialDead(c)
+	opsChan := dummyListen()
 
 	addr, err := s.State.IPAddress("0.1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
 	err = addr.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Wait for ReleaseAddress attempt.
+	op := waitForReleaseOp(c, opsChan)
+	c.Assert(op, jc.DeepEquals, makeReleaseOp(3))
+
+	// The address should have been removed from state.
 	for a := shortAttempt.Start(); a.Next(); {
 		_, err := s.State.IPAddress("0.1.2.3")
 		if errors.IsNotFound(err) {
@@ -129,8 +167,7 @@ func (s *workerSuite) TestWorkerHandlesProviderError(c *gc.C) {
 	// now break the ReleaseAddress provider method
 	s.AssertConfigParameterUpdated(c, "broken", "ReleaseAddress")
 
-	opsChan := make(chan dummy.Operation)
-	dummy.Listen(opsChan)
+	opsChan := dummyListen()
 
 	addr, err := s.State.IPAddress("0.1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
@@ -138,16 +175,8 @@ func (s *workerSuite) TestWorkerHandlesProviderError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// wait for ReleaseAddress attempt
-	op := <-opsChan
-	releaseOp, ok := op.(dummy.OpReleaseAddress)
-	c.Assert(ok, jc.IsTrue)
-	expected := dummy.OpReleaseAddress{
-		Env:        "dummyenv",
-		InstanceId: "foo",
-		SubnetId:   "foobar",
-		Address:    network.NewAddress("0.1.2.3"),
-	}
-	c.Assert(releaseOp, jc.DeepEquals, expected)
+	op := waitForReleaseOp(c, opsChan)
+	c.Assert(op, jc.DeepEquals, makeReleaseOp(3))
 
 	// As we failed to release the address it should not have been removed
 	// from state.
