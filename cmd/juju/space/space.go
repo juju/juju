@@ -10,10 +10,10 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-var logger = loggo.GetLogger("juju.cmd.spaces")
+var logger = loggo.GetLogger("juju.cmd.space")
 
 const commandDoc = `
-"juju spaces" provides commands to interact with Juju network spaces.
+"juju space" provides commands to manage Juju network spaces.
 `
 
 // NewSuperCommand creates the "space" supercommand and registers the

@@ -15,7 +15,8 @@ type CreateCommand struct {
 }
 
 const createEnvHelpDoc = `
-This command will create a network space... bla bla bla
+Creates a new network space with a given name, optionally including one or more
+subnets specified with their CIDR values.
 `
 
 func (c *CreateCommand) Info() *cmd.Info {
