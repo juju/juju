@@ -72,6 +72,6 @@ func (s *StatusAPI) SetUnitStatus(args params.SetStatus) (params.ErrorResults, e
 }
 
 // UnitStatus returns the workload status information for the unit.
-func (s *StatusAPI) xUnitStatus(args params.Entities) (params.StatusResults, error) {
+func (s *StatusAPI) UnitStatus(args params.Entities) (params.StatusResults, error) {
 	return s.unitGetter.Status(args)
 }

@@ -55,7 +55,7 @@ func (s *StatusGetter) Status(args params.Entities) (params.StatusResults, error
 	}
 	canAccess, err := s.getcanAccess()
 	if err != nil {
-		return result, err
+		return params.StatusResults{}, err
 	}
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
