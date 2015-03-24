@@ -1,7 +1,7 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package upgrades
+package local
 
 import (
 	"github.com/juju/juju/version"
@@ -12,15 +12,4 @@ import (
 // package manager implementation for the current system.
 func getPackageManager() (manager.PackageManager, error) {
 	return manager.NewPackageManager(version.Current.Series)
-}
-
-// installRsyslogGnutls installs the rsyslog-gnutls package,
-// which is required for our rsyslog configuration from 1.18.0.
-func installRsyslogGnutls(context Context) error {
-	pacman, err := getPackageManager()
-	if err != nil {
-		return err
-	}
-
-	return pacman.Install("rsyslog-gnutls")
 }

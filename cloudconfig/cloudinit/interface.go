@@ -8,9 +8,14 @@
 package cloudinit
 
 import (
-	"github.com/juju/juju/cloudconfig/cloudinit/packaging"
-	"github.com/juju/juju/version"
+	"errors"
+
+	"github.com/juju/utils/packaging"
+	"github.com/juju/utils/packaging/commander"
+	"github.com/juju/utils/packaging/configurer"
 	"github.com/juju/utils/proxy"
+
+	"github.com/juju/juju/version"
 )
 
 // CloudConfig is the interface of all cloud-init cloudconfig options.
@@ -23,9 +28,6 @@ type CloudConfig interface {
 	// UnsetAttr unsets the attribute given from the cloudinit config.
 	// If the attribute has not been previously set, no error occurs.
 	UnsetAttr(string)
-
-	// getAttrs returns the attributes map of this particular cloudinit config.
-	getAttrs() map[string]interface{}
 
 	// CloudConfig also contains all the smaller interfaces for config
 	// management:
@@ -47,7 +49,7 @@ type CloudConfig interface {
 	RootUserConfig
 	WrittenFilesConfig
 	RenderConfig
-	AdvancedPackageCommands
+	AdvancedPackagingConfig
 }
 
 // UserConfig is the interface for managing all user-related settings.
@@ -132,14 +134,17 @@ type PackageMirrorConfig interface {
 type PackageSourcesConfig interface {
 	// AddPackageSource adds a new repository and optional key to be
 	// used as a package source by the system's specific package manager.
-	AddPackageSource(packaging.Source)
+	AddPackageSource(packaging.PackageSource)
 
 	// PackageSources returns all sources set with AddPackageSource.
-	PackageSources() []packaging.Source
+	PackageSources() []packaging.PackageSource
 
 	// AddPackagePreferences adds the necessary options and/or bootcmds to
 	// enable the given packaging.PackagePreferences.
 	AddPackagePreferences(packaging.PackagePreferences)
+
+	// PackagePreferences returns the previously-added PackagePreferences.
+	PackagePreferences() []packaging.PackagePreferences
 }
 
 // PackagingConfig is the interface for all packaging-related operations.
@@ -299,7 +304,7 @@ type RootUserConfig interface {
 	DisableRoot() bool
 }
 
-// WrittenFilesConfig is the interface for all
+// WrittenFilesConfig is the interface for all file writing operaions.
 type WrittenFilesConfig interface {
 	// AddRunTextFile simply issues some AddRunCmd's to set the contents of a
 	// given file with the specified file permissions on *first* boot.
@@ -317,7 +322,7 @@ type WrittenFilesConfig interface {
 	AddRunBinaryFile(string, []byte, uint)
 }
 
-// Provides various way to display the current cloud config
+// RenderConfig provides various ways to render a CloudConfig.
 type RenderConfig interface {
 	// Renders the current cloud config as valid YAML
 	RenderYAML() ([]byte, error)
@@ -333,9 +338,9 @@ type RenderConfig interface {
 }
 
 // Makes two more advanced package commands available
-type AdvancedPackageCommands interface {
+type AdvancedPackagingConfig interface {
 	// Adds the necessary commands for installing the required packages for
-	// each OS is they are necessary
+	// each OS is they are necessary.
 	AddPackageCommands(
 		aptProxySettings proxy.Settings,
 		aptMirror string,
@@ -343,8 +348,14 @@ type AdvancedPackageCommands interface {
 		addUpgradeScripts bool,
 	)
 
+	// getPackageCommander returns the PackageCommander of the CloudConfig.
+	getPackageCommander() commander.PackageCommander
+
+	// getPackagingConfigurer returns the PackagingConfigurer of the CloudConfig.
+	getPackagingConfigurer() configurer.PackagingConfigurer
+
 	// This is a helper to add the proper packages that we want to update per
-	// distro
+	// distribution.
 	updatePackages()
 
 	//TODO: this might be the same as the exported proxy setting up above, need
@@ -352,9 +363,13 @@ type AdvancedPackageCommands interface {
 	// If we don't really find anything just leave both
 	updateProxySettings(proxy.Settings)
 
-	// Depending on the version of the distribution it may add commands to
-	// the cloud config to facilitate updating old tools
-	MaybeAddCloudArchiveCloudTools()
+	// RequiresCloudArchiveCloudTools determines wether the cloudconfig
+	// requires the configuration of the cloud archive depending on its series.
+	RequiresCloudArchiveCloudTools() bool
+
+	// AddCloudArchiveCloudTools configures the cloudconfig to set up the cloud
+	// archive if it is required (eg: LTS'es).
+	AddCloudArchiveCloudTools()
 }
 
 // New returns a new Config with no options set.
@@ -365,23 +380,28 @@ func New(series string) (CloudConfig, error) {
 	}
 	switch os {
 	case version.Windows:
-		return &WindowsCloudConfig{&cloudConfig{make(map[string]interface{}), series}}, nil
+		return &WindowsCloudConfig{&cloudConfig{attrs: make(map[string]interface{}), series: series}}, nil
 	case version.Ubuntu:
-		pacman, err := packaging.New(series)
-		if err != nil {
-			return nil, err
-		}
-		//TODO: This is recursive and needs to be fixed
-		return &UbuntuCloudConfig{&cloudConfig{make(map[string]interface{}), series}, pacman, &unixCloudConfig{}}, nil
+		return &UbuntuCloudConfig{
+			&cloudConfig{
+				attrs:     make(map[string]interface{}),
+				series:    series,
+				paccmder:  commander.NewAptPackageCommander(),
+				pacconfer: configurer.NewAptPackagingConfigurer(series),
+			},
+		}, nil
 	case version.CentOS:
-		pacman, err := packaging.New(series)
-		if err != nil {
-			return nil, err
-		}
-		//TODO: This is recursive and needs to be fixed
-		return &CentOSCloudConfig{&cloudConfig{make(map[string]interface{}), series}, pacman, &unixCloudConfig{}}, nil
+		return &CentOSCloudConfig{
+			&cloudConfig{
+				attrs:     make(map[string]interface{}),
+				series:    series,
+				paccmder:  commander.NewYumPackageCommander(),
+				pacconfer: configurer.NewYumPackagingConfigurer(series),
+			},
+		}, nil
+	default:
+		return nil, errors.New(" no cloudconfig available for series: " + series)
 	}
-	return nil, err
 }
 
 // SSHKeyType is the type of the four used key types passed to cloudinit

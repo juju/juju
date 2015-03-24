@@ -259,8 +259,8 @@ func (w *unixConfigure) ConfigureJuju() error {
 	// for series that need it. This gives us up-to-date LXC,
 	// MongoDB, and other infrastructure.
 	// This is only done on ubuntu
-	if w.conf.SystemUpdate() {
-		w.conf.MaybeAddCloudArchiveCloudTools()
+	if w.conf.SystemUpdate() && w.conf.RequiresCloudArchiveCloudTools() {
+		w.conf.AddCloudArchiveCloudTools()
 	}
 
 	if w.icfg.Bootstrap {

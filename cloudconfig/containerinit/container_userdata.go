@@ -185,8 +185,8 @@ func TemplateUserData(
 	}
 
 	config.AddSSHAuthorizedKeys(authorizedKeys)
-	if enablePackageUpdates {
-		config.MaybeAddCloudArchiveCloudTools()
+	if enablePackageUpdates && config.RequiresCloudArchiveCloudTools() {
+		config.AddCloudArchiveCloudTools()
 	}
 	config.AddPackageCommands(aptProxy, aptMirror, enablePackageUpdates, enableOSUpgrades)
 

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/apt"
 	"github.com/juju/utils/proxy"
 
 	"github.com/juju/juju/environs"
@@ -82,8 +81,6 @@ func (p environProvider) correctLocalhostURLs(cfg *config.Config, providerCfg *e
 	return cfg.Apply(updatedAttrs)
 }
 
-var detectAptProxies = apt.DetectProxies
-
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (p environProvider) RestrictedConfigAttributes() []string {
 	return []string{ContainerKey, NetworkBridgeKey, RootDirKey}
@@ -136,7 +133,11 @@ func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 		if cfg.AptHttpProxy() == "" &&
 			cfg.AptHttpsProxy() == "" &&
 			cfg.AptFtpProxy() == "" {
-			proxySettings, err := detectAptProxies()
+			pacman, err := getPackageManager()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			proxySettings, err := pacman.GetProxySettings()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

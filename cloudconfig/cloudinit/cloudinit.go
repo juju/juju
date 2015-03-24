@@ -11,11 +11,13 @@ import (
 	"strings"
 
 	"github.com/juju/juju/utils/ssh"
+	"github.com/juju/utils/packaging/commander"
+	"github.com/juju/utils/packaging/configurer"
 )
 
 // Config represents a set of cloud-init configuration options.
 type cloudConfig struct {
-	// main used attributes:
+	// main attributes used in the options map and their corresponding types:
 	//
 	// user					string
 	// package_update		bool
@@ -35,7 +37,7 @@ type cloudConfig struct {
 	// used only for Ubuntu but implemented as runcmds on CentOS:
 	// apt_proxy			string
 	// apt_mirror			string/bool
-	// apt_sources			[]*AptSource
+	// apt_sources			[]*packaging.Source
 	//
 	// instead, the following corresponding options are used temporarily,
 	// but are translated to runcmds and removed right before rendering:
@@ -61,23 +63,31 @@ type cloudConfig struct {
 	// timezone
 	// update_etc_hosts
 	// update_hostname
-	attrs  map[string]interface{}
-	series string
+	attrs map[string]interface{}
+
+	series    string
+	paccmder  commander.PackageCommander
+	pacconfer configurer.PackagingConfigurer
 }
 
-// SetAttr implements cloudConfig.
+// getPackageCommander returns the PackageCommander of the CloudConfig.
+func (cfg *cloudConfig) getPackageCommander() commander.PackageCommander {
+	return cfg.paccmder
+}
+
+// getPackagingConfigurer implements.
+func (cfg *cloudConfig) getPackagingConfigurer() configurer.PackagingConfigurer {
+	return cfg.pacconfer
+}
+
+// SetAttr implements CloudConfig.
 func (cfg *cloudConfig) SetAttr(name string, value interface{}) {
 	cfg.attrs[name] = value
 }
 
-// UnsetAttr implements cloudConfig.
+// UnsetAttr implements CloudConfig.
 func (cfg *cloudConfig) UnsetAttr(name string) {
 	delete(cfg.attrs, name)
-}
-
-// getAttrs implements cloudConfig.
-func (cfg *cloudConfig) getAttrs() map[string]interface{} {
-	return cfg.attrs
 }
 
 // SetUser implements UserConfig.
@@ -328,4 +338,9 @@ func (cfg *cloudConfig) AddBootTextFile(filename, contents string, perm uint) {
 // AddRunBinaryFile implements WrittenFilesConfig.
 func (cfg *cloudConfig) AddRunBinaryFile(filename string, data []byte, mode uint) {
 	cfg.AddScripts(addFileCmds(filename, data, mode, true)...)
+}
+
+// RequiresCloudArchiveCloudTools implements AdvancedPackagingConfig.
+func (cfg *cloudConfig) RequiresCloudArchiveCloudTools() bool {
+	return configurer.SeriesRequiresCloudArchiveTools(cfg.series)
 }

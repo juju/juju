@@ -12,9 +12,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/cloudconfig/cloudinit/packaging"
 	"github.com/juju/utils"
-	"github.com/juju/utils/apt"
+	"github.com/juju/utils/packaging"
+	"github.com/juju/utils/packaging/configurer"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/yaml.v1"
 )
@@ -25,8 +25,6 @@ import (
 // It satisfies the cloudinit.CloudConfig interface
 type UbuntuCloudConfig struct {
 	*cloudConfig
-	pacman *packaging.PackageManager
-	common *unixCloudConfig
 }
 
 // SetPackageProxy implements PackageProxyConfig.
@@ -62,13 +60,13 @@ func (cfg *UbuntuCloudConfig) PackageMirror() string {
 }
 
 // AddPackageSource implements PackageSourcesConfig.
-func (cfg *UbuntuCloudConfig) AddPackageSource(src packaging.Source) {
+func (cfg *UbuntuCloudConfig) AddPackageSource(src packaging.PackageSource) {
 	cfg.attrs["apt_sources"] = append(cfg.PackageSources(), src)
 }
 
 // PackageSources implements PackageSourcesConfig.
-func (cfg *UbuntuCloudConfig) PackageSources() []packaging.Source {
-	srcs, _ := cfg.attrs["apt_sources"].([]packaging.Source)
+func (cfg *UbuntuCloudConfig) PackageSources() []packaging.PackageSource {
+	srcs, _ := cfg.attrs["apt_sources"].([]packaging.PackageSource)
 	return srcs
 }
 
@@ -79,23 +77,22 @@ func addPackagePreferencesCmds(cfg CloudConfig, prefs []packaging.PackagePrefere
 }
 
 // AddPackagePreferences implements PackageSourcesConfig.
-func (cfg *UbuntuCloudConfig) AddPackagePreferences(pref packaging.PackagePreferences) {
-	cfg.attrs["package_preferences"] = append(cfg.PackagePreferences(), pref)
+func (cfg *UbuntuCloudConfig) AddPackagePreferences(prefs packaging.PackagePreferences) {
+	cfg.attrs["apt_preferences"] = append(cfg.PackagePreferences(), prefs)
 }
 
-// AddPackagePreferences implements PackageSourcesConfig.
+// PackagePreferences implements PackageSourcesConfig.
 func (cfg *UbuntuCloudConfig) PackagePreferences() []packaging.PackagePreferences {
-	prefs, _ := cfg.attrs["package_preferences"].([]packaging.PackagePreferences)
+	prefs, _ := cfg.attrs["apt_preferences"].([]packaging.PackagePreferences)
 	return prefs
 }
 
 func (cfg *UbuntuCloudConfig) RenderYAML() ([]byte, error) {
-	// check for package proxy setting and add commands:
-	var prefs []packaging.PackagePreferences
-	if prefs = cfg.PackagePreferences(); prefs != nil {
-		addPackagePreferencesCmds(cfg, prefs)
-		cfg.UnsetAttr("package_preferences")
+	// add the preferences first:
+	for _, pref := range cfg.PackagePreferences() {
+		cfg.AddBootTextFile(pref.Path, cfg.pacconfer.RenderPreferences(pref), 0644)
 	}
+	cfg.UnsetAttr("apt_preferences")
 
 	data, err := yaml.Marshal(cfg.attrs)
 	if err != nil {
@@ -109,72 +106,58 @@ func (cfg *UbuntuCloudConfig) RenderYAML() ([]byte, error) {
 }
 
 func (cfg *UbuntuCloudConfig) RenderScript() (string, error) {
-	return cfg.common.renderScriptCommon(cfg)
+	return renderScriptCommon(cfg)
 }
 
+// AddPackageCommands implements AdvancedPackagingConfig.
 func (cfg *UbuntuCloudConfig) AddPackageCommands(
-	aptProxySettings proxy.Settings,
-	aptMirror string,
+	packageProxySettings proxy.Settings,
+	packageMirror string,
 	addUpdateScripts bool,
 	addUpgradeScripts bool,
 ) {
-	cfg.common.addPackageCommandsCommon(
+	addPackageCommandsCommon(
 		cfg,
-		aptProxySettings,
-		aptMirror,
+		packageProxySettings,
+		packageMirror,
 		addUpdateScripts,
 		addUpgradeScripts,
 		cfg.series,
 	)
 }
 
-// MaybeAddCloudArchiveCloudTools adds the cloud-archive cloud-tools
-// pocket to apt sources, if the series requires it.
-func (cfg *UbuntuCloudConfig) MaybeAddCloudArchiveCloudTools() {
-	if cfg.series != "precise" {
-		// Currently only precise; presumably we'll
-		// need to add each LTS in here as they're
-		// added to the cloud archive.
-		return
-	}
-	const url = "http://ubuntu-cloud.archive.canonical.com/ubuntu"
-	name := fmt.Sprintf("deb %s %s-updates/cloud-tools main", url, cfg.series)
-	prefs := packaging.PackagePreferences{
-		Path:        CloudToolsPrefsPath,
-		Explanation: "Pin with lower priority, not to interfere with charms",
-		Package:     "*",
-		Pin:         fmt.Sprintf("release n=%s-updates/cloud-tools", cfg.series),
-		Priority:    400,
-	}
-	cfg.AddPackagePreferences(prefs)
-	source := packaging.Source{
-		Url: name,
-		Key: CanonicalCloudArchiveSigningKey,
-	}
-	cfg.AddPackageSource(source)
+// AddCloudArchiveCloudTools implements AdvancedPackagingConfig.
+func (cfg *UbuntuCloudConfig) AddCloudArchiveCloudTools() {
+	src, pref := configurer.GetCloudArchiveSource(cfg.series)
+	cfg.AddPackageSource(src)
+	cfg.AddPackagePreferences(pref)
 }
 
-// Used inside unixCloudConfig.RenderScript()
+// getCommandsForAddingPackages is a helper function for generating a script
+// for adding all packages configured in this CloudConfig.
 func (cfg *UbuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	if !cfg.SystemUpdate() && len(cfg.PackageSources()) > 0 {
 		return nil, fmt.Errorf("update sources were specified, but OS updates have been disabled.")
 	}
 
+	// the basic command for all apt-get calls
+	//		--assume-yes to never prompt for confirmation
+	//		--force-confold is passed to dpkg to never overwrite config files
 	var cmds []string
 
 	// If a mirror is specified, rewrite sources.list and rename cached index files.
 	if newMirror := cfg.PackageMirror(); newMirror != "" {
 		cmds = append(cmds, LogProgressCmd("Changing apt mirror to "+newMirror))
-		cmds = append(cmds, "old_mirror=$("+extractAptSource+")")
+		cmds = append(cmds, "old_mirror=$("+configurer.ExtractAptSource+")")
 		cmds = append(cmds, "new_mirror="+newMirror)
-		cmds = append(cmds, `sed -i s,$old_mirror,$new_mirror, `+aptSourcesList)
+		cmds = append(cmds, `sed -i s,$old_mirror,$new_mirror, `+configurer.AptSourcesFile)
 		cmds = append(cmds, renameAptListFilesCommands("$new_mirror", "$old_mirror")...)
 	}
 
 	if len(cfg.PackageSources()) > 0 {
 		// Ensure add-apt-repository is available.
 		cmds = append(cmds, LogProgressCmd("Installing add-apt-repository"))
-		cmds = append(cmds, cfg.pacman.Install("python-software-properties"))
+		cmds = append(cmds, cfg.paccmder.InstallCmd("python-software-properties"))
 	}
 	for _, src := range cfg.PackageSources() {
 		// PPA keys are obtained by add-apt-repository, from launchpad.
@@ -186,26 +169,35 @@ func (cfg *UbuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 			}
 		}
 		cmds = append(cmds, LogProgressCmd("Adding apt repository: %s", src.Url))
-		cmds = append(cmds, cfg.pacman.AddRepository(src.Url))
+		//cmds = append(cmds, "add-apt-repository -y "+utils.ShQuote(src.Url))
+		cmds = append(cmds, cfg.paccmder.AddRepositoryCmd(src.Url))
+		//TODO: Do we keep this?
+		// if src.Prefs != nil {
+		//	path := utils.ShQuote(src.Prefs.Path)
+		//	contents := utils.ShQuote(src.Prefs.FileContents())
+		//	cmds = append(cmds, "install -D -m 644 /dev/null "+path)
+		//	cmds = append(cmds, `printf '%s\n' `+contents+` > `+path)
+		//}
 	}
 
-	for _, pref := range cfg.PackagePreferences() {
-		path := utils.ShQuote(pref.Path)
-		contents := utils.ShQuote(pref.FileContents())
-		cmds = append(cmds, "install -D -m 644 /dev/null "+path)
-		cmds = append(cmds, `printf '%s\n' `+contents+` > `+path)
+	for _, prefs := range cfg.PackagePreferences() {
+		cfg.AddRunTextFile(prefs.Path, cfg.pacconfer.RenderPreferences(prefs), 0644)
 	}
 
-	// Define the "package_get_loop" function
-	cmds = append(cmds, packageGetLoopFunction)
+	// Define the "apt_get_loop" function, and wrap apt-get with it.
+	// TODO: If we do this hack here we can't use the package manager anymore
+	// Maybe wrap it inside packageManager?
+	cmds = append(cmds, configurer.PackageManagerLoopFunction)
+
+	looper := "package_manager_loop "
 
 	if cfg.SystemUpdate() {
 		cmds = append(cmds, LogProgressCmd("Running apt-get update"))
-		cmds = append(cmds, "package_get_loop "+cfg.pacman.Update())
+		cmds = append(cmds, looper+cfg.paccmder.UpdateCmd())
 	}
 	if cfg.SystemUpgrade() {
 		cmds = append(cmds, LogProgressCmd("Running apt-get upgrade"))
-		cmds = append(cmds, "package_get_loop "+cfg.pacman.Upgrade())
+		cmds = append(cmds, looper+cfg.paccmder.UpgradeCmd())
 	}
 
 	pkgs := cfg.Packages()
@@ -234,7 +226,8 @@ func (cfg *UbuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 			skipNext = 2
 		}
 		cmds = append(cmds, LogProgressCmd("Installing package: %s", pkg))
-		cmds = append(cmds, "package_get_loop "+cfg.pacman.Install(pkg))
+		cmd := fmt.Sprintf(looper + cfg.paccmder.InstallCmd(pkg))
+		cmds = append(cmds, cmd)
 	}
 	if len(cmds) > 0 {
 		// setting DEBIAN_FRONTEND=noninteractive prevents debconf
@@ -249,8 +242,8 @@ func (cfg *UbuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 // and returns a sequence of commands that will rename the files
 // in aptListsDirectory.
 func renameAptListFilesCommands(newMirror, oldMirror string) []string {
-	oldPrefix := "old_prefix=" + aptListsDirectory + "/$(echo " + oldMirror + " | " + aptSourceListPrefix + ")"
-	newPrefix := "new_prefix=" + aptListsDirectory + "/$(echo " + newMirror + " | " + aptSourceListPrefix + ")"
+	oldPrefix := "old_prefix=" + configurer.AptListsDirectory + "/$(echo " + oldMirror + " | " + configurer.AptSourceListPrefix + ")"
+	newPrefix := "new_prefix=" + configurer.AptListsDirectory + "/$(echo " + newMirror + " | " + configurer.AptSourceListPrefix + ")"
 	renameFiles := `
 for old in ${old_prefix}_*; do
     new=$(echo $old | sed s,^$old_prefix,$new_prefix,)
@@ -265,8 +258,9 @@ done`
 	}
 }
 
+// updatePackages implements AdvancedPackagingConfig.
 func (cfg *UbuntuCloudConfig) updatePackages() {
-	list := []string{
+	packages := []string{
 		"curl",
 		"cpu-checker",
 		// TODO(axw) 2014-07-02 #1277359
@@ -277,17 +271,35 @@ func (cfg *UbuntuCloudConfig) updatePackages() {
 		"cloud-utils",
 		"cloud-image-utils",
 	}
-	cfg.common.updatePackagesCommon(cfg, list, cfg.series)
+
+	// The required packages need to come from the correct repo.
+	// For precise, that might require an explicit --target-release parameter.
+	// We cannot just pass packages below, because
+	// this will generate install commands which older
+	// versions of cloud-init (e.g. 0.6.3 in precise) will
+	// interpret incorrectly (see bug http://pad.lv/1424777).
+	for _, pack := range packages {
+		if cfg.pacconfer.IsCloudArchivePackage(pack) {
+			// On precise, we need to pass a --target-release entry in
+			// pieces for it to work:
+			// TODO (aznashwan): figure out what the hell precise wants.
+			for _, p := range cfg.pacconfer.ApplyCloudArchiveTarget(pack) {
+				cfg.AddPackage(p)
+			}
+		} else {
+			cfg.AddPackage(pack)
+		}
+	}
 }
 
 // This may replace the SetProxy func. See parent for info
 func (cfg *UbuntuCloudConfig) updateProxySettings(proxySettings proxy.Settings) {
 	// Write out the apt proxy settings
 	if (proxySettings != proxy.Settings{}) {
-		filename := apt.ConfFile
+		filename := configurer.AptProxyConfigFile
 		cfg.AddBootCmd(fmt.Sprintf(
 			`printf '%%s\n' %s > %s`,
-			shquote(apt.ProxyContent(proxySettings)),
+			shquote(cfg.paccmder.ProxyConfigContents(proxySettings)),
 			filename))
 	}
 }

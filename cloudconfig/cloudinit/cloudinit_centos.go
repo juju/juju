@@ -10,7 +10,8 @@ package cloudinit
 import (
 	"fmt"
 
-	"github.com/juju/juju/cloudconfig/cloudinit/packaging"
+	"github.com/juju/utils/packaging"
+	"github.com/juju/utils/packaging/configurer"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/yaml.v1"
 )
@@ -21,8 +22,6 @@ import (
 // It implements the cloudinit.Config interface.
 type CentOSCloudConfig struct {
 	*cloudConfig
-	pacman *packaging.PackageManager
-	common *unixCloudConfig
 }
 
 // SetPackageProxy implements PackageProxyConfig.
@@ -55,9 +54,7 @@ func (cfg *CentOSCloudConfig) SetPackageMirror(url string) {
 // setPackageMirror is a helper function that adds the corresponding runcmds
 // to apply the package mirror settings on a CentOS machine.
 func addPackageMirrorCmds(cfg CloudConfig, url string) {
-	cfg.AddRunCmd(fmt.Sprintf(`sed -r -i 's|^mirrorlist|#mirrorlist|g' %s`, packaging.CentOSSourcesFile))
-	cfg.AddRunCmd(fmt.Sprintf(`sed -r -i 's|#baseurl=.*|baseurl=%s|g' %s`,
-		url, packaging.CentOSSourcesFile))
+	cfg.AddRunCmd(fmt.Sprintf(configurer.ReplaceCentOSMirror, url))
 }
 
 // UnsetPackageMirror implements PackageMirrorConfig.
@@ -72,26 +69,25 @@ func (cfg *CentOSCloudConfig) PackageMirror() string {
 }
 
 // AddPackageSource implements PackageSourcesConfig.
-func (cfg *CentOSCloudConfig) AddPackageSource(src packaging.Source) {
+func (cfg *CentOSCloudConfig) AddPackageSource(src packaging.PackageSource) {
 	cfg.attrs["package_sources"] = append(cfg.PackageSources(), src)
 }
 
 // addPackageSourceCmds is a helper function that adds the corresponding
 // runcmds to apply the package source settings on a CentOS machine.
-func addPackageSourceCmds(cfg CloudConfig, srcs []packaging.Source) {
-	for _, src := range srcs {
-		// if keyfile is required, add it first
-		if src.Key != "" {
-			cfg.AddRunTextFile(src.KeyfilePath(), src.Key, 0644)
-		}
-
-		cfg.AddRunTextFile(packaging.CentOSSourcesDir, src.RenderCentOS(), 0644)
+func addPackageSourceCmds(cfg CloudConfig, src packaging.PackageSource) {
+	// if keyfile is required, add it first
+	if src.Key != "" {
+		keyFilePath := configurer.YumKeyfileDir + src.KeyFileName()
+		cfg.AddRunTextFile(keyFilePath, src.KeyFileName(), 0644)
 	}
+
+	cfg.AddRunTextFile(configurer.YumSourcesDir, cfg.getPackagingConfigurer().RenderSource(src), 0644)
 }
 
 // PackageSources implements PackageSourcesConfig.
-func (cfg *CentOSCloudConfig) PackageSources() []packaging.Source {
-	sources, _ := cfg.attrs["package_sources"].([]packaging.Source)
+func (cfg *CentOSCloudConfig) PackageSources() []packaging.PackageSource {
+	sources, _ := cfg.attrs["package_sources"].([]packaging.PackageSource)
 	return sources
 }
 
@@ -101,9 +97,10 @@ func (cfg *CentOSCloudConfig) AddPackagePreferences(prefs packaging.PackagePrefe
 	// context of a single package and implement the appropriate runcmds.
 }
 
+// PackagePreferences implements PackageSourcesConfig.
 func (cfg *CentOSCloudConfig) PackagePreferences() []packaging.PackagePreferences {
-	prefs, _ := cfg.attrs["package_preferences"].([]packaging.PackagePreferences)
-	return prefs
+	// TODO (aznashwan): add this when priorities in yum make sense.
+	return []packaging.PackagePreferences{}
 }
 
 // Render implements the Renderer interface.
@@ -123,13 +120,12 @@ func (cfg *CentOSCloudConfig) RenderYAML() ([]byte, error) {
 	}
 
 	// add appropriate commands for package sources configuration:
-	var srcs []packaging.Source
-	if srcs = cfg.PackageSources(); srcs != nil {
-		addPackageSourceCmds(cfg, srcs)
-		cfg.UnsetAttr("package_sources")
+	for _, src := range cfg.PackageSources() {
+		addPackageSourceCmds(cfg, src)
 	}
+	cfg.UnsetAttr("package_sources")
 
-	data, err := yaml.Marshal(cfg.getAttrs())
+	data, err := yaml.Marshal(cfg.attrs)
 	if err != nil {
 		return nil, err
 	}
@@ -145,28 +141,15 @@ func (cfg *CentOSCloudConfig) RenderYAML() ([]byte, error) {
 }
 
 func (cfg *CentOSCloudConfig) RenderScript() (string, error) {
-	return cfg.common.renderScriptCommon(cfg)
+	//TODO: &cfg?
+	return renderScriptCommon(cfg)
 }
 
-func (cfg *CentOSCloudConfig) AddPackageCommands(
-	aptProxySettings proxy.Settings,
-	aptMirror string,
-	addUpdateScripts bool,
-	addUpgradeScripts bool,
-) {
-	cfg.common.addPackageCommandsCommon(
-		cfg,
-		aptProxySettings,
-		aptMirror,
-		addUpdateScripts,
-		addUpgradeScripts,
-		cfg.series,
-	)
-}
-
-func (cfg *CentOSCloudConfig) MaybeAddCloudArchiveCloudTools() {
-	//TODO(centos): Implement this on centOS if/when necessary. For now, it implements the
-	//cloudcfg interface.
+// AddCloudArchiveCloudTools implements AdvancedPackagingConfig.
+func (cfg *CentOSCloudConfig) AddCloudArchiveCloudTools() {
+	src, pref := configurer.GetCloudArchiveSource(cfg.series)
+	cfg.AddPackageSource(src)
+	cfg.AddPackagePreferences(pref)
 }
 
 func (cfg *CentOSCloudConfig) getCommandsForAddingPackages() ([]string, error) {
@@ -189,7 +172,14 @@ func (cfg *CentOSCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 		//}
 		//}
 		cmds = append(cmds, LogProgressCmd("Adding yum repository: %s", src.Url))
-		cmds = append(cmds, cfg.pacman.AddRepository(src.Url))
+		cmds = append(cmds, cfg.paccmder.AddRepositoryCmd(src.Url))
+		//TODO: Package prefs on CentOS?
+		// if src.Prefs != nil {
+		//	path := utils.ShQuote(src.Prefs.Path)
+		//	contents := utils.ShQuote(src.Prefs.FileContents())
+		//	cmds = append(cmds, "install -D -m 644 /dev/null "+path)
+		//	cmds = append(cmds, `printf '%s\n' `+contents+` > `+path)
+		//}
 	}
 
 	//TODO(centos): Don't forget about PackagePreferences on CentOS
@@ -201,30 +191,64 @@ func (cfg *CentOSCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 
 	if cfg.SystemUpdate() {
 		cmds = append(cmds, LogProgressCmd("Running yum update"))
-		cmds = append(cmds, "package_get_loop "+cfg.pacman.Update())
+		cmds = append(cmds, cfg.paccmder.UpdateCmd())
 	}
 	if cfg.SystemUpgrade() {
 		cmds = append(cmds, LogProgressCmd("Running yum upgrade"))
-		cmds = append(cmds, "package_get_loop "+cfg.pacman.Upgrade())
+		cmds = append(cmds, cfg.paccmder.UpgradeCmd())
 	}
 
 	pkgs := cfg.Packages()
 	for _, pkg := range pkgs {
 		cmds = append(cmds, LogProgressCmd("Installing package: %s", pkg))
-		cmds = append(cmds, "package_get_loop "+cfg.pacman.Install(pkg))
+		cmds = append(cmds, cfg.paccmder.InstallCmd(pkg))
 	}
 	return cmds, nil
 }
 
+// AddPackageCommands implements AdvancedPackagingConfig.
+func (cfg *CentOSCloudConfig) AddPackageCommands(
+	packageProxySettings proxy.Settings,
+	packageMirror string,
+	addUpdateScripts bool,
+	addUpgradeScripts bool,
+) {
+	addPackageCommandsCommon(
+		cfg,
+		packageProxySettings,
+		packageMirror,
+		addUpdateScripts,
+		addUpgradeScripts,
+		cfg.series,
+	)
+}
+
+// updatePackages implements AdvancedPackagingConfig.
 func (cfg *CentOSCloudConfig) updatePackages() {
-	list := []string{
-		"epel-release",
+	packages := []string{
 		"curl",
 		"bridge-utils",
 		"rsyslog-gnutls",
 		"cloud-utils",
 	}
-	cfg.common.updatePackagesCommon(cfg, list, cfg.series)
+
+	// The required packages need to come from the correct repo.
+	// For precise, that might require an explicit repo targeting.
+	// We cannot just pass packages below, because
+	// this will generate install commands which older
+	// versions of cloud-init (e.g. 0.6.3 in precise) will
+	// interpret incorrectly (see bug http://pad.lv/1424777).
+	for _, pack := range packages {
+		if cfg.pacconfer.IsCloudArchivePackage(pack) {
+			// On precise, we need to pass a --target-release entry in
+			// pieces for it to work:
+			for _, p := range cfg.pacconfer.ApplyCloudArchiveTarget(pack) {
+				cfg.AddPackage(p)
+			}
+		} else {
+			cfg.AddPackage(pack)
+		}
+	}
 }
 
 //TODO(centos): is this the same as doing addPackageProxyCommands?

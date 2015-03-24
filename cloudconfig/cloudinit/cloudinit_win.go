@@ -8,14 +8,14 @@
 package cloudinit
 
 import (
-	"github.com/juju/juju/cloudconfig/cloudinit/packaging"
+	"github.com/juju/utils/packaging"
 	"github.com/juju/utils/proxy"
 )
 
 // WindowsCloudConfig is the cloudconfig type specific to Ubuntu machines
 // It simply contains a cloudConfig with the added package management-related
 // methods for the Ubuntu version of cloudinit.
-// It satisfies the cloudinit.CloudConfig interface
+// It satisfies the cloudinit.CloudConfig interface.
 type WindowsCloudConfig struct {
 	*cloudConfig
 }
@@ -81,12 +81,13 @@ func (cfg *WindowsCloudConfig) PackageMirror() string {
 }
 
 // AddPackageSource implements PackageSourcesConfig.
-func (cfg *WindowsCloudConfig) AddPackageSource(src packaging.Source) {
+func (cfg *WindowsCloudConfig) AddPackageSource(src packaging.PackageSource) {
 	return
 }
 
 // PackageSources implements PackageSourcesConfig.
-func (cfg *WindowsCloudConfig) PackageSources() []packaging.Source {
+func (cfg *WindowsCloudConfig) PackageSources() []packaging.PackageSource {
+	// NOTE: this should not ever get called, so it is safe to return nil here:
 	return nil
 }
 
@@ -95,27 +96,71 @@ func (cfg *WindowsCloudConfig) AddPackagePreferences(prefs packaging.PackagePref
 	return
 }
 
+// PackagePreferences implements PackageSourcesConfig.
+func (cfg *WindowsCloudConfig) PackagePreferences() []packaging.PackagePreferences {
+	// NOTE: this should not ever get called, so it is safe to return nil here:
+	return nil
+}
+
+// RenderYAML implements RenderConfig.
+func (cfg *WindowsCloudConfig) RenderYAML() ([]byte, error) {
+	return cfg.renderWindows()
+}
+
+// RenderScript implements RenderConfig.
+func (cfg *WindowsCloudConfig) RenderScript() (string, error) {
+	// NOTE: This shouldn't really be called on windows as it's used only for
+	// initialization via ssh or on local providers.
+	script, err := cfg.renderWindows()
+	if err != nil {
+		return "", err
+	}
+
+	return string(script), err
+}
+
+// getCommandsForAddingPackages implements RenderConfig..
+func (cfg *WindowsCloudConfig) getCommandsForAddingPackages() ([]string, error) {
+	return nil, nil
+}
+
+// renderWindows is a helper function which renders the runCmds of the Windows
+// CloudConfig to a PowerShell script.
+func (cfg *WindowsCloudConfig) renderWindows() ([]byte, error) {
+	winCmds := cfg.RunCmds()
+	var script []byte
+	newline := "\r\n"
+	header := "#ps1_sysnative\r\n"
+	script = append(script, header...)
+	for _, cmd := range winCmds {
+		script = append(script, newline...)
+		script = append(script, cmd...)
+
+	}
+	return script, nil
+}
+
+// AddPackageCommands implements AdvancedPackagingConfig.
 func (cfg *WindowsCloudConfig) AddPackageCommands(
 	aptProxySettings proxy.Settings,
 	aptMirror string,
 	addUpdateScripts bool,
 	addUpgradeScripts bool,
 ) {
+	// Who knows; one day chocolaty might be here...
 	return
 }
 
-func (cfg *WindowsCloudConfig) MaybeAddCloudArchiveCloudTools() {
-	return
+// AddCloudArchiveCloudTools implements AdvancedPackagingConfig.
+func (cfg *WindowsCloudConfig) AddCloudArchiveCloudTools() {
 }
 
-func (cfg *WindowsCloudConfig) getCommandsForAddingPackages() ([]string, error) {
-	return nil, nil
-}
-
+// updatePackages implements AdvancedPackagingConfig.
 func (cfg *WindowsCloudConfig) updatePackages() {
 	return
 }
 
+// updateProxySettings implements AdvancedPackagingConfig.
 func (cfg *WindowsCloudConfig) updateProxySettings(proxy.Settings) {
 	return
 }
