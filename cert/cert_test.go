@@ -99,7 +99,7 @@ func (certSuite) TestNewDefaultServer(c *gc.C) {
 
 	srvCertPEM, srvKeyPEM, err := cert.NewDefaultServer(caCertPEM, caKeyPEM, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	srvCertExpiry := roundTime(now.AddDate(10, 0, 0))
+	srvCertExpiry := roundTime(time.Now().AddDate(10, 0, 0))
 	checkCertificate(c, caCert, srvCertPEM, srvKeyPEM, now, srvCertExpiry)
 }
 
