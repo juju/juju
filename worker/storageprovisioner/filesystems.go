@@ -26,13 +26,12 @@ func filesystemsChanged(ctx *context, changes []string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(axw) wait for filesystems/filesystems to have no
-	// attachments first. We can then have the removal of the
-	// last attachment trigger the filesystem/filesystem's Life
-	// being transitioned to Dead.
-	// or watch the attachments until they're all gone. We need
-	// to watch attachments *anyway*, so we can probably integrate
-	// the two things.
+	// TODO(axw) wait for filesystems to have no attachments first.
+	// We can then have the removal of the last attachment trigger
+	// the filesystem's Life being transitioned to Dead, or watch
+	// the attachments until they're all gone. We need to watch
+	// attachments *anyway*, so we can probably integrate the two
+	// things.
 	if err := ensureDead(ctx, dying); err != nil {
 		return errors.Annotate(err, "ensuring filesystems dead")
 	}
@@ -294,6 +293,11 @@ func processAliveFilesystemAttachments(
 			// in the context, so that if when the filesystem is created
 			// the attachment isn't created with it, we can then try
 			// to attach.
+			logger.Debugf(
+				"waiting for filesystem (%q) or instance (%q) to be provisioned",
+				params.FilesystemId,
+				params.InstanceId,
+			)
 			continue
 		}
 		if params.Path == "" {
