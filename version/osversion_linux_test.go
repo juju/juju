@@ -39,7 +39,7 @@ func (s *linuxVersionSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *linuxVersionSuite) TestOSVersion(c *gc.C) {
-	// Set up fake /etc/os-release file form the future.
+	// Set up fake /etc/os-release file from the future.
 	d := c.MkDir()
 	release := filepath.Join(d, "future-release")
 	s.PatchValue(version.OSReleaseFile, release)
