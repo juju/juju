@@ -227,7 +227,6 @@ func (s *poolSuite) TestListFilterInvalidProvidersAndNames(c *gc.C) {
 }
 
 func (s *poolSuite) registerProviders(c *gc.C) {
-	// This call would also indirectly register all other provider types needed.
 	registry.RegisterEnvironStorageProviders(s.state.envName, "dummy")
 }
 

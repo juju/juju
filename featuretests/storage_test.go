@@ -267,7 +267,6 @@ block-persistent:
 func (s *cmdStorageSuite) registerTmpProviderType(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	// This call would also indirectly register all other provider types needed.
 	registry.RegisterEnvironStorageProviders(cfg.Name(), provider.TmpfsProviderType)
 }
 
