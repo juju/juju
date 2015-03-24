@@ -4,10 +4,13 @@
 package ec2
 
 import (
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"gopkg.in/amz.v3/ec2"
 
@@ -42,6 +45,7 @@ const (
 	deviceInUse        = "InvalidDevice.InUse"
 	volumeInUse        = "VolumeInUse"
 	attachmentNotFound = "InvalidAttachment.NotFound"
+	incorrectState     = "IncorrectState"
 )
 
 const (
@@ -67,6 +71,8 @@ const (
 	// when recording the block device info in state.
 	renamedDevicePrefix = "xvd"
 )
+
+var deviceInUseRegexp = regexp.MustCompile(".*Attachment point .* is already in use")
 
 func init() {
 	ebsssdPool, _ := storage.NewConfig("ebs-ssd", EBS_ProviderType, map[string]interface{}{"volume-type": "gp2"})
@@ -239,8 +245,13 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 			Persistent: persistent,
 		})
 
+		// Wait for the volume to be "available".
+		if err := v.waitVolumeAvailable(volumeId); err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+
 		// For EC2, we always create volumes with attachments.
-		nextDeviceName := blockDeviceNamer(instances[instId].VirtType == paravirtual)
+		nextDeviceName := blockDeviceNamer(instances[instId])
 		requestDeviceName, actualDeviceName, err := v.attachOneVolume(nextDeviceName, resp.Volume.Id, instId, false)
 		if err != nil {
 			return nil, nil, errors.Annotatef(err, "attaching %v to %v", resp.Volume.Id, instId)
@@ -249,6 +260,7 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 			// TODO(axw) modify instance's block device mapping so that
 			// it will delete the volume on instance termination.
 			_, err := v.ec2.ModifyInstanceAttribute(&ec2.ModifyInstanceAttribute{
+				InstanceId: instId,
 				BlockDeviceMappings: []ec2.InstanceBlockDeviceMapping{{
 					DeviceName:          requestDeviceName,
 					VolumeId:            volumeId,
@@ -256,7 +268,7 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 				}},
 			}, ec2.NewFilter())
 			if err != nil {
-				return nil, nil, errors.Annotate(err, "binding termination of %v to %v")
+				return nil, nil, errors.Annotatef(err, "binding termination of %v to %v", resp.Volume.Id, instId)
 			}
 		}
 		volumeAttachments = append(volumeAttachments, storage.VolumeAttachment{
@@ -359,12 +371,12 @@ func (v *ebsVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentP
 	}
 	instances, err := v.instances(instIds.Values())
 	if err != nil {
-		return nil, errors.Annotate(err, "finding virtulisation types for instances")
+		return nil, errors.Trace(err)
 	}
 
 	for _, params := range attachParams {
 		instId := string(params.InstanceId)
-		nextDeviceName := blockDeviceNamer(instances[instId].VirtType == paravirtual)
+		nextDeviceName := blockDeviceNamer(instances[instId])
 		_, deviceName, err := v.attachOneVolume(nextDeviceName, params.VolumeId, instId, false)
 		if err != nil {
 			return nil, errors.Annotatef(err, "attaching %v to %v", params.VolumeId, params.InstanceId)
@@ -384,8 +396,6 @@ func (v *ebsVolumeSource) attachOneVolume(
 	volumeId, instId string,
 	deleteOnTermination bool,
 ) (string, string, error) {
-	// TODO(wallyworld) - retry on IncorrectState error (volume being created)
-	// Process aws specific error information.
 	for {
 		requestDeviceName, actualDeviceName, err := nextDeviceName()
 		if err != nil {
@@ -395,6 +405,15 @@ func (v *ebsVolumeSource) attachOneVolume(
 		_, err = v.ec2.AttachVolume(volumeId, instId, requestDeviceName)
 		if ec2Err, ok := err.(*ec2.Error); ok {
 			switch ec2Err.Code {
+			case invalidParameterValue:
+				// InvalidParameterValue is returned by AttachVolume
+				// rather than InvalidDevice.InUse as the docs would
+				// suggest.
+				if !deviceInUseRegexp.MatchString(ec2Err.Message) {
+					break
+				}
+				fallthrough
+
 			case deviceInUse:
 				// deviceInUse means that the requested device name
 				// is in use already. Try again with the next name.
@@ -404,12 +423,11 @@ func (v *ebsVolumeSource) attachOneVolume(
 				// volumeInUse means this volume is already attached.
 				// query the volume and verify that the attachment is
 				// for this machine.
-				var attachedVols *ec2.VolumesResp
-				attachedVols, err = v.ec2.Volumes([]string{volumeId}, nil)
+				volume, err := v.describeVolume(volumeId)
 				if err != nil {
-					return "", "", errors.Annotate(err, "querying volume")
+					return "", "", errors.Trace(err)
 				}
-				attachments := attachedVols.Volumes[0].Attachments
+				attachments := volume.Attachments
 				if len(attachments) != 1 {
 					return "", "", errors.Annotatef(err, "volume %v has unexpected attachment count: %v", volumeId, len(attachments))
 				}
@@ -427,6 +445,34 @@ func (v *ebsVolumeSource) attachOneVolume(
 		}
 		return requestDeviceName, actualDeviceName, nil
 	}
+}
+
+func (v *ebsVolumeSource) waitVolumeAvailable(volumeId string) error {
+	var attempt = utils.AttemptStrategy{
+		Total: 5 * time.Second,
+		Delay: 200 * time.Millisecond,
+	}
+	for a := attempt.Start(); a.Next(); {
+		volume, err := v.describeVolume(volumeId)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if volume.Status == "available" {
+			return nil
+		}
+	}
+	return errors.Errorf("timed out waiting for volume %v to become available", volumeId)
+}
+
+func (v *ebsVolumeSource) describeVolume(volumeId string) (*ec2.Volume, error) {
+	resp, err := v.ec2.Volumes([]string{volumeId}, nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "querying volume")
+	}
+	if len(resp.Volumes) != 1 {
+		return nil, errors.Errorf("expected one volume, got %d", len(resp.Volumes))
+	}
+	return &resp.Volumes[0], nil
 }
 
 // instances returns a mapping from the specified instance IDs to ec2.Instance
@@ -491,7 +537,7 @@ var errTooManyVolumes = errors.New("too many EBS volumes to attach")
 // will appear on the machine.
 //
 // See http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html
-func blockDeviceNamer(numbers bool) func() (requestName, actualName string, err error) {
+func blockDeviceNamer(inst ec2.Instance) func() (requestName, actualName string, err error) {
 	const (
 		// deviceLetterMin is the first letter to use for EBS block device names.
 		deviceLetterMin = 'f'
@@ -502,6 +548,7 @@ func blockDeviceNamer(numbers bool) func() (requestName, actualName string, err 
 	)
 	var n int
 	letterRepeats := 1
+	numbers := inst.VirtType == "paravirtual"
 	if numbers {
 		letterRepeats = deviceNumMax
 	}
