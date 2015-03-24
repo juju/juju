@@ -185,9 +185,19 @@ func (w *storageprovisioner) loop() error {
 	defer watcher.Stop(volumeAttachmentsWatcher, &w.tomb)
 	volumeAttachmentsChanges := volumeAttachmentsWatcher.Changes()
 
-	// TODO(axw) watch filesystem attachments when
-	// apiserver/storageprovisioner implements the
-	// filesystem-attachment methods.
+	filesystemsWatcher, err := w.filesystems.WatchFilesystems()
+	if err != nil {
+		return errors.Annotate(err, "watching filesystems")
+	}
+	defer watcher.Stop(filesystemsWatcher, &w.tomb)
+	filesystemsChanges := filesystemsWatcher.Changes()
+
+	filesystemAttachmentsWatcher, err := w.filesystems.WatchFilesystemAttachments()
+	if err != nil {
+		return errors.Annotate(err, "watching filesystem attachments")
+	}
+	defer watcher.Stop(filesystemAttachmentsWatcher, &w.tomb)
+	filesystemAttachmentsChanges := filesystemAttachmentsWatcher.Changes()
 
 	ctx := context{
 		environConfig: environConfig,
@@ -213,6 +223,20 @@ func (w *storageprovisioner) loop() error {
 				return watcher.EnsureErr(volumeAttachmentsWatcher)
 			}
 			if err := volumeAttachmentsChanged(&ctx, changes); err != nil {
+				return errors.Trace(err)
+			}
+		case changes, ok := <-filesystemsChanges:
+			if !ok {
+				return watcher.EnsureErr(filesystemsWatcher)
+			}
+			if err := filesystemsChanged(&ctx, changes); err != nil {
+				return errors.Trace(err)
+			}
+		case changes, ok := <-filesystemAttachmentsChanges:
+			if !ok {
+				return watcher.EnsureErr(filesystemAttachmentsWatcher)
+			}
+			if err := filesystemAttachmentsChanged(&ctx, changes); err != nil {
 				return errors.Trace(err)
 			}
 		}

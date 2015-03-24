@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/storageprovisioner"
 )
 
 const attachedVolumeId = "1"
@@ -179,11 +178,109 @@ func newMockVolumeAccessor() *mockVolumeAccessor {
 }
 
 type mockFilesystemAccessor struct {
-	storageprovisioner.FilesystemAccessor
+	filesystemsWatcher     *mockStringsWatcher
+	attachmentsWatcher     *mockAttachmentsWatcher
+	provisionedMachines    map[string]instance.Id
+	provisionedFilesystems map[string]params.Filesystem
+	provisionedAttachments map[params.MachineStorageId]params.FilesystemAttachment
+
+	setFilesystemInfo           func([]params.Filesystem) ([]params.ErrorResult, error)
+	setFilesystemAttachmentInfo func([]params.FilesystemAttachment) ([]params.ErrorResult, error)
+}
+
+func (w *mockFilesystemAccessor) WatchFilesystems() (apiwatcher.StringsWatcher, error) {
+	return w.filesystemsWatcher, nil
+}
+
+func (w *mockFilesystemAccessor) WatchFilesystemAttachments() (apiwatcher.MachineStorageIdsWatcher, error) {
+	return w.attachmentsWatcher, nil
+}
+
+func (v *mockFilesystemAccessor) Filesystems(filesystems []names.FilesystemTag) ([]params.FilesystemResult, error) {
+	var result []params.FilesystemResult
+	for _, tag := range filesystems {
+		if vol, ok := v.provisionedFilesystems[tag.String()]; ok {
+			result = append(result, params.FilesystemResult{Result: vol})
+		} else {
+			result = append(result, params.FilesystemResult{
+				Error: common.ServerError(errors.NotProvisionedf("filesystem %q", tag.Id())),
+			})
+		}
+	}
+	return result, nil
+}
+
+func (v *mockFilesystemAccessor) FilesystemAttachments(ids []params.MachineStorageId) ([]params.FilesystemAttachmentResult, error) {
+	var result []params.FilesystemAttachmentResult
+	for _, id := range ids {
+		if att, ok := v.provisionedAttachments[id]; ok {
+			result = append(result, params.FilesystemAttachmentResult{Result: att})
+		} else {
+			result = append(result, params.FilesystemAttachmentResult{
+				Error: common.ServerError(errors.NotProvisionedf("filesystem attachment %v", id)),
+			})
+		}
+	}
+	return result, nil
+}
+
+func (v *mockFilesystemAccessor) FilesystemParams(filesystems []names.FilesystemTag) ([]params.FilesystemParamsResult, error) {
+	var result []params.FilesystemParamsResult
+	for _, tag := range filesystems {
+		if _, ok := v.provisionedFilesystems[tag.String()]; ok {
+			result = append(result, params.FilesystemParamsResult{
+				Error: &params.Error{Message: "already provisioned"},
+			})
+		} else {
+			filesystemParams := params.FilesystemParams{
+				FilesystemTag: tag.String(),
+				Size:          1024,
+				Provider:      "dummy",
+			}
+			result = append(result, params.FilesystemParamsResult{Result: filesystemParams})
+		}
+	}
+	return result, nil
+}
+
+func (f *mockFilesystemAccessor) FilesystemAttachmentParams(ids []params.MachineStorageId) ([]params.FilesystemAttachmentParamsResult, error) {
+	var result []params.FilesystemAttachmentParamsResult
+	for _, id := range ids {
+		if _, ok := f.provisionedAttachments[id]; ok {
+			result = append(result, params.FilesystemAttachmentParamsResult{
+				Error: &params.Error{Message: "already provisioned"},
+			})
+		} else {
+			instanceId, _ := f.provisionedMachines[id.MachineTag]
+			filesystem, _ := f.provisionedFilesystems[id.AttachmentTag]
+			result = append(result, params.FilesystemAttachmentParamsResult{Result: params.FilesystemAttachmentParams{
+				MachineTag:    id.MachineTag,
+				FilesystemTag: id.AttachmentTag,
+				InstanceId:    string(instanceId),
+				FilesystemId:  filesystem.FilesystemId,
+				Provider:      "dummy",
+			}})
+		}
+	}
+	return result, nil
+}
+
+func (f *mockFilesystemAccessor) SetFilesystemInfo(filesystems []params.Filesystem) ([]params.ErrorResult, error) {
+	return f.setFilesystemInfo(filesystems)
+}
+
+func (f *mockFilesystemAccessor) SetFilesystemAttachmentInfo(filesystemAttachments []params.FilesystemAttachment) ([]params.ErrorResult, error) {
+	return f.setFilesystemAttachmentInfo(filesystemAttachments)
 }
 
 func newMockFilesystemAccessor() *mockFilesystemAccessor {
-	return &mockFilesystemAccessor{}
+	return &mockFilesystemAccessor{
+		filesystemsWatcher:     &mockStringsWatcher{make(chan []string, 1)},
+		attachmentsWatcher:     &mockAttachmentsWatcher{make(chan []params.MachineStorageId, 1)},
+		provisionedMachines:    make(map[string]instance.Id),
+		provisionedFilesystems: make(map[string]params.Filesystem),
+		provisionedAttachments: make(map[params.MachineStorageId]params.FilesystemAttachment),
+	}
 }
 
 type mockLifecycleManager struct {
@@ -240,8 +337,16 @@ type dummyVolumeSource struct {
 	storage.VolumeSource
 }
 
+type dummyFilesystemSource struct {
+	storage.FilesystemSource
+}
+
 func (*dummyProvider) VolumeSource(environConfig *config.Config, providerConfig *storage.Config) (storage.VolumeSource, error) {
 	return &dummyVolumeSource{}, nil
+}
+
+func (*dummyProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
+	return &dummyFilesystemSource{}, nil
 }
 
 // CreateVolumes makes some volumes that we can check later to ensure things went as expected.
@@ -285,4 +390,36 @@ func (*dummyVolumeSource) AttachVolumes(params []storage.VolumeAttachmentParams)
 		})
 	}
 	return volumeAttachments, nil
+}
+
+// CreateFilesystems makes some filesystems that we can check later to ensure things went as expected.
+func (*dummyFilesystemSource) CreateFilesystems(params []storage.FilesystemParams) ([]storage.Filesystem, error) {
+	var filesystems []storage.Filesystem
+	for _, p := range params {
+		filesystems = append(filesystems, storage.Filesystem{
+			Tag:          p.Tag,
+			Size:         p.Size,
+			FilesystemId: "id-" + p.Tag.Id(),
+		})
+	}
+	return filesystems, nil
+}
+
+// AttachFilesystems attaches filesystems to machines.
+func (*dummyFilesystemSource) AttachFilesystems(params []storage.FilesystemAttachmentParams) ([]storage.FilesystemAttachment, error) {
+	var filesystemAttachments []storage.FilesystemAttachment
+	for _, p := range params {
+		if p.FilesystemId == "" {
+			panic("AttachFilesystems called with unprovisioned filesystem")
+		}
+		if p.InstanceId == "" {
+			panic("AttachFilesystems called with unprovisioned machine")
+		}
+		filesystemAttachments = append(filesystemAttachments, storage.FilesystemAttachment{
+			Filesystem: p.Filesystem,
+			Machine:    p.Machine,
+			Path:       "/srv/" + p.FilesystemId,
+		})
+	}
+	return filesystemAttachments, nil
 }
