@@ -46,6 +46,7 @@ type addresserHandler struct {
 	st       stateAddresser
 	releaser releaser
 	kill     func()
+	err      error
 }
 
 // NewWorker returns a worker that keeps track of
@@ -72,6 +73,7 @@ func newWorkerWithReleaser(st stateAddresser, releaser releaser) worker.Worker {
 		st:       st,
 		releaser: releaser,
 		dying:    make(chan struct{}),
+		err:      nil,
 	}
 	w := worker.NewStringsWorker(a)
 	a.kill = func() {
@@ -85,6 +87,10 @@ func (a *addresserHandler) Handle(ids []string) error {
 	for _, id := range ids {
 		addr, err := a.st.IPAddress(id)
 		if err != nil {
+			if errors.IsNotFound(err) {
+				continue
+			}
+			a.err = err
 			return err
 		}
 		if addr.Life() != state.Dead {
@@ -92,10 +98,12 @@ func (a *addresserHandler) Handle(ids []string) error {
 		}
 		err = a.releaseIPAddress(addr)
 		if err != nil {
+			a.err = err
 			return err
 		}
 		err = addr.Remove()
 		if err != nil {
+			a.err = err
 			return err
 		}
 	}
@@ -103,7 +111,7 @@ func (a *addresserHandler) Handle(ids []string) error {
 }
 
 func (a *addresserHandler) releaseIPAddress(addr *state.IPAddress) (err error) {
-	defer errors.DeferredAnnotatef(&err, "failed to release address %v", addr.Value)
+	defer errors.DeferredAnnotatef(&err, "failed to release address %v", addr.Value())
 	var machine *state.Machine
 	machine, err = a.st.Machine(addr.MachineId())
 	if err != nil {
@@ -147,13 +155,15 @@ func (a *addresserHandler) SetUp() (apiWatcher.StringsWatcher, error) {
 			if err != nil {
 				logger.Warningf("error releasing dead IP address %q: %v", addr, err)
 				a.kill()
-				close(a.dying)
+				a.err = err
+				return
 			} else {
 				err = addr.Remove()
 				if err != nil {
 					logger.Warningf("error removing dead IP address %q: %v", addr, err)
 					a.kill()
-					close(a.dying)
+					a.err = err
+					return
 				}
 			}
 		case <-a.dying:
@@ -167,5 +177,5 @@ func (a *addresserHandler) SetUp() (apiWatcher.StringsWatcher, error) {
 
 func (a *addresserHandler) TearDown() error {
 	close(a.dying)
-	return nil
+	return a.err
 }

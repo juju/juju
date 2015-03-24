@@ -201,3 +201,14 @@ func (s *workerSuite) TestWorkerHandlesProviderError(c *gc.C) {
 	_, err = s.State.IPAddress("0.1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+func (s *workerSuite) TestWorkerErrorOnStartKillsWorker(c *gc.C) {
+	s.AssertConfigParameterUpdated(c, "broken", "ReleaseAddress")
+	w, err := addresser.NewWorker(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	// This should not block as the worker has errored out.
+	w.Wait()
+
+	msg := "failed to release address .*: dummy.ReleaseAddress is broken"
+	c.Assert(worker.Stop(w), gc.ErrorMatches, msg)
+}
