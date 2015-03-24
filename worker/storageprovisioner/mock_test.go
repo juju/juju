@@ -5,9 +5,11 @@ package storageprovisioner_test
 
 import (
 	"strconv"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	gc "gopkg.in/check.v1"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/common"
@@ -15,6 +17,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
 )
 
 const attachedVolumeId = "1"
@@ -27,6 +30,22 @@ var dyingVolumeAttachmentId = params.MachineStorageId{
 var missingVolumeAttachmentId = params.MachineStorageId{
 	MachineTag:    "machine-3",
 	AttachmentTag: "volume-1",
+}
+
+type mockNotifyWatcher struct {
+	changes chan struct{}
+}
+
+func (*mockNotifyWatcher) Stop() error {
+	return nil
+}
+
+func (*mockNotifyWatcher) Err() error {
+	return nil
+}
+
+func (w *mockNotifyWatcher) Changes() <-chan struct{} {
+	return w.changes
 }
 
 type mockStringsWatcher struct {
@@ -59,6 +78,36 @@ func (*mockAttachmentsWatcher) Err() error {
 
 func (w *mockAttachmentsWatcher) Changes() <-chan []params.MachineStorageId {
 	return w.changes
+}
+
+type mockEnvironAccessor struct {
+	watcher *mockNotifyWatcher
+	mu      sync.Mutex
+	cfg     *config.Config
+}
+
+func (e *mockEnvironAccessor) WatchForEnvironConfigChanges() (apiwatcher.NotifyWatcher, error) {
+	return e.watcher, nil
+}
+
+func (e *mockEnvironAccessor) EnvironConfig() (*config.Config, error) {
+	e.mu.Lock()
+	cfg := e.cfg
+	e.mu.Unlock()
+	return cfg, nil
+}
+
+func (e *mockEnvironAccessor) setConfig(cfg *config.Config) {
+	e.mu.Lock()
+	e.cfg = cfg
+	e.mu.Unlock()
+}
+
+func newMockEnvironAccessor(c *gc.C) *mockEnvironAccessor {
+	return &mockEnvironAccessor{
+		watcher: &mockNotifyWatcher{make(chan struct{}, 1)},
+		cfg:     testing.EnvironConfig(c),
+	}
 }
 
 type mockVolumeAccessor struct {
@@ -331,6 +380,8 @@ func (m *mockLifecycleManager) RemoveAttachments([]params.MachineStorageId) ([]p
 // Set up a dummy storage provider so we can stub out volume creation.
 type dummyProvider struct {
 	storage.Provider
+
+	volumeSourceFunc func(*config.Config, *storage.Config) (storage.VolumeSource, error)
 }
 
 type dummyVolumeSource struct {
@@ -341,12 +392,19 @@ type dummyFilesystemSource struct {
 	storage.FilesystemSource
 }
 
-func (*dummyProvider) VolumeSource(environConfig *config.Config, providerConfig *storage.Config) (storage.VolumeSource, error) {
+func (p *dummyProvider) VolumeSource(environConfig *config.Config, providerConfig *storage.Config) (storage.VolumeSource, error) {
+	if p.volumeSourceFunc != nil {
+		return p.volumeSourceFunc(environConfig, providerConfig)
+	}
 	return &dummyVolumeSource{}, nil
 }
 
 func (*dummyProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
 	return &dummyFilesystemSource{}, nil
+}
+
+func (*dummyVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
+	return nil
 }
 
 // CreateVolumes makes some volumes that we can check later to ensure things went as expected.

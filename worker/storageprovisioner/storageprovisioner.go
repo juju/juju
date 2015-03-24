@@ -172,9 +172,13 @@ func (w *storageprovisioner) Wait() error {
 func (w *storageprovisioner) loop() error {
 	var environConfigChanges <-chan struct{}
 	var volumesWatcher apiwatcher.StringsWatcher
+	var filesystemsWatcher apiwatcher.StringsWatcher
 	var volumesChanges <-chan []string
+	var filesystemsChanges <-chan []string
 	var volumeAttachmentsWatcher apiwatcher.MachineStorageIdsWatcher
+	var filesystemAttachmentsWatcher apiwatcher.MachineStorageIdsWatcher
 	var volumeAttachmentsChanges <-chan []params.MachineStorageId
+	var filesystemAttachmentsChanges <-chan []params.MachineStorageId
 
 	environConfigWatcher, err := w.environ.WatchForEnvironConfigChanges()
 	if err != nil {
@@ -186,6 +190,8 @@ func (w *storageprovisioner) loop() error {
 	// The other watchers are started dynamically; stop only if started.
 	defer w.maybeStopWatcher(volumesWatcher)
 	defer w.maybeStopWatcher(volumeAttachmentsWatcher)
+	defer w.maybeStopWatcher(filesystemsWatcher)
+	defer w.maybeStopWatcher(filesystemAttachmentsWatcher)
 
 	startWatchers := func() error {
 		var err error
@@ -193,28 +199,24 @@ func (w *storageprovisioner) loop() error {
 		if err != nil {
 			return errors.Annotate(err, "watching volumes")
 		}
+		filesystemsWatcher, err := w.filesystems.WatchFilesystems()
+		if err != nil {
+			return errors.Annotate(err, "watching filesystems")
+		}
 		volumeAttachmentsWatcher, err = w.volumes.WatchVolumeAttachments()
 		if err != nil {
 			return errors.Annotate(err, "watching volume attachments")
 		}
+		filesystemAttachmentsWatcher, err := w.filesystems.WatchFilesystemAttachments()
+		if err != nil {
+			return errors.Annotate(err, "watching filesystem attachments")
+		}
 		volumesChanges = volumesWatcher.Changes()
+		filesystemsChanges = filesystemsWatcher.Changes()
 		volumeAttachmentsChanges = volumeAttachmentsWatcher.Changes()
+		filesystemAttachmentsChanges = filesystemAttachmentsWatcher.Changes()
 		return nil
 	}
-
-	filesystemsWatcher, err := w.filesystems.WatchFilesystems()
-	if err != nil {
-		return errors.Annotate(err, "watching filesystems")
-	}
-	defer watcher.Stop(filesystemsWatcher, &w.tomb)
-	filesystemsChanges := filesystemsWatcher.Changes()
-
-	filesystemAttachmentsWatcher, err := w.filesystems.WatchFilesystemAttachments()
-	if err != nil {
-		return errors.Annotate(err, "watching filesystem attachments")
-	}
-	defer watcher.Stop(filesystemAttachmentsWatcher, &w.tomb)
-	filesystemAttachmentsChanges := filesystemAttachmentsWatcher.Changes()
 
 	ctx := context{
 		storageDir:  w.storageDir,
