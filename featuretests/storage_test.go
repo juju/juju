@@ -282,41 +282,27 @@ func (s *cmdStorageSuite) TestListPoolsProviderUnregistered(c *gc.C) {
 }
 
 func (s *cmdStorageSuite) TestListPoolsNameAndProvider(c *gc.C) {
-	context := runPoolList(c, "--name", "block", "--provider", "ebs")
+	context := runPoolList(c, "--name", "block", "--provider", "loop")
 	expected := `
 block:
   provider: loop
   attrs:
     it: works
-block-persistent:
-  provider: ebs
-  attrs:
-    persistent: true
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
 
 func (s *cmdStorageSuite) TestListPoolsProviderAndNotName(c *gc.C) {
 	context := runPoolList(c, "--name", "fluff", "--provider", "ebs")
-	expected := `
-block-persistent:
-  provider: ebs
-  attrs:
-    persistent: true
-`[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	// there is no pool that matches this name AND type
+	c.Assert(testing.Stdout(context), gc.Equals, "")
 }
 
 func (s *cmdStorageSuite) TestListPoolsNameAndNotProvider(c *gc.C) {
 	s.registerTmpProviderType(c)
 	context := runPoolList(c, "--name", "block", "--provider", string(provider.TmpfsProviderType))
-	expected := `
-block:
-  provider: loop
-  attrs:
-    it: works
-`[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	// no pool matches this name and this provider
+	c.Assert(testing.Stdout(context), gc.Equals, "")
 }
 
 func (s *cmdStorageSuite) TestListPoolsNotNameAndNotProvider(c *gc.C) {
