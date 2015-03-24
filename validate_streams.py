@@ -107,7 +107,8 @@ def reconcile_aliases(found_errors, new_agents):
                     found_errors.remove(found_name)
 
 
-def check_expected_unchanged(old_agents, new_agents, added=None, removed=None):
+def check_expected_unchanged(old_agents, new_agents,
+                             added=None, removed=None, ignored=None):
     """Return a list of errors if the expected unchanged versions do not match.
 
     :param old_agents: the dict of all the products/versions/*/items
@@ -116,6 +117,9 @@ def check_expected_unchanged(old_agents, new_agents, added=None, removed=None):
                        in the new json.
     :param added: the version added to the new json, eg '1.20.9'.
     :param removed: the version removed from the new json, eg '1.20.8'.
+    :param ignored: The version that may be added, but can be ignored.
+        There are cases where extra stable versions are included when
+        adding to a devel stream.
     :return: a list of errors, which will be empty when there are none.
     """
     old_versions = set(k for (k, v) in old_agents.items()
@@ -129,6 +133,11 @@ def check_expected_unchanged(old_agents, new_agents, added=None, removed=None):
         errors.append('These agents are missing: {}'.format(missing_errors))
     found_errors = new_versions - old_versions
     reconcile_aliases(found_errors, new_agents)
+    if ignored:
+        for found_name in list(found_errors):
+            found_agent = new_agents[found_name]
+            if found_agent['version'].startswith(ignored):
+                found_errors.remove(found_name)
     if found_errors:
         found_errors = list(found_errors)
         errors.append('These unknown agents were found: {}'.format(
@@ -166,7 +175,8 @@ def check_agents_content(old_agents, new_agents):
     return errors
 
 
-def compare_agents(old_agents, new_agents, purpose, added=None, removed=None):
+def compare_agents(old_agents, new_agents, purpose,
+                   added=None, removed=None, ignored=None):
     """Return a list of error messages from all the validation checks.
 
     :param old_agents: the dict of all the products/versions/*/items
@@ -181,7 +191,8 @@ def compare_agents(old_agents, new_agents, purpose, added=None, removed=None):
     errors.extend(
         check_expected_changes(new_agents, added, removed))
     errors.extend(
-        check_expected_unchanged(old_agents, new_agents, added, removed))
+        check_expected_unchanged(
+            old_agents, new_agents, added, removed, ignored))
     errors.extend(
         check_agents_content(old_agents, new_agents))
     return errors or None
@@ -197,6 +208,9 @@ def parse_args(args=None):
         '-r', '--removed', default=None, help='The release version removed')
     parser.add_argument(
         '-a', '--added', default=None, help="The release version added")
+    parser.add_argument(
+        '-i', '--ignored', default=None,
+        help="Ignore a version that might be added")
     parser.add_argument('purpose', help="<{}>".format(' | '.join(PURPOSES)))
     parser.add_argument('old_json', help="The old simple streams data file")
     parser.add_argument('new_json', help="The new simple streams data file")
@@ -215,7 +229,7 @@ def main(argv):
         new_agents = find_agents(args.new_json)
         errors = compare_agents(
             old_agents, new_agents, args.purpose, args.added,
-            args.removed)
+            args.removed, args.ignored)
         if errors:
             print('\n'.join(errors))
             return 1

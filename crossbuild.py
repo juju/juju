@@ -177,7 +177,10 @@ def build_osx_client(tarball_path, build_dir, dry_run=False, verbose=False):
         go_build(
             cmd_package, goroot, gopath, 'amd64', 'darwin',
             dry_run=False, verbose=verbose)
-        bin_path = os.path.join(gopath, 'bin', 'darwin_amd64')
+        if sys.platform == 'darwin':
+            bin_path = os.path.join(gopath, 'bin')
+        else:
+            bin_path = os.path.join(gopath, 'bin', 'darwin_amd64')
         binary_paths = [
             os.path.join(bin_path, 'juju'),
             os.path.join(bin_path, 'juju-metadata'),
@@ -199,6 +202,7 @@ def make_osx_tarball(binary_paths, version, dest_dir,
         with tarfile.open(name=osx_tarball_path, mode='w:gz') as tar:
             ti = tarfile.TarInfo('juju-bin')
             ti.type = tarfile.DIRTYPE
+            ti.mode = int('775', 8)  # Py2/3 compatible octal.
             tar.addfile(ti)
             for binary_path in binary_paths:
                 if verbose:

@@ -125,7 +125,7 @@ check_deps
 VERSION=$(basename $TARBALL .tar.gz | cut -d '_' -f2)
 if [[ $IS_TESTING == "true" ]]; then
     PURPOSE="testing"
-elif [[ $VERSION =~ ^.*(19|alpha|beta).*$ ]]; then
+elif [[ $VERSION =~ ^.*(19|alpha|beta|rc).*$ ]]; then
     PURPOSE="devel"
 else
     PURPOSE="stable"

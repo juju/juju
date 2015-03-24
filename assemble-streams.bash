@@ -7,6 +7,10 @@
 
 set -eu
 
+# lftp segfaults working with two sets of packages.
+# This value can be set to the patch number of the package we need.
+PATCH="1"
+
 SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
 SIGNING_PASSPHRASE_FILE=${SIGNING_PASSPHRASE_FILE:-}
 
@@ -136,21 +140,23 @@ init_tools_maybe() {
         cp $DESTINATION/juju-dist/tools/releases/juju-*.tgz \
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "devel" && $INIT_VERSION != "" ]]; then
-        echo "Seeding devel with $INIT_VERSION released agents"
-        cp $DESTINATION/juju-dist/tools/releases/juju-$INIT_VERSION*.tgz \
+        echo "Seeding devel with $INIT_VERSION proposed agents"
+        cp $DESTINATION/juju-dist/tools/devel/juju-*.tgz \
+            $DEST_DIST/tools/releases
+        cp $DESTINATION/juju-dist/tools/proposed/juju-$INIT_VERSION*.tgz \
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "weekly" ]]; then
-        echo "Seeding weekly with $INIT_VERSION released agents"
-        cp $DESTINATION/juju-dist/tools/releases/juju-$INIT_VERSION*.tgz \
+        echo "Seeding weekly with $INIT_VERSION proposed agents"
+        cp $DESTINATION/juju-dist/tools/proposed/juju-$INIT_VERSION*.tgz \
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "testing" && $((count)) < 16 ]]; then
         if [[ $IS_DEVEL_VERSION == "true" ]]; then
             echo "Seeding testing with all devel agents"
-            cp $DESTINATION/juju-dist/devel/tools/releases/juju-*.tgz \
+            cp $DESTINATION/juju-dist/tools/devel/juju-*.tgz \
                 $DEST_DIST/tools/releases
         fi
         echo "Seeding testing with all proposed agents"
-        cp $DESTINATION/juju-dist/proposed/tools/releases/juju-*.tgz \
+        cp $DESTINATION/juju-dist/tools/proposed/juju-*.tgz \
             $DEST_DIST/tools/releases
     fi
 }
@@ -173,7 +179,7 @@ retrieve_packages() {
         for archive in $ALL_ARCHIVES; do
             safe_archive=$(echo "$archive" | sed -e 's,//.*@,//,')
             echo "checking $safe_archive for $RELEASE."
-            lftp -c mirror -I "juju-core_${RELEASE}*.deb" $archive;
+            lftp -c mirror -I "juju-core_${RELEASE}*.$PATCH~juj*.deb" $archive;
         done
         if [ -d $DEST_DEBS/juju-core ]; then
             found=$(find $DEST_DEBS/juju-core/ -name "*deb")
@@ -328,6 +334,7 @@ archive_tools() {
             echo "No new tools were found for $RELEASE, exiting early."
             echo "Use 'IGNORE' as the release version if you want to generate."
             echo "streams from tools in $DEST_DIST/tools/releases"
+            exit 0
         fi
     fi
 }
@@ -335,7 +342,7 @@ archive_tools() {
 
 copy_proposed_to_release() {
     echo "Phase 6: Copying proposed tools to released."
-    local proposed_releases="$DESTINATION/juju-dist/proposed/tools/releases"
+    local proposed_releases="$DESTINATION/juju-dist/tools/proposed"
     count=$(find $proposed_releases -name "juju-${RELEASE}*.tgz" | wc -l)
     if [[ $((count)) == 0  ]]; then
         echo "Proposed doesn't have any $RELEASE tools."
@@ -417,11 +424,46 @@ generate_streams() {
     find $DEST_DIST/tools/streams/v1/ -name "*gpg" -delete -print
     find $DEST_DIST/tools/streams/v1/ -name "*sjson" -delete -print
     find $DEST_DIST/tools/streams/v1/ -name "*mirror*" -delete -print
+
+    # Colon-to-dashed transition part 1, ensure both sets of files exist.
+    STREAM_DIR="$JUJU_DIST/tools/streams/v1"
+    for kind in released proposed devel; do
+        if [[ ! -e $STREAM_DIR/com.ubuntu.juju-$kind-tools.json \
+              && -e $STREAM_DIR/com.ubuntu.juju:$kind:tools.json ]]; then
+            cp $STREAM_DIR/com.ubuntu.juju:$kind:tools.json \
+                $STREAM_DIR/com.ubuntu.juju-$kind-tools.json
+        fi
+    done
+
     # Generate the json metadata.
     # When 1.21.0 is run this way, the released product file still uses
     # the releases dir.
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
         $JUJU_EXEC metadata generate-tools $CLEAN -d $DEST_DIST
+
+    # Colon-to-dashed transition part 2, ensure both sets are the same.
+    echo "Reconciling the current product file names with other file names."
+    INDEX_PRODUCT=$(
+        sed -r '/"path":/!d; s,^.*: "([^"]*)".*$,\1,;' $STREAM_DIR/index.json)
+    INDEX2_PRODUCT=$(
+        sed -r '/"path":/!d; s,^.*: "([^"]*)".*$,\1,;' $STREAM_DIR/index2.json)
+    if [[ ! $INDEX2_PRODUCT =~ .*$INDEX_PRODUCT.* ]]; then
+        echo "index and index2 'released' product file name are different:"
+        echo "  found in index.json: $INDEX_PRODUCT"
+        echo "  found in index2.json: $INDEX2_PRODUCT"
+        exit 1
+    fi
+    for product_file in $INDEX_PRODUCT $INDEX2_PRODUCT; do
+        if [[ $product_file =~ .*:.* ]]; then
+            other_file=$(echo "$product_file" | sed -r 's/:/-/g;')
+        else
+            other_file=$(echo "$product_file" | sed -r 's/-/:/g;')
+        fi
+        product_file="$JUJU_DIST/tools/$product_file"
+        other_file="$JUJU_DIST/tools/$other_file"
+        cp $product_file $other_file
+    done
+    echo "Copied current product files to other product files for transition."
 
     # Ensure the new json metadata matches the expected removed and added.
     if [[ $can_validate == "true" && $PURPOSE =~ ^(released|proposed)$ ]]; then
@@ -437,7 +479,7 @@ generate_streams() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|weekly|testing)$ ]]; then
         rm -r $JUJU_PATH
         return
     fi
@@ -445,13 +487,14 @@ generate_streams() {
     # the default.
     if [[ $PURPOSE == "released" ]]; then
         # Juju 1.15* can see released streams.
-        cp $DEST_DIST/tools/releases/juju-*.tgz $JUJU_DIST/tools/$PURPOSE/
+        cp --no-clobber \
+            $DEST_DIST/tools/releases/juju-*.tgz $JUJU_DIST/tools/$PURPOSE/
     else
         # Only new juju 1.21* can see devel and proposed.
         local agents=$(
             find $DEST_DIST/tools/releases/ -name 'juju-1.2*' |
             sed -r '/1.20/d')
-        cp $agents $JUJU_DIST/tools/$PURPOSE/
+        cp --no-clobber $agents $JUJU_DIST/tools/$PURPOSE/
     fi
 
     # Backup the current json to old json if it exists for later validation.
@@ -468,6 +511,16 @@ generate_streams() {
     find $JUJU_DIST/tools/streams/v1/ -name "*gpg" -delete -print
     find $JUJU_DIST/tools/streams/v1/ -name "*sjson" -delete -print
     find $JUJU_DIST/tools/streams/v1/ -name "*mirror*" -delete -print
+
+    # Colon-to-dashed transition part 1, ensure both sets of files exist.
+    STREAM_DIR="$JUJU_DIST/tools/streams/v1"
+    for kind in released proposed devel; do
+        if [[ ! -e $STREAM_DIR/com.ubuntu.juju-$kind-tools.json \
+              && -e $STREAM_DIR/com.ubuntu.juju:$kind:tools.json ]]; then
+            cp $STREAM_DIR/com.ubuntu.juju:$kind:tools.json \
+                $STREAM_DIR/com.ubuntu.juju-$kind-tools.json
+        fi
+    done
     # Generate the json metadata.
     $SCRIPT_DIR/generate_index.py -v $JUJU_DIST/tools/
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
@@ -475,26 +528,52 @@ generate_streams() {
         --clean -d $JUJU_DIST --stream $PURPOSE
     rm -r $JUJU_PATH
 
+    # Colon-to-dashed transition part 2, ensure both sets are the same.
+    echo "Reconciling the current product file names with other file names."
+    INDEX_PRODUCT=$(
+        sed -r '/"path":/!d; s,^.*: "([^"]*)".*$,\1,;' $STREAM_DIR/index.json)
+    INDEX2_PRODUCT=$(
+        sed -r '/"path":/!d; s,^.*: "([^"]*)".*$,\1,;' $STREAM_DIR/index2.json)
+    if [[ ! $INDEX2_PRODUCT =~ .*$INDEX_PRODUCT.* ]]; then
+        echo "index and index2 'released' product file name are different:"
+        echo "  found in index.json: $INDEX_PRODUCT"
+        echo "  found in index2.json: $INDEX2_PRODUCT"
+        exit 1
+    fi
+    for product_file in $INDEX_PRODUCT $INDEX2_PRODUCT; do
+        if [[ $product_file =~ .*:.* ]]; then
+            other_file=$(echo "$product_file" | sed -r 's/:/-/g;')
+        else
+            other_file=$(echo "$product_file" | sed -r 's/-/:/g;')
+        fi
+        product_file="$JUJU_DIST/tools/$product_file"
+        other_file="$JUJU_DIST/tools/$other_file"
+        cp $product_file $other_file
+    done
+    echo "Copied current product files to other product files for transition."
+
     # Ensure the new json metadata matches the expected removed and added.
     if [[ $can_validate == "true" ]]; then
+        if [[ $PURPOSE == "devel" ]]; then
+            IGNORED="--ignored $INIT_VERSION"
+        fi
         old_product_files=$(ls $DESTINATION/com*.json)
         for old_product in $old_product_files; do
             local product_name=$(basename $old_product)
             local new_product="$JUJU_DIST/tools/streams/v1/$product_name"
             local old_purpose=$(echo "$product_name" |
                 sed -r "s,.*:([^:]*):.*,\1,")
-            if [[ $old_purpose =~ ^(released|proposed)$ ]]; then
+            if [[ $old_purpose =~ ^(released|proposed|devel)$ ]]; then
                 if [[ $old_purpose == $PURPOSE ]]; then
                     # Ensure the added and removed are correct.
                     $SCRIPT_DIR/validate_streams.py \
-                        $REMOVED $ADDED $PURPOSE $old_product $new_product
+                        $REMOVED $ADDED $IGNORED $PURPOSE \
+                        $old_product $new_product
                 else
                     # No changes are permitted.
                     $SCRIPT_DIR/validate_streams.py \
                         $old_purpose $old_product $new_product
                 fi
-            else
-                echo "! Manually inspect $new_product for expected changes."
             fi
         done
     fi
@@ -512,7 +591,7 @@ generate_mirrors() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|weekly|testing)$ ]]; then
         return
     fi
     ${SCRIPT_DIR}/generate_mirrors.py $JUJU_DIST/tools/
@@ -547,7 +626,7 @@ sign_metadata() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|weekly|testing)$ ]]; then
         return
     fi
     meta_files=$(ls ${JUJU_DIST}/tools/streams/v1/*.json)
@@ -570,6 +649,11 @@ cleanup() {
     # future runs of the script.
     find ${DEST_DEBS} -name "*.deb" -delete
     find ${DEST_DEBS} -name "*.tgz" -delete
+    # Remove the unused separate tree.
+    if [[ $PURPOSE =~ ^(devel|proposed)$ ]]; then
+        rm -r $DESTINATION/juju-dist/$PURPOSE/tools/releases/* || true
+        rm -r $DESTINATION/juju-dist/$PURPOSE/tools/streams/v1/* || true
+    fi
 }
 
 
@@ -578,8 +662,9 @@ REMOVE_RELEASE=""
 SIGNING_KEY=""
 IS_LOCAL="false"
 GET_RELEASED_TOOL="true"
-INIT_VERSION="1.20"
-while getopts "r:s:t:i:n" o; do
+INIT_VERSION="1.22."
+RESIGN="false"
+while getopts "r:s:t:i:na" o; do
     case "${o}" in
         r)
             REMOVE_RELEASE=${OPTARG}
@@ -602,6 +687,10 @@ while getopts "r:s:t:i:n" o; do
         n)
             GET_RELEASED_TOOL="false"
             echo "Not downloading release tools."
+            ;;
+        a)
+            RESIGN="true"
+            echo "Will resign streams."
             ;;
         *)
             echo "Invalid option: ${o}"
@@ -651,25 +740,29 @@ declare -a added_tools
 added_tools=()
 ADDED=""
 REMOVED=""
+IGNORED=""
 
 
 # Main.
 check_deps
 build_tool_tree
-if [[ $GET_RELEASED_TOOL == "true" ]]; then
-    sync_released_tools
-fi
-retract_tools
-init_tools_maybe
-if [[ $IS_LOCAL == "true" || $RELEASE != "IGNORE" ]]; then
-    retrieve_packages
-    if [[ $PURPOSE == "released" ]]; then
-        copy_proposed_to_release
-    else
-        archive_tools
+if [[ $RESIGN == "false" ]]; then
+    cleanup
+    if [[ $GET_RELEASED_TOOL == "true" ]]; then
+        sync_released_tools
     fi
+    retract_tools
+    init_tools_maybe
+    if [[ $IS_LOCAL == "true" || $RELEASE != "IGNORE" ]]; then
+        retrieve_packages
+        if [[ $PURPOSE == "released" ]]; then
+            copy_proposed_to_release
+        else
+            archive_tools
+        fi
+    fi
+    generate_streams
 fi
-generate_streams
 if [[ $SIGNING_KEY != "" ]]; then
     generate_mirrors
     sign_metadata

@@ -13,6 +13,7 @@ from validate_streams import (
     check_agents_content,
     compare_agents,
     find_agents,
+    main,
     parse_args,
     reconcile_aliases,
 )
@@ -81,9 +82,14 @@ class ValidateStreams(TestCase):
         self.assertEqual('old/json', args.old_json)
         self.assertEqual('new/json', args.new_json)
         self.assertEqual('1.20.9', args.added)
+        self.assertIsNone(None, args.removed)
+        self.assertIsNone(None, args.ignored)
         # A bad release version can be removed.
         args = parse_args(['--removed', 'bad'] + required)
         self.assertEqual('bad', args.removed)
+        # A version can be ignored.
+        args = parse_args(['--ignored', '1.18'] + required)
+        self.assertEqual('1.18', args.ignored)
 
     def test_find_agents(self):
         products = make_products_data(['1.20.7', '1.20.8'])
@@ -195,6 +201,13 @@ class ValidateStreams(TestCase):
             ["These unknown agents were found: ['1.20.9-trusty-amd64']"],
             errors)
 
+    def test_check_expected_unchanged_with_ignored(self):
+        old_agents = make_agents_data('trusty', 'amd64', ['1.21-b1'])
+        new_agents = make_agents_data('trusty', 'amd64', ['1.21-b1', '1.20.1'])
+        errors = check_expected_unchanged(
+            old_agents, new_agents, added=None, removed=None, ignored='1.20.')
+        self.assertEqual([], errors)
+
     def test_check_expected_unchanged_calls_reconcile_aliases(self):
         old_agents = make_agents_data('trusty', 'amd64', ['1.20.7'])
         new_agents = make_agents_data('trusty', 'amd64', ['1.18.1', '1.20.7'])
@@ -252,10 +265,11 @@ class ValidateStreams(TestCase):
             with patch("validate_streams.check_expected_unchanged",
                        return_value=(['bar'])) as ceu_mock:
                 errors = compare_agents(
-                    old_agents, new_agents, 'proposed', '1.20.9', removed=None)
+                    old_agents, new_agents, 'proposed', '1.20.9',
+                    removed=None, ignored=None)
                 cec_mock.assert_called_with(new_agents, '1.20.9', None)
                 ceu_mock.assert_called_with(
-                    old_agents, new_agents, '1.20.9', None)
+                    old_agents, new_agents, '1.20.9', None, None)
         self.assertEqual(['foo', 'bar'], errors)
 
     def test_compare_agents_added_devel_version(self):
@@ -279,3 +293,26 @@ class ValidateStreams(TestCase):
         expected = (
             "Devel versions in release stream: ['1.21-alpha1-trusty-amd64']")
         self.assertEqual([expected], errors)
+
+    def test_main_without_errrors(self):
+        def fake_fa(name):
+            return name
+        with patch('validate_streams.find_agents',
+                   autospec=True, side_effect=fake_fa) as fa_mock:
+            with patch('validate_streams.compare_agents',
+                       autospec=True, return_value=None) as ca_mock:
+                returncode = main(
+                    ['script', '--added', '1.2.3', 'released', 'old', 'new'])
+        self.assertEqual(0, returncode)
+        fa_mock.assert_any_call('old')
+        fa_mock.assert_any_call('new')
+        ca_mock.assert_called_with(
+            'old', 'new', 'released', '1.2.3', None, None)
+
+    def test_main_with_errrors(self):
+        with patch('validate_streams.find_agents', autospec=True):
+            with patch('validate_streams.compare_agents',
+                       autospec=True, return_value=['error']):
+                returncode = main(
+                    ['script', '--added', '1.2.3', 'released', 'old', 'new'])
+        self.assertEqual(1, returncode)
