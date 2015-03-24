@@ -246,9 +246,9 @@ func processAliveVolumes(ctx *context, tags []names.Tag, volumeResults []params.
 	return nil
 }
 
-// processAliveVolumes processes the VolumeAttachmentResults for Alive
-// volume attachments, attaching volumes and setting the info in state
-// as necessary.
+// processAliveVolumeAttachments processes the VolumeAttachmentResults
+// for Alive volume attachments, attaching volumes and setting the info
+// in state as necessary.
 func processAliveVolumeAttachments(
 	ctx *context,
 	ids []params.MachineStorageId,
