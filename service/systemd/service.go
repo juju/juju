@@ -13,6 +13,7 @@ import (
 	"github.com/coreos/go-systemd/dbus"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service/common"
@@ -21,6 +22,9 @@ import (
 
 var (
 	logger = loggo.GetLogger("juju.service.systemd")
+
+	renderer = shell.BashRenderer{}
+	cmds     = commands{renderer, executable}
 )
 
 // ListServices returns the list of installed service names.
@@ -63,7 +67,7 @@ func listServices() ([]string, error) {
 
 // ListCommand returns a command that will list the services on a host.
 func ListCommand() string {
-	return commands{}.listAll()
+	return cmds.listAll()
 }
 
 // Service provides visibility into and control over a systemd service.
@@ -181,8 +185,8 @@ func (s *Service) validate(conf common.Conf) error {
 }
 
 func (s *Service) normalize(conf common.Conf) (common.Conf, []byte) {
-	scriptPath := path.Join(s.Dirname, "exec-start.sh")
-	return normalize(s.Service.Name, conf, scriptPath)
+	scriptPath := renderer.ScriptFilename("exec-start", s.Dirname)
+	return normalize(s.Service.Name, conf, scriptPath, renderer)
 }
 
 func (s *Service) setConf(conf common.Conf) error {
@@ -514,7 +518,12 @@ func (s *Service) writeConf() (string, error) {
 	filename := path.Join(s.Dirname, s.ConfName)
 
 	if s.Script != nil {
-		scriptPath := s.Service.Conf.ExecStart
+		scriptPath := renderer.ScriptFilename("exec-start", s.Dirname)
+		if renderer.Quote(scriptPath) != s.Service.Conf.ExecStart {
+			err := errors.Errorf("wrong script path: expected %q, got %q", scriptPath, s.Service.Conf.ExecStart)
+			return filename, s.errorf(err, "failed to write script at %q", scriptPath)
+		}
+		// TODO(ericsnow) Use shell.RenderScript.
 		// TODO(ericsnow) bash might be located somewhere else!
 		script := append([]byte("#!/bin/bash\n\n"), s.Script...)
 		if err := createFile(scriptPath, script, 0755); err != nil {
@@ -551,12 +560,12 @@ func (s *Service) InstallCommands() ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	cmds := commands{}
 	cmdList := []string{
 		cmds.mkdirs(dirname),
 	}
 	if s.Script != nil {
-		scriptName := path.Base(s.Service.Conf.ExecStart)
+		scriptName := renderer.Base(renderer.ScriptFilename("exec-start", ""))
+		// TODO(ericsnow) Use shell.RenderScript.
 		script := append([]byte("#!/bin/bash\n\n"), s.Script...)
 		cmdList = append(cmdList, []string{
 			cmds.writeFile(scriptName, dirname, script),
@@ -575,7 +584,6 @@ func (s *Service) InstallCommands() ([]string, error) {
 // StartCommands implements Service.
 func (s *Service) StartCommands() ([]string, error) {
 	name := s.Name()
-	cmds := commands{}
 	cmdList := []string{
 		cmds.start(name),
 	}

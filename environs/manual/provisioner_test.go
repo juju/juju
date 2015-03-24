@@ -169,7 +169,8 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	script, err := manual.ProvisioningScript(mcfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cloudcfg := coreCloudinit.New()
+	cloudcfg, err := coreCloudinit.New(series)
+	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudinit.NewUserdataConfig(mcfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.ConfigureJuju()

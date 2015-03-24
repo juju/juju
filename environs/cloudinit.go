@@ -264,7 +264,11 @@ func configureCloudinit(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.C
 // If the provided cloudcfg is nil, a new one will be created internally.
 func ComposeUserData(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) ([]byte, error) {
 	if cloudcfg == nil {
-		cloudcfg = coreCloudinit.New()
+		cfg, err := coreCloudinit.New(mcfg.Series)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cloudcfg = cfg
 	}
 	udata, err := configureCloudinit(mcfg, cloudcfg)
 	if err != nil {

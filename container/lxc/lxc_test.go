@@ -858,7 +858,7 @@ After=cloud-final
 Conflicts=cloud-final
 
 [Service]
-ExecStart=/var/lib/juju/init/juju-template-restart/exec-start.sh
+ExecStart='/var/lib/juju/init/juju-template-restart/exec-start.sh'
 ExecStopPost=/bin/systemctl disable juju-template-restart.service
 `[1:],
 		Script: `

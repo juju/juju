@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils/proxy"
 
 	"github.com/juju/juju/cloudinit"
@@ -221,10 +220,9 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 	// It would be cleaner to change bootstrap-state to
 	// be responsible for starting the machine agent itself,
 	// but this would not be backwardly compatible.
-	machineTag := names.NewMachineTag(w.mcfg.MachineId)
-	_, err = addAgentInfo(w.mcfg, w.conf, machineTag, w.mcfg.Tools.Version.Number)
+	_, err = w.addAgentInfo()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// Add the cloud archive cloud-tools pocket to apt sources
@@ -279,7 +277,7 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		)
 	}
 
-	return w.addMachineAgentToBoot(machineTag.String())
+	return w.addMachineAgentToBoot()
 }
 
 // toolsDownloadCommand takes a curl command minus the source URL,

@@ -825,7 +825,7 @@ if ($dToolsHash.ToLower() -ne "1234"){ Throw "Tools checksum mismatch"}
 & "${env:ProgramFiles(x86)}\Cloudbase Solutions\Cloudbase-Init\Python27\python.exe" -c "import tarfile;archive = tarfile.open('$tmpBinDir\\tools.tar.gz');archive.extractall(path='$tmpBinDir')"
 rm "$binDir\tools.tar*"
 Set-Content $binDir\downloaded-tools.txt '{"version":"1.2.3-win8-amd64","url":"http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz","sha256":"1234","size":10}'
-mkdir C:\Juju\lib\juju\agents\machine-10
+mkdir 'C:\Juju\lib\juju\agents\machine-10'
 Set-Content 'C:/Juju/lib/juju/agents/machine-10/agent.conf' @"
 # format 1.18
 tag: machine-10
@@ -861,6 +861,6 @@ values:
 "@
 cmd.exe /C mklink /D C:\Juju\lib\juju\tools\machine-10 1.2.3-win8-amd64
 echo 'Starting Juju machine agent (jujud-machine-10)' >&9
-New-Service -Credential $jujuCreds -Name 'jujud-machine-10' -DisplayName 'juju agent for machine-10' '"C:\Juju\lib\juju\tools\machine-10\jujud.exe" machine --data-dir "C:\Juju\lib\juju" --machine-id 10 --debug'
-cmd.exe /C sc config jujud-machine-10 start=delayed-auto
-Start-Service jujud-machine-10`
+New-Service -Credential $jujuCreds -Name 'jujud-machine-10' -DisplayName 'juju agent for machine-10' '''C:\Juju\lib\juju\tools\machine-10\jujud.exe'' machine --data-dir ''C:\Juju\lib\juju'' --machine-id 10 --debug'
+cmd.exe /C sc config 'jujud-machine-10' start=delayed-auto
+Start-Service 'jujud-machine-10'`

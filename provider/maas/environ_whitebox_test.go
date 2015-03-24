@@ -21,6 +21,7 @@ import (
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gomaasapi"
 
+	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -247,7 +248,9 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	decodedUserData, err := decodeUserData(userData)
 	c.Assert(err, jc.ErrorIsNil)
 	info := machineInfo{"host1"}
-	cloudinitRunCmd, err := info.cloudinitRunCmd("precise")
+	cloudcfg, err := cloudinit.New("precise")
+	c.Assert(err, jc.ErrorIsNil)
+	cloudinitRunCmd, err := info.cloudinitRunCmd(cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := goyaml.Marshal(cloudinitRunCmd)
 	c.Assert(err, jc.ErrorIsNil)
