@@ -99,7 +99,7 @@ def parse_args(args=None):
     # GZ: Add dependencies.tsv argument option
     args = parser.parse_args(args)
     if args.project_url is None and not args.go_get_all:
-        parser.exit("Must supply either --project-url or --go-get-all")
+        parser.error("Must supply either --project-url or --go-get-all")
     return args
 
 
