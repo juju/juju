@@ -97,8 +97,7 @@ func (s *RunActionSuite) TestPrepareSuccessCleanState(c *gc.C) {
 
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newState, gc.NotNil)
-	c.Assert(*newState, gc.DeepEquals, operation.State{
+	c.Assert(newState, jc.DeepEquals, &operation.State{
 		Kind:     operation.RunAction,
 		Step:     operation.Pending,
 		ActionId: &someActionId,
@@ -114,8 +113,7 @@ func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
 
 	newState, err := op.Prepare(overwriteState)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newState, gc.NotNil)
-	c.Assert(*newState, gc.DeepEquals, operation.State{
+	c.Assert(newState, jc.DeepEquals, &operation.State{
 		Kind:               operation.RunAction,
 		Step:               operation.Pending,
 		ActionId:           &someActionId,
@@ -204,8 +202,7 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 
 		newState, err := op.Execute(*midState)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(newState, gc.NotNil)
-		c.Assert(*newState, gc.DeepEquals, test.after)
+		c.Assert(newState, jc.DeepEquals, &test.after)
 		c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running action some-action-name")
 		c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
 		c.Assert(*runnerFactory.MockNewActionRunner.runner.MockRunAction.gotName, gc.Equals, "some-action-name")
@@ -224,10 +221,34 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 			Step: operation.Pending,
 		},
 	}, {
-		description: "preserves appropriate fields",
-		before:      overwriteState,
+		description: "preserves only appropriate fields, no hook",
+		before: operation.State{
+			Kind:               operation.Continue,
+			Step:               operation.Pending,
+			Started:            true,
+			CollectMetricsTime: 1234567,
+			CharmURL:           curl("cs:quantal/wordpress-2"),
+			ActionId:           &randomActionId,
+		},
 		after: operation.State{
 			Kind:               operation.Continue,
+			Step:               operation.Pending,
+			Started:            true,
+			CollectMetricsTime: 1234567,
+		},
+	}, {
+		description: "preserves only appropriate fields, with hook",
+		before: operation.State{
+			Kind:               operation.Continue,
+			Step:               operation.Pending,
+			Started:            true,
+			CollectMetricsTime: 1234567,
+			CharmURL:           curl("cs:quantal/wordpress-2"),
+			ActionId:           &randomActionId,
+			Hook:               &hook.Info{Kind: hooks.Install},
+		},
+		after: operation.State{
+			Kind:               operation.RunHook,
 			Step:               operation.Pending,
 			Hook:               &hook.Info{Kind: hooks.Install},
 			Started:            true,
@@ -242,7 +263,6 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		newState, err := op.Commit(test.before)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(*newState, gc.DeepEquals, test.after)
+		c.Assert(newState, jc.DeepEquals, &test.after)
 	}
 }
