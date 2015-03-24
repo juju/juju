@@ -236,6 +236,7 @@ var commandNames = []string{
 	"set-constraints",
 	"set-env", // alias for set-environment
 	"set-environment",
+	"space",
 	"ssh",
 	"stat", // alias for status
 	"status",
