@@ -26,7 +26,7 @@ github.com/juju/schema	git	27a52be50766490a6fd3531865095fda6c0eeb6d	2014-07-23T0
 github.com/juju/syslog	git	6be94e8b718766e9ff7a37342157fe4795da7cfa	2015-02-05T10:00:34Z
 github.com/juju/testing	git	c07aef9cb4f2ff1db7ddc9d43a0ea88eca39c9ea	2015-03-12T17:47:17Z
 github.com/juju/txn	git	e02f26c56cfb81c7c1236df499deebb0369bd97c	2014-09-25T11:49:22Z
-github.com/juju/utils	git	3efdaa3f15cc47ee83f6c03f640dc14f5915e289	2015-02-05T10:00:34Z
+github.com/juju/utils	git	4a323da2a94607b1c4987d636cfe3139ef3a8262	2015-03-18T23:27:02Z
 golang.org/x/crypto	git	1fbbd62cfec66bd39d91e97749579579d4d3037e	2014-12-09T23:26:36Z
 gopkg.in/amz.v3	git	34e4f2cbcad3a7fd56746f2443f6b644dead4964	2015-03-19T13:05:53Z
 gopkg.in/check.v1	git	91ae5f88a67b14891cfd43895b01164f6c120420	2014-08-27T13:58:41Z

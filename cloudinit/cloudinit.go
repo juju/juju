@@ -8,17 +8,50 @@ package cloudinit
 
 import (
 	"bytes"
+	"strings"
 	"text/template"
+
+	"github.com/juju/errors"
+	"github.com/juju/utils/shell"
+
+	"github.com/juju/juju/version"
 )
 
 // Config represents a set of cloud-init configuration options.
 type Config struct {
 	attrs map[string]interface{}
+
+	// osName is the name of the OS derived from the series. It will
+	// be the lower-cased. Currently it only matters if it is
+	// "windows" or not "windows".
+	osName string
+
+	// Series is the series that this config is targeting.
+	Series string
+
+	// ShellRenderer is the shell renderer to use for any commands
+	// added to this config.
+	ShellRenderer shell.Renderer
 }
 
 // New returns a new Config with no options set.
-func New() *Config {
-	return &Config{make(map[string]interface{})}
+func New(series string) (*Config, error) {
+	os, err := version.GetOSFromSeries(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	osName := strings.ToLower(os.String())
+	shellRenderer, err := shell.NewRenderer(osName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg := &Config{
+		attrs:         make(map[string]interface{}),
+		osName:        osName,
+		Series:        series,
+		ShellRenderer: shellRenderer,
+	}
+	return cfg, nil
 }
 
 func (cfg *Config) set(opt string, yes bool, value interface{}) {
@@ -26,6 +59,16 @@ func (cfg *Config) set(opt string, yes bool, value interface{}) {
 		cfg.attrs[opt] = value
 	} else {
 		delete(cfg.attrs, opt)
+	}
+}
+
+// Render converts the cloudinit config into the corresponding script
+// to write to disk.
+func (cfg *Config) Render() ([]byte, error) {
+	if cfg.osName == "windows" {
+		return renderWindows(cfg)
+	} else {
+		return renderUnix(cfg)
 	}
 }
 

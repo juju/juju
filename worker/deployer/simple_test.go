@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 
 	"github.com/juju/names"
@@ -26,6 +27,16 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/deployer"
 )
+
+var quote, cmdSuffix string
+
+func init() {
+	quote = "'"
+	if runtime.GOOS == "windows" {
+		cmdSuffix = ".exe"
+		quote = `"`
+	}
+}
 
 type SimpleContextSuite struct {
 	SimpleToolsFixture
@@ -228,12 +239,12 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 	}
 
 	_, toolsDir := fix.paths(tag)
-	jujudPath := filepath.Join(toolsDir, "jujud")
+	jujudPath := filepath.Join(toolsDir, "jujud"+cmdSuffix)
 
 	logPath := filepath.Join(fix.logDir, tag.String()+".log")
 
 	for _, pat := range []string{
-		"^exec " + jujudPath + " unit ",
+		"^exec " + quote + jujudPath + quote + " unit ",
 		" --unit-name " + name + " ",
 		" >> " + logPath + " 2>&1$",
 	} {

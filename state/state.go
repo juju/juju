@@ -717,6 +717,8 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		}
 	case names.VolumeTag:
 		return st.Volume(tag)
+	case names.FilesystemTag:
+		return st.Filesystem(tag)
 	default:
 		return nil, errors.Errorf("unsupported tag %T", tag)
 	}

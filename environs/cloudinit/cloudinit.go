@@ -9,7 +9,6 @@ import (
 	"net"
 	"path"
 	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/apt"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/shell"
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/agent"
@@ -270,22 +270,29 @@ func AddAptCommands(
 	}
 }
 
-func (cfg *MachineConfig) initService() (service.Service, string, error) {
-	conf, toolsDir := service.MachineAgentConf(
+func (cfg *MachineConfig) agentInfo() service.AgentInfo {
+	return service.NewMachineAgentInfo(
 		cfg.MachineId,
 		cfg.DataDir,
 		cfg.LogDir,
-		strings.ToLower(cfg.Tools.Version.OS.String()),
 	)
+}
+
+func (cfg *MachineConfig) toolsDir(renderer shell.Renderer) string {
+	return cfg.agentInfo().ToolsDir(renderer)
+}
+
+func (cfg *MachineConfig) initService(renderer shell.Renderer) (service.Service, error) {
+	conf := service.AgentConf(cfg.agentInfo(), renderer)
 
 	name := cfg.MachineAgentServiceName
 	initSystem, ok := cfg.initSystem()
 	if !ok {
-		return nil, "", errors.New("could not identify init system")
+		return nil, errors.New("could not identify init system")
 	}
 	logger.Debugf("using init system %q for machine agent script", initSystem)
 	svc, err := newService(name, conf, initSystem)
-	return svc, toolsDir, errors.Trace(err)
+	return svc, errors.Trace(err)
 }
 
 func (cfg *MachineConfig) initSystem() (string, bool) {

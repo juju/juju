@@ -83,10 +83,27 @@ func (certSuite) TestNewServer(c *gc.C) {
 	caCert, _, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var noHostnames []string
-	srvCertPEM, srvKeyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, noHostnames)
+	srvCertPEM, srvKeyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	checkCertificate(c, caCert, srvCertPEM, srvKeyPEM, now, expiry)
+}
+
+func (certSuite) TestNewDefaultServer(c *gc.C) {
+	now := time.Now()
+	expiry := roundTime(now.AddDate(1, 0, 0))
+	caCertPEM, caKeyPEM, err := cert.NewCA("foo", expiry)
 	c.Assert(err, jc.ErrorIsNil)
 
+	caCert, _, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
+	c.Assert(err, jc.ErrorIsNil)
+
+	srvCertPEM, srvKeyPEM, err := cert.NewDefaultServer(caCertPEM, caKeyPEM, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	srvCertExpiry := roundTime(time.Now().AddDate(10, 0, 0))
+	checkCertificate(c, caCert, srvCertPEM, srvKeyPEM, now, srvCertExpiry)
+}
+
+func checkCertificate(c *gc.C, caCert *x509.Certificate, srvCertPEM, srvKeyPEM string, now, expiry time.Time) {
 	srvCert, srvKey, err := cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(srvCert.Subject.CommonName, gc.Equals, "*")

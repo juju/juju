@@ -21,6 +21,7 @@ type storageAccess interface {
 	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+	EnvName() (string, error)
 }
 
 var getState = func(st *state.State) storageAccess {
@@ -44,4 +45,14 @@ func (s stateShim) UnitAssignedMachine(tag names.UnitTag) (names.MachineTag, err
 		return names.MachineTag{}, errors.Trace(err)
 	}
 	return names.NewMachineTag(mid), nil
+}
+
+// EnvName returns the name of Juju environment,
+// or an error if environment configuration is not retrievable.
+func (s stateShim) EnvName() (string, error) {
+	cfg, err := s.State.EnvironConfig()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return cfg.Name(), nil
 }

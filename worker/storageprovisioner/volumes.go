@@ -24,13 +24,12 @@ func volumesChanged(ctx *context, changes []string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(axw) wait for volumes/filesystems to have no
-	// attachments first. We can then have the removal of the
-	// last attachment trigger the volume/filesystem's Life
-	// being transitioned to Dead.
-	// or watch the attachments until they're all gone. We need
-	// to watch attachments *anyway*, so we can probably integrate
-	// the two things.
+	// TODO(axw) wait for volumes to have no attachments first.
+	// We can then have the removal of the last attachment trigger
+	// the volume's Life being transitioned to Dead, or watch the
+	// attachments until they're all gone. We need to watch
+	// attachments *anyway*, so we can probably integrate the two
+	// things.
 	if err := ensureDead(ctx, dying); err != nil {
 		return errors.Annotate(err, "ensuring volumes dead")
 	}
@@ -246,9 +245,9 @@ func processAliveVolumes(ctx *context, tags []names.Tag, volumeResults []params.
 	return nil
 }
 
-// processAliveVolumes processes the VolumeAttachmentResults for Alive
-// volume attachments, attaching volumes and setting the info in state
-// as necessary.
+// processAliveVolumeAttachments processes the VolumeAttachmentResults
+// for Alive volume attachments, attaching volumes and setting the info
+// in state as necessary.
 func processAliveVolumeAttachments(
 	ctx *context,
 	ids []params.MachineStorageId,

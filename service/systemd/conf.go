@@ -12,6 +12,7 @@ import (
 
 	"github.com/coreos/go-systemd/unit"
 	"github.com/juju/errors"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/service/common"
 )
@@ -36,22 +37,29 @@ var limitMap = map[string]string{
 // TODO(ericsnow) We should drop the assumption that the logfile is syslog.
 
 const logAll = `
+# Set up logging.
 touch %[1]s
 chown syslog:syslog %[1]s
 chmod 0600 %[1]s
 exec > %[1]s
 exec 2>&1
+
+# Run the script.
 %[2]s`
+
+// TODO(ericsnow) Move to common.Conf.Normalize.
 
 // normalize adjusts the conf to more standardized content and
 // returns a new Conf with that updated content. It also returns the
 // content of any script file that should accompany the conf.
-func normalize(name string, conf common.Conf, scriptPath string) (common.Conf, []byte) {
+func normalize(name string, conf common.Conf, scriptPath string, renderer shell.Renderer) (common.Conf, []byte) {
 	var data []byte
 
 	if conf.Logfile != "" {
-		conf.ExecStart = fmt.Sprintf(logAll[1:], conf.Logfile, conf.ExecStart)
-		conf.Logfile = ""
+		// TODO(ericsnow) Use commands.Chmod, Chown, and RedirectOutput.
+		filename := renderer.Quote(conf.Logfile)
+		conf.ExecStart = fmt.Sprintf(logAll[1:], filename, conf.ExecStart)
+		// We leave conf.Logfile alone (it will be ignored during validation).
 	}
 
 	if conf.ExtraScript != "" {
@@ -60,7 +68,7 @@ func normalize(name string, conf common.Conf, scriptPath string) (common.Conf, [
 	}
 	if !isSimpleCommand(conf.ExecStart) {
 		data = []byte(conf.ExecStart)
-		conf.ExecStart = scriptPath
+		conf.ExecStart = renderer.Quote(scriptPath)
 	}
 
 	if len(conf.Env) == 0 {
@@ -73,7 +81,7 @@ func normalize(name string, conf common.Conf, scriptPath string) (common.Conf, [
 
 	if conf.Transient {
 		// TODO(ericsnow) Handle Transient via systemd-run command?
-		conf.ExecStopPost = commands{executable}.disable(name)
+		conf.ExecStopPost = commands{}.disable(name)
 	}
 
 	return conf, data
@@ -100,10 +108,7 @@ func validate(name string, conf common.Conf) error {
 		return errors.NotValidf("unexpected ExtraScript")
 	}
 
-	if conf.Logfile != "" {
-		return errors.NotValidf("conf.Logfile value %q", conf.Logfile)
-	}
-	// We ignore Desc.
+	// We ignore Desc and Logfile.
 
 	for k := range conf.Limit {
 		if _, ok := limitMap[k]; !ok {

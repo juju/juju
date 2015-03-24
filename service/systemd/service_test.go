@@ -56,7 +56,7 @@ type confStruct struct {
 	}
 }
 
-const jujud = "/var/lib/juju/bin/jujud"
+const jujud = "'/var/lib/juju/bin/jujud'"
 
 var listCmdArg = exec.RunParams{
 	Commands: `/bin/systemctl list-unit-files --no-legend --no-page -t service | grep -o -P '^\w[\S]*(?=\.service)'`,
@@ -234,18 +234,22 @@ func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	script := `
-touch /var/log/juju/machine-0.log
-chown syslog:syslog /var/log/juju/machine-0.log
-chmod 0600 /var/log/juju/machine-0.log
-exec > /var/log/juju/machine-0.log
+# Set up logging.
+touch '/var/log/juju/machine-0.log'
+chown syslog:syslog '/var/log/juju/machine-0.log'
+chmod 0600 '/var/log/juju/machine-0.log'
+exec > '/var/log/juju/machine-0.log'
 exec 2>&1
+
+# Run the script.
 `[1:] + jujud + " machine-0"
 	c.Check(service, jc.DeepEquals, &systemd.Service{
 		Service: common.Service{
 			Name: s.name,
 			Conf: common.Conf{
 				Desc:      s.conf.Desc,
-				ExecStart: dirname + "/exec-start.sh",
+				ExecStart: "'" + dirname + "/exec-start.sh'",
+				Logfile:   "/var/log/juju/machine-0.log",
 			},
 		},
 		UnitName: s.name + ".service",
@@ -273,7 +277,7 @@ func (s *initSystemSuite) TestNewServiceEmptyConf(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestUpdateConfig(c *gc.C) {
-	s.conf.ExecStart = "/path/to/some/other/command"
+	s.conf.ExecStart = "'/path/to/some/other/command'"
 	c.Assert(s.service.Service.Conf.ExecStart, gc.Equals, jujud+" machine-0")
 
 	s.service.UpdateConfig(s.conf)
@@ -291,18 +295,18 @@ func (s *initSystemSuite) TestUpdateConfig(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestUpdateConfigExtraScript(c *gc.C) {
-	s.conf.ExtraScript = "/path/to/another/command"
+	s.conf.ExtraScript = "'/path/to/another/command'"
 
 	s.service.UpdateConfig(s.conf)
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
-	script := "/path/to/another/command\n" + jujud + " machine-0"
+	script := "'/path/to/another/command'\n" + jujud + " machine-0"
 	c.Check(s.service, jc.DeepEquals, &systemd.Service{
 		Service: common.Service{
 			Name: s.name,
 			Conf: common.Conf{
 				Desc:      s.conf.Desc,
-				ExecStart: dirname + "/exec-start.sh",
+				ExecStart: "'" + dirname + "/exec-start.sh'",
 			},
 		},
 		UnitName: s.name + ".service",
@@ -326,7 +330,7 @@ func (s *initSystemSuite) TestUpdateConfigMultiline(c *gc.C) {
 			Name: s.name,
 			Conf: common.Conf{
 				Desc:      s.conf.Desc,
-				ExecStart: dirname + "/exec-start.sh",
+				ExecStart: "'" + dirname + "/exec-start.sh'",
 			},
 		},
 		UnitName: s.name + ".service",
@@ -346,18 +350,22 @@ func (s *initSystemSuite) TestUpdateConfigLogfile(c *gc.C) {
 
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	script := `
-touch /var/log/juju/machine-0.log
-chown syslog:syslog /var/log/juju/machine-0.log
-chmod 0600 /var/log/juju/machine-0.log
-exec > /var/log/juju/machine-0.log
+# Set up logging.
+touch '/var/log/juju/machine-0.log'
+chown syslog:syslog '/var/log/juju/machine-0.log'
+chmod 0600 '/var/log/juju/machine-0.log'
+exec > '/var/log/juju/machine-0.log'
 exec 2>&1
+
+# Run the script.
 `[1:] + jujud + " machine-0"
 	c.Check(s.service, jc.DeepEquals, &systemd.Service{
 		Service: common.Service{
 			Name: s.name,
 			Conf: common.Conf{
 				Desc:      s.conf.Desc,
-				ExecStart: dirname + "/exec-start.sh",
+				ExecStart: "'" + dirname + "/exec-start.sh'",
+				Logfile:   "/var/log/juju/machine-0.log",
 			},
 		},
 		UnitName: s.name + ".service",
@@ -754,7 +762,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
 	scriptPath := fmt.Sprintf("%s/init/%s/exec-start.sh", s.dataDir, s.name)
 	cmd := "a\nb\nc"
-	s.service.Service.Conf.ExecStart = scriptPath
+	s.service.Service.Conf.ExecStart = "'" + scriptPath + "'"
 	s.service.Script = []byte(cmd)
 
 	err := s.service.Install()
@@ -772,7 +780,7 @@ func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
 	)
 	s.checkCreateFileCall(c, 2, scriptPath, cmd, 0755)
 	filename := fmt.Sprintf("%s/init/%s/%s.service", s.dataDir, s.name, s.name)
-	content := s.newConfStr(s.name, scriptPath)
+	content := s.newConfStr(s.name, "'"+scriptPath+"'")
 	s.checkCreateFileCall(c, 3, filename, content, 0644)
 }
 
@@ -817,16 +825,19 @@ func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
 		DataDir: s.dataDir,
 		Expected: strings.Replace(
 			s.newConfStr(name, ""),
-			"ExecStart=/var/lib/juju/bin/jujud machine-0",
-			"ExecStart=/tmp/init/jujud-machine-0/exec-start.sh",
+			"ExecStart='/var/lib/juju/bin/jujud' machine-0",
+			"ExecStart='/tmp/init/jujud-machine-0/exec-start.sh'",
 			-1),
 		Script: `
-touch /var/log/juju/machine-0.log
-chown syslog:syslog /var/log/juju/machine-0.log
-chmod 0600 /var/log/juju/machine-0.log
-exec > /var/log/juju/machine-0.log
+# Set up logging.
+touch '/var/log/juju/machine-0.log'
+chown syslog:syslog '/var/log/juju/machine-0.log'
+chmod 0600 '/var/log/juju/machine-0.log'
+exec > '/var/log/juju/machine-0.log'
 exec 2>&1
-/var/lib/juju/bin/jujud machine-0`[1:],
+
+# Run the script.
+'/var/lib/juju/bin/jujud' machine-0`[1:],
 	}
 	test.CheckCommands(c, commands)
 }

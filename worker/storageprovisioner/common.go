@@ -140,6 +140,30 @@ func volumeSource(
 	return source, nil
 }
 
+// filesystemSource returns a filesystem source given a name, provider type,
+// environment config and storage directory.
+//
+// TODO(axw) move this to the main storageprovisioner, and have
+// it watch for changes to storage source configurations, updating
+// a map in-between calls to the volume/filesystem/attachment
+// event handlers.
+func filesystemSource(
+	environConfig *config.Config,
+	baseStorageDir string,
+	sourceName string,
+	providerType storage.ProviderType,
+) (storage.FilesystemSource, error) {
+	provider, sourceConfig, err := sourceParams(providerType, sourceName, baseStorageDir)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting storage source %q params", sourceName)
+	}
+	source, err := provider.FilesystemSource(environConfig, sourceConfig)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting storage source %q", sourceName)
+	}
+	return source, nil
+}
+
 func sourceParams(providerType storage.ProviderType, sourceName, baseStorageDir string) (storage.Provider, *storage.Config, error) {
 	provider, err := registry.StorageProvider(providerType)
 	if err != nil {

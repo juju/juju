@@ -24,15 +24,15 @@ type WriteConfTest struct {
 }
 
 func (wct WriteConfTest) dirname() string {
-	return fmt.Sprintf("%s/init/%s", wct.DataDir, wct.Service)
+	return fmt.Sprintf("'%s/init/%s'", wct.DataDir, wct.Service)
 }
 
 func (wct WriteConfTest) filename() string {
-	return fmt.Sprintf("%[1]s/init/%[2]s/%[2]s.service", wct.DataDir, wct.Service)
+	return fmt.Sprintf("'%[1]s/init/%[2]s/%[2]s.service'", wct.DataDir, wct.Service)
 }
 
 func (wct WriteConfTest) scriptname() string {
-	return fmt.Sprintf("%s/init/%s/exec-start.sh", wct.DataDir, wct.Service)
+	return fmt.Sprintf("'%s/init/%s/exec-start.sh'", wct.DataDir, wct.Service)
 }
 
 // CheckCommands checks the given commands against the test's expectations.

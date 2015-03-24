@@ -190,19 +190,17 @@ func (s *SenderSuite) TestMeterStatus(c *gc.C) {
 
 	_ = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false})
 
-	status, info, err := s.unit.GetMeterStatus()
+	status, err := s.unit.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, "NOT SET")
-	c.Assert(info, gc.Equals, "")
+	c.Assert(status.Code, gc.Equals, state.MeterNotSet)
 
 	var sender metricsender.DefaultSender
 	err = metricsender.SendMetrics(s.State, &sender, 10)
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, err = s.unit.GetMeterStatus()
+	status, err = s.unit.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, "GREEN")
-	c.Assert(info, gc.Equals, "")
+	c.Assert(status.Code, gc.Equals, state.MeterGreen)
 }
 
 // TestMeterStatusInvalid checks that the metric sender deals with invalid
@@ -236,30 +234,26 @@ func (s *SenderSuite) TestMeterStatusInvalid(c *gc.C) {
 	_ = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit3, Sent: false})
 
 	for _, unit := range []*state.Unit{unit1, unit2, unit3} {
-		status, info, err := unit.GetMeterStatus()
+		status, err := unit.GetMeterStatus()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(status, gc.Equals, "NOT SET")
-		c.Assert(info, gc.Equals, "")
+		c.Assert(status.Code, gc.Equals, state.MeterNotSet)
 	}
 
 	var sender metricsender.DefaultSender
 	err := metricsender.SendMetrics(s.State, &sender, 10)
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, err := unit1.GetMeterStatus()
+	status, err := unit1.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, "GREEN")
-	c.Assert(info, gc.Equals, "")
+	c.Assert(status.Code, gc.Equals, state.MeterGreen)
 
-	status, info, err = unit2.GetMeterStatus()
+	status, err = unit2.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, "NOT SET")
-	c.Assert(info, gc.Equals, "")
+	c.Assert(status.Code, gc.Equals, state.MeterNotSet)
 
-	status, info, err = unit3.GetMeterStatus()
+	status, err = unit3.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, "NOT SET")
-	c.Assert(info, gc.Equals, "")
+	c.Assert(status.Code, gc.Equals, state.MeterNotSet)
 
 }
 

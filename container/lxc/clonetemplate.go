@@ -49,12 +49,16 @@ func templateUserData(
 	var config *corecloudinit.Config
 	if networkConfig != nil {
 		var err error
-		config, err = container.NewCloudInitConfigWithNetworks(networkConfig)
+		config, err = container.NewCloudInitConfigWithNetworks(series, networkConfig)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	} else {
-		config = corecloudinit.New()
+		var err error
+		config, err = corecloudinit.New(series)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	config.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
@@ -83,13 +87,9 @@ func templateUserData(
 	}
 	config.AddScripts(strings.Join(cmds, "\n"))
 
-	renderer, err := corecloudinit.NewRenderer(series)
+	data, err := config.Render()
 	if err != nil {
-		return nil, err
-	}
-	data, err := renderer.Render(config)
-	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return data, nil
 }

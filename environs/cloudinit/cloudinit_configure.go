@@ -31,27 +31,6 @@ type UserdataConfig interface {
 	Render() ([]byte, error)
 }
 
-// addAgentInfo adds agent-required information to the agent's directory
-// and returns the agent directory name.
-func addAgentInfo(
-	cfg *MachineConfig,
-	c *cloudinit.Config,
-	tag names.Tag,
-	toolsVersion version.Number,
-) (agent.Config, error) {
-	acfg, err := cfg.agentConfig(tag, toolsVersion)
-	if err != nil {
-		return nil, err
-	}
-	acfg.SetValue(agent.AgentServiceName, cfg.MachineAgentServiceName)
-	cmds, err := acfg.WriteCommands(cfg.Series)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to write commands")
-	}
-	c.AddScripts(cmds...)
-	return acfg, nil
-}
-
 func NewUserdataConfig(mcfg *MachineConfig, conf *cloudinit.Config) (UserdataConfig, error) {
 	// TODO(ericsnow) bug #1426217
 	// Protect mcfg and conf better.
@@ -61,12 +40,10 @@ func NewUserdataConfig(mcfg *MachineConfig, conf *cloudinit.Config) (UserdataCon
 	}
 
 	base := baseConfigure{
+		tag:  names.NewMachineTag(mcfg.MachineId),
 		mcfg: mcfg,
 		conf: conf,
 		os:   operatingSystem,
-	}
-	if err := base.init(); err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	switch operatingSystem {
@@ -80,27 +57,34 @@ func NewUserdataConfig(mcfg *MachineConfig, conf *cloudinit.Config) (UserdataCon
 }
 
 type baseConfigure struct {
-	mcfg     *MachineConfig
-	conf     *cloudinit.Config
-	renderer cloudinit.Renderer
-	os       version.OSType
-}
-
-func (c *baseConfigure) init() error {
-	renderer, err := cloudinit.NewRenderer(c.mcfg.Series)
-	if err != nil {
-		return err
-	}
-	c.renderer = renderer
-	return nil
+	tag  names.Tag
+	mcfg *MachineConfig
+	conf *cloudinit.Config
+	os   version.OSType
 }
 
 func (c *baseConfigure) Render() ([]byte, error) {
-	return c.renderer.Render(c.conf)
+	return c.conf.Render()
 }
 
-func (c *baseConfigure) addMachineAgentToBoot(name string) error {
-	svc, toolsDir, err := c.mcfg.initService()
+// addAgentInfo adds agent-required information to the agent's directory
+// and returns the agent directory name.
+func (c *baseConfigure) addAgentInfo() (agent.Config, error) {
+	acfg, err := c.mcfg.agentConfig(c.tag, c.mcfg.Tools.Version.Number)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	acfg.SetValue(agent.AgentServiceName, c.mcfg.MachineAgentServiceName)
+	cmds, err := acfg.WriteCommands(c.conf.ShellRenderer)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to write commands")
+	}
+	c.conf.AddScripts(cmds...)
+	return acfg, nil
+}
+
+func (c *baseConfigure) addMachineAgentToBoot() error {
+	svc, err := c.mcfg.initService(c.conf.ShellRenderer)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -108,8 +92,10 @@ func (c *baseConfigure) addMachineAgentToBoot(name string) error {
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the init script.
+	toolsDir := c.mcfg.toolsDir(c.conf.ShellRenderer)
 	c.conf.AddScripts(c.toolsSymlinkCommand(toolsDir))
 
+	name := c.tag.String()
 	cmds, err := svc.InstallCommands()
 	if err != nil {
 		return errors.Annotatef(err, "cannot make cloud-init init script for the %s agent", name)
@@ -126,12 +112,15 @@ func (c *baseConfigure) addMachineAgentToBoot(name string) error {
 	return nil
 }
 
+// TODO(ericsnow) toolsSymlinkCommand should just be replaced with a
+// call to shell.Renderer.Symlink.
+
 func (c *baseConfigure) toolsSymlinkCommand(toolsDir string) string {
 	switch c.os {
 	case version.Windows:
 		return fmt.Sprintf(
 			`cmd.exe /C mklink /D %s %v`,
-			c.renderer.FromSlash(toolsDir),
+			c.conf.ShellRenderer.FromSlash(toolsDir),
 			c.mcfg.Tools.Version,
 		)
 	default:
