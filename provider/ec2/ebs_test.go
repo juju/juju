@@ -122,8 +122,11 @@ func (s *ebsVolumeSuite) volumeSource(c *gc.C, cfg *storage.Config) storage.Volu
 }
 
 func (s *ebsVolumeSuite) assertCreateVolumes(c *gc.C, vs storage.VolumeSource, zone string) {
+	instanceIdRunning := s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Running, nil)[0]
+
 	volume0 := names.NewVolumeTag("0")
 	volume1 := names.NewVolumeTag("1")
+	volume2 := names.NewVolumeTag("2")
 	params := []storage.VolumeParams{{
 		Tag:      volume0,
 		Size:     10 * 1000,
@@ -141,10 +144,19 @@ func (s *ebsVolumeSuite) assertCreateVolumes(c *gc.C, vs storage.VolumeSource, z
 			"persistent":        true,
 			"availability-zone": zone,
 		},
+	}, {
+		Tag:      volume2,
+		Size:     30 * 1000,
+		Provider: ec2.EBS_ProviderType,
+		Attachment: &storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				InstanceId: instance.Id(instanceIdRunning),
+			},
+		},
 	}}
 	vols, _, err := vs.CreateVolumes(params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vols, gc.HasLen, 2)
+	c.Assert(vols, gc.HasLen, 3)
 	c.Assert(vols, jc.SameContents, []storage.Volume{{
 		Tag:        volume0,
 		Size:       10240,
@@ -155,14 +167,20 @@ func (s *ebsVolumeSuite) assertCreateVolumes(c *gc.C, vs storage.VolumeSource, z
 		Size:       20480,
 		VolumeId:   "vol-1",
 		Persistent: true,
+	}, {
+		Tag:        volume2,
+		Size:       30720,
+		VolumeId:   "vol-2",
+		Persistent: false,
 	}})
 	ec2Client := ec2.StorageEC2(vs)
 	ec2Vols, err := ec2Client.Volumes(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ec2Vols.Volumes, gc.HasLen, 2)
+	c.Assert(ec2Vols.Volumes, gc.HasLen, 3)
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(ec2Vols.Volumes[0].Size, gc.Equals, 10)
 	c.Assert(ec2Vols.Volumes[1].Size, gc.Equals, 20)
+	c.Assert(ec2Vols.Volumes[2].Size, gc.Equals, 30)
 }
 
 type volumeSorter struct {
