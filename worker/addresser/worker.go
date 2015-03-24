@@ -107,7 +107,7 @@ func (a *addresserHandler) releaseIPAddress(addr *state.IPAddress) (err error) {
 	if err != nil {
 		// Don't remove the address from state so we
 		// can retry releasing the address later.
-		logger.Warningf("cannot release address %q: %v (will retry)", addr.Value, err)
+		logger.Warningf("cannot release address %q: %v (will retry)", addr.Value(), err)
 		return errors.Trace(err)
 	}
 
