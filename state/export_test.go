@@ -47,6 +47,7 @@ var (
 	MultiEnvCollections    = multiEnvCollections
 	PickAddress            = &pickAddress
 	AddVolumeOp            = (*State).addVolumeOp
+	CombineMeterStatus     = combineMeterStatus
 )
 
 type (
