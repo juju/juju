@@ -45,6 +45,7 @@ type addresserHandler struct {
 	dying    chan struct{}
 	st       stateAddresser
 	releaser releaser
+	kill     func()
 }
 
 // NewWorker returns a worker that keeps track of
@@ -73,6 +74,9 @@ func newWorkerWithReleaser(st stateAddresser, releaser releaser) worker.Worker {
 		dying:    make(chan struct{}),
 	}
 	w := worker.NewStringsWorker(a)
+	a.kill = func() {
+		w.Kill()
+	}
 	return w
 }
 
@@ -142,10 +146,14 @@ func (a *addresserHandler) SetUp() (apiWatcher.StringsWatcher, error) {
 			err := a.releaseIPAddress(addr)
 			if err != nil {
 				logger.Warningf("error releasing dead IP address %q: %v", addr, err)
+				a.kill()
+				close(a.dying)
 			} else {
 				err = addr.Remove()
 				if err != nil {
 					logger.Warningf("error removing dead IP address %q: %v", addr, err)
+					a.kill()
+					close(a.dying)
 				}
 			}
 		case <-a.dying:
