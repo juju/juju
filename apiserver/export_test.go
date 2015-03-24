@@ -23,6 +23,7 @@ var (
 	MaxClientPingInterval = &maxClientPingInterval
 	MongoPingInterval     = &mongoPingInterval
 	NewTimer              = &newTimer
+	ResetTimer            = &resetTimer
 	NewBackups            = &newBackups
 	ParseLogLine          = parseLogLine
 	AgentMatchesFilter    = agentMatchesFilter

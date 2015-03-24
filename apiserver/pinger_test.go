@@ -95,6 +95,11 @@ func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 }
 
 func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
+	var resetCount int
+	s.PatchValue(apiserver.ResetTimer, func(timer *time.Timer, d time.Duration) bool {
+		resetCount += 1
+		return timer.Reset(d)
+	})
 	// We patch out NewTimer so that we can call Reset on the timer
 	// right before we check the failure case below.
 	var timer *time.Timer
@@ -106,12 +111,16 @@ func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c)
 	err := st.Ping()
 	c.Assert(err, jc.ErrorIsNil)
+
 	// As long as we don't wait too long, the connection stays open
+	resetCount = 0
 	for i := 0; i < 10; i++ {
 		time.Sleep(10 * time.Millisecond)
 		err = st.Ping()
 		c.Assert(err, jc.ErrorIsNil)
 	}
+	c.Check(resetCount, gc.Equals, 10)
+
 	// However, once we stop pinging for too long, the connection dies
 	const shortTimeout = 10 * time.Millisecond
 	timer.Reset(shortTimeout)
