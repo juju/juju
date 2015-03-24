@@ -9,6 +9,7 @@ import subprocess
 import sys
 
 from utility import (
+    print_now,
     temp_dir,
 )
 
@@ -51,21 +52,21 @@ def go_test(gopath, project, project_url, project_ref, merge_url, merge_ref,
     git = SubcommandRunner("git")
     directory = os.path.join(gopath, "src", project)
     if project_url:
-        print("Cloning {} from {}".format(project, project_url))
+        print_now("Cloning {} from {}".format(project, project_url))
         git("clone", project_url, directory)
     else:
-        print("Getting {} using go".format(project))
+        print_now("Getting {} using go".format(project))
         go("get", "-v", project)
     os.chdir(directory)
     if project_ref:
-        print("Switching repository to {}".format(project_ref))
+        print_now("Switching repository to {}".format(project_ref))
         git("checkout", project_ref)
     if merge_url:
-        print("Merging {} ref {}".format(merge_url, merge_ref))
+        print_now("Merging {} ref {}".format(merge_url, merge_ref))
         git("fetch", merge_url, merge_ref)
         git("merge", "--no-ff", "-m", "Merged " + merge_ref, "FETCH_HEAD")
     for dep in dependencies:
-        print("Getting {} using go".format(dep))
+        print_now("Getting {} using go".format(dep))
         go("get", "-v", dep)
     go("build", project + "/...")
     go("test", project + "/...")
