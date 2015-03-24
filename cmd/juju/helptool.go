@@ -76,6 +76,10 @@ func (dummyHookContext) OwnerTag() string {
 	return ""
 }
 
+func (dummyHookContext) UnitStatus() (*jujuc.StatusInfo, error) {
+	return &jujuc.StatusInfo{}, nil
+}
+
 type HelpToolCommand struct {
 	cmd.CommandBase
 	tool string

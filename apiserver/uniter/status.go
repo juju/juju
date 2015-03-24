@@ -18,6 +18,7 @@ import (
 type StatusAPI struct {
 	agentSetter  *common.StatusSetter
 	unitSetter   *common.StatusSetter
+	unitGetter   *common.StatusGetter
 	getCanModify common.GetAuthFunc
 }
 
@@ -40,10 +41,12 @@ func (ua *unitAgentFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 // NewStatusAPI creates a new server-side Status setter API facade.
 func NewStatusAPI(st *state.State, getCanModify common.GetAuthFunc) *StatusAPI {
 	unitSetter := common.NewStatusSetter(st, getCanModify)
+	unitGetter := common.NewStatusGetter(st, getCanModify)
 	agentSetter := common.NewStatusSetter(&unitAgentFinder{st}, getCanModify)
 	return &StatusAPI{
 		agentSetter:  agentSetter,
 		unitSetter:   unitSetter,
+		unitGetter:   unitGetter,
 		getCanModify: getCanModify,
 	}
 }
@@ -66,4 +69,9 @@ func (s *StatusAPI) SetAgentStatus(args params.SetStatus) (params.ErrorResults, 
 // of its agent.
 func (s *StatusAPI) SetUnitStatus(args params.SetStatus) (params.ErrorResults, error) {
 	return s.unitSetter.SetStatus(args)
+}
+
+// UnitStatus returns the workload status information for the unit.
+func (s *StatusAPI) xUnitStatus(args params.Entities) (params.StatusResults, error) {
+	return s.unitGetter.Status(args)
 }

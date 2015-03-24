@@ -72,6 +72,14 @@ func (s *InterfaceSuite) TestAvailabilityZone(c *gc.C) {
 	c.Check(zone, gc.Equals, "a-zone")
 }
 
+func (s *InterfaceSuite) TestUnitStatus(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	status, err := ctx.UnitStatus()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(status.Status, gc.Equals, "maintenance")
+	c.Check(status.Data, gc.DeepEquals, map[string]interface{}{})
+}
+
 func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	pr, ok := ctx.PrivateAddress()

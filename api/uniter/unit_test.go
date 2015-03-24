@@ -141,6 +141,27 @@ func (s *unitSuite) TestSetAgentStatusOldServer(c *gc.C) {
 	c.Assert(data, gc.HasLen, 0)
 }
 
+func (s *unitSuite) TestUnitStatus(c *gc.C) {
+	err := s.wordpressUnit.SetStatus(state.StatusError, "blah", map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.apiUnit.UnitStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StatusResult{
+		Status: params.StatusError,
+		Info:   "blah",
+		Data:   map[string]interface{}{"foo": "bar"},
+	})
+}
+
+func (s *unitSuite) TestUnitStatusNotImplemented(c *gc.C) {
+	s.patchNewState(c, uniter.NewStateV1)
+
+	_, err := s.apiUnit.UnitStatus()
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(err.Error(), gc.Equals, "UnitStatus not implemented")
+}
+
 func (s *unitSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Alive)
 

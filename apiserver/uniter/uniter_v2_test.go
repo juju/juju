@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/uniter"
 	"github.com/juju/juju/state"
 )
@@ -101,4 +102,27 @@ func (s *uniterV2Suite) TestSetAgentStatus(c *gc.C) {
 // implemented for this version.
 func (s *uniterV2Suite) TestSetUnitStatus(c *gc.C) {
 	s.testSetUnitStatus(c, s.uniter)
+}
+
+func (s *uniterV2Suite) TestUnitStatus(c *gc.C) {
+	err := s.wordpressUnit.SetStatus(state.StatusError, "blah", map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysqlUnit.SetStatus(state.StatusTerminated, "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "unit-mysql-0"},
+			{Tag: "unit-wordpress-0"},
+			{Tag: "unit-foo-42"},
+		}}
+	result, err := s.uniter.UnitStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StatusResults{
+		Results: []params.StatusResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Status: params.StatusError, Info: "blah", Data: map[string]interface{}{"foo": "bar"}},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
 }
