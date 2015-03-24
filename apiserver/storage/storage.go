@@ -6,12 +6,15 @@ package storage
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider/registry"
 )
 
 func init() {
@@ -246,4 +249,106 @@ func (api *API) isPersistent(si state.StorageInstance) (bool, error) {
 		return false, err
 	}
 	return info.Persistent, nil
+}
+
+// ListPools returns a list of pools.
+// If filter is provided, returned list only contains pools that match
+// the filter.
+// Pools can be filtered on names and provider types.
+// If both names and types are provided as filter,
+// pools that match either are returned.
+// If no filter is provided, all pools are returned.
+func (a *API) ListPools(
+	filter params.StoragePoolFilter,
+) (params.StoragePoolsResult, error) {
+
+	all, err := a.poolManager.List()
+	if err != nil {
+		return params.StoragePoolsResult{}, err
+	}
+	results := []params.StoragePool{}
+	if ok, err := a.isValidPoolListFilter(filter); !ok {
+		return params.StoragePoolsResult{}, err
+	}
+	// Convert to sets as easier to deal with
+	providerSet := set.NewStrings(filter.Providers...)
+	nameSet := set.NewStrings(filter.Names...)
+	for _, apool := range all {
+		if poolMatchesFilters(apool, providerSet, nameSet) {
+			results = append(results,
+				params.StoragePool{
+					Name:     apool.Name(),
+					Provider: string(apool.Provider()),
+					Attrs:    apool.Attrs(),
+				})
+		}
+	}
+	return params.StoragePoolsResult{Results: results}, nil
+}
+
+func (a *API) isValidPoolListFilter(
+	filter params.StoragePoolFilter,
+) (bool, error) {
+	if len(filter.Providers) != 0 {
+		if valid, err := a.isValidProviderCriteria(filter.Providers); !valid {
+			return false, errors.Trace(err)
+		}
+	}
+	if len(filter.Names) != 0 {
+		if valid, err := a.isValidNameCriteria(filter.Names); !valid {
+			return false, errors.Trace(err)
+		}
+	}
+	return true, nil
+}
+
+func (a *API) isValidNameCriteria(names []string) (bool, error) {
+	for _, n := range names {
+		if !storage.IsValidPoolName(n) {
+			return false, errors.NotValidf("pool name %q", n)
+		}
+	}
+	return true, nil
+}
+
+func (a *API) isValidProviderCriteria(providers []string) (bool, error) {
+	envName, err := a.storage.EnvName()
+	if err != nil {
+		return false, errors.Annotate(err, "getting env name")
+	}
+	for _, p := range providers {
+		if !registry.IsProviderSupported(envName, storage.ProviderType(p)) {
+			return false, errors.NotSupportedf("%q for environment %q", p, envName)
+		}
+	}
+	return true, nil
+}
+
+func poolMatchesFilters(
+	apool *storage.Config,
+	providerFilter,
+	nameFilter set.Strings,
+) bool {
+	// no filters supplied = pool matches criteria
+	if providerFilter.IsEmpty() && nameFilter.IsEmpty() {
+		return true
+	}
+
+	// if at least 1 name and type are supplied, use AND to match
+	if !providerFilter.IsEmpty() && !nameFilter.IsEmpty() {
+		return nameFilter.Contains(apool.Name()) &&
+			providerFilter.Contains(string(apool.Provider()))
+	}
+	// Otherwise, if only names or types are supplied, use OR to match
+	return nameFilter.Contains(apool.Name()) ||
+		providerFilter.Contains(string(apool.Provider()))
+}
+
+// CreatePool creates a new pool with specified parameters.
+func (a *API) CreatePool(p params.StoragePool) error {
+	_, err := a.poolManager.Create(
+		p.Name,
+		storage.ProviderType(p.Provider),
+		p.Attrs)
+	return err
 }
