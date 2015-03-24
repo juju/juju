@@ -3,4 +3,9 @@
 
 package storage
 
-var CreateAPI = createAPI
+var (
+	CreateAPI             = createAPI
+	IsValidPoolListFilter = (*API).isValidPoolListFilter
+	ValidateNames         = (*API).isValidNameCriteria
+	ValidateProviders     = (*API).isValidProviderCriteria
+)

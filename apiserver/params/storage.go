@@ -415,3 +415,31 @@ type StorageInfo struct {
 type StorageInfosResult struct {
 	Results []StorageInfo `json:"results,omitempty"`
 }
+
+// StoragePool holds data for a pool instance.
+type StoragePool struct {
+
+	// Name is the pool's name.
+	Name string `json:"name"`
+
+	// Provider is the type of storage provider this pool represents, eg "loop", "ebs".
+	Provider string `json:"provider"`
+
+	// Attrs are the pool's configuration attributes.
+	Attrs map[string]interface{} `json:"attrs"`
+}
+
+// StoragePoolFilter holds a filter for pool API call.
+type StoragePoolFilter struct {
+
+	// Names are pool's names to filter on.
+	Names []string `json:"names,omitempty"`
+
+	// Providers are pool's storage provider types to filter on.
+	Providers []string `json:"providers,omitempty"`
+}
+
+// StoragePoolsResult holds a collection of pool instances.
+type StoragePoolsResult struct {
+	Results []StoragePool `json:"results,omitempty"`
+}
