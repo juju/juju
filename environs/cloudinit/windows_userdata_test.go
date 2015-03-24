@@ -850,7 +850,7 @@ cacert: |
   -----END CERTIFICATE-----
 stateaddresses:
 - state-addr.testing.invalid:12345
-environment: environment-deadbeef-0bad-f00d-0000-4b1d0d06f00d
+environment: environment-deadbeef-0bad-400d-8000-4b1d0d06f00d
 apiaddresses:
 - state-addr.testing.invalid:54321
 oldpassword: arble
