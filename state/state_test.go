@@ -2145,14 +2145,12 @@ func (s *StateSuite) TestWatchIPAddresses(c *gc.C) {
 	// add an IP address
 	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.3"), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(addr.Value())
-	wc.AssertNoChange()
+	wc.AssertChangeInSingleEvent(addr.Value())
 
 	// Make it Dead: reported.
 	err = addr.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(addr.Value())
-	wc.AssertNoChange()
+	wc.AssertChangeInSingleEvent(addr.Value())
 }
 
 func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
@@ -2176,16 +2174,14 @@ func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
 	w := s.State.WatchEnvironments()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChange(alive.UUID(), dying.UUID())
-	wc.AssertNoChange()
+	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
 
 	// Remove alive and dying and see changes reported.
 	err = state.RemoveEnvironment(s.State, dying.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 	err = alive.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(alive.UUID(), dying.UUID())
-	wc.AssertNoChange()
+	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
 }
 
 func (s *StateSuite) TestWatchEnvironmentsLifecycle(c *gc.C) {
