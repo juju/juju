@@ -77,6 +77,8 @@ type ebsVolumeSuite struct {
 	jujutest.Tests
 	srv                localServer
 	restoreEC2Patching func()
+
+	instanceId string
 }
 
 func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
@@ -102,7 +104,6 @@ func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {
 		Series: testing.FakeDefaultSeries,
 		Arch:   arch.AMD64,
 	})
-
 }
 
 func (s *ebsVolumeSuite) TearDownTest(c *gc.C) {
@@ -123,40 +124,38 @@ func (s *ebsVolumeSuite) volumeSource(c *gc.C, cfg *storage.Config) storage.Volu
 func (s *ebsVolumeSuite) assertCreateVolumes(c *gc.C, vs storage.VolumeSource, zone string) {
 	volume0 := names.NewVolumeTag("0")
 	volume1 := names.NewVolumeTag("1")
-	params := []storage.VolumeParams{
-		{
-			Tag:      volume0,
-			Size:     10 * 1000,
-			Provider: ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{
-				"availability-zone": zone,
-				"volume-type":       "io1",
-			},
+	params := []storage.VolumeParams{{
+		Tag:      volume0,
+		Size:     10 * 1000,
+		Provider: ec2.EBS_ProviderType,
+		Attributes: map[string]interface{}{
+			"persistent":        true,
+			"availability-zone": zone,
+			"volume-type":       "io1",
 		},
-		{
-			Tag:      volume1,
-			Size:     20 * 1000,
-			Provider: ec2.EBS_ProviderType,
-			Attributes: map[string]interface{}{
-				"availability-zone": zone,
-			},
+	}, {
+		Tag:      volume1,
+		Size:     20 * 1000,
+		Provider: ec2.EBS_ProviderType,
+		Attributes: map[string]interface{}{
+			"persistent":        true,
+			"availability-zone": zone,
 		},
-	}
+	}}
 	vols, _, err := vs.CreateVolumes(params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vols, gc.HasLen, 2)
-	c.Assert(vols, jc.SameContents, []storage.Volume{
-		{
-			Tag:      volume0,
-			Size:     10240,
-			VolumeId: "vol-0",
-		},
-		{
-			Tag:      volume1,
-			Size:     20480,
-			VolumeId: "vol-1",
-		},
-	})
+	c.Assert(vols, jc.SameContents, []storage.Volume{{
+		Tag:        volume0,
+		Size:       10240,
+		VolumeId:   "vol-0",
+		Persistent: true,
+	}, {
+		Tag:        volume1,
+		Size:       20480,
+		VolumeId:   "vol-1",
+		Persistent: true,
+	}})
 	ec2Client := ec2.StorageEC2(vs)
 	ec2Vols, err := ec2Client.Volumes(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -212,81 +211,108 @@ func (s *ebsVolumeSuite) TestVolumes(c *gc.C) {
 	vols, err := vs.DescribeVolumes([]string{"vol-0", "vol-1"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vols, gc.HasLen, 2)
-	c.Assert(vols, jc.SameContents, []storage.Volume{
-		{
-			Size:     10240,
-			VolumeId: "vol-0",
-		},
-		{
-			Size:     20480,
-			VolumeId: "vol-1",
-		},
-	})
+	c.Assert(vols, jc.SameContents, []storage.Volume{{
+		Size:     10240,
+		VolumeId: "vol-0",
+	}, {
+		Size:     20480,
+		VolumeId: "vol-1",
+	}})
 }
 
 func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	volume0 := names.NewVolumeTag("0")
 
+	instanceIdPending := s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Pending, nil)[0]
+	instanceIdRunning := s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Running, nil)[0]
+	attachmentParams := storage.VolumeAttachmentParams{
+		AttachmentParams: storage.AttachmentParams{
+			InstanceId: instance.Id(instanceIdRunning),
+		},
+	}
+
 	for _, test := range []struct {
 		params storage.VolumeParams
 		err    string
-	}{
-		{
-			params: storage.VolumeParams{
-				Provider: ec2.EBS_ProviderType,
-			},
-			err: "missing availability zone",
+	}{{
+		params: storage.VolumeParams{
+			Provider:   ec2.EBS_ProviderType,
+			Attachment: &storage.VolumeAttachmentParams{},
 		},
-		{
-			params: storage.VolumeParams{
-				Size:     100000000,
-				Provider: ec2.EBS_ProviderType,
-				Attributes: map[string]interface{}{
-					"availability-zone": "us-east-1",
+		err: "need instance to provision volume",
+	}, {
+		params: storage.VolumeParams{
+			Provider: ec2.EBS_ProviderType,
+			Attributes: map[string]interface{}{
+				"persistent":        false,
+				"availability-zone": "us-east-1",
+			},
+		},
+		err: "cannot specify availability zone for non-persistent volume",
+	}, {
+		params: storage.VolumeParams{
+			Provider: ec2.EBS_ProviderType,
+			Attributes: map[string]interface{}{
+				"persistent": true,
+			},
+		},
+		err: "missing availability zone for persistent volume",
+	}, {
+		params: storage.VolumeParams{
+			Provider: ec2.EBS_ProviderType,
+			Attachment: &storage.VolumeAttachmentParams{
+				AttachmentParams: storage.AttachmentParams{
+					InstanceId: instance.Id(instanceIdPending),
 				},
 			},
-			err: "97657 GiB exceeds the maximum of 1024 GiB",
 		},
-		{
-			params: storage.VolumeParams{
-				Tag:      volume0,
-				Size:     1000,
-				Provider: ec2.EBS_ProviderType,
-				Attributes: map[string]interface{}{
-					"availability-zone": "us-east-1",
-					"volume-type":       "io1",
-					"iops":              "1234",
-				},
-			},
-			err: "volume size is 1 GiB, must be at least 10 GiB for provisioned IOPS",
+		err: "querying instance details: volumes can only be attached to running instances, these instances are not running: i-3",
+	}, {
+		params: storage.VolumeParams{
+			Size:       100000000,
+			Provider:   ec2.EBS_ProviderType,
+			Attributes: map[string]interface{}{},
+			Attachment: &attachmentParams,
 		},
-		{
-			params: storage.VolumeParams{
-				Tag:      volume0,
-				Size:     10000,
-				Provider: ec2.EBS_ProviderType,
-				Attributes: map[string]interface{}{
-					"availability-zone": "us-east-1",
-					"volume-type":       "io1",
-					"iops":              "1234",
-				},
+		err: "97657 GiB exceeds the maximum of 1024 GiB",
+	}, {
+		params: storage.VolumeParams{
+			Tag:      volume0,
+			Size:     1000,
+			Provider: ec2.EBS_ProviderType,
+			Attributes: map[string]interface{}{
+				"volume-type": "io1",
+				"iops":        "1234",
 			},
-			err: "volume size is 10 GiB, must be at least 41 GiB to support 1234 IOPS",
+			Attachment: &attachmentParams,
 		},
-		{
-			params: storage.VolumeParams{
-				Tag:      volume0,
-				Size:     10000,
-				Provider: ec2.EBS_ProviderType,
-				Attributes: map[string]interface{}{
-					"availability-zone": "us-east-1",
-					"volume-type":       "standard",
-					"iops":              "1234",
-				},
+		err: "volume size is 1 GiB, must be at least 10 GiB for provisioned IOPS",
+	}, {
+		params: storage.VolumeParams{
+			Tag:      volume0,
+			Size:     10000,
+			Provider: ec2.EBS_ProviderType,
+			Attributes: map[string]interface{}{
+				"volume-type": "io1",
+				"iops":        "1234",
 			},
-			err: `IOPS specified, but volume type is "standard"`,
-		}} {
+			Attachment: &attachmentParams,
+		},
+		err: "volume size is 10 GiB, must be at least 41 GiB to support 1234 IOPS",
+	}, {
+		params: storage.VolumeParams{
+			Tag:      volume0,
+			Size:     10000,
+			Provider: ec2.EBS_ProviderType,
+			Attributes: map[string]interface{}{
+				"volume-type": "standard",
+				"iops":        "1234",
+			},
+			Attachment: &attachmentParams,
+		},
+		err: `IOPS specified, but volume type is "standard"`,
+	}} {
 		_, _, err := vs.CreateVolumes([]storage.VolumeParams{test.params})
 		c.Check(err, gc.ErrorMatches, test.err)
 	}
@@ -334,7 +360,7 @@ func (s *ebsVolumeSuite) TestAttachVolumes(c *gc.C) {
 	c.Assert(result[0], gc.Equals, storage.VolumeAttachment{
 		Volume:     names.NewVolumeTag("0"),
 		Machine:    names.NewMachineTag("1"),
-		DeviceName: "/dev/sdf",
+		DeviceName: "xvdf",
 		ReadOnly:   false,
 	})
 
@@ -350,14 +376,14 @@ func (s *ebsVolumeSuite) TestAttachVolumes(c *gc.C) {
 		Status:     "attaching",
 	}})
 
-	// Test idempotent.
+	// Test idempotency.
 	result, err = vs.AttachVolumes(params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	c.Assert(result[0], gc.Equals, storage.VolumeAttachment{
 		Volume:     names.NewVolumeTag("0"),
 		Machine:    names.NewMachineTag("1"),
-		DeviceName: "/dev/sdf",
+		DeviceName: "xvdf",
 		ReadOnly:   false,
 	})
 }
@@ -410,7 +436,9 @@ func (*blockDeviceMappingSuite) TestBlockDeviceNamer(c *gc.C) {
 	}
 
 	// First without numbers.
-	nextName = ec2.BlockDeviceNamer(false)
+	nextName = ec2.BlockDeviceNamer(awsec2.Instance{
+		VirtType: "hvm",
+	})
 	expect("/dev/sdf", "xvdf")
 	expect("/dev/sdg", "xvdg")
 	expect("/dev/sdh", "xvdh")
@@ -425,7 +453,9 @@ func (*blockDeviceMappingSuite) TestBlockDeviceNamer(c *gc.C) {
 	expectErr("too many EBS volumes to attach")
 
 	// Now with numbers.
-	nextName = ec2.BlockDeviceNamer(true)
+	nextName = ec2.BlockDeviceNamer(awsec2.Instance{
+		VirtType: "paravirtual",
+	})
 	expect("/dev/sdf1", "xvdf1")
 	expect("/dev/sdf2", "xvdf2")
 	expect("/dev/sdf3", "xvdf3")

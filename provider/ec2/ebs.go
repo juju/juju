@@ -38,6 +38,13 @@ const (
 
 	// Specifies whether the volume should be encrypted.
 	EBS_Encrypted = "encrypted"
+
+	// The availability zone in which the volume will be created.
+	//
+	// Setting the availability-zone is an error for non-persistent
+	// volumes, as the volume will be created in the zone of the
+	// instance it is bound to.
+	EBS_AvailabilityZone = "availability-zone"
 )
 
 // AWS error codes
@@ -92,6 +99,7 @@ var validConfigOptions = set.NewStrings(
 	EBS_VolumeType,
 	EBS_IOPS,
 	EBS_Encrypted,
+	EBS_AvailabilityZone,
 )
 
 // ValidateConfig is defined on the Provider interface.
@@ -163,11 +171,21 @@ type ebsVolumeSource struct {
 var _ storage.VolumeSource = (*ebsVolumeSource)(nil)
 
 // parseVolumeOptions uses storage volume parameters to make a struct used to create volumes.
-func parseVolumeOptions(size uint64, attr map[string]interface{}) (ec2.CreateVolume, error) {
+func parseVolumeOptions(size uint64, attr map[string]interface{}) (_ ec2.CreateVolume, persistent bool, _ error) {
 	vol := ec2.CreateVolume{
 		// Juju size is MiB, AWS size is GiB.
 		VolumeSize: int(mibToGib(size)),
 	}
+
+	persistent, _ = attr["persistent"].(bool)
+
+	availabilityZone, _ := attr[EBS_AvailabilityZone].(string)
+	if persistent && availabilityZone == "" {
+		return vol, false, errors.New("missing availability zone for persistent volume")
+	} else if !persistent && availabilityZone != "" {
+		return vol, false, errors.New("cannot specify availability zone for non-persistent volume")
+	}
+	vol.AvailZone = availabilityZone
 
 	// TODO(wallyworld) - remove type assertions when juju/schema is used
 	options := TranslateUserEBSOptions(attr)
@@ -178,14 +196,14 @@ func parseVolumeOptions(size uint64, attr map[string]interface{}) (ec2.CreateVol
 		var err error
 		vol.IOPS, err = strconv.ParseInt(v.(string), 10, 64)
 		if err != nil {
-			return vol, errors.Annotatef(err, "invalid iops value %v, expected integer", v)
+			return vol, false, errors.Annotatef(err, "invalid iops value %v, expected integer", v)
 		}
 	}
 	if v, ok := options[EBS_Encrypted].(bool); ok {
 		vol.Encrypted = v
 	}
 
-	return vol, nil
+	return vol, persistent, nil
 }
 
 // CreateVolumes is specified on the storage.VolumeSource interface.
@@ -221,7 +239,9 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 		if err := v.ValidateVolumeParams(p); err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		instanceIds.Add(string(p.Attachment.InstanceId))
+		if p.Attachment != nil && p.Attachment.InstanceId != "" {
+			instanceIds.Add(string(p.Attachment.InstanceId))
+		}
 	}
 	instances, err := v.instances(instanceIds.Values())
 	if err != nil {
@@ -229,15 +249,17 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 	}
 
 	for _, p := range params {
-		instId := string(p.Attachment.InstanceId)
-		vol, _ := parseVolumeOptions(p.Size, p.Attributes)
-		vol.AvailZone = instances[instId].AvailZone
+		var instId string
+		vol, persistent, _ := parseVolumeOptions(p.Size, p.Attributes)
+		if !persistent {
+			instId = string(p.Attachment.InstanceId)
+			vol.AvailZone = instances[instId].AvailZone
+		}
 		resp, err := v.ec2.CreateVolume(vol)
 		if err != nil {
 			return nil, nil, err
 		}
 		volumeId := resp.Id
-		persistent, _ := p.Attributes["persistent"].(bool)
 		volumes = append(volumes, storage.Volume{
 			Tag:        p.Tag,
 			VolumeId:   volumeId,
@@ -245,12 +267,13 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 			Persistent: persistent,
 		})
 
-		// Wait for the volume to be "available".
-		if err := v.waitVolumeAvailable(volumeId); err != nil {
-			return nil, nil, errors.Trace(err)
+		// Persistent volumes' attachments are created independently.
+		// We must create the attachments for non-persistent volumes
+		// immediately, as the "non-persistence" is a property of the
+		// attachment.
+		if persistent {
+			continue
 		}
-
-		// For EC2, we always create volumes with attachments.
 		nextDeviceName := blockDeviceNamer(instances[instId])
 		requestDeviceName, actualDeviceName, err := v.attachOneVolume(nextDeviceName, resp.Volume.Id, instId, false)
 		if err != nil {
@@ -266,7 +289,7 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 					VolumeId:            volumeId,
 					DeleteOnTermination: true,
 				}},
-			}, ec2.NewFilter())
+			}, nil)
 			if err != nil {
 				return nil, nil, errors.Annotatef(err, "binding termination of %v to %v", resp.Volume.Id, instId)
 			}
@@ -316,12 +339,15 @@ func (v *ebsVolumeSource) DestroyVolumes(volIds []string) []error {
 
 // ValidateVolumeParams is specified on the storage.VolumeSource interface.
 func (v *ebsVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
-	if params.Attachment == nil || params.Attachment.InstanceId == "" {
-		return storage.ErrVolumeNeedsInstance
-	}
-	vol, err := parseVolumeOptions(params.Size, params.Attributes)
+	vol, persistent, err := parseVolumeOptions(params.Size, params.Attributes)
 	if err != nil {
 		return err
+	}
+	if !persistent && (params.Attachment == nil || params.Attachment.InstanceId == "") {
+		// Non-persistent volumes require an instance before they can
+		// be created, in order to set the appropriate availability
+		// zone and to bind the volume to the instance's lifetime.
+		return storage.ErrVolumeNeedsInstance
 	}
 	if vol.VolumeSize > volumeSizeMaxGiB {
 		return errors.Errorf("%d GiB exceeds the maximum of %d GiB", vol.VolumeSize, volumeSizeMaxGiB)
@@ -396,6 +422,10 @@ func (v *ebsVolumeSource) attachOneVolume(
 	volumeId, instId string,
 	deleteOnTermination bool,
 ) (string, string, error) {
+	// Wait for the volume to be "available".
+	if err := v.waitVolumeAvailable(volumeId); err != nil {
+		return "", "", errors.Trace(err)
+	}
 	for {
 		requestDeviceName, actualDeviceName, err := nextDeviceName()
 		if err != nil {
@@ -438,6 +468,7 @@ func (v *ebsVolumeSource) attachOneVolume(
 					requestDeviceName = attachments[0].Device
 					actualDeviceName = renamedDevicePrefix + requestDeviceName[len(devicePrefix):]
 				}
+				return requestDeviceName, actualDeviceName, nil
 			}
 		}
 		if err != nil {
