@@ -95,6 +95,8 @@ func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 }
 
 func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
+	// We patch out NewTimer so that we can call Reset on the timer
+	// right before we check the failure case below.
 	var timer *time.Timer
 	s.PatchValue(apiserver.NewTimer, func(d time.Duration) *time.Timer {
 		timer = time.NewTimer(d)
