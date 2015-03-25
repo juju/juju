@@ -4,27 +4,20 @@
 package addresser
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
 
 	apiWatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.addresser")
-
-var shortAttempt = utils.AttemptStrategy{
-	Total: 5 * time.Second,
-	Delay: 300 * time.Millisecond,
-}
 
 type releaser interface {
 	// ReleaseAddress has the same signature as the same method in the
@@ -81,23 +74,25 @@ func (a *addresserHandler) Handle(ids []string) error {
 		addr, err := a.st.IPAddress(id)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				logger.Debugf("address %v is missing", id)
+				logger.Debugf("address %v was removed; skipping", id)
 				continue
 			}
 			return err
 		}
 		if addr.Life() != state.Dead {
-			logger.Debugf("address %v is not Dead, life %q", id, addr.Life())
+			logger.Debugf("address %v is not Dead (life %q); skipping", id, addr.Life())
 			continue
 		}
 		err = a.releaseIPAddress(addr)
 		if err != nil {
 			return err
 		}
+		logger.Debugf("address %v released", id)
 		err = addr.Remove()
 		if err != nil {
 			return err
 		}
+		logger.Debugf("address %v removed", id)
 	}
 	return nil
 }
@@ -117,9 +112,9 @@ func (a *addresserHandler) releaseIPAddress(addr *state.IPAddress) (err error) {
 		return errors.Annotatef(err, "cannot get machine %q instance ID", addr.MachineId())
 	}
 
-	netId := network.Id(addr.SubnetId())
-	for attempt := shortAttempt.Start(); attempt.Next(); {
-		err = a.releaser.ReleaseAddress(instId, netId, addr.Address())
+	subnetId := network.Id(addr.SubnetId())
+	for attempt := common.ShortAttempt.Start(); attempt.Next(); {
+		err = a.releaser.ReleaseAddress(instId, subnetId, addr.Address())
 		if err == nil {
 			return nil
 		}
