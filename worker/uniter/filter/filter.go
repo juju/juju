@@ -150,6 +150,10 @@ func (f *filter) Wait() error {
 	return f.tomb.Wait()
 }
 
+func (f *filter) Kill() {
+	f.tomb.Kill(nil)
+}
+
 // UnitDying returns a channel which is closed when the Unit enters a Dying state.
 func (f *filter) UnitDying() <-chan struct{} {
 	return f.outUnitDying
