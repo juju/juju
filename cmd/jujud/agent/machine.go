@@ -60,6 +60,7 @@ import (
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
@@ -1055,6 +1056,9 @@ func (a *MachineAgent) startEnvWorkers(
 	})
 	singularRunner.StartWorker("minunitsworker", func() (worker.Worker, error) {
 		return minunitsworker.NewMinUnitsWorker(st), nil
+	})
+	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
+		return addresser.NewWorker(st)
 	})
 
 	// Start workers that use an API connection.
