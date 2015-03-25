@@ -27,7 +27,7 @@ const (
 
 // ErrVolumeNeedsInstance is an error indicating that a volume cannot be
 // created because the related machine instance has not been provisioned.
-var ErrVolumeNeedsInstance = errors.New("need instance to provision volume")
+var ErrVolumeNeedsInstance = errors.New("need running instance to provision volume")
 
 // Provider is an interface for obtaining storage sources.
 type Provider interface {

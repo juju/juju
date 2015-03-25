@@ -167,7 +167,7 @@ func (s *storageProvisionerSuite) TestVolumeNeedsInstance(c *gc.C) {
 	volumeAccessor.volumesWatcher.changes <- []string{needsInstanceVolumeId}
 	environAccessor.watcher.changes <- struct{}{}
 	err := worker.Wait()
-	c.Assert(err, gc.ErrorMatches, `provisioning volumes: creating volumes: need instance to provision volume`)
+	c.Assert(err, gc.ErrorMatches, `provisioning volumes: creating volumes: need running instance to provision volume`)
 }
 
 func (s *storageProvisionerSuite) TestVolumeNonDynamic(c *gc.C) {

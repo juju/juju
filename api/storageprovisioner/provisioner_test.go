@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -797,17 +796,7 @@ func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
-	inputCfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":            "N. Vyron",
-		"type":            "fancy",
-		"uuid":            coretesting.EnvironmentTag.Id(),
-		"authorized-keys": coretesting.FakeAuthKeys,
-		"admin-secret":    coretesting.DefaultMongoPassword,
-		"ca-cert":         coretesting.CACert,
-		"ca-private-key":  coretesting.CAKey,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
+	inputCfg := coretesting.EnvironConfig(c)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "StorageProvisioner")
 		c.Check(version, gc.Equals, 0)
