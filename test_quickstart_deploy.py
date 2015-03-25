@@ -1,4 +1,7 @@
-from mock import patch
+from mock import (
+    ANY,
+    patch
+)
 from unittest import TestCase
 
 from jujupy import (
@@ -19,6 +22,18 @@ class FakeEnvJujuClient(EnvJujuClient):
         with patch('sys.stdout'):
             return super(FakeEnvJujuClient, self).quickstart(*args, **kwargs)
 
+    def wait_for_deploy_started(self, *args, **kwargs):
+        # Suppress stdout for juju commands.
+        with patch('sys.stdout'):
+            return super(FakeEnvJujuClient, self).wait_for_deploy_started(
+                *args, **kwargs)
+
+    def destroy_environment(self, *args, **kwargs):
+        # Suppress stdout for juju commands.
+        with patch('sys.stdout'):
+            return super(FakeEnvJujuClient, self).destroy_environment(
+                *args, **kwargs)
+
 
 class TestQuickstartTest(TestCase):
 
@@ -31,13 +46,6 @@ class TestQuickstartTest(TestCase):
                     'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
                     '/tmp/bundle.yaml', 2
                 )
-        # self.assertEqual(
-        #     quickstart.client, (
-        #         SimpleEnvironment('temp_env_name', {
-        #             'agent_url': 'http://agent_url.com',
-        #             'series': 'precise'}),
-        #         '/foo/bin/juju')
-        #     )
         self.assertIs(type(quickstart), QuickstartTest)
         self.assertEqual(quickstart.client[0].environment, 'temp_env_name')
         self.assertIs(quickstart.client[1], '/foo/bin/juju')
@@ -80,7 +88,17 @@ class TestQuickstartTest(TestCase):
                 )
         self.assertEqual(quickstart.client.debug, True)
 
-    def test_iter_steps_bundle(self):
+    def test_run_finally(self):
+        client = FakeEnvJujuClient()
+        quickstart = QuickstartTest(client, '/tmp/bundle.yaml', '/tmp/logs', 2)
+        with patch.object(client, 'destroy_environment') as qs_mock:
+            with patch('quickstart_deploy.safe_print_status') as ps_mock:
+                with patch.object(quickstart, 'iter_steps'):
+                    quickstart.run()
+        qs_mock.assert_called_once_with(delete_jenv=True)
+        ps_mock.assert_called_once_with(client)
+
+    def test_iter_steps(self):
         client = FakeEnvJujuClient()
         quickstart = QuickstartTest(client, '/tmp/bundle.yaml', '/tmp/logs', 2)
         steps = quickstart.iter_steps()
@@ -90,18 +108,19 @@ class TestQuickstartTest(TestCase):
         qs_mock.assert_called_once_with('/tmp/bundle.yaml')
         expected = {'juju-quickstart': 'Returned from quickstart'}
         self.assertEqual(expected, step)
-
-    def test_iter_steps_dns_name(self):
-        client = FakeEnvJujuClient()
-        quickstart = QuickstartTest(client, '/tmp/bundle.yaml', '/tmp/logs', 2)
-        steps = quickstart.iter_steps()
-        with patch.object(client, 'quickstart'):
-            # skip first yield
-            steps.next()
-        with patch('deploy_stack.get_machine_dns_name',
-                   return_value='mocked_name') as ds_mock:
+        with patch('quickstart_deploy.get_machine_dns_name',
+                   return_value='mocked_name') as dns_mock:
             # Test second yield
-            # Test hangs here, is get_machine_dns_name really getting called?
             step = steps.next()
-        ds_mock.assert_called_once_with(client, 0)
+        dns_mock.assert_called_once_with(client, 0)
         self.assertEqual('mocked_name', step['bootstrap_host'])
+        with patch.object(client, 'wait_for_deploy_started') as wds_mock:
+            # Test third yield
+            step = steps.next()
+        wds_mock.assert_called_once_with(2)
+        self.assertEqual('Deploy stated', step['deploy_started'])
+        with patch.object(client, 'wait_for_started') as ws_mock:
+            # Test forth yield
+            step = steps.next()
+        ws_mock.assert_called_once_with(ANY)
+        self.assertEqual('All Agents started', step['agents_started'])

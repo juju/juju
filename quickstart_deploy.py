@@ -73,7 +73,7 @@ class QuickstartTest:
         self.client.wait_for_deploy_started(self.service_count)
         step['deploy_started'] = 'Deploy stated'
         yield step
-        # Wait for all agents to stat
+        # Wait for all agents to start
         self.client.wait_for_started(3600)
         step['agents_started'] = 'All Agents started'
         yield step

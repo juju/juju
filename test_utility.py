@@ -7,6 +7,7 @@ from datetime import (
     timedelta,
     )
 from contextlib import contextmanager
+import logging
 import os
 import socket
 from StringIO import StringIO
@@ -241,7 +242,7 @@ class TestAddBasicTestingArguments(TestCase):
         expected = Namespace(
             agent_url=None, debug=False, env='local', temp_env_name='testtest',
             juju_bin='/foo/juju', logs='/tmp/logs', series=None,
-            verbose='logging.INFO')
+            verbose=logging.INFO)
         self.assertEqual(args, expected)
 
     def test_debug(self):
@@ -254,7 +255,7 @@ class TestAddBasicTestingArguments(TestCase):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--verbose']
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
-        self.assertEqual(args.verbose, 'logging.DEBUG')
+        self.assertEqual(args.verbose, logging.DEBUG)
 
     def test_agent_url(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
