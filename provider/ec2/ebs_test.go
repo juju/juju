@@ -259,7 +259,7 @@ func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {
 			Provider:   ec2.EBS_ProviderType,
 			Attachment: &storage.VolumeAttachmentParams{},
 		},
-		err: "need instance to provision volume",
+		err: "need running instance to provision volume",
 	}, {
 		params: storage.VolumeParams{
 			Provider: ec2.EBS_ProviderType,
