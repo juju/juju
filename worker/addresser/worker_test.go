@@ -209,7 +209,7 @@ func (s *workerSuite) TestWorkerHandlesProviderError(c *gc.C) {
 	c.Assert(worker.Stop(w), gc.ErrorMatches, msg)
 }
 
-func (s *workerSuite) TestWorkerErrorOnStartKillsWorker(c *gc.C) {
+func (s *workerSuite) TestErrorKillsWorker(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "broken", "ReleaseAddress")
 	w, err := addresser.NewWorker(s.State)
 	c.Assert(err, jc.ErrorIsNil)
