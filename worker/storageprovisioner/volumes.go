@@ -4,8 +4,6 @@
 package storageprovisioner
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
@@ -384,7 +382,6 @@ func createVolumes(
 			// is created. This requires that we watch machines.
 			//
 			// For now, rely on the worker bouncing to retry.
-			time.Sleep(5 * time.Second)
 			return nil, nil, err
 		default:
 			// TODO(axw) we should set an error status for params.Tag here.
