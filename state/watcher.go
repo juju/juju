@@ -170,7 +170,7 @@ func (st *State) WatchEnvironments() StringsWatcher {
 }
 
 // WatchIPAddresses returns a StringsWatcher that notifies of changes to the
-// lifecyles of IP addresses.
+// lifecycles of IP addresses.
 func (st *State) WatchIPAddresses() StringsWatcher {
 	return newLifecycleWatcher(st, ipaddressesC, nil, nil, nil)
 }
