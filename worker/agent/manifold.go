@@ -8,6 +8,7 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
@@ -16,6 +17,7 @@ type Agent interface {
 	Tag() names.Tag
 	CurrentConfig() agent.Config
 	ChangeConfig(agent.ConfigMutator) error
+	SetAPIHostPorts([][]network.HostPort) error
 }
 
 func Manifold(agent Agent) dependency.Manifold {

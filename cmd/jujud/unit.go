@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
@@ -110,7 +110,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 }
 
 func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
-	engine := dependency.NewEngine(cmdutil.IsFatal, 3*time.Second, 50*time.Millisecond)
+	engine := dependency.NewEngine(cmdutil.IsFatal, time.Second, 50*time.Millisecond)
 	for name, manifold := range unit.AgentManifolds(a) {
 		if err := engine.Install(name, manifold); err != nil {
 			if e := worker.Stop(engine); e != nil {

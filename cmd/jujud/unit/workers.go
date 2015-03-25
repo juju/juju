@@ -4,7 +4,10 @@
 package unit
 
 import (
+	"time"
+
 	"github.com/juju/juju/worker/agent"
+	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apiconn"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/leadership"
@@ -21,12 +24,13 @@ var (
 	// Long-term, we only expect one of each of these per process; apart from
 	// a little bit of handwaving around the identity used for the api connection,
 	// these elements should work just fine in a machine agent without changes.
-	MachineLockName    = "machine-lock"
-	BinaryUpgraderName = "binary-upgrader"
-	LoggerUpdaterName  = "logger-updater"
-	ProxyUpdaterName   = "proxy-updater"
-	RsyslogUpdaterName = "rsyslog-updater"
-	ApiConnectionName  = "api-connection"
+	MachineLockName       = "machine-lock"
+	BinaryUpgraderName    = "binary-upgrader"
+	LoggerUpdaterName     = "logger-updater"
+	ProxyUpdaterName      = "proxy-updater"
+	RsyslogUpdaterName    = "rsyslog-updater"
+	ApiConnectionName     = "api-connection"
+	ApiAddressUpdaterName = "api-address-updater"
 
 	// We expect one of each of these per running unit; when we try to run N
 	// units inside each agent process, we'll need to disambiguate the names
@@ -41,6 +45,11 @@ func AgentManifolds(a agent.Agent) map[string]dependency.Manifold {
 	return map[string]dependency.Manifold{
 
 		agentName: agent.Manifold(a),
+
+		ApiAddressUpdaterName: apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
+			AgentName:         agentName,
+			ApiConnectionName: ApiConnectionName,
+		}),
 
 		ApiConnectionName: apiconn.Manifold(apiconn.ManifoldConfig{
 			AgentName: agentName,
@@ -57,8 +66,9 @@ func AgentManifolds(a agent.Agent) map[string]dependency.Manifold {
 		}),
 
 		LeadershipTrackerName: leadership.Manifold(leadership.ManifoldConfig{
-			AgentName:         agentName,
-			ApiConnectionName: ApiConnectionName,
+			AgentName:           agentName,
+			ApiConnectionName:   ApiConnectionName,
+			LeadershipGuarantee: 30 * time.Second,
 		}),
 
 		LoggerUpdaterName: LoggerUpdaterManifold(LoggerUpdaterManifoldConfig{

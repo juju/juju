@@ -173,7 +173,7 @@ func (engine *engine) start(name string, delay time.Duration) {
 	// goroutine based on current known state.
 	info.starting = true
 	engine.current[name] = info
-	getResource := engine.getResourceFunc(manifold.Inputs)
+	getResource := engine.getResourceFunc(name, manifold.Inputs)
 	go engine.runWorker(name, delay, manifold.Start, getResource)
 }
 
@@ -181,7 +181,7 @@ func (engine *engine) start(name string, delay time.Duration) {
 // worker state, restricted to those workers declared in inputs. It must only
 // be called from the loop goroutine; see inside for a detailed dicsussion of
 // why we took this appproach.
-func (engine *engine) getResourceFunc(inputs []string) GetResourceFunc {
+func (engine *engine) getResourceFunc(name string, inputs []string) GetResourceFunc {
 	// We snapshot the resources available at invocation time, rather than adding an
 	// additional communicate-resource-request channel. The latter approach is not
 	// unreasonable... but is prone to inelegant scrambles when starting several
@@ -231,6 +231,7 @@ func (engine *engine) getResourceFunc(inputs []string) GetResourceFunc {
 		workers[resourceName] = engine.current[resourceName].worker
 	}
 	return func(resourceName string, out interface{}) bool {
+		logger.Infof("%q manifold requested %q resource", name, resourceName)
 		switch {
 		case workers[resourceName] == nil:
 			return false
