@@ -410,7 +410,6 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
 	err := a.runner.Wait()
-	logger.Infof("Machine agent runner ended with %s", errors.Details(err))
 	switch err {
 	case worker.ErrTerminateAgent:
 		err = a.uninstallAgent(agentConfig)
@@ -929,7 +928,7 @@ func (a *MachineAgent) updateSupportedContainers(
 
 // StateWorker returns a worker running all the workers that require
 // a *state.State connection.
-func (a *MachineAgent) StateWorker() (_ worker.Worker, err error) {
+func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 
 	// Start MongoDB server and dial.

@@ -19,10 +19,6 @@ const (
 	// happens when running inside a container, and a hook on the parent
 	// machine requests a reboot
 	ShouldShutdown RebootAction = "shutdown"
-	// ShouldRestart instructs a machine agent to restart jujud. This usually
-	// happens after an upgrade or conversion to state server using
-	// ensure-availability.
-	ShouldRestart RebootAction = "restart"
 )
 
 // ResolvedMode describes the way state transition errors

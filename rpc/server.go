@@ -549,7 +549,6 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 // runRequest runs the given request and sends the reply.
 func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, startTime time.Time) {
 	defer conn.srvPending.Done()
-	logger.Infof("Request Args: %#v", arg)
 	rv, err := req.Call(req.hdr.Request.Id, arg)
 	if err != nil {
 		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err), startTime)

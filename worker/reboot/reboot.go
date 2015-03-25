@@ -17,16 +17,14 @@ import (
 var logger = loggo.GetLogger("juju.worker.reboot")
 
 const RebootMessage = "preparing for reboot"
-const RestartMessage = "restarting juju"
 
 var _ worker.NotifyWatchHandler = (*Reboot)(nil)
 
 // The reboot worker listens for changes to the reboot flag and
-// exists with worker.ErrTerminateAgent if only jujud should be restarts,
-// with worker.ErrRebootMachine if the machine should reboot, or
+// exists with worker.ErrRebootMachine if the machine should reboot or
 // with worker.ErrShutdownMachine if it should shutdown. This will be picked
 // up by the machine agent as a fatal error and will do the
-// right thing (restart, reboot, or shutdown)
+// right thing (reboot or shutdown)
 type Reboot struct {
 	tomb        tomb.Tomb
 	st          *reboot.State
@@ -53,7 +51,7 @@ func (r *Reboot) checkForRebootState() error {
 		return nil
 	}
 
-	if r.machineLock.Message() == RebootMessage || r.machineLock.Message() == RestartMessage {
+	if r.machineLock.Message() == RebootMessage {
 		// Not a lock held by the machne agent in order to reboot
 		err = r.machineLock.BreakLock()
 		if err != nil {
@@ -89,9 +87,6 @@ func (r *Reboot) Handle() error {
 	case params.ShouldShutdown:
 		r.machineLock.Lock(RebootMessage)
 		return worker.ErrShutdownMachine
-	case params.ShouldRestart:
-		r.machineLock.Lock(RestartMessage)
-		return worker.ErrTerminateAgent
 	}
 	return nil
 }
