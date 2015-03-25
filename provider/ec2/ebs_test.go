@@ -218,7 +218,8 @@ func (s *ebsVolumeSuite) TestDeleteVolumes(c *gc.C) {
 	ec2Client := ec2.StorageEC2(vs)
 	ec2Vols, err := ec2Client.Volumes(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ec2Vols.Volumes, gc.HasLen, 1)
+	c.Assert(ec2Vols.Volumes, gc.HasLen, 2)
+	sortBySize(ec2Vols.Volumes)
 	c.Assert(ec2Vols.Volumes[0].Size, gc.Equals, 20)
 }
 
@@ -359,7 +360,7 @@ func (s *ebsVolumeSuite) TestAttachVolumesNotRunning(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	params := s.setupAttachVolumesTest(c, vs, "us-east-1c", ec2test.Pending)
 	_, err := vs.AttachVolumes(params)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".* these instances are not running: i-3")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, ".* these instances are not running: i-4")
 }
 
 func (s *ebsVolumeSuite) TestAttachVolumesWrongZone(c *gc.C) {
@@ -385,13 +386,13 @@ func (s *ebsVolumeSuite) TestAttachVolumes(c *gc.C) {
 	ec2Client := ec2.StorageEC2(vs)
 	ec2Vols, err := ec2Client.Volumes(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ec2Vols.Volumes, gc.HasLen, 2)
+	c.Assert(ec2Vols.Volumes, gc.HasLen, 3)
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(ec2Vols.Volumes[0].Attachments, jc.DeepEquals, []awsec2.VolumeAttachment{{
 		VolumeId:   "vol-0",
-		InstanceId: "i-3",
+		InstanceId: "i-4",
 		Device:     "/dev/sdf",
-		Status:     "attaching",
+		Status:     "attached",
 	}})
 
 	// Test idempotency.
@@ -417,7 +418,7 @@ func (s *ebsVolumeSuite) TestDetachVolumes(c *gc.C) {
 	ec2Client := ec2.StorageEC2(vs)
 	ec2Vols, err := ec2Client.Volumes(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ec2Vols.Volumes, gc.HasLen, 2)
+	c.Assert(ec2Vols.Volumes, gc.HasLen, 3)
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(ec2Vols.Volumes[0].Attachments, gc.HasLen, 0)
 

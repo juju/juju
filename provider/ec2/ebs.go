@@ -125,10 +125,7 @@ func (e *ebsProvider) Scope() storage.Scope {
 
 // Dynamic is defined on the Provider interface.
 func (e *ebsProvider) Dynamic() bool {
-	// TODO(axw) this should be changed to true when support for dynamic
-	// provisioning has been implemented for EBS. At that point, we need
-	// to remove the block device mapping code.
-	return false
+	return true
 }
 
 // TranslateUserEBSOptions translates user friendly parameter values to the AWS values.
