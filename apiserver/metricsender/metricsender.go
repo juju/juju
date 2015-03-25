@@ -6,6 +6,8 @@
 package metricsender
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -21,7 +23,7 @@ type MetricSender interface {
 	Send([]*wireformat.MetricBatch) (*wireformat.Response, error)
 }
 
-func handleResponse(st *state.State, response wireformat.Response) {
+func handleResponse(mm *state.MetricsManager, st *state.State, response wireformat.Response) {
 	for _, envResp := range response.EnvResponses {
 		err := st.SetMetricBatchesSent(envResp.AcknowledgedBatches)
 		if err != nil {
@@ -40,11 +42,7 @@ func handleResponse(st *state.State, response wireformat.Response) {
 		}
 	}
 	if response.NewGracePeriod > 0 {
-		mm, err := st.MetricsManager()
-		if err != nil {
-			logger.Errorf("failed to set new grace period %v", err)
-		}
-		err = mm.SetGracePeriod(response.NewGracePeriod)
+		err := mm.SetGracePeriod(response.NewGracePeriod)
 		if err != nil {
 			logger.Errorf("failed to set new grace period %v", err)
 		}
@@ -55,6 +53,10 @@ func handleResponse(st *state.State, response wireformat.Response) {
 // over the MetricSender interface in batches
 // no larger than batchSize.
 func SendMetrics(st *state.State, sender MetricSender, batchSize int) error {
+	metricsManager, err := st.MetricsManager()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	for {
 		metrics, err := st.MetricsToSend(batchSize)
 		if err != nil {
@@ -71,11 +73,20 @@ func SendMetrics(st *state.State, sender MetricSender, batchSize int) error {
 		response, err := sender.Send(wireData)
 		if err != nil {
 			logger.Errorf("%+v", err)
+			if incErr := metricsManager.IncrementConsecutiveErrors(); incErr != nil {
+				logger.Errorf("failed to increment error count %v", incErr)
+				return errors.Trace(errors.Wrap(err, incErr))
+			}
 			return errors.Trace(err)
 		}
 		if response != nil {
 			// TODO (mattyw) We are currently ignoring errors during response handling.
-			handleResponse(st, *response)
+			handleResponse(metricsManager, st, *response)
+			if err := metricsManager.SetLastSuccessfulSend(time.Now()); err != nil {
+				err = errors.Annotate(err, "failed to set successful send time")
+				logger.Warningf("%v", err)
+				return errors.Trace(err)
+			}
 		}
 	}
 
