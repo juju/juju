@@ -883,12 +883,6 @@ func (a *MachineAgent) updateSupportedContainers(
 // StateWorker returns a worker running all the workers that require
 // a *state.State connection.
 func (a *MachineAgent) StateWorker() (_ worker.Worker, err error) {
-	defer func() {
-		if err != nil {
-			logger.Errorf("State worker exiting with error %s\nRestarting jujud.", errors.Details(err))
-			a.RestartService()
-		}
-	}()
 	agentConfig := a.CurrentConfig()
 
 	// Start MongoDB server and dial.
