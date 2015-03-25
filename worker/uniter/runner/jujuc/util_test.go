@@ -136,13 +136,12 @@ func (c *Context) UnitName() string {
 }
 
 func (c *Context) UnitStatus() (*jujuc.StatusInfo, error) {
-	return &jujuc.StatusInfo{
-		Status: string(params.StatusError),
-		Info:   "doing work",
-		Data: map[string]interface{}{
-			"foo": "bar",
-		},
-	}, nil
+	return &c.status, nil
+}
+
+func (c *Context) SetUnitStatus(status jujuc.StatusInfo) error {
+	c.status = status
+	return nil
 }
 
 func (c *Context) PublicAddress() (string, bool) {

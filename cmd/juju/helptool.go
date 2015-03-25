@@ -80,6 +80,10 @@ func (dummyHookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 	return &jujuc.StatusInfo{}, nil
 }
 
+func (dummyHookContext) SetStatus(jujuc.StatusInfo) error {
+	return nil
+}
+
 type HelpToolCommand struct {
 	cmd.CommandBase
 	tool string

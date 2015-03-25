@@ -47,6 +47,7 @@ var baseCommands = map[string]creator{
 	"add-metric" + cmdSuffix:    NewAddMetricCommand,
 	"juju-reboot" + cmdSuffix:   NewJujuRebootCommand,
 	"status-get" + cmdSuffix:    NewStatusGetCommand,
+	"status-set" + cmdSuffix:    NewStatusSetCommand,
 }
 
 var storageCommands = map[string]creator{

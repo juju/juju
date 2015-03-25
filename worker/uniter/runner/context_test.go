@@ -75,10 +75,28 @@ func (s *InterfaceSuite) TestAvailabilityZone(c *gc.C) {
 
 func (s *InterfaceSuite) TestUnitStatus(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
+	defer runner.PatchCachedStatus(ctx.(runner.Context), "maintenance", "working", map[string]interface{}{"hello": "world"})()
 	status, err := ctx.UnitStatus()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(status.Status, gc.Equals, "maintenance")
-	c.Check(status.Data, gc.DeepEquals, map[string]interface{}{})
+	c.Check(status.Info, gc.Equals, "working")
+	c.Check(status.Data, gc.DeepEquals, map[string]interface{}{"hello": "world"})
+}
+
+func (s *InterfaceSuite) TestSetUnitStatus(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	status := jujuc.StatusInfo{
+		Status: "error",
+		Info:   "not working",
+		Data:   map[string]interface{}{"foo": "bar"},
+	}
+	err := ctx.SetUnitStatus(status)
+	c.Check(err, jc.ErrorIsNil)
+	unitStatus, err := ctx.UnitStatus()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(unitStatus.Status, gc.Equals, "error")
+	c.Check(unitStatus.Info, gc.Equals, "not working")
+	c.Check(unitStatus.Data, gc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }
 
 func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {
