@@ -127,8 +127,7 @@ func (a *addresserHandler) releaseIPAddress(addr *state.IPAddress) (err error) {
 
 // SetUp is part of the StringsWorker interface.
 func (a *addresserHandler) SetUp() (apiWatcher.StringsWatcher, error) {
-	w := a.st.WatchIPAddresses()
-	return w, nil
+	return a.st.WatchIPAddresses(), nil
 }
 
 // TearDown is part of the StringsWorker interface.
