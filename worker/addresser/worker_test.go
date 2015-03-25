@@ -89,6 +89,10 @@ func makeReleaseOp(digit int) dummy.OpReleaseAddress {
 	}
 }
 
+func (s *workerSuite) assertStop(c *gc.C, w worker.Worker) {
+	c.Assert(worker.Stop(w), jc.ErrorIsNil)
+}
+
 func (s *workerSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
 	// we start with two dead addresses
 	dead, err := s.State.DeadIPAddresses()
@@ -99,7 +103,7 @@ func (s *workerSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
 
 	w, err := addresser.NewWorker(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(worker.Stop(w), gc.IsNil) }()
+	defer s.assertStop(c, w)
 	s.waitForInitialDead(c)
 
 	op1 := waitForReleaseOp(c, opsChan)
@@ -124,7 +128,7 @@ func (s *workerSuite) waitForInitialDead(c *gc.C) {
 func (s *workerSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
 	w, err := addresser.NewWorker(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(worker.Stop(w), gc.IsNil) }()
+	defer s.assertStop(c, w)
 	s.waitForInitialDead(c)
 
 	// Add a new alive address.
@@ -145,7 +149,7 @@ func (s *workerSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
 func (s *workerSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
 	w, err := addresser.NewWorker(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(worker.Stop(w), gc.IsNil) }()
+	defer s.assertStop(c, w)
 	s.waitForInitialDead(c)
 	opsChan := dummyListen()
 
