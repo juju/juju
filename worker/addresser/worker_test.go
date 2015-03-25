@@ -126,7 +126,6 @@ func (s *workerSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
 	}
 	c.Assert(found4, jc.IsTrue)
 	c.Assert(found6, jc.IsTrue)
-
 }
 
 func (s *workerSuite) waitForInitialDead(c *gc.C) {
