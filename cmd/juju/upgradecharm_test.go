@@ -11,8 +11,9 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
+	charmtesting "gopkg.in/juju/charm.v5-unstable/testing"
 
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -29,7 +30,7 @@ func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	mockstore := charmtesting.NewMockStore(c, testcharms.Repo, map[string]int{})
 	s.AddCleanup(func(*gc.C) { mockstore.Close() })
-	s.PatchValue(&charm.Store, &charm.CharmStore{
+	s.PatchValue(&charmrepo.LegacyStore, &charmrepo.LegacyCharmStore{
 		BaseURL: mockstore.Address(),
 	})
 }

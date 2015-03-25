@@ -9,7 +9,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -132,7 +133,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		newURL = oldURL.WithRevision(c.Revision)
 	}
 
-	repo, err := charm.InferRepository(newURL.Reference(), ctx.AbsPath(c.RepoPath))
+	repo, err := charmrepo.LegacyInferRepository(newURL.Reference(), ctx.AbsPath(c.RepoPath))
 	if err != nil {
 		return err
 	}
@@ -143,7 +144,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	explicitRevision := true
 	if newURL.Revision == -1 {
 		explicitRevision = false
-		latest, err := charm.Latest(repo, newURL)
+		latest, err := charmrepo.Latest(repo, newURL)
 		if err != nil {
 			return err
 		}

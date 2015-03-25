@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	corecharm "gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
+	corecharm "gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/params"

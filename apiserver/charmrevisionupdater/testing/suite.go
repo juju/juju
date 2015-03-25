@@ -8,13 +8,20 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
+	charmtesting "gopkg.in/juju/charm.v5-unstable/testing"
+	"gopkg.in/juju/charmstore.v4"
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 )
+
+// TODO frankban: this is done so that transitive testing dependencies are
+// included in the dependency file by godeps. We will use charmstore.NewServer
+// soon, but for the time being, this allows godeps to work properly.
+var _ = charmstore.NewServer
 
 // CharmSuite provides infrastructure to set up and perform tests associated
 // with charm versioning. A mock charm store is created using some known charms
@@ -43,8 +50,8 @@ func (s *CharmSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *CharmSuite) SetUpTest(c *gc.C) {
-	s.jcSuite.PatchValue(&charm.CacheDir, c.MkDir())
-	s.jcSuite.PatchValue(&charm.Store, &charm.CharmStore{BaseURL: s.Server.Address()})
+	s.jcSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
+	s.jcSuite.PatchValue(&charmrepo.LegacyStore, &charmrepo.LegacyCharmStore{BaseURL: s.Server.Address()})
 	s.Server.Downloads = nil
 	s.Server.Authorizations = nil
 	s.Server.Metadata = nil
