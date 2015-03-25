@@ -5,7 +5,6 @@ package addresser_test
 
 import (
 	"fmt"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -22,10 +21,6 @@ import (
 	"github.com/juju/juju/worker/addresser"
 )
 
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
-
 var _ = gc.Suite(&workerSuite{})
 
 type workerSuite struct {
@@ -35,7 +30,7 @@ type workerSuite struct {
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	// unbreak provider methods
+	// Unbreak dummy provider methods.
 	s.AssertConfigParameterUpdated(c, "broken", "")
 
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -98,15 +93,13 @@ func (s *workerSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
 	// we start with two dead addresses
 	dead, err := s.State.DeadIPAddresses()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(dead), gc.Equals, 2)
+	c.Assert(dead, gc.HasLen, 2)
 
 	opsChan := dummyListen()
 
 	w, err := addresser.NewWorker(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		c.Assert(worker.Stop(w), gc.IsNil)
-	}()
+	defer func() { c.Assert(worker.Stop(w), gc.IsNil) }()
 	s.waitForInitialDead(c)
 
 	op1 := waitForReleaseOp(c, opsChan)
@@ -123,7 +116,7 @@ func (s *workerSuite) waitForInitialDead(c *gc.C) {
 			break
 		}
 		if !a.HasNext() {
-			c.Fail()
+			c.Fatalf("timeout waiting for initial change (dead: %#v)", dead)
 		}
 	}
 }
@@ -131,9 +124,7 @@ func (s *workerSuite) waitForInitialDead(c *gc.C) {
 func (s *workerSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
 	w, err := addresser.NewWorker(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		c.Assert(worker.Stop(w), gc.IsNil)
-	}()
+	defer func() { c.Assert(worker.Stop(w), gc.IsNil) }()
 	s.waitForInitialDead(c)
 
 	// Add a new alive address.
@@ -154,9 +145,7 @@ func (s *workerSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
 func (s *workerSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
 	w, err := addresser.NewWorker(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		c.Assert(worker.Stop(w), gc.IsNil)
-	}()
+	defer func() { c.Assert(worker.Stop(w), gc.IsNil) }()
 	s.waitForInitialDead(c)
 	opsChan := dummyListen()
 
@@ -176,46 +165,38 @@ func (s *workerSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
 			break
 		}
 		if !a.HasNext() {
-			c.Fail()
+			c.Fatalf("IP address not removed")
 		}
 	}
-}
-
-func (s *workerSuite) TestWorkerHandlesProviderError(c *gc.C) {
-	// Create an initial worker to clear the dead addresses.
-	w, err := addresser.NewWorker(s.State)
-	c.Assert(err, jc.ErrorIsNil)
-	s.waitForInitialDead(c)
-	c.Assert(worker.Stop(w), gc.IsNil)
-
-	// Now break the ReleaseAddress provider method and create a new
-	// worker.
-	s.AssertConfigParameterUpdated(c, "broken", "ReleaseAddress")
-	w, err = addresser.NewWorker(s.State)
-	c.Assert(err, jc.ErrorIsNil)
-
-	addr, err := s.State.IPAddress("0.1.2.3")
-	c.Assert(err, jc.ErrorIsNil)
-	err = addr.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// As we failed to release the address it should not have been removed
-	// from state.
-	for a := common.ShortAttempt.Start(); a.Next(); {
-		_, err := s.State.IPAddress("0.1.2.3")
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	msg := "failed to release address 0.1.2.3: dummy.ReleaseAddress is broken"
-	c.Assert(worker.Stop(w), gc.ErrorMatches, msg)
 }
 
 func (s *workerSuite) TestErrorKillsWorker(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "broken", "ReleaseAddress")
 	w, err := addresser.NewWorker(s.State)
 	c.Assert(err, jc.ErrorIsNil)
+	defer worker.Stop(w)
 
 	// The worker should have died with an error.
-	w.Wait()
-	msg := "failed to release address .*: dummy.ReleaseAddress is broken"
-	c.Assert(worker.Stop(w), gc.ErrorMatches, msg)
+
+	stopErr := make(chan error)
+	go func() {
+		w.Wait()
+		stopErr <- worker.Stop(w)
+	}()
+
+	select {
+	case err := <-stopErr:
+		msg := "failed to release address .*: dummy.ReleaseAddress is broken"
+		c.Assert(err, gc.ErrorMatches, msg)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("worker did not stop as expected")
+	}
+
+	// As we failed to release addresses they should not have been removed
+	// from state.
+	for _, digit := range []int{3, 4, 5, 6} {
+		rawAddr := fmt.Sprintf("0.1.2.%d", digit)
+		_, err := s.State.IPAddress(rawAddr)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
