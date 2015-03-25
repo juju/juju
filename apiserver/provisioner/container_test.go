@@ -758,21 +758,6 @@ func (s *releaseSuite) allocateAddresses(c *gc.C, containerId string, numAllocat
 	}
 }
 
-func (s *releaseSuite) TestErrorWithFailingReleaseAddress(c *gc.C) {
-	container := s.newAPI(c, true, true)
-	args := s.makeArgs(container)
-
-	s.allocateAddresses(c, container.Id(), 2)
-	s.breakEnvironMethods(c, "ReleaseAddress")
-	err := s.assertCall(c, args, s.makeErrors(
-		apiservertesting.ServerError(
-			`failed to release all addresses for "machine-0-lxc-0": `+
-				`[dummy.ReleaseAddress is broken dummy.ReleaseAddress is broken]`,
-		),
-	), "")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *releaseSuite) TestReleaseContainerAddresses(c *gc.C) {
 	container := s.newAPI(c, true, true)
 	args := s.makeArgs(container)
@@ -782,5 +767,8 @@ func (s *releaseSuite) TestReleaseContainerAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	addresses, err := s.BackingState.AllocatedIPAddresses(container.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, jc.DeepEquals, []*state.IPAddress{})
+	c.Assert(addresses, gc.HasLen, 2)
+	for _, addr := range addresses {
+		c.Assert(addr.Life(), gc.Equals, state.Dead)
+	}
 }
