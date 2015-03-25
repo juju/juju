@@ -106,33 +106,6 @@ func (s *workerSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
 	op2 := waitForReleaseOp(c, opsChan)
 	expected := []dummy.OpReleaseAddress{makeReleaseOp(4), makeReleaseOp(6)}
 	c.Assert([]dummy.OpReleaseAddress{op1, op2}, jc.SameContents, expected)
-
-	return
-
-	ops := []dummy.OpReleaseAddress{}
-	for i := 1; i <= 10; i++ {
-		select {
-		case op := <-opsChan:
-			releaseOp, ok := op.(dummy.OpReleaseAddress)
-			if !ok {
-				c.Fail()
-			}
-			ops = append(ops, releaseOp)
-		default:
-		}
-	}
-
-	var found4 bool
-	var found6 bool
-	for _, anOp := range ops {
-		if anOp.Address.Value == "0.1.2.4" {
-			found4 = true
-		} else if anOp.Address.Value == "0.1.2.6" {
-			found6 = true
-		}
-	}
-	c.Assert(found4, jc.IsTrue)
-	c.Assert(found6, jc.IsTrue)
 }
 
 func (s *workerSuite) waitForInitialDead(c *gc.C) {

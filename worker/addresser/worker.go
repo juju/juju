@@ -85,15 +85,18 @@ func newWorkerWithReleaser(st stateAddresser, releaser releaser) worker.Worker {
 // Handle is part of the StringsWorker interface.
 func (a *addresserHandler) Handle(ids []string) error {
 	for _, id := range ids {
+		logger.Debugf("received notification about address %v", id)
 		addr, err := a.st.IPAddress(id)
 		if err != nil {
 			if errors.IsNotFound(err) {
+				logger.Debugf("address %v is missing", id)
 				continue
 			}
 			a.err = err
 			return err
 		}
 		if addr.Life() != state.Dead {
+			logger.Debugf("address %v is not Dead, life %q", id, addr.Life())
 			continue
 		}
 		err = a.releaseIPAddress(addr)
@@ -113,6 +116,7 @@ func (a *addresserHandler) Handle(ids []string) error {
 func (a *addresserHandler) releaseIPAddress(addr *state.IPAddress) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to release address %v", addr.Value())
 	var machine *state.Machine
+	logger.Debugf("attempting to release dead address %#v", addr.Value())
 	machine, err = a.st.Machine(addr.MachineId())
 	if err != nil {
 		return errors.Annotatef(err, "cannot get allocated machine %q", addr.MachineId())
@@ -139,39 +143,7 @@ func (a *addresserHandler) releaseIPAddress(addr *state.IPAddress) (err error) {
 
 // SetUp is part of the StringsWorker interface.
 func (a *addresserHandler) SetUp() (apiWatcher.StringsWatcher, error) {
-	dead, err := a.st.DeadIPAddresses()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	w := a.st.WatchIPAddresses()
-	deadQueue := make(chan *state.IPAddress, len(dead))
-	for _, deadAddr := range dead {
-		deadQueue <- deadAddr
-	}
-	go func() {
-		select {
-		case addr := <-deadQueue:
-			err := a.releaseIPAddress(addr)
-			if err != nil {
-				logger.Warningf("error releasing dead IP address %q: %v", addr, err)
-				a.kill()
-				a.err = err
-				return
-			} else {
-				err = addr.Remove()
-				if err != nil {
-					logger.Warningf("error removing dead IP address %q: %v", addr, err)
-					a.kill()
-					a.err = err
-					return
-				}
-			}
-		case <-a.dying:
-			return
-		default:
-			return
-		}
-	}()
 	return w, nil
 }
 
