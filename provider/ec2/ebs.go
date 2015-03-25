@@ -277,8 +277,6 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 			return nil, nil, errors.Annotatef(err, "attaching %v to %v", resp.Volume.Id, instId)
 		}
 		if !persistent {
-			// TODO(axw) modify instance's block device mapping so that
-			// it will delete the volume on instance termination.
 			_, err := v.ec2.ModifyInstanceAttribute(&ec2.ModifyInstanceAttribute{
 				InstanceId: instId,
 				BlockDeviceMappings: []ec2.InstanceBlockDeviceMapping{{
