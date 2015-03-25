@@ -6,7 +6,8 @@ package charmrevisionupdater
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -109,7 +110,7 @@ func retrieveLatestCharmInfo(deployedCharms map[string]*charm.URL, uuid string) 
 
 	// Do a bulk call to get the revision info for all charms.
 	logger.Infof("retrieving revision information for %d charms", len(curls))
-	store := charm.Store.WithJujuAttrs("environment_uuid=" + uuid)
+	store := charmrepo.LegacyStore.WithJujuAttrs("environment_uuid=" + uuid)
 	revInfo, err := store.Latest(curls...)
 	if err != nil {
 		err = errors.Annotate(err, "finding charm revision info")

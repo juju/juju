@@ -60,7 +60,7 @@ func ParseConstraints(s string) (Constraints, error) {
 		if field == "" {
 			continue
 		}
-		if isValidPoolName(field) {
+		if IsValidPoolName(field) {
 			if cons.Pool != "" {
 				logger.Warningf("pool name is already set to %q, ignoring %q", cons.Pool, field)
 			} else {
@@ -93,7 +93,8 @@ func ParseConstraints(s string) (Constraints, error) {
 	return cons, nil
 }
 
-func isValidPoolName(s string) bool {
+// IsValidPoolName checks if given string is a valid pool name.
+func IsValidPoolName(s string) bool {
 	return poolRE.MatchString(s)
 }
 

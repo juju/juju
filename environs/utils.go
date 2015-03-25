@@ -102,7 +102,9 @@ func APIInfo(env Environ) (*api.Info, error) {
 		return nil, errors.New("config has no CACert")
 	}
 	apiPort := config.APIPort()
-	apiAddrs := network.HostPortsToStrings(network.AddressesWithPort(addrs, apiPort))
+	apiAddrs := network.HostPortsToStrings(
+		network.AddressesWithPort(addrs, apiPort),
+	)
 	uuid, uuidSet := config.UUID()
 	if !uuidSet {
 		return nil, errors.New("config has no UUID")

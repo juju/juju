@@ -10,7 +10,8 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/bzr"
@@ -92,7 +93,7 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 			if err != nil {
 				return fmt.Errorf("no charm URL provided and cannot infer from current directory (no push location)")
 			}
-			curl, err = charm.Store.CharmURL(loc)
+			curl, err = charmrepo.LegacyStore.CharmURL(loc)
 			if err != nil {
 				return fmt.Errorf("cannot infer charm URL from branch location: %q", loc)
 			}
@@ -104,16 +105,16 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 
-	pushLocation := charm.Store.BranchLocation(curl)
+	pushLocation := charmrepo.LegacyStore.BranchLocation(curl)
 	if c.changePushLocation != nil {
 		pushLocation = c.changePushLocation(pushLocation)
 	}
 
-	repo, err := charm.InferRepository(curl.Reference(), "/not/important")
+	repo, err := charmrepo.LegacyInferRepository(curl.Reference(), "/not/important")
 	if err != nil {
 		return err
 	}
-	if repo != charm.Store {
+	if repo != charmrepo.LegacyStore {
 		return fmt.Errorf("charm URL must reference the juju charm store")
 	}
 
@@ -131,10 +132,10 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 		return fmt.Errorf("charm name in metadata must match name in URL: %q != %q", ch.Meta().Name, curl.Name)
 	}
 
-	oldEvent, err := charm.Store.Event(curl, localDigest)
-	if _, ok := err.(*charm.NotFoundError); ok {
-		oldEvent, err = charm.Store.Event(curl, "")
-		if _, ok := err.(*charm.NotFoundError); ok {
+	oldEvent, err := charmrepo.LegacyStore.Event(curl, localDigest)
+	if _, ok := err.(*charmrepo.NotFoundError); ok {
+		oldEvent, err = charmrepo.LegacyStore.Event(curl, "")
+		if _, ok := err.(*charmrepo.NotFoundError); ok {
 			logger.Infof("charm %s is not yet in the store", curl)
 			err = nil
 		}
@@ -156,8 +157,8 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 	logger.Infof("charm sent; waiting for it to be published...")
 	for {
 		time.Sleep(c.pollDelay)
-		newEvent, err := charm.Store.Event(curl, "")
-		if _, ok := err.(*charm.NotFoundError); ok {
+		newEvent, err := charmrepo.LegacyStore.Event(curl, "")
+		if _, ok := err.(*charmrepo.NotFoundError); ok {
 			continue
 		}
 		if err != nil {
@@ -174,7 +175,7 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 	}
 }
 
-func handleEvent(ctx *cmd.Context, curl *charm.URL, event *charm.EventResponse) error {
+func handleEvent(ctx *cmd.Context, curl *charm.URL, event *charmrepo.EventResponse) error {
 	switch event.Kind {
 	case "published":
 		curlRev := curl.WithRevision(event.Revision)

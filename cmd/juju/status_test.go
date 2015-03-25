@@ -12,7 +12,7 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/api"
@@ -253,8 +253,8 @@ var statusTests = []testCase{
 
 		startAliveMachine{"0"},
 		setAddresses{"0", []network.Address{
-			network.NewAddress("10.0.0.1", network.ScopeUnknown),
-			network.NewAddress("dummyenv-0.dns", network.ScopePublic),
+			network.NewAddress("10.0.0.1"),
+			network.NewScopedAddress("dummyenv-0.dns", network.ScopePublic),
 		}},
 		expect{
 			"simulate the PA starting an instance in response to the state change",
@@ -311,8 +311,8 @@ var statusTests = []testCase{
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		setAddresses{"0", []network.Address{
-			network.NewAddress("10.0.0.1", network.ScopeUnknown),
-			network.NewAddress("dummyenv-0.dns", network.ScopePublic),
+			network.NewAddress("10.0.0.1"),
+			network.NewScopedAddress("dummyenv-0.dns", network.ScopePublic),
 		}},
 		addCharm{"dummy"},
 		addService{
@@ -380,8 +380,8 @@ var statusTests = []testCase{
 		"instance with different hardware characteristics",
 		addMachine{machineId: "0", cons: machineCons, job: state.JobManageEnviron},
 		setAddresses{"0", []network.Address{
-			network.NewAddress("10.0.0.1", network.ScopeUnknown),
-			network.NewAddress("dummyenv-0.dns", network.ScopePublic),
+			network.NewAddress("10.0.0.1"),
+			network.NewScopedAddress("dummyenv-0.dns", network.ScopePublic),
 		}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
@@ -462,7 +462,7 @@ var statusTests = []testCase{
 	), test(
 		"add two services and expose one, then add 2 more machines and some units",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addCharm{"dummy"},
@@ -498,11 +498,11 @@ var statusTests = []testCase{
 		},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", []network.Address{network.NewAddress("dummyenv-2.dns", network.ScopeUnknown)}},
+		setAddresses{"2", network.NewAddresses("dummyenv-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		expect{
@@ -531,9 +531,16 @@ var statusTests = []testCase{
 		openUnitPort{"exposed-service/0", "tcp", 3},
 		openUnitPort{"exposed-service/0", "tcp", 2},
 		// Simulate some status with no info, while the agent is down.
-		setUnitStatus{"dummy-service/0", state.StatusActive, "", nil},
+		// Status used to be down, we no longer support said state.
+		// now is one of: pending, started, error.
+		setUnitStatus{"dummy-service/0", state.StatusTerminated, "", nil},
+		setAgentStatus{"dummy-service/0", state.StatusIdle, "", nil},
+
+		// dummy-service/0 used to expect "agent-state-info": "(started)",
+		// which is populated as the previous state by adjustInfoIfAgentDown
+		// but sice it no longer is down it no longer applies.
 		expect{
-			"add two units, one alive (in error state), one down",
+			"add two units, one alive (in error state), one started",
 			M{
 				"environment": "dummyenv",
 				"machines": M{
@@ -550,6 +557,13 @@ var statusTests = []testCase{
 								"machine":          "2",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
+								"workload-status": M{
+									"current": "error",
+									"message": "You Require More Vespene Gas",
+								},
+								"agent-status": M{
+									"current": "allocating",
+								},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -562,10 +576,11 @@ var statusTests = []testCase{
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
-								"machine":          "1",
-								"agent-state":      "down",
-								"agent-state-info": "(started)",
-								"public-address":   "dummyenv-1.dns",
+								"machine":         "1",
+								"agent-state":     "stopped",
+								"workload-status": M{"current": "terminated"},
+								"agent-status":    M{"current": "idle"},
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -576,10 +591,10 @@ var statusTests = []testCase{
 		addMachine{machineId: "3", job: state.JobHostUnits},
 		startMachine{"3"},
 		// Simulate some status with info, while the agent is down.
-		setAddresses{"3", []network.Address{network.NewAddress("dummyenv-3.dns", network.ScopeUnknown)}},
+		setAddresses{"3", network.NewAddresses("dummyenv-3.dns")},
 		setMachineStatus{"3", state.StatusStopped, "Really?"},
 		addMachine{machineId: "4", job: state.JobHostUnits},
-		setAddresses{"4", []network.Address{network.NewAddress("dummyenv-4.dns", network.ScopeUnknown)}},
+		setAddresses{"4", network.NewAddresses("dummyenv-4.dns")},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", state.StatusError, "Beware the red toys"},
 		ensureDyingUnit{"dummy-service/0"},
@@ -624,6 +639,8 @@ var statusTests = []testCase{
 								"machine":          "2",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
+								"workload-status":  M{"current": "error", "message": "You Require More Vespene Gas"},
+								"agent-status":     M{"current": "allocating"},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -636,11 +653,12 @@ var statusTests = []testCase{
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
-								"machine":          "1",
-								"life":             "dying",
-								"agent-state":      "down",
-								"agent-state-info": "(started)",
-								"public-address":   "dummyenv-1.dns",
+								"machine":         "1",
+								"agent-state":     "stopped",
+								"life":            "dying",
+								"workload-status": M{"current": "terminated"},
+								"agent-status":    M{"current": "idle"},
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -662,11 +680,12 @@ var statusTests = []testCase{
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
-								"machine":          "1",
-								"life":             "dying",
-								"agent-state":      "down",
-								"agent-state-info": "(started)",
-								"public-address":   "dummyenv-1.dns",
+								"machine":         "1",
+								"life":            "dying",
+								"agent-state":     "stopped",
+								"workload-status": M{"current": "terminated"},
+								"agent-status":    M{"current": "idle"},
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -690,6 +709,8 @@ var statusTests = []testCase{
 								"machine":          "2",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
+								"workload-status":  M{"current": "error", "message": "You Require More Vespene Gas"},
+								"agent-status":     M{"current": "allocating"},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -714,11 +735,12 @@ var statusTests = []testCase{
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
-								"machine":          "1",
-								"life":             "dying",
-								"agent-state":      "down",
-								"agent-state-info": "(started)",
-								"public-address":   "dummyenv-1.dns",
+								"machine":         "1",
+								"life":            "dying",
+								"agent-state":     "stopped",
+								"workload-status": M{"current": "terminated"},
+								"agent-status":    M{"current": "idle"},
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -742,6 +764,8 @@ var statusTests = []testCase{
 								"machine":          "2",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
+								"workload-status":  M{"current": "error", "message": "You Require More Vespene Gas"},
+								"agent-status":     M{"current": "allocating"},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -767,11 +791,12 @@ var statusTests = []testCase{
 						"exposed": false,
 						"units": M{
 							"dummy-service/0": M{
-								"machine":          "1",
-								"life":             "dying",
-								"agent-state":      "down",
-								"agent-state-info": "(started)",
-								"public-address":   "dummyenv-1.dns",
+								"machine":         "1",
+								"life":            "dying",
+								"agent-state":     "stopped",
+								"workload-status": M{"current": "terminated"},
+								"agent-status":    M{"current": "idle"},
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -783,6 +808,8 @@ var statusTests = []testCase{
 								"machine":          "2",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
+								"workload-status":  M{"current": "error", "message": "You Require More Vespene Gas"},
+								"agent-status":     M{"current": "allocating"},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -796,12 +823,12 @@ var statusTests = []testCase{
 	), test(
 		"a unit with a hook relation error",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 
@@ -839,6 +866,8 @@ var statusTests = []testCase{
 								"machine":          "1",
 								"agent-state":      "error",
 								"agent-state-info": "hook failed: some-relation-changed for mysql:server",
+								"workload-status":  M{"current": "error", "message": "hook failed: some-relation-changed"},
+								"agent-status":     M{"current": "allocating"},
 								"public-address":   "dummyenv-1.dns",
 							},
 						},
@@ -851,9 +880,11 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":        "1",
-								"agent-state":    "allocating",
-								"public-address": "dummyenv-1.dns",
+								"machine":         "1",
+								"agent-state":     "pending",
+								"workload-status": M{"current": "maintenance"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -863,12 +894,12 @@ var statusTests = []testCase{
 	), test(
 		"a unit with a hook relation error when the agent is down",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 
@@ -904,8 +935,10 @@ var statusTests = []testCase{
 						"units": M{
 							"wordpress/0": M{
 								"machine":          "1",
-								"agent-state":      "down",
-								"agent-state-info": "(error: hook failed: some-relation-changed for mysql:server)",
+								"agent-state":      "error",
+								"agent-state-info": "hook failed: some-relation-changed for mysql:server",
+								"workload-status":  M{"current": "error", "message": "hook failed: some-relation-changed"},
+								"agent-status":     M{"current": "allocating"},
 								"public-address":   "dummyenv-1.dns",
 							},
 						},
@@ -918,9 +951,11 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":        "1",
-								"agent-state":    "allocating",
-								"public-address": "dummyenv-1.dns",
+								"machine":         "1",
+								"agent-state":     "pending",
+								"workload-status": M{"current": "maintenance"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -951,8 +986,10 @@ var statusTests = []testCase{
 						"life":    "dying",
 						"units": M{
 							"dummy-service/0": M{
-								"machine":     "0",
-								"agent-state": "allocating",
+								"machine":         "0",
+								"agent-state":     "pending",
+								"workload-status": M{"current": "maintenance"},
+								"agent-status":    M{"current": "allocating"},
 							},
 						},
 					},
@@ -965,7 +1002,7 @@ var statusTests = []testCase{
 	test(
 		"complex scenario with multiple related services",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addCharm{"wordpress"},
@@ -975,7 +1012,7 @@ var statusTests = []testCase{
 		addService{name: "project", charm: "wordpress"},
 		setServiceExposed{"project", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"project", "1"},
@@ -984,7 +1021,7 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", []network.Address{network.NewAddress("dummyenv-2.dns", network.ScopeUnknown)}},
+		setAddresses{"2", network.NewAddresses("dummyenv-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
@@ -993,7 +1030,7 @@ var statusTests = []testCase{
 		addService{name: "varnish", charm: "varnish"},
 		setServiceExposed{"varnish", true},
 		addMachine{machineId: "3", job: state.JobHostUnits},
-		setAddresses{"3", []network.Address{network.NewAddress("dummyenv-3.dns", network.ScopeUnknown)}},
+		setAddresses{"3", network.NewAddresses("dummyenv-3.dns")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", state.StatusStarted, ""},
 		addUnit{"varnish", "3"},
@@ -1001,7 +1038,7 @@ var statusTests = []testCase{
 		addService{name: "private", charm: "wordpress"},
 		setServiceExposed{"private", true},
 		addMachine{machineId: "4", job: state.JobHostUnits},
-		setAddresses{"4", []network.Address{network.NewAddress("dummyenv-4.dns", network.ScopeUnknown)}},
+		setAddresses{"4", network.NewAddresses("dummyenv-4.dns")},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", state.StatusStarted, ""},
 		addUnit{"private", "4"},
@@ -1027,9 +1064,11 @@ var statusTests = []testCase{
 						"exposed": true,
 						"units": M{
 							"project/0": M{
-								"machine":        "1",
-								"agent-state":    "started",
-								"public-address": "dummyenv-1.dns",
+								"machine":         "1",
+								"agent-state":     "started",
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 						"relations": M{
@@ -1042,9 +1081,11 @@ var statusTests = []testCase{
 						"exposed": true,
 						"units": M{
 							"mysql/0": M{
-								"machine":        "2",
-								"agent-state":    "started",
-								"public-address": "dummyenv-2.dns",
+								"machine":         "2",
+								"agent-state":     "started",
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-2.dns",
 							},
 						},
 						"relations": M{
@@ -1056,9 +1097,11 @@ var statusTests = []testCase{
 						"exposed": true,
 						"units": M{
 							"varnish/0": M{
-								"machine":        "3",
-								"agent-state":    "allocating",
-								"public-address": "dummyenv-3.dns",
+								"machine":         "3",
+								"agent-state":     "pending",
+								"workload-status": M{"current": "maintenance"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-3.dns",
 							},
 						},
 						"relations": M{
@@ -1070,9 +1113,11 @@ var statusTests = []testCase{
 						"exposed": true,
 						"units": M{
 							"private/0": M{
-								"machine":        "4",
-								"agent-state":    "allocating",
-								"public-address": "dummyenv-4.dns",
+								"machine":         "4",
+								"agent-state":     "pending",
+								"workload-status": M{"current": "maintenance"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-4.dns",
 							},
 						},
 						"relations": M{
@@ -1085,7 +1130,7 @@ var statusTests = []testCase{
 	), test(
 		"simple peer scenario",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addCharm{"riak"},
@@ -1094,19 +1139,19 @@ var statusTests = []testCase{
 		addService{name: "riak", charm: "riak"},
 		setServiceExposed{"riak", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"riak", "1"},
 		setUnitStatus{"riak/0", state.StatusActive, "", nil},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", []network.Address{network.NewAddress("dummyenv-2.dns", network.ScopeUnknown)}},
+		setAddresses{"2", network.NewAddresses("dummyenv-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		addAliveUnit{"riak", "2"},
 		setUnitStatus{"riak/1", state.StatusActive, "", nil},
 		addMachine{machineId: "3", job: state.JobHostUnits},
-		setAddresses{"3", []network.Address{network.NewAddress("dummyenv-3.dns", network.ScopeUnknown)}},
+		setAddresses{"3", network.NewAddresses("dummyenv-3.dns")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", state.StatusStarted, ""},
 		addAliveUnit{"riak", "3"},
@@ -1128,19 +1173,25 @@ var statusTests = []testCase{
 						"exposed": true,
 						"units": M{
 							"riak/0": M{
-								"machine":        "1",
-								"agent-state":    "started",
-								"public-address": "dummyenv-1.dns",
+								"machine":         "1",
+								"agent-state":     "started",
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-1.dns",
 							},
 							"riak/1": M{
-								"machine":        "2",
-								"agent-state":    "started",
-								"public-address": "dummyenv-2.dns",
+								"machine":         "2",
+								"agent-state":     "started",
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-2.dns",
 							},
 							"riak/2": M{
-								"machine":        "3",
-								"agent-state":    "started",
-								"public-address": "dummyenv-3.dns",
+								"machine":         "3",
+								"agent-state":     "started",
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-3.dns",
 							},
 						},
 						"relations": M{
@@ -1156,7 +1207,7 @@ var statusTests = []testCase{
 	test(
 		"one service with one subordinate service",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addCharm{"wordpress"},
@@ -1166,7 +1217,7 @@ var statusTests = []testCase{
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -1175,7 +1226,7 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", []network.Address{network.NewAddress("dummyenv-2.dns", network.ScopeUnknown)}},
+		setAddresses{"2", network.NewAddresses("dummyenv-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
@@ -1210,12 +1261,16 @@ var statusTests = []testCase{
 						"exposed": true,
 						"units": M{
 							"wordpress/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine":         "1",
+								"agent-state":     "started",
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
 								"subordinates": M{
 									"logging/0": M{
-										"agent-state":    "started",
-										"public-address": "dummyenv-1.dns",
+										"agent-state":     "started",
+										"workload-status": M{"current": "active"},
+										"agent-status":    M{"current": "allocating"},
+										"public-address":  "dummyenv-1.dns",
 									},
 								},
 								"public-address": "dummyenv-1.dns",
@@ -1231,12 +1286,16 @@ var statusTests = []testCase{
 						"exposed": true,
 						"units": M{
 							"mysql/0": M{
-								"machine":     "2",
-								"agent-state": "started",
+								"machine":         "2",
+								"agent-state":     "started",
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
 								"subordinates": M{
 									"logging/1": M{
 										"agent-state":      "error",
 										"agent-state-info": "somehow lost in all those logs",
+										"workload-status":  M{"current": "error", "message": "somehow lost in all those logs"},
+										"agent-status":     M{"current": "allocating"},
 										"public-address":   "dummyenv-2.dns",
 									},
 								},
@@ -1277,12 +1336,16 @@ var statusTests = []testCase{
 						"exposed": true,
 						"units": M{
 							"wordpress/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine":         "1",
+								"agent-state":     "started",
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
 								"subordinates": M{
 									"logging/0": M{
-										"agent-state":    "started",
-										"public-address": "dummyenv-1.dns",
+										"agent-state":     "started",
+										"workload-status": M{"current": "active"},
+										"agent-status":    M{"current": "allocating"},
+										"public-address":  "dummyenv-1.dns",
 									},
 								},
 								"public-address": "dummyenv-1.dns",
@@ -1298,11 +1361,15 @@ var statusTests = []testCase{
 						"exposed": true,
 						"units": M{
 							"mysql/0": M{
-								"machine":     "2",
-								"agent-state": "started",
+								"machine":         "2",
+								"agent-state":     "started",
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
 								"subordinates": M{
 									"logging/1": M{
 										"agent-state":      "error",
+										"workload-status":  M{"current": "error", "message": "somehow lost in all those logs"},
+										"agent-status":     M{"current": "allocating"},
 										"agent-state-info": "somehow lost in all those logs",
 										"public-address":   "dummyenv-2.dns",
 									},
@@ -1343,12 +1410,16 @@ var statusTests = []testCase{
 						"exposed": true,
 						"units": M{
 							"wordpress/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine":         "1",
+								"agent-state":     "started",
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
 								"subordinates": M{
 									"logging/0": M{
-										"agent-state":    "started",
-										"public-address": "dummyenv-1.dns",
+										"agent-state":     "started",
+										"workload-status": M{"current": "active"},
+										"agent-status":    M{"current": "allocating"},
+										"public-address":  "dummyenv-1.dns",
 									},
 								},
 								"public-address": "dummyenv-1.dns",
@@ -1375,7 +1446,7 @@ var statusTests = []testCase{
 	test(
 		"machines with containers",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addCharm{"mysql"},
@@ -1383,7 +1454,7 @@ var statusTests = []testCase{
 		setServiceExposed{"mysql", true},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "1"},
@@ -1391,7 +1462,7 @@ var statusTests = []testCase{
 
 		// A container on machine 1.
 		addContainer{"1", "1/lxc/0", state.JobHostUnits},
-		setAddresses{"1/lxc/0", []network.Address{network.NewAddress("dummyenv-2.dns", network.ScopeUnknown)}},
+		setAddresses{"1/lxc/0", network.NewAddresses("dummyenv-2.dns")},
 		startAliveMachine{"1/lxc/0"},
 		setMachineStatus{"1/lxc/0", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "1/lxc/0"},
@@ -1400,7 +1471,7 @@ var statusTests = []testCase{
 
 		// A nested container.
 		addContainer{"1/lxc/0", "1/lxc/0/lxc/0", state.JobHostUnits},
-		setAddresses{"1/lxc/0/lxc/0", []network.Address{network.NewAddress("dummyenv-3.dns", network.ScopeUnknown)}},
+		setAddresses{"1/lxc/0/lxc/0", network.NewAddresses("dummyenv-3.dns")},
 		startAliveMachine{"1/lxc/0/lxc/0"},
 		setMachineStatus{"1/lxc/0/lxc/0", state.StatusStarted, ""},
 
@@ -1418,14 +1489,18 @@ var statusTests = []testCase{
 						"exposed": true,
 						"units": M{
 							"mysql/0": M{
-								"machine":        "1",
-								"agent-state":    "started",
-								"public-address": "dummyenv-1.dns",
+								"machine":         "1",
+								"agent-state":     "started",
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-1.dns",
 							},
 							"mysql/1": M{
-								"machine":        "1/lxc/0",
-								"agent-state":    "started",
-								"public-address": "dummyenv-2.dns",
+								"machine":         "1/lxc/0",
+								"agent-state":     "started",
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-2.dns",
 							},
 						},
 					},
@@ -1462,9 +1537,11 @@ var statusTests = []testCase{
 						"exposed": true,
 						"units": M{
 							"mysql/1": M{
-								"machine":        "1/lxc/0",
-								"agent-state":    "started",
-								"public-address": "dummyenv-2.dns",
+								"machine":         "1/lxc/0",
+								"agent-state":     "started",
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-2.dns",
 							},
 						},
 					},
@@ -1474,11 +1551,11 @@ var statusTests = []testCase{
 	), test(
 		"service with out of date charm",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addCharm{"mysql"},
@@ -1502,9 +1579,11 @@ var statusTests = []testCase{
 						"exposed":        true,
 						"units": M{
 							"mysql/0": M{
-								"machine":        "1",
-								"agent-state":    "allocating",
-								"public-address": "dummyenv-1.dns",
+								"machine":         "1",
+								"agent-state":     "pending",
+								"workload-status": M{"current": "maintenance"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -1514,11 +1593,11 @@ var statusTests = []testCase{
 	), test(
 		"unit with out of date charm",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addCharm{"mysql"},
@@ -1543,10 +1622,12 @@ var statusTests = []testCase{
 						"exposed": true,
 						"units": M{
 							"mysql/0": M{
-								"machine":        "1",
-								"agent-state":    "started",
-								"upgrading-from": "cs:quantal/mysql-1",
-								"public-address": "dummyenv-1.dns",
+								"machine":         "1",
+								"agent-state":     "started",
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "idle"},
+								"upgrading-from":  "cs:quantal/mysql-1",
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -1556,11 +1637,11 @@ var statusTests = []testCase{
 	), test(
 		"service and unit with out of date charms",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addCharm{"mysql"},
@@ -1587,10 +1668,12 @@ var statusTests = []testCase{
 						"exposed":        true,
 						"units": M{
 							"mysql/0": M{
-								"machine":        "1",
-								"agent-state":    "started",
-								"upgrading-from": "cs:quantal/mysql-1",
-								"public-address": "dummyenv-1.dns",
+								"machine":         "1",
+								"agent-state":     "started",
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "idle"},
+								"upgrading-from":  "cs:quantal/mysql-1",
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -1600,11 +1683,11 @@ var statusTests = []testCase{
 	), test(
 		"service with local charm not shown as out of date",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addCharm{"mysql"},
@@ -1630,10 +1713,12 @@ var statusTests = []testCase{
 						"exposed": true,
 						"units": M{
 							"mysql/0": M{
-								"machine":        "1",
-								"agent-state":    "started",
-								"upgrading-from": "cs:quantal/mysql-1",
-								"public-address": "dummyenv-1.dns",
+								"machine":         "1",
+								"agent-state":     "started",
+								"workload-status": M{"current": "active"},
+								"agent-status":    M{"current": "idle"},
+								"upgrading-from":  "cs:quantal/mysql-1",
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -1912,6 +1997,20 @@ type setUnitStatus struct {
 func (sus setUnitStatus) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
 	c.Assert(err, jc.ErrorIsNil)
+	err = u.SetStatus(sus.status, sus.statusInfo, sus.statusData)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type setAgentStatus struct {
+	unitName   string
+	status     state.Status
+	statusInfo string
+	statusData map[string]interface{}
+}
+
+func (sus setAgentStatus) step(c *gc.C, ctx *context) {
+	u, err := ctx.st.Unit(sus.unitName)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetAgentStatus(sus.status, sus.statusInfo, sus.statusData)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1927,8 +2026,11 @@ func (uc setUnitCharmURL) step(c *gc.C, ctx *context) {
 	curl := charm.MustParseURL(uc.charm)
 	err = u.SetCharmURL(curl)
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetAgentStatus(state.StatusActive, "", nil)
+	err = u.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	err = u.SetAgentStatus(state.StatusIdle, "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 }
 
 type openUnitPort struct {
@@ -2200,8 +2302,10 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 					},
 					"units": M{
 						"mysql/0": M{
-							"machine":     "1",
-							"agent-state": "allocating",
+							"machine":         "1",
+							"agent-state":     "allocating",
+							"workload-status": M{},
+							"agent-status":    M{},
 						},
 					},
 				},
@@ -2216,6 +2320,8 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 							"machine":          "1",
 							"agent-state":      "error",
 							"agent-state-info": "blam",
+							"workload-status":  M{},
+							"agent-status":     M{},
 						},
 					},
 				},
@@ -2232,7 +2338,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 	defer s.resetContext(c, ctx)
 	steps := []stepper{
 		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", []network.Address{network.NewAddress("localhost", network.ScopeUnknown)}},
+		setAddresses{"0", network.NewAddresses("localhost")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addCharm{"wordpress"},
@@ -2241,7 +2347,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", []network.Address{network.NewAddress("localhost", network.ScopeUnknown)}},
+		setAddresses{"1", network.NewAddresses("localhost")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -2249,7 +2355,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", []network.Address{network.NewAddress("10.0.0.1", network.ScopeUnknown)}},
+		setAddresses{"2", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
@@ -2295,7 +2401,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 	defer s.resetContext(c, ctx)
 	steps := []stepper{
 		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addCharm{"wordpress"},
@@ -2305,7 +2411,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -2314,7 +2420,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", []network.Address{network.NewAddress("dummyenv-2.dns", network.ScopeUnknown)}},
+		setAddresses{"2", network.NewAddresses("dummyenv-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
@@ -2366,7 +2472,7 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 	defer s.resetContext(c, ctx)
 	steps := []stepper{
 		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addCharm{"wordpress"},
@@ -2375,7 +2481,7 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -2383,7 +2489,7 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", []network.Address{network.NewAddress("dummyenv-2.dns", network.ScopeUnknown)}},
+		setAddresses{"2", network.NewAddresses("dummyenv-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
@@ -2435,7 +2541,7 @@ func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
 	defer s.resetContext(c, ctx)
 	steps := []stepper{
 		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 	}
@@ -2473,7 +2579,7 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		// And the machine's address is "dummyenv-0.dns"
-		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
 		// And the "wordpress" charm is available
 		addCharm{"wordpress"},
 		addService{name: "wordpress", charm: "wordpress"},
@@ -2489,7 +2595,7 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		// And the machine's address is "dummyenv-1.dns"
-		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
 		// And a unit of "wordpress" is deployed to machine "1"
 		addAliveUnit{"wordpress", "1"},
 		// And the unit is started
@@ -2502,7 +2608,7 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		// And the machine's address is "dummyenv-2.dns"
-		setAddresses{"2", []network.Address{network.NewAddress("dummyenv-2.dns", network.ScopeUnknown)}},
+		setAddresses{"2", network.NewAddresses("dummyenv-2.dns")},
 		// And a unit of "mysql" is deployed to machine "2"
 		addAliveUnit{"mysql", "2"},
 		// And the unit is started
@@ -2639,9 +2745,9 @@ func (s *StatusSuite) TestFilterOnSubnet(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// Given the address for machine "1" is "localhost"
-	setAddresses{"1", []network.Address{network.NewAddress("localhost", network.ScopeUnknown)}}.step(c, ctx)
+	setAddresses{"1", network.NewAddresses("localhost")}.step(c, ctx)
 	// And the address for machine "2" is "10.0.0.1"
-	setAddresses{"2", []network.Address{network.NewAddress("10.0.0.1", network.ScopeUnknown)}}.step(c, ctx)
+	setAddresses{"2", network.NewAddresses("10.0.0.1")}.step(c, ctx)
 	// When I run juju status --format oneline 127.0.0.1
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "127.0.0.1")
 	c.Assert(stderr, gc.IsNil)
@@ -2661,9 +2767,9 @@ func (s *StatusSuite) TestFilterOnPorts(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// Given the address for machine "1" is "localhost"
-	setAddresses{"1", []network.Address{network.NewAddress("localhost", network.ScopeUnknown)}}.step(c, ctx)
+	setAddresses{"1", network.NewAddresses("localhost")}.step(c, ctx)
 	// And the address for machine "2" is "10.0.0.1"
-	setAddresses{"2", []network.Address{network.NewAddress("10.0.0.1", network.ScopeUnknown)}}.step(c, ctx)
+	setAddresses{"2", network.NewAddresses("10.0.0.1")}.step(c, ctx)
 	openUnitPort{"wordpress/0", "tcp", 80}.step(c, ctx)
 	// When I run juju status --format oneline 80/tcp
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "80/tcp")

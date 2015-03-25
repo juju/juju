@@ -19,7 +19,7 @@ import (
 	"github.com/juju/txn"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	mgotxn "gopkg.in/mgo.v2/txn"
@@ -51,7 +51,7 @@ var alternatePassword = "bar-12345678901234567890"
 // asserting the behaviour of a given method in each state, and the unit quick-
 // remove change caused many of these to fail.
 func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
-	err := u.SetAgentStatus(state.StatusActive, "", nil)
+	err := u.SetAgentStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2136,6 +2136,23 @@ func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	c.Assert(econs, gc.DeepEquals, cons)
 }
 
+func (s *StateSuite) TestWatchIPAddresses(c *gc.C) {
+	w := s.State.WatchIPAddresses()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChangeInSingleEvent()
+
+	// add an IP address
+	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.3"), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent(addr.Value())
+
+	// Make it Dead: reported.
+	err = addr.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent(addr.Value())
+}
+
 func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
 	// Alive environment...
 	alive, err := s.State.Environment()
@@ -2157,16 +2174,14 @@ func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
 	w := s.State.WatchEnvironments()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChange(alive.UUID(), dying.UUID())
-	wc.AssertNoChange()
+	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
 
 	// Remove alive and dying and see changes reported.
 	err = state.RemoveEnvironment(s.State, dying.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 	err = alive.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(alive.UUID(), dying.UUID())
-	wc.AssertNoChange()
+	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
 }
 
 func (s *StateSuite) TestWatchEnvironmentsLifecycle(c *gc.C) {
@@ -4203,10 +4218,9 @@ func (s *StateSuite) TestWatchAPIHostPorts(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
-	err := s.State.SetAPIHostPorts([][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    99,
-	}}})
+	err := s.State.SetAPIHostPorts([][]network.HostPort{
+		network.NewHostPorts(99, "0.1.2.3"),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertOneChange()
@@ -4232,27 +4246,27 @@ func (s *StateSuite) TestWatchMachineAddresses(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Set machine addresses: reported.
-	err = machine.SetMachineAddresses(network.NewAddress("abc", network.ScopeUnknown))
+	err = machine.SetMachineAddresses(network.NewAddress("abc"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set provider addresses eclipsing machine addresses: reported.
-	err = machine.SetAddresses(network.NewAddress("abc", network.ScopePublic))
+	err = machine.SetAddresses(network.NewScopedAddress("abc", network.ScopePublic))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set same machine eclipsed by provider addresses: not reported.
-	err = machine.SetMachineAddresses(network.NewAddress("abc", network.ScopeCloudLocal))
+	err = machine.SetMachineAddresses(network.NewScopedAddress("abc", network.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Set different machine addresses: reported.
-	err = machine.SetMachineAddresses(network.NewAddress("def", network.ScopeUnknown))
+	err = machine.SetMachineAddresses(network.NewAddress("def"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set different provider addresses: reported.
-	err = machine.SetMachineAddresses(network.NewAddress("def", network.ScopePublic))
+	err = machine.SetMachineAddresses(network.NewScopedAddress("def", network.ScopePublic))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 

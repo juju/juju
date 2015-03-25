@@ -24,7 +24,8 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -113,7 +114,7 @@ func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
-	s.AgentSuite.PatchValue(&charm.CacheDir, c.MkDir())
+	s.AgentSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongo.DialOpts{})
 
 	os.Remove(JujuRun) // ignore error; may not exist
@@ -291,7 +292,7 @@ func (s *MachineSuite) TestRunStop(c *gc.C) {
 	err := a.Stop()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(<-done, jc.ErrorIsNil)
-	c.Assert(charm.CacheDir, gc.Equals, filepath.Join(ac.DataDir(), "charmcache"))
+	c.Assert(charmrepo.CacheDir, gc.Equals, filepath.Join(ac.DataDir(), "charmcache"))
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *gc.C) {
@@ -365,7 +366,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 
 	// "start the agent" for u0 to prevent short-circuited remove-on-destroy;
 	// check that it's kept deployed despite being Dying.
-	err = u0.SetAgentStatus(state.StatusActive, "", nil)
+	err = u0.SetAgentStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u0.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -418,9 +419,7 @@ func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 }
 
 func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) {
-	addrs := []network.Address{
-		network.NewAddress("0.1.2.3", network.ScopeUnknown),
-	}
+	addrs := network.NewAddresses("0.1.2.3")
 	err := machine.SetAddresses(addrs...)
 	c.Assert(err, jc.ErrorIsNil)
 	// Set the addresses in the environ instance as well so that if the instance poller
@@ -554,7 +553,7 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 	m, instId := s.waitProvisioned(c, units[0])
 	insts, err := s.Environ.Instances([]instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
-	addrs := []network.Address{network.NewAddress("1.2.3.4", network.ScopeUnknown)}
+	addrs := network.NewAddresses("1.2.3.4")
 	dummy.SetInstanceAddresses(insts[0], addrs)
 	dummy.SetInstanceStatus(insts[0], "running")
 
@@ -1215,8 +1214,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 
 	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	// TODO(wallyworld) - worker is currently disabled even with feature flag
-	s.testMachineAgentRunsMachineStorageWorker(c, false, coretesting.LongWait)
+	s.testMachineAgentRunsMachineStorageWorker(c, true, coretesting.LongWait)
 }
 
 func (s *MachineSuite) testMachineAgentRunsMachineStorageWorker(c *gc.C, shouldRun bool, timeout time.Duration) {
@@ -1227,7 +1225,13 @@ func (s *MachineSuite) testMachineAgentRunsMachineStorageWorker(c *gc.C, shouldR
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	started := make(chan struct{})
-	newWorker := func(storageDir string, _ storageprovisioner.VolumeAccessor, _ storageprovisioner.LifecycleManager) worker.Worker {
+	newWorker := func(
+		storageDir string,
+		_ storageprovisioner.VolumeAccessor,
+		_ storageprovisioner.FilesystemAccessor,
+		_ storageprovisioner.LifecycleManager,
+		_ storageprovisioner.EnvironAccessor,
+	) worker.Worker {
 		// storageDir is not empty for machine scoped storage provisioners
 		c.Assert(storageDir, gc.Not(gc.Equals), "")
 		close(started)
@@ -1251,8 +1255,7 @@ func (s *MachineSuite) testMachineAgentRunsMachineStorageWorker(c *gc.C, shouldR
 func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	// TODO(wallyworld) - worker is currently disabled even with feature flag
-	s.testMachineAgentRunsEnvironStorageWorkers(c, false, coretesting.LongWait)
+	s.testMachineAgentRunsEnvironStorageWorkers(c, true, coretesting.LongWait)
 }
 
 func (s *MachineSuite) testMachineAgentRunsEnvironStorageWorkers(c *gc.C, shouldRun bool, timeout time.Duration) {
@@ -1266,7 +1269,13 @@ func (s *MachineSuite) testMachineAgentRunsEnvironStorageWorkers(c *gc.C, should
 	environWorkerStarted := false
 	numWorkers := 0
 	started := make(chan struct{})
-	newWorker := func(storageDir string, _ storageprovisioner.VolumeAccessor, _ storageprovisioner.LifecycleManager) worker.Worker {
+	newWorker := func(
+		storageDir string,
+		_ storageprovisioner.VolumeAccessor,
+		_ storageprovisioner.FilesystemAccessor,
+		_ storageprovisioner.LifecycleManager,
+		_ storageprovisioner.EnvironAccessor,
+	) worker.Worker {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {
 			environWorkerStarted = true
@@ -1363,6 +1372,51 @@ func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 				sanIPs[i] = ip.String()
 			}
 			if len(sanIPs) == 1 && sanIPs[0] == "0.1.2.3" {
+				close(updated)
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+	// Wait for certificate to be updated.
+	select {
+	case <-updated:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for certificate to be updated")
+	}
+}
+
+func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
+	// Disable the certificate work so it doesn't update the certificate.
+	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
+		certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+	) worker.Worker {
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newCertificateUpdater, newUpdater)
+
+	// Set up the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+
+	// Set up check that certificate has been updated when the agent starts.
+	updated := make(chan struct{})
+	expectedDnsNames := set.NewStrings("local", "juju-apiserver", "juju-mongodb")
+	go func() {
+		for {
+			stateInfo, _ := a.CurrentConfig().StateServingInfo()
+			srvCert, err := cert.ParseCert(stateInfo.Cert)
+			c.Assert(err, jc.ErrorIsNil)
+			certDnsNames := set.NewStrings(srvCert.DNSNames...)
+			if !expectedDnsNames.Difference(certDnsNames).IsEmpty() {
+				continue
+			}
+			pemContent, err := ioutil.ReadFile(filepath.Join(s.DataDir(), "server.pem"))
+			c.Assert(err, jc.ErrorIsNil)
+			if string(pemContent) == stateInfo.Cert+"\n"+stateInfo.PrivateKey {
 				close(updated)
 				break
 			}

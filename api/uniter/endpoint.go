@@ -4,7 +4,7 @@
 package uniter
 
 import (
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 )
 
 // Endpoint represents one endpoint of a relation. It is just a wrapper

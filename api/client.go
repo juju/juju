@@ -21,7 +21,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -99,7 +99,17 @@ type ServiceStatus struct {
 
 // UnitStatus holds status info about a unit.
 type UnitStatus struct {
-	Agent AgentStatus
+	// Workload and Agent have separate statuses since 1.23.
+	// but they store similar data so AgentStatus is used too.
+	// UnitAgent is created instead of using Agent since it was
+	// already used when changed from 1.18 to 1.19 to hold more
+	// data than the 3 Agent* values below.
+
+	// UnitAgent holds the status for A Unit's agent.
+	UnitAgent AgentStatus
+
+	// Workload holds the status for a unit's workload
+	Workload AgentStatus
 
 	// See the comment in MachineStatus regarding these fields.
 	AgentState     params.Status
@@ -987,10 +997,22 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	attrs["excludeEntity"] = args.ExcludeEntity
 	attrs["excludeModule"] = args.ExcludeModule
 
+	path := "/log"
+	if _, ok := c.st.ServerVersion(); ok {
+		// If the server version is set, then we know the server is capable of
+		// serving debug log at the environment path. We also fully expect
+		// that the server has returned a valid environment tag.
+		envTag, err := c.st.EnvironTag()
+		if err != nil {
+			return nil, errors.Annotate(err, "very unexpected")
+		}
+		path = fmt.Sprintf("/environment/%s/log", envTag.Id())
+	}
+
 	target := url.URL{
 		Scheme:   "wss",
 		Host:     c.st.addr,
-		Path:     "/log",
+		Path:     path,
 		RawQuery: attrs.Encode(),
 	}
 	cfg, err := websocket.NewConfig(target.String(), "http://localhost/")

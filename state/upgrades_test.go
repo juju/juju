@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -1176,20 +1176,20 @@ func (s *upgradesSuite) TestAddEnvUUIDToMeterStatus(c *gc.C) {
 	coll, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToMeterStatus, meterStatusC,
 		bson.M{
 			"_id":  "u#foo/0",
-			"code": MeterGreen,
+			"code": MeterGreen.String(),
 		},
 		bson.M{
 			"_id":  "u#bar/0",
-			"code": MeterRed,
+			"code": MeterRed.String(),
 		},
 	)
 
 	var newDoc meterStatusDoc
 	s.FindId(c, coll, newIDs[0], &newDoc)
-	c.Assert(newDoc.Code, gc.Equals, MeterGreen)
+	c.Assert(newDoc.Code, gc.Equals, MeterGreen.String())
 
 	s.FindId(c, coll, newIDs[1], &newDoc)
-	c.Assert(newDoc.Code, gc.Equals, MeterRed)
+	c.Assert(newDoc.Code, gc.Equals, MeterRed.String())
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToMeterStatusIdempotent(c *gc.C) {
@@ -1893,7 +1893,7 @@ func (s *upgradesSuite) TestCreateMeterStatuses(c *gc.C) {
 
 	// assert the units do not have meter status documents
 	for _, unit := range units {
-		_, _, err := unit.GetMeterStatus()
+		_, err := unit.GetMeterStatus()
 		c.Assert(err, gc.ErrorMatches, "cannot retrieve meter status for unit .*: not found")
 	}
 
@@ -1903,20 +1903,18 @@ func (s *upgradesSuite) TestCreateMeterStatuses(c *gc.C) {
 
 	// assert the units do not have meter status documents
 	for _, unit := range units {
-		code, info, err := unit.GetMeterStatus()
+		status, err := unit.GetMeterStatus()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(code, gc.Equals, "NOT SET")
-		c.Assert(info, gc.Equals, "")
+		c.Assert(status, gc.DeepEquals, MeterStatus{MeterNotSet, ""})
 	}
 
 	// run migration again to make sure it's idempotent
 	err = CreateUnitMeterStatus(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, unit := range units {
-		code, info, err := unit.GetMeterStatus()
+		status, err := unit.GetMeterStatus()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(code, gc.Equals, "NOT SET")
-		c.Assert(info, gc.Equals, "")
+		c.Assert(status, gc.DeepEquals, MeterStatus{MeterNotSet, ""})
 	}
 }
 

@@ -9,13 +9,13 @@ import (
 )
 
 var (
-	NewWebsocketDialer  = newWebsocketDialer
-	WebsocketDialConfig = &websocketDialConfig
-	SetUpWebsocket      = setUpWebsocket
-	SlideAddressToFront = slideAddressToFront
-	BestVersion         = bestVersion
-	FacadeVersions      = &facadeVersions
-	NewHTTPClient       = &newHTTPClient
+	NewWebsocketDialer    = newWebsocketDialer
+	NewWebsocketDialerPtr = &newWebsocketDialer
+	WebsocketDialConfig   = &websocketDialConfig
+	SlideAddressToFront   = slideAddressToFront
+	BestVersion           = bestVersion
+	FacadeVersions        = &facadeVersions
+	NewHTTPClient         = &newHTTPClient
 )
 
 // SetServerRoot allows changing the URL to the internal API server

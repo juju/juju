@@ -18,7 +18,8 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/juju/osenv"
@@ -1430,12 +1431,12 @@ func (cfg *Config) GenerateStateServerCertAndKey(hostAddresses []string) (string
 	if !hasCAKey {
 		return "", "", fmt.Errorf("environment configuration has no ca-private-key")
 	}
-	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), hostAddresses)
+	return cert.NewDefaultServer(caCert, caKey, hostAddresses)
 }
 
 // SpecializeCharmRepo customizes a repository for a given configuration.
 // It adds authentication if necessary and sets a charm store's testMode flag.
-func SpecializeCharmRepo(repo charm.Repository, cfg *Config) {
+func SpecializeCharmRepo(repo charmrepo.Interface, cfg *Config) {
 	type Specializer interface {
 		SetAuthAttrs(string)
 		SetTestMode(testMode bool)

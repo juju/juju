@@ -2,9 +2,8 @@ package service
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -44,9 +43,7 @@ func discoverInitSystem() (string, error) {
 		versionInitName, ok := VersionInitSystem(jujuVersion)
 		if !ok {
 			// The key error is the one from discoverLocalInitSystem so
-			// that is what we return. However, we at least log the
-			// failed fallback attempt.
-			logger.Errorf("could not identify init system from %v", jujuVersion)
+			// that is what we return.
 			return "", errors.Trace(err)
 		}
 		initName = versionInitName
@@ -60,6 +57,16 @@ func discoverInitSystem() (string, error) {
 // version info. If one cannot be identified then false if returned
 // for the second return value.
 func VersionInitSystem(vers version.Binary) (string, bool) {
+	initName, ok := versionInitSystem(vers)
+	if !ok {
+		logger.Errorf("could not identify init system from juju version info (%#v)", vers)
+		return "", false
+	}
+	logger.Debugf("discovered init system %q from juju version info (%#v)", initName, vers)
+	return initName, true
+}
+
+func versionInitSystem(vers version.Binary) (string, bool) {
 	switch vers.OS {
 	case version.Windows:
 		return InitSystemWindows, true
@@ -87,26 +94,21 @@ func VersionInitSystem(vers version.Binary) (string, bool) {
 	}
 }
 
-// pid1 is the path to the "file" that contains the path to the init
-// system executable on linux.
-const pid1 = "/proc/1/cmdline"
-
 // These exist to allow patching during tests.
 var (
 	runtimeOS    = func() string { return runtime.GOOS }
-	pid1Filename = func() string { return pid1 }
+	evalSymlinks = filepath.EvalSymlinks
+	psPID1       = func() ([]byte, error) {
+		cmd := exec.Command("/bin/ps", "-p", "1", "-o", "cmd", "--no-headers")
+		return cmd.Output()
+	}
 
 	initExecutable = func() (string, error) {
-		pid1File := pid1Filename()
-		data, err := ioutil.ReadFile(pid1File)
-		if os.IsNotExist(err) {
-			return "", errors.NotFoundf("init system (via %q)", pid1File)
-		}
+		psOutput, err := psPID1()
 		if err != nil {
-			return "", errors.Annotatef(err, "failed to identify init system (via %q)", pid1File)
+			return "", errors.Annotate(err, "failed to identify init system using ps")
 		}
-		executable := strings.Split(string(data), "\x00")[0]
-		return executable, nil
+		return strings.Fields(string(psOutput))[0], nil
 	}
 )
 
@@ -134,14 +136,17 @@ func identifyInitSystem(executable string) (string, bool) {
 		return initSystem, true
 	}
 
-	if _, err := os.Stat(executable); os.IsNotExist(err) {
-		return "", false
-	} else if err != nil {
+	// First fall back to following symlinks (if any).
+	resolved, err := evalSymlinks(executable)
+	if err != nil {
 		logger.Errorf("failed to find %q: %v", executable, err)
-		// The stat check is just an optimization so we go on anyway.
+		return "", false
 	}
-
-	// TODO(ericsnow) First fall back to following symlinks?
+	executable = resolved
+	initSystem, ok = identifyExecutable(executable)
+	if ok {
+		return initSystem, true
+	}
 
 	// Fall back to checking the "version" text.
 	cmd := exec.Command(executable, "--version")
@@ -192,7 +197,7 @@ function checkInitSystem() {
 }
 
 # Find the executable.
-executable=$(cat /proc/1/cmdline | awk -F"\0" '{print $1}')
+executable=$(ps -p 1 -o cmd --no-headers | awk '{print $1}')
 if [[ $? -ne 0 ]]; then
     exit 1
 fi

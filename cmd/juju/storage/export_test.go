@@ -6,4 +6,6 @@ package storage
 var (
 	GetStorageShowAPI = &getStorageShowAPI
 	GetStorageListAPI = &getStorageListAPI
+	GetPoolListAPI    = &getPoolListAPI
+	GetPoolCreateAPI  = &getPoolCreateAPI
 )

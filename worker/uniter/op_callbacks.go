@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	corecharm "gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
+	corecharm "gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/params"
@@ -47,7 +47,7 @@ func (opc *operationCallbacks) AcquireExecutionLock(message string) (func(), err
 // PrepareHook is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 	name := string(hi.Kind)
-	status := params.StatusActive
+	status := params.StatusIdle
 
 	switch {
 	case hi.Kind.IsRelation():
@@ -68,13 +68,14 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 		// TODO(axw) if the agent is not installed yet,
 		// set the status to "preparing storage".
 	case hi.Kind == hooks.Stop:
-		status = params.StatusStopping
+		// TODO(perrito666) I dont know if this should be Lost.
+		status = params.StatusExecuting
 	case hi.Kind == hooks.ConfigChanged:
 		opc.u.f.DiscardConfigEvent()
 		fallthrough
 	default:
 		if !opc.u.operationState().Started {
-			status = params.StatusInstalling
+			status = params.StatusExecuting
 		}
 	}
 	err := opc.u.unit.SetAgentStatus(status, "", nil)

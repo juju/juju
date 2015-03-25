@@ -220,10 +220,8 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	certKey := args.Cert + "\n" + args.PrivateKey
-	err = utils.AtomicWriteFile(sslKeyPath(args.DataDir), []byte(certKey), 0600)
-	if err != nil {
-		return fmt.Errorf("cannot write SSL key: %v", err)
+	if err := UpdateSSLKey(args.DataDir, args.Cert, args.PrivateKey); err != nil {
+		return err
 	}
 
 	err = utils.AtomicWriteFile(sharedSecretPath(args.DataDir), []byte(args.SharedSecret), 0600)
@@ -258,6 +256,13 @@ func EnsureServer(args EnsureServerParams) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// UpdateSSLKey writes a new SSL key used by mongo to validate connections from Juju state server(s)
+func UpdateSSLKey(dataDir, cert, privateKey string) error {
+	certKey := cert + "\n" + privateKey
+	err := utils.AtomicWriteFile(sslKeyPath(dataDir), []byte(certKey), 0600)
+	return errors.Annotate(err, "cannot write SSL key")
 }
 
 func makeJournalDirs(dataDir string) error {

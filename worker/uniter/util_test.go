@@ -27,7 +27,7 @@ import (
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v4"
+	corecharm "gopkg.in/juju/charm.v5-unstable"
 	goyaml "gopkg.in/yaml.v1"
 
 	apiuniter "github.com/juju/juju/api/uniter"
@@ -637,7 +637,7 @@ func (s waitUnit) step(c *gc.C, ctx *context) {
 				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
 			}
-			status, info, data, err := ctx.unit.AgentStatus()
+			status, info, data, err := ctx.unit.Status()
 			c.Assert(err, jc.ErrorIsNil)
 			if string(status) != string(s.status) {
 				c.Logf("want unit status %q, got %q; still waiting", s.status, status)
@@ -880,7 +880,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: params.StatusError,
+			status: params.StatusBlocked,
 			info:   "upgrade failed",
 			charm:  1,
 		},
@@ -899,7 +899,7 @@ type verifyWaitingUpgradeError struct {
 func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 	verifyCharmSteps := []stepper{
 		waitUnit{
-			status: params.StatusError,
+			status: params.StatusBlocked,
 			info:   "upgrade failed",
 			charm:  s.revision,
 		},
@@ -1494,7 +1494,7 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: params.StatusError,
+			status: params.StatusBlocked,
 			info:   "upgrade failed",
 			charm:  1,
 		},

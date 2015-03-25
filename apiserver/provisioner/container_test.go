@@ -265,7 +265,7 @@ func (s *prepareSuite) fillSubnet(c *gc.C, numAllocated int) {
 	sub, err := s.BackingState.AddSubnet(subInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i <= numAllocated; i++ {
-		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i), network.ScopeUnknown)
+		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i))
 		ipaddr, err := s.BackingState.AddIPAddress(addr, sub.ID())
 		c.Check(err, jc.ErrorIsNil)
 		err = ipaddr.SetState(state.AddressStateAllocated)
@@ -750,7 +750,7 @@ func (s *releaseSuite) allocateAddresses(c *gc.C, containerId string, numAllocat
 	sub, err := s.BackingState.AddSubnet(subInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < numAllocated; i++ {
-		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i), network.ScopeUnknown)
+		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i))
 		ipaddr, err := s.BackingState.AddIPAddress(addr, sub.ID())
 		c.Check(err, jc.ErrorIsNil)
 		err = ipaddr.AllocateTo(containerId, "")

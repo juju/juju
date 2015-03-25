@@ -134,21 +134,6 @@ type StorageAttachmentResults struct {
 	Results []StorageAttachmentResult `json:"results,omitempty"`
 }
 
-// Volume describes a storage volume in the environment.
-type Volume struct {
-	VolumeTag string `json:"volumetag"`
-	VolumeId  string `json:"volumeid"`
-	Serial    string `json:"serial"`
-	// Size is the size of the volume in MiB.
-	Size       uint64 `json:"size"`
-	Persistent bool   `json:"persistent"`
-}
-
-// Volumes describes a set of storage volumes in the environment.
-type Volumes struct {
-	Volumes []Volume `json:"volumes"`
-}
-
 // MachineStorageId identifies the attachment of a storage entity
 // to a machine, by their tags.
 type MachineStorageId struct {
@@ -162,6 +147,21 @@ type MachineStorageId struct {
 // attachment identifiers.
 type MachineStorageIds struct {
 	Ids []MachineStorageId `json:"ids"`
+}
+
+// Volume describes a storage volume in the environment.
+type Volume struct {
+	VolumeTag string `json:"volumetag"`
+	VolumeId  string `json:"volumeid"`
+	Serial    string `json:"serial"`
+	// Size is the size of the volume in MiB.
+	Size       uint64 `json:"size"`
+	Persistent bool   `json:"persistent"`
+}
+
+// Volumes describes a set of storage volumes in the environment.
+type Volumes struct {
+	Volumes []Volume `json:"volumes"`
 }
 
 // VolumeAttachment describes a volume attachment.
@@ -275,6 +275,98 @@ type VolumeAttachmentParamsResults struct {
 	Results []VolumeAttachmentParamsResult `json:"results,omitempty"`
 }
 
+// Filesystem describes a storage filesystem in the environment.
+type Filesystem struct {
+	FilesystemTag string `json:"filesystemtag"`
+	FilesystemId  string `json:"filesystemid"`
+	// Size is the size of the filesystem in MiB.
+	Size uint64 `json:"size"`
+}
+
+// Filesystems describes a set of storage filesystems in the environment.
+type Filesystems struct {
+	Filesystems []Filesystem `json:"filesystems"`
+}
+
+// FilesystemAttachment describes a filesystem attachment.
+type FilesystemAttachment struct {
+	FilesystemTag string `json:"filesystemtag"`
+	MachineTag    string `json:"machinetag"`
+	MountPoint    string `json:"mountpoint,omitempty"`
+}
+
+// FilesystemAttachments describes a set of storage filesystem attachments.
+type FilesystemAttachments struct {
+	FilesystemAttachments []FilesystemAttachment `json:"filesystemattachments"`
+}
+
+// FilesystemParams holds the parameters for creating a storage filesystem.
+type FilesystemParams struct {
+	FilesystemTag string                      `json:"filesystemtag"`
+	Size          uint64                      `json:"size"`
+	Provider      string                      `json:"provider"`
+	Attributes    map[string]interface{}      `json:"attributes,omitempty"`
+	Attachment    *FilesystemAttachmentParams `json:"attachment,omitempty"`
+}
+
+// FilesystemAttachmentParams holds the parameters for creating a filesystem
+// attachment.
+type FilesystemAttachmentParams struct {
+	FilesystemTag string `json:"filesystemtag"`
+	MachineTag    string `json:"machinetag"`
+	InstanceId    string `json:"instanceid,omitempty"`
+	FilesystemId  string `json:"filesystemid,omitempty"`
+	Provider      string `json:"provider"`
+	MountPoint    string `json:"mountpoint,omitempty"`
+}
+
+// FilesystemAttachmentResult holds the details of a single filesystem attachment,
+// or an error.
+type FilesystemAttachmentResult struct {
+	Result FilesystemAttachment `json:"result"`
+	Error  *Error               `json:"error,omitempty"`
+}
+
+// FilesystemAttachmentResults holds a set of FilesystemAttachmentResults.
+type FilesystemAttachmentResults struct {
+	Results []FilesystemAttachmentResult `json:"results,omitempty"`
+}
+
+// FilesystemResult holds information about a filesystem.
+type FilesystemResult struct {
+	Result Filesystem `json:"result"`
+	Error  *Error     `json:"error,omitempty"`
+}
+
+// FilesystemResults holds information about multiple filesystems.
+type FilesystemResults struct {
+	Results []FilesystemResult `json:"results,omitempty"`
+}
+
+// FilesystemParamsResults holds provisioning parameters for a filesystem.
+type FilesystemParamsResult struct {
+	Result FilesystemParams `json:"result"`
+	Error  *Error           `json:"error,omitempty"`
+}
+
+// FilesystemParamsResults holds provisioning parameters for multiple filesystems.
+type FilesystemParamsResults struct {
+	Results []FilesystemParamsResult `json:"results,omitempty"`
+}
+
+// FilesystemAttachmentParamsResults holds provisioning parameters for a filesystem
+// attachment.
+type FilesystemAttachmentParamsResult struct {
+	Result FilesystemAttachmentParams `json:"result"`
+	Error  *Error                     `json:"error,omitempty"`
+}
+
+// FilesystemAttachmentParamsResults holds provisioning parameters for multiple
+// filesystem attachments.
+type FilesystemAttachmentParamsResults struct {
+	Results []FilesystemAttachmentParamsResult `json:"results,omitempty"`
+}
+
 // StorageDetails holds information about storage.
 type StorageDetails struct {
 
@@ -322,4 +414,32 @@ type StorageInfo struct {
 // StorageInfosResult holds storage details.
 type StorageInfosResult struct {
 	Results []StorageInfo `json:"results,omitempty"`
+}
+
+// StoragePool holds data for a pool instance.
+type StoragePool struct {
+
+	// Name is the pool's name.
+	Name string `json:"name"`
+
+	// Provider is the type of storage provider this pool represents, eg "loop", "ebs".
+	Provider string `json:"provider"`
+
+	// Attrs are the pool's configuration attributes.
+	Attrs map[string]interface{} `json:"attrs"`
+}
+
+// StoragePoolFilter holds a filter for pool API call.
+type StoragePoolFilter struct {
+
+	// Names are pool's names to filter on.
+	Names []string `json:"names,omitempty"`
+
+	// Providers are pool's storage provider types to filter on.
+	Providers []string `json:"providers,omitempty"`
+}
+
+// StoragePoolsResult holds a collection of pool instances.
+type StoragePoolsResult struct {
+	Results []StoragePool `json:"results,omitempty"`
 }

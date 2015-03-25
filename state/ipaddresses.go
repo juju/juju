@@ -42,11 +42,6 @@ func (s AddressState) String() string {
 	return string(s)
 }
 
-// GoString implements fmt.GoStringer.
-func (i *IPAddress) GoString() string {
-	return i.String()
-}
-
 // IPAddress represents the state of an IP address.
 type IPAddress struct {
 	st  *State
@@ -97,7 +92,7 @@ func (i *IPAddress) Value() string {
 
 // Address returns the network.Address represent the IP address
 func (i *IPAddress) Address() network.Address {
-	return network.NewAddress(i.doc.Value, i.Scope())
+	return network.NewScopedAddress(i.doc.Value, i.Scope())
 }
 
 // Type returns the type of the IP address. The IP address will have a type of
@@ -120,6 +115,11 @@ func (i *IPAddress) State() AddressState {
 // String implements fmt.Stringer.
 func (i *IPAddress) String() string {
 	return i.Address().String()
+}
+
+// GoString implements fmt.GoStringer.
+func (i *IPAddress) GoString() string {
+	return i.String()
 }
 
 // EnsureDead sets the Life of the IP address to Dead, if it's Alive. It

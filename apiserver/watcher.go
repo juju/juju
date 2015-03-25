@@ -33,6 +33,10 @@ func init() {
 		"VolumeAttachmentsWatcher", 1, newVolumeAttachmentsWatcher,
 		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
 	)
+	common.RegisterFacade(
+		"FilesystemAttachmentsWatcher", 1, newFilesystemAttachmentsWatcher,
+		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
+	)
 }
 
 func newClientAllWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
@@ -257,6 +261,17 @@ func newVolumeAttachmentsWatcher(
 ) (interface{}, error) {
 	return newMachineStorageIdsWatcher(
 		st, resources, auth, id, common.ParseVolumeAttachmentIds,
+	)
+}
+
+func newFilesystemAttachmentsWatcher(
+	st *state.State,
+	resources *common.Resources,
+	auth common.Authorizer,
+	id string,
+) (interface{}, error) {
+	return newMachineStorageIdsWatcher(
+		st, resources, auth, id, common.ParseFilesystemAttachmentIds,
 	)
 }
 

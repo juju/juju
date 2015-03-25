@@ -399,23 +399,28 @@ func ParseVolumeAttachmentId(id string) (names.MachineTag, names.VolumeTag, erro
 	return machineTag, volumeTag, nil
 }
 
+type volumeAttachmentTemplate struct {
+	tag    names.VolumeTag
+	params VolumeAttachmentParams
+}
+
 // createMachineVolumeAttachmentInfo creates volume attachments
 // for the specified machine, and attachment parameters keyed
 // by volume tags.
-func createMachineVolumeAttachmentsOps(machineId string, params map[names.VolumeTag]VolumeAttachmentParams) []txn.Op {
-	ops := make([]txn.Op, 0, len(params))
-	for volumeTag, params := range params {
-		paramsCopy := params
-		ops = append(ops, txn.Op{
+func createMachineVolumeAttachmentsOps(machineId string, attachments []volumeAttachmentTemplate) []txn.Op {
+	ops := make([]txn.Op, len(attachments))
+	for i, attachment := range attachments {
+		paramsCopy := attachment.params
+		ops[i] = txn.Op{
 			C:      volumeAttachmentsC,
-			Id:     volumeAttachmentId(machineId, volumeTag.Id()),
+			Id:     volumeAttachmentId(machineId, attachment.tag.Id()),
 			Assert: txn.DocMissing,
 			Insert: &volumeAttachmentDoc{
-				Volume:  volumeTag.Id(),
+				Volume:  attachment.tag.Id(),
 				Machine: machineId,
 				Params:  &paramsCopy,
 			},
-		})
+		}
 	}
 	return ops
 }
@@ -439,6 +444,8 @@ func setMachineVolumeAttachmentInfo(st *State, machineId string, attachments map
 func (st *State) SetVolumeAttachmentInfo(machineTag names.MachineTag, volumeTag names.VolumeTag, info VolumeAttachmentInfo) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set info for volume attachment %s:%s", volumeTag.Id(), machineTag.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// TODO(axw) attempting to set volume attachment info for a
+		// volume that hasn't been provisioned should fail.
 		va, err := st.VolumeAttachment(machineTag, volumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -500,11 +507,57 @@ func (st *State) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (err error)
 		if params, ok := v.Params(); ok {
 			info.Pool = params.Pool
 			unsetParams = true
+		} else {
+			// Ensure immutable properties do not change.
+			oldInfo, err := v.Info()
+			if err != nil {
+				return nil, err
+			}
+			if err := validateVolumeInfoChange(info, oldInfo); err != nil {
+				return nil, err
+			}
 		}
 		ops := setVolumeInfoOps(tag, info, unsetParams)
+
+		// If there's a filesystem destined for the volume,
+		// set the filesystem info.
+		f, err := st.VolumeFilesystem(tag)
+		if err == nil {
+			filesystemInfo := FilesystemInfo{
+				info.Size,
+				info.Pool,
+				// FilesystemId is set to "" for
+				// filesystems backed by volumes.
+				"",
+			}
+			filesystemOps := setFilesystemInfoOps(
+				f.FilesystemTag(),
+				filesystemInfo,
+				unsetParams,
+			)
+			ops = append(ops, filesystemOps...)
+		} else if !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
 		return ops, nil
 	}
 	return st.run(buildTxn)
+}
+
+func validateVolumeInfoChange(newInfo, oldInfo VolumeInfo) error {
+	if newInfo.Pool != oldInfo.Pool {
+		return errors.Errorf(
+			"cannot change pool from %q to %q",
+			oldInfo.Pool, newInfo.Pool,
+		)
+	}
+	if newInfo.VolumeId != oldInfo.VolumeId {
+		return errors.Errorf(
+			"cannot change volume ID from %q to %q",
+			oldInfo.VolumeId, newInfo.VolumeId,
+		)
+	}
+	return nil
 }
 
 func setVolumeInfoOps(tag names.VolumeTag, info VolumeInfo, unsetParams bool) []txn.Op {

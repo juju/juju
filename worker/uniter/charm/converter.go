@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 )
 
 // NewDeployer returns a Deployer of whatever kind is currently in use for the

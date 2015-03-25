@@ -133,7 +133,7 @@ func hasString(changes []string, name string) bool {
 var _ Watcher = (*lifecycleWatcher)(nil)
 
 // lifecycleWatcher notifies about lifecycle changes for a set of entities of
-// the same kind. The first event emitted will contain the ids of all non-Dead
+// the same kind. The first event emitted will contain the ids of all
 // entities; subsequent events are emitted whenever one or more entities are
 // added, or change their lifecycle state. After an entity is found to be
 // Dead, no further event will include it.
@@ -169,9 +169,25 @@ func (st *State) WatchEnvironments() StringsWatcher {
 	return newLifecycleWatcher(st, environmentsC, nil, nil, nil)
 }
 
+// WatchIPAddresses returns a StringsWatcher that notifies of changes to the
+// lifecycles of IP addresses.
+func (st *State) WatchIPAddresses() StringsWatcher {
+	return newLifecycleWatcher(st, ipaddressesC, nil, nil, nil)
+}
+
 // WatchEnvironVolumes returns a StringsWatcher that notifies of changes to
 // the lifecycles of all environment-scoped volumes.
 func (st *State) WatchEnvironVolumes() StringsWatcher {
+	return st.watchEnvironMachineStorage(volumesC)
+}
+
+// WatchEnvironFilesystems returns a StringsWatcher that notifies of changes
+// to the lifecycles of all environment-scoped filesystems.
+func (st *State) WatchEnvironFilesystems() StringsWatcher {
+	return st.watchEnvironMachineStorage(filesystemsC)
+}
+
+func (st *State) watchEnvironMachineStorage(collection string) StringsWatcher {
 	pattern := fmt.Sprintf("^%s$", st.docID(names.NumberSnippet))
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	filter := func(id interface{}) bool {
@@ -181,12 +197,22 @@ func (st *State) WatchEnvironVolumes() StringsWatcher {
 		}
 		return !strings.Contains(k, "/")
 	}
-	return newLifecycleWatcher(st, volumesC, members, filter, nil)
+	return newLifecycleWatcher(st, collection, members, filter, nil)
 }
 
 // WatchMachineVolumes returns a StringsWatcher that notifies of changes to
 // the lifecycles of all volumes scoped to the specified machine.
 func (st *State) WatchMachineVolumes(m names.MachineTag) StringsWatcher {
+	return st.watchMachineStorage(m, volumesC)
+}
+
+// WatchMachineFilesystems returns a StringsWatcher that notifies of changes
+// to the lifecycles of all filesystems scoped to the specified machine.
+func (st *State) WatchMachineFilesystems(m names.MachineTag) StringsWatcher {
+	return st.watchMachineStorage(m, filesystemsC)
+}
+
+func (st *State) watchMachineStorage(m names.MachineTag, collection string) StringsWatcher {
 	pattern := fmt.Sprintf("^%s/%s$", st.docID(m.Id()), names.NumberSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	prefix := m.Id() + "/"
@@ -197,13 +223,24 @@ func (st *State) WatchMachineVolumes(m names.MachineTag) StringsWatcher {
 		}
 		return strings.HasPrefix(k, prefix)
 	}
-	return newLifecycleWatcher(st, volumesC, members, filter, nil)
+	return newLifecycleWatcher(st, collection, members, filter, nil)
 }
 
 // WatchEnvironVolumeAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all volume attachments related to environ-
 // scoped volumes.
 func (st *State) WatchEnvironVolumeAttachments() StringsWatcher {
+	return st.watchEnvironMachineStorageAttachments(volumeAttachmentsC)
+}
+
+// WatchEnvironFilesystemAttachments returns a StringsWatcher that notifies
+// of changes to the lifecycles of all filesystem attachments related to
+// environ-scoped filesystems.
+func (st *State) WatchEnvironFilesystemAttachments() StringsWatcher {
+	return st.watchEnvironMachineStorageAttachments(filesystemAttachmentsC)
+}
+
+func (st *State) watchEnvironMachineStorageAttachments(collection string) StringsWatcher {
 	pattern := fmt.Sprintf("^%s.*:%s$", st.docID(""), names.NumberSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	filter := func(id interface{}) bool {
@@ -217,13 +254,24 @@ func (st *State) WatchEnvironVolumeAttachments() StringsWatcher {
 		}
 		return !strings.Contains(k[colon+1:], "/")
 	}
-	return newLifecycleWatcher(st, volumeAttachmentsC, members, filter, nil)
+	return newLifecycleWatcher(st, collection, members, filter, nil)
 }
 
 // WatchMachineVolumeAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all volume attachments related to the specified
 // machine.
 func (st *State) WatchMachineVolumeAttachments(m names.MachineTag) StringsWatcher {
+	return st.watchMachineStorageAttachments(m, volumeAttachmentsC)
+}
+
+// WatchMachineFilesystemAttachments returns a StringsWatcher that notifies of
+// changes to the lifecycles of all filesystem attachments related to the specified
+// machine.
+func (st *State) WatchMachineFilesystemAttachments(m names.MachineTag) StringsWatcher {
+	return st.watchMachineStorageAttachments(m, filesystemAttachmentsC)
+}
+
+func (st *State) watchMachineStorageAttachments(m names.MachineTag, collection string) StringsWatcher {
 	pattern := fmt.Sprintf("^%s:.*", st.docID(m.Id()))
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	prefix := m.Id() + ":"
@@ -234,7 +282,7 @@ func (st *State) WatchMachineVolumeAttachments(m names.MachineTag) StringsWatche
 		}
 		return strings.HasPrefix(k, prefix)
 	}
-	return newLifecycleWatcher(st, volumeAttachmentsC, members, filter, nil)
+	return newLifecycleWatcher(st, collection, members, filter, nil)
 }
 
 // WatchServices returns a StringsWatcher that notifies of changes to

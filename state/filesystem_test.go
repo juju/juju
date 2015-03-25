@@ -46,7 +46,79 @@ func (s *FilesystemStateSuite) TestAddFilesystemWithBackingVolume(c *gc.C) {
 	s.addUnitWithFilesystem(c, "loop", true)
 }
 
-func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withVolume bool) {
+func (s *FilesystemStateSuite) TestSetVolumeInfoSetsFilesystemInfo(c *gc.C) {
+	filesystemAttachment := s.addUnitWithFilesystem(c, "loop", true)
+	filesystem, err := s.State.Filesystem(filesystemAttachment.Filesystem())
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = filesystem.Info()
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+
+	volumeTag, err := filesystem.Volume()
+	c.Assert(err, jc.ErrorIsNil)
+	volume, err := s.State.Volume(volumeTag)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = volume.Info()
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+
+	// Set the volume's info multiple times; each time we should update
+	// the info of the filesystem on the volume.
+	for _, size := range []uint64{1024, 2048} {
+		err := s.State.SetVolumeInfo(volumeTag, state.VolumeInfo{
+			Size:     size,
+			Pool:     "loop",
+			VolumeId: "vol-123",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+
+		filesystem, err := s.State.Filesystem(filesystem.FilesystemTag())
+		c.Assert(err, jc.ErrorIsNil)
+		filesystemInfo, err := filesystem.Info()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(filesystemInfo, gc.Equals, state.FilesystemInfo{
+			Size: size,
+			Pool: "loop",
+		})
+	}
+}
+
+func (s *FilesystemStateSuite) TestSetFilesystemInfoImmutable(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "loop-pool")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	filesystem, err := s.State.StorageInstanceFilesystem(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	filesystemTag := filesystem.FilesystemTag()
+
+	filesystemInfoSet := state.FilesystemInfo{Size: 123}
+	err = s.State.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfoSet)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The first call to SetFilesystemInfo takes the pool name from
+	// the params; the second does not, but it must not change
+	// either. Callers are expected to get the existing info and
+	// update it, leaving immutable values intact.
+	err = s.State.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfoSet)
+	c.Assert(err, gc.ErrorMatches, `cannot set info for filesystem "0/0": cannot change pool from "loop-pool" to ""`)
+
+	filesystemInfoSet.Pool = "loop-pool"
+	s.assertFilesystemInfo(c, filesystemTag, filesystemInfoSet)
+}
+
+func (s *FilesystemStateSuite) TestVolumeFilesystem(c *gc.C) {
+	filesystemAttachment := s.addUnitWithFilesystem(c, "loop", true)
+	filesystem, err := s.State.Filesystem(filesystemAttachment.Filesystem())
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = filesystem.Info()
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+
+	volumeTag, err := filesystem.Volume()
+	c.Assert(err, jc.ErrorIsNil)
+	filesystem, err = s.State.VolumeFilesystem(volumeTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filesystem.FilesystemTag(), gc.Equals, filesystemAttachment.Filesystem())
+}
+
+func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withVolume bool) state.FilesystemAttachment {
 	ch := s.AddTestingCharm(c, "storage-filesystem")
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
@@ -105,8 +177,9 @@ func (s *FilesystemStateSuite) addUnitWithFilesystem(c *gc.C, pool string, withV
 	_, ok = filesystemAttachments[0].Params()
 	c.Assert(ok, jc.IsTrue)
 
-	_, err = s.State.FilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+	att, err := s.State.FilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
+	return att
 }
 
 func (s *FilesystemStateSuite) TestWatchFilesystemAttachment(c *gc.C) {
@@ -168,6 +241,127 @@ func (s *FilesystemStateSuite) TestFilesystemInfo(c *gc.C) {
 	err = s.State.SetFilesystemAttachmentInfo(machineTag, filesystemTag, filesystemAttachmentInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertFilesystemAttachmentInfo(c, machineTag, filesystemTag, filesystemAttachmentInfo)
+}
+
+func (s *FilesystemStateSuite) TestWatchEnvironFilesystems(c *gc.C) {
+	service := s.setupMixedScopeStorageService(c, "filesystem")
+	addUnit := func() {
+		u, err := service.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	addUnit()
+
+	w := s.State.WatchEnvironFilesystems()
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChangeInSingleEvent("0") // initial
+	wc.AssertNoChange()
+
+	addUnit()
+	wc.AssertChangeInSingleEvent("3")
+	wc.AssertNoChange()
+
+	// TODO(axw) respond to Dying/Dead when we have
+	// the means to progress Filesystem lifecycle.
+}
+
+func (s *FilesystemStateSuite) TestWatchEnvironFilesystemAttachments(c *gc.C) {
+	service := s.setupMixedScopeStorageService(c, "filesystem")
+	addUnit := func() {
+		u, err := service.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	addUnit()
+
+	w := s.State.WatchEnvironFilesystemAttachments()
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChangeInSingleEvent("0:0") // initial
+	wc.AssertNoChange()
+
+	addUnit()
+	wc.AssertChangeInSingleEvent("1:3")
+	wc.AssertNoChange()
+
+	// TODO(axw) respond to Dying/Dead when we have
+	// the means to progress Volume lifecycle.
+}
+
+func (s *FilesystemStateSuite) TestWatchMachineFilesystems(c *gc.C) {
+	service := s.setupMixedScopeStorageService(c, "filesystem")
+	addUnit := func() {
+		u, err := service.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	addUnit()
+
+	w := s.State.WatchMachineFilesystems(names.NewMachineTag("0"))
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChangeInSingleEvent("0/1", "0/2") // initial
+	wc.AssertNoChange()
+
+	addUnit()
+	// no change, since we're only interested in the one machine.
+	wc.AssertNoChange()
+
+	// TODO(axw) respond to Dying/Dead when we have
+	// the means to progress Filesystem lifecycle.
+}
+
+func (s *FilesystemStateSuite) TestWatchMachineFilesystemAttachments(c *gc.C) {
+	service := s.setupMixedScopeStorageService(c, "filesystem")
+	addUnit := func() {
+		u, err := service.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	addUnit()
+
+	w := s.State.WatchMachineFilesystemAttachments(names.NewMachineTag("0"))
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChangeInSingleEvent("0:0", "0:0/1", "0:0/2") // initial
+	wc.AssertNoChange()
+
+	addUnit()
+	// no change, since we're only interested in the one machine.
+	wc.AssertNoChange()
+
+	// TODO(axw) respond to changes to the same machine when we support
+	// dynamic storage and/or placement.
+	// TODO(axw) respond to Dying/Dead when we have
+	// the means to progress Filesystem lifecycle.
+}
+
+func (s *FilesystemStateSuite) TestParseFilesystemAttachmentId(c *gc.C) {
+	assertValid := func(id string, m names.MachineTag, v names.FilesystemTag) {
+		machineTag, filesystemTag, err := state.ParseFilesystemAttachmentId(id)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(machineTag, gc.Equals, m)
+		c.Assert(filesystemTag, gc.Equals, v)
+	}
+	assertValid("0:0", names.NewMachineTag("0"), names.NewFilesystemTag("0"))
+	assertValid("0:0/1", names.NewMachineTag("0"), names.NewFilesystemTag("0/1"))
+	assertValid("0/lxc/0:1", names.NewMachineTag("0/lxc/0"), names.NewFilesystemTag("1"))
+}
+
+func (s *FilesystemStateSuite) TestParseFilesystemAttachmentIdError(c *gc.C) {
+	assertError := func(id, expect string) {
+		_, _, err := state.ParseFilesystemAttachmentId(id)
+		c.Assert(err, gc.ErrorMatches, expect)
+	}
+	assertError("", `invalid filesystem attachment ID ""`)
+	assertError("0", `invalid filesystem attachment ID "0"`)
+	assertError("0:foo", `invalid filesystem attachment ID "0:foo"`)
+	assertError("bar:0", `invalid filesystem attachment ID "bar:0"`)
 }
 
 func (s *FilesystemStateSuite) assertFilesystemUnprovisioned(c *gc.C, tag names.FilesystemTag) {

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -23,11 +24,12 @@ import (
 type Stub struct {
 	*testing.Stub
 
-	Version      version.Binary
-	GOOS         string
-	PID1Filename string
-	Executable   string
-	Service      Service
+	Version     version.Binary
+	GOOS        string
+	PSOutput    string
+	Executable  string
+	Service     Service
+	NotASymlink string
 }
 
 // GetVersion stubs out .
@@ -48,13 +50,11 @@ func (s *Stub) GetOS() string {
 	return s.GOOS
 }
 
-// GetPID1Filename stubs out /proc/1/cmdline.
-func (s *Stub) GetPID1Filename() string {
+// PsPid1 stubs out ps -p 1 ...
+func (s *Stub) PsPid1() ([]byte, error) {
 	s.AddCall("GetPID1Filename")
 
-	// Pop the next error off the queue, even though we don't use it.
-	s.NextErr()
-	return s.PID1Filename
+	return []byte(s.PSOutput), s.NextErr()
 }
 
 // GetInitSystemExecutable stubs out the contents of /proc/1/cmdline.
@@ -70,6 +70,30 @@ func (s *Stub) DiscoverService(name string) (Service, error) {
 
 	return s.Service, s.NextErr()
 }
+
+// EvalSymlinks stubs out filepath.EvalSymlinks.
+func (s *Stub) EvalSymlinks(filename string) (string, error) {
+	s.AddCall("EvalSymlinks", filename)
+
+	return s.NotASymlink, s.NextErr()
+}
+
+// TODO(ericsnow) StubFileInfo belongs in utils/fs.
+
+// StubFileInfo implements os.FileInfo.
+type StubFileInfo struct{}
+
+func (StubFileInfo) Name() string       { return "" }
+func (StubFileInfo) Size() int64        { return 0 }
+func (StubFileInfo) Mode() os.FileMode  { return 0 }
+func (StubFileInfo) ModTime() time.Time { return time.Time{} }
+func (StubFileInfo) IsDir() bool        { return false }
+func (StubFileInfo) Sys() interface{}   { return nil }
+
+// StubFileInfo implements os.FileInfo for symlinks.
+type StubSymlinkInfo struct{ StubFileInfo }
+
+func (StubSymlinkInfo) Mode() os.FileMode { return os.ModeSymlink }
 
 // BaseSuite is the base test suite for the service package.
 type BaseSuite struct {
@@ -130,14 +154,14 @@ func (s *BaseSuite) PatchPid1File(c *gc.C, executable, verText string) string {
 		s.writeExecutable(c, exeName, verText)
 	}
 
-	// Now write the actual fake /proc/1/cmdline file.
-	filename := filepath.Join(s.Dirname, "pid1cmdline")
-	err := ioutil.WriteFile(filename, []byte(exeName), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.Patched.PID1Filename = filename
-	s.PatchValue(&pid1Filename, s.Patched.GetPID1Filename)
+	s.Patched.PSOutput = exeName
+	s.PatchValue(&psPID1, s.Patched.PsPid1)
 	return exeName
+}
+
+func (s *BaseSuite) PatchLink(c *gc.C, executable string) {
+	s.Patched.NotASymlink = executable
+	s.PatchValue(&evalSymlinks, s.Patched.EvalSymlinks)
 }
 
 func (s *BaseSuite) resolveExecutable(executable string) string {

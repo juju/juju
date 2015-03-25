@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/apiserver/common"
 	leadershipapiserver "github.com/juju/juju/apiserver/leadership"
@@ -1263,17 +1263,16 @@ func (u *uniterBaseAPI) GetMeterStatus(args params.Entities) (params.MeterStatus
 			continue
 		}
 		err = common.ErrPerm
-		var code string
-		var info string
+		var status state.MeterStatus
 		if canAccess(unitTag) {
 			var unit *state.Unit
 			unit, err = u.getUnit(unitTag)
 			if err == nil {
-				code, info, err = unit.GetMeterStatus()
+				status, err = unit.GetMeterStatus()
 			}
+			result.Results[i].Code = status.Code.String()
+			result.Results[i].Info = status.Info
 		}
-		result.Results[i].Code = code
-		result.Results[i].Info = info
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil

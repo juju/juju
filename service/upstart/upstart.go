@@ -270,7 +270,7 @@ func (s *Service) InstallCommands() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	cmd := fmt.Sprintf("cat >> %s << 'EOF'\n%sEOF\n", s.confPath(), conf)
+	cmd := fmt.Sprintf("cat > %s << 'EOF'\n%sEOF\n", s.confPath(), conf)
 	return []string{cmd}, nil
 }
 

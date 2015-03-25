@@ -179,6 +179,29 @@ func (s *VolumeStateSuite) TestSetVolumeInfoNoStorageAssigned(c *gc.C) {
 	s.assertVolumeInfo(c, volumeTag, volumeInfoSet)
 }
 
+func (s *VolumeStateSuite) TestSetVolumeInfoImmutable(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	volume, err := s.State.StorageInstanceVolume(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	volumeTag := volume.VolumeTag()
+
+	volumeInfoSet := state.VolumeInfo{Size: 123}
+	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The first call to SetVolumeInfo takes the pool name from
+	// the params; the second does not, but it must not change
+	// either. Callers are expected to get the existing info and
+	// update it, leaving immutable values intact.
+	err = s.State.SetVolumeInfo(volume.VolumeTag(), volumeInfoSet)
+	c.Assert(err, gc.ErrorMatches, `cannot set info for volume "0/0": cannot change pool from "loop-pool" to ""`)
+
+	volumeInfoSet.Pool = "loop-pool"
+	s.assertVolumeInfo(c, volumeTag, volumeInfoSet)
+}
+
 func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
@@ -211,7 +234,7 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestWatchEnvironVolumes(c *gc.C) {
-	service := s.setupMixedScopeStorageService(c)
+	service := s.setupMixedScopeStorageService(c, "block")
 	addUnit := func() {
 		u, err := service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
@@ -235,7 +258,7 @@ func (s *VolumeStateSuite) TestWatchEnvironVolumes(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
-	service := s.setupMixedScopeStorageService(c)
+	service := s.setupMixedScopeStorageService(c, "block")
 	addUnit := func() {
 		u, err := service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
@@ -259,7 +282,7 @@ func (s *VolumeStateSuite) TestWatchEnvironVolumeAttachments(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
-	service := s.setupMixedScopeStorageService(c)
+	service := s.setupMixedScopeStorageService(c, "block")
 	addUnit := func() {
 		u, err := service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
@@ -283,7 +306,7 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 }
 
 func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
-	service := s.setupMixedScopeStorageService(c)
+	service := s.setupMixedScopeStorageService(c, "block")
 	addUnit := func() {
 		u, err := service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
@@ -329,15 +352,6 @@ func (s *VolumeStateSuite) TestParseVolumeAttachmentIdError(c *gc.C) {
 	assertError("0", `invalid volume attachment ID "0"`)
 	assertError("0:foo", `invalid volume attachment ID "0:foo"`)
 	assertError("bar:0", `invalid volume attachment ID "bar:0"`)
-}
-
-func (s *VolumeStateSuite) setupMixedScopeStorageService(c *gc.C) *state.Service {
-	storageCons := map[string]state.StorageConstraints{
-		"multi1to10": makeStorageCons("environscoped", 1024, 1),
-		"multi2up":   makeStorageCons("machinescoped", 2048, 2),
-	}
-	ch := s.AddTestingCharm(c, "storage-block2")
-	return s.AddTestingServiceWithStorage(c, "storage-block2", ch, storageCons)
 }
 
 func (s *VolumeStateSuite) assertVolumeUnprovisioned(c *gc.C, tag names.VolumeTag) {

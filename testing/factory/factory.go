@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -72,6 +72,7 @@ type MachineParams struct {
 	Characteristics *instance.HardwareCharacteristics
 	Addresses       []network.Address
 	Volumes         []state.MachineVolumeParams
+	Filesystems     []state.MachineFilesystemParams
 }
 
 // ServiceParams is used when specifying parameters for a new service.
@@ -85,6 +86,7 @@ type ServiceParams struct {
 type UnitParams struct {
 	Service     *state.Service
 	Machine     *state.Machine
+	Password    string
 	SetCharmURL bool
 }
 
@@ -258,9 +260,10 @@ func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machi
 func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachineParams) (*state.Machine, string) {
 	params = factory.paramsFillDefaults(c, params)
 	machineTemplate := state.MachineTemplate{
-		Series:  params.Series,
-		Jobs:    params.Jobs,
-		Volumes: params.Volumes,
+		Series:      params.Series,
+		Jobs:        params.Jobs,
+		Volumes:     params.Volumes,
+		Filesystems: params.Filesystems,
 	}
 	machine, err := factory.st.AddOneMachine(machineTemplate)
 	c.Assert(err, jc.ErrorIsNil)
@@ -336,6 +339,14 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 // sane defaults for missing values.
 // If params is not specified, defaults are used.
 func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
+	unit, _ := factory.MakeUnitReturningPassword(c, params)
+	return unit
+}
+
+// MakeUnit creates a service unit with specified params, filling in sane
+// defaults for missing values. If params is not specified, defaults are used.
+// The unit and its password are returned.
+func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (*state.Unit, string) {
 	if params == nil {
 		params = &UnitParams{}
 	}
@@ -344,6 +355,11 @@ func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 	}
 	if params.Service == nil {
 		params.Service = factory.MakeService(c, nil)
+	}
+	if params.Password == "" {
+		var err error
+		params.Password, err = utils.RandomPassword()
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	unit, err := params.Service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -354,7 +370,10 @@ func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 		err = unit.SetCharmURL(serviceCharmURL)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	return unit
+	err = unit.SetPassword(params.Password)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return unit, params.Password
 }
 
 // MakeMetric makes a metric with specified params, filling in

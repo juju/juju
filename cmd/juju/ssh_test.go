@@ -14,7 +14,7 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/cmd/envcmd"
@@ -220,8 +220,14 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 }
 
 func (s *SSHCommonSuite) setAddresses(m *state.Machine, c *gc.C) {
-	addrPub := network.NewAddress(fmt.Sprintf("dummyenv-%s.dns", m.Id()), network.ScopePublic)
-	addrPriv := network.NewAddress(fmt.Sprintf("dummyenv-%s.internal", m.Id()), network.ScopeCloudLocal)
+	addrPub := network.NewScopedAddress(
+		fmt.Sprintf("dummyenv-%s.dns", m.Id()),
+		network.ScopePublic,
+	)
+	addrPriv := network.NewScopedAddress(
+		fmt.Sprintf("dummyenv-%s.internal", m.Id()),
+		network.ScopeCloudLocal,
+	)
 	err := m.SetAddresses(addrPub, addrPriv)
 	c.Assert(err, jc.ErrorIsNil)
 }

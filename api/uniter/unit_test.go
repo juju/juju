@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
@@ -63,23 +63,23 @@ func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
 
 	unitStatus, unitInfo, unitData, err := s.wordpressUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitStatus, gc.Equals, state.StatusBusy)
+	c.Assert(unitStatus, gc.Equals, state.StatusMaintenance)
 	c.Assert(unitInfo, gc.Equals, "")
 	c.Assert(unitData, gc.HasLen, 0)
 
-	err = s.apiUnit.SetAgentStatus(params.StatusActive, "blah", nil)
+	err = s.apiUnit.SetAgentStatus(params.StatusIdle, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, info, data, err = s.wordpressUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusActive)
+	c.Assert(status, gc.Equals, state.StatusIdle)
 	c.Assert(info, gc.Equals, "blah")
 	c.Assert(data, gc.HasLen, 0)
 
 	// Ensure that unit has not changed.
 	unitStatus, unitInfo, unitData, err = s.wordpressUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitStatus, gc.Equals, state.StatusBusy)
+	c.Assert(unitStatus, gc.Equals, state.StatusMaintenance)
 	c.Assert(unitInfo, gc.Equals, "")
 	c.Assert(unitData, gc.HasLen, 0)
 }
@@ -87,7 +87,7 @@ func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
 func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
 	status, info, data, err := s.wordpressUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusBusy)
+	c.Assert(status, gc.Equals, state.StatusMaintenance)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
@@ -97,12 +97,12 @@ func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
 	c.Assert(agentInfo, gc.Equals, "")
 	c.Assert(agentData, gc.HasLen, 0)
 
-	err = s.apiUnit.SetUnitStatus(params.StatusRunning, "blah", nil)
+	err = s.apiUnit.SetUnitStatus(params.StatusActive, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, info, data, err = s.wordpressUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusRunning)
+	c.Assert(status, gc.Equals, state.StatusActive)
 	c.Assert(info, gc.Equals, "blah")
 	c.Assert(data, gc.HasLen, 0)
 
@@ -127,16 +127,16 @@ func (s *unitSuite) TestSetAgentStatusOldServer(c *gc.C) {
 
 	status, info, data, err := s.wordpressUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusBusy)
+	c.Assert(status, gc.Equals, state.StatusMaintenance)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.apiUnit.SetAgentStatus(params.StatusActive, "blah", nil)
+	err = s.apiUnit.SetAgentStatus(params.StatusIdle, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, info, data, err = s.wordpressUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusActive)
+	c.Assert(status, gc.Equals, state.StatusIdle)
 	c.Assert(info, gc.Equals, "blah")
 	c.Assert(data, gc.HasLen, 0)
 }
@@ -227,7 +227,7 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 
 	// Change something other than the lifecycle and make sure it's
 	// not detected.
-	err = s.apiUnit.SetAgentStatus(params.StatusActive, "not really", nil)
+	err = s.apiUnit.SetAgentStatus(params.StatusIdle, "not really", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -296,7 +296,9 @@ func (s *unitSuite) TestPublicAddress(c *gc.C) {
 	address, err := s.apiUnit.PublicAddress()
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no public address set`)
 
-	err = s.wordpressMachine.SetAddresses(network.NewAddress("1.2.3.4", network.ScopePublic))
+	err = s.wordpressMachine.SetAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopePublic),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	address, err = s.apiUnit.PublicAddress()
@@ -308,7 +310,9 @@ func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 	address, err := s.apiUnit.PrivateAddress()
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no private address set`)
 
-	err = s.wordpressMachine.SetAddresses(network.NewAddress("1.2.3.4", network.ScopeCloudLocal))
+	err = s.wordpressMachine.SetAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	address, err = s.apiUnit.PrivateAddress()
@@ -620,14 +624,14 @@ func (s *unitSuite) TestWatchAddresses(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Update config a couple of times, check a single event.
-	err = s.wordpressMachine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err = s.wordpressMachine.SetAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.wordpressMachine.SetAddresses(network.NewAddress("0.1.2.4", network.ScopeUnknown))
+	err = s.wordpressMachine.SetAddresses(network.NewAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Non-change is not reported.
-	err = s.wordpressMachine.SetAddresses(network.NewAddress("0.1.2.4", network.ScopeUnknown))
+	err = s.wordpressMachine.SetAddresses(network.NewAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -765,8 +769,8 @@ func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
 		err := mm.IncrementConsecutiveErrors()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	code, _ := mm.MeterStatus()
-	c.Assert(code, gc.Equals, state.MeterAmber) // Confirm meter status has changed
+	status := mm.MeterStatus()
+	c.Assert(status.Code, gc.Equals, state.MeterAmber) // Confirm meter status has changed
 	wc.AssertOneChange()
 
 	statetesting.AssertStop(c, w)

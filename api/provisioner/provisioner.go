@@ -199,9 +199,9 @@ func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) ([
 			Disabled:         netInfo.Disabled,
 			NoAutoStart:      netInfo.NoAutoStart,
 			ConfigType:       network.InterfaceConfigType(netInfo.ConfigType),
-			Address:          network.NewAddress(netInfo.Address, network.ScopeUnknown),
+			Address:          network.NewAddress(netInfo.Address),
 			DNSServers:       network.NewAddresses(netInfo.DNSServers...),
-			GatewayAddress:   network.NewAddress(netInfo.GatewayAddress, network.ScopeUnknown),
+			GatewayAddress:   network.NewAddress(netInfo.GatewayAddress),
 			ExtraConfig:      netInfo.ExtraConfig,
 		}
 	}

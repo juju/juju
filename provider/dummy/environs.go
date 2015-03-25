@@ -872,7 +872,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
 	addrs := network.NewAddresses(idString+".dns", "127.0.0.1")
 	if estate.preferIPv6 {
-		addrs = append(addrs, network.NewAddress(fmt.Sprintf("fc00::%x", estate.maxId+1), network.ScopeUnknown))
+		addrs = append(addrs, network.NewAddress(fmt.Sprintf("fc00::%x", estate.maxId+1)))
 	}
 	logger.Debugf("StartInstance addresses: %v", addrs)
 	i := &dummyInstance{
@@ -1125,12 +1125,10 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 			ConfigType:       network.ConfigDHCP,
 			Address: network.NewAddress(
 				fmt.Sprintf("0.%d.0.%d", (i+1)*10, estate.maxAddr+2),
-				network.ScopeUnknown,
 			),
 			DNSServers: network.NewAddresses("ns1.dummy", "ns2.dummy"),
 			GatewayAddress: network.NewAddress(
 				fmt.Sprintf("0.%d.0.1", (i+1)*10),
-				network.ScopeUnknown,
 			),
 		}
 	}

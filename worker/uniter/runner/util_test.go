@@ -15,7 +15,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/uniter"
@@ -185,7 +185,7 @@ func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Service) *state.Unit {
 func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 	unit := s.addUnit(c, svc)
 	name := strings.Replace(unit.Name(), "/", "-", 1)
-	privateAddr := network.NewAddress(name+".testing.invalid", network.ScopeCloudLocal)
+	privateAddr := network.NewScopedAddress(name+".testing.invalid", network.ScopeCloudLocal)
 	err := s.machine.SetAddresses(privateAddr)
 	c.Assert(err, jc.ErrorIsNil)
 	return unit

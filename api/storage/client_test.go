@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -24,8 +26,6 @@ type storageMockSuite struct {
 var _ = gc.Suite(&storageMockSuite{})
 
 func (s *storageMockSuite) TestShow(c *gc.C) {
-	var called bool
-
 	one := "shared-fs/0"
 	oneTag := names.NewStorageTag(one)
 	two := "db-dir/1000"
@@ -39,7 +39,6 @@ func (s *storageMockSuite) TestShow(c *gc.C) {
 			id, request string,
 			a, result interface{},
 		) error {
-			called = true
 			c.Check(objType, gc.Equals, "Storage")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Show")
@@ -74,11 +73,9 @@ func (s *storageMockSuite) TestShow(c *gc.C) {
 	c.Assert(found, gc.HasLen, 2)
 	c.Assert(expected.Contains(found[0].StorageTag), jc.IsTrue)
 	c.Assert(expected.Contains(found[1].StorageTag), jc.IsTrue)
-	c.Assert(called, jc.IsTrue)
 }
 
 func (s *storageMockSuite) TestShowFacadeCallError(c *gc.C) {
-	var called bool
 	one := "shared-fs/0"
 	oneTag := names.NewStorageTag(one)
 
@@ -89,7 +86,6 @@ func (s *storageMockSuite) TestShowFacadeCallError(c *gc.C) {
 			id, request string,
 			a, result interface{},
 		) error {
-			called = true
 			c.Check(objType, gc.Equals, "Storage")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Show")
@@ -100,12 +96,9 @@ func (s *storageMockSuite) TestShowFacadeCallError(c *gc.C) {
 	found, err := storageClient.Show([]names.StorageTag{oneTag})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(found, gc.HasLen, 0)
-	c.Assert(called, jc.IsTrue)
 }
 
 func (s *storageMockSuite) TestList(c *gc.C) {
-	var called bool
-
 	one := "shared-fs/0"
 	oneTag := names.NewStorageTag(one)
 	two := "db-dir/1000"
@@ -118,7 +111,6 @@ func (s *storageMockSuite) TestList(c *gc.C) {
 			id, request string,
 			a, result interface{},
 		) error {
-			called = true
 			c.Check(objType, gc.Equals, "Storage")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "List")
@@ -163,12 +155,9 @@ func (s *storageMockSuite) TestList(c *gc.C) {
 	}
 
 	c.Assert(found, jc.DeepEquals, expected)
-	c.Assert(called, jc.IsTrue)
 }
 
 func (s *storageMockSuite) TestListFacadeCallError(c *gc.C) {
-	var called bool
-
 	msg := "facade failure"
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
@@ -176,7 +165,6 @@ func (s *storageMockSuite) TestListFacadeCallError(c *gc.C) {
 			id, request string,
 			a, result interface{},
 		) error {
-			called = true
 			c.Check(objType, gc.Equals, "Storage")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "List")
@@ -187,5 +175,122 @@ func (s *storageMockSuite) TestListFacadeCallError(c *gc.C) {
 	found, err := storageClient.List()
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(found, gc.HasLen, 0)
+}
+
+func (s *storageMockSuite) TestListPools(c *gc.C) {
+	expected := []params.StoragePool{
+		params.StoragePool{Name: "name0", Provider: "type0"},
+		params.StoragePool{Name: "name1", Provider: "type1"},
+		params.StoragePool{Name: "name2", Provider: "type2"},
+	}
+	want := len(expected)
+
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ListPools")
+
+			args, ok := a.(params.StoragePoolFilter)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.Names, gc.HasLen, 2)
+			c.Assert(args.Providers, gc.HasLen, 1)
+
+			if results, k := result.(*params.StoragePoolsResult); k {
+				instances := make([]params.StoragePool, want)
+				for i := 0; i < want; i++ {
+					instances[i] = params.StoragePool{
+						Name:     fmt.Sprintf("name%v", i),
+						Provider: fmt.Sprintf("type%v", i),
+					}
+				}
+				results.Results = instances
+			}
+
+			return nil
+		})
+	storageClient := storage.NewClient(apiCaller)
+	names := []string{"a", "b"}
+	types := []string{"1"}
+	found, err := storageClient.ListPools(types, names)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found, gc.HasLen, want)
+	c.Assert(found, gc.DeepEquals, expected)
+}
+
+func (s *storageMockSuite) TestListPoolsFacadeCallError(c *gc.C) {
+	msg := "facade failure"
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ListPools")
+
+			return errors.New(msg)
+		})
+	storageClient := storage.NewClient(apiCaller)
+	found, err := storageClient.ListPools(nil, nil)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(found, gc.HasLen, 0)
+}
+
+func (s *storageMockSuite) TestCreatePool(c *gc.C) {
+	var called bool
+	poolName := "poolName"
+	poolType := "poolType"
+	poolConfig := map[string]interface{}{
+		"test": "one",
+		"pass": true,
+	}
+
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "CreatePool")
+
+			args, ok := a.(params.StoragePool)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.Name, gc.Equals, poolName)
+			c.Assert(args.Provider, gc.Equals, poolType)
+			c.Assert(args.Attrs, gc.DeepEquals, poolConfig)
+
+			return nil
+		})
+	storageClient := storage.NewClient(apiCaller)
+	err := storageClient.CreatePool(poolName, poolType, poolConfig)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
+}
+
+func (s *storageMockSuite) TestCreatePoolFacadeCallError(c *gc.C) {
+	msg := "facade failure"
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "CreatePool")
+
+			return errors.New(msg)
+		})
+	storageClient := storage.NewClient(apiCaller)
+	err := storageClient.CreatePool("", "", nil)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }

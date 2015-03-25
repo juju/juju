@@ -12,7 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -398,7 +398,7 @@ func CreateUnitMeterStatus(st *State) error {
 			continue
 		}
 		ops := []txn.Op{
-			createMeterStatusOp(st, unit.globalKey(), &meterStatusDoc{Code: MeterNotSet}),
+			createMeterStatusOp(st, unit.globalKey(), &meterStatusDoc{Code: MeterNotSet.String()}),
 		}
 		if err = st.runRawTransaction(ops); err != nil {
 			upgradesLogger.Warningf("migration failed for unit %q: %v", unit, err)
@@ -497,6 +497,7 @@ func AddLifeFieldOfIPAddresses(st *State) error {
 				life = Dead
 			}
 		}
+		logger.Debugf("setting life %q to address %q", life, address["value"])
 
 		ops = append(ops, txn.Op{
 			C:  ipaddressesC,
@@ -508,6 +509,7 @@ func AddLifeFieldOfIPAddresses(st *State) error {
 		address = nil
 	}
 	if err := iter.Err(); err != nil {
+		logger.Errorf("failed fetching IP addresses: %v", err)
 		return errors.Trace(err)
 	}
 	return st.runRawTransaction(ops)

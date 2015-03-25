@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/worker/uniter/hook"
 )
@@ -63,6 +63,9 @@ type State struct {
 	// Started indicates whether the start hook has run.
 	Started bool `yaml:"started"`
 
+	// Stopped indicates whether the stop hook has run.
+	Stopped bool `yaml:"stopped"`
+
 	// Kind indicates the current operation.
 	Kind Kind `yaml:"op"`
 
@@ -100,34 +103,39 @@ func (st State) validate() (err error) {
 	switch st.Kind {
 	case Install:
 		if hasHook {
-			return errors.New("unexpected hook info")
+			return errors.New("unexpected hook info with Kind Install")
 		}
 		fallthrough
 	case Upgrade:
-		if !hasCharm {
+		switch {
+		case !hasCharm:
 			return errors.New("missing charm URL")
-		} else if hasActionId {
+		case hasActionId:
 			return errors.New("unexpected action id")
 		}
 	case RunAction:
-		if !hasHook {
-			return errors.New("missing hook info")
-		} else if hasCharm {
-			return errors.New("unexpected charm URL")
-		} else if !hasActionId {
+		switch {
+		case !hasActionId:
 			return errors.New("missing action id")
+		case hasCharm:
+			return errors.New("unexpected charm URL")
 		}
 	case RunHook:
-		if hasActionId {
+		switch {
+		case !hasHook:
+			return errors.New("missing hook info with Kind RunHook")
+		case hasCharm:
+			return errors.New("unexpected charm URL")
+		case hasActionId:
 			return errors.New("unexpected action id")
 		}
-		fallthrough
 	case Continue:
-		if !hasHook {
-			return errors.New("missing hook info")
-		} else if hasCharm {
+		switch {
+		case hasHook:
+			return errors.New("unexpected hook info with Kind Continue")
+		case hasCharm:
 			return errors.New("unexpected charm URL")
-		} else if hasActionId {
+		case hasActionId:
 			return errors.New("unexpected action id")
 		}
 	default:

@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
@@ -38,7 +37,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
-	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
@@ -831,7 +829,7 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigDHCP,
-		Address:          network.NewAddress("10.10.0.5", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress("10.10.0.5", network.ScopeCloudLocal),
 	}}
 	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)
 }
@@ -904,56 +902,6 @@ func (t *localServerSuite) TestSupportsAddressAllocationFalse(c *gc.C) {
 	result, err := env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsFalse)
-}
-
-func (t *localServerSuite) TestStartInstanceVolumes(c *gc.C) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	attachmentParams := &storage.VolumeAttachmentParams{
-		AttachmentParams: storage.AttachmentParams{
-			Machine: names.NewMachineTag("0"),
-		},
-	}
-	params := environs.StartInstanceParams{
-		Volumes: []storage.VolumeParams{{
-			Tag:        names.NewVolumeTag("0"),
-			Size:       512, // round up to 1GiB
-			Provider:   ec2.EBS_ProviderType,
-			Attachment: attachmentParams,
-		}, {
-			Tag:        names.NewVolumeTag("1"),
-			Size:       1024, // 1GiB exactly
-			Provider:   ec2.EBS_ProviderType,
-			Attachment: attachmentParams,
-		}, {
-			Tag:        names.NewVolumeTag("2"),
-			Size:       1025, // round up to 2GiB
-			Provider:   ec2.EBS_ProviderType,
-			Attachment: attachmentParams,
-			Attributes: map[string]interface{}{"persistent": true},
-		}},
-	}
-	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Volumes, gc.HasLen, 3)
-	// vol-1 is assigned to /dev/sda1, which does not feature
-	// in the volumes set in state.
-	c.Assert(result.Volumes, gc.DeepEquals, []storage.Volume{{
-		Tag:      names.NewVolumeTag("0"),
-		VolumeId: "vol-2",
-		Size:     1024,
-	}, {
-		Tag:      names.NewVolumeTag("1"),
-		VolumeId: "vol-3",
-		Size:     1024,
-	}, {
-		Tag:        names.NewVolumeTag("2"),
-		VolumeId:   "vol-4",
-		Size:       2048,
-		Persistent: true,
-	}})
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

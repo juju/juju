@@ -10,7 +10,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4/hooks"
+	"gopkg.in/juju/charm.v5-unstable/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -437,7 +437,6 @@ func (s *RunHookSuite) TestCommitSuccess_ConfigChanged_Preserve(c *gc.C) {
 				CollectMetricsTime: 1234567,
 				Kind:               operation.Continue,
 				Step:               operation.Pending,
-				Hook:               &hook.Info{Kind: hooks.ConfigChanged},
 			},
 		)
 	}
@@ -458,7 +457,6 @@ func (s *RunHookSuite) TestCommitSuccess_Start_SetStarted(c *gc.C) {
 				Started: true,
 				Kind:    operation.Continue,
 				Step:    operation.Pending,
-				Hook:    &hook.Info{Kind: hooks.Start},
 			},
 		)
 	}
@@ -480,39 +478,53 @@ func (s *RunHookSuite) TestCommitSuccess_Start_Preserve(c *gc.C) {
 				CollectMetricsTime: 1234567,
 				Kind:               operation.Continue,
 				Step:               operation.Pending,
-				Hook:               &hook.Info{Kind: hooks.Start},
 			},
 		)
 	}
 }
 
-func (s *RunHookSuite) testQueueHook_BlankSlate(c *gc.C, cause, effect hooks.Kind) {
+func (s *RunHookSuite) testQueueHook_BlankSlate(c *gc.C, cause hooks.Kind) {
 	for i, newHook := range []newHook{
 		(operation.Factory).NewRunHook,
 		(operation.Factory).NewRetryHook,
 		(operation.Factory).NewSkipHook,
 	} {
 		c.Logf("variant %d", i)
+		var hi *hook.Info
+		switch cause {
+		case hooks.UpgradeCharm:
+			hi = &hook.Info{Kind: hooks.ConfigChanged}
+		default:
+			hi = nil
+		}
 		s.testCommitSuccess(c,
 			newHook,
 			hook.Info{Kind: cause},
 			operation.State{},
 			operation.State{
-				Kind: operation.RunHook,
-				Step: operation.Queued,
-				Hook: &hook.Info{Kind: effect},
+				Kind:    operation.RunHook,
+				Step:    operation.Queued,
+				Stopped: cause == hooks.Stop,
+				Hook:    hi,
 			},
 		)
 	}
 }
 
-func (s *RunHookSuite) testQueueHook_Preserve(c *gc.C, cause, effect hooks.Kind) {
+func (s *RunHookSuite) testQueueHook_Preserve(c *gc.C, cause hooks.Kind) {
 	for i, newHook := range []newHook{
 		(operation.Factory).NewRunHook,
 		(operation.Factory).NewRetryHook,
 		(operation.Factory).NewSkipHook,
 	} {
 		c.Logf("variant %d", i)
+		var hi *hook.Info
+		switch cause {
+		case hooks.UpgradeCharm:
+			hi = &hook.Info{Kind: hooks.ConfigChanged}
+		default:
+			hi = nil
+		}
 		s.testCommitSuccess(c,
 			newHook,
 			hook.Info{Kind: cause},
@@ -520,28 +532,21 @@ func (s *RunHookSuite) testQueueHook_Preserve(c *gc.C, cause, effect hooks.Kind)
 			operation.State{
 				Kind:               operation.RunHook,
 				Step:               operation.Queued,
-				Hook:               &hook.Info{Kind: effect},
 				Started:            true,
+				Stopped:            cause == hooks.Stop,
+				Hook:               hi,
 				CollectMetricsTime: 1234567,
 			},
 		)
 	}
 }
 
-func (s *RunHookSuite) TestQueueHook_Install_BlankSlate(c *gc.C) {
-	s.testQueueHook_BlankSlate(c, hooks.Install, hooks.ConfigChanged)
-}
-
-func (s *RunHookSuite) TestQueueHook_Install_Preserve(c *gc.C) {
-	s.testQueueHook_Preserve(c, hooks.Install, hooks.ConfigChanged)
-}
-
 func (s *RunHookSuite) TestQueueHook_UpgradeCharm_BlankSlate(c *gc.C) {
-	s.testQueueHook_BlankSlate(c, hooks.UpgradeCharm, hooks.ConfigChanged)
+	s.testQueueHook_BlankSlate(c, hooks.UpgradeCharm)
 }
 
 func (s *RunHookSuite) TestQueueHook_UpgradeCharm_Preserve(c *gc.C) {
-	s.testQueueHook_Preserve(c, hooks.UpgradeCharm, hooks.ConfigChanged)
+	s.testQueueHook_Preserve(c, hooks.UpgradeCharm)
 }
 
 func (s *RunHookSuite) testQueueNothing_BlankSlate(c *gc.C, hookInfo hook.Info) {
@@ -556,9 +561,9 @@ func (s *RunHookSuite) testQueueNothing_BlankSlate(c *gc.C, hookInfo hook.Info) 
 			hookInfo,
 			operation.State{},
 			operation.State{
-				Kind: operation.Continue,
-				Step: operation.Pending,
-				Hook: &hookInfo,
+				Kind:    operation.Continue,
+				Step:    operation.Pending,
+				Stopped: hookInfo.Kind == hooks.Stop,
 			},
 		)
 	}
@@ -578,12 +583,24 @@ func (s *RunHookSuite) testQueueNothing_Preserve(c *gc.C, hookInfo hook.Info) {
 			operation.State{
 				Kind:               operation.Continue,
 				Step:               operation.Pending,
-				Hook:               &hookInfo,
 				Started:            true,
+				Stopped:            hookInfo.Kind == hooks.Stop,
 				CollectMetricsTime: 1234567,
 			},
 		)
 	}
+}
+
+func (s *RunHookSuite) TestQueueNothing_Install_BlankSlate(c *gc.C) {
+	s.testQueueNothing_BlankSlate(c, hook.Info{
+		Kind: hooks.Install,
+	})
+}
+
+func (s *RunHookSuite) TestQueueNothing_Install_Preserve(c *gc.C) {
+	s.testQueueNothing_Preserve(c, hook.Info{
+		Kind: hooks.Install,
+	})
 }
 
 func (s *RunHookSuite) TestQueueNothing_Stop_BlankSlate(c *gc.C) {
@@ -653,13 +670,11 @@ func (s *RunHookSuite) TestQueueNothing_RelationBroken_Preserve(c *gc.C) {
 }
 
 func (s *RunHookSuite) testCommitSuccess_CollectMetricsTime(c *gc.C, newHook newHook) {
-	hookInfo := hook.Info{Kind: hooks.CollectMetrics}
-
 	callbacks := &CommitHookCallbacks{
 		MockCommitHook: &MockCommitHook{},
 	}
 	factory := operation.NewFactory(nil, nil, callbacks, nil, nil)
-	op, err := newHook(factory, hookInfo)
+	op, err := newHook(factory, hook.Info{Kind: hooks.CollectMetrics})
 	c.Assert(err, jc.ErrorIsNil)
 
 	nowBefore := time.Now().Unix()
@@ -678,7 +693,6 @@ func (s *RunHookSuite) testCommitSuccess_CollectMetricsTime(c *gc.C, newHook new
 		Started: true,
 		Kind:    operation.Continue,
 		Step:    operation.Pending,
-		Hook:    &hookInfo,
 	})
 }
 

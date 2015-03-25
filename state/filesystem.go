@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/storage"
@@ -245,13 +246,26 @@ func (st *State) Filesystem(tag names.FilesystemTag) (Filesystem, error) {
 // StorageInstanceFilesystem returns the Filesystem assigned to the specified
 // storage instance.
 func (st *State) StorageInstanceFilesystem(tag names.StorageTag) (Filesystem, error) {
+	query := bson.D{{"storageid", tag.Id()}}
+	description := fmt.Sprintf("filesystem for storage instance %q", tag.Id())
+	return st.filesystem(query, description)
+}
+
+// VolumeFilesystem returns the Filesystem backed by the specified volume.
+func (st *State) VolumeFilesystem(tag names.VolumeTag) (Filesystem, error) {
+	query := bson.D{{"volumeid", tag.Id()}}
+	description := fmt.Sprintf("filesystem for volume %q", tag.Id())
+	return st.filesystem(query, description)
+}
+
+func (st *State) filesystem(query bson.D, description string) (Filesystem, error) {
 	coll, cleanup := st.getCollection(filesystemsC)
 	defer cleanup()
 
 	var f filesystem
-	err := coll.Find(bson.D{{"storageid", tag.Id()}}).One(&f.doc)
+	err := coll.Find(query).One(&f.doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("filesystem for storage instance %q", tag.Id())
+		return nil, errors.NotFoundf(description)
 	} else if err != nil {
 		return nil, errors.Annotate(err, "cannot get filesystem")
 	}
@@ -297,7 +311,19 @@ func (st *State) MachineFilesystemAttachments(machine names.MachineTag) ([]Files
 // filesystemAttachmentId returns a filesystem attachment document ID,
 // given the corresponding filesystem name and machine ID.
 func filesystemAttachmentId(machineId, filesystemId string) string {
-	return fmt.Sprintf("%s#%s", machineGlobalKey(machineId), filesystemId)
+	return fmt.Sprintf("%s:%s", machineId, filesystemId)
+}
+
+// ParseFilesystemAttachmentId parses a string as a filesystem attachment ID,
+// returning the machine and filesystem components.
+func ParseFilesystemAttachmentId(id string) (names.MachineTag, names.FilesystemTag, error) {
+	fields := strings.SplitN(id, ":", 2)
+	if len(fields) != 2 || !names.IsValidMachine(fields[0]) || !names.IsValidFilesystem(fields[1]) {
+		return names.MachineTag{}, names.FilesystemTag{}, errors.Errorf("invalid filesystem attachment ID %q", id)
+	}
+	machineTag := names.NewMachineTag(fields[0])
+	filesystemTag := names.NewFilesystemTag(fields[1])
+	return machineTag, filesystemTag, nil
 }
 
 // newFilesystemId returns a unique filesystem ID.
@@ -401,23 +427,28 @@ func (st *State) validateFilesystemParams(params FilesystemParams, machineId str
 	return machineId, nil
 }
 
+type filesystemAttachmentTemplate struct {
+	tag    names.FilesystemTag
+	params FilesystemAttachmentParams
+}
+
 // createMachineFilesystemAttachmentInfo creates filesystem
 // attachments for the specified machine, and attachment
 // parameters keyed by filesystem tags.
-func createMachineFilesystemAttachmentsOps(machineId string, params map[names.FilesystemTag]FilesystemAttachmentParams) []txn.Op {
-	ops := make([]txn.Op, 0, len(params))
-	for fsTag, params := range params {
-		paramsCopy := params
-		ops = append(ops, txn.Op{
+func createMachineFilesystemAttachmentsOps(machineId string, attachments []filesystemAttachmentTemplate) []txn.Op {
+	ops := make([]txn.Op, len(attachments))
+	for i, attachment := range attachments {
+		paramsCopy := attachment.params
+		ops[i] = txn.Op{
 			C:      filesystemAttachmentsC,
-			Id:     filesystemAttachmentId(machineId, fsTag.Id()),
+			Id:     filesystemAttachmentId(machineId, attachment.tag.Id()),
 			Assert: txn.DocMissing,
 			Insert: &filesystemAttachmentDoc{
-				Filesystem: fsTag.Id(),
+				Filesystem: attachment.tag.Id(),
 				Machine:    machineId,
 				Params:     &paramsCopy,
 			},
-		})
+		}
 	}
 	return ops
 }
@@ -439,11 +470,36 @@ func (st *State) SetFilesystemInfo(tag names.FilesystemTag, info FilesystemInfo)
 		if params, ok := fs.Params(); ok {
 			info.Pool = params.Pool
 			unsetParams = true
+		} else {
+			// Ensure immutable properties do not change.
+			oldInfo, err := fs.Info()
+			if err != nil {
+				return nil, err
+			}
+			if err := validateFilesystemInfoChange(info, oldInfo); err != nil {
+				return nil, err
+			}
 		}
 		ops := setFilesystemInfoOps(tag, info, unsetParams)
 		return ops, nil
 	}
 	return st.run(buildTxn)
+}
+
+func validateFilesystemInfoChange(newInfo, oldInfo FilesystemInfo) error {
+	if newInfo.Pool != oldInfo.Pool {
+		return errors.Errorf(
+			"cannot change pool from %q to %q",
+			oldInfo.Pool, newInfo.Pool,
+		)
+	}
+	if newInfo.FilesystemId != oldInfo.FilesystemId {
+		return errors.Errorf(
+			"cannot change filesystem ID from %q to %q",
+			oldInfo.FilesystemId, newInfo.FilesystemId,
+		)
+	}
+	return nil
 }
 
 func setFilesystemInfoOps(tag names.FilesystemTag, info FilesystemInfo, unsetParams bool) []txn.Op {
@@ -473,6 +529,8 @@ func (st *State) SetFilesystemAttachmentInfo(
 ) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set info for filesystem attachment %s:%s", filesystemTag.Id(), machineTag.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// TODO(axw) attempting to set filesystem attachment info for a
+		// filesystem that hasn't been provisioned should fail.
 		fsa, err := st.FilesystemAttachment(machineTag, filesystemTag)
 		if err != nil {
 			return nil, errors.Trace(err)
