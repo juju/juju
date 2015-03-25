@@ -116,6 +116,8 @@ func removeAttachments(ctx *context, ids []params.MachineStorageId) error {
 	return nil
 }
 
+var errNonDynamic = errors.New("non-dynamic storage provider")
+
 // volumeSource returns a volume source given a name, provider type,
 // environment config and storage directory.
 //
@@ -132,6 +134,9 @@ func volumeSource(
 	provider, sourceConfig, err := sourceParams(providerType, sourceName, baseStorageDir)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting storage source %q params", sourceName)
+	}
+	if !provider.Dynamic() {
+		return nil, errNonDynamic
 	}
 	source, err := provider.VolumeSource(environConfig, sourceConfig)
 	if err != nil {

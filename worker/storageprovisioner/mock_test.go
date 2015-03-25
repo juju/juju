@@ -381,6 +381,7 @@ func (m *mockLifecycleManager) RemoveAttachments([]params.MachineStorageId) ([]p
 // Set up a dummy storage provider so we can stub out volume creation.
 type dummyProvider struct {
 	storage.Provider
+	dynamic bool
 
 	volumeSourceFunc func(*config.Config, *storage.Config) (storage.VolumeSource, error)
 }
@@ -402,6 +403,10 @@ func (p *dummyProvider) VolumeSource(environConfig *config.Config, providerConfi
 
 func (*dummyProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
 	return &dummyFilesystemSource{}, nil
+}
+
+func (p *dummyProvider) Dynamic() bool {
+	return p.dynamic
 }
 
 func (*dummyVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {

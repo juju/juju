@@ -28,7 +28,7 @@ var _ = gc.Suite(&storageProvisionerSuite{})
 
 func (s *storageProvisionerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.provider = &dummyProvider{}
+	s.provider = &dummyProvider{dynamic: true}
 	registry.RegisterProvider("dummy", s.provider)
 	s.AddCleanup(func(*gc.C) {
 		registry.RegisterProvider("dummy", nil)
@@ -168,6 +168,34 @@ func (s *storageProvisionerSuite) TestVolumeNeedsInstance(c *gc.C) {
 	environAccessor.watcher.changes <- struct{}{}
 	err := worker.Wait()
 	c.Assert(err, gc.ErrorMatches, `provisioning volumes: creating volumes: need instance to provision volume`)
+}
+
+func (s *storageProvisionerSuite) TestVolumeNonDynamic(c *gc.C) {
+	volumeInfoSet := make(chan struct{})
+	volumeAccessor := newMockVolumeAccessor()
+	volumeAccessor.setVolumeInfo = func([]params.Volume) ([]params.ErrorResult, error) {
+		defer close(volumeInfoSet)
+		return nil, nil
+	}
+
+	lifecycleManager := &mockLifecycleManager{}
+	filesystemAccessor := newMockFilesystemAccessor()
+	environAccessor := newMockEnvironAccessor(c)
+	worker := storageprovisioner.NewStorageProvisioner(
+		"storage-dir",
+		volumeAccessor,
+		filesystemAccessor,
+		lifecycleManager,
+		environAccessor,
+	)
+	defer worker.Wait()
+	defer worker.Kill()
+
+	// Volumes for non-dynamic providers should not be created.
+	s.provider.dynamic = false
+	environAccessor.watcher.changes <- struct{}{}
+	volumeAccessor.volumesWatcher.changes <- []string{"1"}
+	assertNoEvent(c, volumeInfoSet, "volume info set")
 }
 
 func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {

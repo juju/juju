@@ -363,7 +363,9 @@ func createVolumes(
 		volumeSource, err := volumeSource(
 			environConfig, baseStorageDir, sourceName, params.Provider,
 		)
-		if err != nil {
+		if errors.Cause(err) == errNonDynamic {
+			volumeSource = nil
+		} else if err != nil {
 			return nil, nil, errors.Annotate(err, "getting volume source")
 		}
 		volumeSources[sourceName] = volumeSource
@@ -374,6 +376,11 @@ func createVolumes(
 	for _, params := range params {
 		sourceName := string(params.Provider)
 		volumeSource := volumeSources[sourceName]
+		if volumeSource == nil {
+			// Ignore nil volume sources; this means that the
+			// volume should be created by the machine-provisioner.
+			continue
+		}
 		err := volumeSource.ValidateVolumeParams(params)
 		switch errors.Cause(err) {
 		case nil:
