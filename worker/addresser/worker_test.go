@@ -195,30 +195,31 @@ func (s *workerSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
 }
 
 func (s *workerSuite) TestWorkerHandlesProviderError(c *gc.C) {
+	// Create an initial worker to clear the dead addresses.
 	w, err := addresser.NewWorker(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		c.Assert(worker.Stop(w), gc.IsNil)
-	}()
 	s.waitForInitialDead(c)
-	// now break the ReleaseAddress provider method
-	s.AssertConfigParameterUpdated(c, "broken", "ReleaseAddress")
+	c.Assert(worker.Stop(w), gc.IsNil)
 
-	opsChan := dummyListen()
+	// Now break the ReleaseAddress provider method and create a new
+	// worker.
+	s.AssertConfigParameterUpdated(c, "broken", "ReleaseAddress")
+	w, err = addresser.NewWorker(s.State)
+	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := s.State.IPAddress("0.1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
 	err = addr.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// wait for ReleaseAddress attempt
-	op := waitForReleaseOp(c, opsChan)
-	c.Assert(op, jc.DeepEquals, makeReleaseOp(3))
-
 	// As we failed to release the address it should not have been removed
 	// from state.
-	_, err = s.State.IPAddress("0.1.2.3")
-	c.Assert(err, jc.ErrorIsNil)
+	for a := common.ShortAttempt.Start(); a.Next(); {
+		_, err := s.State.IPAddress("0.1.2.3")
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	msg := "failed to release address 0.1.2.3: dummy.ReleaseAddress is broken"
+	c.Assert(worker.Stop(w), gc.ErrorMatches, msg)
 }
 
 func (s *workerSuite) TestWorkerErrorOnStartKillsWorker(c *gc.C) {
