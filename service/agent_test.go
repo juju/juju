@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/shell"
 	gc "gopkg.in/check.v1"
 
@@ -17,14 +18,16 @@ import (
 	"github.com/juju/juju/service/common"
 )
 
+var (
+	cmdSuffix string
+	shquote   = utils.ShQuote
+)
+
 func init() {
-	quote = "'"
 	if runtime.GOOS == "windows" {
 		cmdSuffix = ".exe"
 	}
 }
-
-var quote, cmdSuffix string
 
 type agentSuite struct {
 	service.BaseSuite
@@ -42,10 +45,11 @@ func (*agentSuite) TestAgentConfMachineLocal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	conf := service.AgentConf(info, renderer)
 
+	jujud := filepath.Join(dataDir, "tools", "machine-0", "jujud"+cmdSuffix)
 	cmd := strings.Join([]string{
-		quote + filepath.Join(dataDir, "tools", "machine-0", "jujud"+cmdSuffix) + quote,
+		shquote(jujud),
 		"machine",
-		"--data-dir", quote + dataDir + quote,
+		"--data-dir", shquote(dataDir),
 		"--machine-id", "0",
 		"--debug",
 	}, " ")
@@ -70,9 +74,9 @@ func (*agentSuite) TestAgentConfMachineUbuntu(c *gc.C) {
 	conf := service.AgentConf(info, renderer)
 
 	cmd := strings.Join([]string{
-		"'" + dataDir + "/tools/machine-0/jujud'",
+		shquote(dataDir + "/tools/machine-0/jujud"),
 		"machine",
-		"--data-dir", "'" + dataDir + "'",
+		"--data-dir", shquote(dataDir),
 		"--machine-id", "0",
 		"--debug",
 	}, " ")
@@ -97,9 +101,9 @@ func (*agentSuite) TestAgentConfMachineWindows(c *gc.C) {
 	conf := service.AgentConf(info, renderer)
 
 	cmd := strings.Join([]string{
-		`'` + dataDir + `\tools\machine-0\jujud.exe'`,
+		shquote(dataDir + `\tools\machine-0\jujud.exe`),
 		"machine",
-		"--data-dir", `'` + dataDir + `'`,
+		"--data-dir", shquote(dataDir),
 		"--machine-id", "0",
 		"--debug",
 	}, " ")
@@ -123,10 +127,11 @@ func (*agentSuite) TestAgentConfUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	conf := service.AgentConf(info, renderer)
 
+	jujud := filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud"+cmdSuffix)
 	cmd := strings.Join([]string{
-		quote + filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud"+cmdSuffix) + quote,
+		shquote(jujud),
 		"unit",
-		"--data-dir", quote + dataDir + quote,
+		"--data-dir", shquote(dataDir),
 		"--unit-name", "wordpress/0",
 		"--debug",
 	}, " ")
@@ -147,10 +152,11 @@ func (*agentSuite) TestContainerAgentConf(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	conf := service.ContainerAgentConf(info, renderer, "cont")
 
+	jujud := filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud"+cmdSuffix)
 	cmd := strings.Join([]string{
-		quote + filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud"+cmdSuffix) + quote,
+		shquote(jujud),
 		"unit",
-		"--data-dir", quote + dataDir + quote,
+		"--data-dir", shquote(dataDir),
 		"--unit-name", "wordpress/0",
 		"--debug",
 	}, " ")
