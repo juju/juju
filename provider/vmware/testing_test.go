@@ -4,9 +4,12 @@
 package vmware
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"reflect"
 
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi"
@@ -18,8 +21,13 @@ import (
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 )
 
 var (
@@ -35,31 +43,58 @@ var (
 	})
 )
 
-type BaseSuiteUnpatched struct {
+type BaseSuite struct {
 	gitjujutesting.IsolationSuite
 
 	Config    *config.Config
 	EnvConfig *environConfig
 	Env       *environ
 	Prefix    string
+
+	StartInstArgs environs.StartInstanceParams
+
+	ServeMux  *http.ServeMux
+	ServerUrl string
 }
 
-func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
+func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	s.PatchValue(&newConnection, newFakeConnection)
 	s.initEnv(c)
-	//s.initInst(c)
+	tools := []*tools.Tools{{
+		Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
+		URL:     "https://example.org",
+	}}
+
+	cons := constraints.Value{}
+
+	machineConfig, err := environs.NewBootstrapMachineConfig(cons, "trusty")
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineConfig.Tools = tools[0]
+	machineConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
+
+	s.StartInstArgs = environs.StartInstanceParams{
+		MachineConfig: machineConfig,
+		Tools:         tools,
+		Constraints:   cons,
+		//Placement: "",
+		//DistributionGroup: nil,
+	}
+	s.setUpHttpProxy(c)
 }
 
-func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
-	s.Env = &environ{
-		name: "vmware",
-	}
-	cfg := s.NewConfig(c, nil)
+func (s *BaseSuite) initEnv(c *gc.C) {
+	cfg, err := testing.EnvironConfig(c).Apply(ConfigAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	s.Env = env.(*environ)
 	s.setConfig(c, cfg)
 }
 
-func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
+func (s *BaseSuite) setConfig(c *gc.C, cfg *config.Config) {
 	s.Config = cfg
 	ecfg, err := newValidConfig(cfg, configDefaults)
 	c.Assert(err, jc.ErrorIsNil)
@@ -70,59 +105,36 @@ func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
 	s.Prefix = "juju-" + uuid + "-"
 }
 
-func (s *BaseSuiteUnpatched) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
-	var err error
-	cfg := testing.EnvironConfig(c)
-	cfg, err = cfg.Apply(ConfigAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, err = cfg.Apply(updates)
-	c.Assert(err, jc.ErrorIsNil)
-	return cfg
-}
-
-func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{}) {
+func (s *BaseSuite) UpdateConfig(c *gc.C, attrs map[string]interface{}) {
 	cfg, err := s.Config.Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setConfig(c, cfg)
 }
 
-type BaseSuite struct {
-	BaseSuiteUnpatched
-}
-
-func (s *BaseSuite) SetUpTest(c *gc.C) {
-	s.BaseSuiteUnpatched.SetUpTest(c)
-
-	s.PatchValue(&newConnection, newFakeConnection)
-
-	/*s.FakeConn = &fakeConn{}
-	s.FakeCommon = &fakeCommon{}
-	s.FakeEnviron = &fakeEnviron{}
-	s.FakeImages = &fakeImages{}
-
-	// Patch out all expensive external deps.
-	s.Env.gce = s.FakeConn
-	s.PatchValue(&newConnection, func(*environConfig) gceConnection {
-		return s.FakeConn
-	})
-	s.PatchValue(&supportedArchitectures, s.FakeCommon.SupportedArchitectures)
-	s.PatchValue(&bootstrap, s.FakeCommon.Bootstrap)
-	s.PatchValue(&destroyEnv, s.FakeCommon.Destroy)
-	s.PatchValue(&availabilityZoneAllocations, s.FakeCommon.AvailabilityZoneAllocations)
-	s.PatchValue(&buildInstanceSpec, s.FakeEnviron.BuildInstanceSpec)
-	s.PatchValue(&getHardwareCharacteristics, s.FakeEnviron.GetHardwareCharacteristics)
-	s.PatchValue(&newRawInstance, s.FakeEnviron.NewRawInstance)
-	s.PatchValue(&findInstanceSpec, s.FakeEnviron.FindInstanceSpec)
-	s.PatchValue(&getInstances, s.FakeEnviron.GetInstances)
-	s.PatchValue(&imageMetadataFetch, s.FakeImages.ImageMetadataFetch)*/
+func (s *BaseSuite) setUpHttpProxy(c *gc.C) {
+	s.ServeMux = http.NewServeMux()
+	server := httptest.NewServer(s.ServeMux)
+	s.ServerUrl = server.URL
+	cfg, _ := s.Config.Apply(map[string]interface{}{"image-metadata-url": server.URL})
+	s.setConfig(c, cfg)
 }
 
 type fakeApiHandler func(req, res soap.HasFault)
 type fakePropertiesHandler func(req, res *methods.RetrievePropertiesBody)
 
+type fakeApiCall struct {
+	handler fakeApiHandler
+	method  string
+}
+
+type fakePropertiesCall struct {
+	handler fakePropertiesHandler
+	object  string
+}
+
 type fakeClient struct {
-	handlers         map[string]fakeApiHandler
-	propertyHandlers map[string]fakePropertiesHandler
+	handlers         []fakeApiCall
+	propertyHandlers []fakePropertiesCall
 }
 
 func (c *fakeClient) RoundTrip(ctx context.Context, req, res soap.HasFault) error {
@@ -133,41 +145,55 @@ func (c *fakeClient) RoundTrip(ctx context.Context, req, res soap.HasFault) erro
 		resBody := res.(*methods.RetrievePropertiesBody)
 		obj := reqBody.Req.SpecSet[0].ObjectSet[0].Obj.Value
 		logger.Debugf("executing RetrieveProperties for object %s", obj)
-		handler := c.propertyHandlers[obj]
-		handler(reqBody, resBody)
+		call := c.propertyHandlers[0]
+		if call.object != obj {
+			return errors.Errorf("Expected object of type %s, got %s", obj, call.object)
+		}
+		call.handler(reqBody, resBody)
+		c.propertyHandlers = c.propertyHandlers[1:]
 	} else {
 		logger.Infof("Executing RoundTrip method, type: %s", reqType)
-		handler := c.handlers[reqType]
-		handler(req, res)
+		call := c.handlers[0]
+		if call.method != reqType {
+			return errors.Errorf("Expected method of type %s, got %s", reqType, call.method)
+		}
+		call.handler(req, res)
+		c.handlers = c.handlers[1:]
 	}
 	return nil
 }
 
 func (c *fakeClient) SetProxyHandler(method string, handler fakeApiHandler) {
-	c.handlers[method] = handler
+	c.handlers = append(c.handlers, fakeApiCall{method: method, handler: handler})
 }
 
 func (c *fakeClient) SetPropertyProxyHandler(obj string, handler fakePropertiesHandler) {
-	c.propertyHandlers[obj] = handler
+	c.propertyHandlers = append(c.propertyHandlers, fakePropertiesCall{object: obj, handler: handler})
 }
 
 var newFakeConnection = func(url *url.URL) (*govmomi.Client, error) {
 	fakeClient := &fakeClient{
-		handlers:         make(map[string]fakeApiHandler),
-		propertyHandlers: make(map[string]fakePropertiesHandler),
+		handlers:         make([]fakeApiCall, 0, 100),
+		propertyHandlers: make([]fakePropertiesCall, 0, 100),
 	}
 
-	fakeClient.SetPropertyProxyHandler("FakeRootFolder", retrieveDatacenter)
-	fakeClient.SetPropertyProxyHandler("FakeDatacenter", retrieveDatacenterProperties)
-	fakeClient.SetPropertyProxyHandler("FakeDatastoreFolder", retrieveDatastore)
-	fakeClient.SetPropertyProxyHandler("FakeHostFolder", retrieveResourcePool)
+	fakeClient.SetPropertyProxyHandler("FakeRootFolder", RetrieveDatacenter)
+	fakeClient.SetPropertyProxyHandler("FakeDatacenter", RetrieveDatacenterProperties)
+	fakeClient.SetPropertyProxyHandler("FakeDatastoreFolder", RetrieveDatastore)
+	fakeClient.SetPropertyProxyHandler("FakeDatastoreFolder", RetrieveDatastore)
+	fakeClient.SetPropertyProxyHandler("FakeHostFolder", RetrieveResourcePool)
+	fakeClient.SetPropertyProxyHandler("FakeHostFolder", RetrieveResourcePool)
 
 	vimClient := &vim25.Client{
-		//Client:         soapClient,
+		Client: &soap.Client{},
 		ServiceContent: types.ServiceContent{
 			RootFolder: types.ManagedObjectReference{
 				Type:  "Folder",
 				Value: "FakeRootFolder",
+			},
+			OvfManager: &types.ManagedObjectReference{
+				Type:  "OvfManager",
+				Value: "FakeOvfManager",
 			},
 		},
 		RoundTripper: fakeClient,
@@ -180,7 +206,7 @@ var newFakeConnection = func(url *url.URL) (*govmomi.Client, error) {
 	return c, nil
 }
 
-var commonRetrieveProperties = func(resBody *methods.RetrievePropertiesBody, objType, objValue, propName string, propValue interface{}) {
+var CommonRetrieveProperties = func(resBody *methods.RetrievePropertiesBody, objType, objValue, propName string, propValue interface{}) {
 	resBody.Res = &types.RetrievePropertiesResponse{
 		Returnval: []types.ObjectContent{
 			types.ObjectContent{
@@ -196,19 +222,19 @@ var commonRetrieveProperties = func(resBody *methods.RetrievePropertiesBody, obj
 	}
 }
 
-var retrieveDatacenter = func(reqBody, resBody *methods.RetrievePropertiesBody) {
-	commonRetrieveProperties(resBody, "Datacenter", "FakeDatacenter", "name", "datacenter1")
+var RetrieveDatacenter = func(reqBody, resBody *methods.RetrievePropertiesBody) {
+	CommonRetrieveProperties(resBody, "Datacenter", "FakeDatacenter", "name", "datacenter1")
 }
 
-var retrieveDatastore = func(reqBody, resBody *methods.RetrievePropertiesBody) {
-	commonRetrieveProperties(resBody, "Datastore", "FakeDatastore", "name", "datastore1")
+var RetrieveDatastore = func(reqBody, resBody *methods.RetrievePropertiesBody) {
+	CommonRetrieveProperties(resBody, "Datastore", "FakeDatastore", "name", "datastore1")
 }
 
-var retrieveResourcePool = func(reqBody, resBody *methods.RetrievePropertiesBody) {
-	commonRetrieveProperties(resBody, "ResourcePool", "FakeResourcePool", "name", "resource-pool1")
+var RetrieveResourcePool = func(reqBody, resBody *methods.RetrievePropertiesBody) {
+	CommonRetrieveProperties(resBody, "ResourcePool", "FakeResourcePool", "name", "resource-pool1")
 }
 
-var retrieveDatacenterProperties = func(reqBody, resBody *methods.RetrievePropertiesBody) {
+var RetrieveDatacenterProperties = func(reqBody, resBody *methods.RetrievePropertiesBody) {
 	resBody.Res = &types.RetrievePropertiesResponse{
 		Returnval: []types.ObjectContent{
 			types.ObjectContent{

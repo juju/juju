@@ -10,3 +10,7 @@ import (
 var (
 	Provider environs.EnvironProvider = providerInstance
 )
+
+func ExposeEnvFakeClient(env *environ) *fakeClient {
+	return env.client.connection.RoundTripper.(*fakeClient)
+}
