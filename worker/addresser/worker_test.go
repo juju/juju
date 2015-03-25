@@ -66,7 +66,7 @@ func (s *workerSuite) createAddresses(c *gc.C) {
 }
 
 func dummyListen() chan dummy.Operation {
-	opsChan := make(chan dummy.Operation, 5)
+	opsChan := make(chan dummy.Operation, 10)
 	dummy.Listen(opsChan)
 	return opsChan
 }
@@ -102,11 +102,31 @@ func (s *workerSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
 	}()
 	s.waitForInitialDead(c)
 
-	op1 := waitForReleaseOp(c, opsChan)
-	op2 := waitForReleaseOp(c, opsChan)
+	ops := []dummy.OpReleaseAddress{}
+	for i := 1; i <= 10; i++ {
+		select {
+		case op := <-opsChan:
+			releaseOp, ok := op.(dummy.OpReleaseAddress)
+			if !ok {
+				c.Fail()
+			}
+			ops = append(ops, releaseOp)
+		default:
+		}
+	}
 
-	expectedDummyOps := []dummy.OpReleaseAddress{makeReleaseOp(4), makeReleaseOp(6)}
-	c.Assert([]dummy.OpReleaseAddress{op1, op2}, jc.SameContents, expectedDummyOps)
+	var found4 bool
+	var found6 bool
+	for _, anOp := range ops {
+		if anOp.Address.Value == "0.1.2.4" {
+			found4 = true
+		} else if anOp.Address.Value == "0.1.2.6" {
+			found6 = true
+		}
+	}
+	c.Assert(found4, jc.IsTrue)
+	c.Assert(found6, jc.IsTrue)
+
 }
 
 func (s *workerSuite) waitForInitialDead(c *gc.C) {
@@ -206,9 +226,9 @@ func (s *workerSuite) TestWorkerErrorOnStartKillsWorker(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "broken", "ReleaseAddress")
 	w, err := addresser.NewWorker(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	// This should not block as the worker has errored out.
-	w.Wait()
 
+	// The worker should have died with an error.
+	w.Wait()
 	msg := "failed to release address .*: dummy.ReleaseAddress is broken"
 	c.Assert(worker.Stop(w), gc.ErrorMatches, msg)
 }
