@@ -92,19 +92,19 @@ func formatSimple(value interface{}) ([]byte, error) {
 			ensureAvailabilityResult.Added,
 		},
 		{
-			"removing machines %s\n",
+			"removing machines: %s\n",
 			ensureAvailabilityResult.Removed,
 		},
 		{
-			"promoting machines %s\n",
+			"promoting machines: %s\n",
 			ensureAvailabilityResult.Promoted,
 		},
 		{
-			"demoting machines %s\n",
+			"demoting machines: %s\n",
 			ensureAvailabilityResult.Demoted,
 		},
 		{
-			"converting machines %s\n",
+			"converting machines: %s\n",
 			ensureAvailabilityResult.Converted,
 		},
 	} {

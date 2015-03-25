@@ -4,9 +4,9 @@
 package worker
 
 import (
-	"errors"
 	"time"
 
+	"github.com/juju/errors"
 	"launchpad.net/tomb"
 )
 

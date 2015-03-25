@@ -358,6 +358,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
 	err := a.runner.Wait()
+	logger.Infof("Machine agent runner ended with %s", errors.Details(err))
 	switch err {
 	case worker.ErrTerminateAgent:
 		err = a.uninstallAgent(agentConfig)
@@ -399,6 +400,11 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	// On windows, the shutdown command is asynchronous. We return ErrRebootMachine
 	// so the agent will simply exit without error pending reboot/shutdown.
 	return worker.ErrRebootMachine
+}
+
+func (a *MachineAgent) RestartService() error {
+	name := a.CurrentConfig().Value(agent.AgentServiceName)
+	return service.Restart(name)
 }
 
 func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
@@ -651,7 +657,18 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 
 	if !isEnvironManager {
 		runner.StartWorker("converter", func() (worker.Worker, error) {
-			return converter.NewConverter(entity, st.Converter(), agentConfig), nil
+			getEntity := func() (converter.Entity, error) {
+				_, entity, err := OpenAPIState(agentConfig, a)
+				return entity, err
+			}
+			setPW := func(pw string) {
+				a.AgentConfigWriter.ChangeConfig(func(config agent.ConfigSetter) error {
+					config.SetPassword(pw)
+					config.SetStateAddresses([]string{"localhost:37017"})
+					return nil
+				})
+			}
+			return converter.NewConverter(getEntity, setPW, a.RestartService, st.Converter(), agentConfig), nil
 		})
 	}
 
@@ -865,7 +882,13 @@ func (a *MachineAgent) updateSupportedContainers(
 
 // StateWorker returns a worker running all the workers that require
 // a *state.State connection.
-func (a *MachineAgent) StateWorker() (worker.Worker, error) {
+func (a *MachineAgent) StateWorker() (_ worker.Worker, err error) {
+	defer func() {
+		if err != nil {
+			logger.Errorf("State worker exiting with error %s\nRestarting jujud.", errors.Details(err))
+			a.RestartService()
+		}
+	}()
 	agentConfig := a.CurrentConfig()
 
 	// Start MongoDB server and dial.

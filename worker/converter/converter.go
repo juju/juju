@@ -19,9 +19,11 @@ var logger = loggo.GetLogger("juju.worker.converter")
 
 // Converter ...
 type Converter struct {
-	st     *converter.State
-	ent    Entity
-	config agent.Config
+	st          *converter.State
+	getEnt      func() (Entity, error)
+	restart     func() error
+	setPassword func(pw string)
+	config      agent.Config
 }
 
 type Entity interface {
@@ -31,14 +33,18 @@ type Entity interface {
 
 // NewConverter ...
 func NewConverter(
-	ent Entity,
+	getEnt func() (Entity, error),
+	setPW func(pw string),
+	restart func() error,
 	st *converter.State,
 	agentConfig agent.Config,
 ) worker.Worker {
 	return worker.NewNotifyWorker(&Converter{
-		ent:    ent,
-		st:     st,
-		config: agentConfig,
+		getEnt:      getEnt,
+		setPassword: setPW,
+		restart:     restart,
+		st:          st,
+		config:      agentConfig,
 	})
 }
 
@@ -56,21 +62,25 @@ func (c *Converter) Handle() error {
 	}
 
 	for _, job := range jobs.Jobs {
-		logger.Infof("job found: %q", job)
-		logger.Infof("job details: #v", job)
 		if job.NeedsState() {
-			logger.Infof("converting %q to a state server", c.config.Tag())
+			logger.Warningf("converting %q to a state server", c.config.Tag())
 			pw, err := utils.RandomPassword()
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if err := c.ent.SetPassword(pw); err != nil {
+			ent, err := c.getEnt()
+			if err != nil {
+				logger.Errorf("error from getEntity: %s", errors.Details(err))
 				return errors.Trace(err)
 			}
-			// change agentConfig too?
 
-			// restart juju, probably a better way?
-			return worker.ErrRebootMachine
+			if err := ent.SetPassword(pw); err != nil {
+				logger.Errorf("error trying to set password for machine agent: %s", errors.Details(err))
+				return errors.Trace(err)
+			}
+			c.setPassword(pw)
+
+			return c.restart()
 		}
 	}
 	return nil
