@@ -147,6 +147,7 @@ func (a *addresserHandler) SetUp() (apiWatcher.StringsWatcher, error) {
 	return w, nil
 }
 
+// TearDown is part of the StringsWorker interface.
 func (a *addresserHandler) TearDown() error {
 	close(a.dying)
 	return a.err

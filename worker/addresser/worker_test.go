@@ -6,6 +6,7 @@ package addresser_test
 import (
 	"fmt"
 	stdtesting "testing"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -72,9 +73,15 @@ func dummyListen() chan dummy.Operation {
 }
 
 func waitForReleaseOp(c *gc.C, opsChan chan dummy.Operation) dummy.OpReleaseAddress {
-	op := <-opsChan
-	releaseOp, ok := op.(dummy.OpReleaseAddress)
-	c.Assert(ok, jc.IsTrue)
+	var releaseOp dummy.OpReleaseAddress
+	var ok bool
+	select {
+	case op := <-opsChan:
+		releaseOp, ok = op.(dummy.OpReleaseAddress)
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while expecting operation")
+	}
 	return releaseOp
 }
 
