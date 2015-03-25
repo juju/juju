@@ -11,30 +11,6 @@ from jujupy import (
 from quickstart_deploy import QuickstartTest
 
 
-class FakeEnvJujuClient(EnvJujuClient):
-
-    def __init__(self, name='steve'):
-        super(FakeEnvJujuClient, self).__init__(
-            SimpleEnvironment(name, {'type': 'fake'}), '1.2', '/jbin/juju')
-
-    def quickstart(self, *args, **kwargs):
-        # Suppress stdout for juju commands.
-        with patch('sys.stdout'):
-            return super(FakeEnvJujuClient, self).quickstart(*args, **kwargs)
-
-    def wait_for_deploy_started(self, *args, **kwargs):
-        # Suppress stdout for juju commands.
-        with patch('sys.stdout'):
-            return super(FakeEnvJujuClient, self).wait_for_deploy_started(
-                *args, **kwargs)
-
-    def destroy_environment(self, *args, **kwargs):
-        # Suppress stdout for juju commands.
-        with patch('sys.stdout'):
-            return super(FakeEnvJujuClient, self).destroy_environment(
-                *args, **kwargs)
-
-
 class TestQuickstartTest(TestCase):
 
     def test_from_args(self):
@@ -89,7 +65,8 @@ class TestQuickstartTest(TestCase):
         self.assertEqual(quickstart.client.debug, True)
 
     def test_run_finally(self):
-        client = FakeEnvJujuClient()
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
         quickstart = QuickstartTest(client, '/tmp/bundle.yaml', '/tmp/logs', 2)
         with patch.object(client, 'destroy_environment') as qs_mock:
             with patch('quickstart_deploy.safe_print_status') as ps_mock:
@@ -98,8 +75,26 @@ class TestQuickstartTest(TestCase):
         qs_mock.assert_called_once_with(delete_jenv=True)
         ps_mock.assert_called_once_with(client)
 
+    def test_run_exception(self):
+        def fake_iter_steps():
+            yield {'bootstrap_host': 'foo'}
+            raise Exception()
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        quickstart = QuickstartTest(client, '/tmp/bundle.yaml', '/tmp/logs', 2)
+        with patch.object(client, 'destroy_environment') as qs_mock:
+            with patch('quickstart_deploy.safe_print_status') as ps_mock:
+                with patch('quickstart_deploy.dump_env_logs') as dl_mock:
+                    with patch.object(quickstart, 'iter_steps',
+                                      side_effect=fake_iter_steps):
+                        quickstart.run()
+        dl_mock.assert_called_once_with(client, 'foo', '/tmp/logs')
+        qs_mock.assert_called_once_with(delete_jenv=True)
+        ps_mock.assert_called_once_with(client)
+
     def test_iter_steps(self):
-        client = FakeEnvJujuClient()
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
         quickstart = QuickstartTest(client, '/tmp/bundle.yaml', '/tmp/logs', 2)
         steps = quickstart.iter_steps()
         with patch.object(client, 'quickstart') as qs_mock:
