@@ -42,11 +42,8 @@ type stateAddresser interface {
 }
 
 type addresserHandler struct {
-	dying    chan struct{}
 	st       stateAddresser
 	releaser releaser
-	kill     func()
-	err      error
 }
 
 // NewWorker returns a worker that keeps track of
@@ -72,13 +69,8 @@ func newWorkerWithReleaser(st stateAddresser, releaser releaser) worker.Worker {
 	a := &addresserHandler{
 		st:       st,
 		releaser: releaser,
-		dying:    make(chan struct{}),
-		err:      nil,
 	}
 	w := worker.NewStringsWorker(a)
-	a.kill = func() {
-		w.Kill()
-	}
 	return w
 }
 
@@ -92,7 +84,6 @@ func (a *addresserHandler) Handle(ids []string) error {
 				logger.Debugf("address %v is missing", id)
 				continue
 			}
-			a.err = err
 			return err
 		}
 		if addr.Life() != state.Dead {
@@ -101,12 +92,10 @@ func (a *addresserHandler) Handle(ids []string) error {
 		}
 		err = a.releaseIPAddress(addr)
 		if err != nil {
-			a.err = err
 			return err
 		}
 		err = addr.Remove()
 		if err != nil {
-			a.err = err
 			return err
 		}
 	}
@@ -149,6 +138,5 @@ func (a *addresserHandler) SetUp() (apiWatcher.StringsWatcher, error) {
 
 // TearDown is part of the StringsWorker interface.
 func (a *addresserHandler) TearDown() error {
-	close(a.dying)
-	return a.err
+	return nil
 }
