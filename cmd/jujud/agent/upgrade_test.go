@@ -435,6 +435,7 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 
 func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
 	coretesting.SkipIfI386(c, "lp:1425569")
+	coretesting.SkipIfPPC64EL(c, "lp:1434555")
 
 	//TODO(bogdanteleaga): Fix this to behave properly
 	if runtime.GOOS == "windows" {
