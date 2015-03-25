@@ -286,6 +286,36 @@ func (s *IPAddressSuite) TestAllocatedIPAddresses(c *gc.C) {
 
 }
 
+func (s *IPAddressSuite) TestDeadIPAddresses(c *gc.C) {
+	addresses := [][]string{
+		{"0.1.2.3", "wibble"},
+		{"0.1.2.4", "wibble"},
+		{"0.1.2.5", "wobble"},
+		{"0.1.2.6", "wobble"},
+	}
+	for i, details := range addresses {
+		addr := network.NewAddress(details[0])
+		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+		c.Assert(err, jc.ErrorIsNil)
+		err = ipAddr.AllocateTo(details[1], "wobble")
+		c.Assert(err, jc.ErrorIsNil)
+		if i%2 == 0 {
+			err := ipAddr.EnsureDead()
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			c.Assert(ipAddr.Life(), gc.Equals, state.Alive)
+		}
+	}
+
+	ipAddresses, err := s.State.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	addr1, err := s.State.IPAddress("0.1.2.3")
+	c.Assert(err, jc.ErrorIsNil)
+	addr3, err := s.State.IPAddress("0.1.2.5")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddresses, jc.SameContents, []*state.IPAddress{addr1, addr3})
+}
+
 func (s *IPAddressSuite) TestRefresh(c *gc.C) {
 	rawAddr := network.NewAddress("0.1.2.3")
 	addr, err := s.State.AddIPAddress(rawAddr, "foobar")
