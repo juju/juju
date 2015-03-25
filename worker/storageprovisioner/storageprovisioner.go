@@ -109,6 +109,18 @@ type LifecycleManager interface {
 	RemoveAttachments([]params.MachineStorageId) ([]params.ErrorResult, error)
 }
 
+// EnvironAccessor defines an interface used to enable a storage provisioner
+// worker to watch changes to and read environment config, to use when
+// provisioning storage.
+type EnvironAccessor interface {
+	// WatchForEnvironConfigChanges returns a watcher that will be notified
+	// whenever the environment config changes in state.
+	WatchForEnvironConfigChanges() (apiwatcher.NotifyWatcher, error)
+
+	// EnvironConfig returns the current environment config.
+	EnvironConfig() (*config.Config, error)
+}
+
 // NewStorageProvisioner returns a Worker which manages
 // provisioning (deprovisioning), and attachment (detachment)
 // of first-class volumes and filesystems.
@@ -122,12 +134,14 @@ func NewStorageProvisioner(
 	v VolumeAccessor,
 	f FilesystemAccessor,
 	l LifecycleManager,
+	e EnvironAccessor,
 ) worker.Worker {
 	w := &storageprovisioner{
 		storageDir:  storageDir,
 		volumes:     v,
 		filesystems: f,
 		life:        l,
+		environ:     e,
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -142,6 +156,7 @@ type storageprovisioner struct {
 	volumes     VolumeAccessor
 	filesystems FilesystemAccessor
 	life        LifecycleManager
+	environ     EnvironAccessor
 }
 
 // Kill implements Worker.Kill().
@@ -155,62 +170,81 @@ func (w *storageprovisioner) Wait() error {
 }
 
 func (w *storageprovisioner) loop() error {
-	// TODO(axw) wait for and watch environ config.
-	var environConfig *config.Config
-	/*
-		var environConfigChanges <-chan struct{}
-		environWatcher, err := p.st.WatchForEnvironConfigChanges()
+	var environConfigChanges <-chan struct{}
+	var volumesWatcher apiwatcher.StringsWatcher
+	var filesystemsWatcher apiwatcher.StringsWatcher
+	var volumesChanges <-chan []string
+	var filesystemsChanges <-chan []string
+	var volumeAttachmentsWatcher apiwatcher.MachineStorageIdsWatcher
+	var filesystemAttachmentsWatcher apiwatcher.MachineStorageIdsWatcher
+	var volumeAttachmentsChanges <-chan []params.MachineStorageId
+	var filesystemAttachmentsChanges <-chan []params.MachineStorageId
+
+	environConfigWatcher, err := w.environ.WatchForEnvironConfigChanges()
+	if err != nil {
+		return errors.Annotate(err, "watching environ config")
+	}
+	defer watcher.Stop(environConfigWatcher, &w.tomb)
+	environConfigChanges = environConfigWatcher.Changes()
+
+	// The other watchers are started dynamically; stop only if started.
+	defer w.maybeStopWatcher(volumesWatcher)
+	defer w.maybeStopWatcher(volumeAttachmentsWatcher)
+	defer w.maybeStopWatcher(filesystemsWatcher)
+	defer w.maybeStopWatcher(filesystemAttachmentsWatcher)
+
+	startWatchers := func() error {
+		var err error
+		volumesWatcher, err = w.volumes.WatchVolumes()
 		if err != nil {
-			return err
+			return errors.Annotate(err, "watching volumes")
 		}
-		environConfigChanges = environWatcher.Changes()
-		defer watcher.Stop(environWatcher, &p.tomb)
-		p.environ, err = worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
+		filesystemsWatcher, err := w.filesystems.WatchFilesystems()
 		if err != nil {
-			return err
+			return errors.Annotate(err, "watching filesystems")
 		}
-	*/
-
-	volumesWatcher, err := w.volumes.WatchVolumes()
-	if err != nil {
-		return errors.Annotate(err, "watching volumes")
+		volumeAttachmentsWatcher, err = w.volumes.WatchVolumeAttachments()
+		if err != nil {
+			return errors.Annotate(err, "watching volume attachments")
+		}
+		filesystemAttachmentsWatcher, err := w.filesystems.WatchFilesystemAttachments()
+		if err != nil {
+			return errors.Annotate(err, "watching filesystem attachments")
+		}
+		volumesChanges = volumesWatcher.Changes()
+		filesystemsChanges = filesystemsWatcher.Changes()
+		volumeAttachmentsChanges = volumeAttachmentsWatcher.Changes()
+		filesystemAttachmentsChanges = filesystemAttachmentsWatcher.Changes()
+		return nil
 	}
-	defer watcher.Stop(volumesWatcher, &w.tomb)
-	volumesChanges := volumesWatcher.Changes()
-
-	volumeAttachmentsWatcher, err := w.volumes.WatchVolumeAttachments()
-	if err != nil {
-		return errors.Annotate(err, "watching volume attachments")
-	}
-	defer watcher.Stop(volumeAttachmentsWatcher, &w.tomb)
-	volumeAttachmentsChanges := volumeAttachmentsWatcher.Changes()
-
-	filesystemsWatcher, err := w.filesystems.WatchFilesystems()
-	if err != nil {
-		return errors.Annotate(err, "watching filesystems")
-	}
-	defer watcher.Stop(filesystemsWatcher, &w.tomb)
-	filesystemsChanges := filesystemsWatcher.Changes()
-
-	filesystemAttachmentsWatcher, err := w.filesystems.WatchFilesystemAttachments()
-	if err != nil {
-		return errors.Annotate(err, "watching filesystem attachments")
-	}
-	defer watcher.Stop(filesystemAttachmentsWatcher, &w.tomb)
-	filesystemAttachmentsChanges := filesystemAttachmentsWatcher.Changes()
 
 	ctx := context{
-		environConfig: environConfig,
-		storageDir:    w.storageDir,
-		volumes:       w.volumes,
-		filesystems:   w.filesystems,
-		life:          w.life,
+		storageDir:  w.storageDir,
+		volumes:     w.volumes,
+		filesystems: w.filesystems,
+		life:        w.life,
 	}
 
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
+		case _, ok := <-environConfigChanges:
+			if !ok {
+				return watcher.EnsureErr(volumesWatcher)
+			}
+			environConfig, err := w.environ.EnvironConfig()
+			if err != nil {
+				return errors.Annotate(err, "getting environ config")
+			}
+			if ctx.environConfig == nil {
+				// We've received the initial environ config,
+				// so we can begin provisioning storage.
+				if err := startWatchers(); err != nil {
+					return err
+				}
+			}
+			ctx.environConfig = environConfig
 		case changes, ok := <-volumesChanges:
 			if !ok {
 				return watcher.EnsureErr(volumesWatcher)
@@ -240,6 +274,12 @@ func (w *storageprovisioner) loop() error {
 				return errors.Trace(err)
 			}
 		}
+	}
+}
+
+func (p *storageprovisioner) maybeStopWatcher(w watcher.Stopper) {
+	if w != nil {
+		watcher.Stop(w, &p.tomb)
 	}
 }
 

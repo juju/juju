@@ -25,6 +25,7 @@ func init() {
 type StorageProvisionerAPI struct {
 	*common.LifeGetter
 	*common.DeadEnsurer
+	*common.EnvironWatcher
 
 	st                       provisionerState
 	settings                 poolmanager.SettingsManager
@@ -132,8 +133,10 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 	stateInterface := getState(st)
 	settings := getSettingsManager(st)
 	return &StorageProvisionerAPI{
-		LifeGetter:               common.NewLifeGetter(stateInterface, getStorageEntityAuthFunc),
-		DeadEnsurer:              common.NewDeadEnsurer(stateInterface, getStorageEntityAuthFunc),
+		LifeGetter:     common.NewLifeGetter(stateInterface, getStorageEntityAuthFunc),
+		DeadEnsurer:    common.NewDeadEnsurer(stateInterface, getStorageEntityAuthFunc),
+		EnvironWatcher: common.NewEnvironWatcher(stateInterface, resources, authorizer),
+
 		st:                       stateInterface,
 		settings:                 settings,
 		resources:                resources,

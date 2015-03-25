@@ -4,12 +4,16 @@
 package storageprovisioner_test
 
 import (
+	"errors"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -17,14 +21,16 @@ import (
 
 type storageProvisionerSuite struct {
 	coretesting.BaseSuite
+	provider *dummyProvider
 }
 
 var _ = gc.Suite(&storageProvisionerSuite{})
 
-func (s *storageProvisionerSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	registry.RegisterProvider("dummy", &dummyProvider{})
-	s.AddSuiteCleanup(func(*gc.C) {
+func (s *storageProvisionerSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.provider = &dummyProvider{dynamic: true}
+	registry.RegisterProvider("dummy", s.provider)
+	s.AddCleanup(func(*gc.C) {
 		registry.RegisterProvider("dummy", nil)
 	})
 }
@@ -35,6 +41,7 @@ func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 		newMockVolumeAccessor(),
 		newMockFilesystemAccessor(),
 		&mockLifecycleManager{},
+		newMockEnvironAccessor(c),
 	)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
@@ -76,15 +83,24 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 	lifecycleManager := &mockLifecycleManager{}
 
 	filesystemAccessor := newMockFilesystemAccessor()
+	environAccessor := newMockEnvironAccessor(c)
 
 	worker := storageprovisioner.NewStorageProvisioner(
-		"storage-dir", volumeAccessor, filesystemAccessor, lifecycleManager,
+		"storage-dir",
+		volumeAccessor,
+		filesystemAccessor,
+		lifecycleManager,
+		environAccessor,
 	)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
 	// The worker should create volumes according to ids "1" and "2".
 	volumeAccessor.volumesWatcher.changes <- []string{"1", "2"}
+	// ... but not until the environment config is available.
+	assertNoEvent(c, volumeInfoSet, "volume info set")
+	assertNoEvent(c, volumeAttachmentInfoSet, "volume attachment info set")
+	environAccessor.watcher.changes <- struct{}{}
 	waitChannel(c, volumeInfoSet, "waiting for volume info to be set")
 	waitChannel(c, volumeAttachmentInfoSet, "waiting for volume attachments to be set")
 }
@@ -109,18 +125,77 @@ func (s *storageProvisionerSuite) TestFilesystemAdded(c *gc.C) {
 	}
 
 	lifecycleManager := &mockLifecycleManager{}
-
 	volumeAccessor := newMockVolumeAccessor()
+	environAccessor := newMockEnvironAccessor(c)
 
 	worker := storageprovisioner.NewStorageProvisioner(
-		"storage-dir", volumeAccessor, filesystemAccessor, lifecycleManager,
+		"storage-dir",
+		volumeAccessor,
+		filesystemAccessor,
+		lifecycleManager,
+		environAccessor,
 	)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
 	// The worker should create filesystems according to ids "1" and "2".
 	filesystemAccessor.filesystemsWatcher.changes <- []string{"1", "2"}
+	// ... but not until the environment config is available.
+	assertNoEvent(c, filesystemInfoSet, "filesystem info set")
+	environAccessor.watcher.changes <- struct{}{}
 	waitChannel(c, filesystemInfoSet, "waiting for filesystem info to be set")
+}
+
+func (s *storageProvisionerSuite) TestVolumeNeedsInstance(c *gc.C) {
+	volumeAccessor := newMockVolumeAccessor()
+	lifecycleManager := &mockLifecycleManager{}
+	filesystemAccessor := newMockFilesystemAccessor()
+	environAccessor := newMockEnvironAccessor(c)
+	worker := storageprovisioner.NewStorageProvisioner(
+		"storage-dir",
+		volumeAccessor,
+		filesystemAccessor,
+		lifecycleManager,
+		environAccessor,
+	)
+	defer worker.Wait()
+	defer worker.Kill()
+
+	// Note: we're testing the *current* behaviour. Later, the provisioner
+	// should not rely on bouncing to wait for the instance, but should
+	// implement a state machine that watches instances.
+	volumeAccessor.volumesWatcher.changes <- []string{needsInstanceVolumeId}
+	environAccessor.watcher.changes <- struct{}{}
+	err := worker.Wait()
+	c.Assert(err, gc.ErrorMatches, `provisioning volumes: creating volumes: need running instance to provision volume`)
+}
+
+func (s *storageProvisionerSuite) TestVolumeNonDynamic(c *gc.C) {
+	volumeInfoSet := make(chan struct{})
+	volumeAccessor := newMockVolumeAccessor()
+	volumeAccessor.setVolumeInfo = func([]params.Volume) ([]params.ErrorResult, error) {
+		defer close(volumeInfoSet)
+		return nil, nil
+	}
+
+	lifecycleManager := &mockLifecycleManager{}
+	filesystemAccessor := newMockFilesystemAccessor()
+	environAccessor := newMockEnvironAccessor(c)
+	worker := storageprovisioner.NewStorageProvisioner(
+		"storage-dir",
+		volumeAccessor,
+		filesystemAccessor,
+		lifecycleManager,
+		environAccessor,
+	)
+	defer worker.Wait()
+	defer worker.Kill()
+
+	// Volumes for non-dynamic providers should not be created.
+	s.provider.dynamic = false
+	environAccessor.watcher.changes <- struct{}{}
+	volumeAccessor.volumesWatcher.changes <- []string{"1"}
+	assertNoEvent(c, volumeInfoSet, "volume info set")
 }
 
 func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
@@ -164,9 +239,14 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 	}
 
 	filesystemAccessor := newMockFilesystemAccessor()
+	environAccessor := newMockEnvironAccessor(c)
 
 	worker := storageprovisioner.NewStorageProvisioner(
-		"storage-dir", volumeAccessor, filesystemAccessor, lifecycleManager,
+		"storage-dir",
+		volumeAccessor,
+		filesystemAccessor,
+		lifecycleManager,
+		environAccessor,
 	)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -180,6 +260,8 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 	}, {
 		MachineTag: "machine-0", AttachmentTag: "volume-1",
 	}}
+	assertNoEvent(c, volumeAttachmentInfoSet, "volume attachment info set")
+	environAccessor.watcher.changes <- struct{}{}
 	waitChannel(c, volumeAttachmentInfoSet, "waiting for volume attachments to be set")
 }
 
@@ -200,7 +282,6 @@ func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 		c.Assert(filesystemAttachments, gc.DeepEquals, expectedFilesystemAttachments)
 		return nil, nil
 	}
-	lifecycleManager := &mockLifecycleManager{}
 
 	// filesystem-1 and machine-1 are provisioned.
 	filesystemAccessor.provisionedFilesystems["filesystem-1"] = params.Filesystem{
@@ -223,10 +304,16 @@ func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 		FilesystemTag: "filesystem-1",
 	}
 
+	lifecycleManager := &mockLifecycleManager{}
 	volumeAccessor := newMockVolumeAccessor()
+	environAccessor := newMockEnvironAccessor(c)
 
 	worker := storageprovisioner.NewStorageProvisioner(
-		"storage-dir", volumeAccessor, filesystemAccessor, lifecycleManager,
+		"storage-dir",
+		volumeAccessor,
+		filesystemAccessor,
+		lifecycleManager,
+		environAccessor,
 	)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -240,7 +327,45 @@ func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 	}, {
 		MachineTag: "machine-0", AttachmentTag: "filesystem-1",
 	}}
+	// ... but not until the environment config is available.
+	assertNoEvent(c, filesystemAttachmentInfoSet, "filesystem attachment info set")
+	environAccessor.watcher.changes <- struct{}{}
 	waitChannel(c, filesystemAttachmentInfoSet, "waiting for filesystem attachments to be set")
+}
+
+func (s *storageProvisionerSuite) TestUpdateEnvironConfig(c *gc.C) {
+	volumeAccessor := newMockVolumeAccessor()
+	lifecycleManager := &mockLifecycleManager{}
+	filesystemAccessor := newMockFilesystemAccessor()
+	environAccessor := newMockEnvironAccessor(c)
+
+	s.provider.volumeSourceFunc = func(envConfig *config.Config, sourceConfig *storage.Config) (storage.VolumeSource, error) {
+		c.Assert(envConfig, gc.NotNil)
+		c.Assert(sourceConfig, gc.NotNil)
+		c.Assert(envConfig.AllAttrs()["foo"], gc.Equals, "bar")
+		return nil, errors.New("zinga")
+	}
+
+	worker := storageprovisioner.NewStorageProvisioner(
+		"storage-dir",
+		volumeAccessor,
+		filesystemAccessor,
+		lifecycleManager,
+		environAccessor,
+	)
+	defer worker.Wait()
+	defer worker.Kill()
+
+	newConfig, err := environAccessor.cfg.Apply(map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	environAccessor.watcher.changes <- struct{}{}
+	environAccessor.setConfig(newConfig)
+	environAccessor.watcher.changes <- struct{}{}
+	volumeAccessor.volumesWatcher.changes <- []string{"1", "2"}
+
+	err = worker.Wait()
+	c.Assert(err, gc.ErrorMatches, `provisioning volumes: creating volumes: getting volume source: getting storage source "dummy": zinga`)
 }
 
 func waitChannel(c *gc.C, ch <-chan struct{}, activity string) {
@@ -248,6 +373,14 @@ func waitChannel(c *gc.C, ch <-chan struct{}, activity string) {
 	case <-ch:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out " + activity)
+	}
+}
+
+func assertNoEvent(c *gc.C, ch <-chan struct{}, event string) {
+	select {
+	case <-ch:
+		c.Fatalf("unexpected " + event)
+	case <-time.After(coretesting.ShortWait):
 	}
 }
 

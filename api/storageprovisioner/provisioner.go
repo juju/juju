@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -18,6 +19,8 @@ const storageProvisionerFacade = "StorageProvisioner"
 type State struct {
 	facade base.FacadeCaller
 	scope  names.Tag
+
+	*common.EnvironWatcher
 }
 
 // NewState creates a new client-side StorageProvisioner facade.
@@ -28,9 +31,11 @@ func NewState(caller base.APICaller, scope names.Tag) *State {
 	default:
 		panic(errors.Errorf("expected EnvironTag or MachineTag, got %T", scope))
 	}
+	facadeCaller := base.NewFacadeCaller(caller, storageProvisionerFacade)
 	return &State{
-		base.NewFacadeCaller(caller, storageProvisionerFacade),
+		facadeCaller,
 		scope,
+		common.NewEnvironWatcher(facadeCaller),
 	}
 }
 

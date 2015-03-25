@@ -777,3 +777,39 @@ func (s *provisionerSuite) TestLifeServerError(c *gc.C) {
 	c.Assert(results, gc.HasLen, 1)
 	c.Check(results[0].Error, gc.ErrorMatches, "MSG")
 }
+
+func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "StorageProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchForEnvironConfigChanges")
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResult{})
+		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
+			NotifyWatcherId: "abc",
+		}
+		return errors.New("FAIL")
+	})
+	st := storageprovisioner.NewState(apiCaller, names.NewMachineTag("123"))
+	_, err := st.WatchForEnvironConfigChanges()
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
+func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
+	inputCfg := coretesting.EnvironConfig(c)
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "StorageProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "EnvironConfig")
+		c.Assert(result, gc.FitsTypeOf, &params.EnvironConfigResult{})
+		*(result.(*params.EnvironConfigResult)) = params.EnvironConfigResult{
+			Config: inputCfg.AllAttrs(),
+		}
+		return nil
+	})
+	st := storageprovisioner.NewState(apiCaller, names.NewMachineTag("123"))
+	outputCfg, err := st.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(outputCfg.AllAttrs(), jc.DeepEquals, inputCfg.AllAttrs())
+}

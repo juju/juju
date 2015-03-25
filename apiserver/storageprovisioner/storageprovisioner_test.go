@@ -787,6 +787,37 @@ func (s *provisionerSuite) TestEnsureDead(c *gc.C) {
 	})
 }
 
+func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
+	result, err := s.api.WatchForEnvironConfigChanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.NotifyWatcherId, gc.Equals, "1")
+
+	// Verify the resource was registered and stop it when done.
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	watcher := s.resources.Get("1")
+	defer statetesting.AssertStop(c, watcher)
+
+	// Check that the Watch has consumed the initial events ("returned" in
+	// the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, watcher.(state.NotifyWatcher))
+	wc.AssertNoChange()
+
+	// Updating config should trigger the watcher.
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{"what": "ever"}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+}
+
+func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
+	s.authorizer.EnvironManager = true
+	stateEnvironConfig, err := s.State.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.api.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Config, jc.DeepEquals, params.EnvironConfig(stateEnvironConfig.AllAttrs()))
+}
+
 type byMachineAndEntity []params.MachineStorageId
 
 func (b byMachineAndEntity) Len() int {

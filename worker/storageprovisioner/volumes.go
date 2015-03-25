@@ -30,6 +30,7 @@ func volumesChanged(ctx *context, changes []string) error {
 	// attachments until they're all gone. We need to watch
 	// attachments *anyway*, so we can probably integrate the two
 	// things.
+	logger.Debugf("volumes alive: %v, dying: %v, dead: %v", alive, dying, dead)
 	if err := ensureDead(ctx, dying); err != nil {
 		return errors.Annotate(err, "ensuring volumes dead")
 	}
@@ -351,22 +352,51 @@ func createVolumes(
 	// for a storage provider, e.g. multiple Ceph installations. For
 	// now we assume a single source for each provider type, with no
 	// configuration.
+
+	// Create volume sources.
 	volumeSources := make(map[string]storage.VolumeSource)
-	paramsBySource := make(map[string][]storage.VolumeParams)
 	for _, params := range params {
 		sourceName := string(params.Provider)
-		paramsBySource[sourceName] = append(paramsBySource[sourceName], params)
 		if _, ok := volumeSources[sourceName]; ok {
 			continue
 		}
 		volumeSource, err := volumeSource(
 			environConfig, baseStorageDir, sourceName, params.Provider,
 		)
-		if err != nil {
+		if errors.Cause(err) == errNonDynamic {
+			volumeSource = nil
+		} else if err != nil {
 			return nil, nil, errors.Annotate(err, "getting volume source")
 		}
 		volumeSources[sourceName] = volumeSource
 	}
+
+	// Validate and gather volume parameters.
+	paramsBySource := make(map[string][]storage.VolumeParams)
+	for _, params := range params {
+		sourceName := string(params.Provider)
+		volumeSource := volumeSources[sourceName]
+		if volumeSource == nil {
+			// Ignore nil volume sources; this means that the
+			// volume should be created by the machine-provisioner.
+			continue
+		}
+		err := volumeSource.ValidateVolumeParams(params)
+		switch errors.Cause(err) {
+		case nil:
+			paramsBySource[sourceName] = append(paramsBySource[sourceName], params)
+		case storage.ErrVolumeNeedsInstance:
+			// TODO(axw) defer creation of volume until instance
+			// is created. This requires that we watch machines.
+			//
+			// For now, rely on the worker bouncing to retry.
+			return nil, nil, err
+		default:
+			// TODO(axw) we should set an error status for params.Tag here.
+			logger.Errorf("ignoring invalid volume parameters: %v", err)
+		}
+	}
+
 	var allVolumes []storage.Volume
 	var allVolumeAttachments []storage.VolumeAttachment
 	for sourceName, params := range paramsBySource {
@@ -381,7 +411,7 @@ func createVolumes(
 	return volumesFromStorage(allVolumes), volumeAttachmentsFromStorage(allVolumeAttachments), nil
 }
 
-// createVolumes creates volumes with the specified parameters.
+// createVolumeAttachments creates volume attachments with the specified parameters.
 func createVolumeAttachments(
 	environConfig *config.Config,
 	baseStorageDir string,

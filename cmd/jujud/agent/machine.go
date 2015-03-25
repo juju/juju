@@ -718,15 +718,12 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
 			api := st.StorageProvisioner(agentConfig.Tag())
 			storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-			return newStorageWorker(storageDir, api, api, api), nil
+			return newStorageWorker(storageDir, api, api, api, api), nil
 		})
-		// TODO(axw) enable environ storage provisioner when it
-		// ignores non-dynamic storage. Until then, we have a
-		// race condition.
-		if isEnvironManager && false {
+		if isEnvironManager {
 			runner.StartWorker("storageprovisioner-environ", func() (worker.Worker, error) {
 				api := st.StorageProvisioner(agentConfig.Environment())
-				return newStorageWorker("", api, api, api), nil
+				return newStorageWorker("", api, api, api, api), nil
 			})
 		}
 	}

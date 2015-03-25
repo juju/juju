@@ -13,6 +13,7 @@ import (
 
 type provisionerState interface {
 	state.EntityFinder
+	state.EnvironAccessor
 
 	MachineInstanceId(names.MachineTag) (instance.Id, error)
 
