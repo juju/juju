@@ -14,7 +14,8 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
@@ -265,7 +266,7 @@ func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
 	return svc.ClearExposed()
 }
 
-var CharmStore charm.Repository = charm.Store
+var CharmStore charmrepo.Interface = charmrepo.LegacyStore
 
 func networkTagsToNames(tags []string) ([]string, error) {
 	netNames := make([]string, len(tags))
@@ -1346,7 +1347,7 @@ func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmRe
 	return results, nil
 }
 
-func (c *Client) resolveCharm(ref *charm.Reference, repo charm.Repository) (*charm.URL, error) {
+func (c *Client) resolveCharm(ref *charm.Reference, repo charmrepo.Interface) (*charm.URL, error) {
 	if ref.Schema != "cs" {
 		return nil, fmt.Errorf("only charm store charm references are supported, with cs: schema")
 	}

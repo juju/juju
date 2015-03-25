@@ -14,7 +14,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
-	corecharm "gopkg.in/juju/charm.v4"
+	corecharm "gopkg.in/juju/charm.v5-unstable"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"

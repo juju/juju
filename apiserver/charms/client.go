@@ -6,7 +6,8 @@ package charms
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
@@ -51,7 +52,7 @@ func NewAPI(
 	}, nil
 }
 
-var CharmStore charm.Repository = charm.Store
+var CharmStore charmrepo.Interface = charmrepo.LegacyStore
 
 // CharmInfo returns information about the requested charm.
 func (a *API) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {

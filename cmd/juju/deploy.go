@@ -12,7 +12,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
@@ -187,7 +188,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	repo, err := charm.InferRepository(curl.Reference(), ctx.AbsPath(c.RepoPath))
+	repo, err := charmrepo.LegacyInferRepository(curl.Reference(), ctx.AbsPath(c.RepoPath))
 	if err != nil {
 		return err
 	}
@@ -276,9 +277,9 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 // addCharmViaAPI calls the appropriate client API calls to add the
 // given charm URL to state. Also displays the charm URL of the added
 // charm on stdout.
-func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo charm.Repository) (*charm.URL, error) {
+func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo charmrepo.Interface) (*charm.URL, error) {
 	if curl.Revision < 0 {
-		latest, err := charm.Latest(repo, curl)
+		latest, err := charmrepo.Latest(repo, curl)
 		if err != nil {
 			return nil, err
 		}

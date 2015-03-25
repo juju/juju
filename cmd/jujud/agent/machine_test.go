@@ -24,7 +24,8 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -113,7 +114,7 @@ func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
-	s.AgentSuite.PatchValue(&charm.CacheDir, c.MkDir())
+	s.AgentSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongo.DialOpts{})
 
 	os.Remove(JujuRun) // ignore error; may not exist
@@ -291,7 +292,7 @@ func (s *MachineSuite) TestRunStop(c *gc.C) {
 	err := a.Stop()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(<-done, jc.ErrorIsNil)
-	c.Assert(charm.CacheDir, gc.Equals, filepath.Join(ac.DataDir(), "charmcache"))
+	c.Assert(charmrepo.CacheDir, gc.Equals, filepath.Join(ac.DataDir(), "charmcache"))
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *gc.C) {

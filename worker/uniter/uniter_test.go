@@ -16,7 +16,7 @@ import (
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v4"
+	corecharm "gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"

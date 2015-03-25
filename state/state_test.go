@@ -19,7 +19,7 @@ import (
 	"github.com/juju/txn"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	mgotxn "gopkg.in/mgo.v2/txn"

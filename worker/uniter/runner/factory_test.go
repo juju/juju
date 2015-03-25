@@ -16,7 +16,7 @@ import (
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fs"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4/hooks"
+	"gopkg.in/juju/charm.v5-unstable/hooks"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"

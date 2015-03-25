@@ -27,7 +27,7 @@ import (
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v4"
+	corecharm "gopkg.in/juju/charm.v5-unstable"
 	goyaml "gopkg.in/yaml.v1"
 
 	apiuniter "github.com/juju/juju/api/uniter"

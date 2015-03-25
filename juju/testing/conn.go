@@ -17,7 +17,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/agent"
@@ -385,9 +386,9 @@ func updateSecrets(env environs.Environ, st *state.State) error {
 // the same URL already exists in the state.
 // If bumpRevision is true, the charm must be a local directory,
 // and the revision number will be incremented before pushing.
-func PutCharm(st *state.State, curl *charm.URL, repo charm.Repository, bumpRevision bool) (*state.Charm, error) {
+func PutCharm(st *state.State, curl *charm.URL, repo charmrepo.Interface, bumpRevision bool) (*state.Charm, error) {
 	if curl.Revision == -1 {
-		rev, err := charm.Latest(repo, curl)
+		rev, err := charmrepo.Latest(repo, curl)
 		if err != nil {
 			return nil, fmt.Errorf("cannot get latest charm revision: %v", err)
 		}
@@ -546,7 +547,7 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	ch := testcharms.Repo.CharmDir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:quantal/" + ident)
-	repo, err := charm.InferRepository(curl.Reference(), testcharms.Repo.Path())
+	repo, err := charmrepo.LegacyInferRepository(curl.Reference(), testcharms.Repo.Path())
 	c.Assert(err, jc.ErrorIsNil)
 	sch, err := PutCharm(s.State, curl, repo, false)
 	c.Assert(err, jc.ErrorIsNil)

@@ -22,7 +22,7 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"launchpad.net/gnuflag"
@@ -397,7 +397,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	a.configChangedVal.Set(struct{}{})
 	a.previousAgentVersion = agentConfig.UpgradedToVersion()
 	network.InitializeFromConfig(agentConfig)
-	charm.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
+	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
 		return fmt.Errorf("cannot create juju run symlink: %v", err)
 	}

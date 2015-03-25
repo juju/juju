@@ -18,8 +18,8 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
+	"gopkg.in/juju/charm.v5-unstable"
+	charmtesting "gopkg.in/juju/charm.v5-unstable/testing"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"

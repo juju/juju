@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v4"
+	corecharm "gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/worker/uniter/charm"
