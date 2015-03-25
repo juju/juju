@@ -102,6 +102,13 @@ func (s *workerSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
 	}()
 	s.waitForInitialDead(c)
 
+	op1 := waitForReleaseOp(c, opsChan)
+	op2 := waitForReleaseOp(c, opsChan)
+	expected := []dummy.OpReleaseAddress{makeReleaseOp(4), makeReleaseOp(6)}
+	c.Assert([]dummy.OpReleaseAddress{op1, op2}, jc.SameContents, expected)
+
+	return
+
 	ops := []dummy.OpReleaseAddress{}
 	for i := 1; i <= 10; i++ {
 		select {
