@@ -8,12 +8,12 @@
 package cloudinit
 
 import (
-	"errors"
-
+	"github.com/juju/errors"
 	"github.com/juju/utils/packaging"
 	"github.com/juju/utils/packaging/commander"
 	"github.com/juju/utils/packaging/configurer"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/version"
 )
@@ -28,6 +28,9 @@ type CloudConfig interface {
 	// UnsetAttr unsets the attribute given from the cloudinit config.
 	// If the attribute has not been previously set, no error occurs.
 	UnsetAttr(string)
+
+	// GetSeries returns the series this CloudConfig was made for.
+	GetSeries() string
 
 	// CloudConfig also contains all the smaller interfaces for config
 	// management:
@@ -332,8 +335,11 @@ type RenderConfig interface {
 	// the local provider
 	RenderScript() (string, error)
 
-	// Helper for RenderScript to return proper commands for adding packages /
-	// distribution
+	// ShellRenderer renturns the shell renderer of this particular instance.
+	ShellRenderer() shell.Renderer
+
+	// getCommandsForAddingPackages is a helper function which returns all the
+	// necessary shell commands for adding all the configured package settings.
 	getCommandsForAddingPackages() ([]string, error)
 }
 
@@ -380,27 +386,38 @@ func New(series string) (CloudConfig, error) {
 	}
 	switch os {
 	case version.Windows:
-		return &WindowsCloudConfig{&cloudConfig{attrs: make(map[string]interface{}), series: series}}, nil
+		renderer, _ := shell.NewRenderer("powershell")
+		return &WindowsCloudConfig{
+			&cloudConfig{
+				series:   series,
+				renderer: renderer,
+				attrs:    make(map[string]interface{}),
+			},
+		}, nil
 	case version.Ubuntu:
+		renderer, _ := shell.NewRenderer("bash")
 		return &UbuntuCloudConfig{
 			&cloudConfig{
-				attrs:     make(map[string]interface{}),
 				series:    series,
 				paccmder:  commander.NewAptPackageCommander(),
 				pacconfer: configurer.NewAptPackagingConfigurer(series),
+				renderer:  renderer,
+				attrs:     make(map[string]interface{}),
 			},
 		}, nil
 	case version.CentOS:
+		renderer, _ := shell.NewRenderer("bash")
 		return &CentOSCloudConfig{
 			&cloudConfig{
-				attrs:     make(map[string]interface{}),
 				series:    series,
 				paccmder:  commander.NewYumPackageCommander(),
 				pacconfer: configurer.NewYumPackagingConfigurer(series),
+				renderer:  renderer,
+				attrs:     make(map[string]interface{}),
 			},
 		}, nil
 	default:
-		return nil, errors.New(" no cloudconfig available for series: " + series)
+		return nil, errors.NotFoundf(" no cloudconfig available for series: " + series)
 	}
 }
 

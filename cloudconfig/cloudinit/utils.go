@@ -10,10 +10,42 @@ package cloudinit
 import (
 	"encoding/base64"
 	"fmt"
+	"path"
 	"regexp"
 
 	"github.com/juju/utils"
+	"github.com/juju/utils/packaging"
+	"github.com/juju/utils/packaging/configurer"
 )
+
+// addPackageSourceCmds is a helper function that returns the corresponding
+// runcmds to apply the package source settings on a CentOS machine.
+func addPackageSourceCmds(cfg CloudConfig, src packaging.PackageSource) []string {
+	cmds := []string{}
+
+	// if keyfile is required, add it first
+	if src.Key != "" {
+		keyFilePath := configurer.YumKeyfileDir + src.KeyFileName()
+		cmds = append(cmds, addFileCmds(keyFilePath, []byte(src.Key), 0644, false)...)
+	}
+
+	cmds = append(cmds, addFileCmds(path.Join(configurer.YumSourcesDir, src.Name+".repo"),
+		[]byte(cfg.getPackagingConfigurer().RenderSource(src)), 0644, false)...)
+
+	return cmds
+}
+
+// addPackagePreferencesCmds is a helper function which returns the bootcmds
+// which set the given PackagePreferences.
+func addPackagePreferencesCmds(cfg CloudConfig, prefs []packaging.PackagePreferences) []string {
+	cmds := []string{}
+	for _, pref := range prefs {
+		cmds = append(cmds, addFileCmds(pref.Path,
+			[]byte(cfg.getPackagingConfigurer().RenderPreferences(pref)), 0644, false)...)
+	}
+
+	return cmds
+}
 
 // addFile is a helper function returns all the required shell commands to write
 // a file (be it text or binary) with regards to the given parameters

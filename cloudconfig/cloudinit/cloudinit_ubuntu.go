@@ -70,12 +70,6 @@ func (cfg *UbuntuCloudConfig) PackageSources() []packaging.PackageSource {
 	return srcs
 }
 
-func addPackagePreferencesCmds(cfg CloudConfig, prefs []packaging.PackagePreferences) {
-	for _, pref := range prefs {
-		cfg.AddBootTextFile(pref.Path, pref.FileContents(), 0644)
-	}
-}
-
 // AddPackagePreferences implements PackageSourcesConfig.
 func (cfg *UbuntuCloudConfig) AddPackagePreferences(prefs packaging.PackagePreferences) {
 	cfg.attrs["apt_preferences"] = append(cfg.PackagePreferences(), prefs)
@@ -89,7 +83,8 @@ func (cfg *UbuntuCloudConfig) PackagePreferences() []packaging.PackagePreference
 
 func (cfg *UbuntuCloudConfig) RenderYAML() ([]byte, error) {
 	// add the preferences first:
-	for _, pref := range cfg.PackagePreferences() {
+	prefs := cfg.PackagePreferences()
+	for _, pref := range prefs {
 		cfg.AddBootTextFile(pref.Path, cfg.pacconfer.RenderPreferences(pref), 0644)
 	}
 	cfg.UnsetAttr("apt_preferences")

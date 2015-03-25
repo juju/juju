@@ -540,13 +540,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	// TODO(axw) tag all resources (instances and volumes), for accounting
 	// and identification.
 
-	if err := assignVolumeIds(inst, volumes, volumeAttachments); err != nil {
-		if err := e.StopInstances(inst.Id()); err != nil {
-			logger.Errorf("failed to stop instance: %v", err)
-		}
-		return nil, err
-	}
-
 	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)

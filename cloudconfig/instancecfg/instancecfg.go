@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -168,19 +169,19 @@ type InstanceConfig struct {
 	EnableOSUpgrade bool
 }
 
-func (cfg *InstanceConfig) InitService() (service.Service, string, error) {
-	conf, toolsDir := service.MachineAgentConf(
+func (cfg *InstanceConfig) agentInfo() service.AgentInfo {
+	return service.NewMachineAgentInfo(
 		cfg.MachineId,
 		cfg.DataDir,
 		cfg.LogDir,
 	)
 }
 
-func (cfg *MachineConfig) toolsDir(renderer shell.Renderer) string {
+func (cfg *InstanceConfig) ToolsDir(renderer shell.Renderer) string {
 	return cfg.agentInfo().ToolsDir(renderer)
 }
 
-func (cfg *MachineConfig) initService(renderer shell.Renderer) (service.Service, error) {
+func (cfg *InstanceConfig) InitService(renderer shell.Renderer) (service.Service, error) {
 	conf := service.AgentConf(cfg.agentInfo(), renderer)
 
 	name := cfg.MachineAgentServiceName

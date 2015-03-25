@@ -13,10 +13,24 @@ import (
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/utils/packaging/commander"
 	"github.com/juju/utils/packaging/configurer"
+	"github.com/juju/utils/shell"
 )
 
 // Config represents a set of cloud-init configuration options.
 type cloudConfig struct {
+	// series is the series for which this cloudConfig is made for.
+	series string
+
+	// paccmder is the PackageCommander for this cloudConfig.
+	paccmder commander.PackageCommander
+
+	// pacconfer is the PackagingConfigurer for this cloudConfig.
+	pacconfer configurer.PackagingConfigurer
+
+	// renderer is the shell Renderer for this cloudConfig.
+	renderer shell.Renderer
+
+	// attrs is the map of options set on this cloudConfig.
 	// main attributes used in the options map and their corresponding types:
 	//
 	// user					string
@@ -44,6 +58,7 @@ type cloudConfig struct {
 	// package_proxy
 	// package_mirror
 	// package_sources
+	// package_preferences
 	//
 	// old TODO's:
 	// byobu
@@ -64,20 +79,21 @@ type cloudConfig struct {
 	// update_etc_hosts
 	// update_hostname
 	attrs map[string]interface{}
-
-	series    string
-	paccmder  commander.PackageCommander
-	pacconfer configurer.PackagingConfigurer
 }
 
-// getPackageCommander returns the PackageCommander of the CloudConfig.
+// getPackageCommander implements AdvancedPackagingConfig.
 func (cfg *cloudConfig) getPackageCommander() commander.PackageCommander {
 	return cfg.paccmder
 }
 
-// getPackagingConfigurer implements.
+// getPackagingConfigurer implements AdvancedPackagingConfig.
 func (cfg *cloudConfig) getPackagingConfigurer() configurer.PackagingConfigurer {
 	return cfg.pacconfer
+}
+
+// GetSeries implements CloudConfig.
+func (cfg *cloudConfig) GetSeries() string {
+	return cfg.series
 }
 
 // SetAttr implements CloudConfig.
@@ -338,6 +354,11 @@ func (cfg *cloudConfig) AddBootTextFile(filename, contents string, perm uint) {
 // AddRunBinaryFile implements WrittenFilesConfig.
 func (cfg *cloudConfig) AddRunBinaryFile(filename string, data []byte, mode uint) {
 	cfg.AddScripts(addFileCmds(filename, data, mode, true)...)
+}
+
+// ShellRenderer implements RenderConfig.
+func (cfg *cloudConfig) ShellRenderer() shell.Renderer {
+	return cfg.renderer
 }
 
 // RequiresCloudArchiveCloudTools implements AdvancedPackagingConfig.

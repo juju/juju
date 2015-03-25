@@ -29,10 +29,10 @@ func (cfg *CentOSCloudConfig) SetPackageProxy(url string) {
 	cfg.SetAttr("package_proxy", url)
 }
 
-// setPackageProxy is a helper function which adds the corresponding runcmd
+// addPackageProxyCmd is a helper function which returns the corresponding runcmd
 // to apply the package proxy settings on a CentOS machine.
-func addPackageProxyCmds(cfg CloudConfig, url string) {
-	cfg.AddRunCmd(fmt.Sprintf("/bin/echo 'proxy=%s' >> /etc/yum.conf", url))
+func addPackageProxyCmd(cfg CloudConfig, url string) string {
+	return fmt.Sprintf("/bin/echo 'proxy=%s' >> /etc/yum.conf", url)
 }
 
 // UnsetPackageProxy implements PackageProxyConfig.
@@ -51,10 +51,10 @@ func (cfg *CentOSCloudConfig) SetPackageMirror(url string) {
 	cfg.SetAttr("package_mirror", url)
 }
 
-// setPackageMirror is a helper function that adds the corresponding runcmds
+// addPackageMirrorCmd is a helper function that returns the corresponding runcmds
 // to apply the package mirror settings on a CentOS machine.
-func addPackageMirrorCmds(cfg CloudConfig, url string) {
-	cfg.AddRunCmd(fmt.Sprintf(configurer.ReplaceCentOSMirror, url))
+func addPackageMirrorCmd(cfg CloudConfig, url string) string {
+	return fmt.Sprintf(configurer.ReplaceCentOSMirror, url)
 }
 
 // UnsetPackageMirror implements PackageMirrorConfig.
@@ -71,18 +71,6 @@ func (cfg *CentOSCloudConfig) PackageMirror() string {
 // AddPackageSource implements PackageSourcesConfig.
 func (cfg *CentOSCloudConfig) AddPackageSource(src packaging.PackageSource) {
 	cfg.attrs["package_sources"] = append(cfg.PackageSources(), src)
-}
-
-// addPackageSourceCmds is a helper function that adds the corresponding
-// runcmds to apply the package source settings on a CentOS machine.
-func addPackageSourceCmds(cfg CloudConfig, src packaging.PackageSource) {
-	// if keyfile is required, add it first
-	if src.Key != "" {
-		keyFilePath := configurer.YumKeyfileDir + src.KeyFileName()
-		cfg.AddRunTextFile(keyFilePath, src.KeyFileName(), 0644)
-	}
-
-	cfg.AddRunTextFile(configurer.YumSourcesDir, cfg.getPackagingConfigurer().RenderSource(src), 0644)
 }
 
 // PackageSources implements PackageSourcesConfig.
@@ -108,20 +96,21 @@ func (cfg *CentOSCloudConfig) RenderYAML() ([]byte, error) {
 	// check for package proxy setting and add commands:
 	var proxy string
 	if proxy = cfg.PackageProxy(); proxy != "" {
-		addPackageProxyCmds(cfg, proxy)
+		cfg.AddRunCmd(addPackageProxyCmd(cfg, proxy))
 		cfg.UnsetPackageProxy()
 	}
 
 	// check for package mirror settings and add commands:
 	var mirror string
 	if mirror = cfg.PackageMirror(); mirror != "" {
-		addPackageMirrorCmds(cfg, mirror)
+		cfg.AddRunCmd(addPackageMirrorCmd(cfg, mirror))
 		cfg.UnsetPackageMirror()
 	}
 
 	// add appropriate commands for package sources configuration:
-	for _, src := range cfg.PackageSources() {
-		addPackageSourceCmds(cfg, src)
+	srcs := cfg.PackageSources()
+	for _, src := range srcs {
+		cfg.AddScripts(addPackageSourceCmds(cfg, src)...)
 	}
 	cfg.UnsetAttr("package_sources")
 
@@ -187,21 +176,21 @@ func (cfg *CentOSCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	//}
 
 	// Define the "package_get_loop" function
-	cmds = append(cmds, packageGetLoopFunction)
+	cmds = append(cmds, configurer.PackageManagerLoopFunction)
 
 	if cfg.SystemUpdate() {
 		cmds = append(cmds, LogProgressCmd("Running yum update"))
-		cmds = append(cmds, cfg.paccmder.UpdateCmd())
+		cmds = append(cmds, "package_manager_loop "+cfg.paccmder.UpdateCmd())
 	}
 	if cfg.SystemUpgrade() {
 		cmds = append(cmds, LogProgressCmd("Running yum upgrade"))
-		cmds = append(cmds, cfg.paccmder.UpgradeCmd())
+		cmds = append(cmds, "package_manager_loop "+cfg.paccmder.UpgradeCmd())
 	}
 
 	pkgs := cfg.Packages()
 	for _, pkg := range pkgs {
 		cmds = append(cmds, LogProgressCmd("Installing package: %s", pkg))
-		cmds = append(cmds, cfg.paccmder.InstallCmd(pkg))
+		cmds = append(cmds, "package_manager_loop "+cfg.paccmder.InstallCmd(pkg))
 	}
 	return cmds, nil
 }

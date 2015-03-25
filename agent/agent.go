@@ -648,15 +648,7 @@ func (c *configInternal) fileContents() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (c *configInternal) WriteCommands(series string) ([]string, error) {
-	os, err := version.GetOSFromSeries(series)
-	if err != nil {
-		return nil, err
-	}
-	renderer, err := shell.NewRenderer(os.String())
-	if err != nil {
-		return nil, err
-	}
+func (c *configInternal) WriteCommands(renderer shell.Renderer) ([]string, error) {
 	data, err := c.fileContents()
 	if err != nil {
 		return nil, errors.Trace(err)

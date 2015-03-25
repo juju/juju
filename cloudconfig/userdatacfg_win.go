@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/juju/paths"
 )
@@ -34,9 +35,10 @@ func (w *windowsConfigure) ConfigureBasic() error {
 	if err != nil {
 		return err
 	}
-	dataDir := w.renderer.FromSlash(w.icfg.DataDir)
-	baseDir := w.renderer.FromSlash(filepath.Dir(tmpDir))
-	binDir := w.renderer.PathJoin(baseDir, "bin")
+	renderer := w.conf.ShellRenderer()
+	dataDir := renderer.FromSlash(w.icfg.DataDir)
+	baseDir := renderer.FromSlash(filepath.Dir(tmpDir))
+	binDir := renderer.Join(baseDir, "bin")
 
 	w.conf.AddScripts(
 		fmt.Sprintf(`%s`, winPowershellHelperFunctions),
@@ -64,11 +66,11 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		return errors.Annotate(err, "while serializing the tools")
 	}
 	const python = `${env:ProgramFiles(x86)}\Cloudbase Solutions\Cloudbase-Init\Python27\python.exe`
-	renderer := w.conf.ShellRenderer
+	renderer := w.conf.ShellRenderer()
 	w.conf.AddScripts(
-		fmt.Sprintf(`$binDir="%s"`, w.renderer.FromSlash(w.icfg.JujuTools())),
+		fmt.Sprintf(`$binDir="%s"`, renderer.FromSlash(w.icfg.JujuTools())),
 		`$tmpBinDir=$binDir.Replace('\', '\\')`,
-		fmt.Sprintf(`mkdir '%s'`, w.renderer.FromSlash(w.icfg.LogDir)),
+		fmt.Sprintf(`mkdir '%s'`, renderer.FromSlash(w.icfg.LogDir)),
 		`mkdir $binDir`,
 		`$WebClient = New-Object System.Net.WebClient`,
 		`[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}`,

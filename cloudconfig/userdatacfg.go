@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -53,6 +52,7 @@ func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudCon
 	}
 
 	base := baseConfigure{
+		tag:  names.NewMachineTag(icfg.MachineId),
 		icfg: icfg,
 		conf: conf,
 		os:   operatingSystem,
@@ -71,23 +71,10 @@ func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudCon
 }
 
 type baseConfigure struct {
-	icfg     *instancecfg.InstanceConfig
-	conf     cloudinit.CloudConfig
-	renderer shell.Renderer
-	os       version.OSType
-}
-
-func (c *baseConfigure) init() error {
-	os, err := version.GetOSFromSeries(c.icfg.Series)
-	if err != nil {
-		return err
-	}
-	renderer, err := shell.NewRenderer(os.String())
-	if err != nil {
-		return err
-	}
-	c.renderer = renderer
-	return nil
+	tag  names.Tag
+	icfg *instancecfg.InstanceConfig
+	conf cloudinit.CloudConfig
+	os   version.OSType
 }
 
 // addAgentInfo adds agent-required information to the agent's directory
@@ -98,7 +85,7 @@ func (c *baseConfigure) addAgentInfo(tag names.Tag) (agent.Config, error) {
 		return nil, err
 	}
 	acfg.SetValue(agent.AgentServiceName, c.icfg.MachineAgentServiceName)
-	cmds, err := acfg.WriteCommands(c.icfg.Series)
+	cmds, err := acfg.WriteCommands(c.conf.ShellRenderer())
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to write commands")
 	}
@@ -106,8 +93,8 @@ func (c *baseConfigure) addAgentInfo(tag names.Tag) (agent.Config, error) {
 	return acfg, nil
 }
 
-func (c *baseConfigure) addMachineAgentToBoot(name string) error {
-	svc, toolsDir, err := c.icfg.InitService()
+func (c *baseConfigure) addMachineAgentToBoot() error {
+	svc, err := c.icfg.InitService(c.conf.ShellRenderer())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -115,7 +102,7 @@ func (c *baseConfigure) addMachineAgentToBoot(name string) error {
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the init script.
-	toolsDir := c.mcfg.toolsDir(c.conf.ShellRenderer)
+	toolsDir := c.icfg.ToolsDir(c.conf.ShellRenderer())
 	c.conf.AddScripts(c.toolsSymlinkCommand(toolsDir))
 
 	name := c.tag.String()
@@ -143,7 +130,7 @@ func (c *baseConfigure) toolsSymlinkCommand(toolsDir string) string {
 	case version.Windows:
 		return fmt.Sprintf(
 			`cmd.exe /C mklink /D %s %v`,
-			c.renderer.FromSlash(toolsDir),
+			c.conf.ShellRenderer().FromSlash(toolsDir),
 			c.icfg.Tools.Version,
 		)
 	default:
