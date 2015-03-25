@@ -21,6 +21,7 @@ import (
 )
 
 const attachedVolumeId = "1"
+const needsInstanceVolumeId = "23"
 
 var dyingVolumeAttachmentId = params.MachineStorageId{
 	MachineTag:    "machine-0",
@@ -404,6 +405,9 @@ func (*dummyProvider) FilesystemSource(environConfig *config.Config, providerCon
 }
 
 func (*dummyVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
+	if params.Tag.Id() == needsInstanceVolumeId {
+		return storage.ErrVolumeNeedsInstance
+	}
 	return nil
 }
 

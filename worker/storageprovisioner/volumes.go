@@ -30,6 +30,7 @@ func volumesChanged(ctx *context, changes []string) error {
 	// attachments until they're all gone. We need to watch
 	// attachments *anyway*, so we can probably integrate the two
 	// things.
+	logger.Debugf("volumes alive: %v, dying: %v, dead: %v", alive, dying, dead)
 	if err := ensureDead(ctx, dying); err != nil {
 		return errors.Annotate(err, "ensuring volumes dead")
 	}
@@ -403,7 +404,7 @@ func createVolumes(
 	return volumesFromStorage(allVolumes), volumeAttachmentsFromStorage(allVolumeAttachments), nil
 }
 
-// createVolumes creates volumes with the specified parameters.
+// createVolumeAttachments creates volume attachments with the specified parameters.
 func createVolumeAttachments(
 	environConfig *config.Config,
 	baseStorageDir string,

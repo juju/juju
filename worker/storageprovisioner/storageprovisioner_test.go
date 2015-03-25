@@ -146,6 +146,30 @@ func (s *storageProvisionerSuite) TestFilesystemAdded(c *gc.C) {
 	waitChannel(c, filesystemInfoSet, "waiting for filesystem info to be set")
 }
 
+func (s *storageProvisionerSuite) TestVolumeNeedsInstance(c *gc.C) {
+	volumeAccessor := newMockVolumeAccessor()
+	lifecycleManager := &mockLifecycleManager{}
+	filesystemAccessor := newMockFilesystemAccessor()
+	environAccessor := newMockEnvironAccessor(c)
+	worker := storageprovisioner.NewStorageProvisioner(
+		"storage-dir",
+		volumeAccessor,
+		filesystemAccessor,
+		lifecycleManager,
+		environAccessor,
+	)
+	defer worker.Wait()
+	defer worker.Kill()
+
+	// Note: we're testing the *current* behaviour. Later, the provisioner
+	// should not rely on bouncing to wait for the instance, but should
+	// implement a state machine that watches instances.
+	volumeAccessor.volumesWatcher.changes <- []string{needsInstanceVolumeId}
+	environAccessor.watcher.changes <- struct{}{}
+	err := worker.Wait()
+	c.Assert(err, gc.ErrorMatches, `provisioning volumes: creating volumes: need instance to provision volume`)
+}
+
 func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 	// We should only get a single volume attachment, because it is the
 	// only combination where both machine and volume are already
