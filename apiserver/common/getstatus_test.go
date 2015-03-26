@@ -55,6 +55,8 @@ func (*statusGetterSuite) TestStatus(c *gc.C) {
 			{"unit-x-5"},
 			{"unit-x-6"},
 			{"unit-x-7"},
+			{"machine-1"},
+			{"invalid"},
 		},
 	}
 	result, err := s.Status(args)
@@ -69,6 +71,8 @@ func (*statusGetterSuite) TestStatus(c *gc.C) {
 			{Status: "stopping", Info: "blah"},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ServerError(`"invalid" is not a valid tag`)},
 		},
 	})
 }
