@@ -164,6 +164,11 @@ func (s *apiclientSuite) TestDialWebsocketStopped(c *gc.C) {
 	c.Assert(result, gc.IsNil)
 }
 
+func (s *apiclientSuite) TestServerRoot(c *gc.C) {
+	url := api.ServerRoot(s.APIState.Client())
+	c.Assert(url, gc.Matches, "https://localhost:[0-9]+")
+}
+
 func (*websocketSuite) TestSetUpWebsocketConfig(c *gc.C) {
 	conf, err := api.SetUpWebsocket("0.1.2.3:1234", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
