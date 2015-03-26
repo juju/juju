@@ -154,14 +154,6 @@ func (s *unitSuite) TestUnitStatus(c *gc.C) {
 	})
 }
 
-func (s *unitSuite) TestUnitStatusNotImplemented(c *gc.C) {
-	s.patchNewState(c, uniter.NewStateV1)
-
-	_, err := s.apiUnit.UnitStatus()
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
-	c.Assert(err.Error(), gc.Equals, "UnitStatus not implemented")
-}
-
 func (s *unitSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Alive)
 
