@@ -25,7 +25,7 @@ Getting Juju
 juju-core {version} is available for utopic and backported to earlier
 series in the following PPA:
 
-    https://launchpad.net/~juju/+archive/{purpose}
+    https://launchpad.net/~juju/+archive/{archive_suffix}
 
 {warning}
 
@@ -111,15 +111,18 @@ def make_notes(version, purpose, resolved_text, previous=None, notable=None):
         replaces = ''
     if purpose == DEVEL:
         warning = WARNING_TEMPLATE.format(version=version)
+        archive_suffix = 'devel'
     else:
         warning = ''
+        archive_suffix = purpose
     if notable is None:
         notable = 'This releases addresses stability and performance issues.'
     elif notable == '':
         notable = '[[Add the notable changes here.]]'
     text = NOTES_TEMPLATE.format(
         version=version, purpose=purpose, resolved_text=resolved_text,
-        replaces=replaces, warning=warning, notable=notable)
+        replaces=replaces, warning=warning, notable=notable,
+        archive_suffix=archive_suffix)
     # Normalise the whitespace between sections. The text can have
     # extra whitespae when blank sections are interpolated.
     text = text.replace('\n\n\n\n', '\n\n\n')
