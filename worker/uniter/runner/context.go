@@ -75,6 +75,9 @@ type HookContext struct {
 	// unitName is the human friendly name of the local unit.
 	unitName string
 
+	// status is the status of the local unit.
+	status *jujuc.StatusInfo
+
 	// relationId identifies the relation for which a relation hook is
 	// executing. If it is -1, the context is not running a relation hook;
 	// otherwise, its value must be a valid key into the relations map.
@@ -183,6 +186,22 @@ func (ctx *HookContext) Id() string {
 
 func (ctx *HookContext) UnitName() string {
 	return ctx.unitName
+}
+
+func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
+	if ctx.status == nil {
+		var err error
+		status, err := ctx.unit.UnitStatus()
+		if err != nil {
+			return nil, err
+		}
+		ctx.status = &jujuc.StatusInfo{
+			Status: string(status.Status),
+			Info:   status.Info,
+			Data:   status.Data,
+		}
+	}
+	return ctx.status, nil
 }
 
 func (ctx *HookContext) PublicAddress() (string, bool) {

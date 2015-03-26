@@ -36,6 +36,7 @@ func init() {
 type ProvisionerAPI struct {
 	*common.Remover
 	*common.StatusSetter
+	*common.StatusGetter
 	*common.DeadEnsurer
 	*common.PasswordChanger
 	*common.LifeGetter
@@ -94,6 +95,7 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 	return &ProvisionerAPI{
 		Remover:                common.NewRemover(st, false, getAuthFunc),
 		StatusSetter:           common.NewStatusSetter(st, getAuthFunc),
+		StatusGetter:           common.NewStatusGetter(st, getAuthFunc),
 		DeadEnsurer:            common.NewDeadEnsurer(st, getAuthFunc),
 		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),
@@ -272,34 +274,6 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.PreferIPv6 = config.PreferIPv6()
 	result.AllowLXCLoopMounts, _ = config.AllowLXCLoopMounts()
 
-	return result, nil
-}
-
-// Status returns the status of each given machine entity.
-func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, error) {
-	result := params.StatusResults{
-		Results: make([]params.StatusResult, len(args.Entities)),
-	}
-	canAccess, err := p.getAuthFunc()
-	if err != nil {
-		return result, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseMachineTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		machine, err := p.getMachine(canAccess, tag)
-		if err == nil {
-			r := &result.Results[i]
-			var st state.Status
-			st, r.Info, r.Data, err = machine.Status()
-			r.Status = params.Status(st)
-
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
 	return result, nil
 }
 

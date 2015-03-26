@@ -123,6 +123,7 @@ All hooks can directly use the following tools:
   * relation-ids (list all relations using a given charm relation)
   * relation-list (list all units of a related service)
   * storage-get (get storage instance values)
+  * status-get (get unit workload status information)
 
 Within the context of a single hook execution, the above tools present a
 sandboxed view of the system with the following properties:
