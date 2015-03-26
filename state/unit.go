@@ -1927,18 +1927,34 @@ func (u *Unit) ClearResolved() error {
 	return nil
 }
 
-// AddMetric adds a new batch of metrics to the database.
-// A UUID for the metric will be generated and the new MetricBatch will be returned
-func (u *Unit) AddMetrics(created time.Time, metrics []Metric) (*MetricBatch, error) {
-	charmUrl, ok := u.CharmURL()
-	if !ok {
-		return nil, stderrors.New("failed to add metrics, couldn't find charm url")
+// AddMetrics adds a new batch of metrics to the database.
+func (u *Unit) AddMetrics(batchUUID string, created time.Time, charmURLRaw string, metrics []Metric) (*MetricBatch, error) {
+	var charmURL *charm.URL
+	if charmURLRaw == "" {
+		var ok bool
+		charmURL, ok = u.CharmURL()
+		if !ok {
+			return nil, stderrors.New("failed to add metrics, couldn't find charm url")
+		}
+	} else {
+		var err error
+		charmURL, err = charm.ParseURL(charmURLRaw)
+		if err != nil {
+			return nil, errors.NewNotValid(err, "could not parse charm URL")
+		}
 	}
 	service, err := u.Service()
 	if err != nil {
 		return nil, errors.Annotatef(err, "couldn't retrieve service whilst adding metrics")
 	}
-	return u.st.addMetrics(u.UnitTag(), charmUrl, created, metrics, service.MetricCredentials())
+	batch := BatchParam{
+		UUID:        batchUUID,
+		CharmURL:    charmURL,
+		Created:     created,
+		Metrics:     metrics,
+		Credentials: service.MetricCredentials(),
+	}
+	return u.st.addMetrics(u.UnitTag(), batch)
 }
 
 // StorageConstraints returns the unit's storage constraints.

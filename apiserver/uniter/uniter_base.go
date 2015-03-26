@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/apiserver/common"
@@ -1239,7 +1240,12 @@ func (u *uniterBaseAPI) AddMetrics(args params.MetricsParams) (params.ErrorResul
 						Time:  metric.Time,
 					}
 				}
-				_, err = unit.AddMetrics(time.Now(), metricBatch)
+				batchUUID, err := utils.NewUUID()
+				if err != nil {
+					result.Results[i].Error = common.ServerError(err)
+					continue
+				}
+				_, err = unit.AddMetrics(batchUUID.String(), time.Now(), "", metricBatch)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
@@ -87,7 +88,7 @@ func benchmarkAddMetrics(metricsPerBatch, batches int, c *gc.C) {
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
 		for n := 0; n < batches; n++ {
-			_, err := unit.AddMetrics(now, metrics)
+			_, err := unit.AddMetrics(utils.MustNewUUID().String(), now, "", metrics)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
@@ -113,7 +114,7 @@ func (*BenchmarkSuite) BenchmarkCleanupMetrics(c *gc.C) {
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
 		for i := 0; i < numberOfMetrics; i++ {
-			m, err := unit.AddMetrics(oldTime, []state.Metric{{}})
+			m, err := unit.AddMetrics(utils.MustNewUUID().String(), oldTime, "", []state.Metric{{}})
 			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetSent()
 			c.Assert(err, jc.ErrorIsNil)
