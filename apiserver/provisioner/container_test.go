@@ -673,7 +673,7 @@ func (s *releaseSuite) TestErrorWithHostInsteadOfContainer(c *gc.C) {
 	args := s.makeArgs(s.machines[0])
 	err := s.assertCall(c, args, s.makeErrors(
 		apiservertesting.ServerError(
-			`cannot release address for "machine-0": not a container`,
+			`cannot mark addresses for removal for "machine-0": not a container`,
 		),
 	), "")
 	c.Assert(err, jc.ErrorIsNil)

@@ -803,12 +803,14 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 
 	canAccess, err := p.getAuthFunc()
 	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
 	}
 	// Loop over the passed container tags.
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
+			logger.Warningf("failed to parse machine tag %q: %v", entity.Tag, err)
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
@@ -818,10 +820,12 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 		// machine has the host as a parent.
 		container, err := p.getMachine(canAccess, tag)
 		if err != nil {
+			logger.Warningf("failed to get machine %q: %v", tag, err)
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		} else if !container.IsContainer() {
-			err = errors.Errorf("cannot release address for %q: not a container", tag)
+			logger.Warningf("cannot mark addresses for removal for %q: not a container", tag)
+			err = errors.Errorf("cannot mark addresses for removal for %q: not a container", tag)
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -839,7 +843,7 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 		for _, addr := range addresses {
 			err = addr.EnsureDead()
 			if err != nil {
-				logger.Warningf("failed to mark address %v for container %q as Dead: %v", addr.Value, tag, err)
+				logger.Warningf("failed to mark address %v for container %q for removal: %v", addr.Value, tag, err)
 				deadErrors = append(deadErrors, err)
 				continue
 			}
