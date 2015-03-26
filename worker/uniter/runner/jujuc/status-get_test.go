@@ -45,10 +45,19 @@ var statusGetTests = []struct {
 	{[]string{}, -1, "error\n"},
 }
 
+func setFakeStatus(ctx *Context) {
+	ctx.SetUnitStatus(jujuc.StatusInfo{
+		Status: statusAttributes["status"].(string),
+		Info:   statusAttributes["message"].(string),
+		Data:   statusAttributes["status-data"].(map[string]interface{}),
+	})
+}
+
 func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {
 	for i, t := range statusGetTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetStatusHookContext(c)
+		setFakeStatus(hctx)
 		com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
@@ -98,6 +107,7 @@ If the --include-data flag is passed, the associated data are printed also.
 
 func (s *statusGetSuite) TestOutputPath(c *gc.C) {
 	hctx := s.GetStatusHookContext(c)
+	setFakeStatus(hctx)
 	com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)

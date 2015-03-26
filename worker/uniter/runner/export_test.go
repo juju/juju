@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var (
@@ -80,6 +81,19 @@ func GetStubActionContext(in map[string]interface{}) *HookContext {
 		actionData: &ActionData{
 			ResultsMap: in,
 		},
+	}
+}
+
+func PatchCachedStatus(ctx Context, status, info string, data map[string]interface{}) func() {
+	hctx := ctx.(*HookContext)
+	oldStatus := hctx.status
+	hctx.status = &jujuc.StatusInfo{
+		Status: status,
+		Info:   info,
+		Data:   data,
+	}
+	return func() {
+		hctx.status = oldStatus
 	}
 }
 

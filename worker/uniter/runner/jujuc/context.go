@@ -39,6 +39,9 @@ type Context interface {
 	// UnitStatus returns the executing unit's current status.
 	UnitStatus() (*StatusInfo, error)
 
+	// SetUnitStatus updates the unit's status.
+	SetUnitStatus(StatusInfo) error
+
 	// PublicAddress returns the executing unit's public address.
 	PublicAddress() (string, bool)
 

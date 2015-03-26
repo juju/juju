@@ -204,6 +204,14 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 	return ctx.status, nil
 }
 
+func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
+	return ctx.unit.SetUnitStatus(
+		params.Status(status.Status),
+		status.Info,
+		status.Data,
+	)
+}
+
 func (ctx *HookContext) PublicAddress() (string, bool) {
 	return ctx.publicAddress, ctx.publicAddress != ""
 }
