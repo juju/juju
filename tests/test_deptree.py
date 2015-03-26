@@ -121,13 +121,12 @@ class DependencyFileTestCase(TestCase):
             'github/foo': Dependency('github/foo', 'git', 'rev123', None),
             'github/bar': Dependency('github/bar', 'git', 'rev456', None),
         }
+        dep_file = DependencyFile([])
+        dep_file.deps = deps
         include = [
             Dependency('github/bar', 'git', 'redefined', None),
             Dependency('github/baz', 'git', 'added', None),
         ]
-        with patch('deptree.DependencyFile.consolidate_deps',
-                   autospec=True, return_value=[deps, []]):
-            dep_file = DependencyFile(['foo.tsv', 'bar.tsv'])
         redefined, added = dep_file.include_deps(include)
         self.assertEqual([include[0]], redefined)
         self.assertEqual([include[1]], added)
@@ -141,9 +140,8 @@ class DependencyFileTestCase(TestCase):
             a_dep.package: a_dep,
             b_dep.package: b_dep,
         }
-        with patch('deptree.DependencyFile.consolidate_deps',
-                   autospec=True, return_value=[consolidated_deps, []]):
-            dep_file = DependencyFile(['foo.tsv', 'bar.tsv'])
+        dep_file = DependencyFile([])
+        dep_file.deps = consolidated_deps
         tmp_tsv = dep_file.write_tmp_tsv()
         self.assertEqual(tmp_tsv, dep_file.tmp_tsv)
         self.assertTrue(os.path.isfile(tmp_tsv))
@@ -154,9 +152,7 @@ class DependencyFileTestCase(TestCase):
         self.assertEqual(expected, content)
 
     def test_delete_tmp_tsv(self):
-        with patch('deptree.DependencyFile.consolidate_deps',
-                   autospec=True, return_value=({}, [])):
-            dep_file = DependencyFile(['foo.tsv', 'bar.tsv'])
+        dep_file = DependencyFile([])
         self.assertFalse(dep_file.delete_tmp_tsv())
         with temp_dir() as base_dir:
             dep_path = '%s/a.tsv' % base_dir
@@ -168,20 +164,16 @@ class DependencyFileTestCase(TestCase):
         self.assertIsNone(dep_file.tmp_tsv)
 
     def test_pin_deps(self):
+        dep_file = DependencyFile([])
         with patch('subprocess.check_output') as co_mock:
-            with patch('deptree.DependencyFile.consolidate_deps',
-                       autospec=True, return_value=({}, [])):
-                dep_file = DependencyFile(['foo.tsv', 'bar.tsv'])
-
-                def write_tmp_tsv():
-                    dep_file.tmp_tsv = '/tmp/baz.tsv'
-
-                with patch.object(dep_file, 'write_tmp_tsv',
-                                  side_effect=write_tmp_tsv,
-                                  autospec=True) as wt_mock:
-                    with patch.object(dep_file, 'delete_tmp_tsv',
-                                      autospec=True) as dt_mock:
-                        dep_file.pin_deps()
+            def write_tmp_tsv():
+                dep_file.tmp_tsv = '/tmp/baz.tsv'
+            with patch.object(dep_file, 'write_tmp_tsv',
+                              side_effect=write_tmp_tsv,
+                              autospec=True) as wt_mock:
+                with patch.object(dep_file, 'delete_tmp_tsv',
+                                  autospec=True) as dt_mock:
+                    dep_file.pin_deps()
         wt_mock.assert_called_once_with()
         co_mock.assert_called_once_with(['godeps', '-u', '/tmp/baz.tsv'])
         dt_mock.assert_called_once_with()

@@ -11,6 +11,7 @@ import tempfile
 
 
 class Dependency:
+    """A GO Deps packge dependency."""
 
     @staticmethod
     def from_option(option_value):
@@ -48,6 +49,7 @@ class Dependency:
 
 
 class DependencyFile:
+    """A GO Deps dependencies.tsv created from several such files."""
 
     def __init__(self, dep_files, verbose=False):
         self.dep_files = dep_files
@@ -58,7 +60,7 @@ class DependencyFile:
     def consolidate_deps(self):
         """Return a two-tuple of the deps dict and conflicts in the files.
 
-        The dep_files lis an list starting with the base set of deps, then
+        The dep_files is an list starting with the base set of deps, then
         overlayed with each successive file. If any package is redefined, it
         is added to conflicts.
         """
@@ -90,7 +92,7 @@ class DependencyFile:
         return redefined, added
 
     def write_tmp_tsv(self):
-        """Write the deps to a temp file and return its path.
+        """Write the deps to a temp file, set tmp_tsv, and return its path.
 
         The caller of this method is resonsible for calling delete_tmp_tsv()
         when done.
@@ -103,7 +105,7 @@ class DependencyFile:
         return self.tmp_tsv
 
     def delete_tmp_tsv(self):
-        """Delete the tmp dep_path if it was written."""
+        """Delete tmp_tsv if it was written."""
         if self.tmp_tsv and os.path.isfile(self.tmp_tsv):
             os.unlink(self.tmp_tsv)
             self.tmp_tsv = None
@@ -111,6 +113,11 @@ class DependencyFile:
         return False
 
     def pin_deps(self):
+        """Pin the tree to the current deps.
+
+        This will write a temp dependencies tsv file, call godeps, then
+        remove the file. the 'godeps' command must be in your path.
+        """
         try:
             self.write_tmp_tsv()
             output = subprocess.check_output(['godeps', '-u', self.tmp_tsv])
@@ -118,16 +125,6 @@ class DependencyFile:
                 print(output)
         finally:
             self.delete_tmp_tsv()
-
-
-def main(args=None):
-    """Execute the commands from the command line."""
-    exitcode = 0
-    args = get_args(args)
-    dep_file = DependencyFile(args.dep_files, verbose=args.verbose)
-    redefined, added = dep_file.include_deps(args.include)
-    dep_file.pin_deps()
-    return exitcode
 
 
 def get_args(argv=None):
@@ -151,6 +148,15 @@ def get_args(argv=None):
     args.include = [Dependency.from_option(o) for o in args.include]
     return args
 
+
+def main(args=None):
+    """Execute the commands from the command line."""
+    exitcode = 0
+    args = get_args(args)
+    dep_file = DependencyFile(args.dep_files, verbose=args.verbose)
+    redefined, added = dep_file.include_deps(args.include)
+    dep_file.pin_deps()
+    return exitcode
 
 if __name__ == '__main__':
     sys.exit(main())
