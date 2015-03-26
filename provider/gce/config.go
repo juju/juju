@@ -92,6 +92,7 @@ var configDefaults = schema.Defaults{
 	cfgAuthFile: "",
 	// See http://cloud-images.ubuntu.com/releases/streams/v1/com.ubuntu.cloud:released:gce.json
 	cfgImageEndpoint: "https://www.googleapis.com",
+	cfgRegion:        "us-central1",
 }
 
 var configSecretFields = []string{
