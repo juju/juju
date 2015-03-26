@@ -294,3 +294,98 @@ func (s *storageMockSuite) TestCreatePoolFacadeCallError(c *gc.C) {
 	err := storageClient.CreatePool("", "", nil)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }
+
+func (s *storageMockSuite) TestListVolumes(c *gc.C) {
+	var called bool
+	machines := []string{"one", "two"}
+	machineTags := set.NewStrings(
+		names.NewMachineTag(machines[0]).String(),
+		names.NewMachineTag(machines[1]).String(),
+	)
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ListVolumes")
+
+			args, ok := a.(params.StorageVolumeFilter)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.Machines, gc.HasLen, 2)
+
+			if results, k := result.(*params.VolumeItemsResult); k {
+				attachments := make([]params.VolumeAttachment, len(args.Machines))
+				for i, m := range args.Machines {
+					attachments[i] = params.VolumeAttachment{
+						MachineTag: m}
+				}
+				results.Results = []params.VolumeItem{
+					params.VolumeItem{Attachments: attachments},
+				}
+			}
+			return nil
+		})
+	storageClient := storage.NewClient(apiCaller)
+	found, err := storageClient.ListVolumes(machines)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found, gc.HasLen, 1)
+	c.Assert(found[0].Attachments, gc.HasLen, len(machines))
+	c.Assert(machineTags.Contains(found[0].Attachments[0].MachineTag), jc.IsTrue)
+	c.Assert(machineTags.Contains(found[0].Attachments[1].MachineTag), jc.IsTrue)
+}
+
+func (s *storageMockSuite) TestListVolumesEmptyFilter(c *gc.C) {
+	var called bool
+	tag := "ok"
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ListVolumes")
+
+			args, ok := a.(params.StorageVolumeFilter)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.IsEmpty(), jc.IsTrue)
+
+			if results, k := result.(*params.VolumeItemsResult); k {
+				results.Results = []params.VolumeItem{
+					params.VolumeItem{Volume: params.Volume{VolumeTag: tag}}}
+			}
+			return nil
+		})
+	storageClient := storage.NewClient(apiCaller)
+	found, err := storageClient.ListVolumes(nil)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found, gc.HasLen, 1)
+	c.Assert(found[0].Volume.VolumeTag, gc.Equals, tag)
+}
+
+func (s *storageMockSuite) TestListVolumesFacadeCallError(c *gc.C) {
+	msg := "facade failure"
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ListVolumes")
+
+			return errors.New(msg)
+		})
+	storageClient := storage.NewClient(apiCaller)
+	_, err := storageClient.ListVolumes(nil)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+}

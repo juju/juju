@@ -86,3 +86,21 @@ func (c *Client) CreatePool(pname, provider string, attrs map[string]interface{}
 	}
 	return c.facade.FacadeCall("CreatePool", args, nil)
 }
+
+// ListVolumes lists volumes for desired machines.
+// If no machines provided, a list of all volumes is returned.
+func (c *Client) ListVolumes(machines []string) ([]params.VolumeItem, error) {
+	tags := make([]string, len(machines))
+	for i, one := range machines {
+		tags[i] = names.NewMachineTag(one).String()
+	}
+	args := params.StorageVolumeFilter{Machines: tags}
+	found := params.VolumeItemsResult{}
+
+	// TODO(2015-01-30 anastasiamac/axw) we may want to just auto-create Volumes
+	// from discovered block devices if there are no matching provider-created Volumes.
+	if err := c.facade.FacadeCall("ListVolumes", args, &found); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return found.Results, nil
+}

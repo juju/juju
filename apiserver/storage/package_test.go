@@ -29,13 +29,18 @@ type baseStorageSuite struct {
 	resources  *common.Resources
 	authorizer testing.FakeAuthorizer
 
-	api             *storage.API
-	state           *mockState
+	api   *storage.API
+	state *mockState
+
 	storageTag      names.StorageTag
 	storageInstance *mockStorageInstance
 	unitTag         names.UnitTag
 	machineTag      names.MachineTag
-	calls           []string
+
+	volumeTag        names.VolumeTag
+	volume           state.Volume
+	volumeAttachment state.VolumeAttachment
+	calls            []string
 
 	poolManager *mockPoolManager
 	pools       map[string]*jujustorage.Config
@@ -69,10 +74,14 @@ func (s *baseStorageSuite) constructState(c *gc.C) *mockState {
 
 	s.machineTag = names.NewMachineTag("66")
 	filesystemTag := names.NewFilesystemTag("104")
-	volumeTag := names.NewVolumeTag("22")
+	s.volumeTag = names.NewVolumeTag("22")
 	filesystem := &mockFilesystem{tag: filesystemTag}
 	filesystemAttachment := &mockFilesystemAttachment{}
-	volume := &mockVolume{tag: volumeTag}
+	s.volume = &mockVolume{tag: s.volumeTag}
+	s.volumeAttachment = &mockVolumeAttachment{
+		VolumeTag:  s.volumeTag,
+		MachineTag: s.machineTag,
+	}
 
 	return &mockState{
 		allStorageInstances: func() ([]state.StorageInstance, error) {
@@ -103,12 +112,31 @@ func (s *baseStorageSuite) constructState(c *gc.C) *mockState {
 		storageInstanceVolume: func(t names.StorageTag) (state.Volume, error) {
 			s.calls = append(s.calls, storageInstanceVolumeCall)
 			c.Assert(t, gc.DeepEquals, s.storageTag)
-			return volume, nil
+			return s.volume, nil
 		},
 		unitAssignedMachine: func(u names.UnitTag) (names.MachineTag, error) {
 			s.calls = append(s.calls, unitAssignedMachineCall)
 			c.Assert(u, gc.DeepEquals, s.unitTag)
 			return s.machineTag, nil
+		},
+		volume: func(tag names.VolumeTag) (state.Volume, error) {
+			s.calls = append(s.calls, volumeCall)
+			c.Assert(tag, gc.DeepEquals, s.volumeTag)
+			return s.volume, nil
+		},
+		machineVolumeAttachments: func(machine names.MachineTag) ([]state.VolumeAttachment, error) {
+			s.calls = append(s.calls, machineVolumeAttachmentsCall)
+			c.Assert(machine, gc.DeepEquals, s.machineTag)
+			return []state.VolumeAttachment{s.volumeAttachment}, nil
+		},
+		volumeAttachments: func(volume names.VolumeTag) ([]state.VolumeAttachment, error) {
+			s.calls = append(s.calls, volumeAttachmentsCall)
+			c.Assert(volume, gc.DeepEquals, s.volumeTag)
+			return []state.VolumeAttachment{s.volumeAttachment}, nil
+		},
+		allVolumes: func() ([]state.Volume, error) {
+			s.calls = append(s.calls, allVolumesCall)
+			return []state.Volume{s.volume}, nil
 		},
 		envName: "storagetest",
 	}
@@ -167,23 +195,21 @@ func (m *mockPoolManager) List() ([]*jujustorage.Config, error) {
 }
 
 type mockState struct {
-	storageInstance     func(names.StorageTag) (state.StorageInstance, error)
-	allStorageInstances func() ([]state.StorageInstance, error)
-
-	storageInstanceAttachments func(names.StorageTag) ([]state.StorageAttachment, error)
-
-	unitAssignedMachine func(u names.UnitTag) (names.MachineTag, error)
-
-	storageInstanceVolume           func(names.StorageTag) (state.Volume, error)
-	storageInstanceVolumeAttachment func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
-
+	storageInstance                     func(names.StorageTag) (state.StorageInstance, error)
+	allStorageInstances                 func() ([]state.StorageInstance, error)
+	storageInstanceAttachments          func(names.StorageTag) ([]state.StorageAttachment, error)
+	unitAssignedMachine                 func(u names.UnitTag) (names.MachineTag, error)
+	storageInstanceVolume               func(names.StorageTag) (state.Volume, error)
+	storageInstanceVolumeAttachment     func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 	storageInstanceFilesystem           func(names.StorageTag) (state.Filesystem, error)
 	storageInstanceFilesystemAttachment func(m names.MachineTag, f names.FilesystemTag) (state.FilesystemAttachment, error)
-
-	watchFilesystemAttachment func(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
-	watchVolumeAttachment     func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
-
-	envName string
+	watchFilesystemAttachment           func(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
+	watchVolumeAttachment               func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+	envName                             string
+	volume                              func(tag names.VolumeTag) (state.Volume, error)
+	machineVolumeAttachments            func(machine names.MachineTag) ([]state.VolumeAttachment, error)
+	volumeAttachments                   func(volume names.VolumeTag) ([]state.VolumeAttachment, error)
+	allVolumes                          func() ([]state.Volume, error)
 }
 
 func (st *mockState) StorageInstance(s names.StorageTag) (state.StorageInstance, error) {
@@ -228,6 +254,22 @@ func (st *mockState) WatchVolumeAttachment(mtag names.MachineTag, v names.Volume
 
 func (st *mockState) EnvName() (string, error) {
 	return st.envName, nil
+}
+
+func (st *mockState) AllVolumes() ([]state.Volume, error) {
+	return st.allVolumes()
+}
+
+func (st *mockState) VolumeAttachments(volume names.VolumeTag) ([]state.VolumeAttachment, error) {
+	return st.volumeAttachments(volume)
+}
+
+func (st *mockState) MachineVolumeAttachments(machine names.MachineTag) ([]state.VolumeAttachment, error) {
+	return st.machineVolumeAttachments(machine)
+}
+
+func (st *mockState) Volume(tag names.VolumeTag) (state.Volume, error) {
+	return st.volume(tag)
 }
 
 type mockNotifyWatcher struct {
@@ -315,4 +357,29 @@ func (m *mockStorageAttachment) StorageInstance() names.StorageTag {
 
 func (m *mockStorageAttachment) Unit() names.UnitTag {
 	return m.storage.Owner().(names.UnitTag)
+}
+
+type mockVolumeAttachment struct {
+	VolumeTag  names.VolumeTag
+	MachineTag names.MachineTag
+}
+
+func (va *mockVolumeAttachment) Volume() names.VolumeTag {
+	return va.VolumeTag
+}
+
+func (va *mockVolumeAttachment) Machine() names.MachineTag {
+	return va.MachineTag
+}
+
+func (va *mockVolumeAttachment) Life() state.Life {
+	panic("not implemented for test")
+}
+
+func (va *mockVolumeAttachment) Info() (state.VolumeAttachmentInfo, error) {
+	return state.VolumeAttachmentInfo{}, errors.New("not interested yet")
+}
+
+func (va *mockVolumeAttachment) Params() (state.VolumeAttachmentParams, bool) {
+	panic("not implemented for test")
 }

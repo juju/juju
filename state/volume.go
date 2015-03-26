@@ -577,3 +577,21 @@ func setVolumeInfoOps(tag names.VolumeTag, info VolumeInfo, unsetParams bool) []
 		Update: update,
 	}}
 }
+
+// AllVolumes returns all Volumes scoped to the environment.
+func (st *State) AllVolumes() ([]Volume, error) {
+	coll, cleanup := st.getCollection(volumesC)
+	defer cleanup()
+
+	var vDocs []volumeDoc
+	err := coll.Find(nil).All(&vDocs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get volumes")
+	}
+
+	v := make([]Volume, len(vDocs))
+	for i, vDoc := range vDocs {
+		v[i] = &volume{vDoc}
+	}
+	return v, nil
+}

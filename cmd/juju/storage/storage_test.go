@@ -14,6 +14,7 @@ var expectedSubCommmandNames = []string{
 	"list",
 	"pool",
 	"show",
+	"volume",
 }
 
 type storageSuite struct {

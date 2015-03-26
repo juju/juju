@@ -11,6 +11,9 @@ import (
 )
 
 type storageAccess interface {
+	/*
+	   Required for instance functionality
+	*/
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	AllStorageInstances() ([]state.StorageInstance, error)
 	StorageAttachments(names.StorageTag) ([]state.StorageAttachment, error)
@@ -21,7 +24,19 @@ type storageAccess interface {
 	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+
+	/*
+	   Required for pool functionality
+	*/
 	EnvName() (string, error)
+
+	/*
+	   Required for volume functionality
+	*/
+	AllVolumes() ([]state.Volume, error)
+	VolumeAttachments(volume names.VolumeTag) ([]state.VolumeAttachment, error)
+	MachineVolumeAttachments(machine names.MachineTag) ([]state.VolumeAttachment, error)
+	Volume(tag names.VolumeTag) (state.Volume, error)
 }
 
 var getState = func(st *state.State) storageAccess {
