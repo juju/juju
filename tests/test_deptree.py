@@ -183,9 +183,11 @@ class DepTreeTestCase(TestCase):
         df_mock.consolidate_deps.return_value = ({}, [])
         df_mock.include_deps.return_value = ([], [])
         df_mock.write_tmp_tsv.return_value = 'fnord.tsv'
+        df_mock.delete_tmp_tsv.return_value = True
         with patch('deptree.DependencyFile',
                    autospec=True, return_value=df_mock) as init_mock:
             main(['foo', 'bar', 'baz'])
         init_mock.assert_called_once_with(['bar', 'baz'], verbose=False)
         df_mock.include_deps.assert_called_once_with([])
         df_mock.write_tmp_tsv.assert_called_once_with()
+        df_mock.delete_tmp_tsv.assert_called_once_with()

@@ -113,12 +113,11 @@ def main(args=None):
     args = get_args(args)
     dep_file = DependencyFile(args.dep_files, verbose=args.verbose)
     redefined, added = dep_file.include_deps(args.include)
-    consolidated_tsv = dep_file.write_tmp_tsv()
+    dep_file.write_tmp_tsv()
     try:
         pass
     finally:
-        if os.path.isfile(consolidated_tsv):
-            os.unlink(consolidated_tsv)
+        dep_file.delete_tmp_tsv()
     return exitcode
 
 
