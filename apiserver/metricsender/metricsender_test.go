@@ -4,6 +4,7 @@
 package metricsender_test
 
 import (
+	"errors"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -88,4 +89,33 @@ func (s *MetricSenderSuite) TestDontSendWithNopSender(c *gc.C) {
 	sent, err := s.State.CountOfSentMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sent, gc.Equals, 3)
+}
+
+func (s *MetricSenderSuite) TestFailureIncrementsConsecutiveFailures(c *gc.C) {
+	sender := &testing.ErrorSender{Err: errors.New("something went wrong")}
+	now := time.Now()
+	for i := 0; i < 3; i++ {
+		s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now})
+	}
+	err := metricsender.SendMetrics(s.State, sender, 1)
+	c.Assert(err, gc.ErrorMatches, "something went wrong")
+	mm, err := s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mm.ConsecutiveErrors(), gc.Equals, 1)
+}
+
+func (s *MetricSenderSuite) TestFailuresResetOnSuccessfulSend(c *gc.C) {
+	mm, err := s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	err = mm.IncrementConsecutiveErrors()
+	c.Assert(err, jc.ErrorIsNil)
+	now := time.Now()
+	for i := 0; i < 3; i++ {
+		s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now})
+	}
+	err = metricsender.SendMetrics(s.State, metricsender.NopSender{}, 10)
+	c.Assert(err, jc.ErrorIsNil)
+	mm, err = s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mm.ConsecutiveErrors(), gc.Equals, 0)
 }
