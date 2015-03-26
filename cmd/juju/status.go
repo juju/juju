@@ -167,7 +167,8 @@ func (s machineStatus) GetYAML() (tag string, value interface{}) {
 	}
 	// TODO(rog) rename mNoMethods to noMethods (and also in
 	// the other GetYAML methods) when people are using the non-buggy
-	// goyaml version.
+	// goyaml version. // TODO(jw4) however verify that gccgo does not
+	// complain about symbol already defined.
 	type mNoMethods machineStatus
 	return "", mNoMethods(s)
 }
@@ -190,16 +191,16 @@ func (s serviceStatus) MarshalJSON() ([]byte, error) {
 	if s.Err != nil {
 		return json.Marshal(errorStatus{s.Err.Error()})
 	}
-	type sNoMethods serviceStatus
-	return json.Marshal(sNoMethods(s))
+	type ssNoMethods serviceStatus
+	return json.Marshal(ssNoMethods(s))
 }
 
 func (s serviceStatus) GetYAML() (tag string, value interface{}) {
 	if s.Err != nil {
 		return "", errorStatus{s.Err.Error()}
 	}
-	type sNoMethods serviceStatus
-	return "", sNoMethods(s)
+	type ssNoMethods serviceStatus
+	return "", ssNoMethods(s)
 }
 
 type unitStatus struct {
@@ -238,8 +239,8 @@ func (s statusInfoContents) GetYAML() (tag string, value interface{}) {
 	if s.Err != nil {
 		return "", errorStatus{s.Err.Error()}
 	}
-	type sNoMethods statusInfoContents
-	return "", sNoMethods(s)
+	type sicNoMethods statusInfoContents
+	return "", sicNoMethods(s)
 }
 
 type unitStatusNoMarshal unitStatus
@@ -255,8 +256,8 @@ func (s unitStatus) GetYAML() (tag string, value interface{}) {
 	if s.Err != nil {
 		return "", errorStatus{s.Err.Error()}
 	}
-	type sNoMethods unitStatus
-	return "", sNoMethods(s)
+	type usNoMethods unitStatus
+	return "", usNoMethods(s)
 }
 
 type networkStatus struct {
