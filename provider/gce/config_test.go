@@ -218,9 +218,9 @@ var newConfigTests = []configTestSpec{{
 	insert: testing.Attrs{"client-email": ""},
 	err:    "client-email: must not be empty",
 }, {
-	info:   "region is required",
+	info:   "region is optional",
 	remove: []string{"region"},
-	err:    "region: expected string, got nothing",
+	expect: testing.Attrs{"region": "us-central1"},
 }, {
 	info:   "region cannot be empty",
 	insert: testing.Attrs{"region": ""},
