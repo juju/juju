@@ -2323,9 +2323,7 @@ func (s *clientSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 
 func (s *clientSuite) makeMockCharmStore() (store *charmtesting.MockCharmStore) {
 	mockStore := charmtesting.NewMockCharmStore()
-	origStore := client.CharmStore
-	client.CharmStore = mockStore
-	s.AddCleanup(func(_ *gc.C) { client.CharmStore = origStore })
+	s.PatchValue(client.CharmStore, mockStore)
 	return mockStore
 }
 
@@ -2337,7 +2335,7 @@ func addSeriesCharm(c *gc.C, series, name string) (*charm.URL, charm.Charm) {
 	bundle := testcharms.Repo.CharmArchive(c.MkDir(), name)
 	scurl := fmt.Sprintf("cs:%s/%s-%d", series, name, bundle.Revision())
 	curl := charm.MustParseURL(scurl)
-	err := client.CharmStore.(*charmtesting.MockCharmStore).SetCharm(curl, bundle)
+	err := (*client.CharmStore).(*charmtesting.MockCharmStore).SetCharm(curl, bundle)
 	c.Assert(err, jc.ErrorIsNil)
 	return curl, bundle
 }
@@ -3409,37 +3407,29 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 
 func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
 	store := s.makeMockCharmStore()
-
-	attrs := map[string]interface{}{"charm-store-auth": "token=value",
-		"test-mode": true}
+	attrs := map[string]interface{}{"test-mode": true}
 	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Check that the store's test mode is enabled when calling ServiceDeploy.
 	curl, _ := addCharm(c, "dummy")
 	err = s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// check that the store's auth attributes were set
-	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
 	c.Assert(store.TestMode(), jc.IsTrue)
 
-	store.SetAuthAttrs("")
-
+	// Check that the store's test mode is enabled when calling ServiceSetCharm.
 	curl, _ = addCharm(c, "wordpress")
 	err = s.APIState.Client().ServiceSetCharm(
 		"service", curl.String(), false,
 	)
+	c.Assert(store.TestMode(), jc.IsTrue)
 
-	// check that the store's auth attributes were set
-	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
-
+	// Check that the store's test mode is enabled when calling AddCharm.
 	curl, _ = addCharm(c, "riak")
 	err = s.APIState.Client().AddCharm(curl)
-
-	// check that the store's auth attributes were set
-	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
+	c.Assert(store.TestMode(), jc.IsTrue)
 }
 
 func (s *clientSuite) TestAddCharm(c *gc.C) {

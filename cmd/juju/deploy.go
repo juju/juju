@@ -192,8 +192,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-
-	config.SpecializeCharmRepo(repo, conf)
+	repo = config.SpecializeCharmRepo(repo, conf)
 
 	curl, err = addCharmViaAPI(client, ctx, curl, repo)
 	if err != nil {

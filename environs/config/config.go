@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -332,8 +331,7 @@ const (
 //
 // The required keys (after any files have been read) are "name",
 // "type" and "authorized-keys", all of type string.  Additional keys
-// recognised are "agent-version" (string) and "development" (bool) as
-// well as charm-store-auth (string containing comma-separated key=value pairs).
+// recognised are "agent-version" (string) and "development" (bool).
 func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error) {
 	checker := noDefaultsChecker
 	if withDefaults {
@@ -582,14 +580,6 @@ func Validate(cfg, old *Config) error {
 		if err := verifyKeyPair(caCert, caKey); err != nil {
 			return errors.Annotate(err, "bad CA certificate/key in configuration")
 		}
-	}
-
-	// Ensure that the auth token is a set of key=value pairs.
-	authToken, _ := cfg.CharmStoreAuth()
-	validAuthToken := regexp.MustCompile(`^([^\s=]+=[^\s=]+(,\s*)?)*$`)
-	if !validAuthToken.MatchString(authToken) {
-		return fmt.Errorf("charm store auth token needs to be a set"+
-			" of key-value pairs, not %q", authToken)
 	}
 
 	// Ensure that the given harvesting method is valid.
@@ -1051,12 +1041,6 @@ func (c *Config) LoggingConfig() string {
 	return c.asString("logging-config")
 }
 
-// Auth token sent to charm store
-func (c *Config) CharmStoreAuth() (string, bool) {
-	auth := c.asString("charm-store-auth")
-	return auth, auth != ""
-}
-
 // ProvisionerHarvestMode reports the harvesting methodology the
 // provisioner should take.
 func (c *Config) ProvisionerHarvestMode() HarvestMode {
@@ -1202,7 +1186,6 @@ var fields = schema.Fields{
 	"rsyslog-ca-cert":            schema.String(),
 	"rsyslog-ca-key":             schema.String(),
 	"logging-config":             schema.String(),
-	"charm-store-auth":           schema.String(),
 	ProvisionerHarvestModeKey:    schema.String(),
 	HttpProxyKey:                 schema.String(),
 	HttpsProxyKey:                schema.String(),
@@ -1303,8 +1286,6 @@ var alwaysOptional = schema.Defaults{
 	"state-port":  DefaultStatePort,
 	"api-port":    DefaultAPIPort,
 	"syslog-port": DefaultSyslogPort,
-	// Authentication string sent with requests to the charm store
-	"charm-store-auth": "",
 	// Previously image-stream could be set to an empty value
 	"image-stream":             "",
 	"test-mode":                false,
@@ -1435,21 +1416,15 @@ func (cfg *Config) GenerateStateServerCertAndKey(hostAddresses []string) (string
 }
 
 // SpecializeCharmRepo customizes a repository for a given configuration.
-// It adds authentication if necessary and sets a charm store's testMode flag.
-func SpecializeCharmRepo(repo charmrepo.Interface, cfg *Config) {
-	type Specializer interface {
-		SetAuthAttrs(string)
-		SetTestMode(testMode bool)
+// It returns a charm repository with test mode enabled if applicable.
+func SpecializeCharmRepo(repo charmrepo.Interface, cfg *Config) charmrepo.Interface {
+	type specializer interface {
+		WithTestMode(testMode bool) charmrepo.Interface
 	}
-	// If a charm store auth token is set, pass it on to the charm store
-	if auth, authSet := cfg.CharmStoreAuth(); authSet {
-		if CS, isCS := repo.(Specializer); isCS {
-			CS.SetAuthAttrs(auth)
-		}
+	if store, ok := repo.(specializer); ok {
+		return store.WithTestMode(cfg.TestMode())
 	}
-	if CS, isCS := repo.(Specializer); isCS {
-		CS.SetTestMode(cfg.TestMode())
-	}
+	return repo
 }
 
 // SSHTimeoutOpts lists the amount of time we will wait for various

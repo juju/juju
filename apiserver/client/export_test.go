@@ -8,6 +8,7 @@ var (
 	RemoteParamsForMachine  = remoteParamsForMachine
 	GetAllUnitNames         = getAllUnitNames
 	NewStateStorage         = &newStateStorage
+	CharmStore              = &charmStore
 )
 
 var MachineJobFromParams = machineJobFromParams
