@@ -23,8 +23,8 @@ import (
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
+	svctesting "github.com/juju/juju/service/common/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -42,7 +42,7 @@ type MongoSuite struct {
 	mongodConfigPath string
 	mongodPath       string
 
-	data *service.FakeServiceData
+	data *svctesting.FakeServiceData
 }
 
 var _ = gc.Suite(&MongoSuite{})
@@ -99,7 +99,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.mongodConfigPath = filepath.Join(testPath, "mongodConfig")
 	s.PatchValue(mongo.MongoConfigPath, s.mongodConfigPath)
 
-	s.data = service.NewFakeServiceData()
+	s.data = svctesting.NewFakeServiceData()
 	mongo.PatchService(s.PatchValue, s.data)
 }
 
