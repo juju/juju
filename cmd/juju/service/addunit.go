@@ -58,7 +58,8 @@ func (c *UnitCommandBase) CheckProvider(conf *config.Config) error {
 	return nil
 }
 
-// TODO(cherylj) Unexport GetClientConfig once deploy is moved under service
+// TODO(cherylj) Unexport GetClientConfig and make it a standard function
+// once deploy is moved under service
 var GetClientConfig = func(client ServiceAddUnitAPI) (*config.Config, error) {
 	// Separated into a variable for easy overrides
 	attrs, err := client.EnvironmentGet()
@@ -80,7 +81,7 @@ type AddUnitCommand struct {
 const addUnitDoc = `
 Adding units to an existing service is a way to scale out an environment by
 deploying more instances of a service.  Add-unit must be called on services that
-have already been deployed via juju deploy.  
+have already been deployed via juju deploy.
 
 By default, services are deployed to newly provisioned machines.  Alternatively,
 service units can be added to a specific existing machine using the --to
@@ -157,13 +158,10 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
-const (
-	deployTarget = "^(" + names.ContainerTypeSnippet + ":)?" + names.MachineSnippet + "$"
-)
+// deployTarget describes the format a machine or container target must match to be valid.
+const deployTarget = "^(" + names.ContainerTypeSnippet + ":)?" + names.MachineSnippet + "$"
 
-var (
-	validMachineOrNewContainer = regexp.MustCompile(deployTarget)
-)
+var validMachineOrNewContainer = regexp.MustCompile(deployTarget)
 
 // IsMachineOrNewContainer returns whether spec is a valid machine id
 // or new container definition.
