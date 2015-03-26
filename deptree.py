@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import argparse
 import os
+import subprocess
 import sys
 import tempfile
 
@@ -77,6 +78,7 @@ class DependencyFile:
         return deps, conflicts
 
     def include_deps(self, include):
+        """Redefine or add additional deps to the tree."""
         redefined = []
         added = []
         for dep in include:
@@ -90,7 +92,7 @@ class DependencyFile:
     def write_tmp_tsv(self):
         """Write the deps to a temp file and return its path.
 
-        The caller of this function is resonsible for deleting the file
+        The caller of this method is resonsible for calling delete_tmp_tsv()
         when done.
         """
         fd, self.dep_path = tempfile.mkstemp(
@@ -103,8 +105,14 @@ class DependencyFile:
     def delete_tmp_tsv(self):
         if self.dep_path and os.path.isfile(self.dep_path):
             os.unlink(self.dep_path)
+            self.dep_path = None
             return True
         return False
+
+    def pin_deps(self):
+        output = subprocess.check_output(['godeps', '-u', self.dep_path])
+        if self.verbose:
+            print(output)
 
 
 def main(args=None):

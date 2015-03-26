@@ -165,6 +165,16 @@ class DependencyFileTestCase(TestCase):
             dep_file.dep_path = dep_path
             self.assertTrue(dep_file.delete_tmp_tsv())
             self.assertFalse(os.path.isfile(dep_path))
+            self.assertIsNone(dep_file.dep_path)
+
+    def test_pin_deps(self):
+        with patch('subprocess.check_output') as co_mock:
+            with patch('deptree.DependencyFile.consolidate_deps',
+                       autospec=True, return_value=({}, [])):
+                dep_file = DependencyFile(['foo.tsv', 'bar.tsv'])
+                dep_file.dep_path = '/tmp/baz.tsv'
+                dep_file.pin_deps()
+        co_mock.assert_called_once_with(['godeps', '-u', '/tmp/baz.tsv'])
 
 
 class DepTreeTestCase(TestCase):
