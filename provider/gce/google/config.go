@@ -4,6 +4,8 @@
 package google
 
 import (
+	"encoding/json"
+	"io"
 	"net/mail"
 
 	"github.com/juju/errors"
@@ -24,6 +26,29 @@ const (
 	OSEnvProjectID     = "GCE_PROJECT_ID"
 	OSEnvImageEndpoint = "GCE_IMAGE_URL"
 )
+
+// ParseAuthFile extracts the auth information from the JSON file
+// downloaded from the GCE console (under /apiui/credential).
+func ParseAuthFile(authFile io.Reader) (map[string]string, error) {
+	data := make(map[string]string)
+	if err := json.NewDecoder(authFile).Decode(&data); err != nil {
+		return nil, errors.Trace(err)
+	}
+	for k, v := range data {
+		switch k {
+		case "private_key":
+			data[OSEnvPrivateKey] = v
+			delete(data, k)
+		case "client_email":
+			data[OSEnvClientEmail] = v
+			delete(data, k)
+		case "client_id":
+			data[OSEnvClientID] = v
+			delete(data, k)
+		}
+	}
+	return data, nil
+}
 
 // ValidateConnection checks the connection's fields for invalid values.
 // If the values are not valid, it returns a config.InvalidConfigValue

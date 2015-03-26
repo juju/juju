@@ -58,7 +58,7 @@ func (s *providerSuite) TestSecretAttrs(c *gc.C) {
 	obtainedAttrs, err := s.provider.SecretAttrs(s.Config)
 	c.Check(err, jc.ErrorIsNil)
 
-	expectedAttrs := map[string]string{"private-key": "seekrit"}
+	expectedAttrs := map[string]string{"private-key": gce.PrivateKey}
 	c.Assert(obtainedAttrs, gc.DeepEquals, expectedAttrs)
 
 }
@@ -74,11 +74,16 @@ gce:
   # The GCE provider uses OAuth to authenticate. This requires that
   # you set it up and get the relevant credentials. For more information
   # see https://cloud.google.com/compute/docs/api/how-tos/authorization.
-  # Once you have the information, enter it here. All three of these are
-  # required and have specific meaning to GCE.
-  private-key: 
-  client-email:
-  client-id:
+  # The key information can be downloaded as a JSON file, or copied, from:
+  #   https://console.developers.google.com/project/<projet>/apiui/credential
+  # Either set the path to the downloaded JSON file here:
+  auth-file:
+
+  # ...or set the individual fields for the credentials. Either way, all
+  # three of these are required and have specific meaning to GCE.
+  # private-key:
+  # client-email:
+  # client-id:
 
   # Google instance info
   # To provision instances and perform related operations, the provider
