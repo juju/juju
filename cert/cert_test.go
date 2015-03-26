@@ -30,6 +30,13 @@ type certSuite struct{}
 
 var _ = gc.Suite(certSuite{})
 
+func checkNotBefore(c *gc.C, cert *x509.Certificate, now time.Time) {
+	// Check that the certificate is valid from one week before today.
+	c.Check(cert.NotBefore.Before(now), jc.IsTrue)
+	c.Check(cert.NotBefore.Before(now.AddDate(0, 0, -6)), jc.IsTrue)
+	c.Check(cert.NotBefore.After(now.AddDate(0, 0, -8)), jc.IsTrue)
+}
+
 func checkNotAfter(c *gc.C, cert *x509.Certificate, expiry time.Time) {
 	// Check the surrounding day.
 	c.Assert(cert.NotAfter.Before(expiry.AddDate(0, 0, 1)), jc.IsTrue)
@@ -70,10 +77,7 @@ func (certSuite) TestNewCA(c *gc.C) {
 
 	c.Check(caKey, gc.FitsTypeOf, (*rsa.PrivateKey)(nil))
 	c.Check(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for environment "foo"`)
-	// Check that the certificate is valid from one week before today.
-	c.Check(caCert.NotBefore.Before(now), jc.IsTrue)
-	c.Check(caCert.NotBefore.Before(now.AddDate(0, 0, -6)), jc.IsTrue)
-	c.Check(caCert.NotBefore.After(now.AddDate(0, 0, -8)), jc.IsTrue)
+	checkNotBefore(c, caCert, now)
 	checkNotAfter(c, caCert, expiry)
 	c.Check(caCert.BasicConstraintsValid, jc.IsTrue)
 	c.Check(caCert.IsCA, jc.IsTrue)
@@ -113,10 +117,7 @@ func checkCertificate(c *gc.C, caCert *x509.Certificate, srvCertPEM, srvKeyPEM s
 	srvCert, srvKey, err := cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(srvCert.Subject.CommonName, gc.Equals, "*")
-	// Check that the certificate is valid from one week before today.
-	c.Check(srvCert.NotBefore.Before(now), jc.IsTrue)
-	c.Check(srvCert.NotBefore.Before(now.AddDate(0, 0, -6)), jc.IsTrue)
-	c.Check(srvCert.NotBefore.After(now.AddDate(0, 0, -8)), jc.IsTrue)
+	checkNotBefore(c, srvCert, now)
 	checkNotAfter(c, srvCert, expiry)
 	c.Assert(srvCert.BasicConstraintsValid, jc.IsFalse)
 	c.Assert(srvCert.IsCA, jc.IsFalse)
