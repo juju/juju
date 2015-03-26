@@ -316,7 +316,7 @@ func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 	s.AssertCannotOpenState(c, conf.Tag(), conf.DataDir())
 }
 
-func (s *UnitSuite) DONTTestRsyslogConfigWorker(c *gc.C) {
+func (s *UnitSuite) TestRsyslogConfigWorker(c *gc.C) {
 	created := make(chan rsyslog.RsyslogMode, 1)
 	s.PatchValue(&cmdutil.NewRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
 		created <- mode
