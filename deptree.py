@@ -52,7 +52,7 @@ class DependencyFile:
     def __init__(self, dep_files, verbose=False):
         self.dep_files = dep_files
         self.verbose = verbose
-        self.dep_path = None
+        self.tmp_tsv = None
         self.deps, self.conflicts = self.consolidate_deps()
 
     def consolidate_deps(self):
@@ -95,24 +95,25 @@ class DependencyFile:
         The caller of this method is resonsible for calling delete_tmp_tsv()
         when done.
         """
-        fd, self.dep_path = tempfile.mkstemp(
+        fd, self.tmp_tsv = tempfile.mkstemp(
             suffix='.tsv', prefix='deptree', text=True)
         for package in sorted(self.deps.keys()):
             os.write(fd, self.deps[package].to_line())
         os.close(fd)
-        return self.dep_path
+        return self.tmp_tsv
 
     def delete_tmp_tsv(self):
-        if self.dep_path and os.path.isfile(self.dep_path):
-            os.unlink(self.dep_path)
-            self.dep_path = None
+        """Delete the tmp dep_path if it was written."""
+        if self.tmp_tsv and os.path.isfile(self.tmp_tsv):
+            os.unlink(self.tmp_tsv)
+            self.tmp_tsv = None
             return True
         return False
 
     def pin_deps(self):
         try:
             self.write_tmp_tsv()
-            output = subprocess.check_output(['godeps', '-u', self.dep_path])
+            output = subprocess.check_output(['godeps', '-u', self.tmp_tsv])
             if self.verbose:
                 print(output)
         finally:

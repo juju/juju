@@ -86,7 +86,7 @@ class DependencyFileTestCase(TestCase):
         cd_mock.assert_called_once_with(dep_file)
         self.assertEqual(['foo.tsv', 'bar.tsv'], dep_file.dep_files)
         self.assertTrue(dep_file.verbose)
-        self.assertIsNone(dep_file.dep_path)
+        self.assertIsNone(dep_file.tmp_tsv)
         self.assertEqual({}, dep_file.deps)
         self.assertEqual([], dep_file.conflicts)
 
@@ -145,7 +145,7 @@ class DependencyFileTestCase(TestCase):
                    autospec=True, return_value=[consolidated_deps, []]):
             dep_file = DependencyFile(['foo.tsv', 'bar.tsv'])
         tmp_tsv = dep_file.write_tmp_tsv()
-        self.assertEqual(tmp_tsv, dep_file.dep_path)
+        self.assertEqual(tmp_tsv, dep_file.tmp_tsv)
         self.assertTrue(os.path.isfile(tmp_tsv))
         self.addCleanup(os.unlink, tmp_tsv)
         with open(tmp_tsv) as f:
@@ -162,10 +162,10 @@ class DependencyFileTestCase(TestCase):
             dep_path = '%s/a.tsv' % base_dir
             with open(dep_path, 'w') as f:
                 f.write('foo')
-            dep_file.dep_path = dep_path
+            dep_file.tmp_tsv = dep_path
             self.assertTrue(dep_file.delete_tmp_tsv())
             self.assertFalse(os.path.isfile(dep_path))
-        self.assertIsNone(dep_file.dep_path)
+        self.assertIsNone(dep_file.tmp_tsv)
 
     def test_pin_deps(self):
         with patch('subprocess.check_output') as co_mock:
@@ -174,7 +174,7 @@ class DependencyFileTestCase(TestCase):
                 dep_file = DependencyFile(['foo.tsv', 'bar.tsv'])
 
                 def write_tmp_tsv():
-                    dep_file.dep_path = '/tmp/baz.tsv'
+                    dep_file.tmp_tsv = '/tmp/baz.tsv'
 
                 with patch.object(dep_file, 'write_tmp_tsv',
                                   side_effect=write_tmp_tsv,
