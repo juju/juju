@@ -7,11 +7,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
 )
@@ -86,6 +88,35 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Instance, gc.DeepEquals, s.Instance)
 	c.Check(result.Hardware, gc.DeepEquals, s.hardware)
+}
+
+func (s *environBrokerSuite) TestStartInstanceOpensAPIPort(c *gc.C) {
+	s.FakeEnviron.Spec = s.spec
+	s.FakeEnviron.Inst = s.BaseInstance
+	s.FakeEnviron.Hwc = s.hardware
+
+	// When StateServingInfo is not nil, verify OpenPorts was called
+	// for the API port.
+	s.StartInstArgs.MachineConfig.StateServingInfo = &params.StateServingInfo{
+		APIPort: 17777, // coming from FakeConfig().
+	}
+
+	result, err := s.Env.StartInstance(s.StartInstArgs)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Instance, gc.DeepEquals, s.Instance)
+	c.Check(result.Hardware, gc.DeepEquals, s.hardware)
+
+	called, calls := s.FakeConn.WasCalled("OpenPorts")
+	c.Check(called, gc.Equals, true)
+	c.Check(calls, gc.HasLen, 1)
+	c.Check(calls[0].FirewallName, gc.Equals, gce.GlobalFirewallName(s.Env))
+	expectPorts := []network.PortRange{{
+		FromPort: 17777,
+		ToPort:   17777,
+		Protocol: "tcp",
+	}}
+	c.Check(calls[0].PortRanges, jc.DeepEquals, expectPorts)
 }
 
 func (s *environBrokerSuite) TestFinishMachineConfig(c *gc.C) {
