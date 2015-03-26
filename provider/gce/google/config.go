@@ -37,7 +37,6 @@ func ParseAuthFile(authFile io.Reader) (map[string]string, error) {
 	for k, v := range data {
 		switch k {
 		case "private_key":
-			// TODO(ericsnow) Fix trailing unicode equal sign?
 			data[OSEnvPrivateKey] = v
 			delete(data, k)
 		case "client_email":
