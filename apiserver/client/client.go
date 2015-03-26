@@ -266,7 +266,9 @@ func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
 	return svc.ClearExposed()
 }
 
-var CharmStore charmrepo.Interface = charmrepo.LegacyStore
+// charmStore gives access to the legacy charm store repository.
+// It is defined at top level for testing purposes.
+var charmStore charmrepo.Interface = charmrepo.LegacyStore
 
 func networkTagsToNames(tags []string) ([]string, error) {
 	netNames := make([]string, len(tags))
@@ -1257,8 +1259,8 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	if err != nil {
 		return err
 	}
-	config.SpecializeCharmRepo(CharmStore, envConfig)
-	downloadedCharm, err := CharmStore.Get(charmURL)
+	repo := config.SpecializeCharmRepo(charmStore, envConfig)
+	downloadedCharm, err := repo.Get(charmURL)
 	if err != nil {
 		return errors.Annotatef(err, "cannot download charm %q", charmURL.String())
 	}
@@ -1332,11 +1334,11 @@ func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmRe
 	if err != nil {
 		return params.ResolveCharmResults{}, err
 	}
-	config.SpecializeCharmRepo(CharmStore, envConfig)
+	repo := config.SpecializeCharmRepo(charmStore, envConfig)
 
 	for _, ref := range args.References {
 		result := params.ResolveCharmResult{}
-		curl, err := c.resolveCharm(&ref, CharmStore)
+		curl, err := c.resolveCharm(&ref, repo)
 		if err != nil {
 			result.Error = err.Error()
 		} else {
