@@ -82,10 +82,9 @@ class DependencyFileTestCase(TestCase):
     def test_init(self):
         with patch('deptree.DependencyFile.consolidate_deps', autospec=True,
                    return_value=({}, [])) as cd_mock:
-            dep_file = DependencyFile(['foo.tsv', 'bar.tsv'], verbose=True)
+            dep_file = DependencyFile(['foo.tsv', 'bar.tsv'])
         cd_mock.assert_called_once_with(dep_file)
         self.assertEqual(['foo.tsv', 'bar.tsv'], dep_file.dep_files)
-        self.assertTrue(dep_file.verbose)
         self.assertIsNone(dep_file.tmp_tsv)
         self.assertEqual({}, dep_file.deps)
         self.assertEqual([], dep_file.conflicts)
@@ -198,6 +197,6 @@ class DepTreeTestCase(TestCase):
         with patch('deptree.DependencyFile',
                    autospec=True, return_value=df_mock) as init_mock:
             main(['foo', 'bar', 'baz'])
-        init_mock.assert_called_once_with(['bar', 'baz'], verbose=False)
+        init_mock.assert_called_once_with(['bar', 'baz'])
         df_mock.include_deps.assert_called_once_with([])
         df_mock.pin_deps.assert_called_once_with()

@@ -51,9 +51,8 @@ class Dependency:
 class DependencyFile:
     """A GO Deps dependencies.tsv created from several such files."""
 
-    def __init__(self, dep_files, verbose=False):
+    def __init__(self, dep_files):
         self.dep_files = dep_files
-        self.verbose = verbose
         self.tmp_tsv = None
         self.deps, self.conflicts = self.consolidate_deps()
 
@@ -73,8 +72,6 @@ class DependencyFile:
                 dep = Dependency(*line.split('\t'))
                 if dep.package in deps and dep != deps[dep.package]:
                     conflicts.append((dep_path, dep))
-                    if self.verbose:
-                        print('%s redefines %s' % (dep_path, dep))
                 else:
                     deps[dep.package] = dep
         return deps, conflicts
@@ -121,10 +118,9 @@ class DependencyFile:
         try:
             self.write_tmp_tsv()
             output = subprocess.check_output(['godeps', '-u', self.tmp_tsv])
-            if self.verbose:
-                print(output)
         finally:
             self.delete_tmp_tsv()
+        return output.strip()
 
 
 def get_args(argv=None):
@@ -153,9 +149,23 @@ def main(args=None):
     """Execute the commands from the command line."""
     exitcode = 0
     args = get_args(args)
-    dep_file = DependencyFile(args.dep_files, verbose=args.verbose)
+    dep_file = DependencyFile(args.dep_files)
+    if args.verbose and dep_file.conflicts:
+        print('These conflicts were found:')
+        for conflict in dep_file.conflicts:
+            print(conflict)
     redefined, added = dep_file.include_deps(args.include)
-    dep_file.pin_deps()
+    if args.verbose and redefined:
+        print('These deps were redefined:')
+        for dep in redefined:
+            print(dep)
+    if args.verbose and added:
+        print('These deps were added:')
+        for dep in added:
+            print(dep)
+    output = dep_file.pin_deps()
+    if args.verbose and output:
+        print(output)
     return exitcode
 
 if __name__ == '__main__':
