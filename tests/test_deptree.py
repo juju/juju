@@ -1,14 +1,15 @@
-from mock import patch
+from mock import (
+    Mock,
+    patch,
+)
 import os
 from unittest import TestCase
 
 from deptree import (
-    consolidate_deps,
     Dependency,
-    include_deps,
+    DependencyFile,
     get_args,
     main,
-    write_tmp_tsv,
 )
 from utils import temp_dir
 
@@ -76,16 +77,17 @@ def DependencyTestCase(TestCase):
             Dependency('github/foo', 'git', 'rev123', '3').to_line())
 
 
-class DepTreeTestCase(TestCase):
+class DependencyFileTestCase(TestCase):
 
-    def test_get_args(self):
-        args = get_args(
-            ['-d', '-v', '-i', 'foo:git:rev', './bar', 'baz', 'qux'])
-        self.assertTrue(args.verbose)
-        self.assertTrue(args.dry_run)
-        self.assertEqual([Dependency('foo', 'git', 'rev')], args.include)
-        self.assertEqual('./bar', args.srcdir)
-        self.assertEqual(['baz', 'qux'], args.dep_files)
+    def test_init(self):
+        with patch('deptree.DependencyFile.consolidate_deps', autospec=True,
+                   return_value=[{}, []]) as cd_mock:
+            dep_file = DependencyFile(['foo.tsv', 'bar.tsv'], verbose=True)
+        cd_mock.assert_called_once_with(dep_file)
+        self.assertEqual(['foo.tsv', 'bar.tsv'], dep_file.dep_files)
+        self.assertTrue(dep_file.verbose)
+        self.assertEqual({}, dep_file.deps)
+        self.assertEqual([], dep_file.conflicts)
 
     def test_consolidate_deps(self):
         expected_deps = {
@@ -108,7 +110,8 @@ class DepTreeTestCase(TestCase):
                 f.write(conflict_dep.to_line())
                 f.write(expected_deps['github/qux'].to_line())
                 f.write(expected_deps['lp/qoh'].to_line())
-            deps, conflicts = consolidate_deps([a_dep_file, b_dep_file])
+            dep_file = DependencyFile([a_dep_file, b_dep_file])
+            deps, conflicts = dep_file.consolidate_deps()
         self.assertEqual([(b_dep_file, conflict_dep)], conflicts)
         self.assertEqual(expected_deps, deps)
 
@@ -121,11 +124,14 @@ class DepTreeTestCase(TestCase):
             Dependency('github/bar', 'git', 'redefined', None),
             Dependency('github/baz', 'git', 'added', None),
         ]
-        redefined, added = include_deps(deps, include)
+        with patch('deptree.DependencyFile.consolidate_deps',
+                   autospec=True, return_value=[deps, []]):
+            dep_file = DependencyFile(['foo.tsv', 'bar.tsv'])
+        redefined, added = dep_file.include_deps(include)
         self.assertEqual([include[0]], redefined)
         self.assertEqual([include[1]], added)
-        self.assertEqual(include[0], deps['github/bar'])
-        self.assertEqual(include[1], deps['github/baz'])
+        self.assertEqual(include[0], dep_file.deps['github/bar'])
+        self.assertEqual(include[1], dep_file.deps['github/baz'])
 
     def test_write_tmp_tsv(self):
         a_dep = Dependency('github/foo', 'git', 'rev123', None)
@@ -134,7 +140,11 @@ class DepTreeTestCase(TestCase):
             a_dep.package: a_dep,
             b_dep.package: b_dep,
         }
-        tmp_tsv = write_tmp_tsv(consolidated_deps)
+        with patch('deptree.DependencyFile.consolidate_deps',
+                   autospec=True, return_value=[consolidated_deps, []]):
+            dep_file = DependencyFile(['foo.tsv', 'bar.tsv'])
+        tmp_tsv = dep_file.write_tmp_tsv()
+        self.assertEqual(tmp_tsv, dep_file.dep_path)
         self.assertTrue(os.path.isfile(tmp_tsv))
         self.addCleanup(os.unlink, tmp_tsv)
         with open(tmp_tsv) as f:
@@ -142,8 +152,26 @@ class DepTreeTestCase(TestCase):
         expected = ''.join([b_dep.to_line(), a_dep.to_line()])
         self.assertEqual(expected, content)
 
+
+class DepTreeTestCase(TestCase):
+
+    def test_get_args(self):
+        args = get_args(
+            ['-d', '-v', '-i', 'foo:git:rev', './bar', 'baz', 'qux'])
+        self.assertTrue(args.verbose)
+        self.assertTrue(args.dry_run)
+        self.assertEqual([Dependency('foo', 'git', 'rev')], args.include)
+        self.assertEqual('./bar', args.srcdir)
+        self.assertEqual(['baz', 'qux'], args.dep_files)
+
     def test_main(self):
-        with patch('deptree.consolidate_deps',
-                   return_value=[{}, []]) as cd_mock:
+        df_mock = Mock(spec=DependencyFile)
+        df_mock.consolidate_deps.return_value = ({}, [])
+        df_mock.include_deps.return_value = ([], [])
+        df_mock.write_tmp_tsv.return_value = 'fnord.tsv'
+        with patch('deptree.DependencyFile',
+                   autospec=True, return_value=df_mock) as init_mock:
             main(['foo', 'bar', 'baz'])
-            self.assertEqual((['bar', 'baz'], ), cd_mock.call_args[0])
+        init_mock.assert_called_once_with(['bar', 'baz'], verbose=False)
+        df_mock.include_deps.assert_called_once_with([])
+        df_mock.write_tmp_tsv.assert_called_once_with()

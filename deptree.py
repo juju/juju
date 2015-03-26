@@ -46,75 +46,73 @@ class Dependency:
         return '%s\n' % str(self)
 
 
-def consolidate_deps(dep_files, verbose=False):
-    """Return a two-tuple of the dependency dict and conflicts in the files.
+class DependencyFile:
 
-    The dep_files lis an list starting with the base set of deps, then
-    overlayed with each successive file. If any package is redefined, it is
-    added to conflicts.
-    """
-    deps = {}
-    conflicts = []
-    for dep_path in dep_files:
-        with open(dep_path) as f:
-            content = f.read()
-        for line in content.splitlines():
-            dep = Dependency(*line.split('\t'))
-            if dep.package in deps and dep != deps[dep.package]:
-                conflicts.append((dep_path, dep))
-                if verbose:
-                    print('%s redefines %s' % (dep_path, dep))
+    def __init__(self, dep_files, verbose=False):
+        self.dep_files = dep_files
+        self.verbose = verbose
+        self.dep_path = None
+        self.deps, self.conflicts = self.consolidate_deps()
+
+    def consolidate_deps(self):
+        """Return a two-tuple of the deps dict and conflicts in the files.
+
+        The dep_files lis an list starting with the base set of deps, then
+        overlayed with each successive file. If any package is redefined, it
+        is added to conflicts.
+        """
+        deps = {}
+        conflicts = []
+        for dep_path in self.dep_files:
+            with open(dep_path) as f:
+                content = f.read()
+            for line in content.splitlines():
+                dep = Dependency(*line.split('\t'))
+                if dep.package in deps and dep != deps[dep.package]:
+                    conflicts.append((dep_path, dep))
+                    if self.verbose:
+                        print('%s redefines %s' % (dep_path, dep))
+                else:
+                    deps[dep.package] = dep
+        return deps, conflicts
+
+    def include_deps(self, include):
+        redefined = []
+        added = []
+        for dep in include:
+            if dep.package in self.deps:
+                redefined.append(dep)
             else:
-                deps[dep.package] = dep
-    return deps, conflicts
+                added.append(dep)
+            self.deps[dep.package] = dep
+        return redefined, added
 
+    def write_tmp_tsv(self):
+        """Write the deps to a temp file and return its path.
 
-def include_deps(deps, include, verbose=False):
-    redefined = []
-    added = []
-    for dep in include:
-        if dep.package in deps:
-            redefined.append(dep)
-        else:
-            added.append(dep)
-        deps[dep.package] = dep
-    return redefined, added
-
-
-def write_tmp_tsv(deps, verbose=False):
-    """Write the deps to a temp file and return its path.
-
-    The caller of this function is resonsible for deleting the file when done.
-    """
-    fd, dep_path = tempfile.mkstemp(suffix='.tsv', prefix='deptree', text=True)
-    for package in sorted(deps.keys()):
-        os.write(fd, deps[package].to_line())
-    os.close(fd)
-    return dep_path
+        The caller of this function is resonsible for deleting the file
+        when done.
+        """
+        fd, self.dep_path = tempfile.mkstemp(
+            suffix='.tsv', prefix='deptree', text=True)
+        for package in sorted(self.deps.keys()):
+            os.write(fd, self.deps[package].to_line())
+        os.close(fd)
+        return self.dep_path
 
 
 def main(args=None):
     """Execute the commands from the command line."""
     exitcode = 0
     args = get_args(args)
-    deps, conflicts = consolidate_deps(args.dep_files, verbose=args.verbose)
-    redefined, added = include_deps(deps, args.include, verbose=args.verbose)
-    consolidated_tsv = write_tmp_tsv(deps)
+    dep_file = DependencyFile(args.dep_files, verbose=args.verbose)
+    redefined, added = dep_file.include_deps(args.include)
+    consolidated_tsv = dep_file.write_tmp_tsv()
     try:
         pass
     finally:
         if os.path.isfile(consolidated_tsv):
             os.unlink(consolidated_tsv)
-#    deps = get_dependencies(args.depfile)
-#    known = deps.union(args.ignore)
-#    present, unknown = compare_dependencies(known, args.srcdir)
-#    missing = deps.difference(present)
-#    if missing:
-#        print("Given dependencies missing:\n {}".format("\n ".join(missing)))
-#        exitcode = 1
-#    if unknown:
-#        print("Extant directories unknown:\n {}".format("\n ".join(unknown)))
-#        exitcode = 1
     return exitcode
 
 
