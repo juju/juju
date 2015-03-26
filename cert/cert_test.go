@@ -30,6 +30,10 @@ type certSuite struct{}
 
 var _ = gc.Suite(certSuite{})
 
+func checkNotAfter(c *gc.C, cert *x509.Certificate, expiry time.Time) {
+	c.Check(cert.NotAfter.Equal(expiry), jc.IsTrue)
+}
+
 func (certSuite) TestParseCertificate(c *gc.C) {
 	xcert, err := cert.ParseCert(caCertPEM)
 	c.Assert(err, jc.ErrorIsNil)
@@ -68,7 +72,7 @@ func (certSuite) TestNewCA(c *gc.C) {
 	c.Check(caCert.NotBefore.Before(now), jc.IsTrue)
 	c.Check(caCert.NotBefore.Before(now.AddDate(0, 0, -6)), jc.IsTrue)
 	c.Check(caCert.NotBefore.After(now.AddDate(0, 0, -8)), jc.IsTrue)
-	c.Check(caCert.NotAfter.Equal(expiry), jc.IsTrue)
+	checkNotAfter(c, caCert, expiry)
 	c.Check(caCert.BasicConstraintsValid, jc.IsTrue)
 	c.Check(caCert.IsCA, jc.IsTrue)
 	//c.Assert(caCert.MaxPathLen, Equals, 0)	TODO it ends up as -1 - check that this is ok.
@@ -111,7 +115,7 @@ func checkCertificate(c *gc.C, caCert *x509.Certificate, srvCertPEM, srvKeyPEM s
 	c.Check(srvCert.NotBefore.Before(now), jc.IsTrue)
 	c.Check(srvCert.NotBefore.Before(now.AddDate(0, 0, -6)), jc.IsTrue)
 	c.Check(srvCert.NotBefore.After(now.AddDate(0, 0, -8)), jc.IsTrue)
-	c.Assert(srvCert.NotAfter.Equal(expiry), jc.IsTrue)
+	checkNotAfter(c, srvCert, expiry)
 	c.Assert(srvCert.BasicConstraintsValid, jc.IsFalse)
 	c.Assert(srvCert.IsCA, jc.IsFalse)
 	c.Assert(srvCert.ExtKeyUsage, gc.DeepEquals, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth})
@@ -160,13 +164,13 @@ func (certSuite) TestWithNonUTCExpiry(c *gc.C) {
 	certPEM, keyPEM, err := cert.NewCA("foo", expiry)
 	xcert, err := cert.ParseCert(certPEM)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(xcert.NotAfter.Equal(expiry), jc.IsTrue)
+	checkNotAfter(c, xcert, expiry)
 
 	var noHostnames []string
 	certPEM, _, err = cert.NewServer(certPEM, keyPEM, expiry, noHostnames)
 	xcert, err = cert.ParseCert(certPEM)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(xcert.NotAfter.Equal(expiry), jc.IsTrue)
+	checkNotAfter(c, xcert, expiry)
 }
 
 func (certSuite) TestNewServerWithInvalidCert(c *gc.C) {
