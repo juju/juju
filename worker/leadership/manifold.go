@@ -46,5 +46,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				config.LeadershipGuarantee,
 			), nil
 		},
+		Output: func(in worker.Worker, out interface{}) bool {
+			inWorker, _ := in.(Tracker)
+			outPointer, _ := out.(*Tracker)
+			if inWorker == nil || outPointer == nil {
+				return false
+			}
+			*outPointer = inWorker
+			return true
+		},
 	}
 }
