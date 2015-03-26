@@ -26,9 +26,10 @@ var statusSetInitTests = []struct {
 	args []string
 	err  string
 }{
+	{[]string{"maintenance"}, ""},
 	{[]string{"maintenance", ""}, ""},
 	{[]string{"maintenance", "hello"}, ""},
-	{[]string{"maintenance"}, `invalid args \[maintenance\], require <status> <message>`},
+	{[]string{}, `invalid args, require <status> \[message\]`},
 	{[]string{"maintenance", "hello", "extra"}, `unrecognized args: \["extra"\]`},
 	{[]string{"foo", "hello"}, `invalid status "foo", expected one of \[maintenance blocked waiting idle\]`},
 }
@@ -50,10 +51,10 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: status-set <maintenance | blocked | waiting | idle> <message>
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: status-set <maintenance | blocked | waiting | idle> [message]
 purpose: set status information
 
-Sets the workload status of the charm. Message may be empty "".
+Sets the workload status of the charm. Message is optional.
 The "last updated" attribute of the status is set, even if the
 status and message are the same as what's already set.
 `)

@@ -86,17 +86,14 @@ func GetStubActionContext(in map[string]interface{}) *HookContext {
 
 func PatchCachedStatus(ctx Context, status, info string, data map[string]interface{}) func() {
 	hctx := ctx.(*HookContext)
-	var oldStatus jujuc.StatusInfo
-	if hctx.status != nil {
-		oldStatus = *hctx.status
-	}
+	oldStatus := hctx.status
 	hctx.status = &jujuc.StatusInfo{
 		Status: status,
 		Info:   info,
 		Data:   data,
 	}
 	return func() {
-		hctx.status = &oldStatus
+		hctx.status = oldStatus
 	}
 }
 

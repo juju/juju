@@ -25,13 +25,13 @@ func NewStatusSetCommand(ctx Context) cmd.Command {
 
 func (c *StatusSetCommand) Info() *cmd.Info {
 	doc := `
-Sets the workload status of the charm. Message may be empty "".
+Sets the workload status of the charm. Message is optional.
 The "last updated" attribute of the status is set, even if the
 status and message are the same as what's already set.
 `
 	return &cmd.Info{
 		Name:    "status-set",
-		Args:    "<maintenance | blocked | waiting | idle> <message>",
+		Args:    "<maintenance | blocked | waiting | idle> [message]",
 		Purpose: "set status information",
 		Doc:     doc,
 	}
@@ -45,8 +45,8 @@ var validStatus = []params.Status{
 }
 
 func (c *StatusSetCommand) Init(args []string) error {
-	if len(args) < 2 {
-		return errors.Errorf("invalid args %v, require <status> <message>", args)
+	if len(args) < 1 {
+		return errors.Errorf("invalid args, require <status> [message]")
 	}
 	valid := false
 	for _, s := range validStatus {
@@ -59,8 +59,11 @@ func (c *StatusSetCommand) Init(args []string) error {
 		return errors.Errorf("invalid status %q, expected one of %v", args[0], validStatus)
 	}
 	c.status = args[0]
-	c.message = args[1]
-	return cmd.CheckEmpty(args[2:])
+	if len(args) > 1 {
+		c.message = args[1]
+		return cmd.CheckEmpty(args[2:])
+	}
+	return nil
 }
 
 func (c *StatusSetCommand) Run(ctx *cmd.Context) error {
