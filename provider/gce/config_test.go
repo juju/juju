@@ -71,7 +71,7 @@ func (ts configTestSpec) checkSuccess(c *gc.C, value interface{}, err error) {
 
 	attrs := cfg.AllAttrs()
 	for field, value := range ts.expect {
-		if field == "auth-file" && value.(string) != "" {
+		if field == "auth-file" && value != nil && value.(string) != "" {
 			value = filepath.Join(ts.rootDir, value.(string))
 		}
 		c.Check(attrs[field], gc.Equals, value)
@@ -85,7 +85,7 @@ func (ts configTestSpec) checkFailure(c *gc.C, err error, msg string) {
 func (ts configTestSpec) checkAttrs(c *gc.C, attrs map[string]interface{}, cfg *config.Config) {
 	for field, expected := range cfg.UnknownAttrs() {
 		value := attrs[field]
-		if field == "auth-file" {
+		if field == "auth-file" && value != nil {
 			filename := value.(string)
 			if filename != "" {
 				value = interface{}(filepath.Join(ts.rootDir, filename))
@@ -164,7 +164,7 @@ func updateAttrs(attrs, updates testing.Attrs) testing.Attrs {
 var newConfigTests = []configTestSpec{{
 	info:   "auth-file is optional",
 	remove: []string{"auth-file"},
-	expect: testing.Attrs{"auth-file": ""},
+	expect: testing.Attrs{"auth-file": nil},
 }, {
 	info:   "auth-file can be empty",
 	insert: testing.Attrs{"auth-file": ""},
