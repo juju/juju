@@ -48,8 +48,8 @@ var statusGetTests = []struct {
 func setFakeStatus(ctx *Context) {
 	ctx.SetUnitStatus(jujuc.StatusInfo{
 		Status: statusAttributes["status"].(string),
-		Info:   statusAttributes["info"].(string),
-		Data:   statusAttributes["data"].(map[string]interface{}),
+		Info:   statusAttributes["message"].(string),
+		Data:   statusAttributes["status-data"].(map[string]interface{}),
 	})
 }
 
