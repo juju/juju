@@ -33,7 +33,7 @@ func (*statusGetterSuite) TestStatus(c *gc.C) {
 			u("x/5"): &fakeStatus{status: state.StatusStopping, info: "blah"},
 		},
 	}
-	getCanModify := func() (common.AuthFunc, error) {
+	getCanAccess := func() (common.AuthFunc, error) {
 		x0 := u("x/0")
 		x1 := u("x/1")
 		x2 := u("x/2")
@@ -44,7 +44,7 @@ func (*statusGetterSuite) TestStatus(c *gc.C) {
 			return tag == x0 || tag == x1 || tag == x2 || tag == x3 || tag == x4 || tag == x5
 		}, nil
 	}
-	s := common.NewStatusGetter(st, getCanModify)
+	s := common.NewStatusGetter(st, getCanAccess)
 	args := params.Entities{
 		Entities: []params.Entity{
 			{"unit-x-0"},
@@ -74,10 +74,10 @@ func (*statusGetterSuite) TestStatus(c *gc.C) {
 }
 
 func (*statusGetterSuite) TestStatusError(c *gc.C) {
-	getCanModify := func() (common.AuthFunc, error) {
+	getCanAccess := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	s := common.NewStatusGetter(&fakeState{}, getCanModify)
+	s := common.NewStatusGetter(&fakeState{}, getCanAccess)
 	args := params.Entities{
 		Entities: []params.Entity{{"x0"}},
 	}

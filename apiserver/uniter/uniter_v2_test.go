@@ -115,6 +115,8 @@ func (s *uniterV2Suite) TestUnitStatus(c *gc.C) {
 			{Tag: "unit-mysql-0"},
 			{Tag: "unit-wordpress-0"},
 			{Tag: "unit-foo-42"},
+			{Tag: "machine-1"},
+			{Tag: "invalid"},
 		}}
 	result, err := s.uniter.UnitStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,6 +125,8 @@ func (s *uniterV2Suite) TestUnitStatus(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Status: params.StatusError, Info: "blah", Data: map[string]interface{}{"foo": "bar"}},
 			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ServerError(`"invalid" is not a valid tag`)},
 		},
 	})
 }

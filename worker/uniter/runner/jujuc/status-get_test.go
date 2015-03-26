@@ -29,9 +29,9 @@ func (s *statusGetSuite) SetUpTest(c *gc.C) {
 
 var (
 	statusAttributes = map[string]interface{}{
-		"status": "error",
-		"info":   "doing work",
-		"data":   map[string]interface{}{"foo": "bar"},
+		"status":      "error",
+		"message":     "doing work",
+		"status-data": map[string]interface{}{"foo": "bar"},
 	}
 )
 
@@ -90,8 +90,8 @@ options:
 -o, --output (= "")
     specify an output file
 
-If include-data is false (the default), then just the status value is printed.
-Otherwise, the status value and any associated data is printed.
+By default, only the status value is printed.
+If the --include-data flag is passed, the associated data are printed also.
 `)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }

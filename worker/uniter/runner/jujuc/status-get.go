@@ -25,8 +25,8 @@ func NewStatusGetCommand(ctx Context) cmd.Command {
 
 func (c *StatusGetCommand) Info() *cmd.Info {
 	doc := `
-If include-data is false (the default), then just the status value is printed.
-Otherwise, the status value and any associated data is printed.
+By default, only the status value is printed.
+If the --include-data flag is passed, the associated data are printed also.
 `
 	return &cmd.Info{
 		Name:    "status-get",
@@ -70,8 +70,8 @@ func (c *StatusGetCommand) Run(ctx *cmd.Context) error {
 		for k, v := range unitStatus.Data {
 			data[k] = v
 		}
-		statusDetails["data"] = data
-		statusDetails["info"] = unitStatus.Info
+		statusDetails["status-data"] = data
+		statusDetails["message"] = unitStatus.Info
 	}
 	c.out.Write(ctx, statusDetails)
 	return nil
