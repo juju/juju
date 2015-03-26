@@ -25,6 +25,7 @@ github.com/juju/jujusvg	git	6b752379060cf6f51e1febc74d74f0e3a7d72bbe	2015-03-23T
 github.com/juju/loggo	git	dc8e19f7c70a62a59c69c40f85b8df09ff20742c	2014-11-17T04:05:26Z
 github.com/juju/names	git	ce4ecb2967822062fc606e733919c677c584ab7e	2015-02-20T07:57:36Z
 github.com/juju/ratelimit	git	f9f36d11773655c0485207f0ad30dc2655f69d56	2014-04-10T13:47:08Z
+github.com/juju/replicaset	git	28850ac0132761f40fe77175130d542a22d42bb4	2015-03-26T01:44:18Z
 github.com/juju/schema	git	27a52be50766490a6fd3531865095fda6c0eeb6d	2014-07-23T04:23:18Z
 github.com/juju/syslog	git	6be94e8b718766e9ff7a37342157fe4795da7cfa	2015-02-05T15:59:36Z
 github.com/juju/testing	git	c07aef9cb4f2ff1db7ddc9d43a0ea88eca39c9ea	2015-03-12T17:47:17Z
