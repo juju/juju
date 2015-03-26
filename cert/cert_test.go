@@ -31,7 +31,9 @@ type certSuite struct{}
 var _ = gc.Suite(certSuite{})
 
 func checkNotAfter(c *gc.C, cert *x509.Certificate, expiry time.Time) {
-	c.Check(cert.NotAfter.Equal(expiry), jc.IsTrue)
+	// Check the surrounding day.
+	c.Assert(cert.NotAfter.Before(expiry.AddDate(0, 0, 1)), jc.IsTrue)
+	c.Assert(cert.NotAfter.After(expiry.AddDate(0, 0, -1)), jc.IsTrue)
 }
 
 func (certSuite) TestParseCertificate(c *gc.C) {
