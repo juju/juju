@@ -3,33 +3,32 @@ package replicaset
 import (
 	"fmt"
 	"io"
-	"testing"
+	"runtime"
+	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
-
-	coretesting "github.com/juju/juju/testing"
 )
 
 const rsName = "juju"
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
 type MongoSuite struct {
-	coretesting.BaseSuite
-	root *gitjujutesting.MgoInstance
+	testing.IsolationSuite
+	root *testing.MgoInstance
 }
 
-func newServer(c *gc.C) *gitjujutesting.MgoInstance {
-	inst := &gitjujutesting.MgoInstance{Params: []string{"--replSet", rsName}}
-	err := inst.Start(coretesting.Certs)
+func newServer(c *gc.C) *testing.MgoInstance {
+	inst := &testing.MgoInstance{Params: []string{"--replSet", rsName}}
+	err := inst.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	session, err := inst.DialDirect()
@@ -50,19 +49,19 @@ func newServer(c *gc.C) *gitjujutesting.MgoInstance {
 var _ = gc.Suite(&MongoSuite{})
 
 func (s *MongoSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 	s.root = newServer(c)
 	dialAndTestInitiate(c, s.root, s.root.Addr())
 }
 
 func (s *MongoSuite) TearDownTest(c *gc.C) {
 	s.root.Destroy()
-	s.BaseSuite.TearDownTest(c)
+	s.IsolationSuite.TearDownTest(c)
 }
 
 var initialTags = map[string]string{"foo": "bar"}
 
-func dialAndTestInitiate(c *gc.C, inst *gitjujutesting.MgoInstance, addr string) {
+func dialAndTestInitiate(c *gc.C, inst *testing.MgoInstance, addr string) {
 	session := inst.MustDialDirect()
 	defer session.Close()
 
@@ -155,15 +154,16 @@ func attemptLoop(c *gc.C, strategy utils.AttemptStrategy, desc string, f func() 
 }
 
 func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
-	coretesting.SkipIfI386(c, "lp:1425569")
-
-	getAddr := func(inst *gitjujutesting.MgoInstance) string {
+	if runtime.GOARCH == "386" {
+		c.Skip(fmt.Sprintf("Test disabled on i386 until fixed - see bug lp:1425569"))
+	}
+	getAddr := func(inst *testing.MgoInstance) string {
 		return inst.Addr()
 	}
 	assertAddRemoveSet(c, s.root, getAddr)
 }
 
-func assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstance, getAddr func(*gitjujutesting.MgoInstance) string) {
+func assertAddRemoveSet(c *gc.C, root *testing.MgoInstance, getAddr func(*testing.MgoInstance) string) {
 	session := root.MustDial()
 	defer session.Close()
 
@@ -182,7 +182,7 @@ func assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstance, getAddr func(
 	// operations without thrashing on those that take longer.
 	strategy := utils.AttemptStrategy{Total: time.Minute * 2, Delay: time.Millisecond * 500}
 
-	instances := make([]*gitjujutesting.MgoInstance, 5)
+	instances := make([]*testing.MgoInstance, 5)
 	instances[0] = root
 	for i := 1; i < len(instances); i++ {
 		inst := newServer(c)
@@ -307,8 +307,8 @@ func (s *MongoSuite) TestMasterHostPort(c *gc.C) {
 }
 
 func (s *MongoSuite) TestMasterHostPortOnUnconfiguredReplicaSet(c *gc.C) {
-	inst := &gitjujutesting.MgoInstance{}
-	err := inst.Start(coretesting.Certs)
+	inst := &testing.MgoInstance{}
+	err := inst.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer inst.Destroy()
 	session := inst.MustDial()
@@ -574,12 +574,12 @@ func closeEnough(expected, obtained time.Time) bool {
 	return (-500*time.Millisecond) < t && t < (500*time.Millisecond)
 }
 
-func ipv6GetAddr(inst *gitjujutesting.MgoInstance) string {
+func ipv6GetAddr(inst *testing.MgoInstance) string {
 	return fmt.Sprintf("[::1]:%v", inst.Port())
 }
 
 type MongoIPV6Suite struct {
-	coretesting.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&MongoIPV6Suite{})
