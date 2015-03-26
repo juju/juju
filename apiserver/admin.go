@@ -81,7 +81,10 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	} else {
 		isUser = true
 	}
-	entity, err := doCheckCreds(a.root.state, req)
+
+	serverOnlyLogin := loginVersion > 1 && a.root.envUUID == ""
+
+	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin)
 	if err != nil {
 		if a.maintenanceInProgress() {
 			// An upgrade, restore or similar operation is in
@@ -132,7 +135,6 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	var maybeUserInfo *params.AuthUserInfo
 	// Send back user info if user
 	if isUser {
-		lastConnection := getAndUpdateLastLoginForEntity(entity)
 		maybeUserInfo = &params.AuthUserInfo{
 			Identity:       entity.Tag().String(),
 			LastConnection: lastConnection,
@@ -162,7 +164,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 	// For sufficiently modern login versions, stop serving the
 	// state server environment at the root of the API.
-	if loginVersion > 1 && a.root.envUUID == "" {
+	if serverOnlyLogin {
 		authedApi = newRestrictedRoot(authedApi)
 		// Remove the EnvironTag from the response as there is no
 		// environment here.
@@ -188,7 +190,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 // machines.
 func (a *admin) checkCredsOfStateServerMachine(req params.LoginRequest) (state.Entity, error) {
 	// Check the credentials against the state server environment.
-	entity, err := doCheckCreds(a.srv.state, req)
+	entity, _, err := doCheckCreds(a.srv.state, req, false)
 	if err != nil {
 		return nil, err
 	}
@@ -227,10 +229,15 @@ func (a *admin) maintenanceInProgress() bool {
 
 var doCheckCreds = checkCreds
 
-func checkCreds(st *state.State, req params.LoginRequest) (state.Entity, error) {
+// checkCreds validates the entities credentials in the current environment.
+// If the entity is a user, and lookForEnvUser is true, an env user must exist
+// for the environment.  In the case of a user logging in to the server, but
+// not an environment, there is no env user needed.  While we have the env
+// user, if we do have it, update the last login time.
+func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (state.Entity, *time.Time, error) {
 	tag, err := names.ParseTag(req.AuthTag)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	entity, err := st.FindEntity(tag)
 	if errors.IsNotFound(err) {
@@ -238,40 +245,47 @@ func checkCreds(st *state.State, req params.LoginRequest) (state.Entity, error) 
 		// password, so that we don't allow unauthenticated users to find
 		// information about existing entities.
 		logger.Debugf("entity %q not found", tag)
-		return nil, common.ErrBadCreds
+		return nil, nil, common.ErrBadCreds
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
 	authenticator, err := authentication.FindEntityAuthenticator(entity)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err = authenticator.Authenticate(entity, req.Credentials, req.Nonce); err != nil {
 		logger.Debugf("bad credentials")
-		return nil, err
+		return nil, nil, err
 	}
 
-	// For user logins, ensure the user is allowed to access the environment.
-	if user, ok := entity.Tag().(names.UserTag); ok {
-		_, err := st.EnvironmentUser(user)
-		if err != nil {
-			return nil, errors.Wrap(err, common.ErrBadCreds)
-		}
-	}
-
-	return entity, nil
-}
-
-func getAndUpdateLastLoginForEntity(entity state.Entity) *time.Time {
+	// For user logins, update the last login time.
+	// NOTE: this code path is only for local users. When we support remote
+	// user logins with bearer tokens, we will need to make sure that we also
+	// update the last connection times for the environment users there.
+	var lastLogin *time.Time
 	if user, ok := entity.(*state.User); ok {
-		result := user.LastLogin()
+		lastLogin = user.LastLogin()
+		if lookForEnvUser {
+			envUser, err := st.EnvironmentUser(user.UserTag())
+			if err != nil {
+				return nil, nil, errors.Wrap(err, common.ErrBadCreds)
+			}
+			// The last connection for the environment takes precedence over
+			// the local user last login time.
+			lastLogin = envUser.LastConnection()
+			envUser.UpdateLastConnection()
+		}
+		// Only update the user's last login time if it is a successful
+		// login, meaning that if we are logging into an environment, make
+		// sure that there is an environment user in that environment for
+		// this user.
 		user.UpdateLastLogin()
-		return result
 	}
-	return nil
+
+	return entity, lastLogin, nil
 }
 
 func checkForValidMachineAgent(entity state.Entity, req params.LoginRequest) error {

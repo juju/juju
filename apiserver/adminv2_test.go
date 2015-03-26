@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/testing/factory"
 )
 
 type loginV2Suite struct {
@@ -20,7 +21,7 @@ var _ = gc.Suite(&loginV2Suite{
 	loginSuite{
 		baseLoginSuite{
 			setAdminApi: func(srv *apiserver.Server) {
-				apiserver.SetAdminApiVersions(srv, 0, 1, 2)
+				apiserver.SetAdminApiVersions(srv, 2)
 			},
 		},
 	},
@@ -53,6 +54,29 @@ func (s *loginV2Suite) TestClientLoginToServer(c *gc.C) {
 	client := apiState.Client()
 	_, err = client.GetEnvironmentConstraints()
 	c.Assert(err, gc.ErrorMatches, `logged in to server, no environment, "Client" not supported`)
+}
+
+func (s *loginV2Suite) TestClientLoginToServerNoAccessToStateServerEnv(c *gc.C) {
+	_, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	password := "shhh..."
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		NoEnvUser: true,
+		Password:  password,
+	})
+
+	info := s.APIInfo(c)
+	info.Tag = user.Tag()
+	info.Password = password
+	info.EnvironTag = names.EnvironTag{}
+	apiState, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	defer apiState.Close()
+	// The user now has last login updated.
+	err = user.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.LastLogin(), gc.NotNil)
 }
 
 func (s *loginV2Suite) TestClientLoginToRootOldClient(c *gc.C) {

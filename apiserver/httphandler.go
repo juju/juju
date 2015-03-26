@@ -92,12 +92,11 @@ func (h *httpStateWrapper) authenticate(r *http.Request) (names.Tag, error) {
 	if err != nil {
 		return nil, common.ErrBadCreds
 	}
-	// Ensure the credentials are correct.
-	_, err = checkCreds(h.state, params.LoginRequest{
+	_, _, err = checkCreds(h.state, params.LoginRequest{
 		AuthTag:     tagPass[0],
 		Credentials: tagPass[1],
 		Nonce:       r.Header.Get("X-Juju-Nonce"),
-	})
+	}, true)
 	return tag, err
 }
 
