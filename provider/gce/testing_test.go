@@ -5,6 +5,8 @@ package gce
 
 import (
 	"encoding/base64"
+	"fmt"
+	"strings"
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -26,12 +28,46 @@ import (
 	"github.com/juju/juju/version"
 )
 
+// These values are fake GCE auth credentials for use in tests.
+const (
+	ClientName  = "ba9876543210-0123456789abcdefghijklmnopqrstuv"
+	ClientID    = ClientName + ".apps.googleusercontent.com"
+	ClientEmail = ClientName + "@developer.gserviceaccount.com"
+	PrivateKey  = `-----BEGIN PRIVATE KEY-----
+...
+...
+...
+...
+...
+...
+...
+...
+...
+...
+...
+...
+...
+...
+-----END PRIVATE KEY-----
+`
+)
+
+// These are fake config values for use in tests.
 var (
+	AuthFile = fmt.Sprintf(`{
+  "private_key_id": "abcdef0123456789abcdef0123456789abcdef01",
+  "private_key": "%s",
+  "client_email": "%s",
+  "client_id": "%s",
+  "type": "service_account"
+}`, strings.Replace(PrivateKey, "\n", "\\n", -1), ClientEmail, ClientID)
+
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
 		"type":           "gce",
-		"private-key":    "seekrit",
-		"client-id":      "static",
-		"client-email":   "joe@mail.com",
+		"auth-file":      "",
+		"private-key":    PrivateKey,
+		"client-id":      ClientID,
+		"client-email":   ClientEmail,
 		"region":         "home",
 		"project-id":     "my-juju",
 		"image-endpoint": "https://www.googleapis.com",

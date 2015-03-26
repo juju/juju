@@ -4,6 +4,10 @@
 package gce_test
 
 import (
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -16,7 +20,8 @@ import (
 type ConfigSuite struct {
 	gce.BaseSuite
 
-	config *config.Config
+	config  *config.Config
+	rootDir string
 }
 
 var _ = gc.Suite(&ConfigSuite{})
@@ -27,6 +32,7 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	cfg, err := testing.EnvironConfig(c).Apply(gce.ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.config = cfg
+	s.rootDir = c.MkDir()
 }
 
 // TODO(ericsnow) Each test only deals with a single field, so having
@@ -45,6 +51,9 @@ type configTestSpec struct {
 	expect testing.Attrs
 	// err is the error message to expect in a failure case.
 	err string
+
+	// rootDir is the path to the root directory for this test.
+	rootDir string
 }
 
 func (ts configTestSpec) checkSuccess(c *gc.C, value interface{}, err error) {
@@ -62,6 +71,9 @@ func (ts configTestSpec) checkSuccess(c *gc.C, value interface{}, err error) {
 
 	attrs := cfg.AllAttrs()
 	for field, value := range ts.expect {
+		if field == "auth-file" && value.(string) != "" {
+			value = filepath.Join(ts.rootDir, value.(string))
+		}
 		c.Check(attrs[field], gc.Equals, value)
 	}
 }
@@ -71,8 +83,15 @@ func (ts configTestSpec) checkFailure(c *gc.C, err error, msg string) {
 }
 
 func (ts configTestSpec) checkAttrs(c *gc.C, attrs map[string]interface{}, cfg *config.Config) {
-	for field, value := range cfg.UnknownAttrs() {
-		c.Check(attrs[field], gc.Equals, value)
+	for field, expected := range cfg.UnknownAttrs() {
+		value := attrs[field]
+		if field == "auth-file" {
+			filename := value.(string)
+			if filename != "" {
+				value = interface{}(filepath.Join(ts.rootDir, filename))
+			}
+		}
+		c.Check(value, gc.Equals, expected)
 	}
 }
 
@@ -81,13 +100,100 @@ func (ts configTestSpec) attrs() testing.Attrs {
 }
 
 func (ts configTestSpec) newConfig(c *gc.C) *config.Config {
+	filename := ts.writeAuthFile(c)
+
 	attrs := ts.attrs()
+	if filename != "" {
+		attrs["auth-file"] = filename
+	}
 	cfg, err := testing.EnvironConfig(c).Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
 
+func (ts configTestSpec) writeAuthFile(c *gc.C) string {
+	value, ok := ts.insert["auth-file"]
+	if !ok {
+		return ""
+	}
+	filename := value.(string)
+	if filename == "" {
+		return ""
+	}
+	filename = filepath.Join(ts.rootDir, filename)
+	err := os.MkdirAll(filepath.Dir(filename), 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filename, []byte(gce.AuthFile), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+	return filename
+}
+
+func (ts configTestSpec) fixCfg(c *gc.C, cfg *config.Config) *config.Config {
+	fixes := make(map[string]interface{})
+
+	var filename string
+	if value, ok := ts.insert["auth-file"]; ok {
+		filename = value.(string)
+		if filename != "" {
+			filename = filepath.Join(ts.rootDir, filename)
+		}
+	}
+
+	// Set changed values.
+	fixes = updateAttrs(fixes, ts.insert)
+	if filename != "" {
+		fixes = updateAttrs(fixes, testing.Attrs{"auth-file": filename})
+	}
+
+	newCfg, err := cfg.Apply(fixes)
+	c.Assert(err, jc.ErrorIsNil)
+	return newCfg
+}
+
+func updateAttrs(attrs, updates testing.Attrs) testing.Attrs {
+	updated := make(testing.Attrs, len(attrs))
+	for k, v := range attrs {
+		updated[k] = v
+	}
+	for k, v := range updates {
+		updated[k] = v
+	}
+	return updated
+}
+
 var newConfigTests = []configTestSpec{{
+	info:   "auth-file is optional",
+	remove: []string{"auth-file"},
+	expect: testing.Attrs{"auth-file": ""},
+}, {
+	info:   "auth-file can be empty",
+	insert: testing.Attrs{"auth-file": ""},
+	expect: testing.Attrs{"auth-file": ""},
+}, {
+	info: "auth-file ignored",
+	insert: testing.Attrs{
+		"auth-file":    "/home/someuser/gce.json",
+		"client-id":    "spam.x",
+		"client-email": "spam@x",
+		"private-key":  "abc",
+	},
+	expect: testing.Attrs{
+		"auth-file":    "/home/someuser/gce.json",
+		"client-id":    "spam.x",
+		"client-email": "spam@x",
+		"private-key":  "abc",
+	},
+}, {
+	info:   "auth-file parsed",
+	insert: testing.Attrs{"auth-file": "/home/someuser/gce.json"},
+	remove: []string{"client-id", "client-email", "private-key"},
+	expect: testing.Attrs{
+		"auth-file":    "/home/someuser/gce.json",
+		"client-id":    gce.ClientID,
+		"client-email": gce.ClientEmail,
+		"private-key":  gce.PrivateKey,
+	},
+}, {
 	info:   "client-id is required",
 	remove: []string{"client-id"},
 	err:    "client-id: expected string, got nothing",
@@ -141,10 +247,11 @@ var newConfigTests = []configTestSpec{{
 	expect: testing.Attrs{"unknown-field": 12345},
 }}
 
-func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
+func (s *ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
+		test.rootDir = s.rootDir
 		testConfig := test.newConfig(c)
 		environ, err := environs.New(testConfig)
 
@@ -158,10 +265,11 @@ func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 }
 
 // TODO(wwitzel3) refactor to provider_test file
-func (*ConfigSuite) TestValidateNewConfig(c *gc.C) {
+func (s *ConfigSuite) TestValidateNewConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
+		test.rootDir = s.rootDir
 		testConfig := test.newConfig(c)
 		validatedConfig, err := gce.Provider.Validate(testConfig, nil)
 
@@ -180,9 +288,10 @@ func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
+		test.rootDir = s.rootDir
 		oldcfg := test.newConfig(c)
-		newcfg := s.config
-		expected := gce.ConfigAttrs
+		newcfg := test.fixCfg(c, s.config)
+		expected := updateAttrs(gce.ConfigAttrs, test.insert)
 
 		// Validate the new config (relative to the old one) using the
 		// provider.
@@ -192,13 +301,15 @@ func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 		if test.err != "" {
 			test.checkFailure(c, err, "invalid base config")
 		} else {
-			if test.remove != nil {
+			if test.insert == nil && test.remove != nil {
 				// No defaults are set on the old config.
 				c.Check(err, gc.ErrorMatches, "invalid base config: .*")
 				continue
 			}
 
-			c.Check(err, jc.ErrorIsNil)
+			if !c.Check(err, jc.ErrorIsNil) {
+				continue
+			}
 			// We verify that Validate filled in the defaults
 			// appropriately.
 			c.Check(validatedConfig, gc.NotNil)
@@ -211,17 +322,21 @@ var changeConfigTests = []configTestSpec{{
 	info:   "no change, no error",
 	expect: gce.ConfigAttrs,
 }, {
+	info:   "cannot change auth-file",
+	insert: testing.Attrs{"auth-file": "gce.json"},
+	err:    "auth-file: cannot change from  to .*gce.json",
+}, {
 	info:   "cannot change private-key",
 	insert: testing.Attrs{"private-key": "okkult"},
-	err:    "private-key: cannot change from seekrit to okkult",
+	err:    "private-key: cannot change from " + gce.PrivateKey + " to okkult",
 }, {
 	info:   "cannot change client-id",
 	insert: testing.Attrs{"client-id": "mutant"},
-	err:    "client-id: cannot change from static to mutant",
+	err:    "client-id: cannot change from " + gce.ClientID + " to mutant",
 }, {
 	info:   "cannot change client-email",
 	insert: testing.Attrs{"client-email": "spam@eggs.com"},
-	err:    "client-email: cannot change from joe@mail.com to spam@eggs.com",
+	err:    "client-email: cannot change from " + gce.ClientEmail + " to spam@eggs.com",
 }, {
 	info:   "cannot change region",
 	insert: testing.Attrs{"region": "not home"},
@@ -241,6 +356,7 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
+		test.rootDir = s.rootDir
 		testConfig := test.newConfig(c)
 		validatedConfig, err := gce.Provider.Validate(testConfig, s.config)
 
@@ -260,6 +376,7 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 		environ, err := environs.New(s.config)
 		c.Assert(err, jc.ErrorIsNil)
 
+		test.rootDir = s.rootDir
 		testConfig := test.newConfig(c)
 		err = environ.SetConfig(testConfig)
 

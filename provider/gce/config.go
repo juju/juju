@@ -6,6 +6,7 @@ package gce
 import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
+	"os"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/gce/google"
@@ -23,6 +24,7 @@ import (
 
 // The GCE-specific config keys.
 const (
+	cfgAuthFile      = "auth-file"
 	cfgPrivateKey    = "private-key"
 	cfgClientID      = "client-id"
 	cfgClientEmail   = "client-email"
@@ -41,11 +43,16 @@ gce:
   # The GCE provider uses OAuth to authenticate. This requires that
   # you set it up and get the relevant credentials. For more information
   # see https://cloud.google.com/compute/docs/api/how-tos/authorization.
-  # Once you have the information, enter it here. All three of these are
-  # required and have specific meaning to GCE.
-  private-key: 
-  client-email:
-  client-id:
+  # The key information can be downloaded as a JSON file, or copied, from:
+  #   https://console.developers.google.com/project/<projet>/apiui/credential
+  # Either set the path to the downloaded JSON file here:
+  auth-file:
+
+  # ...or set the individual fields for the credentials. Either way, all
+  # three of these are required and have specific meaning to GCE.
+  # private-key:
+  # client-email:
+  # client-id:
 
   # Google instance info
   # To provision instances and perform related operations, the provider
@@ -68,6 +75,7 @@ gce:
 
 // configFields is the spec for each GCE config value's type.
 var configFields = schema.Fields{
+	cfgAuthFile:      schema.String(),
 	cfgPrivateKey:    schema.String(),
 	cfgClientID:      schema.String(),
 	cfgClientEmail:   schema.String(),
@@ -81,6 +89,7 @@ var configFields = schema.Fields{
 // cloud-images).
 
 var configDefaults = schema.Defaults{
+	cfgAuthFile: "",
 	// See http://cloud-images.ubuntu.com/releases/streams/v1/com.ubuntu.cloud:released:gce.json
 	cfgImageEndpoint: "https://www.googleapis.com",
 }
@@ -90,12 +99,19 @@ var configSecretFields = []string{
 }
 
 var configImmutableFields = []string{
+	cfgAuthFile,
 	cfgPrivateKey,
 	cfgClientID,
 	cfgClientEmail,
 	cfgRegion,
 	cfgProjectID,
 	cfgImageEndpoint,
+}
+
+var configAuthFields = []string{
+	cfgPrivateKey,
+	cfgClientID,
+	cfgClientEmail,
 }
 
 // osEnvFields is the mapping from GCE env vars to config keys.
@@ -143,6 +159,12 @@ func newConfig(cfg *config.Config) *environConfig {
 // and returns it. This includes applying the provided defaults
 // values, if any. The resulting config values are validated.
 func newValidConfig(cfg *config.Config, defaults map[string]interface{}) (*environConfig, error) {
+	handled, err := handleAuthFile(cfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg = handled
+
 	// Ensure that the provided config is valid.
 	if err := config.Validate(cfg, nil); err != nil {
 		return nil, errors.Trace(err)
@@ -167,6 +189,10 @@ func newValidConfig(cfg *config.Config, defaults map[string]interface{}) (*envir
 	}
 
 	return ecfg, nil
+}
+
+func (c *environConfig) authFile() string {
+	return c.attrs[cfgAuthFile].(string)
 }
 
 func (c *environConfig) privateKey() string {
@@ -226,6 +252,9 @@ func (c *environConfig) secret() map[string]string {
 func (c environConfig) validate() error {
 	// All fields must be populated, even with just the default.
 	for field := range configFields {
+		if dflt, ok := configDefaults[field]; ok && dflt == "" {
+			continue
+		}
 		if c.attrs[field].(string) == "" {
 			return errors.Errorf("%s: must not be empty", field)
 		}
@@ -268,4 +297,50 @@ func (c *environConfig) update(cfg *config.Config) error {
 	c.Config = cfg
 	c.attrs = cfg.UnknownAttrs()
 	return nil
+}
+
+// handleAuthFile updates the auth credentials, if necessary, from the
+// provided JSON file.
+func handleAuthFile(cfg *config.Config) (*config.Config, error) {
+	attrs := cfg.UnknownAttrs()
+
+	for _, field := range configAuthFields {
+		if existing, ok := attrs[field].(string); ok && existing != "" {
+			// Ignore the auth file.
+			return cfg, nil
+		}
+	}
+
+	// Extract the credentials.
+	filename, ok := attrs[cfgAuthFile].(string)
+	if !ok || filename == "" {
+		return cfg, nil
+	}
+	authFile, err := os.Open(filename)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer authFile.Close()
+	creds, err := google.ParseAuthFile(authFile)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Apply them.
+	updates := make(map[string]interface{})
+	for k, v := range creds {
+		if field, ok := osEnvFields[k]; ok {
+			for _, authField := range configAuthFields {
+				if field == authField {
+					updates[field] = v
+					break
+				}
+			}
+		}
+	}
+	updated, err := cfg.Apply(updates)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return updated, nil
 }
