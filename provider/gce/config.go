@@ -4,9 +4,10 @@
 package gce
 
 import (
+	"os"
+
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"os"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/gce/google"
