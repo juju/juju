@@ -16,12 +16,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/replicaset"
 	"github.com/juju/utils"
 	"github.com/juju/utils/apt"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/version"
 )
