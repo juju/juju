@@ -165,16 +165,26 @@ class DependencyFileTestCase(TestCase):
             dep_file.dep_path = dep_path
             self.assertTrue(dep_file.delete_tmp_tsv())
             self.assertFalse(os.path.isfile(dep_path))
-            self.assertIsNone(dep_file.dep_path)
+        self.assertIsNone(dep_file.dep_path)
 
     def test_pin_deps(self):
         with patch('subprocess.check_output') as co_mock:
             with patch('deptree.DependencyFile.consolidate_deps',
                        autospec=True, return_value=({}, [])):
                 dep_file = DependencyFile(['foo.tsv', 'bar.tsv'])
-                dep_file.dep_path = '/tmp/baz.tsv'
-                dep_file.pin_deps()
+
+                def write_tmp_tsv():
+                    dep_file.dep_path = '/tmp/baz.tsv'
+
+                with patch.object(dep_file, 'write_tmp_tsv',
+                                  side_effect=write_tmp_tsv,
+                                  autospec=True) as wt_mock:
+                    with patch.object(dep_file, 'delete_tmp_tsv',
+                                      autospec=True) as dt_mock:
+                        dep_file.pin_deps()
+        wt_mock.assert_called_once_with()
         co_mock.assert_called_once_with(['godeps', '-u', '/tmp/baz.tsv'])
+        dt_mock.assert_called_once_with()
 
 
 class DepTreeTestCase(TestCase):
@@ -192,12 +202,10 @@ class DepTreeTestCase(TestCase):
         df_mock = Mock(spec=DependencyFile)
         df_mock.consolidate_deps.return_value = ({}, [])
         df_mock.include_deps.return_value = ([], [])
-        df_mock.write_tmp_tsv.return_value = 'fnord.tsv'
-        df_mock.delete_tmp_tsv.return_value = True
+        df_mock.pin_deps.return_value = None
         with patch('deptree.DependencyFile',
                    autospec=True, return_value=df_mock) as init_mock:
             main(['foo', 'bar', 'baz'])
         init_mock.assert_called_once_with(['bar', 'baz'], verbose=False)
         df_mock.include_deps.assert_called_once_with([])
-        df_mock.write_tmp_tsv.assert_called_once_with()
-        df_mock.delete_tmp_tsv.assert_called_once_with()
+        df_mock.pin_deps.assert_called_once_with()

@@ -110,9 +110,13 @@ class DependencyFile:
         return False
 
     def pin_deps(self):
-        output = subprocess.check_output(['godeps', '-u', self.dep_path])
-        if self.verbose:
-            print(output)
+        try:
+            self.write_tmp_tsv()
+            output = subprocess.check_output(['godeps', '-u', self.dep_path])
+            if self.verbose:
+                print(output)
+        finally:
+            self.delete_tmp_tsv()
 
 
 def main(args=None):
@@ -121,11 +125,7 @@ def main(args=None):
     args = get_args(args)
     dep_file = DependencyFile(args.dep_files, verbose=args.verbose)
     redefined, added = dep_file.include_deps(args.include)
-    dep_file.write_tmp_tsv()
-    try:
-        pass
-    finally:
-        dep_file.delete_tmp_tsv()
+    dep_file.pin_deps()
     return exitcode
 
 
