@@ -55,14 +55,16 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	logger.Infof("started instance %q in zone %q", raw.ID, raw.ZoneName)
 	inst := newInstance(raw, env)
 
-	// Open API port on state server.
-	if isStateServer(args.MachineConfig) {
+	// Ensure the API server port is open (globally for all instances
+	// on the network, not just for the specific node of the state
+	// server). See LP bug #1436191 for details.
+	if args.MachineConfig.StateServingInfo != nil {
 		ports := network.PortRange{
 			FromPort: args.MachineConfig.StateServingInfo.APIPort,
 			ToPort:   args.MachineConfig.StateServingInfo.APIPort,
 			Protocol: "tcp",
 		}
-		if err := env.gce.OpenPorts(raw.ID, ports); err != nil {
+		if err := env.gce.OpenPorts(env.globalFirewallName(), ports); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
