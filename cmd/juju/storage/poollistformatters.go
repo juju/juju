@@ -45,11 +45,17 @@ func formatPoolsTabular(pools map[string]PoolInfo) ([]byte, error) {
 	sort.Strings(poolNames)
 	for _, name := range poolNames {
 		pool := pools[name]
-		attrs := make([]string, len(pool.Attrs))
+		// order by key for deterministic return
+		keys := make([]string, len(pool.Attrs))
 		var i int
-		for key, value := range pool.Attrs {
-			attrs[i] = fmt.Sprintf("%v=%v", key, value)
+		for key := range pool.Attrs {
+			keys[i] = key
 			i++
+		}
+		sort.Strings(keys)
+		attrs := make([]string, len(pool.Attrs))
+		for i, key := range keys {
+			attrs[i] = fmt.Sprintf("%v=%v", key, pool.Attrs[key])
 		}
 		print(name, pool.Provider, strings.Join(attrs, " "))
 	}
