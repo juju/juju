@@ -100,6 +100,12 @@ class DependencyFile:
         os.close(fd)
         return self.dep_path
 
+    def delete_tmp_tsv(self):
+        if self.dep_path and os.path.isfile(self.dep_path):
+            os.unlink(self.dep_path)
+            return True
+        return False
+
 
 def main(args=None):
     """Execute the commands from the command line."""

@@ -81,11 +81,12 @@ class DependencyFileTestCase(TestCase):
 
     def test_init(self):
         with patch('deptree.DependencyFile.consolidate_deps', autospec=True,
-                   return_value=[{}, []]) as cd_mock:
+                   return_value=({}, [])) as cd_mock:
             dep_file = DependencyFile(['foo.tsv', 'bar.tsv'], verbose=True)
         cd_mock.assert_called_once_with(dep_file)
         self.assertEqual(['foo.tsv', 'bar.tsv'], dep_file.dep_files)
         self.assertTrue(dep_file.verbose)
+        self.assertIsNone(dep_file.dep_path)
         self.assertEqual({}, dep_file.deps)
         self.assertEqual([], dep_file.conflicts)
 
@@ -151,6 +152,19 @@ class DependencyFileTestCase(TestCase):
             content = f.read()
         expected = ''.join([b_dep.to_line(), a_dep.to_line()])
         self.assertEqual(expected, content)
+
+    def test_delete_tmp_tsv(self):
+        with patch('deptree.DependencyFile.consolidate_deps',
+                   autospec=True, return_value=({}, [])):
+            dep_file = DependencyFile(['foo.tsv', 'bar.tsv'])
+        self.assertFalse(dep_file.delete_tmp_tsv())
+        with temp_dir() as base_dir:
+            dep_path = '%s/a.tsv' % base_dir
+            with open(dep_path, 'w') as f:
+                f.write('foo')
+            dep_file.dep_path = dep_path
+            self.assertTrue(dep_file.delete_tmp_tsv())
+            self.assertFalse(os.path.isfile(dep_path))
 
 
 class DepTreeTestCase(TestCase):
