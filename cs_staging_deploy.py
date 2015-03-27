@@ -27,7 +27,7 @@ class CSStagingTest:
 
     @classmethod
     def from_args(cls, env, tmp_name, juju_path, log_dir, charm_store_ip,
-                  series=None, agent_url=None,
+                  charm=None, series=None, agent_url=None,
                   debug_flag=False):
         env_config = SimpleEnvironment.from_config(env)
         env_config.environment = tmp_name
@@ -35,11 +35,12 @@ class CSStagingTest:
         env_config.config['agent_url'] = agent_url
         client = EnvJujuClient.by_version(env_config, juju_path,
                                           debug=debug_flag)
-        return cls(client, charm_store_ip, log_dir)
+        return cls(client, charm_store_ip, charm, log_dir)
 
-    def __init__(self, client, charm_store_ip, log_dir):
+    def __init__(self, client, charm_store_ip, charm, log_dir):
         self.client = client
         self.charm_store_ip = charm_store_ip
+        self.charm = charm
         self.log_dir = log_dir
 
     def bootstrap(self):
@@ -61,13 +62,13 @@ class CSStagingTest:
             raise
 
     def run(self):
+        remote_cmd = (
+            '''sudo bash -c "echo '%s store.juju.ubuntu.com' >> /etc/hosts"'''
+            % self.charm_store_ip)
         try:
             self.bootstrap()
-            remote_cmd = ('sudo bash -c ' +
-                          '"echo \'' + self.charm_store_ip +
-                          ' store.juju.ubuntu.com\' >> /etc/hosts"')
             self.remote_run('0', remote_cmd)
-            self.client.deploy('mysql')
+            self.client.deploy(self.charm)
             self.client.wait_for_started(3600)
         except BaseException as e:
             logging.exception(e)
@@ -82,11 +83,14 @@ def main():
     parser = add_basic_testing_arguments(ArgumentParser())
     parser.add_argument('charm_store_ip',
                         help='IP of the charm store to use.')
+    parser.add_argument('--charm', action='store', default='mysql-10',
+                        help='Charm to deploy.')
     args = parser.parse_args()
     configure_logging(args.verbose)
     csstaging = CSStagingTest.from_args(args.env, args.temp_env_name,
                                         args.juju_bin, args.logs,
                                         args.charm_store_ip,
+                                        args.charm,
                                         args.series, args.agent_url,
                                         args.debug)
     csstaging.run()

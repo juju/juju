@@ -52,6 +52,17 @@ class TestCSStagingDeploy(TestCase):
         self.assertEqual(csstaging.client[0].config['series'],
                          'precise')
 
+    def test_from_args_charm(self):
+        side_effect = lambda x, y=None, debug=False: (x, y)
+        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
+            with patch('jujupy.SimpleEnvironment.from_config',
+                       side_effect=lambda x: SimpleEnvironment(x, {})):
+                csstaging = CSStagingTest.from_args(
+                    'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
+                    '0.0.0.0', charm='some_charm'
+                )
+        self.assertEqual(csstaging.charm, 'some_charm')
+
     def test_from_args_debug(self):
         with patch('jujupy.EnvJujuClient.get_version',
                    side_effect=lambda x, juju_path=None: ''):
@@ -63,25 +74,30 @@ class TestCSStagingDeploy(TestCase):
                 )
         self.assertEqual(csstaging.client.debug, True)
 
-    def test_run_finally(self):
+    def test_run(self):
         client = EnvJujuClient(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
-        csstaging = CSStagingTest(client, '0.0.0.0', '/tmp/logs')
+        csstaging = CSStagingTest(client, '0.0.0.0', 'charm', '/tmp/logs')
         with patch.object(client, 'destroy_environment') as qs_mock:
             with patch('cs_staging_deploy.safe_print_status') as ps_mock:
-                with patch.object(csstaging, 'bootstrap'):
-                    with patch.object(csstaging, 'remote_run'):
+                with patch.object(csstaging, 'bootstrap') as bs_mock:
+                    with patch.object(csstaging, 'remote_run') as rr_mock:
                         with patch('jujupy.EnvJujuClient.deploy'):
                             with patch(
                                     'jujupy.EnvJujuClient.wait_for_started'):
                                 csstaging.run()
+        bs_mock.assert_called_once_with()
+        rr_call = (
+            '''sudo bash -c "echo '%s store.juju.ubuntu.com' >> /etc/hosts"'''
+            % '0.0.0.0')
+        rr_mock.assert_called_once_with('0', rr_call)
         qs_mock.assert_called_once_with(delete_jenv=True)
         ps_mock.assert_called_once_with(client)
 
     def test_run_exception(self):
         client = EnvJujuClient(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
-        csstaging = CSStagingTest(client, '0.0.0.0', '/tmp/logs')
+        csstaging = CSStagingTest(client, '0.0.0.0', 'charm', '/tmp/logs')
         with patch.object(client, 'destroy_environment') as qs_mock:
             with patch('cs_staging_deploy.safe_print_status') as ps_mock:
                 with patch('cs_staging_deploy.dump_env_logs') as dl_mock:
@@ -98,7 +114,7 @@ class TestCSStagingDeploy(TestCase):
     def test_remote_run(self):
         client = EnvJujuClient(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
-        csstaging = CSStagingTest(client, '0.0.0.0', '/tmp/logs')
+        csstaging = CSStagingTest(client, '0.0.0.0', 'charm', '/tmp/logs')
         with patch('jujupy.EnvJujuClient.get_juju_output') as out_mock:
             csstaging.remote_run('machine', 'some_cmd')
         out_mock.assert_called_once_with('ssh', 'machine', 'some_cmd')
@@ -106,8 +122,22 @@ class TestCSStagingDeploy(TestCase):
     def test_remote_run_exception(self):
         client = EnvJujuClient(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
-        csstaging = CSStagingTest(client, '0.0.0.0', '/tmp/logs')
+        csstaging = CSStagingTest(client, '0.0.0.0', 'charm', '/tmp/logs')
         with self.assertRaises(subprocess.CalledProcessError):
             with patch('jujupy.EnvJujuClient.get_juju_output',
                        side_effect=subprocess.CalledProcessError(1, 'cmd')):
                 csstaging.remote_run('machine', 'some_cmd')
+
+    def test_bootstrap(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        csstaging = CSStagingTest(client, '0.0.0.0', 'charm', '/tmp/logs')
+        with patch('cs_staging_deploy.get_juju_home',
+                   return_value='foo') as gjh_mock:
+            with patch('cs_staging_deploy.bootstrap_from_env') as bfe_mock:
+                with patch(
+                        'cs_staging_deploy.get_machine_dns_name') as dns_mock:
+                    csstaging.bootstrap()
+        gjh_mock.assert_called_once_with()
+        bfe_mock.assert_called_once_with('foo', client)
+        dns_mock.assert_called_once_with(client, 0)
