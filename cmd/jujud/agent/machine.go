@@ -708,9 +708,8 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	if !isEnvironManager {
 		runner.StartWorker("converter", func() (worker.Worker, error) {
 			return worker.NewNotifyWorker(&converter{
-				agent:  a,
-				st:     st.Converter(),
-				config: agentConfig,
+				agent: a,
+				st:    st.Converter(),
 			}), nil
 		})
 	}

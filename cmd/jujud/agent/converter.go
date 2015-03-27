@@ -4,6 +4,8 @@
 package agent
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
@@ -14,37 +16,42 @@ import (
 
 // converter is a worker that converts a unit hosting machine to a state machine.
 type converter struct {
-	st     *apiconverter.State
-	config agent.Config
-	agent  *MachineAgent
+	st    *apiconverter.State
+	agent *MachineAgent
 }
 
 func (c *converter) SetUp() (watcher.NotifyWatcher, error) {
-	logger.Infof("setting up Converter watcher for %s", c.config.Tag().String())
-	return c.st.WatchForJobsChanges(c.config.Tag().String())
+	logger.Infof("setting up Converter watcher")
+	return c.st.WatchForJobsChanges(c.agent.CurrentConfig().Tag().String())
 }
 
 func (c *converter) Handle() error {
-	logger.Infof("environment for %q has been changed", c.config.Tag())
-
-	jobs, err := c.st.Jobs(c.config.Tag().String())
+	config := c.agent.CurrentConfig()
+	logger.Infof("environment for %q has been changed", config.Tag())
+	jobs, err := c.st.Jobs(config.Tag().String())
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	for _, job := range jobs.Jobs {
 		if job.NeedsState() {
-			logger.Warningf("converting %q to a state server", c.config.Tag())
+			logger.Warningf("converting %q to a state server", config.Tag())
 			pw, err := utils.RandomPassword()
 			if err != nil {
 				return errors.Trace(err)
 			}
+			ssi, exists := config.StateServingInfo()
+			if !exists {
+				return errors.New("can't get state serving info from config.")
+			}
+			addr := fmt.Sprintf("localhost:%d", ssi.StatePort)
+
 			c.agent.AgentConfigWriter.ChangeConfig(func(config agent.ConfigSetter) error {
 				config.SetPassword(pw)
-				config.SetStateAddresses([]string{"localhost:37017"})
+				config.SetStateAddresses([]string{addr})
 				return nil
 			})
-			_, entity, err := OpenAPIState(c.config, c.agent)
+			_, entity, err := OpenAPIState(config, c.agent)
 			if err != nil {
 				logger.Errorf("can't open API state: %s", errors.Details(err))
 				return errors.Trace(err)
