@@ -52,6 +52,7 @@ func (c *CreateCommand) Init(args []string) error {
 	networks := make(map[uint64]bool)
 	for _, arg := range args[1:] {
 		if _, ipNet, err := net.ParseCIDR(arg); err == nil {
+			// We have a valid CIDR, now check that it is unique
 			subnet, bytesRead := binary.Uvarint(ipNet.IP)
 			if bytesRead == 0 {
 				return errors.New("Error converting subnet to uint64.")
@@ -81,6 +82,7 @@ func (c *CreateCommand) Run(ctx *cmd.Context) (err error) {
 	return nil
 }
 
+// NameIsValid checks that the name given for a space contains only valid characters
 func NameIsValid(name string) bool {
 	r := regexp.MustCompile("^[-a-z0-9]+$")
 	return r.MatchString(name)

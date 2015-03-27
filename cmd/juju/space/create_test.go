@@ -26,10 +26,14 @@ func (s *spaceCreateSuite) runCommand(c *gc.C, args ...string) (string, string, 
 	return testing.Stdout(ctx), testing.Stderr(ctx), nil
 }
 
+// testInitFail runs the command init stage of "space create [args]" and checks that
+// the command produces the error errPat
 func (s *spaceCreateSuite) testInitFail(c *gc.C, errPat string, args ...string) {
 	testing.TestInit(c, &space.CreateCommand{}, args, errPat)
 }
 
+// testInitFail runs the command init stage of "space create [args]" and checks that
+// the command produces no errors
 func (s *spaceCreateSuite) testInitOK(c *gc.C, args ...string) {
 	testing.TestInit(c, &space.CreateCommand{}, args, "")
 }
