@@ -313,19 +313,19 @@ func (s *storageMockSuite) TestListVolumes(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ListVolumes")
 
-			args, ok := a.(params.StorageVolumeFilter)
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(a, gc.FitsTypeOf, params.StorageVolumeFilter{})
+			args := a.(params.StorageVolumeFilter)
 			c.Assert(args.Machines, gc.HasLen, 2)
 
-			if results, k := result.(*params.VolumeItemsResult); k {
-				attachments := make([]params.VolumeAttachment, len(args.Machines))
-				for i, m := range args.Machines {
-					attachments[i] = params.VolumeAttachment{
-						MachineTag: m}
-				}
-				results.Results = []params.VolumeItem{
-					params.VolumeItem{Attachments: attachments},
-				}
+			c.Assert(result, gc.FitsTypeOf, &params.VolumeItemsResult{})
+			results := result.(*params.VolumeItemsResult)
+			attachments := make([]params.VolumeAttachment, len(args.Machines))
+			for i, m := range args.Machines {
+				attachments[i] = params.VolumeAttachment{
+					MachineTag: m}
+			}
+			results.Results = []params.VolumeItem{
+				params.VolumeItem{Attachments: attachments},
 			}
 			return nil
 		})
@@ -353,14 +353,14 @@ func (s *storageMockSuite) TestListVolumesEmptyFilter(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ListVolumes")
 
-			args, ok := a.(params.StorageVolumeFilter)
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(a, gc.FitsTypeOf, params.StorageVolumeFilter{})
+			args := a.(params.StorageVolumeFilter)
 			c.Assert(args.IsEmpty(), jc.IsTrue)
 
-			if results, k := result.(*params.VolumeItemsResult); k {
-				results.Results = []params.VolumeItem{
-					params.VolumeItem{Volume: params.Volume{VolumeTag: tag}}}
-			}
+			c.Assert(result, gc.FitsTypeOf, &params.VolumeItemsResult{})
+			results := result.(*params.VolumeItemsResult)
+			results.Results = []params.VolumeItem{
+				params.VolumeItem{Volume: params.Volume{VolumeTag: tag}}}
 			return nil
 		})
 	storageClient := storage.NewClient(apiCaller)

@@ -96,9 +96,6 @@ func (c *Client) ListVolumes(machines []string) ([]params.VolumeItem, error) {
 	}
 	args := params.StorageVolumeFilter{Machines: tags}
 	found := params.VolumeItemsResult{}
-
-	// TODO(2015-01-30 anastasiamac/axw) we may want to just auto-create Volumes
-	// from discovered block devices if there are no matching provider-created Volumes.
 	if err := c.facade.FacadeCall("ListVolumes", args, &found); err != nil {
 		return nil, errors.Trace(err)
 	}
