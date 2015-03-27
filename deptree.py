@@ -3,6 +3,10 @@
 
 from __future__ import print_function
 
+
+__metaclass__ = type
+
+
 import argparse
 import os
 import subprocess
@@ -11,15 +15,24 @@ import tempfile
 
 
 class Dependency:
-    """A GO Deps packge dependency."""
+    """A GO Deps package dependency."""
 
-    @staticmethod
-    def from_option(option_value):
-        parts = option_value.split(':')
+    @classmethod
+    def from_option(cls, option_value):
+        return cls.from_string(option_value, ':')
+
+    @classmethod
+    def from_line(cls, line):
+        return cls.from_string(line, '\t')
+
+    @classmethod
+    def from_string(cls, string, delimiter):
+        parts = string.split(delimiter)
         if len(parts) < 3 or len(parts) > 4:
             raise argparse.ArgumentTypeError(
-                'Expected form of package:vcs:rev')
-        return Dependency(*parts)
+                'Expected form of package{delim}vcs{delim}rev'.format(
+                    delim=delimiter))
+        return cls(*parts)
 
     def __init__(self, package, vcs, revid, revno=None):
         self.package = package
@@ -49,7 +62,11 @@ class Dependency:
 
 
 class DependencyFile:
-    """A GO Deps dependencies.tsv created from several such files."""
+    """A GO Deps dependencies.tsv created from several such files.
+
+    The first dependencies.tsv is used as is, additional files may
+    add dependencies, but not change those already defined.
+    """
 
     def __init__(self, dep_files):
         self.dep_files = dep_files

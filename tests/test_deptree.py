@@ -17,12 +17,26 @@ from utils import temp_dir
 def DependencyTestCase(TestCase):
 
     def test_from_option(self):
-        dep = Dependency.from_option('foo/bar:git:123abc0:')
+        dep = Dependency.from_option('foo/bar:git:123abc0')
         self.assertEqual('foo/bar', dep.package)
         self.assertEqual('git', dep.vcs)
         self.assertEqual('123abc0', dep.revid)
         self.assertIs(None, dep.revno)
-        dep = Dependency.from_option('foo/bar:git:123abc0')
+
+    def test_from_line(self):
+        dep = Dependency.from_line('foo/bar\tgit\t123abc0')
+        self.assertEqual('foo/bar', dep.package)
+        self.assertEqual('git', dep.vcs)
+        self.assertEqual('123abc0', dep.revid)
+        self.assertIs(None, dep.revno)
+
+    def test_from_string(self):
+        dep = Dependency.from_string('foo/bar\tgit\t123abc0\t', '\t')
+        self.assertEqual('foo/bar', dep.package)
+        self.assertEqual('git', dep.vcs)
+        self.assertEqual('123abc0', dep.revid)
+        self.assertIs(None, dep.revno)
+        dep = Dependency.from_string('foo/bar:git:123abc0', ':')
         self.assertEqual('foo/bar', dep.package)
         self.assertEqual('git', dep.vcs)
         self.assertEqual('123abc0', dep.revid)
