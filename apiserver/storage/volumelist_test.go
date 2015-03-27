@@ -95,7 +95,7 @@ func (s *volumeSuite) TestFilterVolumesNoItems(c *gc.C) {
 		func(machine names.MachineTag) ([]state.VolumeAttachment, error) {
 			return nil, nil
 		}
-	filter := params.StorageVolumeFilter{
+	filter := params.VolumeFilter{
 		Machines: []string{s.machineTag.String()}}
 
 	c.Assert(storage.FilterVolumes(s.api, filter), gc.IsNil)
@@ -106,7 +106,7 @@ func (s *volumeSuite) TestFilterVolumesErrorMachineAttachments(c *gc.C) {
 		func(machine names.MachineTag) ([]state.VolumeAttachment, error) {
 			return nil, errors.Errorf("not for machine %v", machine)
 		}
-	filter := params.StorageVolumeFilter{
+	filter := params.VolumeFilter{
 		Machines: []string{s.machineTag.String()}}
 
 	found := storage.FilterVolumes(s.api, filter)
@@ -115,7 +115,7 @@ func (s *volumeSuite) TestFilterVolumesErrorMachineAttachments(c *gc.C) {
 }
 
 func (s *volumeSuite) TestFilterVolumes(c *gc.C) {
-	filter := params.StorageVolumeFilter{
+	filter := params.VolumeFilter{
 		Machines: []string{s.machineTag.String()}}
 
 	expected := params.VolumeItem{
@@ -209,7 +209,7 @@ func (s *volumeSuite) TestListVolumesEmptyFilter(c *gc.C) {
 			[]state.VolumeAttachment{s.volumeAttachment},
 		),
 	}
-	found, err := s.api.ListVolumes(params.StorageVolumeFilter{})
+	found, err := s.api.ListVolumes(params.VolumeFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0], gc.DeepEquals, expected)
@@ -222,7 +222,7 @@ func (s *volumeSuite) TestListVolumesError(c *gc.C) {
 			return nil, errors.New(msg)
 		}
 
-	items, err := s.api.ListVolumes(params.StorageVolumeFilter{})
+	items, err := s.api.ListVolumes(params.VolumeFilter{})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(items, gc.DeepEquals, params.VolumeItemsResult{})
 }
@@ -234,7 +234,7 @@ func (s *volumeSuite) TestListVolumesFilter(c *gc.C) {
 			[]state.VolumeAttachment{s.volumeAttachment},
 		),
 	}
-	filter := params.StorageVolumeFilter{
+	filter := params.VolumeFilter{
 		Machines: []string{s.machineTag.String()}}
 	found, err := s.api.ListVolumes(filter)
 	c.Assert(err, jc.ErrorIsNil)

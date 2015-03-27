@@ -353,7 +353,7 @@ func (a *API) CreatePool(p params.StoragePool) error {
 	return err
 }
 
-func (a *API) ListVolumes(filter params.StorageVolumeFilter) (params.VolumeItemsResult, error) {
+func (a *API) ListVolumes(filter params.VolumeFilter) (params.VolumeItemsResult, error) {
 	if !filter.IsEmpty() {
 		return params.VolumeItemsResult{Results: a.filterVolumes(filter)}, nil
 	}
@@ -391,7 +391,7 @@ func (a *API) volumeAttachments(all []state.Volume) []params.VolumeItem {
 	return result
 }
 
-func (a *API) filterVolumes(f params.StorageVolumeFilter) []params.VolumeItem {
+func (a *API) filterVolumes(f params.VolumeFilter) []params.VolumeItem {
 	var attachments []state.VolumeAttachment
 	var errs []params.VolumeItem
 

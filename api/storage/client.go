@@ -94,7 +94,7 @@ func (c *Client) ListVolumes(machines []string) ([]params.VolumeItem, error) {
 	for i, one := range machines {
 		tags[i] = names.NewMachineTag(one).String()
 	}
-	args := params.StorageVolumeFilter{Machines: tags}
+	args := params.VolumeFilter{Machines: tags}
 	found := params.VolumeItemsResult{}
 	if err := c.facade.FacadeCall("ListVolumes", args, &found); err != nil {
 		return nil, errors.Trace(err)

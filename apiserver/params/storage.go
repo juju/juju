@@ -444,14 +444,14 @@ type StoragePoolsResult struct {
 	Results []StoragePool `json:"results,omitempty"`
 }
 
-// StorageVolumeFilter holds a filter for volume list API call.
-type StorageVolumeFilter struct {
+// VolumeFilter holds a filter for volume list API call.
+type VolumeFilter struct {
 	// Machines are machine tags to filter on.
 	Machines []string `json:"machines,omitempty"`
 }
 
 // IsEmpty determines if filter is empty
-func (f *StorageVolumeFilter) IsEmpty() bool {
+func (f *VolumeFilter) IsEmpty() bool {
 	return len(f.Machines) == 0
 }
 

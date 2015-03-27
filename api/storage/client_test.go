@@ -313,8 +313,8 @@ func (s *storageMockSuite) TestListVolumes(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ListVolumes")
 
-			c.Assert(a, gc.FitsTypeOf, params.StorageVolumeFilter{})
-			args := a.(params.StorageVolumeFilter)
+			c.Assert(a, gc.FitsTypeOf, params.VolumeFilter{})
+			args := a.(params.VolumeFilter)
 			c.Assert(args.Machines, gc.HasLen, 2)
 
 			c.Assert(result, gc.FitsTypeOf, &params.VolumeItemsResult{})
@@ -353,8 +353,8 @@ func (s *storageMockSuite) TestListVolumesEmptyFilter(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ListVolumes")
 
-			c.Assert(a, gc.FitsTypeOf, params.StorageVolumeFilter{})
-			args := a.(params.StorageVolumeFilter)
+			c.Assert(a, gc.FitsTypeOf, params.VolumeFilter{})
+			args := a.(params.VolumeFilter)
 			c.Assert(args.IsEmpty(), jc.IsTrue)
 
 			c.Assert(result, gc.FitsTypeOf, &params.VolumeItemsResult{})
