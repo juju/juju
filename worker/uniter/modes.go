@@ -18,6 +18,38 @@ import (
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
+// setAgentStatus sets the unit's status if it has changed since last time this method was called.
+func setAgentStatus(u *Uniter, status params.Status, info string, data map[string]interface{}) error {
+	u.setStatusMutex.Lock()
+	defer u.setStatusMutex.Unlock()
+	if u.lastReportedStatus == status && u.lastReportedMessage == info {
+		return nil
+	}
+	u.lastReportedStatus = status
+	u.lastReportedMessage = info
+	return u.unit.SetAgentStatus(status, info, data)
+}
+
+// updateAgentStatus updates the agent status to reflect what the uniter is doing,
+// or to report on an error.
+func updateAgentStatus(u *Uniter, userMessage string, err error) {
+	// If there was an error performing the operation, set the state
+	// of the agent to Failed.
+	if err != nil {
+		msg := fmt.Sprintf("%s: %v", userMessage, err)
+		err2 := setAgentStatus(u, params.StatusFailed, msg, nil)
+		if err2 != nil {
+			logger.Errorf("updating agent status: %v", err2)
+		}
+		return
+	}
+	// Anything else, the uniter is doing something, running a hook or action etc.
+	err2 := setAgentStatus(u, params.StatusExecuting, userMessage, nil)
+	if err2 != nil {
+		logger.Errorf("updating agent status: %v", err2)
+	}
+}
+
 // Mode defines the signature of the functions that implement the possible
 // states of a running Uniter.
 type Mode func(u *Uniter) (Mode, error)
@@ -44,12 +76,16 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	}
 
 	var creator creator
+	// userMessage is the message to include with the status output for this unit.
+	var userMessage string
+
 	switch opState.Kind {
 	case operation.RunAction:
 		// TODO(fwereade): we *should* handle interrupted actions, and make sure
 		// they're marked as failed, but that's not for now.
 		logger.Infof("found incomplete action %q; ignoring", opState.ActionId)
 		logger.Infof("recommitting prior %q hook", opState.Hook.Kind)
+		userMessage = fmt.Sprintf("running action %q", opState.ActionId)
 		creator = newSkipHookOp(*opState.Hook)
 	case operation.RunHook:
 		switch opState.Step {
@@ -58,6 +94,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 			return ModeHookError, nil
 		case operation.Queued:
 			logger.Infof("found queued %q hook", opState.Hook.Kind)
+			userMessage = fmt.Sprintf("running %s hook", opState.Hook.Kind)
 			creator = newRunHookOp(*opState.Hook)
 		case operation.Done:
 			logger.Infof("committing %q hook", opState.Hook.Kind)
@@ -66,6 +103,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	case operation.Continue:
 		if opState.Stopped {
 			logger.Infof("opState.Stopped == true; transition to ModeTerminating")
+			updateAgentStatus(u, "preparing to stop charm", nil)
 			return ModeTerminating, nil
 		}
 		logger.Infof("no operations in progress; waiting for changes")
@@ -73,7 +111,8 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	default:
 		return nil, errors.Errorf("unknown operation kind %v", opState.Kind)
 	}
-	return continueAfter(u, creator)
+	// We are about to do some work, so update the workload status.
+	return continueAfter(u, userMessage, creator)
 }
 
 // ModeInstalling is responsible for the initial charm deployment. If an install
@@ -83,14 +122,7 @@ func ModeInstalling(curl *charm.URL) (next Mode, err error) {
 	name := fmt.Sprintf("ModeInstalling %s", curl)
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext(name, &err)()
-		// TODO(fwereade) 2015-01-19
-		// This SetUnitStatus call should probably be inside the operation somehow;
-		// which in turn implies that the SetUnitStatus call in PrepareHook is
-		// also misplaced, and should also be explicitly part of the operation.
-		if err = u.unit.SetUnitStatus(params.StatusMaintenance, "", nil); err != nil {
-			return nil, errors.Trace(err)
-		}
-		return continueAfter(u, newInstallOp(curl))
+		return continueAfter(u, "running install hook", newInstallOp(curl))
 	}, nil
 }
 
@@ -103,39 +135,26 @@ func ModeUpgrading(curl *charm.URL) Mode {
 	name := fmt.Sprintf("ModeUpgrading %s", curl)
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext(name, &err)()
-		return continueAfter(u, newUpgradeOp(curl))
+		return continueAfter(u, "runnng upgrade-charm hook", newUpgradeOp(curl))
 	}
 }
 
 // ModeTerminating marks the unit dead and returns ErrTerminateAgent.
 func ModeTerminating(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeTerminating", &err)()
-	if err = u.unit.SetUnitStatus(params.StatusMaintenance, "", nil); err != nil {
-		return nil, errors.Trace(err)
-	}
 	w, err := u.unit.Watch()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	defer watcher.Stop(w, &u.tomb)
 
-	//TODO(perrito666) Should this be a mode?
-	defer func() {
-		if err != worker.ErrTerminateAgent {
-			return
-		}
-		if err = u.unit.SetUnitStatus(params.StatusTerminated, "", nil); err != nil {
-			logger.Errorf("cannot set unit status to %q: %v", params.StatusTerminated, err)
-		}
-	}()
 	for {
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
 		case actionId := <-u.f.ActionEvents():
 			creator := newActionOp(actionId)
-			if err := u.runOperation(creator); err != nil {
+			if err := u.runOperation(creator, fmt.Sprintf("running action %q", actionId)); err != nil {
 				return nil, errors.Trace(err)
 			}
 		case _, ok := <-w.Changes():
@@ -175,13 +194,10 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 		return nil, errors.Trace(err)
 	}
 	if !u.ranConfigChanged {
-		return continueAfter(u, newSimpleRunHookOp(hooks.ConfigChanged))
+		return continueAfter(u, "running config-changed hook", newSimpleRunHookOp(hooks.ConfigChanged))
 	}
 	if !opState.Started {
-		return continueAfter(u, newSimpleRunHookOp(hooks.Start))
-	}
-	if err = u.unit.SetUnitStatus(params.StatusActive, "", nil); err != nil {
-		return nil, errors.Trace(err)
+		return continueAfter(u, "running start hook", newSimpleRunHookOp(hooks.Start))
 	}
 	u.f.WantUpgradeEvent(false)
 	u.relations.StartHooks()
@@ -207,11 +223,15 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 // is in an Alive state.
 func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 	for {
+		if err := setAgentStatus(u, params.StatusIdle, "", nil); err != nil {
+			return nil, errors.Trace(err)
+		}
 		lastCollectMetrics := time.Unix(u.operationState().CollectMetricsTime, 0)
 		collectMetricsSignal := u.collectMetricsAt(
 			time.Now(), lastCollectMetrics, metricsPollInterval,
 		)
 		var creator creator
+		var userMessage string
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
@@ -221,22 +241,30 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			return ModeUpgrading(curl), nil
 		case ids := <-u.f.RelationsEvents():
 			creator = newUpdateRelationsOp(ids)
+			userMessage = "updating relation ids"
 		case actionId := <-u.f.ActionEvents():
 			creator = newActionOp(actionId)
+			userMessage = fmt.Sprintf("running action %q", actionId)
 		case tags := <-u.f.StorageEvents():
 			creator = newUpdateStorageOp(tags)
+			userMessage = "updating storage tags"
 		case <-u.f.ConfigEvents():
 			creator = newSimpleRunHookOp(hooks.ConfigChanged)
+			userMessage = "running config-changed hook"
 		case <-u.f.MeterStatusEvents():
 			creator = newSimpleRunHookOp(hooks.MeterStatusChanged)
+			userMessage = "running meter-status-changed hook"
 		case <-collectMetricsSignal:
 			creator = newSimpleRunHookOp(hooks.CollectMetrics)
+			userMessage = "running collect-metrics hook"
 		case hookInfo := <-u.relations.Hooks():
 			creator = newRunHookOp(hookInfo)
+			userMessage = fmt.Sprintf("running %s hook", hookInfo.Kind)
 		case hookInfo := <-u.storage.Hooks():
 			creator = newRunHookOp(hookInfo)
+			userMessage = fmt.Sprintf("running %s hook", hookInfo.Kind)
 		}
-		if err := u.runOperation(creator); err != nil {
+		if err := u.runOperation(creator, userMessage); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -256,20 +284,24 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 	}
 	for {
 		if len(u.relations.GetInfo()) == 0 {
-			return continueAfter(u, newSimpleRunHookOp(hooks.Stop))
+			return continueAfter(u, "running stop hook", newSimpleRunHookOp(hooks.Stop))
 		}
 		var creator creator
+		var userMessage string
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
 		case actionId := <-u.f.ActionEvents():
 			creator = newActionOp(actionId)
+			userMessage = fmt.Sprintf("running action %q", actionId)
 		case <-u.f.ConfigEvents():
 			creator = newSimpleRunHookOp(hooks.ConfigChanged)
+			userMessage = "running config-changed hook"
 		case hookInfo := <-u.relations.Hooks():
 			creator = newRunHookOp(hookInfo)
+			userMessage = fmt.Sprintf("running %s hook", hookInfo.Kind)
 		}
-		if err := u.runOperation(creator); err != nil {
+		if err := u.runOperation(creator, userMessage); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -307,6 +339,11 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 		if err = u.unit.SetUnitStatus(params.StatusError, statusMessage, statusData); err != nil {
 			return nil, errors.Trace(err)
 		}
+		// The unit status has been set to error but the agent itself has finished
+		// its current work so is set back to Idle.
+		if err = setAgentStatus(u, params.StatusIdle, "", nil); err != nil {
+			return nil, errors.Trace(err)
+		}
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
@@ -314,15 +351,18 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 			return ModeUpgrading(curl), nil
 		case rm := <-u.f.ResolvedEvents():
 			var creator creator
+			var userMessage string
 			switch rm {
 			case params.ResolvedRetryHooks:
 				creator = newRetryHookOp(hookInfo)
+				userMessage = fmt.Sprintf("running %s hook", hookInfo.Kind)
 			case params.ResolvedNoHooks:
 				creator = newSkipHookOp(hookInfo)
+				userMessage = fmt.Sprintf("finishing %s hook", hookInfo.Kind)
 			default:
 				return nil, errors.Errorf("unknown resolved mode %q", rm)
 			}
-			err := u.runOperation(creator)
+			err := u.runOperation(creator, userMessage)
 			if errors.Cause(err) == operation.ErrHookFailed {
 				continue
 			} else if err != nil {
@@ -330,7 +370,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 			}
 			return ModeContinue, nil
 		case actionId := <-u.f.ActionEvents():
-			if err := u.runOperation(newActionOp(actionId)); err != nil {
+			if err := u.runOperation(newActionOp(actionId), fmt.Sprintf("running action %q", actionId)); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -344,21 +384,24 @@ func ModeConflicted(curl *charm.URL) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext("ModeConflicted", &err)()
 		// TODO(mue) Add helpful data here too in later CL.
-		if err = u.unit.SetUnitStatus(params.StatusBlocked, "upgrade failed", nil); err != nil {
+		if err = u.unit.SetUnitStatus(params.StatusError, "upgrade failed", nil); err != nil {
 			return nil, errors.Trace(err)
 		}
 		u.f.WantResolvedEvent()
 		u.f.WantUpgradeEvent(true)
 		var creator creator
+		var msg string
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
 		case curl = <-u.f.UpgradeEvents():
 			creator = newRevertUpgradeOp(curl)
+			msg = "reverting upgrade"
 		case <-u.f.ResolvedEvents():
 			creator = newResolvedUpgradeOp(curl)
+			msg = "resolving upgrade error"
 		}
-		return continueAfter(u, creator)
+		return continueAfter(u, msg, creator)
 	}
 }
 
@@ -374,8 +417,8 @@ func modeContext(name string, err *error) func() {
 
 // continueAfter is commonly used at the end of a Mode func to execute the
 // operation returned by creator and return ModeContinue (or any error).
-func continueAfter(u *Uniter, creator creator) (Mode, error) {
-	if err := u.runOperation(creator); err != nil {
+func continueAfter(u *Uniter, doing string, creator creator) (Mode, error) {
+	if err := u.runOperation(creator, doing); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return ModeContinue, nil

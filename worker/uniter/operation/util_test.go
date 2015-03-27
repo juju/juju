@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type MockGetArchiveInfo struct {
@@ -304,7 +305,9 @@ func (f *MockRunnerFactory) NewCommandRunner(commandInfo runner.CommandInfo) (ru
 
 type MockContext struct {
 	runner.Context
-	actionData *runner.ActionData
+	actionData      *runner.ActionData
+	setStatusCalled bool
+	status          jujuc.StatusInfo
 }
 
 func (mock *MockContext) ActionData() (*runner.ActionData, error) {
@@ -312,6 +315,20 @@ func (mock *MockContext) ActionData() (*runner.ActionData, error) {
 		return nil, errors.New("not an action context")
 	}
 	return mock.actionData, nil
+}
+
+func (mock *MockContext) HasRunSetUnitStatus() bool {
+	return mock.setStatusCalled
+}
+
+func (mock *MockContext) SetUnitStatus(status jujuc.StatusInfo) error {
+	mock.setStatusCalled = true
+	mock.status = status
+	return nil
+}
+
+func (mock *MockContext) UnitStatus() (*jujuc.StatusInfo, error) {
+	return &mock.status, nil
 }
 
 type MockRunAction struct {
@@ -336,8 +353,9 @@ func (mock *MockRunCommands) Call(commands string) (*utilexec.ExecResponse, erro
 }
 
 type MockRunHook struct {
-	gotName *string
-	err     error
+	gotName         *string
+	err             error
+	setStatusCalled bool
 }
 
 func (mock *MockRunHook) Call(hookName string) error {
@@ -365,6 +383,7 @@ func (r *MockRunner) RunCommands(commands string) (*utilexec.ExecResponse, error
 }
 
 func (r *MockRunner) RunHook(hookName string) error {
+	r.Context().(*MockContext).setStatusCalled = r.MockRunHook.setStatusCalled
 	return r.MockRunHook.Call(hookName)
 }
 

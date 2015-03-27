@@ -139,6 +139,13 @@ type HookContext struct {
 
 	// storageId is the tag of the storage instance associated with the running hook.
 	storageTag names.StorageTag
+
+	// hasRunSetStatus is true if a call to the status-set was made during the
+	// invocation of a hook.
+	// This attribute is persisted to local uniter state at the end of the hook
+	// execution so that the uniter can ultimately decide if it needs to update
+	// a charm's workload status, or if the charm has already taken care of it.
+	hasRunStatusSet bool
 }
 
 func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
@@ -205,11 +212,16 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 }
 
 func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
+	ctx.hasRunStatusSet = true
 	return ctx.unit.SetUnitStatus(
 		params.Status(status.Status),
 		status.Info,
 		status.Data,
 	)
+}
+
+func (ctx *HookContext) HasRunSetUnitStatus() bool {
+	return ctx.hasRunStatusSet
 }
 
 func (ctx *HookContext) PublicAddress() (string, bool) {
@@ -418,6 +430,10 @@ func (ctx *HookContext) handleReboot(err *error) {
 		*err = ErrReboot
 	case jujuc.RebootNow:
 		*err = ErrRequeueAndReboot
+	}
+	err2 := ctx.unit.SetUnitStatus(params.StatusRebooting, "", nil)
+	if err2 != nil {
+		logger.Errorf("updating agent status: %v", err2)
 	}
 	reqErr := ctx.unit.RequestReboot()
 	if reqErr != nil {

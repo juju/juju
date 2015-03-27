@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-// Runner is reponsible for invoking commands in a context.
+// Runner is responsible for invoking commands in a context.
 type Runner interface {
 
 	// Context returns the context against which the runner executes.
@@ -43,6 +43,7 @@ type Context interface {
 	ActionData() (*ActionData, error)
 	SetProcess(process *os.Process)
 	FlushContext(badge string, failure error) error
+	HasRunSetUnitStatus() bool
 }
 
 // Paths exposes the paths needed by Runner.

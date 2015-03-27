@@ -10,8 +10,10 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v5-unstable/hooks"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type runHook struct {
@@ -53,10 +55,65 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 	}
 	rh.name = name
 	rh.runner = rnr
+
+	if err := rh.beforeHook(); err != nil {
+		return nil, err
+	}
+
 	return stateChange{
 		Kind: RunHook,
 		Step: Pending,
 		Hook: &rh.info,
+	}.apply(state), nil
+}
+
+func (rh *runHook) beforeHook() error {
+	var err error
+	switch rh.info.Kind {
+	case hooks.Install:
+		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+			Status: string(params.StatusMaintenance),
+			Info:   "Installing charm software",
+		})
+	case hooks.Stop:
+		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+			Status: string(params.StatusMaintenance),
+			Info:   "Cleaning up prior to charm deletion",
+		})
+	}
+	if err != nil {
+		logger.Errorf("error updating workload status before %v hook: %v", rh.info.Kind, err)
+		return err
+	}
+	return err
+}
+
+func (rh *runHook) afterHook(state State) (*State, error) {
+	ctx := rh.runner.Context()
+	hasRunStatusSet := ctx.HasRunSetUnitStatus()
+	var err error
+	switch rh.info.Kind {
+	case hooks.Stop:
+		// Charm is no longer of this world.
+		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+			Status: string(params.StatusTerminated),
+		})
+	case hooks.Start:
+		if hasRunStatusSet {
+			break
+		}
+		// We've finished the start hook and the charm has not updated its
+		// own status so we'll set it to unknown.
+		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+			Status: string(params.StatusUnknown),
+		})
+	}
+	if err != nil {
+		logger.Errorf("error updating workload status after %v hook: %v", rh.info.Kind, err)
+		return nil, err
+	}
+	return stateChange{
+		HasRunStatusSet: &hasRunStatusSet,
 	}.apply(state), nil
 }
 
@@ -94,6 +151,11 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	if ranHook {
 		logger.Infof("ran %q hook", rh.name)
 		rh.callbacks.NotifyHookCompleted(rh.name, rh.runner.Context())
+		afterHookState, err := rh.afterHook(state)
+		if err != nil {
+			return nil, err
+		}
+		state = *afterHookState
 	} else {
 		logger.Infof("skipped %q hook (missing)", rh.name)
 	}

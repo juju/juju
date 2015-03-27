@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -58,6 +59,12 @@ type Uniter struct {
 	relations Relations
 	cleanups  []cleanup
 	storage   *storage.Attachments
+
+	// Cache the last reported status information
+	// so we don't make unnecessary api calls.
+	setStatusMutex      sync.Mutex
+	lastReportedStatus  params.Status
+	lastReportedMessage string
 
 	deployer          *deployerProxy
 	operationFactory  operation.Factory
@@ -344,7 +351,7 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 		RemoteUnitName:  args.RemoteUnitName,
 		ForceRemoteUnit: args.ForceRemoteUnit,
 	}
-	err = u.runOperation(newCommandsOp(commandArgs, sendResponse))
+	err = u.runOperation(newCommandsOp(commandArgs, sendResponse), "running user commands")
 	if err == nil {
 		select {
 		case response := <-responseChan:
@@ -379,10 +386,14 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 //       * this can't be done quite yet, though, because relation changes are
 //         not yet encapsulated in operations, and that needs to happen before
 //         RunCommands will *actually* be goroutine-safe.
-func (u *Uniter) runOperation(creator creator) error {
+func (u *Uniter) runOperation(creator creator, message string) (err error) {
 	op, err := creator(u.operationFactory)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create operation")
 	}
+	// Update agent status so it says "Executing blah..."
+	updateAgentStatus(u, message, nil)
+	// On error, the status will go to the Failed state.
+	defer updateAgentStatus(u, message, err)
 	return u.operationExecutor.Run(op)
 }
