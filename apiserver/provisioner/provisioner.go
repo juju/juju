@@ -553,7 +553,6 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 			volumeTag.String(),
 			m.Tag().String(),
 			"", // we're creating the machine, so it has no instance ID.
-			"", // volume not created yet, so has no volume ID.
 			volumeParams.Provider,
 		}
 		allVolumeParams = append(allVolumeParams, volumeParams)

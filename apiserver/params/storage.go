@@ -192,7 +192,6 @@ type VolumeAttachmentParams struct {
 	VolumeTag  string `json:"volumetag"`
 	MachineTag string `json:"machinetag"`
 	InstanceId string `json:"instanceid,omitempty"`
-	VolumeId   string `json:"volumeid,omitempty"`
 	Provider   string `json:"provider"`
 }
 
@@ -297,7 +296,6 @@ type FilesystemAttachmentParams struct {
 	FilesystemTag string `json:"filesystemtag"`
 	MachineTag    string `json:"machinetag"`
 	InstanceId    string `json:"instanceid,omitempty"`
-	FilesystemId  string `json:"filesystemid,omitempty"`
 	Provider      string `json:"provider"`
 	MountPoint    string `json:"mountpoint,omitempty"`
 }

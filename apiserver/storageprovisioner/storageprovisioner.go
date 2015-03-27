@@ -631,7 +631,6 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 			volumeAttachment.Volume().String(),
 			volumeAttachment.Machine().String(),
 			string(instanceId),
-			"", // TODO(axw) update worker, remove volume ID from params
 			string(providerType),
 			// TODO(axw) other attachment params (e.g. ReadOnly)
 		}, nil
@@ -707,7 +706,6 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 			filesystemAttachment.Filesystem().String(),
 			filesystemAttachment.Machine().String(),
 			string(instanceId),
-			"", // TODO(axw) update worker, remove filesystem ID from params
 			string(providerType),
 			// TODO(axw) dealias MountPoint. We now have
 			// Path, MountPoint and Location in different

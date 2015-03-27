@@ -196,12 +196,10 @@ func (v *mockVolumeAccessor) VolumeAttachmentParams(ids []params.MachineStorageI
 			})
 		} else {
 			instanceId, _ := v.provisionedMachines[id.MachineTag]
-			volume, _ := v.provisionedVolumes[id.AttachmentTag]
 			result = append(result, params.VolumeAttachmentParamsResult{Result: params.VolumeAttachmentParams{
 				MachineTag: id.MachineTag,
 				VolumeTag:  id.AttachmentTag,
 				InstanceId: string(instanceId),
-				VolumeId:   volume.VolumeId,
 				Provider:   "dummy",
 			}})
 		}
@@ -302,12 +300,10 @@ func (f *mockFilesystemAccessor) FilesystemAttachmentParams(ids []params.Machine
 			})
 		} else {
 			instanceId, _ := f.provisionedMachines[id.MachineTag]
-			filesystem, _ := f.provisionedFilesystems[id.AttachmentTag]
 			result = append(result, params.FilesystemAttachmentParamsResult{Result: params.FilesystemAttachmentParams{
 				MachineTag:    id.MachineTag,
 				FilesystemTag: id.AttachmentTag,
 				InstanceId:    string(instanceId),
-				FilesystemId:  filesystem.FilesystemId,
 				Provider:      "dummy",
 			}})
 		}
