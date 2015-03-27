@@ -240,13 +240,20 @@ func (s *prepareSuite) TestErrorsWithNonMachineOrInvalidTags(c *gc.C) {
 	}}
 
 	s.assertCall(c, args, s.makeErrors(
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
+		apiservertesting.ServerError(
+			`"unit-wordpress-0" is not a valid machine tag`),
+		apiservertesting.ServerError(
+			`"service-wordpress" is not a valid machine tag`),
+		apiservertesting.ServerError(
+			`"network-foo" is not a valid machine tag`),
+		apiservertesting.ServerError(
+			`"anything-invalid" is not a valid machine tag`),
+		apiservertesting.ServerError(
+			`"42" is not a valid machine tag`),
+		apiservertesting.ServerError(
+			`"machine-42" is not a valid machine tag`),
+		apiservertesting.ServerError(
+			`"" is not a valid machine tag`),
 	), "")
 }
 

@@ -885,7 +885,7 @@ func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (pa
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 
