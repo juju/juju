@@ -127,6 +127,9 @@ func (s *poolListSuite) assertUnmarshalledOutput(c *gc.C, unmarshall unmarshalle
 	expected := s.expect(c,
 		[]string{providerA, providerB},
 		[]string{nameABC, nameXYZ})
+	// This comparison cannot rely on gc.DeepEquals as
+	// json.Unmarshal unmarshalls the number as a float64,
+	// rather than an int
 	s.assertSamePoolInfos(c, result, expected)
 }
 
@@ -138,6 +141,8 @@ func (s poolListSuite) assertSamePoolInfos(c *gc.C, one, two map[string]storage.
 		for ka, va := range a {
 			vb, okb := b[ka]
 			c.Assert(okb, jc.IsTrue)
+			// As some types may have been unmarshalled incorrectly, for example
+			// int versus float64, compare values' string representations
 			c.Assert(fmt.Sprintf("%v", va), jc.DeepEquals, fmt.Sprintf("%v", vb))
 		}
 	}
