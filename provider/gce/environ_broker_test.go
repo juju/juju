@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
+	"github.com/juju/juju/testing"
 )
 
 type environBrokerSuite struct {
@@ -95,10 +96,17 @@ func (s *environBrokerSuite) TestStartInstanceOpensAPIPort(c *gc.C) {
 	s.FakeEnviron.Inst = s.BaseInstance
 	s.FakeEnviron.Hwc = s.hardware
 
+	// Get the API port from the fake environment config used to
+	// "bootstrap".
+	envConfig := testing.FakeConfig()
+	apiPort, ok := envConfig["api-port"].(int)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(apiPort, gc.Not(gc.Equals), 0)
+
 	// When StateServingInfo is not nil, verify OpenPorts was called
 	// for the API port.
 	s.StartInstArgs.MachineConfig.StateServingInfo = &params.StateServingInfo{
-		APIPort: 17777, // coming from FakeConfig().
+		APIPort: apiPort,
 	}
 
 	result, err := s.Env.StartInstance(s.StartInstArgs)
@@ -112,8 +120,8 @@ func (s *environBrokerSuite) TestStartInstanceOpensAPIPort(c *gc.C) {
 	c.Check(calls, gc.HasLen, 1)
 	c.Check(calls[0].FirewallName, gc.Equals, gce.GlobalFirewallName(s.Env))
 	expectPorts := []network.PortRange{{
-		FromPort: 17777,
-		ToPort:   17777,
+		FromPort: apiPort,
+		ToPort:   apiPort,
 		Protocol: "tcp",
 	}}
 	c.Check(calls[0].PortRanges, jc.DeepEquals, expectPorts)

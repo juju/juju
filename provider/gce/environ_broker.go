@@ -58,7 +58,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	// Ensure the API server port is open (globally for all instances
 	// on the network, not just for the specific node of the state
 	// server). See LP bug #1436191 for details.
-	if args.MachineConfig.StateServingInfo != nil {
+	if isStateServer(args.MachineConfig) {
 		ports := network.PortRange{
 			FromPort: args.MachineConfig.StateServingInfo.APIPort,
 			ToPort:   args.MachineConfig.StateServingInfo.APIPort,
