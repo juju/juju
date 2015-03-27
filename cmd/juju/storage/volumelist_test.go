@@ -4,12 +4,17 @@
 package storage_test
 
 import (
+	"bytes"
+	"encoding/json"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	goyaml "gopkg.in/yaml.v1"
 
+	"fmt"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -27,7 +32,7 @@ var _ = gc.Suite(&volumeListSuite{})
 func (s *volumeListSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
-	s.mockAPI = &mockVolumeListAPI{fillDeviceName: true}
+	s.mockAPI = &mockVolumeListAPI{fillDeviceName: true, addErrItem: true}
 	s.PatchValue(storage.GetVolumeListAPI,
 		func(c *storage.VolumeListCommand) (storage.VolumeListAPI, error) {
 			return s.mockAPI, nil
@@ -47,121 +52,44 @@ func (s *volumeListSuite) TestVolumeListEmpty(c *gc.C) {
 func (s *volumeListSuite) TestVolumeListError(c *gc.C) {
 	s.mockAPI.errOut = "just my luck"
 
-	context, err := runVolumeList(c, []string{"--format", "yaml"})
+	context, err := runVolumeList(c, "--format", "yaml")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, s.mockAPI.errOut)
 	s.assertUserFacingOutput(c, context, "", "")
 }
 
 func (s *volumeListSuite) TestVolumeListAll(c *gc.C) {
 	s.mockAPI.listAll = true
-	s.assertValidList(
+	s.assertUnmarshalledOutput(
 		c,
-		[]string{"--format", "yaml"},
-		`
-"":
-  3/3:
-    serial: serial blah blah
-    size: 1024
-    persistent: false
-    readonly: false
-  3/4:
-    serial: serial blah blah
-    size: 1024
-    persistent: true
-    readonly: false
-"25":
-  0/1:
-    serial: serial blah blah
-    size: 1024
-    persistent: true
-    device-name: testdevice
-    readonly: true
-  0/abc/0/88:
-    serial: serial blah blah
-    size: 1024
-    persistent: false
-    device-name: testdevice
-    readonly: true
-"42":
-  0/1:
-    serial: serial blah blah
-    size: 1024
-    persistent: true
-    device-name: testdevice
-    readonly: false
-  0/abc/0/88:
-    serial: serial blah blah
-    size: 1024
-    persistent: false
-    device-name: testdevice
-    readonly: false
-`[1:],
-		`
-volume item error
-`[1:],
-	)
+		goyaml.Unmarshal,
+		// mock will ignore any value here, as listAll flag above has precedence
+		"",
+		"--format", "yaml")
 }
 
 func (s *volumeListSuite) TestVolumeListYaml(c *gc.C) {
-	s.assertValidList(
+	s.assertUnmarshalledOutput(
 		c,
-		[]string{"2", "--format", "yaml"},
-		`
-"2":
-  0/1:
-    serial: serial blah blah
-    size: 1024
-    persistent: true
-    device-name: testdevice
-    readonly: true
-  0/abc/0/88:
-    serial: serial blah blah
-    size: 1024
-    persistent: false
-    device-name: testdevice
-    readonly: true
-`[1:],
-		`
-volume item error
-`[1:],
-	)
+		goyaml.Unmarshal,
+		"2",
+		"--format", "yaml")
 }
 
 func (s *volumeListSuite) TestVolumeListYamlNoDeviceName(c *gc.C) {
 	s.mockAPI.fillDeviceName = false
-	s.assertValidList(
+	s.assertUnmarshalledOutput(
 		c,
-		[]string{"2", "--format", "yaml"},
-		`
-"2":
-  0/1:
-    serial: serial blah blah
-    size: 1024
-    persistent: true
-    readonly: true
-  0/abc/0/88:
-    serial: serial blah blah
-    size: 1024
-    persistent: false
-    readonly: true
-`[1:],
-		`
-volume item error
-`[1:],
-	)
+		goyaml.Unmarshal,
+		"2",
+		"--format", "yaml")
 }
 
 func (s *volumeListSuite) TestVolumeListJSON(c *gc.C) {
-	s.assertValidList(
+	s.assertUnmarshalledOutput(
 		c,
-		[]string{"2", "--format", "json"},
-		`
-{"2":{"0/1":{"serial":"serial blah blah","size":1024,"persistent":true,"device-name":"testdevice","readonly":true},"0/abc/0/88":{"serial":"serial blah blah","size":1024,"persistent":false,"device-name":"testdevice","readonly":true}}}
-`[1:],
-		`
-volume item error
-`[1:],
-	)
+		json.Unmarshal,
+		"2",
+		"--format", "json")
 }
 
 func (s *volumeListSuite) TestVolumeListTabular(c *gc.C) {
@@ -170,9 +98,9 @@ func (s *volumeListSuite) TestVolumeListTabular(c *gc.C) {
 		[]string{"2"},
 		// Default format is tabular
 		`
-MACHINE  DEVICE_NAME  VOLUME      SIZE
-2        testdevice   0/1         1.0GiB
-2        testdevice   0/abc/0/88  1.0GiB
+MACHINE  DEVICE      VOLUME      ID                            SIZE
+2        testdevice  0/1         provider-supplied-0/1         1.0GiB
+2        testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
 
 `[1:],
 		`
@@ -187,11 +115,11 @@ func (s *volumeListSuite) TestVolumeListTabularSort(c *gc.C) {
 		[]string{"2", "3"},
 		// Default format is tabular
 		`
-MACHINE  DEVICE_NAME  VOLUME      SIZE
-2        testdevice   0/1         1.0GiB
-2        testdevice   0/abc/0/88  1.0GiB
-3        testdevice   0/1         1.0GiB
-3        testdevice   0/abc/0/88  1.0GiB
+MACHINE  DEVICE      VOLUME      ID                            SIZE
+2        testdevice  0/1         provider-supplied-0/1         1.0GiB
+2        testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
+3        testdevice  0/1         provider-supplied-0/1         1.0GiB
+3        testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
 
 `[1:],
 		`
@@ -207,13 +135,13 @@ func (s *volumeListSuite) TestVolumeListTabularSortWithUnattached(c *gc.C) {
 		[]string{"2", "3"},
 		// Default format is tabular
 		`
-MACHINE  DEVICE_NAME  VOLUME      SIZE
-                      3/3         1.0GiB
-                      3/4         1.0GiB
-25       testdevice   0/1         1.0GiB
-25       testdevice   0/abc/0/88  1.0GiB
-42       testdevice   0/1         1.0GiB
-42       testdevice   0/abc/0/88  1.0GiB
+MACHINE     DEVICE      VOLUME      ID                            SIZE
+25          testdevice  0/1         provider-supplied-0/1         1.0GiB
+25          testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
+42          testdevice  0/1         provider-supplied-0/1         1.0GiB
+42          testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
+unattached              3/3         provider-supplied-3/3         1.0GiB
+unattached              3/4         provider-supplied-3/4         1.0GiB
 
 `[1:],
 		`
@@ -222,13 +150,71 @@ volume item error
 	)
 }
 
+type unmarshaller func(in []byte, out interface{}) (err error)
+
+func (s *volumeListSuite) assertUnmarshalledOutput(c *gc.C, unmarshall unmarshaller, machine string, args ...string) {
+	all := []string{machine}
+	context, err := runVolumeList(c, append(all, args...)...)
+	c.Assert(err, jc.ErrorIsNil)
+	var result map[string]map[string]storage.VolumeInfo
+	err = unmarshall(context.Stdout.(*bytes.Buffer).Bytes(), &result)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := s.expect(c, []string{machine})
+	// This comparison cannot rely on gc.DeepEquals as
+	// json.Unmarshal unmarshalls the number as a float64,
+	// rather than an int
+	s.assertSameVolumeInfos(c, result, expected)
+
+	obtainedErr := testing.Stderr(context)
+	c.Assert(obtainedErr, gc.Equals, `
+volume item error
+`[1:])
+}
+
+func (s *volumeListSuite) expect(c *gc.C, machines []string) map[string]map[string]storage.VolumeInfo {
+	//no need for this element as we are building output on out stream not err
+	s.mockAPI.addErrItem = false
+	all, err := s.mockAPI.ListVolumes(machines)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := storage.ConvertToVolumeInfo(all)
+	c.Assert(err, jc.ErrorIsNil)
+	return result
+}
+
+func (s *volumeListSuite) assertSameVolumeInfos(c *gc.C, one, two map[string]map[string]storage.VolumeInfo) {
+	c.Assert(len(one), gc.Equals, len(two))
+
+	propertyCompare := func(a, b interface{}) {
+		// As some types may have been unmarshalled incorrectly, for example
+		// int versus float64, compare values' string representations
+		c.Assert(fmt.Sprintf("%v", a), jc.DeepEquals, fmt.Sprintf("%v", b))
+
+	}
+	for machineKey, machineVolumes1 := range one {
+		machineVolumes2, ok := two[machineKey]
+		c.Assert(ok, jc.IsTrue)
+		// these are maps
+		c.Assert(len(machineVolumes1), gc.Equals, len(machineVolumes2))
+		for volumeKey, info1 := range machineVolumes1 {
+			info2, ok := machineVolumes2[volumeKey]
+			c.Assert(ok, jc.IsTrue)
+			propertyCompare(info1.VolumeId, info2.VolumeId)
+			propertyCompare(info1.Serial, info2.Serial)
+			propertyCompare(info1.Size, info2.Size)
+			propertyCompare(info1.Persistent, info2.Persistent)
+			propertyCompare(info1.DeviceName, info2.DeviceName)
+			propertyCompare(info1.ReadOnly, info2.ReadOnly)
+		}
+	}
+}
+
 func (s *volumeListSuite) assertValidList(c *gc.C, args []string, expectedOut, expectedErr string) {
-	context, err := runVolumeList(c, args)
+	context, err := runVolumeList(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUserFacingOutput(c, context, expectedOut, expectedErr)
 }
 
-func runVolumeList(c *gc.C, args []string) (*cmd.Context, error) {
+func runVolumeList(c *gc.C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommand(c,
 		envcmd.Wrap(&storage.VolumeListCommand{}),
 		args...)
@@ -243,8 +229,8 @@ func (s *volumeListSuite) assertUserFacingOutput(c *gc.C, context *cmd.Context, 
 }
 
 type mockVolumeListAPI struct {
-	listAll, listEmpty, fillDeviceName bool
-	errOut                             string
+	listAll, listEmpty, fillDeviceName, addErrItem bool
+	errOut                                         string
 }
 
 func (s mockVolumeListAPI) Close() error {
@@ -258,8 +244,11 @@ func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeItem, 
 	if s.listEmpty {
 		return nil, nil
 	}
-	result := []params.VolumeItem{
-		params.VolumeItem{Error: common.ServerError(errors.New("volume item error"))}}
+	result := []params.VolumeItem{}
+	if s.addErrItem {
+		result = append(result, params.VolumeItem{
+			Error: common.ServerError(errors.New("volume item error"))})
+	}
 	if s.listAll {
 		machines = []string{"25", "42"}
 		//unattached
@@ -271,7 +260,11 @@ func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeItem, 
 	return result, nil
 }
 
-func (s mockVolumeListAPI) createTestVolumeItem(id string, persistent bool, machines []string) params.VolumeItem {
+func (s mockVolumeListAPI) createTestVolumeItem(
+	id string,
+	persistent bool,
+	machines []string,
+) params.VolumeItem {
 	volume := s.createTestVolume(id, persistent)
 
 	// Create unattached volume
@@ -295,7 +288,7 @@ func (s mockVolumeListAPI) createTestVolume(id string, persistent bool) params.V
 	tag := names.NewVolumeTag(id)
 	result := params.Volume{
 		VolumeTag:  tag.String(),
-		VolumeId:   tag.Id(),
+		VolumeId:   "provider-supplied-" + tag.Id(),
 		Serial:     "serial blah blah",
 		Persistent: persistent,
 		Size:       uint64(1024),

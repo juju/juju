@@ -393,27 +393,12 @@ func (s *cmdStorageSuite) TestListVolumeInvalidMachine(c *gc.C) {
 `)
 }
 
-func (s *cmdStorageSuite) TestListVolumeAll(c *gc.C) {
-	createUnitWithStorage(c, &s.JujuConnSuite, testPersistentPool)
-	context := runVolumeList(c, "--format", "yaml")
-	expected := `
-"0":
-  "0":
-    serial: ""
-    size: 0
-    persistent: false
-    readonly: false
-`[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
-	c.Assert(testing.Stderr(context), gc.Equals, "")
-}
-
-func (s *cmdStorageSuite) TestListVolumeTabular(c *gc.C) {
+func (s *cmdStorageSuite) TestListVolumeAllTabular(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPersistentPool)
 	context := runVolumeList(c)
 	expected := `
-MACHINE  DEVICE_NAME  VOLUME  SIZE
-0                     0       0B
+MACHINE  DEVICE  VOLUME  ID  SIZE
+0                0           0B
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
@@ -424,8 +409,8 @@ func (s *cmdStorageSuite) TestListVolumeTabularFilterMatch(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPersistentPool)
 	context := runVolumeList(c, "0")
 	expected := `
-MACHINE  DEVICE_NAME  VOLUME  SIZE
-0                     0       0B
+MACHINE  DEVICE  VOLUME  ID  SIZE
+0                0           0B
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)

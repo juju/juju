@@ -417,14 +417,13 @@ func (a *API) filterVolumes(f params.VolumeFilter) []params.VolumeItem {
 }
 
 func convertStateVolumeToParams(st state.Volume) params.Volume {
-	volume := params.Volume{
-		VolumeTag: st.VolumeTag().String(),
-		VolumeId:  st.VolumeTag().Id()}
+	volume := params.Volume{VolumeTag: st.VolumeTag().String()}
 
 	if info, err := st.Info(); err == nil {
 		volume.Serial = info.Serial
 		volume.Size = info.Size
 		volume.Persistent = info.Persistent
+		volume.VolumeId = info.VolumeId
 	}
 	return volume
 }

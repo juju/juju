@@ -15,7 +15,7 @@ import (
 
 const volumeCmdDoc = `
 "juju storage volume" is used to manage storage volumes in
- Juju environment.
+ the Juju environment.
 `
 
 const volumeCmdPurpose = "manage storage volumes"
@@ -42,13 +42,20 @@ type VolumeCommandBase struct {
 // VolumeInfo defines the serialization behaviour for storage volume.
 type VolumeInfo struct {
 	// from params.Volume
+	VolumeId string `yaml:"id" json:"id"`
+
+	// from params.Volume
 	Serial string `yaml:"serial" json:"serial"`
+
 	// from params.Volume
 	Size uint64 `yaml:"size" json:"size"`
+
 	// from params.Volume
 	Persistent bool `yaml:"persistent" json:"persistent"`
+
 	// from params.VolumeAttachments
-	DeviceName string `yaml:"device-name,omitempty" json:"device-name,omitempty"`
+	DeviceName string `yaml:"device,omitempty" json:"device,omitempty"`
+
 	// from params.VolumeAttachments
 	ReadOnly bool `yaml:"readonly" json:"readonly"`
 }
@@ -68,22 +75,25 @@ func convertToVolumeInfo(all []params.VolumeItem) (map[string]map[string]VolumeI
 func convertVolumeItem(item params.VolumeItem, all map[string]map[string]VolumeInfo) error {
 	if len(item.Attachments) == 0 {
 		unattached := createInfo(item.Volume)
-		addOneToAll("", item.Volume.VolumeId, unattached, all)
+		err := addOneToAll("unattached", item.Volume.VolumeTag, unattached, all)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return nil
 	}
 	// add info for volume attachments
 	return convertVolumeAttachments(item, all)
 }
 
-func convertVolumeAttachments(item params.VolumeItem, all map[string]map[string]VolumeInfo) error {
-	idFromTag := func(machine string) (string, error) {
-		tag, err := names.ParseTag(machine)
-		if err != nil {
-			return "", errors.Annotatef(err, "invalid machine tag %v", machine)
-		}
-		return tag.Id(), nil
+var idFromTag = func(s string) (string, error) {
+	tag, err := names.ParseTag(s)
+	if err != nil {
+		return "", errors.Annotatef(err, "invalid tag %v", tag)
 	}
+	return tag.Id(), nil
+}
 
+func convertVolumeAttachments(item params.VolumeItem, all map[string]map[string]VolumeInfo) error {
 	for _, one := range item.Attachments {
 		machine, err := idFromTag(one.MachineTag)
 		if err != nil {
@@ -93,22 +103,32 @@ func convertVolumeAttachments(item params.VolumeItem, all map[string]map[string]
 		info.DeviceName = one.DeviceName
 		info.ReadOnly = one.ReadOnly
 
-		addOneToAll(machine, item.Volume.VolumeId, info, all)
+		err = addOneToAll(machine, item.Volume.VolumeTag, info, all)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }
 
-func addOneToAll(machineId, volumeId string, item VolumeInfo, all map[string]map[string]VolumeInfo) {
+func addOneToAll(machineId, volumeTag string, item VolumeInfo, all map[string]map[string]VolumeInfo) error {
 	machineVolumes, ok := all[machineId]
 	if !ok {
 		machineVolumes = map[string]VolumeInfo{}
 		all[machineId] = machineVolumes
 	}
-	machineVolumes[volumeId] = item
+	volume, err := idFromTag(volumeTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	machineVolumes[volume] = item
+	return nil
 }
 
 func createInfo(volume params.Volume) VolumeInfo {
 	return VolumeInfo{
+		VolumeId:   volume.VolumeId,
 		Serial:     volume.Serial,
 		Size:       volume.Size,
 		Persistent: volume.Persistent,

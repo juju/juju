@@ -9,4 +9,6 @@ var (
 	GetPoolListAPI    = &getPoolListAPI
 	GetPoolCreateAPI  = &getPoolCreateAPI
 	GetVolumeListAPI  = &getVolumeListAPI
+
+	ConvertToVolumeInfo = convertToVolumeInfo
 )
