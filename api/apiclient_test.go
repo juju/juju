@@ -10,7 +10,7 @@ import (
 	"net"
 	"strconv"
 
-	"code.google.com/p/go.net/websocket"
+	"golang.org/x/net/websocket"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"

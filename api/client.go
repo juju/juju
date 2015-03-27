@@ -16,11 +16,11 @@ import (
 	"strings"
 	"time"
 
-	"code.google.com/p/go.net/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"golang.org/x/net/websocket"
 	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/api/base"

@@ -12,10 +12,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"code.google.com/p/go.net/websocket"
 	"github.com/juju/juju/testing/factory"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 )
 
