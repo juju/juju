@@ -65,7 +65,6 @@ import (
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevisionworker"
 	"github.com/juju/juju/worker/cleaner"
-	"github.com/juju/juju/worker/converter"
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskformatter"
@@ -708,18 +707,11 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 
 	if !isEnvironManager {
 		runner.StartWorker("converter", func() (worker.Worker, error) {
-			getEntity := func() (converter.Entity, error) {
-				_, entity, err := OpenAPIState(agentConfig, a)
-				return entity, err
-			}
-			setPW := func(pw string) {
-				a.AgentConfigWriter.ChangeConfig(func(config agent.ConfigSetter) error {
-					config.SetPassword(pw)
-					config.SetStateAddresses([]string{"localhost:37017"})
-					return nil
-				})
-			}
-			return converter.NewConverter(getEntity, setPW, a.RestartService, st.Converter(), agentConfig), nil
+			return worker.NewNotifyWorker(&converter{
+				agent:  a,
+				st:     st.Converter(),
+				config: agentConfig,
+			}), nil
 		})
 	}
 
