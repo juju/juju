@@ -1098,7 +1098,7 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 	// and gateway.
 	info := make([]network.InterfaceInfo, 2)
 	for i, netName := range []string{"private", "public"} {
-		iface := network.InterfaceInfo{
+		info[i] = network.InterfaceInfo{
 			DeviceIndex:      i,
 			ProviderId:       network.Id(fmt.Sprintf("dummy-eth%d", i)),
 			ProviderSubnetId: network.Id("dummy-" + netName),
@@ -1120,7 +1120,6 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 				network.ScopeUnknown,
 			),
 		}
-		info[i] = iface
 	}
 
 	if strings.HasPrefix(string(instId), "i-no-nics-") {
