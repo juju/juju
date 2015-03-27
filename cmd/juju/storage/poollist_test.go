@@ -4,11 +4,14 @@
 package storage_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -28,7 +31,7 @@ func (s *poolListSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
 	s.mockAPI = &mockPoolListAPI{
-		attrs: map[string]interface{}{"key": "value"},
+		attrs: map[string]interface{}{"key": "value", "one": "1", "two": 2},
 	}
 	s.PatchValue(storage.GetPoolListAPI,
 		func(c *storage.PoolListCommand) (storage.PoolListAPI, error) {
@@ -54,44 +57,29 @@ func (s *poolListSuite) TestPoolListEmpty(c *gc.C) {
 	)
 }
 
+const (
+	providerA = "a"
+	providerB = "b"
+
+	nameABC = "abc"
+	nameXYZ = "xyz"
+)
+
 func (s *poolListSuite) TestPoolList(c *gc.C) {
-	s.assertValidList(
-		c,
-		[]string{"--provider", "a",
-			"--provider", "b",
-			"--name", "xyz",
-			"--name", "abc"},
-		// Default format is yaml
-		`
-abc:
-  provider: testType
-  attrs:
-    key: value
-testName0:
-  provider: a
-  attrs:
-    key: value
-testName1:
-  provider: b
-  attrs:
-    key: value
-xyz:
-  provider: testType
-  attrs:
-    key: value
-`[1:],
-	)
+	s.assertUnmarshalledOutput(c, goyaml.Unmarshal,
+		"--provider", providerA,
+		"--provider", providerB,
+		"--name", nameABC,
+		"--name", nameXYZ)
 }
 
 func (s *poolListSuite) TestPoolListJSON(c *gc.C) {
-	s.assertValidList(
-		c,
-		[]string{"--provider", "a", "--provider", "b",
-			"--name", "xyz", "--name", "abc",
-			"--format", "json"},
-		`{"abc":{"provider":"testType","attrs":{"key":"value"}},"testName0":{"provider":"a","attrs":{"key":"value"}},"testName1":{"provider":"b","attrs":{"key":"value"}},"xyz":{"provider":"testType","attrs":{"key":"value"}}}
-`,
-	)
+	s.assertUnmarshalledOutput(c, json.Unmarshal,
+		"--provider", providerA,
+		"--provider", providerB,
+		"--name", nameABC,
+		"--name", nameXYZ,
+		"--format", "json")
 }
 
 func (s *poolListSuite) TestPoolListTabular(c *gc.C) {
@@ -102,10 +90,10 @@ func (s *poolListSuite) TestPoolListTabular(c *gc.C) {
 			"--format", "tabular"},
 		`
 NAME       PROVIDER  ATTRS
-abc        testType  key=value
-testName0  a         key=value
-testName1  b         key=value
-xyz        testType  key=value
+abc        testType  key=value one=1 two=2
+testName0  a         key=value one=1 two=2
+testName1  b         key=value one=1 two=2
+xyz        testType  key=value one=1 two=2
 
 `[1:])
 }
@@ -125,6 +113,51 @@ myaw  testType  a=true b=maybe c=well
 xyz   testType  a=true b=maybe c=well
 
 `[1:])
+}
+
+type unmarshaller func(in []byte, out interface{}) (err error)
+
+func (s *poolListSuite) assertUnmarshalledOutput(c *gc.C, unmarshall unmarshaller, args ...string) {
+
+	context, err := runPoolList(c, args)
+	c.Assert(err, jc.ErrorIsNil)
+	var result map[string]storage.PoolInfo
+	err = unmarshall(context.Stdout.(*bytes.Buffer).Bytes(), &result)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := s.expect(c,
+		[]string{providerA, providerB},
+		[]string{nameABC, nameXYZ})
+	s.assertSamePoolInfos(c, result, expected)
+}
+
+func (s poolListSuite) assertSamePoolInfos(c *gc.C, one, two map[string]storage.PoolInfo) {
+	c.Assert(one, gc.HasLen, len(two))
+
+	sameAttributes := func(a, b map[string]interface{}) {
+		c.Assert(a, gc.HasLen, len(b))
+		for ka, va := range a {
+			vb, okb := b[ka]
+			c.Assert(okb, jc.IsTrue)
+			c.Assert(fmt.Sprintf("%v", va), jc.DeepEquals, fmt.Sprintf("%v", vb))
+		}
+	}
+
+	for key, v1 := range one {
+		v2, ok := two[key]
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(v1.Provider, gc.Equals, v2.Provider)
+		sameAttributes(v1.Attrs, v2.Attrs)
+	}
+}
+
+func (s poolListSuite) expect(c *gc.C, types, names []string) map[string]storage.PoolInfo {
+	all, err := s.mockAPI.ListPools(types, names)
+	c.Assert(err, jc.ErrorIsNil)
+	result := make(map[string]storage.PoolInfo, len(all))
+	for _, one := range all {
+		result[one.Name] = storage.PoolInfo{one.Provider, one.Attrs}
+	}
+	return result
 }
 
 func (s *poolListSuite) assertValidList(c *gc.C, args []string, expected string) {
