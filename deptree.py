@@ -137,8 +137,8 @@ class DependencyFile:
         This will write a temp dependencies tsv file, call godeps, then
         remove the file. the 'godeps' command must be in your path.
         """
+        self.write_tmp_tsv()
         try:
-            self.write_tmp_tsv()
             output = subprocess.check_output(['godeps', '-u', self.tmp_tsv])
         finally:
             self.delete_tmp_tsv()
@@ -185,7 +185,10 @@ def main(args=None):
         print('These deps were added:')
         for dep in added:
             print(dep)
-    output = dep_file.pin_deps()
+    if not args.dry_run:
+        output = dep_file.pin_deps()
+    elif args.verbose:
+        print('Not pinning deps because dry_run is true.')
     if args.verbose and output:
         print(output)
     return exitcode
