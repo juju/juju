@@ -12,13 +12,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/cmd/envcmd"
 )
 
 // CreateCommand calls the API to create a new network space.
 type CreateCommand struct {
-	envcmd.EnvCommandBase
+	SpaceCommandBase
 	Name  string
 	CIDRs []string
 }
@@ -75,6 +73,11 @@ func (c *CreateCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *CreateCommand) Run(ctx *cmd.Context) (err error) {
+	api, err := c.NewSpaceAPIClient()
+	if err != nil {
+		return err
+	}
+	defer api.Close()
 	return nil
 }
 

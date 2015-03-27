@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
-	jujutesting "github.com/juju/testing"
+	//jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -22,12 +22,12 @@ var expectedSubCommmandNames = []string{
 }
 
 type BaseSpaceSuite struct {
-	jujutesting.IsolationSuite
+	testing.FakeJujuHomeSuite
 	command *cmd.SuperCommand
 }
 
 func (s *BaseSpaceSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.command = space.NewSuperCommand().(*cmd.SuperCommand)
 }
 

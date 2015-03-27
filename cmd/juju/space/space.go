@@ -4,9 +4,13 @@
 package space
 
 import (
+	"io"
+
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/api/space"
 	"github.com/juju/juju/cmd/envcmd"
 )
 
@@ -34,4 +38,22 @@ func NewSuperCommand() cmd.Command {
 // space managing client.
 type SpaceCommandBase struct {
 	envcmd.EnvCommandBase
+}
+
+// type APIClient represents the action API functionality.
+type APIClient interface {
+	io.Closer
+}
+
+// NewSpaceAPIClient returns a client for the space api endpoint.
+func (c *SpaceCommandBase) NewSpaceAPIClient() (APIClient, error) {
+	return newAPIClient(c)
+}
+
+var newAPIClient = func(c *SpaceCommandBase) (APIClient, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return space.NewClient(root), nil
 }
