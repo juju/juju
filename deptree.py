@@ -8,6 +8,7 @@ __metaclass__ = type
 
 
 import argparse
+import errno
 import os
 import subprocess
 import sys
@@ -120,8 +121,12 @@ class DependencyFile:
 
     def delete_tmp_tsv(self):
         """Delete tmp_tsv if it was written."""
-        if self.tmp_tsv and os.path.isfile(self.tmp_tsv):
-            os.unlink(self.tmp_tsv)
+        if self.tmp_tsv:
+            try:
+                os.unlink(self.tmp_tsv)
+            except OSError as e:
+                if e.errno != errno.ENOENT:
+                    raise
             self.tmp_tsv = None
             return True
         return False
