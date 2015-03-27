@@ -4,8 +4,8 @@
 package google
 
 import (
-	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
+	"google.golang.org/api/compute/v1"
 )
 
 // rawConnectionWrapper facilitates mocking out the GCE API during tests.

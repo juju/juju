@@ -4,7 +4,7 @@
 package google
 
 import (
-	"code.google.com/p/google-api-go-client/compute/v1"
+	"google.golang.org/api/compute/v1"
 )
 
 // The different types of disks supported by GCE.

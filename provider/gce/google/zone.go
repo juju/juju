@@ -4,7 +4,7 @@
 package google
 
 import (
-	"code.google.com/p/google-api-go-client/compute/v1"
+	"google.golang.org/api/compute/v1"
 )
 
 // AvailabilityZone represents a single GCE zone. It satisfies the

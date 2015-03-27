@@ -5,8 +5,8 @@ package google
 
 import (
 	"code.google.com/p/goauth2/oauth"
-	"code.google.com/p/google-api-go-client/compute/v1"
 	jc "github.com/juju/testing/checkers"
+	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"

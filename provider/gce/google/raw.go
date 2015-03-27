@@ -8,9 +8,9 @@ import (
 	"path"
 	"time"
 
-	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"google.golang.org/api/compute/v1"
 )
 
 // These are attempt strategies used in waitOperation.
