@@ -6,7 +6,6 @@ package apiserver
 import (
 	"reflect"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -43,15 +42,9 @@ func newClientAllWatcher(st *state.State, resources *common.Resources, auth comm
 	if !auth.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	r := resources.Get(id)
-	if r == nil {
-		logger.Errorf("watcher %q not found", id)
-		return nil, errors.Trace(common.ErrUnknownWatcher)
-	}
-	watcher, ok := r.(*state.Multiwatcher)
+	watcher, ok := resources.Get(id).(*state.Multiwatcher)
 	if !ok {
-		logger.Errorf("unknown watcher type for %q: %T, expected state.Multiwatcher", id, r)
-		return nil, errors.Trace(common.ErrUnknownWatcher)
+		return nil, common.ErrUnknownWatcher
 	}
 	return &srvClientAllWatcher{
 		watcher:   watcher,
@@ -96,17 +89,10 @@ func newNotifyWatcher(st *state.State, resources *common.Resources, auth common.
 	if !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
-	r := resources.Get(id)
-	if r == nil {
-		logger.Errorf("watcher %q not found", id)
-		return nil, errors.Trace(common.ErrUnknownWatcher)
-	}
-	watcher, ok := r.(state.NotifyWatcher)
+	watcher, ok := resources.Get(id).(state.NotifyWatcher)
 	if !ok {
-		logger.Errorf("unknown watcher type for %q: %#T, expected state.NotifyWatcher", id, r)
-		return nil, errors.Trace(common.ErrUnknownWatcher)
+		return nil, common.ErrUnknownWatcher
 	}
-
 	return &srvNotifyWatcher{
 		watcher:   watcher,
 		id:        id,
@@ -147,16 +133,9 @@ func newStringsWatcher(st *state.State, resources *common.Resources, auth common
 	if !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
-
-	r := resources.Get(id)
-	if r == nil {
-		logger.Errorf("watcher %q not found", id)
-		return nil, errors.Trace(common.ErrUnknownWatcher)
-	}
-	watcher, ok := r.(state.StringsWatcher)
+	watcher, ok := resources.Get(id).(state.StringsWatcher)
 	if !ok {
-		logger.Errorf("unknown watcher type for %q: %#T, expected state.StringsWatcher", id, r)
-		return nil, errors.Trace(common.ErrUnknownWatcher)
+		return nil, common.ErrUnknownWatcher
 	}
 	return &srvStringsWatcher{
 		watcher:   watcher,
@@ -199,18 +178,10 @@ func newRelationUnitsWatcher(st *state.State, resources *common.Resources, auth 
 	if !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
-
-	r := resources.Get(id)
-	if r == nil {
-		logger.Errorf("watcher %q not found", id)
-		return nil, errors.Trace(common.ErrUnknownWatcher)
-	}
-	watcher, ok := r.(state.RelationUnitsWatcher)
+	watcher, ok := resources.Get(id).(state.RelationUnitsWatcher)
 	if !ok {
-		logger.Errorf("unknown watcher type for %q: %#T, expected state.RelationUnitsWatcher", id, r)
-		return nil, errors.Trace(common.ErrUnknownWatcher)
+		return nil, common.ErrUnknownWatcher
 	}
-
 	return &srvRelationUnitsWatcher{
 		watcher:   watcher,
 		id:        id,
@@ -285,18 +256,10 @@ func newMachineStorageIdsWatcher(
 	if !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
-
-	r := resources.Get(id)
-	if r == nil {
-		logger.Errorf("watcher %q not found", id)
-		return nil, errors.Trace(common.ErrUnknownWatcher)
-	}
-	watcher, ok := r.(state.StringsWatcher)
+	watcher, ok := resources.Get(id).(state.StringsWatcher)
 	if !ok {
-		logger.Errorf("unknown watcher type for %q: %#T, expected state.StringsWatcher", id, r)
-		return nil, errors.Trace(common.ErrUnknownWatcher)
+		return nil, common.ErrUnknownWatcher
 	}
-
 	return &srvMachineStorageIdsWatcher{
 		watcher:   watcher,
 		id:        id,
