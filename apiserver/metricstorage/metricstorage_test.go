@@ -157,7 +157,7 @@ func (s *metricStorageSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
 	}}
 
 	for i, test := range tests {
-		c.Log("%d: %s", i, test.about)
+		c.Logf("%d: %s", i, test.about)
 		result, err := s.metricstorage.AddMetricBatches(params.MetricBatchParams{
 			Batches: []params.MetricBatchParam{{
 				Tag: test.tag,
