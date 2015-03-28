@@ -18,8 +18,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
+	svctesting "github.com/juju/juju/service/common/testing"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
@@ -149,7 +149,7 @@ type SimpleToolsFixture struct {
 	origPath string
 	binDir   string
 
-	data *service.FakeServiceData
+	data *svctesting.FakeServiceData
 }
 
 var fakeJujud = "#!/bin/bash --norc\n# fake-jujud\nexit 0\n"
@@ -178,7 +178,7 @@ func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 	fix.makeBin(c, "start", "cp $(which started-status) $(which status)")
 	fix.makeBin(c, "stop", "cp $(which stopped-status) $(which status)")
 
-	fix.data = service.NewFakeServiceData()
+	fix.data = svctesting.NewFakeServiceData()
 }
 
 func (fix *SimpleToolsFixture) TearDown(c *gc.C) {

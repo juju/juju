@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package service
+package testing
 
 import (
 	"strings"
@@ -85,8 +85,6 @@ func (fsd *FakeServiceData) SetStatus(name, status string) error {
 	}
 	return nil
 }
-
-var _ Service = (*FakeService)(nil)
 
 // FakeService is a Service implementation for testing.
 type FakeService struct {
