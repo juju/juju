@@ -86,8 +86,6 @@ func (fsd *FakeServiceData) SetStatus(name, status string) error {
 	return nil
 }
 
-//var _ Service = (*FakeService)(nil)
-
 // FakeService is a Service implementation for testing.
 type FakeService struct {
 	*FakeServiceData
