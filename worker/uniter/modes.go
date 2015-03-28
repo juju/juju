@@ -336,12 +336,10 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	u.f.WantResolvedEvent()
 	u.f.WantUpgradeEvent(true)
 	for {
-		if err = u.unit.SetUnitStatus(params.StatusError, statusMessage, statusData); err != nil {
-			return nil, errors.Trace(err)
-		}
-		// The unit status has been set to error but the agent itself has finished
-		// its current work so is set back to Idle.
-		if err = setAgentStatus(u, params.StatusIdle, "", nil); err != nil {
+		// The spec says we should set the workload status to Error, but that's crazy talk.
+		// It's the agent itself that should be in Error state. So we'll ensure the model is
+		// correct and translate before the user sees the data.
+		if err = setAgentStatus(u, params.StatusError, statusMessage, statusData); err != nil {
 			return nil, errors.Trace(err)
 		}
 		select {
@@ -384,7 +382,10 @@ func ModeConflicted(curl *charm.URL) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext("ModeConflicted", &err)()
 		// TODO(mue) Add helpful data here too in later CL.
-		if err = u.unit.SetUnitStatus(params.StatusError, "upgrade failed", nil); err != nil {
+		// The spec says we should set the workload status to Error, but that's crazy talk.
+		// It's the agent itself that should be in Error state. So we'll ensure the model is
+		// correct and translate before the user sees the data.
+		if err := setAgentStatus(u, params.StatusError, "upgrade failed", nil); err != nil {
 			return nil, errors.Trace(err)
 		}
 		u.f.WantResolvedEvent()

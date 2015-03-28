@@ -525,9 +525,8 @@ func (s startupErrorWithCustomCharm) step(c *gc.C, ctx *context) {
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
 	step(c, ctx, waitUnitAgent{
-		statusGetter: unitStatusGetter,
-		status:       params.StatusError,
-		info:         fmt.Sprintf(`hook failed: %q`, s.badHook),
+		status: params.StatusError,
+		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
 	for _, hook := range []string{"install", "config-changed", "start"} {
 		if hook == s.badHook {
@@ -548,9 +547,8 @@ func (s startupError) step(c *gc.C, ctx *context) {
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
 	step(c, ctx, waitUnitAgent{
-		statusGetter: unitStatusGetter,
-		status:       params.StatusError,
-		info:         fmt.Sprintf(`hook failed: %q`, s.badHook),
+		status: params.StatusError,
+		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
 	for _, hook := range []string{"install", "config-changed", "start"} {
 		if hook == s.badHook {
@@ -671,12 +669,12 @@ func (s waitUnitAgent) step(c *gc.C, ctx *context) {
 			}
 			if s.data != nil {
 				if len(data) != len(s.data) {
-					c.Logf("want %d unit status data value(s), got %d; still waiting", len(s.data), len(data))
+					c.Logf("want %d status data value(s), got %d; still waiting", len(s.data), len(data))
 					continue
 				}
 				for key, value := range s.data {
 					if data[key] != value {
-						c.Logf("want unit status data value %q for key %q, got %q; still waiting",
+						c.Logf("want status data value %q for key %q, got %q; still waiting",
 							value, key, data[key])
 						continue
 					}
@@ -902,10 +900,9 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		upgradeCharm{revision: 1},
 		waitUnitAgent{
-			statusGetter: unitStatusGetter,
-			status:       params.StatusError,
-			info:         "upgrade failed",
-			charm:        1,
+			status: params.StatusError,
+			info:   "upgrade failed",
+			charm:  1,
 		},
 		verifyWaiting{},
 		verifyCharm{attemptedRevision: 1},
@@ -922,10 +919,9 @@ type verifyWaitingUpgradeError struct {
 func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 	verifyCharmSteps := []stepper{
 		waitUnitAgent{
-			statusGetter: unitStatusGetter,
-			status:       params.StatusError,
-			info:         "upgrade failed",
-			charm:        s.revision,
+			status: params.StatusError,
+			info:   "upgrade failed",
+			charm:  s.revision,
 		},
 		verifyCharm{attemptedRevision: s.revision},
 	}
@@ -1518,10 +1514,9 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		upgradeCharm{revision: 1},
 		waitUnitAgent{
-			statusGetter: unitStatusGetter,
-			status:       params.StatusError,
-			info:         "upgrade failed",
-			charm:        1,
+			status: params.StatusError,
+			info:   "upgrade failed",
+			charm:  1,
 		},
 		verifyWaiting{},
 		verifyGitCharm{dirty: true},
