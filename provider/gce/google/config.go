@@ -100,6 +100,8 @@ func ParseJSONKey(jsonKeyFile io.Reader) (*Credentials, error) {
 	return creds, nil
 }
 
+// parseJSONKey extracts the auth information from the JSON file
+// downloaded from the GCE console (under /apiui/credential).
 func parseJSONKey(jsonKey []byte) (map[string]string, error) {
 	data := make(map[string]string)
 	if err := json.Unmarshal(jsonKey, &data); err != nil {
