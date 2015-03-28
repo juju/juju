@@ -6,8 +6,8 @@ package google
 import (
 	"path"
 
-	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
+	"google.golang.org/api/compute/v1"
 )
 
 // addInstance sends a request to GCE to add a new instance to the

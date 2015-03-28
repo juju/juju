@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"strings"
 
-	"code.google.com/p/go.crypto/ssh"
 	"github.com/juju/errors"
+	"golang.org/x/crypto/ssh"
 )
 
 // rsaGenerateKey allows for tests to patch out rsa key generation

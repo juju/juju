@@ -8,8 +8,8 @@ import (
 
 	"code.google.com/p/goauth2/oauth"
 	"code.google.com/p/goauth2/oauth/jwt"
-	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
+	"google.golang.org/api/compute/v1"
 )
 
 const (

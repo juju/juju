@@ -13,10 +13,10 @@ import (
 	"net/url"
 	"os"
 
-	"code.google.com/p/go.net/websocket"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 
 	apihttp "github.com/juju/juju/apiserver/http"

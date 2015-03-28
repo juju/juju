@@ -7,10 +7,10 @@ import (
 	"encoding/json"
 	"time"
 
-	"code.google.com/p/go.net/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"golang.org/x/net/websocket"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
