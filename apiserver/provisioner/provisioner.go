@@ -824,7 +824,6 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		} else if !container.IsContainer() {
-			logger.Warningf("cannot mark addresses for removal for %q: not a container", tag)
 			err = errors.Errorf("cannot mark addresses for removal for %q: not a container", tag)
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -843,7 +842,6 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 		for _, addr := range addresses {
 			err = addr.EnsureDead()
 			if err != nil {
-				logger.Warningf("failed to mark address %v for container %q for removal: %v", addr.Value, tag, err)
 				deadErrors = append(deadErrors, err)
 				continue
 			}

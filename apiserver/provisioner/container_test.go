@@ -247,13 +247,12 @@ func (s *prepareSuite) TestErrorsWithNonMachineOrInvalidTags(c *gc.C) {
 		apiservertesting.ServerError(
 			`"network-foo" is not a valid machine tag`),
 		apiservertesting.ServerError(
-			`"anything-invalid" is not a valid machine tag`),
+			`"anything-invalid" is not a valid tag`),
 		apiservertesting.ServerError(
-			`"42" is not a valid machine tag`),
+			`"42" is not a valid tag`),
+		apiservertesting.ErrUnauthorized,
 		apiservertesting.ServerError(
-			`"machine-42" is not a valid machine tag`),
-		apiservertesting.ServerError(
-			`"" is not a valid machine tag`),
+			`"" is not a valid tag`),
 	), "")
 }
 
