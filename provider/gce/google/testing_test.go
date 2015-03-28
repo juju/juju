@@ -4,8 +4,6 @@
 package google
 
 import (
-	"code.google.com/p/goauth2/oauth"
-	jc "github.com/juju/testing/checkers"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
@@ -42,7 +40,15 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Credentials = &Credentials{
 		ClientID:    "spam",
 		ClientEmail: "user@mail.com",
-		PrivateKey:  []byte("non-empty"),
+		PrivateKey:  []byte("<some-key>"),
+		JSONKey: []byte(`
+{
+    "private_key_id": "mnopq",
+    "private_key": "<some-key>",
+    "client_email": "user@mail.com",
+    "client_id": "spam",
+    "type": "service_account"
+}`[1:]),
 	}
 	s.ConnCfg = ConnectionConfig{
 		Region:    "a",
@@ -132,20 +138,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 func (s *BaseSuite) NewWaitError(op *compute.Operation, cause error) error {
 	return waitError{op, cause}
-}
-
-func (s *BaseSuite) patchNewToken(c *gc.C, expectedCreds *Credentials, expectedScopes string, token *oauth.Token) {
-	if expectedScopes == "" {
-		expectedScopes = "https://www.googleapis.com/auth/compute https://www.googleapis.com/auth/devstorage.full_control"
-	}
-	if token == nil {
-		token = &oauth.Token{}
-	}
-	s.PatchValue(&newToken, func(creds *Credentials, scopes string) (*oauth.Token, error) {
-		c.Check(creds, jc.DeepEquals, expectedCreds)
-		c.Check(scopes, gc.Equals, expectedScopes)
-		return token, nil
-	})
 }
 
 type fakeCall struct {
