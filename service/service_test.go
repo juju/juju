@@ -1,5 +1,5 @@
 // Copyright 2015 Canonical Ltd.
-// Licensed under the LGPLv3, see LICENCE file for details.
+// Licensed under the AGPLv3, see LICENCE file for details.
 
 package service_test
 
@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/service"
+	svctesting "github.com/juju/juju/service/common/testing"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
@@ -136,7 +137,7 @@ func (s *restartSuite) TestRestartStopAndStart(c *gc.C) {
 }
 
 type restartable struct {
-	*service.FakeService
+	*svctesting.FakeService
 }
 
 func (s *restartable) Restart() error {

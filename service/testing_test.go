@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/service/common"
+	svctesting "github.com/juju/juju/service/common/testing"
 	"github.com/juju/juju/version"
 )
 
@@ -105,7 +106,7 @@ type BaseSuite struct {
 	Failure error
 
 	Stub    *testing.Stub
-	Service *FakeService
+	Service *svctesting.FakeService
 	Patched *Stub
 }
 
@@ -121,7 +122,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Failure = errors.New("<failed>")
 
 	s.Stub = &testing.Stub{}
-	s.Service = NewFakeService(s.Name, s.Conf)
+	s.Service = svctesting.NewFakeService(s.Name, s.Conf)
 	s.Service.Stub = s.Stub
 	s.Patched = &Stub{Stub: s.Stub}
 	s.PatchValue(&discoverService, s.Patched.DiscoverService)
