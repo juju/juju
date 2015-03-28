@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
@@ -66,11 +67,11 @@ type lxcBroker struct {
 
 // StartInstance is specified in the Broker interface.
 func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	if args.MachineConfig.HasNetworks() {
+	if args.InstanceConfig.HasNetworks() {
 		return nil, errors.New("starting lxc containers with networks is not supported yet")
 	}
 	// TODO: refactor common code out of the container brokers.
-	machineId := args.MachineConfig.MachineId
+	machineId := args.InstanceConfig.MachineId
 	lxcLogger.Infof("starting lxc container for machineId: %s", machineId)
 
 	// Default to using the host network until we can configure.
@@ -106,8 +107,8 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	}
 
 	series := archTools.OneSeries()
-	args.MachineConfig.MachineContainerType = instance.LXC
-	args.MachineConfig.Tools = archTools[0]
+	args.InstanceConfig.MachineContainerType = instance.LXC
+	args.InstanceConfig.Tools = archTools[0]
 
 	config, err := broker.api.ContainerConfig()
 	if err != nil {
@@ -121,8 +122,8 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, container.ErrLoopMountNotAllowed
 	}
 
-	if err := environs.PopulateMachineConfig(
-		args.MachineConfig,
+	if err := instancecfg.PopulateInstanceConfig(
+		args.InstanceConfig,
 		config.ProviderType,
 		config.AuthorizedKeys,
 		config.SSLHostnameVerification,
@@ -137,7 +138,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
-	inst, hardware, err := broker.manager.CreateContainer(args.MachineConfig, series, network, storage)
+	inst, hardware, err := broker.manager.CreateContainer(args.InstanceConfig, series, network, storage)
 	if err != nil {
 		lxcLogger.Errorf("failed to start container: %v", err)
 		return nil, err

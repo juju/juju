@@ -1,4 +1,4 @@
-package cloudinit
+package cloudconfig
 
 var winPowershellHelperFunctions = `
 

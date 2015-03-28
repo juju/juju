@@ -9,11 +9,9 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/juju/utils"
-	"github.com/juju/utils/apt"
-
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/instance"
+	"github.com/juju/utils"
 )
 
 var notLinuxError = errors.New("The local provider is currently only available for Linux")
@@ -52,9 +50,6 @@ The local provider is currently only available for Linux`
 // unit testing.
 var lxclsPath = "lxc-ls"
 
-// isPackageInstalled is a variable to support testing.
-var isPackageInstalled = apt.IsPackageInstalled
-
 // The operating system the process is running in.
 // This is a variable only to support unit testing.
 var goos = runtime.GOOS
@@ -87,14 +82,24 @@ func verifyLxc() error {
 }
 
 func verifyCloudImageUtils() error {
-	if isPackageInstalled("cloud-image-utils") {
+	pacman, err := getPackageManager()
+	if err != nil {
+		return err
+	}
+
+	if pacman.IsInstalled("cloud-image-utils") {
 		return nil
 	}
 	return errors.New(installCloudImageUtils)
 }
 
 func verifyJujuLocal() error {
-	if isPackageInstalled("juju-local") {
+	pacman, err := getPackageManager()
+	if err != nil {
+		return err
+	}
+
+	if pacman.IsInstalled("juju-local") {
 		return nil
 	}
 	return errors.New(installJujuLocalUbuntu)

@@ -2,17 +2,29 @@
 // Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cloudinit
+package cloudconfig
 
 import (
 	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/version"
+)
+
+// fileSchemePrefix is the prefix for file:// URLs.
+const (
+	fileSchemePrefix = "file://"
+
+	// NonceFile is written by cloud-init as the last thing it does.
+	// The file will contain the machine's nonce. The filename is
+	// relative to the Juju data-dir.
+	NonceFile = "nonce.txt"
 )
 
 type UserdataConfig interface {
@@ -26,56 +38,54 @@ type UserdataConfig interface {
 	// ConfigureJuju updates the provided cloudinit.Config with configuration
 	// to initialise a Juju machine agent.
 	ConfigureJuju() error
-	// Render renders the cloudinit/cloudbase-init userdata needed to initialize
-	// the juju agent
-	Render() ([]byte, error)
 }
 
-func NewUserdataConfig(mcfg *MachineConfig, conf *cloudinit.Config) (UserdataConfig, error) {
+// UserdataConfig is supposed to take in an instanceConfig as well as a
+// cloudinit.cloudConfig and add attributes in the cloudinit structure based on
+// the values inside instanceConfig and on the series
+func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudConfig) (UserdataConfig, error) {
 	// TODO(ericsnow) bug #1426217
-	// Protect mcfg and conf better.
-	operatingSystem, err := version.GetOSFromSeries(mcfg.Series)
+	// Protect icfg and conf better.
+	operatingSystem, err := version.GetOSFromSeries(icfg.Series)
 	if err != nil {
 		return nil, err
 	}
 
 	base := baseConfigure{
-		tag:  names.NewMachineTag(mcfg.MachineId),
-		mcfg: mcfg,
+		tag:  names.NewMachineTag(icfg.MachineId),
+		icfg: icfg,
 		conf: conf,
 		os:   operatingSystem,
 	}
 
 	switch operatingSystem {
 	case version.Ubuntu:
-		return &ubuntuConfigure{base}, nil
+		return &unixConfigure{base}, nil
+	case version.CentOS:
+		return &unixConfigure{base}, nil
 	case version.Windows:
 		return &windowsConfigure{base}, nil
 	default:
-		return nil, errors.NotSupportedf("OS %s", mcfg.Series)
+		return nil, errors.NotSupportedf("OS %s", icfg.Series)
 	}
 }
 
 type baseConfigure struct {
 	tag  names.Tag
-	mcfg *MachineConfig
-	conf *cloudinit.Config
+	icfg *instancecfg.InstanceConfig
+	conf cloudinit.CloudConfig
 	os   version.OSType
-}
-
-func (c *baseConfigure) Render() ([]byte, error) {
-	return c.conf.Render()
 }
 
 // addAgentInfo adds agent-required information to the agent's directory
 // and returns the agent directory name.
-func (c *baseConfigure) addAgentInfo() (agent.Config, error) {
-	acfg, err := c.mcfg.agentConfig(c.tag, c.mcfg.Tools.Version.Number)
+func (c *baseConfigure) addAgentInfo(tag names.Tag) (agent.Config, error) {
+	acfg, err := c.icfg.AgentConfig(tag, c.icfg.Tools.Version.Number)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
-	acfg.SetValue(agent.AgentServiceName, c.mcfg.MachineAgentServiceName)
-	cmds, err := acfg.WriteCommands(c.conf.ShellRenderer)
+	acfg.SetValue(agent.AgentServiceName, c.icfg.MachineAgentServiceName)
+	cmds, err := acfg.WriteCommands(c.conf.ShellRenderer())
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to write commands")
 	}
@@ -84,7 +94,7 @@ func (c *baseConfigure) addAgentInfo() (agent.Config, error) {
 }
 
 func (c *baseConfigure) addMachineAgentToBoot() error {
-	svc, err := c.mcfg.initService(c.conf.ShellRenderer)
+	svc, err := c.icfg.InitService(c.conf.ShellRenderer())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -92,7 +102,7 @@ func (c *baseConfigure) addMachineAgentToBoot() error {
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the init script.
-	toolsDir := c.mcfg.toolsDir(c.conf.ShellRenderer)
+	toolsDir := c.icfg.ToolsDir(c.conf.ShellRenderer())
 	c.conf.AddScripts(c.toolsSymlinkCommand(toolsDir))
 
 	name := c.tag.String()
@@ -106,7 +116,7 @@ func (c *baseConfigure) addMachineAgentToBoot() error {
 	}
 	cmds = append(cmds, startCmds...)
 
-	svcName := c.mcfg.MachineAgentServiceName
+	svcName := c.icfg.MachineAgentServiceName
 	c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", svcName))
 	c.conf.AddScripts(cmds...)
 	return nil
@@ -120,16 +130,20 @@ func (c *baseConfigure) toolsSymlinkCommand(toolsDir string) string {
 	case version.Windows:
 		return fmt.Sprintf(
 			`cmd.exe /C mklink /D %s %v`,
-			c.conf.ShellRenderer.FromSlash(toolsDir),
-			c.mcfg.Tools.Version,
+			c.conf.ShellRenderer().FromSlash(toolsDir),
+			c.icfg.Tools.Version,
 		)
 	default:
 		// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that
 		// the target already exists.
 		return fmt.Sprintf(
 			"ln -s %v %s",
-			c.mcfg.Tools.Version,
+			c.icfg.Tools.Version,
 			shquote(toolsDir),
 		)
 	}
+}
+
+func shquote(p string) string {
+	return utils.ShQuote(p)
 }

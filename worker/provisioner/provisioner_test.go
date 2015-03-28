@@ -1352,7 +1352,7 @@ func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (*environs
 	// All machines except machines 3, 4 are provisioned successfully the first time.
 	// Machines 3 is provisioned after some attempts have been made.
 	// Machine 4 is never provisioned.
-	id := args.MachineConfig.MachineId
+	id := args.InstanceConfig.MachineId
 	// record ids so we can call checkStartInstance in the appropriate order.
 	b.ids = append(b.ids, id)
 	retries := b.retryCount[id]

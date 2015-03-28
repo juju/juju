@@ -21,7 +21,6 @@ var (
 	PreferFastLXC           = preferFastLXC
 	InitProcessCgroupFile   = &initProcessCgroupFile
 	RuntimeGOOS             = &runtimeGOOS
-	ShutdownInitCommands    = shutdownInitCommands
 )
 
 func GetCreateWithCloneValue(mgr container.Manager) bool {

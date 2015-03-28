@@ -8,6 +8,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
@@ -42,11 +43,11 @@ type kvmBroker struct {
 
 // StartInstance is specified in the Broker interface.
 func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	if args.MachineConfig.HasNetworks() {
+	if args.InstanceConfig.HasNetworks() {
 		return nil, errors.New("starting kvm containers with networks is not supported yet")
 	}
 	// TODO: refactor common code out of the container brokers.
-	machineId := args.MachineConfig.MachineId
+	machineId := args.InstanceConfig.MachineId
 	kvmLogger.Infof("starting kvm container for machineId: %s", machineId)
 
 	// TODO: Default to using the host network until we can configure.  Yes,
@@ -71,8 +72,8 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	network := container.BridgeNetworkConfig(bridgeDevice, args.NetworkInfo)
 
 	series := args.Tools.OneSeries()
-	args.MachineConfig.MachineContainerType = instance.KVM
-	args.MachineConfig.Tools = args.Tools[0]
+	args.InstanceConfig.MachineContainerType = instance.KVM
+	args.InstanceConfig.Tools = args.Tools[0]
 
 	config, err := broker.api.ContainerConfig()
 	if err != nil {
@@ -80,8 +81,8 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
-	if err := environs.PopulateMachineConfig(
-		args.MachineConfig,
+	if err := instancecfg.PopulateInstanceConfig(
+		args.InstanceConfig,
 		config.ProviderType,
 		config.AuthorizedKeys,
 		config.SSLHostnameVerification,
@@ -97,7 +98,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	}
 
 	storage := container.NewStorageConfig(args.Volumes)
-	inst, hardware, err := broker.manager.CreateContainer(args.MachineConfig, series, network, storage)
+	inst, hardware, err := broker.manager.CreateContainer(args.InstanceConfig, series, network, storage)
 	if err != nil {
 		kvmLogger.Errorf("failed to start container: %v", err)
 		return nil, err

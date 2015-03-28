@@ -1,4 +1,4 @@
-package cloudinit_test
+package cloudconfig_test
 
 var WindowsUserdata = `#ps1_sysnative
 
