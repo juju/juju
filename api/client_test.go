@@ -78,12 +78,40 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
 }
 
+func (s *clientSuite) TestAddLocalCharmOtherEnvironment(c *gc.C) {
+	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
+	)
+
+	// setup API client to other environment
+	otherSt := s.Factory.MakeEnvironment(c, nil)
+	defer otherSt.Close()
+	info := s.APIInfo(c)
+	info.EnvironTag = otherSt.EnvironTag()
+	apiState, err := api.Open(info, api.DefaultDialOpts())
+	c.Assert(err, jc.ErrorIsNil)
+	client := apiState.Client()
+
+	// Upload an archive
+	savedURL, err := client.AddLocalCharm(curl, charmArchive)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(savedURL.String(), gc.Equals, curl.String())
+
+	charm, err := otherSt.Charm(curl)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(charm.String(), gc.Equals, curl.String())
+}
+
 func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, jc.ErrorIsNil)
 	defer lis.Close()
-	url := fmt.Sprintf("http://%v", lis.Addr())
-	http.HandleFunc("/charms", func(w http.ResponseWriter, r *http.Request) {
+
+	envTag, err := s.APIState.EnvironTag()
+	c.Assert(err, jc.ErrorIsNil)
+	endPoint := fmt.Sprintf("/environment/%s/charms", envTag.Id())
+	http.HandleFunc(endPoint, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		}
@@ -93,12 +121,13 @@ func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 	}()
 
 	client := s.APIState.Client()
-	api.SetServerRoot(client, url)
+	api.SetServerAddress(client, "http", lis.Addr().String())
 
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
+
 	_, err = client.AddLocalCharm(curl, charmArchive)
 	c.Assert(err, gc.ErrorMatches, "charm upload failed: 405 \\(Method Not Allowed\\)")
 }

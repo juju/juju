@@ -217,6 +217,11 @@ func (s *apiclientSuite) TestOpenHonorsEnvironTag(c *gc.C) {
 	st.Close()
 }
 
+func (s *apiclientSuite) TestServerRoot(c *gc.C) {
+	url := api.ServerRoot(s.APIState.Client())
+	c.Assert(url, gc.Matches, "https://localhost:[0-9]+")
+}
+
 func (s *apiclientSuite) TestDialWebsocketStopped(c *gc.C) {
 	stopped := make(chan struct{})
 	f := api.NewWebsocketDialer(nil, api.DialOpts{})
