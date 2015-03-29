@@ -747,9 +747,12 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 		return nil, errors.Errorf("unknown charm type %T", ch)
 	}
 
-	// Prepare the upload request.
-	url := fmt.Sprintf("%s/charms?series=%s", c.st.serverRoot, curl.Series)
-	req, err := http.NewRequest("POST", url, archive)
+	endPoint, err := c.localCharmUploadEndpoint(curl.Series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	req, err := http.NewRequest("POST", endPoint, archive)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")
 	}
@@ -791,6 +794,32 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	return charm.MustParseURL(jsonResponse.CharmURL), nil
 }
 
+func (c *Client) localCharmUploadEndpoint(series string) (string, error) {
+	var apiEndpoint string
+	if _, err := c.st.ServerTag(); err == nil {
+		envTag, err := c.st.EnvironTag()
+		if err != nil {
+			return "", errors.Annotate(err, "cannot get API endpoint address")
+		}
+
+		apiEndpoint = fmt.Sprintf("/environment/%s/charms", envTag.Id())
+	} else {
+		// If the server tag is not set, then the agent version is < 1.23. We
+		// use the old API endpoint for backwards compatibility.
+		apiEndpoint = "/charms"
+	}
+
+	// Prepare the upload request.
+	upURL := url.URL{
+		Scheme:   c.st.serverScheme,
+		Host:     c.st.Addr(),
+		Path:     apiEndpoint,
+		RawQuery: fmt.Sprintf("series=%s", series),
+	}
+
+	return upURL.String(), nil
+}
+
 // AddCharm adds the given charm URL (which must include revision) to
 // the environment, if it does not exist yet. Local charms are not
 // supported, only charm store URLs. See also AddLocalCharm() in the
@@ -822,8 +851,11 @@ func (c *Client) ResolveCharm(ref *charm.Reference) (*charm.URL, error) {
 func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries ...string) (*tools.Tools, error) {
 	// Prepare the upload request.
 	url := fmt.Sprintf(
+		// TODO(waigani) This is going to be a problem in the future where we
+		// want to upload tools for a particular environment. The upload root
+		// will need to be something like: <serverRoot>/environment/<UUID/tools
 		"%s/tools?binaryVersion=%s&series=%s",
-		c.st.serverRoot,
+		c.st.serverRoot(),
 		vers,
 		strings.Join(additionalSeries, ","),
 	)
