@@ -44,12 +44,13 @@ func (s *PathsSuite) TestWindows(c *gc.C) {
 			JujucServerSocket: `\\.\pipe\unit-some-service-323-agent`,
 		},
 		State: uniter.StatePaths{
-			CharmDir:       relAgent("charm"),
-			OperationsFile: relAgent("state", "uniter"),
-			RelationsDir:   relAgent("state", "relations"),
-			BundlesDir:     relAgent("state", "bundles"),
-			DeployerDir:    relAgent("state", "deployer"),
-			StorageDir:     relAgent("state", "storage"),
+			CharmDir:        relAgent("charm"),
+			OperationsFile:  relAgent("state", "uniter"),
+			RelationsDir:    relAgent("state", "relations"),
+			BundlesDir:      relAgent("state", "bundles"),
+			DeployerDir:     relAgent("state", "deployer"),
+			StorageDir:      relAgent("state", "storage"),
+			MetricsSpoolDir: relAgent("state", "spool", "metrics"),
 		},
 	})
 }
@@ -70,12 +71,13 @@ func (s *PathsSuite) TestOther(c *gc.C) {
 			JujucServerSocket: "@" + relAgent("agent.socket"),
 		},
 		State: uniter.StatePaths{
-			CharmDir:       relAgent("charm"),
-			OperationsFile: relAgent("state", "uniter"),
-			RelationsDir:   relAgent("state", "relations"),
-			BundlesDir:     relAgent("state", "bundles"),
-			DeployerDir:    relAgent("state", "deployer"),
-			StorageDir:     relAgent("state", "storage"),
+			CharmDir:        relAgent("charm"),
+			OperationsFile:  relAgent("state", "uniter"),
+			RelationsDir:    relAgent("state", "relations"),
+			BundlesDir:      relAgent("state", "bundles"),
+			DeployerDir:     relAgent("state", "deployer"),
+			StorageDir:      relAgent("state", "storage"),
+			MetricsSpoolDir: relAgent("state", "spool", "metrics"),
 		},
 	})
 }
@@ -87,10 +89,12 @@ func (s *PathsSuite) TestContextInterface(c *gc.C) {
 			JujucServerSocket: "/path/to/socket",
 		},
 		State: uniter.StatePaths{
-			CharmDir: "/path/to/charm",
+			CharmDir:        "/path/to/charm",
+			MetricsSpoolDir: "/path/to/spool/metrics",
 		},
 	}
 	c.Assert(paths.GetToolsDir(), gc.Equals, "/path/to/tools")
 	c.Assert(paths.GetCharmDir(), gc.Equals, "/path/to/charm")
 	c.Assert(paths.GetJujucSocket(), gc.Equals, "/path/to/socket")
+	c.Assert(paths.GetMetricsSpoolDir(), gc.Equals, "/path/to/spool/metrics")
 }

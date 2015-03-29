@@ -60,6 +60,10 @@ type Paths interface {
 	// to communicate back to the executing uniter process. It might be a
 	// filesystem path, or it might be abstract.
 	GetJujucSocket() string
+
+	// GetMetricsSpoolDir returns the path to a metrics spool dir, used
+	// to store metrics recorded during a single hook run.
+	GetMetricsSpoolDir() string
 }
 
 // NewRunner returns a Runner backed by the supplied context and paths.

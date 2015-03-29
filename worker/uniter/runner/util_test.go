@@ -48,11 +48,16 @@ func (MockEnvPaths) GetJujucSocket() string {
 	return "path-to-jujuc.socket"
 }
 
+func (MockEnvPaths) GetMetricsSpoolDir() string {
+	return "path-to-metrics-spool-dir"
+}
+
 // RealPaths implements Paths for tests that do touch the filesystem.
 type RealPaths struct {
-	tools  string
-	charm  string
-	socket string
+	tools        string
+	charm        string
+	socket       string
+	metricsspool string
 }
 
 func osDependentSockPath(c *gc.C) string {
@@ -65,10 +70,15 @@ func osDependentSockPath(c *gc.C) string {
 
 func NewRealPaths(c *gc.C) RealPaths {
 	return RealPaths{
-		tools:  c.MkDir(),
-		charm:  c.MkDir(),
-		socket: osDependentSockPath(c),
+		tools:        c.MkDir(),
+		charm:        c.MkDir(),
+		socket:       osDependentSockPath(c),
+		metricsspool: c.MkDir(),
 	}
+}
+
+func (p RealPaths) GetMetricsSpoolDir() string {
+	return p.metricsspool
 }
 
 func (p RealPaths) GetToolsDir() string {
@@ -226,7 +236,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 
 	context, err := runner.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
 		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
-		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag))
+		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag), NewRealPaths(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
@@ -248,7 +258,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 
 	context, err := runner.NewHookContext(s.meteredApiUnit, facade, "TestCtx", uuid,
 		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
-		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag))
+		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag), NewRealPaths(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }

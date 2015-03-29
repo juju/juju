@@ -31,6 +31,20 @@ type meterStatus struct {
 	info string
 }
 
+// MetricsRecorder is used to store metrics supplied by the add-metric command.
+type MetricsRecorder interface {
+	AddMetric(key, value string, created time.Time) error
+	Close() error
+}
+
+// MetricsReader is used to read metrics batches stored by the metrics recorder
+// and remove metrics batches that have been marked as succesfully sent.
+type MetricsReader interface {
+	Open() ([]MetricsBatch, error)
+	Remove(uuid string) error
+	Close() error
+}
+
 // HookContext is the implementation of jujuc.Context.
 type HookContext struct {
 	unit *uniter.Unit
@@ -101,11 +115,11 @@ type HookContext struct {
 	// proxySettings are the current proxy settings that the uniter knows about.
 	proxySettings proxy.Settings
 
-	// metrics are the metrics recorded by calls to add-metric.
-	metrics []jujuc.Metric
+	// metricsRecorder is used to write metrics batches to a storage (usually a file).
+	metricsRecorder MetricsRecorder
 
-	// canAddMetrics specifies whether the hook allows recording metrics.
-	canAddMetrics bool
+	// metricsReader is used to read metric batches from storage.
+	metricsReader MetricsReader
 
 	// definedMetrics specifies the metrics the charm has defined in its metrics.yaml file.
 	definedMetrics *charm.Metrics
@@ -347,14 +361,19 @@ func (ctx *HookContext) RelationIds() []int {
 
 // AddMetrics adds metrics to the hook context.
 func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
-	if !ctx.canAddMetrics || ctx.definedMetrics == nil {
+	if ctx.metricsRecorder == nil || ctx.definedMetrics == nil {
 		return errors.New("metrics disabled")
 	}
+
 	err := ctx.definedMetrics.ValidateMetric(key, value)
 	if err != nil {
 		return errors.Annotatef(err, "invalid metric %q", key)
 	}
-	ctx.metrics = append(ctx.metrics, jujuc.Metric{key, value, created})
+
+	err = ctx.metricsRecorder.AddMetric(key, value, created)
+	if err != nil {
+		return errors.Annotate(err, "failed to store metric")
+	}
 	return nil
 }
 
@@ -425,7 +444,17 @@ func (ctx *HookContext) handleReboot(err *error) {
 	}
 }
 
+// FlushContext implements the Context interface.
 func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
+	// A non-existant metricsRecorder simply means that metrics were disabled
+	// for this hook run.
+	if ctx.metricsRecorder != nil {
+		err := ctx.metricsRecorder.Close()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	writeChanges := ctxErr == nil
 
 	// In the case of Actions, handle any errors using finalizeAction.
@@ -487,27 +516,47 @@ func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 			}
 		}
 	}
-	if ctxErr != nil {
-		return ctxErr
-	}
 
 	// TODO (tasdomas) 2014 09 03: context finalization needs to modified to apply all
 	//                             changes in one api call to minimize the risk
 	//                             of partial failures.
-	if ctx.canAddMetrics && len(ctx.metrics) > 0 {
-		if writeChanges {
-			metrics := make([]params.Metric, len(ctx.metrics))
-			for i, metric := range ctx.metrics {
-				metrics[i] = params.Metric{Key: metric.Key, Value: metric.Value, Time: metric.Time}
+
+	if ctx.metricsReader == nil {
+		return ctxErr
+	}
+	defer ctx.metricsReader.Close()
+
+	if !writeChanges {
+		return ctxErr
+	}
+
+	batches, err := ctx.metricsReader.Open()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, batch := range batches {
+		if len(batch.Metrics) == 0 { // empty batches not supported yet.
+			logger.Infof("skipping and removing empty metrics batch with UUID %q", batch.UUID)
+			err := ctx.metricsReader.Remove(batch.UUID)
+			if err != nil {
+				return errors.Trace(err)
 			}
-			if e := ctx.unit.AddMetrics(metrics); e != nil {
-				logger.Errorf("%v", e)
-				if ctxErr == nil {
-					ctxErr = e
-				}
-			}
+			continue
 		}
-		ctx.metrics = nil
+		metrics := make([]params.Metric, len(batch.Metrics))
+		for i, metric := range batch.Metrics {
+			metrics[i] = params.Metric{Key: metric.Key, Value: metric.Value, Time: metric.Time}
+		}
+		err := ctx.unit.AddMetrics(metrics)
+		if err != nil {
+			logger.Errorf("%v", err)
+			return errors.Trace(err)
+		}
+		err = ctx.metricsReader.Remove(batch.UUID)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	return ctxErr

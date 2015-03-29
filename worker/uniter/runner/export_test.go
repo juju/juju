@@ -23,6 +23,7 @@ var (
 	ValidatePortRange = validatePortRange
 	TryOpenPorts      = tryOpenPorts
 	TryClosePorts     = tryClosePorts
+	LockTimeout       = lockTimeout
 )
 
 func RunnerPaths(rnr Runner) Paths {
@@ -113,6 +114,7 @@ func NewHookContext(
 	metrics *charm.Metrics,
 	actionData *ActionData,
 	assignedMachineTag names.MachineTag,
+	paths Paths,
 ) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:               unit,
@@ -127,11 +129,25 @@ func NewHookContext(
 		apiAddrs:           apiAddrs,
 		serviceOwner:       serviceOwner,
 		proxySettings:      proxySettings,
-		canAddMetrics:      canAddMetrics,
+		metricsRecorder:    nil,
 		definedMetrics:     metrics,
 		actionData:         actionData,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		assignedMachineTag: assignedMachineTag,
+	}
+	if canAddMetrics {
+		charmURL, err := unit.CharmURL()
+		if err != nil {
+			return nil, err
+		}
+		ctx.metricsRecorder, err = NewJSONMetricsRecorder(paths.GetMetricsSpoolDir(), charmURL.String())
+		if err != nil {
+			return nil, err
+		}
+		ctx.metricsReader, err = NewJSONMetricsReader(paths.GetMetricsSpoolDir())
+		if err != nil {
+			return nil, err
+		}
 	}
 	// Get and cache the addresses.
 	var err error
