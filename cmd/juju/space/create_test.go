@@ -4,84 +4,143 @@
 package space_test
 
 import (
-	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/space"
-	"github.com/juju/juju/testing"
+	"github.com/juju/errors"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/cmd/juju/space"
+	coretesting "github.com/juju/juju/testing"
 )
 
-type spaceCreateSuite struct {
+type CreateSuite struct {
 	BaseSpaceSuite
 }
 
-var _ = gc.Suite(&spaceCreateSuite{})
+var _ = gc.Suite(&CreateSuite{})
 
-// runCommand runs the api-endpoints command with the given arguments
-// and returns the output and any error.
-func (s *spaceCreateSuite) runCommand(c *gc.C, args ...string) (string, string, error) {
-	ctx, err := testing.RunCommand(c, envcmd.Wrap(&space.CreateCommand{}), args...)
-	if err != nil {
-		return "", "", err
+func (s *CreateSuite) SetUpTest(c *gc.C) {
+	s.BaseSpaceSuite.SetUpTest(c)
+	s.command = space.NewCreateCommand(s.api)
+	c.Assert(s.command, gc.NotNil)
+}
+
+func (s *CreateSuite) TestInit(c *gc.C) {
+	for i, test := range []struct {
+		about       string
+		args        []string
+		expectName  string
+		expectCIDRs []string
+		expectErr   string
+	}{{
+		about:     "no arguments",
+		expectErr: "space name is required",
+	}, {
+		about:     "invalid space name - with invalid characters",
+		args:      s.Strings("%inv$alid"),
+		expectErr: `"%inv\$alid" is not a valid space name`,
+	}, {
+		about:     "invalid space name - using underscores",
+		args:      s.Strings("42_space"),
+		expectErr: `"42_space" is not a valid space name`,
+	}, {
+		about:      "valid space name with invalid CIDR",
+		args:       s.Strings("new-space", "noCIDR"),
+		expectName: "new-space",
+		expectErr:  `"noCIDR" is not a valid CIDR`,
+	}, {
+		about:       "valid space with one valid and one invalid CIDR",
+		args:        s.Strings("new-space", "10.1.0.0/16", "nonsense"),
+		expectName:  "new-space",
+		expectCIDRs: s.Strings("10.1.0.0/16"),
+		expectErr:   `"nonsense" is not a valid CIDR`,
+	}, {
+		about:       "valid space with valid but overlapping CIDRs",
+		args:        s.Strings("new-space", "10.1.0.0/16", "10.1.0.1/16"),
+		expectName:  "new-space",
+		expectCIDRs: s.Strings("10.1.0.0/16"),
+		expectErr:   `subnet "10.1.0.1/16" overlaps with "10.1.0.0/16"`,
+	}, {
+		about:       "valid space with valid but duplicated CIDRs",
+		args:        s.Strings("new-space", "10.10.0.0/24", "10.10.0.0/24"),
+		expectName:  "new-space",
+		expectCIDRs: s.Strings("10.10.0.0/24"),
+		expectErr:   `duplicate subnet "10.10.0.0/24" specified`,
+	}, {
+		about:       "all ok",
+		args:        s.Strings("myspace", "10.10.0.0/24", "2001:db8::1/32"),
+		expectName:  "myspace",
+		expectCIDRs: s.Strings("10.10.0.0/24", "2001:db8::/32"),
+	}} {
+		c.Logf("test #%d: %s", i, test.about)
+		// Create a new instance of the subcommand for each test, but
+		// since we're not running the command no need to use
+		// envcmd.Wrap().
+		command := space.NewCreateCommand(s.api)
+		err := coretesting.InitCommand(command, test.args)
+		if test.expectErr != "" {
+			c.Check(err, gc.ErrorMatches, test.expectErr)
+		} else {
+			c.Check(err, jc.ErrorIsNil)
+		}
+		c.Check(command.Name, gc.Equals, test.expectName)
+		c.Check(command.CIDRs.SortedValues(), jc.DeepEquals, test.expectCIDRs)
+		// No API calls should be recorded at this stage.
+		s.api.CheckCallNames(c)
 	}
-	return testing.Stdout(ctx), testing.Stderr(ctx), nil
 }
 
-// testInitFail runs the command init stage of "space create [args]" and checks that
-// the command produces the error errPat
-func (s *spaceCreateSuite) testInitFail(c *gc.C, errPat string, args ...string) {
-	testing.TestInit(c, &space.CreateCommand{}, args, errPat)
+func (s *CreateSuite) TestRunNoSubnetsSucceeds(c *gc.C) {
+	stdout, stderr, err := s.RunSubCommand(c, "myspace")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stderr, gc.Matches, `created space "myspace" with no subnets\n`)
+	s.api.CheckCalls(c, []testing.StubCall{{
+		FuncName: "CreateSpace",
+		Args:     []interface{}{"myspace", []string{}},
+	}, {
+		FuncName: "Close",
+		Args:     nil,
+	}})
 }
 
-// testInitFail runs the command init stage of "space create [args]" and checks that
-// the command produces no errors
-func (s *spaceCreateSuite) testInitOK(c *gc.C, args ...string) {
-	testing.TestInit(c, &space.CreateCommand{}, args, "")
+func (s *CreateSuite) TestRunWithSubnetsSucceeds(c *gc.C) {
+	stdout, stderr, err := s.RunSubCommand(c, "myspace", "10.1.2.0/24", "4.3.2.0/28")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stderr, gc.Matches, `created space "myspace" with subnets 10.1.2.0/24, 4.3.2.0/28\n`)
+	s.api.CheckCalls(c, []testing.StubCall{{
+		FuncName: "AllSubnets",
+		Args:     nil,
+	}, {
+		FuncName: "CreateSpace",
+		Args:     []interface{}{"myspace", s.Strings("10.1.2.0/24", "4.3.2.0/28")},
+	}, {
+		FuncName: "Close",
+		Args:     nil,
+	}})
 }
 
-func (s *spaceCreateSuite) TestHelp(c *gc.C) {
-	cc := space.CreateCommand{}
-	info := cc.Info()
-	s.testSubcmdHelp(c, info, "create")
+func (s *CreateSuite) TestRunWithExistingSpaceFails(c *gc.C) {
+	s.api.SetErrors(errors.AlreadyExistsf("space %q", "bad-space"))
+	c.Logf("s.api.Errors: %#v", s.api.Errors)
+
+	stdout, stderr, err := s.RunSubCommand(c, "bad-space")
+	c.Assert(err, gc.ErrorMatches, `space named "bad-space" already exists`)
+	c.Logf("err: %#v", err)
+	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue) //Satisfies, errors.IsAlreadyExists)
+	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stderr, gc.Equals, "")
+	s.api.CheckCallNames(c, "CreateSpace")
 }
 
-func (s *spaceCreateSuite) TestNoName(c *gc.C) {
-	s.testInitFail(c, "No space named in command")
-}
-
-func (s *spaceCreateSuite) TestNamed(c *gc.C) {
-	s.testInitOK(c, "name")
-}
-
-func (s *spaceCreateSuite) TestNamedDash(c *gc.C) {
-	s.testInitOK(c, "dmz-cluster-public")
-}
-
-func (s *spaceCreateSuite) TestNamedSpace(c *gc.C) {
-	s.testInitFail(c, "Space name .+ is invalid",
-		"dmz cluster public")
-}
-
-func (s *spaceCreateSuite) TestNamedWithCIDR(c *gc.C) {
-	s.testInitOK(c, "dmz-cluster-public",
-		"1.2.3.4/24")
-}
-
-func (s *spaceCreateSuite) TestNamedWithTwoCIDR(c *gc.C) {
-	s.testInitOK(c, "dmz-cluster-public",
-		"1.2.3.4/24", "2.2.3.4/24")
-}
-
-func (s *spaceCreateSuite) TestNamedWithInvalidCIDR(c *gc.C) {
-	s.testInitFail(c, ".+ is not a valid CIDR",
-		"dmz-cluster-public", "1.3.4/24", "2.2.3.4/24")
-}
-
-func (s *spaceCreateSuite) TestNamedWithDuplicateCIDR(c *gc.C) {
-	s.testInitFail(c, "Duplicate subnet in space .+",
-		"dmz-cluster-public", "1.2.3.4/24", "1.2.3.4/24")
-}
-
-func (s *spaceCreateSuite) TestNamedWithDuplicateCIDRDueToMask(c *gc.C) {
-	s.testInitFail(c, "Duplicate subnet in space .+",
-		"dmz-cluster-public", "1.2.3.5/24", "1.2.3.4/24")
+func (s *CreateSuite) TestRunAPIConnectFails(c *gc.C) {
+	// TODO(dimitern): Change this once API is implemented.
+	s.command = space.NewCreateCommand(nil)
+	stdout, stderr, err := s.RunSubCommand(c, "myspace")
+	c.Assert(err, gc.ErrorMatches, "cannot connect to API server: API not implemented yet!")
+	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stderr, gc.Equals, "")
+	// No API calls recoreded.
+	s.api.CheckCallNames(c)
 }

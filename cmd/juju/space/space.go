@@ -4,15 +4,29 @@
 package space
 
 import (
+	"errors"
 	"io"
+	"strings"
 
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/api/space"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/network"
 )
+
+// SpaceAPI defines the necessary API methods needed by the space
+// subcommands.
+type SpaceAPI interface {
+	io.Closer
+
+	// AllSubnets returns all subnets known to Juju.
+	AllSubnets() ([]network.SubnetInfo, error)
+
+	// CreateSpace creates a new Juju network space, associating the
+	// specified subnets with it (optional; can be empty).
+	CreateSpace(name string, subnetIds []string) error
+}
 
 var logger = loggo.GetLogger("juju.cmd.space")
 
@@ -25,7 +39,7 @@ const commandDoc = `
 func NewSuperCommand() cmd.Command {
 	spaceCmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:        "space",
-		Doc:         commandDoc,
+		Doc:         strings.TrimSpace(commandDoc),
 		UsagePrefix: "juju",
 		Purpose:     "manage network spaces",
 	})
@@ -34,26 +48,22 @@ func NewSuperCommand() cmd.Command {
 	return spaceCmd
 }
 
-// SpaceCommandBase is a helper base structure that has a method to get the
-// space managing client.
+// SpaceCommandBase is the base type embedded into all space
+// subcommands.
 type SpaceCommandBase struct {
 	envcmd.EnvCommandBase
+	api SpaceAPI
 }
 
-// type APIClient represents the action API functionality.
-type APIClient interface {
-	io.Closer
-}
+// NewAPI returns a SpaceAPI for the root api endpoint that the
+// environment command returns.
+func (c *SpaceCommandBase) NewAPI() (SpaceAPI, error) {
+	// TODO(dimitern): Change this once the API is implemented.
 
-// NewSpaceAPIClient returns a client for the space api endpoint.
-func (c *SpaceCommandBase) NewSpaceAPIClient() (APIClient, error) {
-	return newAPIClient(c)
-}
-
-var newAPIClient = func(c *SpaceCommandBase) (APIClient, error) {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
+	if c.api != nil {
+		// Already created.
+		return c.api, nil
 	}
-	return space.NewClient(root), nil
+
+	return nil, errors.New("API not implemented yet!")
 }
