@@ -16,10 +16,10 @@ type authSuite struct {
 
 var _ = gc.Suite(&authSuite{})
 
-func (s *authSuite) TestAuthNewTransport(c *gc.C) {
+func (s *authSuite) TestNewTransport(c *gc.C) {
 	token := &oauth.Token{}
-	s.patchNewToken(c, s.Auth, "", token)
-	transport, err := s.Auth.newTransport()
+	s.patchNewToken(c, s.Credentials, "", token)
+	transport, err := newTransport(s.Credentials)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(transport.Config.ClientId, gc.Equals, "spam")
@@ -32,25 +32,25 @@ func (s *authSuite) TestAuthNewTransport(c *gc.C) {
 // Testing the newToken valid case would require valid credentials, so
 // we don't bother.
 
-func (s *authSuite) TestAuthNewTokenBadCredentials(c *gc.C) {
+func (s *authSuite) TestNewTokenBadCredentials(c *gc.C) {
 	// Makes an HTTP request to the GCE API.
-	_, err := newToken(s.Auth, "")
+	_, err := newToken(s.Credentials, "")
 
 	c.Check(errors.Cause(err), gc.ErrorMatches, "Invalid Key")
 }
 
-func (s *authSuite) TestAuthNewConnection(c *gc.C) {
-	s.patchNewToken(c, s.Auth, "", nil)
-	service, err := s.Auth.newConnection()
+func (s *authSuite) TestNewConnection(c *gc.C) {
+	s.patchNewToken(c, s.Credentials, "", nil)
+	service, err := newConnection(s.Credentials)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(service, gc.NotNil)
 }
 
-func (s *authSuite) TestAuthNewService(c *gc.C) {
-	s.patchNewToken(c, s.Auth, "", nil)
+func (s *authSuite) TestNewService(c *gc.C) {
+	s.patchNewToken(c, s.Credentials, "", nil)
 
-	transport, err := s.Auth.newTransport()
+	transport, err := newTransport(s.Credentials)
 	c.Assert(err, jc.ErrorIsNil)
 	service, err := newService(transport)
 	c.Assert(err, jc.ErrorIsNil)
