@@ -320,7 +320,7 @@ func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {
 	c.Assert(env.Config().ProxySSH(), jc.IsFalse)
 }
 
-func (s *prepareSuite) TesteProxyLocalhostFix(c *gc.C) {
+func (s *prepareSuite) TestProxyLocalhostFix(c *gc.C) {
 	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": "local",
 		"name": "test",
@@ -409,6 +409,11 @@ var urlReplacementTests = []testURL{{
 	message:      "do not replace provided:port with bridge ip:port in proxy url",
 	url:          "www.google.com",
 	port:         ":8877",
+	expectChange: false,
+}, {
+	message:      "lp 1437296 - apt-http-proxy being reset to bridge address when shouldn't",
+	url:          "192.168.1.201",
+	port:         ":8000",
 	expectChange: false,
 },
 }

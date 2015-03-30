@@ -11,6 +11,7 @@ import (
 	"os/user"
 	"regexp"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/juju/errors"
@@ -189,12 +190,10 @@ func (p environProvider) swapLocalhostForBridgeIP(originalURL string, providerCo
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	// Localhost url can be specified in 3 ways: localhost, 127.0.0.1 or ::1
-	// This regular expression does not cater for a. subnets, eg. 127.0.0.1/8 nor b. digits preceding :: in ipv6 url, eg. 0::0:1.
-	localHostRegexp := regexp.MustCompile(`localhost|127\.[\d.]+|[0:]+1|\[?::1]?`)
-	hostAndPort := parsedUrl.Host
-	if !localHostRegexp.MatchString(hostAndPort) {
-		// If not localhost, return current attribute value
+
+	isLoopback, _, port := isLoopback(parsedUrl.Host)
+	if !isLoopback {
+		// If not loopback host address, return current attribute value
 		return originalURL, nil
 	}
 	//If localhost is specified, use its network bridge ip
@@ -202,10 +201,42 @@ func (p environProvider) swapLocalhostForBridgeIP(originalURL string, providerCo
 	if nwerr != nil {
 		return "", errors.Trace(nwerr)
 	}
-	// Host and post specification is host:port
-	hostAndPortRegexp := regexp.MustCompile(`(?P<host>(\[?[::]*[^:]+))(?P<port>($|:[^:]+$))`)
-	parsedUrl.Host = hostAndPortRegexp.ReplaceAllString(hostAndPort, fmt.Sprintf("%s$port", bridgeAddress))
+	parsedUrl.Host = bridgeAddress + port
 	return parsedUrl.String(), nil
+}
+
+// isLoopback returns whether given url is a loopback url.
+// The argument to the method is expected to be in the form of
+// host:port where host and port are also returned as distinct values.
+func isLoopback(hostAndPort string) (isLoopback bool, host, port string) {
+	host, port = getHostAndPort(hostAndPort)
+	isLoopback = strings.ToLower(host) == "localhost"
+	if !isLoopback {
+		ip := net.ParseIP(host)
+		isLoopback = ip != nil && ip.IsLoopback()
+	}
+	return
+}
+
+// getHostAndPort returns distinct host and port
+func getHostAndPort(original string) (host, port string) {
+	// Host and post specification is host:port
+	hostRegexp := regexp.MustCompile(`(?P<host>(\[?[::]*[^:]+))`)
+	portRegexp := regexp.MustCompile(`(?P<port>($|:[^:]+$))`)
+
+	host = hostRegexp.FindStringSubmatch(original)[0]
+	port = portRegexp.FindStringSubmatch(original)[0]
+
+	// For hosts like [::1], remove brackets
+	if strings.Contains(host, "[") {
+		host = host[1 : len(host)-1]
+	}
+
+	// For hosts like ::1, substring :1 is not a port!
+	if strings.Contains(host, port) {
+		port = ""
+	}
+	return
 }
 
 // checkLocalPort checks that the passed port is not used so far.
