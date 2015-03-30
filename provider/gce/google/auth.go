@@ -5,7 +5,6 @@ package google
 
 import (
 	"net/http"
-	"net/mail"
 
 	"code.google.com/p/goauth2/oauth"
 	"code.google.com/p/goauth2/oauth/jwt"
@@ -21,46 +20,6 @@ const (
 
 	authURL = "https://accounts.google.com/o/oauth2/auth"
 )
-
-// Credentials holds the OAuth2 credentials needed to authenticate on GCE.
-type Credentials struct {
-	// ClientID is the GCE account's OAuth ID. It is part of the OAuth
-	// config used in the OAuth-wrapping network transport.
-	ClientID string
-
-	// ClientEmail is the email address associatd with the GCE account.
-	// It is used to generate a new OAuth token to use in the
-	// OAuth-wrapping network transport.
-	ClientEmail string
-
-	// PrivateKey is the private key that matches the public key
-	// associatd with the GCE account. It is used to generate a new
-	// OAuth token to use in the OAuth-wrapping network transport.
-	PrivateKey []byte
-}
-
-// Validate checks the credentialss for invalid values. If the values
-// are not valid, it returns errors.NotValid with the message set to
-// the corresponding OS environment variable name.
-//
-// To be considered valid, each of the credentials must be set to some
-// non-empty value. Furthermore, ClientEmail must be a proper email
-// address.
-func (gc Credentials) Validate() error {
-	if gc.ClientID == "" {
-		return NewInvalidCredential(OSEnvClientID, "", "missing ClientID")
-	}
-	if gc.ClientEmail == "" {
-		return NewInvalidCredential(OSEnvClientEmail, "", "missing ClientEmail")
-	}
-	if _, err := mail.ParseAddress(gc.ClientEmail); err != nil {
-		return NewInvalidCredential(OSEnvClientEmail, gc.ClientEmail, err)
-	}
-	if len(gc.PrivateKey) == 0 {
-		return NewInvalidCredential(OSEnvPrivateKey, "", "missing PrivateKey")
-	}
-	return nil
-}
 
 // Auth holds the information needed to authenticate on GCE.
 type Auth struct {
