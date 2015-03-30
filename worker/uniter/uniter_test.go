@@ -216,7 +216,7 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       params.StatusMaintenance,
-				info:         "Installing charm software",
+				info:         "installing charm software",
 			},
 			waitHooks{"config-changed"},
 			verifyRunning{},
@@ -688,7 +688,7 @@ func (s *UniterSuite) TestUniterErrorStateUpgrade(c *gc.C) {
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       params.StatusMaintenance,
-				info:         "Installing charm software",
+				info:         "installing charm software",
 				charm:        1,
 			},
 			waitHooks{"config-changed", "upgrade-charm", "config-changed"},
@@ -1645,7 +1645,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       params.StatusMaintenance,
-				info:         "Installing charm software",
+				info:         "installing charm software",
 			},
 		),
 	})

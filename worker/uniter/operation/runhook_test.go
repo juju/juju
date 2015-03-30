@@ -396,10 +396,10 @@ func testBeforeHookStatus(c *gc.C, kind hooks.Kind, status *jujuc.StatusInfo) {
 	switch kind {
 	case hooks.Install:
 		c.Assert(status.Status, gc.Equals, "maintenance")
-		c.Assert(status.Info, gc.Equals, "Installing charm software")
+		c.Assert(status.Info, gc.Equals, "installing charm software")
 	case hooks.Stop:
 		c.Assert(string(status.Status), gc.Equals, "maintenance")
-		c.Assert(status.Info, gc.Equals, "Cleaning up prior to charm deletion")
+		c.Assert(status.Info, gc.Equals, "cleaning up prior to charm deletion")
 	default:
 		c.Assert(string(status.Status), gc.Equals, "")
 	}
@@ -409,7 +409,7 @@ func testAfterHookStatus(c *gc.C, kind hooks.Kind, status *jujuc.StatusInfo, sta
 	switch kind {
 	case hooks.Install:
 		c.Assert(status.Status, gc.Equals, "maintenance")
-		c.Assert(status.Info, gc.Equals, "Installing charm software")
+		c.Assert(status.Info, gc.Equals, "installing charm software")
 	case hooks.Start:
 		if statusSetCalled {
 			c.Assert(string(status.Status), gc.Equals, "")

@@ -73,12 +73,12 @@ func (rh *runHook) beforeHook() error {
 	case hooks.Install:
 		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
 			Status: string(params.StatusMaintenance),
-			Info:   "Installing charm software",
+			Info:   "installing charm software",
 		})
 	case hooks.Stop:
 		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
 			Status: string(params.StatusMaintenance),
-			Info:   "Cleaning up prior to charm deletion",
+			Info:   "cleaning up prior to charm deletion",
 		})
 	}
 	if err != nil {
