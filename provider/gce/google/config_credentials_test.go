@@ -34,8 +34,8 @@ func (*credentialsSuite) TestValidateMissingID(c *gc.C) {
 	}
 	err := creds.Validate()
 
-	c.Assert(err, gc.FitsTypeOf, &google.InvalidCredential{})
-	c.Check(err.(*google.InvalidCredential).Key, gc.Equals, "GCE_CLIENT_ID")
+	c.Assert(err, gc.FitsTypeOf, &google.InvalidConfigValue{})
+	c.Check(err.(*google.InvalidConfigValue).Key, gc.Equals, "GCE_CLIENT_ID")
 }
 
 func (*credentialsSuite) TestValidateBadEmail(c *gc.C) {
@@ -46,8 +46,8 @@ func (*credentialsSuite) TestValidateBadEmail(c *gc.C) {
 	}
 	err := creds.Validate()
 
-	c.Assert(err, gc.FitsTypeOf, &google.InvalidCredential{})
-	c.Check(err.(*google.InvalidCredential).Key, gc.Equals, "GCE_CLIENT_EMAIL")
+	c.Assert(err, gc.FitsTypeOf, &google.InvalidConfigValue{})
+	c.Check(err.(*google.InvalidConfigValue).Key, gc.Equals, "GCE_CLIENT_EMAIL")
 }
 
 func (*credentialsSuite) TestValidateMissingKey(c *gc.C) {
@@ -57,6 +57,6 @@ func (*credentialsSuite) TestValidateMissingKey(c *gc.C) {
 	}
 	err := creds.Validate()
 
-	c.Assert(err, gc.FitsTypeOf, &google.InvalidCredential{})
-	c.Check(err.(*google.InvalidCredential).Key, gc.Equals, "GCE_PRIVATE_KEY")
+	c.Assert(err, gc.FitsTypeOf, &google.InvalidConfigValue{})
+	c.Check(err.(*google.InvalidConfigValue).Key, gc.Equals, "GCE_PRIVATE_KEY")
 }

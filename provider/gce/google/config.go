@@ -9,8 +9,6 @@ import (
 	"net/mail"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/environs/config"
 )
 
 // The names of OS environment variables related to GCE.
@@ -76,16 +74,16 @@ type Credentials struct {
 // address.
 func (gc Credentials) Validate() error {
 	if gc.ClientID == "" {
-		return NewInvalidCredential(OSEnvClientID, "", "missing ClientID")
+		return NewMissingConfigValue(OSEnvClientID, "ClientID")
 	}
 	if gc.ClientEmail == "" {
-		return NewInvalidCredential(OSEnvClientEmail, "", "missing ClientEmail")
+		return NewMissingConfigValue(OSEnvClientEmail, "ClientEmail")
 	}
 	if _, err := mail.ParseAddress(gc.ClientEmail); err != nil {
-		return NewInvalidCredential(OSEnvClientEmail, gc.ClientEmail, err)
+		return NewInvalidConfigValue(OSEnvClientEmail, gc.ClientEmail, err)
 	}
 	if len(gc.PrivateKey) == 0 {
-		return NewInvalidCredential(OSEnvPrivateKey, "", "missing PrivateKey")
+		return NewMissingConfigValue(OSEnvPrivateKey, "PrivateKey")
 	}
 	return nil
 }
@@ -110,10 +108,10 @@ type ConnectionConfig struct {
 // non-empty value.
 func (gc ConnectionConfig) Validate() error {
 	if gc.Region == "" {
-		return &config.InvalidConfigValueError{Key: OSEnvRegion}
+		return NewMissingConfigValue(OSEnvRegion, "Region")
 	}
 	if gc.ProjectID == "" {
-		return &config.InvalidConfigValueError{Key: OSEnvProjectID}
+		return NewMissingConfigValue(OSEnvProjectID, "ProjectID")
 	}
 	return nil
 }

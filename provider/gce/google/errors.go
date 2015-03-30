@@ -9,10 +9,8 @@ import (
 	"github.com/juju/errors"
 )
 
-// TODO(ericsnow) Implement InvalidCredential in terms of errors.Chain.
-
-// InvalidCredential indicates that one of the credentials failed validation.
-type InvalidCredential struct {
+// InvalidConfigValue indicates that one of the config values failed validation.
+type InvalidConfigValue struct {
 	errors.Err
 	cause error
 
@@ -26,11 +24,11 @@ type InvalidCredential struct {
 	Reason error
 }
 
-// NewInvalidCredential returns a new InvalidCredential for the given
+// NewInvalidConfigValue returns a new InvalidConfigValue for the given
 // info. If the provided reason is an error then Reason is set to that
 // error. Otherwise a non-nil value is treated as a string and Reason is
 // set to a non-nil value that wraps it.
-func NewInvalidCredential(key string, value, reason interface{}) error {
+func NewInvalidConfigValue(key string, value, reason interface{}) error {
 	var underlying error
 	switch reason := reason.(type) {
 	case error:
@@ -40,13 +38,13 @@ func NewInvalidCredential(key string, value, reason interface{}) error {
 			underlying = errors.Errorf("%v", reason)
 		}
 	}
-	err := &InvalidCredential{
-		cause:  errors.NewNotValid(underlying, "GCE auth value"),
+	err := &InvalidConfigValue{
+		cause:  errors.NewNotValid(underlying, "GCE config value"),
 		Key:    key,
 		Value:  value,
 		Reason: underlying,
 	}
-	msg := "auth value for " + key
+	msg := "config value for " + key
 	if value != nil {
 		if strValue, ok := value.(string); ok {
 			if strValue != "" {
@@ -56,23 +54,28 @@ func NewInvalidCredential(key string, value, reason interface{}) error {
 			msg = fmt.Sprintf("%s (%v)", msg, value)
 		}
 	}
-	err.Err = errors.NewErr("auth value")
+	err.Err = errors.NewErr("config value")
 	err.Err.SetLocation(1)
 	return err
 }
 
+// NewMissingConfigValue returns a new error for a missing config field.
+func NewMissingConfigValue(key, field string) error {
+	return NewInvalidConfigValue(key, "", "missing "+field)
+}
+
 // Cause implements errors.causer. This is necessary so that
 // errors.IsNotValid works.
-func (err *InvalidCredential) Cause() error {
+func (err *InvalidConfigValue) Cause() error {
 	return err.cause
 }
 
 // Underlying implements errors.wrapper.
-func (err InvalidCredential) Underlying() error {
+func (err InvalidConfigValue) Underlying() error {
 	return err.cause
 }
 
 // Error implements error.
-func (err InvalidCredential) Error() string {
-	return fmt.Sprintf("invalid auth value (%s) for %q: %v", err.Value, err.Key)
+func (err InvalidConfigValue) Error() string {
+	return fmt.Sprintf("invalid config value (%s) for %q: %v", err.Value, err.Key)
 }

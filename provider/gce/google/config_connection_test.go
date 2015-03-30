@@ -7,7 +7,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/gce/google"
 )
 
@@ -33,8 +32,8 @@ func (*connConfigSuite) TestValidateMissingRegion(c *gc.C) {
 	}
 	err := cfg.Validate()
 
-	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValueError{})
-	c.Check(err.(*config.InvalidConfigValueError).Key, gc.Equals, "GCE_REGION")
+	c.Assert(err, gc.FitsTypeOf, &google.InvalidConfigValue{})
+	c.Check(err.(*google.InvalidConfigValue).Key, gc.Equals, "GCE_REGION")
 }
 
 func (*connConfigSuite) TestValidateMissingProjectID(c *gc.C) {
@@ -43,6 +42,6 @@ func (*connConfigSuite) TestValidateMissingProjectID(c *gc.C) {
 	}
 	err := cfg.Validate()
 
-	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValueError{})
-	c.Check(err.(*config.InvalidConfigValueError).Key, gc.Equals, "GCE_PROJECT_ID")
+	c.Assert(err, gc.FitsTypeOf, &google.InvalidConfigValue{})
+	c.Check(err.(*google.InvalidConfigValue).Key, gc.Equals, "GCE_PROJECT_ID")
 }

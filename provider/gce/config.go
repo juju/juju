@@ -131,12 +131,12 @@ func parseOSEnv() (map[string]interface{}, error) {
 	return nil, nil
 }
 
-// handleInvalidField converts a config.InvalidConfigValue into a new
+// handleInvalidField converts a google.InvalidConfigValue into a new
 // error, translating a {provider/gce/google}.OSEnvVar* value into a
 // GCE config key in the new error.
 func handleInvalidField(err error) error {
-	vErr := err.(*google.InvalidCredential)
-	if vErr.Reason == nil && vErr.Value == "" {
+	vErr := err.(*google.InvalidConfigValue)
+	if strValue, ok := vErr.Value.(string); ok && strValue == "" {
 		key := osEnvFields[vErr.Key]
 		return errors.Errorf("%s: must not be empty", key)
 	}
