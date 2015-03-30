@@ -229,9 +229,11 @@ func (c *environConfig) imageEndpoint() string {
 // auth build a new Auth based on the config and returns it.
 func (c *environConfig) auth() google.Auth {
 	return google.Auth{
-		ClientID:    c.clientID(),
-		ClientEmail: c.clientEmail(),
-		PrivateKey:  []byte(c.privateKey()),
+		Credentials: &google.Credentials{
+			ClientID:    c.clientID(),
+			ClientEmail: c.clientEmail(),
+			PrivateKey:  []byte(c.privateKey()),
+		},
 	}
 }
 
