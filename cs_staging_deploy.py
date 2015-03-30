@@ -51,14 +51,12 @@ class CSStagingTest:
             raise Exception('Could not get machine 0 host')
 
     def remote_run(self, machine, cmd):
-        ssh_output = None
         try:
             ssh_output = self.client.get_juju_output('ssh', machine, cmd)
             if ssh_output:
                 logging.info('{}'.format(ssh_output))
         except subprocess.CalledProcessError as err:
             logging.exception(err)
-            logging.exception(ssh_output)
             raise
 
     def run(self):

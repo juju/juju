@@ -11,13 +11,21 @@ from jujupy import (
 from cs_staging_deploy import CSStagingTest
 
 
+def fake_EnvJujuClient_by_version(env, path=None, debug=None):
+    return env, path
+
+
+def fake_SimpleEnvironment_from_config(name):
+    return SimpleEnvironment(name, {})
+
+
 class TestCSStagingDeploy(TestCase):
 
     def test_from_args(self):
-        side_effect = lambda x, y=None, debug=False: (x, y)
-        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
+        with patch('jujupy.EnvJujuClient.by_version',
+                   side_effect=fake_EnvJujuClient_by_version):
             with patch('jujupy.SimpleEnvironment.from_config',
-                       side_effect=lambda x: SimpleEnvironment(x, {})):
+                       side_effect=fake_SimpleEnvironment_from_config):
                 csstaging = CSStagingTest.from_args(
                     'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
                     '0.0.0.0'
@@ -29,10 +37,10 @@ class TestCSStagingDeploy(TestCase):
         self.assertEqual(csstaging.charm_store_ip, '0.0.0.0')
 
     def test_from_args_agent_url(self):
-        side_effect = lambda x, y=None, debug=False: (x, y)
-        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
+        with patch('jujupy.EnvJujuClient.by_version',
+                   side_effect=fake_EnvJujuClient_by_version):
             with patch('jujupy.SimpleEnvironment.from_config',
-                       side_effect=lambda x: SimpleEnvironment(x, {})):
+                       side_effect=fake_SimpleEnvironment_from_config):
                 csstaging = CSStagingTest.from_args(
                     'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
                     '0.0.0.0', agent_url='http://agent_url.com'
@@ -41,10 +49,10 @@ class TestCSStagingDeploy(TestCase):
                          'http://agent_url.com')
 
     def test_from_args_series(self):
-        side_effect = lambda x, y=None, debug=False: (x, y)
-        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
+        with patch('jujupy.EnvJujuClient.by_version',
+                   side_effect=fake_EnvJujuClient_by_version):
             with patch('jujupy.SimpleEnvironment.from_config',
-                       side_effect=lambda x: SimpleEnvironment(x, {})):
+                       side_effect=fake_SimpleEnvironment_from_config):
                 csstaging = CSStagingTest.from_args(
                     'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
                     '0.0.0.0', series='precise'
@@ -53,10 +61,10 @@ class TestCSStagingDeploy(TestCase):
                          'precise')
 
     def test_from_args_charm(self):
-        side_effect = lambda x, y=None, debug=False: (x, y)
-        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
+        with patch('jujupy.EnvJujuClient.by_version',
+                   side_effect=fake_EnvJujuClient_by_version):
             with patch('jujupy.SimpleEnvironment.from_config',
-                       side_effect=lambda x: SimpleEnvironment(x, {})):
+                       side_effect=fake_SimpleEnvironment_from_config):
                 csstaging = CSStagingTest.from_args(
                     'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
                     '0.0.0.0', charm='some_charm'
@@ -67,7 +75,7 @@ class TestCSStagingDeploy(TestCase):
         with patch('jujupy.EnvJujuClient.get_version',
                    side_effect=lambda x, juju_path=None: ''):
             with patch('jujupy.SimpleEnvironment.from_config',
-                       side_effect=lambda x: SimpleEnvironment(x, {})):
+                       side_effect=fake_SimpleEnvironment_from_config):
                 csstaging = CSStagingTest.from_args(
                     'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
                     '0.0.0.0', debug_flag=True
