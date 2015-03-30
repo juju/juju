@@ -150,8 +150,6 @@ volume item error
 	)
 }
 
-type unmarshaller func(in []byte, out interface{}) (err error)
-
 func (s *volumeListSuite) assertUnmarshalledOutput(c *gc.C, unmarshall unmarshaller, machine string, args ...string) {
 	all := []string{machine}
 	context, err := runVolumeList(c, append(all, args...)...)
