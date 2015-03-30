@@ -16,7 +16,7 @@ import (
 type BaseSuite struct {
 	testing.BaseSuite
 
-	Credentials Credentials
+	Credentials *Credentials
 	ConnCfg     ConnectionConfig
 	Conn        *Connection
 	FakeConn    *fakeConn
@@ -39,7 +39,7 @@ var _ = gc.Suite(&BaseSuite{})
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.Credentials = Credentials{
+	s.Credentials = &Credentials{
 		ClientID:    "spam",
 		ClientEmail: "user@mail.com",
 		PrivateKey:  []byte("non-empty"),
@@ -134,14 +134,14 @@ func (s *BaseSuite) NewWaitError(op *compute.Operation, cause error) error {
 	return waitError{op, cause}
 }
 
-func (s *BaseSuite) patchNewToken(c *gc.C, expectedCreds Credentials, expectedScopes string, token *oauth.Token) {
+func (s *BaseSuite) patchNewToken(c *gc.C, expectedCreds *Credentials, expectedScopes string, token *oauth.Token) {
 	if expectedScopes == "" {
 		expectedScopes = "https://www.googleapis.com/auth/compute https://www.googleapis.com/auth/devstorage.full_control"
 	}
 	if token == nil {
 		token = &oauth.Token{}
 	}
-	s.PatchValue(&newToken, func(creds Credentials, scopes string) (*oauth.Token, error) {
+	s.PatchValue(&newToken, func(creds *Credentials, scopes string) (*oauth.Token, error) {
 		c.Check(creds, jc.DeepEquals, expectedCreds)
 		c.Check(scopes, gc.Equals, expectedScopes)
 		return token, nil

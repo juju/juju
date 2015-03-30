@@ -145,7 +145,8 @@ func handleInvalidField(err error) error {
 
 type environConfig struct {
 	*config.Config
-	attrs map[string]interface{}
+	attrs       map[string]interface{}
+	credentials *google.Credentials
 }
 
 // newConfig builds a new environConfig from the provided Config and
@@ -161,7 +162,11 @@ func newConfig(cfg *config.Config) *environConfig {
 // and returns it. This includes applying the provided defaults
 // values, if any. The resulting config values are validated.
 func newValidConfig(cfg *config.Config, defaults map[string]interface{}) (*environConfig, error) {
-	handled, err := handleAuthFile(cfg)
+	credentials, err := parseCredentials(cfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	handled, err := applyCredentials(cfg, credentials)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -184,6 +189,7 @@ func newValidConfig(cfg *config.Config, defaults map[string]interface{}) (*envir
 
 	// Build the config.
 	ecfg := newConfig(validCfg)
+	ecfg.credentials = credentials
 
 	// Do final validation.
 	if err := ecfg.validate(); err != nil {
@@ -227,12 +233,15 @@ func (c *environConfig) imageEndpoint() string {
 }
 
 // auth build a new Credentials based on the config and returns it.
-func (c *environConfig) auth() google.Credentials {
-	return google.Credentials{
-		ClientID:    c.clientID(),
-		ClientEmail: c.clientEmail(),
-		PrivateKey:  []byte(c.privateKey()),
+func (c *environConfig) auth() *google.Credentials {
+	if c.credentials == nil {
+		c.credentials = &google.Credentials{
+			ClientID:    c.clientID(),
+			ClientEmail: c.clientEmail(),
+			PrivateKey:  []byte(c.privateKey()),
+		}
 	}
+	return c.credentials
 }
 
 // newConnection build a ConnectionConfig based on the config and returns it.
@@ -303,36 +312,55 @@ func (c *environConfig) update(cfg *config.Config) error {
 	return nil
 }
 
-// handleAuthFile updates the auth credentials, if necessary, from the
-// provided JSON file.
-func handleAuthFile(cfg *config.Config) (*config.Config, error) {
+// parseCredentials extracts the OAuth2 info from the config from the
+// individual fields (falling back on the JSON file).
+func parseCredentials(cfg *config.Config) (*google.Credentials, error) {
 	attrs := cfg.UnknownAttrs()
 
+	// Try the auth fields first.
+	values := make(map[string]string)
 	for _, field := range configAuthFields {
 		if existing, ok := attrs[field].(string); ok && existing != "" {
-			// Ignore the auth file.
-			return cfg, nil
+			for key, candidate := range osEnvFields {
+				if field == candidate {
+					values[key] = existing
+					break
+				}
+			}
 		}
 	}
+	if len(values) > 0 {
+		creds, err := google.NewCredentials(values)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return creds, nil
+	}
 
-	// Extract the credentials.
+	// Fall back to the auth file.
 	filename, ok := attrs[cfgAuthFile].(string)
 	if !ok || filename == "" {
-		return cfg, nil
+		// The missing credentials will be caught later.
+		return nil, nil
 	}
 	authFile, err := os.Open(filename)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	defer authFile.Close()
-	creds, err := google.ParseAuthFile(authFile)
+	creds, err := google.ParseJSONKey(authFile)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return creds, nil
+}
 
-	// Apply them.
+func applyCredentials(cfg *config.Config, creds *google.Credentials) (*config.Config, error) {
 	updates := make(map[string]interface{})
-	for k, v := range creds {
+	for k, v := range creds.Values() {
+		if v == "" {
+			continue
+		}
 		if field, ok := osEnvFields[k]; ok {
 			for _, authField := range configAuthFields {
 				if field == authField {

@@ -4,6 +4,9 @@
 package google_test
 
 import (
+	"bytes"
+	"encoding/json"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -26,10 +29,21 @@ func (s *credentialsSuite) TestNewCredentials(c *gc.C) {
 	creds, err := google.NewCredentials(values)
 	c.Assert(err, jc.ErrorIsNil)
 
+	jsonKey := creds.JSONKey
+	creds.JSONKey = nil
 	c.Check(creds, jc.DeepEquals, &google.Credentials{
 		ClientID:    "abc",
 		ClientEmail: "xyz@g.com",
 		PrivateKey:  []byte("<some-key>"),
+	})
+	data := make(map[string]string)
+	err = json.Unmarshal(jsonKey, &data)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(data, jc.DeepEquals, map[string]string{
+		"type":         "service_account",
+		"client_id":    "abc",
+		"client_email": "xyz@g.com",
+		"private_key":  "<some-key>",
 	})
 }
 
@@ -47,6 +61,28 @@ func (s *credentialsSuite) TestNewCredentialsUnrecognized(c *gc.C) {
 	_, err := google.NewCredentials(values)
 
 	c.Check(err, gc.FitsTypeOf, errors.NotSupportedf(""))
+}
+
+func (s *credentialsSuite) TestParseJSONKey(c *gc.C) {
+	original := `
+{
+    "private_key_id": "mnopq",
+    "private_key": "<some-key>",
+    "client_email": "xyz@g.com",
+    "client_id": "abc",
+    "type": "service_account"
+}`[1:]
+	creds, err := google.ParseJSONKey(bytes.NewBufferString(original))
+	c.Assert(err, jc.ErrorIsNil)
+
+	jsonKey := creds.JSONKey
+	creds.JSONKey = nil
+	c.Check(creds, jc.DeepEquals, &google.Credentials{
+		ClientID:    "abc",
+		ClientEmail: "xyz@g.com",
+		PrivateKey:  []byte("<some-key>"),
+	})
+	c.Check(string(jsonKey), gc.Equals, original)
 }
 
 func (s *credentialsSuite) TestCredentialsValues(c *gc.C) {

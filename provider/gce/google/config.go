@@ -6,6 +6,7 @@ package google
 import (
 	"encoding/json"
 	"io"
+	"io/ioutil"
 	"net/mail"
 
 	"github.com/juju/errors"
@@ -25,31 +26,15 @@ const (
 	OSEnvImageEndpoint = "GCE_IMAGE_URL"
 )
 
-// ParseAuthFile extracts the auth information from the JSON file
-// downloaded from the GCE console (under /apiui/credential).
-func ParseAuthFile(authFile io.Reader) (map[string]string, error) {
-	data := make(map[string]string)
-	if err := json.NewDecoder(authFile).Decode(&data); err != nil {
-		return nil, errors.Trace(err)
-	}
-	for k, v := range data {
-		switch k {
-		case "private_key":
-			data[OSEnvPrivateKey] = v
-			delete(data, k)
-		case "client_email":
-			data[OSEnvClientEmail] = v
-			delete(data, k)
-		case "client_id":
-			data[OSEnvClientID] = v
-			delete(data, k)
-		}
-	}
-	return data, nil
-}
+const (
+	jsonKeyTypeServiceAccount = "service_account"
+)
 
 // Credentials holds the OAuth2 credentials needed to authenticate on GCE.
 type Credentials struct {
+	// JSONKey is the content of the JSON key file for these credentials.
+	JSONKey []byte
+
 	// ClientID is the GCE account's OAuth ID. It is part of the OAuth
 	// config used in the OAuth-wrapping network transport.
 	ClientID string
@@ -82,7 +67,79 @@ func NewCredentials(values map[string]string) (*Credentials, error) {
 			return nil, errors.NotSupportedf("key %q", k)
 		}
 	}
+
+	if err := creds.Validate(); err == nil {
+		jk, err := creds.buildJSONKey()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		creds.JSONKey = jk
+	}
+
 	return &creds, nil
+}
+
+// ParseJSONKey returns a new Credentials with values based on the
+// provided JSON key file contents.
+func ParseJSONKey(jsonKeyFile io.Reader) (*Credentials, error) {
+	jsonKey, err := ioutil.ReadAll(jsonKeyFile)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	values, err := parseJSONKey(jsonKey)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	delete(values, "type")
+	delete(values, "private_key_id")
+	creds, err := NewCredentials(values)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	creds.JSONKey = jsonKey
+	return creds, nil
+}
+
+func parseJSONKey(jsonKey []byte) (map[string]string, error) {
+	data := make(map[string]string)
+	if err := json.Unmarshal(jsonKey, &data); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	keyType, ok := data["type"]
+	if !ok {
+		return nil, errors.New(`missing "type"`)
+	}
+	switch keyType {
+	case jsonKeyTypeServiceAccount:
+		for k, v := range data {
+			switch k {
+			case "private_key":
+				data[OSEnvPrivateKey] = v
+				delete(data, k)
+			case "client_email":
+				data[OSEnvClientEmail] = v
+				delete(data, k)
+			case "client_id":
+				data[OSEnvClientID] = v
+				delete(data, k)
+			}
+		}
+	default:
+		return nil, errors.NotSupportedf("JSON key type %q", data["type"])
+	}
+	return data, nil
+}
+
+// buildJSONKey returns the content of the JSON key file for the
+// credential values.
+func (gc Credentials) buildJSONKey() ([]byte, error) {
+	return json.Marshal(&map[string]string{
+		"type":         jsonKeyTypeServiceAccount,
+		"client_id":    gc.ClientID,
+		"client_email": gc.ClientEmail,
+		"private_key":  string(gc.PrivateKey),
+	})
 }
 
 // Values returns the credentials as a simple mapping with the

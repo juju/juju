@@ -27,7 +27,7 @@ const (
 // scopes are used:
 //   https://www.googleapis.com/auth/compute
 //   https://www.googleapis.com/auth/devstorage.full_control
-func newTransport(creds Credentials) (*oauth.Transport, error) {
+func newTransport(creds *Credentials) (*oauth.Transport, error) {
 	token, err := newToken(creds, driverScopes)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -48,7 +48,7 @@ func newTransport(creds Credentials) (*oauth.Transport, error) {
 // newToken generates a new OAuth token for use in the OAuth-wrapping
 // network transport and returns it. This involves network calls to the
 // GCE OAuth API.
-var newToken = func(creds Credentials, scopes string) (*oauth.Token, error) {
+var newToken = func(creds *Credentials, scopes string) (*oauth.Token, error) {
 	jtok := jwt.NewToken(creds.ClientEmail, scopes, creds.PrivateKey)
 	jtok.ClaimSet.Aud = tokenURL
 
@@ -63,7 +63,7 @@ var newToken = func(creds Credentials, scopes string) (*oauth.Token, error) {
 // newConnection opens a new low-level connection to the GCE API using
 // the Auth's data and returns it. This includes building the
 // OAuth-wrapping network transport.
-func newConnection(creds Credentials) (*compute.Service, error) {
+func newConnection(creds *Credentials) (*compute.Service, error) {
 	transport, err := newTransport(creds)
 	if err != nil {
 		return nil, errors.Trace(err)
