@@ -289,18 +289,16 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 
 	// Test that with instance id prefix "i-nic-no-subnet-" we get a result
 	// with no associated subnet.
-	expectInfo = []network.InterfaceInfo{
-		{
-			DeviceIndex:   0,
-			ProviderId:    network.Id("dummy-eth0"),
-			NetworkName:   "juju-public",
-			InterfaceName: "eth0",
-			MACAddress:    "aa:bb:cc:dd:ee:f0",
-			Disabled:      false,
-			NoAutoStart:   false,
-			ConfigType:    network.ConfigDHCP,
-		},
-	}
+	expectInfo = []network.InterfaceInfo{{
+		DeviceIndex:   0,
+		ProviderId:    network.Id("dummy-eth0"),
+		NetworkName:   "juju-public",
+		InterfaceName: "eth0",
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		Disabled:      false,
+		NoAutoStart:   false,
+		ConfigType:    network.ConfigDHCP,
+	}}
 	info, err = e.NetworkInterfaces("i-nic-no-subnet-here")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, gc.HasLen, 1)
