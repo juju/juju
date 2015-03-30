@@ -88,10 +88,10 @@ service units can be added to a specific existing machine using the --to
 argument.
 
 Examples:
- juju add-unit mysql -n 5          (Add 5 mysql units on 5 new machines)
- juju add-unit mysql --to 23       (Add a mysql unit to machine 23)
- juju add-unit mysql --to 24/lxc/3 (Add unit to lxc container 3 on host machine 24)
- juju add-unit mysql --to lxc:25   (Add unit to a new lxc container on host machine 25)
+ juju service add-unit mysql -n 5          (Add 5 mysql units on 5 new machines)
+ juju service add-unit mysql --to 23       (Add a mysql unit to machine 23)
+ juju service add-unit mysql --to 24/lxc/3 (Add unit to lxc container 3 on host machine 24)
+ juju service add-unit mysql --to lxc:25   (Add unit to a new lxc container on host machine 25)
 `
 
 func (c *AddUnitCommand) Info() *cmd.Info {
