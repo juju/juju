@@ -1805,12 +1805,12 @@ func (s *ConfigSuite) TestSpecializeCharmRepo(c *gc.C) {
 }
 
 type specializedCharmRepo struct {
-	*charmrepo.LegacyCharmStore
+	*charmrepo.CharmStore
 	testMode bool
 }
 
-func (s *specializedCharmRepo) WithTestMode(testMode bool) charmrepo.Interface {
-	s.testMode = testMode
+func (s *specializedCharmRepo) WithTestMode() charmrepo.Interface {
+	s.testMode = true
 	return s
 }
 

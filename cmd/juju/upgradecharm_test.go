@@ -13,7 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5-unstable"
 	"gopkg.in/juju/charm.v5-unstable/charmrepo"
-	charmtesting "gopkg.in/juju/charm.v5-unstable/testing"
+	"gopkg.in/juju/charmstore.v4"
+	charmstoretesting "gopkg.in/juju/charmstore.v4/testing"
 
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -24,15 +25,21 @@ import (
 
 type UpgradeCharmErrorsSuite struct {
 	jujutesting.RepoSuite
+	srv *charmstoretesting.Server
 }
 
 func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	mockstore := charmtesting.NewMockStore(c, testcharms.Repo, map[string]int{})
-	s.AddCleanup(func(*gc.C) { mockstore.Close() })
-	s.PatchValue(&charmrepo.LegacyStore, &charmrepo.LegacyCharmStore{
-		BaseURL: mockstore.Address(),
+	s.srv = charmstoretesting.OpenServer(c, s.Session, charmstore.ServerParams{})
+	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
+	s.PatchValue(&newCharmStoreParams, charmrepo.NewCharmStoreParams{
+		URL: s.srv.URL(),
 	})
+}
+
+func (s *UpgradeCharmErrorsSuite) TearDownTest(c *gc.C) {
+	s.srv.Close()
+	s.RepoSuite.TearDownTest(c)
 }
 
 var _ = gc.Suite(&UpgradeCharmErrorsSuite{})

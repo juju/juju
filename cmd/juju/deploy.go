@@ -188,7 +188,10 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	repo, err := charmrepo.LegacyInferRepository(curl.Reference(), ctx.AbsPath(c.RepoPath))
+	repo, err := charmrepo.InferRepository(
+		curl.Reference(),
+		newCharmStoreParams,
+		ctx.AbsPath(c.RepoPath))
 	if err != nil {
 		return err
 	}
