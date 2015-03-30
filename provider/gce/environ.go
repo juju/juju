@@ -114,7 +114,8 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 
 var newConnection = func(ecfg *environConfig) (gceConnection, error) {
 	connCfg := ecfg.newConnection()
-	return connCfg.Connect(ecfg.auth())
+	auth := ecfg.auth()
+	return google.Connect(connCfg, auth)
 }
 
 // getSnapshot returns a copy of the environment. This is useful for

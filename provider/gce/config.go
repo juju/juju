@@ -236,8 +236,8 @@ func (c *environConfig) auth() google.Credentials {
 }
 
 // newConnection build a ConnectionConfig based on the config and returns it.
-func (c *environConfig) newConnection() *google.ConnectionConfig {
-	return &google.ConnectionConfig{
+func (c *environConfig) newConnection() google.ConnectionConfig {
+	return google.ConnectionConfig{
 		Region:    c.region(),
 		ProjectID: c.projectID(),
 	}

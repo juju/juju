@@ -51,8 +51,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	fake := &fakeConn{}
 	s.Conn = &Connection{
 		raw:       fake,
-		Region:    "a",
-		ProjectID: "spam",
+		region:    "a",
+		projectID: "spam",
 	}
 	s.FakeConn = fake
 

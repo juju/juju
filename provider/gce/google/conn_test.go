@@ -20,6 +20,19 @@ type connSuite struct {
 
 var _ = gc.Suite(&connSuite{})
 
+func (s *connSuite) TestConnect(c *gc.C) {
+	google.SetRawConn(s.Conn, nil)
+	service := &compute.Service{}
+	s.PatchValue(google.NewRawConnection, func(auth google.Credentials) (*compute.Service, error) {
+		return service, nil
+	})
+
+	conn, err := google.Connect(s.ConnCfg, s.Credentials)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(google.ExposeRawService(conn), gc.Equals, service)
+}
+
 func (s *connSuite) TestConnectionVerifyCredentials(c *gc.C) {
 	s.FakeConn.Project = &compute.Project{}
 	err := s.Conn.VerifyCredentials()

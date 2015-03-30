@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/mail"
 
-	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs/config"
@@ -117,27 +116,4 @@ func (gc ConnectionConfig) Validate() error {
 		return &config.InvalidConfigValueError{Key: OSEnvProjectID}
 	}
 	return nil
-}
-
-// Connect authenticates using the provided credentials and opens a
-// low-level connection to the GCE API for the Connection. Calling
-// Connect after a successful connection has already been made will
-// result in an error. All errors that happen while authenticating and
-// connecting are returned by Connect.
-func (gc ConnectionConfig) Connect(creds Credentials) (*Connection, error) {
-	raw, err := newRawConnection(creds)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	conn := &Connection{
-		raw:       &rawConn{raw},
-		Region:    gc.Region,
-		ProjectID: gc.ProjectID,
-	}
-	return conn, nil
-}
-
-var newRawConnection = func(creds Credentials) (*compute.Service, error) {
-	return newConnection(creds)
 }
