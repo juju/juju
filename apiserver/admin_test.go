@@ -39,7 +39,7 @@ type loginSuite struct {
 var _ = gc.Suite(&loginSuite{
 	baseLoginSuite{
 		setAdminApi: func(srv *apiserver.Server) {
-			apiserver.SetAdminApiVersions(srv, 0, 1)
+			apiserver.SetAdminApiVersions(srv, 0, 1, 2)
 		},
 	},
 })
@@ -922,4 +922,37 @@ func (s *loginSuite) assertRemoteEnvironment(c *gc.C, st *api.State, expected na
 	info, err := client.EnvironmentInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.UUID, gc.Equals, expected.Id())
+}
+
+func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
+	_, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	// Since the login and connection times truncate time to the second,
+	// we need to make sure our start time is just before now.
+	startTime := time.Now().Add(-time.Second)
+
+	password := "shhh..."
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Password: password,
+	})
+
+	info := s.APIInfo(c)
+	info.Tag = user.Tag()
+	info.Password = password
+	apiState, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	defer apiState.Close()
+
+	// The user now has last login updated.
+	err = user.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.LastLogin(), gc.NotNil)
+	c.Assert(user.LastLogin().After(startTime), jc.IsTrue)
+
+	// The env user is also updated.
+	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(envUser.LastConnection(), gc.NotNil)
+	c.Assert(envUser.LastConnection().After(startTime), jc.IsTrue)
 }
