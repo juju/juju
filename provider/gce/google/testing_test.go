@@ -38,11 +38,12 @@ var _ = gc.Suite(&BaseSuite{})
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.Auth = Auth{
+	creds := &Credentials{
 		ClientID:    "spam",
 		ClientEmail: "user@mail.com",
 		PrivateKey:  []byte("non-empty"),
 	}
+	s.Auth = Auth{creds}
 	fake := &fakeConn{}
 	s.Conn = &Connection{
 		Region:    "a",

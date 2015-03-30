@@ -21,19 +21,26 @@ const (
 	authURL = "https://accounts.google.com/o/oauth2/auth"
 )
 
-// Auth holds the information needed to authenticate on GCE.
-type Auth struct {
+// Credentials holds the OAuth2 credentials needed to authenticate on GCE.
+type Credentials struct {
 	// ClientID is the GCE account's OAuth ID. It is part of the OAuth
 	// config used in the OAuth-wrapping network transport.
 	ClientID string
+
 	// ClientEmail is the email address associatd with the GCE account.
 	// It is used to generate a new OAuth token to use in the
 	// OAuth-wrapping network transport.
 	ClientEmail string
+
 	// PrivateKey is the private key that matches the public key
 	// associatd with the GCE account. It is used to generate a new
 	// OAuth token to use in the OAuth-wrapping network transport.
 	PrivateKey []byte
+}
+
+// Auth holds the information needed to authenticate on GCE.
+type Auth struct {
+	*Credentials
 }
 
 // newTransport builds a new network transport that wraps requests
