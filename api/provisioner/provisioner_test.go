@@ -853,5 +853,8 @@ func (s *provisionerSuite) TestReleaseContainerAddresses(c *gc.C) {
 
 	addresses, err := s.State.AllocatedIPAddresses(container.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, jc.DeepEquals, []*state.IPAddress{})
+	c.Assert(addresses, gc.HasLen, 3)
+	for _, addr := range addresses {
+		c.Assert(addr.Life(), gc.Equals, state.Dead)
+	}
 }

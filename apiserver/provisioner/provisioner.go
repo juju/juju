@@ -767,22 +767,24 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 	return result, nil
 }
 
-// ReleaseContainerAddresses releases addresses allocated to a container. It
-// accepts container tags as arguments.
+// ReleaseContainerAddresses finds addresses allocated to a container and marks
+// them as Dead, to be released and removed. It accepts container tags as
+// arguments.
 func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	// Some preparations first.
-	environ, _, canAccess, err := p.prepareContainerAccessEnvironment()
-	if err != nil {
-		return result, err
-	}
 
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return result, errors.Trace(err)
+	}
 	// Loop over the passed container tags.
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
+			logger.Warningf("failed to parse machine tag %q: %v", entity.Tag, err)
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
@@ -792,17 +794,11 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 		// machine has the host as a parent.
 		container, err := p.getMachine(canAccess, tag)
 		if err != nil {
+			logger.Warningf("failed to get machine %q: %v", tag, err)
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		} else if !container.IsContainer() {
-			err = errors.Errorf("cannot release address for %q: not a container", tag)
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-
-		ciid, err := container.InstanceId()
-		if err != nil {
-			logger.Warningf("failed to get InstanceId for container %q: %v", tag, err)
+			err = errors.Errorf("cannot mark addresses for removal for %q: not a container", tag)
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -815,34 +811,17 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 			continue
 		}
 
-		releaseErrors := []error{}
+		deadErrors := []error{}
 		logger.Debugf("for container %q found addresses %v", tag, addresses)
 		for _, addr := range addresses {
-			err := environ.ReleaseAddress(ciid, network.Id(addr.SubnetId()), addr.Address())
-			if err != nil {
-				// Don't remove the address from state so we
-				// can retry releasing the address later.
-				logger.Warningf("failed to release address %v for container %q: %v", addr.Value, tag, err)
-				releaseErrors = append(releaseErrors, err)
-				continue
-			}
-
-			// TODO: (mfoord) Temporary fix until we have an
-			// address worker.
 			err = addr.EnsureDead()
 			if err != nil {
-				logger.Warningf("failed to remove address %v for container %q: %v", addr.Value, tag, err)
-				releaseErrors = append(releaseErrors, err)
+				deadErrors = append(deadErrors, err)
 				continue
 			}
-			err = addr.Remove()
-			if err != nil {
-				logger.Warningf("failed to remove address %v for container %q: %v", addr.Value, tag, err)
-				releaseErrors = append(releaseErrors, err)
-			}
 		}
-		if len(releaseErrors) != 0 {
-			err = errors.Errorf("failed to release all addresses for %q: %v", tag, releaseErrors)
+		if len(deadErrors) != 0 {
+			err = errors.Errorf("failed to mark all addresses for removal for %q: %v", tag, deadErrors)
 			result.Results[i].Error = common.ServerError(err)
 		}
 	}
@@ -878,7 +857,7 @@ func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (pa
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 
