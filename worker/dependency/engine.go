@@ -263,7 +263,7 @@ func (engine *engine) runWorker(name string, delay time.Duration, start StartFun
 			return err
 		}
 
-		logger.Infof("running %s manifold worker: %v", name, worker)
+		logger.Infof("running %s manifold worker", name)
 		select {
 		case <-engine.tomb.Dying():
 			logger.Infof("stopping %s manifold worker (shutting down)", name)
@@ -290,7 +290,7 @@ func (engine *engine) gotStarted(name string, worker worker.Worker) {
 		worker.Kill()
 	default:
 		// It's fine to use this worker; update info and copy back.
-		logger.Infof("%s manifold worker started: %v", name, worker)
+		logger.Infof("%s manifold worker started", name)
 		info.starting = false
 		info.worker = worker
 		engine.current[name] = info
@@ -308,7 +308,7 @@ func (engine *engine) gotStopped(name string, err error) {
 	// Copy current info and check for reasons to stop the engine.
 	info := engine.current[name]
 	if info.stopped() {
-		engine.tomb.Kill(errors.New("fatal: unexpected %s manifold worker stop"))
+		engine.tomb.Kill(errors.Errorf("fatal: unexpected %s manifold worker stop", name))
 	} else if engine.isFatal(err) {
 		engine.tomb.Kill(err)
 	}
