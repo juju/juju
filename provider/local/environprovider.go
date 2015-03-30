@@ -222,7 +222,7 @@ func isLoopback(hostAndPort string) (isLoopback bool, host, port string) {
 // returns host and port as distinctive strings.
 func getHostAndPort(original string) (host, port string) {
 	// Host and post specification is host:port
-	hostAndPortRegexp := regexp.MustCompile(`(?P<host>(\[?[::]*[^:]+))(?P<port>($|:[^:]+$))`)
+	hostAndPortRegexp := regexp.MustCompile(`(?P<host>\[?[::]*[^:]+)(?P<port>$|:[^:]+$)`)
 
 	matched := hostAndPortRegexp.FindStringSubmatch(original)
 	if len(matched) == 0 {
@@ -231,15 +231,10 @@ func getHostAndPort(original string) (host, port string) {
 		return original, ""
 	}
 
-	// Seems like magic but FindStringSubmatch above for string in the format
-	// host:port will return :
-	// {the whole string that matched regular expresssion, i.e. host:port,
-	// substring that matched host part,
-	// substring that matched host part,
-	// substring that matched port part,
-	// substring that matched port part}
+	// For the string in the form host:port, FindStringSubmatch above
+	// will return {host:port, host, :port}
 	host = matched[1]
-	port = matched[3]
+	port = matched[2]
 
 	// For hosts like [::1], remove brackets
 	if strings.Contains(host, "[") {
