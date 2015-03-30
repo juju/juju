@@ -65,6 +65,36 @@ type Credentials struct {
 	PrivateKey []byte
 }
 
+// NewCredentials returns a new Credentials based on the provided
+// values. The keys must be recognized OS env var names for the
+// different credential fields.
+func NewCredentials(values map[string]string) (*Credentials, error) {
+	var creds Credentials
+	for k, v := range values {
+		switch k {
+		case OSEnvClientID:
+			creds.ClientID = v
+		case OSEnvClientEmail:
+			creds.ClientEmail = v
+		case OSEnvPrivateKey:
+			creds.PrivateKey = []byte(v)
+		default:
+			return nil, errors.NotSupportedf("key %q", k)
+		}
+	}
+	return &creds, nil
+}
+
+// Values returns the credentials as a simple mapping with the
+// corresponding OS env variable names as the keys.
+func (gc Credentials) Values() map[string]string {
+	return map[string]string{
+		OSEnvClientID:    gc.ClientID,
+		OSEnvClientEmail: gc.ClientEmail,
+		OSEnvPrivateKey:  string(gc.PrivateKey),
+	}
+}
+
 // Validate checks the credentialss for invalid values. If the values
 // are not valid, it returns errors.NotValid with the message set to
 // the corresponding OS environment variable name.
