@@ -23,7 +23,7 @@ var _ = gc.Suite(&connSuite{})
 func (s *connSuite) TestConnect(c *gc.C) {
 	google.SetRawConn(s.Conn, nil)
 	service := &compute.Service{}
-	s.PatchValue(google.NewRawConnection, func(auth google.Credentials) (*compute.Service, error) {
+	s.PatchValue(google.NewRawConnection, func(auth *google.Credentials) (*compute.Service, error) {
 		return service, nil
 	})
 

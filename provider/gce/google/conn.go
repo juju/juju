@@ -75,7 +75,7 @@ type Connection struct {
 // Connect after a successful connection has already been made will
 // result in an error. All errors that happen while authenticating and
 // connecting are returned by Connect.
-func Connect(connCfg ConnectionConfig, creds Credentials) (*Connection, error) {
+func Connect(connCfg ConnectionConfig, creds *Credentials) (*Connection, error) {
 	raw, err := newRawConnection(creds)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -89,7 +89,7 @@ func Connect(connCfg ConnectionConfig, creds Credentials) (*Connection, error) {
 	return conn, nil
 }
 
-var newRawConnection = func(creds Credentials) (*compute.Service, error) {
+var newRawConnection = func(creds *Credentials) (*compute.Service, error) {
 	return newConnection(creds)
 }
 
