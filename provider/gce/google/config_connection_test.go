@@ -51,11 +51,11 @@ func (*connConfigSuite) TestValidateMissingProjectID(c *gc.C) {
 func (s *connSuite) TestConnect(c *gc.C) {
 	google.SetRawConn(s.Conn, nil)
 	service := &compute.Service{}
-	s.PatchValue(google.NewRawConnection, func(auth google.Auth) (*compute.Service, error) {
+	s.PatchValue(google.NewRawConnection, func(auth google.Credentials) (*compute.Service, error) {
 		return service, nil
 	})
 
-	conn, err := s.ConnCfg.Connect(s.Auth)
+	conn, err := s.ConnCfg.Connect(s.Credentials)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(google.ExposeRawService(conn), gc.Equals, service)

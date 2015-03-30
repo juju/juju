@@ -21,26 +21,21 @@ const (
 	authURL = "https://accounts.google.com/o/oauth2/auth"
 )
 
-// Auth holds the information needed to authenticate on GCE.
-type Auth struct {
-	*Credentials
-}
-
 // newTransport builds a new network transport that wraps requests
 // with the GCE-required OAuth authentication/authorization. The
 // transport is built using the Auth values. The following GCE access
 // scopes are used:
 //   https://www.googleapis.com/auth/compute
 //   https://www.googleapis.com/auth/devstorage.full_control
-func (ga Auth) newTransport() (*oauth.Transport, error) {
-	token, err := newToken(ga, driverScopes)
+func newTransport(creds Credentials) (*oauth.Transport, error) {
+	token, err := newToken(creds, driverScopes)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	transport := oauth.Transport{
 		Config: &oauth.Config{
-			ClientId: ga.ClientID,
+			ClientId: creds.ClientID,
 			Scope:    driverScopes,
 			TokenURL: tokenURL,
 			AuthURL:  authURL,
@@ -53,14 +48,14 @@ func (ga Auth) newTransport() (*oauth.Transport, error) {
 // newToken generates a new OAuth token for use in the OAuth-wrapping
 // network transport and returns it. This involves network calls to the
 // GCE OAuth API.
-var newToken = func(auth Auth, scopes string) (*oauth.Token, error) {
-	jtok := jwt.NewToken(auth.ClientEmail, scopes, auth.PrivateKey)
+var newToken = func(creds Credentials, scopes string) (*oauth.Token, error) {
+	jtok := jwt.NewToken(creds.ClientEmail, scopes, creds.PrivateKey)
 	jtok.ClaimSet.Aud = tokenURL
 
 	token, err := jtok.Assert(&http.Client{})
 	if err != nil {
 		msg := "retrieving auth token for %s"
-		return nil, errors.Annotatef(err, msg, auth.ClientEmail)
+		return nil, errors.Annotatef(err, msg, creds.ClientEmail)
 	}
 	return token, nil
 }
@@ -68,8 +63,8 @@ var newToken = func(auth Auth, scopes string) (*oauth.Token, error) {
 // newConnection opens a new low-level connection to the GCE API using
 // the Auth's data and returns it. This includes building the
 // OAuth-wrapping network transport.
-func (ga Auth) newConnection() (*compute.Service, error) {
-	transport, err := ga.newTransport()
+func newConnection(creds Credentials) (*compute.Service, error) {
+	transport, err := newTransport(creds)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -119,15 +119,13 @@ func (gc ConnectionConfig) Validate() error {
 	return nil
 }
 
-// TODO(ericsnow) Pass Credentials to Connect.
-
 // Connect authenticates using the provided credentials and opens a
 // low-level connection to the GCE API for the Connection. Calling
 // Connect after a successful connection has already been made will
 // result in an error. All errors that happen while authenticating and
 // connecting are returned by Connect.
-func (gc ConnectionConfig) Connect(auth Auth) (*Connection, error) {
-	raw, err := newRawConnection(auth)
+func (gc ConnectionConfig) Connect(creds Credentials) (*Connection, error) {
+	raw, err := newRawConnection(creds)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -140,6 +138,6 @@ func (gc ConnectionConfig) Connect(auth Auth) (*Connection, error) {
 	return conn, nil
 }
 
-var newRawConnection = func(auth Auth) (*compute.Service, error) {
-	return auth.newConnection()
+var newRawConnection = func(creds Credentials) (*compute.Service, error) {
+	return newConnection(creds)
 }

@@ -402,7 +402,6 @@ func (fi *fakeImages) ImageMetadataFetch(sources []simplestreams.DataSource, con
 type fakeConnCall struct {
 	FuncName string
 
-	Auth         google.Auth
 	ID           string
 	IDs          []string
 	ZoneName     string
@@ -431,14 +430,6 @@ func (fc *fakeConn) err() error {
 		return nil
 	}
 	return fc.Err
-}
-
-func (fc *fakeConn) Connect(auth google.Auth) error {
-	fc.Calls = append(fc.Calls, fakeConnCall{
-		FuncName: "Connect",
-		Auth:     auth,
-	})
-	return fc.err()
 }
 
 func (fc *fakeConn) VerifyCredentials() error {
