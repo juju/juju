@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
@@ -125,3 +126,7 @@ func resolveCharmURL(url string, client *api.Client, conf *config.Config) (*char
 	logger.Errorf("The series is not specified in the environment (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
 	return nil, fmt.Errorf("cannot resolve series for charm: %q", ref)
 }
+
+// newCharmStoreParams holds the parameters used to instantiate a new charm
+// store repo. It is defined here for testing purposes.
+var newCharmStoreParams = charmrepo.NewCharmStoreParams{}

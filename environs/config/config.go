@@ -1419,10 +1419,12 @@ func (cfg *Config) GenerateStateServerCertAndKey(hostAddresses []string) (string
 // It returns a charm repository with test mode enabled if applicable.
 func SpecializeCharmRepo(repo charmrepo.Interface, cfg *Config) charmrepo.Interface {
 	type specializer interface {
-		WithTestMode(testMode bool) charmrepo.Interface
+		WithTestMode() charmrepo.Interface
 	}
 	if store, ok := repo.(specializer); ok {
-		return store.WithTestMode(cfg.TestMode())
+		if cfg.TestMode() {
+			return store.WithTestMode()
+		}
 	}
 	return repo
 }
