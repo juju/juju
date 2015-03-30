@@ -74,7 +74,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	if err != nil || kind != names.UserTagKind {
 		// Users are not rate limited, all other entities are
 		if !a.srv.limiter.Acquire() {
-			logger.Debugf("rate limiting, try again later")
+			logger.Debugf("rate limiting for agent %s", req.AuthTag)
 			return fail, common.ErrTryAgain
 		}
 		defer a.srv.limiter.Release()
