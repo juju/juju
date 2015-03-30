@@ -287,6 +287,23 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 	c.Assert(info, gc.HasLen, 0)
 	assertInterfaces(c, e, opc, "i-no-nics-here", expectInfo[:0])
 
+	// Test that with instance id prefix "i-nic-no-subnet-" we get a result
+	// with no associated subnet.
+	expectInfo = []network.InterfaceInfo{{
+		DeviceIndex:   0,
+		ProviderId:    network.Id("dummy-eth0"),
+		NetworkName:   "juju-public",
+		InterfaceName: "eth0",
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		Disabled:      false,
+		NoAutoStart:   false,
+		ConfigType:    network.ConfigDHCP,
+	}}
+	info, err = e.NetworkInterfaces("i-nic-no-subnet-here")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, gc.HasLen, 1)
+	assertInterfaces(c, e, opc, "i-nic-no-subnet-here", expectInfo)
+
 	// Test we can induce errors.
 	s.breakMethods(c, e, "NetworkInterfaces")
 	info, err = e.NetworkInterfaces("i-any")
@@ -347,12 +364,15 @@ func (s *suite) TestSubnets(c *gc.C) {
 	c.Assert(netInfo, jc.DeepEquals, expectInfo[1:])
 	assertSubnets(c, e, opc, "i-foo", ids[1:], expectInfo[1:])
 
-	// Test that using an instance id with prefix "i-no-subnets-"
+	// Test that using an instance id with prefix of either
+	// "i-no-subnets-" or "i-nic-no-subnet-"
 	// returns no results, regardless whether ids are given or not.
-	netInfo, err = e.Subnets("i-no-subnets-foo", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(netInfo, gc.HasLen, 0)
-	assertSubnets(c, e, opc, "i-no-subnets-foo", nil, expectInfo[:0])
+	for _, instId := range []instance.Id{"i-no-subnets-foo", "i-nic-no-subnet-foo"} {
+		netInfo, err = e.Subnets(instId, nil)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(netInfo, gc.HasLen, 0)
+		assertSubnets(c, e, opc, instId, nil, expectInfo[:0])
+	}
 
 	netInfo, err = e.Subnets("i-no-subnets-foo", ids)
 	c.Assert(err, jc.ErrorIsNil)
