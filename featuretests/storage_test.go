@@ -379,11 +379,6 @@ func runVolumeList(c *gc.C, args ...string) *cmd.Context {
 	return context
 }
 
-func (s *cmdStorageSuite) TestListVolumeEmpty(c *gc.C) {
-	context := runVolumeList(c, "--format", "yaml")
-	c.Assert(testing.Stdout(context), gc.Equals, "")
-}
-
 func (s *cmdStorageSuite) TestListVolumeInvalidMachine(c *gc.C) {
 	context := runVolumeList(c, "abc", "--format", "yaml")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
@@ -391,18 +386,6 @@ func (s *cmdStorageSuite) TestListVolumeInvalidMachine(c *gc.C) {
 		gc.Matches,
 		`parsing machine tag machine-abc: "machine-abc" is not a valid machine tag
 `)
-}
-
-func (s *cmdStorageSuite) TestListVolumeAllTabular(c *gc.C) {
-	createUnitWithStorage(c, &s.JujuConnSuite, testPersistentPool)
-	context := runVolumeList(c)
-	expected := `
-MACHINE  DEVICE  VOLUME  ID  SIZE
-0                0           0B
-
-`[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
-	c.Assert(testing.Stderr(context), gc.Equals, "")
 }
 
 func (s *cmdStorageSuite) TestListVolumeTabularFilterMatch(c *gc.C) {
@@ -414,12 +397,5 @@ MACHINE  DEVICE  VOLUME  ID  SIZE
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
-	c.Assert(testing.Stderr(context), gc.Equals, "")
-}
-
-func (s *cmdStorageSuite) TestListVolumeFilterMachineNoMatch(c *gc.C) {
-	createUnitWithStorage(c, &s.JujuConnSuite, testPersistentPool)
-	context := runVolumeList(c, "2", "--format", "yaml")
-	c.Assert(testing.Stdout(context), gc.Equals, "")
 	c.Assert(testing.Stderr(context), gc.Equals, "")
 }
