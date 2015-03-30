@@ -96,15 +96,14 @@ func (c *CreateCommand) Run(ctx *cmd.Context) error {
 
 		if !diff.IsEmpty() {
 			// Some given CIDRs are missing.
-			return errors.Errorf("unknown subnets specified: %v", diff.SortedValues())
+			subnets := strings.Join(diff.SortedValues(), ", ")
+			return errors.Errorf("unknown subnets specified: %s", subnets)
 		}
 	}
 
 	// Create the new space.
 	err = api.CreateSpace(c.Name, c.CIDRs.SortedValues())
-	if errors.IsAlreadyExists(err) {
-		return errors.Errorf("space named %q already exists", c.Name)
-	} else if err != nil {
+	if err != nil {
 		return errors.Annotatef(err, "cannot create space %q", c.Name)
 	}
 

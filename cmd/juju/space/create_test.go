@@ -122,16 +122,32 @@ func (s *CreateSuite) TestRunWithSubnetsSucceeds(c *gc.C) {
 }
 
 func (s *CreateSuite) TestRunWithExistingSpaceFails(c *gc.C) {
-	s.api.SetErrors(errors.AlreadyExistsf("space %q", "bad-space"))
-	c.Logf("s.api.Errors: %#v", s.api.Errors)
+	s.api.SetErrors(errors.AlreadyExistsf("space %q", "foo"))
 
-	stdout, stderr, err := s.RunSubCommand(c, "bad-space")
-	c.Assert(err, gc.ErrorMatches, `space named "bad-space" already exists`)
-	c.Logf("err: %#v", err)
-	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue) //Satisfies, errors.IsAlreadyExists)
+	stdout, stderr, err := s.RunSubCommand(c, "foo")
+	c.Assert(err, gc.ErrorMatches, `cannot create space "foo": space "foo" already exists`)
+	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(stderr, gc.Equals, "")
-	s.api.CheckCallNames(c, "CreateSpace")
+	s.api.CheckCallNames(c, "CreateSpace", "Close")
+}
+
+func (s *CreateSuite) TestRunWhenSubnetsFails(c *gc.C) {
+	s.api.SetErrors(errors.New("boom"))
+
+	stdout, stderr, err := s.RunSubCommand(c, "foo", "10.1.2.0/24")
+	c.Assert(err, gc.ErrorMatches, `cannot fetch available subnets: boom`)
+	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stderr, gc.Equals, "")
+	s.api.CheckCallNames(c, "AllSubnets", "Close")
+}
+
+func (s *CreateSuite) TestRunWithUnknownSubnetsFails(c *gc.C) {
+	stdout, stderr, err := s.RunSubCommand(c, "foo", "10.20.30.0/24", "2001:db8::/64")
+	c.Assert(err, gc.ErrorMatches, "unknown subnets specified: 10.20.30.0/24, 2001:db8::/64")
+	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stderr, gc.Equals, "")
+	s.api.CheckCallNames(c, "AllSubnets", "Close")
 }
 
 func (s *CreateSuite) TestRunAPIConnectFails(c *gc.C) {

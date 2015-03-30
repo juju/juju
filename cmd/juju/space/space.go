@@ -28,7 +28,7 @@ type SpaceAPI interface {
 	CreateSpace(name string, subnetIds []string) error
 }
 
-var logger = loggo.GetLogger("juju.cmd.space")
+var logger = loggo.GetLogger("juju.cmd.juju.space")
 
 const commandDoc = `
 "juju space" provides commands to manage Juju network spaces.
