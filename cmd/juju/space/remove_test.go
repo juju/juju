@@ -33,7 +33,7 @@ func (s *RemoveSuite) TestInit(c *gc.C) {
 		expectErr  string
 	}{{
 		about:     "no arguments",
-		expectErr: "Space name is required",
+		expectErr: "space name is required",
 	}, {
 		about:     "invalid space name - with invalid characters",
 		args:      s.Strings("%inv$alid"),
@@ -45,7 +45,7 @@ func (s *RemoveSuite) TestInit(c *gc.C) {
 	}, {
 		about:     "multiple space names aren't allowed",
 		args:      s.Strings("a-space", "another-space"),
-		expectErr: "Please only provide a single space name.",
+		expectErr: "please only provide a single space name.",
 	}, {
 		about:      "delete a valid space name",
 		args:       s.Strings("myspace"),
