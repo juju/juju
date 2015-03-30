@@ -1269,14 +1269,18 @@ func (u *uniterBaseAPI) GetMeterStatus(args params.Entities) (params.MeterStatus
 			continue
 		}
 		err = common.ErrPerm
-		var status state.MeterStatus
+		var status *state.MeterStatus
 		if canAccess(unitTag) {
 			var unit *state.Unit
 			unit, err = u.getUnit(unitTag)
 			if err == nil {
 				status, err = unit.GetMeterStatus()
 			}
-			result.Results[i].Code = status.Code.String()
+			statusString, err := status.Code.String()
+			if err != nil {
+				return params.MeterStatusResults{}, errors.Trace(err)
+			}
+			result.Results[i].Code = statusString
 			result.Results[i].Info = status.Info
 		}
 		result.Results[i].Error = common.ServerError(err)

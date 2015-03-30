@@ -2240,8 +2240,8 @@ func (s *uniterBaseSuite) testGetMeterStatus(c *gc.C, facade getMeterStatus) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].Code, gc.Equals, "NOT SET")
-	c.Assert(result.Results[0].Info, gc.Equals, "")
+	c.Assert(result.Results[0].Code, gc.Equals, "GREEN")
+	c.Assert(result.Results[0].Info, gc.Equals, "ok")
 
 	newCode := "GREEN"
 	newInfo := "All is ok."

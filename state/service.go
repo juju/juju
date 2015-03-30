@@ -620,7 +620,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		},
 		createStatusOp(s.st, globalKey, unitStatusDoc),
 		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
-		createMeterStatusOp(s.st, globalKey, &meterStatusDoc{Code: MeterNotSet.String()}),
+		createMeterStatusOp(s.st, globalKey, &meterStatusDoc{Code: MeterNotSetString}),
 		{
 			C:      servicesC,
 			Id:     s.doc.DocID,

@@ -35,40 +35,43 @@ func (m MeterStatusCode) Severity() int {
 }
 
 // String returns a human readable string representation of the meter status.
-func (m MeterStatusCode) String() string {
+func (m MeterStatusCode) String() (string, error) {
 	s, ok := meterString[m]
 	if !ok {
-		return MeterNotAvailable.String()
+		return "", errors.Errorf("%q is not a valid meter status", m)
 	}
-	return s
+	return s, nil
 }
 
 // MeterStatusFromString returns a valid MeterStatusCode given a string representation.
-func MeterStatusFromString(str string) MeterStatusCode {
+func MeterStatusFromString(str string) (MeterStatusCode, error) {
 	for m, s := range meterString {
 		if s == str {
-			return m
+			return m, nil
 		}
 	}
-	return MeterNotAvailable
+	return -1, errors.Errorf("%q is not a valid meter status", str)
 }
 
 // This const block defines the relative severities of the valid MeterStatusCodes in ascending order.
 const (
-	MeterGreen MeterStatusCode = iota
-	MeterNotSet
+	MeterNotSet MeterStatusCode = iota
+	MeterGreen
 	MeterAmber
 	MeterRed
-	MeterNotAvailable
+
+	MeterGreenString  = "GREEN"
+	MeterNotSetString = "NOT SET"
+	MeterAmberString  = "AMBER"
+	MeterRedString    = "RED"
 )
 
 var (
 	meterString = map[MeterStatusCode]string{
-		MeterGreen:        "GREEN",
-		MeterNotSet:       "NOT SET",
-		MeterAmber:        "AMBER",
-		MeterNotAvailable: "NOT AVAILABLE",
-		MeterRed:          "RED",
+		MeterGreen:  MeterGreenString,
+		MeterNotSet: MeterNotSetString,
+		MeterAmber:  MeterAmberString,
+		MeterRed:    MeterRedString,
 	}
 )
 
@@ -81,17 +84,25 @@ type meterStatusDoc struct {
 
 // SetMeterStatus sets the meter status for the unit.
 func (u *Unit) SetMeterStatus(codeStr, info string) error {
-	code := MeterStatusFromString(codeStr)
+	code, err := MeterStatusFromString(codeStr)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	switch code {
 	case MeterGreen, MeterAmber, MeterRed:
+	case MeterNotSet:
+		return errors.Errorf("you can only set MeterGreen, MeterRed or MeterAmber")
 	default:
-		return errors.Errorf("invalid meter status %q", code)
 	}
 	meterDoc, err := u.getMeterStatusDoc()
 	if err != nil {
 		return errors.Annotatef(err, "cannot update meter status for unit %s", u.Name())
 	}
-	if meterDoc.Code == code.String() && meterDoc.Info == info {
+	codeStr, err = code.String()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if meterDoc.Code == codeStr && meterDoc.Info == info {
 		return nil
 	}
 
@@ -105,7 +116,7 @@ func (u *Unit) SetMeterStatus(codeStr, info string) error {
 			if err != nil {
 				return nil, errors.Annotatef(err, "cannot update meter status for unit %s", u.Name())
 			}
-			if meterDoc.Code == code.String() && meterDoc.Info == info {
+			if meterDoc.Code == codeStr && meterDoc.Info == info {
 				return nil, jujutxn.ErrNoOperations
 			}
 		}
@@ -118,7 +129,7 @@ func (u *Unit) SetMeterStatus(codeStr, info string) error {
 				C:      meterStatusC,
 				Id:     u.st.docID(u.globalKey()),
 				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{{"code", code.String()}, {"info", info}}}},
+				Update: bson.D{{"$set", bson.D{{"code", codeStr}, {"info", info}}}},
 			}}, nil
 	}
 	return errors.Annotatef(u.st.run(buildTxn), "cannot set meter state for unit %s", u.Name())
@@ -147,26 +158,30 @@ func removeMeterStatusOp(st *State, globalKey string) txn.Op {
 }
 
 // GetMeterStatus returns the meter status for the unit.
-func (u *Unit) GetMeterStatus() (MeterStatus, error) {
+func (u *Unit) GetMeterStatus() (*MeterStatus, error) {
 	mm, err := u.st.MetricsManager()
 	if err != nil {
-		return MeterStatus{MeterNotAvailable, ""}, errors.Annotatef(err, "cannot retrieve meter status for metrics manager")
+		return nil, errors.Annotatef(err, "cannot retrieve meter status for metrics manager")
 	}
 
 	mmStatus := mm.MeterStatus()
 	if mmStatus.Code == MeterRed {
-		return mmStatus, nil
+		return &mmStatus, nil
 	}
 
 	status, err := u.getMeterStatusDoc()
 	if err != nil {
-		return MeterStatus{MeterNotAvailable, ""}, errors.Annotatef(err, "cannot retrieve meter status for unit %s", u.Name())
+		return nil, errors.Annotatef(err, "cannot retrieve meter status for unit %s", u.Name())
 	}
 
-	code := MeterStatusFromString(status.Code)
+	code, err := MeterStatusFromString(status.Code)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	unitMeterStatus := MeterStatus{code, status.Info}
-	return combineMeterStatus(mmStatus, unitMeterStatus), nil
+	ms := combineMeterStatus(mmStatus, unitMeterStatus)
+	return &ms, nil
 }
 
 func combineMeterStatus(a, b MeterStatus) MeterStatus {

@@ -1176,20 +1176,20 @@ func (s *upgradesSuite) TestAddEnvUUIDToMeterStatus(c *gc.C) {
 	coll, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToMeterStatus, meterStatusC,
 		bson.M{
 			"_id":  "u#foo/0",
-			"code": MeterGreen.String(),
+			"code": MeterGreenString,
 		},
 		bson.M{
 			"_id":  "u#bar/0",
-			"code": MeterRed.String(),
+			"code": MeterRedString,
 		},
 	)
 
 	var newDoc meterStatusDoc
 	s.FindId(c, coll, newIDs[0], &newDoc)
-	c.Assert(newDoc.Code, gc.Equals, MeterGreen.String())
+	c.Assert(newDoc.Code, gc.Equals, MeterGreenString)
 
 	s.FindId(c, coll, newIDs[1], &newDoc)
-	c.Assert(newDoc.Code, gc.Equals, MeterRed.String())
+	c.Assert(newDoc.Code, gc.Equals, MeterRedString)
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToMeterStatusIdempotent(c *gc.C) {
@@ -1905,7 +1905,7 @@ func (s *upgradesSuite) TestCreateMeterStatuses(c *gc.C) {
 	for _, unit := range units {
 		status, err := unit.GetMeterStatus()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(status, gc.DeepEquals, MeterStatus{MeterNotSet, ""})
+		c.Assert(status, gc.DeepEquals, &MeterStatus{MeterGreen, "ok"})
 	}
 
 	// run migration again to make sure it's idempotent
@@ -1914,7 +1914,7 @@ func (s *upgradesSuite) TestCreateMeterStatuses(c *gc.C) {
 	for _, unit := range units {
 		status, err := unit.GetMeterStatus()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(status, gc.DeepEquals, MeterStatus{MeterNotSet, ""})
+		c.Assert(status, gc.DeepEquals, &MeterStatus{MeterGreen, "ok"})
 	}
 }
 
