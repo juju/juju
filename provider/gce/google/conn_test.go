@@ -4,8 +4,6 @@
 package google_test
 
 import (
-	"regexp"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"google.golang.org/api/compute/v1"
@@ -21,25 +19,6 @@ type connSuite struct {
 }
 
 var _ = gc.Suite(&connSuite{})
-
-func (s *connSuite) TestConnectionConnect(c *gc.C) {
-	google.SetRawConn(s.Conn, nil)
-	service := &compute.Service{}
-	s.PatchValue(google.NewRawConnection, func(auth google.Auth) (*compute.Service, error) {
-		return service, nil
-	})
-
-	err := s.Conn.Connect(s.Auth)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(google.ExposeRawService(s.Conn), gc.Equals, service)
-}
-
-func (s *connSuite) TestConnectionConnectAlreadyConnected(c *gc.C) {
-	err := s.Conn.Connect(s.Auth)
-
-	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`connect() failed (already connected)`))
-}
 
 func (s *connSuite) TestConnectionVerifyCredentials(c *gc.C) {
 	s.FakeConn.Project = &compute.Project{}

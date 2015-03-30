@@ -237,10 +237,9 @@ func (c *environConfig) auth() google.Auth {
 	}
 }
 
-// newConnection build a Connection based on the config and returns it.
-// The resulting connection must still have its Connect called.
-func (c *environConfig) newConnection() *google.Connection {
-	return &google.Connection{
+// newConnection build a ConnectionConfig based on the config and returns it.
+func (c *environConfig) newConnection() *google.ConnectionConfig {
+	return &google.ConnectionConfig{
 		Region:    c.region(),
 		ProjectID: c.projectID(),
 	}
@@ -271,7 +270,7 @@ func (c environConfig) validate() error {
 	if err := c.auth().Validate(); err != nil {
 		return errors.Trace(handleInvalidField(err))
 	}
-	if err := google.ValidateConnection(c.newConnection()); err != nil {
+	if err := c.newConnection().Validate(); err != nil {
 		return errors.Trace(handleInvalidField(err))
 	}
 
