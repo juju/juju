@@ -57,3 +57,54 @@ func (s *authSuite) TestAuthNewService(c *gc.C) {
 
 	c.Check(service, gc.NotNil)
 }
+
+type credentialsSuite struct {
+	BaseSuite
+}
+
+var _ = gc.Suite(&credentialsSuite{})
+
+func (*credentialsSuite) TestValidateValid(c *gc.C) {
+	creds := &Credentials{
+		ClientID:    "spam",
+		ClientEmail: "user@mail.com",
+		PrivateKey:  []byte("non-empty"),
+	}
+	err := creds.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (*credentialsSuite) TestValidateMissingID(c *gc.C) {
+	creds := &Credentials{
+		ClientEmail: "user@mail.com",
+		PrivateKey:  []byte("non-empty"),
+	}
+	err := creds.Validate()
+
+	c.Assert(err, gc.FitsTypeOf, &InvalidCredential{})
+	c.Check(err.(*InvalidCredential).Key, gc.Equals, "GCE_CLIENT_ID")
+}
+
+func (*credentialsSuite) TestValidateBadEmail(c *gc.C) {
+	creds := &Credentials{
+		ClientID:    "spam",
+		ClientEmail: "bad_email",
+		PrivateKey:  []byte("non-empty"),
+	}
+	err := creds.Validate()
+
+	c.Assert(err, gc.FitsTypeOf, &InvalidCredential{})
+	c.Check(err.(*InvalidCredential).Key, gc.Equals, "GCE_CLIENT_EMAIL")
+}
+
+func (*credentialsSuite) TestValidateMissingKey(c *gc.C) {
+	creds := &Credentials{
+		ClientID:    "spam",
+		ClientEmail: "user@mail.com",
+	}
+	err := creds.Validate()
+
+	c.Assert(err, gc.FitsTypeOf, &InvalidCredential{})
+	c.Check(err.(*InvalidCredential).Key, gc.Equals, "GCE_PRIVATE_KEY")
+}

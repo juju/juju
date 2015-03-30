@@ -135,7 +135,7 @@ func parseOSEnv() (map[string]interface{}, error) {
 // error, translating a {provider/gce/google}.OSEnvVar* value into a
 // GCE config key in the new error.
 func handleInvalidField(err error) error {
-	vErr := err.(*config.InvalidConfigValueError)
+	vErr := err.(*google.InvalidCredential)
 	if vErr.Reason == nil && vErr.Value == "" {
 		key := osEnvFields[vErr.Key]
 		return errors.Errorf("%s: must not be empty", key)
@@ -268,7 +268,7 @@ func (c environConfig) validate() error {
 	}
 
 	// Check sanity of GCE fields.
-	if err := google.ValidateAuth(c.auth()); err != nil {
+	if err := c.auth().Validate(); err != nil {
 		return errors.Trace(handleInvalidField(err))
 	}
 	if err := google.ValidateConnection(c.newConnection()); err != nil {

@@ -17,55 +17,6 @@ type configSuite struct {
 
 var _ = gc.Suite(&configSuite{})
 
-func (*configSuite) TestValidateAuth(c *gc.C) {
-	creds := &google.Credentials{
-		ClientID:    "spam",
-		ClientEmail: "user@mail.com",
-		PrivateKey:  []byte("non-empty"),
-	}
-	auth := google.Auth{creds}
-	err := google.ValidateAuth(auth)
-
-	c.Check(err, jc.ErrorIsNil)
-}
-
-func (*configSuite) TestValidateAuthMissingID(c *gc.C) {
-	creds := &google.Credentials{
-		ClientEmail: "user@mail.com",
-		PrivateKey:  []byte("non-empty"),
-	}
-	auth := google.Auth{creds}
-	err := google.ValidateAuth(auth)
-
-	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValueError{})
-	c.Check(err.(*config.InvalidConfigValueError).Key, gc.Equals, "GCE_CLIENT_ID")
-}
-
-func (*configSuite) TestValidateAuthBadEmail(c *gc.C) {
-	creds := &google.Credentials{
-		ClientID:    "spam",
-		ClientEmail: "bad_email",
-		PrivateKey:  []byte("non-empty"),
-	}
-	auth := google.Auth{creds}
-	err := google.ValidateAuth(auth)
-
-	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValueError{})
-	c.Check(err.(*config.InvalidConfigValueError).Key, gc.Equals, "GCE_CLIENT_EMAIL")
-}
-
-func (*configSuite) TestValidateAuthMissingKey(c *gc.C) {
-	creds := &google.Credentials{
-		ClientID:    "spam",
-		ClientEmail: "user@mail.com",
-	}
-	auth := google.Auth{creds}
-	err := google.ValidateAuth(auth)
-
-	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValueError{})
-	c.Check(err.(*config.InvalidConfigValueError).Key, gc.Equals, "GCE_PRIVATE_KEY")
-}
-
 func (*configSuite) TestValidateConnection(c *gc.C) {
 	conn := google.Connection{
 		Region:    "spam",
