@@ -26,6 +26,9 @@ type SpaceAPI interface {
 	// CreateSpace creates a new Juju network space, associating the
 	// specified subnets with it (optional; can be empty).
 	CreateSpace(name string, subnetIds []string) error
+
+	// RemoveSpace removes an existing Juju network space, transferring
+	// any associated subnets to the default space.
 	RemoveSpace(name string) error
 }
 

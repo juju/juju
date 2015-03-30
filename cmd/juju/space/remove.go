@@ -11,14 +11,15 @@ import (
 	"github.com/juju/names"
 )
 
-// RemoveCommand calls the API to remove a new network space.
+// RemoveCommand calls the API to remove an existing network space.
 type RemoveCommand struct {
 	SpaceCommandBase
 	Name string
 }
 
 const removeCommandDoc = `
-Removes a network space with a given name
+Removes an existing Juju network space with the given name. Any subnets
+associated with the space will be transfered to the default space.
 
 A network space name can consist of ...
 `
@@ -38,9 +39,9 @@ func (c *RemoveCommand) Info() *cmd.Info {
 func (c *RemoveCommand) Init(args []string) error {
 	// Validate given name.
 	if len(args) == 0 {
-		return errors.New("Space name is required")
+		return errors.New("space name is required")
 	} else if len(args) > 1 {
-		return errors.New("Please only provide a single space name.")
+		return errors.New("please only provide a single space name.")
 	}
 	givenName := args[0]
 	if !names.IsValidSpace(givenName) {
