@@ -47,16 +47,3 @@ func (*connConfigSuite) TestValidateMissingProjectID(c *gc.C) {
 	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValueError{})
 	c.Check(err.(*config.InvalidConfigValueError).Key, gc.Equals, "GCE_PROJECT_ID")
 }
-
-func (s *connSuite) TestConnect(c *gc.C) {
-	google.SetRawConn(s.Conn, nil)
-	service := &compute.Service{}
-	s.PatchValue(google.NewRawConnection, func(auth google.Credentials) (*compute.Service, error) {
-		return service, nil
-	})
-
-	conn, err := s.ConnCfg.Connect(s.Credentials)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(google.ExposeRawService(conn), gc.Equals, service)
-}
