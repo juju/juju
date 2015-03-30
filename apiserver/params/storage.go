@@ -443,3 +443,32 @@ type StoragePoolFilter struct {
 type StoragePoolsResult struct {
 	Results []StoragePool `json:"results,omitempty"`
 }
+
+// VolumeFilter holds a filter for volume list API call.
+type VolumeFilter struct {
+	// Machines are machine tags to filter on.
+	Machines []string `json:"machines,omitempty"`
+}
+
+// IsEmpty determines if filter is empty
+func (f *VolumeFilter) IsEmpty() bool {
+	return len(f.Machines) == 0
+}
+
+// VolumeItem contain volume, its attachments
+// and retrieval error.
+type VolumeItem struct {
+	// Volume is storage volume.
+	Volume Volume `json:"volume,omitempty"`
+
+	// Attachments are storage volume attachments.
+	Attachments []VolumeAttachment `json:"attachments,omitempty"`
+
+	// Error contains volume retrieval error.
+	Error *Error `json:"error,omitempty"`
+}
+
+// VolumeItemsResult holds volumes.
+type VolumeItemsResult struct {
+	Results []VolumeItem `json:"results,omitempty"`
+}

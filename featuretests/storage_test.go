@@ -4,6 +4,8 @@
 package featuretests
 
 import (
+	"strings"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -20,7 +22,6 @@ import (
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing"
-	"strings"
 )
 
 const (
@@ -36,7 +37,6 @@ func setupTestStorageSupport(c *gc.C, s *state.State) {
 	_, err = poolManager.Create(testPersistentPool, ec2.EBS_ProviderType, map[string]interface{}{"persistent": true})
 	c.Assert(err, jc.ErrorIsNil)
 
-	//	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	registry.RegisterEnvironStorageProviders("dummy", ec2.EBS_ProviderType)
 	registry.RegisterEnvironStorageProviders("dummyenv", ec2.EBS_ProviderType)
 }
@@ -370,4 +370,32 @@ func assertPoolExists(c *gc.C, st *state.State, pname, provider, attr string) {
 		}
 	}
 	c.Assert(exists, jc.IsTrue)
+}
+
+func runVolumeList(c *gc.C, args ...string) *cmd.Context {
+	context, err := testing.RunCommand(c,
+		envcmd.Wrap(&cmdstorage.VolumeListCommand{}), args...)
+	c.Assert(err, jc.ErrorIsNil)
+	return context
+}
+
+func (s *cmdStorageSuite) TestListVolumeInvalidMachine(c *gc.C) {
+	context := runVolumeList(c, "abc", "--format", "yaml")
+	c.Assert(testing.Stdout(context), gc.Equals, "")
+	c.Assert(testing.Stderr(context),
+		gc.Matches,
+		`parsing machine tag machine-abc: "machine-abc" is not a valid machine tag
+`)
+}
+
+func (s *cmdStorageSuite) TestListVolumeTabularFilterMatch(c *gc.C) {
+	createUnitWithStorage(c, &s.JujuConnSuite, testPersistentPool)
+	context := runVolumeList(c, "0")
+	expected := `
+MACHINE  DEVICE  VOLUME  ID  SIZE
+0                0           0B
+
+`[1:]
+	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	c.Assert(testing.Stderr(context), gc.Equals, "")
 }

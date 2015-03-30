@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
@@ -374,6 +375,16 @@ func (s *VolumeStateSuite) assertVolumeInfo(c *gc.C, tag names.VolumeTag, expect
 }
 
 func (s *VolumeStateSuite) TestPersistentVolumes(c *gc.C) {
+	_, persistentVolumes := s.assertCreateVolumes(c)
+	c.Assert(persistentVolumes, gc.HasLen, 1)
+
+	v, err := s.State.PersistentVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(v, gc.HasLen, 1)
+	c.Assert(persistentVolumes.Contains(v[0].VolumeTag()), jc.IsTrue)
+}
+
+func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (all, persistent set.Tags) {
 	registry.RegisterEnvironStorageProviders("someprovider", ec2.EBS_ProviderType)
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("persistent-block", ec2.EBS_ProviderType, map[string]interface{}{"persistent": "true"})
@@ -404,8 +415,19 @@ func (s *VolumeStateSuite) TestPersistentVolumes(c *gc.C) {
 	err = s.State.SetVolumeInfo(volume2.VolumeTag(), volumeInfoSet)
 	c.Assert(err, jc.ErrorIsNil)
 
-	v, err := s.State.PersistentVolumes()
+	volume3, err := s.State.StorageInstanceVolume(names.NewStorageTag("multi2up/2"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(v, gc.HasLen, 1)
-	c.Assert(v[0].VolumeTag(), gc.DeepEquals, volume1.VolumeTag())
+
+	return set.NewTags(volume1.VolumeTag(), volume2.VolumeTag(), volume3.VolumeTag()), set.NewTags(volume1.VolumeTag())
+}
+
+func (s *VolumeStateSuite) TestAllVolumes(c *gc.C) {
+	expected, _ := s.assertCreateVolumes(c)
+
+	found, err := s.State.AllVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found, gc.HasLen, 3)
+	for _, one := range found {
+		c.Assert(expected.Contains(one.VolumeTag()), jc.IsTrue)
+	}
 }
