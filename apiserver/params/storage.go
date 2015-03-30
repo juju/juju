@@ -455,6 +455,10 @@ func (f *VolumeFilter) IsEmpty() bool {
 	return len(f.Machines) == 0
 }
 
+// VolumeInstance describes a storage volume in the environment
+// for the purpose of volume CLI commands.
+// It is kept separate from Volume which is primarily used in uniter
+// and may answer different concerns as well as serve different purposes.
 type VolumeInstance struct {
 	VolumeTag string `json:"volumetag"`
 	VolumeId  string `json:"volumeid"`
