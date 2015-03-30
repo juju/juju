@@ -351,7 +351,7 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 		RemoteUnitName:  args.RemoteUnitName,
 		ForceRemoteUnit: args.ForceRemoteUnit,
 	}
-	err = u.runOperation(newCommandsOp(commandArgs, sendResponse), "running user commands")
+	err = u.runOperation(newCommandsOp(commandArgs, sendResponse))
 	if err == nil {
 		select {
 		case response := <-responseChan:
@@ -386,14 +386,10 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 //       * this can't be done quite yet, though, because relation changes are
 //         not yet encapsulated in operations, and that needs to happen before
 //         RunCommands will *actually* be goroutine-safe.
-func (u *Uniter) runOperation(creator creator, message string) (err error) {
+func (u *Uniter) runOperation(creator creator) error {
 	op, err := creator(u.operationFactory)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create operation")
 	}
-	// Update agent status so it says "Executing blah..."
-	updateAgentStatus(u, message, nil)
-	// On error, the status will go to the Failed state.
-	defer updateAgentStatus(u, message, err)
 	return u.operationExecutor.Run(op)
 }

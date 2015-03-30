@@ -141,6 +141,7 @@ type RunActionCallbacks struct {
 	operation.Callbacks
 	*MockFailAction
 	*MockAcquireExecutionLock
+	executingMessage string
 }
 
 func (cb *RunActionCallbacks) FailAction(actionId, message string) error {
@@ -151,13 +152,24 @@ func (cb *RunActionCallbacks) AcquireExecutionLock(message string) (func(), erro
 	return cb.MockAcquireExecutionLock.Call(message)
 }
 
+func (cb *RunActionCallbacks) SetExecutingStatus(message string) error {
+	cb.executingMessage = message
+	return nil
+}
+
 type RunCommandsCallbacks struct {
 	operation.Callbacks
 	*MockAcquireExecutionLock
+	executingMessage string
 }
 
 func (cb *RunCommandsCallbacks) AcquireExecutionLock(message string) (func(), error) {
 	return cb.MockAcquireExecutionLock.Call(message)
+}
+
+func (cb *RunCommandsCallbacks) SetExecutingStatus(message string) error {
+	cb.executingMessage = message
+	return nil
 }
 
 type MockPrepareHook struct {
@@ -175,6 +187,7 @@ type PrepareHookCallbacks struct {
 	operation.Callbacks
 	*MockPrepareHook
 	MockClearResolvedFlag *MockNoArgs
+	executingMessage      string
 }
 
 func (cb *PrepareHookCallbacks) PrepareHook(hookInfo hook.Info) (string, error) {
@@ -183,6 +196,11 @@ func (cb *PrepareHookCallbacks) PrepareHook(hookInfo hook.Info) (string, error) 
 
 func (cb *PrepareHookCallbacks) ClearResolvedFlag() error {
 	return cb.MockClearResolvedFlag.Call()
+}
+
+func (cb *PrepareHookCallbacks) SetExecutingStatus(message string) error {
+	cb.executingMessage = message
+	return nil
 }
 
 type MockNotify struct {

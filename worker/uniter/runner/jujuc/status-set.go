@@ -41,7 +41,7 @@ var validStatus = []params.Status{
 	params.StatusMaintenance,
 	params.StatusBlocked,
 	params.StatusWaiting,
-	params.StatusIdle,
+	params.StatusActive,
 }
 
 func (c *StatusSetCommand) Init(args []string) error {

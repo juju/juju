@@ -85,7 +85,7 @@ func (rh *runHook) beforeHook() error {
 		logger.Errorf("error updating workload status before %v hook: %v", rh.info.Kind, err)
 		return err
 	}
-	return err
+	return rh.callbacks.SetExecutingStatus(fmt.Sprintf("running %s hook", rh.info.Kind))
 }
 
 func (rh *runHook) afterHook(state State) (*State, error) {

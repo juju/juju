@@ -122,6 +122,7 @@ func (s *RunHookSuite) testPrepareSuccess(
 	newState, err := op.Prepare(before)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(newState, gc.DeepEquals, &after)
+	c.Check(callbacks.executingMessage, gc.Equals, "running config-changed hook")
 }
 
 func (s *RunHookSuite) TestPrepareSuccess_BlankSlate(c *gc.C) {
