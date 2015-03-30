@@ -1128,18 +1128,16 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 	} else if strings.HasPrefix(string(instId), "i-nic-no-subnet-") {
 		// Simulate a nic with no subnet on instances with id prefix
 		// "i-nic-no-subnet-"
-		info = []network.InterfaceInfo{
-			{
-				DeviceIndex:   0,
-				ProviderId:    network.Id("dummy-eth0"),
-				NetworkName:   "juju-public",
-				InterfaceName: "eth0",
-				MACAddress:    "aa:bb:cc:dd:ee:f0",
-				Disabled:      false,
-				NoAutoStart:   false,
-				ConfigType:    network.ConfigDHCP,
-			},
-		}
+		info = []network.InterfaceInfo{{
+			DeviceIndex:   0,
+			ProviderId:    network.Id("dummy-eth0"),
+			NetworkName:   "juju-public",
+			InterfaceName: "eth0",
+			MACAddress:    "aa:bb:cc:dd:ee:f0",
+			Disabled:      false,
+			NoAutoStart:   false,
+			ConfigType:    network.ConfigDHCP,
+		}}
 	}
 
 	estate.ops <- OpNetworkInterfaces{
@@ -1189,7 +1187,9 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 	if len(subnetIds) == 0 {
 		result = append([]network.SubnetInfo{}, allSubnets...)
 	}
-	if strings.HasPrefix(string(instId), "i-no-subnets-") || strings.HasPrefix(string(instId), "i-nic-no-subnet-") {
+	noSubnets := strings.HasPrefix(string(instId), "i-no-subnets")
+	noNICSubnets := strings.HasPrefix(string(instId), "i-nic-no-subnet-")
+	if noSubnets || noNICSubnets {
 		// Simulate no subnets available if the instance id has prefix
 		// "i-no-subnets-".
 		result = result[:0]
