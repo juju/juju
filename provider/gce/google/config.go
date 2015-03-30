@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/mail"
 
+	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs/config"
@@ -90,19 +91,55 @@ func (gc Credentials) Validate() error {
 	return nil
 }
 
-// ValidateConnection checks the connection's fields for invalid values.
+// ConnectionConfig contains the config values used for a connection
+// to the GCE API.
+type ConnectionConfig struct {
+	// Region is the GCE region in which to operate for the connection.
+	Region string
+
+	// ProjectID is the project ID to use in all GCE API requests for
+	// the connection.
+	ProjectID string
+}
+
+// Validate checks the connection's fields for invalid values.
 // If the values are not valid, it returns a config.InvalidConfigValue
 // error with the key set to the corresponding OS environment variable
 // name.
 //
 // To be considered valid, each of the connection's must be set to some
 // non-empty value.
-func ValidateConnection(conn *Connection) error {
-	if conn.Region == "" {
+func (gc ConnectionConfig) Validate() error {
+	if gc.Region == "" {
 		return &config.InvalidConfigValueError{Key: OSEnvRegion}
 	}
-	if conn.ProjectID == "" {
+	if gc.ProjectID == "" {
 		return &config.InvalidConfigValueError{Key: OSEnvProjectID}
 	}
 	return nil
+}
+
+// TODO(ericsnow) Pass Credentials to Connect.
+
+// Connect authenticates using the provided credentials and opens a
+// low-level connection to the GCE API for the Connection. Calling
+// Connect after a successful connection has already been made will
+// result in an error. All errors that happen while authenticating and
+// connecting are returned by Connect.
+func (gc ConnectionConfig) Connect(auth Auth) (*Connection, error) {
+	raw, err := newRawConnection(auth)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	conn := &Connection{
+		raw:       &rawConn{raw},
+		Region:    gc.Region,
+		ProjectID: gc.ProjectID,
+	}
+	return conn, nil
+}
+
+var newRawConnection = func(auth Auth) (*compute.Service, error) {
+	return auth.newConnection()
 }

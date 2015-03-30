@@ -19,7 +19,6 @@ import (
 // Note: This provider/environment does *not* implement storage.
 
 type gceConnection interface {
-	Connect(auth google.Auth) error
 	VerifyCredentials() error
 
 	// Instance gets the up-to-date info about the given instance
@@ -62,8 +61,8 @@ func newEnviron(cfg *config.Config) (*environ, error) {
 	}
 
 	// Connect and authenticate.
-	conn := newConnection(ecfg)
-	if err := conn.Connect(ecfg.auth()); err != nil {
+	conn, err := newConnection(ecfg)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -113,8 +112,9 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-var newConnection = func(ecfg *environConfig) gceConnection {
-	return ecfg.newConnection()
+var newConnection = func(ecfg *environConfig) (gceConnection, error) {
+	connCfg := ecfg.newConnection()
+	return connCfg.Connect(ecfg.auth())
 }
 
 // getSnapshot returns a copy of the environment. This is useful for

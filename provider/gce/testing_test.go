@@ -240,8 +240,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	// Patch out all expensive external deps.
 	s.Env.gce = s.FakeConn
-	s.PatchValue(&newConnection, func(*environConfig) gceConnection {
-		return s.FakeConn
+	s.PatchValue(&newConnection, func(*environConfig) (gceConnection, error) {
+		return s.FakeConn, nil
 	})
 	s.PatchValue(&supportedArchitectures, s.FakeCommon.SupportedArchitectures)
 	s.PatchValue(&bootstrap, s.FakeCommon.Bootstrap)

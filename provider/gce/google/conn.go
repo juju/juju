@@ -70,38 +70,12 @@ type rawConnectionWrapper interface {
 type Connection struct {
 	// TODO(ericsnow) name this something else?
 	raw rawConnectionWrapper
-
-	// Region is the GCE region in which to operate for this connection.
-	Region string
-	// ProjectID is the project ID to use in all GCE API requests for
-	// this connection.
+	// TODO(ericsnow) Do not expose these.
+	Region    string
 	ProjectID string
 }
 
 // TODO(ericsnow) Verify in each method that Connection.raw is set?
-
-// Connect authenticates using the provided credentials and opens a
-// low-level connection to the GCE API for the Connection. Calling
-// Connect after a successful connection has already been made will
-// result in an error. All errors that happen while authenticating and
-// connecting are returned by Connect.
-func (gc *Connection) Connect(auth Auth) error {
-	if gc.raw != nil {
-		return errors.New("connect() failed (already connected)")
-	}
-
-	raw, err := newRawConnection(auth)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	gc.raw = &rawConn{raw}
-	return nil
-}
-
-var newRawConnection = func(auth Auth) (*compute.Service, error) {
-	return auth.newConnection()
-}
 
 // VerifyCredentials ensures that the authentication credentials used
 // to connect are valid for use in the project and region defined for

@@ -17,6 +17,7 @@ type BaseSuite struct {
 	testing.BaseSuite
 
 	Auth     Auth
+	ConnCfg  ConnectionConfig
 	Conn     *Connection
 	FakeConn *fakeConn
 
@@ -44,11 +45,15 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		PrivateKey:  []byte("non-empty"),
 	}
 	s.Auth = Auth{creds}
-	fake := &fakeConn{}
-	s.Conn = &Connection{
+	s.ConnCfg = ConnectionConfig{
 		Region:    "a",
 		ProjectID: "spam",
+	}
+	fake := &fakeConn{}
+	s.Conn = &Connection{
 		raw:       fake,
+		Region:    "a",
+		ProjectID: "spam",
 	}
 	s.FakeConn = fake
 
