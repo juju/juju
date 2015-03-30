@@ -360,7 +360,7 @@ func (s *storageMockSuite) TestListVolumesEmptyFilter(c *gc.C) {
 			c.Assert(result, gc.FitsTypeOf, &params.VolumeItemsResult{})
 			results := result.(*params.VolumeItemsResult)
 			results.Results = []params.VolumeItem{
-				params.VolumeItem{Volume: params.Volume{VolumeTag: tag}}}
+				params.VolumeItem{Volume: params.VolumeInstance{VolumeTag: tag}}}
 			return nil
 		})
 	storageClient := storage.NewClient(apiCaller)

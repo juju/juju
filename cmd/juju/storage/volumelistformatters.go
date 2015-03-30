@@ -35,7 +35,7 @@ func formatVolumeListTabularTyped(infos map[string]map[string]VolumeInfo) []byte
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
-	print("MACHINE", "DEVICE", "VOLUME", "ID", "SIZE")
+	print("MACHINE", "STORAGE", "DEVICE", "VOLUME", "ID", "SIZE")
 
 	// sort by machines
 	machines := make([]string, len(infos))
@@ -60,7 +60,7 @@ func formatVolumeListTabularTyped(infos map[string]map[string]VolumeInfo) []byte
 		for _, volume := range volumes {
 			info := machineVolumes[volume]
 			size := humanize.IBytes(info.Size * humanize.MiByte)
-			print(machine, info.DeviceName, volume, info.VolumeId, size)
+			print(machine, info.StorageId, info.DeviceName, volume, info.VolumeId, size)
 		}
 	}
 	tw.Flush()

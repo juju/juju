@@ -45,6 +45,9 @@ type VolumeInfo struct {
 	VolumeId string `yaml:"id" json:"id"`
 
 	// from params.Volume
+	StorageId string `yaml:"storage" json:"storage"`
+
+	// from params.Volume
 	Serial string `yaml:"serial" json:"serial"`
 
 	// from params.Volume
@@ -126,11 +129,15 @@ func addOneToAll(machineId, volumeTag string, item VolumeInfo, all map[string]ma
 	return nil
 }
 
-func createInfo(volume params.Volume) VolumeInfo {
-	return VolumeInfo{
+func createInfo(volume params.VolumeInstance) VolumeInfo {
+	result := VolumeInfo{
 		VolumeId:   volume.VolumeId,
 		Serial:     volume.Serial,
 		Size:       volume.Size,
 		Persistent: volume.Persistent,
 	}
+	if storage, err := idFromTag(volume.StorageTag); err == nil {
+		result.StorageId = storage
+	}
+	return result
 }

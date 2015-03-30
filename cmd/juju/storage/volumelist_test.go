@@ -98,9 +98,9 @@ func (s *volumeListSuite) TestVolumeListTabular(c *gc.C) {
 		[]string{"2"},
 		// Default format is tabular
 		`
-MACHINE  DEVICE      VOLUME      ID                            SIZE
-2        testdevice  0/1         provider-supplied-0/1         1.0GiB
-2        testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
+MACHINE  STORAGE      DEVICE      VOLUME      ID                            SIZE
+2        shared-fs/0  testdevice  0/1         provider-supplied-0/1         1.0GiB
+2        shared-fs/0  testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
 
 `[1:],
 		`
@@ -115,11 +115,11 @@ func (s *volumeListSuite) TestVolumeListTabularSort(c *gc.C) {
 		[]string{"2", "3"},
 		// Default format is tabular
 		`
-MACHINE  DEVICE      VOLUME      ID                            SIZE
-2        testdevice  0/1         provider-supplied-0/1         1.0GiB
-2        testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
-3        testdevice  0/1         provider-supplied-0/1         1.0GiB
-3        testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
+MACHINE  STORAGE      DEVICE      VOLUME      ID                            SIZE
+2        shared-fs/0  testdevice  0/1         provider-supplied-0/1         1.0GiB
+2        shared-fs/0  testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
+3        shared-fs/0  testdevice  0/1         provider-supplied-0/1         1.0GiB
+3        shared-fs/0  testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
 
 `[1:],
 		`
@@ -135,13 +135,13 @@ func (s *volumeListSuite) TestVolumeListTabularSortWithUnattached(c *gc.C) {
 		[]string{"2", "3"},
 		// Default format is tabular
 		`
-MACHINE     DEVICE      VOLUME      ID                            SIZE
-25          testdevice  0/1         provider-supplied-0/1         1.0GiB
-25          testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
-42          testdevice  0/1         provider-supplied-0/1         1.0GiB
-42          testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
-unattached              3/3         provider-supplied-3/3         1.0GiB
-unattached              3/4         provider-supplied-3/4         1.0GiB
+MACHINE     STORAGE      DEVICE      VOLUME      ID                            SIZE
+25          shared-fs/0  testdevice  0/1         provider-supplied-0/1         1.0GiB
+25          shared-fs/0  testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
+42          shared-fs/0  testdevice  0/1         provider-supplied-0/1         1.0GiB
+42          shared-fs/0  testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
+unattached                           3/3         provider-supplied-3/3         1.0GiB
+unattached  db-dir/1000              3/4         provider-supplied-3/4         1.0GiB
 
 `[1:],
 		`
@@ -250,20 +250,21 @@ func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeItem, 
 	if s.listAll {
 		machines = []string{"25", "42"}
 		//unattached
-		result = append(result, s.createTestVolumeItem("3/4", true, nil))
-		result = append(result, s.createTestVolumeItem("3/3", false, nil))
+		result = append(result, s.createTestVolumeItem("3/4", true, "db-dir/1000", nil))
+		result = append(result, s.createTestVolumeItem("3/3", false, "", nil))
 	}
-	result = append(result, s.createTestVolumeItem("0/1", true, machines))
-	result = append(result, s.createTestVolumeItem("0/abc/0/88", false, machines))
+	result = append(result, s.createTestVolumeItem("0/1", true, "shared-fs/0", machines))
+	result = append(result, s.createTestVolumeItem("0/abc/0/88", false, "shared-fs/0", machines))
 	return result, nil
 }
 
 func (s mockVolumeListAPI) createTestVolumeItem(
 	id string,
 	persistent bool,
+	storageid string,
 	machines []string,
 ) params.VolumeItem {
-	volume := s.createTestVolume(id, persistent)
+	volume := s.createTestVolume(id, persistent, storageid)
 
 	// Create unattached volume
 	if len(machines) == 0 {
@@ -282,14 +283,17 @@ func (s mockVolumeListAPI) createTestVolumeItem(
 	}
 }
 
-func (s mockVolumeListAPI) createTestVolume(id string, persistent bool) params.Volume {
+func (s mockVolumeListAPI) createTestVolume(id string, persistent bool, storageid string) params.VolumeInstance {
 	tag := names.NewVolumeTag(id)
-	result := params.Volume{
+	result := params.VolumeInstance{
 		VolumeTag:  tag.String(),
 		VolumeId:   "provider-supplied-" + tag.Id(),
 		Serial:     "serial blah blah",
 		Persistent: persistent,
 		Size:       uint64(1024),
+	}
+	if storageid != "" {
+		result.StorageTag = names.NewStorageTag(storageid).String()
 	}
 	return result
 }

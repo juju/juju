@@ -77,7 +77,7 @@ func (s *baseStorageSuite) constructState(c *gc.C) *mockState {
 	s.volumeTag = names.NewVolumeTag("22")
 	filesystem := &mockFilesystem{tag: filesystemTag}
 	filesystemAttachment := &mockFilesystemAttachment{}
-	s.volume = &mockVolume{tag: s.volumeTag}
+	s.volume = &mockVolume{tag: s.volumeTag, storage: s.storageTag}
 	s.volumeAttachment = &mockVolumeAttachment{
 		VolumeTag:  s.volumeTag,
 		MachineTag: s.machineTag,
@@ -283,7 +283,12 @@ func (m *mockNotifyWatcher) Changes() <-chan struct{} {
 
 type mockVolume struct {
 	state.Volume
-	tag names.VolumeTag
+	tag     names.VolumeTag
+	storage names.StorageTag
+}
+
+func (m *mockVolume) StorageInstance() (names.StorageTag, error) {
+	return m.storage, nil
 }
 
 func (m *mockVolume) VolumeTag() names.VolumeTag {

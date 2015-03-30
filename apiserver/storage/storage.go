@@ -416,9 +416,12 @@ func (a *API) filterVolumes(f params.VolumeFilter) []params.VolumeItem {
 	return append(errs, a.getVolumeItems(attachments)...)
 }
 
-func convertStateVolumeToParams(st state.Volume) params.Volume {
-	volume := params.Volume{VolumeTag: st.VolumeTag().String()}
+func convertStateVolumeToParams(st state.Volume) params.VolumeInstance {
+	volume := params.VolumeInstance{VolumeTag: st.VolumeTag().String()}
 
+	if storage, err := st.StorageInstance(); err == nil {
+		volume.StorageTag = storage.String()
+	}
 	if info, err := st.Info(); err == nil {
 		volume.Serial = info.Serial
 		volume.Size = info.Size

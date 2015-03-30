@@ -455,11 +455,21 @@ func (f *VolumeFilter) IsEmpty() bool {
 	return len(f.Machines) == 0
 }
 
+type VolumeInstance struct {
+	VolumeTag string `json:"volumetag"`
+	VolumeId  string `json:"volumeid"`
+	Serial    string `json:"serial"`
+	// Size is the size of the volume in MiB.
+	Size       uint64 `json:"size"`
+	Persistent bool   `json:"persistent"`
+	StorageTag string `json:"storage,omitempty"`
+}
+
 // VolumeItem contain volume, its attachments
 // and retrieval error.
 type VolumeItem struct {
 	// Volume is storage volume.
-	Volume Volume `json:"volume,omitempty"`
+	Volume VolumeInstance `json:"volume,omitempty"`
 
 	// Attachments are storage volume attachments.
 	Attachments []VolumeAttachment `json:"attachments,omitempty"`
