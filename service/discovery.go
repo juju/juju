@@ -242,8 +242,9 @@ func DiscoverInitSystemScript() string {
 	return fmt.Sprintf(discoverInitSystemScript, caseStmt)
 }
 
+// writeDiscoverInitSystemScript returns the list of shell commands that
+// will write the script to disk.
 func writeDiscoverInitSystemScript(filename string) []string {
-
 	renderer := shell.BashRenderer{}
 	script := DiscoverInitSystemScript()
 	cmds := renderer.WriteFile(filename, []byte(script))
@@ -252,6 +253,8 @@ func writeDiscoverInitSystemScript(filename string) []string {
 	return cmds
 }
 
+// shellCase is the template for a bash case statement, for use in
+// newShellSelectCommand.
 const shellCase = `
 case "$%s" in
 %s
