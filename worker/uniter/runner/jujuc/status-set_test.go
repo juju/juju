@@ -31,7 +31,7 @@ var statusSetInitTests = []struct {
 	{[]string{"maintenance", "hello"}, ""},
 	{[]string{}, `invalid args, require <status> \[message\]`},
 	{[]string{"maintenance", "hello", "extra"}, `unrecognized args: \["extra"\]`},
-	{[]string{"foo", "hello"}, `invalid status "foo", expected one of \[maintenance blocked waiting idle\]`},
+	{[]string{"foo", "hello"}, `invalid status "foo", expected one of \[maintenance blocked waiting active\]`},
 }
 
 func (s *statusSetSuite) TestStatusSetInit(c *gc.C) {
@@ -51,7 +51,7 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: status-set <maintenance | blocked | waiting | idle> [message]
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: status-set <maintenance | blocked | waiting | active> [message]
 purpose: set status information
 
 Sets the workload status of the charm. Message is optional.
@@ -64,7 +64,7 @@ status and message are the same as what's already set.
 func (s *statusSetSuite) TestStatus(c *gc.C) {
 	for i, args := range [][]string{
 		[]string{"maintenance", "doing some work"},
-		[]string{"idle", ""},
+		[]string{"active", ""},
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
