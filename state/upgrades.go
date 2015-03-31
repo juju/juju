@@ -457,6 +457,62 @@ func AddEnvUUIDToEnvUsersDoc(st *State) error {
 	return st.runRawTransaction(ops)
 }
 
+// AddLifeFieldOfIPAddresses creates the Life field for all IP addresses
+// that don't have this field. For addresses referencing live machines Life
+// will be set to Alive, otherwise Life will be set to Dead.
+func AddLifeFieldOfIPAddresses(st *State) error {
+	addresses, iCloser := st.getCollection(ipaddressesC)
+	defer iCloser()
+	machines, mCloser := st.getCollection(machinesC)
+	defer mCloser()
+
+	var ops []txn.Op
+	var address bson.M
+	iter := addresses.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&address) {
+		// if the address already has a Life field, then it has already been
+		// upgraded.
+		if _, ok := address["life"]; ok {
+			continue
+		}
+
+		life := Alive
+		allocatedState, ok := address["state"]
+
+		var addressAllocated bool
+		// if state was missing, we pretend the IP address is
+		// unallocated. State can't be empty anyway, so this shouldn't
+		// happen.
+		if ok && allocatedState == string(AddressStateAllocated) {
+			addressAllocated = true
+		}
+
+		// An IP address that has an allocated state but no machine ID
+		// shouldn't be possible.
+		if machineId, ok := address["machineid"]; addressAllocated && ok && machineId != "" {
+			mDoc := &machineDoc{}
+			err := machines.Find(bson.D{{"machineid", machineId}}).One(&mDoc)
+			if err != nil || mDoc.Life != Alive {
+				life = Dead
+			}
+		}
+
+		ops = append(ops, txn.Op{
+			C:  ipaddressesC,
+			Id: address["_id"],
+			Update: bson.D{{"$set", bson.D{
+				{"life", life},
+			}}},
+		})
+		address = nil
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
 func AddNameFieldLowerCaseIdOfUsers(st *State) error {
 	users, closer := st.getCollection(usersC)
 	defer closer()
