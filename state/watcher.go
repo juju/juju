@@ -169,6 +169,12 @@ func (st *State) WatchEnvironments() StringsWatcher {
 	return newLifecycleWatcher(st, environmentsC, nil, nil, nil)
 }
 
+// WatchIPAddresses returns a StringsWatcher that notifies of changes to the
+// lifecycles of IP addresses.
+func (st *State) WatchIPAddresses() StringsWatcher {
+	return newLifecycleWatcher(st, ipaddressesC, nil, nil, nil)
+}
+
 // WatchVolumes returns a StringsWatcher that notifies of changes to
 // the lifecycles of all volumes.
 // TODO(wallyworld) - this currently watches all volumes; we need separate

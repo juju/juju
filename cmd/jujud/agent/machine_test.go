@@ -240,6 +240,7 @@ type MachineSuite struct {
 var perEnvSingularWorkers = []string{
 	"cleaner",
 	"minunitsworker",
+	"addresserworker",
 	"environ-provisioner",
 	"charm-revision-updater",
 	"firewaller",
