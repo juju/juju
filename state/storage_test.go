@@ -41,12 +41,20 @@ func (s *StorageStateSuiteBase) SetUpSuite(c *gc.C) {
 	registry.RegisterProvider("machinescoped", &dummy.StorageProvider{
 		StorageScope: storage.ScopeMachine,
 	})
+	registry.RegisterProvider("environscoped-block", &dummy.StorageProvider{
+		StorageScope: storage.ScopeEnviron,
+		SupportsFunc: func(k storage.StorageKind) bool {
+			return k == storage.StorageKindBlock
+		},
+	})
 	registry.RegisterEnvironStorageProviders(
 		"someprovider", "environscoped", "machinescoped",
+		"environscoped-block",
 	)
 	s.AddSuiteCleanup(func(c *gc.C) {
 		registry.RegisterProvider("environscoped", nil)
 		registry.RegisterProvider("machinescoped", nil)
+		registry.RegisterProvider("environscoped-block", nil)
 	})
 }
 

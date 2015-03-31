@@ -517,29 +517,7 @@ func (st *State) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (err error)
 				return nil, err
 			}
 		}
-		ops := setVolumeInfoOps(tag, info, unsetParams)
-
-		// If there's a filesystem destined for the volume,
-		// set the filesystem info.
-		f, err := st.VolumeFilesystem(tag)
-		if err == nil {
-			filesystemInfo := FilesystemInfo{
-				info.Size,
-				info.Pool,
-				// FilesystemId is set to "" for
-				// filesystems backed by volumes.
-				"",
-			}
-			filesystemOps := setFilesystemInfoOps(
-				f.FilesystemTag(),
-				filesystemInfo,
-				unsetParams,
-			)
-			ops = append(ops, filesystemOps...)
-		} else if !errors.IsNotFound(err) {
-			return nil, errors.Trace(err)
-		}
-		return ops, nil
+		return setVolumeInfoOps(tag, info, unsetParams), nil
 	}
 	return st.run(buildTxn)
 }

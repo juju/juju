@@ -511,12 +511,12 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		})
 	}
 
-	if len(filesystemOps) > 0 {
+	if len(fsAttachments) > 0 {
 		attachmentOps := createMachineFilesystemAttachmentsOps(mdoc.Id, fsAttachments)
 		prereqOps = append(prereqOps, filesystemOps...)
 		prereqOps = append(prereqOps, attachmentOps...)
 	}
-	if len(volumeOps) > 0 {
+	if len(volumeAttachments) > 0 {
 		attachmentOps := createMachineVolumeAttachmentsOps(mdoc.Id, volumeAttachments)
 		prereqOps = append(prereqOps, volumeOps...)
 		prereqOps = append(prereqOps, attachmentOps...)
