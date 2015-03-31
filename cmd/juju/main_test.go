@@ -241,6 +241,7 @@ var commandNames = []string{
 	"stat", // alias for status
 	"status",
 	"storage",
+	"subnet",
 	"switch",
 	"sync-tools",
 	"terminate-machine", // alias for destroy-machine
