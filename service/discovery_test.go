@@ -228,11 +228,6 @@ func (s *discoverySuite) TestDiscoverServiceLocalHost(c *gc.C) {
 	case "windows":
 		localInitSystem = service.InitSystemWindows
 	case "linux":
-		// TODO(ericsnow) Drop the vivid special-case once systemd is
-		// turned on there.
-		if version.Current.Series == "vivid" {
-			return
-		}
 		localInitSystem, _ = service.VersionInitSystem(version.Current)
 	}
 	test := discoveryTest{
@@ -366,7 +361,8 @@ func (s *discoverySuite) TestNewShellSelectCommand(c *gc.C) {
 		return "echo -n " + initSystem, true
 	}
 	script += "init_system=$(" + filename + ")\n"
-	script += service.NewShellSelectCommand("init_system", handler)
+	// The script will fail with exit 1 if it cannot match in init system.
+	script += service.NewShellSelectCommand("init_system", "exit 1", handler)
 	response, err := exec.RunCommands(exec.RunParams{
 		Commands: script,
 	})

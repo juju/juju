@@ -119,14 +119,6 @@ func (ss *FakeService) Conf() common.Conf {
 	return ss.Service.Conf
 }
 
-// UpdateConfig implements Service.
-func (ss *FakeService) UpdateConfig(conf common.Conf) {
-	ss.AddCall("Conf", conf)
-	ss.Service.UpdateConfig(conf)
-
-	ss.NextErr()
-}
-
 // Running implements Service.
 func (ss *FakeService) Running() (bool, error) {
 	ss.AddCall("Running")

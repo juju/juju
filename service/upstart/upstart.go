@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/service/common"
 )
@@ -24,7 +25,11 @@ var InitDir = "/etc/init"
 
 var servicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
 
-var logger = loggo.GetLogger("juju.service.upstart")
+var (
+	logger = loggo.GetLogger("juju.service.upstart")
+
+	renderer = &shell.BashRenderer{}
+)
 
 // ListServices returns the name of all installed services on the
 // local host.
@@ -82,7 +87,7 @@ func (s *Service) confPath() string {
 
 // Validate returns an error if the service is not adequately defined.
 func (s *Service) Validate() error {
-	if err := s.Service.Validate(); err != nil {
+	if err := s.Service.Validate(renderer); err != nil {
 		return errors.Trace(err)
 	}
 

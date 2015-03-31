@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/service/common"
@@ -179,21 +180,24 @@ func identifyExecutable(executable string) (string, bool) {
 	}
 }
 
-// TODO(ericsnow) Build this script more dynamically (using shell.Renderer).
-// TODO(ericsnow) Use a case statement in the script?
-
-// DiscoverInitSystemScript is the shell script to use when
-// discovering the local init system.
-const DiscoverInitSystemScript = `#!/usr/bin/env bash
+const discoverInitSystemScript = `#!/usr/bin/env bash
 
 function checkInitSystem() {
-    if [[ $1 == *"systemd"* ]]; then
+    # Match the init system name from the arg.
+    %s
+    case "$1" in
+    *"systemd"*)
         echo -n systemd
         exit $?
-    elif [[ $1 == *"upstart"* ]]; then
+        ;;
+    *"upstart"*)
         echo -n upstart
         exit $?
-    fi
+        ;;
+    *)
+        # Do nothing and continue.
+        ;;
+    esac
 }
 
 # Find the executable.
@@ -226,45 +230,55 @@ fi
 exit 1
 `
 
-func writeDiscoverInitSystemScript(filename string) []string {
-	// TODO(ericsnow) Use utils.shell.Renderer.WriteScript.
-	return []string{
-		fmt.Sprintf(`
-cat > %s << 'EOF'
-%s
-EOF`[1:], filename, DiscoverInitSystemScript),
-		"chmod 0755 " + filename,
-	}
+// DiscoverInitSystemScript returns the shell script to use when
+// discovering the local init system. The script is quite specific to
+// bash, so it includes an explicit bash shbang.
+func DiscoverInitSystemScript() string {
+	dflt := "# Do nothing and continue."
+	caseStmt := newShellSelectCommand("1", dflt, func(name string) (string, bool) {
+		return fmt.Sprintf("echo -n %s\n    exit $?", name), true
+	})
+	caseStmt = "    " + strings.Replace(caseStmt, "\n", "\n    ", -1)
+	return fmt.Sprintf(discoverInitSystemScript, caseStmt)
 }
 
-const caseLine = "%sif [[ $%s == \"%s\" ]]; then %s\n"
+// writeDiscoverInitSystemScript returns the list of shell commands that
+// will write the script to disk.
+func writeDiscoverInitSystemScript(filename string) []string {
+	renderer := shell.BashRenderer{}
+	script := DiscoverInitSystemScript()
+	cmds := renderer.WriteFile(filename, []byte(script))
+	perm := renderer.ScriptPermissions()
+	cmds = append(cmds, renderer.Chmod(filename, perm)...)
+	return cmds
+}
 
-// newShellSelectCommand creates a bash if statement with an if
-// (or elif) clause for each of the executables in linuxExecutables.
-// The body of each clause comes from calling the provided handler with
-// the init system name. If the handler does not support the args then
-// it returns a false "ok" value.
-func newShellSelectCommand(envVarName string, handler func(string) (string, bool)) string {
-	// TODO(ericsnow) Build the command in a better way?
-	// TODO(ericsnow) Use a case statement?
+// shellCase is the template for a bash case statement, for use in
+// newShellSelectCommand.
+const shellCase = `
+case "$%s" in
+%s
+*)
+    %s
+    ;;
+esac`
 
-	prefix := ""
-	lines := ""
+// newShellSelectCommand creates a bash case statement with clause for
+// each of the linux init systems. The body of each clause comes from
+// calling the provided handler with the init system name. If the
+// handler does not support the args then it returns a false "ok" value.
+func newShellSelectCommand(envVarName, dflt string, handler func(string) (string, bool)) string {
+	var cases []string
 	for _, initSystem := range linuxInitSystems {
 		cmd, ok := handler(initSystem)
 		if !ok {
 			continue
 		}
-		lines += fmt.Sprintf(caseLine, prefix, envVarName, initSystem, cmd)
+		cases = append(cases, initSystem+")", "    "+cmd, "    ;;")
+	}
+	if len(cases) == 0 {
+		return ""
+	}
 
-		if prefix != "el" {
-			prefix = "el"
-		}
-	}
-	if lines != "" {
-		lines += "" +
-			"else exit 1\n" +
-			"fi"
-	}
-	return lines
+	return fmt.Sprintf(shellCase[1:], envVarName, strings.Join(cases, "\n"), dflt)
 }

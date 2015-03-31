@@ -70,21 +70,26 @@ func (*serviceSuite) TestListServicesScript(c *gc.C) {
 	script := service.ListServicesScript()
 
 	expected := []string{
-		"cat > /tmp/discover_init_system.sh << 'EOF'",
+		"cat > '/tmp/discover_init_system.sh' << 'EOF'",
 	}
-	expected = append(expected, strings.Split(service.DiscoverInitSystemScript, "\n")...)
+	expected = append(expected, strings.Split(service.DiscoverInitSystemScript(), "\n")...)
 	expected = append(expected, "EOF")
-	expected = append(expected, "chmod 0755 /tmp/discover_init_system.sh")
+	expected = append(expected, "chmod 0755 '/tmp/discover_init_system.sh'")
 	expected = append(expected, "init_system=$(/tmp/discover_init_system.sh)")
-	expected = append(expected, []string{
-		`if [[ $init_system == "systemd" ]]; then ` +
-			`/bin/systemctl list-unit-files --no-legend --no-page -t service` +
+	expected = append(expected,
+		`case "$init_system" in`,
+		`systemd)`,
+		`    /bin/systemctl list-unit-files --no-legend --no-page -t service`+
 			` | grep -o -P '^\w[\S]*(?=\.service)'`,
-		`elif [[ $init_system == "upstart" ]]; then ` +
-			`sudo initctl list | awk '{print $1}' | sort | uniq`,
-		`else exit 1`,
-		`fi`,
-	}...)
+		`    ;;`,
+		`upstart)`,
+		`    sudo initctl list | awk '{print $1}' | sort | uniq`,
+		`    ;;`,
+		`*)`,
+		`    exit 1`,
+		`    ;;`,
+		`esac`,
+	)
 	c.Check(strings.Split(script, "\n"), jc.DeepEquals, expected)
 }
 

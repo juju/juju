@@ -90,7 +90,11 @@ func (ctx *SimpleContext) AgentConfig() agent.Config {
 
 func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err error) {
 	// Check sanity.
-	svc := ctx.service(unitName)
+	renderer, err := shell.NewRenderer("")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	svc := ctx.service(unitName, renderer)
 	installed, err := svc.Installed()
 	if err != nil {
 		return errors.Trace(err)
@@ -144,23 +148,6 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	defer removeOnErr(&err, conf.Dir())
 
 	// Install an init service that runs the unit agent.
-	info := service.NewAgentInfo(
-		service.AgentKindUnit,
-		unitName,
-		dataDir,
-		logDir,
-	)
-	renderer, err := shell.NewRenderer("")
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// TODO(thumper): 2013-09-02 bug 1219630
-	// As much as I'd like to remove JujuContainerType now, it is still
-	// needed as MAAS still needs it at this stage, and we can't fix
-	// everything at once.
-	sconf := service.ContainerAgentConf(info, renderer, containerType)
-
-	svc.UpdateConfig(sconf)
 	if err := service.InstallAndStart(svc); err != nil {
 		return errors.Trace(err)
 	}
@@ -168,7 +155,6 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 }
 
 type deployerService interface {
-	UpdateConfig(common.Conf)
 	Installed() (bool, error)
 	Install() error
 	Remove() error
@@ -262,10 +248,25 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 
 // service returns a service.Service corresponding to the specified
 // unit.
-func (ctx *SimpleContext) service(unitName string) deployerService {
+func (ctx *SimpleContext) service(unitName string, renderer shell.Renderer) deployerService {
 	tag := names.NewUnitTag(unitName).String()
 	svcName := "jujud-" + tag
-	return ctx.discoverService(svcName, common.Conf{})
+
+	info := service.NewAgentInfo(
+		service.AgentKindUnit,
+		unitName,
+		ctx.agentConfig.DataDir(),
+		ctx.agentConfig.LogDir(),
+	)
+
+	// TODO(thumper): 2013-09-02 bug 1219630
+	// As much as I'd like to remove JujuContainerType now, it is still
+	// needed as MAAS still needs it at this stage, and we can't fix
+	// everything at once.
+	containerType := ctx.agentConfig.Value(agent.ContainerType)
+
+	conf := service.ContainerAgentConf(info, renderer, containerType)
+	return ctx.discoverService(svcName, conf)
 }
 
 func removeOnErr(err *error, path string) {
