@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/jujutest"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
@@ -35,8 +34,6 @@ import (
 	"github.com/juju/juju/service/common"
 	svctesting "github.com/juju/juju/service/common/testing"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -410,22 +407,4 @@ func (s *localJujuTestSuite) TestStateServerInstances(c *gc.C) {
 	instances, err = env.StateServerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.DeepEquals, []instance.Id{"localhost"})
-}
-
-func (s *localJujuTestSuite) TestStateInstanceLoopMountsDisallowed(c *gc.C) {
-	env := s.testBootstrap(c, minimalConfig(c))
-
-	availableTools := coretools.List{&coretools.Tools{
-		Version: version.Current,
-		URL:     "http://testing.invalid/tools.tar.gz",
-	}}
-	mcfg, err := environs.NewMachineConfig("0", "ya", imagemetadata.ReleasedStream, version.Current.Series, true, nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = env.StartInstance(environs.StartInstanceParams{
-		MachineConfig: mcfg,
-		Tools:         availableTools,
-		Volumes:       []storage.VolumeParams{{Provider: provider.LoopProviderType}},
-	})
-	c.Assert(err, gc.Equals, container.ErrLoopMountNotAllowed)
 }

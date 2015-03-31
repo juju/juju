@@ -39,8 +39,6 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/systemd"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -288,7 +286,9 @@ func (s *LxcSuite) TestUpdateContainerConfig(c *gc.C) {
 		DeviceIndex:   1,
 		InterfaceName: "eth1",
 	}})
-	storageConfig := container.NewStorageConfig([]storage.VolumeParams{{Provider: provider.LoopProviderType}})
+	storageConfig := &container.StorageConfig{
+		AllowMount: true,
+	}
 
 	manager := s.makeManager(c, "test")
 	machineConfig, err := containertesting.MockMachineConfig("1/lxc/0")
@@ -1029,7 +1029,7 @@ func (s *LxcSuite) TestCreateContainerWithBlockStorage(c *gc.C) {
 	manager := s.makeManager(c, "test")
 	machineConfig, err := containertesting.MockMachineConfig("1/lxc/0")
 	c.Assert(err, jc.ErrorIsNil)
-	storageConfig := container.NewStorageConfig([]storage.VolumeParams{{Provider: provider.LoopProviderType}})
+	storageConfig := &container.StorageConfig{AllowMount: true}
 	networkConfig := container.BridgeNetworkConfig("nic42", nil)
 	instance := containertesting.CreateContainerWithMachineAndNetworkAndStorageConfig(c, manager, machineConfig, networkConfig, storageConfig)
 	name := string(instance.Id())

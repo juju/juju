@@ -114,11 +114,8 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		lxcLogger.Errorf("failed to get container config: %v", err)
 		return nil, err
 	}
-
-	// If loop mounts are to be used, check that they are allowed.
-	storage := container.NewStorageConfig(args.Volumes)
-	if !config.AllowLXCLoopMounts && storage.AllowMount {
-		return nil, container.ErrLoopMountNotAllowed
+	storageConfig := &container.StorageConfig{
+		AllowMount: config.AllowLXCLoopMounts,
 	}
 
 	if err := environs.PopulateMachineConfig(
@@ -137,7 +134,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
-	inst, hardware, err := broker.manager.CreateContainer(args.MachineConfig, series, network, storage)
+	inst, hardware, err := broker.manager.CreateContainer(args.MachineConfig, series, network, storageConfig)
 	if err != nil {
 		lxcLogger.Errorf("failed to start container: %v", err)
 		return nil, err
