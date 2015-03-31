@@ -4,7 +4,7 @@
 package common
 
 import (
-	"path/filepath"
+	"strings"
 
 	"github.com/juju/errors"
 
@@ -12,19 +12,27 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// ManagedDir returns the path to the directory from which init system
-// files will be managed for the given OS series.
-func ManagedDir(series string) (string, error) {
+// Managed returns a path based at the directory from which init system
+// files will be managed for the given OS series. The provided path
+// elements, if any, are joined to that directory path.
+func Managed(series string, elem ...string) (string, error) {
 	dataDir, err := paths.DataDir(version.Current.Series)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	parts := append([]string{dataDir, "init"}, elem...)
+
 	// TODO(ericsnow) Use a renderer?
-	return filepath.Join(dataDir, "init"), nil
+	sep := "/"
+	if !strings.Contains(dataDir, "/") {
+		sep = "\\"
+	}
+	return strings.Join(parts, sep), nil
 }
 
-// ManagedDir returns the path to the directory from which init system
-// files will be managed for the local host.
-func LocalManagedDir() (string, error) {
-	return ManagedDir(version.Current.Series)
+// LocalManaged returns a path based at the directory from which init
+// system files will be managed for the local host. The provided path
+// elements, if any, are joined to that directory path.
+func LocalManaged(elem ...string) (string, error) {
+	return Managed(version.Current.Series, elem...)
 }

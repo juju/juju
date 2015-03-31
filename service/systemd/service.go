@@ -101,7 +101,7 @@ func NewService(name string, conf common.Conf) (*Service, error) {
 }
 
 var findManagedDir = func() (string, error) {
-	return common.LocalManagedDir()
+	return common.LocalManaged()
 }
 
 // dbusAPI exposes all the systemd API methods needed by juju.
