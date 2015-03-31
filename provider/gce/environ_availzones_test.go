@@ -22,8 +22,8 @@ var _ = gc.Suite(&environAZSuite{})
 
 func (s *environAZSuite) TestAvailabilityZones(c *gc.C) {
 	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("a-zone", google.StatusUp),
-		google.NewZone("b-zone", google.StatusUp),
+		google.NewZone("a-zone", google.StatusUp, "", ""),
+		google.NewZone("b-zone", google.StatusUp, "", ""),
 	}
 
 	zones, err := s.Env.AvailabilityZones()
@@ -35,6 +35,16 @@ func (s *environAZSuite) TestAvailabilityZones(c *gc.C) {
 	c.Check(zones[1].Name(), gc.Equals, "b-zone")
 	c.Check(zones[1].Available(), jc.IsTrue)
 
+}
+
+func (s *environAZSuite) TestAvailabilityZonesDeprecated(c *gc.C) {
+	zone := google.NewZone("a-zone", google.StatusUp, "DEPRECATED", "b-zone")
+
+	c.Check(zone.Deprecated(), gc.Not(gc.IsNil))
+
+	deprecated := zone.Deprecated()
+	c.Check(deprecated.State, gc.Equals, "DEPRECATED")
+	c.Check(deprecated.Replacement, gc.Equals, "b-zone")
 }
 
 func (s *environAZSuite) TestAvailabilityZonesAPI(c *gc.C) {
@@ -109,7 +119,7 @@ func (s *environAZSuite) TestParseAvailabilityZonesAPI(c *gc.C) {
 func (s *environAZSuite) TestParseAvailabilityZonesPlacement(c *gc.C) {
 	s.StartInstArgs.Placement = "zone=a-zone"
 	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("a-zone", google.StatusUp),
+		google.NewZone("a-zone", google.StatusUp, "", ""),
 	}
 
 	zones, err := gce.ParseAvailabilityZones(s.Env, s.StartInstArgs)
@@ -121,7 +131,7 @@ func (s *environAZSuite) TestParseAvailabilityZonesPlacement(c *gc.C) {
 func (s *environAZSuite) TestParseAvailabilityZonesPlacementAPI(c *gc.C) {
 	s.StartInstArgs.Placement = "zone=a-zone"
 	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("a-zone", google.StatusUp),
+		google.NewZone("a-zone", google.StatusUp, "", ""),
 	}
 
 	_, err := gce.ParseAvailabilityZones(s.Env, s.StartInstArgs)
@@ -137,7 +147,7 @@ func (s *environAZSuite) TestParseAvailabilityZonesPlacementAPI(c *gc.C) {
 func (s *environAZSuite) TestParseAvailabilityZonesPlacementUnavailable(c *gc.C) {
 	s.StartInstArgs.Placement = "zone=a-zone"
 	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("a-zone", google.StatusDown),
+		google.NewZone("a-zone", google.StatusDown, "", ""),
 	}
 
 	_, err := gce.ParseAvailabilityZones(s.Env, s.StartInstArgs)
