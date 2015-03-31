@@ -379,7 +379,14 @@ func (a *API) volumeAttachments(all []state.Volume) []params.VolumeItem {
 
 	result := make([]params.VolumeItem, len(all))
 	for i, v := range all {
-		result[i] = params.VolumeItem{Volume: convertStateVolumeToParams(v)}
+		volume, err := a.convertStateVolumeToParams(v)
+		if err != nil {
+			result[i] = params.VolumeItem{
+				Error: common.ServerError(errors.Trace(err)),
+			}
+			continue
+		}
+		result[i] = params.VolumeItem{Volume: volume}
 		atts, err := a.storage.VolumeAttachments(v.VolumeTag())
 		if err != nil {
 			result[i].Error = common.ServerError(errors.Annotatef(
@@ -416,11 +423,23 @@ func (a *API) filterVolumes(f params.VolumeFilter) []params.VolumeItem {
 	return append(errs, a.getVolumeItems(attachments)...)
 }
 
-func convertStateVolumeToParams(st state.Volume) params.VolumeInstance {
+func (a *API) convertStateVolumeToParams(st state.Volume) (params.VolumeInstance, error) {
 	volume := params.VolumeInstance{VolumeTag: st.VolumeTag().String()}
 
 	if storage, err := st.StorageInstance(); err == nil {
 		volume.StorageTag = storage.String()
+		storageInstance, err := a.storage.StorageInstance(storage)
+		if err != nil {
+			return params.VolumeInstance{},
+				errors.Annotatef(err,
+					"getting storage instance %v for volume %v",
+					storage, volume.VolumeTag)
+		}
+		owner := storageInstance.Owner()
+		// only interested in Unit for now
+		if unitTag, ok := owner.(names.UnitTag); ok {
+			volume.UnitTag = unitTag.String()
+		}
 	}
 	if info, err := st.Info(); err == nil {
 		volume.Serial = info.Serial
@@ -428,7 +447,7 @@ func convertStateVolumeToParams(st state.Volume) params.VolumeInstance {
 		volume.Persistent = info.Persistent
 		volume.VolumeId = info.VolumeId
 	}
-	return volume
+	return volume, nil
 }
 
 func convertStateVolumeAttachmentsToParams(all []state.VolumeAttachment) []params.VolumeAttachment {
@@ -477,12 +496,17 @@ func (a *API) createVolumeItem(volumeTag string, attachments []params.VolumeAtta
 		result.Error = common.ServerError(errors.Annotatef(err, "parsing volume tag %v", volumeTag))
 		return result
 	}
-	volume, err := a.storage.Volume(tag)
+	st, err := a.storage.Volume(tag)
 	if err != nil {
 		result.Error = common.ServerError(errors.Annotatef(err, "getting volume for tag %v", tag))
 		return result
 	}
-	result.Volume = convertStateVolumeToParams(volume)
+	volume, err := a.convertStateVolumeToParams(st)
+	if err != nil {
+		result.Error = common.ServerError(errors.Trace(err))
+		return result
+	}
+	result.Volume = volume
 	return result
 }
 

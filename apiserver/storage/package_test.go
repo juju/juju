@@ -283,11 +283,15 @@ func (m *mockNotifyWatcher) Changes() <-chan struct{} {
 
 type mockVolume struct {
 	state.Volume
-	tag     names.VolumeTag
-	storage names.StorageTag
+	tag          names.VolumeTag
+	storage      names.StorageTag
+	hasNoStorage bool
 }
 
 func (m *mockVolume) StorageInstance() (names.StorageTag, error) {
+	if m.hasNoStorage {
+		return names.StorageTag{}, errors.NewNotAssigned(nil, "error from mock")
+	}
 	return m.storage, nil
 }
 

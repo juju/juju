@@ -98,9 +98,9 @@ func (s *volumeListSuite) TestVolumeListTabular(c *gc.C) {
 		[]string{"2"},
 		// Default format is tabular
 		`
-MACHINE  STORAGE      DEVICE      VOLUME      ID                            SIZE
-2        shared-fs/0  testdevice  0/1         provider-supplied-0/1         1.0GiB
-2        shared-fs/0  testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
+MACHINE  UNIT          STORAGE      DEVICE      VOLUME      ID                            SIZE
+2        postgresql/0  shared-fs/0  testdevice  0/1         provider-supplied-0/1         1.0GiB
+2        unattached    shared-fs/0  testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
 
 `[1:],
 		`
@@ -115,11 +115,11 @@ func (s *volumeListSuite) TestVolumeListTabularSort(c *gc.C) {
 		[]string{"2", "3"},
 		// Default format is tabular
 		`
-MACHINE  STORAGE      DEVICE      VOLUME      ID                            SIZE
-2        shared-fs/0  testdevice  0/1         provider-supplied-0/1         1.0GiB
-2        shared-fs/0  testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
-3        shared-fs/0  testdevice  0/1         provider-supplied-0/1         1.0GiB
-3        shared-fs/0  testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
+MACHINE  UNIT          STORAGE      DEVICE      VOLUME      ID                            SIZE
+2        postgresql/0  shared-fs/0  testdevice  0/1         provider-supplied-0/1         1.0GiB
+2        unattached    shared-fs/0  testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
+3        postgresql/0  shared-fs/0  testdevice  0/1         provider-supplied-0/1         1.0GiB
+3        unattached    shared-fs/0  testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
 
 `[1:],
 		`
@@ -135,13 +135,13 @@ func (s *volumeListSuite) TestVolumeListTabularSortWithUnattached(c *gc.C) {
 		[]string{"2", "3"},
 		// Default format is tabular
 		`
-MACHINE     STORAGE      DEVICE      VOLUME      ID                            SIZE
-25          shared-fs/0  testdevice  0/1         provider-supplied-0/1         1.0GiB
-25          shared-fs/0  testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
-42          shared-fs/0  testdevice  0/1         provider-supplied-0/1         1.0GiB
-42          shared-fs/0  testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
-unattached                           3/3         provider-supplied-3/3         1.0GiB
-unattached  db-dir/1000              3/4         provider-supplied-3/4         1.0GiB
+MACHINE     UNIT          STORAGE      DEVICE      VOLUME      ID                            SIZE
+25          postgresql/0  shared-fs/0  testdevice  0/1         provider-supplied-0/1         1.0GiB
+25          unattached    shared-fs/0  testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
+42          postgresql/0  shared-fs/0  testdevice  0/1         provider-supplied-0/1         1.0GiB
+42          unattached    shared-fs/0  testdevice  0/abc/0/88  provider-supplied-0/abc/0/88  1.0GiB
+unattached  abc/0         db-dir/1000              3/4         provider-supplied-3/4         1.0GiB
+unattached  unattached    unassigned               3/3         provider-supplied-3/3         1.0GiB
 
 `[1:],
 		`
@@ -154,7 +154,7 @@ func (s *volumeListSuite) assertUnmarshalledOutput(c *gc.C, unmarshall unmarshal
 	all := []string{machine}
 	context, err := runVolumeList(c, append(all, args...)...)
 	c.Assert(err, jc.ErrorIsNil)
-	var result map[string]map[string]storage.VolumeInfo
+	var result map[string]map[string]map[string]storage.VolumeInfo
 	err = unmarshall(context.Stdout.(*bytes.Buffer).Bytes(), &result)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := s.expect(c, []string{machine})
@@ -169,7 +169,7 @@ volume item error
 `[1:])
 }
 
-func (s *volumeListSuite) expect(c *gc.C, machines []string) map[string]map[string]storage.VolumeInfo {
+func (s *volumeListSuite) expect(c *gc.C, machines []string) map[string]map[string]map[string]storage.VolumeInfo {
 	//no need for this element as we are building output on out stream not err
 	s.mockAPI.addErrItem = false
 	all, err := s.mockAPI.ListVolumes(machines)
@@ -179,7 +179,7 @@ func (s *volumeListSuite) expect(c *gc.C, machines []string) map[string]map[stri
 	return result
 }
 
-func (s *volumeListSuite) assertSameVolumeInfos(c *gc.C, one, two map[string]map[string]storage.VolumeInfo) {
+func (s *volumeListSuite) assertSameVolumeInfos(c *gc.C, one, two map[string]map[string]map[string]storage.VolumeInfo) {
 	c.Assert(len(one), gc.Equals, len(two))
 
 	propertyCompare := func(a, b interface{}) {
@@ -193,15 +193,21 @@ func (s *volumeListSuite) assertSameVolumeInfos(c *gc.C, one, two map[string]map
 		c.Assert(ok, jc.IsTrue)
 		// these are maps
 		c.Assert(len(machineVolumes1), gc.Equals, len(machineVolumes2))
-		for volumeKey, info1 := range machineVolumes1 {
-			info2, ok := machineVolumes2[volumeKey]
+		for unitKey, units1 := range machineVolumes1 {
+			units2, ok := machineVolumes2[unitKey]
 			c.Assert(ok, jc.IsTrue)
-			propertyCompare(info1.VolumeId, info2.VolumeId)
-			propertyCompare(info1.Serial, info2.Serial)
-			propertyCompare(info1.Size, info2.Size)
-			propertyCompare(info1.Persistent, info2.Persistent)
-			propertyCompare(info1.DeviceName, info2.DeviceName)
-			propertyCompare(info1.ReadOnly, info2.ReadOnly)
+			// these are maps
+			c.Assert(len(units1), gc.Equals, len(units2))
+			for storageKey, info1 := range units1 {
+				info2, ok := units2[storageKey]
+				c.Assert(ok, jc.IsTrue)
+				propertyCompare(info1.VolumeId, info2.VolumeId)
+				propertyCompare(info1.Serial, info2.Serial)
+				propertyCompare(info1.Size, info2.Size)
+				propertyCompare(info1.Persistent, info2.Persistent)
+				propertyCompare(info1.DeviceName, info2.DeviceName)
+				propertyCompare(info1.ReadOnly, info2.ReadOnly)
+			}
 		}
 	}
 }
@@ -250,21 +256,21 @@ func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeItem, 
 	if s.listAll {
 		machines = []string{"25", "42"}
 		//unattached
-		result = append(result, s.createTestVolumeItem("3/4", true, "db-dir/1000", nil))
-		result = append(result, s.createTestVolumeItem("3/3", false, "", nil))
+		result = append(result, s.createTestVolumeItem("3/4", true, "db-dir/1000", "abc/0", nil))
+		result = append(result, s.createTestVolumeItem("3/3", false, "", "", nil))
 	}
-	result = append(result, s.createTestVolumeItem("0/1", true, "shared-fs/0", machines))
-	result = append(result, s.createTestVolumeItem("0/abc/0/88", false, "shared-fs/0", machines))
+	result = append(result, s.createTestVolumeItem("0/1", true, "shared-fs/0", "postgresql/0", machines))
+	result = append(result, s.createTestVolumeItem("0/abc/0/88", false, "shared-fs/0", "", machines))
 	return result, nil
 }
 
 func (s mockVolumeListAPI) createTestVolumeItem(
 	id string,
 	persistent bool,
-	storageid string,
+	storageid, unitid string,
 	machines []string,
 ) params.VolumeItem {
-	volume := s.createTestVolume(id, persistent, storageid)
+	volume := s.createTestVolume(id, persistent, storageid, unitid)
 
 	// Create unattached volume
 	if len(machines) == 0 {
@@ -283,7 +289,7 @@ func (s mockVolumeListAPI) createTestVolumeItem(
 	}
 }
 
-func (s mockVolumeListAPI) createTestVolume(id string, persistent bool, storageid string) params.VolumeInstance {
+func (s mockVolumeListAPI) createTestVolume(id string, persistent bool, storageid, unitid string) params.VolumeInstance {
 	tag := names.NewVolumeTag(id)
 	result := params.VolumeInstance{
 		VolumeTag:  tag.String(),
@@ -294,6 +300,9 @@ func (s mockVolumeListAPI) createTestVolume(id string, persistent bool, storagei
 	}
 	if storageid != "" {
 		result.StorageTag = names.NewStorageTag(storageid).String()
+	}
+	if unitid != "" {
+		result.UnitTag = names.NewUnitTag(unitid).String()
 	}
 	return result
 }

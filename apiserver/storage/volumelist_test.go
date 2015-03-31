@@ -61,11 +61,33 @@ func (s *volumeSuite) TestCreateVolumeItemNonexistingVolume(c *gc.C) {
 	c.Assert(found.Error, gc.ErrorMatches, ".*volume for tag.*")
 }
 
+func (s *volumeSuite) TestCreateVolumeItemNoUnit(c *gc.C) {
+	s.storageInstance.owner = names.NewServiceTag("test-service")
+	found := storage.CreateVolumeItem(s.api, s.volumeTag.String(), nil)
+	c.Assert(found.Error, gc.IsNil)
+	c.Assert(found.Error, gc.IsNil)
+	expected, err := storage.ConvertStateVolumeToParams(s.api, s.volume)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found.Volume, gc.DeepEquals, expected)
+}
+
+func (s *volumeSuite) TestCreateVolumeItemNoStorageInstance(c *gc.C) {
+	s.volume = &mockVolume{tag: s.volumeTag, hasNoStorage: true}
+	found := storage.CreateVolumeItem(s.api, s.volumeTag.String(), nil)
+	c.Assert(found.Error, gc.IsNil)
+	c.Assert(found.Error, gc.IsNil)
+	expected, err := storage.ConvertStateVolumeToParams(s.api, s.volume)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found.Volume, gc.DeepEquals, expected)
+}
+
 func (s *volumeSuite) TestCreateVolumeItem(c *gc.C) {
 	found := storage.CreateVolumeItem(s.api, s.volumeTag.String(), nil)
 	c.Assert(found.Error, gc.IsNil)
 	c.Assert(found.Error, gc.IsNil)
-	c.Assert(found.Volume, gc.DeepEquals, storage.ConvertStateVolumeToParams(s.volume))
+	expected, err := storage.ConvertStateVolumeToParams(s.api, s.volume)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found.Volume, gc.DeepEquals, expected)
 }
 
 func (s *volumeSuite) TestGetVolumeItemsEmpty(c *gc.C) {
@@ -79,9 +101,11 @@ func (s *volumeSuite) TestGetVolumeItems(c *gc.C) {
 		&mockVolumeAttachment{VolumeTag: s.volumeTag, MachineTag: machineTag},
 		&mockVolumeAttachment{VolumeTag: s.volumeTag, MachineTag: machineTag},
 	}
+	expectedVolume, err := storage.ConvertStateVolumeToParams(s.api, s.volume)
+	c.Assert(err, jc.ErrorIsNil)
 	expected := []params.VolumeItem{
 		params.VolumeItem{
-			Volume:      storage.ConvertStateVolumeToParams(s.volume),
+			Volume:      expectedVolume,
 			Attachments: storage.ConvertStateVolumeAttachmentsToParams(attachments)},
 	}
 	c.Assert(
@@ -118,8 +142,10 @@ func (s *volumeSuite) TestFilterVolumes(c *gc.C) {
 	filter := params.VolumeFilter{
 		Machines: []string{s.machineTag.String()}}
 
+	expectedVolume, err := storage.ConvertStateVolumeToParams(s.api, s.volume)
+	c.Assert(err, jc.ErrorIsNil)
 	expected := params.VolumeItem{
-		Volume: storage.ConvertStateVolumeToParams(s.volume),
+		Volume: expectedVolume,
 		Attachments: storage.ConvertStateVolumeAttachmentsToParams(
 			[]state.VolumeAttachment{s.volumeAttachment},
 		),
@@ -130,8 +156,10 @@ func (s *volumeSuite) TestFilterVolumes(c *gc.C) {
 }
 
 func (s *volumeSuite) TestVolumeAttachments(c *gc.C) {
+	expectedVolume, err := storage.ConvertStateVolumeToParams(s.api, s.volume)
+	c.Assert(err, jc.ErrorIsNil)
 	expected := params.VolumeItem{
-		Volume: storage.ConvertStateVolumeToParams(s.volume),
+		Volume: expectedVolume,
 		Attachments: storage.ConvertStateVolumeAttachmentsToParams(
 			[]state.VolumeAttachment{s.volumeAttachment},
 		),
@@ -147,8 +175,10 @@ func (s *volumeSuite) TestVolumeAttachmentsEmpty(c *gc.C) {
 		func(volume names.VolumeTag) ([]state.VolumeAttachment, error) {
 			return nil, nil
 		}
+	expectedVolume, err := storage.ConvertStateVolumeToParams(s.api, s.volume)
+	c.Assert(err, jc.ErrorIsNil)
 	expected := params.VolumeItem{
-		Volume: storage.ConvertStateVolumeToParams(s.volume),
+		Volume: expectedVolume,
 	}
 
 	found := storage.VolumeAttachments(s.api, []state.Volume{s.volume})
@@ -189,8 +219,10 @@ func (s *volumeSuite) TestListVolumeAttachmentsError(c *gc.C) {
 }
 
 func (s *volumeSuite) TestListVolumeAttachments(c *gc.C) {
+	expectedVolume, err := storage.ConvertStateVolumeToParams(s.api, s.volume)
+	c.Assert(err, jc.ErrorIsNil)
 	expected := params.VolumeItem{
-		Volume: storage.ConvertStateVolumeToParams(s.volume),
+		Volume: expectedVolume,
 		Attachments: storage.ConvertStateVolumeAttachmentsToParams(
 			[]state.VolumeAttachment{s.volumeAttachment},
 		),
@@ -203,8 +235,10 @@ func (s *volumeSuite) TestListVolumeAttachments(c *gc.C) {
 }
 
 func (s *volumeSuite) TestListVolumesEmptyFilter(c *gc.C) {
+	expectedVolume, err := storage.ConvertStateVolumeToParams(s.api, s.volume)
+	c.Assert(err, jc.ErrorIsNil)
 	expected := params.VolumeItem{
-		Volume: storage.ConvertStateVolumeToParams(s.volume),
+		Volume: expectedVolume,
 		Attachments: storage.ConvertStateVolumeAttachmentsToParams(
 			[]state.VolumeAttachment{s.volumeAttachment},
 		),
@@ -228,8 +262,10 @@ func (s *volumeSuite) TestListVolumesError(c *gc.C) {
 }
 
 func (s *volumeSuite) TestListVolumesFilter(c *gc.C) {
+	expectedVolume, err := storage.ConvertStateVolumeToParams(s.api, s.volume)
+	c.Assert(err, jc.ErrorIsNil)
 	expected := params.VolumeItem{
-		Volume: storage.ConvertStateVolumeToParams(s.volume),
+		Volume: expectedVolume,
 		Attachments: storage.ConvertStateVolumeAttachmentsToParams(
 			[]state.VolumeAttachment{s.volumeAttachment},
 		),

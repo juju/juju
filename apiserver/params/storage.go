@@ -460,13 +460,30 @@ func (f *VolumeFilter) IsEmpty() bool {
 // It is kept separate from Volume which is primarily used in uniter
 // and may answer different concerns as well as serve different purposes.
 type VolumeInstance struct {
+
+	// VolumeTag is tag for this volume instance.
 	VolumeTag string `json:"volumetag"`
-	VolumeId  string `json:"volumeid"`
-	Serial    string `json:"serial"`
+
+	// VolumeId is a unique provider-supplied ID for the volume.
+	VolumeId string `json:"volumeid"`
+
+	// Serial is the volume's serial number.
+	Serial string `json:"serial,omitempty"`
+
 	// Size is the size of the volume in MiB.
-	Size       uint64 `json:"size"`
-	Persistent bool   `json:"persistent"`
+	Size uint64 `json:"size"`
+
+	// Persistent reflects whether the volume is destroyed with the
+	// machine to which it is attached.
+	Persistent bool `json:"persistent"`
+
+	// StorageInstance returns the tag of the storage instance that this
+	// volume is assigned to, if any.
 	StorageTag string `json:"storage,omitempty"`
+
+	// UnitTag is the tag of the unit attached to storage instance
+	// for this volume.
+	UnitTag string `json:"unit,omitempty"`
 }
 
 // VolumeItem contain volume, its attachments
