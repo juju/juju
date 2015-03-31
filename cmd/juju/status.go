@@ -204,19 +204,22 @@ func (s serviceStatus) GetYAML() (tag string, value interface{}) {
 }
 
 type unitStatus struct {
-	Err                error              `json:"-" yaml:",omitempty"`
-	Charm              string             `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
+	// New Juju Health Status fields.
 	WorkloadStatusInfo statusInfoContents `json:"workload-status,omitempty" yaml:"workload-status,omitempty"`
 	AgentStatusInfo    statusInfoContents `json:"agent-status,omitempty" yaml:"agent-status,omitempty"`
 
-	AgentState     params.Status         `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
-	AgentStateInfo string                `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
-	AgentVersion   string                `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
-	Life           string                `json:"life,omitempty" yaml:"life,omitempty"`
-	Machine        string                `json:"machine,omitempty" yaml:"machine,omitempty"`
-	OpenedPorts    []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
-	PublicAddress  string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
-	Subordinates   map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
+	// Legacy status fields, to be removed in Juju 2.0
+	AgentState     params.Status `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
+	AgentStateInfo string        `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
+	Err            error         `json:"-" yaml:",omitempty"`
+	AgentVersion   string        `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
+	Life           string        `json:"life,omitempty" yaml:"life,omitempty"`
+
+	Charm         string                `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
+	Machine       string                `json:"machine,omitempty" yaml:"machine,omitempty"`
+	OpenedPorts   []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
+	PublicAddress string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
+	Subordinates  map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
 }
 
 type statusInfoContents struct {
@@ -350,7 +353,7 @@ func (sf *statusFormatter) formatMachine(machine api.MachineStatus) machineStatu
 		agent := machine.Agent
 		out = machineStatus{
 			AgentState:     machine.AgentState,
-			AgentStateInfo: adjustInfoIfAgentDown(machine.AgentState, agent.Status, agent.Info),
+			AgentStateInfo: adjustInfoIfMachineAgentDown(machine.AgentState, agent.Status, agent.Info),
 			AgentVersion:   agent.Version,
 			Life:           agent.Life,
 			Err:            agent.Err,
@@ -402,20 +405,26 @@ func (sf *statusFormatter) formatService(name string, service api.ServiceStatus)
 }
 
 func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) unitStatus {
+	// TODO(Wallyworld) - this should be server side but we still need to support older servers.
+	sf.updateUnitStatusInfo(&unit, serviceName)
+
 	out := unitStatus{
-		Err:                unit.Err,
 		WorkloadStatusInfo: sf.getWorkloadStatusInfo(unit),
 		AgentStatusInfo:    sf.getAgentStatusInfo(unit),
-		AgentState:         unit.AgentState, // < 1.24 agent-state
-		AgentStateInfo:     sf.getUnitStatusInfo(unit, serviceName),
-		AgentVersion:       unit.AgentVersion,
-		Life:               unit.Life,
 		Machine:            unit.Machine,
 		OpenedPorts:        unit.OpenedPorts,
 		PublicAddress:      unit.PublicAddress,
 		Charm:              unit.Charm,
 		Subordinates:       make(map[string]unitStatus),
 	}
+
+	// These legacy fields will be dropped for Juju 2.0.
+	out.Err = unit.Err
+	out.AgentState = unit.AgentState
+	out.AgentStateInfo = unit.AgentStateInfo
+	out.Life = unit.Life
+	out.AgentVersion = unit.AgentVersion
+
 	for k, m := range unit.Subordinates {
 		out.Subordinates[k] = sf.formatUnit(m, serviceName)
 	}
@@ -438,22 +447,23 @@ func (sf *statusFormatter) getAgentStatusInfo(unit api.UnitStatus) statusInfoCon
 	}
 }
 
-func (sf *statusFormatter) getUnitStatusInfo(unit api.UnitStatus, serviceName string) string {
+func (sf *statusFormatter) updateUnitStatusInfo(unit *api.UnitStatus, serviceName string) {
+	// This logic has no business here but can't be moved until Juju 2.0.
+	statusInfo := unit.Workload.Info
 	if unit.Workload.Status == "" {
 		// Old server that doesn't support this field and others.
-		// Just return the info string as-is.
-		return unit.AgentStateInfo
+		// Just use the info string as-is.
+		statusInfo = unit.AgentStateInfo
 	}
-	statusInfo := unit.Workload.Info
 	if unit.Workload.Status == params.StatusError {
 		if relation, ok := sf.relations[getRelationIdFromData(unit)]; ok {
 			// Append the details of the other endpoint on to the status info string.
 			if ep, ok := findOtherEndpoint(relation.Endpoints, serviceName); ok {
-				statusInfo = statusInfo + " for " + ep.String()
+				unit.Workload.Info = statusInfo + " for " + ep.String()
+				unit.AgentStateInfo = unit.Workload.Info
 			}
 		}
 	}
-	return adjustInfoIfAgentDown(unit.AgentState, unit.Workload.Status, statusInfo)
 }
 
 func (sf *statusFormatter) formatNetwork(network api.NetworkStatus) networkStatus {
@@ -480,7 +490,7 @@ func makeHAStatus(hasVote, wantsVote bool) string {
 	return s
 }
 
-func getRelationIdFromData(unit api.UnitStatus) int {
+func getRelationIdFromData(unit *api.UnitStatus) int {
 	if relationId_, ok := unit.Workload.Data["relation-id"]; ok {
 		if relationId, ok := relationId_.(float64); ok {
 			return int(relationId)
@@ -504,11 +514,11 @@ func findOtherEndpoint(endpoints []api.EndpointStatus, serviceName string) (api.
 	return api.EndpointStatus{}, false
 }
 
-// adjustInfoIfAgentDown modifies the agent status info string if the
+// adjustInfoIfMachineAgentDown modifies the agent status info string if the
 // agent is down. The original status and info is included in
 // parentheses.
-func adjustInfoIfAgentDown(status, origStatus params.Status, info string) string {
-	if status == params.StatusDown || status == params.StatusFailed {
+func adjustInfoIfMachineAgentDown(status, origStatus params.Status, info string) string {
+	if status == params.StatusDown {
 		if info == "" {
 			return fmt.Sprintf("(%s)", origStatus)
 		}

@@ -146,11 +146,15 @@ func unitMatchAgentStatus(u *state.Unit, patterns []string) (bool, bool, error) 
 }
 
 func unitMatchWorkloadStatus(u *state.Unit, patterns []string) (bool, bool, error) {
-	status, _, _, err := u.Status()
+	workloadStatus, _, _, err := u.Status()
 	if err != nil {
 		return false, false, err
 	}
-	return matchWorkloadStatus(patterns, status)
+	agentStatus, _, _, err := u.AgentStatus()
+	if err != nil {
+		return false, false, err
+	}
+	return matchWorkloadStatus(patterns, workloadStatus, agentStatus)
 }
 
 func unitMatchExposure(u *state.Unit, patterns []string) (bool, bool, error) {
@@ -325,7 +329,7 @@ func matchExposure(patterns []string, s *state.Service) (bool, bool, error) {
 	return false, false, nil
 }
 
-func matchWorkloadStatus(patterns []string, status state.Status) (bool, bool, error) {
+func matchWorkloadStatus(patterns []string, workloadStatus state.Status, agentStatus state.Status) (bool, bool, error) {
 	oneValidStatus := false
 	for _, p := range patterns {
 		// If the pattern isn't a valid status, ignore it.
@@ -335,7 +339,9 @@ func matchWorkloadStatus(patterns []string, status state.Status) (bool, bool, er
 		}
 
 		oneValidStatus = true
-		if status.WorkloadMatches(ps) {
+		// To preserve current expected behaviour, we only report on workload status
+		// if the agent itself is not in error.
+		if agentStatus != state.StatusError && workloadStatus.WorkloadMatches(ps) {
 			return true, true, nil
 		}
 	}

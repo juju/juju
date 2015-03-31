@@ -126,15 +126,15 @@ func (s *uniterBaseSuite) testSetStatus(
 		SetStatus(args params.SetStatus) (params.ErrorResults, error)
 	},
 ) {
-	err := s.wordpressUnit.SetAgentStatus(state.StatusIdle, "blah", nil)
+	err := s.wordpressUnit.SetAgentStatus(state.StatusExecuting, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysqlUnit.SetAgentStatus(state.StatusIdle, "foo", nil)
+	err = s.mysqlUnit.SetAgentStatus(state.StatusExecuting, "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
 			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
-			{Tag: "unit-wordpress-0", Status: params.StatusLost, Info: "foobar"},
+			{Tag: "unit-wordpress-0", Status: params.StatusRebooting, Info: "foobar"},
 			{Tag: "unit-foo-42", Status: params.StatusActive, Info: "blah"},
 		}}
 	result, err := facade.SetStatus(args)
@@ -150,12 +150,12 @@ func (s *uniterBaseSuite) testSetStatus(
 	// Verify mysqlUnit - no change.
 	status, info, _, err := s.mysqlUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusIdle)
+	c.Assert(status, gc.Equals, state.StatusExecuting)
 	c.Assert(info, gc.Equals, "foo")
 	// ...wordpressUnit is fine though.
 	status, info, _, err = s.wordpressUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusLost)
+	c.Assert(status, gc.Equals, state.StatusRebooting)
 	c.Assert(info, gc.Equals, "foobar")
 }
 
@@ -165,16 +165,16 @@ func (s *uniterBaseSuite) testSetAgentStatus(
 		SetAgentStatus(args params.SetStatus) (params.ErrorResults, error)
 	},
 ) {
-	err := s.wordpressUnit.SetAgentStatus(state.StatusIdle, "blah", nil)
+	err := s.wordpressUnit.SetAgentStatus(state.StatusExecuting, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysqlUnit.SetAgentStatus(state.StatusIdle, "foo", nil)
+	err = s.mysqlUnit.SetAgentStatus(state.StatusExecuting, "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
 			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
-			{Tag: "unit-wordpress-0", Status: params.StatusLost, Info: "foobar"},
-			{Tag: "unit-foo-42", Status: params.StatusActive, Info: "blah"},
+			{Tag: "unit-wordpress-0", Status: params.StatusExecuting, Info: "foobar"},
+			{Tag: "unit-foo-42", Status: params.StatusRebooting, Info: "blah"},
 		}}
 	result, err := facade.SetAgentStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -189,12 +189,12 @@ func (s *uniterBaseSuite) testSetAgentStatus(
 	// Verify mysqlUnit - no change.
 	status, info, _, err := s.mysqlUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusIdle)
+	c.Assert(status, gc.Equals, state.StatusExecuting)
 	c.Assert(info, gc.Equals, "foo")
 	// ...wordpressUnit is fine though.
 	status, info, _, err = s.wordpressUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusLost)
+	c.Assert(status, gc.Equals, state.StatusExecuting)
 	c.Assert(info, gc.Equals, "foobar")
 }
 
@@ -213,7 +213,7 @@ func (s *uniterBaseSuite) testSetUnitStatus(
 		Entities: []params.EntityStatus{
 			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
 			{Tag: "unit-wordpress-0", Status: params.StatusTerminated, Info: "foobar"},
-			{Tag: "unit-foo-42", Status: params.StatusRunning, Info: "blah"},
+			{Tag: "unit-foo-42", Status: params.StatusActive, Info: "blah"},
 		}}
 	result, err := facade.SetUnitStatus(args)
 	c.Assert(err, jc.ErrorIsNil)

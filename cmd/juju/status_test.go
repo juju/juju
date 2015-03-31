@@ -521,9 +521,9 @@ var statusTests = []testCase{
 			},
 		},
 
-		addUnit{"dummy-service", "1"},
+		addAliveUnit{"dummy-service", "1"},
 		addAliveUnit{"exposed-service", "2"},
-		setUnitStatus{"exposed-service/0", state.StatusError, "You Require More Vespene Gas", nil},
+		setAgentStatus{"exposed-service/0", state.StatusError, "You Require More Vespene Gas", nil},
 		// Open multiple ports with different protocols,
 		// ensure they're sorted on protocol, then number.
 		openUnitPort{"exposed-service/0", "udp", 10},
@@ -562,7 +562,7 @@ var statusTests = []testCase{
 									"message": "You Require More Vespene Gas",
 								},
 								"agent-status": M{
-									"current": "allocating",
+									"current": "idle",
 								},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
@@ -640,7 +640,7 @@ var statusTests = []testCase{
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
 								"workload-status":  M{"current": "error", "message": "You Require More Vespene Gas"},
-								"agent-status":     M{"current": "allocating"},
+								"agent-status":     M{"current": "idle"},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -710,7 +710,7 @@ var statusTests = []testCase{
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
 								"workload-status":  M{"current": "error", "message": "You Require More Vespene Gas"},
-								"agent-status":     M{"current": "allocating"},
+								"agent-status":     M{"current": "idle"},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -765,7 +765,7 @@ var statusTests = []testCase{
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
 								"workload-status":  M{"current": "error", "message": "You Require More Vespene Gas"},
-								"agent-status":     M{"current": "allocating"},
+								"agent-status":     M{"current": "idle"},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -809,7 +809,7 @@ var statusTests = []testCase{
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
 								"workload-status":  M{"current": "error", "message": "You Require More Vespene Gas"},
-								"agent-status":     M{"current": "allocating"},
+								"agent-status":     M{"current": "idle"},
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
@@ -842,7 +842,7 @@ var statusTests = []testCase{
 
 		relateServices{"wordpress", "mysql"},
 
-		setUnitStatus{"wordpress/0", state.StatusError,
+		setAgentStatus{"wordpress/0", state.StatusError,
 			"hook failed: some-relation-changed",
 			map[string]interface{}{"relation-id": 0}},
 
@@ -866,8 +866,8 @@ var statusTests = []testCase{
 								"machine":          "1",
 								"agent-state":      "error",
 								"agent-state-info": "hook failed: some-relation-changed for mysql:server",
-								"workload-status":  M{"current": "error", "message": "hook failed: some-relation-changed"},
-								"agent-status":     M{"current": "allocating"},
+								"workload-status":  M{"current": "error", "message": "hook failed: some-relation-changed for mysql:server"},
+								"agent-status":     M{"current": "idle"},
 								"public-address":   "dummyenv-1.dns",
 							},
 						},
@@ -880,12 +880,11 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":          "1",
-								"agent-state":      "pending",
-								"agent-state-info": "Waiting for agent initialization to finish",
-								"workload-status":  M{"current": "unknown", "message": "Waiting for agent initialization to finish"},
-								"agent-status":     M{"current": "allocating"},
-								"public-address":   "dummyenv-1.dns",
+								"machine":         "1",
+								"agent-state":     "pending",
+								"workload-status": M{"current": "unknown", "message": "Waiting for agent initialization to finish"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -906,7 +905,7 @@ var statusTests = []testCase{
 
 		addCharm{"wordpress"},
 		addService{name: "wordpress", charm: "wordpress"},
-		addUnit{"wordpress", "1"},
+		addAliveUnit{"wordpress", "1"},
 
 		addCharm{"mysql"},
 		addService{name: "mysql", charm: "mysql"},
@@ -914,7 +913,7 @@ var statusTests = []testCase{
 
 		relateServices{"wordpress", "mysql"},
 
-		setUnitStatus{"wordpress/0", state.StatusError,
+		setAgentStatus{"wordpress/0", state.StatusError,
 			"hook failed: some-relation-changed",
 			map[string]interface{}{"relation-id": 0}},
 
@@ -938,8 +937,8 @@ var statusTests = []testCase{
 								"machine":          "1",
 								"agent-state":      "error",
 								"agent-state-info": "hook failed: some-relation-changed for mysql:server",
-								"workload-status":  M{"current": "error", "message": "hook failed: some-relation-changed"},
-								"agent-status":     M{"current": "allocating"},
+								"workload-status":  M{"current": "error", "message": "hook failed: some-relation-changed for mysql:server"},
+								"agent-status":     M{"current": "idle"},
 								"public-address":   "dummyenv-1.dns",
 							},
 						},
@@ -952,12 +951,11 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":          "1",
-								"agent-state":      "pending",
-								"agent-state-info": "Waiting for agent initialization to finish",
-								"workload-status":  M{"current": "unknown", "message": "Waiting for agent initialization to finish"},
-								"agent-status":     M{"current": "allocating"},
-								"public-address":   "dummyenv-1.dns",
+								"machine":         "1",
+								"agent-state":     "pending",
+								"workload-status": M{"current": "unknown", "message": "Waiting for agent initialization to finish"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -969,7 +967,7 @@ var statusTests = []testCase{
 		addCharm{"dummy"},
 		addService{name: "dummy-service", charm: "dummy"},
 		addMachine{machineId: "0", job: state.JobHostUnits},
-		addUnit{"dummy-service", "0"},
+		addAliveUnit{"dummy-service", "0"},
 		ensureDyingService{"dummy-service"},
 		expect{
 			"service shows life==dying",
@@ -988,11 +986,48 @@ var statusTests = []testCase{
 						"life":    "dying",
 						"units": M{
 							"dummy-service/0": M{
-								"machine":          "0",
-								"agent-state":      "pending",
-								"agent-state-info": "Waiting for agent initialization to finish",
-								"workload-status":  M{"current": "unknown", "message": "Waiting for agent initialization to finish"},
-								"agent-status":     M{"current": "allocating"},
+								"machine":         "0",
+								"agent-state":     "pending",
+								"workload-status": M{"current": "unknown", "message": "Waiting for agent initialization to finish"},
+								"agent-status":    M{"current": "allocating"},
+							},
+						},
+					},
+				},
+			},
+		},
+	), test(
+		"a unit where the agent is down shows as lost",
+		addCharm{"dummy"},
+		addService{name: "dummy-service", charm: "dummy"},
+		addMachine{machineId: "0", job: state.JobHostUnits},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", state.StatusStarted, ""},
+		addUnit{"dummy-service", "0"},
+		setAgentStatus{"dummy-service/0", state.StatusIdle, "", nil},
+		setUnitStatus{"dummy-service/0", state.StatusActive, "", nil},
+		expect{
+			"unit shows that agent is lost",
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"0": M{
+						"agent-state": "started",
+						"instance-id": "dummyenv-0",
+						"series":      "quantal",
+						"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+					},
+				},
+				"services": M{
+					"dummy-service": M{
+						"charm":   "cs:quantal/dummy-1",
+						"exposed": false,
+						"units": M{
+							"dummy-service/0": M{
+								"machine":         "0",
+								"agent-state":     "started",
+								"workload-status": M{"current": "unknown", "message": "agent is lost, sorry! See 'juju status-history dummy-service/0'"},
+								"agent-status":    M{"current": "lost", "message": "agent is not communicating with the server"},
 							},
 						},
 					},
@@ -1019,6 +1054,7 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"project", "1"},
+		setAgentStatus{"project/0", state.StatusIdle, "", nil},
 		setUnitStatus{"project/0", state.StatusActive, "", nil},
 
 		addService{name: "mysql", charm: "mysql"},
@@ -1028,6 +1064,7 @@ var statusTests = []testCase{
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
+		setAgentStatus{"mysql/0", state.StatusIdle, "", nil},
 		setUnitStatus{"mysql/0", state.StatusActive, "", nil},
 
 		addService{name: "varnish", charm: "varnish"},
@@ -1036,7 +1073,7 @@ var statusTests = []testCase{
 		setAddresses{"3", network.NewAddresses("dummyenv-3.dns")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", state.StatusStarted, ""},
-		addUnit{"varnish", "3"},
+		addAliveUnit{"varnish", "3"},
 
 		addService{name: "private", charm: "wordpress"},
 		setServiceExposed{"private", true},
@@ -1044,7 +1081,7 @@ var statusTests = []testCase{
 		setAddresses{"4", network.NewAddresses("dummyenv-4.dns")},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", state.StatusStarted, ""},
-		addUnit{"private", "4"},
+		addAliveUnit{"private", "4"},
 
 		relateServices{"project", "mysql"},
 		relateServices{"project", "varnish"},
@@ -1070,7 +1107,7 @@ var statusTests = []testCase{
 								"machine":         "1",
 								"agent-state":     "started",
 								"workload-status": M{"current": "active"},
-								"agent-status":    M{"current": "allocating"},
+								"agent-status":    M{"current": "idle"},
 								"public-address":  "dummyenv-1.dns",
 							},
 						},
@@ -1087,7 +1124,7 @@ var statusTests = []testCase{
 								"machine":         "2",
 								"agent-state":     "started",
 								"workload-status": M{"current": "active"},
-								"agent-status":    M{"current": "allocating"},
+								"agent-status":    M{"current": "idle"},
 								"public-address":  "dummyenv-2.dns",
 							},
 						},
@@ -1100,12 +1137,11 @@ var statusTests = []testCase{
 						"exposed": true,
 						"units": M{
 							"varnish/0": M{
-								"machine":          "3",
-								"agent-state":      "pending",
-								"agent-state-info": "Waiting for agent initialization to finish",
-								"workload-status":  M{"current": "unknown", "message": "Waiting for agent initialization to finish"},
-								"agent-status":     M{"current": "allocating"},
-								"public-address":   "dummyenv-3.dns",
+								"machine":         "3",
+								"agent-state":     "pending",
+								"workload-status": M{"current": "unknown", "message": "Waiting for agent initialization to finish"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-3.dns",
 							},
 						},
 						"relations": M{
@@ -1117,12 +1153,11 @@ var statusTests = []testCase{
 						"exposed": true,
 						"units": M{
 							"private/0": M{
-								"machine":          "4",
-								"agent-state":      "pending",
-								"agent-state-info": "Waiting for agent initialization to finish",
-								"workload-status":  M{"current": "unknown", "message": "Waiting for agent initialization to finish"},
-								"agent-status":     M{"current": "allocating"},
-								"public-address":   "dummyenv-4.dns",
+								"machine":         "4",
+								"agent-state":     "pending",
+								"workload-status": M{"current": "unknown", "message": "Waiting for agent initialization to finish"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-4.dns",
 							},
 						},
 						"relations": M{
@@ -1148,18 +1183,21 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"riak", "1"},
+		setAgentStatus{"riak/0", state.StatusIdle, "", nil},
 		setUnitStatus{"riak/0", state.StatusActive, "", nil},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("dummyenv-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		addAliveUnit{"riak", "2"},
+		setAgentStatus{"riak/1", state.StatusIdle, "", nil},
 		setUnitStatus{"riak/1", state.StatusActive, "", nil},
 		addMachine{machineId: "3", job: state.JobHostUnits},
 		setAddresses{"3", network.NewAddresses("dummyenv-3.dns")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", state.StatusStarted, ""},
 		addAliveUnit{"riak", "3"},
+		setAgentStatus{"riak/2", state.StatusIdle, "", nil},
 		setUnitStatus{"riak/2", state.StatusActive, "", nil},
 
 		expect{
@@ -1181,21 +1219,21 @@ var statusTests = []testCase{
 								"machine":         "1",
 								"agent-state":     "started",
 								"workload-status": M{"current": "active"},
-								"agent-status":    M{"current": "allocating"},
+								"agent-status":    M{"current": "idle"},
 								"public-address":  "dummyenv-1.dns",
 							},
 							"riak/1": M{
 								"machine":         "2",
 								"agent-state":     "started",
 								"workload-status": M{"current": "active"},
-								"agent-status":    M{"current": "allocating"},
+								"agent-status":    M{"current": "idle"},
 								"public-address":  "dummyenv-2.dns",
 							},
 							"riak/2": M{
 								"machine":         "3",
 								"agent-state":     "started",
 								"workload-status": M{"current": "active"},
-								"agent-status":    M{"current": "allocating"},
+								"agent-status":    M{"current": "idle"},
 								"public-address":  "dummyenv-3.dns",
 							},
 						},
@@ -1226,6 +1264,7 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"wordpress", "1"},
+		setAgentStatus{"wordpress/0", state.StatusIdle, "", nil},
 		setUnitStatus{"wordpress/0", state.StatusActive, "", nil},
 
 		addService{name: "mysql", charm: "mysql"},
@@ -1235,6 +1274,7 @@ var statusTests = []testCase{
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
+		setAgentStatus{"mysql/0", state.StatusIdle, "", nil},
 		setUnitStatus{"mysql/0", state.StatusActive, "", nil},
 
 		addService{name: "logging", charm: "logging"},
@@ -1248,8 +1288,9 @@ var statusTests = []testCase{
 		addSubordinate{"mysql/0", "logging"},
 
 		setUnitsAlive{"logging"},
+		setAgentStatus{"logging/0", state.StatusIdle, "", nil},
 		setUnitStatus{"logging/0", state.StatusActive, "", nil},
-		setUnitStatus{"logging/1", state.StatusError, "somehow lost in all those logs", nil},
+		setAgentStatus{"logging/1", state.StatusError, "somehow lost in all those logs", nil},
 
 		expect{
 			"multiples related peer units",
@@ -1269,12 +1310,12 @@ var statusTests = []testCase{
 								"machine":         "1",
 								"agent-state":     "started",
 								"workload-status": M{"current": "active"},
-								"agent-status":    M{"current": "allocating"},
+								"agent-status":    M{"current": "idle"},
 								"subordinates": M{
 									"logging/0": M{
 										"agent-state":     "started",
 										"workload-status": M{"current": "active"},
-										"agent-status":    M{"current": "allocating"},
+										"agent-status":    M{"current": "idle"},
 										"public-address":  "dummyenv-1.dns",
 									},
 								},
@@ -1294,13 +1335,13 @@ var statusTests = []testCase{
 								"machine":         "2",
 								"agent-state":     "started",
 								"workload-status": M{"current": "active"},
-								"agent-status":    M{"current": "allocating"},
+								"agent-status":    M{"current": "idle"},
 								"subordinates": M{
 									"logging/1": M{
 										"agent-state":      "error",
 										"agent-state-info": "somehow lost in all those logs",
 										"workload-status":  M{"current": "error", "message": "somehow lost in all those logs"},
-										"agent-status":     M{"current": "allocating"},
+										"agent-status":     M{"current": "idle"},
 										"public-address":   "dummyenv-2.dns",
 									},
 								},
@@ -1344,12 +1385,12 @@ var statusTests = []testCase{
 								"machine":         "1",
 								"agent-state":     "started",
 								"workload-status": M{"current": "active"},
-								"agent-status":    M{"current": "allocating"},
+								"agent-status":    M{"current": "idle"},
 								"subordinates": M{
 									"logging/0": M{
 										"agent-state":     "started",
 										"workload-status": M{"current": "active"},
-										"agent-status":    M{"current": "allocating"},
+										"agent-status":    M{"current": "idle"},
 										"public-address":  "dummyenv-1.dns",
 									},
 								},
@@ -1369,12 +1410,12 @@ var statusTests = []testCase{
 								"machine":         "2",
 								"agent-state":     "started",
 								"workload-status": M{"current": "active"},
-								"agent-status":    M{"current": "allocating"},
+								"agent-status":    M{"current": "idle"},
 								"subordinates": M{
 									"logging/1": M{
 										"agent-state":      "error",
 										"workload-status":  M{"current": "error", "message": "somehow lost in all those logs"},
-										"agent-status":     M{"current": "allocating"},
+										"agent-status":     M{"current": "idle"},
 										"agent-state-info": "somehow lost in all those logs",
 										"public-address":   "dummyenv-2.dns",
 									},
@@ -1418,12 +1459,12 @@ var statusTests = []testCase{
 								"machine":         "1",
 								"agent-state":     "started",
 								"workload-status": M{"current": "active"},
-								"agent-status":    M{"current": "allocating"},
+								"agent-status":    M{"current": "idle"},
 								"subordinates": M{
 									"logging/0": M{
 										"agent-state":     "started",
 										"workload-status": M{"current": "active"},
-										"agent-status":    M{"current": "allocating"},
+										"agent-status":    M{"current": "idle"},
 										"public-address":  "dummyenv-1.dns",
 									},
 								},
@@ -1463,6 +1504,7 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "1"},
+		setAgentStatus{"mysql/0", state.StatusIdle, "", nil},
 		setUnitStatus{"mysql/0", state.StatusActive, "", nil},
 
 		// A container on machine 1.
@@ -1471,6 +1513,7 @@ var statusTests = []testCase{
 		startAliveMachine{"1/lxc/0"},
 		setMachineStatus{"1/lxc/0", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "1/lxc/0"},
+		setAgentStatus{"mysql/1", state.StatusIdle, "", nil},
 		setUnitStatus{"mysql/1", state.StatusActive, "", nil},
 		addContainer{"1", "1/lxc/1", state.JobHostUnits},
 
@@ -1497,14 +1540,14 @@ var statusTests = []testCase{
 								"machine":         "1",
 								"agent-state":     "started",
 								"workload-status": M{"current": "active"},
-								"agent-status":    M{"current": "allocating"},
+								"agent-status":    M{"current": "idle"},
 								"public-address":  "dummyenv-1.dns",
 							},
 							"mysql/1": M{
 								"machine":         "1/lxc/0",
 								"agent-state":     "started",
 								"workload-status": M{"current": "active"},
-								"agent-status":    M{"current": "allocating"},
+								"agent-status":    M{"current": "idle"},
 								"public-address":  "dummyenv-2.dns",
 							},
 						},
@@ -1545,7 +1588,7 @@ var statusTests = []testCase{
 								"machine":         "1/lxc/0",
 								"agent-state":     "started",
 								"workload-status": M{"current": "active"},
-								"agent-status":    M{"current": "allocating"},
+								"agent-status":    M{"current": "idle"},
 								"public-address":  "dummyenv-2.dns",
 							},
 						},
@@ -1584,12 +1627,11 @@ var statusTests = []testCase{
 						"exposed":        true,
 						"units": M{
 							"mysql/0": M{
-								"machine":          "1",
-								"agent-state":      "pending",
-								"agent-state-info": "Waiting for agent initialization to finish",
-								"workload-status":  M{"current": "unknown", "message": "Waiting for agent initialization to finish"},
-								"agent-status":     M{"current": "allocating"},
-								"public-address":   "dummyenv-1.dns",
+								"machine":         "1",
+								"agent-state":     "pending",
+								"workload-status": M{"current": "unknown", "message": "Waiting for agent initialization to finish"},
+								"agent-status":    M{"current": "allocating"},
+								"public-address":  "dummyenv-1.dns",
 							},
 						},
 					},
@@ -2357,6 +2399,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"wordpress", "1"},
+		setAgentStatus{"wordpress/0", state.StatusIdle, "", nil},
 		setUnitStatus{"wordpress/0", state.StatusActive, "", nil},
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
@@ -2365,6 +2408,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
+		setAgentStatus{"mysql/0", state.StatusIdle, "", nil},
 		setUnitStatus{"mysql/0", state.StatusActive, "", nil},
 		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
@@ -2374,8 +2418,9 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
 		setUnitsAlive{"logging"},
+		setAgentStatus{"logging/0", state.StatusIdle, "", nil},
 		setUnitStatus{"logging/0", state.StatusActive, "", nil},
-		setUnitStatus{"logging/1", state.StatusError, "somehow lost in all those logs", nil},
+		setAgentStatus{"logging/1", state.StatusError, "somehow lost in all those logs", nil},
 	}
 	for _, s := range steps {
 		s.step(c, ctx)
@@ -2421,6 +2466,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"wordpress", "1"},
+		setAgentStatus{"wordpress/0", state.StatusIdle, "", nil},
 		setUnitStatus{"wordpress/0", state.StatusActive, "", nil},
 
 		addService{name: "mysql", charm: "mysql"},
@@ -2430,6 +2476,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
+		setAgentStatus{"mysql/0", state.StatusIdle, "", nil},
 		setUnitStatus{"mysql/0", state.StatusActive, "", nil},
 
 		addService{name: "logging", charm: "logging"},
@@ -2443,8 +2490,9 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addSubordinate{"mysql/0", "logging"},
 
 		setUnitsAlive{"logging"},
+		setAgentStatus{"logging/0", state.StatusIdle, "", nil},
 		setUnitStatus{"logging/0", state.StatusActive, "", nil},
-		setUnitStatus{"logging/1", state.StatusError, "somehow lost in all those logs", nil},
+		setAgentStatus{"logging/1", state.StatusError, "somehow lost in all those logs", nil},
 	}
 
 	ctx.run(c, steps)
@@ -2491,6 +2539,7 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"wordpress", "1"},
+		setAgentStatus{"wordpress/0", state.StatusIdle, "", nil},
 		setUnitStatus{"wordpress/0", state.StatusActive, "", nil},
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
@@ -2499,6 +2548,7 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
+		setAgentStatus{"mysql/0", state.StatusIdle, "", nil},
 		setUnitStatus{"mysql/0", state.StatusActive, "", nil},
 		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
@@ -2508,8 +2558,9 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
 		setUnitsAlive{"logging"},
+		setAgentStatus{"logging/0", state.StatusIdle, "", nil},
 		setUnitStatus{"logging/0", state.StatusActive, "", nil},
-		setUnitStatus{"logging/1", state.StatusError, "somehow lost in all those logs", nil},
+		setAgentStatus{"logging/1", state.StatusError, "somehow lost in all those logs", nil},
 	}
 	for _, s := range steps {
 		s.step(c, ctx)
@@ -2605,6 +2656,7 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		// And a unit of "wordpress" is deployed to machine "1"
 		addAliveUnit{"wordpress", "1"},
 		// And the unit is started
+		setAgentStatus{"wordpress/0", state.StatusIdle, "", nil},
 		setUnitStatus{"wordpress/0", state.StatusActive, "", nil},
 		// And a machine is started
 
@@ -2618,6 +2670,7 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		// And a unit of "mysql" is deployed to machine "2"
 		addAliveUnit{"mysql", "2"},
 		// And the unit is started
+		setAgentStatus{"mysql/0", state.StatusIdle, "", nil},
 		setUnitStatus{"mysql/0", state.StatusActive, "", nil},
 		// And the "logging" service is added
 		addService{name: "logging", charm: "logging"},
@@ -2631,9 +2684,11 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		relateServices{"mysql", "logging"},
 		// And the "logging" service is a subordinate to unit 0 of the "wordpress" service
 		addSubordinate{"wordpress/0", "logging"},
+		setAgentStatus{"logging/0", state.StatusIdle, "", nil},
 		setUnitStatus{"logging/0", state.StatusActive, "", nil},
 		// And the "logging" service is a subordinate to unit 0 of the "mysql" service
 		addSubordinate{"mysql/0", "logging"},
+		setAgentStatus{"logging/1", state.StatusIdle, "", nil},
 		setUnitStatus{"logging/1", state.StatusActive, "", nil},
 		setUnitsAlive{"logging"},
 	}
@@ -2648,9 +2703,9 @@ func (s *StatusSuite) TestFilterToStarted(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// Given unit 1 of the "logging" service has an error
-	setUnitStatus{"logging/1", state.StatusError, "mock error", nil}.step(c, ctx)
+	setAgentStatus{"logging/1", state.StatusError, "mock error", nil}.step(c, ctx)
 	// And unit 0 of the "mysql" service has an error
-	setUnitStatus{"mysql/0", state.StatusError, "mock error", nil}.step(c, ctx)
+	setAgentStatus{"mysql/0", state.StatusError, "mock error", nil}.step(c, ctx)
 	// When I run juju status --format oneline started
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "started")
 	c.Assert(string(stderr), gc.Equals, "")
@@ -2670,7 +2725,7 @@ func (s *StatusSuite) TestFilterToErrored(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// Given unit 1 of the "logging" service has an error
-	setUnitStatus{"logging/1", state.StatusError, "mock error", nil}.step(c, ctx)
+	setAgentStatus{"logging/1", state.StatusError, "mock error", nil}.step(c, ctx)
 	// When I run juju status --format oneline error
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "error")
 	c.Assert(stderr, gc.IsNil)

@@ -86,26 +86,24 @@ func (s *InterfaceSuite) TestUnitStatus(c *gc.C) {
 func (s *InterfaceSuite) TestSetUnitStatus(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	status := jujuc.StatusInfo{
-		Status: "error",
-		Info:   "not working",
-		Data:   map[string]interface{}{"foo": "bar"},
+		Status: "maintenance",
+		Info:   "doing work",
 	}
 	err := ctx.SetUnitStatus(status)
 	c.Check(err, jc.ErrorIsNil)
 	unitStatus, err := ctx.UnitStatus()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(unitStatus.Status, gc.Equals, "error")
-	c.Check(unitStatus.Info, gc.Equals, "not working")
-	c.Check(unitStatus.Data, gc.DeepEquals, map[string]interface{}{"foo": "bar"})
+	c.Check(unitStatus.Status, gc.Equals, "maintenance")
+	c.Check(unitStatus.Info, gc.Equals, "doing work")
+	c.Check(unitStatus.Data, gc.DeepEquals, map[string]interface{}{})
 }
 
 func (s *InterfaceSuite) TestSetUnitStatusUpdatesFlag(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	c.Assert(ctx.(runner.Context).HasExecutionSetUnitStatus(), jc.IsFalse)
 	status := jujuc.StatusInfo{
-		Status: "error",
-		Info:   "not working",
-		Data:   map[string]interface{}{"foo": "bar"},
+		Status: "maintenance",
+		Info:   "doing work",
 	}
 	err := ctx.SetUnitStatus(status)
 	c.Check(err, jc.ErrorIsNil)
