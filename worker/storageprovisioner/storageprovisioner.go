@@ -36,10 +36,6 @@ type VolumeAccessor interface {
 	// that this storage provisioner is responsible for.
 	WatchVolumeAttachments() (apiwatcher.MachineStorageIdsWatcher, error)
 
-	// WatchVolumeAttachment watches for changes to the specified volume
-	// attachment.
-	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) (apiwatcher.NotifyWatcher, error)
-
 	// Volumes returns details of volumes with the specified tags.
 	Volumes([]names.VolumeTag) ([]params.VolumeResult, error)
 
@@ -249,16 +245,12 @@ func (w *storageprovisioner) loop() error {
 		return nil
 	}
 
-	entityWatchers := newEntityWatchers(w.volumes)
-	defer entityWatchers.Stop()
-
 	ctx := context{
 		scope:                        w.scope,
 		storageDir:                   w.storageDir,
 		volumeAccessor:               w.volumes,
 		filesystemAccessor:           w.filesystems,
 		life:                         w.life,
-		entityWatchers:               entityWatchers,
 		volumes:                      make(map[names.VolumeTag]storage.Volume),
 		volumeAttachments:            make(map[params.MachineStorageId]storage.VolumeAttachment),
 		volumeBlockDevices:           make(map[names.VolumeTag]storage.BlockDevice),
@@ -333,10 +325,6 @@ func (w *storageprovisioner) loop() error {
 			if err := volumeBlockDevicesChanged(&ctx); err != nil {
 				return errors.Trace(err)
 			}
-		case changes := <-ctx.entityWatchers.volumeAttachmentsChanges:
-			if err := volumeAttachmentsChanged(&ctx, changes); err != nil {
-				return errors.Trace(err)
-			}
 		}
 	}
 }
@@ -372,7 +360,6 @@ type context struct {
 	volumeAccessor     VolumeAccessor
 	filesystemAccessor FilesystemAccessor
 	life               LifecycleManager
-	entityWatchers     *entityWatchers
 
 	// volumes contains information about provisioned volumes.
 	volumes map[names.VolumeTag]storage.Volume

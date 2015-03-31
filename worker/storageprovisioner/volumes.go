@@ -296,24 +296,6 @@ func processAliveVolumeAttachments(
 				result.Error, "getting information for attachment %v", ids[i],
 			)
 		}
-		if machineTag, ok := ctx.scope.(names.MachineTag); ok {
-			volumeTag, err := names.ParseVolumeTag(ids[i].AttachmentTag)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if _, ok := names.VolumeMachine(volumeTag); !ok {
-				// The provisioner is machine-scoped, but the volume is not.
-				// We'll need to start a watcher for the volume attachment
-				// so we can observe when it has been created by the environ-
-				// scoped provisioner.
-				if err := ctx.entityWatchers.watchVolumeAttachment(
-					machineTag, volumeTag,
-				); err != nil {
-					return errors.Trace(err)
-				}
-				continue
-			}
-		}
 		// The volume has not yet been provisioned, so record its tag
 		// to enquire about parameters below.
 		pending = append(pending, ids[i])
