@@ -39,6 +39,26 @@ func NewState(caller base.APICaller, scope names.Tag) *State {
 	}
 }
 
+func (st *State) WatchBlockDevices(m names.MachineTag) (watcher.NotifyWatcher, error) {
+	var results params.NotifyWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.String()}},
+	}
+	err := st.facade.FacadeCall("WatchBlockDevices", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
+	return w, nil
+}
+
 // WatchVolumes watches for changes to volumes scoped to the
 // entity with the tag passed to NewState.
 func (st *State) WatchVolumes() (watcher.StringsWatcher, error) {
@@ -149,6 +169,21 @@ func (st *State) VolumeAttachments(ids []params.MachineStorageId) ([]params.Volu
 	args := params.MachineStorageIds{ids}
 	var results params.VolumeAttachmentResults
 	err := st.facade.FacadeCall("VolumeAttachments", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != len(ids) {
+		panic(errors.Errorf("expected %d result(s), got %d", len(ids), len(results.Results)))
+	}
+	return results.Results, nil
+}
+
+// VolumeBlockDevices returns details of block devices corresponding to the volume
+// attachments with the specified IDs.
+func (st *State) VolumeBlockDevices(ids []params.MachineStorageId) ([]params.BlockDeviceResult, error) {
+	args := params.MachineStorageIds{ids}
+	var results params.BlockDeviceResults
+	err := st.facade.FacadeCall("VolumeBlockDevices", args, &results)
 	if err != nil {
 		return nil, err
 	}
