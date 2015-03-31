@@ -92,6 +92,7 @@ func (s *mongoRestoreSuite) TestPlaceNewMongo(c *gc.C) {
 	s.PatchValue(backups.RestoreArgsForVersion, restoreArgsForVersion)
 
 	err := backups.PlaceNewMongo("fakemongopath", ver)
+	c.Assert(restorePathCalled, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(argsVersion, gc.DeepEquals, ver)
 	c.Assert(newMongoDumpPath, gc.Equals, "fakemongopath")
