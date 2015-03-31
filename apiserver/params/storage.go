@@ -303,6 +303,7 @@ type FilesystemAttachments struct {
 // FilesystemParams holds the parameters for creating a storage filesystem.
 type FilesystemParams struct {
 	FilesystemTag string                      `json:"filesystemtag"`
+	VolumeTag     string                      `json:"volumetag,omitempty"`
 	Size          uint64                      `json:"size"`
 	Provider      string                      `json:"provider"`
 	Attributes    map[string]interface{}      `json:"attributes,omitempty"`
