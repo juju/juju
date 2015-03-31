@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"syscall"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
@@ -74,6 +75,7 @@ func (s *UniterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.ticker = uniter.NewManualTicker()
 	s.PatchValue(uniter.ActiveMetricsTimer, s.ticker.ReturnTimer)
+	s.PatchValue(uniter.IdleWaitTime, 1*time.Millisecond)
 }
 
 func (s *UniterSuite) TearDownTest(c *gc.C) {

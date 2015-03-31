@@ -215,8 +215,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 
 // IdleWaitTime is the time after which, if there are no uniter events,
 // the agent state becomes idle.
-// Override for testing.
-var IdleWaitTime = 2 * time.Second
+var idleWaitTime = 2 * time.Second
 
 // modeAbideAliveLoop handles all state changes for ModeAbide when the unit
 // is in an Alive state.
@@ -228,7 +227,7 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 		)
 		var creator creator
 		select {
-		case <-time.After(IdleWaitTime):
+		case <-time.After(idleWaitTime):
 			if err := setAgentStatus(u, params.StatusIdle, "", nil); err != nil {
 				return nil, errors.Trace(err)
 			}
