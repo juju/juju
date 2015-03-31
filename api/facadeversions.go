@@ -21,7 +21,6 @@ var facadeVersions = map[string]int{
 	"CharmRevisionUpdater":         0,
 	"Client":                       0,
 	"Deployer":                     0,
-	"DiskFormatter":                1,
 	"DiskManager":                  1,
 	"Environment":                  0,
 	"EnvironmentManager":           1,
