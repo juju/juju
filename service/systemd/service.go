@@ -27,6 +27,17 @@ var (
 	cmds     = commands{renderer, executable}
 )
 
+// IsLocal returns whether or not this is the local init system.
+func IsLocal() (bool, error) {
+	if _, err := os.Stat("/run/systemd/system"); err == nil {
+		return true, nil
+	} else if os.IsNotExist(err) {
+		return false, nil
+	} else {
+		return false, errors.Trace(err)
+	}
+}
+
 // ListServices returns the list of installed service names.
 func ListServices() ([]string, error) {
 	// TODO(ericsnow) conn.ListUnits misses some inactive units, so we

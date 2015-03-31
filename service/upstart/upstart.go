@@ -31,6 +31,19 @@ var (
 	renderer = &shell.BashRenderer{}
 )
 
+// IsLocal returns whether or not this is the local init system.
+func IsLocal() (bool, error) {
+	cmd := exec.Command("/sbin/initctl", "--system", "list")
+	_, err := cmd.CombinedOutput()
+	if err == nil {
+		return true, nil
+	}
+	if err == exec.ErrNotFound || err.Error() == "exit status 1" {
+		return false, nil
+	}
+	return false, errors.Trace(err)
+}
+
 // ListServices returns the name of all installed services on the
 // local host.
 func ListServices() ([]string, error) {

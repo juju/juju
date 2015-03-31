@@ -6,6 +6,7 @@ package windows
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 
 	"github.com/juju/errors"
@@ -21,6 +22,11 @@ var (
 
 	renderer = &shell.PowershellRenderer{}
 )
+
+// IsLocal returns whether or not this is the local init system.
+func IsLocal() (bool, error) {
+	return runtime.GOOS == "windows", nil
+}
 
 // ListServices returns the name of all installed services on the
 // local host.
