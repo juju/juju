@@ -67,12 +67,12 @@ var listCmdArg = exec.RunParams{
 type initSystemSuite struct {
 	coretesting.BaseSuite
 
-	dataDir string
-	ch      chan string
-	stub    *testing.Stub
-	conn    *systemd.StubDbusAPI
-	fops    *systemd.StubFileOps
-	exec    *systemd.StubExec
+	managedDir string
+	ch         chan string
+	stub       *testing.Stub
+	conn       *systemd.StubDbusAPI
+	fops       *systemd.StubFileOps
+	exec       *systemd.StubExec
 
 	name    string
 	tag     names.Tag
@@ -87,8 +87,8 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	// Patch things out.
-	s.dataDir = c.MkDir()
-	systemd.PatchFindDataDir(s, s.dataDir)
+	s.managedDir = filepath.Join(c.MkDir(), "init")
+	systemd.PatchFindManagedDir(s, s.managedDir)
 	s.ch = systemd.PatchNewChan(s)
 
 	s.stub = &testing.Stub{}
@@ -153,7 +153,7 @@ func (s *initSystemSuite) setConf(c *gc.C, conf common.Conf) {
 func (s *initSystemSuite) checkCreateFileCall(c *gc.C, index int, filename, content string, perm os.FileMode) {
 	if content == "" {
 		name := filename
-		filename = fmt.Sprintf("%s/init/%s/%s.service", s.dataDir, name, name)
+		filename = fmt.Sprintf("%s/%s/%s.service", s.managedDir, name, name)
 		content = s.newConfStr(name, "")
 	}
 
@@ -223,7 +223,7 @@ func (s *initSystemSuite) TestNewService(c *gc.C) {
 		},
 		ConfName: s.name + ".service",
 		UnitName: s.name + ".service",
-		Dirname:  fmt.Sprintf("%s/init/%s", s.dataDir, s.name),
+		Dirname:  fmt.Sprintf("%s/%s", s.managedDir, s.name),
 	})
 	s.stub.CheckCalls(c, nil)
 }
@@ -234,7 +234,7 @@ func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
 	service, err := systemd.NewService(s.name, s.conf)
 	c.Assert(err, jc.ErrorIsNil)
 
-	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
+	dirname := fmt.Sprintf("%s/%s", s.managedDir, s.name)
 	script := `
 touch /var/log/juju/machine-0.log
 chown syslog:syslog /var/log/juju/machine-0.log
@@ -269,7 +269,7 @@ func (s *initSystemSuite) TestNewServiceEmptyConf(c *gc.C) {
 		},
 		ConfName: s.name + ".service",
 		UnitName: s.name + ".service",
-		Dirname:  fmt.Sprintf("%s/init/%s", s.dataDir, s.name),
+		Dirname:  fmt.Sprintf("%s/%s", s.managedDir, s.name),
 	})
 	s.stub.CheckCalls(c, nil)
 }
@@ -287,7 +287,7 @@ func (s *initSystemSuite) TestUpdateConfig(c *gc.C) {
 		},
 		ConfName: s.name + ".service",
 		UnitName: s.name + ".service",
-		Dirname:  fmt.Sprintf("%s/init/%s", s.dataDir, s.name),
+		Dirname:  fmt.Sprintf("%s/%s", s.managedDir, s.name),
 	})
 	s.stub.CheckCalls(c, nil)
 }
@@ -297,7 +297,7 @@ func (s *initSystemSuite) TestUpdateConfigExtraScript(c *gc.C) {
 
 	s.service.UpdateConfig(s.conf)
 
-	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
+	dirname := fmt.Sprintf("%s/%s", s.managedDir, s.name)
 	script := "/path/to/another/command\n" + jujud + " machine-0"
 	c.Check(s.service, jc.DeepEquals, &systemd.Service{
 		Service: common.Service{
@@ -322,7 +322,7 @@ func (s *initSystemSuite) TestUpdateConfigMultiline(c *gc.C) {
 
 	s.service.UpdateConfig(s.conf)
 
-	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
+	dirname := fmt.Sprintf("%s/%s", s.managedDir, s.name)
 	c.Check(s.service, jc.DeepEquals, &systemd.Service{
 		Service: common.Service{
 			Name: s.name,
@@ -346,7 +346,7 @@ func (s *initSystemSuite) TestUpdateConfigLogfile(c *gc.C) {
 
 	// TODO(ericsnow) The error return needs to be checked once there is one.
 
-	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
+	dirname := fmt.Sprintf("%s/%s", s.managedDir, s.name)
 	script := `
 touch /var/log/juju/machine-0.log
 chown syslog:syslog /var/log/juju/machine-0.log
@@ -380,7 +380,7 @@ func (s *initSystemSuite) TestUpdateConfigEmpty(c *gc.C) {
 		},
 		ConfName: s.name + ".service",
 		UnitName: s.name + ".service",
-		Dirname:  fmt.Sprintf("%s/init/%s", s.dataDir, s.name),
+		Dirname:  fmt.Sprintf("%s/%s", s.managedDir, s.name),
 	})
 	s.stub.CheckCalls(c, nil)
 }
@@ -637,7 +637,7 @@ func (s *initSystemSuite) TestRemove(c *gc.C) {
 	}, {
 		FuncName: "RemoveAll",
 		Args: []interface{}{
-			fmt.Sprintf("%s/init/%s", s.dataDir, s.name),
+			fmt.Sprintf("%s/%s", s.managedDir, s.name),
 		},
 	}, {
 		FuncName: "Close",
@@ -655,7 +655,7 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 	err := s.service.Install()
 	c.Assert(err, jc.ErrorIsNil)
 
-	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
+	dirname := fmt.Sprintf("%s/%s", s.managedDir, s.name)
 	filename := fmt.Sprintf("%s/%s.service", dirname, s.name)
 	createFileOutput := s.stub.Calls[2].Args[1]
 	s.stub.CheckCalls(c, []testing.StubCall{{
@@ -754,7 +754,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
-	scriptPath := fmt.Sprintf("%s/init/%s/exec-start.sh", s.dataDir, s.name)
+	scriptPath := fmt.Sprintf("%s/%s/exec-start.sh", s.managedDir, s.name)
 	cmd := "a\nb\nc"
 	s.service.Service.Conf.ExecStart = scriptPath
 	s.service.Script = []byte(cmd)
@@ -773,7 +773,7 @@ func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
 		"Close",
 	)
 	s.checkCreateFileCall(c, 2, scriptPath, cmd, 0755)
-	filename := fmt.Sprintf("%s/init/%s/%s.service", s.dataDir, s.name, s.name)
+	filename := fmt.Sprintf("%s/%s/%s.service", s.managedDir, s.name, s.name)
 	content := s.newConfStr(s.name, scriptPath)
 	s.checkCreateFileCall(c, 3, filename, content, 0644)
 }
@@ -789,8 +789,8 @@ func (s *initSystemSuite) TestInstallEmptyConf(c *gc.C) {
 
 func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 	name := "jujud-machine-0"
-	s.dataDir = "/tmp/"
-	s.service.Dirname = "/tmp/init/jujud-machine-0"
+	s.managedDir = "/tmp"
+	s.service.Dirname = "/tmp/jujud-machine-0"
 
 	commands, err := s.service.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
@@ -800,18 +800,18 @@ func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 	s.checkWriteConf(c, name, commands[1], expected)
 
 	// Check the remaining commands.
-	c.Check(commands[0], gc.Equals, "mkdir -p /tmp/init/jujud-machine-0")
+	c.Check(commands[0], gc.Equals, "mkdir -p /tmp/jujud-machine-0")
 	c.Check(commands[2:], jc.DeepEquals, []string{
-		"/bin/systemctl link /tmp/init/jujud-machine-0/jujud-machine-0.service",
+		"/bin/systemctl link /tmp/jujud-machine-0/jujud-machine-0.service",
 		"/bin/systemctl daemon-reload",
-		"/bin/systemctl enable /tmp/init/jujud-machine-0/jujud-machine-0.service",
+		"/bin/systemctl enable /tmp/jujud-machine-0/jujud-machine-0.service",
 	})
 }
 
 func (s *initSystemSuite) checkWriteConf(c *gc.C, name, cmd, expected string) (string, string) {
 	// This check must be done without regard to map order.
 
-	dirname := filepath.Join(s.dataDir, "init", name)
+	dirname := filepath.Join(s.managedDir, name)
 	unitFile := filepath.Join(dirname, name+".service")
 
 	cmd = strings.TrimSpace(cmd)
@@ -860,8 +860,8 @@ func parseConfSections(lines []string) map[string][]string {
 
 func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
 	name := "jujud-machine-0"
-	s.dataDir = "/tmp"
-	systemd.PatchFindDataDir(s, s.dataDir)
+	s.managedDir = "/tmp"
+	systemd.PatchFindManagedDir(s, s.managedDir)
 	s.conf.Logfile = "/var/log/juju/machine-0.log"
 
 	service, err := systemd.NewService(s.name, s.conf)
@@ -873,14 +873,14 @@ func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
 	expected := strings.Replace(
 		s.newConfStr(name, ""),
 		"ExecStart=/var/lib/juju/bin/jujud machine-0",
-		"ExecStart=/tmp/init/jujud-machine-0/exec-start.sh",
+		"ExecStart=/tmp/jujud-machine-0/exec-start.sh",
 		-1)
 	s.checkWriteConf(c, name, commands[3], expected)
 
 	// Check the remaining commands.
-	c.Check(commands[0], gc.Equals, "mkdir -p /tmp/init/jujud-machine-0")
+	c.Check(commands[0], gc.Equals, "mkdir -p /tmp/jujud-machine-0")
 	c.Check(strings.Split(commands[1], "\n"), jc.DeepEquals, strings.Split(`
-cat > /tmp/init/jujud-machine-0/exec-start.sh << 'EOF'
+cat > /tmp/jujud-machine-0/exec-start.sh << 'EOF'
 #!/bin/bash
 
 touch /var/log/juju/machine-0.log
@@ -890,17 +890,17 @@ exec > /var/log/juju/machine-0.log
 exec 2>&1
 /var/lib/juju/bin/jujud machine-0
 EOF`[1:], "\n"))
-	c.Check(commands[2], gc.Equals, "chmod 0755 /tmp/init/jujud-machine-0/exec-start.sh")
+	c.Check(commands[2], gc.Equals, "chmod 0755 /tmp/jujud-machine-0/exec-start.sh")
 	c.Check(commands[4:], jc.DeepEquals, []string{
-		"/bin/systemctl link /tmp/init/jujud-machine-0/jujud-machine-0.service",
+		"/bin/systemctl link /tmp/jujud-machine-0/jujud-machine-0.service",
 		"/bin/systemctl daemon-reload",
-		"/bin/systemctl enable /tmp/init/jujud-machine-0/jujud-machine-0.service",
+		"/bin/systemctl enable /tmp/jujud-machine-0/jujud-machine-0.service",
 	})
 }
 
 func (s *initSystemSuite) TestInstallCommandsShutdown(c *gc.C) {
-	s.dataDir = "/tmp"
-	systemd.PatchFindDataDir(s, s.dataDir)
+	s.managedDir = "/tmp"
+	systemd.PatchFindManagedDir(s, s.managedDir)
 
 	name := "juju-shutdown-job"
 	conf, err := service.ShutdownAfterConf("cloud-final")
@@ -926,11 +926,11 @@ ExecStopPost=/bin/systemctl disable juju-shutdown-job.service
 `[1:])
 
 	// Check the remaining commands.
-	c.Check(commands[0], gc.Equals, "mkdir -p /tmp/init/juju-shutdown-job")
+	c.Check(commands[0], gc.Equals, "mkdir -p /tmp/juju-shutdown-job")
 	c.Check(commands[2:], jc.DeepEquals, []string{
-		"/bin/systemctl link /tmp/init/juju-shutdown-job/juju-shutdown-job.service",
+		"/bin/systemctl link /tmp/juju-shutdown-job/juju-shutdown-job.service",
 		"/bin/systemctl daemon-reload",
-		"/bin/systemctl enable /tmp/init/juju-shutdown-job/juju-shutdown-job.service",
+		"/bin/systemctl enable /tmp/juju-shutdown-job/juju-shutdown-job.service",
 	})
 }
 
