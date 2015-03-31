@@ -133,6 +133,9 @@ type Callbacks interface {
 	PrepareHook(info hook.Info) (name string, err error)
 	CommitHook(info hook.Info) error
 
+	// SetExecutingStatus sets the agent state to "Executing" with a message.
+	SetExecutingStatus(string) error
+
 	// UpdateRelations exists so that we can encapsulate it in an operation.
 	UpdateRelations(ids []int) error
 

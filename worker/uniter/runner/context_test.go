@@ -99,11 +99,24 @@ func (s *InterfaceSuite) TestSetUnitStatus(c *gc.C) {
 	c.Check(unitStatus.Data, gc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }
 
+func (s *InterfaceSuite) TestSetUnitStatusUpdatesFlag(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	c.Assert(ctx.(runner.Context).HasRunSetUnitStatus(), jc.IsFalse)
+	status := jujuc.StatusInfo{
+		Status: "error",
+		Info:   "not working",
+		Data:   map[string]interface{}{"foo": "bar"},
+	}
+	err := ctx.SetUnitStatus(status)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(ctx.(runner.Context).HasRunSetUnitStatus(), jc.IsTrue)
+}
+
 func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	status, err := ctx.UnitStatus()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(status.Status, gc.Equals, "maintenance")
+	c.Check(status.Status, gc.Equals, "unknown")
 	c.Check(status.Data, gc.DeepEquals, map[string]interface{}{})
 
 	// Change remote state.
@@ -113,7 +126,7 @@ func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {
 	// Local view is unchanged.
 	status, err = ctx.UnitStatus()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(status.Status, gc.Equals, "maintenance")
+	c.Check(status.Status, gc.Equals, "unknown")
 	c.Check(status.Data, gc.DeepEquals, map[string]interface{}{})
 }
 

@@ -47,6 +47,9 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 		// this should *really* never happen, but let's not panic
 		return nil, errors.Trace(err)
 	}
+	if err := ra.callbacks.SetExecutingStatus(fmt.Sprintf("running action: %s", actionData.ActionName)); err != nil {
+		return nil, errors.Trace(err)
+	}
 	ra.name = actionData.ActionName
 	ra.runner = rnr
 	return stateChange{

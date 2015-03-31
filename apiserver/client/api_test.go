@@ -246,8 +246,8 @@ var scenarioStatus = &api.Status{
 						"logging/0": {
 							AgentState: "pending",
 							Workload: api.AgentStatus{
-								Status: "maintenance",
-								Info:   "",
+								Status: "unknown",
+								Info:   "Waiting for agent initialisation to finish",
 								Data:   make(map[string]interface{}),
 							},
 							UnitAgent: api.AgentStatus{
@@ -261,8 +261,8 @@ var scenarioStatus = &api.Status{
 				"wordpress/1": {
 					AgentState: "pending",
 					Workload: api.AgentStatus{
-						Status: "maintenance",
-						Info:   "",
+						Status: "unknown",
+						Info:   "Waiting for agent initialisation to finish",
 						Data:   make(map[string]interface{}),
 					},
 					UnitAgent: api.AgentStatus{
@@ -276,8 +276,8 @@ var scenarioStatus = &api.Status{
 						"logging/1": {
 							AgentState: "pending",
 							Workload: api.AgentStatus{
-								Status: "maintenance",
-								Info:   "",
+								Status: "unknown",
+								Info:   "Waiting for agent initialisation to finish",
 								Data:   make(map[string]interface{}),
 							},
 							UnitAgent: api.AgentStatus{

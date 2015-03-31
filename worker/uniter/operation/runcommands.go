@@ -6,6 +6,8 @@ package operation
 import (
 	"fmt"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
@@ -44,6 +46,9 @@ func (rc *runCommands) Prepare(state State) (*State, error) {
 		return nil, err
 	}
 	rc.runner = rnr
+	if err := rc.callbacks.SetExecutingStatus(fmt.Sprintf("running commands")); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return nil, nil
 }
 

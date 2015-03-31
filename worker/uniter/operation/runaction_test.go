@@ -91,7 +91,8 @@ func (s *RunActionSuite) TestPrepareErrorOther(c *gc.C) {
 
 func (s *RunActionSuite) TestPrepareSuccessCleanState(c *gc.C) {
 	runnerFactory := NewRunActionRunnerFactory(errors.New("should not call"))
-	factory := operation.NewFactory(nil, runnerFactory, nil, nil, nil)
+	callbacks := &RunActionCallbacks{}
+	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil, nil)
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -102,12 +103,14 @@ func (s *RunActionSuite) TestPrepareSuccessCleanState(c *gc.C) {
 		Step:     operation.Pending,
 		ActionId: &someActionId,
 	})
+	c.Assert(callbacks.executingMessage, gc.Equals, "running action: some-action-name")
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
 }
 
 func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
 	runnerFactory := NewRunActionRunnerFactory(errors.New("should not call"))
-	factory := operation.NewFactory(nil, runnerFactory, nil, nil, nil)
+	callbacks := &RunActionCallbacks{}
+	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil, nil)
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -121,6 +124,7 @@ func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
 		CollectMetricsTime: 1234567,
 		Hook:               &hook.Info{Kind: hooks.Install},
 	})
+	c.Assert(callbacks.executingMessage, gc.Equals, "running action: some-action-name")
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
 }
 

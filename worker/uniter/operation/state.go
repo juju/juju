@@ -88,6 +88,10 @@ type State struct {
 	// operation, and is otherwise blank.
 	CharmURL *charm.URL `yaml:"charm,omitempty"`
 
+	// StatusSet indicates whether the charm being deployed has ever invoked
+	// the status-set hook tool.
+	StatusSet bool `yaml:"status-set"`
+
 	// CollectMetricsTime records the time the collect metrics hook was last run.
 	// It's set to nil if the hook was not run at all. Recording time as int64
 	// because the yaml encoder cannot encode the time.Time struct.
@@ -158,11 +162,12 @@ func (st State) CollectedMetricsAt() time.Time {
 
 // stateChange is useful for a variety of Operation implementations.
 type stateChange struct {
-	Kind     Kind
-	Step     Step
-	Hook     *hook.Info
-	ActionId *string
-	CharmURL *charm.URL
+	Kind            Kind
+	Step            Step
+	Hook            *hook.Info
+	ActionId        *string
+	CharmURL        *charm.URL
+	HasRunStatusSet *bool
 }
 
 func (change stateChange) apply(state State) *State {
@@ -171,6 +176,9 @@ func (change stateChange) apply(state State) *State {
 	state.Hook = change.Hook
 	state.ActionId = change.ActionId
 	state.CharmURL = change.CharmURL
+	if change.HasRunStatusSet != nil {
+		state.StatusSet = *change.HasRunStatusSet
+	}
 	return &state
 }
 
