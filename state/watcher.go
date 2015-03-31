@@ -133,7 +133,7 @@ func hasString(changes []string, name string) bool {
 var _ Watcher = (*lifecycleWatcher)(nil)
 
 // lifecycleWatcher notifies about lifecycle changes for a set of entities of
-// the same kind. The first event emitted will contain the ids of all non-Dead
+// the same kind. The first event emitted will contain the ids of all
 // entities; subsequent events are emitted whenever one or more entities are
 // added, or change their lifecycle state. After an entity is found to be
 // Dead, no further event will include it.
