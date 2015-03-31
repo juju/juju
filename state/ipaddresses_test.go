@@ -294,7 +294,7 @@ func (s *IPAddressSuite) TestDeadIPAddresses(c *gc.C) {
 		{"0.1.2.6", "wobble"},
 	}
 	for i, details := range addresses {
-		addr := network.NewAddress(details[0])
+		addr := network.NewAddress(details[0], network.ScopePublic)
 		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 		c.Assert(err, jc.ErrorIsNil)
 		err = ipAddr.AllocateTo(details[1], "wobble")

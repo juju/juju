@@ -2143,7 +2143,7 @@ func (s *StateSuite) TestWatchIPAddresses(c *gc.C) {
 	wc.AssertChangeInSingleEvent()
 
 	// add an IP address
-	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.3"), "foo")
+	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.3", network.ScopePublic), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent(addr.Value())
 

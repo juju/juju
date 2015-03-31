@@ -48,7 +48,7 @@ func (s *workerSuite) createAddresses(c *gc.C) {
 		"0.1.2.3", "0.1.2.4", "0.1.2.5", "0.1.2.6",
 	}
 	for i, rawAddr := range addresses {
-		addr := network.NewAddress(rawAddr)
+		addr := network.NewAddress(rawAddr, network.ScopePublic)
 		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 		c.Assert(err, jc.ErrorIsNil)
 		err = ipAddr.AllocateTo(s.machine.Id(), "wobble")
@@ -85,7 +85,7 @@ func makeReleaseOp(digit int) dummy.OpReleaseAddress {
 		Env:        "dummyenv",
 		InstanceId: "foo",
 		SubnetId:   "foobar",
-		Address:    network.NewAddress(fmt.Sprintf("0.1.2.%d", digit)),
+		Address:    network.NewAddress(fmt.Sprintf("0.1.2.%d", digit), network.ScopePublic),
 	}
 }
 
@@ -132,7 +132,7 @@ func (s *workerSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
 	s.waitForInitialDead(c)
 
 	// Add a new alive address.
-	addr := network.NewAddress("0.1.2.9")
+	addr := network.NewAddress("0.1.2.9", network.ScopePublic)
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	err = ipAddr.AllocateTo(s.machine.Id(), "wobble")
