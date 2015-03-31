@@ -5,7 +5,6 @@ package google
 
 import (
 	jc "github.com/juju/testing/checkers"
-	//"golang.org/x/oauth2"
 	gc "gopkg.in/check.v1"
 )
 
@@ -16,7 +15,6 @@ type authSuite struct {
 var _ = gc.Suite(&authSuite{})
 
 func (s *authSuite) TestNewConnection(c *gc.C) {
-	//s.patchNewToken(c, s.Credentials, "", nil)
 	_, err := newConnection(s.Credentials)
 	c.Assert(err, jc.ErrorIsNil)
 }
