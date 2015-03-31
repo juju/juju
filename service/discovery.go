@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -226,14 +227,22 @@ fi
 exit 1
 `
 
+func discoveryScriptFilename(series string) (string, error) {
+	const scriptName = "discover_init_system.sh"
+	return resolveManaged(series, scriptName)
+}
+
+var resolveManaged = common.Managed
+
 func writeDiscoverInitSystemScript(filename string) []string {
 	// TODO(ericsnow) Use utils.shell.Renderer.WriteScript.
 	return []string{
+		fmt.Sprintf("mkdir -p %s", path.Dir(filename)),
 		fmt.Sprintf(`
 cat > %s << 'EOF'
 %s
 EOF`[1:], filename, DiscoverInitSystemScript),
-		"chmod 0755 " + filename,
+		fmt.Sprintf("chmod 0755 %s", filename),
 	}
 }
 

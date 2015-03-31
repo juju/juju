@@ -4,6 +4,7 @@
 package service
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -154,12 +155,15 @@ func ListServices() ([]string, error) {
 
 // ListServicesScript returns the commands that should be run to get
 // a list of service names on a host.
-func ListServicesScript() string {
-	const filename = "/tmp/discover_init_system.sh"
+func ListServicesScript(series string) (string, error) {
+	filename, err := discoveryScriptFilename(series)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	commands := writeDiscoverInitSystemScript(filename)
-	commands = append(commands, "init_system=$("+filename+")")
+	commands = append(commands, fmt.Sprintf("init_system=$(%s)", filename))
 	commands = append(commands, newShellSelectCommand("init_system", listServicesCommand))
-	return strings.Join(commands, "\n")
+	return strings.Join(commands, "\n"), nil
 }
 
 func listServicesCommand(initSystem string) (string, bool) {

@@ -115,7 +115,8 @@ func (s *initialisationSuite) TestDetectHardwareCharacteristics(c *gc.C) {
 }
 
 func (s *initialisationSuite) TestCheckProvisioned(c *gc.C) {
-	listCmd := service.ListServicesScript()
+	listCmd, err := service.ListServicesScript("trusty")
+	c.Assert(err, jc.ErrorIsNil)
 	defer installFakeSSH(c, listCmd, "", 0)()
 	provisioned, err := manual.CheckProvisioned("example.com")
 	c.Assert(err, jc.ErrorIsNil)
