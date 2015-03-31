@@ -38,8 +38,6 @@ const unknownExecutable = "/sbin/unknown/init/system"
 type discoveryTest struct {
 	os       version.OSType
 	series   string
-	exec     string
-	link     string
 	expected string
 }
 
@@ -50,43 +48,12 @@ func (dt discoveryTest) version() version.Binary {
 	}
 }
 
-func (dt discoveryTest) goos() string {
-	switch dt.os {
-	case version.Windows:
-		return "windows"
-	default:
-		return "non-windows"
-	}
-}
-
-func (dt discoveryTest) executable(c *gc.C) string {
-	if dt.exec != "" {
-		return dt.exec
-	}
-
-	switch dt.expected {
-	case service.InitSystemUpstart:
-		return "/sbin/upstart"
-	case service.InitSystemSystemd:
-		return "/lib/systemd/systemd"
-	case service.InitSystemWindows:
-		return unknownExecutable
-	case "":
-		return unknownExecutable
-	default:
-		c.Errorf("unknown expected init system %q", dt.expected)
-		return unknownExecutable
-	}
-}
-
 func (dt discoveryTest) log(c *gc.C) {
-	c.Logf(" - testing {%q, %q, %q, %q}...", dt.os, dt.series, dt.exec, dt.link)
+	c.Logf(" - testing {%q, %q}...", dt.os, dt.series)
 }
 
 func (dt discoveryTest) disableLocalDiscovery(c *gc.C, s *discoverySuite) {
-	s.PatchGOOS("<another OS>")
-	s.PatchPid1File(c, unknownExecutable, "")
-	s.Patched.NotASymlink = unknownExecutable
+	s.PatchLocalDiscovery(nil)
 }
 
 func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
@@ -95,17 +62,21 @@ func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
 	})
 }
 
-func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) string {
-	s.PatchGOOS(dt.goos())
-	exec := dt.executable(c)
-	if dt.link != "" {
-		s.PatchLink(c, exec)
-		exec = dt.link
-	} else {
-		s.Patched.NotASymlink = exec
+func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) {
+	noMatch := func() (bool, error) {
+		return false, nil
 	}
-	verText := "..." + dt.expected + "..."
-	return s.PatchPid1File(c, exec, verText)
+	funcs := map[string]func() (bool, error){
+		service.InitSystemSystemd: noMatch,
+		service.InitSystemUpstart: noMatch,
+		service.InitSystemWindows: noMatch,
+	}
+	if dt.expected != "" {
+		funcs[dt.expected] = func() (bool, error) {
+			return true, nil
+		}
+	}
+	s.PatchLocalDiscovery(funcs)
 }
 
 func (dt discoveryTest) setVersion(s *discoverySuite) version.Binary {
@@ -167,22 +138,12 @@ var discoveryTests = []discoveryTest{{
 	expected: service.InitSystemUpstart,
 }, {
 	os:       version.Ubuntu,
-	series:   "precise",
-	link:     "/sbin/init",
-	expected: service.InitSystemUpstart,
-}, {
-	os:       version.Ubuntu,
 	series:   "utopic",
 	expected: service.InitSystemUpstart,
 }, {
 	os:       version.Ubuntu,
 	series:   "vivid",
 	expected: maybeSystemd,
-}, {
-	os:       version.Ubuntu,
-	series:   "vivid",
-	link:     "/sbin/init",
-	expected: service.InitSystemSystemd,
 }, {
 	os:       version.CentOS,
 	expected: "",
@@ -244,22 +205,6 @@ func (s *discoverySuite) TestDiscoverServiceLocalHost(c *gc.C) {
 
 	svc, err := service.DiscoverService(s.name, s.conf)
 	c.Assert(err, jc.ErrorIsNil)
-
-	test.checkService(c, svc, err, s.name, s.conf)
-}
-
-func (s *discoverySuite) TestDiscoverServiceGeneric(c *gc.C) {
-	test := discoveryTest{
-		os:       version.Ubuntu,
-		series:   "trusty",
-		link:     "/sbin/init",
-		expected: service.InitSystemUpstart,
-	}
-
-	test.setLocal(c, s)
-	test.disableVersionDiscovery(s)
-
-	svc, err := service.DiscoverService(s.name, s.conf)
 
 	test.checkService(c, svc, err, s.name, s.conf)
 }
