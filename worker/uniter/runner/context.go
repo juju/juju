@@ -220,7 +220,7 @@ func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
 	)
 }
 
-func (ctx *HookContext) HasRunSetUnitStatus() bool {
+func (ctx *HookContext) HasExecutionSetUnitStatus() bool {
 	return ctx.hasRunStatusSet
 }
 

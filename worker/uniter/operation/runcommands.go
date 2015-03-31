@@ -46,9 +46,6 @@ func (rc *runCommands) Prepare(state State) (*State, error) {
 		return nil, err
 	}
 	rc.runner = rnr
-	if err := rc.callbacks.SetExecutingStatus(fmt.Sprintf("running commands")); err != nil {
-		return nil, errors.Trace(err)
-	}
 	return nil, nil
 }
 
@@ -61,6 +58,10 @@ func (rc *runCommands) Execute(state State) (*State, error) {
 		return nil, err
 	}
 	defer unlock()
+
+	if err := rc.callbacks.SetExecutingStatus("running commands"); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	response, err := rc.runner.RunCommands(rc.args.Commands)
 	switch err {

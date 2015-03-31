@@ -43,7 +43,7 @@ type Context interface {
 	ActionData() (*ActionData, error)
 	SetProcess(process *os.Process)
 	FlushContext(badge string, failure error) error
-	HasRunSetUnitStatus() bool
+	HasExecutionSetUnitStatus() bool
 }
 
 // Paths exposes the paths needed by Runner.

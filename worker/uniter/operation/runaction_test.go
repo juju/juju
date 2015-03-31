@@ -91,8 +91,7 @@ func (s *RunActionSuite) TestPrepareErrorOther(c *gc.C) {
 
 func (s *RunActionSuite) TestPrepareSuccessCleanState(c *gc.C) {
 	runnerFactory := NewRunActionRunnerFactory(errors.New("should not call"))
-	callbacks := &RunActionCallbacks{}
-	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil, nil)
+	factory := operation.NewFactory(nil, runnerFactory, nil, nil, nil)
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -103,14 +102,12 @@ func (s *RunActionSuite) TestPrepareSuccessCleanState(c *gc.C) {
 		Step:     operation.Pending,
 		ActionId: &someActionId,
 	})
-	c.Assert(callbacks.executingMessage, gc.Equals, "running action: some-action-name")
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
 }
 
 func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
 	runnerFactory := NewRunActionRunnerFactory(errors.New("should not call"))
-	callbacks := &RunActionCallbacks{}
-	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil, nil)
+	factory := operation.NewFactory(nil, runnerFactory, nil, nil, nil)
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -124,7 +121,6 @@ func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
 		CollectMetricsTime: 1234567,
 		Hook:               &hook.Info{Kind: hooks.Install},
 	})
-	c.Assert(callbacks.executingMessage, gc.Equals, "running action: some-action-name")
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
 }
 
@@ -207,6 +203,7 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 		newState, err := op.Execute(*midState)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(newState, jc.DeepEquals, &test.after)
+		c.Assert(callbacks.executingMessage, gc.Equals, "running action some-action-name")
 		c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running action some-action-name")
 		c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
 		c.Assert(*runnerFactory.MockNewActionRunner.runner.MockRunAction.gotName, gc.Equals, "some-action-name")

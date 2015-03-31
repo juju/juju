@@ -43,8 +43,7 @@ func (s *RunCommandsSuite) TestPrepareSuccess(c *gc.C) {
 	runnerFactory := &MockRunnerFactory{
 		MockNewCommandRunner: &MockNewCommandRunner{},
 	}
-	callbacks := &RunCommandsCallbacks{}
-	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil, nil)
+	factory := operation.NewFactory(nil, runnerFactory, nil, nil, nil)
 	sendResponse := func(*utilexec.ExecResponse, error) { panic("not expected") }
 	op, err := factory.NewCommands(someCommandArgs, sendResponse)
 	c.Assert(err, jc.ErrorIsNil)
@@ -52,7 +51,6 @@ func (s *RunCommandsSuite) TestPrepareSuccess(c *gc.C) {
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.IsNil)
-	c.Assert(callbacks.executingMessage, gc.Equals, "running commands")
 	c.Assert(*runnerFactory.MockNewCommandRunner.gotInfo, gc.Equals, runner.CommandInfo{
 		RelationId:      123,
 		RemoteUnitName:  "foo/456",
@@ -148,6 +146,7 @@ func (s *RunCommandsSuite) TestExecuteSuccess(c *gc.C) {
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "run commands")
+	c.Assert(callbacks.executingMessage, gc.Equals, "running commands")
 	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
 	c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
 	c.Assert(*sendResponse.gotResponse, gc.DeepEquals, &utilexec.ExecResponse{Code: 222})

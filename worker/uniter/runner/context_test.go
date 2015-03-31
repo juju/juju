@@ -101,7 +101,7 @@ func (s *InterfaceSuite) TestSetUnitStatus(c *gc.C) {
 
 func (s *InterfaceSuite) TestSetUnitStatusUpdatesFlag(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
-	c.Assert(ctx.(runner.Context).HasRunSetUnitStatus(), jc.IsFalse)
+	c.Assert(ctx.(runner.Context).HasExecutionSetUnitStatus(), jc.IsFalse)
 	status := jujuc.StatusInfo{
 		Status: "error",
 		Info:   "not working",
@@ -109,7 +109,7 @@ func (s *InterfaceSuite) TestSetUnitStatusUpdatesFlag(c *gc.C) {
 	}
 	err := ctx.SetUnitStatus(status)
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(ctx.(runner.Context).HasRunSetUnitStatus(), jc.IsTrue)
+	c.Assert(ctx.(runner.Context).HasExecutionSetUnitStatus(), jc.IsTrue)
 }
 
 func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {

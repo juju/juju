@@ -326,6 +326,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 		// The spec says we should set the workload status to Error, but that's crazy talk.
 		// It's the agent itself that should be in Error state. So we'll ensure the model is
 		// correct and translate before the user sees the data.
+		// ie a charm hook error results in agent error status, but is presented as a workload error.
 		if err = setAgentStatus(u, params.StatusError, statusMessage, statusData); err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -369,6 +370,7 @@ func ModeConflicted(curl *charm.URL) Mode {
 		// The spec says we should set the workload status to Error, but that's crazy talk.
 		// It's the agent itself that should be in Error state. So we'll ensure the model is
 		// correct and translate before the user sees the data.
+		// ie a charm upgrade error results in agent error status, but is presented as a workload error.
 		if err := setAgentStatus(u, params.StatusError, "upgrade failed", nil); err != nil {
 			return nil, errors.Trace(err)
 		}

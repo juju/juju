@@ -242,7 +242,7 @@ var scenarioStatus = &api.Status{
 							AgentState: "pending",
 							Workload: api.AgentStatus{
 								Status: "unknown",
-								Info:   "Waiting for agent initialisation to finish",
+								Info:   "Waiting for agent initialization to finish",
 								Data:   make(map[string]interface{}),
 							},
 							UnitAgent: api.AgentStatus{
@@ -257,7 +257,7 @@ var scenarioStatus = &api.Status{
 					AgentState: "pending",
 					Workload: api.AgentStatus{
 						Status: "unknown",
-						Info:   "Waiting for agent initialisation to finish",
+						Info:   "Waiting for agent initialization to finish",
 						Data:   make(map[string]interface{}),
 					},
 					UnitAgent: api.AgentStatus{
@@ -272,7 +272,7 @@ var scenarioStatus = &api.Status{
 							AgentState: "pending",
 							Workload: api.AgentStatus{
 								Status: "unknown",
-								Info:   "Waiting for agent initialisation to finish",
+								Info:   "Waiting for agent initialization to finish",
 								Data:   make(map[string]interface{}),
 							},
 							UnitAgent: api.AgentStatus{

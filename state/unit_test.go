@@ -535,7 +535,7 @@ func (s *UnitSuite) TestGetSetUnitStatusWhileAlive(c *gc.C) {
 	status, info, data, err := s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusUnknown)
-	c.Assert(info, gc.Equals, "Waiting for agent initialisation to finish")
+	c.Assert(info, gc.Equals, "Waiting for agent initialization to finish")
 	c.Assert(data, gc.HasLen, 0)
 
 	err = s.unit.SetStatus(state.StatusActive, "", nil)

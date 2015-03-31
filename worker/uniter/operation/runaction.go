@@ -47,9 +47,6 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 		// this should *really* never happen, but let's not panic
 		return nil, errors.Trace(err)
 	}
-	if err := ra.callbacks.SetExecutingStatus(fmt.Sprintf("running action: %s", actionData.ActionName)); err != nil {
-		return nil, errors.Trace(err)
-	}
 	ra.name = actionData.ActionName
 	ra.runner = rnr
 	return stateChange{
@@ -69,6 +66,10 @@ func (ra *runAction) Execute(state State) (*State, error) {
 		return nil, err
 	}
 	defer unlock()
+
+	if err := ra.callbacks.SetExecutingStatus(message); err != nil {
+		return nil, err
+	}
 
 	err = ra.runner.RunAction(ra.name)
 	if err != nil {

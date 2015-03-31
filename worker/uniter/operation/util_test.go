@@ -335,7 +335,7 @@ func (mock *MockContext) ActionData() (*runner.ActionData, error) {
 	return mock.actionData, nil
 }
 
-func (mock *MockContext) HasRunSetUnitStatus() bool {
+func (mock *MockContext) HasExecutionSetUnitStatus() bool {
 	return mock.setStatusCalled
 }
 

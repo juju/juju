@@ -609,7 +609,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	}
 	unitStatusDoc := statusDoc{
 		Status:     StatusUnknown,
-		StatusInfo: "Waiting for agent initialisation to finish",
+		StatusInfo: "Waiting for agent initialization to finish",
 		EnvUUID:    s.st.EnvironUUID(),
 	}
 	ops := []txn.Op{

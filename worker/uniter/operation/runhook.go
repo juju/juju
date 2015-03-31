@@ -56,15 +56,68 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 	rh.name = name
 	rh.runner = rnr
 
-	if err := rh.beforeHook(); err != nil {
-		return nil, err
-	}
-
 	return stateChange{
 		Kind: RunHook,
 		Step: Pending,
 		Hook: &rh.info,
 	}.apply(state), nil
+}
+
+// Execute runs the hook.
+// Execute is part of the Operation interface.
+func (rh *runHook) Execute(state State) (*State, error) {
+	message := fmt.Sprintf("running hook %s", rh.name)
+	unlock, err := rh.callbacks.AcquireExecutionLock(message)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+
+	if err := rh.beforeHook(); err != nil {
+		return nil, err
+	}
+	if err := rh.callbacks.SetExecutingStatus(message); err != nil {
+		return nil, err
+	}
+
+	ranHook := true
+	step := Done
+
+	err = rh.runner.RunHook(rh.name)
+	cause := errors.Cause(err)
+	switch {
+	case runner.IsMissingHookError(cause):
+		ranHook = false
+		err = nil
+	case cause == runner.ErrRequeueAndReboot:
+		step = Queued
+		fallthrough
+	case cause == runner.ErrReboot:
+		err = ErrNeedsReboot
+	case err == nil:
+	default:
+		logger.Errorf("hook %q failed: %v", rh.name, err)
+		rh.callbacks.NotifyHookFailed(rh.name, rh.runner.Context())
+		return nil, ErrHookFailed
+	}
+
+	var hasRunStatusSet bool
+	var afterHookErr error
+	if ranHook {
+		logger.Infof("ran %q hook", rh.name)
+		rh.callbacks.NotifyHookCompleted(rh.name, rh.runner.Context())
+		if hasRunStatusSet, afterHookErr = rh.afterHook(state); afterHookErr != nil {
+			return nil, afterHookErr
+		}
+	} else {
+		logger.Infof("skipped %q hook (missing)", rh.name)
+	}
+	return stateChange{
+		Kind:            RunHook,
+		Step:            step,
+		Hook:            &rh.info,
+		HasRunStatusSet: hasRunStatusSet,
+	}.apply(state), err
 }
 
 func (rh *runHook) beforeHook() error {
@@ -88,9 +141,9 @@ func (rh *runHook) beforeHook() error {
 	return rh.callbacks.SetExecutingStatus(fmt.Sprintf("running %s hook", rh.info.Kind))
 }
 
-func (rh *runHook) afterHook(state State) (*State, error) {
+func (rh *runHook) afterHook(state State) (bool, error) {
 	ctx := rh.runner.Context()
-	hasRunStatusSet := ctx.HasRunSetUnitStatus()
+	hasRunStatusSet := ctx.HasExecutionSetUnitStatus()
 	var err error
 	switch rh.info.Kind {
 	case hooks.Stop:
@@ -110,60 +163,9 @@ func (rh *runHook) afterHook(state State) (*State, error) {
 	}
 	if err != nil {
 		logger.Errorf("error updating workload status after %v hook: %v", rh.info.Kind, err)
-		return nil, err
+		return false, err
 	}
-	return stateChange{
-		HasRunStatusSet: &hasRunStatusSet,
-	}.apply(state), nil
-}
-
-// Execute runs the hook.
-// Execute is part of the Operation interface.
-func (rh *runHook) Execute(state State) (*State, error) {
-	message := fmt.Sprintf("running hook %s", rh.name)
-	unlock, err := rh.callbacks.AcquireExecutionLock(message)
-	if err != nil {
-		return nil, err
-	}
-	defer unlock()
-
-	ranHook := true
-	step := Done
-
-	err = rh.runner.RunHook(rh.name)
-	cause := errors.Cause(err)
-	switch {
-	case runner.IsMissingHookError(cause):
-		ranHook = false
-		err = nil
-	case cause == runner.ErrRequeueAndReboot:
-		step = Queued
-		fallthrough
-	case cause == runner.ErrReboot:
-		err = ErrNeedsReboot
-	case err == nil:
-	default:
-		logger.Errorf("hook %q failed: %v", rh.name, err)
-		rh.callbacks.NotifyHookFailed(rh.name, rh.runner.Context())
-		return nil, ErrHookFailed
-	}
-
-	if ranHook {
-		logger.Infof("ran %q hook", rh.name)
-		rh.callbacks.NotifyHookCompleted(rh.name, rh.runner.Context())
-		afterHookState, err := rh.afterHook(state)
-		if err != nil {
-			return nil, err
-		}
-		state = *afterHookState
-	} else {
-		logger.Infof("skipped %q hook (missing)", rh.name)
-	}
-	return stateChange{
-		Kind: RunHook,
-		Step: step,
-		Hook: &rh.info,
-	}.apply(state), err
+	return hasRunStatusSet, nil
 }
 
 // Commit updates relation state to include the fact of the hook's execution,

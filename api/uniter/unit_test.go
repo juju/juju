@@ -64,7 +64,7 @@ func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
 	unitStatus, unitInfo, unitData, err := s.wordpressUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitStatus, gc.Equals, state.StatusUnknown)
-	c.Assert(unitInfo, gc.Equals, "Waiting for agent initialisation to finish")
+	c.Assert(unitInfo, gc.Equals, "Waiting for agent initialization to finish")
 	c.Assert(unitData, gc.HasLen, 0)
 
 	err = s.apiUnit.SetAgentStatus(params.StatusIdle, "blah", nil)
@@ -80,7 +80,7 @@ func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
 	unitStatus, unitInfo, unitData, err = s.wordpressUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitStatus, gc.Equals, state.StatusUnknown)
-	c.Assert(unitInfo, gc.Equals, "Waiting for agent initialisation to finish")
+	c.Assert(unitInfo, gc.Equals, "Waiting for agent initialization to finish")
 	c.Assert(unitData, gc.HasLen, 0)
 }
 
@@ -88,7 +88,7 @@ func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
 	status, info, data, err := s.wordpressUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusUnknown)
-	c.Assert(info, gc.Equals, "Waiting for agent initialisation to finish")
+	c.Assert(info, gc.Equals, "Waiting for agent initialization to finish")
 	c.Assert(data, gc.HasLen, 0)
 
 	agentStatus, agentInfo, agentData, err := s.wordpressUnit.AgentStatus()
@@ -128,7 +128,7 @@ func (s *unitSuite) TestSetAgentStatusOldServer(c *gc.C) {
 	status, info, data, err := s.wordpressUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusUnknown)
-	c.Assert(info, gc.Equals, "Waiting for agent initialisation to finish")
+	c.Assert(info, gc.Equals, "Waiting for agent initialization to finish")
 	c.Assert(data, gc.HasLen, 0)
 
 	err = s.apiUnit.SetAgentStatus(params.StatusIdle, "blah", nil)
