@@ -8,3 +8,9 @@ func NewCreateCommand(api SpaceAPI) *CreateCommand {
 	createCmd.api = api
 	return createCmd
 }
+
+func NewRemoveCommand(api SpaceAPI) *RemoveCommand {
+	removeCmd := &RemoveCommand{}
+	removeCmd.api = api
+	return removeCmd
+}
