@@ -6,5 +6,8 @@ package service
 var (
 	DiscoverInitSystem            = discoverInitSystem
 	NewShellSelectCommand         = newShellSelectCommand
+	DiscoveryScriptFilename       = discoveryScriptFilename
 	WriteDiscoverInitSystemScript = writeDiscoverInitSystemScript
+
+	ResolveManaged = &resolveManaged
 )

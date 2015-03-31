@@ -15,8 +15,8 @@ type patcher interface {
 	PatchValue(interface{}, interface{})
 }
 
-func PatchFindDataDir(patcher patcher, dataDir string) {
-	patcher.PatchValue(&findDataDir, func() (string, error) {
+func PatchFindManagedDir(patcher patcher, dataDir string) {
+	patcher.PatchValue(&findManagedDir, func() (string, error) {
 		return dataDir, nil
 	})
 }

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/instance"
@@ -32,9 +33,17 @@ cat /proc/cpuinfo`
 var CheckProvisioned = checkProvisioned
 
 func checkProvisioned(host string) (bool, error) {
+	// TODO(ericsnow) This function isn't windows-compatible.
+
 	logger.Infof("Checking if %s is already provisioned", host)
 
-	script := service.ListServicesScript()
+	// The series is used to determine the juju data dir, so we just
+	// need one that is non-windows here.
+	const series = "trusty"
+	script, err := service.ListServicesScript(series)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 
 	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
 	var stdout, stderr bytes.Buffer
@@ -43,7 +52,7 @@ func checkProvisioned(host string) (bool, error) {
 	cmd.Stdin = strings.NewReader(script)
 	if err := cmd.Run(); err != nil {
 		if stderr.Len() != 0 {
-			err = fmt.Errorf("%v (%v)", err, strings.TrimSpace(stderr.String()))
+			err = errors.Errorf("%v (%v)", err, strings.TrimSpace(stderr.String()))
 		}
 		return false, err
 	}

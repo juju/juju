@@ -67,15 +67,17 @@ func (s *serviceSuite) TestListServices(c *gc.C) {
 }
 
 func (*serviceSuite) TestListServicesScript(c *gc.C) {
-	script := service.ListServicesScript()
+	script, err := service.ListServicesScript("trusty")
+	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []string{
-		"cat > /tmp/discover_init_system.sh << 'EOF'",
+		"mkdir -p /var/lib/juju/init",
+		"cat > /var/lib/juju/init/discover_init_system.sh << 'EOF'",
 	}
 	expected = append(expected, strings.Split(service.DiscoverInitSystemScript, "\n")...)
 	expected = append(expected, "EOF")
-	expected = append(expected, "chmod 0755 /tmp/discover_init_system.sh")
-	expected = append(expected, "init_system=$(/tmp/discover_init_system.sh)")
+	expected = append(expected, "chmod 0755 /var/lib/juju/init/discover_init_system.sh")
+	expected = append(expected, "init_system=$(/var/lib/juju/init/discover_init_system.sh)")
 	expected = append(expected, []string{
 		`if [[ $init_system == "systemd" ]]; then ` +
 			`/bin/systemctl list-unit-files --no-legend --no-page -t service` +

@@ -5,7 +5,7 @@ package service_test
 
 import (
 	"os"
-	"path/filepath"
+	"path"
 	"runtime"
 	"strings"
 
@@ -350,7 +350,14 @@ func (s *discoverySuite) TestDiscoverInitSystemScript(c *gc.C) {
 }
 
 func (s *discoverySuite) newDiscoverInitSystemScript(c *gc.C) (string, string) {
-	filename := filepath.Join(c.MkDir(), "discover_init_system.sh")
+	s.PatchValue(service.ResolveManaged, func(series string, elem ...string) (string, error) {
+		managed, err := common.Managed(series, elem...)
+		c.Assert(err, jc.ErrorIsNil)
+		return path.Join(c.MkDir(), managed), nil
+	})
+
+	filename, err := service.DiscoveryScriptFilename("trusty")
+	c.Assert(err, jc.ErrorIsNil)
 	commands := service.WriteDiscoverInitSystemScript(filename)
 	script := strings.Join(commands, "\n") + "\n"
 	return script, filename
@@ -367,6 +374,7 @@ func (s *discoverySuite) TestNewShellSelectCommand(c *gc.C) {
 	}
 	script += "init_system=$(" + filename + ")\n"
 	script += service.NewShellSelectCommand("init_system", handler)
+	c.Logf(script)
 	response, err := exec.RunCommands(exec.RunParams{
 		Commands: script,
 	})
