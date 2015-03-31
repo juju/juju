@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/juju/storage"
+	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
@@ -212,6 +213,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage spaces
 	r.Register(space.NewSuperCommand())
+
+	// Manage subnets
+	r.Register(subnet.NewSuperCommand())
 }
 
 // envCmdWrapper is a struct that wraps an environment command and lets us handle
