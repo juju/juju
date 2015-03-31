@@ -60,7 +60,7 @@ func (s *credentialsSuite) TestNewCredentialsUnrecognized(c *gc.C) {
 	}
 	_, err := google.NewCredentials(values)
 
-	c.Check(err, gc.FitsTypeOf, errors.NotSupportedf(""))
+	c.Check(err, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *credentialsSuite) TestParseJSONKey(c *gc.C) {
