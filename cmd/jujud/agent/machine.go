@@ -67,7 +67,6 @@ import (
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/deployer"
-	"github.com/juju/juju/worker/diskformatter"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/envworkermanager"
 	"github.com/juju/juju/worker/firewaller"
@@ -707,13 +706,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				return nil, errors.Trace(err)
 			}
 			return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
-		})
-		runner.StartWorker("diskformatter", func() (worker.Worker, error) {
-			api, err := st.DiskFormatter()
-			if err != nil {
-				return nil, err
-			}
-			return diskformatter.NewWorker(api), nil
 		})
 		runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
 			api := st.StorageProvisioner(agentConfig.Tag())
