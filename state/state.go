@@ -1337,6 +1337,7 @@ func (st *State) AddIPAddress(addr network.Address, subnetid string) (ipaddress 
 	ipDoc := ipaddressDoc{
 		DocID:    addressID,
 		EnvUUID:  st.EnvironUUID(),
+		Life:     Alive,
 		State:    AddressStateUnknown,
 		SubnetId: subnetid,
 		Value:    addr.Value,
