@@ -24,6 +24,17 @@ type InvalidConfigValue struct {
 	Reason error
 }
 
+// IsInvalidConfigValue returns whether or not the provided error is
+// an InvalidConfigValue (or caused by one).
+func IsInvalidConfigValue(err error) bool {
+	if _, ok := err.(*InvalidConfigValue); ok {
+		return true
+	}
+	err = errors.Cause(err)
+	_, ok := err.(InvalidConfigValue)
+	return ok
+}
+
 // NewInvalidConfigValue returns a new InvalidConfigValue for the given
 // info. If the provided reason is an error then Reason is set to that
 // error. Otherwise a non-nil value is treated as a string and Reason is
