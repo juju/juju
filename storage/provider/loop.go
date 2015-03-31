@@ -102,49 +102,27 @@ var _ storage.VolumeSource = (*loopVolumeSource)(nil)
 // CreateVolumes is defined on the VolumeSource interface.
 func (lvs *loopVolumeSource) CreateVolumes(args []storage.VolumeParams) ([]storage.Volume, []storage.VolumeAttachment, error) {
 	volumes := make([]storage.Volume, len(args))
-	volumeAttachments := make([]storage.VolumeAttachment, len(args))
 	for i, arg := range args {
-		volume, volumeAttachment, err := lvs.createVolume(arg)
+		volume, err := lvs.createVolume(arg)
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "creating volume")
 		}
 		volumes[i] = volume
-		volumeAttachments[i] = volumeAttachment
 	}
-	return volumes, volumeAttachments, nil
+	return volumes, nil, nil
 }
 
-func (lvs *loopVolumeSource) createVolume(params storage.VolumeParams) (storage.Volume, storage.VolumeAttachment, error) {
-	var volume storage.Volume
-	var volumeAttachment storage.VolumeAttachment
-	if err := lvs.ValidateVolumeParams(params); err != nil {
-		return volume, volumeAttachment, errors.Trace(err)
-	}
-
+func (lvs *loopVolumeSource) createVolume(params storage.VolumeParams) (storage.Volume, error) {
 	volumeId := params.Tag.String()
 	loopFilePath := lvs.volumeFilePath(volumeId)
-
 	if err := createBlockFile(lvs.run, loopFilePath, params.Size); err != nil {
-		return volume, volumeAttachment, errors.Annotate(err, "could not create block file")
+		return storage.Volume{}, errors.Annotate(err, "could not create block file")
 	}
-
-	deviceName, err := attachLoopDevice(lvs.run, loopFilePath)
-	if err != nil {
-		os.Remove(loopFilePath)
-		return volume, volumeAttachment, errors.Annotate(err, "attaching loop device")
-	}
-
-	volume = storage.Volume{
+	return storage.Volume{
 		Tag:      params.Tag,
 		VolumeId: volumeId,
 		Size:     params.Size,
-	}
-	volumeAttachment = storage.VolumeAttachment{
-		Volume:     params.Tag,
-		Machine:    params.Attachment.Machine,
-		DeviceName: deviceName,
-	}
-	return volume, volumeAttachment, nil
+	}, nil
 }
 
 func (lvs *loopVolumeSource) volumeFilePath(volumeId string) string {
@@ -196,21 +174,39 @@ func (lvs *loopVolumeSource) ValidateVolumeParams(params storage.VolumeParams) e
 	// ValdiateVolumeParams may be called on a machine other than the
 	// machine where the loop device will be created, so we cannot check
 	// available size until we get to CreateVolumes.
-	if params.Attachment == nil {
-		return errors.NotSupportedf(
-			"creating loop device without machine attachment",
-		)
-	}
 	return nil
 }
 
 // AttachVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) AttachVolumes([]storage.VolumeAttachmentParams) ([]storage.VolumeAttachment, error) {
-	return nil, errors.NotSupportedf("attaching loop devices")
+func (lvs *loopVolumeSource) AttachVolumes(args []storage.VolumeAttachmentParams) ([]storage.VolumeAttachment, error) {
+	attachments := make([]storage.VolumeAttachment, len(args))
+	for i, arg := range args {
+		attachment, err := lvs.attachVolume(arg)
+		if err != nil {
+			return nil, errors.Annotatef(err, "attaching volume %v", arg.Volume.Id())
+		}
+		attachments[i] = attachment
+	}
+	return attachments, nil
+}
+
+func (lvs *loopVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (storage.VolumeAttachment, error) {
+	loopFilePath := lvs.volumeFilePath(arg.VolumeId)
+	deviceName, err := attachLoopDevice(lvs.run, loopFilePath)
+	if err != nil {
+		os.Remove(loopFilePath)
+		return storage.VolumeAttachment{}, errors.Annotate(err, "attaching loop device")
+	}
+	return storage.VolumeAttachment{
+		Volume:     arg.Volume,
+		Machine:    arg.Machine,
+		DeviceName: deviceName,
+	}, nil
 }
 
 // DetachVolumes is defined on the VolumeSource interface.
 func (lvs *loopVolumeSource) DetachVolumes([]storage.VolumeAttachmentParams) error {
+	// TODO(axw)
 	return errors.NotSupportedf("detaching loop devices")
 }
 
