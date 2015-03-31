@@ -169,3 +169,8 @@ func (sa *StubAPI) RemoveSpace(name string) error {
 	sa.MethodCall(sa, "RemoveSpace", name)
 	return sa.NextErr()
 }
+
+func (sa *StubAPI) UpdateSpace(name, newName string, subnetIds []string) error {
+	sa.MethodCall(sa, "UpdateSpace", name, newName, subnetIds)
+	return sa.NextErr()
+}

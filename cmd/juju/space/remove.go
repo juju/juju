@@ -40,8 +40,6 @@ func (c *RemoveCommand) Init(args []string) error {
 	// Validate given name.
 	if len(args) == 0 {
 		return errors.New("space name is required")
-	} else if len(args) > 1 {
-		return errors.New("please only provide a single space name.")
 	}
 	givenName := args[0]
 	if !names.IsValidSpace(givenName) {
@@ -49,7 +47,7 @@ func (c *RemoveCommand) Init(args []string) error {
 	}
 	c.Name = givenName
 
-	return nil
+	return cmd.CheckEmpty(args[1:])
 }
 
 // Run implements Command.Run.

@@ -30,6 +30,10 @@ type SpaceAPI interface {
 	// RemoveSpace removes an existing Juju network space, transferring
 	// any associated subnets to the default space.
 	RemoveSpace(name string) error
+
+	// CreateSpace creates a new Juju network space, associating the
+	// specified subnets with it (optional; can be empty).
+	UpdateSpace(name, newName string, subnetIds []string) error
 }
 
 var logger = loggo.GetLogger("juju.cmd.juju.space")
@@ -49,6 +53,7 @@ func NewSuperCommand() cmd.Command {
 	})
 	spaceCmd.Register(envcmd.Wrap(&CreateCommand{}))
 	spaceCmd.Register(envcmd.Wrap(&RemoveCommand{}))
+	spaceCmd.Register(envcmd.Wrap(&UpdateCommand{}))
 
 	return spaceCmd
 }

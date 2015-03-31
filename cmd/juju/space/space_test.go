@@ -13,6 +13,7 @@ import (
 var subcommandNames = []string{
 	"create",
 	"remove",
+	"update",
 	"help",
 }
 

@@ -43,9 +43,10 @@ func (s *RemoveSuite) TestInit(c *gc.C) {
 		args:      s.Strings("42_space"),
 		expectErr: `"42_space" is not a valid space name`,
 	}, {
-		about:     "multiple space names aren't allowed",
-		args:      s.Strings("a-space", "another-space"),
-		expectErr: "please only provide a single space name.",
+		about:      "multiple space names aren't allowed",
+		args:       s.Strings("a-space", "another-space"),
+		expectErr:  `unrecognized args: \["another-space"\]`,
+		expectName: "a-space",
 	}, {
 		about:      "delete a valid space name",
 		args:       s.Strings("myspace"),
