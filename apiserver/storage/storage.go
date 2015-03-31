@@ -430,10 +430,10 @@ func (a *API) convertStateVolumeToParams(st state.Volume) (params.VolumeInstance
 		volume.StorageTag = storage.String()
 		storageInstance, err := a.storage.StorageInstance(storage)
 		if err != nil {
-			return params.VolumeInstance{},
-				errors.Annotatef(err,
-					"getting storage instance %v for volume %v",
-					storage, volume.VolumeTag)
+			err = errors.Annotatef(err,
+				"getting storage instance %v for volume %v",
+				storage, volume.VolumeTag)
+			return params.VolumeInstance{}, err
 		}
 		owner := storageInstance.Owner()
 		// only interested in Unit for now
