@@ -152,13 +152,13 @@ func ListServices() ([]string, error) {
 // ListServicesScript returns the commands that should be run to get
 // a list of service names on a host.
 func ListServicesScript() string {
-	const filename = "/tmp/discover_init_system.sh"
-	commands := writeDiscoverInitSystemScript(filename)
-	commands = append(commands, "init_system=$("+filename+")")
-	// If the init system is not identified then the script will
-	// "exit 1". This is correct since the script should fail if no
-	// init system can be identified.
-	commands = append(commands, newShellSelectCommand("init_system", "exit 1", listServicesCommand))
+	commands := []string{
+		"init_system=$(" + DiscoverInitSystemScript() + ")",
+		// If the init system is not identified then the script will
+		// "exit 1". This is correct since the script should fail if no
+		// init system can be identified.
+		newShellSelectCommand("init_system", "exit 1", listServicesCommand),
+	}
 	return strings.Join(commands, "\n")
 }
 

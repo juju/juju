@@ -115,8 +115,7 @@ func discoverLocalInitSystem() (string, error) {
 	return "", errors.NotFoundf("init system (based on local host)")
 }
 
-const discoverInitSystemScript = `#!/usr/bin/env bash
-
+const discoverInitSystemScript = `
 # Use guaranteed discovery mechanisms for known init systems.
 if [[ -d /run/systemd/system ]]; then
     echo -n systemd
@@ -134,23 +133,9 @@ exit 1
 // discovering the local init system. The script is quite specific to
 // bash, so it includes an explicit bash shbang.
 func DiscoverInitSystemScript() string {
-	dflt := "# Do nothing and continue."
-	caseStmt := newShellSelectCommand("1", dflt, func(name string) (string, bool) {
-		return fmt.Sprintf("echo -n %s\n    exit $?", name), true
-	})
-	caseStmt = "    " + strings.Replace(caseStmt, "\n", "\n    ", -1)
-	return fmt.Sprintf(discoverInitSystemScript, caseStmt)
-}
-
-// writeDiscoverInitSystemScript returns the list of shell commands that
-// will write the script to disk.
-func writeDiscoverInitSystemScript(filename string) []string {
 	renderer := shell.BashRenderer{}
-	script := DiscoverInitSystemScript()
-	cmds := renderer.WriteFile(filename, []byte(script))
-	perm := renderer.ScriptPermissions()
-	cmds = append(cmds, renderer.Chmod(filename, perm)...)
-	return cmds
+	data := renderer.RenderScript([]string{discoverInitSystemScript})
+	return string(data)
 }
 
 // shellCase is the template for a bash case statement, for use in
