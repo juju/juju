@@ -114,9 +114,11 @@ func newMockEnvironAccessor(c *gc.C) *mockEnvironAccessor {
 type mockVolumeAccessor struct {
 	volumesWatcher         *mockStringsWatcher
 	attachmentsWatcher     *mockAttachmentsWatcher
+	blockDevicesWatcher    *mockNotifyWatcher
 	provisionedMachines    map[string]instance.Id
 	provisionedVolumes     map[string]params.Volume
 	provisionedAttachments map[params.MachineStorageId]params.VolumeAttachment
+	blockDevices           map[params.MachineStorageId]storage.BlockDevice
 
 	setVolumeInfo           func([]params.Volume) ([]params.ErrorResult, error)
 	setVolumeAttachmentInfo func([]params.VolumeAttachment) ([]params.ErrorResult, error)
@@ -128,6 +130,10 @@ func (w *mockVolumeAccessor) WatchVolumes() (apiwatcher.StringsWatcher, error) {
 
 func (w *mockVolumeAccessor) WatchVolumeAttachments() (apiwatcher.MachineStorageIdsWatcher, error) {
 	return w.attachmentsWatcher, nil
+}
+
+func (w *mockVolumeAccessor) WatchBlockDevices(tag names.MachineTag) (apiwatcher.NotifyWatcher, error) {
+	return w.blockDevicesWatcher, nil
 }
 
 func (v *mockVolumeAccessor) Volumes(volumes []names.VolumeTag) ([]params.VolumeResult, error) {
@@ -152,6 +158,20 @@ func (v *mockVolumeAccessor) VolumeAttachments(ids []params.MachineStorageId) ([
 		} else {
 			result = append(result, params.VolumeAttachmentResult{
 				Error: common.ServerError(errors.NotProvisionedf("volume attachment %v", id)),
+			})
+		}
+	}
+	return result, nil
+}
+
+func (v *mockVolumeAccessor) VolumeBlockDevices(ids []params.MachineStorageId) ([]params.BlockDeviceResult, error) {
+	var result []params.BlockDeviceResult
+	for _, id := range ids {
+		if dev, ok := v.blockDevices[id]; ok {
+			result = append(result, params.BlockDeviceResult{Result: dev})
+		} else {
+			result = append(result, params.BlockDeviceResult{
+				Error: common.ServerError(errors.NotFoundf("block device for volume attachment %v", id)),
 			})
 		}
 	}
@@ -219,9 +239,11 @@ func newMockVolumeAccessor() *mockVolumeAccessor {
 	return &mockVolumeAccessor{
 		volumesWatcher:         &mockStringsWatcher{make(chan []string, 1)},
 		attachmentsWatcher:     &mockAttachmentsWatcher{make(chan []params.MachineStorageId, 1)},
+		blockDevicesWatcher:    &mockNotifyWatcher{make(chan struct{}, 1)},
 		provisionedMachines:    make(map[string]instance.Id),
 		provisionedVolumes:     make(map[string]params.Volume),
 		provisionedAttachments: make(map[params.MachineStorageId]params.VolumeAttachment),
+		blockDevices:           make(map[params.MachineStorageId]storage.BlockDevice),
 	}
 }
 
@@ -453,6 +475,10 @@ func (*dummyVolumeSource) AttachVolumes(params []storage.VolumeAttachmentParams)
 		})
 	}
 	return volumeAttachments, nil
+}
+
+func (*dummyFilesystemSource) ValidateFilesystemParams(params storage.FilesystemParams) error {
+	return nil
 }
 
 // CreateFilesystems makes some filesystems that we can check later to ensure things went as expected.

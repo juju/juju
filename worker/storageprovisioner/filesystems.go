@@ -184,19 +184,25 @@ func processAliveFilesystems(ctx *context, tags []names.Tag, filesystemResults [
 	// Filter out the already-provisioned filesystems.
 	pending := make([]names.FilesystemTag, 0, len(tags))
 	for i, result := range filesystemResults {
+		filesystemTag := tags[i].(names.FilesystemTag)
 		if result.Error == nil {
 			// Filesystem is already provisioned: skip.
-			logger.Debugf("filesystem %q is already provisioned, nothing to do", tags[i].Id())
+			logger.Debugf("filesystem %q is already provisioned, nothing to do", filesystemTag.Id())
+			filesystem, err := filesystemFromParams(result.Result)
+			if err != nil {
+				return errors.Annotate(err, "getting filesystem info")
+			}
+			ctx.filesystems[filesystemTag] = filesystem
 			continue
 		}
 		if !params.IsCodeNotProvisioned(result.Error) {
 			return errors.Annotatef(
-				result.Error, "getting filesystem information for filesystem %q", tags[i].Id(),
+				result.Error, "getting filesystem information for filesystem %q", filesystemTag.Id(),
 			)
 		}
 		// The filesystem has not yet been provisioned, so record its tag
 		// to enquire about parameters below.
-		pending = append(pending, tags[i].(names.FilesystemTag))
+		pending = append(pending, filesystemTag)
 	}
 	if len(pending) == 0 {
 		return nil
@@ -319,6 +325,12 @@ func processAliveFilesystemAttachments(
 				"%s is already attached to %s, nothing to do",
 				ids[i].AttachmentTag, ids[i].MachineTag,
 			)
+			filesystemAttachment, err := filesystemAttachmentFromParams(result.Result)
+			if err != nil {
+				return errors.Annotate(err, "getting filesystem attachment info")
+			}
+			ctx.filesystemAttachments[ids[i]] = filesystemAttachment
+			delete(ctx.pendingFilesystemAttachments, ids[i])
 		case result.Error != nil:
 			return errors.Annotatef(
 				result.Error, "getting information for attachment %v", ids[i],
@@ -375,15 +387,13 @@ func processPendingFilesystemAttachments(ctx *context) error {
 	if err != nil {
 		return errors.Annotate(err, "creating filesystem attachments")
 	}
-	if err := setFilesystemAttachmentInfo(
-		ctx, filesystemAttachmentsFromStorage(filesystemAttachments),
-	); err != nil {
+	if err := setFilesystemAttachmentInfo(ctx, filesystemAttachments); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func setFilesystemAttachmentInfo(ctx *context, filesystemAttachments []params.FilesystemAttachment) error {
+func setFilesystemAttachmentInfo(ctx *context, filesystemAttachments []storage.FilesystemAttachment) error {
 	if len(filesystemAttachments) == 0 {
 		return nil
 	}
@@ -391,7 +401,9 @@ func setFilesystemAttachmentInfo(ctx *context, filesystemAttachments []params.Fi
 	// provider, by environment, so that we can "harvest" them if they're
 	// unknown. This will take care of killing filesystems that we fail to
 	// record in state.
-	errorResults, err := ctx.filesystemAccessor.SetFilesystemAttachmentInfo(filesystemAttachments)
+	errorResults, err := ctx.filesystemAccessor.SetFilesystemAttachmentInfo(
+		filesystemAttachmentsFromStorage(filesystemAttachments),
+	)
 	if err != nil {
 		return errors.Annotate(err, "publishing filesystems to state")
 	}
@@ -399,10 +411,15 @@ func setFilesystemAttachmentInfo(ctx *context, filesystemAttachments []params.Fi
 		if result.Error != nil {
 			return errors.Annotatef(
 				result.Error, "publishing attachment of %s to %s to state",
-				filesystemAttachments[i].FilesystemTag,
-				filesystemAttachments[i].MachineTag,
+				names.ReadableString(filesystemAttachments[i].Filesystem),
+				names.ReadableString(filesystemAttachments[i].Machine),
 			)
 		}
+		// Record the filesystem attachment in the context.
+		ctx.filesystemAttachments[params.MachineStorageId{
+			MachineTag:    filesystemAttachments[i].Machine.String(),
+			AttachmentTag: filesystemAttachments[i].Filesystem.String(),
+		}] = filesystemAttachments[i]
 	}
 	return nil
 }
@@ -514,11 +531,16 @@ func detachFilesystems(attachments []params.FilesystemAttachment) ([]error, erro
 func filesystemsFromStorage(in []storage.Filesystem) []params.Filesystem {
 	out := make([]params.Filesystem, len(in))
 	for i, f := range in {
-		out[i] = params.Filesystem{
+		paramsFilesystem := params.Filesystem{
 			f.Tag.String(),
+			"",
 			f.FilesystemId,
 			f.Size,
 		}
+		if f.Volume != (names.VolumeTag{}) {
+			paramsFilesystem.VolumeTag = f.Volume.String()
+		}
+		out[i] = paramsFilesystem
 	}
 	return out
 }
@@ -533,6 +555,42 @@ func filesystemAttachmentsFromStorage(in []storage.FilesystemAttachment) []param
 		}
 	}
 	return out
+}
+
+func filesystemFromParams(in params.Filesystem) (storage.Filesystem, error) {
+	filesystemTag, err := names.ParseFilesystemTag(in.FilesystemTag)
+	if err != nil {
+		return storage.Filesystem{}, errors.Trace(err)
+	}
+	var volumeTag names.VolumeTag
+	if in.VolumeTag != "" {
+		volumeTag, err = names.ParseVolumeTag(in.VolumeTag)
+		if err != nil {
+			return storage.Filesystem{}, errors.Trace(err)
+		}
+	}
+	return storage.Filesystem{
+		filesystemTag,
+		volumeTag,
+		in.FilesystemId,
+		in.Size,
+	}, nil
+}
+
+func filesystemAttachmentFromParams(in params.FilesystemAttachment) (storage.FilesystemAttachment, error) {
+	filesystemTag, err := names.ParseFilesystemTag(in.FilesystemTag)
+	if err != nil {
+		return storage.FilesystemAttachment{}, errors.Trace(err)
+	}
+	machineTag, err := names.ParseMachineTag(in.MachineTag)
+	if err != nil {
+		return storage.FilesystemAttachment{}, errors.Trace(err)
+	}
+	return storage.FilesystemAttachment{
+		filesystemTag,
+		machineTag,
+		in.MountPoint,
+	}, nil
 }
 
 func filesystemParamsFromParams(in params.FilesystemParams) (storage.FilesystemParams, error) {

@@ -255,6 +255,7 @@ func (w *storageprovisioner) loop() error {
 		volumeAttachments:            make(map[params.MachineStorageId]storage.VolumeAttachment),
 		volumeBlockDevices:           make(map[names.VolumeTag]storage.BlockDevice),
 		filesystems:                  make(map[names.FilesystemTag]storage.Filesystem),
+		filesystemAttachments:        make(map[params.MachineStorageId]storage.FilesystemAttachment),
 		pendingVolumeAttachments:     make(map[params.MachineStorageId]storage.VolumeAttachmentParams),
 		pendingVolumeBlockDevices:    make(set.Tags),
 		pendingFilesystems:           make(map[names.FilesystemTag]storage.FilesystemParams),
@@ -374,6 +375,9 @@ type context struct {
 
 	// filesystems contains information about provisioned filesystems.
 	filesystems map[names.FilesystemTag]storage.Filesystem
+
+	// filesystemAttachments contains information about attached filesystems.
+	filesystemAttachments map[params.MachineStorageId]storage.FilesystemAttachment
 
 	// pendingVolumeAttachments contains parameters for volume attachments
 	// that are yet to be created.

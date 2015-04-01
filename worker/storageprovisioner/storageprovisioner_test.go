@@ -37,6 +37,7 @@ func (s *storageProvisionerSuite) SetUpTest(c *gc.C) {
 
 func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 	worker := storageprovisioner.NewStorageProvisioner(
+		coretesting.EnvironmentTag,
 		"dir",
 		newMockVolumeAccessor(),
 		newMockFilesystemAccessor(),
@@ -86,6 +87,7 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 	environAccessor := newMockEnvironAccessor(c)
 
 	worker := storageprovisioner.NewStorageProvisioner(
+		coretesting.EnvironmentTag,
 		"storage-dir",
 		volumeAccessor,
 		filesystemAccessor,
@@ -120,7 +122,7 @@ func (s *storageProvisionerSuite) TestFilesystemAdded(c *gc.C) {
 	filesystemAccessor := newMockFilesystemAccessor()
 	filesystemAccessor.setFilesystemInfo = func(filesystems []params.Filesystem) ([]params.ErrorResult, error) {
 		defer close(filesystemInfoSet)
-		c.Assert(filesystems, gc.DeepEquals, expectedFilesystems)
+		c.Assert(filesystems, jc.SameContents, expectedFilesystems)
 		return nil, nil
 	}
 
@@ -129,6 +131,7 @@ func (s *storageProvisionerSuite) TestFilesystemAdded(c *gc.C) {
 	environAccessor := newMockEnvironAccessor(c)
 
 	worker := storageprovisioner.NewStorageProvisioner(
+		coretesting.EnvironmentTag,
 		"storage-dir",
 		volumeAccessor,
 		filesystemAccessor,
@@ -152,6 +155,7 @@ func (s *storageProvisionerSuite) TestVolumeNeedsInstance(c *gc.C) {
 	filesystemAccessor := newMockFilesystemAccessor()
 	environAccessor := newMockEnvironAccessor(c)
 	worker := storageprovisioner.NewStorageProvisioner(
+		coretesting.EnvironmentTag,
 		"storage-dir",
 		volumeAccessor,
 		filesystemAccessor,
@@ -182,6 +186,7 @@ func (s *storageProvisionerSuite) TestVolumeNonDynamic(c *gc.C) {
 	filesystemAccessor := newMockFilesystemAccessor()
 	environAccessor := newMockEnvironAccessor(c)
 	worker := storageprovisioner.NewStorageProvisioner(
+		coretesting.EnvironmentTag,
 		"storage-dir",
 		volumeAccessor,
 		filesystemAccessor,
@@ -217,7 +222,7 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 	}
 	lifecycleManager := &mockLifecycleManager{}
 
-	// volume-1 and machine-1 are provisioned.
+	// volume-1, machine-0, and machine-1 are provisioned.
 	volumeAccessor.provisionedVolumes["volume-1"] = params.Volume{
 		VolumeTag: "volume-1",
 		VolumeId:  "vol-123",
@@ -242,6 +247,7 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 	environAccessor := newMockEnvironAccessor(c)
 
 	worker := storageprovisioner.NewStorageProvisioner(
+		coretesting.EnvironmentTag,
 		"storage-dir",
 		volumeAccessor,
 		filesystemAccessor,
@@ -261,6 +267,7 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 		MachineTag: "machine-0", AttachmentTag: "volume-1",
 	}}
 	assertNoEvent(c, volumeAttachmentInfoSet, "volume attachment info set")
+	volumeAccessor.volumesWatcher.changes <- []string{"1"}
 	environAccessor.watcher.changes <- struct{}{}
 	waitChannel(c, volumeAttachmentInfoSet, "waiting for volume attachments to be set")
 }
@@ -309,6 +316,7 @@ func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 	environAccessor := newMockEnvironAccessor(c)
 
 	worker := storageprovisioner.NewStorageProvisioner(
+		coretesting.EnvironmentTag,
 		"storage-dir",
 		volumeAccessor,
 		filesystemAccessor,
@@ -329,6 +337,7 @@ func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 	}}
 	// ... but not until the environment config is available.
 	assertNoEvent(c, filesystemAttachmentInfoSet, "filesystem attachment info set")
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
 	environAccessor.watcher.changes <- struct{}{}
 	waitChannel(c, filesystemAttachmentInfoSet, "waiting for filesystem attachments to be set")
 }
@@ -347,6 +356,7 @@ func (s *storageProvisionerSuite) TestUpdateEnvironConfig(c *gc.C) {
 	}
 
 	worker := storageprovisioner.NewStorageProvisioner(
+		coretesting.EnvironmentTag,
 		"storage-dir",
 		volumeAccessor,
 		filesystemAccessor,
