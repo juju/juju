@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -51,13 +52,17 @@ func (s *workerSuite) createAddresses(c *gc.C) {
 		addr := network.NewAddress(rawAddr, network.ScopePublic)
 		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 		c.Assert(err, jc.ErrorIsNil)
-		err = ipAddr.AllocateTo(s.machine.Id(), "wobble")
-		c.Assert(err, jc.ErrorIsNil)
 		if i%2 == 1 {
 			// two of the addresses start out Dead
+			err = ipAddr.AllocateTo("dead-machine", "wobble")
+			c.Assert(err, jc.ErrorIsNil)
 			err = ipAddr.EnsureDead()
 			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			err = ipAddr.AllocateTo(s.machine.Id(), "wobble")
+			c.Assert(err, jc.ErrorIsNil)
 		}
+
 	}
 }
 
@@ -109,6 +114,11 @@ func (s *workerSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
 	op1 := waitForReleaseOp(c, opsChan)
 	op2 := waitForReleaseOp(c, opsChan)
 	expected := []dummy.OpReleaseAddress{makeReleaseOp(4), makeReleaseOp(6)}
+
+	// The machines are dead, so ReleaseAddress should be called with
+	// instance.UnknownId.
+	expected[0].InstanceId = instance.UnknownId
+	expected[1].InstanceId = instance.UnknownId
 	c.Assert([]dummy.OpReleaseAddress{op1, op2}, jc.SameContents, expected)
 }
 
