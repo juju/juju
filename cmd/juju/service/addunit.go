@@ -1,7 +1,7 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package service
 
 import (
 	"errors"
@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs/config"
@@ -39,7 +38,7 @@ func (c *UnitCommandBase) Init(args []string) error {
 		if c.NumUnits > 1 {
 			return errors.New("cannot use --num-units > 1 with --to")
 		}
-		if !isMachineOrNewContainer(c.ToMachineSpec) {
+		if !IsMachineOrNewContainer(c.ToMachineSpec) {
 			return fmt.Errorf("invalid --to parameter %q", c.ToMachineSpec)
 		}
 
@@ -51,14 +50,17 @@ func (c *UnitCommandBase) Init(args []string) error {
 // This exists to provide more context to the user about
 // why they cannot allocate units to machine 0. Remove
 // this when the local provider's machine 0 is a container.
-func (c *UnitCommandBase) checkProvider(conf *config.Config) error {
+// TODO(cherylj) Unexport CheckProvider once deploy is moved under service
+func (c *UnitCommandBase) CheckProvider(conf *config.Config) error {
 	if conf.Type() == provider.Local && c.ToMachineSpec == "0" {
 		return errors.New("machine 0 is the state server for a local environment and cannot host units")
 	}
 	return nil
 }
 
-var getClientConfig = func(client *api.Client) (*config.Config, error) {
+// TODO(cherylj) Unexport GetClientConfig and make it a standard function
+// once deploy is moved under service
+var GetClientConfig = func(client ServiceAddUnitAPI) (*config.Config, error) {
 	// Separated into a variable for easy overrides
 	attrs, err := client.EnvironmentGet()
 	if err != nil {
@@ -73,22 +75,23 @@ type AddUnitCommand struct {
 	envcmd.EnvCommandBase
 	UnitCommandBase
 	ServiceName string
+	api         ServiceAddUnitAPI
 }
 
 const addUnitDoc = `
 Adding units to an existing service is a way to scale out an environment by
 deploying more instances of a service.  Add-unit must be called on services that
-have already been deployed via juju deploy.  
+have already been deployed via juju deploy.
 
 By default, services are deployed to newly provisioned machines.  Alternatively,
 service units can be added to a specific existing machine using the --to
 argument.
 
 Examples:
- juju add-unit mysql -n 5          (Add 5 mysql units on 5 new machines)
- juju add-unit mysql --to 23       (Add a mysql unit to machine 23)
- juju add-unit mysql --to 24/lxc/3 (Add unit to lxc container 3 on host machine 24)
- juju add-unit mysql --to lxc:25   (Add unit to a new lxc container on host machine 25)
+ juju service add-unit mysql -n 5          (Add 5 mysql units on 5 new machines)
+ juju service add-unit mysql --to 23       (Add a mysql unit to machine 23)
+ juju service add-unit mysql --to 24/lxc/3 (Add unit to lxc container 3 on host machine 24)
+ juju service add-unit mysql --to lxc:25   (Add unit to a new lxc container on host machine 25)
 `
 
 func (c *AddUnitCommand) Info() *cmd.Info {
@@ -118,21 +121,36 @@ func (c *AddUnitCommand) Init(args []string) error {
 	return c.UnitCommandBase.Init(args)
 }
 
+// ServiceAddUnitAPI defines the methods on the client API
+// that the service add-unit command calls.
+type ServiceAddUnitAPI interface {
+	Close() error
+	AddServiceUnits(service string, numUnits int, machineSpec string) ([]string, error)
+	EnvironmentGet() (map[string]interface{}, error)
+}
+
+func (c *AddUnitCommand) getAPI() (ServiceAddUnitAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
+	return c.NewAPIClient()
+}
+
 // Run connects to the environment specified on the command line
 // and calls AddServiceUnits for the given service.
 func (c *AddUnitCommand) Run(_ *cmd.Context) error {
-	apiclient, err := c.NewAPIClient()
+	apiclient, err := c.getAPI()
 	if err != nil {
 		return err
 	}
 	defer apiclient.Close()
 
-	conf, err := getClientConfig(apiclient)
+	conf, err := GetClientConfig(apiclient)
 	if err != nil {
 		return err
 	}
 
-	if err := c.checkProvider(conf); err != nil {
+	if err := c.CheckProvider(conf); err != nil {
 		return err
 	}
 
@@ -140,16 +158,13 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
-const (
-	deployTarget = "^(" + names.ContainerTypeSnippet + ":)?" + names.MachineSnippet + "$"
-)
+// deployTarget describes the format a machine or container target must match to be valid.
+const deployTarget = "^(" + names.ContainerTypeSnippet + ":)?" + names.MachineSnippet + "$"
 
-var (
-	validMachineOrNewContainer = regexp.MustCompile(deployTarget)
-)
+var validMachineOrNewContainer = regexp.MustCompile(deployTarget)
 
-// isMachineOrNewContainer returns whether spec is a valid machine id
+// IsMachineOrNewContainer returns whether spec is a valid machine id
 // or new container definition.
-func isMachineOrNewContainer(spec string) bool {
+func IsMachineOrNewContainer(spec string) bool {
 	return validMachineOrNewContainer.MatchString(spec)
 }
