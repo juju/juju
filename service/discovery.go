@@ -133,17 +133,6 @@ fi
 exit 1
 `
 
-func writeDiscoverInitSystemScript(filename string) []string {
-	// TODO(ericsnow) Use utils.shell.Renderer.WriteScript.
-	return []string{
-		fmt.Sprintf(`
-cat > %s << 'EOF'
-%s
-EOF`[1:], filename, DiscoverInitSystemScript),
-		"chmod 0755 " + filename,
-	}
-}
-
 const caseLine = "%sif [[ $%s == \"%s\" ]]; then %s\n"
 
 // newShellSelectCommand creates a bash if statement with an if
