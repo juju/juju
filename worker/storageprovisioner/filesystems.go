@@ -454,9 +454,17 @@ func filesystemParamsFromParams(in params.FilesystemParams) (storage.FilesystemP
 	if err != nil {
 		return storage.FilesystemParams{}, errors.Trace(err)
 	}
+	var volumeTag names.VolumeTag
+	if in.VolumeTag != "" {
+		volumeTag, err = names.ParseVolumeTag(in.VolumeTag)
+		if err != nil {
+			return storage.FilesystemParams{}, errors.Trace(err)
+		}
+	}
 	providerType := storage.ProviderType(in.Provider)
 	return storage.FilesystemParams{
 		filesystemTag,
+		volumeTag,
 		in.Size,
 		providerType,
 		in.Attributes,

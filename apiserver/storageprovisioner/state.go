@@ -16,7 +16,9 @@ type provisionerState interface {
 	state.EnvironAccessor
 
 	MachineInstanceId(names.MachineTag) (instance.Id, error)
+	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 
+	WatchBlockDevices(names.MachineTag) state.NotifyWatcher
 	WatchEnvironFilesystems() state.StringsWatcher
 	WatchEnvironFilesystemAttachments() state.StringsWatcher
 	WatchMachineFilesystems(names.MachineTag) state.StringsWatcher
@@ -25,6 +27,7 @@ type provisionerState interface {
 	WatchEnvironVolumeAttachments() state.StringsWatcher
 	WatchMachineVolumes(names.MachineTag) state.StringsWatcher
 	WatchMachineVolumeAttachments(names.MachineTag) state.StringsWatcher
+	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 
 	Filesystem(names.FilesystemTag) (state.Filesystem, error)
 	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)

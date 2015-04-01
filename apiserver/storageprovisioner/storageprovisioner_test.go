@@ -384,12 +384,13 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 				MachineTag: "machine-0",
 				VolumeTag:  "volume-0-0",
 				InstanceId: "inst-id",
-				VolumeId:   "abc",
 				Provider:   "machinescoped",
 			}},
-			{Error: &params.Error{
-				Code:    params.CodeNotProvisioned,
-				Message: `volume "1" not provisioned`,
+			{Result: params.VolumeAttachmentParams{
+				MachineTag: "machine-0",
+				VolumeTag:  "volume-1",
+				InstanceId: "inst-id",
+				Provider:   "environscoped",
 			}},
 			{Error: &params.Error{
 				Code:    params.CodeNotProvisioned,
@@ -426,13 +427,14 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 				MachineTag:    "machine-0",
 				FilesystemTag: "filesystem-0-0",
 				InstanceId:    "inst-id",
-				FilesystemId:  "abc",
 				Provider:      "machinescoped",
 				MountPoint:    "/srv",
 			}},
-			{Error: &params.Error{
-				Code:    params.CodeNotProvisioned,
-				Message: `filesystem "1" not provisioned`,
+			{Result: params.FilesystemAttachmentParams{
+				MachineTag:    "machine-0",
+				FilesystemTag: "filesystem-1",
+				InstanceId:    "inst-id",
+				Provider:      "environscoped",
 			}},
 			{Error: &params.Error{
 				Code:    params.CodeNotProvisioned,
@@ -723,6 +725,92 @@ func (s *provisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 	wc.AssertNoChange()
 	wc = statetesting.NewStringsWatcherC(c, s.State, v1Watcher.(state.StringsWatcher))
 	wc.AssertNoChange()
+}
+
+func (s *provisionerSuite) TestWatchBlockDevices(c *gc.C) {
+	s.factory.MakeMachine(c, nil)
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{"machine-0"},
+		{"service-mysql"},
+		{"machine-1"},
+		{"machine-42"}},
+	}
+	results, err := s.api.WatchBlockDevices(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{NotifyWatcherId: "1"},
+			{Error: &params.Error{Message: `"service-mysql" is not a valid machine tag`}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	watcher := s.resources.Get("1")
+	defer statetesting.AssertStop(c, watcher)
+
+	// Check that the Watch has consumed the initial event.
+	wc := statetesting.NewNotifyWatcherC(c, s.State, watcher.(state.NotifyWatcher))
+	wc.AssertNoChange()
+
+	m, err := s.State.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetMachineBlockDevices(state.BlockDeviceInfo{
+		DeviceName: "sda",
+		Size:       123,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+}
+
+func (s *provisionerSuite) TestVolumeBlockDevices(c *gc.C) {
+	s.setupVolumes(c)
+	s.factory.MakeMachine(c, nil)
+
+	err := s.State.SetVolumeAttachmentInfo(
+		names.NewMachineTag("0"),
+		names.NewVolumeTag("0/0"),
+		state.VolumeAttachmentInfo{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine0, err := s.State.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine0.SetMachineBlockDevices(state.BlockDeviceInfo{
+		DeviceName: "sda",
+		Size:       123,
+		Serial:     "123", // matches volume-0/0
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.MachineStorageIds{Ids: []params.MachineStorageId{
+		{MachineTag: "machine-0", AttachmentTag: "volume-0-0"},
+		{MachineTag: "machine-0", AttachmentTag: "volume-0-1"},
+		{MachineTag: "machine-0", AttachmentTag: "volume-0-2"},
+		{MachineTag: "machine-1", AttachmentTag: "volume-1"},
+		{MachineTag: "machine-42", AttachmentTag: "volume-42"},
+		{MachineTag: "service-mysql", AttachmentTag: "volume-1"},
+	}}
+	results, err := s.api.VolumeBlockDevices(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.BlockDeviceResults{
+		Results: []params.BlockDeviceResult{
+			{Result: storage.BlockDevice{
+				DeviceName: "sda",
+				Size:       123,
+				Serial:     "123",
+			}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{Message: `"service-mysql" is not a valid machine tag`}},
+		},
+	})
 }
 
 func (s *provisionerSuite) TestLife(c *gc.C) {

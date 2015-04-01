@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -128,6 +129,29 @@ func (s *provisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 	c.Check(callCount, gc.Equals, 1)
 }
 
+func (s *provisionerSuite) TestWatchBlockDevices(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "StorageProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchBlockDevices")
+		c.Assert(arg, gc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{"machine-123"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
+			Results: []params.NotifyWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+
+	st := storageprovisioner.NewState(apiCaller, names.NewMachineTag("123"))
+	_, err := st.WatchBlockDevices(names.NewMachineTag("123"))
+	c.Check(err, gc.ErrorMatches, "FAIL")
+}
+
 func (s *provisionerSuite) TestVolumes(c *gc.C) {
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -230,6 +254,40 @@ func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 	c.Assert(volumes, jc.DeepEquals, volumeAttachmentResults)
+}
+
+func (s *provisionerSuite) TestVolumeBlockDevices(c *gc.C) {
+	blockDeviceResults := []params.BlockDeviceResult{{
+		Result: storage.BlockDevice{
+			DeviceName: "xvdf1",
+			Serial:     "kjlaksjdlasjdklasd123123",
+			Size:       1024,
+		},
+	}}
+
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "StorageProvisioner")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "VolumeBlockDevices")
+		c.Check(arg, gc.DeepEquals, params.MachineStorageIds{
+			Ids: []params.MachineStorageId{{
+				MachineTag: "machine-100", AttachmentTag: "volume-100",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.BlockDeviceResults{})
+		*(result.(*params.BlockDeviceResults)) = params.BlockDeviceResults{
+			Results: blockDeviceResults,
+		}
+		return nil
+	})
+
+	st := storageprovisioner.NewState(apiCaller, names.NewMachineTag("123"))
+	volumes, err := st.VolumeBlockDevices([]params.MachineStorageId{{
+		MachineTag: "machine-100", AttachmentTag: "volume-100",
+	}})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(volumes, jc.DeepEquals, blockDeviceResults)
 }
 
 func (s *provisionerSuite) TestFilesystemAttachments(c *gc.C) {
@@ -340,7 +398,6 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 		Result: params.VolumeAttachmentParams{
 			MachineTag: "machine-100",
 			VolumeTag:  "volume-100",
-			VolumeId:   "vol-ume",
 			InstanceId: "inst-ance",
 			Provider:   "loop",
 		},
@@ -379,7 +436,6 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 		Result: params.FilesystemAttachmentParams{
 			MachineTag:    "machine-100",
 			FilesystemTag: "filesystem-100",
-			FilesystemId:  "fs-ystem",
 			InstanceId:    "inst-ance",
 			Provider:      "loop",
 			MountPoint:    "/srv",
