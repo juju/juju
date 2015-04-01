@@ -29,7 +29,7 @@ var (
 	}
 )
 
-func convertRawAPIError(err error) err {
+func convertRawAPIError(err error) error {
 	if err2, ok := err.(*googleapi.Error); ok {
 		if err2.Code == http.StatusNotFound {
 			return errors.NewNotFound(err, "")
