@@ -51,3 +51,10 @@ func NewCreateCommand(api CreateEnvironmentAPI) *CreateCommand {
 		api: api,
 	}
 }
+
+// NewUsersCommand returns a UsersCommand with the api provided as specified.
+func NewUsersCommand(api UsersAPI) *UsersCommand {
+	return &UsersCommand{
+		api: api,
+	}
+}

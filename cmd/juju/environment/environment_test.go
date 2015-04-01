@@ -35,6 +35,7 @@ var expectedCommmandNames = []string{
 	"share",
 	"unset",
 	"unshare",
+	"users",
 }
 
 func (s *EnvironmentCommandSuite) TestHelpCommands(c *gc.C) {
@@ -47,7 +48,7 @@ func (s *EnvironmentCommandSuite) TestHelpCommands(c *gc.C) {
 
 	// Remove "share" for the first test because the feature is not
 	// enabled.
-	devFeatures := set.NewStrings("create", "share", "unshare")
+	devFeatures := set.NewStrings("create", "share", "unshare", "users")
 
 	// Remove features behind dev_flag for the first test since they are not
 	// enabled.
