@@ -14,3 +14,9 @@ func NewAddCommand(api SubnetAPI) *AddCommand {
 	addCmd.api = api
 	return addCmd
 }
+
+func NewRemoveCommand(api SubnetAPI) *RemoveCommand {
+	removeCmd := &RemoveCommand{}
+	removeCmd.api = api
+	return removeCmd
+}

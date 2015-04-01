@@ -174,3 +174,8 @@ func (sa *StubAPI) AddSubnet(subnetCIDR, spaceName string) error {
 	sa.MethodCall(sa, "AddSubnet", subnetCIDR, spaceName)
 	return sa.NextErr()
 }
+
+func (sa *StubAPI) RemoveSubnet(subnetCIDR string) error {
+	sa.MethodCall(sa, "RemoveSubnet", subnetCIDR)
+	return sa.NextErr()
+}

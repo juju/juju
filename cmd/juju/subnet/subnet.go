@@ -29,6 +29,12 @@ type SubnetAPI interface {
 
 	// AddSubnet adds an existing subnet to Juju.
 	AddSubnet(subnetCIDR, spaceName string) error
+
+	// RemoveSubnet marks an existing subnet as no longer used, which
+	// will cause it to get removed at some point after all its
+	// related entites are cleaned up. It will fail if the subnet is
+	// still in use by any machines.
+	RemoveSubnet(subnetCIDR string) error
 }
 
 var logger = loggo.GetLogger("juju.cmd.juju.subnet")
@@ -48,6 +54,7 @@ func NewSuperCommand() cmd.Command {
 	})
 	subnetCmd.Register(envcmd.Wrap(&CreateCommand{}))
 	subnetCmd.Register(envcmd.Wrap(&AddCommand{}))
+	subnetCmd.Register(envcmd.Wrap(&RemoveCommand{}))
 
 	return subnetCmd
 }
