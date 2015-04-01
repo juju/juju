@@ -101,15 +101,18 @@ func (a *addresserHandler) releaseIPAddress(addr *state.IPAddress) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to release address %v", addr.Value())
 	var machine *state.Machine
 	logger.Debugf("attempting to release dead address %#v", addr.Value())
-	machine, err = a.st.Machine(addr.MachineId())
-	if err != nil {
-		return errors.Annotatef(err, "cannot get allocated machine %q", addr.MachineId())
-	}
 
 	var instId instance.Id
-	instId, err = machine.InstanceId()
-	if err != nil {
-		return errors.Annotatef(err, "cannot get machine %q instance ID", addr.MachineId())
+	machine, err = a.st.Machine(addr.MachineId())
+	if errors.IsNotFound(err) {
+		instId = instance.UnknownId
+	} else if err != nil {
+		return errors.Annotatef(err, "cannot get allocated machine %q", addr.MachineId())
+	} else {
+		instId, err = machine.InstanceId()
+		if err != nil {
+			return errors.Annotatef(err, "cannot get machine %q instance ID", addr.MachineId())
+		}
 	}
 
 	subnetId := network.Id(addr.SubnetId())

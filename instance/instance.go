@@ -17,6 +17,8 @@ import (
 // instance (physical or virtual machine allocated in the provider).
 type Id string
 
+const UnknownId Id = ""
+
 // Instance represents the the realization of a machine in state.
 type Instance interface {
 	// Id returns a provider-generated identifier for the Instance.
