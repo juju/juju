@@ -88,5 +88,5 @@ func (err InvalidConfigValue) Underlying() error {
 
 // Error implements error.
 func (err InvalidConfigValue) Error() string {
-	return fmt.Sprintf("invalid config value (%s) for %q: %v", err.Value, err.Key)
+	return fmt.Sprintf("invalid config value (%s) for %q: %v", err.Value, err.Key, err.Reason)
 }
