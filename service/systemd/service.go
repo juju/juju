@@ -23,8 +23,8 @@ var (
 	logger = loggo.GetLogger("juju.service.systemd")
 )
 
-// IsLocal returns whether or not this is the local init system.
-func IsLocal() (bool, error) {
+// IsRunning returns whether or not systemd is the local init system.
+func IsRunning() (bool, error) {
 	if _, err := os.Stat("/run/systemd/system"); err == nil {
 		return true, nil
 	} else if os.IsNotExist(err) {

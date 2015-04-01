@@ -94,9 +94,9 @@ func versionInitSystem(vers version.Binary) (string, bool) {
 }
 
 var discoveryFuncs = map[string]func() (bool, error){
-	InitSystemSystemd: systemd.IsLocal,
-	InitSystemUpstart: upstart.IsLocal,
-	InitSystemWindows: windows.IsLocal,
+	InitSystemSystemd: systemd.IsRunning,
+	InitSystemUpstart: upstart.IsRunning,
+	InitSystemWindows: windows.IsRunning,
 }
 
 func discoverLocalInitSystem() (string, error) {

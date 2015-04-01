@@ -18,8 +18,8 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.deployer.service")
 
-// IsLocal returns whether or not this is the local init system.
-func IsLocal() (bool, error) {
+// IsRunning returns whether or not windows is the local init system.
+func IsRunning() (bool, error) {
 	return runtime.GOOS == "windows", nil
 }
 

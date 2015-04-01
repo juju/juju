@@ -26,8 +26,8 @@ var servicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
 
 var logger = loggo.GetLogger("juju.service.upstart")
 
-// IsLocal returns whether or not this is the local init system.
-func IsLocal() (bool, error) {
+// IsRunning returns whether or not upstart is the local init system.
+func IsRunning() (bool, error) {
 	cmd := exec.Command("/sbin/initctl", "--system", "list")
 	_, err := cmd.CombinedOutput()
 	if err == nil {
