@@ -2386,14 +2386,12 @@ func (s *upgradesSuite) addMachineWithLife(c *gc.C, machineID int, life Life) {
 		"instanceid": "foobar",
 		"life":       life,
 	}
-	ops := []txn.Op{
-		{
-			C:      machinesC,
-			Id:     machineID,
-			Assert: txn.DocMissing,
-			Insert: mDoc,
-		},
-	}
+	ops := []txn.Op{{
+		C:      machinesC,
+		Id:     machineID,
+		Assert: txn.DocMissing,
+		Insert: mDoc,
+	}}
 	err := s.state.runRawTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 }

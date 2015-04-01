@@ -211,7 +211,6 @@ func (i *IPAddress) SetState(newState AddressState) (err error) {
 			} else if err != nil {
 				return nil, err
 			}
-
 		}
 		return []txn.Op{{
 			C:      ipaddressesC,
@@ -247,7 +246,6 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
 			} else if err != nil {
 				return nil, err
 			}
-
 		}
 		return []txn.Op{{
 			C:      ipaddressesC,
