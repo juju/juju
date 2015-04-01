@@ -41,7 +41,7 @@ type VolumeCommandBase struct {
 
 // VolumeInfo defines the serialization behaviour for storage volume.
 type VolumeInfo struct {
-	// from params.Volume
+	// from params.Volume. This is provider-supplied unique volume id.
 	VolumeId string `yaml:"id" json:"id"`
 
 	// from params.Volume
@@ -58,12 +58,15 @@ type VolumeInfo struct {
 
 	// from params.VolumeAttachments
 	ReadOnly bool `yaml:"readonly" json:"readonly"`
+
+	// from params.Volume. This is juju volume id.
+	Volume string `yaml:"volume,omitempty" json:"volume,omitempty"`
 }
 
 // convertToVolumeInfo returns map of maps with volume info
 // keyed first on machine_id and then on volume_id.
-func convertToVolumeInfo(all []params.VolumeItem) (map[string]map[string]VolumeInfo, error) {
-	result := map[string]map[string]VolumeInfo{}
+func convertToVolumeInfo(all []params.VolumeItem) (map[string]map[string]map[string]VolumeInfo, error) {
+	result := map[string]map[string]map[string]VolumeInfo{}
 	for _, one := range all {
 		if err := convertVolumeItem(one, result); err != nil {
 			return nil, errors.Trace(err)
@@ -72,17 +75,14 @@ func convertToVolumeInfo(all []params.VolumeItem) (map[string]map[string]VolumeI
 	return result, nil
 }
 
-func convertVolumeItem(item params.VolumeItem, all map[string]map[string]VolumeInfo) error {
-	if len(item.Attachments) == 0 {
-		unattached := createInfo(item.Volume)
-		err := addOneToAll("unattached", item.Volume.VolumeTag, unattached, all)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return nil
+func convertVolumeItem(item params.VolumeItem, all map[string]map[string]map[string]VolumeInfo) error {
+	if len(item.Attachments) != 0 {
+		// add info for volume attachments
+		return convertVolumeAttachments(item, all)
 	}
-	// add info for volume attachments
-	return convertVolumeAttachments(item, all)
+	unattached, unit, storage := createInfo(item.Volume)
+	addOneToAll("unattached", unit, storage, unattached, all)
+	return nil
 }
 
 var idFromTag = func(s string) (string, error) {
@@ -93,44 +93,50 @@ var idFromTag = func(s string) (string, error) {
 	return tag.Id(), nil
 }
 
-func convertVolumeAttachments(item params.VolumeItem, all map[string]map[string]VolumeInfo) error {
+func convertVolumeAttachments(item params.VolumeItem, all map[string]map[string]map[string]VolumeInfo) error {
 	for _, one := range item.Attachments {
 		machine, err := idFromTag(one.MachineTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		info := createInfo(item.Volume)
+		info, unit, storage := createInfo(item.Volume)
 		info.DeviceName = one.DeviceName
 		info.ReadOnly = one.ReadOnly
 
-		err = addOneToAll(machine, item.Volume.VolumeTag, info, all)
-		if err != nil {
-			return errors.Trace(err)
-		}
+		addOneToAll(machine, unit, storage, info, all)
 	}
 	return nil
 }
 
-func addOneToAll(machineId, volumeTag string, item VolumeInfo, all map[string]map[string]VolumeInfo) error {
+func addOneToAll(machineId, unitId, storageId string, item VolumeInfo, all map[string]map[string]map[string]VolumeInfo) {
 	machineVolumes, ok := all[machineId]
 	if !ok {
-		machineVolumes = map[string]VolumeInfo{}
+		machineVolumes = map[string]map[string]VolumeInfo{}
 		all[machineId] = machineVolumes
 	}
-	volume, err := idFromTag(volumeTag)
-	if err != nil {
-		return errors.Trace(err)
+	unitVolumes, ok := machineVolumes[unitId]
+	if !ok {
+		unitVolumes = map[string]VolumeInfo{}
+		machineVolumes[unitId] = unitVolumes
 	}
-
-	machineVolumes[volume] = item
-	return nil
+	unitVolumes[storageId] = item
 }
 
-func createInfo(volume params.Volume) VolumeInfo {
-	return VolumeInfo{
-		VolumeId:   volume.VolumeId,
-		Serial:     volume.Serial,
-		Size:       volume.Size,
-		Persistent: volume.Persistent,
+func createInfo(volume params.VolumeInstance) (info VolumeInfo, unit, storage string) {
+	info.VolumeId = volume.VolumeId
+	info.Serial = volume.Serial
+	info.Size = volume.Size
+	info.Persistent = volume.Persistent
+
+	if v, err := idFromTag(volume.VolumeTag); err == nil {
+		info.Volume = v
 	}
+	var err error
+	if storage, err = idFromTag(volume.StorageTag); err != nil {
+		storage = "unassigned"
+	}
+	if unit, err = idFromTag(volume.UnitTag); err != nil {
+		unit = "unattached"
+	}
+	return
 }

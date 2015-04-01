@@ -3,24 +3,24 @@ package storage
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 )
 
 // formatVolumeListTabular returns a tabular summary of volume instances.
 func formatVolumeListTabular(value interface{}) ([]byte, error) {
-	infos, ok := value.(map[string]map[string]VolumeInfo)
+	infos, ok := value.(map[string]map[string]map[string]VolumeInfo)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", infos, value)
 	}
 	return formatVolumeListTabularTyped(infos), nil
 }
 
-func formatVolumeListTabularTyped(infos map[string]map[string]VolumeInfo) []byte {
+func formatVolumeListTabularTyped(infos map[string]map[string]map[string]VolumeInfo) []byte {
 	var out bytes.Buffer
 	const (
 		// To format things into columns.
@@ -35,35 +35,42 @@ func formatVolumeListTabularTyped(infos map[string]map[string]VolumeInfo) []byte
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
-	print("MACHINE", "DEVICE", "VOLUME", "ID", "SIZE")
+	print("MACHINE", "UNIT", "STORAGE", "DEVICE", "VOLUME", "ID", "SIZE")
 
-	// sort by machines
-	machines := make([]string, len(infos))
-	i := 0
+	// 1. sort by machines
+	machines := set.NewStrings()
 	for machine := range infos {
-		machines[i] = machine
-		i++
-	}
-	sort.Strings(machines)
-	for _, machine := range machines {
-		machineVolumes := infos[machine]
-
-		// sort by volume
-		volumes := make([]string, len(machineVolumes))
-		i := 0
-		for volume := range machineVolumes {
-			volumes[i] = volume
-			i++
+		if !machines.Contains(machine) {
+			machines.Add(machine)
 		}
-		sort.Strings(volumes)
+	}
+	for _, machine := range machines.SortedValues() {
+		machineUnits := infos[machine]
 
-		for _, volume := range volumes {
-			info := machineVolumes[volume]
-			size := humanize.IBytes(info.Size * humanize.MiByte)
-			print(machine, info.DeviceName, volume, info.VolumeId, size)
+		// 2. sort by unit
+		units := set.NewStrings()
+		for unit := range machineUnits {
+			if !units.Contains(unit) {
+				units.Add(unit)
+			}
+		}
+		for _, unit := range units.SortedValues() {
+			unitStorages := machineUnits[unit]
+
+			// 3.sort by storage
+			storages := set.NewStrings()
+			for storage := range unitStorages {
+				if !storages.Contains(storage) {
+					storages.Add(storage)
+				}
+			}
+			for _, storage := range storages.SortedValues() {
+				info := unitStorages[storage]
+				size := humanize.IBytes(info.Size * humanize.MiByte)
+				print(machine, unit, storage, info.DeviceName, info.Volume, info.VolumeId, size)
+			}
 		}
 	}
 	tw.Flush()
-
 	return out.Bytes()
 }
