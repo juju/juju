@@ -90,6 +90,7 @@ func (c *ConverterAPI) Jobs(args params.Entities) (params.JobsResults, error) {
 	return result, nil
 }
 
+// WatchMachines creates a watcher for each of the specified machines.
 func (c *ConverterAPI) WatchMachines(args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),

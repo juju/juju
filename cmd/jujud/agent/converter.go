@@ -13,21 +13,21 @@ import (
 	"github.com/juju/juju/api/watcher"
 )
 
-// converter is a StringsWatchHandler that converts a unit hosting machine to a
+// converter is a NotifyWatcher that converts a unit hosting machine to a
 // state machine.
 type converter struct {
 	st    *apiconverter.State
 	agent *MachineAgent
 }
 
-// SetUp implements StringsWatchHandler's SetUp method. It returns a watcher that
+// SetUp implements NotifyWatcher's SetUp method. It returns a watcher that
 // checks for changes to the current machine.
 func (c *converter) SetUp() (watcher.NotifyWatcher, error) {
 	logger.Infof("setting up converter watcher")
 	return c.st.WatchMachine(c.agent.CurrentConfig().Tag().(names.MachineTag))
 }
 
-// Handle implements StringsWatchHandler's Handle method.  If the change means
+// Handle implements NotifyWatcher's Handle method.  If the change means
 // that the machine is now expected to manage the environment
 func (c *converter) Handle() error {
 	config := c.agent.CurrentConfig()
