@@ -822,7 +822,7 @@ func (t *localServerSuite) TestReleaseAddressUnknownInstance(c *gc.C) {
 	// We should be able to release an address with an unknown instance id
 	// without it being allocated.
 	addr := network.Address{Value: "8.0.0.4"}
-	err := env.ReleaseAddress("", "", addr)
+	err := env.ReleaseAddress(instance.UnknownId, "", addr)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -17,6 +17,7 @@ import (
 // instance (physical or virtual machine allocated in the provider).
 type Id string
 
+// UnknownId can be used to explicitly specify the instance ID does not matter.
 const UnknownId Id = ""
 
 // Instance represents the the realization of a machine in state.

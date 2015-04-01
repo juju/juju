@@ -780,6 +780,7 @@ func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.
 	// If the instance ID is unknown the address has already been released
 	// and we can ignore this request.
 	if instId == instance.UnknownId {
+		logger.Debugf("release address %q with an unknown instance ID is a no-0op (ignoring)", addr.Value)
 		return nil
 	}
 
