@@ -774,6 +774,13 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to release address %q from instance %q", addr, instId)
 
+	// If the instance ID is unknown the address has already been released
+	// and we can ignore this request.
+	if instId == instance.UnknownId {
+		logger.Debugf("release address %q with an unknown instance ID is a no-0op (ignoring)", addr.Value)
+		return nil
+	}
+
 	var nicId string
 	ec2Inst := e.ec2()
 	nicId, err = e.fetchNetworkInterfaceId(ec2Inst, instId)
