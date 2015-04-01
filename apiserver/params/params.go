@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -112,6 +113,12 @@ type AddRelationResults struct {
 // The endpoints specified are unordered.
 type DestroyRelation struct {
 	Endpoints []string
+}
+
+// AddCharm holds the arguments for making an AddCharmWithAuthorization API call.
+type AddCharmWithAuthorization struct {
+	URL                string
+	CharmStoreMacaroon *macaroon.Macaroon
 }
 
 // AddMachineParams encapsulates the parameters used to create a new machine.

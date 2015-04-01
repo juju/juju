@@ -22,6 +22,7 @@ import (
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -825,8 +826,23 @@ func (c *Client) localCharmUploadEndpoint(series string) (string, error) {
 // supported, only charm store URLs. See also AddLocalCharm() in the
 // client-side API.
 func (c *Client) AddCharm(curl *charm.URL) error {
-	args := params.CharmURL{URL: curl.String()}
+	args := params.CharmURL{
+		URL: curl.String(),
+	}
 	return c.facade.FacadeCall("AddCharm", args, nil)
+}
+
+// AddCharmWithAuthorization is like AddCharm except it also
+// provides the given charmstore macaroon for the juju
+// server to use when obtaining the charm from the charm store.
+// The macaroon is conventionally obtained from the /delegatable-macaroon
+// endpoint in the charm store.
+func (c *Client) AddCharmWithAuthorization(curl *charm.URL, csMac *macaroon.Macaroon) error {
+	args := params.AddCharmWithAuthorization{
+		URL:                curl.String(),
+		CharmStoreMacaroon: csMac,
+	}
+	return c.facade.FacadeCall("AddCharmWithAuthorization", args, nil)
 }
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
