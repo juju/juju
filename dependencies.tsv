@@ -2,7 +2,6 @@ bitbucket.org/kardianos/osext	hg	44140c5fc69ecf1102c5ef451d73cd98ef59b178	14
 bitbucket.org/kardianos/service	hg	d2fd4f8afd23d9b5d57250b8d3f0bc0c8bf363ec	58
 code.google.com/p/go.crypto	hg	aa2644fe4aa50e3b38d75187b4799b1f0c9ddcef	212
 code.google.com/p/go.net	hg	c17ad62118ea511e1051721b429779fa40bddc74	116
-code.google.com/p/goauth2	hg	afe77d958c701557ec5dc56f6936fcc194d15520	80
 code.google.com/p/google-api-go-client	hg	6ddfebb10ece847f1ae09c701834f1b15abbd8b2	135
 code.google.com/p/winsvc	hg	d6f79143ccd1138cc9d86c9fc75b1d6f8b1b95fb	10
 github.com/bmizerany/pat	git	48be7df2c27e1cec821a3284a683ce6ef90d9052	2014-04-29T04:34:05Z
@@ -28,6 +27,9 @@ github.com/juju/testing	git	02c8c5aed08558503a3b93d61ccb7b94ba759f6c	2015-03-31T
 github.com/juju/txn	git	2407a1fa094db5603f4718f11e1fafc8543273eb	2015-03-27T15:47:42Z
 github.com/juju/utils	git	6436ed20810ed9490a94cc42db7041c8d7f5f996	2015-03-31T19:07:01Z
 golang.org/x/crypto	git	1fbbd62cfec66bd39d91e97749579579d4d3037e	2014-12-09T23:26:36Z
+golang.org/x/net	git	7dbad50ab5b31073856416cdcfeb2796d682f844	2015-03-20T03:46:21Z
+golang.org/x/oauth2	git	11c60b6f71a6ad48ed6f93c65fa4c6f9b1b5b46a	2015-03-25T02:00:22Z
+google.golang.org/cloud	git	f20d6dcccb44ed49de45ae3703312cb46e627db1	2015-03-19T22:36:35Z
 gopkg.in/amz.v3	git	d448c1511e15faa59e0606a07cb2e88da55b3e47	2015-03-02T07:27:58Z
 gopkg.in/check.v1	git	91ae5f88a67b14891cfd43895b01164f6c120420	2014-08-27T13:58:41Z
 gopkg.in/juju/charm.v4	git	f3628b634e1d83fdb838f47e92dac92588af202c	2015-03-30T15:27:59Z
