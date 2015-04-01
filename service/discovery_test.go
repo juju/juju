@@ -4,6 +4,7 @@
 package service_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -291,7 +292,13 @@ func (s *discoverySuite) TestDiscoverInitSystemScript(c *gc.C) {
 
 func (s *discoverySuite) newDiscoverInitSystemScript(c *gc.C) (string, string) {
 	filename := filepath.Join(c.MkDir(), "discover_init_system.sh")
-	commands := service.WriteDiscoverInitSystemScript(filename)
+	commands := []string{
+		fmt.Sprintf(`
+cat > %s << 'EOF'
+%s
+EOF`[1:], filename, service.DiscoverInitSystemScript()),
+		"chmod 0755 " + filename,
+	}
 	script := strings.Join(commands, "\n") + "\n"
 	return script, filename
 }
