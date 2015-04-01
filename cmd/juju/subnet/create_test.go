@@ -59,17 +59,11 @@ func (s *CreateSuite) TestInit(c *gc.C) {
 		expectPrivate: true,
 		expectErr:     `"5.4.3.2/10" is not correctly specified, expected "5.0.0.0/10"`,
 	}, {
-		about:         "invalid space name - using invalid characters",
+		about:         "invalid space name",
 		args:          s.Strings("10.10.0.0/24", "%inv$alid", "zone"),
 		expectCIDR:    "10.10.0.0/24",
 		expectPrivate: true,
 		expectErr:     `"%inv\$alid" is not a valid space name`,
-	}, {
-		about:         "invalid space name - using underscores",
-		args:          s.Strings("10.10.0.0/24", "42_space", "zone"),
-		expectCIDR:    "10.10.0.0/24",
-		expectPrivate: true,
-		expectErr:     `"42_space" is not a valid space name`,
 	}, {
 		about:         "duplicate zones specified",
 		args:          s.Strings("10.10.0.0/24", "myspace", "zone1", "zone2", "zone1"),
@@ -140,20 +134,18 @@ func (s *CreateSuite) TestInit(c *gc.C) {
 		c.Check(command.Zones.SortedValues(), jc.DeepEquals, test.expectZones)
 		c.Check(command.IsPublic, gc.Equals, test.expectPublic)
 		c.Check(command.IsPrivate, gc.Equals, test.expectPrivate)
+
 		// No API calls should be recorded at this stage.
 		s.api.CheckCallNames(c)
 	}
 }
 
 func (s *CreateSuite) TestRunOneZoneSucceeds(c *gc.C) {
-	stdout, stderr, err := s.RunSubCommand(
-		c, "10.20.0.0/24", "myspace", "zone1",
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches,
+	s.AssertRunSucceeds(c,
 		`created a private subnet "10.20.0.0/24" in space "myspace" with zones zone1\n`,
+		"10.20.0.0/24", "myspace", "zone1",
 	)
+
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
 		"10.20.0.0/24", "myspace", s.Strings("zone1"), false,
@@ -161,14 +153,11 @@ func (s *CreateSuite) TestRunOneZoneSucceeds(c *gc.C) {
 }
 
 func (s *CreateSuite) TestRunWithPublicAndIPv6CIDRSucceeds(c *gc.C) {
-	stdout, stderr, err := s.RunSubCommand(
-		c, "2001:db8::/32", "space", "zone1", "--public",
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches,
+	s.AssertRunSucceeds(c,
 		`created a public subnet "2001:db8::/32" in space "space" with zones zone1\n`,
+		"2001:db8::/32", "space", "zone1", "--public",
 	)
+
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
 		"2001:db8::/32", "space", s.Strings("zone1"), true,
@@ -176,16 +165,13 @@ func (s *CreateSuite) TestRunWithPublicAndIPv6CIDRSucceeds(c *gc.C) {
 }
 
 func (s *CreateSuite) TestRunWithMultipleZonesSucceeds(c *gc.C) {
-	stdout, stderr, err := s.RunSubCommand(
-		c, "10.20.0.0/24", "foo", "zone2", "zone1",
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stdout, gc.Equals, "")
-	// The list of zones is sorted both when displayed and passed to
-	// CreateSubnet.
-	c.Assert(stderr, gc.Matches,
+	s.AssertRunSucceeds(c,
+		// The list of zones is sorted both when displayed and passed
+		// to CreateSubnet.
 		`created a private subnet "10.20.0.0/24" in space "foo" with zones zone1, zone2\n`,
+		"10.20.0.0/24", "foo", "zone2", "zone1", // unsorted zones
 	)
+
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
 		"10.20.0.0/24", "foo", s.Strings("zone1", "zone2"), false,
@@ -195,25 +181,22 @@ func (s *CreateSuite) TestRunWithMultipleZonesSucceeds(c *gc.C) {
 func (s *CreateSuite) TestRunWithAllZonesErrorFails(c *gc.C) {
 	s.api.SetErrors(errors.New("boom"))
 
-	stdout, stderr, err := s.RunSubCommand(c, "10.10.0.0/24", "space", "zone1")
-	c.Assert(err, gc.ErrorMatches,
+	s.AssertRunFails(c,
 		`cannot fetch availability zones: boom`,
+		"10.10.0.0/24", "space", "zone1",
 	)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, "")
 	s.api.CheckCallNames(c, "AllZones", "Close")
 }
 
 func (s *CreateSuite) TestRunWithExistingSubnetFails(c *gc.C) {
 	s.api.SetErrors(nil, errors.AlreadyExistsf("subnet %q", "10.10.0.0/24"))
 
-	stdout, stderr, err := s.RunSubCommand(c, "10.10.0.0/24", "space", "zone1")
-	c.Assert(err, gc.ErrorMatches,
+	err := s.AssertRunFails(c,
 		`cannot create subnet "10.10.0.0/24": subnet "10.10.0.0/24" already exists`,
+		"10.10.0.0/24", "space", "zone1",
 	)
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, "")
+
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
 		"10.10.0.0/24", "space", s.Strings("zone1"), false,
@@ -223,13 +206,12 @@ func (s *CreateSuite) TestRunWithExistingSubnetFails(c *gc.C) {
 func (s *CreateSuite) TestRunWithNonExistingSpaceFails(c *gc.C) {
 	s.api.SetErrors(nil, errors.NotFoundf("space %q", "space"))
 
-	stdout, stderr, err := s.RunSubCommand(c, "10.10.0.0/24", "space", "zone1")
-	c.Assert(err, gc.ErrorMatches,
+	err := s.AssertRunFails(c,
 		`cannot create subnet "10.10.0.0/24": space "space" not found`,
+		"10.10.0.0/24", "space", "zone1",
 	)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, "")
+
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
 		"10.10.0.0/24", "space", s.Strings("zone1"), false,
@@ -237,23 +219,23 @@ func (s *CreateSuite) TestRunWithNonExistingSpaceFails(c *gc.C) {
 }
 
 func (s *CreateSuite) TestRunWithUnknownZonesFails(c *gc.C) {
-	stdout, stderr, err := s.RunSubCommand(
-		c, "10.30.30.0/24", "space", "no-zone", "zone1", "foo",
+	s.AssertRunFails(c,
+		// The list of unknown zones is sorted.
+		"unknown zones specified: foo, no-zone",
+		"10.30.30.0/24", "space", "no-zone", "zone1", "foo",
 	)
-	// The list of unknown zones is sorted.
-	c.Assert(err, gc.ErrorMatches, "unknown zones specified: foo, no-zone")
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, "")
+
 	s.api.CheckCallNames(c, "AllZones", "Close")
 }
 
 func (s *CreateSuite) TestRunAPIConnectFails(c *gc.C) {
 	// TODO(dimitern): Change this once API is implemented.
 	s.command = subnet.NewCreateCommand(nil)
-	stdout, stderr, err := s.RunSubCommand(c, "10.10.0.0/24", "space", "zone1")
-	c.Assert(err, gc.ErrorMatches, "cannot connect to API server: API not implemented yet!")
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, "")
+	s.AssertRunFails(c,
+		"cannot connect to API server: API not implemented yet!",
+		"10.10.0.0/24", "space", "zone1",
+	)
+
 	// No API calls recoreded.
 	s.api.CheckCallNames(c)
 }

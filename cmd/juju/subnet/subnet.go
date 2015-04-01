@@ -4,12 +4,14 @@
 package subnet
 
 import (
-	"errors"
 	"io"
+	"net"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/cmd/envcmd"
 )
@@ -24,6 +26,9 @@ type SubnetAPI interface {
 
 	// CreateSubnet creates a new Juju subnet.
 	CreateSubnet(subnetCIDR, spaceName string, zones []string, isPublic bool) error
+
+	// AddSubnet adds an existing subnet to Juju.
+	AddSubnet(subnetCIDR, spaceName string) error
 }
 
 var logger = loggo.GetLogger("juju.cmd.juju.subnet")
@@ -42,6 +47,7 @@ func NewSuperCommand() cmd.Command {
 		Purpose:     "manage subnets",
 	})
 	subnetCmd.Register(envcmd.Wrap(&CreateCommand{}))
+	subnetCmd.Register(envcmd.Wrap(&AddCommand{}))
 
 	return subnetCmd
 }
@@ -64,4 +70,48 @@ func (c *SubnetCommandBase) NewAPI() (SubnetAPI, error) {
 	}
 
 	return nil, errors.New("API not implemented yet!")
+}
+
+// Common errors shared between subcommands.
+var (
+	errNoCIDR  = errors.New("CIDR is required")
+	errNoSpace = errors.New("space name is required")
+	errNoZones = errors.New("at least one zone is required")
+)
+
+// CheckArgs is a helper used to validate the number of arguments
+// passed to Init(). If the number of arguments is X, errors[X] (if
+// set) will be returned, otherwise no error occurs.
+func (s *SubnetCommandBase) CheckNumArgs(args []string, errors []error) error {
+	for num, err := range errors {
+		if len(args) == num {
+			return err
+		}
+	}
+	return nil
+}
+
+// ValidateCIDR parses given and returns an error if it's not a CIDR
+// in the expected format, otherwise returns the parsed CIDR and no
+// error.
+func (s *SubnetCommandBase) ValidateCIDR(given string) (string, error) {
+	_, ipNet, err := net.ParseCIDR(given)
+	if err != nil {
+		logger.Debugf("cannot parse %q: %v", given, err)
+		return "", errors.Errorf("%q is not a valid CIDR", given)
+	}
+	if ipNet.String() != given {
+		expected := ipNet.String()
+		return "", errors.Errorf("%q is not correctly specified, expected %q", given, expected)
+	}
+	return ipNet.String(), nil
+}
+
+// ValidateSpace parses given and returns an error if it's not a valid
+// space name, otherwise returns the parsed name and no error.
+func (s *SubnetCommandBase) ValidateSpace(given string) (string, error) {
+	if !names.IsValidSpace(given) {
+		return "", errors.Errorf("%q is not a valid space name", given)
+	}
+	return given, nil
 }
