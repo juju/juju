@@ -4,15 +4,11 @@
 package service
 
 import (
-	"io/ioutil"
 	"os"
-	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -25,12 +21,8 @@ import (
 type Stub struct {
 	*testing.Stub
 
-	Version     version.Binary
-	GOOS        string
-	PSOutput    string
-	Executable  string
-	Service     Service
-	NotASymlink string
+	Version version.Binary
+	Service Service
 }
 
 // GetVersion stubs out .
@@ -42,41 +34,11 @@ func (s *Stub) GetVersion() version.Binary {
 	return s.Version
 }
 
-// GetOS stubs out runtime.GOOS.
-func (s *Stub) GetOS() string {
-	s.AddCall("GetOS")
-
-	// Pop the next error off the queue, even though we don't use it.
-	s.NextErr()
-	return s.GOOS
-}
-
-// PsPid1 stubs out ps -p 1 ...
-func (s *Stub) PsPid1() ([]byte, error) {
-	s.AddCall("GetPID1Filename")
-
-	return []byte(s.PSOutput), s.NextErr()
-}
-
-// GetInitSystemExecutable stubs out the contents of /proc/1/cmdline.
-func (s *Stub) GetInitSystemExecutable() (string, error) {
-	s.AddCall("GetInitSystemExecutable")
-
-	return s.Executable, s.NextErr()
-}
-
 // DiscoverService stubs out service.DiscoverService.
 func (s *Stub) DiscoverService(name string) (Service, error) {
 	s.AddCall("DiscoverService", name)
 
 	return s.Service, s.NextErr()
-}
-
-// EvalSymlinks stubs out filepath.EvalSymlinks.
-func (s *Stub) EvalSymlinks(filename string) (string, error) {
-	s.AddCall("EvalSymlinks", filename)
-
-	return s.NotASymlink, s.NextErr()
 }
 
 // TODO(ericsnow) StubFileInfo belongs in utils/fs.
@@ -139,50 +101,8 @@ func (s *BaseSuite) PatchVersion(vers version.Binary) {
 	s.PatchValue(&getVersion, s.Patched.GetVersion)
 }
 
-func (s *BaseSuite) PatchGOOS(os string) {
-	s.Patched.GOOS = os
-	s.PatchValue(&runtimeOS, s.Patched.GetOS)
-}
-
-func (s *BaseSuite) PatchInitSystemExecutable(executable string) {
-	s.Patched.Executable = executable
-	s.PatchValue(&initExecutable, s.Patched.GetInitSystemExecutable)
-}
-
-func (s *BaseSuite) PatchPid1File(c *gc.C, executable, verText string) string {
-	exeName := s.resolveExecutable(executable)
-	if verText != "" {
-		s.writeExecutable(c, exeName, verText)
-	}
-
-	s.Patched.PSOutput = exeName
-	s.PatchValue(&psPID1, s.Patched.PsPid1)
-	return exeName
-}
-
-func (s *BaseSuite) PatchLink(c *gc.C, executable string) {
-	s.Patched.NotASymlink = executable
-	s.PatchValue(&evalSymlinks, s.Patched.EvalSymlinks)
-}
-
-func (s *BaseSuite) resolveExecutable(executable string) string {
-	exeSuffix := ".sh"
-	if runtime.GOOS == "windows" {
-		executable = filepath.FromSlash(executable)
-		exeSuffix = ".bat"
-	}
-	return filepath.Join(s.Dirname, executable) + exeSuffix
-}
-
-func (s *BaseSuite) writeExecutable(c *gc.C, exeName, verText string) {
-	err := os.MkdirAll(filepath.Dir(exeName), 0755)
-	c.Assert(err, jc.ErrorIsNil)
-
-	script := []byte(`
-#!/usr/bin/env bash
-echo ` + verText)
-	err = ioutil.WriteFile(exeName, script[1:], 0755)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *BaseSuite) PatchLocalDiscovery(funcs map[string]func() (bool, error)) {
+	s.PatchValue(&discoveryFuncs, funcs)
 }
 
 func (s *BaseSuite) CheckFailure(c *gc.C, err error) {
