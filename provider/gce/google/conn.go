@@ -63,51 +63,43 @@ type rawConnectionWrapper interface {
 // Before calling any of the methods, the Connect method should be
 // called to authenticate and open the raw connection to the GCE API.
 // Otherwise a panic will result.
-//
-// Both Region and ProjectID should be set on the connection before
-// using it. Use ValidateConnection before using the connection to
-// ensure this is the case.
 type Connection struct {
 	// TODO(ericsnow) name this something else?
-	raw rawConnectionWrapper
-
-	// Region is the GCE region in which to operate for this connection.
-	Region string
-	// ProjectID is the project ID to use in all GCE API requests for
-	// this connection.
-	ProjectID string
+	raw       rawConnectionWrapper
+	region    string
+	projectID string
 }
-
-// TODO(ericsnow) Verify in each method that Connection.raw is set?
 
 // Connect authenticates using the provided credentials and opens a
 // low-level connection to the GCE API for the Connection. Calling
 // Connect after a successful connection has already been made will
 // result in an error. All errors that happen while authenticating and
 // connecting are returned by Connect.
-func (gc *Connection) Connect(auth Auth) error {
-	if gc.raw != nil {
-		return errors.New("connect() failed (already connected)")
-	}
-
-	raw, err := newRawConnection(auth)
+func Connect(connCfg ConnectionConfig, creds *Credentials) (*Connection, error) {
+	raw, err := newRawConnection(creds)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	gc.raw = &rawConn{raw}
-	return nil
+	conn := &Connection{
+		raw:       &rawConn{raw},
+		region:    connCfg.Region,
+		projectID: connCfg.ProjectID,
+	}
+	return conn, nil
 }
 
-var newRawConnection = func(auth Auth) (*compute.Service, error) {
-	return auth.newConnection()
+var newRawConnection = func(creds *Credentials) (*compute.Service, error) {
+	return newConnection(creds)
 }
+
+// TODO(ericsnow) Verify in each method that Connection.raw is set?
 
 // VerifyCredentials ensures that the authentication credentials used
 // to connect are valid for use in the project and region defined for
 // the Connection. If they are not then an error is returned.
 func (gc Connection) VerifyCredentials() error {
-	if _, err := gc.raw.GetProject(gc.ProjectID); err != nil {
+	if _, err := gc.raw.GetProject(gc.projectID); err != nil {
 		// TODO(ericsnow) Wrap err with something about bad credentials?
 		return errors.Trace(err)
 	}
@@ -118,7 +110,7 @@ func (gc Connection) VerifyCredentials() error {
 // GCE region. If none are found the the list is empty. Any failure in
 // the low-level request is returned as an error.
 func (gc *Connection) AvailabilityZones(region string) ([]AvailabilityZone, error) {
-	rawZones, err := gc.raw.ListAvailabilityZones(gc.ProjectID, region)
+	rawZones, err := gc.raw.ListAvailabilityZones(gc.projectID, region)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

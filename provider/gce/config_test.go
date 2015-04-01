@@ -164,7 +164,7 @@ func updateAttrs(attrs, updates testing.Attrs) testing.Attrs {
 var newConfigTests = []configTestSpec{{
 	info:   "auth-file is optional",
 	remove: []string{"auth-file"},
-	expect: testing.Attrs{"auth-file": nil},
+	expect: testing.Attrs{"auth-file": ""},
 }, {
 	info:   "auth-file can be empty",
 	insert: testing.Attrs{"auth-file": ""},
