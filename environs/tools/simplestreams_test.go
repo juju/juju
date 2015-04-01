@@ -882,6 +882,7 @@ func (s *metadataHelperSuite) TestWriteMetadataLegacyIndex(c *gc.C) {
 	stor, _ := s.writeMetadataMultipleStream(c)
 	// Read back the legacy index
 	rdr, err := stor.Get("tools/streams/v1/index.json")
+	defer rdr.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := ioutil.ReadAll(rdr)
 	c.Assert(err, jc.ErrorIsNil)
