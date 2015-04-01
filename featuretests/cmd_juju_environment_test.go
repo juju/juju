@@ -23,8 +23,6 @@ type cmdEnvironmentSuite struct {
 	jujutesting.RepoSuite
 }
 
-var _ = gc.Suite(&cmdEnvironmentSuite{})
-
 func (s *cmdEnvironmentSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	s.SetFeatureFlags(feature.JES)
