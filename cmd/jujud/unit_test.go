@@ -159,12 +159,26 @@ func waitForUnitActive(stateConn *state.State, unit *state.Unit, c *gc.C) {
 			st, info, data, err := unit.Status()
 			c.Assert(err, jc.ErrorIsNil)
 			switch st {
-			case state.StatusMaintenance, state.StatusWaiting:
+			case state.StatusMaintenance, state.StatusWaiting, state.StatusBlocked:
 				c.Logf("waiting...")
 				continue
 			case state.StatusActive:
 				c.Logf("active!")
 				return
+			case state.StatusUnknown:
+				// Active units may have a status of unknown if they have
+				// started but not run status-set.
+				c.Logf("unknown but active!")
+				return
+			default:
+				c.Fatalf("unexpected status %s %s %v", st, info, data)
+			}
+			st, info, data, err = unit.AgentStatus()
+			c.Assert(err, jc.ErrorIsNil)
+			switch st {
+			case state.StatusAllocating, state.StatusExecuting, state.StatusRebooting, state.StatusIdle:
+				c.Logf("waiting...")
+				continue
 			case state.StatusError:
 				stateConn.StartSync()
 				c.Logf("unit is still down")
