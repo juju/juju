@@ -31,8 +31,8 @@ var (
 	renderer = &shell.BashRenderer{}
 )
 
-// IsLocal returns whether or not this is the local init system.
-func IsLocal() (bool, error) {
+// IsRunning returns whether or not upstart is the local init system.
+func IsRunning() (bool, error) {
 	cmd := exec.Command("/sbin/initctl", "--system", "list")
 	_, err := cmd.CombinedOutput()
 	if err == nil {
