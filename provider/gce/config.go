@@ -90,7 +90,7 @@ var configFields = schema.Fields{
 // cloud-images).
 
 var configDefaults = schema.Defaults{
-	cfgAuthFile: schema.Omit,
+	cfgAuthFile: "",
 	// See http://cloud-images.ubuntu.com/releases/streams/v1/com.ubuntu.cloud:released:gce.json
 	cfgImageEndpoint: "https://www.googleapis.com",
 	cfgRegion:        "us-central1",
@@ -265,7 +265,7 @@ func (c *environConfig) secret() map[string]string {
 func (c environConfig) validate() error {
 	// All fields must be populated, even with just the default.
 	for field := range configFields {
-		if dflt, ok := configDefaults[field]; ok && dflt == schema.Omit {
+		if dflt, ok := configDefaults[field]; ok && dflt == "" {
 			continue
 		}
 		if c.attrs[field].(string) == "" {
