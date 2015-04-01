@@ -290,7 +290,7 @@ func (s *simplestreamsSuite) TestFetchNoMatchingStream(c *gc.C) {
 	})
 	_, _, err := tools.Fetch(
 		[]simplestreams.DataSource{s.Source}, toolsConstraint, s.RequireSigned)
-	c.Assert(err, gc.ErrorMatches, `index file missing "content-download" data not found`)
+	c.Assert(err, gc.ErrorMatches, `"content-download" data not found`)
 }
 
 func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
