@@ -642,6 +642,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			a.upgradeWorkerContext.IsUpgradeRunning,
 		), nil
 	})
+
 	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(st, entity.Jobs()))
 
 	// All other workers must wait for the upgrade steps to complete before starting.
