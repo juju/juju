@@ -307,6 +307,11 @@ func (v *mockFilesystemAccessor) FilesystemParams(filesystems []names.Filesystem
 				Size:          1024,
 				Provider:      "dummy",
 			}
+			if _, ok := names.FilesystemMachine(tag); ok {
+				// place all volume-backed filesystems on machine-scoped
+				// volumes with the same ID as the filesystem.
+				filesystemParams.VolumeTag = names.NewVolumeTag(tag.Id()).String()
+			}
 			result = append(result, params.FilesystemParamsResult{Result: filesystemParams})
 		}
 	}
@@ -511,4 +516,59 @@ func (*dummyFilesystemSource) AttachFilesystems(params []storage.FilesystemAttac
 		})
 	}
 	return filesystemAttachments, nil
+}
+
+type mockManagedFilesystemSource struct {
+	blockDevices map[names.VolumeTag]storage.BlockDevice
+	filesystems  map[names.FilesystemTag]storage.Filesystem
+}
+
+func (s *mockManagedFilesystemSource) ValidateFilesystemParams(params storage.FilesystemParams) error {
+	return nil
+}
+
+func (s *mockManagedFilesystemSource) CreateFilesystems(args []storage.FilesystemParams) ([]storage.Filesystem, error) {
+	var filesystems []storage.Filesystem
+	for _, arg := range args {
+		blockDevice, ok := s.blockDevices[arg.Volume]
+		if !ok {
+			return nil, errors.Errorf("filesystem %v's backing-volume is not attached", arg.Tag.Id())
+		}
+		filesystems = append(filesystems, storage.Filesystem{
+			Tag:          arg.Tag,
+			Size:         blockDevice.Size,
+			FilesystemId: blockDevice.DeviceName,
+		})
+	}
+	return filesystems, nil
+}
+
+func (s *mockManagedFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.FilesystemAttachment, error) {
+	var filesystemAttachments []storage.FilesystemAttachment
+	for _, arg := range args {
+		if arg.FilesystemId == "" {
+			panic("AttachFilesystems called with unprovisioned filesystem")
+		}
+		if arg.InstanceId == "" {
+			panic("AttachFilesystems called with unprovisioned machine")
+		}
+		filesystem, ok := s.filesystems[arg.Filesystem]
+		if !ok {
+			return nil, errors.Errorf("filesystem %v has not been created", arg.Filesystem.Id())
+		}
+		blockDevice, ok := s.blockDevices[filesystem.Volume]
+		if !ok {
+			return nil, errors.Errorf("filesystem %v's backing-volume is not attached", filesystem.Tag.Id())
+		}
+		filesystemAttachments = append(filesystemAttachments, storage.FilesystemAttachment{
+			Filesystem: arg.Filesystem,
+			Machine:    arg.Machine,
+			Path:       "/mnt/" + blockDevice.DeviceName,
+		})
+	}
+	return filesystemAttachments, nil
+}
+
+func (s *mockManagedFilesystemSource) DetachFilesystems(params []storage.FilesystemAttachmentParams) error {
+	return errors.NotImplementedf("DetachFilesystems")
 }

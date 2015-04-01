@@ -193,6 +193,12 @@ func processAliveFilesystems(ctx *context, tags []names.Tag, filesystemResults [
 				return errors.Annotate(err, "getting filesystem info")
 			}
 			ctx.filesystems[filesystemTag] = filesystem
+			if filesystem.Volume != (names.VolumeTag{}) {
+				// Ensure that volume-backed filesystems' block
+				// devices are present even after creating the
+				// filesystem, so that attachments can be made.
+				maybeAddPendingVolumeBlockDevice(ctx, filesystem.Volume)
+			}
 			continue
 		}
 		if !params.IsCodeNotProvisioned(result.Error) {
@@ -228,12 +234,16 @@ func processAliveFilesystems(ctx *context, tags []names.Tag, filesystemResults [
 			// available, then we rely on the watcher. The forced
 			// update is necessary in case the block device was
 			// added to state already, and we didn't observe it.
-			if _, ok := ctx.volumeBlockDevices[params.Volume]; !ok {
-				ctx.pendingVolumeBlockDevices.Add(params.Volume)
-			}
+			maybeAddPendingVolumeBlockDevice(ctx, params.Volume)
 		}
 	}
 	return nil
+}
+
+func maybeAddPendingVolumeBlockDevice(ctx *context, v names.VolumeTag) {
+	if _, ok := ctx.volumeBlockDevices[v]; !ok {
+		ctx.pendingVolumeBlockDevices.Add(v)
+	}
 }
 
 // processPendingFilesystems creates as many of the pending filesystems
@@ -367,6 +377,20 @@ func processPendingFilesystemAttachments(ctx *context) error {
 		if !ok {
 			logger.Debugf("filesystem %v has not been provisioned yet", params.Filesystem.Id())
 			continue
+		}
+		if filesystem.Volume != (names.VolumeTag{}) {
+			// The filesystem is volume-backed: if the filesystem
+			// was created in another session, then the block device
+			// may not have been seen yet. We must wait for the block
+			// device watcher to trigger.
+			if _, ok := ctx.volumeBlockDevices[filesystem.Volume]; !ok {
+				logger.Debugf(
+					"filesystem %v backing-volume %v is not attached yet",
+					filesystem.Tag.Id(),
+					filesystem.Volume.Id(),
+				)
+				continue
+			}
 		}
 		// TODO(axw) watch machines in storageprovisioner
 		if params.InstanceId == "" {

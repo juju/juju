@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -21,7 +22,8 @@ import (
 
 type storageProvisionerSuite struct {
 	coretesting.BaseSuite
-	provider *dummyProvider
+	provider                *dummyProvider
+	managedFilesystemSource *mockManagedFilesystemSource
 }
 
 var _ = gc.Suite(&storageProvisionerSuite{})
@@ -33,6 +35,21 @@ func (s *storageProvisionerSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) {
 		registry.RegisterProvider("dummy", nil)
 	})
+
+	s.managedFilesystemSource = nil
+	s.PatchValue(
+		storageprovisioner.NewManagedFilesystemSource,
+		func(
+			blockDevices map[names.VolumeTag]storage.BlockDevice,
+			filesystems map[names.FilesystemTag]storage.Filesystem,
+		) storage.FilesystemSource {
+			s.managedFilesystemSource = &mockManagedFilesystemSource{
+				blockDevices: blockDevices,
+				filesystems:  filesystems,
+			}
+			return s.managedFilesystemSource
+		},
+	)
 }
 
 func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
@@ -67,7 +84,7 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 		DeviceName: "/dev/sda1",
 	}}
 
-	volumeInfoSet := make(chan struct{})
+	volumeInfoSet := make(chan interface{})
 	volumeAccessor := newMockVolumeAccessor()
 	volumeAccessor.setVolumeInfo = func(volumes []params.Volume) ([]params.ErrorResult, error) {
 		defer close(volumeInfoSet)
@@ -75,7 +92,7 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 		return nil, nil
 	}
 
-	volumeAttachmentInfoSet := make(chan struct{})
+	volumeAttachmentInfoSet := make(chan interface{})
 	volumeAccessor.setVolumeAttachmentInfo = func(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {
 		defer close(volumeAttachmentInfoSet)
 		c.Assert(volumeAttachments, gc.DeepEquals, expectedVolumeAttachments)
@@ -118,7 +135,7 @@ func (s *storageProvisionerSuite) TestFilesystemAdded(c *gc.C) {
 		Size:          1024,
 	}}
 
-	filesystemInfoSet := make(chan struct{})
+	filesystemInfoSet := make(chan interface{})
 	filesystemAccessor := newMockFilesystemAccessor()
 	filesystemAccessor.setFilesystemInfo = func(filesystems []params.Filesystem) ([]params.ErrorResult, error) {
 		defer close(filesystemInfoSet)
@@ -175,7 +192,7 @@ func (s *storageProvisionerSuite) TestVolumeNeedsInstance(c *gc.C) {
 }
 
 func (s *storageProvisionerSuite) TestVolumeNonDynamic(c *gc.C) {
-	volumeInfoSet := make(chan struct{})
+	volumeInfoSet := make(chan interface{})
 	volumeAccessor := newMockVolumeAccessor()
 	volumeAccessor.setVolumeInfo = func([]params.Volume) ([]params.ErrorResult, error) {
 		defer close(volumeInfoSet)
@@ -213,7 +230,7 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 		DeviceName: "/dev/sda1",
 	}}
 
-	volumeAttachmentInfoSet := make(chan struct{})
+	volumeAttachmentInfoSet := make(chan interface{})
 	volumeAccessor := newMockVolumeAccessor()
 	volumeAccessor.setVolumeAttachmentInfo = func(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {
 		defer close(volumeAttachmentInfoSet)
@@ -282,7 +299,7 @@ func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 		MountPoint:    "/srv/fs-123",
 	}}
 
-	filesystemAttachmentInfoSet := make(chan struct{})
+	filesystemAttachmentInfoSet := make(chan interface{})
 	filesystemAccessor := newMockFilesystemAccessor()
 	filesystemAccessor.setFilesystemAttachmentInfo = func(filesystemAttachments []params.FilesystemAttachment) ([]params.ErrorResult, error) {
 		defer close(filesystemAttachmentInfoSet)
@@ -342,6 +359,130 @@ func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 	waitChannel(c, filesystemAttachmentInfoSet, "waiting for filesystem attachments to be set")
 }
 
+func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *gc.C) {
+	filesystemInfoSet := make(chan interface{})
+	filesystemAccessor := newMockFilesystemAccessor()
+	filesystemAccessor.setFilesystemInfo = func(filesystems []params.Filesystem) ([]params.ErrorResult, error) {
+		filesystemInfoSet <- filesystems
+		return nil, nil
+	}
+
+	lifecycleManager := &mockLifecycleManager{}
+	volumeAccessor := newMockVolumeAccessor()
+	environAccessor := newMockEnvironAccessor(c)
+
+	worker := storageprovisioner.NewStorageProvisioner(
+		names.NewMachineTag("0"),
+		"storage-dir",
+		volumeAccessor,
+		filesystemAccessor,
+		lifecycleManager,
+		environAccessor,
+	)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	volumeAccessor.blockDevices[params.MachineStorageId{
+		MachineTag:    "machine-0",
+		AttachmentTag: "volume-0-0",
+	}] = storage.BlockDevice{
+		DeviceName: "xvdf1",
+		Size:       123,
+	}
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"0/0", "0/1"}
+	assertNoEvent(c, filesystemInfoSet, "filesystem info set")
+	environAccessor.watcher.changes <- struct{}{}
+
+	// Only the block device for volume 0/0 is attached at the moment,
+	// so only the corresponding filesystem will be created.
+	filesystemInfo := waitChannel(
+		c, filesystemInfoSet,
+		"waiting for filesystem info to be set",
+	).([]params.Filesystem)
+	c.Assert(filesystemInfo, jc.DeepEquals, []params.Filesystem{{
+		FilesystemTag: "filesystem-0-0",
+		FilesystemId:  "xvdf1",
+		Size:          123,
+	}})
+
+	// If we now attach the block device for volume 0/1 and trigger the
+	// notification, then the storage provisioner will wake up and create
+	// the filesystem.
+	volumeAccessor.blockDevices[params.MachineStorageId{
+		MachineTag:    "machine-0",
+		AttachmentTag: "volume-0-1",
+	}] = storage.BlockDevice{
+		DeviceName: "xvdf2",
+		Size:       246,
+	}
+	volumeAccessor.blockDevicesWatcher.changes <- struct{}{}
+	filesystemInfo = waitChannel(
+		c, filesystemInfoSet,
+		"waiting for filesystem info to be set",
+	).([]params.Filesystem)
+	c.Assert(filesystemInfo, jc.DeepEquals, []params.Filesystem{{
+		FilesystemTag: "filesystem-0-1",
+		FilesystemId:  "xvdf2",
+		Size:          246,
+	}})
+}
+
+func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
+	infoSet := make(chan interface{})
+	filesystemAccessor := newMockFilesystemAccessor()
+	filesystemAccessor.setFilesystemAttachmentInfo = func(attachments []params.FilesystemAttachment) ([]params.ErrorResult, error) {
+		infoSet <- attachments
+		return nil, nil
+	}
+
+	lifecycleManager := &mockLifecycleManager{}
+	volumeAccessor := newMockVolumeAccessor()
+	environAccessor := newMockEnvironAccessor(c)
+
+	worker := storageprovisioner.NewStorageProvisioner(
+		names.NewMachineTag("0"),
+		"storage-dir",
+		volumeAccessor,
+		filesystemAccessor,
+		lifecycleManager,
+		environAccessor,
+	)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	filesystemAccessor.provisionedFilesystems["filesystem-0-0"] = params.Filesystem{
+		FilesystemTag: "filesystem-0-0",
+		VolumeTag:     "volume-0-0",
+		FilesystemId:  "whatever",
+		Size:          123,
+	}
+	filesystemAccessor.provisionedMachines["machine-0"] = instance.Id("already-provisioned-0")
+
+	volumeAccessor.blockDevices[params.MachineStorageId{
+		MachineTag:    "machine-0",
+		AttachmentTag: "volume-0-0",
+	}] = storage.BlockDevice{
+		DeviceName: "xvdf1",
+		Size:       123,
+	}
+	filesystemAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+		MachineTag:    "machine-0",
+		AttachmentTag: "filesystem-0-0",
+	}}
+	assertNoEvent(c, infoSet, "filesystem attachment info set")
+	environAccessor.watcher.changes <- struct{}{}
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"0/0"}
+
+	info := waitChannel(
+		c, infoSet, "waiting for filesystem attachment info to be set",
+	).([]params.FilesystemAttachment)
+	c.Assert(info, jc.DeepEquals, []params.FilesystemAttachment{{
+		FilesystemTag: "filesystem-0-0",
+		MachineTag:    "machine-0",
+		MountPoint:    "/mnt/xvdf1",
+	}})
+}
+
 func (s *storageProvisionerSuite) TestUpdateEnvironConfig(c *gc.C) {
 	volumeAccessor := newMockVolumeAccessor()
 	lifecycleManager := &mockLifecycleManager{}
@@ -378,15 +519,17 @@ func (s *storageProvisionerSuite) TestUpdateEnvironConfig(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `provisioning volumes: creating volumes: getting volume source: getting storage source "dummy": zinga`)
 }
 
-func waitChannel(c *gc.C, ch <-chan struct{}, activity string) {
+func waitChannel(c *gc.C, ch <-chan interface{}, activity string) interface{} {
 	select {
-	case <-ch:
+	case v := <-ch:
+		return v
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out " + activity)
+		panic("unreachable")
 	}
 }
 
-func assertNoEvent(c *gc.C, ch <-chan struct{}, event string) {
+func assertNoEvent(c *gc.C, ch <-chan interface{}, event string) {
 	select {
 	case <-ch:
 		c.Fatalf("unexpected " + event)

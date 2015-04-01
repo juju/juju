@@ -15,11 +15,13 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/storageprovisioner/managedfs"
 )
 
 var logger = loggo.GetLogger("juju.worker.storageprovisioner")
+
+var newManagedFilesystemSource = provider.NewManagedFilesystemSource
 
 // VolumeAccessor defines an interface used to allow a storage provisioner
 // worker to perform volume related operations.
@@ -261,10 +263,9 @@ func (w *storageprovisioner) loop() error {
 		pendingFilesystems:           make(map[names.FilesystemTag]storage.FilesystemParams),
 		pendingFilesystemAttachments: make(map[params.MachineStorageId]storage.FilesystemAttachmentParams),
 	}
-	ctx.managedFilesystemSource = &managedfs.ManagedFilesystemSource{
-		VolumeBlockDevices: ctx.volumeBlockDevices,
-		Filesystems:        ctx.filesystems,
-	}
+	ctx.managedFilesystemSource = newManagedFilesystemSource(
+		ctx.volumeBlockDevices, ctx.filesystems,
+	)
 
 	for {
 		// Check if any pending operations can be fulfilled.
@@ -398,5 +399,5 @@ type context struct {
 	// managedFilesystemSource is a storage.FilesystemSource that
 	// manages filesystems backed by volumes attached to the host
 	// machine.
-	managedFilesystemSource *managedfs.ManagedFilesystemSource
+	managedFilesystemSource storage.FilesystemSource
 }
