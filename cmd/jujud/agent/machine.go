@@ -713,12 +713,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			storageDir := filepath.Join(agentConfig.DataDir(), "storage")
 			return newStorageWorker(storageDir, api, api, api, api), nil
 		})
-		if isEnvironManager {
-			runner.StartWorker("storageprovisioner-environ", func() (worker.Worker, error) {
-				api := st.StorageProvisioner(agentConfig.Environment())
-				return newStorageWorker("", api, api, api, api), nil
-			})
-		}
 	}
 
 	// Check if the network management is disabled.
@@ -1063,6 +1057,13 @@ func (a *MachineAgent) startEnvWorkers(
 	runner.StartWorker("metricmanagerworker", func() (worker.Worker, error) {
 		return metricworker.NewMetricsManager(getMetricAPI(apiSt))
 	})
+	if featureflag.Enabled(feature.Storage) {
+		singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
+			scope := agentConfig.Environment()
+			api := apiSt.StorageProvisioner(scope)
+			return newStorageWorker("", api, api, api, api), nil
+		})
+	}
 
 	// TODO(axw) 2013-09-24 bug #1229506
 	// Make another job to enable the firewaller. Not all
