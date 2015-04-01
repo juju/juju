@@ -608,8 +608,9 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		EnvUUID: s.st.EnvironUUID(),
 	}
 	unitStatusDoc := statusDoc{
-		Status:  StatusMaintenance,
-		EnvUUID: s.st.EnvironUUID(),
+		Status:     StatusUnknown,
+		StatusInfo: "Waiting for agent initialization to finish",
+		EnvUUID:    s.st.EnvironUUID(),
 	}
 	ops := []txn.Op{
 		{

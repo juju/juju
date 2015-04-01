@@ -66,6 +66,10 @@ type State struct {
 	// Stopped indicates whether the stop hook has run.
 	Stopped bool `yaml:"stopped"`
 
+	// StatusSet indicates whether the charm being deployed has ever invoked
+	// the status-set hook tool.
+	StatusSet bool `yaml:"status-set"`
+
 	// Kind indicates the current operation.
 	Kind Kind `yaml:"op"`
 
@@ -158,11 +162,12 @@ func (st State) CollectedMetricsAt() time.Time {
 
 // stateChange is useful for a variety of Operation implementations.
 type stateChange struct {
-	Kind     Kind
-	Step     Step
-	Hook     *hook.Info
-	ActionId *string
-	CharmURL *charm.URL
+	Kind            Kind
+	Step            Step
+	Hook            *hook.Info
+	ActionId        *string
+	CharmURL        *charm.URL
+	HasRunStatusSet bool
 }
 
 func (change stateChange) apply(state State) *State {
@@ -171,6 +176,7 @@ func (change stateChange) apply(state State) *State {
 	state.Hook = change.Hook
 	state.ActionId = change.ActionId
 	state.CharmURL = change.CharmURL
+	state.StatusSet = state.StatusSet || change.HasRunStatusSet
 	return &state
 }
 
