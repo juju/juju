@@ -15,7 +15,6 @@ import (
 )
 
 type UsersCommandSuite struct {
-	testing.FakeJujuHomeSuite
 	fake *fakeEnvUsersClient
 }
 
@@ -34,8 +33,6 @@ func (f *fakeEnvUsersClient) EnvironmentUserInfo() ([]params.EnvUserInfo, error)
 }
 
 func (s *UsersCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
-
 	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
 	last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
 

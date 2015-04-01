@@ -82,9 +82,10 @@ func (c *UsersCommand) Run(ctx *cmd.Context) (err error) {
 	return c.out.Write(ctx, c.apiUsersToUserInfoSlice(result))
 }
 
+// formatTabular takes an interface{} to adhere to the cmd.Formatter interface
 func (c *UsersCommand) formatTabular(value interface{}) ([]byte, error) {
-	users, valueConverted := value.([]UserInfo)
-	if !valueConverted {
+	users, ok := value.([]UserInfo)
+	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", users, value)
 	}
 	var out bytes.Buffer
@@ -107,12 +108,11 @@ func (c *UsersCommand) formatTabular(value interface{}) ([]byte, error) {
 
 func (c *UsersCommand) apiUsersToUserInfoSlice(users []params.EnvUserInfo) []UserInfo {
 	var output []UserInfo
-	var now = time.Now()
 	for _, info := range users {
 		outInfo := UserInfo{Username: info.UserName}
-		outInfo.DateCreated = user.UserFriendlyDuration(info.DateCreated, now)
+		outInfo.DateCreated = user.UserFriendlyDuration(info.DateCreated, time.Now())
 		if info.LastConnection != nil {
-			outInfo.LastConnection = user.UserFriendlyDuration(*info.LastConnection, now)
+			outInfo.LastConnection = user.UserFriendlyDuration(*info.LastConnection, time.Now())
 		} else {
 			outInfo.LastConnection = "never connected"
 		}
