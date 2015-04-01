@@ -792,6 +792,7 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 		{MachineTag: "machine-0", AttachmentTag: "volume-0-1"},
 		{MachineTag: "machine-0", AttachmentTag: "volume-0-2"},
 		{MachineTag: "machine-1", AttachmentTag: "volume-1"},
+		{MachineTag: "machine-42", AttachmentTag: "volume-42"},
 		{MachineTag: "service-mysql", AttachmentTag: "volume-1"},
 	}}
 	results, err := s.api.VolumeBlockDevices(args)
@@ -803,6 +804,7 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 				Size:       123,
 				Serial:     "123",
 			}},
+			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

@@ -160,6 +160,7 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 	}, nil
 }
 
+// WatchBlockDevices watches for changes to the specified machines' block devices.
 func (s *StorageProvisionerAPI) WatchBlockDevices(args params.Entities) (params.NotifyWatchResults, error) {
 	canAccess, err := s.getMachineAuthFunc()
 	if err != nil {

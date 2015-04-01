@@ -39,6 +39,7 @@ func NewState(caller base.APICaller, scope names.Tag) *State {
 	}
 }
 
+// WatchBlockDevices watches for changes to the specified machine's block devices.
 func (st *State) WatchBlockDevices(m names.MachineTag) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
