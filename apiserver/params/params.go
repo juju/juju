@@ -543,10 +543,13 @@ type RsyslogConfigResults struct {
 	Results []RsyslogConfigResult
 }
 
+// JobsResult holds the jobs for a machine that are returned by a call to Jobs.
 type JobsResult struct {
-	Jobs []multiwatcher.MachineJob `json:"Jobs"`
+	Jobs  []multiwatcher.MachineJob
+	Error *Error
 }
 
+// JobsResults holds the result of a call to Jobs.
 type JobsResults struct {
 	Results []JobsResult
 }

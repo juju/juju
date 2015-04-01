@@ -4,9 +4,8 @@
 package agent
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent"
@@ -14,25 +13,30 @@ import (
 	"github.com/juju/juju/api/watcher"
 )
 
-// converter is a worker that converts a unit hosting machine to a state machine.
+// converter is a StringsWatchHandler that converts a unit hosting machine to a
+// state machine.
 type converter struct {
 	st    *apiconverter.State
 	agent *MachineAgent
 }
 
+// SetUp implements StringsWatchHandler's SetUp method. It returns a watcher that
+// checks for changes to the current machine.
 func (c *converter) SetUp() (watcher.NotifyWatcher, error) {
-	logger.Infof("setting up Converter watcher")
-	return c.st.WatchForJobsChanges(c.agent.CurrentConfig().Tag().String())
+	logger.Infof("setting up converter watcher")
+	return c.st.WatchMachine(c.agent.CurrentConfig().Tag().(names.MachineTag))
 }
 
+// Handle implements StringsWatchHandler's Handle method.  If the change means
+// that the machine is now expected to manage the environment
 func (c *converter) Handle() error {
 	config := c.agent.CurrentConfig()
-	logger.Infof("environment for %q has been changed", config.Tag())
-	jobs, err := c.st.Jobs(config.Tag().String())
+	tag := config.Tag().(names.MachineTag)
+	jobs, err := c.st.Jobs(tag)
 	if err != nil {
+		logger.Errorf("Error getting jobs for tag %q: %v", tag, err)
 		return errors.Trace(err)
 	}
-
 	for _, job := range jobs.Jobs {
 		if job.NeedsState() {
 			logger.Warningf("converting %q to a state server", config.Tag())
@@ -40,15 +44,10 @@ func (c *converter) Handle() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			ssi, exists := config.StateServingInfo()
-			if !exists {
-				return errors.New("can't get state serving info from config.")
-			}
-			addr := fmt.Sprintf("localhost:%d", ssi.StatePort)
 
 			c.agent.AgentConfigWriter.ChangeConfig(func(config agent.ConfigSetter) error {
 				config.SetPassword(pw)
-				config.SetStateAddresses([]string{addr})
+				config.SetStateAddresses([]string{"localhost:37017"})
 				return nil
 			})
 			_, entity, err := OpenAPIState(config, c.agent)

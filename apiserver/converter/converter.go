@@ -4,7 +4,6 @@
 package converter
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
@@ -21,12 +20,15 @@ func init() {
 	common.RegisterStandardFacade("Converter", 1, NewConverterAPI)
 }
 
+// ConverterAPI contains methods for use with ensure-availability, watching
+// machines and their jobs.
 type ConverterAPI struct {
 	st         *state.State
 	resources  *common.Resources
 	authorizer common.Authorizer
 }
 
+// NewConverterAPI returns a new instance of the API.
 func NewConverterAPI(
 	st *state.State,
 	resources *common.Resources,
@@ -35,6 +37,7 @@ func NewConverterAPI(
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
+
 	return &ConverterAPI{
 		st:         st,
 		resources:  resources,
@@ -43,6 +46,10 @@ func NewConverterAPI(
 }
 
 func (c *ConverterAPI) getMachine(tag names.Tag) (*state.Machine, error) {
+	if tag.Kind() != names.MachineTagKind {
+		return nil, common.ErrPerm
+	}
+
 	entity, err := c.st.FindEntity(tag)
 	if err != nil {
 		return nil, err
@@ -50,6 +57,7 @@ func (c *ConverterAPI) getMachine(tag names.Tag) (*state.Machine, error) {
 	return entity.(*state.Machine), nil
 }
 
+// Jobs returns the jobs assigned to the given entities.
 func (c *ConverterAPI) Jobs(args params.Entities) (params.JobsResults, error) {
 	result := params.JobsResults{
 		Results: make([]params.JobsResult, len(args.Entities)),
@@ -58,15 +66,18 @@ func (c *ConverterAPI) Jobs(args params.Entities) (params.JobsResults, error) {
 	for i, agent := range args.Entities {
 		tag, err := names.ParseMachineTag(agent.Tag)
 		if err != nil {
-			return params.JobsResults{}, errors.Trace(err)
+			logger.Warningf("not a machine tag: %v", agent.Tag)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
 		}
 
 		err = common.ErrPerm
 		if c.authorizer.AuthOwner(tag) {
-			logger.Infof("watching for jobs on %#v", tag)
 			machine, err := c.getMachine(tag)
 			if err != nil {
-				return params.JobsResults{}, errors.Trace(err)
+				logger.Warningf("can't get machine for tag %q: %v", tag, err)
+				result.Results[i].Error = common.ServerError(err)
+				continue
 			}
 			machineJobs := machine.Jobs()
 			jobs := make([]multiwatcher.MachineJob, len(machineJobs))
@@ -79,22 +90,23 @@ func (c *ConverterAPI) Jobs(args params.Entities) (params.JobsResults, error) {
 	return result, nil
 }
 
-func (c *ConverterAPI) WatchForJobsChanges(args params.Entities) (params.NotifyWatchResults, error) {
+func (c *ConverterAPI) WatchMachines(args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
-	for i, agent := range args.Entities {
-		logger.Infof("watching on entity %#v", agent)
-		tag, err := names.ParseMachineTag(agent.Tag)
+	for i, ent := range args.Entities {
+		tag, err := names.ParseMachineTag(ent.Tag)
 		if err != nil {
-			return params.NotifyWatchResults{}, errors.Trace(err)
+			logger.Warningf("not a machine tag: %v", ent.Tag)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
 		}
-		err = common.ErrPerm
 		if c.authorizer.AuthOwner(tag) {
-			logger.Infof("watching for jobs on %#v", tag)
 			machine, err := c.getMachine(tag)
 			if err != nil {
-				return params.NotifyWatchResults{}, errors.Trace(err)
+				logger.Warningf("can't get machine for tag %q: %v", tag, err)
+				result.Results[i].Error = common.ServerError(err)
+				continue
 			}
 
 			watch := machine.Watch()
@@ -104,12 +116,11 @@ func (c *ConverterAPI) WatchForJobsChanges(args params.Entities) (params.NotifyW
 			// have no state to transmit.
 			if _, ok := <-watch.Changes(); ok {
 				result.Results[i].NotifyWatcherId = c.resources.Register(watch)
-				err = nil
 			} else {
-				err = watcher.EnsureErr(watch)
+				err := watcher.EnsureErr(watch)
+				result.Results[i].Error = common.ServerError(err)
 			}
 		}
-		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }

@@ -498,6 +498,8 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 	c.apiDetails.addresses = addrs
 }
 
+// SetStateAddresses sets the addresses of state machines this machine will
+// connect to.
 func (c *configInternal) SetStateAddresses(servers []string) {
 	if c.stateDetails == nil {
 		c.stateDetails = &connectionDetails{}
