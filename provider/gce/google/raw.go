@@ -5,12 +5,14 @@ package google
 
 import (
 	"fmt"
+	"net/http"
 	"path"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"google.golang.org/api/compute/v1"
+	"google.golang.org/api/googleapi"
 )
 
 // These are attempt strategies used in waitOperation.
@@ -26,6 +28,15 @@ var (
 		Delay: 1 * time.Second,
 	}
 )
+
+func convertRawAPIError(err error) err {
+	if err2, ok := err.(*googleapi.Error); ok {
+		if err2.Code == http.StatusNotFound {
+			return errors.NewNotFound(err, "")
+		}
+	}
+	return err
+}
 
 type rawConn struct {
 	*compute.Service
@@ -149,7 +160,7 @@ func (rc *rawConn) RemoveFirewall(projectID, name string) error {
 	}
 
 	err = rc.waitOperation(projectID, operation, attemptsLong)
-	return errors.Trace(err)
+	return errors.Trace(convertRawAPIError(err))
 }
 
 func (rc *rawConn) ListAvailabilityZones(projectID, region string) ([]*compute.Zone, error) {
