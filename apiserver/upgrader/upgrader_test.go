@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
 
@@ -325,4 +326,41 @@ func (s *upgraderSuite) TestDesiredVersionRestrictedForNonAPIAgents(c *gc.C) {
 	agentVersion := results.Results[0].Version
 	c.Assert(agentVersion, gc.NotNil)
 	c.Check(*agentVersion, gc.DeepEquals, version.Current.Number)
+}
+
+func (s *upgraderSuite) TestDesiredVersionUnrestrictedForNonAPIAgentsInOtherEnvirons(c *gc.C) {
+	// Setup the environment and machine
+	otherSt := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		ConfigAttrs: map[string]interface{}{
+			"state-server": false,
+		},
+		Prepare: true,
+	})
+	defer otherSt.Close()
+	err := otherSt.SetEnvironAgentVersion(version.Current.Number)
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := otherSt.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	machine.SetAgentVersion(version.Current)
+	newVersion := version.Current
+
+	// Upgrade the environment
+	newVersion.Patch++
+	err = otherSt.SetEnvironAgentVersion(newVersion.Number)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check the upgrader returns the desired version
+	authorizer := apiservertesting.FakeAuthorizer{
+		Tag: machine.Tag(),
+	}
+	upgraderAPI, err := upgrader.NewUpgraderAPI(otherSt, s.resources, authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	args := params.Entities{Entities: []params.Entity{{Tag: machine.Tag().String()}}}
+	results, err := upgraderAPI.DesiredVersion(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	agentVersion := results.Results[0].Version
+	c.Assert(agentVersion, gc.NotNil)
+	c.Check(*agentVersion, gc.DeepEquals, newVersion.Number)
 }

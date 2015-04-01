@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 
 	"github.com/juju/errors"
@@ -25,9 +26,11 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	jujunames "github.com/juju/juju/juju/names"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
@@ -47,6 +50,41 @@ func (s *clientSuite) TestCloseMultipleOk(c *gc.C) {
 	c.Assert(client.Close(), gc.IsNil)
 	c.Assert(client.Close(), gc.IsNil)
 	c.Assert(client.Close(), gc.IsNil)
+}
+
+func (s *clientSuite) TestUploadToolsOtherEnvironment(c *gc.C) {
+	otherSt, otherAPISt := s.otherEnviron(c)
+	defer otherSt.Close()
+	defer otherAPISt.Close()
+	client := otherAPISt.Client()
+	newVersion := version.MustParseBinary("5.4.3-quantal-amd64")
+	var called bool
+
+	// build fake tools
+	expectedTools, _ := coretesting.TarGz(
+		coretesting.NewTarFile(jujunames.Jujud, 0777, "jujud contents "+newVersion.String()))
+
+	// UploadTools does not use the facades, so instead of patching the
+	// facade call, we set up a fake endpoint to test.
+	defer fakeAPIEndpoint(c, client, envEndpoint(c, otherAPISt, "tools"), "POST",
+		func(w http.ResponseWriter, r *http.Request) {
+			called = true
+
+			c.Assert(r.URL.Query(), gc.DeepEquals, url.Values{
+				"binaryVersion": []string{"5.4.3-quantal-amd64"},
+				"series":        []string{""},
+			})
+			defer r.Body.Close()
+			obtainedTools, err := ioutil.ReadAll(r.Body)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(obtainedTools, gc.DeepEquals, expectedTools)
+		},
+	).Close()
+
+	// We don't test the error or tools results as we only wish to assert that
+	// the API client POSTs the tools archive to the correct endpoint.
+	client.UploadTools(bytes.NewReader(expectedTools), newVersion)
+	c.Assert(called, jc.IsTrue)
 }
 
 func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
@@ -84,14 +122,10 @@ func (s *clientSuite) TestAddLocalCharmOtherEnvironment(c *gc.C) {
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 
-	// setup API client to other environment
-	otherSt := s.Factory.MakeEnvironment(c, nil)
+	otherSt, otherAPISt := s.otherEnviron(c)
 	defer otherSt.Close()
-	info := s.APIInfo(c)
-	info.EnvironTag = otherSt.EnvironTag()
-	apiState, err := api.Open(info, api.DefaultDialOpts())
-	c.Assert(err, jc.ErrorIsNil)
-	client := apiState.Client()
+	defer otherAPISt.Close()
+	client := otherAPISt.Client()
 
 	// Upload an archive
 	savedURL, err := client.AddLocalCharm(curl, charmArchive)
@@ -103,33 +137,56 @@ func (s *clientSuite) TestAddLocalCharmOtherEnvironment(c *gc.C) {
 	c.Assert(charm.String(), gc.Equals, curl.String())
 }
 
+func (s *clientSuite) otherEnviron(c *gc.C) (*state.State, *api.State) {
+	otherSt := s.Factory.MakeEnvironment(c, nil)
+	info := s.APIInfo(c)
+	info.EnvironTag = otherSt.EnvironTag()
+	apiState, err := api.Open(info, api.DefaultDialOpts())
+	c.Assert(err, jc.ErrorIsNil)
+	return otherSt, apiState
+}
+
 func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, jc.ErrorIsNil)
-	defer lis.Close()
-
-	envTag, err := s.APIState.EnvironTag()
-	c.Assert(err, jc.ErrorIsNil)
-	endPoint := fmt.Sprintf("/environment/%s/charms", envTag.Id())
-	http.HandleFunc(endPoint, func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "POST" {
-			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-		}
-	})
-	go func() {
-		http.Serve(lis, nil)
-	}()
-
 	client := s.APIState.Client()
-	api.SetServerAddress(client, "http", lis.Addr().String())
+
+	// AddLocalCharm does not use the facades, so instead of patching the
+	// facade call, we set up a fake endpoint to test.
+	defer fakeAPIEndpoint(c, client, envEndpoint(c, s.APIState, "charms"), "POST",
+		func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		},
+	).Close()
 
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 
-	_, err = client.AddLocalCharm(curl, charmArchive)
+	_, err := client.AddLocalCharm(curl, charmArchive)
 	c.Assert(err, gc.ErrorMatches, "charm upload failed: 405 \\(Method Not Allowed\\)")
+}
+
+func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle func(http.ResponseWriter, *http.Request)) net.Listener {
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	http.HandleFunc(address, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == method {
+			handle(w, r)
+		}
+	})
+	go func() {
+		http.Serve(lis, nil)
+	}()
+	api.SetServerAddress(client, "http", lis.Addr().String())
+	return lis
+}
+
+// envEndpoint returns "/environment/<env-uuid>/<destination>"
+func envEndpoint(c *gc.C, apiState *api.State, destination string) string {
+	envTag, err := apiState.EnvironTag()
+	c.Assert(err, jc.ErrorIsNil)
+	return path.Join("/environment", envTag.Id(), destination)
 }
 
 func (s *clientSuite) TestClientEnvironmentUUID(c *gc.C) {

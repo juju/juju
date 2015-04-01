@@ -366,9 +366,6 @@ func IsVersionInconsistentError(e interface{}) bool {
 }
 
 func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
-	db, closer := st.newDB()
-	defer closer()
-
 	matchCurrent := "^" + regexp.QuoteMeta(currentVersion) + "-"
 	matchNew := "^" + regexp.QuoteMeta(newVersion) + "-"
 	// Get all machines and units with a different or empty version.
@@ -381,7 +378,8 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	}}}
 	var agentTags []string
 	for _, name := range []string{machinesC, unitsC} {
-		collection := db.C(name)
+		collection, closer := st.getCollection(name)
+		defer closer()
 		var doc struct {
 			DocID string `bson:"_id"`
 		}

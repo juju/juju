@@ -169,17 +169,16 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 		}
 		err = common.ErrPerm
 		if u.authorizer.AuthOwner(tag) {
-			// Only return the globally desired agent version if the
-			// asking entity is a machine agent with JobManageEnviron or
-			// if this API server is running the globally desired agent
-			// version. Otherwise report this API server's current
-			// agent version.
+			// Only return the globally desired agent version if the asking
+			// entity is a machine agent with JobManageEnviron or if this API
+			// server is running the globally desired agent version or the
+			// environment is not the state server. Otherwise report this API
+			// server's current agent version.
 			//
-			// This ensures that state machine agents will upgrade
-			// first - once they have restarted and are running the
-			// new version other agents will start to see the new
-			// agent version.
-			if !isNewerVersion || u.entityIsManager(tag) {
+			// This ensures that state machine agents will upgrade first -
+			// once they have restarted and are running the new version other
+			// agents will start to see the new agent version.
+			if !isNewerVersion || u.entityIsManager(tag) || !u.st.IsStateServer() {
 				results[i].Version = &agentVersion
 			} else {
 				logger.Debugf("desired version is %s, but current version is %s and agent is not a manager node", agentVersion, version.Current.Number)
