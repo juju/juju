@@ -2,16 +2,15 @@ package service
 
 import (
 	"fmt"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/systemd"
+	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/service/windows"
 	"github.com/juju/juju/version"
 )
 
@@ -94,89 +93,24 @@ func versionInitSystem(vers version.Binary) (string, bool) {
 	}
 }
 
-// These exist to allow patching during tests.
-var (
-	runtimeOS    = func() string { return runtime.GOOS }
-	evalSymlinks = filepath.EvalSymlinks
-	psPID1       = func() ([]byte, error) {
-		cmd := exec.Command("/bin/ps", "-p", "1", "-o", "cmd", "--no-headers")
-		return cmd.Output()
-	}
-
-	initExecutable = func() (string, error) {
-		psOutput, err := psPID1()
-		if err != nil {
-			return "", errors.Annotate(err, "failed to identify init system using ps")
-		}
-		return strings.Fields(string(psOutput))[0], nil
-	}
-)
+var discoveryFuncs = map[string]func() (bool, error){
+	InitSystemSystemd: systemd.IsRunning,
+	InitSystemUpstart: upstart.IsRunning,
+	InitSystemWindows: windows.IsRunning,
+}
 
 func discoverLocalInitSystem() (string, error) {
-	if runtimeOS() == "windows" {
-		return InitSystemWindows, nil
+	for initName, isLocal := range discoveryFuncs {
+		local, err := isLocal()
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		if local {
+			logger.Debugf("discovered init system %q from local host", initName)
+			return initName, nil
+		}
 	}
-
-	executable, err := initExecutable()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	initName, ok := identifyInitSystem(executable)
-	if !ok {
-		return "", errors.NotFoundf("init system (based on %q)", executable)
-	}
-	logger.Debugf("discovered init system %q from executable %q", initName, executable)
-	return initName, nil
-}
-
-func identifyInitSystem(executable string) (string, bool) {
-	initSystem, ok := identifyExecutable(executable)
-	if ok {
-		return initSystem, true
-	}
-
-	// First fall back to following symlinks (if any).
-	resolved, err := evalSymlinks(executable)
-	if err != nil {
-		logger.Errorf("failed to find %q: %v", executable, err)
-		return "", false
-	}
-	executable = resolved
-	initSystem, ok = identifyExecutable(executable)
-	if ok {
-		return initSystem, true
-	}
-
-	// Fall back to checking the "version" text.
-	cmd := exec.Command(executable, "--version")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		logger.Errorf(`"%s --version" failed (%v): %s`, executable, err, out)
-		return "", false
-	}
-
-	verText := string(out)
-	switch {
-	case strings.Contains(verText, "upstart"):
-		return InitSystemUpstart, true
-	case strings.Contains(verText, "systemd"):
-		return InitSystemSystemd, true
-	}
-
-	// uh-oh
-	return "", false
-}
-
-func identifyExecutable(executable string) (string, bool) {
-	switch {
-	case strings.Contains(executable, "upstart"):
-		return InitSystemUpstart, true
-	case strings.Contains(executable, "systemd"):
-		return InitSystemSystemd, true
-	default:
-		return "", false
-	}
+	return "", errors.NotFoundf("init system (based on local host)")
 }
 
 // TODO(ericsnow) Build this script more dynamically (using shell.Renderer).
@@ -186,40 +120,13 @@ func identifyExecutable(executable string) (string, bool) {
 // discovering the local init system.
 const DiscoverInitSystemScript = `#!/usr/bin/env bash
 
-function checkInitSystem() {
-    if [[ $1 == *"systemd"* ]]; then
-        echo -n systemd
-        exit $?
-    elif [[ $1 == *"upstart"* ]]; then
-        echo -n upstart
-        exit $?
-    fi
-}
-
-# Find the executable.
-executable=$(ps -p 1 -o cmd --no-headers | awk '{print $1}')
-if [[ $? -ne 0 ]]; then
-    exit 1
-fi
-
-# Check the executable.
-checkInitSystem "$executable"
-
-# First fall back to following symlinks.
-if [[ -L $executable ]]; then
-    linked=$(readlink -f "$executable")
-    if [[ $? -eq 0 ]]; then
-        executable=$linked
-
-        # Check the linked executable.
-        checkInitSystem "$linked"
-    fi
-fi
-
-# Fall back to checking the "version" text.
-verText=$("${executable}" --version)
-if [[ $? -eq 0 ]]; then
-    checkInitSystem "$verText"
+# Use guaranteed discovery mechanisms for known init systems.
+if [[ -d /run/systemd/system ]]; then
+    echo -n systemd
+    exit 0
+elif /sbin/initctl --system list 2>&1 > /dev/null; then
+    echo -n upstart
+    exit 0
 fi
 
 # uh-oh

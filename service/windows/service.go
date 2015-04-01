@@ -6,6 +6,7 @@ package windows
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 
 	"github.com/juju/errors"
@@ -16,6 +17,11 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.worker.deployer.service")
+
+// IsRunning returns whether or not windows is the local init system.
+func IsRunning() (bool, error) {
+	return runtime.GOOS == "windows", nil
+}
 
 // ListServices returns the name of all installed services on the
 // local host.
