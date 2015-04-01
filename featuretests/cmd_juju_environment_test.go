@@ -76,3 +76,22 @@ func (s *cmdEnvironmentSuite) TestEnvironmentUnshareCmdStack(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 	c.Assert(envuser, gc.IsNil)
 }
+
+func (s *cmdEnvironmentSuite) TestEnvironmentUsersCmd(c *gc.C) {
+	// Firstly share an environment with a user
+	username := "bar@ubuntuone"
+	context := runShare(c, []string{username})
+	user := names.NewUserTag(username)
+	envuser, err := s.State.EnvironmentUser(user)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(envuser, gc.NotNil)
+
+	context, err = testing.RunCommand(c, envcmd.Wrap(&cmdenvironment.UsersCommand{}))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, ""+
+		"NAME               DATE CREATED  LAST CONNECTION\n"+
+		"dummy-admin@local  just now      just now\n"+
+		"bar@ubuntuone      just now      never connected\n"+
+		"\n")
+
+}
