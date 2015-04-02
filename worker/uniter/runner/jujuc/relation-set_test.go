@@ -243,6 +243,11 @@ var relationSetInitTests = []relationSetInitTest{
 		content: "=haha",
 		err:     `expected "key=value", got "=haha"`,
 	}, {
+		summary:  "value with a space",
+		args:     []string{"--file", "spam"},
+		content:  "foo=foo: bar",
+		settings: map[string]string{"foo": "foo: bar"},
+	}, {
 		summary:  "a messy file",
 		args:     []string{"--file", "spam"},
 		content:  "  \n # a comment \n\n  \nfoo=bar  \nham=eggs\n\n good=bad\n",
