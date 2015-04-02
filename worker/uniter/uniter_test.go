@@ -15,13 +15,11 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -1873,14 +1871,6 @@ func (s *UniterSuite) TestRebootFromJujuRun(c *gc.C) {
 }
 
 func (s *UniterSuite) TestLeadership(c *gc.C) {
-	// TODO(fwereade): 2015-03-07 bug XXXXXXXXXXXXX
-	// This is a really bad way to test the impact of feature flags, because it
-	// doesn't clean up after itself. We really want something in featureflags
-	// to help test these -- something like `WithFlags([]string, func())`?
-	// Regardless, there are way too many tests like this already and fixing
-	// that deserves its own CL.
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "leader-election")
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"leader-set works",
