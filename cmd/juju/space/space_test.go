@@ -85,14 +85,13 @@ func (s *UpdateSuite) TestInit(c *gc.C) {
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
 		// envcmd.Wrap().
-		command := space.SpaceCommandBase{}
-		err := command.ParseNameAndCIDRs(test.args)
+		name, CIDRs, err := space.ParseNameAndCIDRs(test.args)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 		}
-		c.Check(command.Name, gc.Equals, test.expectName)
-		c.Check(command.CIDRs.SortedValues(), jc.DeepEquals, test.expectCIDRs)
+		c.Check(name, gc.Equals, test.expectName)
+		c.Check(CIDRs.SortedValues(), jc.DeepEquals, test.expectCIDRs)
 	}
 }

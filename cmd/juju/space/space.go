@@ -10,11 +10,12 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/network"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
+
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/network"
 )
 
 // SpaceAPI defines the necessary API methods needed by the space
@@ -92,69 +93,63 @@ func NewSuperCommand() cmd.Command {
 // subcommands.
 type SpaceCommandBase struct {
 	envcmd.EnvCommandBase
-	api   SpaceAPI
-	Name  string
-	CIDRs set.Strings
+	api SpaceAPI
 }
 
-func (c *SpaceCommandBase) ParseNameAndCIDRs(args []string) error {
+func ParseNameAndCIDRs(args []string) (name string, CIDRs set.Strings, err error) {
 	if len(args) == 0 {
-		return errors.New("space name is required")
+		err = errors.New("space name is required")
+		return
 	}
-	err := c.ParseName(args[0])
+	name, err = CheckName(args[0])
 	if err != nil {
-		return err
+		return
 	}
 
 	if len(args) == 1 {
-		return errors.New("CIDRs required but not provided")
+		err = errors.New("CIDRs required but not provided")
+		return
 	}
-	err = c.ParseCIDRs(args[1:])
-	if err != nil {
-		return err
-	}
-	return nil
+	CIDRs, err = CheckCIDRs(args[1:])
+	return name, CIDRs, err
 }
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *SpaceCommandBase) ParseName(name string) error {
+func CheckName(name string) (string, error) {
 	// Validate given name.
 	if !names.IsValidSpace(name) {
-		return errors.Errorf("%q is not a valid space name", name)
+		return "", errors.Errorf("%q is not a valid space name", name)
 	}
-	c.Name = name
-
-	return nil
+	return name, nil
 }
 
 // ParseCIDRs parses the list of strings as CIDRs, checking for correct formatting,
-// no duplication and no overlaps.
-func (c *SpaceCommandBase) ParseCIDRs(args []string) error {
+// no duplication and no overlaps. Returns error if no CIDRs are provided.
+func CheckCIDRs(args []string) (set.Strings, error) {
 	// Validate any given CIDRs.
-	c.CIDRs = set.NewStrings()
+	CIDRs := set.NewStrings()
 	for _, arg := range args {
 		_, ipNet, err := net.ParseCIDR(arg)
 		if err != nil {
 			logger.Debugf("cannot parse %q: %v", arg, err)
-			return errors.Errorf("%q is not a valid CIDR", arg)
+			return CIDRs, errors.Errorf("%q is not a valid CIDR", arg)
 		}
 		cidr := ipNet.String()
-		if c.CIDRs.Contains(cidr) {
+		if CIDRs.Contains(cidr) {
 			if cidr == arg {
-				return errors.Errorf("duplicate subnet %q specified", cidr)
+				return CIDRs, errors.Errorf("duplicate subnet %q specified", cidr)
 			}
-			return errors.Errorf("subnet %q overlaps with %q", arg, cidr)
+			return CIDRs, errors.Errorf("subnet %q overlaps with %q", arg, cidr)
 		}
-		c.CIDRs.Add(cidr)
+		CIDRs.Add(cidr)
 	}
 
-	// Need a name (already checked) and either updated CIDRs and/or a new name
-	if c.CIDRs.IsEmpty() {
-		return errors.Errorf("CIDRs required but not provided")
+	if CIDRs.IsEmpty() {
+		return CIDRs, errors.Errorf("CIDRs required but not provided")
 	}
 
-	return nil
+	return CIDRs, nil
 }
 
 // NewAPI returns a SpaceAPI for the root api endpoint that the
@@ -170,29 +165,6 @@ func (c *SpaceCommandBase) NewAPI() (SpaceAPI, error) {
 	return nil, errors.New("API not implemented yet!")
 }
 
-func (c *SpaceCommandBase) SubnetsExist(api SpaceAPI) error {
-	// Fetch all subnets to validate the given CIDRs.
-	subnets, err := api.AllSubnets()
-	if err != nil {
-		return errors.Annotate(err, "cannot fetch available subnets")
-	}
-
-	// Find which of the given CIDRs match existing ones.
-	validCIDRs := set.NewStrings()
-	for _, subnet := range subnets {
-		validCIDRs.Add(subnet.CIDR)
-	}
-	diff := c.CIDRs.Difference(validCIDRs)
-
-	if !diff.IsEmpty() {
-		// Some given CIDRs are missing.
-		subnets := strings.Join(diff.SortedValues(), ", ")
-		return errors.Errorf("unknown subnets specified: %s", subnets)
-	}
-
-	return nil
-}
-
 type RunOnApi func(api SpaceAPI, ctx *cmd.Context) error
 
 func (c *SpaceCommandBase) RunWithAPI(ctx *cmd.Context, toRun RunOnApi) error {
@@ -201,13 +173,5 @@ func (c *SpaceCommandBase) RunWithAPI(ctx *cmd.Context, toRun RunOnApi) error {
 		return errors.Annotate(err, "cannot connect to API server")
 	}
 	defer api.Close()
-
-	if !c.CIDRs.IsEmpty() {
-		// Check that c.CIDRs contains subnets that Juju already knows about
-		if err := c.SubnetsExist(api); err != nil {
-			return err
-		}
-	}
-
 	return toRun(api, ctx)
 }

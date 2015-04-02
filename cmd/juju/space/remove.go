@@ -14,6 +14,7 @@ import (
 // RemoveCommand calls the API to remove an existing network space.
 type RemoveCommand struct {
 	SpaceCommandBase
+	Name string
 }
 
 const removeCommandDoc = `

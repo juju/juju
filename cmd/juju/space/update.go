@@ -8,12 +8,15 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"launchpad.net/gnuflag"
 )
 
 // UpdateCommand calls the API to update an existing network space.
 type UpdateCommand struct {
 	SpaceCommandBase
+	Name  string
+	CIDRs set.Strings
 }
 
 const updateCommandDoc = `
@@ -39,7 +42,11 @@ func (c *UpdateCommand) Info() *cmd.Info {
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
 func (c *UpdateCommand) Init(args []string) error {
-	return c.ParseNameAndCIDRs(args)
+	var err error
+	if name, CIDRs, err := ParseNameAndCIDRs(args); err == nil {
+		c.Name, c.CIDRs = name, CIDRs
+	}
+	return err
 }
 
 // Run implements Command.Run.

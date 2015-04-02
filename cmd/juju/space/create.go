@@ -8,11 +8,14 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 )
 
 // CreateCommand calls the API to create a new network space.
 type CreateCommand struct {
 	SpaceCommandBase
+	Name  string
+	CIDRs set.Strings
 }
 
 const createCommandDoc = `
@@ -34,7 +37,11 @@ func (c *CreateCommand) Info() *cmd.Info {
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
 func (c *CreateCommand) Init(args []string) error {
-	return c.ParseNameAndCIDRs(args)
+	name, CIDRs, err := ParseNameAndCIDRs(args)
+	if err == nil {
+		c.Name, c.CIDRs = name, CIDRs
+	}
+	return err
 }
 
 // Run implements Command.Run.

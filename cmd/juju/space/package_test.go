@@ -6,11 +6,14 @@ package space_test
 import (
 	"net"
 	"regexp"
+	"strings"
 	stdtesting "testing"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
@@ -185,6 +188,10 @@ func (sa *StubAPI) AllSubnets() ([]network.SubnetInfo, error) {
 }
 
 func (sa *StubAPI) CreateSpace(name string, subnetIds []string) error {
+	if err := sa.SubnetsExist(subnetIds); err != nil {
+		return err
+	}
+
 	sa.MethodCall(sa, "CreateSpace", name, subnetIds)
 	return sa.NextErr()
 }
@@ -195,6 +202,10 @@ func (sa *StubAPI) RemoveSpace(name string) error {
 }
 
 func (sa *StubAPI) UpdateSpace(name string, subnetIds []string) error {
+	if err := sa.SubnetsExist(subnetIds); err != nil {
+		return err
+	}
+
 	sa.MethodCall(sa, "UpdateSpace", name, subnetIds)
 	return sa.NextErr()
 }
@@ -202,4 +213,28 @@ func (sa *StubAPI) UpdateSpace(name string, subnetIds []string) error {
 func (sa *StubAPI) RenameSpace(name, newName string) error {
 	sa.MethodCall(sa, "RenameSpace", name, newName)
 	return sa.NextErr()
+}
+
+func (sa *StubAPI) SubnetsExist(subnetIds []string) error {
+	// Fetch all subnets to validate the given CIDRs.
+	CIDRs := set.NewStrings(subnetIds...)
+	subnets, err := sa.AllSubnets()
+	if err != nil {
+		return errors.Annotate(err, "cannot fetch available subnets")
+	}
+
+	// Find which of the given CIDRs match existing ones.
+	validCIDRs := set.NewStrings()
+	for _, subnet := range subnets {
+		validCIDRs.Add(subnet.CIDR)
+	}
+	diff := CIDRs.Difference(validCIDRs)
+
+	if !diff.IsEmpty() {
+		// Some given CIDRs are missing.
+		subnets := strings.Join(diff.SortedValues(), ", ")
+		return errors.Errorf("unknown subnets specified: %s", subnets)
+	}
+
+	return nil
 }

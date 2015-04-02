@@ -33,13 +33,13 @@ func (s *UpdateSuite) TestRunWhenSubnetsFails(c *gc.C) {
 	s.api.SetErrors(errors.New("boom"))
 
 	stdout, stderr, err := s.RunSubCommand(c, "foo", "10.1.2.0/24")
-	s.CheckOutputsErr(c, stdout, stderr, err, `cannot fetch available subnets: boom`)
+	s.CheckOutputsErr(c, stdout, stderr, err, `cannot update space "foo": cannot fetch available subnets: boom`)
 	s.api.CheckCallNames(c, "AllSubnets", "Close")
 }
 
 func (s *UpdateSuite) TestRunWithUnknownSubnetsFails(c *gc.C) {
 	stdout, stderr, err := s.RunSubCommand(c, "foo", "10.20.30.0/24", "2001:db8::/64")
-	s.CheckOutputsErr(c, stdout, stderr, err, "unknown subnets specified: 10.20.30.0/24, 2001:db8::/64")
+	s.CheckOutputsErr(c, stdout, stderr, err, `cannot update space \"foo\": unknown subnets specified: 10.20.30.0/24, 2001:db8::/64`)
 	s.api.CheckCallNames(c, "AllSubnets", "Close")
 }
 

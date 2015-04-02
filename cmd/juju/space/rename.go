@@ -15,6 +15,7 @@ import (
 // RenameCommand calls the API to rename an existing network space.
 type RenameCommand struct {
 	SpaceCommandBase
+	Name    string
 	NewName string
 }
 
