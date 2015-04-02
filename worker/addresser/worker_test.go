@@ -214,3 +214,18 @@ func (s *workerSuite) TestErrorKillsWorker(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
+
+func (s *workerSuite) TestAddresserWithNoNetworkingEnviron(c *gc.C) {
+	opsChan := dummyListen()
+	w := addresser.NewWorkerWithReleaser(s.State, nil)
+	defer s.assertStop(c, w)
+
+	for {
+		select {
+		case <-opsChan:
+			c.Fatalf("unexpected release op")
+		case <-time.After(coretesting.ShortWait):
+			break
+		}
+	}
+}
