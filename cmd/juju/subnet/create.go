@@ -4,14 +4,12 @@
 package subnet
 
 import (
-	"net"
 	"strings"
 
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/set"
 )
 
@@ -65,6 +63,7 @@ func (c *CreateCommand) Info() *cmd.Info {
 	}
 }
 
+// SetFlags is defined on the cmd.Command interface.
 func (c *CreateCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SubnetCommandBase.SetFlags(f)
 	f.BoolVar(&c.IsPublic, "public", false, "enable public access with shadow addresses")
@@ -80,34 +79,23 @@ func (c *CreateCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
 func (c *CreateCommand) Init(args []string) error {
-	// Validate given CIDR.
-	switch len(args) {
-	case 0:
-		return errors.New("CIDR is required")
-	case 1:
-		return errors.New("space name is required")
-	case 2:
-		return errors.New("at least one zone is required")
+	// Ensure we have at least 3 arguments.
+	err := c.CheckNumArgs(args, []error{errNoCIDR, errNoSpace, errNoZones})
+	if err != nil {
+		return err
 	}
 
-	givenCIDR := args[0]
-	_, ipNet, err := net.ParseCIDR(givenCIDR)
+	// Validate given CIDR.
+	c.CIDR, err = c.ValidateCIDR(args[0])
 	if err != nil {
-		logger.Debugf("cannot parse %q: %v", givenCIDR, err)
-		return errors.Errorf("%q is not a valid CIDR", givenCIDR)
+		return err
 	}
-	if ipNet.String() != givenCIDR {
-		expected := ipNet.String()
-		return errors.Errorf("%q is not correctly specified, expected %q", givenCIDR, expected)
-	}
-	c.CIDR = givenCIDR
 
 	// Validate the space name.
-	givenSpace := args[1]
-	if !names.IsValidSpace(givenSpace) {
-		return errors.Errorf("%q is not a valid space name", givenSpace)
+	c.SpaceName, err = c.ValidateSpace(args[1])
+	if err != nil {
+		return err
 	}
-	c.SpaceName = givenSpace
 
 	// Validate any given zones.
 	c.Zones = set.NewStrings()

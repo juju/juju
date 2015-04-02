@@ -8,3 +8,9 @@ func NewCreateCommand(api SubnetAPI) *CreateCommand {
 	createCmd.api = api
 	return createCmd
 }
+
+func NewAddCommand(api SubnetAPI) *AddCommand {
+	addCmd := &AddCommand{}
+	addCmd.api = api
+	return addCmd
+}

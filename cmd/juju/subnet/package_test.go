@@ -75,6 +75,27 @@ func (s *BaseSubnetSuite) RunSubCommand(c *gc.C, args ...string) (string, string
 	return "", "", err
 }
 
+// AssertRunFails is a shortcut for calling RunSubCommand with the
+// passed args then asserting the output is empty and the error is as
+// expected, finally returning the error.
+func (s *BaseSubnetSuite) AssertRunFails(c *gc.C, expectErr string, args ...string) error {
+	stdout, stderr, err := s.RunSubCommand(c, args...)
+	c.Assert(err, gc.ErrorMatches, expectErr)
+	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stderr, gc.Equals, "")
+	return err
+}
+
+// AssertRunSucceeds is a shortcut for calling RunSuperCommand with
+// the passed args then asserting the stderr output matches
+// expectStderr, stdout is empty and the error is nil.
+func (s *BaseSubnetSuite) AssertRunSucceeds(c *gc.C, expectStderr string, args ...string) {
+	stdout, stderr, err := s.RunSubCommand(c, args...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stderr, gc.Matches, expectStderr)
+}
+
 // TestHelp runs the command with --help as argument and verifies the
 // output.
 func (s *BaseSubnetSuite) TestHelp(c *gc.C) {
@@ -107,7 +128,7 @@ func (s *BaseSubnetSuite) TestHelp(c *gc.C) {
 	c.Check(stderr, gc.Matches, expected)
 }
 
-// Strings is makes tests taking a slice of strings slightly easier to
+// Strings makes tests taking a slice of strings slightly easier to
 // write: e.g. s.Strings("foo", "bar") vs. []string{"foo", "bar"}.
 func (s *BaseSubnetSuite) Strings(values ...string) []string {
 	return values
@@ -146,5 +167,10 @@ func (sa *StubAPI) AllZones() ([]string, error) {
 
 func (sa *StubAPI) CreateSubnet(subnetCIDR, spaceName string, zones []string, isPublic bool) error {
 	sa.MethodCall(sa, "CreateSubnet", subnetCIDR, spaceName, zones, isPublic)
+	return sa.NextErr()
+}
+
+func (sa *StubAPI) AddSubnet(subnetCIDR, spaceName string) error {
+	sa.MethodCall(sa, "AddSubnet", subnetCIDR, spaceName)
 	return sa.NextErr()
 }
