@@ -57,10 +57,10 @@ are not allowed.
 
 The --file option should be used when one or more key-value pairs are
 too long to fit within the command length limit of the shell or
-operating system. The file should contain key-value pairs in the same
-format as on the commandline. They may also span multiple lines. Blank
-lines and lines starting with # are ignored. Settings in the file will
-be overridden by any duplicate key-value arguments.
+operating system. The file will contain one key-value pair per line
+in the same format as on the commandline. Blank lines and lines
+starting with # are ignored. Settings in the file will be overridden
+by any duplicate key-value arguments.
 `[1:], t.expect))
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	}
@@ -247,6 +247,11 @@ var relationSetInitTests = []relationSetInitTest{
 		args:     []string{"--file", "spam"},
 		content:  "foo=foo: bar",
 		settings: map[string]string{"foo": "foo: bar"},
+	}, {
+		summary:  "accidental multiple settings on a line",
+		args:     []string{"--file", "spam"},
+		content:  "foo=bar ham=eggs good=bad",
+		settings: map[string]string{"foo": "bar ham=eggs good=bad"},
 	}, {
 		summary:  "a messy file",
 		args:     []string{"--file", "spam"},
