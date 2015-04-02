@@ -156,7 +156,7 @@ func (rc *rawConn) RemoveFirewall(projectID, name string) error {
 	call := rc.Firewalls.Delete(projectID, name)
 	operation, err := call.Do()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Trace(convertRawAPIError(err))
 	}
 
 	err = rc.waitOperation(projectID, operation, attemptsLong)
