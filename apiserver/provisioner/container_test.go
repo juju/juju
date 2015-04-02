@@ -537,6 +537,15 @@ func (s *prepareSuite) TestErrorWhenNoSubnetsAvailable(c *gc.C) {
 	s.assertCall(c, args, nil, "cannot allocate addresses: no subnets available")
 }
 
+func (s *prepareSuite) TestErrorWithDisabledNIC(c *gc.C) {
+	// The magic "i-disabled-nic-" instance id prefix for the host
+	// causes the dummy provider to return a disabled NIC from
+	// NetworkInterfaces(), which should not be used for the container.
+	container := s.newCustomAPI(c, "i-no-subnets-here", true, false)
+	args := s.makeArgs(container)
+	s.assertCall(c, args, nil, "cannot allocate addresses: no subnets available")
+}
+
 func (s *prepareSuite) TestErrorWhenNoAllocatableSubnetsAvailable(c *gc.C) {
 	// The magic "i-no-alloc-all" instance id for the host causes the
 	// dummy provider's Subnets() method to return all subnets without
