@@ -236,6 +236,7 @@ func opClientStatus(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 		c.Check(status, gc.IsNil)
 		return func() {}, err
 	}
+	clearSinceTimes(status)
 	c.Assert(status, jc.DeepEquals, scenarioStatus)
 	return func() {}, nil
 }
