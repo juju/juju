@@ -5,8 +5,6 @@ package google
 
 import (
 	"code.google.com/p/google-api-go-client/compute/v1"
-
-	"github.com/juju/errors"
 )
 
 // AvailabilityZone represents a single GCE zone. It satisfies the
@@ -46,26 +44,14 @@ func (z AvailabilityZone) Status() string {
 
 // Deprecated returns true if the zone has been deprecated.
 func (z AvailabilityZone) Deprecated() bool {
-	if z.zone.Deprecated != nil {
-		return true
-	}
-	return false
-}
-
-// Replacement returns a potential replacment zone and any error.
-func (z AvailabilityZone) Replacement() (*AvailabilityZone, error) {
-	if z.Deprecated() {
+	deprecated := z.zone.Deprecated != nil
+	if deprecated {
+		logger.Warningf("zone %q is %q", z.Name(), z.zone.Deprecated.State)
 		if z.zone.Deprecated.Replacement != "" {
-			return &AvailabilityZone{
-				zone: &compute.Zone{
-					Name:   z.zone.Deprecated.Replacement,
-					Status: StatusUp,
-				},
-			}, nil
+			logger.Warningf("zone %q is the replacement for zone %q", z.zone.Deprecated.Replacement, z.Name())
 		}
-		return nil, errors.Errorf("%q is %s. no replacement is available.", z.Name(), z.zone.Deprecated.State)
 	}
-	return nil, nil
+	return deprecated
 }
 
 // Available returns whether or not the zone is available for provisioning.
