@@ -373,11 +373,23 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 		return nil, errors.Trace(agentErr)
 	}
 
-	// TODO(perrito666) Is there any workload status to be taken in account here?
-	if agentStatusDoc.Status != StatusAllocating && agentStatusDoc.Status != StatusRebooting {
+	// See if the unit's machine has been allocated and the unit has been installed.
+	isAllocated := agentStatusDoc.Status != StatusAllocating
+	isError := agentStatusDoc.Status == StatusError
+
+	unitStatusDoc, err := getStatus(u.st, u.globalKey())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// There's currently no better way to determine if a unit is installed.
+	// TODO(wallyworld) - use status history to see if start hook has run.
+	isInstalled := unitStatusDoc.Status != StatusMaintenance || unitStatusDoc.StatusInfo != "installing charm software"
+
+	// If already allocated and installed, or there's an error, then we can't set directly to dead.
+	if isError || isAllocated && isInstalled {
 		return setDyingOps, nil
 	}
-	// TODO(perrito666) Ensure that no workload status is required here.
+
 	ops := []txn.Op{{
 		C:      statusesC,
 		Id:     u.st.docID(agentStatusDocId),
@@ -1862,7 +1874,7 @@ func (u *Unit) Resolve(retryHooks bool) error {
 	// We currently check agent status to see if a unit is
 	// in error state. As the new Juju Health work is completed,
 	// this will change to checking the unit status.
-	status, _, _, err := u.Status()
+	status, _, _, err := u.AgentStatus()
 	if err != nil {
 		return err
 	}

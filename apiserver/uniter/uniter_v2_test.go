@@ -105,7 +105,7 @@ func (s *uniterV2Suite) TestSetUnitStatus(c *gc.C) {
 }
 
 func (s *uniterV2Suite) TestUnitStatus(c *gc.C) {
-	err := s.wordpressUnit.SetStatus(state.StatusError, "blah", map[string]interface{}{"foo": "bar"})
+	err := s.wordpressUnit.SetStatus(state.StatusMaintenance, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysqlUnit.SetStatus(state.StatusTerminated, "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,7 +123,7 @@ func (s *uniterV2Suite) TestUnitStatus(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Status: params.StatusError, Info: "blah", Data: map[string]interface{}{"foo": "bar"}},
+			{Status: params.StatusMaintenance, Info: "blah", Data: map[string]interface{}{}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ServerError(`"invalid" is not a valid tag`)},

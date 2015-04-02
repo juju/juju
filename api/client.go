@@ -99,19 +99,14 @@ type ServiceStatus struct {
 
 // UnitStatus holds status info about a unit.
 type UnitStatus struct {
-	// Workload and Agent have separate statuses since 1.23.
-	// but they store similar data so AgentStatus is used too.
-	// UnitAgent is created instead of using Agent since it was
-	// already used when changed from 1.18 to 1.19 to hold more
-	// data than the 3 Agent* values below.
-
-	// UnitAgent holds the status for A Unit's agent.
+	// UnitAgent holds the status for a unit's agent.
 	UnitAgent AgentStatus
 
 	// Workload holds the status for a unit's workload
 	Workload AgentStatus
 
-	// See the comment in MachineStatus regarding these fields.
+	// Until Juju 2.0, we need to continue to return legacy agent state values
+	// as top level struct attributes when the "FullStatus" API is called.
 	AgentState     params.Status
 	AgentStateInfo string
 	AgentVersion   string

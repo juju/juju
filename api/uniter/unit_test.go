@@ -117,7 +117,7 @@ func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
 func (s *unitSuite) TestSetUnitStatusOldServer(c *gc.C) {
 	s.patchNewState(c, uniter.NewStateV1)
 
-	err := s.apiUnit.SetUnitStatus(params.StatusRunning, "blah", nil)
+	err := s.apiUnit.SetUnitStatus(params.StatusActive, "blah", nil)
 	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 	c.Assert(err.Error(), gc.Equals, "SetUnitStatus not implemented")
 }
@@ -142,15 +142,15 @@ func (s *unitSuite) TestSetAgentStatusOldServer(c *gc.C) {
 }
 
 func (s *unitSuite) TestUnitStatus(c *gc.C) {
-	err := s.wordpressUnit.SetStatus(state.StatusError, "blah", map[string]interface{}{"foo": "bar"})
+	err := s.wordpressUnit.SetStatus(state.StatusMaintenance, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.apiUnit.UnitStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StatusResult{
-		Status: params.StatusError,
+		Status: params.StatusMaintenance,
 		Info:   "blah",
-		Data:   map[string]interface{}{"foo": "bar"},
+		Data:   map[string]interface{}{},
 	})
 }
 
