@@ -21,6 +21,9 @@ func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 
 	var result []common.AvailabilityZone
 	for _, zone := range zones {
+		if zone.Deprecated() {
+			continue
+		}
 		// We make a copy since the loop var keeps the same pointer.
 		zoneCopy := zone
 		result = append(result, &zoneCopy)
@@ -70,14 +73,6 @@ func (env *environ) availZoneUp(name string) (*google.AvailabilityZone, error) {
 	}
 	if !zone.Available() {
 		return nil, errors.Errorf("availability zone %q is %s", zone.Name(), zone.Status())
-	}
-
-	if deprecated := zone.Deprecated(); deprecated != nil {
-		err := errors.Errorf("availability zone %q is %s", zone.Name(), deprecated.State)
-		if deprecated.Replacement != "" {
-			err = errors.Annotatef(err, "%s has been suggested as a replacement for %q", deprecated.Replacement, zone.Name())
-		}
-		return nil, err
 	}
 	return zone, nil
 }

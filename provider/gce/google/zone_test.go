@@ -46,3 +46,33 @@ func (s *zoneSuite) TestAvailabilityZoneAvailableFalse(c *gc.C) {
 	s.raw.Status = google.StatusDown
 	c.Check(s.zone.Available(), jc.IsFalse)
 }
+
+func (s *zoneSuite) TestAvailabilityZoneNotDeprecated(c *gc.C) {
+	c.Check(s.zone.Deprecated(), jc.IsFalse)
+}
+
+func (s *zoneSuite) TestAvailabilityZoneDeprecated(c *gc.C) {
+	s.raw.Deprecated = &compute.DeprecationStatus{
+		State: "DEPRECATED",
+	}
+	c.Check(s.zone.Deprecated(), jc.IsTrue)
+}
+
+func (s *zoneSuite) TestAvailabilityZoneDeprecatedNoReplacement(c *gc.C) {
+	s.raw.Deprecated = &compute.DeprecationStatus{
+		State: "DEPRECATED",
+	}
+	replacementZone, err := s.zone.Replacement()
+	c.Check(replacementZone, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, ".*no replacement is available.")
+}
+
+func (s *zoneSuite) TestAvailabilityZoneDeprecatedReplacement(c *gc.C) {
+	s.raw.Deprecated = &compute.DeprecationStatus{
+		State:       "DEPRECATED",
+		Replacement: "d-zone",
+	}
+	replacementZone, err := s.zone.Replacement()
+	c.Check(replacementZone, gc.Not(gc.IsNil))
+	c.Check(err, jc.ErrorIsNil)
+}
