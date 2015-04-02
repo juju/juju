@@ -115,15 +115,6 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 }
 
 func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
-	diskSpec := google.DiskSpec{
-		SizeHintGB: 15,
-		ImageURL:   "some/image/path",
-		Boot:       true,
-		Scratch:    false,
-		Readonly:   false,
-		AutoDelete: true,
-	}
-
 	tools := []*tools.Tools{{
 		Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
 		URL:     "https://example.org",
@@ -155,24 +146,8 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
 	}}
-	instanceSpec := google.InstanceSpec{
-		ID:                "spam",
-		Type:              "mtype",
-		Disks:             []google.DiskSpec{diskSpec},
-		Network:           google.NetworkSpec{Name: "somenetwork"},
-		NetworkInterfaces: []string{"somenetif"},
-		Metadata:          s.Metadata,
-		Tags:              []string{"spam"},
-	}
-	summary := google.InstanceSummary{
-		ID:        "spam",
-		ZoneName:  "home-zone",
-		Status:    google.StatusRunning,
-		Metadata:  s.Metadata,
-		Addresses: s.Addresses,
-	}
-	s.BaseInstance = google.NewInstance(summary, &instanceSpec)
-	s.Instance = newInstance(s.BaseInstance, s.Env)
+	s.Instance = s.NewInstance(c, "spam")
+	s.BaseInstance = s.Instance.base
 	s.InstName = s.Prefix + "machine-spam"
 
 	s.StartInstArgs = environs.StartInstanceParams{
@@ -219,6 +194,39 @@ func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{})
 	cfg, err := s.Config.Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setConfig(c, cfg)
+}
+
+func (s *BaseSuiteUnpatched) NewBaseInstance(c *gc.C, id string) *google.Instance {
+	diskSpec := google.DiskSpec{
+		SizeHintGB: 15,
+		ImageURL:   "some/image/path",
+		Boot:       true,
+		Scratch:    false,
+		Readonly:   false,
+		AutoDelete: true,
+	}
+	instanceSpec := google.InstanceSpec{
+		ID:                id,
+		Type:              "mtype",
+		Disks:             []google.DiskSpec{diskSpec},
+		Network:           google.NetworkSpec{Name: "somenetwork"},
+		NetworkInterfaces: []string{"somenetif"},
+		Metadata:          s.Metadata,
+		Tags:              []string{id},
+	}
+	summary := google.InstanceSummary{
+		ID:        id,
+		ZoneName:  "home-zone",
+		Status:    google.StatusRunning,
+		Metadata:  s.Metadata,
+		Addresses: s.Addresses,
+	}
+	return google.NewInstance(summary, &instanceSpec)
+}
+
+func (s *BaseSuiteUnpatched) NewInstance(c *gc.C, id string) *environInstance {
+	base := s.NewBaseInstance(c, id)
+	return newInstance(base, s.Env)
 }
 
 type BaseSuite struct {

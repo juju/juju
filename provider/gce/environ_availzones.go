@@ -21,6 +21,7 @@ func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 
 	var result []common.AvailabilityZone
 	for _, zone := range zones {
+		// We make a copy since the loop var keeps the same pointer.
 		zoneCopy := zone
 		result = append(result, &zoneCopy)
 	}
