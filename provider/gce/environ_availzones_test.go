@@ -40,11 +40,12 @@ func (s *environAZSuite) TestAvailabilityZones(c *gc.C) {
 func (s *environAZSuite) TestAvailabilityZonesDeprecated(c *gc.C) {
 	zone := google.NewZone("a-zone", google.StatusUp, "DEPRECATED", "b-zone")
 
-	c.Check(zone.Deprecated(), gc.Not(gc.IsNil))
+	c.Check(zone.Deprecated(), jc.IsTrue)
 
-	deprecated := zone.Deprecated()
-	c.Check(deprecated.State, gc.Equals, "DEPRECATED")
-	c.Check(deprecated.Replacement, gc.Equals, "b-zone")
+	replacement, err := zone.Replacement()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(replacement, gc.Not(gc.IsNil))
+	c.Check(replacement.Name(), gc.Equals, "b-zone")
 }
 
 func (s *environAZSuite) TestAvailabilityZonesAPI(c *gc.C) {
