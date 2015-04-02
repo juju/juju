@@ -6,6 +6,8 @@ package jujuc_test
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
@@ -40,22 +42,95 @@ usage: relation-set [options] key=value [key=value ...]
 purpose: set relation settings
 
 options:
+--file (= "")
+    file containing key-value pairs
 --format (= "")
     deprecated format flag
 -r, --relation  (= %s)
     specify a relation by id
+
+"relation-set" writes the local unit's settings for some relation.
+If no relation is specified then the current relation is used. The
+setting values are not inspected and are stored as strings. Setting
+an empty string causes the setting to be removed. Duplicate settings
+are not allowed.
+
+The --file option should be used when one or more key-value pairs are
+too long to fit within the command length limit of the shell or
+operating system. The file should contain key-value pairs in the same
+format as on the commandline. They may also span multiple lines. Blank
+lines and lines starting with # are ignored. Settings in the file will
+be overridden by any duplicate key-value arguments.
 `[1:], t.expect))
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	}
 }
 
-var relationSetInitTests = []struct {
+type relationSetInitTest struct {
+	summary  string
 	ctxrelid int
 	args     []string
+	content  string
 	err      string
 	relid    int
 	settings map[string]string
-}{
+}
+
+func (t relationSetInitTest) log(c *gc.C, i int) {
+	var summary string
+	if t.summary != "" {
+		summary = " - " + t.summary
+	}
+	c.Logf("test %d%s", i, summary)
+}
+
+func (t relationSetInitTest) filename() (string, int) {
+	for i, arg := range t.args {
+		next := i + 1
+		if arg == "--file" && next < len(t.args) {
+			return t.args[next], next
+		}
+	}
+	return "", -1
+}
+
+func (t relationSetInitTest) init(c *gc.C, s *RelationSetSuite) (cmd.Command, []string) {
+	args := make([]string, len(t.args))
+	copy(args, t.args)
+	if filename, i := t.filename(); filename != "" {
+		filename = filepath.Join(c.MkDir(), filename)
+		args[i] = filename
+		err := ioutil.WriteFile(filename, []byte(t.content), 0644)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	hctx := s.GetHookContext(c, t.ctxrelid, "")
+	com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	return com, args
+}
+
+func (t relationSetInitTest) check(c *gc.C, com cmd.Command, err error) {
+	if t.err == "" {
+		if !c.Check(err, jc.ErrorIsNil) {
+			return
+		}
+
+		rset := com.(*jujuc.RelationSetCommand)
+		c.Check(rset.RelationId, gc.Equals, t.relid)
+
+		settings := t.settings
+		if settings == nil {
+			settings = map[string]string{}
+		}
+		c.Check(rset.Settings, jc.DeepEquals, settings)
+	} else {
+		c.Check(err, gc.ErrorMatches, t.err)
+	}
+}
+
+var relationSetInitTests = []relationSetInitTest{
 	{
 	// compatibility: 0 args is valid.
 	}, {
@@ -147,28 +222,52 @@ var relationSetInitTests = []struct {
 		args:     []string{"foo=123", "bar=true", "baz=4.5", "qux="},
 		relid:    1,
 		settings: map[string]string{"foo": "123", "bar": "true", "baz": "4.5", "qux": ""},
+	}, {
+		summary:  "file with a valid setting",
+		args:     []string{"--file", "spam"},
+		content:  "foo=bar",
+		settings: map[string]string{"foo": "bar"},
+	}, {
+		summary:  "an empty file",
+		args:     []string{"--file", "spam"},
+		content:  "",
+		settings: map[string]string{},
+	}, {
+		summary: "an invalid file",
+		args:    []string{"--file", "spam"},
+		content: "haha",
+		err:     `expected "key=value", got "haha"`,
+	}, {
+		summary: "an invalid file",
+		args:    []string{"--file", "spam"},
+		content: "=haha",
+		err:     `expected "key=value", got "=haha"`,
+	}, {
+		summary:  "a messy file",
+		args:     []string{"--file", "spam"},
+		content:  "  \n # a comment \n\n  \nfoo=bar  \nham=eggs\n\n good=bad\n",
+		settings: map[string]string{"foo": "bar", "ham": "eggs", "good": "bad"},
+	}, {
+		summary:  "file + settings",
+		args:     []string{"--file", "spam", "foo=bar"},
+		content:  "ham=eggs",
+		settings: map[string]string{"ham": "eggs", "foo": "bar"},
+	}, {
+		summary:  "file overridden by settings",
+		args:     []string{"--file", "spam", "foo=bar"},
+		content:  "foo=baz",
+		settings: map[string]string{"foo": "bar"},
 	},
 }
 
 func (s *RelationSetSuite) TestInit(c *gc.C) {
 	for i, t := range relationSetInitTests {
-		c.Logf("test %d", i)
-		hctx := s.GetHookContext(c, t.ctxrelid, "")
-		com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
-		c.Assert(err, jc.ErrorIsNil)
-		err = testing.InitCommand(com, t.args)
-		if t.err == "" {
-			c.Assert(err, jc.ErrorIsNil)
-			rset := com.(*jujuc.RelationSetCommand)
-			c.Assert(rset.RelationId, gc.Equals, t.relid)
-			settings := t.settings
-			if settings == nil {
-				settings = map[string]string{}
-			}
-			c.Assert(rset.Settings, gc.DeepEquals, settings)
-		} else {
-			c.Assert(err, gc.ErrorMatches, t.err)
-		}
+		t.log(c, i)
+		com, args := t.init(c, s)
+
+		err := testing.InitCommand(com, args)
+
+		t.check(c, com, err)
 	}
 }
 
