@@ -5,10 +5,12 @@ package google
 
 import (
 	"fmt"
+	"net/http"
 	"path"
 	"time"
 
 	"code.google.com/p/google-api-go-client/compute/v1"
+	"code.google.com/p/google-api-go-client/googleapi"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 )
@@ -26,6 +28,15 @@ var (
 		Delay: 1 * time.Second,
 	}
 )
+
+func convertRawAPIError(err error) error {
+	if err2, ok := err.(*googleapi.Error); ok {
+		if err2.Code == http.StatusNotFound {
+			return errors.NewNotFound(err, "")
+		}
+	}
+	return err
+}
 
 type rawConn struct {
 	*compute.Service
@@ -145,11 +156,11 @@ func (rc *rawConn) RemoveFirewall(projectID, name string) error {
 	call := rc.Firewalls.Delete(projectID, name)
 	operation, err := call.Do()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Trace(convertRawAPIError(err))
 	}
 
 	err = rc.waitOperation(projectID, operation, attemptsLong)
-	return errors.Trace(err)
+	return errors.Trace(convertRawAPIError(err))
 }
 
 func (rc *rawConn) ListAvailabilityZones(projectID, region string) ([]*compute.Zone, error) {
