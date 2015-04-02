@@ -1282,7 +1282,7 @@ func (s *MachineSuite) testMachineAgentRunsEnvironStorageWorkers(c *gc.C, should
 	) worker.Worker {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {
-			c.Check(scope, gc.Equals, s.State.EnvironmentTag())
+			c.Check(scope, gc.Equals, s.State.EnvironTag())
 			environWorkerStarted = true
 			numWorkers = numWorkers + 1
 		}
