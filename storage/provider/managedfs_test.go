@@ -18,7 +18,6 @@ var _ = gc.Suite(&managedfsSuite{})
 
 type managedfsSuite struct {
 	testing.BaseSuite
-	storageDir   string
 	commands     *mockRunCommand
 	dirFuncs     *provider.MockDirFuncs
 	blockDevices map[names.VolumeTag]storage.BlockDevice
@@ -27,7 +26,6 @@ type managedfsSuite struct {
 
 func (s *managedfsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.storageDir = c.MkDir()
 	s.blockDevices = make(map[names.VolumeTag]storage.BlockDevice)
 	s.filesystems = make(map[names.FilesystemTag]storage.Filesystem)
 }
