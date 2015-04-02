@@ -3,6 +3,31 @@
 
 package space
 
+import "github.com/juju/cmd"
+
+// EmptyCommand is a fake command that is used for testing ParseNameAndCIDRs.
+type EmptyCommand struct {
+	SpaceCommandBase
+}
+
+func (c *EmptyCommand) Init(args []string) error {
+	return c.ParseNameAndCIDRs(args)
+}
+
+func (c *EmptyCommand) Info() *cmd.Info {
+	return &cmd.Info{}
+}
+
+func (c *EmptyCommand) Run(ctx *cmd.Context) error {
+	return nil
+}
+
+func NewEmptyCommand(api SpaceAPI) *EmptyCommand {
+	cmd := &EmptyCommand{}
+	cmd.api = api
+	return cmd
+}
+
 func NewCreateCommand(api SpaceAPI) *CreateCommand {
 	createCmd := &CreateCommand{}
 	createCmd.api = api
@@ -17,6 +42,12 @@ func NewRemoveCommand(api SpaceAPI) *RemoveCommand {
 
 func NewUpdateCommand(api SpaceAPI) *UpdateCommand {
 	updateCmd := &UpdateCommand{}
+	updateCmd.api = api
+	return updateCmd
+}
+
+func NewRenameCommand(api SpaceAPI) *RenameCommand {
+	updateCmd := &RenameCommand{}
 	updateCmd.api = api
 	return updateCmd
 }
