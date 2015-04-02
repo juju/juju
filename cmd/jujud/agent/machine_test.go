@@ -1590,6 +1590,22 @@ func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
 }
 
 func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
+	s.testNewEnvironmentStartsNewWorkers(c, perEnvSingularWorkers)
+}
+
+func (s *MachineSuite) TestNewEnvironmentStartsNewWorkersStorageEnabled(c *gc.C) {
+	s.SetFeatureFlags(feature.Storage)
+	expect := make([]string, 0, len(perEnvSingularWorkers)+1)
+	for _, w := range perEnvSingularWorkers {
+		expect = append(expect, w)
+		if w == "environ-provisioner" {
+			expect = append(expect, "environ-storageprovisioner")
+		}
+	}
+	s.testNewEnvironmentStartsNewWorkers(c, expect)
+}
+
+func (s *MachineSuite) testNewEnvironmentStartsNewWorkers(c *gc.C, expectedWorkers []string) {
 	s.PatchValue(&watcher.Period, 100*time.Millisecond)
 
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
@@ -1603,7 +1619,7 @@ func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
 	// firewaller is the last worker started for a new environment.
 	r0 := s.singularRecord.nextRunner(c)
 	workers := r0.waitForWorker(c, "firewaller")
-	c.Assert(workers, jc.DeepEquals, perEnvSingularWorkers)
+	c.Assert(workers, jc.DeepEquals, expectedWorkers)
 
 	// Now create a new environment and see the workers start for it.
 	factory.NewFactory(s.State).MakeEnvironment(c, &factory.EnvParams{
@@ -1614,7 +1630,7 @@ func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
 	}).Close()
 	r1 := s.singularRecord.nextRunner(c)
 	workers = r1.waitForWorker(c, "firewaller")
-	c.Assert(workers, jc.DeepEquals, perEnvSingularWorkers)
+	c.Assert(workers, jc.DeepEquals, expectedWorkers)
 }
 
 // MachineWithCharmsSuite provides infrastructure for tests which need to

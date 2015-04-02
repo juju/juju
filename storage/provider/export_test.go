@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/names"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/storage"
@@ -21,6 +22,21 @@ func LoopVolumeSource(storageDir string, run func(string, ...string) (string, er
 
 func LoopProvider(run func(string, ...string) (string, error)) storage.Provider {
 	return &loopProvider{run}
+}
+
+func NewMockManagedFilesystemSource(
+	run func(string, ...string) (string, error),
+	volumeBlockDevices map[names.VolumeTag]storage.BlockDevice,
+	filesystems map[names.FilesystemTag]storage.Filesystem,
+) (storage.FilesystemSource, *MockDirFuncs) {
+	dirFuncs := &MockDirFuncs{
+		osDirFuncs{run},
+		set.NewStrings(),
+	}
+	return &managedFilesystemSource{
+		run, dirFuncs,
+		volumeBlockDevices, filesystems,
+	}, dirFuncs
 }
 
 var _ dirFuncs = (*MockDirFuncs)(nil)
