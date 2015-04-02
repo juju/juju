@@ -396,7 +396,10 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		params.Metrics = []state.Metric{{"pings", strconv.Itoa(uniqueInteger()), *params.Time}}
 	}
 
-	metric, err := params.Unit.AddMetrics(*params.Time, params.Metrics)
+	chURL, ok := params.Unit.CharmURL()
+	c.Assert(ok, gc.Equals, true)
+
+	metric, err := params.Unit.AddMetrics(utils.MustNewUUID().String(), *params.Time, chURL.String(), params.Metrics)
 	c.Assert(err, jc.ErrorIsNil)
 	if params.Sent {
 		err := metric.SetSent()

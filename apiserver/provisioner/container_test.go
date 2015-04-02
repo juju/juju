@@ -240,13 +240,19 @@ func (s *prepareSuite) TestErrorsWithNonMachineOrInvalidTags(c *gc.C) {
 	}}
 
 	s.assertCall(c, args, s.makeErrors(
+		apiservertesting.ServerError(
+			`"unit-wordpress-0" is not a valid machine tag`),
+		apiservertesting.ServerError(
+			`"service-wordpress" is not a valid machine tag`),
+		apiservertesting.ServerError(
+			`"network-foo" is not a valid machine tag`),
+		apiservertesting.ServerError(
+			`"anything-invalid" is not a valid tag`),
+		apiservertesting.ServerError(
+			`"42" is not a valid tag`),
 		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
-		apiservertesting.ErrUnauthorized,
+		apiservertesting.ServerError(
+			`"" is not a valid tag`),
 	), "")
 }
 
@@ -550,6 +556,15 @@ func (s *prepareSuite) TestErrorWhenNoNICSAvailable(c *gc.C) {
 	s.assertCall(c, args, nil, "cannot allocate addresses: no interfaces available")
 }
 
+func (s *prepareSuite) TestErrorWithNicNoSubnetAvailable(c *gc.C) {
+	// The magic "i-nic-no-subnet-" instance id prefix for the host
+	// causes the dummy provider to return a nic that has no associated
+	// subnet from NetworkInterfaces().
+	container := s.newCustomAPI(c, "i-nic-no-subnet-here", true, false)
+	args := s.makeArgs(container)
+	s.assertCall(c, args, nil, "cannot allocate addresses: no subnets available")
+}
+
 func (s *prepareSuite) TestSuccessWithSingleContainer(c *gc.C) {
 	container := s.newAPI(c, true, true)
 	args := s.makeArgs(container)
@@ -673,7 +688,7 @@ func (s *releaseSuite) TestErrorWithHostInsteadOfContainer(c *gc.C) {
 	args := s.makeArgs(s.machines[0])
 	err := s.assertCall(c, args, s.makeErrors(
 		apiservertesting.ServerError(
-			`cannot release address for "machine-0": not a container`,
+			`cannot mark addresses for removal for "machine-0": not a container`,
 		),
 	), "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -758,21 +773,6 @@ func (s *releaseSuite) allocateAddresses(c *gc.C, containerId string, numAllocat
 	}
 }
 
-func (s *releaseSuite) TestErrorWithFailingReleaseAddress(c *gc.C) {
-	container := s.newAPI(c, true, true)
-	args := s.makeArgs(container)
-
-	s.allocateAddresses(c, container.Id(), 2)
-	s.breakEnvironMethods(c, "ReleaseAddress")
-	err := s.assertCall(c, args, s.makeErrors(
-		apiservertesting.ServerError(
-			`failed to release all addresses for "machine-0-lxc-0": `+
-				`[dummy.ReleaseAddress is broken dummy.ReleaseAddress is broken]`,
-		),
-	), "")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *releaseSuite) TestReleaseContainerAddresses(c *gc.C) {
 	container := s.newAPI(c, true, true)
 	args := s.makeArgs(container)
@@ -782,5 +782,8 @@ func (s *releaseSuite) TestReleaseContainerAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	addresses, err := s.BackingState.AllocatedIPAddresses(container.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, jc.DeepEquals, []*state.IPAddress{})
+	c.Assert(addresses, gc.HasLen, 2)
+	for _, addr := range addresses {
+		c.Assert(addr.Life(), gc.Equals, state.Dead)
+	}
 }

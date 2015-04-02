@@ -373,11 +373,23 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 		return nil, errors.Trace(agentErr)
 	}
 
-	// TODO(perrito666) Is there any workload status to be taken in account here?
-	if agentStatusDoc.Status != StatusAllocating && agentStatusDoc.Status != StatusRebooting {
+	// See if the unit's machine has been allocated and the unit has been installed.
+	isAllocated := agentStatusDoc.Status != StatusAllocating
+	isError := agentStatusDoc.Status == StatusError
+
+	unitStatusDoc, err := getStatus(u.st, u.globalKey())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// There's currently no better way to determine if a unit is installed.
+	// TODO(wallyworld) - use status history to see if start hook has run.
+	isInstalled := unitStatusDoc.Status != StatusMaintenance || unitStatusDoc.StatusInfo != "installing charm software"
+
+	// If already allocated and installed, or there's an error, then we can't set directly to dead.
+	if isError || isAllocated && isInstalled {
 		return setDyingOps, nil
 	}
-	// TODO(perrito666) Ensure that no workload status is required here.
+
 	ops := []txn.Op{{
 		C:      statusesC,
 		Id:     u.st.docID(agentStatusDocId),
@@ -785,7 +797,7 @@ func (u *Unit) SetAgentStatus(status Status, info string, data map[string]interf
 // AgentStatus calls Status for this unit's agent, this call
 // is equivalent to the former call to Status when Agent and Unit
 // where not separate entities.
-func (u *Unit) AgentStatus() (status Status, info string, data map[string]interface{}, err error) {
+func (u *Unit) AgentStatus() (StatusInfo, error) {
 	agent := newUnitAgent(u.st, u.Tag(), u.Name())
 	return agent.Status()
 }
@@ -794,15 +806,17 @@ func (u *Unit) AgentStatus() (status Status, info string, data map[string]interf
 // This method relies on globalKey instead of globalAgentKey since it is part of
 // the effort to separate Unit from UnitAgent. Now the Status for UnitAgent is in
 // the UnitAgent struct.
-func (u *Unit) Status() (status Status, info string, data map[string]interface{}, err error) {
+func (u *Unit) Status() (StatusInfo, error) {
 	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
-		return "", "", nil, err
+		return StatusInfo{}, err
 	}
-	status = doc.Status
-	info = doc.StatusInfo
-	data = doc.StatusData
-	return
+	return StatusInfo{
+		Status:  doc.Status,
+		Message: doc.StatusInfo,
+		Data:    doc.StatusData,
+		Since:   doc.Updated,
+	}, nil
 }
 
 // SetStatus sets the status of the unit agent. The optional values
@@ -1862,11 +1876,11 @@ func (u *Unit) Resolve(retryHooks bool) error {
 	// We currently check agent status to see if a unit is
 	// in error state. As the new Juju Health work is completed,
 	// this will change to checking the unit status.
-	status, _, _, err := u.Status()
+	statusInfo, err := u.AgentStatus()
 	if err != nil {
 		return err
 	}
-	if status != StatusError {
+	if statusInfo.Status != StatusError {
 		return errors.Errorf("unit %q is not in an error state", u)
 	}
 	mode := ResolvedNoHooks
@@ -1927,18 +1941,34 @@ func (u *Unit) ClearResolved() error {
 	return nil
 }
 
-// AddMetric adds a new batch of metrics to the database.
-// A UUID for the metric will be generated and the new MetricBatch will be returned
-func (u *Unit) AddMetrics(created time.Time, metrics []Metric) (*MetricBatch, error) {
-	charmUrl, ok := u.CharmURL()
-	if !ok {
-		return nil, stderrors.New("failed to add metrics, couldn't find charm url")
+// AddMetrics adds a new batch of metrics to the database.
+func (u *Unit) AddMetrics(batchUUID string, created time.Time, charmURLRaw string, metrics []Metric) (*MetricBatch, error) {
+	var charmURL *charm.URL
+	if charmURLRaw == "" {
+		var ok bool
+		charmURL, ok = u.CharmURL()
+		if !ok {
+			return nil, stderrors.New("failed to add metrics, couldn't find charm url")
+		}
+	} else {
+		var err error
+		charmURL, err = charm.ParseURL(charmURLRaw)
+		if err != nil {
+			return nil, errors.NewNotValid(err, "could not parse charm URL")
+		}
 	}
 	service, err := u.Service()
 	if err != nil {
 		return nil, errors.Annotatef(err, "couldn't retrieve service whilst adding metrics")
 	}
-	return u.st.addMetrics(u.UnitTag(), charmUrl, created, metrics, service.MetricCredentials())
+	batch := BatchParam{
+		UUID:        batchUUID,
+		CharmURL:    charmURL,
+		Created:     created,
+		Metrics:     metrics,
+		Credentials: service.MetricCredentials(),
+	}
+	return u.st.addMetrics(u.UnitTag(), batch)
 }
 
 // StorageConstraints returns the unit's storage constraints.

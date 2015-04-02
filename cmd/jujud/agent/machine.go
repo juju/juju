@@ -17,6 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/replicaset"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
@@ -51,7 +52,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
-	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
@@ -60,6 +60,7 @@ import (
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
@@ -67,7 +68,6 @@ import (
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/deployer"
-	"github.com/juju/juju/worker/diskformatter"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/envworkermanager"
 	"github.com/juju/juju/worker/firewaller"
@@ -723,24 +723,12 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			}
 			return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
 		})
-		runner.StartWorker("diskformatter", func() (worker.Worker, error) {
-			api, err := st.DiskFormatter()
-			if err != nil {
-				return nil, err
-			}
-			return diskformatter.NewWorker(api), nil
-		})
 		runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
-			api := st.StorageProvisioner(agentConfig.Tag())
+			scope := agentConfig.Tag()
+			api := st.StorageProvisioner(scope)
 			storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-			return newStorageWorker(storageDir, api, api, api, api), nil
+			return newStorageWorker(scope, storageDir, api, api, api, api), nil
 		})
-		if isEnvironManager {
-			runner.StartWorker("storageprovisioner-environ", func() (worker.Worker, error) {
-				api := st.StorageProvisioner(agentConfig.Environment())
-				return newStorageWorker("", api, api, api, api), nil
-			})
-		}
 	}
 
 	// Check if the network management is disabled.
@@ -1071,11 +1059,21 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("minunitsworker", func() (worker.Worker, error) {
 		return minunitsworker.NewMinUnitsWorker(st), nil
 	})
+	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
+		return addresser.NewWorker(st)
+	})
 
 	// Start workers that use an API connection.
 	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 		return provisioner.NewEnvironProvisioner(apiSt.Provisioner(), agentConfig), nil
 	})
+	if featureflag.Enabled(feature.Storage) {
+		singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
+			scope := agentConfig.Environment()
+			api := apiSt.StorageProvisioner(scope)
+			return newStorageWorker(scope, "", api, api, api, api), nil
+		})
+	}
 	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 		return charmrevisionworker.NewRevisionUpdateWorker(apiSt.CharmRevisionUpdater()), nil
 	})

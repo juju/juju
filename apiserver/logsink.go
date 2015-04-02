@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"time"
 
-	"code.google.com/p/go.net/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"golang.org/x/net/websocket"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"

@@ -21,8 +21,6 @@ type apiEnvironmentSuite struct {
 	client *api.Client
 }
 
-var _ = gc.Suite(&apiEnvironmentSuite{})
-
 func (s *apiEnvironmentSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error

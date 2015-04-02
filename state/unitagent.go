@@ -32,15 +32,17 @@ func (u *UnitAgent) String() string {
 }
 
 // Status returns the status of the unit.
-func (u *UnitAgent) Status() (status Status, info string, data map[string]interface{}, err error) {
+func (u *UnitAgent) Status() (StatusInfo, error) {
 	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
-		return "", "", nil, errors.Trace(err)
+		return StatusInfo{}, errors.Trace(err)
 	}
-	status = doc.Status
-	info = doc.StatusInfo
-	data = doc.StatusData
-	return
+	return StatusInfo{
+		Status:  doc.Status,
+		Message: doc.StatusInfo,
+		Data:    doc.StatusData,
+		Since:   doc.Updated,
+	}, nil
 }
 
 // SetStatus sets the status of the unit agent. The optional values

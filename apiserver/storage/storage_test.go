@@ -29,6 +29,10 @@ const (
 	storageInstanceFilesystemCall           = "StorageInstanceFilesystem"
 	storageInstanceFilesystemAttachmentCall = "storageInstanceFilesystemAttachment"
 	storageInstanceVolumeCall               = "storageInstanceVolume"
+	volumeCall                              = "volumeCall"
+	machineVolumeAttachmentsCall            = "machineVolumeAttachments"
+	volumeAttachmentsCall                   = "volumeAttachments"
+	allVolumesCall                          = "allVolumes"
 )
 
 func (s *storageSuite) TestStorageListEmpty(c *gc.C) {

@@ -192,27 +192,7 @@ type VolumeAttachmentParams struct {
 	VolumeTag  string `json:"volumetag"`
 	MachineTag string `json:"machinetag"`
 	InstanceId string `json:"instanceid,omitempty"`
-	VolumeId   string `json:"volumeid,omitempty"`
 	Provider   string `json:"provider"`
-}
-
-// VolumePreparationInfo holds the information regarding preparing
-// a storage volume for use.
-type VolumePreparationInfo struct {
-	NeedsFilesystem bool   `json:"needsfilesystem"`
-	DevicePath      string `json:"devicepath"`
-}
-
-// VolumePreparationInfoResult holds a singular VolumePreparationInfo
-// result, or an error.
-type VolumePreparationInfoResult struct {
-	Result VolumePreparationInfo `json:"result"`
-	Error  *Error                `json:"error,omitempty"`
-}
-
-// VolumePreparationInfoResult holds a set of VolumePreparationInfoResults.
-type VolumePreparationInfoResults struct {
-	Results []VolumePreparationInfoResult `json:"results,omitempty"`
 }
 
 // VolumeAttachmentsResult holds the volume attachments for a single
@@ -278,6 +258,7 @@ type VolumeAttachmentParamsResults struct {
 // Filesystem describes a storage filesystem in the environment.
 type Filesystem struct {
 	FilesystemTag string `json:"filesystemtag"`
+	VolumeTag     string `json:"volumetag,omitempty"`
 	FilesystemId  string `json:"filesystemid"`
 	// Size is the size of the filesystem in MiB.
 	Size uint64 `json:"size"`
@@ -303,6 +284,7 @@ type FilesystemAttachments struct {
 // FilesystemParams holds the parameters for creating a storage filesystem.
 type FilesystemParams struct {
 	FilesystemTag string                      `json:"filesystemtag"`
+	VolumeTag     string                      `json:"volumetag,omitempty"`
 	Size          uint64                      `json:"size"`
 	Provider      string                      `json:"provider"`
 	Attributes    map[string]interface{}      `json:"attributes,omitempty"`
@@ -315,7 +297,6 @@ type FilesystemAttachmentParams struct {
 	FilesystemTag string `json:"filesystemtag"`
 	MachineTag    string `json:"machinetag"`
 	InstanceId    string `json:"instanceid,omitempty"`
-	FilesystemId  string `json:"filesystemid,omitempty"`
 	Provider      string `json:"provider"`
 	MountPoint    string `json:"mountpoint,omitempty"`
 }
@@ -442,4 +423,64 @@ type StoragePoolFilter struct {
 // StoragePoolsResult holds a collection of pool instances.
 type StoragePoolsResult struct {
 	Results []StoragePool `json:"results,omitempty"`
+}
+
+// VolumeFilter holds a filter for volume list API call.
+type VolumeFilter struct {
+	// Machines are machine tags to filter on.
+	Machines []string `json:"machines,omitempty"`
+}
+
+// IsEmpty determines if filter is empty
+func (f *VolumeFilter) IsEmpty() bool {
+	return len(f.Machines) == 0
+}
+
+// VolumeInstance describes a storage volume in the environment
+// for the purpose of volume CLI commands.
+// It is kept separate from Volume which is primarily used in uniter
+// and may answer different concerns as well as serve different purposes.
+type VolumeInstance struct {
+
+	// VolumeTag is tag for this volume instance.
+	VolumeTag string `json:"volumetag"`
+
+	// VolumeId is a unique provider-supplied ID for the volume.
+	VolumeId string `json:"volumeid"`
+
+	// Serial is the volume's serial number.
+	Serial string `json:"serial,omitempty"`
+
+	// Size is the size of the volume in MiB.
+	Size uint64 `json:"size"`
+
+	// Persistent reflects whether the volume is destroyed with the
+	// machine to which it is attached.
+	Persistent bool `json:"persistent"`
+
+	// StorageInstance returns the tag of the storage instance that this
+	// volume is assigned to, if any.
+	StorageTag string `json:"storage,omitempty"`
+
+	// UnitTag is the tag of the unit attached to storage instance
+	// for this volume.
+	UnitTag string `json:"unit,omitempty"`
+}
+
+// VolumeItem contain volume, its attachments
+// and retrieval error.
+type VolumeItem struct {
+	// Volume is storage volume.
+	Volume VolumeInstance `json:"volume,omitempty"`
+
+	// Attachments are storage volume attachments.
+	Attachments []VolumeAttachment `json:"attachments,omitempty"`
+
+	// Error contains volume retrieval error.
+	Error *Error `json:"error,omitempty"`
+}
+
+// VolumeItemsResult holds volumes.
+type VolumeItemsResult struct {
+	Results []VolumeItem `json:"results,omitempty"`
 }

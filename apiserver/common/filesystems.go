@@ -26,11 +26,11 @@ func IsFilesystemAlreadyProvisioned(err error) bool {
 }
 
 // FilesystemParams returns the parameters for creating the given filesystem.
-func FilesystemParams(v state.Filesystem, poolManager poolmanager.PoolManager) (params.FilesystemParams, error) {
-	stateFilesystemParams, ok := v.Params()
+func FilesystemParams(f state.Filesystem, poolManager poolmanager.PoolManager) (params.FilesystemParams, error) {
+	stateFilesystemParams, ok := f.Params()
 	if !ok {
 		err := &filesystemAlreadyProvisionedError{fmt.Errorf(
-			"filesystem %q is already provisioned", v.Tag().Id(),
+			"filesystem %q is already provisioned", f.Tag().Id(),
 		)}
 		return params.FilesystemParams{}, err
 	}
@@ -39,13 +39,23 @@ func FilesystemParams(v state.Filesystem, poolManager poolmanager.PoolManager) (
 	if err != nil {
 		return params.FilesystemParams{}, errors.Trace(err)
 	}
-	return params.FilesystemParams{
-		v.Tag().String(),
+	result := params.FilesystemParams{
+		f.Tag().String(),
+		"", // volume tag
 		stateFilesystemParams.Size,
 		string(providerType),
 		cfg.Attrs(),
 		nil, // attachment params set by the caller
-	}, nil
+	}
+
+	volumeTag, err := f.Volume()
+	if err == nil {
+		result.VolumeTag = volumeTag.String()
+	} else if err != state.ErrNoBackingVolume {
+		return params.FilesystemParams{}, errors.Trace(err)
+	}
+
+	return result, nil
 }
 
 // FilesystemsToState converts a slice of params.Filesystem to a mapping
@@ -77,16 +87,24 @@ func FilesystemToState(v params.Filesystem) (names.FilesystemTag, state.Filesyst
 }
 
 // FilesystemFromState converts a state.Filesystem to params.Filesystem.
-func FilesystemFromState(v state.Filesystem) (params.Filesystem, error) {
-	info, err := v.Info()
+func FilesystemFromState(f state.Filesystem) (params.Filesystem, error) {
+	info, err := f.Info()
 	if err != nil {
 		return params.Filesystem{}, errors.Trace(err)
 	}
-	return params.Filesystem{
-		v.FilesystemTag().String(),
+	result := params.Filesystem{
+		f.FilesystemTag().String(),
+		"",
 		info.FilesystemId,
 		info.Size,
-	}, nil
+	}
+	volumeTag, err := f.Volume()
+	if err == nil {
+		result.VolumeTag = volumeTag.String()
+	} else if err != state.ErrNoBackingVolume {
+		return params.Filesystem{}, errors.Trace(err)
+	}
+	return result, nil
 }
 
 // FilesystemAttachmentToState converts a storage.FilesystemAttachment

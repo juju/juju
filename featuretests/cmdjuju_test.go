@@ -17,7 +17,9 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
@@ -126,4 +128,28 @@ settings:
 	context, err := testing.RunCommand(c, envcmd.Wrap(&service.GetCommand{}), "dummy-service")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
+}
+
+func (s *cmdJujuSuite) TestServiceAddUnitExistingContainer(c *gc.C) {
+	ch := s.AddTestingCharm(c, "dummy")
+	svc := s.AddTestingService(c, "some-service-name", ch)
+
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = testing.RunCommand(c, envcmd.Wrap(&service.AddUnitCommand{}), "some-service-name",
+		"--to", container.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := svc.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	mid, err := units[0].AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mid, gc.Equals, container.Id())
 }

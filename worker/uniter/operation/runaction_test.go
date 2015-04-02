@@ -203,6 +203,7 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 		newState, err := op.Execute(*midState)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(newState, jc.DeepEquals, &test.after)
+		c.Assert(callbacks.executingMessage, gc.Equals, "running action some-action-name")
 		c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running action some-action-name")
 		c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
 		c.Assert(*runnerFactory.MockNewActionRunner.runner.MockRunAction.gotName, gc.Equals, "some-action-name")

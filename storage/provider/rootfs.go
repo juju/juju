@@ -169,9 +169,9 @@ func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParam
 		return filesystem, errors.Errorf("filesystem is not big enough (%dM < %dM)", sizeInMiB, params.Size)
 	}
 	filesystem = storage.Filesystem{
-		params.Tag,
-		params.Tag.Id(), // FilesystemId
-		sizeInMiB,
+		Tag:          params.Tag,
+		FilesystemId: params.Tag.Id(),
+		Size:         sizeInMiB,
 	}
 	return filesystem, nil
 }

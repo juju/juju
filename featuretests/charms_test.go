@@ -17,8 +17,6 @@ type apiCharmsSuite struct {
 	charmsClient *charms.Client
 }
 
-var _ = gc.Suite(&apiCharmsSuite{})
-
 func (s *apiCharmsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.charmsClient = charms.NewClient(s.APIState)

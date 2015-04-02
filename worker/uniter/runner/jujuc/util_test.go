@@ -93,6 +93,10 @@ func (s *ContextSuite) GetStorageHookContext(c *gc.C, storageId string) *Context
 	}
 }
 
+func (s *ContextSuite) GetStatusHookContext(c *gc.C) *Context {
+	return &Context{}
+}
+
 func setSettings(c *gc.C, ru *state.RelationUnit, settings map[string]interface{}) {
 	node, err := ru.Settings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -116,6 +120,7 @@ type Context struct {
 	shouldError    bool
 	storageTag     names.StorageTag
 	storage        map[names.StorageTag]*ContextStorage
+	status         jujuc.StatusInfo
 }
 
 func (c *Context) AddMetric(key, value string, created time.Time) error {
@@ -128,6 +133,15 @@ func (c *Context) AddMetric(key, value string, created time.Time) error {
 
 func (c *Context) UnitName() string {
 	return "u/0"
+}
+
+func (c *Context) UnitStatus() (*jujuc.StatusInfo, error) {
+	return &c.status, nil
+}
+
+func (c *Context) SetUnitStatus(status jujuc.StatusInfo) error {
+	c.status = status
+	return nil
 }
 
 func (c *Context) PublicAddress() (string, bool) {

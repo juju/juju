@@ -188,12 +188,25 @@ func (f *factory) NewHookRunner(hookInfo hook.Info) (Runner, error) {
 	}
 	// Metrics are only sent from the collect-metrics hook.
 	if hookInfo.Kind == hooks.CollectMetrics {
-		ctx.canAddMetrics = true
 		ch, err := f.getCharm()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		ctx.definedMetrics = ch.Metrics()
+
+		chURL, err := f.unit.CharmURL()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		ctx.metricsRecorder, err = NewJSONMetricsRecorder(f.paths.GetMetricsSpoolDir(), chURL.String())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ctx.metricsReader, err = NewJSONMetricsReader(f.paths.GetMetricsSpoolDir())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	ctx.id = f.newId(hookName)
 	runner := NewRunner(ctx, f.paths)
@@ -269,7 +282,7 @@ func (f *factory) coreContext() (*HookContext, error) {
 		serviceOwner:       f.ownerTag,
 		relations:          f.getContextRelations(),
 		relationId:         -1,
-		canAddMetrics:      false,
+		metricsRecorder:    nil,
 		definedMetrics:     nil,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		storage:            f.storage,

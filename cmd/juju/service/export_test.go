@@ -23,3 +23,10 @@ func NewGetCommand(api GetServiceAPI) *GetCommand {
 		api: api,
 	}
 }
+
+// NewAddUnitCommand returns an AddUnitCommand with the api provided as specified.
+func NewAddUnitCommand(api ServiceAddUnitAPI) *AddUnitCommand {
+	return &AddUnitCommand{
+		api: api,
+	}
+}

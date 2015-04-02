@@ -6,6 +6,7 @@ package windows
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 
 	"github.com/juju/errors"
@@ -21,6 +22,11 @@ var (
 
 	renderer = &shell.PowershellRenderer{}
 )
+
+// IsRunning returns whether or not windows is the local init system.
+func IsRunning() (bool, error) {
+	return runtime.GOOS == "windows", nil
+}
 
 // ListServices returns the name of all installed services on the
 // local host.
@@ -74,7 +80,7 @@ func (s Service) Conf() common.Conf {
 
 // Validate checks the service for invalid values.
 func (s Service) Validate() error {
-	if err := s.Service.Validate(); err != nil {
+	if err := s.Service.Validate(renderer); err != nil {
 		return errors.Trace(err)
 	}
 

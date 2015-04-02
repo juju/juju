@@ -6,6 +6,8 @@ package operation
 import (
 	"fmt"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
@@ -56,6 +58,10 @@ func (rc *runCommands) Execute(state State) (*State, error) {
 		return nil, err
 	}
 	defer unlock()
+
+	if err := rc.callbacks.SetExecutingStatus("running commands"); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	response, err := rc.runner.RunCommands(rc.args.Commands)
 	switch err {

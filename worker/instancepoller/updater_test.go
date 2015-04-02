@@ -120,10 +120,10 @@ func (*updaterSuite) TestWatchMachinesWaitsForMachinePollers(c *gc.C) {
 
 func (s *updaterSuite) TestManualMachinesIgnored(c *gc.C) {
 	waitStatus := make(chan struct{})
-	s.PatchValue(&MachineStatus, func(m *testMachine) (status state.Status, info string, data map[string]interface{}, err error) {
+	s.PatchValue(&MachineStatus, func(m *testMachine) (state.StatusInfo, error) {
 		// Signal that we're in Status.
 		waitStatus <- struct{}{}
-		return state.StatusPending, "", map[string]interface{}{}, nil
+		return state.StatusInfo{state.StatusPending, "", map[string]interface{}{}, nil}, nil
 	})
 	m := &testMachine{
 		id:         "99",

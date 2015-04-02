@@ -10,7 +10,7 @@ import (
 	"net"
 	"strconv"
 
-	"code.google.com/p/go.net/websocket"
+	"golang.org/x/net/websocket"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -215,6 +215,11 @@ func (s *apiclientSuite) TestOpenHonorsEnvironTag(c *gc.C) {
 	st, err = api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
+}
+
+func (s *apiclientSuite) TestServerRoot(c *gc.C) {
+	url := api.ServerRoot(s.APIState.Client())
+	c.Assert(url, gc.Matches, "https://localhost:[0-9]+")
 }
 
 func (s *apiclientSuite) TestDialWebsocketStopped(c *gc.C) {

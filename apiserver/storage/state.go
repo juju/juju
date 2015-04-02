@@ -11,17 +11,50 @@ import (
 )
 
 type storageAccess interface {
+	// StorageInstance is required for storage functionality.
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
+
+	// AllStorageInstances is required for storage functionality.
 	AllStorageInstances() ([]state.StorageInstance, error)
+
+	// StorageAttachments is required for storage functionality.
 	StorageAttachments(names.StorageTag) ([]state.StorageAttachment, error)
+
+	// UnitAssignedMachine is required for storage functionality.
 	UnitAssignedMachine(names.UnitTag) (names.MachineTag, error)
+
+	// FilesystemAttachment is required for storage functionality.
 	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
+
+	// StorageInstanceFilesystem is required for storage functionality.
 	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
+
+	// StorageInstanceVolume is required for storage functionality.
 	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
+
+	// VolumeAttachment is required for storage functionality.
 	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
+
+	// WatchFilesystemAttachment is required for storage functionality.
 	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
+
+	// WatchVolumeAttachment is required for storage functionality.
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+
+	// EnvName is required for pool functionality.
 	EnvName() (string, error)
+
+	// AllVolumes is required for volume functionality.
+	AllVolumes() ([]state.Volume, error)
+
+	// VolumeAttachments is required for volume functionality.
+	VolumeAttachments(volume names.VolumeTag) ([]state.VolumeAttachment, error)
+
+	// MachineVolumeAttachments is required for volume functionality.
+	MachineVolumeAttachments(machine names.MachineTag) ([]state.VolumeAttachment, error)
+
+	// Volume is required for volume functionality.
+	Volume(tag names.VolumeTag) (state.Volume, error)
 }
 
 var getState = func(st *state.State) storageAccess {

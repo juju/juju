@@ -114,9 +114,11 @@ func newMockEnvironAccessor(c *gc.C) *mockEnvironAccessor {
 type mockVolumeAccessor struct {
 	volumesWatcher         *mockStringsWatcher
 	attachmentsWatcher     *mockAttachmentsWatcher
+	blockDevicesWatcher    *mockNotifyWatcher
 	provisionedMachines    map[string]instance.Id
 	provisionedVolumes     map[string]params.Volume
 	provisionedAttachments map[params.MachineStorageId]params.VolumeAttachment
+	blockDevices           map[params.MachineStorageId]storage.BlockDevice
 
 	setVolumeInfo           func([]params.Volume) ([]params.ErrorResult, error)
 	setVolumeAttachmentInfo func([]params.VolumeAttachment) ([]params.ErrorResult, error)
@@ -128,6 +130,10 @@ func (w *mockVolumeAccessor) WatchVolumes() (apiwatcher.StringsWatcher, error) {
 
 func (w *mockVolumeAccessor) WatchVolumeAttachments() (apiwatcher.MachineStorageIdsWatcher, error) {
 	return w.attachmentsWatcher, nil
+}
+
+func (w *mockVolumeAccessor) WatchBlockDevices(tag names.MachineTag) (apiwatcher.NotifyWatcher, error) {
+	return w.blockDevicesWatcher, nil
 }
 
 func (v *mockVolumeAccessor) Volumes(volumes []names.VolumeTag) ([]params.VolumeResult, error) {
@@ -152,6 +158,20 @@ func (v *mockVolumeAccessor) VolumeAttachments(ids []params.MachineStorageId) ([
 		} else {
 			result = append(result, params.VolumeAttachmentResult{
 				Error: common.ServerError(errors.NotProvisionedf("volume attachment %v", id)),
+			})
+		}
+	}
+	return result, nil
+}
+
+func (v *mockVolumeAccessor) VolumeBlockDevices(ids []params.MachineStorageId) ([]params.BlockDeviceResult, error) {
+	var result []params.BlockDeviceResult
+	for _, id := range ids {
+		if dev, ok := v.blockDevices[id]; ok {
+			result = append(result, params.BlockDeviceResult{Result: dev})
+		} else {
+			result = append(result, params.BlockDeviceResult{
+				Error: common.ServerError(errors.NotFoundf("block device for volume attachment %v", id)),
 			})
 		}
 	}
@@ -196,12 +216,10 @@ func (v *mockVolumeAccessor) VolumeAttachmentParams(ids []params.MachineStorageI
 			})
 		} else {
 			instanceId, _ := v.provisionedMachines[id.MachineTag]
-			volume, _ := v.provisionedVolumes[id.AttachmentTag]
 			result = append(result, params.VolumeAttachmentParamsResult{Result: params.VolumeAttachmentParams{
 				MachineTag: id.MachineTag,
 				VolumeTag:  id.AttachmentTag,
 				InstanceId: string(instanceId),
-				VolumeId:   volume.VolumeId,
 				Provider:   "dummy",
 			}})
 		}
@@ -221,9 +239,11 @@ func newMockVolumeAccessor() *mockVolumeAccessor {
 	return &mockVolumeAccessor{
 		volumesWatcher:         &mockStringsWatcher{make(chan []string, 1)},
 		attachmentsWatcher:     &mockAttachmentsWatcher{make(chan []params.MachineStorageId, 1)},
+		blockDevicesWatcher:    &mockNotifyWatcher{make(chan struct{}, 1)},
 		provisionedMachines:    make(map[string]instance.Id),
 		provisionedVolumes:     make(map[string]params.Volume),
 		provisionedAttachments: make(map[params.MachineStorageId]params.VolumeAttachment),
+		blockDevices:           make(map[params.MachineStorageId]storage.BlockDevice),
 	}
 }
 
@@ -287,6 +307,11 @@ func (v *mockFilesystemAccessor) FilesystemParams(filesystems []names.Filesystem
 				Size:          1024,
 				Provider:      "dummy",
 			}
+			if _, ok := names.FilesystemMachine(tag); ok {
+				// place all volume-backed filesystems on machine-scoped
+				// volumes with the same ID as the filesystem.
+				filesystemParams.VolumeTag = names.NewVolumeTag(tag.Id()).String()
+			}
 			result = append(result, params.FilesystemParamsResult{Result: filesystemParams})
 		}
 	}
@@ -302,12 +327,10 @@ func (f *mockFilesystemAccessor) FilesystemAttachmentParams(ids []params.Machine
 			})
 		} else {
 			instanceId, _ := f.provisionedMachines[id.MachineTag]
-			filesystem, _ := f.provisionedFilesystems[id.AttachmentTag]
 			result = append(result, params.FilesystemAttachmentParamsResult{Result: params.FilesystemAttachmentParams{
 				MachineTag:    id.MachineTag,
 				FilesystemTag: id.AttachmentTag,
 				InstanceId:    string(instanceId),
-				FilesystemId:  filesystem.FilesystemId,
 				Provider:      "dummy",
 			}})
 		}
@@ -459,6 +482,10 @@ func (*dummyVolumeSource) AttachVolumes(params []storage.VolumeAttachmentParams)
 	return volumeAttachments, nil
 }
 
+func (*dummyFilesystemSource) ValidateFilesystemParams(params storage.FilesystemParams) error {
+	return nil
+}
+
 // CreateFilesystems makes some filesystems that we can check later to ensure things went as expected.
 func (*dummyFilesystemSource) CreateFilesystems(params []storage.FilesystemParams) ([]storage.Filesystem, error) {
 	var filesystems []storage.Filesystem
@@ -489,4 +516,59 @@ func (*dummyFilesystemSource) AttachFilesystems(params []storage.FilesystemAttac
 		})
 	}
 	return filesystemAttachments, nil
+}
+
+type mockManagedFilesystemSource struct {
+	blockDevices map[names.VolumeTag]storage.BlockDevice
+	filesystems  map[names.FilesystemTag]storage.Filesystem
+}
+
+func (s *mockManagedFilesystemSource) ValidateFilesystemParams(params storage.FilesystemParams) error {
+	return nil
+}
+
+func (s *mockManagedFilesystemSource) CreateFilesystems(args []storage.FilesystemParams) ([]storage.Filesystem, error) {
+	var filesystems []storage.Filesystem
+	for _, arg := range args {
+		blockDevice, ok := s.blockDevices[arg.Volume]
+		if !ok {
+			return nil, errors.Errorf("filesystem %v's backing-volume is not attached", arg.Tag.Id())
+		}
+		filesystems = append(filesystems, storage.Filesystem{
+			Tag:          arg.Tag,
+			Size:         blockDevice.Size,
+			FilesystemId: blockDevice.DeviceName,
+		})
+	}
+	return filesystems, nil
+}
+
+func (s *mockManagedFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.FilesystemAttachment, error) {
+	var filesystemAttachments []storage.FilesystemAttachment
+	for _, arg := range args {
+		if arg.FilesystemId == "" {
+			panic("AttachFilesystems called with unprovisioned filesystem")
+		}
+		if arg.InstanceId == "" {
+			panic("AttachFilesystems called with unprovisioned machine")
+		}
+		filesystem, ok := s.filesystems[arg.Filesystem]
+		if !ok {
+			return nil, errors.Errorf("filesystem %v has not been created", arg.Filesystem.Id())
+		}
+		blockDevice, ok := s.blockDevices[filesystem.Volume]
+		if !ok {
+			return nil, errors.Errorf("filesystem %v's backing-volume is not attached", filesystem.Tag.Id())
+		}
+		filesystemAttachments = append(filesystemAttachments, storage.FilesystemAttachment{
+			Filesystem: arg.Filesystem,
+			Machine:    arg.Machine,
+			Path:       "/mnt/" + blockDevice.DeviceName,
+		})
+	}
+	return filesystemAttachments, nil
+}
+
+func (s *mockManagedFilesystemSource) DetachFilesystems(params []storage.FilesystemAttachmentParams) error {
+	return errors.NotImplementedf("DetachFilesystems")
 }

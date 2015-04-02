@@ -1,3 +1,6 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package service
 
 import (
@@ -58,9 +61,6 @@ type Service interface {
 
 	// Conf returns the service's conf data.
 	Conf() common.Conf
-
-	// UpdateConfig adds a config to the service, overwriting the current one.
-	UpdateConfig(conf common.Conf)
 
 	// Running returns a boolean value that denotes
 	// whether or not the service is running.
@@ -152,10 +152,13 @@ func ListServices() ([]string, error) {
 // ListServicesScript returns the commands that should be run to get
 // a list of service names on a host.
 func ListServicesScript() string {
-	const filename = "/tmp/discover_init_system.sh"
-	commands := writeDiscoverInitSystemScript(filename)
-	commands = append(commands, "init_system=$("+filename+")")
-	commands = append(commands, newShellSelectCommand("init_system", listServicesCommand))
+	commands := []string{
+		"init_system=$(" + DiscoverInitSystemScript() + ")",
+		// If the init system is not identified then the script will
+		// "exit 1". This is correct since the script should fail if no
+		// init system can be identified.
+		newShellSelectCommand("init_system", "exit 1", listServicesCommand),
+	}
 	return strings.Join(commands, "\n")
 }
 

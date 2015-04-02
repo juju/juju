@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type RunHookSuite struct {
@@ -187,7 +188,7 @@ func (s *RunHookSuite) TestExecuteLockError_Retry(c *gc.C) {
 	s.testExecuteLockError(c, (operation.Factory).NewRetryHook)
 }
 
-func (s *RunHookSuite) getExecuteRunnerTest(c *gc.C, newHook newHook, runErr error) (operation.Operation, *ExecuteHookCallbacks, *MockRunnerFactory) {
+func (s *RunHookSuite) getExecuteRunnerTest(c *gc.C, newHook newHook, kind hooks.Kind, runErr error) (operation.Operation, *ExecuteHookCallbacks, *MockRunnerFactory) {
 	runnerFactory := NewRunHookRunnerFactory(runErr)
 	callbacks := &ExecuteHookCallbacks{
 		PrepareHookCallbacks:     NewPrepareHookCallbacks(),
@@ -196,14 +197,14 @@ func (s *RunHookSuite) getExecuteRunnerTest(c *gc.C, newHook newHook, runErr err
 		MockNotifyHookFailed:     &MockNotify{},
 	}
 	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil, nil)
-	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
+	op, err := newHook(factory, hook.Info{Kind: kind})
 	c.Assert(err, jc.ErrorIsNil)
 	return op, callbacks, runnerFactory
 }
 
 func (s *RunHookSuite) testExecuteMissingHookError(c *gc.C, newHook newHook) {
 	runErr := runner.NewMissingHookError("blah-blah")
-	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, newHook, runErr)
+	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, newHook, hooks.ConfigChanged, runErr)
 	_, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -231,7 +232,7 @@ func (s *RunHookSuite) TestExecuteMissingHookError_Retry(c *gc.C) {
 
 func (s *RunHookSuite) testExecuteRequeueRebootError(c *gc.C, newHook newHook) {
 	runErr := runner.ErrRequeueAndReboot
-	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, newHook, runErr)
+	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, newHook, hooks.ConfigChanged, runErr)
 	_, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -260,7 +261,7 @@ func (s *RunHookSuite) TestExecuteRequeueRebootError_Retry(c *gc.C) {
 
 func (s *RunHookSuite) testExecuteRebootError(c *gc.C, newHook newHook) {
 	runErr := runner.ErrReboot
-	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, newHook, runErr)
+	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, newHook, hooks.ConfigChanged, runErr)
 	_, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -289,7 +290,7 @@ func (s *RunHookSuite) TestExecuteRebootError_Retry(c *gc.C) {
 
 func (s *RunHookSuite) testExecuteOtherError(c *gc.C, newHook newHook) {
 	runErr := errors.New("graaargh")
-	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, newHook, runErr)
+	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, newHook, hooks.ConfigChanged, runErr)
 	_, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -313,9 +314,10 @@ func (s *RunHookSuite) TestExecuteOtherError_Retry(c *gc.C) {
 }
 
 func (s *RunHookSuite) testExecuteSuccess(
-	c *gc.C, newHook newHook, before, after operation.State,
+	c *gc.C, newHook newHook, before, after operation.State, setStatusCalled bool,
 ) {
-	op, _, _ := s.getExecuteRunnerTest(c, newHook, nil)
+	op, callbacks, f := s.getExecuteRunnerTest(c, newHook, hooks.ConfigChanged, nil)
+	f.MockNewHookRunner.runner.MockRunHook.setStatusCalled = setStatusCalled
 	midState, err := op.Prepare(before)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(midState, gc.NotNil)
@@ -323,6 +325,7 @@ func (s *RunHookSuite) testExecuteSuccess(
 	newState, err := op.Execute(*midState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.DeepEquals, &after)
+	c.Check(callbacks.executingMessage, gc.Equals, "running hook some-hook-name")
 }
 
 func (s *RunHookSuite) TestExecuteSuccess_BlankSlate(c *gc.C) {
@@ -335,10 +338,12 @@ func (s *RunHookSuite) TestExecuteSuccess_BlankSlate(c *gc.C) {
 			newHook,
 			operation.State{},
 			operation.State{
-				Kind: operation.RunHook,
-				Step: operation.Done,
-				Hook: &hook.Info{Kind: hooks.ConfigChanged},
+				Kind:      operation.RunHook,
+				Step:      operation.Done,
+				Hook:      &hook.Info{Kind: hooks.ConfigChanged},
+				StatusSet: true,
 			},
+			true,
 		)
 	}
 }
@@ -358,8 +363,124 @@ func (s *RunHookSuite) TestExecuteSuccess_Preserve(c *gc.C) {
 				Kind:               operation.RunHook,
 				Step:               operation.Done,
 				Hook:               &hook.Info{Kind: hooks.ConfigChanged},
+				StatusSet:          true,
 			},
+			true,
 		)
+	}
+}
+
+func (s *RunHookSuite) testExecuteThenCharmStatus(
+	c *gc.C, newHook newHook, before, after operation.State, kind hooks.Kind, setStatusCalled bool,
+) {
+	op, _, f := s.getExecuteRunnerTest(c, newHook, kind, nil)
+	f.MockNewHookRunner.runner.MockRunHook.setStatusCalled = setStatusCalled
+	midState, err := op.Prepare(before)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(midState, gc.NotNil)
+
+	status, err := f.MockNewHookRunner.runner.Context().UnitStatus()
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Execute(*midState)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newState, gc.DeepEquals, &after)
+
+	status, err = f.MockNewHookRunner.runner.Context().UnitStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	testAfterHookStatus(c, kind, status, after.StatusSet)
+}
+
+func testBeforeHookStatus(c *gc.C, kind hooks.Kind, status *jujuc.StatusInfo) {
+	switch kind {
+	case hooks.Install:
+		c.Assert(status.Status, gc.Equals, "maintenance")
+		c.Assert(status.Info, gc.Equals, "installing charm software")
+	case hooks.Stop:
+		c.Assert(string(status.Status), gc.Equals, "maintenance")
+		c.Assert(status.Info, gc.Equals, "cleaning up prior to charm deletion")
+	default:
+		c.Assert(string(status.Status), gc.Equals, "")
+	}
+}
+
+func testAfterHookStatus(c *gc.C, kind hooks.Kind, status *jujuc.StatusInfo, statusSetCalled bool) {
+	switch kind {
+	case hooks.Install:
+		c.Assert(status.Status, gc.Equals, "maintenance")
+		c.Assert(status.Info, gc.Equals, "installing charm software")
+	case hooks.Start:
+		if statusSetCalled {
+			c.Assert(string(status.Status), gc.Equals, "")
+		} else {
+			c.Assert(status.Status, gc.Equals, "unknown")
+		}
+	case hooks.Stop:
+		c.Assert(status.Status, gc.Equals, "terminated")
+	default:
+		c.Assert(string(status.Status), gc.Equals, "")
+	}
+}
+
+func (s *RunHookSuite) testBeforeHookExecute(c *gc.C, newHook newHook, kind hooks.Kind) {
+	// To check what happens in the beforeHook() call, we run a hook with an error
+	// so that it does not complete successfully and thus afterHook() does not run,
+	// overwriting the values.
+	runErr := errors.New("graaargh")
+	op, _, runnerFactory := s.getExecuteRunnerTest(c, newHook, kind, runErr)
+	_, err := op.Prepare(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Execute(operation.State{})
+	c.Assert(err, gc.Equals, operation.ErrHookFailed)
+	c.Assert(newState, gc.IsNil)
+
+	status, err := runnerFactory.MockNewHookRunner.runner.Context().UnitStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	testBeforeHookStatus(c, kind, status)
+}
+
+func (s *RunHookSuite) TestBeforeHookStatus(c *gc.C) {
+	for _, kind := range hooks.UnitHooks() {
+		c.Logf("hook %v", kind)
+		for i, newHook := range []newHook{
+			(operation.Factory).NewRunHook,
+			(operation.Factory).NewRetryHook,
+		} {
+			c.Logf("variant %d", i)
+			s.testBeforeHookExecute(c, newHook, kind)
+		}
+	}
+}
+
+func (s *RunHookSuite) testExecuteHookWithSetStatus(c *gc.C, kind hooks.Kind, setStatusCalled bool) {
+	for i, newHook := range []newHook{
+		(operation.Factory).NewRunHook,
+		(operation.Factory).NewRetryHook,
+	} {
+		c.Logf("variant %d", i)
+		s.testExecuteThenCharmStatus(c,
+			newHook,
+			overwriteState,
+			operation.State{
+				Started:            true,
+				CollectMetricsTime: 1234567,
+				Kind:               operation.RunHook,
+				Step:               operation.Done,
+				Hook:               &hook.Info{Kind: kind},
+				StatusSet:          setStatusCalled,
+			},
+			kind,
+			setStatusCalled,
+		)
+	}
+}
+
+func (s *RunHookSuite) TestExecuteHookWithSetStatus(c *gc.C) {
+	for _, kind := range hooks.UnitHooks() {
+		c.Logf("hook %v", kind)
+		s.testExecuteHookWithSetStatus(c, kind, true)
+		s.testExecuteHookWithSetStatus(c, kind, false)
 	}
 }
 

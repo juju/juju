@@ -70,6 +70,31 @@ func (u *Unit) SetUnitStatus(status params.Status, info string, data map[string]
 	return result.OneError()
 }
 
+// UnitStatus gets the status details of the unit.
+func (u *Unit) UnitStatus() (params.StatusResult, error) {
+	var results params.StatusResults
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: u.tag.String()},
+		},
+	}
+	err := u.st.facade.FacadeCall("UnitStatus", args, &results)
+	if err != nil {
+		if params.IsCodeNotImplemented(err) {
+			return params.StatusResult{}, errors.NotImplementedf("UnitStatus")
+		}
+		return params.StatusResult{}, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return params.StatusResult{}, result.Error
+	}
+	return result, nil
+}
+
 // SetAgentStatus sets the status of the unit agent.
 func (u *Unit) SetAgentStatus(status params.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults

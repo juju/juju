@@ -7,20 +7,29 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.storageprovisioner")
 
+var newManagedFilesystemSource = provider.NewManagedFilesystemSource
+
 // VolumeAccessor defines an interface used to allow a storage provisioner
 // worker to perform volume related operations.
 type VolumeAccessor interface {
+	// WatchBlockDevices watches for changes to the block devices of the
+	// specified machine.
+	WatchBlockDevices(names.MachineTag) (apiwatcher.NotifyWatcher, error)
+
 	// WatchVolumes watches for changes to volumes that this storage
 	// provisioner is responsible for.
 	WatchVolumes() (apiwatcher.StringsWatcher, error)
@@ -31,6 +40,10 @@ type VolumeAccessor interface {
 
 	// Volumes returns details of volumes with the specified tags.
 	Volumes([]names.VolumeTag) ([]params.VolumeResult, error)
+
+	// VolumeBlockDevices returns details of block devices corresponding to
+	// the specified volume attachment IDs.
+	VolumeBlockDevices([]params.MachineStorageId) ([]params.BlockDeviceResult, error)
 
 	// VolumeAttachments returns details of volume attachments with
 	// the specified tags.
@@ -130,6 +143,7 @@ type EnvironAccessor interface {
 // will not. If the directory path is non-empty, then it
 // will be passed to the storage source via its config.
 func NewStorageProvisioner(
+	scope names.Tag,
 	storageDir string,
 	v VolumeAccessor,
 	f FilesystemAccessor,
@@ -137,6 +151,7 @@ func NewStorageProvisioner(
 	e EnvironAccessor,
 ) worker.Worker {
 	w := &storageprovisioner{
+		scope:       scope,
 		storageDir:  storageDir,
 		volumes:     v,
 		filesystems: f,
@@ -152,6 +167,7 @@ func NewStorageProvisioner(
 
 type storageprovisioner struct {
 	tomb        tomb.Tomb
+	scope       names.Tag
 	storageDir  string
 	volumes     VolumeAccessor
 	filesystems FilesystemAccessor
@@ -179,6 +195,8 @@ func (w *storageprovisioner) loop() error {
 	var filesystemAttachmentsWatcher apiwatcher.MachineStorageIdsWatcher
 	var volumeAttachmentsChanges <-chan []params.MachineStorageId
 	var filesystemAttachmentsChanges <-chan []params.MachineStorageId
+	var machineBlockDevicesWatcher apiwatcher.NotifyWatcher
+	var machineBlockDevicesChanges <-chan struct{}
 
 	environConfigWatcher, err := w.environ.WatchForEnvironConfigChanges()
 	if err != nil {
@@ -186,6 +204,17 @@ func (w *storageprovisioner) loop() error {
 	}
 	defer watcher.Stop(environConfigWatcher, &w.tomb)
 	environConfigChanges = environConfigWatcher.Changes()
+
+	// Machine-scoped provisioners need to watch block devices, to create
+	// volume-backed filesystems.
+	if machineTag, ok := w.scope.(names.MachineTag); ok {
+		machineBlockDevicesWatcher, err = w.volumes.WatchBlockDevices(machineTag)
+		if err != nil {
+			return errors.Annotate(err, "watching block devices")
+		}
+		defer watcher.Stop(machineBlockDevicesWatcher, &w.tomb)
+		machineBlockDevicesChanges = machineBlockDevicesWatcher.Changes()
+	}
 
 	// The other watchers are started dynamically; stop only if started.
 	defer w.maybeStopWatcher(volumesWatcher)
@@ -219,13 +248,31 @@ func (w *storageprovisioner) loop() error {
 	}
 
 	ctx := context{
-		storageDir:  w.storageDir,
-		volumes:     w.volumes,
-		filesystems: w.filesystems,
-		life:        w.life,
+		scope:                        w.scope,
+		storageDir:                   w.storageDir,
+		volumeAccessor:               w.volumes,
+		filesystemAccessor:           w.filesystems,
+		life:                         w.life,
+		volumes:                      make(map[names.VolumeTag]storage.Volume),
+		volumeAttachments:            make(map[params.MachineStorageId]storage.VolumeAttachment),
+		volumeBlockDevices:           make(map[names.VolumeTag]storage.BlockDevice),
+		filesystems:                  make(map[names.FilesystemTag]storage.Filesystem),
+		filesystemAttachments:        make(map[params.MachineStorageId]storage.FilesystemAttachment),
+		pendingVolumeAttachments:     make(map[params.MachineStorageId]storage.VolumeAttachmentParams),
+		pendingVolumeBlockDevices:    make(set.Tags),
+		pendingFilesystems:           make(map[names.FilesystemTag]storage.FilesystemParams),
+		pendingFilesystemAttachments: make(map[params.MachineStorageId]storage.FilesystemAttachmentParams),
 	}
+	ctx.managedFilesystemSource = newManagedFilesystemSource(
+		ctx.volumeBlockDevices, ctx.filesystems,
+	)
 
 	for {
+		// Check if any pending operations can be fulfilled.
+		if err := processPending(&ctx); err != nil {
+			return errors.Trace(err)
+		}
+
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
@@ -273,8 +320,33 @@ func (w *storageprovisioner) loop() error {
 			if err := filesystemAttachmentsChanged(&ctx, changes); err != nil {
 				return errors.Trace(err)
 			}
+		case _, ok := <-machineBlockDevicesChanges:
+			if !ok {
+				return watcher.EnsureErr(machineBlockDevicesWatcher)
+			}
+			if err := machineBlockDevicesChanged(&ctx); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
+}
+
+// processPending checks if the pending operations' prerequisites have
+// been met, and processes them if so.
+func processPending(ctx *context) error {
+	if err := processPendingVolumeAttachments(ctx); err != nil {
+		return errors.Annotate(err, "processing pending volume attachments")
+	}
+	if err := processPendingVolumeBlockDevices(ctx); err != nil {
+		return errors.Annotate(err, "processing pending block devices")
+	}
+	if err := processPendingFilesystems(ctx); err != nil {
+		return errors.Annotate(err, "processing pending filesystems")
+	}
+	if err := processPendingFilesystemAttachments(ctx); err != nil {
+		return errors.Annotate(err, "processing pending filesystem attachments")
+	}
+	return nil
 }
 
 func (p *storageprovisioner) maybeStopWatcher(w watcher.Stopper) {
@@ -284,9 +356,48 @@ func (p *storageprovisioner) maybeStopWatcher(w watcher.Stopper) {
 }
 
 type context struct {
-	environConfig *config.Config
-	storageDir    string
-	volumes       VolumeAccessor
-	filesystems   FilesystemAccessor
-	life          LifecycleManager
+	scope              names.Tag
+	environConfig      *config.Config
+	storageDir         string
+	volumeAccessor     VolumeAccessor
+	filesystemAccessor FilesystemAccessor
+	life               LifecycleManager
+
+	// volumes contains information about provisioned volumes.
+	volumes map[names.VolumeTag]storage.Volume
+
+	// volumeAttachments contains information about attached volumes.
+	volumeAttachments map[params.MachineStorageId]storage.VolumeAttachment
+
+	// volumeBlockDevices contains information about block devices
+	// corresponding to volumes attached to the scope-machine. This
+	// is only used by the machine-scoped storage provisioner.
+	volumeBlockDevices map[names.VolumeTag]storage.BlockDevice
+
+	// filesystems contains information about provisioned filesystems.
+	filesystems map[names.FilesystemTag]storage.Filesystem
+
+	// filesystemAttachments contains information about attached filesystems.
+	filesystemAttachments map[params.MachineStorageId]storage.FilesystemAttachment
+
+	// pendingVolumeAttachments contains parameters for volume attachments
+	// that are yet to be created.
+	pendingVolumeAttachments map[params.MachineStorageId]storage.VolumeAttachmentParams
+
+	// pendingVolumeBlockDevices contains the tags of volumes about whose
+	// block devices we wish to enquire.
+	pendingVolumeBlockDevices set.Tags
+
+	// pendingFilesystems contains parameters for filesystems that are
+	// yet to be created.
+	pendingFilesystems map[names.FilesystemTag]storage.FilesystemParams
+
+	// pendingFilesystemAttachments contains parameters for filesystem attachments
+	// that are yet to be created.
+	pendingFilesystemAttachments map[params.MachineStorageId]storage.FilesystemAttachmentParams
+
+	// managedFilesystemSource is a storage.FilesystemSource that
+	// manages filesystems backed by volumes attached to the host
+	// machine.
+	managedFilesystemSource storage.FilesystemSource
 }

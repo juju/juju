@@ -4,11 +4,14 @@
 package storage_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -17,28 +20,32 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type PoolListSuite struct {
+type poolListSuite struct {
 	SubStorageSuite
 	mockAPI *mockPoolListAPI
 }
 
-var _ = gc.Suite(&PoolListSuite{})
+var _ = gc.Suite(&poolListSuite{})
 
-func (s *PoolListSuite) SetUpTest(c *gc.C) {
+func (s *poolListSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
-	s.mockAPI = &mockPoolListAPI{}
-	s.PatchValue(storage.GetPoolListAPI, func(c *storage.PoolListCommand) (storage.PoolListAPI, error) {
-		return s.mockAPI, nil
-	})
+	s.mockAPI = &mockPoolListAPI{
+		attrs: map[string]interface{}{"key": "value", "one": "1", "two": 2},
+	}
+	s.PatchValue(storage.GetPoolListAPI,
+		func(c *storage.PoolListCommand) (storage.PoolListAPI, error) {
+			return s.mockAPI, nil
+		})
 
 }
 
 func runPoolList(c *gc.C, args []string) (*cmd.Context, error) {
-	return testing.RunCommand(c, envcmd.Wrap(&storage.PoolListCommand{}), args...)
+	return testing.RunCommand(c,
+		envcmd.Wrap(&storage.PoolListCommand{}), args...)
 }
 
-func (s *PoolListSuite) TestPoolListEmpty(c *gc.C) {
+func (s *poolListSuite) TestPoolListEmpty(c *gc.C) {
 	// Both arguments - names and provider types - are optional.
 	// When none are supplied, all registered pools are listed.
 	// As this test uses mock api, no pools are registered by default.
@@ -50,52 +57,32 @@ func (s *PoolListSuite) TestPoolListEmpty(c *gc.C) {
 	)
 }
 
-func (s *PoolListSuite) TestPoolList(c *gc.C) {
-	s.assertValidList(
-		c,
-		[]string{"--provider", "a", "--provider", "b", "--name", "xyz", "--name", "abc"},
-		// Default format is yaml
-		`
-abc:
-  provider: testType
-  attrs:
-    one: true
-    three: maybe
-    two: well
-testName0:
-  provider: a
-  attrs:
-    one: true
-    three: maybe
-    two: well
-testName1:
-  provider: b
-  attrs:
-    one: true
-    three: maybe
-    two: well
-xyz:
-  provider: testType
-  attrs:
-    one: true
-    three: maybe
-    two: well
-`[1:],
-	)
+const (
+	providerA = "a"
+	providerB = "b"
+
+	nameABC = "abc"
+	nameXYZ = "xyz"
+)
+
+func (s *poolListSuite) TestPoolList(c *gc.C) {
+	s.assertUnmarshalledOutput(c, goyaml.Unmarshal,
+		"--provider", providerA,
+		"--provider", providerB,
+		"--name", nameABC,
+		"--name", nameXYZ)
 }
 
-func (s *PoolListSuite) TestPoolListJSON(c *gc.C) {
-	s.assertValidList(
-		c,
-		[]string{"--provider", "a", "--provider", "b",
-			"--name", "xyz", "--name", "abc",
-			"--format", "json"},
-		`{"abc":{"provider":"testType","attrs":{"one":true,"three":"maybe","two":"well"}},"testName0":{"provider":"a","attrs":{"one":true,"three":"maybe","two":"well"}},"testName1":{"provider":"b","attrs":{"one":true,"three":"maybe","two":"well"}},"xyz":{"provider":"testType","attrs":{"one":true,"three":"maybe","two":"well"}}}
-`,
-	)
+func (s *poolListSuite) TestPoolListJSON(c *gc.C) {
+	s.assertUnmarshalledOutput(c, json.Unmarshal,
+		"--provider", providerA,
+		"--provider", providerB,
+		"--name", nameABC,
+		"--name", nameXYZ,
+		"--format", "json")
 }
 
-func (s *PoolListSuite) TestPoolListTabular(c *gc.C) {
+func (s *poolListSuite) TestPoolListTabular(c *gc.C) {
 	s.assertValidList(
 		c,
 		[]string{"--provider", "a", "--provider", "b",
@@ -103,29 +90,82 @@ func (s *PoolListSuite) TestPoolListTabular(c *gc.C) {
 			"--format", "tabular"},
 		`
 NAME       PROVIDER  ATTRS
-abc        testType  one=true two=well three=maybe
-testName0  a         one=true two=well three=maybe
-testName1  b         one=true two=well three=maybe
-xyz        testType  one=true two=well three=maybe
+abc        testType  key=value one=1 two=2
+testName0  a         key=value one=1 two=2
+testName1  b         key=value one=1 two=2
+xyz        testType  key=value one=1 two=2
 
 `[1:])
 }
 
-func (s *PoolListSuite) TestPoolListTabularSorted(c *gc.C) {
+func (s *poolListSuite) TestPoolListTabularSortedWithAttrs(c *gc.C) {
+	s.mockAPI.attrs = map[string]interface{}{
+		"a": true, "c": "well", "b": "maybe"}
+
 	s.assertValidList(
 		c,
 		[]string{"--name", "myaw", "--name", "xyz", "--name", "abc",
 			"--format", "tabular"},
 		`
 NAME  PROVIDER  ATTRS
-abc   testType  one=true two=well three=maybe
-myaw  testType  one=true two=well three=maybe
-xyz   testType  one=true two=well three=maybe
+abc   testType  a=true b=maybe c=well
+myaw  testType  a=true b=maybe c=well
+xyz   testType  a=true b=maybe c=well
 
 `[1:])
 }
 
-func (s *PoolListSuite) assertValidList(c *gc.C, args []string, expected string) {
+type unmarshaller func(in []byte, out interface{}) (err error)
+
+func (s *poolListSuite) assertUnmarshalledOutput(c *gc.C, unmarshall unmarshaller, args ...string) {
+
+	context, err := runPoolList(c, args)
+	c.Assert(err, jc.ErrorIsNil)
+	var result map[string]storage.PoolInfo
+	err = unmarshall(context.Stdout.(*bytes.Buffer).Bytes(), &result)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := s.expect(c,
+		[]string{providerA, providerB},
+		[]string{nameABC, nameXYZ})
+	// This comparison cannot rely on gc.DeepEquals as
+	// json.Unmarshal unmarshalls the number as a float64,
+	// rather than an int
+	s.assertSamePoolInfos(c, result, expected)
+}
+
+func (s poolListSuite) assertSamePoolInfos(c *gc.C, one, two map[string]storage.PoolInfo) {
+	c.Assert(one, gc.HasLen, len(two))
+
+	sameAttributes := func(a, b map[string]interface{}) {
+		c.Assert(a, gc.HasLen, len(b))
+		for ka, va := range a {
+			vb, okb := b[ka]
+			c.Assert(okb, jc.IsTrue)
+			// As some types may have been unmarshalled incorrectly, for example
+			// int versus float64, compare values' string representations
+			c.Assert(fmt.Sprintf("%v", va), jc.DeepEquals, fmt.Sprintf("%v", vb))
+		}
+	}
+
+	for key, v1 := range one {
+		v2, ok := two[key]
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(v1.Provider, gc.Equals, v2.Provider)
+		sameAttributes(v1.Attrs, v2.Attrs)
+	}
+}
+
+func (s poolListSuite) expect(c *gc.C, types, names []string) map[string]storage.PoolInfo {
+	all, err := s.mockAPI.ListPools(types, names)
+	c.Assert(err, jc.ErrorIsNil)
+	result := make(map[string]storage.PoolInfo, len(all))
+	for _, one := range all {
+		result[one.Name] = storage.PoolInfo{one.Provider, one.Attrs}
+	}
+	return result
+}
+
+func (s *poolListSuite) assertValidList(c *gc.C, args []string, expected string) {
 	context, err := runPoolList(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -133,7 +173,9 @@ func (s *PoolListSuite) assertValidList(c *gc.C, args []string, expected string)
 	c.Assert(obtained, gc.Equals, expected)
 }
 
-type mockPoolListAPI struct{}
+type mockPoolListAPI struct {
+	attrs map[string]interface{}
+}
 
 func (s mockPoolListAPI) Close() error {
 	return nil
@@ -159,6 +201,6 @@ func (s mockPoolListAPI) createTestPoolInstance(aname, atype string) params.Stor
 	return params.StoragePool{
 		Name:     aname,
 		Provider: atype,
-		Attrs:    map[string]interface{}{"one": true, "two": "well", "three": "maybe"},
+		Attrs:    s.attrs,
 	}
 }

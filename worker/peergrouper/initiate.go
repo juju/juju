@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/replicaset"
 	"github.com/juju/utils"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/replicaset"
 )
 
 var initiateAttemptStrategy = utils.AttemptStrategy{

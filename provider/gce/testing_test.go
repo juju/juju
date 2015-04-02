@@ -5,6 +5,8 @@ package gce
 
 import (
 	"encoding/base64"
+	"fmt"
+	"strings"
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -26,12 +28,46 @@ import (
 	"github.com/juju/juju/version"
 )
 
+// These values are fake GCE auth credentials for use in tests.
+const (
+	ClientName  = "ba9876543210-0123456789abcdefghijklmnopqrstuv"
+	ClientID    = ClientName + ".apps.googleusercontent.com"
+	ClientEmail = ClientName + "@developer.gserviceaccount.com"
+	PrivateKey  = `-----BEGIN PRIVATE KEY-----
+...
+...
+...
+...
+...
+...
+...
+...
+...
+...
+...
+...
+...
+...
+-----END PRIVATE KEY-----
+`
+)
+
+// These are fake config values for use in tests.
 var (
+	AuthFile = fmt.Sprintf(`{
+  "private_key_id": "abcdef0123456789abcdef0123456789abcdef01",
+  "private_key": "%s",
+  "client_email": "%s",
+  "client_id": "%s",
+  "type": "service_account"
+}`, strings.Replace(PrivateKey, "\n", "\\n", -1), ClientEmail, ClientID)
+
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
 		"type":           "gce",
-		"private-key":    "seekrit",
-		"client-id":      "static",
-		"client-email":   "joe@mail.com",
+		"auth-file":      "",
+		"private-key":    PrivateKey,
+		"client-id":      ClientID,
+		"client-email":   ClientEmail,
 		"region":         "home",
 		"project-id":     "my-juju",
 		"image-endpoint": "https://www.googleapis.com",
@@ -79,15 +115,6 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 }
 
 func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
-	diskSpec := google.DiskSpec{
-		SizeHintGB: 15,
-		ImageURL:   "some/image/path",
-		Boot:       true,
-		Scratch:    false,
-		Readonly:   false,
-		AutoDelete: true,
-	}
-
 	tools := []*tools.Tools{{
 		Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
 		URL:     "https://example.org",
@@ -119,24 +146,8 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
 	}}
-	instanceSpec := google.InstanceSpec{
-		ID:                "spam",
-		Type:              "mtype",
-		Disks:             []google.DiskSpec{diskSpec},
-		Network:           google.NetworkSpec{Name: "somenetwork"},
-		NetworkInterfaces: []string{"somenetif"},
-		Metadata:          s.Metadata,
-		Tags:              []string{"spam"},
-	}
-	summary := google.InstanceSummary{
-		ID:        "spam",
-		ZoneName:  "home-zone",
-		Status:    google.StatusRunning,
-		Metadata:  s.Metadata,
-		Addresses: s.Addresses,
-	}
-	s.BaseInstance = google.NewInstance(summary, &instanceSpec)
-	s.Instance = newInstance(s.BaseInstance, s.Env)
+	s.Instance = s.NewInstance(c, "spam")
+	s.BaseInstance = s.Instance.base
 	s.InstName = s.Prefix + "machine-spam"
 
 	s.StartInstArgs = environs.StartInstanceParams{
@@ -185,6 +196,39 @@ func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{})
 	s.setConfig(c, cfg)
 }
 
+func (s *BaseSuiteUnpatched) NewBaseInstance(c *gc.C, id string) *google.Instance {
+	diskSpec := google.DiskSpec{
+		SizeHintGB: 15,
+		ImageURL:   "some/image/path",
+		Boot:       true,
+		Scratch:    false,
+		Readonly:   false,
+		AutoDelete: true,
+	}
+	instanceSpec := google.InstanceSpec{
+		ID:                id,
+		Type:              "mtype",
+		Disks:             []google.DiskSpec{diskSpec},
+		Network:           google.NetworkSpec{Name: "somenetwork"},
+		NetworkInterfaces: []string{"somenetif"},
+		Metadata:          s.Metadata,
+		Tags:              []string{id},
+	}
+	summary := google.InstanceSummary{
+		ID:        id,
+		ZoneName:  "home-zone",
+		Status:    google.StatusRunning,
+		Metadata:  s.Metadata,
+		Addresses: s.Addresses,
+	}
+	return google.NewInstance(summary, &instanceSpec)
+}
+
+func (s *BaseSuiteUnpatched) NewInstance(c *gc.C, id string) *environInstance {
+	base := s.NewBaseInstance(c, id)
+	return newInstance(base, s.Env)
+}
+
 type BaseSuite struct {
 	BaseSuiteUnpatched
 
@@ -204,8 +248,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	// Patch out all expensive external deps.
 	s.Env.gce = s.FakeConn
-	s.PatchValue(&newConnection, func(*environConfig) gceConnection {
-		return s.FakeConn
+	s.PatchValue(&newConnection, func(*environConfig) (gceConnection, error) {
+		return s.FakeConn, nil
 	})
 	s.PatchValue(&supportedArchitectures, s.FakeCommon.SupportedArchitectures)
 	s.PatchValue(&bootstrap, s.FakeCommon.Bootstrap)
@@ -366,7 +410,6 @@ func (fi *fakeImages) ImageMetadataFetch(sources []simplestreams.DataSource, con
 type fakeConnCall struct {
 	FuncName string
 
-	Auth         google.Auth
 	ID           string
 	IDs          []string
 	ZoneName     string
@@ -395,14 +438,6 @@ func (fc *fakeConn) err() error {
 		return nil
 	}
 	return fc.Err
-}
-
-func (fc *fakeConn) Connect(auth google.Auth) error {
-	fc.Calls = append(fc.Calls, fakeConnCall{
-		FuncName: "Connect",
-		Auth:     auth,
-	})
-	return fc.err()
 }
 
 func (fc *fakeConn) VerifyCredentials() error {

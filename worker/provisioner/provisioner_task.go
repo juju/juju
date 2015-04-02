@@ -498,9 +498,6 @@ func constructStartInstanceParams(
 		if machineTag != machine.Tag() {
 			return environs.StartInstanceParams{}, errors.Errorf("volume attachment params has invalid machine tag")
 		}
-		if v.Attachment.VolumeId != "" {
-			return environs.StartInstanceParams{}, errors.Errorf("volume attachment params specifies volume ID")
-		}
 		if v.Attachment.InstanceId != "" {
 			return environs.StartInstanceParams{}, errors.Errorf("volume attachment params specifies instance ID")
 		}

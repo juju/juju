@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -70,6 +71,61 @@ func (s *InterfaceSuite) TestAvailabilityZone(c *gc.C) {
 	zone, ok := ctx.AvailabilityZone()
 	c.Check(ok, jc.IsTrue)
 	c.Check(zone, gc.Equals, "a-zone")
+}
+
+func (s *InterfaceSuite) TestUnitStatus(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	defer runner.PatchCachedStatus(ctx.(runner.Context), "maintenance", "working", map[string]interface{}{"hello": "world"})()
+	status, err := ctx.UnitStatus()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(status.Status, gc.Equals, "maintenance")
+	c.Check(status.Info, gc.Equals, "working")
+	c.Check(status.Data, gc.DeepEquals, map[string]interface{}{"hello": "world"})
+}
+
+func (s *InterfaceSuite) TestSetUnitStatus(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	status := jujuc.StatusInfo{
+		Status: "maintenance",
+		Info:   "doing work",
+	}
+	err := ctx.SetUnitStatus(status)
+	c.Check(err, jc.ErrorIsNil)
+	unitStatus, err := ctx.UnitStatus()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(unitStatus.Status, gc.Equals, "maintenance")
+	c.Check(unitStatus.Info, gc.Equals, "doing work")
+	c.Check(unitStatus.Data, gc.DeepEquals, map[string]interface{}{})
+}
+
+func (s *InterfaceSuite) TestSetUnitStatusUpdatesFlag(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	c.Assert(ctx.(runner.Context).HasExecutionSetUnitStatus(), jc.IsFalse)
+	status := jujuc.StatusInfo{
+		Status: "maintenance",
+		Info:   "doing work",
+	}
+	err := ctx.SetUnitStatus(status)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(ctx.(runner.Context).HasExecutionSetUnitStatus(), jc.IsTrue)
+}
+
+func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	status, err := ctx.UnitStatus()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(status.Status, gc.Equals, "unknown")
+	c.Check(status.Data, gc.DeepEquals, map[string]interface{}{})
+
+	// Change remote state.
+	err = s.unit.SetStatus(state.StatusActive, "it works", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Local view is unchanged.
+	status, err = ctx.UnitStatus()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(status.Status, gc.Equals, "unknown")
+	c.Check(status.Data, gc.DeepEquals, map[string]interface{}{})
 }
 
 func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {

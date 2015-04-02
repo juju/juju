@@ -16,12 +16,13 @@ import (
 	"strings"
 	"time"
 
-	"code.google.com/p/go.net/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"golang.org/x/net/websocket"
 	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -53,6 +54,7 @@ type AgentStatus struct {
 	Status  params.Status
 	Info    string
 	Data    map[string]interface{}
+	Since   *time.Time
 	Version string
 	Life    string
 	Err     error
@@ -99,19 +101,14 @@ type ServiceStatus struct {
 
 // UnitStatus holds status info about a unit.
 type UnitStatus struct {
-	// Workload and Agent have separate statuses since 1.23.
-	// but they store similar data so AgentStatus is used too.
-	// UnitAgent is created instead of using Agent since it was
-	// already used when changed from 1.18 to 1.19 to hold more
-	// data than the 3 Agent* values below.
-
-	// UnitAgent holds the status for A Unit's agent.
+	// UnitAgent holds the status for a unit's agent.
 	UnitAgent AgentStatus
 
 	// Workload holds the status for a unit's workload
 	Workload AgentStatus
 
-	// See the comment in MachineStatus regarding these fields.
+	// Until Juju 2.0, we need to continue to return legacy agent state values
+	// as top level struct attributes when the "FullStatus" API is called.
 	AgentState     params.Status
 	AgentStateInfo string
 	AgentVersion   string
@@ -747,9 +744,12 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 		return nil, errors.Errorf("unknown charm type %T", ch)
 	}
 
-	// Prepare the upload request.
-	url := fmt.Sprintf("%s/charms?series=%s", c.st.serverRoot, curl.Series)
-	req, err := http.NewRequest("POST", url, archive)
+	endPoint, err := c.localCharmUploadEndpoint(curl.Series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	req, err := http.NewRequest("POST", endPoint, archive)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")
 	}
@@ -791,13 +791,54 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	return charm.MustParseURL(jsonResponse.CharmURL), nil
 }
 
+func (c *Client) localCharmUploadEndpoint(series string) (string, error) {
+	var apiEndpoint string
+	if _, err := c.st.ServerTag(); err == nil {
+		envTag, err := c.st.EnvironTag()
+		if err != nil {
+			return "", errors.Annotate(err, "cannot get API endpoint address")
+		}
+
+		apiEndpoint = fmt.Sprintf("/environment/%s/charms", envTag.Id())
+	} else {
+		// If the server tag is not set, then the agent version is < 1.23. We
+		// use the old API endpoint for backwards compatibility.
+		apiEndpoint = "/charms"
+	}
+
+	// Prepare the upload request.
+	upURL := url.URL{
+		Scheme:   c.st.serverScheme,
+		Host:     c.st.Addr(),
+		Path:     apiEndpoint,
+		RawQuery: fmt.Sprintf("series=%s", series),
+	}
+
+	return upURL.String(), nil
+}
+
 // AddCharm adds the given charm URL (which must include revision) to
 // the environment, if it does not exist yet. Local charms are not
 // supported, only charm store URLs. See also AddLocalCharm() in the
 // client-side API.
 func (c *Client) AddCharm(curl *charm.URL) error {
-	args := params.CharmURL{URL: curl.String()}
+	args := params.CharmURL{
+		URL: curl.String(),
+	}
 	return c.facade.FacadeCall("AddCharm", args, nil)
+}
+
+// AddCharmWithAuthorization is like AddCharm except it also
+// provides the given charmstore macaroon for the juju
+// server to use when obtaining the charm from the charm store.
+// The macaroon is conventionally obtained from the /delegatable-macaroon
+// endpoint in the charm store.
+func (c *Client) AddCharmWithAuthorization(curl *charm.URL, csMac *macaroon.Macaroon) error {
+	args := params.AddCharmWithAuthorization{
+		URL:                curl.String(),
+		CharmStoreMacaroon: csMac,
+	}
+	return c.facade.FacadeCall("AddCharmWithAuthorization", args, nil)
 }
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
@@ -822,8 +863,11 @@ func (c *Client) ResolveCharm(ref *charm.Reference) (*charm.URL, error) {
 func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries ...string) (*tools.Tools, error) {
 	// Prepare the upload request.
 	url := fmt.Sprintf(
+		// TODO(waigani) This is going to be a problem in the future where we
+		// want to upload tools for a particular environment. The upload root
+		// will need to be something like: <serverRoot>/environment/<UUID/tools
 		"%s/tools?binaryVersion=%s&series=%s",
-		c.st.serverRoot,
+		c.st.serverRoot(),
 		vers,
 		strings.Join(additionalSeries, ","),
 	)

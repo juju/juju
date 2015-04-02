@@ -352,3 +352,175 @@ func (a *API) CreatePool(p params.StoragePool) error {
 		p.Attrs)
 	return err
 }
+
+func (a *API) ListVolumes(filter params.VolumeFilter) (params.VolumeItemsResult, error) {
+	if !filter.IsEmpty() {
+		return params.VolumeItemsResult{Results: a.filterVolumes(filter)}, nil
+	}
+	volumes, err := a.listVolumeAttachments()
+	if err != nil {
+		return params.VolumeItemsResult{}, common.ServerError(err)
+	}
+	return params.VolumeItemsResult{Results: volumes}, nil
+}
+
+func (a *API) listVolumeAttachments() ([]params.VolumeItem, error) {
+	all, err := a.storage.AllVolumes()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return a.volumeAttachments(all), nil
+}
+
+func (a *API) volumeAttachments(all []state.Volume) []params.VolumeItem {
+	if all == nil || len(all) == 0 {
+		return nil
+	}
+
+	result := make([]params.VolumeItem, len(all))
+	for i, v := range all {
+		volume, err := a.convertStateVolumeToParams(v)
+		if err != nil {
+			result[i] = params.VolumeItem{
+				Error: common.ServerError(errors.Trace(err)),
+			}
+			continue
+		}
+		result[i] = params.VolumeItem{Volume: volume}
+		atts, err := a.storage.VolumeAttachments(v.VolumeTag())
+		if err != nil {
+			result[i].Error = common.ServerError(errors.Annotatef(
+				err, "attachments for volume %v", v.VolumeTag()))
+			continue
+		}
+		result[i].Attachments = convertStateVolumeAttachmentsToParams(atts)
+	}
+	return result
+}
+
+func (a *API) filterVolumes(f params.VolumeFilter) []params.VolumeItem {
+	var attachments []state.VolumeAttachment
+	var errs []params.VolumeItem
+
+	addErr := func(err error) {
+		errs = append(errs,
+			params.VolumeItem{Error: common.ServerError(err)})
+	}
+
+	for _, machine := range f.Machines {
+		tag, err := names.ParseMachineTag(machine)
+		if err != nil {
+			addErr(errors.Annotatef(err, "parsing machine tag %v", machine))
+		}
+		machineAttachments, err := a.storage.MachineVolumeAttachments(tag)
+		if err != nil {
+			addErr(errors.Annotatef(err,
+				"getting volume attachments for machine %v",
+				machine))
+		}
+		attachments = append(attachments, machineAttachments...)
+	}
+	return append(errs, a.getVolumeItems(attachments)...)
+}
+
+func (a *API) convertStateVolumeToParams(st state.Volume) (params.VolumeInstance, error) {
+	volume := params.VolumeInstance{VolumeTag: st.VolumeTag().String()}
+
+	if storage, err := st.StorageInstance(); err == nil {
+		volume.StorageTag = storage.String()
+		storageInstance, err := a.storage.StorageInstance(storage)
+		if err != nil {
+			err = errors.Annotatef(err,
+				"getting storage instance %v for volume %v",
+				storage, volume.VolumeTag)
+			return params.VolumeInstance{}, err
+		}
+		owner := storageInstance.Owner()
+		// only interested in Unit for now
+		if unitTag, ok := owner.(names.UnitTag); ok {
+			volume.UnitTag = unitTag.String()
+		}
+	}
+	if info, err := st.Info(); err == nil {
+		volume.Serial = info.Serial
+		volume.Size = info.Size
+		volume.Persistent = info.Persistent
+		volume.VolumeId = info.VolumeId
+	}
+	return volume, nil
+}
+
+func convertStateVolumeAttachmentsToParams(all []state.VolumeAttachment) []params.VolumeAttachment {
+	if len(all) == 0 {
+		return nil
+	}
+	result := make([]params.VolumeAttachment, len(all))
+	for i, one := range all {
+		result[i] = convertStateVolumeAttachmentToParams(one)
+	}
+	return result
+}
+
+func convertStateVolumeAttachmentToParams(attachment state.VolumeAttachment) params.VolumeAttachment {
+	result := params.VolumeAttachment{
+		VolumeTag:  attachment.Volume().String(),
+		MachineTag: attachment.Machine().String()}
+	if info, err := attachment.Info(); err == nil {
+		result.DeviceName = info.DeviceName
+		result.ReadOnly = info.ReadOnly
+	}
+	return result
+}
+
+func (a *API) getVolumeItems(all []state.VolumeAttachment) []params.VolumeItem {
+	group := groupAttachmentsByVolume(all)
+
+	if len(group) == 0 {
+		return nil
+	}
+
+	result := make([]params.VolumeItem, len(group))
+	i := 0
+	for volumeTag, attachments := range group {
+		result[i] = a.createVolumeItem(volumeTag, attachments)
+		i++
+	}
+	return result
+}
+
+func (a *API) createVolumeItem(volumeTag string, attachments []params.VolumeAttachment) params.VolumeItem {
+	result := params.VolumeItem{Attachments: attachments}
+
+	tag, err := names.ParseVolumeTag(volumeTag)
+	if err != nil {
+		result.Error = common.ServerError(errors.Annotatef(err, "parsing volume tag %v", volumeTag))
+		return result
+	}
+	st, err := a.storage.Volume(tag)
+	if err != nil {
+		result.Error = common.ServerError(errors.Annotatef(err, "getting volume for tag %v", tag))
+		return result
+	}
+	volume, err := a.convertStateVolumeToParams(st)
+	if err != nil {
+		result.Error = common.ServerError(errors.Trace(err))
+		return result
+	}
+	result.Volume = volume
+	return result
+}
+
+// groupAttachmentsByVolume constructs map of attachments grouped by volumeTag
+func groupAttachmentsByVolume(all []state.VolumeAttachment) map[string][]params.VolumeAttachment {
+	if len(all) == 0 {
+		return nil
+	}
+	group := make(map[string][]params.VolumeAttachment)
+	for _, one := range all {
+		attachment := convertStateVolumeAttachmentToParams(one)
+		group[attachment.VolumeTag] = append(
+			group[attachment.VolumeTag],
+			attachment)
+	}
+	return group
+}

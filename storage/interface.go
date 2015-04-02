@@ -223,6 +223,9 @@ type FilesystemParams struct {
 	// Tag is a unique tag assigned by Juju for the requested filesystem.
 	Tag names.FilesystemTag
 
+	// Volume is the tag of the volume that backs the filesystem, if any.
+	Volume names.VolumeTag
+
 	// Size is the minimum size of the filesystem in MiB.
 	Size uint64
 

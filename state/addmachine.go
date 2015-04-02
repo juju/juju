@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/replicaset"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/replicaset"
 )
 
 // MachineTemplate holds attributes that are to be associated
@@ -511,12 +511,12 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		})
 	}
 
-	if len(filesystemOps) > 0 {
+	if len(fsAttachments) > 0 {
 		attachmentOps := createMachineFilesystemAttachmentsOps(mdoc.Id, fsAttachments)
 		prereqOps = append(prereqOps, filesystemOps...)
 		prereqOps = append(prereqOps, attachmentOps...)
 	}
-	if len(volumeOps) > 0 {
+	if len(volumeAttachments) > 0 {
 		attachmentOps := createMachineVolumeAttachmentsOps(mdoc.Id, volumeAttachments)
 		prereqOps = append(prereqOps, volumeOps...)
 		prereqOps = append(prereqOps, attachmentOps...)

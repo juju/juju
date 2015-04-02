@@ -218,6 +218,8 @@ var newCommandTests = []struct {
 	{"relation-set", ""},
 	{"unit-get", ""},
 	{"storage-get", ""},
+	{"status-get", ""},
+	{"status-set", ""},
 	// The error message contains .exe on Windows
 	{"random", "unknown command: random(.exe)?"},
 }

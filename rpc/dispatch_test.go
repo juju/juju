@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"code.google.com/p/go.net/websocket"
 	jc "github.com/juju/testing/checkers"
+	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/rpc"

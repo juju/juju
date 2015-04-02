@@ -241,6 +241,7 @@ type MachineSuite struct {
 var perEnvSingularWorkers = []string{
 	"cleaner",
 	"minunitsworker",
+	"addresserworker",
 	"environ-provisioner",
 	"charm-revision-updater",
 	"firewaller",
@@ -1226,12 +1227,14 @@ func (s *MachineSuite) testMachineAgentRunsMachineStorageWorker(c *gc.C, shouldR
 
 	started := make(chan struct{})
 	newWorker := func(
+		scope names.Tag,
 		storageDir string,
 		_ storageprovisioner.VolumeAccessor,
 		_ storageprovisioner.FilesystemAccessor,
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
 	) worker.Worker {
+		c.Check(scope, gc.Equals, m.Tag())
 		// storageDir is not empty for machine scoped storage provisioners
 		c.Assert(storageDir, gc.Not(gc.Equals), "")
 		close(started)
@@ -1270,6 +1273,7 @@ func (s *MachineSuite) testMachineAgentRunsEnvironStorageWorkers(c *gc.C, should
 	numWorkers := 0
 	started := make(chan struct{})
 	newWorker := func(
+		scope names.Tag,
 		storageDir string,
 		_ storageprovisioner.VolumeAccessor,
 		_ storageprovisioner.FilesystemAccessor,
@@ -1278,10 +1282,12 @@ func (s *MachineSuite) testMachineAgentRunsEnvironStorageWorkers(c *gc.C, should
 	) worker.Worker {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {
+			c.Check(scope, gc.Equals, s.State.EnvironTag())
 			environWorkerStarted = true
 			numWorkers = numWorkers + 1
 		}
 		if storageDir != "" {
+			c.Check(scope, gc.Equals, m.Tag())
 			machineWorkerStarted = true
 			numWorkers = numWorkers + 1
 		}
@@ -1589,6 +1595,22 @@ func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
 }
 
 func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
+	s.testNewEnvironmentStartsNewWorkers(c, perEnvSingularWorkers)
+}
+
+func (s *MachineSuite) TestNewEnvironmentStartsNewWorkersStorageEnabled(c *gc.C) {
+	s.SetFeatureFlags(feature.Storage)
+	expect := make([]string, 0, len(perEnvSingularWorkers)+1)
+	for _, w := range perEnvSingularWorkers {
+		expect = append(expect, w)
+		if w == "environ-provisioner" {
+			expect = append(expect, "environ-storageprovisioner")
+		}
+	}
+	s.testNewEnvironmentStartsNewWorkers(c, expect)
+}
+
+func (s *MachineSuite) testNewEnvironmentStartsNewWorkers(c *gc.C, expectedWorkers []string) {
 	s.PatchValue(&watcher.Period, 100*time.Millisecond)
 
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
@@ -1602,7 +1624,7 @@ func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
 	// firewaller is the last worker started for a new environment.
 	r0 := s.singularRecord.nextRunner(c)
 	workers := r0.waitForWorker(c, "firewaller")
-	c.Assert(workers, jc.DeepEquals, perEnvSingularWorkers)
+	c.Assert(workers, jc.DeepEquals, expectedWorkers)
 
 	// Now create a new environment and see the workers start for it.
 	factory.NewFactory(s.State).MakeEnvironment(c, &factory.EnvParams{
@@ -1613,7 +1635,7 @@ func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
 	}).Close()
 	r1 := s.singularRecord.nextRunner(c)
 	workers = r1.waitForWorker(c, "firewaller")
-	c.Assert(workers, jc.DeepEquals, perEnvSingularWorkers)
+	c.Assert(workers, jc.DeepEquals, expectedWorkers)
 }
 
 // MachineWithCharmsSuite provides infrastructure for tests which need to

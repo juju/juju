@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var (
@@ -22,6 +23,7 @@ var (
 	ValidatePortRange = validatePortRange
 	TryOpenPorts      = tryOpenPorts
 	TryClosePorts     = tryClosePorts
+	LockTimeout       = lockTimeout
 )
 
 func RunnerPaths(rnr Runner) Paths {
@@ -83,6 +85,19 @@ func GetStubActionContext(in map[string]interface{}) *HookContext {
 	}
 }
 
+func PatchCachedStatus(ctx Context, status, info string, data map[string]interface{}) func() {
+	hctx := ctx.(*HookContext)
+	oldStatus := hctx.status
+	hctx.status = &jujuc.StatusInfo{
+		Status: status,
+		Info:   info,
+		Data:   data,
+	}
+	return func() {
+		hctx.status = oldStatus
+	}
+}
+
 func NewHookContext(
 	unit *uniter.Unit,
 	state *uniter.State,
@@ -99,6 +114,7 @@ func NewHookContext(
 	metrics *charm.Metrics,
 	actionData *ActionData,
 	assignedMachineTag names.MachineTag,
+	paths Paths,
 ) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:               unit,
@@ -113,11 +129,25 @@ func NewHookContext(
 		apiAddrs:           apiAddrs,
 		serviceOwner:       serviceOwner,
 		proxySettings:      proxySettings,
-		canAddMetrics:      canAddMetrics,
+		metricsRecorder:    nil,
 		definedMetrics:     metrics,
 		actionData:         actionData,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		assignedMachineTag: assignedMachineTag,
+	}
+	if canAddMetrics {
+		charmURL, err := unit.CharmURL()
+		if err != nil {
+			return nil, err
+		}
+		ctx.metricsRecorder, err = NewJSONMetricsRecorder(paths.GetMetricsSpoolDir(), charmURL.String())
+		if err != nil {
+			return nil, err
+		}
+		ctx.metricsReader, err = NewJSONMetricsReader(paths.GetMetricsSpoolDir())
+		if err != nil {
+			return nil, err
+		}
 	}
 	// Get and cache the addresses.
 	var err error

@@ -22,13 +22,16 @@ type environInstSuite struct {
 var _ = gc.Suite(&environInstSuite{})
 
 func (s *environInstSuite) TestInstances(c *gc.C) {
-	s.FakeEnviron.Insts = []instance.Instance{s.Instance}
+	spam := s.NewInstance(c, "spam")
+	ham := s.NewInstance(c, "ham")
+	eggs := s.NewInstance(c, "eggs")
+	s.FakeEnviron.Insts = []instance.Instance{spam, ham, eggs}
 
-	ids := []instance.Id{"spam"}
+	ids := []instance.Id{"spam", "eggs", "ham"}
 	insts, err := s.Env.Instances(ids)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(insts, jc.DeepEquals, []instance.Instance{s.Instance})
+	c.Check(insts, jc.DeepEquals, []instance.Instance{spam, eggs, ham})
 }
 
 func (s *environInstSuite) TestInstancesEmptyArg(c *gc.C) {
@@ -69,12 +72,19 @@ func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
 }
 
 func (s *environInstSuite) TestBasicInstances(c *gc.C) {
-	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
+	spam := s.NewBaseInstance(c, "spam")
+	ham := s.NewBaseInstance(c, "ham")
+	eggs := s.NewBaseInstance(c, "eggs")
+	s.FakeConn.Insts = []google.Instance{*spam, *ham, *eggs}
 
 	insts, err := gce.GetInstances(s.Env)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(insts, jc.DeepEquals, []instance.Instance{s.Instance})
+	c.Check(insts, jc.DeepEquals, []instance.Instance{
+		s.NewInstance(c, "spam"),
+		s.NewInstance(c, "ham"),
+		s.NewInstance(c, "eggs"),
+	})
 }
 
 func (s *environInstSuite) TestBasicInstancesAPI(c *gc.C) {

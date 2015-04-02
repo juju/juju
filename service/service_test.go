@@ -1,5 +1,5 @@
 // Copyright 2015 Canonical Ltd.
-// Licensed under the LGPLv3, see LICENCE file for details.
+// Licensed under the AGPLv3, see LICENCE file for details.
 
 package service_test
 
@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/service"
+	svctesting "github.com/juju/juju/service/common/testing"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
@@ -68,22 +69,23 @@ func (s *serviceSuite) TestListServices(c *gc.C) {
 func (*serviceSuite) TestListServicesScript(c *gc.C) {
 	script := service.ListServicesScript()
 
-	expected := []string{
-		"cat > /tmp/discover_init_system.sh << 'EOF'",
-	}
-	expected = append(expected, strings.Split(service.DiscoverInitSystemScript, "\n")...)
-	expected = append(expected, "EOF")
-	expected = append(expected, "chmod 0755 /tmp/discover_init_system.sh")
-	expected = append(expected, "init_system=$(/tmp/discover_init_system.sh)")
-	expected = append(expected, []string{
-		`if [[ $init_system == "systemd" ]]; then ` +
-			`/bin/systemctl list-unit-files --no-legend --no-page -t service` +
+	expected := strings.Split(service.DiscoverInitSystemScript(), "\n")
+	expected[0] = "init_system=$(" + expected[0]
+	expected[len(expected)-1] += ")"
+	expected = append(expected,
+		`case "$init_system" in`,
+		`systemd)`,
+		`    /bin/systemctl list-unit-files --no-legend --no-page -t service`+
 			` | grep -o -P '^\w[\S]*(?=\.service)'`,
-		`elif [[ $init_system == "upstart" ]]; then ` +
-			`sudo initctl list | awk '{print $1}' | sort | uniq`,
-		`else exit 1`,
-		`fi`,
-	}...)
+		`    ;;`,
+		`upstart)`,
+		`    sudo initctl list | awk '{print $1}' | sort | uniq`,
+		`    ;;`,
+		`*)`,
+		`    exit 1`,
+		`    ;;`,
+		`esac`,
+	)
 	c.Check(strings.Split(script, "\n"), jc.DeepEquals, expected)
 }
 
@@ -136,7 +138,7 @@ func (s *restartSuite) TestRestartStopAndStart(c *gc.C) {
 }
 
 type restartable struct {
-	*service.FakeService
+	*svctesting.FakeService
 }
 
 func (s *restartable) Restart() error {

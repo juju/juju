@@ -33,8 +33,14 @@ const (
 // depend on to interact with the rest of the system.
 type Context interface {
 
-	// Unit returns the executing unit's name.
+	// UnitName returns the executing unit's name.
 	UnitName() string
+
+	// UnitStatus returns the executing unit's current status.
+	UnitStatus() (*StatusInfo, error)
+
+	// SetUnitStatus updates the unit's status.
+	SetUnitStatus(StatusInfo) error
 
 	// PublicAddress returns the executing unit's public address.
 	PublicAddress() (string, bool)

@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/uniter"
 	"github.com/juju/juju/state"
 )
@@ -101,4 +102,40 @@ func (s *uniterV2Suite) TestSetAgentStatus(c *gc.C) {
 // implemented for this version.
 func (s *uniterV2Suite) TestSetUnitStatus(c *gc.C) {
 	s.testSetUnitStatus(c, s.uniter)
+}
+
+func (s *uniterV2Suite) TestUnitStatus(c *gc.C) {
+	err := s.wordpressUnit.SetStatus(state.StatusMaintenance, "blah", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysqlUnit.SetStatus(state.StatusTerminated, "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "unit-mysql-0"},
+			{Tag: "unit-wordpress-0"},
+			{Tag: "unit-foo-42"},
+			{Tag: "machine-1"},
+			{Tag: "invalid"},
+		}}
+	result, err := s.uniter.UnitStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	// Zero out the updated timestamps so we can easily check the results.
+	for i, statusResult := range result.Results {
+		r := statusResult
+		if r.Status != "" {
+			c.Assert(r.Since, gc.NotNil)
+		}
+		r.Since = nil
+		result.Results[i] = r
+	}
+	c.Assert(result, gc.DeepEquals, params.StatusResults{
+		Results: []params.StatusResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Status: params.StatusMaintenance, Info: "blah", Data: map[string]interface{}{}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ServerError(`"invalid" is not a valid tag`)},
+		},
+	})
 }

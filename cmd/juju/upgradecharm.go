@@ -133,11 +133,14 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		newURL = oldURL.WithRevision(c.Revision)
 	}
 
-	repo, err := charmrepo.LegacyInferRepository(newURL.Reference(), ctx.AbsPath(c.RepoPath))
+	repo, err := charmrepo.InferRepository(
+		newURL.Reference(),
+		newCharmStoreParams,
+		ctx.AbsPath(c.RepoPath))
 	if err != nil {
 		return err
 	}
-	config.SpecializeCharmRepo(repo, conf)
+	repo = config.SpecializeCharmRepo(repo, conf)
 
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.

@@ -75,15 +75,15 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	})
 
 	// Verify machine 0 - no change.
-	status, info, _, err := s.machine0.Status()
+	statusInfo, err := s.machine0.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusStarted)
-	c.Assert(info, gc.Equals, "blah")
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusStarted)
+	c.Assert(statusInfo.Message, gc.Equals, "blah")
 	// ...machine 1 is fine though.
-	status, info, _, err = s.machine1.Status()
+	statusInfo, err = s.machine1.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "not really")
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "not really")
 }
 
 func (s *machinerSuite) TestLife(c *gc.C) {

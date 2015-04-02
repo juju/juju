@@ -109,9 +109,9 @@ func (s *provisionerSuite) TestGetSetStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "blah")
-	_, _, data, err := s.machine.Status()
+	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
 }
 
 func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
@@ -125,9 +125,9 @@ func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "blah")
-	_, _, data, err := s.machine.Status()
+	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.DeepEquals, map[string]interface{}{"foo": "bar"})
+	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }
 
 func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
@@ -853,5 +853,8 @@ func (s *provisionerSuite) TestReleaseContainerAddresses(c *gc.C) {
 
 	addresses, err := s.State.AllocatedIPAddresses(container.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, jc.DeepEquals, []*state.IPAddress{})
+	c.Assert(addresses, gc.HasLen, 3)
+	for _, addr := range addresses {
+		c.Assert(addr.Life(), gc.Equals, state.Dead)
+	}
 }

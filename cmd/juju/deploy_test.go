@@ -14,8 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5-unstable"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
@@ -341,7 +341,7 @@ func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 
 	// override provider type
-	s.PatchValue(&getClientConfig, func(client *api.Client) (*config.Config, error) {
+	s.PatchValue(&service.GetClientConfig, func(client service.ServiceAddUnitAPI) (*config.Config, error) {
 		attrs, err := client.EnvironmentGet()
 		if err != nil {
 			return nil, err
