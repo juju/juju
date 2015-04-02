@@ -5,7 +5,9 @@ package jujuc
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -26,7 +28,8 @@ too long to fit within the command length limit of the shell or
 operating system. The file will contain one key-value pair per line
 in the same format as on the commandline. Blank lines and lines
 starting with # are ignored. Settings in the file will be overridden
-by any duplicate key-value arguments.
+by any duplicate key-value arguments. A value of "-" for the filename
+means "read from stdin".
 `
 
 // RelationSetCommand implements the relation-set command.
@@ -73,39 +76,56 @@ func (c *RelationSetCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *RelationSetCommand) handleSettings(args []string) error {
-	var settings map[string]string
-	if c.settingsFile != "" {
-		data, err := ioutil.ReadFile(c.settingsFile)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		var kvs []string
-		for _, line := range strings.Split(string(data), "\n") {
-			line = strings.TrimSpace(line)
-			if line == "" || line[0] == '#' {
-				continue
-			}
-			kvs = append(kvs, line) // We lose trailing whitespace...
-		}
-
-		settings, err = keyvalues.Parse(kvs, true)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	} else {
-		settings = make(map[string]string)
+func (c *RelationSetCommand) readSettings(in io.Reader) (map[string]string, error) {
+	data, err := ioutil.ReadAll(in)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
+	var kvs []string
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || line[0] == '#' {
+			continue
+		}
+		kvs = append(kvs, line) // We lose trailing whitespace...
+	}
+
+	settings, err := keyvalues.Parse(kvs, true)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return settings, nil
+}
+
+func (c *RelationSetCommand) handleSettings(args []string) error {
 	overrides, err := keyvalues.Parse(args, true)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.Settings = overrides
+
+	if c.settingsFile == "" {
+		return nil
+	}
+	if c.settingsFile == "-" {
+		// We handle stdin in Run.
+		return nil
+	}
+
+	// Read the settings from the file.
+	file, err := os.Open(c.settingsFile)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer file.Close()
+	settings, err := c.readSettings(file)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for k, v := range overrides {
 		settings[k] = v
 	}
-
 	c.Settings = settings
 	return nil
 }
