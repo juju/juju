@@ -225,7 +225,7 @@ func (s *workerSuite) TestAddresserWithNoNetworkingEnviron(c *gc.C) {
 		case <-opsChan:
 			c.Fatalf("unexpected release op")
 		case <-time.After(coretesting.ShortWait):
-			break
+			return
 		}
 	}
 }
