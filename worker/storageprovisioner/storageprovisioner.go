@@ -324,7 +324,7 @@ func (w *storageprovisioner) loop() error {
 			if !ok {
 				return watcher.EnsureErr(machineBlockDevicesWatcher)
 			}
-			if err := volumeBlockDevicesChanged(&ctx); err != nil {
+			if err := machineBlockDevicesChanged(&ctx); err != nil {
 				return errors.Trace(err)
 			}
 		}

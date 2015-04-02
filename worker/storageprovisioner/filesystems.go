@@ -97,13 +97,13 @@ func filesystemAttachmentsChanged(ctx *context, ids []params.MachineStorageId) e
 	// Deprovision Dying filesystem attachments.
 	dyingFilesystemAttachmentResults := filesystemAttachmentResults[len(alive):]
 	if err := processDyingFilesystemAttachments(ctx, dying, dyingFilesystemAttachmentResults); err != nil {
-		return errors.Annotate(err, "creating filesystem attachments")
+		return errors.Annotate(err, "destroying filesystem attachments")
 	}
 
 	// Provision Alive filesystem attachments.
 	aliveFilesystemAttachmentResults := filesystemAttachmentResults[:len(alive)]
 	if err := processAliveFilesystemAttachments(ctx, alive, aliveFilesystemAttachmentResults); err != nil {
-		return errors.Annotate(err, "destroying filesystem attachments")
+		return errors.Annotate(err, "creating filesystem attachments")
 	}
 
 	return nil

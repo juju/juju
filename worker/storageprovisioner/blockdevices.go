@@ -11,19 +11,21 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// volumeBlockDevicesChanged is called when the block devices of the scoped
+// machineBlockDevicesChanged is called when the block devices of the scoped
 // machine have been seen to have changed. This triggers a refresh of all
 // block devices for attached volumes backing pending filesystems.
-func volumeBlockDevicesChanged(ctx *context) error {
+func machineBlockDevicesChanged(ctx *context) error {
 	if len(ctx.pendingFilesystems) == 0 {
 		return nil
 	}
 	volumeTags := make([]names.VolumeTag, 0, len(ctx.pendingFilesystems))
 	for _, params := range ctx.pendingFilesystems {
 		if params.Volume == (names.VolumeTag{}) {
+			// Filesystem is not volume-backed.
 			continue
 		}
 		if _, ok := ctx.volumeBlockDevices[params.Volume]; ok {
+			// Backing-volume's block device is already attached.
 			continue
 		}
 		volumeTags = append(volumeTags, params.Volume)
@@ -31,7 +33,7 @@ func volumeBlockDevicesChanged(ctx *context) error {
 	if len(volumeTags) == 0 {
 		return nil
 	}
-	return updateVolumeBlockDevices(ctx, volumeTags)
+	return refreshVolumeBlockDevices(ctx, volumeTags)
 }
 
 // processPendingVolumeBlockDevices is called before waiting for any events,
@@ -47,12 +49,12 @@ func processPendingVolumeBlockDevices(ctx *context) error {
 	}
 	// Clear out the pending set, so we don't force-refresh again.
 	ctx.pendingVolumeBlockDevices = set.NewTags()
-	return updateVolumeBlockDevices(ctx, volumeTags)
+	return refreshVolumeBlockDevices(ctx, volumeTags)
 }
 
-// updateVolumeBlockDevices refreshes the block devices for the specified
+// refreshVolumeBlockDevices refreshes the block devices for the specified
 // volumes.
-func updateVolumeBlockDevices(ctx *context, volumeTags []names.VolumeTag) error {
+func refreshVolumeBlockDevices(ctx *context, volumeTags []names.VolumeTag) error {
 	machineTag, ok := ctx.scope.(names.MachineTag)
 	if !ok {
 		// This function should only be called by machine-scoped
@@ -68,7 +70,7 @@ func updateVolumeBlockDevices(ctx *context, volumeTags []names.VolumeTag) error 
 	}
 	results, err := ctx.volumeAccessor.VolumeBlockDevices(ids)
 	if err != nil {
-		return errors.Annotate(err, "updating volume block devices")
+		return errors.Annotate(err, "refreshing volume block devices")
 	}
 	for i, result := range results {
 		if result.Error == nil {
