@@ -1016,15 +1016,23 @@ func (p *ProvisionerAPI) prepareAllocationNetwork(
 	}
 	logger.Tracef("interfaces for instance %q: %v", instId, interfaces)
 
-	subnetIds := []network.Id{}
+	subnetSet := make(set.Strings)
 	subnetIdToInterface := make(map[network.Id]network.InterfaceInfo)
 	for _, iface := range interfaces {
 		if iface.ProviderSubnetId == "" {
 			logger.Debugf("no subnet associated with interface %#v (skipping)", iface)
 			continue
+		} else if iface.Disabled {
+			logger.Debugf("interface %#v disabled (skipping)", iface)
+			continue
 		}
-		subnetIds = append(subnetIds, iface.ProviderSubnetId)
+		subnetSet.Add(string(iface.ProviderSubnetId))
 		subnetIdToInterface[iface.ProviderSubnetId] = iface
+	}
+
+	subnetIds := []network.Id{}
+	for _, id := range subnetSet.Values() {
+		subnetIds = append(subnetIds, network.Id(id))
 	}
 	subnets, err := environ.Subnets(instId, subnetIds)
 	if err != nil {

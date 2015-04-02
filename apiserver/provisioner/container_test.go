@@ -614,7 +614,7 @@ func (s *prepareSuite) TestSuccessWhenFirstSubnetNotAllocatable(c *gc.C) {
 		InterfaceName:    "eth1",
 		VLANTag:          1,
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
-		Disabled:         true,
+		Disabled:         false,
 		NoAutoStart:      true,
 		ConfigType:       "static",
 		Address:          "regex:0.20.0.[0-9]{1,3}", // we don't care about the actual value.
