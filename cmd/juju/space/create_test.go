@@ -53,10 +53,8 @@ func (s *CreateSuite) TestRunWithExistingSpaceFails(c *gc.C) {
 	s.api.SetErrors(nil, errors.AlreadyExistsf("space %q", "foo"))
 
 	stdout, stderr, err := s.RunSubCommand(c, "foo", "10.1.2.0/24")
-	c.Assert(err, gc.ErrorMatches, `cannot create space "foo": space "foo" already exists`)
+	s.CheckOutputsErr(c, stdout, stderr, err, `cannot create space "foo": space "foo" already exists`)
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, "")
 	s.api.CheckCallNames(c, "AllSubnets", "CreateSpace", "Close")
 }
 
@@ -65,17 +63,13 @@ func (s *CreateSuite) TestRunWhenSubnetsFails(c *gc.C) {
 
 	stdout, stderr, err := s.RunSubCommand(c, "foo", "10.1.2.0/24")
 	s.api.CheckCallNames(c, "AllSubnets", "Close")
-	c.Assert(err, gc.ErrorMatches, `cannot fetch available subnets: boom`)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, "")
+	s.CheckOutputsErr(c, stdout, stderr, err, `cannot fetch available subnets: boom`)
 	s.api.CheckCallNames(c, "AllSubnets", "Close")
 }
 
 func (s *CreateSuite) TestRunWithUnknownSubnetsFails(c *gc.C) {
 	stdout, stderr, err := s.RunSubCommand(c, "foo", "10.20.30.0/24", "2001:db8::/64")
-	c.Assert(err, gc.ErrorMatches, "unknown subnets specified: 10.20.30.0/24, 2001:db8::/64")
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, "")
+	s.CheckOutputsErr(c, stdout, stderr, err, "unknown subnets specified: 10.20.30.0/24, 2001:db8::/64")
 	s.api.CheckCallNames(c, "AllSubnets", "Close")
 }
 
@@ -83,9 +77,7 @@ func (s *CreateSuite) TestRunAPIConnectFails(c *gc.C) {
 	// TODO(dimitern): Change this once API is implemented.
 	s.command = space.NewCreateCommand(nil)
 	stdout, stderr, err := s.RunSubCommand(c, "myspace", "10.20.30.0/24")
-	c.Assert(err, gc.ErrorMatches, "cannot connect to API server: API not implemented yet!")
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, "")
+	s.CheckOutputsErr(c, stdout, stderr, err, "cannot connect to API server: API not implemented yet!")
 	// No API calls recoreded.
 	s.api.CheckCallNames(c)
 }

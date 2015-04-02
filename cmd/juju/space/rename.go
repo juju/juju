@@ -55,6 +55,10 @@ func (c *RenameCommand) Init(args []string) error {
 	c.Name = args[0]
 	c.NewName = args[1]
 
+	if c.Name == c.NewName {
+		return errors.New("old-name and new-name are the same")
+	}
+
 	return cmd.CheckEmpty(args[2:])
 }
 

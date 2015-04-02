@@ -77,6 +77,30 @@ func (s *BaseSpaceSuite) RunSubCommand(c *gc.C, args ...string) (string, string,
 	return "", "", err
 }
 
+func (s *BaseSpaceSuite) CheckOutputs(
+	c *gc.C, stdout, stderr string, err error,
+	expectedStdout, expectedStderr, expectedErr string) {
+	if expectedErr == "" {
+		c.Assert(err, jc.ErrorIsNil)
+	} else {
+		c.Assert(err, gc.ErrorMatches, expectedErr)
+	}
+	c.Assert(stdout, gc.Equals, expectedStdout)
+	c.Assert(stderr, gc.Matches, expectedStderr)
+}
+
+func (s *BaseSpaceSuite) CheckOutputsStderr(c *gc.C, stdout, stderr string, err error, expectedStderr string) {
+	s.CheckOutputs(c, stdout, stderr, err, "", expectedStderr, "")
+}
+
+func (s *BaseSpaceSuite) CheckOutputsErr(c *gc.C, stdout, stderr string, err error, expectedErr string) {
+	s.CheckOutputs(c, stdout, stderr, err, "", "", expectedErr)
+}
+
+func (s *BaseSpaceSuite) CheckOutputsStdout(c *gc.C, stdout, stderr string, err error, expectedStdout string) {
+	s.CheckOutputs(c, stdout, stderr, err, expectedStdout, "", "")
+}
+
 // TestHelp runs the command with --help as argument and verifies the
 // output.
 func (s *BaseSpaceSuite) TestHelp(c *gc.C) {

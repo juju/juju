@@ -5,7 +5,6 @@ package space_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -62,6 +61,12 @@ func (s *RenameSuite) TestInit(c *gc.C) {
 		expectName:    "a-space",
 		expectNewName: "another-space",
 	}, {
+		about:         "old and new names are the same",
+		args:          s.Strings("a-space", "a-space"),
+		expectName:    "a-space",
+		expectNewName: "a-space",
+		expectErr:     "old-name and new-name are the same",
+	}, {
 		about:         "all ok",
 		args:          s.Strings("a-space", "another-space"),
 		expectName:    "a-space",
@@ -87,25 +92,15 @@ func (s *RenameSuite) TestInit(c *gc.C) {
 
 func (s *RenameSuite) TestRunWithSubnetsSucceeds(c *gc.C) {
 	stdout, stderr, err := s.RunSubCommand(c, "a-space", "another-space")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, `renamed space "a-space" to "another-space"\n`)
-	s.api.CheckCalls(c, []testing.StubCall{{
-		FuncName: "RenameSpace",
-		Args:     []interface{}{"a-space", "another-space"},
-	}, {
-		FuncName: "Close",
-		Args:     nil,
-	}})
+	s.CheckOutputsStderr(c, stdout, stderr, err, `renamed space "a-space" to "another-space"\n`)
+	s.api.CheckCallNames(c, "RenameSpace", "Close")
+	s.api.CheckCall(c, 0, "RenameSpace", "a-space", "another-space")
 }
 
 func (s *RenameSuite) TestRunWhenRenameFails(c *gc.C) {
 	s.api.SetErrors(errors.New("boom"))
-
 	stdout, stderr, err := s.RunSubCommand(c, "foo", "bar")
-	c.Assert(err, gc.ErrorMatches, `cannot rename space "foo": boom`)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, "")
+	s.CheckOutputsErr(c, stdout, stderr, err, `cannot rename space "foo": boom`)
 	s.api.CheckCallNames(c, "RenameSpace", "Close")
 }
 
@@ -113,9 +108,7 @@ func (s *RenameSuite) TestRunAPIConnectFails(c *gc.C) {
 	// TODO(dimitern): Change this once API is implemented.
 	s.command = space.NewRenameCommand(nil)
 	stdout, stderr, err := s.RunSubCommand(c, "myspace", "mynewspace")
-	c.Assert(err, gc.ErrorMatches, "cannot connect to API server: API not implemented yet!")
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, "")
+	s.CheckOutputsErr(c, stdout, stderr, err, "cannot connect to API server: API not implemented yet!")
 	// No API calls recoreded.
 	s.api.CheckCallNames(c)
 }

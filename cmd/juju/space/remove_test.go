@@ -6,7 +6,6 @@ package space_test
 import (
 	"github.com/juju/errors"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -60,26 +59,17 @@ func (s *RemoveSuite) TestInit(c *gc.C) {
 
 func (s *RemoveSuite) TestRunValidSpaceSucceeds(c *gc.C) {
 	stdout, stderr, err := s.RunSubCommand(c, "myspace")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, `removed space "myspace"\n`)
-	s.api.CheckCalls(c, []testing.StubCall{{
-		FuncName: "RemoveSpace",
-		Args:     []interface{}{"myspace"},
-	}, {
-		FuncName: "Close",
-		Args:     nil,
-	}})
+	s.CheckOutputsStderr(c, stdout, stderr, err, `removed space "myspace"\n`)
+	s.api.CheckCallNames(c, "RemoveSpace", "Close")
+	s.api.CheckCall(c, 0, "RemoveSpace", "myspace")
 }
 
 func (s *RemoveSuite) TestRunWithNonExistentSpaceFails(c *gc.C) {
 	s.api.SetErrors(errors.NotFoundf("space %q", "foo"))
 
 	stdout, stderr, err := s.RunSubCommand(c, "foo")
-	c.Assert(err, gc.ErrorMatches, `cannot remove space "foo": space "foo" not found`)
+	s.CheckOutputsErr(c, stdout, stderr, err, `cannot remove space "foo": space "foo" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, "")
 	s.api.CheckCallNames(c, "RemoveSpace", "Close")
 }
 
@@ -87,9 +77,7 @@ func (s *RemoveSuite) TestRunAPIConnectFails(c *gc.C) {
 	// TODO(dimitern): Change this once API is implemented.
 	s.command = space.NewRemoveCommand(nil)
 	stdout, stderr, err := s.RunSubCommand(c, "myspace")
-	c.Assert(err, gc.ErrorMatches, "cannot connect to API server: API not implemented yet!")
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, "")
+	s.CheckOutputsErr(c, stdout, stderr, err, "cannot connect to API server: API not implemented yet!")
 	// No API calls recoreded.
 	s.api.CheckCallNames(c)
 }
