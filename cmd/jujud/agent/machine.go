@@ -1051,12 +1051,6 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 		return provisioner.NewEnvironProvisioner(apiSt.Provisioner(), agentConfig), nil
 	})
-	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
-		return charmrevisionworker.NewRevisionUpdateWorker(apiSt.CharmRevisionUpdater()), nil
-	})
-	runner.StartWorker("metricmanagerworker", func() (worker.Worker, error) {
-		return metricworker.NewMetricsManager(getMetricAPI(apiSt))
-	})
 	if featureflag.Enabled(feature.Storage) {
 		singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
 			scope := agentConfig.Environment()
@@ -1064,6 +1058,12 @@ func (a *MachineAgent) startEnvWorkers(
 			return newStorageWorker("", api, api, api, api), nil
 		})
 	}
+	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
+		return charmrevisionworker.NewRevisionUpdateWorker(apiSt.CharmRevisionUpdater()), nil
+	})
+	runner.StartWorker("metricmanagerworker", func() (worker.Worker, error) {
+		return metricworker.NewMetricsManager(getMetricAPI(apiSt))
+	})
 
 	// TODO(axw) 2013-09-24 bug #1229506
 	// Make another job to enable the firewaller. Not all
