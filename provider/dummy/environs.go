@@ -1138,6 +1138,8 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 			NoAutoStart:   false,
 			ConfigType:    network.ConfigDHCP,
 		}}
+	} else if strings.HasPrefix(string(instId), "i-disabled-nic-") {
+		info = info[2:]
 	}
 
 	estate.ops <- OpNetworkInterfaces{
