@@ -23,10 +23,10 @@ are not allowed.
 
 The --file option should be used when one or more key-value pairs are
 too long to fit within the command length limit of the shell or
-operating system. The file should contain key-value pairs in the same
-format as on the commandline. They may also span multiple lines. Blank
-lines and lines starting with # are ignored. Settings in the file will
-be overridden by any duplicate key-value arguments.
+operating system. The file will contain one key-value pair per line
+in the same format as on the commandline. Blank lines and lines
+starting with # are ignored. Settings in the file will be overridden
+by any duplicate key-value arguments.
 `
 
 // RelationSetCommand implements the relation-set command.
@@ -87,7 +87,7 @@ func (c *RelationSetCommand) handleSettings(args []string) error {
 			if line == "" || line[0] == '#' {
 				continue
 			}
-			kvs = append(kvs, strings.Fields(line)...)
+			kvs = append(kvs, line) // We lose trailing whitespace...
 		}
 
 		settings, err = keyvalues.Parse(kvs, true)
