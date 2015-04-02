@@ -8,13 +8,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -46,40 +44,37 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	if featureflag.Enabled(feature.LeaderElection) {
-		// Check for any leadership change, and enact it if possible.
-		logger.Infof("checking leadership status")
-		// If we've already accepted leadership, we don't need to do it again.
-		canAcceptLeader := !opState.Leader
-		select {
-		// If the unit's shutting down, we shouldn't accept it.
-		case <-u.f.UnitDying():
+	// Check for any leadership change, and enact it if possible.
+	logger.Infof("checking leadership status")
+	// If we've already accepted leadership, we don't need to do it again.
+	canAcceptLeader := !opState.Leader
+	select {
+	// If the unit's shutting down, we shouldn't accept it.
+	case <-u.f.UnitDying():
+		canAcceptLeader = false
+	default:
+		// If we're in an unexpected mode (eg pending hook) we shouldn't try either.
+		if opState.Kind != operation.Continue {
 			canAcceptLeader = false
-		default:
-			// If we're in an unexpected mode (eg pending hook) we shouldn't try either.
-			if opState.Kind != operation.Continue {
-				canAcceptLeader = false
-			}
 		}
-
-		// NOTE: the Wait() looks scary, but a ClaimLeadership ticket should always
-		// complete quickly; worst-case is API latency time, but it's designed that
-		// it should be vanishingly rare to hit that code path.
-		isLeader := u.leadershipTracker.ClaimLeader().Wait()
-		var creator creator
-		switch {
-		case isLeader && canAcceptLeader:
-			creator = newAcceptLeadershipOp()
-		case opState.Leader && !isLeader:
-			creator = newResignLeadershipOp()
-		}
-		if creator != nil {
-			return continueAfter(u, creator)
-		}
-		logger.Infof("leadership status is up-to-date")
 	}
 
+	// NOTE: the Wait() looks scary, but a ClaimLeadership ticket should always
+	// complete quickly; worst-case is API latency time, but it's designed that
+	// it should be vanishingly rare to hit that code path.
+	isLeader := u.leadershipTracker.ClaimLeader().Wait()
 	var creator creator
+	switch {
+	case isLeader && canAcceptLeader:
+		creator = newAcceptLeadershipOp()
+	case opState.Leader && !isLeader:
+		creator = newResignLeadershipOp()
+	}
+	if creator != nil {
+		return continueAfter(u, creator)
+	}
+	logger.Infof("leadership status is up-to-date")
+
 	switch opState.Kind {
 	case operation.RunAction:
 		// TODO(fwereade): we *should* handle interrupted actions, and make sure
@@ -201,12 +196,10 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	if featureflag.Enabled(feature.LeaderElection) {
-		if !opState.Leader && !u.ranLeaderSettingsChanged {
-			creator := newSimpleRunHookOp(hook.LeaderSettingsChanged)
-			if err := u.runOperation(creator); err != nil {
-				return nil, errors.Trace(err)
-			}
+	if !opState.Leader && !u.ranLeaderSettingsChanged {
+		creator := newSimpleRunHookOp(hook.LeaderSettingsChanged)
+		if err := u.runOperation(creator); err != nil {
+			return nil, errors.Trace(err)
 		}
 	}
 
@@ -244,18 +237,16 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 	var leaderElected, leaderDeposed <-chan struct{}
 	for {
-		if featureflag.Enabled(feature.LeaderElection) {
-			// We expect one or none of these vars to be non-nil; and if none
-			// are, we set the one that should trigger when our leadership state
-			// differs from what we have recorded locally.
-			if leaderElected == nil && leaderDeposed == nil {
-				if u.operationState().Leader {
-					logger.Infof("waiting to lose leadership")
-					leaderDeposed = u.leadershipTracker.WaitMinion().Ready()
-				} else {
-					logger.Infof("waiting to gain leadership")
-					leaderElected = u.leadershipTracker.WaitLeader().Ready()
-				}
+		// We expect one or none of these vars to be non-nil; and if none
+		// are, we set the one that should trigger when our leadership state
+		// differs from what we have recorded locally.
+		if leaderElected == nil && leaderDeposed == nil {
+			if u.operationState().Leader {
+				logger.Infof("waiting to lose leadership")
+				leaderDeposed = u.leadershipTracker.WaitMinion().Ready()
+			} else {
+				logger.Infof("waiting to gain leadership")
+				leaderElected = u.leadershipTracker.WaitLeader().Ready()
 			}
 		}
 		lastCollectMetrics := time.Unix(u.operationState().CollectMetricsTime, 0)
@@ -314,18 +305,16 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 	if err := u.relations.SetDying(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if featureflag.Enabled(feature.LeaderElection) {
-		if u.operationState().Leader {
-			if err := u.runOperation(newResignLeadershipOp()); err != nil {
-				return nil, errors.Trace(err)
-			}
-			// TODO(fwereade): we ought to inform the tracker that we're shutting down
-			// (and no longer wish to continue renewing our lease) so that the tracker
-			// can then report minionhood at all times, and thus prevent the is-leader
-			// and leader-set hook tools from acting in a correct but misleading way
-			// (ie continuing to act as though leader after leader-deposed has run).
-			// tool from returning true but misleading reports of leadership while dying.
+	if u.operationState().Leader {
+		if err := u.runOperation(newResignLeadershipOp()); err != nil {
+			return nil, errors.Trace(err)
 		}
+		// TODO(fwereade): we ought to inform the tracker that we're shutting down
+		// (and no longer wish to continue renewing our lease) so that the tracker
+		// can then report minionhood at all times, and thus prevent the is-leader
+		// and leader-set hook tools from acting in a correct but misleading way
+		// (ie continuing to act as though leader after leader-deposed has run).
+		// tool from returning true but misleading reports of leadership while dying.
 	}
 	for {
 		if len(u.relations.GetInfo()) == 0 {
@@ -383,10 +372,8 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	u.f.WantResolvedEvent()
 	u.f.WantUpgradeEvent(true)
 	var leaderDeposed <-chan struct{}
-	if featureflag.Enabled(feature.LeaderElection) {
-		if opState.Leader {
-			leaderDeposed = u.leadershipTracker.WaitMinion().Ready()
-		}
+	if opState.Leader {
+		leaderDeposed = u.leadershipTracker.WaitMinion().Ready()
 	}
 	for {
 		// We set status inside the loop so we can be sure we *reset* status after a

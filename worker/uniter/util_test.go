@@ -24,7 +24,6 @@ import (
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
 	utilexec "github.com/juju/utils/exec"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
@@ -33,7 +32,6 @@ import (
 
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/leadership"
@@ -301,23 +299,18 @@ var (
 )
 
 func startupHooks(minion bool) []string {
-	if featureflag.Enabled(feature.LeaderElection) {
-		leaderHook := "leader-elected"
-		if minion {
-			leaderHook = "leader-settings-changed"
-		}
-		return []string{"install", leaderHook, "config-changed", "start"}
+	leaderHook := "leader-elected"
+	if minion {
+		leaderHook = "leader-settings-changed"
 	}
-	return []string{"install", "config-changed", "start"}
+	return []string{"install", leaderHook, "config-changed", "start"}
 }
 
 func (s createCharm) step(c *gc.C, ctx *context) {
 	base := testcharms.Repo.ClonedDirPath(c.MkDir(), "wordpress")
 
 	allCharmHooks := baseCharmHooks
-	if featureflag.Enabled(feature.LeaderElection) {
-		allCharmHooks = append(allCharmHooks, leaderCharmHooks...)
-	}
+	allCharmHooks = append(allCharmHooks, leaderCharmHooks...)
 
 	for _, name := range allCharmHooks {
 		path := filepath.Join(base, "hooks", name)
@@ -545,7 +538,7 @@ func (s verifyRunning) step(c *gc.C, ctx *context) {
 	step(c, ctx, stopUniter{})
 	step(c, ctx, startUniter{})
 	var hooks []string
-	if s.minion && featureflag.Enabled(feature.LeaderElection) {
+	if s.minion {
 		hooks = append(hooks, "leader-settings-changed")
 	}
 	hooks = append(hooks, "config-changed")
