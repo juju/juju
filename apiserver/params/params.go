@@ -739,7 +739,7 @@ type Status multiwatcher.Status
 
 // TranslateLegacyAgentStatus returns the status value clients expect to see for
 // agent-state in versions prior to 1.24
-func TranslateToLegacyAgentState(workloadStatus, agentStatus Status) Status {
+func TranslateToLegacyAgentState(workloadStatus, agentStatus Status) (Status, bool) {
 	// Originally AgentState (a member of api.UnitStatus) could hold one of:
 	// StatusPending
 	// StatusInstalled
@@ -751,22 +751,22 @@ func TranslateToLegacyAgentState(workloadStatus, agentStatus Status) Status {
 	// four of the old ones: StatusPending, StatusStarted, StatusStopped, or StatusError.
 	switch agentStatus {
 	case StatusAllocating:
-		return StatusPending
+		return StatusPending, true
 	case StatusError:
-		return StatusError
+		return StatusError, true
 	case StatusRebooting, StatusExecuting, StatusIdle, StatusLost, StatusFailed:
 		switch workloadStatus {
 		case StatusTerminated:
-			return StatusStopped
+			return StatusStopped, true
 		case StatusMaintenance:
 			// TODO(wallyworld): until we can query status history, returning Started
 			// is a resonable approximation.
-			return StatusStarted
+			return StatusStarted, true
 		default:
-			return StatusStarted
+			return StatusStarted, true
 		}
 	}
-	return ""
+	return "", false
 }
 
 const (

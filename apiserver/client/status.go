@@ -587,7 +587,13 @@ func processUnitAndAgentStatus(unit *state.Unit, status *api.UnitStatus) {
 
 	// Legacy fields required until Juju 2.0.
 	// We only display pending, started, error, stopped.
-	status.AgentState = params.TranslateToLegacyAgentState(status.Workload.Status, status.UnitAgent.Status)
+	var ok bool
+	status.AgentState, ok = params.TranslateToLegacyAgentState(status.Workload.Status, status.UnitAgent.Status)
+	if !ok {
+		logger.Warningf(
+			"translate to legacy status encounted unexpected workload status %q and agent status %q",
+			status.Workload.Status, status.UnitAgent.Status)
+	}
 	if status.AgentState == params.StatusError {
 		status.AgentStateInfo = status.UnitAgent.Info
 	}
@@ -689,9 +695,11 @@ func processUnitStatus(unit *state.Unit) (agentStatus, workloadStatus api.AgentS
 
 // processUnitLost determines whether the given unit should be marked as lost.
 func processUnitLost(unit *state.Unit, status *api.UnitStatus) {
-	if status.UnitAgent.Status == params.StatusPending || // Need to still check pending for existing deployments.
-		status.UnitAgent.Status == params.StatusAllocating ||
-		status.UnitAgent.Status == params.StatusInstalling {
+	// Pending and Installing are deprecated.
+	// Need to still check pending for existing deployments.
+	if status.UnitAgent.Status == params.StatusPending ||
+		status.UnitAgent.Status == params.StatusInstalling ||
+		status.UnitAgent.Status == params.StatusAllocating {
 		// The status is allocating or installing - there's no point
 		// in enquiring about the agent liveness.
 		return
