@@ -60,7 +60,8 @@ too long to fit within the command length limit of the shell or
 operating system. The file will contain one key-value pair per line
 in the same format as on the commandline. Blank lines and lines
 starting with # are ignored. Settings in the file will be overridden
-by any duplicate key-value arguments.
+by any duplicate key-value arguments. A value of "-" for the filename
+means "read from stdin".
 `[1:], t.expect))
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	}
@@ -97,7 +98,7 @@ func (t relationSetInitTest) filename() (string, int) {
 func (t relationSetInitTest) init(c *gc.C, s *RelationSetSuite) (cmd.Command, []string) {
 	args := make([]string, len(t.args))
 	copy(args, t.args)
-	if filename, i := t.filename(); filename != "" {
+	if filename, i := t.filename(); filename != "" && filename != "-" {
 		filename = filepath.Join(c.MkDir(), filename)
 		args[i] = filename
 		err := ioutil.WriteFile(filename, []byte(t.content), 0644)
@@ -279,6 +280,18 @@ func (s *RelationSetSuite) TestInit(c *gc.C) {
 
 		t.check(c, com, err)
 	}
+}
+
+func (s *RelationSetSuite) TestInitStdin(c *gc.C) {
+	test := relationSetInitTest{
+		args:     []string{"--file", "-"},
+		settings: map[string]string{},
+	}
+	com, args := test.init(c, s)
+
+	err := testing.InitCommand(com, args)
+
+	test.check(c, com, err)
 }
 
 // Tests start with a relation with the settings {"base": "value"}
