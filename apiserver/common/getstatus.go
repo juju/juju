@@ -38,9 +38,11 @@ func (s *StatusGetter) getEntityStatus(tag names.Tag) params.StatusResult {
 	}
 	switch getter := entity.(type) {
 	case state.StatusGetter:
-		var st state.Status
-		st, result.Info, result.Data, err = getter.Status()
-		result.Status = params.Status(st)
+		statusInfo, err := getter.Status()
+		result.Status = params.Status(statusInfo.Status)
+		result.Info = statusInfo.Message
+		result.Data = statusInfo.Data
+		result.Since = statusInfo.Since
 		result.Error = ServerError(err)
 	default:
 		result.Error = ServerError(NotSupportedError(tag, fmt.Sprintf("getting status, %T", getter)))

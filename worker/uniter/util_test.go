@@ -605,18 +605,18 @@ func (s resolveError) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type statusfunc func() (status state.Status, info string, data map[string]interface{}, err error)
+type statusfunc func() (state.StatusInfo, error)
 
 type statusfuncGetter func(ctx *context) statusfunc
 
 var unitStatusGetter = func(ctx *context) statusfunc {
-	return func() (status state.Status, info string, data map[string]interface{}, err error) {
+	return func() (state.StatusInfo, error) {
 		return ctx.unit.Status()
 	}
 }
 
 var agentStatusGetter = func(ctx *context) statusfunc {
-	return func() (status state.Status, info string, data map[string]interface{}, err error) {
+	return func() (state.StatusInfo, error) {
 		return ctx.unit.AgentStatus()
 	}
 }
@@ -657,25 +657,25 @@ func (s waitUnitAgent) step(c *gc.C, ctx *context) {
 				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
 			}
-			status, info, data, err := s.statusGetter(ctx)()
+			statusInfo, err := s.statusGetter(ctx)()
 			c.Assert(err, jc.ErrorIsNil)
-			if string(status) != string(s.status) {
-				c.Logf("want unit status %q, got %q; still waiting", s.status, status)
+			if string(statusInfo.Status) != string(s.status) {
+				c.Logf("want unit status %q, got %q; still waiting", s.status, statusInfo.Status)
 				continue
 			}
-			if info != s.info {
-				c.Logf("want unit status info %q, got %q; still waiting", s.info, info)
+			if statusInfo.Message != s.info {
+				c.Logf("want unit status info %q, got %q; still waiting", s.info, statusInfo.Message)
 				continue
 			}
 			if s.data != nil {
-				if len(data) != len(s.data) {
-					c.Logf("want %d status data value(s), got %d; still waiting", len(s.data), len(data))
+				if len(statusInfo.Data) != len(s.data) {
+					c.Logf("want %d status data value(s), got %d; still waiting", len(s.data), len(statusInfo.Data))
 					continue
 				}
 				for key, value := range s.data {
-					if data[key] != value {
+					if statusInfo.Data[key] != value {
 						c.Logf("want status data value %q for key %q, got %q; still waiting",
-							value, key, data[key])
+							value, key, statusInfo.Data[key])
 						continue
 					}
 				}

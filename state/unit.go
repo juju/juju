@@ -797,7 +797,7 @@ func (u *Unit) SetAgentStatus(status Status, info string, data map[string]interf
 // AgentStatus calls Status for this unit's agent, this call
 // is equivalent to the former call to Status when Agent and Unit
 // where not separate entities.
-func (u *Unit) AgentStatus() (status Status, info string, data map[string]interface{}, err error) {
+func (u *Unit) AgentStatus() (StatusInfo, error) {
 	agent := newUnitAgent(u.st, u.Tag(), u.Name())
 	return agent.Status()
 }
@@ -806,15 +806,17 @@ func (u *Unit) AgentStatus() (status Status, info string, data map[string]interf
 // This method relies on globalKey instead of globalAgentKey since it is part of
 // the effort to separate Unit from UnitAgent. Now the Status for UnitAgent is in
 // the UnitAgent struct.
-func (u *Unit) Status() (status Status, info string, data map[string]interface{}, err error) {
+func (u *Unit) Status() (StatusInfo, error) {
 	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
-		return "", "", nil, err
+		return StatusInfo{}, err
 	}
-	status = doc.Status
-	info = doc.StatusInfo
-	data = doc.StatusData
-	return
+	return StatusInfo{
+		Status:  doc.Status,
+		Message: doc.StatusInfo,
+		Data:    doc.StatusData,
+		Since:   doc.Updated,
+	}, nil
 }
 
 // SetStatus sets the status of the unit agent. The optional values
@@ -1874,11 +1876,11 @@ func (u *Unit) Resolve(retryHooks bool) error {
 	// We currently check agent status to see if a unit is
 	// in error state. As the new Juju Health work is completed,
 	// this will change to checking the unit status.
-	status, _, _, err := u.AgentStatus()
+	statusInfo, err := u.AgentStatus()
 	if err != nil {
 		return err
 	}
-	if status != StatusError {
+	if statusInfo.Status != StatusError {
 		return errors.Errorf("unit %q is not in an error state", u)
 	}
 	mode := ResolvedNoHooks

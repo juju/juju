@@ -45,3 +45,7 @@ const LegacyUpstart = "legacy-upstart"
 // DbLog is the the feature which has Juju's logs go to
 // MongoDB instead of to all-machines.log using rsyslog.
 const DbLog = "db-log"
+
+// NewStatus is the name of the feature to enable the new
+// juju status output.
+const NewStatus = "new-status"

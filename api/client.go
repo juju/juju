@@ -53,6 +53,7 @@ type AgentStatus struct {
 	Status  params.Status
 	Info    string
 	Data    map[string]interface{}
+	Since   *time.Time
 	Version string
 	Life    string
 	Err     error

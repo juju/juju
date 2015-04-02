@@ -354,6 +354,7 @@ type StatusResult struct {
 	Status Status
 	Info   string
 	Data   map[string]interface{}
+	Since  *time.Time
 }
 
 // StatusResults holds multiple status results.

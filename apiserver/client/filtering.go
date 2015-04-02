@@ -138,23 +138,23 @@ func unitMatchUnitName(u *state.Unit, patterns []string) (bool, bool, error) {
 }
 
 func unitMatchAgentStatus(u *state.Unit, patterns []string) (bool, bool, error) {
-	status, _, _, err := u.AgentStatus()
+	statusInfo, err := u.AgentStatus()
 	if err != nil {
 		return false, false, err
 	}
-	return matchAgentStatus(patterns, status)
+	return matchAgentStatus(patterns, statusInfo.Status)
 }
 
 func unitMatchWorkloadStatus(u *state.Unit, patterns []string) (bool, bool, error) {
-	workloadStatus, _, _, err := u.Status()
+	workloadStatusInfo, err := u.Status()
 	if err != nil {
 		return false, false, err
 	}
-	agentStatus, _, _, err := u.AgentStatus()
+	agentStatusInfo, err := u.AgentStatus()
 	if err != nil {
 		return false, false, err
 	}
-	return matchWorkloadStatus(patterns, workloadStatus, agentStatus)
+	return matchWorkloadStatus(patterns, workloadStatusInfo.Status, agentStatusInfo.Status)
 }
 
 func unitMatchExposure(u *state.Unit, patterns []string) (bool, bool, error) {
@@ -233,11 +233,11 @@ func buildShimsForUnit(unitsFn func() ([]*state.Unit, error), patterns ...string
 
 func buildMachineMatcherShims(m *state.Machine, patterns []string) (shims []closurePredicate, _ error) {
 	// Look at machine status.
-	status, _, _, err := m.Status()
+	statusInfo, err := m.Status()
 	if err != nil {
 		return nil, err
 	}
-	shims = append(shims, func() (bool, bool, error) { return matchAgentStatus(patterns, status) })
+	shims = append(shims, func() (bool, bool, error) { return matchAgentStatus(patterns, statusInfo.Status) })
 
 	// Look at machine addresses. WARNING: Avoid the temptation to
 	// bring the append into the loop. The value we would close over

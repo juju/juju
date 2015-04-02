@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -38,29 +40,29 @@ func (s *UnitAgentSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	err = agent.SetStatus(state.Status("vliegkat"), "orville", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
-	status, info, data, err := agent.Status()
+	statusInfo, err := agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusAllocating)
-	c.Assert(info, gc.Equals, "")
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusAllocating)
+	c.Assert(statusInfo.Message, gc.Equals, "")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
 
 	err = agent.SetStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	status, info, data, err = agent.Status()
+	statusInfo, err = agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusIdle)
-	c.Assert(info, gc.Equals, "")
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusIdle)
+	c.Assert(statusInfo.Message, gc.Equals, "")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
 
 	err = agent.SetStatus(state.StatusError, "test-hook failed", map[string]interface{}{
 		"foo": "bar",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	status, info, data, err = agent.Status()
+	statusInfo, err = agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "test-hook failed")
-	c.Assert(data, gc.DeepEquals, map[string]interface{}{
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "test-hook failed")
+	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
 	})
 }
@@ -71,14 +73,14 @@ func (s *UnitAgentSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = agent.SetStatus(state.StatusIdle, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit agent "wordpress/0": not found or dead`)
-	_, _, _, err = agent.Status()
+	_, err = agent.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = agent.SetStatus(state.StatusIdle, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit agent "wordpress/0": not found or dead`)
-	_, _, _, err = agent.Status()
+	_, err = agent.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 }
 
@@ -86,7 +88,7 @@ func (s *UnitAgentSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	agent := s.unit.Agent().(*state.UnitAgent)
 	err := agent.SetStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, _, err = agent.Status()
+	_, err = agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Regular status setting with data.
@@ -97,22 +99,46 @@ func (s *UnitAgentSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, data, err := agent.Status()
+	statusInfo, err := agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "test-hook failed")
-	c.Assert(data, gc.DeepEquals, map[string]interface{}{
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "test-hook failed")
+	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
 	})
 }
 
+func timeBeforeOrEqual(timeBefore, timeOther time.Time) bool {
+	return timeBefore.Before(timeOther) || timeBefore.Equal(timeOther)
+}
+
+func (s *UnitAgentSuite) TestSetAgentStatusSince(c *gc.C) {
+	agent := s.unit.Agent().(*state.UnitAgent)
+
+	now := state.NowToTheSecond()
+	err := agent.SetStatus(state.StatusIdle, "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	statusInfo, err := agent.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	firstTime := statusInfo.Since
+	c.Assert(firstTime, gc.NotNil)
+	c.Assert(timeBeforeOrEqual(now, *firstTime), jc.IsTrue)
+
+	// Setting the same status a second time also updates the timestamp.
+	err = agent.SetStatus(state.StatusIdle, "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	statusInfo, err = agent.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(timeBeforeOrEqual(*firstTime, *statusInfo.Since), jc.IsTrue)
+}
+
 func (s *UnitAgentSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	agent := s.unit.Agent().(*state.UnitAgent)
 	err := agent.SetStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, _, err = agent.Status()
+	_, err = agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Status setting with MongoDB special values.
@@ -124,11 +150,11 @@ func (s *UnitAgentSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, data, err := agent.Status()
+	statusInfo, err := agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "mongo")
-	c.Assert(data, gc.DeepEquals, map[string]interface{}{
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "mongo")
+	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
 		`{name: "Joe"}`: "$where",
 		"eval":          `eval(function(foo) { return foo; }, "bar")`,
 		"mapReduce":     "mapReduce",
@@ -140,7 +166,7 @@ func (s *UnitAgentSuite) TestGetSetStatusDataChange(c *gc.C) {
 	agent := s.unit.Agent().(*state.UnitAgent)
 	err := agent.SetStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, _, err = agent.Status()
+	_, err = agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Status setting and changing data afterwards.
@@ -153,11 +179,11 @@ func (s *UnitAgentSuite) TestGetSetStatusDataChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	data["4th-key"] = 4.0
 
-	status, info, data, err := agent.Status()
+	statusInfo, err := agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "test-hook failed")
-	c.Assert(data, gc.DeepEquals, map[string]interface{}{
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "test-hook failed")
+	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -167,9 +193,9 @@ func (s *UnitAgentSuite) TestGetSetStatusDataChange(c *gc.C) {
 	err = agent.SetStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, data, err = agent.Status()
+	statusInfo, err = agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusIdle)
-	c.Assert(info, gc.Equals, "")
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusIdle)
+	c.Assert(statusInfo.Message, gc.Equals, "")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
 }

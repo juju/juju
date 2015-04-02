@@ -4,6 +4,8 @@
 package state
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -210,7 +212,15 @@ type StatusSetter interface {
 
 // StatusGetter represents a type whose status can be read.
 type StatusGetter interface {
-	Status() (status Status, info string, data map[string]interface{}, err error)
+	Status() (statusInfo StatusInfo, err error)
+}
+
+// StatusInfo holds the status information for a machine, unit, service etc.
+type StatusInfo struct {
+	Status  Status
+	Message string
+	Data    map[string]interface{}
+	Since   *time.Time
 }
 
 // statusDoc represents a entity status in Mongodb.  The implicit
@@ -222,6 +232,7 @@ type statusDoc struct {
 	Status     Status
 	StatusInfo string
 	StatusData map[string]interface{}
+	Updated    *time.Time
 }
 
 type machineStatusDoc struct {
@@ -237,6 +248,8 @@ func newMachineStatusDoc(status Status, info string, data map[string]interface{}
 		StatusInfo: info,
 		StatusData: data,
 	}}
+	timestamp := nowToTheSecond()
+	doc.Updated = &timestamp
 	if err := doc.validateSet(allowPending); err != nil {
 		return nil, err
 	}
@@ -293,6 +306,8 @@ func newUnitAgentStatusDoc(status Status, info string, data map[string]interface
 		StatusInfo: info,
 		StatusData: data,
 	}}
+	timestamp := nowToTheSecond()
+	doc.Updated = &timestamp
 	if err := doc.validateSet(); err != nil {
 		return nil, err
 	}
@@ -357,6 +372,8 @@ func newUnitStatusDoc(status Status, info string, data map[string]interface{}) (
 		StatusInfo: info,
 		StatusData: data,
 	}}
+	timestamp := nowToTheSecond()
+	doc.Updated = &timestamp
 	if err := doc.validateSet(); err != nil {
 		return nil, errors.Trace(err)
 	}

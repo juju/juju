@@ -156,9 +156,9 @@ func waitForUnitActive(stateConn *state.State, unit *state.Unit, c *gc.C) {
 		case <-time.After(coretesting.ShortWait):
 			err := unit.Refresh()
 			c.Assert(err, jc.ErrorIsNil)
-			st, info, data, err := unit.Status()
+			statusInfo, err := unit.Status()
 			c.Assert(err, jc.ErrorIsNil)
-			switch st {
+			switch statusInfo.Status {
 			case state.StatusMaintenance, state.StatusWaiting, state.StatusBlocked:
 				c.Logf("waiting...")
 				continue
@@ -171,11 +171,11 @@ func waitForUnitActive(stateConn *state.State, unit *state.Unit, c *gc.C) {
 				c.Logf("unknown but active!")
 				return
 			default:
-				c.Fatalf("unexpected status %s %s %v", st, info, data)
+				c.Fatalf("unexpected status %s %s %v", statusInfo.Status, statusInfo.Message, statusInfo.Data)
 			}
-			st, info, data, err = unit.AgentStatus()
+			statusInfo, err = unit.AgentStatus()
 			c.Assert(err, jc.ErrorIsNil)
-			switch st {
+			switch statusInfo.Status {
 			case state.StatusAllocating, state.StatusExecuting, state.StatusRebooting, state.StatusIdle:
 				c.Logf("waiting...")
 				continue
@@ -183,7 +183,7 @@ func waitForUnitActive(stateConn *state.State, unit *state.Unit, c *gc.C) {
 				stateConn.StartSync()
 				c.Logf("unit is still down")
 			default:
-				c.Fatalf("unexpected status %s %s %v", st, info, data)
+				c.Fatalf("unexpected status %s %s %v", statusInfo.Status, statusInfo.Message, statusInfo.Data)
 			}
 		}
 	}

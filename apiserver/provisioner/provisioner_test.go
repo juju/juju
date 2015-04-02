@@ -450,11 +450,11 @@ func (s *withoutStateServerSuite) assertLife(c *gc.C, index int, expectLife stat
 func (s *withoutStateServerSuite) assertStatus(c *gc.C, index int, expectStatus state.Status, expectInfo string,
 	expectData map[string]interface{}) {
 
-	status, info, data, err := s.machines[index].Status()
+	statusInfo, err := s.machines[index].Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, expectStatus)
-	c.Assert(info, gc.Equals, expectInfo)
-	c.Assert(data, gc.DeepEquals, expectData)
+	c.Assert(statusInfo.Status, gc.Equals, expectStatus)
+	c.Assert(statusInfo.Message, gc.Equals, expectInfo)
+	c.Assert(statusInfo.Data, gc.DeepEquals, expectData)
 }
 
 func (s *withoutStateServerSuite) TestWatchContainers(c *gc.C) {
@@ -561,6 +561,15 @@ func (s *withoutStateServerSuite) TestStatus(c *gc.C) {
 	}}
 	result, err := s.provisioner.Status(args)
 	c.Assert(err, jc.ErrorIsNil)
+	// Zero out the updated timestamps so we can easily check the results.
+	for i, statusResult := range result.Results {
+		r := statusResult
+		if r.Status != "" {
+			c.Assert(r.Since, gc.NotNil)
+		}
+		r.Since = nil
+		result.Results[i] = r
+	}
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{Status: params.StatusStarted, Info: "blah", Data: map[string]interface{}{}},

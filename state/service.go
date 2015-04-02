@@ -19,6 +19,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"time"
 )
 
 // Service represents the state of a service.
@@ -603,13 +604,16 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		Principal:              principalName,
 		StorageAttachmentCount: numStorageAttachments,
 	}
+	now := time.Now()
 	agentStatusDoc := statusDoc{
 		Status:  StatusAllocating,
+		Updated: &now,
 		EnvUUID: s.st.EnvironUUID(),
 	}
 	unitStatusDoc := statusDoc{
 		Status:     StatusUnknown,
 		StatusInfo: "Waiting for agent initialization to finish",
+		Updated:    &now,
 		EnvUUID:    s.st.EnvironUUID(),
 	}
 	ops := []txn.Op{

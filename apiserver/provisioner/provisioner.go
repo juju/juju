@@ -300,12 +300,13 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 			continue
 		}
 		var result params.StatusResult
-		var st state.Status
-		st, result.Info, result.Data, err = machine.Status()
+		statusInfo, err := machine.Status()
 		if err != nil {
 			continue
 		}
-		result.Status = params.Status(st)
+		result.Status = params.Status(statusInfo.Status)
+		result.Info = statusInfo.Message
+		result.Data = statusInfo.Data
 		if result.Status != params.StatusError {
 			continue
 		}
