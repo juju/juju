@@ -1227,12 +1227,14 @@ func (s *MachineSuite) testMachineAgentRunsMachineStorageWorker(c *gc.C, shouldR
 
 	started := make(chan struct{})
 	newWorker := func(
+		scope names.Tag,
 		storageDir string,
 		_ storageprovisioner.VolumeAccessor,
 		_ storageprovisioner.FilesystemAccessor,
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
 	) worker.Worker {
+		c.Check(scope, gc.Equals, m.Tag())
 		// storageDir is not empty for machine scoped storage provisioners
 		c.Assert(storageDir, gc.Not(gc.Equals), "")
 		close(started)
@@ -1271,6 +1273,7 @@ func (s *MachineSuite) testMachineAgentRunsEnvironStorageWorkers(c *gc.C, should
 	numWorkers := 0
 	started := make(chan struct{})
 	newWorker := func(
+		scope names.Tag,
 		storageDir string,
 		_ storageprovisioner.VolumeAccessor,
 		_ storageprovisioner.FilesystemAccessor,
@@ -1279,10 +1282,12 @@ func (s *MachineSuite) testMachineAgentRunsEnvironStorageWorkers(c *gc.C, should
 	) worker.Worker {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {
+			c.Check(scope, gc.Equals, s.State.EnvironTag())
 			environWorkerStarted = true
 			numWorkers = numWorkers + 1
 		}
 		if storageDir != "" {
+			c.Check(scope, gc.Equals, m.Tag())
 			machineWorkerStarted = true
 			numWorkers = numWorkers + 1
 		}

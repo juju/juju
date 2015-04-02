@@ -709,9 +709,10 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
 		})
 		runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
-			api := st.StorageProvisioner(agentConfig.Tag())
+			scope := agentConfig.Tag()
+			api := st.StorageProvisioner(scope)
 			storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-			return newStorageWorker(storageDir, api, api, api, api), nil
+			return newStorageWorker(scope, storageDir, api, api, api, api), nil
 		})
 	}
 
@@ -1055,7 +1056,7 @@ func (a *MachineAgent) startEnvWorkers(
 		singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
 			scope := agentConfig.Environment()
 			api := apiSt.StorageProvisioner(scope)
-			return newStorageWorker("", api, api, api, api), nil
+			return newStorageWorker(scope, "", api, api, api, api), nil
 		})
 	}
 	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {

@@ -192,7 +192,6 @@ type VolumeAttachmentParams struct {
 	VolumeTag  string `json:"volumetag"`
 	MachineTag string `json:"machinetag"`
 	InstanceId string `json:"instanceid,omitempty"`
-	VolumeId   string `json:"volumeid,omitempty"`
 	Provider   string `json:"provider"`
 }
 
@@ -259,6 +258,7 @@ type VolumeAttachmentParamsResults struct {
 // Filesystem describes a storage filesystem in the environment.
 type Filesystem struct {
 	FilesystemTag string `json:"filesystemtag"`
+	VolumeTag     string `json:"volumetag,omitempty"`
 	FilesystemId  string `json:"filesystemid"`
 	// Size is the size of the filesystem in MiB.
 	Size uint64 `json:"size"`
@@ -297,7 +297,6 @@ type FilesystemAttachmentParams struct {
 	FilesystemTag string `json:"filesystemtag"`
 	MachineTag    string `json:"machinetag"`
 	InstanceId    string `json:"instanceid,omitempty"`
-	FilesystemId  string `json:"filesystemid,omitempty"`
 	Provider      string `json:"provider"`
 	MountPoint    string `json:"mountpoint,omitempty"`
 }
