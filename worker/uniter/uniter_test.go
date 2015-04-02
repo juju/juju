@@ -191,7 +191,7 @@ func (s *UniterSuite) TestUniterInstallHook(c *gc.C) {
 			waitUnit{
 				status: params.StatusActive,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 		),
 	})
 }
@@ -240,7 +240,7 @@ func (s *UniterSuite) TestUniterMultipleErrors(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"resolved is cleared before moving on to next hook",
-			createCharm{badHooks: []string{"install", "config-changed", "start"}},
+			createCharm{badHooks: []string{"install", "leader-elected", "config-changed", "start"}},
 			serveCharm{},
 			createUniter{},
 			waitUnit{
@@ -325,7 +325,7 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *gc.C) {
 			waitUnit{
 				status: params.StatusActive,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			assertYaml{"charm/config.out", map[string]interface{}{
 				"blog-title": "My Title",
 			}},
@@ -368,7 +368,7 @@ func (s *UniterSuite) TestUniterHookSynchronisation(c *gc.C) {
 			verifyHookSyncLockLocked,
 			releaseHookSyncLock,
 			waitUnit{status: params.StatusActive},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 		),
 	})
 }
@@ -561,7 +561,7 @@ func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
 			waitUnit{
 				status: params.StatusActive,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 
 			createCharm{
 				revision: 1,
@@ -897,7 +897,7 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 			waitUnit{
 				status: params.StatusActive,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyGitCharm{dirty: true},
 
 			createCharm{
@@ -1073,7 +1073,7 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			waitUnit{
 				status: params.StatusActive,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			addRelation{waitJoin: true},
 			stopUniter{},
 			custom{func(c *gc.C, ctx *context) {
@@ -1182,7 +1182,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 			serveCharm{},
 			createUniter{},
 			waitUnit{status: params.StatusActive},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
 			metricsTick{},
 			waitHooks{"collect-metrics"},
@@ -1248,7 +1248,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			startUniter{},
 			waitAddresses{},
 			waitUnit{status: params.StatusActive},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
 			addAction{"action-log", nil},
 			waitActionResults{[]actionResult{{
@@ -1271,7 +1271,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			startUniter{},
 			waitAddresses{},
 			waitUnit{status: params.StatusActive},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
 			addAction{"action-log-fail", nil},
 			waitActionResults{[]actionResult{{
@@ -1297,7 +1297,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			startUniter{},
 			waitAddresses{},
 			waitUnit{status: params.StatusActive},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
 			addAction{"action-log-fail-error", nil},
 			waitActionResults{[]actionResult{{
@@ -1323,7 +1323,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			startUniter{},
 			waitAddresses{},
 			waitUnit{status: params.StatusActive},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
 			addAction{
 				name:   "snapshot",
@@ -1358,7 +1358,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			startUniter{},
 			waitAddresses{},
 			waitUnit{status: params.StatusActive},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
 			addAction{
 				name:   "snapshot",
@@ -1384,7 +1384,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			startUniter{},
 			waitAddresses{},
 			waitUnit{status: params.StatusActive},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
 			addAction{"snapshot", map[string]interface{}{"outfile": "foo.bar"}},
 			waitActionResults{[]actionResult{{
@@ -1411,7 +1411,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			startUniter{},
 			waitAddresses{},
 			waitUnit{status: params.StatusActive},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
 			waitActionResults{[]actionResult{{
 				name:    "action-log",
@@ -1440,7 +1440,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			startUniter{},
 			waitAddresses{},
 			waitUnit{status: params.StatusActive},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
 			addAction{"action-log", nil},
 			waitActionResults{[]actionResult{{
@@ -1629,7 +1629,7 @@ func (s *UniterSuite) TestReboot(c *gc.C) {
 			waitUnit{
 				status: params.StatusActive,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 		), ut(
 			"test juju-reboot will not happen if hook errors out",
 			createCharm{
