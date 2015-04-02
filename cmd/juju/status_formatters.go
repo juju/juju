@@ -104,23 +104,6 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		)
 	}
 
-	pUnitInfo := func(u unitStatus, level int, info string) {
-		// We need to keep the tabular output nice and neat, so
-		// limit the size of the info message.
-		if len(info) > 25 {
-			info = info[:25] + "..."
-		}
-		p(
-			indent("", level*2, ""),
-			info,
-			"",
-			"",
-			"",
-			"",
-			"",
-		)
-	}
-
 	// See if we have new or old data; that determines what data we can display.
 	newStatus := false
 	for _, u := range units {
@@ -129,12 +112,30 @@ func FormatTabular(value interface{}) ([]byte, error) {
 			break
 		}
 	}
-	p("\n[Units]")
+	var header []string
 	if newStatus {
-		p("ID\tWORKLOAD-STATE\tAGENT-STATE\tVERSION\tMACHINE\tPORTS\tPUBLIC-ADDRESS")
+		header = []string{"ID", "WORKLOAD-STATE", "AGENT-STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS"}
 	} else {
-		p("ID\tSTATE\tVERSION\tMACHINE\tPORTS\tPUBLIC-ADDRESS")
+		header = []string{"ID", "STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS"}
 	}
+
+	pUnitInfo := func(u unitStatus, level int, info string) {
+		// We need to keep the tabular output nice and neat, so
+		// limit the size of the info message.
+		if len(info) > 25 {
+			info = info[:22] + "..."
+		}
+		columns := make([]interface{}, len(header))
+		columns[0] = indent("", level*2, "")
+		columns[1] = info
+		for i := 2; i < len(columns); i++ {
+			columns[i] = ""
+		}
+		p(columns...)
+	}
+
+	p("\n[Units]")
+	p(strings.Join(header, "\t"))
 	for _, name := range sortStringsNaturally(stringKeysFromMap(units)) {
 		u := units[name]
 		pUnit(name, u, 0)

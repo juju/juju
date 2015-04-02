@@ -212,7 +212,7 @@ type StatusSetter interface {
 
 // StatusGetter represents a type whose status can be read.
 type StatusGetter interface {
-	Status() (statusInfo StatusInfo, err error)
+	Status() (StatusInfo, error)
 }
 
 // StatusInfo holds the status information for a machine, unit, service etc.

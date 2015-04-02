@@ -449,7 +449,7 @@ func (sf *statusFormatter) getWorkloadStatusInfo(unit api.UnitStatus) statusInfo
 		Version: unit.Workload.Version,
 	}
 	if unit.Workload.Since != nil {
-		info.Since = unit.Workload.Since.Format(time.RFC822)
+		info.Since = unit.Workload.Since.Local().Format(time.RFC822)
 	}
 	return info
 }
@@ -462,7 +462,7 @@ func (sf *statusFormatter) getAgentStatusInfo(unit api.UnitStatus) statusInfoCon
 		Version: unit.UnitAgent.Version,
 	}
 	if unit.UnitAgent.Since != nil {
-		info.Since = unit.UnitAgent.Since.Format(time.RFC822)
+		info.Since = unit.UnitAgent.Since.Local().Format(time.RFC822)
 	}
 	return info
 }

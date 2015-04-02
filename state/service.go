@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -19,7 +20,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
-	"time"
 )
 
 // Service represents the state of a service.
