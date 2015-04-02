@@ -569,7 +569,6 @@ func (task *provisionerTask) startMachine(
 	provisioningInfo *params.ProvisioningInfo,
 	startInstanceParams environs.StartInstanceParams,
 ) error {
-
 	result, err := task.broker.StartInstance(startInstanceParams)
 	if err != nil {
 		// If this is a retryable error, we retry once
@@ -591,7 +590,6 @@ func (task *provisionerTask) startMachine(
 	hardware := result.Hardware
 	nonce := startInstanceParams.MachineConfig.MachineNonce
 	networks, ifaces := task.prepareNetworkAndInterfaces(result.NetworkInfo)
-
 	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networks, ifaces)
 	if err != nil && params.IsCodeNotImplemented(err) {
 		return fmt.Errorf("cannot provision instance %v for machine %q with networks: not implemented", inst.Id(), machine)

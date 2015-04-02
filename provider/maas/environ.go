@@ -1537,7 +1537,8 @@ func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]iface
 	}
 	var lshw List
 	if err := xml.Unmarshal(lshwXML, &lshw); err != nil {
-		return nil, "", errors.Annotatef(err, "cannot parse lshw XML details for node %q", inst.Id())
+		logger.Warningf("cannot parse MAAS lshw commissioning details for node %q: %v (ignoring)", inst.Id(), err)
+		return make(map[string]ifaceInfo), "eth0", nil
 	}
 	primaryIface := ""
 	interfaces := make(map[string]ifaceInfo)
