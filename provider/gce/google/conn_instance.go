@@ -97,12 +97,19 @@ func (gce *Connection) Instances(prefix string, statuses ...string) ([]Instance,
 func (gce *Connection) removeInstance(id, zone string) error {
 	err := gce.raw.RemoveInstance(gce.projectID, zone, id)
 	if err != nil {
+		// TODO(ericsnow) Try removing the firewall anyway?
 		return errors.Trace(err)
 	}
 
 	fwname := id
 	err = gce.raw.RemoveFirewall(gce.projectID, fwname)
-	return errors.Trace(err)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // RemoveInstances sends a request to the GCE API to terminate all
