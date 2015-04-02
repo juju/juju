@@ -73,15 +73,13 @@ func updateVolumeBlockDevices(ctx *context, volumeTags []names.VolumeTag) error 
 	for i, result := range results {
 		if result.Error == nil {
 			ctx.volumeBlockDevices[volumeTags[i]] = result.Result
-			continue
-		}
-		if params.IsCodeNotProvisioned(result.Error) || params.IsCodeNotFound(result.Error) {
+		} else if params.IsCodeNotProvisioned(result.Error) || params.IsCodeNotFound(result.Error) {
 			// Either the volume (attachment) isn't provisioned,
 			// or the corresponding block device is not yet known.
 			//
 			// Neither of these errors is fatal; we just wait for
 			// the block device watcher to notify us again.
-		} else if result.Error != nil {
+		} else {
 			return errors.Annotatef(
 				err, "getting block device info for volume attachment %v",
 				ids[i],
