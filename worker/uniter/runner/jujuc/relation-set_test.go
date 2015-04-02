@@ -5,6 +5,7 @@
 package jujuc_test
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -347,4 +348,21 @@ func (s *RelationSetSuite) TestRunDeprecationWarning(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 	c.Assert(testing.Stderr(ctx), gc.Equals, "--format flag deprecated for command \"relation-set\"")
+}
+
+func (s *RelationSetSuite) TestRunStdin(c *gc.C) {
+	test := relationSetInitTest{
+		args:     []string{"--file", "-"},
+		settings: map[string]string{"foo": "bar"},
+	}
+	com, args := test.init(c, s)
+	err := testing.InitCommand(com, args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := testing.Context(c)
+	ctx.Stdin = bytes.NewBufferString("foo=bar")
+	err = com.Run(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	test.check(c, com, nil)
 }

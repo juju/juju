@@ -134,6 +134,18 @@ func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
 	if c.formatFlag != "" {
 		fmt.Fprintf(ctx.Stderr, "--format flag deprecated for command %q", c.Info().Name)
 	}
+
+	if c.settingsFile == "-" {
+		settings, err := c.readSettings(ctx.Stdin)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for k, v := range c.Settings {
+			settings[k] = v
+		}
+		c.Settings = settings
+	}
+
 	r, found := c.ctx.Relation(c.RelationId)
 	if !found {
 		return fmt.Errorf("unknown relation id")
