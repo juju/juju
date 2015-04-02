@@ -85,8 +85,8 @@ func (s *UpdateSuite) TestInit(c *gc.C) {
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
 		// envcmd.Wrap().
-		command := space.NewEmptyCommand(s.api)
-		err := coretesting.InitCommand(command, test.args)
+		command := space.SpaceCommandBase{}
+		err := command.ParseNameAndCIDRs(test.args)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {
@@ -94,7 +94,5 @@ func (s *UpdateSuite) TestInit(c *gc.C) {
 		}
 		c.Check(command.Name, gc.Equals, test.expectName)
 		c.Check(command.CIDRs.SortedValues(), jc.DeepEquals, test.expectCIDRs)
-		// No API calls should be recorded at this stage.
-		s.api.CheckCallNames(c)
 	}
 }
