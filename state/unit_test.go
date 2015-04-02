@@ -530,19 +530,20 @@ func (s *UnitSuite) TestGetSetUnitStatusWhileAlive(c *gc.C) {
 	err := s.unit.SetStatus(state.Status("vliegkat"), "orville", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
-	status, info, data, err := s.unit.Status()
+	statusInfo, err := s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusUnknown)
-	c.Assert(info, gc.Equals, "Waiting for agent initialization to finish")
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusUnknown)
+	c.Assert(statusInfo.Message, gc.Equals, "Waiting for agent initialization to finish")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
+	c.Assert(statusInfo.Since, gc.NotNil)
 
 	err = s.unit.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	status, info, data, err = s.unit.Status()
+	statusInfo, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusActive)
-	c.Assert(info, gc.Equals, "")
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusActive)
+	c.Assert(statusInfo.Message, gc.Equals, "")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
 }
 
 func (s *UnitSuite) TestGetSetUnitAgentStatus(c *gc.C) {
@@ -551,31 +552,50 @@ func (s *UnitSuite) TestGetSetUnitAgentStatus(c *gc.C) {
 	err = s.unit.SetAgentStatus(state.Status("vliegkat"), "orville", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
-	status, info, data, err := s.unit.AgentStatus()
+	statusInfo, err := s.unit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusAllocating)
-	c.Assert(info, gc.Equals, "")
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusAllocating)
+	c.Assert(statusInfo.Message, gc.Equals, "")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
+	c.Assert(statusInfo.Since, gc.NotNil)
 
 	err = s.unit.SetAgentStatus(state.StatusRebooting, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	status, info, data, err = s.unit.AgentStatus()
+	statusInfo, err = s.unit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusRebooting)
-	c.Assert(info, gc.Equals, "")
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusRebooting)
+	c.Assert(statusInfo.Message, gc.Equals, "")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
 
 	err = s.unit.SetAgentStatus(state.StatusError, "test-hook failed", map[string]interface{}{
 		"foo": "bar",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	status, info, data, err = s.unit.AgentStatus()
+	statusInfo, err = s.unit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "test-hook failed")
-	c.Assert(data, gc.DeepEquals, map[string]interface{}{
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "test-hook failed")
+	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
 	})
+}
+
+func (s *UnitAgentSuite) TestSetUnitStatusSince(c *gc.C) {
+	now := state.NowToTheSecond()
+	err := s.unit.SetStatus(state.StatusMaintenance, "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	statusInfo, err := s.unit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	firstTime := statusInfo.Since
+	c.Assert(firstTime, gc.NotNil)
+	c.Assert(timeBeforeOrEqual(now, *firstTime), jc.IsTrue)
+
+	// Setting the same status a second time also updates the timestamp.
+	err = s.unit.SetStatus(state.StatusMaintenance, "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	statusInfo, err = s.unit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(timeBeforeOrEqual(*firstTime, *statusInfo.Since), jc.IsTrue)
 }
 
 func (s *UnitSuite) TestGetSetUnitStatusWhileNotAlive(c *gc.C) {
@@ -583,21 +603,21 @@ func (s *UnitSuite) TestGetSetUnitStatusWhileNotAlive(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetStatus(state.StatusActive, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
-	_, _, _, err = s.unit.Status()
+	_, err = s.unit.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetStatus(state.StatusActive, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
-	_, _, _, err = s.unit.Status()
+	_, err = s.unit.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 }
 
 func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	err := s.unit.SetAgentStatus(state.StatusExecuting, "running", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, _, err = s.unit.AgentStatus()
+	_, err = s.unit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Regular status setting with data.
@@ -608,11 +628,11 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, data, err := s.unit.AgentStatus()
+	statusInfo, err := s.unit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "test-hook failed")
-	c.Assert(data, gc.DeepEquals, map[string]interface{}{
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "test-hook failed")
+	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -622,7 +642,7 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	err := s.unit.SetAgentStatus(state.StatusExecuting, "running", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, _, err = s.unit.Status()
+	_, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Status setting with MongoDB special values.
@@ -634,11 +654,11 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, data, err := s.unit.AgentStatus()
+	statusInfo, err := s.unit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "mongo")
-	c.Assert(data, gc.DeepEquals, map[string]interface{}{
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "mongo")
+	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
 		`{name: "Joe"}`: "$where",
 		"eval":          `eval(function(foo) { return foo; }, "bar")`,
 		"mapReduce":     "mapReduce",
@@ -649,7 +669,7 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	err := s.unit.SetAgentStatus(state.StatusExecuting, "running", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, _, err = s.unit.AgentStatus()
+	_, err = s.unit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Status setting and changing data afterwards.
@@ -662,11 +682,11 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	data["4th-key"] = 4.0
 
-	status, info, data, err := s.unit.AgentStatus()
+	statusInfo, err := s.unit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "test-hook failed")
-	c.Assert(data, gc.DeepEquals, map[string]interface{}{
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "test-hook failed")
+	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -676,11 +696,11 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	err = s.unit.SetAgentStatus(state.StatusExecuting, "running", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, data, err = s.unit.AgentStatus()
+	statusInfo, err = s.unit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusExecuting)
-	c.Assert(info, gc.Equals, "running")
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusExecuting)
+	c.Assert(statusInfo.Message, gc.Equals, "running")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
 }
 
 func (s *UnitSuite) TestSetCharmURLSuccess(c *gc.C) {

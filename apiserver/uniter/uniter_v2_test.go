@@ -120,6 +120,15 @@ func (s *uniterV2Suite) TestUnitStatus(c *gc.C) {
 		}}
 	result, err := s.uniter.UnitStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
+	// Zero out the updated timestamps so we can easily check the results.
+	for i, statusResult := range result.Results {
+		r := statusResult
+		if r.Status != "" {
+			c.Assert(r.Since, gc.NotNil)
+		}
+		r.Since = nil
+		result.Results[i] = r
+	}
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{Error: apiservertesting.ErrUnauthorized},

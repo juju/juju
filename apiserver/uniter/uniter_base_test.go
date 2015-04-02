@@ -148,15 +148,15 @@ func (s *uniterBaseSuite) testSetStatus(
 	})
 
 	// Verify mysqlUnit - no change.
-	status, info, _, err := s.mysqlUnit.AgentStatus()
+	statusInfo, err := s.mysqlUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusExecuting)
-	c.Assert(info, gc.Equals, "foo")
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusExecuting)
+	c.Assert(statusInfo.Message, gc.Equals, "foo")
 	// ...wordpressUnit is fine though.
-	status, info, _, err = s.wordpressUnit.AgentStatus()
+	statusInfo, err = s.wordpressUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusRebooting)
-	c.Assert(info, gc.Equals, "foobar")
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusRebooting)
+	c.Assert(statusInfo.Message, gc.Equals, "foobar")
 }
 
 func (s *uniterBaseSuite) testSetAgentStatus(
@@ -187,15 +187,15 @@ func (s *uniterBaseSuite) testSetAgentStatus(
 	})
 
 	// Verify mysqlUnit - no change.
-	status, info, _, err := s.mysqlUnit.AgentStatus()
+	statusInfo, err := s.mysqlUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusExecuting)
-	c.Assert(info, gc.Equals, "foo")
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusExecuting)
+	c.Assert(statusInfo.Message, gc.Equals, "foo")
 	// ...wordpressUnit is fine though.
-	status, info, _, err = s.wordpressUnit.AgentStatus()
+	statusInfo, err = s.wordpressUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusExecuting)
-	c.Assert(info, gc.Equals, "foobar")
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusExecuting)
+	c.Assert(statusInfo.Message, gc.Equals, "foobar")
 }
 
 func (s *uniterBaseSuite) testSetUnitStatus(
@@ -226,15 +226,15 @@ func (s *uniterBaseSuite) testSetUnitStatus(
 	})
 
 	// Verify mysqlUnit - no change.
-	status, info, _, err := s.mysqlUnit.Status()
+	statusInfo, err := s.mysqlUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusTerminated)
-	c.Assert(info, gc.Equals, "foo")
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusTerminated)
+	c.Assert(statusInfo.Message, gc.Equals, "foo")
 	// ...wordpressUnit is fine though.
-	status, info, _, err = s.wordpressUnit.Status()
+	statusInfo, err = s.wordpressUnit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusTerminated)
-	c.Assert(info, gc.Equals, "foobar")
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusTerminated)
+	c.Assert(statusInfo.Message, gc.Equals, "foobar")
 }
 
 func (s *uniterBaseSuite) testLife(

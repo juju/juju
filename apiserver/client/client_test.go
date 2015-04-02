@@ -565,9 +565,32 @@ type clientSuite struct {
 
 var _ = gc.Suite(&clientSuite{})
 
+// clearSinceTimes zeros out the updated timestamps inside status
+// so we can easily check the results.
+func clearSinceTimes(status *api.Status) {
+	for serviceId, service := range status.Services {
+		for unitId, unit := range service.Units {
+			unit.Workload.Since = nil
+			unit.UnitAgent.Since = nil
+			for id, subord := range unit.Subordinates {
+				subord.Workload.Since = nil
+				subord.UnitAgent.Since = nil
+				unit.Subordinates[id] = subord
+			}
+			service.Units[unitId] = unit
+		}
+		status.Services[serviceId] = service
+	}
+	for id, machine := range status.Machines {
+		machine.Agent.Since = nil
+		status.Machines[id] = machine
+	}
+}
+
 func (s *clientSuite) TestClientStatus(c *gc.C) {
 	s.setUpScenario(c)
 	status, err := s.APIState.Client().Status(nil)
+	clearSinceTimes(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, jc.DeepEquals, scenarioStatus)
 }
@@ -3722,11 +3745,11 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	_, err = s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, data, err := machine.Status()
+	statusInfo, err := machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "error")
-	c.Assert(data["transient"], jc.IsTrue)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "error")
+	c.Assert(statusInfo.Data["transient"], jc.IsTrue)
 }
 
 func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
@@ -3740,11 +3763,11 @@ func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
 func (s *clientSuite) assertRetryProvisioning(c *gc.C, machine *state.Machine) {
 	_, err := s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
-	status, info, data, err := machine.Status()
+	statusInfo, err := machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "error")
-	c.Assert(data["transient"], jc.IsTrue)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "error")
+	c.Assert(statusInfo.Data["transient"], jc.IsTrue)
 }
 
 func (s *clientSuite) assertRetryProvisioningBlocked(c *gc.C, machine *state.Machine, msg string) {

@@ -620,10 +620,12 @@ func processUnitAndAgentStatus(unit *state.Unit, status *api.UnitStatus) {
 
 // makeStatusForEntity creates status information for machines, units.
 func makeStatusForEntity(agent *api.AgentStatus, getter state.StatusGetter) {
-	var st state.Status
-	st, agent.Info, agent.Data, agent.Err = getter.Status()
-	agent.Status = params.Status(st)
-	agent.Data = filterStatusData(agent.Data)
+	statusInfo, err := getter.Status()
+	agent.Err = err
+	agent.Status = params.Status(statusInfo.Status)
+	agent.Info = statusInfo.Message
+	agent.Data = filterStatusData(statusInfo.Data)
+	agent.Since = statusInfo.Since
 }
 
 // processMachine retrieves version and status information for the given machine.

@@ -61,6 +61,15 @@ func (*statusGetterSuite) TestStatus(c *gc.C) {
 	}
 	result, err := s.Status(args)
 	c.Assert(err, jc.ErrorIsNil)
+	// Zero out the updated timestamps so we can easily check the results.
+	for i, statusResult := range result.Results {
+		r := statusResult
+		if r.Status != "" {
+			c.Assert(r.Since, gc.NotNil)
+		}
+		r.Since = nil
+		result.Results[i] = r
+	}
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{Status: "allocating", Info: "blah", Error: &params.Error{Message: "x0 fails"}},

@@ -6,14 +6,17 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/featureflag"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
@@ -67,7 +70,11 @@ func (c *StatusCommand) Info() *cmd.Info {
 }
 
 func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
+	defaultFormat := "yaml"
+	if featureflag.Enabled(feature.NewStatus) {
+		defaultFormat = "tabular"
+	}
+	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 		"short":   FormatOneline,
@@ -227,6 +234,7 @@ type statusInfoContents struct {
 	Current params.Status `json:"current,omitempty" yaml:"current,omitempty"`
 	Message string        `json:"message,omitempty" yaml:"message,omitempty"`
 	Since   string        `json:"since,omitempty" yaml:"since,omitempty"`
+	Version string        `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
 type statusInfoContentsNoMarshal statusInfoContents
@@ -419,11 +427,13 @@ func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) u
 	}
 
 	// These legacy fields will be dropped for Juju 2.0.
-	out.Err = unit.Err
-	out.AgentState = unit.AgentState
-	out.AgentStateInfo = unit.AgentStateInfo
-	out.Life = unit.Life
-	out.AgentVersion = unit.AgentVersion
+	if !featureflag.Enabled(feature.NewStatus) || out.AgentStatusInfo.Current == "" {
+		out.Err = unit.Err
+		out.AgentState = unit.AgentState
+		out.AgentStateInfo = unit.AgentStateInfo
+		out.Life = unit.Life
+		out.AgentVersion = unit.AgentVersion
+	}
 
 	for k, m := range unit.Subordinates {
 		out.Subordinates[k] = sf.formatUnit(m, serviceName)
@@ -432,19 +442,29 @@ func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) u
 }
 
 func (sf *statusFormatter) getWorkloadStatusInfo(unit api.UnitStatus) statusInfoContents {
-	return statusInfoContents{
+	info := statusInfoContents{
 		Err:     unit.Workload.Err,
 		Current: unit.Workload.Status,
 		Message: unit.Workload.Info,
+		Version: unit.Workload.Version,
 	}
+	if unit.Workload.Since != nil {
+		info.Since = unit.Workload.Since.Local().Format(time.RFC822)
+	}
+	return info
 }
 
 func (sf *statusFormatter) getAgentStatusInfo(unit api.UnitStatus) statusInfoContents {
-	return statusInfoContents{
+	info := statusInfoContents{
 		Err:     unit.UnitAgent.Err,
 		Current: unit.UnitAgent.Status,
 		Message: unit.UnitAgent.Info,
+		Version: unit.UnitAgent.Version,
 	}
+	if unit.UnitAgent.Since != nil {
+		info.Since = unit.UnitAgent.Since.Local().Format(time.RFC822)
+	}
+	return info
 }
 
 func (sf *statusFormatter) updateUnitStatusInfo(unit *api.UnitStatus, serviceName string) {

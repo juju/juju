@@ -5,6 +5,7 @@ package common_test
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -24,10 +25,11 @@ var _ state.StatusSetter = new(fakeStatus)
 
 type fakeStatus struct {
 	state.Entity
-	status state.Status
-	info   string
-	data   map[string]interface{}
-	err    error
+	status  state.Status
+	info    string
+	data    map[string]interface{}
+	updated time.Time
+	err     error
 	fetchError
 }
 
@@ -35,11 +37,14 @@ func (s *fakeStatus) SetStatus(status state.Status, info string, data map[string
 	s.status = status
 	s.info = info
 	s.data = data
+	s.updated = time.Now()
 	return s.err
 }
 
-func (s *fakeStatus) Status() (status state.Status, info string, data map[string]interface{}, err error) {
-	return s.status, s.info, s.data, s.err
+func (s *fakeStatus) Status() (state.StatusInfo, error) {
+	return state.StatusInfo{
+		s.status, s.info, s.data, &s.updated,
+	}, s.err
 }
 
 func (s *fakeStatus) UpdateStatus(data map[string]interface{}) error {
