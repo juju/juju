@@ -169,7 +169,7 @@ func (s *UniterSuite) TestUniterInstallHook(c *gc.C) {
 			waitUnit{
 				status: params.StatusActive,
 			},
-			waitHooks{"config-changed", "start"},
+			waitHooks{"leader-elected", "config-changed", "start"},
 		), ut(
 			"install hook fail and retry",
 			startupError{"install"},
@@ -248,6 +248,14 @@ func (s *UniterSuite) TestUniterMultipleErrors(c *gc.C) {
 				info:   `hook failed: "install"`,
 				data: map[string]interface{}{
 					"hook": "install",
+				},
+			},
+			resolveError{state.ResolvedNoHooks},
+			waitUnit{
+				status: params.StatusError,
+				info:   `hook failed: "leader-elected"`,
+				data: map[string]interface{}{
+					"hook": "leader-elected",
 				},
 			},
 			resolveError{state.ResolvedNoHooks},
@@ -1029,6 +1037,14 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			removeRelationUnit{"mysql/0"},
 			relationState{removed: true},
 		), ut(
+			// TODO: jam 2015-04-02 'leader-settings-changed' seems
+			// to happen at random points after we notice the unit
+			// dying. Presumably we notice the unit is starting to
+			// die, thus we elect a different leader. However, the
+			// ordering of that hook vs the db-relation-departed
+			// hooks is non-deterministic. I've seen it happen
+			// before relation departed, and between departed and
+			// broken.
 			"unit becomes dying while in a relation",
 			quickStartRelation{},
 			unitDying,
@@ -1609,7 +1625,7 @@ func (s *UniterSuite) TestReboot(c *gc.C) {
 			waitUnit{
 				status: params.StatusActive,
 			},
-			waitHooks{"config-changed", "start"},
+			waitHooks{"leader-elected", "config-changed", "start"},
 		), ut(
 			"test that juju-reboot --now kills hook and exits",
 			createCharm{
