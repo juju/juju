@@ -106,7 +106,10 @@ func (gce *Connection) removeInstance(id, zone string) error {
 	if errors.IsNotFound(err) {
 		return nil
 	}
-	return errors.Trace(err)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // RemoveInstances sends a request to the GCE API to terminate all
