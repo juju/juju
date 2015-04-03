@@ -8,11 +8,11 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
+	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 )
 
@@ -25,11 +25,9 @@ are not allowed.
 
 The --file option should be used when one or more key-value pairs are
 too long to fit within the command length limit of the shell or
-operating system. The file will contain one key-value pair per line
-in the same format as on the commandline. Blank lines and lines
-starting with # are ignored. Settings in the file will be overridden
-by any duplicate key-value arguments. A value of "-" for the filename
-means "read from stdin".
+operating system. The file will contain a YAML map containing the
+settings.  Settings in the file will be overridden by any duplicate
+key-value arguments. A value of "-" for the filename means <stdin>.
 `
 
 // RelationSetCommand implements the relation-set command.
@@ -82,20 +80,25 @@ func (c *RelationSetCommand) readSettings(in io.Reader) (map[string]string, erro
 		return nil, errors.Trace(err)
 	}
 
-	var kvs []string
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || line[0] == '#' {
-			continue
+	skipValidation := false // for debugging
+	if !skipValidation {
+		var invalidStr string
+		if err := goyaml.Unmarshal(data, &invalidStr); err != nil {
+			return nil, errors.Trace(err)
 		}
-		kvs = append(kvs, line) // We lose trailing whitespace...
+		if invalidStr != "" {
+			return nil, errors.Errorf("expected YAML map, got %q", invalidStr)
+		}
+
+		// TODO(ericsnow) Check for invalid non-str data too (e.g. sequence)?
 	}
 
-	settings, err := keyvalues.Parse(kvs, true)
-	if err != nil {
+	kvs := make(map[string]string)
+	if err := goyaml.Unmarshal(data, kvs); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return settings, nil
+
+	return kvs, nil
 }
 
 func (c *RelationSetCommand) handleSettings(args []string) error {

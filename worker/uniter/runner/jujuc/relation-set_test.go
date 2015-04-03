@@ -58,11 +58,9 @@ are not allowed.
 
 The --file option should be used when one or more key-value pairs are
 too long to fit within the command length limit of the shell or
-operating system. The file will contain one key-value pair per line
-in the same format as on the commandline. Blank lines and lines
-starting with # are ignored. Settings in the file will be overridden
-by any duplicate key-value arguments. A value of "-" for the filename
-means "read from stdin".
+operating system. The file will contain a YAML map containing the
+settings.  Settings in the file will be overridden by any duplicate
+key-value arguments. A value of "-" for the filename means <stdin>.
 `[1:], t.expect))
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	}
@@ -128,6 +126,7 @@ func (t relationSetInitTest) check(c *gc.C, com cmd.Command, err error) {
 		}
 		c.Check(rset.Settings, jc.DeepEquals, settings)
 	} else {
+		c.Logf("%#v", com.(*jujuc.RelationSetCommand).Settings)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
@@ -227,52 +226,67 @@ var relationSetInitTests = []relationSetInitTest{
 	}, {
 		summary:  "file with a valid setting",
 		args:     []string{"--file", "spam"},
-		content:  "foo=bar",
+		content:  "{foo: bar}",
 		settings: map[string]string{"foo": "bar"},
+	}, {
+		summary:  "file with multiple settings on a line",
+		args:     []string{"--file", "spam"},
+		content:  "{foo: bar, spam: eggs}",
+		settings: map[string]string{"foo": "bar", "spam": "eggs"},
+	}, {
+		summary:  "file with multiple lines",
+		args:     []string{"--file", "spam"},
+		content:  "{\n  foo: bar,\n  spam: eggs\n}",
+		settings: map[string]string{"foo": "bar", "spam": "eggs"},
 	}, {
 		summary:  "an empty file",
 		args:     []string{"--file", "spam"},
 		content:  "",
 		settings: map[string]string{},
 	}, {
+		summary:  "an empty map",
+		args:     []string{"--file", "spam"},
+		content:  "{}",
+		settings: map[string]string{},
+	}, {
 		summary: "an invalid file",
 		args:    []string{"--file", "spam"},
 		content: "haha",
-		err:     `expected "key=value", got "haha"`,
+		err:     `expected YAML map, got "haha"`,
 	}, {
-		summary: "an invalid file",
+		summary: "accidental same format as command-line",
 		args:    []string{"--file", "spam"},
-		content: "=haha",
-		err:     `expected "key=value", got "=haha"`,
+		content: "foo=bar ham=eggs good=bad",
+		err:     `expected YAML map, got .*`,
+	}, {
+		summary: "multiple maps",
+		args:    []string{"--file", "spam"},
+		content: "{a: b}\n{c: d}",
+		err:     `.*YAML error: .*`,
 	}, {
 		summary:  "value with a space",
 		args:     []string{"--file", "spam"},
-		content:  "foo=foo: bar",
-		settings: map[string]string{"foo": "foo: bar"},
+		content:  "{foo: 'bar baz'}",
+		settings: map[string]string{"foo": "bar baz"},
 	}, {
 		summary:  "value with an equal sign",
 		args:     []string{"--file", "spam"},
-		content:  "foo=foo=bar\nbase64=YmFzZTY0IGV4YW1wbGU=",
+		content:  "{foo: foo=bar, base64: YmFzZTY0IGV4YW1wbGU=}",
 		settings: map[string]string{"foo": "foo=bar", "base64": "YmFzZTY0IGV4YW1wbGU="},
-	}, {
-		summary:  "accidental multiple settings on a line",
-		args:     []string{"--file", "spam"},
-		content:  "foo=bar ham=eggs good=bad",
-		settings: map[string]string{"foo": "bar ham=eggs good=bad"},
 	}, {
 		summary:  "a messy file",
 		args:     []string{"--file", "spam"},
-		content:  "  \n # a comment \n\n  \nfoo=bar  \nham=eggs\n\n good=bad\n",
-		settings: map[string]string{"foo": "bar", "ham": "eggs", "good": "bad"},
+		content:  "\n {  \n # a comment \n\n  \nfoo: bar,  \nham: eggs,\n\n  good: bad,\nup: down, left: right\n}\n",
+		settings: map[string]string{"foo": "bar", "ham": "eggs", "good": "bad", "up": "down", "left": "right"},
 	}, {
 		summary:  "file + settings",
 		args:     []string{"--file", "spam", "foo=bar"},
-		content:  "ham=eggs",
+		content:  "{ham: eggs}",
 		settings: map[string]string{"ham": "eggs", "foo": "bar"},
 	}, {
 		summary:  "file overridden by settings",
 		args:     []string{"--file", "spam", "foo=bar"},
-		content:  "foo=baz",
+		content:  "{foo: baz}",
 		settings: map[string]string{"foo": "bar"},
 	},
 }
@@ -365,7 +379,7 @@ func (s *RelationSetSuite) TestRunStdin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := testing.Context(c)
-	ctx.Stdin = bytes.NewBufferString("foo=bar")
+	ctx.Stdin = bytes.NewBufferString("{foo: bar}")
 	err = com.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
