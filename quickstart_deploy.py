@@ -98,8 +98,8 @@ def main():
     try:
         quickstart.run()
     except Exception as e:
-            print('%s (%s)' % (e, type(e).__name__))
-            sys.exit(1)
+        print('%s (%s)' % (e, type(e).__name__))
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()
