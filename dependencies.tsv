@@ -13,7 +13,7 @@ github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	2014-05-2
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T00:08:15Z
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
 github.com/juju/blobstore	git	1591df2bf102f9cbeeb9145d22c6ccc29a6804ef	2015-03-30T-9:15:59Z
-github.com/juju/cmd	git	fbc7a395b6bd50238e56f485068d45964e25cd31	2015-03-27T15:48:43Z
+github.com/juju/cmd	git	31e7b27318ecf6f843433822ddecdaf6900a343f	2015-04-03T19:36:57Z
 github.com/juju/errors	git	4567a5e69fd3130ca0d89f69478e7ac025b67452	2015-03-27T19:24:31Z
 github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
 github.com/juju/gojsonreference	git	f0d24ac5ee330baa21721cdff56d45e4ee42628e	2015-02-04T19:46:33Z

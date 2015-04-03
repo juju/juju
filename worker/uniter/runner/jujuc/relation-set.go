@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -58,6 +57,8 @@ func (c *RelationSetCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	f.Var(rV, "r", "specify a relation by id")
 	f.Var(rV, "relation", "")
+
+	c.settingsFile.SetStdin()
 	f.Var(&c.settingsFile, "file", "file containing key-value pairs")
 
 	f.StringVar(&c.formatFlag, "format", "", "deprecated format flag")
@@ -68,9 +69,12 @@ func (c *RelationSetCommand) Init(args []string) error {
 		return errors.Errorf("no relation id specified")
 	}
 
-	if err := c.handleSettings(args); err != nil {
+	// The overrides will be applied during Run when c.settingsFile is handled.
+	overrides, err := keyvalues.Parse(args, true)
+	if err != nil {
 		return errors.Trace(err)
 	}
+	c.Settings = overrides
 	return nil
 }
 
@@ -109,32 +113,23 @@ func (c *RelationSetCommand) readSettings(in io.Reader) (map[string]string, erro
 	return kvs, nil
 }
 
-func (c *RelationSetCommand) handleSettings(args []string) error {
-	overrides, err := keyvalues.Parse(args, true)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	c.Settings = overrides
-
+func (c *RelationSetCommand) handleSettingsFile(ctx *cmd.Context) error {
 	if c.settingsFile.Path == "" {
 		return nil
 	}
-	if c.settingsFile.Path == "-" {
-		// We handle stdin in Run.
-		return nil
-	}
 
-	// Read the settings from the file.
-	// TODO(ericsnow) Use c.settingsFile.Read() instead?
-	file, err := os.Open(c.settingsFile.Path)
+	file, err := c.settingsFile.Open(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer file.Close()
+
 	settings, err := c.readSettings(file)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	overrides := c.Settings
 	for k, v := range overrides {
 		settings[k] = v
 	}
@@ -146,16 +141,8 @@ func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
 	if c.formatFlag != "" {
 		fmt.Fprintf(ctx.Stderr, "--format flag deprecated for command %q", c.Info().Name)
 	}
-
-	if c.settingsFile.Path == "-" {
-		settings, err := c.readSettings(ctx.Stdin)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		for k, v := range c.Settings {
-			settings[k] = v
-		}
-		c.Settings = settings
+	if err := c.handleSettingsFile(ctx); err != nil {
+		return errors.Trace(err)
 	}
 
 	r, found := c.ctx.Relation(c.RelationId)
