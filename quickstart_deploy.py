@@ -4,6 +4,7 @@ __metaclass__ = type
 
 from argparse import ArgumentParser
 import logging
+import sys
 
 from deploy_stack import (
     dump_env_logs,
@@ -94,7 +95,11 @@ def main():
                                           args.bundle_path, args.service_count,
                                           args.series, args.agent_url,
                                           args.debug)
-    quickstart.run()
+    try:
+        quickstart.run()
+    except Exception as e:
+            print('%s (%s)' % (e, type(e).__name__))
+            sys.exit(1)
 
 if __name__ == '__main__':
     main()
