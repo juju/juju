@@ -38,7 +38,7 @@ type RelationSetCommand struct {
 	ctx          Context
 	RelationId   int
 	Settings     map[string]string
-	settingsFile string
+	settingsFile cmd.FileVar
 	formatFlag   string // deprecated
 }
 
@@ -60,7 +60,7 @@ func (c *RelationSetCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	f.Var(rV, "r", "specify a relation by id")
 	f.Var(rV, "relation", "")
-	f.StringVar(&c.settingsFile, "file", "", "file containing key-value pairs")
+	f.Var(&c.settingsFile, "file", "file containing key-value pairs")
 
 	f.StringVar(&c.formatFlag, "format", "", "deprecated format flag")
 }
@@ -105,16 +105,17 @@ func (c *RelationSetCommand) handleSettings(args []string) error {
 	}
 	c.Settings = overrides
 
-	if c.settingsFile == "" {
+	if c.settingsFile.Path == "" {
 		return nil
 	}
-	if c.settingsFile == "-" {
+	if c.settingsFile.Path == "-" {
 		// We handle stdin in Run.
 		return nil
 	}
 
 	// Read the settings from the file.
-	file, err := os.Open(c.settingsFile)
+	// TODO(ericsnow) Use c.settingsFile.Read() instead?
+	file, err := os.Open(c.settingsFile.Path)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -135,7 +136,7 @@ func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
 		fmt.Fprintf(ctx.Stderr, "--format flag deprecated for command %q", c.Info().Name)
 	}
 
-	if c.settingsFile == "-" {
+	if c.settingsFile.Path == "-" {
 		settings, err := c.readSettings(ctx.Stdin)
 		if err != nil {
 			return errors.Trace(err)
