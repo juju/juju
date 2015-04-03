@@ -43,7 +43,7 @@ usage: relation-set [options] key=value [key=value ...]
 purpose: set relation settings
 
 options:
---file (= "")
+--file  (= )
     file containing key-value pairs
 --format (= "")
     deprecated format flag
