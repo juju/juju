@@ -94,21 +94,28 @@ func (t relationSetInitTest) filename() (string, int) {
 	return "", -1
 }
 
-func (t relationSetInitTest) init(c *gc.C, s *RelationSetSuite) (cmd.Command, []string) {
+func (t relationSetInitTest) init(c *gc.C, s *RelationSetSuite) (cmd.Command, []string, *cmd.Context) {
 	args := make([]string, len(t.args))
 	copy(args, t.args)
-	if filename, i := t.filename(); filename != "" && filename != "-" {
+
+	hctx := s.GetHookContext(c, t.ctxrelid, "")
+	com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := testing.Context(c)
+
+	// Adjust the args and context for the filename.
+	filename, i := t.filename()
+	if filename == "-" {
+		ctx.Stdin = bytes.NewBufferString(t.content)
+	} else if filename != "" {
 		filename = filepath.Join(c.MkDir(), filename)
 		args[i] = filename
 		err := ioutil.WriteFile(filename, []byte(t.content), 0644)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	hctx := s.GetHookContext(c, t.ctxrelid, "")
-	com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	return com, args
+	return com, args, ctx
 }
 
 func (t relationSetInitTest) check(c *gc.C, com cmd.Command, err error) {
@@ -298,30 +305,25 @@ var relationSetInitTests = []relationSetInitTest{
 		args:     []string{"--file", "spam", "foo=bar"},
 		content:  "{foo: baz}",
 		settings: map[string]string{"foo": "bar"},
+	}, {
+		summary:  "read from stdin",
+		args:     []string{"--file", "-"},
+		content:  "{foo: bar}",
+		settings: map[string]string{"foo": "bar"},
 	},
 }
 
 func (s *RelationSetSuite) TestInit(c *gc.C) {
 	for i, t := range relationSetInitTests {
 		t.log(c, i)
-		com, args := t.init(c, s)
+		com, args, ctx := t.init(c, s)
 
 		err := testing.InitCommand(com, args)
-
+		if err == nil {
+			err = jujuc.HandleSettingsFile(com.(*jujuc.RelationSetCommand), ctx)
+		}
 		t.check(c, com, err)
 	}
-}
-
-func (s *RelationSetSuite) TestInitStdin(c *gc.C) {
-	test := relationSetInitTest{
-		args:     []string{"--file", "-"},
-		settings: map[string]string{},
-	}
-	com, args := test.init(c, s)
-
-	err := testing.InitCommand(com, args)
-
-	test.check(c, com, err)
 }
 
 // Tests start with a relation with the settings {"base": "value"}
@@ -377,21 +379,4 @@ func (s *RelationSetSuite) TestRunDeprecationWarning(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 	c.Assert(testing.Stderr(ctx), gc.Equals, "--format flag deprecated for command \"relation-set\"")
-}
-
-func (s *RelationSetSuite) TestRunStdin(c *gc.C) {
-	test := relationSetInitTest{
-		args:     []string{"--file", "-"},
-		settings: map[string]string{"foo": "bar"},
-	}
-	com, args := test.init(c, s)
-	err := testing.InitCommand(com, args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ctx := testing.Context(c)
-	ctx.Stdin = bytes.NewBufferString("{foo: bar}")
-	err = com.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-
-	test.check(c, com, nil)
 }
