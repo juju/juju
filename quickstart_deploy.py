@@ -55,8 +55,10 @@ class QuickstartTest:
             logging.exception(e)
             if bootstrap_host:
                 dump_env_logs(self.client, bootstrap_host, self.log_dir)
+            raise
         finally:
-            safe_print_status(self.client)
+            if bootstrap_host:
+                safe_print_status(self.client)
             self.client.destroy_environment(delete_jenv=True)
 
     def iter_steps(self):
