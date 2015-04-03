@@ -1093,9 +1093,8 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 
-	// Simulate 2 NICs - primary enabled, secondary disabled with VLAN
-	// tag 1; both configured using DHCP and having fake DNS servers
-	// and gateway.
+	// Simulate 3 NICs - primary and secondary enabled plus a disabled NIC.
+	// all configured using DHCP and having fake DNS servers and gateway.
 	info := make([]network.InterfaceInfo, 3)
 	for i, netName := range []string{"private", "public", "disabled"} {
 		info[i] = network.InterfaceInfo{
