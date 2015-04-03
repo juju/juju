@@ -249,15 +249,20 @@ var relationSetInitTests = []relationSetInitTest{
 		content:  "{}",
 		settings: map[string]string{},
 	}, {
-		summary: "an invalid file",
-		args:    []string{"--file", "spam"},
-		content: "haha",
-		err:     `expected YAML map, got "haha"`,
-	}, {
 		summary: "accidental same format as command-line",
 		args:    []string{"--file", "spam"},
 		content: "foo=bar ham=eggs good=bad",
 		err:     `expected YAML map, got .*`,
+	}, {
+		summary: "scalar instead of map",
+		args:    []string{"--file", "spam"},
+		content: "haha",
+		err:     `expected YAML map, got "haha"`,
+	}, {
+		summary: "sequence instead of map",
+		args:    []string{"--file", "spam"},
+		content: "[haha]",
+		err:     `expected YAML map, got \[]string{"haha"}`,
 	}, {
 		summary: "multiple maps",
 		args:    []string{"--file", "spam"},
@@ -273,6 +278,11 @@ var relationSetInitTests = []relationSetInitTest{
 		args:     []string{"--file", "spam"},
 		content:  "{foo: foo=bar, base64: YmFzZTY0IGV4YW1wbGU=}",
 		settings: map[string]string{"foo": "foo=bar", "base64": "YmFzZTY0IGV4YW1wbGU="},
+	}, {
+		summary:  "values with brackets",
+		args:     []string{"--file", "spam"},
+		content:  "{foo: '[x]', bar: '{y}'}",
+		settings: map[string]string{"foo": "[x]", "bar": "{y}"},
 	}, {
 		summary:  "a messy file",
 		args:     []string{"--file", "spam"},

@@ -82,15 +82,23 @@ func (c *RelationSetCommand) readSettings(in io.Reader) (map[string]string, erro
 
 	skipValidation := false // for debugging
 	if !skipValidation {
-		var invalidStr string
-		if err := goyaml.Unmarshal(data, &invalidStr); err != nil {
+		// Can this validation be done more simply or efficiently?
+
+		var scalar string
+		if err := goyaml.Unmarshal(data, &scalar); err != nil {
 			return nil, errors.Trace(err)
 		}
-		if invalidStr != "" {
-			return nil, errors.Errorf("expected YAML map, got %q", invalidStr)
+		if scalar != "" {
+			return nil, errors.Errorf("expected YAML map, got %q", scalar)
 		}
 
-		// TODO(ericsnow) Check for invalid non-str data too (e.g. sequence)?
+		var sequence []string
+		if err := goyaml.Unmarshal(data, &sequence); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(sequence) != 0 {
+			return nil, errors.Errorf("expected YAML map, got %#v", sequence)
+		}
 	}
 
 	kvs := make(map[string]string)
