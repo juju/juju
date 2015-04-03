@@ -250,6 +250,11 @@ var relationSetInitTests = []relationSetInitTest{
 		content:  "foo=foo: bar",
 		settings: map[string]string{"foo": "foo: bar"},
 	}, {
+		summary:  "value with an equal sign",
+		args:     []string{"--file", "spam"},
+		content:  "foo=foo=bar\nbase64=YmFzZTY0IGV4YW1wbGU=",
+		settings: map[string]string{"foo": "foo=bar", "base64": "YmFzZTY0IGV4YW1wbGU="},
+	}, {
 		summary:  "accidental multiple settings on a line",
 		args:     []string{"--file", "spam"},
 		content:  "foo=bar ham=eggs good=bad",
