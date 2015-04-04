@@ -5,12 +5,11 @@ package space_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type RemoveSuite struct {
@@ -32,20 +31,10 @@ func (s *RemoveSuite) TestInit(c *gc.C) {
 		expectName string
 		expectErr  string
 	}{{
-		about:     "no arguments",
-		expectErr: "space name is required",
-	}, {
-		about:     "invalid space name - with invalid characters",
-		args:      s.Strings("%inv$alid"),
-		expectErr: `"%inv\$alid" is not a valid space name`,
-	}, {
-		about:     "invalid space name - using underscores",
-		args:      s.Strings("42_space"),
-		expectErr: `"42_space" is not a valid space name`,
-	}, {
-		about:     "multiple space names aren't allowed",
-		args:      s.Strings("a-space", "another-space"),
-		expectErr: "please only provide a single space name.",
+		about:      "multiple space names aren't allowed",
+		args:       s.Strings("a-space", "another-space"),
+		expectErr:  `unrecognized args: \["another-space"\]`,
+		expectName: "a-space",
 	}, {
 		about:      "delete a valid space name",
 		args:       s.Strings("myspace"),
@@ -70,36 +59,25 @@ func (s *RemoveSuite) TestInit(c *gc.C) {
 
 func (s *RemoveSuite) TestRunValidSpaceSucceeds(c *gc.C) {
 	stdout, stderr, err := s.RunSubCommand(c, "myspace")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, `removed space "myspace"\n`)
-	s.api.CheckCalls(c, []testing.StubCall{{
-		FuncName: "RemoveSpace",
-		Args:     []interface{}{"myspace"},
-	}, {
-		FuncName: "Close",
-		Args:     nil,
-	}})
+	s.CheckOutputsStderr(c, stdout, stderr, err, `removed space "myspace"\n`)
+	s.api.CheckCallNames(c, "RemoveSpace", "Close")
+	s.api.CheckCall(c, 0, "RemoveSpace", "myspace")
 }
 
 func (s *RemoveSuite) TestRunWithNonExistentSpaceFails(c *gc.C) {
 	s.api.SetErrors(errors.NotFoundf("space %q", "foo"))
 
 	stdout, stderr, err := s.RunSubCommand(c, "foo")
-	c.Assert(err, gc.ErrorMatches, `cannot remove space "foo": space "foo" not found`)
+	s.CheckOutputsErr(c, stdout, stderr, err, `cannot remove space "foo": space "foo" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, "")
 	s.api.CheckCallNames(c, "RemoveSpace", "Close")
 }
 
 func (s *RemoveSuite) TestRunAPIConnectFails(c *gc.C) {
 	// TODO(dimitern): Change this once API is implemented.
-	s.command = space.NewCreateCommand(nil)
+	s.command = space.NewRemoveCommand(nil)
 	stdout, stderr, err := s.RunSubCommand(c, "myspace")
-	c.Assert(err, gc.ErrorMatches, "cannot connect to API server: API not implemented yet!")
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, "")
+	s.CheckOutputsErr(c, stdout, stderr, err, "cannot connect to API server: API not implemented yet!")
 	// No API calls recoreded.
 	s.api.CheckCallNames(c)
 }

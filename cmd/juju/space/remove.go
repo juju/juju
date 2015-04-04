@@ -20,8 +20,6 @@ type RemoveCommand struct {
 const removeCommandDoc = `
 Removes an existing Juju network space with the given name. Any subnets
 associated with the space will be transfered to the default space.
-
-A network space name can consist of ...
 `
 
 // Info is defined on the cmd.Command interface.
@@ -40,8 +38,6 @@ func (c *RemoveCommand) Init(args []string) error {
 	// Validate given name.
 	if len(args) == 0 {
 		return errors.New("space name is required")
-	} else if len(args) > 1 {
-		return errors.New("please only provide a single space name.")
 	}
 	givenName := args[0]
 	if !names.IsValidSpace(givenName) {
@@ -49,22 +45,18 @@ func (c *RemoveCommand) Init(args []string) error {
 	}
 	c.Name = givenName
 
-	return nil
+	return cmd.CheckEmpty(args[1:])
 }
 
 // Run implements Command.Run.
 func (c *RemoveCommand) Run(ctx *cmd.Context) error {
-	api, err := c.NewAPI()
-	if err != nil {
-		return errors.Annotate(err, "cannot connect to API server")
-	}
-	defer api.Close()
-
-	// Remove the space.
-	err = api.RemoveSpace(c.Name)
-	if err != nil {
-		return errors.Annotatef(err, "cannot remove space %q", c.Name)
-	}
-	ctx.Infof("removed space %q", c.Name)
-	return nil
+	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
+		// Remove the space.
+		err := api.RemoveSpace(c.Name)
+		if err != nil {
+			return errors.Annotatef(err, "cannot remove space %q", c.Name)
+		}
+		ctx.Infof("removed space %q", c.Name)
+		return nil
+	})
 }
