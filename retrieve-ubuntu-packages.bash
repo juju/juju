@@ -12,7 +12,6 @@ UBUNTU_ARCH="http://archive.ubuntu.com/ubuntu/pool/universe/j/juju-core/"
 PORTS_ARCH="http://ports.ubuntu.com/pool/universe/j/juju-core/"
 ALL_ARCHIVES="$UBUNTU_ARCH $PORTS_ARCH"
 
-TOKEN="chiyo-sakaki-osaka-yomi-tomo"
 TRUSTY_AMD64="certify-trusty-amd64"
 TRUSTY_PPC64="certify-trusty-ppc64"
 TRUSTY_I386="certify-trusty-i386"
@@ -37,13 +36,6 @@ check_deps() {
 }
 
 
-setup_workspace() {
-    rm $WORKSPACE/* -rf
-    mkdir -p $ARTIFACTS_PATH
-    touch $ARTIFACTS_PATH/empty
-}
-
-
 retrieve_packages() {
     # Retrieve the $RELEASE packages that contain jujud,
     # or copy a locally built package.
@@ -65,7 +57,7 @@ retrieve_packages() {
 
 
 start_series_arch_tests() {
-    [[ $START_OTHER_TESTS == "false" ]] && return 0
+    [[ -z $TOKEN ]] && return 0
     encoded_version=$(echo "$VERSION" | sed 's,[+],%2B,')
     query="token=$TOKEN&VERSION=$encoded_version"
     for job in $TRUSTY_AMD64 $TRUSTY_PPC64 $TRUSTY_I386; do
@@ -75,11 +67,12 @@ start_series_arch_tests() {
 }
 
 
-START_OTHER_TESTS="false"
-while [[ "${1-}" != "" && $1 =~ ^-.*  ]]; do
+TOKEN=""
+while [[ "${1-}" != "" && $1 =~ ^-.* ]]; do
     case $1 in
         --start-other-tests)
-            START_OTHER_TESTS="true"
+            shift
+            TOKEN=$1
             ;;
     esac
     shift
@@ -89,6 +82,5 @@ test $# -eq 1 || usage
 VERSION=$1
 
 check_deps
-setup_workspace
 retrieve_packages
 start_series_arch_tests
