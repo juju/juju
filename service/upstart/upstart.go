@@ -33,7 +33,7 @@ var (
 // IsRunning returns whether or not upstart is the local init system.
 func IsRunning() (bool, error) {
 	// On windows casting the error to exec.Error does not yield a os.PathError type
-	// Its easyer to just return nil before even trying to execute an external command
+	// It's easyer to just return false before even trying to execute an external command
 	// on windows at least
 	if runtime.GOOS == "windows" {
 		return false, nil

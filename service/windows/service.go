@@ -129,7 +129,7 @@ func (s *Service) Running() (bool, error) {
 func (s *Service) Installed() (bool, error) {
 	services, err := ListServices()
 	if err != nil {
-		return false, err
+		return false, errors.Trace(err)
 	}
 	for _, val := range services {
 		if val == s.Name() {
