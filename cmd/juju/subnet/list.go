@@ -24,6 +24,8 @@ type ListCommand struct {
 	SpaceName string
 	ZoneName  string
 
+	spaceTag *names.SpaceTag
+
 	out cmd.Output
 }
 
@@ -69,12 +71,15 @@ func (c *ListCommand) Init(args []string) error {
 		return err
 	}
 
-	// Validate space name, if given.
+	// Validate space name, if given and store as tag.
+	c.spaceTag = nil
 	if c.SpaceName != "" {
-		c.SpaceName, err = c.ValidateSpace(c.SpaceName)
+		tag, err := c.ValidateSpace(c.SpaceName)
 		if err != nil {
+			c.SpaceName = ""
 			return err
 		}
+		c.spaceTag = &tag
 	}
 	return nil
 }
@@ -89,17 +94,22 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 
 	// Validate space and/or zone, if given to display a nicer error
 	// message.
-	if c.SpaceName != "" {
+	if c.spaceTag != nil {
 		spaces, err := api.AllSpaces()
 		if err != nil {
 			return errors.Annotate(err, "cannot list spaces")
 		}
-		spacesSet := set.NewStrings(spaces...)
-		if !spacesSet.Contains(c.SpaceName) {
-			expected := strings.Join(spacesSet.SortedValues(), ", ")
+
+		spacesSet := set.NewTags(spaces...)
+		if !spacesSet.Contains(*c.spaceTag) {
+			sorted := spacesSet.SortedValues()
+			expected := make([]string, len(sorted))
+			for i, space := range sorted {
+				expected[i] = space.Id()
+			}
 			return errors.Errorf(
 				"%q is not a known space; expected one of: %s",
-				c.SpaceName, expected,
+				c.SpaceName, strings.Join(expected, ", "),
 			)
 		}
 	}
@@ -119,7 +129,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Get the list of subnets, filtering them as requested.
-	subnets, err := api.ListSubnets(c.SpaceName, c.ZoneName)
+	subnets, err := api.ListSubnets(c.spaceTag, c.ZoneName)
 	if err != nil {
 		return errors.Annotate(err, "cannot list subnets")
 	}

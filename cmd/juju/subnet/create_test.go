@@ -5,6 +5,7 @@ package subnet_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -130,7 +131,7 @@ func (s *CreateSuite) TestInit(c *gc.C) {
 			c.Check(err, jc.ErrorIsNil)
 		}
 		c.Check(command.CIDR, gc.Equals, test.expectCIDR)
-		c.Check(command.SpaceName, gc.Equals, test.expectSpace)
+		c.Check(command.Space.Id(), gc.Equals, test.expectSpace)
 		c.Check(command.Zones.SortedValues(), jc.DeepEquals, test.expectZones)
 		c.Check(command.IsPublic, gc.Equals, test.expectPublic)
 		c.Check(command.IsPrivate, gc.Equals, test.expectPrivate)
@@ -149,7 +150,7 @@ func (s *CreateSuite) TestRunOneZoneSucceeds(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
-		"10.20.0.0/24", "myspace", s.Strings("zone1"), false,
+		"10.20.0.0/24", names.NewSpaceTag("myspace"), s.Strings("zone1"), false,
 	)
 }
 
@@ -162,7 +163,7 @@ func (s *CreateSuite) TestRunWithPublicAndIPv6CIDRSucceeds(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
-		"2001:db8::/32", "space", s.Strings("zone1"), true,
+		"2001:db8::/32", names.NewSpaceTag("space"), s.Strings("zone1"), true,
 	)
 }
 
@@ -177,7 +178,7 @@ func (s *CreateSuite) TestRunWithMultipleZonesSucceeds(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
-		"10.20.0.0/24", "foo", s.Strings("zone1", "zone2"), false,
+		"10.20.0.0/24", names.NewSpaceTag("foo"), s.Strings("zone1", "zone2"), false,
 	)
 }
 
@@ -202,7 +203,7 @@ func (s *CreateSuite) TestRunWithExistingSubnetFails(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
-		"10.10.0.0/24", "space", s.Strings("zone1"), false,
+		"10.10.0.0/24", names.NewSpaceTag("space"), s.Strings("zone1"), false,
 	)
 }
 
@@ -217,7 +218,7 @@ func (s *CreateSuite) TestRunWithNonExistingSpaceFails(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
-		"10.10.0.0/24", "space", s.Strings("zone1"), false,
+		"10.10.0.0/24", names.NewSpaceTag("space"), s.Strings("zone1"), false,
 	)
 }
 

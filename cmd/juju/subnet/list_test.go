@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -228,7 +229,8 @@ func (s *ListSuite) TestRunWhenNoneMatchSucceeds(c *gc.C) {
 	)
 
 	s.api.CheckCallNames(c, "AllSpaces", "ListSubnets", "Close")
-	s.api.CheckCall(c, 1, "ListSubnets", "default", "")
+	tag := names.NewSpaceTag("default")
+	s.api.CheckCall(c, 1, "ListSubnets", &tag, "")
 }
 
 func (s *ListSuite) TestRunWhenNoSubnetsExistSucceeds(c *gc.C) {
@@ -240,7 +242,7 @@ func (s *ListSuite) TestRunWhenNoSubnetsExistSucceeds(c *gc.C) {
 	)
 
 	s.api.CheckCallNames(c, "ListSubnets", "Close")
-	s.api.CheckCall(c, 0, "ListSubnets", "", "")
+	s.api.CheckCall(c, 0, "ListSubnets", nil, "")
 }
 
 func (s *ListSuite) TestRunWithFilteringSucceeds(c *gc.C) {
@@ -267,7 +269,8 @@ subnets:
 	)
 
 	s.api.CheckCallNames(c, "AllSpaces", "ListSubnets", "Close")
-	s.api.CheckCall(c, 1, "ListSubnets", "public", "")
+	tag := names.NewSpaceTag("public")
+	s.api.CheckCall(c, 1, "ListSubnets", &tag, "")
 	s.api.Calls = s.api.Calls[0:0] // reset recorded calls.
 
 	// Now filter by zone.
@@ -278,7 +281,7 @@ subnets:
 	)
 
 	s.api.CheckCallNames(c, "AllZones", "ListSubnets", "Close")
-	s.api.CheckCall(c, 1, "ListSubnets", "", "zone1")
+	s.api.CheckCall(c, 1, "ListSubnets", nil, "zone1")
 	s.api.Calls = s.api.Calls[0:0] // reset recorded calls.
 
 	// Finally, filter by both space and zone.
@@ -289,7 +292,8 @@ subnets:
 	)
 
 	s.api.CheckCallNames(c, "AllSpaces", "AllZones", "ListSubnets", "Close")
-	s.api.CheckCall(c, 2, "ListSubnets", "public", "zone1")
+	tag = names.NewSpaceTag("public")
+	s.api.CheckCall(c, 2, "ListSubnets", &tag, "zone1")
 }
 
 func (s *ListSuite) TestRunWhenAllSpacesFails(c *gc.C) {
@@ -346,7 +350,7 @@ func (s *ListSuite) TestRunWhenListSubnetFails(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 
 	s.api.CheckCallNames(c, "ListSubnets", "Close")
-	s.api.CheckCall(c, 0, "ListSubnets", "", "")
+	s.api.CheckCall(c, 0, "ListSubnets", nil, "")
 }
 
 func (s *ListSuite) TestRunWhenASubnetHasInvalidCIDRFails(c *gc.C) {
@@ -358,7 +362,7 @@ func (s *ListSuite) TestRunWhenASubnetHasInvalidCIDRFails(c *gc.C) {
 	s.AssertRunFails(c, `subnet "invalid" has invalid CIDR`)
 
 	s.api.CheckCallNames(c, "ListSubnets", "Close")
-	s.api.CheckCall(c, 0, "ListSubnets", "", "")
+	s.api.CheckCall(c, 0, "ListSubnets", nil, "")
 }
 
 func (s *ListSuite) TestRunWhenASubnetHasInvalidSpaceFails(c *gc.C) {
@@ -370,7 +374,7 @@ func (s *ListSuite) TestRunWhenASubnetHasInvalidSpaceFails(c *gc.C) {
 	s.AssertRunFails(c, `subnet "10.20.0.0/24" has invalid space: "foo" is not a valid tag`)
 
 	s.api.CheckCallNames(c, "ListSubnets", "Close")
-	s.api.CheckCall(c, 0, "ListSubnets", "", "")
+	s.api.CheckCall(c, 0, "ListSubnets", nil, "")
 }
 
 func (s *ListSuite) TestRunAPIConnectFails(c *gc.C) {

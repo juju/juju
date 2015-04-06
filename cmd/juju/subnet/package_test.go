@@ -9,6 +9,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/cmd"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -142,7 +143,7 @@ type StubAPI struct {
 	*testing.Stub
 
 	Subnets []params.Subnet
-	Spaces  []string
+	Spaces  []names.Tag
 	Zones   []string
 }
 
@@ -179,7 +180,12 @@ func NewStubAPI() *StubAPI {
 		Stub:    &testing.Stub{},
 		Zones:   []string{"zone1", "zone2"},
 		Subnets: subnets,
-		Spaces:  []string{"default", "public", "dmz", "vlan-42"},
+		Spaces: []names.Tag{
+			names.NewSpaceTag("default"),
+			names.NewSpaceTag("public"),
+			names.NewSpaceTag("dmz"),
+			names.NewSpaceTag("vlan-42"),
+		},
 	}
 }
 
@@ -196,7 +202,7 @@ func (sa *StubAPI) AllZones() ([]string, error) {
 	return sa.Zones, nil
 }
 
-func (sa *StubAPI) AllSpaces() ([]string, error) {
+func (sa *StubAPI) AllSpaces() ([]names.Tag, error) {
 	sa.MethodCall(sa, "AllSpaces")
 	if err := sa.NextErr(); err != nil {
 		return nil, err
@@ -204,13 +210,13 @@ func (sa *StubAPI) AllSpaces() ([]string, error) {
 	return sa.Spaces, nil
 }
 
-func (sa *StubAPI) CreateSubnet(subnetCIDR, spaceName string, zones []string, isPublic bool) error {
-	sa.MethodCall(sa, "CreateSubnet", subnetCIDR, spaceName, zones, isPublic)
+func (sa *StubAPI) CreateSubnet(subnetCIDR string, spaceTag names.SpaceTag, zones []string, isPublic bool) error {
+	sa.MethodCall(sa, "CreateSubnet", subnetCIDR, spaceTag, zones, isPublic)
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) AddSubnet(subnetCIDR, spaceName string) error {
-	sa.MethodCall(sa, "AddSubnet", subnetCIDR, spaceName)
+func (sa *StubAPI) AddSubnet(subnetCIDR string, spaceTag names.SpaceTag) error {
+	sa.MethodCall(sa, "AddSubnet", subnetCIDR, spaceTag)
 	return sa.NextErr()
 }
 
@@ -219,8 +225,15 @@ func (sa *StubAPI) RemoveSubnet(subnetCIDR string) error {
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) ListSubnets(withSpace, withZone string) ([]params.Subnet, error) {
-	sa.MethodCall(sa, "ListSubnets", withSpace, withZone)
+func (sa *StubAPI) ListSubnets(withSpace *names.SpaceTag, withZone string) ([]params.Subnet, error) {
+	if withSpace == nil {
+		// Due to the way CheckCall works (using jc.DeepEquals
+		// internally), we need to pass an explicit nil here, rather
+		// than a pointer to a names.SpaceTag pointing to nil.
+		sa.MethodCall(sa, "ListSubnets", nil, withZone)
+	} else {
+		sa.MethodCall(sa, "ListSubnets", withSpace, withZone)
+	}
 	if err := sa.NextErr(); err != nil {
 		return nil, err
 	}
