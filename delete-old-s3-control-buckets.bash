@@ -8,7 +8,7 @@ fi
 
 # Never delete the juju-ci4 control bucket.
 CI_CONTROL_BUCKET=$(juju get-env -e juju-ci4 control-bucket)
-# This cloud be 2 days ago because hours are not involved.
+# This could be 2 days ago because hours are not involved.
 YESTERDAY=$(($(date +"%y%m%d") - 2))
 
 # Get the list of buckets that are 32 hex chars long except the control-bucket.
