@@ -156,7 +156,6 @@ func (c *EnsureAvailabilityCommand) Init(args []string) error {
 				continue
 			}
 			if err != instance.ErrPlacementScopeMissing {
-				// We only support unscoped placement directives.
 				return fmt.Errorf("unsupported ensure-availability placement directive %q", spec)
 			}
 			c.Placement[i] = spec

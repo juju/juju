@@ -85,7 +85,7 @@ func (f *fakeHAClient) EnsureAvailability(numStateServers int, cons constraints.
 
 	for _, p := range placement {
 		m, err := instance.ParsePlacement(p)
-		if err == nil {
+		if err == nil && m.Scope == instance.MachineScope {
 			f.result.Converted = append(f.result.Converted, "machine-"+m.Directive)
 		}
 	}

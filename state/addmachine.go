@@ -637,10 +637,14 @@ func (st *State) EnsureAvailability(
 			intent.promote = intent.promote[:n]
 		}
 		voteCount += len(intent.promote)
-		intent.newCount = desiredStateServerCount - voteCount - len(intent.convert)
-		if intent.newCount < 0 {
-			intent.newCount = 0
+
+		if n := desiredStateServerCount - voteCount; n < len(intent.convert) {
+			intent.convert = intent.convert[:n]
 		}
+		voteCount += len(intent.convert)
+
+		intent.newCount = desiredStateServerCount - voteCount
+
 		logger.Infof("%d new machines; promoting %v; converting %v", intent.newCount, intent.promote, intent.convert)
 
 		var ops []txn.Op
