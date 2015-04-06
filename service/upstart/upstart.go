@@ -9,9 +9,9 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"runtime"
 	"path"
 	"regexp"
+	"runtime"
 	"text/template"
 
 	"github.com/juju/errors"
