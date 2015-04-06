@@ -4,12 +4,48 @@
 package params
 
 import (
+	"net"
+
 	"github.com/juju/juju/network"
 )
 
 // -----
 // Parameters field types.
 // -----
+
+// Subnet describes a single subnet within a network.
+type Subnet struct {
+	// CIDR of the subnet in IPv4 or IPv6 notation.
+	CIDR string `json:"CIDR"`
+
+	// ProviderId is the provider-specific subnet ID (if applicable).
+	ProviderId string `json:"ProviderId,omitempty`
+
+	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
+	// normal networks. It's defined by IEEE 802.1Q standard.
+	VLANTag int `json:"VLANTag"`
+
+	// Life is the subnet's life cycle value - Alive means the subnet
+	// is in use by one or more machines, Dying or Dead means the
+	// subnet is about to be removed.
+	Life Life `json:"Life"`
+
+	// SpaceTag is the Juju network space this subnet is associated
+	// with.
+	SpaceTag string `json:"SpaceTag"`
+
+	// Zones contain one or more availability zones this subnet is
+	// associated with.
+	Zones []string `json:"Zones"`
+
+	// StaticRangeLowIP (if available) is the lower bound of the
+	// subnet's static IP allocation range.
+	StaticRangeLowIP net.IP `json:"StaticRangeLowIP,omitempty"`
+
+	// StaticRangeHighIP (if available) is the higher bound of the
+	// subnet's static IP allocation range.
+	StaticRangeHighIP net.IP `json:"StaticRangeHighIP,omitempty"`
+}
 
 // Network describes a single network available on an instance.
 type Network struct {

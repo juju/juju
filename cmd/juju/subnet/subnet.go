@@ -13,6 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 )
 
@@ -23,6 +24,9 @@ type SubnetAPI interface {
 
 	// AllZones returns all availability zones known to Juju.
 	AllZones() ([]string, error)
+
+	// AllSpaces returns all Juju network spaces.
+	AllSpaces() ([]string, error)
 
 	// CreateSubnet creates a new Juju subnet.
 	CreateSubnet(subnetCIDR, spaceName string, zones []string, isPublic bool) error
@@ -35,6 +39,10 @@ type SubnetAPI interface {
 	// related entites are cleaned up. It will fail if the subnet is
 	// still in use by any machines.
 	RemoveSubnet(subnetCIDR string) error
+
+	// ListSubnets returns information about subnets known to Juju,
+	// optionally filtered by space and/or zone (both can be empty).
+	ListSubnets(withSpace, withZone string) ([]params.Subnet, error)
 }
 
 var logger = loggo.GetLogger("juju.cmd.juju.subnet")
@@ -55,6 +63,7 @@ func NewSuperCommand() cmd.Command {
 	subnetCmd.Register(envcmd.Wrap(&CreateCommand{}))
 	subnetCmd.Register(envcmd.Wrap(&AddCommand{}))
 	subnetCmd.Register(envcmd.Wrap(&RemoveCommand{}))
+	subnetCmd.Register(envcmd.Wrap(&ListCommand{}))
 
 	return subnetCmd
 }

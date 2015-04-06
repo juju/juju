@@ -143,6 +143,7 @@ func (s *CreateSuite) TestInit(c *gc.C) {
 func (s *CreateSuite) TestRunOneZoneSucceeds(c *gc.C) {
 	s.AssertRunSucceeds(c,
 		`created a private subnet "10.20.0.0/24" in space "myspace" with zones zone1\n`,
+		"", // empty stdout.
 		"10.20.0.0/24", "myspace", "zone1",
 	)
 
@@ -155,6 +156,7 @@ func (s *CreateSuite) TestRunOneZoneSucceeds(c *gc.C) {
 func (s *CreateSuite) TestRunWithPublicAndIPv6CIDRSucceeds(c *gc.C) {
 	s.AssertRunSucceeds(c,
 		`created a public subnet "2001:db8::/32" in space "space" with zones zone1\n`,
+		"", // empty stdout.
 		"2001:db8::/32", "space", "zone1", "--public",
 	)
 
@@ -169,6 +171,7 @@ func (s *CreateSuite) TestRunWithMultipleZonesSucceeds(c *gc.C) {
 		// The list of zones is sorted both when displayed and passed
 		// to CreateSubnet.
 		`created a private subnet "10.20.0.0/24" in space "foo" with zones zone1, zone2\n`,
+		"",                                      // empty stdout.
 		"10.20.0.0/24", "foo", "zone2", "zone1", // unsorted zones
 	)
 

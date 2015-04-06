@@ -80,6 +80,7 @@ func (s *AddSuite) TestInit(c *gc.C) {
 func (s *AddSuite) TestRunWithIPv4CIDRSucceeds(c *gc.C) {
 	s.AssertRunSucceeds(c,
 		`added subnet "10.20.0.0/24" in space "myspace"\n`,
+		"", // empty stdout.
 		"10.20.0.0/24", "myspace",
 	)
 
@@ -92,6 +93,7 @@ func (s *AddSuite) TestRunWithIPv4CIDRSucceeds(c *gc.C) {
 func (s *AddSuite) TestRunWithIPv6CIDRSucceeds(c *gc.C) {
 	s.AssertRunSucceeds(c,
 		`added subnet "2001:db8::/32" in space "hyperspace"\n`,
+		"", // empty stdout.
 		"2001:db8::/32", "hyperspace",
 	)
 
