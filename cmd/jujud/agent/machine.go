@@ -66,6 +66,7 @@ import (
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevisionworker"
 	"github.com/juju/juju/worker/cleaner"
+	"github.com/juju/juju/worker/conv2state"
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
@@ -452,11 +453,6 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	return worker.ErrRebootMachine
 }
 
-func (a *MachineAgent) RestartService() error {
-	name := a.CurrentConfig().Value(agent.AgentServiceName)
-	return service.Restart(name)
-}
-
 func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
 	err := a.AgentConfigWriter.ChangeConfig(mutate)
 	a.configChangedVal.Set(struct{}{})
@@ -707,11 +703,8 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	})
 
 	if !isEnvironManager {
-		runner.StartWorker("converter", func() (worker.Worker, error) {
-			return worker.NewNotifyWorker(&converter{
-				agent: a,
-				st:    st.Converter(),
-			}), nil
+		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
+			return worker.NewNotifyWorker(conv2state.New(st.Machiner(), a)), nil
 		})
 	}
 
@@ -796,6 +789,33 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	}
 
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
+}
+
+// Restart restarts the agent's service.
+func (a *MachineAgent) Restart() error {
+	name := a.CurrentConfig().Value(agent.AgentServiceName)
+	return service.Restart(name)
+}
+
+// SetPassword sets the agent's password both in the agentconfig and on the
+// state server.
+func (a *MachineAgent) SetPassword(pw string) error {
+	// Cache the config so we connect with the old one.
+	config := a.CurrentConfig()
+
+	a.AgentConfigWriter.ChangeConfig(func(config agent.ConfigSetter) error {
+		config.SetPassword(pw)
+		config.SetOldPassword(config.APIInfo().Password)
+		return nil
+	})
+
+	_, entity, err := OpenAPIState(config, a)
+	if err != nil {
+		return errors.Annotate(err, "error opening API")
+	}
+
+	err = entity.SetPassword(pw)
+	return errors.Annotate(err, "error setting password")
 }
 
 func (a *MachineAgent) upgradeStepsWorkerStarter(
