@@ -90,12 +90,13 @@ def delete_service(sms, service, deployments,
         if verbose:
             print("Deleting deployment {}".format(deployment.name))
         if not dry_run:
-            request = sms.delete_deployment(service.name, deployment.name)
+            request = sms.delete_deployment(
+                service.service_name, deployment.name)
             wait_for_success(sms, request, pause=pause, verbose=verbose)
     if verbose:
-        print("Deleting service {}".format(service.name))
+        print("Deleting service {}".format(service.service_name))
     if not dry_run:
-        sms.delete_hosted_service(service.name)
+        sms.delete_hosted_service(service.service_name)
 
 
 def delete_services(sms, glob='*', old_age=OLD_MACHINE_AGE,
