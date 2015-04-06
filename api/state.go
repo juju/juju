@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
-	"github.com/juju/juju/api/converter"
 	"github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/environment"
@@ -352,9 +351,4 @@ func (st *State) Rsyslog() *rsyslog.State {
 // set.
 func (st *State) ServerVersion() (version.Number, bool) {
 	return st.serverVersion, st.serverVersion != version.Zero
-}
-
-// Converter returns access to the Converter API
-func (st *State) Converter() *converter.State {
-	return converter.NewState(st)
 }

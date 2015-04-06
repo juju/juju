@@ -188,19 +188,8 @@ func OpenAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 		if err != nil {
 			return nil, nil, err
 		}
-		// Change the configuration *before* setting the entity
-		// password, so that we avoid the possibility that
-		// we might successfully change the entity's
-		// password but fail to write the configuration,
-		// thus locking us out completely.
-		if err := a.ChangeConfig(func(c agent.ConfigSetter) error {
-			c.SetPassword(newPassword)
-			c.SetOldPassword(info.Password)
-			return nil
-		}); err != nil {
-			return nil, nil, err
-		}
-		if err := entity.SetPassword(newPassword); err != nil {
+		err = setAgentPassword(newPassword, info.Password, a, entity)
+		if err != nil {
 			return nil, nil, err
 		}
 
@@ -214,6 +203,22 @@ func OpenAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 	}
 
 	return st, entity, err
+}
+
+func setAgentPassword(newPw, oldPw string, a Agent, entity *apiagent.Entity) error {
+	// Change the configuration *before* setting the entity
+	// password, so that we avoid the possibility that
+	// we might successfully change the entity's
+	// password but fail to write the configuration,
+	// thus locking us out completely.
+	if err := a.ChangeConfig(func(c agent.ConfigSetter) error {
+		c.SetPassword(newPw)
+		c.SetOldPassword(oldPw)
+		return nil
+	}); err != nil {
+		return err
+	}
+	return entity.SetPassword(newPw)
 }
 
 // OpenAPIStateUsingInfo opens the API using the given API

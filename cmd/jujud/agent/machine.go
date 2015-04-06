@@ -800,22 +800,12 @@ func (a *MachineAgent) Restart() error {
 // SetPassword sets the agent's password both in the agentconfig and on the
 // state server.
 func (a *MachineAgent) SetPassword(pw string) error {
-	// Cache the config so we connect with the old one.
 	config := a.CurrentConfig()
-
-	a.AgentConfigWriter.ChangeConfig(func(config agent.ConfigSetter) error {
-		config.SetPassword(pw)
-		config.SetOldPassword(config.APIInfo().Password)
-		return nil
-	})
-
 	_, entity, err := OpenAPIState(config, a)
 	if err != nil {
-		return errors.Annotate(err, "error opening API")
+		return err
 	}
-
-	err = entity.SetPassword(pw)
-	return errors.Annotate(err, "error setting password")
+	return setAgentPassword(pw, config.APIInfo().Password, a, entity)
 }
 
 func (a *MachineAgent) upgradeStepsWorkerStarter(
