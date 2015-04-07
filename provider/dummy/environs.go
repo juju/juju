@@ -1095,8 +1095,8 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 
 	// Simulate 3 NICs - primary and secondary enabled plus a disabled NIC.
 	// all configured using DHCP and having fake DNS servers and gateway.
-	info := make([]network.InterfaceInfo, 2)
-	for i, netName := range []string{"private", "public"} {
+	info := make([]network.InterfaceInfo, 3)
+	for i, netName := range []string{"private", "public", "disabled"} {
 		info[i] = network.InterfaceInfo{
 			DeviceIndex:      i,
 			ProviderId:       network.Id(fmt.Sprintf("dummy-eth%d", i)),
@@ -1106,7 +1106,7 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 			InterfaceName:    fmt.Sprintf("eth%d", i),
 			VLANTag:          i,
 			MACAddress:       fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
-			Disabled:         i%2 != 0,
+			Disabled:         i == 2,
 			NoAutoStart:      i%2 != 0,
 			ConfigType:       network.ConfigDHCP,
 			Address: network.NewAddress(
@@ -1137,6 +1137,8 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 			NoAutoStart:   false,
 			ConfigType:    network.ConfigDHCP,
 		}}
+	} else if strings.HasPrefix(string(instId), "i-disabled-nic-") {
+		info = info[2:]
 	}
 
 	estate.ops <- OpNetworkInterfaces{
