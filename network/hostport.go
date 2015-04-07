@@ -53,7 +53,7 @@ func NewHostPorts(port int, addresses ...string) []HostPort {
 	hps := make([]HostPort, len(addresses))
 	for i, addr := range addresses {
 		hps[i] = HostPort{
-			Address: NewAddress(addr, ScopeUnknown),
+			Address: NewAddress(addr),
 			Port:    port,
 		}
 	}
@@ -75,7 +75,7 @@ func ParseHostPorts(hostPorts ...string) ([]HostPort, error) {
 			return nil, errors.Annotatef(err, "cannot parse %q port", hp)
 		}
 		hps[i] = HostPort{
-			Address: NewAddress(host, ScopeUnknown),
+			Address: NewAddress(host),
 			Port:    numPort,
 		}
 	}
@@ -166,7 +166,7 @@ func ResolveOrDropHostnames(hps []HostPort) []HostPort {
 			if ip == nil {
 				continue
 			}
-			addr := NewAddress(ip.String(), ScopeUnknown)
+			addr := NewAddress(ip.String())
 			if !uniqueAddrs.Contains(addr.Value) {
 				result = append(result, HostPort{Address: addr, Port: hp.Port})
 				uniqueAddrs.Add(addr.Value)

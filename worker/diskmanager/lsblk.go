@@ -34,12 +34,13 @@ func init() {
 
 func listBlockDevices() ([]storage.BlockDevice, error) {
 	columns := []string{
-		"KNAME",  // kernel name
-		"SIZE",   // size
-		"LABEL",  // filesystem label
-		"UUID",   // filesystem UUID
-		"FSTYPE", // filesystem type
-		"TYPE",   // device type
+		"KNAME",      // kernel name
+		"SIZE",       // size
+		"LABEL",      // filesystem label
+		"UUID",       // filesystem UUID
+		"FSTYPE",     // filesystem type
+		"TYPE",       // device type
+		"MOUNTPOINT", // moint point
 	}
 
 	logger.Debugf("executing lsblk")
@@ -82,6 +83,8 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 				dev.FilesystemType = pair[2]
 			case "TYPE":
 				deviceType = pair[2]
+			case "MOUNTPOINT":
+				dev.MountPoint = pair[2]
 			default:
 				logger.Debugf("unexpected field from lsblk: %q", pair[1])
 			}

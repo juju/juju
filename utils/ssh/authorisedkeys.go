@@ -14,9 +14,9 @@ import (
 	"strings"
 	"sync"
 
-	"code.google.com/p/go.crypto/ssh"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"golang.org/x/crypto/ssh"
 )
 
 var logger = loggo.GetLogger("juju.utils.ssh")

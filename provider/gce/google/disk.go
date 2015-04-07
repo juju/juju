@@ -4,7 +4,7 @@
 package google
 
 import (
-	"code.google.com/p/google-api-go-client/compute/v1"
+	"google.golang.org/api/compute/v1"
 )
 
 // The different types of disks supported by GCE.
@@ -23,9 +23,11 @@ const (
 // GCE disks.
 //
 // Note: GCE does not currently have an official minimum disk size.
-// However, a size of 0 is not viable so we use the next lowest
-// value.
-const MinDiskSizeGB uint64 = 1
+// However, in testing we found the minimum size to be 10 GB due to
+// the image size. See gceapi messsage.
+//
+// gceapi: Requested disk size cannot be smaller than the image size (10 GB)
+const MinDiskSizeGB uint64 = 10
 
 // DiskSpec holds all the data needed to request a new disk on GCE.
 // Some fields are used only for attached disks (i.e. in association

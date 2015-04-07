@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/systemd"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -279,12 +280,15 @@ func (s *LxcSuite) TestUpdateContainerConfig(c *gc.C) {
 		CIDR:           "0.1.2.0/20",
 		InterfaceName:  "eth0",
 		MACAddress:     "aa:bb:cc:dd:ee:f0",
-		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		Address:        network.NewAddress("0.1.2.3"),
+		GatewayAddress: network.NewAddress("0.1.2.1"),
 	}, {
 		DeviceIndex:   1,
 		InterfaceName: "eth1",
 	}})
+	storageConfig := &container.StorageConfig{
+		AllowMount: true,
+	}
 
 	manager := s.makeManager(c, "test")
 	machineConfig, err := containertesting.MockMachineConfig("1/lxc/0")
@@ -292,8 +296,8 @@ func (s *LxcSuite) TestUpdateContainerConfig(c *gc.C) {
 	envConfig, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	machineConfig.Config = envConfig
-	instance := containertesting.CreateContainerWithMachineAndNetworkConfig(
-		c, manager, machineConfig, networkConfig,
+	instance := containertesting.CreateContainerWithMachineAndNetworkAndStorageConfig(
+		c, manager, machineConfig, networkConfig, storageConfig,
 	)
 	name := string(instance.Id())
 
@@ -301,9 +305,9 @@ func (s *LxcSuite) TestUpdateContainerConfig(c *gc.C) {
 	extraLines := []string{
 		"  lxc.rootfs =  /some/thing  # else ",
 		"",
-		"  # just comment  ",
+		"  # just comment",
 		"lxc.network.vlan.id=42",
-		"something else  # ignore  ",
+		"something else  # ignore",
 		"lxc.network.type=veth",
 		"lxc.network.link = foo  # comment",
 		"lxc.network.hwaddr = bar",
@@ -324,7 +328,7 @@ lxc.network.link = nic42
 lxc.network.flags = up
 lxc.network.name = eth0
 lxc.network.hwaddr = aa:bb:cc:dd:ee:f0
-lxc.network.ipv4 = 0.1.2.3/20
+lxc.network.ipv4 = 0.1.2.3/32
 lxc.network.ipv4.gateway = 0.1.2.1
 lxc.network.mtu = 4321
 
@@ -337,6 +341,10 @@ lxc.network.mtu = 4321
 
 
 lxc.mount.entry = %s var/log/juju none defaults,bind 0 0
+
+lxc.aa_profile = lxc-container-default-with-mounting
+lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = c 10:237 rwm
 `, s.logDir) + strings.Join(extraLines, "\n") + "\n"
 
 	lxcConfContents, err := ioutil.ReadFile(configPath)
@@ -371,7 +379,7 @@ lxc.network.type = bar
 lxc.network.flags = up
 lxc.network.name = em0
 lxc.network.hwaddr = ff:ee:dd:cc:bb:aa
-lxc.network.ipv4 = 0.1.2.3/20
+lxc.network.ipv4 = 0.1.2.3/32
 lxc.network.ipv4.gateway = 0.1.2.1
 lxc.network.mtu = 1234
 
@@ -383,11 +391,15 @@ lxc.network.name = em1
 lxc.network.mtu = 4321
 
 
+
+lxc.aa_profile = lxc-container-default-with-mounting
+lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = c 10:237 rwm
 lxc.rootfs = /foo/bar
 
-  # just comment  
+  # just comment
 lxc.network.vlan.id = 69
-something else  # ignore  
+something else  # ignore
 lxc.network.type = phys
 lxc.network.link = foo  # comment
 lxc.network.hwaddr = deadbeef
@@ -765,6 +777,7 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 		true,
 		true,
 		&containertesting.MockURLGetter{},
+		false,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(template.Name(), gc.Equals, name)
@@ -796,26 +809,72 @@ lxc.network.mtu = 4321
 	return template
 }
 
-func (s *LxcSuite) TestShutdownInitScript(c *gc.C) {
-	script, err := lxc.ShutdownInitScript(service.InitSystemUpstart)
+func (s *LxcSuite) TestShutdownInitCommandsUpstart(c *gc.C) {
+	cmds, err := lxc.ShutdownInitCommands(service.InitSystemUpstart)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(script, gc.Equals, `
-cat >> /etc/init/juju-template-restart.conf << 'EOF'
+	filename := "/etc/init/juju-template-restart.conf"
+	script := `
 description "juju shutdown job"
 author "Juju Team <juju@lists.ubuntu.com>"
 start on stopped cloud-final
 
 script
+  /bin/cat > /etc/network/interfaces << EOC
+# loopback interface
+auto lo
+iface lo inet loopback
+
+# primary interface
+auto eth0
+iface eth0 inet dhcp
+EOC
+  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
   /sbin/shutdown -h now
 end script
 
 post-stop script
   rm /etc/init/juju-template-restart.conf
 end script
+`[1:]
+	c.Check(cmds, gc.HasLen, 1)
+	coretesting.CheckWriteFileCommand(c, cmds[0], filename, script, nil)
+}
 
-EOF
-`[1:])
+func (s *LxcSuite) TestShutdownInitCommandsSystemd(c *gc.C) {
+	commands, err := lxc.ShutdownInitCommands(service.InitSystemSystemd)
+	c.Assert(err, jc.ErrorIsNil)
+
+	test := systemd.WriteConfTest{
+		Service: "juju-template-restart",
+		DataDir: "/var/lib/juju",
+		Expected: `
+[Unit]
+Description=juju shutdown job
+After=syslog.target
+After=network.target
+After=systemd-user-sessions.service
+After=cloud-final
+Conflicts=cloud-final
+
+[Service]
+ExecStart='/var/lib/juju/init/juju-template-restart/exec-start.sh'
+ExecStopPost=/bin/systemctl disable juju-template-restart.service
+`[1:],
+		Script: `
+/bin/cat > /etc/network/interfaces << EOC
+# loopback interface
+auto lo
+iface lo inet loopback
+
+# primary interface
+auto eth0
+iface eth0 inet dhcp
+EOC
+  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
+  /sbin/shutdown -h now`[1:],
+	}
+	test.CheckCommands(c, commands)
 }
 
 func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplate(c *gc.C) {
@@ -963,6 +1022,39 @@ lxc.mount.entry = %s var/log/juju none defaults,bind 0 0
 	c.Assert(autostartLink, jc.DoesNotExist)
 }
 
+func (s *LxcSuite) TestCreateContainerWithBlockStorage(c *gc.C) {
+	err := os.Remove(s.RestartDir)
+	c.Assert(err, jc.ErrorIsNil)
+
+	manager := s.makeManager(c, "test")
+	machineConfig, err := containertesting.MockMachineConfig("1/lxc/0")
+	c.Assert(err, jc.ErrorIsNil)
+	storageConfig := &container.StorageConfig{AllowMount: true}
+	networkConfig := container.BridgeNetworkConfig("nic42", nil)
+	instance := containertesting.CreateContainerWithMachineAndNetworkAndStorageConfig(c, manager, machineConfig, networkConfig, storageConfig)
+	name := string(instance.Id())
+	autostartLink := lxc.RestartSymlink(name)
+	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
+	c.Assert(err, jc.ErrorIsNil)
+	expected := fmt.Sprintf(`
+# network config
+# interface "eth0"
+lxc.network.type = veth
+lxc.network.link = nic42
+lxc.network.flags = up
+lxc.network.mtu = 4321
+
+lxc.start.auto = 1
+lxc.mount.entry = %s var/log/juju none defaults,bind 0 0
+
+lxc.aa_profile = lxc-container-default-with-mounting
+lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = c 10:237 rwm
+`, s.logDir)
+	c.Assert(string(config), gc.Equals, expected)
+	c.Assert(autostartLink, jc.DoesNotExist)
+}
+
 func (s *LxcSuite) TestDestroyContainerRemovesAutostartLink(c *gc.C) {
 	manager := s.makeManager(c, "test")
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
@@ -1002,8 +1094,8 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 		CIDR:           "0.1.2.0/20", // used to infer the subnet mask.
 		MACAddress:     "aa:bb:cc:dd:ee:f1",
 		InterfaceName:  "eth1",
-		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		Address:        network.NewAddress("0.1.2.3"),
+		GatewayAddress: network.NewAddress("0.1.2.1"),
 		// The rest is passed to cloud-init.
 		ConfigType: network.ConfigStatic,
 		DNSServers: network.NewAddresses("ns1.invalid", "ns2.invalid"),
@@ -1097,7 +1189,7 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.flags = up",
 			"lxc.network.name = eth1",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
-			"lxc.network.ipv4 = 0.1.2.3/20",
+			"lxc.network.ipv4 = 0.1.2.3/32",
 			"lxc.network.ipv4.gateway = 0.1.2.1",
 			"lxc.network.mtu = 9000",
 
@@ -1118,10 +1210,9 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.flags = up",
 			"lxc.network.name = eth1",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
-			"lxc.network.ipv4 = 0.1.2.3/24",
+			"lxc.network.ipv4 = 0.1.2.3/32",
 			"lxc.network.ipv4.gateway = 0.1.2.1",
 		},
-		logContains: `WARNING juju.container.lxc invalid CIDR "" for interface "eth1", using /24 as fallback`,
 	}, {
 		config: container.BridgeNetworkConfig("foo", []network.InterfaceInfo{staticNICBadCIDR}),
 		nics:   []network.InterfaceInfo{staticNICBadCIDR},
@@ -1131,10 +1222,9 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.flags = up",
 			"lxc.network.name = eth1",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
-			"lxc.network.ipv4 = 0.1.2.3/24",
+			"lxc.network.ipv4 = 0.1.2.3/32",
 			"lxc.network.ipv4.gateway = 0.1.2.1",
 		},
-		logContains: `WARNING juju.container.lxc invalid CIDR "bad" for interface "eth1", using /24 as fallback`,
 	}, {
 		config: container.BridgeNetworkConfig("foo", []network.InterfaceInfo{staticNICNoAutoWithGW}),
 		nics:   []network.InterfaceInfo{staticNICNoAutoWithGW},
@@ -1143,7 +1233,7 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.link = foo",
 			"lxc.network.name = eth1",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
-			"lxc.network.ipv4 = 0.1.2.3/20",
+			"lxc.network.ipv4 = 0.1.2.3/32",
 		},
 		logContains: `WARNING juju.container.lxc not setting IPv4 gateway "0.1.2.1" for non-auto start interface "eth1"`,
 	}} {

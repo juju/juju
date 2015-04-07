@@ -36,6 +36,10 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
+	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -176,17 +180,18 @@ func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instan
 }
 
 func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) instance.Instance {
-	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, true, nil, true)
+	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, true, nil, true)
 }
 
 func (s *CommonProvisionerSuite) checkStartInstanceNoSecureConnection(c *gc.C, m *state.Machine) instance.Instance {
-	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, false, nil, true)
+	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, false, nil, true)
 }
 
 func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 	c *gc.C, m *state.Machine,
 	secret string, cons constraints.Value,
 	networks []string, networkInfo []network.InterfaceInfo,
+	volumes []storage.Volume,
 	secureServerConnection bool,
 	checkPossibleTools coretools.List,
 	waitInstanceId bool,
@@ -213,6 +218,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 				c.Assert(o.Secret, gc.Equals, secret)
 				c.Assert(o.Networks, jc.DeepEquals, networks)
 				c.Assert(o.NetworkInfo, jc.DeepEquals, networkInfo)
+				c.Assert(o.Volumes, jc.DeepEquals, volumes)
 				c.Assert(o.AgentEnvironment["SECURE_STATESERVER_CONNECTION"], gc.Equals, strconv.FormatBool(secureServerConnection))
 
 				var jobs []multiwatcher.MachineJob
@@ -451,7 +457,7 @@ func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 	// Start a provisioner and check those constraints are used.
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
-	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, false, nil, true)
+	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil, false, nil, true)
 }
 
 func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
@@ -493,7 +499,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	defer stop(c, provisioner)
 	s.checkStartInstanceCustom(
 		c, machine, "pork", constraints.Value{},
-		nil, nil, false, expectedList, true,
+		nil, nil, nil, false, expectedList, true,
 	)
 }
 
@@ -514,14 +520,14 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
 		// And check the machine status is set to error.
-		status, info, _, err := m.Status()
+		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if status == state.StatusPending {
+		if statusInfo.Status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, state.StatusError)
-		c.Assert(info, gc.Equals, "no matching tools available")
+		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Message, gc.Equals, "no matching tools available")
 		break
 	}
 
@@ -545,14 +551,14 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
 		// And check the machine status is set to error.
-		status, info, _, err := m.Status()
+		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if status == state.StatusPending {
+		if statusInfo.Status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, state.StatusError)
-		c.Assert(info, gc.Equals, brokenMsg)
+		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Message, gc.Equals, brokenMsg)
 		break
 	}
 
@@ -591,15 +597,15 @@ func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreatio
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
 		// And check the machine status is set to error.
-		status, info, _, err := m.Status()
+		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if status == state.StatusPending {
+		if statusInfo.Status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
 		// check that the status matches the error message
-		c.Assert(info, gc.Equals, destroyError.Error())
+		c.Assert(statusInfo.Message, gc.Equals, destroyError.Error())
 		break
 	}
 
@@ -673,15 +679,15 @@ func (s *ProvisionerSuite) TestProvisionerFailStartInstanceWithInjectedNonRetrya
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
 		// And check the machine status is set to error.
-		status, info, _, err := m.Status()
+		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if status == state.StatusPending {
+		if statusInfo.Status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
 		// check that the status matches the error message
-		c.Assert(info, gc.Equals, nonRetryableError.Error())
+		c.Assert(statusInfo.Message, gc.Equals, nonRetryableError.Error())
 		break
 	}
 }
@@ -740,7 +746,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	inst := s.checkStartInstanceCustom(
 		c, m, "pork", cons,
-		requestedNetworks, expectNetworkInfo, false,
+		requestedNetworks, expectNetworkInfo, nil, false,
 		nil, true,
 	)
 
@@ -776,7 +782,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithInvalidNetwork(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.checkStartInstanceCustom(
 		c, m, "pork", constraints.Value{},
-		networks, expectNetworkInfo, false,
+		networks, expectNetworkInfo, nil, false,
 		nil, false,
 	)
 
@@ -784,14 +790,14 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithInvalidNetwork(c *gc.C) {
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
 		// And check the machine status is set to error.
-		status, info, _, err := m.Status()
+		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if status == state.StatusPending {
+		if statusInfo.Status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, state.StatusError)
-		c.Assert(info, gc.Matches, `invalid network name "\$\$invalid-net1"`)
+		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Message, gc.Matches, `invalid network name "\$\$invalid-net1"`)
 		break
 	}
 
@@ -814,6 +820,58 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithInvalidNetwork(c *gc.C) {
 	s.checkNoOperations(c)
 }
 
+func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.MachineVolumeParams, cons constraints.Value) (*state.Machine, error) {
+	return s.BackingState.AddOneMachine(state.MachineTemplate{
+		Series:      coretesting.FakeDefaultSeries,
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: cons,
+		Volumes:     volumes,
+	})
+}
+
+func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C) {
+	// Set up a persistent pool.
+	registry.RegisterProvider("static", &dummystorage.StorageProvider{IsDynamic: false})
+	registry.RegisterEnvironStorageProviders("dummy", "static")
+	defer registry.RegisterProvider("static", nil)
+	poolManager := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := poolManager.Create("persistent-pool", "static", map[string]interface{}{"persistent": true})
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := s.newEnvironProvisioner(c)
+	defer p.Stop()
+
+	// Add and provision a machine with volumes specified.
+	requestedVolumes := []state.MachineVolumeParams{{
+		Volume:     state.VolumeParams{Pool: "static", Size: 1024},
+		Attachment: state.VolumeAttachmentParams{},
+	}, {
+		Volume:     state.VolumeParams{Pool: "persistent-pool", Size: 2048},
+		Attachment: state.VolumeAttachmentParams{},
+	}}
+	cons := constraints.MustParse(s.defaultConstraints.String(), "networks=^net3,^net4")
+	expectVolumeInfo := []storage.Volume{{
+		Tag:  names.NewVolumeTag("1"),
+		Size: 1024,
+	}, {
+		Tag:        names.NewVolumeTag("2"),
+		Size:       2048,
+		Persistent: true,
+	}}
+	m, err := s.addMachineWithRequestedVolumes(requestedVolumes, cons)
+	c.Assert(err, jc.ErrorIsNil)
+	inst := s.checkStartInstanceCustom(
+		c, m, "pork", cons,
+		nil, nil, expectVolumeInfo, false,
+		nil, true,
+	)
+
+	// Cleanup.
+	c.Assert(m.EnsureDead(), gc.IsNil)
+	s.checkStopInstances(c, inst)
+	s.waitRemoved(c, m)
+}
+
 func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInstanceButKeepsGoing(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
@@ -829,7 +887,7 @@ func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInst
 	c.Assert(err, jc.ErrorIsNil)
 	inst := s.checkStartInstanceCustom(
 		c, m, "pork", constraints.Value{},
-		networks, expectNetworkInfo, false,
+		networks, expectNetworkInfo, nil, false,
 		nil, false,
 	)
 
@@ -837,14 +895,14 @@ func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInst
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
 		// And check the machine status is set to error.
-		status, info, _, err := m.Status()
+		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if status == state.StatusPending {
+		if statusInfo.Status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, state.StatusError)
-		c.Assert(info, gc.Matches, `cannot record provisioning info for "dummyenv-0": cannot add network "bad-net1": invalid CIDR address: invalid`)
+		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Message, gc.Matches, `cannot record provisioning info for "dummyenv-0": cannot add network "bad-net1": invalid CIDR address: invalid`)
 		break
 	}
 	s.checkStopInstances(c, inst)
@@ -1027,7 +1085,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	c.Assert(err, jc.ErrorIsNil)
 
 	// the PA should create it using the new environment
-	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints, nil, nil, false, nil, true)
+	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints, nil, nil, nil, false, nil, true)
 }
 
 type mockMachineGetter struct{}
@@ -1260,9 +1318,9 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	close(thatsAllFolks)
 
 	// Machine 4 is never provisioned.
-	status, _, _, err := m4.Status()
+	statusInfo, err := m4.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
 	_, err = m4.InstanceId()
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 }

@@ -100,14 +100,6 @@ var newConfigTests = []configTestSpec{{
 	insert: testing.Attrs{"datacenter": ""},
 	err:    "datacenter: must not be empty",
 }, {
-	info:   "resource-pool is required",
-	remove: []string{"resource-pool"},
-	err:    "resource-pool: expected string, got nothing",
-}, {
-	info:   "resource-pool cannot be empty",
-	insert: testing.Attrs{"resource-pool": ""},
-	err:    "resource-pool: must not be empty",
-}, {
 	info:   "host is required",
 	remove: []string{"host"},
 	err:    "host: expected string, got nothing",
@@ -212,10 +204,6 @@ var changeConfigTests = []configTestSpec{{
 	info:   "cannot change datacenter",
 	insert: testing.Attrs{"datacenter": "/datacenter2"},
 	err:    "datacenter: cannot change from /datacenter1 to /datacenter2",
-}, {
-	info:   "cannot change resource-pool",
-	insert: testing.Attrs{"resource-pool": "resource-pool2"},
-	err:    "resource-pool: cannot change from resource-pool1 to resource-pool2",
 }, {
 	info:   "cannot change host",
 	insert: testing.Attrs{"host": "host2"},

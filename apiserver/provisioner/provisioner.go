@@ -36,6 +36,7 @@ func init() {
 type ProvisionerAPI struct {
 	*common.Remover
 	*common.StatusSetter
+	*common.StatusGetter
 	*common.DeadEnsurer
 	*common.PasswordChanger
 	*common.LifeGetter
@@ -94,6 +95,7 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 	return &ProvisionerAPI{
 		Remover:                common.NewRemover(st, false, getAuthFunc),
 		StatusSetter:           common.NewStatusSetter(st, getAuthFunc),
+		StatusGetter:           common.NewStatusGetter(st, getAuthFunc),
 		DeadEnsurer:            common.NewDeadEnsurer(st, getAuthFunc),
 		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),
@@ -270,35 +272,8 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.Proxy = config.ProxySettings()
 	result.AptProxy = config.AptProxySettings()
 	result.PreferIPv6 = config.PreferIPv6()
+	result.AllowLXCLoopMounts, _ = config.AllowLXCLoopMounts()
 
-	return result, nil
-}
-
-// Status returns the status of each given machine entity.
-func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, error) {
-	result := params.StatusResults{
-		Results: make([]params.StatusResult, len(args.Entities)),
-	}
-	canAccess, err := p.getAuthFunc()
-	if err != nil {
-		return result, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseMachineTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		machine, err := p.getMachine(canAccess, tag)
-		if err == nil {
-			r := &result.Results[i]
-			var st state.Status
-			st, r.Info, r.Data, err = machine.Status()
-			r.Status = params.Status(st)
-
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
 	return result, nil
 }
 
@@ -325,12 +300,13 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 			continue
 		}
 		var result params.StatusResult
-		var st state.Status
-		st, result.Info, result.Data, err = machine.Status()
+		statusInfo, err := machine.Status()
 		if err != nil {
 			continue
 		}
-		result.Status = params.Status(st)
+		result.Status = params.Status(statusInfo.Status)
+		result.Info = statusInfo.Message
+		result.Data = statusInfo.Data
 		if result.Status != params.StatusError {
 			continue
 		}
@@ -560,14 +536,26 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 		}
 		volumeParams, err := common.VolumeParams(volume, poolManager)
 		if common.IsVolumeAlreadyProvisioned(err) {
-			// Volume is already provisioned; let the dynamic
-			// storage provisioner handle the attachment.
+			// Already provisioned, so must be dynamic.
 			continue
 		} else if err != nil {
 			return nil, errors.Annotatef(err, "getting volume %q parameters", volumeTag.Id())
 		}
+		provider, err := registry.StorageProvider(storage.ProviderType(volumeParams.Provider))
+		if err != nil {
+			return nil, errors.Annotate(err, "getting storage provider")
+		}
+		if provider.Dynamic() {
+			// Leave dynamic storage to the storage provisioner.
+			continue
+		}
 		// Not provisioned yet, so ask the cloud provisioner do it.
-		volumeParams.MachineTag = m.Tag().String()
+		volumeParams.Attachment = &params.VolumeAttachmentParams{
+			volumeTag.String(),
+			m.Tag().String(),
+			"", // we're creating the machine, so it has no instance ID.
+			volumeParams.Provider,
+		}
 		allVolumeParams = append(allVolumeParams, volumeParams)
 	}
 	return allVolumeParams, nil
@@ -591,27 +579,6 @@ func storageConfig(st *state.State, poolName string) (storage.ProviderType, map[
 		return "", nil, errors.Trace(err)
 	}
 	return p.Provider(), p.Attrs(), nil
-}
-
-// volumesToState converts a slice of storage.Volume to a mapping
-// of volume names to state.VolumeInfo.
-func volumesToState(in []params.Volume) (map[names.VolumeTag]state.VolumeInfo, error) {
-	m := make(map[names.VolumeTag]state.VolumeInfo)
-	for _, v := range in {
-		if v.VolumeTag == "" {
-			return nil, errors.New("Tag is empty")
-		}
-		volumeTag, err := names.ParseVolumeTag(v.VolumeTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		m[volumeTag] = state.VolumeInfo{
-			v.Serial,
-			v.Size,
-			v.VolumeId,
-		}
-	}
-	return m, nil
 }
 
 // volumeAttachmentsToState converts a slice of storage.VolumeAttachment to a
@@ -800,6 +767,68 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 	return result, nil
 }
 
+// ReleaseContainerAddresses finds addresses allocated to a container and marks
+// them as Dead, to be released and removed. It accepts container tags as
+// arguments.
+func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return result, errors.Trace(err)
+	}
+	// Loop over the passed container tags.
+	for i, entity := range args.Entities {
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			logger.Warningf("failed to parse machine tag %q: %v", entity.Tag, err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		// The auth function (canAccess) checks that the machine is a
+		// top level machine (we filter those out next) or that the
+		// machine has the host as a parent.
+		container, err := p.getMachine(canAccess, tag)
+		if err != nil {
+			logger.Warningf("failed to get machine %q: %v", tag, err)
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		} else if !container.IsContainer() {
+			err = errors.Errorf("cannot mark addresses for removal for %q: not a container", tag)
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		id := container.Id()
+		addresses, err := p.st.AllocatedIPAddresses(id)
+		if err != nil {
+			logger.Warningf("failed to get Id for container %q: %v", tag, err)
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		deadErrors := []error{}
+		logger.Debugf("for container %q found addresses %v", tag, addresses)
+		for _, addr := range addresses {
+			err = addr.EnsureDead()
+			if err != nil {
+				deadErrors = append(deadErrors, err)
+				continue
+			}
+		}
+		if len(deadErrors) != 0 {
+			err = errors.Errorf("failed to mark all addresses for removal for %q: %v", tag, deadErrors)
+			result.Results[i].Error = common.ServerError(err)
+		}
+	}
+
+	return result, nil
+}
+
 // PrepareContainerInterfaceInfo allocates an address and returns
 // information for configuring networking on a container. It accepts
 // container tags as arguments.
@@ -808,7 +837,7 @@ func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (pa
 		Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
 	}
 	// Some preparations first.
-	environ, host, canAccess, err := p.prepareAllocationEnvironment()
+	environ, host, canAccess, err := p.prepareContainerAccessEnvironment()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -828,7 +857,7 @@ func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (pa
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 
@@ -895,9 +924,9 @@ func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (pa
 	return result, nil
 }
 
-// prepareAllocationEnvironment retrieves the environment, host machine, and access
-// for the allocations.
-func (p *ProvisionerAPI) prepareAllocationEnvironment() (environs.NetworkingEnviron, *state.Machine, common.AuthFunc, error) {
+// prepareContainerAccessEnvironment retrieves the environment, host machine, and access
+// for working with containers.
+func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.NetworkingEnviron, *state.Machine, common.AuthFunc, error) {
 	cfg, err := p.st.EnvironConfig()
 	if err != nil {
 		return nil, nil, nil, errors.Annotate(err, "failed to get environment config")
@@ -954,10 +983,14 @@ func (p *ProvisionerAPI) prepareAllocationNetwork(
 	}
 	logger.Tracef("interfaces for instance %q: %v", instId, interfaces)
 
-	subnetIds := make([]network.Id, len(interfaces))
+	subnetIds := []network.Id{}
 	subnetIdToInterface := make(map[network.Id]network.InterfaceInfo)
-	for i, iface := range interfaces {
-		subnetIds[i] = iface.ProviderSubnetId
+	for _, iface := range interfaces {
+		if iface.ProviderSubnetId == "" {
+			logger.Debugf("no subnet associated with interface %#v (skipping)", iface)
+			continue
+		}
+		subnetIds = append(subnetIds, iface.ProviderSubnetId)
 		subnetIdToInterface[iface.ProviderSubnetId] = iface
 	}
 	subnets, err := environ.Subnets(instId, subnetIds)

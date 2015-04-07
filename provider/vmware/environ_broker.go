@@ -17,6 +17,12 @@ import (
 	"github.com/juju/utils"
 )
 
+const (
+	DefaultCpuCores = uint64(2)
+	DefaultCpuPower = uint64(2000)
+	DefaultMemMb    = uint64(2000)
+)
+
 func isStateServer(mcfg *cloudinit.MachineConfig) bool {
 	return multiwatcher.AnyJobNeedsState(mcfg.Jobs...)
 }
@@ -37,7 +43,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 		return nil, errors.Trace(err)
 	}
 
-	raw, hwc, err := newRawInstance(env, args, img)
+	raw, hwc, err := env.newRawInstance(args, img)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -50,10 +56,6 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 		Hardware: hwc,
 	}
 	return &result, nil
-}
-
-var newRawInstance = func(env *environ, args environs.StartInstanceParams, img *OvfFileMetadata) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
-	return env.newRawInstance(args, img)
 }
 
 // finishMachineConfig updates args.MachineConfig in place. Setting up
@@ -74,7 +76,10 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *
 func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvfFileMetadata) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
 	machineID := common.MachineFullName(env, args.MachineConfig.MachineId)
 
-	config := coreCloudinit.New()
+	config, err := coreCloudinit.New(args.Tools.OneSeries())
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	config.SetAptUpdate(true)
 	config.SetAptUpgrade(true)
 	config.AddPackage("open-vm-tools")
@@ -92,15 +97,15 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvfFi
 	if args.Constraints.RootDisk != nil && *args.Constraints.RootDisk > rootDisk {
 		rootDisk = *args.Constraints.RootDisk
 	}
-	cpuCores := uint64(2)
+	cpuCores := DefaultCpuCores
 	if args.Constraints.CpuCores != nil {
 		cpuCores = *args.Constraints.CpuCores
 	}
-	cpuPower := uint64(2000)
+	cpuPower := DefaultCpuPower
 	if args.Constraints.CpuPower != nil {
 		cpuPower = *args.Constraints.CpuPower
 	}
-	mem := uint64(2000)
+	mem := DefaultMemMb
 	if args.Constraints.Mem != nil {
 		mem = *args.Constraints.Mem
 	}
@@ -112,7 +117,24 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvfFi
 		CpuPower: &cpuPower,
 		RootDisk: &rootDisk,
 	}
-	inst, err := env.client.CreateInstance(machineID, hwc, img, userData, args.MachineConfig.AuthorizedKeys, isStateServer(args.MachineConfig))
+	zones, err := env.parseAvailabilityZones(args)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	var inst *mo.VirtualMachine
+	for _, zone := range zones {
+		availZone, err := env.availZone(zone)
+		if err != nil {
+			logger.Warningf("Error while getting avaliability xone %s: %s", zone, err)
+			continue
+		}
+		inst, err = env.client.CreateInstance(machineID, availZone, hwc, img, userData, args.MachineConfig.AuthorizedKeys, isStateServer(args.MachineConfig))
+		if err == nil {
+			break
+		} else {
+			logger.Warningf("Error while trying to create instance in %s avaliability xone: %s", zone, err)
+		}
+	}
 	return inst, hwc, err
 }
 

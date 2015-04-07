@@ -17,8 +17,6 @@ type annotationsSuite struct {
 	annotationsClient *annotations.Client
 }
 
-var _ = gc.Suite(&annotationsSuite{})
-
 func (s *annotationsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.annotationsClient = annotations.NewClient(s.APIState)

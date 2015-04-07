@@ -21,25 +21,20 @@ import (
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var (
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
-		"type":          "vmware",
-		"uuid":          "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
-		"datacenter":    "/datacenter1",
-		"datastore":     "datastore1",
-		"resource-pool": "resource-pool1",
-		"host":          "host1",
-		"user":          "user1",
-		"password":      "password1",
+		"type":       "vmware",
+		"uuid":       "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
+		"datacenter": "/datacenter1",
+		"datastore":  "datastore1",
+		"host":       "host1",
+		"user":       "user1",
+		"password":   "password1",
 	})
 )
 
@@ -49,9 +44,6 @@ type BaseSuite struct {
 	Config    *config.Config
 	EnvConfig *environConfig
 	Env       *environ
-	Prefix    string
-
-	StartInstArgs environs.StartInstanceParams
 
 	ServeMux  *http.ServeMux
 	ServerUrl string
@@ -62,27 +54,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.PatchValue(&newConnection, newFakeConnection)
 	s.initEnv(c)
-	tools := []*tools.Tools{{
-		Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
-		URL:     "https://example.org",
-	}}
-
-	cons := constraints.Value{}
-
-	machineConfig, err := environs.NewBootstrapMachineConfig(cons, "trusty")
-	c.Assert(err, jc.ErrorIsNil)
-
-	machineConfig.Tools = tools[0]
-	machineConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
-
-	s.StartInstArgs = environs.StartInstanceParams{
-		MachineConfig: machineConfig,
-		Tools:         tools,
-		Constraints:   cons,
-		//Placement: "",
-		//DistributionGroup: nil,
-	}
 	s.setUpHttpProxy(c)
+	s.FakeMetadataServer()
 }
 
 func (s *BaseSuite) initEnv(c *gc.C) {
@@ -102,7 +75,7 @@ func (s *BaseSuite) setConfig(c *gc.C, cfg *config.Config) {
 	uuid, _ := cfg.UUID()
 	s.Env.uuid = uuid
 	s.Env.ecfg = s.EnvConfig
-	s.Prefix = "juju-" + uuid + "-"
+	//s.Prefix = "juju-" + uuid + "-"
 }
 
 func (s *BaseSuite) UpdateConfig(c *gc.C, attrs map[string]interface{}) {
@@ -181,8 +154,6 @@ var newFakeConnection = func(url *url.URL) (*govmomi.Client, error) {
 	fakeClient.SetPropertyProxyHandler("FakeDatacenter", RetrieveDatacenterProperties)
 	fakeClient.SetPropertyProxyHandler("FakeDatastoreFolder", RetrieveDatastore)
 	fakeClient.SetPropertyProxyHandler("FakeDatastoreFolder", RetrieveDatastore)
-	fakeClient.SetPropertyProxyHandler("FakeHostFolder", RetrieveResourcePool)
-	fakeClient.SetPropertyProxyHandler("FakeHostFolder", RetrieveResourcePool)
 
 	vimClient := &vim25.Client{
 		Client: &soap.Client{},
@@ -230,10 +201,6 @@ var RetrieveDatastore = func(reqBody, resBody *methods.RetrievePropertiesBody) {
 	CommonRetrieveProperties(resBody, "Datastore", "FakeDatastore", "name", "datastore1")
 }
 
-var RetrieveResourcePool = func(reqBody, resBody *methods.RetrievePropertiesBody) {
-	CommonRetrieveProperties(resBody, "ResourcePool", "FakeResourcePool", "name", "resource-pool1")
-}
-
 var RetrieveDatacenterProperties = func(reqBody, resBody *methods.RetrievePropertiesBody) {
 	resBody.Res = &types.RetrievePropertiesResponse{
 		Returnval: []types.ObjectContent{
@@ -250,6 +217,10 @@ var RetrieveDatacenterProperties = func(reqBody, resBody *methods.RetrieveProper
 					types.DynamicProperty{Name: "hostFolder", Val: types.ManagedObjectReference{
 						Type:  "Folder",
 						Value: "FakeHostFolder",
+					}},
+					types.DynamicProperty{Name: "vmFolder", Val: types.ManagedObjectReference{
+						Type:  "Folder",
+						Value: "FakeVmFolder",
 					}},
 				},
 			},

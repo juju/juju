@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/cmd/juju/machine"
+	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs"
@@ -118,7 +119,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(wrapEnvCommand(&BootstrapCommand{}))
 	r.Register(wrapEnvCommand(&DeployCommand{}))
 	r.Register(wrapEnvCommand(&AddRelationCommand{}))
-	r.Register(wrapEnvCommand(&AddUnitCommand{}))
 
 	// Destruction commands.
 	r.Register(wrapEnvCommand(&RemoveRelationCommand{}))
@@ -142,9 +142,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Configuration commands.
 	r.Register(&InitCommand{})
-	r.Register(wrapEnvCommand(&GetCommand{}))
-	r.Register(wrapEnvCommand(&SetCommand{}))
-	r.Register(wrapEnvCommand(&UnsetCommand{}))
 	r.RegisterDeprecated(wrapEnvCommand(&common.GetConstraintsCommand{}),
 		twoDotOhDeprecation("environment get-constraints or service get-constraints"))
 	r.RegisterDeprecated(wrapEnvCommand(&common.SetConstraintsCommand{}),
@@ -195,6 +192,13 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage state server availability
 	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))
+
+	// Manage and control services
+	r.Register(service.NewSuperCommand())
+	r.RegisterSuperAlias("add-unit", "service", "add-unit", twoDotOhDeprecation("service add-unit"))
+	r.RegisterSuperAlias("get", "service", "get", twoDotOhDeprecation("service get"))
+	r.RegisterSuperAlias("set", "service", "set", twoDotOhDeprecation("service set"))
+	r.RegisterSuperAlias("unset", "service", "unset", twoDotOhDeprecation("service unset"))
 
 	// Operation protection commands
 	r.Register(block.NewSuperBlockCommand())

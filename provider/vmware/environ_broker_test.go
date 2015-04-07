@@ -4,30 +4,20 @@
 package vmware_test
 
 import (
-	"io/ioutil"
-	"net/http"
-
 	jc "github.com/juju/testing/checkers"
-	"github.com/vmware/govmomi/vim25/methods"
-	"github.com/vmware/govmomi/vim25/soap"
-	"github.com/vmware/govmomi/vim25/types"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vmware"
+	"github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 )
 
 type environBrokerSuite struct {
 	vmware.BaseSuite
-
-	hardware      *instance.HardwareCharacteristics
-	spec          *instances.InstanceSpec
-	ic            *instances.InstanceConstraint
-	imageMetadata []*imagemetadata.ImageMetadata
-	resolveInfo   *simplestreams.ResolveInfo
 }
 
 var _ = gc.Suite(&environBrokerSuite{})
@@ -36,208 +26,141 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
+func (s *environBrokerSuite) PrepareStartInstanceFakes() {
 	client := vmware.ExposeEnvFakeClient(s.Env)
-	client.SetPropertyProxyHandler("FakeDatacenter", vmware.RetrieveDatacenterProperties)
-	client.SetProxyHandler("CreateImportSpec", func(req, res soap.HasFault) {
-		resBody := res.(*methods.CreateImportSpecBody)
-		resBody.Res = &types.CreateImportSpecResponse{
-			Returnval: types.OvfCreateImportSpecResult{
-				FileItem: []types.OvfFileItem{
-					types.OvfFileItem{
-						DeviceId: "key1",
-						Path:     "ubuntu-14.04-server-cloudimg-amd64.vmdk",
-					},
-				},
-				ImportSpec: &types.VirtualMachineImportSpec{},
-			},
-		}
-	})
-	lease := types.ManagedObjectReference{
-		Type:  "Lease",
-		Value: "FakeLease",
+	s.FakeInstances(client)
+	s.FakeInstances(client)
+	s.FakeAvailabilityZones(client, "z1")
+	s.FakeAvailabilityZones(client, "z1")
+	s.FakeAvailabilityZones(client, "z1")
+	s.FakeCreateInstance(client, s.ServerUrl)
+}
+
+func (s *environBrokerSuite) CreateStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
+	tools := []*tools.Tools{{
+		Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
+		URL:     "https://example.org",
+	}}
+
+	cons := constraints.Value{}
+
+	machineConfig, err := environs.NewBootstrapMachineConfig(cons, "trusty")
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineConfig.Tools = tools[0]
+	machineConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
+
+	return environs.StartInstanceParams{
+		MachineConfig: machineConfig,
+		Tools:         tools,
+		Constraints:   cons,
 	}
-	client.SetProxyHandler("ImportVApp", func(req, res soap.HasFault) {
-		resBody := res.(*methods.ImportVAppBody)
-		resBody.Res = &types.ImportVAppResponse{
-			Returnval: lease,
-		}
-	})
-	client.SetProxyHandler("CreatePropertyCollector", func(req, res soap.HasFault) {
-		resBody := res.(*methods.CreatePropertyCollectorBody)
-		resBody.Res = &types.CreatePropertyCollectorResponse{
-			Returnval: types.ManagedObjectReference{
-				Type:  "",
-				Value: "",
-			},
-		}
-	})
-	client.SetProxyHandler("CreateFilter", func(req, res soap.HasFault) {
-		resBody := res.(*methods.CreateFilterBody)
-		resBody.Res = &types.CreateFilterResponse{
-			Returnval: types.ManagedObjectReference{
-				Type:  "",
-				Value: "",
-			},
-		}
-	})
-	client.SetProxyHandler("WaitForUpdatesEx", func(req, res soap.HasFault) {
-		resBody := res.(*methods.WaitForUpdatesExBody)
-		resBody.Res = &types.WaitForUpdatesExResponse{
-			Returnval: &types.UpdateSet{
-				FilterSet: []types.PropertyFilterUpdate{
-					types.PropertyFilterUpdate{
-						ObjectSet: []types.ObjectUpdate{
-							types.ObjectUpdate{
-								Obj: lease,
-								ChangeSet: []types.PropertyChange{
-									types.PropertyChange{
-										Name: "info",
-										Val: types.HttpNfcLeaseInfo{
-											DeviceUrl: []types.HttpNfcLeaseDeviceUrl{
-												types.HttpNfcLeaseDeviceUrl{
-													ImportKey: "key1",
-													Url:       s.ServerUrl + "/disk-device/",
-												},
-											},
-										},
-									},
-									types.PropertyChange{
-										Name: "state",
-										Val:  types.HttpNfcLeaseStateReady,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-	})
-	client.SetProxyHandler("DestroyPropertyCollector", func(req, res soap.HasFault) {
-		resBody := res.(*methods.DestroyPropertyCollectorBody)
-		resBody.Res = &types.DestroyPropertyCollectorResponse{}
-	})
-	client.SetProxyHandler("HttpNfcLeaseComplete", func(req, res soap.HasFault) {
-		resBody := res.(*methods.HttpNfcLeaseCompleteBody)
-		resBody.Res = &types.HttpNfcLeaseCompleteResponse{}
-	})
-	powerOnTask := types.ManagedObjectReference{}
-	client.SetProxyHandler("PowerOnVM_Task", func(req, res soap.HasFault) {
-		resBody := res.(*methods.PowerOnVM_TaskBody)
-		resBody.Res = &types.PowerOnVM_TaskResponse{
-			Returnval: powerOnTask,
-		}
-	})
-	client.SetProxyHandler("CreatePropertyCollector", func(req, res soap.HasFault) {
-		resBody := res.(*methods.CreatePropertyCollectorBody)
-		resBody.Res = &types.CreatePropertyCollectorResponse{
-			Returnval: types.ManagedObjectReference{
-				Type:  "",
-				Value: "",
-			},
-		}
-	})
-	client.SetProxyHandler("CreateFilter", func(req, res soap.HasFault) {
-		resBody := res.(*methods.CreateFilterBody)
-		resBody.Res = &types.CreateFilterResponse{
-			Returnval: types.ManagedObjectReference{
-				Type:  "",
-				Value: "",
-			},
-		}
-	})
-	client.SetProxyHandler("WaitForUpdatesEx", func(req, res soap.HasFault) {
-		resBody := res.(*methods.WaitForUpdatesExBody)
-		resBody.Res = &types.WaitForUpdatesExResponse{
-			Returnval: &types.UpdateSet{
-				FilterSet: []types.PropertyFilterUpdate{
-					types.PropertyFilterUpdate{
-						ObjectSet: []types.ObjectUpdate{
-							types.ObjectUpdate{
-								Obj: powerOnTask,
-								ChangeSet: []types.PropertyChange{
-									types.PropertyChange{
-										Name: "info",
-										Op:   types.PropertyChangeOpAssign,
-										Val: types.TaskInfo{
-											Entity: &types.ManagedObjectReference{},
-											State:  types.TaskInfoStateSuccess,
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-	})
-	client.SetProxyHandler("DestroyPropertyCollector", func(req, res soap.HasFault) {
-		resBody := res.(*methods.DestroyPropertyCollectorBody)
-		resBody.Res = &types.DestroyPropertyCollectorResponse{}
-	})
-	client.SetPropertyProxyHandler("", func(reqBody, resBody *methods.RetrievePropertiesBody) {
-		vmware.CommonRetrieveProperties(resBody, "VirtualMachine", "FakeWirtualMachine", "name", "vm1")
-	})
+}
 
-	s.ServeMux.HandleFunc("/streams/v1/index.json", func(w http.ResponseWriter, req *http.Request) {
-		w.Write([]byte(`{
- "index": {
-  "com.ubuntu.cloud:released:download": {
-   "datatype": "image-downloads", 
-   "path": "streams/v1/com.ubuntu.cloud:released:download.json", 
-   "updated": "Tue, 24 Feb 2015 10:16:54 +0000", 
-   "products": [
-    "com.ubuntu.cloud:server:14.04:amd64" 
-   ], 
-   "format": "products:1.0"
-  }
- }, 
- "updated": "Tue, 24 Feb 2015 14:14:24 +0000", 
- "format": "index:1.0"
-}`))
-	})
-	s.ServeMux.HandleFunc("/streams/v1/com.ubuntu.cloud:released:download.json", func(w http.ResponseWriter, req *http.Request) {
-		w.Write([]byte(`{
- "updated": "Thu, 05 Mar 2015 12:14:40 +0000", 
- "license": "http://www.canonical.com/intellectual-property-policy", 
- "format": "products:1.0", 
- "datatype": "image-downloads", 
- "products": {
-    "com.ubuntu.cloud:server:14.04:amd64": {
-      "release": "trusty", 
-      "version": "14.04", 
-      "arch": "amd64", 
-      "versions": {
-        "20150305": {
-          "items": {
-            "ovf": {
-              "size": 7196, 
-              "path": "server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ovf", 
-              "ftype": "ovf", 
-              "sha256": "d6cade98b50e2e27f4508b01fea99d5b26a2f2a184c83e5fb597ca7b142ec01c", 
-              "md5": "00662c59ca52558e7a3bb9a67d194730"
-            }
-          }      
-        }
-      }
-    }
-  }
-}`))
-	})
-	s.ServeMux.HandleFunc("/server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ovf", func(w http.ResponseWriter, req *http.Request) {
-		w.Write([]byte("FakeOvfContent"))
-	})
-	s.ServeMux.HandleFunc("/server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.vmdk", func(w http.ResponseWriter, req *http.Request) {
-		w.Write([]byte("FakeVmdkContent"))
-	})
-	s.ServeMux.HandleFunc("/disk-device/", func(w http.ResponseWriter, req *http.Request) {
-		r, err := ioutil.ReadAll(req.Body)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(string(r), gc.Equals, "FakeVmdkContent")
-	})
-	_, err := s.Env.StartInstance(s.StartInstArgs)
+func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
+	s.PrepareStartInstanceFakes()
+	startInstArgs := s.CreateStartInstanceArgs(c)
+	_, err := s.Env.StartInstance(startInstArgs)
 
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environBrokerSuite) TestStartInstanceWithNetworks(c *gc.C) {
+	s.PrepareStartInstanceFakes()
+	startInstArgs := s.CreateStartInstanceArgs(c)
+	startInstArgs.MachineConfig.Networks = []string{"someNetwork"}
+	_, err := s.Env.StartInstance(startInstArgs)
+
+	c.Assert(err, gc.ErrorMatches, "starting instances with networks is not supported yet")
+}
+
+func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C) {
+	s.PrepareStartInstanceFakes()
+	startInstArgs := s.CreateStartInstanceArgs(c)
+	startInstArgs.Tools[0].Version.Arch = "someArch"
+	_, err := s.Env.StartInstance(startInstArgs)
+
+	c.Assert(err, gc.ErrorMatches, "No mathicng images found for given constraints: .*")
+}
+
+// if tools for multiple architectures are avaliable, provider should filter tools by arch of the selected image
+func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
+	s.PrepareStartInstanceFakes()
+	startInstArgs := s.CreateStartInstanceArgs(c)
+	tools := []*tools.Tools{{
+		Version: version.Binary{Arch: arch.I386, Series: "trusty"},
+		URL:     "https://example.org",
+	}, {
+		Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
+		URL:     "https://example.org",
+	}}
+	//setting tools to I386, but provider should update them to AMD64, because our fake simplestream server return only AMD 64 image
+	startInstArgs.Tools = tools
+	startInstArgs.MachineConfig.Tools = tools[0]
+	res, err := s.Env.StartInstance(startInstArgs)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*res.Hardware.Arch, gc.Equals, arch.AMD64)
+	c.Assert(startInstArgs.MachineConfig.Tools.Version.Arch, gc.Equals, arch.AMD64)
+}
+
+func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C) {
+	s.PrepareStartInstanceFakes()
+	startInstArgs := s.CreateStartInstanceArgs(c)
+	res, err := s.Env.StartInstance(startInstArgs)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*res.Hardware.CpuCores, gc.Equals, vmware.DefaultCpuCores)
+	c.Assert(*res.Hardware.CpuPower, gc.Equals, vmware.DefaultCpuPower)
+	c.Assert(*res.Hardware.Mem, gc.Equals, vmware.DefaultMemMb)
+	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeMB)
+}
+
+func (s *environBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *gc.C) {
+	s.PrepareStartInstanceFakes()
+	startInstArgs := s.CreateStartInstanceArgs(c)
+	cpuCores := uint64(4)
+	startInstArgs.Constraints.CpuCores = &cpuCores
+	cpuPower := uint64(2001)
+	startInstArgs.Constraints.CpuPower = &cpuPower
+	mem := uint64(2002)
+	startInstArgs.Constraints.Mem = &mem
+	rootDisk := uint64(10003)
+	startInstArgs.Constraints.RootDisk = &rootDisk
+	res, err := s.Env.StartInstance(startInstArgs)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*res.Hardware.CpuCores, gc.Equals, cpuCores)
+	c.Assert(*res.Hardware.CpuPower, gc.Equals, cpuPower)
+	c.Assert(*res.Hardware.Mem, gc.Equals, mem)
+	c.Assert(*res.Hardware.RootDisk, gc.Equals, rootDisk)
+
+}
+
+func (s *environBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmallConstraintValue(c *gc.C) {
+	s.PrepareStartInstanceFakes()
+	startInstArgs := s.CreateStartInstanceArgs(c)
+	rootDisk := uint64(1000)
+	startInstArgs.Constraints.RootDisk = &rootDisk
+	res, err := s.Env.StartInstance(startInstArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeMB)
+}
+
+func (s *environBrokerSuite) TestStartInstanceInvalidPlacement(c *gc.C) {
+	s.PrepareStartInstanceFakes()
+	startInstArgs := s.CreateStartInstanceArgs(c)
+	startInstArgs.Placement = "someInvalidPlacement"
+	_, err := s.Env.StartInstance(startInstArgs)
+	c.Assert(err, gc.ErrorMatches, "unknown placement directive: .*")
+}
+
+func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
+	client := vmware.ExposeEnvFakeClient(s.Env)
+	s.FakeAvailabilityZones(client, "z1", "z2")
+	s.FakeCreateInstance(client, s.ServerUrl)
+	startInstArgs := s.CreateStartInstanceArgs(c)
+	startInstArgs.Placement = "zone=z2"
+	_, err := s.Env.StartInstance(startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 }

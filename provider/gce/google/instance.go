@@ -8,8 +8,8 @@ import (
 	"path"
 	"strings"
 
-	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
+	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/network"
 )

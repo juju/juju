@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/shell"
 )
 
 // Conf is responsible for defining services. Its fields
@@ -65,19 +66,35 @@ func (c Conf) IsZero() bool {
 }
 
 // Validate checks the conf's values for correctness.
-func (c Conf) Validate() error {
+func (c Conf) Validate(renderer shell.Renderer) error {
 	if c.Desc == "" {
 		return errors.New("missing Desc")
 	}
 
-	if err := c.checkExecStart(); err != nil {
-		return errors.Trace(err)
+	// Check the Exec* fields.
+	if c.ExecStart == "" {
+		return errors.New("missing ExecStart")
+	}
+	for field, cmd := range map[string]string{
+		"ExecStart":    c.ExecStart,
+		"ExecStopPost": c.ExecStopPost,
+	} {
+		if cmd == "" {
+			continue
+		}
+		if err := c.checkExec(field, cmd, renderer); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
-	if err := c.checkExecStopPost(); err != nil {
-		return errors.Trace(err)
-	}
+	return nil
+}
 
+func (c Conf) checkExec(name, cmd string, renderer shell.Renderer) error {
+	path := executable(cmd)
+	if !renderer.IsAbs(path) {
+		return errors.NotValidf("relative path in %s (%s)", name, path)
+	}
 	return nil
 }
 
@@ -105,30 +122,4 @@ func Unquote(str string) string {
 	}
 
 	return str
-}
-
-func (c Conf) checkExecStart() error {
-	if c.ExecStart == "" {
-		return errors.New("missing ExecStart")
-	}
-
-	path := executable(c.ExecStart)
-	if !strings.HasPrefix(path, "/") {
-		return errors.NotValidf("relative path in ExecStart (%s)", path)
-	}
-
-	return nil
-}
-
-func (c Conf) checkExecStopPost() error {
-	if c.ExecStopPost == "" {
-		return nil
-	}
-
-	path := executable(c.ExecStopPost)
-	if !strings.HasPrefix(path, "/") {
-		return errors.NotValidf("relative path in ExecStopPost (%s)", path)
-	}
-
-	return nil
 }

@@ -170,7 +170,10 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 	mcfg.ProxySettings = proxy.Settings{}
 	mcfg.AptMirror = ""
 
-	cloudcfg := coreCloudinit.New()
+	cloudcfg, err := coreCloudinit.New(mcfg.Series)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	cloudcfg.SetAptUpdate(mcfg.EnableOSRefreshUpdate)
 	cloudcfg.SetAptUpgrade(mcfg.EnableOSUpgrade)
 
@@ -369,9 +372,9 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	if err := environs.FinishMachineConfig(args.MachineConfig, env.config.Config); err != nil {
 		return nil, err
 	}
-	// TODO: evaluate the impact of setting the contstraints on the
+	// TODO: evaluate the impact of setting the constraints on the
 	// machineConfig for all machines rather than just state server nodes.
-	// This limiation is why the constraints are assigned directly here.
+	// This limitation is why the constraints are assigned directly here.
 	args.MachineConfig.Constraints = args.Constraints
 	args.MachineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
 	inst, hardware, err := createContainer(env, args)
@@ -388,7 +391,12 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 var createContainer = func(env *localEnviron, args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := args.Tools.OneSeries()
 	network := container.BridgeNetworkConfig(env.config.networkBridge(), args.NetworkInfo)
-	inst, hardware, err := env.containerManager.CreateContainer(args.MachineConfig, series, network)
+	allowLoopMounts, _ := env.config.AllowLXCLoopMounts()
+	isLXC := env.config.container() == instance.LXC
+	storage := &container.StorageConfig{
+		AllowMount: !isLXC || allowLoopMounts,
+	}
+	inst, hardware, err := env.containerManager.CreateContainer(args.MachineConfig, series, network, storage)
 	if err != nil {
 		return nil, nil, err
 	}

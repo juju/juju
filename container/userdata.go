@@ -56,14 +56,14 @@ auto lo
 iface lo inet loopback{{define "static"}}
 {{.InterfaceName | printf "# interface %q"}}{{if not .NoAutoStart}}
 auto {{.InterfaceName}}{{end}}
-iface {{.InterfaceName}} inet static
-    address {{.Address.Value}}
-    netmask {{.CIDR}}{{if gt (len .DNSServers) 0}}
+iface {{.InterfaceName}} inet manual{{if gt (len .DNSServers) 0}}
     dns-nameservers{{range $dns := .DNSServers}} {{$dns.Value}}{{end}}{{end}}
-    pre-up ip route add {{.GatewayAddress.Value}} dev {{.InterfaceName}}
-    pre-up ip route add default via {{.GatewayAddress.Value}}
-    post-down ip route del default via {{.GatewayAddress.Value}}
-    post-down ip route del {{.GatewayAddress.Value}} dev {{.InterfaceName}}
+    pre-up ip address add {{.Address.Value}}/32 dev {{.InterfaceName}} &> /dev/null || true
+    up ip route replace {{.GatewayAddress.Value}} dev {{.InterfaceName}}
+    up ip route replace default via {{.GatewayAddress.Value}}
+    down ip route del default via {{.GatewayAddress.Value}} &> /dev/null || true
+    down ip route del {{.GatewayAddress.Value}} dev {{.InterfaceName}} &> /dev/null || true
+    post-down ip address del {{.Address.Value}}/32 dev {{.InterfaceName}} &> /dev/null || true
 {{end}}{{define "dhcp"}}
 {{.InterfaceName | printf "# interface %q"}}{{if not .NoAutoStart}}
 auto {{.InterfaceName}}{{end}}
@@ -73,30 +73,45 @@ iface {{.InterfaceName}} inet dhcp
 
 var networkInterfacesFile = "/etc/network/interfaces"
 
-// newCloudInitConfigWithNetworks creates a cloud-init config which
-// might include per-interface networking config if
-// networkConfig.Interfaces is not empty.
-func newCloudInitConfigWithNetworks(networkConfig *NetworkConfig) (*coreCloudinit.Config, error) {
-	cloudConfig := coreCloudinit.New()
+// GenerateNetworkConfig renders a network config for one or more
+// network interfaces, using the given non-nil networkConfig
+// containing a non-empty Interfaces field.
+func GenerateNetworkConfig(networkConfig *NetworkConfig) (string, error) {
 	if networkConfig == nil || len(networkConfig.Interfaces) == 0 {
 		// Don't generate networking config.
-		logger.Tracef("no cloud-init network config to generate")
-		return cloudConfig, nil
+		logger.Tracef("no network config to generate")
+		return "", nil
 	}
 
 	// Render the config first.
 	tmpl, err := template.New("config").Parse(networkConfigTemplate)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot parse cloud-init network config template")
+		return "", errors.Annotate(err, "cannot parse network config template")
 	}
 
 	var buf bytes.Buffer
 	if err = tmpl.Execute(&buf, networkConfig.Interfaces); err != nil {
-		return nil, errors.Annotate(err, "cannot render cloud-init network config")
+		return "", errors.Annotate(err, "cannot render network config")
+	}
+
+	return buf.String(), nil
+}
+
+// NewCloudInitConfigWithNetworks creates a cloud-init config which
+// might include per-interface networking config if both networkConfig
+// is not nil and its Interfaces field is not empty.
+func NewCloudInitConfigWithNetworks(series string, networkConfig *NetworkConfig) (*coreCloudinit.Config, error) {
+	cloudConfig, err := coreCloudinit.New(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	config, err := GenerateNetworkConfig(networkConfig)
+	if err != nil || len(config) == 0 {
+		return cloudConfig, errors.Trace(err)
 	}
 
 	// Now add it to cloud-init as a file created early in the boot process.
-	cloudConfig.AddBootTextFile(networkInterfacesFile, buf.String(), 0644)
+	cloudConfig.AddBootTextFile(networkInterfacesFile, config, 0644)
 	return cloudConfig, nil
 }
 
@@ -104,7 +119,10 @@ func cloudInitUserData(
 	machineConfig *cloudinit.MachineConfig,
 	networkConfig *NetworkConfig,
 ) ([]byte, error) {
-	cloudConfig, err := newCloudInitConfigWithNetworks(networkConfig)
+	cloudConfig, err := NewCloudInitConfigWithNetworks(machineConfig.Series, networkConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	udata, err := cloudinit.NewUserdataConfig(machineConfig, cloudConfig)
 	if err != nil {
 		return nil, err
@@ -117,12 +135,7 @@ func cloudInitUserData(
 	// logged in the host.
 	cloudConfig.AddRunCmd("ifconfig")
 
-	renderer, err := coreCloudinit.NewRenderer(machineConfig.Series)
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := renderer.Render(cloudConfig)
+	data, err := cloudConfig.Render()
 	if err != nil {
 		return nil, err
 	}

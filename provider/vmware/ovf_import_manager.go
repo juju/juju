@@ -33,7 +33,7 @@ type ovfImportManager struct {
 	client *client
 }
 
-func (m *ovfImportManager) importOvf(machineID string, hwc *instance.HardwareCharacteristics, img *OvfFileMetadata, userData []byte, sshKey string, isState bool) (*object.VirtualMachine, error) {
+func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hwc *instance.HardwareCharacteristics, img *OvfFileMetadata, userData []byte, sshKey string, isState bool) (*object.VirtualMachine, error) {
 	folders, err := m.client.datacenter.Folders(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -53,7 +53,7 @@ func (m *ovfImportManager) importOvf(machineID string, hwc *instance.HardwareCha
 	}
 
 	ovfManager := object.NewOvfManager(m.client.connection.Client)
-	spec, err := ovfManager.CreateImportSpec(context.TODO(), string(ovf), m.client.resourcePool, m.client.datastore, cisp)
+	spec, err := ovfManager.CreateImportSpec(context.TODO(), string(ovf), object.NewReference(m.client.connection.Client, *zone.r.ResourcePool), m.client.datastore, cisp)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -82,8 +82,8 @@ func (m *ovfImportManager) importOvf(machineID string, hwc *instance.HardwareCha
 			*n = -1
 		}
 	}
-
-	lease, err := m.client.resourcePool.ImportVApp(context.TODO(), spec.ImportSpec, folders.VmFolder, nil)
+	rp := object.NewResourcePool(m.client.connection.Client, *zone.r.ResourcePool)
+	lease, err := rp.ImportVApp(context.TODO(), spec.ImportSpec, folders.VmFolder, nil)
 	if err != nil {
 		return nil, errors.Annotatef(err, "Error while importing vapp")
 	}

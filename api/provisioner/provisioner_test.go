@@ -9,6 +9,7 @@
 package provisioner_test
 
 import (
+	"fmt"
 	stdtesting "testing"
 
 	"github.com/juju/errors"
@@ -68,7 +69,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
-	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create the provisioner API facade.
@@ -108,9 +109,9 @@ func (s *provisionerSuite) TestGetSetStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "blah")
-	_, _, data, err := s.machine.Status()
+	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
 }
 
 func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
@@ -124,9 +125,9 @@ func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "blah")
-	_, _, data, err := s.machine.Status()
+	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.DeepEquals, map[string]interface{}{"foo": "bar"})
+	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }
 
 func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
@@ -298,12 +299,12 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 		IsVirtual:     false,
 	}}
 	volumes := []params.Volume{{
-		VolumeTag: "volume-0",
+		VolumeTag: "volume-1-0",
 		VolumeId:  "vol-123",
 		Size:      124,
 	}}
 	volumeAttachments := []params.VolumeAttachment{{
-		VolumeTag:  "volume-0",
+		VolumeTag:  "volume-1-0",
 		MachineTag: "machine-1",
 		DeviceName: "xvdf1",
 	}}
@@ -362,12 +363,13 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(actual, jc.SameContents, ifaces[:4]) // skip the rest as they are ignored.
 
 	// Now check volumes and volume attachments.
-	volume, err := s.State.Volume(names.NewVolumeTag("0"))
+	volume, err := s.State.Volume(names.NewVolumeTag("1/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfo, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeInfo, gc.Equals, state.VolumeInfo{
 		VolumeId: "vol-123",
+		Pool:     "loop-pool",
 		Size:     124,
 	})
 	stateVolumeAttachments, err := s.State.MachineVolumeAttachments(names.NewMachineTag("1"))
@@ -578,7 +580,7 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	stateAddresses, err := s.State.Addresses()
@@ -801,7 +803,7 @@ func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
 		// it's chosen randomly.
 		Address:        network.Address{},
 		DNSServers:     network.NewAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress: network.NewAddress("0.10.0.2", network.ScopeUnknown),
+		GatewayAddress: network.NewAddress("0.10.0.2"),
 		ExtraConfig:    nil,
 	}}
 	ifaceInfo, err := s.provisioner.PrepareContainerInterfaceInfo(container.MachineTag())
@@ -810,4 +812,49 @@ func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
 	c.Assert(ifaceInfo[0].Address, gc.Not(gc.DeepEquals), network.Address{})
 	expectInfo[0].Address = ifaceInfo[0].Address
 	c.Assert(ifaceInfo, jc.DeepEquals, expectInfo)
+}
+
+func (s *provisionerSuite) TestReleaseContainerAddresses(c *gc.C) {
+	// This test exercises just the success path, all the other cases
+	// are already tested in the apiserver package.
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
+
+	// allocate some addresses to release
+	subInfo := state.SubnetInfo{
+		ProviderId:        "dummy-private",
+		CIDR:              "0.10.0.0/24",
+		VLANTag:           0,
+		AllocatableIPLow:  "0.10.0.0",
+		AllocatableIPHigh: "0.10.0.10",
+	}
+	sub, err := s.State.AddSubnet(subInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	for i := 0; i < 3; i++ {
+		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i))
+		ipaddr, err := s.State.AddIPAddress(addr, sub.ID())
+		c.Check(err, jc.ErrorIsNil)
+		err = ipaddr.AllocateTo(container.Id(), "")
+		c.Check(err, jc.ErrorIsNil)
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	err = container.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+	err = container.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.provisioner.ReleaseContainerAddresses(container.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	addresses, err := s.State.AllocatedIPAddresses(container.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addresses, gc.HasLen, 3)
+	for _, addr := range addresses {
+		c.Assert(addr.Life(), gc.Equals, state.Dead)
+	}
 }

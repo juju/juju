@@ -20,7 +20,7 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -76,6 +76,7 @@ const (
 	stateServersC          = "stateServers"
 	openedPortsC           = "openedPorts"
 	metricsC               = "metrics"
+	metricsManagerC        = "metricsmanager"
 	upgradeInfoC           = "upgradeInfo"
 	rebootC                = "reboot"
 	blockDevicesC          = "blockdevices"
@@ -716,6 +717,8 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		}
 	case names.VolumeTag:
 		return st.Volume(tag)
+	case names.FilesystemTag:
+		return st.Filesystem(tag)
 	default:
 		return nil, errors.Errorf("unsupported tag %T", tag)
 	}
@@ -1337,6 +1340,7 @@ func (st *State) AddIPAddress(addr network.Address, subnetid string) (ipaddress 
 	ipDoc := ipaddressDoc{
 		DocID:    addressID,
 		EnvUUID:  st.EnvironUUID(),
+		Life:     Alive,
 		State:    AddressStateUnknown,
 		SubnetId: subnetid,
 		Value:    addr.Value,
@@ -1378,6 +1382,40 @@ func (st *State) IPAddress(value string) (*IPAddress, error) {
 		return nil, errors.Annotatef(err, "cannot get IP address %q", value)
 	}
 	return &IPAddress{st, *doc}, nil
+}
+
+// AllocatedIPAddresses returns all the allocated addresses for a machine
+func (st *State) AllocatedIPAddresses(machineId string) ([]*IPAddress, error) {
+	return st.fetchIPAddresses(bson.D{{"machineid", machineId}})
+}
+
+// DeadIPAddresses returns all IP addresses with a Life of Dead
+func (st *State) DeadIPAddresses() ([]*IPAddress, error) {
+	return st.fetchIPAddresses(bson.D{{"life", Dead}})
+}
+
+// fetchIPAddresses is a helper function for finding IP addresses
+func (st *State) fetchIPAddresses(query bson.D) ([]*IPAddress, error) {
+	addresses, closer := st.getCollection(ipaddressesC)
+	result := []*IPAddress{}
+	defer closer()
+	var doc struct {
+		Value string
+	}
+	iter := addresses.Find(query).Iter()
+	for iter.Next(&doc) {
+		addr, err := st.IPAddress(doc.Value)
+		if err != nil {
+			// shouldn't happen as we're only fetching
+			// addresses we know exist.
+			continue
+		}
+		result = append(result, addr)
+	}
+	if err := iter.Close(); err != nil {
+		return result, err
+	}
+	return result, nil
 }
 
 // AddSubnet creates and returns a new subnet

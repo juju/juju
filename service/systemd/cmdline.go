@@ -10,11 +10,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/shell"
 )
 
 const executable = "/bin/systemctl"
 
 type commands struct {
+	shell.BashRenderer
 	binary string
 }
 
@@ -24,6 +26,10 @@ func (c commands) resolve(args string) string {
 		binary = executable
 	}
 	return binary + " " + args
+}
+
+func (c commands) unitFilename(name, dirname string) string {
+	return c.Join(dirname, name+".service")
 }
 
 func (c commands) listAll() string {
@@ -61,12 +67,14 @@ func (c commands) stop(name string) string {
 }
 
 func (c commands) link(name, dirname string) string {
-	args := fmt.Sprintf("link %s/%s.service", dirname, name)
+	filename := c.unitFilename(name, dirname)
+	args := fmt.Sprintf("link %s", c.Quote(filename))
 	return c.resolve(args)
 }
 
 func (c commands) enableLinked(name, dirname string) string {
-	args := fmt.Sprintf("enable %s/%s.service", dirname, name)
+	filename := c.unitFilename(name, dirname)
+	args := fmt.Sprintf("enable %s", c.Quote(filename))
 	return c.resolve(args)
 }
 
@@ -91,22 +99,26 @@ func (c commands) conf(name string) string {
 }
 
 func (c commands) mkdirs(dirname string) string {
-	cmd := fmt.Sprintf("mkdir -p %s", dirname)
-	return cmd
-}
-
-func (c commands) chmod(name, dirname string, perm os.FileMode) string {
-	cmd := fmt.Sprintf("chmod %04o %s/%s", perm, dirname, name)
-	return cmd
-}
-
-func (c commands) writeFile(name, dirname string, data []byte) string {
-	cmd := fmt.Sprintf("cat > %s/%s << 'EOF'\n%s\nEOF", dirname, name, data)
-	return cmd
+	cmds := c.MkdirAll(dirname)
+	return strings.Join(cmds, "\n")
 }
 
 func (c commands) writeConf(name, dirname string, data []byte) string {
-	return c.writeFile(name+".service", dirname, data)
+	filename := c.unitFilename(name, dirname)
+	cmds := c.WriteFile(filename, data)
+	return strings.Join(cmds, "\n")
+}
+
+func (c commands) writeFile(name, dirname string, data []byte) string {
+	filename := c.Join(dirname, name)
+	cmds := c.WriteFile(filename, data)
+	return strings.Join(cmds, "\n")
+}
+
+func (c commands) chmod(name, dirname string, perm os.FileMode) string {
+	filename := c.Join(dirname, name)
+	cmds := c.Chmod(filename, perm)
+	return strings.Join(cmds, "\n")
 }
 
 // Cmdline exposes the core operations of interacting with systemd units.

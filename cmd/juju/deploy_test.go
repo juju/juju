@@ -4,6 +4,7 @@
 package main
 
 import (
+	"io/ioutil"
 	"strings"
 
 	"github.com/juju/errors"
@@ -11,10 +12,10 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
@@ -340,7 +341,7 @@ func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 
 	// override provider type
-	s.PatchValue(&getClientConfig, func(client *api.Client) (*config.Config, error) {
+	s.PatchValue(&service.GetClientConfig, func(client service.ServiceAddUnitAPI) (*config.Config, error) {
 		attrs, err := client.EnvironmentGet()
 		if err != nil {
 			return nil, err
@@ -354,4 +355,15 @@ func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 func (s *DeployLocalSuite) TestLocalCannotHostUnits(c *gc.C) {
 	err := runDeploy(c, "--to", "0", "local:dummy", "portlandia")
 	c.Assert(err, gc.ErrorMatches, "machine 0 is the state server for a local environment and cannot host units")
+}
+
+// setupConfigFile creates a configuration file for testing set
+// with the --config argument specifying a configuration file.
+func setupConfigFile(c *gc.C, dir string) string {
+	ctx := coretesting.ContextForDir(c, dir)
+	path := ctx.AbsPath("testconfig.yaml")
+	content := []byte("dummy-service:\n  skill-level: 9000\n  username: admin001\n\n")
+	err := ioutil.WriteFile(path, content, 0666)
+	c.Assert(err, jc.ErrorIsNil)
+	return path
 }

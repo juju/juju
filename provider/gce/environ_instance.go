@@ -84,7 +84,10 @@ func (env *environ) instances() ([]instance.Instance, error) {
 	// whether or not we got an error.
 	var results []instance.Instance
 	for _, base := range instances {
-		inst := newInstance(&base, env)
+		// If we don't make a copy then the same pointer is used for the
+		// base of all resulting instances.
+		copied := base
+		inst := newInstance(&copied, env)
 		results = append(results, inst)
 	}
 

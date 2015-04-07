@@ -13,7 +13,7 @@ import (
 // (within the Connection's project) and returns it. If the firewall
 // does not exist then the list will be empty and no error is returned.
 func (gce Connection) Ports(fwname string) ([]network.PortRange, error) {
-	firewall, err := gce.raw.GetFirewall(gce.ProjectID, fwname)
+	firewall, err := gce.raw.GetFirewall(gce.projectID, fwname)
 	if errors.IsNotFound(err) {
 		return nil, nil
 	}
@@ -60,7 +60,7 @@ func (gce Connection) OpenPorts(fwname string, ports ...network.PortRange) error
 	if currentPortsSet.IsEmpty() {
 		// Create a new firewall.
 		firewall := firewallSpec(fwname, inputPortsSet)
-		if err := gce.raw.AddFirewall(gce.ProjectID, firewall); err != nil {
+		if err := gce.raw.AddFirewall(gce.projectID, firewall); err != nil {
 			return errors.Annotatef(err, "opening port(s) %+v", ports)
 		}
 		return nil
@@ -69,7 +69,7 @@ func (gce Connection) OpenPorts(fwname string, ports ...network.PortRange) error
 	// Update an existing firewall.
 	newPortsSet := currentPortsSet.Union(inputPortsSet)
 	firewall := firewallSpec(fwname, newPortsSet)
-	if err := gce.raw.UpdateFirewall(gce.ProjectID, fwname, firewall); err != nil {
+	if err := gce.raw.UpdateFirewall(gce.projectID, fwname, firewall); err != nil {
 		return errors.Annotatef(err, "opening port(s) %+v", ports)
 	}
 	return nil
@@ -98,7 +98,7 @@ func (gce Connection) ClosePorts(fwname string, ports ...network.PortRange) erro
 	if newPortsSet.IsEmpty() {
 		// Delete a firewall.
 		// TODO(ericsnow) Handle case where firewall does not exist.
-		if err := gce.raw.RemoveFirewall(gce.ProjectID, fwname); err != nil {
+		if err := gce.raw.RemoveFirewall(gce.projectID, fwname); err != nil {
 			return errors.Annotatef(err, "closing port(s) %+v", ports)
 		}
 		return nil
@@ -106,7 +106,7 @@ func (gce Connection) ClosePorts(fwname string, ports ...network.PortRange) erro
 
 	// Update an existing firewall.
 	firewall := firewallSpec(fwname, newPortsSet)
-	if err := gce.raw.UpdateFirewall(gce.ProjectID, fwname, firewall); err != nil {
+	if err := gce.raw.UpdateFirewall(gce.projectID, fwname, firewall); err != nil {
 		return errors.Annotatef(err, "closing port(s) %+v", ports)
 	}
 	return nil

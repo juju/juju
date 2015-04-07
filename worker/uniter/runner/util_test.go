@@ -15,7 +15,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/uniter"
@@ -48,11 +48,16 @@ func (MockEnvPaths) GetJujucSocket() string {
 	return "path-to-jujuc.socket"
 }
 
+func (MockEnvPaths) GetMetricsSpoolDir() string {
+	return "path-to-metrics-spool-dir"
+}
+
 // RealPaths implements Paths for tests that do touch the filesystem.
 type RealPaths struct {
-	tools  string
-	charm  string
-	socket string
+	tools        string
+	charm        string
+	socket       string
+	metricsspool string
 }
 
 func osDependentSockPath(c *gc.C) string {
@@ -65,10 +70,15 @@ func osDependentSockPath(c *gc.C) string {
 
 func NewRealPaths(c *gc.C) RealPaths {
 	return RealPaths{
-		tools:  c.MkDir(),
-		charm:  c.MkDir(),
-		socket: osDependentSockPath(c),
+		tools:        c.MkDir(),
+		charm:        c.MkDir(),
+		socket:       osDependentSockPath(c),
+		metricsspool: c.MkDir(),
 	}
+}
+
+func (p RealPaths) GetMetricsSpoolDir() string {
+	return p.metricsspool
 }
 
 func (p RealPaths) GetToolsDir() string {
@@ -185,7 +195,7 @@ func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Service) *state.Unit {
 func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 	unit := s.addUnit(c, svc)
 	name := strings.Replace(unit.Name(), "/", "-", 1)
-	privateAddr := network.NewAddress(name+".testing.invalid", network.ScopeCloudLocal)
+	privateAddr := network.NewScopedAddress(name+".testing.invalid", network.ScopeCloudLocal)
 	err := s.machine.SetAddresses(privateAddr)
 	c.Assert(err, jc.ErrorIsNil)
 	return unit
@@ -226,7 +236,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 
 	context, err := runner.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
 		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
-		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag))
+		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag), NewRealPaths(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
@@ -248,7 +258,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 
 	context, err := runner.NewHookContext(s.meteredApiUnit, facade, "TestCtx", uuid,
 		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
-		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag))
+		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag), NewRealPaths(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }

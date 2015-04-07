@@ -75,23 +75,20 @@ func (mi *maasInstance) Addresses() ([]network.Address, error) {
 	if err != nil {
 		return nil, err
 	}
-	host := network.Address{name, network.HostName, "", network.ScopePublic}
-	addrs := []network.Address{host}
 	// MAAS prefers to use the dns name for intra-node communication.
-	// When Juju looks up the address to use for communicating between nodes, it looks
-	// up the address bu scope. So we add a cloud local address for that purpose.
-	cloudHost := network.Address{name, network.HostName, "", network.ScopeCloudLocal}
-	addrs = append(addrs, cloudHost)
+	// When Juju looks up the address to use for communicating between
+	// nodes, it looks up the address by scope. So we add a cloud
+	// local address for that purpose.
+	addrs := network.NewAddresses(name, name)
+	addrs[0].Scope = network.ScopePublic
+	addrs[1].Scope = network.ScopeCloudLocal
 
+	// Append any remaining IP addresses after the preferred ones.
 	ips, err := mi.ipAddresses()
 	if err != nil {
 		return nil, err
 	}
-
-	for _, ip := range ips {
-		a := network.NewAddress(ip, network.ScopeUnknown)
-		addrs = append(addrs, a)
-	}
+	addrs = append(addrs, network.NewAddresses(ips...)...)
 
 	return addrs, nil
 }

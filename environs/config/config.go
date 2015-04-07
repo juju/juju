@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -18,7 +17,8 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/juju/osenv"
@@ -149,6 +149,11 @@ const (
 
 	// The default block storage source.
 	StorageDefaultBlockSourceKey = "storage-default-block-source"
+
+	// For LXC containers, is the container allowed to mount block
+	// devices. A theoretical security issue, so must be explicitly
+	// allowed by the user.
+	AllowLXCLoopMounts = "allow-lxc-loop-mounts"
 
 	//
 	// Deprecated Settings Attributes
@@ -326,8 +331,7 @@ const (
 //
 // The required keys (after any files have been read) are "name",
 // "type" and "authorized-keys", all of type string.  Additional keys
-// recognised are "agent-version" (string) and "development" (bool) as
-// well as charm-store-auth (string containing comma-separated key=value pairs).
+// recognised are "agent-version" (string) and "development" (bool).
 func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error) {
 	checker := noDefaultsChecker
 	if withDefaults {
@@ -576,14 +580,6 @@ func Validate(cfg, old *Config) error {
 		if err := verifyKeyPair(caCert, caKey); err != nil {
 			return errors.Annotate(err, "bad CA certificate/key in configuration")
 		}
-	}
-
-	// Ensure that the auth token is a set of key=value pairs.
-	authToken, _ := cfg.CharmStoreAuth()
-	validAuthToken := regexp.MustCompile(`^([^\s=]+=[^\s=]+(,\s*)?)*$`)
-	if !validAuthToken.MatchString(authToken) {
-		return fmt.Errorf("charm store auth token needs to be a set"+
-			" of key-value pairs, not %q", authToken)
 	}
 
 	// Ensure that the given harvesting method is valid.
@@ -1045,12 +1041,6 @@ func (c *Config) LoggingConfig() string {
 	return c.asString("logging-config")
 }
 
-// Auth token sent to charm store
-func (c *Config) CharmStoreAuth() (string, bool) {
-	auth := c.asString("charm-store-auth")
-	return auth, auth != ""
-}
-
 // ProvisionerHarvestMode reports the harvesting methodology the
 // provisioner should take.
 func (c *Config) ProvisionerHarvestMode() HarvestMode {
@@ -1124,6 +1114,13 @@ func (c *Config) StorageDefaultBlockSource() (string, bool) {
 	return bs, bs != ""
 }
 
+// AllowLXCLoopMounts returns whether loop devices are allowed
+// to be mounted inside lxc containers.
+func (c *Config) AllowLXCLoopMounts() (bool, bool) {
+	v, ok := c.defined[AllowLXCLoopMounts].(bool)
+	return v, ok
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1189,7 +1186,6 @@ var fields = schema.Fields{
 	"rsyslog-ca-cert":            schema.String(),
 	"rsyslog-ca-key":             schema.String(),
 	"logging-config":             schema.String(),
-	"charm-store-auth":           schema.String(),
 	ProvisionerHarvestModeKey:    schema.String(),
 	HttpProxyKey:                 schema.String(),
 	HttpsProxyKey:                schema.String(),
@@ -1215,6 +1211,7 @@ var fields = schema.Fields{
 	PreventRemoveObjectKey:       schema.Bool(),
 	PreventAllChangesKey:         schema.Bool(),
 	StorageDefaultBlockSourceKey: schema.String(),
+	AllowLXCLoopMounts:           schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    schema.String(),
@@ -1257,6 +1254,7 @@ var alwaysOptional = schema.Defaults{
 	"disable-network-management": schema.Omit,
 	AgentStreamKey:               schema.Omit,
 	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
+	AllowLXCLoopMounts:           false,
 
 	// Storage related config.
 	// Environ providers will specify their own defaults.
@@ -1288,8 +1286,6 @@ var alwaysOptional = schema.Defaults{
 	"state-port":  DefaultStatePort,
 	"api-port":    DefaultAPIPort,
 	"syslog-port": DefaultSyslogPort,
-	// Authentication string sent with requests to the charm store
-	"charm-store-auth": "",
 	// Previously image-stream could be set to an empty value
 	"image-stream":             "",
 	"test-mode":                false,
@@ -1416,25 +1412,21 @@ func (cfg *Config) GenerateStateServerCertAndKey(hostAddresses []string) (string
 	if !hasCAKey {
 		return "", "", fmt.Errorf("environment configuration has no ca-private-key")
 	}
-	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), hostAddresses)
+	return cert.NewDefaultServer(caCert, caKey, hostAddresses)
 }
 
 // SpecializeCharmRepo customizes a repository for a given configuration.
-// It adds authentication if necessary and sets a charm store's testMode flag.
-func SpecializeCharmRepo(repo charm.Repository, cfg *Config) {
-	type Specializer interface {
-		SetAuthAttrs(string)
-		SetTestMode(testMode bool)
+// It returns a charm repository with test mode enabled if applicable.
+func SpecializeCharmRepo(repo charmrepo.Interface, cfg *Config) charmrepo.Interface {
+	type specializer interface {
+		WithTestMode() charmrepo.Interface
 	}
-	// If a charm store auth token is set, pass it on to the charm store
-	if auth, authSet := cfg.CharmStoreAuth(); authSet {
-		if CS, isCS := repo.(Specializer); isCS {
-			CS.SetAuthAttrs(auth)
+	if store, ok := repo.(specializer); ok {
+		if cfg.TestMode() {
+			return store.WithTestMode()
 		}
 	}
-	if CS, isCS := repo.(Specializer); isCS {
-		CS.SetTestMode(cfg.TestMode())
-	}
+	return repo
 }
 
 // SSHTimeoutOpts lists the amount of time we will wait for various

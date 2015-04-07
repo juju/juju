@@ -72,7 +72,8 @@ func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.
 	environConfig := testConfig(c, stateServer, vers)
 	err = environs.FinishMachineConfig(mcfg, environConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	cloudcfg := cloudinit.New()
+	cloudcfg, err := cloudinit.New(vers.Series)
+	c.Assert(err, jc.ErrorIsNil)
 	udata, err := envcloudinit.NewUserdataConfig(mcfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
@@ -146,7 +147,8 @@ func assertScriptMatches(c *gc.C, cfg *cloudinit.Config, pattern string, match b
 func (s *configureSuite) TestAptUpdate(c *gc.C) {
 	// apt-get update is run only if AptUpdate is set.
 	aptGetUpdatePattern := aptgetRegexp + "update(.|\n)*"
-	cfg := cloudinit.New()
+	cfg, err := cloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(cfg.AptUpdate(), jc.IsFalse)
 	c.Assert(cfg.AptSources(), gc.HasLen, 0)
@@ -158,14 +160,15 @@ func (s *configureSuite) TestAptUpdate(c *gc.C) {
 	// If we add sources, but disable updates, display an error.
 	cfg.SetAptUpdate(false)
 	cfg.AddAptSource("source", "key", nil)
-	_, err := sshinit.ConfigureScript(cfg)
+	_, err = sshinit.ConfigureScript(cfg)
 	c.Check(err, gc.ErrorMatches, "update sources were specified, but OS updates have been disabled.")
 }
 
 func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 	// apt-get upgrade is only run if AptUpgrade is set.
 	aptGetUpgradePattern := aptgetRegexp + "upgrade(.|\n)*"
-	cfg := cloudinit.New()
+	cfg, err := cloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	cfg.SetAptUpdate(true)
 	cfg.AddAptSource("source", "key", nil)
 	assertScriptMatches(c, cfg, aptGetUpgradePattern, false)
@@ -175,7 +178,8 @@ func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 
 func (s *configureSuite) TestAptGetWrapper(c *gc.C) {
 	aptgetRegexp := "(.|\n)*\\$\\(which eatmydata || true\\) " + regexp.QuoteMeta(sshinit.Aptget) + "(.|\n)*"
-	cfg := cloudinit.New()
+	cfg, err := cloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	cfg.SetAptUpdate(true)
 	cfg.SetAptGetWrapper("eatmydata")
 	assertScriptMatches(c, cfg, aptgetRegexp, true)
@@ -183,7 +187,8 @@ func (s *configureSuite) TestAptGetWrapper(c *gc.C) {
 
 func (s *configureSuite) TestAptGetRetry(c *gc.C) {
 	aptgetRegexp := "(.|\n)*apt_get_loop.*" + regexp.QuoteMeta(sshinit.Aptget) + "(.|\n)*"
-	cfg := cloudinit.New()
+	cfg, err := cloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	cfg.SetAptUpdate(true)
 	cfg.SetAptGetWrapper("eatmydata")
 	assertScriptMatches(c, cfg, aptgetRegexp, true)
@@ -203,7 +208,8 @@ for old in ${old_prefix}_*; do
     mv $old $new
 done`)
 	aptMirrorRegexp := "(.|\n)*" + expectedCommands + "(.|\n)*"
-	cfg := cloudinit.New()
+	cfg, err := cloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	cfg.SetAptMirror("http://woat.com")
 	assertScriptMatches(c, cfg, aptMirrorRegexp, true)
 }

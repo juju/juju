@@ -6,7 +6,7 @@ package uniter
 import (
 	"time"
 
-	corecharm "gopkg.in/juju/charm.v4"
+	corecharm "gopkg.in/juju/charm.v5-unstable"
 )
 
 const (

@@ -30,7 +30,22 @@ const LeaderElection = "leader-election"
 // stack trace in the log output, but normal deployments never will.
 const LogErrorStack = "log-error-stack"
 
+// EnvironmentsCacheFile is the feature flag that guards the writing of the
+// new $JUJU_HOME/environments/cache.yaml file.  If this flag is set, new
+// environments will be written to the cache file rather than a JENV file.
+// As JENV files are updated, they are migrated to the cache file and the
+// JENV file removed.
+const EnvironmentsCacheFile = "env-cache"
+
 // LegacyUpstart is used to indicate that the version-based init system
 // discovery code (service.VersionInitSystem) should return upstart
 // instead of systemd for vivid and newer.
 const LegacyUpstart = "legacy-upstart"
+
+// DbLog is the the feature which has Juju's logs go to
+// MongoDB instead of to all-machines.log using rsyslog.
+const DbLog = "db-log"
+
+// NewStatus is the name of the feature to enable the new
+// juju status output.
+const NewStatus = "new-status"

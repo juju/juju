@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -170,7 +170,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C, st *State, units int) (e
 	c.Assert(err, jc.ErrorIsNil)
 	hc, err := m.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetAddresses(network.NewAddress("example.com", network.ScopeUnknown))
+	err = m.SetAddresses(network.NewAddress("example.com"))
 	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.MachineInfo{
 		Id:                      "0",
@@ -1197,8 +1197,8 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPort("tcp", 12345)
 			c.Assert(err, jc.ErrorIsNil)
-			publicAddress := network.NewAddress("public", network.ScopePublic)
-			privateAddress := network.NewAddress("private", network.ScopeCloudLocal)
+			publicAddress := network.NewScopedAddress("public", network.ScopePublic)
+			privateAddress := network.NewScopedAddress("private", network.ScopeCloudLocal)
 			err = m.SetAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.SetAgentStatus(StatusError, "failure", nil)
@@ -1255,7 +1255,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetAgentStatus(StatusActive, "", nil)
+			err = u.SetAgentStatus(StatusIdle, "", nil)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -1272,7 +1272,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
 						Name:       "wordpress/0",
-						Status:     multiwatcher.Status("started"),
+						Status:     multiwatcher.Status("idle"),
 						StatusData: make(map[string]interface{}),
 					}}}
 		},
@@ -1291,7 +1291,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 				about: "status is changed with additional status data",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
 					Name:   "wordpress/0",
-					Status: multiwatcher.Status("started"),
+					Status: multiwatcher.Status("idle"),
 				}},
 				change: watcher.Change{
 					C:  "statuses",
@@ -1338,8 +1338,8 @@ func (s *storeManagerStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 		}
 		if flag&openPorts != 0 {
 			// Add a network to the machine and open a port.
-			publicAddress := network.NewAddress("1.2.3.4", network.ScopePublic)
-			privateAddress := network.NewAddress("4.3.2.1", network.ScopeCloudLocal)
+			publicAddress := network.NewScopedAddress("1.2.3.4", network.ScopePublic)
+			privateAddress := network.NewScopedAddress("4.3.2.1", network.ScopeCloudLocal)
 			err = m.SetAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPort("tcp", 12345)
@@ -1455,8 +1455,8 @@ func (s *storeManagerStateSuite) TestClosingPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
-	publicAddress := network.NewAddress("1.2.3.4", network.ScopePublic)
-	privateAddress := network.NewAddress("4.3.2.1", network.ScopeCloudLocal)
+	publicAddress := network.NewScopedAddress("1.2.3.4", network.ScopePublic)
+	privateAddress := network.NewScopedAddress("4.3.2.1", network.ScopeCloudLocal)
 	err = m.SetAddresses(publicAddress, privateAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.OpenPorts("tcp", 12345, 12345)

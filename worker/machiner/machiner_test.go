@@ -78,10 +78,10 @@ func (s *MachinerSuite) waitMachineStatus(c *gc.C, m *state.Machine, expectStatu
 		case <-timeout:
 			c.Fatalf("timeout while waiting for machine status to change")
 		case <-time.After(10 * time.Millisecond):
-			status, _, _, err := m.Status()
+			statusInfo, err := m.Status()
 			c.Assert(err, jc.ErrorIsNil)
-			if status != expectStatus {
-				c.Logf("machine %q status is %s, still waiting", m, status)
+			if statusInfo.Status != expectStatus {
+				c.Logf("machine %q status is %s, still waiting", m, statusInfo.Status)
 				continue
 			}
 			return
@@ -121,10 +121,10 @@ func (s *MachinerSuite) TestRunStop(c *gc.C) {
 }
 
 func (s *MachinerSuite) TestStartSetsStatus(c *gc.C) {
-	status, info, _, err := s.machine.Status()
+	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusPending)
-	c.Assert(info, gc.Equals, "")
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusPending)
+	c.Assert(statusInfo.Message, gc.Equals, "")
 
 	mr := s.makeMachiner()
 	defer worker.Stop(mr)
@@ -190,9 +190,9 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 	c.Assert(s.machine.Refresh(), gc.IsNil)
 	c.Assert(s.machine.MachineAddresses(), jc.DeepEquals, []network.Address{
-		network.NewAddress("2001:db8::1", network.ScopeUnknown),
-		network.NewAddress("10.0.0.1", network.ScopeCloudLocal),
-		network.NewAddress("::1", network.ScopeMachineLocal),
-		network.NewAddress("127.0.0.1", network.ScopeMachineLocal),
+		network.NewAddress("2001:db8::1"),
+		network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal),
+		network.NewScopedAddress("::1", network.ScopeMachineLocal),
+		network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
 	})
 }

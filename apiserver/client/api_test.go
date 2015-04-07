@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -18,11 +19,15 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -225,38 +230,59 @@ var scenarioStatus = &api.Status{
 			SubordinateTo: []string{},
 			Units: map[string]api.UnitStatus{
 				"wordpress/0": {
-					Agent: api.AgentStatus{
+					Workload: api.AgentStatus{
 						Status: "error",
 						Info:   "blam",
 						Data:   map[string]interface{}{"relation-id": "0"},
 					},
-					AgentState:     "down",
-					AgentStateInfo: "(error: blam)",
+					UnitAgent: api.AgentStatus{
+						Status: "idle",
+					},
+					AgentState:     "error",
+					AgentStateInfo: "blam",
 					Machine:        "1",
 					Subordinates: map[string]api.UnitStatus{
 						"logging/0": {
-							Agent: api.AgentStatus{
-								Status: "allocating",
+							AgentState: "pending",
+							Workload: api.AgentStatus{
+								Status: "unknown",
+								Info:   "Waiting for agent initialization to finish",
 								Data:   make(map[string]interface{}),
 							},
-							AgentState: "allocating",
+							UnitAgent: api.AgentStatus{
+								Status: "allocating",
+								Data:   map[string]interface{}{},
+							},
 						},
 					},
 				},
 				"wordpress/1": {
-					Agent: api.AgentStatus{
-						Status: "allocating",
+					AgentState: "pending",
+					Workload: api.AgentStatus{
+						Status: "unknown",
+						Info:   "Waiting for agent initialization to finish",
 						Data:   make(map[string]interface{}),
 					},
-					AgentState: "allocating",
-					Machine:    "2",
+					UnitAgent: api.AgentStatus{
+						Status: "allocating",
+						Info:   "",
+						Data:   make(map[string]interface{}),
+					},
+
+					Machine: "2",
 					Subordinates: map[string]api.UnitStatus{
 						"logging/1": {
-							Agent: api.AgentStatus{
-								Status: "allocating",
+							AgentState: "pending",
+							Workload: api.AgentStatus{
+								Status: "unknown",
+								Info:   "Waiting for agent initialization to finish",
 								Data:   make(map[string]interface{}),
 							},
-							AgentState: "allocating",
+							UnitAgent: api.AgentStatus{
+								Status: "allocating",
+								Info:   "",
+								Data:   make(map[string]interface{}),
+							},
 						},
 					},
 				},
@@ -399,7 +425,8 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 				"remote-unit": "logging/0",
 				"foo":         "bar",
 			}
-			wu.SetAgentStatus(state.StatusError, "blam", sd)
+			err := wu.SetAgentStatus(state.StatusError, "blam", sd)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 
 		// Create the subordinate unit as a side-effect of entering
@@ -414,7 +441,29 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(deployer, gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		setDefaultPassword(c, lu)
+		s.setAgentPresence(c, wu)
 		add(lu)
 	}
 	return
+}
+
+func (s *baseSuite) setupStoragePool(c *gc.C) {
+	s.SetFeatureFlags(feature.Storage)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{
+		"storage-default-block-source": "loop-pool",
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *baseSuite) setAgentPresence(c *gc.C, u *state.Unit) {
+	_, err := u.SetAgentPresence()
+	c.Assert(err, jc.ErrorIsNil)
+	s.State.StartSync()
+	s.BackingState.StartSync()
+	err = u.WaitAgentPresence(coretesting.LongWait)
+	c.Assert(err, jc.ErrorIsNil)
 }

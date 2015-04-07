@@ -23,7 +23,7 @@ import (
 
 	"github.com/juju/errors"
 	ziputil "github.com/juju/utils/zip"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/apiserver/client"
 	apihttp "github.com/juju/juju/apiserver/http"
@@ -52,7 +52,7 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "POST":
-		if err := stateWrapper.authenticate(r); err != nil {
+		if err := stateWrapper.authenticateUser(r); err != nil {
 			h.authError(w, h)
 			return
 		}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
@@ -30,7 +31,7 @@ func (s *MetricSuite) SetUpTest(c *gc.C) {
 
 func (s *MetricSuite) TestAddNoMetrics(c *gc.C) {
 	now := state.NowToTheSecond()
-	_, err := s.unit.AddMetrics(now, []state.Metric{})
+	_, err := s.unit.AddMetrics(utils.MustNewUUID().String(), now, "", []state.Metric{})
 	c.Assert(err, gc.ErrorMatches, "cannot add a batch of 0 metrics")
 }
 
@@ -38,7 +39,7 @@ func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	now := state.NowToTheSecond()
 	envUUID := s.State.EnvironUUID()
 	m := state.Metric{"pings", "5", now}
-	metricBatch, err := s.unit.AddMetrics(now, []state.Metric{m})
+	metricBatch, err := s.unit.AddMetrics(utils.MustNewUUID().String(), now, "", []state.Metric{m})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatch.Unit(), gc.Equals, "metered/0")
 	c.Assert(metricBatch.EnvUUID(), gc.Equals, envUUID)
@@ -85,7 +86,7 @@ func (s *MetricSuite) TestAddMetricNonExistentUnit(c *gc.C) {
 	assertUnitRemoved(c, s.unit)
 	now := state.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
-	_, err := s.unit.AddMetrics(now, []state.Metric{m})
+	_, err := s.unit.AddMetrics(utils.MustNewUUID().String(), now, "", []state.Metric{m})
 	c.Assert(err, gc.ErrorMatches, `metered/0 not found`)
 }
 
@@ -93,14 +94,14 @@ func (s *MetricSuite) TestAddMetricDeadUnit(c *gc.C) {
 	assertUnitDead(c, s.unit)
 	now := state.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
-	_, err := s.unit.AddMetrics(now, []state.Metric{m})
+	_, err := s.unit.AddMetrics(utils.MustNewUUID().String(), now, "", []state.Metric{m})
 	c.Assert(err, gc.ErrorMatches, `metered/0 not found`)
 }
 
 func (s *MetricSuite) TestSetMetricSent(c *gc.C) {
 	now := state.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
-	added, err := s.unit.AddMetrics(now, []state.Metric{m})
+	added, err := s.unit.AddMetrics(utils.MustNewUUID().String(), now, "", []state.Metric{m})
 	c.Assert(err, jc.ErrorIsNil)
 	saved, err := s.State.MetricBatch(added.UUID())
 	c.Assert(err, jc.ErrorIsNil)
@@ -115,17 +116,17 @@ func (s *MetricSuite) TestSetMetricSent(c *gc.C) {
 func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
 	oldTime := time.Now().Add(-(time.Hour * 25))
 	m := state.Metric{"pings", "5", oldTime}
-	oldMetric1, err := s.unit.AddMetrics(oldTime, []state.Metric{m})
+	oldMetric1, err := s.unit.AddMetrics(utils.MustNewUUID().String(), oldTime, "", []state.Metric{m})
 	c.Assert(err, jc.ErrorIsNil)
 	oldMetric1.SetSent()
 
-	oldMetric2, err := s.unit.AddMetrics(oldTime, []state.Metric{m})
+	oldMetric2, err := s.unit.AddMetrics(utils.MustNewUUID().String(), oldTime, "", []state.Metric{m})
 	c.Assert(err, jc.ErrorIsNil)
 	oldMetric2.SetSent()
 
 	now := time.Now()
 	m = state.Metric{"pings", "5", now}
-	newMetric, err := s.unit.AddMetrics(now, []state.Metric{m})
+	newMetric, err := s.unit.AddMetrics(utils.MustNewUUID().String(), now, "", []state.Metric{m})
 	c.Assert(err, jc.ErrorIsNil)
 	newMetric.SetSent()
 	err = s.State.CleanupOldMetrics()
@@ -149,12 +150,12 @@ func (s *MetricSuite) TestCleanupNoMetrics(c *gc.C) {
 func (s *MetricSuite) TestCleanupMetricsIgnoreNotSent(c *gc.C) {
 	oldTime := time.Now().Add(-(time.Hour * 25))
 	m := state.Metric{"pings", "5", oldTime}
-	oldMetric, err := s.unit.AddMetrics(oldTime, []state.Metric{m})
+	oldMetric, err := s.unit.AddMetrics(utils.MustNewUUID().String(), oldTime, "", []state.Metric{m})
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := time.Now()
 	m = state.Metric{"pings", "5", now}
-	newMetric, err := s.unit.AddMetrics(now, []state.Metric{m})
+	newMetric, err := s.unit.AddMetrics(utils.MustNewUUID().String(), now, "", []state.Metric{m})
 	c.Assert(err, jc.ErrorIsNil)
 	newMetric.SetSent()
 	err = s.State.CleanupOldMetrics()
@@ -170,7 +171,7 @@ func (s *MetricSuite) TestCleanupMetricsIgnoreNotSent(c *gc.C) {
 func (s *MetricSuite) TestMetricBatches(c *gc.C) {
 	now := state.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
-	_, err := s.unit.AddMetrics(now, []state.Metric{m})
+	_, err := s.unit.AddMetrics(utils.MustNewUUID().String(), now, "", []state.Metric{m})
 	c.Assert(err, jc.ErrorIsNil)
 	metricBatches, err := s.State.MetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
@@ -181,12 +182,29 @@ func (s *MetricSuite) TestMetricBatches(c *gc.C) {
 	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
 }
 
+func (s *MetricSuite) TestMetricBatchesCustomCharmURLAndUUID(c *gc.C) {
+	now := state.NowToTheSecond()
+	m := state.Metric{"pings", "5", now}
+	uuid := utils.MustNewUUID().String()
+	charmUrl := "cs:quantal/metered"
+	_, err := s.unit.AddMetrics(uuid, now, charmUrl, []state.Metric{m})
+	c.Assert(err, jc.ErrorIsNil)
+	metricBatches, err := s.State.MetricBatches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metricBatches, gc.HasLen, 1)
+	c.Assert(metricBatches[0].Unit(), gc.Equals, "metered/0")
+	c.Assert(metricBatches[0].UUID(), gc.Equals, uuid)
+	c.Assert(metricBatches[0].CharmURL(), gc.Equals, charmUrl)
+	c.Assert(metricBatches[0].Sent(), jc.IsFalse)
+	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
+}
+
 func (s *MetricSuite) TestMetricCredentials(c *gc.C) {
 	now := state.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
 	err := s.service.SetMetricCredentials([]byte("hello there"))
 	c.Assert(err, gc.IsNil)
-	_, err = s.unit.AddMetrics(now, []state.Metric{m})
+	_, err = s.unit.AddMetrics(utils.MustNewUUID().String(), now, "", []state.Metric{m})
 	c.Assert(err, jc.ErrorIsNil)
 	metricBatches, err := s.State.MetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
@@ -195,17 +213,17 @@ func (s *MetricSuite) TestMetricCredentials(c *gc.C) {
 }
 
 // TestCountMetrics asserts the correct values are returned
-// by CountofUnsentMetrics and CountofSentMetrics.
+// by CountOfUnsentMetrics and CountOfSentMetrics.
 func (s *MetricSuite) TestCountMetrics(c *gc.C) {
 	now := time.Now()
 	m := []state.Metric{{Key: "pings", Value: "123", Time: now}}
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: m})
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: m})
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &now, Metrics: m})
-	sent, err := s.State.CountofSentMetrics()
+	sent, err := s.State.CountOfSentMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sent, gc.Equals, 1)
-	unsent, err := s.State.CountofUnsentMetrics()
+	unsent, err := s.State.CountOfUnsentMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsent, gc.Equals, 2)
 	c.Assert(unsent+sent, gc.Equals, 3)
@@ -224,7 +242,7 @@ func (s *MetricSuite) TestSetMetricBatchesSent(c *gc.C) {
 	}
 	err := s.State.SetMetricBatchesSent(uuids)
 	c.Assert(err, jc.ErrorIsNil)
-	sent, err := s.State.CountofSentMetrics()
+	sent, err := s.State.CountOfSentMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sent, gc.Equals, 3)
 
@@ -316,7 +334,7 @@ func (s *MetricSuite) TestMetricValidation(c *gc.C) {
 	}}
 	for i, t := range tests {
 		c.Logf("test %d: %s", i, t.about)
-		_, err := t.unit.AddMetrics(now, t.metrics)
+		_, err := t.unit.AddMetrics(utils.MustNewUUID().String(), now, "", t.metrics)
 		if t.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 		} else {
@@ -328,7 +346,7 @@ func (s *MetricSuite) TestMetricValidation(c *gc.C) {
 func (s *MetricSuite) TestMetricsAcrossEnvironments(c *gc.C) {
 	now := state.NowToTheSecond().Add(-48 * time.Hour)
 	m := state.Metric{"pings", "5", now}
-	m1, err := s.unit.AddMetrics(now, []state.Metric{m})
+	m1, err := s.unit.AddMetrics(utils.MustNewUUID().String(), now, "", []state.Metric{m})
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := s.factory.MakeEnvironment(c, nil)
@@ -337,14 +355,14 @@ func (s *MetricSuite) TestMetricsAcrossEnvironments(c *gc.C) {
 	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
 	service := f.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
 	unit := f.MakeUnit(c, &factory.UnitParams{Service: service, SetCharmURL: true})
-	m2, err := unit.AddMetrics(now, []state.Metric{m})
+	m2, err := unit.AddMetrics(utils.MustNewUUID().String(), now, "", []state.Metric{m})
 	c.Assert(err, jc.ErrorIsNil)
 
 	batches, err := s.State.MetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 2)
 
-	unsent, err := s.State.CountofUnsentMetrics()
+	unsent, err := s.State.CountOfUnsentMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsent, gc.Equals, 2)
 
@@ -357,7 +375,7 @@ func (s *MetricSuite) TestMetricsAcrossEnvironments(c *gc.C) {
 	err = m2.SetSent()
 	c.Assert(err, jc.ErrorIsNil)
 
-	sent, err := s.State.CountofSentMetrics()
+	sent, err := s.State.CountOfSentMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sent, gc.Equals, 2)
 
@@ -367,4 +385,14 @@ func (s *MetricSuite) TestMetricsAcrossEnvironments(c *gc.C) {
 	batches, err = s.State.MetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 0)
+}
+
+func (s *MetricSuite) TestAddMetricDuplicateUUID(c *gc.C) {
+	now := state.NowToTheSecond()
+	mUUID := utils.MustNewUUID().String()
+	_, err := s.unit.AddMetrics(mUUID, now, "", []state.Metric{{"pings", "5", now}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.unit.AddMetrics(mUUID, now, "", []state.Metric{{"pings", "10", now}})
+	c.Assert(err, gc.ErrorMatches, "metrics batch .* already exists")
 }

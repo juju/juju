@@ -15,12 +15,11 @@ import (
 
 // The vmware-specific config keys.
 const (
-	cfgDatastore    = "datastore"
-	cfgDatacenter   = "datacenter"
-	cfgResourcePool = "resource-pool"
-	cfgHost         = "host"
-	cfgUser         = "user"
-	cfgPassword     = "password"
+	cfgDatastore  = "datastore"
+	cfgDatacenter = "datacenter"
+	cfgHost       = "host"
+	cfgUser       = "user"
+	cfgPassword   = "password"
 )
 
 // boilerplateConfig will be shown in help output, so please keep it up to
@@ -32,12 +31,11 @@ vmware:
 
 // configFields is the spec for each vmware config value's type.
 var configFields = schema.Fields{
-	cfgHost:         schema.String(),
-	cfgUser:         schema.String(),
-	cfgPassword:     schema.String(),
-	cfgDatastore:    schema.String(),
-	cfgDatacenter:   schema.String(),
-	cfgResourcePool: schema.String(),
+	cfgHost:       schema.String(),
+	cfgUser:       schema.String(),
+	cfgPassword:   schema.String(),
+	cfgDatastore:  schema.String(),
+	cfgDatacenter: schema.String(),
 }
 
 var configDefaults = schema.Defaults{}
@@ -50,7 +48,6 @@ var configImmutableFields = []string{
 	cfgHost,
 	cfgDatacenter,
 	cfgDatastore,
-	cfgResourcePool,
 }
 
 type environConfig struct {
@@ -110,10 +107,6 @@ func (c *environConfig) datastore() string {
 
 func (c *environConfig) datacenter() string {
 	return c.attrs[cfgDatacenter].(string)
-}
-
-func (c *environConfig) resourcePool() string {
-	return c.attrs[cfgResourcePool].(string)
 }
 
 func (c *environConfig) host() string {

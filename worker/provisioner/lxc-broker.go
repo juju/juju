@@ -114,6 +114,10 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		lxcLogger.Errorf("failed to get container config: %v", err)
 		return nil, err
 	}
+	storageConfig := &container.StorageConfig{
+		AllowMount: config.AllowLXCLoopMounts,
+	}
+
 	if err := environs.PopulateMachineConfig(
 		args.MachineConfig,
 		config.ProviderType,
@@ -130,7 +134,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
-	inst, hardware, err := broker.manager.CreateContainer(args.MachineConfig, series, network)
+	inst, hardware, err := broker.manager.CreateContainer(args.MachineConfig, series, network, storageConfig)
 	if err != nil {
 		lxcLogger.Errorf("failed to start container: %v", err)
 		return nil, err
@@ -200,7 +204,7 @@ func localDNSServers() ([]network.Address, error) {
 				address = address[:strings.Index(address, "#")]
 			}
 			address = strings.TrimSpace(address)
-			addresses = append(addresses, network.NewAddress(address, network.ScopeUnknown))
+			addresses = append(addresses, network.NewAddress(address))
 		}
 	}
 
@@ -210,27 +214,40 @@ func localDNSServers() ([]network.Address, error) {
 	return addresses, nil
 }
 
-var (
+// ipRouteAdd is the command template to add a static route for
+// .ContainerIP using the .HostBridge device (usually lxcbr0 or virbr0).
+var ipRouteAdd = mustParseTemplate("ipRouteAdd", `
+ip route add {{.ContainerIP}} dev {{.HostBridge}}`[1:])
+
+type IptablesRule struct {
+	Table string
+	Chain string
+	Rule  string
+}
+
+var iptablesRules = map[string]IptablesRule{
 	// iptablesCheckSNAT is the command template to verify if a SNAT
 	// rule already exists for the host NIC named .HostIF (usually
 	// eth0) and source address .HostIP (usually eth0's address). We
 	// need to check whether the rule exists because we only want to
 	// add it once. Exit code 0 means the rule exists, 1 means it
 	// doesn't
-	iptablesCheckSNAT = mustParseTemplate("iptablesCheckSNAT", `
-iptables -t nat -C POSTROUTING -o {{.HostIF}} -j SNAT --to-source {{.HostIP}}`[1:])
-
-	// iptablesAddSNAT is the command template to add a SNAT rule for
-	// the host NIC named .HostIF (usually eth0) and source address
-	// .HostIP (usually eth0's address).
-	iptablesAddSNAT = mustParseTemplate("iptablesAddSNAT", `
-iptables -t nat -A POSTROUTING -o {{.HostIF}} -j SNAT --to-source {{.HostIP}}`[1:])
-
-	// ipRouteAdd is the command template to add a static route for
-	// .ContainerIP using the .HostBridge device (usually lxcbr0).
-	ipRouteAdd = mustParseTemplate("ipRouteAdd", `
-ip route add {{.ContainerIP}} dev {{.HostBridge}}`[1:])
-)
+	"iptablesSNAT": {
+		"nat",
+		"POSTROUTING",
+		"-o {{.HostIF}} -j SNAT --to-source {{.HostIP}}",
+	}, "iptablesForwardOut": {
+		// Ensure that we have ACCEPT rules that apply to the containers that
+		// we are creating so any DROP rules added by libvirt while setting
+		// up virbr0 further down the chain don't disrupt wanted traffic.
+		"filter",
+		"FORWARD",
+		"-d {{.ContainerCIDR}} -o {{.HostBridge}} -j ACCEPT",
+	}, "iptablesForwardIn": {
+		"filter",
+		"FORWARD",
+		"-s {{.ContainerCIDR}} -i {{.HostBridge}} -j ACCEPT",
+	}}
 
 // mustParseTemplate works like template.Parse, but panics on error.
 func mustParseTemplate(name, source string) *template.Template {
@@ -239,6 +256,17 @@ func mustParseTemplate(name, source string) *template.Template {
 		panic(err.Error())
 	}
 	return templ
+}
+
+// mustExecTemplate works like template.Parse followed by template.Execute,
+// but panics on error.
+func mustExecTemplate(name, tmpl string, data interface{}) string {
+	t := mustParseTemplate(name, tmpl)
+	var buf bytes.Buffer
+	if err := t.Execute(&buf, data); err != nil {
+		panic(err.Error())
+	}
+	return buf.String()
 }
 
 // runTemplateCommand executes the given template with the given data,
@@ -301,32 +329,40 @@ var setupRoutesAndIPTables = func(
 			return errors.Errorf("container IP %q must be set", containerIP)
 		}
 		data := struct {
-			HostIF      string
-			HostIP      string
-			HostBridge  string
-			ContainerIP string
-		}{primaryNIC, primaryAddr.Value, bridgeName, containerIP}
+			HostIF        string
+			HostIP        string
+			HostBridge    string
+			ContainerIP   string
+			ContainerCIDR string
+		}{primaryNIC, primaryAddr.Value, bridgeName, containerIP, iface.CIDR}
 
-		// Check if the iptables SNAT rule has been set and add it if not.
-		code, err := runTemplateCommand(iptablesCheckSNAT, true, data)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		switch code {
-		case 0:
-			// Rule does exist so just add the route.
-		case 1:
-			// Rule does not exist, add it.
-			_, err = runTemplateCommand(iptablesAddSNAT, false, data)
+		for name, rule := range iptablesRules {
+			check := mustExecTemplate("rule", "iptables -t {{.Table}} -C {{.Chain}} {{.Rule}}", rule)
+			t := mustParseTemplate(name+"Check", check)
+
+			code, err := runTemplateCommand(t, true, data)
 			if err != nil {
 				return errors.Trace(err)
 			}
-		default:
-			// Unexpected code - better report it.
-			return errors.Errorf("iptables failed with unexpected exit code %d", code)
+			switch code {
+			case 0:
+			// Rule does exist. Do nothing
+			case 1:
+				// Rule does not exist, add it. We insert the rule at the top of the list so it precedes any
+				// REJECT rules.
+				action := mustExecTemplate("action", "iptables -t {{.Table}} -I {{.Chain}} 1 {{.Rule}}", rule)
+				t = mustParseTemplate(name+"Add", action)
+				_, err = runTemplateCommand(t, false, data)
+				if err != nil {
+					return errors.Trace(err)
+				}
+			default:
+				// Unexpected code - better report it.
+				return errors.Errorf("iptables failed with unexpected exit code %d", code)
+			}
 		}
 
-		_, err = runTemplateCommand(ipRouteAdd, false, data)
+		_, err := runTemplateCommand(ipRouteAdd, false, data)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -379,12 +415,17 @@ func discoverPrimaryNIC() (string, network.Address, error) {
 				addr = ip.String()
 
 				logger.Tracef("primary network interface is %q, address %q", iface.Name, addr)
-				return iface.Name, network.NewAddress(addr, network.ScopeUnknown), nil
+				return iface.Name, network.NewAddress(addr), nil
 			}
 		}
 	}
 	return "", network.Address{}, errors.Errorf("cannot detect the primary network interface")
 }
+
+// MACAddressTemplate is used to generate a unique MAC address for a
+// container. Every 'x' is replaced by a random hexadecimal digit,
+// while the rest is kept as-is.
+const MACAddressTemplate = "00:16:3e:xx:xx:xx"
 
 // maybeAllocateStaticIP tries to allocate a static IP address for the
 // given containerId using the provisioner API. If it fails, it's not
@@ -429,10 +470,15 @@ func maybeAllocateStaticIP(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Generate the final configuration for each container interface.
 	for i, _ := range finalIfaceInfo {
-		// The interface name on the container depends on the device
-		// index.
-		finalIfaceInfo[i].InterfaceName = fmt.Sprintf("eth%d", finalIfaceInfo[i].DeviceIndex)
+		// Always start at the first device index and generate the
+		// interface name based on that. We need to do this otherwise
+		// the container will inherit the host's device index and
+		// interface name.
+		finalIfaceInfo[i].DeviceIndex = i
+		finalIfaceInfo[i].InterfaceName = fmt.Sprintf("eth%d", i)
+		finalIfaceInfo[i].MACAddress = MACAddressTemplate
 		finalIfaceInfo[i].ConfigType = network.ConfigStatic
 		finalIfaceInfo[i].DNSServers = dnsServers
 		finalIfaceInfo[i].GatewayAddress = primaryAddr

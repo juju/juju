@@ -12,7 +12,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -24,6 +24,11 @@ import (
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 )
+
+var ErrPersistentVolumesExist = errors.New(`
+Environment cannot be destroyed until all persistent volumes have been destroyed.
+Run "juju storage list" to display persistent storage volumes.
+`[1:])
 
 // StorageInstance represents the state of a unit or service-wide storage
 // instance in the environment.
@@ -183,6 +188,23 @@ func (st *State) storageInstance(tag names.StorageTag) (*storageInstance, error)
 		return nil, errors.Annotate(err, "cannot get storage instance details")
 	}
 	return &s, nil
+}
+
+// AllStorageInstances lists all storage instances currently in state
+// for this Juju environment.
+func (st *State) AllStorageInstances() (storageInstances []StorageInstance, err error) {
+	storageCollection, closer := st.getCollection(storageInstancesC)
+	defer closer()
+
+	sdocs := []storageInstanceDoc{}
+	err = storageCollection.Find(nil).All(&sdocs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all storage instances")
+	}
+	for _, doc := range sdocs {
+		storageInstances = append(storageInstances, &storageInstance{st, doc})
+	}
+	return
 }
 
 // DestroyStorageInstance ensures that the storage instance and all its
@@ -378,14 +400,34 @@ func createStorageAttachmentOp(storage names.StorageTag, unit names.UnitTag) txn
 	}
 }
 
-// StorageAttachments returns the StorageAttachments for the specified unit.
-func (st *State) StorageAttachments(unit names.UnitTag) ([]StorageAttachment, error) {
+// StorageAttachments returns the StorageAttachments for the specified storage
+// instance.
+func (st *State) StorageAttachments(storage names.StorageTag) ([]StorageAttachment, error) {
+	query := bson.D{{"storageid", storage.Id()}}
+	attachments, err := st.storageAttachments(query)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get storage attachments for storage %s", storage.Id())
+	}
+	return attachments, nil
+}
+
+// UnitStorageAttachments returns the StorageAttachments for the specified unit.
+func (st *State) UnitStorageAttachments(unit names.UnitTag) ([]StorageAttachment, error) {
+	query := bson.D{{"unitid", unit.Id()}}
+	attachments, err := st.storageAttachments(query)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get storage attachments for unit %s", unit.Id())
+	}
+	return attachments, nil
+}
+
+func (st *State) storageAttachments(query bson.D) ([]StorageAttachment, error) {
 	coll, closer := st.getCollection(storageAttachmentsC)
 	defer closer()
 
 	var docs []storageAttachmentDoc
-	if err := coll.Find(bson.D{{"unitid", unit.Id()}}).All(&docs); err != nil {
-		return nil, errors.Annotatef(err, "cannot get storage attachments for %s", unit.Id())
+	if err := coll.Find(query).All(&docs); err != nil {
+		return nil, err
 	}
 	storageAttachments := make([]StorageAttachment, len(docs))
 	for i, doc := range docs {
@@ -674,7 +716,7 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 			)
 		}
 		kind := storageKind(charmStorage.Type)
-		if err := validateStoragePool(st, cons.Pool, kind); err != nil {
+		if err := validateStoragePool(st, cons.Pool, kind, nil); err != nil {
 			return err
 		}
 	}
@@ -688,7 +730,13 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 	return nil
 }
 
-func validateStoragePool(st *State, poolName string, kind storage.StorageKind) error {
+// validateStoragePool validates the storage pool for the environment.
+// If machineId is non-nil, the storage scope will be validated against
+// the machineId; if the storage is not machine-scoped, then the machineId
+// will be updated to "".
+func validateStoragePool(
+	st *State, poolName string, kind storage.StorageKind, machineId *string,
+) error {
 	if poolName == "" {
 		return errors.New("pool name is required")
 	}
@@ -698,21 +746,36 @@ func validateStoragePool(st *State, poolName string, kind storage.StorageKind) e
 	}
 
 	// Ensure the storage provider supports the specified kind.
-	var kindSupported bool
-	switch kind {
-	case storage.StorageKindFilesystem:
-		// Filesystems can be created if either filesystem or block
-		// storage are supported.
+	kindSupported := provider.Supports(kind)
+	if !kindSupported && kind == storage.StorageKindFilesystem {
+		// Filesystems can be created if either filesystem
+		// or block storage are supported.
 		if provider.Supports(storage.StorageKindBlock) {
 			kindSupported = true
-			break
+			// The filesystem is to be backed by a volume,
+			// so the filesystem must be managed on the
+			// machine. Skip the scope-check below by
+			// setting the pointer to nil.
+			machineId = nil
 		}
-		fallthrough
-	default:
-		kindSupported = provider.Supports(kind)
 	}
 	if !kindSupported {
 		return errors.Errorf("%q provider does not support %q storage", providerType, kind)
+	}
+
+	// Check the storage scope.
+	if machineId != nil {
+		switch provider.Scope() {
+		case storage.ScopeMachine:
+			if *machineId == "" {
+				return errors.Annotate(err, "machine unspecified for machine-scoped storage")
+			}
+		default:
+			// The storage is not machine-scoped, so we clear out
+			// the machine ID to inform the caller that the storage
+			// scope should be the environment.
+			*machineId = ""
+		}
 	}
 
 	// Ensure the pool type is supported by the environment.

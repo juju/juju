@@ -33,7 +33,7 @@ func init() {
 const FakeDefaultSeries = "trusty"
 
 // EnvironmentTag is a defined known valid UUID that can be used in testing.
-var EnvironmentTag = names.NewEnvironTag("deadbeef-0bad-f00d-0000-4b1d0d06f00d")
+var EnvironmentTag = names.NewEnvironTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
 
 // FakeConfig() returns an environment configuration for a
 // fake provider with all required attributes set.

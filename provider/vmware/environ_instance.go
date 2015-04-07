@@ -5,6 +5,7 @@ package vmware
 
 import (
 	"github.com/juju/errors"
+	"strings"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -105,4 +106,28 @@ func (env *environ) StateServerInstances() ([]instance.Id, error) {
 		return nil, environs.ErrNotBootstrapped
 	}
 	return results, nil
+}
+
+// parsePlacement extracts the availability zone from the placement
+// string and returns it. If no zone is found there then an error is
+// returned.
+func (env *environ) parsePlacement(placement string) (*vmwareAvailZone, error) {
+	if placement == "" {
+		return nil, nil
+	}
+
+	pos := strings.IndexRune(placement, '=')
+	if pos == -1 {
+		return nil, errors.Errorf("unknown placement directive: %v", placement)
+	}
+
+	switch key, value := placement[:pos], placement[pos+1:]; key {
+	case "zone":
+		zone, err := env.availZone(value)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return zone, nil
+	}
+	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }

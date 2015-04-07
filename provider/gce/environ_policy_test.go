@@ -31,7 +31,7 @@ func (s *environPolSuite) TestPrecheckInstance(c *gc.C) {
 
 func (s *environPolSuite) TestPrecheckInstanceAPI(c *gc.C) {
 	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("a-zone", google.StatusUp),
+		google.NewZone("a-zone", google.StatusUp, "", ""),
 	}
 
 	cons := constraints.Value{}
@@ -44,7 +44,7 @@ func (s *environPolSuite) TestPrecheckInstanceAPI(c *gc.C) {
 
 func (s *environPolSuite) TestPrecheckInstanceFullAPI(c *gc.C) {
 	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("home-zone", google.StatusUp),
+		google.NewZone("home-zone", google.StatusUp, "", ""),
 	}
 
 	cons := constraints.MustParse("instance-type=n1-standard-1 arch=amd64 root-disk=1G")
@@ -91,7 +91,7 @@ func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 
 func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("a-zone", google.StatusUp),
+		google.NewZone("a-zone", google.StatusUp, "", ""),
 	}
 
 	cons := constraints.Value{}
@@ -103,7 +103,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 
 func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("a-zone", google.StatusDown),
+		google.NewZone("a-zone", google.StatusDown, "", ""),
 	}
 
 	cons := constraints.Value{}
@@ -115,7 +115,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 
 func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("home-zone", google.StatusUp),
+		google.NewZone("home-zone", google.StatusUp, "", ""),
 	}
 
 	cons := constraints.Value{}

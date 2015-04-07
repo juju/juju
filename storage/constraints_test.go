@@ -85,3 +85,21 @@ func (*ConstraintsSuite) testParseError(c *gc.C, s, expectErr string) {
 	_, err := storage.ParseConstraints(s)
 	c.Check(err, gc.ErrorMatches, expectErr)
 }
+
+func (s *ConstraintsSuite) TestValidPoolName(c *gc.C) {
+	c.Assert(storage.IsValidPoolName("pool"), jc.IsTrue)
+	c.Assert(storage.IsValidPoolName("p-ool"), jc.IsTrue)
+	c.Assert(storage.IsValidPoolName("p-00l"), jc.IsTrue)
+	c.Assert(storage.IsValidPoolName("p?00l"), jc.IsTrue)
+	c.Assert(storage.IsValidPoolName("p-?00l"), jc.IsTrue)
+	c.Assert(storage.IsValidPoolName("p"), jc.IsTrue)
+	c.Assert(storage.IsValidPoolName("P"), jc.IsTrue)
+	c.Assert(storage.IsValidPoolName("p?0?l"), jc.IsTrue)
+}
+
+func (s *ConstraintsSuite) TestInvalidPoolName(c *gc.C) {
+	c.Assert(storage.IsValidPoolName("7ool"), jc.IsFalse)
+	c.Assert(storage.IsValidPoolName("/ool"), jc.IsFalse)
+	c.Assert(storage.IsValidPoolName("-00l"), jc.IsFalse)
+	c.Assert(storage.IsValidPoolName("*00l"), jc.IsFalse)
+}

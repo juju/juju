@@ -4,11 +4,13 @@
 package provider_test
 
 import (
+	"errors"
+	"path/filepath"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
@@ -18,8 +20,9 @@ var _ = gc.Suite(&rootfsSuite{})
 
 type rootfsSuite struct {
 	testing.BaseSuite
-	storageDir string
-	commands   *mockRunCommand
+	storageDir   string
+	commands     *mockRunCommand
+	mockDirFuncs *provider.MockDirFuncs
 }
 
 func (s *rootfsSuite) SetUpTest(c *gc.C) {
@@ -28,7 +31,9 @@ func (s *rootfsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *rootfsSuite) TearDownTest(c *gc.C) {
-	s.commands.assertDrained()
+	if s.commands != nil {
+		s.commands.assertDrained()
+	}
 	s.BaseSuite.TearDownTest(c)
 }
 
@@ -67,148 +72,235 @@ func (s *rootfsSuite) TestSupports(c *gc.C) {
 	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsTrue)
 }
 
+func (s *rootfsSuite) TestScope(c *gc.C) {
+	p := s.rootfsProvider(c)
+	c.Assert(p.Scope(), gc.Equals, storage.ScopeMachine)
+}
+
 func (s *rootfsSuite) rootfsFilesystemSource(c *gc.C) storage.FilesystemSource {
 	s.commands = &mockRunCommand{c: c}
-	return provider.RootfsFilesystemSource(
-		s.storageDir,
-		s.commands.run,
-	)
+	source, d := provider.RootfsFilesystemSource(s.storageDir, s.commands.run)
+	s.mockDirFuncs = d
+	return source
 }
 
 func (s *rootfsSuite) TestCreateFilesystems(c *gc.C) {
 	source := s.rootfsFilesystemSource(c)
-	cmd := s.commands.expect("df", "--output=size", "/mnt/bar")
+	cmd := s.commands.expect("df", "--output=size", s.storageDir)
 	cmd.respond("1K-blocks\n2048", nil)
+	cmd = s.commands.expect("df", "--output=size", s.storageDir)
+	cmd.respond("1K-blocks\n4096", nil)
 
-	filesystems, filesystemAttachments, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	filesystems, err := source.CreateFilesystems([]storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("6"),
 		Size: 2,
-		Attachment: &storage.FilesystemAttachmentParams{
-			AttachmentParams: storage.AttachmentParams{
-				Machine:    names.NewMachineTag("1"),
-				InstanceId: "instance-id",
-			},
-			Path: "/mnt/bar",
-		},
+	}, {
+		Tag:  names.NewFilesystemTag("7"),
+		Size: 4,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	mountedDirs := provider.MountedDirs(source)
-	c.Assert(mountedDirs.Size(), gc.Equals, 1)
-	c.Assert(mountedDirs.Contains("/mnt/bar"), jc.IsTrue)
-	c.Assert(filesystems, gc.HasLen, 1)
-	c.Assert(filesystemAttachments, gc.HasLen, 1)
-	c.Assert(filesystems[0], gc.Equals, storage.Filesystem{
-		Tag:  names.NewFilesystemTag("6"),
-		Size: 2,
-	})
-	c.Assert(filesystemAttachments[0], gc.Equals, storage.FilesystemAttachment{
-		Path:       "/mnt/bar",
-		Filesystem: names.NewFilesystemTag("6"),
-		Machine:    names.NewMachineTag("1"),
-	})
+
+	c.Assert(filesystems, jc.DeepEquals, []storage.Filesystem{{
+		Tag:          names.NewFilesystemTag("6"),
+		FilesystemId: "6",
+		Size:         2,
+	}, {
+		Tag:          names.NewFilesystemTag("7"),
+		FilesystemId: "7",
+		Size:         4,
+	}})
 }
 
 func (s *rootfsSuite) TestCreateFilesystemsIsUse(c *gc.C) {
 	source := s.rootfsFilesystemSource(c)
-	_, _, err := source.CreateFilesystems([]storage.FilesystemParams{
-		{
-			Tag:  names.NewFilesystemTag("6"),
-			Size: 1,
-			Attachment: &storage.FilesystemAttachmentParams{
-				AttachmentParams: storage.AttachmentParams{
-					Machine:    names.NewMachineTag("1"),
-					InstanceId: "instance-id1",
-				},
-				Path: "/mnt/notempty",
-			},
-		}, {
-			Tag:  names.NewFilesystemTag("6"),
-			Size: 1,
-			Attachment: &storage.FilesystemAttachmentParams{
-				AttachmentParams: storage.AttachmentParams{
-					Machine:    names.NewMachineTag("2"),
-					InstanceId: "instance-id2",
-				},
-				Path: "/mnt/notempty",
-			},
-		}})
-	c.Assert(err, gc.ErrorMatches, ".* path must be empty")
+	_, err := source.CreateFilesystems([]storage.FilesystemParams{{
+		Tag:  names.NewFilesystemTag("666"), // magic; see mockDirFuncs
+		Size: 1,
+	}})
+	c.Assert(err, gc.ErrorMatches, "creating filesystem: \".*/666\" is not empty")
 }
 
-func (s *rootfsSuite) TestCreateFilesystemsPathNotDir(c *gc.C) {
+func (s *rootfsSuite) TestAttachFilesystemsPathNotDir(c *gc.C) {
 	source := s.rootfsFilesystemSource(c)
-	_, _, err := source.CreateFilesystems([]storage.FilesystemParams{{
-		Tag:  names.NewFilesystemTag("6"),
-		Size: 2,
-		Attachment: &storage.FilesystemAttachmentParams{
-			AttachmentParams: storage.AttachmentParams{
-				Machine:    names.NewMachineTag("1"),
-				InstanceId: "instance-id",
-			},
-			Path: "file",
-		},
+	_, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+		Filesystem:   names.NewFilesystemTag("6"),
+		FilesystemId: "6",
+		Path:         "file",
 	}})
 	c.Assert(err, gc.ErrorMatches, `.* path "file" must be a directory`)
 }
 
 func (s *rootfsSuite) TestCreateFilesystemsNotEnoughSpace(c *gc.C) {
 	source := s.rootfsFilesystemSource(c)
-	cmd := s.commands.expect("df", "--output=size", "/var/lib/juju/storage/fs/foo")
+	cmd := s.commands.expect("df", "--output=size", s.storageDir)
 	cmd.respond("1K-blocks\n2048", nil)
 
-	_, _, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	_, err := source.CreateFilesystems([]storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("6"),
 		Size: 4,
-		Attachment: &storage.FilesystemAttachmentParams{
-			AttachmentParams: storage.AttachmentParams{
-				Machine:    names.NewMachineTag("1"),
-				InstanceId: "instance-id",
-			},
-			Path: "/var/lib/juju/storage/fs/foo",
-		},
 	}})
 	c.Assert(err, gc.ErrorMatches, ".* filesystem is not big enough \\(2M < 4M\\)")
 }
 
 func (s *rootfsSuite) TestCreateFilesystemsInvalidPath(c *gc.C) {
 	source := s.rootfsFilesystemSource(c)
-	cmd := s.commands.expect("df", "--output=size", "/mnt/bad-dir")
+	cmd := s.commands.expect("df", "--output=size", s.storageDir)
 	cmd.respond("", errors.New("error creating directory"))
 
-	_, _, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	_, err := source.CreateFilesystems([]storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("6"),
 		Size: 2,
-		Attachment: &storage.FilesystemAttachmentParams{
-			AttachmentParams: storage.AttachmentParams{
-				Machine:    names.NewMachineTag("1"),
-				InstanceId: "instance-id",
-			},
-			Path: "/mnt/bad-dir",
-		},
 	}})
 	c.Assert(err, gc.ErrorMatches, ".* error creating directory")
 }
 
-func (s *rootfsSuite) TestCreateFilesystemsNoAttachment(c *gc.C) {
+func (s *rootfsSuite) TestAttachFilesystemsNoPathSpecified(c *gc.C) {
 	source := s.rootfsFilesystemSource(c)
-	_, _, err := source.CreateFilesystems([]storage.FilesystemParams{{
-		Tag:  names.NewFilesystemTag("6"),
-		Size: 2,
+	_, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+		Filesystem:   names.NewFilesystemTag("6"),
+		FilesystemId: "6",
 	}})
-	c.Assert(err, gc.ErrorMatches, ".* creating filesystem without machine attachment not supported")
+	c.Assert(err, gc.ErrorMatches, "attaching filesystem 6: filesystem mount point not specified")
 }
 
-func (s *rootfsSuite) TestCreateFilesystemsNoPathSpecified(c *gc.C) {
+func (s *rootfsSuite) TestAttachFilesystemsBind(c *gc.C) {
 	source := s.rootfsFilesystemSource(c)
-	_, _, err := source.CreateFilesystems([]storage.FilesystemParams{{
-		Tag:  names.NewFilesystemTag("6"),
-		Size: 2,
-		Attachment: &storage.FilesystemAttachmentParams{
-			AttachmentParams: storage.AttachmentParams{
-				Machine:    names.NewMachineTag("1"),
-				InstanceId: "instance-id",
-			},
-		},
+
+	cmd := s.commands.expect("df", "--output=source", "/srv")
+	cmd.respond("headers\n/src/of/root", nil)
+
+	cmd = s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv")
+	cmd.respond("", nil)
+
+	info, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+		Filesystem:   names.NewFilesystemTag("6"),
+		FilesystemId: "6",
+		Path:         "/srv",
 	}})
-	c.Assert(err, gc.ErrorMatches, ".* cannot create a filesystem mount without specifying a path")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, []storage.FilesystemAttachment{{
+		Filesystem: names.NewFilesystemTag("6"),
+		Path:       "/srv",
+	}})
+}
+
+func (s *rootfsSuite) TestAttachFilesystemsBound(c *gc.C) {
+	source := s.rootfsFilesystemSource(c)
+
+	// already bind-mounted storage-dir/6 to the target
+	cmd := s.commands.expect("df", "--output=source", "/srv")
+	cmd.respond("headers\n"+filepath.Join(s.storageDir, "6"), nil)
+
+	info, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+		Filesystem:   names.NewFilesystemTag("6"),
+		FilesystemId: "6",
+		Path:         "/srv",
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, []storage.FilesystemAttachment{{
+		Filesystem: names.NewFilesystemTag("6"),
+		Path:       "/srv",
+	}})
+}
+
+func (s *rootfsSuite) TestAttachFilesystemsBindFailsDifferentFS(c *gc.C) {
+	source := s.rootfsFilesystemSource(c)
+
+	cmd := s.commands.expect("df", "--output=source", "/srv")
+	cmd.respond("headers\n/src/of/root", nil)
+
+	cmd = s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv")
+	cmd.respond("", errors.New("mount --bind fails"))
+
+	cmd = s.commands.expect("df", "--output=target", filepath.Join(s.storageDir, "6"))
+	cmd.respond("headers\n/dev", nil)
+
+	cmd = s.commands.expect("df", "--output=target", "/srv")
+	cmd.respond("headers\n/proc", nil)
+
+	_, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+		Filesystem:   names.NewFilesystemTag("6"),
+		FilesystemId: "6",
+		Path:         "/srv",
+	}})
+	c.Assert(err, gc.ErrorMatches, `attaching filesystem 6: ".*/6" \("/dev"\) and "/srv" \("/proc"\) are on different filesystems`)
+}
+
+func (s *rootfsSuite) TestAttachFilesystemsBindSameFSEmptyDir(c *gc.C) {
+	source := s.rootfsFilesystemSource(c)
+
+	cmd := s.commands.expect("df", "--output=source", "/srv")
+	cmd.respond("headers\n/src/of/root", nil)
+
+	cmd = s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv")
+	cmd.respond("", errors.New("mount --bind fails"))
+
+	cmd = s.commands.expect("df", "--output=target", filepath.Join(s.storageDir, "6"))
+	cmd.respond("headers\n/dev", nil)
+
+	cmd = s.commands.expect("df", "--output=target", "/srv")
+	cmd.respond("headers\n/dev", nil)
+
+	info, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+		Filesystem:   names.NewFilesystemTag("6"),
+		FilesystemId: "6",
+		Path:         "/srv",
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, []storage.FilesystemAttachment{{
+		Filesystem: names.NewFilesystemTag("6"),
+		Path:       "/srv",
+	}})
+}
+
+func (s *rootfsSuite) TestAttachFilesystemsBindSameFSNonEmptyDirUnclaimed(c *gc.C) {
+	source := s.rootfsFilesystemSource(c)
+
+	cmd := s.commands.expect("df", "--output=source", "/srv/666")
+	cmd.respond("headers\n/src/of/root", nil)
+
+	cmd = s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv/666")
+	cmd.respond("", errors.New("mount --bind fails"))
+
+	cmd = s.commands.expect("df", "--output=target", filepath.Join(s.storageDir, "6"))
+	cmd.respond("headers\n/dev", nil)
+
+	cmd = s.commands.expect("df", "--output=target", "/srv/666")
+	cmd.respond("headers\n/dev", nil)
+
+	_, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+		Filesystem:   names.NewFilesystemTag("6"),
+		FilesystemId: "6",
+		Path:         "/srv/666",
+	}})
+	c.Assert(err, gc.ErrorMatches, `attaching filesystem 6: "/srv/666" is not empty`)
+}
+
+func (s *rootfsSuite) TestAttachFilesystemsBindSameFSNonEmptyDirClaimed(c *gc.C) {
+	source := s.rootfsFilesystemSource(c)
+
+	cmd := s.commands.expect("df", "--output=source", "/srv/666")
+	cmd.respond("headers\n/src/of/root", nil)
+
+	cmd = s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv/666")
+	cmd.respond("", errors.New("mount --bind fails"))
+
+	cmd = s.commands.expect("df", "--output=target", filepath.Join(s.storageDir, "6"))
+	cmd.respond("headers\n/dev", nil)
+
+	cmd = s.commands.expect("df", "--output=target", "/srv/666")
+	cmd.respond("headers\n/dev", nil)
+
+	s.mockDirFuncs.Dirs.Add(filepath.Join(s.storageDir, "6", "juju-target-claimed"))
+
+	info, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+		Filesystem:   names.NewFilesystemTag("6"),
+		FilesystemId: "6",
+		Path:         "/srv/666",
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, []storage.FilesystemAttachment{{
+		Filesystem: names.NewFilesystemTag("6"),
+		Path:       "/srv/666",
+	}})
 }

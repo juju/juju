@@ -242,7 +242,7 @@ func (i *interruptOnDial) Addresses() ([]network.Address, error) {
 	} else {
 		i.interrupted <- os.Interrupt
 	}
-	return []network.Address{network.NewAddress(i.name, network.ScopeUnknown)}, nil
+	return network.NewAddresses(i.name), nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
@@ -270,11 +270,7 @@ func (ac *addressesChange) Refresh() error {
 }
 
 func (ac *addressesChange) Addresses() ([]network.Address, error) {
-	var addrs []network.Address
-	for _, addr := range ac.addrs[0] {
-		addrs = append(addrs, network.NewAddress(addr, network.ScopeUnknown))
-	}
-	return addrs, nil
+	return network.NewAddresses(ac.addrs[0]...), nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {

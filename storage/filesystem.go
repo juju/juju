@@ -11,6 +11,14 @@ type Filesystem struct {
 	// Tag is a unique name assigned by Juju to the filesystem.
 	Tag names.FilesystemTag
 
+	// Volume is the tag of the volume that backs the filesystem, if any.
+	Volume names.VolumeTag
+
+	// FilesystemId is a unique provider-supplied ID for the filesystem.
+	// FilesystemId is required to be unique for the lifetime of the
+	// filesystem, but may be reused.
+	FilesystemId string
+
 	// Size is the size of the filesystem, in MiB.
 	Size uint64
 }

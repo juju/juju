@@ -6,6 +6,7 @@ package client
 import (
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -14,7 +15,11 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
+	"gopkg.in/juju/charmstore.v4/csclient"
+	"gopkg.in/macaroon-bakery.v0/httpbakery"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
@@ -265,7 +270,9 @@ func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
 	return svc.ClearExposed()
 }
 
-var CharmStore charm.Repository = charm.Store
+// newCharmStore instantiates a new charm store repository.
+// It is defined at top level for testing purposes.
+var newCharmStore = charmrepo.NewCharmStore
 
 func networkTagsToNames(tags []string) ([]string, error) {
 	netNames := make([]string, len(tags))
@@ -309,7 +316,11 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		if curl.Schema != "cs" {
 			return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
 		}
-		err = c.AddCharm(params.CharmURL{args.CharmUrl})
+		// Note that because this block is here for backward compatibility
+		// only, we do not support macaroon authorization.
+		err = c.AddCharmWithAuthorization(params.AddCharmWithAuthorization{
+			URL: args.CharmUrl,
+		})
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -492,7 +503,9 @@ func (c *Client) serviceSetCharm1dot16(service *state.Service, curl *charm.URL, 
 	if curl.Revision < 0 {
 		return fmt.Errorf("charm url must include revision")
 	}
-	err := c.AddCharm(params.CharmURL{curl.String()})
+	err := c.AddCharm(params.CharmURL{
+		URL: curl.String(),
+	})
 	if err != nil {
 		return err
 	}
@@ -980,7 +993,7 @@ func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
 	return info, nil
 }
 
-// ShareEnvironment allows the given user(s) access to the environment.
+// ShareEnvironment manages allowing and denying the given user(s) access to the environment.
 func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params.ErrorResults, err error) {
 	var createdBy names.UserTag
 	var ok bool
@@ -1004,7 +1017,7 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 		}
 		switch arg.Action {
 		case params.AddEnvUser:
-			_, err := c.api.state.AddEnvironmentUser(user, createdBy)
+			_, err := c.api.state.AddEnvironmentUser(user, createdBy, "")
 			if err != nil {
 				err = errors.Annotate(err, "could not share environment")
 				result.Results[i].Error = common.ServerError(err)
@@ -1020,6 +1033,32 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 		}
 	}
 	return result, nil
+}
+
+// EnvUserInfo returns information on all users in the environment.
+func (c *Client) EnvUserInfo() (params.EnvUserInfoResults, error) {
+	var results params.EnvUserInfoResults
+	env, err := c.api.state.Environment()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	users, err := env.Users()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
+	for _, user := range users {
+		results.Results = append(results.Results, params.EnvUserInfoResult{
+			Result: &params.EnvUserInfo{
+				UserName:       user.UserName(),
+				DisplayName:    user.DisplayName(),
+				CreatedBy:      user.CreatedBy(),
+				DateCreated:    user.DateCreated(),
+				LastConnection: user.LastConnection(),
+			},
+		})
+	}
+	return results, nil
 }
 
 // GetAnnotations returns annotations about a given entity.
@@ -1201,10 +1240,19 @@ func destroyErr(desc string, ids, errs []string) error {
 	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }
 
-// AddCharm adds the given charm URL (which must include revision) to
+func (c *Client) AddCharm(args params.CharmURL) error {
+	return c.AddCharmWithAuthorization(params.AddCharmWithAuthorization{
+		URL: args.URL,
+	})
+}
+
+// AddCharmWithAuthorization adds the given charm URL (which must include revision) to
 // the environment, if it does not exist yet. Local charms are not
 // supported, only charm store URLs. See also AddLocalCharm().
-func (c *Client) AddCharm(args params.CharmURL) error {
+//
+// The authorization macaroon, args.CharmStoreMacaroon, may be
+// omitted, in which case this call is equivalent to AddCharm.
+func (c *Client) AddCharmWithAuthorization(args params.AddCharmWithAuthorization) error {
 	charmURL, err := charm.ParseURL(args.URL)
 	if err != nil {
 		return err
@@ -1218,11 +1266,12 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 
 	// First, check if a pending or a real charm exists in state.
 	stateCharm, err := c.api.state.PrepareStoreCharmUpload(charmURL)
-	if err == nil && stateCharm.IsUploaded() {
+	if err != nil {
+		return err
+	}
+	if stateCharm.IsUploaded() {
 		// Charm already in state (it was uploaded already).
 		return nil
-	} else if err != nil {
-		return err
 	}
 
 	// Get the charm and its information from the store.
@@ -1230,10 +1279,28 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	if err != nil {
 		return err
 	}
-	config.SpecializeCharmRepo(CharmStore, envConfig)
-	downloadedCharm, err := CharmStore.Get(charmURL)
+	csURL, err := url.Parse(csclient.ServerURL)
 	if err != nil {
-		return errors.Annotatef(err, "cannot download charm %q", charmURL.String())
+		return err
+	}
+	csParams := charmrepo.NewCharmStoreParams{
+		URL:        csURL.String(),
+		HTTPClient: httpbakery.NewHTTPClient(),
+	}
+	if args.CharmStoreMacaroon != nil {
+		// Set the provided charmstore authorizing macaroon
+		// as a cookie in the HTTP client.
+		// TODO discharge any third party caveats in the macaroon.
+		ms := []*macaroon.Macaroon{args.CharmStoreMacaroon}
+		httpbakery.SetCookie(csParams.HTTPClient.Jar, csURL, ms)
+	}
+	repo := config.SpecializeCharmRepo(
+		newCharmStore(csParams),
+		envConfig,
+	)
+	downloadedCharm, err := repo.Get(charmURL)
+	if err != nil {
+		return errors.Mask(err)
 	}
 
 	// Open it and calculate the SHA256 hash.
@@ -1305,11 +1372,13 @@ func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmRe
 	if err != nil {
 		return params.ResolveCharmResults{}, err
 	}
-	config.SpecializeCharmRepo(CharmStore, envConfig)
+	repo := config.SpecializeCharmRepo(
+		newCharmStore(charmrepo.NewCharmStoreParams{}),
+		envConfig)
 
 	for _, ref := range args.References {
 		result := params.ResolveCharmResult{}
-		curl, err := c.resolveCharm(&ref, CharmStore)
+		curl, err := c.resolveCharm(&ref, repo)
 		if err != nil {
 			result.Error = err.Error()
 		} else {
@@ -1320,13 +1389,17 @@ func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmRe
 	return results, nil
 }
 
-func (c *Client) resolveCharm(ref *charm.Reference, repo charm.Repository) (*charm.URL, error) {
+func (c *Client) resolveCharm(ref *charm.Reference, repo charmrepo.Interface) (*charm.URL, error) {
 	if ref.Schema != "cs" {
 		return nil, fmt.Errorf("only charm store charm references are supported, with cs: schema")
 	}
 
 	// Resolve the charm location with the repository.
-	return repo.Resolve(ref)
+	curl, err := repo.Resolve(ref)
+	if err != nil {
+		return nil, err
+	}
+	return curl.WithRevision(ref.Revision), nil
 }
 
 // charmArchiveStoragePath returns a string that is suitable as a

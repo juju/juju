@@ -10,7 +10,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -377,14 +377,14 @@ func (s *CleanupSuite) TestCleanupStorage(c *gc.C) {
 	si, err = s.State.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(si.Life(), gc.Equals, state.Dying)
-	sa, err := s.State.StorageAttachments(u.UnitTag())
+	sa, err := s.State.UnitStorageAttachments(u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sa, gc.HasLen, 1)
 	c.Assert(sa[0].Life(), gc.Equals, state.Alive)
 	s.assertCleanupRuns(c)
 
 	// After running the cleanup, the attachment should be dying.
-	sa, err = s.State.StorageAttachments(u.UnitTag())
+	sa, err = s.State.UnitStorageAttachments(u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sa, gc.HasLen, 1)
 	c.Assert(sa[0].Life(), gc.Equals, state.Dying)

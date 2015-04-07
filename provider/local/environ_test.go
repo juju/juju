@@ -31,8 +31,8 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/local"
-	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
+	svctesting "github.com/juju/juju/service/common/testing"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -109,7 +109,7 @@ type localJujuTestSuite struct {
 	jujutest.Tests
 	testPath string
 	fakesudo string
-	svcData  *service.FakeServiceData
+	svcData  *svctesting.FakeServiceData
 }
 
 func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
@@ -136,7 +136,7 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 		return nil
 	})
 
-	s.svcData = service.NewFakeServiceData()
+	s.svcData = svctesting.NewFakeServiceData()
 	local.PatchServices(s.PatchValue, s.svcData)
 }
 

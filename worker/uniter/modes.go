@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/params"
@@ -17,6 +17,38 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/operation"
 )
+
+// setAgentStatus sets the unit's status if it has changed since last time this method was called.
+func setAgentStatus(u *Uniter, status params.Status, info string, data map[string]interface{}) error {
+	u.setStatusMutex.Lock()
+	defer u.setStatusMutex.Unlock()
+	if u.lastReportedStatus == status && u.lastReportedMessage == info {
+		return nil
+	}
+	u.lastReportedStatus = status
+	u.lastReportedMessage = info
+	return u.unit.SetAgentStatus(status, info, data)
+}
+
+// updateAgentStatus updates the agent status to reflect what the uniter is doing,
+// or to report on an error.
+func updateAgentStatus(u *Uniter, userMessage string, err error) {
+	// If there was an error performing the operation, set the state
+	// of the agent to Failed.
+	if err != nil {
+		msg := fmt.Sprintf("%s: %v", userMessage, err)
+		err2 := setAgentStatus(u, params.StatusFailed, msg, nil)
+		if err2 != nil {
+			logger.Errorf("updating agent status: %v", err2)
+		}
+		return
+	}
+	// Anything else, the uniter is doing something, running a hook or action etc.
+	err2 := setAgentStatus(u, params.StatusExecuting, userMessage, nil)
+	if err2 != nil {
+		logger.Errorf("updating agent status: %v", err2)
+	}
+}
 
 // Mode defines the signature of the functions that implement the possible
 // states of a running Uniter.
@@ -64,10 +96,11 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 			creator = newSkipHookOp(*opState.Hook)
 		}
 	case operation.Continue:
-		logger.Infof("continuing after %q hook", opState.Hook.Kind)
-		if opState.Hook.Kind == hooks.Stop {
+		if opState.Stopped {
+			logger.Infof("opState.Stopped == true; transition to ModeTerminating")
 			return ModeTerminating, nil
 		}
+		logger.Infof("no operations in progress; waiting for changes")
 		return ModeAbide, nil
 	default:
 		return nil, errors.Errorf("unknown operation kind %v", opState.Kind)
@@ -82,13 +115,6 @@ func ModeInstalling(curl *charm.URL) (next Mode, err error) {
 	name := fmt.Sprintf("ModeInstalling %s", curl)
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext(name, &err)()
-		// TODO(fwereade) 2015-01-19
-		// This SetStatus call should probably be inside the operation somehow;
-		// which in turn implies that the SetStatus call in PrepareHook is
-		// also misplaced, and should also be explicitly part of the operation.
-		if err = u.unit.SetAgentStatus(params.StatusInstalling, "", nil); err != nil {
-			return nil, errors.Trace(err)
-		}
 		return continueAfter(u, newInstallOp(curl))
 	}, nil
 }
@@ -109,14 +135,13 @@ func ModeUpgrading(curl *charm.URL) Mode {
 // ModeTerminating marks the unit dead and returns ErrTerminateAgent.
 func ModeTerminating(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeTerminating", &err)()
-	if err = u.unit.SetAgentStatus(params.StatusStopping, "", nil); err != nil {
-		return nil, errors.Trace(err)
-	}
 	w, err := u.unit.Watch()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	defer watcher.Stop(w, &u.tomb)
+
 	for {
 		select {
 		case <-u.tomb.Dying():
@@ -168,9 +193,6 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if !opState.Started {
 		return continueAfter(u, newSimpleRunHookOp(hooks.Start))
 	}
-	if err = u.unit.SetAgentStatus(params.StatusActive, "", nil); err != nil {
-		return nil, errors.Trace(err)
-	}
 	u.f.WantUpgradeEvent(false)
 	u.relations.StartHooks()
 	defer func() {
@@ -191,6 +213,10 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	return modeAbideAliveLoop(u)
 }
 
+// idleWaitTime is the time after which, if there are no uniter events,
+// the agent state becomes idle.
+var idleWaitTime = 2 * time.Second
+
 // modeAbideAliveLoop handles all state changes for ModeAbide when the unit
 // is in an Alive state.
 func modeAbideAliveLoop(u *Uniter) (Mode, error) {
@@ -201,6 +227,11 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 		)
 		var creator creator
 		select {
+		case <-time.After(idleWaitTime):
+			if err := setAgentStatus(u, params.StatusIdle, "", nil); err != nil {
+				return nil, errors.Trace(err)
+			}
+			continue
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
 		case <-u.f.UnitDying():
@@ -292,7 +323,11 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	u.f.WantResolvedEvent()
 	u.f.WantUpgradeEvent(true)
 	for {
-		if err = u.unit.SetAgentStatus(params.StatusError, statusMessage, statusData); err != nil {
+		// The spec says we should set the workload status to Error, but that's crazy talk.
+		// It's the agent itself that should be in Error state. So we'll ensure the model is
+		// correct and translate before the user sees the data.
+		// ie a charm hook error results in agent error status, but is presented as a workload error.
+		if err = setAgentStatus(u, params.StatusError, statusMessage, statusData); err != nil {
 			return nil, errors.Trace(err)
 		}
 		select {
@@ -317,6 +352,10 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 				return nil, errors.Trace(err)
 			}
 			return ModeContinue, nil
+		case actionId := <-u.f.ActionEvents():
+			if err := u.runOperation(newActionOp(actionId)); err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
 	}
 }
@@ -328,7 +367,11 @@ func ModeConflicted(curl *charm.URL) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext("ModeConflicted", &err)()
 		// TODO(mue) Add helpful data here too in later CL.
-		if err = u.unit.SetAgentStatus(params.StatusError, "upgrade failed", nil); err != nil {
+		// The spec says we should set the workload status to Error, but that's crazy talk.
+		// It's the agent itself that should be in Error state. So we'll ensure the model is
+		// correct and translate before the user sees the data.
+		// ie a charm upgrade error results in agent error status, but is presented as a workload error.
+		if err := setAgentStatus(u, params.StatusError, "upgrade failed", nil); err != nil {
 			return nil, errors.Trace(err)
 		}
 		u.f.WantResolvedEvent()
