@@ -11,31 +11,42 @@ from launchpadlib.launchpad import Launchpad
 
 
 DEVEL = 'development'
-STABLE = 'stable'
+PROPOSED = 'proposed'
 
-NOTES_TEMPLATE = """\
-juju-core {version}
+DEVEL_TEMPLATE = """\
+# juju-core {version}
 
-A new {purpose} release of Juju, juju-core {version}, is now available.
-{replaces}
+A new development release of Juju, juju-core {version}, is now available.
+This release replaces version {previous}.
 
 
-Getting Juju
+## Getting Juju
 
 juju-core {version} is available for utopic and backported to earlier
 series in the following PPA:
 
-    https://launchpad.net/~juju/+archive/{archive_suffix}
+    https://launchpad.net/~juju/+archive/devel
 
-{warning}
+Windows and OS X users will find installers at:
+
+    https://launchpad.net/juju-core/+milestone/{version}
+
+Development releases use the "devel" simple-streams. You must configure
+the `agent-stream` option in your environments.yaml to use the matching
+juju agents.
+
+Upgrading from stable releases to development releases is not
+supported. You can upgrade test environments to development releases
+to test new features and fixes, but it is not advised to upgrade
+production environments to {version}.
 
 
-Notable Changes
+## Notable Changes
 
 {notable}
 
 
-Resolved issues
+## Resolved issues
 
 {resolved_text}
 
@@ -46,11 +57,43 @@ We encourage everyone to subscribe the mailing list at
 juju-dev@lists.canonical.com, or join us on #juju-dev on freenode.
 """
 
-WARNING_TEMPLATE = """\
-Upgrading from stable releases to development releases is not
-supported. You can upgrade test environments to development releases
-to test new features and fixes, but it is not advised to upgrade
-production environments to {version}.
+PROPOSED_TEMPLATE = """\
+# juju-core {version}
+
+A new proposed stable release of Juju, juju-core {version}, is now available.
+This release may replace version {previous} on <day-of-week> <month> <day>.
+
+
+## Getting Juju
+
+juju-core {version} is available for utopic and backported to earlier
+series in the following PPA:
+
+    https://launchpad.net/~juju/+archive/proposed
+
+Windows and OS X users will find installers at:
+
+    https://launchpad.net/juju-core/+milestone/{version}
+
+Proposed releases use the "proposed" simple-streams. You must configure
+the `agent-stream` option in your environments.yaml to use the matching
+juju agents.
+
+
+## Notable Changes
+
+{notable}
+
+
+## Resolved issues
+
+{resolved_text}
+
+
+Finally
+
+We encourage everyone to subscribe the mailing list at
+juju-dev@lists.canonical.com, or join us on #juju-dev on freenode.
 """
 
 
@@ -64,7 +107,7 @@ def get_lp_bug_tasks(script, milestone_name):
 
 
 def get_purpose(milestone):
-    """Return STABLE or DEVEL as implied by the milestone version."""
+    """Return PROPOSED or DEVEL as implied by the milestone version."""
     parts = milestone.split('.')
     major = minor = micro = None
     if len(parts) == 2:
@@ -77,7 +120,7 @@ def get_purpose(milestone):
     if re.search('[a-z]+', minor):
         return DEVEL
     else:
-        return STABLE
+        return PROPOSED
 
 
 def get_bugs(script, milestone):
@@ -95,8 +138,10 @@ def make_resolved_text(bugs):
     """Return the list of bug tuples as formatted text."""
     resolved = []
     for bug in bugs:
-        lines = wrap('* {0}'.format(bug[1]), width=70, subsequent_indent='  ')
-        lines.append('  Lp {0}'.format(bug[0]))
+        lines = wrap(
+            '* {0}'.format(bug[1]), width=70, initial_indent='  ',
+            subsequent_indent='    ')
+        lines.append('    Lp {0}'.format(bug[0]))
         text = '\n'.join(lines)
         resolved.append(text)
     resolved_text = '\n\n'.join(resolved)
@@ -105,24 +150,17 @@ def make_resolved_text(bugs):
 
 def make_notes(version, purpose, resolved_text, previous=None, notable=None):
     """Return to formatted release notes."""
-    if previous:
-        replaces = 'This release replaces {0}.'.format(previous)
-    else:
-        replaces = ''
     if purpose == DEVEL:
-        warning = WARNING_TEMPLATE.format(version=version)
-        archive_suffix = 'devel'
+        template = DEVEL_TEMPLATE
     else:
-        warning = ''
-        archive_suffix = purpose
+        template = PROPOSED_TEMPLATE
     if notable is None:
         notable = 'This releases addresses stability and performance issues.'
     elif notable == '':
         notable = '[[Add the notable changes here.]]'
-    text = NOTES_TEMPLATE.format(
+    text = template.format(
         version=version, purpose=purpose, resolved_text=resolved_text,
-        replaces=replaces, warning=warning, notable=notable,
-        archive_suffix=archive_suffix)
+        notable=notable, previous=previous)
     # Normalise the whitespace between sections. The text can have
     # extra whitespae when blank sections are interpolated.
     text = text.replace('\n\n\n\n', '\n\n\n')
