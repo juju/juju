@@ -797,17 +797,6 @@ func (a *MachineAgent) Restart() error {
 	return service.Restart(name)
 }
 
-// SetPassword sets the agent's password both in the agentconfig and on the
-// state server.
-func (a *MachineAgent) SetPassword(pw string) error {
-	config := a.CurrentConfig()
-	_, entity, err := OpenAPIState(config, a)
-	if err != nil {
-		return err
-	}
-	return setAgentPassword(pw, config.APIInfo().Password, a, entity)
-}
-
 func (a *MachineAgent) upgradeStepsWorkerStarter(
 	st *api.State,
 	jobs []multiwatcher.MachineJob,
