@@ -663,6 +663,17 @@ func (m *Machine) Remove() (err error) {
 		removeRebootDocOp(m.st, m.globalKey()),
 		removeMachineBlockDevicesOp(m.Id()),
 	}
+	ipAddresses, err := m.st.AllocatedIPAddresses(m.Id())
+	if err != nil {
+		return err
+	}
+	for _, address := range ipAddresses {
+		ops = append(ops, txn.Op{
+			C:      ipaddressesC,
+			Id:     address.DocID(),
+			Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+		})
+	}
 	ifacesOps, err := m.removeNetworkInterfacesOps()
 	if err != nil {
 		return err

@@ -66,6 +66,11 @@ func (i *IPAddress) Life() Life {
 	return i.doc.Life
 }
 
+// DocId returns the ID of the IP address.
+func (i *IPAddress) DocID() string {
+	return i.doc.DocID
+}
+
 // SubnetId returns the ID of the subnet the IP address is associated with. If
 // the address is not associated with a subnet this returns "".
 func (i *IPAddress) SubnetId() string {
