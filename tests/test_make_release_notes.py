@@ -1,3 +1,4 @@
+from datetime import datetime
 from mock import patch
 import os
 from StringIO import StringIO
@@ -9,6 +10,7 @@ from make_release_notes import (
     get_purpose,
     make_notes,
     make_resolved_text,
+    make_release_date,
     main,
     parse_args,
     PROPOSED,
@@ -59,6 +61,11 @@ class MakeReleaseNotes(TestCase):
             '    Lp 2'
         )
         self.assertEqual(expected, text)
+
+    def test_make_release_date(self):
+        now = datetime.strptime('2015-03-01', '%Y-%m-%d')
+        release_date = make_release_date(now=now)
+        self.assertEqual('Sunday March 08', release_date)
 
     def test_make_notes_with_proposed_purpose(self):
         # Proposed purpose points to the proposed PPA without a warning.

@@ -3,6 +3,10 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+from datetime import (
+    datetime,
+    timedelta,
+)
 import re
 import sys
 from textwrap import wrap
@@ -61,7 +65,7 @@ PROPOSED_TEMPLATE = """\
 # juju-core {version}
 
 A new proposed stable release of Juju, juju-core {version}, is now available.
-This release may replace version {previous} on <day-of-week> <month> <day>.
+This release may replace version {previous} on {release_date}.
 
 
 ## Getting Juju
@@ -148,6 +152,15 @@ def make_resolved_text(bugs):
     return resolved_text
 
 
+def make_release_date(now=None):
+    if now is None:
+        now = datetime.utcnow()
+    week = timedelta(days=7)
+    future = now + week
+    release_date = future.strftime('%A %B %d')
+    return release_date
+
+
 def make_notes(version, purpose, resolved_text, previous=None, notable=None):
     """Return to formatted release notes."""
     if purpose == DEVEL:
@@ -158,9 +171,10 @@ def make_notes(version, purpose, resolved_text, previous=None, notable=None):
         notable = 'This releases addresses stability and performance issues.'
     elif notable == '':
         notable = '[[Add the notable changes here.]]'
+    release_date = make_release_date()
     text = template.format(
         version=version, purpose=purpose, resolved_text=resolved_text,
-        notable=notable, previous=previous)
+        notable=notable, previous=previous, release_date=release_date)
     # Normalise the whitespace between sections. The text can have
     # extra whitespae when blank sections are interpolated.
     text = text.replace('\n\n\n\n', '\n\n\n')
