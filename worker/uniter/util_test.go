@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
 	coreleadership "github.com/juju/juju/leadership"
-	"github.com/juju/juju/lease"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
@@ -118,13 +117,6 @@ func (ctx *context) HookFailed(hookName string) {
 }
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
-	// We need this lest leadership calls block forever.
-	workerLoop := lease.WorkerLoop(ctx.st)
-	leaseWorker := worker.NewSimpleWorker(workerLoop)
-	defer func() {
-		c.Assert(worker.Stop(leaseWorker), jc.ErrorIsNil)
-	}()
-
 	defer func() {
 		if ctx.uniter != nil {
 			err := ctx.uniter.Stop()
