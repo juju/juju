@@ -64,7 +64,22 @@ func NewTrackerWorker(tag names.UnitTag, leadership leadership.LeadershipManager
 				close(ticketCh)
 			}
 		}()
-		t.tomb.Kill(t.loop())
+		err := t.loop()
+		// TODO: jam 2015-04-02 is this the most elegant way to make
+		// sure we shutdown cleanly? Essentially the lowest level sees
+		// that we are dying, and propagates an ErrDying up to us so
+		// that we shut down, which we then are passing back into
+		// Tomb.Kill().
+		// Tomb.Kill() special cases the exact object ErrDying, and has
+		// no idea about errors.Cause and the general errors.Trace
+		// mechanisms that we use.
+		// So we explicitly unwrap before calling tomb.Kill() else
+		// tomb.Stop() thinks that we have a genuine error.
+		switch cause := errors.Cause(err); cause {
+		case tomb.ErrDying:
+			err = cause
+		}
+		t.tomb.Kill(err)
 	}()
 	return t
 }
@@ -222,7 +237,7 @@ func (t *tracker) isLeader() (bool, error) {
 		// Last time we looked, we were leader.
 		select {
 		case <-t.tomb.Dying():
-			return false, tomb.ErrDying
+			return false, errors.Trace(tomb.ErrDying)
 		case <-t.renewLease:
 			logger.Infof("%s renewing lease for %s leadership", t.unitName, t.serviceName)
 			t.renewLease = nil

@@ -13,14 +13,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fslock"
 	corecharm "gopkg.in/juju/charm.v4"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
 	coreleadership "github.com/juju/juju/leadership"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -154,11 +152,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	go func() { u.tomb.Kill(u.f.Wait()) }()
 
 	// Start handling leader settings events, or not, as appropriate.
-	if featureflag.Enabled(feature.LeaderElection) {
-		u.f.WantLeaderSettingsEvents(!u.operationState().Leader)
-	} else {
-		u.f.WantLeaderSettingsEvents(false)
-	}
+	u.f.WantLeaderSettingsEvents(!u.operationState().Leader)
 
 	// Run modes until we encounter an error.
 	mode := ModeContinue
@@ -394,13 +388,15 @@ func (u *Uniter) runOperation(creator creator) error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot create operation")
 	}
-	if featureflag.Enabled(feature.LeaderElection) {
-		before := u.operationState()
-		defer func() {
-			if after := u.operationState(); before.Leader != after.Leader {
-				u.f.WantLeaderSettingsEvents(before.Leader)
-			}
-		}()
-	}
+	before := u.operationState()
+	defer func() {
+		// Check that if we lose leadership as a result of this
+		// operation, we want to start getting leader settings events,
+		// or if we gain leadership we want to stop receiving those
+		// events.
+		if after := u.operationState(); before.Leader != after.Leader {
+			u.f.WantLeaderSettingsEvents(before.Leader)
+		}
+	}()
 	return u.operationExecutor.Run(op)
 }
