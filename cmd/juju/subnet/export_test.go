@@ -20,3 +20,13 @@ func NewRemoveCommand(api SubnetAPI) *RemoveCommand {
 	removeCmd.api = api
 	return removeCmd
 }
+
+func NewListCommand(api SubnetAPI) *ListCommand {
+	listCmd := &ListCommand{}
+	listCmd.api = api
+	return listCmd
+}
+
+func ListFormat(cmd *ListCommand) string {
+	return cmd.out.Name()
+}

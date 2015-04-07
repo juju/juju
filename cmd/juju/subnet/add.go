@@ -8,14 +8,15 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 )
 
 // AddCommand calls the API to add an existing subnet to Juju.
 type AddCommand struct {
 	SubnetCommandBase
 
-	CIDR      string
-	SpaceName string
+	CIDR  string
+	Space names.SpaceTag
 }
 
 const addCommandDoc = `
@@ -55,7 +56,7 @@ func (c *AddCommand) Init(args []string) error {
 	}
 
 	// Validate the space name.
-	c.SpaceName, err = c.ValidateSpace(args[1])
+	c.Space, err = c.ValidateSpace(args[1])
 	if err != nil {
 		return err
 	}
@@ -72,11 +73,11 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 	defer api.Close()
 
 	// Add the existing subnet.
-	err = api.AddSubnet(c.CIDR, c.SpaceName)
+	err = api.AddSubnet(c.CIDR, c.Space)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add subnet %q", c.CIDR)
 	}
 
-	ctx.Infof("added subnet %q in space %q", c.CIDR, c.SpaceName)
+	ctx.Infof("added subnet %q in space %q", c.CIDR, c.Space.Id())
 	return nil
 }

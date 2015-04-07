@@ -4,14 +4,17 @@
 package subnet_test
 
 import (
+	"net"
 	"regexp"
 	stdtesting "testing"
 
 	"github.com/juju/cmd"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/subnet"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -88,11 +91,12 @@ func (s *BaseSubnetSuite) AssertRunFails(c *gc.C, expectErr string, args ...stri
 
 // AssertRunSucceeds is a shortcut for calling RunSuperCommand with
 // the passed args then asserting the stderr output matches
-// expectStderr, stdout is empty and the error is nil.
-func (s *BaseSubnetSuite) AssertRunSucceeds(c *gc.C, expectStderr string, args ...string) {
+// expectStderr, stdout is equal to expectStdout, and the error is
+// nil.
+func (s *BaseSubnetSuite) AssertRunSucceeds(c *gc.C, expectStderr, expectStdout string, args ...string) {
 	stdout, stderr, err := s.RunSubCommand(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stdout, gc.Equals, expectStdout)
 	c.Assert(stderr, gc.Matches, expectStderr)
 }
 
@@ -138,7 +142,9 @@ func (s *BaseSubnetSuite) Strings(values ...string) []string {
 type StubAPI struct {
 	*testing.Stub
 
-	Zones []string
+	Subnets []params.Subnet
+	Spaces  []names.Tag
+	Zones   []string
 }
 
 var _ subnet.SubnetAPI = (*StubAPI)(nil)
@@ -146,9 +152,40 @@ var _ subnet.SubnetAPI = (*StubAPI)(nil)
 // NewStubAPI creates a StubAPI suitable for passing to
 // subnet.New*Command().
 func NewStubAPI() *StubAPI {
+	subnets := []params.Subnet{{
+		// IPv4 subnet.
+		CIDR:              "10.20.0.0/24",
+		ProviderId:        "subnet-foo",
+		Life:              params.Alive,
+		SpaceTag:          "space-public",
+		Zones:             []string{"zone1", "zone2"},
+		StaticRangeLowIP:  net.ParseIP("10.20.0.10"),
+		StaticRangeHighIP: net.ParseIP("10.20.0.100"),
+	}, {
+		// IPv6 subnet.
+		CIDR:       "2001:db8::/32",
+		ProviderId: "subnet-bar",
+		Life:       params.Dying,
+		SpaceTag:   "space-dmz",
+		Zones:      []string{"zone2"},
+	}, {
+		// IPv4 VLAN subnet.
+		CIDR:     "10.10.0.0/16",
+		Life:     params.Dead,
+		SpaceTag: "space-vlan-42",
+		Zones:    []string{"zone1"},
+		VLANTag:  42,
+	}}
 	return &StubAPI{
-		Stub:  &testing.Stub{},
-		Zones: []string{"zone1", "zone2"},
+		Stub:    &testing.Stub{},
+		Zones:   []string{"zone1", "zone2"},
+		Subnets: subnets,
+		Spaces: []names.Tag{
+			names.NewSpaceTag("default"),
+			names.NewSpaceTag("public"),
+			names.NewSpaceTag("dmz"),
+			names.NewSpaceTag("vlan-42"),
+		},
 	}
 }
 
@@ -165,17 +202,40 @@ func (sa *StubAPI) AllZones() ([]string, error) {
 	return sa.Zones, nil
 }
 
-func (sa *StubAPI) CreateSubnet(subnetCIDR, spaceName string, zones []string, isPublic bool) error {
-	sa.MethodCall(sa, "CreateSubnet", subnetCIDR, spaceName, zones, isPublic)
+func (sa *StubAPI) AllSpaces() ([]names.Tag, error) {
+	sa.MethodCall(sa, "AllSpaces")
+	if err := sa.NextErr(); err != nil {
+		return nil, err
+	}
+	return sa.Spaces, nil
+}
+
+func (sa *StubAPI) CreateSubnet(subnetCIDR string, spaceTag names.SpaceTag, zones []string, isPublic bool) error {
+	sa.MethodCall(sa, "CreateSubnet", subnetCIDR, spaceTag, zones, isPublic)
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) AddSubnet(subnetCIDR, spaceName string) error {
-	sa.MethodCall(sa, "AddSubnet", subnetCIDR, spaceName)
+func (sa *StubAPI) AddSubnet(subnetCIDR string, spaceTag names.SpaceTag) error {
+	sa.MethodCall(sa, "AddSubnet", subnetCIDR, spaceTag)
 	return sa.NextErr()
 }
 
 func (sa *StubAPI) RemoveSubnet(subnetCIDR string) error {
 	sa.MethodCall(sa, "RemoveSubnet", subnetCIDR)
 	return sa.NextErr()
+}
+
+func (sa *StubAPI) ListSubnets(withSpace *names.SpaceTag, withZone string) ([]params.Subnet, error) {
+	if withSpace == nil {
+		// Due to the way CheckCall works (using jc.DeepEquals
+		// internally), we need to pass an explicit nil here, rather
+		// than a pointer to a names.SpaceTag pointing to nil.
+		sa.MethodCall(sa, "ListSubnets", nil, withZone)
+	} else {
+		sa.MethodCall(sa, "ListSubnets", withSpace, withZone)
+	}
+	if err := sa.NextErr(); err != nil {
+		return nil, err
+	}
+	return sa.Subnets, nil
 }

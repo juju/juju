@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils/set"
 )
 
@@ -18,7 +19,7 @@ type CreateCommand struct {
 	SubnetCommandBase
 
 	CIDR      string
-	SpaceName string
+	Space     names.SpaceTag
 	Zones     set.Strings
 	IsPublic  bool
 	IsPrivate bool
@@ -92,7 +93,7 @@ func (c *CreateCommand) Init(args []string) error {
 	}
 
 	// Validate the space name.
-	c.SpaceName, err = c.ValidateSpace(args[1])
+	c.Space, err = c.ValidateSpace(args[1])
 	if err != nil {
 		return err
 	}
@@ -161,7 +162,7 @@ func (c *CreateCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Create the new subnet.
-	err = api.CreateSubnet(c.CIDR, c.SpaceName, c.Zones.SortedValues(), c.IsPublic)
+	err = api.CreateSubnet(c.CIDR, c.Space, c.Zones.SortedValues(), c.IsPublic)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create subnet %q", c.CIDR)
 	}
@@ -173,7 +174,7 @@ func (c *CreateCommand) Run(ctx *cmd.Context) error {
 	}
 	ctx.Infof(
 		"created a %s subnet %q in space %q with zones %s",
-		accessType, c.CIDR, c.SpaceName, zones,
+		accessType, c.CIDR, c.Space.Id(), zones,
 	)
 	return nil
 }

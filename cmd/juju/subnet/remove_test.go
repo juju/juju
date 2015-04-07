@@ -68,6 +68,7 @@ func (s *RemoveSuite) TestInit(c *gc.C) {
 func (s *RemoveSuite) TestRunWithIPv4CIDRSucceeds(c *gc.C) {
 	s.AssertRunSucceeds(c,
 		`marked subnet "10.20.0.0/16" for removal\n`,
+		"", // empty stdout.
 		"10.20.0.0/16",
 	)
 
@@ -78,6 +79,7 @@ func (s *RemoveSuite) TestRunWithIPv4CIDRSucceeds(c *gc.C) {
 func (s *RemoveSuite) TestRunWithIPv6CIDRSucceeds(c *gc.C) {
 	s.AssertRunSucceeds(c,
 		`marked subnet "2001:db8::/32" for removal\n`,
+		"", // empty stdout.
 		"2001:db8::/32",
 	)
 

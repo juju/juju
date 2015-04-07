@@ -17,6 +17,7 @@ var subcommandNames = []string{
 	"add",
 	"create",
 	"remove",
+	"list",
 	"help",
 }
 
@@ -158,11 +159,11 @@ func (s *SubnetCommandBaseSuite) TestValidateSpace(c *gc.C) {
 		validated, err := s.baseCmd.ValidateSpace(test.input)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
-			c.Check(validated, gc.Equals, "")
+			c.Check(validated.Id(), gc.Equals, "")
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 			// When the input is valid it should stay the same.
-			c.Check(validated, gc.Equals, test.input)
+			c.Check(validated.Id(), gc.Equals, test.input)
 		}
 	}
 }
