@@ -14,14 +14,17 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/multiwatcher"
+	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&Suite{})
 
-type Suite struct{}
-
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
+}
+
+type Suite struct {
+	coretesting.BaseSuite
 }
 
 func (Suite) TestSetUp(c *gc.C) {
@@ -57,9 +60,7 @@ func (Suite) TestSetupWatchErr(c *gc.C) {
 	c.Assert(w, gc.IsNil)
 }
 
-func (Suite) TestHandle(c *gc.C) {
-	pw := "password"
-	utils_RandomPassword = func() (string, error) { return pw, nil }
+func (s Suite) TestHandle(c *gc.C) {
 	a := &fakeAgent{tag: names.NewMachineTag("1")}
 	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits, multiwatcher.JobManageEnviron}
 	m := &fakeMachine{
@@ -71,13 +72,10 @@ func (Suite) TestHandle(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = conv.Handle()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a.password, gc.Equals, pw)
 	c.Assert(a.didRestart, jc.IsTrue)
 }
 
-func (Suite) TestHandleNoManageEnviron(c *gc.C) {
-	pw := "password"
-	utils_RandomPassword = func() (string, error) { return pw, nil }
+func (s Suite) TestHandleNoManageEnviron(c *gc.C) {
 	a := &fakeAgent{tag: names.NewMachineTag("1")}
 	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	m := &fakeMachine{
@@ -89,7 +87,6 @@ func (Suite) TestHandleNoManageEnviron(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = conv.Handle()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a.password, gc.Equals, "")
 	c.Assert(a.didRestart, jc.IsFalse)
 }
 
@@ -106,52 +103,10 @@ func (Suite) TestHandleJobsError(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = conv.Handle()
 	c.Assert(errors.Cause(err), gc.Equals, m.jobsErr)
-	c.Assert(a.password, gc.Equals, "")
 	c.Assert(a.didRestart, jc.IsFalse)
 }
 
-func (Suite) TestHandlePasswordError(c *gc.C) {
-	pwErr := errors.New("foo")
-	utils_RandomPassword = func() (string, error) { return "", pwErr }
-	a := &fakeAgent{tag: names.NewMachineTag("1")}
-	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits, multiwatcher.JobManageEnviron}
-	m := &fakeMachine{
-		jobs: &params.JobsResult{Jobs: jobs},
-	}
-	mr := &fakeMachiner{m: m}
-	conv := &converter{machiner: mr, agent: a}
-	_, err := conv.SetUp()
-	c.Assert(err, gc.IsNil)
-	err = conv.Handle()
-	c.Assert(errors.Cause(err), gc.Equals, pwErr)
-	c.Assert(a.password, gc.Equals, "")
-	c.Assert(a.didRestart, jc.IsFalse)
-}
-
-func (Suite) TestHandleSetPasswordError(c *gc.C) {
-	pw := "password"
-	utils_RandomPassword = func() (string, error) { return pw, nil }
-	a := &fakeAgent{
-		tag:   names.NewMachineTag("1"),
-		pwErr: errors.New("foo"),
-	}
-	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits, multiwatcher.JobManageEnviron}
-	m := &fakeMachine{
-		jobs: &params.JobsResult{Jobs: jobs},
-	}
-	mr := &fakeMachiner{m: m}
-	conv := &converter{machiner: mr, agent: a}
-	_, err := conv.SetUp()
-	c.Assert(err, gc.IsNil)
-	err = conv.Handle()
-	c.Assert(errors.Cause(err), gc.Equals, a.pwErr)
-	c.Assert(a.password, gc.Equals, pw)
-	c.Assert(a.didRestart, jc.IsFalse)
-}
-
-func (Suite) TestHandleRestartError(c *gc.C) {
-	pw := "password"
-	utils_RandomPassword = func() (string, error) { return pw, nil }
+func (s Suite) TestHandleRestartError(c *gc.C) {
 	a := &fakeAgent{
 		tag:        names.NewMachineTag("1"),
 		restartErr: errors.New("foo"),
@@ -166,7 +121,6 @@ func (Suite) TestHandleRestartError(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = conv.Handle()
 	c.Assert(errors.Cause(err), gc.Equals, a.restartErr)
-	c.Assert(a.password, gc.Equals, pw)
 
 	// We set this to true whenver the function is called, even though we're
 	// returning an error from it.

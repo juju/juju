@@ -189,10 +189,6 @@ type ConfigSetterOnly interface {
 	// SetStateServingInfo sets the information needed
 	// to run a state server
 	SetStateServingInfo(info params.StateServingInfo)
-
-	// SetStateAddresses sets the addresses of state machines this machine will
-	// connect to.
-	SetStateAddresses(addrs []string)
 }
 
 type ConfigWriter interface {
@@ -496,15 +492,6 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 		}
 	}
 	c.apiDetails.addresses = addrs
-}
-
-// SetStateAddresses sets the addresses of state machines this machine will
-// connect to.
-func (c *configInternal) SetStateAddresses(servers []string) {
-	if c.stateDetails == nil {
-		c.stateDetails = &connectionDetails{}
-	}
-	c.stateDetails.addresses = servers
 }
 
 func (c *configInternal) SetValue(key, value string) {

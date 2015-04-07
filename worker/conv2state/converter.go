@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"github.com/juju/utils"
 
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -33,7 +33,6 @@ type converter struct {
 
 // Agent is an interface that can have its password set and be told to restart.
 type Agent interface {
-	SetPassword(string) error
 	Restart() error
 	Tag() names.Tag
 }
@@ -76,8 +75,6 @@ func (c *converter) SetUp() (watcher.NotifyWatcher, error) {
 	return m.Watch()
 }
 
-var utils_RandomPassword = utils.RandomPassword
-
 // Handle implements NotifyWatchHandler's Handle method.  If the change means
 // that the machine is now expected to manage the environment, we change its
 // password (to set its password in mongo) and restart the agent.
@@ -86,27 +83,10 @@ func (c *converter) Handle() error {
 	if err != nil {
 		return errors.Annotate(err, "can't get jobs for machine")
 	}
-	isState := false
-	for _, job := range results.Jobs {
-		if job.NeedsState() {
-			isState = true
-			break
-		}
-	}
-	if !isState {
+	if !multiwatcher.AnyJobNeedsState(results.Jobs...) {
 		return nil
 	}
 
-	// We set the password on thisfrom the API in order to get credentials into
-	// mongo.
-	logger.Infof("Converting this machine to a state server.")
-	pw, err := utils_RandomPassword()
-	if err != nil {
-		return errors.Annotate(err, "error generating new password")
-	}
-	if err := c.agent.SetPassword(pw); err != nil {
-		return errors.Annotate(err, "error setting machine password")
-	}
 	return errors.Trace(c.agent.Restart())
 }
 

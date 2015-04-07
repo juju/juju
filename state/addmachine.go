@@ -771,12 +771,23 @@ type ensureAvailabilityIntent struct {
 func (st *State) ensureAvailabilityIntentions(info *StateServerInfo, placement []string) (*ensureAvailabilityIntent, error) {
 	var intent ensureAvailabilityIntent
 	for _, s := range placement {
+		// TODO(natefinch): unscoped placements shouldn't ever get here (though
+		// they do currently).  We should fix up the CLI to always add a scope
+		// to placements and then we can remove the need to deal with unscoped
+		// placements.
 		p, err := instance.ParsePlacement(s)
 		if err == instance.ErrPlacementScopeMissing {
 			intent.placement = append(intent.placement, s)
 			continue
 		}
 		if err == nil && p.Scope == instance.MachineScope {
+			// TODO(natefinch) add env provider policy to check if conversion is
+			// possible (e.g. cannot be supported by Azure in HA mode).
+
+			if names.IsContainerMachine(p.Directive) {
+				return nil, errors.New("container placement directives not supported")
+			}
+
 			m, err := st.Machine(p.Directive)
 			if err != nil {
 				return nil, errors.Annotatef(err, "can't find machine for placement directive %q", s)
@@ -788,7 +799,7 @@ func (st *State) ensureAvailabilityIntentions(info *StateServerInfo, placement [
 			intent.placement = append(intent.placement, s)
 			continue
 		}
-		return nil, errors.Errorf("unsupported HA placement directive %q", s)
+		return nil, errors.Errorf("unsupported placement directive %q", s)
 	}
 
 	for _, mid := range info.MachineIds {
@@ -838,6 +849,7 @@ func convertStateServerOps(m *Machine) []txn.Op {
 			{"$addToSet", bson.D{{"jobs", JobManageEnviron}}},
 			{"$set", bson.D{{"novote", false}}},
 		},
+		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
 	}, {
 		C:  stateServersC,
 		Id: environGlobalKey,

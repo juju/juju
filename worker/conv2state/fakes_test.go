@@ -54,16 +54,9 @@ func (fakeWatcher) Err() error {
 }
 
 type fakeAgent struct {
-	password   string
 	tag        names.Tag
-	pwErr      error
 	restartErr error
 	didRestart bool
-}
-
-func (f *fakeAgent) SetPassword(pw string) error {
-	f.password = pw
-	return f.pwErr
 }
 
 func (f *fakeAgent) Restart() error {

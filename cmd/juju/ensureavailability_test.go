@@ -264,9 +264,11 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityEndToEnd(c *gc.C) {
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityToExisting(c *gc.C) {
 	ctx, err := s.runEnsureAvailability(c, "--to", "1,2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(coretesting.Stdout(ctx), gc.Equals,
-		"maintaining machines: 0\n"+
-			"converting machines: 1, 2\n\n")
+	c.Check(coretesting.Stdout(ctx), gc.Equals, `
+maintaining machines: 0
+converting machines: 1, 2
+
+`[1:])
 
 	c.Check(s.fake.numStateServers, gc.Equals, 0)
 	c.Check(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)

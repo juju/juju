@@ -180,7 +180,11 @@ func OpenAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 		return nil, nil, err
 	}
 
-	if usedOldPassword {
+	if !usedOldPassword {
+		if err := entity.SetPassword(info.Password); err != nil {
+			return nil, nil, errors.Annotate(err, "can't reset agent password")
+		}
+	} else {
 		// We succeeded in connecting with the fallback
 		// password, so we need to create a new password
 		// for the future.

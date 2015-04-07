@@ -151,11 +151,14 @@ func (c *EnsureAvailabilityCommand) Init(args []string) error {
 		for i, spec := range placementSpecs {
 			p, err := instance.ParsePlacement(strings.TrimSpace(spec))
 			if err == nil && p.Scope == instance.MachineScope {
-				// targeting machines is ok
+				if names.IsContainerMachine(p.Directive) {
+					return errors.New("ensure-availability cannot be used with container placement directives")
+				}
+				// Targeting machines is ok.
 				c.Placement[i] = p.String()
 				continue
 			}
-			if err != instance.ErrPlacementScopeMissing {
+			if err != instance.ErrPlacementScopeMissing || names.IsContainerMachine(p.Directive) {
 				return fmt.Errorf("unsupported ensure-availability placement directive %q", spec)
 			}
 			c.Placement[i] = spec
