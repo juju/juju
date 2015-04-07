@@ -182,7 +182,7 @@ func (s *SenderSuite) TestErrorCodes(c *gc.C) {
 // is in use metrics get sent
 func (s *SenderSuite) TestMeterStatus(c *gc.C) {
 	statusFunc := func(unitName string) (string, string, string) {
-		return unitName, "GREEN", ""
+		return unitName, "RED", ""
 	}
 
 	cleanup := s.startServer(c, testHandler(c, nil, statusFunc, 0))
@@ -192,7 +192,7 @@ func (s *SenderSuite) TestMeterStatus(c *gc.C) {
 
 	status, err := s.unit.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Code, gc.Equals, state.MeterNotSet)
+	c.Assert(status.Code, gc.Equals, state.MeterGreen)
 
 	var sender metricsender.DefaultSender
 	err = metricsender.SendMetrics(s.State, &sender, 10)
@@ -200,7 +200,7 @@ func (s *SenderSuite) TestMeterStatus(c *gc.C) {
 
 	status, err = s.unit.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Code, gc.Equals, state.MeterGreen)
+	c.Assert(status.Code, gc.Equals, state.MeterRed)
 }
 
 // TestMeterStatusInvalid checks that the metric sender deals with invalid
@@ -236,7 +236,7 @@ func (s *SenderSuite) TestMeterStatusInvalid(c *gc.C) {
 	for _, unit := range []*state.Unit{unit1, unit2, unit3} {
 		status, err := unit.GetMeterStatus()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(status.Code, gc.Equals, state.MeterNotSet)
+		c.Assert(status.Code, gc.Equals, state.MeterGreen)
 	}
 
 	var sender metricsender.DefaultSender
@@ -249,11 +249,11 @@ func (s *SenderSuite) TestMeterStatusInvalid(c *gc.C) {
 
 	status, err = unit2.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Code, gc.Equals, state.MeterNotSet)
+	c.Assert(status.Code, gc.Equals, state.MeterGreen)
 
 	status, err = unit3.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Code, gc.Equals, state.MeterNotSet)
+	c.Assert(status.Code, gc.Equals, state.MeterGreen)
 
 }
 

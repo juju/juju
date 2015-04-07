@@ -32,17 +32,21 @@ func (s *MeterStateSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.metricsManager, err = s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
+	status, err := s.unit.GetMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Code, gc.Equals, state.MeterGreen)
 }
 
 func (s *MeterStateSuite) TestMeterStatus(c *gc.C) {
 	status, err := s.unit.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Code, gc.Equals, state.MeterNotSet)
+	c.Assert(status.Code, gc.Equals, state.MeterGreen)
 	err = s.unit.SetMeterStatus("GREEN", "Additional information.")
 	c.Assert(err, jc.ErrorIsNil)
 	status, err = s.unit.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Code, gc.Equals, state.MeterGreen)
+	c.Assert(status.Info, gc.Equals, "Additional information.")
 }
 
 func (s *MeterStateSuite) TestMeterStatusIncludesEnvUUID(c *gc.C) {
@@ -57,16 +61,16 @@ func (s *MeterStateSuite) TestMeterStatusIncludesEnvUUID(c *gc.C) {
 
 func (s *MeterStateSuite) TestSetMeterStatusIncorrect(c *gc.C) {
 	err := s.unit.SetMeterStatus("NOT SET", "Additional information.")
-	c.Assert(err, gc.ErrorMatches, `invalid meter status "NOT SET"`)
+	c.Assert(err, gc.ErrorMatches, `you can only set MeterGreen, MeterRed or MeterAmber`)
 	status, err := s.unit.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Code, gc.Equals, state.MeterNotSet)
+	c.Assert(status.Code, gc.Equals, state.MeterGreen)
 
 	err = s.unit.SetMeterStatus("this-is-not-a-valid-status", "Additional information.")
-	c.Assert(err, gc.ErrorMatches, `invalid meter status "NOT AVAILABLE"`)
+	c.Assert(err, gc.ErrorMatches, `"this-is-not-a-valid-status" is not a valid meter status`)
 	status, err = s.unit.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Code, gc.Equals, state.MeterNotSet)
+	c.Assert(status.Code, gc.Equals, state.MeterGreen)
 }
 
 func (s *MeterStateSuite) TestSetMeterStatusWhenDying(c *gc.C) {
@@ -90,9 +94,8 @@ func (s *MeterStateSuite) TestMeterStatusRemovedWithUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	status, err := s.unit.GetMeterStatus()
+	_, err = s.unit.GetMeterStatus()
 	c.Assert(err, gc.ErrorMatches, "cannot retrieve meter status for unit .*: not found")
-	c.Assert(status.Code, gc.Equals, state.MeterNotAvailable)
 }
 
 func (s *MeterStateSuite) TestMeterStatusWatcherRespondstoMeterStatus(c *gc.C) {
@@ -249,39 +252,28 @@ func (s *MeterStateSuite) TestMeterStatusMetricsManagerCombinations(c *gc.C) {
 
 func (s *MeterStateSuite) TestMeterStatusCombination(c *gc.C) {
 	var (
-		Red          = state.MeterStatus{state.MeterRed, ""}
-		Amber        = state.MeterStatus{state.MeterAmber, ""}
-		Green        = state.MeterStatus{state.MeterGreen, ""}
-		NotSet       = state.MeterStatus{state.MeterNotSet, ""}
-		NotAvailable = state.MeterStatus{state.MeterNotAvailable, ""}
+		Red    = state.MeterStatus{state.MeterRed, ""}
+		Amber  = state.MeterStatus{state.MeterAmber, ""}
+		Green  = state.MeterStatus{state.MeterGreen, ""}
+		NotSet = state.MeterStatus{state.MeterNotSet, ""}
 	)
 	c.Assert(state.CombineMeterStatus(Red, Red).Code, gc.Equals, Red.Code)
 	c.Assert(state.CombineMeterStatus(Red, Amber).Code, gc.Equals, Red.Code)
 	c.Assert(state.CombineMeterStatus(Red, Green).Code, gc.Equals, Red.Code)
 	c.Assert(state.CombineMeterStatus(Red, NotSet).Code, gc.Equals, Red.Code)
-	c.Assert(state.CombineMeterStatus(Red, NotAvailable).Code, gc.Equals, NotAvailable.Code)
 
 	c.Assert(state.CombineMeterStatus(Amber, Red).Code, gc.Equals, Red.Code)
 	c.Assert(state.CombineMeterStatus(Amber, Amber).Code, gc.Equals, Amber.Code)
 	c.Assert(state.CombineMeterStatus(Amber, Green).Code, gc.Equals, Amber.Code)
 	c.Assert(state.CombineMeterStatus(Amber, NotSet).Code, gc.Equals, Amber.Code)
-	c.Assert(state.CombineMeterStatus(Amber, NotAvailable).Code, gc.Equals, NotAvailable.Code)
 
 	c.Assert(state.CombineMeterStatus(Green, Red).Code, gc.Equals, Red.Code)
 	c.Assert(state.CombineMeterStatus(Green, Amber).Code, gc.Equals, Amber.Code)
 	c.Assert(state.CombineMeterStatus(Green, Green).Code, gc.Equals, Green.Code)
-	c.Assert(state.CombineMeterStatus(Green, NotSet).Code, gc.Equals, NotSet.Code)
-	c.Assert(state.CombineMeterStatus(Green, NotAvailable).Code, gc.Equals, NotAvailable.Code)
+	c.Assert(state.CombineMeterStatus(Green, NotSet).Code, gc.Equals, Green.Code)
 
 	c.Assert(state.CombineMeterStatus(NotSet, Red).Code, gc.Equals, Red.Code)
 	c.Assert(state.CombineMeterStatus(NotSet, Amber).Code, gc.Equals, Amber.Code)
-	c.Assert(state.CombineMeterStatus(NotSet, Green).Code, gc.Equals, NotSet.Code)
+	c.Assert(state.CombineMeterStatus(NotSet, Green).Code, gc.Equals, Green.Code)
 	c.Assert(state.CombineMeterStatus(NotSet, NotSet).Code, gc.Equals, NotSet.Code)
-	c.Assert(state.CombineMeterStatus(NotSet, NotAvailable).Code, gc.Equals, NotAvailable.Code)
-
-	c.Assert(state.CombineMeterStatus(NotAvailable, Red).Code, gc.Equals, NotAvailable.Code)
-	c.Assert(state.CombineMeterStatus(NotAvailable, Amber).Code, gc.Equals, NotAvailable.Code)
-	c.Assert(state.CombineMeterStatus(NotAvailable, Green).Code, gc.Equals, NotAvailable.Code)
-	c.Assert(state.CombineMeterStatus(NotAvailable, NotSet).Code, gc.Equals, NotAvailable.Code)
-	c.Assert(state.CombineMeterStatus(NotAvailable, NotAvailable).Code, gc.Equals, NotAvailable.Code)
 }
