@@ -137,7 +137,7 @@ func (s *environInstSuite) TestStateServerInstancesMixed(c *gc.C) {
 }
 
 func (s *environInstSuite) TestParsePlacement(c *gc.C) {
-	zone := google.NewZone("a-zone", google.StatusUp)
+	zone := google.NewZone("a-zone", google.StatusUp, "", "")
 	s.FakeConn.Zones = []google.AvailabilityZone{zone}
 
 	placement, err := gce.ParsePlacement(s.Env, "zone=a-zone")
