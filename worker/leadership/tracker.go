@@ -76,8 +76,8 @@ func NewTrackerWorker(tag names.UnitTag, leadership leadership.LeadershipManager
 		// So we explicitly unwrap before calling tomb.Kill() else
 		// tomb.Stop() thinks that we have a genuine error.
 		switch cause := errors.Cause(err); cause {
-			case tomb.ErrDying:
-				err = cause
+		case tomb.ErrDying:
+			err = cause
 		}
 		t.tomb.Kill(err)
 	}()
