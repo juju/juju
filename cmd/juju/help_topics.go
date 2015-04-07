@@ -553,7 +553,7 @@ Shadow Address
 
   It is common to arrange for addresses on the Internet that translate to
   private (cloud-local) addresses. For example, if connection to an IP address
-  on the internet will be tunnelled "magically" to a particular address on an
+  on the internet will be tunnelled transparently to a particular address on an
   RFC 1918 network, then that Internet IP address is an Internet shadow address
   for the private address.
 

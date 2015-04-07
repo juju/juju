@@ -19,8 +19,8 @@ type RemoveCommand struct {
 }
 
 const removeCommandDoc = `
-Marks an existing and unused subnet for removal. Depending on what features
-the cloud infrastructure supports, this command will either delete the
+Marks an existing subnet for removal. Depending on what features the
+cloud infrastructure supports, this command will either delete the
 subnet using the cloud API (if supported, e.g. in Amazon VPC) or just
 remove the subnet entity from Juju's database (with non-SDN substrates,
 e.g. MAAS). In other words "remove" acts like the opposite of "create"
@@ -30,9 +30,6 @@ If any machines are still using the subnet, it cannot be removed and
 an error is returned instead. If the subnet is not in use, it will be
 marked for removal, but it will not be removed from the Juju database
 until all related entites are cleaned up (e.g. allocated addresses).
-Just before ultimately removing the subnet from the Juju database, and
-if the infrastructure supports it, the subnet will be also deleted from
-the underlying substrate.
 `
 
 // Info is defined on the cmd.Command interface.
