@@ -547,6 +547,45 @@ Service Unit
 Service Unit Agent
   Software which manages all the lifecycle of a single Service Unit.
 
+Shadow Address
+  An address on a different network which translates to a particular address
+  on this network. In other words, a "public shadow" of a "private" address.
+
+  It is common to arrange for addresses on the Internet that translate to
+  private (cloud-local) addresses. For example, if connection to an IP address
+  on the internet will be tunnelled "magically" to a particular address on an
+  RFC 1918 network, then that Internet IP address is an Internet shadow address
+  for the private address.
+
+  Shadow addresses in Juju enable modeling concepts like the Amazon "elastic IP"
+  or "automatic public IP" addresses or OpenStack's "floating IP" addresses.
+  All of these concepts have one thing in common - a shadow address is not
+  configured directly on the machine that's using it (i.e. it is "invisible"
+  to the machine itself). Shadow addresses are configured and managed using the
+  underlying cloud infrastructure API.
+
+Subnet
+  A broadcast address range identified by a Classless Inter-Domain Routing (CIDR)
+  range, like 10.1.2.0/24 or 2001:db8::/32. All defined subnets known to and
+  usable by Juju need to have non-overlapping CIDR ranges.
+
+  Juju can use existing subnets available on the cloud infrastructure (e.g.
+  networks in MAAS or subnets in Amazon VPC), but they need to be "added" to
+  Juju (see "juju subnet add --help"). For cloud substrates that support SDN
+  (Software-Defined Networking) features (e.g. Amazon VPC, OpenStack), Juju can
+  also create new subnets using the cloud infrastructure API (see "juju subnet
+  create --help").
+
+  Each subnet is always in one and only one "space". Subnets are associated
+  with at least one availability zone, but may span multiple availability
+  zones, if the underlying infrastructure supports that.
+
+  Subnets can be in use (when any services or machines are on them), or not.
+  Removing a subnet in use is not supported, as it could cause connectivity
+  issues. Also, subnets can have "public" or "private" access. When a subnet
+  has "public" access it means the subnet is configured to support Shadow
+  Addresses (see above). "Private" access is the default and means no access
+  from outside an environment is allowed.
 `
 
 const helpLogging = `
