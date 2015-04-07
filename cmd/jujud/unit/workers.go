@@ -40,6 +40,12 @@ var (
 	UniterName            = "uniter"
 )
 
+// AgentManifolds returns the mutually-referential manifolds and names needed
+// to run the code for which the supplied unit agent is responsible, suitable
+// for installation in a dependency.Engine.
+//
+// The agent itself is represented as a manifold, referenced by (most) others
+// so that they can read and (sometimes) write its local configuration.
 func AgentManifolds(a agent.Agent) map[string]dependency.Manifold {
 	agentName := a.Tag().String()
 	return map[string]dependency.Manifold{

@@ -419,7 +419,7 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		case _, ok = <-meterStatusw.Changes():
 			filterLogger.Debugf("got meter status change")
 			if !ok {
-				return watcher.EnsureErr(configw)
+				return watcher.EnsureErr(meterStatusw)
 			}
 			if err = f.meterStatusChanged(); err != nil {
 				return errors.Trace(err)

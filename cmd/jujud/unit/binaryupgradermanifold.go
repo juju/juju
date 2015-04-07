@@ -14,11 +14,18 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 )
 
+// BinaryUpgraderManifoldConfig defines the names of the manifolds on which a
+// BinaryUpgraderManifold will depend.
 type BinaryUpgraderManifoldConfig struct {
 	AgentName         string
 	ApiConnectionName string
 }
 
+// BinaryUpgraderManifold returns a dependency manifold that runs an upgrader
+// worker, using the resource names defined in the supplied config.
+//
+// It should really be defined in worker/upgrader instead, but import loops render
+// this impractical for the time being.
 func BinaryUpgraderManifold(config BinaryUpgraderManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{

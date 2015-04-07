@@ -12,11 +12,18 @@ import (
 	"github.com/juju/juju/worker/rsyslog"
 )
 
+// RsyslogUpdaterManifoldConfig defines the names of the manifolds on which a
+// RsyslogUpdaterManifold will depend.
 type RsyslogUpdaterManifoldConfig struct {
 	AgentName         string
 	ApiConnectionName string
 }
 
+// RsyslogUpdaterManifold returns a dependency manifold that runs an rsyslog
+// worker, using the resource names defined in the supplied config.
+//
+// It should really be defined in worker/upgrader instead, but import loops render
+// this impractical for the time being.
 func RsyslogUpdaterManifold(config RsyslogUpdaterManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
