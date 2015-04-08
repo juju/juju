@@ -42,8 +42,8 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 
 		// Get dependencies and open a connection.
 		var agent agent.Agent
-		if !getResource(config.AgentName, &agent) {
-			return nil, dependency.ErrUnmetDependencies
+		if err := getResource(config.AgentName, &agent); err != nil {
+			return nil, err
 		}
 		currentConfig := agent.CurrentConfig()
 		st, _, err := jujudagent.OpenAPIState(currentConfig, agent)

@@ -20,8 +20,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		},
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 			var apiConnection *api.State
-			if !getResource(config.ApiConnectionName, &apiConnection) {
-				return nil, dependency.ErrUnmetDependencies
+			if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
+				return nil, err
 			}
 			return New(apiConnection.Environment(), false), nil
 		},

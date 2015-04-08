@@ -32,12 +32,12 @@ func RsyslogUpdaterManifold(config RsyslogUpdaterManifoldConfig) dependency.Mani
 		},
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 			var agent agent.Agent
-			if !getResource(config.AgentName, &agent) {
-				return nil, dependency.ErrUnmetDependencies
+			if err := getResource(config.AgentName, &agent); err != nil {
+				return nil, err
 			}
 			var apiConnection *api.State
-			if !getResource(config.ApiConnectionName, &apiConnection) {
-				return nil, dependency.ErrUnmetDependencies
+			if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
+				return nil, err
 			}
 			return cmdutil.NewRsyslogConfigWorker(
 				apiConnection.Rsyslog(),
