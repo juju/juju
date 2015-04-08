@@ -179,6 +179,24 @@ func serializeUnit(conf common.Conf) []*unit.UnitOption {
 	return unitOptions
 }
 
+func unquote(str string) string {
+	if len(str) < 2 {
+		return str
+	}
+
+	first, last := string(str[0]), string(str[len(str)-1])
+
+	if first == `"` && last == `"` {
+		return str[1 : len(str)-1]
+	}
+
+	if first == "'" && last == "'" {
+		return str[1 : len(str)-1]
+	}
+
+	return str
+}
+
 func serializeService(conf common.Conf) []*unit.UnitOption {
 	var unitOptions []*unit.UnitOption
 
@@ -204,7 +222,7 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 		unitOptions = append(unitOptions, &unit.UnitOption{
 			Section: "Service",
 			Name:    "ExecStart",
-			Value:   conf.ExecStart,
+			Value:   unquote(conf.ExecStart),
 		})
 	}
 
