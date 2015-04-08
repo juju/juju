@@ -146,6 +146,7 @@ func (s *RunCommandsSuite) TestExecuteSuccess(c *gc.C) {
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "run commands")
+	c.Assert(callbacks.executingMessage, gc.Equals, "running commands")
 	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
 	c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
 	c.Assert(*sendResponse.gotResponse, gc.DeepEquals, &utilexec.ExecResponse{Code: 222})

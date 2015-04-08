@@ -7,7 +7,7 @@ import (
 	"time"
 
 	// TODO(jcw4) per fwereade 2014-11-21 remove this dependency
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 )
 
 const (

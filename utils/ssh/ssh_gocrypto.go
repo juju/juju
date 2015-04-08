@@ -13,8 +13,8 @@ import (
 	"os/user"
 	"strings"
 
-	"code.google.com/p/go.crypto/ssh"
 	"github.com/juju/utils"
+	"golang.org/x/crypto/ssh"
 )
 
 const sshDefaultPort = 22

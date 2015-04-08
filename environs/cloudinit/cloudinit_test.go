@@ -226,13 +226,13 @@ grep '1234' \$bin/juju1\.2\.3-precise-amd64.sha256 \|\| \(echo "Tools checksum m
 tar zxf \$bin/tools.tar.gz -C \$bin
 printf %s '{"version":"1\.2\.3-precise-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-precise-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-0'
-install -m 600 /dev/null '/var/lib/juju/agents/machine-0/agent\.conf'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/agent\.conf'
+cat > '/var/lib/juju/agents/machine-0/agent\.conf' << 'EOF'\\n.*\\nEOF
+chmod 0600 '/var/lib/juju/agents/machine-0/agent\.conf'
 echo 'Bootstrapping Juju machine agent'.*
 /var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --instance-id 'i-bootstrap' --constraints 'mem=2048M' --debug
 ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
 echo 'Starting Juju machine agent \(jujud-machine-0\)'.*
-cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju agent for machine-0"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-0\.log\\n  chown syslog:syslog /var/log/juju/machine-0\.log\\n  chmod 0600 /var/log/juju/machine-0\.log\\n\\n  exec '/var/lib/juju/tools/machine-0/jujud' machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nend script\\nEOF\\n
+cat > /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju agent for machine-0"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-0\.log\\n  chown syslog:syslog /var/log/juju/machine-0\.log\\n  chmod 0600 /var/log/juju/machine-0\.log\\n\\n  exec '/var/lib/juju/tools/machine-0/jujud' machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nend script\\nEOF\\n
 start jujud-machine-0
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
 `,
@@ -332,11 +332,11 @@ grep '1234' \$bin/juju1\.2\.3-quantal-amd64.sha256 \|\| \(echo "Tools checksum m
 tar zxf \$bin/tools.tar.gz -C \$bin
 printf %s '{"version":"1\.2\.3-quantal-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-quantal-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-99'
-install -m 600 /dev/null '/var/lib/juju/agents/machine-99/agent\.conf'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-99/agent\.conf'
+cat > '/var/lib/juju/agents/machine-99/agent\.conf' << 'EOF'\\n.*\\nEOF
+chmod 0600 '/var/lib/juju/agents/machine-99/agent\.conf'
 ln -s 1\.2\.3-quantal-amd64 '/var/lib/juju/tools/machine-99'
 echo 'Starting Juju machine agent \(jujud-machine-99\)'.*
-cat >> /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju agent for machine-99"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-99\.log\\n  chown syslog:syslog /var/log/juju/machine-99\.log\\n  chmod 0600 /var/log/juju/machine-99\.log\\n\\n  exec '/var/lib/juju/tools/machine-99/jujud' machine --data-dir '/var/lib/juju' --machine-id 99 --debug >> /var/log/juju/machine-99\.log 2>&1\\nend script\\nEOF\\n
+cat > /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju agent for machine-99"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-99\.log\\n  chown syslog:syslog /var/log/juju/machine-99\.log\\n  chmod 0600 /var/log/juju/machine-99\.log\\n\\n  exec '/var/lib/juju/tools/machine-99/jujud' machine --data-dir '/var/lib/juju' --machine-id 99 --debug >> /var/log/juju/machine-99\.log 2>&1\\nend script\\nEOF\\n
 start jujud-machine-99
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-quantal-amd64\.sha256
 `,
@@ -376,10 +376,10 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-quantal-amd64\.sha256
 		inexactMatch: true,
 		expectScripts: `
 mkdir -p '/var/lib/juju/agents/machine-2-lxc-1'
-install -m 600 /dev/null '/var/lib/juju/agents/machine-2-lxc-1/agent\.conf'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-2-lxc-1/agent\.conf'
+cat > '/var/lib/juju/agents/machine-2-lxc-1/agent\.conf' << 'EOF'\\n.*\\nEOF
+chmod 0600 '/var/lib/juju/agents/machine-2-lxc-1/agent\.conf'
 ln -s 1\.2\.3-quantal-amd64 '/var/lib/juju/tools/machine-2-lxc-1'
-cat >> /etc/init/jujud-machine-2-lxc-1\.conf << 'EOF'\\ndescription "juju agent for machine-2-lxc-1"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-2-lxc-1\.log\\n  chown syslog:syslog /var/log/juju/machine-2-lxc-1\.log\\n  chmod 0600 /var/log/juju/machine-2-lxc-1\.log\\n\\n  exec '/var/lib/juju/tools/machine-2-lxc-1/jujud' machine --data-dir '/var/lib/juju' --machine-id 2/lxc/1 --debug >> /var/log/juju/machine-2-lxc-1\.log 2>&1\\nend script\\nEOF\\n
+cat > /etc/init/jujud-machine-2-lxc-1\.conf << 'EOF'\\ndescription "juju agent for machine-2-lxc-1"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-2-lxc-1\.log\\n  chown syslog:syslog /var/log/juju/machine-2-lxc-1\.log\\n  chmod 0600 /var/log/juju/machine-2-lxc-1\.log\\n\\n  exec '/var/lib/juju/tools/machine-2-lxc-1/jujud' machine --data-dir '/var/lib/juju' --machine-id 2/lxc/1 --debug >> /var/log/juju/machine-2-lxc-1\.log 2>&1\\nend script\\nEOF\\n
 start jujud-machine-2-lxc-1
 `,
 	}, {
@@ -519,7 +519,7 @@ func newFileTools(vers, path string) *tools.Tools {
 }
 
 func getAgentConfig(c *gc.C, tag string, scripts []string) (cfg string) {
-	re := regexp.MustCompile(`printf '%s\\n' '((\n|.)+)' > .*agents/` + regexp.QuoteMeta(tag) + `/agent\.conf`)
+	re := regexp.MustCompile(`cat > .*agents/` + regexp.QuoteMeta(tag) + `/agent\.conf' << 'EOF'\n((\n|.)+)\nEOF`)
 	found := false
 	for _, s := range scripts {
 		m := re.FindStringSubmatch(s)
@@ -562,7 +562,8 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		if test.setEnvConfig {
 			test.cfg.Config = minimalConfig(c)
 		}
-		ci := coreCloudinit.New()
+		ci, err := coreCloudinit.New("quantal")
+		c.Assert(err, jc.ErrorIsNil)
 		udata, err := cloudinit.NewUserdataConfig(&test.cfg, ci)
 		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
@@ -618,7 +619,8 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 	for i, test := range cloudinitTests {
 		test.cfg.Config = minimalConfig(c)
 		c.Logf("test %d (Configure)", i)
-		cloudcfg := coreCloudinit.New()
+		cloudcfg, err := coreCloudinit.New("quantal")
+		c.Assert(err, jc.ErrorIsNil)
 		udata, err := cloudinit.NewUserdataConfig(&test.cfg, cloudcfg)
 		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
@@ -631,7 +633,8 @@ func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 	machineConfig := minimalMachineConfig()
 	machineConfig.Config = minimalConfig(c)
 
-	cloudcfg := coreCloudinit.New()
+	cloudcfg, err := coreCloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudinit.NewUserdataConfig(&machineConfig, cloudcfg)
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -656,7 +659,8 @@ func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 
 func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	// Create a simple cloudinit config with a 'runcmd' statement.
-	cloudcfg := coreCloudinit.New()
+	cloudcfg, err := coreCloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	script := "test script"
 	cloudcfg.AddRunCmd(script)
 	cloudinitTests[0].cfg.Config = minimalConfig(c)
@@ -1001,7 +1005,8 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		MachineAgentServiceName: "jujud-machine-99",
 	}
 	// check that the base configuration does not give an error
-	ci := coreCloudinit.New()
+	ci, err := coreCloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i, test := range verifyTests {
 		// check that the base configuration does not give an error
@@ -1043,7 +1048,8 @@ func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config
 func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
 	environConfig := minimalConfig(c)
 	machineCfg := s.createMachineConfig(c, environConfig)
-	cloudcfg := coreCloudinit.New()
+	cloudcfg, err := coreCloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
@@ -1060,7 +1066,8 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	machineCfg := s.createMachineConfig(c, environConfig)
-	cloudcfg := coreCloudinit.New()
+	cloudcfg, err := coreCloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
@@ -1079,7 +1086,8 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	machineCfg := s.createMachineConfig(c, environConfig)
-	cloudcfg := coreCloudinit.New()
+	cloudcfg, err := coreCloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
@@ -1124,7 +1132,8 @@ func (s *cloudinitSuite) TestAptMirrorNotSet(c *gc.C) {
 
 func (s *cloudinitSuite) testAptMirror(c *gc.C, cfg *config.Config, expect string) {
 	machineCfg := s.createMachineConfig(c, cfg)
-	cloudcfg := coreCloudinit.New()
+	cloudcfg, err := coreCloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
@@ -1205,7 +1214,8 @@ func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
 		test.cfg.DataDir = dataDir
 		test.cfg.LogDir = path.Join(logDir, "juju")
 
-		ci := coreCloudinit.New()
+		ci, err := coreCloudinit.New("win8")
+		c.Assert(err, jc.ErrorIsNil)
 		udata, err := cloudinit.NewUserdataConfig(&test.cfg, ci)
 
 		c.Assert(err, jc.ErrorIsNil)

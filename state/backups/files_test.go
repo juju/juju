@@ -62,10 +62,6 @@ func (s *filesSuite) createFiles(c *gc.C, paths backups.Paths, root, machineID s
 	touch(dirname, "all-machines.log")
 	touch(dirname, "machine-"+machineID+".log")
 
-	dirname = mkdir("/etc/init")
-	touch(dirname, "jujud-machine-"+machineID+".conf")
-	touch(dirname, "juju-db.conf")
-
 	dirname = mkdir("/etc/rsyslog.d")
 	touch(dirname, "spam-juju.conf")
 
@@ -113,8 +109,6 @@ func (s *filesSuite) TestGetFilesToBackUpMachine0(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []string{
-		filepath.Join(s.root, "/etc/init/juju-db.conf"),
-		filepath.Join(s.root, "/etc/init/jujud-machine-0.conf"),
 		filepath.Join(s.root, "/etc/rsyslog.d/spam-juju.conf"),
 		filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"),
 		filepath.Join(s.root, "/var/lib/juju/agents/machine-0.conf"),
@@ -198,8 +192,6 @@ func (s *filesSuite) TestGetFilesToBackUpMachine10(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []string{
-		filepath.Join(s.root, "/etc/init/juju-db.conf"),
-		filepath.Join(s.root, "/etc/init/jujud-machine-10.conf"),
 		filepath.Join(s.root, "/etc/rsyslog.d/spam-juju.conf"),
 		filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"),
 		filepath.Join(s.root, "/var/lib/juju/agents/machine-10.conf"),
@@ -237,8 +229,6 @@ func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []string{
-		filepath.Join(s.root, "/etc/init/juju-db.conf"),
-		filepath.Join(s.root, "/etc/init/jujud-machine-0.conf"),
 		filepath.Join(s.root, "/etc/rsyslog.d/spam-juju.conf"),
 		filepath.Join(s.root, "/var/lib/juju/agents/machine-0.conf"),
 		filepath.Join(s.root, "/var/lib/juju/server.pem"),

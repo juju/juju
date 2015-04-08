@@ -4,7 +4,7 @@
 package hooktesting
 
 import (
-	"gopkg.in/juju/charm.v4/hooks"
+	"gopkg.in/juju/charm.v5-unstable/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/worker/uniter/hook"

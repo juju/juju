@@ -13,12 +13,13 @@ import (
 
 // fakeServiceAPI is the fake client API for testing the service set,
 // get and unset commands.  It implements the following interfaces:
-// SetServiceAPI, UnsetServiceAPI
+// SetServiceAPI, UnsetServiceAPI and GetServiceAPI
 type fakeServiceAPI struct {
-	values   map[string]interface{}
-	servName string
-	config   string
-	err      error
+	values    map[string]interface{}
+	servName  string
+	charmName string
+	config    string
+	err       error
 }
 
 func (f *fakeServiceAPI) Close() error {
@@ -46,7 +47,7 @@ func (f *fakeServiceAPI) ServiceGet(service string) (*params.ServiceGetResults, 
 	configInfo := make(map[string]interface{})
 	for k, v := range f.values {
 		configInfo[k] = map[string]interface{}{
-			"description": k,
+			"description": fmt.Sprintf("Specifies %s", k),
 			"type":        fmt.Sprintf("%T", v),
 			"value":       v,
 		}
@@ -54,6 +55,7 @@ func (f *fakeServiceAPI) ServiceGet(service string) (*params.ServiceGetResults, 
 
 	return &params.ServiceGetResults{
 		Service: f.servName,
+		Charm:   f.charmName,
 		Config:  configInfo,
 	}, nil
 }

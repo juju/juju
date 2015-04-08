@@ -82,7 +82,7 @@ func (pt *pingTimeout) Stop() error {
 // loop waits for a reset signal, otherwise it performs
 // the initially passed action.
 func (pt *pingTimeout) loop() error {
-	timer := time.NewTimer(pt.timeout)
+	timer := newTimer(pt.timeout)
 	defer timer.Stop()
 	for {
 		select {
@@ -92,9 +92,19 @@ func (pt *pingTimeout) loop() error {
 			go pt.action()
 			return errors.New("ping timeout")
 		case <-pt.reset:
-			timer.Reset(pt.timeout)
+			resetTimer(timer, pt.timeout)
 		}
 	}
+}
+
+// newTimer is patched out during some tests.
+var newTimer = func(d time.Duration) *time.Timer {
+	return time.NewTimer(d)
+}
+
+// resetTimer is patched out during some tests.
+var resetTimer = func(timer *time.Timer, d time.Duration) bool {
+	return timer.Reset(d)
 }
 
 // nullPinger implements the pinger interface but just does nothing

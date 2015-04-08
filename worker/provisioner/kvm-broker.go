@@ -96,7 +96,10 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
-	inst, hardware, err := broker.manager.CreateContainer(args.MachineConfig, series, network)
+	storageConfig := &container.StorageConfig{
+		AllowMount: true,
+	}
+	inst, hardware, err := broker.manager.CreateContainer(args.MachineConfig, series, network, storageConfig)
 	if err != nil {
 		kvmLogger.Errorf("failed to start container: %v", err)
 		return nil, err

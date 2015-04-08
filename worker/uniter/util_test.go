@@ -27,7 +27,7 @@ import (
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v4"
+	corecharm "gopkg.in/juju/charm.v5-unstable"
 	goyaml "gopkg.in/yaml.v1"
 
 	apiuniter "github.com/juju/juju/api/uniter"
@@ -520,7 +520,7 @@ func (s startupErrorWithCustomCharm) step(c *gc.C, ctx *context) {
 	})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnit{
+	step(c, ctx, waitUnitAgent{
 		status: params.StatusError,
 		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
@@ -542,7 +542,7 @@ func (s startupError) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnit{
+	step(c, ctx, waitUnitAgent{
 		status: params.StatusError,
 		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
@@ -562,7 +562,7 @@ func (s quickStart) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnit{status: params.StatusActive})
+	step(c, ctx, waitUnitAgent{status: params.StatusIdle})
 	step(c, ctx, waitHooks{"install", "config-changed", "start"})
 	step(c, ctx, verifyCharm{})
 }
@@ -585,7 +585,7 @@ func (s startupRelationError) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnit{status: params.StatusActive})
+	step(c, ctx, waitUnitAgent{status: params.StatusIdle})
 	step(c, ctx, waitHooks{"install", "config-changed", "start"})
 	step(c, ctx, verifyCharm{})
 	step(c, ctx, addRelation{})
@@ -601,15 +601,35 @@ func (s resolveError) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type waitUnit struct {
-	status   params.Status
-	info     string
-	data     map[string]interface{}
-	charm    int
-	resolved state.ResolvedMode
+type statusfunc func() (state.StatusInfo, error)
+
+type statusfuncGetter func(ctx *context) statusfunc
+
+var unitStatusGetter = func(ctx *context) statusfunc {
+	return func() (state.StatusInfo, error) {
+		return ctx.unit.Status()
+	}
 }
 
-func (s waitUnit) step(c *gc.C, ctx *context) {
+var agentStatusGetter = func(ctx *context) statusfunc {
+	return func() (state.StatusInfo, error) {
+		return ctx.unit.AgentStatus()
+	}
+}
+
+type waitUnitAgent struct {
+	statusGetter func(ctx *context) statusfunc
+	status       params.Status
+	info         string
+	data         map[string]interface{}
+	charm        int
+	resolved     state.ResolvedMode
+}
+
+func (s waitUnitAgent) step(c *gc.C, ctx *context) {
+	if s.statusGetter == nil {
+		s.statusGetter = agentStatusGetter
+	}
 	timeout := time.After(worstCase)
 	for {
 		ctx.s.BackingState.StartSync()
@@ -633,25 +653,25 @@ func (s waitUnit) step(c *gc.C, ctx *context) {
 				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), got)
 				continue
 			}
-			status, info, data, err := ctx.unit.AgentStatus()
+			statusInfo, err := s.statusGetter(ctx)()
 			c.Assert(err, jc.ErrorIsNil)
-			if string(status) != string(s.status) {
-				c.Logf("want unit status %q, got %q; still waiting", s.status, status)
+			if string(statusInfo.Status) != string(s.status) {
+				c.Logf("want unit status %q, got %q; still waiting", s.status, statusInfo.Status)
 				continue
 			}
-			if info != s.info {
-				c.Logf("want unit status info %q, got %q; still waiting", s.info, info)
+			if statusInfo.Message != s.info {
+				c.Logf("want unit status info %q, got %q; still waiting", s.info, statusInfo.Message)
 				continue
 			}
 			if s.data != nil {
-				if len(data) != len(s.data) {
-					c.Logf("want %d unit status data value(s), got %d; still waiting", len(s.data), len(data))
+				if len(statusInfo.Data) != len(s.data) {
+					c.Logf("want %d status data value(s), got %d; still waiting", len(s.data), len(statusInfo.Data))
 					continue
 				}
 				for key, value := range s.data {
-					if data[key] != value {
-						c.Logf("want unit status data value %q for key %q, got %q; still waiting",
-							value, key, data[key])
+					if statusInfo.Data[key] != value {
+						c.Logf("want status data value %q for key %q, got %q; still waiting",
+							value, key, statusInfo.Data[key])
 						continue
 					}
 				}
@@ -866,8 +886,8 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		},
 		serveCharm{},
 		createUniter{},
-		waitUnit{
-			status: params.StatusActive,
+		waitUnitAgent{
+			status: params.StatusIdle,
 		},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
@@ -875,7 +895,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		createCharm{revision: 1},
 		serveCharm{},
 		upgradeCharm{revision: 1},
-		waitUnit{
+		waitUnitAgent{
 			status: params.StatusError,
 			info:   "upgrade failed",
 			charm:  1,
@@ -894,7 +914,7 @@ type verifyWaitingUpgradeError struct {
 
 func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 	verifyCharmSteps := []stepper{
-		waitUnit{
+		waitUnitAgent{
 			status: params.StatusError,
 			info:   "upgrade failed",
 			charm:  s.revision,
@@ -1474,8 +1494,8 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		},
 		serveCharm{},
 		createUniter{},
-		waitUnit{
-			status: params.StatusActive,
+		waitUnitAgent{
+			status: params.StatusIdle,
 		},
 		waitHooks{"install", "config-changed", "start"},
 		verifyGitCharm{dirty: true},
@@ -1489,7 +1509,7 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		},
 		serveCharm{},
 		upgradeCharm{revision: 1},
-		waitUnit{
+		waitUnitAgent{
 			status: params.StatusError,
 			info:   "upgrade failed",
 			charm:  1,

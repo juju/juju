@@ -7,7 +7,7 @@ import (
 	stderrors "errors"
 	"fmt"
 
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/utils/ssh"
@@ -23,7 +23,7 @@ func InitJujuHome() error {
 			"cannot determine juju home, required environment variables are not set")
 	}
 	osenv.SetJujuHome(jujuHome)
-	charm.CacheDir = osenv.JujuHomePath("charmcache")
+	charmrepo.CacheDir = osenv.JujuHomePath("charmcache")
 	if err := ssh.LoadClientKeys(osenv.JujuHomePath("ssh")); err != nil {
 		return fmt.Errorf("cannot load ssh client keys: %v", err)
 	}

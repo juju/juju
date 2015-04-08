@@ -18,8 +18,6 @@ type blockSuite struct {
 	blockClient *block.Client
 }
 
-var _ = gc.Suite(&blockSuite{})
-
 func (s *blockSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.blockClient = block.NewClient(s.APIState)

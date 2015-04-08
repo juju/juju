@@ -71,32 +71,61 @@ func (h *httpHandler) validateEnvironUUID(r *http.Request) (*httpStateWrapper, e
 
 // authenticate parses HTTP basic authentication and authorizes the
 // request by looking up the provided tag and password against state.
-func (h *httpStateWrapper) authenticate(r *http.Request) error {
+func (h *httpStateWrapper) authenticate(r *http.Request) (names.Tag, error) {
 	parts := strings.Fields(r.Header.Get("Authorization"))
 	if len(parts) != 2 || parts[0] != "Basic" {
 		// Invalid header format or no header provided.
-		return errors.New("invalid request format")
+		return nil, errors.New("invalid request format")
 	}
 	// Challenge is a base64-encoded "tag:pass" string.
 	// See RFC 2617, Section 2.
 	challenge, err := base64.StdEncoding.DecodeString(parts[1])
 	if err != nil {
-		return errors.New("invalid request format")
+		return nil, errors.New("invalid request format")
 	}
 	tagPass := strings.SplitN(string(challenge), ":", 2)
 	if len(tagPass) != 2 {
-		return errors.New("invalid request format")
+		return nil, errors.New("invalid request format")
 	}
-	// Only allow users, not agents.
-	if _, err := names.ParseUserTag(tagPass[0]); err != nil {
-		return common.ErrBadCreds
+	// Ensure that a sensible tag was passed.
+	tag, err := names.ParseTag(tagPass[0])
+	if err != nil {
+		return nil, common.ErrBadCreds
 	}
-	// Ensure the credentials are correct.
-	_, err = checkCreds(h.state, params.LoginRequest{
+	_, _, err = checkCreds(h.state, params.LoginRequest{
 		AuthTag:     tagPass[0],
 		Credentials: tagPass[1],
-	})
-	return err
+		Nonce:       r.Header.Get("X-Juju-Nonce"),
+	}, true)
+	return tag, err
+}
+
+func (h *httpStateWrapper) authenticateUser(r *http.Request) error {
+	tag, err := h.authenticate(r)
+	if err != nil {
+		return err
+	}
+	switch tag.(type) {
+	case names.UserTag:
+		return nil
+	default:
+		return common.ErrBadCreds
+	}
+}
+
+func (h *httpStateWrapper) authenticateAgent(r *http.Request) (names.Tag, error) {
+	tag, err := h.authenticate(r)
+	if err != nil {
+		return nil, err
+	}
+	switch tag.(type) {
+	case names.MachineTag:
+		return tag, nil
+	case names.UnitTag:
+		return tag, nil
+	default:
+		return nil, common.ErrBadCreds
+	}
 }
 
 func (h *httpStateWrapper) cleanup() {

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -315,11 +315,10 @@ func (u *Unit) Destroy() (err error) {
 	return err
 }
 
-var unitNotInstalled = bson.D{
+// unitAgentAllocating actually refers to the unit's agent.
+var unitAgentAllocating = bson.D{
 	{"$or", []bson.D{
-		{{"status", StatusPending}},
 		{{"status", StatusAllocating}},
-		{{"status", StatusInstalling}},
 	}}}
 
 // destroyOps returns the operations required to destroy the unit. If it
@@ -365,20 +364,36 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 		return setDyingOps, nil
 	}
 
-	sdocId := u.globalAgentKey()
-	sdoc, err := getStatus(u.st, sdocId)
-	if errors.IsNotFound(err) {
+	agentStatusDocId := u.globalAgentKey()
+	agentStatusDoc, agentErr := getStatus(u.st, agentStatusDocId)
+
+	if errors.IsNotFound(agentErr) {
 		return nil, errAlreadyDying
-	} else if err != nil {
-		return nil, err
+	} else if agentErr != nil {
+		return nil, errors.Trace(agentErr)
 	}
-	if sdoc.Status != StatusPending && sdoc.Status != StatusAllocating && sdoc.Status != StatusInstalling {
+
+	// See if the unit's machine has been allocated and the unit has been installed.
+	isAllocated := agentStatusDoc.Status != StatusAllocating
+	isError := agentStatusDoc.Status == StatusError
+
+	unitStatusDoc, err := getStatus(u.st, u.globalKey())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// There's currently no better way to determine if a unit is installed.
+	// TODO(wallyworld) - use status history to see if start hook has run.
+	isInstalled := unitStatusDoc.Status != StatusMaintenance || unitStatusDoc.StatusInfo != "installing charm software"
+
+	// If already allocated and installed, or there's an error, then we can't set directly to dead.
+	if isError || isAllocated && isInstalled {
 		return setDyingOps, nil
 	}
+
 	ops := []txn.Op{{
 		C:      statusesC,
-		Id:     u.st.docID(sdocId),
-		Assert: unitNotInstalled,
+		Id:     u.st.docID(agentStatusDocId),
+		Assert: unitAgentAllocating,
 	}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, bson.DocElem{
 		"$and", []bson.D{
@@ -782,7 +797,7 @@ func (u *Unit) SetAgentStatus(status Status, info string, data map[string]interf
 // AgentStatus calls Status for this unit's agent, this call
 // is equivalent to the former call to Status when Agent and Unit
 // where not separate entities.
-func (u *Unit) AgentStatus() (status Status, info string, data map[string]interface{}, err error) {
+func (u *Unit) AgentStatus() (StatusInfo, error) {
 	agent := newUnitAgent(u.st, u.Tag(), u.Name())
 	return agent.Status()
 }
@@ -791,15 +806,17 @@ func (u *Unit) AgentStatus() (status Status, info string, data map[string]interf
 // This method relies on globalKey instead of globalAgentKey since it is part of
 // the effort to separate Unit from UnitAgent. Now the Status for UnitAgent is in
 // the UnitAgent struct.
-func (u *Unit) Status() (status Status, info string, data map[string]interface{}, err error) {
+func (u *Unit) Status() (StatusInfo, error) {
 	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
-		return "", "", nil, err
+		return StatusInfo{}, err
 	}
-	status = doc.Status
-	info = doc.StatusInfo
-	data = doc.StatusData
-	return
+	return StatusInfo{
+		Status:  doc.Status,
+		Message: doc.StatusInfo,
+		Data:    doc.StatusData,
+		Since:   doc.Updated,
+	}, nil
 }
 
 // SetStatus sets the status of the unit agent. The optional values
@@ -1405,7 +1422,7 @@ type storageParams struct {
 // and volume/filesystem attachments for a new machine that the unit will be
 // assigned to.
 func (u *Unit) newMachineStorageParams() (*storageParams, error) {
-	storageAttachments, err := u.st.StorageAttachments(u.UnitTag())
+	storageAttachments, err := u.st.UnitStorageAttachments(u.UnitTag())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage attachments")
 	}
@@ -1859,11 +1876,11 @@ func (u *Unit) Resolve(retryHooks bool) error {
 	// We currently check agent status to see if a unit is
 	// in error state. As the new Juju Health work is completed,
 	// this will change to checking the unit status.
-	status, _, _, err := u.AgentStatus()
+	statusInfo, err := u.AgentStatus()
 	if err != nil {
 		return err
 	}
-	if status != StatusError {
+	if statusInfo.Status != StatusError {
 		return errors.Errorf("unit %q is not in an error state", u)
 	}
 	mode := ResolvedNoHooks
@@ -1924,18 +1941,34 @@ func (u *Unit) ClearResolved() error {
 	return nil
 }
 
-// AddMetric adds a new batch of metrics to the database.
-// A UUID for the metric will be generated and the new MetricBatch will be returned
-func (u *Unit) AddMetrics(created time.Time, metrics []Metric) (*MetricBatch, error) {
-	charmUrl, ok := u.CharmURL()
-	if !ok {
-		return nil, stderrors.New("failed to add metrics, couldn't find charm url")
+// AddMetrics adds a new batch of metrics to the database.
+func (u *Unit) AddMetrics(batchUUID string, created time.Time, charmURLRaw string, metrics []Metric) (*MetricBatch, error) {
+	var charmURL *charm.URL
+	if charmURLRaw == "" {
+		var ok bool
+		charmURL, ok = u.CharmURL()
+		if !ok {
+			return nil, stderrors.New("failed to add metrics, couldn't find charm url")
+		}
+	} else {
+		var err error
+		charmURL, err = charm.ParseURL(charmURLRaw)
+		if err != nil {
+			return nil, errors.NewNotValid(err, "could not parse charm URL")
+		}
 	}
 	service, err := u.Service()
 	if err != nil {
 		return nil, errors.Annotatef(err, "couldn't retrieve service whilst adding metrics")
 	}
-	return u.st.addMetrics(u.UnitTag(), charmUrl, created, metrics, service.MetricCredentials())
+	batch := BatchParam{
+		UUID:        batchUUID,
+		CharmURL:    charmURL,
+		Created:     created,
+		Metrics:     metrics,
+		Credentials: service.MetricCredentials(),
+	}
+	return u.st.addMetrics(u.UnitTag(), batch)
 }
 
 // StorageConstraints returns the unit's storage constraints.

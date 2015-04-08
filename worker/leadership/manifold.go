@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api"
@@ -46,14 +47,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				config.LeadershipGuarantee,
 			), nil
 		},
-		Output: func(in worker.Worker, out interface{}) bool {
+		Output: func(in worker.Worker, out interface{}) error {
 			inWorker, _ := in.(Tracker)
 			outPointer, _ := out.(*Tracker)
 			if inWorker == nil || outPointer == nil {
-				return false
+				return errors.Errorf("expected %T->%T; got %T->%T", inWorker, outPointer, in, out)
 			}
 			*outPointer = inWorker
-			return true
+			return nil
 		},
 	}
 }

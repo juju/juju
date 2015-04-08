@@ -38,7 +38,7 @@ func (s *ListBlockDevicesSuite) TestListBlockDevices(c *gc.C) {
 	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
 cat <<EOF
 KNAME="sda" SIZE="240057409536" LABEL="" UUID=""
-KNAME="sda1" SIZE="254803968" LABEL="" UUID="7a62bd85-a350-4c09-8944-5b99bf2080c6"
+KNAME="sda1" SIZE="254803968" LABEL="" UUID="7a62bd85-a350-4c09-8944-5b99bf2080c6" MOUNTPOINT="/tmp"
 KNAME="sda2" SIZE="1024" LABEL="boot" UUID=""
 KNAME="sdb" SIZE="32017047552" LABEL="" UUID=""
 KNAME="sdb1" SIZE="32015122432" LABEL="media" UUID="2c1c701d-f2ce-43a4-b345-33e2e39f9503" FSTYPE="ext4"
@@ -53,6 +53,7 @@ EOF`)
 		DeviceName: "sda1",
 		Size:       243,
 		UUID:       "7a62bd85-a350-4c09-8944-5b99bf2080c6",
+		MountPoint: "/tmp",
 	}, {
 		DeviceName: "sda2",
 		Size:       0, // truncated

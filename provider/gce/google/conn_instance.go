@@ -6,8 +6,8 @@ package google
 import (
 	"path"
 
-	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
+	"google.golang.org/api/compute/v1"
 )
 
 // addInstance sends a request to GCE to add a new instance to the
@@ -23,7 +23,7 @@ func (gce *Connection) addInstance(requestedInst *compute.Instance, machineType 
 		var waitErr error
 		inst := *requestedInst
 		inst.MachineType = formatMachineType(zoneName, machineType)
-		err := gce.raw.AddInstance(gce.ProjectID, zoneName, &inst)
+		err := gce.raw.AddInstance(gce.projectID, zoneName, &inst)
 		if isWaitError(err) {
 			waitErr = err
 		} else if err != nil {
@@ -32,7 +32,7 @@ func (gce *Connection) addInstance(requestedInst *compute.Instance, machineType 
 		}
 
 		// Check if the instance was created.
-		realized, err := gce.raw.GetInstance(gce.ProjectID, zoneName, inst.Name)
+		realized, err := gce.raw.GetInstance(gce.projectID, zoneName, inst.Name)
 		if err != nil {
 			if waitErr == nil {
 				return errors.Trace(err)
@@ -65,7 +65,7 @@ func (gce *Connection) AddInstance(spec InstanceSpec, zones ...string) (*Instanc
 // and returns it.
 func (gce *Connection) Instance(id, zone string) (Instance, error) {
 	var result Instance
-	raw, err := gce.raw.GetInstance(gce.ProjectID, zone, id)
+	raw, err := gce.raw.GetInstance(gce.projectID, zone, id)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -78,7 +78,7 @@ func (gce *Connection) Instance(id, zone string) (Instance, error) {
 // provided prefix. The result is also limited to those instances with
 // one of the specified statuses (if any).
 func (gce *Connection) Instances(prefix string, statuses ...string) ([]Instance, error) {
-	rawInsts, err := gce.raw.ListInstances(gce.ProjectID, prefix, statuses...)
+	rawInsts, err := gce.raw.ListInstances(gce.projectID, prefix, statuses...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -95,14 +95,21 @@ func (gce *Connection) Instances(prefix string, statuses ...string) ([]Instance,
 // with the provided ID (in the specified zone). The call blocks until
 // the instance is removed (or the request fails).
 func (gce *Connection) removeInstance(id, zone string) error {
-	err := gce.raw.RemoveInstance(gce.ProjectID, zone, id)
+	err := gce.raw.RemoveInstance(gce.projectID, zone, id)
 	if err != nil {
+		// TODO(ericsnow) Try removing the firewall anyway?
 		return errors.Trace(err)
 	}
 
 	fwname := id
-	err = gce.raw.RemoveFirewall(gce.ProjectID, fwname)
-	return errors.Trace(err)
+	err = gce.raw.RemoveFirewall(gce.projectID, fwname)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // RemoveInstances sends a request to the GCE API to terminate all

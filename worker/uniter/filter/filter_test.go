@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api"
@@ -116,7 +116,7 @@ func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 	dyingC.AssertNoReceive()
 
 	// Set dying.
-	err = s.unit.SetAgentStatus(state.StatusActive, "", nil)
+	err = s.unit.SetAgentStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -164,7 +164,7 @@ func (s *FilterSuite) TestServiceDeath(c *gc.C) {
 	dyingC := s.notifyAsserterC(c, f.UnitDying())
 	dyingC.AssertNoReceive()
 
-	err = s.unit.SetAgentStatus(state.StatusActive, "", nil)
+	err = s.unit.SetAgentStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpress.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -294,7 +294,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
-	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Test no changes before the charm URL is set.
@@ -329,7 +329,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	configC.AssertNoReceive()
 
 	// Change the addresses of the unit's assigned machine; new event received.
-	err = s.machine.SetAddresses(network.NewAddress("0.1.2.4", network.ScopeUnknown))
+	err = s.machine.SetAddresses(network.NewAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.BackingState.StartSync()
 	configC.AssertOneReceive()
@@ -354,7 +354,7 @@ func (s *FilterSuite) TestInitialAddressEventIgnored(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
-	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should not get any config-change events until
@@ -382,7 +382,7 @@ func (s *FilterSuite) TestConfigAndAddressEvents(c *gc.C) {
 	// Changing the machine addresses should also result in
 	// a config-change event.
 	err = s.machine.SetAddresses(
-		network.NewAddress("0.1.2.3", network.ScopeUnknown),
+		network.NewAddress("0.1.2.3"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -405,9 +405,7 @@ func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
 	configC.AssertNoReceive()
 
 	// Change the machine addresses.
-	err = s.machine.SetAddresses(
-		network.NewAddress("0.1.2.3", network.ScopeUnknown),
-	)
+	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set the charm URL to trigger config events.

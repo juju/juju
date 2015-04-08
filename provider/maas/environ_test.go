@@ -196,7 +196,7 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 
 var expectedCloudinitConfig = []interface{}{
 	"set -xe",
-	"mkdir -p '/var/lib/juju'\ninstall -m 755 /dev/null '/var/lib/juju/MAASmachine.txt'\nprintf '%s\\n' ''\"'\"'hostname: testing.invalid\n'\"'\"'' > '/var/lib/juju/MAASmachine.txt'",
+	"mkdir -p '/var/lib/juju'\ncat > '/var/lib/juju/MAASmachine.txt' << 'EOF'\n'hostname: testing.invalid\n'\nEOF\nchmod 0755 '/var/lib/juju/MAASmachine.txt'",
 }
 
 func (*environSuite) TestNewCloudinitConfig(c *gc.C) {

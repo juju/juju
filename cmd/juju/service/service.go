@@ -26,8 +26,10 @@ func NewSuperCommand() cmd.Command {
 		Purpose:     "manage services",
 	})
 
+	environmentCmd.Register(envcmd.Wrap(&AddUnitCommand{}))
 	environmentCmd.Register(envcmd.Wrap(&ServiceGetConstraintsCommand{}))
 	environmentCmd.Register(envcmd.Wrap(&ServiceSetConstraintsCommand{}))
+	environmentCmd.Register(envcmd.Wrap(&GetCommand{}))
 	environmentCmd.Register(envcmd.Wrap(&SetCommand{}))
 	environmentCmd.Register(envcmd.Wrap(&UnsetCommand{}))
 

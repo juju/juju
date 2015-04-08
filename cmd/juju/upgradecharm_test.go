@@ -11,8 +11,10 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
+	"gopkg.in/juju/charmstore.v4"
+	charmstoretesting "gopkg.in/juju/charmstore.v4/testing"
 
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -23,15 +25,25 @@ import (
 
 type UpgradeCharmErrorsSuite struct {
 	jujutesting.RepoSuite
+	srv *charmstoretesting.Server
 }
 
 func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	mockstore := charmtesting.NewMockStore(c, testcharms.Repo, map[string]int{})
-	s.AddCleanup(func(*gc.C) { mockstore.Close() })
-	s.PatchValue(&charm.Store, &charm.CharmStore{
-		BaseURL: mockstore.Address(),
+	s.srv = charmstoretesting.OpenServer(c, s.Session, charmstore.ServerParams{})
+	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
+	original := charmStoreParams
+	s.PatchValue(&charmStoreParams, func() (charmrepo.NewCharmStoreParams, error) {
+		csParams, err := original()
+		c.Assert(err, jc.ErrorIsNil)
+		csParams.URL = s.srv.URL()
+		return csParams, nil
 	})
+}
+
+func (s *UpgradeCharmErrorsSuite) TearDownTest(c *gc.C) {
+	s.srv.Close()
+	s.RepoSuite.TearDownTest(c)
 }
 
 var _ = gc.Suite(&UpgradeCharmErrorsSuite{})
@@ -78,9 +90,9 @@ func (s *UpgradeCharmErrorsSuite) deployService(c *gc.C) {
 func (s *UpgradeCharmErrorsSuite) TestInvalidSwitchURL(c *gc.C) {
 	s.deployService(c)
 	err := runUpgradeCharm(c, "riak", "--switch=blah")
-	c.Assert(err, gc.ErrorMatches, "charm not found: cs:trusty/blah")
+	c.Assert(err, gc.ErrorMatches, `cannot resolve charm URL "cs:trusty/blah": charm not found`)
 	err = runUpgradeCharm(c, "riak", "--switch=cs:missing/one")
-	c.Assert(err, gc.ErrorMatches, "charm not found: cs:missing/one")
+	c.Assert(err, gc.ErrorMatches, `cannot resolve charm URL "cs:missing/one": charm not found`)
 	// TODO(dimitern): add tests with incompatible charms
 }
 

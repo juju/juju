@@ -25,14 +25,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 		},
 		Start: startFunc(config),
-		Output: func(in worker.Worker, out interface{}) bool {
+		Output: func(in worker.Worker, out interface{}) error {
 			inWorker, _ := in.(*apiConnWorker)
 			outPointer, _ := out.(**api.State)
 			if inWorker == nil || outPointer == nil {
-				return false
+				return errors.Errorf("expected %T->%T; got %T->%T", inWorker, outPointer, in, out)
 			}
 			*outPointer = inWorker.st
-			return true
+			return nil
 		},
 	}
 }

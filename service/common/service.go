@@ -5,6 +5,7 @@ package common
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/shell"
 )
 
 // Service is the base type for service.Service implementations.
@@ -22,12 +23,12 @@ func (s Service) NoConf() bool {
 }
 
 // Validate checks the service's values for correctness.
-func (s Service) Validate() error {
+func (s Service) Validate(renderer shell.Renderer) error {
 	if s.Name == "" {
 		return errors.New("missing Name")
 	}
 
-	if err := s.Conf.Validate(); err != nil {
+	if err := s.Conf.Validate(renderer); err != nil {
 		return errors.Trace(err)
 	}
 

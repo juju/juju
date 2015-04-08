@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v4/hooks"
+	"gopkg.in/juju/charm.v5-unstable/hooks"
 
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"

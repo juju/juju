@@ -235,7 +235,7 @@ func (s *UpstartSuite) assertInstall(c *gc.C, conf common.Conf, expectEnd string
 	cmds, err := s.service.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmds, gc.DeepEquals, []string{
-		"cat >> " + expectPath + " << 'EOF'\n" + expectContent + "EOF\n",
+		"cat > " + expectPath + " << 'EOF'\n" + expectContent + "EOF\n",
 	})
 	cmds, err = s.service.StartCommands()
 	c.Assert(err, jc.ErrorIsNil)
@@ -354,11 +354,10 @@ func (s *UpstartSuite) TestInstallAlreadyRunning(c *gc.C) {
 	err := symlink.New(pathTo("status-started"), pathTo("status"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	conf := s.dummyConf(c)
-	s.service.UpdateConfig(conf)
-	err = s.service.Install()
+	svc := upstart.NewService("some-service", s.dummyConf(c))
+	err = svc.Install()
 	c.Assert(err, jc.ErrorIsNil)
-	installed, err := s.service.Running()
+	installed, err := svc.Running()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(installed, jc.IsTrue)
 }

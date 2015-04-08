@@ -47,14 +47,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}()
 			return w, nil
 		},
-		Output: func(in worker.Worker, out interface{}) bool {
+		Output: func(in worker.Worker, out interface{}) error {
 			inWorker, _ := in.(*machineLockWorker)
 			outPointer, _ := out.(**fslock.Lock)
 			if inWorker == nil || outPointer == nil {
-				return false
+				return errors.Errorf("expected %T->%T; got %T->%T", inWorker, outPointer, in, out)
 			}
 			*outPointer = inWorker.lock
-			return true
+			return nil
 		},
 	}
 }

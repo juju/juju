@@ -354,6 +354,7 @@ type StatusResult struct {
 	Status Status
 	Info   string
 	Data   map[string]interface{}
+	Since  *time.Time
 }
 
 // StatusResults holds multiple status results.
@@ -476,6 +477,20 @@ type RelationUnitsWatchResults struct {
 	Results []RelationUnitsWatchResult
 }
 
+// MachineStorageIdsWatchResult holds a MachineStorageIdsWatcher id,
+// changes and an error (if any).
+type MachineStorageIdsWatchResult struct {
+	MachineStorageIdsWatcherId string
+	Changes                    []MachineStorageId
+	Error                      *Error
+}
+
+// MachineStorageIdsWatchResults holds the results for any API call which ends
+// up returning a list of MachineStorageIdsWatchers.
+type MachineStorageIdsWatchResults struct {
+	Results []MachineStorageIdsWatchResult
+}
+
 // CharmsResponse is the server response to charm upload or GET requests.
 type CharmsResponse struct {
 	Error    string   `json:",omitempty"`
@@ -552,6 +567,25 @@ type MetricsParam struct {
 // MetricsParams contains the metrics for multiple units.
 type MetricsParams struct {
 	Metrics []MetricsParam
+}
+
+// MetricBatch is a list of metrics with metadata.
+type MetricBatch struct {
+	UUID     string
+	CharmURL string
+	Created  time.Time
+	Metrics  []Metric
+}
+
+// MetricBatchParam contains a single metric batch.
+type MetricBatchParam struct {
+	Tag   string
+	Batch MetricBatch
+}
+
+// MetricBatchParams contains multiple metric batches.
+type MetricBatchParams struct {
+	Batches []MetricBatchParam
 }
 
 // MeterStatusResult holds unit meter status or error.

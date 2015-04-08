@@ -16,7 +16,7 @@ import (
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fs"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4/hooks"
+	"gopkg.in/juju/charm.v5-unstable/hooks"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
@@ -294,7 +294,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	s.machine = nil // allocate a new machine
 	unit := s.AddUnit(c, service)
 
-	storageAttachments, err := s.State.StorageAttachments(unit.UnitTag())
+	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 	storageTag := storageAttachments[0].StorageInstance()

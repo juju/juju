@@ -45,14 +45,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			return NewFilter(uniterFacade, unitTag)
 		},
-		Output: func(in worker.Worker, out interface{}) bool {
+		Output: func(in worker.Worker, out interface{}) error {
 			inWorker, _ := in.(Filter)
 			outPointer, _ := out.(*Filter)
 			if inWorker == nil || outPointer == nil {
-				return false
+				return errors.Errorf("expected %T->%T; got %T->%T", inWorker, outPointer, in, out)
 			}
 			*outPointer = inWorker
-			return true
+			return nil
 		},
 	}
 }

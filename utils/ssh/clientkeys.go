@@ -11,9 +11,9 @@ import (
 	"strings"
 	"sync"
 
-	"code.google.com/p/go.crypto/ssh"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
+	"golang.org/x/crypto/ssh"
 )
 
 const clientKeyName = "juju_id_rsa"

@@ -4,10 +4,12 @@
 package upgrades
 
 import (
+	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/uniter"
 )
 
 // stateStepsFor123 returns upgrade steps form Juju 1.23 that manipulate state directly.
@@ -57,6 +59,18 @@ func stateStepsFor123() []Step {
 			run: func(context Context) error {
 				return state.AddNameFieldLowerCaseIdOfUsers(context.State())
 			},
+		}, &upgradeStep{
+			description: "add life field to IP addresses",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddLifeFieldOfIPAddresses(context.State())
+			},
+		}, &upgradeStep{
+			description: "lower case _id of envUsers",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.LowerCaseEnvUsersID(context.State())
+			},
 		},
 	)
 	return steps
@@ -69,6 +83,19 @@ func stepsFor123() []Step {
 			description: "add environment UUID to agent config",
 			targets:     []Target{AllMachines},
 			run:         addEnvironmentUUIDToAgentConfig,
+		},
+		&upgradeStep{
+			description: "add Stopped field to uniter state",
+			targets:     []Target{AllMachines},
+			run: func(context Context) error {
+				config := context.AgentConfig()
+				tag, ok := config.Tag().(names.UnitTag)
+				if !ok {
+					// not a Unit; skipping
+					return nil
+				}
+				return uniter.AddStoppedFieldToUniterState(tag, config.DataDir())
+			},
 		},
 	}
 }

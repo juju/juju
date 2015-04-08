@@ -64,7 +64,7 @@ func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
 	params := url.Values{}
 	params.Add("network", cidr)
-	params.Add("ip", addr.Value)
+	params.Add("requested_address", addr.Value)
 	_, err := ipaddresses.CallPost("reserve", params)
 	return err
 }
@@ -510,7 +510,8 @@ func (env *maasEnviron) getCapabilities() (set.Strings, error) {
 			if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == 404 {
 				return caps, fmt.Errorf("MAAS does not support version info")
 			}
-			return caps, err
+		} else {
+			break
 		}
 	}
 	if err != nil {
@@ -998,19 +999,21 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 // newCloudinitConfig creates a cloudinit.Config structure
 // suitable as a base for initialising a MAAS node.
 func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series string) (*cloudinit.Config, error) {
-	info := machineInfo{hostname}
-	runCmd, err := info.cloudinitRunCmd(series)
-
+	cloudcfg, err := cloudinit.New(series)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
-	cloudcfg := cloudinit.New()
+	info := machineInfo{hostname}
+	runCmd, err := info.cloudinitRunCmd(cloudcfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	operatingSystem, err := version.GetOSFromSeries(series)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-
 	switch operatingSystem {
 	case version.Windows:
 		cloudcfg.AddScripts(runCmd)
@@ -1266,7 +1269,7 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 			mask := net.IPMask(net.ParseIP(details.Mask))
 			cidr := net.IPNet{net.ParseIP(details.IP), mask}
 			ifaceInfo.CIDR = cidr.String()
-			ifaceInfo.Address = network.NewAddress(cidr.IP.String(), network.ScopeUnknown)
+			ifaceInfo.Address = network.NewAddress(cidr.IP.String())
 		} else {
 			logger.Debugf("no subnet information for MAC address %q, instance %q", serial, instId)
 		}

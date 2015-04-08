@@ -183,19 +183,19 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 	dummy.Listen(opc)
 
 	// Test allocating a couple of addresses.
-	newAddress := network.NewAddress("0.1.2.1", network.ScopeCloudLocal)
+	newAddress := network.NewScopedAddress("0.1.2.1", network.ScopeCloudLocal)
 	err := e.AllocateAddress(inst.Id(), subnetId, newAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAllocateAddress(c, e, opc, inst.Id(), subnetId, newAddress)
 
-	newAddress = network.NewAddress("0.1.2.2", network.ScopeCloudLocal)
+	newAddress = network.NewScopedAddress("0.1.2.2", network.ScopeCloudLocal)
 	err = e.AllocateAddress(inst.Id(), subnetId, newAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAllocateAddress(c, e, opc, inst.Id(), subnetId, newAddress)
 
 	// Test we can induce errors.
 	s.breakMethods(c, e, "AllocateAddress")
-	newAddress = network.NewAddress("0.1.2.3", network.ScopeCloudLocal)
+	newAddress = network.NewScopedAddress("0.1.2.3", network.ScopeCloudLocal)
 	err = e.AllocateAddress(inst.Id(), subnetId, newAddress)
 	c.Assert(err, gc.ErrorMatches, `dummy\.AllocateAddress is broken`)
 }
@@ -215,19 +215,19 @@ func (s *suite) TestReleaseAddress(c *gc.C) {
 	dummy.Listen(opc)
 
 	// Release a couple of addresses.
-	address := network.NewAddress("0.1.2.1", network.ScopeCloudLocal)
+	address := network.NewScopedAddress("0.1.2.1", network.ScopeCloudLocal)
 	err := e.ReleaseAddress(inst.Id(), subnetId, address)
 	c.Assert(err, jc.ErrorIsNil)
 	assertReleaseAddress(c, e, opc, inst.Id(), subnetId, address)
 
-	address = network.NewAddress("0.1.2.2", network.ScopeCloudLocal)
+	address = network.NewScopedAddress("0.1.2.2", network.ScopeCloudLocal)
 	err = e.ReleaseAddress(inst.Id(), subnetId, address)
 	c.Assert(err, jc.ErrorIsNil)
 	assertReleaseAddress(c, e, opc, inst.Id(), subnetId, address)
 
 	// Test we can induce errors.
 	s.breakMethods(c, e, "ReleaseAddress")
-	address = network.NewAddress("0.1.2.3", network.ScopeCloudLocal)
+	address = network.NewScopedAddress("0.1.2.3", network.ScopeCloudLocal)
 	err = e.ReleaseAddress(inst.Id(), subnetId, address)
 	c.Assert(err, gc.ErrorMatches, `dummy\.ReleaseAddress is broken`)
 }
@@ -254,9 +254,9 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigDHCP,
-		Address:          network.NewAddress("0.10.0.2", network.ScopeUnknown),
+		Address:          network.NewAddress("0.10.0.2"),
 		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress:   network.NewAddress("0.10.0.1", network.ScopeUnknown),
+		GatewayAddress:   network.NewAddress("0.10.0.1"),
 		ExtraConfig:      nil,
 	}, {
 		ProviderId:       "dummy-eth1",
@@ -270,9 +270,9 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:         true,
 		NoAutoStart:      true,
 		ConfigType:       network.ConfigDHCP,
-		Address:          network.NewAddress("0.20.0.2", network.ScopeUnknown),
+		Address:          network.NewAddress("0.20.0.2"),
 		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress:   network.NewAddress("0.20.0.1", network.ScopeUnknown),
+		GatewayAddress:   network.NewAddress("0.20.0.1"),
 		ExtraConfig:      nil,
 	}}
 	info, err := e.NetworkInterfaces("i-42")
@@ -286,6 +286,23 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, gc.HasLen, 0)
 	assertInterfaces(c, e, opc, "i-no-nics-here", expectInfo[:0])
+
+	// Test that with instance id prefix "i-nic-no-subnet-" we get a result
+	// with no associated subnet.
+	expectInfo = []network.InterfaceInfo{{
+		DeviceIndex:   0,
+		ProviderId:    network.Id("dummy-eth0"),
+		NetworkName:   "juju-public",
+		InterfaceName: "eth0",
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		Disabled:      false,
+		NoAutoStart:   false,
+		ConfigType:    network.ConfigDHCP,
+	}}
+	info, err = e.NetworkInterfaces("i-nic-no-subnet-here")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, gc.HasLen, 1)
+	assertInterfaces(c, e, opc, "i-nic-no-subnet-here", expectInfo)
 
 	// Test we can induce errors.
 	s.breakMethods(c, e, "NetworkInterfaces")
@@ -347,12 +364,15 @@ func (s *suite) TestSubnets(c *gc.C) {
 	c.Assert(netInfo, jc.DeepEquals, expectInfo[1:])
 	assertSubnets(c, e, opc, "i-foo", ids[1:], expectInfo[1:])
 
-	// Test that using an instance id with prefix "i-no-subnets-"
+	// Test that using an instance id with prefix of either
+	// "i-no-subnets-" or "i-nic-no-subnet-"
 	// returns no results, regardless whether ids are given or not.
-	netInfo, err = e.Subnets("i-no-subnets-foo", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(netInfo, gc.HasLen, 0)
-	assertSubnets(c, e, opc, "i-no-subnets-foo", nil, expectInfo[:0])
+	for _, instId := range []instance.Id{"i-no-subnets-foo", "i-nic-no-subnet-foo"} {
+		netInfo, err = e.Subnets(instId, nil)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(netInfo, gc.HasLen, 0)
+		assertSubnets(c, e, opc, instId, nil, expectInfo[:0])
+	}
 
 	netInfo, err = e.Subnets("i-no-subnets-foo", ids)
 	c.Assert(err, jc.ErrorIsNil)

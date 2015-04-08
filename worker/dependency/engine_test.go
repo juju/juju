@@ -64,7 +64,7 @@ func (s *EngineSuite) TestInstallNoInputs(c *gc.C) {
 func (s *EngineSuite) TestInstallUnknownInputs(c *gc.C) {
 
 	// Install a worker with an unmet dependency, check it doesn't start
-	// (because the implementation returns ErrUnmetDependencies).
+	// (because the implementation returns ErrMissing).
 	mh1 := newManifoldHarness("later-task")
 	err := s.engine.Install("some-task", mh1.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
@@ -88,7 +88,7 @@ func (s *EngineSuite) TestDoubleInstall(c *gc.C) {
 
 	// Can't install another worker with the same name.
 	err = s.engine.Install("some-task", mh.Manifold())
-	c.Assert(err, gc.ErrorMatches, "some-task manifold already installed")
+	c.Assert(err, gc.ErrorMatches, `"some-task" manifold already installed`)
 	mh.AssertNoStart(c)
 }
 
@@ -133,8 +133,8 @@ func (s *EngineSuite) TestStartGetResourceUndeclaredName(c *gc.C) {
 	done := make(chan struct{})
 	err = s.engine.Install("other-task", dependency.Manifold{
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-			success := getResource("some-task", nil)
-			c.Check(success, jc.IsFalse)
+			err := getResource("some-task", nil)
+			c.Check(err, gc.Equals, dependency.ErrMissing)
 			close(done)
 			// Return a real worker so we don't keep restarting and potentially double-closing.
 			return degenerateStart(getResource)
@@ -150,18 +150,18 @@ func (s *EngineSuite) TestStartGetResourceUndeclaredName(c *gc.C) {
 	}
 }
 
-func (s *EngineSuite) testStartGetResource(c *gc.C, accept bool) {
+func (s *EngineSuite) testStartGetResource(c *gc.C, outErr error) {
 
 	// Start a task with an Output func that checks what it's passed, and wait for it to start.
 	var target interface{}
 	expectTarget := &target
 	mh1 := newManifoldHarness()
 	manifold := mh1.Manifold()
-	manifold.Output = func(worker worker.Worker, target interface{}) bool {
+	manifold.Output = func(worker worker.Worker, target interface{}) error {
 		// Check we got passed what we expect regardless...
 		c.Check(target, gc.DeepEquals, expectTarget)
-		// ...and return whether we're meant to accept it or not.
-		return accept
+		// ...and return the configured error.
+		return outErr
 	}
 	err := s.engine.Install("some-task", manifold)
 	c.Assert(err, jc.ErrorIsNil)
@@ -172,9 +172,9 @@ func (s *EngineSuite) testStartGetResource(c *gc.C, accept bool) {
 	err = s.engine.Install("other-task", dependency.Manifold{
 		Inputs: []string{"some-task"},
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-			success := getResource("some-task", &target)
+			err := getResource("some-task", &target)
 			// Check the result from some-task's Output func matches what we expect.
-			c.Check(success, gc.Equals, accept)
+			c.Check(err, gc.Equals, outErr)
 			close(done)
 			// Return a real worker so we don't keep restarting and potentially double-closing.
 			return degenerateStart(getResource)
@@ -190,12 +190,12 @@ func (s *EngineSuite) testStartGetResource(c *gc.C, accept bool) {
 	}
 }
 
-func (s *EngineSuite) TestStartGetResourceReject(c *gc.C) {
-	s.testStartGetResource(c, false)
+func (s *EngineSuite) TestStartGetResourceAccept(c *gc.C) {
+	s.testStartGetResource(c, nil)
 }
 
-func (s *EngineSuite) TestStartGetResourceAccept(c *gc.C) {
-	s.testStartGetResource(c, true)
+func (s *EngineSuite) TestStartGetResourceReject(c *gc.C) {
+	s.testStartGetResource(c, errors.New("not good enough"))
 }
 
 func (s *EngineSuite) TestErrorRestartsDependents(c *gc.C) {
@@ -336,11 +336,11 @@ func (s *EngineSuite) TestIsFatal(c *gc.C) {
 	s.engine = nil
 }
 
-func (s *EngineSuite) TestErrUnmetDependencies(c *gc.C) {
+func (s *EngineSuite) TestErrMissing(c *gc.C) {
 
-	// ErrUnmetDependencies is implicitly and indirectly tested by the
-	// default errorWorkerStarter.start method throughout this suite, but
-	// this test explores its behaviour in pathological cases.
+	// ErrMissing is implicitly and indirectly tested by the default
+	// manifoldHarness.start method throughout this suite, but this
+	// test explores its behaviour in pathological cases.
 
 	// Start a simple dependency.
 	mh1 := newManifoldHarness()
@@ -348,12 +348,12 @@ func (s *EngineSuite) TestErrUnmetDependencies(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mh1.AssertOneStart(c)
 
-	// Start a dependent that always complains ErrUnmetDependencies.
+	// Start a dependent that always complains ErrMissing.
 	mh2 := newManifoldHarness("some-task")
 	manifold := mh2.Manifold()
 	manifold.Start = func(_ dependency.GetResourceFunc) (worker.Worker, error) {
 		mh2.starts <- struct{}{}
-		return nil, dependency.ErrUnmetDependencies
+		return nil, dependency.ErrMissing
 	}
 	err = s.engine.Install("unmet-task", manifold)
 	c.Assert(err, jc.ErrorIsNil)

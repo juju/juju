@@ -16,7 +16,11 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider/dummy"
+	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -37,7 +41,7 @@ var _ = gc.Suite(&watcherSuite{})
 
 func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
+	s.stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron, state.JobHostUnits)
 }
 
 func (s *watcherSuite) TestWatchInitialEventConsumed(c *gc.C) {
@@ -184,4 +188,63 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 	s.BackingState.StartSync()
 	statetesting.AssertCanStopWhenSending(c, w)
 	wc.AssertClosed()
+}
+
+func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
+	registry.RegisterProvider(
+		"envscoped",
+		&dummy.StorageProvider{
+			StorageScope: storage.ScopeEnviron,
+		},
+	)
+	registry.RegisterEnvironStorageProviders("dummy", "envscoped")
+	defer registry.RegisterProvider("envscoped", nil)
+
+	f := factory.NewFactory(s.BackingState)
+	f.MakeMachine(c, &factory.MachineParams{
+		Volumes: []state.MachineVolumeParams{{
+			Volume: state.VolumeParams{
+				Pool: "envscoped",
+				Size: 1024,
+			},
+		}},
+	})
+
+	var results params.MachineStorageIdsWatchResults
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: s.State.EnvironTag().String(),
+	}}}
+	err := s.stateAPI.APICall(
+		"StorageProvisioner",
+		s.stateAPI.BestFacadeVersion("StorageProvisioner"),
+		"", "WatchVolumeAttachments", args, &results)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.IsNil)
+
+	w := watcher.NewVolumeAttachmentsWatcher(s.stateAPI, result)
+	select {
+	case changes, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(changes, jc.SameContents, []params.MachineStorageId{{
+			MachineTag:    "machine-1",
+			AttachmentTag: "volume-0",
+		}})
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for change")
+	}
+	select {
+	case <-w.Changes():
+		c.Fatalf("received unexpected change")
+	case <-time.After(coretesting.ShortWait):
+	}
+
+	statetesting.AssertStop(c, w)
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsFalse)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for watcher channel to be closed")
+	}
 }

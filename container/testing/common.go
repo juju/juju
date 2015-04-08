@@ -59,21 +59,23 @@ func CreateContainerWithMachineConfig(
 ) instance.Instance {
 
 	networkConfig := container.BridgeNetworkConfig("nic42", nil)
-	return CreateContainerWithMachineAndNetworkConfig(c, manager, machineConfig, networkConfig)
+	storageConfig := &container.StorageConfig{}
+	return CreateContainerWithMachineAndNetworkAndStorageConfig(c, manager, machineConfig, networkConfig, storageConfig)
 }
 
-func CreateContainerWithMachineAndNetworkConfig(
+func CreateContainerWithMachineAndNetworkAndStorageConfig(
 	c *gc.C,
 	manager container.Manager,
 	machineConfig *cloudinit.MachineConfig,
 	networkConfig *container.NetworkConfig,
+	storageConfig *container.StorageConfig,
 ) instance.Instance {
 
 	if networkConfig != nil && len(networkConfig.Interfaces) > 0 {
 		name := "test-" + names.NewMachineTag(machineConfig.MachineId).String()
 		EnsureRootFSEtcNetwork(c, name)
 	}
-	inst, hardware, err := manager.CreateContainer(machineConfig, "quantal", networkConfig)
+	inst, hardware, err := manager.CreateContainer(machineConfig, "quantal", networkConfig, storageConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	c.Assert(hardware.String(), gc.Not(gc.Equals), "")
@@ -114,8 +116,9 @@ func CreateContainerTest(c *gc.C, manager container.Manager, machineId string) (
 	machineConfig.Config = envConfig
 
 	network := container.BridgeNetworkConfig("nic42", nil)
+	storage := &container.StorageConfig{}
 
-	inst, hardware, err := manager.CreateContainer(machineConfig, "quantal", network)
+	inst, hardware, err := manager.CreateContainer(machineConfig, "quantal", network, storage)
 
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -371,7 +371,7 @@ type GetMetadataParams struct {
 func GetMetadata(sources []DataSource, params GetMetadataParams) (items []interface{}, resolveInfo *ResolveInfo, err error) {
 
 	for _, source := range sources {
-		logger.Debugf("searching for metadata in datasource %q", source.Description())
+		logger.Tracef("searching for metadata in datasource %q", source.Description())
 		items, resolveInfo, err = getMaybeSignedMetadata(source, params, true)
 		// If no items are found using signed metadata, check unsigned.
 		if err != nil && len(items) == 0 && !params.OnlySigned {
@@ -412,8 +412,9 @@ func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed 
 		source, indexPath, mirrorsPath, cons.Params().CloudSpec, signed, params.ValueParams,
 	)
 	if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
-		logger.Debugf("%s not found, trying legacy index file", indexPath)
-		indexPath = makeIndexPath(defaultLegacyIndexPath)
+		legacyIndexPath := makeIndexPath(defaultLegacyIndexPath)
+		logger.Tracef("%s not found, trying legacy index path: %s", indexPath, legacyIndexPath)
+		indexPath = legacyIndexPath
 		indexRef, indexURL, err = fetchIndex(
 			source, indexPath, mirrorsPath, cons.Params().CloudSpec, signed, params.ValueParams,
 		)
@@ -421,7 +422,7 @@ func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed 
 	resolveInfo.IndexURL = indexURL
 	if err != nil {
 		if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
-			logger.Debugf("cannot load index %q: %v", indexURL, err)
+			logger.Tracef("cannot load index %q: %v", indexURL, err)
 		}
 		return nil, resolveInfo, err
 	}
@@ -429,7 +430,7 @@ func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed 
 	items, err := indexRef.getLatestMetadataWithFormat(cons, ProductFormat, signed)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			logger.Debugf("skipping index because of error getting latest metadata %q: %v", indexURL, err)
+			logger.Debugf("skipping index %q because of missing information: %v", indexURL, err)
 			return nil, resolveInfo, err
 		}
 		if _, ok := err.(*noMatchingProductsError); ok {
@@ -462,7 +463,7 @@ func fetchIndex(source DataSource, indexPath string, mirrorsPath string, cloudSp
 func fetchData(source DataSource, path string, requireSigned bool, publicKey string) (data []byte, dataURL string, err error) {
 	rc, dataURL, err := source.Fetch(path)
 	if err != nil {
-		logger.Debugf("fetchData failed for %q: %v", dataURL, err)
+		logger.Tracef("fetchData failed for %q: %v", dataURL, err)
 		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
 	}
 	defer rc.Close()
@@ -520,7 +521,7 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat, mirrorsPath s
 			indexRef.Source = NewURLDataSource("mirror", mirrorInfo.MirrorURL, utils.VerifySSLHostnames)
 			indexRef.MirroredProductsPath = mirrorInfo.Path
 		} else {
-			logger.Debugf("no mirror information available for %s: %v", cloudSpec, err)
+			logger.Tracef("no mirror information available for %s: %v", cloudSpec, err)
 		}
 	}
 
@@ -539,7 +540,6 @@ func getMirrorRefs(source DataSource, baseMirrorsPath string, requireSigned bool
 	data, url, err := fetchData(source, mirrorsPath, requireSigned, params.PublicKey)
 	if err != nil {
 		if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
-			logger.Debugf("no mirror index file found")
 			return mirrors, url, err
 		}
 		return mirrors, url, fmt.Errorf("cannot read mirrors data, %v", err)
@@ -586,7 +586,14 @@ func (indexRef *IndexReference) GetProductsPath(cons LookupConstraint) (string, 
 	}
 	candidates = candidates.filter(dataTypeMatches)
 	if len(candidates) == 0 {
-		return "", errors.NotFoundf("index file missing %q data", indexRef.valueParams.DataType)
+		// TODO: jam 2015-04-01 This isn't a great error to use,
+		// because it is generally reserved for file-not-found
+		// semantics.
+		// This was formatted as: index file missing "content-download" data not found
+		// It now formats as: "content-download" data not found
+		// which at least reads better.
+		// Shouldn't we be using noMatchingProductsError instead?
+		return "", errors.NotFoundf("%q data", indexRef.valueParams.DataType)
 	}
 	// Restrict by cloud spec, if required.
 	if cons.Params().CloudSpec != EmptyCloudSpec {
@@ -607,7 +614,7 @@ func (indexRef *IndexReference) GetProductsPath(cons LookupConstraint) (string, 
 		return "", newNoMatchingProductsError("index file has no data for product name(s) %q", prodIds)
 	}
 
-	logger.Debugf("candidate matches for products %q are %v", prodIds, candidates)
+	logger.Tracef("candidate matches for products %q are %v", prodIds, candidates)
 
 	// Pick arbitrary match.
 	return candidates[0].ProductsFilePath, nil
@@ -920,7 +927,7 @@ func (indexRef *IndexReference) GetCloudMetadataWithFormat(cons LookupConstraint
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("finding products at path %q", productFilesPath)
+	logger.Tracef("finding products at path %q", productFilesPath)
 	data, url, err := fetchData(indexRef.Source, productFilesPath, requireSigned, indexRef.valueParams.PublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read product data, %v", err)

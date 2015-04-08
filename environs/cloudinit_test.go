@@ -244,7 +244,8 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	}
 	script1 := "script1"
 	script2 := "script2"
-	cloudcfg := coreCloudinit.New()
+	cloudcfg, err := coreCloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg.AddRunCmd(script1)
 	cloudcfg.AddRunCmd(script2)
 	result, err := environs.ComposeUserData(cfg, cloudcfg)

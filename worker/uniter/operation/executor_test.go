@@ -11,8 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
+	corecharm "gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -75,7 +75,6 @@ func (s *NewExecutorSuite) TestNewExecutorValidFile(c *gc.C) {
 started: true
 op: continue
 opstep: pending
-hook: {kind: config-changed}
 `[1:], 0666}.Create(c, s.basePath)
 	executor, err := operation.NewExecutor(s.path("existing"), failGetInstallCharm)
 	c.Assert(err, jc.ErrorIsNil)
@@ -83,7 +82,6 @@ hook: {kind: config-changed}
 		Kind:    operation.Continue,
 		Step:    operation.Pending,
 		Started: true,
-		Hook:    &hook.Info{Kind: hooks.ConfigChanged},
 	})
 }
 
@@ -112,7 +110,6 @@ func justInstalledState() operation.State {
 	return operation.State{
 		Kind: operation.Continue,
 		Step: operation.Pending,
-		Hook: &hook.Info{Kind: hooks.ConfigChanged},
 	}
 }
 
@@ -202,8 +199,8 @@ func (s *ExecutorSuite) TestValidateStateChange(c *gc.C) {
 	}
 
 	err := executor.Run(op)
-	c.Assert(err, gc.ErrorMatches, `preparing operation "mock operation": invalid operation state: missing hook info`)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "missing hook info")
+	c.Assert(err, gc.ErrorMatches, `preparing operation "mock operation": invalid operation state: missing hook info with Kind RunHook`)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "missing hook info with Kind RunHook")
 
 	assertWroteState(c, statePath, initialState)
 	c.Assert(executor.State(), gc.DeepEquals, initialState)

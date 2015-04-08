@@ -19,10 +19,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -110,7 +110,7 @@ type Config interface {
 	// WriteCommands returns shell commands to write the agent configuration.
 	// It returns an error if the configuration does not have all the right
 	// elements.
-	WriteCommands(series string) ([]string, error)
+	WriteCommands(renderer shell.Renderer) ([]string, error)
 
 	// StateServingInfo returns the details needed to run
 	// a state server and reports whether those details
@@ -650,17 +650,15 @@ func (c *configInternal) fileContents() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (c *configInternal) WriteCommands(series string) ([]string, error) {
-	renderer, err := cloudinit.NewRenderer(series)
-	if err != nil {
-		return nil, err
-	}
+func (c *configInternal) WriteCommands(renderer shell.Renderer) ([]string, error) {
 	data, err := c.fileContents()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	commands := renderer.Mkdir(c.Dir())
-	commands = append(commands, renderer.WriteFile(c.File(agentConfigFilename), string(data), 0600)...)
+	commands := renderer.MkdirAll(c.Dir())
+	filename := c.File(agentConfigFilename)
+	commands = append(commands, renderer.WriteFile(filename, data)...)
+	commands = append(commands, renderer.Chmod(filename, 0600)...)
 	return commands, nil
 }
 

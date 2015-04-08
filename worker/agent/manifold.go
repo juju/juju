@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"launchpad.net/tomb"
 
@@ -30,14 +31,14 @@ func Manifold(agent Agent) dependency.Manifold {
 			}()
 			return w, nil
 		},
-		Output: func(in worker.Worker, out interface{}) bool {
+		Output: func(in worker.Worker, out interface{}) error {
 			inWorker, _ := in.(*agentWorker)
 			outPointer, _ := out.(*Agent)
 			if inWorker == nil || outPointer == nil {
-				return false
+				return errors.Errorf("expected %T->%T; got %T->%T", inWorker, outPointer, in, out)
 			}
 			*outPointer = inWorker.agent
-			return true
+			return nil
 		},
 	}
 }
