@@ -185,7 +185,7 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 
 	originalDrive, err := c.conn.Drive(constraints.driveTemplate, gosigma.LibraryMedia)
 	if err != nil {
-		err = errors.Annotatef(err, "iFailed to query drive template")
+		err = errors.Annotatef(err, "Failed to query drive template")
 		return nil, nil, "", err
 	}
 

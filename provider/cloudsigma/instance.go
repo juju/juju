@@ -104,7 +104,7 @@ func (i sigmaInstance) ClosePorts(machineID string, ports []network.PortRange) e
 // should have been started with the given machine id.
 // The ports are returned as sorted by SortPorts.
 func (i sigmaInstance) Ports(machineID string) ([]network.PortRange, error) {
-	return nil, errors.NotImplementedf("ClosePorts")
+	return nil, errors.NotImplementedf("Ports")
 }
 
 func (i sigmaInstance) findIPv4() string {

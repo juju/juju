@@ -66,25 +66,6 @@ func (s *instanceSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *instanceSuite) TestInstanceEmpty(c *gc.C) {
-	e := sigmaInstance{}
-	c.Check(e.Id(), gc.Equals, instance.Id(""))
-	c.Check(e.Status(), gc.Equals, "")
-	c.Check(e.Refresh(), gc.ErrorMatches, "invalid instance")
-
-	addrs, err := e.Addresses()
-	c.Check(addrs, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "IPv4 address not found")
-
-	name, err := e.DNSName()
-	c.Check(name, gc.Equals, "")
-	c.Check(err, gc.ErrorMatches, "invalid instance")
-
-	hw, err := e.hardware("64", 0)
-	c.Check(hw, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "Server is not initialized.")
-}
-
 func (s *instanceSuite) TestInstanceId(c *gc.C) {
 	c.Check(s.inst.Id(), gc.Equals, instance.Id("f4ec5097-121e-44a7-a207-75bc02163260"))
 }
@@ -148,15 +129,11 @@ func (s *instanceSuite) TestInstanceDNSName(c *gc.C) {
 }
 
 func (s *instanceSuite) TestInstancePorts(c *gc.C) {
-	c.Check(s.inst.OpenPorts("", nil), gc.IsNil)
-	c.Check(s.inst.ClosePorts("", nil), gc.IsNil)
+	c.Check(s.inst.OpenPorts("", nil), gc.ErrorMatches, "OpenPorts not implemented")
+	c.Check(s.inst.ClosePorts("", nil), gc.ErrorMatches, "ClosePorts not implemented")
 
-	ports, err := s.inst.Ports("")
-	c.Check(ports, gc.NotNil)
-	if ports != nil {
-		c.Check(ports, gc.HasLen, 0)
-	}
-	c.Check(err, gc.IsNil)
+	_, err := s.inst.Ports("")
+	c.Check(err, gc.ErrorMatches, "Ports not implemented")
 }
 
 func (s *instanceSuite) TestInstanceHardware(c *gc.C) {

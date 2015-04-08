@@ -67,20 +67,6 @@ func testNewClient(c *gc.C, endpoint, username, password string) (*environClient
 	return newClient(ecfg)
 }
 
-func (s *clientSuite) TestClientNew(c *gc.C) {
-	cli, err := testNewClient(c, "https://testing.invalid", "user", "password")
-	c.Check(err, gc.IsNil)
-	c.Check(cli, gc.NotNil)
-
-	cli, err = testNewClient(c, "http://testing.invalid", "user", "password")
-	c.Check(err, gc.ErrorMatches, "endpoint must use https scheme")
-	c.Check(cli, gc.IsNil)
-
-	cli, err = testNewClient(c, "https://testing.invalid", "", "password")
-	c.Check(err, gc.ErrorMatches, "username is not allowed to be empty")
-	c.Check(cli, gc.IsNil)
-}
-
 func addTestClientServer(c *gc.C, instance, env string) string {
 	json := `{"meta": {`
 	if instance != "" {
@@ -209,7 +195,7 @@ func (s *clientSuite) TestClientNewInstanceInvalidTemplate(c *gc.C) {
 	c.Check(server, gc.IsNil)
 	c.Check(arch, gc.Equals, "")
 	c.Check(drive, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "query drive template: 404 Not Found.*")
+	c.Check(err, gc.ErrorMatches, "Failed to query drive template: 404 Not Found, notexist, notfound")
 }
 
 func (s *clientSuite) TestClientNewInstance(c *gc.C) {

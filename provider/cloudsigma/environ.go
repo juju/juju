@@ -135,10 +135,7 @@ func (env *environ) Region() (simplestreams.CloudSpec, error) {
 }
 
 func (env *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
-	endpoint, err := gosigma.ResolveEndpoint(region)
-	if err != nil {
-		return simplestreams.CloudSpec{}, errors.Trace(err)
-	}
+	endpoint := gosigma.ResolveEndpoint(region)
 	return simplestreams.CloudSpec{
 		Region:   region,
 		Endpoint: endpoint,
