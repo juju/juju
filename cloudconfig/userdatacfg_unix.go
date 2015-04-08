@@ -99,6 +99,8 @@ func (w *unixConfigure) ConfigureBasic() error {
 	case version.CentOS:
 		script := fmt.Sprintf(initUbuntuScript, utils.ShQuote(w.icfg.AuthorizedKeys))
 		w.conf.AddScripts(script)
+		w.conf.AddScripts("systemctl stop firewalld")
+		w.conf.AddScripts("systemctl disable firewalld")
 	}
 	w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.icfg.CloudInitOutputLog, "")
 	// Create a file in a well-defined location containing the machine's

@@ -250,7 +250,7 @@ func (s *Service) check() (bool, error) {
 func (s *Service) readConf() (common.Conf, error) {
 	var conf common.Conf
 
-	data, err := Cmdline{}.conf(s.Service.Name)
+	data, err := Cmdline{}.conf(s.Service.Name, s.Dirname)
 	if err != nil {
 		return conf, s.errorf(err, "failed to read conf from systemd")
 	}

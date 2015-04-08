@@ -204,6 +204,7 @@ func (cfg *CentOSCloudConfig) updatePackages() {
 		"bridge-utils",
 		"rsyslog-gnutls",
 		"cloud-utils",
+		"nmap-ncat",
 	}
 
 	// The required packages need to come from the correct repo.

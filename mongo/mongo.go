@@ -354,6 +354,20 @@ func installMongod(numaCtl bool) error {
 		}
 	}
 
+	// Work around SELinux on centos7
+	if series == "centos7" {
+		cmds := [][]string{
+			[]string{"chcon", "-R", "-v", "-t", "mongod_var_lib_t", "/var/lib/juju/db"},
+			[]string{"chcon", "-R", "-v", "-t", "mongod_var_lib_t", "/var/lib/juju/server.pem"},
+			[]string{"chcon", "-R", "-v", "-t", "mongod_var_lib_t", "/var/lib/juju/shared-secret"},
+			[]string{"semanage port -a -t mongod_port_t -p tcp 37017"},
+		}
+		for _, cmd := range cmds {
+			_, err = utils.RunCommand(cmd[0], cmd[1:]...)
+			return err
+		}
+	}
+
 	return nil
 }
 
