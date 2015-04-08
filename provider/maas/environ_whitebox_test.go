@@ -8,12 +8,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/url"
 	"text/template"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
@@ -1404,4 +1406,23 @@ func (s *environSuite) TestStartInstanceDistributionOneAssigned(c *gc.C) {
 		// one acquire for the bootstrap, one for StartInstance.
 		"acquire", "acquire",
 	})
+}
+
+func (s *environSuite) TestLSHWParsingFailure(c *gc.C) {
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("maas-environ-tester", &tw, loggo.DEBUG), gc.IsNil)
+	defer loggo.RemoveWriter("maas-environ-tester")
+
+	inst := s.createSubnets(c)
+	ifaces, primaryIface, err := extractInterfaces(inst, []byte{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(primaryIface, gc.Equals, "eth0")
+	c.Assert(len(ifaces), gc.Equals, 0)
+
+	message := fmt.Sprintf(`cannot parse MAAS lshw commissioning details for node %q: %s \(ignoring\)`, inst.Id(), io.EOF)
+	expectedLog := jc.SimpleMessages{
+		{loggo.WARNING, message},
+	}
+
+	c.Assert(tw.Log(), jc.LogMatches, expectedLog)
 }
