@@ -23,6 +23,7 @@ from deploy_stack import (
     add_output_args,
     add_path_args,
     assess_juju_run,
+    copy_local_logs,
     copy_remote_logs,
     deploy_dummy_stack,
     describe_instances,
@@ -419,6 +420,34 @@ class DumpEnvLogsTestCase(TestCase):
                              sorted(os.listdir(log_dir)))
         self.assertEqual((log_dir, client), cll_mock.call_args[0])
         self.assertEqual(0, crl_mock.call_count)
+
+    def test_copy_local_logs(self):
+        # Relevent local log files are copied, after changing their permissions
+        # to allow access by non-root user.
+        client = EnvJujuClient(
+            SimpleEnvironment('a-local', {'type': 'local'}), '1.234-76', None)
+        with temp_dir() as juju_home_dir:
+            log_dir = os.path.join(juju_home_dir, "a-local", "log")
+            os.makedirs(log_dir)
+            open(os.path.join(log_dir, "all-machines.log"), "w").close()
+            template_dir = os.path.join(juju_home_dir, "templates")
+            os.mkdir(template_dir)
+            open(os.path.join(template_dir, "container.log"), "w").close()
+            with patch('deploy_stack.get_juju_home', autospec=True,
+                       return_value=juju_home_dir):
+                with patch('deploy_stack.lxc_template_glob',
+                           os.path.join(template_dir, "*.log")):
+                    with patch('subprocess.check_call') as cc_mock:
+                        copy_local_logs('/destination/dir', client)
+        expected_files = [os.path.join(juju_home_dir, *p) for p in (
+            ('a-local', 'cloud-init-output.log'),
+            ('a-local', 'log', 'all-machines.log'),
+            ('templates', 'container.log'),
+        )]
+        self.assertEqual(cc_mock.call_args_list, [
+            call(['sudo', 'chmod', 'go+r'] + expected_files),
+            call(['cp'] + expected_files + ['/destination/dir']),
+        ])
 
     def test_copy_remote_logs(self):
         # To get the logs, their permissions must be updated first,
