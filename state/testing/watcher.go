@@ -66,13 +66,17 @@ type NotifyWatcher interface {
 // the behaviour of any watcher that uses a <-chan struct{}.
 type NotifyWatcherC struct {
 	*gc.C
-	State   *state.State
+	State   SyncStarter
 	Watcher NotifyWatcher
+}
+
+type SyncStarter interface {
+	StartSync()
 }
 
 // NewNotifyWatcherC returns a NotifyWatcherC that checks for aggressive
 // event coalescence.
-func NewNotifyWatcherC(c *gc.C, st *state.State, w NotifyWatcher) NotifyWatcherC {
+func NewNotifyWatcherC(c *gc.C, st SyncStarter, w NotifyWatcher) NotifyWatcherC {
 	return NotifyWatcherC{
 		C:       c,
 		State:   st,
