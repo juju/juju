@@ -11,7 +11,6 @@ import (
 )
 
 type storageStateInterface interface {
-	EnsureStorageAttachmentDead(names.StorageTag, names.UnitTag) error
 	RemoveStorageAttachment(names.StorageTag, names.UnitTag) error
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
@@ -22,6 +21,7 @@ type storageStateInterface interface {
 	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
 	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 	WatchStorageAttachments(names.UnitTag) state.StringsWatcher
+	WatchStorageAttachment(names.StorageTag, names.UnitTag) state.NotifyWatcher
 	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 }
