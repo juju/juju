@@ -77,13 +77,10 @@ func (fakeAddresses) EnvironUUID() string {
 }
 
 func (fakeAddresses) APIHostPorts() ([][]network.HostPort, error) {
-	return [][]network.HostPort{{{
-		Address: network.NewAddress("apiaddresses", network.ScopeUnknown),
-		Port:    1,
-	}}, {{
-		Address: network.NewAddress("apiaddresses", network.ScopeUnknown),
-		Port:    2,
-	}}}, nil
+	return [][]network.HostPort{
+		network.NewHostPorts(1, "apiaddresses"),
+		network.NewHostPorts(2, "apiaddresses"),
+	}, nil
 }
 
 func (fakeAddresses) WatchAPIHostPorts() state.NotifyWatcher {

@@ -41,7 +41,7 @@ type machine interface {
 	String() string
 	Refresh() error
 	Life() state.Life
-	Status() (status state.Status, info string, data map[string]interface{}, err error)
+	Status() (state.StatusInfo, error)
 	IsManual() (bool, error)
 }
 
@@ -196,8 +196,10 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 			}
 			machineStatus := state.StatusPending
 			if err == nil {
-				if machineStatus, _, _, err = m.Status(); err != nil {
+				if statusInfo, err := m.Status(); err != nil {
 					logger.Warningf("cannot get current machine status for machine %v: %v", m.Id(), err)
+				} else {
+					machineStatus = statusInfo.Status
 				}
 			}
 			if len(instInfo.addresses) > 0 && instInfo.status != "" && machineStatus == state.StatusStarted {

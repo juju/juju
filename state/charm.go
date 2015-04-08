@@ -7,7 +7,7 @@ import (
 	"net/url"
 
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 )
 
 // charmDoc represents the internal state of a charm in MongoDB.

@@ -67,6 +67,10 @@ func (ra *runAction) Execute(state State) (*State, error) {
 	}
 	defer unlock()
 
+	if err := ra.callbacks.SetExecutingStatus(message); err != nil {
+		return nil, err
+	}
+
 	err = ra.runner.RunAction(ra.name)
 	if err != nil {
 		// This indicates an actual error -- an action merely failing should
@@ -85,8 +89,19 @@ func (ra *runAction) Execute(state State) (*State, error) {
 // Commit is part of the Operation interface.
 func (ra *runAction) Commit(state State) (*State, error) {
 	return stateChange{
-		Kind: Continue,
+		Kind: continuationKind(state),
 		Step: Pending,
 		Hook: state.Hook,
 	}.apply(state), nil
+}
+
+// continuationKind determines what State Kind the operation
+// should return after Commit.
+func continuationKind(state State) Kind {
+	switch {
+	case state.Hook != nil:
+		return RunHook
+	default:
+		return Continue
+	}
 }

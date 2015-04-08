@@ -28,6 +28,14 @@ func init() {
 		"RelationUnitsWatcher", 0, newRelationUnitsWatcher,
 		reflect.TypeOf((*srvRelationUnitsWatcher)(nil)),
 	)
+	common.RegisterFacade(
+		"VolumeAttachmentsWatcher", 1, newVolumeAttachmentsWatcher,
+		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
+	)
+	common.RegisterFacade(
+		"FilesystemAttachmentsWatcher", 1, newFilesystemAttachmentsWatcher,
+		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
+	)
 }
 
 func newClientAllWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
@@ -199,5 +207,87 @@ func (w *srvRelationUnitsWatcher) Next() (params.RelationUnitsWatchResult, error
 
 // Stop stops the watcher.
 func (w *srvRelationUnitsWatcher) Stop() error {
+	return w.resources.Stop(w.id)
+}
+
+// srvMachineStorageIdsWatcher defines the API wrapping a state.StringsWatcher
+// watching machine/storage attachments. This watcher notifies about storage
+// entities (volumes/filesystems) being attached to and detached from machines.
+//
+// TODO(axw) state needs a new watcher, this is a bt of a hack. State watchers
+// could do with some deduplication of logic, and I don't want to add to that
+// spaghetti right now.
+type srvMachineStorageIdsWatcher struct {
+	watcher   state.StringsWatcher
+	id        string
+	resources *common.Resources
+	parser    func([]string) ([]params.MachineStorageId, error)
+}
+
+func newVolumeAttachmentsWatcher(
+	st *state.State,
+	resources *common.Resources,
+	auth common.Authorizer,
+	id string,
+) (interface{}, error) {
+	return newMachineStorageIdsWatcher(
+		st, resources, auth, id, common.ParseVolumeAttachmentIds,
+	)
+}
+
+func newFilesystemAttachmentsWatcher(
+	st *state.State,
+	resources *common.Resources,
+	auth common.Authorizer,
+	id string,
+) (interface{}, error) {
+	return newMachineStorageIdsWatcher(
+		st, resources, auth, id, common.ParseFilesystemAttachmentIds,
+	)
+}
+
+func newMachineStorageIdsWatcher(
+	st *state.State,
+	resources *common.Resources,
+	auth common.Authorizer,
+	id string,
+	parser func([]string) ([]params.MachineStorageId, error),
+) (interface{}, error) {
+	if !isAgent(auth) {
+		return nil, common.ErrPerm
+	}
+	watcher, ok := resources.Get(id).(state.StringsWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvMachineStorageIdsWatcher{
+		watcher:   watcher,
+		id:        id,
+		resources: resources,
+	}, nil
+}
+
+// Next returns when a change has occured to an entity of the
+// collection being watched since the most recent call to Next
+// or the Watch call that created the srvMachineStorageIdsWatcher.
+func (w *srvMachineStorageIdsWatcher) Next() (params.MachineStorageIdsWatchResult, error) {
+	if stringChanges, ok := <-w.watcher.Changes(); ok {
+		changes, err := common.ParseVolumeAttachmentIds(stringChanges)
+		if err != nil {
+			return params.MachineStorageIdsWatchResult{}, err
+		}
+		return params.MachineStorageIdsWatchResult{
+			Changes: changes,
+		}, nil
+	}
+	err := w.watcher.Err()
+	if err == nil {
+		err = common.ErrStoppedWatcher
+	}
+	return params.MachineStorageIdsWatchResult{}, err
+}
+
+// Stop stops the watcher.
+func (w *srvMachineStorageIdsWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }

@@ -9,19 +9,25 @@ import (
 )
 
 var (
-	NewWebsocketDialer  = newWebsocketDialer
-	WebsocketDialConfig = &websocketDialConfig
-	SetUpWebsocket      = setUpWebsocket
-	SlideAddressToFront = slideAddressToFront
-	BestVersion         = bestVersion
-	FacadeVersions      = &facadeVersions
-	NewHTTPClient       = &newHTTPClient
+	NewWebsocketDialer    = newWebsocketDialer
+	NewWebsocketDialerPtr = &newWebsocketDialer
+	WebsocketDialConfig   = &websocketDialConfig
+	SlideAddressToFront   = slideAddressToFront
+	BestVersion           = bestVersion
+	FacadeVersions        = &facadeVersions
+	NewHTTPClient         = &newHTTPClient
 )
 
-// SetServerRoot allows changing the URL to the internal API server
+// SetServerAddress allows changing the URL to the internal API server
 // that AddLocalCharm uses in order to test NotImplementedError.
-func SetServerRoot(c *Client, root string) {
-	c.st.serverRoot = root
+func SetServerAddress(c *Client, scheme, addr string) {
+	c.st.serverScheme = scheme
+	c.st.addr = addr
+}
+
+// ServerRoot is exported so that we can test the built URL.
+func ServerRoot(c *Client) string {
+	return c.st.serverRoot()
 }
 
 // PatchEnvironTag patches the value of the environment tag.
@@ -41,6 +47,7 @@ type TestingStateParams struct {
 	EnvironTag     string
 	APIHostPorts   [][]network.HostPort
 	FacadeVersions map[string][]int
+	ServerScheme   string
 	ServerRoot     string
 }
 
@@ -49,11 +56,12 @@ type TestingStateParams struct {
 // called on it. But it can be used for testing general behavior.
 func NewTestingState(params TestingStateParams) *State {
 	st := &State{
-		addr:           params.Address,
-		environTag:     params.EnvironTag,
-		hostPorts:      params.APIHostPorts,
-		facadeVersions: params.FacadeVersions,
-		serverRoot:     params.ServerRoot,
+		addr:              params.Address,
+		environTag:        params.EnvironTag,
+		hostPorts:         params.APIHostPorts,
+		facadeVersions:    params.FacadeVersions,
+		serverScheme:      params.ServerScheme,
+		serverRootAddress: params.ServerRoot,
 	}
 	return st
 }

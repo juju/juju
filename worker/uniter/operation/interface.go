@@ -7,7 +7,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	utilexec "github.com/juju/utils/exec"
-	corecharm "gopkg.in/juju/charm.v4"
+	corecharm "gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -132,6 +132,9 @@ type Callbacks interface {
 	// RunHook operations.
 	PrepareHook(info hook.Info) (name string, err error)
 	CommitHook(info hook.Info) error
+
+	// SetExecutingStatus sets the agent state to "Executing" with a message.
+	SetExecutingStatus(string) error
 
 	// UpdateRelations exists so that we can encapsulate it in an operation.
 	UpdateRelations(ids []int) error

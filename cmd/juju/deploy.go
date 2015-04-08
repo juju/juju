@@ -12,15 +12,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/storage"
@@ -28,7 +29,7 @@ import (
 
 type DeployCommand struct {
 	envcmd.EnvCommandBase
-	UnitCommandBase
+	service.UnitCommandBase
 	CharmName    string
 	ServiceName  string
 	Config       cmd.FileVar
@@ -173,26 +174,23 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	conf, err := getClientConfig(client)
+	conf, err := service.GetClientConfig(client)
 	if err != nil {
 		return err
 	}
 
-	if err := c.checkProvider(conf); err != nil {
+	if err := c.CheckProvider(conf); err != nil {
 		return err
 	}
 
-	curl, err := resolveCharmURL(c.CharmName, client, conf)
+	csParams, err := charmStoreParams()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-
-	repo, err := charm.InferRepository(curl.Reference(), ctx.AbsPath(c.RepoPath))
+	curl, repo, err := resolveCharmURL(c.CharmName, csParams, ctx.AbsPath(c.RepoPath), conf)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-
-	config.SpecializeCharmRepo(repo, conf)
 
 	curl, err = addCharmViaAPI(client, ctx, curl, repo)
 	if err != nil {
@@ -276,14 +274,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 // addCharmViaAPI calls the appropriate client API calls to add the
 // given charm URL to state. Also displays the charm URL of the added
 // charm on stdout.
-func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo charm.Repository) (*charm.URL, error) {
-	if curl.Revision < 0 {
-		latest, err := charm.Latest(repo, curl)
-		if err != nil {
-			return nil, err
-		}
-		curl = curl.WithRevision(latest)
-	}
+func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo charmrepo.Interface) (*charm.URL, error) {
 	switch curl.Schema {
 	case "local":
 		ch, err := repo.Get(curl)

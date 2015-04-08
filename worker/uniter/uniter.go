@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -14,7 +15,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
-	corecharm "gopkg.in/juju/charm.v4"
+	corecharm "gopkg.in/juju/charm.v5-unstable"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
@@ -58,6 +59,12 @@ type Uniter struct {
 	relations Relations
 	cleanups  []cleanup
 	storage   *storage.Attachments
+
+	// Cache the last reported status information
+	// so we don't make unnecessary api calls.
+	setStatusMutex      sync.Mutex
+	lastReportedStatus  params.Status
+	lastReportedMessage string
 
 	deployer          *deployerProxy
 	operationFactory  operation.Factory

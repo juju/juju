@@ -17,11 +17,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/replicaset"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"launchpad.net/gnuflag"
@@ -34,6 +36,7 @@ import (
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container"
@@ -49,7 +52,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
-	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
@@ -58,13 +60,14 @@ import (
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevisionworker"
 	"github.com/juju/juju/worker/cleaner"
+	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/deployer"
-	"github.com/juju/juju/worker/diskformatter"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/envworkermanager"
 	"github.com/juju/juju/worker/firewaller"
@@ -324,6 +327,48 @@ func (a *MachineAgent) Dying() <-chan struct{} {
 	return a.tomb.Dying()
 }
 
+// upgradeCertificateDNSNames ensure that the state server certificate
+// recorded in the agent config and also mongo server.pem contains the
+// DNSNames entires required by Juju/
+func (a *MachineAgent) upgradeCertificateDNSNames() error {
+	agentConfig := a.CurrentConfig()
+	si, ok := agentConfig.StateServingInfo()
+	if !ok || si.CAPrivateKey == "" {
+		// No certificate information exists yet, nothing to do.
+		return nil
+	}
+	// Parse the current certificate to get the current dns names.
+	serverCert, err := cert.ParseCert(si.Cert)
+	if err != nil {
+		return err
+	}
+	update := false
+	dnsNames := set.NewStrings(serverCert.DNSNames...)
+	requiredDNSNames := []string{"local", "juju-apiserver", "juju-mongodb"}
+	for _, dnsName := range requiredDNSNames {
+		if dnsNames.Contains(dnsName) {
+			continue
+		}
+		dnsNames.Add(dnsName)
+		update = true
+	}
+	if !update {
+		return nil
+	}
+	// Write a new certificate to the mongp pem and agent config files.
+	si.Cert, si.PrivateKey, err = cert.NewDefaultServer(agentConfig.CACert(), si.CAPrivateKey, dnsNames.Values())
+	if err != nil {
+		return err
+	}
+	if err := mongo.UpdateSSLKey(agentConfig.DataDir(), si.Cert, si.PrivateKey); err != nil {
+		return err
+	}
+	return a.AgentConfigWriter.ChangeConfig(func(config agent.ConfigSetter) error {
+		config.SetStateServingInfo(si)
+		return nil
+	})
+}
+
 // Run runs a machine agent.
 func (a *MachineAgent) Run(*cmd.Context) error {
 
@@ -331,12 +376,20 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
-	agentConfig := a.CurrentConfig()
 
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
+
+	// Before doing anything else, we need to make sure the certificate generated for
+	// use by mongo to validate state server connections is correct. This needs to be done
+	// before any possible restart of the mongo service.
+	// See bug http://pad.lv/1434680
+	if err := a.upgradeCertificateDNSNames(); err != nil {
+		return errors.Annotate(err, "error upgrading server certificate")
+	}
+	agentConfig := a.CurrentConfig()
 
 	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
 		return errors.Annotate(err, "error during upgradeWorkerContext initialisation")
@@ -344,7 +397,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	a.configChangedVal.Set(struct{}{})
 	a.previousAgentVersion = agentConfig.UpgradedToVersion()
 	network.InitializeFromConfig(agentConfig)
-	charm.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
+	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
 		return fmt.Errorf("cannot create juju run symlink: %v", err)
 	}
@@ -647,9 +700,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
-	// TODO(wallyworld) - we don't want the storage workers running yet, even with feature flag.
-	// Will be enabled in a followup branch.
-	enableStorageWorkers := false
 	if featureflag.Enabled(feature.Storage) {
 		runner.StartWorker("diskmanager", func() (worker.Worker, error) {
 			api, err := st.DiskManager()
@@ -658,26 +708,12 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			}
 			return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
 		})
-		runner.StartWorker("diskformatter", func() (worker.Worker, error) {
-			api, err := st.DiskFormatter()
-			if err != nil {
-				return nil, err
-			}
-			return diskformatter.NewWorker(api), nil
+		runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
+			scope := agentConfig.Tag()
+			api := st.StorageProvisioner(scope)
+			storageDir := filepath.Join(agentConfig.DataDir(), "storage")
+			return newStorageWorker(scope, storageDir, api, api, api, api), nil
 		})
-		if enableStorageWorkers {
-			runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
-				api := st.StorageProvisioner(agentConfig.Tag())
-				storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-				return newStorageWorker(storageDir, api, api), nil
-			})
-			if isEnvironManager {
-				runner.StartWorker("storageprovisioner-environ", func() (worker.Worker, error) {
-					api := st.StorageProvisioner(agentConfig.Environment())
-					return newStorageWorker("", api, api), nil
-				})
-			}
-		}
 	}
 
 	// Check if the network management is disabled.
@@ -922,12 +958,19 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
 				return newCertificateUpdater(m, agentConfig, st, stateServingSetter, certChangedChan), nil
 			})
+
+			if featureflag.Enabled(feature.DbLog) {
+				a.startWorkerAfterUpgrade(singularRunner, "dblogpruner", func() (worker.Worker, error) {
+					return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
+				})
+			}
 			a.startWorkerAfterUpgrade(singularRunner, "resumer", func() (worker.Worker, error) {
 				// The action of resumer is so subtle that it is not tested,
 				// because we can't figure out how to do so without brutalising
 				// the transaction log.
 				return resumer.NewResumer(st), nil
 			})
+
 		case state.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:
@@ -1001,11 +1044,21 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("minunitsworker", func() (worker.Worker, error) {
 		return minunitsworker.NewMinUnitsWorker(st), nil
 	})
+	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
+		return addresser.NewWorker(st)
+	})
 
 	// Start workers that use an API connection.
 	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 		return provisioner.NewEnvironProvisioner(apiSt.Provisioner(), agentConfig), nil
 	})
+	if featureflag.Enabled(feature.Storage) {
+		singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
+			scope := agentConfig.Environment()
+			api := apiSt.StorageProvisioner(scope)
+			return newStorageWorker(scope, "", api, api, api, api), nil
+		})
+	}
 	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 		return charmrevisionworker.NewRevisionUpdateWorker(apiSt.CharmRevisionUpdater()), nil
 	})

@@ -154,25 +154,6 @@ func WatchStorageAttachmentInfo(
 	return nil, errors.Errorf("invalid storage kind %v", storageInstance.Kind())
 }
 
-// MatchingBlockDevice finds the block device that matches the
-// provided volume info and volume attachment info.
-func MatchingBlockDevice(
-	blockDevices []state.BlockDeviceInfo,
-	volumeInfo state.VolumeInfo,
-	attachmentInfo state.VolumeAttachmentInfo,
-) (*state.BlockDeviceInfo, bool) {
-	for _, dev := range blockDevices {
-		if volumeInfo.Serial != "" {
-			if volumeInfo.Serial == dev.Serial {
-				return &dev, true
-			}
-		} else if attachmentInfo.DeviceName == dev.DeviceName {
-			return &dev, true
-		}
-	}
-	return nil, false
-}
-
 var errNoDevicePath = errors.New("cannot determine device path: no serial or persistent device name")
 
 // volumeAttachmentDevicePath returns the absolute device path for

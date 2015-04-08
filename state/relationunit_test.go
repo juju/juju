@@ -13,7 +13,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -877,7 +877,10 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		machine, err := s.State.Machine(mId)
 		c.Assert(err, jc.ErrorIsNil)
-		privateAddr := network.NewAddress(fmt.Sprintf("riak%d.example.com", i), network.ScopeCloudLocal)
+		privateAddr := network.NewScopedAddress(
+			fmt.Sprintf("riak%d.example.com", i),
+			network.ScopeCloudLocal,
+		)
 		machine.SetAddresses(privateAddr)
 		ru, err := rel.Unit(unit)
 		c.Assert(err, jc.ErrorIsNil)

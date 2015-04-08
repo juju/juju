@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 
 	"github.com/juju/names"
@@ -17,8 +18,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
+	svctesting "github.com/juju/juju/service/common/testing"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
@@ -26,6 +27,16 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/deployer"
 )
+
+var quote, cmdSuffix string
+
+func init() {
+	quote = "'"
+	if runtime.GOOS == "windows" {
+		cmdSuffix = ".exe"
+		quote = `"`
+	}
+}
 
 type SimpleContextSuite struct {
 	SimpleToolsFixture
@@ -138,7 +149,7 @@ type SimpleToolsFixture struct {
 	origPath string
 	binDir   string
 
-	data *service.FakeServiceData
+	data *svctesting.FakeServiceData
 }
 
 var fakeJujud = "#!/bin/bash --norc\n# fake-jujud\nexit 0\n"
@@ -167,7 +178,7 @@ func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 	fix.makeBin(c, "start", "cp $(which started-status) $(which status)")
 	fix.makeBin(c, "stop", "cp $(which stopped-status) $(which status)")
 
-	fix.data = service.NewFakeServiceData()
+	fix.data = svctesting.NewFakeServiceData()
 }
 
 func (fix *SimpleToolsFixture) TearDown(c *gc.C) {
@@ -228,12 +239,12 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 	}
 
 	_, toolsDir := fix.paths(tag)
-	jujudPath := filepath.Join(toolsDir, "jujud")
+	jujudPath := filepath.Join(toolsDir, "jujud"+cmdSuffix)
 
 	logPath := filepath.Join(fix.logDir, tag.String()+".log")
 
 	for _, pat := range []string{
-		"^exec " + jujudPath + " unit ",
+		"^exec " + quote + jujudPath + quote + " unit ",
 		" --unit-name " + name + " ",
 		" >> " + logPath + " 2>&1$",
 	} {

@@ -164,7 +164,10 @@ func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host str
 	// the terminal, which will be the ssh subprocess at this
 	// point. For that reason, we do not call StopInterruptNotify
 	// until this function completes.
-	cloudcfg := coreCloudinit.New()
+	cloudcfg, err := coreCloudinit.New(machineConfig.Series)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	cloudcfg.SetAptUpdate(machineConfig.EnableOSRefreshUpdate)
 	cloudcfg.SetAptUpgrade(machineConfig.EnableOSUpgrade)
 

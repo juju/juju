@@ -9,7 +9,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -236,6 +236,7 @@ func opClientStatus(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 		c.Check(status, gc.IsNil)
 		return func() {}, err
 	}
+	clearSinceTimes(status)
 	c.Assert(status, jc.DeepEquals, scenarioStatus)
 	return func() {}, nil
 }

@@ -1,14 +1,18 @@
 // Copyright 2015 Canonical Ltd.
-// Licensed under the LGPLv3, see LICENCE file for details.
+// Licensed under the AGPLv3, see LICENCE file for details.
 
 package service_test
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/exec"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
@@ -35,7 +39,6 @@ const unknownExecutable = "/sbin/unknown/init/system"
 type discoveryTest struct {
 	os       version.OSType
 	series   string
-	exec     string
 	expected string
 }
 
@@ -46,42 +49,12 @@ func (dt discoveryTest) version() version.Binary {
 	}
 }
 
-func (dt discoveryTest) goos() string {
-	switch dt.os {
-	case version.Windows:
-		return "windows"
-	default:
-		return "non-windows"
-	}
-}
-
-func (dt discoveryTest) executable(c *gc.C) string {
-	if dt.exec != "" {
-		return dt.exec
-	}
-
-	switch dt.expected {
-	case service.InitSystemUpstart:
-		return "/sbin/upstart"
-	case service.InitSystemSystemd:
-		return "/lib/systemd/systemd"
-	case service.InitSystemWindows:
-		return unknownExecutable
-	case "":
-		return unknownExecutable
-	default:
-		c.Errorf("unknown expected init system %q", dt.expected)
-		return unknownExecutable
-	}
-}
-
 func (dt discoveryTest) log(c *gc.C) {
-	c.Logf("testing {%q, %q, %q}...", dt.os, dt.series, dt.exec)
+	c.Logf(" - testing {%q, %q}...", dt.os, dt.series)
 }
 
 func (dt discoveryTest) disableLocalDiscovery(c *gc.C, s *discoverySuite) {
-	s.PatchGOOS("<another OS>")
-	s.PatchPid1File(c, unknownExecutable, "")
+	s.PatchLocalDiscovery(nil)
 }
 
 func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
@@ -90,10 +63,21 @@ func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
 	})
 }
 
-func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) string {
-	s.PatchGOOS(dt.goos())
-	verText := "..." + dt.expected + "..."
-	return s.PatchPid1File(c, dt.executable(c), verText)
+func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) {
+	noMatch := func() (bool, error) {
+		return false, nil
+	}
+	funcs := map[string]func() (bool, error){
+		service.InitSystemSystemd: noMatch,
+		service.InitSystemUpstart: noMatch,
+		service.InitSystemWindows: noMatch,
+	}
+	if dt.expected != "" {
+		funcs[dt.expected] = func() (bool, error) {
+			return true, nil
+		}
+	}
+	s.PatchLocalDiscovery(funcs)
 }
 
 func (dt discoveryTest) setVersion(s *discoverySuite) version.Binary {
@@ -206,11 +190,6 @@ func (s *discoverySuite) TestDiscoverServiceLocalHost(c *gc.C) {
 	case "windows":
 		localInitSystem = service.InitSystemWindows
 	case "linux":
-		// TODO(ericsnow) Drop the vivid special-case once systemd is
-		// turned on there.
-		if version.Current.Series == "vivid" {
-			return
-		}
 		localInitSystem, _ = service.VersionInitSystem(version.Current)
 	}
 	test := discoveryTest{
@@ -222,22 +201,6 @@ func (s *discoverySuite) TestDiscoverServiceLocalHost(c *gc.C) {
 
 	svc, err := service.DiscoverService(s.name, s.conf)
 	c.Assert(err, jc.ErrorIsNil)
-
-	test.checkService(c, svc, err, s.name, s.conf)
-}
-
-func (s *discoverySuite) TestDiscoverServiceGeneric(c *gc.C) {
-	test := discoveryTest{
-		os:       version.Ubuntu,
-		series:   "trusty",
-		exec:     "/sbin/init",
-		expected: service.InitSystemUpstart,
-	}
-
-	test.setLocal(c, s)
-	test.disableVersionDiscovery(s)
-
-	svc, err := service.DiscoverService(s.name, s.conf)
 
 	test.checkService(c, svc, err, s.name, s.conf)
 }
@@ -306,4 +269,60 @@ func (s *discoverySuite) TestVersionInitSystemNoLegacyUpstart(c *gc.C) {
 	initSystem, ok := service.VersionInitSystem(vers)
 
 	test.checkInitSystem(c, initSystem, ok)
+}
+
+func (s *discoverySuite) TestDiscoverInitSystemScript(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("not supported on windows")
+	}
+
+	script, filename := s.newDiscoverInitSystemScript(c)
+	script += filename
+	response, err := exec.RunCommands(exec.RunParams{
+		Commands: script,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	initSystem, err := service.DiscoverInitSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(response.Code, gc.Equals, 0)
+	c.Check(string(response.Stdout), gc.Equals, initSystem)
+	c.Check(string(response.Stderr), gc.Equals, "")
+}
+
+func (s *discoverySuite) newDiscoverInitSystemScript(c *gc.C) (string, string) {
+	filename := filepath.Join(c.MkDir(), "discover_init_system.sh")
+	commands := []string{
+		fmt.Sprintf(`
+cat > %s << 'EOF'
+%s
+EOF`[1:], filename, service.DiscoverInitSystemScript()),
+		"chmod 0755 " + filename,
+	}
+	script := strings.Join(commands, "\n") + "\n"
+	return script, filename
+}
+
+func (s *discoverySuite) TestNewShellSelectCommand(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("not supported on windows")
+	}
+
+	script, filename := s.newDiscoverInitSystemScript(c)
+	handler := func(initSystem string) (string, bool) {
+		return "echo -n " + initSystem, true
+	}
+	script += "init_system=$(" + filename + ")\n"
+	// The script will fail with exit 1 if it cannot match in init system.
+	script += service.NewShellSelectCommand("init_system", "exit 1", handler)
+	response, err := exec.RunCommands(exec.RunParams{
+		Commands: script,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	initSystem, err := service.DiscoverInitSystem()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(response.Code, gc.Equals, 0)
+	c.Check(string(response.Stdout), gc.Equals, initSystem)
+	c.Check(string(response.Stderr), gc.Equals, "")
 }

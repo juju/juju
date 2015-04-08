@@ -6,7 +6,7 @@
 package testcharms
 
 import (
-	"gopkg.in/juju/charm.v4/testing"
+	"gopkg.in/juju/charm.v5-unstable/testing"
 )
 
 // Repo provides access to the test charm repository.

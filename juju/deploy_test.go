@@ -11,7 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -32,7 +33,7 @@ func Test(t *stdtesting.T) {
 // and that's is the simplest way to get one in there.
 type DeployLocalSuite struct {
 	testing.JujuConnSuite
-	repo        charm.Repository
+	repo        charmrepo.Interface
 	charm       *state.Charm
 	oldCacheDir string
 }
@@ -41,12 +42,12 @@ var _ = gc.Suite(&DeployLocalSuite{})
 
 func (s *DeployLocalSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	s.repo = &charm.LocalRepository{Path: testcharms.Repo.Path()}
-	s.oldCacheDir, charm.CacheDir = charm.CacheDir, c.MkDir()
+	s.repo = &charmrepo.LocalRepository{Path: testcharms.Repo.Path()}
+	s.oldCacheDir, charmrepo.CacheDir = charmrepo.CacheDir, c.MkDir()
 }
 
 func (s *DeployLocalSuite) TearDownSuite(c *gc.C) {
-	charm.CacheDir = s.oldCacheDir
+	charmrepo.CacheDir = s.oldCacheDir
 	s.JujuConnSuite.TearDownSuite(c)
 }
 

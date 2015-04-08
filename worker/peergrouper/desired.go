@@ -8,8 +8,7 @@ import (
 	"sort"
 
 	"github.com/juju/loggo"
-
-	"github.com/juju/juju/replicaset"
+	"github.com/juju/replicaset"
 )
 
 // jujuMachineKey is the key for the tag where we save the member's juju machine id.

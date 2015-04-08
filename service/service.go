@@ -1,6 +1,10 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package service
 
 import (
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -20,10 +24,17 @@ var (
 
 // These are the names of the init systems regognized by juju.
 const (
-	InitSystemWindows = "windows"
-	InitSystemUpstart = "upstart"
 	InitSystemSystemd = "systemd"
+	InitSystemUpstart = "upstart"
+	InitSystemWindows = "windows"
 )
+
+// linuxInitSystems lists the names of the init systems that juju might
+// find on a linux host.
+var linuxInitSystems = []string{
+	InitSystemSystemd,
+	InitSystemUpstart,
+}
 
 // ServiceActions represents the actions that may be requested for
 // an init system service.
@@ -50,9 +61,6 @@ type Service interface {
 
 	// Conf returns the service's conf data.
 	Conf() common.Conf
-
-	// UpdateConfig adds a config to the service, overwriting the current one.
-	UpdateConfig(conf common.Conf)
 
 	// Running returns a boolean value that denotes
 	// whether or not the service is running.
@@ -141,10 +149,17 @@ func ListServices() ([]string, error) {
 	}
 }
 
-// ListServicesCommand returns the command that should be run to get
+// ListServicesScript returns the commands that should be run to get
 // a list of service names on a host.
-func ListServicesCommand() string {
-	return newShellSelectCommand(listServicesCommand)
+func ListServicesScript() string {
+	commands := []string{
+		"init_system=$(" + DiscoverInitSystemScript() + ")",
+		// If the init system is not identified then the script will
+		// "exit 1". This is correct since the script should fail if no
+		// init system can be identified.
+		newShellSelectCommand("init_system", "exit 1", listServicesCommand),
+	}
+	return strings.Join(commands, "\n")
 }
 
 func listServicesCommand(initSystem string) (string, bool) {

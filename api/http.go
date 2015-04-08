@@ -35,9 +35,9 @@ func (s *State) NewHTTPClient() *http.Client {
 
 // NewHTTPRequest returns a new API-supporting HTTP request based on State.
 func (s *State) NewHTTPRequest(method, path string) (*http.Request, error) {
-	baseURL, err := url.Parse(s.serverRoot)
+	baseURL, err := url.Parse(s.serverRoot())
 	if err != nil {
-		return nil, errors.Annotatef(err, "while parsing base URL (%s)", s.serverRoot)
+		return nil, errors.Annotatef(err, "while parsing base URL (%s)", s.serverRoot())
 	}
 
 	tag, err := s.EnvironTag()

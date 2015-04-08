@@ -221,7 +221,7 @@ func (m *mockAddUserAPI) AddUser(username, displayname, password string) (names.
 	return names.UserTag{}, errors.New(m.failMessage)
 }
 
-func (m *mockAddUserAPI) ShareEnvironment(users []names.UserTag) error {
+func (m *mockAddUserAPI) ShareEnvironment(users ...names.UserTag) error {
 	if m.shareFailMsg != "" {
 		return errors.New(m.shareFailMsg)
 	}

@@ -4,13 +4,11 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -99,29 +97,48 @@ func environFromNameProductionFunc(
 	return env, cleanup, err
 }
 
-// resolveCharmURL returns a resolved charm URL, given a charm location string.
-// If the series is not resolved, the environment default-series is used, or if
-// not set, the series is resolved with the state server.
-func resolveCharmURL(url string, client *api.Client, conf *config.Config) (*charm.URL, error) {
-	ref, err := charm.ParseReference(url)
+// resolveCharmURL resolves the given charm URL string
+// by looking it up in the appropriate charm repository.
+// If it is a charm store charm URL, the given csParams will
+// be used to access the charm store repository.
+// If it is a local charm URL, the local charm repository at
+// the given repoPath will be used. The given configuration
+// will be used to add any necessary attributes to the repo
+// and to resolve the default series if possible.
+//
+// resolveCharmURL also returns the charm repository holding
+// the charm.
+func resolveCharmURL(curlStr string, csParams charmrepo.NewCharmStoreParams, repoPath string, conf *config.Config) (*charm.URL, charmrepo.Interface, error) {
+	ref, err := charm.ParseReference(curlStr)
 	if err != nil {
-		return nil, err
+		return nil, nil, errors.Trace(err)
 	}
-	// If series is not set, use configured default series
+	repo, err := charmrepo.InferRepository(ref, csParams, repoPath)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	repo = config.SpecializeCharmRepo(repo, conf)
 	if ref.Series == "" {
 		if defaultSeries, ok := conf.DefaultSeries(); ok {
 			ref.Series = defaultSeries
 		}
 	}
-	if ref.Series != "" {
-		return ref.URL("")
+	if ref.Schema == "local" && ref.Series == "" {
+		possibleURL := *ref
+		possibleURL.Series = "trusty"
+		logger.Errorf("The series is not specified in the environment (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
+		return nil, nil, errors.Errorf("cannot resolve series for charm: %q", ref)
 	}
-	// Otherwise, look up the best supported series for this charm
-	if ref.Schema != "local" {
-		return client.ResolveCharm(ref)
+	curl, err := repo.Resolve(ref)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
-	possibleURL := *ref
-	possibleURL.Series = "precise"
-	logger.Errorf("The series is not specified in the environment (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
-	return nil, fmt.Errorf("cannot resolve series for charm: %q", ref)
+	return curl, repo, nil
+}
+
+// charmStoreParams is called to obtain the parameters for connecting
+// to the charm store. It is defined as a variable so it can be changed
+// for testing purposes.
+var charmStoreParams = func() (charmrepo.NewCharmStoreParams, error) {
+	return charmrepo.NewCharmStoreParams{}, nil
 }

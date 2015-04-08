@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/juju/paths"
 )
@@ -35,21 +34,22 @@ func (w *windowsConfigure) ConfigureBasic() error {
 	if err != nil {
 		return err
 	}
-	dataDir := w.renderer.FromSlash(w.mcfg.DataDir)
-	baseDir := w.renderer.FromSlash(filepath.Dir(tmpDir))
-	binDir := w.renderer.PathJoin(baseDir, "bin")
+	renderer := w.conf.ShellRenderer
+	dataDir := renderer.FromSlash(w.mcfg.DataDir)
+	baseDir := renderer.FromSlash(filepath.Dir(tmpDir))
+	binDir := renderer.Join(baseDir, "bin")
 
 	w.conf.AddScripts(
 		fmt.Sprintf(`%s`, winPowershellHelperFunctions),
-		fmt.Sprintf(`icacls "%s" /grant "jujud:(OI)(CI)(F)" /T`, w.renderer.FromSlash(baseDir)),
-		fmt.Sprintf(`mkdir %s`, w.renderer.FromSlash(tmpDir)),
+		fmt.Sprintf(`icacls "%s" /grant "jujud:(OI)(CI)(F)" /T`, renderer.FromSlash(baseDir)),
+		fmt.Sprintf(`mkdir %s`, renderer.FromSlash(tmpDir)),
 		fmt.Sprintf(`mkdir "%s"`, binDir),
 		fmt.Sprintf(`%s`, winSetPasswdScript),
 		fmt.Sprintf(`Start-ProcessAsUser -Command $powershell -Arguments "-File C:\juju\bin\save_pass.ps1 $juju_passwd" -Credential $jujuCreds`),
-		fmt.Sprintf(`mkdir "%s\locks"`, w.renderer.FromSlash(dataDir)),
+		fmt.Sprintf(`mkdir "%s\locks"`, renderer.FromSlash(dataDir)),
 		fmt.Sprintf(`Start-ProcessAsUser -Command $cmdExe -Arguments '/C setx PATH "%%PATH%%;C:\Juju\bin"' -Credential $jujuCreds`),
 	)
-	noncefile := w.renderer.PathJoin(dataDir, NonceFile)
+	noncefile := renderer.Join(dataDir, NonceFile)
 	w.conf.AddScripts(
 		fmt.Sprintf(`Set-Content "%s" "%s"`, noncefile, shquote(w.mcfg.MachineNonce)),
 	)
@@ -58,17 +58,18 @@ func (w *windowsConfigure) ConfigureBasic() error {
 
 func (w *windowsConfigure) ConfigureJuju() error {
 	if err := verifyConfig(w.mcfg); err != nil {
-		return err
+		return errors.Annotate(err, "while verifying machine config")
 	}
 	toolsJson, err := json.Marshal(w.mcfg.Tools)
 	if err != nil {
-		return err
+		return errors.Annotate(err, "while serializing the tools")
 	}
-	var python string = `${env:ProgramFiles(x86)}\Cloudbase Solutions\Cloudbase-Init\Python27\python.exe`
+	const python = `${env:ProgramFiles(x86)}\Cloudbase Solutions\Cloudbase-Init\Python27\python.exe`
+	renderer := w.conf.ShellRenderer
 	w.conf.AddScripts(
-		fmt.Sprintf(`$binDir="%s"`, w.renderer.FromSlash(w.mcfg.jujuTools())),
+		fmt.Sprintf(`$binDir="%s"`, renderer.FromSlash(w.mcfg.jujuTools())),
 		`$tmpBinDir=$binDir.Replace('\', '\\')`,
-		fmt.Sprintf(`mkdir '%s'`, w.renderer.FromSlash(w.mcfg.LogDir)),
+		fmt.Sprintf(`mkdir '%s'`, renderer.FromSlash(w.mcfg.LogDir)),
 		`mkdir $binDir`,
 		`$WebClient = New-Object System.Net.WebClient`,
 		`[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}`,
@@ -88,10 +89,9 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		return errors.Errorf("Bootstrap node is not supported on Windows.")
 	}
 
-	machineTag := names.NewMachineTag(w.mcfg.MachineId)
-	_, err = addAgentInfo(w.mcfg, w.conf, machineTag, w.mcfg.Tools.Version.Number)
+	_, err = w.addAgentInfo()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	return w.addMachineAgentToBoot(machineTag.String())
+	return w.addMachineAgentToBoot()
 }

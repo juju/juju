@@ -9,7 +9,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"

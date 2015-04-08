@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 
 	"github.com/juju/juju/bzr"
 	"github.com/juju/juju/cmd/envcmd"
@@ -63,15 +63,15 @@ func (s *PublishSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
 
-	s.oldBaseURL = charm.Store.BaseURL
-	charm.Store.BaseURL = s.URL("")
+	s.oldBaseURL = charmrepo.LegacyStore.BaseURL
+	charmrepo.LegacyStore.BaseURL = s.URL("")
 }
 
 func (s *PublishSuite) TearDownSuite(c *gc.C) {
 	s.FakeJujuHomeSuite.TearDownSuite(c)
 	s.HTTPSuite.TearDownSuite(c)
 
-	charm.Store.BaseURL = s.oldBaseURL
+	charmrepo.LegacyStore.BaseURL = s.oldBaseURL
 }
 
 func (s *PublishSuite) SetUpTest(c *gc.C) {

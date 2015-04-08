@@ -104,6 +104,7 @@ func (manager *containerManager) CreateContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,
 	networkConfig *container.NetworkConfig,
+	storageConfig *container.StorageConfig,
 ) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
 	name := names.NewMachineTag(machineConfig.MachineId).String()

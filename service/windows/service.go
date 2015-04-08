@@ -6,16 +6,27 @@ package windows
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/service/common"
 )
 
-var logger = loggo.GetLogger("juju.worker.deployer.service")
+var (
+	logger = loggo.GetLogger("juju.worker.deployer.service")
+
+	renderer = &shell.PowershellRenderer{}
+)
+
+// IsRunning returns whether or not windows is the local init system.
+func IsRunning() (bool, error) {
+	return runtime.GOOS == "windows", nil
+}
 
 // ListServices returns the name of all installed services on the
 // local host.
@@ -69,7 +80,7 @@ func (s Service) Conf() common.Conf {
 
 // Validate checks the service for invalid values.
 func (s Service) Validate() error {
-	if err := s.Service.Validate(); err != nil {
+	if err := s.Service.Validate(renderer); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -207,14 +218,11 @@ func NewService(name string, conf common.Conf) *Service {
 
 // InstallCommands returns shell commands to install the service.
 func (s *Service) InstallCommands() ([]string, error) {
-	// TODO(ericsnow) Properly quote the arg values in Conf.ExecStart.
-	// TODO(ericsnow) Properly "render" the arg values in Conf.ExecStart.
-	// (see cloudinit.WindowsRendrer.FromSlash).
 	cmd := fmt.Sprintf(serviceInstallCommands[1:],
-		s.Service.Name,
-		s.Service.Conf.Desc,
-		s.Service.Conf.ExecStart,
-		s.Service.Name,
+		renderer.Quote(s.Service.Name),
+		renderer.Quote(s.Service.Conf.Desc),
+		renderer.Quote(s.Service.Conf.ExecStart),
+		renderer.Quote(s.Service.Name),
 	)
 	return strings.Split(cmd, "\n"), nil
 }
@@ -222,14 +230,14 @@ func (s *Service) InstallCommands() ([]string, error) {
 // StartCommands returns shell commands to start the service.
 func (s *Service) StartCommands() ([]string, error) {
 	// TODO(ericsnow) Merge with the command in Start().
-	cmd := fmt.Sprintf(`Start-Service %s`, s.Service.Name)
+	cmd := fmt.Sprintf(`Start-Service %s`, renderer.Quote(s.Service.Name))
 	return []string{cmd}, nil
 }
 
 // TODO(ericsnow) Merge serviceInstallCommands and serviceInstallScript?
 
 const serviceInstallCommands = `
-New-Service -Credential $jujuCreds -Name '%s' -DisplayName '%s' '%s'
+New-Service -Credential $jujuCreds -Name %s -DisplayName %s %s
 cmd.exe /C sc config %s start=delayed-auto`
 
 const serviceInstallScript = `

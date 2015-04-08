@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/apiserver/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
@@ -116,16 +116,4 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 	curl = charm.MustParseURL("cs:quantal/mysql")
 	_, err = s.State.LatestPlaceholderCharm(curl)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
-	s.AddMachine(c, "0", state.JobManageEnviron)
-	s.SetupScenario(c)
-	result, err := s.charmrevisionupdater.UpdateLatestRevisions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-
-	env, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.Server.Metadata, gc.DeepEquals, []string{"environment_uuid=" + env.UUID()})
 }

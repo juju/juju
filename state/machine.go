@@ -1267,15 +1267,17 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 }
 
 // Status returns the status of the machine.
-func (m *Machine) Status() (status Status, info string, data map[string]interface{}, err error) {
+func (m *Machine) Status() (StatusInfo, error) {
 	doc, err := getStatus(m.st, m.globalKey())
 	if err != nil {
-		return "", "", nil, err
+		return StatusInfo{}, err
 	}
-	status = doc.Status
-	info = doc.StatusInfo
-	data = doc.StatusData
-	return
+	return StatusInfo{
+		Status:  doc.Status,
+		Message: doc.StatusInfo,
+		Data:    doc.StatusData,
+		Since:   doc.Updated,
+	}, nil
 }
 
 // SetStatus sets the status of the machine.
@@ -1385,17 +1387,17 @@ func (m *Machine) markInvalidContainers() error {
 			}
 			// There should never be a circumstance where an unsupported container is started.
 			// Nonetheless, we check and log an error if such a situation arises.
-			status, _, _, err := container.Status()
+			statusInfo, err := container.Status()
 			if err != nil {
 				logger.Errorf("finding status of container %v to mark as invalid: %v", containerId, err)
 				continue
 			}
-			if status == StatusPending {
+			if statusInfo.Status == StatusPending {
 				containerType := ContainerTypeFromId(containerId)
 				container.SetStatus(
 					StatusError, "unsupported container", map[string]interface{}{"type": containerType})
 			} else {
-				logger.Errorf("unsupported container %v has unexpected status %v", containerId, status)
+				logger.Errorf("unsupported container %v has unexpected status %v", containerId, statusInfo.Status)
 			}
 		}
 	}

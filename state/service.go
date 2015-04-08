@@ -9,11 +9,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -603,13 +604,17 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		Principal:              principalName,
 		StorageAttachmentCount: numStorageAttachments,
 	}
+	now := time.Now()
 	agentStatusDoc := statusDoc{
 		Status:  StatusAllocating,
+		Updated: &now,
 		EnvUUID: s.st.EnvironUUID(),
 	}
 	unitStatusDoc := statusDoc{
-		Status:  StatusBusy,
-		EnvUUID: s.st.EnvironUUID(),
+		Status:     StatusUnknown,
+		StatusInfo: "Waiting for agent initialization to finish",
+		Updated:    &now,
+		EnvUUID:    s.st.EnvironUUID(),
 	}
 	ops := []txn.Op{
 		{
@@ -620,7 +625,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		},
 		createStatusOp(s.st, globalKey, unitStatusDoc),
 		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
-		createMeterStatusOp(s.st, globalKey, &meterStatusDoc{Code: MeterNotSet}),
+		createMeterStatusOp(s.st, globalKey, &meterStatusDoc{Code: MeterNotSet.String()}),
 		{
 			C:      servicesC,
 			Id:     s.doc.DocID,

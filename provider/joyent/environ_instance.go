@@ -115,7 +115,10 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 	// different 10.x.x.x/21 networks and adding this route allows
 	// them to talk despite this. See:
 	// https://bugs.launchpad.net/juju-core/+bug/1401130
-	cloudcfg := cloudinit.New()
+	cloudcfg, err := cloudinit.New(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	ifupScript := `
 #!/bin/bash
 

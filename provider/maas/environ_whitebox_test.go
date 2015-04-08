@@ -21,6 +21,7 @@ import (
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gomaasapi"
 
+	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -247,7 +248,9 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	decodedUserData, err := decodeUserData(userData)
 	c.Assert(err, jc.ErrorIsNil)
 	info := machineInfo{"host1"}
-	cloudinitRunCmd, err := info.cloudinitRunCmd("precise")
+	cloudcfg, err := cloudinit.New("precise")
+	c.Assert(err, jc.ErrorIsNil)
+	cloudinitRunCmd, err := info.cloudinitRunCmd(cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := goyaml.Marshal(cloudinitRunCmd)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1107,7 +1110,7 @@ func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
 		ConfigType:       network.ConfigDHCP,
 		ExtraConfig:      nil,
 		GatewayAddress:   network.Address{},
-		Address:          network.NewAddress("192.168.1.1", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress("192.168.1.1", network.ScopeCloudLocal),
 	}, {
 		DeviceIndex:      1,
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
@@ -1120,7 +1123,7 @@ func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
 		ConfigType:       network.ConfigDHCP,
 		ExtraConfig:      nil,
 		GatewayAddress:   network.Address{},
-		Address:          network.NewAddress("192.168.2.1", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress("192.168.2.1", network.ScopeCloudLocal),
 	}, {
 		DeviceIndex:      2,
 		MACAddress:       "aa:bb:cc:dd:ee:f2",
@@ -1133,7 +1136,7 @@ func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
 		ConfigType:       network.ConfigDHCP,
 		ExtraConfig:      nil,
 		GatewayAddress:   network.Address{},
-		Address:          network.NewAddress("192.168.3.1", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress("192.168.3.1", network.ScopeCloudLocal),
 	}}
 	network.SortInterfaceInfo(netInfo)
 	c.Assert(netInfo, jc.DeepEquals, expectedInfo)

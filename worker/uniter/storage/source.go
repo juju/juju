@@ -6,7 +6,7 @@ package storage
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v4/hooks"
+	"gopkg.in/juju/charm.v5-unstable/hooks"
 	"launchpad.net/tomb"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -92,7 +92,7 @@ func (s *storageSource) loop() error {
 		case _, ok := <-inChanges:
 			logger.Debugf("got storage attachment change")
 			if !ok {
-				return tomb.ErrDying
+				return watcher.EnsureErr(s.watcher)
 			}
 			inChanges = nil
 			outChanges = s.changes
@@ -119,7 +119,6 @@ func (s *storageSource) Changes() <-chan hook.SourceChange {
 // Stop is part of the hook.Source interface.
 func (s *storageSource) Stop() error {
 	s.tomb.Kill(nil)
-	watcher.Stop(s.watcher, &s.tomb)
 	return s.tomb.Wait()
 }
 

@@ -91,14 +91,11 @@ func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func (e *environ) SetConfig(cfg *config.Config) error {
+func awsClients(cfg *config.Config) (*ec2.EC2, *s3.S3, *environConfig, error) {
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
-		return err
+		return nil, nil, nil, err
 	}
-	e.ecfgMutex.Lock()
-	defer e.ecfgMutex.Unlock()
-	e.ecfgUnlocked = ecfg
 
 	auth := aws.Auth{ecfg.accessKey(), ecfg.secretKey()}
 	region := aws.Regions[ecfg.region()]
@@ -110,8 +107,19 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	if region == aws.CNNorth {
 		signer = aws.SignV4Factory(region.Name, "ec2")
 	}
-	e.ec2Unlocked = ec2.New(auth, region, signer)
-	e.s3Unlocked = s3.New(auth, region)
+	return ec2.New(auth, region, signer), s3.New(auth, region), ecfg, nil
+}
+
+func (e *environ) SetConfig(cfg *config.Config) error {
+	ec2Client, s3Client, ecfg, err := awsClients(cfg)
+	if err != nil {
+		return err
+	}
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+	e.ecfgUnlocked = ecfg
+	e.ec2Unlocked = ec2Client
+	e.s3Unlocked = s3Client
 
 	bucket, err := e.s3Unlocked.Bucket(ecfg.controlBucket())
 	if err != nil {
@@ -491,9 +499,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	var instResp *ec2.RunInstancesResp
 
-	blockDeviceMappings, volumes, volumeAttachments, err := getBlockDeviceMappings(
-		*spec.InstanceType.VirtType, &args,
-	)
+	blockDeviceMappings, err := getBlockDeviceMappings(args.Constraints)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create block device mappings")
 	}
@@ -532,13 +538,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	// TODO(axw) tag all resources (instances and volumes), for accounting
 	// and identification.
 
-	if err := assignVolumeIds(inst, volumes, volumeAttachments); err != nil {
-		if err := e.StopInstances(inst.Id()); err != nil {
-			logger.Errorf("failed to stop instance: %v", err)
-		}
-		return nil, err
-	}
-
 	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
@@ -555,10 +554,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		AvailabilityZone: &inst.Instance.AvailZone,
 	}
 	return &environs.StartInstanceResult{
-		Instance:          inst,
-		Hardware:          &hc,
-		Volumes:           volumes,
-		VolumeAttachments: volumeAttachments,
+		Instance: inst,
+		Hardware: &hc,
 	}, nil
 }
 
@@ -777,6 +774,13 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to release address %q from instance %q", addr, instId)
 
+	// If the instance ID is unknown the address has already been released
+	// and we can ignore this request.
+	if instId == instance.UnknownId {
+		logger.Debugf("release address %q with an unknown instance ID is a no-op (ignoring)", addr.Value)
+		return nil
+	}
+
 	var nicId string
 	ec2Inst := e.ec2()
 	nicId, err = e.fetchNetworkInterfaceId(ec2Inst, instId)
@@ -847,7 +851,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 			Disabled:      false,
 			NoAutoStart:   false,
 			ConfigType:    network.ConfigDHCP,
-			Address:       network.NewAddress(iface.PrivateIPAddress, network.ScopeCloudLocal),
+			Address:       network.NewScopedAddress(iface.PrivateIPAddress, network.ScopeCloudLocal),
 		}
 	}
 	return result, nil

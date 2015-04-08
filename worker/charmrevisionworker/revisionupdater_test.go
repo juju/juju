@@ -11,12 +11,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/charmrevisionworker"
 )
@@ -107,7 +108,9 @@ func (s *RevisionUpdateSuite) TestVersionUpdateRunsPeriodically(c *gc.C) {
 	c.Assert(s.checkCharmRevision(c, 23), jc.IsTrue)
 
 	// Make some changes
-	s.UpdateStoreRevision("cs:quantal/mysql", 24)
+	id := charm.MustParseReference("~who/quantal/mysql-24")
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), id.Name)
+	s.Server.UploadCharm(c, ch, id, true)
 	// Check the results of the latest changes.
 	c.Assert(s.checkCharmRevision(c, 24), jc.IsTrue)
 }

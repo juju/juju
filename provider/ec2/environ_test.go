@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 )
 
@@ -68,10 +67,8 @@ var rootDiskTests = []RootDiskTest{
 func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
 	for _, t := range rootDiskTests {
 		c.Logf("Test %s", t.name)
-		args := &environs.StartInstanceParams{
-			Constraints: constraints.Value{RootDisk: t.constraint},
-		}
-		mappings, _, _, err := getBlockDeviceMappings(paravirtual, args)
+		cons := constraints.Value{RootDisk: t.constraint}
+		mappings, err := getBlockDeviceMappings(cons)
 		c.Assert(err, jc.ErrorIsNil)
 		expected := append([]amzec2.BlockDeviceMapping{t.device}, commonInstanceStoreDisks...)
 		c.Assert(mappings, gc.DeepEquals, expected)

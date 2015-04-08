@@ -4,8 +4,8 @@
 package google_test
 
 import (
-	"code.google.com/p/google-api-go-client/compute/v1"
 	jc "github.com/juju/testing/checkers"
+	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/provider/gce/google"
@@ -45,4 +45,15 @@ func (s *zoneSuite) TestAvailabilityZoneAvailable(c *gc.C) {
 func (s *zoneSuite) TestAvailabilityZoneAvailableFalse(c *gc.C) {
 	s.raw.Status = google.StatusDown
 	c.Check(s.zone.Available(), jc.IsFalse)
+}
+
+func (s *zoneSuite) TestAvailabilityZoneNotDeprecated(c *gc.C) {
+	c.Check(s.zone.Deprecated(), jc.IsFalse)
+}
+
+func (s *zoneSuite) TestAvailabilityZoneDeprecated(c *gc.C) {
+	s.raw.Deprecated = &compute.DeprecationStatus{
+		State: "DEPRECATED",
+	}
+	c.Check(s.zone.Deprecated(), jc.IsTrue)
 }

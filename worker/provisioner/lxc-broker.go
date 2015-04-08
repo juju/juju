@@ -114,6 +114,10 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		lxcLogger.Errorf("failed to get container config: %v", err)
 		return nil, err
 	}
+	storageConfig := &container.StorageConfig{
+		AllowMount: config.AllowLXCLoopMounts,
+	}
+
 	if err := environs.PopulateMachineConfig(
 		args.MachineConfig,
 		config.ProviderType,
@@ -130,7 +134,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
-	inst, hardware, err := broker.manager.CreateContainer(args.MachineConfig, series, network)
+	inst, hardware, err := broker.manager.CreateContainer(args.MachineConfig, series, network, storageConfig)
 	if err != nil {
 		lxcLogger.Errorf("failed to start container: %v", err)
 		return nil, err
@@ -200,7 +204,7 @@ func localDNSServers() ([]network.Address, error) {
 				address = address[:strings.Index(address, "#")]
 			}
 			address = strings.TrimSpace(address)
-			addresses = append(addresses, network.NewAddress(address, network.ScopeUnknown))
+			addresses = append(addresses, network.NewAddress(address))
 		}
 	}
 
@@ -411,7 +415,7 @@ func discoverPrimaryNIC() (string, network.Address, error) {
 				addr = ip.String()
 
 				logger.Tracef("primary network interface is %q, address %q", iface.Name, addr)
-				return iface.Name, network.NewAddress(addr, network.ScopeUnknown), nil
+				return iface.Name, network.NewAddress(addr), nil
 			}
 		}
 	}
