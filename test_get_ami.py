@@ -32,6 +32,26 @@ class GetAmi(unittest.TestCase):
             self.assertEqual(ami, "ami-first")
         co_mock.assert_called_once_with(expected_args)
 
+    def test_query_ami_different_region(self):
+        results = "ami-first\nami-second\nami-third\n"
+        expected_args = [
+            'sstream-query',
+            get_ami.STREAM_INDEX,
+            'endpoint~ec2.cn-north-1.amazonaws.com',
+            'arch=amd64',
+            'release=trusty',
+            'label=release',
+            'root_store=ssd',
+            'virt=pv',
+            '--output-format', '%(id)s'
+        ]
+        with mock.patch("subprocess.check_output", return_value=results,
+                        autospec=True) as co_mock:
+            ami = get_ami.query_ami("trusty", "amd64", "cn-north-1")
+            self.assertEqual(ami, "ami-first")
+        co_mock.assert_called_once_with(expected_args)
+
+
     def test_query_ami_optional_params(self):
         results = "ami-first\nami-second\nami-third\n"
         expected_args = [
@@ -65,7 +85,7 @@ class GetAmi(unittest.TestCase):
     def test_query_no_results(self):
         message = (
             "No amis for arch=amd64 release=precise label=release"
-            " root_store=ssd virt=pv"
+            " root_store=ssd virt=pv in region=us-east-1"
         )
         with mock.patch("subprocess.check_output", return_value="",
                         autospec=True) as co_mock:

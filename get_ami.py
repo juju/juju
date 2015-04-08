@@ -9,7 +9,7 @@ import sys
 
 
 STREAM_INDEX = "http://cloud-images.ubuntu.com/releases/streams/v1/index.json"
-ENDPOINT_INFO = "endpoint~ec2.us-east-1.amazonaws.com"
+ENDPOINT_TEMPLATE = "endpoint~ec2.{region}.amazonaws.com"
 
 DEFAULT_PARAMS = {
     "label": "release",
@@ -18,8 +18,10 @@ DEFAULT_PARAMS = {
 }
 
 
-def query_ami(series, arch, **kwargs):
-    """"""
+def query_ami(series, arch, region=None, **kwargs):
+    """Lookup newest ami for given series and arch, plus optional params."""
+    if region is None:
+        region = "us-east-1"
     sstream_params = ["arch=" + arch, "release=" + series]
     for k in sorted(DEFAULT_PARAMS):
         v = kwargs.pop(k, DEFAULT_PARAMS[k])
@@ -28,7 +30,8 @@ def query_ami(series, arch, **kwargs):
         sstream_params.append("{}={}".format(k, v))
     if kwargs:
         raise ValueError("Unknown kwargs: {}".format(", ".join(kwargs)))
-    cmdline = ["sstream-query", STREAM_INDEX, ENDPOINT_INFO]
+    endpoint_info = ENDPOINT_TEMPLATE.format(region=region)
+    cmdline = ["sstream-query", STREAM_INDEX, endpoint_info]
     cmdline.extend(sstream_params)
     cmdline.extend(["--output-format", "%(id)s"])
     try:
@@ -39,7 +42,8 @@ def query_ami(series, arch, **kwargs):
         raise
     ami_ids = out.split("\n")
     if not ami_ids or not ami_ids[0]:
-        raise ValueError("No amis for {}".format(" ".join(sstream_params)))
+        raise ValueError("No amis for {} in region={}".format(
+                         " ".join(sstream_params), region))
     return ami_ids[0]
 
 
@@ -47,6 +51,7 @@ def parse_args(args=None):
     parser = ArgumentParser('Get an up to date ami.')
     parser.add_argument('series', help='Ubuntu series for image')
     parser.add_argument('arch', help='Architecture for image')
+    parser.add_argument('--region', help='Region to retrieve image for')
     parser.add_argument('--label')
     parser.add_argument('--root-store')
     parser.add_argument('--virt')
@@ -56,7 +61,7 @@ def parse_args(args=None):
 def main():
     args = parse_args()
     try:
-        print(query_ami(args.series, args.arch, label=args.label,
+        print(query_ami(args.series, args.arch, args.region, label=args.label,
                         root_store=args.root_store, virt=args.virt))
     except ValueError as err:
         print(err, file=sys.stderr)
