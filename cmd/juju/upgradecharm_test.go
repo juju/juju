@@ -32,8 +32,12 @@ func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	s.srv = charmstoretesting.OpenServer(c, s.Session, charmstore.ServerParams{})
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
-	s.PatchValue(&newCharmStoreParams, charmrepo.NewCharmStoreParams{
-		URL: s.srv.URL(),
+	original := charmStoreParams
+	s.PatchValue(&charmStoreParams, func() (charmrepo.NewCharmStoreParams, error) {
+		csParams, err := original()
+		c.Assert(err, jc.ErrorIsNil)
+		csParams.URL = s.srv.URL()
+		return csParams, nil
 	})
 }
 
@@ -86,9 +90,9 @@ func (s *UpgradeCharmErrorsSuite) deployService(c *gc.C) {
 func (s *UpgradeCharmErrorsSuite) TestInvalidSwitchURL(c *gc.C) {
 	s.deployService(c)
 	err := runUpgradeCharm(c, "riak", "--switch=blah")
-	c.Assert(err, gc.ErrorMatches, "charm not found: cs:trusty/blah")
+	c.Assert(err, gc.ErrorMatches, `cannot resolve charm URL "cs:trusty/blah": charm not found`)
 	err = runUpgradeCharm(c, "riak", "--switch=cs:missing/one")
-	c.Assert(err, gc.ErrorMatches, "charm not found: cs:missing/one")
+	c.Assert(err, gc.ErrorMatches, `cannot resolve charm URL "cs:missing/one": charm not found`)
 	// TODO(dimitern): add tests with incompatible charms
 }
 

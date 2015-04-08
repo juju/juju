@@ -8,14 +8,14 @@ import (
 	"os"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v5-unstable"
-	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/cmd/juju/service"
 )
 
 // UpgradeCharm is responsible for upgrading a service's charm.
@@ -113,50 +113,38 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	attrs, err := client.EnvironmentGet()
+	conf, err := service.GetClientConfig(client)
 	if err != nil {
-		return err
-	}
-	conf, err := config.New(config.NoDefaults, attrs)
-	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
-	var newURL *charm.URL
+	var newRef *charm.Reference
 	if c.SwitchURL != "" {
-		newURL, err = resolveCharmURL(c.SwitchURL, client, conf)
+		newRef, err = charm.ParseReference(c.SwitchURL)
 		if err != nil {
 			return err
 		}
 	} else {
 		// No new URL specified, but revision might have been.
-		newURL = oldURL.WithRevision(c.Revision)
+		newRef = oldURL.WithRevision(c.Revision).Reference()
 	}
 
-	repo, err := charmrepo.InferRepository(
-		newURL.Reference(),
-		newCharmStoreParams,
-		ctx.AbsPath(c.RepoPath))
+	csParams, err := charmStoreParams()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	repo = config.SpecializeCharmRepo(repo, conf)
+	newURL, repo, err := resolveCharmURL(newRef.String(), csParams, ctx.AbsPath(c.RepoPath), conf)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.
-	explicitRevision := true
-	if newURL.Revision == -1 {
-		explicitRevision = false
-		latest, err := charmrepo.Latest(repo, newURL)
-		if err != nil {
-			return err
-		}
-		newURL = newURL.WithRevision(latest)
-	}
 	if *newURL == *oldURL {
-		if explicitRevision {
+		if newRef.Revision != -1 {
 			return fmt.Errorf("already running specified charm %q", newURL)
-		} else if newURL.Schema == "cs" {
+		}
+		if newURL.Schema == "cs" {
 			// No point in trying to upgrade a charm store charm when
 			// we just determined that's the latest revision
 			// available.

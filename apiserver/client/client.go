@@ -1395,7 +1395,11 @@ func (c *Client) resolveCharm(ref *charm.Reference, repo charmrepo.Interface) (*
 	}
 
 	// Resolve the charm location with the repository.
-	return repo.Resolve(ref)
+	curl, err := repo.Resolve(ref)
+	if err != nil {
+		return nil, err
+	}
+	return curl.WithRevision(ref.Revision), nil
 }
 
 // charmArchiveStoragePath returns a string that is suitable as a
