@@ -267,12 +267,28 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		InterfaceName:    "eth1",
 		VLANTag:          1,
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
-		Disabled:         true,
+		Disabled:         false,
 		NoAutoStart:      true,
 		ConfigType:       network.ConfigDHCP,
 		Address:          network.NewAddress("0.20.0.2"),
 		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress:   network.NewAddress("0.20.0.1"),
+		ExtraConfig:      nil,
+	}, {
+		ProviderId:       "dummy-eth2",
+		ProviderSubnetId: "dummy-disabled",
+		NetworkName:      "juju-disabled",
+		CIDR:             "0.30.0.0/24",
+		DeviceIndex:      2,
+		InterfaceName:    "eth2",
+		VLANTag:          2,
+		MACAddress:       "aa:bb:cc:dd:ee:f2",
+		Disabled:         true,
+		NoAutoStart:      false,
+		ConfigType:       network.ConfigDHCP,
+		Address:          network.NewAddress("0.30.0.2"),
+		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress:   network.NewAddress("0.30.0.1"),
 		ExtraConfig:      nil,
 	}}
 	info, err := e.NetworkInterfaces("i-42")
@@ -303,6 +319,30 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, gc.HasLen, 1)
 	assertInterfaces(c, e, opc, "i-nic-no-subnet-here", expectInfo)
+
+	// Test that with instance id prefix "i-disabled-nic-" we get a result
+	// with only a disabled subnet.
+	expectInfo = []network.InterfaceInfo{{
+		ProviderId:       "dummy-eth2",
+		ProviderSubnetId: "dummy-disabled",
+		NetworkName:      "juju-disabled",
+		CIDR:             "0.30.0.0/24",
+		DeviceIndex:      2,
+		InterfaceName:    "eth2",
+		VLANTag:          2,
+		MACAddress:       "aa:bb:cc:dd:ee:f2",
+		Disabled:         true,
+		NoAutoStart:      false,
+		ConfigType:       network.ConfigDHCP,
+		Address:          network.NewAddress("0.30.0.2"),
+		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress:   network.NewAddress("0.30.0.1"),
+		ExtraConfig:      nil,
+	}}
+	info, err = e.NetworkInterfaces("i-disabled-nic-here")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, gc.HasLen, 1)
+	assertInterfaces(c, e, opc, "i-disabled-nic-here", expectInfo)
 
 	// Test we can induce errors.
 	s.breakMethods(c, e, "NetworkInterfaces")

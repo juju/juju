@@ -1604,12 +1604,11 @@ func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]iface
 	primaryIface := ""
 	interfaces := make(map[string]ifaceInfo)
 	var processNodes func(nodes []Node) error
+	var baseIndex int
 	processNodes = func(nodes []Node) error {
 		for _, node := range nodes {
 			if strings.HasPrefix(node.Id, "network") {
-				// If there's a single interface, the ID won't have an
-				// index suffix.
-				index := 0
+				index := baseIndex
 				if strings.HasPrefix(node.Id, "network:") {
 					// There is an index suffix, parse it.
 					var err error
@@ -1617,7 +1616,10 @@ func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]iface
 					if err != nil {
 						return errors.Annotatef(err, "lshw output for node %q has invalid ID suffix for %q", inst.Id(), node.Id)
 					}
+				} else {
+					baseIndex++
 				}
+
 				if primaryIface == "" && !node.Disabled {
 					primaryIface = node.LogicalName
 					logger.Debugf("node %q primary network interface is %q", inst.Id(), primaryIface)
