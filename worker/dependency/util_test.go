@@ -37,8 +37,8 @@ func (ews *manifoldHarness) Manifold() dependency.Manifold {
 
 func (ews *manifoldHarness) start(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 	for _, resourceName := range ews.inputs {
-		if !getResource(resourceName, nil) {
-			return nil, dependency.ErrUnmetDependencies
+		if err := getResource(resourceName, nil); err != nil {
+			return nil, err
 		}
 	}
 	w := &degenerateWorker{}

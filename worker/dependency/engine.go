@@ -230,14 +230,23 @@ func (engine *engine) getResourceFunc(inputs []string) GetResourceFunc {
 		outputs[resourceName] = engine.manifolds[resourceName].Output
 		workers[resourceName] = engine.current[resourceName].worker
 	}
-	return func(resourceName string, out interface{}) bool {
-		switch {
-		case workers[resourceName] == nil:
-			return false
-		case outputs[resourceName] == nil:
-			return out == nil
+	return func(resourceName string, out interface{}) error {
+		input := workers[resourceName]
+		if input == nil {
+			// No worker running (or not declared).
+			return ErrMissing
 		}
-		return outputs[resourceName](workers[resourceName], out)
+		convert := outputs[resourceName]
+		if convert == nil {
+			// No conversion func available...
+			if out != nil {
+				// ...and the caller wants a resource.
+				return ErrMissing
+			}
+			// ...but it's ok, because the caller depends on existence only.
+			return nil
+		}
+		return convert(input, out)
 	}
 }
 
@@ -330,7 +339,7 @@ func (engine *engine) gotStopped(name string, err error) {
 			// Nothing went wrong; the task completed successfully. Nothing
 			// needs to be done (unless the inputs change, in which case it
 			// gets to check again).
-		case ErrUnmetDependencies:
+		case ErrMissing:
 			// The task can't even start with the current state. Nothing more
 			// can be done (until the inputs change, in which case we retry
 			// anyway).
@@ -401,8 +410,8 @@ func (engine *engine) bounceDependents(name string) {
 	}
 }
 
-// workerInfo stores what an engine needs to know about the worker for a given
-// Manifold.
+// workerInfo stores what an engine's loop goroutine needs to know about the
+// worker for a given Manifold.
 type workerInfo struct {
 	starting bool
 	stopping bool
