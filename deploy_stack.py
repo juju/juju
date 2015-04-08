@@ -247,10 +247,14 @@ def dump_logs(client, host, directory, local_state_server=False):
         print_now(str(e))
 
 
+lxc_template_glob = '/var/lib/juju/containers/juju-*-lxc-template/*.log'
+
+
 def copy_local_logs(directory, client):
     local = get_local_root(get_juju_home(), client.env)
     log_names = [os.path.join(local, 'cloud-init-output.log')]
     log_names.extend(glob.glob(os.path.join(local, 'log', '*.log')))
+    log_names.extend(glob.glob(lxc_template_glob))
 
     subprocess.check_call(['sudo', 'chmod', 'go+r'] + log_names)
     subprocess.check_call(['cp'] + log_names + [directory])
