@@ -433,6 +433,7 @@ type waitUniterDead struct {
 }
 
 func (s waitUniterDead) step(c *gc.C, ctx *context) {
+	defer destroyWorkers(ctx)
 	if s.err != "" {
 		err := s.waitDead(c, ctx)
 		c.Assert(err, gc.ErrorMatches, s.err)
@@ -486,6 +487,10 @@ func (s stopUniter) step(c *gc.C, ctx *context) {
 	} else {
 		c.Check(err, gc.ErrorMatches, s.err)
 	}
+	destroyWorkers(ctx)
+}
+
+func destroyWorkers(ctx *context) {
 	ctx.filter.Kill()
 	ctx.filter = nil
 	ctx.tracker.Kill()

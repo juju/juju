@@ -47,7 +47,7 @@ type ManifoldConfig struct {
 // Uniter from the named resources defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	// TODO(fwereade): extract the RunListener bits from uniter and make them
-	// a real, worker with a dependency on a uniter; have the uniter expose
+	// a real worker with a dependency on the uniter; and have the uniter expose
 	// a CommandRunner via an Output func. For now, it can be a leaf node.
 	return dependency.Manifold{
 		Inputs: []string{
@@ -57,50 +57,55 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.LeadershipTrackerName,
 			config.MachineLockName,
 		},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: startFunc(config),
+	}
+}
 
-			// Ensure absolute dependencies.
-			var leadershipTracker leadership.Tracker
-			if err := getResource(config.LeadershipTrackerName, &leadershipTracker); err != nil {
-				return nil, err
-			}
-			var machineLock *fslock.Lock
-			if err := getResource(config.MachineLockName, &machineLock); err != nil {
-				return nil, err
-			}
-			var agent agent.Agent
-			if err := getResource(config.AgentName, &agent); err != nil {
-				return nil, err
-			}
-			unitTag, ok := agent.Tag().(names.UnitTag)
-			if !ok {
-				return nil, fmt.Errorf("expected a unit tag; got %q", agent.Tag())
-			}
+// startFunc returns a StartFunc that creates a worker based on the manifolds
+// named in the supplied config.
+func startFunc(config ManifoldConfig) dependency.StartFunc {
+	return func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		// Ensure absolute dependencies.
+		var leadershipTracker leadership.Tracker
+		if err := getResource(config.LeadershipTrackerName, &leadershipTracker); err != nil {
+			return nil, err
+		}
+		var machineLock *fslock.Lock
+		if err := getResource(config.MachineLockName, &machineLock); err != nil {
+			return nil, err
+		}
+		var agent agent.Agent
+		if err := getResource(config.AgentName, &agent); err != nil {
+			return nil, err
+		}
+		unitTag, ok := agent.Tag().(names.UnitTag)
+		if !ok {
+			return nil, fmt.Errorf("expected a unit tag; got %q", agent.Tag())
+		}
 
-			// This block of dependencies shouldn't really be *required* (we have
-			// responsibilities we can and should fulfil even without an api conn),
-			// but we don't yet have uniter code paths that can tolerate their
-			// absence so we continue to pass ErrMissing through unhandled.
-			var eventFilter filter.Filter
-			if err := getResource(config.EventFilterName, &eventFilter); err != nil {
-				return nil, err
-			}
-			var apiConnection *api.State
-			if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
-				return nil, err
-			}
-			uniterFacade, err := apiConnection.Uniter()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return NewUniter(
-				uniterFacade,
-				unitTag,
-				leadershipTracker,
-				eventFilter,
-				agent.CurrentConfig().DataDir(),
-				machineLock,
-			), nil
-		},
+		// This block of dependencies shouldn't really be *required* (we have
+		// responsibilities we can and should fulfil even without an api conn),
+		// but we don't yet have uniter code paths that can tolerate their
+		// absence so we continue to pass ErrMissing through unhandled.
+		var eventFilter filter.Filter
+		if err := getResource(config.EventFilterName, &eventFilter); err != nil {
+			return nil, err
+		}
+		var apiConnection *api.State
+		if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
+			return nil, err
+		}
+		uniterFacade, err := apiConnection.Uniter()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return NewUniter(
+			uniterFacade,
+			unitTag,
+			leadershipTracker,
+			eventFilter,
+			agent.CurrentConfig().DataDir(),
+			machineLock,
+		), nil
 	}
 }

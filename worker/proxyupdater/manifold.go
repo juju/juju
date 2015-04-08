@@ -9,10 +9,13 @@ import (
 	"github.com/juju/juju/worker/dependency"
 )
 
+// ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
 	ApiConnectionName string
 }
 
+// Manifold returns a dependency manifold that runs a proxy updater worker,
+// using the api connection resource named in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{

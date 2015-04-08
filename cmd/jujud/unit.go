@@ -114,7 +114,7 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 	for name, manifold := range unit.AgentManifolds(a) {
 		if err := engine.Install(name, manifold); err != nil {
 			if e := worker.Stop(engine); e != nil {
-				logger.Errorf("failure while stoppping enngine after error: %v", e)
+				logger.Errorf("failure while stopping engine after error: %v", e)
 			}
 			return nil, errors.Trace(err)
 		}

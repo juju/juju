@@ -15,28 +15,25 @@ import (
 	"github.com/juju/juju/worker/dependency"
 )
 
+// ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
 	AgentName string
 }
 
+// Manifold returns a manifold whose worker wraps an API connection made on behalf of
+// the dependency identified by AgentName.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
 		},
-		Start: startFunc(config),
-		Output: func(in worker.Worker, out interface{}) error {
-			inWorker, _ := in.(*apiConnWorker)
-			outPointer, _ := out.(**api.State)
-			if inWorker == nil || outPointer == nil {
-				return errors.Errorf("expected %T->%T; got %T->%T", inWorker, outPointer, in, out)
-			}
-			*outPointer = inWorker.st
-			return nil
-		},
+		Output: outputFunc,
+		Start:  startFunc(config),
 	}
 }
 
+// startFunc returns a StartFunc that creates a worker based on the manifolds
+// named in the supplied config.
 func startFunc(config ManifoldConfig) dependency.StartFunc {
 	return func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 
@@ -76,6 +73,17 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 		}()
 		return w, nil
 	}
+}
+
+// outputFunc extracts the *api.State from a *apiConnWorker.
+func outputFunc(in worker.Worker, out interface{}) error {
+	inWorker, _ := in.(*apiConnWorker)
+	outPointer, _ := out.(**api.State)
+	if inWorker == nil || outPointer == nil {
+		return errors.Errorf("expected %T->%T; got %T->%T", inWorker, outPointer, in, out)
+	}
+	*outPointer = inWorker.st
+	return nil
 }
 
 // apiConnWorker is a basic worker that exists to hold a reference to the

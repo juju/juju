@@ -15,44 +15,56 @@ import (
 	"github.com/juju/juju/worker/dependency"
 )
 
+// ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
 	AgentName         string
 	ApiConnectionName string
 }
 
+// Manifold returns a dependency manifold that runs an event filter worker, using
+// the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
 			config.ApiConnectionName,
 		},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-			var agent agent.Agent
-			if err := getResource(config.AgentName, &agent); err != nil {
-				return nil, err
-			}
-			unitTag, ok := agent.Tag().(names.UnitTag)
-			if !ok {
-				return nil, fmt.Errorf("expected a unit tag; got %q", agent.Tag())
-			}
-			var apiConnection *api.State
-			if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
-				return nil, err
-			}
-			uniterFacade, err := apiConnection.Uniter()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return NewFilter(uniterFacade, unitTag)
-		},
-		Output: func(in worker.Worker, out interface{}) error {
-			inWorker, _ := in.(Filter)
-			outPointer, _ := out.(*Filter)
-			if inWorker == nil || outPointer == nil {
-				return errors.Errorf("expected %T->%T; got %T->%T", inWorker, outPointer, in, out)
-			}
-			*outPointer = inWorker
-			return nil
-		},
+		Start:  startFunc(config),
+		Output: outputFunc,
 	}
+}
+
+// startFunc returns a StartFunc that creates a worker based on the manifolds
+// named in the supplied config.
+func startFunc(config ManifoldConfig) dependency.StartFunc {
+	return func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		var agent agent.Agent
+		if err := getResource(config.AgentName, &agent); err != nil {
+			return nil, err
+		}
+		unitTag, ok := agent.Tag().(names.UnitTag)
+		if !ok {
+			return nil, fmt.Errorf("expected a unit tag; got %q", agent.Tag())
+		}
+		var apiConnection *api.State
+		if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
+			return nil, err
+		}
+		uniterFacade, err := apiConnection.Uniter()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return NewFilter(uniterFacade, unitTag)
+	}
+}
+
+// outputFunc extracts the *api.State from a *apiConnWorker.
+func outputFunc(in worker.Worker, out interface{}) error {
+	inWorker, _ := in.(Filter)
+	outPointer, _ := out.(*Filter)
+	if inWorker == nil || outPointer == nil {
+		return errors.Errorf("expected %T->%T; got %T->%T", inWorker, outPointer, in, out)
+	}
+	*outPointer = inWorker
+	return nil
 }
