@@ -180,9 +180,8 @@ func (st *State) cleanupUnitsForDyingService(serviceName string) error {
 	return nil
 }
 
-// cleanupDyingUnit marks the unit as departing from all its joined relations,
-// allowing related units to start converging to a state in which that unit is
-// gone as quickly as possible.
+// cleanupDyingUnit marks resources owned by the unit as dying, to ensure
+// they are cleaned up as well.
 func (st *State) cleanupDyingUnit(name string) error {
 	unit, err := st.Unit(name)
 	if errors.IsNotFound(err) {
@@ -190,6 +189,9 @@ func (st *State) cleanupDyingUnit(name string) error {
 	} else if err != nil {
 		return err
 	}
+	// Mark the unit as departing from its joined relations, allowing
+	// related units to start converging to a state in which that unit
+	// is gone as quickly as possible.
 	relations, err := unit.RelationsJoined()
 	if err != nil {
 		return err
@@ -202,6 +204,22 @@ func (st *State) cleanupDyingUnit(name string) error {
 			return err
 		}
 		if err := relationUnit.PrepareLeaveScope(); err != nil {
+			return err
+		}
+	}
+	// Mark storage attachments as dying, so that they are detached
+	// and removed from state, allowing the unit to terminate.
+	storageAttachments, err := st.UnitStorageAttachments(unit.UnitTag())
+	if err != nil {
+		return err
+	}
+	for _, storageAttachment := range storageAttachments {
+		err := st.DestroyStorageAttachment(
+			storageAttachment.StorageInstance(), unit.UnitTag(),
+		)
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
 			return err
 		}
 	}
