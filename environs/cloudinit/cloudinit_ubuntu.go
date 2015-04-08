@@ -188,7 +188,7 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 			}
 
 			// Don't go through the proxy when downloading tools from the state servers
-			curlCommand += " --noproxy \"*\""
+			curlCommand += ` --noproxy "*"`
 
 			// Our API server certificates are unusable by curl (invalid subject name),
 			// so we must disable certificate validation. It doesn't actually
