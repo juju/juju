@@ -184,6 +184,42 @@ func (s *workerSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
 	}
 }
 
+func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
+	w, err := addresser.NewWorker(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	defer s.assertStop(c, w)
+	s.waitForInitialDead(c)
+	opsChan := dummyListen()
+
+	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.9", network.ScopeUnknown), "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+	err = addr.AllocateTo(s.machine.Id(), "wobble")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	err = addr.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Life(), gc.Equals, state.Dead)
+
+	// Wait for ReleaseAddress attempt.
+	op := waitForReleaseOp(c, opsChan)
+	c.Assert(op, jc.DeepEquals, makeReleaseOp(9))
+
+	// The address should have been removed from state.
+	for a := common.ShortAttempt.Start(); a.Next(); {
+		_, err := s.State.IPAddress("0.1.2.9")
+		if errors.IsNotFound(err) {
+			break
+		}
+		if !a.HasNext() {
+			c.Fatalf("IP address not removed")
+		}
+	}
+}
+
 func (s *workerSuite) TestErrorKillsWorker(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "broken", "ReleaseAddress")
 	w, err := addresser.NewWorker(s.State)

@@ -668,6 +668,7 @@ func (m *Machine) Remove() (err error) {
 		return err
 	}
 	for _, address := range ipAddresses {
+		logger.Debugf("creating op to set IP addr %q to Dead", address.Value())
 		ops = append(ops, ensureIPAddressDeadOp(address, false))
 	}
 	ifacesOps, err := m.removeNetworkInterfacesOps()
@@ -681,6 +682,7 @@ func (m *Machine) Remove() (err error) {
 	ops = append(ops, ifacesOps...)
 	ops = append(ops, portsOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
+	logger.Debugf("removing machine %q", m.Id())
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
 	return onAbort(m.st.runTransaction(ops), nil)

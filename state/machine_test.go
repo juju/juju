@@ -386,6 +386,48 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *MachineSuite) TestRemoveMarksAddressesAsDead(c *gc.C) {
+	addr1, err := s.State.AddIPAddress(network.NewAddress("10.0.0.1", network.ScopeUnknown), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	err = addr1.AllocateTo(s.machine.Id(), "bar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr2, err := s.State.AddIPAddress(network.NewAddress("10.0.0.2", network.ScopeUnknown), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	err = addr2.AllocateTo(s.machine.Id(), "bar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr3, err := s.State.AddIPAddress(network.NewAddress("10.0.0.3", network.ScopeUnknown), "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	err = addr3.AllocateTo("bam", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr4, err := s.State.AddIPAddress(network.NewAddress("10.0.0.4", network.ScopeUnknown), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	err = addr4.AllocateTo(s.machine.Id(), "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	err = addr4.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = addr1.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr1.Life(), gc.Equals, state.Dead)
+	err = addr2.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr2.Life(), gc.Equals, state.Dead)
+	err = addr3.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr3.Life(), gc.Equals, state.Alive)
+	err = addr4.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr4.Life(), gc.Equals, state.Dead)
+}
+
 func (s *MachineSuite) TestHasVote(c *gc.C) {
 	c.Assert(s.machine.HasVote(), jc.IsFalse)
 
