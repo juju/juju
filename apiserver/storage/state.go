@@ -35,6 +35,9 @@ type storageAccess interface {
 	// VolumeAttachment is required for storage functionality.
 	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 
+	// WatchStorageAttachment is required for storage functionality.
+	WatchStorageAttachment(names.StorageTag, names.UnitTag) state.NotifyWatcher
+
 	// WatchFilesystemAttachment is required for storage functionality.
 	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 
