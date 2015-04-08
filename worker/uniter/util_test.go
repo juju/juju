@@ -119,6 +119,7 @@ func (ctx *context) HookFailed(hookName string) {
 func (ctx *context) run(c *gc.C, steps []stepper) {
 	defer func() {
 		if ctx.uniter != nil {
+			destroyWorkers(ctx)
 			err := ctx.uniter.Stop()
 			c.Assert(err, jc.ErrorIsNil)
 		}
@@ -479,6 +480,7 @@ type stopUniter struct {
 }
 
 func (s stopUniter) step(c *gc.C, ctx *context) {
+	defer destroyWorkers(ctx)
 	u := ctx.uniter
 	ctx.uniter = nil
 	err := u.Stop()
@@ -487,7 +489,6 @@ func (s stopUniter) step(c *gc.C, ctx *context) {
 	} else {
 		c.Check(err, gc.ErrorMatches, s.err)
 	}
-	destroyWorkers(ctx)
 }
 
 func destroyWorkers(ctx *context) {

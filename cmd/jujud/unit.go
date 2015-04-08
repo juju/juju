@@ -110,8 +110,9 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 }
 
 func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
-	engine := dependency.NewEngine(cmdutil.IsFatal, time.Second, 50*time.Millisecond)
-	for name, manifold := range unit.AgentManifolds(a) {
+	manifolds := unit.AgentManifolds(a)
+	engine := dependency.NewEngine(cmdutil.IsFatal, 3*time.Second, 10*time.Millisecond)
+	for name, manifold := range manifolds {
 		if err := engine.Install(name, manifold); err != nil {
 			if e := worker.Stop(engine); e != nil {
 				logger.Errorf("failure while stopping engine after error: %v", e)

@@ -29,16 +29,22 @@ func LoggerUpdaterManifold(config LoggerUpdaterManifoldConfig) dependency.Manifo
 			config.AgentName,
 			config.ApiConnectionName,
 		},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-			var agent agent.Agent
-			if err := getResource(config.AgentName, &agent); err != nil {
-				return nil, err
-			}
-			var apiConnection *api.State
-			if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
-				return nil, err
-			}
-			return logger.NewLogger(apiConnection.Logger(), agent.CurrentConfig()), nil
-		},
+		Start: loggerUpdaterStartFunc(config),
+	}
+}
+
+// loggerUpdaterStartFunc returns a StartFunc that creates a logger updater worker
+// based on the manifolds named in the supplied config.
+func loggerUpdaterStartFunc(config LoggerUpdaterManifoldConfig) dependency.StartFunc {
+	return func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		var agent agent.Agent
+		if err := getResource(config.AgentName, &agent); err != nil {
+			return nil, err
+		}
+		var apiConnection *api.State
+		if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
+			return nil, err
+		}
+		return logger.NewLogger(apiConnection.Logger(), agent.CurrentConfig()), nil
 	}
 }

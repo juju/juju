@@ -32,36 +32,41 @@ func BinaryUpgraderManifold(config BinaryUpgraderManifoldConfig) dependency.Mani
 			config.AgentName,
 			config.ApiConnectionName,
 		},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: binaryUpgraderStartFunc(config),
+	}
+}
 
-			// Get the dependencies.
-			var agent agent.Agent
-			if err := getResource(config.AgentName, &agent); err != nil {
-				return nil, err
-			}
-			var apiConnection *api.State
-			if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
-				return nil, err
-			}
-			currentConfig := agent.CurrentConfig()
-			upgraderFacade := apiConnection.Upgrader()
+// binaryUpgraderStartFunc returns a StartFunc that creates an upgrade worker
+// based on the manifolds named in the supplied config.
+func binaryUpgraderStartFunc(config BinaryUpgraderManifoldConfig) dependency.StartFunc {
+	return func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		// Get the dependencies.
+		var agent agent.Agent
+		if err := getResource(config.AgentName, &agent); err != nil {
+			return nil, err
+		}
+		var apiConnection *api.State
+		if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
+			return nil, err
+		}
+		currentConfig := agent.CurrentConfig()
+		upgraderFacade := apiConnection.Upgrader()
 
-			// TODO(fwereade): this should be in Upgrader itself, but it's
-			// inconvenient to do that and leave the machine agent double-
-			// calling it. When the machine agent uses a manifold to run its
-			// upgrader we can move this call.
-			err := upgraderFacade.SetVersion(currentConfig.Tag().String(), version.Current)
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot set unit agent version")
-			}
+		// TODO(fwereade): this should be in Upgrader itself, but it's
+		// inconvenient to do that and leave the machine agent double-
+		// calling it. When the machine agent uses a manifold to run its
+		// upgrader we can move this call.
+		err := upgraderFacade.SetVersion(currentConfig.Tag().String(), version.Current)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot set unit agent version")
+		}
 
-			// Start the upgrader.
-			return upgrader.NewUpgrader(
-				upgraderFacade,
-				currentConfig,
-				currentConfig.UpgradedToVersion(),
-				func() bool { return false },
-			), nil
-		},
+		// Start the upgrader.
+		return upgrader.NewUpgrader(
+			upgraderFacade,
+			currentConfig,
+			currentConfig.UpgradedToVersion(),
+			func() bool { return false },
+		), nil
 	}
 }

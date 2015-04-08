@@ -30,20 +30,26 @@ func RsyslogUpdaterManifold(config RsyslogUpdaterManifoldConfig) dependency.Mani
 			config.AgentName,
 			config.ApiConnectionName,
 		},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-			var agent agent.Agent
-			if err := getResource(config.AgentName, &agent); err != nil {
-				return nil, err
-			}
-			var apiConnection *api.State
-			if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
-				return nil, err
-			}
-			return cmdutil.NewRsyslogConfigWorker(
-				apiConnection.Rsyslog(),
-				agent.CurrentConfig(),
-				rsyslog.RsyslogModeForwarding,
-			)
-		},
+		Start: rsyslogUpdaterStartFunc(config),
+	}
+}
+
+// rsyslogUpdaterStartFunc returns a StartFunc that creates an rsyslog updater
+// worker based on the manifolds named in the supplied config.
+func rsyslogUpdaterStartFunc(config RsyslogUpdaterManifoldConfig) dependency.StartFunc {
+	return func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		var agent agent.Agent
+		if err := getResource(config.AgentName, &agent); err != nil {
+			return nil, err
+		}
+		var apiConnection *api.State
+		if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
+			return nil, err
+		}
+		return cmdutil.NewRsyslogConfigWorker(
+			apiConnection.Rsyslog(),
+			agent.CurrentConfig(),
+			rsyslog.RsyslogModeForwarding,
+		)
 	}
 }
