@@ -124,7 +124,7 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 	unitTag := names.NewUnitTag("mysql/0")
 	abort := make(chan struct{})
 
-	var ensuredDead, removed bool
+	var removed bool
 	storageTag := names.NewStorageTag("data/0")
 	attachment := params.StorageAttachment{
 		StorageTag: storageTag.String(),
@@ -143,12 +143,6 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 		storageAttachment: func(s names.StorageTag, u names.UnitTag) (params.StorageAttachment, error) {
 			return attachment, nil
 		},
-		ensureDead: func(s names.StorageTag, u names.UnitTag) error {
-			ensuredDead = true
-			c.Assert(s, gc.Equals, storageTag)
-			c.Assert(u, gc.Equals, unitTag)
-			return nil
-		},
 		remove: func(s names.StorageTag, u names.UnitTag) error {
 			removed = true
 			c.Assert(s, gc.Equals, storageTag)
@@ -165,7 +159,6 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 	}()
 	err = att.UpdateStorage([]names.StorageTag{storageTag})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ensuredDead, jc.IsTrue)
 	c.Assert(removed, jc.IsTrue)
 }
 
@@ -231,7 +224,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 	unitTag := names.NewUnitTag("mysql/0")
 	abort := make(chan struct{})
 
-	var ensuredDead bool
+	var removed bool
 	storageTag := names.NewStorageTag("data/0")
 	attachment := params.StorageAttachment{
 		StorageTag: storageTag.String(),
@@ -254,8 +247,8 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 			c.Assert(s, gc.Equals, storageTag)
 			return attachment, nil
 		},
-		ensureDead: func(s names.StorageTag, u names.UnitTag) error {
-			ensuredDead = true
+		remove: func(s names.StorageTag, u names.UnitTag) error {
+			removed = true
 			c.Assert(s, gc.Equals, storageTag)
 			return nil
 		},
@@ -282,14 +275,14 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "attached: true\n")
 
-	c.Assert(ensuredDead, jc.IsFalse)
+	c.Assert(removed, jc.IsFalse)
 	err = att.CommitHook(hook.Info{
 		Kind:      hooks.StorageDetached,
 		StorageId: storageTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateFile, jc.DoesNotExist)
-	c.Assert(ensuredDead, jc.IsTrue)
+	c.Assert(removed, jc.IsTrue)
 }
 
 type attachmentsUpdateSuite struct {
@@ -338,10 +331,6 @@ func (s *attachmentsUpdateSuite) SetUpTest(c *gc.C) {
 			att, ok := s.attachmentsByTag[storageTag]
 			c.Assert(ok, jc.IsTrue)
 			return *att, nil
-		},
-		ensureDead: func(storageTag names.StorageTag, u names.UnitTag) error {
-			c.Assert(storageTag, gc.Equals, s.storageTag1)
-			return nil
 		},
 		remove: func(storageTag names.StorageTag, u names.UnitTag) error {
 			c.Assert(storageTag, gc.Equals, s.storageTag1)
