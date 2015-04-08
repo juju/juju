@@ -6,7 +6,6 @@ package openstack
 import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 )
 
@@ -19,15 +18,13 @@ func init() {
 	environs.RegisterImageDataSourceFunc("keystone catalog", getKeystoneImageSource)
 	tools.RegisterToolsDataSourceFunc("keystone catalog", getKeystoneToolsSource)
 
-	registry.RegisterEnvironStorageProviders(providerType)
-
 	// Register the Openstack specific providers.
 	registry.RegisterProvider(
-		provider.CinderProviderType,
-		&provider.OpenstackProvider{provider.NewGooseAdapter},
+		CinderProviderType,
+		&OpenstackProvider{NewGooseAdapter},
 	)
 
-	// Inform the storage provider registry about the Openstack provider.
-	registry.RegisterEnvironStorageProviders(providerType, provider.CinderProviderType)
+	// Register the Cinder provider with the Openstack provider.
+	registry.RegisterEnvironStorageProviders(providerType, CinderProviderType)
 
 }

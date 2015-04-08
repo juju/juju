@@ -1,23 +1,22 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provider
+package openstack
 
 import (
 	"math"
 	"net/url"
 	"time"
 
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/storage"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
-
 	"gopkg.in/goose.v1/cinder"
 	"gopkg.in/goose.v1/client"
 	"gopkg.in/goose.v1/identity"
 	"gopkg.in/goose.v1/nova"
+
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/storage"
 )
 
 const (
@@ -28,7 +27,7 @@ const (
 )
 
 type OpenstackProvider struct {
-	ClientFactory func(*storage.Config) (OpenstackAdapter, error)
+	newOpenstackAdapter func(*config.Config) (OpenstackAdapter, error)
 }
 
 var _ storage.Provider = (*OpenstackProvider)(nil)
@@ -40,7 +39,7 @@ func (p *OpenstackProvider) VolumeSource(environConfig *config.Config, providerC
 		return nil, err
 	}
 
-	openstackClient, err := p.ClientFactory(providerConfig)
+	openstackClient, err := p.newOpenstackAdapter(environConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -69,18 +68,6 @@ func (s *OpenstackProvider) Scope() storage.Scope {
 
 // ValidateConfig implements storage.Provider.
 func (p *OpenstackProvider) ValidateConfig(cfg *storage.Config) error {
-
-	for _, cfgKey := range []string{
-		openstackCfgKeyUrl,
-		openstackCfgKeyUser,
-		openstackCfgKeySecrets,
-		openstackCfgKeyRegion,
-		openstackCfgKeyTenantName} {
-		if _, ok := cfg.Attrs()[cfgKey]; !ok {
-			return errors.NotAssignedf("requisite configuration was not set: %v", cfgKey)
-		}
-	}
-
 	return nil
 }
 
@@ -122,6 +109,7 @@ func (s *openstackVolumeSource) CreateVolumes(args []storage.VolumeParams) (vols
 				volAttachments, err := s.openstackClient.ListVolumeAttachments(string(arg.Attachment.InstanceId))
 				if err != nil {
 					logger.Warningf("could not list volumes while cleaning up: %v", err)
+					return
 				}
 
 				if err := detachVolume(
@@ -131,11 +119,13 @@ func (s *openstackVolumeSource) CreateVolumes(args []storage.VolumeParams) (vols
 					s.openstackClient,
 				); err != nil {
 					logger.Warningf("could not detach volumes while cleaning up: %v", err)
+					return
 				}
 			}
 
 			if err := s.openstackClient.DeleteVolume(createdVol.VolumeId); err != nil {
 				logger.Warningf("could not delete volumes while cleaning up: %v", err)
+				return
 			}
 		}(a, createdVol)
 
@@ -203,15 +193,15 @@ func (s *openstackVolumeSource) ValidateVolumeParams(params storage.VolumeParams
 // AttachVolumes implements storage.VolumeSource.
 func (s *openstackVolumeSource) AttachVolumes(args []storage.VolumeAttachmentParams) ([]storage.VolumeAttachment, error) {
 
-	volAttachments := make([]storage.VolumeAttachment, len(args))
-	for argIdx, attachArg := range args {
+	volAttachments := make([]storage.VolumeAttachment, 0, len(args))
+	for _, attachArg := range args {
 
 		// Check to see if the volume is already attached.
-		volAttachments, err := s.openstackClient.ListVolumeAttachments(string(attachArg.InstanceId))
+		existingVolAttachments, err := s.openstackClient.ListVolumeAttachments(string(attachArg.InstanceId))
 		if err != nil {
 			return nil, err
 		}
-		if findAttachment(attachArg.VolumeId, volAttachments) != nil {
+		if findAttachment(attachArg.VolumeId, existingVolAttachments) != nil {
 			continue
 		}
 
@@ -237,7 +227,7 @@ func (s *openstackVolumeSource) AttachVolumes(args []storage.VolumeAttachmentPar
 			return nil, err
 		}
 
-		volAttachments[argIdx] = attachment
+		volAttachments = append(volAttachments, attachment)
 	}
 
 	return volAttachments, nil
@@ -276,24 +266,46 @@ type OpenstackAdapter interface {
 	ListVolumeAttachments(serverId string) ([]storage.VolumeAttachment, error)
 }
 
-func NewGooseAdapter(cfg *storage.Config) (OpenstackAdapter, error) {
+func NewGooseAdapter(environConfig *config.Config) (OpenstackAdapter, error) {
 
-	region, _ := cfg.ValueString("region")
+	ecfg, err := providerInstance.newConfig(environConfig)
+	if err != nil {
+		return nil, err
+	}
 
-	authClient := client.NewClient(&identity.Credentials{
-		URL:        cfg.Attrs()[openstackCfgKeyUrl].(string),
-		User:       cfg.Attrs()[openstackCfgKeyUser].(string),
-		Secrets:    cfg.Attrs()[openstackCfgKeySecrets].(string),
-		Region:     region,
-		TenantName: cfg.Attrs()[openstackCfgKeyTenantName].(string),
-	}, identity.AuthUserPass, nil)
+	creds := &identity.Credentials{
+		URL:        ecfg.authURL(),
+		Region:     ecfg.region(),
+		TenantName: ecfg.tenantName(),
+	}
+	var authClient client.AuthenticatingClient
+	switch AuthMode(ecfg.authMode()) {
+	default:
+		return nil, errors.NotValidf("auth-mode not supported: %s", ecfg.authMode())
+	case AuthUserPass:
+		creds.User = ecfg.username()
+		creds.Secrets = ecfg.password()
+		authClient = client.NewClient(creds, identity.AuthUserPass, nil)
+	case AuthKeyPair:
+		creds.User = ecfg.accessKey()
+		creds.Secrets = ecfg.secretKey()
+		authClient = client.NewClient(creds, identity.AuthKeyPair, nil)
+	}
 
-	endpoint := authClient.EndpointsForRegion(region)["volume"]
+	if err := authClient.Authenticate(); err != nil {
+		return nil, err
+	}
+
+	endpoint := authClient.EndpointsForRegion(ecfg.region())["volume"]
 	endpointUrl, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, errors.Annotate(err, "error parsing endpoint")
 	}
 	cinderClient := cinder.Basic(endpointUrl, authClient.TenantId(), authClient.Token)
+
+	logger.Warningf("KT: authUrl found: %s", ecfg.authURL())
+	logger.Warningf("KT: region found: %s", ecfg.region())
+	logger.Warningf("KT: endpoint found: %s", endpoint)
 
 	novaClient := nova.New(authClient)
 
@@ -370,26 +382,28 @@ func (ga *gooseAdapter) DetachVolume(serverId, attachmentId string) error {
 
 const (
 	openstackCfgKeyUrl        = "auth-url"
-	openstackCfgKeyUser       = "user"
-	openstackCfgKeySecrets    = "secrets"
-	openstackCfgKeyRegion     = "region-name"
+	openstackCfgKeyUser       = "username"
+	openstackCfgKeyPassword   = "password"
+	openstackCfgKeyAccessKey  = "access-key"
+	openstackCfgKeySecretKey  = "secret-key"
+	openstackCfgKeyRegion     = "region"
 	openstackCfgKeyTenantName = "tenant-name"
 )
 
-func NewOpenstackStorageConfig(url, user, secrets, region, tenantName string) (*storage.Config, error) {
+// func NewOpenstackStorageConfig(url, user, secrets, region, tenantName string) (*storage.Config, error) {
 
-	return storage.NewConfig(
-		"cinder",
-		CinderProviderType,
-		map[string]interface{}{
-			openstackCfgKeyUrl:        url,
-			openstackCfgKeyUser:       user,
-			openstackCfgKeySecrets:    secrets,
-			openstackCfgKeyRegion:     region,
-			openstackCfgKeyTenantName: tenantName,
-		},
-	)
-}
+// 	return storage.NewConfig(
+// 		"cinder",
+// 		CinderProviderType,
+// 		map[string]interface{}{
+// 			openstackCfgKeyUrl:        url,
+// 			openstackCfgKeyUser:       user,
+// 			openstackCfgKeySecrets:    secrets,
+// 			openstackCfgKeyRegion:     region,
+// 			openstackCfgKeyTenantName: tenantName,
+// 		},
+// 	)
+// }
 
 func cinderToJujuVolume(tag names.VolumeTag, volume *cinder.Volume) storage.Volume {
 	var size uint64
