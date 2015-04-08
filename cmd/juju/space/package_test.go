@@ -11,12 +11,15 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/space"
+	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -30,9 +33,10 @@ type BaseSpaceSuite struct {
 	coretesting.FakeJujuHomeSuite
 	coretesting.BaseSuite
 
-	superCmd cmd.Command
-	command  cmd.Command
-	api      *StubAPI
+	superCmd  cmd.Command
+	command   cmd.Command
+	api       *StubAPI
+	subnetapi *SubnetStubAPI
 }
 
 var _ = gc.Suite(&BaseSpaceSuite{})
@@ -45,6 +49,7 @@ func (s *BaseSpaceSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.superCmd, gc.NotNil)
 
 	s.api = NewStubAPI()
+	s.subnetapi = NewSubnetStubAPI()
 	c.Assert(s.api, gc.NotNil)
 
 	// All subcommand suites embedding this one should initialize
@@ -104,6 +109,28 @@ func (s *BaseSpaceSuite) CheckOutputsStdout(c *gc.C, stdout, stderr string, err 
 	s.CheckOutputs(c, stdout, stderr, err, expectedStdout, "", "")
 }
 
+// AssertRunFails is a shortcut for calling RunSubCommand with the
+// passed args then asserting the output is empty and the error is as
+// expected, finally returning the error.
+func (s *BaseSpaceSuite) AssertRunFails(c *gc.C, expectErr string, args ...string) error {
+	stdout, stderr, err := s.RunSubCommand(c, args...)
+	c.Assert(err, gc.ErrorMatches, expectErr)
+	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stderr, gc.Equals, "")
+	return err
+}
+
+// AssertRunSucceeds is a shortcut for calling RunSuperCommand with
+// the passed args then asserting the stderr output matches
+// expectStderr, stdout is equal to expectStdout, and the error is
+// nil.
+func (s *BaseSpaceSuite) AssertRunSucceeds(c *gc.C, expectStderr, expectStdout string, args ...string) {
+	stdout, stderr, err := s.RunSubCommand(c, args...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stdout, gc.Equals, expectStdout)
+	c.Assert(stderr, gc.Matches, expectStderr)
+}
+
 // TestHelp runs the command with --help as argument and verifies the
 // output.
 func (s *BaseSpaceSuite) TestHelp(c *gc.C) {
@@ -147,6 +174,7 @@ type StubAPI struct {
 	*testing.Stub
 
 	Subnets []network.SubnetInfo
+	Spaces  []network.SpaceInfo
 }
 
 var _ space.SpaceAPI = (*StubAPI)(nil)
@@ -162,7 +190,7 @@ func NewStubAPI() *StubAPI {
 			AllocatableIPLow:  net.ParseIP("10.1.2.10"),
 			AllocatableIPHigh: net.ParseIP("10.1.2.200"),
 		}, {
-			CIDR:       "0.1.0.0/16",
+			CIDR:       "2001:db8::/32",
 			ProviderId: "subnet-public",
 		}, {
 			CIDR:              "4.3.2.0/28",
@@ -171,12 +199,27 @@ func NewStubAPI() *StubAPI {
 			AllocatableIPLow:  net.ParseIP("4.3.2.2"),
 			AllocatableIPHigh: net.ParseIP("4.3.2.4"),
 		}},
+		Spaces: []network.SpaceInfo{{
+			Name:  "space1",
+			CIDRs: []string{"10.1.2.0/24"},
+		}, {
+			Name:  "space2",
+			CIDRs: []string{"10.1.2.0/24", "4.3.2.0/28"},
+		}},
 	}
 }
 
 func (sa *StubAPI) Close() error {
 	sa.MethodCall(sa, "Close")
 	return sa.NextErr()
+}
+
+func (sa *StubAPI) AllSpaces() ([]network.SpaceInfo, error) {
+	sa.MethodCall(sa, "AllSpaces")
+	if err := sa.NextErr(); err != nil {
+		return nil, err
+	}
+	return sa.Spaces, nil
 }
 
 func (sa *StubAPI) AllSubnets() ([]network.SubnetInfo, error) {
@@ -237,4 +280,109 @@ func (sa *StubAPI) SubnetsExist(subnetIds []string) error {
 	}
 
 	return nil
+}
+
+// SubnetStubAPI defines a testing stub for the SubnetAPI interface.
+type SubnetStubAPI struct {
+	*testing.Stub
+
+	Subnets []params.Subnet
+	Spaces  []names.Tag
+	Zones   []string
+}
+
+var _ subnet.SubnetAPI = (*SubnetStubAPI)(nil)
+
+// NewSubnetStubAPI creates a SubnetStubAPI suitable for passing to
+// space.New*Command().
+func NewSubnetStubAPI() *SubnetStubAPI {
+	subnets := []params.Subnet{{
+		// IPv4 subnet.
+		CIDR:              "10.1.2.0/24",
+		ProviderId:        "subnet-private",
+		Life:              params.Alive,
+		SpaceTag:          "space-public",
+		Zones:             []string{"zone1", "zone2"},
+		StaticRangeLowIP:  net.ParseIP("10.1.2.10"),
+		StaticRangeHighIP: net.ParseIP("10.1.2.200"),
+	}, {
+		// IPv6 subnet.
+		CIDR:       "10.1.2.0/24",
+		ProviderId: "subnet-public",
+		Life:       params.Dying,
+		SpaceTag:   "space-dmz",
+		Zones:      []string{"zone2"},
+	}, {
+		// IPv4 VLAN subnet.
+		CIDR:              "4.3.2.0/28",
+		Life:              params.Dead,
+		ProviderId:        "vlan-42",
+		SpaceTag:          "space-vlan-42",
+		Zones:             []string{"zone1"},
+		VLANTag:           42,
+		StaticRangeLowIP:  net.ParseIP("4.3.2.2"),
+		StaticRangeHighIP: net.ParseIP("4.3.2.4"),
+	}}
+	return &SubnetStubAPI{
+		Stub:    &testing.Stub{},
+		Zones:   []string{"zone1", "zone2"},
+		Subnets: subnets,
+		Spaces: []names.Tag{
+			names.NewSpaceTag("default"),
+			names.NewSpaceTag("public"),
+			names.NewSpaceTag("dmz"),
+			names.NewSpaceTag("vlan-42"),
+		},
+	}
+}
+
+func (sa *SubnetStubAPI) Close() error {
+	sa.MethodCall(sa, "Close")
+	return sa.NextErr()
+}
+
+func (sa *SubnetStubAPI) AllZones() ([]string, error) {
+	sa.MethodCall(sa, "AllZones")
+	if err := sa.NextErr(); err != nil {
+		return nil, err
+	}
+	return sa.Zones, nil
+}
+
+func (sa *SubnetStubAPI) AllSpaces() ([]names.Tag, error) {
+	sa.MethodCall(sa, "AllSpaces")
+	if err := sa.NextErr(); err != nil {
+		return nil, err
+	}
+	return sa.Spaces, nil
+}
+
+func (sa *SubnetStubAPI) CreateSubnet(subnetCIDR string, spaceTag names.SpaceTag, zones []string, isPublic bool) error {
+	sa.MethodCall(sa, "CreateSubnet", subnetCIDR, spaceTag, zones, isPublic)
+	return sa.NextErr()
+}
+
+func (sa *SubnetStubAPI) AddSubnet(subnetCIDR string, spaceTag names.SpaceTag) error {
+	sa.MethodCall(sa, "AddSubnet", subnetCIDR, spaceTag)
+	return sa.NextErr()
+}
+
+func (sa *SubnetStubAPI) RemoveSubnet(subnetCIDR string) error {
+	sa.MethodCall(sa, "RemoveSubnet", subnetCIDR)
+	return sa.NextErr()
+}
+
+func (sa *SubnetStubAPI) ListSubnets(withSpace *names.SpaceTag, withZone string) ([]params.Subnet, error) {
+	if withSpace == nil {
+		// Due to the way CheckCall works (using jc.DeepEquals
+		// internally), we need to pass an explicit nil here, rather
+		// than a pointer to a names.SpaceTag pointing to nil.
+		sa.MethodCall(sa, "ListSubnets", nil, withZone)
+	} else {
+		sa.MethodCall(sa, "ListSubnets", withSpace, withZone)
+	}
+	if err := sa.NextErr(); err != nil {
+		return nil, err
+	}
+	return sa.Subnets, nil
 }

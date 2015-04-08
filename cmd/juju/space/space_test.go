@@ -16,6 +16,7 @@ var subcommandNames = []string{
 	"remove",
 	"update",
 	"rename",
+	"list",
 	"help",
 }
 

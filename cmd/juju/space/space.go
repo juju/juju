@@ -23,6 +23,9 @@ import (
 type SpaceAPI interface {
 	io.Closer
 
+	// AllSpaces returns all Juju network spaces.
+	AllSpaces() ([]network.SpaceInfo, error)
+
 	// AllSubnets returns all subnets known to Juju.
 	AllSubnets() ([]network.SubnetInfo, error)
 
@@ -85,6 +88,7 @@ func NewSuperCommand() cmd.Command {
 	spaceCmd.Register(envcmd.Wrap(&RemoveCommand{}))
 	spaceCmd.Register(envcmd.Wrap(&UpdateCommand{}))
 	spaceCmd.Register(envcmd.Wrap(&RenameCommand{}))
+	spaceCmd.Register(envcmd.Wrap(&ListCommand{}))
 
 	return spaceCmd
 }
