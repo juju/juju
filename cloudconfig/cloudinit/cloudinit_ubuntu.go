@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/packaging"
 	"github.com/juju/utils/packaging/config"
@@ -191,39 +190,24 @@ func (cfg *UbuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	}
 
 	pkgs := cfg.Packages()
-	skipNext := 0
-	for i, pkg := range pkgs {
-		if skipNext > 0 {
-			skipNext--
-			continue
+	for i, _ := range pkgs {
+		pack := pkgs[i]
+		// apply --target-release, if required.
+		if config.SeriesRequiresCloudArchiveTools(cfg.series) && cfg.pacconfer.IsCloudArchivePackage(pack) {
+			pack = strings.Join(cfg.pacconfer.ApplyCloudArchiveTarget(pack), " ")
 		}
-		// Make sure the cloud-init 0.6.3 hack (for precise) where
-		// --target-release and precise-updates/cloud-tools are
-		// specified as separate packages is converted to a single
-		// package argument below.
-		if pkg == "--target-release" {
-			// There has to be at least 2 more items - the target
-			// release (e.g. "precise-updates/cloud-tools") and the
-			// package name.
-			if i+2 >= len(pkgs) {
-				remaining := strings.Join(pkgs[:i], " ")
-				return nil, errors.Errorf(
-					"invalid package %q: expected --target-release <release> <package>",
-					remaining,
-				)
-			}
-			pkg = strings.Join(pkgs[i:i+2], " ")
-			skipNext = 2
-		}
-		cmds = append(cmds, LogProgressCmd("Installing package: %s", pkg))
-		cmd := fmt.Sprintf(looper + cfg.paccmder.InstallCmd(pkg))
+
+		cmds = append(cmds, LogProgressCmd("Installing package: %s", pkgs[i]))
+		cmd := looper + cfg.paccmder.InstallCmd(pack)
 		cmds = append(cmds, cmd)
 	}
+
 	if len(cmds) > 0 {
 		// setting DEBIAN_FRONTEND=noninteractive prevents debconf
 		// from prompting, always taking default values instead.
 		cmds = append([]string{"export DEBIAN_FRONTEND=noninteractive"}, cmds...)
 	}
+
 	return cmds, nil
 
 }
