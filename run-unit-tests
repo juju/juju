@@ -128,6 +128,9 @@ if [[ "$USE_TMPFS" == "true" ]]; then
 fi
 tar -xzf $tarfile_basename
 export GOPATH=\$HOME/$juju_version
+if [[ -d \$HOME/goroot ]]; then
+    export GOROOT=\$HOME/goroot
+fi
 cd \$GOPATH/src/github.com/juju/juju
 if [[ "$INSTANCE_TYPE" != "lxc" && "$INSTANCE_TYPE" != "host" ]]; then
     for attempt in \$(seq 10); do
