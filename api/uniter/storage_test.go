@@ -171,32 +171,6 @@ func (s *storageSuite) TestStorageAttachments(c *gc.C) {
 	c.Assert(attachment, gc.DeepEquals, storageAttachment)
 }
 
-func (s *storageSuite) TestEnsureStorageAttachmentDead(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, 2)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "EnsureStorageAttachmentsDead")
-		c.Check(arg, gc.DeepEquals, params.StorageAttachmentIds{
-			Ids: []params.StorageAttachmentId{{
-				StorageTag: "storage-data-0",
-				UnitTag:    "unit-mysql-0",
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{
-				Error: &params.Error{Message: "yessirilikeit"},
-			}},
-		}
-		return nil
-	})
-
-	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	err := st.EnsureStorageAttachmentDead(names.NewStorageTag("data/0"), names.NewUnitTag("mysql/0"))
-	c.Check(err, gc.ErrorMatches, "yessirilikeit")
-}
-
 func (s *storageSuite) TestRemoveStorageAttachment(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
