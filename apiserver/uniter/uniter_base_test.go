@@ -43,7 +43,10 @@ type uniterBaseSuite struct {
 	mysql         *state.Service
 	wordpressUnit *state.Unit
 	mysqlUnit     *state.Unit
-	meteredUnit   *state.Unit
+
+	meteredService *state.Service
+	meteredCharm   *state.Charm
+	meteredUnit    *state.Unit
 }
 
 func (s *uniterBaseSuite) setUpTest(c *gc.C) {
@@ -85,15 +88,15 @@ func (s *uniterBaseSuite) setUpTest(c *gc.C) {
 		Machine: s.machine1,
 	})
 
-	meteredCharm := s.Factory.MakeCharm(c, &jujuFactory.CharmParams{
+	s.meteredCharm = s.Factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "metered",
 		URL:  "cs:quantal/metered",
 	})
-	meteredService := s.Factory.MakeService(c, &jujuFactory.ServiceParams{
-		Charm: meteredCharm,
+	s.meteredService = s.Factory.MakeService(c, &jujuFactory.ServiceParams{
+		Charm: s.meteredCharm,
 	})
 	s.meteredUnit = s.Factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service:     meteredService,
+		Service:     s.meteredService,
 		SetCharmURL: true,
 	})
 
