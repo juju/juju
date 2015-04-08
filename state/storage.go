@@ -485,35 +485,6 @@ func destroyStorageAttachmentOps(s *storageAttachment) []txn.Op {
 	return ops
 }
 
-// EnsureStorageAttachmentDead ensures that the storage attachment is Dead
-// if it exists at all, doing nothing if it does not exist.
-func (st *State) EnsureStorageAttachmentDead(storage names.StorageTag, unit names.UnitTag) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot ensure death of storage attachment %s:%s", storage.Id(), unit.Id())
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		s, err := st.storageAttachment(storage, unit)
-		if errors.IsNotFound(err) {
-			return nil, jujutxn.ErrNoOperations
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if s.doc.Life == Dead {
-			return nil, jujutxn.ErrNoOperations
-		}
-		return ensureStorageAttachmentDeadOps(s), nil
-	}
-	return st.run(buildTxn)
-}
-
-func ensureStorageAttachmentDeadOps(s *storageAttachment) []txn.Op {
-	ops := []txn.Op{{
-		C:      storageAttachmentsC,
-		Id:     storageAttachmentId(s.doc.Unit, s.doc.StorageInstance),
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
-	}}
-	return ops
-}
-
 // Remove removes the storage attachment from state, and may remove its storage
 // instance as well, if the storage instance is Dying and no other references to
 // it exist. It will fail if the storage attachment is not Dead.
@@ -544,13 +515,13 @@ func (st *State) RemoveStorageAttachment(storage names.StorageTag, unit names.Un
 }
 
 func removeStorageAttachmentOps(s *storageAttachment, si *storageInstance) ([]txn.Op, error) {
-	if s.doc.Life != Dead {
-		return nil, errors.New("storage attachment is not dead")
+	if s.doc.Life != Dying {
+		return nil, errors.New("storage attachment is not dying")
 	}
 	ops := []txn.Op{{
 		C:      storageAttachmentsC,
 		Id:     storageAttachmentId(s.doc.Unit, s.doc.StorageInstance),
-		Assert: isDeadDoc,
+		Assert: bson.D{{"life", Dying}},
 		Remove: true,
 	}, {
 		C:      unitsC,
