@@ -668,7 +668,7 @@ func (m *Machine) Remove() (err error) {
 		return err
 	}
 	for _, address := range ipAddresses {
-		ops = append(ops, ensureIPAddressDeadOp(address))
+		ops = append(ops, ensureIPAddressDeadOp(address, false))
 	}
 	ifacesOps, err := m.removeNetworkInterfacesOps()
 	if err != nil {
