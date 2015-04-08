@@ -58,6 +58,8 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	return &result, nil
 }
 
+var FinishMachineConfig = environs.FinishMachineConfig
+
 // finishMachineConfig updates args.MachineConfig in place. Setting up
 // the API, StateServing, and SSHkeys information.
 func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *OvfFileMetadata) error {
@@ -67,7 +69,7 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *
 	}
 
 	args.MachineConfig.Tools = envTools[0]
-	return environs.FinishMachineConfig(args.MachineConfig, env.Config())
+	return FinishMachineConfig(args.MachineConfig, env.Config())
 }
 
 // newRawInstance is where the new physical instance is actually
@@ -125,14 +127,14 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvfFi
 	for _, zone := range zones {
 		availZone, err := env.availZone(zone)
 		if err != nil {
-			logger.Warningf("Error while getting avaliability xone %s: %s", zone, err)
+			logger.Warningf("Error while getting avaliability zone %s: %s", zone, err)
 			continue
 		}
 		inst, err = env.client.CreateInstance(machineID, availZone, hwc, img, userData, args.MachineConfig.AuthorizedKeys, isStateServer(args.MachineConfig))
 		if err == nil {
 			break
 		} else {
-			logger.Warningf("Error while trying to create instance in %s avaliability xone: %s", zone, err)
+			logger.Warningf("Error while trying to create instance in %s avaliability zone: %s", zone, err)
 		}
 	}
 	return inst, hwc, err

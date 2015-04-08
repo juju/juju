@@ -7,8 +7,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vmware"
@@ -137,6 +142,16 @@ func (s *environBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *gc.C) 
 
 }
 
+func (s *environBrokerSuite) TestStartInstanceCallsFinishMachineConfig(c *gc.C) {
+	s.PrepareStartInstanceFakes()
+	startInstArgs := s.CreateStartInstanceArgs(c)
+	s.PatchValue(&vmware.FinishMachineConfig, func(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err error) {
+		return errors.New("FinishMachineConfig called")
+	})
+	_, err := s.Env.StartInstance(startInstArgs)
+	c.Assert(err, gc.ErrorMatches, "FinishMachineConfig called")
+}
+
 func (s *environBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmallConstraintValue(c *gc.C) {
 	s.PrepareStartInstanceFakes()
 	startInstArgs := s.CreateStartInstanceArgs(c)
@@ -158,9 +173,25 @@ func (s *environBrokerSuite) TestStartInstanceInvalidPlacement(c *gc.C) {
 func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 	client := vmware.ExposeEnvFakeClient(s.Env)
 	s.FakeAvailabilityZones(client, "z1", "z2")
+	s.FakeAvailabilityZones(client, "z1", "z2")
 	s.FakeCreateInstance(client, s.ServerUrl)
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	startInstArgs.Placement = "zone=z2"
 	_, err := s.Env.StartInstance(startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environBrokerSuite) TestStartInstanceCallsAvailabilityZoneAllocations(c *gc.C) {
+	s.PrepareStartInstanceFakes()
+	startInstArgs := s.CreateStartInstanceArgs(c)
+	startInstArgs.DistributionGroup = func() ([]instance.Id, error) {
+		return []instance.Id{instance.Id("someId")}, nil
+	}
+	s.PatchValue(&vmware.AvailabilityZoneAllocations, func(env common.ZonedEnviron, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
+		c.Assert(len(group), gc.Equals, 1)
+		c.Assert(string(group[0]), gc.Equals, "someId")
+		return nil, errors.New("AvailabilityZoneAllocations called")
+	})
+	_, err := s.Env.StartInstance(startInstArgs)
+	c.Assert(err, gc.ErrorMatches, "AvailabilityZoneAllocations called")
 }

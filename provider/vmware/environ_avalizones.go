@@ -77,7 +77,7 @@ func (env *environ) availZone(name string) (*vmwareAvailZone, error) {
 	return nil, errors.NotFoundf("invalid availability zone %q", name)
 }
 
-var availabilityZoneAllocations = common.AvailabilityZoneAllocations
+var AvailabilityZoneAllocations = common.AvailabilityZoneAllocations
 
 // parseAvailabilityZones returns the availability zones that should be
 // tried for the given instance spec. If a placement argument was
@@ -106,7 +106,7 @@ func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([
 			return nil, errors.Trace(err)
 		}
 	}
-	zoneInstances, err := availabilityZoneAllocations(env, group)
+	zoneInstances, err := AvailabilityZoneAllocations(env, group)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

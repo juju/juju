@@ -84,10 +84,11 @@ func (s *BaseSuite) FakeAvailabilityZones(c *fakeClient, zoneName ...string) {
 				Value: zone,
 			},
 			PropSet: []types.DynamicProperty{
-				types.DynamicProperty{Name: "resourcePool", Val: types.ManagedObjectReference{
+				{Name: "resourcePool", Val: types.ManagedObjectReference{
 					Type:  "ResourcePool",
 					Value: "FakeResourcePool",
 				}},
+				{Name: "name", Val: zone},
 			},
 		})
 	}
