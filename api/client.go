@@ -821,6 +821,10 @@ func (c *Client) localCharmUploadEndpoint(series string) (string, error) {
 // the environment, if it does not exist yet. Local charms are not
 // supported, only charm store URLs. See also AddLocalCharm() in the
 // client-side API.
+//
+// If the AddCharm API call fails because of an authorization error
+// when retrieving the charm from the charm store, an error
+// satisfying params.IsCodeUnauthorized will be returned.
 func (c *Client) AddCharm(curl *charm.URL) error {
 	args := params.CharmURL{
 		URL: curl.String(),
@@ -828,11 +832,15 @@ func (c *Client) AddCharm(curl *charm.URL) error {
 	return c.facade.FacadeCall("AddCharm", args, nil)
 }
 
-// AddCharmWithAuthorization is like AddCharm except it also
-// provides the given charmstore macaroon for the juju
-// server to use when obtaining the charm from the charm store.
-// The macaroon is conventionally obtained from the /delegatable-macaroon
-// endpoint in the charm store.
+// AddCharmWithAuthorization is like AddCharm except it also provides
+// the given charmstore macaroon for the juju server to use when
+// obtaining the charm from the charm store. The macaroon is
+// conventionally obtained from the /delegatable-macaroon endpoint in
+// the charm store.
+//
+// If the AddCharmWithAuthorization API call fails because of an
+// authorization error when retrieving the charm from the charm store,
+// an error satisfying params.IsCodeUnauthorized will be returned.
 func (c *Client) AddCharmWithAuthorization(curl *charm.URL, csMac *macaroon.Macaroon) error {
 	args := params.AddCharmWithAuthorization{
 		URL:                curl.String(),
