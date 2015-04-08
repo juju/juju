@@ -66,8 +66,8 @@ func (i *IPAddress) Life() Life {
 	return i.doc.Life
 }
 
-// DocId returns the ID of the IP address.
-func (i *IPAddress) DocID() string {
+// Id returns the ID of the IP address.
+func (i *IPAddress) Id() string {
 	return i.doc.DocID
 }
 
@@ -148,12 +148,7 @@ func (i *IPAddress) EnsureDead() (err error) {
 			}
 			return nil, errors.Errorf("unexpected life value: %s", i.Life().String())
 		}
-		return []txn.Op{{
-			C:      ipaddressesC,
-			Id:     i.doc.DocID,
-			Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
-			Assert: isAliveDoc,
-		}}, nil
+		return []txn.Op{ensureIPAddressDeadOp(i)}, nil
 	}
 
 	err = i.st.run(buildTxn)
@@ -289,4 +284,13 @@ func (i *IPAddress) Refresh() error {
 		return errors.Annotatef(err, "cannot refresh IP address %q", i)
 	}
 	return nil
+}
+
+func ensureIPAddressDeadOp(addr *IPAddress) txn.Op {
+	return txn.Op{
+		C:      ipaddressesC,
+		Id:     addr.Id(),
+		Assert: isAliveDoc,
+		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+	}
 }

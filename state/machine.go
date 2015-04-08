@@ -668,11 +668,7 @@ func (m *Machine) Remove() (err error) {
 		return err
 	}
 	for _, address := range ipAddresses {
-		ops = append(ops, txn.Op{
-			C:      ipaddressesC,
-			Id:     address.DocID(),
-			Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
-		})
+		ops = append(ops, ensureIPAddressDeadOp(address))
 	}
 	ifacesOps, err := m.removeNetworkInterfacesOps()
 	if err != nil {
