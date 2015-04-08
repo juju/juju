@@ -88,7 +88,7 @@ func (s *EngineSuite) TestDoubleInstall(c *gc.C) {
 
 	// Can't install another worker with the same name.
 	err = s.engine.Install("some-task", mh.Manifold())
-	c.Assert(err, gc.ErrorMatches, "some-task manifold already installed")
+	c.Assert(err, gc.ErrorMatches, `"some-task" manifold already installed`)
 	mh.AssertNoStart(c)
 }
 
