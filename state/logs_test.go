@@ -143,7 +143,7 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 	// Ensure that the latest log records are still there.
 	assertLatestTs := func(st *state.State) {
 		var doc bson.M
-		err := s.logsColl.Find(bson.M{"e": st.EnvironUUID()}).Sort("-t").One(&doc)
+		err := s.logsColl.Find(bson.D{{"e", st.EnvironUUID()}}).Sort("-t").One(&doc)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(doc["t"].(time.Time), gc.Equals, now)
 	}
@@ -163,7 +163,7 @@ func (s *LogsSuite) generateLogs(c *gc.C, st *state.State, now time.Time, count 
 }
 
 func (s *LogsSuite) countLogs(c *gc.C, st *state.State) int {
-	count, err := s.logsColl.Find(bson.M{"e": st.EnvironUUID()}).Count()
+	count, err := s.logsColl.Find(bson.D{{"e", st.EnvironUUID()}}).Count()
 	c.Assert(err, jc.ErrorIsNil)
 	return count
 }
