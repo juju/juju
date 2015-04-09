@@ -448,3 +448,16 @@ type APIHostPortsResult struct {
 func (r APIHostPortsResult) NetworkHostsPorts() [][]network.HostPort {
 	return NetworkHostsPorts(r.Servers)
 }
+
+// ZoneResult holds the result of an API call that returns an
+// availability zone name and whether it's available for use.
+type ZoneResult struct {
+	Error     *Error `json:"Error"`
+	Name      string `json:"Name"`
+	Available bool   `json:"Available"`
+}
+
+// ZoneResults holds multiple ZoneResult results
+type ZoneResults struct {
+	Results []ZoneResult `json:"Results"`
+}
