@@ -108,9 +108,11 @@ VERSION=$(sed -n 's/^const version = "\(.*\)"/\1/p' \
 grep "golang.org/x/crypto" $WORKPACKAGE/dependencies.tsv || \
     rm -rf $WORK/src/golang.org/x/crypto
 rm -r $WORK/src/launchpad.net/godeps
-rm -rf $WORK/src/github.com/kisielk/gotool
-rm -r $WORK/src/code.google.com/p/go.net/html/charset/testdata/
-rm $WORK/src/code.google.com/p/go.net/html/charset/*test.go
+rm -rf $WORK/src/github.com/kisielk
+rm -rf $WORK/src/code.google.com/p/go.net/html/charset/testdata/
+rm -f $WORK/src/code.google.com/p/go.net/html/charset/*test.go
+rm -rf $WORK/src/golang.org/x/go.net/html/charset/testdata/
+rm -f $WORK/src/golang.org/x/go.net/html/charset/*test.go
 rm -r $WORK/bin
 if [[ -d $WORK/pkg ]]; then
     rm -r $WORK/pkg
