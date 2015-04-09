@@ -129,7 +129,7 @@ func (s *openstackVolumeSource) CreateVolumes(args []storage.VolumeParams) (vols
 			}
 		}(a, createdVol)
 
-		if a.Attachment != nil {
+		if a.Attachment != nil && a.Attachment.InstanceId != "" {
 
 			a.Attachment.VolumeId = createdVol.VolumeId
 
@@ -218,13 +218,18 @@ func (s *openstackVolumeSource) AttachVolumes(args []storage.VolumeAttachmentPar
 			return nil, err
 		}
 
-		attachment, err := s.openstackClient.AttachVolume(
+		novaAttachment, err := s.openstackClient.AttachVolume(
 			string(attachArg.InstanceId),
 			attachArg.VolumeId,
 			autoAssignedMountPoint,
 		)
 		if err != nil {
 			return nil, err
+		}
+		attachment := storage.VolumeAttachment{
+			Machine:    attachArg.Machine,
+			Volume:     attachArg.Volume,
+			DeviceName: novaAttachment.Device[len("/dev/"):],
 		}
 
 		volAttachments = append(volAttachments, attachment)
@@ -260,10 +265,10 @@ type OpenstackAdapter interface {
 	GetVolumesSimple() ([]storage.Volume, error)
 	DeleteVolume(string) error
 	CreateVolume(size uint64, tag names.VolumeTag) (storage.Volume, error)
-	AttachVolume(serverId, volumeId, mountPoint string) (storage.VolumeAttachment, error)
+	AttachVolume(serverId, volumeId, mountPoint string) (*nova.VolumeAttachment, error)
 	VolumeStatusNotifier(volId, status string, numAttempts int, waitDur time.Duration) <-chan error
 	DetachVolume(serverId, attachmentId string) error
-	ListVolumeAttachments(serverId string) ([]storage.VolumeAttachment, error)
+	ListVolumeAttachments(serverId string) ([]nova.VolumeAttachment, error)
 }
 
 func NewGooseAdapter(environConfig *config.Config) (OpenstackAdapter, error) {
@@ -350,60 +355,29 @@ func (ga *gooseAdapter) GetVolumesSimple() ([]storage.Volume, error) {
 	return vols, nil
 }
 
-func (ga *gooseAdapter) AttachVolume(serverId, volumeId, mountPoint string) (storage.VolumeAttachment, error) {
+func (ga *gooseAdapter) AttachVolume(serverId, volumeId, mountPoint string) (*nova.VolumeAttachment, error) {
 	attachment, err := ga.nova.AttachVolume(serverId, volumeId, mountPoint)
 	if err != nil {
-		return storage.VolumeAttachment{}, err
+		return nil, err
 	}
-	return novaToJujuVolumeAttachment(attachment), nil
+	return attachment, nil
 }
 
 func (ga *gooseAdapter) VolumeStatusNotifier(volId, status string, numAttempts int, waitDur time.Duration) <-chan error {
 	return ga.cinder.VolumeStatusNotifier(volId, status, numAttempts, waitDur)
 }
 
-func (ga *gooseAdapter) ListVolumeAttachments(serverId string) ([]storage.VolumeAttachment, error) {
+func (ga *gooseAdapter) ListVolumeAttachments(serverId string) ([]nova.VolumeAttachment, error) {
 	novaVolAttachments, err := ga.nova.ListVolumeAttachments(serverId)
 	if err != nil {
 		return nil, err
 	}
-
-	volumes := make([]storage.VolumeAttachment, len(novaVolAttachments))
-	for volIdx, volAttach := range novaVolAttachments {
-		volumes[volIdx] = novaToJujuVolumeAttachment(&volAttach)
-	}
-
-	return volumes, nil
+	return novaVolAttachments, nil
 }
 
 func (ga *gooseAdapter) DetachVolume(serverId, attachmentId string) error {
 	return ga.nova.DetachVolume(serverId, attachmentId)
 }
-
-const (
-	openstackCfgKeyUrl        = "auth-url"
-	openstackCfgKeyUser       = "username"
-	openstackCfgKeyPassword   = "password"
-	openstackCfgKeyAccessKey  = "access-key"
-	openstackCfgKeySecretKey  = "secret-key"
-	openstackCfgKeyRegion     = "region"
-	openstackCfgKeyTenantName = "tenant-name"
-)
-
-// func NewOpenstackStorageConfig(url, user, secrets, region, tenantName string) (*storage.Config, error) {
-
-// 	return storage.NewConfig(
-// 		"cinder",
-// 		CinderProviderType,
-// 		map[string]interface{}{
-// 			openstackCfgKeyUrl:        url,
-// 			openstackCfgKeyUser:       user,
-// 			openstackCfgKeySecrets:    secrets,
-// 			openstackCfgKeyRegion:     region,
-// 			openstackCfgKeyTenantName: tenantName,
-// 		},
-// 	)
-// }
 
 func cinderToJujuVolume(tag names.VolumeTag, volume *cinder.Volume) storage.Volume {
 	var size uint64
@@ -415,27 +389,21 @@ func cinderToJujuVolume(tag names.VolumeTag, volume *cinder.Volume) storage.Volu
 	}
 }
 
-func novaToJujuVolumeAttachment(volAttach *nova.VolumeAttachment) storage.VolumeAttachment {
-	return storage.VolumeAttachment{
-		Volume:     names.NewVolumeTag(volAttach.VolumeId),
-		Machine:    names.NewMachineTag(volAttach.ServerId),
-		DeviceName: volAttach.Device,
-	}
-}
-
-func detachVolume(instanceId, volId string, volAttachments []storage.VolumeAttachment, openstackClient OpenstackAdapter) error {
-
+func detachVolume(instanceId, volId string, volAttachments []nova.VolumeAttachment, openstackClient OpenstackAdapter) error {
+	// TODO(axw) verify whether we need to do this find step. From looking at the example
+	// responses in the OpenStack docs, the "attachment ID" is always the same as the
+	// volume ID. So we should just be able to issue a blind detach request, and then
+	// ignore errors that indicate the volume is already detached.
 	attachment := findAttachment(volId, volAttachments)
 	if attachment == nil {
 		return nil
 	}
-
-	return openstackClient.DetachVolume(instanceId, attachment.Volume.String())
+	return openstackClient.DetachVolume(instanceId, attachment.Id)
 }
 
-func findAttachment(volId string, volAttachments []storage.VolumeAttachment) *storage.VolumeAttachment {
+func findAttachment(volId string, volAttachments []nova.VolumeAttachment) *nova.VolumeAttachment {
 	for _, volAttach := range volAttachments {
-		if volAttach.Volume.String() == volId {
+		if volAttach.VolumeId == volId {
 			return &volAttach
 		}
 	}
