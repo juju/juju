@@ -28,14 +28,21 @@ var _ = gc.Suite(&notifyWorkerSuite{})
 
 func (s *notifyWorkerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.actor = &notifyHandler{
+	nh := &notifyHandler{
 		actions: nil,
 		handled: make(chan struct{}, 1),
 		watcher: &testNotifyWatcher{
 			changes: make(chan struct{}),
 		},
+		setupDone: make(chan struct{}),
 	}
+	s.actor = nh
 	s.worker = worker.NewNotifyWorker(s.actor)
+	select {
+	case <-nh.setupDone:
+	case <-time.After(coretesting.ShortWait):
+		c.Error("Failed waiting for notifyHandler.Setup to be called during SetUpTest")
+	}
 }
 
 func (s *notifyWorkerSuite) TearDownTest(c *gc.C) {
@@ -53,11 +60,13 @@ type notifyHandler struct {
 	teardownError error
 	handlerError  error
 	watcher       *testNotifyWatcher
+	setupDone     chan struct{}
 }
 
 var _ worker.NotifyWatchHandler = (*notifyHandler)(nil)
 
 func (nh *notifyHandler) SetUp() (apiWatcher.NotifyWatcher, error) {
+	defer func() { nh.setupDone <- struct{}{} }()
 	nh.mu.Lock()
 	defer nh.mu.Unlock()
 	nh.actions = append(nh.actions, "setup")

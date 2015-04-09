@@ -28,14 +28,21 @@ var _ = gc.Suite(&stringsWorkerSuite{})
 
 func (s *stringsWorkerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.actor = &stringsHandler{
+	sh := &stringsHandler{
 		actions: nil,
 		handled: make(chan []string, 1),
 		watcher: &testStringsWatcher{
 			changes: make(chan []string),
 		},
+		setupDone: make(chan struct{}),
 	}
+	s.actor = sh
 	s.worker = worker.NewStringsWorker(s.actor)
+	select {
+	case <-sh.setupDone:
+	case <-time.After(coretesting.ShortWait):
+		c.Error("Failed waiting for stringsHandler.Setup to be called during SetUpTest")
+	}
 }
 
 func (s *stringsWorkerSuite) TearDownTest(c *gc.C) {
@@ -52,11 +59,13 @@ type stringsHandler struct {
 	teardownError error
 	handlerError  error
 	watcher       *testStringsWatcher
+	setupDone     chan struct{}
 }
 
 var _ worker.StringsWatchHandler = (*stringsHandler)(nil)
 
 func (sh *stringsHandler) SetUp() (apiWatcher.StringsWatcher, error) {
+	defer func() { sh.setupDone <- struct{}{} }()
 	sh.mu.Lock()
 	defer sh.mu.Unlock()
 	sh.actions = append(sh.actions, "setup")
