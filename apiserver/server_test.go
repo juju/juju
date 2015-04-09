@@ -13,6 +13,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -80,10 +81,11 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = st.Machiner().Machine(machine.MachineTag())
+	err = errors.Cause(err)
 	// The client has not necessarily seen the server shutdown yet,
 	// so there are two possible errors.
 	if err != rpc.ErrShutdown && err != io.ErrUnexpectedEOF {
-		c.Fatalf("unexpected error from request: %v", err)
+		c.Fatalf("unexpected error from request: %#T, expected rpc.ErrShutdown or io.ErrUnexpectedEOF", err)
 	}
 
 	// Check it can be stopped twice.

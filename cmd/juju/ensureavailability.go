@@ -150,15 +150,15 @@ func (c *EnsureAvailabilityCommand) Init(args []string) error {
 		c.Placement = make([]string, len(placementSpecs))
 		for i, spec := range placementSpecs {
 			p, err := instance.ParsePlacement(strings.TrimSpace(spec))
+			if err == nil && names.IsContainerMachine(p.Directive) {
+				return errors.New("ensure-availability cannot be used with container placement directives")
+			}
 			if err == nil && p.Scope == instance.MachineScope {
-				if names.IsContainerMachine(p.Directive) {
-					return errors.New("ensure-availability cannot be used with container placement directives")
-				}
 				// Targeting machines is ok.
 				c.Placement[i] = p.String()
 				continue
 			}
-			if err != instance.ErrPlacementScopeMissing || names.IsContainerMachine(p.Directive) {
+			if err != instance.ErrPlacementScopeMissing {
 				return fmt.Errorf("unsupported ensure-availability placement directive %q", spec)
 			}
 			c.Placement[i] = spec
