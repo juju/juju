@@ -46,6 +46,17 @@ func loggerUpdaterStartFunc(config LoggerUpdaterManifoldConfig) dependency.Start
 		if err := getResource(config.ApiCallerName, &apiCaller); err != nil {
 			return nil, err
 		}
-		return logger.NewLogger(apilogger.NewState(apiCaller), agent.CurrentConfig()), nil
+		return newLoggerUpdater(agent, apiCaller)
 	}
+}
+
+// newLoggerUpdater exists to put all the weird and hard-to-test bits in one
+// place; it should be patched out for unit tests via NewLoggerUpdater in
+// export_test (and should ideally be directly tested itself, but the concrete
+// facade makes that hard; for the moment we rely on the full-stack tests in
+// cmd/jujud).
+var newLoggerUpdater = func(agent agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+	currentConfig := agent.CurrentConfig()
+	loggerFacade := apilogger.NewState(apiCaller)
+	return logger.NewLogger(loggerFacade, currentConfig), nil
 }

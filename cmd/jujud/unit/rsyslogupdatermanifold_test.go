@@ -10,11 +10,11 @@ import (
 )
 
 var _ = gc.Suite(&CommonManifoldSuite{
-	manifold: unit.BinaryUpgraderManifold(
-		unit.BinaryUpgraderManifoldConfig{
+	manifold: unit.RsyslogUpdaterManifold(
+		unit.RsyslogUpdaterManifoldConfig{
 			AgentName:     "agent-name",
 			ApiCallerName: "api-caller-name",
 		},
 	),
-	newWorker: unit.NewBinaryUpgrader,
+	newWorker: unit.NewRsyslogUpdater,
 })

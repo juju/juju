@@ -47,10 +47,19 @@ func rsyslogUpdaterStartFunc(config RsyslogUpdaterManifoldConfig) dependency.Sta
 		if err := getResource(config.ApiCallerName, &apiCaller); err != nil {
 			return nil, err
 		}
-		return cmdutil.NewRsyslogConfigWorker(
-			apirsyslog.NewState(apiCaller),
-			agent.CurrentConfig(),
-			rsyslog.RsyslogModeForwarding,
-		)
+		return newRsyslogUpdater(agent, apiCaller)
 	}
+}
+
+// newRsyslogUpdater exists to put all the weird and hard-to-test bits in one
+// place; it should be patched out for unit tests via NewRsyslogUpdater in
+// export_test (and should ideally be directly tested itself, but the concrete
+// facade makes that hard; for the moment we rely on the full-stack tests in
+// cmd/jujud).
+var newRsyslogUpdater = func(agent agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+	return cmdutil.NewRsyslogConfigWorker(
+		apirsyslog.NewState(apiCaller),
+		agent.CurrentConfig(),
+		rsyslog.RsyslogModeForwarding,
+	)
 }

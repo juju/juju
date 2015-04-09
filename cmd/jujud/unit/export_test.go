@@ -3,4 +3,8 @@
 
 package unit
 
-var NewBinaryUpgrader = &newBinaryUpgrader
+var (
+	NewBinaryUpgrader = &newBinaryUpgrader
+	NewLoggerUpdater  = &newLoggerUpdater
+	NewRsyslogUpdater = &newRsyslogUpdater
+)
