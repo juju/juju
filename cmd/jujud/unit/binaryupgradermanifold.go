@@ -6,7 +6,8 @@ package unit
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	apiupgrader "github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
@@ -17,8 +18,8 @@ import (
 // BinaryUpgraderManifoldConfig defines the names of the manifolds on which a
 // BinaryUpgraderManifold will depend.
 type BinaryUpgraderManifoldConfig struct {
-	AgentName         string
-	ApiConnectionName string
+	AgentName     string
+	ApiCallerName string
 }
 
 // BinaryUpgraderManifold returns a dependency manifold that runs an upgrader
@@ -30,7 +31,7 @@ func BinaryUpgraderManifold(config BinaryUpgraderManifoldConfig) dependency.Mani
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.ApiConnectionName,
+			config.ApiCallerName,
 		},
 		Start: binaryUpgraderStartFunc(config),
 	}
@@ -45,12 +46,12 @@ func binaryUpgraderStartFunc(config BinaryUpgraderManifoldConfig) dependency.Sta
 		if err := getResource(config.AgentName, &agent); err != nil {
 			return nil, err
 		}
-		var apiConnection *api.State
-		if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
+		var apiCaller base.APICaller
+		if err := getResource(config.ApiCallerName, &apiCaller); err != nil {
 			return nil, err
 		}
 		currentConfig := agent.CurrentConfig()
-		upgraderFacade := apiConnection.Upgrader()
+		upgraderFacade := apiupgrader.NewState(apiCaller)
 
 		// TODO(fwereade): this should be in Upgrader itself, but it's
 		// inconvenient to do that and leave the machine agent double-

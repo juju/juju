@@ -5,8 +5,10 @@ package apiaddressupdater
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
@@ -14,8 +16,8 @@ import (
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
-	AgentName         string
-	ApiConnectionName string
+	AgentName     string
+	ApiCallerName string
 }
 
 // Manifold returns a dependency manifold that runs an API address updater worker,
@@ -24,7 +26,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.ApiConnectionName,
+			config.ApiCallerName,
 		},
 		Start: startFunc(config),
 	}
@@ -38,15 +40,16 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 		if err := getResource(config.AgentName, &agent); err != nil {
 			return nil, err
 		}
-		var apiConnection *api.State
-		if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
+		var apiCaller base.APICaller
+		if err := getResource(config.ApiCallerName, &apiCaller); err != nil {
 			return nil, err
 		}
-		// TODO(fwereade): why on earth are we using the uniter facade here?
-		uniterFacade, err := apiConnection.Uniter()
-		if err != nil {
-			return nil, errors.Trace(err)
+		// TODO(fwereade): why on *earth* do we use the *uniter* facade for this
+		// worker? This code really ought to work anywhere...
+		unitTag, ok := agent.Tag().(names.UnitTag)
+		if !ok {
+			return nil, errors.Errorf("expected a unit tag; got %q", agent.Tag())
 		}
-		return NewAPIAddressUpdater(uniterFacade, agent), nil
+		return NewAPIAddressUpdater(uniter.NewState(apiCaller, unitTag), agent), nil
 	}
 }

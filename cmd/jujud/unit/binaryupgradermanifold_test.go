@@ -28,14 +28,14 @@ func (s *BinaryUpgraderManifoldSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
 	s.manifold = unit.BinaryUpgraderManifold(
 		unit.BinaryUpgraderManifoldConfig{
-			AgentName:         "agent-name",
-			ApiConnectionName: "api-connection-name",
+			AgentName:     "agent-name",
+			ApiCallerName: "api-caller-name",
 		},
 	)
 }
 
 func (s *BinaryUpgraderManifoldSuite) TestInputs(c *gc.C) {
-	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{"agent-name", "api-connection-name"})
+	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{"agent-name", "api-caller-name"})
 }
 
 func (s *BinaryUpgraderManifoldSuite) TestStartAgentMissing(c *gc.C) {
@@ -50,8 +50,8 @@ func (s *BinaryUpgraderManifoldSuite) TestStartAgentMissing(c *gc.C) {
 
 func (s *BinaryUpgraderManifoldSuite) TestStartApiConnMissing(c *gc.C) {
 	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name":          dt.StubResource{Output: &mockAgent{}},
-		"api-connection-name": dt.StubResource{Error: dependency.ErrMissing},
+		"agent-name":      dt.StubResource{Output: &mockAgent{}},
+		"api-caller-name": dt.StubResource{Error: dependency.ErrMissing},
 	})
 
 	worker, err := s.manifold.Start(getResource)

@@ -4,7 +4,8 @@
 package unit
 
 import (
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
@@ -14,8 +15,8 @@ import (
 // LoggerUpdaterManifoldConfig defines the names of the manifolds on which a
 // LoggerUpdaterManifold will depend.
 type LoggerUpdaterManifoldConfig struct {
-	AgentName         string
-	ApiConnectionName string
+	AgentName     string
+	ApiCallerName string
 }
 
 // LoggerUpdaterManifold returns a dependency manifold that runs a logger
@@ -27,7 +28,7 @@ func LoggerUpdaterManifold(config LoggerUpdaterManifoldConfig) dependency.Manifo
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.ApiConnectionName,
+			config.ApiCallerName,
 		},
 		Start: loggerUpdaterStartFunc(config),
 	}
@@ -41,10 +42,10 @@ func loggerUpdaterStartFunc(config LoggerUpdaterManifoldConfig) dependency.Start
 		if err := getResource(config.AgentName, &agent); err != nil {
 			return nil, err
 		}
-		var apiConnection *api.State
-		if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
+		var apiCaller base.APICaller
+		if err := getResource(config.ApiCallerName, &apiCaller); err != nil {
 			return nil, err
 		}
-		return logger.NewLogger(apiConnection.Logger(), agent.CurrentConfig()), nil
+		return logger.NewLogger(apilogger.NewState(apiCaller), agent.CurrentConfig()), nil
 	}
 }

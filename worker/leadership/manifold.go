@@ -10,7 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/leadership"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
@@ -19,7 +20,7 @@ import (
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
 	AgentName           string
-	ApiConnectionName   string
+	ApiCallerName       string
 	LeadershipGuarantee time.Duration
 }
 
@@ -29,7 +30,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.ApiConnectionName,
+			config.ApiCallerName,
 		},
 		Start:  startFunc(config),
 		Output: outputFunc,
@@ -48,13 +49,13 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 		if !ok {
 			return nil, fmt.Errorf("expected a unit tag; got %q", agent.Tag())
 		}
-		var apiConnection *api.State
-		if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
+		var apiCaller base.APICaller
+		if err := getResource(config.ApiCallerName, &apiCaller); err != nil {
 			return nil, err
 		}
 		return NewTrackerWorker(
 			unitTag,
-			apiConnection.LeadershipManager(),
+			leadership.NewClient(apiCaller),
 			config.LeadershipGuarantee,
 		), nil
 	}

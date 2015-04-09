@@ -29,7 +29,7 @@ var (
 	LoggerUpdaterName     = "logger-updater"
 	ProxyUpdaterName      = "proxy-updater"
 	RsyslogUpdaterName    = "rsyslog-updater"
-	ApiConnectionName     = "api-connection"
+	ApiCallerName         = "api-caller"
 	ApiAddressUpdaterName = "api-address-updater"
 
 	// We expect one of each of these per running unit; when we try to run N
@@ -53,33 +53,33 @@ func AgentManifolds(a agent.Agent) map[string]dependency.Manifold {
 		agentName: agent.Manifold(a),
 
 		ApiAddressUpdaterName: apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
-			AgentName:         agentName,
-			ApiConnectionName: ApiConnectionName,
+			AgentName:     agentName,
+			ApiCallerName: ApiCallerName,
 		}),
 
-		ApiConnectionName: apiconn.Manifold(apiconn.ManifoldConfig{
+		ApiCallerName: apiconn.Manifold(apiconn.ManifoldConfig{
 			AgentName: agentName,
 		}),
 
 		BinaryUpgraderName: BinaryUpgraderManifold(BinaryUpgraderManifoldConfig{
-			AgentName:         agentName,
-			ApiConnectionName: ApiConnectionName,
+			AgentName:     agentName,
+			ApiCallerName: ApiCallerName,
 		}),
 
 		EventFilterName: filter.Manifold(filter.ManifoldConfig{
-			AgentName:         agentName,
-			ApiConnectionName: ApiConnectionName,
+			AgentName:     agentName,
+			ApiCallerName: ApiCallerName,
 		}),
 
 		LeadershipTrackerName: leadership.Manifold(leadership.ManifoldConfig{
 			AgentName:           agentName,
-			ApiConnectionName:   ApiConnectionName,
+			ApiCallerName:       ApiCallerName,
 			LeadershipGuarantee: 30 * time.Second,
 		}),
 
 		LoggerUpdaterName: LoggerUpdaterManifold(LoggerUpdaterManifoldConfig{
-			AgentName:         agentName,
-			ApiConnectionName: ApiConnectionName,
+			AgentName:     agentName,
+			ApiCallerName: ApiCallerName,
 		}),
 
 		MachineLockName: machinelock.Manifold(machinelock.ManifoldConfig{
@@ -87,17 +87,17 @@ func AgentManifolds(a agent.Agent) map[string]dependency.Manifold {
 		}),
 
 		ProxyUpdaterName: proxyupdater.Manifold(proxyupdater.ManifoldConfig{
-			ApiConnectionName: ApiConnectionName,
+			ApiCallerName: ApiCallerName,
 		}),
 
 		RsyslogUpdaterName: RsyslogUpdaterManifold(RsyslogUpdaterManifoldConfig{
-			AgentName:         agentName,
-			ApiConnectionName: ApiConnectionName,
+			AgentName:     agentName,
+			ApiCallerName: ApiCallerName,
 		}),
 
 		UniterName: uniter.Manifold(uniter.ManifoldConfig{
 			AgentName:             agentName,
-			ApiConnectionName:     ApiConnectionName,
+			ApiCallerName:         ApiCallerName,
 			EventFilterName:       EventFilterName,
 			LeadershipTrackerName: LeadershipTrackerName,
 			MachineLockName:       MachineLockName,

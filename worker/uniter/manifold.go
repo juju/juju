@@ -6,11 +6,11 @@ package uniter
 import (
 	"fmt"
 
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/fslock"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
@@ -25,9 +25,9 @@ type ManifoldConfig struct {
 	// AgentName must contain the name of a manifold which outputs agent config.
 	AgentName string
 
-	// ApiConnectionName must contain the name of a manifold which outputs an api
+	// ApiCallerName must contain the name of a manifold which outputs an api
 	// connection for the appropriate unit.
-	ApiConnectionName string
+	ApiCallerName string
 
 	// EventFilterName must contain the name of a manifold which outputs an event
 	// filter for the appropriate unit.
@@ -52,7 +52,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.ApiConnectionName,
+			config.ApiCallerName,
 			config.EventFilterName,
 			config.LeadershipTrackerName,
 			config.MachineLockName,
@@ -91,14 +91,11 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 		if err := getResource(config.EventFilterName, &eventFilter); err != nil {
 			return nil, err
 		}
-		var apiConnection *api.State
-		if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
+		var apiCaller base.APICaller
+		if err := getResource(config.ApiCallerName, &apiCaller); err != nil {
 			return nil, err
 		}
-		uniterFacade, err := apiConnection.Uniter()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+		uniterFacade := uniter.NewState(apiCaller, unitTag)
 		return NewUniter(
 			uniterFacade,
 			unitTag,

@@ -4,7 +4,8 @@
 package unit
 
 import (
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	apirsyslog "github.com/juju/juju/api/rsyslog"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
@@ -15,8 +16,8 @@ import (
 // RsyslogUpdaterManifoldConfig defines the names of the manifolds on which a
 // RsyslogUpdaterManifold will depend.
 type RsyslogUpdaterManifoldConfig struct {
-	AgentName         string
-	ApiConnectionName string
+	AgentName     string
+	ApiCallerName string
 }
 
 // RsyslogUpdaterManifold returns a dependency manifold that runs an rsyslog
@@ -28,7 +29,7 @@ func RsyslogUpdaterManifold(config RsyslogUpdaterManifoldConfig) dependency.Mani
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.ApiConnectionName,
+			config.ApiCallerName,
 		},
 		Start: rsyslogUpdaterStartFunc(config),
 	}
@@ -42,12 +43,12 @@ func rsyslogUpdaterStartFunc(config RsyslogUpdaterManifoldConfig) dependency.Sta
 		if err := getResource(config.AgentName, &agent); err != nil {
 			return nil, err
 		}
-		var apiConnection *api.State
-		if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
+		var apiCaller base.APICaller
+		if err := getResource(config.ApiCallerName, &apiCaller); err != nil {
 			return nil, err
 		}
 		return cmdutil.NewRsyslogConfigWorker(
-			apiConnection.Rsyslog(),
+			apirsyslog.NewState(apiCaller),
 			agent.CurrentConfig(),
 			rsyslog.RsyslogModeForwarding,
 		)

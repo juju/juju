@@ -9,6 +9,7 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	jujudagent "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
@@ -75,10 +76,10 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 	}
 }
 
-// outputFunc extracts the *api.State from a *apiConnWorker.
+// outputFunc extracts a base.APICaller from a *apiConnWorker.
 func outputFunc(in worker.Worker, out interface{}) error {
 	inWorker, _ := in.(*apiConnWorker)
-	outPointer, _ := out.(**api.State)
+	outPointer, _ := out.(*base.APICaller)
 	if inWorker == nil || outPointer == nil {
 		return errors.Errorf("expected %T->%T; got %T->%T", inWorker, outPointer, in, out)
 	}

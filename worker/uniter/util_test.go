@@ -30,6 +30,7 @@ import (
 	corecharm "gopkg.in/juju/charm.v5-unstable"
 	goyaml "gopkg.in/yaml.v1"
 
+	apileadership "github.com/juju/juju/api/leadership"
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/sockets"
@@ -139,7 +140,7 @@ func (ctx *context) apiLogin(c *gc.C) {
 	c.Assert(st, gc.NotNil)
 	c.Logf("API: login as %q successful", ctx.unit.Tag())
 	ctx.api, err = st.Uniter()
-	ctx.leaderManager = st.LeadershipManager()
+	ctx.leaderManager = apileadership.NewClient(st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.api, gc.NotNil)
 }

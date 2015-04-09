@@ -4,14 +4,15 @@
 package proxyupdater
 
 import (
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
-	ApiConnectionName string
+	ApiCallerName string
 }
 
 // Manifold returns a dependency manifold that runs a proxy updater worker,
@@ -19,14 +20,17 @@ type ManifoldConfig struct {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.ApiConnectionName,
+			config.ApiCallerName,
 		},
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-			var apiConnection *api.State
-			if err := getResource(config.ApiConnectionName, &apiConnection); err != nil {
+			var apiCaller base.APICaller
+			if err := getResource(config.ApiCallerName, &apiCaller); err != nil {
 				return nil, err
 			}
-			return New(apiConnection.Environment(), false), nil
+			// TODO(fwereade): This shouldn't be an "environment" facade, it
+			// should be specific to the proxyupdater and watching for proxy
+			// settings changes, not just watching the "environment".
+			return New(environment.NewFacade(apiCaller), false), nil
 		},
 	}
 }
