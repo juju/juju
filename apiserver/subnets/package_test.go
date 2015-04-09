@@ -128,6 +128,22 @@ func (f *FakeZone) GoString() string {
 	return fmt.Sprintf("&FakeZone{%q, %v}", f.name, f.available)
 }
 
+// FakeSpace implements subnets.BackingSpace for testing.
+type FakeSpace struct {
+	name string
+}
+
+var _ subnets.BackingSpace = (*FakeSpace)(nil)
+
+func (f *FakeSpace) Name() string {
+	return f.name
+}
+
+// GoString implements fmt.GoStringer.
+func (f *FakeSpace) GoString() string {
+	return fmt.Sprintf("&FakeSpace{%q}", f.name)
+}
+
 // ResetStub resets all recorded calls and errors of the given stub.
 func ResetStub(stub *testing.Stub) {
 	stub.Calls = stub.Calls[0:0]
@@ -143,12 +159,13 @@ type StubBacking struct {
 
 	EnvConfig *config.Config
 
-	Zones []providercommon.AvailabilityZone
+	Zones  []providercommon.AvailabilityZone
+	Spaces []subnets.BackingSpace
 }
 
 var _ subnets.Backing = (*StubBacking)(nil)
 
-func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones bool) {
+func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces bool) {
 	// This method should be called at the beginning of each test, so
 	// reset the recorded calls and errors.
 	ResetStub(sb.Stub)
@@ -166,6 +183,14 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones bool) {
 			&FakeZone{"zone1", true},
 			&FakeZone{"zone2", false},
 			&FakeZone{"zone3", true},
+		}
+	}
+	sb.Spaces = []subnets.BackingSpace{}
+	if withSpaces {
+		sb.Spaces = []subnets.BackingSpace{
+			&FakeSpace{"default"},
+			&FakeSpace{"dmz"},
+			&FakeSpace{"private"},
 		}
 	}
 }
@@ -189,6 +214,14 @@ func (sb *StubBacking) AvailabilityZones() ([]providercommon.AvailabilityZone, e
 func (sb *StubBacking) SetAvailabilityZones(zones []providercommon.AvailabilityZone) error {
 	sb.MethodCall(sb, "SetAvailabilityZones", zones)
 	return sb.NextErr()
+}
+
+func (sb *StubBacking) AllSpaces() ([]subnets.BackingSpace, error) {
+	sb.MethodCall(sb, "AllSpaces")
+	if err := sb.NextErr(); err != nil {
+		return nil, err
+	}
+	return sb.Spaces, nil
 }
 
 // StubProvider implements a subset of environs.EnvironProvider

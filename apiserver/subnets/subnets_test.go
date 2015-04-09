@@ -29,7 +29,7 @@ var _ = gc.Suite(&SubnetsSuite{})
 
 func (s *SubnetsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	BackingInstance.SetUp(c, StubZonedEnvironName, true)
+	BackingInstance.SetUp(c, StubZonedEnvironName, true, true)
 
 	s.resources = common.NewResources()
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -58,6 +58,15 @@ func (s *SubnetsSuite) AssertAllZonesResult(c *gc.C, got params.ZoneResults, exp
 		results[i].Available = zone.Available()
 	}
 	c.Assert(got, jc.DeepEquals, params.ZoneResults{Results: results})
+}
+
+// AssertAllSpacesResult makes it easier to verify AllSpaces results.
+func (s *SubnetsSuite) AssertAllSpacesResult(c *gc.C, got params.SpaceResults, expected []subnets.BackingSpace) {
+	results := make([]params.SpaceResult, len(expected))
+	for i, space := range expected {
+		results[i].Tag = names.NewSpaceTag(space.Name()).Id()
+	}
+	c.Assert(got, jc.DeepEquals, params.SpaceResults{Results: results})
 }
 
 func (s *SubnetsSuite) TestNewAPI(c *gc.C) {
@@ -103,7 +112,7 @@ func (s *SubnetsSuite) TestAllZonesUsesBackingZonesWhenAvailable(c *gc.C) {
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesUpdates(c *gc.C) {
-	BackingInstance.SetUp(c, StubZonedEnvironName, false)
+	BackingInstance.SetUp(c, StubZonedEnvironName, false, true)
 
 	results, err := s.facade.AllZones()
 	c.Assert(err, jc.ErrorIsNil)
@@ -119,7 +128,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesUpdates(c *gc.C) {
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
-	BackingInstance.SetUp(c, StubZonedEnvironName, false)
+	BackingInstance.SetUp(c, StubZonedEnvironName, false, true)
 	SharedStub.SetErrors(
 		nil, // Backing.AvailabilityZones
 		nil, // Backing.EnvironConfig
@@ -146,7 +155,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc.C) {
-	BackingInstance.SetUp(c, StubZonedEnvironName, false)
+	BackingInstance.SetUp(c, StubZonedEnvironName, false, true)
 	SharedStub.SetErrors(
 		nil, // Backing.AvailabilityZones
 		nil, // Backing.EnvironConfig
@@ -171,7 +180,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndEnvironConfigFails(c *gc.C) {
-	BackingInstance.SetUp(c, StubZonedEnvironName, false)
+	BackingInstance.SetUp(c, StubZonedEnvironName, false, true)
 	SharedStub.SetErrors(
 		nil, // Backing.AvailabilityZones
 		errors.NotFoundf("config"), // Backing.EnvironConfig
@@ -192,7 +201,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndEnvironConfigFails(c *gc
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
-	BackingInstance.SetUp(c, StubZonedEnvironName, false)
+	BackingInstance.SetUp(c, StubZonedEnvironName, false, true)
 	SharedStub.SetErrors(
 		nil, // Backing.AvailabilityZones
 		nil, // Backing.EnvironConfig
@@ -215,7 +224,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *gc.C) {
-	BackingInstance.SetUp(c, StubEnvironName, false) // ZonedEnviron not supported
+	BackingInstance.SetUp(c, StubEnvironName, false, true) // ZonedEnviron not supported
 
 	results, err := s.facade.AllZones()
 	c.Assert(err, gc.ErrorMatches,
@@ -229,5 +238,39 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *gc.
 		BackingCall("AvailabilityZones"),
 		BackingCall("EnvironConfig"),
 		ProviderCall("Open", BackingInstance.EnvConfig),
+	)
+}
+
+func (s *SubnetsSuite) TestAllSpacesWithExistingSuccess(c *gc.C) {
+	s.testAllSpacesSuccess(c, false)
+}
+
+func (s *SubnetsSuite) TestAllSpacesNoExistingSuccess(c *gc.C) {
+	s.testAllSpacesSuccess(c, true)
+}
+
+func (s *SubnetsSuite) testAllSpacesSuccess(c *gc.C, noBackingSpaces bool) {
+	BackingInstance.SetUp(c, StubZonedEnvironName, true, !noBackingSpaces)
+
+	results, err := s.facade.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	s.AssertAllSpacesResult(c, results, BackingInstance.Spaces)
+
+	CheckMethodCalls(c, SharedStub,
+		BackingCall("AllSpaces"),
+	)
+}
+
+func (s *SubnetsSuite) TestAllSpacesFailure(c *gc.C) {
+	SharedStub.SetErrors(errors.NotFoundf("boom"))
+
+	results, err := s.facade.AllSpaces()
+	c.Assert(err, gc.ErrorMatches, "boom not found")
+	// Verify the cause is not obscured.
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(results, jc.DeepEquals, params.SpaceResults{})
+
+	CheckMethodCalls(c, SharedStub,
+		BackingCall("AllSpaces"),
 	)
 }

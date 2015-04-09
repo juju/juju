@@ -461,3 +461,15 @@ type ZoneResult struct {
 type ZoneResults struct {
 	Results []ZoneResult `json:"Results"`
 }
+
+// SpaceResult holds a single space tag an error.
+type SpaceResult struct {
+	Error *Error `json:"Error"`
+	Tag   string `json:"Tag"`
+}
+
+// SpaceResults holds the bulk operation result of an API call
+// that returns space tags or an errors.
+type SpaceResults struct {
+	Results []SpaceResult `json:"Results"`
+}
