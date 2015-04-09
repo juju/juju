@@ -26,23 +26,30 @@ type stringsWorkerSuite struct {
 
 var _ = gc.Suite(&stringsWorkerSuite{})
 
-func (s *stringsWorkerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+func newStringsHandlerWorker(c *gc.C, setupError, handlerError, teardownError error) (*stringsHandler, worker.Worker) {
 	sh := &stringsHandler{
-		actions: nil,
-		handled: make(chan []string, 1),
+		actions:       nil,
+		handled:       make(chan []string, 1),
+		setupError:    setupError,
+		teardownError: teardownError,
+		handlerError:  handlerError,
 		watcher: &testStringsWatcher{
 			changes: make(chan []string),
 		},
 		setupDone: make(chan struct{}),
 	}
-	s.actor = sh
-	s.worker = worker.NewStringsWorker(s.actor)
+	w := worker.NewStringsWorker(sh)
 	select {
 	case <-sh.setupDone:
 	case <-time.After(coretesting.ShortWait):
 		c.Error("Failed waiting for stringsHandler.Setup to be called during SetUpTest")
 	}
+	return sh, w
+}
+
+func (s *stringsWorkerSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.actor, s.worker = newStringsHandlerWorker(c, nil, nil, nil)
 }
 
 func (s *stringsWorkerSuite) TearDownTest(c *gc.C) {
@@ -228,15 +235,7 @@ func (s *stringsWorkerSuite) TestChangesTriggerHandler(c *gc.C) {
 func (s *stringsWorkerSuite) TestSetUpFailureStopsWithTearDown(c *gc.C) {
 	// Stop the worker and SetUp again, this time with an error
 	s.stopWorker(c)
-	actor := &stringsHandler{
-		actions:    nil,
-		handled:    make(chan []string, 1),
-		setupError: fmt.Errorf("my special error"),
-		watcher: &testStringsWatcher{
-			changes: make(chan []string),
-		},
-	}
-	w := worker.NewStringsWorker(actor)
+	actor, w := newStringsHandlerWorker(c, fmt.Errorf("my special error"), nil, nil)
 	err := waitShort(c, w)
 	c.Check(err, gc.ErrorMatches, "my special error")
 	// TearDown is not called on SetUp error.
@@ -262,15 +261,7 @@ func (s *stringsWorkerSuite) TestCleanRunNoticesTearDownError(c *gc.C) {
 
 func (s *stringsWorkerSuite) TestHandleErrorStopsWorkerAndWatcher(c *gc.C) {
 	s.stopWorker(c)
-	actor := &stringsHandler{
-		actions:      nil,
-		handled:      make(chan []string, 1),
-		handlerError: fmt.Errorf("my handling error"),
-		watcher: &testStringsWatcher{
-			changes: make(chan []string),
-		},
-	}
-	w := worker.NewStringsWorker(actor)
+	actor, w := newStringsHandlerWorker(c, nil, fmt.Errorf("my handling error"), nil)
 	actor.watcher.TriggerChange(c, []string{"aa", "bb"})
 	waitForHandledStrings(c, actor.handled, []string{"aa", "bb"})
 	err := waitShort(c, w)
