@@ -13,10 +13,8 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v5-unstable"
-	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -183,16 +181,17 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	csParams, err := charmStoreParams()
+	csClient, err := newCharmStoreClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	curl, repo, err := resolveCharmURL(c.CharmName, csParams, ctx.AbsPath(c.RepoPath), conf)
+	defer csClient.jar.Save()
+	curl, repo, err := resolveCharmURL(c.CharmName, csClient.params, ctx.AbsPath(c.RepoPath), conf)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	curl, err = addCharmViaAPI(client, ctx, curl, repo)
+	curl, err = addCharmViaAPI(client, ctx, curl, repo, csClient)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
@@ -269,33 +268,6 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			c.ToMachineSpec)
 	}
 	return block.ProcessBlockedError(err, block.BlockChange)
-}
-
-// addCharmViaAPI calls the appropriate client API calls to add the
-// given charm URL to state. Also displays the charm URL of the added
-// charm on stdout.
-func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo charmrepo.Interface) (*charm.URL, error) {
-	switch curl.Schema {
-	case "local":
-		ch, err := repo.Get(curl)
-		if err != nil {
-			return nil, err
-		}
-		stateCurl, err := client.AddLocalCharm(curl, ch)
-		if err != nil {
-			return nil, err
-		}
-		curl = stateCurl
-	case "cs":
-		err := client.AddCharm(curl)
-		if err != nil {
-			return nil, err
-		}
-	default:
-		return nil, fmt.Errorf("unsupported charm URL schema: %q", curl.Schema)
-	}
-	ctx.Infof("Added charm %q to the environment.", curl)
-	return curl, nil
 }
 
 // parseNetworks returns a list of network names by parsing the

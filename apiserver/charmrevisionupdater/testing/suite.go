@@ -11,7 +11,7 @@ import (
 	"gopkg.in/juju/charm.v5-unstable"
 	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 	"gopkg.in/juju/charmstore.v4"
-	charmstoretesting "gopkg.in/juju/charmstore.v4/testing"
+	"gopkg.in/juju/charmstore.v4/charmstoretesting"
 
 	"github.com/juju/juju/apiserver/charmrevisionupdater"
 	jujutesting "github.com/juju/juju/juju/testing"
