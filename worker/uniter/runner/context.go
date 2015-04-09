@@ -540,7 +540,6 @@ func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 	if ctx.metricsReader == nil {
 		return ctxErr
 	}
-	defer ctx.metricsReader.Close()
 
 	if !writeChanges {
 		return ctxErr
@@ -550,7 +549,9 @@ func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer ctx.metricsReader.Close()
 
+	var sendBatches []params.MetricBatch
 	for _, batch := range batches {
 		if len(batch.Metrics) == 0 { // empty batches not supported yet.
 			logger.Infof("skipping and removing empty metrics batch with UUID %q", batch.UUID)
@@ -564,17 +565,25 @@ func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 		for i, metric := range batch.Metrics {
 			metrics[i] = params.Metric{Key: metric.Key, Value: metric.Value, Time: metric.Time}
 		}
-		err := ctx.unit.AddMetrics(metrics)
-		if err != nil {
-			logger.Errorf("%v", err)
-			return errors.Trace(err)
+		batchParam := params.MetricBatch{
+			UUID:     batch.UUID,
+			CharmURL: batch.CharmURL,
+			Created:  batch.Created,
+			Metrics:  metrics,
 		}
+		sendBatches = append(sendBatches, batchParam)
+	}
+	err = ctx.unit.AddMetricBatches(sendBatches)
+	if err != nil {
+		logger.Errorf("%v", err)
+		return errors.Trace(err)
+	}
+	for _, batch := range sendBatches {
 		err = ctx.metricsReader.Remove(batch.UUID)
 		if err != nil {
 			return errors.Trace(err)
 		}
 	}
-
 	return ctxErr
 }
 

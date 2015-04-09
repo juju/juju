@@ -185,6 +185,10 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 				url := fmt.Sprintf("https://%s/tools/%s", addr, w.mcfg.Tools.Version)
 				urls = append(urls, url)
 			}
+
+			// Don't go through the proxy when downloading tools from the state servers
+			curlCommand += ` --noproxy "*"`
+
 			// Our API server certificates are unusable by curl (invalid subject name),
 			// so we must disable certificate validation. It doesn't actually
 			// matter, because there is no sensitive information being transmitted
