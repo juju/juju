@@ -96,36 +96,7 @@ func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
 	c.Check(a.NetworkName, gc.Equals, "")
 
 	addrs, err = s.instWithoutIP.Addresses()
-	c.Check(addrs, gc.IsNil)
-	c.Check(err, gc.Equals, ErrNoDNSName)
-}
-
-func (s *instanceSuite) TestInstanceDNSName(c *gc.C) {
-	name, err := s.inst.DNSName()
-	c.Check(name, gc.Equals, "178.22.70.33")
-	c.Check(err, gc.IsNil)
-
-	name, err = s.instWithoutIP.DNSName()
-	c.Check(name, gc.Equals, "")
-	c.Check(err, gc.Equals, ErrNoDNSName)
-
-	go func() {
-		mock.AddServer(&data.Server{
-			Resource: data.Resource{URI: "uri", UUID: "uuid-no-ip"},
-			NICs: []data.NIC{
-				data.NIC{
-					IPv4: &data.IPv4{
-						Conf: "static",
-						IP:   data.MakeIPResource("31.171.246.37"),
-					},
-					Runtime: &data.RuntimeNetwork{
-						InterfaceType: "public",
-						IPv4:          data.MakeIPResource("31.171.246.37"),
-					},
-				},
-			},
-		})
-	}()
+	c.Check(len(addrs), gc.Equals, 0)
 }
 
 func (s *instanceSuite) TestInstancePorts(c *gc.C) {

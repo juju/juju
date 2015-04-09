@@ -49,43 +49,18 @@ func (i sigmaInstance) Refresh() error {
 func (i sigmaInstance) Addresses() ([]network.Address, error) {
 	ip := i.findIPv4()
 
-	if ip == "" {
-		logger.Tracef("IPv4 address not found")
-		return nil, ErrNoDNSName
-	}
-
-	addr := network.Address{
-		Value: ip,
-		Type:  network.IPv4Address,
-		Scope: network.ScopePublic,
-	}
-
-	logger.Tracef("sigmaInstance.Addresses: %v", addr)
-
-	return []network.Address{addr}, nil
-}
-
-// DNSName returns the DNS name for the instance.
-// If the name is not yet allocated, it will return
-// an ErrNoDNSName error.
-func (i sigmaInstance) DNSName() (string, error) {
-	ip := i.findIPv4()
-
-	if ip == "" {
-		logger.Tracef("sigmaInstance.DNSName: IPv4 address not found, refreshing...")
-		if err := i.Refresh(); err != nil {
-			return "", err
+	if ip != "" {
+		addr := network.Address{
+			Value: ip,
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
 		}
 
-		ip = i.findIPv4()
-		if ip == "" {
-			return "", ErrNoDNSName
-		}
+		logger.Tracef("sigmaInstance.Addresses: %v", addr)
+
+		return []network.Address{addr}, nil
 	}
-
-	logger.Infof("sigmaInstance.DNSName: %s", ip)
-
-	return ip, nil
+	return []network.Address{}, nil
 }
 
 // OpenPorts opens the given ports on the instance, which
