@@ -39,11 +39,10 @@ type Backing interface {
 
 // API defines the methods the Subnets API facade implements.
 type API interface {
-	// AllZones returns all availability zones known to Juju. Each
-	// StringBoolResult's Result field contains the zone name, while
-	// the Ok field will be true unless the zone is unusable,
-	// unavailable, or deprecated.
-	AllZones() (params.StringBoolResults, error)
+	// AllZones returns all availability zones known to Juju. If a
+	// zone is unusable, unavailable, or deprecated the Available
+	// field will be false.
+	AllZones() (params.ZoneResults, error)
 }
 
 // internalAPI implements the API interface.
@@ -69,8 +68,8 @@ func NewAPI(backing Backing, resources *common.Resources, authorizer common.Auth
 }
 
 // AllZones is defined on the API interface.
-func (a *internalAPI) AllZones() (params.StringBoolResults, error) {
-	var results params.StringBoolResults
+func (a *internalAPI) AllZones() (params.ZoneResults, error) {
+	var results params.ZoneResults
 
 	// Try fetching cached zones first.
 	zones, err := a.backing.AvailabilityZones()
@@ -89,10 +88,10 @@ func (a *internalAPI) AllZones() (params.StringBoolResults, error) {
 		logger.Debugf("using cached list of known zones: %v", zones)
 	}
 
-	results.Results = make([]params.StringBoolResult, len(zones))
+	results.Results = make([]params.ZoneResult, len(zones))
 	for i, zone := range zones {
-		results.Results[i].Result = zone.Name()
-		results.Results[i].Ok = zone.Available()
+		results.Results[i].Name = zone.Name()
+		results.Results[i].Available = zone.Available()
 	}
 	return results, nil
 }

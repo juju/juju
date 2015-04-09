@@ -51,13 +51,13 @@ func (s *SubnetsSuite) TearDownTest(c *gc.C) {
 }
 
 // AssertAllZonesResult makes it easier to verify AllZones results.
-func (s *SubnetsSuite) AssertAllZonesResult(c *gc.C, got params.StringBoolResults, expected []providercommon.AvailabilityZone) {
-	results := make([]params.StringBoolResult, len(expected))
+func (s *SubnetsSuite) AssertAllZonesResult(c *gc.C, got params.ZoneResults, expected []providercommon.AvailabilityZone) {
+	results := make([]params.ZoneResult, len(expected))
 	for i, zone := range expected {
-		results[i].Result = zone.Name()
-		results[i].Ok = zone.Available()
+		results[i].Name = zone.Name()
+		results[i].Available = zone.Available()
 	}
-	c.Assert(got, jc.DeepEquals, params.StringBoolResults{Results: results})
+	c.Assert(got, jc.DeepEquals, params.ZoneResults{Results: results})
 }
 
 func (s *SubnetsSuite) TestNewAPI(c *gc.C) {
@@ -85,7 +85,7 @@ func (s *SubnetsSuite) TestAllZonesWhenBackingAvailabilityZonesFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "zones not supported")
 	// Verify the cause is not obscured.
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-	c.Assert(results, jc.DeepEquals, params.StringBoolResults{})
+	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
 	CheckMethodCalls(c, SharedStub,
 		BackingCall("AvailabilityZones"),
@@ -134,7 +134,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
 	)
 	// Verify the cause is not obscured.
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-	c.Assert(results, jc.DeepEquals, params.StringBoolResults{})
+	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
 	CheckMethodCalls(c, SharedStub,
 		BackingCall("AvailabilityZones"),
@@ -160,7 +160,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc
 	)
 	// Verify the cause is not obscured.
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-	c.Assert(results, jc.DeepEquals, params.StringBoolResults{})
+	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
 	CheckMethodCalls(c, SharedStub,
 		BackingCall("AvailabilityZones"),
@@ -183,7 +183,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndEnvironConfigFails(c *gc
 	)
 	// Verify the cause is not obscured.
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(results, jc.DeepEquals, params.StringBoolResults{})
+	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
 	CheckMethodCalls(c, SharedStub,
 		BackingCall("AvailabilityZones"),
@@ -205,7 +205,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
 	)
 	// Verify the cause is not obscured.
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-	c.Assert(results, jc.DeepEquals, params.StringBoolResults{})
+	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
 	CheckMethodCalls(c, SharedStub,
 		BackingCall("AvailabilityZones"),
@@ -223,7 +223,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *gc.
 	)
 	// Verify the cause is not obscured.
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-	c.Assert(results, jc.DeepEquals, params.StringBoolResults{})
+	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
 	CheckMethodCalls(c, SharedStub,
 		BackingCall("AvailabilityZones"),
