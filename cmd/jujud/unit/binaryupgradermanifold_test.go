@@ -4,28 +4,28 @@
 package unit_test
 
 import (
-	"github.com/juju/names"
+	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/unit"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 )
 
 type BinaryUpgraderManifoldSuite struct {
-	testing.JujuConnSuite
+	testing.IsolationSuite
 	manifold dependency.Manifold
 }
 
 var _ = gc.Suite(&BinaryUpgraderManifoldSuite{})
 
 func (s *BinaryUpgraderManifoldSuite) SetUpSuite(c *gc.C) {
-	s.JujuConnSuite.SetUpSuite(c)
+	s.IsolationSuite.SetUpSuite(c)
 	s.manifold = unit.BinaryUpgraderManifold(
 		unit.BinaryUpgraderManifoldConfig{
 			AgentName:     "agent-name",
@@ -36,6 +36,10 @@ func (s *BinaryUpgraderManifoldSuite) SetUpSuite(c *gc.C) {
 
 func (s *BinaryUpgraderManifoldSuite) TestInputs(c *gc.C) {
 	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{"agent-name", "api-caller-name"})
+}
+
+func (s *BinaryUpgraderManifoldSuite) TestOutput(c *gc.C) {
+	c.Check(s.manifold.Output, gc.IsNil)
 }
 
 func (s *BinaryUpgraderManifoldSuite) TestStartAgentMissing(c *gc.C) {
@@ -50,7 +54,7 @@ func (s *BinaryUpgraderManifoldSuite) TestStartAgentMissing(c *gc.C) {
 
 func (s *BinaryUpgraderManifoldSuite) TestStartApiConnMissing(c *gc.C) {
 	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name":      dt.StubResource{Output: &mockAgent{}},
+		"agent-name":      dt.StubResource{Output: &dummyAgent{}},
 		"api-caller-name": dt.StubResource{Error: dependency.ErrMissing},
 	})
 
@@ -59,34 +63,55 @@ func (s *BinaryUpgraderManifoldSuite) TestStartApiConnMissing(c *gc.C) {
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
 
-func (s *BinaryUpgraderManifoldSuite) TestStartSetVersionFailure(c *gc.C) {
-	agent := &mockAgent{config: &mockAgentConfig{tag: names.NewUnitTag("foo/2")}}
-	c.Fatalf("XXX %s", agent)
+func (s *BinaryUpgraderManifoldSuite) TestStartFailure(c *gc.C) {
+	expectAgent := &dummyAgent{}
+	expectApiCaller := &dummyApiCaller{}
+	getResource := dt.StubGetResource(dt.StubResources{
+		"agent-name":      dt.StubResource{Output: expectAgent},
+		"api-caller-name": dt.StubResource{Output: expectApiCaller},
+	})
+
+	newBinaryUpgrader := func(gotAgent agent.Agent, gotApiCaller base.APICaller) (worker.Worker, error) {
+		c.Check(gotAgent, gc.Equals, expectAgent)
+		c.Check(gotApiCaller, gc.Equals, expectApiCaller)
+		return nil, errors.New("some error")
+	}
+	s.PatchValue(unit.NewBinaryUpgrader, newBinaryUpgrader)
+
+	worker, err := s.manifold.Start(getResource)
+	c.Check(worker, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "some error")
 }
 
 func (s *BinaryUpgraderManifoldSuite) TestStartSuccess(c *gc.C) {
-	c.Fatalf("XXX")
+	expectAgent := &dummyAgent{}
+	expectApiCaller := &dummyApiCaller{}
+	getResource := dt.StubGetResource(dt.StubResources{
+		"agent-name":      dt.StubResource{Output: expectAgent},
+		"api-caller-name": dt.StubResource{Output: expectApiCaller},
+	})
+
+	expectWorker := &dummyWorker{}
+	newBinaryUpgrader := func(gotAgent agent.Agent, gotApiCaller base.APICaller) (worker.Worker, error) {
+		c.Check(gotAgent, gc.Equals, expectAgent)
+		c.Check(gotApiCaller, gc.Equals, expectApiCaller)
+		return expectWorker, nil
+	}
+	s.PatchValue(unit.NewBinaryUpgrader, newBinaryUpgrader)
+
+	worker, err := s.manifold.Start(getResource)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(worker, gc.Equals, expectWorker)
 }
 
-type mockAgent struct {
+type dummyApiCaller struct {
+	base.APICaller
+}
+
+type dummyAgent struct {
 	agent.Agent
-	config *mockAgentConfig
 }
 
-func (mock *mockAgent) CurrentConfig() coreagent.Config {
-	return mock.config
-}
-
-type mockAgentConfig struct {
-	coreagent.Config
-	tag     names.Tag
-	version version.Number
-}
-
-func (mock *mockAgentConfig) Tag() names.Tag {
-	return mock.tag
-}
-
-func (mock *mockAgentConfig) UpgradedToVersion() version.Number {
-	return mock.version
+type dummyWorker struct {
+	worker.Worker
 }

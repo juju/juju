@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
@@ -104,9 +105,13 @@ func allowedTargetVersion(
 }
 
 func (u *Upgrader) loop() error {
+	if err := u.st.SetVersion(u.tag.String(), version.Current); err != nil {
+		return errors.Annotate(err, "cannot record current version")
+	}
+
 	versionWatcher, err := u.st.WatchAPIVersion(u.tag.String())
 	if err != nil {
-		return err
+		return errors.Annotate(err, "cannot watch proposed version")
 	}
 	changes := versionWatcher.Changes()
 	defer watcher.Stop(versionWatcher, &u.tomb)

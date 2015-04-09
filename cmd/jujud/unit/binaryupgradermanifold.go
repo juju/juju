@@ -4,11 +4,8 @@
 package unit
 
 import (
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/api/base"
 	apiupgrader "github.com/juju/juju/api/upgrader"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
@@ -41,7 +38,6 @@ func BinaryUpgraderManifold(config BinaryUpgraderManifoldConfig) dependency.Mani
 // based on the manifolds named in the supplied config.
 func binaryUpgraderStartFunc(config BinaryUpgraderManifoldConfig) dependency.StartFunc {
 	return func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-		// Get the dependencies.
 		var agent agent.Agent
 		if err := getResource(config.AgentName, &agent); err != nil {
 			return nil, err
@@ -50,24 +46,22 @@ func binaryUpgraderStartFunc(config BinaryUpgraderManifoldConfig) dependency.Sta
 		if err := getResource(config.ApiCallerName, &apiCaller); err != nil {
 			return nil, err
 		}
-		currentConfig := agent.CurrentConfig()
-		upgraderFacade := apiupgrader.NewState(apiCaller)
-
-		// TODO(fwereade): this should be in Upgrader itself, but it's
-		// inconvenient to do that and leave the machine agent double-
-		// calling it. When the machine agent uses a manifold to run its
-		// upgrader we can move this call.
-		err := upgraderFacade.SetVersion(currentConfig.Tag().String(), version.Current)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot set unit agent version")
-		}
-
-		// Start the upgrader.
-		return upgrader.NewUpgrader(
-			upgraderFacade,
-			currentConfig,
-			currentConfig.UpgradedToVersion(),
-			func() bool { return false },
-		), nil
+		return newBinaryUpgrader(agent, apiCaller)
 	}
+}
+
+// newBinaryUpgrader exists to put all the weird and hard-to-test bits in one
+// place; it should be patched out for unit tests via NewBinaryUpgrader in
+// export_test (and should ideally be directly tested itself, but the concrete
+// facade makes that hard; for the moment we rely on the full-stack tests in
+// cmd/jujud).
+var newBinaryUpgrader = func(agent agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+	currentConfig := agent.CurrentConfig()
+	upgraderFacade := apiupgrader.NewState(apiCaller)
+	return upgrader.NewUpgrader(
+		upgraderFacade,
+		currentConfig,
+		currentConfig.UpgradedToVersion(),
+		func() bool { return false },
+	), nil
 }

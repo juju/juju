@@ -4,11 +4,11 @@
 package unit_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
-	coretesting "github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+func TestPackage(t *testing.T) {
+	gc.TestingT(t)
 }
