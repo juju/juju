@@ -86,7 +86,7 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 		// This block of dependencies shouldn't really be *required* (we have
 		// responsibilities we can and should fulfil even without an api conn),
 		// but we don't yet have uniter code paths that can tolerate their
-		// absence so we continue to pass ErrMissing through unhandled.
+		// absence... so we continue to pass ErrMissing through unhandled.
 		var eventFilter filter.Filter
 		if err := getResource(config.EventFilterName, &eventFilter); err != nil {
 			return nil, err

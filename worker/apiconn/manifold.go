@@ -14,12 +14,11 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
-type ManifoldConfig struct {
-	AgentName string
-}
+type ManifoldConfig util.AgentManifoldConfig
 
 // Manifold returns a manifold whose worker wraps an API connection made on behalf of
 // the dependency identified by AgentName.

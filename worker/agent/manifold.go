@@ -16,6 +16,9 @@ import (
 
 // Agent is the interface exposed to workers that depend upon an agent's
 // representation in its dependency.Engine.
+// TODO(fwereade) this could *surely* be cleaned up, I'm not at all convinced
+// these all need to go together: in particular, can't we accomplish the same
+// function as SetAPIHostPorts with ChangeConfig?
 type Agent interface {
 	Tag() names.Tag
 	CurrentConfig() agent.Config
@@ -62,10 +65,12 @@ type agentWorker struct {
 	agent Agent
 }
 
+// Kill is part of the worker.Worker interface.
 func (w *agentWorker) Kill() {
 	w.tomb.Kill(nil)
 }
 
+// Wait is part of the worker.Worker interface.
 func (w *agentWorker) Wait() error {
 	return w.tomb.Wait()
 }

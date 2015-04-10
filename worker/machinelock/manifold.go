@@ -12,13 +12,12 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldConfig specifies the names a machinelock manifold should use to
 // address its dependencies.
-type ManifoldConfig struct {
-	AgentName string
-}
+type ManifoldConfig util.AgentManifoldConfig
 
 // Manifold returns a dependency.Manifold that governs the construction of
 // and access to a machine-wide lock intended to prevent various operations
@@ -26,35 +25,23 @@ type ManifoldConfig struct {
 // Clients can access the lock by passing a **fslock.Lock into the out param
 // of their GetResourceFunc.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	return dependency.Manifold{
-		Inputs: []string{
-			config.AgentName,
-		},
-		Start:  startFunc(config),
-		Output: outputFunc,
-	}
+	manifold := util.AgentManifold(util.AgentManifoldConfig(config), newWorker)
+	manifold.Output = outputFunc
+	return manifold
 }
 
-// startFunc returns a StartFunc that creates a worker based on the manifolds
-// named in the supplied config.
-func startFunc(config ManifoldConfig) dependency.StartFunc {
-	return func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-		var agent agent.Agent
-		if err := getResource(config.AgentName, &agent); err != nil {
-			return nil, err
-		}
-		dataDir := agent.CurrentConfig().DataDir()
-		lock, err := cmdutil.HookExecutionLock(dataDir)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		w := &machineLockWorker{lock: lock}
-		go func() {
-			defer w.tomb.Done()
-			<-w.tomb.Dying()
-		}()
-		return w, nil
+func newWorker(agent agent.Agent) (worker.Worker, error) {
+	dataDir := agent.CurrentConfig().DataDir()
+	lock, err := cmdutil.HookExecutionLock(dataDir)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	w := &machineLockWorker{lock: lock}
+	go func() {
+		defer w.tomb.Done()
+		<-w.tomb.Dying()
+	}()
+	return w, nil
 }
 
 // outputFunc extracts a *fslock.Lock from a *machineLockWorker.

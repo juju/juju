@@ -11,10 +11,13 @@ import (
 	"github.com/juju/juju/worker/apiconn"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/machinelock"
 	"github.com/juju/juju/worker/proxyupdater"
+	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/filter"
+	"github.com/juju/juju/worker/upgrader"
 )
 
 // These define the names of the dependency.Manifolds we use in a unit agent.
@@ -29,8 +32,8 @@ var (
 	LoggerUpdaterName     = "logger-updater"
 	ProxyUpdaterName      = "proxy-updater"
 	RsyslogUpdaterName    = "rsyslog-updater"
-	ApiCallerName         = "api-caller"
 	ApiAddressUpdaterName = "api-address-updater"
+	ApiCallerName         = "api-caller"
 
 	// We expect one of each of these per running unit; when we try to run N
 	// units inside each agent process, we'll need to disambiguate the names
@@ -61,7 +64,7 @@ func AgentManifolds(a agent.Agent) map[string]dependency.Manifold {
 			AgentName: agentName,
 		}),
 
-		BinaryUpgraderName: BinaryUpgraderManifold(BinaryUpgraderManifoldConfig{
+		BinaryUpgraderName: upgrader.Manifold(upgrader.ManifoldConfig{
 			AgentName:     agentName,
 			ApiCallerName: ApiCallerName,
 		}),
@@ -77,7 +80,7 @@ func AgentManifolds(a agent.Agent) map[string]dependency.Manifold {
 			LeadershipGuarantee: 30 * time.Second,
 		}),
 
-		LoggerUpdaterName: LoggerUpdaterManifold(LoggerUpdaterManifoldConfig{
+		LoggerUpdaterName: logger.Manifold(logger.ManifoldConfig{
 			AgentName:     agentName,
 			ApiCallerName: ApiCallerName,
 		}),
@@ -90,7 +93,7 @@ func AgentManifolds(a agent.Agent) map[string]dependency.Manifold {
 			ApiCallerName: ApiCallerName,
 		}),
 
-		RsyslogUpdaterName: RsyslogUpdaterManifold(RsyslogUpdaterManifoldConfig{
+		RsyslogUpdaterName: rsyslog.Manifold(rsyslog.ManifoldConfig{
 			AgentName:     agentName,
 			ApiCallerName: ApiCallerName,
 		}),

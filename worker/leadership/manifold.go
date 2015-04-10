@@ -45,13 +45,13 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 		if err := getResource(config.AgentName, &agent); err != nil {
 			return nil, err
 		}
-		unitTag, ok := agent.Tag().(names.UnitTag)
-		if !ok {
-			return nil, fmt.Errorf("expected a unit tag; got %q", agent.Tag())
-		}
 		var apiCaller base.APICaller
 		if err := getResource(config.ApiCallerName, &apiCaller); err != nil {
 			return nil, err
+		}
+		unitTag, ok := agent.Tag().(names.UnitTag)
+		if !ok {
+			return nil, fmt.Errorf("expected a unit tag; got %q", agent.Tag())
 		}
 		return NewTrackerWorker(
 			unitTag,

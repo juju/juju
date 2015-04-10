@@ -22,7 +22,6 @@ import (
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -221,17 +220,6 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	})
 }
 
-func (s *UnitSuite) TestUpgradeFailsWithoutTools(c *gc.C) {
-	machine, unit, _, _ := s.primeAgent(c)
-	agent := s.newAgent(c, unit)
-	newVers := version.Current
-	newVers.Patch++
-	err := machine.SetAgentVersion(newVers)
-	c.Assert(err, jc.ErrorIsNil)
-	err = runWithTimeout(agent)
-	c.Assert(err, gc.ErrorMatches, "timed out waiting for agent to finish.*")
-}
-
 func (s *UnitSuite) TestWithDeadUnit(c *gc.C) {
 	_, unit, _, _ := s.primeAgent(c)
 	err := unit.EnsureDead()
@@ -322,9 +310,9 @@ func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 	s.AssertCannotOpenState(c, conf.Tag(), conf.DataDir())
 }
 
-func (s *UnitSuite) TestRsyslogConfigWorker(c *gc.C) {
+func (s *UnitSuite) TestRsyslogConfigWorkerMode(c *gc.C) {
 	created := make(chan rsyslog.RsyslogMode, 1)
-	s.PatchValue(&cmdutil.NewRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
+	s.PatchValue(&rsyslog.NewRsyslogConfigWorker, func(_ *apirsyslog.State, mode rsyslog.RsyslogMode, _ names.Tag, _ string, _ []string) (worker.Worker, error) {
 		created <- mode
 		return newDummyWorker(), nil
 	})
