@@ -22,7 +22,7 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 		return nil, environs.ErrNoInstances
 	}
 
-	instances, err := getInstances(env)
+	instances, err := env.instances()
 	if err != nil {
 		// We don't return the error since we need to pack one instance
 		// for each ID into the result. If there is a problem then we
@@ -34,13 +34,13 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 
 	// Build the result, matching the provided instance IDs.
 	numFound := 0 // This will never be greater than len(ids).
-	results := make([]instance.Instance, len(ids))
-	for i, id := range ids {
+	results := make([]instance.Instance, 0, len(ids))
+	for _, id := range ids {
 		inst := findInst(id, instances)
 		if inst != nil {
 			numFound++
+			results = append(results, inst)
 		}
-		results[i] = inst
 	}
 
 	if numFound == 0 {
@@ -51,10 +51,6 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 		err = environs.ErrPartialInstances
 	}
 	return results, err
-}
-
-var getInstances = func(env *environ) ([]instance.Instance, error) {
-	return env.instances()
 }
 
 // instances returns a list of all "alive" instances in the environment.

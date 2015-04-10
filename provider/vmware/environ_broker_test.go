@@ -8,6 +8,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/errors"
+	"github.com/vmware/govmomi/vim25/methods"
+	"github.com/vmware/govmomi/vim25/soap"
+	"github.com/vmware/govmomi/vim25/types"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -31,14 +34,13 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *environBrokerSuite) PrepareStartInstanceFakes() {
+func (s *environBrokerSuite) PrepareStartInstanceFakes(c *gc.C) {
 	client := vmware.ExposeEnvFakeClient(s.Env)
 	s.FakeInstances(client)
-	s.FakeInstances(client)
 	s.FakeAvailabilityZones(client, "z1")
 	s.FakeAvailabilityZones(client, "z1")
 	s.FakeAvailabilityZones(client, "z1")
-	s.FakeCreateInstance(client, s.ServerUrl)
+	s.FakeCreateInstance(client, s.ServerUrl, c)
 }
 
 func (s *environBrokerSuite) CreateStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
@@ -63,7 +65,7 @@ func (s *environBrokerSuite) CreateStartInstanceArgs(c *gc.C) environs.StartInst
 }
 
 func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
-	s.PrepareStartInstanceFakes()
+	s.PrepareStartInstanceFakes(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	_, err := s.Env.StartInstance(startInstArgs)
 
@@ -71,7 +73,7 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithNetworks(c *gc.C) {
-	s.PrepareStartInstanceFakes()
+	s.PrepareStartInstanceFakes(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	startInstArgs.MachineConfig.Networks = []string{"someNetwork"}
 	_, err := s.Env.StartInstance(startInstArgs)
@@ -80,7 +82,7 @@ func (s *environBrokerSuite) TestStartInstanceWithNetworks(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C) {
-	s.PrepareStartInstanceFakes()
+	s.PrepareStartInstanceFakes(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	startInstArgs.Tools[0].Version.Arch = "someArch"
 	_, err := s.Env.StartInstance(startInstArgs)
@@ -90,7 +92,7 @@ func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C
 
 // if tools for multiple architectures are avaliable, provider should filter tools by arch of the selected image
 func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
-	s.PrepareStartInstanceFakes()
+	s.PrepareStartInstanceFakes(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	tools := []*tools.Tools{{
 		Version: version.Binary{Arch: arch.I386, Series: "trusty"},
@@ -110,7 +112,7 @@ func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C) {
-	s.PrepareStartInstanceFakes()
+	s.PrepareStartInstanceFakes(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	res, err := s.Env.StartInstance(startInstArgs)
 
@@ -122,7 +124,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C)
 }
 
 func (s *environBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *gc.C) {
-	s.PrepareStartInstanceFakes()
+	s.PrepareStartInstanceFakes(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	cpuCores := uint64(4)
 	startInstArgs.Constraints.CpuCores = &cpuCores
@@ -143,7 +145,7 @@ func (s *environBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *gc.C) 
 }
 
 func (s *environBrokerSuite) TestStartInstanceCallsFinishMachineConfig(c *gc.C) {
-	s.PrepareStartInstanceFakes()
+	s.PrepareStartInstanceFakes(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	s.PatchValue(&vmware.FinishMachineConfig, func(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err error) {
 		return errors.New("FinishMachineConfig called")
@@ -153,7 +155,7 @@ func (s *environBrokerSuite) TestStartInstanceCallsFinishMachineConfig(c *gc.C) 
 }
 
 func (s *environBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmallConstraintValue(c *gc.C) {
-	s.PrepareStartInstanceFakes()
+	s.PrepareStartInstanceFakes(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	rootDisk := uint64(1000)
 	startInstArgs.Constraints.RootDisk = &rootDisk
@@ -163,7 +165,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmallConst
 }
 
 func (s *environBrokerSuite) TestStartInstanceInvalidPlacement(c *gc.C) {
-	s.PrepareStartInstanceFakes()
+	s.PrepareStartInstanceFakes(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	startInstArgs.Placement = "someInvalidPlacement"
 	_, err := s.Env.StartInstance(startInstArgs)
@@ -174,7 +176,7 @@ func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 	client := vmware.ExposeEnvFakeClient(s.Env)
 	s.FakeAvailabilityZones(client, "z1", "z2")
 	s.FakeAvailabilityZones(client, "z1", "z2")
-	s.FakeCreateInstance(client, s.ServerUrl)
+	s.FakeCreateInstance(client, s.ServerUrl, c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	startInstArgs.Placement = "zone=z2"
 	_, err := s.Env.StartInstance(startInstArgs)
@@ -182,7 +184,7 @@ func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStartInstanceCallsAvailabilityZoneAllocations(c *gc.C) {
-	s.PrepareStartInstanceFakes()
+	s.PrepareStartInstanceFakes(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	startInstArgs.DistributionGroup = func() ([]instance.Id, error) {
 		return []instance.Id{instance.Id("someId")}, nil
@@ -194,4 +196,38 @@ func (s *environBrokerSuite) TestStartInstanceCallsAvailabilityZoneAllocations(c
 	})
 	_, err := s.Env.StartInstance(startInstArgs)
 	c.Assert(err, gc.ErrorMatches, "AvailabilityZoneAllocations called")
+}
+
+func (s *environBrokerSuite) TestStartInstanceTryesToCreateInstanceInAllAvailabilityZones(c *gc.C) {
+	client := vmware.ExposeEnvFakeClient(s.Env)
+	s.FakeInstances(client)
+	s.FakeAvailabilityZones(client, "z1", "z2")
+	s.FakeAvailabilityZones(client, "z1", "z2")
+	s.FakeAvailabilityZones(client, "z1", "z2")
+	client.SetPropertyProxyHandler("FakeDatacenter", vmware.RetrieveDatacenterProperties)
+	client.SetProxyHandler("CreateImportSpec", func(req, res soap.HasFault) {
+		resBody := res.(*methods.CreateImportSpecBody)
+		resBody.Res = &types.CreateImportSpecResponse{
+			Returnval: types.OvfCreateImportSpecResult{
+				Error: []types.LocalizedMethodFault{{
+					LocalizedMessage: "Error zone 1",
+				}},
+			},
+		}
+	})
+	s.FakeAvailabilityZones(client, "z1", "z2")
+	client.SetPropertyProxyHandler("FakeDatacenter", vmware.RetrieveDatacenterProperties)
+	client.SetProxyHandler("CreateImportSpec", func(req, res soap.HasFault) {
+		resBody := res.(*methods.CreateImportSpecBody)
+		resBody.Res = &types.CreateImportSpecResponse{
+			Returnval: types.OvfCreateImportSpecResult{
+				Error: []types.LocalizedMethodFault{{
+					LocalizedMessage: "Error zone 2",
+				}},
+			},
+		}
+	})
+	startInstArgs := s.CreateStartInstanceArgs(c)
+	_, err := s.Env.StartInstance(startInstArgs)
+	c.Assert(err, gc.ErrorMatches, "Can't create instance in any of availability zones, last error: Failed to import ovf file: Error zone 2")
 }

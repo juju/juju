@@ -51,11 +51,11 @@ func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	results := make([]string, len(ids))
-	for i, inst := range instances {
+	results := make([]string, 0, len(ids))
+	for _, inst := range instances {
 		for _, zone := range zones {
 			if eInst := inst.(*environInstance); eInst != nil && zone.ResourcePool.Value == eInst.base.ResourcePool.Value {
-				results[i] = zone.Name
+				results = append(results, zone.Name)
 				continue
 			}
 		}

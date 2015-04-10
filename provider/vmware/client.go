@@ -121,14 +121,14 @@ func (c *client) Instances(prefix string) ([]*mo.VirtualMachine, error) {
 	}
 
 	var vms []*mo.VirtualMachine
-	vms = make([]*mo.VirtualMachine, len(vms))
+	vms = make([]*mo.VirtualMachine, 0, len(vms))
 	for _, item := range items {
 		var vm mo.VirtualMachine
 		err = c.connection.RetrieveOne(context.TODO(), item.Reference(), nil, &vm)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if vm.Config != nil && strings.HasPrefix(vm.Config.Name, prefix) {
+		if strings.HasPrefix(vm.Name, prefix) {
 			vms = append(vms, &vm)
 		}
 	}
@@ -137,7 +137,7 @@ func (c *client) Instances(prefix string) ([]*mo.VirtualMachine, error) {
 }
 
 func (c *client) Refresh(v *mo.VirtualMachine) error {
-	item, err := c.finder.VirtualMachine(context.TODO(), v.Config.Name)
+	item, err := c.finder.VirtualMachine(context.TODO(), v.Name)
 	if err != nil {
 		return errors.Trace(err)
 	}

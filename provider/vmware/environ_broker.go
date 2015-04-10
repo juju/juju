@@ -125,24 +125,28 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvfFi
 	}
 	var inst *mo.VirtualMachine
 	for _, zone := range zones {
-		availZone, err := env.availZone(zone)
+		var availZone *vmwareAvailZone
+		availZone, err = env.availZone(zone)
 		if err != nil {
-			logger.Warningf("Error while getting avaliability zone %s: %s", zone, err)
+			logger.Warningf("Error while getting availability zone %s: %s", zone, err)
 			continue
 		}
 		inst, err = env.client.CreateInstance(machineID, availZone, hwc, img, userData, args.MachineConfig.AuthorizedKeys, isStateServer(args.MachineConfig))
 		if err == nil {
 			break
 		} else {
-			logger.Warningf("Error while trying to create instance in %s avaliability zone: %s", zone, err)
+			logger.Warningf("Error while trying to create instance in %s availability zone: %s", zone, err)
 		}
+	}
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "Can't create instance in any of availability zones, last error")
 	}
 	return inst, hwc, err
 }
 
 // AllInstances implements environs.InstanceBroker.
 func (env *environ) AllInstances() ([]instance.Instance, error) {
-	instances, err := getInstances(env)
+	instances, err := env.instances()
 	return instances, errors.Trace(err)
 }
 

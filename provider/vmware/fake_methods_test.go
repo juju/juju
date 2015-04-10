@@ -7,9 +7,11 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
+	gc "gopkg.in/check.v1"
 )
 
 func (s *BaseSuite) FakeMetadataServer() {
@@ -66,12 +68,69 @@ func (s *BaseSuite) FakeMetadataServer() {
 	})
 }
 
-func (s *BaseSuite) FakeInstances(c *fakeClient) {
+func (s *BaseSuite) FakeInstances(c *fakeClient, instName ...string) {
 	c.SetPropertyProxyHandler("FakeVmFolder", func(reqBody, resBody *methods.RetrievePropertiesBody) {
 		resBody.Res = &types.RetrievePropertiesResponse{
 			Returnval: []types.ObjectContent{},
 		}
 	})
+	c.SetPropertyProxyHandler("FakeVmFolder", func(reqBody, resBody *methods.RetrievePropertiesBody) {
+		resBody.Res = &types.RetrievePropertiesResponse{
+			Returnval: []types.ObjectContent{},
+		}
+	})
+}
+
+type InstRp struct {
+	Inst, Rp string
+}
+
+func (s *BaseSuite) FakeInstancesWithResourcePool(c *fakeClient, instances ...InstRp) {
+	retVal := []types.ObjectContent{}
+	for _, vm := range instances {
+		retVal = append(retVal, types.ObjectContent{
+			Obj: types.ManagedObjectReference{
+				Type:  "VirtualMachine",
+				Value: vm.Inst,
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "resourcePool", Val: types.ManagedObjectReference{
+					Type:  "ResourcePool",
+					Value: vm.Rp,
+				}},
+				{Name: "name", Val: vm.Inst},
+			},
+		})
+	}
+	c.SetPropertyProxyHandler("FakeVmFolder", func(reqBody, resBody *methods.RetrievePropertiesBody) {
+		resBody.Res = &types.RetrievePropertiesResponse{
+			Returnval: retVal,
+		}
+	})
+	c.SetPropertyProxyHandler("FakeVmFolder", func(reqBody, resBody *methods.RetrievePropertiesBody) {
+		resBody.Res = &types.RetrievePropertiesResponse{
+			Returnval: retVal,
+		}
+	})
+	for _, vm := range instances {
+		c.SetPropertyProxyHandler(vm.Inst, func(reqBody, resBody *methods.RetrievePropertiesBody) {
+			resBody.Res = &types.RetrievePropertiesResponse{
+				Returnval: []types.ObjectContent{{
+					Obj: types.ManagedObjectReference{
+						Type:  "VirtualMachine",
+						Value: vm.Inst,
+					},
+					PropSet: []types.DynamicProperty{
+						{Name: "resourcePool", Val: types.ManagedObjectReference{
+							Type:  "ResourcePool",
+							Value: vm.Rp,
+						}},
+						{Name: "name", Val: vm.Inst},
+					},
+				}},
+			}
+		})
+	}
 }
 
 func (s *BaseSuite) FakeAvailabilityZones(c *fakeClient, zoneName ...string) {
@@ -100,8 +159,38 @@ func (s *BaseSuite) FakeAvailabilityZones(c *fakeClient, zoneName ...string) {
 	})
 }
 
-func (s *BaseSuite) FakeCreateInstance(c *fakeClient, serverUrl string) {
-	s.FakeImportOvf(c, serverUrl)
+type ZoneRp struct {
+	Zone, Rp string
+}
+
+func (s *BaseSuite) FakeAvailabilityZonesWithResourcePool(c *fakeClient, zones ...ZoneRp) {
+	c.SetPropertyProxyHandler("FakeDatacenter", RetrieveDatacenterProperties)
+	retVal := []types.ObjectContent{}
+	for _, zone := range zones {
+		retVal = append(retVal, types.ObjectContent{
+			Obj: types.ManagedObjectReference{
+				Type:  "ComputeResource",
+				Value: zone.Zone,
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "resourcePool", Val: types.ManagedObjectReference{
+					Type:  "ResourcePool",
+					Value: zone.Rp,
+				}},
+				{Name: "name", Val: zone.Zone},
+			},
+		})
+	}
+
+	c.SetPropertyProxyHandler("FakeHostFolder", func(reqBody, resBody *methods.RetrievePropertiesBody) {
+		resBody.Res = &types.RetrievePropertiesResponse{
+			Returnval: retVal,
+		}
+	})
+}
+
+func (s *BaseSuite) FakeCreateInstance(c *fakeClient, serverUrl string, checker *gc.C) {
+	s.FakeImportOvf(c, serverUrl, checker)
 	powerOnTask := types.ManagedObjectReference{}
 	c.SetProxyHandler("PowerOnVM_Task", func(req, res soap.HasFault) {
 		resBody := res.(*methods.PowerOnVM_TaskBody)
@@ -162,7 +251,7 @@ func (s *BaseSuite) FakeCreateInstance(c *fakeClient, serverUrl string) {
 	})
 }
 
-func (s *BaseSuite) FakeImportOvf(c *fakeClient, serverUrl string) {
+func (s *BaseSuite) FakeImportOvf(c *fakeClient, serverUrl string, checker *gc.C) {
 	c.SetPropertyProxyHandler("FakeDatacenter", RetrieveDatacenterProperties)
 	c.SetProxyHandler("CreateImportSpec", func(req, res soap.HasFault) {
 		resBody := res.(*methods.CreateImportSpecBody)
@@ -240,10 +329,9 @@ func (s *BaseSuite) FakeImportOvf(c *fakeClient, serverUrl string) {
 		}
 	})
 	s.ServeMux.HandleFunc("/disk-device/", func(w http.ResponseWriter, req *http.Request) {
-		ioutil.ReadAll(req.Body)
-		//r, err := ioutil.ReadAll(req.Body)
-		//c.Assert(err, jc.ErrorIsNil)
-		//c.Assert(string(r), gc.Equals, "FakeVmdkContent")
+		r, err := ioutil.ReadAll(req.Body)
+		checker.Assert(err, jc.ErrorIsNil)
+		checker.Assert(string(r), gc.Equals, "FakeVmdkContent")
 	})
 	c.SetProxyHandler("DestroyPropertyCollector", func(req, res soap.HasFault) {
 		resBody := res.(*methods.DestroyPropertyCollectorBody)

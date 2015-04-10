@@ -1,0 +1,39 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package vmware_test
+
+import (
+	"github.com/juju/errors"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/vmware"
+)
+
+type environSuite struct {
+	vmware.BaseSuite
+}
+
+var _ = gc.Suite(&environSuite{})
+
+func (s *environSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+}
+
+func (s *environSuite) TestBootstrap(c *gc.C) {
+	s.PatchValue(&vmware.Bootstrap, func(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams,
+	) (string, string, environs.BootstrapFinalizer, error) {
+		return "", "", nil, errors.New("Bootstrap called")
+	})
+	_, _, _, err := s.Env.Bootstrap(nil, environs.BootstrapParams{})
+	c.Assert(err, gc.ErrorMatches, "Bootstrap called")
+}
+
+func (s *environSuite) TestDestroy(c *gc.C) {
+	s.PatchValue(&vmware.DestroyEnv, func(env environs.Environ) error {
+		return errors.New("Destroy called")
+	})
+	err := s.Env.Destroy()
+	c.Assert(err, gc.ErrorMatches, "Destroy called")
+}
