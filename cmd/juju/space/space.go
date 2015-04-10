@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/network"
 )
@@ -27,7 +28,7 @@ type SpaceAPI interface {
 	AllSpaces() ([]network.SpaceInfo, error)
 
 	// AllSubnets returns all subnets known to Juju.
-	AllSubnets() ([]network.SubnetInfo, error)
+	AllSubnets() ([]params.Subnet, error)
 
 	// CreateSpace creates a new Juju network space, associating the
 	// specified subnets with it (optional; can be empty).

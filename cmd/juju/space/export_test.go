@@ -3,8 +3,6 @@
 
 package space
 
-import "github.com/juju/juju/cmd/juju/subnet"
-
 func NewCreateCommand(api SpaceAPI) *CreateCommand {
 	createCmd := &CreateCommand{}
 	createCmd.api = api
@@ -29,10 +27,9 @@ func NewRenameCommand(api SpaceAPI) *RenameCommand {
 	return renameCmd
 }
 
-func NewListCommand(api SpaceAPI, subnetapi subnet.SubnetAPI) *ListCommand {
+func NewListCommand(api SpaceAPI) *ListCommand {
 	listCmd := &ListCommand{}
 	listCmd.api = api
-	listCmd.subnetapi = subnetapi
 	return listCmd
 }
 

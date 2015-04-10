@@ -26,7 +26,7 @@ var _ = gc.Suite(&ListSuite{})
 
 func (s *ListSuite) SetUpTest(c *gc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
-	s.command = space.NewListCommand(s.api, s.subnetapi)
+	s.command = space.NewListCommand(s.api)
 	c.Assert(s.command, gc.NotNil)
 }
 
@@ -70,7 +70,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
 		// envcmd.Wrap().
-		command := space.NewListCommand(s.api, s.subnetapi)
+		command := space.NewListCommand(s.api)
 		err := coretesting.InitCommand(command, test.args)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
@@ -140,26 +140,43 @@ spaces:
 }
 `, "") + "\n"
 
+	expectedShortYAML := `
+spaces:
+- space1
+- space2
+`[1:]
+
+	expectedShortJSON := unwrap.ReplaceAllLiteralString(`
+{
+  "spaces": [
+    "space1",
+    "space2"
+  ]
+}
+`, "") + "\n"
+
 	assertAPICalls := func() {
 		// Verify the API calls and reset the recorded calls.
-		s.api.CheckCallNames(c, "AllSpaces", "Close")
-		s.subnetapi.CheckCallNames(c, "ListSubnets", "Close")
+		s.api.CheckCallNames(c, "AllSpaces", "AllSubnets", "Close")
 		s.api.Calls = s.api.Calls[0:0]
-		s.subnetapi.Calls = s.subnetapi.Calls[0:0]
 	}
-	makeArgs := func(format string, extraArgs ...string) []string {
+	makeArgs := func(format string, short bool, extraArgs ...string) []string {
 		args := s.Strings(extraArgs...)
 		if format != "" {
 			args = append(args, "--format", format)
 		}
+		if short == true {
+			args = append(args, "--short")
+		}
 		return args
 	}
-	assertOutput := func(format, expected string) {
+	assertOutput := func(format, expected string, short bool) {
 		outFile := filepath.Join(outDir, "output")
 		c.Assert(outFile, jc.DoesNotExist)
 		defer os.Remove(outFile)
 		// Check -o works.
-		args := makeArgs(format, "-o", outFile)
+		var args []string
+		args = makeArgs(format, short, "-o", outFile)
 		s.AssertRunSucceeds(c, "", "", args...)
 		assertAPICalls()
 
@@ -181,7 +198,7 @@ spaces:
 		err = ioutil.WriteFile(outFile2, []byte("some contents"), 0644)
 		c.Assert(err, jc.ErrorIsNil)
 
-		args = makeArgs(format, "-o", outFile1, "--output", outFile2)
+		args = makeArgs(format, short, "-o", outFile1, "--output", outFile2)
 		s.AssertRunSucceeds(c, "", "", args...)
 		// Check only the last output file was used, and the output
 		// file was overwritten.
@@ -192,7 +209,7 @@ spaces:
 		assertAPICalls()
 
 		// Finally, check without --output.
-		args = makeArgs(format)
+		args = makeArgs(format, short)
 		s.AssertRunSucceeds(c, "", expected, args...)
 		assertAPICalls()
 	}
@@ -200,13 +217,17 @@ spaces:
 	for i, test := range []struct {
 		format   string
 		expected string
+		short    bool
 	}{
-		{"", expectedYAML}, // default format is YAML
-		{"yaml", expectedYAML},
-		{"json", expectedJSON},
+		{"", expectedYAML, false}, // default format is YAML
+		{"yaml", expectedYAML, false},
+		{"json", expectedJSON, false},
+		{"", expectedShortYAML, true}, // default format is YAML
+		{"yaml", expectedShortYAML, true},
+		{"json", expectedShortJSON, true},
 	} {
-		c.Logf("test #%d: format %q", i, test.format)
-		assertOutput(test.format, test.expected)
+		c.Logf("test #%d: format %q, short %v", i, test.format, test.short)
+		assertOutput(test.format, test.expected, test.short)
 	}
 }
 
@@ -223,11 +244,11 @@ func (s *ListSuite) TestRunWhenNoSpacesExistSucceeds(c *gc.C) {
 }
 
 func (s *ListSuite) TestRunWhenNoSubnetsFails(c *gc.C) {
-	s.subnetapi.Subnets = s.subnetapi.Subnets[0:0]
+	s.api.Subnets = s.api.Subnets[0:0]
 
 	s.AssertRunFails(c, "no subnets found, but found spaces: not valid")
 
-	s.api.CheckCallNames(c, "AllSpaces", "Close")
+	s.api.CheckCallNames(c, "AllSpaces", "AllSubnets", "Close")
 	s.api.CheckCall(c, 0, "AllSpaces")
 }
 
@@ -241,17 +262,17 @@ func (s *ListSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
 }
 
 func (s *ListSuite) TestRunWhenSubnetsAPIFails(c *gc.C) {
-	s.subnetapi.SetErrors(errors.NotValidf("response"))
+	s.api.SetErrors(nil, errors.NotValidf("response"))
 
 	s.AssertRunFails(c, "cannot list subnets: response not valid")
 
-	s.api.CheckCallNames(c, "AllSpaces", "Close")
+	s.api.CheckCallNames(c, "AllSpaces", "AllSubnets", "Close")
 	s.api.CheckCall(c, 0, "AllSpaces")
 }
 
 func (s *ListSuite) TestRunAPIConnectFails(c *gc.C) {
 	// TODO(dimitern): Change this once API is implemented.
-	s.command = space.NewListCommand(nil, nil)
+	s.command = space.NewListCommand(nil)
 	s.AssertRunFails(c,
 		"cannot connect to API server: API not implemented yet!",
 	)

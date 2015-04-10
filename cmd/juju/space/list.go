@@ -6,7 +6,6 @@ package space
 import (
 	"encoding/json"
 	"net"
-	"sort"
 	"strings"
 
 	"launchpad.net/gnuflag"
@@ -14,16 +13,13 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/subnet"
-	"github.com/juju/juju/network"
 )
 
 // ListCommand displays a list of all spaces known to Juju.
 type ListCommand struct {
 	SpaceCommandBase
-	Short     bool
-	out       cmd.Output
-	subnetapi subnet.SubnetAPI
+	Short bool
+	out   cmd.Output
 }
 
 const listCommandDoc = `
@@ -67,12 +63,10 @@ func (c *ListCommand) Init(args []string) error {
 // Run implements Command.Run.
 func (c *ListCommand) Run(ctx *cmd.Context) error {
 	api, err := c.NewAPI()
-	subnetapi, err := c.NewSubnetAPI()
 	if err != nil {
 		return errors.Annotate(err, "cannot connect to API server")
 	}
 	defer api.Close()
-	defer subnetapi.Close()
 
 	spaces, err := api.AllSpaces()
 	if err != nil {
@@ -83,11 +77,8 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 		return c.out.Write(ctx, nil)
 	}
 
-	// Sort spaces by name
-	sort.Sort(network.BySpaceName(spaces))
-
 	// Get the list of subnets
-	subnets, err := subnetapi.ListSubnets(nil, "")
+	subnets, err := api.AllSubnets()
 	if err != nil {
 		return errors.Annotate(err, "cannot list subnets")
 	}
@@ -101,41 +92,48 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 		subnetMap[subnet.CIDR] = subnet
 	}
 
-	// Construct the output list for displaying with the chosen
-	// format.
-	result := formattedList{
-		Spaces: make(map[string]map[string]formattedSubnet),
-	}
-
-	for _, space := range spaces {
-		result.Spaces[space.Name] = make(map[string]formattedSubnet)
-		for _, CIDR := range space.CIDRs {
-			sub := subnetMap[CIDR]
-			subResult := formattedSubnet{
-				ProviderId: sub.ProviderId,
-				Zones:      sub.Zones,
-			}
-			// Use the CIDR to determine the subnet type.
-			if ip, _, err := net.ParseCIDR(sub.CIDR); err != nil {
-				return errors.Errorf("subnet %q has invalid CIDR", sub.CIDR)
-			} else if ip.To4() != nil {
-				subResult.Type = typeIPv4
-			} else if ip.To16() != nil {
-				subResult.Type = typeIPv6
-			}
-
-			// Display correct status according to the life cycle value.
-			switch sub.Life {
-			case params.Alive:
-				subResult.Status = statusInUse
-			case params.Dying, params.Dead:
-				subResult.Status = statusTerminating
-			}
-			result.Spaces[space.Name][CIDR] = subResult
+	if c.Short {
+		result := formattedShortList{}
+		for _, space := range spaces {
+			result.Spaces = append(result.Spaces, space.Name)
 		}
-	}
+		return c.out.Write(ctx, result)
+	} else {
+		// Construct the output list for displaying with the chosen
+		// format.
+		result := formattedList{
+			Spaces: make(map[string]map[string]formattedSubnet),
+		}
 
-	return c.out.Write(ctx, result)
+		for _, space := range spaces {
+			result.Spaces[space.Name] = make(map[string]formattedSubnet)
+			for _, CIDR := range space.CIDRs {
+				sub := subnetMap[CIDR]
+				subResult := formattedSubnet{
+					ProviderId: sub.ProviderId,
+					Zones:      sub.Zones,
+				}
+				// Use the CIDR to determine the subnet type.
+				if ip, _, err := net.ParseCIDR(sub.CIDR); err != nil {
+					return errors.Errorf("subnet %q has invalid CIDR", sub.CIDR)
+				} else if ip.To4() != nil {
+					subResult.Type = typeIPv4
+				} else if ip.To16() != nil {
+					subResult.Type = typeIPv6
+				}
+
+				// Display correct status according to the life cycle value.
+				switch sub.Life {
+				case params.Alive:
+					subResult.Status = statusInUse
+				case params.Dying, params.Dead:
+					subResult.Status = statusTerminating
+				}
+				result.Spaces[space.Name][CIDR] = subResult
+			}
+		}
+		return c.out.Write(ctx, result)
+	}
 }
 
 const (
@@ -148,6 +146,10 @@ const (
 
 type formattedList struct {
 	Spaces map[string]map[string]formattedSubnet `json:"spaces" yaml:"spaces"`
+}
+
+type formattedShortList struct {
+	Spaces []string `json:"spaces" yaml:"spaces"`
 }
 
 // A goyaml bug means we can't declare these types locally to the
@@ -183,15 +185,4 @@ func (s formattedSubnet) MarshalJSON() ([]byte, error) {
 // GetYAML is defined on yaml.Getter.
 func (s formattedSubnet) GetYAML() (tag string, value interface{}) {
 	return "", formattedSubnetNoMethods(s)
-}
-
-func (c ListCommand) NewSubnetAPI() (subnet.SubnetAPI, error) {
-	// TODO(dimitern): Change this once the API is implemented.
-
-	if c.subnetapi != nil {
-		// Already created.
-		return c.subnetapi, nil
-	}
-
-	return nil, errors.New("API not implemented yet!")
 }
