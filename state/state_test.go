@@ -3738,6 +3738,47 @@ func (s *StateSuite) TestEnsureAvailabilityAddsNewMachines(c *gc.C) {
 	s.assertStateServerInfo(c, ids, ids, nil)
 }
 
+func (s *StateSuite) TestEnsureAvailabilityTo(c *gc.C) {
+	// Don't use agent presence to decide on machine availability.
+	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
+		return true, nil
+	})
+
+	ids := make([]string, 3)
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+	ids[0] = m0.Id()
+
+	// Add two non-state-server machines.
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertStateServerInfo(c, []string{"0"}, []string{"0"}, nil)
+
+	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", []string{"1", "2"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changes.Added, gc.HasLen, 0)
+	c.Assert(changes.Converted, gc.HasLen, 2)
+
+	for i := 1; i < 3; i++ {
+		m, err := s.State.Machine(fmt.Sprint(i))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{
+			state.JobHostUnits,
+			state.JobManageEnviron,
+		})
+		gotCons, err := m.Constraints()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(gotCons, gc.DeepEquals, constraints.Value{})
+		c.Assert(m.WantsVote(), jc.IsTrue)
+		ids[i] = m.Id()
+	}
+	s.assertStateServerInfo(c, ids, ids, nil)
+}
+
 func newUint64(i uint64) *uint64 {
 	return &i
 }

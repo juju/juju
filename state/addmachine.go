@@ -619,7 +619,7 @@ func (st *State) EnsureAvailability(
 			return nil, errors.New("cannot reduce state server count")
 		}
 
-		intent, err := st.ensureAvailabilityIntentions(currentInfo)
+		intent, err := st.ensureAvailabilityIntentions(currentInfo, placement)
 		if err != nil {
 			return nil, err
 		}
@@ -637,11 +637,18 @@ func (st *State) EnsureAvailability(
 			intent.promote = intent.promote[:n]
 		}
 		voteCount += len(intent.promote)
+
+		if n := desiredStateServerCount - voteCount; n < len(intent.convert) {
+			intent.convert = intent.convert[:n]
+		}
+		voteCount += len(intent.convert)
+
 		intent.newCount = desiredStateServerCount - voteCount
-		logger.Infof("%d new machines; promoting %v", intent.newCount, intent.promote)
+
+		logger.Infof("%d new machines; promoting %v; converting %v", intent.newCount, intent.promote, intent.convert)
 
 		var ops []txn.Op
-		ops, change, err = st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series, placement)
+		ops, change, err = st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series)
 		return ops, err
 	}
 	if err := st.run(buildTxn); err != nil {
@@ -658,6 +665,7 @@ type StateServersChanges struct {
 	Maintained []string
 	Promoted   []string
 	Demoted    []string
+	Converted  []string
 }
 
 // ensureAvailabilityIntentionOps returns operations to fulfil the desired intent.
@@ -666,7 +674,6 @@ func (st *State) ensureAvailabilityIntentionOps(
 	currentInfo *StateServerInfo,
 	cons constraints.Value,
 	series string,
-	placement []string,
 ) ([]txn.Op, StateServersChanges, error) {
 	var ops []txn.Op
 	var change StateServersChanges
@@ -678,16 +685,20 @@ func (st *State) ensureAvailabilityIntentionOps(
 		ops = append(ops, demoteStateServerOps(m)...)
 		change.Demoted = append(change.Demoted, m.doc.Id)
 	}
+	for _, m := range intent.convert {
+		ops = append(ops, convertStateServerOps(m)...)
+		change.Converted = append(change.Converted, m.doc.Id)
+	}
 	// Use any placement directives that have been provided
 	// when adding new machines, until the directives have
 	// been all used up. Set up a helper function to do the
 	// work required.
 	placementCount := 0
 	getPlacement := func() string {
-		if placementCount >= len(placement) {
+		if placementCount >= len(intent.placement) {
 			return ""
 		}
-		result := placement[placementCount]
+		result := intent.placement[placementCount]
 		placementCount++
 		return result
 	}
@@ -745,8 +756,10 @@ var stateServerAvailable = func(m *Machine) (bool, error) {
 }
 
 type ensureAvailabilityIntent struct {
-	newCount                          int
-	promote, maintain, demote, remove []*Machine
+	newCount  int
+	placement []string
+
+	promote, maintain, demote, remove, convert []*Machine
 }
 
 // ensureAvailabilityIntentions returns what we would like
@@ -755,8 +768,40 @@ type ensureAvailabilityIntent struct {
 //   demoting unavailable, voting machines;
 //   removing unavailable, non-voting, non-vote-holding machines;
 //   gathering available, non-voting machines that may be promoted;
-func (st *State) ensureAvailabilityIntentions(info *StateServerInfo) (*ensureAvailabilityIntent, error) {
+func (st *State) ensureAvailabilityIntentions(info *StateServerInfo, placement []string) (*ensureAvailabilityIntent, error) {
 	var intent ensureAvailabilityIntent
+	for _, s := range placement {
+		// TODO(natefinch): unscoped placements shouldn't ever get here (though
+		// they do currently).  We should fix up the CLI to always add a scope
+		// to placements and then we can remove the need to deal with unscoped
+		// placements.
+		p, err := instance.ParsePlacement(s)
+		if err == instance.ErrPlacementScopeMissing {
+			intent.placement = append(intent.placement, s)
+			continue
+		}
+		if err == nil && p.Scope == instance.MachineScope {
+			// TODO(natefinch) add env provider policy to check if conversion is
+			// possible (e.g. cannot be supported by Azure in HA mode).
+
+			if names.IsContainerMachine(p.Directive) {
+				return nil, errors.New("container placement directives not supported")
+			}
+
+			m, err := st.Machine(p.Directive)
+			if err != nil {
+				return nil, errors.Annotatef(err, "can't find machine for placement directive %q", s)
+			}
+			if m.IsManager() {
+				return nil, errors.Errorf("machine for placement directive %q is already a state server", s)
+			}
+			intent.convert = append(intent.convert, m)
+			intent.placement = append(intent.placement, s)
+			continue
+		}
+		return nil, errors.Errorf("unsupported placement directive %q", s)
+	}
+
 	for _, mid := range info.MachineIds {
 		m, err := st.Machine(mid)
 		if err != nil {
@@ -791,8 +836,28 @@ func (st *State) ensureAvailabilityIntentions(info *StateServerInfo) (*ensureAva
 			intent.remove = append(intent.remove, m)
 		}
 	}
-	logger.Infof("initial intentions: promote %v; maintain %v; demote %v; remove %v", intent.promote, intent.maintain, intent.demote, intent.remove)
+	logger.Infof("initial intentions: promote %v; maintain %v; demote %v; remove %v; convert: %v",
+		intent.promote, intent.maintain, intent.demote, intent.remove, intent.convert)
 	return &intent, nil
+}
+
+func convertStateServerOps(m *Machine) []txn.Op {
+	return []txn.Op{{
+		C:  machinesC,
+		Id: m.doc.DocID,
+		Update: bson.D{
+			{"$addToSet", bson.D{{"jobs", JobManageEnviron}}},
+			{"$set", bson.D{{"novote", false}}},
+		},
+		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
+	}, {
+		C:  stateServersC,
+		Id: environGlobalKey,
+		Update: bson.D{
+			{"$addToSet", bson.D{{"votingmachineids", m.doc.Id}}},
+			{"$addToSet", bson.D{{"machineids", m.doc.Id}}},
+		},
+	}}
 }
 
 func promoteStateServerOps(m *Machine) []txn.Op {
