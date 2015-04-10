@@ -232,11 +232,7 @@ var iptablesRules = map[string]IptablesRule{
 	// need to check whether the rule exists because we only want to
 	// add it once. Exit code 0 means the rule exists, 1 means it
 	// doesn't
-	"iptablesSNAT": {
-		"nat",
-		"POSTROUTING",
-		"-o {{.HostIF}} -j SNAT --to-source {{.HostIP}}",
-	}, "iptablesForwardOut": {
+	"iptablesForwardOut": {
 		// Ensure that we have ACCEPT rules that apply to the containers that
 		// we are creating so any DROP rules added by libvirt while setting
 		// up virbr0 further down the chain don't disrupt wanted traffic.
