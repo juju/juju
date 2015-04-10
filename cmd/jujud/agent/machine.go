@@ -707,11 +707,11 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			return worker.NewNotifyWorker(conv2state.New(st.Machiner(), a)), nil
 		})
 	}
-	
+
 	// TODO(wallyworld) - we don't want the storage workers running yet, even with feature flag.
 	// Will be enabled in a followup branch.
 	enableStorageWorkers := false
-S
+
 	if featureflag.Enabled(feature.Storage) {
 		runner.StartWorker("diskmanager", func() (worker.Worker, error) {
 			api, err := st.DiskManager()
