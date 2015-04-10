@@ -166,14 +166,16 @@ var stateTests = []struct {
 		},
 	},
 	// Continue operation.
+	/* TODO(jw4) LP-1438489
+	   {
+	       st: operation.State{
+	           Kind: operation.Continue,
+	           Step: operation.Pending,
+	           Hook: &hook.Info{Kind: hooks.ConfigChanged},
+	       },
+	       err: `unexpected hook info with Kind Continue`,
+	   },*/
 	{
-		st: operation.State{
-			Kind: operation.Continue,
-			Step: operation.Pending,
-			Hook: &hook.Info{Kind: hooks.ConfigChanged},
-		},
-		err: `unexpected hook info with Kind Continue`,
-	}, {
 		st: operation.State{
 			Kind:     operation.Continue,
 			Step:     operation.Pending,
