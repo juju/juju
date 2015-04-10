@@ -5,6 +5,7 @@ package networker_test
 
 import (
 	"runtime"
+	"sort"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -210,6 +211,38 @@ func (s *networkerSuite) TestMachineNetworkConfigPermissions(c *gc.C) {
 	})
 }
 
+type orderedNetwork []params.NetworkConfig
+
+func (o orderedNetwork) Len() int {
+	return len(o)
+}
+
+func (o orderedNetwork) Less(i, j int) bool {
+	if o[i].MACAddress < o[j].MACAddress {
+		return true
+	}
+	if o[i].MACAddress > o[j].MACAddress {
+		return false
+	}
+	if o[i].CIDR < o[j].CIDR {
+		return true
+	}
+	if o[i].CIDR > o[j].CIDR {
+		return false
+	}
+	if o[i].NetworkName < o[j].NetworkName {
+		return true
+	}
+	if o[i].NetworkName > o[j].NetworkName {
+		return false
+	}
+	return o[i].VLANTag < o[j].VLANTag
+}
+
+func (o orderedNetwork) Swap(i, j int) {
+	o[i], o[j] = o[j], o[i]
+}
+
 func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 	// TODO(bogdanteleaga): Find out what's the problem with this test
 	// It seems to work on some machines
@@ -290,16 +323,25 @@ func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
 		{Tag: "machine-0-lxc-0-lxc-0"},
 	}}
 
+	sort.Sort(orderedNetwork(expectedMachineConfig))
+	sort.Sort(orderedNetwork(expectedContainerConfig))
+	sort.Sort(orderedNetwork(expectedNestedContainerConfig))
+
+	expected := [][]params.NetworkConfig{
+		expectedMachineConfig,
+		expectedContainerConfig,
+		expectedNestedContainerConfig,
+	}
+
 	assert := func(f func(params.Entities) (params.MachineNetworkConfigResults, error)) {
 		results, err := f(args)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(results, gc.DeepEquals, params.MachineNetworkConfigResults{
-			Results: []params.MachineNetworkConfigResult{
-				{Error: nil, Config: expectedMachineConfig},
-				{Error: nil, Config: expectedContainerConfig},
-				{Error: nil, Config: expectedNestedContainerConfig},
-			},
-		})
+		c.Assert(results.Results, gc.HasLen, 3)
+		for i, r := range results.Results {
+			c.Assert(r.Error, gc.IsNil)
+			sort.Sort(orderedNetwork(r.Config))
+			c.Assert(r.Config, jc.DeepEquals, expected[i])
+		}
 	}
 	assert(s.networker.MachineNetworkInfo)
 	assert(s.networker.MachineNetworkConfig)

@@ -14,6 +14,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -187,6 +188,24 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	err = s.machine0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine0.MachineAddresses(), gc.HasLen, 0)
+}
+
+func (s *machinerSuite) TestJobs(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+		{Tag: "machine-0"},
+		{Tag: "machine-42"},
+	}}
+
+	result, err := s.machiner.Jobs(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.JobsResults{
+		Results: []params.JobsResult{
+			{Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
 }
 
 func (s *machinerSuite) TestWatch(c *gc.C) {

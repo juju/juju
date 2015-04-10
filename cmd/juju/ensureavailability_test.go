@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -80,9 +81,17 @@ func (f *fakeHAClient) EnsureAvailability(numStateServers int, cons constraints.
 		numStateServers = 3
 	}
 
-	// If numStateServers > 1, we need to pretend that we added some machines
 	f.result.Maintained = append(f.result.Maintained, "machine-0")
-	for i := 1; i < numStateServers; i++ {
+
+	for _, p := range placement {
+		m, err := instance.ParsePlacement(p)
+		if err == nil && m.Scope == instance.MachineScope {
+			f.result.Converted = append(f.result.Converted, "machine-"+m.Directive)
+		}
+	}
+
+	// We may need to pretend that we added some machines.
+	for i := len(f.result.Converted) + 1; i < numStateServers; i++ {
 		f.result.Added = append(f.result.Added, fmt.Sprintf("machine-%d", i))
 	}
 
@@ -115,11 +124,6 @@ func (s *EnsureAvailabilitySuite) TestBlockEnsureAvailability(c *gc.C) {
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
 	c.Check(stripped, gc.Matches, ".*TestBlockEnsureAvailability.*")
-}
-
-func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityPlacementError(c *gc.C) {
-	_, err := s.runEnsureAvailability(c, "-n", "1", "--to", "1")
-	c.Assert(err, gc.ErrorMatches, `unsupported ensure-availability placement directive "1"`)
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityFormatYaml(c *gc.C) {
@@ -254,5 +258,20 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityEndToEnd(c *gc.C) {
 	// Machine 0 is demoted because it hasn't reported its presence
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
 		"adding machines: 1, 2, 3\n"+
-			"demoting machines 0\n\n")
+			"demoting machines: 0\n\n")
+}
+
+func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityToExisting(c *gc.C) {
+	ctx, err := s.runEnsureAvailability(c, "--to", "1,2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(coretesting.Stdout(ctx), gc.Equals, `
+maintaining machines: 0
+converting machines: 1, 2
+
+`[1:])
+
+	c.Check(s.fake.numStateServers, gc.Equals, 0)
+	c.Check(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
+	c.Check(s.fake.series, gc.Equals, "")
+	c.Check(len(s.fake.placement), gc.Equals, 2)
 }

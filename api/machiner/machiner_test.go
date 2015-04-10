@@ -54,7 +54,7 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 
 func (s *machinerSuite) TestMachineAndMachineTag(c *gc.C) {
 	machine, err := s.machiner.Machine(names.NewMachineTag("42"))
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, gc.ErrorMatches, ".*permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(machine, gc.IsNil)
 
