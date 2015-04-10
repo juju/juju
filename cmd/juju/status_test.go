@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/api"

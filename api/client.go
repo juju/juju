@@ -21,7 +21,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"

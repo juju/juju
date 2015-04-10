@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"

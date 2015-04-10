@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
+	systemdtesting "github.com/juju/juju/service/systemd/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -771,7 +772,7 @@ func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 	commands, err := s.service.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
 
-	test := systemd.WriteConfTest{
+	test := systemdtesting.WriteConfTest{
 		Service:  name,
 		DataDir:  s.dataDir,
 		Expected: s.newConfStr(name, ""),
@@ -790,7 +791,7 @@ func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
 	commands, err := service.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
 
-	test := systemd.WriteConfTest{
+	test := systemdtesting.WriteConfTest{
 		Service: name,
 		DataDir: s.dataDir,
 		Expected: strings.Replace(
@@ -824,7 +825,7 @@ func (s *initSystemSuite) TestInstallCommandsShutdown(c *gc.C) {
 	commands, err := svc.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
 
-	test := systemd.WriteConfTest{
+	test := systemdtesting.WriteConfTest{
 		Service: name,
 		DataDir: s.dataDir,
 		Expected: `

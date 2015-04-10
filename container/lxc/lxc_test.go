@@ -38,7 +38,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/systemd"
+	systemdtesting "github.com/juju/juju/service/systemd/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -845,7 +845,7 @@ func (s *LxcSuite) TestShutdownInitCommandsSystemd(c *gc.C) {
 	commands, err := lxc.ShutdownInitCommands(service.InitSystemSystemd)
 	c.Assert(err, jc.ErrorIsNil)
 
-	test := systemd.WriteConfTest{
+	test := systemdtesting.WriteConfTest{
 		Service: "juju-template-restart",
 		DataDir: "/var/lib/juju",
 		Expected: `
