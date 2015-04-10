@@ -13,7 +13,7 @@ github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	2014-05-2
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T00:08:15Z
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
 github.com/juju/blobstore	git	1591df2bf102f9cbeeb9145d22c6ccc29a6804ef	2015-03-30T-9:15:59Z
-github.com/juju/cmd	git	31e7b27318ecf6f843433822ddecdaf6900a343f	2015-04-03T19:36:57Z
+github.com/juju/cmd	git	d585b5672a9bec4e04b800ecb69a5035562b06eb	2015-04-10T20:58:56Z
 github.com/juju/errors	git	4567a5e69fd3130ca0d89f69478e7ac025b67452	2015-03-27T19:24:31Z
 github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
 github.com/juju/gojsonreference	git	f0d24ac5ee330baa21721cdff56d45e4ee42628e	2015-02-04T19:46:33Z
@@ -23,7 +23,7 @@ github.com/juju/names	git	0028c782704ccf360cd73af0ff062a4fad6e7311	2015-03-31T19
 github.com/juju/ratelimit	git	aa5bb718d4d435629821789cb90970319f57bfe5	2015-03-29T20:41:32Z
 github.com/juju/schema	git	1c4e902df91bd058b84029533bf4ce92e6ef87ab	2015-03-29T20:12:23Z
 github.com/juju/syslog	git	6be94e8b718766e9ff7a37342157fe4795da7cfa	2015-02-05T10:00:34Z
-github.com/juju/testing	git	02c8c5aed08558503a3b93d61ccb7b94ba759f6c	2015-03-31T19:05:51Z
+github.com/juju/testing	git	1a2745b8ad91aec27962257280af7158b2cd9a7a	2015-04-10T20:58:14Z
 github.com/juju/txn	git	2407a1fa094db5603f4718f11e1fafc8543273eb	2015-03-27T15:47:42Z
 github.com/juju/utils	git	6436ed20810ed9490a94cc42db7041c8d7f5f996	2015-03-31T19:07:01Z
 golang.org/x/crypto	git	1fbbd62cfec66bd39d91e97749579579d4d3037e	2014-12-09T23:26:36Z
@@ -32,7 +32,7 @@ golang.org/x/oauth2	git	11c60b6f71a6ad48ed6f93c65fa4c6f9b1b5b46a	2015-03-25T02:0
 google.golang.org/cloud	git	f20d6dcccb44ed49de45ae3703312cb46e627db1	2015-03-19T22:36:35Z
 gopkg.in/amz.v3	git	f5c958d2b012da23a4600bad441f20b13ec262c4	2015-04-03T13:05:17Z
 gopkg.in/check.v1	git	91ae5f88a67b14891cfd43895b01164f6c120420	2014-08-27T13:58:41Z
-gopkg.in/juju/charm.v4	git	f3628b634e1d83fdb838f47e92dac92588af202c	2015-03-30T15:27:59Z
+gopkg.in/juju/charm.v4	git	af4be7b079ac3a1448b980c8666eaf60333ead12	2015-04-10T20:59:38Z
 gopkg.in/mgo.v2	git	dc255bb679efa273b6544a03261c4053505498a4	2014-07-30T20:00:37Z
 gopkg.in/natefinch/lumberjack.v2	git	d28785c2f27cd682d872df46ccd8232843629f54	2014-07-25T20:51:33Z
 gopkg.in/natefinch/npipe.v2	git	e562d4ae5c2f838f9e7e406f7d9890d5b02467a9	2014-08-11T16:19:00Z
