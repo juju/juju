@@ -169,7 +169,6 @@ func (s *BaseSpaceSuite) Strings(values ...string) []string {
 type StubAPI struct {
 	*testing.Stub
 
-	//Subnets  []network.SubnetInfo
 	Spaces  []network.SpaceInfo
 	Subnets []params.Subnet
 }
@@ -181,21 +180,6 @@ var _ space.SpaceAPI = (*StubAPI)(nil)
 func NewStubAPI() *StubAPI {
 	return &StubAPI{
 		Stub: &testing.Stub{},
-		/*Subnets: []network.SubnetInfo{{
-			CIDR:              "10.1.2.0/24",
-			ProviderId:        "subnet-private",
-			AllocatableIPLow:  net.ParseIP("10.1.2.10"),
-			AllocatableIPHigh: net.ParseIP("10.1.2.200"),
-		}, {
-			CIDR:       "2001:db8::/32",
-			ProviderId: "subnet-public",
-		}, {
-			CIDR:              "4.3.2.0/28",
-			ProviderId:        "vlan-42",
-			VLANTag:           42,
-			AllocatableIPLow:  net.ParseIP("4.3.2.2"),
-			AllocatableIPHigh: net.ParseIP("4.3.2.4"),
-		}},*/
 		Spaces: []network.SpaceInfo{{
 			Name:  "space1",
 			CIDRs: []string{"10.1.2.0/24"},

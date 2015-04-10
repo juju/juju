@@ -38,7 +38,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		expectFormat string
 		expectErr    string
 	}{{
-		about:        "too many arguments",
+		about:        "unrecognized arguments",
 		args:         s.Strings("foo"),
 		expectErr:    `unrecognized args: \["foo"\]`,
 		expectFormat: "yaml",
