@@ -26,16 +26,29 @@ type notifyWorkerSuite struct {
 
 var _ = gc.Suite(&notifyWorkerSuite{})
 
-func (s *notifyWorkerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.actor = &notifyHandler{
-		actions: nil,
-		handled: make(chan struct{}, 1),
+func newNotifyHandlerWorker(c *gc.C, setupError, handlerError, teardownError error) (*notifyHandler, worker.Worker) {
+	nh := &notifyHandler{
+		actions:       nil,
+		handled:       make(chan struct{}, 1),
+		setupError:    setupError,
+		teardownError: teardownError,
+		handlerError:  handlerError,
 		watcher: &testNotifyWatcher{
 			changes: make(chan struct{}),
 		},
 	}
-	s.worker = worker.NewNotifyWorker(s.actor)
+	w := worker.NewNotifyWorker(nh)
+	select {
+	case <-nh.setupDone:
+	case <-time.After(coretesting.ShortWait):
+		c.Error("Failed waiting for notifyHandler.Setup to be called during SetUpTest")
+	}
+	return nh, w
+}
+
+func (s *notifyWorkerSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.actor, s.worker = newNotifyHandlerWorker(c, nil, nil, nil)
 }
 
 func (s *notifyWorkerSuite) TearDownTest(c *gc.C) {
@@ -237,15 +250,7 @@ func (s *notifyWorkerSuite) TestChangesTriggerHandler(c *gc.C) {
 func (s *notifyWorkerSuite) TestSetUpFailureStopsWithTearDown(c *gc.C) {
 	// Stop the worker and SetUp again, this time with an error
 	s.stopWorker(c)
-	actor := &notifyHandler{
-		actions:    nil,
-		handled:    make(chan struct{}, 1),
-		setupError: fmt.Errorf("my special error"),
-		watcher: &testNotifyWatcher{
-			changes: make(chan struct{}),
-		},
-	}
-	w := worker.NewNotifyWorker(actor)
+	actor, w := newNotifyHandlerWorker(c, fmt.Errorf("my special error"), nil, nil)
 	err := waitShort(c, w)
 	c.Check(err, gc.ErrorMatches, "my special error")
 	// TearDown is not called on SetUp error.
@@ -271,15 +276,7 @@ func (s *notifyWorkerSuite) TestCleanRunNoticesTearDownError(c *gc.C) {
 
 func (s *notifyWorkerSuite) TestHandleErrorStopsWorkerAndWatcher(c *gc.C) {
 	s.stopWorker(c)
-	actor := &notifyHandler{
-		actions:      nil,
-		handled:      make(chan struct{}, 1),
-		handlerError: fmt.Errorf("my handling error"),
-		watcher: &testNotifyWatcher{
-			changes: make(chan struct{}),
-		},
-	}
-	w := worker.NewNotifyWorker(actor)
+	actor, w := newNotifyHandlerWorker(c, nil, fmt.Errorf("my handling error"), nil)
 	actor.watcher.TriggerChange(c)
 	waitForHandledNotify(c, actor.handled)
 	err := waitShort(c, w)
