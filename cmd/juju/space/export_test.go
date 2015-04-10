@@ -22,7 +22,17 @@ func NewUpdateCommand(api SpaceAPI) *UpdateCommand {
 }
 
 func NewRenameCommand(api SpaceAPI) *RenameCommand {
-	updateCmd := &RenameCommand{}
-	updateCmd.api = api
-	return updateCmd
+	renameCmd := &RenameCommand{}
+	renameCmd.api = api
+	return renameCmd
+}
+
+func NewListCommand(api SpaceAPI) *ListCommand {
+	listCmd := &ListCommand{}
+	listCmd.api = api
+	return listCmd
+}
+
+func ListFormat(cmd *ListCommand) string {
+	return cmd.out.Name()
 }

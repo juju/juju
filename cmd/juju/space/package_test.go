@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
@@ -104,6 +105,28 @@ func (s *BaseSpaceSuite) CheckOutputsStdout(c *gc.C, stdout, stderr string, err 
 	s.CheckOutputs(c, stdout, stderr, err, expectedStdout, "", "")
 }
 
+// AssertRunFails is a shortcut for calling RunSubCommand with the
+// passed args then asserting the output is empty and the error is as
+// expected, finally returning the error.
+func (s *BaseSpaceSuite) AssertRunFails(c *gc.C, expectErr string, args ...string) error {
+	stdout, stderr, err := s.RunSubCommand(c, args...)
+	c.Assert(err, gc.ErrorMatches, expectErr)
+	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stderr, gc.Equals, "")
+	return err
+}
+
+// AssertRunSucceeds is a shortcut for calling RunSuperCommand with
+// the passed args then asserting the stderr output matches
+// expectStderr, stdout is equal to expectStdout, and the error is
+// nil.
+func (s *BaseSpaceSuite) AssertRunSucceeds(c *gc.C, expectStderr, expectStdout string, args ...string) {
+	stdout, stderr, err := s.RunSubCommand(c, args...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stdout, gc.Equals, expectStdout)
+	c.Assert(stderr, gc.Matches, expectStderr)
+}
+
 // TestHelp runs the command with --help as argument and verifies the
 // output.
 func (s *BaseSpaceSuite) TestHelp(c *gc.C) {
@@ -146,7 +169,8 @@ func (s *BaseSpaceSuite) Strings(values ...string) []string {
 type StubAPI struct {
 	*testing.Stub
 
-	Subnets []network.SubnetInfo
+	Spaces  []network.SpaceInfo
+	Subnets []params.Subnet
 }
 
 var _ space.SpaceAPI = (*StubAPI)(nil)
@@ -156,20 +180,39 @@ var _ space.SpaceAPI = (*StubAPI)(nil)
 func NewStubAPI() *StubAPI {
 	return &StubAPI{
 		Stub: &testing.Stub{},
-		Subnets: []network.SubnetInfo{{
+		Spaces: []network.SpaceInfo{{
+			Name:  "space1",
+			CIDRs: []string{"10.1.2.0/24"},
+		}, {
+			Name:  "space2",
+			CIDRs: []string{"10.1.2.0/24", "4.3.2.0/28"},
+		}},
+		Subnets: []params.Subnet{{
+			// IPv4 subnet.
 			CIDR:              "10.1.2.0/24",
 			ProviderId:        "subnet-private",
-			AllocatableIPLow:  net.ParseIP("10.1.2.10"),
-			AllocatableIPHigh: net.ParseIP("10.1.2.200"),
+			Life:              params.Alive,
+			SpaceTag:          "space-public",
+			Zones:             []string{"zone1", "zone2"},
+			StaticRangeLowIP:  net.ParseIP("10.1.2.10"),
+			StaticRangeHighIP: net.ParseIP("10.1.2.200"),
 		}, {
-			CIDR:       "0.1.0.0/16",
+			// IPv6 subnet.
+			CIDR:       "10.1.2.0/24",
 			ProviderId: "subnet-public",
+			Life:       params.Dying,
+			SpaceTag:   "space-dmz",
+			Zones:      []string{"zone2"},
 		}, {
+			// IPv4 VLAN subnet.
 			CIDR:              "4.3.2.0/28",
+			Life:              params.Dead,
 			ProviderId:        "vlan-42",
+			SpaceTag:          "space-vlan-42",
+			Zones:             []string{"zone1"},
 			VLANTag:           42,
-			AllocatableIPLow:  net.ParseIP("4.3.2.2"),
-			AllocatableIPHigh: net.ParseIP("4.3.2.4"),
+			StaticRangeLowIP:  net.ParseIP("4.3.2.2"),
+			StaticRangeHighIP: net.ParseIP("4.3.2.4"),
 		}},
 	}
 }
@@ -179,7 +222,15 @@ func (sa *StubAPI) Close() error {
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) AllSubnets() ([]network.SubnetInfo, error) {
+func (sa *StubAPI) AllSpaces() ([]network.SpaceInfo, error) {
+	sa.MethodCall(sa, "AllSpaces")
+	if err := sa.NextErr(); err != nil {
+		return nil, err
+	}
+	return sa.Spaces, nil
+}
+
+func (sa *StubAPI) AllSubnets() ([]params.Subnet, error) {
 	sa.MethodCall(sa, "AllSubnets")
 	if err := sa.NextErr(); err != nil {
 		return nil, err

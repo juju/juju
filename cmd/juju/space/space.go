@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/network"
 )
@@ -23,8 +24,11 @@ import (
 type SpaceAPI interface {
 	io.Closer
 
+	// AllSpaces returns all Juju network spaces.
+	AllSpaces() ([]network.SpaceInfo, error)
+
 	// AllSubnets returns all subnets known to Juju.
-	AllSubnets() ([]network.SubnetInfo, error)
+	AllSubnets() ([]params.Subnet, error)
 
 	// CreateSpace creates a new Juju network space, associating the
 	// specified subnets with it (optional; can be empty).
@@ -85,6 +89,7 @@ func NewSuperCommand() cmd.Command {
 	spaceCmd.Register(envcmd.Wrap(&RemoveCommand{}))
 	spaceCmd.Register(envcmd.Wrap(&UpdateCommand{}))
 	spaceCmd.Register(envcmd.Wrap(&RenameCommand{}))
+	spaceCmd.Register(envcmd.Wrap(&ListCommand{}))
 
 	return spaceCmd
 }

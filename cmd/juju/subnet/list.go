@@ -17,7 +17,7 @@ import (
 	"github.com/juju/utils/set"
 )
 
-// ListCommand calls the API to add an existing subnet to Juju.
+// ListCommand displays a list of all subnets known to Juju
 type ListCommand struct {
 	SubnetCommandBase
 
