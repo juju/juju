@@ -143,7 +143,7 @@ func (rh *runHook) beforeHook() error {
 
 func (rh *runHook) afterHook(state State) (bool, error) {
 	ctx := rh.runner.Context()
-	hasRunStatusSet := ctx.HasExecutionSetUnitStatus()
+	hasRunStatusSet := ctx.HasExecutionSetUnitStatus() || state.StatusSet
 	var err error
 	switch rh.info.Kind {
 	case hooks.Stop:

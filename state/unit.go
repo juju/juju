@@ -807,9 +807,18 @@ func (u *Unit) AgentStatus() (StatusInfo, error) {
 // the effort to separate Unit from UnitAgent. Now the Status for UnitAgent is in
 // the UnitAgent struct.
 func (u *Unit) Status() (StatusInfo, error) {
-	doc, err := getStatus(u.st, u.globalKey())
+	// The current health spec says when a hook error occurs, the workload should
+	// be in error state, but the state model more correctly records the agent
+	// itself as being in error. So we'll do that model translation here.
+	doc, err := getStatus(u.st, u.globalAgentKey())
 	if err != nil {
 		return StatusInfo{}, err
+	}
+	if doc.Status != StatusError {
+		doc, err = getStatus(u.st, u.globalKey())
+		if err != nil {
+			return StatusInfo{}, err
+		}
 	}
 	return StatusInfo{
 		Status:  doc.Status,

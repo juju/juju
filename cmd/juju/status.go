@@ -186,6 +186,7 @@ type serviceStatus struct {
 	CanUpgradeTo  string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
 	Exposed       bool                  `json:"exposed" yaml:"exposed"`
 	Life          string                `json:"life,omitempty" yaml:"life,omitempty"`
+	StatusInfo    statusInfoContents    `json:"service-status,omitempty" yaml:"service-status,omitempty"`
 	Relations     map[string][]string   `json:"relations,omitempty" yaml:"relations,omitempty"`
 	Networks      map[string][]string   `json:"networks,omitempty" yaml:"networks,omitempty"`
 	SubordinateTo []string              `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
@@ -399,6 +400,7 @@ func (sf *statusFormatter) formatService(name string, service api.ServiceStatus)
 		CanUpgradeTo:  service.CanUpgradeTo,
 		SubordinateTo: service.SubordinateTo,
 		Units:         make(map[string]unitStatus),
+		StatusInfo:    sf.getServiceStatusInfo(service),
 	}
 	if len(service.Networks.Enabled) > 0 {
 		out.Networks["enabled"] = service.Networks.Enabled
@@ -410,6 +412,19 @@ func (sf *statusFormatter) formatService(name string, service api.ServiceStatus)
 		out.Units[k] = sf.formatUnit(m, name)
 	}
 	return out
+}
+
+func (sf *statusFormatter) getServiceStatusInfo(service api.ServiceStatus) statusInfoContents {
+	info := statusInfoContents{
+		Err:     service.Status.Err,
+		Current: service.Status.Status,
+		Message: service.Status.Info,
+		Version: service.Status.Version,
+	}
+	if service.Status.Since != nil {
+		info.Since = service.Status.Since.Local().Format(time.RFC822)
+	}
+	return info
 }
 
 func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) unitStatus {

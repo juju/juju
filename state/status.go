@@ -159,7 +159,8 @@ func (status Status) ValidWorkloadStatus() bool {
 		StatusWaiting,
 		StatusActive,
 		StatusUnknown,
-		StatusTerminated:
+		StatusTerminated,
+		StatusError: // include error so that we can filter on what the spec says is valid
 		return true
 	case // Deprecated statuses
 		StatusPending,
@@ -399,6 +400,34 @@ func unitStatusValid(status Status) bool {
 // validateSet returns an error if the unitStatusDoc does not represent a sane
 // SetStatus operation for a unit.
 func (doc *unitStatusDoc) validateSet() error {
+	if !unitStatusValid(doc.Status) {
+		return errors.Errorf("cannot set invalid status %q", doc.Status)
+	}
+	return nil
+}
+
+type serviceStatusDoc struct {
+	statusDoc
+}
+
+// newServiceStatusDoc creates a new serviceStatusDoc with the given status and other data.
+func newServiceStatusDoc(who string, status Status, info string, data map[string]interface{}) (*serviceStatusDoc, error) {
+	doc := &serviceStatusDoc{statusDoc{
+		Status:     status,
+		StatusInfo: info,
+		StatusData: data,
+	}}
+	timestamp := nowToTheSecond()
+	doc.Updated = &timestamp
+	if err := doc.validateSet(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return doc, nil
+}
+
+// validateSet returns an error if the serviceStatusDoc does not represent a sane
+// SetStatus operation for a service.
+func (doc *serviceStatusDoc) validateSet() error {
 	if !unitStatusValid(doc.Status) {
 		return errors.Errorf("cannot set invalid status %q", doc.Status)
 	}

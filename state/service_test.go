@@ -1751,5 +1751,46 @@ func (s *ServiceSuite) TestMetricCredentialsOnDying(c *gc.C) {
 	assertLife(c, s.mysql, state.Dying)
 	err = s.mysql.SetMetricCredentials([]byte("set after dying"))
 	c.Assert(err, gc.ErrorMatches, "cannot update metric credentials: service not found or not alive")
+}
 
+func (s *ServiceSuite) testStatus(c *gc.C, status1, status2, expected state.Status) {
+	u1, err := s.mysql.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u1.SetStatus(status1, "status 1", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	u2, err := s.mysql.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	if status2 == state.StatusError {
+		err = u2.SetAgentStatus(status2, "status 2", nil)
+	} else {
+		err = u2.SetStatus(status2, "status 2", nil)
+	}
+	c.Assert(err, jc.ErrorIsNil)
+
+	statusInfo, err := s.mysql.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Since, gc.NotNil)
+	statusInfo.Since = nil
+	c.Assert(statusInfo, jc.DeepEquals, state.StatusInfo{
+		Status:  expected,
+		Message: "status 2",
+		Data:    map[string]interface{}{},
+	})
+}
+
+func (s *ServiceSuite) TestStatus(c *gc.C) {
+	for _, t := range []struct{ status1, status2, expected state.Status }{
+		{state.StatusActive, state.StatusWaiting, state.StatusWaiting},
+		{state.StatusMaintenance, state.StatusWaiting, state.StatusWaiting},
+		{state.StatusActive, state.StatusBlocked, state.StatusBlocked},
+		{state.StatusWaiting, state.StatusBlocked, state.StatusBlocked},
+		{state.StatusMaintenance, state.StatusBlocked, state.StatusBlocked},
+		{state.StatusMaintenance, state.StatusError, state.StatusError},
+		{state.StatusBlocked, state.StatusError, state.StatusError},
+		{state.StatusWaiting, state.StatusError, state.StatusError},
+		{state.StatusActive, state.StatusError, state.StatusError},
+	} {
+		s.testStatus(c, t.status1, t.status2, t.expected)
+	}
 }
