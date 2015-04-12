@@ -3,7 +3,6 @@ from argparse import ArgumentParser
 from contextlib import contextmanager
 from textwrap import dedent
 from subprocess import CalledProcessError
-from os import environ
 
 from jujuconfig import get_juju_home
 from jujupy import (
@@ -23,6 +22,7 @@ from upload_hetero_control import (
     HUploader,
     get_credentials
     )
+from jujuci import add_credential_args
 
 
 def bootstrap_client(client, upload_tools):
@@ -223,11 +223,7 @@ def parse_args(argv=None):
     parser.add_argument('--debug', help='Run juju with --debug',
                         action='store_true', default=False)
     parser.add_argument('--agent-url', default=None)
-    parser.add_argument('--user', default=environ.get('JENKINS_USER'),
-                        help="Jenkins username")
-    parser.add_argument('--password',
-                        default=environ.get('JENKINS_PASSWORD'),
-                        help="Jenkins password")
+    add_credential_args(parser)
     return parser.parse_args(argv)
 
 

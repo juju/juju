@@ -11,54 +11,51 @@ from ConfigParser import ConfigParser
 import json
 import sys
 from argparse import ArgumentParser
-from collections import namedtuple
-
+from jujuci import(
+    JENKINS_URL,
+    get_credentials,
+    add_credential_args,
+)
 
 __metaclass__ = type
 
 
-Credentials = namedtuple('Credentials', ['user', 'password'])
-
-
-class JenkinsJob:
-    def __init__(self, credentials, job_name, build_number, jenkins,
-                 build_info, url):
+class JenkinsBuild:
+    def __init__(self, credentials, job_name, jenkins, build_info):
         """
         :param credentials: Jenkins credentials
         :param job_name:  Jenkins job name
-        :param build_number: Jenkins build number
         :param jenkins: Jenkins object
         :param build_info: Jenkins build info
-        :param url: Jenkins server url
         :return: None
         """
         self.credentials = credentials
-        self.url = url or 'http://juju-ci.vapour.ws:8080'
         self.jenkins = jenkins
         self.job_name = job_name
-        self.build_number = build_number
         self.build_info = build_info
 
     @classmethod
     def factory(cls, credentials, job_name, build_number=None, url=None):
-        url = url or 'http://juju-ci.vapour.ws:8080'
+        """
+        :param credentials: Jenkins credentials
+        :param job_name: Jenkins job name
+        :param build_number: Jenkins build number
+        :param url: Jenkins url
+        :return:
+        """
+        url = url or JENKINS_URL
         jenkins = Jenkins(url, *credentials)
-        build_info = jenkins.get_build_info(job_name, build_number) \
-            if build_number else None
-        return cls(credentials, job_name, build_number, jenkins, build_info,
-                   url)
+        build_info = (jenkins.get_build_info(job_name, build_number)
+                      if build_number else None)
+        return cls(credentials, job_name, jenkins, build_info)
 
-    def get_build_info(self):
+    def get_build_info(self, build_number=None):
         """
         Gets build info from the Jenkins server
         :rtype: dict
         """
-        if not self.build_number:
-            raise ValueError(
-                'Build number must be set before getting build info')
-        self.build_info = self.jenkins.get_build_info(
-            self.job_name, self.build_number)
-        return self.build_info
+        build_number = build_number or self.get_build_number()
+        return self.jenkins.get_build_info(self.job_name, build_number)
 
     @property
     def result(self):
@@ -111,11 +108,10 @@ class JenkinsJob:
         return self.build_info['url'] + 'artifact/' + relative_path
 
     def get_build_number(self):
-        return self.build_number
+        return self.build_info.get('number')
 
     def set_build_number(self, build_number):
-        self.build_number = build_number
-        self.build_info = self.get_build_info()
+        self.build_info = self.get_build_info(build_number)
 
 
 class S3:
@@ -151,14 +147,14 @@ class S3:
         return True
 
 
-class HUploader():
+class HUploader:
     """
     Uploads the result of Heterogeneous Control test to S3
     """
 
-    def __init__(self, s3, jenkins):
+    def __init__(self, s3, jenkins_build):
         self.s3 = s3
-        self.jenkins = jenkins
+        self.jenkins_build = jenkins_build
 
     @classmethod
     def factory(cls, credentials, build_number=None):
@@ -170,10 +166,10 @@ class HUploader():
         """
         s3 = S3.factory()
         build_number = int(build_number) if build_number else build_number
-        jenkins = JenkinsJob.factory(
+        jenkins_build = JenkinsBuild.factory(
             credentials=credentials, job_name='compatibility-control',
             build_number=build_number)
-        return cls(s3, jenkins)
+        return cls(s3, jenkins_build)
 
     def upload(self):
         """
@@ -196,7 +192,7 @@ class HUploader():
             raise ValueError('Build number is not set')
         if not str(build_number).isdigit():
             raise ValueError('Build number is not a digit')
-        self.jenkins.set_build_number(int(build_number))
+        self.jenkins_build.set_build_number(int(build_number))
         self.upload()
 
     def upload_all_test_results(self):
@@ -204,26 +200,26 @@ class HUploader():
         Uploads all the test results to S3. It starts with the build_number 1
         :return: None
         """
-        latest_build_num = self.jenkins.get_latest_build_number()
+        latest_build_num = self.jenkins_build.get_latest_build_number()
         for build_number in xrange(1, latest_build_num + 1):
-            self.jenkins.set_build_number(build_number)
+            self.jenkins_build.set_build_number(build_number)
             self.upload()
 
     def upload_test_results(self):
         filename = self._create_filename('result-results.json')
-        headers = {"Content-Type": "application/json"}
-        self.s3.store(filename, json.dumps(self.jenkins.get_build_info()),
-                      headers=headers)
+        headers = {"Content-Type": "application/json; charset=utf8"}
+        self.s3.store(filename, json.dumps(
+            self.jenkins_build.get_build_info()), headers=headers)
 
     def upload_console_log(self):
         filename = self._create_filename('console-consoleText.txt')
-        headers = {"Content-Type": "text/plain"}
+        headers = {"Content-Type": "text/plain; charset=utf8"}
         self.s3.store(
-            filename, self.jenkins.get_console_text(), headers=headers)
+            filename, self.jenkins_build.get_console_text(), headers=headers)
 
     def upload_artifacts(self):
-        headers = {"Content-Type": "application/octet-stream"}
-        for filename, content in self.jenkins.artifacts():
+        headers = {"Content-Type": "application/x-gzip"}
+        for filename, content in self.jenkins_build.artifacts():
             filename = self._create_filename('log-' + filename)
             self.s3.store(filename, content, headers=headers)
 
@@ -234,7 +230,7 @@ class HUploader():
         :return: Filename
         :rtype: str
         """
-        return str(self.jenkins.get_build_number()) + '-' + filename
+        return str(self.jenkins_build.get_build_number()) + '-' + filename
 
 
 def get_s3_access():
@@ -243,29 +239,10 @@ def get_s3_access():
     """
     s3cfg_path = os.path.join(
         os.getenv('HOME'), 'cloud-city/juju-qa.s3cfg')
-    c = ConfigParser()
-    c.readfp(open(s3cfg_path))
-    return c.get('default', 'access_key'), c.get('default', 'secret_key')
-
-
-class CredentialsMissing(Exception):
-    """Raised when no credentials are supplied."""
-
-
-def add_credential_args(parser_arg):
-    parser_arg.add_argument(
-        '--user', default=os.environ.get('JENKINS_USER'))
-    parser_arg.add_argument(
-        '--password', default=os.environ.get('JENKINS_PASSWORD'))
-
-
-def get_credentials(args):
-    if 'user' not in args:
-        return None
-    if None in (args.user, args.password):
-        raise CredentialsMissing(
-            'Jenkins username and/or password not supplied.')
-    return Credentials(args.user, args.password)
+    config = ConfigParser()
+    config.readfp(open(s3cfg_path))
+    return config.get(
+        'default', 'access_key'), config.get('default', 'secret_key')
 
 
 if __name__ == '__main__':
@@ -288,7 +265,7 @@ if __name__ == '__main__':
 
     if args.build_number:
         build_num = args.build_number[0]
-        print('Uploading a test result for build number ' + build_num)
+        print('Uploading build number ' + build_num)
         u = HUploader.factory(credentials=cred, build_number=int(build_num))
         sys.exit(u.upload())
     elif args.all:
@@ -296,7 +273,7 @@ if __name__ == '__main__':
         u = HUploader.factory(credentials=cred)
         sys.exit(u.upload_all_test_results())
     elif args.env_build_number:
-        print('Uploading a test result from the env variable BUILD_NUMBER=' +
+        print('Uploading build number BUILD_NUMBER=' +
               os.getenv('BUILD_NUMBER'))
         u = HUploader.factory(credentials=cred)
         sys.exit(u.upload_by_env_build_number())
