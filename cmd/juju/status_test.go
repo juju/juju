@@ -658,9 +658,13 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":          "cs:quantal/dummy-1",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":   "cs:quantal/dummy-1",
+						"exposed": true,
+						"service-status": M{
+							"current": "error",
+							"message": "You Require More Vespene Gas",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
@@ -683,9 +687,12 @@ var statusTests = []testCase{
 						},
 					},
 					"dummy-service": M{
-						"charm":          "cs:quantal/dummy-1",
-						"exposed":        false,
-						"service-status": M{},
+						"charm":   "cs:quantal/dummy-1",
+						"exposed": false,
+						"service-status": M{
+							"current": "terminated",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"dummy-service/0": M{
 								"machine":     "1",
@@ -717,9 +724,12 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":          "cs:quantal/dummy-1",
-						"exposed":        false,
-						"service-status": M{},
+						"charm":   "cs:quantal/dummy-1",
+						"exposed": false,
+						"service-status": M{
+							"current": "terminated",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"dummy-service/0": M{
 								"machine":     "1",
@@ -750,9 +760,13 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":          "cs:quantal/dummy-1",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":   "cs:quantal/dummy-1",
+						"exposed": true,
+						"service-status": M{
+							"current": "error",
+							"message": "You Require More Vespene Gas",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
@@ -787,9 +801,12 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":          "cs:quantal/dummy-1",
-						"exposed":        false,
-						"service-status": M{},
+						"charm":   "cs:quantal/dummy-1",
+						"exposed": false,
+						"service-status": M{
+							"current": "terminated",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"dummy-service/0": M{
 								"machine":     "1",
@@ -820,9 +837,13 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"exposed-service": M{
-						"charm":          "cs:quantal/dummy-1",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":   "cs:quantal/dummy-1",
+						"exposed": true,
+						"service-status": M{
+							"current": "error",
+							"message": "You Require More Vespene Gas",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
@@ -858,9 +879,12 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":          "cs:quantal/dummy-1",
-						"exposed":        false,
-						"service-status": M{},
+						"charm":   "cs:quantal/dummy-1",
+						"exposed": false,
+						"service-status": M{
+							"current": "terminated",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"dummy-service/0": M{
 								"machine":     "1",
@@ -879,9 +903,13 @@ var statusTests = []testCase{
 						},
 					},
 					"exposed-service": M{
-						"charm":          "cs:quantal/dummy-1",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":   "cs:quantal/dummy-1",
+						"exposed": true,
+						"service-status": M{
+							"current": "error",
+							"message": "You Require More Vespene Gas",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
@@ -947,7 +975,11 @@ var statusTests = []testCase{
 						"relations": M{
 							"db": L{"mysql"},
 						},
-						"service-status": M{},
+						"service-status": M{
+							"current": "error",
+							"message": "hook failed: some-relation-changed",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"wordpress/0": M{
 								"machine":          "1",
@@ -972,7 +1004,11 @@ var statusTests = []testCase{
 						"relations": M{
 							"server": L{"wordpress"},
 						},
-						"service-status": M{},
+						"service-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/0": M{
 								"machine":     "1",
@@ -1034,7 +1070,11 @@ var statusTests = []testCase{
 						"relations": M{
 							"db": L{"mysql"},
 						},
-						"service-status": M{},
+						"service-status": M{
+							"current": "error",
+							"message": "hook failed: some-relation-changed",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"wordpress/0": M{
 								"machine":          "1",
@@ -1059,7 +1099,11 @@ var statusTests = []testCase{
 						"relations": M{
 							"server": L{"wordpress"},
 						},
-						"service-status": M{},
+						"service-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/0": M{
 								"machine":     "1",
@@ -1099,10 +1143,14 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":          "cs:quantal/dummy-1",
-						"exposed":        false,
-						"life":           "dying",
-						"service-status": M{},
+						"charm":   "cs:quantal/dummy-1",
+						"exposed": false,
+						"life":    "dying",
+						"service-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"dummy-service/0": M{
 								"machine":     "0",
@@ -1146,9 +1194,12 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"dummy-service": M{
-						"charm":          "cs:quantal/dummy-1",
-						"exposed":        false,
-						"service-status": M{},
+						"charm":   "cs:quantal/dummy-1",
+						"exposed": false,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"dummy-service/0": M{
 								"machine":     "0",
@@ -1235,9 +1286,12 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"project": M{
-						"charm":          "cs:quantal/wordpress-3",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":   "cs:quantal/wordpress-3",
+						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"project/0": M{
 								"machine":     "1",
@@ -1259,9 +1313,12 @@ var statusTests = []testCase{
 						},
 					},
 					"mysql": M{
-						"charm":          "cs:quantal/mysql-1",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":   "cs:quantal/mysql-1",
+						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/0": M{
 								"machine":     "2",
@@ -1282,9 +1339,13 @@ var statusTests = []testCase{
 						},
 					},
 					"varnish": M{
-						"charm":          "cs:quantal/varnish-1",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":   "cs:quantal/varnish-1",
+						"exposed": true,
+						"service-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"varnish/0": M{
 								"machine":     "3",
@@ -1306,9 +1367,13 @@ var statusTests = []testCase{
 						},
 					},
 					"private": M{
-						"charm":          "cs:quantal/wordpress-3",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":   "cs:quantal/wordpress-3",
+						"exposed": true,
+						"service-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"private/0": M{
 								"machine":     "4",
@@ -1377,9 +1442,12 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"riak": M{
-						"charm":          "cs:quantal/riak-7",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":   "cs:quantal/riak-7",
+						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"riak/0": M{
 								"machine":     "1",
@@ -1487,9 +1555,12 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":          "cs:quantal/wordpress-3",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":   "cs:quantal/wordpress-3",
+						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"wordpress/0": M{
 								"machine":     "1",
@@ -1525,9 +1596,12 @@ var statusTests = []testCase{
 						},
 					},
 					"mysql": M{
-						"charm":          "cs:quantal/mysql-1",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":   "cs:quantal/mysql-1",
+						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/0": M{
 								"machine":     "2",
@@ -1565,8 +1639,9 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":   "cs:quantal/logging-1",
-						"exposed": true,
+						"charm":          "cs:quantal/logging-1",
+						"exposed":        true,
+						"service-status": M{},
 						"relations": M{
 							"logging-directory": L{"wordpress"},
 							"info":              L{"mysql"},
@@ -1589,9 +1664,12 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":          "cs:quantal/wordpress-3",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":   "cs:quantal/wordpress-3",
+						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"wordpress/0": M{
 								"machine":     "1",
@@ -1627,9 +1705,12 @@ var statusTests = []testCase{
 						},
 					},
 					"mysql": M{
-						"charm":          "cs:quantal/mysql-1",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":   "cs:quantal/mysql-1",
+						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/0": M{
 								"machine":     "2",
@@ -1667,8 +1748,9 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":   "cs:quantal/logging-1",
-						"exposed": true,
+						"charm":          "cs:quantal/logging-1",
+						"exposed":        true,
+						"service-status": M{},
 						"relations": M{
 							"logging-directory": L{"wordpress"},
 							"info":              L{"mysql"},
@@ -1690,9 +1772,12 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"wordpress": M{
-						"charm":          "cs:quantal/wordpress-3",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":   "cs:quantal/wordpress-3",
+						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"wordpress/0": M{
 								"machine":     "1",
@@ -1728,8 +1813,9 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":   "cs:quantal/logging-1",
-						"exposed": true,
+						"charm":          "cs:quantal/logging-1",
+						"exposed":        true,
+						"service-status": M{},
 						"relations": M{
 							"logging-directory": L{"wordpress"},
 							"info":              L{"mysql"},
@@ -1784,9 +1870,12 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"mysql": M{
-						"charm":          "cs:quantal/mysql-1",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":   "cs:quantal/mysql-1",
+						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/0": M{
 								"machine":     "1",
@@ -1845,9 +1934,12 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"mysql": M{
-						"charm":          "cs:quantal/mysql-1",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":   "cs:quantal/mysql-1",
+						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/1": M{
 								"machine":     "1/lxc/0",
@@ -1896,7 +1988,11 @@ var statusTests = []testCase{
 						"charm":          "cs:quantal/mysql-1",
 						"can-upgrade-to": "cs:quantal/mysql-23",
 						"exposed":        true,
-						"service-status": M{},
+						"service-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/0": M{
 								"machine":     "1",
@@ -1945,9 +2041,12 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"mysql": M{
-						"charm":          "local:quantal/mysql-1",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":   "local:quantal/mysql-1",
+						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/0": M{
 								"machine":     "1",
@@ -2000,7 +2099,10 @@ var statusTests = []testCase{
 						"charm":          "cs:quantal/mysql-2",
 						"can-upgrade-to": "cs:quantal/mysql-23",
 						"exposed":        true,
-						"service-status": M{},
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/0": M{
 								"machine":     "1",
@@ -2050,9 +2152,12 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"mysql": M{
-						"charm":          "local:quantal/mysql-1",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":   "local:quantal/mysql-1",
+						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/0": M{
 								"machine":     "1",

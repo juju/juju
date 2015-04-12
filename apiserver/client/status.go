@@ -604,7 +604,7 @@ func processUnitAndAgentStatus(unit *state.Unit, status *api.UnitStatus) {
 			status.Workload.Status, status.UnitAgent.Status)
 	}
 	if status.AgentState == params.StatusError {
-		status.AgentStateInfo = status.UnitAgent.Info
+		status.AgentStateInfo = status.Workload.Info
 	}
 	status.AgentVersion = status.UnitAgent.Version
 	status.Life = status.UnitAgent.Life

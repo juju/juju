@@ -239,6 +239,10 @@ func (ctx *HookContext) HasExecutionSetUnitStatus() bool {
 	return ctx.hasRunStatusSet
 }
 
+func (ctx *HookContext) ResetExecutionSetUnitStatus() {
+	ctx.hasRunStatusSet = false
+}
+
 func (ctx *HookContext) PublicAddress() (string, bool) {
 	return ctx.publicAddress, ctx.publicAddress != ""
 }
