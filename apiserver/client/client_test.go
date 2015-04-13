@@ -584,6 +584,7 @@ func clearSinceTimes(status *api.Status) {
 			}
 			service.Units[unitId] = unit
 		}
+		service.Status.Since = nil
 		status.Services[serviceId] = service
 	}
 	for id, machine := range status.Machines {

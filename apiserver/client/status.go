@@ -503,6 +503,15 @@ func (context *statusContext) processService(service *state.Service) (status api
 	}
 	if service.IsPrincipal() {
 		status.Units = context.processUnits(context.units[service.Name()], serviceCharmURL.String())
+		serviceStatus, err := service.Status()
+		if err != nil {
+			status.Err = err
+			return
+		}
+		status.Status.Status = params.Status(serviceStatus.Status)
+		status.Status.Info = serviceStatus.Message
+		status.Status.Data = serviceStatus.Data
+		status.Status.Since = serviceStatus.Since
 	}
 	return status
 }
@@ -595,23 +604,11 @@ func processUnitAndAgentStatus(unit *state.Unit, status *api.UnitStatus) {
 			status.Workload.Status, status.UnitAgent.Status)
 	}
 	if status.AgentState == params.StatusError {
-		status.AgentStateInfo = status.UnitAgent.Info
+		status.AgentStateInfo = status.Workload.Info
 	}
 	status.AgentVersion = status.UnitAgent.Version
 	status.Life = status.UnitAgent.Life
 	status.Err = status.UnitAgent.Err
-
-	// The current health spec says when a hook error occurs, the workload should
-	// be in error state, but the state model more correctly records the agent
-	// itself as being in error. So we'll do that model translation here.
-	if status.UnitAgent.Status == params.StatusError {
-		status.Workload.Status = status.UnitAgent.Status
-		status.Workload.Info = status.UnitAgent.Info
-		status.Workload.Data = status.UnitAgent.Data
-		status.UnitAgent.Status = params.StatusIdle
-		status.UnitAgent.Info = ""
-		status.UnitAgent.Data = nil
-	}
 
 	processUnitLost(unit, status)
 

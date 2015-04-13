@@ -339,6 +339,10 @@ func (mock *MockContext) HasExecutionSetUnitStatus() bool {
 	return mock.setStatusCalled
 }
 
+func (mock *MockContext) ResetExecutionSetUnitStatus() {
+	mock.setStatusCalled = false
+}
+
 func (mock *MockContext) SetUnitStatus(status jujuc.StatusInfo) error {
 	mock.setStatusCalled = true
 	mock.status = status

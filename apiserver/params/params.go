@@ -775,6 +775,8 @@ func TranslateToLegacyAgentState(workloadStatus, agentStatus Status) (Status, bo
 		return StatusError, true
 	case StatusRebooting, StatusExecuting, StatusIdle, StatusLost, StatusFailed:
 		switch workloadStatus {
+		case StatusError:
+			return StatusError, true
 		case StatusTerminated:
 			return StatusStopped, true
 		case StatusMaintenance:

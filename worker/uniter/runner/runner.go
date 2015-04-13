@@ -44,6 +44,7 @@ type Context interface {
 	SetProcess(process *os.Process)
 	FlushContext(badge string, failure error) error
 	HasExecutionSetUnitStatus() bool
+	ResetExecutionSetUnitStatus()
 }
 
 // Paths exposes the paths needed by Runner.

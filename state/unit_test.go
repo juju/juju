@@ -571,7 +571,8 @@ func (s *UnitSuite) TestGetSetUnitAgentStatus(c *gc.C) {
 		"foo": "bar",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err = s.unit.AgentStatus()
+	// Unit status reports errors.
+	statusInfo, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
 	c.Assert(statusInfo.Message, gc.Equals, "test-hook failed")
@@ -628,7 +629,8 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	statusInfo, err := s.unit.AgentStatus()
+	// Unit status reports errors.
+	statusInfo, err := s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
 	c.Assert(statusInfo.Message, gc.Equals, "test-hook failed")
@@ -654,7 +656,8 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	statusInfo, err := s.unit.AgentStatus()
+	// Unit status reports errors.
+	statusInfo, err := s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
 	c.Assert(statusInfo.Message, gc.Equals, "mongo")
@@ -682,7 +685,8 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	data["4th-key"] = 4.0
 
-	statusInfo, err := s.unit.AgentStatus()
+	// Unit status reports errors.
+	statusInfo, err := s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
 	c.Assert(statusInfo.Message, gc.Equals, "test-hook failed")

@@ -97,6 +97,7 @@ type ServiceStatus struct {
 	CanUpgradeTo  string
 	SubordinateTo []string
 	Units         map[string]UnitStatus
+	Status        AgentStatus
 }
 
 // UnitStatus holds status info about a unit.
