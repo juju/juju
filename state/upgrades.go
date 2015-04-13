@@ -398,7 +398,7 @@ func CreateUnitMeterStatus(st *State) error {
 			continue
 		}
 		ops := []txn.Op{
-			createMeterStatusOp(st, unit.globalKey(), &meterStatusDoc{Code: MeterNotSet.String()}),
+			createMeterStatusOp(st, unit.globalMeterStatusKey(), &meterStatusDoc{Code: MeterNotSet.String()}),
 		}
 		if err = st.runRawTransaction(ops); err != nil {
 			upgradesLogger.Warningf("migration failed for unit %q: %v", unit, err)
