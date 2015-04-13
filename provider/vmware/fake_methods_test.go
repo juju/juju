@@ -112,23 +112,31 @@ func (s *BaseSuite) FakeInstancesWithResourcePool(c *fakeClient, instances ...In
 			Returnval: retVal,
 		}
 	})
+	results := []*types.RetrievePropertiesResponse{}
 	for _, vm := range instances {
+		results = append(results, &types.RetrievePropertiesResponse{
+			Returnval: []types.ObjectContent{{
+				Obj: types.ManagedObjectReference{
+					Type:  "VirtualMachine",
+					Value: vm.Inst,
+				},
+				PropSet: []types.DynamicProperty{
+					{Name: "resourcePool", Val: types.ManagedObjectReference{
+						Type:  "ResourcePool",
+						Value: vm.Rp,
+					}},
+					{Name: "name", Val: vm.Inst},
+				},
+			}},
+		})
 		c.SetPropertyProxyHandler(vm.Inst, func(reqBody, resBody *methods.RetrievePropertiesBody) {
-			resBody.Res = &types.RetrievePropertiesResponse{
-				Returnval: []types.ObjectContent{{
-					Obj: types.ManagedObjectReference{
-						Type:  "VirtualMachine",
-						Value: vm.Inst,
-					},
-					PropSet: []types.DynamicProperty{
-						{Name: "resourcePool", Val: types.ManagedObjectReference{
-							Type:  "ResourcePool",
-							Value: vm.Rp,
-						}},
-						{Name: "name", Val: vm.Inst},
-					},
-				}},
+			for i, vm := range instances {
+				if vm.Inst == reqBody.Req.SpecSet[0].ObjectSet[0].Obj.Value {
+					resBody.Res = results[i]
+					return
+				}
 			}
+			panic("Match not found")
 		})
 	}
 }
@@ -147,6 +155,10 @@ func (s *BaseSuite) FakeAvailabilityZones(c *fakeClient, zoneName ...string) {
 					Type:  "ResourcePool",
 					Value: "FakeResourcePool",
 				}},
+				{Name: "datastore", Val: []types.ManagedObjectReference{{
+					Type:  "Datastore",
+					Value: "FakeDatastore",
+				}}},
 				{Name: "name", Val: zone},
 			},
 		})
@@ -177,6 +189,10 @@ func (s *BaseSuite) FakeAvailabilityZonesWithResourcePool(c *fakeClient, zones .
 					Type:  "ResourcePool",
 					Value: zone.Rp,
 				}},
+				{Name: "datastore", Val: []types.ManagedObjectReference{{
+					Type:  "Datastore",
+					Value: "FakeDatastore",
+				}}},
 				{Name: "name", Val: zone.Zone},
 			},
 		})

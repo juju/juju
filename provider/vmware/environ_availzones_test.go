@@ -35,6 +35,7 @@ func (s *environAvailzonesSuite) TestAvailabilityZones(c *gc.C) {
 
 func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 	client := vmware.ExposeEnvFakeClient(s.Env)
+	client.SetPropertyProxyHandler("FakeDatacenter", vmware.RetrieveDatacenterProperties)
 	vmName := common.MachineFullName(s.Env, "1")
 	s.FakeInstancesWithResourcePool(client, vmware.InstRp{Inst: vmName, Rp: "rp1"})
 	s.FakeAvailabilityZonesWithResourcePool(client, vmware.ZoneRp{Zone: "z1", Rp: "rp1"}, vmware.ZoneRp{Zone: "z2", Rp: "rp2"})

@@ -15,7 +15,6 @@ import (
 
 // The vmware-specific config keys.
 const (
-	cfgDatastore  = "datastore"
 	cfgDatacenter = "datacenter"
 	cfgHost       = "host"
 	cfgUser       = "user"
@@ -26,7 +25,17 @@ const (
 // date when you change environment configuration below.
 var boilerplateConfig = `
 vmware:
-//  Some description
+  type: vmware
+
+  # Vsphere API host or DNS name 
+  host: 
+
+  # Vsphere API user credentials
+  user: 
+  password: 
+  
+  # Vsphere datacenter
+  datacenter: 
 `[1:]
 
 // configFields is the spec for each vmware config value's type.
@@ -34,7 +43,6 @@ var configFields = schema.Fields{
 	cfgHost:       schema.String(),
 	cfgUser:       schema.String(),
 	cfgPassword:   schema.String(),
-	cfgDatastore:  schema.String(),
 	cfgDatacenter: schema.String(),
 }
 
@@ -47,7 +55,6 @@ var configSecretFields = []string{
 var configImmutableFields = []string{
 	cfgHost,
 	cfgDatacenter,
-	cfgDatastore,
 }
 
 type environConfig struct {
@@ -99,10 +106,6 @@ func newValidConfig(cfg *config.Config, defaults map[string]interface{}) (*envir
 	}
 
 	return ecfg, nil
-}
-
-func (c *environConfig) datastore() string {
-	return c.attrs[cfgDatastore].(string)
 }
 
 func (c *environConfig) datacenter() string {

@@ -23,7 +23,6 @@ const (
 type client struct {
 	connection *govmomi.Client
 	datacenter *object.Datacenter
-	datastore  *object.Datastore
 	finder     *find.Finder
 	recurser   *list.Recurser
 }
@@ -43,17 +42,13 @@ var newClient = func(ecfg *environConfig) (*client, error) {
 		return nil, errors.Trace(err)
 	}
 	finder.SetDatacenter(datacenter)
-	datastore, err := finder.Datastore(context.TODO(), ecfg.datastore())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	recurser := &list.Recurser{
 		Collector: property.DefaultCollector(connection.Client),
+		All:       true,
 	}
 	return &client{
 		connection: connection,
 		datacenter: datacenter,
-		datastore:  datastore,
 		finder:     finder,
 		recurser:   recurser,
 	}, nil
@@ -87,14 +82,20 @@ func (c *client) CreateInstance(machineID string, zone *vmwareAvailZone, hwc *in
 
 func (c *client) RemoveInstances(ids ...string) error {
 	var firstError error
-	tasks := make([]*object.Task, len(ids))
+	tasks := make([]*object.Task, 0, len(ids))
 	for _, id := range ids {
 		vm, err := c.finder.VirtualMachine(context.TODO(), id)
 		if err != nil && firstError == nil {
 			firstError = err
 			continue
 		}
-		task, err := vm.Destroy(context.TODO())
+		task, err := vm.PowerOff(context.TODO())
+		if err != nil && firstError == nil {
+			firstError = err
+			continue
+		}
+		tasks = append(tasks, task)
+		task, err = vm.Destroy(context.TODO())
 		if err != nil && firstError == nil {
 			firstError = err
 			continue

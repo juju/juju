@@ -53,7 +53,9 @@ func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hw
 	}
 
 	ovfManager := object.NewOvfManager(m.client.connection.Client)
-	spec, err := ovfManager.CreateImportSpec(context.TODO(), string(ovf), object.NewReference(m.client.connection.Client, *zone.r.ResourcePool), m.client.datastore, cisp)
+	resourcePool := object.NewReference(m.client.connection.Client, *zone.r.ResourcePool)
+	datastore := object.NewReference(m.client.connection.Client, zone.r.Datastore[0])
+	spec, err := ovfManager.CreateImportSpec(context.TODO(), string(ovf), resourcePool, datastore, cisp)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

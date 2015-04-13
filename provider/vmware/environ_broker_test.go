@@ -36,6 +36,7 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 
 func (s *environBrokerSuite) PrepareStartInstanceFakes(c *gc.C) {
 	client := vmware.ExposeEnvFakeClient(s.Env)
+	client.SetPropertyProxyHandler("FakeDatacenter", vmware.RetrieveDatacenterProperties)
 	s.FakeInstances(client)
 	s.FakeAvailabilityZones(client, "z1")
 	s.FakeAvailabilityZones(client, "z1")
@@ -198,8 +199,9 @@ func (s *environBrokerSuite) TestStartInstanceCallsAvailabilityZoneAllocations(c
 	c.Assert(err, gc.ErrorMatches, "AvailabilityZoneAllocations called")
 }
 
-func (s *environBrokerSuite) TestStartInstanceTryesToCreateInstanceInAllAvailabilityZones(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceTriesToCreateInstanceInAllAvailabilityZones(c *gc.C) {
 	client := vmware.ExposeEnvFakeClient(s.Env)
+	client.SetPropertyProxyHandler("FakeDatacenter", vmware.RetrieveDatacenterProperties)
 	s.FakeInstances(client)
 	s.FakeAvailabilityZones(client, "z1", "z2")
 	s.FakeAvailabilityZones(client, "z1", "z2")

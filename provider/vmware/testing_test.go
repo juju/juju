@@ -31,7 +31,6 @@ var (
 		"type":       "vmware",
 		"uuid":       "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
 		"datacenter": "/datacenter1",
-		"datastore":  "datastore1",
 		"host":       "host1",
 		"user":       "user1",
 		"password":   "password1",
@@ -151,9 +150,6 @@ var newFakeConnection = func(url *url.URL) (*govmomi.Client, error) {
 	}
 
 	fakeClient.SetPropertyProxyHandler("FakeRootFolder", RetrieveDatacenter)
-	fakeClient.SetPropertyProxyHandler("FakeDatacenter", RetrieveDatacenterProperties)
-	fakeClient.SetPropertyProxyHandler("FakeDatastoreFolder", RetrieveDatastore)
-	fakeClient.SetPropertyProxyHandler("FakeDatastoreFolder", RetrieveDatastore)
 
 	vimClient := &vim25.Client{
 		Client: &soap.Client{},
@@ -197,10 +193,6 @@ var RetrieveDatacenter = func(reqBody, resBody *methods.RetrievePropertiesBody) 
 	CommonRetrieveProperties(resBody, "Datacenter", "FakeDatacenter", "name", "datacenter1")
 }
 
-var RetrieveDatastore = func(reqBody, resBody *methods.RetrievePropertiesBody) {
-	CommonRetrieveProperties(resBody, "Datastore", "FakeDatastore", "name", "datastore1")
-}
-
 var RetrieveDatacenterProperties = func(reqBody, resBody *methods.RetrievePropertiesBody) {
 	resBody.Res = &types.RetrievePropertiesResponse{
 		Returnval: []types.ObjectContent{
@@ -210,10 +202,6 @@ var RetrieveDatacenterProperties = func(reqBody, resBody *methods.RetrieveProper
 					Value: "FakeDatacenter",
 				},
 				PropSet: []types.DynamicProperty{
-					types.DynamicProperty{Name: "datastoreFolder", Val: types.ManagedObjectReference{
-						Type:  "Folder",
-						Value: "FakeDatastoreFolder",
-					}},
 					types.DynamicProperty{Name: "hostFolder", Val: types.ManagedObjectReference{
 						Type:  "Folder",
 						Value: "FakeHostFolder",

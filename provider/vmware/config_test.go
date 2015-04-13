@@ -84,14 +84,6 @@ func (ts configTestSpec) newConfig(c *gc.C) *config.Config {
 }
 
 var newConfigTests = []configTestSpec{{
-	info:   "datastore is required",
-	remove: []string{"datastore"},
-	err:    "datastore: expected string, got nothing",
-}, {
-	info:   "datastore cannot be empty",
-	insert: testing.Attrs{"datastore": ""},
-	err:    "datastore: must not be empty",
-}, {
 	info:   "datacenter is required",
 	remove: []string{"datacenter"},
 	err:    "datacenter: expected string, got nothing",
@@ -196,10 +188,6 @@ func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 var changeConfigTests = []configTestSpec{{
 	info:   "no change, no error",
 	expect: vmware.ConfigAttrs,
-}, {
-	info:   "cannot change datastore",
-	insert: testing.Attrs{"datastore": "datastore2"},
-	err:    "datastore: cannot change from datastore1 to datastore2",
 }, {
 	info:   "cannot change datacenter",
 	insert: testing.Attrs{"datacenter": "/datacenter2"},
