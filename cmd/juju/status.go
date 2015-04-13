@@ -414,6 +414,10 @@ func (sf *statusFormatter) formatService(name string, service api.ServiceStatus)
 	return out
 }
 
+func formatTime(t *time.Time) string {
+	return t.Local().Format(time.RFC822)
+}
+
 func (sf *statusFormatter) getServiceStatusInfo(service api.ServiceStatus) statusInfoContents {
 	info := statusInfoContents{
 		Err:     service.Status.Err,
@@ -422,7 +426,7 @@ func (sf *statusFormatter) getServiceStatusInfo(service api.ServiceStatus) statu
 		Version: service.Status.Version,
 	}
 	if service.Status.Since != nil {
-		info.Since = service.Status.Since.Local().Format(time.RFC822)
+		info.Since = formatTime(service.Status.Since)
 	}
 	return info
 }
@@ -464,7 +468,7 @@ func (sf *statusFormatter) getWorkloadStatusInfo(unit api.UnitStatus) statusInfo
 		Version: unit.Workload.Version,
 	}
 	if unit.Workload.Since != nil {
-		info.Since = unit.Workload.Since.Local().Format(time.RFC822)
+		info.Since = formatTime(unit.Workload.Since)
 	}
 	return info
 }
@@ -477,7 +481,7 @@ func (sf *statusFormatter) getAgentStatusInfo(unit api.UnitStatus) statusInfoCon
 		Version: unit.UnitAgent.Version,
 	}
 	if unit.UnitAgent.Since != nil {
-		info.Since = unit.UnitAgent.Since.Local().Format(time.RFC822)
+		info.Since = formatTime(unit.UnitAgent.Since)
 	}
 	return info
 }

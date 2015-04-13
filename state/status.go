@@ -428,6 +428,7 @@ func newServiceStatusDoc(who string, status Status, info string, data map[string
 // validateSet returns an error if the serviceStatusDoc does not represent a sane
 // SetStatus operation for a service.
 func (doc *serviceStatusDoc) validateSet() error {
+	// Valid service status values are the same as those for the unit.
 	if !unitStatusValid(doc.Status) {
 		return errors.Errorf("cannot set invalid status %q", doc.Status)
 	}

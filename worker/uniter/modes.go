@@ -27,7 +27,7 @@ func setAgentStatus(u *Uniter, status params.Status, info string, data map[strin
 	}
 	u.lastReportedStatus = status
 	u.lastReportedMessage = info
-	logger.Infof("[AGENT-STATUS] %s %s", status, info)
+	logger.Debugf("[AGENT-STATUS] %s %s", status, info)
 	return u.unit.SetAgentStatus(status, info, data)
 }
 

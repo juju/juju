@@ -29,7 +29,7 @@ type Service struct {
 }
 
 // serviceDoc represents the internal state of a service in MongoDB.
-// Note the correspondence with ServiceInfo in apiserver/
+// Note the correspondence with ServiceInfo in apiserver.
 type serviceDoc struct {
 	DocID             string     `bson:"_id"`
 	Name              string     `bson:"name"`
