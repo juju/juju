@@ -2705,6 +2705,7 @@ func (s *upgradesSuite) TestAddBlockDevicesDocsIdempotent(c *gc.C) {
 	c.Assert(firstPassIDs, jc.SameContents, secondPassIDs)
 }
 
+<<<<<<< HEAD
 func (s *upgradesSuite) TestEnvUUIDMigrationFieldOrdering(c *gc.C) {
 	// This tests a DB migration regression triggered by Go 1.3+'s
 	// randomised map iteration feature. See LP #1451674.
@@ -2780,4 +2781,59 @@ func (s *upgradesSuite) TestEnvUUIDMigrationFieldOrdering(c *gc.C) {
 			}
 		}
 	}
+}
+
+func (s *upgradesSuite) TestMoveServiceUnitSeqToSequence(c *gc.C) {
+	svcC, closer := s.state.getRawCollection(servicesC)
+	defer closer()
+
+	err := svcC.Insert(
+		bson.D{
+			{"unitseq", 7},
+			{"env-uuid", s.state.EnvironUUID()},
+			{"name", "my-service"},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = MoveServiceUnitSeqToSequence(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	count, err := s.state.sequence("service-my-service")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 7)
+}
+
+func (s *upgradesSuite) TestMoveServiceNotUnitSeq(c *gc.C) {
+	svcC, closer := s.state.getRawCollection(servicesC)
+	defer closer()
+
+	err := svcC.Insert(
+		bson.D{
+			{"env-uuid", s.state.EnvironUUID()},
+			{"name", "my-service"},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = MoveServiceUnitSeqToSequence(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	count, err := s.state.sequence("service-my-service")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 0)
+}
+
+func (s *upgradesSuite) TestMoveServiceUnitSeqToSequenceWithPreExistingSequence(c *gc.C) {
+	_, err := s.state.sequence("service-my-service")
+
+	svcC, closer := s.state.getRawCollection(servicesC)
+	defer closer()
+
+	err = svcC.Insert(
+		bson.D{
+			{"unitseq", 7},
+			{"env-uuid", s.state.EnvironUUID()},
+			{"name", "my-service"},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = MoveServiceUnitSeqToSequence(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	count, err := s.state.sequence("service-my-service")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 7)
 }

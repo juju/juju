@@ -1197,6 +1197,50 @@ func FixSequenceFields(st *State) error {
 	return st.runRawTransaction(ops)
 }
 
+// MoveServiceUnitSeqToSequence moves information from unitSeq value
+// in the services documents and puts it into a new document in the
+// sequence collection.
+func MoveServiceUnitSeqToSequence(st *State) error {
+	unitSeqDocs := []struct {
+		Name    string `bson:"name"`
+		UnitSeq int    `bson:"unitseq"`
+	}{}
+	servicesCollection, closer := st.getCollection(servicesC)
+	defer closer()
+
+	err := servicesCollection.Find(nil).All(&unitSeqDocs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	insertOps := make([]txn.Op, len(unitSeqDocs))
+	updateOps := make([]txn.Op, len(unitSeqDocs))
+	for i, svc := range unitSeqDocs {
+		tag := names.NewServiceTag(svc.Name)
+		insertOps[i] = txn.Op{
+			C:  sequenceC,
+			Id: st.docID(tag.String()),
+			Insert: sequenceDoc{
+				Name:    tag.String(),
+				EnvUUID: st.EnvironUUID(),
+				Counter: svc.UnitSeq,
+			},
+		}
+		updateOps[i] = txn.Op{
+			C:  sequenceC,
+			Id: st.docID(tag.String()),
+			Update: bson.M{
+				"$set": bson.M{
+					"name":     tag.String(),
+					"env-uuid": st.EnvironUUID(),
+					"counter":  svc.UnitSeq,
+				},
+			},
+		}
+	}
+	ops := append(insertOps, updateOps...)
+	return st.runRawTransaction(ops)
+}
+
 // DropOldIndexesv123 drops old mongo indexes.
 func DropOldIndexesv123(st *State) error {
 	for collName, indexes := range oldIndexesv123 {
