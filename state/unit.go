@@ -179,6 +179,11 @@ func (u *Unit) globalAgentKey() string {
 	return unitAgentGlobalKey(u.doc.Name)
 }
 
+// globalMeterStatusKey returns the global database key for the meter status of the unit.
+func (u *Unit) globalMeterStatusKey() string {
+	return unitAgentGlobalKey(u.doc.Name)
+}
+
 // globalKey returns the global database key for the unit.
 func (u *Unit) globalKey() string {
 	return unitGlobalKey(u.doc.Name)
