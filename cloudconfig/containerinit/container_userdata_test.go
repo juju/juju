@@ -18,7 +18,7 @@ import (
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/systemd"
+	systemdtesting "github.com/juju/juju/service/systemd/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -186,7 +186,7 @@ func (s *UserDataSuite) TestShutdownInitCommandsSystemd(c *gc.C) {
 	commands, err := containerinit.ShutdownInitCommands(service.InitSystemSystemd)
 	c.Assert(err, jc.ErrorIsNil)
 
-	test := systemd.WriteConfTest{
+	test := systemdtesting.WriteConfTest{
 		Service: "juju-template-restart",
 		DataDir: "/var/lib/juju",
 		Expected: `

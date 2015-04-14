@@ -356,15 +356,22 @@ func installMongod(numaCtl bool) error {
 
 	// Work around SELinux on centos7
 	if series == "centos7" {
-		cmds := [][]string{
-			[]string{"chcon", "-R", "-v", "-t", "mongod_var_lib_t", "/var/lib/juju/db"},
-			[]string{"chcon", "-R", "-v", "-t", "mongod_var_lib_t", "/var/lib/juju/server.pem"},
-			[]string{"chcon", "-R", "-v", "-t", "mongod_var_lib_t", "/var/lib/juju/shared-secret"},
-			[]string{"semanage port -a -t mongod_port_t -p tcp 37017"},
-		}
-		for _, cmd := range cmds {
-			_, err = utils.RunCommand(cmd[0], cmd[1:]...)
+		cmd := []string{"chcon", "-R", "-v", "-t", "mongod_var_lib_t", "/var/lib/juju/"}
+		logger.Infof("running %s %v", cmd[0], cmd[1:])
+		_, err = utils.RunCommand(cmd[0], cmd[1:]...)
+		if err != nil {
+			logger.Infof("chcon error %s", err)
+			logger.Infof("chcon error %s", err.Error())
 			return err
+		}
+
+		cmd = []string{"semanage", "port", "-a", "-t", "mongod_port_t", "-p", "tcp", "37017"}
+		logger.Infof("running %s %v", cmd[0], cmd[1:])
+		_, err = utils.RunCommand(cmd[0], cmd[1:]...)
+		if err != nil {
+			if !strings.Contains(err.Error(), "exit status 1") {
+				return err
+			}
 		}
 	}
 
