@@ -250,7 +250,7 @@ func (s *Service) check() (bool, error) {
 func (s *Service) readConf() (common.Conf, error) {
 	var conf common.Conf
 
-	data, err := Cmdline{}.conf(s.Service.Name)
+	data, err := Cmdline{}.conf(s.Service.Name, s.Dirname)
 	if err != nil {
 		return conf, s.errorf(err, "failed to read conf from systemd")
 	}
@@ -525,10 +525,10 @@ func (s *Service) writeConf() (string, error) {
 
 	if s.Script != nil {
 		scriptPath := renderer.ScriptFilename("exec-start", s.Dirname)
-		if renderer.Quote(scriptPath) != s.Service.Conf.ExecStart {
-			err := errors.Errorf("wrong script path: expected %q, got %q", scriptPath, s.Service.Conf.ExecStart)
-			return filename, s.errorf(err, "failed to write script at %q", scriptPath)
-		}
+		//if scriptPath != s.Service.Conf.ExecStart {
+		//err := errors.Errorf("wrong script path: expected %q, got %q", scriptPath, s.Service.Conf.ExecStart)
+		//return filename, s.errorf(err, "failed to write script at %q", scriptPath)
+		//}
 		// TODO(ericsnow) Use the renderer here for the perms.
 		if err := createFile(scriptPath, s.Script, 0755); err != nil {
 			return filename, s.errorf(err, "failed to write script at %q", scriptPath)

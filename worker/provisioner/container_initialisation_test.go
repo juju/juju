@@ -14,8 +14,8 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/apt"
 	"github.com/juju/utils/fslock"
+	"github.com/juju/utils/packaging/manager"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -68,7 +68,7 @@ func noImportance(err0, err1 error) bool {
 
 func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
-	aptCmdChan := s.HookCommandOutput(&apt.CommandOutput, []byte{}, nil)
+	aptCmdChan := s.HookCommandOutput(&manager.CommandOutput, []byte{}, nil)
 	s.aptCmdChan = aptCmdChan
 
 	// Set up provisioner for the state machine.
@@ -277,7 +277,7 @@ func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
 	expect("any-old-thing")
 }
 
-func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance.ContainerType, packages []string) {
+func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance.ContainerType, packages [][]string) {
 	// A noop worker callback.
 	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
@@ -313,23 +313,29 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 		c.Assert(s.fakeLXCNet, jc.DoesNotExist)
 	}
 
-	cmd := <-s.aptCmdChan
-	c.Assert(cmd.Env[len(cmd.Env)-1], gc.Equals, "DEBIAN_FRONTEND=noninteractive")
-	expected := []string{
-		"apt-get", "--option=Dpkg::Options::=--force-confold",
-		"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
-		"install"}
-	expected = append(expected, packages...)
-	c.Assert(cmd.Args, gc.DeepEquals, expected)
+	for _, pack := range packages {
+		cmd := <-s.aptCmdChan
+		c.Assert(cmd.Env[len(cmd.Env)-1], gc.Equals, "DEBIAN_FRONTEND=noninteractive")
+		expected := []string{
+			"apt-get", "--option=Dpkg::Options::=--force-confold",
+			"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
+			"install"}
+		expected = append(expected, pack...)
+		c.Assert(cmd.Args, gc.DeepEquals, expected)
+	}
 }
 
 func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 	for _, test := range []struct {
 		ctype    instance.ContainerType
-		packages []string
+		packages [][]string
 	}{
-		{instance.LXC, []string{"--target-release", "precise-updates/cloud-tools", "lxc", "cloud-image-utils"}},
-		{instance.KVM, []string{"uvtool-libvirt", "uvtool"}},
+		{instance.LXC, [][]string{
+			[]string{"--target-release", "precise-updates/cloud-tools", "lxc"},
+			[]string{"--target-release", "precise-updates/cloud-tools", "cloud-image-utils"}}},
+		{instance.KVM, [][]string{
+			[]string{"uvtool-libvirt"},
+			[]string{"uvtool"}}},
 	} {
 		s.assertContainerInitialised(c, test.ctype, test.packages)
 	}

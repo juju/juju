@@ -1,19 +1,20 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package sshinit_test
+package cloudinit_test
 
 import (
 	"regexp"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/packaging"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudinit"
-	"github.com/juju/juju/cloudinit/sshinit"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	envcloudinit "github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
@@ -52,36 +53,36 @@ func testConfig(c *gc.C, stateServer bool, vers version.Binary) *config.Config {
 	return testConfig
 }
 
-func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.Binary) *cloudinit.Config {
-	var mcfg *envcloudinit.MachineConfig
+func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.Binary) cloudinit.CloudConfig {
+	var icfg *instancecfg.InstanceConfig
 	var err error
 	if stateServer {
-		mcfg, err = environs.NewBootstrapMachineConfig(constraints.Value{}, vers.Series)
+		icfg, err = instancecfg.NewBootstrapInstanceConfig(constraints.Value{}, vers.Series)
 		c.Assert(err, jc.ErrorIsNil)
-		mcfg.InstanceId = "instance-id"
-		mcfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron, multiwatcher.JobHostUnits}
+		icfg.InstanceId = "instance-id"
+		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron, multiwatcher.JobHostUnits}
 	} else {
-		mcfg, err = environs.NewMachineConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, true, nil, nil, nil)
+		icfg, err = instancecfg.NewInstanceConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, true, nil, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
-		mcfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
+		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	}
-	mcfg.Tools = &tools.Tools{
+	icfg.Tools = &tools.Tools{
 		Version: vers,
 		URL:     "http://testing.invalid/tools.tar.gz",
 	}
 	environConfig := testConfig(c, stateServer, vers)
-	err = environs.FinishMachineConfig(mcfg, environConfig)
+	err = instancecfg.FinishInstanceConfig(icfg, environConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	cloudcfg, err := cloudinit.New(vers.Series)
+	cloudcfg, err := cloudinit.New(icfg.Series)
 	c.Assert(err, jc.ErrorIsNil)
-	udata, err := envcloudinit.NewUserdataConfig(mcfg, cloudcfg)
+	udata, err := cloudconfig.NewUserdataConfig(icfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)
 	return cloudcfg
 }
 
-var allSeries = [...]string{"precise", "quantal", "raring", "saucy"}
+var allSeries = []string{"precise", "quantal", "raring", "saucy"}
 
 func checkIff(checker gc.Checker, condition bool) gc.Checker {
 	if condition {
@@ -90,12 +91,12 @@ func checkIff(checker gc.Checker, condition bool) gc.Checker {
 	return gc.Not(checker)
 }
 
-var aptgetRegexp = "(.|\n)*" + regexp.QuoteMeta(sshinit.Aptget)
+var aptgetRegexp = "(.|\n)*" + regexp.QuoteMeta("apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::options::=--force-unsafe-io --assume-yes --quiet ")
 
 func (s *configureSuite) TestAptSources(c *gc.C) {
 	for _, series := range allSeries {
 		vers := version.MustParseBinary("1.16.0-" + series + "-amd64")
-		script, err := sshinit.ConfigureScript(s.getCloudConfig(c, true, vers))
+		script, err := s.getCloudConfig(c, true, vers).RenderScript()
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Only Precise requires the cloud-tools pocket.
@@ -134,8 +135,8 @@ func (s *configureSuite) TestAptSources(c *gc.C) {
 	}
 }
 
-func assertScriptMatches(c *gc.C, cfg *cloudinit.Config, pattern string, match bool) {
-	script, err := sshinit.ConfigureScript(cfg)
+func assertScriptMatches(c *gc.C, cfg cloudinit.CloudConfig, pattern string, match bool) {
+	script, err := cfg.RenderScript()
 	c.Assert(err, jc.ErrorIsNil)
 	checker := gc.Matches
 	if !match {
@@ -150,17 +151,22 @@ func (s *configureSuite) TestAptUpdate(c *gc.C) {
 	cfg, err := cloudinit.New("quantal")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(cfg.AptUpdate(), jc.IsFalse)
-	c.Assert(cfg.AptSources(), gc.HasLen, 0)
+	c.Assert(cfg.SystemUpdate(), jc.IsFalse)
+	c.Assert(cfg.PackageSources(), gc.HasLen, 0)
 	assertScriptMatches(c, cfg, aptGetUpdatePattern, false)
 
-	cfg.SetAptUpdate(true)
+	cfg.SetSystemUpdate(true)
 	assertScriptMatches(c, cfg, aptGetUpdatePattern, true)
 
 	// If we add sources, but disable updates, display an error.
-	cfg.SetAptUpdate(false)
-	cfg.AddAptSource("source", "key", nil)
-	_, err = sshinit.ConfigureScript(cfg)
+	cfg.SetSystemUpdate(false)
+	source := packaging.PackageSource{
+		Name: "source",
+		URL:  "source",
+		Key:  "key",
+	}
+	cfg.AddPackageSource(source)
+	_, err = cfg.RenderScript()
 	c.Check(err, gc.ErrorMatches, "update sources were specified, but OS updates have been disabled.")
 }
 
@@ -169,29 +175,16 @@ func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 	aptGetUpgradePattern := aptgetRegexp + "upgrade(.|\n)*"
 	cfg, err := cloudinit.New("quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	cfg.SetAptUpdate(true)
-	cfg.AddAptSource("source", "key", nil)
+	cfg.SetSystemUpdate(true)
+	source := packaging.PackageSource{
+		Name: "source",
+		URL:  "source",
+		Key:  "key",
+	}
+	cfg.AddPackageSource(source)
 	assertScriptMatches(c, cfg, aptGetUpgradePattern, false)
-	cfg.SetAptUpgrade(true)
+	cfg.SetSystemUpgrade(true)
 	assertScriptMatches(c, cfg, aptGetUpgradePattern, true)
-}
-
-func (s *configureSuite) TestAptGetWrapper(c *gc.C) {
-	aptgetRegexp := "(.|\n)*\\$\\(which eatmydata || true\\) " + regexp.QuoteMeta(sshinit.Aptget) + "(.|\n)*"
-	cfg, err := cloudinit.New("quantal")
-	c.Assert(err, jc.ErrorIsNil)
-	cfg.SetAptUpdate(true)
-	cfg.SetAptGetWrapper("eatmydata")
-	assertScriptMatches(c, cfg, aptgetRegexp, true)
-}
-
-func (s *configureSuite) TestAptGetRetry(c *gc.C) {
-	aptgetRegexp := "(.|\n)*apt_get_loop.*" + regexp.QuoteMeta(sshinit.Aptget) + "(.|\n)*"
-	cfg, err := cloudinit.New("quantal")
-	c.Assert(err, jc.ErrorIsNil)
-	cfg.SetAptUpdate(true)
-	cfg.SetAptGetWrapper("eatmydata")
-	assertScriptMatches(c, cfg, aptgetRegexp, true)
 }
 
 func (s *configureSuite) TestAptMirrorWrapper(c *gc.C) {
@@ -210,6 +203,6 @@ done`)
 	aptMirrorRegexp := "(.|\n)*" + expectedCommands + "(.|\n)*"
 	cfg, err := cloudinit.New("quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	cfg.SetAptMirror("http://woat.com")
+	cfg.SetPackageMirror("http://woat.com")
 	assertScriptMatches(c, cfg, aptMirrorRegexp, true)
 }

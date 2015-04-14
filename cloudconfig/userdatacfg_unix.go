@@ -2,10 +2,13 @@
 // Copyright 2014 Cloudbase Solutions
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cloudinit
+// +build !windows
+
+package cloudconfig
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -16,10 +19,15 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
+	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
+	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/version"
 )
 
 const (
@@ -49,7 +57,7 @@ for n in $(seq {{.ToolsDownloadAttempts}}); do
 done`
 )
 
-type ubuntuConfigure struct {
+type unixConfigure struct {
 	baseConfigure
 }
 
@@ -57,7 +65,7 @@ type ubuntuConfigure struct {
 
 // Configure updates the provided cloudinit.Config with
 // configuration to initialize a Juju machine agent.
-func (w *ubuntuConfigure) Configure() error {
+func (w *unixConfigure) Configure() error {
 	if err := w.ConfigureBasic(); err != nil {
 		return err
 	}
@@ -76,12 +84,25 @@ func (w *ubuntuConfigure) Configure() error {
 // Doing it later brings the benefit of feedback in the face of errors,
 // but adds to the running time of initialisation due to lack of activity
 // between image bringup and start of agent installation.
-func (w *ubuntuConfigure) ConfigureBasic() error {
+func (w *unixConfigure) ConfigureBasic() error {
 	w.conf.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
 	)
-	w.conf.AddSSHAuthorizedKeys(w.mcfg.AuthorizedKeys)
-	w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.mcfg.CloudInitOutputLog, "")
+	switch w.os {
+	case version.Ubuntu:
+		w.conf.AddSSHAuthorizedKeys(w.icfg.AuthorizedKeys)
+	// On unix systems that are not ubuntu we create an ubuntu user so that we
+	// are able to ssh in the machine and have all the functionality dependant
+	// on having an ubuntu user there.
+	// Hopefully in the future we are going to move all the distirbutions to
+	// having a "juju" user
+	case version.CentOS:
+		script := fmt.Sprintf(initUbuntuScript, utils.ShQuote(w.icfg.AuthorizedKeys))
+		w.conf.AddScripts(script)
+		w.conf.AddScripts("systemctl stop firewalld")
+		w.conf.AddScripts("systemctl disable firewalld")
+	}
+	w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.icfg.CloudInitOutputLog, "")
 	// Create a file in a well-defined location containing the machine's
 	// nonce. The presence and contents of this file will be verified
 	// during bootstrap.
@@ -89,15 +110,27 @@ func (w *ubuntuConfigure) ConfigureBasic() error {
 	// Note: this must be the last runcmd we do in ConfigureBasic, as
 	// the presence of the nonce file is used to gate the remainder
 	// of synchronous bootstrap.
-	noncefile := path.Join(w.mcfg.DataDir, NonceFile)
-	w.conf.AddTextFile(noncefile, w.mcfg.MachineNonce, 0644)
+	noncefile := path.Join(w.icfg.DataDir, NonceFile)
+	w.conf.AddRunTextFile(noncefile, w.icfg.MachineNonce, 0644)
 	return nil
+}
+
+func (w *unixConfigure) setDataDirPermissions() string {
+	os, _ := version.GetOSFromSeries(w.icfg.Series)
+	var user string
+	switch os {
+	case version.CentOS:
+		user = "root"
+	default:
+		user = "syslog"
+	}
+	return fmt.Sprintf("chown %s:adm %s", user, w.icfg.LogDir)
 }
 
 // ConfigureJuju updates the provided cloudinit.Config with configuration
 // to initialise a Juju machine agent.
-func (w *ubuntuConfigure) ConfigureJuju() error {
-	if err := verifyConfig(w.mcfg); err != nil {
+func (w *unixConfigure) ConfigureJuju() error {
+	if err := w.icfg.VerifyConfig(); err != nil {
 		return err
 	}
 
@@ -112,18 +145,16 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 	// have been set. We don't want to show the log to the user, so simply
 	// append to the log file rather than teeing.
 	if stdout, _ := w.conf.Output(cloudinit.OutAll); stdout == "" {
-		w.conf.SetOutput(cloudinit.OutAll, ">> "+w.mcfg.CloudInitOutputLog, "")
+		w.conf.SetOutput(cloudinit.OutAll, ">> "+w.icfg.CloudInitOutputLog, "")
 		w.conf.AddBootCmd(initProgressCmd)
-		w.conf.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on remote host", w.mcfg.CloudInitOutputLog))
+		w.conf.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on remote host", w.icfg.CloudInitOutputLog))
 	}
 
-	AddAptCommands(
-		w.mcfg.Series,
-		w.mcfg.AptProxySettings,
-		w.mcfg.AptMirror,
-		w.conf,
-		w.mcfg.EnableOSRefreshUpdate,
-		w.mcfg.EnableOSUpgrade,
+	w.conf.AddPackageCommands(
+		w.icfg.AptProxySettings,
+		w.icfg.AptMirror,
+		w.icfg.EnableOSRefreshUpdate,
+		w.icfg.EnableOSUpgrade,
 	)
 
 	// Write out the normal proxy settings so that the settings are
@@ -134,55 +165,55 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		// user may not exist (local provider only).
 		`([ ! -e /home/ubuntu/.profile ] || grep -q '.juju-proxy' /home/ubuntu/.profile) || ` +
 			`printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`)
-	if (w.mcfg.ProxySettings != proxy.Settings{}) {
-		exportedProxyEnv := w.mcfg.ProxySettings.AsScriptEnvironment()
+	if (w.icfg.ProxySettings != proxy.Settings{}) {
+		exportedProxyEnv := w.icfg.ProxySettings.AsScriptEnvironment()
 		w.conf.AddScripts(strings.Split(exportedProxyEnv, "\n")...)
 		w.conf.AddScripts(
 			fmt.Sprintf(
 				`(id ubuntu &> /dev/null) && (printf '%%s\n' %s > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
-				shquote(w.mcfg.ProxySettings.AsScriptEnvironment())))
+				shquote(w.icfg.ProxySettings.AsScriptEnvironment())))
 	}
 
 	// Make the lock dir and change the ownership of the lock dir itself to
 	// ubuntu:ubuntu from root:root so the juju-run command run as the ubuntu
 	// user is able to get access to the hook execution lock (like the uniter
 	// itself does.)
-	lockDir := path.Join(w.mcfg.DataDir, "locks")
+	lockDir := path.Join(w.icfg.DataDir, "locks")
 	w.conf.AddScripts(
 		fmt.Sprintf("mkdir -p %s", lockDir),
 		// We only try to change ownership if there is an ubuntu user defined.
 		fmt.Sprintf("(id ubuntu &> /dev/null) && chown ubuntu:ubuntu %s", lockDir),
-		fmt.Sprintf("mkdir -p %s", w.mcfg.LogDir),
-		fmt.Sprintf("chown syslog:adm %s", w.mcfg.LogDir),
+		fmt.Sprintf("mkdir -p %s", w.icfg.LogDir),
+		w.setDataDirPermissions(),
 	)
 
 	w.conf.AddScripts(
-		"bin="+shquote(w.mcfg.jujuTools()),
+		"bin="+shquote(w.icfg.JujuTools()),
 		"mkdir -p $bin",
 	)
 
 	// Make a directory for the tools to live in, then fetch the
 	// tools and unarchive them into it.
-	if strings.HasPrefix(w.mcfg.Tools.URL, fileSchemePrefix) {
-		toolsData, err := ioutil.ReadFile(w.mcfg.Tools.URL[len(fileSchemePrefix):])
+	if strings.HasPrefix(w.icfg.Tools.URL, fileSchemePrefix) {
+		toolsData, err := ioutil.ReadFile(w.icfg.Tools.URL[len(fileSchemePrefix):])
 		if err != nil {
 			return err
 		}
-		w.conf.AddBinaryFile(path.Join(w.mcfg.jujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
+		w.conf.AddRunBinaryFile(path.Join(w.icfg.JujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
 	} else {
 		curlCommand := curlCommand
 		var urls []string
-		if w.mcfg.Bootstrap {
+		if w.icfg.Bootstrap {
 			curlCommand += " --retry 10"
-			if w.mcfg.DisableSSLHostnameVerification {
+			if w.icfg.DisableSSLHostnameVerification {
 				curlCommand += " --insecure"
 			}
-			urls = append(urls, w.mcfg.Tools.URL)
+			urls = append(urls, w.icfg.Tools.URL)
 		} else {
-			for _, addr := range w.mcfg.apiHostAddrs() {
+			for _, addr := range w.icfg.ApiHostAddrs() {
 				// TODO(axw) encode env UUID in URL when EnvironTag
 				// is guaranteed to be available in APIInfo.
-				url := fmt.Sprintf("https://%s/tools/%s", addr, w.mcfg.Tools.Version)
+				url := fmt.Sprintf("https://%s/tools/%s", addr, w.icfg.Tools.Version)
 				urls = append(urls, url)
 			}
 
@@ -199,15 +230,15 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s <%s>", curlCommand, urls))
 		w.conf.AddRunCmd(toolsDownloadCommand(curlCommand, urls))
 	}
-	toolsJson, err := json.Marshal(w.mcfg.Tools)
+	toolsJson, err := json.Marshal(w.icfg.Tools)
 	if err != nil {
 		return err
 	}
 
 	w.conf.AddScripts(
-		fmt.Sprintf("sha256sum $bin/tools.tar.gz > $bin/juju%s.sha256", w.mcfg.Tools.Version),
+		fmt.Sprintf("sha256sum $bin/tools.tar.gz > $bin/juju%s.sha256", w.icfg.Tools.Version),
 		fmt.Sprintf(`grep '%s' $bin/juju%s.sha256 || (echo "Tools checksum mismatch"; exit 1)`,
-			w.mcfg.Tools.SHA256, w.mcfg.Tools.Version),
+			w.icfg.Tools.SHA256, w.icfg.Tools.Version),
 		fmt.Sprintf("tar zxf $bin/tools.tar.gz -C $bin"),
 		fmt.Sprintf("printf %%s %s > $bin/downloaded-tools.txt", shquote(string(toolsJson))),
 	)
@@ -215,7 +246,7 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 	// Don't remove tools tarball until after bootstrap agent
 	// runs, so it has a chance to add it to its catalogue.
 	defer w.conf.AddRunCmd(
-		fmt.Sprintf("rm $bin/tools.tar.gz && rm $bin/juju%s.sha256", w.mcfg.Tools.Version),
+		fmt.Sprintf("rm $bin/tools.tar.gz && rm $bin/juju%s.sha256", w.icfg.Tools.Version),
 	)
 
 	// We add the machine agent's configuration info
@@ -224,7 +255,8 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 	// It would be cleaner to change bootstrap-state to
 	// be responsible for starting the machine agent itself,
 	// but this would not be backwardly compatible.
-	_, err = w.addAgentInfo()
+	machineTag := names.NewMachineTag(w.icfg.MachineId)
+	_, err = w.addAgentInfo(machineTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -232,32 +264,33 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 	// Add the cloud archive cloud-tools pocket to apt sources
 	// for series that need it. This gives us up-to-date LXC,
 	// MongoDB, and other infrastructure.
-	if w.conf.AptUpdate() {
-		MaybeAddCloudArchiveCloudTools(w.conf, w.mcfg.Tools.Version.Series)
+	// This is only done on ubuntu
+	if w.conf.SystemUpdate() && w.conf.RequiresCloudArchiveCloudTools() {
+		w.conf.AddCloudArchiveCloudTools()
 	}
 
-	if w.mcfg.Bootstrap {
+	if w.icfg.Bootstrap {
 		var metadataDir string
-		if len(w.mcfg.CustomImageMetadata) > 0 {
-			metadataDir = path.Join(w.mcfg.DataDir, "simplestreams")
-			index, products, err := imagemetadata.MarshalImageMetadataJSON(w.mcfg.CustomImageMetadata, nil, time.Now())
+		if len(w.icfg.CustomImageMetadata) > 0 {
+			metadataDir = path.Join(w.icfg.DataDir, "simplestreams")
+			index, products, err := imagemetadata.MarshalImageMetadataJSON(w.icfg.CustomImageMetadata, nil, time.Now())
 			if err != nil {
 				return err
 			}
 			indexFile := path.Join(metadataDir, imagemetadata.IndexStoragePath())
 			productFile := path.Join(metadataDir, imagemetadata.ProductMetadataStoragePath())
-			w.conf.AddTextFile(indexFile, string(index), 0644)
-			w.conf.AddTextFile(productFile, string(products), 0644)
+			w.conf.AddRunTextFile(indexFile, string(index), 0644)
+			w.conf.AddRunTextFile(productFile, string(products), 0644)
 			metadataDir = "  --image-metadata " + shquote(metadataDir)
 		}
 
-		cons := w.mcfg.Constraints.String()
+		cons := w.icfg.Constraints.String()
 		if cons != "" {
 			cons = " --constraints " + shquote(cons)
 		}
 		var hardware string
-		if w.mcfg.HardwareCharacteristics != nil {
-			if hardware = w.mcfg.HardwareCharacteristics.String(); hardware != "" {
+		if w.icfg.HardwareCharacteristics != nil {
+			if hardware = w.icfg.HardwareCharacteristics.String(); hardware != "" {
 				hardware = " --hardware " + shquote(hardware)
 			}
 		}
@@ -270,10 +303,10 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		}
 		w.conf.AddScripts(
 			// The bootstrapping is always run with debug on.
-			w.mcfg.jujuTools() + "/jujud bootstrap-state" +
-				" --data-dir " + shquote(w.mcfg.DataDir) +
-				" --env-config " + shquote(base64yaml(w.mcfg.Config)) +
-				" --instance-id " + shquote(string(w.mcfg.InstanceId)) +
+			w.icfg.JujuTools() + "/jujud bootstrap-state" +
+				" --data-dir " + shquote(w.icfg.DataDir) +
+				" --env-config " + shquote(base64yaml(w.icfg.Config)) +
+				" --instance-id " + shquote(string(w.icfg.InstanceId)) +
 				hardware +
 				cons +
 				metadataDir +
@@ -305,3 +338,26 @@ func toolsDownloadCommand(curlCommand string, urls []string) string {
 	}
 	return buf.String()
 }
+
+func base64yaml(m *config.Config) string {
+	data, err := goyaml.Marshal(m.AllAttrs())
+	if err != nil {
+		// can't happen, these values have been validated a number of times
+		panic(err)
+	}
+	return base64.StdEncoding.EncodeToString(data)
+}
+
+const initUbuntuScript = `
+set -e
+(id ubuntu &> /dev/null) || useradd -m ubuntu -s /bin/bash
+umask 0077
+temp=$(mktemp)
+echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > $temp
+install -m 0440 $temp /etc/sudoers.d/90-juju-ubuntu
+rm $temp
+su ubuntu -c 'install -D -m 0600 /dev/null ~/.ssh/authorized_keys'
+export authorized_keys=%s
+if [ ! -z "$authorized_keys" ]; then
+    su ubuntu -c 'printf "%%s\n" "$authorized_keys" >> ~/.ssh/authorized_keys'
+fi`

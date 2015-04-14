@@ -1,8 +1,9 @@
-package cloudinit_test
+// Copyright 2015 Canonical Ltd.
+// Copyright 2015 Cloudbase Solutions SRL
 
-var WindowsUserdata = `#ps1_sysnative
+package cloudconfig
 
-
+var winPowershellHelperFunctions = `
 
 $ErrorActionPreference = "Stop"
 
@@ -39,18 +40,18 @@ function ExecRetry($command, $maxRetryCount = 10, $retryInterval=2)
 }
 
 function create-account ([string]$accountName, [string]$accountDescription, [string]$password) {
- $hostname = hostname
- $comp = [adsi]"WinNT://$hostname"
- $user = $comp.Create("User", $accountName)
- $user.SetPassword($password)
- $user.SetInfo()
- $user.description = $accountDescription
- $user.SetInfo()
- $User.UserFlags[0] = $User.UserFlags[0] -bor 0x10000
- $user.SetInfo()
+	$hostname = hostname
+	$comp = [adsi]"WinNT://$hostname"
+	$user = $comp.Create("User", $accountName)
+	$user.SetPassword($password)
+	$user.SetInfo()
+	$user.description = $accountDescription
+	$user.SetInfo()
+	$User.UserFlags[0] = $User.UserFlags[0] -bor 0x10000
+	$user.SetInfo()
 
- $objOU = [ADSI]"WinNT://$hostname/Administrators,group"
- $objOU.add("WinNT://$hostname/$accountName")
+	$objOU = [ADSI]"WinNT://$hostname/Administrators,group"
+	$objOU.add("WinNT://$hostname/$accountName")
 }
 
 $Source = @"
@@ -791,76 +792,18 @@ New-ItemProperty "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\Sp
 $secpasswd = ConvertTo-SecureString $juju_passwd -AsPlainText -Force
 $jujuCreds = New-Object System.Management.Automation.PSCredential ($juju_user, $secpasswd)
 
+`
 
-icacls "C:\Juju" /grant "jujud:(OI)(CI)(F)" /T
-mkdir C:\Juju\tmp
-mkdir "C:\Juju\bin"
-
+var winSetPasswdScript = `
 
 Set-Content "C:\juju\bin\save_pass.ps1" @"
 Param (
- [Parameter(Mandatory=` + "`" + `$true)]
- [string]` + "`" + `$pass
+	[Parameter(Mandatory=` + "`$true" + `)]
+	[string]` + "`$pass" + `
 )
 
-` + "`" + `$secpasswd = ConvertTo-SecureString ` + "`" + `$pass -AsPlainText -Force
-` + "`" + `$secpasswd | convertfrom-securestring | Add-Content C:\Juju\Jujud.pass 
+` + "`$secpasswd" + ` = ConvertTo-SecureString ` + "`$pass" + ` -AsPlainText -Force
+` + "`$secpasswd" + ` | convertfrom-securestring | Add-Content C:\Juju\Jujud.pass 
 "@
 
-
-Start-ProcessAsUser -Command $powershell -Arguments "-File C:\juju\bin\save_pass.ps1 $juju_passwd" -Credential $jujuCreds
-mkdir "C:\Juju\lib\juju\locks"
-Start-ProcessAsUser -Command $cmdExe -Arguments '/C setx PATH "%PATH%` + ";" + `C:\Juju\bin"' -Credential $jujuCreds
-Set-Content "C:\Juju\lib\juju\nonce.txt" "'FAKE_NONCE'"
-$binDir="C:\Juju\lib\juju\tools\1.2.3-win8-amd64"
-$tmpBinDir=$binDir.Replace('\', '\\')
-mkdir 'C:\Juju\log\juju'
-mkdir $binDir
-$WebClient = New-Object System.Net.WebClient
-[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
-ExecRetry { $WebClient.DownloadFile('http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz', "$binDir\tools.tar.gz") }
-$dToolsHash = (Get-FileHash -Algorithm SHA256 "$binDir\tools.tar.gz").hash
-$dToolsHash > "$binDir\juju1.2.3-win8-amd64.sha256"
-if ($dToolsHash.ToLower() -ne "1234"){ Throw "Tools checksum mismatch"}
-& "${env:ProgramFiles(x86)}\Cloudbase Solutions\Cloudbase-Init\Python27\python.exe" -c "import tarfile;archive = tarfile.open('$tmpBinDir\\tools.tar.gz');archive.extractall(path='$tmpBinDir')"
-rm "$binDir\tools.tar*"
-Set-Content $binDir\downloaded-tools.txt '{"version":"1.2.3-win8-amd64","url":"http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz","sha256":"1234","size":10}'
-mkdir 'C:\Juju\lib\juju\agents\machine-10'
-Set-Content 'C:/Juju/lib/juju/agents/machine-10/agent.conf' @"
-# format 1.18
-tag: machine-10
-datadir: C:/Juju/lib/juju
-logdir: C:/Juju/log/juju
-nonce: FAKE_NONCE
-jobs:
-- JobHostUnits
-upgradedToVersion: 1.2.3
-cacert: |
-  CA CERT
-  SERVER CERT
-  -----BEGIN CERTIFICATE-----
-  MIIBdzCCASOgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
-  MAsGA1UEAxMEcm9vdDAeFw0xMjExMDgxNjIyMzRaFw0xMzExMDgxNjI3MzRaMBwx
-  DDAKBgNVBAoTA2htbTEMMAoGA1UEAxMDYW55MFowCwYJKoZIhvcNAQEBA0sAMEgC
-  QQCACqz6JPwM7nbxAWub+APpnNB7myckWJ6nnsPKi9SipP1hyhfzkp8RGMJ5Uv7y
-  8CSTtJ8kg/ibka1VV8LvP9tnAgMBAAGjUjBQMA4GA1UdDwEB/wQEAwIAsDAdBgNV
-  HQ4EFgQU6G1ERaHCgfAv+yoDMFVpDbLOmIQwHwYDVR0jBBgwFoAUP/mfUdwOlHfk
-  fR+gLQjslxf64w0wCwYJKoZIhvcNAQEFA0EAbn0MaxWVgGYBomeLYfDdb8vCq/5/
-  G/2iCUQCXsVrBparMLFnor/iKOkJB5n3z3rtu70rFt+DpX6L8uBR3LB3+A==
-  -----END CERTIFICATE-----
-stateaddresses:
-- state-addr.testing.invalid:12345
-environment: environment-deadbeef-0bad-400d-8000-4b1d0d06f00d
-apiaddresses:
-- state-addr.testing.invalid:54321
-oldpassword: arble
-values:
-  AGENT_SERVICE_NAME: jujud-machine-10
-  PROVIDER_TYPE: dummy
-
-"@
-cmd.exe /C mklink /D C:\Juju\lib\juju\tools\machine-10 1.2.3-win8-amd64
-echo 'Starting Juju machine agent (jujud-machine-10)' >&9
-New-Service -Credential $jujuCreds -Name 'jujud-machine-10' -DisplayName 'juju agent for machine-10' '''C:\Juju\lib\juju\tools\machine-10\jujud.exe'' machine --data-dir ''C:\Juju\lib\juju'' --machine-id 10 --debug'
-cmd.exe /C sc config 'jujud-machine-10' start=delayed-auto
-Start-Service 'jujud-machine-10'`
+`
