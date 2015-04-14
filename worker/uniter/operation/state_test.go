@@ -168,13 +168,6 @@ var stateTests = []struct {
 	// Continue operation.
 	{
 		st: operation.State{
-			Kind: operation.Continue,
-			Step: operation.Pending,
-			Hook: &hook.Info{Kind: hooks.ConfigChanged},
-		},
-		err: `unexpected hook info with Kind Continue`,
-	}, {
-		st: operation.State{
 			Kind:     operation.Continue,
 			Step:     operation.Pending,
 			CharmURL: stcurl,
