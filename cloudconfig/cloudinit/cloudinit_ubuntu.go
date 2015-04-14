@@ -2,9 +2,6 @@
 // Copyright 2015 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The cloudinit package implements a way of creating
-// a cloud-init configuration file which is Ubuntu compatible.
-// See https://help.ubuntu.com/community/CloudInit.
 package cloudinit
 
 import (
@@ -281,7 +278,7 @@ func (cfg *UbuntuCloudConfig) updateProxySettings(proxySettings proxy.Settings) 
 		filename := config.AptProxyConfigFile
 		cfg.AddBootCmd(fmt.Sprintf(
 			`printf '%%s\n' %s > %s`,
-			shquote(cfg.paccmder.ProxyConfigContents(proxySettings)),
+			utils.ShQuote(cfg.paccmder.ProxyConfigContents(proxySettings)),
 			filename))
 	}
 }
