@@ -90,7 +90,7 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	// The client has not necessarily seen the server shutdown yet,
 	// so there are two possible errors.
 	if err != rpc.ErrShutdown && err != io.ErrUnexpectedEOF {
-		c.Fatalf("unexpected error from request: %#T, expected rpc.ErrShutdown or io.ErrUnexpectedEOF", err)
+		c.Fatalf("unexpected error from request: %#v, expected rpc.ErrShutdown or io.ErrUnexpectedEOF", err)
 	}
 
 	// Check it can be stopped twice.
