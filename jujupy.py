@@ -776,7 +776,7 @@ class GroupReporter:
         self.last_group = None
         self.ticks = 0
         self.wrap_offset = 0
-        self.wrap_width = 80
+        self.wrap_width = 79
 
     def _write(self, string):
         self.stream.write(string)

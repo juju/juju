@@ -1857,6 +1857,19 @@ class TestGroupReporter(TestCase):
     def test_wrap_to_width(self):
         sio = StringIO.StringIO()
         reporter = GroupReporter(sio, "done")
+        self.assertEqual(sio.getvalue(), "")
+        for _ in range(150):
+            reporter.update({"working": ["1"]})
+        reporter.finish()
+        self.assertEqual(sio.getvalue(), """\
+working: 1 ....................................................................
+...............................................................................
+..
+""")
+
+    def test_wrap_to_width_exact(self):
+        sio = StringIO.StringIO()
+        reporter = GroupReporter(sio, "done")
         reporter.wrap_width = 12
         self.assertEqual(sio.getvalue(), "")
         changes = []
