@@ -124,7 +124,7 @@ const DiscoverInitSystemScript = `#!/usr/bin/env bash
 if [[ -d /run/systemd/system ]]; then
     echo -n systemd
     exit 0
-elif /sbin/initctl --system list 2>&1 > /dev/null; then
+elif [[ -f /sbin/initctl ]] && /sbin/initctl --system list 2>&1 > /dev/null; then
     echo -n upstart
     exit 0
 fi
