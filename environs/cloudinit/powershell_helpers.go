@@ -2,12 +2,14 @@
 // Copyright 2014, 2015 Cloudbase Solutions
 // Copyright 2012 Aaron Jensen
 //
-// This file borrowed some code from https://bitbucket.org/splatteredbits/carbon.
-// This external source was licensed under apache-2.0 which compatible with AGPLv3.
-// Because it's compatible we can and have licensed this derived work under AGPLv3.
-// The original license for the external source can be found inside Apache-License.txt
-//
 // Licensed under the AGPLv3, see LICENCE file for details.
+//
+// This file borrowed some code from https://bitbucket.org/splatteredbits/carbon
+// (see Source/Security/Privilege.cs). This external source is licensed under
+// Apache-2.0 license which is compatible with AGPLv3 license. Because it's
+// compatible we can and have licensed this derived work under AGPLv3. The original
+// Apache-2.0 license for the external source can be found inside Apache-License.txt.
+// Copyright statement of the external source: Copyright 2012 Aaron Jensen
 
 package cloudinit
 
@@ -795,7 +797,7 @@ $juju_user = "$hostname\jujud"
 SetUserLogonAsServiceRights $juju_user
 SetAssignPrimaryTokenPrivilege $juju_user
 
-New-ItemProperty "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList" -Name "jujud" -Value 0 -PropertyType "DWord" 
+New-ItemProperty "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList" -Name "jujud" -Value 0 -PropertyType "DWord"
 
 $secpasswd = ConvertTo-SecureString $juju_passwd -AsPlainText -Force
 $jujuCreds = New-Object System.Management.Automation.PSCredential ($juju_user, $secpasswd)
@@ -811,7 +813,7 @@ Param (
 )
 
 ` + "`$secpasswd" + ` = ConvertTo-SecureString ` + "`$pass" + ` -AsPlainText -Force
-` + "`$secpasswd" + ` | convertfrom-securestring | Add-Content C:\Juju\Jujud.pass 
+` + "`$secpasswd" + ` | convertfrom-securestring | Add-Content C:\Juju\Jujud.pass
 "@
 
 `
