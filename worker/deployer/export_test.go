@@ -23,10 +23,10 @@ func NewTestSimpleContext(agentConfig agent.Config, logDir string, data *svctest
 	return &SimpleContext{
 		api:         &fakeAPI{},
 		agentConfig: agentConfig,
-		discoverService: func(name string, conf common.Conf) deployerService {
+		discoverService: func(name string, conf common.Conf) (deployerService, error) {
 			svc := svctesting.NewFakeService(name, conf)
 			svc.FakeServiceData = data
-			return svc
+			return svc, nil
 		},
 		listServices: func() ([]string, error) {
 			return data.InstalledNames.Values(), nil
