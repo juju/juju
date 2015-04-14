@@ -10,7 +10,6 @@ import (
 	"github.com/juju/utils/packaging/manager"
 
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/version"
 )
 
 var requiredPackages = []string{
@@ -38,32 +37,32 @@ func (ci *containerInitialiser) Initialise() error {
 
 // getPackageManager is a helper function which returns the
 // package manager implementation for the current system.
-func getPackageManager() (manager.PackageManager, error) {
-	return manager.NewPackageManager(version.Current.Series)
+func getPackageManager(series string) (manager.PackageManager, error) {
+	return manager.NewPackageManager(series)
 }
 
 // getPackagingConfigurer is a helper function which returns the
 // packaging configuration manager for the current system.
-func getPackagingConfigurer() (config.PackagingConfigurer, error) {
-	return config.NewPackagingConfigurer(version.Current.Series)
+func getPackagingConfigurer(series string) (config.PackagingConfigurer, error) {
+	return config.NewPackagingConfigurer(series)
 }
 
 // ensureDependencies creates a set of install packages using
 // apt.GetPreparePackages and runs each set of packages through
 // apt.GetInstall.
 func ensureDependencies(series string) error {
-	pacman, err := getPackageManager()
+	pacman, err := getPackageManager(series)
 	if err != nil {
 		return err
 	}
-	pacconfer, err := getPackagingConfigurer()
+	pacconfer, err := getPackagingConfigurer(series)
 	if err != nil {
 		return err
 	}
 
 	for _, pack := range requiredPackages {
 		pkg := pack
-		if config.SeriesRequiresCloudArchiveTools(version.Current.Series) &&
+		if config.SeriesRequiresCloudArchiveTools(series) &&
 			pacconfer.IsCloudArchivePackage(pack) {
 			pkg = strings.Join(pacconfer.ApplyCloudArchiveTarget(pack), " ")
 		}
