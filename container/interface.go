@@ -18,6 +18,11 @@ const (
 	// supports networking.
 	ConfigIPForwarding = "ip-forwarding"
 
+	// ConfigEnableNAT, if set to a non-empty value, instructs the
+	// container manager to enable NAT for hosted containers. NAT is
+	// required for AWS, but should be disabled for MAAS.
+	ConfigEnableNAT = "enable-nat"
+
 	DefaultNamespace = "juju"
 )
 
