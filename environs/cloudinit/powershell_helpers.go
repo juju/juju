@@ -1,3 +1,8 @@
+// Copyright 2014, 2015 Canonical Ltd.
+// Copyright 2014, 2015 Cloudbase Solutions
+// Copyright 2012 Aaron Jensen
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package cloudinit
 
 var winPowershellHelperFunctions = `
