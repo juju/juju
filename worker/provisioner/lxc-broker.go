@@ -221,6 +221,19 @@ type IptablesRule struct {
 	Rule  string
 }
 
+var skipSNATRule = IptablesRule{
+	// For EC2, to get internet access we need traffic to appear with
+	// source address matching the container's host. For internal
+	// traffic we want to keep the container IP because it is used
+	// by some services. This rule sits above the SNAT rule, which
+	// changes the source address of traffic to the container host IP
+	// address, skipping this modification if the traffic destination
+	// is inside the EC2 VPC.
+	"nat",
+	"POSTROUTING",
+	"-d {{.SubnetCIDR}} -o {{.HostIF}} -j RETURN",
+}
+
 var iptablesRules = map[string]IptablesRule{
 	// iptablesCheckSNAT is the command template to verify if a SNAT
 	// rule already exists for the host NIC named .HostIF (usually
@@ -228,10 +241,14 @@ var iptablesRules = map[string]IptablesRule{
 	// need to check whether the rule exists because we only want to
 	// add it once. Exit code 0 means the rule exists, 1 means it
 	// doesn't
-	"iptablesForwardOut": {
-		// Ensure that we have ACCEPT rules that apply to the containers
-		// that we are creating so any DROP rules further down the chain
-		// don't disrupt wanted traffic.
+	"iptablesSNAT": {
+		"nat",
+		"POSTROUTING",
+		"-o {{.HostIF}} -j SNAT --to-source {{.HostIP}}",
+	}, "iptablesForwardOut": {
+		// Ensure that we have ACCEPT rules that apply to the containers that
+		// we are creating so any DROP rules added by libvirt while setting
+		// up virbr0 further down the chain don't disrupt wanted traffic.
 		"filter",
 		"FORWARD",
 		"-d {{.ContainerCIDR}} -o {{.HostBridge}} -j ACCEPT",
@@ -326,9 +343,10 @@ var setupRoutesAndIPTables = func(
 			HostBridge    string
 			ContainerIP   string
 			ContainerCIDR string
-		}{primaryNIC, primaryAddr.Value, bridgeName, containerIP, iface.CIDR}
+			SubnetCIDR    string
+		}{primaryNIC, primaryAddr.Value, bridgeName, containerIP, iface.CIDR, iface.CIDR}
 
-		for name, rule := range iptablesRules {
+		var addRuleIfDoesNotExist = func(name string, rule IptablesRule) error {
 			check := mustExecTemplate("rule", "iptables -t {{.Table}} -C {{.Chain}} {{.Rule}}", rule)
 			t := mustParseTemplate(name+"Check", check)
 
@@ -351,6 +369,23 @@ var setupRoutesAndIPTables = func(
 			default:
 				// Unexpected code - better report it.
 				return errors.Errorf("iptables failed with unexpected exit code %d", code)
+			}
+			return nil
+		}
+
+		for name, rule := range iptablesRules {
+			if err := addRuleIfDoesNotExist(name, rule); err != nil {
+				return err
+			}
+		}
+
+		// TODO(dooferlad): subnets should be a list of subnets in the EC2 VPC and
+		// should be empty for MAAS. See bug http://pad.lv/1443942
+		subnets := []string{data.HostIP + "/16"}
+		for _, subnet := range subnets {
+			data.SubnetCIDR = subnet
+			if err := addRuleIfDoesNotExist("skipSNAT", skipSNATRule); err != nil {
+				return err
 			}
 		}
 
