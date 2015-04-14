@@ -775,6 +775,8 @@ class GroupReporter:
         self.expected = expected
         self.last_group = None
         self.ticks = 0
+        self.wrap_offset = 0
+        self.wrap_width = 80
 
     def _write(self, string):
         self.stream.write(string)
@@ -786,7 +788,9 @@ class GroupReporter:
 
     def update(self, group):
         if group == self.last_group:
-            self._write("." if self.ticks else " .")
+            if (self.wrap_offset + self.ticks) % self.wrap_width == 0:
+                self._write("\n")
+            self._write("." if self.ticks or not self.wrap_offset else " .")
             self.ticks += 1
             return
         value_listing = []
@@ -800,3 +804,5 @@ class GroupReporter:
         self._write(string)
         self.last_group = group
         self.ticks = 0
+        lead_length = len(string) + 1
+        self.wrap_offset = lead_length if lead_length < self.wrap_width else 0

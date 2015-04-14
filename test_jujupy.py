@@ -1853,3 +1853,40 @@ class TestGroupReporter(TestCase):
         self.assertEqual(sio.getvalue(), "")
         reporter.finish()
         self.assertEqual(sio.getvalue(), "")
+
+    def test_wrap_to_width(self):
+        sio = StringIO.StringIO()
+        reporter = GroupReporter(sio, "done")
+        reporter.wrap_width = 12
+        self.assertEqual(sio.getvalue(), "")
+        changes = []
+        for _ in range(20):
+            reporter.update({"working": ["1"]})
+            changes.append(sio.getvalue())
+        self.assertEqual(changes[::4], [
+            "working: 1",
+            "working: 1 .\n...",
+            "working: 1 .\n.......",
+            "working: 1 .\n...........",
+            "working: 1 .\n............\n...",
+        ])
+        reporter.finish()
+        self.assertEqual(sio.getvalue(), changes[-1] + "\n")
+
+    def test_wrap_to_width_overflow(self):
+        sio = StringIO.StringIO()
+        reporter = GroupReporter(sio, "done")
+        reporter.wrap_width = 8
+        self.assertEqual(sio.getvalue(), "")
+        changes = []
+        for _ in range(16):
+            reporter.update({"working": ["1"]})
+            changes.append(sio.getvalue())
+        self.assertEqual(changes[::4], [
+            "working: 1",
+            "working: 1\n....",
+            "working: 1\n........",
+            "working: 1\n........\n....",
+        ])
+        reporter.finish()
+        self.assertEqual(sio.getvalue(), changes[-1] + "\n")
