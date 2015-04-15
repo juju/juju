@@ -594,6 +594,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	docID := s.st.docID(name)
 	globalKey := unitGlobalKey(name)
 	agentGlobalKey := unitAgentGlobalKey(name)
+	meterStatusGlobalKey := unitAgentGlobalKey(name)
 	udoc := &unitDoc{
 		DocID:                  docID,
 		Name:                   name,
@@ -625,7 +626,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		},
 		createStatusOp(s.st, globalKey, unitStatusDoc),
 		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
-		createMeterStatusOp(s.st, globalKey, &meterStatusDoc{Code: MeterNotSet.String()}),
+		createMeterStatusOp(s.st, meterStatusGlobalKey, &meterStatusDoc{Code: MeterNotSet.String()}),
 		{
 			C:      servicesC,
 			Id:     s.doc.DocID,
@@ -742,7 +743,7 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		removeConstraintsOp(s.st, u.globalAgentKey()),
 		removeStatusOp(s.st, u.globalAgentKey()),
 		removeStatusOp(s.st, u.globalKey()),
-		removeMeterStatusOp(s.st, u.globalKey()),
+		removeMeterStatusOp(s.st, u.globalMeterStatusKey()),
 		annotationRemoveOp(s.st, u.globalKey()),
 		s.st.newCleanupOp(cleanupRemovedUnit, u.doc.Name),
 	)
