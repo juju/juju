@@ -71,17 +71,8 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		fmt.Fprintln(tw)
 	}
 
-	p("[Machines]")
-	p("ID\tSTATE\tVERSION\tDNS\tINS-ID\tSERIES\tHARDWARE")
-	for _, name := range sortStringsNaturally(stringKeysFromMap(fs.Machines)) {
-		m := fs.Machines[name]
-		p(m.Id, m.AgentState, m.AgentVersion, m.DNSName, m.InstanceId, m.Series, m.Hardware)
-	}
-	tw.Flush()
-
 	units := make(map[string]unitStatus)
-
-	p("\n[Services]")
+	p("[Services]")
 	p("NAME\tSTATUS\tEXPOSED\tCHARM")
 	for _, svcName := range sortStringsNaturally(stringKeysFromMap(fs.Services)) {
 		svc := fs.Services[svcName]
@@ -101,6 +92,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 			u.Machine,
 			strings.Join(u.OpenedPorts, ","),
 			u.PublicAddress,
+			u.WorkloadStatusInfo.Message,
 		)
 	}
 
@@ -114,24 +106,9 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	}
 	var header []string
 	if newStatus {
-		header = []string{"ID", "WORKLOAD-STATE", "AGENT-STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS"}
+		header = []string{"ID", "WORKLOAD-STATE", "AGENT-STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS", "MESSAGE"}
 	} else {
 		header = []string{"ID", "STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS"}
-	}
-
-	pUnitInfo := func(u unitStatus, level int, info string) {
-		// We need to keep the tabular output nice and neat, so
-		// limit the size of the info message.
-		if len(info) > 25 {
-			info = info[:22] + "..."
-		}
-		columns := make([]interface{}, len(header))
-		columns[0] = indent("", level*2, "")
-		columns[1] = info
-		for i := 2; i < len(columns); i++ {
-			columns[i] = ""
-		}
-		p(columns...)
 	}
 
 	p("\n[Units]")
@@ -139,17 +116,16 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	for _, name := range sortStringsNaturally(stringKeysFromMap(units)) {
 		u := units[name]
 		pUnit(name, u, 0)
-		// If we have new status data, we will display a little extra info for workload status if needed.
-		if newStatus {
-			switch u.WorkloadStatusInfo.Current {
-			case params.StatusMaintenance, params.StatusError:
-				if u.WorkloadStatusInfo.Message != "" {
-					pUnitInfo(u, 0, u.WorkloadStatusInfo.Message)
-				}
-			}
-		}
 		const indentationLevel = 1
 		recurseUnits(u, indentationLevel, pUnit)
+	}
+	tw.Flush()
+
+	p("\n[Machines]")
+	p("ID\tSTATE\tVERSION\tDNS\tINS-ID\tSERIES\tHARDWARE")
+	for _, name := range sortStringsNaturally(stringKeysFromMap(fs.Machines)) {
+		m := fs.Machines[name]
+		p(m.Id, m.AgentState, m.AgentVersion, m.DNSName, m.InstanceId, m.Series, m.Hardware)
 	}
 	tw.Flush()
 

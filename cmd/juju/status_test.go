@@ -2983,7 +2983,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		setUnitStatus{
 			"mysql/0",
 			state.StatusMaintenance,
-			"installing all the things and doing a bunch of other really, really useful stuff", nil},
+			"installing all the things", nil},
 		setUnitTools{"mysql/0", version.MustParseBinary("1.2.3-trusty-ppc")},
 		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
@@ -3016,25 +3016,24 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	c.Assert(
 		string(stdout),
 		gc.Equals,
-		"[Machines] \n"+
-			"ID         STATE   VERSION DNS            INS-ID     SERIES  HARDWARE                                         \n"+
-			"0          started         dummyenv-0.dns dummyenv-0 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n"+
-			"1          started         dummyenv-1.dns dummyenv-1 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n"+
-			"2          started         dummyenv-2.dns dummyenv-2 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n"+
-			"\n"+
-			"[Services] \n"+
+		"[Services] \n"+
 			"NAME       STATUS      EXPOSED CHARM                  \n"+
 			"logging                true    cs:quantal/logging-1   \n"+
 			"mysql      maintenance true    cs:quantal/mysql-1     \n"+
 			"wordpress  active      true    cs:quantal/wordpress-3 \n"+
 			"\n"+
 			"[Units]     \n"+
-			"ID          WORKLOAD-STATE            AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS \n"+
-			"mysql/0     maintenance               idle        1.2.3   2             dummyenv-2.dns \n"+
-			"            installing all the thi...                                                  \n"+
-			"  logging/1 error                     idle                              dummyenv-2.dns \n"+
-			"wordpress/0 active                    idle        1.2.3   1             dummyenv-1.dns \n"+
-			"  logging/0 active                    idle                              dummyenv-1.dns \n"+
+			"ID          WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                        \n"+
+			"mysql/0     maintenance    idle        1.2.3   2             dummyenv-2.dns installing all the things      \n"+
+			"  logging/1 error          idle                              dummyenv-2.dns somehow lost in all those logs \n"+
+			"wordpress/0 active         idle        1.2.3   1             dummyenv-1.dns                                \n"+
+			"  logging/0 active         idle                              dummyenv-1.dns                                \n"+
+			"\n"+
+			"[Machines] \n"+
+			"ID         STATE   VERSION DNS            INS-ID     SERIES  HARDWARE                                         \n"+
+			"0          started         dummyenv-0.dns dummyenv-0 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n"+
+			"1          started         dummyenv-1.dns dummyenv-1 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n"+
+			"2          started         dummyenv-2.dns dummyenv-2 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n"+
 			"\n",
 	)
 }

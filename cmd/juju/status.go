@@ -6,7 +6,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -414,8 +416,21 @@ func (sf *statusFormatter) formatService(name string, service api.ServiceStatus)
 	return out
 }
 
+// isTerminal returns true if the given file descriptor is a terminal.
+func isTerminal(fd uintptr) bool {
+	var termios syscall.Termios
+	_, _, err := syscall.Syscall6(syscall.SYS_IOCTL, fd, syscall.TCGETS, uintptr(unsafe.Pointer(&termios)), 0, 0, 0)
+	return err == 0
+}
+
 func formatTime(t *time.Time) string {
-	return t.Local().Format(time.RFC822)
+	if isTerminal(1) {
+		// If printing to a terminal, use local time in a user friendly format.
+		return t.Local().Format("02 Jan 2006 15:04:05 MST")
+	} else {
+		// Otherwise use UTC.
+		return t.Format(time.RFC3339)
+	}
 }
 
 func (sf *statusFormatter) getServiceStatusInfo(service api.ServiceStatus) statusInfoContents {
