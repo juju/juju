@@ -434,8 +434,8 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
-	coretesting.SkipIfI386(c, "lp:1425569")
-	coretesting.SkipIfPPC64EL(c, "lp:1434555")
+	coretesting.SkipIfI386(c, "lp:1444576")
+	coretesting.SkipIfPPC64EL(c, "lp:1444576")
 
 	//TODO(bogdanteleaga): Fix this to behave properly
 	if runtime.GOOS == "windows" {
@@ -455,6 +455,7 @@ func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
+	coretesting.SkipIfPPC64EL(c, "lp:1444576")
 	s.setInstantRetryStrategy(c)
 	// We need to first start up a state server that thinks it has already been upgraded.
 	ss, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
