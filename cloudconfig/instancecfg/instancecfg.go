@@ -95,26 +95,26 @@ type InstanceConfig struct {
 	// MachineId identifies the new machine.
 	MachineId string
 
-	// MachineContainerType specifies the type of container that the machine
-	// is.  If the machine is not a container, then the type is "".
+	// MachineContainerType specifies the type of container that the instance
+	// is.  If the instance is not a container, then the type is "".
 	MachineContainerType instance.ContainerType
 
-	// Networks holds a list of networks the machine should be on.
+	// Networks holds a list of networks the instances should be on.
 	Networks []string
 
 	// AuthorizedKeys specifies the keys that are allowed to
-	// connect to the machine (see cloudinit.SSHAddAuthorizedKeys)
+	// connect to the instance (see cloudinit.SSHAddAuthorizedKeys)
 	// If no keys are supplied, there can be no ssh access to the node.
-	// On a bootstrap machine, that is fatal. On other
-	// machines it will mean that the ssh, scp and debug-hooks
+	// On a bootstrap instance, that is fatal. On other
+	// instances it will mean that the ssh, scp and debug-hooks
 	// commands cannot work.
 	AuthorizedKeys string
 
 	// AgentEnvironment defines additional configuration variables to set in
-	// the machine agent config.
+	// the instance agent config.
 	AgentEnvironment map[string]string
 
-	// WARNING: this is only set if the machine being configured is
+	// WARNING: this is only set if the instance being configured is
 	// a state server node.
 	//
 	// Config holds the initial environment configuration.
@@ -127,7 +127,7 @@ type InstanceConfig struct {
 	// that it shouldn't verify SSL certificates
 	DisableSSLHostnameVerification bool
 
-	// Series represents the machine series.
+	// Series represents the instance series.
 	Series string
 
 	// MachineAgentServiceName is the init service name for the Juju machine agent.
@@ -149,12 +149,12 @@ type InstanceConfig struct {
 	// servers will be preferred over IPv4 ones.
 	PreferIPv6 bool
 
-	// The type of Simple Stream to download and deploy on this machine.
+	// The type of Simple Stream to download and deploy on this instance.
 	ImageStream string
 
 	// CustomImageMetadata is optional custom simplestreams image metadata
 	// to store in environment storage at bootstrap time. This is ignored
-	// in non-bootstrap machines.
+	// in non-bootstrap instances.
 	CustomImageMetadata []*imagemetadata.ImageMetadata
 
 	// EnableOSRefreshUpdate specifies whether Juju will refresh its
@@ -162,7 +162,7 @@ type InstanceConfig struct {
 	EnableOSRefreshUpdate bool
 
 	// EnableOSUpgrade defines Juju's behavior when provisioning
-	// machines. If enabled, the OS will perform any upgrades
+	// instances. If enabled, the OS will perform any upgrades
 	// available as part of its provisioning.
 	EnableOSUpgrade bool
 }
