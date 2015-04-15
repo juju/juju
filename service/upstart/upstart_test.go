@@ -362,3 +362,57 @@ func (s *UpstartSuite) TestInstallAlreadyRunning(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(installed, jc.IsTrue)
 }
+
+type IsRunningSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&IsRunningSuite{})
+
+const modeExecutable = 0500
+const modeNotExecutable = 0400
+
+// createInitctl creates a dummy initctl which returns the given
+// exitcode and patches the upstart package to use it.
+func (s *IsRunningSuite) createInitctl(c *gc.C, exitcode int, mode os.FileMode) {
+	path := filepath.Join(c.MkDir(), "initctl")
+	script := fmt.Sprintf(`#!/bin/sh
+exit %d
+`, exitcode)
+	err := ioutil.WriteFile(path, []byte(script), mode)
+	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(upstart.InitctlPath, path)
+}
+
+func (s *IsRunningSuite) TestUpstartInstalled(c *gc.C) {
+	s.createInitctl(c, 0, modeExecutable)
+
+	isUpstart, err := upstart.IsRunning()
+	c.Assert(isUpstart, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *IsRunningSuite) TestUpstartNotInstalled(c *gc.C) {
+	s.PatchValue(upstart.InitctlPath, "/foo/bar/not-exist")
+
+	isUpstart, err := upstart.IsRunning()
+	c.Assert(isUpstart, jc.IsFalse)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *IsRunningSuite) TestUpstartInstalledButBroken(c *gc.C) {
+	const errorCode = 99
+	s.createInitctl(c, errorCode, modeExecutable)
+
+	isUpstart, err := upstart.IsRunning()
+	c.Assert(isUpstart, jc.IsFalse)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", errorCode))
+}
+
+func (s *IsRunningSuite) TestInitctlCantBeRun(c *gc.C) {
+	s.createInitctl(c, 0, modeNotExecutable)
+
+	isUpstart, err := upstart.IsRunning()
+	c.Assert(isUpstart, jc.IsFalse)
+	c.Assert(err, gc.ErrorMatches, ".+: permission denied")
+}
