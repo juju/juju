@@ -470,7 +470,7 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 
 	c.Assert(getMockShellCalls(c, addAptRepoOut), gc.DeepEquals, [][]string{{
 		"--yes",
-		"ppa:juju/stable",
+		"\"ppa:juju/stable\"",
 	}})
 }
 

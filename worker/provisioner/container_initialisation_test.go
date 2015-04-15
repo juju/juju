@@ -315,7 +315,6 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 
 	for _, pack := range packages {
 		cmd := <-s.aptCmdChan
-		c.Assert(cmd.Env[len(cmd.Env)-1], gc.Equals, "DEBIAN_FRONTEND=noninteractive")
 		expected := []string{
 			"apt-get", "--option=Dpkg::Options::=--force-confold",
 			"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
