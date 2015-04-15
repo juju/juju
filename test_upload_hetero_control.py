@@ -10,7 +10,8 @@ from upload_hetero_control import (
 from ConfigParser import NoOptionError
 from argparse import Namespace, ArgumentParser
 from collections import namedtuple
-from mock import patch, MagicMock
+
+from mock import patch, MagicMock, call
 import json
 from StringIO import StringIO
 from jujuci import (
@@ -21,6 +22,7 @@ from jujuci import (
 
 
 __metaclass__ = type
+
 
 JOB_NAME = 'compatibility-control'
 BUILD_NUM = 1277
@@ -61,20 +63,17 @@ class TestJenkinsBuild(TestCase):
         with jenkins_cxt as j_mock:
             j = JenkinsBuild.factory(credentials, JOB_NAME, BUILD_NUM)
             self.assertIs(type(j), JenkinsBuild)
-        j_mock.assert_called_with(
+        j_mock.assert_called_once_with(
             JENKINS_URL, credentials.user, credentials.password)
-        j_mock.return_value.get_build_info.assert_called_with(
+        j_mock.return_value.get_build_info.assert_called_once_with(
             JOB_NAME, BUILD_NUM)
 
     def test_get_build_info(self):
         credentials = fake_credentials()
         jenkins_mock = MagicMock()
+        jenkins_mock.get_build_info.return_value = BUILD_INFO
         j = JenkinsBuild(credentials, JOB_NAME, jenkins_mock, None)
-        with patch.object(jenkins_mock, 'get_build_info',
-                          return_value=BUILD_INFO, autospec=True) as i_mock:
-            build_info = j.get_build_info(BUILD_NUM)
-            self.assertEqual(build_info, BUILD_INFO)
-        i_mock.assert_called_with(JOB_NAME, BUILD_NUM)
+        self.assertEqual(j.get_build_info(BUILD_NUM), BUILD_INFO)
 
     def test_result(self):
         credentials = fake_credentials()
@@ -82,7 +81,6 @@ class TestJenkinsBuild(TestCase):
         self.assertEqual(j.result, BUILD_INFO['result'])
 
     def test_console_text(self):
-
         class Response:
             text = "console content"
 
@@ -94,8 +92,8 @@ class TestJenkinsBuild(TestCase):
                        autospec=True) as h_mock:
                 text = j.get_console_text()
                 self.assertEqual(text, 'console content')
-        u_mock.assert_called_once_with(BUILD_INFO['url'] + 'consoleText',
-                                       auth=h_mock.return_value)
+        u_mock.assert_called_once_with(
+            BUILD_INFO['url'] + 'consoleText', auth=h_mock.return_value)
         h_mock.assert_called_once_with(credentials[0], credentials[1])
 
     def test_artifacts(self):
@@ -104,18 +102,16 @@ class TestJenkinsBuild(TestCase):
 
         credentials = fake_credentials()
         j = JenkinsBuild(credentials, "fake", None, BUILD_INFO)
+        expected = BUILD_INFO['url'] + 'artifact/' + 'logs/all-machines.log.gz'
         with patch('upload_hetero_control.requests.get',
                    return_value=Response, autospec=True) as u_mock:
             with patch('upload_hetero_control.HTTPBasicAuth',
                        return_value=None, autospec=True) as h_mock:
-                with patch.object(j, '_get_artifact_url',
-                                  autospec=True) as g_mock:
                     for filename, content in j.artifacts():
                         self.assertEqual(content, 'artifact content')
-        u_mock.assert_called_once_with(g_mock.return_value, auth=None)
+        u_mock.assert_called_once_with(
+            expected, auth=h_mock.return_value)
         h_mock.assert_called_once_with(credentials.user, credentials.password)
-        g_mock.assert_called_once_with(
-            BUILD_INFO['artifacts'][0]['relativePath'])
 
     def test_get_build_number(self):
         credentials = fake_credentials()
@@ -123,18 +119,13 @@ class TestJenkinsBuild(TestCase):
         self.assertEqual(j.get_build_number(), BUILD_NUM)
 
     def test_set_build_number(self):
-        credentials = fake_credentials()
-        jenkins_cxt = patch('upload_hetero_control.Jenkins', autospec=True)
         build_info = {"number": BUILD_NUM}
-        with jenkins_cxt as j_mock:
-            j = JenkinsBuild.factory(credentials, JOB_NAME)
-            self.assertIs(type(j), JenkinsBuild)
-            with patch.object(j, 'get_build_info', return_value=build_info,
-                              autospec=True):
-                j.set_build_number(BUILD_NUM)
-                self.assertEqual(j.build_info, build_info)
-        j_mock.assert_called_with(
-            JENKINS_URL, credentials.user, credentials.password)
+        credentials = fake_credentials()
+        jenkins_mock = MagicMock()
+        jenkins_mock.get_build_info.return_value = build_info
+        j = JenkinsBuild(credentials, JOB_NAME, jenkins_mock, None)
+        j.set_build_number(BUILD_NUM)
+        self.assertEqual(j.get_build_info(BUILD_NUM), build_info)
 
 
 class TestS3(TestCase):
@@ -194,27 +185,21 @@ class TestHUploader(TestCase):
                               return_value=3, autospec=True) as g_mock:
                 h.upload_all_test_results()
         g_mock.assert_called_once_with(h)
-        u_mock.assert_called_with(h)
-        self.assertEqual(u_mock.call_count, 3)
+        self.assertEqual(u_mock.mock_calls, [call(h), call(h), call(h)])
 
     def test_upload_test_results(self):
         filename = '1277-result-results.json'
         headers = {"Content-Type": "application/json; charset=utf8"}
         s3_mock = MagicMock()
         jenkins_mock = MagicMock()
+        jenkins_mock.get_build_info.return_value = BUILD_INFO
+        jenkins_mock.get_build_number.return_value = BUILD_NUM
         h = HUploader(s3_mock, jenkins_mock)
         with patch.object(s3_mock, 'store', autopsec=True) as s_mock:
-            with patch.object(
-                    jenkins_mock, 'get_build_number', return_value=BUILD_NUM,
-                    autospec=True) as g_mock:
-                with patch.object(
-                        jenkins_mock, 'get_build_info', autospec=True,
-                        return_value=BUILD_INFO) as b_mock:
-                    h.upload_test_results()
+            h.upload_test_results()
             s_mock.assert_called_once_with(
-                filename, json.dumps(BUILD_INFO), headers=headers)
-            g_mock.assert_called_once_with(h)
-            b_mock.assert_called_once_with(h)
+                filename, json.dumps(jenkins_mock.get_build_info.return_value),
+                headers=headers)
 
     def test_upload_console_log(self):
         filename = '1277-console-consoleText.txt'
@@ -254,8 +239,10 @@ class TestHUploader(TestCase):
                         jenkins_mock, 'artifacts', autospec=True,
                         return_value=fake_artifacts()) as b_mock:
                     h.upload_artifacts()
-            s_mock.assert_called_with(filename, 'artifact data',
-                                      headers=headers)
+            calls = [call(filename, 'artifact data', headers=headers),
+                     call(filename, 'artifact data', headers=headers),
+                     call(filename, 'artifact data', headers=headers)]
+            self.assertEqual(s_mock.mock_calls, calls)
             g_mock.assert_called_once_with(h)
             b_mock.assert_called_once_with(h)
 
