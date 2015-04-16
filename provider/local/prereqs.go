@@ -10,7 +10,6 @@ import (
 	"runtime"
 
 	"github.com/juju/utils"
-	"github.com/juju/utils/apt"
 
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/instance"
@@ -51,9 +50,6 @@ The local provider is currently only available for Linux`
 // tools are installed. This is a variable only to support
 // unit testing.
 var lxclsPath = "lxc-ls"
-
-// isPackageInstalled is a variable to support testing.
-var isPackageInstalled = apt.IsPackageInstalled
 
 // The operating system the process is running in.
 // This is a variable only to support unit testing.

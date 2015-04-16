@@ -21,7 +21,7 @@ import (
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gomaasapi"
 
-	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"

@@ -51,8 +51,8 @@ func ParsePlacement(env *environ, placement string) (*instPlacement, error) {
 	return env.parsePlacement(placement)
 }
 
-func FinishMachineConfig(env *environ, args environs.StartInstanceParams, spec *instances.InstanceSpec) error {
-	return env.finishMachineConfig(args, spec)
+func FinishInstanceConfig(env *environ, args environs.StartInstanceParams, spec *instances.InstanceSpec) error {
+	return env.finishInstanceConfig(args, spec)
 }
 
 func FindInstanceSpec(env *environ, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {

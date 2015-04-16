@@ -37,8 +37,6 @@ import (
 	instancetest "github.com/juju/juju/instance/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/service"
-	systemdtesting "github.com/juju/juju/service/systemd/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -291,13 +289,13 @@ func (s *LxcSuite) TestUpdateContainerConfig(c *gc.C) {
 	}
 
 	manager := s.makeManager(c, "test")
-	machineConfig, err := containertesting.MockMachineConfig("1/lxc/0")
+	instanceConfig, err := containertesting.MockMachineConfig("1/lxc/0")
 	c.Assert(err, jc.ErrorIsNil)
 	envConfig, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	machineConfig.Config = envConfig
+	instanceConfig.Config = envConfig
 	instance := containertesting.CreateContainerWithMachineAndNetworkAndStorageConfig(
-		c, manager, machineConfig, networkConfig, storageConfig,
+		c, manager, instanceConfig, networkConfig, storageConfig,
 	)
 	name := string(instance.Id())
 
@@ -807,74 +805,6 @@ lxc.network.mtu = 4321
 	c.Assert(autostartLink, jc.DoesNotExist)
 
 	return template
-}
-
-func (s *LxcSuite) TestShutdownInitCommandsUpstart(c *gc.C) {
-	cmds, err := lxc.ShutdownInitCommands(service.InitSystemUpstart)
-	c.Assert(err, jc.ErrorIsNil)
-
-	filename := "/etc/init/juju-template-restart.conf"
-	script := `
-description "juju shutdown job"
-author "Juju Team <juju@lists.ubuntu.com>"
-start on stopped cloud-final
-
-script
-  /bin/cat > /etc/network/interfaces << EOC
-# loopback interface
-auto lo
-iface lo inet loopback
-
-# primary interface
-auto eth0
-iface eth0 inet dhcp
-EOC
-  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
-  /sbin/shutdown -h now
-end script
-
-post-stop script
-  rm /etc/init/juju-template-restart.conf
-end script
-`[1:]
-	c.Check(cmds, gc.HasLen, 1)
-	coretesting.CheckWriteFileCommand(c, cmds[0], filename, script, nil)
-}
-
-func (s *LxcSuite) TestShutdownInitCommandsSystemd(c *gc.C) {
-	commands, err := lxc.ShutdownInitCommands(service.InitSystemSystemd)
-	c.Assert(err, jc.ErrorIsNil)
-
-	test := systemdtesting.WriteConfTest{
-		Service: "juju-template-restart",
-		DataDir: "/var/lib/juju",
-		Expected: `
-[Unit]
-Description=juju shutdown job
-After=syslog.target
-After=network.target
-After=systemd-user-sessions.service
-After=cloud-final
-Conflicts=cloud-final
-
-[Service]
-ExecStart='/var/lib/juju/init/juju-template-restart/exec-start.sh'
-ExecStopPost=/bin/systemctl disable juju-template-restart.service
-`[1:],
-		Script: `
-/bin/cat > /etc/network/interfaces << EOC
-# loopback interface
-auto lo
-iface lo inet loopback
-
-# primary interface
-auto eth0
-iface eth0 inet dhcp
-EOC
-  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
-  /sbin/shutdown -h now`[1:],
-	}
-	test.CheckCommands(c, commands)
 }
 
 func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplate(c *gc.C) {

@@ -3376,22 +3376,22 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 		Nonce:     apiParams.Nonce,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	mcfg, err := client.MachineConfig(s.State, machineId, apiParams.Nonce, "")
+	icfg, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
-	sshinitScript, err := manual.ProvisioningScript(mcfg)
+	provisioningScript, err := manual.ProvisioningScript(icfg)
 	c.Assert(err, jc.ErrorIsNil)
 	// ProvisioningScript internally calls MachineConfig,
 	// which allocates a new, random password. Everything
 	// about the scripts should be the same other than
 	// the line containing "oldpassword" from agent.conf.
 	scriptLines := strings.Split(script, "\n")
-	sshinitScriptLines := strings.Split(sshinitScript, "\n")
-	c.Assert(scriptLines, gc.HasLen, len(sshinitScriptLines))
+	provisioningScriptLines := strings.Split(provisioningScript, "\n")
+	c.Assert(scriptLines, gc.HasLen, len(provisioningScriptLines))
 	for i, line := range scriptLines {
 		if strings.Contains(line, "oldpassword") {
 			continue
 		}
-		c.Assert(line, gc.Equals, sshinitScriptLines[i])
+		c.Assert(line, gc.Equals, provisioningScriptLines[i])
 	}
 }
 

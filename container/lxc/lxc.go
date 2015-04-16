@@ -27,8 +27,9 @@ import (
 	"launchpad.net/golxc"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/containerinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/version"
@@ -192,7 +193,7 @@ func preferFastLXC(release string) bool {
 
 // CreateContainer creates or clones an LXC container.
 func (manager *containerManager) CreateContainer(
-	machineConfig *cloudinit.MachineConfig,
+	instanceConfig *instancecfg.InstanceConfig,
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
@@ -215,7 +216,7 @@ func (manager *containerManager) CreateContainer(
 		}
 	}(time.Now())
 
-	name := names.NewMachineTag(machineConfig.MachineId).String()
+	name := names.NewMachineTag(instanceConfig.MachineId).String()
 	if manager.name != "" {
 		name = fmt.Sprintf("%s-%s", manager.name, name)
 	}
@@ -226,7 +227,7 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "failed to create a directory for the container")
 	}
 	logger.Tracef("write cloud-init")
-	userDataFilename, err := container.WriteUserData(machineConfig, networkConfig, directory)
+	userDataFilename, err := containerinit.WriteUserData(instanceConfig, networkConfig, directory)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to write user data")
 	}
@@ -237,11 +238,11 @@ func (manager *containerManager) CreateContainer(
 			manager.backingFilesystem,
 			series,
 			networkConfig,
-			machineConfig.AuthorizedKeys,
-			machineConfig.AptProxySettings,
-			machineConfig.AptMirror,
-			machineConfig.EnableOSRefreshUpdate,
-			machineConfig.EnableOSUpgrade,
+			instanceConfig.AuthorizedKeys,
+			instanceConfig.AptProxySettings,
+			instanceConfig.AptMirror,
+			instanceConfig.EnableOSRefreshUpdate,
+			instanceConfig.EnableOSUpgrade,
 			manager.imageURLGetter,
 			manager.useAUFS,
 		)
@@ -355,7 +356,7 @@ func (manager *containerManager) CreateContainer(
 		if manager.useAUFS {
 			logger.Tracef("not pre-rendering %q when using AUFS-backed rootfs", interfacesFile)
 		} else {
-			data, err := container.GenerateNetworkConfig(networkConfig)
+			data, err := containerinit.GenerateNetworkConfig(networkConfig)
 			if err != nil {
 				return nil, nil, errors.Annotatef(err, "failed to generate %q", interfacesFile)
 			}

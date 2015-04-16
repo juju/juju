@@ -89,7 +89,8 @@ func versionInitSystem(vers version.Binary) (string, bool) {
 			}
 			return InitSystemSystemd, true
 		}
-		// TODO(ericsnow) Support other OSes, like version.CentOS.
+	case version.CentOS:
+		return InitSystemSystemd, true
 	default:
 		return "", false
 	}
