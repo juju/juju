@@ -4,7 +4,8 @@ SCRIPTS=$(readlink -f $(dirname $0))
 JUJU_HOME=${JUJU_HOME:-$(dirname $SCRIPTS)/cloud-city}
 
 HOST="$1"
-PACKAGE=${2:-github.com/juju/juju}
+REVISION="$2"
+PACKAGE=${3:-github.com/juju/juju}
 
 CYG_CI_DIR="/cygdrive/c/Users/Administrator/ci"
 CYG_PYTHON_CMD="/cygdrive/c/python27/python"
@@ -14,7 +15,7 @@ SSH_OPTIONS="-i $JUJU_HOME/staging-juju-rsa \
     -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
 set -x
-DOWNLOADED=$($SCRIPTS/jujuci.py get build-revision '*' ./)
+DOWNLOADED=$($SCRIPTS/jujuci.py get -b $REVISION build-revision '*' ./)
 TARFILE=$(basename $(echo "$DOWNLOADED" | grep -F tar.gz))
 source buildvars.bash
 rev=${REVNO-$(echo $REVISION_ID | head -c8)}
