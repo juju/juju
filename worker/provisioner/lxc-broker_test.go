@@ -246,16 +246,17 @@ func (s *lxcBrokerSuite) TestLocalDNSServers(c *gc.C) {
 	s.PatchValue(provisioner.ResolvConf, fakeConf)
 
 	// If config is missing, that's OK.
-	dnses, err := provisioner.LocalDNSServers()
+	dnses, dnsSearch, err := provisioner.LocalDNSServers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dnses, gc.HasLen, 0)
+	c.Assert(dnsSearch, gc.Equals, "")
 
 	// Enter some data in fakeConf.
 	data := `
  anything else is ignored
   # comments are ignored
   nameserver  0.1.2.3  # that's parsed
-search foo # ignored
+ search  foo.baz # comment ignored
 # nameserver 42.42.42.42 - ignored as well
 nameserver 8.8.8.8
 nameserver example.com # comment after is ok
@@ -263,11 +264,12 @@ nameserver example.com # comment after is ok
 	err = ioutil.WriteFile(fakeConf, []byte(data), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	dnses, err = provisioner.LocalDNSServers()
+	dnses, dnsSearch, err = provisioner.LocalDNSServers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dnses, jc.DeepEquals, network.NewAddresses(
 		"0.1.2.3", "8.8.8.8", "example.com",
 	))
+	c.Assert(dnsSearch, gc.Equals, "foo.baz")
 }
 
 func (s *lxcBrokerSuite) TestMustParseTemplate(c *gc.C) {
