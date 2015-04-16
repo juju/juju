@@ -51,7 +51,6 @@ class GetAmi(unittest.TestCase):
             self.assertEqual(ami, "ami-first")
         co_mock.assert_called_once_with(expected_args)
 
-
     def test_query_ami_optional_params(self):
         results = "ami-first\nami-second\nami-third\n"
         expected_args = [

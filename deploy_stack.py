@@ -4,6 +4,7 @@ __metaclass__ = type
 
 
 from argparse import ArgumentParser
+from contextlib import contextmanager
 import glob
 import logging
 import os
@@ -452,18 +453,12 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
         env.config['tools-metadata-url'] = agent_url
 
 
-def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
-                machines, series, log_dir, debug, juju_path, agent_url,
-                keep_env):
-    bootstrap_id = None
+@contextmanager
+def boot_context(job_name, client, bootstrap_host, machines, series,
+                 agent_url, log_dir, keep_env):
     created_machines = False
+    bootstrap_id = None
     running_domains = dict()
-    start_juju_path = None if upgrade else juju_path
-    if sys.platform == 'win32':
-        # Ensure OpenSSH is never in the path for win tests.
-        sys.path = [p for p in sys.path if 'OpenSSH' not in p]
-    client = EnvJujuClient.by_version(
-        SimpleEnvironment.from_config(base_env), start_juju_path, debug)
     try:
         if client.env.config['type'] == 'manual' and bootstrap_host is None:
             instances = run_instances(3, job_name)
@@ -512,18 +507,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
                 if host is None:
                     raise Exception('Could not get machine 0 host')
                 try:
-                    prepare_environment(
-                        client, already_bootstrapped=True, machines=machines)
-                    if sys.platform in ('win32', 'darwin'):
-                        # The win and osx client tests only verify the client
-                        # can bootstrap and call the state-server.
-                        return
-                    client.juju('status', ())
-                    deploy_dummy_stack(client, charm_prefix)
-                    assess_juju_run(client)
-                    if upgrade:
-                        client.juju('status', ())
-                        assess_upgrade(client, juju_path)
+                    yield
                 except BaseException as e:
                     logging.exception(e)
                     if host is not None:
@@ -551,6 +535,31 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
                 logging.info("Attempting to stop %s at %s" % (name, URI))
                 status_msg = stop_libvirt_domain(URI, name)
                 logging.info("%s" % status_msg)
+
+
+def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
+                machines, series, log_dir, debug, juju_path, agent_url,
+                keep_env):
+    start_juju_path = None if upgrade else juju_path
+    if sys.platform == 'win32':
+        # Ensure OpenSSH is never in the path for win tests.
+        sys.path = [p for p in sys.path if 'OpenSSH' not in p]
+    client = EnvJujuClient.by_version(
+        SimpleEnvironment.from_config(base_env), start_juju_path, debug)
+    with boot_context(job_name, client, bootstrap_host, machines,
+                      series, agent_url, log_dir, keep_env):
+        prepare_environment(
+            client, already_bootstrapped=True, machines=machines)
+        if sys.platform in ('win32', 'darwin'):
+            # The win and osx client tests only verify the client
+            # can bootstrap and call the state-server.
+            return
+        client.juju('status', ())
+        deploy_dummy_stack(client, charm_prefix)
+        assess_juju_run(client)
+        if upgrade:
+            client.juju('status', ())
+            assess_upgrade(client, juju_path)
 
 
 def run_deployer():
