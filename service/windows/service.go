@@ -107,6 +107,13 @@ func (s *Service) Status() (string, error) {
 
 // Running returns true if the Service appears to be running.
 func (s *Service) Running() (bool, error) {
+	installed, err := s.Installed()
+	if err != nil {
+		return false, err
+	}
+	if !installed {
+		return false, nil
+	}
 	status, err := s.Status()
 	logger.Infof("Service %q Status %q", s.Service.Name, status)
 	if err != nil {
@@ -120,11 +127,16 @@ func (s *Service) Running() (bool, error) {
 
 // Installed returns whether the service is installed
 func (s *Service) Installed() (bool, error) {
-	_, err := s.Status()
+	services, err := ListServices()
 	if err != nil {
-		return false, errors.Trace(err)
+		return false, err
 	}
-	return true, nil
+	for _, val := range services {
+		if val == s.Name() {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // Exists returns whether the service configuration exists in the
@@ -168,7 +180,14 @@ func (s *Service) Stop() error {
 
 // Remove deletes the service.
 func (s *Service) Remove() error {
-	_, err := s.Status()
+	installed, err := s.Installed()
+	if err != nil {
+		return err
+	}
+	if !installed {
+		return nil
+	}
+	err = s.Stop()
 	if err != nil {
 		return err
 	}

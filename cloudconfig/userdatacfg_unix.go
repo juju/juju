@@ -2,8 +2,6 @@
 // Copyright 2014, 2015 Cloudbase Solutions
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !windows
-
 package cloudconfig
 
 import (

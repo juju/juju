@@ -403,6 +403,13 @@ type SetIPAndARPForwardingSuite struct {
 	coretesting.BaseSuite
 }
 
+func (s *SetIPAndARPForwardingSuite) SetUpSuite(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: Skipping for now")
+	}
+	s.BaseSuite.SetUpSuite(c)
+}
+
 var _ = gc.Suite(&SetIPAndARPForwardingSuite{})
 
 func (s *SetIPAndARPForwardingSuite) TestSuccess(c *gc.C) {

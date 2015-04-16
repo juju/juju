@@ -119,7 +119,15 @@ func (c *baseConfigure) addMachineAgentToBoot() error {
 	cmds = append(cmds, startCmds...)
 
 	svcName := c.icfg.MachineAgentServiceName
-	c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", svcName))
+	// TODO (gsamfira): This is temporary until we find a cleaner way to fix
+	// cloudinit.LogProgressCmd to not add >&9 on Windows.
+	targetOS, err := version.GetOSFromSeries(c.icfg.Series)
+	if err != nil {
+		return err
+	}
+	if targetOS != version.Windows {
+		c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", svcName))
+	}
 	c.conf.AddScripts(cmds...)
 	return nil
 }

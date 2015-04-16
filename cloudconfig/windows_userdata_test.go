@@ -873,7 +873,6 @@ values:
 
 "@
 cmd.exe /C mklink /D C:\Juju\lib\juju\tools\machine-10 1.2.3-win8-amd64
-echo 'Starting Juju machine agent (jujud-machine-10)' >&9
 New-Service -Credential $jujuCreds -Name 'jujud-machine-10' -DisplayName 'juju agent for machine-10' '''C:\Juju\lib\juju\tools\machine-10\jujud.exe'' machine --data-dir ''C:\Juju\lib\juju'' --machine-id 10 --debug'
 cmd.exe /C sc config 'jujud-machine-10' start=delayed-auto
 Start-Service 'jujud-machine-10'`
