@@ -40,12 +40,11 @@ func addPackageCommandsCommon(
 
 	// If we're not doing an update, adding these packages is
 	// meaningless.
-	// TODO: Decide when we update on CentOS
 	if addUpdateScripts {
 		cfg.updatePackages()
 	}
 
-	// TODO: Deal with proxy settings on CentOS
+	// TODO(bogdanteleaga): Deal with proxy settings on CentOS
 	cfg.updateProxySettings(packageProxySettings)
 }
 
@@ -97,4 +96,15 @@ func renderScriptCommon(cfg CloudConfig) (string, error) {
 		script = append(script, ") "+stdout+" 2>&1")
 	}
 	return strings.Join(script, "\n"), nil
+}
+
+func copyStringSlice(s []string) []string {
+	if s == nil {
+		return nil
+	}
+	res := make([]string, len(s))
+	for i, item := range s {
+		res[i] = item
+	}
+	return res
 }

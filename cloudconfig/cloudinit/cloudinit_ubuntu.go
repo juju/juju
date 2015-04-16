@@ -81,7 +81,12 @@ func (cfg *UbuntuCloudConfig) PackagePreferences() []packaging.PackagePreference
 }
 
 func (cfg *UbuntuCloudConfig) RenderYAML() ([]byte, error) {
-	// add the preferences first:
+	// Save the fields that we will modify
+	var oldbootcmds []string
+	oldbootcmds = copyStringSlice(cfg.BootCmds())
+
+	// apt_preferences is not a valid field so we use a fake field in attrs
+	// and then render it differently
 	prefs := cfg.PackagePreferences()
 	for _, pref := range prefs {
 		prefFile, err := cfg.pacconfer.RenderPreferences(pref)
@@ -97,8 +102,13 @@ func (cfg *UbuntuCloudConfig) RenderYAML() ([]byte, error) {
 		return nil, err
 	}
 
-	//restore
+	// Restore the modified fields
 	cfg.SetAttr("apt_preferences", prefs)
+	if oldbootcmds != nil {
+		cfg.SetAttr("bootcmd", oldbootcmds)
+	} else {
+		cfg.UnsetAttr("bootcmd")
+	}
 
 	return append([]byte("#cloud-config\n"), data...), nil
 }

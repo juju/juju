@@ -94,6 +94,10 @@ func (cfg *CentOSCloudConfig) PackagePreferences() []packaging.PackagePreference
 
 // Render is defined on the the Renderer interface.
 func (cfg *CentOSCloudConfig) RenderYAML() ([]byte, error) {
+	// Save the fields that we will modify
+	var oldruncmds []string
+	oldruncmds = copyStringSlice(cfg.RunCmds())
+
 	// check for package proxy setting and add commands:
 	var proxy string
 	if proxy = cfg.PackageProxy(); proxy != "" {
@@ -120,12 +124,15 @@ func (cfg *CentOSCloudConfig) RenderYAML() ([]byte, error) {
 		return nil, err
 	}
 
-	//restore
-	//TODO(bogdanteleaga, aznashwan): check that this actually works
-	// We have the same thing in ubuntu as well
+	// Restore the modified fields
 	cfg.SetPackageProxy(proxy)
 	cfg.SetPackageMirror(mirror)
 	cfg.SetAttr("package_sources", srcs)
+	if oldruncmds != nil {
+		cfg.SetAttr("runcmd", oldruncmds)
+	} else {
+		cfg.UnsetAttr("runcmd")
+	}
 
 	return append([]byte("#cloud-config\n"), data...), nil
 }

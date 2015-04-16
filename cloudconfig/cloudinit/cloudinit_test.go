@@ -306,6 +306,10 @@ func (S) TestOutput(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(data, gc.NotNil)
 		c.Assert(string(data), jc.YAMLEquals, t.expect)
+		data, err = cfg.RenderYAML()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(data, gc.NotNil)
+		c.Assert(string(data), jc.YAMLEquals, t.expect)
 	}
 }
 
