@@ -86,7 +86,7 @@ func (ai AgentInfo) cmd(renderer shell.Renderer) string {
 	// will update this to the system logging environment as soon as
 	// it starts.
 	return strings.Join([]string{
-		ai.jujud(renderer),
+		renderer.Quote(ai.jujud(renderer)),
 		string(ai.Kind),
 		"--data-dir", renderer.Quote(renderer.FromSlash(ai.DataDir)),
 		idOptions[ai.Kind], ai.ID,
