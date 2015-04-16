@@ -11,6 +11,7 @@ const (
 	Joyent = "joyent"
 	Local  = "local"
 	MAAS   = "maas"
+	EC2    = "ec2"
 )
 
 // IsManual returns true iff the specified provider

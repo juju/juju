@@ -19,22 +19,26 @@ import (
 	"github.com/juju/juju/service/common"
 )
 
-// InitDir holds the default init directory name.
-var InitDir = "/etc/init"
+var (
+	InitDir = "/etc/init" // the default init directory name.
 
-var servicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
-
-var logger = loggo.GetLogger("juju.service.upstart")
+	initctlPath = "/sbin/initctl"
+	logger      = loggo.GetLogger("juju.service.upstart")
+	servicesRe  = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
+)
 
 // IsRunning returns whether or not upstart is the local init system.
 func IsRunning() (bool, error) {
-	cmd := exec.Command("/sbin/initctl", "--system", "list")
+	cmd := exec.Command(initctlPath, "--system", "list")
 	_, err := cmd.CombinedOutput()
 	if err == nil {
 		return true, nil
 	}
-	if err == exec.ErrNotFound || err.Error() == "exit status 1" {
-		return false, nil
+	if execErr, ok := err.(*exec.Error); ok {
+		if _, ok := execErr.Err.(*os.PathError); ok {
+			// Executable could not be found, or could not be executed.
+			return false, nil
+		}
 	}
 	return false, errors.Trace(err)
 }

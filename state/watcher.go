@@ -1347,7 +1347,7 @@ func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 // WatchMeterStatus returns a watcher observing the changes to the unit's
 // meter status.
 func (u *Unit) WatchMeterStatus() NotifyWatcher {
-	return newEntityWatcher(u.st, meterStatusC, u.st.docID(u.globalKey()))
+	return newEntityWatcher(u.st, meterStatusC, u.st.docID(u.globalMeterStatusKey()))
 }
 
 func newEntityWatcher(st *State, collName string, key interface{}) NotifyWatcher {

@@ -44,8 +44,11 @@ var _ APICalls = (*apiprovisioner.State)(nil)
 var NewLxcBroker = newLxcBroker
 
 func newLxcBroker(
-	api APICalls, agentConfig agent.Config, managerConfig container.ManagerConfig,
+	api APICalls,
+	agentConfig agent.Config,
+	managerConfig container.ManagerConfig,
 	imageURLGetter container.ImageURLGetter,
+	enableNAT bool,
 ) (environs.InstanceBroker, error) {
 	manager, err := lxc.NewContainerManager(managerConfig, imageURLGetter)
 	if err != nil {
@@ -55,6 +58,7 @@ func newLxcBroker(
 		manager:     manager,
 		api:         api,
 		agentConfig: agentConfig,
+		enableNAT:   enableNAT,
 	}, nil
 }
 
@@ -62,6 +66,7 @@ type lxcBroker struct {
 	manager     container.Manager
 	api         APICalls
 	agentConfig agent.Config
+	enableNAT   bool
 }
 
 // StartInstance is specified in the Broker interface.
@@ -79,7 +84,8 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		bridgeDevice = lxc.DefaultLxcBridge
 	}
 	allocatedInfo, err := maybeAllocateStaticIP(
-		machineId, bridgeDevice, broker.api, args.NetworkInfo,
+		machineId, bridgeDevice, broker.api,
+		args.NetworkInfo, broker.enableNAT,
 	)
 	if err != nil {
 		// It's fine, just ignore it. The effect will be that the
@@ -221,6 +227,19 @@ type IptablesRule struct {
 	Rule  string
 }
 
+var skipSNATRule = IptablesRule{
+	// For EC2, to get internet access we need traffic to appear with
+	// source address matching the container's host. For internal
+	// traffic we want to keep the container IP because it is used
+	// by some services. This rule sits above the SNAT rule, which
+	// changes the source address of traffic to the container host IP
+	// address, skipping this modification if the traffic destination
+	// is inside the EC2 VPC.
+	"nat",
+	"POSTROUTING",
+	"-d {{.SubnetCIDR}} -o {{.HostIF}} -j RETURN",
+}
+
 var iptablesRules = map[string]IptablesRule{
 	// iptablesCheckSNAT is the command template to verify if a SNAT
 	// rule already exists for the host NIC named .HostIF (usually
@@ -233,9 +252,9 @@ var iptablesRules = map[string]IptablesRule{
 		"POSTROUTING",
 		"-o {{.HostIF}} -j SNAT --to-source {{.HostIP}}",
 	}, "iptablesForwardOut": {
-		// Ensure that we have ACCEPT rules that apply to the containers
-		// that we are creating so any DROP rules further down the chain
-		// don't disrupt wanted traffic.
+		// Ensure that we have ACCEPT rules that apply to the containers that
+		// we are creating so any DROP rules added by libvirt while setting
+		// up virbr0 further down the chain don't disrupt wanted traffic.
 		"filter",
 		"FORWARD",
 		"-d {{.ContainerCIDR}} -o {{.HostBridge}} -j ACCEPT",
@@ -313,6 +332,7 @@ var setupRoutesAndIPTables = func(
 	primaryAddr network.Address,
 	bridgeName string,
 	ifaceInfo []network.InterfaceInfo,
+	enableNAT bool,
 ) error {
 
 	if primaryNIC == "" || primaryAddr.Value == "" || bridgeName == "" || len(ifaceInfo) == 0 {
@@ -330,9 +350,10 @@ var setupRoutesAndIPTables = func(
 			HostBridge    string
 			ContainerIP   string
 			ContainerCIDR string
-		}{primaryNIC, primaryAddr.Value, bridgeName, containerIP, iface.CIDR}
+			SubnetCIDR    string
+		}{primaryNIC, primaryAddr.Value, bridgeName, containerIP, iface.CIDR, iface.CIDR}
 
-		for name, rule := range iptablesRules {
+		var addRuleIfDoesNotExist = func(name string, rule IptablesRule) error {
 			check := mustExecTemplate("rule", "iptables -t {{.Table}} -C {{.Chain}} {{.Rule}}", rule)
 			t := mustParseTemplate(name+"Check", check)
 
@@ -355,6 +376,33 @@ var setupRoutesAndIPTables = func(
 			default:
 				// Unexpected code - better report it.
 				return errors.Errorf("iptables failed with unexpected exit code %d", code)
+			}
+			return nil
+		}
+
+		for name, rule := range iptablesRules {
+			if !enableNAT && name == "iptablesSNAT" {
+				// Do not add the SNAT rule if we shouldn't enable
+				// NAT.
+				continue
+			}
+			if err := addRuleIfDoesNotExist(name, rule); err != nil {
+				return err
+			}
+		}
+
+		// TODO(dooferlad): subnets should be a list of subnets in the
+		// EC2 VPC and should be empty for MAAS. See bug
+		// http://pad.lv/1443942
+		if enableNAT {
+			// Only add the following hack to allow AWS egress traffic
+			// for hosted containers to work.
+			subnets := []string{data.HostIP + "/16"}
+			for _, subnet := range subnets {
+				data.SubnetCIDR = subnet
+				if err := addRuleIfDoesNotExist("skipSNAT", skipSNATRule); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -431,6 +479,7 @@ func maybeAllocateStaticIP(
 	containerId, bridgeDevice string,
 	apiFacade APICalls,
 	ifaceInfo []network.InterfaceInfo,
+	enableNAT bool,
 ) (finalIfaceInfo []network.InterfaceInfo, err error) {
 	defer func() {
 		if err != nil {
@@ -479,7 +528,13 @@ func maybeAllocateStaticIP(
 		finalIfaceInfo[i].DNSServers = dnsServers
 		finalIfaceInfo[i].GatewayAddress = primaryAddr
 	}
-	err = setupRoutesAndIPTables(primaryNIC, primaryAddr, bridgeDevice, finalIfaceInfo)
+	err = setupRoutesAndIPTables(
+		primaryNIC,
+		primaryAddr,
+		bridgeDevice,
+		finalIfaceInfo,
+		enableNAT,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

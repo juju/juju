@@ -586,6 +586,17 @@ type RsyslogConfigResults struct {
 	Results []RsyslogConfigResult
 }
 
+// JobsResult holds the jobs for a machine that are returned by a call to Jobs.
+type JobsResult struct {
+	Jobs  []multiwatcher.MachineJob `json:"Jobs"`
+	Error *Error                    `json:"Error"`
+}
+
+// JobsResults holds the result of a call to Jobs.
+type JobsResults struct {
+	Results []JobsResult `json:"Results"`
+}
+
 // DistributionGroupResult contains the result of
 // the DistributionGroup provisioner API call.
 type DistributionGroupResult struct {
@@ -698,6 +709,7 @@ type StateServersChanges struct {
 	Removed    []string `json:"removed,omitempty"`
 	Promoted   []string `json:"promoted,omitempty"`
 	Demoted    []string `json:"demoted,omitempty"`
+	Converted  []string `json:"converted,omitempty"`
 }
 
 // FindToolsParams defines parameters for the FindTools method.

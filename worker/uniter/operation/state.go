@@ -130,9 +130,13 @@ func (st State) validate() (err error) {
 			return errors.New("unexpected action id")
 		}
 	case Continue:
+		// TODO(jw4) LP-1438489
+		// ModeContinue should no longer have a Hook, but until the upgrade is
+		// fixed we can't fail the validation if it does.
+		if hasHook {
+			logger.Errorf("unexpected hook info with Kind Continue")
+		}
 		switch {
-		case hasHook:
-			return errors.New("unexpected hook info with Kind Continue")
 		case hasCharm:
 			return errors.New("unexpected charm URL")
 		case hasActionId:
