@@ -54,6 +54,7 @@ type ipaddressDoc struct {
 	Life        Life         `bson:"life"`
 	SubnetId    string       `bson:"subnetid,omitempty"`
 	MachineId   string       `bson:"machineid,omitempty"`
+	InstanceId  string       `bson:"instanceid,omitempty"`
 	InterfaceId string       `bson:"interfaceid,omitempty"`
 	Value       string       `bson:"value"`
 	Type        string       `bson:"type"`
@@ -80,6 +81,13 @@ func (i *IPAddress) SubnetId() string {
 // MachineId returns the ID of the machine the IP address is associated with. If
 // the address is not associated with a machine this returns "".
 func (i *IPAddress) MachineId() string {
+	return i.doc.MachineId
+}
+
+// InstanceId returns the provider ID of the instance the IP address is
+// associated with. For a container this will be the ID of the host. If
+// the address is not associated with an instance this returns "".
+func (i *IPAddress) InstanceId() string {
 	return i.doc.MachineId
 }
 
@@ -232,8 +240,8 @@ func (i *IPAddress) SetState(newState AddressState) (err error) {
 // AllocateTo sets the machine ID and interface ID of the IP address.
 // It will fail if the state is not AddressStateUnknown. On success,
 // the address state will also change to AddressStateAllocated.
-func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot allocate IP address %q to machine %q, interface %q", i, machineId, interfaceId)
+func (i *IPAddress) AllocateTo(machineId, instanceId, interfaceId string) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot allocate IP address %q to machine %q, instance %q, interface %q", i, machineId, instanceId, interfaceId)
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -254,6 +262,7 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId string) (err error) {
 			Update: bson.D{{"$set", bson.D{
 				{"machineid", machineId},
 				{"interfaceid", interfaceId},
+				{"instanceid", instanceId},
 				{"state", string(AddressStateAllocated)},
 			}}},
 		}}, nil

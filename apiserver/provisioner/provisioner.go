@@ -1091,7 +1091,7 @@ func (p *ProvisionerAPI) prepareAllocationNetwork(
 var (
 	allocateAddrTo = func(a *state.IPAddress, m *state.Machine) error {
 		// TODO(mfoord): populate proper interface ID (in state).
-		return a.AllocateTo(m.Id(), "")
+		return a.AllocateTo(m.Id(), "", "")
 	}
 	setAddrsTo = func(a *state.IPAddress, m *state.Machine) error {
 		return m.SetAddresses(a.Address())
