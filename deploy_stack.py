@@ -421,6 +421,9 @@ def deploy_job():
     parser.add_argument('--machine', help='A machine to add or when used with '
                         'KVM based MaaS, a KVM image to start.',
                         action='append', default=[])
+    parser.add_argument('--keep-env', action='store_true', default=False,
+                        help='Keep the Juju environment after the test'
+                        ' completes.')
     add_juju_args(parser)
     add_output_args(parser)
     add_path_args(parser)
@@ -434,7 +437,7 @@ def deploy_job():
     return _deploy_job(args.job_name, args.env, args.upgrade,
                        charm_prefix, args.bootstrap_host, args.machine,
                        args.series, args.logs, args.debug, juju_path,
-                       args.agent_url)
+                       args.agent_url, args.keep_env)
 
 
 def update_env(env, new_env_name, series=None, bootstrap_host=None,
@@ -450,7 +453,8 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
 
 
 def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
-                machines, series, log_dir, debug, juju_path, agent_url):
+                machines, series, log_dir, debug, juju_path, agent_url,
+                keep_env):
     bootstrap_id = None
     created_machines = False
     running_domains = dict()
@@ -529,12 +533,13 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
                     sys.exit(1)
             finally:
                 safe_print_status(client)
-                client.destroy_environment()
+                if not keep_env:
+                    client.destroy_environment()
         finally:
-            if created_machines:
+            if created_machines and not keep_env:
                 destroy_job_instances(job_name)
     finally:
-        if client.env.config['type'] == 'maas':
+        if client.env.config['type'] == 'maas' and not keep_env:
             logging.info("Waiting for destroy-environment to complete")
             sleep(90)
             for machine, running in running_domains.items():
