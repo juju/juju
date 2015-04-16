@@ -59,7 +59,7 @@ func (w *windowsConfigure) ConfigureBasic() error {
 
 func (w *windowsConfigure) ConfigureJuju() error {
 	if err := w.icfg.VerifyConfig(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	toolsJson, err := json.Marshal(w.icfg.Tools)
 	if err != nil {
@@ -87,7 +87,7 @@ func (w *windowsConfigure) ConfigureJuju() error {
 
 	if w.icfg.Bootstrap == true {
 		// Bootstrap machine not supported on windows
-		return errors.Errorf("bootstrap node is not supported on Windows.")
+		return errors.Errorf("bootstrapping is not supported on windows")
 	}
 
 	machineTag := names.NewMachineTag(w.icfg.MachineId)

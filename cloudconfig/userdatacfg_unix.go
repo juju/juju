@@ -264,7 +264,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 	// Add the cloud archive cloud-tools pocket to apt sources
 	// for series that need it. This gives us up-to-date LXC,
 	// MongoDB, and other infrastructure.
-	// This is only done on ubuntu
+	// This is only done on ubuntu.
 	if w.conf.SystemUpdate() && w.conf.RequiresCloudArchiveCloudTools() {
 		w.conf.AddCloudArchiveCloudTools()
 	}

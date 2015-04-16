@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// fileSchemePrefix is the prefix for file:// URLs.
 const (
+	// fileSchemePrefix is the prefix for file:// URLs.
 	fileSchemePrefix = "file://"
 
 	// NonceFile is written by cloud-init as the last thing it does.
@@ -84,7 +84,7 @@ type baseConfigure struct {
 func (c *baseConfigure) addAgentInfo(tag names.Tag) (agent.Config, error) {
 	acfg, err := c.icfg.AgentConfig(tag, c.icfg.Tools.Version.Number)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	acfg.SetValue(agent.AgentServiceName, c.icfg.MachineAgentServiceName)
 	cmds, err := acfg.WriteCommands(c.conf.ShellRenderer())

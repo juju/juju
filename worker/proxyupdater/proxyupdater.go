@@ -165,20 +165,24 @@ func getPackageCommander() (commands.PackageCommander, error) {
 	return commands.NewPackageCommander(version.Current.Series)
 }
 
-func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) {
+func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) error {
 	if w.writeSystemFiles && (aptSettings != w.aptProxy || w.first) {
 		logger.Debugf("new apt proxy settings %#v", aptSettings)
-		paccmder, _ := getPackageCommander()
+		paccmder, err := getPackageCommander()
+		if err != nil {
+			return err
+		}
 		w.aptProxy = aptSettings
 
 		// Always finish with a new line.
 		content := paccmder.ProxyConfigContents(w.aptProxy) + "\n"
-		err := ioutil.WriteFile(config.AptProxyConfigFile, []byte(content), 0644)
+		err = ioutil.WriteFile(config.AptProxyConfigFile, []byte(content), 0644)
 		if err != nil {
 			// It isn't really fatal, but we should record it.
 			logger.Errorf("error writing apt proxy config file: %v", err)
 		}
 	}
+	return nil
 }
 
 func (w *proxyWorker) onChange() error {
@@ -187,7 +191,10 @@ func (w *proxyWorker) onChange() error {
 		return err
 	}
 	w.handleProxyValues(env.ProxySettings())
-	w.handleAptProxyValues(env.AptProxySettings())
+	err = w.handleAptProxyValues(env.AptProxySettings())
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

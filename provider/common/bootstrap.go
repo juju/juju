@@ -167,7 +167,7 @@ func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host str
 	// until this function completes.
 	cloudcfg, err := cloudinit.New(instanceConfig.Series)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// Set packaging update here

@@ -615,7 +615,7 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 	for i, test := range cloudinitTests {
 		test.cfg.Config = minimalConfig(c)
 		c.Logf("test %d (Configure)", i)
-		cloudcfg, err := cloudinit.New("quantal")
+		cloudcfg, err := cloudinit.New(test.cfg.Series)
 		c.Assert(err, jc.ErrorIsNil)
 		udata, err := cloudconfig.NewUserdataConfig(&test.cfg, cloudcfg)
 		c.Assert(err, jc.ErrorIsNil)
@@ -629,7 +629,7 @@ func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 	instanceConfig := minimalInstanceConfig()
 	instanceConfig.Config = minimalConfig(c)
 
-	cloudcfg, err := cloudinit.New("quantal")
+	cloudcfg, err := cloudinit.New(instanceConfig.Series)
 	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(&instanceConfig, cloudcfg)
 
@@ -1052,7 +1052,7 @@ func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cmds := cloudcfg.BootCmds()
-	c.Assert(cmds, jc.DeepEquals, []string(nil))
+	c.Assert(cmds, gc.IsNil)
 }
 
 func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
@@ -1196,8 +1196,7 @@ var windowsCloudinitTests = []cloudinitTest{{
 	},
 	setEnvConfig:  false,
 	expectScripts: WindowsUserdata,
-},
-}
+}}
 
 func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
 	for i, test := range windowsCloudinitTests {
