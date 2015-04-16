@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import tarfile
+import tempfile
 import traceback
 
 from utility import temp_dir
@@ -67,10 +68,14 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
         # Ensure OpenSSH is never in the path for win tests.
         sane_path = [p for p in env['PATH'].split(';') if 'OpenSSH' not in p]
         env['PATH'] = ';'.join(sane_path)
-        env['Path'] = env['PATH']
         if verbose:
             print('Setting environ Path to:')
-            print(env['Path'])
+            print(env['PATH'])
+        tempdir = tempfile.mkdtemp(prefix="tmp-juju-test", dir=gopath)
+        env['TMP'] = env['TEMP'] = tempdir
+        if verbose:
+            print('Setting environ TMP and TEMP to:')
+            print(env['TEMP'])
         command = ['powershell.exe', '-Command', go_cmd, 'test', './...']
     else:
         command = [go_cmd, 'test', './...']

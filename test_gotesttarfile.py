@@ -88,7 +88,9 @@ class gotesttarfileTestCase(TestCase):
             ('powershell.exe', '-Command', 'go', 'test', './...'),
             args)
         self.assertEqual(r'C:\foo;C:\baz', kwargs['env'].get('PATH'))
-        self.assertEqual(kwargs['env'].get('PATH'), kwargs['env'].get('Path'))
+        self.assertEqual(gopath, os.path.dirname(kwargs['env'].get('TMP')))
+        self.assertIn("tmp-juju-", os.path.basename(kwargs['env'].get('TMP')))
+        self.assertEqual(kwargs['env'].get('TEMP'), kwargs['env'].get('TMP'))
 
     def test_parse_args(self):
         args = parse_args(
