@@ -1,10 +1,11 @@
+// Copyright 2015 Canonical Ltd.
+// Copyright 2015 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package providerinit_test
 
 import (
 	"path"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names"
@@ -31,10 +32,6 @@ import (
 	"github.com/juju/juju/version"
 )
 
-func Test(t *stdtesting.T) {
-	gc.TestingT(t)
-}
-
 // dummySampleConfig returns the dummy sample config without
 // the state server configured.
 // This function also exists in environs/config_test
@@ -51,6 +48,7 @@ type CloudInitSuite struct {
 
 var _ = gc.Suite(&CloudInitSuite{})
 
+// TODO: add this to the utils package
 func must(s string, err error) string {
 	if err != nil {
 		panic(err)

@@ -15,69 +15,69 @@ import (
 	"gopkg.in/yaml.v1"
 )
 
-// UbuntuCloudConfig is the cloudconfig type specific to Ubuntu machines
+// ubuntuCloudConfig is the cloudconfig type specific to Ubuntu machines
 // It simply contains a cloudConfig with the added package management-related
 // methods for the Ubuntu version of cloudinit.
 // It satisfies the cloudinit.CloudConfig interface
-type UbuntuCloudConfig struct {
+type ubuntuCloudConfig struct {
 	*cloudConfig
 }
 
 // SetPackageProxy is defined on the PackageProxyConfig interface.
-func (cfg *UbuntuCloudConfig) SetPackageProxy(url string) {
+func (cfg *ubuntuCloudConfig) SetPackageProxy(url string) {
 	cfg.SetAttr("apt_proxy", url)
 }
 
 // UnsetPackageProxy is defined on the PackageProxyConfig interface.
-func (cfg *UbuntuCloudConfig) UnsetPackageProxy() {
+func (cfg *ubuntuCloudConfig) UnsetPackageProxy() {
 	cfg.UnsetAttr("apt_proxy")
 }
 
 // PackageProxy is defined on the PackageProxyConfig interface.
-func (cfg *UbuntuCloudConfig) PackageProxy() string {
+func (cfg *ubuntuCloudConfig) PackageProxy() string {
 	proxy, _ := cfg.attrs["apt_proxy"].(string)
 	return proxy
 }
 
 // SetPackageMirror is defined on the PackageMirrorConfig interface.
-func (cfg *UbuntuCloudConfig) SetPackageMirror(url string) {
+func (cfg *ubuntuCloudConfig) SetPackageMirror(url string) {
 	cfg.SetAttr("apt_mirror", url)
 }
 
 // UnsetPackageMirror is defined on the PackageMirrorConfig interface.
-func (cfg *UbuntuCloudConfig) UnsetPackageMirror() {
+func (cfg *ubuntuCloudConfig) UnsetPackageMirror() {
 	cfg.UnsetAttr("apt_mirror")
 }
 
 // PackageMirror is defined on the PackageMirrorConfig interface.
-func (cfg *UbuntuCloudConfig) PackageMirror() string {
+func (cfg *ubuntuCloudConfig) PackageMirror() string {
 	mirror, _ := cfg.attrs["apt_mirror"].(string)
 	return mirror
 }
 
 // AddPackageSource is defined on the PackageSourcesConfig interface.
-func (cfg *UbuntuCloudConfig) AddPackageSource(src packaging.PackageSource) {
+func (cfg *ubuntuCloudConfig) AddPackageSource(src packaging.PackageSource) {
 	cfg.attrs["apt_sources"] = append(cfg.PackageSources(), src)
 }
 
 // PackageSources is defined on the PackageSourcesConfig interface.
-func (cfg *UbuntuCloudConfig) PackageSources() []packaging.PackageSource {
+func (cfg *ubuntuCloudConfig) PackageSources() []packaging.PackageSource {
 	srcs, _ := cfg.attrs["apt_sources"].([]packaging.PackageSource)
 	return srcs
 }
 
 // AddPackagePreferences is defined on the PackageSourcesConfig interface.
-func (cfg *UbuntuCloudConfig) AddPackagePreferences(prefs packaging.PackagePreferences) {
+func (cfg *ubuntuCloudConfig) AddPackagePreferences(prefs packaging.PackagePreferences) {
 	cfg.attrs["apt_preferences"] = append(cfg.PackagePreferences(), prefs)
 }
 
 // PackagePreferences is defined on the PackageSourcesConfig interface.
-func (cfg *UbuntuCloudConfig) PackagePreferences() []packaging.PackagePreferences {
+func (cfg *ubuntuCloudConfig) PackagePreferences() []packaging.PackagePreferences {
 	prefs, _ := cfg.attrs["apt_preferences"].([]packaging.PackagePreferences)
 	return prefs
 }
 
-func (cfg *UbuntuCloudConfig) RenderYAML() ([]byte, error) {
+func (cfg *ubuntuCloudConfig) RenderYAML() ([]byte, error) {
 	// Save the fields that we will modify
 	var oldbootcmds []string
 	oldbootcmds = copyStringSlice(cfg.BootCmds())
@@ -110,12 +110,12 @@ func (cfg *UbuntuCloudConfig) RenderYAML() ([]byte, error) {
 	return append([]byte("#cloud-config\n"), data...), nil
 }
 
-func (cfg *UbuntuCloudConfig) RenderScript() (string, error) {
+func (cfg *ubuntuCloudConfig) RenderScript() (string, error) {
 	return renderScriptCommon(cfg)
 }
 
 // AddPackageCommands is defined on the AdvancedPackagingConfig interface.
-func (cfg *UbuntuCloudConfig) AddPackageCommands(
+func (cfg *ubuntuCloudConfig) AddPackageCommands(
 	packageProxySettings proxy.Settings,
 	packageMirror string,
 	addUpdateScripts bool,
@@ -133,7 +133,7 @@ func (cfg *UbuntuCloudConfig) AddPackageCommands(
 
 // AddCloudArchiveCloudTools is defined on the AdvancedPackagingConfig
 // interface.
-func (cfg *UbuntuCloudConfig) AddCloudArchiveCloudTools() {
+func (cfg *ubuntuCloudConfig) AddCloudArchiveCloudTools() {
 	src, pref := config.GetCloudArchiveSource(cfg.series)
 	cfg.AddPackageSource(src)
 	cfg.AddPackagePreferences(pref)
@@ -141,7 +141,7 @@ func (cfg *UbuntuCloudConfig) AddCloudArchiveCloudTools() {
 
 // getCommandsForAddingPackages is a helper function for generating a script
 // for adding all packages configured in this CloudConfig.
-func (cfg *UbuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
+func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	if !cfg.SystemUpdate() && len(cfg.PackageSources()) > 0 {
 		return nil, fmt.Errorf("update sources were specified, but OS updates have been disabled.")
 	}
@@ -240,7 +240,7 @@ done`
 }
 
 // updatePackages is defined on the AdvancedPackagingConfig interface.
-func (cfg *UbuntuCloudConfig) updatePackages() {
+func (cfg *ubuntuCloudConfig) updatePackages() {
 	packages := []string{
 		"curl",
 		"cpu-checker",
@@ -272,7 +272,7 @@ func (cfg *UbuntuCloudConfig) updatePackages() {
 }
 
 // Updates proxy settings used when rendering the conf as a script
-func (cfg *UbuntuCloudConfig) updateProxySettings(proxySettings proxy.Settings) {
+func (cfg *ubuntuCloudConfig) updateProxySettings(proxySettings proxy.Settings) {
 	// Write out the apt proxy settings
 	if (proxySettings != proxy.Settings{}) {
 		filename := config.AptProxyConfigFile

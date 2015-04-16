@@ -14,16 +14,16 @@ import (
 	"gopkg.in/yaml.v1"
 )
 
-// CentOSCloudConfig is the cloudconfig type specific to CentOS machines.
+// centOSCloudConfig is the cloudconfig type specific to CentOS machines.
 // It simply contains a cloudConfig and adds the package management related
 // methods for CentOS, which are mostly modeled as runcmds.
 // It implements the cloudinit.Config interface.
-type CentOSCloudConfig struct {
+type centOSCloudConfig struct {
 	*cloudConfig
 }
 
 // SetPackageProxy is defined on the PackageProxyConfig interface.
-func (cfg *CentOSCloudConfig) SetPackageProxy(url string) {
+func (cfg *centOSCloudConfig) SetPackageProxy(url string) {
 	cfg.SetAttr("package_proxy", url)
 }
 
@@ -34,18 +34,18 @@ func addPackageProxyCmd(cfg CloudConfig, url string) string {
 }
 
 // UnsetPackageProxy is defined on the PackageProxyConfig interface.
-func (cfg *CentOSCloudConfig) UnsetPackageProxy() {
+func (cfg *centOSCloudConfig) UnsetPackageProxy() {
 	cfg.UnsetAttr("package_proxy")
 }
 
 // PackageProxy is defined on the PackageProxyConfig interface.
-func (cfg *CentOSCloudConfig) PackageProxy() string {
+func (cfg *centOSCloudConfig) PackageProxy() string {
 	proxy, _ := cfg.attrs["package_proxy"].(string)
 	return proxy
 }
 
 // SetPackageMirror is defined on the PackageMirrorConfig interface.
-func (cfg *CentOSCloudConfig) SetPackageMirror(url string) {
+func (cfg *centOSCloudConfig) SetPackageMirror(url string) {
 	cfg.SetAttr("package_mirror", url)
 }
 
@@ -56,41 +56,41 @@ func addPackageMirrorCmd(cfg CloudConfig, url string) string {
 }
 
 // UnsetPackageMirror is defined on the PackageMirrorConfig interface.
-func (cfg *CentOSCloudConfig) UnsetPackageMirror() {
+func (cfg *centOSCloudConfig) UnsetPackageMirror() {
 	cfg.UnsetAttr("package_mirror")
 }
 
 // PackageMirror is defined on the PackageMirrorConfig interface.
-func (cfg *CentOSCloudConfig) PackageMirror() string {
+func (cfg *centOSCloudConfig) PackageMirror() string {
 	mirror, _ := cfg.attrs["package_mirror"].(string)
 	return mirror
 }
 
 // AddPackageSource is defined on the PackageSourcesConfig interface.
-func (cfg *CentOSCloudConfig) AddPackageSource(src packaging.PackageSource) {
+func (cfg *centOSCloudConfig) AddPackageSource(src packaging.PackageSource) {
 	cfg.attrs["package_sources"] = append(cfg.PackageSources(), src)
 }
 
 // PackageSources is defined on the PackageSourcesConfig interface.
-func (cfg *CentOSCloudConfig) PackageSources() []packaging.PackageSource {
+func (cfg *centOSCloudConfig) PackageSources() []packaging.PackageSource {
 	sources, _ := cfg.attrs["package_sources"].([]packaging.PackageSource)
 	return sources
 }
 
 // AddPackagePreferences is defined on the PackageSourcesConfig interface.
-func (cfg *CentOSCloudConfig) AddPackagePreferences(prefs packaging.PackagePreferences) {
+func (cfg *centOSCloudConfig) AddPackagePreferences(prefs packaging.PackagePreferences) {
 	// TODO (aznashwan): research a way of using yum-priorities in the
 	// context of a single package and implement the appropriate runcmds.
 }
 
 // PackagePreferences is defined on the PackageSourcesConfig interface.
-func (cfg *CentOSCloudConfig) PackagePreferences() []packaging.PackagePreferences {
+func (cfg *centOSCloudConfig) PackagePreferences() []packaging.PackagePreferences {
 	// TODO (aznashwan): add this when priorities in yum make sense.
 	return []packaging.PackagePreferences{}
 }
 
 // Render is defined on the the Renderer interface.
-func (cfg *CentOSCloudConfig) RenderYAML() ([]byte, error) {
+func (cfg *centOSCloudConfig) RenderYAML() ([]byte, error) {
 	// Save the fields that we will modify
 	var oldruncmds []string
 	oldruncmds = copyStringSlice(cfg.RunCmds())
@@ -134,18 +134,18 @@ func (cfg *CentOSCloudConfig) RenderYAML() ([]byte, error) {
 	return append([]byte("#cloud-config\n"), data...), nil
 }
 
-func (cfg *CentOSCloudConfig) RenderScript() (string, error) {
+func (cfg *centOSCloudConfig) RenderScript() (string, error) {
 	return renderScriptCommon(cfg)
 }
 
 // AddCloudArchiveCloudTools is defined on the AdvancedPackagingConfig.
-func (cfg *CentOSCloudConfig) AddCloudArchiveCloudTools() {
+func (cfg *centOSCloudConfig) AddCloudArchiveCloudTools() {
 	src, pref := config.GetCloudArchiveSource(cfg.series)
 	cfg.AddPackageSource(src)
 	cfg.AddPackagePreferences(pref)
 }
 
-func (cfg *CentOSCloudConfig) getCommandsForAddingPackages() ([]string, error) {
+func (cfg *centOSCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	var cmds []string
 
 	if newMirror := cfg.PackageMirror(); newMirror != "" {
@@ -185,7 +185,7 @@ func (cfg *CentOSCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 }
 
 // AddPackageCommands is defined on the AdvancedPackagingConfig interface.
-func (cfg *CentOSCloudConfig) AddPackageCommands(
+func (cfg *centOSCloudConfig) AddPackageCommands(
 	packageProxySettings proxy.Settings,
 	packageMirror string,
 	addUpdateScripts bool,
@@ -202,7 +202,7 @@ func (cfg *CentOSCloudConfig) AddPackageCommands(
 }
 
 // updatePackages is defined on the AdvancedPackagingConfig interface.
-func (cfg *CentOSCloudConfig) updatePackages() {
+func (cfg *centOSCloudConfig) updatePackages() {
 	packages := []string{
 		"curl",
 		"bridge-utils",
@@ -229,5 +229,5 @@ func (cfg *CentOSCloudConfig) updatePackages() {
 //have apt_proxy and when we render it as bash we use the equivalent of this.
 //However on centOS even when rendering the YAML we use a helper function
 //addPackageProxyCmds. Research if calling the same is fine.
-func (cfg *CentOSCloudConfig) updateProxySettings(proxySettings proxy.Settings) {
+func (cfg *centOSCloudConfig) updateProxySettings(proxySettings proxy.Settings) {
 }

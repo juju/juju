@@ -1,4 +1,5 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012, 2013, 2015 Canonical Ltd.
+// Copyright 2015 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package cloudconfig_test
@@ -59,6 +60,7 @@ var (
 	cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 )
 
+// TODO: add this to the utils package
 func must(s string, err error) string {
 	if err != nil {
 		panic(err)

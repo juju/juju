@@ -386,7 +386,7 @@ func New(series string) (CloudConfig, error) {
 	switch os {
 	case version.Windows:
 		renderer, _ := shell.NewRenderer("powershell")
-		return &WindowsCloudConfig{
+		return &windowsCloudConfig{
 			&cloudConfig{
 				series:   series,
 				renderer: renderer,
@@ -395,7 +395,7 @@ func New(series string) (CloudConfig, error) {
 		}, nil
 	case version.Ubuntu:
 		renderer, _ := shell.NewRenderer("bash")
-		return &UbuntuCloudConfig{
+		return &ubuntuCloudConfig{
 			&cloudConfig{
 				series:    series,
 				paccmder:  commands.NewAptPackageCommander(),
@@ -406,7 +406,7 @@ func New(series string) (CloudConfig, error) {
 		}, nil
 	case version.CentOS:
 		renderer, _ := shell.NewRenderer("bash")
-		return &CentOSCloudConfig{
+		return &centOSCloudConfig{
 			&cloudConfig{
 				series:    series,
 				paccmder:  commands.NewYumPackageCommander(),

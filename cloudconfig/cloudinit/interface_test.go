@@ -2,10 +2,8 @@
 // Copyright 2015 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cloudinit_test
+package cloudinit
 
-import (
-	"github.com/juju/juju/cloudconfig/cloudinit"
-)
-
-var _ cloudinit.CloudConfig = (*cloudinit.UbuntuCloudConfig)(nil)
+var _ CloudConfig = (*ubuntuCloudConfig)(nil)
+var _ CloudConfig = (*centOSCloudConfig)(nil)
+var _ CloudConfig = (*windowsCloudConfig)(nil)

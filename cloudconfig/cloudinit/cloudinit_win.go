@@ -9,65 +9,65 @@ import (
 	"github.com/juju/utils/proxy"
 )
 
-// WindowsCloudConfig is the cloudconfig type specific to Windows machines.
+// windowsCloudConfig is the cloudconfig type specific to Windows machines.
 // It mostly deals entirely with passing the equivalent of runcmds to
 // cloudbase-init, leaving most of the other functionalities uninmplemented.
 // It implements the CloudConfig interface.
-type WindowsCloudConfig struct {
+type windowsCloudConfig struct {
 	*cloudConfig
 }
 
 // SetPackageProxy is defined on the PackageProxyConfig interface.
-func (cfg *WindowsCloudConfig) SetPackageProxy(url string) {
+func (cfg *windowsCloudConfig) SetPackageProxy(url string) {
 }
 
 // UnsetPackageProxy is defined on the PackageProxyConfig interface.
-func (cfg *WindowsCloudConfig) UnsetPackageProxy() {
+func (cfg *windowsCloudConfig) UnsetPackageProxy() {
 }
 
 // PackageProxy is defined on the PackageProxyConfig interface.
-func (cfg *WindowsCloudConfig) PackageProxy() string {
+func (cfg *windowsCloudConfig) PackageProxy() string {
 	return ""
 }
 
 // SetPackageMirror is defined on the PackageMirrorConfig interface.
-func (cfg *WindowsCloudConfig) SetPackageMirror(url string) {
+func (cfg *windowsCloudConfig) SetPackageMirror(url string) {
 }
 
 // UnsetPackageMirror is defined on the PackageMirrorConfig interface.
-func (cfg *WindowsCloudConfig) UnsetPackageMirror() {
+func (cfg *windowsCloudConfig) UnsetPackageMirror() {
 }
 
 // PackageMirror is defined on the PackageMirrorConfig interface.
-func (cfg *WindowsCloudConfig) PackageMirror() string {
+func (cfg *windowsCloudConfig) PackageMirror() string {
 	return ""
 }
 
 // AddPackageSource is defined on the PackageSourcesConfig interface.
-func (cfg *WindowsCloudConfig) AddPackageSource(src packaging.PackageSource) {
+func (cfg *windowsCloudConfig) AddPackageSource(src packaging.PackageSource) {
 }
 
 // PackageSources is defined on the PackageSourcesConfig interface.
-func (cfg *WindowsCloudConfig) PackageSources() []packaging.PackageSource {
+func (cfg *windowsCloudConfig) PackageSources() []packaging.PackageSource {
 	return nil
 }
 
 // AddPackagePreferences is defined on the PackageSourcesConfig interface.
-func (cfg *WindowsCloudConfig) AddPackagePreferences(prefs packaging.PackagePreferences) {
+func (cfg *windowsCloudConfig) AddPackagePreferences(prefs packaging.PackagePreferences) {
 }
 
 // PackagePreferences is defined on the PackageSourcesConfig interface.
-func (cfg *WindowsCloudConfig) PackagePreferences() []packaging.PackagePreferences {
+func (cfg *windowsCloudConfig) PackagePreferences() []packaging.PackagePreferences {
 	return nil
 }
 
 // RenderYAML is defined on the RenderConfig interface.
-func (cfg *WindowsCloudConfig) RenderYAML() ([]byte, error) {
+func (cfg *windowsCloudConfig) RenderYAML() ([]byte, error) {
 	return cfg.renderWindows()
 }
 
 // RenderScript is defined on the RenderConfig interface.
-func (cfg *WindowsCloudConfig) RenderScript() (string, error) {
+func (cfg *windowsCloudConfig) RenderScript() (string, error) {
 	// NOTE: This shouldn't really be called on windows as it's used only for
 	// initialization via ssh or on local providers.
 	script, err := cfg.renderWindows()
@@ -79,13 +79,13 @@ func (cfg *WindowsCloudConfig) RenderScript() (string, error) {
 }
 
 // getCommandsForAddingPackages is defined on the RenderConfig interface.
-func (cfg *WindowsCloudConfig) getCommandsForAddingPackages() ([]string, error) {
+func (cfg *windowsCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	return nil, nil
 }
 
 // renderWindows is a helper function which renders the runCmds of the Windows
 // CloudConfig to a PowerShell script.
-func (cfg *WindowsCloudConfig) renderWindows() ([]byte, error) {
+func (cfg *windowsCloudConfig) renderWindows() ([]byte, error) {
 	winCmds := cfg.RunCmds()
 	var script []byte
 	newline := "\r\n"
@@ -99,7 +99,7 @@ func (cfg *WindowsCloudConfig) renderWindows() ([]byte, error) {
 }
 
 // AddPackageCommands is defined on the AdvancedPackagingConfig interface.
-func (cfg *WindowsCloudConfig) AddPackageCommands(
+func (cfg *windowsCloudConfig) AddPackageCommands(
 	aptProxySettings proxy.Settings,
 	aptMirror string,
 	addUpdateScripts bool,
@@ -110,13 +110,13 @@ func (cfg *WindowsCloudConfig) AddPackageCommands(
 
 // AddCloudArchiveCloudTools is defined on the AdvancedPackagingConfig
 // interface.
-func (cfg *WindowsCloudConfig) AddCloudArchiveCloudTools() {
+func (cfg *windowsCloudConfig) AddCloudArchiveCloudTools() {
 }
 
 // updatePackages is defined on the AdvancedPackagingConfig interface.
-func (cfg *WindowsCloudConfig) updatePackages() {
+func (cfg *windowsCloudConfig) updatePackages() {
 }
 
 // updateProxySettings is defined on the AdvancedPackagingConfig interface.
-func (cfg *WindowsCloudConfig) updateProxySettings(proxy.Settings) {
+func (cfg *windowsCloudConfig) updateProxySettings(proxy.Settings) {
 }
