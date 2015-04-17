@@ -1,0 +1,43 @@
+#!/usr/bin/env python
+from cmonkey import CMonkey
+from time import sleep
+import hookenv
+
+
+def main():
+    quite = False
+    c_monkey = CMonkey()
+    config = hookenv.config()
+
+    #for x in xrange(100):
+    if config['unleash']:
+        test = c_monkey.get_random_chaos()
+        test.enable()
+
+        do_something()
+
+        if test.disable:
+            test.disable()
+
+        ok = is_juju_ok()
+        if not ok:
+            c_monkey.shutdown()
+
+
+def is_juju_ok():
+    return True
+
+
+def get_random_test():
+    pass
+
+
+def do_something():
+    sleep(2)
+
+
+def shutdown():
+    pass
+
+if __name__ == '__main__':
+    main()

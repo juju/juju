@@ -1,0 +1,15 @@
+name: cmonkey
+maintainer: John George <john.george@canonical.com>
+summary: Chaos Monkey
+description: |
+  This charm is used to insert and unleash chaos monkey.
+peers:
+  cluster:
+    interface: chaos-monkey
+requires:
+  juju-info:
+    interface: juju-info
+    scope: container
+categories:
+  - misc
+subordinate: true

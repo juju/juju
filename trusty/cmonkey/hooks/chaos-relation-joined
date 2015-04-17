@@ -1,0 +1,3 @@
+#!/bin/bash
+
+relation-set hello='goodby'
