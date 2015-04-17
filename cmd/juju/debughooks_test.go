@@ -5,6 +5,7 @@ package main
 
 import (
 	"regexp"
+	"runtime"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -69,6 +70,10 @@ var debugHooksTests = []struct {
 }}
 
 func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
+	//TODO(bogdanteleaga): Fix once debughooks are supported on windows
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: Skipping on windows for now")
+	}
 	machines := s.makeMachines(3, c, true)
 	dummy := s.AddTestingCharm(c, "dummy")
 	srv := s.AddTestingService(c, "mysql", dummy)

@@ -8,8 +8,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	utilexec "github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
+	corecharm "gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -28,7 +28,7 @@ func (s *FactorySuite) SetUpTest(c *gc.C) {
 	// verifying that inadequate args to the factory methods will produce
 	// the expected errors; and that the results of same get a string
 	// representation that does not depend on the factory attributes.
-	s.factory = operation.NewFactory(nil, nil, nil, nil)
+	s.factory = operation.NewFactory(nil, nil, nil, nil, nil)
 }
 
 func (s *FactorySuite) testNewDeployError(c *gc.C, newDeploy newDeploy) {

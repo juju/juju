@@ -44,7 +44,7 @@ func (a *nonActionSettingContext) UpdateActionResults(keys []string, value strin
 
 func (s *ActionSetSuite) TestActionSetOnNonActionContextFails(c *gc.C) {
 	hctx := &nonActionSettingContext{}
-	com, err := jujuc.NewCommand(hctx, "action-set")
+	com, err := jujuc.NewCommand(hctx, cmdString("action-set"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"oops=nope"})
@@ -125,7 +125,7 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 	for i, t := range actionSetTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := &actionSettingContext{}
-		com, err := jujuc.NewCommand(hctx, "action-set")
+		com, err := jujuc.NewCommand(hctx, cmdString("action-set"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
 		c.Logf("  command list: %#v", t.command)
@@ -138,7 +138,7 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 
 func (s *ActionSetSuite) TestHelp(c *gc.C) {
 	hctx := &actionSettingContext{}
-	com, err := jujuc.NewCommand(hctx, "action-set")
+	com, err := jujuc.NewCommand(hctx, cmdString("action-set"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})

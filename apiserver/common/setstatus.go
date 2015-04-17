@@ -7,9 +7,10 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
+
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/names"
 )
 
 // StatusSetter implements a common SetStatus method for use by
@@ -78,11 +79,11 @@ func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]int
 	if !ok {
 		return NotSupportedError(tag, "getting status")
 	}
-	existingStatus, existingInfo, existingData, err := statusGetter.Status()
+	existingStatusInfo, err := statusGetter.Status()
 	if err != nil {
 		return err
 	}
-	newData := existingData
+	newData := existingStatusInfo.Data
 	if newData == nil {
 		newData = data
 	} else {
@@ -94,10 +95,10 @@ func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]int
 	if !ok {
 		return NotSupportedError(tag, "updating status")
 	}
-	if len(newData) > 0 && existingStatus != state.StatusError {
+	if len(newData) > 0 && existingStatusInfo.Status != state.StatusError {
 		return fmt.Errorf("%s is not in an error state", names.ReadableString(tag))
 	}
-	return entity.SetStatus(existingStatus, existingInfo, newData)
+	return entity.SetStatus(existingStatusInfo.Status, existingStatusInfo.Message, newData)
 }
 
 // UpdateStatus updates the status data of each given entity.

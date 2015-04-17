@@ -55,10 +55,27 @@ func (c *APIAddressUpdater) Handle() error {
 	if err != nil {
 		return fmt.Errorf("error getting addresses: %v", err)
 	}
-	if err := c.setter.SetAPIHostPorts(addresses); err != nil {
+	// Filter out any LXC bridge addresses. See LP bug #1416928.
+	hpsToSet := make([][]network.HostPort, 0, len(addresses))
+	for _, hostPorts := range addresses {
+		// Strip ports, filter, then add ports again.
+		filtered := network.FilterLXCAddresses(network.HostsWithoutPort(hostPorts))
+		hps := make([]network.HostPort, 0, len(filtered))
+		for _, hostPort := range hostPorts {
+			for _, addr := range filtered {
+				if addr.Value == hostPort.Address.Value {
+					hps = append(hps, hostPort)
+				}
+			}
+		}
+		if len(hps) > 0 {
+			hpsToSet = append(hpsToSet, hps)
+		}
+	}
+	if err := c.setter.SetAPIHostPorts(hpsToSet); err != nil {
 		return fmt.Errorf("error setting addresses: %v", err)
 	}
-	logger.Infof("API addresses updated to %q", addresses)
+	logger.Infof("API addresses updated to %q", hpsToSet)
 	return nil
 }
 

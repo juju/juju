@@ -6,7 +6,9 @@ package client_test
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,8 +19,14 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/charmstore.v4"
+	"gopkg.in/juju/charmstore.v4/charmstoretesting"
+	"gopkg.in/juju/charmstore.v4/csclient"
+	"gopkg.in/macaroon-bakery.v0/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v0/bakerytest"
+	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"
@@ -31,6 +39,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
@@ -40,15 +49,14 @@ import (
 	"github.com/juju/juju/state/presence"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
-
-type clientSuite struct {
-	baseSuite
-}
 
 type Killer interface {
 	Kill() error
@@ -120,16 +128,94 @@ func (s *serverSuite) TestBlockEnsureAvailabilityDeprecated(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.blockAllChanges(c)
+	s.BlockAllChanges(c, "TestBlockEnsureAvailabilityDeprecated")
 
 	arg := params.StateServersSpecs{[]params.StateServersSpec{{NumStateServers: 3}}}
 	results, err := s.client.EnsureAvailability(arg)
-	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
+	s.AssertBlocked(c, err, "TestBlockEnsureAvailabilityDeprecated")
 	c.Assert(results.Results, gc.HasLen, 0)
 
-	machines, err := s.State.AllMachines() //there
+	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
+}
+
+func (s *serverSuite) TestEnvUsersInfo(c *gc.C) {
+	testAdmin := s.AdminUserTag(c)
+	owner, err := s.State.EnvironmentUser(testAdmin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	localUser1 := s.makeLocalEnvUser(c, "ralphdoe", "Ralph Doe")
+	localUser2 := s.makeLocalEnvUser(c, "samsmith", "Sam Smith")
+	remoteUser1 := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns"})
+	remoteUser2 := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw"})
+
+	results, err := s.client.EnvUserInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	expected := params.EnvUserInfoResults{
+		Results: []params.EnvUserInfoResult{
+			{
+				Result: &params.EnvUserInfo{
+					UserName:       owner.UserName(),
+					DisplayName:    owner.DisplayName(),
+					CreatedBy:      owner.UserName(),
+					DateCreated:    owner.DateCreated(),
+					LastConnection: owner.LastConnection(),
+				},
+			}, {
+				Result: &params.EnvUserInfo{
+					UserName:       "ralphdoe@local",
+					DisplayName:    "Ralph Doe",
+					CreatedBy:      owner.UserName(),
+					DateCreated:    localUser1.DateCreated(),
+					LastConnection: localUser1.LastConnection(),
+				},
+			}, {
+				Result: &params.EnvUserInfo{
+					UserName:       "samsmith@local",
+					DisplayName:    "Sam Smith",
+					CreatedBy:      owner.UserName(),
+					DateCreated:    localUser2.DateCreated(),
+					LastConnection: localUser2.LastConnection(),
+				},
+			}, {
+				Result: &params.EnvUserInfo{
+					UserName:       "bobjohns@ubuntuone",
+					DisplayName:    "Bob Johns",
+					CreatedBy:      owner.UserName(),
+					DateCreated:    remoteUser1.DateCreated(),
+					LastConnection: remoteUser1.LastConnection(),
+				},
+			}, {
+				Result: &params.EnvUserInfo{
+					UserName:       "nicshaw@idprovider",
+					DisplayName:    "Nic Shaw",
+					CreatedBy:      owner.UserName(),
+					DateCreated:    remoteUser2.DateCreated(),
+					LastConnection: remoteUser2.LastConnection(),
+				},
+			}},
+	}
+
+	sort.Sort(ByUserName(expected.Results))
+	sort.Sort(ByUserName(results.Results))
+	c.Assert(results, jc.DeepEquals, expected)
+}
+
+// ByUserName implements sort.Interface for []params.EnvUserInfoResult based on
+// the UserName field.
+type ByUserName []params.EnvUserInfoResult
+
+func (a ByUserName) Len() int           { return len(a) }
+func (a ByUserName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByUserName) Less(i, j int) bool { return a[i].Result.UserName < a[j].Result.UserName }
+
+func (s *serverSuite) makeLocalEnvUser(c *gc.C, username, displayname string) *state.EnvironmentUser {
+	// factory.MakeUser will create an EnvUser for a local user by defalut
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: username, DisplayName: displayname})
+	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	return envUser
 }
 
 func (s *serverSuite) TestShareEnvironmentAddMissingLocalFails(c *gc.C) {
@@ -165,6 +251,25 @@ func (s *serverSuite) TestUnshareEnvironment(c *gc.C) {
 	c.Assert(result.Results[0].Error, gc.IsNil)
 
 	_, err = s.State.EnvironmentUser(user.UserTag())
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
+func (s *serverSuite) TestUnshareEnvironmentMissingUser(c *gc.C) {
+	user := names.NewUserTag("bob")
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			UserTag: user.String(),
+			Action:  params.RemoveEnvUser,
+		}}}
+
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.ErrorMatches, `could not unshare environment: env user "bob@local" does not exist: transaction aborted`)
+
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.NotNil)
+
+	_, err = s.State.EnvironmentUser(user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
@@ -208,6 +313,29 @@ func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
 	c.Assert(envUser.UserName(), gc.Equals, user.Username())
 	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Username())
 	c.Assert(envUser.LastConnection(), gc.IsNil)
+}
+
+func (s *serverSuite) TestShareEnvironmentAddUserTwice(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			UserTag: user.Tag().String(),
+			Action:  params.AddEnvUser,
+		}}}
+
+	_, err := s.client.ShareEnvironment(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.ErrorMatches, "could not share environment: environment user \"foobar@local\" already exists")
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, "could not share environment: environment user \"foobar@local\" already exists")
+	c.Assert(result.Results[0].Error.Code, gc.Matches, params.CodeAlreadyExists)
+
+	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Username())
 }
 
 func (s *serverSuite) TestShareEnvironmentInvalidTags(c *gc.C) {
@@ -323,36 +451,40 @@ func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
 	c.Assert(agentVersion, gc.Equals, "9.8.7")
 }
 
-func (s *serverSuite) assertSetEnvironAgentVersionBlocked(c *gc.C, blocked bool) {
+func (s *serverSuite) assertSetEnvironAgentVersion(c *gc.C) {
 	args := params.SetEnvironAgentVersion{
 		Version: version.MustParse("9.8.7"),
 	}
 	err := s.client.SetEnvironAgentVersion(args)
-	if blocked {
-		c.Assert(errors.Cause(err), gc.Equals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		envConfig, err := s.State.EnvironConfig()
-		c.Assert(err, jc.ErrorIsNil)
-		agentVersion, found := envConfig.AllAttrs()["agent-version"]
-		c.Assert(found, jc.IsTrue)
-		c.Assert(agentVersion, gc.Equals, "9.8.7")
+	c.Assert(err, jc.ErrorIsNil)
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	agentVersion, found := envConfig.AllAttrs()["agent-version"]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(agentVersion, gc.Equals, "9.8.7")
+}
+
+func (s *serverSuite) assertSetEnvironAgentVersionBlocked(c *gc.C, msg string) {
+	args := params.SetEnvironAgentVersion{
+		Version: version.MustParse("9.8.7"),
 	}
+	err := s.client.SetEnvironAgentVersion(args)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *serverSuite) TestBlockDestroySetEnvironAgentVersion(c *gc.C) {
-	s.blockDestroyEnvironment(c)
-	s.assertSetEnvironAgentVersionBlocked(c, false)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroySetEnvironAgentVersion")
+	s.assertSetEnvironAgentVersion(c)
 }
 
 func (s *serverSuite) TestBlockRemoveSetEnvironAgentVersion(c *gc.C) {
-	s.blockRemoveObject(c)
-	s.assertSetEnvironAgentVersionBlocked(c, false)
+	s.BlockRemoveObject(c, "TestBlockRemoveSetEnvironAgentVersion")
+	s.assertSetEnvironAgentVersion(c)
 }
 
 func (s *serverSuite) TestBlockChangesSetEnvironAgentVersion(c *gc.C) {
-	s.blockAllChanges(c)
-	s.assertSetEnvironAgentVersionBlocked(c, true)
+	s.BlockAllChanges(c, "TestBlockChangesSetEnvironAgentVersion")
+	s.assertSetEnvironAgentVersionBlocked(c, "TestBlockChangesSetEnvironAgentVersion")
 }
 
 func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
@@ -382,17 +514,17 @@ func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	c.Assert(isUpgrading, jc.IsFalse)
 }
 
-func (s *serverSuite) assertAbortCurrentUpgradeBlocked(c *gc.C, blocked bool) {
+func (s *serverSuite) assertAbortCurrentUpgradeBlocked(c *gc.C, msg string) {
 	err := s.client.AbortCurrentUpgrade()
+	s.AssertBlocked(c, err, msg)
+}
 
-	if blocked {
-		c.Assert(errors.Cause(err), gc.Equals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		isUpgrading, err := s.State.IsUpgrading()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(isUpgrading, jc.IsFalse)
-	}
+func (s *serverSuite) assertAbortCurrentUpgrade(c *gc.C) {
+	err := s.client.AbortCurrentUpgrade()
+	c.Assert(err, jc.ErrorIsNil)
+	isUpgrading, err := s.State.IsUpgrading()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isUpgrading, jc.IsFalse)
 }
 
 func (s *serverSuite) setupAbortCurrentUpgradeBlocked(c *gc.C) {
@@ -416,27 +548,55 @@ func (s *serverSuite) setupAbortCurrentUpgradeBlocked(c *gc.C) {
 
 func (s *serverSuite) TestBlockDestroyAbortCurrentUpgrade(c *gc.C) {
 	s.setupAbortCurrentUpgradeBlocked(c)
-	s.blockDestroyEnvironment(c)
-	s.assertAbortCurrentUpgradeBlocked(c, false)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyAbortCurrentUpgrade")
+	s.assertAbortCurrentUpgrade(c)
 }
 
 func (s *serverSuite) TestBlockRemoveAbortCurrentUpgrade(c *gc.C) {
 	s.setupAbortCurrentUpgradeBlocked(c)
-	s.blockRemoveObject(c)
-	s.assertAbortCurrentUpgradeBlocked(c, false)
+	s.BlockRemoveObject(c, "TestBlockRemoveAbortCurrentUpgrade")
+	s.assertAbortCurrentUpgrade(c)
 }
 
 func (s *serverSuite) TestBlockChangesAbortCurrentUpgrade(c *gc.C) {
 	s.setupAbortCurrentUpgradeBlocked(c)
-	s.blockAllChanges(c)
-	s.assertAbortCurrentUpgradeBlocked(c, true)
+	s.BlockAllChanges(c, "TestBlockChangesAbortCurrentUpgrade")
+	s.assertAbortCurrentUpgradeBlocked(c, "TestBlockChangesAbortCurrentUpgrade")
+}
+
+type clientSuite struct {
+	baseSuite
 }
 
 var _ = gc.Suite(&clientSuite{})
 
+// clearSinceTimes zeros out the updated timestamps inside status
+// so we can easily check the results.
+func clearSinceTimes(status *api.Status) {
+	for serviceId, service := range status.Services {
+		for unitId, unit := range service.Units {
+			unit.Workload.Since = nil
+			unit.UnitAgent.Since = nil
+			for id, subord := range unit.Subordinates {
+				subord.Workload.Since = nil
+				subord.UnitAgent.Since = nil
+				unit.Subordinates[id] = subord
+			}
+			service.Units[unitId] = unit
+		}
+		service.Status.Since = nil
+		status.Services[serviceId] = service
+	}
+	for id, machine := range status.Machines {
+		machine.Agent.Since = nil
+		status.Machines[id] = machine
+	}
+}
+
 func (s *clientSuite) TestClientStatus(c *gc.C) {
 	s.setUpScenario(c)
 	status, err := s.APIState.Client().Status(nil)
+	clearSinceTimes(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, jc.DeepEquals, scenarioStatus)
 }
@@ -520,40 +680,46 @@ func (s *clientSuite) TestClientServiceSet(c *gc.C) {
 	})
 }
 
-func (s *serverSuite) assertServiceSetBlocked(c *gc.C, blocked bool, dummy *state.Service) {
+func (s *serverSuite) assertServiceSetBlocked(c *gc.C, dummy *state.Service, msg string) {
 	err := s.client.ServiceSet(params.ServiceSet{
 		ServiceName: "dummy",
 		Options: map[string]string{
 			"title":    "foobar",
 			"username": validSetTestValue}})
-	if blocked {
-		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		settings, err := dummy.ConfigSettings()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(settings, gc.DeepEquals, charm.Settings{
-			"title":    "foobar",
-			"username": validSetTestValue,
-		})
-	}
+	s.AssertBlocked(c, err, msg)
 }
+
+func (s *serverSuite) assertServiceSet(c *gc.C, dummy *state.Service) {
+	err := s.client.ServiceSet(params.ServiceSet{
+		ServiceName: "dummy",
+		Options: map[string]string{
+			"title":    "foobar",
+			"username": validSetTestValue}})
+	c.Assert(err, jc.ErrorIsNil)
+	settings, err := dummy.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
+		"title":    "foobar",
+		"username": validSetTestValue,
+	})
+}
+
 func (s *serverSuite) TestBlockDestroyServiceSet(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.blockDestroyEnvironment(c)
-	s.assertServiceSetBlocked(c, false, dummy)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceSet")
+	s.assertServiceSet(c, dummy)
 }
 
 func (s *serverSuite) TestBlockRemoveServiceSet(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.blockRemoveObject(c)
-	s.assertServiceSetBlocked(c, false, dummy)
+	s.BlockRemoveObject(c, "TestBlockRemoveServiceSet")
+	s.assertServiceSet(c, dummy)
 }
 
 func (s *serverSuite) TestBlockChangesServiceSet(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.blockAllChanges(c)
-	s.assertServiceSetBlocked(c, true, dummy)
+	s.BlockAllChanges(c, "TestBlockChangesServiceSet")
+	s.assertServiceSetBlocked(c, dummy, "TestBlockChangesServiceSet")
 }
 
 func (s *clientSuite) TestClientServerUnset(c *gc.C) {
@@ -599,39 +765,43 @@ func (s *serverSuite) setupServerUnsetBlocked(c *gc.C) *state.Service {
 	return dummy
 }
 
-func (s *serverSuite) assertServerUnsetBlocked(c *gc.C, blocked bool, dummy *state.Service) {
+func (s *serverSuite) assertServerUnset(c *gc.C, dummy *state.Service) {
 	err := s.client.ServiceUnset(params.ServiceUnset{
 		ServiceName: "dummy",
 		Options:     []string{"username"},
 	})
-	if blocked {
-		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		settings, err := dummy.ConfigSettings()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(settings, gc.DeepEquals, charm.Settings{
-			"title": "foobar",
-		})
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	settings, err := dummy.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
+		"title": "foobar",
+	})
+}
+
+func (s *serverSuite) assertServerUnsetBlocked(c *gc.C, dummy *state.Service, msg string) {
+	err := s.client.ServiceUnset(params.ServiceUnset{
+		ServiceName: "dummy",
+		Options:     []string{"username"},
+	})
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *serverSuite) TestBlockDestroyServerUnset(c *gc.C) {
 	dummy := s.setupServerUnsetBlocked(c)
-	s.blockDestroyEnvironment(c)
-	s.assertServerUnsetBlocked(c, false, dummy)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyServerUnset")
+	s.assertServerUnset(c, dummy)
 }
 
 func (s *serverSuite) TestBlockRemoveServerUnset(c *gc.C) {
 	dummy := s.setupServerUnsetBlocked(c)
-	s.blockRemoveObject(c)
-	s.assertServerUnsetBlocked(c, false, dummy)
+	s.BlockRemoveObject(c, "TestBlockRemoveServerUnset")
+	s.assertServerUnset(c, dummy)
 }
 
 func (s *serverSuite) TestBlockChangesServerUnset(c *gc.C) {
 	dummy := s.setupServerUnsetBlocked(c)
-	s.blockAllChanges(c)
-	s.assertServerUnsetBlocked(c, true, dummy)
+	s.BlockAllChanges(c, "TestBlockChangesServerUnset")
+	s.assertServerUnsetBlocked(c, dummy, "TestBlockChangesServerUnset")
 }
 
 func (s *clientSuite) TestClientServiceSetYAML(c *gc.C) {
@@ -655,37 +825,38 @@ func (s *clientSuite) TestClientServiceSetYAML(c *gc.C) {
 	})
 }
 
-func (s *clientSuite) assertServiceSetYAMLBlocked(c *gc.C, blocked bool, dummy *state.Service) {
+func (s *clientSuite) assertServiceSetYAML(c *gc.C, dummy *state.Service) {
 	err := s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: foobar\n  username: user name\n")
-	if blocked {
-		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		settings, err := dummy.ConfigSettings()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(settings, gc.DeepEquals, charm.Settings{
-			"title":    "foobar",
-			"username": "user name",
-		})
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	settings, err := dummy.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
+		"title":    "foobar",
+		"username": "user name",
+	})
+}
+
+func (s *clientSuite) assertServiceSetYAMLBlocked(c *gc.C, dummy *state.Service, msg string) {
+	err := s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: foobar\n  username: user name\n")
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyServiceSetYAML(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.blockDestroyEnvironment(c)
-	s.assertServiceSetYAMLBlocked(c, false, dummy)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceSetYAML")
+	s.assertServiceSetYAML(c, dummy)
 }
 
 func (s *clientSuite) TestBlockRemoveServiceSetYAML(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.blockRemoveObject(c)
-	s.assertServiceSetYAMLBlocked(c, false, dummy)
+	s.BlockRemoveObject(c, "TestBlockRemoveServiceSetYAML")
+	s.assertServiceSetYAML(c, dummy)
 }
 
 func (s *clientSuite) TestBlockChangesServiceSetYAML(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.blockAllChanges(c)
-	s.assertServiceSetYAMLBlocked(c, true, dummy)
+	s.BlockAllChanges(c, "TestBlockChangesServiceSetYAML")
+	s.assertServiceSetYAMLBlocked(c, dummy, "TestBlockChangesServiceSetYAML")
 }
 
 var clientAddServiceUnitsTests = []struct {
@@ -747,39 +918,55 @@ func (s *clientSuite) TestClientAddServiceUnits(c *gc.C) {
 	c.Assert(assignedMachine, gc.Equals, "0")
 }
 
-func (s *clientSuite) assertAddServiceUnitsBlocked(c *gc.C, blocked bool) {
-	units, err := s.APIState.Client().AddServiceUnits("dummy", 3, "")
-	if blocked {
-		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(units, gc.DeepEquals, []string{"dummy/0", "dummy/1", "dummy/2"})
+func (s *clientSuite) TestClientAddServiceUnitsToNewContainer(c *gc.C) {
+	svc := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
 
-		// Test that we actually assigned the unit to machine 0
-		forcedUnit, err := s.BackingState.Unit("dummy/0")
-		c.Assert(err, jc.ErrorIsNil)
-		assignedMachine, err := forcedUnit.AssignedMachineId()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(assignedMachine, gc.Equals, "0")
-	}
+	_, err = s.APIState.Client().AddServiceUnits("dummy", 1, "lxc:"+machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := svc.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	mid, err := units[0].AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mid, gc.Equals, machine.Id()+"/lxc/0")
+}
+
+func (s *clientSuite) assertAddServiceUnits(c *gc.C) {
+	units, err := s.APIState.Client().AddServiceUnits("dummy", 3, "")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.DeepEquals, []string{"dummy/0", "dummy/1", "dummy/2"})
+
+	// Test that we actually assigned the unit to machine 0
+	forcedUnit, err := s.BackingState.Unit("dummy/0")
+	c.Assert(err, jc.ErrorIsNil)
+	assignedMachine, err := forcedUnit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(assignedMachine, gc.Equals, "0")
+}
+
+func (s *clientSuite) assertAddServiceUnitsBlocked(c *gc.C, msg string) {
+	_, err := s.APIState.Client().AddServiceUnits("dummy", 3, "")
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyAddServiceUnits(c *gc.C) {
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.blockDestroyEnvironment(c)
-	s.assertAddServiceUnitsBlocked(c, false)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyAddServiceUnits")
+	s.assertAddServiceUnits(c)
 }
 
 func (s *clientSuite) TestBlockRemoveAddServiceUnits(c *gc.C) {
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.blockRemoveObject(c)
-	s.assertAddServiceUnitsBlocked(c, false)
+	s.BlockRemoveObject(c, "TestBlockRemoveAddServiceUnits")
+	s.assertAddServiceUnits(c)
 }
 
 func (s *clientSuite) TestBlockChangeAddServiceUnits(c *gc.C) {
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	s.blockAllChanges(c)
-	s.assertAddServiceUnitsBlocked(c, true)
+	s.BlockAllChanges(c, "TestBlockChangeAddServiceUnits")
+	s.assertAddServiceUnitsBlocked(c, "TestBlockChangeAddServiceUnits")
 }
 
 func (s *clientSuite) TestClientAddUnitToMachineNotFound(c *gc.C) {
@@ -891,6 +1078,7 @@ func (s *clientSuite) TestClientEnvironmentInfo(c *gc.C) {
 	c.Assert(info.ProviderType, gc.Equals, conf.Type())
 	c.Assert(info.Name, gc.Equals, conf.Name())
 	c.Assert(info.UUID, gc.Equals, env.UUID())
+	c.Assert(info.ServerUUID, gc.Equals, env.ServerUUID())
 }
 
 var clientAnnotationsTests = []struct {
@@ -1058,41 +1246,45 @@ func (s *clientSuite) setupServiceExpose(c *gc.C) {
 	c.Assert(svcs[1].IsExposed(), jc.IsTrue)
 }
 
-func (s *clientSuite) assertServiceExposeBlocked(c *gc.C, blocked bool) {
+func (s *clientSuite) assertServiceExpose(c *gc.C) {
 	for i, t := range serviceExposeTests {
 		c.Logf("test %d. %s", i, t.about)
 		err := s.APIState.Client().ServiceExpose(t.service)
-		if blocked {
-			c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
+		if t.err != "" {
+			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
-			if t.err != "" {
-				c.Assert(err, gc.ErrorMatches, t.err)
-			} else {
-				c.Assert(err, jc.ErrorIsNil)
-				service, err := s.State.Service(t.service)
-				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(service.IsExposed(), gc.Equals, t.exposed)
-			}
+			c.Assert(err, jc.ErrorIsNil)
+			service, err := s.State.Service(t.service)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(service.IsExposed(), gc.Equals, t.exposed)
 		}
+	}
+}
+
+func (s *clientSuite) assertServiceExposeBlocked(c *gc.C, msg string) {
+	for i, t := range serviceExposeTests {
+		c.Logf("test %d. %s", i, t.about)
+		err := s.APIState.Client().ServiceExpose(t.service)
+		s.AssertBlocked(c, err, msg)
 	}
 }
 
 func (s *clientSuite) TestBlockDestroyServiceExpose(c *gc.C) {
 	s.setupServiceExpose(c)
-	s.blockDestroyEnvironment(c)
-	s.assertServiceExposeBlocked(c, false)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceExpose")
+	s.assertServiceExpose(c)
 }
 
 func (s *clientSuite) TestBlockRemoveServiceExpose(c *gc.C) {
 	s.setupServiceExpose(c)
-	s.blockRemoveObject(c)
-	s.assertServiceExposeBlocked(c, false)
+	s.BlockRemoveObject(c, "TestBlockRemoveServiceExpose")
+	s.assertServiceExpose(c)
 }
 
 func (s *clientSuite) TestBlockChangesServiceExpose(c *gc.C) {
 	s.setupServiceExpose(c)
-	s.blockAllChanges(c)
-	s.assertServiceExposeBlocked(c, true)
+	s.BlockAllChanges(c, "TestBlockChangesServiceExpose")
+	s.assertServiceExposeBlocked(c, "TestBlockChangesServiceExpose")
 }
 
 var serviceUnexposeTests = []struct {
@@ -1151,35 +1343,38 @@ func (s *clientSuite) setupServiceUnexpose(c *gc.C) *state.Service {
 	return svc
 }
 
-func (s *clientSuite) assertServiceUnexposeBlocked(c *gc.C, blocked bool, svc *state.Service) {
+func (s *clientSuite) assertServiceUnexpose(c *gc.C, svc *state.Service) {
 	err := s.APIState.Client().ServiceUnexpose("dummy-service")
-	if blocked {
-		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		svc.Refresh()
-		c.Assert(svc.IsExposed(), gc.Equals, false)
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	svc.Refresh()
+	c.Assert(svc.IsExposed(), gc.Equals, false)
+	err = svc.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *clientSuite) assertServiceUnexposeBlocked(c *gc.C, svc *state.Service, msg string) {
+	err := s.APIState.Client().ServiceUnexpose("dummy-service")
+	s.AssertBlocked(c, err, msg)
 	err = svc.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *clientSuite) TestBlockDestroyServiceUnexpose(c *gc.C) {
 	svc := s.setupServiceUnexpose(c)
-	s.blockDestroyEnvironment(c)
-	s.assertServiceUnexposeBlocked(c, false, svc)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceUnexpose")
+	s.assertServiceUnexpose(c, svc)
 }
 
 func (s *clientSuite) TestBlockRemoveServiceUnexpose(c *gc.C) {
 	svc := s.setupServiceUnexpose(c)
-	s.blockRemoveObject(c)
-	s.assertServiceUnexposeBlocked(c, false, svc)
+	s.BlockRemoveObject(c, "TestBlockRemoveServiceUnexpose")
+	s.assertServiceUnexpose(c, svc)
 }
 
 func (s *clientSuite) TestBlockChangesServiceUnexpose(c *gc.C) {
 	svc := s.setupServiceUnexpose(c)
-	s.blockAllChanges(c)
-	s.assertServiceUnexposeBlocked(c, true, svc)
+	s.BlockAllChanges(c, "TestBlockChangesServiceUnexpose")
+	s.assertServiceUnexposeBlocked(c, svc, "TestBlockChangesServiceUnexpose")
 }
 
 var serviceDestroyTests = []struct {
@@ -1277,7 +1472,7 @@ func (s *clientSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetStatus(state.StatusActive, "", nil)
+		err = unit.SetAgentStatus(state.StatusIdle, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -1313,7 +1508,7 @@ func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolv
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetStatus(state.StatusError, "gaaah", nil)
+	err = u.SetAgentStatus(state.StatusError, "gaaah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Code under test:
 	err = s.APIState.Client().Resolved("wordpress/0", retry)
@@ -1339,52 +1534,113 @@ func (s *clientSuite) setupResolved(c *gc.C) *state.Unit {
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetStatus(state.StatusError, "gaaah", nil)
+	err = u.SetAgentStatus(state.StatusError, "gaaah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return u
 }
 
-func (s *clientSuite) assertResolvedBlocked(c *gc.C, blocked bool, u *state.Unit) {
+func (s *clientSuite) assertResolved(c *gc.C, u *state.Unit) {
 	err := s.APIState.Client().Resolved("wordpress/0", true)
-	if blocked {
-		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		// Freshen the unit's state.
-		err = u.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		// And now the actual test assertions: we set the unit as resolved via
-		// the API so it should have a resolved mode set.
-		mode := u.Resolved()
-		c.Assert(mode, gc.Equals, state.ResolvedRetryHooks)
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	// Freshen the unit's state.
+	err = u.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	// And now the actual test assertions: we set the unit as resolved via
+	// the API so it should have a resolved mode set.
+	mode := u.Resolved()
+	c.Assert(mode, gc.Equals, state.ResolvedRetryHooks)
+}
+
+func (s *clientSuite) assertResolvedBlocked(c *gc.C, u *state.Unit, msg string) {
+	err := s.APIState.Client().Resolved("wordpress/0", true)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyUnitResolved(c *gc.C) {
 	u := s.setupResolved(c)
-	s.blockDestroyEnvironment(c)
-	s.assertResolvedBlocked(c, false, u)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyUnitResolved")
+	s.assertResolved(c, u)
 }
 
 func (s *clientSuite) TestBlockRemoveUnitResolved(c *gc.C) {
 	u := s.setupResolved(c)
-	s.blockRemoveObject(c)
-	s.assertResolvedBlocked(c, false, u)
+	s.BlockRemoveObject(c, "TestBlockRemoveUnitResolved")
+	s.assertResolved(c, u)
 }
 
 func (s *clientSuite) TestBlockChangeUnitResolved(c *gc.C) {
 	u := s.setupResolved(c)
-	s.blockAllChanges(c)
-	s.assertResolvedBlocked(c, true, u)
+	s.BlockAllChanges(c, "TestBlockChangeUnitResolved")
+	s.assertResolvedBlocked(c, u, "TestBlockChangeUnitResolved")
 }
 
-func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
-	s.makeMockCharmStore()
+type clientRepoSuite struct {
+	baseSuite
+	// dischargeUser holds the identity of the user
+	// that the 3rd party caveat discharger will issue
+	// macaroons for. If it is empty, no caveats will be discharged.
+	dischargeUser string
+
+	discharger *bakerytest.Discharger
+	srv        *charmstoretesting.Server
+}
+
+var _ = gc.Suite(&clientRepoSuite{})
+
+func (s *clientRepoSuite) SetUpTest(c *gc.C) {
+	s.baseSuite.SetUpTest(c)
+	s.discharger = bakerytest.NewDischarger(nil, func(_ *http.Request, cond string, arg string) ([]checkers.Caveat, error) {
+		if s.dischargeUser == "" {
+			return nil, fmt.Errorf("discharge denied")
+		}
+		return []checkers.Caveat{
+			checkers.DeclaredCaveat("username", s.dischargeUser),
+		}, nil
+	})
+	s.srv = charmstoretesting.OpenServer(c, s.Session, charmstore.ServerParams{
+		IdentityLocation: s.discharger.Location(),
+		PublicKeyLocator: s.discharger,
+	})
+	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
+	s.PatchValue(client.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
+		p.URL = s.srv.URL()
+		return charmrepo.NewCharmStore(p)
+	})
+}
+
+func (s *clientRepoSuite) TearDownTest(c *gc.C) {
+	s.discharger.Close()
+	s.srv.Close()
+	s.baseSuite.TearDownTest(c)
+}
+
+func (s *clientRepoSuite) uploadCharm(c *gc.C, url, name string) (*charm.URL, charm.Charm) {
+	id := charm.MustParseReference(url)
+	promulgated := false
+	if id.User == "" {
+		id.User = "who"
+		promulgated = true
+	}
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), name)
+	id = s.srv.UploadCharm(c, ch, id, promulgated)
+	return (*charm.URL)(id), ch
+}
+
+func (s *clientRepoSuite) assertUploaded(c *gc.C, storage statestorage.Storage, storagePath, expectedSHA256 string) {
+	reader, _, err := storage.Get(storagePath)
+	c.Assert(err, jc.ErrorIsNil)
+	defer reader.Close()
+	downloadedSHA256, _, err := utils.ReadSHA256(reader)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
+}
+
+func (s *clientRepoSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 	for url, expect := range map[string]string{
 		"wordpress":                   "charm url series is not resolved",
 		"cs:wordpress":                "charm url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
-		"cs:precise/wordpress-999999": `cannot download charm ".*": charm not found in mock store: cs:precise/wordpress-999999`,
+		"cs:precise/wordpress-999999": `cannot retrieve charm "cs:precise/wordpress-999999": charm not found`,
 	} {
 		c.Logf("test %s", url)
 		err := s.APIState.Client().ServiceDeploy(
@@ -1396,9 +1652,8 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 	}
 }
 
-func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
-	s.makeMockCharmStore()
-	curl, bundle := addCharm(c, "dummy")
+func (s *clientRepoSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
+	curl, ch := s.uploadCharm(c, "precise/dummy-0", "dummy")
 	cons := constraints.MustParse("mem=4G networks=^net3")
 
 	// Check for invalid network tags handling.
@@ -1415,7 +1670,7 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
+	service := s.assertPrincipalDeployed(c, "service", curl, false, ch, cons)
 
 	networks, err := service.Networks()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1425,21 +1680,54 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 	c.Assert(serviceCons, gc.DeepEquals, cons)
 }
 
-func (s *clientSuite) TestClientServiceDeployWithStorage(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+func (s *clientRepoSuite) TestClientServiceDeployWithStorage(c *gc.C) {
+	s.setupStoragePool(c)
 	s.testClientServiceDeployWithStorage(c, true)
 }
 
-func (s *clientSuite) TestClientServiceDeployWithStorageWithoutFeature(c *gc.C) {
+func (s *clientRepoSuite) TestClientServiceDeployWithStorageWithoutFeature(c *gc.C) {
 	s.testClientServiceDeployWithStorage(c, false)
 }
 
-func (s *clientSuite) testClientServiceDeployWithStorage(c *gc.C, expectConstraints bool) {
-	s.makeMockCharmStore()
-	curl, bundle := addCharm(c, "storage-block")
+func (s *clientRepoSuite) testClientServiceDeployWithStorage(c *gc.C, expectConstraints bool) {
+	curl, ch := s.uploadCharm(c, "utopic/storage-block-10", "storage-block")
 	storageConstraints := map[string]storage.Constraints{
 		"data": {
+			Count: 1,
+			Size:  1024,
+			Pool:  "loop-pool",
+		},
+	}
+
+	var cons constraints.Value
+	err := s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 1, "", cons, "", nil,
+		storageConstraints,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	service := s.assertPrincipalDeployed(c, "service", curl, false, ch, cons)
+	storageConstraintsOut, err := service.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+
+	if expectConstraints {
+		c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
+			"data": {
+				Count: 1,
+				Size:  1024,
+				Pool:  "loop-pool",
+			},
+		})
+	} else {
+		c.Assert(storageConstraintsOut, gc.HasLen, 0)
+	}
+}
+
+func (s *clientRepoSuite) TestClientServiceDeployWithInvalidStoragePool(c *gc.C) {
+	s.setupStoragePool(c)
+	curl, _ := s.uploadCharm(c, "utopic/storage-block-0", "storage-block")
+	storageConstraints := map[string]storage.Constraints{
+		"data": storage.Constraints{
+			Pool:  "foo",
 			Count: 1,
 			Size:  1024,
 		},
@@ -1450,77 +1738,122 @@ func (s *clientSuite) testClientServiceDeployWithStorage(c *gc.C, expectConstrai
 		curl.String(), "service", 1, "", cons, "", nil,
 		storageConstraints,
 	)
+	c.Assert(err, gc.ErrorMatches, `.* pool "foo" not found`)
+}
+
+func (s *clientRepoSuite) TestClientServiceDeployWithUnsupportedStoragePool(c *gc.C) {
+	s.SetFeatureFlags(feature.Storage)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	registry.RegisterProvider("hostloop", &mockStorageProvider{kind: storage.StorageKindBlock})
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("host-loop-pool", provider.HostLoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
+
+	curl, _ := s.uploadCharm(c, "utopic/storage-block-0", "storage-block")
+	storageConstraints := map[string]storage.Constraints{
+		"data": storage.Constraints{
+			Pool:  "host-loop-pool",
+			Count: 1,
+			Size:  1024,
+		},
+	}
+
+	var cons constraints.Value
+	err = s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 1, "", cons, "", nil,
+		storageConstraints,
+	)
+	c.Assert(
+		err, gc.ErrorMatches,
+		`.*pool "host-loop-pool" uses storage provider "hostloop" which is not supported for environments of type "dummy"`)
+}
+
+func (s *clientRepoSuite) TestClientServiceDeployDefaultFilesystemStorage(c *gc.C) {
+	s.setupStoragePool(c)
+	curl, ch := s.uploadCharm(c, "trusty/storage-filesystem-1", "storage-filesystem")
+	var cons constraints.Value
+	err := s.APIState.Client().ServiceDeployWithNetworks(curl.String(), "service", 1, "", cons, "", nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	service := s.assertPrincipalDeployed(c, "service", curl, false, ch, cons)
 	storageConstraintsOut, err := service.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-
-	if expectConstraints {
-		c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
-			"data": {
-				Count: 1,
-				Size:  1024,
-			},
-		})
-	} else {
-		c.Assert(storageConstraintsOut, gc.HasLen, 0)
-	}
+	c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
+		"data": {
+			Count: 1,
+			Size:  1024,
+			Pool:  "rootfs",
+		},
+	})
 }
 
-func (s *clientSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
-	s.makeMockCharmStore()
-	curl, bundle := addCharm(c, "dummy")
+func (s *clientRepoSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
+	curl, ch := s.uploadCharm(c, "precise/dummy-42", "dummy")
 	cons := constraints.MustParse(args)
-	return curl, bundle, cons
+	return curl, ch, cons
 }
 
-func (s *clientSuite) assertServiceDeployWithNetworksBlocked(c *gc.C, blocked bool, curl *charm.URL, bundle charm.Charm, cons constraints.Value) {
+func (s *clientRepoSuite) assertServiceDeployWithNetworks(c *gc.C, curl *charm.URL, ch charm.Charm, cons constraints.Value) {
 	err := s.APIState.Client().ServiceDeployWithNetworks(
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"network-net1", "network-net2"},
 		nil,
 	)
-	if blocked {
-		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
-		networks, err := service.Networks()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(networks, gc.DeepEquals, []string{"net1", "net2"})
-		serviceCons, err := service.Constraints()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(serviceCons, gc.DeepEquals, cons)
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	service := s.assertPrincipalDeployed(c, "service", curl, false, ch, cons)
+	networks, err := service.Networks()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(networks, gc.DeepEquals, []string{"net1", "net2"})
+	serviceCons, err := service.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(serviceCons, gc.DeepEquals, cons)
 }
 
-func (s *clientSuite) TestBlockDestroyServiceDeployWithNetworks(c *gc.C) {
-	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
-	s.blockDestroyEnvironment(c)
-	s.assertServiceDeployWithNetworksBlocked(c, false, curl, bundle, cons)
+func (s *clientRepoSuite) assertServiceDeployWithNetworksBlocked(c *gc.C, msg string, curl *charm.URL, cons constraints.Value) {
+	err := s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 3, "", cons, "",
+		[]string{"network-net1", "network-net2"},
+		nil,
+	)
+	s.AssertBlocked(c, err, msg)
 }
 
-func (s *clientSuite) TestBlockRemoveServiceDeployWithNetworks(c *gc.C) {
-	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
-	s.blockRemoveObject(c)
-	s.assertServiceDeployWithNetworksBlocked(c, false, curl, bundle, cons)
+func (s *clientRepoSuite) TestBlockDestroyServiceDeployWithNetworks(c *gc.C) {
+	curl, ch, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceDeployWithNetworks")
+	s.assertServiceDeployWithNetworks(c, curl, ch, cons)
 }
 
-func (s *clientSuite) TestBlockChangeServiceDeployWithNetworks(c *gc.C) {
-	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
-	s.blockAllChanges(c)
-	s.assertServiceDeployWithNetworksBlocked(c, true, curl, bundle, cons)
+func (s *clientRepoSuite) TestBlockRemoveServiceDeployWithNetworks(c *gc.C) {
+	curl, ch, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
+	s.BlockRemoveObject(c, "TestBlockRemoveServiceDeployWithNetworks")
+	s.assertServiceDeployWithNetworks(c, curl, ch, cons)
 }
 
-func (s *clientSuite) assertPrincipalDeployed(c *gc.C, serviceName string, curl *charm.URL, forced bool, bundle charm.Charm, cons constraints.Value) *state.Service {
+func (s *clientRepoSuite) TestBlockChangeServiceDeployWithNetworks(c *gc.C) {
+	curl, _, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
+	s.BlockAllChanges(c, "TestBlockChangeServiceDeployWithNetworks")
+	s.assertServiceDeployWithNetworksBlocked(c, "TestBlockChangeServiceDeployWithNetworks", curl, cons)
+}
+
+func (s *clientRepoSuite) assertPrincipalDeployed(c *gc.C, serviceName string, curl *charm.URL, forced bool, bundle charm.Charm, cons constraints.Value) *state.Service {
 	service, err := s.State.Service(serviceName)
 	c.Assert(err, jc.ErrorIsNil)
 	charm, force, err := service.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(force, gc.Equals, forced)
 	c.Assert(charm.URL(), gc.DeepEquals, curl)
-	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
-	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
+	// When charms are read from state, storage properties are
+	// always deserialised as empty slices if empty or nil, so
+	// update bundle to match (bundle comes from parsing charm
+	// metadata yaml where nil means nil).
+	for name, bundleMeta := range bundle.Meta().Storage {
+		if bundleMeta.Properties == nil {
+			bundleMeta.Properties = []string{}
+			bundle.Meta().Storage[name] = bundleMeta
+		}
+	}
+	c.Assert(charm.Meta(), jc.DeepEquals, bundle.Meta())
+	c.Assert(charm.Config(), jc.DeepEquals, bundle.Config())
 
 	serviceCons, err := service.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1539,52 +1872,53 @@ func (s *clientSuite) assertPrincipalDeployed(c *gc.C, serviceName string, curl 
 	return service
 }
 
-func (s *clientSuite) TestClientServiceDeployPrincipal(c *gc.C) {
+func (s *clientRepoSuite) TestClientServiceDeployPrincipal(c *gc.C) {
 	// TODO(fwereade): test ToMachineSpec directly on srvClient, when we
 	// manage to extract it as a package and can thus do it conveniently.
-	s.makeMockCharmStore()
-	curl, bundle := addCharm(c, "dummy")
+	curl, ch := s.uploadCharm(c, "trusty/dummy-1", "dummy")
 	mem4g := constraints.MustParse("mem=4G")
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", mem4g, "",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
+	s.assertPrincipalDeployed(c, "service", curl, false, ch, mem4g)
 }
 
-func (s *clientSuite) assertServiceDeployPrincipalBlocked(c *gc.C, blocked bool, curl *charm.URL, bundle charm.Charm, mem4g constraints.Value) {
+func (s *clientRepoSuite) assertServiceDeployPrincipal(c *gc.C, curl *charm.URL, ch charm.Charm, mem4g constraints.Value) {
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", mem4g, "",
 	)
-	if blocked {
-		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertPrincipalDeployed(c, "service", curl, false, ch, mem4g)
 }
 
-func (s *clientSuite) TestBlockDestroyServiceDeployPrincipal(c *gc.C) {
+func (s *clientRepoSuite) assertServiceDeployPrincipalBlocked(c *gc.C, msg string, curl *charm.URL, mem4g constraints.Value) {
+	err := s.APIState.Client().ServiceDeploy(
+		curl.String(), "service", 3, "", mem4g, "",
+	)
+	s.AssertBlocked(c, err, msg)
+}
+
+func (s *clientRepoSuite) TestBlockDestroyServiceDeployPrincipal(c *gc.C) {
 	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G")
-	s.blockDestroyEnvironment(c)
-	s.assertServiceDeployPrincipalBlocked(c, false, curl, bundle, cons)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceDeployPrincipal")
+	s.assertServiceDeployPrincipal(c, curl, bundle, cons)
 }
 
-func (s *clientSuite) TestBlockRemoveServiceDeployPrincipal(c *gc.C) {
+func (s *clientRepoSuite) TestBlockRemoveServiceDeployPrincipal(c *gc.C) {
 	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G")
-	s.blockRemoveObject(c)
-	s.assertServiceDeployPrincipalBlocked(c, false, curl, bundle, cons)
+	s.BlockRemoveObject(c, "TestBlockRemoveServiceDeployPrincipal")
+	s.assertServiceDeployPrincipal(c, curl, bundle, cons)
 }
 
-func (s *clientSuite) TestBlockChangesServiceDeployPrincipal(c *gc.C) {
-	curl, bundle, cons := s.setupServiceDeploy(c, "mem=4G")
-	s.blockAllChanges(c)
-	s.assertServiceDeployPrincipalBlocked(c, true, curl, bundle, cons)
+func (s *clientRepoSuite) TestBlockChangesServiceDeployPrincipal(c *gc.C) {
+	curl, _, cons := s.setupServiceDeploy(c, "mem=4G")
+	s.BlockAllChanges(c, "TestBlockChangesServiceDeployPrincipal")
+	s.assertServiceDeployPrincipalBlocked(c, "TestBlockChangesServiceDeployPrincipal", curl, cons)
 }
 
-func (s *clientSuite) TestClientServiceDeploySubordinate(c *gc.C) {
-	s.makeMockCharmStore()
-	curl, bundle := addCharm(c, "logging")
+func (s *clientRepoSuite) TestClientServiceDeploySubordinate(c *gc.C) {
+	curl, ch := s.uploadCharm(c, "utopic/logging-47", "logging")
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service-name", 0, "", constraints.Value{}, "",
 	)
@@ -1594,19 +1928,18 @@ func (s *clientSuite) TestClientServiceDeploySubordinate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(force, jc.IsFalse)
 	c.Assert(charm.URL(), gc.DeepEquals, curl)
-	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
-	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
+	c.Assert(charm.Meta(), gc.DeepEquals, ch.Meta())
+	c.Assert(charm.Config(), gc.DeepEquals, ch.Config())
 
 	units, err := service.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 0)
 }
 
-func (s *clientSuite) TestClientServiceDeployConfig(c *gc.C) {
+func (s *clientRepoSuite) TestClientServiceDeployConfig(c *gc.C) {
 	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
 	// Can't be done cleanly until it's extracted similarly to Machiner.
-	s.makeMockCharmStore()
-	curl, _ := addCharm(c, "dummy")
+	curl, _ := s.uploadCharm(c, "precise/dummy-0", "dummy")
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service-name", 1, "service-name:\n  username: fred", constraints.Value{}, "",
 	)
@@ -1618,11 +1951,10 @@ func (s *clientSuite) TestClientServiceDeployConfig(c *gc.C) {
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"username": "fred"})
 }
 
-func (s *clientSuite) TestClientServiceDeployConfigError(c *gc.C) {
+func (s *clientRepoSuite) TestClientServiceDeployConfigError(c *gc.C) {
 	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
 	// Can't be done cleanly until it's extracted similarly to Machiner.
-	s.makeMockCharmStore()
-	curl, _ := addCharm(c, "dummy")
+	curl, _ := s.uploadCharm(c, "precise/dummy-0", "dummy")
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service-name", 1, "service-name:\n  skill-level: fred", constraints.Value{}, "",
 	)
@@ -1631,9 +1963,8 @@ func (s *clientSuite) TestClientServiceDeployConfigError(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
-	s.makeMockCharmStore()
-	curl, bundle := addCharm(c, "dummy")
+func (s *clientRepoSuite) TestClientServiceDeployToMachine(c *gc.C) {
+	curl, ch := s.uploadCharm(c, "precise/dummy-0", "dummy")
 
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1648,8 +1979,8 @@ func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(force, jc.IsFalse)
 	c.Assert(charm.URL(), gc.DeepEquals, curl)
-	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
-	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
+	c.Assert(charm.Meta(), gc.DeepEquals, ch.Meta())
+	c.Assert(charm.Config(), gc.DeepEquals, ch.Config())
 
 	units, err := service.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1669,9 +2000,8 @@ func (s *clientSuite) TestClientServiceDeployToMachineNotFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `service "service-name" not found`)
 }
 
-func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
-	s.makeMockCharmStore()
-	curl, _ := addCharm(c, "dummy")
+func (s *clientRepoSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
+	curl, _ := s.uploadCharm(c, "precise/dummy-0", "dummy")
 
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "password"})
 	s.APIState = s.OpenAPIAs(c, user.Tag(), "password")
@@ -1686,18 +2016,17 @@ func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 	c.Assert(service.GetOwnerTag(), gc.Equals, user.Tag().String())
 }
 
-func (s *clientSuite) deployServiceForTests(c *gc.C) {
-	curl, _ := addCharm(c, "dummy")
+func (s *clientRepoSuite) deployServiceForTests(c *gc.C) {
+	curl, _ := s.uploadCharm(c, "precise/dummy-1", "dummy")
 	err := s.APIState.Client().ServiceDeploy(curl.String(),
 		"service", 1, "", constraints.Value{}, "",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *clientSuite) checkClientServiceUpdateSetCharm(c *gc.C, forceCharmUrl bool) {
-	s.makeMockCharmStore()
+func (s *clientRepoSuite) checkClientServiceUpdateSetCharm(c *gc.C, forceCharmUrl bool) {
 	s.deployServiceForTests(c)
-	addCharm(c, "wordpress")
+	s.uploadCharm(c, "precise/wordpress-3", "wordpress")
 
 	// Update the charm for the service.
 	args := params.ServiceUpdate{
@@ -1717,29 +2046,28 @@ func (s *clientSuite) checkClientServiceUpdateSetCharm(c *gc.C, forceCharmUrl bo
 	c.Assert(force, gc.Equals, forceCharmUrl)
 }
 
-func (s *clientSuite) TestClientServiceUpdateSetCharm(c *gc.C) {
+func (s *clientRepoSuite) TestClientServiceUpdateSetCharm(c *gc.C) {
 	s.checkClientServiceUpdateSetCharm(c, false)
 }
 
-func (s *clientSuite) TestBlockDestroyServiceUpdate(c *gc.C) {
-	s.blockDestroyEnvironment(c)
+func (s *clientRepoSuite) TestBlockDestroyServiceUpdate(c *gc.C) {
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceUpdate")
 	s.checkClientServiceUpdateSetCharm(c, false)
 }
 
-func (s *clientSuite) TestBlockRemoveServiceUpdate(c *gc.C) {
-	s.blockRemoveObject(c)
+func (s *clientRepoSuite) TestBlockRemoveServiceUpdate(c *gc.C) {
+	s.BlockRemoveObject(c, "TestBlockRemoveServiceUpdate")
 	s.checkClientServiceUpdateSetCharm(c, false)
 }
 
-func (s *clientSuite) setupServiceUpdate(c *gc.C) {
-	s.makeMockCharmStore()
+func (s *clientRepoSuite) setupServiceUpdate(c *gc.C) {
 	s.deployServiceForTests(c)
-	addCharm(c, "wordpress")
+	s.uploadCharm(c, "precise/wordpress-3", "wordpress")
 }
 
-func (s *clientSuite) TestBlockChangeServiceUpdate(c *gc.C) {
+func (s *clientRepoSuite) TestBlockChangeServiceUpdate(c *gc.C) {
 	s.setupServiceUpdate(c)
-	s.blockAllChanges(c)
+	s.BlockAllChanges(c, "TestBlockChangeServiceUpdate")
 	// Update the charm for the service.
 	args := params.ServiceUpdate{
 		ServiceName:   "service",
@@ -1747,20 +2075,20 @@ func (s *clientSuite) TestBlockChangeServiceUpdate(c *gc.C) {
 		ForceCharmUrl: false,
 	}
 	err := s.APIState.Client().ServiceUpdate(args)
-	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
+	s.AssertBlocked(c, err, "TestBlockChangeServiceUpdate")
 }
 
-func (s *clientSuite) TestClientServiceUpdateForceSetCharm(c *gc.C) {
+func (s *clientRepoSuite) TestClientServiceUpdateForceSetCharm(c *gc.C) {
 	s.checkClientServiceUpdateSetCharm(c, true)
 }
 
-func (s *clientSuite) TestBlockServiceUpdateForced(c *gc.C) {
+func (s *clientRepoSuite) TestBlockServiceUpdateForced(c *gc.C) {
 	s.setupServiceUpdate(c)
 
 	// block all changes. Force should ignore block :)
-	s.blockAllChanges(c)
-	s.blockDestroyEnvironment(c)
-	s.blockRemoveObject(c)
+	s.BlockAllChanges(c, "TestBlockServiceUpdateForced")
+	s.BlockDestroyEnvironment(c, "TestBlockServiceUpdateForced")
+	s.BlockRemoveObject(c, "TestBlockServiceUpdateForced")
 
 	// Update the charm for the service.
 	args := params.ServiceUpdate{
@@ -1780,14 +2108,13 @@ func (s *clientSuite) TestBlockServiceUpdateForced(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 }
 
-func (s *clientSuite) TestClientServiceUpdateSetCharmErrors(c *gc.C) {
-	s.makeMockCharmStore()
+func (s *clientRepoSuite) TestClientServiceUpdateSetCharmErrors(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for charmUrl, expect := range map[string]string{
 		"wordpress":                   "charm url series is not resolved",
 		"cs:wordpress":                "charm url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
-		"cs:precise/wordpress-999999": `cannot download charm ".*": charm not found in mock store: cs:precise/wordpress-999999`,
+		"cs:precise/wordpress-999999": `cannot retrieve charm "cs:precise/wordpress-999999": charm not found`,
 	} {
 		c.Logf("test %s", charmUrl)
 		args := params.ServiceUpdate{
@@ -1889,10 +2216,9 @@ func (s *clientSuite) TestClientServiceUpdateSetConstraints(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
 
-func (s *clientSuite) TestClientServiceUpdateAllParams(c *gc.C) {
-	s.makeMockCharmStore()
+func (s *clientRepoSuite) TestClientServiceUpdateAllParams(c *gc.C) {
 	s.deployServiceForTests(c)
-	addCharm(c, "wordpress")
+	s.uploadCharm(c, "precise/wordpress-3", "wordpress")
 
 	// Update all the service attributes.
 	minUnits := 3
@@ -1956,14 +2282,13 @@ func (s *clientSuite) TestClientServiceUpdateInvalidService(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `service "no-such-service" not found`)
 }
 
-func (s *clientSuite) TestClientServiceSetCharm(c *gc.C) {
-	s.makeMockCharmStore()
-	curl, _ := addCharm(c, "dummy")
+func (s *clientRepoSuite) TestClientServiceSetCharm(c *gc.C) {
+	curl, _ := s.uploadCharm(c, "precise/dummy-0", "dummy")
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	addCharm(c, "wordpress")
+	s.uploadCharm(c, "precise/wordpress-3", "wordpress")
 	err = s.APIState.Client().ServiceSetCharm(
 		"service", "cs:precise/wordpress-3", false,
 	)
@@ -1978,59 +2303,60 @@ func (s *clientSuite) TestClientServiceSetCharm(c *gc.C) {
 	c.Assert(force, jc.IsFalse)
 }
 
-func (s *clientSuite) setupServiceSetCharm(c *gc.C) {
-	s.makeMockCharmStore()
-	curl, _ := addCharm(c, "dummy")
+func (s *clientRepoSuite) setupServiceSetCharm(c *gc.C) {
+	curl, _ := s.uploadCharm(c, "precise/dummy-0", "dummy")
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	addCharm(c, "wordpress")
+	s.uploadCharm(c, "precise/wordpress-3", "wordpress")
 }
 
-func (s *clientSuite) assertServiceSetCharmBlocked(c *gc.C, blocked bool, force bool) {
+func (s *clientRepoSuite) assertServiceSetCharm(c *gc.C, force bool) {
 	err := s.APIState.Client().ServiceSetCharm(
 		"service", "cs:precise/wordpress-3", force,
 	)
-	if blocked {
-		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		// Ensure that the charm is not marked as forced.
-		service, err := s.State.Service("service")
-		c.Assert(err, jc.ErrorIsNil)
-		charm, _, err := service.Charm()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(charm.URL().String(), gc.Equals, "cs:precise/wordpress-3")
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	// Ensure that the charm is not marked as forced.
+	service, err := s.State.Service("service")
+	c.Assert(err, jc.ErrorIsNil)
+	charm, _, err := service.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(charm.URL().String(), gc.Equals, "cs:precise/wordpress-3")
 }
 
-func (s *clientSuite) TestBlockDestroyServiceSetCharm(c *gc.C) {
+func (s *clientRepoSuite) assertServiceSetCharmBlocked(c *gc.C, force bool, msg string) {
+	err := s.APIState.Client().ServiceSetCharm(
+		"service", "cs:precise/wordpress-3", force,
+	)
+	s.AssertBlocked(c, err, msg)
+}
+
+func (s *clientRepoSuite) TestBlockDestroyServiceSetCharm(c *gc.C) {
 	s.setupServiceSetCharm(c)
-	s.blockDestroyEnvironment(c)
-	s.assertServiceSetCharmBlocked(c, false, false)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceSetCharm")
+	s.assertServiceSetCharm(c, false)
 }
 
-func (s *clientSuite) TestBlockRemoveServiceSetCharm(c *gc.C) {
+func (s *clientRepoSuite) TestBlockRemoveServiceSetCharm(c *gc.C) {
 	s.setupServiceSetCharm(c)
-	s.blockRemoveObject(c)
-	s.assertServiceSetCharmBlocked(c, false, false)
+	s.BlockRemoveObject(c, "TestBlockRemoveServiceSetCharm")
+	s.assertServiceSetCharm(c, false)
 }
 
-func (s *clientSuite) TestBlockChangesServiceSetCharm(c *gc.C) {
+func (s *clientRepoSuite) TestBlockChangesServiceSetCharm(c *gc.C) {
 	s.setupServiceSetCharm(c)
-	s.blockAllChanges(c)
-	s.assertServiceSetCharmBlocked(c, true, false)
+	s.BlockAllChanges(c, "TestBlockChangesServiceSetCharm")
+	s.assertServiceSetCharmBlocked(c, false, "TestBlockChangesServiceSetCharm")
 }
 
-func (s *clientSuite) TestClientServiceSetCharmForce(c *gc.C) {
-	s.makeMockCharmStore()
-	curl, _ := addCharm(c, "dummy")
+func (s *clientRepoSuite) TestClientServiceSetCharmForce(c *gc.C) {
+	curl, _ := s.uploadCharm(c, "precise/dummy-0", "dummy")
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	addCharm(c, "wordpress")
+	s.uploadCharm(c, "precise/wordpress-3", "wordpress")
 	err = s.APIState.Client().ServiceSetCharm(
 		"service", "cs:precise/wordpress-3", true,
 	)
@@ -2045,34 +2371,32 @@ func (s *clientSuite) TestClientServiceSetCharmForce(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 }
 
-func (s *clientSuite) TestBlockServiceSetCharmForce(c *gc.C) {
+func (s *clientRepoSuite) TestBlockServiceSetCharmForce(c *gc.C) {
 	s.setupServiceSetCharm(c)
 
 	// block all changes
-	s.blockAllChanges(c)
-	s.blockRemoveObject(c)
-	s.blockDestroyEnvironment(c)
+	s.BlockAllChanges(c, "TestBlockServiceSetCharmForce")
+	s.BlockRemoveObject(c, "TestBlockServiceSetCharmForce")
+	s.BlockDestroyEnvironment(c, "TestBlockServiceSetCharmForce")
 
-	s.assertServiceSetCharmBlocked(c, false, true)
+	s.assertServiceSetCharm(c, true)
 }
 
 func (s *clientSuite) TestClientServiceSetCharmInvalidService(c *gc.C) {
-	s.makeMockCharmStore()
 	err := s.APIState.Client().ServiceSetCharm(
 		"badservice", "cs:precise/wordpress-3", true,
 	)
 	c.Assert(err, gc.ErrorMatches, `service "badservice" not found`)
 }
 
-func (s *clientSuite) TestClientServiceSetCharmErrors(c *gc.C) {
-	s.makeMockCharmStore()
+func (s *clientRepoSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for url, expect := range map[string]string{
 		// TODO(fwereade,Makyo) make these errors consistent one day.
 		"wordpress":                   "charm url series is not resolved",
 		"cs:wordpress":                "charm url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
-		"cs:precise/wordpress-999999": `cannot download charm ".*": charm not found in mock store: cs:precise/wordpress-999999`,
+		"cs:precise/wordpress-999999": `cannot retrieve charm "cs:precise/wordpress-999999": charm not found`,
 	} {
 		c.Logf("test %s", url)
 		err := s.APIState.Client().ServiceSetCharm(
@@ -2080,27 +2404,6 @@ func (s *clientSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 		)
 		c.Check(err, gc.ErrorMatches, expect)
 	}
-}
-
-func (s *clientSuite) makeMockCharmStore() (store *charmtesting.MockCharmStore) {
-	mockStore := charmtesting.NewMockCharmStore()
-	origStore := client.CharmStore
-	client.CharmStore = mockStore
-	s.AddCleanup(func(_ *gc.C) { client.CharmStore = origStore })
-	return mockStore
-}
-
-func addCharm(c *gc.C, name string) (*charm.URL, charm.Charm) {
-	return addSeriesCharm(c, "precise", name)
-}
-
-func addSeriesCharm(c *gc.C, series, name string) (*charm.URL, charm.Charm) {
-	bundle := testcharms.Repo.CharmArchive(c.MkDir(), name)
-	scurl := fmt.Sprintf("cs:%s/%s-%d", series, name, bundle.Revision())
-	curl := charm.MustParseURL(scurl)
-	err := client.CharmStore.(*charmtesting.MockCharmStore).SetCharm(curl, bundle)
-	c.Assert(err, jc.ErrorIsNil)
-	return curl, bundle
 }
 
 func (s *clientSuite) checkEndpoints(c *gc.C, endpoints map[string]charm.Relation) {
@@ -2146,19 +2449,19 @@ func (s *clientSuite) TestSuccessfullyAddRelation(c *gc.C) {
 }
 
 func (s *clientSuite) TestBlockDestroyAddRelation(c *gc.C) {
-	s.blockDestroyEnvironment(c)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyAddRelation")
 	s.assertAddRelation(c, []string{"wordpress", "mysql"})
 }
 func (s *clientSuite) TestBlockRemoveAddRelation(c *gc.C) {
-	s.blockRemoveObject(c)
+	s.BlockRemoveObject(c, "TestBlockRemoveAddRelation")
 	s.assertAddRelation(c, []string{"wordpress", "mysql"})
 }
 
 func (s *clientSuite) TestBlockChangesAddRelation(c *gc.C) {
 	s.setUpScenario(c)
-	s.blockAllChanges(c)
+	s.BlockAllChanges(c, "TestBlockChangesAddRelation")
 	_, err := s.APIState.Client().AddRelation([]string{"wordpress", "mysql"}...)
-	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
+	s.AssertBlocked(c, err, "TestBlockChangesAddRelation")
 }
 
 func (s *clientSuite) TestSuccessfullyAddRelationSwapped(c *gc.C) {
@@ -2342,35 +2645,36 @@ func (s *clientSuite) setupSetServiceConstraints(c *gc.C) (*state.Service, const
 	return service, cons
 }
 
-func (s *clientSuite) assertSetServiceConstraints(c *gc.C, blocked bool, service *state.Service, cons constraints.Value) {
+func (s *clientSuite) assertSetServiceConstraints(c *gc.C, service *state.Service, cons constraints.Value) {
 	err := s.APIState.Client().SetServiceConstraints("dummy", cons)
-	if blocked {
-		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		// Ensure the constraints have been correctly updated.
-		obtained, err := service.Constraints()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(obtained, gc.DeepEquals, cons)
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	// Ensure the constraints have been correctly updated.
+	obtained, err := service.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, cons)
+}
+
+func (s *clientSuite) assertSetServiceConstraintsBlocked(c *gc.C, msg string, service *state.Service, cons constraints.Value) {
+	err := s.APIState.Client().SetServiceConstraints("dummy", cons)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroySetServiceConstraints(c *gc.C) {
 	svc, cons := s.setupSetServiceConstraints(c)
-	s.blockDestroyEnvironment(c)
-	s.assertSetServiceConstraints(c, false, svc, cons)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroySetServiceConstraints")
+	s.assertSetServiceConstraints(c, svc, cons)
 }
 
 func (s *clientSuite) TestBlockRemoveSetServiceConstraints(c *gc.C) {
 	svc, cons := s.setupSetServiceConstraints(c)
-	s.blockRemoveObject(c)
-	s.assertSetServiceConstraints(c, false, svc, cons)
+	s.BlockRemoveObject(c, "TestBlockRemoveSetServiceConstraints")
+	s.assertSetServiceConstraints(c, svc, cons)
 }
 
 func (s *clientSuite) TestBlockChangesSetServiceConstraints(c *gc.C) {
 	svc, cons := s.setupSetServiceConstraints(c)
-	s.blockAllChanges(c)
-	s.assertSetServiceConstraints(c, true, svc, cons)
+	s.BlockAllChanges(c, "TestBlockChangesSetServiceConstraints")
+	s.assertSetServiceConstraintsBlocked(c, "TestBlockChangesSetServiceConstraints", svc, cons)
 }
 
 func (s *clientSuite) TestClientGetServiceConstraints(c *gc.C) {
@@ -2401,35 +2705,39 @@ func (s *clientSuite) TestClientSetEnvironmentConstraints(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
 
-func (s *clientSuite) assertSetEnvironmentConstraintsBlocked(c *gc.C, blocked bool) {
+func (s *clientSuite) assertSetEnvironmentConstraints(c *gc.C) {
 	// Set constraints for the environment.
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().SetEnvironmentConstraints(cons)
-	if blocked {
-		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		// Ensure the constraints have been correctly updated.
-		obtained, err := s.State.EnvironConstraints()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(obtained, gc.DeepEquals, cons)
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	// Ensure the constraints have been correctly updated.
+	obtained, err := s.State.EnvironConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, cons)
+}
+
+func (s *clientSuite) assertSetEnvironmentConstraintsBlocked(c *gc.C, msg string) {
+	// Set constraints for the environment.
+	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.APIState.Client().SetEnvironmentConstraints(cons)
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyClientSetEnvironmentConstraints(c *gc.C) {
-	s.blockDestroyEnvironment(c)
-	s.assertSetEnvironmentConstraintsBlocked(c, false)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyClientSetEnvironmentConstraints")
+	s.assertSetEnvironmentConstraints(c)
 }
 
 func (s *clientSuite) TestBlockRemoveClientSetEnvironmentConstraints(c *gc.C) {
-	s.blockRemoveObject(c)
-	s.assertSetEnvironmentConstraintsBlocked(c, false)
+	s.BlockRemoveObject(c, "TestBlockRemoveClientSetEnvironmentConstraints")
+	s.assertSetEnvironmentConstraints(c)
 }
 
 func (s *clientSuite) TestBlockChangesClientSetEnvironmentConstraints(c *gc.C) {
-	s.blockAllChanges(c)
-	s.assertSetEnvironmentConstraintsBlocked(c, true)
+	s.BlockAllChanges(c, "TestBlockChangesClientSetEnvironmentConstraints")
+	s.assertSetEnvironmentConstraintsBlocked(c, "TestBlockChangesClientSetEnvironmentConstraints")
 }
 
 func (s *clientSuite) TestClientGetEnvironmentConstraints(c *gc.C) {
@@ -2474,8 +2782,8 @@ func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	// address is returned.
 	m1, err := s.State.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
-	cloudLocalAddress := network.NewAddress("cloudlocal", network.ScopeCloudLocal)
-	publicAddress := network.NewAddress("public", network.ScopePublic)
+	cloudLocalAddress := network.NewScopedAddress("cloudlocal", network.ScopeCloudLocal)
+	publicAddress := network.NewScopedAddress("public", network.ScopePublic)
 	err = m1.SetAddresses(cloudLocalAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PublicAddress("1")
@@ -2491,7 +2799,7 @@ func (s *clientSuite) TestClientPublicAddressUnit(c *gc.C) {
 	s.setUpScenario(c)
 
 	m1, err := s.State.Machine("1")
-	publicAddress := network.NewAddress("public", network.ScopePublic)
+	publicAddress := network.NewScopedAddress("public", network.ScopePublic)
 	err = m1.SetAddresses(publicAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PublicAddress("wordpress/0")
@@ -2516,8 +2824,8 @@ func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
 	// address if no cloud-local one is available.
 	m1, err := s.State.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
-	cloudLocalAddress := network.NewAddress("cloudlocal", network.ScopeCloudLocal)
-	publicAddress := network.NewAddress("public", network.ScopePublic)
+	cloudLocalAddress := network.NewScopedAddress("cloudlocal", network.ScopeCloudLocal)
+	publicAddress := network.NewScopedAddress("public", network.ScopePublic)
 	err = m1.SetAddresses(publicAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PrivateAddress("1")
@@ -2533,7 +2841,7 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 	s.setUpScenario(c)
 
 	m1, err := s.State.Machine("1")
-	privateAddress := network.NewAddress("private", network.ScopeCloudLocal)
+	privateAddress := network.NewScopedAddress("private", network.ScopeCloudLocal)
 	err = m1.SetAddresses(privateAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PrivateAddress("wordpress/0")
@@ -2591,31 +2899,15 @@ func (s *serverSuite) TestClientEnvironmentSetImmutable(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `cannot change state-port from .* to 1`)
 }
 
-func (s *serverSuite) assertEnvironmentSetBlocked(c *gc.C, args map[string]interface{}) {
+func (s *serverSuite) assertEnvironmentSetBlocked(c *gc.C, args map[string]interface{}, msg string) {
 	err := s.client.EnvironmentSet(params.EnvironmentSet{args})
-	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
-}
-
-func (s *serverSuite) assertEnvironmentSetNotBlocked(c *gc.C, args map[string]interface{}) {
-	err := s.client.EnvironmentSet(params.EnvironmentSet{args})
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertEnvValue(c, "some-key", "value")
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *serverSuite) TestBlockChangesClientEnvironmentSet(c *gc.C) {
-	s.blockAllChanges(c)
+	s.BlockAllChanges(c, "TestBlockChangesClientEnvironmentSet")
 	args := map[string]interface{}{"some-key": "value"}
-	s.assertEnvironmentSetBlocked(c, args)
-
-	// Make sure just mentioning variable does not unblock env.
-	// Need right value to unblock properly.
-	args[config.PreventAllChangesKey] = true
-	s.assertEnvironmentSetBlocked(c, args)
-
-	// But make sure that can unblock block-changes with right value.
-	args[config.PreventAllChangesKey] = false
-	s.assertEnvironmentSetNotBlocked(c, args)
-	s.assertEnvValue(c, config.PreventAllChangesKey, false)
+	s.assertEnvironmentSetBlocked(c, args, "TestBlockChangesClientEnvironmentSet")
 }
 
 func (s *serverSuite) TestClientEnvironmentSetDeprecated(c *gc.C) {
@@ -2662,11 +2954,11 @@ func (s *serverSuite) TestClientEnvironmentUnset(c *gc.C) {
 func (s *serverSuite) TestBlockClientEnvironmentUnset(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.blockAllChanges(c)
+	s.BlockAllChanges(c, "TestBlockClientEnvironmentUnset")
 
 	args := params.EnvironmentUnset{[]string{"abc"}}
 	err = s.client.EnvironmentUnset(args)
-	c.Assert(errors.Cause(err), gc.Equals, common.ErrOperationBlocked)
+	s.AssertBlocked(c, err, "TestBlockClientEnvironmentUnset")
 }
 
 func (s *serverSuite) TestClientEnvironmentUnsetMissing(c *gc.C) {
@@ -2731,7 +3023,7 @@ func (s *clientSuite) TestClientAddMachinesDefaultSeries(c *gc.C) {
 	}
 }
 
-func (s *clientSuite) assertAddMachinesBlocked(c *gc.C, blocked bool) {
+func (s *clientSuite) assertAddMachines(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
@@ -2739,31 +3031,38 @@ func (s *clientSuite) assertAddMachinesBlocked(c *gc.C, blocked bool) {
 		}
 	}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
-	if blocked {
-		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(len(machines), gc.Equals, 3)
-		for i, machineResult := range machines {
-			c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-			s.checkMachine(c, machineResult.Machine, coretesting.FakeDefaultSeries, apiParams[i].Constraints.String())
-		}
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(machines), gc.Equals, 3)
+	for i, machineResult := range machines {
+		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
+		s.checkMachine(c, machineResult.Machine, coretesting.FakeDefaultSeries, apiParams[i].Constraints.String())
 	}
 }
 
+func (s *clientSuite) assertAddMachinesBlocked(c *gc.C, msg string) {
+	apiParams := make([]params.AddMachineParams, 3)
+	for i := 0; i < 3; i++ {
+		apiParams[i] = params.AddMachineParams{
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		}
+	}
+	_, err := s.APIState.Client().AddMachines(apiParams)
+	s.AssertBlocked(c, err, msg)
+}
+
 func (s *clientSuite) TestBlockDestroyClientAddMachinesDefaultSeries(c *gc.C) {
-	s.blockDestroyEnvironment(c)
-	s.assertAddMachinesBlocked(c, false)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyClientAddMachinesDefaultSeries")
+	s.assertAddMachines(c)
 }
 
 func (s *clientSuite) TestBlockRemoveClientAddMachinesDefaultSeries(c *gc.C) {
-	s.blockRemoveObject(c)
-	s.assertAddMachinesBlocked(c, false)
+	s.BlockRemoveObject(c, "TestBlockRemoveClientAddMachinesDefaultSeries")
+	s.assertAddMachines(c)
 }
 
 func (s *clientSuite) TestBlockChangesClientAddMachines(c *gc.C) {
-	s.blockAllChanges(c)
-	s.assertAddMachinesBlocked(c, true)
+	s.BlockAllChanges(c, "TestBlockChangesClientAddMachines")
+	s.assertAddMachinesBlocked(c, "TestBlockChangesClientAddMachines")
 }
 
 func (s *clientSuite) TestClientAddMachinesWithSeries(c *gc.C) {
@@ -2803,37 +3102,6 @@ func (s *clientSuite) TestClientAddMachineInsideMachine(c *gc.C) {
 func (s *baseSuite) updateConfig(c *gc.C, key string, block bool) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{key: block}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-// setBlockAllChanges blocks all operations that could change environment -
-// setting block-all-changes to true.
-func (s *baseSuite) setBlockAllChanges(c *gc.C, block bool) {
-	s.updateConfig(c, "block-all-changes", block)
-}
-
-func (s *baseSuite) blockAllChanges(c *gc.C) {
-	s.setBlockAllChanges(c, true)
-}
-
-// setBlockRemoveObject blocks all operations that remove
-// machines, services, units or relations -
-// setting block-remove-object to true.
-func (s *baseSuite) setBlockRemoveObject(c *gc.C, block bool) {
-	s.updateConfig(c, "block-remove-object", block)
-}
-
-func (s *baseSuite) blockRemoveObject(c *gc.C) {
-	s.setBlockRemoveObject(c, true)
-}
-
-// setBlockDestroyEnvironment blocks destroy-environment -
-// setting block-destroy-environment to true.
-func (s *baseSuite) setBlockDestroyEnvironment(c *gc.C, block bool) {
-	s.updateConfig(c, "block-destroy-environment", block)
-}
-
-func (s *baseSuite) blockDestroyEnvironment(c *gc.C) {
-	s.setBlockDestroyEnvironment(c, true)
 }
 
 func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
@@ -2880,10 +3148,8 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
-	apiParams := make([]params.AddMachineParams, 3)
+	s.setupStoragePool(c)
+	apiParams := make([]params.AddMachineParams, 5)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
 			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
@@ -2891,25 +3157,52 @@ func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
 	}
 	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
 	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "three"}}
-	apiParams[2].Disks = []storage.Constraints{{Size: 0, Count: 0}}
+	apiParams[2].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "loop-pool"}}
+	apiParams[3].Disks = []storage.Constraints{{Size: 0, Count: 0}}
+	apiParams[4].Disks = []storage.Constraints{{Size: 0, Count: 1}}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(machines), gc.Equals, 3)
+	c.Assert(machines, gc.HasLen, 5)
 	c.Assert(machines[0].Machine, gc.Equals, "0")
-	c.Assert(machines[1].Error, gc.ErrorMatches, "storage pools not implemented")
-	c.Assert(machines[2].Error, gc.ErrorMatches, "invalid size 0")
+	c.Assert(machines[1].Error, gc.ErrorMatches, `cannot add a new machine: validating volume params: pool "three" not found`)
+	c.Assert(machines[2].Machine, gc.Equals, "2")
+	c.Assert(machines[3].Error, gc.ErrorMatches, "invalid volume params: count not specified")
+	c.Assert(machines[4].Error, gc.ErrorMatches, "cannot add a new machine: validating volume params: invalid size 0")
 
-	m, err := s.BackingState.Machine(machines[0].Machine)
-	c.Assert(err, jc.ErrorIsNil)
-	blockDevices, err := m.BlockDevices()
-	c.Assert(err, jc.ErrorIsNil)
-	expectParams := []state.BlockDeviceParams{{Size: 1}, {Size: 1}, {Size: 2}}
-	c.Assert(blockDevices, gc.HasLen, len(expectParams))
-	for i, dev := range blockDevices {
-		params, ok := dev.Params()
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(params, gc.DeepEquals, expectParams[i])
+	expectParams := []state.VolumeParams{{
+		Pool: "loop-pool",
+		Size: 1,
+	}, {
+		Pool: "loop-pool",
+		Size: 1,
+	}, {
+		Pool: "loop-pool",
+		Size: 2,
+	}}
+	s.assertVolumeParams(c, machines[0].Machine, expectParams)
+
+	expectParams = []state.VolumeParams{
+		{Size: 1, Pool: "loop-pool"}, {Size: 1, Pool: "loop-pool"},
 	}
+	s.assertVolumeParams(c, machines[2].Machine, expectParams)
+}
+
+func (s *clientSuite) assertVolumeParams(c *gc.C, machineId string, expectParams []state.VolumeParams) {
+	m, err := s.BackingState.Machine(machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	volumeAttachments, err := s.BackingState.MachineVolumeAttachments(m.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeAttachments, gc.HasLen, len(expectParams))
+
+	foundParams := make([]state.VolumeParams, len(volumeAttachments))
+	for i, attachment := range volumeAttachments {
+		volume, err := s.BackingState.Volume(attachment.Volume())
+		c.Assert(err, jc.ErrorIsNil)
+		params, ok := volume.Params()
+		c.Assert(ok, jc.IsTrue)
+		foundParams[i] = params
+	}
+	c.Assert(foundParams, jc.SameContents, expectParams)
 }
 
 func (s *clientSuite) TestClientAddMachinesWithDisksNoFeatureFlag(c *gc.C) {
@@ -2929,9 +3222,9 @@ func (s *clientSuite) TestClientAddMachinesWithDisksNoFeatureFlag(c *gc.C) {
 	c.Assert(machines[1].Machine, gc.Equals, "1")
 	m, err := s.BackingState.Machine(machines[0].Machine)
 	c.Assert(err, jc.ErrorIsNil)
-	blockDevices, err := m.BlockDevices()
+	volumeAttachments, err := s.BackingState.MachineVolumeAttachments(m.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockDevices, gc.HasLen, 0)
+	c.Assert(volumeAttachments, gc.HasLen, 0)
 }
 
 func (s *clientSuite) TestClientAddMachines1dot18(c *gc.C) {
@@ -3000,7 +3293,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 
 func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
-	addrs := []network.Address{network.NewAddress("1.2.3.4", network.ScopeUnknown)}
+	addrs := network.NewAddresses("1.2.3.4")
 	hc := instance.MustParseHardware("mem=4G")
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
@@ -3008,7 +3301,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 			InstanceId: instance.Id(fmt.Sprintf("1234-%d", i)),
 			Nonce:      "foo",
 			HardwareCharacteristics: hc,
-			Addrs: addrs,
+			Addrs: params.FromNetworkAddresses(addrs),
 		}
 	}
 	// This will cause the last machine add to fail.
@@ -3083,22 +3376,22 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 		Nonce:     apiParams.Nonce,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	mcfg, err := client.MachineConfig(s.State, machineId, apiParams.Nonce, "")
+	icfg, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
-	sshinitScript, err := manual.ProvisioningScript(mcfg)
+	provisioningScript, err := manual.ProvisioningScript(icfg)
 	c.Assert(err, jc.ErrorIsNil)
 	// ProvisioningScript internally calls MachineConfig,
 	// which allocates a new, random password. Everything
 	// about the scripts should be the same other than
 	// the line containing "oldpassword" from agent.conf.
 	scriptLines := strings.Split(script, "\n")
-	sshinitScriptLines := strings.Split(sshinitScript, "\n")
-	c.Assert(scriptLines, gc.HasLen, len(sshinitScriptLines))
+	provisioningScriptLines := strings.Split(provisioningScript, "\n")
+	c.Assert(scriptLines, gc.HasLen, len(provisioningScriptLines))
 	for i, line := range scriptLines {
 		if strings.Contains(line, "oldpassword") {
 			continue
 		}
-		c.Assert(line, gc.Equals, sshinitScriptLines[i])
+		c.Assert(line, gc.Equals, provisioningScriptLines[i])
 	}
 }
 
@@ -3166,44 +3459,50 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
 }
 
-func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
-	store := s.makeMockCharmStore()
+type testModeCharmRepo struct {
+	*charmrepo.CharmStore
+	testMode bool
+}
 
-	attrs := map[string]interface{}{"charm-store-auth": "token=value",
-		"test-mode": true}
+// WithTestMode returns a repository Interface where test mode is enabled.
+func (s *testModeCharmRepo) WithTestMode() charmrepo.Interface {
+	s.testMode = true
+	return s.CharmStore.WithTestMode()
+}
+
+func (s *clientRepoSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
+	repo := &testModeCharmRepo{}
+	s.PatchValue(client.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
+		p.URL = s.srv.URL()
+		repo.CharmStore = charmrepo.NewCharmStore(p).(*charmrepo.CharmStore)
+		return repo
+	})
+	attrs := map[string]interface{}{"test-mode": true}
 	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	curl, _ := addCharm(c, "dummy")
+	// Check that the store's test mode is enabled when calling ServiceDeploy.
+	curl, _ := s.uploadCharm(c, "trusty/dummy-1", "dummy")
 	err = s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(repo.testMode, jc.IsTrue)
 
-	// check that the store's auth attributes were set
-	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
-	c.Assert(store.TestMode(), jc.IsTrue)
-
-	store.SetAuthAttrs("")
-
-	curl, _ = addCharm(c, "wordpress")
+	// Check that the store's test mode is enabled when calling ServiceSetCharm.
+	curl, _ = s.uploadCharm(c, "trusty/wordpress-2", "wordpress")
 	err = s.APIState.Client().ServiceSetCharm(
 		"service", curl.String(), false,
 	)
+	c.Assert(repo.testMode, jc.IsTrue)
 
-	// check that the store's auth attributes were set
-	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
-
-	curl, _ = addCharm(c, "riak")
+	// Check that the store's test mode is enabled when calling AddCharm.
+	curl, _ = s.uploadCharm(c, "utopic/riak-42", "riak")
 	err = s.APIState.Client().AddCharm(curl)
-
-	// check that the store's auth attributes were set
-	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
+	c.Assert(repo.testMode, jc.IsTrue)
 }
 
-func (s *clientSuite) TestAddCharm(c *gc.C) {
-	s.makeMockCharmStore()
-
+func (s *clientRepoSuite) TestAddCharm(c *gc.C) {
 	var blobs blobs
 	s.PatchValue(client.NewStateStorage, func(uuid string, session *mgo.Session) statestorage.Storage {
 		storage := statestorage.NewStorage(uuid, session)
@@ -3234,7 +3533,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	c.Assert(blobs.m, gc.HasLen, 0)
 
 	// Now try adding another charm completely.
-	curl, _ = addCharm(c, "wordpress")
+	curl, _ = s.uploadCharm(c, "precise/wordpress-3", "wordpress")
 	err = client.AddCharm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -3245,31 +3544,107 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
 }
 
-var resolveCharmCases = []struct {
-	schema, defaultSeries, charmName string
-	parseErr                         string
-	resolveErr                       string
-}{
-	{"cs", "precise", "wordpress", "", ""},
-	{"cs", "trusty", "wordpress", "", ""},
-	{"cs", "", "wordpress", "", `charm url series is not resolved`},
-	{"cs", "trusty", "", `charm URL has invalid charm name: "cs:"`, ""},
-	{"local", "trusty", "wordpress", "", `only charm store charm references are supported, with cs: schema`},
-	{"cs", "precise", "hl3", "", ""},
-	{"cs", "trusty", "hl3", "", ""},
-	{"cs", "", "hl3", "", `charm url series is not resolved`},
+func (s *clientRepoSuite) TestAddCharmWithAuthorization(c *gc.C) {
+	// Upload a new charm to the charm store.
+	curl, _ := s.uploadCharm(c, "cs:~restricted/precise/wordpress-3", "wordpress")
+
+	// Change permissions on the new charm such that only bob
+	// can read from it.
+	s.dischargeUser = "restricted"
+	err := s.srv.NewClient().Put("/"+curl.Path()+"/meta/perm/read", []string{"bob"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Try to add a charm to the environment without authorization.
+	s.dischargeUser = ""
+	err = s.APIState.Client().AddCharm(curl)
+	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: cannot get discharge from ".*": third party refused discharge: cannot discharge: discharge denied`)
+
+	tryAs := func(user string) error {
+		client := csclient.New(csclient.Params{
+			URL: s.srv.URL(),
+		})
+		s.dischargeUser = user
+		var m *macaroon.Macaroon
+		err = client.Get("/delegatable-macaroon", &m)
+		c.Assert(err, gc.IsNil)
+
+		return s.APIState.Client().AddCharmWithAuthorization(curl, m)
+	}
+	// Try again with authorization for the wrong user.
+	err = tryAs("joe")
+	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: unauthorized: access denied for user "joe"`)
+
+	// Try again with the correct authorization this time.
+	err = tryAs("bob")
+	c.Assert(err, gc.IsNil)
+
+	// Verify that it has actually been uploaded.
+	_, err = s.State.Charm(curl)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *clientSuite) TestResolveCharm(c *gc.C) {
-	store := s.makeMockCharmStore()
+var resolveCharmTests = []struct {
+	about      string
+	url        string
+	resolved   string
+	parseErr   string
+	resolveErr string
+}{{
+	about:    "wordpress resolved",
+	url:      "cs:wordpress",
+	resolved: "cs:trusty/wordpress",
+}, {
+	about:    "mysql resolved",
+	url:      "cs:mysql",
+	resolved: "cs:precise/mysql",
+}, {
+	about:    "riak resolved",
+	url:      "cs:riak",
+	resolved: "cs:trusty/riak",
+}, {
+	about:    "fully qualified char reference",
+	url:      "cs:utopic/riak-5",
+	resolved: "cs:utopic/riak-5",
+}, {
+	about:    "charm with series and no revision",
+	url:      "cs:precise/wordpress",
+	resolved: "cs:precise/wordpress",
+}, {
+	about:      "fully qualified reference not found",
+	url:        "cs:utopic/riak-42",
+	resolveErr: `cannot resolve charm URL "cs:utopic/riak-42": charm not found`,
+}, {
+	about:      "reference not found",
+	url:        "cs:no-such",
+	resolveErr: `cannot resolve charm URL "cs:no-such": charm not found`,
+}, {
+	about:    "invalid charm name",
+	url:      "cs:",
+	parseErr: `charm URL has invalid charm name: "cs:"`,
+}, {
+	about:      "local charm",
+	url:        "local:wordpress",
+	resolveErr: `only charm store charm references are supported, with cs: schema`,
+}}
 
-	for i, test := range resolveCharmCases {
-		c.Logf("test %d: %#v", i, test)
-		// Mock charm store will use this to resolve a charm reference.
-		store.SetDefaultSeries(test.defaultSeries)
+func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
+	// Add some charms to be resolved later.
+	for _, url := range []string{
+		"precise/wordpress-1",
+		"trusty/wordpress-2",
+		"precise/mysql-3",
+		"trusty/riak-4",
+		"utopic/riak-5",
+	} {
+		s.uploadCharm(c, url, "wordpress")
+	}
+
+	// Run the tests.
+	for i, test := range resolveCharmTests {
+		c.Logf("test %d: %s", i, test.about)
 
 		client := s.APIState.Client()
-		ref, err := charm.ParseReference(fmt.Sprintf("%s:%s", test.schema, test.charmName))
+		ref, err := charm.ParseReference(test.url)
 		if test.parseErr == "" {
 			if !c.Check(err, jc.ErrorIsNil) {
 				continue
@@ -3279,18 +3654,15 @@ func (s *clientSuite) TestResolveCharm(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, test.parseErr)
 			continue
 		}
-		c.Check(ref.String(), gc.Equals, fmt.Sprintf("%s:%s", test.schema, test.charmName))
 
 		curl, err := client.ResolveCharm(ref)
-		if err == nil {
-			c.Assert(curl, gc.NotNil)
-			// Only cs: schema should make it through here
-			c.Check(curl.String(), gc.Equals, fmt.Sprintf("cs:%s/%s", test.defaultSeries, test.charmName))
-			c.Check(test.resolveErr, gc.Equals, "")
-		} else {
-			c.Check(curl, gc.IsNil)
-			c.Check(err, gc.ErrorMatches, test.resolveErr)
+		if test.resolveErr == "" {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Check(curl.String(), gc.Equals, test.resolved)
+			continue
 		}
+		c.Check(err, gc.ErrorMatches, test.resolveErr)
+		c.Check(curl, gc.IsNil)
 	}
 }
 
@@ -3349,9 +3721,7 @@ func (s *recordingStorage) Remove(path string) error {
 	return nil
 }
 
-func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
-	s.makeMockCharmStore()
-
+func (s *clientRepoSuite) TestAddCharmConcurrently(c *gc.C) {
 	var putBarrier sync.WaitGroup
 	var blobs blobs
 	s.PatchValue(client.NewStateStorage, func(uuid string, session *mgo.Session) statestorage.Storage {
@@ -3360,7 +3730,7 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 	})
 
 	client := s.APIState.Client()
-	curl, _ := addCharm(c, "wordpress")
+	curl, _ := s.uploadCharm(c, "trusty/wordpress-3", "wordpress")
 
 	// Try adding the same charm concurrently from multiple goroutines
 	// to test no "duplicate key errors" are reported (see lp bug
@@ -3404,11 +3774,9 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
 }
 
-func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
-	s.makeMockCharmStore()
-
+func (s *clientRepoSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	client := s.APIState.Client()
-	curl, _ := addCharm(c, "wordpress")
+	curl, _ := s.uploadCharm(c, "trusty/wordpress-42", "wordpress")
 
 	// Add a placeholder with the same charm URL.
 	err := s.State.AddStoreCharmPlaceholder(curl)
@@ -3429,15 +3797,6 @@ func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 }
 
-func (s *clientSuite) assertUploaded(c *gc.C, storage statestorage.Storage, storagePath, expectedSHA256 string) {
-	reader, _, err := storage.Get(storagePath)
-	c.Assert(err, jc.ErrorIsNil)
-	defer reader.Close()
-	downloadedSHA256, _, err := utils.ReadSHA256(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
-}
-
 func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3446,11 +3805,11 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	_, err = s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, data, err := machine.Status()
+	statusInfo, err := machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "error")
-	c.Assert(data["transient"], jc.IsTrue)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "error")
+	c.Assert(statusInfo.Data["transient"], jc.IsTrue)
 }
 
 func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
@@ -3461,36 +3820,37 @@ func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
 	return machine
 }
 
-func (s *clientSuite) assertRetryProvisioningBlocked(c *gc.C, blocked bool, machine *state.Machine) {
+func (s *clientSuite) assertRetryProvisioning(c *gc.C, machine *state.Machine) {
 	_, err := s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
-	if blocked {
-		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		status, info, data, err := machine.Status()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(status, gc.Equals, state.StatusError)
-		c.Assert(info, gc.Equals, "error")
-		c.Assert(data["transient"], jc.IsTrue)
-	}
+	c.Assert(err, jc.ErrorIsNil)
+	statusInfo, err := machine.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "error")
+	c.Assert(statusInfo.Data["transient"], jc.IsTrue)
+}
+
+func (s *clientSuite) assertRetryProvisioningBlocked(c *gc.C, machine *state.Machine, msg string) {
+	_, err := s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
+	s.AssertBlocked(c, err, msg)
 }
 
 func (s *clientSuite) TestBlockDestroyRetryProvisioning(c *gc.C) {
 	m := s.setupRetryProvisioning(c)
-	s.blockDestroyEnvironment(c)
-	s.assertRetryProvisioningBlocked(c, false, m)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyRetryProvisioning")
+	s.assertRetryProvisioning(c, m)
 }
 
 func (s *clientSuite) TestBlockRemoveRetryProvisioning(c *gc.C) {
 	m := s.setupRetryProvisioning(c)
-	s.blockRemoveObject(c)
-	s.assertRetryProvisioningBlocked(c, false, m)
+	s.BlockRemoveObject(c, "TestBlockRemoveRetryProvisioning")
+	s.assertRetryProvisioning(c, m)
 }
 
 func (s *clientSuite) TestBlockChangesRetryProvisioning(c *gc.C) {
 	m := s.setupRetryProvisioning(c)
-	s.blockAllChanges(c)
-	s.assertRetryProvisioningBlocked(c, true, m)
+	s.BlockAllChanges(c, "TestBlockChangesRetryProvisioning")
+	s.assertRetryProvisioningBlocked(c, m, "TestBlockChangesRetryProvisioning")
 }
 
 func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
@@ -3563,19 +3923,16 @@ func (s *clientSuite) TestMachineJobFromParams(c *gc.C) {
 
 func (s *serverSuite) TestBlockServiceDestroy(c *gc.C) {
 	s.AddTestingService(c, "dummy-service", s.AddTestingCharm(c, "dummy"))
-	// block remove-objects
-	s.blockRemoveObject(c)
 
-	for i, t := range serviceDestroyTests {
-		c.Logf("test %d. %s", i, t.about)
-		err := s.APIState.Client().ServiceDestroy(t.service)
-		c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
-		// Tests may have invalid service names.
-		service, err := s.State.Service(t.service)
-		if err == nil {
-			// For valid service names, check that service is alive :-)
-			assertLife(c, service, state.Alive)
-		}
+	// block remove-objects
+	s.BlockRemoveObject(c, "TestBlockServiceDestroy")
+	err := s.APIState.Client().ServiceDestroy("dummy-service")
+	s.AssertBlocked(c, err, "TestBlockServiceDestroy")
+	// Tests may have invalid service names.
+	service, err := s.State.Service("dummy-service")
+	if err == nil {
+		// For valid service names, check that service is alive :-)
+		assertLife(c, service, state.Alive)
 	}
 }
 
@@ -3595,12 +3952,16 @@ func (s *clientSuite) assertDestroyMachineSuccess(c *gc.C, u *state.Unit, m0, m1
 	assertLife(c, m2, state.Dying)
 }
 
-func (s *clientSuite) assertBlockedErrorAndLiveliness(c *gc.C, err error,
+func (s *clientSuite) assertBlockedErrorAndLiveliness(
+	c *gc.C,
+	err error,
+	msg string,
 	living1 state.Living,
 	living2 state.Living,
 	living3 state.Living,
-	living4 state.Living) {
-	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	living4 state.Living,
+) {
+	s.AssertBlocked(c, err, msg)
 	assertLife(c, living1, state.Alive)
 	assertLife(c, living2, state.Alive)
 	assertLife(c, living3, state.Alive)
@@ -3609,29 +3970,29 @@ func (s *clientSuite) assertBlockedErrorAndLiveliness(c *gc.C, err error,
 
 func (s *clientSuite) TestBlockRemoveDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
-	s.blockRemoveObject(c)
+	s.BlockRemoveObject(c, "TestBlockRemoveDestroyMachines")
 	err := s.APIState.Client().DestroyMachines("0", "1", "2")
-	s.assertBlockedErrorAndLiveliness(c, err, m0, m1, m2, u)
+	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockRemoveDestroyMachines", m0, m1, m2, u)
 }
 
 func (s *clientSuite) TestBlockChangesDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
-	s.blockAllChanges(c)
+	s.BlockAllChanges(c, "TestBlockChangesDestroyMachines")
 	err := s.APIState.Client().DestroyMachines("0", "1", "2")
-	s.assertBlockedErrorAndLiveliness(c, err, m0, m1, m2, u)
+	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockChangesDestroyMachines", m0, m1, m2, u)
 }
 
 func (s *clientSuite) TestBlockDestoryDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
-	s.blockDestroyEnvironment(c)
+	s.BlockDestroyEnvironment(c, "TestBlockDestoryDestroyMachines")
 	s.assertDestroyMachineSuccess(c, u, m0, m1, m2)
 }
 
 func (s *clientSuite) TestAnyBlockForceDestroyMachines(c *gc.C) {
 	// force bypasses all blocks
-	s.blockAllChanges(c)
-	s.blockDestroyEnvironment(c)
-	s.blockRemoveObject(c)
+	s.BlockAllChanges(c, "TestAnyBlockForceDestroyMachines")
+	s.BlockDestroyEnvironment(c, "TestAnyBlockForceDestroyMachines")
+	s.BlockRemoveObject(c, "TestAnyBlockForceDestroyMachines")
 	s.assertForceDestroyMachines(c)
 }
 
@@ -3689,7 +4050,7 @@ func (s *clientSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetStatus(state.StatusActive, "", nil)
+		err = unit.SetAgentStatus(state.StatusIdle, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -3697,21 +4058,21 @@ func (s *clientSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
 }
 func (s *clientSuite) TestBlockChangesDestroyPrincipalUnits(c *gc.C) {
 	units := s.setupDestroyPrincipalUnits(c)
-	s.blockAllChanges(c)
+	s.BlockAllChanges(c, "TestBlockChangesDestroyPrincipalUnits")
 	err := s.APIState.Client().DestroyServiceUnits("wordpress/0", "wordpress/1")
-	s.assertBlockedErrorAndLiveliness(c, err, units[0], units[1], units[2], units[3])
+	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockChangesDestroyPrincipalUnits", units[0], units[1], units[2], units[3])
 }
 
 func (s *clientSuite) TestBlockRemoveDestroyPrincipalUnits(c *gc.C) {
 	units := s.setupDestroyPrincipalUnits(c)
-	s.blockRemoveObject(c)
+	s.BlockRemoveObject(c, "TestBlockRemoveDestroyPrincipalUnits")
 	err := s.APIState.Client().DestroyServiceUnits("wordpress/0", "wordpress/1")
-	s.assertBlockedErrorAndLiveliness(c, err, units[0], units[1], units[2], units[3])
+	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockRemoveDestroyPrincipalUnits", units[0], units[1], units[2], units[3])
 }
 
 func (s *clientSuite) TestBlockDestroyDestroyPrincipalUnits(c *gc.C) {
 	units := s.setupDestroyPrincipalUnits(c)
-	s.blockDestroyEnvironment(c)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyPrincipalUnits")
 	err := s.APIState.Client().DestroyServiceUnits("wordpress/0", "wordpress/1")
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, units[0], state.Dying)
@@ -3744,16 +4105,16 @@ func (s *clientSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
 	logging0, err := s.State.Unit("logging/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.blockRemoveObject(c)
+	s.BlockRemoveObject(c, "TestBlockRemoveDestroySubordinateUnits")
 	// Try to destroy the subordinate alone; check it fails.
 	err = s.APIState.Client().DestroyServiceUnits("logging/0")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	s.AssertBlocked(c, err, "TestBlockRemoveDestroySubordinateUnits")
 	assertLife(c, rel, state.Alive)
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 
 	err = s.APIState.Client().DestroyServiceUnits("wordpress/0", "logging/0")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	s.AssertBlocked(c, err, "TestBlockRemoveDestroySubordinateUnits")
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 	assertLife(c, rel, state.Alive)
@@ -3775,16 +4136,16 @@ func (s *clientSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
 	logging0, err := s.State.Unit("logging/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.blockAllChanges(c)
+	s.BlockAllChanges(c, "TestBlockChangesDestroySubordinateUnits")
 	// Try to destroy the subordinate alone; check it fails.
 	err = s.APIState.Client().DestroyServiceUnits("logging/0")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	s.AssertBlocked(c, err, "TestBlockChangesDestroySubordinateUnits")
 	assertLife(c, rel, state.Alive)
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 
 	err = s.APIState.Client().DestroyServiceUnits("wordpress/0", "logging/0")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	s.AssertBlocked(c, err, "TestBlockChangesDestroySubordinateUnits")
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 	assertLife(c, rel, state.Alive)
@@ -3806,7 +4167,7 @@ func (s *clientSuite) TestBlockDestroyDestroySubordinateUnits(c *gc.C) {
 	logging0, err := s.State.Unit("logging/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.blockDestroyEnvironment(c)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroySubordinateUnits")
 	// Try to destroy the subordinate alone; check it fails.
 	err = s.APIState.Client().DestroyServiceUnits("logging/0")
 	c.Assert(err, gc.ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate`)
@@ -3819,23 +4180,40 @@ func (s *clientSuite) TestBlockRemoveDestroyRelation(c *gc.C) {
 	endpoints := []string{"wordpress", "mysql"}
 	relation := s.setupRelationScenario(c, endpoints)
 	// block remove-objects
-	s.blockRemoveObject(c)
+	s.BlockRemoveObject(c, "TestBlockRemoveDestroyRelation")
 	err := s.APIState.Client().DestroyRelation(endpoints...)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	s.AssertBlocked(c, err, "TestBlockRemoveDestroyRelation")
 	assertLife(c, relation, state.Alive)
 }
 
 func (s *clientSuite) TestBlockChangeDestroyRelation(c *gc.C) {
 	endpoints := []string{"wordpress", "mysql"}
 	relation := s.setupRelationScenario(c, endpoints)
-	s.blockAllChanges(c)
+	s.BlockAllChanges(c, "TestBlockChangeDestroyRelation")
 	err := s.APIState.Client().DestroyRelation(endpoints...)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	s.AssertBlocked(c, err, "TestBlockChangeDestroyRelation")
 	assertLife(c, relation, state.Alive)
 }
 
 func (s *clientSuite) TestBlockDestroyDestroyRelation(c *gc.C) {
-	s.blockDestroyEnvironment(c)
+	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyRelation")
 	endpoints := []string{"wordpress", "mysql"}
 	s.assertDestroyRelation(c, endpoints)
+}
+
+type mockStorageProvider struct {
+	storage.Provider
+	kind storage.StorageKind
+}
+
+func (m *mockStorageProvider) Scope() storage.Scope {
+	return storage.ScopeMachine
+}
+
+func (m *mockStorageProvider) Supports(k storage.StorageKind) bool {
+	return k == m.kind
+}
+
+func (m *mockStorageProvider) ValidateConfig(*storage.Config) error {
+	return nil
 }

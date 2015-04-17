@@ -39,11 +39,7 @@ Command: package cmd/juju
             return block.ProcessBlockedError(err, block.BlockChange)
           }
  3. Add tests switching the block on before running the command.
-    E.g.
-
-          // Block operation
-          s.AssertConfigParameterUpdated(c, "block-all-changes", true)
-
+ 
 Server: client instance in apiserver package
 ---------------------------------------------
   1. Check if the block is enabled using common.BlockChecker,
@@ -69,7 +65,7 @@ Server: client instance in apiserver package
             }
             ......
         }
-  2. Add tests switching the block on.
+  2. Add tests switching the block on. 
 
 Interested Parties
 ---------------------------------------------

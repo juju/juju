@@ -16,16 +16,19 @@ type RestoreStatus string
 const (
 	currentRestoreId = "current"
 
-	// UnknownRestoreStatus is the initial status for restoreInfoDoc
+	// UnknownRestoreStatus is the initial status for restoreInfoDoc.
 	UnknownRestoreStatus RestoreStatus = "UNKNOWN"
 	// RestorePending is a status to signal that a restore is about to start
-	// any change done in this status will be lost
+	// any change done in this status will be lost.
 	RestorePending RestoreStatus = "PENDING"
 	// RestoreInProgress indicates that a Restore is in progress.
 	RestoreInProgress RestoreStatus = "RESTORING"
-	// RestoreFinished it is set by restore upon a succesful run
+	// RestoreFinished it is set by restore upon a succesful run.
 	RestoreFinished RestoreStatus = "RESTORED"
-	RestoreChecked  RestoreStatus = "CHECKED"
+	// RestoreChecked is set when the server comes up after a succesful restore.
+	RestoreChecked RestoreStatus = "CHECKED"
+	// RestoreFailed indicates that the process failed in a recoverable step.
+	RestoreFailed RestoreStatus = "FAILED"
 )
 
 type restoreInfoDoc struct {
@@ -70,9 +73,9 @@ func (info *RestoreInfo) SetStatus(status RestoreStatus) error {
 	return errors.Annotatef(err, "cannot set restore status to %q", status)
 }
 
-// EnsureRestoreInfo returns the current info doc, if it does not exists
+// RestoreInfoSetter returns the current info doc, if it does not exists
 // it creates it with UnknownRestoreStatus status
-func (st *State) EnsureRestoreInfo() (*RestoreInfo, error) {
+func (st *State) RestoreInfoSetter() (*RestoreInfo, error) {
 	doc := restoreInfoDoc{}
 	restoreInfo, closer := st.getCollection(restoreInfoC)
 	defer closer()

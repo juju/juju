@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -38,7 +38,6 @@ var stateTests = []struct {
 		st: operation.State{
 			Kind: operation.Continue,
 			Step: operation.Step("dudelike"),
-			Hook: &hook.Info{Kind: hooks.ConfigChanged},
 		},
 		err: `unknown operation step "dudelike"`,
 	},
@@ -49,7 +48,7 @@ var stateTests = []struct {
 			Step: operation.Pending,
 			Hook: &hook.Info{Kind: hooks.ConfigChanged},
 		},
-		err: `unexpected hook info`,
+		err: `unexpected hook info with Kind Install`,
 	}, {
 		st: operation.State{
 			Kind: operation.Install,
@@ -76,14 +75,13 @@ var stateTests = []struct {
 		st: operation.State{
 			Kind: operation.RunAction,
 			Step: operation.Pending,
-			Hook: &hook.Info{Kind: hooks.Install},
 		},
 		err: `missing action id`,
 	}, {
 		st: operation.State{
 			Kind:     operation.RunAction,
 			Step:     operation.Pending,
-			Hook:     &hook.Info{Kind: hooks.Install},
+			ActionId: &someActionId,
 			CharmURL: stcurl,
 		},
 		err: `unexpected charm URL`,
@@ -91,7 +89,6 @@ var stateTests = []struct {
 		st: operation.State{
 			Kind:     operation.RunAction,
 			Step:     operation.Pending,
-			Hook:     &hook.Info{Kind: hooks.Install},
 			ActionId: &someActionId,
 		},
 	},
@@ -138,25 +135,6 @@ var stateTests = []struct {
 			Step: operation.Pending,
 			Hook: relhook,
 		},
-	}, {
-		st: operation.State{
-			Kind: operation.RunHook,
-			Step: operation.Pending,
-			Hook: &hook.Info{
-				Kind:     hooks.Action,
-				ActionId: "feedface-dead-4567-beef-123456789012",
-			},
-		},
-	}, {
-		st: operation.State{
-			Kind: operation.RunHook,
-			Step: operation.Pending,
-			Hook: &hook.Info{
-				Kind:     hooks.Action,
-				ActionId: "foo",
-			},
-		},
-		err: `action id "foo" cannot be parsed as an action tag`,
 	},
 	// Upgrade operation.
 	{
@@ -190,15 +168,8 @@ var stateTests = []struct {
 	// Continue operation.
 	{
 		st: operation.State{
-			Kind: operation.Continue,
-			Step: operation.Pending,
-		},
-		err: `missing hook info`,
-	}, {
-		st: operation.State{
 			Kind:     operation.Continue,
 			Step:     operation.Pending,
-			Hook:     relhook,
 			CharmURL: stcurl,
 		},
 		err: `unexpected charm URL`,
@@ -206,7 +177,6 @@ var stateTests = []struct {
 		st: operation.State{
 			Kind:     operation.Continue,
 			Step:     operation.Pending,
-			Hook:     relhook,
 			ActionId: &someActionId,
 		},
 		err: `unexpected action id`,
@@ -214,8 +184,8 @@ var stateTests = []struct {
 		st: operation.State{
 			Kind:               operation.Continue,
 			Step:               operation.Pending,
-			Hook:               relhook,
 			CollectMetricsTime: 98765432,
+			Leader:             true,
 		},
 	},
 }
@@ -242,6 +212,6 @@ func (s *StateFileSuite) TestStates(c *gc.C) {
 		write()
 		st, err := file.Read()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(*st, gc.DeepEquals, t.st)
+		c.Assert(st, jc.DeepEquals, &t.st)
 	}
 }

@@ -4,6 +4,7 @@
 package machiner
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/common"
@@ -59,7 +60,7 @@ func (m *Machine) SetMachineAddresses(addresses []network.Address) error {
 	var result params.ErrorResults
 	args := params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{
-			{Tag: m.Tag().String(), Addresses: addresses},
+			{Tag: m.Tag().String(), Addresses: params.FromNetworkAddresses(addresses)},
 		},
 	}
 	err := m.st.facade.FacadeCall("SetMachineAddresses", args, &result)
@@ -86,4 +87,24 @@ func (m *Machine) EnsureDead() error {
 // Watch returns a watcher for observing changes to the machine.
 func (m *Machine) Watch() (watcher.NotifyWatcher, error) {
 	return common.Watch(m.st.facade, m.tag)
+}
+
+// Jobs returns a list of jobs for the machine.
+func (m *Machine) Jobs() (*params.JobsResult, error) {
+	var results params.JobsResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.Tag().String()}},
+	}
+	err := m.st.facade.FacadeCall("Jobs", args, &results)
+	if err != nil {
+		return nil, errors.Annotate(err, "error from FacadeCall")
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &result, nil
 }

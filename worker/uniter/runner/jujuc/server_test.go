@@ -8,9 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net/rpc"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
@@ -21,7 +21,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -81,9 +83,20 @@ type ServerSuite struct {
 
 var _ = gc.Suite(&ServerSuite{})
 
+func (s *ServerSuite) osDependentSockPath(c *gc.C) string {
+	pipeRoot := c.MkDir()
+	var sock string
+	if runtime.GOOS == "windows" {
+		sock = fmt.Sprintf(`\\.\pipe%s`, filepath.ToSlash(pipeRoot[2:]))
+	} else {
+		sock = filepath.Join(pipeRoot, "test.sock")
+	}
+	return sock
+}
+
 func (s *ServerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.sockPath = filepath.Join(c.MkDir(), "test.sock")
+	s.sockPath = s.osDependentSockPath(c)
 	srv, err := jujuc.NewServer(factory, s.sockPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(srv, gc.NotNil)
@@ -101,7 +114,7 @@ func (s *ServerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *ServerSuite) Call(c *gc.C, req jujuc.Request) (resp exec.ExecResponse, err error) {
-	client, err := rpc.Dial("unix", s.sockPath)
+	client, err := sockets.Dial(s.sockPath)
 	c.Assert(err, jc.ErrorIsNil)
 	defer client.Close()
 	err = client.Call("Jujuc.Main", req, &resp)
@@ -205,12 +218,14 @@ var newCommandTests = []struct {
 	{"relation-set", ""},
 	{"unit-get", ""},
 	{"storage-get", ""},
+	{"status-get", ""},
+	{"status-set", ""},
 	// The error message contains .exe on Windows
 	{"random", "unknown command: random(.exe)?"},
 }
 
 func (s *NewCommandSuite) TestNewCommand(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	ctx := s.GetHookContext(c, 0, "")
 	for _, t := range newCommandTests {

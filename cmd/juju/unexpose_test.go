@@ -4,12 +4,9 @@
 package main
 
 import (
-	"strings"
-
-	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -19,6 +16,14 @@ import (
 
 type UnexposeSuite struct {
 	jujutesting.RepoSuite
+	CmdBlockHelper
+}
+
+func (s *UnexposeSuite) SetUpTest(c *gc.C) {
+	s.RepoSuite.SetUpTest(c)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
+	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
 
 var _ = gc.Suite(&UnexposeSuite{})
@@ -62,10 +67,7 @@ func (s *UnexposeSuite) TestBlockUnexpose(c *gc.C) {
 	s.AssertService(c, "some-service-name", curl, 1, 0)
 
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.BlockAllChanges(c, "TestBlockUnexpose")
 	err = runExpose(c, "some-service-name")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	s.AssertBlocked(c, err, ".*TestBlockUnexpose.*")
 }

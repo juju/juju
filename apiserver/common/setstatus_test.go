@@ -5,7 +5,9 @@ package common_test
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -13,36 +15,39 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/names"
 )
 
 type statusSetterSuite struct{}
 
 var _ = gc.Suite(&statusSetterSuite{})
 
-var _ state.StatusSetter = new(fakeStatusSetter)
+var _ state.StatusSetter = new(fakeStatus)
 
-type fakeStatusSetter struct {
+type fakeStatus struct {
 	state.Entity
-	status state.Status
-	info   string
-	data   map[string]interface{}
-	err    error
+	status  state.Status
+	info    string
+	data    map[string]interface{}
+	updated time.Time
+	err     error
 	fetchError
 }
 
-func (s *fakeStatusSetter) SetStatus(status state.Status, info string, data map[string]interface{}) error {
+func (s *fakeStatus) SetStatus(status state.Status, info string, data map[string]interface{}) error {
 	s.status = status
 	s.info = info
 	s.data = data
+	s.updated = time.Now()
 	return s.err
 }
 
-func (s *fakeStatusSetter) Status() (status state.Status, info string, data map[string]interface{}, err error) {
-	return s.status, s.info, s.data, nil
+func (s *fakeStatus) Status() (state.StatusInfo, error) {
+	return state.StatusInfo{
+		s.status, s.info, s.data, &s.updated,
+	}, s.err
 }
 
-func (s *fakeStatusSetter) UpdateStatus(data map[string]interface{}) error {
+func (s *fakeStatus) UpdateStatus(data map[string]interface{}) error {
 	for k, v := range data {
 		s.data[k] = v
 	}
@@ -52,12 +57,12 @@ func (s *fakeStatusSetter) UpdateStatus(data map[string]interface{}) error {
 func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
-			u("x/0"): &fakeStatusSetter{status: state.StatusAllocating, info: "blah", err: fmt.Errorf("x0 fails")},
-			u("x/1"): &fakeStatusSetter{status: state.StatusInstalling, info: "blah"},
-			u("x/2"): &fakeStatusSetter{status: state.StatusActive, info: "foo"},
-			u("x/3"): &fakeStatusSetter{status: state.StatusError, info: "some info"},
-			u("x/4"): &fakeStatusSetter{fetchError: "x3 error"},
-			u("x/5"): &fakeStatusSetter{status: state.StatusStopping, info: "blah"},
+			u("x/0"): &fakeStatus{status: state.StatusAllocating, info: "blah", err: fmt.Errorf("x0 fails")},
+			u("x/1"): &fakeStatus{status: state.StatusInstalling, info: "blah"},
+			u("x/2"): &fakeStatus{status: state.StatusActive, info: "foo"},
+			u("x/3"): &fakeStatus{status: state.StatusError, info: "some info"},
+			u("x/4"): &fakeStatus{fetchError: "x3 error"},
+			u("x/5"): &fakeStatus{status: state.StatusStopping, info: "blah"},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
@@ -98,8 +103,8 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 			{apiservertesting.ErrUnauthorized},
 		},
 	})
-	get := func(tag names.Tag) *fakeStatusSetter {
-		return st.entities[tag].(*fakeStatusSetter)
+	get := func(tag names.Tag) *fakeStatus {
+		return st.entities[tag].(*fakeStatus)
 	}
 	c.Assert(get(u("x/1")).status, gc.Equals, state.StatusActive)
 	c.Assert(get(u("x/1")).info, gc.Equals, "bar")
@@ -136,12 +141,12 @@ func (*statusSetterSuite) TestSetStatusNoArgsNoError(c *gc.C) {
 func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
-			m("0"): &fakeStatusSetter{status: state.StatusAllocating, info: "blah", err: fmt.Errorf("x0 fails")},
-			m("1"): &fakeStatusSetter{status: state.StatusError, info: "foo", data: map[string]interface{}{"foo": "blah"}},
-			m("2"): &fakeStatusSetter{status: state.StatusError, info: "some info"},
-			m("3"): &fakeStatusSetter{fetchError: "x3 error"},
-			m("4"): &fakeStatusSetter{status: state.StatusActive},
-			m("5"): &fakeStatusSetter{status: state.StatusStopping, info: ""},
+			m("0"): &fakeStatus{status: state.StatusAllocating, info: "blah", err: fmt.Errorf("x0 fails")},
+			m("1"): &fakeStatus{status: state.StatusError, info: "foo", data: map[string]interface{}{"foo": "blah"}},
+			m("2"): &fakeStatus{status: state.StatusError, info: "some info"},
+			m("3"): &fakeStatus{fetchError: "x3 error"},
+			m("4"): &fakeStatus{status: state.StatusActive},
+			m("5"): &fakeStatus{status: state.StatusStopping, info: ""},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
@@ -179,8 +184,8 @@ func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 			{apiservertesting.ErrUnauthorized},
 		},
 	})
-	get := func(tag names.Tag) *fakeStatusSetter {
-		return st.entities[tag].(*fakeStatusSetter)
+	get := func(tag names.Tag) *fakeStatus {
+		return st.entities[tag].(*fakeStatus)
 	}
 	c.Assert(get(m("1")).status, gc.Equals, state.StatusError)
 	c.Assert(get(m("1")).info, gc.Equals, "foo")

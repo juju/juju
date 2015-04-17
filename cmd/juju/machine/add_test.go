@@ -13,10 +13,12 @@ import (
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
@@ -181,12 +183,12 @@ failed to create 2 machines
 }
 
 func (s *AddMachineSuite) TestBlockedError(c *gc.C) {
-	s.fake.addError = &params.Error{Code: params.CodeOperationBlocked}
+	s.fake.addError = common.ErrOperationBlocked("TestBlockedError")
 	_, err := s.run(c)
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(stripped, gc.Matches, ".*TestBlockedError.*")
 }
 
 func (s *AddMachineSuite) TestServerIsPreJobManageNetworking(c *gc.C) {
@@ -206,7 +208,7 @@ func (s *AddMachineSuite) TestAddMachineWithDisks(c *gc.C) {
 	_, err := s.run(c, "--disks", "2,1G", "--disks", "2G")
 	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: --disks")
 
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
 	_, err = s.run(c, "--disks", "2,1G", "--disks", "2G")

@@ -4,7 +4,6 @@
 package mongo
 
 import (
-	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
@@ -13,66 +12,31 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"strconv"
+	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/replicaset"
 	"github.com/juju/utils"
-	"github.com/juju/utils/apt"
+	"github.com/juju/utils/packaging/config"
+	"github.com/juju/utils/packaging/manager"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/replicaset"
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/service"
 	"github.com/juju/juju/version"
-)
-
-const (
-	maxFiles = 65000
-	maxProcs = 20000
-
-	serviceName = "juju-db"
-
-	// SharedSecretFile is the name of the Mongo shared secret file
-	// located within the Juju data directory.
-	SharedSecretFile = "shared-secret"
-
-	// ReplicaSetName is the name of the replica set that juju uses for its
-	// state servers.
-	ReplicaSetName = "juju"
 )
 
 var (
 	logger          = loggo.GetLogger("juju.mongo")
 	mongoConfigPath = "/etc/default/mongodb"
 
-	// JujuMongodPath holds the default path to the juju-specific mongod.
+	// JujuMongodPath holds the default path to the juju-specific
+	// mongod.
 	JujuMongodPath = "/usr/lib/juju/bin/mongod"
-
-	upstartConfInstall          = (*upstart.Service).Install
-	upstartServiceExists        = (*upstart.Service).Exists
-	upstartServiceRunning       = (*upstart.Service).Running
-	upstartServiceStopAndRemove = (*upstart.Service).StopAndRemove
-	upstartServiceStop          = (*upstart.Service).Stop
-	upstartServiceStart         = (*upstart.Service).Start
 
 	// This is NUMACTL package name for apt-get
 	numaCtlPkg = "numactl"
-	// This is the name of the variable to use in ExtraScript
-	// fragment to substitute into init script template.
-	multinodeVarName = "MULTI_NODE"
-	// This value will be used to wrap desired mongo cmd in numactl if wanted/needed
-	numaCtlWrap = "$%v"
-	// Extra shell script fragment for init script template.
-	// This determines if we are dealing with multi-node environment
-	detectMultiNodeScript = `%v=""
-if [ $(find /sys/devices/system/node/ -maxdepth 1 -mindepth 1 -type d -name node\* | wc -l ) -gt 1 ]
-then
-    %v=" numactl --interleave=all "
-    # Ensure sysctl turns off zone_reclaim_mode if not already set
-    (grep -q vm.zone_reclaim_mode /etc/sysctl.conf || echo vm.zone_reclaim_mode = 0 >> /etc/sysctl.conf) && sysctl -p
-fi
-`
 )
 
 // WithAddresses represents an entity that has a set of
@@ -152,12 +116,6 @@ func Path() (string, error) {
 	return path, nil
 }
 
-// RemoveService removes the mongoDB init service from this machine.
-func RemoveService(namespace string) error {
-	svc := upstart.NewService(ServiceName(namespace), common.Conf{})
-	return upstartServiceStopAndRemove(svc)
-}
-
 // EnsureServerParams is a parameter struct for EnsureServer.
 type EnsureServerParams struct {
 	// APIPort is the port to connect to the api server.
@@ -227,7 +185,7 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	if err := aptGetInstallMongod(args.SetNumaControlPolicy); err != nil {
+	if err := installMongod(args.SetNumaControlPolicy); err != nil {
 		return fmt.Errorf("cannot install mongod: %v", err)
 	}
 	mongoPath, err := Path()
@@ -236,22 +194,35 @@ func EnsureServer(args EnsureServerParams) error {
 	}
 	logVersion(mongoPath)
 
-	svc, err := upstartService(args.Namespace, args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.SetNumaControlPolicy)
+	svcConf := newConf(args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.SetNumaControlPolicy)
+	svc, err := newService(ServiceName(args.Namespace), svcConf)
 	if err != nil {
 		return err
 	}
-	if upstartServiceExists(svc) {
-		logger.Debugf("mongo exists as expected")
-		if !upstartServiceRunning(svc) {
-			return upstartServiceStart(svc)
+	installed, err := svc.Installed()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if installed {
+		exists, err := svc.Exists()
+		if err != nil {
+			return errors.Trace(err)
 		}
-		return nil
+		if exists {
+			logger.Debugf("mongo exists as expected")
+			running, err := svc.Running()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if !running {
+				return svc.Start()
+			}
+			return nil
+		}
 	}
 
-	certKey := args.Cert + "\n" + args.PrivateKey
-	err = utils.AtomicWriteFile(sslKeyPath(args.DataDir), []byte(certKey), 0600)
-	if err != nil {
-		return fmt.Errorf("cannot write SSL key: %v", err)
+	if err := UpdateSSLKey(args.DataDir, args.Cert, args.PrivateKey); err != nil {
+		return err
 	}
 
 	err = utils.AtomicWriteFile(sharedSecretPath(args.DataDir), []byte(args.SharedSecret), 0600)
@@ -273,8 +244,8 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	if err := upstartServiceStop(svc); err != nil {
-		return fmt.Errorf("failed to stop mongo: %v", err)
+	if err := svc.Stop(); err != nil {
+		return errors.Annotatef(err, "failed to stop mongo")
 	}
 	if err := makeJournalDirs(dbDir); err != nil {
 		return fmt.Errorf("error creating journal directories: %v", err)
@@ -282,16 +253,17 @@ func EnsureServer(args EnsureServerParams) error {
 	if err := preallocOplog(dbDir, oplogSizeMB); err != nil {
 		return fmt.Errorf("error creating oplog files: %v", err)
 	}
-	return upstartConfInstall(svc)
+	if err := service.InstallAndStart(svc); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
-// ServiceName returns the name of the init service config for mongo using
-// the given namespace.
-func ServiceName(namespace string) string {
-	if namespace != "" {
-		return fmt.Sprintf("%s-%s", serviceName, namespace)
-	}
-	return serviceName
+// UpdateSSLKey writes a new SSL key used by mongo to validate connections from Juju state server(s)
+func UpdateSSLKey(dataDir, cert, privateKey string) error {
+	certKey := cert + "\n" + privateKey
+	err := utils.AtomicWriteFile(sslKeyPath(dataDir), []byte(certKey), 0600)
+	return errors.Annotate(err, "cannot write SSL key")
 }
 
 func makeJournalDirs(dataDir string) error {
@@ -318,94 +290,91 @@ func logVersion(mongoPath string) {
 	logger.Debugf("using mongod: %s --version: %q", mongoPath, output)
 }
 
-func sslKeyPath(dataDir string) string {
-	return filepath.Join(dataDir, "server.pem")
+// getPackageManager is a helper function which returns the
+// package manager implementation for the current system.
+func getPackageManager() (manager.PackageManager, error) {
+	return manager.NewPackageManager(version.Current.Series)
 }
 
-func sharedSecretPath(dataDir string) string {
-	return filepath.Join(dataDir, SharedSecretFile)
+// getPackagingConfigurer is a helper function which returns the
+// packaging configuration manager for the current system.
+func getPackagingConfigurer() (config.PackagingConfigurer, error) {
+	return config.NewPackagingConfigurer(version.Current.Series)
 }
 
-// upstartService returns the upstart config for the mongo state service.
-// It also returns the path to the mongod executable that the upstart config
-// will be using.
-func upstartService(namespace, dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCtl bool) (*upstart.Service, error) {
-	mongoCmd := mongoPath + " --auth" +
-		" --dbpath=" + utils.ShQuote(dbDir) +
-		" --sslOnNormalPorts" +
-		" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(dataDir)) +
-		" --sslPEMKeyPassword ignored" +
-		" --port " + fmt.Sprint(port) +
-		" --noprealloc" +
-		" --syslog" +
-		" --smallfiles" +
-		" --journal" +
-		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)) +
-		" --replSet " + ReplicaSetName +
-		" --ipv6 " +
-		" --oplogSize " + strconv.Itoa(oplogSizeMB)
-	extraScript := ""
-	if wantNumaCtl {
-		extraScript = fmt.Sprintf(detectMultiNodeScript, multinodeVarName, multinodeVarName)
-		mongoCmd = fmt.Sprintf(numaCtlWrap, multinodeVarName) + mongoCmd
+func installMongod(numaCtl bool) error {
+	series := version.Current.Series
+
+	pacconfer, err := getPackagingConfigurer()
+	if err != nil {
+		return err
 	}
-	conf := common.Conf{
-		Desc: "juju state database",
-		Limit: map[string]string{
-			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
-			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
-		},
-		ExtraScript: extraScript,
-		Cmd:         mongoCmd,
-	}
-	svc := upstart.NewService(ServiceName(namespace), conf)
-	return svc, nil
-}
 
-func aptGetInstallMongod(numaCtl bool) error {
+	pacman, err := getPackageManager()
+	if err != nil {
+		return err
+	}
+
 	// Only Quantal requires the PPA.
-	if version.Current.Series == "quantal" {
-		if err := addAptRepository("ppa:juju/stable"); err != nil {
+	if series == "quantal" {
+		// install python-software-properties:
+		if err := pacman.InstallPrerequisite(); err != nil {
+			return err
+		}
+		if err := pacman.AddRepository("ppa:juju/stable"); err != nil {
 			return err
 		}
 	}
-	mongoPkg := packageForSeries(version.Current.Series)
+	// CentOS requires "epel-release" for the epel repo mongodb-server is in.
+	if series == "centos7" {
+		// install epel-release
+		if err := pacman.Install("epel-release"); err != nil {
+			return err
+		}
+	}
 
-	aptPkgs := []string{mongoPkg}
+	mongoPkg := packageForSeries(series)
+
+	pkgs := []string{mongoPkg}
 	if numaCtl {
-		aptPkgs = []string{mongoPkg, numaCtlPkg}
+		pkgs = []string{mongoPkg, numaCtlPkg}
 		logger.Infof("installing %s and %s", mongoPkg, numaCtlPkg)
 	} else {
 		logger.Infof("installing %s", mongoPkg)
 	}
-	cmds := apt.GetPreparePackages(aptPkgs, version.Current.Series)
-	for _, cmd := range cmds {
-		if err := apt.GetInstall(cmd...); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
-func addAptRepository(name string) error {
-	// add-apt-repository requires python-software-properties
-	cmds := apt.GetPreparePackages(
-		[]string{"python-software-properties"},
-		version.Current.Series,
-	)
-	logger.Infof("installing python-software-properties")
-	for _, cmd := range cmds {
-		if err := apt.GetInstall(cmd...); err != nil {
+	for i, _ := range pkgs {
+		// apply release targeting if needed.
+		if pacconfer.IsCloudArchivePackage(pkgs[i]) {
+			pkgs[i] = strings.Join(pacconfer.ApplyCloudArchiveTarget(pkgs[i]), " ")
+		}
+
+		if err := pacman.Install(pkgs[i]); err != nil {
 			return err
 		}
 	}
 
-	logger.Infof("adding apt repository %q", name)
-	cmd := exec.Command("add-apt-repository", "-y", name)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("cannot add apt repository: %v (output %s)", err, bytes.TrimSpace(out))
+	// Work around SELinux on centos7
+	if series == "centos7" {
+		cmd := []string{"chcon", "-R", "-v", "-t", "mongod_var_lib_t", "/var/lib/juju/"}
+		logger.Infof("running %s %v", cmd[0], cmd[1:])
+		_, err = utils.RunCommand(cmd[0], cmd[1:]...)
+		if err != nil {
+			logger.Infof("chcon error %s", err)
+			logger.Infof("chcon error %s", err.Error())
+			return err
+		}
+
+		cmd = []string{"semanage", "port", "-a", "-t", "mongod_port_t", "-p", "tcp", "37017"}
+		logger.Infof("running %s %v", cmd[0], cmd[1:])
+		_, err = utils.RunCommand(cmd[0], cmd[1:]...)
+		if err != nil {
+			if !strings.Contains(err.Error(), "exit status 1") {
+				return err
+			}
+		}
 	}
+
 	return nil
 }
 
@@ -413,7 +382,7 @@ func addAptRepository(name string) error {
 // of the machine that it is going to be running on.
 func packageForSeries(series string) string {
 	switch series {
-	case "precise", "quantal", "raring", "saucy":
+	case "precise", "quantal", "raring", "saucy", "centos7":
 		return "mongodb-server"
 	default:
 		// trusty and onwards

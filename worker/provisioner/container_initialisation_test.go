@@ -5,14 +5,17 @@ package provisioner_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/apt"
 	"github.com/juju/utils/fslock"
+	"github.com/juju/utils/packaging/manager"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -21,8 +24,10 @@ import (
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/provisioner"
@@ -36,11 +41,16 @@ type ContainerSetupSuite struct {
 	aptCmdChan  <-chan *exec.Cmd
 	initLockDir string
 	initLock    *fslock.Lock
+	fakeLXCNet  string
 }
 
 var _ = gc.Suite(&ContainerSetupSuite{})
 
 func (s *ContainerSetupSuite) SetUpSuite(c *gc.C) {
+	//TODO(bogdanteleaga): Fix this on windows
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: Skipping container tests on windows")
+	}
 	s.CommonProvisionerSuite.SetUpSuite(c)
 }
 
@@ -58,7 +68,7 @@ func noImportance(err0, err1 error) bool {
 
 func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
-	aptCmdChan := s.HookCommandOutput(&apt.CommandOutput, []byte{}, nil)
+	aptCmdChan := s.HookCommandOutput(&manager.CommandOutput, []byte{}, nil)
 	s.aptCmdChan = aptCmdChan
 
 	// Set up provisioner for the state machine.
@@ -70,6 +80,10 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	initLock, err := fslock.NewLock(s.initLockDir, "container-init")
 	c.Assert(err, jc.ErrorIsNil)
 	s.initLock = initLock
+
+	// Patch to isolate the test from the host machine.
+	s.fakeLXCNet = filepath.Join(c.MkDir(), "lxc-net")
+	s.PatchValue(provisioner.EtcDefaultLXCNetPath, s.fakeLXCNet)
 }
 
 func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
@@ -134,7 +148,8 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	// A stub worker callback to record what happens.
 	provisionerStarted := false
 	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
-		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker) error {
+		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
+		toolsFinder provisioner.ToolsFinder) error {
 		c.Assert(containerType, gc.Equals, ctype)
 		c.Assert(cfg.Tag(), gc.Equals, host.Tag())
 		provisionerStarted = true
@@ -167,7 +182,61 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 	}
 }
 
-func (s *ContainerSetupSuite) TestLxcContainerUesImageURL(c *gc.C) {
+func (s *ContainerSetupSuite) TestLxcContainerUsesConstraintsArch(c *gc.C) {
+	// LXC should override the architecture in constraints with the
+	// host's architecture.
+	s.PatchValue(&version.Current.Arch, arch.PPC64EL)
+	s.testContainerConstraintsArch(c, instance.LXC, arch.PPC64EL)
+}
+
+func (s *ContainerSetupSuite) TestKvmContainerUsesHostArch(c *gc.C) {
+	// KVM should do what it's told, and use the architecture in
+	// constraints.
+	s.PatchValue(&version.Current.Arch, arch.PPC64EL)
+	s.testContainerConstraintsArch(c, instance.KVM, arch.AMD64)
+}
+
+func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerType instance.ContainerType, expectArch string) {
+	var called bool
+	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
+		return toolsFinderFunc(func(v version.Number, series string, arch *string) (tools.List, error) {
+			called = true
+			c.Assert(arch, gc.NotNil)
+			c.Assert(*arch, gc.Equals, expectArch)
+			result := version.Current
+			result.Number = v
+			result.Series = series
+			result.Arch = *arch
+			return tools.List{{Version: result}}, nil
+		})
+	})
+
+	s.PatchValue(&provisioner.StartProvisioner, func(runner worker.Runner, containerType instance.ContainerType,
+		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
+		toolsFinder provisioner.ToolsFinder) error {
+		amd64 := arch.AMD64
+		toolsFinder.FindTools(version.Current.Number, version.Current.Series, &amd64)
+		return nil
+	})
+
+	// create a machine to host the container.
+	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
+		Series:      coretesting.FakeDefaultSeries,
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: s.defaultConstraints,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetSupportedContainers([]instance.ContainerType{containerType})
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetAgentVersion(version.Current)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.createContainer(c, m, containerType)
+	<-s.aptCmdChan
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *ContainerSetupSuite) TestLxcContainerUsesImageURL(c *gc.C) {
 	// create a machine to host the container.
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
 		Series:      coretesting.FakeDefaultSeries,
@@ -208,10 +277,11 @@ func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
 	expect("any-old-thing")
 }
 
-func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance.ContainerType, packages []string) {
+func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance.ContainerType, packages [][]string) {
 	// A noop worker callback.
 	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
-		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker) error {
+		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
+		toolsFinder provisioner.ToolsFinder) error {
 		return nil
 	}
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
@@ -227,25 +297,44 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetAgentVersion(version.Current)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Before starting /etc/default/lxc-net should be missing.
+	c.Assert(s.fakeLXCNet, jc.DoesNotExist)
+
 	s.createContainer(c, m, ctype)
 
-	cmd := <-s.aptCmdChan
-	c.Assert(cmd.Env[len(cmd.Env)-1], gc.Equals, "DEBIAN_FRONTEND=noninteractive")
-	expected := []string{
-		"apt-get", "--option=Dpkg::Options::=--force-confold",
-		"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
-		"install"}
-	expected = append(expected, packages...)
-	c.Assert(cmd.Args, gc.DeepEquals, expected)
+	// After initialisation starts, but before running the
+	// initializer, lxc-net should be created if ctype is LXC, as the
+	// dummy provider supports static address allocation by default.
+	if ctype == instance.LXC {
+		AssertFileContains(c, s.fakeLXCNet, provisioner.EtcDefaultLXCNet)
+		defer os.Remove(s.fakeLXCNet)
+	} else {
+		c.Assert(s.fakeLXCNet, jc.DoesNotExist)
+	}
+
+	for _, pack := range packages {
+		cmd := <-s.aptCmdChan
+		expected := []string{
+			"apt-get", "--option=Dpkg::Options::=--force-confold",
+			"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
+			"install"}
+		expected = append(expected, pack...)
+		c.Assert(cmd.Args, gc.DeepEquals, expected)
+	}
 }
 
 func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 	for _, test := range []struct {
 		ctype    instance.ContainerType
-		packages []string
+		packages [][]string
 	}{
-		{instance.LXC, []string{"--target-release", "precise-updates/cloud-tools", "lxc", "cloud-image-utils"}},
-		{instance.KVM, []string{"uvtool-libvirt", "uvtool"}},
+		{instance.LXC, [][]string{
+			[]string{"--target-release", "precise-updates/cloud-tools", "lxc"},
+			[]string{"--target-release", "precise-updates/cloud-tools", "cloud-image-utils"}}},
+		{instance.KVM, [][]string{
+			[]string{"uvtool-libvirt"},
+			[]string{"uvtool"}}},
 	} {
 		s.assertContainerInitialised(c, test.ctype, test.packages)
 	}
@@ -273,4 +362,109 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 	err = handler.Handle([]string{"0/lxc/0"})
 	c.Assert(err, gc.ErrorMatches, ".*failed to acquire initialization lock:.*")
 
+}
+
+func (s *ContainerSetupSuite) TestMaybeOverrideDefaultLXCNet(c *gc.C) {
+	for i, test := range []struct {
+		ctype          instance.ContainerType
+		addressable    bool
+		expectOverride bool
+	}{
+		{instance.KVM, false, false},
+		{instance.KVM, true, false},
+		{instance.LXC, false, false},
+		{instance.LXC, true, true}, // the only case when we override; also last
+	} {
+		c.Logf(
+			"test %d: ctype: %q, addressable: %v -> expectOverride: %v",
+			i, test.ctype, test.addressable, test.expectOverride,
+		)
+		err := provisioner.MaybeOverrideDefaultLXCNet(test.ctype, test.addressable)
+		if !c.Check(err, jc.ErrorIsNil) {
+			continue
+		}
+		if !test.expectOverride {
+			c.Check(s.fakeLXCNet, jc.DoesNotExist)
+		} else {
+			AssertFileContains(c, s.fakeLXCNet, provisioner.EtcDefaultLXCNet)
+		}
+	}
+}
+
+func AssertFileContains(c *gc.C, filename, expectedContent string) {
+	// TODO(dimitern): We should put this in juju/testing repo and
+	// replace all similar checks with it.
+	data, err := ioutil.ReadFile(filename)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(data), jc.Contains, expectedContent)
+}
+
+type SetIPAndARPForwardingSuite struct {
+	coretesting.BaseSuite
+}
+
+func (s *SetIPAndARPForwardingSuite) SetUpSuite(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: Skipping for now")
+	}
+	s.BaseSuite.SetUpSuite(c)
+}
+
+var _ = gc.Suite(&SetIPAndARPForwardingSuite{})
+
+func (s *SetIPAndARPForwardingSuite) TestSuccess(c *gc.C) {
+	// NOTE: Because PatchExecutableAsEchoArgs does not allow us to
+	// assert on earlier invocations of the same binary (each run
+	// overwrites the last args used), we only check sysctl was called
+	// for the second key (arpProxySysctlKey). We do check the config
+	// contains both though.
+	fakeConfig := filepath.Join(c.MkDir(), "sysctl.conf")
+	testing.PatchExecutableAsEchoArgs(c, s, "sysctl")
+	s.PatchValue(provisioner.SysctlConfig, fakeConfig)
+
+	err := provisioner.SetIPAndARPForwarding(true)
+	c.Assert(err, jc.ErrorIsNil)
+	expectConf := fmt.Sprintf(
+		"%s=1\n%s=1",
+		provisioner.IPForwardSysctlKey,
+		provisioner.ARPProxySysctlKey,
+	)
+	AssertFileContains(c, fakeConfig, expectConf)
+	expectKeyVal := fmt.Sprintf("%s=1", provisioner.IPForwardSysctlKey)
+	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
+	expectKeyVal = fmt.Sprintf("%s=1", provisioner.ARPProxySysctlKey)
+	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
+
+	err = provisioner.SetIPAndARPForwarding(false)
+	c.Assert(err, jc.ErrorIsNil)
+	expectConf = fmt.Sprintf(
+		"%s=0\n%s=0",
+		provisioner.IPForwardSysctlKey,
+		provisioner.ARPProxySysctlKey,
+	)
+	AssertFileContains(c, fakeConfig, expectConf)
+	expectKeyVal = fmt.Sprintf("%s=0", provisioner.IPForwardSysctlKey)
+	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
+	expectKeyVal = fmt.Sprintf("%s=0", provisioner.ARPProxySysctlKey)
+	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
+}
+
+func (s *SetIPAndARPForwardingSuite) TestFailure(c *gc.C) {
+	fakeConfig := filepath.Join(c.MkDir(), "sysctl.conf")
+	testing.PatchExecutableThrowError(c, s, "sysctl", 123)
+	s.PatchValue(provisioner.SysctlConfig, fakeConfig)
+	expectKeyVal := fmt.Sprintf("%s=1", provisioner.IPForwardSysctlKey)
+
+	err := provisioner.SetIPAndARPForwarding(true)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+		`cannot set %s: unexpected exit code 123`, expectKeyVal),
+	)
+	_, err = os.Stat(fakeConfig)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+}
+
+type toolsFinderFunc func(v version.Number, series string, arch *string) (tools.List, error)
+
+func (t toolsFinderFunc) FindTools(v version.Number, series string, arch *string) (tools.List, error) {
+	return t(v, series, arch)
 }

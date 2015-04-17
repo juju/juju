@@ -6,13 +6,15 @@ package state
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -68,6 +70,300 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, keyExists := userMap["_id_"]
 	c.Assert(keyExists, jc.IsFalse)
+}
+
+func (s *upgradesSuite) TestLowerCaseEnvUsersID(c *gc.C) {
+	UUID := s.state.EnvironUUID()
+	s.addCaseSensitiveEnvUsers(c, UUID, [][]string{
+		{"BoB@local", "Bob the Builder"},
+		{"sAm@cRAZyCaSe", "Sam Smith"},
+		{"adam@alllower", "Adam Apple"},
+	})
+
+	err := LowerCaseEnvUsersID(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertEnvUserIDLowerCased(c, [][]string{
+		{UUID, "bob@local", "BoB@local", "Bob the Builder"},
+		{UUID, "adam@alllower", "adam@alllower", "Adam Apple"},
+		{UUID, "sam@crazycase", "sAm@cRAZyCaSe", "Sam Smith"},
+		{UUID, "test-admin@local", "test-admin@local", "test-admin"},
+	})
+}
+
+func (s *upgradesSuite) TestDupeCaseSensitive(c *gc.C) {
+	UUID := s.state.EnvironUUID()
+	s.addCaseSensitiveEnvUsers(c, UUID, [][]string{
+		{"BoB@local", "Bob the Builder"},
+		{"bob@local", "Bobby Brown"},
+	})
+
+	err := LowerCaseEnvUsersID(s.state)
+	// Yes, this means the upgrade step fails if there are two existing users
+	// with the same username but different case.
+	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+}
+
+func (s *upgradesSuite) TestLowerCaseEnvUsersIDMultiEnvs(c *gc.C) {
+	UUID1 := "6983ac70-b0aa-45c5-80fe-9f207bbb18d9"
+	s.addCaseSensitiveEnvUsers(c, UUID1, [][]string{
+		{"BoB@local", "Bob the Builder"},
+		{"sAm@cRAZyCaSe", "Sam Smith"},
+		{"adam@alllower", "Adam Apple"},
+	})
+
+	UUID2 := "7983ac70-b0aa-45c5-80fe-9f207bbb18d9"
+	s.addCaseSensitiveEnvUsers(c, UUID2, [][]string{
+		{"BoB@local", "Bob the Builder"},
+		{"Joe@Yo", "Joe Yo"},
+		{"adam@alllower", "Young Apple"},
+	})
+
+	err := LowerCaseEnvUsersID(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	stUUID := s.state.EnvironUUID()
+	s.assertEnvUserIDLowerCased(c, [][]string{
+		{UUID1, "bob@local", "BoB@local", "Bob the Builder"},
+		{UUID2, "bob@local", "BoB@local", "Bob the Builder"},
+		{UUID2, "joe@yo", "Joe@Yo", "Joe Yo"},
+		{UUID1, "adam@alllower", "adam@alllower", "Adam Apple"},
+		{UUID2, "adam@alllower", "adam@alllower", "Young Apple"},
+		{UUID1, "sam@crazycase", "sAm@cRAZyCaSe", "Sam Smith"},
+		{stUUID, "test-admin@local", "test-admin@local", "test-admin"},
+	})
+}
+
+func (s *upgradesSuite) TestLowerCaseEnvUsersIDIdempotent(c *gc.C) {
+	UUID := s.state.EnvironUUID()
+	s.addCaseSensitiveEnvUsers(c, UUID, [][]string{
+		{"BoB@local", "Bob the Builder"},
+		{"sAm@cRAZyCaSe", "Sam Smith"},
+		{"adam@alllower", "Adam Apple"},
+	})
+
+	err := LowerCaseEnvUsersID(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	err = LowerCaseEnvUsersID(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertEnvUserIDLowerCased(c, [][]string{
+		{UUID, "bob@local", "BoB@local", "Bob the Builder"},
+		{UUID, "adam@alllower", "adam@alllower", "Adam Apple"},
+		{UUID, "sam@crazycase", "sAm@cRAZyCaSe", "Sam Smith"},
+		{UUID, "test-admin@local", "test-admin@local", "test-admin"},
+	})
+}
+
+// addCaseSensitiveEnvUsers adds an envUserDoc with a case sensitive "_id" for
+// each {"_id", "displayname"} pair passed in.
+func (s *upgradesSuite) addCaseSensitiveEnvUsers(c *gc.C, envUUID string, oldUsers [][]string) {
+	c.Assert(utils.IsValidUUIDString(envUUID), jc.IsTrue)
+	var ops []txn.Op
+	for _, oldUser := range oldUsers {
+		ops = append(ops, txn.Op{
+			C:  envUsersC,
+			Id: envUUID + ":" + oldUser[0],
+			Insert: bson.D{
+				{"user", oldUser[0]},
+				{"displayname", oldUser[1]},
+			}})
+	}
+	err := s.state.runRawTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// assertEnvUserIDLowerCased asserts across all environments that the
+// <localID> part of each envUser's _id field, which has the format
+// "<uuid>:<localID>", matches the respective expected lower-cased id.
+func (s *upgradesSuite) assertEnvUserIDLowerCased(c *gc.C, expected [][]string) {
+	users, closer := s.state.getRawCollection(envUsersC)
+	defer closer()
+
+	var obtained []bson.M
+	err := users.Find(nil).Sort("user").All(&obtained)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for i, expectedUser := range expected {
+		ID := obtained[i]["_id"].(string)
+		parts := strings.Split(ID, ":")
+		c.Assert(parts, gc.HasLen, 2)
+		UUID, name := parts[0], parts[1]
+
+		c.Assert(UUID, gc.Equals, expectedUser[0])
+		c.Assert(name, gc.Equals, expectedUser[1])
+		c.Assert(obtained[i]["_id"], gc.Equals, expectedUser[0]+":"+expectedUser[1])
+		c.Assert(obtained[i]["user"], gc.Equals, expectedUser[2])
+		c.Assert(obtained[i]["displayname"], gc.Equals, expectedUser[3])
+	}
+	c.Assert(obtained, gc.HasLen, len(expected))
+}
+
+func (s *upgradesSuite) TestUserTagNameFallsBackToId(c *gc.C) {
+	// Make old style user without name field set.
+	user := User{
+		st: s.state,
+		doc: userDoc{
+			DocID: "BoB",
+		},
+	}
+
+	tag := user.UserTag()
+	c.Assert(tag.Name(), gc.Equals, "BoB")
+}
+
+func (s *upgradesSuite) TestAddNameFieldLowerCaseIdOfUsers(c *gc.C) {
+	s.addCaseSensitiveUsers(c, [][]string{
+		{"BoB", "Bob the Builder"},
+		{"sAm", "Sam Smith"},
+		{"adam", "Adam Apple"},
+	})
+
+	err := AddNameFieldLowerCaseIdOfUsers(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertNameAddedIdLowerCased(c, [][]string{
+		{"adam", "adam", "Adam Apple"},
+		{"bob", "BoB", "Bob the Builder"},
+		{"sam", "sAm", "Sam Smith"},
+		{"test-admin", "test-admin", "test-admin"},
+	})
+}
+
+func (s *upgradesSuite) TestAddNameFieldLowerCaseIdOfUsersIdempotent(c *gc.C) {
+	s.addCaseSensitiveUsers(c, [][]string{
+		{"BoB", "Bob the Builder"},
+		{"sAm", "Sam Smith"},
+	})
+
+	err := AddNameFieldLowerCaseIdOfUsers(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	err = AddNameFieldLowerCaseIdOfUsers(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertNameAddedIdLowerCased(c, [][]string{
+		{"bob", "BoB", "Bob the Builder"},
+		{"sam", "sAm", "Sam Smith"},
+		{"test-admin", "test-admin", "test-admin"},
+	})
+}
+
+// addCaseSensitiveUsers adds a userDoc with a case sensitive "_id" for each
+// {"_id", "displayname"} pair passed in.
+func (s *upgradesSuite) addCaseSensitiveUsers(c *gc.C, oldUsers [][]string) {
+	var ops []txn.Op
+	for _, oldUser := range oldUsers {
+		ops = append(ops, txn.Op{
+			C:  usersC,
+			Id: oldUser[0],
+			Insert: bson.D{
+				{"displayname", oldUser[1]},
+			},
+		})
+	}
+	err := s.state.runRawTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// assertNameAddedIdLowerCased asserts that all users in the usersC collection
+// have the expected lower case _id and case preserved name.
+func (s *upgradesSuite) assertNameAddedIdLowerCased(c *gc.C, expected [][]string) {
+	users, closer := s.state.getCollection("users")
+	defer closer()
+
+	var obtained []bson.M
+	err := users.Find(nil).Sort("_id").All(&obtained)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for i, expectedUser := range expected {
+		c.Assert(obtained[i]["_id"], gc.Equals, expectedUser[0])
+		c.Assert(obtained[i]["name"], gc.Equals, expectedUser[1])
+		c.Assert(obtained[i]["displayname"], gc.Equals, expectedUser[2])
+	}
+	c.Assert(len(obtained), gc.Equals, len(expected))
+}
+
+func (s *upgradesSuite) TestAddUniqueOwnerEnvNameForEnvirons(c *gc.C) {
+	s.userEnvNameSetup(c, [][]string{
+		{"bob", "bobsenv"},
+		{"sam@remote", "samsenv"},
+	})
+
+	err := AddUniqueOwnerEnvNameForEnvirons(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertUserEnvNameObtained(c,
+		"test-admin@local:testenv",
+		"bob@local:bobsenv",
+		"sam@remote:samsenv",
+	)
+}
+
+func (s *upgradesSuite) TestAddUniqueOwnerEnvNameForEnvironsErrors(c *gc.C) {
+	s.userEnvNameSetup(c, [][]string{
+		{"bob", "bobsenv"},
+		{"bob", "bobsenv"},
+	})
+
+	err := AddUniqueOwnerEnvNameForEnvirons(s.state)
+	c.Assert(err, gc.ErrorMatches, `environment "bobsenv" for bob@local already exists`)
+	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
+
+	// we expect the userenvname doc for the server environ as it was inserted
+	// when the environment was initialized.
+	s.assertUserEnvNameObtained(c, "test-admin@local:testenv")
+}
+
+func (s *upgradesSuite) TestAddUniqueOwnerEnvNameForEnvironsIdempotent(c *gc.C) {
+	s.userEnvNameSetup(c, [][]string{
+		{"bob", "bobsenv"},
+		{"sam@remote", "samsenv"},
+	})
+
+	err := AddUniqueOwnerEnvNameForEnvirons(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	err = AddUniqueOwnerEnvNameForEnvirons(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertUserEnvNameObtained(c,
+		"bob@local:bobsenv",
+		"sam@remote:samsenv",
+		"test-admin@local:testenv",
+	)
+}
+
+// userEnvNameSetup adds an environmentsC doc for each {"owner", "envName"} arg.
+func (s *upgradesSuite) userEnvNameSetup(c *gc.C, userEnvNamePairs [][]string) {
+	var ops []txn.Op
+	for _, userEnvNamePair := range userEnvNamePairs {
+		uuid, err := utils.NewUUID()
+		c.Assert(err, jc.ErrorIsNil)
+		ops = append(ops, createEnvironmentOp(
+			s.state,
+			names.NewUserTag(userEnvNamePair[0]),
+			userEnvNamePair[1],
+			uuid.String(),
+			s.state.EnvironUUID(),
+		))
+	}
+	err := s.state.runRawTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// assertUserEnvNameObtained asserts that all (and no more) expectedIds are found in
+// the userenvnameC collection.
+func (s *upgradesSuite) assertUserEnvNameObtained(c *gc.C, expectedIds ...string) {
+	var obtained []bson.M
+	userenvname, closer := s.state.getCollection(userenvnameC)
+	defer closer()
+	err := userenvname.Find(nil).All(&obtained)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var obtainedIds []string
+	for _, userEnvName := range obtained {
+		obtainedIds = append(obtainedIds, userEnvName["_id"].(string))
+	}
+	c.Assert(obtainedIds, jc.SameContents, expectedIds)
 }
 
 func (s *upgradesSuite) TestAddStateUsersToEnviron(c *gc.C) {
@@ -239,6 +535,73 @@ func (s *upgradesSuite) TestAddEnvUUIDToUnitsIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToUnits, unitsC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToEnvUsers(c *gc.C) {
+	uuid := s.state.EnvironUUID()
+	coll, newIDs, count := s.checkEnvUUID(c, AddEnvUUIDToEnvUsersDoc, envUsersC,
+		[]bson.M{{
+			"_id":         uuid + ":sam@local",
+			"createdby":   "test-admin@local",
+			"displayname": "sam",
+			"envuuid":     uuid,
+			"user":        "sam@local",
+		}, {
+			"_id":         uuid + ":ralph@local",
+			"createdby":   "test-admin@local",
+			"displayname": "ralph",
+			"envuuid":     uuid,
+			"user":        "ralph@local",
+		}},
+		false,
+	)
+	// This test expects 3 docs to account for the test-admin user doc.
+	c.Assert(count, gc.Equals, 3)
+
+	var newDoc envUserDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.UserName, gc.Equals, "sam@local")
+	c.Assert(newDoc.CreatedBy, gc.Equals, "test-admin@local")
+	c.Assert(newDoc.DisplayName, gc.Equals, "sam")
+
+	var newBsonDoc bson.M
+	s.FindId(c, coll, newIDs[0], &newBsonDoc)
+	_, ok := newBsonDoc["envuuid"]
+	c.Assert(ok, jc.IsFalse)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.UserName, gc.Equals, "ralph@local")
+	c.Assert(newDoc.CreatedBy, gc.Equals, "test-admin@local")
+	c.Assert(newDoc.DisplayName, gc.Equals, "ralph")
+
+	s.FindId(c, coll, newIDs[1], &newBsonDoc)
+	_, ok = newBsonDoc["envuuid"]
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToEnvUsersIdempotent(c *gc.C) {
+	uuid := s.state.EnvironUUID()
+	oldID := uuid + ":bob@local"
+
+	s.addLegacyDoc(c, envUsersC, bson.M{"_id": oldID, "envuuid": uuid})
+	err := AddEnvUUIDToEnvUsersDoc(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	err = AddEnvUUIDToEnvUsersDoc(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	coll, closer := s.state.getRawCollection(envUsersC)
+	defer closer()
+
+	var docs []map[string]string
+	err = coll.Find(nil).All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(docs, gc.HasLen, 2)
+	c.Assert(docs[0]["user"], gc.Equals, "test-admin@local")
+	c.Assert(docs[1]["_id"], gc.Equals, oldID)
+	c.Assert(docs[1]["env-uuid"], gc.Equals, uuid)
+	if oldUuid, ok := docs[1]["envuuid"]; ok {
+		c.Fatalf("expected nil found %q", oldUuid)
+	}
+}
+
 func (s *upgradesSuite) TestAddEnvUUIDToMachines(c *gc.C) {
 	coll, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToMachines, machinesC,
 		bson.M{
@@ -376,11 +739,11 @@ func (s *upgradesSuite) TestAddEnvUUIDToNetworks(c *gc.C) {
 
 	var newDoc networkDoc
 	s.FindId(c, coll, newIDs[0], &newDoc)
-	c.Assert(newDoc.ProviderId, gc.Equals, network.Id("net1"))
+	c.Assert(network.Id(newDoc.ProviderId), gc.Equals, network.Id("net1"))
 	c.Assert(newDoc.CIDR, gc.Equals, "0.1.2.0/24")
 
 	s.FindId(c, coll, newIDs[1], &newDoc)
-	c.Assert(newDoc.ProviderId, gc.Equals, network.Id("net2"))
+	c.Assert(network.Id(newDoc.ProviderId), gc.Equals, network.Id("net2"))
 	c.Assert(newDoc.CIDR, gc.Equals, "0.2.2.0/24")
 }
 
@@ -813,20 +1176,20 @@ func (s *upgradesSuite) TestAddEnvUUIDToMeterStatus(c *gc.C) {
 	coll, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToMeterStatus, meterStatusC,
 		bson.M{
 			"_id":  "u#foo/0",
-			"code": MeterGreen,
+			"code": MeterGreen.String(),
 		},
 		bson.M{
 			"_id":  "u#bar/0",
-			"code": MeterRed,
+			"code": MeterRed.String(),
 		},
 	)
 
 	var newDoc meterStatusDoc
 	s.FindId(c, coll, newIDs[0], &newDoc)
-	c.Assert(newDoc.Code, gc.Equals, MeterGreen)
+	c.Assert(newDoc.Code, gc.Equals, MeterGreen.String())
 
 	s.FindId(c, coll, newIDs[1], &newDoc)
-	c.Assert(newDoc.Code, gc.Equals, MeterRed)
+	c.Assert(newDoc.Code, gc.Equals, MeterRed.String())
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToMeterStatusIdempotent(c *gc.C) {
@@ -1061,7 +1424,7 @@ func (s *upgradesSuite) setUpPortsMigration(c *gc.C) ([]*Machine, map[int][]*Uni
 	stateOwner, err := s.state.AddUser("bob", "notused", "notused", "bob")
 	c.Assert(err, jc.ErrorIsNil)
 	ownerTag := stateOwner.UserTag()
-	_, err = s.state.AddEnvironmentUser(ownerTag, ownerTag)
+	_, err = s.state.AddEnvironmentUser(ownerTag, ownerTag, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i := range services {
@@ -1257,7 +1620,7 @@ func (s *upgradesSuite) assertUnitPortsPostMigration(c *gc.C, units map[int][]*U
 			if unit.Name() == units[2][2].Name() {
 				// Only units[2][2] will have ports on its doc, as
 				// it's not assigned to a machine.
-				c.Assert(unit.doc.Ports, jc.DeepEquals, []network.Port{
+				c.Assert(networkPorts(unit.doc.Ports), jc.DeepEquals, []network.Port{
 					{Protocol: "tcp", Number: 80},
 				})
 			} else {
@@ -1484,7 +1847,7 @@ func (s *upgradesSuite) setUpMeterStatusCreation(c *gc.C) []*Unit {
 	stateOwner, err := s.state.AddUser("bob", "notused", "notused", "bob")
 	c.Assert(err, jc.ErrorIsNil)
 	ownerTag := stateOwner.UserTag()
-	_, err = s.state.AddEnvironmentUser(ownerTag, ownerTag)
+	_, err = s.state.AddEnvironmentUser(ownerTag, ownerTag, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i := 0; i < 3; i++ {
@@ -1530,7 +1893,7 @@ func (s *upgradesSuite) TestCreateMeterStatuses(c *gc.C) {
 
 	// assert the units do not have meter status documents
 	for _, unit := range units {
-		_, _, err := unit.GetMeterStatus()
+		_, err := unit.GetMeterStatus()
 		c.Assert(err, gc.ErrorMatches, "cannot retrieve meter status for unit .*: not found")
 	}
 
@@ -1540,20 +1903,18 @@ func (s *upgradesSuite) TestCreateMeterStatuses(c *gc.C) {
 
 	// assert the units do not have meter status documents
 	for _, unit := range units {
-		code, info, err := unit.GetMeterStatus()
+		status, err := unit.GetMeterStatus()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(code, gc.Equals, "NOT SET")
-		c.Assert(info, gc.Equals, "")
+		c.Assert(status, gc.DeepEquals, MeterStatus{MeterNotSet, ""})
 	}
 
 	// run migration again to make sure it's idempotent
 	err = CreateUnitMeterStatus(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, unit := range units {
-		code, info, err := unit.GetMeterStatus()
+		status, err := unit.GetMeterStatus()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(code, gc.Equals, "NOT SET")
-		c.Assert(info, gc.Equals, "")
+		c.Assert(status, gc.DeepEquals, MeterStatus{MeterNotSet, ""})
 	}
 }
 
@@ -2015,4 +2376,130 @@ func countOldIndexes(c *gc.C, coll *mgo.Collection) (foundCount, oldCount int) {
 		}
 	}
 	return
+}
+
+func (s *upgradesSuite) addMachineWithLife(c *gc.C, machineID int, life Life) {
+	mDoc := bson.M{
+		"_id":        machineID,
+		"instanceid": "foobar",
+		"life":       life,
+	}
+	ops := []txn.Op{
+		{
+			C:      machinesC,
+			Id:     machineID,
+			Assert: txn.DocMissing,
+			Insert: mDoc,
+		},
+	}
+	err := s.state.runRawTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) TestIPAddressesLife(c *gc.C) {
+	addresses, closer := s.state.getRawCollection(ipaddressesC)
+	defer closer()
+
+	s.addMachineWithLife(c, 1, Alive)
+	s.addMachineWithLife(c, 2, Alive)
+	s.addMachineWithLife(c, 3, Dead)
+
+	uuid := s.state.EnvironUUID()
+
+	err := addresses.Insert(
+		// this one should have Life set to Alive
+		bson.D{
+			{"_id", uuid + ":0.1.2.3"},
+			{"env-uuid", uuid},
+			{"subnetid", "foo"},
+			{"machineid", 1},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.3"},
+			{"state", ""},
+		},
+		// this one should be untouched
+		bson.D{
+			{"_id", uuid + ":0.1.2.4"},
+			{"env-uuid", uuid},
+			{"life", Dead},
+			{"subnetid", "foo"},
+			{"machineid", 2},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.4"},
+			{"state", ""},
+		},
+		// this one should be set to Dead as the machine is Dead
+		bson.D{
+			{"_id", uuid + ":0.1.2.5"},
+			{"env-uuid", uuid},
+			{"subnetid", "foo"},
+			{"machineid", 3},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.5"},
+			{"state", AddressStateAllocated},
+		},
+		// this one should be set to Dead as the machine is missing
+		bson.D{
+			{"_id", uuid + ":0.1.2.6"},
+			{"env-uuid", uuid},
+			{"subnetid", "foo"},
+			{"machineid", 4},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.6"},
+			{"state", AddressStateAllocated},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = AddLifeFieldOfIPAddresses(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ipAddr, err := s.state.IPAddress("0.1.2.4")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.Life(), gc.Equals, Dead)
+
+	ipAddr, err = s.state.IPAddress("0.1.2.5")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.Life(), gc.Equals, Dead)
+
+	ipAddr, err = s.state.IPAddress("0.1.2.6")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.Life(), gc.Equals, Dead)
+
+	doc := ipaddressDoc{}
+	err = addresses.FindId(uuid + ":0.1.2.3").One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(doc.Life, gc.Equals, Alive)
+}
+
+func (s *upgradesSuite) TestIPAddressLifeIdempotent(c *gc.C) {
+	addresses, closer := s.state.getRawCollection(ipaddressesC)
+	defer closer()
+
+	s.addMachineWithLife(c, 1, Alive)
+	uuid := s.state.EnvironUUID()
+
+	err := addresses.Insert(
+		// this one should have Life set to Alive
+		bson.D{
+			{"_id", uuid + ":0.1.2.3"},
+			{"env-uuid", uuid},
+			{"subnetid", "foo"},
+			{"machineid", 1},
+			{"interfaceid", "bam"},
+			{"value", "0.1.2.3"},
+			{"state", ""},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = AddLifeFieldOfIPAddresses(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	err = AddLifeFieldOfIPAddresses(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	doc := ipaddressDoc{}
+	err = addresses.FindId(uuid + ":0.1.2.3").One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(doc.Life, gc.Equals, Alive)
 }

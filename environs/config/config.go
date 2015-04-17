@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -18,7 +17,8 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/charmrepo"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/juju/osenv"
@@ -135,6 +135,7 @@ const (
 	SetNumaControlPolicyKey = "set-numa-control-policy"
 
 	// BlockKeyPrefix is the prefix used for environment variables that block commands
+	// TODO(anastasiamac 2015-02-27) remove it and all related post 1.24 as obsolete
 	BlockKeyPrefix = "block-"
 
 	// PreventDestroyEnvironmentKey stores the value for this setting
@@ -145,6 +146,14 @@ const (
 
 	// PreventAllChangesKey stores the value for this setting
 	PreventAllChangesKey = BlockKeyPrefix + "all-changes"
+
+	// The default block storage source.
+	StorageDefaultBlockSourceKey = "storage-default-block-source"
+
+	// For LXC containers, is the container allowed to mount block
+	// devices. A theoretical security issue, so must be explicitly
+	// allowed by the user.
+	AllowLXCLoopMounts = "allow-lxc-loop-mounts"
 
 	//
 	// Deprecated Settings Attributes
@@ -322,8 +331,7 @@ const (
 //
 // The required keys (after any files have been read) are "name",
 // "type" and "authorized-keys", all of type string.  Additional keys
-// recognised are "agent-version" (string) and "development" (bool) as
-// well as charm-store-auth (string containing comma-separated key=value pairs).
+// recognised are "agent-version" (string) and "development" (bool).
 func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error) {
 	checker := noDefaultsChecker
 	if withDefaults {
@@ -478,7 +486,7 @@ func ProcessDeprecatedAttributes(attrs map[string]interface{}) map[string]interf
 		}
 	}
 
-	//Update agent-stream from tools-stream if agent-stream was not specified but tools-stream was.
+	// Update agent-stream from tools-stream if agent-stream was not specified but tools-stream was.
 	if _, ok := attrs[AgentStreamKey]; !ok {
 		if toolsKey, ok := attrs[ToolsStreamKey]; ok {
 			processedAttrs[AgentStreamKey] = toolsKey
@@ -491,6 +499,25 @@ func ProcessDeprecatedAttributes(attrs map[string]interface{}) map[string]interf
 		}
 	}
 	return processedAttrs
+}
+
+// InvalidConfigValue is an error type for a config value that failed validation.
+type InvalidConfigValueError struct {
+	// Key is the config key used to access the value.
+	Key string
+	// Value is the value that failed validation.
+	Value string
+	// Reason indicates why the value failed validation.
+	Reason error
+}
+
+// Error returns the error string.
+func (e *InvalidConfigValueError) Error() string {
+	msg := fmt.Sprintf("invalid config value for %s: %q", e.Key, e.Value)
+	if e.Reason != nil {
+		msg = msg + ": " + e.Reason.Error()
+	}
+	return msg
 }
 
 // Validate ensures that config is a valid configuration.  If old is not nil,
@@ -553,14 +580,6 @@ func Validate(cfg, old *Config) error {
 		if err := verifyKeyPair(caCert, caKey); err != nil {
 			return errors.Annotate(err, "bad CA certificate/key in configuration")
 		}
-	}
-
-	// Ensure that the auth token is a set of key=value pairs.
-	authToken, _ := cfg.CharmStoreAuth()
-	validAuthToken := regexp.MustCompile(`^([^\s=]+=[^\s=]+(,\s*)?)*$`)
-	if !validAuthToken.MatchString(authToken) {
-		return fmt.Errorf("charm store auth token needs to be a set"+
-			" of key-value pairs, not %q", authToken)
 	}
 
 	// Ensure that the given harvesting method is valid.
@@ -792,6 +811,16 @@ func (c *Config) RsyslogCACert() string {
 	return ""
 }
 
+// RsyslogCAKey returns the key of the CA that signed the
+// rsyslog certificate, in PEM format, or nil if one hasn't been
+// generated yet.
+func (c *Config) RsyslogCAKey() string {
+	if s, ok := c.defined["rsyslog-ca-key"]; ok {
+		return s.(string)
+	}
+	return ""
+}
+
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
@@ -843,6 +872,14 @@ func (c *Config) getWithFallback(key, fallback string) string {
 	return value
 }
 
+// addSchemeIfMissing adds a scheme to a URL if it is missing
+func addSchemeIfMissing(defaultScheme string, url string) string {
+	if url != "" && !strings.Contains(url, "://") {
+		url = defaultScheme + "://" + url
+	}
+	return url
+}
+
 // AptProxySettings returns all three proxy settings; http, https and ftp.
 func (c *Config) AptProxySettings() proxy.Settings {
 	return proxy.Settings{
@@ -855,19 +892,19 @@ func (c *Config) AptProxySettings() proxy.Settings {
 // AptHttpProxy returns the apt http proxy for the environment.
 // Falls back to the default http-proxy if not specified.
 func (c *Config) AptHttpProxy() string {
-	return c.getWithFallback(AptHttpProxyKey, HttpProxyKey)
+	return addSchemeIfMissing("http", c.getWithFallback(AptHttpProxyKey, HttpProxyKey))
 }
 
 // AptHttpsProxy returns the apt https proxy for the environment.
 // Falls back to the default https-proxy if not specified.
 func (c *Config) AptHttpsProxy() string {
-	return c.getWithFallback(AptHttpsProxyKey, HttpsProxyKey)
+	return addSchemeIfMissing("https", c.getWithFallback(AptHttpsProxyKey, HttpsProxyKey))
 }
 
 // AptFtpProxy returns the apt ftp proxy for the environment.
 // Falls back to the default ftp-proxy if not specified.
 func (c *Config) AptFtpProxy() string {
-	return c.getWithFallback(AptFtpProxyKey, FtpProxyKey)
+	return addSchemeIfMissing("ftp", c.getWithFallback(AptFtpProxyKey, FtpProxyKey))
 }
 
 // AptMirror sets the apt mirror for the environment.
@@ -1004,12 +1041,6 @@ func (c *Config) LoggingConfig() string {
 	return c.asString("logging-config")
 }
 
-// Auth token sent to charm store
-func (c *Config) CharmStoreAuth() (string, bool) {
-	auth := c.asString("charm-store-auth")
-	return auth, auth != ""
-}
-
 // ProvisionerHarvestMode reports the harvesting methodology the
 // provisioner should take.
 func (c *Config) ProvisionerHarvestMode() HarvestMode {
@@ -1076,6 +1107,20 @@ func (c *Config) DisableNetworkManagement() (bool, bool) {
 	return v, ok
 }
 
+// StorageDefaultBlockSource returns the default block storage
+// source for the environment.
+func (c *Config) StorageDefaultBlockSource() (string, bool) {
+	bs := c.asString(StorageDefaultBlockSourceKey)
+	return bs, bs != ""
+}
+
+// AllowLXCLoopMounts returns whether loop devices are allowed
+// to be mounted inside lxc containers.
+func (c *Config) AllowLXCLoopMounts() (bool, bool) {
+	v, ok := c.defined[AllowLXCLoopMounts].(bool)
+	return v, ok
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1139,8 +1184,8 @@ var fields = schema.Fields{
 	"api-port":                   schema.ForceInt(),
 	"syslog-port":                schema.ForceInt(),
 	"rsyslog-ca-cert":            schema.String(),
+	"rsyslog-ca-key":             schema.String(),
 	"logging-config":             schema.String(),
-	"charm-store-auth":           schema.String(),
 	ProvisionerHarvestModeKey:    schema.String(),
 	HttpProxyKey:                 schema.String(),
 	HttpsProxyKey:                schema.String(),
@@ -1165,6 +1210,8 @@ var fields = schema.Fields{
 	PreventDestroyEnvironmentKey: schema.Bool(),
 	PreventRemoveObjectKey:       schema.Bool(),
 	PreventAllChangesKey:         schema.Bool(),
+	StorageDefaultBlockSourceKey: schema.String(),
+	AllowLXCLoopMounts:           schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    schema.String(),
@@ -1194,6 +1241,7 @@ var alwaysOptional = schema.Defaults{
 	"bootstrap-retry-delay":      schema.Omit,
 	"bootstrap-addresses-delay":  schema.Omit,
 	"rsyslog-ca-cert":            schema.Omit,
+	"rsyslog-ca-key":             schema.Omit,
 	HttpProxyKey:                 schema.Omit,
 	HttpsProxyKey:                schema.Omit,
 	FtpProxyKey:                  schema.Omit,
@@ -1206,15 +1254,20 @@ var alwaysOptional = schema.Defaults{
 	"disable-network-management": schema.Omit,
 	AgentStreamKey:               schema.Omit,
 	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
-	PreventDestroyEnvironmentKey: DefaultPreventDestroyEnvironment,
-	PreventRemoveObjectKey:       DefaultPreventRemoveObject,
-	PreventAllChangesKey:         DefaultPreventAllChanges,
+	AllowLXCLoopMounts:           false,
+
+	// Storage related config.
+	// Environ providers will specify their own defaults.
+	StorageDefaultBlockSourceKey: schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
-	ToolsMetadataURLKey:    "",
-	LxcUseClone:            schema.Omit,
-	ProvisionerSafeModeKey: schema.Omit,
-	ToolsStreamKey:         schema.Omit,
+	ToolsMetadataURLKey:          "",
+	LxcUseClone:                  schema.Omit,
+	ProvisionerSafeModeKey:       schema.Omit,
+	ToolsStreamKey:               schema.Omit,
+	PreventDestroyEnvironmentKey: schema.Omit,
+	PreventRemoveObjectKey:       schema.Omit,
+	PreventAllChangesKey:         schema.Omit,
 
 	// For backward compatibility reasons, the following
 	// attributes default to empty strings rather than being
@@ -1233,8 +1286,6 @@ var alwaysOptional = schema.Defaults{
 	"state-port":  DefaultStatePort,
 	"api-port":    DefaultAPIPort,
 	"syslog-port": DefaultSyslogPort,
-	// Authentication string sent with requests to the charm store
-	"charm-store-auth": "",
 	// Previously image-stream could be set to an empty value
 	"image-stream":             "",
 	"test-mode":                false,
@@ -1272,9 +1323,6 @@ func allDefaults() schema.Defaults {
 		"prefer-ipv6":                false,
 		"disable-network-management": false,
 		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
-		PreventDestroyEnvironmentKey: DefaultPreventDestroyEnvironment,
-		PreventRemoveObjectKey:       DefaultPreventRemoveObject,
-		PreventAllChangesKey:         DefaultPreventAllChanges,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {
@@ -1336,6 +1384,7 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 	checker := schema.FieldMap(fields, defaults)
 	coerced, err := checker.Coerce(attrs, nil)
 	if err != nil {
+		// TODO(ericsnow) Drop this?
 		logger.Debugf("coercion failed attributes: %#v, checker: %#v, %v", attrs, checker, err)
 		return nil, err
 	}
@@ -1363,25 +1412,21 @@ func (cfg *Config) GenerateStateServerCertAndKey(hostAddresses []string) (string
 	if !hasCAKey {
 		return "", "", fmt.Errorf("environment configuration has no ca-private-key")
 	}
-	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), hostAddresses)
+	return cert.NewDefaultServer(caCert, caKey, hostAddresses)
 }
 
 // SpecializeCharmRepo customizes a repository for a given configuration.
-// It adds authentication if necessary and sets a charm store's testMode flag.
-func SpecializeCharmRepo(repo charm.Repository, cfg *Config) {
-	type Specializer interface {
-		SetAuthAttrs(string)
-		SetTestMode(testMode bool)
+// It returns a charm repository with test mode enabled if applicable.
+func SpecializeCharmRepo(repo charmrepo.Interface, cfg *Config) charmrepo.Interface {
+	type specializer interface {
+		WithTestMode() charmrepo.Interface
 	}
-	// If a charm store auth token is set, pass it on to the charm store
-	if auth, authSet := cfg.CharmStoreAuth(); authSet {
-		if CS, isCS := repo.(Specializer); isCS {
-			CS.SetAuthAttrs(auth)
+	if store, ok := repo.(specializer); ok {
+		if cfg.TestMode() {
+			return store.WithTestMode()
 		}
 	}
-	if CS, isCS := repo.(Specializer); isCS {
-		CS.SetTestMode(cfg.TestMode())
-	}
+	return repo
 }
 
 // SSHTimeoutOpts lists the amount of time we will wait for various

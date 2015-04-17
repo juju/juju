@@ -4,6 +4,8 @@
 package state
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/mgo.v2"
@@ -120,7 +122,24 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 	}
 	err = newState.runTransactionNoEnvAliveAssert(ops)
 	if err == txn.ErrAborted {
-		err = errors.New("environment already exists")
+
+		// We have a  unique key restriction on the "owner" and "name" fields,
+		// which will cause the insert to fail if there is another record with
+		// the same "owner" and "name" in the collection. If the txn is
+		// aborted, check if it is due to the unique key restriction.
+		environments, closer := st.getCollection(environmentsC)
+		defer closer()
+		envCount, countErr := environments.Find(bson.D{
+			{"owner", owner.Username()},
+			{"name", cfg.Name()}},
+		).Count()
+		if countErr != nil {
+			err = errors.Trace(countErr)
+		} else if envCount > 0 {
+			err = errors.AlreadyExistsf("environment %q for %s", cfg.Name(), owner.Username())
+		} else {
+			err = errors.New("environment already exists")
+		}
 	}
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -128,7 +147,7 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 
 	newEnv, err := newState.Environment()
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "could not load new environment")
+		return nil, nil, errors.Trace(err)
 	}
 
 	return newEnv, newState, nil
@@ -155,6 +174,12 @@ func (e *Environment) ServerTag() names.EnvironTag {
 // UUID returns the universally unique identifier of the environment.
 func (e *Environment) UUID() string {
 	return e.doc.UUID
+}
+
+// ServerUUID returns the universally unique identifier of the server in which
+// the environment is running.
+func (e *Environment) ServerUUID() string {
+	return e.doc.ServerUUID
 }
 
 // Name returns the human friendly name of the environment.
@@ -196,7 +221,6 @@ func (e *Environment) globalKey() string {
 func (e *Environment) Refresh() error {
 	environments, closer := e.st.getCollection(environmentsC)
 	defer closer()
-
 	return e.refresh(environments.FindId(e.UUID()))
 }
 
@@ -208,40 +232,182 @@ func (e *Environment) refresh(query *mgo.Query) error {
 	return err
 }
 
+// Users returns a slice of all users for this environment.
+func (e *Environment) Users() ([]*EnvironmentUser, error) {
+	coll, closer := e.st.getCollection(envUsersC)
+	defer closer()
+
+	var userDocs []envUserDoc
+	err := coll.Find(nil).All(&userDocs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var envUsers []*EnvironmentUser
+	for _, doc := range userDocs {
+		envUsers = append(envUsers, &EnvironmentUser{
+			st:  e.st,
+			doc: doc,
+		})
+	}
+
+	return envUsers, nil
+}
+
 // Destroy sets the environment's lifecycle to Dying, preventing
 // addition of services or machines to state.
-func (e *Environment) Destroy() error {
+func (e *Environment) Destroy() (err error) {
+	defer errors.DeferredAnnotatef(&err, "failed to destroy environment")
 	if e.Life() != Alive {
 		return nil
 	}
-	// TODO(axw) 2013-12-11 #1218688
-	// Resolve the race between checking for manual machines and
-	// destroying the environment. We can set Environment to Dying
-	// to resolve the race, but that puts the environment into an
-	// unusable state.
-	//
-	// We add a cleanup for services, but not for machines;
-	// machines are destroyed via the provider interface. The
-	// exception to this rule is manual machines; the API prevents
-	// destroy-environment from succeeding if any non-manager
-	// manual machines exist.
+
+	if err := e.ensureDestroyable(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := e.startDestroy(); err != nil {
+		if abortErr := e.abortDestroy(); abortErr != nil {
+			return errors.Annotate(abortErr, err.Error())
+		}
+		return errors.Trace(err)
+	}
+
+	// Check that no new environments or machines were added between the first
+	// check and the Environment.startDestroy().
+	if err := e.ensureDestroyable(); err != nil {
+		if abortErr := e.abortDestroy(); abortErr != nil {
+			return errors.Annotate(abortErr, err.Error())
+		}
+		return errors.Trace(err)
+	}
+
+	if err := e.finishDestroy(); err != nil {
+		if abortErr := e.abortDestroy(); abortErr != nil {
+			return errors.Annotate(abortErr, err.Error())
+		}
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (e *Environment) startDestroy() error {
+	// Set the environment to Dying, to lock out new machines and services.
+	// This puts the environment into an unusable state.
 	ops := []txn.Op{{
 		C:      environmentsC,
 		Id:     e.doc.UUID,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 		Assert: isEnvAliveDoc,
-	}, e.st.newCleanupOp(cleanupServicesForDyingEnvironment, "")}
+	}}
 	err := e.st.runTransaction(ops)
-	switch err {
-	case nil, txn.ErrAborted:
-		// If the transaction aborted, the environment is either
-		// Dying or Dead; neither case is an error. If it's Dead,
-		// reporting it as Dying is not incorrect; the user thought
-		// it was Alive, so we've progressed towards Dead. If the
-		// user then calls Refresh they'll get the true value.
-		e.doc.Life = Dying
+	if err != nil {
+		return errors.Trace(err)
 	}
-	return err
+	e.doc.Life = Dying
+	return nil
+}
+
+func (e *Environment) finishDestroy() error {
+	// We add a cleanup for services, but not for machines; machines are
+	// destroyed via the provider interface. The exception to this rule is
+	// manual machines; the API prevents destroy-environment from succeeding
+	// if any non-manager manual machines exist.
+	//
+	// We don't bother adding a cleanup for a non state server environment, as
+	// RemoveAllEnvironDocs() at the end of apiserver/client.Destroy() removes
+	// these documents for us.
+	if e.UUID() == e.doc.ServerUUID {
+		ops := []txn.Op{e.st.newCleanupOp(cleanupServicesForDyingEnvironment, "")}
+		return e.st.runTransaction(ops)
+	}
+	return nil
+}
+
+func (e *Environment) abortDestroy() error {
+	// If an environment was added while completing the transaction, rollback
+	// the transaction and return an error.
+	ops := []txn.Op{{
+		C:      environmentsC,
+		Id:     e.doc.UUID,
+		Update: bson.D{{"$set", bson.D{{"life", Alive}}}},
+	}}
+	err := e.st.runTransaction(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	e.doc.Life = Alive
+	return nil
+}
+
+// checkManualMachines checks if any of the machines in the slice were
+// manually provisioned, and are non-manager machines. These machines
+// must (currently) be manually destroyed via destroy-machine before
+// destroy-environment can successfully complete.
+func checkManualMachines(machines []*Machine) error {
+	var ids []string
+	for _, m := range machines {
+		if m.IsManager() {
+			continue
+		}
+		manual, err := m.IsManual()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if manual {
+			ids = append(ids, m.Id())
+		}
+	}
+	if len(ids) > 0 {
+		return errors.Errorf("manually provisioned machines must first be destroyed with `juju destroy-machine %s`", strings.Join(ids, " "))
+	}
+	return nil
+}
+
+// ensureDestroyable returns an error if there is more than one environment and the
+// environment to be destroyed is the state server environment.
+func (e *Environment) ensureDestroyable() error {
+	// after another client checks. Destroy-environment will
+	// still fail, but the environment will be in a state where
+	// entities can only be destroyed.
+
+	// First, check for manual machines. We bail out if there are any,
+	// to stop the user from prematurely hobbling the environment.
+	machines, err := e.st.AllMachines()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := checkManualMachines(machines); err != nil {
+		return errors.Trace(err)
+	}
+
+	// If there are any persistent volumes, the environment can't be destroyed.
+	volumes, err := e.st.PersistentVolumes()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(volumes) > 0 {
+		return ErrPersistentVolumesExist
+	}
+
+	// If this is not the state server environment, it can be destroyed
+	if e.doc.UUID != e.doc.ServerUUID {
+		return nil
+	}
+
+	environments, closer := e.st.getCollection(environmentsC)
+	defer closer()
+	n, err := environments.Count()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if n > 1 {
+		return errors.Errorf("state server environment cannot be destroyed before all other environments are destroyed")
+	}
+	return nil
 }
 
 // createEnvironmentOp returns the operation needed to create
@@ -262,6 +428,17 @@ func createEnvironmentOp(st *State, owner names.UserTag, name, uuid, server stri
 	}
 }
 
+// createUniqueOwnerEnvNameOp returns the operation needed to create
+// an userenvnameC document with the given owner and environment name.
+func createUniqueOwnerEnvNameOp(owner names.UserTag, envName string) txn.Op {
+	return txn.Op{
+		C:      userenvnameC,
+		Id:     userEnvNameIndex(owner.Username(), envName),
+		Assert: txn.DocMissing,
+		Insert: bson.M{},
+	}
+}
+
 // assertAliveOp returns a txn.Op that asserts the environment is alive.
 func (e *Environment) assertAliveOp() txn.Op {
 	return txn.Op{
@@ -271,7 +448,7 @@ func (e *Environment) assertAliveOp() txn.Op {
 	}
 }
 
-// isEnvAlive is an Environment-specific versio nof isAliveDoc.
+// isEnvAlive is an Environment-specific version of isAliveDoc.
 //
 // Environment documents from versions of Juju prior to 1.17
 // do not have the life field; if it does not exist, it should

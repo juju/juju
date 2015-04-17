@@ -35,6 +35,7 @@ type apiState interface {
 	Close() error
 	APIHostPorts() [][]network.HostPort
 	EnvironTag() (names.EnvironTag, error)
+	ServerTag() (names.EnvironTag, error)
 }
 
 type apiOpenFunc func(*api.Info, api.DialOpts) (apiState, error)
@@ -89,11 +90,11 @@ func defaultAPIOpen(info *api.Info, opts api.DialOpts) (apiState, error) {
 func newAPIClient(envName string) (*api.State, error) {
 	store, err := configstore.Default()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	st, err := newAPIFromStore(envName, store, defaultAPIOpen)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return st.(*api.State), nil
 }
@@ -220,11 +221,17 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 		}
 	}
 	// Update API addresses if they've changed. Error is non-fatal.
-	envTag, err := st.EnvironTag()
-	if err != nil {
-		logger.Warningf("ignoring API connection environ tag: %v", err)
+	// For older servers, the environ tag or server tag may not be set.
+	// if they are not, we store empty values.
+	var environUUID string
+	var serverUUID string
+	if envTag, err := st.EnvironTag(); err == nil {
+		environUUID = envTag.Id()
 	}
-	if localerr := cacheChangedAPIInfo(info, st.APIHostPorts(), addrConnectedTo, envTag); localerr != nil {
+	if serverTag, err := st.ServerTag(); err == nil {
+		serverUUID = serverTag.Id()
+	}
+	if localerr := cacheChangedAPIInfo(info, st.APIHostPorts(), addrConnectedTo, environUUID, serverUUID); localerr != nil {
 		logger.Warningf("cannot cache API addresses: %v", localerr)
 	}
 	return st, nil
@@ -238,12 +245,12 @@ func errorImportance(err error) int {
 		// An error from an actual connection attempt
 		// is more interesting than the fact that there's
 		// no environment info available.
-		return 1
+		return 2
 	}
 	if _, ok := err.(*infoConnectError); ok {
 		// A connection to a potentially stale cached address
 		// is less important than a connection from fresh info.
-		return 2
+		return 1
 	}
 	return 3
 }
@@ -510,15 +517,18 @@ func PrepareEndpointsForCaching(info configstore.EnvironInfo, hostPorts [][]netw
 // cacheChangedAPIInfo updates the local environment settings (.jenv file)
 // with the provided API server addresses if they have changed. It will also
 // save the environment tag if it is available.
-func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.HostPort, addrConnectedTo network.HostPort, newEnvironTag names.EnvironTag) error {
+func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.HostPort, addrConnectedTo network.HostPort, environUUID, serverUUID string) error {
 	addrs, hosts, addrsChanged := PrepareEndpointsForCaching(info, hostPorts, addrConnectedTo)
+	logger.Debugf("cacheChangedAPIInfo: serverUUID=%q", serverUUID)
 	endpoint := info.APIEndpoint()
 	needCaching := false
-	if names.IsValidEnvironment(newEnvironTag.Id()) {
-		if environUUID := newEnvironTag.Id(); endpoint.EnvironUUID != environUUID {
-			endpoint.EnvironUUID = environUUID
-			needCaching = true
-		}
+	if endpoint.EnvironUUID != environUUID && environUUID != "" {
+		endpoint.EnvironUUID = environUUID
+		needCaching = true
+	}
+	if endpoint.ServerUUID != serverUUID && serverUUID != "" {
+		endpoint.ServerUUID = serverUUID
+		needCaching = true
 	}
 	if addrsChanged {
 		endpoint.Addresses = addrs

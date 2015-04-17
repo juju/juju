@@ -28,13 +28,26 @@ import (
 )
 
 var (
-	apiOpen = api.Open
+	apiOpen = openAPIForAgent
 
 	checkProvisionedStrategy = utils.AttemptStrategy{
 		Total: 1 * time.Minute,
 		Delay: 5 * time.Second,
 	}
 )
+
+// openAPIForAgent exists to handle the edge case that exists
+// when an environment is jumping several versions and doesn't
+// yet have the environment UUID cached in the agent config.
+// This happens only the first time an agent tries to connect
+// after an upgrade.  If there is no environment UUID set, then
+// use login version 1.
+func openAPIForAgent(info *api.Info, opts api.DialOpts) (*api.State, error) {
+	if info.EnvironTag.Id() == "" {
+		return api.OpenWithVersion(info, opts, 1)
+	}
+	return api.Open(info, opts)
+}
 
 // AgentConf handles command-line flags shared by all agents.
 type AgentConf struct {
@@ -137,10 +150,6 @@ func isleep(d time.Duration, stop <-chan struct{}) bool {
 	return true
 }
 
-type apiOpener interface {
-	OpenAPI(api.DialOpts) (*api.State, string, error)
-}
-
 type configChanger func(c *agent.Config)
 
 // OpenAPIState opens the API using the given information. The agent's
@@ -171,7 +180,13 @@ func OpenAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 		return nil, nil, err
 	}
 
-	if usedOldPassword {
+	if !usedOldPassword {
+		// Call set password with the current password.  If we've recently
+		// become a state server, this will fix up our credentials in mongo.
+		if err := entity.SetPassword(info.Password); err != nil {
+			return nil, nil, errors.Annotate(err, "can't reset agent password")
+		}
+	} else {
 		// We succeeded in connecting with the fallback
 		// password, so we need to create a new password
 		// for the future.
@@ -179,19 +194,8 @@ func OpenAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 		if err != nil {
 			return nil, nil, err
 		}
-		// Change the configuration *before* setting the entity
-		// password, so that we avoid the possibility that
-		// we might successfully change the entity's
-		// password but fail to write the configuration,
-		// thus locking us out completely.
-		if err := a.ChangeConfig(func(c agent.ConfigSetter) error {
-			c.SetPassword(newPassword)
-			c.SetOldPassword(info.Password)
-			return nil
-		}); err != nil {
-			return nil, nil, err
-		}
-		if err := entity.SetPassword(newPassword); err != nil {
+		err = setAgentPassword(newPassword, info.Password, a, entity)
+		if err != nil {
 			return nil, nil, err
 		}
 
@@ -205,6 +209,22 @@ func OpenAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 	}
 
 	return st, entity, err
+}
+
+func setAgentPassword(newPw, oldPw string, a Agent, entity *apiagent.Entity) error {
+	// Change the configuration *before* setting the entity
+	// password, so that we avoid the possibility that
+	// we might successfully change the entity's
+	// password but fail to write the configuration,
+	// thus locking us out completely.
+	if err := a.ChangeConfig(func(c agent.ConfigSetter) error {
+		c.SetPassword(newPw)
+		c.SetOldPassword(oldPw)
+		return nil
+	}); err != nil {
+		return err
+	}
+	return entity.SetPassword(newPw)
 }
 
 // OpenAPIStateUsingInfo opens the API using the given API

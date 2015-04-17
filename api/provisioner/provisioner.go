@@ -4,12 +4,14 @@
 package provisioner
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -146,4 +148,62 @@ func (st *State) FindTools(v version.Number, series string, arch *string) (tools
 		return nil, result.Error
 	}
 	return result.List, nil
+}
+
+// ReleaseContainerAddresses releases a static IP address allocated to a
+// container.
+func (st *State) ReleaseContainerAddresses(containerTag names.MachineTag) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot release static addresses for %q", containerTag.Id())
+	var result params.ErrorResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: containerTag.String()}},
+	}
+	if err := st.facade.FacadeCall("ReleaseContainerAddresses", args, &result); err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
+// PrepareContainerInterfaceInfo returns the necessary information to
+// configure network interfaces of a container with allocated static
+// IP addresses.
+//
+// TODO(dimitern): Before we start using this, we need to rename both
+// the method and the network.InterfaceInfo type to be called
+// InterfaceConfig.
+func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
+	var result params.MachineNetworkConfigResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: containerTag.String()}},
+	}
+	if err := st.facade.FacadeCall("PrepareContainerInterfaceInfo", args, &result); err != nil {
+		return nil, err
+	}
+	if len(result.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(result.Results))
+	}
+	if err := result.Results[0].Error; err != nil {
+		return nil, err
+	}
+	ifaceInfo := make([]network.InterfaceInfo, len(result.Results[0].Config))
+	for i, netInfo := range result.Results[0].Config {
+		ifaceInfo[i] = network.InterfaceInfo{
+			DeviceIndex:      netInfo.DeviceIndex,
+			MACAddress:       netInfo.MACAddress,
+			CIDR:             netInfo.CIDR,
+			NetworkName:      netInfo.NetworkName,
+			ProviderId:       network.Id(netInfo.ProviderId),
+			ProviderSubnetId: network.Id(netInfo.ProviderSubnetId),
+			VLANTag:          netInfo.VLANTag,
+			InterfaceName:    netInfo.InterfaceName,
+			Disabled:         netInfo.Disabled,
+			NoAutoStart:      netInfo.NoAutoStart,
+			ConfigType:       network.InterfaceConfigType(netInfo.ConfigType),
+			Address:          network.NewAddress(netInfo.Address),
+			DNSServers:       network.NewAddresses(netInfo.DNSServers...),
+			GatewayAddress:   network.NewAddress(netInfo.GatewayAddress),
+			ExtraConfig:      netInfo.ExtraConfig,
+		}
+	}
+	return ifaceInfo, nil
 }

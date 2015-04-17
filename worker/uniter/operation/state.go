@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/worker/uniter/hook"
 )
@@ -55,8 +55,20 @@ const (
 // State defines the local persistent state of the uniter, excluding relation
 // state.
 type State struct {
+
+	// Leader indicates whether a leader-elected hook has started to run, and
+	// no more recent leader-deposed hook has completed.
+	Leader bool `yaml:"leader"`
+
 	// Started indicates whether the start hook has run.
 	Started bool `yaml:"started"`
+
+	// Stopped indicates whether the stop hook has run.
+	Stopped bool `yaml:"stopped"`
+
+	// StatusSet indicates whether the charm being deployed has ever invoked
+	// the status-set hook tool.
+	StatusSet bool `yaml:"status-set"`
 
 	// Kind indicates the current operation.
 	Kind Kind `yaml:"op"`
@@ -95,34 +107,43 @@ func (st State) validate() (err error) {
 	switch st.Kind {
 	case Install:
 		if hasHook {
-			return errors.New("unexpected hook info")
+			return errors.New("unexpected hook info with Kind Install")
 		}
 		fallthrough
 	case Upgrade:
-		if !hasCharm {
+		switch {
+		case !hasCharm:
 			return errors.New("missing charm URL")
-		} else if hasActionId {
+		case hasActionId:
 			return errors.New("unexpected action id")
 		}
 	case RunAction:
-		if !hasHook {
-			return errors.New("missing hook info")
-		} else if hasCharm {
-			return errors.New("unexpected charm URL")
-		} else if !hasActionId {
+		switch {
+		case !hasActionId:
 			return errors.New("missing action id")
+		case hasCharm:
+			return errors.New("unexpected charm URL")
 		}
 	case RunHook:
-		if hasActionId {
+		switch {
+		case !hasHook:
+			return errors.New("missing hook info with Kind RunHook")
+		case hasCharm:
+			return errors.New("unexpected charm URL")
+		case hasActionId:
 			return errors.New("unexpected action id")
 		}
-		fallthrough
 	case Continue:
-		if !hasHook {
-			return errors.New("missing hook info")
-		} else if hasCharm {
+		// TODO(jw4) LP-1438489
+		// ModeContinue should no longer have a Hook, but until the upgrade is
+		// fixed we can't fail the validation if it does.
+		if hasHook {
+			logger.Errorf("unexpected hook info with Kind Continue")
+		}
+		switch {
+		case hasCharm:
 			return errors.New("unexpected charm URL")
-		} else if hasActionId {
+		case hasActionId:
 			return errors.New("unexpected action id")
 		}
 	default:
@@ -145,11 +166,12 @@ func (st State) CollectedMetricsAt() time.Time {
 
 // stateChange is useful for a variety of Operation implementations.
 type stateChange struct {
-	Kind     Kind
-	Step     Step
-	Hook     *hook.Info
-	ActionId *string
-	CharmURL *charm.URL
+	Kind            Kind
+	Step            Step
+	Hook            *hook.Info
+	ActionId        *string
+	CharmURL        *charm.URL
+	HasRunStatusSet bool
 }
 
 func (change stateChange) apply(state State) *State {
@@ -158,6 +180,7 @@ func (change stateChange) apply(state State) *State {
 	state.Hook = change.Hook
 	state.ActionId = change.ActionId
 	state.CharmURL = change.CharmURL
+	state.StatusSet = state.StatusSet || change.HasRunStatusSet
 	return &state
 }
 

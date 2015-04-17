@@ -6,9 +6,6 @@ package params
 import (
 	"time"
 
-	"github.com/juju/names"
-
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/version"
 )
 
@@ -71,10 +68,8 @@ type BackupsMetadataResult struct {
 	Version     version.Number
 }
 
-// RestoreArgs holds the args to be used to call state/backups.Restore
+// RestoreArgs Holds the backup file or id
 type RestoreArgs struct {
-	PrivateAddress string
-	NewInstId      instance.Id
-	NewInstTag     names.Tag
-	NewInstSeries  string
+	// BackupId holds the id of the backup in server if any
+	BackupId string
 }

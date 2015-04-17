@@ -15,9 +15,10 @@ import (
 	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/apiserver/params"
-	coreCloudinit "github.com/juju/juju/cloudinit"
-	"github.com/juju/juju/cloudinit/sshinit"
-	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -196,14 +197,14 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		HardwareCharacteristics: hc,
 		InstanceId:              instanceId,
 		Nonce:                   nonce,
-		Addrs:                   addrs,
+		Addrs:                   params.FromNetworkAddresses(addrs),
 		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 	}
 	return machineParams, nil
 }
 
-var provisionMachineAgent = func(host string, mcfg *cloudinit.MachineConfig, progressWriter io.Writer) error {
-	script, err := ProvisioningScript(mcfg)
+var provisionMachineAgent = func(host string, icfg *instancecfg.InstanceConfig, progressWriter io.Writer) error {
+	script, err := ProvisioningScript(icfg)
 	if err != nil {
 		return err
 	}
@@ -213,13 +214,15 @@ var provisionMachineAgent = func(host string, mcfg *cloudinit.MachineConfig, pro
 // ProvisioningScript generates a bash script that can be
 // executed on a remote host to carry out the cloud-init
 // configuration.
-func ProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
+func ProvisioningScript(icfg *instancecfg.InstanceConfig) (string, error) {
+	cloudcfg, err := cloudinit.New(icfg.Series)
+	if err != nil {
+		return "", errors.Annotate(err, "error generating cloud-config")
+	}
+	cloudcfg.SetSystemUpdate(icfg.EnableOSRefreshUpdate)
+	cloudcfg.SetSystemUpgrade(icfg.EnableOSUpgrade)
 
-	cloudcfg := coreCloudinit.New()
-	cloudcfg.SetAptUpdate(mcfg.EnableOSRefreshUpdate)
-	cloudcfg.SetAptUpgrade(mcfg.EnableOSUpgrade)
-
-	udata, err := cloudinit.NewUserdataConfig(mcfg, cloudcfg)
+	udata, err := cloudconfig.NewUserdataConfig(icfg, cloudcfg)
 	if err != nil {
 		return "", errors.Annotate(err, "error generating cloud-config")
 	}
@@ -227,16 +230,16 @@ func ProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
 		return "", errors.Annotate(err, "error generating cloud-config")
 	}
 
-	configScript, err := sshinit.ConfigureScript(cloudcfg)
+	configScript, err := cloudcfg.RenderScript()
 	if err != nil {
 		return "", errors.Annotate(err, "error converting cloud-config to script")
 	}
 
 	var buf bytes.Buffer
 	// Always remove the cloud-init-output.log file first, if it exists.
-	fmt.Fprintf(&buf, "rm -f %s\n", utils.ShQuote(mcfg.CloudInitOutputLog))
+	fmt.Fprintf(&buf, "rm -f %s\n", utils.ShQuote(icfg.CloudInitOutputLog))
 	// If something goes wrong, dump cloud-init-output.log to stderr.
-	buf.WriteString(shell.DumpFileOnErrorScript(mcfg.CloudInitOutputLog))
+	buf.WriteString(shell.DumpFileOnErrorScript(icfg.CloudInitOutputLog))
 	buf.WriteString(configScript)
 	return buf.String(), nil
 }

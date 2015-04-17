@@ -23,7 +23,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -31,7 +30,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/juju/names"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -223,6 +221,10 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
 	s.targetStorage = stor
+
+	// Mock out building of tools. Sync should not care about the contents
+	// of tools archives, other than that they hash correctly.
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 }
 
 func (s *uploadSuite) TearDownTest(c *gc.C) {
@@ -235,12 +237,7 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(t.Version, gc.Equals, version.Current)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
-	// TODO(waigani) Does this test need to download tools? If not,
-	// sync.bundleTools can be mocked to improve test speed.
-	dir := downloadTools(c, t)
-	out, err := exec.Command(filepath.Join(dir, names.Jujud), "version").CombinedOutput()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, version.Current.String()+"\n")
+	s.assertUploadedTools(c, t, []string{version.Current.Series}, "released")
 }
 
 func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
@@ -250,7 +247,7 @@ func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
 	}
 	t, err := sync.Upload(s.targetStorage, "released", nil, "quantal", seriesToUpload)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertUploadedTools(c, t, seriesToUpload, "released")
+	s.assertUploadedTools(c, t, []string{seriesToUpload, "quantal", version.Current.Series}, "released")
 }
 
 func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
@@ -266,7 +263,6 @@ func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
 }
 
 func (s *uploadSuite) TestSyncTools(c *gc.C) {
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 	builtTools, err := sync.BuildToolsTarball(nil, "released")
 	c.Assert(err, jc.ErrorIsNil)
 	t, err := sync.SyncBuiltTools(s.targetStorage, "released", builtTools)
@@ -285,7 +281,7 @@ func (s *uploadSuite) TestSyncToolsFakeSeries(c *gc.C) {
 
 	t, err := sync.SyncBuiltTools(s.targetStorage, "testing", builtTools, "quantal", seriesToUpload)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertUploadedTools(c, t, seriesToUpload, "testing")
+	s.assertUploadedTools(c, t, []string{seriesToUpload, "quantal", version.Current.Series}, "testing")
 }
 
 func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
@@ -302,14 +298,13 @@ func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
 	c.Assert(t.Version, gc.Equals, vers)
 }
 
-func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, uploadedSeries, stream string) {
+func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, expectSeries []string, stream string) {
 	c.Assert(t.Version, gc.Equals, version.Current)
 	expectRaw := downloadToolsRaw(c, t)
 
 	list, err := envtools.ReadList(s.targetStorage, stream, version.Current.Major, version.Current.Minor)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(list.AllSeries(), gc.HasLen, 3)
-	expectSeries := []string{"quantal", uploadedSeries, version.Current.Series}
+	c.Assert(list.AllSeries(), jc.SameContents, expectSeries)
 	sort.Strings(expectSeries)
 	c.Assert(list.AllSeries(), gc.DeepEquals, expectSeries)
 	for _, t := range list {
@@ -321,20 +316,6 @@ func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, uploadedS
 	metadata, err := envtools.ReadMetadata(s.targetStorage, stream)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata, gc.HasLen, 0)
-}
-
-// downloadTools downloads the supplied tools and extracts them into a
-// new directory.
-func downloadTools(c *gc.C, t *coretools.Tools) string {
-	resp, err := utils.GetValidatingHTTPClient().Get(t.URL)
-	c.Assert(err, jc.ErrorIsNil)
-	defer resp.Body.Close()
-	cmd := exec.Command("tar", "xz")
-	cmd.Dir = c.MkDir()
-	cmd.Stdin = resp.Body
-	out, err := cmd.CombinedOutput()
-	c.Assert(err, gc.IsNil, gc.Commentf(string(out)))
-	return cmd.Dir
 }
 
 // downloadToolsRaw downloads the supplied tools and returns the raw bytes.

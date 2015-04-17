@@ -12,33 +12,14 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/tailer"
 	"launchpad.net/golxc"
 
-	corecloudinit "github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
-)
-
-const (
-	templateShutdownUpstartFilename = "/etc/init/juju-template-restart.conf"
-	templateShutdownUpstartScript   = `
-description "Juju lxc template shutdown job"
-author "Juju Team <juju@lists.ubuntu.com>"
-start on stopped cloud-final
-
-script
-  shutdown -h now
-end script
-
-post-stop script
-  rm ` + templateShutdownUpstartFilename + `
-end script
-`
 )
 
 var (
@@ -46,45 +27,6 @@ var (
 
 	TemplateStopTimeout = 5 * time.Minute
 )
-
-// templateUserData returns a minimal user data necessary for the template.
-// This should have the authorized keys, base packages, the cloud archive if
-// necessary,  initial apt proxy config, and it should do the apt-get
-// update/upgrade initially.
-func templateUserData(
-	series string,
-	authorizedKeys string,
-	aptProxy proxy.Settings,
-	aptMirror string,
-	enablePackageUpdates bool,
-	enableOSUpgrades bool,
-) ([]byte, error) {
-	config := corecloudinit.New()
-	config.AddScripts(
-		"set -xe", // ensure we run all the scripts or abort.
-	)
-	config.AddSSHAuthorizedKeys(authorizedKeys)
-	if enablePackageUpdates {
-		cloudinit.MaybeAddCloudArchiveCloudTools(config, series)
-	}
-	cloudinit.AddAptCommands(aptProxy, aptMirror, config, enablePackageUpdates, enableOSUpgrades)
-	config.AddScripts(
-		fmt.Sprintf(
-			"printf '%%s\n' %s > %s",
-			utils.ShQuote(templateShutdownUpstartScript),
-			templateShutdownUpstartFilename,
-		))
-
-	renderer, err := corecloudinit.NewRenderer(series)
-	if err != nil {
-		return nil, err
-	}
-	data, err := renderer.Render(config)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
 
 func AcquireTemplateLock(name, message string) (*container.Lock, error) {
 	logger.Infof("wait for flock on %v", name)
@@ -112,6 +54,7 @@ func EnsureCloneTemplate(
 	enablePackageUpdates bool,
 	enableOSUpgrades bool,
 	imageURLGetter container.ImageURLGetter,
+	useAUFS bool,
 ) (golxc.Container, error) {
 	name := fmt.Sprintf("juju-%s-lxc-template", series)
 	containerDirectory, err := container.NewDirectory(name)
@@ -133,19 +76,20 @@ func EnsureCloneTemplate(
 	}
 	logger.Infof("template does not exist, creating")
 
-	userData, err := templateUserData(
+	userData, err := containerinit.TemplateUserData(
 		series,
 		authorizedKeys,
 		aptProxy,
 		aptMirror,
 		enablePackageUpdates,
 		enableOSUpgrades,
+		networkConfig,
 	)
 	if err != nil {
 		logger.Tracef("failed to create template user data for template: %v", err)
 		return nil, err
 	}
-	userDataFilename, err := container.WriteCloudInitFile(containerDirectory, userData)
+	userDataFilename, err := containerinit.WriteCloudInitFile(containerDirectory, userData)
 	if err != nil {
 		return nil, err
 	}

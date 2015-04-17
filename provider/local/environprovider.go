@@ -11,19 +11,18 @@ import (
 	"os/user"
 	"regexp"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/apt"
 	"github.com/juju/utils/proxy"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/provider"
 	"github.com/juju/juju/version"
 )
 
@@ -35,47 +34,15 @@ type environProvider struct{}
 
 var providerInstance = &environProvider{}
 
-func init() {
-	environs.RegisterProvider(provider.Local, providerInstance)
-}
-
 var userCurrent = user.Current
 
 // Open implements environs.EnvironProvider.Open.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("opening environment %q", cfg.Name())
-	if _, ok := cfg.AgentVersion(); !ok {
-		newCfg, err := cfg.Apply(map[string]interface{}{
-			"agent-version": version.Current.Number.String(),
-		})
-		if err != nil {
-			return nil, err
-		}
-		cfg = newCfg
-	}
-	// Set the "namespace" attribute. We do this here, and not in Prepare,
-	// for backwards compatibility: older versions did not store the namespace
-	// in config.
-	if namespace, _ := cfg.UnknownAttrs()["namespace"].(string); namespace == "" {
-		username := os.Getenv("USER")
-		if username == "" {
-			u, err := userCurrent()
-			if err != nil {
-				return nil, errors.Annotate(err, "failed to determine username for namespace")
-			}
-			username = u.Username
-		}
-		var err error
-		namespace = fmt.Sprintf("%s-%s", username, cfg.Name())
-		cfg, err = cfg.Apply(map[string]interface{}{"namespace": namespace})
-		if err != nil {
-			return nil, errors.Annotate(err, "failed to create namespace")
-		}
-	}
 	// Do the initial validation on the config.
 	localConfig, err := providerInstance.newConfig(cfg)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if err := VerifyPrerequisites(localConfig.container()); err != nil {
 		return nil, errors.Annotate(err, "failed verification of local provider prerequisites")
@@ -115,8 +82,6 @@ func (p environProvider) correctLocalhostURLs(cfg *config.Config, providerCfg *e
 	return cfg.Apply(updatedAttrs)
 }
 
-var detectAptProxies = apt.DetectProxies
-
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (p environProvider) RestrictedConfigAttributes() []string {
 	return []string{ContainerKey, NetworkBridgeKey, RootDirKey}
@@ -124,27 +89,6 @@ func (p environProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
-}
-
-// Prepare implements environs.EnvironProvider.Prepare.
-func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	// The user must not set bootstrap-ip; this is determined by the provider,
-	// and its presence used to determine whether the environment has yet been
-	// bootstrapped.
-	if _, ok := cfg.UnknownAttrs()["bootstrap-ip"]; ok {
-		return nil, fmt.Errorf("bootstrap-ip must not be specified")
-	}
-	err := checkLocalPort(cfg.StatePort(), "state port")
-	if err != nil {
-		return nil, err
-	}
-	err = checkLocalPort(cfg.APIPort(), "API port")
-	if err != nil {
-		return nil, err
-	}
-	// If the user has specified no values for any of the three normal
-	// proxies, then look in the environment and set them.
 	attrs := map[string]interface{}{
 		// We must not proxy SSH through the API server in a
 		// local provider environment. Besides not being useful,
@@ -152,11 +96,28 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 		// be available on machine-0.
 		"proxy-ssh": false,
 	}
+	if _, ok := cfg.AgentVersion(); !ok {
+		attrs["agent-version"] = version.Current.Number.String()
+	}
+	if namespace, _ := cfg.UnknownAttrs()["namespace"].(string); namespace == "" {
+		username := os.Getenv("USER")
+		if username == "" {
+			u, err := userCurrent()
+			if err != nil {
+				return nil, errors.Annotate(err, "failed to determine username for namespace")
+			}
+			username = u.Username
+		}
+		attrs["namespace"] = fmt.Sprintf("%s-%s", username, cfg.Name())
+	}
+
 	setIfNotBlank := func(key, value string) {
 		if value != "" {
 			attrs[key] = value
 		}
 	}
+	// If the user has specified no values for any of the four normal
+	// proxies, then look in the environment and set them.
 	logger.Tracef("Look for proxies?")
 	if cfg.HttpProxy() == "" &&
 		cfg.HttpsProxy() == "" &&
@@ -173,20 +134,49 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 		if cfg.AptHttpProxy() == "" &&
 			cfg.AptHttpsProxy() == "" &&
 			cfg.AptFtpProxy() == "" {
-			proxySettings, err := detectAptProxies()
+			proxySettings, err := detectPackageProxies()
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			setIfNotBlank(config.AptHttpProxyKey, proxySettings.Http)
 			setIfNotBlank(config.AptHttpsProxyKey, proxySettings.Https)
 			setIfNotBlank(config.AptFtpProxyKey, proxySettings.Ftp)
 		}
 	}
-	if len(attrs) > 0 {
-		cfg, err = cfg.Apply(attrs)
-		if err != nil {
-			return nil, err
-		}
+
+	cfg, err := cfg.Apply(attrs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Make sure everything is valid.
+	cfg, err = p.Validate(cfg, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return cfg, nil
+}
+
+// PrepareForBootstrap implements environs.EnvironProvider.PrepareForBootstrap.
+func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+	cfg, err := p.PrepareForCreateEnvironment(cfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// The user must not set bootstrap-ip; this is determined by the provider,
+	// and its presence used to determine whether the environment has yet been
+	// bootstrapped.
+	if _, ok := cfg.UnknownAttrs()["bootstrap-ip"]; ok {
+		return nil, errors.Errorf("bootstrap-ip must not be specified")
+	}
+	err = checkLocalPort(cfg.StatePort(), "state port")
+	if err != nil {
+		return nil, err
+	}
+	err = checkLocalPort(cfg.APIPort(), "API port")
+	if err != nil {
+		return nil, err
 	}
 
 	return p.Open(cfg)
@@ -199,12 +189,10 @@ func (p environProvider) swapLocalhostForBridgeIP(originalURL string, providerCo
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	// Localhost url can be specified in 3 ways: localhost, 127.0.0.1 or ::1
-	// This regular expression does not cater for a. subnets, eg. 127.0.0.1/8 nor b. digits preceding :: in ipv6 url, eg. 0::0:1.
-	localHostRegexp := regexp.MustCompile(`localhost|127\.[\d.]+|[0:]+1|\[?::1]?`)
-	hostAndPort := parsedUrl.Host
-	if !localHostRegexp.MatchString(hostAndPort) {
-		// If not localhost, return current attribute value
+
+	isLoopback, _, port := isLoopback(parsedUrl.Host)
+	if !isLoopback {
+		// If not loopback host address, return current attribute value
 		return originalURL, nil
 	}
 	//If localhost is specified, use its network bridge ip
@@ -212,10 +200,51 @@ func (p environProvider) swapLocalhostForBridgeIP(originalURL string, providerCo
 	if nwerr != nil {
 		return "", errors.Trace(nwerr)
 	}
-	// Host and post specification is host:port
-	hostAndPortRegexp := regexp.MustCompile(`(?P<host>(\[?[::]*[^:]+))(?P<port>($|:[^:]+$))`)
-	parsedUrl.Host = hostAndPortRegexp.ReplaceAllString(hostAndPort, fmt.Sprintf("%s$port", bridgeAddress))
+	parsedUrl.Host = bridgeAddress + port
 	return parsedUrl.String(), nil
+}
+
+// isLoopback returns whether given url is a loopback url.
+// The argument to the method is expected to be in the form of
+// host:port where host and port are also returned as distinct values.
+func isLoopback(hostAndPort string) (isLoopback bool, host, port string) {
+	host, port = getHostAndPort(hostAndPort)
+	isLoopback = strings.ToLower(host) == "localhost"
+	if !isLoopback {
+		ip := net.ParseIP(host)
+		isLoopback = ip != nil && ip.IsLoopback()
+	}
+	return
+}
+
+// getHostAndPort expects argument in the form host:port and
+// returns host and port as distinctive strings.
+func getHostAndPort(original string) (host, port string) {
+	// Host and post specification is host:port
+	hostAndPortRegexp := regexp.MustCompile(`(?P<host>\[?[::]*[^:]+)(?P<port>$|:[^:]+$)`)
+
+	matched := hostAndPortRegexp.FindStringSubmatch(original)
+	if len(matched) == 0 {
+		// Passed in parameter is not in the form host:port.
+		// Let's not mess with it.
+		return original, ""
+	}
+
+	// For the string in the form host:port, FindStringSubmatch above
+	// will return {host:port, host, :port}
+	host = matched[1]
+	port = matched[2]
+
+	// For hosts like [::1], remove brackets
+	if strings.Contains(host, "[") {
+		host = host[1 : len(host)-1]
+	}
+
+	// For hosts like ::1, substring :1 is not a port!
+	if strings.Contains(host, port) {
+		port = ""
+	}
+	return
 }
 
 // checkLocalPort checks that the passed port is not used so far.
@@ -239,7 +268,7 @@ var checkLocalPort = func(port int, description string) error {
 	if err != nil {
 		return err
 	}
-	return fmt.Errorf("cannot use %d as %s, already in use", port, description)
+	return errors.Errorf("cannot use %d as %s, already in use", port, description)
 }
 
 // Validate implements environs.EnvironProvider.Validate.
@@ -258,6 +287,9 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	localConfig.setDefaultNetworkBridge()
 	// Before potentially creating directories, make sure that the
 	// root directory has not changed.
+	if localConfig.namespace() == "" {
+		return nil, errors.New("missing namespace, config not prepared")
+	}
 	containerType := localConfig.container()
 	if old != nil {
 		oldLocalConfig, err := provider.newConfig(old)
@@ -265,28 +297,33 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 			return nil, errors.Annotatef(err, "old config is not a valid local config: %v", old)
 		}
 		if containerType != oldLocalConfig.container() {
-			return nil, fmt.Errorf("cannot change container from %q to %q",
+			return nil, errors.Errorf("cannot change container from %q to %q",
 				oldLocalConfig.container(), containerType)
 		}
 		if localConfig.rootDir() != oldLocalConfig.rootDir() {
-			return nil, fmt.Errorf("cannot change root-dir from %q to %q",
+			return nil, errors.Errorf("cannot change root-dir from %q to %q",
 				oldLocalConfig.rootDir(),
 				localConfig.rootDir())
 		}
 		if localConfig.networkBridge() != oldLocalConfig.networkBridge() {
-			return nil, fmt.Errorf("cannot change network-bridge from %q to %q",
+			return nil, errors.Errorf("cannot change network-bridge from %q to %q",
 				oldLocalConfig.rootDir(),
 				localConfig.rootDir())
 		}
 		if localConfig.storagePort() != oldLocalConfig.storagePort() {
-			return nil, fmt.Errorf("cannot change storage-port from %v to %v",
+			return nil, errors.Errorf("cannot change storage-port from %v to %v",
 				oldLocalConfig.storagePort(),
 				localConfig.storagePort())
+		}
+		if localConfig.namespace() != oldLocalConfig.namespace() {
+			return nil, errors.Errorf("cannot change namespace from %v to %v",
+				oldLocalConfig.namespace(),
+				localConfig.namespace())
 		}
 	}
 	// Currently only supported containers are "lxc" and "kvm".
 	if containerType != instance.LXC && containerType != instance.KVM {
-		return nil, fmt.Errorf("unsupported container type: %q", containerType)
+		return nil, errors.Errorf("unsupported container type: %q", containerType)
 	}
 	dir, err := utils.NormalizePath(localConfig.rootDir())
 	if err != nil {

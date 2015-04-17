@@ -4,10 +4,10 @@
 package filter
 
 import (
-	"gopkg.in/juju/charm.v4"
+	"github.com/juju/names"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker/uniter/hook"
 )
 
 // Filter is responsible for delivering events relevant to a unit agent in a
@@ -48,11 +48,15 @@ type Filter interface {
 
 	// ActionEvents returns a channel that will receive a signal whenever the unit
 	// receives new Actions.
-	ActionEvents() <-chan *hook.Info
+	ActionEvents() <-chan string
 
 	// RelationsEvents returns a channel that will receive the ids of all the service's
 	// relations whose Life status has changed.
 	RelationsEvents() <-chan []int
+
+	// StorageEvents returns a channel that will receive the tags of all the unit's
+	// associated storage instances whose Life status has changed.
+	StorageEvents() <-chan []names.StorageTag
 
 	// WantUpgradeEvent controls whether the filter will generate upgrade
 	// events for unforced service charm changes.

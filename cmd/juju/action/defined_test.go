@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/cmd/juju/action"
@@ -143,10 +143,11 @@ func (s *DefinedSuite) TestRun(c *gc.C) {
 }
 
 func checkFullSchema(c *gc.C, expected *charm.Actions, actual []byte) {
-	unmarshaledActual := map[string]interface{}{}
-	err := yaml.Unmarshal([]byte(actual), &unmarshaledActual)
-	c.Assert(err, gc.IsNil)
-	c.Check(string(actual), jc.YAMLEquals, expected.ActionSpecs)
+	expectedOutput := make(map[string]interface{})
+	for k, v := range expected.ActionSpecs {
+		expectedOutput[k] = v.Params
+	}
+	c.Check(string(actual), jc.YAMLEquals, expectedOutput)
 }
 
 func checkSimpleSchema(c *gc.C, expected *charm.Actions, actualOutput []byte) {

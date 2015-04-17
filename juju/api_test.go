@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -340,18 +341,18 @@ func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 
 	apiHostPorts := [][]network.HostPort{}
 	if hasHostPort {
-		ipv4Address := network.NewAddress("0.1.2.3", network.ScopeUnknown)
-		ipv6Address := network.NewAddress("2001:db8::1", network.ScopeUnknown)
+		var apiAddrs []network.Address
+		ipv4Address := network.NewAddress("0.1.2.3")
+		ipv6Address := network.NewAddress("2001:db8::1")
 		if preferIPv6 {
 			addr = net.JoinHostPort(ipv6Address.Value, "1234")
-			apiHostPorts = [][]network.HostPort{
-				network.AddressesWithPort([]network.Address{ipv6Address, ipv4Address}, 1234),
-			}
+			apiAddrs = append(apiAddrs, ipv6Address, ipv4Address)
 		} else {
 			addr = net.JoinHostPort(ipv4Address.Value, "1234")
-			apiHostPorts = [][]network.HostPort{
-				network.AddressesWithPort([]network.Address{ipv4Address, ipv6Address}, 1234),
-			}
+			apiAddrs = append(apiAddrs, ipv4Address, ipv6Address)
+		}
+		apiHostPorts = [][]network.HostPort{
+			network.AddressesWithPort(apiAddrs, 1234),
 		}
 	}
 	environTag := ""
@@ -503,12 +504,13 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 		},
 	})
 
-	expectErr := fmt.Errorf("an error")
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
-		return nil, expectErr
+		return nil, errors.Errorf("an error")
 	}
 	st, err := juju.NewAPIFromStore("noconfig", store, apiOpen)
-	c.Assert(err, gc.Equals, expectErr)
+	// We expect to  get the isNotFound error as it is more important than the
+	// infoConnectError "an error"
+	c.Assert(err, gc.ErrorMatches, "environment \"noconfig\" not found")
 	c.Assert(st, gc.IsNil)
 }
 
@@ -898,7 +900,7 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6True(c 
 		return true
 	})
 	// First test cacheChangedAPIInfo behaves as expected.
-	err := juju.CacheChangedAPIInfo(info, s.hostPorts, s.apiHostPort, s.envTag)
+	err := juju.CacheChangedAPIInfo(info, s.hostPorts, s.apiHostPort, s.envTag.Id(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEndpointsPreferIPv6True(c, info)
 
@@ -922,7 +924,7 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6False(c
 		return false
 	})
 	// First test cacheChangedAPIInfo behaves as expected.
-	err := juju.CacheChangedAPIInfo(info, s.hostPorts, s.apiHostPort, s.envTag)
+	err := juju.CacheChangedAPIInfo(info, s.hostPorts, s.apiHostPort, s.envTag.Id(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEndpointsPreferIPv6False(c, info)
 
@@ -1217,10 +1219,7 @@ func (s *CacheAPIEndpointsSuite) nextHostPorts(host string, types ...network.Add
 			addr = fmt.Sprintf("fc00::%d", s.resolveSeq+num6)
 			num6++
 		}
-		result[i] = network.HostPort{
-			Address: network.NewAddress(addr, network.ScopeUnknown),
-			Port:    1234,
-		}
+		result[i] = network.NewHostPorts(1234, addr)[0]
 	}
 	s.resolveSeq += num4 + num6
 	s.gocheckC.Logf("resolving %q as %v", host, result)

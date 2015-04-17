@@ -20,14 +20,16 @@ import (
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/featureflag"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/storage"
 )
 
 var logger = loggo.GetLogger("worker.uniter.jujuc")
 
-// newCommands maps Command names to initializers.
-var newCommands = map[string]func(Context) cmd.Command{
+type creator func(Context) cmd.Command
+
+// baseCommands maps Command names to creators.
+var baseCommands = map[string]creator{
 	"close-port" + cmdSuffix:    NewClosePortCommand,
 	"config-get" + cmdSuffix:    NewConfigGetCommand,
 	"juju-log" + cmdSuffix:      NewJujuLogCommand,
@@ -44,22 +46,41 @@ var newCommands = map[string]func(Context) cmd.Command{
 	"owner-get" + cmdSuffix:     NewOwnerGetCommand,
 	"add-metric" + cmdSuffix:    NewAddMetricCommand,
 	"juju-reboot" + cmdSuffix:   NewJujuRebootCommand,
+	"status-get" + cmdSuffix:    NewStatusGetCommand,
+	"status-set" + cmdSuffix:    NewStatusSetCommand,
 }
 
-var storageCommands = map[string]func(Context) cmd.Command{
+var storageCommands = map[string]creator{
 	"storage-get" + cmdSuffix: NewStorageGetCommand,
+}
+
+var leaderCommands = map[string]creator{
+	"is-leader" + cmdSuffix:  NewIsLeaderCommand,
+	"leader-get" + cmdSuffix: NewLeaderGetCommand,
+	"leader-set" + cmdSuffix: NewLeaderSetCommand,
+}
+
+func allEnabledCommands() map[string]creator {
+	all := map[string]creator{}
+	add := func(m map[string]creator) {
+		for k, v := range m {
+			all[k] = v
+		}
+	}
+	add(baseCommands)
+	if featureflag.Enabled(feature.Storage) {
+		add(storageCommands)
+	}
+	if featureflag.Enabled(feature.LeaderElection) {
+		add(leaderCommands)
+	}
+	return all
 }
 
 // CommandNames returns the names of all jujuc commands.
 func CommandNames() (names []string) {
-	for name := range newCommands {
+	for name := range allEnabledCommands() {
 		names = append(names, name)
-	}
-	// TODO: stop checking feature flag once storage has graduated.
-	if featureflag.Enabled(storage.FeatureFlag) {
-		for name := range storageCommands {
-			names = append(names, name)
-		}
 	}
 	sort.Strings(names)
 	return
@@ -68,10 +89,7 @@ func CommandNames() (names []string) {
 // NewCommand returns an instance of the named Command, initialized to execute
 // against the supplied Context.
 func NewCommand(ctx Context, name string) (cmd.Command, error) {
-	f := newCommands[name]
-	if f == nil && featureflag.Enabled(storage.FeatureFlag) {
-		f = storageCommands[name]
-	}
+	f := allEnabledCommands()[name]
 	if f == nil {
 		return nil, fmt.Errorf("unknown command: %s", name)
 	}

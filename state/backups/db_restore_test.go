@@ -4,9 +4,12 @@
 package backups_test
 
 import (
+	"path/filepath"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -19,18 +22,34 @@ type mongoRestoreSuite struct {
 }
 
 func (s *mongoRestoreSuite) TestMongoRestoreArgsForVersion(c *gc.C) {
+	dir := filepath.Join(agent.DefaultDataDir, "db")
 	versionNumber := version.Number{}
 	versionNumber.Major = 1
 	versionNumber.Minor = 21
 	args, err := backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(args, gc.DeepEquals, []string{"--drop", "--dbpath", "/var/lib/juju/db", "/some/fake/path"})
+	c.Assert(args, gc.HasLen, 5)
+	c.Assert(args[0:5], jc.DeepEquals, []string{
+		"--drop",
+		"--journal",
+		"--dbpath",
+		dir,
+		"/some/fake/path",
+	})
 
 	versionNumber.Major = 1
 	versionNumber.Minor = 22
 	args, err = backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(args, gc.DeepEquals, []string{"--drop", "--oplogReplay", "--dbpath", "/var/lib/juju/db", "/some/fake/path"})
+	c.Assert(args, gc.HasLen, 6)
+	c.Assert(args[0:6], jc.DeepEquals, []string{
+		"--drop",
+		"--journal",
+		"--oplogReplay",
+		"--dbpath",
+		dir,
+		"/some/fake/path",
+	})
 
 	versionNumber.Major = 0
 	versionNumber.Minor = 0

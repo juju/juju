@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/testing"
@@ -209,10 +209,7 @@ type mockAddUserAPI struct {
 
 func (m *mockAddUserAPI) AddUser(username, displayname, password string) (names.UserTag, error) {
 	if m.blocked {
-		return names.UserTag{}, &params.Error{
-			Code:    params.CodeOperationBlocked,
-			Message: "The operation has been blocked.",
-		}
+		return names.UserTag{}, common.ErrOperationBlocked("The operation has been blocked.")
 	}
 
 	m.username = username
@@ -224,7 +221,7 @@ func (m *mockAddUserAPI) AddUser(username, displayname, password string) (names.
 	return names.UserTag{}, errors.New(m.failMessage)
 }
 
-func (m *mockAddUserAPI) ShareEnvironment(users []names.UserTag) error {
+func (m *mockAddUserAPI) ShareEnvironment(users ...names.UserTag) error {
 	if m.shareFailMsg != "" {
 		return errors.New(m.shareFailMsg)
 	}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/replicaset"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/replicaset"
 )
 
 // MachineTemplate holds attributes that are to be associated
@@ -58,9 +58,21 @@ type MachineTemplate struct {
 	// should be part of.
 	RequestedNetworks []string
 
-	// BlockDevices holds the parameters for block devices that should be
+	// Volumes holds the parameters for volumes that are to be created
+	// and attached to the machine.
+	Volumes []MachineVolumeParams
+
+	// VolumeAttachments holds the parameters for attaching existing
+	// volumes to the machine.
+	VolumeAttachments map[names.VolumeTag]VolumeAttachmentParams
+
+	// Filesystems holds the parameters for filesystems that are to be
 	// created and attached to the machine.
-	BlockDevices []BlockDeviceParams
+	Filesystems []MachineFilesystemParams
+
+	// FilesystemAttachments holds the parameters for attaching existing
+	// filesystems to the machine.
+	FilesystemAttachments map[names.FilesystemTag]FilesystemAttachmentParams
 
 	// Nonce holds a unique value that can be used to check
 	// if a new instance was really started for this machine.
@@ -78,6 +90,20 @@ type MachineTemplate struct {
 	// principals holds the principal units that will
 	// associated with the machine.
 	principals []string
+}
+
+// MachineVolumeParams holds the parameters for creating a volume and
+// attaching it to a new machine.
+type MachineVolumeParams struct {
+	Volume     VolumeParams
+	Attachment VolumeAttachmentParams
+}
+
+// MachineFilesystemParams holds the parameters for creating a filesystem
+// and attaching it to a new machine.
+type MachineFilesystemParams struct {
+	Filesystem FilesystemParams
+	Attachment FilesystemAttachmentParams
 }
 
 // AddMachineInsideNewMachine creates a new machine within a container
@@ -235,7 +261,7 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 // based on the given template. It also returns the machine document
 // that will be inserted.
 func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op, error) {
-	template, err := st.effectiveMachineTemplate(template, true)
+	template, err := st.effectiveMachineTemplate(template, st.IsStateServer())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -421,7 +447,7 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 		Principals: template.principals,
 		Life:       Alive,
 		Nonce:      template.Nonce,
-		Addresses:  instanceAddressesToAddresses(template.Addresses),
+		Addresses:  fromNetworkAddresses(template.Addresses),
 		NoVote:     template.NoVote,
 		Placement:  template.Placement,
 	}
@@ -449,13 +475,52 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		// provisioning, we should check the given networks are valid
 		// and known before setting them.
 		createRequestedNetworksOp(st, machineGlobalKey(mdoc.Id), template.RequestedNetworks),
+		createMachineBlockDevicesOp(mdoc.Id),
 	}
 
-	diskOps, _, err := createMachineBlockDeviceOps(st, mdoc.Id, template.BlockDevices...)
-	if err != nil {
-		return nil, txn.Op{}, errors.Trace(err)
+	var filesystemOps, volumeOps []txn.Op
+	var fsAttachments []filesystemAttachmentTemplate
+	var volumeAttachments []volumeAttachmentTemplate
+
+	// Create filesystems and filesystem attachments.
+	for _, f := range template.Filesystems {
+		ops, filesystemTag, volumeTag, err := st.addFilesystemOps(f.Filesystem, mdoc.Id)
+		if err != nil {
+			return nil, txn.Op{}, errors.Trace(err)
+		}
+		filesystemOps = append(filesystemOps, ops...)
+		fsAttachments = append(fsAttachments, filesystemAttachmentTemplate{
+			filesystemTag, f.Attachment,
+		})
+		if volumeTag != (names.VolumeTag{}) {
+			volumeAttachments = append(volumeAttachments, volumeAttachmentTemplate{
+				volumeTag, VolumeAttachmentParams{},
+			})
+		}
 	}
-	prereqOps = append(prereqOps, diskOps...)
+
+	// Create volumes and volume attachments.
+	for _, v := range template.Volumes {
+		op, tag, err := st.addVolumeOp(v.Volume, mdoc.Id)
+		if err != nil {
+			return nil, txn.Op{}, errors.Trace(err)
+		}
+		volumeOps = append(volumeOps, op)
+		volumeAttachments = append(volumeAttachments, volumeAttachmentTemplate{
+			tag, v.Attachment,
+		})
+	}
+
+	if len(fsAttachments) > 0 {
+		attachmentOps := createMachineFilesystemAttachmentsOps(mdoc.Id, fsAttachments)
+		prereqOps = append(prereqOps, filesystemOps...)
+		prereqOps = append(prereqOps, attachmentOps...)
+	}
+	if len(volumeAttachments) > 0 {
+		attachmentOps := createMachineVolumeAttachmentsOps(mdoc.Id, volumeAttachments)
+		prereqOps = append(prereqOps, volumeOps...)
+		prereqOps = append(prereqOps, attachmentOps...)
+	}
 
 	return prereqOps, machineOp, nil
 }
@@ -469,7 +534,7 @@ func hasJob(jobs []MachineJob, job MachineJob) bool {
 	return false
 }
 
-var errStateServerNotAllowed = errors.New("state server jobs specified without calling EnsureAvailability")
+var errStateServerNotAllowed = errors.New("state server jobs specified but not allowed")
 
 // maintainStateServersOps returns a set of operations that will maintain
 // the state server information when the given machine documents
@@ -554,7 +619,7 @@ func (st *State) EnsureAvailability(
 			return nil, errors.New("cannot reduce state server count")
 		}
 
-		intent, err := st.ensureAvailabilityIntentions(currentInfo)
+		intent, err := st.ensureAvailabilityIntentions(currentInfo, placement)
 		if err != nil {
 			return nil, err
 		}
@@ -572,11 +637,18 @@ func (st *State) EnsureAvailability(
 			intent.promote = intent.promote[:n]
 		}
 		voteCount += len(intent.promote)
+
+		if n := desiredStateServerCount - voteCount; n < len(intent.convert) {
+			intent.convert = intent.convert[:n]
+		}
+		voteCount += len(intent.convert)
+
 		intent.newCount = desiredStateServerCount - voteCount
-		logger.Infof("%d new machines; promoting %v", intent.newCount, intent.promote)
+
+		logger.Infof("%d new machines; promoting %v; converting %v", intent.newCount, intent.promote, intent.convert)
 
 		var ops []txn.Op
-		ops, change, err = st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series, placement)
+		ops, change, err = st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series)
 		return ops, err
 	}
 	if err := st.run(buildTxn); err != nil {
@@ -593,6 +665,7 @@ type StateServersChanges struct {
 	Maintained []string
 	Promoted   []string
 	Demoted    []string
+	Converted  []string
 }
 
 // ensureAvailabilityIntentionOps returns operations to fulfil the desired intent.
@@ -601,7 +674,6 @@ func (st *State) ensureAvailabilityIntentionOps(
 	currentInfo *StateServerInfo,
 	cons constraints.Value,
 	series string,
-	placement []string,
 ) ([]txn.Op, StateServersChanges, error) {
 	var ops []txn.Op
 	var change StateServersChanges
@@ -613,16 +685,20 @@ func (st *State) ensureAvailabilityIntentionOps(
 		ops = append(ops, demoteStateServerOps(m)...)
 		change.Demoted = append(change.Demoted, m.doc.Id)
 	}
+	for _, m := range intent.convert {
+		ops = append(ops, convertStateServerOps(m)...)
+		change.Converted = append(change.Converted, m.doc.Id)
+	}
 	// Use any placement directives that have been provided
 	// when adding new machines, until the directives have
 	// been all used up. Set up a helper function to do the
 	// work required.
 	placementCount := 0
 	getPlacement := func() string {
-		if placementCount >= len(placement) {
+		if placementCount >= len(intent.placement) {
 			return ""
 		}
-		result := placement[placementCount]
+		result := intent.placement[placementCount]
 		placementCount++
 		return result
 	}
@@ -680,8 +756,10 @@ var stateServerAvailable = func(m *Machine) (bool, error) {
 }
 
 type ensureAvailabilityIntent struct {
-	newCount                          int
-	promote, maintain, demote, remove []*Machine
+	newCount  int
+	placement []string
+
+	promote, maintain, demote, remove, convert []*Machine
 }
 
 // ensureAvailabilityIntentions returns what we would like
@@ -690,8 +768,40 @@ type ensureAvailabilityIntent struct {
 //   demoting unavailable, voting machines;
 //   removing unavailable, non-voting, non-vote-holding machines;
 //   gathering available, non-voting machines that may be promoted;
-func (st *State) ensureAvailabilityIntentions(info *StateServerInfo) (*ensureAvailabilityIntent, error) {
+func (st *State) ensureAvailabilityIntentions(info *StateServerInfo, placement []string) (*ensureAvailabilityIntent, error) {
 	var intent ensureAvailabilityIntent
+	for _, s := range placement {
+		// TODO(natefinch): unscoped placements shouldn't ever get here (though
+		// they do currently).  We should fix up the CLI to always add a scope
+		// to placements and then we can remove the need to deal with unscoped
+		// placements.
+		p, err := instance.ParsePlacement(s)
+		if err == instance.ErrPlacementScopeMissing {
+			intent.placement = append(intent.placement, s)
+			continue
+		}
+		if err == nil && p.Scope == instance.MachineScope {
+			// TODO(natefinch) add env provider policy to check if conversion is
+			// possible (e.g. cannot be supported by Azure in HA mode).
+
+			if names.IsContainerMachine(p.Directive) {
+				return nil, errors.New("container placement directives not supported")
+			}
+
+			m, err := st.Machine(p.Directive)
+			if err != nil {
+				return nil, errors.Annotatef(err, "can't find machine for placement directive %q", s)
+			}
+			if m.IsManager() {
+				return nil, errors.Errorf("machine for placement directive %q is already a state server", s)
+			}
+			intent.convert = append(intent.convert, m)
+			intent.placement = append(intent.placement, s)
+			continue
+		}
+		return nil, errors.Errorf("unsupported placement directive %q", s)
+	}
+
 	for _, mid := range info.MachineIds {
 		m, err := st.Machine(mid)
 		if err != nil {
@@ -726,8 +836,28 @@ func (st *State) ensureAvailabilityIntentions(info *StateServerInfo) (*ensureAva
 			intent.remove = append(intent.remove, m)
 		}
 	}
-	logger.Infof("initial intentions: promote %v; maintain %v; demote %v; remove %v", intent.promote, intent.maintain, intent.demote, intent.remove)
+	logger.Infof("initial intentions: promote %v; maintain %v; demote %v; remove %v; convert: %v",
+		intent.promote, intent.maintain, intent.demote, intent.remove, intent.convert)
 	return &intent, nil
+}
+
+func convertStateServerOps(m *Machine) []txn.Op {
+	return []txn.Op{{
+		C:  machinesC,
+		Id: m.doc.DocID,
+		Update: bson.D{
+			{"$addToSet", bson.D{{"jobs", JobManageEnviron}}},
+			{"$set", bson.D{{"novote", false}}},
+		},
+		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
+	}, {
+		C:  stateServersC,
+		Id: environGlobalKey,
+		Update: bson.D{
+			{"$addToSet", bson.D{{"votingmachineids", m.doc.Id}}},
+			{"$addToSet", bson.D{{"machineids", m.doc.Id}}},
+		},
+	}}
 }
 
 func promoteStateServerOps(m *Machine) []txn.Op {

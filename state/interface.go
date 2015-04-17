@@ -29,6 +29,7 @@ type Entity interface {
 var (
 	_ Entity = (*Machine)(nil)
 	_ Entity = (*Unit)(nil)
+	_ Entity = (*UnitAgent)(nil)
 	_ Entity = (*Service)(nil)
 	_ Entity = (*Environment)(nil)
 	_ Entity = (*User)(nil)

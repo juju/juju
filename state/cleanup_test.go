@@ -7,9 +7,10 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -344,6 +345,49 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	actions, err = unit.PendingActions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(actions), gc.Equals, 0)
+
+	// check no cleanups
+	s.assertDoesNotNeedCleanup(c)
+}
+
+func (s *CleanupSuite) TestCleanupStorage(c *gc.C) {
+	s.assertDoesNotNeedCleanup(c)
+
+	ch := s.AddTestingCharm(c, "storage-block")
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("block", 1024, 1),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	u, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// check no cleanups
+	s.assertDoesNotNeedCleanup(c)
+
+	// this tag matches the storage instance created for the unit above.
+	storageTag := names.NewStorageTag("data/0")
+
+	si, err := s.State.StorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(si.Life(), gc.Equals, state.Alive)
+
+	// destroy storage instance and run cleanups
+	err = s.State.DestroyStorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	si, err = s.State.StorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(si.Life(), gc.Equals, state.Dying)
+	sa, err := s.State.UnitStorageAttachments(u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sa, gc.HasLen, 1)
+	c.Assert(sa[0].Life(), gc.Equals, state.Alive)
+	s.assertCleanupRuns(c)
+
+	// After running the cleanup, the attachment should be dying.
+	sa, err = s.State.UnitStorageAttachments(u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sa, gc.HasLen, 1)
+	c.Assert(sa[0].Life(), gc.Equals, state.Dying)
 
 	// check no cleanups
 	s.assertDoesNotNeedCleanup(c)

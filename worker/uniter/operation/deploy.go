@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	corecharm "gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
+	corecharm "gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -83,8 +83,10 @@ func (d *deploy) Prepare(state State) (*State, error) {
 // recorded in the supplied state.
 // Execute is part of the Operation interface.
 func (d *deploy) Execute(state State) (*State, error) {
-	if err := d.deployer.Deploy(); err != nil {
-		return nil, err
+	if err := d.deployer.Deploy(); err == charm.ErrConflict {
+		return nil, NewDeployConflictError(d.charmURL)
+	} else if err != nil {
+		return nil, errors.Trace(err)
 	}
 	return d.getState(state, Done), nil
 }

@@ -23,16 +23,21 @@ type ListenerSuite struct {
 
 var _ = gc.Suite(&ListenerSuite{})
 
-func (s *ListenerSuite) sockPath(c *gc.C) string {
+func sockPath(c *gc.C) string {
+	sockPath := filepath.Join(c.MkDir(), "test.listener")
 	if runtime.GOOS == "windows" {
-		return `\\.\pipe\testpipe`
+		return `\\.\pipe` + sockPath[2:]
 	}
-	return filepath.Join(c.MkDir(), "test.listener")
+	return sockPath
+}
+
+func (s *ListenerSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.socketPath = sockPath(c)
 }
 
 // Mirror the params to uniter.NewRunListener, but add cleanup to close it.
 func (s *ListenerSuite) NewRunListener(c *gc.C) *uniter.RunListener {
-	s.socketPath = s.sockPath(c)
 	listener, err := uniter.NewRunListener(&mockRunner{c}, s.socketPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(listener, gc.NotNil)
@@ -43,6 +48,9 @@ func (s *ListenerSuite) NewRunListener(c *gc.C) *uniter.RunListener {
 }
 
 func (s *ListenerSuite) TestNewRunListenerOnExistingSocketRemovesItAndSucceeds(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: Current named pipes implementation does not support this")
+	}
 	s.NewRunListener(c)
 
 	listener, err := uniter.NewRunListener(&mockRunner{}, s.socketPath)

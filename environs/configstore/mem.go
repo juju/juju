@@ -32,7 +32,7 @@ func (info *memInfo) clone() *memInfo {
 		newAttrs[name] = attr
 	}
 	info1.bootstrapConfig = newAttrs
-	info1.created = false
+	info1.source = sourceMem
 	return &info1
 }
 
@@ -52,7 +52,7 @@ func (m *memStore) CreateInfo(envName string) EnvironInfo {
 		store: m,
 		name:  envName,
 	}
-	info.created = true
+	info.source = sourceCreated
 	return info
 }
 
@@ -89,11 +89,11 @@ func (info *memInfo) Write() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if info.created && m.envs[info.name] != nil {
+	if !info.initialized() && m.envs[info.name] != nil {
 		return ErrEnvironInfoAlreadyExists
 	}
 
-	info.initialized = true
+	info.source = sourceMem
 	m.envs[info.name] = info.clone()
 	return nil
 }
@@ -103,7 +103,7 @@ func (info *memInfo) Destroy() error {
 	m := info.store
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if info.initialized {
+	if info.initialized() {
 		if m.envs[info.name] == nil {
 			return fmt.Errorf("environment info has already been removed")
 		}

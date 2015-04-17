@@ -21,10 +21,16 @@ func init() {
 	if *runFeatureTests == false {
 		return
 	}
-
 	// Initialize all suites here.
+	gc.Suite(&cmdJujuSuite{})
 	gc.Suite(&leadershipSuite{})
 	gc.Suite(&uniterLeadershipSuite{})
+	gc.Suite(&annotationsSuite{})
+	gc.Suite(&apiEnvironmentSuite{})
+	gc.Suite(&blockSuite{})
+	gc.Suite(&apiCharmsSuite{})
+	gc.Suite(&cmdEnvironmentSuite{})
+	gc.Suite(&cmdStorageSuite{})
 }
 
 func Test(t *testing.T) {

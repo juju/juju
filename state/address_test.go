@@ -4,32 +4,38 @@
 package state_test
 
 import (
-	"github.com/juju/juju/testing/factory"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
 )
 
 type AddressSuite struct{}
 
 var _ = gc.Suite(&AddressSuite{})
 
-func (s *AddressSuite) TestNewAddress(c *gc.C) {
-	instanceaddress := network.Address{"0.0.0.0", network.IPv4Address,
-		"net", network.ScopeUnknown}
-	stateaddress := state.NewAddress(instanceaddress)
-	c.Assert(stateaddress, gc.NotNil)
+func (s *AddressSuite) TestAddressConversion(c *gc.C) {
+	netAddress := network.Address{
+		Value:       "0.0.0.0",
+		Type:        network.IPv4Address,
+		NetworkName: "net",
+		Scope:       network.ScopeUnknown,
+	}
+	state.AssertAddressConversion(c, netAddress)
 }
 
-func (s *AddressSuite) TestInstanceAddressRoundtrips(c *gc.C) {
-	instanceaddress := network.Address{"0.0.0.0", network.IPv4Address,
-		"net", network.ScopeUnknown}
-	stateaddress := state.NewAddress(instanceaddress)
-	addr := stateaddress.InstanceAddress()
-	c.Assert(addr, gc.Equals, instanceaddress)
+func (s *AddressSuite) TestHostPortConversion(c *gc.C) {
+	netAddress := network.Address{
+		Value:       "0.0.0.0",
+		Type:        network.IPv4Address,
+		NetworkName: "net",
+		Scope:       network.ScopeUnknown,
+	}
+	netHostPort := network.HostPort{netAddress, 4711}
+	state.AssertHostPortConversion(c, netHostPort)
 }
 
 type StateServerAddressesSuite struct {

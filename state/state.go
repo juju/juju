@@ -20,7 +20,7 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -67,20 +67,26 @@ const (
 	// actionsC.
 	actionresultsC = "actionresults"
 
-	usersC              = "users"
-	envUsersC           = "envusers"
-	presenceC           = "presence"
-	cleanupsC           = "cleanups"
-	annotationsC        = "annotations"
-	statusesC           = "statuses"
-	stateServersC       = "stateServers"
-	openedPortsC        = "openedPorts"
-	metricsC            = "metrics"
-	upgradeInfoC        = "upgradeInfo"
-	rebootC             = "reboot"
-	blockDevicesC       = "blockdevices"
-	storageConstraintsC = "storageconstraints"
-	storageInstancesC   = "storageinstances"
+	usersC                 = "users"
+	envUsersC              = "envusers"
+	presenceC              = "presence"
+	cleanupsC              = "cleanups"
+	annotationsC           = "annotations"
+	statusesC              = "statuses"
+	stateServersC          = "stateServers"
+	openedPortsC           = "openedPorts"
+	metricsC               = "metrics"
+	metricsManagerC        = "metricsmanager"
+	upgradeInfoC           = "upgradeInfo"
+	rebootC                = "reboot"
+	blockDevicesC          = "blockdevices"
+	storageAttachmentsC    = "storageattachments"
+	storageConstraintsC    = "storageconstraints"
+	storageInstancesC      = "storageinstances"
+	volumesC               = "volumes"
+	volumeAttachmentsC     = "volumeattachments"
+	filesystemsC           = "filesystems"
+	filesystemAttachmentsC = "filesystemAttachments"
 
 	// leaseC is used to store lease tokens
 	leaseC = "lease"
@@ -103,6 +109,14 @@ const (
 
 	// restoreInfoC is used to track restore progress
 	restoreInfoC = "restoreInfo"
+
+	// blocksC is used to identify collection of environment blocks.
+	blocksC = "blocks"
+
+	// The following mongo collections are used as unique key restraints. The
+	// _id field of each collection is a concatenation of multiple fields
+	// that form a compound index.
+	userenvnameC = "userenvname"
 )
 
 // State represents the state of an environment
@@ -124,6 +138,7 @@ type State struct {
 	mu         sync.Mutex
 	allManager *storeManager
 	environTag names.EnvironTag
+	serverTag  names.EnvironTag
 }
 
 // StateServingInfo holds information needed by a state server.
@@ -140,6 +155,55 @@ type StateServingInfo struct {
 	SystemIdentity string
 }
 
+// IsStateServer returns true if this state instance has the bootstrap
+// environment UUID.
+func (st *State) IsStateServer() bool {
+	return st.environTag == st.serverTag
+}
+
+// RemoveAllEnvironDocs removes all documents from multi-environment
+// collections. The environment should be put into a dying state before call
+// this method. Otherwise, there is a race condition in which collections
+// could be added to during or after the running of this method.
+func (st *State) RemoveAllEnvironDocs() error {
+	env, err := st.Environment()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	id := userEnvNameIndex(env.Owner().Username(), env.Name())
+	ops := []txn.Op{{
+		// Cleanup the owner:envName unique key.
+		C:      userenvnameC,
+		Id:     id,
+		Remove: true,
+	}, {
+		C:      environmentsC,
+		Id:     st.EnvironUUID(),
+		Remove: true,
+	}}
+
+	// add all multiEnv docs to the txn
+	var ids []bson.M
+	for collName := range multiEnvCollections {
+		coll, closer := st.getCollection(collName)
+		defer closer()
+		err := coll.Find(nil).Select(bson.D{{"_id", 1}}).All(&ids)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, id := range ids {
+			ops = append(ops, txn.Op{
+				C:      collName,
+				Id:     id["_id"],
+				Remove: true,
+			})
+		}
+		ids = nil
+	}
+
+	return st.runTransaction(ops)
+}
+
 // ForEnviron returns a connection to mongo for the specified environment. The
 // connection uses the same credentails and policy as the existing connection.
 func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
@@ -148,6 +212,7 @@ func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
 		return nil, errors.Trace(err)
 	}
 	newState.environTag = env
+	newState.serverTag = st.serverTag
 	newState.startPresenceWatcher()
 	return newState, nil
 }
@@ -164,7 +229,47 @@ func (st *State) EnvironUUID() string {
 	return st.environTag.Id()
 }
 
-// getPresence returns the presence collection.
+// userEnvNameIndex returns a string to be used as a userenvnameC unique index.
+func userEnvNameIndex(username, envName string) string {
+	return strings.ToLower(username) + ":" + envName
+}
+
+// EnsureEnvironmentRemoved returns an error if any multi-enviornment
+// documents for this environment are found. It is intended only to be used in
+// tests and exported so it can be used in the tests of other packages.
+func (st *State) EnsureEnvironmentRemoved() error {
+	colls := multiEnvCollections
+	colls.Remove(cleanupsC)
+	found := map[string]int{}
+	var foundOrdered []string
+	for collName := range colls {
+		coll, closer := st.getCollection(collName)
+		defer closer()
+		n, err := coll.Find(nil).Count()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if n != 0 {
+			found[collName] = n
+			foundOrdered = append(foundOrdered, collName)
+		}
+	}
+
+	if len(found) != 0 {
+		errMessage := fmt.Sprintf("found documents for environment with uuid %s:", st.EnvironUUID())
+		sort.Strings(foundOrdered)
+		for _, name := range foundOrdered {
+			number := found[name]
+			errMessage += fmt.Sprintf(" %d %s doc,", number, name)
+		}
+		// Remove trailing comma.
+		errMessage = errMessage[:len(errMessage)-1]
+		return errors.New(errMessage)
+	}
+	return nil
+}
+
+// getPresence returns the presence m.
 func (st *State) getPresence() *mgo.Collection {
 	return st.db.Session.DB("presence").C(presenceC)
 }
@@ -610,6 +715,10 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		} else {
 			return st.Charm(url)
 		}
+	case names.VolumeTag:
+		return st.Volume(tag)
+	case names.FilesystemTag:
+		return st.Filesystem(tag)
 	default:
 		return nil, errors.Errorf("unsupported tag %T", tag)
 	}
@@ -1143,6 +1252,9 @@ func (st *State) AddService(
 	if _, err := st.EnvironmentUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := addDefaultStorageConstraints(st, storage, ch.Meta()); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := validateStorageConstraints(st, storage, ch.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1212,25 +1324,28 @@ func (st *State) AddService(
 	return svc, nil
 }
 
-// AddIPAddress creates and returns a new IP address
+// AddIPAddress creates and returns a new IP address. It can return an
+// error satisfying IsNotValid() or IsAlreadyExists() when the addr
+// does not contain a valid IP, or when addr is already added.
 func (st *State) AddIPAddress(addr network.Address, subnetid string) (ipaddress *IPAddress, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add IP address %v", addr.Value)
+	defer errors.DeferredAnnotatef(&err, "cannot add IP address %q", addr)
 
 	// This checks for a missing value as well as invalid values
 	ip := net.ParseIP(addr.Value)
 	if ip == nil {
-		return nil, errors.Errorf("invalid IP address %q", addr.Value)
+		return nil, errors.NotValidf("address")
 	}
 
 	addressID := st.docID(addr.Value)
 	ipDoc := ipaddressDoc{
 		DocID:    addressID,
 		EnvUUID:  st.EnvironUUID(),
+		Life:     Alive,
 		State:    AddressStateUnknown,
 		SubnetId: subnetid,
 		Value:    addr.Value,
-		Type:     addr.Type,
-		Scope:    addr.Scope,
+		Type:     string(addr.Type),
+		Scope:    string(addr.Scope),
 	}
 
 	ipaddress = &IPAddress{doc: ipDoc, st: st}
@@ -1245,9 +1360,7 @@ func (st *State) AddIPAddress(addr network.Address, subnetid string) (ipaddress 
 	switch err {
 	case txn.ErrAborted:
 		if _, err = st.IPAddress(addr.Value); err == nil {
-			return nil, errors.AlreadyExistsf("IP address %q", addr.Value)
-		} else if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.AlreadyExistsf("address")
 		}
 	case nil:
 		return ipaddress, nil
@@ -1271,9 +1384,43 @@ func (st *State) IPAddress(value string) (*IPAddress, error) {
 	return &IPAddress{st, *doc}, nil
 }
 
+// AllocatedIPAddresses returns all the allocated addresses for a machine
+func (st *State) AllocatedIPAddresses(machineId string) ([]*IPAddress, error) {
+	return st.fetchIPAddresses(bson.D{{"machineid", machineId}})
+}
+
+// DeadIPAddresses returns all IP addresses with a Life of Dead
+func (st *State) DeadIPAddresses() ([]*IPAddress, error) {
+	return st.fetchIPAddresses(bson.D{{"life", Dead}})
+}
+
+// fetchIPAddresses is a helper function for finding IP addresses
+func (st *State) fetchIPAddresses(query bson.D) ([]*IPAddress, error) {
+	addresses, closer := st.getCollection(ipaddressesC)
+	result := []*IPAddress{}
+	defer closer()
+	var doc struct {
+		Value string
+	}
+	iter := addresses.Find(query).Iter()
+	for iter.Next(&doc) {
+		addr, err := st.IPAddress(doc.Value)
+		if err != nil {
+			// shouldn't happen as we're only fetching
+			// addresses we know exist.
+			continue
+		}
+		result = append(result, addr)
+	}
+	if err := iter.Close(); err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
 // AddSubnet creates and returns a new subnet
 func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add subnet %v", args.CIDR)
+	defer errors.DeferredAnnotatef(&err, "cannot add subnet %q", args.CIDR)
 
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
@@ -1314,7 +1461,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 		if err == nil {
 			return subnet, nil
 		}
-		return nil, errors.Annotatef(err, "ProviderId not unique %q", args.ProviderId)
+		return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
 	}
 	return nil, errors.Trace(err)
 }
@@ -1799,6 +1946,20 @@ func (st *State) Unit(name string) (*Unit, error) {
 		return nil, errors.Annotatef(err, "cannot get unit %q", name)
 	}
 	return newUnit(st, &doc), nil
+}
+
+// UnitsFor returns the units placed in the given machine id.
+func (st *State) UnitsFor(machineId string) ([]*Unit, error) {
+	if !names.IsValidMachine(machineId) {
+		return nil, errors.Errorf("%q is not a valid machine id", machineId)
+	}
+	m := &Machine{
+		st: st,
+		doc: machineDoc{
+			Id: machineId,
+		},
+	}
+	return m.Units()
 }
 
 // AssignUnit places the unit on a machine. Depending on the policy, and the

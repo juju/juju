@@ -4,13 +4,20 @@
 package container
 
 import (
-	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/instance"
 )
 
 const (
-	ConfigName       = "name"
-	ConfigLogDir     = "log-dir"
+	ConfigName   = "name"
+	ConfigLogDir = "log-dir"
+
+	// ConfigIPForwarding, if set to a non-empty value, instructs the
+	// container manager to enable IP forwarding as part of the
+	// container initialization. Will be enabled if the enviroment
+	// supports networking.
+	ConfigIPForwarding = "ip-forwarding"
+
 	DefaultNamespace = "juju"
 )
 
@@ -24,9 +31,10 @@ type Manager interface {
 	// CreateContainer creates and starts a new container for the specified
 	// machine.
 	CreateContainer(
-		machineConfig *cloudinit.MachineConfig,
+		instanceConfig *instancecfg.InstanceConfig,
 		series string,
-		network *NetworkConfig) (instance.Instance, *instance.HardwareCharacteristics, error)
+		network *NetworkConfig,
+		storage *StorageConfig) (instance.Instance, *instance.HardwareCharacteristics, error)
 
 	// DestroyContainer stops and destroyes the container identified by
 	// instance id.

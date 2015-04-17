@@ -3,16 +3,8 @@
 
 package storage
 
-// BlockDevice describes a block device (disk, logical volume, etc.)
+// BlockDevice describes a block device discovered on a machine.
 type BlockDevice struct {
-	// Name is a unique name assigned by Juju to the block device.
-	Name string `yaml:"name"`
-
-	// ProviderId is a unique provider-supplied ID for the block device.
-	// ProviderId is required to be unique for the lifetime of the block-
-	// device, but may be reused.
-	ProviderId string `yaml:"providerid"`
-
 	// DeviceName is the block device's OS-specific name (e.g. "sdb").
 	DeviceName string `yaml:"devicename,omitempty"`
 
@@ -46,4 +38,7 @@ type BlockDevice struct {
 
 	// InUse indicates that the block device is in use (e.g. mounted).
 	InUse bool `yaml:"inuse"`
+
+	// MountPoint is the path at which the block devices is mounted.
+	MountPoint string `yaml:"mountpoint,omitempty"`
 }

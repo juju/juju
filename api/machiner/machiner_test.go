@@ -42,7 +42,7 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetAddresses(network.NewAddress("10.0.0.1", network.ScopeUnknown))
+	err = m.SetAddresses(network.NewAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
@@ -54,7 +54,7 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 
 func (s *machinerSuite) TestMachineAndMachineTag(c *gc.C) {
 	machine, err := s.machiner.Machine(names.NewMachineTag("42"))
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, gc.ErrorMatches, ".*permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(machine, gc.IsNil)
 
@@ -68,20 +68,21 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, data, err := s.machine.Status()
+	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusPending)
-	c.Assert(info, gc.Equals, "")
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusPending)
+	c.Assert(statusInfo.Message, gc.Equals, "")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
 
 	err = machine.SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, data, err = s.machine.Status()
+	statusInfo, err = s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusStarted)
-	c.Assert(info, gc.Equals, "blah")
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusStarted)
+	c.Assert(statusInfo.Message, gc.Equals, "blah")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
+	c.Assert(statusInfo.Since, gc.NotNil)
 }
 
 func (s *machinerSuite) TestEnsureDead(c *gc.C) {

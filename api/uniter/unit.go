@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
@@ -52,15 +52,62 @@ func (u *Unit) Refresh() error {
 	return nil
 }
 
-// SetStatus sets the status of the unit agent.
-func (u *Unit) SetStatus(status params.Status, info string, data map[string]interface{}) error {
+// SetUnitStatus sets the status of the unit.
+func (u *Unit) SetUnitStatus(status params.Status, info string, data map[string]interface{}) error {
+	if u.st.facade.BestAPIVersion() < 2 {
+		return errors.NotImplementedf("SetUnitStatus")
+	}
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
 			{Tag: u.tag.String(), Status: status, Info: info, Data: data},
 		},
 	}
-	err := u.st.facade.FacadeCall("SetStatus", args, &result)
+	err := u.st.facade.FacadeCall("SetUnitStatus", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return result.OneError()
+}
+
+// UnitStatus gets the status details of the unit.
+func (u *Unit) UnitStatus() (params.StatusResult, error) {
+	var results params.StatusResults
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: u.tag.String()},
+		},
+	}
+	err := u.st.facade.FacadeCall("UnitStatus", args, &results)
+	if err != nil {
+		if params.IsCodeNotImplemented(err) {
+			return params.StatusResult{}, errors.NotImplementedf("UnitStatus")
+		}
+		return params.StatusResult{}, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return params.StatusResult{}, result.Error
+	}
+	return result, nil
+}
+
+// SetAgentStatus sets the status of the unit agent.
+func (u *Unit) SetAgentStatus(status params.Status, info string, data map[string]interface{}) error {
+	var result params.ErrorResults
+	args := params.SetStatus{
+		Entities: []params.EntityStatus{
+			{Tag: u.tag.String(), Status: status, Info: info, Data: data},
+		},
+	}
+	setStatusFacadeCall := "SetAgentStatus"
+	if u.st.facade.BestAPIVersion() < 2 {
+		setStatusFacadeCall = "SetStatus"
+	}
+	err := u.st.facade.FacadeCall(setStatusFacadeCall, args, &result)
 	if err != nil {
 		return err
 	}
@@ -81,6 +128,32 @@ func (u *Unit) AddMetrics(metrics []params.Metric) error {
 		return errors.Annotate(err, "unable to add metric")
 	}
 	return result.OneError()
+}
+
+// AddMetricsBatches makes an api call to the uniter requesting it to store metrics batches in state.
+func (u *Unit) AddMetricBatches(batches []params.MetricBatch) error {
+	p := params.MetricBatchParams{
+		Batches: make([]params.MetricBatchParam, len(batches)),
+	}
+
+	for i, batch := range batches {
+		p.Batches[i].Tag = u.tag.String()
+		p.Batches[i].Batch = batch
+	}
+	results := new(params.ErrorResults)
+	err := u.st.facade.FacadeCall("AddMetricBatches", p, results)
+	if params.IsCodeNotImplemented(err) {
+		for _, batch := range batches {
+			err = u.AddMetrics(batch.Metrics)
+			if err != nil {
+				return errors.Annotate(err, "failed to add metrics")
+			}
+		}
+		return nil
+	} else if err != nil {
+		return errors.Annotate(err, "failed to send metric batches")
+	}
+	return results.Combine()
 }
 
 // EnsureDead sets the unit lifecycle to Dead if it is Alive or
@@ -647,4 +720,10 @@ func (u *Unit) WatchMeterStatus() (watcher.NotifyWatcher, error) {
 	}
 	w := watcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
 	return w, nil
+}
+
+// WatchStorage returns a watcher for observing changes to the
+// unit's storage attachments.
+func (u *Unit) WatchStorage() (watcher.StringsWatcher, error) {
+	return u.st.WatchUnitStorageAttachments(u.tag)
 }

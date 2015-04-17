@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	jujuerrors "github.com/juju/errors"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
@@ -24,6 +24,8 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -31,7 +33,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
@@ -59,12 +60,6 @@ var makeServiceURL = client.AuthenticatingClient.MakeServiceURL
 var shortAttempt = utils.AttemptStrategy{
 	Total: 15 * time.Second,
 	Delay: 200 * time.Millisecond,
-}
-
-func init() {
-	environs.RegisterProvider("openstack", environProvider{})
-	environs.RegisterImageDataSourceFunc("keystone catalog", getKeystoneImageSource)
-	envtools.RegisterToolsDataSourceFunc("keystone catalog", getKeystoneToolsSource)
 }
 
 func (p environProvider) BoilerplateConfig() string {
@@ -262,19 +257,19 @@ func (p environProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return nil, jujuerrors.NotImplementedf("PrepareForCreateEnvironment")
-}
-
-func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	attrs := cfg.UnknownAttrs()
 	if _, ok := attrs["control-bucket"]; !ok {
 		uuid, err := utils.NewUUID()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		attrs["control-bucket"] = fmt.Sprintf("%x", uuid.Raw())
 	}
-	cfg, err := cfg.Apply(attrs)
+	return cfg.Apply(attrs)
+}
+
+func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+	cfg, err := p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -469,7 +464,7 @@ func (inst *openstackInstance) Addresses() ([]network.Address, error) {
 func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress) []network.Address {
 	var machineAddresses []network.Address
 	if publicIP != "" {
-		publicAddr := network.NewAddress(publicIP, network.ScopePublic)
+		publicAddr := network.NewScopedAddress(publicIP, network.ScopePublic)
 		publicAddr.NetworkName = "public"
 		machineAddresses = append(machineAddresses, publicAddr)
 	}
@@ -491,7 +486,7 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 			if address.Version == 6 {
 				addrtype = network.IPv6Address
 			}
-			machineAddr := network.NewAddress(address.Address, networkScope)
+			machineAddr := network.NewScopedAddress(address.Address, networkScope)
 			machineAddr.NetworkName = netName
 			if machineAddr.Type != addrtype {
 				logger.Warningf("derived address type %v, nova reports %v", machineAddr.Type, addrtype)
@@ -628,7 +623,7 @@ func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	if e.availabilityZones == nil {
 		zones, err := novaListAvailabilityZones(e.nova())
 		if gooseerrors.IsNotImplemented(err) {
-			return nil, jujuerrors.NotImplementedf("availability zones")
+			return nil, errors.NotImplementedf("availability zones")
 		}
 		if err != nil {
 			return nil, err
@@ -769,7 +764,7 @@ var authenticateClient = func(e *environ) error {
 		// but provide a readable and helpful error message
 		// to the user.
 		logger.Debugf("authentication failed: %v", err)
-		return jujuerrors.New(`authentication failed.
+		return errors.New(`authentication failed.
 
 Please ensure the credentials are correct. A common mistake is
 to specify the wrong tenant. Use the OpenStack "project" name
@@ -813,7 +808,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 func getKeystoneImageSource(env environs.Environ) (simplestreams.DataSource, error) {
 	e, ok := env.(*environ)
 	if !ok {
-		return nil, jujuerrors.NotSupportedf("non-openstack environment")
+		return nil, errors.NotSupportedf("non-openstack environment")
 	}
 	return e.getKeystoneDataSource(&e.keystoneImageDataSourceMutex, &e.keystoneImageDataSource, "product-streams")
 }
@@ -823,7 +818,7 @@ func getKeystoneImageSource(env environs.Environ) (simplestreams.DataSource, err
 func getKeystoneToolsSource(env environs.Environ) (simplestreams.DataSource, error) {
 	e, ok := env.(*environ)
 	if !ok {
-		return nil, jujuerrors.NotSupportedf("non-openstack environment")
+		return nil, errors.NotSupportedf("non-openstack environment")
 	}
 	return e.getKeystoneDataSource(&e.keystoneToolsDataSourceMutex, &e.keystoneToolsDataSource, "juju-tools")
 }
@@ -842,7 +837,7 @@ func (e *environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 
 	url, err := makeServiceURL(e.client, keystoneName, nil)
 	if err != nil {
-		return nil, jujuerrors.NewNotSupported(err, fmt.Sprintf("cannot make service URL: %v", err))
+		return nil, errors.NewNotSupported(err, fmt.Sprintf("cannot make service URL: %v", err))
 	}
 	verify := utils.VerifySSLHostnames
 	if !e.Config().SSLHostnameVerification() {
@@ -969,7 +964,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 			}
 		}
 		zoneInstances, err := availabilityZoneAllocations(e, group)
-		if jujuerrors.IsNotImplemented(err) {
+		if errors.IsNotImplemented(err) {
 			// Availability zones are an extension, so we may get a
 			// not implemented error; ignore these.
 		} else if err != nil {
@@ -985,7 +980,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		}
 	}
 
-	if args.MachineConfig.HasNetworks() {
+	if args.InstanceConfig.HasNetworks() {
 		return nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 
@@ -1005,12 +1000,12 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		return nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	args.MachineConfig.Tools = tools[0]
+	args.InstanceConfig.Tools = tools[0]
 
-	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config()); err != nil {
+	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
 		return nil, err
 	}
-	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
@@ -1037,7 +1032,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		}
 	}
 	cfg := e.Config()
-	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.APIPort())
+	groups, err := e.setUpGroups(args.InstanceConfig.MachineId, cfg.APIPort())
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
@@ -1048,7 +1043,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	var server *nova.Entity
 	for _, availZone := range availabilityZones {
 		var opts = nova.RunServerOpts{
-			Name:               e.machineFullName(args.MachineConfig.MachineId),
+			Name:               e.machineFullName(args.InstanceConfig.MachineId),
 			FlavorId:           spec.InstanceType.Id,
 			ImageId:            spec.Image.Id,
 			UserData:           userData,
@@ -1093,7 +1088,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		inst.floatingIP = publicIP
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
-	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}
@@ -1265,19 +1260,19 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 func (e *environ) Destroy() error {
 	err := common.Destroy(e)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Trace(err)
 	}
 	if err := e.Storage().RemoveAll(); err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Trace(err)
 	}
 	novaClient := e.nova()
 	securityGroups, err := novaClient.ListSecurityGroups()
 	if err != nil {
-		return jujuerrors.Annotate(err, "cannot list security groups")
+		return errors.Annotate(err, "cannot list security groups")
 	}
 	re, err := regexp.Compile(fmt.Sprintf("^%s(-\\d+)?$", e.jujuGroupName()))
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Trace(err)
 	}
 	globalGroupName := e.globalGroupName()
 	for _, group := range securityGroups {

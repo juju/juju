@@ -14,7 +14,7 @@ import (
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4/hooks"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/uniter"
@@ -82,8 +82,9 @@ func (s *RelationerSuite) AddRelationUnit(c *gc.C, name string) (*state.Relation
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
-	privateAddr := network.NewAddress(
-		strings.Replace(name, "/", "-", 1)+".testing.invalid", network.ScopeCloudLocal)
+	privateAddr := network.NewScopedAddress(
+		strings.Replace(name, "/", "-", 1)+".testing.invalid", network.ScopeCloudLocal,
+	)
 	err = machine.SetAddresses(privateAddr)
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := s.rel.Unit(u)
@@ -411,7 +412,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetAddresses(network.NewAddress("blah", network.ScopeCloudLocal))
+	err = machine.SetAddresses(network.NewScopedAddress("blah", network.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "mysql")

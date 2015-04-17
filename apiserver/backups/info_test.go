@@ -23,7 +23,6 @@ func (s *backupsSuite) TestInfoOkay(c *gc.C) {
 	result, err := s.api.Info(args)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := backups.ResultFromMetadata(s.meta)
-
 	c.Check(result, gc.DeepEquals, expected)
 }
 

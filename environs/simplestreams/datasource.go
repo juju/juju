@@ -75,7 +75,7 @@ func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	dataURL = utils.MakeFileURL(dataURL)
 	resp, err := client.Get(dataURL)
 	if err != nil {
-		logger.Debugf("Got error requesting %q: %v", dataURL, err)
+		logger.Tracef("Got error requesting %q: %v", dataURL, err)
 		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
 	}
 	if resp.StatusCode == http.StatusNotFound {

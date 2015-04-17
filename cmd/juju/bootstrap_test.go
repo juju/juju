@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -166,9 +167,9 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) (restore gitjujutestin
 
 	opFinalizeBootstrap := (<-opc).(dummy.OpFinalizeBootstrap)
 	c.Check(opFinalizeBootstrap.Env, gc.Equals, "peckham")
-	c.Check(opFinalizeBootstrap.MachineConfig.Tools, gc.NotNil)
+	c.Check(opFinalizeBootstrap.InstanceConfig.Tools, gc.NotNil)
 	if test.upload != "" {
-		c.Check(opFinalizeBootstrap.MachineConfig.Tools.Version.String(), gc.Equals, test.upload)
+		c.Check(opFinalizeBootstrap.InstanceConfig.Tools.Version.String(), gc.Equals, test.upload)
 	}
 
 	store, err := configstore.Default()
@@ -321,6 +322,10 @@ func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context
 // In the case where we cannot examine an environment, we want the
 // error to propagate back up to the user.
 func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
+	//TODO(bogdanteleaga): fix this for windows once permissions are fixed
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: this is very platform specific. When/if we will support windows state machine, this will probably be rewritten.")
+	}
 
 	const envName = "devenv"
 	env := resetJujuHome(c, envName)
@@ -552,9 +557,9 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "devenv")
 	c.Assert(<-errc, gc.IsNil)
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "devenv")
-	mcfg := (<-opc).(dummy.OpFinalizeBootstrap).MachineConfig
-	c.Assert(mcfg, gc.NotNil)
-	c.Assert(mcfg.Tools.Version.String(), gc.Equals, "1.7.3.1-raring-"+version.Current.Arch)
+	icfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
+	c.Assert(icfg, gc.NotNil)
+	c.Assert(icfg.Tools.Version.String(), gc.Equals, "1.7.3.1-raring-"+version.Current.Arch)
 }
 
 func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {

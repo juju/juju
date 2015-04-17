@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
 
@@ -14,12 +15,18 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider/registry"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.provisioner")
 
 func init() {
 	common.RegisterStandardFacade("Provisioner", 0, NewProvisionerAPI)
@@ -29,6 +36,7 @@ func init() {
 type ProvisionerAPI struct {
 	*common.Remover
 	*common.StatusSetter
+	*common.StatusGetter
 	*common.DeadEnsurer
 	*common.PasswordChanger
 	*common.LifeGetter
@@ -87,6 +95,7 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 	return &ProvisionerAPI{
 		Remover:                common.NewRemover(st, false, getAuthFunc),
 		StatusSetter:           common.NewStatusSetter(st, getAuthFunc),
+		StatusGetter:           common.NewStatusGetter(st, getAuthFunc),
 		DeadEnsurer:            common.NewDeadEnsurer(st, getAuthFunc),
 		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),
@@ -212,6 +221,25 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 	}
 	cfg := make(map[string]string)
 	cfg[container.ConfigName] = container.DefaultNamespace
+
+	// Create an environment to verify networking support.
+	env, err := environs.New(config)
+	if err != nil {
+		return result, err
+	}
+	if netEnv, ok := environs.SupportsNetworking(env); ok {
+		// Passing network.AnySubnet below should be interpreted by
+		// the provider as "does ANY subnet support this".
+		supported, err := netEnv.SupportsAddressAllocation(network.AnySubnet)
+		if err == nil && supported {
+			cfg[container.ConfigIPForwarding] = "true"
+		} else if err != nil {
+			// We log the error, but it's safe to ignore as it's not
+			// critical.
+			logger.Debugf("address allocation not supported (%v)", err)
+		}
+	}
+
 	switch args.Type {
 	case instance.LXC:
 		if useLxcClone, ok := config.LXCUseClone(); ok {
@@ -244,35 +272,8 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.Proxy = config.ProxySettings()
 	result.AptProxy = config.AptProxySettings()
 	result.PreferIPv6 = config.PreferIPv6()
+	result.AllowLXCLoopMounts, _ = config.AllowLXCLoopMounts()
 
-	return result, nil
-}
-
-// Status returns the status of each given machine entity.
-func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, error) {
-	result := params.StatusResults{
-		Results: make([]params.StatusResult, len(args.Entities)),
-	}
-	canAccess, err := p.getAuthFunc()
-	if err != nil {
-		return result, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseMachineTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		machine, err := p.getMachine(canAccess, tag)
-		if err == nil {
-			r := &result.Results[i]
-			var st state.Status
-			st, r.Info, r.Data, err = machine.Status()
-			r.Status = params.Status(st)
-
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
 	return result, nil
 }
 
@@ -299,12 +300,13 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 			continue
 		}
 		var result params.StatusResult
-		var st state.Status
-		st, result.Info, result.Data, err = machine.Status()
+		statusInfo, err := machine.Status()
 		if err != nil {
 			continue
 		}
-		result.Status = params.Status(st)
+		result.Status = params.Status(statusInfo.Status)
+		result.Info = statusInfo.Message
+		result.Data = statusInfo.Data
 		if result.Status != params.StatusError {
 			continue
 		}
@@ -360,19 +362,19 @@ func (p *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provisio
 		}
 		machine, err := p.getMachine(canAccess, tag)
 		if err == nil {
-			result.Results[i].Result, err = getProvisioningInfo(machine)
+			result.Results[i].Result, err = p.getProvisioningInfo(machine)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
 
-func getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
+func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
 	cons, err := m.Constraints()
 	if err != nil {
 		return nil, err
 	}
-	volumes, err := machineVolumeParams(m)
+	volumes, err := p.machineVolumeParams(m)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -514,50 +516,86 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 }
 
 // machineVolumeParams retrieves VolumeParams for the volumes that should be
-// provisioned with and attached to the machine. The client should ignore
+// provisioned with, and attached to, the machine. The client should ignore
 // parameters that it does not know how to handle.
-func machineVolumeParams(m *state.Machine) ([]storage.VolumeParams, error) {
-	blockDevices, err := m.BlockDevices()
+func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeParams, error) {
+	volumeAttachments, err := m.VolumeAttachments()
 	if err != nil {
 		return nil, err
 	}
-	if len(blockDevices) == 0 {
+	if len(volumeAttachments) == 0 {
 		return nil, nil
 	}
-	allParams := make([]storage.VolumeParams, len(blockDevices))
-	for i, dev := range blockDevices {
-		params, ok := dev.Params()
-		if !ok {
-			return nil, errors.Errorf("cannot get parameters for volume %q", dev.Name())
+	poolManager := poolmanager.New(state.NewStateSettings(p.st))
+	allVolumeParams := make([]params.VolumeParams, 0, len(volumeAttachments))
+	for _, volumeAttachment := range volumeAttachments {
+		volumeTag := volumeAttachment.Volume()
+		volume, err := p.st.Volume(volumeTag)
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting volume %q", volumeTag.Id())
 		}
-		allParams[i] = storage.VolumeParams{
-			dev.Name(),
-			params.Size,
-			// TODO(axw) when pools are implemented,
-			// set Options here.
-			nil,
-			"", // no instance ID yet
+		volumeParams, err := common.VolumeParams(volume, poolManager)
+		if common.IsVolumeAlreadyProvisioned(err) {
+			// Already provisioned, so must be dynamic.
+			continue
+		} else if err != nil {
+			return nil, errors.Annotatef(err, "getting volume %q parameters", volumeTag.Id())
 		}
+		provider, err := registry.StorageProvider(storage.ProviderType(volumeParams.Provider))
+		if err != nil {
+			return nil, errors.Annotate(err, "getting storage provider")
+		}
+		if provider.Dynamic() {
+			// Leave dynamic storage to the storage provisioner.
+			continue
+		}
+		// Not provisioned yet, so ask the cloud provisioner do it.
+		volumeParams.Attachment = &params.VolumeAttachmentParams{
+			volumeTag.String(),
+			m.Tag().String(),
+			"", // we're creating the machine, so it has no instance ID.
+			volumeParams.Provider,
+		}
+		allVolumeParams = append(allVolumeParams, volumeParams)
 	}
-	return allParams, nil
+	return allVolumeParams, nil
 }
 
-// blockDevicesToState converts a slice of storage.BlockDevice to a mapping
-// of block device names to state.BlockDeviceInfo.
-func blockDevicesToState(in []storage.BlockDevice) (map[string]state.BlockDeviceInfo, error) {
-	m := make(map[string]state.BlockDeviceInfo)
-	for _, dev := range in {
-		if dev.Name == "" {
-			return nil, errors.New("Name is empty")
+// storageConfig returns the provider type and config attributes for the
+// specified poolName. If no such pool exists, we check to see if poolName is
+// actually a provider type, in which case config will be empty.
+func storageConfig(st *state.State, poolName string) (storage.ProviderType, map[string]interface{}, error) {
+	pm := poolmanager.New(state.NewStateSettings(st))
+	p, err := pm.Get(poolName)
+	// If not a storage pool, then maybe a provider type.
+	if errors.IsNotFound(err) {
+		providerType := storage.ProviderType(poolName)
+		if _, err1 := registry.StorageProvider(providerType); err1 != nil {
+			return "", nil, errors.Trace(err)
 		}
-		m[dev.Name] = state.BlockDeviceInfo{
-			dev.DeviceName,
-			dev.Label,
-			dev.UUID,
-			dev.Serial,
-			dev.Size,
-			dev.FilesystemType,
-			dev.InUse,
+		return providerType, nil, nil
+	}
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	return p.Provider(), p.Attrs(), nil
+}
+
+// volumeAttachmentsToState converts a slice of storage.VolumeAttachment to a
+// mapping of volume names to state.VolumeAttachmentInfo.
+func volumeAttachmentsToState(in []params.VolumeAttachment) (map[names.VolumeTag]state.VolumeAttachmentInfo, error) {
+	m := make(map[names.VolumeTag]state.VolumeAttachmentInfo)
+	for _, v := range in {
+		if v.VolumeTag == "" {
+			return nil, errors.New("Tag is empty")
+		}
+		volumeTag, err := names.ParseVolumeTag(v.VolumeTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		m[volumeTag] = state.VolumeAttachmentInfo{
+			v.DeviceName,
+			false, // not read-only
 		}
 	}
 	return m, nil
@@ -567,16 +605,16 @@ func networkParamsToStateParams(networks []params.Network, ifaces []params.Netwo
 	[]state.NetworkInfo, []state.NetworkInterfaceInfo, error,
 ) {
 	stateNetworks := make([]state.NetworkInfo, len(networks))
-	for i, network := range networks {
-		tag, err := names.ParseNetworkTag(network.Tag)
+	for i, net := range networks {
+		tag, err := names.ParseNetworkTag(net.Tag)
 		if err != nil {
 			return nil, nil, err
 		}
 		stateNetworks[i] = state.NetworkInfo{
 			Name:       tag.Id(),
-			ProviderId: network.ProviderId,
-			CIDR:       network.CIDR,
-			VLANTag:    network.VLANTag,
+			ProviderId: network.Id(net.ProviderId),
+			CIDR:       net.CIDR,
+			VLANTag:    net.VLANTag,
 		}
 	}
 	stateInterfaces := make([]state.NetworkInterfaceInfo, len(ifaces))
@@ -686,13 +724,17 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 		if err != nil {
 			return err
 		}
-		blockDevices, err := blockDevicesToState(arg.Volumes)
+		volumes, err := common.VolumesToState(arg.Volumes)
+		if err != nil {
+			return err
+		}
+		volumeAttachments, err := common.VolumeAttachmentsToState(arg.VolumeAttachments)
 		if err != nil {
 			return err
 		}
 		if err = machine.SetInstanceInfo(
 			arg.InstanceId, arg.Nonce, arg.Characteristics,
-			networks, interfaces, blockDevices); err != nil {
+			networks, interfaces, volumes, volumeAttachments); err != nil {
 			return errors.Annotatef(
 				err,
 				"cannot record provisioning info for %q",
@@ -723,4 +765,423 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 		return result, watcher.EnsureErr(watch)
 	}
 	return result, nil
+}
+
+// ReleaseContainerAddresses finds addresses allocated to a container and marks
+// them as Dead, to be released and removed. It accepts container tags as
+// arguments.
+func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return result, errors.Trace(err)
+	}
+	// Loop over the passed container tags.
+	for i, entity := range args.Entities {
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			logger.Warningf("failed to parse machine tag %q: %v", entity.Tag, err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		// The auth function (canAccess) checks that the machine is a
+		// top level machine (we filter those out next) or that the
+		// machine has the host as a parent.
+		container, err := p.getMachine(canAccess, tag)
+		if err != nil {
+			logger.Warningf("failed to get machine %q: %v", tag, err)
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		} else if !container.IsContainer() {
+			err = errors.Errorf("cannot mark addresses for removal for %q: not a container", tag)
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		id := container.Id()
+		addresses, err := p.st.AllocatedIPAddresses(id)
+		if err != nil {
+			logger.Warningf("failed to get Id for container %q: %v", tag, err)
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		deadErrors := []error{}
+		logger.Debugf("for container %q found addresses %v", tag, addresses)
+		for _, addr := range addresses {
+			err = addr.EnsureDead()
+			if err != nil {
+				deadErrors = append(deadErrors, err)
+				continue
+			}
+		}
+		if len(deadErrors) != 0 {
+			err = errors.Errorf("failed to mark all addresses for removal for %q: %v", tag, deadErrors)
+			result.Results[i].Error = common.ServerError(err)
+		}
+	}
+
+	return result, nil
+}
+
+// PrepareContainerInterfaceInfo allocates an address and returns
+// information for configuring networking on a container. It accepts
+// container tags as arguments.
+func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (params.MachineNetworkConfigResults, error) {
+	result := params.MachineNetworkConfigResults{
+		Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
+	}
+	// Some preparations first.
+	environ, host, canAccess, err := p.prepareContainerAccessEnvironment()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	instId, err := host.InstanceId()
+	if err != nil && errors.IsNotProvisioned(err) {
+		// If the host machine is not provisioned yet, we have nothing
+		// to do. NotProvisionedf will append " not provisioned" to
+		// the message.
+		err = errors.NotProvisionedf("cannot allocate addresses: host machine %q", host)
+		return result, err
+	}
+	subnet, subnetInfo, interfaceInfo, err := p.prepareAllocationNetwork(environ, host, instId)
+	if err != nil {
+		return result, errors.Annotate(err, "cannot allocate addresses")
+	}
+	// Loop over the passed container tags.
+	for i, entity := range args.Entities {
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		// The auth function (canAccess) checks that the machine is a
+		// top level machine (we filter those out next) or that the
+		// machine has the host as a parent.
+		container, err := p.getMachine(canAccess, tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		} else if !container.IsContainer() {
+			err = errors.Errorf("cannot allocate address for %q: not a container", tag)
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		} else if ciid, cerr := container.InstanceId(); cerr == nil {
+			// Since we want to configure and create NICs on the
+			// container before it starts, it must also be not
+			// provisioned yet.
+			err = errors.Errorf("container %q already provisioned as %q", container, ciid)
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		} else if cerr != nil && !errors.IsNotProvisioned(cerr) {
+			// Any other error needs to be reported.
+			result.Results[i].Error = common.ServerError(cerr)
+			continue
+		}
+
+		// Allocate and set address.
+		addr, err := p.allocateAddress(environ, subnet, host, container, instId)
+		if err != nil {
+			err = errors.Annotatef(err, "failed to allocate an address for %q", container)
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		// Store it on the machine, construct and set an interface result.
+		dnsServers := make([]string, len(interfaceInfo.DNSServers))
+		for i, dns := range interfaceInfo.DNSServers {
+			dnsServers[i] = dns.Value
+		}
+		// TODO(dimitern): Support allocating one address per NIC on
+		// the host, effectively creating the same number of NICs in
+		// the container.
+		result.Results[i] = params.MachineNetworkConfigResult{
+			Config: []params.NetworkConfig{{
+				DeviceIndex:      interfaceInfo.DeviceIndex,
+				MACAddress:       interfaceInfo.MACAddress,
+				CIDR:             subnetInfo.CIDR,
+				NetworkName:      interfaceInfo.NetworkName,
+				ProviderId:       string(interfaceInfo.ProviderId),
+				ProviderSubnetId: string(subnetInfo.ProviderId),
+				VLANTag:          interfaceInfo.VLANTag,
+				InterfaceName:    interfaceInfo.InterfaceName,
+				Disabled:         interfaceInfo.Disabled,
+				NoAutoStart:      interfaceInfo.NoAutoStart,
+				DNSServers:       dnsServers,
+				ConfigType:       string(network.ConfigStatic),
+				Address:          addr.Value(),
+				// container's gateway is the host's primary NIC's IP.
+				GatewayAddress: interfaceInfo.Address.Value,
+				ExtraConfig:    interfaceInfo.ExtraConfig,
+			}},
+		}
+	}
+	return result, nil
+}
+
+// prepareContainerAccessEnvironment retrieves the environment, host machine, and access
+// for working with containers.
+func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.NetworkingEnviron, *state.Machine, common.AuthFunc, error) {
+	cfg, err := p.st.EnvironConfig()
+	if err != nil {
+		return nil, nil, nil, errors.Annotate(err, "failed to get environment config")
+	}
+	environ, err := environs.New(cfg)
+	if err != nil {
+		return nil, nil, nil, errors.Annotate(err, "failed to construct an environment from config")
+	}
+	netEnviron, supported := environs.SupportsNetworking(environ)
+	if !supported {
+		// " not supported" will be appended to the message below.
+		return nil, nil, nil, errors.NotSupportedf("environment %q networking", cfg.Name())
+	}
+
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return nil, nil, nil, errors.Annotate(err, "cannot authenticate request")
+	}
+	hostAuthTag := p.authorizer.GetAuthTag()
+	if hostAuthTag == nil {
+		return nil, nil, nil, errors.Errorf("authenticated entity tag is nil")
+	}
+	hostTag, err := names.ParseMachineTag(hostAuthTag.String())
+	if err != nil {
+		return nil, nil, nil, errors.Trace(err)
+	}
+	host, err := p.getMachine(canAccess, hostTag)
+	if err != nil {
+		return nil, nil, nil, errors.Trace(err)
+	}
+	return netEnviron, host, canAccess, nil
+}
+
+// prepareAllocationNetwork retrieves the subnet, its info, and the interface info
+// for the allocations.
+func (p *ProvisionerAPI) prepareAllocationNetwork(
+	environ environs.NetworkingEnviron,
+	host *state.Machine,
+	instId instance.Id,
+) (
+	*state.Subnet,
+	network.SubnetInfo,
+	network.InterfaceInfo,
+	error,
+) {
+	var subnetInfo network.SubnetInfo
+	var interfaceInfo network.InterfaceInfo
+
+	interfaces, err := environ.NetworkInterfaces(instId)
+	if err != nil {
+		return nil, subnetInfo, interfaceInfo, errors.Trace(err)
+	} else if len(interfaces) == 0 {
+		return nil, subnetInfo, interfaceInfo, errors.Errorf("no interfaces available")
+	}
+	logger.Tracef("interfaces for instance %q: %v", instId, interfaces)
+
+	subnetSet := make(set.Strings)
+	subnetIds := []network.Id{}
+	subnetIdToInterface := make(map[network.Id]network.InterfaceInfo)
+	for _, iface := range interfaces {
+		if iface.ProviderSubnetId == "" {
+			logger.Debugf("no subnet associated with interface %#v (skipping)", iface)
+			continue
+		} else if iface.Disabled {
+			logger.Debugf("interface %#v disabled (skipping)", iface)
+			continue
+		}
+		if !subnetSet.Contains(string(iface.ProviderSubnetId)) {
+			subnetIds = append(subnetIds, iface.ProviderSubnetId)
+			subnetSet.Add(string(iface.ProviderSubnetId))
+
+			// This means that multiple interfaces on the same subnet will
+			// only appear once.
+			subnetIdToInterface[iface.ProviderSubnetId] = iface
+		}
+	}
+	subnets, err := environ.Subnets(instId, subnetIds)
+	if err != nil {
+		return nil, subnetInfo, interfaceInfo, errors.Trace(err)
+	} else if len(subnets) == 0 {
+		return nil, subnetInfo, interfaceInfo, errors.Errorf("no subnets available")
+	}
+	logger.Tracef("subnets for instance %q: %v", instId, subnets)
+
+	// TODO(mfoord): we need a better strategy for picking a subnet to
+	// allocate an address on. (dimitern): Right now we just pick the
+	// first subnet with allocatable range set. Instead, we should
+	// allocate an address per interface, assuming each interface is
+	// on a subnet with allocatable range set, and skipping those
+	// which do not have a range set.
+	var success bool
+	for _, sub := range subnets {
+		logger.Tracef("trying to allocate a static IP on subnet %q", sub.ProviderId)
+		if sub.AllocatableIPHigh == nil {
+			logger.Tracef("ignoring subnet %q - no allocatable range set", sub.ProviderId)
+			// this subnet has no allocatable IPs
+			continue
+		}
+		ok, err := environ.SupportsAddressAllocation(sub.ProviderId)
+		if err == nil && ok {
+			subnetInfo = sub
+			interfaceInfo = subnetIdToInterface[sub.ProviderId]
+			success = true
+			break
+		}
+		logger.Tracef(
+			"subnet %q supports address allocation: %v (error: %v)",
+			sub.ProviderId, ok, err,
+		)
+	}
+	if !success {
+		// " not supported" will be appended to the message below.
+		return nil, subnetInfo, interfaceInfo, errors.NotSupportedf(
+			"address allocation on any available subnets is",
+		)
+	}
+	subnet, err := p.createOrFetchStateSubnet(subnetInfo)
+
+	return subnet, subnetInfo, interfaceInfo, nil
+}
+
+// These are defined like this to allow mocking in tests.
+var (
+	allocateAddrTo = func(a *state.IPAddress, m *state.Machine) error {
+		// TODO(mfoord): populate proper interface ID (in state).
+		return a.AllocateTo(m.Id(), "")
+	}
+	setAddrsTo = func(a *state.IPAddress, m *state.Machine) error {
+		return m.SetAddresses(a.Address())
+	}
+	setAddrState = func(a *state.IPAddress, st state.AddressState) error {
+		return a.SetState(st)
+	}
+)
+
+// allocateAddress tries to pick an address out of the given subnet and
+// allocates it to the container.
+func (p *ProvisionerAPI) allocateAddress(
+	environ environs.NetworkingEnviron,
+	subnet *state.Subnet,
+	host, container *state.Machine,
+	instId instance.Id,
+) (*state.IPAddress, error) {
+
+	subnetId := network.Id(subnet.ProviderId())
+	for {
+		addr, err := subnet.PickNewAddress()
+		if err != nil {
+			return nil, err
+		}
+		logger.Tracef("picked new address %q on subnet %q", addr.String(), subnetId)
+		// Attempt to allocate with environ.
+		err = environ.AllocateAddress(instId, subnetId, addr.Address())
+		if err != nil {
+			logger.Warningf(
+				"allocating address %q on instance %q and subnet %q failed: %v (retrying)",
+				addr.String(), instId, subnetId, err,
+			)
+			// It's as good as unavailable for us, so mark it as
+			// such.
+			err = setAddrState(addr, state.AddressStateUnavailable)
+			if err != nil {
+				logger.Warningf(
+					"cannot set address %q to %q: %v (ignoring and retrying)",
+					addr.String(), state.AddressStateUnavailable, err,
+				)
+				continue
+			}
+			logger.Tracef(
+				"setting address %q to %q and retrying",
+				addr.String(), state.AddressStateUnavailable,
+			)
+			continue
+		}
+		logger.Infof(
+			"allocated address %q on instance %q and subnet %q",
+			addr.String(), instId, subnetId,
+		)
+		err = p.setAllocatedOrRelease(addr, environ, instId, container, subnetId)
+		if err != nil {
+			// Something went wrong - retry.
+			continue
+		}
+		return addr, nil
+	}
+}
+
+// setAllocatedOrRelease tries to associate the newly allocated
+// address addr with the container. On failure it makes the best
+// effort to cleanup and release addr, logging issues along the way.
+func (p *ProvisionerAPI) setAllocatedOrRelease(
+	addr *state.IPAddress,
+	environ environs.NetworkingEnviron,
+	instId instance.Id,
+	container *state.Machine,
+	subnetId network.Id,
+) (err error) {
+	defer func() {
+		if errors.Cause(err) == nil {
+			// Success!
+			return
+		}
+		logger.Warningf(
+			"failed to mark address %q as %q to container %q: %v (releasing and retrying)",
+			addr.String(), state.AddressStateAllocated, container, err,
+		)
+		// It's as good as unavailable for us, so mark it as
+		// such.
+		err = setAddrState(addr, state.AddressStateUnavailable)
+		if err != nil {
+			logger.Warningf(
+				"cannot set address %q to %q: %v (ignoring and releasing)",
+				addr.String(), state.AddressStateUnavailable, err,
+			)
+		}
+		err = environ.ReleaseAddress(instId, subnetId, addr.Address())
+		if err == nil {
+			logger.Infof("address %q released; trying to allocate new", addr.String())
+			return
+		}
+		logger.Warningf(
+			"failed to release address %q on instance %q and subnet %q: %v (ignoring and retrying)",
+			addr.String(), instId, subnetId, err,
+		)
+	}()
+
+	// Any errors returned below will trigger the release/cleanup
+	// steps above.
+	if err = allocateAddrTo(addr, container); err != nil {
+		return errors.Trace(err)
+	}
+	if err = setAddrsTo(addr, container); err != nil {
+		return errors.Trace(err)
+	}
+
+	logger.Infof("assigned address %q to container %q", addr.String(), container)
+	return nil
+}
+
+func (p *ProvisionerAPI) createOrFetchStateSubnet(subnetInfo network.SubnetInfo) (*state.Subnet, error) {
+	stateSubnetInfo := state.SubnetInfo{
+		ProviderId:        string(subnetInfo.ProviderId),
+		CIDR:              subnetInfo.CIDR,
+		VLANTag:           subnetInfo.VLANTag,
+		AllocatableIPHigh: subnetInfo.AllocatableIPHigh.String(),
+		AllocatableIPLow:  subnetInfo.AllocatableIPLow.String(),
+	}
+	subnet, err := p.st.AddSubnet(stateSubnetInfo)
+	if err != nil {
+		if errors.IsAlreadyExists(err) {
+			subnet, err = p.st.Subnet(subnetInfo.CIDR)
+		}
+		if err != nil {
+			return subnet, errors.Trace(err)
+		}
+	}
+	return subnet, nil
 }

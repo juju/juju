@@ -4,6 +4,9 @@
 package networker_test
 
 import (
+	"runtime"
+	"sort"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -11,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/networker"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -33,7 +37,7 @@ type networkerSuite struct {
 	nestedContainerIfaces []state.NetworkInterfaceInfo
 
 	st        *api.State
-	networker *networker.State
+	networker networker.State
 }
 
 var _ = gc.Suite(&networkerSuite{})
@@ -105,7 +109,7 @@ func (s *networkerSuite) setUpMachine(c *gc.C) {
 		IsVirtual:     false,
 		Disabled:      true,
 	}}
-	err = s.machine.SetInstanceInfo("i-am", "fake_nonce", &hwChars, s.networks, s.machineIfaces, nil)
+	err = s.machine.SetInstanceInfo("i-am", "fake_nonce", &hwChars, s.networks, s.machineIfaces, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
@@ -138,7 +142,7 @@ func (s *networkerSuite) setUpContainers(c *gc.C) {
 	}}
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
 	err = s.container.SetInstanceInfo("i-container", "fake_nonce", &hwChars, s.networks[:2],
-		s.containerIfaces, nil)
+		s.containerIfaces, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.nestedContainer, err = s.State.AddMachineInsideMachine(template, s.container.Id(), instance.LXC)
@@ -150,7 +154,7 @@ func (s *networkerSuite) setUpContainers(c *gc.C) {
 		IsVirtual:     false,
 	}}
 	err = s.nestedContainer.SetInstanceInfo("i-too", "fake_nonce", &hwChars, s.networks[:1],
-		s.nestedContainerIfaces, nil)
+		s.nestedContainerIfaces, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -166,14 +170,76 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.networker, gc.NotNil)
 }
 
-func (s *networkerSuite) TestMachineNetworkInfoPermissionDenied(c *gc.C) {
-	info, err := s.networker.MachineNetworkInfo(names.NewMachineTag("1"))
+func (s *networkerSuite) TestMachineNetworkConfigPermissionDenied(c *gc.C) {
+	info, err := s.networker.MachineNetworkConfig(names.NewMachineTag("1"))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(info, gc.IsNil)
 }
 
-func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
+func (s *networkerSuite) TestMachineNetworkConfigNameChange(c *gc.C) {
+	var called bool
+	networker.PatchFacadeCall(s, s.networker, func(request string, args, response interface{}) error {
+		if !called {
+			called = true
+			c.Assert(request, gc.Equals, "MachineNetworkConfig")
+			return &params.Error{"MachineNetworkConfig", params.CodeNotImplemented}
+		}
+		c.Assert(request, gc.Equals, "MachineNetworkInfo")
+		expected := params.Entities{
+			Entities: []params.Entity{{Tag: names.NewMachineTag("42").String()}},
+		}
+		c.Assert(args, gc.DeepEquals, expected)
+		result := response.(*params.MachineNetworkConfigResults)
+		result.Results = make([]params.MachineNetworkConfigResult, 1)
+		result.Results[0].Error = common.ServerError(common.ErrPerm)
+		return nil
+	})
+	// Make a call, in this case result is "permission denied".
+	info, err := s.networker.MachineNetworkConfig(names.NewMachineTag("42"))
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(info, gc.IsNil)
+}
+
+type orderedIfc []network.InterfaceInfo
+
+func (o orderedIfc) Len() int {
+	return len(o)
+}
+
+func (o orderedIfc) Less(i, j int) bool {
+	if o[i].MACAddress < o[j].MACAddress {
+		return true
+	}
+	if o[i].MACAddress > o[j].MACAddress {
+		return false
+	}
+	if o[i].CIDR < o[j].CIDR {
+		return true
+	}
+	if o[i].CIDR > o[j].CIDR {
+		return false
+	}
+	if o[i].NetworkName < o[j].NetworkName {
+		return true
+	}
+	if o[i].NetworkName > o[j].NetworkName {
+		return false
+	}
+	return o[i].VLANTag < o[j].VLANTag
+}
+
+func (o orderedIfc) Swap(i, j int) {
+	o[i], o[j] = o[j], o[i]
+}
+
+func (s *networkerSuite) TestMachineNetworkConfig(c *gc.C) {
+	// TODO(bogdanteleaga): Find out what's the problem with this test
+	// It seems to work on some machines
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: currently does not work on windows")
+	}
 	// Expected results of MachineNetworkInfo for a machine and containers
 	expectedMachineInfo := []network.InterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
@@ -212,6 +278,8 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		InterfaceName: "eth2",
 		Disabled:      true,
 	}}
+	sort.Sort(orderedIfc(expectedMachineInfo))
+
 	expectedContainerInfo := []network.InterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:e0",
 		CIDR:          "0.1.2.0/24",
@@ -234,6 +302,8 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		VLANTag:       42,
 		InterfaceName: "eth1",
 	}}
+	sort.Sort(orderedIfc(expectedContainerInfo))
+
 	expectedNestedContainerInfo := []network.InterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:d0",
 		CIDR:          "0.1.2.0/24",
@@ -242,17 +312,21 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		VLANTag:       0,
 		InterfaceName: "eth0",
 	}}
+	sort.Sort(orderedIfc(expectedNestedContainerInfo))
 
-	results, err := s.networker.MachineNetworkInfo(names.NewMachineTag("0"))
+	results, err := s.networker.MachineNetworkConfig(names.NewMachineTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
+	sort.Sort(orderedIfc(results))
 	c.Assert(results, gc.DeepEquals, expectedMachineInfo)
 
-	results, err = s.networker.MachineNetworkInfo(names.NewMachineTag("0/lxc/0"))
+	results, err = s.networker.MachineNetworkConfig(names.NewMachineTag("0/lxc/0"))
 	c.Assert(err, jc.ErrorIsNil)
+	sort.Sort(orderedIfc(results))
 	c.Assert(results, gc.DeepEquals, expectedContainerInfo)
 
-	results, err = s.networker.MachineNetworkInfo(names.NewMachineTag("0/lxc/0/lxc/0"))
+	results, err = s.networker.MachineNetworkConfig(names.NewMachineTag("0/lxc/0/lxc/0"))
 	c.Assert(err, jc.ErrorIsNil)
+	sort.Sort(orderedIfc(results))
 	c.Assert(results, gc.DeepEquals, expectedNestedContainerInfo)
 }
 

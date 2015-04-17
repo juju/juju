@@ -354,3 +354,4 @@ var PortsToRuleInfo = portsToRuleInfo
 var RuleMatchesPortRange = ruleMatchesPortRange
 
 var MakeServiceURL = &makeServiceURL
+var ProviderInstance = providerInstance

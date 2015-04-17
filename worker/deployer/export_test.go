@@ -6,6 +6,8 @@ package deployer
 import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/service/common"
+	svctesting "github.com/juju/juju/service/common/testing"
 )
 
 type fakeAPI struct{}
@@ -17,10 +19,17 @@ func (*fakeAPI) ConnectionInfo() (params.DeployerConnectionValues, error) {
 	}, nil
 }
 
-func NewTestSimpleContext(agentConfig agent.Config, initDir, logDir string) *SimpleContext {
+func NewTestSimpleContext(agentConfig agent.Config, logDir string, data *svctesting.FakeServiceData) *SimpleContext {
 	return &SimpleContext{
 		api:         &fakeAPI{},
 		agentConfig: agentConfig,
-		initDir:     initDir,
+		discoverService: func(name string, conf common.Conf) (deployerService, error) {
+			svc := svctesting.NewFakeService(name, conf)
+			svc.FakeServiceData = data
+			return svc, nil
+		},
+		listServices: func() ([]string, error) {
+			return data.InstalledNames.Values(), nil
+		},
 	}
 }

@@ -10,15 +10,20 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	jujufactory "github.com/juju/juju/testing/factory"
 )
 
 type unitSuite struct {
@@ -54,21 +59,108 @@ func (s *unitSuite) TestUnitAndUnitTag(c *gc.C) {
 	c.Assert(s.apiUnit.Tag(), gc.Equals, s.wordpressUnit.Tag().(names.UnitTag))
 }
 
-func (s *unitSuite) TestSetStatus(c *gc.C) {
-	status, info, data, err := s.wordpressUnit.Status()
+func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
+	statusInfo, err := s.wordpressUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusAllocating)
-	c.Assert(info, gc.Equals, "")
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusAllocating)
+	c.Assert(statusInfo.Message, gc.Equals, "")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
 
-	err = s.apiUnit.SetStatus(params.StatusActive, "blah", nil)
+	unitStatusInfo, err := s.wordpressUnit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitStatusInfo.Status, gc.Equals, state.StatusUnknown)
+	c.Assert(unitStatusInfo.Message, gc.Equals, "Waiting for agent initialization to finish")
+	c.Assert(unitStatusInfo.Data, gc.HasLen, 0)
+
+	err = s.apiUnit.SetAgentStatus(params.StatusIdle, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, data, err = s.wordpressUnit.Status()
+	statusInfo, err = s.wordpressUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusActive)
-	c.Assert(info, gc.Equals, "blah")
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusIdle)
+	c.Assert(statusInfo.Message, gc.Equals, "blah")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
+	c.Assert(statusInfo.Since, gc.NotNil)
+
+	// Ensure that unit has not changed.
+	unitStatusInfo, err = s.wordpressUnit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitStatusInfo.Status, gc.Equals, state.StatusUnknown)
+	c.Assert(unitStatusInfo.Message, gc.Equals, "Waiting for agent initialization to finish")
+	c.Assert(unitStatusInfo.Data, gc.HasLen, 0)
+}
+
+func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
+	statusInfo, err := s.wordpressUnit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusUnknown)
+	c.Assert(statusInfo.Message, gc.Equals, "Waiting for agent initialization to finish")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
+
+	agentStatusInfo, err := s.wordpressUnit.AgentStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(agentStatusInfo.Status, gc.Equals, state.StatusAllocating)
+	c.Assert(agentStatusInfo.Message, gc.Equals, "")
+	c.Assert(agentStatusInfo.Data, gc.HasLen, 0)
+
+	err = s.apiUnit.SetUnitStatus(params.StatusActive, "blah", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	statusInfo, err = s.wordpressUnit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusActive)
+	c.Assert(statusInfo.Message, gc.Equals, "blah")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
+	c.Assert(statusInfo.Since, gc.NotNil)
+
+	// Ensure unit's agent has not changed.
+	agentStatusInfo, err = s.wordpressUnit.AgentStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(agentStatusInfo.Status, gc.Equals, state.StatusAllocating)
+	c.Assert(agentStatusInfo.Message, gc.Equals, "")
+	c.Assert(agentStatusInfo.Data, gc.HasLen, 0)
+}
+
+func (s *unitSuite) TestSetUnitStatusOldServer(c *gc.C) {
+	s.patchNewState(c, uniter.NewStateV1)
+
+	err := s.apiUnit.SetUnitStatus(params.StatusActive, "blah", nil)
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(err.Error(), gc.Equals, "SetUnitStatus not implemented")
+}
+
+func (s *unitSuite) TestSetAgentStatusOldServer(c *gc.C) {
+	s.patchNewState(c, uniter.NewStateV1)
+
+	statusInfo, err := s.wordpressUnit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusUnknown)
+	c.Assert(statusInfo.Message, gc.Equals, "Waiting for agent initialization to finish")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
+
+	err = s.apiUnit.SetAgentStatus(params.StatusIdle, "blah", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	statusInfo, err = s.wordpressUnit.AgentStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusIdle)
+	c.Assert(statusInfo.Message, gc.Equals, "blah")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
+}
+
+func (s *unitSuite) TestUnitStatus(c *gc.C) {
+	err := s.wordpressUnit.SetStatus(state.StatusMaintenance, "blah", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.apiUnit.UnitStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Since, gc.NotNil)
+	result.Since = nil
+	c.Assert(result, gc.DeepEquals, params.StatusResult{
+		Status: params.StatusMaintenance,
+		Info:   "blah",
+		Data:   map[string]interface{}{},
+	})
 }
 
 func (s *unitSuite) TestEnsureDead(c *gc.C) {
@@ -157,7 +249,7 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 
 	// Change something other than the lifecycle and make sure it's
 	// not detected.
-	err = s.apiUnit.SetStatus(params.StatusActive, "not really", nil)
+	err = s.apiUnit.SetAgentStatus(params.StatusIdle, "not really", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -226,7 +318,9 @@ func (s *unitSuite) TestPublicAddress(c *gc.C) {
 	address, err := s.apiUnit.PublicAddress()
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no public address set`)
 
-	err = s.wordpressMachine.SetAddresses(network.NewAddress("1.2.3.4", network.ScopePublic))
+	err = s.wordpressMachine.SetAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopePublic),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	address, err = s.apiUnit.PublicAddress()
@@ -238,7 +332,9 @@ func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 	address, err := s.apiUnit.PrivateAddress()
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no private address set`)
 
-	err = s.wordpressMachine.SetAddresses(network.NewAddress("1.2.3.4", network.ScopeCloudLocal))
+	err = s.wordpressMachine.SetAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	address, err = s.apiUnit.PrivateAddress()
@@ -550,14 +646,14 @@ func (s *unitSuite) TestWatchAddresses(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Update config a couple of times, check a single event.
-	err = s.wordpressMachine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err = s.wordpressMachine.SetAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.wordpressMachine.SetAddresses(network.NewAddress("0.1.2.4", network.ScopeUnknown))
+	err = s.wordpressMachine.SetAddresses(network.NewAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Non-change is not reported.
-	err = s.wordpressMachine.SetAddresses(network.NewAddress("0.1.2.4", network.ScopeUnknown))
+	err = s.wordpressMachine.SetAddresses(network.NewAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -687,6 +783,18 @@ func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
+	mm, err := s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	err = mm.SetLastSuccessfulSend(time.Now())
+	c.Assert(err, jc.ErrorIsNil)
+	for i := 0; i < 3; i++ {
+		err := mm.IncrementConsecutiveErrors()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	status := mm.MeterStatus()
+	c.Assert(status.Code, gc.Equals, state.MeterAmber) // Confirm meter status has changed
+	wc.AssertOneChange()
+
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
 }
@@ -699,4 +807,151 @@ func (s *unitSuite) patchNewState(
 	var err error
 	s.apiUnit, err = s.uniter.Unit(s.wordpressUnit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+type unitMetricBatchesSuite struct {
+	testing.JujuConnSuite
+
+	st      *api.State
+	uniter  *uniter.State
+	apiUnit *uniter.Unit
+	charm   *state.Charm
+}
+
+var _ = gc.Suite(&unitMetricBatchesSuite{})
+
+func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+
+	s.charm = s.Factory.MakeCharm(c, &jujufactory.CharmParams{
+		Name: "metered",
+		URL:  "cs:quantal/metered",
+	})
+	service := s.Factory.MakeService(c, &jujufactory.ServiceParams{
+		Charm: s.charm,
+	})
+	unit := s.Factory.MakeUnit(c, &jujufactory.UnitParams{
+		Service:     service,
+		SetCharmURL: true,
+	})
+
+	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+	s.st = s.OpenAPIAs(c, unit.Tag(), password)
+
+	// Create the uniter API facade.
+	s.uniter, err = s.st.Uniter()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.uniter, gc.NotNil)
+
+	s.apiUnit, err = s.uniter.Unit(unit.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitMetricBatchesSuite) TestSendMetricBatchPatch(c *gc.C) {
+	metrics := []params.Metric{{"pings", "5", time.Now().UTC()}}
+	uuid := utils.MustNewUUID().String()
+	batch := params.MetricBatch{
+		UUID:     uuid,
+		CharmURL: s.charm.URL().String(),
+		Created:  time.Now(),
+		Metrics:  metrics,
+	}
+
+	var called bool
+	uniter.PatchUnitResponse(s, s.apiUnit, "AddMetricBatches",
+		func(response interface{}) error {
+			called = true
+			result := response.(*params.ErrorResults)
+			result.Results = make([]params.ErrorResult, 1)
+			return nil
+		})
+
+	err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *unitMetricBatchesSuite) TestSendMetricBatchFail(c *gc.C) {
+	var called bool
+	uniter.PatchUnitResponse(s, s.apiUnit, "AddMetricBatches",
+		func(response interface{}) error {
+			called = true
+			result := response.(*params.ErrorResults)
+			result.Results = make([]params.ErrorResult, 1)
+			result.Results[0].Error = common.ServerError(common.ErrPerm)
+			return nil
+		})
+	metrics := []params.Metric{{"pings", "5", time.Now().UTC()}}
+	uuid := utils.MustNewUUID().String()
+	batch := params.MetricBatch{
+		UUID:     uuid,
+		CharmURL: s.charm.URL().String(),
+		Created:  time.Now(),
+		Metrics:  metrics,
+	}
+
+	err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *unitMetricBatchesSuite) TestSendMetricBatchNotImplemented(c *gc.C) {
+	var called bool
+	uniter.PatchUnitFacadeCall(s, s.apiUnit, func(request string, args, response interface{}) error {
+		switch request {
+		case "AddMetricBatches":
+			result := response.(*params.ErrorResults)
+			result.Results = make([]params.ErrorResult, 1)
+			return &params.Error{"not implemented", params.CodeNotImplemented}
+		case "AddMetrics":
+			called = true
+			result := response.(*params.ErrorResults)
+			result.Results = make([]params.ErrorResult, 1)
+			return nil
+		default:
+			panic(fmt.Errorf("unexpected request %q received", request))
+		}
+	})
+
+	metrics := []params.Metric{{"pings", "5", time.Now().UTC()}}
+	uuid := utils.MustNewUUID().String()
+	batch := params.MetricBatch{
+		UUID:     uuid,
+		CharmURL: s.charm.URL().String(),
+		Created:  time.Now(),
+		Metrics:  metrics,
+	}
+
+	err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *unitMetricBatchesSuite) TestSendMetricBatch(c *gc.C) {
+	uuid := utils.MustNewUUID().String()
+	now := time.Now().Round(time.Second).UTC()
+	metrics := []params.Metric{{"pings", "5", now}}
+	batch := params.MetricBatch{
+		UUID:     uuid,
+		CharmURL: s.charm.URL().String(),
+		Created:  now,
+		Metrics:  metrics,
+	}
+
+	err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
+	c.Assert(err, jc.ErrorIsNil)
+
+	batches, err := s.State.MetricBatches()
+	c.Assert(err, gc.IsNil)
+	c.Assert(batches, gc.HasLen, 1)
+	c.Assert(batches[0].UUID(), gc.Equals, uuid)
+	c.Assert(batches[0].Sent(), jc.IsFalse)
+	c.Assert(batches[0].CharmURL(), gc.Equals, s.charm.URL().String())
+	c.Assert(batches[0].Metrics(), gc.HasLen, 1)
+	c.Assert(batches[0].Metrics()[0].Key, gc.Equals, "pings")
+	c.Assert(batches[0].Metrics()[0].Key, gc.Equals, "pings")
+	c.Assert(batches[0].Metrics()[0].Value, gc.Equals, "5")
 }

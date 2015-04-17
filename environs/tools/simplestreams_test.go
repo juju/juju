@@ -20,7 +20,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"gopkg.in/amz.v2/aws"
+	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/filestorage"
@@ -290,7 +290,7 @@ func (s *simplestreamsSuite) TestFetchNoMatchingStream(c *gc.C) {
 	})
 	_, _, err := tools.Fetch(
 		[]simplestreams.DataSource{s.Source}, toolsConstraint, s.RequireSigned)
-	c.Assert(err, gc.ErrorMatches, `index file missing "content-download" data not found`)
+	c.Assert(err, gc.ErrorMatches, `"content-download" data not found`)
 }
 
 func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
@@ -882,6 +882,7 @@ func (s *metadataHelperSuite) TestWriteMetadataLegacyIndex(c *gc.C) {
 	stor, _ := s.writeMetadataMultipleStream(c)
 	// Read back the legacy index
 	rdr, err := stor.Get("tools/streams/v1/index.json")
+	defer rdr.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := ioutil.ReadAll(rdr)
 	c.Assert(err, jc.ErrorIsNil)

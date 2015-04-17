@@ -138,11 +138,23 @@ func unitMatchUnitName(u *state.Unit, patterns []string) (bool, bool, error) {
 }
 
 func unitMatchAgentStatus(u *state.Unit, patterns []string) (bool, bool, error) {
-	status, _, _, err := u.Status()
+	statusInfo, err := u.AgentStatus()
 	if err != nil {
 		return false, false, err
 	}
-	return matchAgentStatus(patterns, status)
+	return matchAgentStatus(patterns, statusInfo.Status)
+}
+
+func unitMatchWorkloadStatus(u *state.Unit, patterns []string) (bool, bool, error) {
+	workloadStatusInfo, err := u.Status()
+	if err != nil {
+		return false, false, err
+	}
+	agentStatusInfo, err := u.AgentStatus()
+	if err != nil {
+		return false, false, err
+	}
+	return matchWorkloadStatus(patterns, workloadStatusInfo.Status, agentStatusInfo.Status)
 }
 
 func unitMatchExposure(u *state.Unit, patterns []string) (bool, bool, error) {
@@ -221,11 +233,11 @@ func buildShimsForUnit(unitsFn func() ([]*state.Unit, error), patterns ...string
 
 func buildMachineMatcherShims(m *state.Machine, patterns []string) (shims []closurePredicate, _ error) {
 	// Look at machine status.
-	status, _, _, err := m.Status()
+	statusInfo, err := m.Status()
 	if err != nil {
 		return nil, err
 	}
-	shims = append(shims, func() (bool, bool, error) { return matchAgentStatus(patterns, status) })
+	shims = append(shims, func() (bool, bool, error) { return matchAgentStatus(patterns, statusInfo.Status) })
 
 	// Look at machine addresses. WARNING: Avoid the temptation to
 	// bring the append into the loop. The value we would close over
@@ -261,6 +273,7 @@ func buildUnitMatcherShims(u *state.Unit, patterns []string) []closurePredicate 
 	return []closurePredicate{
 		closeOver(unitMatchUnitName),
 		closeOver(unitMatchAgentStatus),
+		closeOver(unitMatchWorkloadStatus),
 		closeOver(unitMatchExposure),
 		closeOver(unitMatchSubnet),
 		closeOver(unitMatchPort),
@@ -314,6 +327,25 @@ func matchExposure(patterns []string, s *state.Service) (bool, bool, error) {
 		return !s.IsExposed(), true, nil
 	}
 	return false, false, nil
+}
+
+func matchWorkloadStatus(patterns []string, workloadStatus state.Status, agentStatus state.Status) (bool, bool, error) {
+	oneValidStatus := false
+	for _, p := range patterns {
+		// If the pattern isn't a valid status, ignore it.
+		ps := state.Status(p)
+		if !ps.ValidWorkloadStatus() {
+			continue
+		}
+
+		oneValidStatus = true
+		// To preserve current expected behaviour, we only report on workload status
+		// if the agent itself is not in error.
+		if agentStatus != state.StatusError && workloadStatus.WorkloadMatches(ps) {
+			return true, true, nil
+		}
+	}
+	return false, oneValidStatus, nil
 }
 
 func matchAgentStatus(patterns []string, status state.Status) (bool, bool, error) {

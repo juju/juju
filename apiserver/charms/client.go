@@ -5,13 +5,13 @@ package charms
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v4"
+	"github.com/juju/utils/set"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/utils/set"
 )
 
 func init() {
@@ -50,8 +50,6 @@ func NewAPI(
 		authorizer: authorizer,
 	}, nil
 }
-
-var CharmStore charm.Repository = charm.Store
 
 // CharmInfo returns information about the requested charm.
 func (a *API) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {

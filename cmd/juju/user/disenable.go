@@ -6,6 +6,7 @@ package user
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/cmd/juju/block"
 )
 

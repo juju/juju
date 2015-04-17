@@ -4,97 +4,107 @@
 package storage
 
 import (
+	"github.com/juju/errors"
+	"github.com/juju/names"
+
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 )
 
-// FeatureFlag is the name of the feature for the JUJU_DEV_FEATURE_FLAGS
-// envar. Add this string to the envar to enable support for storage.
-const FeatureFlag = "storage"
-
-// VolumeParams is a fully specified set of parameters for volume creation,
-// derived from one or more of user-specified storage constraints, a
-// storage pool definition, and charm storage metadata.
-type VolumeParams struct {
-	// Name is a unique name assigned by Juju for the requested volume.
-	Name string
-
-	// Size is the minimum size of the volume in MiB.
-	Size uint64
-
-	// Options is a set of provider-specific options for storage creation,
-	// as defined in a storage pool.
-	Options map[string]interface{}
-
-	// Instance is the ID of the instance that the volume should be attached
-	// to initially. This will only be empty if the instance is not yet
-	// provisioned, in which case the parameters refer to a volume that is
-	// being created in conjunction with the instance.
-	Instance instance.Id
-}
-
 // ProviderType uniquely identifies a storage provider, such as "ebs" or "loop".
 type ProviderType string
 
+// Scope defines the scope of the storage that a provider manages.
+// Machine-scoped storage must be managed from within the machine,
+// whereas environment-level storage must be managed by an environment
+// storage provisioner.
+type Scope int
+
+const (
+	ScopeEnviron Scope = iota
+	ScopeMachine
+)
+
+// ErrVolumeNeedsInstance is an error indicating that a volume cannot be
+// created because the related machine instance has not been provisioned.
+var ErrVolumeNeedsInstance = errors.New("need running instance to provision volume")
+
 // Provider is an interface for obtaining storage sources.
 type Provider interface {
-	// VolumeSource returns a VolumeSource given the
-	// specified cloud and storage provider configurations.
+	// VolumeSource returns a VolumeSource given the specified cloud
+	// and storage provider configurations, or an error if the provider
+	// does not support creating volumes or the configuration is invalid.
 	//
 	// If the storage provider does not support creating volumes as a
 	// first-class primitive, then VolumeSource must return an error
 	// satisfying errors.IsNotSupported.
 	VolumeSource(environConfig *config.Config, providerConfig *Config) (VolumeSource, error)
 
-	// TODO(axw) define filesystem source. If the user requests a
-	// filesystem and that can be provided first-class, it should be
-	// done that way. Otherwise we create a volume and then manage a
-	// filesystem on that.
+	// FilesystemSource returns a FilesystemSource given the specified
+	// cloud and storage provider configurations, or an error if the
+	// provider does not support creating filesystems or the configuration
+	// is invalid.
+	FilesystemSource(environConfig *config.Config, providerConfig *Config) (FilesystemSource, error)
+
+	// Supports reports whether or not the storage provider supports
+	// the specified storage kind.
+	//
+	// A provider that supports volumes but not filesystems can still
+	// be used for creating filesystem storage; Juju will request a
+	// volume from the provider and then manage the filesystem itself.
+	Supports(kind StorageKind) bool
+
+	// Scope returns the scope of storage managed by this provider.
+	Scope() Scope
+
+	// Dynamic reports whether or not the storage provider is capable
+	// of dynamic storage provisioning. Non-dynamic storage must be
+	// created at the time a machine is provisioned.
+	Dynamic() bool
 
 	// ValidateConfig validates the provided storage provider config,
 	// returning an error if it is invalid.
 	ValidateConfig(*Config) error
 }
 
-// VolumeSource provides an interface for creating, destroying and
-// describing volumes in the environment. A VolumeSource is configured
-// in a particular way, and corresponds to a storage "pool".
+// VolumeSource provides an interface for creating, destroying, describing,
+// attaching and detaching volumes in the environment. A VolumeSource is
+// configured in a particular way, and corresponds to a storage "pool".
 type VolumeSource interface {
-	// CreateVolumes creates volumes with the specified size, in MiB.
-	//
-	// TODO(axw) CreateVolumes should return something other than
-	// []BlockDevice, so we can communicate additional information
-	// about the volumes that are not relevant at the attachment
-	// level.
-	CreateVolumes(params []VolumeParams) ([]BlockDevice, error)
+	// CreateVolumes creates volumes with the specified parameters. If the
+	// volumes are initially attached, then CreateVolumes returns
+	// information about those attachments too.
+	CreateVolumes(params []VolumeParams) ([]Volume, []VolumeAttachment, error)
 
 	// DescribeVolumes returns the properties of the volumes with the
 	// specified provider volume IDs.
-	//
-	// TODO(axw) as in CreateVolumes, we should return something other
-	// than []BlockDevice here.
-	DescribeVolumes(volIds []string) ([]BlockDevice, error)
+	DescribeVolumes(volIds []string) ([]Volume, error)
 
 	// DestroyVolumes destroys the volumes with the specified provider
 	// volume IDs.
-	DestroyVolumes(volIds []string) error
+	DestroyVolumes(volIds []string) []error
 
 	// ValidateVolumeParams validates the provided volume creation
 	// parameters, returning an error if they are invalid.
 	//
-	// If the provider is incapable of provisioning volumes separately
-	// from machine instances (e.g. MAAS), then ValidateVolumeParams
-	// must return an error if params.Instance is non-empty.
+	// If the provider requires information about the machine instance to
+	// which the volume will be attached before, and the supplied instance
+	// ID is empty (i.e. the instance is not yet provisioned), then
+	// ErrVolumeNeedsInstance must be returned to indicate that the
+	// provisioner should call again when the instance has been provisioned.
 	ValidateVolumeParams(params VolumeParams) error
 
-	// AttachVolumes attaches the volumes with the specified provider
-	// volume IDs to the instances with the corresponding index.
+	// AttachVolumes attaches volumes to machines.
+	//
+	// AttachVolumes must be idempotent; it may be called even if the
+	// attachment already exists, to ensure that it exists, e.g. over
+	// machine restarts.
 	//
 	// TODO(axw) we need to validate attachment requests prior to
 	// recording in state. For example, the ec2 provider must reject
 	// an attempt to attach a volume to an instance if they are in
 	// different availability zones.
-	AttachVolumes(volIds []string, instId []instance.Id) error
+	AttachVolumes(params []VolumeAttachmentParams) ([]VolumeAttachment, error)
 
 	// DetachVolumes detaches the volumes with the specified provider
 	// volume IDs from the instances with the corresponding index.
@@ -102,5 +112,145 @@ type VolumeSource interface {
 	// TODO(axw) we need to record in state whether or not volumes
 	// are detachable, and reject attempts to attach/detach on
 	// that basis.
-	DetachVolumes(volIds []string, instId []instance.Id) error
+	DetachVolumes(params []VolumeAttachmentParams) error
+}
+
+// FilesystemSource provides an interface for creating, destroying and
+// describing filesystems in the environment. A FilesystemSource is
+// configured in a particular way, and corresponds to a storage "pool".
+type FilesystemSource interface {
+	// ValidateFilesystemParams validates the provided filesystem creation
+	// parameters, returning an error if they are invalid.
+	ValidateFilesystemParams(params FilesystemParams) error
+
+	// CreateFilesystems creates filesystems with the specified size, in MiB.
+	CreateFilesystems(params []FilesystemParams) ([]Filesystem, error)
+
+	// AttachFilesystems attaches filesystems to machines.
+	//
+	// AttachFilesystems must be idempotent; it may be called even if
+	// the attachment already exists, to ensure that it exists, e.g. over
+	// machine restarts.
+	//
+	// TODO(axw) we need to validate attachment requests prior to
+	// recording in state. For example, the ec2 provider must reject
+	// an attempt to attach a volume to an instance if they are in
+	// different availability zones.
+	AttachFilesystems(params []FilesystemAttachmentParams) ([]FilesystemAttachment, error)
+
+	// DetachFilesystems detaches the filesystems with the specified
+	// provider filesystem IDs from the instances with the corresponding
+	// index.
+	DetachFilesystems(params []FilesystemAttachmentParams) error
+}
+
+// VolumeParams is a fully specified set of parameters for volume creation,
+// derived from one or more of user-specified storage constraints, a
+// storage pool definition, and charm storage metadata.
+type VolumeParams struct {
+	// Tag is a unique tag name assigned by Juju for the requested volume.
+	Tag names.VolumeTag
+
+	// Size is the minimum size of the volume in MiB.
+	Size uint64
+
+	// Provider is the name of the storage provider that is to be used to
+	// create the volume.
+	Provider ProviderType
+
+	// Attributes is the set of provider-specific attributes to pass to
+	// the storage provider when creating the volume. Attributes is derived
+	// from the storage pool configuration.
+	Attributes map[string]interface{}
+
+	// Attachment identifies the machine that the volume should be attached
+	// to initially, or nil if the volume should not be attached to any
+	// machine. Some providers, such as MAAS, do not support dynamic
+	// attachment, and so provisioning time is the only opportunity to
+	// perform attachment.
+	//
+	// When machine instances are created, the instance provider will be
+	// presented with parameters for any due-to-be-attached volumes. If
+	// once the instance is created there are still unprovisioned volumes,
+	// the dynamic storage provisioner will take care of creating them.
+	Attachment *VolumeAttachmentParams
+}
+
+// IsPersistent returns true if the params has persistent set to true.
+func (p *VolumeParams) IsPersistent() bool {
+	v, _ := p.Attributes[Persistent].(bool)
+	return v
+}
+
+// VolumeAttachmentParams is a set of parameters for volume attachment or
+// detachment.
+type VolumeAttachmentParams struct {
+	AttachmentParams
+
+	// Volume is a unique tag assigned by Juju for the volume that
+	// should be attached/detached.
+	Volume names.VolumeTag
+
+	// VolumeId is the unique provider-supplied ID for the volume that
+	// should be attached/detached.
+	VolumeId string
+}
+
+// AttachmentParams describes the parameters for attaching a volume or
+// filesystem to a machine.
+type AttachmentParams struct {
+	// Provider is the name of the storage provider that is to be used to
+	// create the attachment.
+	Provider ProviderType
+
+	// Machine is the tag of the Juju machine that the storage should be
+	// attached to. Storage providers may use this to perform machine-
+	// specific operations, such as configuring access controls for the
+	// machine.
+	Machine names.MachineTag
+
+	// InstanceId is the ID of the cloud instance that the storage should
+	// be attached to. This will only be of interest to storage providers
+	// that interact with the instances, such as EBS/EC2. The InstanceId
+	// field will be empty if the instance is not yet provisioned.
+	InstanceId instance.Id
+}
+
+// FilesystemParams is a fully specified set of parameters for filesystem creation,
+// derived from one or more of user-specified storage constraints, a
+// storage pool definition, and charm storage metadata.
+type FilesystemParams struct {
+	// Tag is a unique tag assigned by Juju for the requested filesystem.
+	Tag names.FilesystemTag
+
+	// Volume is the tag of the volume that backs the filesystem, if any.
+	Volume names.VolumeTag
+
+	// Size is the minimum size of the filesystem in MiB.
+	Size uint64
+
+	// The provider type for this filesystem.
+	Provider ProviderType
+
+	// Attributes is a set of provider-specific options for storage creation,
+	// as defined in a storage pool.
+	Attributes map[string]interface{}
+}
+
+// FilesystemAttachmentParams is a set of parameters for filesystem attachment
+// or detachment.
+type FilesystemAttachmentParams struct {
+	AttachmentParams
+
+	// Filesystem is a unique tag assigned by Juju for the filesystem that
+	// should be attached/detached.
+	Filesystem names.FilesystemTag
+
+	// FilesystemId is the unique provider-supplied ID for the filesystem that
+	// should be attached/detached.
+	FilesystemId string
+
+	// Path is the path at which the filesystem is to be mounted on the machine that
+	// this attachment corresponds to.
+	Path string
 }

@@ -5,8 +5,9 @@ package operation
 
 import (
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	utilexec "github.com/juju/utils/exec"
-	corecharm "gopkg.in/juju/charm.v4"
+	corecharm "gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -98,6 +99,10 @@ type Factory interface {
 	// NewUpdateRelations creates an operation to ensure the supplied relation
 	// ids are known and tracked.
 	NewUpdateRelations(ids []int) (Operation, error)
+
+	// NewUpdateStorage creates an operation to ensure the supplied storage
+	// tags are known and tracked.
+	NewUpdateStorage(tags []names.StorageTag) (Operation, error)
 }
 
 // CommandArgs stores the arguments for a Command operation.
@@ -120,17 +125,16 @@ type CommandResponseFunc func(*utilexec.ExecResponse, error)
 // It's far from cohesive, and fundamentally represents inappropriate coupling, so
 // it's a prime candidate for future refactoring.
 type Callbacks interface {
-
-	// AcquireExecutionLock acquires the machine-level execution lock, and
-	// returns a func that must be called to unlock it. It's used by all the
-	// operations that execute external code.
-	AcquireExecutionLock(message string) (unlock func(), err error)
+	ExecutionLocker
 
 	// PrepareHook and CommitHook exist so that we can defer worrying about how
 	// to untangle Uniter.relationers from everything else. They're only used by
 	// RunHook operations.
 	PrepareHook(info hook.Info) (name string, err error)
 	CommitHook(info hook.Info) error
+
+	// SetExecutingStatus sets the agent state to "Executing" with a message.
+	SetExecutingStatus(string) error
 
 	// UpdateRelations exists so that we can encapsulate it in an operation.
 	UpdateRelations(ids []int) error
@@ -166,4 +170,22 @@ type Callbacks interface {
 	// the resolved attempt and is trying to progress. It's only used by Resolved
 	// operations (which we generally expect to wrap other operations).
 	ClearResolvedFlag() error
+}
+
+// StorageUpdater is an interface used for updating local knowledge of storage
+// attachments.
+type StorageUpdater interface {
+	// UpdateStorage updates local knowledge of the storage attachments
+	// with the specified tags.
+	UpdateStorage([]names.StorageTag) error
+}
+
+// ExecutionLocker is an interface that provides a means of acquiring and
+// releasing a machine-level lock. When acquiring the lock, the caller provides
+// a message which will be recorded to aid in debugging.
+type ExecutionLocker interface {
+	// AcquireExecutionLock acquires the machine-level execution lock, and
+	// returns a func that must be called to unlock it. It's used by all the
+	// operations that execute external code.
+	AcquireExecutionLock(message string) (unlock func(), err error)
 }

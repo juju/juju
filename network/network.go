@@ -4,9 +4,12 @@
 package network
 
 import (
+	"bufio"
 	"fmt"
 	"net"
+	"os"
 	"sort"
+	"strings"
 
 	"github.com/juju/loggo"
 )
@@ -24,6 +27,11 @@ const (
 
 // Id defines a provider-specific network id.
 type Id string
+
+// AnySubnet when passed as a subnet id should be interpreted by the
+// providers as "the subnet id does not matter". It's up to the
+// provider how to handle this case - it might return an error.
+const AnySubnet Id = ""
 
 // SubnetInfo describes the bare minimum information for a subnet,
 // which the provider knows about but juju might not yet.
@@ -65,6 +73,7 @@ const (
 // InterfaceInfo describes a single network interface available on an
 // instance. For providers that support networks, this will be
 // available at StartInstance() time.
+// TODO(mue): Rename to InterfaceConfig due to consistency later.
 type InterfaceInfo struct {
 	// DeviceIndex specifies the order in which the network interface
 	// appears on the host. The primary interface has an index of 0.
@@ -179,4 +188,100 @@ type PreferIPv6Getter interface {
 func InitializeFromConfig(config PreferIPv6Getter) {
 	globalPreferIPv6 = config.PreferIPv6()
 	logger.Infof("setting prefer-ipv6 to %v", globalPreferIPv6)
+}
+
+// LXCNetDefaultConfig is the location of the default network config
+// of the lxc package. It's exported to allow cross-package testing.
+var LXCNetDefaultConfig = "/etc/default/lxc-net"
+
+// InterfaceByNameAddrs returns the addresses for the given interface
+// name. It's exported to facilitate cross-package testing.
+var InterfaceByNameAddrs = func(name string) ([]net.Addr, error) {
+	iface, err := net.InterfaceByName(name)
+	if err != nil {
+		return nil, err
+	}
+	return iface.Addrs()
+}
+
+// FilterLXCAddresses tries to discover the default lxc bridge name
+// and all of its addresses, then filters those addresses out of the
+// given ones and returns the result. Any errors encountered during
+// this process are logged, but not considered fatal. See LP bug
+// #1416928.
+func FilterLXCAddresses(addresses []Address) []Address {
+	file, err := os.Open(LXCNetDefaultConfig)
+	if os.IsNotExist(err) {
+		// No lxc-net config found, nothing to do.
+		logger.Debugf("no lxc bridge addresses to filter for machine")
+		return addresses
+	} else if err != nil {
+		// Just log it, as it's not fatal.
+		logger.Warningf("cannot open %q: %v", LXCNetDefaultConfig, err)
+		return addresses
+	}
+	defer file.Close()
+
+	filterAddrs := func(bridgeName string, addrs []net.Addr) []Address {
+		// Filter out any bridge addresses.
+		filtered := make([]Address, 0, len(addresses))
+		for _, addr := range addresses {
+			found := false
+			for _, ifaceAddr := range addrs {
+				// First check if this is a CIDR, as
+				// net.InterfaceAddrs might return this instead of
+				// a plain IP.
+				ip, ipNet, err := net.ParseCIDR(ifaceAddr.String())
+				if err != nil {
+					// It's not a CIDR, try parsing as IP.
+					ip = net.ParseIP(ifaceAddr.String())
+				}
+				if ip == nil {
+					logger.Debugf("cannot parse %q as IP, ignoring", ifaceAddr)
+					continue
+				}
+				// Filter by CIDR if known or single IP otherwise.
+				if ipNet != nil && ipNet.Contains(net.ParseIP(addr.Value)) ||
+					ip.String() == addr.Value {
+					found = true
+					logger.Debugf("filtering %q address %s for machine", bridgeName, ifaceAddr.String())
+				}
+			}
+			if !found {
+				logger.Debugf("not filtering address %s for machine", addr)
+				filtered = append(filtered, addr)
+			}
+		}
+		logger.Debugf("addresses after filtering: %v", filtered)
+		return filtered
+	}
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		switch {
+		case strings.HasPrefix(line, "#"):
+			// Skip comments.
+		case strings.HasPrefix(line, "LXC_BRIDGE"):
+			// Extract <name> from LXC_BRIDGE="<name>".
+			parts := strings.Split(line, `"`)
+			if len(parts) < 2 {
+				logger.Debugf("ignoring invalid line '%s' in %q", line, LXCNetDefaultConfig)
+				continue
+			}
+			bridgeName := strings.TrimSpace(parts[1])
+			// Discover all addresses of bridgeName interface.
+			addrs, err := InterfaceByNameAddrs(bridgeName)
+			if err != nil {
+				logger.Warningf("cannot get %q addresses: %v (ignoring)", bridgeName, err)
+				continue
+			}
+			logger.Debugf("%q has addresses %v", bridgeName, addrs)
+			return filterAddrs(bridgeName, addrs)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		logger.Warningf("failed to read %q: %v (ignoring)", LXCNetDefaultConfig, err)
+	}
+	return addresses
 }

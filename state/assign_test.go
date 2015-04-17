@@ -16,6 +16,9 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 )
 
 type AssignSuite struct {
@@ -30,6 +33,11 @@ var _ = gc.Suite(&assignCleanSuite{ConnSuite{}, state.AssignClean, nil})
 
 func (s *AssignSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+
 	wordpress := s.AddTestingServiceWithNetworks(
 		c,
 		"wordpress",
@@ -42,6 +50,7 @@ func (s *AssignSuite) SetUpTest(c *gc.C) {
 		c, "storage-block", s.AddTestingCharm(c, "storage-block"),
 		map[string]state.StorageConstraints{
 			"data": {
+				Pool:  "loop-pool",
 				Count: 1,
 				Size:  1024,
 			},
@@ -1005,9 +1014,9 @@ func (s *AssignSuite) TestAssignUnitWithStorageCleanAvailable(c *gc.C) {
 
 	unit, err := s.storageSvc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	storageInstances, err := unit.StorageInstances()
+	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageInstances, gc.HasLen, 1)
+	c.Assert(storageAttachments, gc.HasLen, 1)
 
 	// Add a clean machine.
 	clean, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -1025,15 +1034,18 @@ func (s *AssignSuite) TestAssignUnitWithStorageCleanAvailable(c *gc.C) {
 	// Check that the machine isn't our clean one.
 	c.Assert(machineId, gc.Not(gc.Equals), clean.Id())
 
-	// Check that requested block devices were added to the machine.
+	// Check that a volume attachments were added to the machine.
 	machine, err := s.State.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	blockDevices, err := machine.BlockDevices()
+	volumeAttachments, err := s.State.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockDevices, gc.HasLen, 1)
-	storageInstance, ok := blockDevices[0].StorageInstance()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(storageInstance, gc.Equals, storageInstances[0].Id())
+	c.Assert(volumeAttachments, gc.HasLen, 1)
+
+	volume, err := s.State.Volume(volumeAttachments[0].Volume())
+	c.Assert(err, jc.ErrorIsNil)
+	volumeStorageInstance, err := volume.StorageInstance()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeStorageInstance, gc.Equals, storageAttachments[0].StorageInstance())
 }
 
 func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {

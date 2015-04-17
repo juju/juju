@@ -17,6 +17,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v5/charmrepo"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
@@ -195,6 +196,27 @@ var configTests = []configTest{
 			"name":          "my-name",
 			"lxc-use-clone": false,
 			"lxc-clone":     true,
+		},
+	}, {
+		about:       "Allow LXC loop mounts true",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"allow-lxc-loop-mounts": "true",
+		},
+	}, {
+		about:       "Allow LXC loop mounts default",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"allow-lxc-loop-mounts": "false",
+		},
+		expected: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"allow-lxc-loop-mounts": false,
 		},
 	}, {
 		about:       "CA cert & key from path",
@@ -851,20 +873,6 @@ var configTests = []configTest{
 		},
 		err: "uuid: expected uuid, got string\\(\"\"\\)",
 	},
-	authTokenConfigTest("token=value, tokensecret=value", true),
-	authTokenConfigTest("token=value, ", true),
-	authTokenConfigTest("token=value, \ttokensecret=value", true),
-	authTokenConfigTest("", true),
-	authTokenConfigTest("token=value, tokensecret=value, \t", true),
-	authTokenConfigTest("=", false),
-	authTokenConfigTest("tokenvalue", false),
-	authTokenConfigTest("token=value, sometoken=", false),
-	authTokenConfigTest("token==value", false),
-	authTokenConfigTest(" token=value", false),
-	authTokenConfigTest("=value", false),
-	authTokenConfigTest("token=value, =z", false),
-	authTokenConfigTest("token=value =z", false),
-	authTokenConfigTest("\t", false),
 	missingAttributeNoDefault("firewall-mode"),
 	missingAttributeNoDefault("development"),
 	missingAttributeNoDefault("ssl-hostname-verification"),
@@ -891,28 +899,6 @@ var configTests = []configTest{
 			"apt-mirror": "http://my.archive.ubuntu.com",
 		},
 	},
-}
-
-// authTokenConfigTest returns a config test that checks
-// that a configuration with the given auth token
-// will pass or fail, depending on the value of ok.
-func authTokenConfigTest(token string, ok bool) configTest {
-	var testName string
-	var err string
-
-	if ok {
-		testName = fmt.Sprintf("Valid auth token test: %q", token)
-	} else {
-		testName = fmt.Sprintf("Invalid auth token test: %q", token)
-		err = fmt.Sprintf("charm store auth token needs to be a set of key-value pairs, not %q", token)
-	}
-
-	return configTest{
-		about:       testName,
-		useDefaults: config.UseDefaults,
-		attrs:       sampleConfig.Merge(testing.Attrs{"charm-store-auth": token}),
-		err:         regexp.QuoteMeta(err),
-	}
 }
 
 func missingAttributeNoDefault(attrName string) configTest {
@@ -1327,7 +1313,6 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"bootstrap-retry-delay":     30,
 		"bootstrap-addresses-delay": 10,
 		"default-series":            testing.FakeDefaultSeries,
-		"charm-store-auth":          "token=auth",
 		"test-mode":                 false,
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
@@ -1345,9 +1330,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["lxc-clone-aufs"] = false
 	attrs["prefer-ipv6"] = false
 	attrs["set-numa-control-policy"] = false
-	attrs["block-destroy-environment"] = false
-	attrs["block-remove-object"] = false
-	attrs["block-all-changes"] = false
+	attrs["allow-lxc-loop-mounts"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
@@ -1635,6 +1618,24 @@ func (s *ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
 	c.Assert(config.NoProxy(), gc.Equals, "localhost,10.0.3.1")
 }
 
+func (s *ConfigSuite) TestProxyValuesWithFallbackNoScheme(c *gc.C) {
+	s.addJujuFiles(c)
+
+	config := newTestConfig(c, testing.Attrs{
+		"http-proxy":  "user@10.0.0.1",
+		"https-proxy": "user@10.0.0.1",
+		"ftp-proxy":   "user@10.0.0.1",
+		"no-proxy":    "localhost,10.0.3.1",
+	})
+	c.Assert(config.HttpProxy(), gc.Equals, "user@10.0.0.1")
+	c.Assert(config.AptHttpProxy(), gc.Equals, "http://user@10.0.0.1")
+	c.Assert(config.HttpsProxy(), gc.Equals, "user@10.0.0.1")
+	c.Assert(config.AptHttpsProxy(), gc.Equals, "https://user@10.0.0.1")
+	c.Assert(config.FtpProxy(), gc.Equals, "user@10.0.0.1")
+	c.Assert(config.AptFtpProxy(), gc.Equals, "ftp://user@10.0.0.1")
+	c.Assert(config.NoProxy(), gc.Equals, "localhost,10.0.3.1")
+}
+
 func (s *ConfigSuite) TestProxyValues(c *gc.C) {
 	s.addJujuFiles(c)
 	config := newTestConfig(c, testing.Attrs{
@@ -1674,21 +1675,26 @@ func (s *ConfigSuite) TestProxyConfigMap(c *gc.C) {
 		Ftp:     "ftp proxy",
 		NoProxy: "no proxy",
 	}
+	expectedProxySettings := proxy.Settings{
+		Http:    "http://http proxy",
+		Https:   "https://https proxy",
+		Ftp:     "ftp://ftp proxy",
+		NoProxy: "",
+	}
 	cfg, err := cfg.Apply(config.ProxyConfigMap(proxySettings))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxySettings)
-	// Apt proxy and proxy differ by the content of the no-proxy values.
-	proxySettings.NoProxy = ""
-	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxySettings)
+	// Apt proxy settings always include the scheme. NoProxy is empty.
+	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, expectedProxySettings)
 }
 
 func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg := newTestConfig(c, testing.Attrs{})
 	proxySettings := proxy.Settings{
-		Http:  "http proxy",
-		Https: "https proxy",
-		Ftp:   "ftp proxy",
+		Http:  "http://httpproxy",
+		Https: "https://httpsproxy",
+		Ftp:   "ftp://ftpproxy",
 	}
 	cfg, err := cfg.Apply(config.AptProxyConfigMap(proxySettings))
 	c.Assert(err, jc.ErrorIsNil)
@@ -1762,6 +1768,50 @@ func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 			c.Assert(keyPEM, gc.Equals, "")
 		}
 	}
+}
+
+var specializeCharmRepoTests = []struct {
+	about    string
+	testMode bool
+	repo     charmrepo.Interface
+}{{
+	about: "test mode disabled, charm store",
+	repo:  &specializedCharmRepo{},
+}, {
+	about: "test mode disabled, local repo",
+	repo:  &charmrepo.LocalRepository{},
+}, {
+	about:    "test mode enabled, charm store",
+	testMode: true,
+	repo:     &specializedCharmRepo{},
+}, {
+	about:    "test mode enabled, local repo",
+	testMode: true,
+	repo:     &charmrepo.LocalRepository{},
+}}
+
+func (s *ConfigSuite) TestSpecializeCharmRepo(c *gc.C) {
+	for i, test := range specializeCharmRepoTests {
+		c.Logf("test %d: %s", i, test.about)
+		cfg := newTestConfig(c, testing.Attrs{"test-mode": test.testMode})
+		repo := config.SpecializeCharmRepo(test.repo, cfg)
+		if store, ok := repo.(*specializedCharmRepo); ok {
+			c.Assert(store.testMode, gc.Equals, test.testMode)
+			continue
+		}
+		// Just check that the original local repo has not been modified.
+		c.Assert(repo.(*charmrepo.LocalRepository), gc.Equals, test.repo)
+	}
+}
+
+type specializedCharmRepo struct {
+	*charmrepo.CharmStore
+	testMode bool
+}
+
+func (s *specializedCharmRepo) WithTestMode() charmrepo.Interface {
+	s.testMode = true
+	return s
 }
 
 func (s *ConfigSuite) TestLastestLtsSeriesFallback(c *gc.C) {

@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/keymanager"
 	keymanagertesting "github.com/juju/juju/apiserver/keymanager/testing"
 	"github.com/juju/juju/apiserver/params"
@@ -28,6 +28,8 @@ type keyManagerSuite struct {
 	keymanager *keymanager.KeyManagerAPI
 	resources  *common.Resources
 	authoriser apiservertesting.FakeAuthorizer
+
+	commontesting.BlockHelper
 }
 
 var _ = gc.Suite(&keyManagerSuite{})
@@ -43,6 +45,9 @@ func (s *keyManagerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
 func (s *keyManagerSuite) TestNewKeyManagerAPIAcceptsClient(c *gc.C) {
@@ -149,10 +154,10 @@ func (s *keyManagerSuite) TestBlockAddKeys(c *gc.C) {
 		Keys: []string{key2, newKey, "invalid-key"},
 	}
 
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.BlockAllChanges(c, "TestBlockAddKeys")
 	_, err := s.keymanager.AddKeys(args)
 	// Check that the call is blocked
-	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	s.AssertBlocked(c, err, "TestBlockAddKeys")
 	s.assertEnvironKeys(c, initialKeys)
 }
 
@@ -236,10 +241,10 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *gc.C) {
 		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, sshtesting.ValidKeyThree.Fingerprint, "invalid-key"},
 	}
 
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.BlockAllChanges(c, "TestBlockDeleteKeys")
 	_, err := s.keymanager.DeleteKeys(args)
 	// Check that the call is blocked
-	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	s.AssertBlocked(c, err, "TestBlockDeleteKeys")
 	s.assertEnvironKeys(c, initialKeys)
 }
 
@@ -298,12 +303,21 @@ func (s *keyManagerSuite) TestImportKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key
 	key3 := sshtesting.ValidKeyThree.Key
+	keymv := strings.Split(sshtesting.ValidKeyMulti, "\n")
+	keymp := strings.Split(sshtesting.PartValidKeyMulti, "\n")
 	initialKeys := []string{key1, key2, "bad key"}
 	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
 
 	args := params.ModifyUserSSHKeys{
 		User: s.AdminUserTag(c).Name(),
-		Keys: []string{"lp:existing", "lp:validuser", "invalid-key"},
+		Keys: []string{
+			"lp:existing",
+			"lp:validuser",
+			"invalid-key",
+			"lp:multi",
+			"lp:multiempty",
+			"lp:multipartial",
+		},
 	}
 	results, err := s.keymanager.ImportKeys(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -312,9 +326,17 @@ func (s *keyManagerSuite) TestImportKeys(c *gc.C) {
 			{Error: apiservertesting.ServerError(fmt.Sprintf("duplicate ssh key: %s", key2))},
 			{Error: nil},
 			{Error: apiservertesting.ServerError("invalid ssh key id: invalid-key")},
+			{Error: nil},
+			{Error: nil},
+			{Error: apiservertesting.ServerError("invalid ssh key id: lp:multiempty")},
+			{Error: nil},
+			{Error: apiservertesting.ServerError(fmt.Sprintf(
+				`invalid ssh key for lp:multipartial: `+
+					`generating key fingerprint: `+
+					`invalid authorized_key "%s"`, keymp[1]))},
 		},
 	})
-	s.assertEnvironKeys(c, append(initialKeys, key3))
+	s.assertEnvironKeys(c, append(initialKeys, key3, keymv[0], keymv[1], keymp[0]))
 }
 
 func (s *keyManagerSuite) TestBlockImportKeys(c *gc.C) {
@@ -330,9 +352,9 @@ func (s *keyManagerSuite) TestBlockImportKeys(c *gc.C) {
 		Keys: []string{"lp:existing", "lp:validuser", "invalid-key"},
 	}
 
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.BlockAllChanges(c, "TestBlockImportKeys")
 	_, err := s.keymanager.ImportKeys(args)
 	// Check that the call is blocked
-	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	s.AssertBlocked(c, err, "TestBlockImportKeys")
 	s.assertEnvironKeys(c, initialKeys)
 }

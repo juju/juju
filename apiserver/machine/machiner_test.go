@@ -4,10 +4,9 @@
 package machine_test
 
 import (
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/machine"
@@ -15,6 +14,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -76,15 +76,15 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	})
 
 	// Verify machine 0 - no change.
-	status, info, _, err := s.machine0.Status()
+	statusInfo, err := s.machine0.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusStarted)
-	c.Assert(info, gc.Equals, "blah")
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusStarted)
+	c.Assert(statusInfo.Message, gc.Equals, "blah")
 	// ...machine 1 is fine though.
-	status, info, _, err = s.machine1.Status()
+	statusInfo, err = s.machine1.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "not really")
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "not really")
 }
 
 func (s *machinerSuite) TestLife(c *gc.C) {
@@ -156,15 +156,12 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(s.machine0.Addresses(), gc.HasLen, 0)
 	c.Assert(s.machine1.Addresses(), gc.HasLen, 0)
 
-	addresses := []network.Address{
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-		network.NewAddress("8.8.8.8", network.ScopeUnknown),
-	}
+	addresses := network.NewAddresses("127.0.0.1", "8.8.8.8")
 
 	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{
-		{Tag: "machine-1", Addresses: addresses},
-		{Tag: "machine-0", Addresses: addresses},
-		{Tag: "machine-42", Addresses: addresses},
+		{Tag: "machine-1", Addresses: params.FromNetworkAddresses(addresses)},
+		{Tag: "machine-0", Addresses: params.FromNetworkAddresses(addresses)},
+		{Tag: "machine-42", Addresses: params.FromNetworkAddresses(addresses)},
 	}}
 
 	result, err := s.machiner.SetMachineAddresses(args)
@@ -180,14 +177,29 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	err = s.machine1.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedAddresses := []network.Address{
-		network.NewAddress("8.8.8.8", network.ScopeUnknown),
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-	}
+	expectedAddresses := network.NewAddresses("8.8.8.8", "127.0.0.1")
 	c.Assert(s.machine1.MachineAddresses(), gc.DeepEquals, expectedAddresses)
 	err = s.machine0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine0.MachineAddresses(), gc.HasLen, 0)
+}
+
+func (s *machinerSuite) TestJobs(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+		{Tag: "machine-0"},
+		{Tag: "machine-42"},
+	}}
+
+	result, err := s.machiner.Jobs(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.JobsResults{
+		Results: []params.JobsResult{
+			{Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
 }
 
 func (s *machinerSuite) TestWatch(c *gc.C) {

@@ -7,16 +7,20 @@ package machine
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 func init() {
 	common.RegisterStandardFacade("Machiner", 0, NewMachinerAPI)
 }
+
+var logger = loggo.GetLogger("juju.apiserver.machine")
 
 // MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {
@@ -52,6 +56,7 @@ func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer com
 		st:                 st,
 		auth:               authorizer,
 		getCanModify:       getCanModify,
+		getCanRead:         getCanRead,
 	}, nil
 }
 
@@ -82,7 +87,8 @@ func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (p
 			var m *state.Machine
 			m, err = api.getMachine(tag)
 			if err == nil {
-				err = m.SetMachineAddresses(arg.Addresses...)
+				addresses := params.NetworkAddresses(arg.Addresses)
+				err = m.SetMachineAddresses(addresses...)
 			} else if errors.IsNotFound(err) {
 				err = common.ErrPerm
 			}
@@ -90,4 +96,42 @@ func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (p
 		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil
+}
+
+// Jobs returns the jobs assigned to the given entities.
+func (api *MachinerAPI) Jobs(args params.Entities) (params.JobsResults, error) {
+	result := params.JobsResults{
+		Results: make([]params.JobsResult, len(args.Entities)),
+	}
+
+	canRead, err := api.getCanRead()
+	if err != nil {
+		return result, err
+	}
+
+	for i, agent := range args.Entities {
+		tag, err := names.ParseMachineTag(agent.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if !canRead(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		machine, err := api.getMachine(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		machineJobs := machine.Jobs()
+		jobs := make([]multiwatcher.MachineJob, len(machineJobs))
+		for i, job := range machineJobs {
+			jobs[i] = job.ToParams()
+		}
+		result.Results[i].Jobs = jobs
+	}
+	return result, nil
 }

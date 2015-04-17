@@ -6,6 +6,7 @@ package provisioner_test
 import (
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/juju/errors"
@@ -14,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm/mock"
@@ -44,6 +46,9 @@ type kvmBrokerSuite struct {
 var _ = gc.Suite(&kvmBrokerSuite{})
 
 func (s *kvmSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping kvm tests on windows")
+	}
 	s.TestSuite.SetUpTest(c)
 	s.events = make(chan mock.Event)
 	s.eventsDone = make(chan struct{})
@@ -63,6 +68,9 @@ func (s *kvmSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping kvm tests on windows")
+	}
 	s.kvmSuite.SetUpTest(c)
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
@@ -86,7 +94,7 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.Value{}
 	possibleTools := coretools.List{&coretools.Tools{
@@ -94,9 +102,9 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}}
 	result, err := s.broker.StartInstance(environs.StartInstanceParams{
-		Constraints:   cons,
-		Tools:         possibleTools,
-		MachineConfig: machineConfig,
+		Constraints:    cons,
+		Tools:          possibleTools,
+		InstanceConfig: instanceConfig,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return result.Instance
@@ -152,6 +160,9 @@ type kvmProvisionerSuite struct {
 var _ = gc.Suite(&kvmProvisionerSuite{})
 
 func (s *kvmProvisionerSuite) SetUpSuite(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping kvm tests on windows")
+	}
 	s.CommonProvisionerSuite.SetUpSuite(c)
 	s.kvmSuite.SetUpSuite(c)
 }
@@ -180,6 +191,10 @@ func (s *kvmProvisionerSuite) nextEvent(c *gc.C) mock.Event {
 }
 
 func (s *kvmProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
+	// This check in particular leads to tests just hanging
+	// indefinitely quite often on i386.
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	s.State.StartSync()
 	event := s.nextEvent(c)
 	c.Assert(event.Action, gc.Equals, mock.Started)
@@ -190,6 +205,10 @@ func (s *kvmProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) str
 }
 
 func (s *kvmProvisionerSuite) expectStopped(c *gc.C, instId string) {
+	// This check in particular leads to tests just hanging
+	// indefinitely quite often on i386.
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	s.State.StartSync()
 	event := s.nextEvent(c)
 	c.Assert(event.Action, gc.Equals, mock.Stopped)
@@ -217,7 +236,8 @@ func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
 	broker, err := provisioner.NewKvmBroker(s.provisioner, agentConfig, managerConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	return provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker)
+	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
+	return provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker, toolsFinder)
 }
 
 func (s *kvmProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
@@ -256,6 +276,8 @@ func (s *kvmProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 }
 
 func (s *kvmProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	p := s.newKvmProvisioner(c)
 	defer stop(c, p)
 

@@ -60,7 +60,7 @@ func ParseConstraints(s string) (Constraints, error) {
 		if field == "" {
 			continue
 		}
-		if isValidPoolName(field) {
+		if IsValidPoolName(field) {
 			if cons.Pool != "" {
 				logger.Warningf("pool name is already set to %q, ignoring %q", cons.Pool, field)
 			} else {
@@ -84,13 +84,17 @@ func ParseConstraints(s string) (Constraints, error) {
 		}
 		logger.Warningf("ignoring unknown storage constraint %q", field)
 	}
-	if cons.Count == 0 && cons.Size > 0 {
+	if cons.Count == 0 && cons.Size == 0 && cons.Pool == "" {
+		return Constraints{}, errors.New("storage constraints require at least one field to be specified")
+	}
+	if cons.Count == 0 {
 		cons.Count = 1
 	}
 	return cons, nil
 }
 
-func isValidPoolName(s string) bool {
+// IsValidPoolName checks if given string is a valid pool name.
+func IsValidPoolName(s string) bool {
 	return poolRE.MatchString(s)
 }
 

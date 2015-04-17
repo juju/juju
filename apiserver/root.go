@@ -47,17 +47,23 @@ type apiHandler struct {
 	rpcConn    *rpc.Conn
 	resources  *common.Resources
 	entity     state.Entity
+	// An empty envUUID means that the user has logged in through the
+	// root of the API server rather than the /environment/:env-uuid/api
+	// path, logins processed with v2 or later will only offer the
+	// user manager and environment manager api endpoints from here.
+	envUUID string
 }
 
 var _ = (*apiHandler)(nil)
 
 // newApiHandler returns a new apiHandler.
-func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier *requestNotifier) (*apiHandler, error) {
+func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier *requestNotifier, envUUID string) (*apiHandler, error) {
 	r := &apiHandler{
 		state:      st,
 		closeState: st.EnvironUUID() != srv.state.EnvironUUID(),
 		resources:  common.NewResources(),
 		rpcConn:    rpcConn,
+		envUUID:    envUUID,
 	}
 	if err := r.resources.RegisterNamed("machineID", common.StringResource(srv.tag.Id())); err != nil {
 		return nil, errors.Trace(err)

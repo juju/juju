@@ -70,7 +70,6 @@ func NewMetricsManagerAPI(
 }
 
 // CleanupOldMetrics removes old metrics from the collection.
-// TODO (mattyw) Returns result with all the delete metrics
 // The single arg params is expected to contain and environment uuid.
 // Even though the call will delete all metrics across environments
 // it serves to validate that the connection has access to at least one environment.
@@ -119,7 +118,7 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 	for i, arg := range args.Entities {
 		tag, err := names.ParseEnvironTag(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		if !canAccess(tag) {
@@ -129,7 +128,9 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 		err = metricsender.SendMetrics(api.state, sender, maxBatchesPerSend)
 		if err != nil {
 			err = errors.Annotate(err, "failed to send metrics")
+			logger.Warningf("%v", err)
 			result.Results[i].Error = common.ServerError(err)
+			continue
 		}
 	}
 	return result, nil

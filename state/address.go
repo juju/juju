@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2/bson"
@@ -48,8 +49,8 @@ func (st *State) stateServerAddresses() ([]string, error) {
 	}
 	apiAddrs := make([]string, 0, len(allAddresses))
 	for _, addrs := range allAddresses {
-		instAddrs := addressesToInstanceAddresses(addrs.Addresses)
-		addr := network.SelectInternalAddress(instAddrs, false)
+		naddrs := networkAddresses(addrs.Addresses)
+		addr := network.SelectInternalAddress(naddrs, false)
 		if addr != "" {
 			apiAddrs = append(apiAddrs, addr)
 		}
@@ -101,14 +102,14 @@ func (st *State) APIAddressesFromMachines() ([]string, error) {
 const apiHostPortsKey = "apiHostPorts"
 
 type apiHostPortsDoc struct {
-	APIHostPorts [][]hostPort
+	APIHostPorts [][]hostPort `bson:"apihostports"`
 }
 
 // SetAPIHostPorts sets the addresses of the API server instances.
 // Each server is represented by one element in the top level slice.
-func (st *State) SetAPIHostPorts(hps [][]network.HostPort) error {
+func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
 	doc := apiHostPortsDoc{
-		APIHostPorts: instanceHostPortsToHostPorts(hps),
+		APIHostPorts: fromNetworkHostsPorts(netHostsPorts),
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		existing, err := st.APIHostPorts()
@@ -119,10 +120,10 @@ func (st *State) SetAPIHostPorts(hps [][]network.HostPort) error {
 			C:  stateServersC,
 			Id: apiHostPortsKey,
 			Assert: bson.D{{
-				"apihostports", instanceHostPortsToHostPorts(existing),
+				"apihostports", fromNetworkHostsPorts(existing),
 			}},
 		}
-		if !hostPortsEqual(hps, existing) {
+		if !hostsPortsEqual(netHostsPorts, existing) {
 			op.Update = bson.D{{
 				"$set", bson.D{{"apihostports", doc.APIHostPorts}},
 			}}
@@ -132,7 +133,7 @@ func (st *State) SetAPIHostPorts(hps [][]network.HostPort) error {
 	if err := st.run(buildTxn); err != nil {
 		return errors.Annotate(err, "cannot set API addresses")
 	}
-	logger.Debugf("setting API hostPorts: %v", hps)
+	logger.Debugf("setting API hostPorts: %v", netHostsPorts)
 	return nil
 }
 
@@ -145,7 +146,7 @@ func (st *State) APIHostPorts() ([][]network.HostPort, error) {
 	if err != nil {
 		return nil, err
 	}
-	return hostPortsToInstanceHostPorts(doc.APIHostPorts), nil
+	return networkHostsPorts(doc.APIHostPorts), nil
 }
 
 type DeployerConnectionValues struct {
@@ -177,126 +178,126 @@ func (st *State) DeployerConnectionInfo() (*DeployerConnectionValues, error) {
 // stuff at some point. We want to use juju-specific network names
 // that point to existing documents in the networks collection.
 type address struct {
-	Value       string
-	AddressType network.AddressType
-	NetworkName string        `bson:",omitempty"`
-	Scope       network.Scope `bson:"networkscope,omitempty"`
+	Value       string `bson:"value"`
+	AddressType string `bson:"addresstype"`
+	NetworkName string `bson:"networkname,omitempty"`
+	Scope       string `bson:"networkscope,omitempty"`
 }
 
+// fromNetworkAddress is a convenience helper to create a state type
+// out of the network type, here for Address.
+func fromNetworkAddress(netAddr network.Address) address {
+	return address{
+		Value:       netAddr.Value,
+		AddressType: string(netAddr.Type),
+		NetworkName: netAddr.NetworkName,
+		Scope:       string(netAddr.Scope),
+	}
+}
+
+// networkAddress is a convenience helper to return the state type
+// as network type, here for Address.
+func (addr *address) networkAddress() network.Address {
+	return network.Address{
+		Value:       addr.Value,
+		Type:        network.AddressType(addr.AddressType),
+		NetworkName: addr.NetworkName,
+		Scope:       network.Scope(addr.Scope),
+	}
+}
+
+// fromNetworkAddresses is a convenience helper to create a state type
+// out of the network type, here for a slice of Address.
+func fromNetworkAddresses(netAddrs []network.Address) []address {
+	addrs := make([]address, len(netAddrs))
+	for i, netAddr := range netAddrs {
+		addrs[i] = fromNetworkAddress(netAddr)
+	}
+	return addrs
+}
+
+// networkAddresses is a convenience helper to return the state type
+// as network type, here for a slice of Address.
+func networkAddresses(addrs []address) []network.Address {
+	netAddrs := make([]network.Address, len(addrs))
+	for i, addr := range addrs {
+		netAddrs[i] = addr.networkAddress()
+	}
+	return netAddrs
+}
+
+// hostPort associates an address with a port. See also network.HostPort,
+// from/to which this is transformed.
+//
 // TODO(dimitern) Make sure we integrate this with other networking
 // stuff at some point. We want to use juju-specific network names
 // that point to existing documents in the networks collection.
 type hostPort struct {
-	Value       string
-	AddressType network.AddressType
-	NetworkName string        `bson:",omitempty"`
-	Scope       network.Scope `bson:"networkscope,omitempty"`
-	Port        int
+	Value       string `bson:"value"`
+	AddressType string `bson:"addresstype"`
+	NetworkName string `bson:"networkname,omitempty"`
+	Scope       string `bson:"networkscope,omitempty"`
+	Port        int    `bson:"port"`
 }
 
-func newAddress(addr network.Address) address {
-	return address{
-		Value:       addr.Value,
-		AddressType: addr.Type,
-		NetworkName: addr.NetworkName,
-		Scope:       addr.Scope,
-	}
-}
-
-func (addr *address) InstanceAddress() network.Address {
-	return network.Address{
-		Value:       addr.Value,
-		Type:        addr.AddressType,
-		NetworkName: addr.NetworkName,
-		Scope:       addr.Scope,
-	}
-}
-
-func newHostPort(hp network.HostPort) hostPort {
+// fromNetworkHostPort is a convenience helper to create a state type
+// out of the network type, here for HostPort.
+func fromNetworkHostPort(netHostPort network.HostPort) hostPort {
 	return hostPort{
-		Value:       hp.Value,
-		AddressType: hp.Type,
-		NetworkName: hp.NetworkName,
-		Scope:       hp.Scope,
-		Port:        hp.Port,
+		Value:       netHostPort.Value,
+		AddressType: string(netHostPort.Type),
+		NetworkName: netHostPort.NetworkName,
+		Scope:       string(netHostPort.Scope),
+		Port:        netHostPort.Port,
 	}
 }
 
-func (hp *hostPort) InstanceHostPort() network.HostPort {
+// networkHostPort is a convenience helper to return the state type
+// as network type, here for HostPort.
+func (hp *hostPort) networkHostPort() network.HostPort {
 	return network.HostPort{
 		Address: network.Address{
 			Value:       hp.Value,
-			Type:        hp.AddressType,
+			Type:        network.AddressType(hp.AddressType),
 			NetworkName: hp.NetworkName,
-			Scope:       hp.Scope,
+			Scope:       network.Scope(hp.Scope),
 		},
 		Port: hp.Port,
 	}
 }
 
-func addressesToInstanceAddresses(addrs []address) []network.Address {
-	instanceAddrs := make([]network.Address, len(addrs))
-	for i, addr := range addrs {
-		instanceAddrs[i] = addr.InstanceAddress()
+// fromNetworkHostsPorts is a helper to create a state type
+// out of the network type, here for a nested slice of HostPort.
+func fromNetworkHostsPorts(netHostsPorts [][]network.HostPort) [][]hostPort {
+	hsps := make([][]hostPort, len(netHostsPorts))
+	for i, netHostPorts := range netHostsPorts {
+		hsps[i] = make([]hostPort, len(netHostPorts))
+		for j, netHostPort := range netHostPorts {
+			hsps[i][j] = fromNetworkHostPort(netHostPort)
+		}
 	}
-	return instanceAddrs
+	return hsps
 }
 
-func instanceAddressesToAddresses(instanceAddrs []network.Address) []address {
-	addrs := make([]address, len(instanceAddrs))
-	for i, addr := range instanceAddrs {
-		addrs[i] = newAddress(addr)
-	}
-	return addrs
-}
-
-func hostPortsToInstanceHostPorts(insts [][]hostPort) [][]network.HostPort {
-	instanceHostPorts := make([][]network.HostPort, len(insts))
-	for i, hps := range insts {
-		instanceHostPorts[i] = make([]network.HostPort, len(hps))
+// networkHostsPorts is a convenience helper to return the state type
+// as network type, here for a nested slice of HostPort.
+func networkHostsPorts(hsps [][]hostPort) [][]network.HostPort {
+	netHostsPorts := make([][]network.HostPort, len(hsps))
+	for i, hps := range hsps {
+		netHostsPorts[i] = make([]network.HostPort, len(hps))
 		for j, hp := range hps {
-			instanceHostPorts[i][j] = hp.InstanceHostPort()
+			netHostsPorts[i][j] = hp.networkHostPort()
 		}
 	}
-	return instanceHostPorts
+	return netHostsPorts
 }
 
-func instanceHostPortsToHostPorts(instanceHostPorts [][]network.HostPort) [][]hostPort {
-	hps := make([][]hostPort, len(instanceHostPorts))
-	for i, instanceHps := range instanceHostPorts {
-		hps[i] = make([]hostPort, len(instanceHps))
-		for j, hp := range instanceHps {
-			hps[i][j] = newHostPort(hp)
-		}
-	}
-	return hps
-}
-
+// addressEqual checks that two slices of network addresses are equal.
 func addressesEqual(a, b []network.Address) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i, addrA := range a {
-		if addrA != b[i] {
-			return false
-		}
-	}
-	return true
+	return reflect.DeepEqual(a, b)
 }
 
-func hostPortsEqual(a, b [][]network.HostPort) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i, hpA := range a {
-		if len(hpA) != len(b[i]) {
-			return false
-		}
-		for j := range hpA {
-			if hpA[j] != b[i][j] {
-				return false
-			}
-		}
-	}
-	return true
+// hostsPortsEqual checks that two arrays of network hostports are equal.
+func hostsPortsEqual(a, b [][]network.HostPort) bool {
+	return reflect.DeepEqual(a, b)
 }

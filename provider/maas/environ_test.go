@@ -194,26 +194,9 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 	c.Check(env.Config().Name(), gc.Equals, "testenv")
 }
 
-var expectedCloudinitConfig = []interface{}{
+var expectedCloudinitConfig = []string{
 	"set -xe",
-	"mkdir -p '/var/lib/juju'\ninstall -m 755 /dev/null '/var/lib/juju/MAASmachine.txt'\nprintf '%s\\n' ''\"'\"'hostname: testing.invalid\n'\"'\"'' > '/var/lib/juju/MAASmachine.txt'",
-	"ifdown eth0",
-	`cat >> /etc/network/interfaces << EOF
-
-iface eth0 inet manual
-
-auto juju-br0
-iface juju-br0 inet dhcp
-    bridge_ports eth0
-EOF
-grep -q 'iface eth0 inet dhcp' /etc/network/interfaces && \
-sed -i 's/iface eth0 inet dhcp//' /etc/network/interfaces`,
-	"ifup juju-br0",
-}
-
-var expectedCloudinitConfigWithoutNetworking = []interface{}{
-	"set -xe",
-	"mkdir -p '/var/lib/juju'\ninstall -m 755 /dev/null '/var/lib/juju/MAASmachine.txt'\nprintf '%s\\n' ''\"'\"'hostname: testing.invalid\n'\"'\"'' > '/var/lib/juju/MAASmachine.txt'",
+	"mkdir -p '/var/lib/juju'\ncat > '/var/lib/juju/MAASmachine.txt' << 'EOF'\n'hostname: testing.invalid\n'\nEOF\nchmod 0755 '/var/lib/juju/MAASmachine.txt'",
 }
 
 func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
@@ -222,7 +205,7 @@ func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "eth0", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
+	c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
 }
 
@@ -235,6 +218,6 @@ func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "eth0", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
-	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfigWithoutNetworking)
+	c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
+	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
 }

@@ -4,6 +4,8 @@
 package dummy_test
 
 import (
+	"net"
+	"strings"
 	stdtesting "testing"
 	"time"
 
@@ -131,6 +133,41 @@ func (s *suite) TestAvailabilityZone(c *gc.C) {
 	c.Check(hwc.AvailabilityZone, gc.IsNil)
 }
 
+func (s *suite) TestSupportsAddressAllocation(c *gc.C) {
+	e := s.bootstrapTestEnviron(c, false)
+	defer func() {
+		err := e.Destroy()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	// By default, it's supported.
+	supported, err := e.SupportsAddressAllocation("any-id")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(supported, jc.IsTrue)
+
+	// Any subnet id with prefix "noalloc-" simulates address
+	// allocation is not supported.
+	supported, err = e.SupportsAddressAllocation("noalloc-foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(supported, jc.IsFalse)
+
+	// Test we can induce an error for SupportsAddressAllocation.
+	s.breakMethods(c, e, "SupportsAddressAllocation")
+	supported, err = e.SupportsAddressAllocation("any-id")
+	c.Assert(err, gc.ErrorMatches, `dummy\.SupportsAddressAllocation is broken`)
+	c.Assert(supported, jc.IsFalse)
+}
+
+func (s *suite) breakMethods(c *gc.C, e environs.NetworkingEnviron, names ...string) {
+	cfg := e.Config()
+	brokenCfg, err := cfg.Apply(map[string]interface{}{
+		"broken": strings.Join(names, " "),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = e.SetConfig(brokenCfg)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *suite) TestAllocateAddress(c *gc.C) {
 	e := s.bootstrapTestEnviron(c, false)
 	defer func() {
@@ -145,16 +182,22 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
 
-	newAddress := network.NewAddress("0.1.2.1", network.ScopeCloudLocal)
+	// Test allocating a couple of addresses.
+	newAddress := network.NewScopedAddress("0.1.2.1", network.ScopeCloudLocal)
 	err := e.AllocateAddress(inst.Id(), subnetId, newAddress)
 	c.Assert(err, jc.ErrorIsNil)
-
 	assertAllocateAddress(c, e, opc, inst.Id(), subnetId, newAddress)
 
-	newAddress = network.NewAddress("0.1.2.2", network.ScopeCloudLocal)
+	newAddress = network.NewScopedAddress("0.1.2.2", network.ScopeCloudLocal)
 	err = e.AllocateAddress(inst.Id(), subnetId, newAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAllocateAddress(c, e, opc, inst.Id(), subnetId, newAddress)
+
+	// Test we can induce errors.
+	s.breakMethods(c, e, "AllocateAddress")
+	newAddress = network.NewScopedAddress("0.1.2.3", network.ScopeCloudLocal)
+	err = e.AllocateAddress(inst.Id(), subnetId, newAddress)
+	c.Assert(err, gc.ErrorMatches, `dummy\.AllocateAddress is broken`)
 }
 
 func (s *suite) TestReleaseAddress(c *gc.C) {
@@ -171,16 +214,22 @@ func (s *suite) TestReleaseAddress(c *gc.C) {
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
 
-	address := network.NewAddress("0.1.2.1", network.ScopeCloudLocal)
+	// Release a couple of addresses.
+	address := network.NewScopedAddress("0.1.2.1", network.ScopeCloudLocal)
 	err := e.ReleaseAddress(inst.Id(), subnetId, address)
 	c.Assert(err, jc.ErrorIsNil)
-
 	assertReleaseAddress(c, e, opc, inst.Id(), subnetId, address)
 
-	address = network.NewAddress("0.1.2.2", network.ScopeCloudLocal)
+	address = network.NewScopedAddress("0.1.2.2", network.ScopeCloudLocal)
 	err = e.ReleaseAddress(inst.Id(), subnetId, address)
 	c.Assert(err, jc.ErrorIsNil)
 	assertReleaseAddress(c, e, opc, inst.Id(), subnetId, address)
+
+	// Test we can induce errors.
+	s.breakMethods(c, e, "ReleaseAddress")
+	address = network.NewScopedAddress("0.1.2.3", network.ScopeCloudLocal)
+	err = e.ReleaseAddress(inst.Id(), subnetId, address)
+	c.Assert(err, gc.ErrorMatches, `dummy\.ReleaseAddress is broken`)
 }
 
 func (s *suite) TestNetworkInterfaces(c *gc.C) {
@@ -194,38 +243,112 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 	dummy.Listen(opc)
 
 	expectInfo := []network.InterfaceInfo{{
-		ProviderId:     "dummy-private",
-		NetworkName:    "juju-private",
-		CIDR:           "0.1.2.0/24",
-		InterfaceName:  "eth0",
-		VLANTag:        0,
-		MACAddress:     "aa:bb:cc:dd:ee:f0",
-		Disabled:       false,
-		NoAutoStart:    false,
-		ConfigType:     network.ConfigDHCP,
-		Address:        network.NewAddress("0.1.2.1", network.ScopeUnknown),
-		DNSServers:     network.NewAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
-		ExtraConfig:    nil,
+		ProviderId:       "dummy-eth0",
+		ProviderSubnetId: "dummy-private",
+		NetworkName:      "juju-private",
+		CIDR:             "0.10.0.0/24",
+		DeviceIndex:      0,
+		InterfaceName:    "eth0",
+		VLANTag:          0,
+		MACAddress:       "aa:bb:cc:dd:ee:f0",
+		Disabled:         false,
+		NoAutoStart:      false,
+		ConfigType:       network.ConfigDHCP,
+		Address:          network.NewAddress("0.10.0.2"),
+		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress:   network.NewAddress("0.10.0.1"),
+		ExtraConfig:      nil,
 	}, {
-		ProviderId:     "dummy-public",
-		NetworkName:    "juju-public",
-		CIDR:           "0.2.2.0/24",
-		InterfaceName:  "eth1",
-		VLANTag:        1,
-		MACAddress:     "aa:bb:cc:dd:ee:f1",
-		Disabled:       true,
-		NoAutoStart:    true,
-		ConfigType:     network.ConfigDHCP,
-		Address:        network.NewAddress("0.2.2.1", network.ScopeUnknown),
-		DNSServers:     network.NewAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress: network.NewAddress("0.2.2.1", network.ScopeUnknown),
-		ExtraConfig:    nil,
+		ProviderId:       "dummy-eth1",
+		ProviderSubnetId: "dummy-public",
+		NetworkName:      "juju-public",
+		CIDR:             "0.20.0.0/24",
+		DeviceIndex:      1,
+		InterfaceName:    "eth1",
+		VLANTag:          1,
+		MACAddress:       "aa:bb:cc:dd:ee:f1",
+		Disabled:         false,
+		NoAutoStart:      true,
+		ConfigType:       network.ConfigDHCP,
+		Address:          network.NewAddress("0.20.0.2"),
+		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress:   network.NewAddress("0.20.0.1"),
+		ExtraConfig:      nil,
+	}, {
+		ProviderId:       "dummy-eth2",
+		ProviderSubnetId: "dummy-disabled",
+		NetworkName:      "juju-disabled",
+		CIDR:             "0.30.0.0/24",
+		DeviceIndex:      2,
+		InterfaceName:    "eth2",
+		VLANTag:          2,
+		MACAddress:       "aa:bb:cc:dd:ee:f2",
+		Disabled:         true,
+		NoAutoStart:      false,
+		ConfigType:       network.ConfigDHCP,
+		Address:          network.NewAddress("0.30.0.2"),
+		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress:   network.NewAddress("0.30.0.1"),
+		ExtraConfig:      nil,
 	}}
-	info, err := e.NetworkInterfaces(instance.Id("i-42"))
+	info, err := e.NetworkInterfaces("i-42")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expectInfo)
-	assertInterfaces(c, e, opc, instance.Id("i-42"), expectInfo)
+	assertInterfaces(c, e, opc, "i-42", expectInfo)
+
+	// Test that with instance id prefix "i-no-nics-" no results are
+	// returned.
+	info, err = e.NetworkInterfaces("i-no-nics-here")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, gc.HasLen, 0)
+	assertInterfaces(c, e, opc, "i-no-nics-here", expectInfo[:0])
+
+	// Test that with instance id prefix "i-nic-no-subnet-" we get a result
+	// with no associated subnet.
+	expectInfo = []network.InterfaceInfo{{
+		DeviceIndex:   0,
+		ProviderId:    network.Id("dummy-eth0"),
+		NetworkName:   "juju-public",
+		InterfaceName: "eth0",
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		Disabled:      false,
+		NoAutoStart:   false,
+		ConfigType:    network.ConfigDHCP,
+	}}
+	info, err = e.NetworkInterfaces("i-nic-no-subnet-here")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, gc.HasLen, 1)
+	assertInterfaces(c, e, opc, "i-nic-no-subnet-here", expectInfo)
+
+	// Test that with instance id prefix "i-disabled-nic-" we get a result
+	// with only a disabled subnet.
+	expectInfo = []network.InterfaceInfo{{
+		ProviderId:       "dummy-eth2",
+		ProviderSubnetId: "dummy-disabled",
+		NetworkName:      "juju-disabled",
+		CIDR:             "0.30.0.0/24",
+		DeviceIndex:      2,
+		InterfaceName:    "eth2",
+		VLANTag:          2,
+		MACAddress:       "aa:bb:cc:dd:ee:f2",
+		Disabled:         true,
+		NoAutoStart:      false,
+		ConfigType:       network.ConfigDHCP,
+		Address:          network.NewAddress("0.30.0.2"),
+		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress:   network.NewAddress("0.30.0.1"),
+		ExtraConfig:      nil,
+	}}
+	info, err = e.NetworkInterfaces("i-disabled-nic-here")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, gc.HasLen, 1)
+	assertInterfaces(c, e, opc, "i-disabled-nic-here", expectInfo)
+
+	// Test we can induce errors.
+	s.breakMethods(c, e, "NetworkInterfaces")
+	info, err = e.NetworkInterfaces("i-any")
+	c.Assert(err, gc.ErrorMatches, `dummy\.NetworkInterfaces is broken`)
+	c.Assert(info, gc.HasLen, 0)
 }
 
 func (s *suite) TestSubnets(c *gc.C) {
@@ -238,14 +361,106 @@ func (s *suite) TestSubnets(c *gc.C) {
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
 
-	expectInfo := []network.SubnetInfo{
-		{CIDR: "0.10.0.0/8", ProviderId: "dummy-private"},
-		{CIDR: "0.20.0.0/24", ProviderId: "dummy-public"},
+	expectInfo := []network.SubnetInfo{{
+		CIDR:              "0.10.0.0/24",
+		ProviderId:        "dummy-private",
+		AllocatableIPLow:  net.ParseIP("0.10.0.0"),
+		AllocatableIPHigh: net.ParseIP("0.10.0.255"),
+	}, {
+		CIDR:              "0.20.0.0/24",
+		ProviderId:        "dummy-public",
+		AllocatableIPLow:  net.ParseIP("0.20.0.0"),
+		AllocatableIPHigh: net.ParseIP("0.20.0.255"),
+	}}
+	// Prepare a version of the above with no allocatable range to
+	// test the magic "i-no-alloc-" prefix below.
+	noallocInfo := make([]network.SubnetInfo, len(expectInfo))
+	for i, exp := range expectInfo {
+		pid := string(exp.ProviderId)
+		pid = strings.TrimPrefix(pid, "dummy-")
+		noallocInfo[i].ProviderId = network.Id("noalloc-" + pid)
+		noallocInfo[i].AllocatableIPLow = nil
+		noallocInfo[i].AllocatableIPHigh = nil
+		noallocInfo[i].CIDR = exp.CIDR
 	}
-	netInfo, err := e.Subnets("", []network.Id{"dummy-private", "dummy-public"})
+
+	ids := []network.Id{"dummy-private", "dummy-public", "foo-bar"}
+	netInfo, err := e.Subnets("i-foo", ids)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(netInfo, jc.DeepEquals, expectInfo)
-	assertSubnets(c, e, opc, expectInfo)
+	assertSubnets(c, e, opc, "i-foo", ids, expectInfo)
+
+	// Test filtering by id(s).
+	netInfo, err = e.Subnets("i-foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(netInfo, jc.DeepEquals, expectInfo)
+	assertSubnets(c, e, opc, "i-foo", nil, expectInfo)
+	netInfo, err = e.Subnets("i-foo", ids[0:1])
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(netInfo, jc.DeepEquals, expectInfo[0:1])
+	assertSubnets(c, e, opc, "i-foo", ids[0:1], expectInfo[0:1])
+	netInfo, err = e.Subnets("i-foo", ids[1:])
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(netInfo, jc.DeepEquals, expectInfo[1:])
+	assertSubnets(c, e, opc, "i-foo", ids[1:], expectInfo[1:])
+
+	// Test that using an instance id with prefix of either
+	// "i-no-subnets-" or "i-nic-no-subnet-"
+	// returns no results, regardless whether ids are given or not.
+	for _, instId := range []instance.Id{"i-no-subnets-foo", "i-nic-no-subnet-foo"} {
+		netInfo, err = e.Subnets(instId, nil)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(netInfo, gc.HasLen, 0)
+		assertSubnets(c, e, opc, instId, nil, expectInfo[:0])
+	}
+
+	netInfo, err = e.Subnets("i-no-subnets-foo", ids)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(netInfo, gc.HasLen, 0)
+	assertSubnets(c, e, opc, "i-no-subnets-foo", ids, expectInfo[:0])
+
+	// Test the behavior with "i-no-alloc-" instance id prefix.
+	// When # is "all", all returned subnets have no allocatable range
+	// set and have provider ids with "noalloc-" prefix.
+	netInfo, err = e.Subnets("i-no-alloc-all", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(netInfo, jc.DeepEquals, noallocInfo)
+	assertSubnets(c, e, opc, "i-no-alloc-all", nil, noallocInfo)
+
+	// When # is an integer, the #-th subnet in result has no
+	// allocatable range set and a provider id prefix "noalloc-".
+	netInfo, err = e.Subnets("i-no-alloc-0", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	expectResult := []network.SubnetInfo{noallocInfo[0], expectInfo[1]}
+	c.Assert(netInfo, jc.DeepEquals, expectResult)
+	assertSubnets(c, e, opc, "i-no-alloc-0", nil, expectResult)
+
+	netInfo, err = e.Subnets("i-no-alloc-1", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	expectResult = []network.SubnetInfo{expectInfo[0], noallocInfo[1]}
+	c.Assert(netInfo, jc.DeepEquals, expectResult)
+	assertSubnets(c, e, opc, "i-no-alloc-1", nil, expectResult)
+
+	// For the last case above, also test the error returned when # is
+	// not integer or it's out of range of the results (including when
+	// filtering by ids is applied).
+	netInfo, err = e.Subnets("i-no-alloc-foo", nil)
+	c.Assert(err, gc.ErrorMatches, `invalid index "foo"; expected int`)
+	c.Assert(netInfo, gc.HasLen, 0)
+
+	netInfo, err = e.Subnets("i-no-alloc-1", ids[:1])
+	c.Assert(err, gc.ErrorMatches, `index 1 out of range; expected 0..0`)
+	c.Assert(netInfo, gc.HasLen, 0)
+
+	netInfo, err = e.Subnets("i-no-alloc-2", ids)
+	c.Assert(err, gc.ErrorMatches, `index 2 out of range; expected 0..1`)
+	c.Assert(netInfo, gc.HasLen, 0)
+
+	// Test we can induce errors.
+	s.breakMethods(c, e, "Subnets")
+	netInfo, err = e.Subnets("i-any", nil)
+	c.Assert(err, gc.ErrorMatches, `dummy\.Subnets is broken`)
+	c.Assert(netInfo, gc.HasLen, 0)
 }
 
 func (s *suite) TestPreferIPv6On(c *gc.C) {
@@ -324,13 +539,22 @@ func assertInterfaces(c *gc.C, e environs.Environ, opc chan dummy.Operation, exp
 	}
 }
 
-func assertSubnets(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInfo []network.SubnetInfo) {
+func assertSubnets(
+	c *gc.C,
+	e environs.Environ,
+	opc chan dummy.Operation,
+	instId instance.Id,
+	subnetIds []network.Id,
+	expectInfo []network.SubnetInfo,
+) {
 	select {
 	case op := <-opc:
-		netOp, ok := op.(dummy.OpListNetworks)
+		netOp, ok := op.(dummy.OpSubnets)
 		if !ok {
 			c.Fatalf("unexpected op: %#v", op)
 		}
+		c.Check(netOp.InstanceId, gc.Equals, instId)
+		c.Check(netOp.SubnetIds, jc.DeepEquals, subnetIds)
 		c.Check(netOp.Info, jc.DeepEquals, expectInfo)
 		return
 	case <-time.After(testing.ShortWait):

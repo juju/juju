@@ -13,16 +13,18 @@ import (
 	"sync/atomic"
 	"time"
 
-	"code.google.com/p/go.net/websocket"
 	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
+	"golang.org/x/net/websocket"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
@@ -191,6 +193,7 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 		adminApiFactories: map[int]adminApiFactory{
 			0: newAdminApiV0,
 			1: newAdminApiV1,
+			2: newAdminApiV2,
 		},
 	}
 	// TODO(rog) check that *srvRoot is a valid type for using
@@ -262,14 +265,27 @@ func (n *requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
 		return
 	}
 	// TODO(rog) 2013-10-11 remove secrets from some requests.
-	logger.Debugf("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
+	// Until secrets are removed, we only log the body of the requests at trace level
+	// which is below the default level of debug.
+	if logger.IsTraceEnabled() {
+		logger.Tracef("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
+	} else {
+		logger.Debugf("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, "'params redacted'"))
+	}
 }
 
 func (n *requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}, timeSpent time.Duration) {
 	if req.Type == "Pinger" && req.Action == "Ping" {
 		return
 	}
-	logger.Debugf("-> [%X] %s %s %s %s[%q].%s", n.id, n.tag(), timeSpent, jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
+	// TODO(rog) 2013-10-11 remove secrets from some responses.
+	// Until secrets are removed, we only log the body of the requests at trace level
+	// which is below the default level of debug.
+	if logger.IsTraceEnabled() {
+		logger.Tracef("-> [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
+	} else {
+		logger.Debugf("-> [%X] %s %s %s %s[%q].%s", n.id, n.tag(), timeSpent, jsoncodec.DumpRequest(hdr, "'body redacted'"), req.Type, req.Id, req.Action)
+	}
 }
 
 func (n *requestNotifier) join(req *http.Request) {
@@ -320,6 +336,13 @@ func (srv *Server) run(lis net.Listener) {
 			httpHandler: httpHandler{ssState: srv.state},
 			logDir:      srv.logDir},
 	)
+	if featureflag.Enabled(feature.DbLog) {
+		handleAll(mux, "/environment/:envuuid/logsink",
+			&logSinkHandler{
+				httpHandler: httpHandler{ssState: srv.state},
+			},
+		)
+	}
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
 			httpHandler: httpHandler{ssState: srv.state},
@@ -422,7 +445,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	var h *apiHandler
 	st, _, err := validateEnvironUUID(validateArgs{st: srv.state, envUUID: envUUID})
 	if err == nil {
-		h, err = newApiHandler(srv, st, conn, reqNotifier)
+		h, err = newApiHandler(srv, st, conn, reqNotifier, envUUID)
 	}
 	if err != nil {
 		conn.Serve(&errRoot{err}, serverError)

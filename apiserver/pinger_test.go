@@ -1,6 +1,11 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// TODO(wallyworld) bug http://pad.lv/1408459
+// Re-enable tests for i386 when these tests are fixed to work on that architecture.
+
+// +build !386
+
 package apiserver_test
 
 import (
@@ -90,20 +95,36 @@ func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 }
 
 func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
-	// We have to be careful, because Login can take 25ms, so we ping
-	// immediately after connecting.
-	s.PatchValue(apiserver.MaxClientPingInterval, 50*time.Millisecond)
+	var resetCount int
+	s.PatchValue(apiserver.ResetTimer, func(timer *time.Timer, d time.Duration) bool {
+		resetCount += 1
+		return timer.Reset(d)
+	})
+	// We patch out NewTimer so that we can call Reset on the timer
+	// right before we check the failure case below.
+	var timer *time.Timer
+	s.PatchValue(apiserver.NewTimer, func(d time.Duration) *time.Timer {
+		timer = time.NewTimer(d)
+		return timer
+	})
+
 	st, _ := s.OpenAPIAsNewMachine(c)
 	err := st.Ping()
 	c.Assert(err, jc.ErrorIsNil)
+
 	// As long as we don't wait too long, the connection stays open
+	resetCount = 0
 	for i := 0; i < 10; i++ {
 		time.Sleep(10 * time.Millisecond)
 		err = st.Ping()
 		c.Assert(err, jc.ErrorIsNil)
 	}
+	c.Check(resetCount, gc.Equals, 10)
+
 	// However, once we stop pinging for too long, the connection dies
-	time.Sleep(75 * time.Millisecond)
+	const shortTimeout = 10 * time.Millisecond
+	timer.Reset(shortTimeout)
+	time.Sleep(2 * shortTimeout) // Exceed the timeout.
 	err = st.Ping()
 	c.Assert(err, gc.ErrorMatches, "connection is shut down")
 }

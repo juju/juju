@@ -14,7 +14,7 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/cmd/envcmd"
@@ -57,7 +57,7 @@ func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 
 const (
 	noProxy           = `-o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 `
-	args              = `-o StrictHostKeyChecking no -o ProxyCommand juju ssh --proxy=false --pty=false localhost nc -q0 %h %p -o PasswordAuthentication no -o ServerAliveInterval 30 `
+	args              = `-o StrictHostKeyChecking no -o ProxyCommand juju ssh --proxy=false --pty=false localhost nc %h %p -o PasswordAuthentication no -o ServerAliveInterval 30 `
 	commonArgsNoProxy = noProxy + `-o UserKnownHostsFile /dev/null `
 	commonArgs        = args + `-o UserKnownHostsFile /dev/null `
 	sshArgs           = args + `-t -t -o UserKnownHostsFile /dev/null `
@@ -220,8 +220,14 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 }
 
 func (s *SSHCommonSuite) setAddresses(m *state.Machine, c *gc.C) {
-	addrPub := network.NewAddress(fmt.Sprintf("dummyenv-%s.dns", m.Id()), network.ScopePublic)
-	addrPriv := network.NewAddress(fmt.Sprintf("dummyenv-%s.internal", m.Id()), network.ScopeCloudLocal)
+	addrPub := network.NewScopedAddress(
+		fmt.Sprintf("dummyenv-%s.dns", m.Id()),
+		network.ScopePublic,
+	)
+	addrPriv := network.NewScopedAddress(
+		fmt.Sprintf("dummyenv-%s.internal", m.Id()),
+		network.ScopeCloudLocal,
+	)
 	err := m.SetAddresses(addrPub, addrPriv)
 	c.Assert(err, jc.ErrorIsNil)
 }

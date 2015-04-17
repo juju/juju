@@ -11,11 +11,12 @@ import (
 	"io/ioutil"
 	"strings"
 
-	jujucmd "github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
@@ -23,8 +24,9 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/juju/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -32,8 +34,25 @@ import (
 )
 
 type UpgradeJujuSuite struct {
-	testing.JujuConnSuite
+	jujutesting.JujuConnSuite
+
+	resources  *common.Resources
+	authoriser apiservertesting.FakeAuthorizer
+
 	toolsDir string
+	CmdBlockHelper
+}
+
+func (s *UpgradeJujuSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.resources = common.NewResources()
+	s.authoriser = apiservertesting.FakeAuthorizer{
+		Tag: s.AdminUserTag(c),
+	}
+
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
+	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
 
 var _ = gc.Suite(&UpgradeJujuSuite{})
@@ -403,12 +422,15 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	s.PatchValue(&sync.BuildToolsTarball, toolstesting.GetMockBuildTools(c))
 
 	// Set API host ports so FindTools works.
-	hostPorts := [][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    1234,
-	}}}
+	hostPorts := [][]network.HostPort{
+		network.NewHostPorts(1234, "0.1.2.3"),
+	}
 	err = s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
+	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
@@ -419,20 +441,15 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	vers := version.Current
 	vers.Build = 1
 	s.checkToolsUploaded(c, vers, vers.Number)
-	//_, err = envtools.FindExactTools(s.Environ, vers.Number, vers.Series, vers.Arch)
-	//c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeJujuSuite) TestBlockUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
 	cmd := envcmd.Wrap(&UpgradeJujuCommand{})
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.BlockAllChanges(c, "TestBlockUpgradeJujuWithRealUpload")
 	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
-	c.Assert(err, gc.ErrorMatches, jujucmd.ErrSilent.Error())
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	s.AssertBlocked(c, err, ".*TestBlockUpgradeJujuWithRealUpload.*")
 }
 
 type DryRunTest struct {
@@ -548,22 +565,16 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 
 func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
 	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
-	fakeAPI.setVersionErr = &params.Error{
-		Code:    params.CodeOperationBlocked,
-		Message: "The operation has been blocked.",
-	}
+	fakeAPI.setVersionErr = common.ErrOperationBlocked("The operation has been blocked.")
 	fakeAPI.patch(s)
 	cmd := &UpgradeJujuCommand{}
 	err := coretesting.InitCommand(envcmd.Wrap(cmd), []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.BlockAllChanges(c, "TestBlockUpgradeInProgress")
 	err = cmd.Run(coretesting.Context(c))
-	c.Assert(err, gc.ErrorMatches, jujucmd.ErrSilent.Error())
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	s.AssertBlocked(c, err, ".*To unblock changes.*")
 }
 
 func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {

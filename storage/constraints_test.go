@@ -24,10 +24,9 @@ func (s *ConstraintsSuite) TestParseConstraintsStoragePool(c *gc.C) {
 		Size:  1,
 	})
 	s.testParse(c, "pool,", storage.Constraints{
-		Pool: "pool",
+		Pool:  "pool",
+		Count: 1,
 	})
-	s.testParse(c, "", storage.Constraints{})
-	s.testParse(c, ",", storage.Constraints{})
 	s.testParse(c, "1M", storage.Constraints{
 		Size:  1,
 		Count: 1,
@@ -59,7 +58,8 @@ func (s *ConstraintsSuite) TestParseConstraintsOptions(c *gc.C) {
 		Size:  1,
 	})
 	s.testParse(c, "p,anyoldjunk", storage.Constraints{
-		Pool: "p",
+		Pool:  "p",
+		Count: 1,
 	})
 }
 
@@ -67,6 +67,8 @@ func (s *ConstraintsSuite) TestParseConstraintsCountRange(c *gc.C) {
 	s.testParseError(c, "p,0,100M", `cannot parse count: count must be greater than zero, got "0"`)
 	s.testParseError(c, "p,00,100M", `cannot parse count: count must be greater than zero, got "00"`)
 	s.testParseError(c, "p,-1,100M", `cannot parse count: count must be greater than zero, got "-1"`)
+	s.testParseError(c, "", `storage constraints require at least one field to be specified`)
+	s.testParseError(c, ",", `storage constraints require at least one field to be specified`)
 }
 
 func (s *ConstraintsSuite) TestParseConstraintsSizeRange(c *gc.C) {
@@ -82,4 +84,22 @@ func (*ConstraintsSuite) testParse(c *gc.C, s string, expect storage.Constraints
 func (*ConstraintsSuite) testParseError(c *gc.C, s, expectErr string) {
 	_, err := storage.ParseConstraints(s)
 	c.Check(err, gc.ErrorMatches, expectErr)
+}
+
+func (s *ConstraintsSuite) TestValidPoolName(c *gc.C) {
+	c.Assert(storage.IsValidPoolName("pool"), jc.IsTrue)
+	c.Assert(storage.IsValidPoolName("p-ool"), jc.IsTrue)
+	c.Assert(storage.IsValidPoolName("p-00l"), jc.IsTrue)
+	c.Assert(storage.IsValidPoolName("p?00l"), jc.IsTrue)
+	c.Assert(storage.IsValidPoolName("p-?00l"), jc.IsTrue)
+	c.Assert(storage.IsValidPoolName("p"), jc.IsTrue)
+	c.Assert(storage.IsValidPoolName("P"), jc.IsTrue)
+	c.Assert(storage.IsValidPoolName("p?0?l"), jc.IsTrue)
+}
+
+func (s *ConstraintsSuite) TestInvalidPoolName(c *gc.C) {
+	c.Assert(storage.IsValidPoolName("7ool"), jc.IsFalse)
+	c.Assert(storage.IsValidPoolName("/ool"), jc.IsFalse)
+	c.Assert(storage.IsValidPoolName("-00l"), jc.IsFalse)
+	c.Assert(storage.IsValidPoolName("*00l"), jc.IsFalse)
 }

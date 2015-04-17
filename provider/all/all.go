@@ -8,6 +8,7 @@ import (
 	_ "github.com/juju/juju/provider/azure"
 	_ "github.com/juju/juju/provider/cloudsigma"
 	_ "github.com/juju/juju/provider/ec2"
+	_ "github.com/juju/juju/provider/gce"
 	_ "github.com/juju/juju/provider/joyent"
 	_ "github.com/juju/juju/provider/local"
 	_ "github.com/juju/juju/provider/maas"

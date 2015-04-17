@@ -4,11 +4,11 @@
 package state
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-
-	"time"
 
 	"github.com/juju/juju/lease"
 )

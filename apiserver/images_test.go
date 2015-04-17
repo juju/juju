@@ -1,6 +1,8 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build !windows
+
 package apiserver_test
 
 import (
@@ -25,7 +27,7 @@ import (
 )
 
 type imageSuite struct {
-	authHttpSuite
+	userAuthHttpSuite
 	archiveContentType string
 	imageData          string
 	imageChecksum      string
@@ -34,7 +36,7 @@ type imageSuite struct {
 var _ = gc.Suite(&imageSuite{})
 
 func (s *imageSuite) SetUpSuite(c *gc.C) {
-	s.authHttpSuite.SetUpSuite(c)
+	s.userAuthHttpSuite.SetUpSuite(c)
 	s.archiveContentType = "application/x-tar-gz"
 	s.imageData = "abc"
 	s.imageChecksum = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"

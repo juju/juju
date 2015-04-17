@@ -6,7 +6,8 @@ package charmrevisionupdater
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/charmrepo"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -93,6 +94,10 @@ func fetchAllDeployedCharms(st *state.State) (map[string]*charm.URL, error) {
 	return deployedCharms, nil
 }
 
+// NewCharmStore instantiates a new charm store repository.
+// It is defined at top level for testing purposes.
+var NewCharmStore = charmrepo.NewCharmStore
+
 // retrieveLatestCharmInfo looks up the charm store to return the charm URLs for the
 // latest revision of the deployed charms.
 func retrieveLatestCharmInfo(deployedCharms map[string]*charm.URL, uuid string) ([]*charm.URL, error) {
@@ -109,8 +114,11 @@ func retrieveLatestCharmInfo(deployedCharms map[string]*charm.URL, uuid string) 
 
 	// Do a bulk call to get the revision info for all charms.
 	logger.Infof("retrieving revision information for %d charms", len(curls))
-	store := charm.Store.WithJujuAttrs("environment_uuid=" + uuid)
-	revInfo, err := store.Latest(curls...)
+	repo := NewCharmStore(charmrepo.NewCharmStoreParams{})
+	repo = repo.(*charmrepo.CharmStore).WithJujuAttrs(map[string]string{
+		"environment_uuid": uuid,
+	})
+	revInfo, err := repo.Latest(curls...)
 	if err != nil {
 		err = errors.Annotate(err, "finding charm revision info")
 		logger.Infof(err.Error())

@@ -6,7 +6,7 @@ package operation
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	corecharm "gopkg.in/juju/charm.v4"
+	corecharm "gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -19,21 +19,24 @@ func NewFactory(
 	deployer charm.Deployer,
 	runnerFactory runner.Factory,
 	callbacks Callbacks,
+	storageUpdater StorageUpdater,
 	abort <-chan struct{},
 ) Factory {
 	return &factory{
-		deployer:      deployer,
-		runnerFactory: runnerFactory,
-		callbacks:     callbacks,
-		abort:         abort,
+		deployer:       deployer,
+		runnerFactory:  runnerFactory,
+		callbacks:      callbacks,
+		storageUpdater: storageUpdater,
+		abort:          abort,
 	}
 }
 
 type factory struct {
-	deployer      charm.Deployer
-	runnerFactory runner.Factory
-	callbacks     Callbacks
-	abort         <-chan struct{}
+	deployer       charm.Deployer
+	runnerFactory  runner.Factory
+	callbacks      Callbacks
+	storageUpdater StorageUpdater
+	abort          <-chan struct{}
 }
 
 // newResolved wraps the supplied operation such that it will clear the uniter
@@ -163,5 +166,13 @@ func (f *factory) NewUpdateRelations(ids []int) (Operation, error) {
 	return &updateRelations{
 		ids:       ids,
 		callbacks: f.callbacks,
+	}, nil
+}
+
+// NewUpdateStorage is part of the Factory interface.
+func (f *factory) NewUpdateStorage(tags []names.StorageTag) (Operation, error) {
+	return &updateStorage{
+		tags:           tags,
+		storageUpdater: f.storageUpdater,
 	}, nil
 }

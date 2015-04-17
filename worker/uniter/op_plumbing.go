@@ -4,8 +4,9 @@
 package uniter
 
 import (
-	"gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
+	"github.com/juju/names"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -84,5 +85,11 @@ func newActionOp(actionId string) creator {
 func newUpdateRelationsOp(ids []int) creator {
 	return func(factory operation.Factory) (operation.Operation, error) {
 		return factory.NewUpdateRelations(ids)
+	}
+}
+
+func newUpdateStorageOp(tags []names.StorageTag) creator {
+	return func(factory operation.Factory) (operation.Operation, error) {
+		return factory.NewUpdateStorage(tags)
 	}
 }

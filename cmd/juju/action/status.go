@@ -6,6 +6,7 @@ package action
 import (
 	"github.com/juju/cmd"
 	errors "github.com/juju/errors"
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -19,21 +20,19 @@ type StatusCommand struct {
 }
 
 const statusDoc = `
-Show the status of an Action by its identifier.
+Show the status of Actions matching given ID, partial ID prefix, or all Actions if no ID is supplied.
 `
 
-// Set up the YAML output.
+// Set up the output.
 func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-	})
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 }
 
 func (c *StatusCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "status",
-		Args:    "<action identifier>",
-		Purpose: "WIP: show results of an action by identifier",
+		Args:    "[<action ID>|<action ID prefix>]",
+		Purpose: "show results of all actions filtered by optional ID prefix",
 		Doc:     statusDoc,
 	}
 }
@@ -41,7 +40,8 @@ func (c *StatusCommand) Info() *cmd.Info {
 func (c *StatusCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
-		return errors.New("no action identifier specified")
+		c.requestedId = ""
+		return nil
 	case 1:
 		c.requestedId = args[0]
 		return nil
@@ -57,35 +57,65 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	actionTag, err := getActionTagFromPrefix(api, c.requestedId)
+	actionTags, err := getActionTagsByPrefix(api, c.requestedId)
 	if err != nil {
 		return err
 	}
 
-	actions, err := api.Actions(params.Entities{
-		Entities: []params.Entity{{actionTag.String()}},
-	})
+	if len(actionTags) < 1 {
+		if len(c.requestedId) == 0 {
+			return errors.Errorf("no actions found")
+		} else {
+			return errors.Errorf("no actions found matching prefix %q", c.requestedId)
+		}
+	}
+
+	entities := []params.Entity{}
+	for _, tag := range actionTags {
+		entities = append(entities, params.Entity{tag.String()})
+	}
+
+	actions, err := api.Actions(params.Entities{Entities: entities})
 	if err != nil {
 		return err
 	}
-	actionResults := actions.Results
-	numActionResults := len(actionResults)
-	if numActionResults == 0 {
-		return errors.Errorf("identifier %q matched action %q, but found no results", c.requestedId, actionTag.Id())
-	}
-	if numActionResults != 1 {
-		return errors.Errorf("too many results for action %s", actionTag.Id())
+
+	if len(actions.Results) < 1 {
+		return errors.Errorf("identifier %q matched action(s) %v, but found no results", c.requestedId, actionTags)
 	}
 
-	result := actionResults[0]
+	return c.out.Write(ctx, resultsToMap(actions.Results))
+}
+
+func resultsToMap(results []params.ActionResult) map[string]interface{} {
+	items := []map[string]interface{}{}
+	for _, item := range results {
+		items = append(items, resultToMap(item))
+	}
+	return map[string]interface{}{"actions": items}
+}
+
+func resultToMap(result params.ActionResult) map[string]interface{} {
+	item := map[string]interface{}{}
 	if result.Error != nil {
-		return result.Error
+		item["error"] = result.Error.Error()
 	}
-	return c.out.Write(ctx, struct {
-		Id     string
-		Status string
-	}{
-		Id:     actionTag.Id(),
-		Status: result.Status,
-	})
+	if result.Action != nil {
+		atag, err := names.ParseActionTag(result.Action.Tag)
+		if err != nil {
+			item["id"] = result.Action.Tag
+		} else {
+			item["id"] = atag.Id()
+		}
+
+		rtag, err := names.ParseUnitTag(result.Action.Receiver)
+		if err != nil {
+			item["unit"] = result.Action.Receiver
+		} else {
+			item["unit"] = rtag.Id()
+		}
+
+	}
+	item["status"] = result.Status
+	return item
 }

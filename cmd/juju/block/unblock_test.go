@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package block_test
@@ -11,12 +11,20 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 )
 
 type UnblockCommandSuite struct {
 	ProtectionCommandSuite
+	mockClient *block.MockBlockClient
+}
+
+func (s *UnblockCommandSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.mockClient = &block.MockBlockClient{}
+	s.PatchValue(block.UnblockClient, func(p *block.UnblockCommand) (block.UnblockClientAPI, error) {
+		return s.mockClient, nil
+	})
 }
 
 var _ = gc.Suite(&UnblockCommandSuite{})
@@ -26,13 +34,12 @@ func runUnblockCommand(c *gc.C, args ...string) error {
 	return err
 }
 
-func (s *UnblockCommandSuite) runUnblockTestAndCompare(c *gc.C, operation string, expectedValue bool) {
+func (s *UnblockCommandSuite) assertRunUnblock(c *gc.C, operation string) {
 	err := runUnblockCommand(c, operation)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedOp := config.BlockKeyPrefix + strings.ToLower(operation)
-	expectedCfg := map[string]interface{}{expectedOp: expectedValue}
-	c.Assert(s.mockClient.cfg, gc.DeepEquals, expectedCfg)
+	expectedOp := block.TypeFromOperation(strings.ToLower(operation))
+	c.Assert(s.mockClient.BlockType, gc.DeepEquals, expectedOp)
 }
 
 func (s *UnblockCommandSuite) TestUnblockCmdNoOperation(c *gc.C) {
@@ -40,7 +47,7 @@ func (s *UnblockCommandSuite) TestUnblockCmdNoOperation(c *gc.C) {
 }
 
 func (s *UnblockCommandSuite) TestUnblockCmdMoreThanOneOperation(c *gc.C) {
-	s.assertErrorMatches(c, runUnblockCommand(c, "destroy-environment", "change"), `.*must specify one of.*`)
+	s.assertErrorMatches(c, runUnblockCommand(c, "destroy-environment", "change"), `.*can only specify block type.*`)
 }
 
 func (s *UnblockCommandSuite) TestUnblockCmdOperationWithSeparator(c *gc.C) {
@@ -56,9 +63,9 @@ func (s *UnblockCommandSuite) TestUnblockCmdUnknownOperation(c *gc.C) {
 }
 
 func (s *UnblockCommandSuite) TestUnblockCmdValidDestroyEnvOperationUpperCase(c *gc.C) {
-	s.runUnblockTestAndCompare(c, "DESTROY-ENVIRONMENT", false)
+	s.assertRunUnblock(c, "DESTROY-ENVIRONMENT")
 }
 
 func (s *UnblockCommandSuite) TestUnblockCmdValidDestroyEnvOperation(c *gc.C) {
-	s.runUnblockTestAndCompare(c, "destroy-environment", false)
+	s.assertRunUnblock(c, "destroy-environment")
 }

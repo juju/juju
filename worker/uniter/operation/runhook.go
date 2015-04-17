@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v4/hooks"
+	"gopkg.in/juju/charm.v5/hooks"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type runHook struct {
@@ -27,12 +29,15 @@ type runHook struct {
 // String is part of the Operation interface.
 func (rh *runHook) String() string {
 	suffix := ""
-	if rh.info.Kind.IsRelation() {
+	switch {
+	case rh.info.Kind.IsRelation():
 		if rh.info.RemoteUnit == "" {
 			suffix = fmt.Sprintf(" (%d)", rh.info.RelationId)
 		} else {
 			suffix = fmt.Sprintf(" (%d; %s)", rh.info.RelationId, rh.info.RemoteUnit)
 		}
+	case rh.info.Kind.IsStorage():
+		suffix = fmt.Sprintf(" (%s)", rh.info.StorageId)
 	}
 	return fmt.Sprintf("run %s%s hook", rh.info.Kind, suffix)
 }
@@ -50,6 +55,7 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 	}
 	rh.name = name
 	rh.runner = rnr
+
 	return stateChange{
 		Kind: RunHook,
 		Step: Pending,
@@ -66,6 +72,16 @@ func (rh *runHook) Execute(state State) (*State, error) {
 		return nil, err
 	}
 	defer unlock()
+
+	if err := rh.beforeHook(); err != nil {
+		return nil, err
+	}
+	if err := rh.callbacks.SetExecutingStatus(message); err != nil {
+		return nil, err
+	}
+	// The before hook may have updated unit status and we don't want that
+	// to count so reset it here before running the hook.
+	rh.runner.Context().ResetExecutionSetUnitStatus()
 
 	ranHook := true
 	step := Done
@@ -88,17 +104,71 @@ func (rh *runHook) Execute(state State) (*State, error) {
 		return nil, ErrHookFailed
 	}
 
+	var hasRunStatusSet bool
+	var afterHookErr error
 	if ranHook {
 		logger.Infof("ran %q hook", rh.name)
 		rh.callbacks.NotifyHookCompleted(rh.name, rh.runner.Context())
+		if hasRunStatusSet, afterHookErr = rh.afterHook(state); afterHookErr != nil {
+			return nil, afterHookErr
+		}
 	} else {
 		logger.Infof("skipped %q hook (missing)", rh.name)
 	}
 	return stateChange{
-		Kind: RunHook,
-		Step: step,
-		Hook: &rh.info,
+		Kind:            RunHook,
+		Step:            step,
+		Hook:            &rh.info,
+		HasRunStatusSet: hasRunStatusSet,
 	}.apply(state), err
+}
+
+func (rh *runHook) beforeHook() error {
+	var err error
+	switch rh.info.Kind {
+	case hooks.Install:
+		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+			Status: string(params.StatusMaintenance),
+			Info:   "installing charm software",
+		})
+	case hooks.Stop:
+		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+			Status: string(params.StatusMaintenance),
+			Info:   "cleaning up prior to charm deletion",
+		})
+	}
+	if err != nil {
+		logger.Errorf("error updating workload status before %v hook: %v", rh.info.Kind, err)
+		return err
+	}
+	return rh.callbacks.SetExecutingStatus(fmt.Sprintf("running %s hook", rh.info.Kind))
+}
+
+func (rh *runHook) afterHook(state State) (bool, error) {
+	ctx := rh.runner.Context()
+	hasRunStatusSet := ctx.HasExecutionSetUnitStatus() || state.StatusSet
+	var err error
+	switch rh.info.Kind {
+	case hooks.Stop:
+		// Charm is no longer of this world.
+		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+			Status: string(params.StatusTerminated),
+		})
+	case hooks.Start:
+		if hasRunStatusSet {
+			break
+		}
+		// We've finished the start hook and the charm has not updated its
+		// own status so we'll set it to unknown.
+		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+			Status: string(params.StatusUnknown),
+		})
+	}
+	if err != nil {
+		logger.Errorf("error updating workload status after %v hook: %v", rh.info.Kind, err)
+		return false, err
+	}
+	return hasRunStatusSet, nil
 }
 
 // Commit updates relation state to include the fact of the hook's execution,
@@ -111,32 +181,36 @@ func (rh *runHook) Commit(state State) (*State, error) {
 	}
 
 	change := stateChange{
-		Kind: RunHook,
-		Step: Queued,
+		Kind: Continue,
+		Step: Pending,
 	}
+
+	var hi *hook.Info = &hook.Info{Kind: hooks.ConfigChanged}
 	switch rh.info.Kind {
-	case hooks.Install, hooks.UpgradeCharm:
-		change.Hook = &hook.Info{Kind: hooks.ConfigChanged}
 	case hooks.ConfigChanged:
-		if !state.Started {
-			change.Hook = &hook.Info{Kind: hooks.Start}
+		if state.Started {
 			break
 		}
+		hi.Kind = hooks.Start
 		fallthrough
-	default:
+	case hooks.UpgradeCharm:
 		change = stateChange{
-			Kind: Continue,
-			Step: Pending,
-			Hook: &rh.info,
+			Kind: RunHook,
+			Step: Queued,
+			Hook: hi,
 		}
 	}
 
 	newState := change.apply(state)
+
 	switch rh.info.Kind {
 	case hooks.Start:
 		newState.Started = true
+	case hooks.Stop:
+		newState.Stopped = true
 	case hooks.CollectMetrics:
 		newState.CollectMetricsTime = time.Now().Unix()
 	}
+
 	return newState, nil
 }

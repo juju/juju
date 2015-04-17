@@ -4,196 +4,94 @@
 package common_test
 
 import (
+	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
-type blocksSuite struct {
-	testing.FakeJujuHomeSuite
-	destroy, remove, change bool
-	cfg                     *config.Config
+type mockBlock struct {
+	t state.BlockType
+	m string
 }
 
-var _ = gc.Suite(&blocksSuite{})
+func (m mockBlock) Id() string { return "" }
 
-func (s *blocksSuite) TearDownTest(c *gc.C) {
-	s.destroy, s.remove, s.change = false, false, false
-}
+func (m mockBlock) Tag() (names.Tag, error) { return names.NewEnvironTag("mocktesting"), nil }
 
-func (s *blocksSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
-	cfg, err := config.New(
-		config.UseDefaults,
-		map[string]interface{}{
-			"name": "block-env",
-			"type": "any-type",
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	s.cfg = cfg
-}
+func (m mockBlock) Type() state.BlockType { return m.t }
 
-func (s *blocksSuite) TestBlockOperationErrorDestroy(c *gc.C) {
-	// prevent destroy-environment
-	s.blockDestroys(c)
-	s.assertDestroyOperationBlocked(c, true)
-
-	// prevent remove-object
-	s.blockRemoves(c)
-	s.assertDestroyOperationBlocked(c, true)
-
-	// prevent all-changes
-	s.blockAllChanges(c)
-	s.assertDestroyOperationBlocked(c, true)
-}
-
-func (s *blocksSuite) TestBlockOperationErrorRemove(c *gc.C) {
-	// prevent destroy-environment
-	s.blockDestroys(c)
-	s.assertRemoveOperationBlocked(c, false)
-
-	// prevent remove-object
-	s.blockRemoves(c)
-	s.assertRemoveOperationBlocked(c, true)
-
-	// prevent all-changes
-	s.blockAllChanges(c)
-	s.assertRemoveOperationBlocked(c, true)
-}
-
-func (s *blocksSuite) TestBlockOperationErrorChange(c *gc.C) {
-	// prevent destroy-environment
-	s.blockDestroys(c)
-	s.assertChangeOperationBlocked(c, false)
-
-	// prevent remove-object
-	s.blockRemoves(c)
-	s.assertChangeOperationBlocked(c, false)
-
-	// prevent all-changes
-	s.blockAllChanges(c)
-	s.assertChangeOperationBlocked(c, true)
-}
-
-func (s *blocksSuite) blockDestroys(c *gc.C) {
-	s.destroy, s.remove, s.change = true, false, false
-}
-
-func (s *blocksSuite) blockRemoves(c *gc.C) {
-	s.remove, s.destroy, s.change = true, false, false
-}
-
-func (s *blocksSuite) blockAllChanges(c *gc.C) {
-	s.change, s.destroy, s.remove = true, false, false
-}
-
-func (s *blocksSuite) assertDestroyOperationBlocked(c *gc.C, value bool) {
-	s.assertOperationBlocked(c, common.DestroyOperation, value)
-}
-
-func (s *blocksSuite) assertRemoveOperationBlocked(c *gc.C, value bool) {
-	s.assertOperationBlocked(c, common.RemoveOperation, value)
-}
-
-func (s *blocksSuite) assertChangeOperationBlocked(c *gc.C, value bool) {
-	s.assertOperationBlocked(c, common.ChangeOperation, value)
-}
-
-func (s *blocksSuite) assertOperationBlocked(c *gc.C, operation common.Operation, value bool) {
-	c.Assert(common.IsOperationBlocked(operation, s.getCurrentConfig(c)), gc.Equals, value)
-}
-
-func (s *blocksSuite) getCurrentConfig(c *gc.C) *config.Config {
-	cfg, err := s.cfg.Apply(map[string]interface{}{
-		"block-destroy-environment": s.destroy,
-		"block-remove-object":       s.remove,
-		"block-all-changes":         s.change,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return cfg
-}
+func (m mockBlock) Message() string { return m.m }
 
 type blockCheckerSuite struct {
-	blocksSuite
-	getter       *mockGetter
+	testing.FakeJujuHomeSuite
+	aBlock                  state.Block
+	destroy, remove, change state.Block
+
 	blockchecker *common.BlockChecker
 }
 
 var _ = gc.Suite(&blockCheckerSuite{})
 
 func (s *blockCheckerSuite) SetUpTest(c *gc.C) {
-	s.blocksSuite.SetUpTest(c)
-	s.getter = &mockGetter{
-		suite: s,
-		c:     c,
+	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.destroy = mockBlock{t: state.DestroyBlock, m: "Mock BLOCK testing: DESTROY"}
+	s.remove = mockBlock{t: state.RemoveBlock, m: "Mock BLOCK testing: REMOVE"}
+	s.change = mockBlock{t: state.ChangeBlock, m: "Mock BLOCK testing: CHANGE"}
+	s.blockchecker = common.NewBlockChecker(s)
+}
+
+func (mock *blockCheckerSuite) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
+	if mock.aBlock.Type() == t {
+		return mock.aBlock, true, nil
+	} else {
+		return nil, false, nil
 	}
-	s.blockchecker = common.NewBlockChecker(s.getter)
-}
-
-type mockGetter struct {
-	suite *blockCheckerSuite
-	c     *gc.C
-}
-
-func (mock *mockGetter) EnvironConfig() (*config.Config, error) {
-	return mock.suite.getCurrentConfig(mock.c), nil
 }
 
 func (s *blockCheckerSuite) TestDestroyBlockChecker(c *gc.C) {
-	s.blockDestroys(c)
-	s.assertDestroyBlocked(c)
+	s.aBlock = s.destroy
+	s.assertErrorBlocked(c, true, s.blockchecker.DestroyAllowed(), s.destroy.Message())
 
-	s.blockRemoves(c)
-	s.assertDestroyBlocked(c)
+	s.aBlock = s.remove
+	s.assertErrorBlocked(c, true, s.blockchecker.DestroyAllowed(), s.remove.Message())
 
-	s.blockAllChanges(c)
-	s.assertDestroyBlocked(c)
+	s.aBlock = s.change
+	s.assertErrorBlocked(c, true, s.blockchecker.DestroyAllowed(), s.change.Message())
 }
 
 func (s *blockCheckerSuite) TestRemoveBlockChecker(c *gc.C) {
-	s.blockDestroys(c)
-	s.assertRemoveBlocked(c, false)
+	s.aBlock = s.destroy
+	s.assertErrorBlocked(c, false, s.blockchecker.RemoveAllowed(), s.destroy.Message())
 
-	s.blockRemoves(c)
-	s.assertRemoveBlocked(c, true)
+	s.aBlock = s.remove
+	s.assertErrorBlocked(c, true, s.blockchecker.RemoveAllowed(), s.remove.Message())
 
-	s.blockAllChanges(c)
-	s.assertRemoveBlocked(c, true)
+	s.aBlock = s.change
+	s.assertErrorBlocked(c, true, s.blockchecker.RemoveAllowed(), s.change.Message())
 }
 
 func (s *blockCheckerSuite) TestChangeBlockChecker(c *gc.C) {
-	s.blockDestroys(c)
-	s.assertChangeBlocked(c, false)
+	s.aBlock = s.destroy
+	s.assertErrorBlocked(c, false, s.blockchecker.ChangeAllowed(), s.destroy.Message())
 
-	s.blockRemoves(c)
-	s.assertChangeBlocked(c, false)
+	s.aBlock = s.remove
+	s.assertErrorBlocked(c, false, s.blockchecker.ChangeAllowed(), s.remove.Message())
 
-	s.blockAllChanges(c)
-	s.assertChangeBlocked(c, true)
+	s.aBlock = s.change
+	s.assertErrorBlocked(c, true, s.blockchecker.ChangeAllowed(), s.change.Message())
 }
 
-func (s *blockCheckerSuite) assertDestroyBlocked(c *gc.C) {
-	c.Assert(errors.Cause(s.blockchecker.DestroyAllowed()), gc.Equals, common.ErrOperationBlocked)
-}
-
-func (s *blockCheckerSuite) assertRemoveBlocked(c *gc.C, blocked bool) {
+func (s *blockCheckerSuite) assertErrorBlocked(c *gc.C, blocked bool, err error, msg string) {
 	if blocked {
-		c.Assert(errors.Cause(s.blockchecker.RemoveAllowed()), gc.Equals, common.ErrOperationBlocked)
+		c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
+		c.Assert(err, gc.ErrorMatches, msg)
 	} else {
-		c.Assert(errors.Cause(s.blockchecker.RemoveAllowed()), jc.ErrorIsNil)
-	}
-}
-
-func (s *blockCheckerSuite) assertChangeBlocked(c *gc.C, blocked bool) {
-	if blocked {
-		c.Assert(errors.Cause(s.blockchecker.ChangeAllowed()), gc.Equals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(errors.Cause(s.blockchecker.ChangeAllowed()), jc.ErrorIsNil)
+		c.Assert(errors.Cause(err), jc.ErrorIsNil)
 	}
 }

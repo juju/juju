@@ -41,9 +41,9 @@ func FormatOneline(value interface{}) ([]byte, error) {
 		)
 	}
 
-	for _, svcName := range sortStrings(stringKeysFromMap(fs.Services)) {
+	for _, svcName := range sortStringsNaturally(stringKeysFromMap(fs.Services)) {
 		svc := fs.Services[svcName]
-		for _, uName := range sortStrings(stringKeysFromMap(svc.Units)) {
+		for _, uName := range sortStringsNaturally(stringKeysFromMap(svc.Units)) {
 			unit := svc.Units[uName]
 			pprint(uName, unit, 0)
 			recurseUnits(unit, 1, pprint)
@@ -73,7 +73,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 
 	p("[Machines]")
 	p("ID\tSTATE\tVERSION\tDNS\tINS-ID\tSERIES\tHARDWARE")
-	for _, name := range sortStrings(stringKeysFromMap(fs.Machines)) {
+	for _, name := range sortStringsNaturally(stringKeysFromMap(fs.Machines)) {
 		m := fs.Machines[name]
 		p(m.Id, m.AgentState, m.AgentVersion, m.DNSName, m.InstanceId, m.Series, m.Hardware)
 	}
@@ -82,32 +82,72 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	units := make(map[string]unitStatus)
 
 	p("\n[Services]")
-	p("NAME\tEXPOSED\tCHARM")
-	for _, svcName := range sortStrings(stringKeysFromMap(fs.Services)) {
+	p("NAME\tSTATUS\tEXPOSED\tCHARM")
+	for _, svcName := range sortStringsNaturally(stringKeysFromMap(fs.Services)) {
 		svc := fs.Services[svcName]
 		for un, u := range svc.Units {
 			units[un] = u
 		}
-		p(svcName, fmt.Sprintf("%t", svc.Exposed), svc.Charm)
+		p(svcName, svc.StatusInfo.Current, fmt.Sprintf("%t", svc.Exposed), svc.Charm)
 	}
 	tw.Flush()
 
 	pUnit := func(name string, u unitStatus, level int) {
 		p(
 			indent("", level*2, name),
-			u.AgentState,
-			u.AgentVersion,
+			u.WorkloadStatusInfo.Current,
+			u.AgentStatusInfo.Current,
+			u.AgentStatusInfo.Version,
 			u.Machine,
 			strings.Join(u.OpenedPorts, ","),
 			u.PublicAddress,
 		)
 	}
 
+	// See if we have new or old data; that determines what data we can display.
+	newStatus := false
+	for _, u := range units {
+		if u.AgentStatusInfo.Current != "" {
+			newStatus = true
+			break
+		}
+	}
+	var header []string
+	if newStatus {
+		header = []string{"ID", "WORKLOAD-STATE", "AGENT-STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS"}
+	} else {
+		header = []string{"ID", "STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS"}
+	}
+
+	pUnitInfo := func(u unitStatus, level int, info string) {
+		// We need to keep the tabular output nice and neat, so
+		// limit the size of the info message.
+		if len(info) > 25 {
+			info = info[:22] + "..."
+		}
+		columns := make([]interface{}, len(header))
+		columns[0] = indent("", level*2, "")
+		columns[1] = info
+		for i := 2; i < len(columns); i++ {
+			columns[i] = ""
+		}
+		p(columns...)
+	}
+
 	p("\n[Units]")
-	p("ID\tSTATE\tVERSION\tMACHINE\tPORTS\tPUBLIC-ADDRESS")
-	for _, name := range sortStrings(stringKeysFromMap(units)) {
+	p(strings.Join(header, "\t"))
+	for _, name := range sortStringsNaturally(stringKeysFromMap(units)) {
 		u := units[name]
 		pUnit(name, u, 0)
+		// If we have new status data, we will display a little extra info for workload status if needed.
+		if newStatus {
+			switch u.WorkloadStatusInfo.Current {
+			case params.StatusMaintenance, params.StatusError:
+				if u.WorkloadStatusInfo.Message != "" {
+					pUnitInfo(u, 0, u.WorkloadStatusInfo.Message)
+				}
+			}
+		}
 		const indentationLevel = 1
 		recurseUnits(u, indentationLevel, pUnit)
 	}
@@ -153,7 +193,7 @@ func FormatSummary(value interface{}) ([]byte, error) {
 	p(" ")
 
 	p("# SERVICES:", fmt.Sprintf(" (%d)", len(fs.Services)))
-	for _, svcName := range sortStrings(stringKeysFromMap(svcExposure)) {
+	for _, svcName := range sortStringsNaturally(stringKeysFromMap(svcExposure)) {
 		s := svcExposure[svcName]
 		p(svcName, fmt.Sprintf("%d/%d\texposed", s[true], s[true]+s[false]))
 	}
@@ -221,7 +261,7 @@ func (f *summaryFormatter) trackUnit(name string, status unitStatus, indentLevel
 }
 
 func (f *summaryFormatter) printStateToCount(m map[params.Status]int) {
-	for _, status := range sortStrings(stringKeysFromMap(m)) {
+	for _, status := range sortStringsNaturally(stringKeysFromMap(m)) {
 		numInStatus := m[params.Status(status)]
 		f.delimitValuesWithTabs(status+":", fmt.Sprintf(" %d ", numInStatus))
 	}
@@ -255,7 +295,7 @@ func (f *summaryFormatter) resolveAndTrackIp(publicDns string) {
 
 func (f *summaryFormatter) aggregateMachineStates(machines map[string]machineStatus) map[params.Status]int {
 	stateToMachine := make(map[params.Status]int)
-	for _, name := range sortStrings(stringKeysFromMap(machines)) {
+	for _, name := range sortStringsNaturally(stringKeysFromMap(machines)) {
 		m := machines[name]
 		f.resolveAndTrackIp(m.DNSName)
 
@@ -270,10 +310,10 @@ func (f *summaryFormatter) aggregateMachineStates(machines map[string]machineSta
 
 func (f *summaryFormatter) aggregateServiceAndUnitStates(services map[string]serviceStatus) map[string]map[bool]int {
 	svcExposure := make(map[string]map[bool]int)
-	for _, name := range sortStrings(stringKeysFromMap(services)) {
+	for _, name := range sortStringsNaturally(stringKeysFromMap(services)) {
 		s := services[name]
 		// Grab unit states
-		for _, un := range sortStrings(stringKeysFromMap(s.Units)) {
+		for _, un := range sortStringsNaturally(stringKeysFromMap(s.Units)) {
 			u := s.Units[un]
 			f.trackUnit(un, u, 0)
 			recurseUnits(u, 1, f.trackUnit)
@@ -288,9 +328,9 @@ func (f *summaryFormatter) aggregateServiceAndUnitStates(services map[string]ser
 	return svcExposure
 }
 
-// sortStrings is syntactic sugar so we can do sorts in one line.
-func sortStrings(s []string) []string {
-	sort.Strings(s)
+// sortStringsNaturally is syntactic sugar so we can do sorts in one line.
+func sortStringsNaturally(s []string) []string {
+	sort.Sort(naturally(s))
 	return s
 }
 
@@ -309,7 +349,7 @@ func recurseUnits(u unitStatus, il int, recurseMap func(string, unitStatus, int)
 	if len(u.Subordinates) == 0 {
 		return
 	}
-	for _, uName := range sortStrings(stringKeysFromMap(u.Subordinates)) {
+	for _, uName := range sortStringsNaturally(stringKeysFromMap(u.Subordinates)) {
 		unit := u.Subordinates[uName]
 		recurseMap(uName, unit, il)
 		recurseUnits(unit, il+1, recurseMap)

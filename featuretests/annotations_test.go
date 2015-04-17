@@ -4,9 +4,8 @@
 package featuretests
 
 import (
-	gc "gopkg.in/check.v1"
-
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/annotations"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -17,8 +16,6 @@ type annotationsSuite struct {
 	jujutesting.JujuConnSuite
 	annotationsClient *annotations.Client
 }
-
-var _ = gc.Suite(&annotationsSuite{})
 
 func (s *annotationsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)

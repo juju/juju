@@ -17,12 +17,15 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/replicaset"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5/charmrepo"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
@@ -33,6 +36,7 @@ import (
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container"
@@ -40,6 +44,7 @@ import (
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
@@ -47,21 +52,22 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
-	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
-	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevisionworker"
 	"github.com/juju/juju/worker/cleaner"
+	"github.com/juju/juju/worker/conv2state"
+	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/envworkermanager"
@@ -80,9 +86,9 @@ import (
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
+	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 const bootstrapMachineId = "0"
@@ -102,11 +108,15 @@ var (
 	newNetworker             = networker.NewNetworker
 	newFirewaller            = firewaller.NewFirewaller
 	newDiskManager           = diskmanager.NewWorker
+	newStorageWorker         = storageprovisioner.NewStorageProvisioner
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
 	reportOpenedState        = func(interface{}) {}
 	reportOpenedAPI          = func(interface{}) {}
 	getMetricAPI             = metricAPI
 )
+
+// Variable to override in tests, default is true
+var EnableJournaling = true
 
 func init() {
 	stateWorkerDialOpts = mongo.DefaultDialOpts()
@@ -114,7 +124,7 @@ func init() {
 		safe := mgo.Safe{
 			// Wait for group commit if journaling is enabled,
 			// which is always true in production.
-			J: true,
+			J: EnableJournaling,
 		}
 		_, err := replicaset.CurrentConfig(session)
 		if err == nil {
@@ -318,6 +328,48 @@ func (a *MachineAgent) Dying() <-chan struct{} {
 	return a.tomb.Dying()
 }
 
+// upgradeCertificateDNSNames ensure that the state server certificate
+// recorded in the agent config and also mongo server.pem contains the
+// DNSNames entires required by Juju/
+func (a *MachineAgent) upgradeCertificateDNSNames() error {
+	agentConfig := a.CurrentConfig()
+	si, ok := agentConfig.StateServingInfo()
+	if !ok || si.CAPrivateKey == "" {
+		// No certificate information exists yet, nothing to do.
+		return nil
+	}
+	// Parse the current certificate to get the current dns names.
+	serverCert, err := cert.ParseCert(si.Cert)
+	if err != nil {
+		return err
+	}
+	update := false
+	dnsNames := set.NewStrings(serverCert.DNSNames...)
+	requiredDNSNames := []string{"local", "juju-apiserver", "juju-mongodb"}
+	for _, dnsName := range requiredDNSNames {
+		if dnsNames.Contains(dnsName) {
+			continue
+		}
+		dnsNames.Add(dnsName)
+		update = true
+	}
+	if !update {
+		return nil
+	}
+	// Write a new certificate to the mongp pem and agent config files.
+	si.Cert, si.PrivateKey, err = cert.NewDefaultServer(agentConfig.CACert(), si.CAPrivateKey, dnsNames.Values())
+	if err != nil {
+		return err
+	}
+	if err := mongo.UpdateSSLKey(agentConfig.DataDir(), si.Cert, si.PrivateKey); err != nil {
+		return err
+	}
+	return a.AgentConfigWriter.ChangeConfig(func(config agent.ConfigSetter) error {
+		config.SetStateServingInfo(si)
+		return nil
+	})
+}
+
 // Run runs a machine agent.
 func (a *MachineAgent) Run(*cmd.Context) error {
 
@@ -325,12 +377,20 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
-	agentConfig := a.CurrentConfig()
 
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
+
+	// Before doing anything else, we need to make sure the certificate generated for
+	// use by mongo to validate state server connections is correct. This needs to be done
+	// before any possible restart of the mongo service.
+	// See bug http://pad.lv/1434680
+	if err := a.upgradeCertificateDNSNames(); err != nil {
+		return errors.Annotate(err, "error upgrading server certificate")
+	}
+	agentConfig := a.CurrentConfig()
 
 	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
 		return errors.Annotate(err, "error during upgradeWorkerContext initialisation")
@@ -338,7 +398,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	a.configChangedVal.Set(struct{}{})
 	a.previousAgentVersion = agentConfig.UpgradedToVersion()
 	network.InitializeFromConfig(agentConfig)
-	charm.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
+	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
 		return fmt.Errorf("cannot create juju run symlink: %v", err)
 	}
@@ -431,6 +491,14 @@ func (a *MachineAgent) BeginRestore() error {
 	return nil
 }
 
+// EndRestore will flag the agent to allow all commands
+// This being invoked means that restore process failed
+// since success restarts the agent.
+func (a *MachineAgent) EndRestore() {
+	a.restoreMode = false
+	a.restoring = false
+}
+
 // newrestorestatewatcherworker will return a worker or err if there is a failure,
 // the worker takes care of watching the state of restoreInfo doc and put the
 // agent in the different restore modes.
@@ -444,7 +512,7 @@ func (a *MachineAgent) newRestoreStateWatcherWorker(st *state.State) (worker.Wor
 // restoreChanged will be called whenever restoreInfo doc changes signaling a new
 // step in the restore process.
 func (a *MachineAgent) restoreChanged(st *state.State) error {
-	rinfo, err := st.EnsureRestoreInfo()
+	rinfo, err := st.RestoreInfoSetter()
 	if err != nil {
 		return errors.Annotate(err, "cannot read restore state")
 	}
@@ -453,6 +521,8 @@ func (a *MachineAgent) restoreChanged(st *state.State) error {
 		a.PrepareRestore()
 	case state.RestoreInProgress:
 		a.BeginRestore()
+	case state.RestoreFailed:
+		a.EndRestore()
 	}
 	return nil
 }
@@ -568,13 +638,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			a.upgradeWorkerContext.IsUpgradeRunning,
 		), nil
 	})
+
 	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(st, entity.Jobs()))
 
 	// All other workers must wait for the upgrade steps to complete before starting.
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
 		return a.postUpgradeAPIWorker(st, agentConfig, entity)
 	})
-
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
@@ -584,13 +654,17 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	entity *apiagent.Entity,
 ) (worker.Worker, error) {
 
-	rsyslogMode := rsyslog.RsyslogModeForwarding
-	var err error
+	var isEnvironManager bool
 	for _, job := range entity.Jobs() {
 		if job == multiwatcher.JobManageEnviron {
-			rsyslogMode = rsyslog.RsyslogModeAccumulate
+			isEnvironManager = true
 			break
 		}
+	}
+
+	rsyslogMode := rsyslog.RsyslogModeForwarding
+	if isEnvironManager {
+		rsyslogMode = rsyslog.RsyslogModeAccumulate
 	}
 
 	runner := newConnRunner(st)
@@ -627,14 +701,26 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
-	// TODO(axw) stop checking feature flag once storage has graduated.
-	if featureflag.Enabled(storage.FeatureFlag) {
+
+	if !isEnvironManager {
+		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
+			return worker.NewNotifyWorker(conv2state.New(st.Machiner(), a)), nil
+		})
+	}
+
+	if featureflag.Enabled(feature.Storage) {
 		runner.StartWorker("diskmanager", func() (worker.Worker, error) {
 			api, err := st.DiskManager()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
+		})
+		runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
+			scope := agentConfig.Tag()
+			api := st.StorageProvisioner(scope)
+			storageDir := filepath.Join(agentConfig.DataDir(), "storage")
+			return newStorageWorker(scope, storageDir, api, api, api, api), nil
 		})
 	}
 
@@ -703,6 +789,12 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	}
 
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
+}
+
+// Restart restarts the agent's service.
+func (a *MachineAgent) Restart() error {
+	name := a.CurrentConfig().Value(agent.AgentServiceName)
+	return service.Restart(name)
 }
 
 func (a *MachineAgent) upgradeStepsWorkerStarter(
@@ -880,12 +972,19 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
 				return newCertificateUpdater(m, agentConfig, st, stateServingSetter, certChangedChan), nil
 			})
+
+			if featureflag.Enabled(feature.DbLog) {
+				a.startWorkerAfterUpgrade(singularRunner, "dblogpruner", func() (worker.Worker, error) {
+					return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
+				})
+			}
 			a.startWorkerAfterUpgrade(singularRunner, "resumer", func() (worker.Worker, error) {
 				// The action of resumer is so subtle that it is not tested,
 				// because we can't figure out how to do so without brutalising
 				// the transaction log.
 				return resumer.NewResumer(st), nil
 			})
+
 		case state.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:
@@ -959,11 +1058,21 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("minunitsworker", func() (worker.Worker, error) {
 		return minunitsworker.NewMinUnitsWorker(st), nil
 	})
+	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
+		return addresser.NewWorker(st)
+	})
 
 	// Start workers that use an API connection.
 	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 		return provisioner.NewEnvironProvisioner(apiSt.Provisioner(), agentConfig), nil
 	})
+	if featureflag.Enabled(feature.Storage) {
+		singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
+			scope := agentConfig.Environment()
+			api := apiSt.StorageProvisioner(scope)
+			return newStorageWorker(scope, "", api, api, api, api), nil
+		})
+	}
 	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 		return charmrevisionworker.NewRevisionUpdateWorker(apiSt.CharmRevisionUpdater()), nil
 	})
@@ -1354,7 +1463,10 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		agentServiceName = os.Getenv("UPSTART_JOB")
 	}
 	if agentServiceName != "" {
-		if err := service.NewService(agentServiceName, common.Conf{}).Remove(); err != nil {
+		svc, err := service.DiscoverService(agentServiceName, common.Conf{})
+		if err != nil {
+			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
+		} else if err := svc.Remove(); err != nil {
 			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
 	}

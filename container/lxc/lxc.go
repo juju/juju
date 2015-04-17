@@ -22,16 +22,17 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/keyvalues"
 	"github.com/juju/utils/symlink"
 	"launchpad.net/golxc"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/containerinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/version"
-	"github.com/juju/utils/keyvalues"
 )
 
 var logger = loggo.GetLogger("juju.container.lxc")
@@ -50,6 +51,10 @@ const (
 	DefaultLxcBridge = "lxcbr0"
 	// Btrfs is special as we treat it differently for create and clone.
 	Btrfs = "btrfs"
+
+	// etcNetworkInterfaces here is the path (inside the container's
+	// rootfs) where the network config is stored.
+	etcNetworkInterfaces = "/etc/network/interfaces"
 )
 
 // DefaultNetworkConfig returns a valid NetworkConfig to use the
@@ -188,9 +193,10 @@ func preferFastLXC(release string) bool {
 
 // CreateContainer creates or clones an LXC container.
 func (manager *containerManager) CreateContainer(
-	machineConfig *cloudinit.MachineConfig,
+	instanceConfig *instancecfg.InstanceConfig,
 	series string,
 	networkConfig *container.NetworkConfig,
+	storageConfig *container.StorageConfig,
 ) (inst instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 	// Check our preconditions
 	if manager == nil {
@@ -199,6 +205,8 @@ func (manager *containerManager) CreateContainer(
 		panic("series not set")
 	} else if networkConfig == nil {
 		panic("networkConfig is nil")
+	} else if storageConfig == nil {
+		panic("storageConfig is nil")
 	}
 
 	// Log how long the start took
@@ -208,7 +216,7 @@ func (manager *containerManager) CreateContainer(
 		}
 	}(time.Now())
 
-	name := names.NewMachineTag(machineConfig.MachineId).String()
+	name := names.NewMachineTag(instanceConfig.MachineId).String()
 	if manager.name != "" {
 		name = fmt.Sprintf("%s-%s", manager.name, name)
 	}
@@ -219,7 +227,7 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "failed to create a directory for the container")
 	}
 	logger.Tracef("write cloud-init")
-	userDataFilename, err := container.WriteUserData(machineConfig, networkConfig, directory)
+	userDataFilename, err := containerinit.WriteUserData(instanceConfig, networkConfig, directory)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to write user data")
 	}
@@ -230,12 +238,13 @@ func (manager *containerManager) CreateContainer(
 			manager.backingFilesystem,
 			series,
 			networkConfig,
-			machineConfig.AuthorizedKeys,
-			machineConfig.AptProxySettings,
-			machineConfig.AptMirror,
-			machineConfig.EnableOSRefreshUpdate,
-			machineConfig.EnableOSUpgrade,
+			instanceConfig.AuthorizedKeys,
+			instanceConfig.AptProxySettings,
+			instanceConfig.AptMirror,
+			instanceConfig.EnableOSRefreshUpdate,
+			instanceConfig.EnableOSUpgrade,
 			manager.imageURLGetter,
+			manager.useAUFS,
 		)
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "failed to retrieve the template to clone")
@@ -313,6 +322,12 @@ func (manager *containerManager) CreateContainer(
 	if err := mountHostLogDir(name, manager.logdir); err != nil {
 		return nil, nil, errors.Annotate(err, "failed to mount the directory to log to")
 	}
+	if storageConfig.AllowMount {
+		// Add config to allow loop devices to be mounted inside the container.
+		if err := allowLoopbackBlockDevices(name); err != nil {
+			return nil, nil, errors.Annotate(err, "failed to configure the container for loopback devices")
+		}
+	}
 	// Update the network settings inside the run-time config of the
 	// container (e.g. /var/lib/lxc/<name>/config) before starting it.
 	netConfig := generateNetworkConfig(networkConfig)
@@ -332,8 +347,28 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "failed to reorder network settings")
 	}
 
-	// Start the lxc container with the appropriate settings for grabbing the
-	// console output and a log file.
+	// To speed-up the initial container startup we pre-render the
+	// /etc/network/interfaces directly inside the rootfs. This won't
+	// work if we use AUFS snapshots, so it's disabled if useAUFS is
+	// true (for now).
+	if networkConfig != nil && len(networkConfig.Interfaces) > 0 {
+		interfacesFile := filepath.Join(LxcContainerDir, name, "rootfs", etcNetworkInterfaces)
+		if manager.useAUFS {
+			logger.Tracef("not pre-rendering %q when using AUFS-backed rootfs", interfacesFile)
+		} else {
+			data, err := containerinit.GenerateNetworkConfig(networkConfig)
+			if err != nil {
+				return nil, nil, errors.Annotatef(err, "failed to generate %q", interfacesFile)
+			}
+			if err := utils.AtomicWriteFile(interfacesFile, []byte(data), 0644); err != nil {
+				return nil, nil, errors.Annotatef(err, "cannot write generated %q", interfacesFile)
+			}
+			logger.Tracef("pre-rendered network config in %q", interfacesFile)
+		}
+	}
+
+	// Start the lxc container with the appropriate settings for
+	// grabbing the console output and a log file.
 	consoleFile := filepath.Join(directory, "console.log")
 	lxcContainer.SetLogFile(filepath.Join(directory, "container.log"), golxc.LogDebug)
 	logger.Tracef("start the container")
@@ -729,6 +764,15 @@ func mountHostLogDir(name, logDir string) error {
 	return appendToContainerConfig(name, line)
 }
 
+func allowLoopbackBlockDevices(name string) error {
+	const allowLoopDevicesCfg = `
+lxc.aa_profile = lxc-container-default-with-mounting
+lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = c 10:237 rwm
+`
+	return appendToContainerConfig(name, allowLoopDevicesCfg)
+}
+
 func (manager *containerManager) DestroyContainer(id instance.Id) error {
 	start := time.Now()
 	name := string(id)
@@ -884,20 +928,10 @@ func networkConfigTemplate(config container.NetworkConfig) string {
 		if nic.IPv4Address != "" {
 			// LXC expects IPv4 addresses formatted like a CIDR:
 			// 1.2.3.4/5 (but without masking the least significant
-			// octets). So we need to extract the mask part of the
-			// iface.CIDR and append it. If CIDR is empty or invalid
-			// "/24" is used as a sane default.
-			_, ipNet, err := net.ParseCIDR(iface.CIDR)
-			if err != nil {
-				logger.Warningf(
-					"invalid CIDR %q for interface %q, using /24 as fallback",
-					iface.CIDR, nic.Name,
-				)
-				nic.IPv4Address += "/24"
-			} else {
-				ones, _ := ipNet.Mask.Size()
-				nic.IPv4Address += fmt.Sprintf("/%d", ones)
-			}
+			// octets). Because statically configured IP addresses use
+			// the netmask 255.255.255.255, we always use /32 for
+			// here.
+			nic.IPv4Address += "/32"
 		}
 		if nic.NoAutoStart && nic.IPv4Gateway != "" {
 			// LXC refuses to add an ipv4 gateway when the NIC is not

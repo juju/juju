@@ -115,11 +115,16 @@ func (s *CommonSuite) TestConform(c *gc.C) {
 	}
 }
 
+type insertSliceValue struct {
+	valuePath []string
+	value     interface{}
+}
+
 func (s *CommonSuite) TestAddValueToMap(c *gc.C) {
 	for i, t := range []struct {
 		should       string
 		startingMap  map[string]interface{}
-		insertSlices [][]string
+		insertSlices []insertSliceValue
 		expectedMap  map[string]interface{}
 	}{{
 		should: "insert a couple of values",
@@ -130,9 +135,15 @@ func (s *CommonSuite) TestAddValueToMap(c *gc.C) {
 				"bur": "bor",
 			},
 		},
-		insertSlices: [][]string{
-			{"well", "now", "5"},
-			{"foo", "kek"},
+		insertSlices: []insertSliceValue{
+			{
+				valuePath: []string{"well", "now"},
+				value:     5,
+			},
+			{
+				valuePath: []string{"foo"},
+				value:     "kek",
+			},
 		},
 		expectedMap: map[string]interface{}{
 			"foo": "kek",
@@ -141,14 +152,13 @@ func (s *CommonSuite) TestAddValueToMap(c *gc.C) {
 				"bur": "bor",
 			},
 			"well": map[string]interface{}{
-				"now": "5",
+				"now": 5,
 			},
 		},
 	}} {
 		c.Logf("test %d: should %s", i, t.should)
-		for _, thisSlice := range t.insertSlices {
-			valAt := len(thisSlice) - 1
-			addValueToMap(thisSlice[:valAt], thisSlice[valAt], t.startingMap)
+		for _, sVal := range t.insertSlices {
+			addValueToMap(sVal.valuePath, sVal.value, t.startingMap)
 		}
 		// note addValueToMap mutates target.
 		c.Check(t.startingMap, jc.DeepEquals, t.expectedMap)

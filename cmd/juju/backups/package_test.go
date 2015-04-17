@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/juju/cmd"
@@ -16,6 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	apibackups "github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/backups"
 	jujutesting "github.com/juju/juju/testing"
@@ -109,45 +109,10 @@ func (s *BaseBackupsSuite) checkArchive(c *gc.C) {
 	c.Check(string(data), gc.Equals, s.data)
 }
 
-func (s *BaseBackupsSuite) diffStrings(c *gc.C, value, expected string) {
-	// If only Go had a diff library.
-	vlines := strings.Split(value, "\n")
-	elines := strings.Split(expected, "\n")
-	vsize := len(vlines)
-	esize := len(elines)
-
-	if vsize < 2 || esize < 2 {
-		return
-	}
-
-	smaller := elines
-	if vsize < esize {
-		smaller = vlines
-	}
-
-	for i := range smaller {
-		vline := vlines[i]
-		eline := elines[i]
-		if vline != eline {
-			c.Log("first mismatched line:")
-			c.Log("expected: " + eline)
-			c.Log("got:      " + vline)
-			break
-		}
-	}
-
-}
-
-func (s *BaseBackupsSuite) checkString(c *gc.C, value, expected string) {
-	if !c.Check(value, gc.Equals, expected) {
-		s.diffStrings(c, value, expected)
-	}
-}
-
 func (s *BaseBackupsSuite) checkStd(c *gc.C, ctx *cmd.Context, out, err string) {
-	c.Check(ctx.Stdin.(*bytes.Buffer).String(), gc.Equals, "")
-	s.checkString(c, ctx.Stdout.(*bytes.Buffer).String(), out)
-	s.checkString(c, ctx.Stderr.(*bytes.Buffer).String(), err)
+	c.Check(ctx.Stdin.(*bytes.Buffer).Len(), gc.Equals, 0)
+	jujutesting.CheckString(c, ctx.Stdout.(*bytes.Buffer).String(), out)
+	jujutesting.CheckString(c, ctx.Stderr.(*bytes.Buffer).String(), err)
 }
 
 type fakeAPIClient struct {
@@ -226,5 +191,13 @@ func (c *fakeAPIClient) Remove(id string) error {
 }
 
 func (c *fakeAPIClient) Close() error {
+	return nil
+}
+
+func (c *fakeAPIClient) RestoreReader(io.Reader, *params.BackupsMetadataResult, apibackups.ClientConnection) error {
+	return nil
+}
+
+func (c *fakeAPIClient) Restore(string, apibackups.ClientConnection) error {
 	return nil
 }

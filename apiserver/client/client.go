@@ -6,6 +6,7 @@ package client
 import (
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -14,7 +15,11 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/charmstore.v4/csclient"
+	"gopkg.in/macaroon-bakery.v0/httpbakery"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
@@ -22,6 +27,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
@@ -29,6 +35,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/version"
 )
 
@@ -263,7 +270,9 @@ func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
 	return svc.ClearExposed()
 }
 
-var CharmStore charm.Repository = charm.Store
+// newCharmStore instantiates a new charm store repository.
+// It is defined at top level for testing purposes.
+var newCharmStore = charmrepo.NewCharmStore
 
 func networkTagsToNames(tags []string) ([]string, error) {
 	netNames := make([]string, len(tags))
@@ -287,10 +296,10 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	}
 	curl, err := charm.ParseURL(args.CharmUrl)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if curl.Revision < 0 {
-		return fmt.Errorf("charm url must include revision")
+		return errors.Errorf("charm url must include revision")
 	}
 
 	if args.ToMachineSpec != "" && names.IsValidMachine(args.ToMachineSpec) {
@@ -307,21 +316,29 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		if curl.Schema != "cs" {
 			return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
 		}
-		err = c.AddCharm(params.CharmURL{args.CharmUrl})
+		// Note that because this block is here for backward compatibility
+		// only, we do not support macaroon authorization.
+		err = c.AddCharmWithAuthorization(params.AddCharmWithAuthorization{
+			URL: args.CharmUrl,
+		})
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		ch, err = c.api.state.Charm(curl)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	} else if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// TODO(axw) stop checking feature flag once storage has graduated.
 	var storageConstraints map[string]storage.Constraints
-	if featureflag.Enabled(storage.FeatureFlag) {
+	if featureflag.Enabled(feature.Storage) {
+		storageConstraints = args.Storage
+		if storageConstraints == nil {
+			storageConstraints = make(map[string]storage.Constraints)
+		}
 		// Validate the storage parameters against the charm metadata,
 		// and ensure there are no conflicting parameters.
 		if err := validateCharmStorage(args, ch); err != nil {
@@ -342,15 +359,24 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 					store,
 				)
 			}
-			// TODO(axw) when storage pools, providers etc. are implemented,
-			// and we have a "loop" storage provider, we should create minimal
-			// constraints with the "loop" pool here.
-			return errors.Errorf(
-				"no constraints specified for charm storage %q, loop not implemented",
-				store,
-			)
+			if charmStorage.CountMin <= 0 {
+				continue
+			}
+			if charmStorage.Type != charm.StorageFilesystem {
+				// TODO(axw) clarify what the rules are for "block" kind when
+				// no constraints are specified. For "filesystem" we use rootfs.
+				return errors.Errorf(
+					"no constraints specified for %v charm storage %q",
+					charmStorage.Type,
+					store,
+				)
+			}
+			storageConstraints[store] = storage.Constraints{
+				// The pool is the provider type since rootfs provider has no configuration.
+				Pool:  string(provider.RootfsProviderType),
+				Count: uint64(charmStorage.CountMin),
+			}
 		}
-		storageConstraints = args.Storage
 	}
 
 	var settings charm.Settings
@@ -361,12 +387,12 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		settings, err = parseSettingsCompatible(ch, args.Config)
 	}
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	// Convert network tags to names for any given networks.
 	requestedNetworks, err := networkTagsToNames(args.Networks)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	_, err = jjj.DeployService(c.api.state,
@@ -477,7 +503,9 @@ func (c *Client) serviceSetCharm1dot16(service *state.Service, curl *charm.URL, 
 	if curl.Revision < 0 {
 		return fmt.Errorf("charm url must include revision")
 	}
-	err := c.AddCharm(params.CharmURL{curl.String()})
+	err := c.AddCharm(params.CharmURL{
+		URL: curl.String(),
+	})
 	if err != nil {
 		return err
 	}
@@ -789,26 +817,23 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 	}
 
 	// TODO(axw) stop checking feature flag once storage has graduated.
-	var blockDeviceParams []state.BlockDeviceParams
-	if featureflag.Enabled(storage.FeatureFlag) {
-		// TODO(axw) unify storage and free block device constraints in state.
+	var volumes []state.MachineVolumeParams
+	if featureflag.Enabled(feature.Storage) {
+		volumes = make([]state.MachineVolumeParams, 0, len(p.Disks))
 		for _, cons := range p.Disks {
-			if cons.Pool != "" {
-				// TODO(axw) implement pools. If pool is not specified,
-				// determine default pool and set here.
-				return nil, errors.Errorf("storage pools not implemented")
-			}
-			if cons.Size == 0 {
-				return nil, errors.Errorf("invalid size %v", cons.Size)
-			}
 			if cons.Count == 0 {
-				return nil, errors.Errorf("invalid count %v", cons.Count)
+				return nil, errors.Errorf("invalid volume params: count not specified")
 			}
-			params := state.BlockDeviceParams{
+			// Pool and Size are validated by AddMachineX.
+			volumeParams := state.VolumeParams{
+				Pool: cons.Pool,
 				Size: cons.Size,
 			}
+			volumeAttachmentParams := state.VolumeAttachmentParams{}
 			for i := uint64(0); i < cons.Count; i++ {
-				blockDeviceParams = append(blockDeviceParams, params)
+				volumes = append(volumes, state.MachineVolumeParams{
+					volumeParams, volumeAttachmentParams,
+				})
 			}
 		}
 	}
@@ -818,14 +843,14 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		return nil, err
 	}
 	template := state.MachineTemplate{
-		Series:       p.Series,
-		Constraints:  p.Constraints,
-		BlockDevices: blockDeviceParams,
-		InstanceId:   p.InstanceId,
-		Jobs:         jobs,
-		Nonce:        p.Nonce,
+		Series:      p.Series,
+		Constraints: p.Constraints,
+		Volumes:     volumes,
+		InstanceId:  p.InstanceId,
+		Jobs:        jobs,
+		Nonce:       p.Nonce,
 		HardwareCharacteristics: p.HardwareCharacteristics,
-		Addresses:               p.Addrs,
+		Addresses:               params.NetworkAddresses(p.Addrs),
 		Placement:               placementDirective,
 	}
 	if p.ContainerType == "" {
@@ -872,7 +897,7 @@ func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error)
 // provisions a machine agent on the machine executing the script.
 func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (params.ProvisioningScriptResult, error) {
 	var result params.ProvisioningScriptResult
-	mcfg, err := MachineConfig(c.api.state, args.MachineId, args.Nonce, args.DataDir)
+	icfg, err := InstanceConfig(c.api.state, args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, err
 	}
@@ -884,16 +909,16 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	// true. False indicates the client doesn't care and we should use
 	// what's specified in the environments.yaml file.
 	if args.DisablePackageCommands {
-		mcfg.EnableOSRefreshUpdate = false
-		mcfg.EnableOSUpgrade = false
+		icfg.EnableOSRefreshUpdate = false
+		icfg.EnableOSUpgrade = false
 	} else if cfg, err := c.api.state.EnvironConfig(); err != nil {
 		return result, err
 	} else {
-		mcfg.EnableOSUpgrade = cfg.EnableOSUpgrade()
-		mcfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
+		icfg.EnableOSUpgrade = cfg.EnableOSUpgrade()
+		icfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
 	}
 
-	result.Script, err = manual.ProvisioningScript(mcfg)
+	result.Script, err = manual.ProvisioningScript(icfg)
 	return result, err
 }
 
@@ -963,11 +988,12 @@ func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
 		ProviderType:  conf.Type(),
 		Name:          conf.Name(),
 		UUID:          env.UUID(),
+		ServerUUID:    env.ServerUUID(),
 	}
 	return info, nil
 }
 
-// ShareEnvironment allows the given user(s) access to the environment.
+// ShareEnvironment manages allowing and denying the given user(s) access to the environment.
 func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params.ErrorResults, err error) {
 	var createdBy names.UserTag
 	var ok bool
@@ -991,7 +1017,7 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 		}
 		switch arg.Action {
 		case params.AddEnvUser:
-			_, err := c.api.state.AddEnvironmentUser(user, createdBy)
+			_, err := c.api.state.AddEnvironmentUser(user, createdBy, "")
 			if err != nil {
 				err = errors.Annotate(err, "could not share environment")
 				result.Results[i].Error = common.ServerError(err)
@@ -1007,6 +1033,32 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 		}
 	}
 	return result, nil
+}
+
+// EnvUserInfo returns information on all users in the environment.
+func (c *Client) EnvUserInfo() (params.EnvUserInfoResults, error) {
+	var results params.EnvUserInfoResults
+	env, err := c.api.state.Environment()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	users, err := env.Users()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
+	for _, user := range users {
+		results.Results = append(results.Results, params.EnvUserInfoResult{
+			Result: &params.EnvUserInfo{
+				UserName:       user.UserName(),
+				DisplayName:    user.DisplayName(),
+				CreatedBy:      user.CreatedBy(),
+				DateCreated:    user.DateCreated(),
+				LastConnection: user.LastConnection(),
+			},
+		})
+	}
+	return results, nil
 }
 
 // GetAnnotations returns annotations about a given entity.
@@ -1122,14 +1174,7 @@ func (c *Client) EnvironmentGet() (params.EnvironmentConfigResults, error) {
 // set-environment CLI command.
 func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 	if err := c.check.ChangeAllowed(); err != nil {
-		// if trying to change value for block-changes, we would want to let it go.
-		if v, present := args.Config[config.PreventAllChangesKey]; !present {
-			return errors.Trace(err)
-		} else if block, ok := v.(bool); ok && block {
-			// still want to block changes
-			return errors.Trace(err)
-		}
-		// else if block is false, we want to unblock changes
+		return errors.Trace(err)
 	}
 	// Make sure we don't allow changing agent-version.
 	checkAgentVersion := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
@@ -1195,10 +1240,19 @@ func destroyErr(desc string, ids, errs []string) error {
 	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }
 
-// AddCharm adds the given charm URL (which must include revision) to
+func (c *Client) AddCharm(args params.CharmURL) error {
+	return c.AddCharmWithAuthorization(params.AddCharmWithAuthorization{
+		URL: args.URL,
+	})
+}
+
+// AddCharmWithAuthorization adds the given charm URL (which must include revision) to
 // the environment, if it does not exist yet. Local charms are not
 // supported, only charm store URLs. See also AddLocalCharm().
-func (c *Client) AddCharm(args params.CharmURL) error {
+//
+// The authorization macaroon, args.CharmStoreMacaroon, may be
+// omitted, in which case this call is equivalent to AddCharm.
+func (c *Client) AddCharmWithAuthorization(args params.AddCharmWithAuthorization) error {
 	charmURL, err := charm.ParseURL(args.URL)
 	if err != nil {
 		return err
@@ -1212,11 +1266,12 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 
 	// First, check if a pending or a real charm exists in state.
 	stateCharm, err := c.api.state.PrepareStoreCharmUpload(charmURL)
-	if err == nil && stateCharm.IsUploaded() {
+	if err != nil {
+		return err
+	}
+	if stateCharm.IsUploaded() {
 		// Charm already in state (it was uploaded already).
 		return nil
-	} else if err != nil {
-		return err
 	}
 
 	// Get the charm and its information from the store.
@@ -1224,10 +1279,32 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	if err != nil {
 		return err
 	}
-	config.SpecializeCharmRepo(CharmStore, envConfig)
-	downloadedCharm, err := CharmStore.Get(charmURL)
+	csURL, err := url.Parse(csclient.ServerURL)
 	if err != nil {
-		return errors.Annotatef(err, "cannot download charm %q", charmURL.String())
+		return err
+	}
+	csParams := charmrepo.NewCharmStoreParams{
+		URL:        csURL.String(),
+		HTTPClient: httpbakery.NewHTTPClient(),
+	}
+	if args.CharmStoreMacaroon != nil {
+		// Set the provided charmstore authorizing macaroon
+		// as a cookie in the HTTP client.
+		// TODO discharge any third party caveats in the macaroon.
+		ms := []*macaroon.Macaroon{args.CharmStoreMacaroon}
+		httpbakery.SetCookie(csParams.HTTPClient.Jar, csURL, ms)
+	}
+	repo := config.SpecializeCharmRepo(
+		newCharmStore(csParams),
+		envConfig,
+	)
+	downloadedCharm, err := repo.Get(charmURL)
+	if err != nil {
+		cause := errors.Cause(err)
+		if httpbakery.IsDischargeError(cause) || httpbakery.IsInteractionError(cause) {
+			return errors.NewUnauthorized(err, "")
+		}
+		return errors.Trace(err)
 	}
 
 	// Open it and calculate the SHA256 hash.
@@ -1299,11 +1376,13 @@ func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmRe
 	if err != nil {
 		return params.ResolveCharmResults{}, err
 	}
-	config.SpecializeCharmRepo(CharmStore, envConfig)
+	repo := config.SpecializeCharmRepo(
+		newCharmStore(charmrepo.NewCharmStoreParams{}),
+		envConfig)
 
 	for _, ref := range args.References {
 		result := params.ResolveCharmResult{}
-		curl, err := c.resolveCharm(&ref, CharmStore)
+		curl, err := c.resolveCharm(&ref, repo)
 		if err != nil {
 			result.Error = err.Error()
 		} else {
@@ -1314,13 +1393,17 @@ func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmRe
 	return results, nil
 }
 
-func (c *Client) resolveCharm(ref *charm.Reference, repo charm.Repository) (*charm.URL, error) {
+func (c *Client) resolveCharm(ref *charm.Reference, repo charmrepo.Interface) (*charm.URL, error) {
 	if ref.Schema != "cs" {
 		return nil, fmt.Errorf("only charm store charm references are supported, with cs: schema")
 	}
 
 	// Resolve the charm location with the repository.
-	return repo.Resolve(ref)
+	curl, err := repo.Resolve(ref)
+	if err != nil {
+		return nil, err
+	}
+	return curl.WithRevision(ref.Revision), nil
 }
 
 // charmArchiveStoragePath returns a string that is suitable as a
@@ -1350,9 +1433,11 @@ func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, erro
 
 // APIHostPorts returns the API host/port addresses stored in state.
 func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
-	if result.Servers, err = c.api.state.APIHostPorts(); err != nil {
+	var servers [][]network.HostPort
+	if servers, err = c.api.state.APIHostPorts(); err != nil {
 		return params.APIHostPortsResult{}, err
 	}
+	result.Servers = params.FromNetworkHostsPorts(servers)
 	return result, nil
 }
 

@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,7 +18,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/apt"
+	pacman "github.com/juju/utils/packaging/manager"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -83,7 +85,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 
 	// Capture all apt commands.
 	s.aptCmds = nil
-	aptCmds := s.AgentSuite.HookCommandOutput(&apt.CommandOutput, nil, nil)
+	aptCmds := s.AgentSuite.HookCommandOutput(&pacman.CommandOutput, nil, nil)
 	go func() {
 		for cmd := range aptCmds {
 			s.setAptCmds(cmd)
@@ -432,6 +434,13 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
+	coretesting.SkipIfI386(c, "lp:1425569")
+	coretesting.SkipIfPPC64EL(c, "lp:1434555")
+
+	//TODO(bogdanteleaga): Fix this to behave properly
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: this fails half of the time on windows because files are not closed properly")
+	}
 	s.setInstantRetryStrategy(c)
 	// Upload tools to provider storage, so they can be migrated to environment storage.
 	stor, err := environs.LegacyStorage(s.State)
@@ -560,6 +569,9 @@ func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgrade(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: doesn't work on windows because of symlink issue")
+	}
 	// This test checks that the master triggers a downgrade if one of
 	// the other state server fails to signal it is ready for upgrade.
 	//
@@ -801,8 +813,13 @@ func (s *UpgradeSuite) assertStateServerUpgrades(c *gc.C) {
 func (s *UpgradeSuite) assertHostUpgrades(c *gc.C) {
 	s.assertCommonUpgrades(c)
 	// Lock directory
-	lockdir := filepath.Join(s.DataDir(), "locks")
-	c.Assert(lockdir, jc.IsDirectory)
+	// TODO(bogdanteleaga): Fix this on windows. Currently a bash script is
+	// used to create the directory which partially works on windows 8 but
+	// doesn't work on windows server.
+	if runtime.GOOS != "windows" {
+		lockdir := filepath.Join(s.DataDir(), "locks")
+		c.Assert(lockdir, jc.IsDirectory)
+	}
 	// SSH key file should not be generated for hosts.
 	_, err := os.Stat(s.keyFile())
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
@@ -847,6 +864,30 @@ func readConfigFromDisk(c *gc.C, dir string, tag names.Tag) agent.Config {
 }
 
 func (s *UpgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectFullApi exposedAPI) {
+	var err error
+	// Multiple attempts may be necessary because there is a small gap
+	// between the post-upgrade version being written to the agent's
+	// config (as observed by waitForUpgradeToFinish) and the end of
+	// "upgrade mode" (i.e. when the agent's UpgradeComplete channel
+	// is closed). Without this tests that call checkLoginToAPIAsUser
+	// can occasionally fail.
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		err = s.attemptRestrictedAPIAsUser(c, conf)
+		switch expectFullApi {
+		case FullAPIExposed:
+			if err == nil {
+				return
+			}
+		case RestrictedAPIExposed:
+			if err != nil && strings.HasPrefix(err.Error(), "upgrade in progress") {
+				return
+			}
+		}
+	}
+	c.Fatalf("timed out waiting for expected API behaviour. last error was: %v", err)
+}
+
+func (s *UpgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) error {
 	info := conf.APIInfo()
 	info.Tag = s.AdminUserTag(c)
 	info.Password = "dummy-secret"
@@ -862,12 +903,7 @@ func (s *UpgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectF
 	c.Assert(err, jc.ErrorIsNil)
 
 	// this call should only work if API is not restricted
-	err = apiState.APICall("Client", 0, "", "DestroyEnvironment", nil, nil)
-	if expectFullApi {
-		c.Assert(err, jc.ErrorIsNil)
-	} else {
-		c.Assert(err, gc.ErrorMatches, "upgrade in progress .+")
-	}
+	return apiState.APICall("Client", 0, "", "WatchAll", nil, nil)
 }
 
 func canLoginToAPIAsMachine(c *gc.C, fromConf, toConf agent.Config) bool {

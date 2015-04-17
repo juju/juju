@@ -11,7 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v4"
+	"github.com/juju/utils/set"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -94,7 +95,7 @@ func AddStateUsersAsEnvironUsers(st *State) error {
 
 		_, err := st.EnvironmentUser(uTag)
 		if err != nil && errors.IsNotFound(err) {
-			_, err = st.AddEnvironmentUser(uTag, uTag)
+			_, err = st.AddEnvironmentUser(uTag, uTag, "")
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -112,7 +113,7 @@ func validateUnitPorts(st *State, unit *Unit) (
 	validRanges []PortRange,
 ) {
 	// Collapse individual ports into port ranges.
-	mergedRanges = network.CollapsePorts(unit.doc.Ports)
+	mergedRanges = network.CollapsePorts(networkPorts(unit.doc.Ports))
 	upgradesLogger.Debugf("merged raw port ranges for unit %q: %v", unit, mergedRanges)
 
 	skippedRanges = 0
@@ -312,7 +313,7 @@ func MigrateUnitPortsToOpenedPorts(st *State) error {
 
 		// Get the unit's assigned machine.
 		machineId, err := unit.AssignedMachineId()
-		if IsNotAssigned(err) {
+		if errors.IsNotAssigned(err) {
 			upgradesLogger.Infof("unit %q has no assigned machine; skipping migration", unit)
 			continue
 		} else if err != nil {
@@ -397,7 +398,7 @@ func CreateUnitMeterStatus(st *State) error {
 			continue
 		}
 		ops := []txn.Op{
-			createMeterStatusOp(st, unit.globalKey(), &meterStatusDoc{Code: MeterNotSet}),
+			createMeterStatusOp(st, unit.globalMeterStatusKey(), &meterStatusDoc{Code: MeterNotSet.String()}),
 		}
 		if err = st.runRawTransaction(ops); err != nil {
 			upgradesLogger.Warningf("migration failed for unit %q: %v", unit, err)
@@ -424,6 +425,213 @@ func AddEnvironmentUUIDToStateServerDoc(st *State) error {
 		}}},
 	}}
 
+	return st.runRawTransaction(ops)
+}
+
+// AddEnvUUIDToEnvUsersDoc adds environment uuid to state server doc.
+func AddEnvUUIDToEnvUsersDoc(st *State) error {
+	envUsers, closer := st.getRawCollection(envUsersC)
+	defer closer()
+
+	var ops []txn.Op
+	var doc bson.M
+	iter := envUsers.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+
+		if _, ok := doc["env-uuid"]; !ok || doc["env-uuid"] == "" {
+			ops = append(ops, txn.Op{
+				C:      envUsersC,
+				Id:     doc["_id"],
+				Assert: txn.DocExists,
+				Update: bson.D{
+					{"$set", bson.D{{"env-uuid", doc["envuuid"]}}},
+					{"$unset", bson.D{{"envuuid", nil}}},
+				},
+			})
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
+// AddLifeFieldOfIPAddresses creates the Life field for all IP addresses
+// that don't have this field. For addresses referencing live machines Life
+// will be set to Alive, otherwise Life will be set to Dead.
+func AddLifeFieldOfIPAddresses(st *State) error {
+	addresses, iCloser := st.getCollection(ipaddressesC)
+	defer iCloser()
+	machines, mCloser := st.getCollection(machinesC)
+	defer mCloser()
+
+	var ops []txn.Op
+	var address bson.M
+	iter := addresses.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&address) {
+		// if the address already has a Life field, then it has already been
+		// upgraded.
+		if _, ok := address["life"]; ok {
+			continue
+		}
+
+		life := Alive
+		allocatedState, ok := address["state"]
+
+		var addressAllocated bool
+		// if state was missing, we pretend the IP address is
+		// unallocated. State can't be empty anyway, so this shouldn't
+		// happen.
+		if ok && allocatedState == string(AddressStateAllocated) {
+			addressAllocated = true
+		}
+
+		// An IP address that has an allocated state but no machine ID
+		// shouldn't be possible.
+		if machineId, ok := address["machineid"]; addressAllocated && ok && machineId != "" {
+			mDoc := &machineDoc{}
+			err := machines.Find(bson.D{{"machineid", machineId}}).One(&mDoc)
+			if err != nil || mDoc.Life != Alive {
+				life = Dead
+			}
+		}
+		logger.Debugf("setting life %q to address %q", life, address["value"])
+
+		ops = append(ops, txn.Op{
+			C:  ipaddressesC,
+			Id: address["_id"],
+			Update: bson.D{{"$set", bson.D{
+				{"life", life},
+			}}},
+		})
+		address = nil
+	}
+	if err := iter.Err(); err != nil {
+		logger.Errorf("failed fetching IP addresses: %v", err)
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
+func AddNameFieldLowerCaseIdOfUsers(st *State) error {
+	users, closer := st.getCollection(usersC)
+	defer closer()
+
+	var ops []txn.Op
+	var user bson.M
+	iter := users.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&user) {
+		// if the user already has a name field, then it has already been
+		// upgraded.
+		if name, ok := user["name"]; ok && name != "" {
+			continue
+		}
+
+		// set name to old, case sensitive, _id and lowercase new _id.
+		user["name"], user["_id"] = user["_id"], strings.ToLower(user["_id"].(string))
+
+		if user["name"] != user["_id"] {
+			// if we need to update the _id, remove old doc and add a new one with
+			// lowercased _id.
+			ops = append(ops, txn.Op{
+				C:      usersC,
+				Id:     user["name"],
+				Remove: true,
+			}, txn.Op{
+				C:      usersC,
+				Id:     user["_id"],
+				Assert: txn.DocMissing,
+				Insert: user,
+			})
+		} else {
+			// otherwise, just update the name field.
+			ops = append(ops, txn.Op{
+				C:  usersC,
+				Id: user["_id"],
+				Update: bson.D{{"$set", bson.D{
+					{"name", user["name"]},
+				}}},
+			})
+		}
+		user = nil
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
+func LowerCaseEnvUsersID(st *State) error {
+	users, closer := st.getRawCollection(envUsersC)
+	defer closer()
+
+	var ops []txn.Op
+	var user bson.M
+	iter := users.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&user) {
+		oldId := user["_id"].(string)
+		newId := strings.ToLower(oldId)
+
+		if oldId != newId {
+			user["_id"] = newId
+			ops = append(ops, txn.Op{
+				C:      envUsersC,
+				Id:     oldId,
+				Remove: true,
+			}, txn.Op{
+				C:      envUsersC,
+				Id:     user["_id"],
+				Assert: txn.DocMissing,
+				Insert: user,
+			})
+		}
+		user = nil
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
+func AddUniqueOwnerEnvNameForEnvirons(st *State) error {
+	environs, closer := st.getCollection(environmentsC)
+	defer closer()
+
+	ownerEnvNameMap := map[string]set.Strings{}
+	ensureDoesNotExist := func(owner, envName string) error {
+		if _, ok := ownerEnvNameMap[owner]; ok {
+			if ownerEnvNameMap[owner].Contains(envName) {
+				return errors.AlreadyExistsf("environment %q for %s", envName, owner)
+			}
+			ownerEnvNameMap[owner].Add(envName)
+		} else {
+			ownerEnvNameMap[owner] = set.NewStrings(envName)
+		}
+		return nil
+	}
+
+	var ops []txn.Op
+	var env environmentDoc
+	iter := environs.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&env) {
+		if err := ensureDoesNotExist(env.Owner, env.Name); err != nil {
+			return err
+		}
+
+		ops = append(ops, txn.Op{
+			C:      userenvnameC,
+			Id:     userEnvNameIndex(env.Owner, env.Name),
+			Insert: bson.M{},
+		})
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
 	return st.runRawTransaction(ops)
 }
 

@@ -5,6 +5,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -16,7 +17,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"fmt"
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
@@ -25,6 +25,7 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/lease"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -38,6 +39,7 @@ import (
 type UnitSuite struct {
 	coretesting.GitSuite
 	agenttesting.AgentSuite
+	leaseWorker worker.Worker
 }
 
 var _ = gc.Suite(&UnitSuite{})
@@ -55,9 +57,16 @@ func (s *UnitSuite) TearDownSuite(c *gc.C) {
 func (s *UnitSuite) SetUpTest(c *gc.C) {
 	s.GitSuite.SetUpTest(c)
 	s.AgentSuite.SetUpTest(c)
+	// If we don't have a lease manager running somewhere, the API calls hang.
+	workerLoop := lease.WorkerLoop(s.State)
+	s.leaseWorker = worker.NewSimpleWorker(workerLoop)
 }
 
 func (s *UnitSuite) TearDownTest(c *gc.C) {
+	if s.leaseWorker != nil {
+		c.Check(worker.Stop(s.leaseWorker), jc.ErrorIsNil)
+		s.leaseWorker = nil
+	}
 	s.AgentSuite.TearDownTest(c)
 	s.GitSuite.TearDownTest(c)
 }
@@ -147,20 +156,34 @@ func waitForUnitActive(stateConn *state.State, unit *state.Unit, c *gc.C) {
 		case <-time.After(coretesting.ShortWait):
 			err := unit.Refresh()
 			c.Assert(err, jc.ErrorIsNil)
-			st, info, data, err := unit.Status()
+			statusInfo, err := unit.Status()
 			c.Assert(err, jc.ErrorIsNil)
-			switch st {
-			case state.StatusAllocating, state.StatusInstalling:
+			switch statusInfo.Status {
+			case state.StatusMaintenance, state.StatusWaiting, state.StatusBlocked:
 				c.Logf("waiting...")
 				continue
 			case state.StatusActive:
 				c.Logf("active!")
 				return
-			case state.StatusFailed:
+			case state.StatusUnknown:
+				// Active units may have a status of unknown if they have
+				// started but not run status-set.
+				c.Logf("unknown but active!")
+				return
+			default:
+				c.Fatalf("unexpected status %s %s %v", statusInfo.Status, statusInfo.Message, statusInfo.Data)
+			}
+			statusInfo, err = unit.AgentStatus()
+			c.Assert(err, jc.ErrorIsNil)
+			switch statusInfo.Status {
+			case state.StatusAllocating, state.StatusExecuting, state.StatusRebooting, state.StatusIdle:
+				c.Logf("waiting...")
+				continue
+			case state.StatusError:
 				stateConn.StartSync()
 				c.Logf("unit is still down")
 			default:
-				c.Fatalf("unexpected status %s %s %v", st, info, data)
+				c.Fatalf("unexpected status %s %s %v", statusInfo.Status, statusInfo.Message, statusInfo.Data)
 			}
 		}
 	}

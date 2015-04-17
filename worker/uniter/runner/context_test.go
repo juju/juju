@@ -5,17 +5,19 @@ package runner_test
 
 import (
 	"os"
+	"runtime"
 	"syscall"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	"github.com/juju/utils/exec"
 )
 
 type InterfaceSuite struct {
@@ -71,6 +73,61 @@ func (s *InterfaceSuite) TestAvailabilityZone(c *gc.C) {
 	c.Check(zone, gc.Equals, "a-zone")
 }
 
+func (s *InterfaceSuite) TestUnitStatus(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	defer runner.PatchCachedStatus(ctx.(runner.Context), "maintenance", "working", map[string]interface{}{"hello": "world"})()
+	status, err := ctx.UnitStatus()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(status.Status, gc.Equals, "maintenance")
+	c.Check(status.Info, gc.Equals, "working")
+	c.Check(status.Data, gc.DeepEquals, map[string]interface{}{"hello": "world"})
+}
+
+func (s *InterfaceSuite) TestSetUnitStatus(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	status := jujuc.StatusInfo{
+		Status: "maintenance",
+		Info:   "doing work",
+	}
+	err := ctx.SetUnitStatus(status)
+	c.Check(err, jc.ErrorIsNil)
+	unitStatus, err := ctx.UnitStatus()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(unitStatus.Status, gc.Equals, "maintenance")
+	c.Check(unitStatus.Info, gc.Equals, "doing work")
+	c.Check(unitStatus.Data, gc.DeepEquals, map[string]interface{}{})
+}
+
+func (s *InterfaceSuite) TestSetUnitStatusUpdatesFlag(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	c.Assert(ctx.(runner.Context).HasExecutionSetUnitStatus(), jc.IsFalse)
+	status := jujuc.StatusInfo{
+		Status: "maintenance",
+		Info:   "doing work",
+	}
+	err := ctx.SetUnitStatus(status)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(ctx.(runner.Context).HasExecutionSetUnitStatus(), jc.IsTrue)
+}
+
+func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	status, err := ctx.UnitStatus()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(status.Status, gc.Equals, "unknown")
+	c.Check(status.Data, gc.DeepEquals, map[string]interface{}{})
+
+	// Change remote state.
+	err = s.unit.SetStatus(state.StatusActive, "it works", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Local view is unchanged.
+	status, err = ctx.UnitStatus()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(status.Status, gc.Equals, "unknown")
+	c.Check(status.Data, gc.DeepEquals, map[string]interface{}{})
+}
+
 func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	pr, ok := ctx.PrivateAddress()
@@ -84,7 +141,8 @@ func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
 
 	// Change remote state.
 	err := s.machine.SetAddresses(
-		network.NewAddress("blah.testing.invalid", network.ScopePublic))
+		network.NewScopedAddress("blah.testing.invalid", network.ScopePublic),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Local view is unchanged.
@@ -211,12 +269,15 @@ func (s *InterfaceSuite) startProcess(c *gc.C) *os.Process {
 }
 
 func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: Cannot send sigterm on windows")
+	}
 	ctx := runner.HookContext{}
 	p := s.startProcess(c)
 	ctx.SetProcess(p)
 	err := ctx.RequestReboot(jujuc.RebootAfterHook)
 	c.Assert(err, jc.ErrorIsNil)
-	err = syscall.Kill(p.Pid, syscall.SIGTERM)
+	err = p.Signal(syscall.SIGTERM)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = p.Wait()
 	c.Assert(err, jc.ErrorIsNil)

@@ -6,6 +6,7 @@ package upgrades_test
 import (
 	"io/ioutil"
 	"path"
+	"runtime"
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -24,6 +25,10 @@ type ensureDotProfileSuite struct {
 var _ = gc.Suite(&ensureDotProfileSuite{})
 
 func (s *ensureDotProfileSuite) SetUpTest(c *gc.C) {
+	//TODO(bogdanteleaga): Fix these on windows
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: tests use bash scripts, will be fixed later on windows")
+	}
 	s.FakeJujuHomeSuite.SetUpTest(c)
 
 	loggo.GetLogger("juju.upgrade").SetLogLevel(loggo.TRACE)

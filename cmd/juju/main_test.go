@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -16,6 +17,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/service"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
@@ -35,11 +38,15 @@ func deployHelpText() string {
 }
 
 func setHelpText() string {
-	return cmdtesting.HelpText(envcmd.Wrap(&SetCommand{}), "juju set")
+	return cmdtesting.HelpText(envcmd.Wrap(&service.SetCommand{}), "juju service set")
 }
 
 func syncToolsHelpText() string {
 	return cmdtesting.HelpText(envcmd.Wrap(&SyncToolsCommand{}), "juju sync-tools")
+}
+
+func blockHelpText() string {
+	return cmdtesting.HelpText(block.NewSuperBlockCommand(), "juju block")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
@@ -141,9 +148,9 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		out:     version.Current.String() + "\n",
 	}, {
 		summary: "check block command registered properly",
-		args:    []string{"block"},
+		args:    []string{"block", "-h"},
 		code:    0,
-		out:     "error: must specify one of [destroy-environment | remove-object | all-changes] to block\n",
+		out:     blockHelpText(),
 	}, {
 		summary: "check unblock command registered properly",
 		args:    []string{"unblock"},
@@ -158,6 +165,12 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 }
 
 func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
+	//TODO(bogdanteleaga): cannot read the env file because of some suite
+	//problems. The juju home, when calling something from the command line is
+	//not the same as in the test suite.
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: cannot read env file on windows because of suite problems")
+	}
 	logpath := filepath.Join(c.MkDir(), "log")
 	tests := [][]string{
 		{"--log-file", logpath, "--debug", "env"}, // global flags before
@@ -188,7 +201,6 @@ var commandNames = []string{
 	"block",
 	"bootstrap",
 	"cached-images",
-	"charms",
 	"debug-hooks",
 	"debug-log",
 	"deploy",
@@ -219,6 +231,7 @@ var commandNames = []string{
 	"retry-provisioning",
 	"run",
 	"scp",
+	"service",
 	"set",
 	"set-constraints",
 	"set-env", // alias for set-environment
@@ -249,9 +262,9 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	// First check default commands, and then check commands that are
 	// activated by feature flags.
 
-	// remove "action" for the first test because the feature is not
+	// remove "storage" for the first test because the feature is not
 	// enabled.
-	devFeatures := []string{feature.Actions, feature.Storage}
+	devFeatures := []string{feature.Storage}
 
 	// remove features behind dev_flag for the first test
 	// since they are not enabled.
@@ -367,6 +380,12 @@ func (r *commands) Register(c cmd.Command) {
 	*r = append(*r, c)
 }
 
+func (r *commands) RegisterDeprecated(c cmd.Command, check cmd.DeprecationCheck) {
+	if !check.Obsolete() {
+		*r = append(*r, c)
+	}
+}
+
 func (r *commands) RegisterSuperAlias(name, super, forName string, check cmd.DeprecationCheck) {
 	// Do nothing.
 }
@@ -442,4 +461,38 @@ func (s *MainSuite) TestTwoDotOhDeprecation(c *gc.C) {
 	c.Check(deprecated, jc.IsTrue)
 	c.Check(replacement, gc.Equals, "the replacement")
 	c.Check(check.Obsolete(), jc.IsTrue)
+}
+
+// obsoleteCommandNames is the list of commands that are deprecated in
+// 2.0, and obsolete in 3.0
+var obsoleteCommandNames = []string{
+	"add-machine",
+	"destroy-machine",
+	"get-constraints",
+	"get-env",
+	"get-environment",
+	"remove-machine",
+	"retry-provisioning",
+	"set-constraints",
+	"set-env",
+	"set-environment",
+	"terminate-machine",
+	"unset-env",
+	"unset-environment",
+}
+
+func (s *MainSuite) TestObsoleteRegistration(c *gc.C) {
+	var commands commands
+	s.PatchValue(&version.Current.Number, version.MustParse("3.0-alpha1"))
+	registerCommands(&commands, testing.Context(c))
+
+	cmdSet := set.NewStrings(obsoleteCommandNames...)
+	registeredCmdSet := set.NewStrings()
+	for _, cmd := range commands {
+		registeredCmdSet.Add(cmd.Info().Name)
+	}
+
+	intersection := registeredCmdSet.Intersection(cmdSet)
+	c.Logf("Registered obsolete commands: %s", intersection.Values())
+	c.Assert(intersection.IsEmpty(), gc.Equals, true)
 }

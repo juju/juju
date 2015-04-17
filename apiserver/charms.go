@@ -23,7 +23,7 @@ import (
 
 	"github.com/juju/errors"
 	ziputil "github.com/juju/utils/zip"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver/client"
 	apihttp "github.com/juju/juju/apiserver/http"
@@ -52,7 +52,7 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "POST":
-		if err := stateWrapper.authenticate(r); err != nil {
+		if err := stateWrapper.authenticateUser(r); err != nil {
 			h.authError(w, h)
 			return
 		}
@@ -434,18 +434,27 @@ func (h *charmsHandler) downloadCharm(st *state.State, curl *charm.URL, charmArc
 	// Use the storage to retrieve and save the charm archive.
 	reader, _, err := storage.Get(ch.StoragePath())
 	if err != nil {
-		defer os.Remove(tempCharmArchive.Name())
+		defer cleanupFile(tempCharmArchive)
 		return errors.Annotate(err, "cannot get charm from environment storage")
 	}
 	defer reader.Close()
 
 	if _, err = io.Copy(tempCharmArchive, reader); err != nil {
-		defer os.Remove(tempCharmArchive.Name())
+		defer cleanupFile(tempCharmArchive)
 		return errors.Annotate(err, "error processing charm archive download")
 	}
+	tempCharmArchive.Close()
 	if err = os.Rename(tempCharmArchive.Name(), charmArchivePath); err != nil {
-		defer os.Remove(tempCharmArchive.Name())
+		defer cleanupFile(tempCharmArchive)
 		return errors.Annotate(err, "error renaming the charm archive")
 	}
 	return nil
+}
+
+// On windows we cannot remove a file until it has been closed
+// If this poses an active problem somewhere else it will be refactored in
+// utils and used everywhere.
+func cleanupFile(file *os.File) {
+	file.Close()
+	os.Remove(file.Name())
 }

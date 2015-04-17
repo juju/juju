@@ -10,12 +10,14 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type CommandInfo struct {
@@ -46,6 +48,15 @@ type Factory interface {
 	NewActionRunner(actionId string) (Runner, error)
 }
 
+// StorageContextAccessor is an interface providing access to StorageContexts
+// for a jujuc.Context.
+type StorageContextAccessor interface {
+
+	// Storage returns the jujuc.ContextStorage with the supplied tag if
+	// it was found, and whether it was found.
+	Storage(names.StorageTag) (jujuc.ContextStorage, bool)
+}
+
 // RelationsFunc is used to get snapshots of relation membership at context
 // creation time.
 type RelationsFunc func() map[int]*RelationInfo
@@ -55,7 +66,9 @@ type RelationsFunc func() map[int]*RelationInfo
 func NewFactory(
 	state *uniter.State,
 	unitTag names.UnitTag,
+	tracker leadership.Tracker,
 	getRelationInfos RelationsFunc,
+	storage StorageContextAccessor,
 	paths Paths,
 ) (
 	Factory, error,
@@ -83,6 +96,7 @@ func NewFactory(
 	return &factory{
 		unit:             unit,
 		state:            state,
+		tracker:          tracker,
 		paths:            paths,
 		envUUID:          environment.UUID(),
 		envName:          environment.Name(),
@@ -90,14 +104,16 @@ func NewFactory(
 		ownerTag:         ownerTag,
 		getRelationInfos: getRelationInfos,
 		relationCaches:   map[int]*RelationCache{},
+		storage:          storage,
 		rand:             rand.New(rand.NewSource(time.Now().Unix())),
 	}, nil
 }
 
 type factory struct {
 	// API connection fields; unit should be deprecated, but isn't yet.
-	unit  *uniter.Unit
-	state *uniter.State
+	unit    *uniter.Unit
+	state   *uniter.State
+	tracker leadership.Tracker
 
 	// Fields that shouldn't change in a factory's lifetime.
 	paths      Paths
@@ -105,6 +121,7 @@ type factory struct {
 	envName    string
 	machineTag names.MachineTag
 	ownerTag   names.UserTag
+	storage    StorageContextAccessor
 
 	// Callback to get relation state snapshot.
 	getRelationInfos RelationsFunc
@@ -159,19 +176,37 @@ func (f *factory) NewHookRunner(hookInfo hook.Info) (Runner, error) {
 		hookName = fmt.Sprintf("%s-%s", relation.Name(), hookInfo.Kind)
 	}
 	if hookInfo.Kind.IsStorage() {
-		ctx.storageId = hookInfo.StorageId
-		if err := f.updateStorage(ctx); err != nil {
+		ctx.storageTag = names.NewStorageTag(hookInfo.StorageId)
+		if _, found := ctx.storage.Storage(ctx.storageTag); !found {
+			return nil, errors.Errorf("unknown storage id: %v", hookInfo.StorageId)
+		}
+		storageName, err := names.StorageName(hookInfo.StorageId)
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		hookName = fmt.Sprintf("%s-%s", storageName, hookName)
 	}
 	// Metrics are only sent from the collect-metrics hook.
 	if hookInfo.Kind == hooks.CollectMetrics {
-		ctx.canAddMetrics = true
 		ch, err := f.getCharm()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		ctx.definedMetrics = ch.Metrics()
+
+		chURL, err := f.unit.CharmURL()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		ctx.metricsRecorder, err = NewJSONMetricsRecorder(f.paths.GetMetricsSpoolDir(), chURL.String())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ctx.metricsReader, err = NewJSONMetricsReader(f.paths.GetMetricsSpoolDir())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	ctx.id = f.newId(hookName)
 	runner := NewRunner(ctx, f.paths)
@@ -232,9 +267,14 @@ func (f *factory) newId(name string) string {
 
 // coreContext creates a new context with all unspecialised fields filled in.
 func (f *factory) coreContext() (*HookContext, error) {
+	leadershipContext := newLeadershipContext(
+		f.state.LeadershipSettings,
+		f.tracker,
+	)
 	ctx := &HookContext{
 		unit:               f.unit,
 		state:              f.state,
+		LeadershipContext:  leadershipContext,
 		uuid:               f.envUUID,
 		envName:            f.envName,
 		unitName:           f.unit.Name(),
@@ -242,10 +282,10 @@ func (f *factory) coreContext() (*HookContext, error) {
 		serviceOwner:       f.ownerTag,
 		relations:          f.getContextRelations(),
 		relationId:         -1,
-		canAddMetrics:      false,
+		metricsRecorder:    nil,
 		definedMetrics:     nil,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
-		storageInstances:   nil,
+		storage:            f.storage,
 	}
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err
@@ -262,7 +302,7 @@ func (f *factory) getCharm() (charm.Charm, error) {
 }
 
 // getContextRelations updates the factory's relation caches, and uses them
-// to construct contextRelations for a fresh context.
+// to construct ContextRelations for a fresh context.
 func (f *factory) getContextRelations() map[int]*ContextRelation {
 	contextRelations := map[int]*ContextRelation{}
 	relationInfos := f.getRelationInfos()
@@ -331,11 +371,6 @@ func (f *factory) updateContext(ctx *HookContext) (err error) {
 		return err
 	}
 	return nil
-}
-
-func (f *factory) updateStorage(ctx *HookContext) (err error) {
-	ctx.storageInstances, err = f.state.StorageInstances(f.unit.Tag())
-	return err
 }
 
 func inferRemoteUnit(rctxs map[int]*ContextRelation, info CommandInfo) (int, string, error) {

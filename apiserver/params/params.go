@@ -10,11 +10,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -77,7 +77,7 @@ func (result ErrorResults) OneError() error {
 }
 
 // Combine returns one error from the result which is an accumulation of the
-// errors.  If there are no errors in the result, the return value is nil.
+// errors. If there are no errors in the result, the return value is nil.
 // Otherwise the error values are combined with new-line characters.
 func (result ErrorResults) Combine() error {
 	var errorStrings []string
@@ -115,29 +115,35 @@ type DestroyRelation struct {
 	Endpoints []string
 }
 
+// AddCharm holds the arguments for making an AddCharmWithAuthorization API call.
+type AddCharmWithAuthorization struct {
+	URL                string
+	CharmStoreMacaroon *macaroon.Macaroon
+}
+
 // AddMachineParams encapsulates the parameters used to create a new machine.
 type AddMachineParams struct {
 	// The following fields hold attributes that will be given to the
 	// new machine when it is created.
-	Series      string
-	Constraints constraints.Value
-	Jobs        []multiwatcher.MachineJob
+	Series      string                    `json:"Series"`
+	Constraints constraints.Value         `json:"Constraints"`
+	Jobs        []multiwatcher.MachineJob `json:"Jobs"`
 
 	// Disks describes constraints for disks that must be attached to
 	// the machine when it is provisioned.
 	//
 	// NOTE: this is ignored unless the "storage" feature flag is enabled.
-	Disks []storage.Constraints
+	Disks []storage.Constraints `json:"Disks"`
 
 	// If Placement is non-nil, it contains a placement directive
 	// that will be used to decide how to instantiate the machine.
-	Placement *instance.Placement
+	Placement *instance.Placement `json:"Placement"`
 
 	// If ParentId is non-empty, it specifies the id of the
 	// parent machine within which the new machine will
 	// be created. In that case, ContainerType must also be
 	// set.
-	ParentId string
+	ParentId string `json:"ParentId"`
 
 	// ContainerType optionally gives the container type of the
 	// new machine. If it is non-empty, the new machine
@@ -145,40 +151,35 @@ type AddMachineParams struct {
 	// but ParentId is empty, a new top level machine will
 	// be created to hold the container with given series,
 	// constraints and jobs.
-	ContainerType instance.ContainerType
+	ContainerType instance.ContainerType `json:"ContainerType"`
 
 	// If InstanceId is non-empty, it will be associated with
 	// the new machine along with the given nonce,
 	// hardware characteristics and addresses.
 	// All the following fields will be ignored if ContainerType
 	// is set.
-	InstanceId              instance.Id
-	Nonce                   string
-	HardwareCharacteristics instance.HardwareCharacteristics
-	// TODO(dimitern): Add explicit JSON serialization tags and use
-	// []string instead in order to break the dependency on the
-	// network package, as this potentially introduces hard to catch
-	// and debug wire-format changes in the protocol when the type
-	// changes!
-	Addrs []network.Address
+	InstanceId              instance.Id                      `json:"InstanceId"`
+	Nonce                   string                           `json:"Nonce"`
+	HardwareCharacteristics instance.HardwareCharacteristics `json:"HardwareCharacteristics"`
+	Addrs                   []Address                        `json:"Addrs"`
 }
 
 // AddMachines holds the parameters for making the
 // AddMachinesWithPlacement call.
 type AddMachines struct {
-	MachineParams []AddMachineParams
+	MachineParams []AddMachineParams `json:"MachineParams"`
 }
 
 // AddMachinesResults holds the results of an AddMachines call.
 type AddMachinesResults struct {
-	Machines []AddMachinesResult
+	Machines []AddMachinesResult `json:"Machines"`
 }
 
 // AddMachinesResults holds the name of a machine added by the
 // api.client.AddMachine call for a single machine.
 type AddMachinesResult struct {
-	Machine string
-	Error   *Error
+	Machine string `json:"Machine"`
+	Error   *Error `json:"Error"`
 }
 
 // DestroyMachines holds parameters for the DestroyMachines call.
@@ -487,6 +488,7 @@ type ContainerConfig struct {
 	AptProxy                proxy.Settings
 	AptMirror               string
 	PreferIPv6              bool
+	AllowLXCLoopMounts      bool
 	*UpdateBehavior
 }
 
@@ -512,50 +514,6 @@ type ProvisioningScriptResult struct {
 	Script string
 }
 
-// EnvironmentConfigResults contains the result of client API calls
-// to get environment config values.
-type EnvironmentConfigResults struct {
-	Config map[string]interface{}
-}
-
-// EnvironmentSet contains the arguments for EnvironmentSet client API
-// call.
-type EnvironmentSet struct {
-	Config map[string]interface{}
-}
-
-// EnvironmentUnset contains the arguments for EnvironmentUnset client API
-// call.
-type EnvironmentUnset struct {
-	Keys []string
-}
-
-// ModifyEnvironUsers holds the parameters for making Client ShareEnvironment calls.
-type ModifyEnvironUsers struct {
-	Changes []ModifyEnvironUser
-}
-
-// EnvironAction is an action that can be preformed on an environment.
-type EnvironAction string
-
-// Actions that can be preformed on an environment.
-const (
-	AddEnvUser    EnvironAction = "add"
-	RemoveEnvUser EnvironAction = "remove"
-)
-
-// ModifyEnvironUser stores the parameters used for a Client.ShareEnvironment call.
-type ModifyEnvironUser struct {
-	UserTag string        `json:"user-tag"`
-	Action  EnvironAction `json:"action"`
-}
-
-// SetEnvironAgentVersion contains the arguments for
-// SetEnvironAgentVersion client API call.
-type SetEnvironAgentVersion struct {
-	Version version.Number
-}
-
 // DeployerConnectionValues containers the result of deployer.ConnectionInfo
 // API call.
 type DeployerConnectionValues struct {
@@ -571,28 +529,36 @@ type StatusParams struct {
 // SetRsyslogCertParams holds parameters for the SetRsyslogCert call.
 type SetRsyslogCertParams struct {
 	CACert []byte
+	CAKey  []byte
 }
 
 // RsyslogConfigResult holds the result of a GetRsyslogConfig call.
 type RsyslogConfigResult struct {
-	Error  *Error
-	CACert string
+	Error  *Error `json:"Error"`
+	CACert string `json:"CACert"`
+	CAKey  string `json:"CAKey"`
 	// Port is only used by state servers as the port to listen on.
 	// Clients should use HostPorts for the rsyslog addresses to forward
 	// logs to.
-	Port int
+	Port int `json:"Port"`
 
-	// TODO(dimitern): Add explicit JSON serialization tags and use
-	// []string instead in order to break the dependency on the
-	// network package, as this potentially introduces hard to catch
-	// and debug wire-format changes in the protocol when the type
-	// changes!
-	HostPorts []network.HostPort
+	HostPorts []HostPort `json:"HostPorts"`
 }
 
 // RsyslogConfigResults is the bulk form of RyslogConfigResult
 type RsyslogConfigResults struct {
 	Results []RsyslogConfigResult
+}
+
+// JobsResult holds the jobs for a machine that are returned by a call to Jobs.
+type JobsResult struct {
+	Jobs  []multiwatcher.MachineJob `json:"Jobs"`
+	Error *Error                    `json:"Error"`
+}
+
+// JobsResults holds the result of a call to Jobs.
+type JobsResults struct {
+	Results []JobsResult `json:"Results"`
 }
 
 // DistributionGroupResult contains the result of
@@ -608,18 +574,6 @@ type DistributionGroupResults struct {
 	Results []DistributionGroupResult
 }
 
-// APIHostPortsResult holds the result of an APIHostPorts
-// call. Each element in the top level slice holds
-// the addresses for one API server.
-type APIHostPortsResult struct {
-	// TODO(dimitern): Add explicit JSON serialization tags and use
-	// [][]string instead in order to break the dependency on the
-	// network package, as this potentially introduces hard to catch
-	// and debug wire-format changes in the protocol when the type
-	// changes!
-	Servers [][]network.HostPort
-}
-
 // FacadeVersions describes the available Facades and what versions of each one
 // are available
 type FacadeVersions struct {
@@ -629,15 +583,10 @@ type FacadeVersions struct {
 
 // LoginResult holds the result of a Login call.
 type LoginResult struct {
-	// TODO(dimitern): Add explicit JSON serialization tags and use
-	// [][]string instead in order to break the dependency on the
-	// network package, as this potentially introduces hard to catch
-	// and debug wire-format changes in the protocol when the type
-	// changes!
-	Servers        [][]network.HostPort
-	EnvironTag     string
-	LastConnection *time.Time
-	Facades        []FacadeVersions
+	Servers        [][]HostPort     `json:"Servers"`
+	EnvironTag     string           `json:"EnvironTag"`
+	LastConnection *time.Time       `json:"LastConnection"`
+	Facades        []FacadeVersions `json:"Facades"`
 }
 
 // ReauthRequest holds a challenge/response token meaningful to the identity
@@ -660,11 +609,8 @@ type AuthUserInfo struct {
 
 // LoginRequestV1 holds the result of an Admin v1 Login call.
 type LoginResultV1 struct {
-	// TODO(dimitern): Use [][]string instead in order to break the
-	// dependency on the network package, as this potentially
-	// introduces hard to catch and debug wire-format changes in the
-	// protocol when the type changes!
-	Servers [][]network.HostPort `json:"servers"`
+	// Servers is the list of API server addresses.
+	Servers [][]HostPort `json:"servers"`
 
 	// EnvironTag is the tag for the environment that is being connected to.
 	EnvironTag string `json:"environ-tag"`
@@ -683,6 +629,10 @@ type LoginResultV1 struct {
 	// Facades describes all the available API facade versions to the
 	// authenticated client.
 	Facades []FacadeVersions `json:"facades"`
+
+	// ServerVersion is the string representation of the server version
+	// if the server supports it.
+	ServerVersion string `json:"server-version,omitempty"`
 }
 
 // StateServersSpec contains arguments for
@@ -727,6 +677,7 @@ type StateServersChanges struct {
 	Removed    []string `json:"removed,omitempty"`
 	Promoted   []string `json:"promoted,omitempty"`
 	Demoted    []string `json:"demoted,omitempty"`
+	Converted  []string `json:"converted,omitempty"`
 }
 
 // FindToolsParams defines parameters for the FindTools method.
@@ -805,16 +756,38 @@ const (
 // It could be a unit, machine or its agent.
 type Status multiwatcher.Status
 
-// TranslateLegacyStatus returns the status value clients expect to see for Juju 1.x.
-func TranslateLegacyStatus(in Status) Status {
-	switch in {
-	case StatusFailed:
-		return StatusDown
-	case StatusActive:
-		return StatusStarted
-	default:
-		return in
+// TranslateLegacyAgentStatus returns the status value clients expect to see for
+// agent-state in versions prior to 1.24
+func TranslateToLegacyAgentState(workloadStatus, agentStatus Status) (Status, bool) {
+	// Originally AgentState (a member of api.UnitStatus) could hold one of:
+	// StatusPending
+	// StatusInstalled
+	// StatusStarted
+	// StatusStopped
+	// StatusError
+	// StatusDown
+	// For compatibility reasons we convert modern states (from V2 uniter) into
+	// four of the old ones: StatusPending, StatusStarted, StatusStopped, or StatusError.
+	switch agentStatus {
+	case StatusAllocating:
+		return StatusPending, true
+	case StatusError:
+		return StatusError, true
+	case StatusRebooting, StatusExecuting, StatusIdle, StatusLost, StatusFailed:
+		switch workloadStatus {
+		case StatusError:
+			return StatusError, true
+		case StatusTerminated:
+			return StatusStopped, true
+		case StatusMaintenance:
+			// TODO(wallyworld): until we can query status history, returning Started
+			// is a resonable approximation.
+			return StatusStarted, true
+		default:
+			return StatusStarted, true
+		}
 	}
+	return "", false
 }
 
 const (
@@ -854,32 +827,57 @@ const (
 	// spun up in the cloud.
 	StatusAllocating Status = "allocating"
 
-	// The unit agent is downloading the charm and running the install hook.
-	StatusInstalling Status = "installing"
+	// The machine on which this agent is running is being rebooted.
+	// The juju-agent should move from rebooting to idle when the reboot is complete.
+	StatusRebooting Status = "rebooting"
 
-	// The agent is actively participating in the environment.
-	StatusActive Status = "active"
+	// The agent is running a hook or action. The human-readable message should reflect
+	// which hook or action is being run.
+	StatusExecuting Status = "executing"
 
-	// The unit is being destroyed; the agent will soon mark the unit as “dead”.
-	// In Juju 2.x this will describe the state of the agent rather than a unit.
-	StatusStopping Status = "stopping"
+	// Once the agent is installed and running it will notify the Juju server and its state
+	// becomes "idle". It will stay "idle" until some action (e.g. it needs to run a hook) or
+	// error (e.g it loses contact with the Juju server) moves it to a different state.
+	StatusIdle Status = "idle"
 
 	// The unit agent has failed in some way,eg the agent ought to be signalling
 	// activity, but it cannot be detected. It might also be that the unit agent
 	// detected an unrecoverable condition and managed to tell the Juju server about it.
 	StatusFailed Status = "failed"
+
+	// The juju agent has has not communicated with the juju server for an unexpectedly long time;
+	// the unit agent ought to be signalling activity, but none has been detected.
+	StatusLost Status = "lost"
+
+	// ---- Outdated ----
+	// The unit agent is downloading the charm and running the install hook.
+	StatusInstalling Status = "installing"
+
+	// The unit is being destroyed; the agent will soon mark the unit as “dead”.
+	// In Juju 2.x this will describe the state of the agent rather than a unit.
+	StatusStopping Status = "stopping"
 )
 
 const (
 	// Status values specific to services and units, reflecting the
 	// state of the software itself.
 
-	// The unit is installed and has no problems but is busy getting itself
-	// ready to provide services.
-	StatusBusy Status = "busy"
+	// The unit is not yet providing services, but is actively doing stuff
+	// in preparation for providing those services.
+	// This is a "spinning" state, not an error state.
+	// It reflects activity on the unit itself, not on peers or related units.
+	StatusMaintenance Status = "maintenance"
 
-	// The unit is unable to offer services because it needs another
-	// service to be up.
+	// This unit used to exist, we have a record of it (perhaps because of storage
+	// allocated for it that was flagged to survive it). Nonetheless, it is now gone.
+	StatusTerminated Status = "terminated"
+
+	// A unit-agent has finished calling install, config-changed, and start,
+	// but the charm has not called status-set yet.
+	StatusUnknown Status = "unknown"
+
+	// The unit is unable to progress to an active state because a service to
+	// which it is related is not running.
 	StatusWaiting Status = "waiting"
 
 	// The unit needs manual intervention to get back to the Running state.
@@ -887,5 +885,5 @@ const (
 
 	// The unit believes it is correctly offering all the services it has
 	// been asked to offer.
-	StatusRunning Status = "running"
+	StatusActive Status = "active"
 )

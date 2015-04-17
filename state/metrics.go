@@ -10,9 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v4"
-
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -74,28 +72,33 @@ func (m *MetricBatch) validate() error {
 	return nil
 }
 
-// addMetric adds a new batch of metrics to the database.
-// A UUID for the metric will be generated and the new MetricBatch will be returned
-func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created time.Time, metrics []Metric, creds []byte) (*MetricBatch, error) {
-	if len(metrics) == 0 {
+// BatchParam contains the properties of the metrics batch used when creating a metrics
+// batch.
+type BatchParam struct {
+	UUID        string
+	CharmURL    *charm.URL
+	Created     time.Time
+	Metrics     []Metric
+	Credentials []byte
+}
+
+// addMetrics adds a new batch of metrics to the database.
+func (st *State) addMetrics(unitTag names.UnitTag, batch BatchParam) (*MetricBatch, error) {
+	if len(batch.Metrics) == 0 {
 		return nil, errors.New("cannot add a batch of 0 metrics")
-	}
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return nil, err
 	}
 
 	metric := &MetricBatch{
 		st: st,
 		doc: metricBatchDoc{
-			UUID:        uuid.String(),
+			UUID:        batch.UUID,
 			EnvUUID:     st.EnvironUUID(),
 			Unit:        unitTag.Id(),
-			CharmUrl:    charmUrl.String(),
+			CharmUrl:    batch.CharmURL.String(),
 			Sent:        false,
-			Created:     created,
-			Metrics:     metrics,
-			Credentials: creds,
+			Created:     batch.Created,
+			Metrics:     batch.Metrics,
+			Credentials: batch.Credentials,
 		}}
 	if err := metric.validate(); err != nil {
 		return nil, err
@@ -105,6 +108,13 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 			notDead, err := isNotDead(st, unitsC, unitTag.Id())
 			if err != nil || !notDead {
 				return nil, errors.NotFoundf(unitTag.Id())
+			}
+			exists, err := st.MetricBatch(batch.UUID)
+			if exists != nil && err == nil {
+				return nil, errors.AlreadyExistsf("metrics batch UUID %q", batch.UUID)
+			}
+			if !errors.IsNotFound(err) {
+				return nil, errors.Trace(err)
 			}
 		}
 		ops := []txn.Op{{
@@ -119,7 +129,7 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 		}}
 		return ops, nil
 	}
-	err = st.run(buildTxn)
+	err := st.run(buildTxn)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -165,19 +175,17 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 // and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
 	age := time.Now().Add(-(CleanupAge))
+	metricsLogger.Tracef("cleaning up metrics created before %v", age)
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	// Nothing else in the system will interact with sent metrics, and nothing needs
 	// to watch them either; so in this instance it's safe to do an end run around the
 	// mgo/txn package. See State.cleanupRelationSettings for a similar situation.
-	err := c.Remove(bson.M{
+	info, err := c.RemoveAll(bson.M{
 		"sent":    true,
 		"created": bson.M{"$lte": age},
 	})
-	if err == mgo.ErrNotFound {
-		metricsLogger.Infof("no metrics found to cleanup")
-		return nil
-	}
+	metricsLogger.Tracef("cleanup removed %d metrics", info.Removed)
 	return errors.Trace(err)
 }
 
@@ -203,9 +211,9 @@ func (st *State) MetricsToSend(batchSize int) ([]*MetricBatch, error) {
 	return batch, nil
 }
 
-// CountofUnsentMetrics returns the number of metrics that
+// CountOfUnsentMetrics returns the number of metrics that
 // haven't been sent to the collection service.
-func (st *State) CountofUnsentMetrics() (int, error) {
+func (st *State) CountOfUnsentMetrics() (int, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	return c.Find(bson.M{
@@ -213,10 +221,10 @@ func (st *State) CountofUnsentMetrics() (int, error) {
 	}).Count()
 }
 
-// CountofSentMetrics returns the number of metrics that
+// CountOfSentMetrics returns the number of metrics that
 // have been sent to the collection service and have not
 // been removed by the cleanup worker.
-func (st *State) CountofSentMetrics() (int, error) {
+func (st *State) CountOfSentMetrics() (int, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	return c.Find(bson.M{

@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/schema"
-	"gopkg.in/amz.v2/aws"
+	"gopkg.in/amz.v3/aws"
 
 	"github.com/juju/juju/environs/config"
 )
@@ -109,6 +109,19 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, err
+	}
+
+	// Add EC2 specific defaults.
+	providerDefaults := make(map[string]interface{})
+
+	// Storage.
+	if _, ok := cfg.StorageDefaultBlockSource(); !ok {
+		providerDefaults[config.StorageDefaultBlockSourceKey] = EBS_ProviderType
+	}
+	if len(providerDefaults) > 0 {
+		if cfg, err = cfg.Apply(providerDefaults); err != nil {
+			return nil, err
+		}
 	}
 	ecfg := &environConfig{cfg, validated}
 

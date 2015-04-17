@@ -6,15 +6,15 @@ package relation
 import (
 	"sort"
 
-	"gopkg.in/juju/charm.v4/hooks"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
-// NewDyingHookSource returns a new HookSource that generates all hooks
+// NewDyingHookSource returns a new hook.Source that generates all hooks
 // necessary to clean up the supplied initial relation hook state, while
 // preserving the guarantees Juju makes about hook execution order.
-func NewDyingHookSource(initial *State) HookSource {
+func NewDyingHookSource(initial *State) hook.Source {
 	var list []hook.Info
 
 	// Honour any expected relation-changed hook.
@@ -48,5 +48,5 @@ func NewDyingHookSource(initial *State) HookSource {
 		RelationId: initial.RelationId,
 	})
 
-	return NewListSource(list)
+	return hook.NewListSource(list)
 }

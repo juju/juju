@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v4"
+	corecharm "gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -26,6 +26,7 @@ type GitDeployerSuite struct {
 var _ = gc.Suite(&GitDeployerSuite{})
 
 func (s *GitDeployerSuite) SetUpTest(c *gc.C) {
+	testing.SkipIfGitNotAvailable(c)
 	s.GitSuite.SetUpTest(c)
 	s.bundles = &bundleReader{}
 	s.targetPath = filepath.Join(c.MkDir(), "target")

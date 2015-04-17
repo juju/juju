@@ -20,13 +20,13 @@ import (
 	"github.com/juju/utils/symlink"
 
 	"github.com/juju/juju/agent"
-	coreCloudinit "github.com/juju/juju/cloudinit"
-	"github.com/juju/juju/cloudinit/sshinit"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/httpstorage"
@@ -37,8 +37,8 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/service"
 	servicecommon "github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -122,18 +122,18 @@ func (env *localEnviron) Bootstrap(
 
 // finishBootstrap converts the machine config to cloud-config,
 // converts that to a script, and then executes it locally.
-func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig) error {
-	mcfg.InstanceId = bootstrapInstanceId
-	mcfg.DataDir = env.config.rootDir()
-	mcfg.LogDir = fmt.Sprintf("/var/log/juju-%s", env.config.namespace())
-	mcfg.CloudInitOutputLog = filepath.Join(mcfg.DataDir, "cloud-init-output.log")
+func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
+	icfg.InstanceId = bootstrapInstanceId
+	icfg.DataDir = env.config.rootDir()
+	icfg.LogDir = fmt.Sprintf("/var/log/juju-%s", env.config.namespace())
+	icfg.CloudInitOutputLog = filepath.Join(icfg.DataDir, "cloud-init-output.log")
 
 	// No JobManageNetworking added in order not to change the network
 	// configuration of the user's machine.
-	mcfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
+	icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
 
-	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
-	mcfg.AgentEnvironment = map[string]string{
+	icfg.MachineAgentServiceName = env.machineAgentServiceName()
+	icfg.AgentEnvironment = map[string]string{
 		agent.Namespace:   env.config.namespace(),
 		agent.StorageDir:  env.config.storageDir(),
 		agent.StorageAddr: env.config.storageAddr(),
@@ -145,7 +145,7 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 		agent.MongoOplogSize: "1", // 1MB
 	}
 
-	if err := environs.FinishMachineConfig(mcfg, env.Config()); err != nil {
+	if err := instancecfg.FinishInstanceConfig(icfg, env.Config()); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -154,62 +154,65 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 	cfgAttrs := env.config.AllAttrs()
 	if val, ok := cfgAttrs["enable-os-refresh-update"].(bool); !ok {
 		logger.Infof("local provider; disabling refreshing OS updates.")
-		mcfg.EnableOSRefreshUpdate = false
+		icfg.EnableOSRefreshUpdate = false
 	} else {
-		mcfg.EnableOSRefreshUpdate = val
+		icfg.EnableOSRefreshUpdate = val
 	}
 	if val, ok := cfgAttrs["enable-os-upgrade"].(bool); !ok {
 		logger.Infof("local provider; disabling OS upgrades.")
-		mcfg.EnableOSUpgrade = false
+		icfg.EnableOSUpgrade = false
 	} else {
-		mcfg.EnableOSUpgrade = val
+		icfg.EnableOSUpgrade = val
 	}
 
 	// don't write proxy or mirror settings for local machine
-	mcfg.AptProxySettings = proxy.Settings{}
-	mcfg.ProxySettings = proxy.Settings{}
-	mcfg.AptMirror = ""
+	icfg.AptProxySettings = proxy.Settings{}
+	icfg.ProxySettings = proxy.Settings{}
+	icfg.AptMirror = ""
 
-	cloudcfg := coreCloudinit.New()
-	cloudcfg.SetAptUpdate(mcfg.EnableOSRefreshUpdate)
-	cloudcfg.SetAptUpgrade(mcfg.EnableOSUpgrade)
+	cloudcfg, err := cloudinit.New(icfg.Series)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	cloudcfg.SetSystemUpdate(icfg.EnableOSRefreshUpdate)
+	cloudcfg.SetSystemUpgrade(icfg.EnableOSUpgrade)
 
 	// Since rsyslogd is restricted by apparmor to only write to /var/log/**
 	// we now provide a symlink to the written file in the local log dir.
 	// Also, we leave the old all-machines.log file in
 	// /var/log/juju-{{namespace}} until we start the environment again. So
 	// potentially remove it at the start of the cloud-init.
-	localLogDir := filepath.Join(mcfg.DataDir, "log")
+	localLogDir := filepath.Join(icfg.DataDir, "log")
 	if err := os.RemoveAll(localLogDir); err != nil {
 		return errors.Trace(err)
 	}
-	if err := symlink.New(mcfg.LogDir, localLogDir); err != nil {
+	if err := symlink.New(icfg.LogDir, localLogDir); err != nil {
 		return errors.Trace(err)
 	}
-	if err := os.Remove(mcfg.CloudInitOutputLog); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(icfg.CloudInitOutputLog); err != nil && !os.IsNotExist(err) {
 		return errors.Trace(err)
 	}
 	cloudcfg.AddScripts(
-		fmt.Sprintf("rm -fr %s", mcfg.LogDir),
+		fmt.Sprintf("rm -fr %s", icfg.LogDir),
 		fmt.Sprintf("rm -f /var/spool/rsyslog/machine-0-%s", env.config.namespace()),
 	)
-	udata, err := cloudinit.NewUserdataConfig(mcfg, cloudcfg)
+	udata, err := cloudconfig.NewUserdataConfig(icfg, cloudcfg)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if err := udata.ConfigureJuju(); err != nil {
 		return errors.Trace(err)
 	}
-	return executeCloudConfig(ctx, mcfg, cloudcfg)
+	return executeCloudConfig(ctx, icfg, cloudcfg)
 }
 
-var executeCloudConfig = func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) error {
+var executeCloudConfig = func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudConfig) error {
 	// Finally, convert cloud-config to a script and execute it.
-	configScript, err := sshinit.ConfigureScript(cloudcfg)
+	configScript, err := cloudcfg.RenderScript()
 	if err != nil {
 		return nil
 	}
-	script := shell.DumpFileOnErrorScript(mcfg.CloudInitOutputLog) + configScript
+	script := shell.DumpFileOnErrorScript(icfg.CloudInitOutputLog) + configScript
 	cmd := exec.Command("sudo", "/bin/bash", "-s")
 	cmd.Stdin = strings.NewReader(script)
 	cmd.Stdout = ctx.GetStdout()
@@ -242,7 +245,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		logger.Errorf("failed to create new environ config: %v", err)
-		return err
+		return errors.Trace(err)
 	}
 	env.localMutex.Lock()
 	defer env.localMutex.Unlock()
@@ -274,7 +277,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.containerManager, err = factory.NewContainerManager(
 		containerType, managerConfig, imageURLGetter)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// When the localEnviron value is created on the client
@@ -295,11 +298,11 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	// from the command line, so it is ok to work on the assumption that we
 	// have direct access to the directories.
 	if err := env.config.createDirs(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	// Record the network bridge address and create a filestorage.
 	if err := env.resolveBridgeAddress(cfg); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return env.setLocalStorage()
 }
@@ -357,23 +360,23 @@ func (env *localEnviron) ConstraintsValidator() (constraints.Validator, error) {
 
 // StartInstance is specified in the InstanceBroker interface.
 func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	if args.MachineConfig.HasNetworks() {
+	if args.InstanceConfig.HasNetworks() {
 		return nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 	series := args.Tools.OneSeries()
-	logger.Debugf("StartInstance: %q, %s", args.MachineConfig.MachineId, series)
-	args.MachineConfig.Tools = args.Tools[0]
+	logger.Debugf("StartInstance: %q, %s", args.InstanceConfig.MachineId, series)
+	args.InstanceConfig.Tools = args.Tools[0]
 
-	args.MachineConfig.MachineContainerType = env.config.container()
-	logger.Debugf("tools: %#v", args.MachineConfig.Tools)
-	if err := environs.FinishMachineConfig(args.MachineConfig, env.config.Config); err != nil {
+	args.InstanceConfig.MachineContainerType = env.config.container()
+	logger.Debugf("tools: %#v", args.InstanceConfig.Tools)
+	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.config.Config); err != nil {
 		return nil, err
 	}
-	// TODO: evaluate the impact of setting the contstraints on the
-	// machineConfig for all machines rather than just state server nodes.
-	// This limiation is why the constraints are assigned directly here.
-	args.MachineConfig.Constraints = args.Constraints
-	args.MachineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
+	// TODO: evaluate the impact of setting the constraints on the
+	// instanceConfig for all machines rather than just state server nodes.
+	// This limitation is why the constraints are assigned directly here.
+	args.InstanceConfig.Constraints = args.Constraints
+	args.InstanceConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
 	inst, hardware, err := createContainer(env, args)
 	if err != nil {
 		return nil, err
@@ -388,7 +391,12 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 var createContainer = func(env *localEnviron, args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := args.Tools.OneSeries()
 	network := container.BridgeNetworkConfig(env.config.networkBridge(), args.NetworkInfo)
-	inst, hardware, err := env.containerManager.CreateContainer(args.MachineConfig, series, network)
+	allowLoopMounts, _ := env.config.AllowLXCLoopMounts()
+	isLXC := env.config.container() == instance.LXC
+	storage := &container.StorageConfig{
+		AllowMount: !isLXC || allowLoopMounts,
+	}
+	inst, hardware, err := env.containerManager.CreateContainer(args.InstanceConfig, series, network, storage)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -515,10 +523,21 @@ func (env *localEnviron) Destroy() error {
 			}
 		}
 	}
-	// Stop the mongo database and machine agent. It's possible that the
-	// service doesn't exist or is not running, so don't check the error.
-	mongo.RemoveService(env.config.namespace())
-	upstart.NewService(env.machineAgentServiceName(), servicecommon.Conf{}).StopAndRemove()
+	// Stop the mongo database and machine agent. We log any errors but
+	// do not fail, so that remaining "destroy" steps will still happen.
+	err = mongoRemoveService(env.config.namespace())
+	if err != nil && !errors.IsNotFound(err) {
+		logger.Errorf("while stopping mongod: %v", err)
+	}
+	svc, err := discoverService(env.machineAgentServiceName())
+	if err == nil {
+		if err := svc.Stop(); err != nil {
+			logger.Errorf("while stopping machine agent: %v", err)
+		}
+		if err := svc.Remove(); err != nil {
+			logger.Errorf("while disabling machine agent: %v", err)
+		}
+	}
 
 	// Finally, remove the data-dir.
 	if err := os.RemoveAll(env.config.rootDir()); err != nil && !os.IsNotExist(err) {
@@ -533,6 +552,19 @@ func (env *localEnviron) Destroy() error {
 		return err
 	}
 	return nil
+}
+
+type agentService interface {
+	Stop() error
+	Remove() error
+}
+
+var mongoRemoveService = func(namespace string) error {
+	return mongo.RemoveService(namespace)
+}
+
+var discoverService = func(name string) (agentService, error) {
+	return service.DiscoverService(name, servicecommon.Conf{})
 }
 
 // OpenPorts is specified in the Environ interface.

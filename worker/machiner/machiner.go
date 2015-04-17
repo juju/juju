@@ -79,7 +79,7 @@ func setMachineAddresses(m *machiner.Machine) error {
 		default:
 			continue
 		}
-		address := network.NewAddress(ip.String(), network.ScopeUnknown)
+		address := network.NewAddress(ip.String())
 		// Filter out link-local addresses as we cannot reliably use them.
 		if address.Scope == network.ScopeLinkLocal {
 			continue
@@ -89,6 +89,8 @@ func setMachineAddresses(m *machiner.Machine) error {
 	if len(hostAddresses) == 0 {
 		return nil
 	}
+	// Filter out any LXC bridge addresses.
+	hostAddresses = network.FilterLXCAddresses(hostAddresses)
 	logger.Infof("setting addresses for %v to %q", m.Tag(), hostAddresses)
 	return m.SetMachineAddresses(hostAddresses)
 }

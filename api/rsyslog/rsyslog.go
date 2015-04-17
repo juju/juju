@@ -17,6 +17,7 @@ const rsyslogAPI = "Rsyslog"
 // RsyslogConfig holds the values needed for the rsyslog worker
 type RsyslogConfig struct {
 	CACert string
+	CAKey  string
 	// Port is only used by state servers as the port to listen on.
 	Port      int
 	HostPorts []network.HostPort
@@ -32,13 +33,16 @@ func NewState(caller base.APICaller) *State {
 	return &State{facade: base.NewFacadeCaller(caller, rsyslogAPI)}
 }
 
-// SetRsyslogCert sets the rsyslog CA certificate,
-// which is used by clients to verify the server's
-// identity and establish a TLS session.
-func (st *State) SetRsyslogCert(caCert string) error {
+// SetRsyslogCert sets the rsyslog CA and Key certificates.
+// The CA cert is used to verify the server's identify and establish
+// a TLS session. The Key is used to allow us to properly regenerate
+// rsyslog server certificates when adding and removing
+// state servers with ensure-availability.
+func (st *State) SetRsyslogCert(caCert, caKey string) error {
 	var result params.ErrorResult
 	args := params.SetRsyslogCertParams{
 		CACert: []byte(caCert),
+		CAKey:  []byte(caKey),
 	}
 	err := st.facade.FacadeCall("SetRsyslogCert", args, &result)
 	if err != nil {
@@ -92,7 +96,8 @@ func (st *State) GetRsyslogConfig(agentTag string) (*RsyslogConfig, error) {
 	}
 	return &RsyslogConfig{
 		CACert:    result.CACert,
+		CAKey:     result.CAKey,
 		Port:      result.Port,
-		HostPorts: result.HostPorts,
+		HostPorts: params.NetworkHostPorts(result.HostPorts),
 	}, nil
 }

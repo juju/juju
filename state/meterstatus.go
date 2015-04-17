@@ -13,27 +13,75 @@ import (
 
 var meterStatusLogger = loggo.GetLogger("juju.state.meterstatus")
 
-// MeterStatusCode represents the meter status code of a unit.
-type MeterStatusCode string
+// MeterStatus represents the metering status of a unit.
+type MeterStatus struct {
+	Code MeterStatusCode
+	Info string
+}
 
+// Severity returns relative severity of the meter status.
+func (m *MeterStatus) Severity() int {
+	return m.Code.Severity()
+}
+
+// MeterStatusCode represents the meter status code of a unit.
+// The int value represents its relative severity when compared to
+// other MeterStatusCodes.
+type MeterStatusCode int
+
+// Severity returns the relative severity.
+func (m MeterStatusCode) Severity() int {
+	return int(m)
+}
+
+// String returns a human readable string representation of the meter status.
+func (m MeterStatusCode) String() string {
+	s, ok := meterString[m]
+	if !ok {
+		return MeterNotAvailable.String()
+	}
+	return s
+}
+
+// MeterStatusFromString returns a valid MeterStatusCode given a string representation.
+func MeterStatusFromString(str string) MeterStatusCode {
+	for m, s := range meterString {
+		if s == str {
+			return m
+		}
+	}
+	return MeterNotAvailable
+}
+
+// This const block defines the relative severities of the valid MeterStatusCodes in ascending order.
 const (
-	MeterNotSet       MeterStatusCode = "NOT SET"
-	MeterNotAvailable MeterStatusCode = "NOT AVAILABLE"
-	MeterGreen        MeterStatusCode = "GREEN"
-	MeterAmber        MeterStatusCode = "AMBER"
-	MeterRed          MeterStatusCode = "RED"
+	MeterGreen MeterStatusCode = iota
+	MeterNotSet
+	MeterAmber
+	MeterRed
+	MeterNotAvailable
+)
+
+var (
+	meterString = map[MeterStatusCode]string{
+		MeterGreen:        "GREEN",
+		MeterNotSet:       "NOT SET",
+		MeterAmber:        "AMBER",
+		MeterNotAvailable: "NOT AVAILABLE",
+		MeterRed:          "RED",
+	}
 )
 
 type meterStatusDoc struct {
-	DocID   string          `bson:"_id"`
-	EnvUUID string          `bson:"env-uuid"`
-	Code    MeterStatusCode `bson:"code"`
-	Info    string          `bson:"info"`
+	DocID   string `bson:"_id"`
+	EnvUUID string `bson:"env-uuid"`
+	Code    string `bson:"code"`
+	Info    string `bson:"info"`
 }
 
 // SetMeterStatus sets the meter status for the unit.
-func (u *Unit) SetMeterStatus(codeRaw, info string) error {
-	code := MeterStatusCode(codeRaw)
+func (u *Unit) SetMeterStatus(codeStr, info string) error {
+	code := MeterStatusFromString(codeStr)
 	switch code {
 	case MeterGreen, MeterAmber, MeterRed:
 	default:
@@ -43,7 +91,7 @@ func (u *Unit) SetMeterStatus(codeRaw, info string) error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot update meter status for unit %s", u.Name())
 	}
-	if meterDoc.Code == code && meterDoc.Info == info {
+	if meterDoc.Code == code.String() && meterDoc.Info == info {
 		return nil
 	}
 
@@ -57,7 +105,7 @@ func (u *Unit) SetMeterStatus(codeRaw, info string) error {
 			if err != nil {
 				return nil, errors.Annotatef(err, "cannot update meter status for unit %s", u.Name())
 			}
-			if meterDoc.Code == code && meterDoc.Info == info {
+			if meterDoc.Code == code.String() && meterDoc.Info == info {
 				return nil, jujutxn.ErrNoOperations
 			}
 		}
@@ -68,9 +116,9 @@ func (u *Unit) SetMeterStatus(codeRaw, info string) error {
 				Assert: isAliveDoc,
 			}, {
 				C:      meterStatusC,
-				Id:     u.st.docID(u.globalKey()),
+				Id:     u.st.docID(u.globalMeterStatusKey()),
 				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{{"code", code}, {"info", info}}}},
+				Update: bson.D{{"$set", bson.D{{"code", code.String()}, {"info", info}}}},
 			}}, nil
 	}
 	return errors.Annotatef(u.st.run(buildTxn), "cannot set meter state for unit %s", u.Name())
@@ -99,19 +147,40 @@ func removeMeterStatusOp(st *State, globalKey string) txn.Op {
 }
 
 // GetMeterStatus returns the meter status for the unit.
-func (u *Unit) GetMeterStatus() (code, info string, err error) {
+func (u *Unit) GetMeterStatus() (MeterStatus, error) {
+	mm, err := u.st.MetricsManager()
+	if err != nil {
+		return MeterStatus{MeterNotAvailable, ""}, errors.Annotatef(err, "cannot retrieve meter status for metrics manager")
+	}
+
+	mmStatus := mm.MeterStatus()
+	if mmStatus.Code == MeterRed {
+		return mmStatus, nil
+	}
+
 	status, err := u.getMeterStatusDoc()
 	if err != nil {
-		return string(MeterNotAvailable), "", errors.Annotatef(err, "cannot retrieve meter status for unit %s", u.Name())
+		return MeterStatus{MeterNotAvailable, ""}, errors.Annotatef(err, "cannot retrieve meter status for unit %s", u.Name())
 	}
-	return string(status.Code), status.Info, nil
+
+	code := MeterStatusFromString(status.Code)
+
+	unitMeterStatus := MeterStatus{code, status.Info}
+	return combineMeterStatus(mmStatus, unitMeterStatus), nil
+}
+
+func combineMeterStatus(a, b MeterStatus) MeterStatus {
+	if a.Severity() > b.Severity() {
+		return a
+	}
+	return b
 }
 
 func (u *Unit) getMeterStatusDoc() (*meterStatusDoc, error) {
 	meterStatuses, closer := u.st.getCollection(meterStatusC)
 	defer closer()
 	var status meterStatusDoc
-	err := meterStatuses.FindId(u.globalKey()).One(&status)
+	err := meterStatuses.FindId(u.globalMeterStatusKey()).One(&status)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

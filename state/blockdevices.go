@@ -4,10 +4,9 @@
 package state
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -15,349 +14,119 @@ import (
 
 // BlockDevice represents the state of a block device in the environment.
 type BlockDevice interface {
-	// Tag returns the tag for the block device.
-	Tag() names.Tag
-
-	// Name returns the unique name of the block device.
-	Name() string
-
-	// StorageInstance returns the ID of the storage instance that this
-	// block device is assigned to, if any, and a boolean indicating whether
-	// it is assigned to a store.
-	//
-	// A block device can be assigned to at most one store. It is possible
-	// for multiple block devices to be assigned to the same store, e.g.
-	// multi-attach volumes.
-	StorageInstance() (string, bool)
-
 	// Machine returns the ID of the machine the block device is attached to.
 	Machine() string
 
-	// Attached returns true if the block device is known to be attached to
-	// its associated machine.
-	Attached() bool
-
-	// Info returns the block device's BlockDeviceInfo, or a NotProvisioned
-	// error if the block device has not yet been provisioned.
-	Info() (BlockDeviceInfo, error)
-
-	// Params returns the parameters for provisioning the block device,
-	// if it has not already been provisioned. Params returns true if the
-	// returned parameters are usable for provisioning, otherwise false.
-	Params() (BlockDeviceParams, bool)
+	// Info returns the block device's BlockDeviceInfo.
+	Info() BlockDeviceInfo
 }
 
-type blockDevice struct {
-	doc blockDeviceDoc
-}
-
-// blockDeviceDoc records information about a disk attached to a machine.
-type blockDeviceDoc struct {
-	DocID           string `bson:"_id"`
-	Name            string `bson:"name"`
-	EnvUUID         string `bson:"env-uuid"`
-	Machine         string `bson:"machineid"`
-	StorageInstance string `bson:"storageinstanceid,omitempty"`
-	// TODO(axw) Attached should be inferred from the presence
-	// of block device info discovered on the machine. We should
-	// be storing provider block devices separately from machine
-	// discovered ones.
-	Attached bool               `bson:"attached"`
-	Info     *BlockDeviceInfo   `bson:"info,omitempty"`
-	Params   *BlockDeviceParams `bson:"params,omitempty"`
-}
-
-// BlockDeviceParams records parameters for provisioning a new block device.
-type BlockDeviceParams struct {
-	// storageInstance, if non-empty, is the ID of the storage instance
-	// that the block device is to be assigned to.
-	storageInstance string
-
-	Size uint64 `bson:"size"`
+// blockDevicesDoc records information about a machine's block devices.
+type blockDevicesDoc struct {
+	DocID        string            `bson:"_id"`
+	EnvUUID      string            `bson:"env-uuid"`
+	Machine      string            `bson:"machineid"`
+	BlockDevices []BlockDeviceInfo `bson:"blockdevices"`
 }
 
 // BlockDeviceInfo describes information about a block device.
 type BlockDeviceInfo struct {
-	DeviceName     string `bson:"devicename,omitempty"`
+	DeviceName     string `bson:"devicename"`
 	Label          string `bson:"label,omitempty"`
 	UUID           string `bson:"uuid,omitempty"`
 	Serial         string `bson:"serial,omitempty"`
 	Size           uint64 `bson:"size"`
-	FilesystemType string `bson:"fstype"`
+	FilesystemType string `bson:"fstype,omitempty"`
 	InUse          bool   `bson:"inuse"`
+	MountPoint     string `bson:"mountpoint,omitempty"`
 }
 
-func (b *blockDevice) Tag() names.Tag {
-	return names.NewDiskTag(b.doc.Name)
+// WatchBlockDevices returns a new NotifyWatcher watching for
+// changes to block devices associated with the specified machine.
+func (st *State) WatchBlockDevices(machine names.MachineTag) NotifyWatcher {
+	return newBlockDevicesWatcher(st, machine.Id())
 }
 
-func (b *blockDevice) Name() string {
-	return b.doc.Name
+// BlockDevices returns the BlockDeviceInfo for the specified machine.
+func (st *State) BlockDevices(machine names.MachineTag) ([]BlockDeviceInfo, error) {
+	return st.blockDevices(machine.Id())
 }
 
-func (b *blockDevice) StorageInstance() (string, bool) {
-	return b.doc.StorageInstance, b.doc.StorageInstance != ""
-}
-
-func (b *blockDevice) Machine() string {
-	return b.doc.Machine
-}
-
-func (b *blockDevice) Attached() bool {
-	return b.doc.Attached
-}
-
-func (b *blockDevice) Info() (BlockDeviceInfo, error) {
-	if b.doc.Info == nil {
-		return BlockDeviceInfo{}, errors.NotProvisionedf("block device %q", b.doc.Name)
-	}
-	return *b.doc.Info, nil
-}
-
-func (b *blockDevice) Params() (BlockDeviceParams, bool) {
-	if b.doc.Params == nil {
-		return BlockDeviceParams{}, false
-	}
-	return *b.doc.Params, true
-}
-
-// BlockDevice returns the BlockDevice with the specified name.
-func (st *State) BlockDevice(diskName string) (BlockDevice, error) {
-	blockDevices, cleanup := st.getCollection(blockDevicesC)
+func (st *State) blockDevices(machineId string) ([]BlockDeviceInfo, error) {
+	coll, cleanup := st.getCollection(blockDevicesC)
 	defer cleanup()
 
-	var d blockDevice
-	err := blockDevices.FindId(diskName).One(&d.doc)
+	var d blockDevicesDoc
+	err := coll.FindId(machineId).One(&d)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("block device %q", diskName)
+		return nil, errors.NotFoundf("block devices not found for machine %q", machineId)
 	} else if err != nil {
 		return nil, errors.Annotate(err, "cannot get block device details")
 	}
-	return &d, nil
-}
-
-// newDiskName returns a unique disk name.
-func newDiskName(st *State) (string, error) {
-	seq, err := st.sequence("disk")
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return fmt.Sprint(seq), nil
+	return d.BlockDevices, nil
 }
 
 // setMachineBlockDevices updates the blockdevices collection with the
-// currently attached block devices. Previously recorded block devices not in
-// the list will be removed.
-//
-// The Name field of each BlockDevice is ignored, if specified. Block devices
-// are matched according to their identifying attributes (device name, UUID,
-// etc.), and the existing Name will be retained.
+// currently attached block devices. Previously recorded block devices
+// not in the list will be removed.
 func setMachineBlockDevices(st *State, machineId string, newInfo []BlockDeviceInfo) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		oldDevices, err := getMachineBlockDevices(st, machineId)
-		if err != nil && err != mgo.ErrNotFound {
+		oldInfo, err := st.blockDevices(machineId)
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
+		if !blockDevicesChanged(oldInfo, newInfo) {
+			return nil, jujutxn.ErrNoOperations
+		}
+		// TODO(axw) before the storage feature can come off,
+		// we need to add an upgrade step to add a block
+		// devices doc to existing machines.
 		ops := []txn.Op{{
 			C:      machinesC,
-			Id:     st.docID(machineId),
+			Id:     machineId,
 			Assert: isAliveDoc,
+		}, {
+			C:      blockDevicesC,
+			Id:     machineId,
+			Assert: bson.D{{"blockdevices", oldInfo}},
+			Update: bson.D{{"$set", bson.D{{"blockdevices", newInfo}}}},
 		}}
-
-		// Create ops to update and remove existing block devices.
-		found := make([]bool, len(newInfo))
-		for _, oldDev := range oldDevices {
-			oldInfo, err := oldDev.Info()
-			if err != nil && errors.IsNotProvisioned(err) {
-				// Leave unprovisioned block devices alone.
-				continue
-			} else if err != nil {
-				return nil, errors.Trace(err)
-			}
-			var updated bool
-			for j, newInfo := range newInfo {
-				if found[j] {
-					continue
-				}
-				if blockDevicesSame(oldInfo, newInfo) {
-					// Merge the two structures by replacing the old document's
-					// BlockDeviceInfo with the new one.
-					if oldInfo != newInfo || !oldDev.doc.Attached {
-						ops = append(ops, txn.Op{
-							C:      blockDevicesC,
-							Id:     oldDev.doc.DocID,
-							Assert: txn.DocExists,
-							Update: bson.D{{"$set", bson.D{
-								{"info", newInfo},
-								{"attached", true},
-							}}},
-						})
-					}
-					found[j] = true
-					updated = true
-					break
-				}
-			}
-			if !updated {
-				ops = append(ops, txn.Op{
-					C:      blockDevicesC,
-					Id:     oldDev.doc.DocID,
-					Assert: txn.DocExists,
-					Remove: true,
-				})
-			}
-		}
-
-		// Create ops to insert new block devices.
-		for i, info := range newInfo {
-			if found[i] {
-				continue
-			}
-			name, err := newDiskName(st)
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot generate disk name")
-			}
-			infoCopy := info // copy for the insert
-			newDoc := blockDeviceDoc{
-				Name:     name,
-				Machine:  machineId,
-				EnvUUID:  st.EnvironUUID(),
-				DocID:    st.docID(name),
-				Attached: true,
-				Info:     &infoCopy,
-			}
-			ops = append(ops, txn.Op{
-				C:      blockDevicesC,
-				Id:     newDoc.DocID,
-				Assert: txn.DocMissing,
-				Insert: &newDoc,
-			})
-		}
-
 		return ops, nil
 	}
 	return st.run(buildTxn)
 }
 
-// getMachineBlockDevices returns all of the block devices associated with the
-// specified machine, including unprovisioned ones.
-func getMachineBlockDevices(st *State, machineId string) ([]*blockDevice, error) {
-	sel := bson.D{{"machineid", machineId}}
-	blockDevices, closer := st.getCollection(blockDevicesC)
-	defer closer()
-
-	var docs []blockDeviceDoc
-	err := blockDevices.Find(sel).All(&docs)
-	if err != nil {
-		return nil, errors.Trace(err)
+func createMachineBlockDevicesOp(machineId string) txn.Op {
+	return txn.Op{
+		C:      blockDevicesC,
+		Id:     machineId,
+		Insert: &blockDevicesDoc{Machine: machineId},
 	}
-	devices := make([]*blockDevice, len(docs))
-	for i, doc := range docs {
-		devices[i] = &blockDevice{doc}
-	}
-	return devices, nil
 }
 
-func removeMachineBlockDevicesOps(st *State, machineId string) ([]txn.Op, error) {
-	sel := bson.D{{"machineid", machineId}}
-	blockDevices, closer := st.getCollection(blockDevicesC)
-	defer closer()
-
-	iter := blockDevices.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
-	defer iter.Close()
-	var ops []txn.Op
-	var doc blockDeviceDoc
-	for iter.Next(&doc) {
-		ops = append(ops, txn.Op{
-			C:      blockDevicesC,
-			Id:     doc.DocID,
-			Remove: true,
-		})
+func removeMachineBlockDevicesOp(machineId string) txn.Op {
+	return txn.Op{
+		C:      blockDevicesC,
+		Id:     machineId,
+		Remove: true,
 	}
-	return ops, errors.Trace(iter.Close())
 }
 
-// setProvisionedBlockDeviceInfo sets the initial info for newly
-// provisioned block devices. If non-empty, machineId must be the
-// machine ID associated with the block devices.
-func setProvisionedBlockDeviceInfo(st *State, machineId string, blockDevices map[string]BlockDeviceInfo) error {
-	ops := make([]txn.Op, 0, len(blockDevices))
-	for name, info := range blockDevices {
-		infoCopy := info
-		assert := bson.D{
-			{"info", bson.D{{"$exists", false}}},
-			{"params", bson.D{{"$exists", true}}},
-		}
-		if machineId != "" {
-			assert = append(assert, bson.DocElem{"machineid", machineId})
-		}
-		ops = append(ops, txn.Op{
-			C:      blockDevicesC,
-			Id:     name,
-			Assert: assert,
-			Update: bson.D{
-				{"$set", bson.D{{"info", &infoCopy}}},
-				{"$unset", bson.D{{"params", nil}}},
-			},
-		})
+func blockDevicesChanged(oldDevices, newDevices []BlockDeviceInfo) bool {
+	if len(oldDevices) != len(newDevices) {
+		return true
 	}
-	if err := st.runTransaction(ops); err != nil {
-		return errors.Errorf("cannot set provisioned block device info: already provisioned")
-	}
-	return nil
-}
-
-// createMachineBlockDeviceOps creates txn.Ops to create unprovisioned
-// block device documents associated with the specified machine, with
-// the given parameters.
-func createMachineBlockDeviceOps(st *State, machineId string, params ...BlockDeviceParams) (ops []txn.Op, names []string, err error) {
-	ops = make([]txn.Op, 0, len(params))
-	names = make([]string, len(params))
-	for i, params := range params {
-		params := params
-		name, err := newDiskName(st)
-		if err != nil {
-			return nil, nil, errors.Annotate(err, "cannot generate disk name")
+	for _, o := range oldDevices {
+		var found bool
+		for _, n := range newDevices {
+			if o == n {
+				found = true
+				break
+			}
 		}
-		names[i] = name
-		ops = append(ops, txn.Op{
-			C:      blockDevicesC,
-			Id:     name,
-			Assert: txn.DocMissing,
-			Insert: &blockDeviceDoc{
-				Name:            name,
-				StorageInstance: params.storageInstance,
-				Machine:         machineId,
-				Params:          &params,
-			},
-		})
-		// Add references to the storage instances.
-		if params.storageInstance != "" {
-			ops = append(ops, txn.Op{
-				C:      storageInstancesC,
-				Id:     params.storageInstance,
-				Assert: txn.DocExists,
-				Update: bson.D{
-					{"$push", bson.D{{"blockdevices", names[i]}}},
-				},
-			})
+		if !found {
+			return true
 		}
 	}
-	return ops, names, nil
-}
-
-// blockDevicesSame reports whether or not two BlockDevices identify the
-// same block device.
-//
-// In descending order of preference, we use: serial number, filesystem
-// UUID, device name.
-func blockDevicesSame(a, b BlockDeviceInfo) bool {
-	if a.Serial != "" && b.Serial != "" {
-		return a.Serial == b.Serial
-	}
-	if a.UUID != "" && b.UUID != "" {
-		return a.UUID == b.UUID
-	}
-	return a.DeviceName != "" && a.DeviceName == b.DeviceName
+	return false
 }

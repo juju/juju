@@ -66,7 +66,7 @@ func (s *RsyslogSuite) TestTearDown(c *gc.C) {
 
 func (s *RsyslogSuite) TestRsyslogCert(c *gc.C) {
 	st, m := s.st, s.machine
-	err := s.machine.SetAddresses(network.NewAddress("example.com", network.ScopeUnknown))
+	err := s.machine.SetAddresses(network.NewAddress("example.com"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", []string{"0.1.2.3"})

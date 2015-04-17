@@ -73,7 +73,19 @@ func (d *DiskManagerAPI) SetMachineBlockDevices(args params.SetMachineBlockDevic
 		if !canAccess(tag) {
 			err = common.ErrPerm
 		} else {
+			// TODO(axw) create volumes for block devices without matching
+			// volumes, if and only if the block device has a serial. Under
+			// the assumption of unique (to a machine) serial IDs, this
+			// gives us a guaranteed *persistently* unique way of identifying
+			// the volume.
+			//
+			// NOTE: we must predicate the above on there being no unprovisioned
+			// volume attachments for the machine, otherwise we would have
+			// a race between the volume attachment info being recorded and
+			// the diskmanager publishing block devices and erroneously creating
+			// volumes.
 			err = d.st.SetMachineBlockDevices(tag.Id(), stateBlockDeviceInfo(arg.BlockDevices))
+			// TODO(axw) set volume/filesystem attachment info.
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
@@ -91,6 +103,7 @@ func stateBlockDeviceInfo(devices []storage.BlockDevice) []state.BlockDeviceInfo
 			dev.Size,
 			dev.FilesystemType,
 			dev.InUse,
+			dev.MountPoint,
 		}
 	}
 	return result

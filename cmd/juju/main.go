@@ -17,18 +17,19 @@ import (
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/cachedimages"
-	"github.com/juju/juju/cmd/juju/charms"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/cmd/juju/machine"
+	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/version"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/version"
 )
 
 func init() {
@@ -104,6 +105,7 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 type commandRegistry interface {
 	Register(cmd.Command)
 	RegisterSuperAlias(name, super, forName string, check cmd.DeprecationCheck)
+	RegisterDeprecated(subcmd cmd.Command, check cmd.DeprecationCheck)
 }
 
 // registerCommands registers commands in the specified registry.
@@ -117,7 +119,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(wrapEnvCommand(&BootstrapCommand{}))
 	r.Register(wrapEnvCommand(&DeployCommand{}))
 	r.Register(wrapEnvCommand(&AddRelationCommand{}))
-	r.Register(wrapEnvCommand(&AddUnitCommand{}))
 
 	// Destruction commands.
 	r.Register(wrapEnvCommand(&RemoveRelationCommand{}))
@@ -141,11 +142,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Configuration commands.
 	r.Register(&InitCommand{})
-	r.Register(wrapEnvCommand(&GetCommand{}))
-	r.Register(wrapEnvCommand(&SetCommand{}))
-	r.Register(wrapEnvCommand(&UnsetCommand{}))
-	r.Register(wrapEnvCommand(&GetConstraintsCommand{}))
-	r.Register(wrapEnvCommand(&SetConstraintsCommand{}))
+	r.RegisterDeprecated(wrapEnvCommand(&common.GetConstraintsCommand{}),
+		twoDotOhDeprecation("environment get-constraints or service get-constraints"))
+	r.RegisterDeprecated(wrapEnvCommand(&common.SetConstraintsCommand{}),
+		twoDotOhDeprecation("environment set-constraints or service set-constraints"))
 	r.Register(wrapEnvCommand(&ExposeCommand{}))
 	r.Register(wrapEnvCommand(&SyncToolsCommand{}))
 	r.Register(wrapEnvCommand(&UnexposeCommand{}))
@@ -157,9 +157,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Charm tool commands.
 	r.Register(&HelpToolCommand{})
-
-	// Charm management commands.
-	r.Register(charms.NewSuperCommand())
 
 	// Manage backups.
 	r.Register(backups.NewCommand())
@@ -188,16 +185,23 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.RegisterSuperAlias("set-env", "environment", "set", twoDotOhDeprecation("environment set"))
 	r.RegisterSuperAlias("unset-environment", "environment", "unset", twoDotOhDeprecation("environment unset"))
 	r.RegisterSuperAlias("unset-env", "environment", "unset", twoDotOhDeprecation("environment unset"))
-	r.RegisterSuperAlias("ensure-availability", "environment", "ensure-availability", twoDotOhDeprecation("environment ensure-availability"))
 	r.RegisterSuperAlias("retry-provisioning", "environment", "retry-provisioning", twoDotOhDeprecation("environment retry-provisioning"))
 
-	// Manage and control actions.
-	if featureflag.Enabled(feature.Actions) {
-		r.Register(action.NewSuperCommand())
-	}
+	// Manage and control actions
+	r.Register(action.NewSuperCommand())
+
+	// Manage state server availability
+	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))
+
+	// Manage and control services
+	r.Register(service.NewSuperCommand())
+	r.RegisterSuperAlias("add-unit", "service", "add-unit", twoDotOhDeprecation("service add-unit"))
+	r.RegisterSuperAlias("get", "service", "get", twoDotOhDeprecation("service get"))
+	r.RegisterSuperAlias("set", "service", "set", twoDotOhDeprecation("service set"))
+	r.RegisterSuperAlias("unset", "service", "unset", twoDotOhDeprecation("service unset"))
 
 	// Operation protection commands
-	r.Register(wrapEnvCommand(&block.BlockCommand{}))
+	r.Register(block.NewSuperBlockCommand())
 	r.Register(wrapEnvCommand(&block.UnblockCommand{}))
 
 	// Manage storage

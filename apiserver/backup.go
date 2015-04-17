@@ -39,7 +39,7 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	}
 	defer stateWrapper.cleanup()
 
-	if err := stateWrapper.authenticate(req); err != nil {
+	if err := stateWrapper.authenticateUser(req); err != nil {
 		h.authError(resp, h)
 		return
 	}

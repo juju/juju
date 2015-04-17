@@ -10,9 +10,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -57,64 +55,6 @@ type CharmURLs struct {
 type StringsResult struct {
 	Error  *Error
 	Result []string
-}
-
-// PortsResults holds the bulk operation result of an API call
-// that returns a slice of network.Port.
-type PortsResults struct {
-	Results []PortsResult
-}
-
-// PortsResult holds the result of an API call that returns a slice
-// of network.Port or an error.
-type PortsResult struct {
-	Error *Error
-	// TODO(dimitern): Add explicit JSON serialization tags and use
-	// []string instead in order to break the dependency on the
-	// network package, as this potentially introduces hard to catch
-	// and debug wire-format changes in the protocol when the type
-	// changes!
-	Ports []network.Port
-}
-
-// MachinePorts holds a machine and network tags. It's used when
-// referring to opened ports on the machine for a network.
-type MachinePorts struct {
-	MachineTag string
-	NetworkTag string
-}
-
-// MachinePortRange holds a single port range open on a machine for
-// the given unit and relation tags.
-type MachinePortRange struct {
-	UnitTag     string
-	RelationTag string
-	// TODO(dimitern): Add explicit JSON serialization tags and use
-	// string instead in order to break the dependency on the network
-	// package, as this potentially introduces hard to catch and debug
-	// wire-format changes in the protocol when the type changes!
-	PortRange network.PortRange
-}
-
-// MachinePortsParams holds the arguments for making a
-// FirewallerAPIV1.GetMachinePorts() API call.
-type MachinePortsParams struct {
-	Params []MachinePorts
-}
-
-// MachinePortsResult holds a single result of the
-// FirewallerAPIV1.GetMachinePorts() and UniterAPI.AllMachinePorts()
-// API calls.
-type MachinePortsResult struct {
-	Error *Error
-	Ports []MachinePortRange
-}
-
-// MachinePortsResults holds all the results of the
-// FirewallerAPIV1.GetMachinePorts() and UniterAPI.AllMachinePorts()
-// API calls.
-type MachinePortsResults struct {
-	Results []MachinePortsResult
 }
 
 // StringsResults holds the bulk operation result of an API call
@@ -168,11 +108,12 @@ type EnvironmentCreateArgs struct {
 }
 
 // Environment holds the result of an API call returning a name and UUID
-// for an environment.
+// for an environment and the tag of the server in which it is running.
 type Environment struct {
-	Name     string
-	UUID     string
-	OwnerTag string
+	Name       string
+	UUID       string
+	OwnerTag   string
+	ServerUUID string
 }
 
 // EnvironmentList holds information about a list of environments.
@@ -316,33 +257,6 @@ type RelationResults struct {
 	Results []RelationResult
 }
 
-// EntityPort holds an entity's tag, a protocol and a port.
-type EntityPort struct {
-	Tag      string
-	Protocol string
-	Port     int
-}
-
-// EntitiesPorts holds the parameters for making an OpenPort or
-// ClosePort on some entities.
-type EntitiesPorts struct {
-	Entities []EntityPort
-}
-
-// EntityPortRange holds an entity's tag, a protocol and a port range.
-type EntityPortRange struct {
-	Tag      string
-	Protocol string
-	FromPort int
-	ToPort   int
-}
-
-// EntitiesPortRanges holds the parameters for making an OpenPorts or
-// ClosePorts on some entities.
-type EntitiesPortRanges struct {
-	Entities []EntityPortRange
-}
-
 // EntityCharmURL holds an entity's tag and a charm URL.
 type EntityCharmURL struct {
 	Tag      string
@@ -396,44 +310,6 @@ type SetProvisioned struct {
 	Machines []MachineSetProvisioned
 }
 
-// Network describes a single network available on an instance.
-type Network struct {
-	// Tag is the network's tag.
-	Tag string
-
-	// ProviderId is the provider-specific network id.
-	ProviderId network.Id
-
-	// CIDR of the network, in "123.45.67.89/12" format.
-	CIDR string
-
-	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
-	// normal networks. It's defined by IEEE 802.1Q standard.
-	VLANTag int
-}
-
-// NetworkInterface describes a single network interface available on
-// an instance.
-type NetworkInterface struct {
-	// MACAddress is the network interface's hardware MAC address
-	// (e.g. "aa:bb:cc:dd:ee:ff").
-	MACAddress string
-
-	// InterfaceName is the OS-specific network device name (e.g.
-	// "eth1", even for for a VLAN eth1.42 virtual interface).
-	InterfaceName string
-
-	// NetworkTag is this interface's network tag.
-	NetworkTag string
-
-	// IsVirtual is true when the interface is a virtual device, as
-	// opposed to a physical device.
-	IsVirtual bool
-
-	// Disabled returns whether the interface is disabled.
-	Disabled bool
-}
-
 // InstanceInfo holds a machine tag, provider-specific instance id, a
 // nonce, a list of networks and interfaces to set up.
 type InstanceInfo struct {
@@ -443,104 +319,17 @@ type InstanceInfo struct {
 	Characteristics *instance.HardwareCharacteristics
 	Networks        []Network
 	Interfaces      []NetworkInterface
-	Volumes         []storage.BlockDevice
+	Volumes         []Volume
+	// TODO(axw) we should return map[names.VolumeTag]VolumeAttachmentInfo
+	// here, containing only the information regarding the attachment.
+	// The rest can be inferred from the context.
+	VolumeAttachments []VolumeAttachment
 }
 
 // InstancesInfo holds the parameters for making a SetInstanceInfo
 // call for multiple machines.
 type InstancesInfo struct {
 	Machines []InstanceInfo
-}
-
-// RequestedNetworkResult holds requested networks or an error.
-type RequestedNetworkResult struct {
-	Error    *Error
-	Networks []string
-}
-
-// RequestedNetworksResults holds multiple requested networks results.
-type RequestedNetworksResults struct {
-	Results []RequestedNetworkResult
-}
-
-// NetworkInfo describes all the necessary information to configure
-// all network interfaces on a machine. This mostly duplicates
-// network.InterfaceInfo type and it's defined here so it can be kept
-// separate and stable as definition to ensure proper wire-format for
-// the API.
-type NetworkInfo struct {
-	// DeviceIndex specifies the order in which the network interface
-	// appears on the host. The primary interface has an index of 0.
-	DeviceIndex int
-
-	// MACAddress is the network interface's hardware MAC address
-	// (e.g. "aa:bb:cc:dd:ee:ff").
-	MACAddress string
-
-	// CIDR of the network, in 123.45.67.89/24 format.
-	CIDR string
-
-	// NetworkName is juju-internal name of the network.
-	// TODO(dimitern) This should be removed or adapted to the model
-	// once spaces are introduced.
-	NetworkName string
-
-	// ProviderId is a provider-specific network id.
-	ProviderId network.Id
-
-	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
-	// normal networks. It's defined by IEEE 802.1Q standard.
-	VLANTag int
-
-	// InterfaceName is the raw OS-specific network device name (e.g.
-	// "eth1", even for a VLAN eth1.42 virtual interface).
-	InterfaceName string
-
-	// Disabled is true when the interface needs to be disabled on the
-	// machine, e.g. not to configure it at all or stop it if running.
-	Disabled bool
-
-	// NoAutoStart is true when the interface should not be configured
-	// to start automatically on boot. By default and for
-	// backwards-compatibility, interfaces are configured to
-	// auto-start.
-	NoAutoStart bool `json:",omitempty"`
-
-	// ConfigType, if set, defines what type of configuration to use.
-	// See network.InterfaceConfigType for more info. If not set, for
-	// backwards-compatibility, "dhcp" is assumed.
-	ConfigType string `json:",omitempty"`
-
-	// Address contains an optional static IP address to configure for
-	// this network interface. The subnet mask to set will be inferred
-	// from the CIDR value.
-	Address string `json:",omitempty"`
-
-	// DNSServers contains an optional list of IP addresses and/or
-	// hostnames to configure as DNS servers for this network
-	// interface.
-	DNSServers []string `json:",omitempty"`
-
-	// Gateway address, if set, defines the default gateway to
-	// configure for this network interface. For containers this
-	// usually (one of) the host address(es).
-	GatewayAddress string `json:",omitempty"`
-
-	// ExtraConfig can contain any valid setting and its value allowed
-	// inside an "iface" section of a interfaces(5) config file, e.g.
-	// "up", "down", "mtu", etc.
-	ExtraConfig map[string]string `json:",omitempty"`
-}
-
-// MachineNetworkInfoResult holds network info for a single machine.
-type MachineNetworkInfoResult struct {
-	Error *Error
-	Info  []NetworkInfo `json:"Info"`
-}
-
-// MachineNetworkInfoResults holds network info for multiple machines.
-type MachineNetworkInfoResults struct {
-	Results []MachineNetworkInfoResult
 }
 
 // EntityStatus holds an entity tag, status and extra info.
@@ -565,22 +354,12 @@ type StatusResult struct {
 	Status Status
 	Info   string
 	Data   map[string]interface{}
+	Since  *time.Time
 }
 
 // StatusResults holds multiple status results.
 type StatusResults struct {
 	Results []StatusResult
-}
-
-// MachineAddresses holds an machine tag and addresses.
-type MachineAddresses struct {
-	Tag string
-	// TODO(dimitern): Add explicit JSON serialization tags and use
-	// []string instead in order to break the dependency on the
-	// network package, as this potentially introduces hard to catch
-	// and debug wire-format changes in the protocol when the type
-	// changes!
-	Addresses []network.Address
 }
 
 // SetMachinesAddresses holds the parameters for making a SetMachineAddresses call.
@@ -698,6 +477,20 @@ type RelationUnitsWatchResults struct {
 	Results []RelationUnitsWatchResult
 }
 
+// MachineStorageIdsWatchResult holds a MachineStorageIdsWatcher id,
+// changes and an error (if any).
+type MachineStorageIdsWatchResult struct {
+	MachineStorageIdsWatcherId string
+	Changes                    []MachineStorageId
+	Error                      *Error
+}
+
+// MachineStorageIdsWatchResults holds the results for any API call which ends
+// up returning a list of MachineStorageIdsWatchers.
+type MachineStorageIdsWatchResults struct {
+	Results []MachineStorageIdsWatchResult
+}
+
 // CharmsResponse is the server response to charm upload or GET requests.
 type CharmsResponse struct {
 	Error    string   `json:",omitempty"`
@@ -744,7 +537,7 @@ type ProvisioningInfo struct {
 	Placement   string
 	Networks    []string
 	Jobs        []multiwatcher.MachineJob
-	Volumes     []storage.VolumeParams
+	Volumes     []VolumeParams
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.
@@ -776,6 +569,25 @@ type MetricsParams struct {
 	Metrics []MetricsParam
 }
 
+// MetricBatch is a list of metrics with metadata.
+type MetricBatch struct {
+	UUID     string
+	CharmURL string
+	Created  time.Time
+	Metrics  []Metric
+}
+
+// MetricBatchParam contains a single metric batch.
+type MetricBatchParam struct {
+	Tag   string
+	Batch MetricBatch
+}
+
+// MetricBatchParams contains multiple metric batches.
+type MetricBatchParams struct {
+	Batches []MetricBatchParam
+}
+
 // MeterStatusResult holds unit meter status or error.
 type MeterStatusResult struct {
 	Code  string
@@ -786,81 +598,4 @@ type MeterStatusResult struct {
 // MeterStatusResults holds meter status results for multiple units.
 type MeterStatusResults struct {
 	Results []MeterStatusResult
-}
-
-// MachineBlockDevices holds a machine tag and the block devices present
-// on that machine.
-type MachineBlockDevices struct {
-	Machine      string
-	BlockDevices []storage.BlockDevice
-}
-
-// SetMachineBlockDevices holds the arguments for recording the block
-// devices present on a set of machines.
-type SetMachineBlockDevices struct {
-	MachineBlockDevices []MachineBlockDevices
-}
-
-// BlockDeviceResult holds the result of an API call to retrieve details
-// of a block device.
-type BlockDeviceResult struct {
-	Result storage.BlockDevice `json:"result"`
-	Error  *Error              `json:"error,omitempty"`
-}
-
-// BlockDeviceResults holds the result of an API call to retrieve details
-// of multiple block devices.
-type BlockDeviceResults struct {
-	Results []BlockDeviceResult `json:"results,omitempty"`
-}
-
-// BlockDevicesResult holds the result of an API call to retrieve details
-// of all block devices relating to some entity.
-type BlockDevicesResult struct {
-	Result []storage.BlockDevice `json:"result"`
-	Error  *Error                `json:"error,omitempty"`
-}
-
-// BlockDevicseResults holds the result of an API call to retrieve details
-// of all block devices relating to some entities.
-type BlockDevicesResults struct {
-	Results []BlockDevicesResult `json:"results,omitempty"`
-}
-
-// BlockDeviceFilesystem holds the parameters for recording information about
-// the specified block device's filesystem.
-type BlockDeviceFilesystem struct {
-	DiskTag        string `json:"disktag"`
-	StorageTag     string `json:"storagetag"`
-	FilesystemType string `json:"fstype"`
-}
-
-// SetBlockDeviceFilesystem holds the parameters for recording information about
-// the filesystems corresponding to the specified block devices.
-type SetBlockDeviceFilesystem struct {
-	Filesystems []BlockDeviceFilesystem `json:"filesystems"`
-}
-
-// StorageInstanceResult holds the result of an API call to retrieve details
-// of a storage instance.
-type StorageInstanceResult struct {
-	Result storage.StorageInstance `json:"result"`
-	Error  *Error                  `json:"error,omitempty"`
-}
-
-// StorageInstanceResult holds the result of an API call to retrieve details
-// of multiple storage instances.
-type StorageInstanceResults struct {
-	Results []StorageInstanceResult `json:"results,omitempty"`
-}
-
-// UnitStorageInstances holds the storage instances for a given unit.
-type UnitStorageInstances struct {
-	Instances []storage.StorageInstance `json:"instances,omitempty"`
-	Error     *Error                    `json:"error,omitempty"`
-}
-
-// UnitStorageInstancesResults holds the result of a StorageInstances call for a unit.
-type UnitStorageInstancesResults struct {
-	UnitsStorageInstances []UnitStorageInstances `json:"unitstorageinstances,omitempty"`
 }

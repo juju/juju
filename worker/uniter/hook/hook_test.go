@@ -7,8 +7,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4/hooks"
+	"gopkg.in/juju/charm.v5/hooks"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -42,23 +43,20 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.ConfigChanged}, ""},
 	{hook.Info{Kind: hooks.CollectMetrics}, ""},
 	{hook.Info{Kind: hooks.MeterStatusChanged}, ""},
-	{
-		hook.Info{Kind: hooks.Action},
-		`action id "" cannot be parsed as an action tag`,
-	},
-	{hook.Info{Kind: hooks.Action, ActionId: "badadded-0123-4567-89ab-cdef01234567"}, ""},
+	{hook.Info{Kind: hooks.Action}, "hooks.Kind Action is deprecated"},
 	{hook.Info{Kind: hooks.UpgradeCharm}, ""},
 	{hook.Info{Kind: hooks.Stop}, ""},
 	{hook.Info{Kind: hooks.RelationJoined, RemoteUnit: "x"}, ""},
 	{hook.Info{Kind: hooks.RelationChanged, RemoteUnit: "x"}, ""},
 	{hook.Info{Kind: hooks.RelationDeparted, RemoteUnit: "x"}, ""},
 	{hook.Info{Kind: hooks.RelationBroken}, ""},
-	{hook.Info{Kind: hooks.StorageAttached}, ""},
-	{hook.Info{Kind: hooks.StorageDetached}, ""},
+	{hook.Info{Kind: hooks.StorageAttached}, `invalid storage ID ""`},
+	{hook.Info{Kind: hooks.StorageAttached, StorageId: "data/0"}, ""},
+	{hook.Info{Kind: hooks.StorageDetached, StorageId: "data/0"}, ""},
 }
 
 func (s *InfoSuite) TestValidate(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	s.SetFeatureFlags(feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	for i, t := range validateTests {
 		c.Logf("test %d", i)

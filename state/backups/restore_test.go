@@ -13,9 +13,9 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	stdtesting "testing"
 
 	"github.com/juju/names"
+	"github.com/juju/replicaset"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -25,17 +25,12 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
-
-func Test(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 var _ = gc.Suite(&RestoreSuite{})
 
@@ -226,7 +221,7 @@ func (r *RestoreSuite) TestUpdateMongoEntries(c *gc.C) {
 	dialInfo := server.DialInfo()
 	mgoAddr := server.Addr()
 	dialInfo.Addrs = []string{mgoAddr}
-	err = updateMongoEntries("1234", "0", dialInfo)
+	err = updateMongoEntries("1234", "0", "0", dialInfo)
 	c.Assert(err, gc.ErrorMatches, "cannot update machine 0 instance information: not found")
 
 	session := server.MustDial()
@@ -240,7 +235,7 @@ func (r *RestoreSuite) TestUpdateMongoEntries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 0)
 
-	err = updateMongoEntries("1234", "0", dialInfo)
+	err = updateMongoEntries("1234", "0", "0", dialInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	query = session.DB("juju").C("machines").Find(bson.M{"machineid": "0", "instanceid": "1234"})

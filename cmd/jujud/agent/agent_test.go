@@ -23,6 +23,7 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -111,7 +112,9 @@ type acCreator func() (cmd.Command, *AgentConf)
 func CheckAgentCommand(c *gc.C, create acCreator, args []string) cmd.Command {
 	com, conf := create()
 	err := coretesting.InitCommand(com, args)
-	c.Assert(conf.DataDir, gc.Equals, "/var/lib/juju")
+	dataDir, err := paths.DataDir(version.Current.Series)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conf.DataDir, gc.Equals, dataDir)
 	badArgs := append(args, "--data-dir", "")
 	com, _ = create()
 	err = coretesting.InitCommand(com, badArgs)
@@ -160,10 +163,9 @@ func (s *AgentSuite) TearDownSuite(c *gc.C) {
 func (s *AgentSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	// Set API host ports so FindTools/Tools API calls succeed.
-	hostPorts := [][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    1234,
-	}}}
+	hostPorts := [][]network.HostPort{
+		network.NewHostPorts(1234, "0.1.2.3"),
+	}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&proxyupdater.New, func(*apienvironment.Facade, bool) worker.Worker {
@@ -175,13 +177,13 @@ func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
 	apiInfo := s.APIInfo(c)
 
 	c.Assert(apiInfo.Addrs, gc.HasLen, 1)
-	hostPort, err := agenttesting.ParseHostPort(apiInfo.Addrs[0])
+	hostPorts, err := network.ParseHostPorts(apiInfo.Addrs[0])
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SetAPIHostPorts([][]network.HostPort{{hostPort}})
+	err = s.State.SetAPIHostPorts([][]network.HostPort{hostPorts})
 	c.Assert(err, jc.ErrorIsNil)
 
-	logger.Debugf("api host ports primed %#v", hostPort)
+	logger.Debugf("api host ports primed %#v", hostPorts)
 }
 
 // primeStateAgent writes the configuration file and tools with version vers

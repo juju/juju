@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/juju/names"
@@ -14,7 +15,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/uniter"
@@ -22,7 +23,9 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var noProxies = proxy.Settings{}
@@ -45,19 +48,37 @@ func (MockEnvPaths) GetJujucSocket() string {
 	return "path-to-jujuc.socket"
 }
 
+func (MockEnvPaths) GetMetricsSpoolDir() string {
+	return "path-to-metrics-spool-dir"
+}
+
 // RealPaths implements Paths for tests that do touch the filesystem.
 type RealPaths struct {
-	tools  string
-	charm  string
-	socket string
+	tools        string
+	charm        string
+	socket       string
+	metricsspool string
+}
+
+func osDependentSockPath(c *gc.C) string {
+	sockPath := filepath.Join(c.MkDir(), "test.sock")
+	if runtime.GOOS == "windows" {
+		return `\\.\pipe` + sockPath[2:]
+	}
+	return sockPath
 }
 
 func NewRealPaths(c *gc.C) RealPaths {
 	return RealPaths{
-		tools:  c.MkDir(),
-		charm:  c.MkDir(),
-		socket: filepath.Join(c.MkDir(), "jujuc.socket"),
+		tools:        c.MkDir(),
+		charm:        c.MkDir(),
+		socket:       osDependentSockPath(c),
+		metricsspool: c.MkDir(),
 	}
+}
+
+func (p RealPaths) GetMetricsSpoolDir() string {
+	return p.metricsspool
 }
 
 func (p RealPaths) GetToolsDir() string {
@@ -81,6 +102,7 @@ type HookContextSuite struct {
 	machine  *state.Machine
 	relch    *state.Charm
 	relunits map[int]*state.RelationUnit
+	storage  *storageContextAccessor
 
 	st             *api.State
 	uniter         *uniter.State
@@ -133,22 +155,39 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.apiRelunits = map[int]*uniter.RelationUnit{}
 	s.AddContextRelation(c, "db0")
 	s.AddContextRelation(c, "db1")
+
+	storageData0 := names.NewStorageTag("data/0")
+	s.storage = &storageContextAccessor{
+		map[names.StorageTag]*contextStorage{
+			storageData0: &contextStorage{
+				storageData0,
+				storage.StorageKindBlock,
+				"/dev/sdb",
+			},
+		},
+	}
 }
 
 func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Service) *state.Unit {
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	if s.machine == nil {
-		s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	if s.machine != nil {
+		err = unit.AssignToMachine(s.machine)
 		c.Assert(err, jc.ErrorIsNil)
-		zone := "a-zone"
-		hwc := instance.HardwareCharacteristics{
-			AvailabilityZone: &zone,
-		}
-		err = s.machine.SetProvisioned("i-exist", "fake_nonce", &hwc)
-		c.Assert(err, jc.ErrorIsNil)
+		return unit
 	}
-	err = unit.AssignToMachine(s.machine)
+
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	machineId, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	s.machine, err = s.State.Machine(machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	zone := "a-zone"
+	hwc := instance.HardwareCharacteristics{
+		AvailabilityZone: &zone,
+	}
+	err = s.machine.SetProvisioned("i-exist", "fake_nonce", &hwc)
 	c.Assert(err, jc.ErrorIsNil)
 	return unit
 }
@@ -156,7 +195,7 @@ func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Service) *state.Unit {
 func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 	unit := s.addUnit(c, svc)
 	name := strings.Replace(unit.Name(), "/", "-", 1)
-	privateAddr := network.NewAddress(name+".testing.invalid", network.ScopeCloudLocal)
+	privateAddr := network.NewScopedAddress(name+".testing.invalid", network.ScopeCloudLocal)
 	err := s.machine.SetAddresses(privateAddr)
 	c.Assert(err, jc.ErrorIsNil)
 	return unit
@@ -197,7 +236,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 
 	context, err := runner.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
 		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
-		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag))
+		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag), NewRealPaths(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
@@ -219,7 +258,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 
 	context, err := runner.NewHookContext(s.meteredApiUnit, facade, "TestCtx", uuid,
 		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
-		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag))
+		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag), NewRealPaths(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
@@ -270,8 +309,10 @@ func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
 		_, err := fmt.Fprintf(hook, f+"\n", a...)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	printf("#!/bin/bash")
-	printf("echo $$ > pid")
+	if runtime.GOOS != "windows" {
+		printf("#!/bin/bash")
+	}
+	printf(echoPidScript)
 	if spec.stdout != "" {
 		printf("echo %s", spec.stdout)
 	}
@@ -287,4 +328,31 @@ func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
 		printf("(sleep 0.2; echo %s; sleep 10) &", spec.background)
 	}
 	printf("exit %d", spec.code)
+}
+
+type storageContextAccessor struct {
+	storage map[names.StorageTag]*contextStorage
+}
+
+func (s *storageContextAccessor) Storage(tag names.StorageTag) (jujuc.ContextStorage, bool) {
+	storage, ok := s.storage[tag]
+	return storage, ok
+}
+
+type contextStorage struct {
+	tag      names.StorageTag
+	kind     storage.StorageKind
+	location string
+}
+
+func (c *contextStorage) Tag() names.StorageTag {
+	return c.tag
+}
+
+func (c *contextStorage) Kind() storage.StorageKind {
+	return c.kind
+}
+
+func (c *contextStorage) Location() string {
+	return c.location
 }

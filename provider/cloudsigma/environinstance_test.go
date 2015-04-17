@@ -10,8 +10,8 @@ import (
 	"github.com/juju/loggo"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
@@ -158,7 +158,7 @@ func (s *environInstanceSuite) TestStartInstanceError(c *gc.C) {
 
 	res, err := environ.StartInstance(environs.StartInstanceParams{})
 	c.Check(res, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "machine configuration is nil")
+	c.Check(err, gc.ErrorMatches, "instance configuration is nil")
 
 	toolsVal := &tools.Tools{
 		Version: version.Binary{
@@ -166,7 +166,7 @@ func (s *environInstanceSuite) TestStartInstanceError(c *gc.C) {
 		},
 	}
 	res, err = environ.StartInstance(environs.StartInstanceParams{
-		MachineConfig: &cloudinit.MachineConfig{
+		InstanceConfig: &instancecfg.InstanceConfig{
 			Networks: []string{"value"},
 			Tools:    toolsVal,
 		},
@@ -175,14 +175,14 @@ func (s *environInstanceSuite) TestStartInstanceError(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "starting instances with networks is not supported yet")
 
 	res, err = environ.StartInstance(environs.StartInstanceParams{
-		MachineConfig: &cloudinit.MachineConfig{},
+		InstanceConfig: &instancecfg.InstanceConfig{},
 	})
 	c.Check(res, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "tools not found")
 
 	res, err = environ.StartInstance(environs.StartInstanceParams{
-		Tools:         tools.List{toolsVal},
-		MachineConfig: &cloudinit.MachineConfig{Tools: toolsVal},
+		Tools:          tools.List{toolsVal},
+		InstanceConfig: &instancecfg.InstanceConfig{Tools: toolsVal},
 	})
 	c.Check(res, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot make user data: invalid series \"\"")

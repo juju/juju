@@ -4,18 +4,14 @@
 package testing
 
 import (
-	"fmt"
-	"net"
-	"strconv"
 	"time"
 
+	"github.com/juju/cmd"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/cmd"
 	"github.com/juju/juju/agent"
-
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
@@ -107,27 +103,13 @@ func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
 	apiInfo := s.APIInfo(c)
 
 	c.Assert(apiInfo.Addrs, gc.HasLen, 1)
-	hostPort, err := ParseHostPort(apiInfo.Addrs[0])
+	hostPorts, err := network.ParseHostPorts(apiInfo.Addrs[0])
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SetAPIHostPorts([][]network.HostPort{{hostPort}})
+	err = s.State.SetAPIHostPorts([][]network.HostPort{hostPorts})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Logf("api host ports primed %#v", hostPort)
-}
-
-func ParseHostPort(s string) (network.HostPort, error) {
-	addr, port, err := net.SplitHostPort(s)
-	if err != nil {
-		return network.HostPort{}, err
-	}
-	portNum, err := strconv.Atoi(port)
-	if err != nil {
-		return network.HostPort{}, fmt.Errorf("bad port number %q", port)
-	}
-	addrs := network.NewAddresses(addr)
-	hostPorts := network.AddressesWithPort(addrs, portNum)
-	return hostPorts[0], nil
+	c.Logf("api host ports primed %#v", hostPorts)
 }
 
 // InitAgent initialises the given agent command with additional

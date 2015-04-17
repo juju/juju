@@ -171,16 +171,16 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 		drv = nil
 	}()
 
-	if args.MachineConfig == nil {
-		err = errors.New("invalid configuration for new instance: MachineConfig is nil")
+	if args.InstanceConfig == nil {
+		err = errors.New("invalid configuration for new instance: InstanceConfig is nil")
 		return nil, nil, "", err
 	}
 
 	logger.Debugf("Tools: %v", args.Tools.URLs())
 	logger.Debugf("Juju Constraints:" + args.Constraints.String())
-	logger.Debugf("MachineConfig: %#v", args.MachineConfig)
+	logger.Debugf("InstanceConfig: %#v", args.InstanceConfig)
 
-	constraints := newConstraints(args.MachineConfig.Bootstrap, args.Constraints, img)
+	constraints := newConstraints(args.InstanceConfig.Bootstrap, args.Constraints, img)
 	logger.Debugf("CloudSigma Constraints: %v", constraints)
 
 	originalDrive, err := c.conn.Drive(constraints.driveTemplate, gosigma.LibraryMedia)
@@ -189,7 +189,7 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 		return nil, nil, "", err
 	}
 
-	baseName := "juju-" + c.uuid + "-" + args.MachineConfig.MachineId
+	baseName := "juju-" + c.uuid + "-" + args.InstanceConfig.MachineId
 
 	cloneParams := gosigma.CloneParams{Name: baseName}
 	if drv, err = originalDrive.CloneWait(cloneParams, nil); err != nil {
@@ -251,7 +251,7 @@ func (c *environClient) generateSigmaComponents(baseName string, constraints *si
 	cc.AttachDrive(1, "0:0", "virtio", drv.UUID())
 	cc.NetworkDHCP4(gosigma.ModelVirtio)
 
-	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
 		cc.SetMeta(jujuMetaInstance, jujuMetaInstanceStateServer)
 	} else {
 		cc.SetMeta(jujuMetaInstance, jujuMetaInstanceServer)

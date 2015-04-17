@@ -26,7 +26,9 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider/dummy"
+	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -448,11 +450,11 @@ func (s *withoutStateServerSuite) assertLife(c *gc.C, index int, expectLife stat
 func (s *withoutStateServerSuite) assertStatus(c *gc.C, index int, expectStatus state.Status, expectInfo string,
 	expectData map[string]interface{}) {
 
-	status, info, data, err := s.machines[index].Status()
+	statusInfo, err := s.machines[index].Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, expectStatus)
-	c.Assert(info, gc.Equals, expectInfo)
-	c.Assert(data, gc.DeepEquals, expectData)
+	c.Assert(statusInfo.Status, gc.Equals, expectStatus)
+	c.Assert(statusInfo.Message, gc.Equals, expectInfo)
+	c.Assert(statusInfo.Data, gc.DeepEquals, expectData)
 }
 
 func (s *withoutStateServerSuite) TestWatchContainers(c *gc.C) {
@@ -559,6 +561,15 @@ func (s *withoutStateServerSuite) TestStatus(c *gc.C) {
 	}}
 	result, err := s.provisioner.Status(args)
 	c.Assert(err, jc.ErrorIsNil)
+	// Zero out the updated timestamps so we can easily check the results.
+	for i, statusResult := range result.Results {
+		r := statusResult
+		if r.Status != "" {
+			c.Assert(r.Since, gc.NotNil)
+		}
+		r.Since = nil
+		result.Results[i] = r
+	}
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{Status: params.StatusStarted, Info: "blah", Data: map[string]interface{}{}},
@@ -725,6 +736,14 @@ func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C)
 }
 
 func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
+	registry.RegisterProvider("static", &dummy.StorageProvider{IsDynamic: false})
+	defer registry.RegisterProvider("static", nil)
+	registry.RegisterEnvironStorageProviders("dummy", "static")
+
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+
 	cons := constraints.MustParse("cpu-cores=123 mem=8G networks=^net3,^net4")
 	template := state.MachineTemplate{
 		Series:            "quantal",
@@ -732,7 +751,10 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 		Constraints:       cons,
 		Placement:         "valid",
 		RequestedNetworks: []string{"net1", "net2"},
-		BlockDevices:      []state.BlockDeviceParams{{Size: 1000}, {Size: 2000}},
+		Volumes: []state.MachineVolumeParams{
+			{Volume: state.VolumeParams{Size: 1000, Pool: "static-pool"}},
+			{Volume: state.VolumeParams{Size: 2000, Pool: "static-pool"}},
+		},
 	}
 	placementMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
@@ -746,7 +768,8 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 	}}
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ProvisioningInfoResults{
+
+	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
 				Series:   "quantal",
@@ -759,11 +782,88 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Placement:   template.Placement,
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-				Volumes:     []storage.VolumeParams{{Name: "0", Size: 1000}, {Name: "1", Size: 2000}},
+				Volumes: []params.VolumeParams{{
+					VolumeTag:  "volume-0",
+					Size:       1000,
+					Provider:   "static",
+					Attributes: map[string]interface{}{"foo": "bar"},
+					Attachment: &params.VolumeAttachmentParams{
+						MachineTag: placementMachine.Tag().String(),
+						VolumeTag:  "volume-0",
+						Provider:   "static",
+					},
+				}, {
+					VolumeTag:  "volume-1",
+					Size:       2000,
+					Provider:   "static",
+					Attributes: map[string]interface{}{"foo": "bar"},
+					Attachment: &params.VolumeAttachmentParams{
+						MachineTag: placementMachine.Tag().String(),
+						VolumeTag:  "volume-1",
+						Provider:   "static",
+					},
+				}},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
+		},
+	}
+	// The order of volumes is not predictable, so we make sure we compare the right ones. This only
+	// applies to Results[1] since it is the only result to contain volumes.
+	if expected.Results[1].Result.Volumes[0].VolumeTag != result.Results[1].Result.Volumes[0].VolumeTag {
+		vols := expected.Results[1].Result.Volumes
+		vols[0], vols[1] = vols[1], vols[0]
+	}
+	c.Assert(result, jc.DeepEquals, expected)
+}
+
+func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
+	registry.RegisterProvider("dynamic", &dummy.StorageProvider{IsDynamic: true})
+	defer registry.RegisterProvider("dynamic", nil)
+	registry.RegisterProvider("static", &dummy.StorageProvider{IsDynamic: false})
+	defer registry.RegisterProvider("static", nil)
+	registry.RegisterEnvironStorageProviders("dummy", "dynamic", "static")
+
+	template := state.MachineTemplate{
+		Series:            "quantal",
+		Jobs:              []state.MachineJob{state.JobHostUnits},
+		Placement:         "valid",
+		RequestedNetworks: []string{"net1", "net2"},
+		Volumes: []state.MachineVolumeParams{
+			{Volume: state.VolumeParams{Size: 1000, Pool: "dynamic"}},
+			{Volume: state.VolumeParams{Size: 1000, Pool: "static"}},
+		},
+	}
+	placementMachine, err := s.State.AddOneMachine(template)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: placementMachine.Tag().String()},
+	}}
+	result, err := s.provisioner.ProvisioningInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(result, jc.DeepEquals, params.ProvisioningInfoResults{
+		Results: []params.ProvisioningInfoResult{
+			{Result: &params.ProvisioningInfo{
+				Series:      "quantal",
+				Constraints: template.Constraints,
+				Placement:   template.Placement,
+				Networks:    template.RequestedNetworks,
+				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Volumes: []params.VolumeParams{{
+					VolumeTag:  "volume-1",
+					Size:       1000,
+					Provider:   "static",
+					Attributes: nil,
+					Attachment: &params.VolumeAttachmentParams{
+						MachineTag: placementMachine.Tag().String(),
+						VolumeTag:  "volume-1",
+						Provider:   "static",
+					},
+				}},
+			}},
 		},
 	})
 }
@@ -787,7 +887,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 
 	// Only machine 0 and containers therein can be accessed.
 	results, err := aProvisioner.ProvisioningInfo(args)
-	c.Assert(results, gc.DeepEquals, params.ProvisioningInfoResults{
+	c.Assert(results, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
 				Series:   "quantal",
@@ -920,16 +1020,31 @@ func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
+	registry.RegisterProvider("static", &dummy.StorageProvider{IsDynamic: false})
+	defer registry.RegisterProvider("static", nil)
+	registry.RegisterEnvironStorageProviders("dummy", "static")
+
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{
+		"storage-default-block-source": "static-pool",
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Provision machine 0 first.
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err := s.machines[0].SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil, nil)
+	err = s.machines[0].SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	volumesMachine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:       "quantal",
-		Jobs:         []state.MachineJob{state.JobHostUnits},
-		BlockDevices: []state.BlockDeviceParams{{Size: 1000}},
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Volumes: []state.MachineVolumeParams{{
+			Volume: state.VolumeParams{Size: 1000},
+		}},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	networks := []params.Network{{
 		Tag:        "network-net1",
@@ -1006,7 +1121,16 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		Tag:        volumesMachine.Tag().String(),
 		InstanceId: "i-am-also",
 		Nonce:      "fake",
-		Volumes:    []storage.BlockDevice{{Name: "0", Size: 1234}},
+		Volumes: []params.Volume{{
+			VolumeTag: "volume-0",
+			VolumeId:  "vol-0",
+			Size:      1234,
+		}},
+		VolumeAttachments: []params.VolumeAttachment{{
+			VolumeTag:  "volume-0",
+			MachineTag: volumesMachine.Tag().String(),
+			DeviceName: "sda",
+		}},
 	},
 		{Tag: "machine-42"},
 		{Tag: "unit-foo-0"},
@@ -1072,29 +1196,34 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		tag, err := names.ParseNetworkTag(networks[i].Tag)
 		c.Assert(err, jc.ErrorIsNil)
 		networkName := tag.Id()
-		network, err := s.State.Network(networkName)
+		nw, err := s.State.Network(networkName)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(network.Name(), gc.Equals, networkName)
-		c.Check(network.ProviderId(), gc.Equals, networks[i].ProviderId)
-		c.Check(network.Tag().String(), gc.Equals, networks[i].Tag)
-		c.Check(network.VLANTag(), gc.Equals, networks[i].VLANTag)
-		c.Check(network.CIDR(), gc.Equals, networks[i].CIDR)
+		c.Check(nw.Name(), gc.Equals, networkName)
+		c.Check(nw.ProviderId(), gc.Equals, network.Id(networks[i].ProviderId))
+		c.Check(nw.Tag().String(), gc.Equals, networks[i].Tag)
+		c.Check(nw.VLANTag(), gc.Equals, networks[i].VLANTag)
+		c.Check(nw.CIDR(), gc.Equals, networks[i].CIDR)
 	}
 
 	// Verify the machine with requested volumes was provisioned, and the
 	// volume information recorded in state.
-	blockDevices, err := volumesMachine.BlockDevices()
+	volumeAttachments, err := s.State.MachineVolumeAttachments(volumesMachine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockDevices, gc.HasLen, 1)
-	blockDeviceInfo, err := blockDevices[0].Info()
+	c.Assert(volumeAttachments, gc.HasLen, 1)
+	volumeAttachmentInfo, err := volumeAttachments[0].Info()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockDeviceInfo, gc.Equals, state.BlockDeviceInfo{Size: 1234})
+	c.Assert(volumeAttachmentInfo, gc.Equals, state.VolumeAttachmentInfo{DeviceName: "sda"})
+	volume, err := s.State.Volume(volumeAttachments[0].Volume())
+	c.Assert(err, jc.ErrorIsNil)
+	volumeInfo, err := volume.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeInfo, gc.Equals, state.VolumeInfo{VolumeId: "vol-0", Pool: "static-pool", Size: 1234})
 
-	// Verify the machine without requested volumes still has no volumes
-	// recorded in state.
-	blockDevices, err = s.machines[1].BlockDevices()
+	// Verify the machine without requested volumes still has no volume
+	// attachments recorded in state.
+	volumeAttachments, err = s.State.MachineVolumeAttachments(s.machines[1].MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockDevices, gc.HasLen, 0)
+	c.Assert(volumeAttachments, gc.HasLen, 0)
 }
 
 func (s *withoutStateServerSuite) TestInstanceId(c *gc.C) {
@@ -1161,18 +1290,39 @@ func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }
 
-func (s *withoutStateServerSuite) TestContainerManagerConfig(c *gc.C) {
-	args := params.ContainerManagerConfigParams{Type: instance.KVM}
+func (s *withoutStateServerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType) map[string]string {
+	args := params.ContainerManagerConfigParams{Type: typ}
 	results, err := s.provisioner.ContainerManagerConfig(args)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.ManagerConfig, gc.DeepEquals, map[string]string{
+	c.Assert(err, jc.ErrorIsNil)
+	return results.ManagerConfig
+}
+
+func (s *withoutStateServerSuite) TestContainerManagerConfig(c *gc.C) {
+	cfg := s.getManagerConfig(c, instance.KVM)
+	c.Assert(cfg, jc.DeepEquals, map[string]string{
+		container.ConfigName: "juju",
+
+		// dummy provider supports both networking and address
+		// allocation by default, so IP forwarding should be enabled.
+		container.ConfigIPForwarding: "true",
+	})
+}
+
+func (s *withoutStateServerSuite) TestContainerManagerConfigNoIPForwarding(c *gc.C) {
+	// Break dummy provider's SupportsAddressAllocation method to
+	// ensure ConfigIPForwarding is not set below.
+	s.AssertConfigParameterUpdated(c, "broken", "SupportsAddressAllocation")
+
+	cfg := s.getManagerConfig(c, instance.KVM)
+	c.Assert(cfg, jc.DeepEquals, map[string]string{
 		container.ConfigName: "juju",
 	})
 }
 
 func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 	attrs := map[string]interface{}{
-		"http-proxy": "http://proxy.example.com:9000",
+		"http-proxy":            "http://proxy.example.com:9000",
+		"allow-lxc-loop-mounts": true,
 	}
 	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1189,6 +1339,7 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.PreferIPv6, jc.IsTrue)
+	c.Check(results.AllowLXCLoopMounts, jc.IsTrue)
 }
 
 func (s *withoutStateServerSuite) TestSetSupportedContainers(c *gc.C) {
@@ -1285,11 +1436,9 @@ func (s *withStateServerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *withStateServerSuite) TestAPIAddresses(c *gc.C) {
-	hostPorts := [][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    1234,
-	}}}
-
+	hostPorts := [][]network.HostPort{
+		network.NewHostPorts(1234, "0.1.2.3"),
+	}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1319,6 +1468,8 @@ func (s *withStateServerSuite) TestCACert(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestWatchMachineErrorRetry(c *gc.C) {
+	coretesting.SkipIfI386(c, "lp:1425569")
+
 	s.PatchValue(&provisioner.ErrorRetryWaitDelay, 2*coretesting.ShortWait)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 

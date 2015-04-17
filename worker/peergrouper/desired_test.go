@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/replicaset"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/testing"
 )
 

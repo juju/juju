@@ -4,15 +4,17 @@
 package action_test
 
 import (
+	"errors"
 	"io/ioutil"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/juju/cmd"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -108,9 +110,9 @@ var someCharmActions = &charm.Actions{
 // and 0..n given tags. This is useful for stubbing out the API and
 // ensuring that the API returns expected tags for a given id prefix.
 func tagsForIdPrefix(prefix string, tags ...string) params.FindTagsResults {
-	var entities []params.Entity
-	for _, t := range tags {
-		entities = append(entities, params.Entity{Tag: t})
+	entities := make([]params.Entity, len(tags))
+	for i, t := range tags {
+		entities[i] = params.Entity{Tag: t}
 	}
 	return params.FindTagsResults{Matches: map[string][]params.Entity{prefix: entities}}
 }
@@ -127,6 +129,8 @@ func setupValueFile(c *gc.C, dir, filename, value string) string {
 }
 
 type fakeAPIClient struct {
+	delay              *time.Timer
+	timeout            *time.Timer
 	actionResults      []params.ActionResult
 	enqueuedActions    params.Actions
 	actionsByReceivers []params.ActionsByReceiver
@@ -181,9 +185,30 @@ func (c *fakeAPIClient) ServiceCharmActions(params.Entity) (*charm.Actions, erro
 }
 
 func (c *fakeAPIClient) Actions(args params.Entities) (params.ActionResults, error) {
-	return params.ActionResults{
-		Results: c.actionResults,
-	}, c.apiErr
+	// If the test supplies a delay time too long, we'll return an error
+	// to prevent the test hanging.  If the given wait is up, then return
+	// the results; otherwise, return a pending status.
+
+	// First, sync.
+	_ = <-time.NewTimer(0 * time.Second).C
+
+	select {
+	case _ = <-c.delay.C:
+		// The API delay timer is up.  Pass pre-canned results back.
+		return params.ActionResults{Results: c.actionResults}, c.apiErr
+	case _ = <-c.timeout.C:
+		// Timeout to prevent tests from hanging.
+		return params.ActionResults{}, errors.New("test timed out before wait time")
+	default:
+		// Timeout should only be nonzero in case we want to test
+		// pending behavior with a --wait flag on FetchCommand.
+		return params.ActionResults{Results: []params.ActionResult{{
+			Status:   params.ActionPending,
+			Output:   map[string]interface{}{},
+			Started:  time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
+			Enqueued: time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+		}}}, nil
+	}
 }
 
 func (c *fakeAPIClient) FindActionTagsByPrefix(arg params.FindTags) (params.FindTagsResults, error) {

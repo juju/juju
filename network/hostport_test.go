@@ -274,9 +274,9 @@ func (*HostPortSuite) TestParseHostPortsSuccess(c *gc.C) {
 	}, {
 		args: []string{"[fc00::1]:1234", "127.0.0.1:4321", "example.com:42"},
 		expect: []network.HostPort{
-			{network.NewAddress("fc00::1", network.ScopeUnknown), 1234},
-			{network.NewAddress("127.0.0.1", network.ScopeUnknown), 4321},
-			{network.NewAddress("example.com", network.ScopeUnknown), 42},
+			{network.NewAddress("fc00::1"), 1234},
+			{network.NewAddress("127.0.0.1"), 4321},
+			{network.NewAddress("example.com"), 42},
 		},
 	}} {
 		c.Logf("test %d: args %v", i, test.args)
@@ -290,10 +290,10 @@ func (*HostPortSuite) TestAddressesWithPortAndHostsWithoutPort(c *gc.C) {
 	addrs := network.NewAddresses("0.1.2.3", "0.2.4.6")
 	hps := network.AddressesWithPort(addrs, 999)
 	c.Assert(hps, jc.DeepEquals, []network.HostPort{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
+		Address: network.NewAddress("0.1.2.3"),
 		Port:    999,
 	}, {
-		Address: network.NewAddress("0.2.4.6", network.ScopeUnknown),
+		Address: network.NewAddress("0.2.4.6"),
 		Port:    999,
 	}})
 	c.Assert(network.HostsWithoutPort(hps), jc.DeepEquals, addrs)
@@ -385,43 +385,43 @@ var netAddrTests = []struct {
 	port   int
 	expect string
 }{{
-	addr:   network.NewAddress("0.1.2.3", network.ScopeUnknown),
+	addr:   network.NewAddress("0.1.2.3"),
 	port:   99,
 	expect: "0.1.2.3:99",
 }, {
-	addr:   network.NewAddress("2001:DB8::1", network.ScopeUnknown),
+	addr:   network.NewAddress("2001:DB8::1"),
 	port:   100,
 	expect: "[2001:DB8::1]:100",
 }, {
-	addr:   network.NewAddress("172.16.0.1", network.ScopeUnknown),
+	addr:   network.NewAddress("172.16.0.1"),
 	port:   52,
 	expect: "172.16.0.1:52",
 }, {
-	addr:   network.NewAddress("fc00::2", network.ScopeUnknown),
+	addr:   network.NewAddress("fc00::2"),
 	port:   1111,
 	expect: "[fc00::2]:1111",
 }, {
-	addr:   network.NewAddress("example.com", network.ScopeUnknown),
+	addr:   network.NewAddress("example.com"),
 	port:   9999,
 	expect: "example.com:9999",
 }, {
-	addr:   network.NewAddress("example.com", network.ScopePublic),
+	addr:   network.NewScopedAddress("example.com", network.ScopePublic),
 	port:   1234,
 	expect: "example.com:1234",
 }, {
-	addr:   network.NewAddress("169.254.1.2", network.ScopeUnknown),
+	addr:   network.NewAddress("169.254.1.2"),
 	port:   123,
 	expect: "169.254.1.2:123",
 }, {
-	addr:   network.NewAddress("fe80::222", network.ScopeUnknown),
+	addr:   network.NewAddress("fe80::222"),
 	port:   321,
 	expect: "[fe80::222]:321",
 }, {
-	addr:   network.NewAddress("127.0.0.2", network.ScopeUnknown),
+	addr:   network.NewAddress("127.0.0.2"),
 	port:   121,
 	expect: "127.0.0.2:121",
 }, {
-	addr:   network.NewAddress("::1", network.ScopeUnknown),
+	addr:   network.NewAddress("::1"),
 	port:   111,
 	expect: "[::1]:111",
 }}

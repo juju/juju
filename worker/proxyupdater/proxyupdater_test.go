@@ -7,11 +7,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"runtime"
 	"strings"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/apt"
+	"github.com/juju/utils/packaging/commands"
+	pacconfig "github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 
@@ -21,6 +23,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/proxyupdater"
 )
@@ -57,7 +60,7 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&proxyupdater.ProxyDirectory, proxyDir)
 	s.started = make(chan struct{})
 	s.PatchValue(&proxyupdater.Started, s.setStarted)
-	s.PatchValue(&apt.ConfFile, path.Join(proxyDir, "juju-apt-proxy"))
+	s.PatchValue(&pacconfig.AptProxyConfigFile, path.Join(proxyDir, "juju-apt-proxy"))
 	s.proxyFile = path.Join(proxyDir, proxyupdater.ProxyFile)
 }
 
@@ -86,6 +89,10 @@ func (s *ProxyUpdaterSuite) waitProxySettings(c *gc.C, expected proxy.Settings) 
 }
 
 func (s *ProxyUpdaterSuite) waitForFile(c *gc.C, filename, expected string) {
+	//TODO(bogdanteleaga): Find a way to test this on windows
+	if runtime.GOOS == "windows" {
+		c.Skip("Proxy settings are written to the registry on windows")
+	}
 	for {
 		select {
 		case <-time.After(testing.LongWait):
@@ -128,9 +135,9 @@ func (s *ProxyUpdaterSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Setting
 	// proxy settings which is what we would get if we don't explicitly set
 	// apt values.
 	aptProxySettings := proxy.Settings{
-		Http:  "apt http proxy",
-		Https: "apt https proxy",
-		Ftp:   "apt ftp proxy",
+		Http:  "http://apt.http.proxy",
+		Https: "https://apt.https.proxy",
+		Ftp:   "ftp://apt.ftp.proxy",
 	}
 	for k, v := range config.AptProxyConfigMap(aptProxySettings) {
 		attrs[k] = v
@@ -150,7 +157,10 @@ func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
 
 	s.waitProxySettings(c, proxySettings)
 	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
-	s.waitForFile(c, apt.ConfFile, apt.ProxyContent(aptProxySettings)+"\n")
+
+	paccmder, err := commands.NewPackageCommander(version.Current.Series)
+	c.Assert(err, jc.ErrorIsNil)
+	s.waitForFile(c, pacconfig.AptProxyConfigFile, paccmder.ProxyConfigContents(aptProxySettings)+"\n")
 }
 
 func (s *ProxyUpdaterSuite) TestWriteSystemFiles(c *gc.C) {
@@ -162,7 +172,10 @@ func (s *ProxyUpdaterSuite) TestWriteSystemFiles(c *gc.C) {
 
 	s.waitProxySettings(c, proxySettings)
 	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
-	s.waitForFile(c, apt.ConfFile, apt.ProxyContent(aptProxySettings)+"\n")
+
+	paccmder, err := commands.NewPackageCommander(version.Current.Series)
+	c.Assert(err, jc.ErrorIsNil)
+	s.waitForFile(c, pacconfig.AptProxyConfigFile, paccmder.ProxyConfigContents(aptProxySettings)+"\n")
 }
 
 func (s *ProxyUpdaterSuite) TestEnvironmentVariables(c *gc.C) {
@@ -200,6 +213,6 @@ func (s *ProxyUpdaterSuite) TestDontWriteSystemFiles(c *gc.C) {
 	s.waitForPostSetup(c)
 
 	s.waitProxySettings(c, proxySettings)
-	c.Assert(apt.ConfFile, jc.DoesNotExist)
+	c.Assert(pacconfig.AptProxyConfigFile, jc.DoesNotExist)
 	c.Assert(s.proxyFile, jc.DoesNotExist)
 }

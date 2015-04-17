@@ -17,17 +17,14 @@ import (
 // github.com/juju/juju/juju/paths, etc.):
 const (
 	dataDir        = "/var/lib/juju"
-	startupDir     = "/etc/init"
 	loggingConfDir = "/etc/rsyslog.d"
 	logsDir        = "/var/log/juju"
 	sshDir         = "/home/ubuntu/.ssh"
 
-	machinesConfs = "jujud-machine-*.conf"
-	agentsDir     = "agents"
-	agentsConfs   = "machine-*"
-	jujuInitConfs = "juju-*.conf"
-	loggingConfs  = "*juju.conf"
-	toolsDir      = "tools"
+	agentsDir    = "agents"
+	agentsConfs  = "machine-*"
+	loggingConfs = "*juju.conf"
+	toolsDir     = "tools"
 
 	sshIdentFile   = "system-identity"
 	nonceFile      = "nonce.txt"
@@ -51,18 +48,6 @@ type Paths struct {
 func GetFilesToBackUp(rootDir string, paths *Paths, oldmachine string) ([]string, error) {
 	var glob string
 
-	glob = filepath.Join(rootDir, startupDir, machinesConfs)
-	initMachineConfs, err := filepath.Glob(glob)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to fetch machine init files")
-	}
-
-	glob = filepath.Join(rootDir, startupDir, jujuInitConfs)
-	initConfs, err := filepath.Glob(glob)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to fetch startup conf files")
-	}
-
 	glob = filepath.Join(rootDir, paths.DataDir, agentsDir, agentsConfs)
 	agentConfs, err := filepath.Glob(glob)
 	if err != nil {
@@ -83,9 +68,7 @@ func GetFilesToBackUp(rootDir string, paths *Paths, oldmachine string) ([]string
 		filepath.Join(rootDir, paths.DataDir, dbPEM),
 		filepath.Join(rootDir, paths.DataDir, dbSecret),
 	}
-	backupFiles = append(backupFiles, initMachineConfs...)
 	backupFiles = append(backupFiles, agentConfs...)
-	backupFiles = append(backupFiles, initConfs...)
 	backupFiles = append(backupFiles, jujuLogConfs...)
 
 	// Handle logs (might not exist).

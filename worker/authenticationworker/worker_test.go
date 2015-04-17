@@ -4,6 +4,7 @@
 package authenticationworker_test
 
 import (
+	"runtime"
 	"strings"
 	stdtesting "testing"
 	"time"
@@ -47,6 +48,10 @@ type workerSuite struct {
 }
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
+	//TODO(bogdanteleaga): Fix this on windows
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: authentication worker not implemented yet on windows")
+	}
 	s.JujuConnSuite.SetUpTest(c)
 	// Default ssh user is currently "ubuntu".
 	c.Assert(authenticationworker.SSHUser, gc.Equals, "ubuntu")

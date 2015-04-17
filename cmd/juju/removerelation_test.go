@@ -4,9 +4,6 @@
 package main
 
 import (
-	"strings"
-
-	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -18,6 +15,14 @@ import (
 
 type RemoveRelationSuite struct {
 	jujutesting.RepoSuite
+	CmdBlockHelper
+}
+
+func (s *RemoveRelationSuite) SetUpTest(c *gc.C) {
+	s.RepoSuite.SetUpTest(c)
+	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	c.Assert(s.CmdBlockHelper, gc.NotNil)
+	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
 
 var _ = gc.Suite(&RemoveRelationSuite{})
@@ -59,12 +64,8 @@ func (s *RemoveRelationSuite) TestBlockRemoveRelation(c *gc.C) {
 	s.setupRelationForRemove(c)
 
 	// block operation
-	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
+	s.BlockRemoveObject(c, "TestBlockRemoveRelation")
 	// Destroy a relation that exists.
 	err := runRemoveRelation(c, "logging", "riak")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock removal.*")
+	s.AssertBlocked(c, err, ".*TestBlockRemoveRelation.*")
 }

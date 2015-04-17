@@ -10,14 +10,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gomaasapi"
 
-	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/storage"
 )
 
 var (
 	ShortAttempt = &shortAttempt
-	LongAttempt  = &longAttempt
 	APIVersion   = apiVersion
 )
 
@@ -29,7 +28,7 @@ func GetMAASClient(env environs.Environ) *gomaasapi.MAASObject {
 	return env.(*maasEnviron).getMAASClient()
 }
 
-func NewCloudinitConfig(env environs.Environ, hostname, iface, series string) (*cloudinit.Config, error) {
+func NewCloudinitConfig(env environs.Environ, hostname, iface, series string) (cloudinit.CloudConfig, error) {
 	return env.(*maasEnviron).newCloudinitConfig(hostname, iface, series)
 }
 

@@ -1,6 +1,8 @@
 // Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build !windows
+
 package charm_test
 
 import (
@@ -11,7 +13,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v4"
+	corecharm "gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/charm"

@@ -7,6 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -45,11 +47,11 @@ var findInstanceImage = func(env *environ, ic *imagemetadata.ImageConstraint) (*
 func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	logger.Infof("sigmaEnviron.StartInstance...")
 
-	if args.MachineConfig == nil {
-		return nil, errors.New("machine configuration is nil")
+	if args.InstanceConfig == nil {
+		return nil, errors.New("instance configuration is nil")
 	}
 
-	if args.MachineConfig.HasNetworks() {
+	if args.InstanceConfig.HasNetworks() {
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 
@@ -73,11 +75,11 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 		return nil, errors.Errorf("chosen architecture %v not present in %v", img.Arch, args.Tools.Arches())
 	}
 
-	args.MachineConfig.Tools = tools[0]
-	if err := environs.FinishMachineConfig(args.MachineConfig, env.Config()); err != nil {
+	args.InstanceConfig.Tools = tools[0]
+	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config()); err != nil {
 		return nil, err
 	}
-	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}

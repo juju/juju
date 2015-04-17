@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -43,7 +43,10 @@ type uniterBaseSuite struct {
 	mysql         *state.Service
 	wordpressUnit *state.Unit
 	mysqlUnit     *state.Unit
-	meteredUnit   *state.Unit
+
+	meteredService *state.Service
+	meteredCharm   *state.Charm
+	meteredUnit    *state.Unit
 }
 
 func (s *uniterBaseSuite) setUpTest(c *gc.C) {
@@ -85,15 +88,15 @@ func (s *uniterBaseSuite) setUpTest(c *gc.C) {
 		Machine: s.machine1,
 	})
 
-	meteredCharm := s.Factory.MakeCharm(c, &jujuFactory.CharmParams{
+	s.meteredCharm = s.Factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "metered",
 		URL:  "cs:quantal/metered",
 	})
-	meteredService := s.Factory.MakeService(c, &jujuFactory.ServiceParams{
-		Charm: meteredCharm,
+	s.meteredService = s.Factory.MakeService(c, &jujuFactory.ServiceParams{
+		Charm: s.meteredCharm,
 	})
 	s.meteredUnit = s.Factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service:     meteredService,
+		Service:     s.meteredService,
 		SetCharmURL: true,
 	})
 
@@ -126,15 +129,15 @@ func (s *uniterBaseSuite) testSetStatus(
 		SetStatus(args params.SetStatus) (params.ErrorResults, error)
 	},
 ) {
-	err := s.wordpressUnit.SetStatus(state.StatusActive, "blah", nil)
+	err := s.wordpressUnit.SetAgentStatus(state.StatusExecuting, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysqlUnit.SetStatus(state.StatusStopping, "foo", nil)
+	err = s.mysqlUnit.SetAgentStatus(state.StatusExecuting, "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
 			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
-			{Tag: "unit-wordpress-0", Status: params.StatusStopping, Info: "foobar"},
+			{Tag: "unit-wordpress-0", Status: params.StatusRebooting, Info: "foobar"},
 			{Tag: "unit-foo-42", Status: params.StatusActive, Info: "blah"},
 		}}
 	result, err := facade.SetStatus(args)
@@ -148,15 +151,93 @@ func (s *uniterBaseSuite) testSetStatus(
 	})
 
 	// Verify mysqlUnit - no change.
-	status, info, _, err := s.mysqlUnit.Status()
+	statusInfo, err := s.mysqlUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusStopping)
-	c.Assert(info, gc.Equals, "foo")
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusExecuting)
+	c.Assert(statusInfo.Message, gc.Equals, "foo")
 	// ...wordpressUnit is fine though.
-	status, info, _, err = s.wordpressUnit.Status()
+	statusInfo, err = s.wordpressUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusStopping)
-	c.Assert(info, gc.Equals, "foobar")
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusRebooting)
+	c.Assert(statusInfo.Message, gc.Equals, "foobar")
+}
+
+func (s *uniterBaseSuite) testSetAgentStatus(
+	c *gc.C,
+	facade interface {
+		SetAgentStatus(args params.SetStatus) (params.ErrorResults, error)
+	},
+) {
+	err := s.wordpressUnit.SetAgentStatus(state.StatusExecuting, "blah", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysqlUnit.SetAgentStatus(state.StatusExecuting, "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.SetStatus{
+		Entities: []params.EntityStatus{
+			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
+			{Tag: "unit-wordpress-0", Status: params.StatusExecuting, Info: "foobar"},
+			{Tag: "unit-foo-42", Status: params.StatusRebooting, Info: "blah"},
+		}}
+	result, err := facade.SetAgentStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify mysqlUnit - no change.
+	statusInfo, err := s.mysqlUnit.AgentStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusExecuting)
+	c.Assert(statusInfo.Message, gc.Equals, "foo")
+	// ...wordpressUnit is fine though.
+	statusInfo, err = s.wordpressUnit.AgentStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusExecuting)
+	c.Assert(statusInfo.Message, gc.Equals, "foobar")
+}
+
+func (s *uniterBaseSuite) testSetUnitStatus(
+	c *gc.C,
+	facade interface {
+		SetUnitStatus(args params.SetStatus) (params.ErrorResults, error)
+	},
+) {
+	err := s.wordpressUnit.SetStatus(state.StatusActive, "blah", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysqlUnit.SetStatus(state.StatusTerminated, "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.SetStatus{
+		Entities: []params.EntityStatus{
+			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
+			{Tag: "unit-wordpress-0", Status: params.StatusTerminated, Info: "foobar"},
+			{Tag: "unit-foo-42", Status: params.StatusActive, Info: "blah"},
+		}}
+	result, err := facade.SetUnitStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify mysqlUnit - no change.
+	statusInfo, err := s.mysqlUnit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusTerminated)
+	c.Assert(statusInfo.Message, gc.Equals, "foo")
+	// ...wordpressUnit is fine though.
+	statusInfo, err = s.wordpressUnit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusTerminated)
+	c.Assert(statusInfo.Message, gc.Equals, "foobar")
 }
 
 func (s *uniterBaseSuite) testLife(
@@ -357,7 +438,9 @@ func (s *uniterBaseSuite) testPublicAddress(
 	})
 
 	// Now set it an try again.
-	err = s.machine0.SetAddresses(network.NewAddress("1.2.3.4", network.ScopePublic))
+	err = s.machine0.SetAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopePublic),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	address, ok := s.wordpressUnit.PublicAddress()
 	c.Assert(address, gc.Equals, "1.2.3.4")
@@ -400,7 +483,9 @@ func (s *uniterBaseSuite) testPrivateAddress(
 	})
 
 	// Now set it and try again.
-	err = s.machine0.SetAddresses(network.NewAddress("1.2.3.4", network.ScopeCloudLocal))
+	err = s.machine0.SetAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	address, ok := s.wordpressUnit.PrivateAddress()
 	c.Assert(address, gc.Equals, "1.2.3.4")
@@ -1112,16 +1197,15 @@ func (s *uniterBaseSuite) testCharmArchiveURLs(
 ) {
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 
-	hostPorts := [][]network.HostPort{{{
-		Address: network.NewAddress("1.2.3.4", network.ScopePublic),
-		Port:    1234,
-	}, {
-		Address: network.NewAddress("0.1.2.3", network.ScopeCloudLocal),
-		Port:    1234,
-	}}, {{
-		Address: network.NewAddress("1.2.3.5", network.ScopePublic),
-		Port:    1234,
-	}}}
+	hostPorts := [][]network.HostPort{
+		network.AddressesWithPort([]network.Address{
+			network.NewScopedAddress("1.2.3.4", network.ScopePublic),
+			network.NewScopedAddress("0.1.2.3", network.ScopeCloudLocal),
+		}, 1234),
+		network.AddressesWithPort([]network.Address{
+			network.NewScopedAddress("1.2.3.5", network.ScopePublic),
+		}, 1234),
+	}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1142,7 +1226,7 @@ func (s *uniterBaseSuite) testCharmArchiveURLs(
 		fmt.Sprintf("https://1.2.3.5:1234/environment/%s/charms?file=%%2A&url=local%%3Aquantal%%2Fdummy-1", coretesting.EnvironmentTag.Id()),
 	}
 
-	c.Assert(result, gc.DeepEquals, params.StringsResults{
+	c.Assert(result, jc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Result: wordpressURLs},
@@ -1540,7 +1624,9 @@ func (s *uniterBaseSuite) testEnterScope(
 	},
 ) {
 	// Set wordpressUnit's private address first.
-	err := s.machine0.SetAddresses(network.NewAddress("1.2.3.4", network.ScopeCloudLocal))
+	err := s.machine0.SetAddresses(
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	rel := s.addRelation(c, "wordpress", "mysql")
@@ -2024,11 +2110,9 @@ func (s *uniterBaseSuite) testAPIAddresses(
 		APIAddresses() (params.StringsResult, error)
 	},
 ) {
-	hostPorts := [][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    1234,
-	}}}
-
+	hostPorts := [][]network.HostPort{
+		network.NewHostPorts(1234, "0.1.2.3"),
+	}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2075,78 +2159,6 @@ func (s *uniterBaseSuite) testWatchUnitAddresses(
 	// the Watch call)
 	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
-}
-
-type addMetrics interface {
-	AddMetrics(args params.MetricsParams) (params.ErrorResults, error)
-}
-
-func (s *uniterBaseSuite) testAddMetrics(c *gc.C, facade addMetrics) {
-	now := time.Now()
-	sentMetrics := []params.Metric{{"pings", "5", now}, {"juju-unit-time", "0.71", now}}
-	args := params.MetricsParams{
-		Metrics: []params.MetricsParam{{
-			Tag:     s.meteredUnit.Tag().String(),
-			Metrics: sentMetrics,
-		}},
-	}
-	result, err := facade.AddMetrics(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	metrics, err := s.State.MetricBatches()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metrics, gc.HasLen, 1)
-
-	unitMetrics := metrics[0].Metrics()
-	c.Assert(unitMetrics, gc.HasLen, 2)
-
-	for i, unitMetric := range unitMetrics {
-		c.Assert(unitMetric.Key, gc.Equals, sentMetrics[i].Key)
-		c.Assert(unitMetric.Value, gc.Equals, sentMetrics[i].Value)
-	}
-}
-
-func (s *uniterBaseSuite) testAddMetricsIncorrectTag(c *gc.C, facade addMetrics) {
-	now := time.Now()
-
-	tags := []string{"user-admin", "unit-nosuchunit", "thisisnotatag", "machine-0", "environment-blah"}
-
-	for _, tag := range tags {
-
-		args := params.MetricsParams{
-			Metrics: []params.MetricsParam{{
-				Tag:     tag,
-				Metrics: []params.Metric{{"A", "5", now}, {"B", "0.71", now}},
-			}},
-		}
-
-		result, err := facade.AddMetrics(args)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result.Results, gc.HasLen, 1)
-		c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
-		metrics, err := s.State.MetricBatches()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(metrics, gc.HasLen, 0)
-	}
-}
-
-func (s *uniterBaseSuite) testAddMetricsUnauthenticated(c *gc.C, facade addMetrics) {
-	now := time.Now()
-	args := params.MetricsParams{
-		Metrics: []params.MetricsParam{{
-			Tag:     s.mysqlUnit.Tag().String(),
-			Metrics: []params.Metric{{"A", "5", now}, {"B", "0.71", now}},
-		}},
-	}
-	result, err := facade.AddMetrics(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
-	metrics, err := s.State.MetricBatches()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metrics, gc.HasLen, 0)
 }
 
 type getMeterStatus interface {

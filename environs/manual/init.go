@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/service"
 	"github.com/juju/juju/utils/ssh"
 )
 
@@ -26,32 +27,29 @@ uname -m
 grep MemTotal /proc/meminfo
 cat /proc/cpuinfo`
 
-// checkProvisionedScript is the script to run on the remote machine
-// to check if a machine has already been provisioned.
-//
-// This is a little convoluted to avoid returning an error in the
-// common case of no matching files.
-const checkProvisionedScript = "ls /etc/init/ | grep juju.*\\.conf || exit 0"
-
 // CheckProvisioned checks if any juju init service already
 // exist on the host machine.
 var CheckProvisioned = checkProvisioned
 
 func checkProvisioned(host string) (bool, error) {
 	logger.Infof("Checking if %s is already provisioned", host)
+
+	script := service.ListServicesScript()
+
 	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	cmd.Stdin = strings.NewReader(checkProvisionedScript)
+	cmd.Stdin = strings.NewReader(script)
 	if err := cmd.Run(); err != nil {
 		if stderr.Len() != 0 {
 			err = fmt.Errorf("%v (%v)", err, strings.TrimSpace(stderr.String()))
 		}
 		return false, err
 	}
+
 	output := strings.TrimSpace(stdout.String())
-	provisioned := len(output) > 0
+	provisioned := strings.Contains(output, "juju")
 	if provisioned {
 		logger.Infof("%s is already provisioned [%q]", host, output)
 	} else {

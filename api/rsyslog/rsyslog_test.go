@@ -30,7 +30,7 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	s.st, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create the rsyslog API facade
@@ -39,7 +39,10 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *rsyslogSuite) TestGetRsyslogConfig(c *gc.C) {
-	err := s.APIState.Client().EnvironmentSet(map[string]interface{}{"rsyslog-ca-cert": coretesting.CACert})
+	err := s.APIState.Client().EnvironmentSet(map[string]interface{}{
+		"rsyslog-ca-cert": coretesting.CACert,
+		"rsyslog-ca-key":  coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := s.rsyslog.GetRsyslogConfig(s.machine.Tag().String())

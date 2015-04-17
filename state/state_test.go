@@ -14,14 +14,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/replicaset"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	mgotxn "gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
@@ -29,9 +31,11 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -47,7 +51,7 @@ var alternatePassword = "bar-12345678901234567890"
 // asserting the behaviour of a given method in each state, and the unit quick-
 // remove change caused many of these to fail.
 func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
-	err := u.SetStatus(state.StatusActive, "", nil)
+	err := u.SetAgentStatus(state.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -65,6 +69,18 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
 		return validator, nil
 	}
+}
+
+func (s *StateSuite) TestIsStateServer(c *gc.C) {
+	c.Assert(s.State.IsStateServer(), jc.IsTrue)
+	st2 := s.Factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+	c.Assert(st2.IsStateServer(), jc.IsFalse)
+}
+
+func (s *StateSuite) TestUserEnvNameIndex(c *gc.C) {
+	index := state.UserEnvNameIndex("BoB", "testing")
+	c.Assert(index, gc.Equals, "bob:testing")
 }
 
 func (s *StateSuite) TestDocID(c *gc.C) {
@@ -124,6 +140,11 @@ func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {
 
 func (s *StateSuite) TestEnvironUUID(c *gc.C) {
 	c.Assert(s.State.EnvironUUID(), gc.Equals, s.envTag.Id())
+}
+
+func (s *StateSuite) TestNoEnvDocs(c *gc.C) {
+	c.Assert(s.State.EnsureEnvironmentRemoved(), gc.ErrorMatches,
+		fmt.Sprintf("found documents for environment with uuid %s: 1 constraints doc, 1 envusers doc, 1 settings doc", s.State.EnvironUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -363,9 +384,7 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				f := factory.NewFactory(st)
 				m := f.MakeMachine(c, &factory.MachineParams{})
 				c.Assert(m.Id(), gc.Equals, "0")
-
-				return m.WatchBlockDevices()
-
+				return st.WatchBlockDevices(m.MachineTag())
 			},
 			setUpState: func(st *state.State) bool {
 				m, err := st.Machine("0")
@@ -1070,6 +1089,11 @@ func (s *StateSuite) TestAddMachine(c *gc.C) {
 	c.Assert(m, gc.HasLen, 2)
 	check(m[0], "0", "quantal", allJobs)
 	check(m[1], "1", "blahblah", oneJob)
+
+	st2 := s.Factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+	_, err = st2.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: state server jobs specified but not allowed")
 }
 
 func (s *StateSuite) TestAddMachines(c *gc.C) {
@@ -1152,10 +1176,29 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
 }
 
-func (s *StateSuite) TestAddMachineWithBlockDevices(c *gc.C) {
+func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
+	pm := poolmanager.New(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	cons := constraints.MustParse("mem=4G")
 	hc := instance.MustParseHardware("mem=2G")
+
+	volume0 := state.VolumeParams{
+		Pool: "loop-pool",
+		Size: 123,
+	}
+	volume1 := state.VolumeParams{
+		Pool: "", // use default
+		Size: 456,
+	}
+	volumeAttachment0 := state.VolumeAttachmentParams{}
+	volumeAttachment1 := state.VolumeAttachmentParams{
+		ReadOnly: true,
+	}
+
 	machineTemplate := state.MachineTemplate{
 		Series:                  "precise",
 		Constraints:             cons,
@@ -1163,10 +1206,10 @@ func (s *StateSuite) TestAddMachineWithBlockDevices(c *gc.C) {
 		InstanceId:              "inst-id",
 		Nonce:                   "nonce",
 		Jobs:                    oneJob,
-		BlockDevices: []state.BlockDeviceParams{{
-			Size: 123,
+		Volumes: []state.MachineVolumeParams{{
+			volume0, volumeAttachment0,
 		}, {
-			Size: 456,
+			volume1, volumeAttachment1,
 		}},
 	}
 	machines, err := s.State.AddMachines(machineTemplate)
@@ -1175,15 +1218,30 @@ func (s *StateSuite) TestAddMachineWithBlockDevices(c *gc.C) {
 	m, err := s.State.Machine(machines[0].Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	blockDevices, err := m.BlockDevices()
+	// When adding the machine, the default pool should
+	// have been set on the volume params.
+	machineTemplate.Volumes[1].Volume.Pool = "loop"
+
+	volumeAttachments, err := s.State.MachineVolumeAttachments(m.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockDevices, gc.HasLen, 2)
-	for i, dev := range blockDevices {
-		_, err = dev.Info()
+	c.Assert(volumeAttachments, gc.HasLen, 2)
+	if volumeAttachments[0].Volume() == names.NewVolumeTag(m.Id()+"/1") {
+		va := volumeAttachments
+		va[0], va[1] = va[1], va[0]
+	}
+	for i, att := range volumeAttachments {
+		_, err = att.Info()
 		c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
-		params, ok := dev.Params()
+		attachmentParams, ok := att.Params()
 		c.Assert(ok, jc.IsTrue)
-		c.Check(params, gc.Equals, machineTemplate.BlockDevices[i])
+		c.Check(attachmentParams, gc.Equals, machineTemplate.Volumes[i].Attachment)
+		volume, err := s.State.Volume(att.Volume())
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = volume.Info()
+		c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+		volumeParams, ok := volume.Params()
+		c.Assert(ok, jc.IsTrue)
+		c.Check(volumeParams, gc.Equals, machineTemplate.Volumes[i].Volume)
 	}
 }
 
@@ -1481,7 +1539,7 @@ func (s *StateSuite) TestAddMachineCanOnlyAddStateServerForMachine0(c *gc.C) {
 	c.Assert(info.MachineIds, gc.DeepEquals, []string{"0"})
 	c.Assert(info.VotingMachineIds, gc.DeepEquals, []string{"0"})
 
-	const errCannotAdd = "cannot add a new machine: state server jobs specified without calling EnsureAvailability"
+	const errCannotAdd = "cannot add a new machine: state server jobs specified but not allowed"
 	m, err = s.State.AddOneMachine(template)
 	c.Assert(err, gc.ErrorMatches, errCannotAdd)
 
@@ -2078,6 +2136,23 @@ func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	c.Assert(econs, gc.DeepEquals, cons)
 }
 
+func (s *StateSuite) TestWatchIPAddresses(c *gc.C) {
+	w := s.State.WatchIPAddresses()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChangeInSingleEvent()
+
+	// add an IP address
+	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.3"), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent(addr.Value())
+
+	// Make it Dead: reported.
+	err = addr.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent(addr.Value())
+}
+
 func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
 	// Alive environment...
 	alive, err := s.State.Environment()
@@ -2099,16 +2174,14 @@ func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
 	w := s.State.WatchEnvironments()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChange(alive.UUID(), dying.UUID())
-	wc.AssertNoChange()
+	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
 
 	// Remove alive and dying and see changes reported.
-	err = alive.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
 	err = state.RemoveEnvironment(s.State, dying.UUID())
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(alive.UUID(), dying.UUID())
-	wc.AssertNoChange()
+	err = alive.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
 }
 
 func (s *StateSuite) TestWatchEnvironmentsLifecycle(c *gc.C) {
@@ -2571,6 +2644,63 @@ func (s *StateSuite) TestAdditionalValidation(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot remove logging-config")
 	err = s.State.UpdateEnvironConfig(updateAttrs, nil, configValidator3)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
+	st := s.factory.MakeEnvironment(c, nil)
+	defer st.Close()
+
+	// insert one doc for each multiEnvCollection
+	var ops []mgotxn.Op
+	for collName := range state.MultiEnvCollections {
+		// skip adding constraints, envuser and settings as they were added when the
+		// environment was created
+		if collName == "constraints" || collName == "envusers" || collName == "settings" {
+			continue
+		}
+		ops = append(ops, mgotxn.Op{
+			C:      collName,
+			Id:     state.DocID(st, "arbitraryid"),
+			Insert: bson.M{"env-uuid": st.EnvironUUID()}})
+	}
+	err := state.RunTransaction(st, ops)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// test that we can find each doc in state
+	for collName := range state.MultiEnvCollections {
+		coll, closer := state.GetRawCollection(st, collName)
+		defer closer()
+		n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(n, gc.Equals, 1)
+	}
+
+	// test that we can find the user:envName unique index
+	env, err := st.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	indexColl, closer := state.GetCollection(st, "userenvname")
+	defer closer()
+	id := state.UserEnvNameIndex(env.Owner().Username(), env.Name())
+	n, err := indexColl.FindId(id).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 1)
+
+	err = st.RemoveAllEnvironDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// test that we can not find the user:envName unique index
+	n, err = indexColl.FindId(id).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 0)
+
+	// ensure all docs for all multiEnvCollections are removed
+	for collName := range state.MultiEnvCollections {
+		coll, closer := state.GetRawCollection(st, collName)
+		defer closer()
+		n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(n, gc.Equals, 0)
+	}
 }
 
 type attrs map[string]interface{}
@@ -3608,6 +3738,47 @@ func (s *StateSuite) TestEnsureAvailabilityAddsNewMachines(c *gc.C) {
 	s.assertStateServerInfo(c, ids, ids, nil)
 }
 
+func (s *StateSuite) TestEnsureAvailabilityTo(c *gc.C) {
+	// Don't use agent presence to decide on machine availability.
+	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
+		return true, nil
+	})
+
+	ids := make([]string, 3)
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+	ids[0] = m0.Id()
+
+	// Add two non-state-server machines.
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertStateServerInfo(c, []string{"0"}, []string{"0"}, nil)
+
+	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", []string{"1", "2"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changes.Added, gc.HasLen, 0)
+	c.Assert(changes.Converted, gc.HasLen, 2)
+
+	for i := 1; i < 3; i++ {
+		m, err := s.State.Machine(fmt.Sprint(i))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{
+			state.JobHostUnits,
+			state.JobManageEnviron,
+		})
+		gotCons, err := m.Constraints()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(gotCons, gc.DeepEquals, constraints.Value{})
+		c.Assert(m.WantsVote(), jc.IsTrue)
+		ids[i] = m.Id()
+	}
+	s.assertStateServerInfo(c, ids, ids, nil)
+}
+
 func newUint64(i uint64) *uint64 {
 	return &i
 }
@@ -4088,10 +4259,9 @@ func (s *StateSuite) TestWatchAPIHostPorts(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
-	err := s.State.SetAPIHostPorts([][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    99,
-	}}})
+	err := s.State.SetAPIHostPorts([][]network.HostPort{
+		network.NewHostPorts(99, "0.1.2.3"),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertOneChange()
@@ -4117,27 +4287,27 @@ func (s *StateSuite) TestWatchMachineAddresses(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Set machine addresses: reported.
-	err = machine.SetMachineAddresses(network.NewAddress("abc", network.ScopeUnknown))
+	err = machine.SetMachineAddresses(network.NewAddress("abc"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set provider addresses eclipsing machine addresses: reported.
-	err = machine.SetAddresses(network.NewAddress("abc", network.ScopePublic))
+	err = machine.SetAddresses(network.NewScopedAddress("abc", network.ScopePublic))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set same machine eclipsed by provider addresses: not reported.
-	err = machine.SetMachineAddresses(network.NewAddress("abc", network.ScopeCloudLocal))
+	err = machine.SetMachineAddresses(network.NewScopedAddress("abc", network.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Set different machine addresses: reported.
-	err = machine.SetMachineAddresses(network.NewAddress("def", network.ScopeUnknown))
+	err = machine.SetMachineAddresses(network.NewAddress("def"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set different provider addresses: reported.
-	err = machine.SetMachineAddresses(network.NewAddress("def", network.ScopePublic))
+	err = machine.SetMachineAddresses(network.NewScopedAddress("def", network.ScopePublic))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -4169,6 +4339,15 @@ func (s *StateSuite) TestNowToTheSecond(c *gc.C) {
 	t := state.NowToTheSecond()
 	rounded := t.Round(time.Second)
 	c.Assert(t, gc.DeepEquals, rounded)
+}
+
+func (s *StateSuite) TestUnitsForInvalidId(c *gc.C) {
+	// Check that an error is returned if an invalid machine id is provided.
+	// Success cases are tested as part of TestMachinePrincipalUnits in the
+	// MachineSuite.
+	units, err := s.State.UnitsFor("invalid-id")
+	c.Assert(units, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `"invalid-id" is not a valid machine id`)
 }
 
 type SetAdminMongoPasswordSuite struct {

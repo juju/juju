@@ -15,9 +15,9 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/testing"
@@ -170,7 +170,7 @@ func (s *clientSuite) TestClientNewInstanceInvalidParams(c *gc.C) {
 	c.Check(server, gc.IsNil)
 	c.Check(arch, gc.Equals, "")
 	c.Check(drive, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "invalid configuration for new instance: MachineConfig is nil")
+	c.Check(err, gc.ErrorMatches, "invalid configuration for new instance: InstanceConfig is nil")
 }
 
 func (s *clientSuite) TestClientNewInstanceInvalidTemplate(c *gc.C) {
@@ -179,7 +179,7 @@ func (s *clientSuite) TestClientNewInstanceInvalidTemplate(c *gc.C) {
 
 	params := environs.StartInstanceParams{
 		Constraints: constraints.Value{},
-		MachineConfig: &cloudinit.MachineConfig{
+		InstanceConfig: &instancecfg.InstanceConfig{
 			Bootstrap: true,
 			Tools: &tools.Tools{
 				Version: version.Binary{
@@ -206,7 +206,7 @@ func (s *clientSuite) TestClientNewInstance(c *gc.C) {
 
 	params := environs.StartInstanceParams{
 		Constraints: constraints.Value{},
-		MachineConfig: &cloudinit.MachineConfig{
+		InstanceConfig: &instancecfg.InstanceConfig{
 			Bootstrap: true,
 			Tools: &tools.Tools{
 				Version: version.Binary{
@@ -218,7 +218,7 @@ func (s *clientSuite) TestClientNewInstance(c *gc.C) {
 	img := &imagemetadata.ImageMetadata{
 		Id: validImageId,
 	}
-	cs := newConstraints(params.MachineConfig.Bootstrap, params.Constraints, img)
+	cs := newConstraints(params.InstanceConfig.Bootstrap, params.Constraints, img)
 	c.Assert(cs, gc.NotNil)
 	c.Check(err, gc.IsNil)
 

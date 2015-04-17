@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
-	"github.com/juju/testing"
 )
 
 type KVMSuite struct {
@@ -126,13 +126,13 @@ func (s *KVMSuite) TestCreateContainerUtilizesReleaseSimpleStream(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Mock machineConfig with a mocked simple stream URL.
-	machineConfig, err := containertesting.MockMachineConfig("1/kvm/0")
+	instanceConfig, err := containertesting.MockMachineConfig("1/kvm/0")
 	c.Assert(err, jc.ErrorIsNil)
-	machineConfig.Config = envCfg
+	instanceConfig.Config = envCfg
 
 	// CreateContainer sets TestStartParams internally; we call this
 	// purely for the side-effect.
-	containertesting.CreateContainerWithMachineConfig(c, s.manager, machineConfig)
+	containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
 
 	c.Assert(kvm.TestStartParams.ImageDownloadUrl, gc.Equals, "")
 }
@@ -141,13 +141,13 @@ func (s *KVMSuite) TestCreateContainerUtilizesReleaseSimpleStream(c *gc.C) {
 func (s *KVMSuite) TestCreateContainerUtilizesDailySimpleStream(c *gc.C) {
 
 	// Mock machineConfig with a mocked simple stream URL.
-	machineConfig, err := containertesting.MockMachineConfig("1/kvm/0")
+	instanceConfig, err := containertesting.MockMachineConfig("1/kvm/0")
 	c.Assert(err, jc.ErrorIsNil)
-	machineConfig.ImageStream = "daily"
+	instanceConfig.ImageStream = "daily"
 
 	// CreateContainer sets TestStartParams internally; we call this
 	// purely for the side-effect.
-	containertesting.CreateContainerWithMachineConfig(c, s.manager, machineConfig)
+	containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
 
 	c.Assert(kvm.TestStartParams.ImageDownloadUrl, gc.Equals, "http://cloud-images.ubuntu.com/daily")
 }

@@ -6,6 +6,9 @@ package featuretests
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/juju/names"
@@ -45,6 +48,10 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	file, _ := ioutil.TempFile("", "juju-run")
 	defer file.Close()
 	s.AgentSuite.PatchValue(&agentcmd.JujuRun, file.Name())
+
+	if runtime.GOOS == "windows" {
+		s.AgentSuite.PatchValue(&agentcmd.EnableJournaling, false)
+	}
 
 	fakeEnsureMongo := agenttesting.FakeEnsure{}
 	s.AgentSuite.PatchValue(&cmdutil.EnsureMongoServer, fakeEnsureMongo.FakeEnsureMongo)
@@ -96,6 +103,12 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(&agentConf, &agentConf)
 	s.machineAgent = machineAgentFactory(stateServer.Id())
 
+	// See comment in createMockJujudExecutable
+	if runtime.GOOS == "windows" {
+		dirToRemove := createMockJujudExecutable(c, s.DataDir(), s.machineAgent.Tag().String())
+		s.AddCleanup(func(*gc.C) { os.RemoveAll(dirToRemove) })
+	}
+
 	c.Log("Starting machine agent...")
 	go func() {
 		err := s.machineAgent.Run(coretesting.Context(c))
@@ -107,6 +120,7 @@ func (s *leadershipSuite) TearDownTest(c *gc.C) {
 	c.Log("Stopping machine agent...")
 	err := s.machineAgent.Stop()
 	c.Assert(err, gc.IsNil)
+	os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
 
 	s.AgentSuite.TearDownTest(c)
 }
@@ -116,10 +130,23 @@ func (s *leadershipSuite) TestClaimLeadership(c *gc.C) {
 	client := leadership.NewClient(s.clientFacade, s.facadeCaller)
 	defer func() { err := client.Close(); c.Assert(err, gc.IsNil) }()
 
-	duration, err := client.ClaimLeadership(s.serviceId, s.unitId)
-
+	err := client.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
 	c.Assert(err, gc.IsNil)
-	c.Check(duration, gc.Equals, 30*time.Second)
+
+	unblocked := make(chan struct{})
+	go func() {
+		err := client.BlockUntilLeadershipReleased(s.serviceId)
+		c.Check(err, gc.IsNil)
+		unblocked <- struct{}{}
+	}()
+
+	time.Sleep(coretesting.ShortWait)
+
+	select {
+	case <-time.After(15 * time.Second):
+		c.Errorf("Timed out waiting for leadership to release.")
+	case <-unblocked:
+	}
 }
 
 func (s *leadershipSuite) TestReleaseLeadership(c *gc.C) {
@@ -127,7 +154,7 @@ func (s *leadershipSuite) TestReleaseLeadership(c *gc.C) {
 	client := leadership.NewClient(s.clientFacade, s.facadeCaller)
 	defer func() { err := client.Close(); c.Assert(err, gc.IsNil) }()
 
-	_, err := client.ClaimLeadership(s.serviceId, s.unitId)
+	err := client.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
 	c.Assert(err, gc.IsNil)
 
 	err = client.ReleaseLeadership(s.serviceId, s.unitId)
@@ -139,7 +166,7 @@ func (s *leadershipSuite) TestUnblock(c *gc.C) {
 	client := leadership.NewClient(s.clientFacade, s.facadeCaller)
 	defer func() { err := client.Close(); c.Assert(err, gc.IsNil) }()
 
-	_, err := client.ClaimLeadership(s.serviceId, s.unitId)
+	err := client.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
 	c.Assert(err, gc.IsNil)
 
 	unblocked := make(chan struct{})
@@ -177,7 +204,7 @@ func (s *uniterLeadershipSuite) TestReadLeadershipSettings(c *gc.C) {
 	// First, the unit must be elected leader; otherwise merges will be denied.
 	leaderClient := leadership.NewClient(s.clientFacade, s.facadeCaller)
 	defer func() { err := leaderClient.Close(); c.Assert(err, gc.IsNil) }()
-	_, err := leaderClient.ClaimLeadership(s.serviceId, s.unitId)
+	err := leaderClient.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
 	c.Assert(err, gc.IsNil)
 
 	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))
@@ -201,7 +228,7 @@ func (s *uniterLeadershipSuite) TestMergeLeadershipSettings(c *gc.C) {
 	// First, the unit must be elected leader; otherwise merges will be denied.
 	leaderClient := leadership.NewClient(s.clientFacade, s.facadeCaller)
 	defer func() { err := leaderClient.Close(); c.Assert(err, gc.IsNil) }()
-	_, err := leaderClient.ClaimLeadership(s.serviceId, s.unitId)
+	err := leaderClient.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
 	c.Assert(err, gc.IsNil)
 
 	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))
@@ -231,23 +258,47 @@ func (s *uniterLeadershipSuite) TestSettingsChangeNotifier(c *gc.C) {
 	// First, the unit must be elected leader; otherwise merges will be denied.
 	leadershipClient := leadership.NewClient(s.clientFacade, s.facadeCaller)
 	defer func() { err := leadershipClient.Close(); c.Assert(err, gc.IsNil) }()
-	_, err := leadershipClient.ClaimLeadership(s.serviceId, s.unitId)
+	err := leadershipClient.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
 	c.Assert(err, gc.IsNil)
 
 	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))
 
 	// Listen for changes
+	readyForChanges := make(chan struct{})
 	sawChanges := make(chan struct{})
 	go func() {
 		watcher, err := client.LeadershipSettings.WatchLeadershipSettings(s.serviceId)
 		c.Assert(err, gc.IsNil)
-		sawChanges <- <-watcher.Changes()
+
+		// Ignore the initial event
+		<-watcher.Changes()
+		readyForChanges <- struct{}{}
+
+		if change, ok := <-watcher.Changes(); ok {
+			sawChanges <- change
+		} else {
+			c.Fatalf("watcher failed to send a change: %s", watcher.Err())
+		}
 	}()
 
+	select {
+	case <-readyForChanges:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("timed out")
+	}
+
+	c.Log("Writing changes...")
 	err = client.LeadershipSettings.Merge(s.serviceId, map[string]string{"foo": "bar"})
 	c.Assert(err, gc.IsNil)
 
-	<-sawChanges
+	c.Log("Waiting to see that watcher saw changes...")
+	notifyAsserter := coretesting.NotifyAsserterC{C: c, Chan: sawChanges}
+	notifyAsserter.AssertOneReceive()
+
+	settings, err := client.LeadershipSettings.Read(s.serviceId)
+	c.Assert(err, gc.IsNil)
+
+	c.Check(settings["foo"], gc.Equals, "bar")
 }
 
 func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {
@@ -257,6 +308,10 @@ func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {
 	file, _ := ioutil.TempFile("", "juju-run")
 	defer file.Close()
 	s.AgentSuite.PatchValue(&agentcmd.JujuRun, file.Name())
+
+	if runtime.GOOS == "windows" {
+		s.AgentSuite.PatchValue(&agentcmd.EnableJournaling, false)
+	}
 
 	fakeEnsureMongo := agenttesting.FakeEnsure{}
 	s.AgentSuite.PatchValue(&cmdutil.EnsureMongoServer, fakeEnsureMongo.FakeEnsureMongo)
@@ -311,11 +366,30 @@ func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(&agentConf, &agentConf)
 	s.machineAgent = machineAgentFactory(stateServer.Id())
 
+	// See comment in createMockJujudExecutable
+	if runtime.GOOS == "windows" {
+		dirToRemove := createMockJujudExecutable(c, s.DataDir(), s.machineAgent.Tag().String())
+		s.AddCleanup(func(*gc.C) { os.RemoveAll(dirToRemove) })
+	}
+
 	c.Log("Starting machine agent...")
 	go func() {
 		err := s.machineAgent.Run(coretesting.Context(c))
 		c.Assert(err, gc.IsNil)
 	}()
+}
+
+// When a machine agent is ran it creates a symlink to the jujud executable.
+// Since we cannot create symlinks to a non-existent file on windows,
+// we place a dummy executable in the expected location.
+func createMockJujudExecutable(c *gc.C, dir, tag string) string {
+	toolsDir := filepath.Join(dir, "tools")
+	err := os.MkdirAll(filepath.Join(toolsDir, tag), 0755)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(filepath.Join(toolsDir, tag, "jujud.exe"),
+		[]byte("echo 1"), 0777)
+	c.Assert(err, gc.IsNil)
+	return toolsDir
 }
 
 func (s *uniterLeadershipSuite) TearDownTest(c *gc.C) {

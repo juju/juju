@@ -11,7 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/apt"
+	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 
@@ -62,7 +62,7 @@ func (s *prepareSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("FTP_PROXY", "")
 	s.PatchEnvironment("no_proxy", "")
 	s.PatchEnvironment("NO_PROXY", "")
-	s.HookCommandOutput(&apt.CommandOutput, nil, nil)
+	s.HookCommandOutput(&manager.CommandOutput, nil, nil)
 	s.PatchValue(local.CheckLocalPort, func(port int, desc string) error {
 		return nil
 	})
@@ -172,56 +172,56 @@ func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
 		message: "apt-proxies detected",
 		aptOutput: `CommandLine::AsString "apt-config dump";
 Acquire::http::Proxy  "10.0.3.1:3142";
-Acquire::https::Proxy "false";
-Acquire::ftp::Proxy "none";
-Acquire::magic::Proxy "none";
+Acquire::https::Proxy "";
+Acquire::ftp::Proxy "";
+Acquire::magic::Proxy "";
 `,
 		expectedAptProxy: proxy.Settings{
-			Http:  "10.0.3.1:3142",
-			Https: "false",
-			Ftp:   "none",
+			Http:  "http://10.0.3.1:3142",
+			Https: "",
+			Ftp:   "",
 		},
 	}, {
 		message: "apt-proxies not used if apt-http-proxy set",
 		extraConfig: map[string]interface{}{
-			"apt-http-proxy": "value-set",
+			"apt-http-proxy": "http://value-set",
 		},
 		aptOutput: `CommandLine::AsString "apt-config dump";
 Acquire::http::Proxy  "10.0.3.1:3142";
-Acquire::https::Proxy "false";
-Acquire::ftp::Proxy "none";
-Acquire::magic::Proxy "none";
+Acquire::https::Proxy "";
+Acquire::ftp::Proxy "";
+Acquire::magic::Proxy "";
 `,
 		expectedAptProxy: proxy.Settings{
-			Http: "value-set",
+			Http: "http://value-set",
 		},
 	}, {
 		message: "apt-proxies not used if apt-https-proxy set",
 		extraConfig: map[string]interface{}{
-			"apt-https-proxy": "value-set",
+			"apt-https-proxy": "https://value-set",
 		},
 		aptOutput: `CommandLine::AsString "apt-config dump";
 Acquire::http::Proxy  "10.0.3.1:3142";
-Acquire::https::Proxy "false";
-Acquire::ftp::Proxy "none";
-Acquire::magic::Proxy "none";
+Acquire::https::Proxy "";
+Acquire::ftp::Proxy "";
+Acquire::magic::Proxy "";
 `,
 		expectedAptProxy: proxy.Settings{
-			Https: "value-set",
+			Https: "https://value-set",
 		},
 	}, {
 		message: "apt-proxies not used if apt-ftp-proxy set",
 		extraConfig: map[string]interface{}{
-			"apt-ftp-proxy": "value-set",
+			"apt-ftp-proxy": "ftp://value-set",
 		},
 		aptOutput: `CommandLine::AsString "apt-config dump";
 Acquire::http::Proxy  "10.0.3.1:3142";
-Acquire::https::Proxy "false";
-Acquire::ftp::Proxy "none";
-Acquire::magic::Proxy "none";
+Acquire::https::Proxy "";
+Acquire::ftp::Proxy "";
+Acquire::magic::Proxy "";
 `,
 		expectedAptProxy: proxy.Settings{
-			Ftp: "value-set",
+			Ftp: "ftp://value-set",
 		},
 	}} {
 		c.Logf("\n%v: %s", i, test.message)
@@ -230,7 +230,7 @@ Acquire::magic::Proxy "none";
 			restore := testing.PatchEnvironment(key, value)
 			cleanup = append(cleanup, restore)
 		}
-		_, restore := testing.HookCommandOutput(&apt.CommandOutput, []byte(test.aptOutput), nil)
+		_, restore := testing.HookCommandOutput(&manager.CommandOutput, []byte(test.aptOutput), nil)
 		cleanup = append(cleanup, restore)
 		testConfig := baseConfig
 		if test.extraConfig != nil {
@@ -258,7 +258,7 @@ Acquire::magic::Proxy "none";
 }
 
 func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
-	s.PatchValue(local.DetectAptProxies, func() (proxy.Settings, error) {
+	s.PatchValue(local.DetectPackageProxies, func() (proxy.Settings, error) {
 		return proxy.Settings{}, nil
 	})
 	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
@@ -305,7 +305,7 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 }
 
 func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {
-	s.PatchValue(local.DetectAptProxies, func() (proxy.Settings, error) {
+	s.PatchValue(local.DetectPackageProxies, func() (proxy.Settings, error) {
 		return proxy.Settings{}, nil
 	})
 	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
@@ -320,7 +320,7 @@ func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {
 	c.Assert(env.Config().ProxySSH(), jc.IsFalse)
 }
 
-func (s *prepareSuite) TesteProxyLocalhostFix(c *gc.C) {
+func (s *prepareSuite) TestProxyLocalhostFix(c *gc.C) {
 	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": "local",
 		"name": "test",
@@ -409,6 +409,11 @@ var urlReplacementTests = []testURL{{
 	message:      "do not replace provided:port with bridge ip:port in proxy url",
 	url:          "www.google.com",
 	port:         ":8877",
+	expectChange: false,
+}, {
+	message:      "lp 1437296 - apt-http-proxy being reset to bridge address when shouldn't",
+	url:          "192.168.1.201",
+	port:         ":8000",
 	expectChange: false,
 },
 }

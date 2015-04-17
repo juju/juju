@@ -356,11 +356,11 @@ func (m *testMachine) InstanceId() (instance.Id, error) {
 }
 
 // This is stubbed out for testing.
-var MachineStatus = func(m *testMachine) (status state.Status, info string, data map[string]interface{}, err error) {
-	return m.status, "", nil, nil
+var MachineStatus = func(m *testMachine) (state.StatusInfo, error) {
+	return state.StatusInfo{m.status, "", nil, nil}, nil
 }
 
-func (m *testMachine) Status() (status state.Status, info string, data map[string]interface{}, err error) {
+func (m *testMachine) Status() (state.StatusInfo, error) {
 	return MachineStatus(m)
 }
 

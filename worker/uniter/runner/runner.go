@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-// Runner is reponsible for invoking commands in a context.
+// Runner is responsible for invoking commands in a context.
 type Runner interface {
 
 	// Context returns the context against which the runner executes.
@@ -43,6 +43,8 @@ type Context interface {
 	ActionData() (*ActionData, error)
 	SetProcess(process *os.Process)
 	FlushContext(badge string, failure error) error
+	HasExecutionSetUnitStatus() bool
+	ResetExecutionSetUnitStatus()
 }
 
 // Paths exposes the paths needed by Runner.
@@ -60,6 +62,10 @@ type Paths interface {
 	// to communicate back to the executing uniter process. It might be a
 	// filesystem path, or it might be abstract.
 	GetJujucSocket() string
+
+	// GetMetricsSpoolDir returns the path to a metrics spool dir, used
+	// to store metrics recorded during a single hook run.
+	GetMetricsSpoolDir() string
 }
 
 // NewRunner returns a Runner backed by the supplied context and paths.

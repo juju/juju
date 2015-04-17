@@ -8,55 +8,62 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/charmstore.v4"
+	"gopkg.in/juju/charmstore.v4/charmstoretesting"
 
+	"github.com/juju/juju/apiserver/charmrevisionupdater"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 )
 
 // CharmSuite provides infrastructure to set up and perform tests associated
-// with charm versioning. A mock charm store is created using some known charms
-// used for testing.
+// with charm versioning. A testing charm store server is created and populated
+// with some known charms used for testing.
 type CharmSuite struct {
 	jcSuite *jujutesting.JujuConnSuite
 
-	Server *charmtesting.MockStore
+	Server *charmstoretesting.Server
 	charms map[string]*state.Charm
 }
 
 func (s *CharmSuite) SetUpSuite(c *gc.C, jcSuite *jujutesting.JujuConnSuite) {
 	s.jcSuite = jcSuite
-	s.Server = charmtesting.NewMockStore(c, testcharms.Repo, map[string]int{
-		"cs:quantal/mysql":     23,
-		"cs:quantal/dummy":     24,
-		"cs:quantal/riak":      25,
-		"cs:quantal/wordpress": 26,
-		"cs:quantal/logging":   27,
-		"cs:quantal/borken":    28,
-	})
 }
 
-func (s *CharmSuite) TearDownSuite(c *gc.C) {
-	s.Server.Close()
-}
+func (s *CharmSuite) TearDownSuite(c *gc.C) {}
 
 func (s *CharmSuite) SetUpTest(c *gc.C) {
-	s.jcSuite.PatchValue(&charm.CacheDir, c.MkDir())
-	s.jcSuite.PatchValue(&charm.Store, &charm.CharmStore{BaseURL: s.Server.Address()})
-	s.Server.Downloads = nil
-	s.Server.Authorizations = nil
-	s.Server.Metadata = nil
+	s.Server = charmstoretesting.OpenServer(c, s.jcSuite.Session, charmstore.ServerParams{
+		AuthUsername: "test-user",
+		AuthPassword: "test-password",
+	})
+	urls := []string{
+		"~who/quantal/mysql-23",
+		"~who/quantal/dummy-24",
+		"~who/quantal/riak-25",
+		"~who/quantal/wordpress-26",
+		"~who/quantal/logging-27",
+	}
+	for _, url := range urls {
+		id := charm.MustParseReference(url)
+		ch := testcharms.Repo.CharmArchive(c.MkDir(), id.Name)
+		s.Server.UploadCharm(c, ch, id, true)
+	}
+	s.jcSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
+	// Patch the charm repo initializer function: it is replaced with a charm
+	// store repo pointing to the testing server.
+	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
+		p.URL = s.Server.URL()
+		return charmrepo.NewCharmStore(p)
+	})
 	s.charms = make(map[string]*state.Charm)
 }
 
 func (s *CharmSuite) TearDownTest(c *gc.C) {
-}
-
-// UpdateStoreRevision sets the revision of the specified charm to rev.
-func (s *CharmSuite) UpdateStoreRevision(ch string, rev int) {
-	s.Server.UpdateStoreRevision(ch, rev)
+	s.Server.Close()
 }
 
 // AddMachine adds a new machine to state.
