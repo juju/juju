@@ -679,6 +679,10 @@ class TestBootContext(TestCase):
         self.addContext(patch('sys.stdout'))
 
     def addContext(self, cxt):
+        """Enter context manager for the remainder of the test, then leave.
+
+        :return: The value emitted by cxt.__enter__.
+        """
         result = cxt.__enter__()
         self.addCleanup(lambda: cxt.__exit__(None, None, None))
         return result
