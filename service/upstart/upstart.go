@@ -34,6 +34,7 @@ func IsRunning() (bool, error) {
 	if err == nil {
 		return true, nil
 	}
+	logger.Debugf("exec %q failed: %#v", initctlPath, err)
 	if os.IsNotExist(err) {
 		// Executable could not be found, go 1.3 and later
 		return false, nil
