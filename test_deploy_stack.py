@@ -23,6 +23,7 @@ from deploy_stack import (
     add_output_args,
     add_path_args,
     assess_juju_run,
+    boot_context,
     copy_local_logs,
     copy_remote_logs,
     deploy_dummy_stack,
@@ -46,7 +47,9 @@ from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
 )
-from test_jujupy import assert_juju_call
+from test_jujupy import (
+    assert_juju_call,
+    )
 from utility import temp_dir
 
 
@@ -667,3 +670,55 @@ class TestPrepareEnvironment(TestCase):
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-baz'), 2)
         self.assertEqual(cc_mock.call_count, 3)
+
+
+class TestBootContext(TestCase):
+
+    def setUp(self):
+        self.addContext(patch('subprocess.Popen', side_effect=Exception))
+        self.addContext(patch('sys.stdout'))
+
+    def addContext(self, cxt):
+        """Enter context manager for the remainder of the test, then leave.
+
+        :return: The value emitted by cxt.__enter__.
+        """
+        result = cxt.__enter__()
+        self.addCleanup(lambda: cxt.__exit__(None, None, None))
+        return result
+
+    def test_bootstrap_context(self):
+        cc_mock = self.addContext(patch('subprocess.check_call'))
+        client = EnvJujuClient(SimpleEnvironment(
+            'foo', {'type': 'paas'}), '1.23', 'path')
+        self.addContext(patch('deploy_stack.get_machine_dns_name',
+                        return_value='foo'))
+        c_mock = self.addContext(patch('subprocess.call'))
+        with boot_context('bar', client, None, [], None, None, None,
+                          keep_env=False):
+            pass
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'bootstrap', '-e', 'bar', '--constraints',
+            'mem=2G'), 0)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'status', '-e', 'bar'), 1)
+        assert_juju_call(self, c_mock, client, (
+            'timeout', '600.00s', 'juju', '--show-log', 'destroy-environment',
+            'bar', '--force', '-y'))
+
+    def test_keep_env(self):
+        cc_mock = self.addContext(patch('subprocess.check_call'))
+        client = EnvJujuClient(SimpleEnvironment(
+            'foo', {'type': 'paas'}), '1.23', 'path')
+        self.addContext(patch('deploy_stack.get_machine_dns_name',
+                        return_value='foo'))
+        c_mock = self.addContext(patch('subprocess.call'))
+        with boot_context('bar', client, None, [], None, None, None,
+                          keep_env=True):
+            pass
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'bootstrap', '-e', 'bar', '--constraints',
+            'mem=2G'), 0)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'status', '-e', 'bar'), 1)
+        self.assertEqual(c_mock.call_count, 0)
