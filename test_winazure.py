@@ -6,7 +6,17 @@ from mock import (
     Mock,
     patch,
 )
+import os
+import sys
 from unittest import TestCase
+
+AZURE_PACKAGE = os.path.realpath(os.path.join(
+    os.path.dirname(__file__), 'azure-sdk-for-python-master'))
+sys.path.insert(0, AZURE_PACKAGE)
+from azure.servicemanagement import (
+    Deployment,
+    HostedService,
+)
 
 from winazure import (
     DATETIME_PATTERN,
@@ -118,9 +128,9 @@ class WinAzureTestCase(TestCase):
 
     def test_delete_service(self):
         sms = ServiceManagementService('secret', 'cert.pem')
-        hosted_service = Mock()
-        hosted_service.name = 'juju-bar'
-        deployment = Mock()
+        hosted_service = Mock(spec=HostedService)
+        hosted_service.service_name = 'juju-bar'
+        deployment = Mock(spec=Deployment)
         deployment.name = 'juju-bar-2'
         with patch.object(sms, 'delete_deployment',
                           return_value='request') as dd_mock:
