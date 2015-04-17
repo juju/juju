@@ -410,7 +410,7 @@ def get_log_level(args):
     return log_level
 
 
-def deploy_job():
+def deploy_job_parse_args(argv=None):
     parser = ArgumentParser('deploy_job')
     parser.add_argument('env', help='Base Juju environment.')
     parser.add_argument('logs', help='log directory.')
@@ -425,10 +425,17 @@ def deploy_job():
     parser.add_argument('--keep-env', action='store_true', default=False,
                         help='Keep the Juju environment after the test'
                         ' completes.')
+    parser.add_argument(
+        '--upload-tools', action='store_true', default=False,
+        help='upload local version of tools before bootstrapping')
     add_juju_args(parser)
     add_output_args(parser)
     add_path_args(parser)
-    args = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def deploy_job():
+    args = deploy_job_parse_args()
     configure_logging(get_log_level(args))
     juju_path = get_juju_path(args)
     series = args.series
@@ -438,7 +445,7 @@ def deploy_job():
     return _deploy_job(args.job_name, args.env, args.upgrade,
                        charm_prefix, args.bootstrap_host, args.machine,
                        args.series, args.logs, args.debug, juju_path,
-                       args.agent_url, args.keep_env)
+                       args.agent_url, args.keep_env, args.upload_tools)
 
 
 def update_env(env, new_env_name, series=None, bootstrap_host=None,
@@ -455,7 +462,7 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
 
 @contextmanager
 def boot_context(job_name, client, bootstrap_host, machines, series,
-                 agent_url, log_dir, keep_env):
+                 agent_url, log_dir, keep_env, upload_tools):
     created_machines = False
     bootstrap_id = None
     running_domains = dict()
@@ -496,7 +503,8 @@ def boot_context(job_name, client, bootstrap_host, machines, series,
             jenv_path = get_jenv_path(juju_home, client.env.environment)
             ensure_deleted(jenv_path)
             try:
-                bootstrap_from_env(juju_home, client)
+                with temp_bootstrap_env(juju_home, client) as temp_juju_home:
+                    client.bootstrap(upload_tools, temp_juju_home)
             except:
                 if host is not None:
                     dump_logs(client, host, log_dir, bootstrap_id)
@@ -539,7 +547,7 @@ def boot_context(job_name, client, bootstrap_host, machines, series,
 
 def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
                 machines, series, log_dir, debug, juju_path, agent_url,
-                keep_env):
+                keep_env, upload_tools):
     start_juju_path = None if upgrade else juju_path
     if sys.platform == 'win32':
         # Ensure OpenSSH is never in the path for win tests.
@@ -547,7 +555,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
     client = EnvJujuClient.by_version(
         SimpleEnvironment.from_config(base_env), start_juju_path, debug)
     with boot_context(job_name, client, bootstrap_host, machines,
-                      series, agent_url, log_dir, keep_env):
+                      series, agent_url, log_dir, keep_env, upload_tools):
         prepare_environment(
             client, already_bootstrapped=True, machines=machines)
         if sys.platform in ('win32', 'darwin'):

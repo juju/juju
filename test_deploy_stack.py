@@ -27,6 +27,7 @@ from deploy_stack import (
     copy_local_logs,
     copy_remote_logs,
     deploy_dummy_stack,
+    deploy_job_parse_args,
     describe_instances,
     destroy_environment,
     destroy_job_instances,
@@ -695,7 +696,7 @@ class TestBootContext(TestCase):
                         return_value='foo'))
         c_mock = self.addContext(patch('subprocess.call'))
         with boot_context('bar', client, None, [], None, None, None,
-                          keep_env=False):
+                          keep_env=False, upload_tools=False):
             pass
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'bootstrap', '-e', 'bar', '--constraints',
@@ -714,7 +715,7 @@ class TestBootContext(TestCase):
                         return_value='foo'))
         c_mock = self.addContext(patch('subprocess.call'))
         with boot_context('bar', client, None, [], None, None, None,
-                          keep_env=True):
+                          keep_env=True, upload_tools=False):
             pass
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'bootstrap', '-e', 'bar', '--constraints',
@@ -722,3 +723,43 @@ class TestBootContext(TestCase):
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'status', '-e', 'bar'), 1)
         self.assertEqual(c_mock.call_count, 0)
+
+    def test_upload_tools(self):
+        cc_mock = self.addContext(patch('subprocess.check_call'))
+        client = EnvJujuClient(SimpleEnvironment(
+            'foo', {'type': 'paas'}), '1.23', 'path')
+        self.addContext(patch('deploy_stack.get_machine_dns_name',
+                        return_value='foo'))
+        c_mock = self.addContext(patch('subprocess.call'))
+        with boot_context('bar', client, None, [], None, None, None,
+                          keep_env=False, upload_tools=True):
+            pass
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'bootstrap', '-e', 'bar', '--upload-tools',
+            '--constraints', 'mem=2G'), 0)
+
+
+class TestDeployJobParseArgs(TestCase):
+
+    def test_deploy_job_parse_args(self):
+        args = deploy_job_parse_args(['foo', 'bar', 'baz'])
+        self.assertEqual(args, Namespace(
+            agent_url=None,
+            bootstrap_host=None,
+            debug=False,
+            env='foo',
+            job_name='baz',
+            keep_env=False,
+            logs='bar',
+            machine=[],
+            new_juju_bin=None,
+            run_startup=False,
+            series=None,
+            upgrade=False,
+            verbose=False,
+            upload_tools=False,
+            ))
+
+    def test_upload_tools(self):
+        args = deploy_job_parse_args(['foo', 'bar', 'baz', '--upload-tools'])
+        self.assertEqual(args.upload_tools, True)
