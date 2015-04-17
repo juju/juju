@@ -36,7 +36,7 @@ from jujupy import (
     SimpleEnvironment,
     Status,
     temp_bootstrap_env,
-    _temp_env,
+    _temp_env as temp_env,
     uniquify_local,
 )
 from utility import (
@@ -281,7 +281,7 @@ class TestEnvJujuClient(TestCase):
         env = Environment('foo', '')
         client = EnvJujuClient(env, None, None)
         with patch.object(client, 'juju'):
-            with _temp_env({}) as juju_home:
+            with temp_env({}) as juju_home:
                 jenv_path = get_jenv_path(juju_home, 'foo')
                 os.makedirs(os.path.dirname(jenv_path))
                 open(jenv_path, 'w')
