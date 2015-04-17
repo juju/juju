@@ -92,8 +92,8 @@ func (env *environ) StateServerInstances() ([]instance.Id, error) {
 		metadata := inst.Config.ExtraConfig
 		for _, item := range metadata {
 			value := item.GetOptionValue()
-			if value.Key == metadataKeyIsState {
-				results = append(results, instance.Id(inst.Config.Name))
+			if value.Key == metadataKeyIsState && value.Value == metadataValueIsState {
+				results = append(results, instance.Id(inst.Name))
 				break
 			}
 		}

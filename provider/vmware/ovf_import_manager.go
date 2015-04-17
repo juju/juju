@@ -70,9 +70,9 @@ func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hw
 		Limit:       int64(*hwc.CpuPower),
 		Reservation: int64(*hwc.CpuPower),
 	}
-	/*if isState {
-		s.ExtraConfig = append(s.ExtraConfig, &types.OptionValue{Key: metadataKeyIsState, Value: ""})
-	}*/
+	if isState {
+		s.ExtraConfig = append(s.ExtraConfig, &types.OptionValue{Key: metadataKeyIsState, Value: metadataValueIsState})
+	}
 	for _, d := range s.DeviceChange {
 		if disk, ok := d.GetVirtualDeviceConfigSpec().Device.(*types.VirtualDisk); ok {
 			disk.CapacityInKB = int64(common.MBToKB(*hwc.RootDisk))

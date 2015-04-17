@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	metadataKeyIsState = "juju-is-state"
+	metadataKeyIsState   = "juju_is_state_key"
+	metadataValueIsState = "juju_is_value_value"
 )
 
 type client struct {
