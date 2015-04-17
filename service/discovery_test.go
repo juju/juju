@@ -54,7 +54,7 @@ func (dt discoveryTest) log(c *gc.C) {
 }
 
 func (dt discoveryTest) disableLocalDiscovery(c *gc.C, s *discoverySuite) {
-	s.PatchLocalDiscovery(nil)
+	s.PatchLocalDiscoveryDisable()
 }
 
 func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
@@ -64,20 +64,7 @@ func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
 }
 
 func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) {
-	noMatch := func() (bool, error) {
-		return false, nil
-	}
-	funcs := map[string]func() (bool, error){
-		service.InitSystemSystemd: noMatch,
-		service.InitSystemUpstart: noMatch,
-		service.InitSystemWindows: noMatch,
-	}
-	if dt.expected != "" {
-		funcs[dt.expected] = func() (bool, error) {
-			return true, nil
-		}
-	}
-	s.PatchLocalDiscovery(funcs)
+	s.PatchLocalDiscoveryNoMatch(dt.expected)
 }
 
 func (dt discoveryTest) setVersion(s *discoverySuite) version.Binary {
