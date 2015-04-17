@@ -34,9 +34,13 @@ func IsRunning() (bool, error) {
 	if err == nil {
 		return true, nil
 	}
+	if os.IsNotExist(err) {
+		// Executable could not be found, go 1.3 and later
+		return false, nil
+	}
 	if execErr, ok := err.(*exec.Error); ok {
-		if _, ok := execErr.Err.(*os.PathError); ok {
-			// Executable could not be found, or could not be executed.
+		// Executable could not be found, go 1.2
+		if os.IsNotExist(execErr.Err) || execErr.Err == exec.ErrNotFound {
 			return false, nil
 		}
 	}
