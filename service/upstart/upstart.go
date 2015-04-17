@@ -29,6 +29,15 @@ var (
 
 // IsRunning returns whether or not upstart is the local init system.
 func IsRunning() (bool, error) {
+	if _, err := os.Stat(initctlPath); os.IsNotExist(err) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	// The error returned from exec.Command varies on different
+	// platforms for the case where the executable doesn't exist. So
+	// we do the above check to get a consistent behavior.
 	cmd := exec.Command(initctlPath, "--system", "list")
 	_, err := cmd.CombinedOutput()
 	if err == nil {
