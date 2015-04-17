@@ -11,7 +11,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -37,6 +36,7 @@ func must(s string, err error) string {
 }
 
 var logDir = must(paths.LogDir("precise"))
+var dataDir = must(paths.DataDir("precise"))
 var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 
 // makeInstanceConfig produces a valid cloudinit machine config.
@@ -46,8 +46,8 @@ func makeInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 	return &instancecfg.InstanceConfig{
 		MachineId:    machineId,
 		MachineNonce: "gxshasqlnng",
-		DataDir:      instancecfg.DataDir,
-		LogDir:       agent.DefaultLogDir,
+		DataDir:      dataDir,
+		LogDir:       logDir,
 		Jobs: []multiwatcher.MachineJob{
 			multiwatcher.JobManageEnviron,
 			multiwatcher.JobHostUnits,

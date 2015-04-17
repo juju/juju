@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/service"
 	systemdtesting "github.com/juju/juju/service/systemd/testing"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 func Test(t *stdtesting.T) {
@@ -184,6 +185,7 @@ end script
 }
 
 func (s *UserDataSuite) TestShutdownInitCommandsSystemd(c *gc.C) {
+	s.PatchValue(&version.Current.Series, "vivid")
 	commands, err := containerinit.ShutdownInitCommands(service.InitSystemSystemd)
 	c.Assert(err, jc.ErrorIsNil)
 

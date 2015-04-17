@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path"
 	"regexp"
+	"runtime"
 	"text/template"
 
 	"github.com/juju/errors"
@@ -31,6 +32,12 @@ var (
 
 // IsRunning returns whether or not upstart is the local init system.
 func IsRunning() (bool, error) {
+	// On windows casting the error to exec.Error does not yield a os.PathError type
+	// It's easyer to just return false before even trying to execute an external command
+	// on windows at least
+	if runtime.GOOS == "windows" {
+		return false, nil
+	}
 	cmd := exec.Command(initctlPath, "--system", "list")
 	_, err := cmd.CombinedOutput()
 	if err == nil {

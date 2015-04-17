@@ -37,7 +37,7 @@ google.golang.org/cloud	git	f20d6dcccb44ed49de45ae3703312cb46e627db1	2015-03-19T
 gopkg.in/amz.v3	git	f5c958d2b012da23a4600bad441f20b13ec262c4	2015-04-03T18:23:57Z
 gopkg.in/check.v1	git	64131543e7896d5bcc6bd5a76287eb75ea96c673	2014-10-24T13:38:53Z
 gopkg.in/errgo.v1	git	81357a83344ddd9f7772884874e5622c2a3da21c	2014-10-13T17:33:38Z
-gopkg.in/juju/charm.v5	git	4ce6225dae243c82f8a342749accaefbadad38e0	2015-04-10T08:52:37Z
+gopkg.in/juju/charm.v5	git	6b74a2771545912f8a91a544b0f28405b9938624	2015-04-14T14:33:47Z
 gopkg.in/juju/charmstore.v4	git	ab64d50370f9c167a7cd55be8ea22c3842aae46d	2015-04-10T09:44:12Z
 gopkg.in/macaroon-bakery.v0	git	9593b80b01ba04b519769d045dffd6abd827d2fd	2015-04-10T07:46:55Z
 gopkg.in/macaroon.v1	git	ab3940c6c16510a850e1c2dd628b919f0f3f1464	2015-01-21T11:42:31Z
