@@ -101,7 +101,21 @@ func (s *BaseSuite) PatchVersion(vers version.Binary) {
 	s.PatchValue(&getVersion, s.Patched.GetVersion)
 }
 
-func (s *BaseSuite) PatchLocalDiscovery(funcs map[string]func() (bool, error)) {
+func (s *BaseSuite) PatchLocalDiscoveryDisable() {
+	s.PatchValue(&discoveryFuncs, nil)
+}
+
+func (s *BaseSuite) PatchLocalDiscoveryNoMatch(expected string) {
+	matchesFunc := func(matches bool) func() (bool, error) {
+		return func() (bool, error) {
+			return matches, nil
+		}
+	}
+	funcs := []discoveryCheck{
+		{InitSystemUpstart, matchesFunc(expected == InitSystemUpstart)},
+		{InitSystemSystemd, matchesFunc(expected == InitSystemSystemd)},
+		{InitSystemWindows, matchesFunc(expected == InitSystemWindows)},
+	}
 	s.PatchValue(&discoveryFuncs, funcs)
 }
 
