@@ -57,7 +57,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
-	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
@@ -149,9 +148,9 @@ type AgentInitializer interface {
 type AgentConfigWriter interface {
 	// ReadConfig reads the config for the given tag from disk.
 	ReadConfig(tag string) error
-	// ChangeConfig executes the given AgentConfigMutator in a
+	// ChangeConfig executes the given agent.ConfigMutator in a
 	// thread-safe context.
-	ChangeConfig(AgentConfigMutator) error
+	ChangeConfig(agent.ConfigMutator) error
 	// CurrentConfig returns a copy of the in-memory agent config.
 	CurrentConfig() agent.Config
 }
@@ -453,7 +452,7 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	return worker.ErrRebootMachine
 }
 
-func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
+func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	err := a.AgentConfigWriter.ChangeConfig(mutate)
 	a.configChangedVal.Set(struct{}{})
 	if err != nil {
@@ -617,13 +616,6 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			agentConfig = a.CurrentConfig()
 			break
 		}
-	}
-
-	// Before starting any workers, ensure we record the Juju version this machine
-	// agent is running.
-	currentTools := &coretools.Tools{Version: version.Current}
-	if err := st.Upgrader().SetVersion(agentConfig.Tag().String(), currentTools.Version); err != nil {
-		return nil, errors.Annotate(err, "cannot set machine agent version")
 	}
 
 	runner := newConnRunner(st)

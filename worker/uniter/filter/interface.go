@@ -24,6 +24,9 @@ type Filter interface {
 	// encountered in the process.
 	Wait() error
 
+	// Kill causes the filter to start shutting down if it has not already done so.
+	Kill()
+
 	// UnitDying returns a channel which is closed when the Unit enters a Dying state.
 	UnitDying() <-chan struct{}
 

@@ -1095,16 +1095,16 @@ func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRsyslogManageEnviron(c *gc.C) {
-	s.testMachineAgentRsyslogConfigWorker(c, state.JobManageEnviron, rsyslog.RsyslogModeAccumulate)
+	s.testMachineAgentRsyslogConfigWorkerMode(c, state.JobManageEnviron, rsyslog.RsyslogModeAccumulate)
 }
 
 func (s *MachineSuite) TestMachineAgentRsyslogHostUnits(c *gc.C) {
-	s.testMachineAgentRsyslogConfigWorker(c, state.JobHostUnits, rsyslog.RsyslogModeForwarding)
+	s.testMachineAgentRsyslogConfigWorkerMode(c, state.JobHostUnits, rsyslog.RsyslogModeForwarding)
 }
 
-func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.MachineJob, expectedMode rsyslog.RsyslogMode) {
+func (s *MachineSuite) testMachineAgentRsyslogConfigWorkerMode(c *gc.C, job state.MachineJob, expectedMode rsyslog.RsyslogMode) {
 	created := make(chan rsyslog.RsyslogMode, 1)
-	s.AgentSuite.PatchValue(&cmdutil.NewRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
+	s.AgentSuite.PatchValue(&rsyslog.NewRsyslogConfigWorker, func(_ *apirsyslog.State, mode rsyslog.RsyslogMode, _ names.Tag, _ string, _ []string) (worker.Worker, error) {
 		created <- mode
 		return newDummyWorker(), nil
 	})

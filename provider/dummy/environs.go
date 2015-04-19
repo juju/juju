@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/lease"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -55,6 +56,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.provider.dummy")
@@ -261,6 +263,7 @@ type environState struct {
 	apiListener  net.Listener
 	httpListener net.Listener
 	apiServer    *apiserver.Server
+	leaseWorker  worker.Worker
 	apiState     *state.State
 	preferIPv6   bool
 }
@@ -330,6 +333,10 @@ func (state *environState) destroy() {
 			panic(err)
 		}
 		state.apiServer = nil
+		if err := worker.Stop(state.leaseWorker); err != nil && mongoAlive() {
+			panic(err)
+		}
+		state.leaseWorker = nil
 		if err := state.apiState.Close(); err != nil && mongoAlive() {
 			panic(err)
 		}
@@ -748,6 +755,19 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err != nil {
 			panic(err)
 		}
+		// TODO(fwereade): 2015-07-04
+		// This is dreadfully evil: but the *vast* majority of tests use an api server
+		// embedded in the dummy provider, and *some* of those require a lease manager.
+		// The dependencies are confused: in short:
+		//
+		//  * estate.apiServer has an explicit dependency on estate.apiState
+		//  * estate.apiServer has a magical/deadlocky dependency on estate.leaseWorker
+		//  * estate.leaseWorker has an explicit dependency on estate.apiState
+		//
+		// ...and so we *must* shut down in the order: apiServer; leaseWorker; apiState.
+		// It feels *dreadfully* wrong to insert it at this level of the testing
+		// infrastructure; but I fail to see a practical alternative at this stage.
+		estate.leaseWorker = worker.NewSimpleWorker(lease.WorkerLoop(st))
 		estate.apiState = st
 	}
 	estate.bootstrapped = true

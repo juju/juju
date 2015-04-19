@@ -30,20 +30,22 @@ import (
 	corecharm "gopkg.in/juju/charm.v5"
 	goyaml "gopkg.in/yaml.v1"
 
+	apileadership "github.com/juju/juju/api/leadership"
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/leadership"
-	"github.com/juju/juju/lease"
+	coreleadership "github.com/juju/juju/leadership"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
+	"github.com/juju/juju/worker/uniter/filter"
 )
 
 // worstCase is used for timeouts when timing out
@@ -81,13 +83,15 @@ type context struct {
 	s             *UniterSuite
 	st            *state.State
 	api           *apiuniter.State
-	leader        leadership.LeadershipManager
+	leaderManager coreleadership.LeadershipManager
 	charms        map[string][]byte
 	hooks         []string
 	sch           *state.Charm
 	svc           *state.Service
 	unit          *state.Unit
 	uniter        *uniter.Uniter
+	filter        filter.Filter
+	tracker       leadership.TrackerWorker
 	relatedSvc    *state.Service
 	relation      *state.Relation
 	relationUnits map[string]*state.RelationUnit
@@ -114,15 +118,9 @@ func (ctx *context) HookFailed(hookName string) {
 }
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
-	// We need this lest leadership calls block forever.
-	workerLoop := lease.WorkerLoop(ctx.st)
-	leaseWorker := worker.NewSimpleWorker(workerLoop)
-	defer func() {
-		c.Assert(worker.Stop(leaseWorker), jc.ErrorIsNil)
-	}()
-
 	defer func() {
 		if ctx.uniter != nil {
+			destroyWorkers(ctx)
 			err := ctx.uniter.Stop()
 			c.Assert(err, jc.ErrorIsNil)
 		}
@@ -142,7 +140,7 @@ func (ctx *context) apiLogin(c *gc.C) {
 	c.Assert(st, gc.NotNil)
 	c.Logf("API: login as %q successful", ctx.unit.Tag())
 	ctx.api, err = st.Uniter()
-	ctx.leader = st.LeadershipManager()
+	ctx.leaderManager = apileadership.NewClient(st)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.api, gc.NotNil)
 }
@@ -425,7 +423,10 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.leader, ctx.dataDir, lock)
+	ctx.filter, err = filter.NewFilter(ctx.api, tag)
+	c.Assert(err, jc.ErrorIsNil)
+	ctx.tracker = leadership.NewTrackerWorker(tag, ctx.leaderManager, 30*time.Second)
+	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.tracker, ctx.filter, ctx.dataDir, lock)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
 
@@ -434,6 +435,7 @@ type waitUniterDead struct {
 }
 
 func (s waitUniterDead) step(c *gc.C, ctx *context) {
+	defer destroyWorkers(ctx)
 	if s.err != "" {
 		err := s.waitDead(c, ctx)
 		c.Assert(err, gc.ErrorMatches, s.err)
@@ -461,15 +463,8 @@ func (s waitUniterDead) waitDead(c *gc.C, ctx *context) error {
 	u := ctx.uniter
 	ctx.uniter = nil
 	timeout := time.After(worstCase)
+	ctx.s.BackingState.StartSync()
 	for {
-		// The repeated StartSync is to ensure timely completion of this method
-		// in the case(s) where a state change causes a uniter action which
-		// causes a state change which causes a uniter action, in which case we
-		// need more than one sync. At the moment there's only one situation
-		// that causes this -- setting the unit's service to Dying -- but it's
-		// not an intrinsically insane pattern of action (and helps to simplify
-		// the filter code) so this test seems like a small price to pay.
-		ctx.s.BackingState.StartSync()
 		select {
 		case <-u.Dead():
 			return u.Wait()
@@ -486,14 +481,22 @@ type stopUniter struct {
 }
 
 func (s stopUniter) step(c *gc.C, ctx *context) {
+	defer destroyWorkers(ctx)
 	u := ctx.uniter
 	ctx.uniter = nil
 	err := u.Stop()
 	if s.err == "" {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Check(err, jc.ErrorIsNil)
 	} else {
-		c.Assert(err, gc.ErrorMatches, s.err)
+		c.Check(err, gc.ErrorMatches, s.err)
 	}
+}
+
+func destroyWorkers(ctx *context) {
+	ctx.filter.Kill()
+	ctx.filter = nil
+	ctx.tracker.Kill()
+	ctx.tracker = nil
 }
 
 type verifyWaiting struct{}

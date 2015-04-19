@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -20,7 +19,6 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	coreleadership "github.com/juju/juju/leadership"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/leadership"
@@ -33,10 +31,6 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")
-
-// leadershipGuarantee defines the period of time for which a successful call
-// to the is-leader hook tool guarantees continued leadership.
-var leadershipGuarantee = 30 * time.Second
 
 // A UniterExecutionObserver gets the appropriate methods called when a hook
 // is executed and either succeeds or fails.  Missing hooks don't get reported
@@ -70,7 +64,6 @@ type Uniter struct {
 	operationFactory  operation.Factory
 	operationExecutor operation.Executor
 
-	leadershipManager coreleadership.LeadershipManager
 	leadershipTracker leadership.Tracker
 
 	hookLock    *fslock.Lock
@@ -93,15 +86,17 @@ type Uniter struct {
 func NewUniter(
 	st *uniter.State,
 	unitTag names.UnitTag,
-	leadershipManager coreleadership.LeadershipManager,
+	leadershipTracker leadership.Tracker,
+	eventFilter filter.Filter,
 	dataDir string,
 	hookLock *fslock.Lock,
 ) *Uniter {
 	u := &Uniter{
 		st:                st,
+		f:                 eventFilter,
+		leadershipTracker: leadershipTracker,
 		paths:             NewPaths(dataDir, unitTag),
 		hookLock:          hookLock,
-		leadershipManager: leadershipManager,
 		collectMetricsAt:  inactiveMetricsTimer,
 	}
 	go func() {
@@ -125,19 +120,6 @@ func (u *Uniter) runCleanups() {
 }
 
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
-	// Start tracking leadership state.
-	// TODO(fwereade): ideally, this wouldn't be created here; as a worker it's
-	// clearly better off being managed by a Runner. However, we haven't come up
-	// with a clean way to reference one (lineage of a...) worker from another,
-	// so for now the tracker is accessible only to its unit.
-	leadershipTracker := leadership.NewTrackerWorker(
-		unitTag, u.leadershipManager, leadershipGuarantee,
-	)
-	u.addCleanup(func() error {
-		return worker.Stop(leadershipTracker)
-	})
-	u.leadershipTracker = leadershipTracker
-
 	if err := u.init(unitTag); err != nil {
 		if err == worker.ErrTerminateAgent {
 			return err
@@ -145,17 +127,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		return fmt.Errorf("failed to initialize uniter for %q: %v", unitTag, err)
 	}
 	logger.Infof("unit %q started", u.unit)
-
-	// Start filtering state change events for consumption by modes.
-	u.f, err = filter.NewFilter(u.st, unitTag)
-	if err != nil {
-		return err
-	}
-	u.addCleanup(u.f.Stop)
-
-	// Stop the uniter if either of these components fails.
-	go func() { u.tomb.Kill(leadershipTracker.Wait()) }()
-	go func() { u.tomb.Kill(u.f.Wait()) }()
 
 	// Run modes until we encounter an error.
 	mode := ModeContinue

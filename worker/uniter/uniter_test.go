@@ -412,12 +412,6 @@ func (s *UniterSuite) TestUniterDyingReaction(c *gc.C) {
 			waitHooks{"stop"},
 			waitUniterDead{},
 		), ut(
-			"steady state unit dead",
-			quickStart{},
-			unitDead,
-			waitUniterDead{},
-			waitHooks{},
-		), ut(
 			"hook error service dying",
 			startupError{"start"},
 			serviceDying,
@@ -435,12 +429,6 @@ func (s *UniterSuite) TestUniterDyingReaction(c *gc.C) {
 			resolveError{state.ResolvedRetryHooks},
 			waitHooks{"start", "config-changed", "stop"},
 			waitUniterDead{},
-		), ut(
-			"hook error unit dead",
-			startupError{"start"},
-			unitDead,
-			waitUniterDead{},
-			waitHooks{},
 		),
 	})
 }
@@ -927,13 +915,6 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 			resolveError{state.ResolvedNoHooks},
 			waitHooks{"upgrade-charm", "config-changed", "stop"},
 			waitUniterDead{},
-		), ut(
-			"upgrade conflict unit dead",
-			startUpgradeError{},
-			unitDead,
-			waitUniterDead{},
-			waitHooks{},
-			fixUpgradeError{},
 		),
 	})
 }
@@ -1072,12 +1053,6 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 			resolveError{state.ResolvedNoHooks},
 			waitHooks{"upgrade-charm", "config-changed", "stop"},
 			waitUniterDead{},
-		), ugt(
-			"upgrade conflict unit dead",
-			startGitUpgradeError{},
-			unitDead,
-			waitUniterDead{},
-			waitHooks{},
 		),
 	})
 }
@@ -1134,17 +1109,6 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			relationState{life: state.Alive},
 			removeRelationUnit{"mysql/0"},
 			relationState{life: state.Alive},
-		), ut(
-			"unit becomes dead while in a relation",
-			quickStartRelation{},
-			unitDead,
-			waitUniterDead{},
-			waitHooks{},
-			// TODO BUG(?): the unit doesn't leave the scope, leaving the relation
-			// unkillable without direct intervention. I'm pretty sure it's not a
-			// uniter bug -- it should be the responsibility of `juju remove-unit
-			// --force` to cause the unit to leave any relation scopes it may be
-			// in -- but it's worth noting here all the same.
 		), ut(
 			"unknown local relation dir is removed",
 			quickStartRelation{},
