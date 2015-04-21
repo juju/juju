@@ -20,6 +20,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -53,6 +54,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 
 func (s *provisionerSuite) setUpTest(c *gc.C, withStateServer bool) {
 	s.JujuConnSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.AddressAllocation)
 
 	// Reset previous machines (if any) and create 3 machines
 	// for the tests, plus an optional state server machine.

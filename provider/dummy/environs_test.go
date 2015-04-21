@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -64,6 +65,7 @@ func (s *liveSuite) TearDownSuite(c *gc.C) {
 
 func (s *liveSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.AddressAllocation)
 	s.MgoSuite.SetUpTest(c)
 	s.LiveTests.SetUpTest(c)
 }
@@ -93,6 +95,7 @@ func (s *suite) TearDownSuite(c *gc.C) {
 
 func (s *suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.AddressAllocation)
 	s.MgoSuite.SetUpTest(c)
 	s.Tests.SetUpTest(c)
 }
