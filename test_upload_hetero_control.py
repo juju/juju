@@ -1,23 +1,19 @@
-from unittest import TestCase
-from upload_hetero_control import (
-    JenkinsBuild,
-    S3,
-    HUploader,
-    get_s3_access,
-    add_credential_args,
-    get_credentials,
-)
 from ConfigParser import NoOptionError
-from argparse import Namespace, ArgumentParser
-from collections import namedtuple
+import json
+from unittest import TestCase
 
 from mock import patch, MagicMock, call
-import json
-from StringIO import StringIO
+from tempfile import NamedTemporaryFile
+
 from jujuci import (
-    JENKINS_URL,
-    CredentialsMissing,
     Credentials,
+    JENKINS_URL,
+)
+from upload_hetero_control import (
+    get_s3_access,
+    HUploader,
+    JenkinsBuild,
+    S3,
 )
 
 
@@ -146,8 +142,8 @@ class TestS3(TestCase):
         s3 = S3('/comp-test', 'fake', 'fake', None, b_mock)
         status = s3.store('fake filename', 'fake data')
         self.assertTrue(status, True)
-        b_mock.new_key.return_value.set_contents_from_string. \
-            assert_called_once_with('fake data', headers=None)
+        (b_mock.new_key.return_value.set_contents_from_string.
+            assert_called_once_with('fake data', headers=None))
 
 
 class TestHUploader(TestCase):
@@ -161,90 +157,75 @@ class TestHUploader(TestCase):
                 self.assertIs(type(h), HUploader)
 
     def test_upload(self):
+        filename = '1200-result-results.json'
         s3_mock = MagicMock()
         jenkins_mock = MagicMock()
+        jenkins_mock.get_latest_build_number.return_value = 1200
+        jenkins_mock.get_build_number.return_value = 1200
+        jenkins_mock.get_build_info.return_value = {"build_info": "1200"}
+        jenkins_mock.get_console_text.return_value = "console text"
+        jenkins_mock._create_filename.return_value = filename
+        jenkins_mock.artifacts.return_value = fake_artifacts(2)
         h = HUploader(s3_mock, jenkins_mock)
-        with patch('upload_hetero_control.HUploader.upload_test_results',
-                   autospec=True) as s_mock:
-            with patch('upload_hetero_control.HUploader.upload_console_log',
-                       autospec=True) as u_mock:
-                with patch('upload_hetero_control.HUploader.upload_artifacts',
-                           autospec=True) as a_mock:
-                    h.upload()
-        s_mock.assert_called_once_with(h)
-        u_mock.assert_called_once_with(h)
-        a_mock.assert_called_once_with(h)
+        h.upload()
+        self.assertEqual(s3_mock.store.mock_calls, [
+            call(filename, json.dumps({"build_info": "1200"}),
+                 headers={"Content-Type": "application/json"}),
+            call('1200-console-consoleText.txt', 'console text',
+                 headers={"Content-Type": "text/plain; charset=utf8"}),
+            call('1200-log-filename', 'artifact data',
+                 headers={"Content-Type": "application/octet-stream"})])
 
-    def test_upload_all_test_results_SAVE(self):
+    def test_upload_all_test_results(self):
         s3_mock = MagicMock()
         jenkins_mock = MagicMock()
+        jenkins_mock.get_latest_build_number.return_value = 3
+        jenkins_mock.get_build_info.return_value = BUILD_INFO
         h = HUploader(s3_mock, jenkins_mock)
-        with patch('upload_hetero_control.HUploader.upload',
-                   autospec=True) as u_mock:
-            with patch.object(jenkins_mock, 'get_latest_build_number',
-                              return_value=3, autospec=True) as g_mock:
-                h.upload_all_test_results()
-        g_mock.assert_called_once_with(h)
-        self.assertEqual(u_mock.mock_calls, [call(h), call(h), call(h)])
+        h.upload_all_test_results()
+        self.assertEqual(jenkins_mock.set_build_number.mock_calls,
+                         [call(1), call(2), call(3)])
 
     def test_upload_test_results(self):
         filename = '1277-result-results.json'
-        headers = {"Content-Type": "application/json; charset=utf8"}
+        headers = {"Content-Type": "application/json"}
         s3_mock = MagicMock()
         jenkins_mock = MagicMock()
         jenkins_mock.get_build_info.return_value = BUILD_INFO
         jenkins_mock.get_build_number.return_value = BUILD_NUM
         h = HUploader(s3_mock, jenkins_mock)
-        with patch.object(s3_mock, 'store', autopsec=True) as s_mock:
-            h.upload_test_results()
-            s_mock.assert_called_once_with(
-                filename, json.dumps(jenkins_mock.get_build_info.return_value),
-                headers=headers)
+        h.upload_test_results()
+        s3_mock.store.assert_called_once_with(
+            filename, json.dumps(jenkins_mock.get_build_info.return_value),
+            headers=headers)
 
     def test_upload_console_log(self):
         filename = '1277-console-consoleText.txt'
         headers = {"Content-Type": "text/plain; charset=utf8"}
         s3_mock = MagicMock()
         jenkins_mock = MagicMock()
+        jenkins_mock.get_build_number.return_value = BUILD_NUM
+        jenkins_mock.get_console_text.return_value = "log text"
         h = HUploader(s3_mock, jenkins_mock)
-        with patch.object(s3_mock, 'store', autopsec=True) as s_mock:
-            with patch.object(
-                    jenkins_mock, 'get_build_number', return_value=BUILD_NUM,
-                    autospec=True) as g_mock:
-                with patch.object(
-                        jenkins_mock, 'get_console_text', autospec=True,
-                        return_value="log text") as b_mock:
-                    h.upload_console_log()
-            s_mock.assert_called_once_with(
-                filename, 'log text', headers=headers)
-            g_mock.assert_called_once_with(h)
-            b_mock.assert_called_once_with(h)
+        h.upload_console_log()
+        s3_mock.store.assert_called_once_with(
+            filename, 'log text', headers=headers)
+        jenkins_mock.get_console_text.assert_called_once_with()
 
     def test_upload_artifacts(self):
         filename = '1277-log-filename'
-        headers = {"Content-Type": "application/x-gzip"}
+        headers = {"Content-Type": "application/octet-stream"}
         s3_mock = MagicMock()
         jenkins_mock = MagicMock()
+        jenkins_mock.get_build_number.return_value = BUILD_NUM
+        jenkins_mock.artifacts.return_value = fake_artifacts(4)
         h = HUploader(s3_mock, jenkins_mock)
-
-        def fake_artifacts():
-            for x in xrange(1, 4):
-                yield "filename", "artifact data"
-
-        with patch.object(s3_mock, 'store', autopsec=True) as s_mock:
-            with patch.object(
-                    jenkins_mock, 'get_build_number', return_value=BUILD_NUM,
-                    autospec=True) as g_mock:
-                with patch.object(
-                        jenkins_mock, 'artifacts', autospec=True,
-                        return_value=fake_artifacts()) as b_mock:
-                    h.upload_artifacts()
-            calls = [call(filename, 'artifact data', headers=headers),
-                     call(filename, 'artifact data', headers=headers),
-                     call(filename, 'artifact data', headers=headers)]
-            self.assertEqual(s_mock.mock_calls, calls)
-            g_mock.assert_called_once_with(h)
-            b_mock.assert_called_once_with(h)
+        h.upload_artifacts()
+        calls = [call(filename, 'artifact data', headers=headers),
+                 call(filename, 'artifact data', headers=headers),
+                 call(filename, 'artifact data', headers=headers)]
+        self.assertEqual(s3_mock.store.mock_calls, calls)
+        jenkins_mock.artifacts.assert_called_once_with()
 
     def test_upload_by_env_build_number(self):
         jenkins_mock = MagicMock()
@@ -259,130 +240,110 @@ class TestHUploader(TestCase):
         s_mock.assert_called_once_with('399993')
         u_mock.assert_called_once_with()
 
-    def test_upload_by_env_build_number__no_build_number(self):
+    def test_upload_by_env_build_number_no_build_number(self):
         jenkins_mock = MagicMock()
         h = HUploader(None, jenkins_mock)
         with patch('upload_hetero_control.os.getenv',
                    return_value=None, autospec=True):
-            with patch.object(jenkins_mock, 'set_build_number', autospec=True):
-                with patch.object(h, 'upload', autospec=True):
-                    with self.assertRaises(ValueError):
-                        h.upload_by_env_build_number()
+            with self.assertRaisesRegexp(
+                    ValueError, 'Build number is not set'):
+                h.upload_by_env_build_number()
 
-    def test_upload_by_env_build_number__not_number(self):
+    def test_upload_by_env_build_number_not_digit(self):
         jenkins_mock = MagicMock()
         h = HUploader(None, jenkins_mock)
         with patch('upload_hetero_control.os.getenv',
-                   return_value="1Hello2", autospec=True):
-            with patch.object(jenkins_mock, 'set_build_number', autospec=True):
-                with patch.object(h, 'upload', autospec=True):
-                    with self.assertRaises(ValueError):
-                        h.upload_by_env_build_number()
+                   return_value="NoDigit", autospec=True):
+            with self.assertRaisesRegexp(
+                    ValueError, 'Build number is not a digit'):
+                h.upload_by_env_build_number()
 
 
 class OtherTests(TestCase):
 
     def test_get_s3_access(self):
         path = '/u/home'
-        relative_path = '/cloud-city/juju-qa.s3cfg'
-        with patch('upload_hetero_control.os.getenv',
-                   return_value=path, autospec=True) as j_mock:
-            with patch('__builtin__.open',
-                       return_value=s3cfg(), autospec=True) as o_mock:
-                access_key, secret_key = get_s3_access()
-                self.assertEqual(access_key, "fake_username")
-                self.assertEqual(secret_key, "fake_pass")
-        j_mock.assert_called_once_with('HOME')
-        o_mock.assert_called_once_with(path + relative_path)
+        relative_path = 'cloud-city/juju-qa.s3cfg'
+        with NamedTemporaryFile() as temp_file:
+                temp_file.write(s3cfg())
+                temp_file.flush()
+                with patch(
+                        'upload_hetero_control.os.path.join', autospec=True,
+                        return_value=temp_file.name) as j_mock:
+                    with patch(
+                            'upload_hetero_control.os.getenv', autospec=True,
+                            return_value=path) as g_mock:
+                        access_key, secret_key = get_s3_access()
+                        self.assertEqual(access_key, "fake_username")
+                        self.assertEqual(secret_key, "fake_pass")
+        j_mock.assert_called_once_with(path, relative_path)
+        g_mock.assert_called_once_with('HOME')
 
     def test_get_s3_access_no_access_key(self):
         path = '/u/home'
-        relative_path = '/cloud-city/juju-qa.s3cfg'
-        with patch('upload_hetero_control.os.getenv',
-                   return_value=path, autospec=True) as j_mock:
-            with patch('__builtin__.open',
-                       return_value=s3cfg_no_access_key(),
-                       autospec=True) as o_mock:
-                with self.assertRaises(NoOptionError):
-                    access_key, secret_key = get_s3_access()
-                    self.assertEqual(secret_key, "fake_pass")
-        j_mock.assert_called_once_with('HOME')
-        o_mock.assert_called_once_with(path + relative_path)
+        relative_path = 'cloud-city/juju-qa.s3cfg'
+        with NamedTemporaryFile() as temp_file:
+                temp_file.write(s3cfg_no_access_key())
+                temp_file.flush()
+                with patch('upload_hetero_control.os.path.join', autospec=True,
+                           return_value=temp_file.name) as j_mock:
+                    with patch(
+                            'upload_hetero_control.os.getenv', autospec=True,
+                            return_value=path) as g_mock:
+                        with self.assertRaisesRegexp(
+                                NoOptionError,
+                                "No option 'access_key' in section: "
+                                "'default'"):
+                            get_s3_access()
+        j_mock.assert_called_once_with(path, relative_path)
+        g_mock.assert_called_once_with('HOME')
 
     def test_get_s3_access_no_secret_key(self):
         path = '/u/home'
-        relative_path = '/cloud-city/juju-qa.s3cfg'
-        with patch('upload_hetero_control.os.getenv',
-                   return_value=path, autospec=True) as j_mock:
-            with patch('__builtin__.open',
-                       return_value=s3cfg_no_secret_key(),
-                       autospec=True) as o_mock:
-                with self.assertRaises(NoOptionError):
-                    get_s3_access()
-        j_mock.assert_called_once_with('HOME')
-        o_mock.assert_called_once_with(path + relative_path)
-
-    def test_get_credentials(self):
-        self.assertEqual(
-            get_credentials(Namespace(user='jrandom', password='password1')),
-            Credentials('jrandom', 'password1'))
-
-    def test_get_credentials_no_user(self):
-        self.assertIs(get_credentials(Namespace()), None)
-
-    def test_get_credentials_no_value(self):
-        with self.assertRaisesRegexp(
-                CredentialsMissing,
-                'Jenkins username and/or password not supplied.'):
-            get_credentials(Namespace(user=None, password='password1'))
-        with self.assertRaisesRegexp(
-                CredentialsMissing,
-                'Jenkins username and/or password not supplied.'):
-            get_credentials(Namespace(user='jrandom', password=None))
-
-    def test_add_credential_args(self):
-        parser = ArgumentParser()
-        parser.add_argument("--test", help="Testing", default="env")
-        self.assertIsNone(parser.get_default('user'))
-        self.assertIsNone(parser.get_default('password'))
-        with patch('upload_hetero_control.os.environ.get',
-                   return_value='fake', autospec=True) as g_mock:
-            add_credential_args(parser)
-            self.assertEqual(parser.get_default('user'), 'fake')
-            self.assertEqual(parser.get_default('password'), 'fake')
-            self.assertIsNone(parser.get_default('fake_arg'))
-        g_mock.assert_any_call('JENKINS_USER')
-        g_mock.assert_any_call('JENKINS_PASSWORD')
-        self.assertEqual(g_mock.call_count, 2)
-
-
-FAKE_CREDENTIALS = namedtuple('Credentials', ['user', 'password'])
+        relative_path = 'cloud-city/juju-qa.s3cfg'
+        with NamedTemporaryFile() as temp_file:
+                temp_file.write(s3cfg_no_secret_key())
+                temp_file.flush()
+                with patch(
+                        'upload_hetero_control.os.path.join', autospec=True,
+                        return_value=temp_file.name) as j_mock:
+                    with patch(
+                            'upload_hetero_control.os.getenv', autospec=True,
+                            return_value=path) as g_mock:
+                        with self.assertRaisesRegexp(
+                                NoOptionError,
+                                "No option 'secret_key' in section: "
+                                "'default'"):
+                            get_s3_access()
+        j_mock.assert_called_once_with(path, relative_path)
+        g_mock.assert_called_once_with('HOME')
 
 
 def fake_credentials():
-    return FAKE_CREDENTIALS('fake_username', 'fake_pass')
+    return Credentials('fake_username', 'fake_pass')
 
 
 def s3cfg():
-    data = """
-[default]
+    return """[default]
 access_key = fake_username
 secret_key = fake_pass
 """
-    return StringIO(data)
 
 
 def s3cfg_no_access_key():
-    data = """
+    return """
 [default]
 secret_key = fake_pass
 """
-    return StringIO(data)
 
 
 def s3cfg_no_secret_key():
-    data = """
+    return """
 [default]
 access_key = fake_username
 """
-    return StringIO(data)
+
+
+def fake_artifacts(max=4):
+    for x in xrange(1, max):
+        yield "filename", "artifact data"

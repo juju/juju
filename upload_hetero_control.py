@@ -1,26 +1,33 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
-import os
-import requests
-import urlparse
-from jenkins import Jenkins
-from requests.auth import HTTPBasicAuth
-from boto.s3.connection import S3Connection
+from argparse import ArgumentParser
 from ConfigParser import ConfigParser
 import json
+import os
 import sys
-from argparse import ArgumentParser
+import urlparse
+
+from boto.s3.connection import S3Connection
+from jenkins import Jenkins
+import requests
+from requests.auth import HTTPBasicAuth
+
 from jujuci import(
-    JENKINS_URL,
-    get_credentials,
     add_credential_args,
+    get_credentials,
+    JENKINS_URL,
 )
+
 
 __metaclass__ = type
 
 
 class JenkinsBuild:
+    """
+    Retrieves Jenkins build information
+    """
+
     def __init__(self, credentials, job_name, jenkins, build_info):
         """
         :param credentials: Jenkins credentials
@@ -115,6 +122,9 @@ class JenkinsBuild:
 
 
 class S3:
+    """
+    Used to store an object in S3
+    """
 
     def __init__(self, directory, access_key, secret_key, conn, bucket):
         self.dir = directory
@@ -207,7 +217,7 @@ class HUploader:
 
     def upload_test_results(self):
         filename = self._create_filename('result-results.json')
-        headers = {"Content-Type": "application/json; charset=utf8"}
+        headers = {"Content-Type": "application/json"}
         self.s3.store(filename, json.dumps(
             self.jenkins_build.get_build_info()), headers=headers)
 
@@ -218,7 +228,7 @@ class HUploader:
             filename, self.jenkins_build.get_console_text(), headers=headers)
 
     def upload_artifacts(self):
-        headers = {"Content-Type": "application/x-gzip"}
+        headers = {"Content-Type": "application/octet-stream"}
         for filename, content in self.jenkins_build.artifacts():
             filename = self._create_filename('log-' + filename)
             self.s3.store(filename, content, headers=headers)
@@ -240,9 +250,11 @@ def get_s3_access():
     s3cfg_path = os.path.join(
         os.getenv('HOME'), 'cloud-city/juju-qa.s3cfg')
     config = ConfigParser()
-    config.readfp(open(s3cfg_path))
-    return config.get(
-        'default', 'access_key'), config.get('default', 'secret_key')
+    with open(s3cfg_path, 'r') as s3cfg:
+        config.readfp(s3cfg)
+        access_key, secret_key = (config.get('default', 'access_key'),
+                                  config.get('default', 'secret_key'))
+    return access_key, secret_key
 
 
 if __name__ == '__main__':
