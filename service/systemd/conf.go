@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/version"
 )
 
 var limitMap = map[string]string{
@@ -41,6 +42,18 @@ type confRenderer interface {
 	shell.ScriptRenderer
 }
 
+func syslogUserGroup() (string, string) {
+	var user, group string
+	switch version.Current.OS {
+	case version.CentOS:
+		user, group = "root", "adm"
+	default:
+		user, group = "syslog", "syslog"
+	}
+
+	return user, group
+}
+
 // normalize adjusts the conf to more standardized content and
 // returns a new Conf with that updated content. It also returns the
 // content of any script file that should accompany the conf.
@@ -54,7 +67,8 @@ func normalize(name string, conf common.Conf, scriptPath string, renderer confRe
 		cmds = append(cmds, renderer.Touch(filename, nil)...)
 		// TODO(ericsnow) We should drop the assumption that the logfile
 		// is syslog.
-		cmds = append(cmds, renderer.Chown(filename, "syslog", "syslog")...)
+		user, group := syslogUserGroup()
+		cmds = append(cmds, renderer.Chown(filename, user, group)...)
 		cmds = append(cmds, renderer.Chmod(filename, 0600)...)
 		cmds = append(cmds, renderer.RedirectOutput(filename)...)
 		cmds = append(cmds, renderer.RedirectFD("out", "err")...)
@@ -72,7 +86,7 @@ func normalize(name string, conf common.Conf, scriptPath string, renderer confRe
 	}
 	if !isSimpleCommand(strings.Join(cmds, "\n")) {
 		data = renderer.RenderScript(cmds)
-		conf.ExecStart = renderer.Quote(scriptPath)
+		conf.ExecStart = scriptPath
 	}
 
 	if len(conf.Env) == 0 {

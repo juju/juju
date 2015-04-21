@@ -89,7 +89,8 @@ func versionInitSystem(vers version.Binary) (string, bool) {
 			}
 			return InitSystemSystemd, true
 		}
-		// TODO(ericsnow) Support other OSes, like version.CentOS.
+	case version.CentOS:
+		return InitSystemSystemd, true
 	default:
 		return "", false
 	}
@@ -120,7 +121,7 @@ const discoverInitSystemScript = `
 if [[ -d /run/systemd/system ]]; then
     echo -n systemd
     exit 0
-elif /sbin/initctl --system list 2>&1 > /dev/null; then
+elif [[ -f /sbin/initctl ]] && /sbin/initctl --system list 2>&1 > /dev/null; then
     echo -n upstart
     exit 0
 fi

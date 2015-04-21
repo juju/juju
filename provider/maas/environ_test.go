@@ -194,7 +194,7 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 	c.Check(env.Config().Name(), gc.Equals, "testenv")
 }
 
-var expectedCloudinitConfig = []interface{}{
+var expectedCloudinitConfig = []string{
 	"set -xe",
 	"mkdir -p '/var/lib/juju'\ncat > '/var/lib/juju/MAASmachine.txt' << 'EOF'\n'hostname: testing.invalid\n'\nEOF\nchmod 0755 '/var/lib/juju/MAASmachine.txt'",
 }
@@ -205,7 +205,7 @@ func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "eth0", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
+	c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
 }
 
@@ -218,6 +218,6 @@ func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "eth0", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
+	c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
 }

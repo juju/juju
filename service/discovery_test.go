@@ -147,7 +147,8 @@ var discoveryTests = []discoveryTest{{
 	expected: maybeSystemd,
 }, {
 	os:       version.CentOS,
-	expected: "",
+	series:   "centos7",
+	expected: service.InitSystemSystemd,
 }, {
 	os:       version.Unknown,
 	expected: "",

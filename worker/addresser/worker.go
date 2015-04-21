@@ -50,10 +50,9 @@ func NewWorker(st stateAddresser) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	netEnviron, ok := environs.SupportsNetworking(environ)
-	if !ok {
-		return nil, errors.New("environment does not support networking")
-	}
+	// If netEnviron is nil the worker will start but won't do anything as
+	// no IP addresses will be created or destroyed.
+	netEnviron, _ := environs.SupportsNetworking(environ)
 	a := newWorkerWithReleaser(st, netEnviron)
 	return a, nil
 }
@@ -69,6 +68,9 @@ func newWorkerWithReleaser(st stateAddresser, releaser releaser) worker.Worker {
 
 // Handle is part of the StringsWorker interface.
 func (a *addresserHandler) Handle(ids []string) error {
+	if a.releaser == nil {
+		return nil
+	}
 	for _, id := range ids {
 		logger.Debugf("received notification about address %v", id)
 		addr, err := a.st.IPAddress(id)

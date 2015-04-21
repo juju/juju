@@ -5,7 +5,7 @@ package action
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"

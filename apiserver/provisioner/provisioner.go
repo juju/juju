@@ -983,15 +983,25 @@ func (p *ProvisionerAPI) prepareAllocationNetwork(
 	}
 	logger.Tracef("interfaces for instance %q: %v", instId, interfaces)
 
+	subnetSet := make(set.Strings)
 	subnetIds := []network.Id{}
 	subnetIdToInterface := make(map[network.Id]network.InterfaceInfo)
 	for _, iface := range interfaces {
 		if iface.ProviderSubnetId == "" {
 			logger.Debugf("no subnet associated with interface %#v (skipping)", iface)
 			continue
+		} else if iface.Disabled {
+			logger.Debugf("interface %#v disabled (skipping)", iface)
+			continue
 		}
-		subnetIds = append(subnetIds, iface.ProviderSubnetId)
-		subnetIdToInterface[iface.ProviderSubnetId] = iface
+		if !subnetSet.Contains(string(iface.ProviderSubnetId)) {
+			subnetIds = append(subnetIds, iface.ProviderSubnetId)
+			subnetSet.Add(string(iface.ProviderSubnetId))
+
+			// This means that multiple interfaces on the same subnet will
+			// only appear once.
+			subnetIdToInterface[iface.ProviderSubnetId] = iface
+		}
 	}
 	subnets, err := environ.Subnets(instId, subnetIds)
 	if err != nil {

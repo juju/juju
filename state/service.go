@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -29,7 +29,7 @@ type Service struct {
 }
 
 // serviceDoc represents the internal state of a service in MongoDB.
-// Note the correspondence with ServiceInfo in apiserver/params.
+// Note the correspondence with ServiceInfo in apiserver.
 type serviceDoc struct {
 	DocID             string     `bson:"_id"`
 	Name              string     `bson:"name"`
@@ -594,6 +594,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	docID := s.st.docID(name)
 	globalKey := unitGlobalKey(name)
 	agentGlobalKey := unitAgentGlobalKey(name)
+	meterStatusGlobalKey := unitAgentGlobalKey(name)
 	udoc := &unitDoc{
 		DocID:                  docID,
 		Name:                   name,
@@ -625,7 +626,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		},
 		createStatusOp(s.st, globalKey, unitStatusDoc),
 		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
-		createMeterStatusOp(s.st, globalKey, &meterStatusDoc{Code: MeterNotSet.String()}),
+		createMeterStatusOp(s.st, meterStatusGlobalKey, &meterStatusDoc{Code: MeterNotSet.String()}),
 		{
 			C:      servicesC,
 			Id:     s.doc.DocID,
@@ -742,7 +743,7 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		removeConstraintsOp(s.st, u.globalAgentKey()),
 		removeStatusOp(s.st, u.globalAgentKey()),
 		removeStatusOp(s.st, u.globalKey()),
-		removeMeterStatusOp(s.st, u.globalKey()),
+		removeMeterStatusOp(s.st, u.globalMeterStatusKey()),
 		annotationRemoveOp(s.st, u.globalKey()),
 		s.st.newCleanupOp(cleanupRemovedUnit, u.doc.Name),
 	)
@@ -1033,4 +1034,59 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 type settingsRefsDoc struct {
 	RefCount int
 	EnvUUID  string `bson:"env-uuid"`
+}
+
+// Status returns the status of the service.
+// Only unit leaders are allowed to set the status of the service.
+// If no status is recorded, then there are no unit leaders and the
+// status is derived from the unit status values.
+func (s *Service) Status() (StatusInfo, error) {
+	doc, err := getStatus(s.st, s.globalKey())
+	if errors.IsNotFound(err) && s.IsPrincipal() {
+		return s.deriveStatus()
+	}
+	if err != nil {
+		return StatusInfo{}, err
+	}
+	return StatusInfo{
+		Status:  doc.Status,
+		Message: doc.StatusInfo,
+		Data:    doc.StatusData,
+		Since:   doc.Updated,
+	}, nil
+}
+
+func (s *Service) deriveStatus() (StatusInfo, error) {
+	units, err := s.AllUnits()
+	if err != nil {
+		return StatusInfo{}, err
+	}
+	var result StatusInfo
+	for _, unit := range units {
+		currentSeverity := statusServerities[result.Status]
+		unitStatus, err := unit.Status()
+		if err != nil {
+			return StatusInfo{}, err
+		}
+		unitSeverity := statusServerities[unitStatus.Status]
+		if unitSeverity > currentSeverity {
+			result.Status = unitStatus.Status
+			result.Message = unitStatus.Message
+			result.Data = unitStatus.Data
+			result.Since = unitStatus.Since
+		}
+	}
+	return result, nil
+}
+
+// statusSeverities holds status values with a severity measure.
+// Status values with higher severity are used in preference to others.
+var statusServerities = map[Status]int{
+	StatusError:       100,
+	StatusBlocked:     90,
+	StatusWaiting:     80,
+	StatusMaintenance: 70,
+	StatusTerminated:  60,
+	StatusActive:      50,
+	StatusUnknown:     40,
 }

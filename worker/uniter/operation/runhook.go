@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v5-unstable/hooks"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -79,6 +79,9 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	if err := rh.callbacks.SetExecutingStatus(message); err != nil {
 		return nil, err
 	}
+	// The before hook may have updated unit status and we don't want that
+	// to count so reset it here before running the hook.
+	rh.runner.Context().ResetExecutionSetUnitStatus()
 
 	ranHook := true
 	step := Done
@@ -143,7 +146,7 @@ func (rh *runHook) beforeHook() error {
 
 func (rh *runHook) afterHook(state State) (bool, error) {
 	ctx := rh.runner.Context()
-	hasRunStatusSet := ctx.HasExecutionSetUnitStatus()
+	hasRunStatusSet := ctx.HasExecutionSetUnitStatus() || state.StatusSet
 	var err error
 	switch rh.info.Kind {
 	case hooks.Stop:

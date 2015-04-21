@@ -82,13 +82,13 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	units := make(map[string]unitStatus)
 
 	p("\n[Services]")
-	p("NAME\tEXPOSED\tCHARM")
+	p("NAME\tSTATUS\tEXPOSED\tCHARM")
 	for _, svcName := range sortStringsNaturally(stringKeysFromMap(fs.Services)) {
 		svc := fs.Services[svcName]
 		for un, u := range svc.Units {
 			units[un] = u
 		}
-		p(svcName, fmt.Sprintf("%t", svc.Exposed), svc.Charm)
+		p(svcName, svc.StatusInfo.Current, fmt.Sprintf("%t", svc.Exposed), svc.Charm)
 	}
 	tw.Flush()
 

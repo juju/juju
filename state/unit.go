@@ -13,7 +13,7 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -176,6 +176,11 @@ func unitGlobalKey(name string) string {
 
 // globalAgentKey returns the global database key for the unit.
 func (u *Unit) globalAgentKey() string {
+	return unitAgentGlobalKey(u.doc.Name)
+}
+
+// globalMeterStatusKey returns the global database key for the meter status of the unit.
+func (u *Unit) globalMeterStatusKey() string {
 	return unitAgentGlobalKey(u.doc.Name)
 }
 
@@ -807,9 +812,18 @@ func (u *Unit) AgentStatus() (StatusInfo, error) {
 // the effort to separate Unit from UnitAgent. Now the Status for UnitAgent is in
 // the UnitAgent struct.
 func (u *Unit) Status() (StatusInfo, error) {
-	doc, err := getStatus(u.st, u.globalKey())
+	// The current health spec says when a hook error occurs, the workload should
+	// be in error state, but the state model more correctly records the agent
+	// itself as being in error. So we'll do that model translation here.
+	doc, err := getStatus(u.st, u.globalAgentKey())
 	if err != nil {
 		return StatusInfo{}, err
+	}
+	if doc.Status != StatusError {
+		doc, err = getStatus(u.st, u.globalKey())
+		if err != nil {
+			return StatusInfo{}, err
+		}
 	}
 	return StatusInfo{
 		Status:  doc.Status,
@@ -1876,7 +1890,7 @@ func (u *Unit) Resolve(retryHooks bool) error {
 	// We currently check agent status to see if a unit is
 	// in error state. As the new Juju Health work is completed,
 	// this will change to checking the unit status.
-	statusInfo, err := u.AgentStatus()
+	statusInfo, err := u.Status()
 	if err != nil {
 		return err
 	}

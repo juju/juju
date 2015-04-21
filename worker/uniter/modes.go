@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v5-unstable"
-	"gopkg.in/juju/charm.v5-unstable/hooks"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/params"
@@ -27,6 +27,7 @@ func setAgentStatus(u *Uniter, status params.Status, info string, data map[strin
 	}
 	u.lastReportedStatus = status
 	u.lastReportedMessage = info
+	logger.Debugf("[AGENT-STATUS] %s %s", status, info)
 	return u.unit.SetAgentStatus(status, info, data)
 }
 

@@ -15,8 +15,8 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
-	"gopkg.in/juju/charm.v5-unstable"
-	"gopkg.in/juju/charm.v5-unstable/charmrepo"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/charmrepo"
 	"gopkg.in/juju/charmstore.v4/csclient"
 	"gopkg.in/macaroon-bakery.v0/httpbakery"
 	"gopkg.in/macaroon.v1"
@@ -897,7 +897,7 @@ func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error)
 // provisions a machine agent on the machine executing the script.
 func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (params.ProvisioningScriptResult, error) {
 	var result params.ProvisioningScriptResult
-	mcfg, err := MachineConfig(c.api.state, args.MachineId, args.Nonce, args.DataDir)
+	icfg, err := InstanceConfig(c.api.state, args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, err
 	}
@@ -909,16 +909,16 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	// true. False indicates the client doesn't care and we should use
 	// what's specified in the environments.yaml file.
 	if args.DisablePackageCommands {
-		mcfg.EnableOSRefreshUpdate = false
-		mcfg.EnableOSUpgrade = false
+		icfg.EnableOSRefreshUpdate = false
+		icfg.EnableOSUpgrade = false
 	} else if cfg, err := c.api.state.EnvironConfig(); err != nil {
 		return result, err
 	} else {
-		mcfg.EnableOSUpgrade = cfg.EnableOSUpgrade()
-		mcfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
+		icfg.EnableOSUpgrade = cfg.EnableOSUpgrade()
+		icfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
 	}
 
-	result.Script, err = manual.ProvisioningScript(mcfg)
+	result.Script, err = manual.ProvisioningScript(icfg)
 	return result, err
 }
 
@@ -1300,7 +1300,11 @@ func (c *Client) AddCharmWithAuthorization(args params.AddCharmWithAuthorization
 	)
 	downloadedCharm, err := repo.Get(charmURL)
 	if err != nil {
-		return errors.Mask(err)
+		cause := errors.Cause(err)
+		if httpbakery.IsDischargeError(cause) || httpbakery.IsInteractionError(cause) {
+			return errors.NewUnauthorized(err, "")
+		}
+		return errors.Trace(err)
 	}
 
 	// Open it and calculate the SHA256 hash.
