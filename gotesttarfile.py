@@ -26,16 +26,11 @@ class WorkingDirectory:
         os.chdir(self.savedPath)
 
 
-def run(*command, **kwargs):
-    """Run a command and return the stdout and stderr output."""
-    returncode = 0
-    kwargs['stderr'] = subprocess.STDOUT
-    try:
-        output = subprocess.check_output(command, **kwargs)
-    except subprocess.CalledProcessError as e:
-        returncode = e.returncode
-        output = e.output
-    return returncode, output
+def run(command, **kwargs):
+    """Run a command returning exit status."""
+    proc = subprocess.Popen(command, **kwargs)
+    proc.communicate()
+    return proc.returncode
 
 
 def untar_gopath(tarfile_path, gopath, delete=False, verbose=False):
@@ -56,6 +51,13 @@ def untar_gopath(tarfile_path, gopath, delete=False, verbose=False):
             print('Deleted %s' % tarfile_path)
 
 
+def murder_mongo():
+    """Kill off any lingering mongod processess."""
+    if sys.platform == 'win32':
+        return run(["taskkill.exe", "/F", "/FI", "imagename eq mongod.exe"])
+    return run(["sudo", "killall", "-SIGABRT", "mongod"])
+
+
 def go_test_package(package, go_cmd, gopath, verbose=False):
     """Run the package unit tests."""
     # Set GOPATH and GOARCH to ensure the go command tests extracted
@@ -68,6 +70,8 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
         # Ensure OpenSSH is never in the path for win tests.
         sane_path = [p for p in env['PATH'].split(';') if 'OpenSSH' not in p]
         env['PATH'] = ';'.join(sane_path)
+        # GZ 2015-04-21: Short-term hack to work around case-insensitive issues
+        env['Path'] = env['PATH']
         if verbose:
             print('Setting environ Path to:')
             print(env['PATH'])
@@ -83,13 +87,13 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
     with WorkingDirectory(package_dir):
         if verbose:
             print('Running unit tests in %s' % package)
-        returncode, output = run(*command, env=env)
-        print(output)
+        returncode = run(command, env=env)
         if verbose:
             if returncode == 0:
                 print('SUCCESS')
             else:
                 print('FAIL')
+        murder_mongo()
     return returncode
 
 

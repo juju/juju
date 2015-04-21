@@ -1,7 +1,6 @@
 from mock import patch
 import os
 import shutil
-import subprocess
 import tarfile
 from unittest import TestCase
 
@@ -15,26 +14,33 @@ from gotesttarfile import (
 from utility import temp_dir
 
 
+class FakePopen(object):
+
+    def __init__(self, code):
+        self._code = code
+
+    def communicate(self):
+        self.returncode = self._code
+        return None, None
+
+
 class gotesttarfileTestCase(TestCase):
 
     def test_run_success(self):
         env = {'a': 'b'}
-        with patch('subprocess.check_output', return_value='pass') as mock:
-            returncode, output = run('go', 'test', './...', env=env)
+        with patch('subprocess.Popen', autospec=True,
+                   return_value=FakePopen(0)) as mock:
+            returncode = run(['go', 'test', './...'], env=env)
         self.assertEqual(0, returncode)
-        self.assertEqual('pass', output)
-        args, kwargs = mock.call_args
-        self.assertEqual((('go', 'test', './...'), ), args)
-        self.assertIs(env, kwargs['env'])
-        self.assertIs(subprocess.STDOUT, kwargs['stderr'])
+        mock.assert_called_once_with(['go', 'test', './...'], env=env)
 
     def test_run_fail(self):
         env = {'a': 'b'}
-        e = subprocess.CalledProcessError(1, ['foo'], output='fail')
-        with patch('subprocess.check_output', side_effect=e):
-            returncode, output = run('go', 'test', './...', env=env)
+        with patch('subprocess.Popen', autospec=True,
+                   return_value=FakePopen(1)) as mock:
+            returncode = run(['go', 'test', './...'], env=env)
         self.assertEqual(1, returncode)
-        self.assertEqual('fail', output)
+        mock.assert_called_once_with(['go', 'test', './...'], env=env)
 
     def test_untar_gopath(self):
         with temp_dir() as base_dir:
@@ -56,24 +62,26 @@ class gotesttarfileTestCase(TestCase):
             package_path = os.path.join(
                 gopath, 'src', 'github.com', 'juju', 'juju')
             os.makedirs(package_path)
-            with patch('gotesttarfile.run', return_value=[0, 'success'],
+            with patch('gotesttarfile.run', return_value=0,
                        autospec=True) as run_mock:
                 devnull = open(os.devnull, 'w')
                 with patch('sys.stdout', devnull):
                     returncode = go_test_package(
                         'github.com/juju/juju', 'go', gopath)
         self.assertEqual(0, returncode)
-        args, kwargs = run_mock.call_args
-        self.assertEqual(('go', 'test', './...'), args)
+        self.assertEqual(run_mock.call_count, 2)
+        args, kwargs = run_mock.call_args_list[0]
+        self.assertEqual((['go', 'test', './...'],), args)
         self.assertEqual('amd64', kwargs['env'].get('GOARCH'))
         self.assertEqual(gopath, kwargs['env'].get('GOPATH'))
+        run_mock.assert_called_with(['sudo', 'killall', '-SIGABRT', 'mongod'])
 
     def test_go_test_package_win32(self):
         with temp_dir() as gopath:
             package_path = os.path.join(
                 gopath, 'src', 'github.com', 'juju', 'juju')
             os.makedirs(package_path)
-            with patch('gotesttarfile.run', return_value=[0, 'success'],
+            with patch('gotesttarfile.run', return_value=0,
                        autospec=True) as run_mock:
                 devnull = open(os.devnull, 'w')
                 with patch('sys.stdout', devnull):
@@ -83,14 +91,18 @@ class gotesttarfileTestCase(TestCase):
                             returncode = go_test_package(
                                 'github.com/juju/juju', 'go', gopath)
         self.assertEqual(0, returncode)
-        args, kwargs = run_mock.call_args
+        args, kwargs = run_mock.call_args_list[0]
+        self.assertEqual(run_mock.call_count, 2)
         self.assertEqual(
-            ('powershell.exe', '-Command', 'go', 'test', './...'),
+            (['powershell.exe', '-Command', 'go', 'test', './...'], ),
             args)
         self.assertEqual(r'C:\foo;C:\baz', kwargs['env'].get('PATH'))
+        self.assertEqual(kwargs['env'].get('Path'), kwargs['env'].get('PATH'))
         self.assertEqual(gopath, os.path.dirname(kwargs['env'].get('TMP')))
         self.assertIn("tmp-juju-", os.path.basename(kwargs['env'].get('TMP')))
         self.assertEqual(kwargs['env'].get('TEMP'), kwargs['env'].get('TMP'))
+        run_mock.assert_called_with(
+            ['taskkill.exe', '/F', '/FI', 'imagename eq mongod.exe'])
 
     def test_parse_args(self):
         args = parse_args(
