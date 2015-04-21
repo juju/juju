@@ -83,16 +83,24 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	if bridgeDevice == "" {
 		bridgeDevice = lxc.DefaultLxcBridge
 	}
-	allocatedInfo, err := maybeAllocateStaticIP(
-		machineId, bridgeDevice, broker.api,
-		args.NetworkInfo, broker.enableNAT,
-	)
-	if err != nil {
-		// It's fine, just ignore it. The effect will be that the
-		// container won't have a static address configured.
-		logger.Infof("not allocating static IP for container %q: %v", machineId, err)
+	if err := environs.AddressAllocationEnabled(); err != nil {
+		logger.Debugf(
+			"address allocation feature flag not enabled; using DHCP for container %q",
+			machineId,
+		)
 	} else {
-		args.NetworkInfo = allocatedInfo
+		logger.Debugf("trying to allocate static IP for container %q", machineId)
+		allocatedInfo, err := maybeAllocateStaticIP(
+			machineId, bridgeDevice, broker.api,
+			args.NetworkInfo, broker.enableNAT,
+		)
+		if err != nil {
+			// It's fine, just ignore it. The effect will be that the
+			// container won't have a static address configured.
+			logger.Infof("not allocating static IP for container %q: %v", machineId, err)
+		} else {
+			args.NetworkInfo = allocatedInfo
+		}
 	}
 	network := container.BridgeNetworkConfig(bridgeDevice, args.NetworkInfo)
 
