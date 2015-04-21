@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 )
 
@@ -45,19 +46,41 @@ func (s *interfaceSuite) TestCreate(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.Equals, configstore.ErrEnvironInfoAlreadyExists)
 }
 
-func (s *interfaceSuite) createInitialisedEnvironment(c *gc.C, store configstore.Storage, envName string) {
+func (s *interfaceSuite) createInitialisedEnvironment(c *gc.C, store configstore.Storage, envName string, serverUUID string) {
 	info := store.CreateInfo(envName)
+	info.SetAPIEndpoint(configstore.APIEndpoint{
+		Addresses:   []string{"localhost"},
+		CACert:      testing.CACert,
+		EnvironUUID: envName,
+		ServerUUID:  serverUUID,
+	})
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *interfaceSuite) TestList(c *gc.C) {
 	store := s.NewStore(c)
-	s.createInitialisedEnvironment(c, store, "enva")
-	s.createInitialisedEnvironment(c, store, "envb")
-	s.createInitialisedEnvironment(c, store, "envc")
+	s.createInitialisedEnvironment(c, store, "enva", "")
+	s.createInitialisedEnvironment(c, store, "envb", "")
+
+	s.SetFeatureFlags(feature.EnvironmentsCacheFile)
+	s.createInitialisedEnvironment(c, store, "envc", "envc")
 
 	environs, err := store.List()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(environs, jc.SameContents, []string{"enva", "envb", "envc"})
+}
+
+func (s *interfaceSuite) TestListServers(c *gc.C) {
+	store := s.NewStore(c)
+	s.createInitialisedEnvironment(c, store, "enva", "")
+	s.createInitialisedEnvironment(c, store, "envb", "")
+
+	s.SetFeatureFlags(feature.EnvironmentsCacheFile)
+	s.createInitialisedEnvironment(c, store, "envc", "envc")
+	s.createInitialisedEnvironment(c, store, "envd", "envc")
+
+	environs, err := store.ListServers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environs, jc.SameContents, []string{"enva", "envb", "envc"})
 }
