@@ -28,7 +28,7 @@ github.com/juju/syslog	git	6be94e8b718766e9ff7a37342157fe4795da7cfa	2015-02-05T1
 github.com/juju/testing	git	b362983a4c1f6c0da91dc6eaf8cefcf54a383eab	2015-03-30T01:10:40Z
 github.com/juju/txn	git	2407a1fa094db5603f4718f11e1fafc8543273eb	2015-03-27T20:47:42Z
 github.com/juju/utils	git	74de2af2d82f17a3e8d12c9aa50af256c9a74ab9	2015-04-16T15:03:20Z
-github.com/juju/xml	git	91535ba18a6afd756e38a40c91fea0ed8e5dbaa6	2014-12-04T14:59:31Z
+github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
 golang.org/x/crypto	git	c57d4a71915a248dbad846d60825145062b4c18e	2015-03-27T05:11:19Z
 golang.org/x/net	git	7dbad50ab5b31073856416cdcfeb2796d682f844	2015-03-20T03:46:21Z
 golang.org/x/oauth2	git	11c60b6f71a6ad48ed6f93c65fa4c6f9b1b5b46a	2015-03-25T02:00:22Z
