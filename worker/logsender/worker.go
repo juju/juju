@@ -5,7 +5,6 @@ package logsender
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -18,21 +17,11 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-// LogRecord represents a log message in an agent which is to be
-// transmitted to the JES.
-type LogRecord struct {
-	Time     time.Time
-	Module   string
-	Location string
-	Level    loggo.Level
-	Message  string
-}
-
 var logger = loggo.GetLogger("juju.worker.logsender")
 
 // New starts a logsender worker which reads log message structs from
 // a channel and sends them to the JES via the logsink API.
-func New(logs chan *LogRecord, apiInfo *api.Info) worker.Worker {
+func New(logs LogRecordCh, apiInfo *api.Info) worker.Worker {
 	loop := func(stop <-chan struct{}) error {
 		logger.Debugf("starting logsender worker")
 
