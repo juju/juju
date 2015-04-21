@@ -1,4 +1,4 @@
-package logsender
+package logsender_test
 
 import (
 	stdtesting "testing"
