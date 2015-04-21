@@ -67,6 +67,20 @@ func (m *memStore) List() ([]string, error) {
 	return envs, nil
 }
 
+// ListServers implements Storage.ListServers
+func (m *memStore) ListServers() ([]string, error) {
+	var servers []string
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for name, env := range m.envs {
+		api := env.APIEndpoint()
+		if api.ServerUUID == "" || api.ServerUUID == api.EnvironUUID {
+			servers = append(servers, name)
+		}
+	}
+	return servers, nil
+}
+
 // ReadInfo implements Storage.ReadInfo.
 func (m *memStore) ReadInfo(envName string) (EnvironInfo, error) {
 	m.mu.Lock()

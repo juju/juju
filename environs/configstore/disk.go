@@ -15,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fslock"
+	"github.com/juju/utils/set"
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/feature"
@@ -142,6 +143,42 @@ func (d *diskStore) List() ([]string, error) {
 		envs = append(envs, name)
 	}
 	return envs, nil
+}
+
+// ListServers implements Storage.ListServers
+func (d *diskStore) ListServers() ([]string, error) {
+	// List both jenv files and cache entries.  Record
+	// results in a set to avoid repeat entries.
+	servers := set.NewStrings()
+	cache, err := readCacheFile(cacheFilename(d.dir))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for name := range cache.Server {
+		servers.Add(name)
+	}
+
+	files, err := filepath.Glob(d.dir + "/*" + jenvExtension)
+	if err != nil {
+		return nil, err
+	}
+	for _, file := range files {
+		fName := filepath.Base(file)
+		name := fName[:len(fName)-len(jenvExtension)]
+		env, err := d.ReadInfo(name)
+		if err != nil {
+			return nil, err
+		}
+
+		// If ServerUUID is not set, it is an old env and is a
+		// server by default.  Otherwise, if the server and env
+		// UUIDs match, it is a server.
+		api := env.APIEndpoint()
+		if api.ServerUUID == "" || api.ServerUUID == api.EnvironUUID {
+			servers.Add(name)
+		}
+	}
+	return servers.SortedValues(), nil
 }
 
 // ReadInfo implements Storage.ReadInfo.
@@ -278,7 +315,10 @@ func (info *environInfo) Write() error {
 	// that for an old JENV file, the first update (on API connection)
 	// may write a JENV file, and the subsequent update will create the
 	// entry in the cache file.
-	if featureflag.Enabled(feature.EnvironmentsCacheFile) && info.serverUUID != "" {
+	// If the source was the cache file, then always write there to
+	// avoid stale data in the cache file.
+	if info.source == sourceCache ||
+		(featureflag.Enabled(feature.EnvironmentsCacheFile) && info.serverUUID != "") {
 		if err := info.ensureNoJENV(); info.source == sourceCreated && err != nil {
 			return errors.Trace(err)
 		}
