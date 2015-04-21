@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/provider/maas"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -42,6 +43,7 @@ func (s *environSuite) SetUpSuite(c *gc.C) {
 func (s *environSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
+	s.SetFeatureFlags(feature.AddressAllocation)
 }
 
 func (s *environSuite) TearDownTest(c *gc.C) {

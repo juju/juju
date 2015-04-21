@@ -1054,6 +1054,10 @@ iface {{.Bridge}} inet dhcp
     bridge_ports ${PRIMARY_IFACE}
 EOF
 
+# Make the primary interface not auto-starting.
+grep -q "auto ${PRIMARY_IFACE}" {{.Config}} && \
+sed -i "s/auto ${PRIMARY_IFACE}//" {{.Config}}
+
 # Finally, stop $PRIMARY_IFACE and start the bridge instead.
 ifdown -v ${PRIMARY_IFACE} ; ifup -v {{.Bridge}}
 `
