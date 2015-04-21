@@ -6,8 +6,8 @@ package operation_test
 import (
 	"github.com/juju/errors"
 	utilexec "github.com/juju/utils/exec"
-	corecharm "gopkg.in/juju/charm.v5-unstable"
-	"gopkg.in/juju/charm.v5-unstable/hooks"
+	corecharm "gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -337,6 +337,10 @@ func (mock *MockContext) ActionData() (*runner.ActionData, error) {
 
 func (mock *MockContext) HasExecutionSetUnitStatus() bool {
 	return mock.setStatusCalled
+}
+
+func (mock *MockContext) ResetExecutionSetUnitStatus() {
+	mock.setStatusCalled = false
 }
 
 func (mock *MockContext) SetUnitStatus(status jujuc.StatusInfo) error {

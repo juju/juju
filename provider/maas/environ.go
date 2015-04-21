@@ -21,7 +21,9 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/gomaasapi"
 
-	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -817,7 +819,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		availabilityZones = []string{""}
 	}
 
-	requestedNetworks := args.MachineConfig.Networks
+	requestedNetworks := args.InstanceConfig.Networks
 	includeNetworks := append(args.Constraints.IncludeNetworks(), requestedNetworks...)
 	excludeNetworks := args.Constraints.ExcludeNetworks()
 
@@ -853,7 +855,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if err != nil {
 		return nil, err
 	}
-	args.MachineConfig.Tools = selectedTools[0]
+	args.InstanceConfig.Tools = selectedTools[0]
 
 	var networkInfo []network.InterfaceInfo
 	networkInfo, primaryIface, err := environ.setupNetworks(inst, set.NewStrings(excludeNetworks...))
@@ -865,16 +867,16 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if err != nil {
 		return nil, err
 	}
-	if err := environs.FinishMachineConfig(args.MachineConfig, environ.Config()); err != nil {
+	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, environ.Config()); err != nil {
 		return nil, err
 	}
-	series := args.MachineConfig.Tools.Version.Series
+	series := args.InstanceConfig.Tools.Version.Series
 
 	cloudcfg, err := environ.newCloudinitConfig(hostname, primaryIface, series)
 	if err != nil {
 		return nil, err
 	}
-	userdata, err := environs.ComposeUserData(args.MachineConfig, cloudcfg)
+	userdata, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
 		return nil, msg
@@ -886,7 +888,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	logger.Debugf("started instance %q", inst.Id())
 
-	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
 		if err := common.AddStateInstance(environ.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}
@@ -998,10 +1000,10 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 
 // newCloudinitConfig creates a cloudinit.Config structure
 // suitable as a base for initialising a MAAS node.
-func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series string) (*cloudinit.Config, error) {
+func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series string) (cloudinit.CloudConfig, error) {
 	cloudcfg, err := cloudinit.New(series)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 
 	info := machineInfo{hostname}
@@ -1018,7 +1020,7 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series st
 	case version.Windows:
 		cloudcfg.AddScripts(runCmd)
 	case version.Ubuntu:
-		cloudcfg.SetAptUpdate(true)
+		cloudcfg.SetSystemUpdate(true)
 		cloudcfg.AddScripts("set -xe", runCmd)
 	}
 	return cloudcfg, nil
@@ -1604,12 +1606,11 @@ func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]iface
 	primaryIface := ""
 	interfaces := make(map[string]ifaceInfo)
 	var processNodes func(nodes []Node) error
+	var baseIndex int
 	processNodes = func(nodes []Node) error {
 		for _, node := range nodes {
 			if strings.HasPrefix(node.Id, "network") {
-				// If there's a single interface, the ID won't have an
-				// index suffix.
-				index := 0
+				index := baseIndex
 				if strings.HasPrefix(node.Id, "network:") {
 					// There is an index suffix, parse it.
 					var err error
@@ -1617,7 +1618,10 @@ func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]iface
 					if err != nil {
 						return errors.Annotatef(err, "lshw output for node %q has invalid ID suffix for %q", inst.Id(), node.Id)
 					}
+				} else {
+					baseIndex++
 				}
+
 				if primaryIface == "" && !node.Disabled {
 					primaryIface = node.LogicalName
 					logger.Debugf("node %q primary network interface is %q", inst.Id(), primaryIface)

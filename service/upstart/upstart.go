@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path"
 	"regexp"
+	"runtime"
 	"text/template"
 
 	"github.com/juju/errors"
@@ -20,26 +21,33 @@ import (
 	"github.com/juju/juju/service/common"
 )
 
-// InitDir holds the default init directory name.
-var InitDir = "/etc/init"
-
-var servicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
-
 var (
-	logger = loggo.GetLogger("juju.service.upstart")
+	InitDir = "/etc/init" // the default init directory name.
 
-	renderer = &shell.BashRenderer{}
+	logger      = loggo.GetLogger("juju.service.upstart")
+	initctlPath = "/sbin/initctl"
+	servicesRe  = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
+	renderer    = &shell.BashRenderer{}
 )
 
 // IsRunning returns whether or not upstart is the local init system.
 func IsRunning() (bool, error) {
-	cmd := exec.Command("/sbin/initctl", "--system", "list")
+	// On windows casting the error to exec.Error does not yield a os.PathError type
+	// It's easyer to just return false before even trying to execute an external command
+	// on windows at least
+	if runtime.GOOS == "windows" {
+		return false, nil
+	}
+	cmd := exec.Command(initctlPath, "--system", "list")
 	_, err := cmd.CombinedOutput()
 	if err == nil {
 		return true, nil
 	}
-	if err == exec.ErrNotFound || err.Error() == "exit status 1" {
-		return false, nil
+	if execErr, ok := err.(*exec.Error); ok {
+		if _, ok := execErr.Err.(*os.PathError); ok {
+			// Executable could not be found, or could not be executed.
+			return false, nil
+		}
 	}
 	return false, errors.Trace(err)
 }

@@ -116,7 +116,7 @@ func (u *Unit) SetMeterStatus(codeStr, info string) error {
 				Assert: isAliveDoc,
 			}, {
 				C:      meterStatusC,
-				Id:     u.st.docID(u.globalKey()),
+				Id:     u.st.docID(u.globalMeterStatusKey()),
 				Assert: txn.DocExists,
 				Update: bson.D{{"$set", bson.D{{"code", code.String()}, {"info", info}}}},
 			}}, nil
@@ -180,7 +180,7 @@ func (u *Unit) getMeterStatusDoc() (*meterStatusDoc, error) {
 	meterStatuses, closer := u.st.getCollection(meterStatusC)
 	defer closer()
 	var status meterStatusDoc
-	err := meterStatuses.FindId(u.globalKey()).One(&status)
+	err := meterStatuses.FindId(u.globalMeterStatusKey()).One(&status)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

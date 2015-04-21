@@ -8,7 +8,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"

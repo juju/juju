@@ -58,13 +58,20 @@ func (s *UnitAgentSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 		"foo": "bar",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err = agent.Status()
+	// Agent error is reported as unit error.
+	statusInfo, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
 	c.Assert(statusInfo.Message, gc.Equals, "test-hook failed")
 	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
 	})
+	// For agents, error is reported as idle.
+	statusInfo, err = agent.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusIdle)
+	c.Assert(statusInfo.Message, gc.Equals, "")
+	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{})
 }
 
 func (s *UnitAgentSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
@@ -99,7 +106,8 @@ func (s *UnitAgentSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	statusInfo, err := agent.Status()
+	// Agent error is reported as unit error.
+	statusInfo, err := s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
 	c.Assert(statusInfo.Message, gc.Equals, "test-hook failed")
@@ -150,7 +158,8 @@ func (s *UnitAgentSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	statusInfo, err := agent.Status()
+	// Agent error is reported as unit error.
+	statusInfo, err := s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
 	c.Assert(statusInfo.Message, gc.Equals, "mongo")
@@ -179,7 +188,8 @@ func (s *UnitAgentSuite) TestGetSetStatusDataChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	data["4th-key"] = 4.0
 
-	statusInfo, err := agent.Status()
+	// Agent error is reported as unit error.
+	statusInfo, err := s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
 	c.Assert(statusInfo.Message, gc.Equals, "test-hook failed")

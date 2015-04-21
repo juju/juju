@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5-unstable"
-	"gopkg.in/juju/charm.v5-unstable/hooks"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -129,11 +129,12 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		newRef = oldURL.WithRevision(c.Revision).Reference()
 	}
 
-	csParams, err := charmStoreParams()
+	csClient, err := newCharmStoreClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	newURL, repo, err := resolveCharmURL(newRef.String(), csParams, ctx.AbsPath(c.RepoPath), conf)
+	defer csClient.jar.Save()
+	newURL, repo, err := resolveCharmURL(newRef.String(), csClient.params, ctx.AbsPath(c.RepoPath), conf)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -152,7 +153,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	addedURL, err := addCharmViaAPI(client, ctx, newURL, repo)
+	addedURL, err := addCharmViaAPI(client, ctx, newURL, repo, csClient)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}

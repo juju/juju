@@ -27,7 +27,7 @@ import (
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v5-unstable"
+	corecharm "gopkg.in/juju/charm.v5"
 	goyaml "gopkg.in/yaml.v1"
 
 	apileadership "github.com/juju/juju/api/leadership"
@@ -528,8 +528,9 @@ func (s startupErrorWithCustomCharm) step(c *gc.C, ctx *context) {
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
 	step(c, ctx, waitUnitAgent{
-		status: params.StatusError,
-		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
+		statusGetter: unitStatusGetter,
+		status:       params.StatusError,
+		info:         fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
 	for _, hook := range []string{"install", "config-changed", "start"} {
 		if hook == s.badHook {
@@ -550,8 +551,9 @@ func (s startupError) step(c *gc.C, ctx *context) {
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
 	step(c, ctx, waitUnitAgent{
-		status: params.StatusError,
-		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
+		statusGetter: unitStatusGetter,
+		status:       params.StatusError,
+		info:         fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
 	for _, hook := range []string{"install", "config-changed", "start"} {
 		if hook == s.badHook {
@@ -903,9 +905,10 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		upgradeCharm{revision: 1},
 		waitUnitAgent{
-			status: params.StatusError,
-			info:   "upgrade failed",
-			charm:  1,
+			statusGetter: unitStatusGetter,
+			status:       params.StatusError,
+			info:         "upgrade failed",
+			charm:        1,
 		},
 		verifyWaiting{},
 		verifyCharm{attemptedRevision: 1},
@@ -922,9 +925,10 @@ type verifyWaitingUpgradeError struct {
 func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 	verifyCharmSteps := []stepper{
 		waitUnitAgent{
-			status: params.StatusError,
-			info:   "upgrade failed",
-			charm:  s.revision,
+			statusGetter: unitStatusGetter,
+			status:       params.StatusError,
+			info:         "upgrade failed",
+			charm:        s.revision,
 		},
 		verifyCharm{attemptedRevision: s.revision},
 	}
@@ -1517,9 +1521,10 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		upgradeCharm{revision: 1},
 		waitUnitAgent{
-			status: params.StatusError,
-			info:   "upgrade failed",
-			charm:  1,
+			statusGetter: unitStatusGetter,
+			status:       params.StatusError,
+			info:         "upgrade failed",
+			charm:        1,
 		},
 		verifyWaiting{},
 		verifyGitCharm{dirty: true},

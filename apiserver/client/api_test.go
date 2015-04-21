@@ -228,6 +228,11 @@ var scenarioStatus = &api.Status{
 				"logging-dir": {"logging"},
 			},
 			SubordinateTo: []string{},
+			Status: api.AgentStatus{
+				Status: "error",
+				Info:   "blam",
+				Data:   map[string]interface{}{"remote-unit": "logging/0", "foo": "bar", "relation-id": "0"},
+			},
 			Units: map[string]api.UnitStatus{
 				"wordpress/0": {
 					Workload: api.AgentStatus{
@@ -237,6 +242,7 @@ var scenarioStatus = &api.Status{
 					},
 					UnitAgent: api.AgentStatus{
 						Status: "idle",
+						Data:   make(map[string]interface{}),
 					},
 					AgentState:     "error",
 					AgentStateInfo: "blam",

@@ -4,10 +4,14 @@
 package charmrevisionupdater_test
 
 import (
+	"net/http"
+	"net/http/httptest"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/charmrepo"
 
 	"github.com/juju/juju/apiserver/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
@@ -116,4 +120,31 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 	curl = charm.MustParseURL("cs:quantal/mysql")
 	_, err = s.State.LatestPlaceholderCharm(curl)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
+	s.AddMachine(c, "0", state.JobManageEnviron)
+	s.SetupScenario(c)
+
+	// Set up a charm store server that stores the request header.
+	var header http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		header = r.Header
+		s.Server.Handler().ServeHTTP(w, r)
+	}))
+	defer srv.Close()
+
+	// Point the charm repo initializer to the testing server.
+	s.PatchValue(&charmrevisionupdater.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
+		p.URL = srv.URL
+		return charmrepo.NewCharmStore(p)
+	})
+
+	result, err := s.charmrevisionupdater.UpdateLatestRevisions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(header.Get(charmrepo.JujuMetadataHTTPHeader), gc.Equals, "environment_uuid="+env.UUID())
 }

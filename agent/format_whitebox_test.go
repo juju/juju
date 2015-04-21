@@ -14,7 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -54,7 +54,7 @@ func (*formatSuite) TestWriteCommands(c *gc.C) {
 	cloudcfg, err := cloudinit.New("quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	config := newTestConfig(c)
-	commands, err := config.WriteCommands(cloudcfg.ShellRenderer)
+	commands, err := config.WriteCommands(cloudcfg.ShellRenderer())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(commands, gc.HasLen, 3)
 	c.Assert(commands[0], gc.Matches, `mkdir -p '\S+/agents/machine-1'`)
@@ -66,7 +66,7 @@ func (*formatSuite) TestWindowsWriteCommands(c *gc.C) {
 	cloudcfg, err := cloudinit.New("win8")
 	c.Assert(err, jc.ErrorIsNil)
 	config := newTestConfig(c)
-	commands, err := config.WriteCommands(cloudcfg.ShellRenderer)
+	commands, err := config.WriteCommands(cloudcfg.ShellRenderer())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(commands, gc.HasLen, 2)
 	c.Assert(commands[0], gc.Matches, `mkdir '\S+\\agents\\machine-1'`)

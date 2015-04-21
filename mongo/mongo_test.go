@@ -19,6 +19,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/packaging/manager"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/mongo"
@@ -370,16 +371,23 @@ func (s *MongoSuite) TestRemoveService(c *gc.C) {
 
 func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 	dir := c.MkDir()
+	// patch manager.RunCommandWithRetry for repository addition:
+	s.PatchValue(&manager.RunCommandWithRetry, func(string) (string, int, error) {
+		return "", 1, fmt.Errorf("packaging command failed: exit status 1")
+	})
 	s.PatchEnvPathPrepend(dir)
 	failCmd(filepath.Join(dir, "add-apt-repository"))
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
-	// test that we call add-apt-repository only for quantal (and that if it
-	// fails, we return the error)
+	// test that we call add-apt-repository only for quantal
+	// (and that if it fails, we return the error)
 	s.PatchValue(&version.Current.Series, "quantal")
 	err := mongo.EnsureServer(makeEnsureServerParams(dir, ""))
-	c.Assert(err, gc.ErrorMatches, "cannot install mongod: cannot add apt repository: exit status 1.*")
+	c.Assert(err, gc.ErrorMatches, "cannot install mongod: packaging command failed: exit status 1.*")
 
+	s.PatchValue(&manager.RunCommandWithRetry, func(string) (string, int, error) {
+		return "", 0, nil
+	})
 	s.PatchValue(&version.Current.Series, "trusty")
 	failCmd(filepath.Join(dir, "mongod"))
 	err = mongo.EnsureServer(makeEnsureServerParams(dir, ""))
@@ -461,8 +469,8 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(getMockShellCalls(c, addAptRepoOut), gc.DeepEquals, [][]string{{
-		"-y",
-		"ppa:juju/stable",
+		"--yes",
+		"\"ppa:juju/stable\"",
 	}})
 }
 

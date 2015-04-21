@@ -26,8 +26,9 @@ var lockTimeout = time.Second * 5
 
 // MetricsMetadata is used to store metadata for the current metric batch.
 type MetricsMetadata struct {
-	CharmURL string `json:"charmurl"`
-	UUID     string `json:"uuid"`
+	CharmURL string    `json:"charmurl"`
+	UUID     string    `json:"uuid"`
+	Created  time.Time `json:"created"`
 }
 
 // JSONMetricsRecorder implements the MetricsRecorder interface
@@ -140,6 +141,7 @@ func recordMetaData(path string, charmURL, UUID string) error {
 	metadata := MetricsMetadata{
 		CharmURL: charmURL,
 		UUID:     UUID,
+		Created:  time.Now().UTC(),
 	}
 	metaWriter, err := os.Create(path)
 	if err != nil {
@@ -158,6 +160,7 @@ func recordMetaData(path string, charmURL, UUID string) error {
 type MetricsBatch struct {
 	CharmURL string         `json:"charmurl"`
 	UUID     string         `json:"uuid"`
+	Created  time.Time      `json:"created"`
 	Metrics  []jujuc.Metric `json:"metrics"`
 }
 

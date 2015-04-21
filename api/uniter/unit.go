@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
@@ -128,6 +128,32 @@ func (u *Unit) AddMetrics(metrics []params.Metric) error {
 		return errors.Annotate(err, "unable to add metric")
 	}
 	return result.OneError()
+}
+
+// AddMetricsBatches makes an api call to the uniter requesting it to store metrics batches in state.
+func (u *Unit) AddMetricBatches(batches []params.MetricBatch) error {
+	p := params.MetricBatchParams{
+		Batches: make([]params.MetricBatchParam, len(batches)),
+	}
+
+	for i, batch := range batches {
+		p.Batches[i].Tag = u.tag.String()
+		p.Batches[i].Batch = batch
+	}
+	results := new(params.ErrorResults)
+	err := u.st.facade.FacadeCall("AddMetricBatches", p, results)
+	if params.IsCodeNotImplemented(err) {
+		for _, batch := range batches {
+			err = u.AddMetrics(batch.Metrics)
+			if err != nil {
+				return errors.Annotate(err, "failed to add metrics")
+			}
+		}
+		return nil
+	} else if err != nil {
+		return errors.Annotate(err, "failed to send metric batches")
+	}
+	return results.Combine()
 }
 
 // EnsureDead sets the unit lifecycle to Dead if it is Alive or

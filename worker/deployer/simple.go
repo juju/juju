@@ -40,7 +40,7 @@ type SimpleContext struct {
 	agentConfig agent.Config
 
 	// discoverService is a surrogate for service.DiscoverService.
-	discoverService func(string, common.Conf) deployerService
+	discoverService func(string, common.Conf) (deployerService, error)
 
 	// listServices is a surrogate for service.ListServices.
 	listServices func() ([]string, error)
@@ -73,10 +73,8 @@ func NewSimpleContext(agentConfig agent.Config, api APICalls) *SimpleContext {
 	return &SimpleContext{
 		api:         api,
 		agentConfig: agentConfig,
-		discoverService: func(name string, conf common.Conf) deployerService {
-			// TODO(ericsnow) We shouldn't just throw away the error here.
-			svc, _ := service.DiscoverService(name, conf)
-			return svc
+		discoverService: func(name string, conf common.Conf) (deployerService, error) {
+			return service.DiscoverService(name, conf)
 		},
 		listServices: func() ([]string, error) {
 			return service.ListServices()
@@ -94,7 +92,10 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	if err != nil {
 		return errors.Trace(err)
 	}
-	svc := ctx.service(unitName, renderer)
+	svc, err := ctx.service(unitName, renderer)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	installed, err := svc.Installed()
 	if err != nil {
 		return errors.Trace(err)
@@ -166,27 +167,28 @@ type deployerService interface {
 // given unit name in one of these formats:
 //   jujud-<deployer-tag>:<unit-tag>.conf (for compatibility)
 //   jujud-<unit-tag>.conf (default)
-func (ctx *SimpleContext) findInitSystemJob(unitName string) deployerService {
+func (ctx *SimpleContext) findInitSystemJob(unitName string) (deployerService, error) {
 	unitsAndJobs, err := ctx.deployedUnitsInitSystemJobs()
 	if err != nil {
-		// TODO(ericsnow) Is there a good reason to discard the error
-		// like this?
-		return nil
+		return nil, errors.Trace(err)
 	}
 	if job, ok := unitsAndJobs[unitName]; ok {
 		return ctx.discoverService(job, common.Conf{})
 	}
-	return nil
+	return nil, errors.Errorf("unit %q is not deployed", unitName)
 }
 
 func (ctx *SimpleContext) RecallUnit(unitName string) error {
-	svc := ctx.findInitSystemJob(unitName)
-	if svc == nil {
-		return fmt.Errorf("unit %q is not deployed", unitName)
+	svc, err := ctx.findInitSystemJob(unitName)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	installed, err := svc.Installed()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if !installed {
-		return fmt.Errorf("unit %q is not deployed", unitName)
+		return errors.Errorf("unit %q is not deployed", unitName)
 	}
 	if err := svc.Stop(); err != nil {
 		return err
@@ -248,7 +250,7 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 
 // service returns a service.Service corresponding to the specified
 // unit.
-func (ctx *SimpleContext) service(unitName string, renderer shell.Renderer) deployerService {
+func (ctx *SimpleContext) service(unitName string, renderer shell.Renderer) (deployerService, error) {
 	tag := names.NewUnitTag(unitName).String()
 	svcName := "jujud-" + tag
 

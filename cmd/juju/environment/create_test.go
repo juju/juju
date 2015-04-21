@@ -4,12 +4,14 @@
 package environment_test
 
 import (
+	"io/ioutil"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v1"
-	"io/ioutil"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -163,7 +165,8 @@ func (s *createSuite) TestConfigFileFormatError(c *gc.C) {
 
 func (s *createSuite) TestConfigFileDoesntExist(c *gc.C) {
 	_, err := s.run(c, "test", "--config", "missing-file")
-	c.Assert(err, gc.ErrorMatches, `open .* no such file or directory`)
+	errMsg := ".*" + utils.NoSuchFileErrRegexp
+	c.Assert(err, gc.ErrorMatches, errMsg)
 }
 
 func (s *createSuite) TestConfigValuePrecedence(c *gc.C) {

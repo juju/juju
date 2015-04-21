@@ -93,9 +93,10 @@ func (c commands) reload() string {
 	return c.resolve(args)
 }
 
-func (c commands) conf(name string) string {
-	args := fmt.Sprintf("cat %s.service", name)
-	return c.resolve(args)
+func (c commands) conf(name, dirname string) string {
+	serviceFile := c.unitFilename(name, dirname)
+	args := fmt.Sprintf("cat %s", serviceFile)
+	return args
 }
 
 func (c commands) mkdirs(dirname string) string {
@@ -144,8 +145,8 @@ func (cl Cmdline) ListAll() ([]string, error) {
 	return strings.Split(out, "\n"), nil
 }
 
-func (cl Cmdline) conf(name string) ([]byte, error) {
-	cmd := cl.commands.conf(name)
+func (cl Cmdline) conf(name, dirname string) ([]byte, error) {
+	cmd := cl.commands.conf(name, dirname)
 
 	out, err := cl.runCommand(cmd, "get conf")
 	if err != nil {

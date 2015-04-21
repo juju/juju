@@ -6,6 +6,7 @@ package local_test
 import (
 	"fmt"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -60,6 +61,9 @@ func (s *mainSuite) TestRunAsRootCallsFuncIfRoot(c *gc.C) {
 }
 
 func (s *mainSuite) TestRunAsRootCallsSudoIfNotRoot(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("No root on windows")
+	}
 	s.PatchValue(local.CheckIfRoot, func() bool { return false })
 	testing.PatchExecutableAsEchoArgs(c, s, "sudo")
 	// the command needs to be in the path...

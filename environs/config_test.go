@@ -34,6 +34,16 @@ func (s *suite) TearDownTest(c *gc.C) {
 	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
+// dummySampleConfig returns the dummy sample config without
+// the state server configured.
+// This function also exists in cloudconfig/userdata_test
+// Maybe place it in dummy and export it?
+func dummySampleConfig() testing.Attrs {
+	return dummy.SampleConfig().Merge(testing.Attrs{
+		"state-server": false,
+	})
+}
+
 var invalidConfigTests = []struct {
 	env string
 	err string

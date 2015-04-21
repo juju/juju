@@ -10,15 +10,20 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	jujufactory "github.com/juju/juju/testing/factory"
 )
 
 type unitSuite struct {
@@ -802,4 +807,151 @@ func (s *unitSuite) patchNewState(
 	var err error
 	s.apiUnit, err = s.uniter.Unit(s.wordpressUnit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+type unitMetricBatchesSuite struct {
+	testing.JujuConnSuite
+
+	st      *api.State
+	uniter  *uniter.State
+	apiUnit *uniter.Unit
+	charm   *state.Charm
+}
+
+var _ = gc.Suite(&unitMetricBatchesSuite{})
+
+func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+
+	s.charm = s.Factory.MakeCharm(c, &jujufactory.CharmParams{
+		Name: "metered",
+		URL:  "cs:quantal/metered",
+	})
+	service := s.Factory.MakeService(c, &jujufactory.ServiceParams{
+		Charm: s.charm,
+	})
+	unit := s.Factory.MakeUnit(c, &jujufactory.UnitParams{
+		Service:     service,
+		SetCharmURL: true,
+	})
+
+	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+	s.st = s.OpenAPIAs(c, unit.Tag(), password)
+
+	// Create the uniter API facade.
+	s.uniter, err = s.st.Uniter()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.uniter, gc.NotNil)
+
+	s.apiUnit, err = s.uniter.Unit(unit.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitMetricBatchesSuite) TestSendMetricBatchPatch(c *gc.C) {
+	metrics := []params.Metric{{"pings", "5", time.Now().UTC()}}
+	uuid := utils.MustNewUUID().String()
+	batch := params.MetricBatch{
+		UUID:     uuid,
+		CharmURL: s.charm.URL().String(),
+		Created:  time.Now(),
+		Metrics:  metrics,
+	}
+
+	var called bool
+	uniter.PatchUnitResponse(s, s.apiUnit, "AddMetricBatches",
+		func(response interface{}) error {
+			called = true
+			result := response.(*params.ErrorResults)
+			result.Results = make([]params.ErrorResult, 1)
+			return nil
+		})
+
+	err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *unitMetricBatchesSuite) TestSendMetricBatchFail(c *gc.C) {
+	var called bool
+	uniter.PatchUnitResponse(s, s.apiUnit, "AddMetricBatches",
+		func(response interface{}) error {
+			called = true
+			result := response.(*params.ErrorResults)
+			result.Results = make([]params.ErrorResult, 1)
+			result.Results[0].Error = common.ServerError(common.ErrPerm)
+			return nil
+		})
+	metrics := []params.Metric{{"pings", "5", time.Now().UTC()}}
+	uuid := utils.MustNewUUID().String()
+	batch := params.MetricBatch{
+		UUID:     uuid,
+		CharmURL: s.charm.URL().String(),
+		Created:  time.Now(),
+		Metrics:  metrics,
+	}
+
+	err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *unitMetricBatchesSuite) TestSendMetricBatchNotImplemented(c *gc.C) {
+	var called bool
+	uniter.PatchUnitFacadeCall(s, s.apiUnit, func(request string, args, response interface{}) error {
+		switch request {
+		case "AddMetricBatches":
+			result := response.(*params.ErrorResults)
+			result.Results = make([]params.ErrorResult, 1)
+			return &params.Error{"not implemented", params.CodeNotImplemented}
+		case "AddMetrics":
+			called = true
+			result := response.(*params.ErrorResults)
+			result.Results = make([]params.ErrorResult, 1)
+			return nil
+		default:
+			panic(fmt.Errorf("unexpected request %q received", request))
+		}
+	})
+
+	metrics := []params.Metric{{"pings", "5", time.Now().UTC()}}
+	uuid := utils.MustNewUUID().String()
+	batch := params.MetricBatch{
+		UUID:     uuid,
+		CharmURL: s.charm.URL().String(),
+		Created:  time.Now(),
+		Metrics:  metrics,
+	}
+
+	err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *unitMetricBatchesSuite) TestSendMetricBatch(c *gc.C) {
+	uuid := utils.MustNewUUID().String()
+	now := time.Now().Round(time.Second).UTC()
+	metrics := []params.Metric{{"pings", "5", now}}
+	batch := params.MetricBatch{
+		UUID:     uuid,
+		CharmURL: s.charm.URL().String(),
+		Created:  now,
+		Metrics:  metrics,
+	}
+
+	err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
+	c.Assert(err, jc.ErrorIsNil)
+
+	batches, err := s.State.MetricBatches()
+	c.Assert(err, gc.IsNil)
+	c.Assert(batches, gc.HasLen, 1)
+	c.Assert(batches[0].UUID(), gc.Equals, uuid)
+	c.Assert(batches[0].Sent(), jc.IsFalse)
+	c.Assert(batches[0].CharmURL(), gc.Equals, s.charm.URL().String())
+	c.Assert(batches[0].Metrics(), gc.HasLen, 1)
+	c.Assert(batches[0].Metrics()[0].Key, gc.Equals, "pings")
+	c.Assert(batches[0].Metrics()[0].Key, gc.Equals, "pings")
+	c.Assert(batches[0].Metrics()[0].Value, gc.Equals, "5")
 }

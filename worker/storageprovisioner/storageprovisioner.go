@@ -228,7 +228,7 @@ func (w *storageprovisioner) loop() error {
 		if err != nil {
 			return errors.Annotate(err, "watching volumes")
 		}
-		filesystemsWatcher, err := w.filesystems.WatchFilesystems()
+		filesystemsWatcher, err = w.filesystems.WatchFilesystems()
 		if err != nil {
 			return errors.Annotate(err, "watching filesystems")
 		}
@@ -236,7 +236,7 @@ func (w *storageprovisioner) loop() error {
 		if err != nil {
 			return errors.Annotate(err, "watching volume attachments")
 		}
-		filesystemAttachmentsWatcher, err := w.filesystems.WatchFilesystemAttachments()
+		filesystemAttachmentsWatcher, err = w.filesystems.WatchFilesystemAttachments()
 		if err != nil {
 			return errors.Annotate(err, "watching filesystem attachments")
 		}
@@ -278,7 +278,7 @@ func (w *storageprovisioner) loop() error {
 			return tomb.ErrDying
 		case _, ok := <-environConfigChanges:
 			if !ok {
-				return watcher.EnsureErr(volumesWatcher)
+				return watcher.EnsureErr(environConfigWatcher)
 			}
 			environConfig, err := w.environ.EnvironConfig()
 			if err != nil {
