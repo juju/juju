@@ -7,8 +7,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
@@ -18,6 +20,7 @@ import (
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -83,11 +86,12 @@ func newContext(c *gc.C, st *state.State, env environs.Environ, adminUserTag str
 }
 
 type context struct {
-	st           *state.State
-	env          environs.Environ
-	charms       map[string]*state.Charm
-	pingers      map[string]*presence.Pinger
-	adminUserTag string // A string repr of the tag.
+	st            *state.State
+	env           environs.Environ
+	charms        map[string]*state.Charm
+	pingers       map[string]*presence.Pinger
+	adminUserTag  string // A string repr of the tag.
+	expectIsoTime bool
 }
 
 func (ctx *context) reset(c *gc.C) {
@@ -2604,9 +2608,25 @@ type expect struct {
 
 // substituteFakeTime replaces all "since" values
 // in actual status output with a known fake value.
-func substituteFakeSinceTime(in []byte) []byte {
+func substituteFakeSinceTime(c *gc.C, in []byte, expectIsoTime bool) []byte {
 	// This regexp will work for yaml and json.
-	exp := regexp.MustCompile(`(?P<since>"?since"?:\ ?)(?P<quote>"?)(?P<timestamp>[^("|\n)]*"?)`)
+	exp := regexp.MustCompile(`(?P<since>"?since"?:\ ?)(?P<quote>"?)(?P<timestamp>[^("|\n)]*)*"?`)
+	// Before the substritution is done, check that the timestamp produced
+	// by status is in the correct format.
+	if matches := exp.FindStringSubmatch(string(in)); matches != nil {
+		for i, name := range exp.SubexpNames() {
+			if name != "timestamp" {
+				continue
+			}
+			timeFormat := "02 Jan 2006 15:04:05 MST"
+			if expectIsoTime {
+				timeFormat = "2006-01-02T15:04:05Z07:00"
+			}
+			_, err := time.Parse(timeFormat, matches[i])
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
+
 	out := exp.ReplaceAllString(string(in), `$since$quote<timestamp>$quote`)
 	// Substitute a made up time used in our expected output.
 	out = strings.Replace(out, "<timestamp>", "01 Apr 15 01:23 AEST", -1)
@@ -2620,7 +2640,11 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 	for _, format := range statusFormats {
 		c.Logf("format %q", format.name)
 		// Run command with the required format.
-		args := append([]string{"--format", format.name}, e.scope...)
+		args := []string{"--format", format.name}
+		if ctx.expectIsoTime {
+			args = append(args, "--utc")
+		}
+		args = append(args, e.scope...)
 		c.Logf("running status %s", strings.Join(args, " "))
 		code, stdout, stderr := runStatus(c, args...)
 		c.Assert(code, gc.Equals, 0)
@@ -2637,7 +2661,7 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 
 		// Check the output is as expected.
 		actual := make(M)
-		out := substituteFakeSinceTime(stdout)
+		out := substituteFakeSinceTime(c, stdout, ctx.expectIsoTime)
 		err = format.unmarshal(out, &actual)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(actual, jc.DeepEquals, expected)
@@ -3048,6 +3072,54 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 	s.testStatusWithFormatTabular(c, false)
 }
 
+func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
+	status := formattedStatus{
+		Services: map[string]serviceStatus{
+			"foo": serviceStatus{
+				Units: map[string]unitStatus{
+					"foo/0": unitStatus{
+						AgentStatusInfo: statusInfoContents{
+							Current: params.StatusExecuting,
+							Message: "running config-changed hook",
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: params.StatusMaintenance,
+							Message: "doing some work",
+						},
+					},
+					"foo/1": unitStatus{
+						AgentStatusInfo: statusInfoContents{
+							Current: params.StatusExecuting,
+							Message: "running action backup database",
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: params.StatusMaintenance,
+							Message: "doing some work",
+						},
+					},
+				},
+			},
+		},
+	}
+	out, err := FormatTabular(status)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		string(out),
+		gc.Equals,
+		"[Services] \n"+
+			"NAME       STATUS EXPOSED CHARM \n"+
+			"foo               false         \n"+
+			"\n"+
+			"[Units] \n"+
+			"ID      WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                           \n"+
+			"foo/0   maintenance    executing                                        (config-changed) doing some work  \n"+
+			"foo/1   maintenance    executing                                        (backup database) doing some work \n"+
+			"\n"+
+			"[Machines] \n"+
+			"ID         STATE VERSION DNS INS-ID SERIES HARDWARE \n",
+	)
+}
+
 func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
 	ctx := s.newContext(c)
 	defer s.resetContext(c, ctx)
@@ -3381,4 +3453,109 @@ func (s *StatusSuite) TestSummaryStatusWithUnresolvableDns(c *gc.C) {
 	formatter := &summaryFormatter{}
 	formatter.resolveAndTrackIp("invalidDns")
 	// Test should not panic.
+}
+
+func initStatusCommand(args ...string) (*StatusCommand, error) {
+	com := &StatusCommand{}
+	return com, coretesting.InitCommand(envcmd.Wrap(com), args)
+}
+
+var statusInitTests = []struct {
+	args    []string
+	envVar  string
+	isoTime bool
+	err     string
+}{
+	{
+		isoTime: false,
+	}, {
+		args:    []string{"--utc"},
+		isoTime: true,
+	}, {
+		envVar:  "true",
+		isoTime: true,
+	}, {
+		envVar: "foo",
+		err:    "invalid JUJU_STATUS_ISO_TIME env var, expected true|false.*",
+	},
+}
+
+func (*StatusSuite) TestStatusCommandInit(c *gc.C) {
+	defer os.Setenv(JujuStatusIsoTimeEnvKey, os.Getenv(JujuStatusIsoTimeEnvKey))
+
+	for i, t := range statusInitTests {
+		c.Logf("test %d", i)
+		os.Setenv(JujuStatusIsoTimeEnvKey, t.envVar)
+		com, err := initStatusCommand(t.args...)
+		if t.err != "" {
+			c.Check(err, gc.ErrorMatches, t.err)
+		} else {
+			c.Check(err, jc.ErrorIsNil)
+		}
+		c.Check(com.isoTime, gc.DeepEquals, t.isoTime)
+	}
+}
+
+var statusTimeTest = test(
+	"status generates timestamps as UTC in ISO format",
+	addMachine{machineId: "0", job: state.JobManageEnviron},
+	setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+	startAliveMachine{"0"},
+	setMachineStatus{"0", state.StatusStarted, ""},
+	addCharm{"dummy"},
+	addService{name: "dummy-service", charm: "dummy"},
+
+	addMachine{machineId: "1", job: state.JobHostUnits},
+	startAliveMachine{"1"},
+	setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+	setMachineStatus{"1", state.StatusStarted, ""},
+
+	addAliveUnit{"dummy-service", "1"},
+	expect{
+		"add two units, one alive (in error state), one started",
+		M{
+			"environment": "dummyenv",
+			"machines": M{
+				"0": machine0,
+				"1": machine1,
+			},
+			"services": M{
+				"dummy-service": M{
+					"charm":   "cs:quantal/dummy-1",
+					"exposed": false,
+					"service-status": M{
+						"current": "unknown",
+						"message": "Waiting for agent initialization to finish",
+						"since":   "01 Apr 15 01:23 AEST",
+					},
+					"units": M{
+						"dummy-service/0": M{
+							"machine":     "1",
+							"agent-state": "pending",
+							"workload-status": M{
+								"current": "unknown",
+								"message": "Waiting for agent initialization to finish",
+								"since":   "01 Apr 15 01:23 AEST",
+							},
+							"agent-status": M{
+								"current": "allocating",
+								"since":   "01 Apr 15 01:23 AEST",
+							},
+							"public-address": "dummyenv-1.dns",
+						},
+					},
+				},
+			},
+		},
+	},
+)
+
+func (s *StatusSuite) TestIsoTimeFormat(c *gc.C) {
+	func(t testCase) {
+		// Prepare context and run all steps to setup.
+		ctx := s.newContext(c)
+		ctx.expectIsoTime = true
+		defer s.resetContext(c, ctx)
+		ctx.run(c, t.steps)
+	}(statusTimeTest)
 }

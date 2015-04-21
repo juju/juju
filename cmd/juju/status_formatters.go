@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
+	"github.com/juju/charm/hooks"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -53,6 +55,35 @@ func FormatOneline(value interface{}) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
+// agentDoing returns what hook or action, if any,
+// the agent is currently executing.
+// The hook name or action is extracted from the agent message.
+func agentDoing(status statusInfoContents) string {
+	if status.Current != params.StatusExecuting {
+		return ""
+	}
+	// First see if we can determine a hook name.
+	var hookNames []string
+	for _, h := range hooks.UnitHooks() {
+		hookNames = append(hookNames, string(h))
+	}
+	for _, h := range hooks.RelationHooks() {
+		hookNames = append(hookNames, string(h))
+	}
+	hookExp := regexp.MustCompile(fmt.Sprintf(`running (?P<hook>%s?) hook`, strings.Join(hookNames, "|")))
+	match := hookExp.FindStringSubmatch(status.Message)
+	if len(match) > 0 {
+		return match[1]
+	}
+	// Now try for an action name.
+	actionExp := regexp.MustCompile(`running action (?P<action>.*)`)
+	match = actionExp.FindStringSubmatch(status.Message)
+	if len(match) > 0 {
+		return match[1]
+	}
+	return ""
+}
+
 // FormatTabular returns a tabular summary of machines, services, and
 // units. Any subordinate items are indented by two spaces beneath
 // their superior.
@@ -84,6 +115,11 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	tw.Flush()
 
 	pUnit := func(name string, u unitStatus, level int) {
+		message := u.WorkloadStatusInfo.Message
+		agentDoing := agentDoing(u.AgentStatusInfo)
+		if agentDoing != "" {
+			message = fmt.Sprintf("(%s) %s", agentDoing, message)
+		}
 		p(
 			indent("", level*2, name),
 			u.WorkloadStatusInfo.Current,
@@ -92,7 +128,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 			u.Machine,
 			strings.Join(u.OpenedPorts, ","),
 			u.PublicAddress,
-			u.WorkloadStatusInfo.Message,
+			message,
 		)
 	}
 
