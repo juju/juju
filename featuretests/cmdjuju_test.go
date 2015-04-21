@@ -1,11 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// TODO(dimitern) Disabled on gccgo (PPC64 in particular) due
-// to build failures. See bug http://pad.lv/1425788.
-
-// +build !gccgo
-
 package featuretests
 
 import (
