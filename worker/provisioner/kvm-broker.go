@@ -60,7 +60,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		bridgeDevice = kvm.DefaultKvmBridge
 	}
 
-	if err := environs.AddressAllocationEnabled(); err != nil {
+	if !environs.AddressAllocationEnabled() {
 		logger.Debugf(
 			"address allocation feature flag not enabled; using DHCP for container %q",
 			machineId,

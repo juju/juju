@@ -231,7 +231,7 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 		}
 	}
 
-	if err := environs.AddressAllocationEnabled(); err != nil {
+	if !environs.AddressAllocationEnabled() {
 		// No need to even try checking the environ for support.
 		logger.Debugf("address allocation feature flag not enabled")
 		result.ManagerConfig = cfg
@@ -878,10 +878,12 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 
 // PrepareContainerInterfaceInfo allocates an address and returns
 // information for configuring networking on a container. It accepts
-// container tags as arguments.
+// container tags as arguments. If the address allocation feature flag
+// is not enabled, it returns an error satisfying
+// errors.IsNotSupported().
 func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (params.MachineNetworkConfigResults, error) {
-	if err := environs.AddressAllocationEnabled(); err != nil {
-		return params.MachineNetworkConfigResults{}, err
+	if !environs.AddressAllocationEnabled() {
+		return params.MachineNetworkConfigResults{}, errors.NotSupportedf("address allocation")
 	}
 
 	result := params.MachineNetworkConfigResults{

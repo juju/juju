@@ -83,7 +83,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	if bridgeDevice == "" {
 		bridgeDevice = lxc.DefaultLxcBridge
 	}
-	if err := environs.AddressAllocationEnabled(); err != nil {
+	if !environs.AddressAllocationEnabled() {
 		logger.Debugf(
 			"address allocation feature flag not enabled; using DHCP for container %q",
 			machineId,

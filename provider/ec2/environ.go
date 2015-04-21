@@ -218,8 +218,8 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 
 // SupportsAddressAllocation is specified on environs.Networking.
 func (e *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
-	if err := environs.AddressAllocationEnabled(); err != nil {
-		return false, err
+	if !environs.AddressAllocationEnabled() {
+		return false, errors.NotSupportedf("address allocation")
 	}
 	_, hasDefaultVpc, err := e.defaultVpc()
 	if err != nil {
@@ -744,8 +744,8 @@ func (e *environ) fetchNetworkInterfaceId(ec2Inst *ec2.EC2, instId instance.Id) 
 // AllocateAddress requests an address to be allocated for the given
 // instance on the given subnet. Implements NetworkingEnviron.AllocateAddress.
 func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address) (err error) {
-	if err := environs.AddressAllocationEnabled(); err != nil {
-		return err
+	if !environs.AddressAllocationEnabled() {
+		return errors.NotSupportedf("address allocation")
 	}
 
 	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
@@ -782,8 +782,8 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress. Implements NetworkingEnviron.ReleaseAddress.
 func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address) (err error) {
-	if err := environs.AddressAllocationEnabled(); err != nil {
-		return err
+	if !environs.AddressAllocationEnabled() {
+		return errors.NotSupportedf("address allocation")
 	}
 
 	defer errors.DeferredAnnotatef(&err, "failed to release address %q from instance %q", addr, instId)

@@ -116,7 +116,7 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
-	if err := environs.AddressAllocationEnabled(); err != nil {
+	if !environs.AddressAllocationEnabled() {
 		// When address allocation is not enabled, we should use the
 		// default bridge for both LXC and KVM containers. The bridge
 		// is created as part of the userdata for every node during
@@ -231,8 +231,8 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *maasEnviron) SupportsAddressAllocation(_ network.Id) (bool, error) {
-	if err := environs.AddressAllocationEnabled(); err != nil {
-		return false, err
+	if !environs.AddressAllocationEnabled() {
+		return false, errors.NotSupportedf("address allocation")
 	}
 
 	caps, err := env.getCapabilities()
@@ -892,7 +892,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	// Override the network bridge to use for both LXC and KVM
 	// containers on the new instance, if address allocation feature
 	// flag is not enabled.
-	if err := environs.AddressAllocationEnabled(); err != nil {
+	if !environs.AddressAllocationEnabled() {
 		if args.MachineConfig.AgentEnvironment == nil {
 			args.MachineConfig.AgentEnvironment = make(map[string]string)
 		}
@@ -1099,7 +1099,7 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series st
 		cloudcfg.AddScripts("set -xe", runCmd)
 		// Only create the default bridge if we're not using static
 		// address allocation for containers.
-		if err := environs.AddressAllocationEnabled(); err != nil {
+		if !environs.AddressAllocationEnabled() {
 			// Address allocated feature flag might be disabled, but
 			// DisableNetworkManagement can still disable the bridge
 			// creation.
@@ -1258,8 +1258,8 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
 func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address) (err error) {
-	if err := environs.AddressAllocationEnabled(); err != nil {
-		return err
+	if !environs.AddressAllocationEnabled() {
+		return errors.NotSupportedf("address allocation")
 	}
 
 	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
@@ -1309,8 +1309,8 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
 func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address) (err error) {
-	if err := environs.AddressAllocationEnabled(); err != nil {
-		return err
+	if !environs.AddressAllocationEnabled() {
+		return errors.NotSupportedf("address allocation")
 	}
 
 	defer errors.DeferredAnnotatef(&err, "failed to release IP address %q from instance %q", addr, instId)

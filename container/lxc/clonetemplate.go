@@ -155,7 +155,7 @@ func shutdownInitScript(initSystem string) (string, error) {
 	desc := "juju shutdown job"
 
 	execStart := shutdownCmd
-	if err := environs.AddressAllocationEnabled(); err == nil {
+	if environs.AddressAllocationEnabled() {
 		// Only do the cleanup and replacement of /e/n/i when address
 		// allocation feature flag is enabled.
 		execStart = replaceNetConfCmd + removeCmd + shutdownCmd
