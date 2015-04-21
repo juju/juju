@@ -1146,13 +1146,41 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			"unit becomes dying while in a relation",
 			quickStartRelation{},
 			unitDying,
-			waitHooks{
-				"leader-settings-changed",
-				"db-relation-departed mysql/0 db:0",
-				"db-relation-broken db:0",
-				"stop",
-			},
 			waitUniterDead{},
+			custom{func(c *gc.C, ctx *context) {
+				// There is no ordering relationship between relation hooks and
+				// leader-settings-changed hooks; and while we're dying we may
+				// never get to leader-settings-changed before it's time to run
+				// the stop (as we might not react to a config change in time).
+				// It's actually clearer to just list the possible orders:
+				possibles := [][]string{{
+					"leader-settings-changed",
+					"db-relation-departed mysql/0 db:0",
+					"db-relation-broken db:0",
+					"stop",
+				}, {
+					"db-relation-departed mysql/0 db:0",
+					"leader-settings-changed",
+					"db-relation-broken db:0",
+					"stop",
+				}, {
+					"db-relation-departed mysql/0 db:0",
+					"db-relation-broken db:0",
+					"leader-settings-changed",
+					"stop",
+				}, {
+					"db-relation-departed mysql/0 db:0",
+					"db-relation-broken db:0",
+					"stop",
+				}}
+				unchecked := ctx.hooksCompleted[len(ctx.hooks):]
+				for _, possible := range possibles {
+					if ok, _ := jc.DeepEqual(unchecked, possible); ok {
+						return
+					}
+				}
+				c.Fatalf("unexpected hooks: %v", unchecked)
+			}},
 			relationState{life: state.Alive},
 			removeRelationUnit{"mysql/0"},
 			relationState{life: state.Alive},

@@ -345,7 +345,6 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 		// can then report minionhood at all times, and thus prevent the is-leader
 		// and leader-set hook tools from acting in a correct but misleading way
 		// (ie continuing to act as though leader after leader-deposed has run).
-		// tool from returning true but misleading reports of leadership while dying.
 	}
 	for {
 		if len(u.relations.GetInfo()) == 0 {
