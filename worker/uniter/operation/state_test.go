@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5-unstable"
-	"gopkg.in/juju/charm.v5-unstable/hooks"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -167,13 +167,6 @@ var stateTests = []struct {
 	},
 	// Continue operation.
 	{
-		st: operation.State{
-			Kind: operation.Continue,
-			Step: operation.Pending,
-			Hook: &hook.Info{Kind: hooks.ConfigChanged},
-		},
-		err: `unexpected hook info with Kind Continue`,
-	}, {
 		st: operation.State{
 			Kind:     operation.Continue,
 			Step:     operation.Pending,

@@ -73,6 +73,7 @@ func stateServersChanges(change state.StateServersChanges) params.StateServersCh
 		Removed:    machineIdsToTags(change.Removed...),
 		Promoted:   machineIdsToTags(change.Promoted...),
 		Demoted:    machineIdsToTags(change.Demoted...),
+		Converted:  machineIdsToTags(change.Converted...),
 	}
 }
 

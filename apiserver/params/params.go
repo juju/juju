@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/constraints"
@@ -550,6 +550,17 @@ type RsyslogConfigResults struct {
 	Results []RsyslogConfigResult
 }
 
+// JobsResult holds the jobs for a machine that are returned by a call to Jobs.
+type JobsResult struct {
+	Jobs  []multiwatcher.MachineJob `json:"Jobs"`
+	Error *Error                    `json:"Error"`
+}
+
+// JobsResults holds the result of a call to Jobs.
+type JobsResults struct {
+	Results []JobsResult `json:"Results"`
+}
+
 // DistributionGroupResult contains the result of
 // the DistributionGroup provisioner API call.
 type DistributionGroupResult struct {
@@ -666,6 +677,7 @@ type StateServersChanges struct {
 	Removed    []string `json:"removed,omitempty"`
 	Promoted   []string `json:"promoted,omitempty"`
 	Demoted    []string `json:"demoted,omitempty"`
+	Converted  []string `json:"converted,omitempty"`
 }
 
 // FindToolsParams defines parameters for the FindTools method.
@@ -763,6 +775,8 @@ func TranslateToLegacyAgentState(workloadStatus, agentStatus Status) (Status, bo
 		return StatusError, true
 	case StatusRebooting, StatusExecuting, StatusIdle, StatusLost, StatusFailed:
 		switch workloadStatus {
+		case StatusError:
+			return StatusError, true
 		case StatusTerminated:
 			return StatusStopped, true
 		case StatusMaintenance:

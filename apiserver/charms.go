@@ -23,7 +23,7 @@ import (
 
 	"github.com/juju/errors"
 	ziputil "github.com/juju/utils/zip"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver/client"
 	apihttp "github.com/juju/juju/apiserver/http"

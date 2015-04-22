@@ -31,11 +31,22 @@ func (u *UnitAgent) String() string {
 	return u.name
 }
 
-// Status returns the status of the unit.
+// Status returns the status of the unit agent.
 func (u *UnitAgent) Status() (StatusInfo, error) {
 	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
 		return StatusInfo{}, errors.Trace(err)
+	}
+	// The current health spec says when a hook error occurs, the workload should
+	// be in error state, but the state model more correctly records the agent
+	// itself as being in error. So we'll do that model translation here.
+	if doc.Status == StatusError {
+		return StatusInfo{
+			Status:  StatusIdle,
+			Message: "",
+			Data:    map[string]interface{}{},
+			Since:   doc.Updated,
+		}, nil
 	}
 	return StatusInfo{
 		Status:  doc.Status,

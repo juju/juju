@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// StatusSetCommand implements the status-get command.
+// StatusSetCommand implements the status-set command.
 type StatusSetCommand struct {
 	cmd.CommandBase
 	ctx     Context

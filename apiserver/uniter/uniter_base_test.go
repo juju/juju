@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -2159,78 +2159,6 @@ func (s *uniterBaseSuite) testWatchUnitAddresses(
 	// the Watch call)
 	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
-}
-
-type addMetrics interface {
-	AddMetrics(args params.MetricsParams) (params.ErrorResults, error)
-}
-
-func (s *uniterBaseSuite) testAddMetrics(c *gc.C, facade addMetrics) {
-	now := time.Now()
-	sentMetrics := []params.Metric{{"pings", "5", now}, {"juju-unit-time", "0.71", now}}
-	args := params.MetricsParams{
-		Metrics: []params.MetricsParam{{
-			Tag:     s.meteredUnit.Tag().String(),
-			Metrics: sentMetrics,
-		}},
-	}
-	result, err := facade.AddMetrics(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	metrics, err := s.State.MetricBatches()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metrics, gc.HasLen, 1)
-
-	unitMetrics := metrics[0].Metrics()
-	c.Assert(unitMetrics, gc.HasLen, 2)
-
-	for i, unitMetric := range unitMetrics {
-		c.Assert(unitMetric.Key, gc.Equals, sentMetrics[i].Key)
-		c.Assert(unitMetric.Value, gc.Equals, sentMetrics[i].Value)
-	}
-}
-
-func (s *uniterBaseSuite) testAddMetricsIncorrectTag(c *gc.C, facade addMetrics) {
-	now := time.Now()
-
-	tags := []string{"user-admin", "unit-nosuchunit", "thisisnotatag", "machine-0", "environment-blah"}
-
-	for _, tag := range tags {
-
-		args := params.MetricsParams{
-			Metrics: []params.MetricsParam{{
-				Tag:     tag,
-				Metrics: []params.Metric{{"A", "5", now}, {"B", "0.71", now}},
-			}},
-		}
-
-		result, err := facade.AddMetrics(args)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result.Results, gc.HasLen, 1)
-		c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
-		metrics, err := s.State.MetricBatches()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(metrics, gc.HasLen, 0)
-	}
-}
-
-func (s *uniterBaseSuite) testAddMetricsUnauthenticated(c *gc.C, facade addMetrics) {
-	now := time.Now()
-	args := params.MetricsParams{
-		Metrics: []params.MetricsParam{{
-			Tag:     s.mysqlUnit.Tag().String(),
-			Metrics: []params.Metric{{"A", "5", now}, {"B", "0.71", now}},
-		}},
-	}
-	result, err := facade.AddMetrics(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
-	metrics, err := s.State.MetricBatches()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metrics, gc.HasLen, 0)
 }
 
 type getMeterStatus interface {

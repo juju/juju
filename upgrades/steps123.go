@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/worker/uniter"
 )
 
-// stateStepsFor123 returns upgrade steps form Juju 1.23 that manipulate state directly.
+// stateStepsFor123 returns upgrade steps for Juju 1.23 that manipulate state directly.
 func stateStepsFor123() []Step {
 	var steps []Step
 	// TODO(axw) stop checking feature flag once storage has graduated.
@@ -76,7 +76,7 @@ func stateStepsFor123() []Step {
 	return steps
 }
 
-// stepsFor123 returns upgrade steps form Juju 1.23 that only need the API.
+// stepsFor123 returns upgrade steps for Juju 1.23 that only need the API.
 func stepsFor123() []Step {
 	return []Step{
 		&upgradeStep{

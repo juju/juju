@@ -18,7 +18,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/apt"
+	pacman "github.com/juju/utils/packaging/manager"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -85,7 +85,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 
 	// Capture all apt commands.
 	s.aptCmds = nil
-	aptCmds := s.AgentSuite.HookCommandOutput(&apt.CommandOutput, nil, nil)
+	aptCmds := s.AgentSuite.HookCommandOutput(&pacman.CommandOutput, nil, nil)
 	go func() {
 		for cmd := range aptCmds {
 			s.setAptCmds(cmd)
@@ -434,8 +434,8 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
-	coretesting.SkipIfI386(c, "lp:1425569")
-	coretesting.SkipIfPPC64EL(c, "lp:1434555")
+	coretesting.SkipIfI386(c, "lp:1444576")
+	coretesting.SkipIfPPC64EL(c, "lp:1444576")
 
 	//TODO(bogdanteleaga): Fix this to behave properly
 	if runtime.GOOS == "windows" {
@@ -455,6 +455,7 @@ func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
+	coretesting.SkipIfPPC64EL(c, "lp:1444576")
 	s.setInstantRetryStrategy(c)
 	// We need to first start up a state server that thinks it has already been upgraded.
 	ss, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)

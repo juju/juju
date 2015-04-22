@@ -14,7 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -227,6 +227,7 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 
 func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
 	ctx.hasRunStatusSet = true
+	logger.Debugf("[WORKLOAD-STATUS] %s %s", status.Status, status.Info)
 	return ctx.unit.SetUnitStatus(
 		params.Status(status.Status),
 		status.Info,
@@ -236,6 +237,10 @@ func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
 
 func (ctx *HookContext) HasExecutionSetUnitStatus() bool {
 	return ctx.hasRunStatusSet
+}
+
+func (ctx *HookContext) ResetExecutionSetUnitStatus() {
+	ctx.hasRunStatusSet = false
 }
 
 func (ctx *HookContext) PublicAddress() (string, bool) {

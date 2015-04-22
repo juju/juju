@@ -1452,7 +1452,7 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 	return newDocWatcher(u.st, []docKey{
 		{
 			meterStatusC,
-			u.st.docID(u.globalKey()),
+			u.st.docID(u.globalMeterStatusKey()),
 		}, {
 			metricsManagerC,
 			u.st.docID(metricsManagerKey),

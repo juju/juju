@@ -7,17 +7,20 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -83,11 +86,12 @@ func newContext(c *gc.C, st *state.State, env environs.Environ, adminUserTag str
 }
 
 type context struct {
-	st           *state.State
-	env          environs.Environ
-	charms       map[string]*state.Charm
-	pingers      map[string]*presence.Pinger
-	adminUserTag string // A string repr of the tag.
+	st            *state.State
+	env           environs.Environ
+	charms        map[string]*state.Charm
+	pingers       map[string]*presence.Pinger
+	adminUserTag  string // A string repr of the tag.
+	expectIsoTime bool
 }
 
 func (ctx *context) reset(c *gc.C) {
@@ -211,12 +215,14 @@ var (
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	unexposedService = M{
-		"charm":   "cs:quantal/dummy-1",
-		"exposed": false,
+		"service-status": M{},
+		"charm":          "cs:quantal/dummy-1",
+		"exposed":        false,
 	}
 	exposedService = M{
-		"charm":   "cs:quantal/dummy-1",
-		"exposed": true,
+		"service-status": M{},
+		"charm":          "cs:quantal/dummy-1",
+		"exposed":        true,
 	}
 )
 
@@ -353,16 +359,18 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"networks-service": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+						"service-status": M{},
+						"charm":          "cs:quantal/dummy-1",
+						"exposed":        false,
 						"networks": M{
 							"enabled":  L{"net1", "net2"},
 							"disabled": L{"foo", "bar", "no", "good"},
 						},
 					},
 					"no-networks-service": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+						"service-status": M{},
+						"charm":          "cs:quantal/dummy-1",
+						"exposed":        false,
 						"networks": M{
 							"disabled": L{"mynet"},
 						},
@@ -557,6 +565,11 @@ var statusTests = []testCase{
 					"exposed-service": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
+						"service-status": M{
+							"current": "error",
+							"message": "You Require More Vespene Gas",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
@@ -581,6 +594,10 @@ var statusTests = []testCase{
 					"dummy-service": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
+						"service-status": M{
+							"current": "terminated",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"dummy-service/0": M{
 								"machine":     "1",
@@ -647,6 +664,11 @@ var statusTests = []testCase{
 					"exposed-service": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
+						"service-status": M{
+							"current": "error",
+							"message": "You Require More Vespene Gas",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
@@ -671,6 +693,10 @@ var statusTests = []testCase{
 					"dummy-service": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
+						"service-status": M{
+							"current": "terminated",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"dummy-service/0": M{
 								"machine":     "1",
@@ -704,6 +730,10 @@ var statusTests = []testCase{
 					"dummy-service": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
+						"service-status": M{
+							"current": "terminated",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"dummy-service/0": M{
 								"machine":     "1",
@@ -736,6 +766,11 @@ var statusTests = []testCase{
 					"exposed-service": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
+						"service-status": M{
+							"current": "error",
+							"message": "You Require More Vespene Gas",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
@@ -772,6 +807,10 @@ var statusTests = []testCase{
 					"dummy-service": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
+						"service-status": M{
+							"current": "terminated",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"dummy-service/0": M{
 								"machine":     "1",
@@ -804,6 +843,11 @@ var statusTests = []testCase{
 					"exposed-service": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
+						"service-status": M{
+							"current": "error",
+							"message": "You Require More Vespene Gas",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
@@ -841,6 +885,10 @@ var statusTests = []testCase{
 					"dummy-service": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
+						"service-status": M{
+							"current": "terminated",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"dummy-service/0": M{
 								"machine":     "1",
@@ -861,6 +909,11 @@ var statusTests = []testCase{
 					"exposed-service": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
+						"service-status": M{
+							"current": "error",
+							"message": "You Require More Vespene Gas",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"exposed-service/0": M{
 								"machine":          "2",
@@ -926,6 +979,11 @@ var statusTests = []testCase{
 						"relations": M{
 							"db": L{"mysql"},
 						},
+						"service-status": M{
+							"current": "error",
+							"message": "hook failed: some-relation-changed",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"wordpress/0": M{
 								"machine":          "1",
@@ -949,6 +1007,11 @@ var statusTests = []testCase{
 						"exposed": false,
 						"relations": M{
 							"server": L{"wordpress"},
+						},
+						"service-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23 AEST",
 						},
 						"units": M{
 							"mysql/0": M{
@@ -1011,6 +1074,11 @@ var statusTests = []testCase{
 						"relations": M{
 							"db": L{"mysql"},
 						},
+						"service-status": M{
+							"current": "error",
+							"message": "hook failed: some-relation-changed",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"wordpress/0": M{
 								"machine":          "1",
@@ -1034,6 +1102,11 @@ var statusTests = []testCase{
 						"exposed": false,
 						"relations": M{
 							"server": L{"wordpress"},
+						},
+						"service-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23 AEST",
 						},
 						"units": M{
 							"mysql/0": M{
@@ -1077,6 +1150,11 @@ var statusTests = []testCase{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
 						"life":    "dying",
+						"service-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"dummy-service/0": M{
 								"machine":     "0",
@@ -1122,6 +1200,10 @@ var statusTests = []testCase{
 					"dummy-service": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"dummy-service/0": M{
 								"machine":     "0",
@@ -1210,6 +1292,10 @@ var statusTests = []testCase{
 					"project": M{
 						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"project/0": M{
 								"machine":     "1",
@@ -1233,6 +1319,10 @@ var statusTests = []testCase{
 					"mysql": M{
 						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/0": M{
 								"machine":     "2",
@@ -1255,6 +1345,11 @@ var statusTests = []testCase{
 					"varnish": M{
 						"charm":   "cs:quantal/varnish-1",
 						"exposed": true,
+						"service-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"varnish/0": M{
 								"machine":     "3",
@@ -1278,6 +1373,11 @@ var statusTests = []testCase{
 					"private": M{
 						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
+						"service-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"private/0": M{
 								"machine":     "4",
@@ -1348,6 +1448,10 @@ var statusTests = []testCase{
 					"riak": M{
 						"charm":   "cs:quantal/riak-7",
 						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"riak/0": M{
 								"machine":     "1",
@@ -1457,6 +1561,10 @@ var statusTests = []testCase{
 					"wordpress": M{
 						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"wordpress/0": M{
 								"machine":     "1",
@@ -1494,6 +1602,10 @@ var statusTests = []testCase{
 					"mysql": M{
 						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/0": M{
 								"machine":     "2",
@@ -1531,8 +1643,9 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":   "cs:quantal/logging-1",
-						"exposed": true,
+						"charm":          "cs:quantal/logging-1",
+						"exposed":        true,
+						"service-status": M{},
 						"relations": M{
 							"logging-directory": L{"wordpress"},
 							"info":              L{"mysql"},
@@ -1557,6 +1670,10 @@ var statusTests = []testCase{
 					"wordpress": M{
 						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"wordpress/0": M{
 								"machine":     "1",
@@ -1594,6 +1711,10 @@ var statusTests = []testCase{
 					"mysql": M{
 						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/0": M{
 								"machine":     "2",
@@ -1631,8 +1752,9 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":   "cs:quantal/logging-1",
-						"exposed": true,
+						"charm":          "cs:quantal/logging-1",
+						"exposed":        true,
+						"service-status": M{},
 						"relations": M{
 							"logging-directory": L{"wordpress"},
 							"info":              L{"mysql"},
@@ -1656,6 +1778,10 @@ var statusTests = []testCase{
 					"wordpress": M{
 						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"wordpress/0": M{
 								"machine":     "1",
@@ -1691,8 +1817,9 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":   "cs:quantal/logging-1",
-						"exposed": true,
+						"charm":          "cs:quantal/logging-1",
+						"exposed":        true,
+						"service-status": M{},
 						"relations": M{
 							"logging-directory": L{"wordpress"},
 							"info":              L{"mysql"},
@@ -1749,6 +1876,10 @@ var statusTests = []testCase{
 					"mysql": M{
 						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/0": M{
 								"machine":     "1",
@@ -1809,6 +1940,10 @@ var statusTests = []testCase{
 					"mysql": M{
 						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/1": M{
 								"machine":     "1/lxc/0",
@@ -1857,6 +1992,11 @@ var statusTests = []testCase{
 						"charm":          "cs:quantal/mysql-1",
 						"can-upgrade-to": "cs:quantal/mysql-23",
 						"exposed":        true,
+						"service-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/0": M{
 								"machine":     "1",
@@ -1907,6 +2047,10 @@ var statusTests = []testCase{
 					"mysql": M{
 						"charm":   "local:quantal/mysql-1",
 						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/0": M{
 								"machine":     "1",
@@ -1959,6 +2103,10 @@ var statusTests = []testCase{
 						"charm":          "cs:quantal/mysql-2",
 						"can-upgrade-to": "cs:quantal/mysql-23",
 						"exposed":        true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/0": M{
 								"machine":     "1",
@@ -2010,6 +2158,10 @@ var statusTests = []testCase{
 					"mysql": M{
 						"charm":   "local:quantal/mysql-1",
 						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23 AEST",
+						},
 						"units": M{
 							"mysql/0": M{
 								"machine":     "1",
@@ -2456,9 +2608,25 @@ type expect struct {
 
 // substituteFakeTime replaces all "since" values
 // in actual status output with a known fake value.
-func substituteFakeSinceTime(in []byte) []byte {
+func substituteFakeSinceTime(c *gc.C, in []byte, expectIsoTime bool) []byte {
 	// This regexp will work for yaml and json.
-	exp := regexp.MustCompile(`(?P<since>"?since"?:\ ?)(?P<quote>"?)(?P<timestamp>[^("|\n)]*"?)`)
+	exp := regexp.MustCompile(`(?P<since>"?since"?:\ ?)(?P<quote>"?)(?P<timestamp>[^("|\n)]*)*"?`)
+	// Before the substritution is done, check that the timestamp produced
+	// by status is in the correct format.
+	if matches := exp.FindStringSubmatch(string(in)); matches != nil {
+		for i, name := range exp.SubexpNames() {
+			if name != "timestamp" {
+				continue
+			}
+			timeFormat := "02 Jan 2006 15:04:05 MST"
+			if expectIsoTime {
+				timeFormat = "2006-01-02T15:04:05Z07:00"
+			}
+			_, err := time.Parse(timeFormat, matches[i])
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
+
 	out := exp.ReplaceAllString(string(in), `$since$quote<timestamp>$quote`)
 	// Substitute a made up time used in our expected output.
 	out = strings.Replace(out, "<timestamp>", "01 Apr 15 01:23 AEST", -1)
@@ -2472,7 +2640,11 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 	for _, format := range statusFormats {
 		c.Logf("format %q", format.name)
 		// Run command with the required format.
-		args := append([]string{"--format", format.name}, e.scope...)
+		args := []string{"--format", format.name}
+		if ctx.expectIsoTime {
+			args = append(args, "--utc")
+		}
+		args = append(args, e.scope...)
 		c.Logf("running status %s", strings.Join(args, " "))
 		code, stdout, stderr := runStatus(c, args...)
 		c.Assert(code, gc.Equals, 0)
@@ -2489,7 +2661,7 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 
 		// Check the output is as expected.
 		actual := make(M)
-		out := substituteFakeSinceTime(stdout)
+		out := substituteFakeSinceTime(c, stdout, ctx.expectIsoTime)
 		err = format.unmarshal(out, &actual)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(actual, jc.DeepEquals, expected)
@@ -2629,6 +2801,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 					"relations": M{
 						"server": L{"wordpress"},
 					},
+					"service-status": M{},
 					"units": M{
 						"mysql/0": M{
 							"machine":         "1",
@@ -2644,6 +2817,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 					"relations": M{
 						"db": L{"mysql"},
 					},
+					"service-status": M{},
 					"units": M{
 						"wordpress/0": M{
 							"machine":          "1",
@@ -2833,7 +3007,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		setUnitStatus{
 			"mysql/0",
 			state.StatusMaintenance,
-			"installing all the things and doing a bunch of other really, really useful stuff", nil},
+			"installing all the things", nil},
 		setUnitTools{"mysql/0", version.MustParseBinary("1.2.3-trusty-ppc")},
 		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
@@ -2866,25 +3040,24 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	c.Assert(
 		string(stdout),
 		gc.Equals,
-		"[Machines] \n"+
+		"[Services] \n"+
+			"NAME       STATUS      EXPOSED CHARM                  \n"+
+			"logging                true    cs:quantal/logging-1   \n"+
+			"mysql      maintenance true    cs:quantal/mysql-1     \n"+
+			"wordpress  active      true    cs:quantal/wordpress-3 \n"+
+			"\n"+
+			"[Units]     \n"+
+			"ID          WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                        \n"+
+			"mysql/0     maintenance    idle        1.2.3   2             dummyenv-2.dns installing all the things      \n"+
+			"  logging/1 error          idle                              dummyenv-2.dns somehow lost in all those logs \n"+
+			"wordpress/0 active         idle        1.2.3   1             dummyenv-1.dns                                \n"+
+			"  logging/0 active         idle                              dummyenv-1.dns                                \n"+
+			"\n"+
+			"[Machines] \n"+
 			"ID         STATE   VERSION DNS            INS-ID     SERIES  HARDWARE                                         \n"+
 			"0          started         dummyenv-0.dns dummyenv-0 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n"+
 			"1          started         dummyenv-1.dns dummyenv-1 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n"+
 			"2          started         dummyenv-2.dns dummyenv-2 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n"+
-			"\n"+
-			"[Services] \n"+
-			"NAME       EXPOSED CHARM                  \n"+
-			"logging    true    cs:quantal/logging-1   \n"+
-			"mysql      true    cs:quantal/mysql-1     \n"+
-			"wordpress  true    cs:quantal/wordpress-3 \n"+
-			"\n"+
-			"[Units]     \n"+
-			"ID          WORKLOAD-STATE            AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS \n"+
-			"mysql/0     maintenance               idle        1.2.3   2             dummyenv-2.dns \n"+
-			"            installing all the thi...                                                  \n"+
-			"  logging/1 error                     idle                              dummyenv-2.dns \n"+
-			"wordpress/0 active                    idle        1.2.3   1             dummyenv-1.dns \n"+
-			"  logging/0 active                    idle                              dummyenv-1.dns \n"+
 			"\n",
 	)
 }
@@ -2897,6 +3070,54 @@ func (s *StatusSuite) TestStatusWithFormatTabularFeatureFlag(c *gc.C) {
 
 func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 	s.testStatusWithFormatTabular(c, false)
+}
+
+func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
+	status := formattedStatus{
+		Services: map[string]serviceStatus{
+			"foo": serviceStatus{
+				Units: map[string]unitStatus{
+					"foo/0": unitStatus{
+						AgentStatusInfo: statusInfoContents{
+							Current: params.StatusExecuting,
+							Message: "running config-changed hook",
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: params.StatusMaintenance,
+							Message: "doing some work",
+						},
+					},
+					"foo/1": unitStatus{
+						AgentStatusInfo: statusInfoContents{
+							Current: params.StatusExecuting,
+							Message: "running action backup database",
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: params.StatusMaintenance,
+							Message: "doing some work",
+						},
+					},
+				},
+			},
+		},
+	}
+	out, err := FormatTabular(status)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		string(out),
+		gc.Equals,
+		"[Services] \n"+
+			"NAME       STATUS EXPOSED CHARM \n"+
+			"foo               false         \n"+
+			"\n"+
+			"[Units] \n"+
+			"ID      WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                           \n"+
+			"foo/0   maintenance    executing                                        (config-changed) doing some work  \n"+
+			"foo/1   maintenance    executing                                        (backup database) doing some work \n"+
+			"\n"+
+			"[Machines] \n"+
+			"ID         STATE VERSION DNS INS-ID SERIES HARDWARE \n",
+	)
 }
 
 func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
@@ -3232,4 +3453,109 @@ func (s *StatusSuite) TestSummaryStatusWithUnresolvableDns(c *gc.C) {
 	formatter := &summaryFormatter{}
 	formatter.resolveAndTrackIp("invalidDns")
 	// Test should not panic.
+}
+
+func initStatusCommand(args ...string) (*StatusCommand, error) {
+	com := &StatusCommand{}
+	return com, coretesting.InitCommand(envcmd.Wrap(com), args)
+}
+
+var statusInitTests = []struct {
+	args    []string
+	envVar  string
+	isoTime bool
+	err     string
+}{
+	{
+		isoTime: false,
+	}, {
+		args:    []string{"--utc"},
+		isoTime: true,
+	}, {
+		envVar:  "true",
+		isoTime: true,
+	}, {
+		envVar: "foo",
+		err:    "invalid JUJU_STATUS_ISO_TIME env var, expected true|false.*",
+	},
+}
+
+func (*StatusSuite) TestStatusCommandInit(c *gc.C) {
+	defer os.Setenv(osenv.JujuStatusIsoTimeEnvKey, os.Getenv(osenv.JujuStatusIsoTimeEnvKey))
+
+	for i, t := range statusInitTests {
+		c.Logf("test %d", i)
+		os.Setenv(osenv.JujuStatusIsoTimeEnvKey, t.envVar)
+		com, err := initStatusCommand(t.args...)
+		if t.err != "" {
+			c.Check(err, gc.ErrorMatches, t.err)
+		} else {
+			c.Check(err, jc.ErrorIsNil)
+		}
+		c.Check(com.isoTime, gc.DeepEquals, t.isoTime)
+	}
+}
+
+var statusTimeTest = test(
+	"status generates timestamps as UTC in ISO format",
+	addMachine{machineId: "0", job: state.JobManageEnviron},
+	setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+	startAliveMachine{"0"},
+	setMachineStatus{"0", state.StatusStarted, ""},
+	addCharm{"dummy"},
+	addService{name: "dummy-service", charm: "dummy"},
+
+	addMachine{machineId: "1", job: state.JobHostUnits},
+	startAliveMachine{"1"},
+	setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+	setMachineStatus{"1", state.StatusStarted, ""},
+
+	addAliveUnit{"dummy-service", "1"},
+	expect{
+		"add two units, one alive (in error state), one started",
+		M{
+			"environment": "dummyenv",
+			"machines": M{
+				"0": machine0,
+				"1": machine1,
+			},
+			"services": M{
+				"dummy-service": M{
+					"charm":   "cs:quantal/dummy-1",
+					"exposed": false,
+					"service-status": M{
+						"current": "unknown",
+						"message": "Waiting for agent initialization to finish",
+						"since":   "01 Apr 15 01:23 AEST",
+					},
+					"units": M{
+						"dummy-service/0": M{
+							"machine":     "1",
+							"agent-state": "pending",
+							"workload-status": M{
+								"current": "unknown",
+								"message": "Waiting for agent initialization to finish",
+								"since":   "01 Apr 15 01:23 AEST",
+							},
+							"agent-status": M{
+								"current": "allocating",
+								"since":   "01 Apr 15 01:23 AEST",
+							},
+							"public-address": "dummyenv-1.dns",
+						},
+					},
+				},
+			},
+		},
+	},
+)
+
+func (s *StatusSuite) TestIsoTimeFormat(c *gc.C) {
+	func(t testCase) {
+		// Prepare context and run all steps to setup.
+		ctx := s.newContext(c)
+		ctx.expectIsoTime = true
+		defer s.resetContext(c, ctx)
+		ctx.run(c, t.steps)
+	}(statusTimeTest)
 }
