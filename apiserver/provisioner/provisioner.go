@@ -819,12 +819,12 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 // container tags as arguments. If address allocation feature flag is
 // not enabled, it will return a NotSupported error.
 func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params.ErrorResults, error) {
-	if !environs.AddressAllocationEnabled() {
-		return params.ErrorResults{}, errors.NotSupportedf("address allocation")
-	}
-
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+
+	if !environs.AddressAllocationEnabled() {
+		return result, errors.NotSupportedf("address allocation")
 	}
 
 	canAccess, err := p.getAuthFunc()
@@ -886,13 +886,14 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 // container tags as arguments. If the address allocation feature flag
 // is not enabled, it returns a NotSupported error.
 func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (params.MachineNetworkConfigResults, error) {
-	if !environs.AddressAllocationEnabled() {
-		return params.MachineNetworkConfigResults{}, errors.NotSupportedf("address allocation")
-	}
-
 	result := params.MachineNetworkConfigResults{
 		Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
 	}
+
+	if !environs.AddressAllocationEnabled() {
+		return result, errors.NotSupportedf("address allocation")
+	}
+
 	// Some preparations first.
 	environ, host, canAccess, err := p.prepareContainerAccessEnvironment()
 	if err != nil {

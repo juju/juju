@@ -132,9 +132,7 @@ func (s *prepareSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 
 	results, err := s.provAPI.PrepareContainerInterfaceInfo(args)
 	c.Logf("PrepareContainerInterfaceInfo returned: err=%v, results=%v", err, results)
-	if err == nil {
-		c.Assert(results.Results, gc.HasLen, len(args.Entities))
-	}
+	c.Assert(results.Results, gc.HasLen, len(args.Entities))
 	if expectErr == "" {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(expectResults, gc.NotNil)
@@ -156,7 +154,7 @@ func (s *prepareSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 		c.Assert(results, jc.DeepEquals, *expectResults)
 	} else {
 		c.Assert(err, gc.ErrorMatches, expectErr)
-		if len(args.Entities) > 0 && len(results.Results) > 0 {
+		if len(args.Entities) > 0 {
 			result := results.Results[0]
 			// Not using jc.ErrorIsNil below because
 			// (*params.Error)(nil) does not satisfy the error
@@ -684,9 +682,7 @@ func (s *releaseSuite) makeErrors(errors ...*params.Error) *params.ErrorResults 
 func (s *releaseSuite) assertCall(c *gc.C, args params.Entities, expectResults *params.ErrorResults, expectErr string) error {
 	results, err := s.provAPI.ReleaseContainerAddresses(args)
 	c.Logf("ReleaseContainerAddresses returned: err=%v, results=%v", err, results)
-	if err == nil {
-		c.Assert(results.Results, gc.HasLen, len(args.Entities))
-	}
+	c.Assert(results.Results, gc.HasLen, len(args.Entities))
 	if expectErr == "" {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(expectResults, gc.NotNil)
@@ -694,7 +690,7 @@ func (s *releaseSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 		c.Assert(results, jc.DeepEquals, *expectResults)
 	} else {
 		c.Assert(err, gc.ErrorMatches, expectErr)
-		if len(args.Entities) > 0 && len(results.Results) > 0 {
+		if len(args.Entities) > 0 {
 			result := results.Results[0]
 			// Not using jc.ErrorIsNil below because
 			// (*params.Error)(nil) does not satisfy the error
