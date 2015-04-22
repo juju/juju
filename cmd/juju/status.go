@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 )
@@ -90,20 +91,16 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
-// JujuStatusIsoTimeEnvKey is the env var which if true, will cause status
-// timestamps to be written in RFC3339 format.
-const JujuStatusIsoTimeEnvKey = "JUJU_STATUS_ISO_TIME"
-
 func (c *StatusCommand) Init(args []string) error {
 	c.patterns = args
 	// If use of ISO time not specified on command line,
 	// check env var.
 	if !c.isoTime {
 		var err error
-		envVarValue := os.Getenv(JujuStatusIsoTimeEnvKey)
+		envVarValue := os.Getenv(osenv.JujuStatusIsoTimeEnvKey)
 		if envVarValue != "" {
 			if c.isoTime, err = strconv.ParseBool(envVarValue); err != nil {
-				return errors.Annotatef(err, "invalid %s env var, expected true|false", JujuStatusIsoTimeEnvKey)
+				return errors.Annotatef(err, "invalid %s env var, expected true|false", osenv.JujuStatusIsoTimeEnvKey)
 			}
 		}
 	}

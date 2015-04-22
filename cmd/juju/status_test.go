@@ -3481,11 +3481,11 @@ var statusInitTests = []struct {
 }
 
 func (*StatusSuite) TestStatusCommandInit(c *gc.C) {
-	defer os.Setenv(JujuStatusIsoTimeEnvKey, os.Getenv(JujuStatusIsoTimeEnvKey))
+	defer os.Setenv(osenv.JujuStatusIsoTimeEnvKey, os.Getenv(osenv.JujuStatusIsoTimeEnvKey))
 
 	for i, t := range statusInitTests {
 		c.Logf("test %d", i)
-		os.Setenv(JujuStatusIsoTimeEnvKey, t.envVar)
+		os.Setenv(osenv.JujuStatusIsoTimeEnvKey, t.envVar)
 		com, err := initStatusCommand(t.args...)
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
