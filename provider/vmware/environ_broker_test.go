@@ -12,9 +12,9 @@ import (
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
@@ -52,16 +52,16 @@ func (s *environBrokerSuite) CreateStartInstanceArgs(c *gc.C) environs.StartInst
 
 	cons := constraints.Value{}
 
-	machineConfig, err := environs.NewBootstrapMachineConfig(cons, "trusty")
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(cons, "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 
-	machineConfig.Tools = tools[0]
-	machineConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
+	instanceConfig.Tools = tools[0]
+	instanceConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
 
 	return environs.StartInstanceParams{
-		MachineConfig: machineConfig,
-		Tools:         tools,
-		Constraints:   cons,
+		InstanceConfig: instanceConfig,
+		Tools:          tools,
+		Constraints:    cons,
 	}
 }
 
@@ -76,7 +76,7 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 func (s *environBrokerSuite) TestStartInstanceWithNetworks(c *gc.C) {
 	s.PrepareStartInstanceFakes(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
-	startInstArgs.MachineConfig.Networks = []string{"someNetwork"}
+	startInstArgs.InstanceConfig.Networks = []string{"someNetwork"}
 	_, err := s.Env.StartInstance(startInstArgs)
 
 	c.Assert(err, gc.ErrorMatches, "starting instances with networks is not supported yet")
@@ -104,12 +104,12 @@ func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
 	}}
 	//setting tools to I386, but provider should update them to AMD64, because our fake simplestream server return only AMD 64 image
 	startInstArgs.Tools = tools
-	startInstArgs.MachineConfig.Tools = tools[0]
+	startInstArgs.InstanceConfig.Tools = tools[0]
 	res, err := s.Env.StartInstance(startInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*res.Hardware.Arch, gc.Equals, arch.AMD64)
-	c.Assert(startInstArgs.MachineConfig.Tools.Version.Arch, gc.Equals, arch.AMD64)
+	c.Assert(startInstArgs.InstanceConfig.Tools.Version.Arch, gc.Equals, arch.AMD64)
 }
 
 func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C) {
@@ -148,7 +148,7 @@ func (s *environBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *gc.C) 
 func (s *environBrokerSuite) TestStartInstanceCallsFinishMachineConfig(c *gc.C) {
 	s.PrepareStartInstanceFakes(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
-	s.PatchValue(&vmware.FinishMachineConfig, func(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err error) {
+	s.PatchValue(&vmware.FinishInstanceConfig, func(mcfg *instancecfg.InstanceConfig, cfg *config.Config) (err error) {
 		return errors.New("FinishMachineConfig called")
 	})
 	_, err := s.Env.StartInstance(startInstArgs)

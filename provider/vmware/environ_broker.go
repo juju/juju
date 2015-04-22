@@ -7,9 +7,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/vmware/govmomi/vim25/mo"
 
-	coreCloudinit "github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
@@ -23,7 +24,7 @@ const (
 	DefaultMemMb    = uint64(2000)
 )
 
-func isStateServer(mcfg *cloudinit.MachineConfig) bool {
+func isStateServer(mcfg *instancecfg.InstanceConfig) bool {
 	return multiwatcher.AnyJobNeedsState(mcfg.Jobs...)
 }
 
@@ -31,7 +32,7 @@ func isStateServer(mcfg *cloudinit.MachineConfig) bool {
 func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	env = env.getSnapshot()
 
-	if args.MachineConfig.HasNetworks() {
+	if args.InstanceConfig.HasNetworks() {
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 
@@ -58,7 +59,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	return &result, nil
 }
 
-var FinishMachineConfig = environs.FinishMachineConfig
+var FinishInstanceConfig = instancecfg.FinishInstanceConfig
 
 // finishMachineConfig updates args.MachineConfig in place. Setting up
 // the API, StateServing, and SSHkeys information.
@@ -68,24 +69,22 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *
 		return err
 	}
 
-	args.MachineConfig.Tools = envTools[0]
-	return FinishMachineConfig(args.MachineConfig, env.Config())
+	args.InstanceConfig.Tools = envTools[0]
+	return FinishInstanceConfig(args.InstanceConfig, env.Config())
 }
 
 // newRawInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvfFileMetadata) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
-	machineID := common.MachineFullName(env, args.MachineConfig.MachineId)
+	machineID := common.MachineFullName(env, args.InstanceConfig.MachineId)
 
-	config, err := coreCloudinit.New(args.Tools.OneSeries())
+	config, err := cloudinit.New(args.Tools.OneSeries())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	config.SetAptUpdate(true)
-	config.SetAptUpgrade(true)
 	config.AddPackage("open-vm-tools")
-	userData, err := environs.ComposeUserData(args.MachineConfig, config)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, config)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "cannot make user data")
 	}
@@ -131,7 +130,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvfFi
 			logger.Warningf("Error while getting availability zone %s: %s", zone, err)
 			continue
 		}
-		inst, err = env.client.CreateInstance(machineID, availZone, hwc, img, userData, args.MachineConfig.AuthorizedKeys, isStateServer(args.MachineConfig))
+		inst, err = env.client.CreateInstance(machineID, availZone, hwc, img, userData, args.InstanceConfig.AuthorizedKeys, isStateServer(args.InstanceConfig))
 		if err == nil {
 			break
 		} else {
