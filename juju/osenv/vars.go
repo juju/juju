@@ -16,6 +16,9 @@ const (
 	// needed as MAAS still needs it at this stage, and we can't fix
 	// everything at once.
 	JujuContainerTypeEnvKey = "JUJU_CONTAINER_TYPE"
+	// JujuStatusIsoTimeEnvKey is the env var which if true, will cause status
+	// timestamps to be written in RFC3339 format.
+	JujuStatusIsoTimeEnvKey = "JUJU_STATUS_ISO_TIME"
 )
 
 // FeatureFlags returns a map that can be merged with os.Environ.

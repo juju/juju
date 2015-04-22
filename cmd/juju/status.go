@@ -6,6 +6,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/juju/cmd"
@@ -18,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 )
@@ -26,6 +29,7 @@ type StatusCommand struct {
 	envcmd.EnvCommandBase
 	out      cmd.Output
 	patterns []string
+	isoTime  bool
 }
 
 var statusDoc = `
@@ -70,6 +74,8 @@ func (c *StatusCommand) Info() *cmd.Info {
 }
 
 func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.BoolVar(&c.isoTime, "utc", false, "display time as UTC in RFC3339 format")
+
 	defaultFormat := "yaml"
 	if featureflag.Enabled(feature.NewStatus) {
 		defaultFormat = "tabular"
@@ -87,6 +93,17 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *StatusCommand) Init(args []string) error {
 	c.patterns = args
+	// If use of ISO time not specified on command line,
+	// check env var.
+	if !c.isoTime {
+		var err error
+		envVarValue := os.Getenv(osenv.JujuStatusIsoTimeEnvKey)
+		if envVarValue != "" {
+			if c.isoTime, err = strconv.ParseBool(envVarValue); err != nil {
+				return errors.Annotatef(err, "invalid %s env var, expected true|false", osenv.JujuStatusIsoTimeEnvKey)
+			}
+		}
+	}
 	return nil
 }
 
@@ -126,7 +143,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("unable to obtain the current status")
 	}
 
-	result := newStatusFormatter(status).format()
+	result := newStatusFormatter(status, c.isoTime).format()
 	return c.out.Write(ctx, result)
 }
 
@@ -300,12 +317,14 @@ func (n networkStatus) GetYAML() (tag string, value interface{}) {
 type statusFormatter struct {
 	status    *api.Status
 	relations map[int]api.RelationStatus
+	isoTime   bool
 }
 
-func newStatusFormatter(status *api.Status) *statusFormatter {
+func newStatusFormatter(status *api.Status, isoTime bool) *statusFormatter {
 	sf := statusFormatter{
 		status:    status,
 		relations: make(map[int]api.RelationStatus),
+		isoTime:   isoTime,
 	}
 	for _, relation := range status.Relations {
 		sf.relations[relation.Id] = relation
@@ -414,8 +433,14 @@ func (sf *statusFormatter) formatService(name string, service api.ServiceStatus)
 	return out
 }
 
-func formatTime(t *time.Time) string {
-	return t.Local().Format(time.RFC822)
+func (sf *statusFormatter) formatTime(t *time.Time) string {
+	if sf.isoTime {
+		// If requested, use ISO time format
+		return t.Format(time.RFC3339)
+	} else {
+		// Otherwise use local time.
+		return t.Local().Format("02 Jan 2006 15:04:05 MST")
+	}
 }
 
 func (sf *statusFormatter) getServiceStatusInfo(service api.ServiceStatus) statusInfoContents {
@@ -426,7 +451,7 @@ func (sf *statusFormatter) getServiceStatusInfo(service api.ServiceStatus) statu
 		Version: service.Status.Version,
 	}
 	if service.Status.Since != nil {
-		info.Since = formatTime(service.Status.Since)
+		info.Since = sf.formatTime(service.Status.Since)
 	}
 	return info
 }
@@ -468,7 +493,7 @@ func (sf *statusFormatter) getWorkloadStatusInfo(unit api.UnitStatus) statusInfo
 		Version: unit.Workload.Version,
 	}
 	if unit.Workload.Since != nil {
-		info.Since = formatTime(unit.Workload.Since)
+		info.Since = sf.formatTime(unit.Workload.Since)
 	}
 	return info
 }
@@ -481,7 +506,7 @@ func (sf *statusFormatter) getAgentStatusInfo(unit api.UnitStatus) statusInfoCon
 		Version: unit.UnitAgent.Version,
 	}
 	if unit.UnitAgent.Since != nil {
-		info.Since = formatTime(unit.UnitAgent.Since)
+		info.Since = sf.formatTime(unit.UnitAgent.Since)
 	}
 	return info
 }

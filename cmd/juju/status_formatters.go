@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/apiserver/params"
 )
@@ -53,6 +55,35 @@ func FormatOneline(value interface{}) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
+// agentDoing returns what hook or action, if any,
+// the agent is currently executing.
+// The hook name or action is extracted from the agent message.
+func agentDoing(status statusInfoContents) string {
+	if status.Current != params.StatusExecuting {
+		return ""
+	}
+	// First see if we can determine a hook name.
+	var hookNames []string
+	for _, h := range hooks.UnitHooks() {
+		hookNames = append(hookNames, string(h))
+	}
+	for _, h := range hooks.RelationHooks() {
+		hookNames = append(hookNames, string(h))
+	}
+	hookExp := regexp.MustCompile(fmt.Sprintf(`running (?P<hook>%s?) hook`, strings.Join(hookNames, "|")))
+	match := hookExp.FindStringSubmatch(status.Message)
+	if len(match) > 0 {
+		return match[1]
+	}
+	// Now try for an action name.
+	actionExp := regexp.MustCompile(`running action (?P<action>.*)`)
+	match = actionExp.FindStringSubmatch(status.Message)
+	if len(match) > 0 {
+		return match[1]
+	}
+	return ""
+}
+
 // FormatTabular returns a tabular summary of machines, services, and
 // units. Any subordinate items are indented by two spaces beneath
 // their superior.
@@ -71,17 +102,8 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		fmt.Fprintln(tw)
 	}
 
-	p("[Machines]")
-	p("ID\tSTATE\tVERSION\tDNS\tINS-ID\tSERIES\tHARDWARE")
-	for _, name := range sortStringsNaturally(stringKeysFromMap(fs.Machines)) {
-		m := fs.Machines[name]
-		p(m.Id, m.AgentState, m.AgentVersion, m.DNSName, m.InstanceId, m.Series, m.Hardware)
-	}
-	tw.Flush()
-
 	units := make(map[string]unitStatus)
-
-	p("\n[Services]")
+	p("[Services]")
 	p("NAME\tSTATUS\tEXPOSED\tCHARM")
 	for _, svcName := range sortStringsNaturally(stringKeysFromMap(fs.Services)) {
 		svc := fs.Services[svcName]
@@ -93,6 +115,11 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	tw.Flush()
 
 	pUnit := func(name string, u unitStatus, level int) {
+		message := u.WorkloadStatusInfo.Message
+		agentDoing := agentDoing(u.AgentStatusInfo)
+		if agentDoing != "" {
+			message = fmt.Sprintf("(%s) %s", agentDoing, message)
+		}
 		p(
 			indent("", level*2, name),
 			u.WorkloadStatusInfo.Current,
@@ -101,6 +128,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 			u.Machine,
 			strings.Join(u.OpenedPorts, ","),
 			u.PublicAddress,
+			message,
 		)
 	}
 
@@ -114,24 +142,9 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	}
 	var header []string
 	if newStatus {
-		header = []string{"ID", "WORKLOAD-STATE", "AGENT-STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS"}
+		header = []string{"ID", "WORKLOAD-STATE", "AGENT-STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS", "MESSAGE"}
 	} else {
 		header = []string{"ID", "STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS"}
-	}
-
-	pUnitInfo := func(u unitStatus, level int, info string) {
-		// We need to keep the tabular output nice and neat, so
-		// limit the size of the info message.
-		if len(info) > 25 {
-			info = info[:22] + "..."
-		}
-		columns := make([]interface{}, len(header))
-		columns[0] = indent("", level*2, "")
-		columns[1] = info
-		for i := 2; i < len(columns); i++ {
-			columns[i] = ""
-		}
-		p(columns...)
 	}
 
 	p("\n[Units]")
@@ -139,17 +152,16 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	for _, name := range sortStringsNaturally(stringKeysFromMap(units)) {
 		u := units[name]
 		pUnit(name, u, 0)
-		// If we have new status data, we will display a little extra info for workload status if needed.
-		if newStatus {
-			switch u.WorkloadStatusInfo.Current {
-			case params.StatusMaintenance, params.StatusError:
-				if u.WorkloadStatusInfo.Message != "" {
-					pUnitInfo(u, 0, u.WorkloadStatusInfo.Message)
-				}
-			}
-		}
 		const indentationLevel = 1
 		recurseUnits(u, indentationLevel, pUnit)
+	}
+	tw.Flush()
+
+	p("\n[Machines]")
+	p("ID\tSTATE\tVERSION\tDNS\tINS-ID\tSERIES\tHARDWARE")
+	for _, name := range sortStringsNaturally(stringKeysFromMap(fs.Machines)) {
+		m := fs.Machines[name]
+		p(m.Id, m.AgentState, m.AgentVersion, m.DNSName, m.InstanceId, m.Series, m.Hardware)
 	}
 	tw.Flush()
 
