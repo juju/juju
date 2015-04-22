@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/cmd/juju/storage"
+	"github.com/juju/juju/cmd/juju/system"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
@@ -207,6 +208,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage storage
 	if featureflag.Enabled(feature.Storage) {
 		r.Register(storage.NewSuperCommand())
+	}
+
+	// Manage systems
+	if featureflag.Enabled(feature.JES) {
+		r.Register(system.NewSuperCommand())
 	}
 }
 
