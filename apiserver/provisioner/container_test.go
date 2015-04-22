@@ -132,7 +132,9 @@ func (s *prepareSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 
 	results, err := s.provAPI.PrepareContainerInterfaceInfo(args)
 	c.Logf("PrepareContainerInterfaceInfo returned: err=%v, results=%v", err, results)
-	c.Assert(results.Results, gc.HasLen, len(args.Entities))
+	if err == nil {
+		c.Assert(results.Results, gc.HasLen, len(args.Entities))
+	}
 	if expectErr == "" {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(expectResults, gc.NotNil)
@@ -154,7 +156,7 @@ func (s *prepareSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 		c.Assert(results, jc.DeepEquals, *expectResults)
 	} else {
 		c.Assert(err, gc.ErrorMatches, expectErr)
-		if len(args.Entities) > 0 {
+		if len(args.Entities) > 0 && len(results.Results) > 0 {
 			result := results.Results[0]
 			// Not using jc.ErrorIsNil below because
 			// (*params.Error)(nil) does not satisfy the error
@@ -164,6 +166,15 @@ func (s *prepareSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 		}
 	}
 	return err, tw.Log()
+}
+
+func (s *prepareSuite) TestErrorWitnNoFeatureFlag(c *gc.C) {
+	s.SetFeatureFlags() // clear the flags.
+	container := s.newAPI(c, true, true)
+	args := s.makeArgs(container)
+	s.assertCall(c, args, &params.MachineNetworkConfigResults{},
+		`address allocation not supported`,
+	)
 }
 
 func (s *prepareSuite) TestErrorWithNonProvisionedHost(c *gc.C) {
@@ -673,7 +684,9 @@ func (s *releaseSuite) makeErrors(errors ...*params.Error) *params.ErrorResults 
 func (s *releaseSuite) assertCall(c *gc.C, args params.Entities, expectResults *params.ErrorResults, expectErr string) error {
 	results, err := s.provAPI.ReleaseContainerAddresses(args)
 	c.Logf("ReleaseContainerAddresses returned: err=%v, results=%v", err, results)
-	c.Assert(results.Results, gc.HasLen, len(args.Entities))
+	if err == nil {
+		c.Assert(results.Results, gc.HasLen, len(args.Entities))
+	}
 	if expectErr == "" {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(expectResults, gc.NotNil)
@@ -681,7 +694,7 @@ func (s *releaseSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 		c.Assert(results, jc.DeepEquals, *expectResults)
 	} else {
 		c.Assert(err, gc.ErrorMatches, expectErr)
-		if len(args.Entities) > 0 {
+		if len(args.Entities) > 0 && len(results.Results) > 0 {
 			result := results.Results[0]
 			// Not using jc.ErrorIsNil below because
 			// (*params.Error)(nil) does not satisfy the error
@@ -690,6 +703,15 @@ func (s *releaseSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 		}
 	}
 	return err
+}
+
+func (s *releaseSuite) TestErrorWithNoFeatureFlag(c *gc.C) {
+	s.SetFeatureFlags() // clear the flags.
+	s.newAPI(c, true, false)
+	args := s.makeArgs(s.machines[0])
+	s.assertCall(c, args, &params.ErrorResults{},
+		"address allocation not supported",
+	)
 }
 
 func (s *releaseSuite) TestErrorWithHostInsteadOfContainer(c *gc.C) {
@@ -782,7 +804,7 @@ func (s *releaseSuite) allocateAddresses(c *gc.C, containerId string, numAllocat
 	}
 }
 
-func (s *releaseSuite) TestReleaseContainerAddresses(c *gc.C) {
+func (s *releaseSuite) TestSuccess(c *gc.C) {
 	container := s.newAPI(c, true, true)
 	args := s.makeArgs(container)
 
