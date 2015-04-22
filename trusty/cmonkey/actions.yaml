@@ -1,4 +1,8 @@
 start:
     description: Start the chaos monkey.
+    params:
+        timeout:
+            type: integer
+            description: Timeout in seconds for which the monkey should run.
 stop:
     description: Stop the choas monkey.

@@ -1,5 +1,9 @@
 options:
-  unleash:
-    type: string
-    default: ''
-    description: Unleash the choas monkey.
+  source:
+      type: string
+      default: lp:~juju-qa/juju-chaos-monkey
+      description: The bzr branch to pull the chaos source from.
+  revno:
+    type: int
+    default: -1
+    description: "The revision number of the bzr branch; -1 for tip."

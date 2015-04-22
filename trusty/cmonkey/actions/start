@@ -1,2 +1,15 @@
 #!/bin/bash
-echo "Let the chaos begin!!!"
+timeout=`action-get timeout`
+cmd="python chaos"
+action-set result-map.timeout=$timeout
+if [ -n timeout ]; then
+    cmd+=" --timeout $timeout"
+fi
+mkdir -p /opt/cmonkey
+action-set result-map.start="$cmd"
+# TODO: Remove echo when ready to run.
+eval echo $cmd > /opt/cmonkey/resutls.log
+
+# Stage the results.log for retrieval with 'juju action fetch'.
+action-set result-map.results=$(cat /opt/cmonkey/resutls.log)
+action-set outcome="success"

@@ -1,11 +1,11 @@
-name: cmonkey
+name: juju-chaos-monkey
 maintainer: John George <john.george@canonical.com>
-summary: Chaos Monkey
+summary: Juju Chaos Monkey
 description: |
-  This charm is used to insert and unleash chaos monkey.
+  This charm is used to deploy and run the Juju chaos monkey.
 peers:
   cluster:
-    interface: chaos-monkey
+    interface: juju-chaos-monkey
 requires:
   juju-info:
     interface: juju-info
