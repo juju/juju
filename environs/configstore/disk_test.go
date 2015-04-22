@@ -54,7 +54,7 @@ func (s *diskInterfaceSuite) TearDownTest(c *gc.C) {
 	entries, err := ioutil.ReadDir(storePath(s.dir, ""))
 	c.Assert(err, jc.ErrorIsNil)
 	for _, entry := range entries {
-		if !strings.HasSuffix(entry.Name(), ".jenv") && !strings.HasSuffix(entry.Name(), ".yaml") {
+		if !strings.HasSuffix(entry.Name(), ".jenv") && entry.Name() != "cache.yaml" {
 			c.Errorf("found possible stray temp file %s, %q", s.dir, entry.Name())
 		}
 	}

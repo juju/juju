@@ -145,8 +145,8 @@ func (d *diskStore) List() ([]string, error) {
 	return envs, nil
 }
 
-// ListServers implements Storage.ListServers
-func (d *diskStore) ListServers() ([]string, error) {
+// ListSystems implements Storage.ListSystems
+func (d *diskStore) ListSystems() ([]string, error) {
 	// List both jenv files and cache entries.  Record
 	// results in a set to avoid repeat entries.
 	servers := set.NewStrings()

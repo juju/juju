@@ -12,18 +12,21 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
+// ListCommand returns the list of all systems the user is
+// currently logged in to on the current machine.
 type ListCommand struct {
 	cmd.CommandBase
 	cfgStore configstore.Storage
 }
 
-var switchDoc = `List all the systems logged in to on the current machine`
+var listDoc = `List all the systems logged in to on the current machine`
 
+// Info implements Command.Info
 func (c *ListCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
 		Purpose: "list all systems logged in to on the current machine",
-		Doc:     switchDoc,
+		Doc:     listDoc,
 	}
 }
 
@@ -34,6 +37,7 @@ func (c *ListCommand) getConfigstore() (configstore.Storage, error) {
 	return configstore.Default()
 }
 
+// Run implements Command.Run
 func (c *ListCommand) Run(ctx *cmd.Context) error {
 	store, err := c.getConfigstore()
 
@@ -41,7 +45,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "failed to get config store")
 	}
 
-	list, err := store.ListServers()
+	list, err := store.ListSystems()
 	if err != nil {
 		return errors.Annotate(err, "failed to list systems in config store")
 	}
