@@ -10,7 +10,10 @@ import tarfile
 import tempfile
 import traceback
 
-from utility import temp_dir
+from utility import (
+    print_now,
+    temp_dir,
+)
 
 
 class WorkingDirectory:
@@ -39,16 +42,16 @@ def untar_gopath(tarfile_path, gopath, delete=False, verbose=False):
         with tarfile.open(name=tarfile_path, mode='r:gz') as tar:
             tar.extractall(path=tmp_dir)
         if verbose:
-            print('Extracted the Juju source.')
+            print_now('Extracted the Juju source.')
         dir_name = os.path.basename(tarfile_path).replace('.tar.gz', '')
         dir_path = os.path.join(tmp_dir, dir_name)
         shutil.move(dir_path, gopath)
         if verbose:
-            print('Moved %s to %s' % (dir_name, gopath))
+            print_now('Moved %s to %s' % (dir_name, gopath))
     if delete:
         os.unlink(tarfile_path)
         if verbose:
-            print('Deleted %s' % tarfile_path)
+            print_now('Deleted %s' % tarfile_path)
 
 
 def murder_mongo():
@@ -70,29 +73,30 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
         # Ensure OpenSSH is never in the path for win tests.
         sane_path = [p for p in env['PATH'].split(';') if 'OpenSSH' not in p]
         env['PATH'] = ';'.join(sane_path)
-        # GZ 2015-04-21: Short-term hack to work around case-insensitive issues
-        env['Path'] = env['PATH']
         if verbose:
-            print('Setting environ Path to:')
-            print(env['PATH'])
+            print_now('Setting environ Path to:')
+            print_now(env['PATH'])
+        # GZ 2015-04-21: Short-term hack to work around case-insensitive issues
+        env['Path'] = env.pop('PATH')
         tempdir = tempfile.mkdtemp(prefix="tmp-juju-test", dir=gopath)
         env['TMP'] = env['TEMP'] = tempdir
         if verbose:
-            print('Setting environ TMP and TEMP to:')
-            print(env['TEMP'])
+            print_now('Setting environ TMP and TEMP to:')
+            print_now(env['TEMP'])
         command = ['powershell.exe', '-Command', go_cmd, 'test', './...']
     else:
         command = [go_cmd, 'test', './...']
     package_dir = os.path.join(gopath, 'src', package.replace('/', os.sep))
     with WorkingDirectory(package_dir):
         if verbose:
-            print('Running unit tests in %s' % package)
+            print_now('Running unit tests in %s' % package)
         returncode = run(command, env=env)
         if verbose:
             if returncode == 0:
-                print('SUCCESS')
+                print_now('SUCCESS')
             else:
-                print('FAIL')
+                print_now('FAIL')
+            print_now("Killing any lingering mongo processes...")
         murder_mongo()
     return returncode
 
@@ -125,7 +129,7 @@ def main(argv=None):
     version = tarfile_name.split('_')[-1].replace('.tar.gz', '')
     try:
         if args.verbose:
-            print('Testing juju %s from %s' % (version, tarfile_name))
+            print_now('Testing juju %s from %s' % (version, tarfile_name))
         with temp_dir() as workspace:
             gopath = os.path.join(workspace, 'gogo')
             untar_gopath(
@@ -134,8 +138,8 @@ def main(argv=None):
             returncode = go_test_package(
                 args.package, args.go, gopath, verbose=args.verbose)
     except Exception as e:
-        print(str(e))
-        print(traceback.print_exc())
+        print_now(str(e))
+        print_now(traceback.print_exc())
         return 3
     return returncode
 
