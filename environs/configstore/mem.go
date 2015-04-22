@@ -67,8 +67,8 @@ func (m *memStore) List() ([]string, error) {
 	return envs, nil
 }
 
-// ListServers implements Storage.ListServers
-func (m *memStore) ListServers() ([]string, error) {
+// ListSystems implements Storage.ListSystems
+func (m *memStore) ListSystems() ([]string, error) {
 	var servers []string
 	m.mu.Lock()
 	defer m.mu.Unlock()

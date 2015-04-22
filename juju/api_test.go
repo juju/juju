@@ -813,8 +813,8 @@ func (*storageWithWriteNotify) List() ([]string, error) {
 	panic("List not implemented")
 }
 
-func (*storageWithWriteNotify) ListServers() ([]string, error) {
-	panic("ListServers not implemented")
+func (*storageWithWriteNotify) ListSystems() ([]string, error) {
+	panic("ListSystems not implemented")
 }
 
 func (s *storageWithWriteNotify) ReadInfo(envName string) (configstore.EnvironInfo, error) {

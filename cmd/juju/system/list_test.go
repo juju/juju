@@ -33,7 +33,7 @@ func (errorStore) List() ([]string, error) {
 	panic("List not implemented")
 }
 
-func (e errorStore) ListServers() ([]string, error) {
+func (e errorStore) ListSystems() ([]string, error) {
 	return nil, e.err
 }
 
@@ -88,7 +88,7 @@ func (s *ListSuite) TestUnrecognizedArg(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
-func (s *ListSuite) TestListServersError(c *gc.C) {
+func (s *ListSuite) TestListSystemsError(c *gc.C) {
 	s.store = errorStore{err: errors.New("cannot read info")}
 	_, err := testing.RunCommand(c, system.NewListCommand(s.store))
 	c.Assert(err, gc.ErrorMatches, "failed to list systems in config store: cannot read info")

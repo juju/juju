@@ -64,9 +64,9 @@ type Storage interface {
 	// knows about.
 	List() ([]string, error)
 
-	// ListServers returns a slice of existing server names that the Storage
+	// ListSystems returns a slice of existing server names that the Storage
 	// knows about.
-	ListServers() ([]string, error)
+	ListSystems() ([]string, error)
 }
 
 // EnvironInfo holds information associated with an environment.

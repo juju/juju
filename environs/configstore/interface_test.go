@@ -71,7 +71,7 @@ func (s *interfaceSuite) TestList(c *gc.C) {
 	c.Assert(environs, jc.SameContents, []string{"enva", "envb", "envc"})
 }
 
-func (s *interfaceSuite) TestListServers(c *gc.C) {
+func (s *interfaceSuite) TestListSystems(c *gc.C) {
 	store := s.NewStore(c)
 	s.createInitialisedEnvironment(c, store, "enva", "")
 	s.createInitialisedEnvironment(c, store, "envb", "")
@@ -80,7 +80,7 @@ func (s *interfaceSuite) TestListServers(c *gc.C) {
 	s.createInitialisedEnvironment(c, store, "envc", "envc")
 	s.createInitialisedEnvironment(c, store, "envd", "envc")
 
-	environs, err := store.ListServers()
+	environs, err := store.ListSystems()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environs, jc.SameContents, []string{"enva", "envb", "envc"})
 }
