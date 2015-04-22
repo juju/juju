@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package vmware
@@ -65,18 +65,17 @@ func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) OpenPorts(machineID string, ports []network.PortRange) error {
-	return errors.Trace(errors.NotImplementedf(""))
+	return errors.Trace(errors.NotImplementedf("OpenPorts"))
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRange) error {
-	return errors.Trace(errors.NotImplementedf(""))
+	return errors.Trace(errors.NotImplementedf("ClosePorts"))
 }
 
 // Ports returns the set of ports open on the instance, which
 // should have been started with the given machine id.
-// The ports are returned as sorted by SortPorts.
 func (inst *environInstance) Ports(machineID string) ([]network.PortRange, error) {
-	return nil, errors.Trace(errors.NotImplementedf(""))
+	return nil, errors.Trace(errors.NotImplementedf("Ports"))
 }

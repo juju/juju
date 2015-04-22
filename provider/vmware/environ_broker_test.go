@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package vmware_test
@@ -88,7 +88,7 @@ func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C
 	startInstArgs.Tools[0].Version.Arch = "someArch"
 	_, err := s.Env.StartInstance(startInstArgs)
 
-	c.Assert(err, gc.ErrorMatches, "No mathicng images found for given constraints: .*")
+	c.Assert(err, gc.ErrorMatches, "no mathicng images found for given constraints: .*")
 }
 
 // if tools for multiple architectures are avaliable, provider should filter tools by arch of the selected image
@@ -121,7 +121,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C)
 	c.Assert(*res.Hardware.CpuCores, gc.Equals, vmware.DefaultCpuCores)
 	c.Assert(*res.Hardware.CpuPower, gc.Equals, vmware.DefaultCpuPower)
 	c.Assert(*res.Hardware.Mem, gc.Equals, vmware.DefaultMemMb)
-	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeMB)
+	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB*1024)
 }
 
 func (s *environBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *gc.C) {
@@ -162,7 +162,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmallConst
 	startInstArgs.Constraints.RootDisk = &rootDisk
 	res, err := s.Env.StartInstance(startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeMB)
+	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB*1024)
 }
 
 func (s *environBrokerSuite) TestStartInstanceInvalidPlacement(c *gc.C) {

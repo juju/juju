@@ -1,3 +1,6 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package vmware
 
 import (
@@ -59,6 +62,7 @@ var newConnection = func(url *url.URL) (*govmomi.Client, error) {
 	return govmomi.NewClient(context.TODO(), url, true)
 }
 
+// CreateInstance create new vm in vsphere and run it
 func (c *client) CreateInstance(machineID string, zone *vmwareAvailZone, hwc *instance.HardwareCharacteristics, img *OvfFileMetadata, userData []byte, sshKey string, isState bool) (*mo.VirtualMachine, error) {
 	manager := &ovfImportManager{client: c}
 	vm, err := manager.importOvf(machineID, zone, hwc, img, userData, sshKey, isState)
@@ -81,24 +85,28 @@ func (c *client) CreateInstance(machineID string, zone *vmwareAvailZone, hwc *in
 	return &res, nil
 }
 
+// RemoveInstances removes vms from the system
 func (c *client) RemoveInstances(ids ...string) error {
-	var firstError error
+	var lastError error
 	tasks := make([]*object.Task, 0, len(ids))
 	for _, id := range ids {
 		vm, err := c.finder.VirtualMachine(context.TODO(), id)
-		if err != nil && firstError == nil {
-			firstError = err
+		if err != nil {
+			lastError = err
+			logger.Errorf(err.Error())
 			continue
 		}
 		task, err := vm.PowerOff(context.TODO())
-		if err != nil && firstError == nil {
-			firstError = err
+		if err != nil {
+			lastError = err
+			logger.Errorf(err.Error())
 			continue
 		}
 		tasks = append(tasks, task)
 		task, err = vm.Destroy(context.TODO())
-		if err != nil && firstError == nil {
-			firstError = err
+		if err != nil {
+			lastError = err
+			logger.Errorf(err.Error())
 			continue
 		}
 		//We don't wait for task completeon here. Instead we want to run all tasks as soon as posible
@@ -108,14 +116,15 @@ func (c *client) RemoveInstances(ids ...string) error {
 
 	for _, task := range tasks {
 		_, err := task.WaitForResult(context.TODO(), nil)
-		if err != nil && firstError == nil {
-			firstError = err
-			continue
+		if err != nil {
+			lastError = err
+			logger.Errorf(err.Error())
 		}
 	}
-	return errors.Annotatef(firstError, "Failed while remowing instances")
+	return errors.Annotatef(lastError, "failed to remowe instances")
 }
 
+// Instances return list of all vms in the system, that match naming convention
 func (c *client) Instances(prefix string) ([]*mo.VirtualMachine, error) {
 	items, err := c.finder.VirtualMachineList(context.TODO(), "*")
 	if err != nil {
@@ -138,6 +147,7 @@ func (c *client) Instances(prefix string) ([]*mo.VirtualMachine, error) {
 	return vms, nil
 }
 
+// Refresh refreshes the virtual machine
 func (c *client) Refresh(v *mo.VirtualMachine) error {
 	item, err := c.finder.VirtualMachine(context.TODO(), v.Name)
 	if err != nil {
@@ -152,6 +162,7 @@ func (c *client) Refresh(v *mo.VirtualMachine) error {
 	return nil
 }
 
+//AvailabilityZones retuns list of all root compute resources in the system
 func (c *client) AvailabilityZones() ([]*mo.ComputeResource, error) {
 	folders, err := c.datacenter.Folders(context.TODO())
 	if err != nil {

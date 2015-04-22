@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package vmware
@@ -28,45 +28,31 @@ func init() {
 
 // Open implements environs.EnvironProvider.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	// The config will have come from either state or from a config
-	// file. In either case, the original config came from the env from
-	// a previous call to the Prepare method. That means there is no
-	// need to update the config, e.g. with defaults and OS env values
-	// before we validate it, so we pass nil.
-	ecfg, err := newValidConfig(cfg, nil)
-	if err != nil {
-		return nil, errors.Annotate(err, "invalid config")
-	}
-
-	env, err := newEnviron(ecfg)
+	env, err := newEnviron(cfg)
 	return env, errors.Trace(err)
 }
 
 // PrepareForBootstrap implements environs.EnvironProvider.
 func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	ecfg, err := prepareConfig(cfg)
-	if err != nil {
-		return nil, errors.Annotate(err, "invalid config")
-	}
-
-	env, err := newEnviron(ecfg)
+	env, err := newEnviron(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if ctx.ShouldVerifyCredentials() {
-	}
 	return env, nil
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
+	return cfg, nil
 }
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (environProvider) RestrictedConfigAttributes() []string {
 	return []string{
+		cfgDatacenter,
+		cfgHost,
+		cfgUser,
 		cfgPassword,
 	}
 }

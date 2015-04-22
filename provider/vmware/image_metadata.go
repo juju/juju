@@ -1,3 +1,6 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package vmware
 
 import (
@@ -41,7 +44,7 @@ var findImageMetadata = func(env *environ, args environs.StartInstanceParams) (*
 		return nil, errors.Trace(err)
 	}
 	if len(matchingImages) == 0 {
-		return nil, errors.Errorf("No mathicng images found for given constraints: %v", ic)
+		return nil, errors.Errorf("no mathicng images found for given constraints: %v", ic)
 	}
 
 	return matchingImages[0], nil

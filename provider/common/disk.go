@@ -9,7 +9,6 @@ const (
 	// size of the initial image, any updates, and future application
 	// data.
 	MinRootDiskSizeGiB uint64 = 8
-	MinRootDiskSizeMB  uint64 = MinRootDiskSizeGiB * 1024
 )
 
 // MiBToGiB converts the provided megabytes (base-2) into the nearest
@@ -17,8 +16,4 @@ const (
 // deal in gigabytes (while juju deals in megabytes).
 func MiBToGiB(m uint64) uint64 {
 	return (m + 1023) / 1024
-}
-
-func MBToKB(m uint64) uint64 {
-	return m * 1024
 }

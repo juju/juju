@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package vmware
@@ -8,43 +8,43 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/common"
 )
 
 // AllocateAddress implements environs.Environ, but is not implmemented.
 func (env *environ) AllocateAddress(instID instance.Id, netID network.Id, addr network.Address) error {
+	//TODO: implement
 	return errors.Trace(errors.NotImplementedf(""))
 }
 
 // ReleaseAddress implements environs.Environ, but is not implmemented.
 func (env *environ) ReleaseAddress(instID instance.Id, netID network.Id, addr network.Address) error {
+	//TODO: implement
 	return errors.Trace(errors.NotImplementedf(""))
 }
 
 // Subnets implements environs.Environ, but is not implmemented.
 func (env *environ) Subnets(inst instance.Id, ids []network.Id) ([]network.SubnetInfo, error) {
+	//TODO: implement
 	return nil, errors.Trace(errors.NotImplementedf(""))
 }
 
 // ListNetworks implements environs.Environ, but is not implmemented.
 func (env *environ) ListNetworks(inst instance.Id) ([]network.SubnetInfo, error) {
+	//TODO: implement
 	return nil, errors.Trace(errors.NotImplementedf(""))
 }
 
 // NetworkInterfaces implements environs.Environ, but is not implmemented.
 func (env *environ) NetworkInterfaces(inst instance.Id) ([]network.InterfaceInfo, error) {
+	//TODO: implement
 	return nil, errors.Trace(errors.NotImplementedf(""))
-}
-
-// globalFirewallName returns the name to use for the global firewall.
-func (env *environ) globalFirewallName() string {
-	return common.EnvFullName(env)
 }
 
 // OpenPorts opens the given port ranges for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) OpenPorts(ports []network.PortRange) error {
+	//TODO: implement
 	return errors.Trace(errors.NotImplementedf(""))
 }
 
@@ -52,6 +52,7 @@ func (env *environ) OpenPorts(ports []network.PortRange) error {
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) ClosePorts(ports []network.PortRange) error {
+	//TODO: implement
 	return errors.Trace(errors.NotImplementedf(""))
 }
 
@@ -59,5 +60,6 @@ func (env *environ) ClosePorts(ports []network.PortRange) error {
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) Ports() ([]network.PortRange, error) {
+	//TODO: implement
 	return nil, errors.Trace(errors.NotImplementedf(""))
 }

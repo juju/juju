@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package vmware
@@ -59,6 +59,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	return &result, nil
 }
 
+//this variable is exported, because it has to be rewritten in external unit tests
 var FinishInstanceConfig = instancecfg.FinishInstanceConfig
 
 // finishMachineConfig updates args.MachineConfig in place. Setting up
@@ -79,12 +80,12 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *
 func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvfFileMetadata) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
 	machineID := common.MachineFullName(env, args.InstanceConfig.MachineId)
 
-	config, err := cloudinit.New(args.Tools.OneSeries())
+	cloudcfg, err := cloudinit.New(args.Tools.OneSeries())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	config.AddPackage("open-vm-tools")
-	userData, err := providerinit.ComposeUserData(args.InstanceConfig, config)
+	cloudcfg.AddPackage("open-vm-tools")
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "cannot make user data")
 	}
@@ -94,7 +95,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvfFi
 	}
 	logger.Debugf("Vmware user data; %d bytes", len(userData))
 
-	rootDisk := common.MinRootDiskSizeMB
+	rootDisk := common.MinRootDiskSizeGiB * 1024
 	if args.Constraints.RootDisk != nil && *args.Constraints.RootDisk > rootDisk {
 		rootDisk = *args.Constraints.RootDisk
 	}
@@ -131,11 +132,11 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvfFi
 			continue
 		}
 		inst, err = env.client.CreateInstance(machineID, availZone, hwc, img, userData, args.InstanceConfig.AuthorizedKeys, isStateServer(args.InstanceConfig))
-		if err == nil {
-			break
-		} else {
+		if err != nil {
 			logger.Warningf("Error while trying to create instance in %s availability zone: %s", zone, err)
+			continue
 		}
+		break
 	}
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "Can't create instance in any of availability zones, last error")

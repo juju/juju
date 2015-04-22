@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package vmware
@@ -16,10 +16,12 @@ type vmwareAvailZone struct {
 	r mo.ComputeResource
 }
 
+// Name implements common.AvailabilityZone
 func (z *vmwareAvailZone) Name() string {
 	return z.r.Name
 }
 
+// Available implements common.AvailabilityZone
 func (z *vmwareAvailZone) Available() bool {
 	return true
 }
@@ -56,7 +58,7 @@ func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, 
 		for _, zone := range zones {
 			if eInst := inst.(*environInstance); eInst != nil && zone.ResourcePool.Value == eInst.base.ResourcePool.Value {
 				results = append(results, zone.Name)
-				continue
+				break
 			}
 		}
 	}
@@ -77,6 +79,7 @@ func (env *environ) availZone(name string) (*vmwareAvailZone, error) {
 	return nil, errors.NotFoundf("invalid availability zone %q", name)
 }
 
+//this variable is exported, because it has to be rewritten in external unit tests
 var AvailabilityZoneAllocations = common.AvailabilityZoneAllocations
 
 // parseAvailabilityZones returns the availability zones that should be

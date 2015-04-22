@@ -1,3 +1,6 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package vmware
 
 import (
@@ -16,9 +19,20 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
 )
 
+/*
+This file contains implementation of the process of importing OVF template using vsphere API.  This process can be splitted in the following steps
+1. Download OVF template
+2. Call CreateImportSpec method from vsphere API https://www.vmware.com/support/developer/vc-sdk/visdk41pubs/ApiReference/. This method validates the OVF descriptor against the hardware supported by the host system. If the validation succeeds, return a result containing:
+  * An ImportSpec to use when importing the entity.
+  * A list of items to upload (for example disk backing files, ISO images etc.)
+3. Prepare all necessary parameters (CPU, mem, etc.) and call ImportVApp method https://www.vmware.com/support/developer/vc-sdk/visdk41pubs/ApiReference/. This method is responsible for actually creating VM. This method return HttpNfcLease (https://www.vmware.com/support/developer/vc-sdk/visdk41pubs/ApiReference/vim.HttpNfcLease.html) object, that is used to monitor status of the process.
+4. Upload virtual disk contents (that usually consist of a single vmdk file)
+5. Call HttpNfcLeaseComplete https://www.vmware.com/support/developer/vc-sdk/visdk41pubs/ApiReference/ and indicate that the process of uploading is finished - this step finishes the process.
+*/
+
+//this type implements progress.Sinker interface, that is requred to obtain the status of uploading an item to vspehere
 type ovfFileItem struct {
 	url  *url.URL
 	item types.OvfFileItem
@@ -75,9 +89,9 @@ func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hw
 	}
 	for _, d := range s.DeviceChange {
 		if disk, ok := d.GetVirtualDeviceConfigSpec().Device.(*types.VirtualDisk); ok {
-			disk.CapacityInKB = int64(common.MBToKB(*hwc.RootDisk))
+			disk.CapacityInKB = int64(*hwc.RootDisk * 1024)
 		}
-		//Set UnitNumber to -1 is it is unset in ovf file template (in this case it is parces as 0)
+		//Set UnitNumber to -1 if it is unset in ovf file template (in this case it is parces as 0)
 		//but 0 causes an error for some devices
 		n := &d.GetVirtualDeviceConfigSpec().Device.GetVirtualDevice().UnitNumber
 		if *n == 0 {
@@ -87,7 +101,7 @@ func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hw
 	rp := object.NewResourcePool(m.client.connection.Client, *zone.r.ResourcePool)
 	lease, err := rp.ImportVApp(context.TODO(), spec.ImportSpec, folders.VmFolder, nil)
 	if err != nil {
-		return nil, errors.Annotatef(err, "Error while importing vapp")
+		return nil, errors.Annotatef(err, "failed to import vapp")
 	}
 
 	info, err := lease.Wait(context.TODO())
@@ -117,7 +131,7 @@ func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hw
 
 	for _, i := range items {
 		ind := strings.LastIndex(img.Url, "/")
-		err = m.uploadFileItem(i, img.Url[:ind])
+		err = m.uploadImage(i, img.Url[:ind])
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -134,7 +148,7 @@ func (m *ovfImportManager) downloadOvf(url string) (string, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("Can't download ovf file from url: %s, status: %s", url, resp.StatusCode)
+		return "", errors.Errorf("can't download ovf file from url: %s, status: %s", url, resp.StatusCode)
 	}
 	bytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -143,7 +157,7 @@ func (m *ovfImportManager) downloadOvf(url string) (string, error) {
 	return string(bytes), nil
 }
 
-func (m *ovfImportManager) uploadFileItem(ofi ovfFileItem, baseUrl string) error {
+func (m *ovfImportManager) uploadImage(ofi ovfFileItem, baseUrl string) error {
 	f, err := m.downloadFileItem(strings.Join([]string{baseUrl, ofi.item.Path}, "/"))
 	if err != nil {
 		return err
@@ -188,7 +202,7 @@ func (m *ovfImportManager) downloadFileItem(url string) (io.ReadCloser, error) {
 	}
 	if resp.StatusCode != 200 {
 		resp.Body.Close()
-		return nil, errors.Errorf("Can't download file from url: %s, status: %s", url, resp.StatusCode)
+		return nil, errors.Errorf("can't download file from url: %s, status: %s", url, resp.StatusCode)
 	}
 
 	return resp.Body, nil

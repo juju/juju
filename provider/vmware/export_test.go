@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package vmware
@@ -14,3 +14,5 @@ var (
 func ExposeEnvFakeClient(env *environ) *fakeClient {
 	return env.client.connection.RoundTripper.(*fakeClient)
 }
+
+var _ environs.Environ = (*environ)(nil)

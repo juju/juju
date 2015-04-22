@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package vmware
@@ -19,7 +19,6 @@ type environ struct {
 	common.SupportsUnitPlacementPolicy
 
 	name   string
-	uuid   string
 	ecfg   *environConfig
 	client *client
 
@@ -29,22 +28,19 @@ type environ struct {
 	supportedArchitectures []string
 }
 
-var _ environs.Environ = (*environ)(nil)
-
-func newEnviron(ecfg *environConfig) (*environ, error) {
-	uuid, ok := ecfg.UUID()
-	if !ok {
-		return nil, errors.New("UUID not set")
+func newEnviron(cfg *config.Config) (*environ, error) {
+	ecfg, err := newValidConfig(cfg, configDefaults)
+	if err != nil {
+		return nil, errors.Annotate(err, "invalid config")
 	}
 
 	client, err := newClient(ecfg)
 	if err != nil {
-		return nil, errors.Annotatef(err, "Failed to create new client")
+		return nil, errors.Annotatef(err, "failed to create new client")
 	}
 
 	env := &environ{
 		name:   ecfg.Name(),
-		uuid:   uuid,
 		ecfg:   ecfg,
 		client: client,
 	}
@@ -84,7 +80,6 @@ func (env *environ) getSnapshot() *environ {
 	clone := *env
 	env.lock.Unlock()
 
-	clone.lock = sync.Mutex{}
 	return &clone
 }
 
@@ -93,6 +88,7 @@ func (env *environ) Config() *config.Config {
 	return env.getSnapshot().ecfg.Config
 }
 
+//this variable is exported, because it has to be rewritten in external unit tests
 var Bootstrap = common.Bootstrap
 
 // Bootstrap creates a new instance, chosing the series and arch out of
@@ -103,6 +99,7 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.Boo
 	return Bootstrap(ctx, env, params)
 }
 
+//this variable is exported, because it has to be rewritten in external unit tests
 var DestroyEnv = common.Destroy
 
 // Destroy shuts down all known machines and destroys the rest of the

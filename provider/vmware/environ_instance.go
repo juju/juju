@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package vmware
@@ -34,13 +34,13 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 
 	// Build the result, matching the provided instance IDs.
 	numFound := 0 // This will never be greater than len(ids).
-	results := make([]instance.Instance, 0, len(ids))
-	for _, id := range ids {
+	results := make([]instance.Instance, len(ids))
+	for i, id := range ids {
 		inst := findInst(id, instances)
 		if inst != nil {
 			numFound++
-			results = append(results, inst)
 		}
+		results[i] = inst
 	}
 
 	if numFound == 0 {
@@ -65,7 +65,7 @@ func (env *environ) instances() ([]instance.Instance, error) {
 	instances, err := env.client.Instances(prefix)
 	err = errors.Trace(err)
 
-	// Turn google.Instance values into *environInstance values,
+	// Turn mo.VirtualMachine values into *environInstance values,
 	// whether or not we got an error.
 	var results []instance.Instance
 	for _, base := range instances {

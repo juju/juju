@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package vmware
@@ -27,15 +27,15 @@ var boilerplateConfig = `
 vmware:
   type: vmware
 
-  # Vsphere API host or DNS name 
-  host: 
+  # Vsphere API host or DNS name
+  host:
 
   # Vsphere API user credentials
-  user: 
-  password: 
-  
+  user:
+  password:
+
   # Vsphere datacenter
-  datacenter: 
+  datacenter:
 `[1:]
 
 // configFields is the spec for each vmware config value's type.
@@ -69,14 +69,6 @@ func newConfig(cfg *config.Config) *environConfig {
 		Config: cfg,
 		attrs:  cfg.UnknownAttrs(),
 	}
-}
-
-// prepareConfig builds a new environConfig from the provided Config and
-// returns it. The resulting config values are validated.
-func prepareConfig(cfg *config.Config) (*environConfig, error) {
-	// Finish the config.
-	ecfg, err := newValidConfig(cfg, configDefaults)
-	return ecfg, errors.Trace(err)
 }
 
 // newValidConfig builds a new environConfig from the provided Config

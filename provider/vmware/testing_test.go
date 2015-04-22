@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package vmware
@@ -71,8 +71,6 @@ func (s *BaseSuite) setConfig(c *gc.C, cfg *config.Config) {
 	ecfg, err := newValidConfig(cfg, configDefaults)
 	c.Assert(err, jc.ErrorIsNil)
 	s.EnvConfig = ecfg
-	uuid, _ := cfg.UUID()
-	s.Env.uuid = uuid
 	s.Env.ecfg = s.EnvConfig
 	//s.Prefix = "juju-" + uuid + "-"
 }
@@ -119,7 +117,7 @@ func (c *fakeClient) RoundTrip(ctx context.Context, req, res soap.HasFault) erro
 		logger.Debugf("executing RetrieveProperties for object %s", obj)
 		call := c.propertyHandlers[0]
 		if call.object != obj {
-			return errors.Errorf("Expected object of type %s, got %s", obj, call.object)
+			return errors.Errorf("expected object of type %s, got %s", obj, call.object)
 		}
 		call.handler(reqBody, resBody)
 		c.propertyHandlers = c.propertyHandlers[1:]
@@ -127,7 +125,7 @@ func (c *fakeClient) RoundTrip(ctx context.Context, req, res soap.HasFault) erro
 		logger.Infof("Executing RoundTrip method, type: %s", reqType)
 		call := c.handlers[0]
 		if call.method != reqType {
-			return errors.Errorf("Expected method of type %s, got %s", reqType, call.method)
+			return errors.Errorf("expected method of type %s, got %s", reqType, call.method)
 		}
 		call.handler(req, res)
 		c.handlers = c.handlers[1:]

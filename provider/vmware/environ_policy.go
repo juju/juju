@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package vmware
@@ -17,6 +17,11 @@ import (
 // PrecheckInstance verifies that the provided series and constraints
 // are valid for use in creating an instance in this environment.
 func (env *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement != "" {
+		if _, err := env.parsePlacement(placement); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -39,7 +44,7 @@ func (env *environ) SupportedArchitectures() ([]string, error) {
 }
 
 func (env *environ) lookupArchitectures() ([]string, error) {
-	// Create a filter to get all images from our region and for the
+	// Create a filter to get all images for the
 	// correct stream.
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		Stream: env.Config().ImageStream(),
