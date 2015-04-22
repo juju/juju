@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
