@@ -118,12 +118,10 @@ func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManager(c *gc.C
 }
 
 func assertMeterStatusChanged(c *gc.C, w state.NotifyWatcher) {
-	for i := 0; i < 2; i++ {
-		select {
-		case <-w.Changes():
-		case <-time.After(testing.LongWait):
-			c.Fatalf("expected event from watcher by now")
-		}
+	select {
+	case <-w.Changes():
+	case <-time.After(testing.LongWait):
+		c.Fatalf("expected event from watcher by now")
 	}
 }
 
