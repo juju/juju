@@ -42,10 +42,25 @@ type Manifold struct {
 	Output OutputFunc
 }
 
+// Manifolds conveniently represents several Manifolds.
+type Manifolds map[string]Manifold
+
+// Install is a convenience function for installing multiple manifolds into an
+// engine at once. It returns the first error it encounters (and installs no more
+// manifolds).
+func Install(engine Engine, manifolds Manifolds) error {
+	for name, manifold := range manifolds {
+		if err := engine.Install(name, manifold); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 // StartFunc returns a worker or an error. All the worker's dependencies should
 // be taken from the supplied GetResourceFunc; if no worker can be started due
-// to unmet dependencies, it should return ErrUnmetDependencies, in which case
-// it will not be called again until its declared inputs change.
+// to unmet dependencies, it should return ErrMissing, in which case it will
+// not be called again until its declared inputs change.
 type StartFunc func(getResource GetResourceFunc) (worker.Worker, error)
 
 // GetResourceFunc returns an indication of whether a named dependency can be

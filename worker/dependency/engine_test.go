@@ -45,6 +45,23 @@ func (s *EngineSuite) stopEngine(c *gc.C) {
 	}
 }
 
+func (s *EngineSuite) TestInstallConvenienceWrapper(c *gc.C) {
+	mh1 := newManifoldHarness()
+	mh2 := newManifoldHarness()
+	mh3 := newManifoldHarness()
+
+	err := dependency.Install(s.engine, dependency.Manifolds{
+		"mh1": mh1.Manifold(),
+		"mh2": mh2.Manifold(),
+		"mh3": mh3.Manifold(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	mh1.AssertOneStart(c)
+	mh2.AssertOneStart(c)
+	mh3.AssertOneStart(c)
+}
+
 func (s *EngineSuite) TestInstallNoInputs(c *gc.C) {
 
 	// Install a worker, check it starts.
