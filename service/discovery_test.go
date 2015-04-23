@@ -264,7 +264,7 @@ func (s *discoverySuite) TestVersionInitSystemNoLegacyUpstart(c *gc.C) {
 }
 
 func (s *discoverySuite) TestDiscoverLocalInitSystemMatchFirst(c *gc.C) {
-	service.PatchDiscoveryFuncs(s,
+	s.PatchLocalDiscovery(
 		service.NewDiscoveryCheck("initA", true, nil),
 		service.NewDiscoveryCheck("initB", false, nil),
 	)
@@ -277,7 +277,7 @@ func (s *discoverySuite) TestDiscoverLocalInitSystemMatchFirst(c *gc.C) {
 
 func (s *discoverySuite) TestDiscoverLocalInitSystemErrorFirst(c *gc.C) {
 	failure := errors.New("<failed>")
-	service.PatchDiscoveryFuncs(s,
+	s.PatchLocalDiscovery(
 		service.NewDiscoveryCheck("initA", false, failure),
 		service.NewDiscoveryCheck("initB", true, nil),
 	)
@@ -290,7 +290,7 @@ func (s *discoverySuite) TestDiscoverLocalInitSystemErrorFirst(c *gc.C) {
 
 func (s *discoverySuite) TestDiscoverLocalInitSystemMatchFirstError(c *gc.C) {
 	failure := errors.New("<failed>")
-	service.PatchDiscoveryFuncs(s,
+	s.PatchLocalDiscovery(
 		service.NewDiscoveryCheck("initA", true, failure),
 		service.NewDiscoveryCheck("initB", false, nil),
 	)
@@ -302,7 +302,7 @@ func (s *discoverySuite) TestDiscoverLocalInitSystemMatchFirstError(c *gc.C) {
 }
 
 func (s *discoverySuite) TestDiscoverLocalInitSystemMatchSecond(c *gc.C) {
-	service.PatchDiscoveryFuncs(s,
+	s.PatchLocalDiscovery(
 		service.NewDiscoveryCheck("initA", false, nil),
 		service.NewDiscoveryCheck("initB", true, nil),
 	)
@@ -314,7 +314,7 @@ func (s *discoverySuite) TestDiscoverLocalInitSystemMatchSecond(c *gc.C) {
 }
 
 func (s *discoverySuite) TestDiscoverLocalInitSystemMatchNone(c *gc.C) {
-	service.PatchDiscoveryFuncs(s,
+	s.PatchLocalDiscovery(
 		service.NewDiscoveryCheck("initA", false, nil),
 		service.NewDiscoveryCheck("initB", false, nil),
 	)
@@ -326,7 +326,7 @@ func (s *discoverySuite) TestDiscoverLocalInitSystemMatchNone(c *gc.C) {
 
 func (s *discoverySuite) TestDiscoverLocalInitSystemErrorMixed(c *gc.C) {
 	failure := errors.New("<failed>")
-	service.PatchDiscoveryFuncs(s,
+	s.PatchLocalDiscovery(
 		service.NewDiscoveryCheck("initA", false, failure),
 		service.NewDiscoveryCheck("initB", false, nil),
 	)
@@ -339,7 +339,7 @@ func (s *discoverySuite) TestDiscoverLocalInitSystemErrorMixed(c *gc.C) {
 func (s *discoverySuite) TestDiscoverLocalInitSystemErrorAll(c *gc.C) {
 	failureA := errors.New("<failed A>")
 	failureB := errors.New("<failed B>")
-	service.PatchDiscoveryFuncs(s,
+	s.PatchLocalDiscovery(
 		service.NewDiscoveryCheck("initA", false, failureA),
 		service.NewDiscoveryCheck("initB", false, failureB),
 	)
