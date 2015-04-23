@@ -71,9 +71,7 @@ func allEnabledCommands() map[string]creator {
 	if featureflag.Enabled(feature.Storage) {
 		add(storageCommands)
 	}
-	if featureflag.Enabled(feature.LeaderElection) {
-		add(leaderCommands)
-	}
+	add(leaderCommands)
 	return all
 }
 

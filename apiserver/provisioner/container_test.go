@@ -537,6 +537,15 @@ func (s *prepareSuite) TestErrorWhenNoSubnetsAvailable(c *gc.C) {
 	s.assertCall(c, args, nil, "cannot allocate addresses: no subnets available")
 }
 
+func (s *prepareSuite) TestErrorWithDisabledNIC(c *gc.C) {
+	// The magic "i-disabled-nic-" instance id prefix for the host
+	// causes the dummy provider to return a disabled NIC from
+	// NetworkInterfaces(), which should not be used for the container.
+	container := s.newCustomAPI(c, "i-no-subnets-here", true, false)
+	args := s.makeArgs(container)
+	s.assertCall(c, args, nil, "cannot allocate addresses: no subnets available")
+}
+
 func (s *prepareSuite) TestErrorWhenNoAllocatableSubnetsAvailable(c *gc.C) {
 	// The magic "i-no-alloc-all" instance id for the host causes the
 	// dummy provider's Subnets() method to return all subnets without
@@ -556,7 +565,7 @@ func (s *prepareSuite) TestErrorWhenNoNICSAvailable(c *gc.C) {
 	s.assertCall(c, args, nil, "cannot allocate addresses: no interfaces available")
 }
 
-func (s *prepareSuite) TestErrorWithNicNoSubnetAvailable(c *gc.C) {
+func (s *prepareSuite) TestErrorWithNICNoSubnetAvailable(c *gc.C) {
 	// The magic "i-nic-no-subnet-" instance id prefix for the host
 	// causes the dummy provider to return a nic that has no associated
 	// subnet from NetworkInterfaces().
@@ -614,7 +623,7 @@ func (s *prepareSuite) TestSuccessWhenFirstSubnetNotAllocatable(c *gc.C) {
 		InterfaceName:    "eth1",
 		VLANTag:          1,
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
-		Disabled:         true,
+		Disabled:         false,
 		NoAutoStart:      true,
 		ConfigType:       "static",
 		Address:          "regex:0.20.0.[0-9]{1,3}", // we don't care about the actual value.

@@ -6,15 +6,21 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"strconv"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/featureflag"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 )
@@ -23,6 +29,7 @@ type StatusCommand struct {
 	envcmd.EnvCommandBase
 	out      cmd.Output
 	patterns []string
+	isoTime  bool
 }
 
 var statusDoc = `
@@ -67,7 +74,13 @@ func (c *StatusCommand) Info() *cmd.Info {
 }
 
 func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
+	f.BoolVar(&c.isoTime, "utc", false, "display time as UTC in RFC3339 format")
+
+	defaultFormat := "yaml"
+	if featureflag.Enabled(feature.NewStatus) {
+		defaultFormat = "tabular"
+	}
+	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 		"short":   FormatOneline,
@@ -80,6 +93,17 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *StatusCommand) Init(args []string) error {
 	c.patterns = args
+	// If use of ISO time not specified on command line,
+	// check env var.
+	if !c.isoTime {
+		var err error
+		envVarValue := os.Getenv(osenv.JujuStatusIsoTimeEnvKey)
+		if envVarValue != "" {
+			if c.isoTime, err = strconv.ParseBool(envVarValue); err != nil {
+				return errors.Annotatef(err, "invalid %s env var, expected true|false", osenv.JujuStatusIsoTimeEnvKey)
+			}
+		}
+	}
 	return nil
 }
 
@@ -119,7 +143,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("unable to obtain the current status")
 	}
 
-	result := newStatusFormatter(status).format()
+	result := newStatusFormatter(status, c.isoTime).format()
 	return c.out.Write(ctx, result)
 }
 
@@ -179,6 +203,7 @@ type serviceStatus struct {
 	CanUpgradeTo  string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
 	Exposed       bool                  `json:"exposed" yaml:"exposed"`
 	Life          string                `json:"life,omitempty" yaml:"life,omitempty"`
+	StatusInfo    statusInfoContents    `json:"service-status,omitempty" yaml:"service-status,omitempty"`
 	Relations     map[string][]string   `json:"relations,omitempty" yaml:"relations,omitempty"`
 	Networks      map[string][]string   `json:"networks,omitempty" yaml:"networks,omitempty"`
 	SubordinateTo []string              `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
@@ -204,19 +229,22 @@ func (s serviceStatus) GetYAML() (tag string, value interface{}) {
 }
 
 type unitStatus struct {
-	Err                error              `json:"-" yaml:",omitempty"`
-	Charm              string             `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
+	// New Juju Health Status fields.
 	WorkloadStatusInfo statusInfoContents `json:"workload-status,omitempty" yaml:"workload-status,omitempty"`
 	AgentStatusInfo    statusInfoContents `json:"agent-status,omitempty" yaml:"agent-status,omitempty"`
 
-	AgentState     params.Status         `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
-	AgentStateInfo string                `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
-	AgentVersion   string                `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
-	Life           string                `json:"life,omitempty" yaml:"life,omitempty"`
-	Machine        string                `json:"machine,omitempty" yaml:"machine,omitempty"`
-	OpenedPorts    []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
-	PublicAddress  string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
-	Subordinates   map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
+	// Legacy status fields, to be removed in Juju 2.0
+	AgentState     params.Status `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
+	AgentStateInfo string        `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
+	Err            error         `json:"-" yaml:",omitempty"`
+	AgentVersion   string        `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
+	Life           string        `json:"life,omitempty" yaml:"life,omitempty"`
+
+	Charm         string                `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
+	Machine       string                `json:"machine,omitempty" yaml:"machine,omitempty"`
+	OpenedPorts   []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
+	PublicAddress string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
+	Subordinates  map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
 }
 
 type statusInfoContents struct {
@@ -224,6 +252,7 @@ type statusInfoContents struct {
 	Current params.Status `json:"current,omitempty" yaml:"current,omitempty"`
 	Message string        `json:"message,omitempty" yaml:"message,omitempty"`
 	Since   string        `json:"since,omitempty" yaml:"since,omitempty"`
+	Version string        `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
 type statusInfoContentsNoMarshal statusInfoContents
@@ -288,12 +317,14 @@ func (n networkStatus) GetYAML() (tag string, value interface{}) {
 type statusFormatter struct {
 	status    *api.Status
 	relations map[int]api.RelationStatus
+	isoTime   bool
 }
 
-func newStatusFormatter(status *api.Status) *statusFormatter {
+func newStatusFormatter(status *api.Status, isoTime bool) *statusFormatter {
 	sf := statusFormatter{
 		status:    status,
 		relations: make(map[int]api.RelationStatus),
+		isoTime:   isoTime,
 	}
 	for _, relation := range status.Relations {
 		sf.relations[relation.Id] = relation
@@ -350,7 +381,7 @@ func (sf *statusFormatter) formatMachine(machine api.MachineStatus) machineStatu
 		agent := machine.Agent
 		out = machineStatus{
 			AgentState:     machine.AgentState,
-			AgentStateInfo: adjustInfoIfAgentDown(machine.AgentState, agent.Status, agent.Info),
+			AgentStateInfo: adjustInfoIfMachineAgentDown(machine.AgentState, agent.Status, agent.Info),
 			AgentVersion:   agent.Version,
 			Life:           agent.Life,
 			Err:            agent.Err,
@@ -388,6 +419,7 @@ func (sf *statusFormatter) formatService(name string, service api.ServiceStatus)
 		CanUpgradeTo:  service.CanUpgradeTo,
 		SubordinateTo: service.SubordinateTo,
 		Units:         make(map[string]unitStatus),
+		StatusInfo:    sf.getServiceStatusInfo(service),
 	}
 	if len(service.Networks.Enabled) > 0 {
 		out.Networks["enabled"] = service.Networks.Enabled
@@ -401,21 +433,52 @@ func (sf *statusFormatter) formatService(name string, service api.ServiceStatus)
 	return out
 }
 
+func (sf *statusFormatter) formatTime(t *time.Time) string {
+	if sf.isoTime {
+		// If requested, use ISO time format
+		return t.Format(time.RFC3339)
+	} else {
+		// Otherwise use local time.
+		return t.Local().Format("02 Jan 2006 15:04:05 MST")
+	}
+}
+
+func (sf *statusFormatter) getServiceStatusInfo(service api.ServiceStatus) statusInfoContents {
+	info := statusInfoContents{
+		Err:     service.Status.Err,
+		Current: service.Status.Status,
+		Message: service.Status.Info,
+		Version: service.Status.Version,
+	}
+	if service.Status.Since != nil {
+		info.Since = sf.formatTime(service.Status.Since)
+	}
+	return info
+}
+
 func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) unitStatus {
+	// TODO(Wallyworld) - this should be server side but we still need to support older servers.
+	sf.updateUnitStatusInfo(&unit, serviceName)
+
 	out := unitStatus{
-		Err:                unit.Err,
 		WorkloadStatusInfo: sf.getWorkloadStatusInfo(unit),
 		AgentStatusInfo:    sf.getAgentStatusInfo(unit),
-		AgentState:         unit.AgentState, // < 1.24 agent-state
-		AgentStateInfo:     sf.getUnitStatusInfo(unit, serviceName),
-		AgentVersion:       unit.AgentVersion,
-		Life:               unit.Life,
 		Machine:            unit.Machine,
 		OpenedPorts:        unit.OpenedPorts,
 		PublicAddress:      unit.PublicAddress,
 		Charm:              unit.Charm,
 		Subordinates:       make(map[string]unitStatus),
 	}
+
+	// These legacy fields will be dropped for Juju 2.0.
+	if !featureflag.Enabled(feature.NewStatus) || out.AgentStatusInfo.Current == "" {
+		out.Err = unit.Err
+		out.AgentState = unit.AgentState
+		out.AgentStateInfo = unit.AgentStateInfo
+		out.Life = unit.Life
+		out.AgentVersion = unit.AgentVersion
+	}
+
 	for k, m := range unit.Subordinates {
 		out.Subordinates[k] = sf.formatUnit(m, serviceName)
 	}
@@ -423,37 +486,48 @@ func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) u
 }
 
 func (sf *statusFormatter) getWorkloadStatusInfo(unit api.UnitStatus) statusInfoContents {
-	return statusInfoContents{
+	info := statusInfoContents{
 		Err:     unit.Workload.Err,
 		Current: unit.Workload.Status,
 		Message: unit.Workload.Info,
+		Version: unit.Workload.Version,
 	}
+	if unit.Workload.Since != nil {
+		info.Since = sf.formatTime(unit.Workload.Since)
+	}
+	return info
 }
 
 func (sf *statusFormatter) getAgentStatusInfo(unit api.UnitStatus) statusInfoContents {
-	return statusInfoContents{
+	info := statusInfoContents{
 		Err:     unit.UnitAgent.Err,
 		Current: unit.UnitAgent.Status,
 		Message: unit.UnitAgent.Info,
+		Version: unit.UnitAgent.Version,
 	}
+	if unit.UnitAgent.Since != nil {
+		info.Since = sf.formatTime(unit.UnitAgent.Since)
+	}
+	return info
 }
 
-func (sf *statusFormatter) getUnitStatusInfo(unit api.UnitStatus, serviceName string) string {
+func (sf *statusFormatter) updateUnitStatusInfo(unit *api.UnitStatus, serviceName string) {
+	// This logic has no business here but can't be moved until Juju 2.0.
+	statusInfo := unit.Workload.Info
 	if unit.Workload.Status == "" {
 		// Old server that doesn't support this field and others.
-		// Just return the info string as-is.
-		return unit.AgentStateInfo
+		// Just use the info string as-is.
+		statusInfo = unit.AgentStateInfo
 	}
-	statusInfo := unit.Workload.Info
 	if unit.Workload.Status == params.StatusError {
 		if relation, ok := sf.relations[getRelationIdFromData(unit)]; ok {
 			// Append the details of the other endpoint on to the status info string.
 			if ep, ok := findOtherEndpoint(relation.Endpoints, serviceName); ok {
-				statusInfo = statusInfo + " for " + ep.String()
+				unit.Workload.Info = statusInfo + " for " + ep.String()
+				unit.AgentStateInfo = unit.Workload.Info
 			}
 		}
 	}
-	return adjustInfoIfAgentDown(unit.AgentState, unit.Workload.Status, statusInfo)
 }
 
 func (sf *statusFormatter) formatNetwork(network api.NetworkStatus) networkStatus {
@@ -480,7 +554,7 @@ func makeHAStatus(hasVote, wantsVote bool) string {
 	return s
 }
 
-func getRelationIdFromData(unit api.UnitStatus) int {
+func getRelationIdFromData(unit *api.UnitStatus) int {
 	if relationId_, ok := unit.Workload.Data["relation-id"]; ok {
 		if relationId, ok := relationId_.(float64); ok {
 			return int(relationId)
@@ -504,11 +578,11 @@ func findOtherEndpoint(endpoints []api.EndpointStatus, serviceName string) (api.
 	return api.EndpointStatus{}, false
 }
 
-// adjustInfoIfAgentDown modifies the agent status info string if the
+// adjustInfoIfMachineAgentDown modifies the agent status info string if the
 // agent is down. The original status and info is included in
 // parentheses.
-func adjustInfoIfAgentDown(status, origStatus params.Status, info string) string {
-	if status == params.StatusDown || status == params.StatusFailed {
+func adjustInfoIfMachineAgentDown(status, origStatus params.Status, info string) string {
+	if status == params.StatusDown {
 		if info == "" {
 			return fmt.Sprintf("(%s)", origStatus)
 		}

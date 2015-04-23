@@ -41,9 +41,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
@@ -149,9 +149,9 @@ type OpBootstrap struct {
 }
 
 type OpFinalizeBootstrap struct {
-	Context       environs.BootstrapContext
-	Env           string
-	MachineConfig *cloudinit.MachineConfig
+	Context        environs.BootstrapContext
+	Env            string
+	InstanceConfig *instancecfg.InstanceConfig
 }
 
 type OpDestroy struct {
@@ -752,8 +752,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	}
 	estate.bootstrapped = true
 	estate.ops <- OpBootstrap{Context: ctx, Env: e.name, Args: args}
-	finalize := func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig) error {
-		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, MachineConfig: mcfg}
+	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
+		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, InstanceConfig: icfg}
 		return nil
 	}
 	return arch, series, finalize, nil
@@ -835,7 +835,7 @@ func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 
 	defer delay()
-	machineId := args.MachineConfig.MachineId
+	machineId := args.InstanceConfig.MachineId
 	logger.Infof("dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, err
@@ -854,16 +854,16 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	default:
 	}
 
-	if args.MachineConfig.MachineNonce == "" {
+	if args.InstanceConfig.MachineNonce == "" {
 		return nil, errors.New("cannot start instance: missing machine nonce")
 	}
 	if _, ok := e.Config().CACert(); !ok {
 		return nil, errors.New("no CA certificate in environment configuration")
 	}
-	if args.MachineConfig.MongoInfo.Tag != names.NewMachineTag(machineId) {
+	if args.InstanceConfig.MongoInfo.Tag != names.NewMachineTag(machineId) {
 		return nil, errors.New("entity tag must match started machine")
 	}
-	if args.MachineConfig.APIInfo.Tag != names.NewMachineTag(machineId) {
+	if args.InstanceConfig.APIInfo.Tag != names.NewMachineTag(machineId) {
 		return nil, errors.New("entity tag must match started machine")
 	}
 	logger.Infof("would pick tools from %s", args.Tools)
@@ -918,7 +918,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		}
 	}
 	// Simulate networks added when requested.
-	networks := append(args.Constraints.IncludeNetworks(), args.MachineConfig.Networks...)
+	networks := append(args.Constraints.IncludeNetworks(), args.InstanceConfig.Networks...)
 	networkInfo := make([]network.InterfaceInfo, len(networks))
 	for i, netName := range networks {
 		if strings.HasPrefix(netName, "bad-") {
@@ -963,17 +963,17 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	estate.ops <- OpStartInstance{
 		Env:              e.name,
 		MachineId:        machineId,
-		MachineNonce:     args.MachineConfig.MachineNonce,
+		MachineNonce:     args.InstanceConfig.MachineNonce,
 		PossibleTools:    args.Tools,
 		Constraints:      args.Constraints,
-		Networks:         args.MachineConfig.Networks,
+		Networks:         args.InstanceConfig.Networks,
 		NetworkInfo:      networkInfo,
 		Volumes:          volumes,
 		Instance:         i,
-		Jobs:             args.MachineConfig.Jobs,
-		Info:             args.MachineConfig.MongoInfo,
-		APIInfo:          args.MachineConfig.APIInfo,
-		AgentEnvironment: args.MachineConfig.AgentEnvironment,
+		Jobs:             args.InstanceConfig.Jobs,
+		Info:             args.InstanceConfig.MongoInfo,
+		APIInfo:          args.InstanceConfig.APIInfo,
+		AgentEnvironment: args.InstanceConfig.AgentEnvironment,
 		Secret:           e.ecfg().secret(),
 	}
 	return &environs.StartInstanceResult{
@@ -1106,11 +1106,10 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 
-	// Simulate 2 NICs - primary enabled, secondary disabled with VLAN
-	// tag 1; both configured using DHCP and having fake DNS servers
-	// and gateway.
-	info := make([]network.InterfaceInfo, 2)
-	for i, netName := range []string{"private", "public"} {
+	// Simulate 3 NICs - primary and secondary enabled plus a disabled NIC.
+	// all configured using DHCP and having fake DNS servers and gateway.
+	info := make([]network.InterfaceInfo, 3)
+	for i, netName := range []string{"private", "public", "disabled"} {
 		info[i] = network.InterfaceInfo{
 			DeviceIndex:      i,
 			ProviderId:       network.Id(fmt.Sprintf("dummy-eth%d", i)),
@@ -1120,7 +1119,7 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 			InterfaceName:    fmt.Sprintf("eth%d", i),
 			VLANTag:          i,
 			MACAddress:       fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
-			Disabled:         i%2 != 0,
+			Disabled:         i == 2,
 			NoAutoStart:      i%2 != 0,
 			ConfigType:       network.ConfigDHCP,
 			Address: network.NewAddress(
@@ -1149,6 +1148,8 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 			NoAutoStart:   false,
 			ConfigType:    network.ConfigDHCP,
 		}}
+	} else if strings.HasPrefix(string(instId), "i-disabled-nic-") {
+		info = info[2:]
 	}
 
 	estate.ops <- OpNetworkInterfaces{

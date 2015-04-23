@@ -520,14 +520,14 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
 		// And check the machine status is set to error.
-		status, info, _, err := m.Status()
+		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if status == state.StatusPending {
+		if statusInfo.Status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, state.StatusError)
-		c.Assert(info, gc.Equals, "no matching tools available")
+		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Message, gc.Equals, "no matching tools available")
 		break
 	}
 
@@ -551,14 +551,14 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
 		// And check the machine status is set to error.
-		status, info, _, err := m.Status()
+		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if status == state.StatusPending {
+		if statusInfo.Status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, state.StatusError)
-		c.Assert(info, gc.Equals, brokenMsg)
+		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Message, gc.Equals, brokenMsg)
 		break
 	}
 
@@ -597,15 +597,15 @@ func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreatio
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
 		// And check the machine status is set to error.
-		status, info, _, err := m.Status()
+		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if status == state.StatusPending {
+		if statusInfo.Status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
 		// check that the status matches the error message
-		c.Assert(info, gc.Equals, destroyError.Error())
+		c.Assert(statusInfo.Message, gc.Equals, destroyError.Error())
 		break
 	}
 
@@ -679,15 +679,15 @@ func (s *ProvisionerSuite) TestProvisionerFailStartInstanceWithInjectedNonRetrya
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
 		// And check the machine status is set to error.
-		status, info, _, err := m.Status()
+		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if status == state.StatusPending {
+		if statusInfo.Status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
 		// check that the status matches the error message
-		c.Assert(info, gc.Equals, nonRetryableError.Error())
+		c.Assert(statusInfo.Message, gc.Equals, nonRetryableError.Error())
 		break
 	}
 }
@@ -790,14 +790,14 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithInvalidNetwork(c *gc.C) {
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
 		// And check the machine status is set to error.
-		status, info, _, err := m.Status()
+		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if status == state.StatusPending {
+		if statusInfo.Status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, state.StatusError)
-		c.Assert(info, gc.Matches, `invalid network name "\$\$invalid-net1"`)
+		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Message, gc.Matches, `invalid network name "\$\$invalid-net1"`)
 		break
 	}
 
@@ -895,14 +895,14 @@ func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInst
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
 		// And check the machine status is set to error.
-		status, info, _, err := m.Status()
+		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if status == state.StatusPending {
+		if statusInfo.Status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, state.StatusError)
-		c.Assert(info, gc.Matches, `cannot record provisioning info for "dummyenv-0": cannot add network "bad-net1": invalid CIDR address: invalid`)
+		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Message, gc.Matches, `cannot record provisioning info for "dummyenv-0": cannot add network "bad-net1": invalid CIDR address: invalid`)
 		break
 	}
 	s.checkStopInstances(c, inst)
@@ -1318,9 +1318,9 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	close(thatsAllFolks)
 
 	// Machine 4 is never provisioned.
-	status, _, _, err := m4.Status()
+	statusInfo, err := m4.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
 	_, err = m4.InstanceId()
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 }
@@ -1352,7 +1352,7 @@ func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (*environs
 	// All machines except machines 3, 4 are provisioned successfully the first time.
 	// Machines 3 is provisioned after some attempts have been made.
 	// Machine 4 is never provisioned.
-	id := args.MachineConfig.MachineId
+	id := args.InstanceConfig.MachineId
 	// record ids so we can call checkStartInstance in the appropriate order.
 	b.ids = append(b.ids, id)
 	retries := b.retryCount[id]

@@ -9,12 +9,10 @@ import (
 	"fmt"
 	"net/url"
 	"path"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver/common"
 	leadershipapiserver "github.com/juju/juju/apiserver/leadership"
@@ -1212,47 +1210,6 @@ func (u *uniterBaseAPI) WatchUnitAddresses(args params.Entities) (params.NotifyW
 	return result, nil
 }
 
-// AddMetrics adds the metrics for the specified unit.
-func (u *uniterBaseAPI) AddMetrics(args params.MetricsParams) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Metrics)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, common.ErrPerm
-	}
-	for i, unitMetrics := range args.Metrics {
-		tag, err := names.ParseUnitTag(unitMetrics.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		err = common.ErrPerm
-		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getUnit(tag)
-			if err == nil {
-				metricBatch := make([]state.Metric, len(unitMetrics.Metrics))
-				for j, metric := range unitMetrics.Metrics {
-					metricBatch[j] = state.Metric{
-						Key:   metric.Key,
-						Value: metric.Value,
-						Time:  metric.Time,
-					}
-				}
-				batchUUID, err := utils.NewUUID()
-				if err != nil {
-					result.Results[i].Error = common.ServerError(err)
-					continue
-				}
-				_, err = unit.AddMetrics(batchUUID.String(), time.Now(), "", metricBatch)
-			}
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
 // GetMeterStatus returns meter status information for each unit.
 func (u *uniterBaseAPI) GetMeterStatus(args params.Entities) (params.MeterStatusResults, error) {
 	result := params.MeterStatusResults{
@@ -1603,7 +1560,7 @@ func leadershipSettingsAccessorFactory(
 	// should support a native read of this format straight from
 	// state.
 	getSettings := func(serviceId string) (map[string]string, error) {
-		settings, err := st.ReadSettings(state.LeadershipSettingsDocId(serviceId))
+		settings, err := st.ReadLeadershipSettings(serviceId)
 		if err != nil {
 			return nil, err
 		}

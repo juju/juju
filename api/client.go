@@ -22,7 +22,8 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -54,6 +55,7 @@ type AgentStatus struct {
 	Status  params.Status
 	Info    string
 	Data    map[string]interface{}
+	Since   *time.Time
 	Version string
 	Life    string
 	Err     error
@@ -96,23 +98,19 @@ type ServiceStatus struct {
 	CanUpgradeTo  string
 	SubordinateTo []string
 	Units         map[string]UnitStatus
+	Status        AgentStatus
 }
 
 // UnitStatus holds status info about a unit.
 type UnitStatus struct {
-	// Workload and Agent have separate statuses since 1.23.
-	// but they store similar data so AgentStatus is used too.
-	// UnitAgent is created instead of using Agent since it was
-	// already used when changed from 1.18 to 1.19 to hold more
-	// data than the 3 Agent* values below.
-
-	// UnitAgent holds the status for A Unit's agent.
+	// UnitAgent holds the status for a unit's agent.
 	UnitAgent AgentStatus
 
 	// Workload holds the status for a unit's workload
 	Workload AgentStatus
 
-	// See the comment in MachineStatus regarding these fields.
+	// Until Juju 2.0, we need to continue to return legacy agent state values
+	// as top level struct attributes when the "FullStatus" API is called.
 	AgentState     params.Status
 	AgentStateInfo string
 	AgentVersion   string
@@ -831,9 +829,32 @@ func (c *Client) apiRoot() (string, error) {
 // the environment, if it does not exist yet. Local charms are not
 // supported, only charm store URLs. See also AddLocalCharm() in the
 // client-side API.
+//
+// If the AddCharm API call fails because of an authorization error
+// when retrieving the charm from the charm store, an error
+// satisfying params.IsCodeUnauthorized will be returned.
 func (c *Client) AddCharm(curl *charm.URL) error {
-	args := params.CharmURL{URL: curl.String()}
+	args := params.CharmURL{
+		URL: curl.String(),
+	}
 	return c.facade.FacadeCall("AddCharm", args, nil)
+}
+
+// AddCharmWithAuthorization is like AddCharm except it also provides
+// the given charmstore macaroon for the juju server to use when
+// obtaining the charm from the charm store. The macaroon is
+// conventionally obtained from the /delegatable-macaroon endpoint in
+// the charm store.
+//
+// If the AddCharmWithAuthorization API call fails because of an
+// authorization error when retrieving the charm from the charm store,
+// an error satisfying params.IsCodeUnauthorized will be returned.
+func (c *Client) AddCharmWithAuthorization(curl *charm.URL, csMac *macaroon.Macaroon) error {
+	args := params.AddCharmWithAuthorization{
+		URL:                curl.String(),
+		CharmStoreMacaroon: csMac,
+	}
+	return c.facade.FacadeCall("AddCharmWithAuthorization", args, nil)
 }
 
 // ResolveCharm resolves the best available charm URLs with series, for charm

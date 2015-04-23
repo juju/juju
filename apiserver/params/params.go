@@ -10,7 +10,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -112,6 +113,12 @@ type AddRelationResults struct {
 // The endpoints specified are unordered.
 type DestroyRelation struct {
 	Endpoints []string
+}
+
+// AddCharm holds the arguments for making an AddCharmWithAuthorization API call.
+type AddCharmWithAuthorization struct {
+	URL                string
+	CharmStoreMacaroon *macaroon.Macaroon
 }
 
 // AddMachineParams encapsulates the parameters used to create a new machine.
@@ -543,6 +550,17 @@ type RsyslogConfigResults struct {
 	Results []RsyslogConfigResult
 }
 
+// JobsResult holds the jobs for a machine that are returned by a call to Jobs.
+type JobsResult struct {
+	Jobs  []multiwatcher.MachineJob `json:"Jobs"`
+	Error *Error                    `json:"Error"`
+}
+
+// JobsResults holds the result of a call to Jobs.
+type JobsResults struct {
+	Results []JobsResult `json:"Results"`
+}
+
 // DistributionGroupResult contains the result of
 // the DistributionGroup provisioner API call.
 type DistributionGroupResult struct {
@@ -659,6 +677,7 @@ type StateServersChanges struct {
 	Removed    []string `json:"removed,omitempty"`
 	Promoted   []string `json:"promoted,omitempty"`
 	Demoted    []string `json:"demoted,omitempty"`
+	Converted  []string `json:"converted,omitempty"`
 }
 
 // FindToolsParams defines parameters for the FindTools method.
@@ -739,7 +758,7 @@ type Status multiwatcher.Status
 
 // TranslateLegacyAgentStatus returns the status value clients expect to see for
 // agent-state in versions prior to 1.24
-func TranslateToLegacyAgentState(in, agentStatus Status) Status {
+func TranslateToLegacyAgentState(workloadStatus, agentStatus Status) (Status, bool) {
 	// Originally AgentState (a member of api.UnitStatus) could hold one of:
 	// StatusPending
 	// StatusInstalled
@@ -748,28 +767,27 @@ func TranslateToLegacyAgentState(in, agentStatus Status) Status {
 	// StatusError
 	// StatusDown
 	// For compatibility reasons we convert modern states (from V2 uniter) into
-	// three of the old ones: StatusPending, StatusStarted or StatusError.
-	// StatusMaintenance can be StatusPending before the start hook has been run
-	// we dont have enough information for that here so we go for started.
-	// TODO (perrito666) add more information to this function to make the conversion
-	// more accurate.
-	switch in {
-	case StatusWaiting, StatusUnknown:
-		if agentStatus == StatusIdle || agentStatus == StatusExecuting {
-			return StatusStarted
+	// four of the old ones: StatusPending, StatusStarted, StatusStopped, or StatusError.
+	switch agentStatus {
+	case StatusAllocating:
+		return StatusPending, true
+	case StatusError:
+		return StatusError, true
+	case StatusRebooting, StatusExecuting, StatusIdle, StatusLost, StatusFailed:
+		switch workloadStatus {
+		case StatusError:
+			return StatusError, true
+		case StatusTerminated:
+			return StatusStopped, true
+		case StatusMaintenance:
+			// TODO(wallyworld): until we can query status history, returning Started
+			// is a resonable approximation.
+			return StatusStarted, true
+		default:
+			return StatusStarted, true
 		}
-		return StatusPending
-	case StatusMaintenance:
-		if agentStatus == StatusAllocating {
-			return StatusPending
-		}
-		return StatusStarted
-	case StatusActive, StatusBlocked:
-		return StatusStarted
-	case StatusTerminated:
-		return StatusStopped
 	}
-	return in
+	return "", false
 }
 
 const (
@@ -835,16 +853,14 @@ const (
 	// The unit agent is downloading the charm and running the install hook.
 	StatusInstalling Status = "installing"
 
-	// The agent is actively participating in the environment.
-	StatusActive Status = "active"
-
 	// The unit is being destroyed; the agent will soon mark the unit as “dead”.
 	// In Juju 2.x this will describe the state of the agent rather than a unit.
 	StatusStopping Status = "stopping"
 )
 
 const (
-	// Status values specific to units
+	// Status values specific to services and units, reflecting the
+	// state of the software itself.
 
 	// The unit is not yet providing services, but is actively doing stuff
 	// in preparation for providing those services.
@@ -859,15 +875,6 @@ const (
 	// A unit-agent has finished calling install, config-changed, and start,
 	// but the charm has not called status-set yet.
 	StatusUnknown Status = "unknown"
-)
-
-const (
-	// Status values specific to services and units, reflecting the
-	// state of the software itself.
-
-	// The unit is installed and has no problems but is busy getting itself
-	// ready to provide services.
-	StatusBusy Status = "busy"
 
 	// The unit is unable to progress to an active state because a service to
 	// which it is related is not running.
@@ -878,5 +885,5 @@ const (
 
 	// The unit believes it is correctly offering all the services it has
 	// been asked to offer.
-	StatusRunning Status = "running"
+	StatusActive Status = "active"
 )

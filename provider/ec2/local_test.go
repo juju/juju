@@ -814,6 +814,16 @@ func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
+func (t *localServerSuite) TestReleaseAddressUnknownInstance(c *gc.C) {
+	env, _ := t.setUpInstanceWithDefaultVpc(c)
+
+	// We should be able to release an address with an unknown instance id
+	// without it being allocated.
+	addr := network.Address{Value: "8.0.0.4"}
+	err := env.ReleaseAddress(instance.UnknownId, "", addr)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
 	interfaces, err := env.NetworkInterfaces(instId)

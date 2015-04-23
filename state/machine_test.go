@@ -1539,29 +1539,29 @@ func (s *MachineSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	err = s.machine.SetStatus(state.Status("vliegkat"), "orville", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
-	status, info, data, err := s.machine.Status()
+	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusPending)
-	c.Assert(info, gc.Equals, "")
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusPending)
+	c.Assert(statusInfo.Message, gc.Equals, "")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
 
 	err = s.machine.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	status, info, data, err = s.machine.Status()
+	statusInfo, err = s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusStarted)
-	c.Assert(info, gc.Equals, "")
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusStarted)
+	c.Assert(statusInfo.Message, gc.Equals, "")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
 
 	err = s.machine.SetStatus(state.StatusError, "provisioning failed", map[string]interface{}{
 		"foo": "bar",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	status, info, data, err = s.machine.Status()
+	statusInfo, err = s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "provisioning failed")
-	c.Assert(data, gc.DeepEquals, map[string]interface{}{
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "provisioning failed")
+	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
 	})
 }
@@ -1582,35 +1582,35 @@ func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetStatus(state.StatusStopped, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	status, info, data, err := s.machine.Status()
+	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusStopped)
-	c.Assert(info, gc.Equals, "")
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusStopped)
+	c.Assert(statusInfo.Message, gc.Equals, "")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
 
 	// When Dead set should fail, but get will work.
 	err = s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetStatus(state.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "1": not found or not alive`)
-	status, info, data, err = s.machine.Status()
+	statusInfo, err = s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusStopped)
-	c.Assert(info, gc.Equals, "")
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusStopped)
+	c.Assert(statusInfo.Message, gc.Equals, "")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
 
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetStatus(state.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "1": not found or not alive`)
-	_, _, _, err = s.machine.Status()
+	_, err = s.machine.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 }
 
 func (s *MachineSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	err := s.machine.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, _, err = s.machine.Status()
+	_, err = s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Regular status setting with data.
@@ -1620,11 +1620,11 @@ func (s *MachineSuite) TestGetSetStatusDataStandard(c *gc.C) {
 		"3rd-key": true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	status, info, data, err := s.machine.Status()
+	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "provisioning failed")
-	c.Assert(data, gc.DeepEquals, map[string]interface{}{
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "provisioning failed")
+	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -1634,7 +1634,7 @@ func (s *MachineSuite) TestGetSetStatusDataStandard(c *gc.C) {
 func (s *MachineSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	err := s.machine.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, _, err = s.machine.Status()
+	_, err = s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Status setting with MongoDB special values.
@@ -1645,11 +1645,11 @@ func (s *MachineSuite) TestGetSetStatusDataMongo(c *gc.C) {
 		"group":         "group",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	status, info, data, err := s.machine.Status()
+	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "mongo")
-	c.Assert(data, gc.DeepEquals, map[string]interface{}{
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "mongo")
+	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
 		`{name: "Joe"}`: "$where",
 		"eval":          `eval(function(foo) { return foo; }, "bar")`,
 		"mapReduce":     "mapReduce",
@@ -1660,7 +1660,7 @@ func (s *MachineSuite) TestGetSetStatusDataMongo(c *gc.C) {
 func (s *MachineSuite) TestGetSetStatusDataChange(c *gc.C) {
 	err := s.machine.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, _, err = s.machine.Status()
+	_, err = s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Status setting and changing data afterwards.
@@ -1673,11 +1673,11 @@ func (s *MachineSuite) TestGetSetStatusDataChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	data["4th-key"] = 4.0
 
-	status, info, data, err := s.machine.Status()
+	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "provisioning failed")
-	c.Assert(data, gc.DeepEquals, map[string]interface{}{
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "provisioning failed")
+	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -1687,11 +1687,11 @@ func (s *MachineSuite) TestGetSetStatusDataChange(c *gc.C) {
 	err = s.machine.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, data, err = s.machine.Status()
+	statusInfo, err = s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusStarted)
-	c.Assert(info, gc.Equals, "")
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusStarted)
+	c.Assert(statusInfo.Message, gc.Equals, "")
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
 }
 
 func (s *MachineSuite) TestSetAddresses(c *gc.C) {
@@ -2061,18 +2061,18 @@ func (s *MachineSuite) TestSetSupportedContainersSetsUnknownToError(c *gc.C) {
 	// A supported (kvm) container will have a pending status.
 	err = supportedContainer.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	status, info, data, err := supportedContainer.Status()
+	statusInfo, err := supportedContainer.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusPending)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusPending)
 
 	// An unsupported (lxc) container will have an error status.
 	err = container.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	status, info, data, err = container.Status()
+	statusInfo, err = container.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "unsupported container")
-	c.Assert(data, gc.DeepEquals, map[string]interface{}{"type": "lxc"})
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "unsupported container")
+	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{"type": "lxc"})
 }
 
 func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
@@ -2096,12 +2096,12 @@ func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
 	for _, container := range containers {
 		err = container.Refresh()
 		c.Assert(err, jc.ErrorIsNil)
-		status, info, data, err := container.Status()
+		statusInfo, err := container.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(status, gc.Equals, state.StatusError)
-		c.Assert(info, gc.Equals, "unsupported container")
+		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Message, gc.Equals, "unsupported container")
 		containerType := state.ContainerTypeFromId(container.Id())
-		c.Assert(data, gc.DeepEquals, map[string]interface{}{"type": string(containerType)})
+		c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{"type": string(containerType)})
 	}
 }
 

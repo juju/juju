@@ -228,6 +228,11 @@ var scenarioStatus = &api.Status{
 				"logging-dir": {"logging"},
 			},
 			SubordinateTo: []string{},
+			Status: api.AgentStatus{
+				Status: "error",
+				Info:   "blam",
+				Data:   map[string]interface{}{"remote-unit": "logging/0", "foo": "bar", "relation-id": "0"},
+			},
 			Units: map[string]api.UnitStatus{
 				"wordpress/0": {
 					Workload: api.AgentStatus{
@@ -236,12 +241,12 @@ var scenarioStatus = &api.Status{
 						Data:   map[string]interface{}{"relation-id": "0"},
 					},
 					UnitAgent: api.AgentStatus{
-						Status: "allocating",
-						Info:   "",
+						Status: "idle",
 						Data:   make(map[string]interface{}),
 					},
-					AgentState: "error",
-					Machine:    "1",
+					AgentState:     "error",
+					AgentStateInfo: "blam",
+					Machine:        "1",
 					Subordinates: map[string]api.UnitStatus{
 						"logging/0": {
 							AgentState: "pending",
@@ -252,8 +257,7 @@ var scenarioStatus = &api.Status{
 							},
 							UnitAgent: api.AgentStatus{
 								Status: "allocating",
-								Info:   "",
-								Data:   make(map[string]interface{}),
+								Data:   map[string]interface{}{},
 							},
 						},
 					},
@@ -427,7 +431,8 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 				"remote-unit": "logging/0",
 				"foo":         "bar",
 			}
-			wu.SetStatus(state.StatusError, "blam", sd)
+			err := wu.SetAgentStatus(state.StatusError, "blam", sd)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 
 		// Create the subordinate unit as a side-effect of entering
@@ -442,6 +447,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(deployer, gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		setDefaultPassword(c, lu)
+		s.setAgentPresence(c, wu)
 		add(lu)
 	}
 	return
@@ -456,5 +462,14 @@ func (s *baseSuite) setupStoragePool(c *gc.C) {
 	err = s.State.UpdateEnvironConfig(map[string]interface{}{
 		"storage-default-block-source": "loop-pool",
 	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *baseSuite) setAgentPresence(c *gc.C, u *state.Unit) {
+	_, err := u.SetAgentPresence()
+	c.Assert(err, jc.ErrorIsNil)
+	s.State.StartSync()
+	s.BackingState.StartSync()
+	err = u.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
 }

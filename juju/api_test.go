@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

@@ -4,6 +4,8 @@
 package state
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -84,16 +86,14 @@ const (
 	// The unit agent is downloading the charm and running the install hook.
 	StatusInstalling Status = "installing"
 
-	// The agent is actively participating in the environment.
-	StatusActive Status = "active"
-
 	// The unit is being destroyed; the agent will soon mark the unit as “dead”.
 	// In Juju 2.x this will describe the state of the agent rather than a unit.
 	StatusStopping Status = "stopping"
 )
 
 const (
-	// Status values specific to units
+	// Status values specific to services and units, reflecting the
+	// state of the software itself.
 
 	// The unit is not yet providing services, but is actively doing stuff
 	// in preparation for providing those services.
@@ -108,18 +108,9 @@ const (
 	// A unit-agent has finished calling install, config-changed, and start,
 	// but the charm has not called status-set yet.
 	StatusUnknown Status = "unknown"
-)
 
-const (
-	// Status values specific to services and units, reflecting the
-	// state of the software itself.
-
-	// The unit is installed and has no problems but is busy getting itself
-	// ready to provide services.
-	StatusBusy Status = "busy"
-
-	// The unit is unable to offer services because it needs another
-	// service to be up.
+	// The unit is unable to progress to an active state because a service to
+	// which it is related is not running.
 	StatusWaiting Status = "waiting"
 
 	// The unit needs manual intervention to get back to the Running state.
@@ -127,7 +118,7 @@ const (
 
 	// The unit believes it is correctly offering all the services it has
 	// been asked to offer.
-	StatusRunning Status = "running"
+	StatusActive Status = "active"
 )
 
 // ValidAgentStatus returns true if status has a known value for an agent.
@@ -136,16 +127,21 @@ const (
 func (status Status) ValidAgentStatus() bool {
 	switch status {
 	case
+		StatusAllocating,
+		StatusError,
+		StatusFailed,
+		StatusRebooting,
+		StatusExecuting,
+		StatusIdle:
+		return true
+	case //Deprecated status vales
 		StatusPending,
 		StatusStarted,
 		StatusStopped,
-		StatusError,
-		StatusDown,
-		StatusAllocating,
 		StatusInstalling,
-		StatusFailed,
 		StatusActive,
-		StatusStopping:
+		StatusStopping,
+		StatusDown:
 		return true
 	default:
 		return false
@@ -162,9 +158,9 @@ func (status Status) ValidWorkloadStatus() bool {
 		StatusMaintenance,
 		StatusWaiting,
 		StatusActive,
-		StatusError,
 		StatusUnknown,
-		StatusTerminated:
+		StatusTerminated,
+		StatusError: // include error so that we can filter on what the spec says is valid
 		return true
 	case // Deprecated statuses
 		StatusPending,
@@ -201,7 +197,7 @@ func (status Status) WorkloadMatches(candidate Status) bool {
 func (status Status) Matches(candidate Status) bool {
 	switch candidate {
 	case StatusDown:
-		candidate = StatusFailed
+		candidate = StatusLost
 	case StatusStarted:
 		candidate = StatusActive
 	case StatusStopped:
@@ -217,7 +213,15 @@ type StatusSetter interface {
 
 // StatusGetter represents a type whose status can be read.
 type StatusGetter interface {
-	Status() (status Status, info string, data map[string]interface{}, err error)
+	Status() (StatusInfo, error)
+}
+
+// StatusInfo holds the status information for a machine, unit, service etc.
+type StatusInfo struct {
+	Status  Status
+	Message string
+	Data    map[string]interface{}
+	Since   *time.Time
 }
 
 // statusDoc represents a entity status in Mongodb.  The implicit
@@ -229,6 +233,7 @@ type statusDoc struct {
 	Status     Status
 	StatusInfo string
 	StatusData map[string]interface{}
+	Updated    *time.Time
 }
 
 type machineStatusDoc struct {
@@ -244,6 +249,8 @@ func newMachineStatusDoc(status Status, info string, data map[string]interface{}
 		StatusInfo: info,
 		StatusData: data,
 	}}
+	timestamp := nowToTheSecond()
+	doc.Updated = &timestamp
 	if err := doc.validateSet(allowPending); err != nil {
 		return nil, err
 	}
@@ -300,6 +307,8 @@ func newUnitAgentStatusDoc(status Status, info string, data map[string]interface
 		StatusInfo: info,
 		StatusData: data,
 	}}
+	timestamp := nowToTheSecond()
+	doc.Updated = &timestamp
 	if err := doc.validateSet(); err != nil {
 		return nil, err
 	}
@@ -315,12 +324,15 @@ func unitAgentStatusValid(status Status) bool {
 		StatusExecuting,
 		StatusIdle,
 		StatusFailed,
-		StatusLost:
+		StatusLost,
+		// The current health spec says an agent should not be in error
+		// but this needs discussion so we'll retain it for now.
+		StatusError:
 		return true
 	case // TODO(perrito666) Deprecate in 2.x
 		StatusPending,
 		StatusStarted,
-		StatusError:
+		StatusStopped:
 		return true
 	default:
 		return false
@@ -337,7 +349,7 @@ func (doc *unitAgentStatusDoc) validateSet() error {
 	// For safety; no code will use these deprecated values.
 	case StatusPending, StatusDown, StatusStarted, StatusStopped:
 		return errors.Errorf("status %q is deprecated and invalid", doc.Status)
-	case StatusAllocating, StatusFailed: // FIXME (update business rule)
+	case StatusAllocating, StatusLost:
 		return errors.Errorf("cannot set status %q", doc.Status)
 	case StatusError:
 		if doc.StatusInfo == "" {
@@ -361,6 +373,8 @@ func newUnitStatusDoc(status Status, info string, data map[string]interface{}) (
 		StatusInfo: info,
 		StatusData: data,
 	}}
+	timestamp := nowToTheSecond()
+	doc.Updated = &timestamp
 	if err := doc.validateSet(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -371,12 +385,10 @@ func newUnitStatusDoc(status Status, info string, data map[string]interface{}) (
 func unitStatusValid(status Status) bool {
 	switch status {
 	case
-		StatusBusy,
 		StatusBlocked,
 		StatusMaintenance,
 		StatusWaiting,
 		StatusActive,
-		StatusError,
 		StatusUnknown,
 		StatusTerminated:
 		return true
@@ -391,15 +403,34 @@ func (doc *unitStatusDoc) validateSet() error {
 	if !unitStatusValid(doc.Status) {
 		return errors.Errorf("cannot set invalid status %q", doc.Status)
 	}
-	switch doc.Status {
-	// TODO(perrito666) add business rules regarding status transitions.
-	case StatusError:
-		if doc.StatusInfo == "" {
-			return errors.Errorf("cannot set status %q without info", doc.Status)
-		}
+	return nil
+}
+
+type serviceStatusDoc struct {
+	statusDoc
+}
+
+// newServiceStatusDoc creates a new serviceStatusDoc with the given status and other data.
+func newServiceStatusDoc(who string, status Status, info string, data map[string]interface{}) (*serviceStatusDoc, error) {
+	doc := &serviceStatusDoc{statusDoc{
+		Status:     status,
+		StatusInfo: info,
+		StatusData: data,
+	}}
+	timestamp := nowToTheSecond()
+	doc.Updated = &timestamp
+	if err := doc.validateSet(); err != nil {
+		return nil, errors.Trace(err)
 	}
-	if doc.StatusData != nil && doc.Status != StatusError {
-		return errors.Errorf("cannot set status data when status is %q", doc.Status)
+	return doc, nil
+}
+
+// validateSet returns an error if the serviceStatusDoc does not represent a sane
+// SetStatus operation for a service.
+func (doc *serviceStatusDoc) validateSet() error {
+	// Valid service status values are the same as those for the unit.
+	if !unitStatusValid(doc.Status) {
+		return errors.Errorf("cannot set invalid status %q", doc.Status)
 	}
 	return nil
 }

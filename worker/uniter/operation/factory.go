@@ -6,7 +6,7 @@ package operation
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	corecharm "gopkg.in/juju/charm.v5-unstable"
+	corecharm "gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -175,4 +175,14 @@ func (f *factory) NewUpdateStorage(tags []names.StorageTag) (Operation, error) {
 		tags:           tags,
 		storageUpdater: f.storageUpdater,
 	}, nil
+}
+
+// NewResignLeadership is part of the Factory interface.
+func (f *factory) NewResignLeadership() (Operation, error) {
+	return &resignLeadership{}, nil
+}
+
+// NewAcceptLeadership is part of the Factory interface.
+func (f *factory) NewAcceptLeadership() (Operation, error) {
+	return &acceptLeadership{}, nil
 }

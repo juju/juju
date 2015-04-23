@@ -6,7 +6,7 @@ package charms
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"

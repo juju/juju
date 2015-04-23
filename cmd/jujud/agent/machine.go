@@ -23,7 +23,7 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
-	"gopkg.in/juju/charm.v5-unstable/charmrepo"
+	"gopkg.in/juju/charm.v5/charmrepo"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"launchpad.net/gnuflag"
@@ -66,6 +66,7 @@ import (
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevisionworker"
 	"github.com/juju/juju/worker/cleaner"
+	"github.com/juju/juju/worker/conv2state"
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
@@ -637,13 +638,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			a.upgradeWorkerContext.IsUpgradeRunning,
 		), nil
 	})
+
 	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(st, entity.Jobs()))
 
 	// All other workers must wait for the upgrade steps to complete before starting.
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
 		return a.postUpgradeAPIWorker(st, agentConfig, entity)
 	})
-
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
@@ -700,6 +701,13 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
+
+	if !isEnvironManager {
+		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
+			return worker.NewNotifyWorker(conv2state.New(st.Machiner(), a)), nil
+		})
+	}
+
 	if featureflag.Enabled(feature.Storage) {
 		runner.StartWorker("diskmanager", func() (worker.Worker, error) {
 			api, err := st.DiskManager()
@@ -709,16 +717,11 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
 		})
 		runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
-			api := st.StorageProvisioner(agentConfig.Tag())
+			scope := agentConfig.Tag()
+			api := st.StorageProvisioner(scope)
 			storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-			return newStorageWorker(storageDir, api, api, api, api), nil
+			return newStorageWorker(scope, storageDir, api, api, api, api), nil
 		})
-		if isEnvironManager {
-			runner.StartWorker("storageprovisioner-environ", func() (worker.Worker, error) {
-				api := st.StorageProvisioner(agentConfig.Environment())
-				return newStorageWorker("", api, api, api, api), nil
-			})
-		}
 	}
 
 	// Check if the network management is disabled.
@@ -786,6 +789,12 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	}
 
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
+}
+
+// Restart restarts the agent's service.
+func (a *MachineAgent) Restart() error {
+	name := a.CurrentConfig().Value(agent.AgentServiceName)
+	return service.Restart(name)
 }
 
 func (a *MachineAgent) upgradeStepsWorkerStarter(
@@ -1057,6 +1066,13 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 		return provisioner.NewEnvironProvisioner(apiSt.Provisioner(), agentConfig), nil
 	})
+	if featureflag.Enabled(feature.Storage) {
+		singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
+			scope := agentConfig.Environment()
+			api := apiSt.StorageProvisioner(scope)
+			return newStorageWorker(scope, "", api, api, api, api), nil
+		})
+	}
 	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 		return charmrevisionworker.NewRevisionUpdateWorker(apiSt.CharmRevisionUpdater()), nil
 	})

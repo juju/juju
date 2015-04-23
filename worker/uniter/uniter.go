@@ -15,7 +15,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
-	corecharm "gopkg.in/juju/charm.v5-unstable"
+	corecharm "gopkg.in/juju/charm.v5"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
@@ -76,7 +76,8 @@ type Uniter struct {
 	hookLock    *fslock.Lock
 	runListener *RunListener
 
-	ranConfigChanged bool
+	ranLeaderSettingsChanged bool
+	ranConfigChanged         bool
 
 	// The execution observer is only used in tests at this stage. Should this
 	// need to be extended, perhaps a list of observers would be needed.
@@ -156,6 +157,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	// Stop the uniter if either of these components fails.
 	go func() { u.tomb.Kill(leadershipTracker.Wait()) }()
 	go func() { u.tomb.Kill(u.f.Wait()) }()
+
+	// Start handling leader settings events, or not, as appropriate.
+	u.f.WantLeaderSettingsEvents(!u.operationState().Leader)
 
 	// Run modes until we encounter an error.
 	mode := ModeContinue
@@ -391,5 +395,15 @@ func (u *Uniter) runOperation(creator creator) error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot create operation")
 	}
+	before := u.operationState()
+	defer func() {
+		// Check that if we lose leadership as a result of this
+		// operation, we want to start getting leader settings events,
+		// or if we gain leadership we want to stop receiving those
+		// events.
+		if after := u.operationState(); before.Leader != after.Leader {
+			u.f.WantLeaderSettingsEvents(before.Leader)
+		}
+	}()
 	return u.operationExecutor.Run(op)
 }

@@ -24,6 +24,8 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -978,7 +980,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		}
 	}
 
-	if args.MachineConfig.HasNetworks() {
+	if args.InstanceConfig.HasNetworks() {
 		return nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 
@@ -998,12 +1000,12 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		return nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	args.MachineConfig.Tools = tools[0]
+	args.InstanceConfig.Tools = tools[0]
 
-	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config()); err != nil {
+	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
 		return nil, err
 	}
-	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
@@ -1030,7 +1032,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		}
 	}
 	cfg := e.Config()
-	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.APIPort())
+	groups, err := e.setUpGroups(args.InstanceConfig.MachineId, cfg.APIPort())
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
@@ -1041,7 +1043,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	var server *nova.Entity
 	for _, availZone := range availabilityZones {
 		var opts = nova.RunServerOpts{
-			Name:               e.machineFullName(args.MachineConfig.MachineId),
+			Name:               e.machineFullName(args.InstanceConfig.MachineId),
 			FlavorId:           spec.InstanceType.Id,
 			ImageId:            spec.Image.Id,
 			UserData:           userData,
@@ -1086,7 +1088,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		inst.floatingIP = publicIP
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
-	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}

@@ -66,8 +66,6 @@ type cmdStorageSuite struct {
 	jujutesting.RepoSuite
 }
 
-var _ = gc.Suite(&cmdStorageSuite{})
-
 func (s *cmdStorageSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	s.SetFeatureFlags(feature.Storage)

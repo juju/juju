@@ -5,7 +5,7 @@ package filter
 
 import (
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver/params"
 )
@@ -89,4 +89,26 @@ type Filter interface {
 	// DiscardConfigEvent indicates that the filter should discard any pending
 	// config event.
 	DiscardConfigEvent()
+
+	// LeaderSettingsEvents returns a channel that will receive an event whenever
+	// there is a leader settings change. Events can be temporarily suspended by
+	// calling WantLeaderSettingsEvents(false), and then reenabled by calling
+	// WantLeaderSettingsEvents(true)
+	LeaderSettingsEvents() <-chan struct{}
+
+	// DiscardLeaderSettingsEvent can be called to discard any pending
+	// LeaderSettingsEvents. This is used by code that saw a LeaderSettings change,
+	// and has been prepping for a response. Just before they request the current
+	// LeaderSettings, they can discard any other pending changes, since they know
+	// they will be handling all changes that have occurred before right now.
+	DiscardLeaderSettingsEvent()
+
+	// WantLeaderSettingsEvents can be used to enable/disable events being sent on
+	// the LeaderSettingsEvents() channel. This is used when an agent notices that
+	// it is the leader, it wants to disable getting events for changes that it is
+	// generating. Calling this with sendEvents=false disables getting change
+	// events. Calling this with sendEvents=true will enable future changes, and
+	// queues up an immediate event so that the agent will refresh its information
+	// for any events it might have missed while it thought it was the leader.
+	WantLeaderSettingsEvents(sendEvents bool)
 }

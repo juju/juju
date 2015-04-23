@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/worker/uniter/hook"
 )
@@ -56,7 +56,7 @@ const (
 // state.
 type State struct {
 
-	// Leader indicates whether a leader-elected hook has started to run, and
+	// Leader indicates whether a leader-elected hook has been queued to run, and
 	// no more recent leader-deposed hook has completed.
 	Leader bool `yaml:"leader"`
 
@@ -134,9 +134,13 @@ func (st State) validate() (err error) {
 			return errors.New("unexpected action id")
 		}
 	case Continue:
+		// TODO(jw4) LP-1438489
+		// ModeContinue should no longer have a Hook, but until the upgrade is
+		// fixed we can't fail the validation if it does.
+		if hasHook {
+			logger.Errorf("unexpected hook info with Kind Continue")
+		}
 		switch {
-		case hasHook:
-			return errors.New("unexpected hook info with Kind Continue")
 		case hasCharm:
 			return errors.New("unexpected charm URL")
 		case hasActionId:

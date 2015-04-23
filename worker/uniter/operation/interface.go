@@ -7,7 +7,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	utilexec "github.com/juju/utils/exec"
-	corecharm "gopkg.in/juju/charm.v5-unstable"
+	corecharm "gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -103,6 +103,14 @@ type Factory interface {
 	// NewUpdateStorage creates an operation to ensure the supplied storage
 	// tags are known and tracked.
 	NewUpdateStorage(tags []names.StorageTag) (Operation, error)
+
+	// NewAcceptLeadership creates an operation to ensure the uniter acts as
+	// service leader.
+	NewAcceptLeadership() (Operation, error)
+
+	// NewResignLeadership creates an operation to ensure the uniter does not
+	// act as service leader.
+	NewResignLeadership() (Operation, error)
 }
 
 // CommandArgs stores the arguments for a Command operation.

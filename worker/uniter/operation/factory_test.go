@@ -8,8 +8,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	utilexec "github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v5-unstable"
-	"gopkg.in/juju/charm.v5-unstable/hooks"
+	corecharm "gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -212,8 +212,20 @@ func (s *FactorySuite) TestNewHookString_Skip(c *gc.C) {
 	c.Check(op.String(), gc.Equals, "clear resolved flag and skip run relation-joined (123; foo/22) hook")
 }
 
-func (s *FactorySuite) TestNewUpdateRelations(c *gc.C) {
+func (s *FactorySuite) TestNewUpdateRelationsString(c *gc.C) {
 	op, err := s.factory.NewUpdateRelations([]int{1, 2, 3})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, "update relations [1 2 3]")
+}
+
+func (s *FactorySuite) TestNewAcceptLeadershipString(c *gc.C) {
+	op, err := s.factory.NewAcceptLeadership()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "accept leadership")
+}
+
+func (s *FactorySuite) TestNewResignLeadershipString(c *gc.C) {
+	op, err := s.factory.NewResignLeadership()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "resign leadership")
 }

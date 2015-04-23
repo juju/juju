@@ -300,12 +300,13 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 			continue
 		}
 		var result params.StatusResult
-		var st state.Status
-		st, result.Info, result.Data, err = machine.Status()
+		statusInfo, err := machine.Status()
 		if err != nil {
 			continue
 		}
-		result.Status = params.Status(st)
+		result.Status = params.Status(statusInfo.Status)
+		result.Info = statusInfo.Message
+		result.Data = statusInfo.Data
 		if result.Status != params.StatusError {
 			continue
 		}
@@ -553,7 +554,6 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 			volumeTag.String(),
 			m.Tag().String(),
 			"", // we're creating the machine, so it has no instance ID.
-			"", // volume not created yet, so has no volume ID.
 			volumeParams.Provider,
 		}
 		allVolumeParams = append(allVolumeParams, volumeParams)
@@ -983,15 +983,25 @@ func (p *ProvisionerAPI) prepareAllocationNetwork(
 	}
 	logger.Tracef("interfaces for instance %q: %v", instId, interfaces)
 
+	subnetSet := make(set.Strings)
 	subnetIds := []network.Id{}
 	subnetIdToInterface := make(map[network.Id]network.InterfaceInfo)
 	for _, iface := range interfaces {
 		if iface.ProviderSubnetId == "" {
 			logger.Debugf("no subnet associated with interface %#v (skipping)", iface)
 			continue
+		} else if iface.Disabled {
+			logger.Debugf("interface %#v disabled (skipping)", iface)
+			continue
 		}
-		subnetIds = append(subnetIds, iface.ProviderSubnetId)
-		subnetIdToInterface[iface.ProviderSubnetId] = iface
+		if !subnetSet.Contains(string(iface.ProviderSubnetId)) {
+			subnetIds = append(subnetIds, iface.ProviderSubnetId)
+			subnetSet.Add(string(iface.ProviderSubnetId))
+
+			// This means that multiple interfaces on the same subnet will
+			// only appear once.
+			subnetIdToInterface[iface.ProviderSubnetId] = iface
+		}
 	}
 	subnets, err := environ.Subnets(instId, subnetIds)
 	if err != nil {

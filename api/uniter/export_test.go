@@ -30,3 +30,8 @@ func PatchUnitResponse(p testing.Patcher, u *Unit, expectedRequest string, respo
 		return responseFunc(response)
 	})
 }
+
+// PatchUnitFacadeCall changes the internal FacadeCaller to one that calls the provided request handler function.
+func PatchUnitFacadeCall(p testing.Patcher, u *Unit, respFunc func(request string, params, response interface{}) error) {
+	testing.PatchFacadeCall(p, &u.st.facade, respFunc)
+}

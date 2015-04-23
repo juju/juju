@@ -6,6 +6,7 @@ package client_test
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"regexp"
 	"sort"
 	"strconv"
@@ -18,10 +19,14 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5-unstable"
-	"gopkg.in/juju/charm.v5-unstable/charmrepo"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/charmrepo"
 	"gopkg.in/juju/charmstore.v4"
-	charmstoretesting "gopkg.in/juju/charmstore.v4/testing"
+	"gopkg.in/juju/charmstore.v4/charmstoretesting"
+	"gopkg.in/juju/charmstore.v4/csclient"
+	"gopkg.in/macaroon-bakery.v0/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v0/bakerytest"
+	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"
@@ -565,9 +570,33 @@ type clientSuite struct {
 
 var _ = gc.Suite(&clientSuite{})
 
+// clearSinceTimes zeros out the updated timestamps inside status
+// so we can easily check the results.
+func clearSinceTimes(status *api.Status) {
+	for serviceId, service := range status.Services {
+		for unitId, unit := range service.Units {
+			unit.Workload.Since = nil
+			unit.UnitAgent.Since = nil
+			for id, subord := range unit.Subordinates {
+				subord.Workload.Since = nil
+				subord.UnitAgent.Since = nil
+				unit.Subordinates[id] = subord
+			}
+			service.Units[unitId] = unit
+		}
+		service.Status.Since = nil
+		status.Services[serviceId] = service
+	}
+	for id, machine := range status.Machines {
+		machine.Agent.Since = nil
+		status.Machines[id] = machine
+	}
+}
+
 func (s *clientSuite) TestClientStatus(c *gc.C) {
 	s.setUpScenario(c)
 	status, err := s.APIState.Client().Status(nil)
+	clearSinceTimes(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, jc.DeepEquals, scenarioStatus)
 }
@@ -887,6 +916,21 @@ func (s *clientSuite) TestClientAddServiceUnits(c *gc.C) {
 	assignedMachine, err := forcedUnit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(assignedMachine, gc.Equals, "0")
+}
+
+func (s *clientSuite) TestClientAddServiceUnitsToNewContainer(c *gc.C) {
+	svc := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.APIState.Client().AddServiceUnits("dummy", 1, "lxc:"+machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := svc.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	mid, err := units[0].AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mid, gc.Equals, machine.Id()+"/lxc/0")
 }
 
 func (s *clientSuite) assertAddServiceUnits(c *gc.C) {
@@ -1464,7 +1508,7 @@ func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolv
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetStatus(state.StatusError, "gaaah", nil)
+	err = u.SetAgentStatus(state.StatusError, "gaaah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Code under test:
 	err = s.APIState.Client().Resolved("wordpress/0", retry)
@@ -1490,7 +1534,7 @@ func (s *clientSuite) setupResolved(c *gc.C) *state.Unit {
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetStatus(state.StatusError, "gaaah", nil)
+	err = u.SetAgentStatus(state.StatusError, "gaaah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return u
 }
@@ -1532,16 +1576,30 @@ func (s *clientSuite) TestBlockChangeUnitResolved(c *gc.C) {
 
 type clientRepoSuite struct {
 	baseSuite
-	srv *charmstoretesting.Server
+	// dischargeUser holds the identity of the user
+	// that the 3rd party caveat discharger will issue
+	// macaroons for. If it is empty, no caveats will be discharged.
+	dischargeUser string
+
+	discharger *bakerytest.Discharger
+	srv        *charmstoretesting.Server
 }
 
 var _ = gc.Suite(&clientRepoSuite{})
 
 func (s *clientRepoSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
+	s.discharger = bakerytest.NewDischarger(nil, func(_ *http.Request, cond string, arg string) ([]checkers.Caveat, error) {
+		if s.dischargeUser == "" {
+			return nil, fmt.Errorf("discharge denied")
+		}
+		return []checkers.Caveat{
+			checkers.DeclaredCaveat("username", s.dischargeUser),
+		}, nil
+	})
 	s.srv = charmstoretesting.OpenServer(c, s.Session, charmstore.ServerParams{
-		AuthUsername: "test-user",
-		AuthPassword: "test-password",
+		IdentityLocation: s.discharger.Location(),
+		PublicKeyLocator: s.discharger,
 	})
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	s.PatchValue(client.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
@@ -1551,6 +1609,7 @@ func (s *clientRepoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *clientRepoSuite) TearDownTest(c *gc.C) {
+	s.discharger.Close()
 	s.srv.Close()
 	s.baseSuite.TearDownTest(c)
 }
@@ -1793,8 +1852,8 @@ func (s *clientRepoSuite) assertPrincipalDeployed(c *gc.C, serviceName string, c
 			bundle.Meta().Storage[name] = bundleMeta
 		}
 	}
-	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
-	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
+	c.Assert(charm.Meta(), jc.DeepEquals, bundle.Meta())
+	c.Assert(charm.Config(), jc.DeepEquals, bundle.Config())
 
 	serviceCons, err := service.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3317,22 +3376,22 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 		Nonce:     apiParams.Nonce,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	mcfg, err := client.MachineConfig(s.State, machineId, apiParams.Nonce, "")
+	icfg, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
-	sshinitScript, err := manual.ProvisioningScript(mcfg)
+	provisioningScript, err := manual.ProvisioningScript(icfg)
 	c.Assert(err, jc.ErrorIsNil)
 	// ProvisioningScript internally calls MachineConfig,
 	// which allocates a new, random password. Everything
 	// about the scripts should be the same other than
 	// the line containing "oldpassword" from agent.conf.
 	scriptLines := strings.Split(script, "\n")
-	sshinitScriptLines := strings.Split(sshinitScript, "\n")
-	c.Assert(scriptLines, gc.HasLen, len(sshinitScriptLines))
+	provisioningScriptLines := strings.Split(provisioningScript, "\n")
+	c.Assert(scriptLines, gc.HasLen, len(provisioningScriptLines))
 	for i, line := range scriptLines {
 		if strings.Contains(line, "oldpassword") {
 			continue
 		}
-		c.Assert(line, gc.Equals, sshinitScriptLines[i])
+		c.Assert(line, gc.Equals, provisioningScriptLines[i])
 	}
 }
 
@@ -3483,6 +3542,45 @@ func (s *clientRepoSuite) TestAddCharm(c *gc.C) {
 	sch, err = s.State.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
+}
+
+func (s *clientRepoSuite) TestAddCharmWithAuthorization(c *gc.C) {
+	// Upload a new charm to the charm store.
+	curl, _ := s.uploadCharm(c, "cs:~restricted/precise/wordpress-3", "wordpress")
+
+	// Change permissions on the new charm such that only bob
+	// can read from it.
+	s.dischargeUser = "restricted"
+	err := s.srv.NewClient().Put("/"+curl.Path()+"/meta/perm/read", []string{"bob"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Try to add a charm to the environment without authorization.
+	s.dischargeUser = ""
+	err = s.APIState.Client().AddCharm(curl)
+	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: cannot get discharge from ".*": third party refused discharge: cannot discharge: discharge denied`)
+
+	tryAs := func(user string) error {
+		client := csclient.New(csclient.Params{
+			URL: s.srv.URL(),
+		})
+		s.dischargeUser = user
+		var m *macaroon.Macaroon
+		err = client.Get("/delegatable-macaroon", &m)
+		c.Assert(err, gc.IsNil)
+
+		return s.APIState.Client().AddCharmWithAuthorization(curl, m)
+	}
+	// Try again with authorization for the wrong user.
+	err = tryAs("joe")
+	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: unauthorized: access denied for user "joe"`)
+
+	// Try again with the correct authorization this time.
+	err = tryAs("bob")
+	c.Assert(err, gc.IsNil)
+
+	// Verify that it has actually been uploaded.
+	_, err = s.State.Charm(curl)
+	c.Assert(err, gc.IsNil)
 }
 
 var resolveCharmTests = []struct {
@@ -3707,11 +3805,11 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	_, err = s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, data, err := machine.Status()
+	statusInfo, err := machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "error")
-	c.Assert(data["transient"], jc.IsTrue)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "error")
+	c.Assert(statusInfo.Data["transient"], jc.IsTrue)
 }
 
 func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
@@ -3725,11 +3823,11 @@ func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
 func (s *clientSuite) assertRetryProvisioning(c *gc.C, machine *state.Machine) {
 	_, err := s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
-	status, info, data, err := machine.Status()
+	statusInfo, err := machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusError)
-	c.Assert(info, gc.Equals, "error")
-	c.Assert(data["transient"], jc.IsTrue)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Message, gc.Equals, "error")
+	c.Assert(statusInfo.Data["transient"], jc.IsTrue)
 }
 
 func (s *clientSuite) assertRetryProvisioningBlocked(c *gc.C, machine *state.Machine, msg string) {

@@ -15,13 +15,11 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v5-unstable"
+	corecharm "gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -177,7 +175,7 @@ func (s *UniterSuite) TestUniterInstallHook(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"config-changed", "start"},
+			waitHooks{"leader-elected", "config-changed", "start"},
 		), ut(
 			"install hook fail and retry",
 			startupError{"install"},
@@ -185,8 +183,9 @@ func (s *UniterSuite) TestUniterInstallHook(c *gc.C) {
 
 			resolveError{state.ResolvedRetryHooks},
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   `hook failed: "install"`,
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "install"`,
 				data: map[string]interface{}{
 					"hook": "install",
 				},
@@ -199,7 +198,7 @@ func (s *UniterSuite) TestUniterInstallHook(c *gc.C) {
 			waitUnitAgent{
 				status: params.StatusIdle,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 		),
 	})
 }
@@ -229,8 +228,9 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 
 			resolveError{state.ResolvedRetryHooks},
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   `hook failed: "start"`,
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "start"`,
 				data: map[string]interface{}{
 					"hook": "start",
 				},
@@ -253,28 +253,40 @@ func (s *UniterSuite) TestUniterMultipleErrors(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"resolved is cleared before moving on to next hook",
-			createCharm{badHooks: []string{"install", "config-changed", "start"}},
+			createCharm{badHooks: []string{"install", "leader-elected", "config-changed", "start"}},
 			serveCharm{},
 			createUniter{},
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   `hook failed: "install"`,
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "install"`,
 				data: map[string]interface{}{
 					"hook": "install",
 				},
 			},
 			resolveError{state.ResolvedNoHooks},
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   `hook failed: "config-changed"`,
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "leader-elected"`,
+				data: map[string]interface{}{
+					"hook": "leader-elected",
+				},
+			},
+			resolveError{state.ResolvedNoHooks},
+			waitUnitAgent{
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "config-changed"`,
 				data: map[string]interface{}{
 					"hook": "config-changed",
 				},
 			},
 			resolveError{state.ResolvedNoHooks},
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   `hook failed: "start"`,
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "start"`,
 				data: map[string]interface{}{
 					"hook": "start",
 				},
@@ -314,8 +326,9 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *gc.C) {
 
 			resolveError{state.ResolvedRetryHooks},
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   `hook failed: "config-changed"`,
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "config-changed"`,
 				data: map[string]interface{}{
 					"hook": "config-changed",
 				},
@@ -342,7 +355,7 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *gc.C) {
 			waitUnitAgent{
 				status: params.StatusIdle,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			assertYaml{"charm/config.out", map[string]interface{}{
 				"blog-title": "My Title",
 			}},
@@ -385,7 +398,7 @@ func (s *UniterSuite) TestUniterHookSynchronisation(c *gc.C) {
 			verifyHookSyncLockLocked,
 			releaseHookSyncLock,
 			waitUnitAgent{status: params.StatusIdle},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 		),
 	})
 }
@@ -482,8 +495,9 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			createCharm{revision: 1, badHooks: []string{"upgrade-charm"}},
 			upgradeCharm{revision: 1},
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   `hook failed: "upgrade-charm"`,
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "upgrade-charm"`,
 				data: map[string]interface{}{
 					"hook": "upgrade-charm",
 				},
@@ -511,8 +525,9 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			createCharm{revision: 1, badHooks: []string{"upgrade-charm"}},
 			upgradeCharm{revision: 1},
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   `hook failed: "upgrade-charm"`,
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "upgrade-charm"`,
 				data: map[string]interface{}{
 					"hook": "upgrade-charm",
 				},
@@ -524,8 +539,9 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 
 			resolveError{state.ResolvedRetryHooks},
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   `hook failed: "upgrade-charm"`,
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "upgrade-charm"`,
 				data: map[string]interface{}{
 					"hook": "upgrade-charm",
 				},
@@ -597,7 +613,7 @@ func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 
 			createCharm{
 				revision: 1,
@@ -672,8 +688,9 @@ func (s *UniterSuite) TestUniterErrorStateUpgrade(c *gc.C) {
 			createCharm{revision: 1},
 			upgradeCharm{revision: 1},
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   `hook failed: "start"`,
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "start"`,
 				data: map[string]interface{}{
 					"hook": "start",
 				},
@@ -707,8 +724,9 @@ func (s *UniterSuite) TestUniterErrorStateUpgrade(c *gc.C) {
 			// the charm has been downloaded and verified). However, it's still
 			// useful to wait until that point...
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   `hook failed: "start"`,
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "start"`,
 				data: map[string]interface{}{
 					"hook": "start",
 				},
@@ -978,7 +996,7 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyGitCharm{dirty: true},
 
 			createCharm{
@@ -992,9 +1010,10 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 			serveCharm{},
 			upgradeCharm{revision: 1},
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   "upgrade failed",
-				charm:  1,
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         "upgrade failed",
+				charm:        1,
 			},
 			verifyWaiting{},
 			verifyGitCharm{dirty: true},
@@ -1077,7 +1096,10 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			"simple joined/changed/departed",
 			quickStartRelation{},
 			addRelationUnit{},
-			waitHooks{"db-relation-joined mysql/1 db:0", "db-relation-changed mysql/1 db:0"},
+			waitHooks{
+				"db-relation-joined mysql/1 db:0",
+				"db-relation-changed mysql/1 db:0",
+			},
 			changeRelationUnit{"mysql/0"},
 			waitHooks{"db-relation-changed mysql/0 db:0"},
 			removeRelationUnit{"mysql/1"},
@@ -1087,7 +1109,10 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			"relation becomes dying; unit is not last remaining member",
 			quickStartRelation{},
 			relationDying,
-			waitHooks{"db-relation-departed mysql/0 db:0", "db-relation-broken db:0"},
+			waitHooks{
+				"db-relation-departed mysql/0 db:0",
+				"db-relation-broken db:0",
+			},
 			verifyRunning{},
 			relationState{life: state.Dying},
 			removeRelationUnit{"mysql/0"},
@@ -1108,7 +1133,11 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			"service becomes dying while in a relation",
 			quickStartRelation{},
 			serviceDying,
-			waitHooks{"db-relation-departed mysql/0 db:0", "db-relation-broken db:0", "stop"},
+			waitHooks{
+				"db-relation-departed mysql/0 db:0",
+				"db-relation-broken db:0",
+				"stop",
+			},
 			waitUniterDead{},
 			relationState{life: state.Dying},
 			removeRelationUnit{"mysql/0"},
@@ -1117,8 +1146,41 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			"unit becomes dying while in a relation",
 			quickStartRelation{},
 			unitDying,
-			waitHooks{"db-relation-departed mysql/0 db:0", "db-relation-broken db:0", "stop"},
 			waitUniterDead{},
+			custom{func(c *gc.C, ctx *context) {
+				// There is no ordering relationship between relation hooks and
+				// leader-settings-changed hooks; and while we're dying we may
+				// never get to leader-settings-changed before it's time to run
+				// the stop (as we might not react to a config change in time).
+				// It's actually clearer to just list the possible orders:
+				possibles := [][]string{{
+					"leader-settings-changed",
+					"db-relation-departed mysql/0 db:0",
+					"db-relation-broken db:0",
+					"stop",
+				}, {
+					"db-relation-departed mysql/0 db:0",
+					"leader-settings-changed",
+					"db-relation-broken db:0",
+					"stop",
+				}, {
+					"db-relation-departed mysql/0 db:0",
+					"db-relation-broken db:0",
+					"leader-settings-changed",
+					"stop",
+				}, {
+					"db-relation-departed mysql/0 db:0",
+					"db-relation-broken db:0",
+					"stop",
+				}}
+				unchecked := ctx.hooksCompleted[len(ctx.hooks):]
+				for _, possible := range possibles {
+					if ok, _ := jc.DeepEqual(unchecked, possible); ok {
+						return
+					}
+				}
+				c.Fatalf("unexpected hooks: %v", unchecked)
+			}},
 			relationState{life: state.Alive},
 			removeRelationUnit{"mysql/0"},
 			relationState{life: state.Alive},
@@ -1162,7 +1224,7 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			addRelation{waitJoin: true},
 			stopUniter{},
 			custom{func(c *gc.C, ctx *context) {
@@ -1196,8 +1258,9 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 			"hook error during join of a relation",
 			startupRelationError{"db-relation-joined"},
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   `hook failed: "db-relation-joined"`,
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "db-relation-joined"`,
 				data: map[string]interface{}{
 					"hook":        "db-relation-joined",
 					"relation-id": 0,
@@ -1208,8 +1271,9 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 			"hook error during change of a relation",
 			startupRelationError{"db-relation-changed"},
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   `hook failed: "db-relation-changed"`,
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "db-relation-changed"`,
 				data: map[string]interface{}{
 					"hook":        "db-relation-changed",
 					"relation-id": 0,
@@ -1222,8 +1286,9 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 			waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"},
 			removeRelationUnit{"mysql/0"},
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   `hook failed: "db-relation-departed"`,
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "db-relation-departed"`,
 				data: map[string]interface{}{
 					"hook":        "db-relation-departed",
 					"relation-id": 0,
@@ -1237,8 +1302,9 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 			waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"},
 			relationDying,
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   `hook failed: "db-relation-broken"`,
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "db-relation-broken"`,
 				data: map[string]interface{}{
 					"hook":        "db-relation-broken",
 					"relation-id": 0,
@@ -1275,7 +1341,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
 			metricsTick{},
 			waitHooks{"collect-metrics"},
@@ -1353,7 +1419,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
 			addAction{"action-log", nil},
 			waitActionResults{[]actionResult{{
@@ -1384,7 +1450,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
 			addAction{"action-log-fail", nil},
 			waitActionResults{[]actionResult{{
@@ -1417,7 +1483,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
 			addAction{"action-log-fail-error", nil},
 			waitActionResults{[]actionResult{{
@@ -1451,7 +1517,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
 			addAction{
 				name:   "snapshot",
@@ -1494,7 +1560,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
 			addAction{
 				name:   "snapshot",
@@ -1528,7 +1594,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
 			addAction{"snapshot", map[string]interface{}{"outfile": "foo.bar"}},
 			waitActionResults{[]actionResult{{
@@ -1563,7 +1629,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
 			waitActionResults{[]actionResult{{
 				name:    "action-log",
@@ -1600,7 +1666,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 			verifyCharm{},
 			addAction{"action-log", nil},
 			waitActionResults{[]actionResult{{
@@ -1625,8 +1691,9 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			addAction{"action-log", nil},
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   `hook failed: "start"`,
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "start"`,
 				data: map[string]interface{}{
 					"hook": "start",
 				},
@@ -1637,9 +1704,10 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				status:  params.ActionCompleted,
 			}}},
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   `hook failed: "start"`,
-				data:   map[string]interface{}{"hook": "start"},
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         `hook failed: "start"`,
+				data:         map[string]interface{}{"hook": "start"},
 			},
 			verifyWaiting{},
 			resolveError{state.ResolvedNoHooks},
@@ -1788,7 +1856,7 @@ func (s *UniterSuite) TestReboot(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"config-changed", "start"},
+			waitHooks{"leader-elected", "config-changed", "start"},
 		), ut(
 			"test that juju-reboot --now kills hook and exits",
 			createCharm{
@@ -1812,7 +1880,7 @@ func (s *UniterSuite) TestReboot(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"install", "config-changed", "start"},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
 		), ut(
 			"test juju-reboot will not happen if hook errors out",
 			createCharm{
@@ -1827,8 +1895,9 @@ func (s *UniterSuite) TestReboot(c *gc.C) {
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{
-				status: params.StatusError,
-				info:   fmt.Sprintf(`hook failed: "install"`),
+				statusGetter: unitStatusGetter,
+				status:       params.StatusError,
+				info:         fmt.Sprintf(`hook failed: "install"`),
 			},
 		),
 	})
@@ -1873,20 +1942,52 @@ func (s *UniterSuite) TestRebootFromJujuRun(c *gc.C) {
 }
 
 func (s *UniterSuite) TestLeadership(c *gc.C) {
-	// TODO(fwereade): 2015-03-07 bug XXXXXXXXXXXXX
-	// This is a really bad way to test the impact of feature flags, because it
-	// doesn't clean up after itself. We really want something in featureflags
-	// to help test these -- something like `WithFlags([]string, func())`?
-	// Regardless, there are way too many tests like this already and fixing
-	// that deserves its own CL.
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "leader-election")
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	s.runUniterTests(c, []uniterTest{
 		ut(
-			"leader-set works",
+			"hook tools when leader",
 			quickStart{},
-			runCommands{fmt.Sprintf("leader-set foo=bar baz=qux")},
+			runCommands{"leader-set foo=bar baz=qux"},
 			verifyLeaderSettings{"foo": "bar", "baz": "qux"},
+		), ut(
+			"hook tools when not leader",
+			quickStart{minion: true},
+			runCommands{`if [ $(is-leader) != "False" ]; then exit -1; fi`},
+		), ut(
+			"leader-elected triggers when elected",
+			quickStart{minion: true},
+			forceLeader{},
+			waitHooks{"leader-elected"},
+		), ut(
+			"leader-settings-changed triggers when leader settings change",
+			quickStart{minion: true},
+			setLeaderSettings{"ping": "pong"},
+			waitHooks{"leader-settings-changed"},
+		), ut(
+			"leader-settings-changed triggers when bounced",
+			quickStart{minion: true},
+			verifyRunning{minion: true},
+		), ut(
+			"leader-settings-changed triggers when deposed (while stopped)",
+			quickStart{},
+			stopUniter{},
+			forceMinion{},
+			verifyRunning{minion: true},
+		),
+	})
+}
+
+func (s *UniterSuite) TestLeadershipUnexpectedDepose(c *gc.C) {
+	s.PatchValue(uniter.LeadershipGuarantee, coretesting.ShortWait)
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			// NOTE: this is a strange and ugly test, intended to detect what
+			// *would* happen if the uniter suddenly failed to renew its lease;
+			// it depends on an artificially shortened tracker refresh time to
+			// run in a reasonable amount of time.
+			"leader-settings-changed triggers when deposed (while running)",
+			quickStart{},
+			forceMinion{},
+			waitHooks{"leader-settings-changed"},
 		),
 	})
 }

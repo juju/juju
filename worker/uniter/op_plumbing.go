@@ -5,8 +5,8 @@ package uniter
 
 import (
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5-unstable"
-	"gopkg.in/juju/charm.v5-unstable/hooks"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -91,5 +91,17 @@ func newUpdateRelationsOp(ids []int) creator {
 func newUpdateStorageOp(tags []names.StorageTag) creator {
 	return func(factory operation.Factory) (operation.Operation, error) {
 		return factory.NewUpdateStorage(tags)
+	}
+}
+
+func newAcceptLeadershipOp() creator {
+	return func(factory operation.Factory) (operation.Operation, error) {
+		return factory.NewAcceptLeadership()
+	}
+}
+
+func newResignLeadershipOp() creator {
+	return func(factory operation.Factory) (operation.Operation, error) {
+		return factory.NewResignLeadership()
 	}
 }
