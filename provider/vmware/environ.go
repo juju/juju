@@ -75,12 +75,8 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 // getSnapshot returns a copy of the environment. This is useful for
 // ensuring the env you are using does not get changed by other code
 // while you are using it.
-func (env *environ) getSnapshot() *environ {
-	env.lock.Lock()
-	clone := *env
-	env.lock.Unlock()
-
-	return &clone
+func (env environ) getSnapshot() *environ {
+	return &env
 }
 
 // Config returns the configuration data with which the env was created.

@@ -11,6 +11,12 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 )
 
+/*
+Vmware provider use "image-download" data type for simplestream. That's why we use custom implementation of imagemetadata.Fetch function.
+We also use custom struct OvfFileMetadata that corresponds to the format used in "image-downloads" simplestream datatype.
+Also we use custom append function to filter content of the stream and keep only items, that have ova FileType
+*/
+
 type OvfFileMetadata struct {
 	Url      string
 	Arch     string `json:"arch"`
@@ -25,7 +31,7 @@ func init() {
 	simplestreams.RegisterStructTags(OvfFileMetadata{})
 }
 
-var findImageMetadata = func(env *environ, args environs.StartInstanceParams) (*OvfFileMetadata, error) {
+func findImageMetadata(env *environ, args environs.StartInstanceParams) (*OvfFileMetadata, error) {
 	arches := args.Tools.Arches()
 	series := args.Tools.OneSeries()
 	ic := &imagemetadata.ImageConstraint{
