@@ -313,11 +313,26 @@ func (u *Unit) Destroy() (err error) {
 		return nil, jujutxn.ErrNoOperations
 	}
 	if err = unit.st.run(buildTxn); err == nil {
+		if historyErr := unit.eraseHistory(); historyErr != nil {
+			logger.Errorf("cannot delete history for unit %q: %v", unit.globalKey(), err)
+		}
 		if err = unit.Refresh(); errors.IsNotFound(err) {
 			return nil
 		}
 	}
 	return err
+}
+
+func (u *Unit) eraseHistory() error {
+	unit, closer := u.st.getCollection(statusesHistoryC)
+	defer closer()
+	if _, err := unit.RemoveAll(bson.D{{"statusid", u.globalKey()}}); err != nil {
+		return err
+	}
+	if _, err := unit.RemoveAll(bson.D{{"statusid", u.globalAgentKey()}}); err != nil {
+		return err
+	}
+	return nil
 }
 
 // unitAgentAllocating actually refers to the unit's agent.
@@ -807,6 +822,10 @@ func (u *Unit) AgentStatus() (StatusInfo, error) {
 	return agent.Status()
 }
 
+func (u *Unit) StatusHistory(size int) ([]StatusInfo, error) {
+	return statusHistory(size, u.globalKey(), u.st)
+}
+
 // Status returns the status of the unit.
 // This method relies on globalKey instead of globalAgentKey since it is part of
 // the effort to separate Unit from UnitAgent. Now the Status for UnitAgent is in
@@ -839,10 +858,17 @@ func (u *Unit) Status() (StatusInfo, error) {
 // the effort to separate Unit from UnitAgent. Now the SetStatus for UnitAgent is in
 // the UnitAgent struct.
 func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}) error {
+	// TODO(perrito666) if status change fails this entry will be added
+	// and could cause repeated entries in history, a check should be done
+	if err := setStatusHistory(u.globalKey(), u.st); err != nil {
+		logger.Errorf("could not record status history before change to %q: %v", status, err)
+	}
+
 	doc, err := newUnitStatusDoc(status, info, data)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
+
 	ops := []txn.Op{{
 		C:      unitsC,
 		Id:     u.doc.DocID,
@@ -854,7 +880,6 @@ func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}
 	if err != nil {
 		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, ErrDead))
 	}
-
 	return nil
 }
 

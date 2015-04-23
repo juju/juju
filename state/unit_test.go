@@ -32,6 +32,17 @@ type UnitSuite struct {
 
 var _ = gc.Suite(&UnitSuite{})
 
+func (s *UnitSuite) addPristineUnit(c *gc.C) *state.Unit {
+	uniqueCharm := s.AddTestingCharm(c, "mysql")
+	service := s.AddTestingService(c, "mysql", uniqueCharm)
+	unit, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = state.EraseUnitHistory(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	return unit
+
+}
+
 func (s *UnitSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "wordpress")
@@ -581,7 +592,7 @@ func (s *UnitSuite) TestGetSetUnitAgentStatus(c *gc.C) {
 	})
 }
 
-func (s *UnitAgentSuite) TestSetUnitStatusSince(c *gc.C) {
+func (s *UnitSuite) TestSetUnitStatusSince(c *gc.C) {
 	now := state.NowToTheSecond()
 	err := s.unit.SetStatus(state.StatusMaintenance, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -597,6 +608,52 @@ func (s *UnitAgentSuite) TestSetUnitStatusSince(c *gc.C) {
 	statusInfo, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(timeBeforeOrEqual(*firstTime, *statusInfo.Since), jc.IsTrue)
+}
+
+func (s *UnitSuite) TestSetUnitStatusHistory(c *gc.C) {
+	unit := s.addPristineUnit(c)
+	err := unit.SetStatus(state.StatusMaintenance, "to push something to history", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	statusInfo, err := unit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusMaintenance)
+
+	h, err := unit.StatusHistory(10)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(h, gc.HasLen, 1)
+	c.Assert(h[0].Status, gc.Equals, state.StatusUnknown)
+	c.Assert(h[0].Message, gc.Equals, "Waiting for agent initialization to finish")
+
+	err = unit.SetStatus(state.StatusActive, "active message", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	statusInfo, err = unit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusActive)
+
+	err = unit.SetStatus(state.StatusUnknown, "really unknown status", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	statusInfo, err = unit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusUnknown)
+
+	h, err = unit.StatusHistory(10)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(h, gc.HasLen, 3)
+	var message string
+	for i := 0; i < 3; i++ {
+		c.Log("checking status %q", h[i].Status)
+		switch h[i].Status {
+		case state.StatusUnknown:
+			message = "Waiting for agent initialization to finish"
+		case state.StatusActive:
+			message = "active message"
+		case state.StatusMaintenance:
+			message = "to push something to history"
+		}
+		c.Assert(h[i].Message, gc.Equals, message)
+	}
+
 }
 
 func (s *UnitSuite) TestGetSetUnitStatusWhileNotAlive(c *gc.C) {

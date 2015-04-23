@@ -21,6 +21,16 @@ type UnitAgentSuite struct {
 
 var _ = gc.Suite(&UnitAgentSuite{})
 
+func (s *UnitAgentSuite) addPristineUnit(c *gc.C) *state.Unit {
+	uniqueCharm := s.AddTestingCharm(c, "mysql")
+	service := s.AddTestingService(c, "mysql", uniqueCharm)
+	unit, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = state.EraseUnitHistory(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	return unit
+}
+
 func (s *UnitAgentSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "wordpress")
@@ -140,6 +150,51 @@ func (s *UnitAgentSuite) TestSetAgentStatusSince(c *gc.C) {
 	statusInfo, err = agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(timeBeforeOrEqual(*firstTime, *statusInfo.Since), jc.IsTrue)
+}
+
+func (s *UnitAgentSuite) TestSetUnitAgentStatusHistory(c *gc.C) {
+	unit := s.addPristineUnit(c)
+	agent := unit.Agent().(*state.UnitAgent)
+	err := agent.SetStatus(state.StatusIdle, "to push something to history", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	statusInfo, err := agent.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusIdle)
+
+	h, err := agent.StatusHistory(10)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(h, gc.HasLen, 1)
+	c.Assert(h[0].Status, gc.Equals, state.StatusAllocating)
+	c.Assert(h[0].Message, gc.Equals, "")
+
+	err = agent.SetStatus(state.StatusExecuting, "executing first thing", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	statusInfo, err = agent.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusExecuting)
+
+	err = agent.SetStatus(state.StatusExecuting, "wow executing again", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	statusInfo, err = agent.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusExecuting)
+
+	h, err = agent.StatusHistory(10)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(h, gc.HasLen, 3)
+	var message string
+	for i := 0; i < 3; i++ {
+		c.Log("checking status %q", h[i].Status)
+		switch h[i].Status {
+		case state.StatusAllocating:
+			message = ""
+		case state.StatusExecuting:
+			message = "executing first thing"
+		case state.StatusIdle:
+			message = "to push something to history"
+		}
+		c.Assert(h[i].Message, gc.Equals, message)
+	}
 }
 
 func (s *UnitAgentSuite) TestGetSetStatusDataMongo(c *gc.C) {

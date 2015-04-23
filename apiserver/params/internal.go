@@ -345,6 +345,13 @@ type SetStatus struct {
 	Entities []EntityStatus
 }
 
+// StatusHistory holds the parameters to filter a status history query.
+type StatusHistory struct {
+	Kind string
+	Size int
+	Name string
+}
+
 // StatusResult holds an entity status, extra information, or an
 // error.
 type StatusResult struct {

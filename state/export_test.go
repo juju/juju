@@ -32,6 +32,7 @@ const (
 	UsersC             = usersC
 	BlockDevicesC      = blockDevicesC
 	StorageInstancesC  = storageInstancesC
+	StatusesHistoryC   = statusesHistoryC
 )
 
 var (
@@ -372,4 +373,17 @@ func AssertHostPortConversion(c *gc.C, netHostPort network.HostPort) {
 	hostsPorts := fromNetworkHostsPorts(netHostsPorts)
 	newNetHostsPorts := networkHostsPorts(hostsPorts)
 	c.Assert(netHostsPorts, gc.DeepEquals, newNetHostsPorts)
+}
+
+type StatusDoc statusDoc
+
+func NewHistoricalStatusDoc(s StatusDoc, key string) *historicalStatusDoc {
+	sdoc := statusDoc(s)
+	return newHistoricalStatusDoc(sdoc, key)
+}
+
+var StatusHistory = statusHistory
+
+func EraseUnitHistory(u *Unit) error {
+	return u.eraseHistory()
 }
