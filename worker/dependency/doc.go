@@ -147,6 +147,26 @@ will be restarted whenever there is a material change to their accessible
 dependencies.
 
 
+Usage
+-----
+
+In each worker package, write a `manifold.go` containing the following:
+
+    type ManifoldConfig struct {
+        // The names of the various dependencies, e.g.
+        APICallerName   string
+        MachineLockName string
+    }
+
+    func Manifold(config ManifoldConfig) dependency.Manifold {
+        // Your code here...
+    }
+
+...and take care to construct your manifolds *only* via that function; *all*
+your dependencies *must* be declared in your ManifoldConfig, and *must* be
+accessed via those names. Don't hardcode anything, please.
+
+
 Concerns and mitigations thereof
 --------------------------------
 
