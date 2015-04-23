@@ -651,10 +651,10 @@ func (s *UnitSuite) TestSetUnitStatusHistory(c *gc.C) {
 
 func (s *UnitSuite) TestGetUnitStatusHistory(c *gc.C) {
 	err := state.EraseUnitHistory(s.unit)
+	c.Assert(err, jc.ErrorIsNil)
 	globalKey := state.UnitGlobalKey(s.unit)
 	begin := state.NowToTheSecond()
 	c.Logf("will use %q as base time", begin)
-	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 100; i++ {
 		message := fmt.Sprintf("bogus message number %d", i)
 		c.Logf("fill status history, attempt: %d", i)
