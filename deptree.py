@@ -158,7 +158,6 @@ def get_args(argv=None):
     parser.add_argument(
         '-i', '--include', action='append', default=[],
         help='Include an additional dependency. eg package:vcs:revision,')
-    parser.add_argument('srcdir', help='The src dir.')
     parser.add_argument(
         'dep_files', nargs='+',
         help='the dependencies.tsv files to merge')
