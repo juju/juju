@@ -48,7 +48,11 @@ class TestJenkinsBuild(TestCase):
         jenkins_cxt = patch('upload_hetero_control.Jenkins', autospec=True)
         with jenkins_cxt as j_mock:
             j = JenkinsBuild.factory(credentials, JOB_NAME)
-            self.assertIs(type(j), JenkinsBuild)
+        self.assertIs(type(j), JenkinsBuild)
+        self.assertEqual(j.job_name, JOB_NAME)
+        self.assertEqual(j.credentials, credentials)
+        self.assertEqual(j.build_info, None)
+        self.assertIs(j.jenkins, j_mock.return_value)
         j_mock.assert_called_once_with(
             JENKINS_URL, credentials.user, credentials.password)
         self.assertEqual(j_mock.return_value.get_build_info.call_count, 0)
@@ -59,6 +63,8 @@ class TestJenkinsBuild(TestCase):
         with jenkins_cxt as j_mock:
             j = JenkinsBuild.factory(credentials, JOB_NAME, BUILD_NUM)
             self.assertIs(type(j), JenkinsBuild)
+        self.assertEqual(j.build_info,
+                         j_mock.return_value.get_build_info.return_value)
         j_mock.assert_called_once_with(
             JENKINS_URL, credentials.user, credentials.password)
         j_mock.return_value.get_build_info.assert_called_once_with(
@@ -173,7 +179,7 @@ class TestHUploader(TestCase):
                  headers={"Content-Type": "application/json"}),
             call('1200-console-consoleText.txt', 'console text',
                  headers={"Content-Type": "text/plain; charset=utf8"}),
-            call('1200-log-filename', 'artifact data',
+            call('1200-log-filename', 'artifact data 1',
                  headers={"Content-Type": "application/octet-stream"})])
 
     def test_upload_all_test_results(self):
@@ -221,9 +227,9 @@ class TestHUploader(TestCase):
         jenkins_mock.artifacts.return_value = fake_artifacts(4)
         h = HUploader(s3_mock, jenkins_mock)
         h.upload_artifacts()
-        calls = [call(filename, 'artifact data', headers=headers),
-                 call(filename, 'artifact data', headers=headers),
-                 call(filename, 'artifact data', headers=headers)]
+        calls = [call(filename, 'artifact data 1', headers=headers),
+                 call(filename, 'artifact data 2', headers=headers),
+                 call(filename, 'artifact data 3', headers=headers)]
         self.assertEqual(s3_mock.store.mock_calls, calls)
         jenkins_mock.artifacts.assert_called_once_with()
 
@@ -247,15 +253,6 @@ class TestHUploader(TestCase):
                    return_value=None, autospec=True):
             with self.assertRaisesRegexp(
                     ValueError, 'Build number is not set'):
-                h.upload_by_env_build_number()
-
-    def test_upload_by_env_build_number_not_digit(self):
-        jenkins_mock = MagicMock()
-        h = HUploader(None, jenkins_mock)
-        with patch('upload_hetero_control.os.getenv',
-                   return_value="NoDigit", autospec=True):
-            with self.assertRaisesRegexp(
-                    ValueError, 'Build number is not a digit'):
                 h.upload_by_env_build_number()
 
 
@@ -346,4 +343,4 @@ access_key = fake_username
 
 def fake_artifacts(max=4):
     for x in xrange(1, max):
-        yield "filename", "artifact data"
+        yield "filename", "artifact data %s" % x

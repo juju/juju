@@ -18,11 +18,6 @@ from jujupy import (
     _temp_env,
     )
 
-from upload_hetero_control import (
-    HUploader,
-    )
-from mock import MagicMock
-
 
 class TestDumping_env(TestCase):
 
@@ -68,12 +63,6 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.user, 'my name')
         self.assertEqual(args.password, 'fake pass')
 
-    def test_parse_args_credential(self):
-        args = parse_args(['a', 'b', 'c', 'd', 'e', '--user', 'my name',
-                           '--password', 'fake pass'])
-        self.assertEqual(args.user, 'my name')
-        self.assertEqual(args.password, 'fake pass')
-
 
 class TestGetClients(TestCase):
 
@@ -105,16 +94,15 @@ class TestGetClients(TestCase):
 
 class TestUploadHeterogeneous(TestCase):
 
-    def test_upload_heterogeneous2(self):
-        s3_mock = MagicMock()
-        jenkins_mock = MagicMock()
-        h = HUploader(s3_mock, jenkins_mock)
-        with patch('assess_heterogeneous_control.HUploader.factory',
-                   return_value=h) as h_mock:
-            with patch('assess_heterogeneous_control.get_credentials',
-                       autospec=True, return_value=None) as g_mock:
-                with patch.object(h, 'upload_by_env_build_number') as u_mock:
-                    upload_heterogeneous(None)
-        h_mock.assert_called_once_with(credentials=None)
-        g_mock.assert_called_once_with(None)
+    def test_upload_heterogeneous(self):
+        args = Namespace(user='foo', password='bar')
+        env_ctx = patch(
+            'upload_hetero_control.HUploader.upload_by_env_build_number')
+        with patch('upload_hetero_control.get_s3_access',
+                   return_value=('name', 'pass')) as a_mock:
+            with patch('upload_hetero_control.S3Connection') as c_mock:
+                with env_ctx as u_mock:
+                    upload_heterogeneous(args)
+        a_mock.assert_called_once_with()
+        c_mock.assert_called_once_with('name', 'pass')
         u_mock.assert_called_once_with()

@@ -200,8 +200,6 @@ class HUploader:
         build_number = os.getenv('BUILD_NUMBER')
         if not build_number:
             raise ValueError('Build number is not set')
-        if not str(build_number).isdigit():
-            raise ValueError('Build number is not a digit')
         self.jenkins_build.set_build_number(int(build_number))
         self.upload()
 
@@ -250,10 +248,9 @@ def get_s3_access():
     s3cfg_path = os.path.join(
         os.getenv('HOME'), 'cloud-city/juju-qa.s3cfg')
     config = ConfigParser()
-    with open(s3cfg_path, 'r') as s3cfg:
-        config.readfp(s3cfg)
-        access_key, secret_key = (config.get('default', 'access_key'),
-                                  config.get('default', 'secret_key'))
+    config.read(s3cfg_path)
+    access_key = config.get('default', 'access_key')
+    secret_key = config.get('default', 'secret_key')
     return access_key, secret_key
 
 
@@ -267,9 +264,6 @@ if __name__ == '__main__':
     parser.add_argument(
         '-a', '--all', action='store_true', default=False,
         help="Upload all test results")
-    parser.add_argument(
-        '-e', '--env_build_number', action='store_true', default=False,
-        help='Get the build number from env variable BUILD_NUMBER')
 
     args = parser.parse_args(sys.argv[1:])
     cred = get_credentials(args)
@@ -284,9 +278,4 @@ if __name__ == '__main__':
         print('Uploading all test results')
         u = HUploader.factory(credentials=cred)
         sys.exit(u.upload_all_test_results())
-    elif args.env_build_number:
-        print('Uploading build number BUILD_NUMBER=' +
-              os.getenv('BUILD_NUMBER'))
-        u = HUploader.factory(credentials=cred)
-        sys.exit(u.upload_by_env_build_number())
     parser.print_help()
