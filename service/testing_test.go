@@ -101,22 +101,35 @@ func (s *BaseSuite) PatchVersion(vers version.Binary) {
 	s.PatchValue(&getVersion, s.Patched.GetVersion)
 }
 
+func NewDiscoveryCheck(name string, running bool, failure error) discoveryCheck {
+	return discoveryCheck{
+		name: name,
+		isRunning: func() (bool, error) {
+			return running, failure
+		},
+	}
+}
+
+func (s *BaseSuite) PatchLocalDiscovery(checks ...discoveryCheck) {
+	s.PatchValue(&discoveryFuncs, checks)
+}
+
 func (s *BaseSuite) PatchLocalDiscoveryDisable() {
-	s.PatchValue(&discoveryFuncs, nil)
+	s.PatchLocalDiscovery()
 }
 
 func (s *BaseSuite) PatchLocalDiscoveryNoMatch(expected string) {
-	matchesFunc := func(matches bool) func() (bool, error) {
-		return func() (bool, error) {
-			return matches, nil
-		}
+	// TODO(ericsnow) Pull from a list of supported init systems.
+	names := []string{
+		InitSystemUpstart,
+		InitSystemSystemd,
+		InitSystemWindows,
 	}
-	funcs := []discoveryCheck{
-		{InitSystemUpstart, matchesFunc(expected == InitSystemUpstart)},
-		{InitSystemSystemd, matchesFunc(expected == InitSystemSystemd)},
-		{InitSystemWindows, matchesFunc(expected == InitSystemWindows)},
+	var checks []discoveryCheck
+	for _, name := range names {
+		checks = append(checks, NewDiscoveryCheck(name, name == expected, nil))
 	}
-	s.PatchValue(&discoveryFuncs, funcs)
+	s.PatchLocalDiscovery(checks...)
 }
 
 func (s *BaseSuite) CheckFailure(c *gc.C, err error) {

@@ -29,12 +29,16 @@ var (
 
 // IsRunning returns whether or not upstart is the local init system.
 func IsRunning() (bool, error) {
+	// TODO(ericsnow) This function should be fixed to precisely match
+	// the equivalent shell script line in service/discovery.go.
+
 	cmd := exec.Command(initctlPath, "--system", "list")
 	_, err := cmd.CombinedOutput()
 	if err == nil {
 		return true, nil
 	}
-	logger.Debugf("exec %q failed: %#v", initctlPath, err)
+
+	msg := fmt.Sprintf("exec %q failed", initctlPath)
 	if os.IsNotExist(err) {
 		// Executable could not be found, go 1.3 and later
 		return false, nil
@@ -45,7 +49,10 @@ func IsRunning() (bool, error) {
 			return false, nil
 		}
 	}
-	return false, errors.Trace(err)
+	// Note: initctl will fail if upstart is installed but not running.
+	// The error message will be:
+	//   Name "com.ubuntu.Upstart" does not exist
+	return false, errors.Annotatef(err, msg)
 }
 
 // ListServices returns the name of all installed services on the
