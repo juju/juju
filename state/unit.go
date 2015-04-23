@@ -822,6 +822,8 @@ func (u *Unit) AgentStatus() (StatusInfo, error) {
 	return agent.Status()
 }
 
+// StatusHistory returns a slice of at most <size> StatusInfo items
+// representing past statuses for this unit.
 func (u *Unit) StatusHistory(size int) ([]StatusInfo, error) {
 	return statusHistory(size, u.globalKey(), u.st)
 }
@@ -858,10 +860,11 @@ func (u *Unit) Status() (StatusInfo, error) {
 // the effort to separate Unit from UnitAgent. Now the SetStatus for UnitAgent is in
 // the UnitAgent struct.
 func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}) error {
-	// TODO(perrito666) if status change fails this entry will be added
-	// and could cause repeated entries in history, a check should be done
-	if err := setStatusHistory(u.globalKey(), u.st); err != nil {
-		logger.Errorf("could not record status history before change to %q: %v", status, err)
+	oldDoc, err := getStatus(u.st, u.globalKey())
+	if IsStatusNotFound(err) {
+		logger.Debugf("there is no state for %q yet", u.globalKey())
+	} else if err != nil {
+		logger.Debugf("cannot get state for %q yet", u.globalKey())
 	}
 
 	doc, err := newUnitStatusDoc(status, info, data)
@@ -878,7 +881,13 @@ func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}
 	}
 	err = u.st.runTransaction(ops)
 	if err != nil {
-		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, ErrDead))
+		return errors.Errorf("cannot set status of unit %q: %v", u, onAbort(err, ErrDead))
+	}
+
+	if oldDoc.Status != "" {
+		if err := updateStatusHistory(oldDoc, u.globalKey(), u.st); err != nil {
+			logger.Errorf("could not record status history before change to %q: %v", status, err)
+		}
 	}
 	return nil
 }

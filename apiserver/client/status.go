@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
-func agentStatusFromStatusInfo(s []state.StatusInfo, kind string) []api.AgentStatus {
+func agentStatusFromStatusInfo(s []state.StatusInfo, kind params.HistoryKind) []api.AgentStatus {
 	result := []api.AgentStatus{}
 	for _, v := range s {
 		result = append(result, api.AgentStatus{
@@ -50,50 +50,52 @@ func (s sortableStatuses) Less(i, j int) bool {
 }
 
 // UnitStatusHistory returns a slice of past statuses for a given unit.
-func (c *Client) UnitStatusHistory(args params.StatusHistory) (api.UnitStatuses, error) {
+func (c *Client) UnitStatusHistory(args params.StatusHistory) (api.UnitStatusHistory, error) {
 	size := args.Size - 1
 	if size < 1 {
-		return api.UnitStatuses{}, errors.Errorf("size of %d will not produce output, it must be at least 2", args.Size)
+		return api.UnitStatusHistory{}, errors.Errorf("invalid history size: %d", args.Size)
 	}
 	unit, err := c.api.state.Unit(args.Name)
 	if err != nil {
-		return api.UnitStatuses{}, errors.Trace(err)
+		return api.UnitStatusHistory{}, errors.Trace(err)
 	}
-	// FIXME Here goes a call te fetch workload, unit or combined status
-	//unit.
-	statuses := api.UnitStatuses{}
-	if args.Kind == "combined" || args.Kind == "workload" {
+	statuses := api.UnitStatusHistory{}
+	if args.Kind == params.KindCombined || args.Kind == params.KindWorkload {
 		unitStatuses, err := unit.StatusHistory(size)
 		if err != nil {
-			return api.UnitStatuses{}, errors.Trace(err)
+			return api.UnitStatusHistory{}, errors.Trace(err)
 		}
-		statuses.Statuses = append(statuses.Statuses, agentStatusFromStatusInfo(unitStatuses, "workload")...)
+
 		current, err := unit.Status()
 		if err != nil {
-			return api.UnitStatuses{}, errors.Trace(err)
+			return api.UnitStatusHistory{}, errors.Trace(err)
 		}
-		statuses.Statuses = append(agentStatusFromStatusInfo([]state.StatusInfo{current}, "workload"), statuses.Statuses...)
+		unitStatuses = append(unitStatuses, current)
+
+		statuses.Statuses = append(statuses.Statuses, agentStatusFromStatusInfo(unitStatuses, params.KindWorkload)...)
 	}
-	if args.Kind == "combined" || args.Kind == "agent" {
+	if args.Kind == params.KindCombined || args.Kind == params.KindAgent {
 		agentEntity := unit.Agent()
 		agent, ok := agentEntity.(*state.UnitAgent)
 		if !ok {
-			return api.UnitStatuses{}, errors.Errorf("cannot obtain agent for %q", args.Name)
+			return api.UnitStatusHistory{}, errors.Errorf("cannot obtain agent for %q", args.Name)
 		}
 		agentStatuses, err := agent.StatusHistory(size)
 		if err != nil {
-			return api.UnitStatuses{}, errors.Trace(err)
+			return api.UnitStatusHistory{}, errors.Trace(err)
 		}
-		statuses.Statuses = append(statuses.Statuses, agentStatusFromStatusInfo(agentStatuses, "agent")...)
+
 		current, err := agent.Status()
 		if err != nil {
-			return api.UnitStatuses{}, errors.Trace(err)
+			return api.UnitStatusHistory{}, errors.Trace(err)
 		}
-		statuses.Statuses = append(agentStatusFromStatusInfo([]state.StatusInfo{current}, "agent"), statuses.Statuses...)
+		agentStatuses = append(agentStatuses, current)
+
+		statuses.Statuses = append(statuses.Statuses, agentStatusFromStatusInfo(agentStatuses, params.KindAgent)...)
 	}
 
 	sort.Sort(sortableStatuses(statuses.Statuses))
-	if args.Kind == "combined" {
+	if args.Kind == params.KindCombined {
 
 		if len(statuses.Statuses) > args.Size {
 			statuses.Statuses = statuses.Statuses[len(statuses.Statuses)-args.Size:]

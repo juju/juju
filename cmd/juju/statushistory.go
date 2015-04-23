@@ -1,17 +1,20 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
 
 import (
 	"fmt"
-	"time"
+	"os"
+	"strconv"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/juju/osenv"
 	"launchpad.net/gnuflag"
 )
 
@@ -26,12 +29,12 @@ type StatusHistoryCommand struct {
 
 var statusHistoryDoc = `
 This command will report the history of status changes for
-a given unit up to 20 changes in the past.
-The statuses for the unit workload or agent are available.
+a given unit past.
+The statuses for the unit workload and/or agent are available.
 -type supports:
-    agent: will show last 20 statuses for the unit's agent
-    workload: will show last 20 statuses for the unit's workload
-    combined: will 20 entries for agent and workload statuses combined
+    agent: will show statuses for the unit's agent
+    workload: will show statuses for the unit's workload
+    combined: will show agent and workload statuses combined
  and sorted by time of occurence.
 `
 
@@ -39,7 +42,7 @@ func (c *StatusHistoryCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "status-history",
 		Args:    "[-n N] <unit>",
-		Purpose: "output last 20 statuses for a unit",
+		Purpose: "output past statuses for a unit",
 		Doc:     statusHistoryDoc,
 	}
 }
@@ -59,7 +62,24 @@ func (c *StatusHistoryCommand) Init(args []string) error {
 	default:
 		c.unitName = args[0]
 	}
-	return nil
+	// If use of ISO time not specified on command line,
+	// check env var.
+	if !c.isoTime {
+		var err error
+		envVarValue := os.Getenv(osenv.JujuStatusIsoTimeEnvKey)
+		if envVarValue != "" {
+			if c.isoTime, err = strconv.ParseBool(envVarValue); err != nil {
+				return errors.Annotatef(err, "invalid %s env var, expected true|false", osenv.JujuStatusIsoTimeEnvKey)
+			}
+		}
+	}
+	kind := params.HistoryKind(c.outputContent)
+	switch kind {
+	case params.KindCombined, params.KindAgent, params.KindWorkload:
+		return nil
+
+	}
+	return errors.Errorf("unexpected status type %q", c.outputContent)
 }
 
 func (c *StatusHistoryCommand) Run(ctx *cmd.Context) error {
@@ -68,13 +88,9 @@ func (c *StatusHistoryCommand) Run(ctx *cmd.Context) error {
 		return fmt.Errorf(connectionError, c.ConnectionName(), err)
 	}
 	defer apiclient.Close()
-	var statuses *api.UnitStatuses
-	switch c.outputContent {
-	case "combined", "agent", "workload":
-		statuses, err = apiclient.UnitStatusHistory(c.outputContent, c.unitName, c.backlogSize)
-	default:
-		return errors.Errorf("unexpected status type %q", c.outputContent)
-	}
+	var statuses *api.UnitStatusHistory
+	kind := params.HistoryKind(c.outputContent)
+	statuses, err = apiclient.UnitStatusHistory(kind, c.unitName, c.backlogSize)
 	if err != nil {
 		if len(statuses.Statuses) == 0 {
 			return errors.Trace(err)
@@ -82,12 +98,12 @@ func (c *StatusHistoryCommand) Run(ctx *cmd.Context) error {
 		// Display any error, but continue to print status if some was returned
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
 	} else if len(statuses.Statuses) == 0 {
-		return errors.Errorf("unable to obtain status history")
+		return errors.Errorf("no status history available")
 	}
 	table := [][]string{{"TIME", "TYPE", "STATUS", "MESSAGE"}}
 	lengths := []int{1, 1, 1, 1}
 	for _, v := range statuses.Statuses {
-		fields := []string{c.formatTime(v.Since), v.Kind, string(v.Status), v.Info}
+		fields := []string{formatStatusTime(v.Since, c.isoTime), string(v.Kind), string(v.Status), v.Info}
 		for k, v := range fields {
 			if len(v) > lengths[k] {
 				lengths[k] = len(v)
@@ -100,14 +116,4 @@ func (c *StatusHistoryCommand) Run(ctx *cmd.Context) error {
 		fmt.Printf(f, v[0], v[1], v[2], v[3])
 	}
 	return nil
-}
-
-func (c *StatusHistoryCommand) formatTime(t *time.Time) string {
-	if c.isoTime {
-		// If requested, use ISO time format
-		return t.Format(time.RFC3339)
-	} else {
-		// Otherwise use local time.
-		return t.Local().Format("02 Jan 2006 15:04:05 MST")
-	}
 }

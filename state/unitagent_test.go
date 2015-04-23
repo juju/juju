@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"fmt"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -20,16 +21,6 @@ type UnitAgentSuite struct {
 }
 
 var _ = gc.Suite(&UnitAgentSuite{})
-
-func (s *UnitAgentSuite) addPristineUnit(c *gc.C) *state.Unit {
-	uniqueCharm := s.AddTestingCharm(c, "mysql")
-	service := s.AddTestingService(c, "mysql", uniqueCharm)
-	unit, err := service.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-	err = state.EraseUnitHistory(unit)
-	c.Assert(err, jc.ErrorIsNil)
-	return unit
-}
 
 func (s *UnitAgentSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
@@ -153,15 +144,18 @@ func (s *UnitAgentSuite) TestSetAgentStatusSince(c *gc.C) {
 }
 
 func (s *UnitAgentSuite) TestSetUnitAgentStatusHistory(c *gc.C) {
-	unit := s.addPristineUnit(c)
-	agent := unit.Agent().(*state.UnitAgent)
-	err := agent.SetStatus(state.StatusIdle, "to push something to history", nil)
+	err := state.EraseUnitHistory(s.unit)
+	c.Assert(err, jc.ErrorIsNil)
+
+	agent := s.unit.Agent().(*state.UnitAgent)
+	globalKey := state.UnitAgentGlobalKey(agent)
+	err = agent.SetStatus(state.StatusIdle, "to push something to history", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err := agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, state.StatusIdle)
 
-	h, err := agent.StatusHistory(10)
+	h, err := state.StatusHistory(10, globalKey, s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(h, gc.HasLen, 1)
 	c.Assert(h[0].Status, gc.Equals, state.StatusAllocating)
@@ -179,7 +173,7 @@ func (s *UnitAgentSuite) TestSetUnitAgentStatusHistory(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, state.StatusExecuting)
 
-	h, err = agent.StatusHistory(10)
+	h, err = state.StatusHistory(10, globalKey, s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(h, gc.HasLen, 3)
 	var message string
@@ -195,6 +189,48 @@ func (s *UnitAgentSuite) TestSetUnitAgentStatusHistory(c *gc.C) {
 		}
 		c.Assert(h[i].Message, gc.Equals, message)
 	}
+}
+
+func (s *UnitAgentSuite) TestGetUnitAgentStatusHistory(c *gc.C) {
+	err := state.EraseUnitHistory(s.unit)
+	c.Assert(err, jc.ErrorIsNil)
+	agent := s.unit.Agent().(*state.UnitAgent)
+	globalKey := state.UnitAgentGlobalKey(agent)
+	begin := state.NowToTheSecond()
+	c.Logf("will use %q as base time", begin)
+	for i := 0; i < 100; i++ {
+		message := fmt.Sprintf("bogus message number %d", i)
+		c.Log("fill status history, attempt: %d", i)
+		updated := begin.Add(time.Duration(i) + time.Second)
+		statusDoc := state.StatusDoc{Status: state.StatusActive,
+			StatusInfo: message,
+			Updated:    &updated}
+		sdoc := state.NewStatusDoc(statusDoc)
+		err = state.UpdateStatusHistory(sdoc, globalKey, s.State)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	h, err := agent.StatusHistory(100)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(h, gc.HasLen, 100)
+	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
+	c.Assert(h[99].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[99].Message, gc.Equals, "bogus message number 99")
+	h, err = agent.StatusHistory(200)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(h, gc.HasLen, 100)
+	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
+	c.Assert(h[99].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[99].Message, gc.Equals, "bogus message number 99")
+	h, err = agent.StatusHistory(50)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(h, gc.HasLen, 50)
+	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
+	c.Assert(h[49].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[49].Message, gc.Equals, "bogus message number 49")
+
 }
 
 func (s *UnitAgentSuite) TestGetSetStatusDataMongo(c *gc.C) {

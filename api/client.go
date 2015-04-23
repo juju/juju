@@ -55,7 +55,7 @@ type AgentStatus struct {
 	Info    string
 	Data    map[string]interface{}
 	Since   *time.Time
-	Kind    string
+	Kind    params.HistoryKind
 	Version string
 	Life    string
 	Err     error
@@ -101,8 +101,8 @@ type ServiceStatus struct {
 	Status        AgentStatus
 }
 
-// UnitStatuses holds a slice of statuses.
-type UnitStatuses struct {
+// UnitStatusHistory holds a slice of statuses.
+type UnitStatusHistory struct {
 	Statuses []AgentStatus
 }
 
@@ -179,8 +179,8 @@ func (c *Client) Status(patterns []string) (*Status, error) {
 
 // UnitStatusHistory retrieves the last <size> results of <kind:combined|agent|workload> status
 // for <unitName> unit
-func (c *Client) UnitStatusHistory(kind, unitName string, size int) (*UnitStatuses, error) {
-	var results UnitStatuses
+func (c *Client) UnitStatusHistory(kind params.HistoryKind, unitName string, size int) (*UnitStatusHistory, error) {
+	var results UnitStatusHistory
 	args := params.StatusHistory{
 		Kind: kind,
 		Size: size,
@@ -189,9 +189,9 @@ func (c *Client) UnitStatusHistory(kind, unitName string, size int) (*UnitStatus
 	err := c.facade.FacadeCall("UnitStatusHistory", args, &results)
 	if err != nil {
 		if params.IsCodeNotImplemented(err) {
-			return &UnitStatuses{}, errors.NotImplementedf("UnitStatus")
+			return &UnitStatusHistory{}, errors.NotImplementedf("UnitStatus")
 		}
-		return &UnitStatuses{}, errors.Trace(err)
+		return &UnitStatusHistory{}, errors.Trace(err)
 	}
 	return &results, nil
 }

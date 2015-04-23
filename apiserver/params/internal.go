@@ -345,9 +345,15 @@ type SetStatus struct {
 	Entities []EntityStatus
 }
 
+type HistoryKind string
+
+var KindCombined HistoryKind = "combined"
+var KindAgent HistoryKind = "agent"
+var KindWorkload HistoryKind = "workload"
+
 // StatusHistory holds the parameters to filter a status history query.
 type StatusHistory struct {
-	Kind string
+	Kind HistoryKind
 	Size int
 	Name string
 }

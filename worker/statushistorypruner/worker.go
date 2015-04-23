@@ -36,6 +36,7 @@ type pruneWorker struct {
 	params *HistoryPrunerParams
 }
 
+// New returns a worker.Worker for history Pruner.
 func New(st *state.State, params *HistoryPrunerParams) worker.Worker {
 	w := &pruneWorker{
 		st:     st,

@@ -4,7 +4,9 @@
 package state_test
 
 import (
+	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -31,17 +33,6 @@ type UnitSuite struct {
 }
 
 var _ = gc.Suite(&UnitSuite{})
-
-func (s *UnitSuite) addPristineUnit(c *gc.C) *state.Unit {
-	uniqueCharm := s.AddTestingCharm(c, "mysql")
-	service := s.AddTestingService(c, "mysql", uniqueCharm)
-	unit, err := service.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-	err = state.EraseUnitHistory(unit)
-	c.Assert(err, jc.ErrorIsNil)
-	return unit
-
-}
 
 func (s *UnitSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
@@ -611,32 +602,35 @@ func (s *UnitSuite) TestSetUnitStatusSince(c *gc.C) {
 }
 
 func (s *UnitSuite) TestSetUnitStatusHistory(c *gc.C) {
-	unit := s.addPristineUnit(c)
-	err := unit.SetStatus(state.StatusMaintenance, "to push something to history", nil)
+	err := state.EraseUnitHistory(s.unit)
 	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err := unit.Status()
+	globalKey := state.UnitGlobalKey(s.unit)
+
+	err = s.unit.SetStatus(state.StatusMaintenance, "to push something to history", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	statusInfo, err := s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, state.StatusMaintenance)
 
-	h, err := unit.StatusHistory(10)
+	h, err := state.StatusHistory(10, globalKey, s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(h, gc.HasLen, 1)
 	c.Assert(h[0].Status, gc.Equals, state.StatusUnknown)
 	c.Assert(h[0].Message, gc.Equals, "Waiting for agent initialization to finish")
 
-	err = unit.SetStatus(state.StatusActive, "active message", nil)
+	err = s.unit.SetStatus(state.StatusActive, "active message", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err = unit.Status()
+	statusInfo, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, state.StatusActive)
 
-	err = unit.SetStatus(state.StatusUnknown, "really unknown status", nil)
+	err = s.unit.SetStatus(state.StatusUnknown, "really unknown status", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err = unit.Status()
+	statusInfo, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, state.StatusUnknown)
 
-	h, err = unit.StatusHistory(10)
+	h, err = state.StatusHistory(10, globalKey, s.State)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(h, gc.HasLen, 3)
@@ -653,6 +647,46 @@ func (s *UnitSuite) TestSetUnitStatusHistory(c *gc.C) {
 		}
 		c.Assert(h[i].Message, gc.Equals, message)
 	}
+}
+
+func (s *UnitSuite) TestGetUnitStatusHistory(c *gc.C) {
+	err := state.EraseUnitHistory(s.unit)
+	globalKey := state.UnitGlobalKey(s.unit)
+	begin := state.NowToTheSecond()
+	c.Logf("will use %q as base time", begin)
+	c.Assert(err, jc.ErrorIsNil)
+	for i := 0; i < 100; i++ {
+		message := fmt.Sprintf("bogus message number %d", i)
+		c.Logf("fill status history, attempt: %d", i)
+		updated := begin.Add(time.Duration(i) + time.Second)
+		statusDoc := state.StatusDoc{Status: state.StatusActive,
+			StatusInfo: message,
+			Updated:    &updated}
+		sdoc := state.NewStatusDoc(statusDoc)
+		err = state.UpdateStatusHistory(sdoc, globalKey, s.State)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	h, err := s.unit.StatusHistory(100)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(h, gc.HasLen, 100)
+	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
+	c.Assert(h[99].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[99].Message, gc.Equals, "bogus message number 99")
+	h, err = s.unit.StatusHistory(200)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(h, gc.HasLen, 100)
+	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
+	c.Assert(h[99].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[99].Message, gc.Equals, "bogus message number 99")
+	h, err = s.unit.StatusHistory(50)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(h, gc.HasLen, 50)
+	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
+	c.Assert(h[49].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[49].Message, gc.Equals, "bogus message number 49")
 
 }
 
