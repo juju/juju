@@ -263,6 +263,92 @@ func (s *discoverySuite) TestVersionInitSystemNoLegacyUpstart(c *gc.C) {
 	test.checkInitSystem(c, initSystem, ok)
 }
 
+func (s *discoverySuite) TestDiscoverLocalInitSystemMatchFirst(c *gc.C) {
+	service.PatchDiscoveryFuncs(s,
+		service.NewDiscoveryCheck("initA", true, nil),
+		service.NewDiscoveryCheck("initB", false, nil),
+	)
+
+	name, err := service.DiscoverLocalInitSystem()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(name, gc.Equals, "initA")
+}
+
+func (s *discoverySuite) TestDiscoverLocalInitSystemErrorFirst(c *gc.C) {
+	failure := errors.New("<failed>")
+	service.PatchDiscoveryFuncs(s,
+		service.NewDiscoveryCheck("initA", false, failure),
+		service.NewDiscoveryCheck("initB", true, nil),
+	)
+
+	name, err := service.DiscoverLocalInitSystem()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(name, gc.Equals, "initB")
+}
+
+func (s *discoverySuite) TestDiscoverLocalInitSystemMatchFirstError(c *gc.C) {
+	failure := errors.New("<failed>")
+	service.PatchDiscoveryFuncs(s,
+		service.NewDiscoveryCheck("initA", true, failure),
+		service.NewDiscoveryCheck("initB", false, nil),
+	)
+
+	name, err := service.DiscoverLocalInitSystem()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(name, gc.Equals, "initA")
+}
+
+func (s *discoverySuite) TestDiscoverLocalInitSystemMatchSecond(c *gc.C) {
+	service.PatchDiscoveryFuncs(s,
+		service.NewDiscoveryCheck("initA", false, nil),
+		service.NewDiscoveryCheck("initB", true, nil),
+	)
+
+	name, err := service.DiscoverLocalInitSystem()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(name, gc.Equals, "initB")
+}
+
+func (s *discoverySuite) TestDiscoverLocalInitSystemMatchNone(c *gc.C) {
+	service.PatchDiscoveryFuncs(s,
+		service.NewDiscoveryCheck("initA", false, nil),
+		service.NewDiscoveryCheck("initB", false, nil),
+	)
+
+	_, err := service.DiscoverLocalInitSystem()
+
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *discoverySuite) TestDiscoverLocalInitSystemErrorMixed(c *gc.C) {
+	failure := errors.New("<failed>")
+	service.PatchDiscoveryFuncs(s,
+		service.NewDiscoveryCheck("initA", false, failure),
+		service.NewDiscoveryCheck("initB", false, nil),
+	)
+
+	_, err := service.DiscoverLocalInitSystem()
+
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *discoverySuite) TestDiscoverLocalInitSystemErrorAll(c *gc.C) {
+	failureA := errors.New("<failed A>")
+	failureB := errors.New("<failed B>")
+	service.PatchDiscoveryFuncs(s,
+		service.NewDiscoveryCheck("initA", false, failureA),
+		service.NewDiscoveryCheck("initB", false, failureB),
+	)
+
+	_, err := service.DiscoverLocalInitSystem()
+
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *discoverySuite) TestDiscoverInitSystemScript(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("not supported on windows")
