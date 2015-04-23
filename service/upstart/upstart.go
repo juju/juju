@@ -39,27 +39,30 @@ func IsRunning() (bool, error) {
 		return false, nil
 	}
 
-	if _, err := os.Stat(initctlPath); os.IsNotExist(err) {
-		return false, nil
-	} else if err != nil {
-		return false, errors.Trace(err)
-	}
+	// TODO(ericsnow) This function should be fixed to precisely match
+	// the equivalent shell script line in service/discovery.go.
 
 	cmd := exec.Command(initctlPath, "--system", "list")
-	switch err := cmd.Run().(type) {
-	case *exec.ExitError:
-		logger.Debugf("exec %q failed: %#v", initctlPath, err)
-		if err.Error() == "exit status 1" {
+	_, err := cmd.CombinedOutput()
+	if err == nil {
+		return true, nil
+	}
+
+	msg := fmt.Sprintf("exec %q failed", initctlPath)
+	if os.IsNotExist(err) {
+		// Executable could not be found, go 1.3 and later
+		return false, nil
+	}
+	if execErr, ok := err.(*exec.Error); ok {
+		// Executable could not be found, go 1.2
+		if os.IsNotExist(execErr.Err) || execErr.Err == exec.ErrNotFound {
 			return false, nil
 		}
-		return false, errors.Trace(err)
-	default:
-		if err != nil {
-			logger.Debugf("exec %q failed: %#v", initctlPath, err)
-			return false, errors.Trace(err)
-		}
 	}
-	return true, nil
+	// Note: initctl will fail if upstart is installed but not running.
+	// The error message will be:
+	//   Name "com.ubuntu.Upstart" does not exist
+	return false, errors.Annotatef(err, msg)
 }
 
 // ListServices returns the name of all installed services on the

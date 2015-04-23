@@ -113,6 +113,7 @@ func discoverLocalInitSystem() (string, error) {
 		if err != nil {
 			logger.Errorf("failed to find init system %q: %v", check.name, err)
 		}
+		// We expect that in error cases "local" will be false.
 		if local {
 			logger.Debugf("discovered init system %q from local host", check.name)
 			return check.name, nil
