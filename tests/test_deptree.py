@@ -196,11 +196,10 @@ class DepTreeTestCase(TestCase):
 
     def test_get_args(self):
         args = get_args(
-            ['-d', '-v', '-i', 'foo:git:rev', './bar', 'baz', 'qux'])
+            ['-d', '-v', '-i', 'foo:git:rev', 'baz', 'qux'])
         self.assertTrue(args.verbose)
         self.assertTrue(args.dry_run)
         self.assertEqual([Dependency('foo', 'git', 'rev')], args.include)
-        self.assertEqual('./bar', args.srcdir)
         self.assertEqual(['baz', 'qux'], args.dep_files)
 
     def test_main(self):
@@ -210,7 +209,7 @@ class DepTreeTestCase(TestCase):
         df_mock.pin_deps.return_value = None
         with patch('deptree.DependencyFile',
                    autospec=True, return_value=df_mock) as init_mock:
-            main(['foo', 'bar', 'baz'])
+            main(['bar', 'baz'])
         init_mock.assert_called_once_with(['bar', 'baz'])
         df_mock.include_deps.assert_called_once_with([])
         df_mock.pin_deps.assert_called_once_with()
