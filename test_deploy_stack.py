@@ -591,8 +591,11 @@ class TestTestUpgrade(TestCase):
         with patch('subprocess.check_output', side_effect=self.upgrade_output,
                    autospec=True) as co_mock:
             with patch('subprocess.check_call', autospec=True) as cc_mock:
-                    with patch('sys.stdout', autospec=True):
-                        yield (co_mock, cc_mock)
+                    with patch('deploy_stack.check_token', autospec=True):
+                        with patch('deploy_stack.get_random_string',
+                                   return_value="FAKETOKEN", autospec=True):
+                            with patch('sys.stdout', autospec=True):
+                                yield (co_mock, cc_mock)
 
     def test_assess_upgrade(self):
         env = SimpleEnvironment('foo', {'type': 'foo'})
@@ -602,7 +605,11 @@ class TestTestUpgrade(TestCase):
         new_client = EnvJujuClient(env, None, '/bar/juju')
         assert_juju_call(self, cc_mock, new_client, (
             'juju', '--show-log', 'upgrade-juju', '-e', 'foo', '--version',
-            '1.38'))
+            '1.38'), 0)
+        assert_juju_call(self, cc_mock, new_client, (
+            'juju', '--show-log', 'set', '-e', 'foo', 'dummy-source',
+            'token=FAKETOKEN'), 1)
+        self.assertEqual(cc_mock.call_count, 2)
         self.assertEqual(co_mock.mock_calls[0], call(self.VERSION))
         assert_juju_call(self, co_mock, new_client, self.GET_ENV, 1,
                          assign_stderr=True)

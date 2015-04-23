@@ -14,7 +14,6 @@ import string
 import subprocess
 import sys
 import time
-from time import sleep
 import json
 import shutil
 
@@ -25,7 +24,6 @@ from jujuconfig import (
     translate_to_env,
 )
 from jujupy import (
-    bootstrap_from_env,
     EnvJujuClient,
     get_local_root,
     SimpleEnvironment,
@@ -118,7 +116,7 @@ def run_instances(count, job_name):
         except subprocess.CalledProcessError:
             subprocess.call(['euca-terminate-instances'] + machine_ids)
             raise
-        sleep(1)
+        time.sleep(1)
 
 
 def deploy_dummy_stack(client, charm_prefix):
@@ -141,38 +139,51 @@ def deploy_dummy_stack(client, charm_prefix):
     check_token(client, token)
 
 
+GET_TOKEN_SCRIPT = """
+        for x in $(seq 120); do
+          if [ -f /var/run/dummy-sink/token ]; then
+            if [ "$(cat /var/run/dummy-sink/token)" != "" ]; then
+              break
+            fi
+          fi
+          sleep 1
+        done
+        cat /var/run/dummy-sink/token
+    """
+
+
 def check_token(client, token):
     # Wait up to 120 seconds for token to be created.
     # Utopic is slower, maybe because the devel series gets more
     # package updates.
     logging.info('Retrieving token.')
-    cat_script = 'cat /var/run/dummy-sink/token'
     fallback = False
     start = time.time()
     while True:
         if not fallback:
             try:
                 result = client.get_juju_output('ssh', 'dummy-sink/0',
-                                                cat_script)
+                                                GET_TOKEN_SCRIPT)
             except subprocess.CalledProcessError as err:
                 print("WARNING: juju ssh failed: {}".format(str(err)))
                 print("Falling back to ssh.")
                 fallback = True
         if fallback:
             dummy_sink = client.get_status().status['services']['dummy-sink']
-            dummy_sink_ip = dummy_sink['units']['dummy-sink/0']['public-address']
-            user_at_host = 'ubuntu@{}'.format(dummy_sink_ip)
+            address = dummy_sink['units']['dummy-sink/0']['public-address']
+            user_at_host = 'ubuntu@{}'.format(address)
             result = subprocess.check_output(
                 ['ssh', user_at_host,
                  '-o', 'UserKnownHostsFile /dev/null',
                  '-o', 'StrictHostKeyChecking no',
-                 cat_script])
+                 'cat /var/run/dummy-sink/token'])
         result = re.match(r'([^\n\r]*)\r?\n?', result).group(1)
         if result == token:
+            logging.info("Token matches expected %r", result)
             return
         if time.time() - start > 120:
             raise ValueError('Token is %r' % result)
-        logging.info("Got token %r expected %r", result, token)
+        logging.info("Found token %r expected %r", result, token)
         time.sleep(5)
 
 
@@ -320,6 +331,7 @@ def assess_juju_run(client):
                              machine.get('MachineId'),
                              machine.get('ReturnCode'),
                              machine.get('Stderr')))
+    logging.info("juju run after upgrade succeeded: %r", responses)
     return responses
 
 
@@ -333,6 +345,9 @@ def assess_upgrade(old_client, juju_path):
         timeout = 600
     client.wait_for_version(client.get_matching_agent_version(), timeout)
     assess_juju_run(client)
+    token = get_random_string()
+    client.juju('set', ('dummy-source', 'token=%s' % token))
+    check_token(client, token)
 
 
 def upgrade_juju(client):
@@ -532,7 +547,7 @@ def boot_context(job_name, client, bootstrap_host, machines, series,
     finally:
         if client.env.config['type'] == 'maas' and not keep_env:
             logging.info("Waiting for destroy-environment to complete")
-            sleep(90)
+            time.sleep(90)
             for machine, running in running_domains.items():
                 name, URI = machine.split('@')
                 if running:
@@ -567,9 +582,6 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
         if upgrade:
             client.juju('status', ())
             assess_upgrade(client, juju_path)
-            token = get_random_string()
-            client.juju('set', ('dummy-source', 'token=%s' % token))
-            check_token(client, token)
 
 
 def run_deployer():
