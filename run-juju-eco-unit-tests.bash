@@ -38,7 +38,6 @@ PACKAGE=$(basename $ECO_PROJECT)
 # Assemble the eco project.
 mkdir -p $ECO_PATH
 cd $ECO_PATH
-# XXX sinzui 2015-04-22: When not $JUJU_BUILD, this needs to pull upstream.
 git clone $ECO_BRANCH $PACKAGE
 cd $PACKAGE
 git checkout origin/master
