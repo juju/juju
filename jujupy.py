@@ -799,10 +799,10 @@ class GroupReporter:
                 continue
             value_listing.append('%s: %s' % (value, ', '.join(entries)))
         string = ' | '.join(value_listing)
+        lead_length = len(string) + 1
         if self.last_group:
             string = "\n" + string
         self._write(string)
         self.last_group = group
         self.ticks = 0
-        lead_length = len(string) + 1
         self.wrap_offset = lead_length if lead_length < self.wrap_width else 0

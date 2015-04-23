@@ -1903,3 +1903,26 @@ working: 1 ....................................................................
         ])
         reporter.finish()
         self.assertEqual(sio.getvalue(), changes[-1] + "\n")
+
+    def test_wrap_to_width_multiple_groups(self):
+        sio = StringIO.StringIO()
+        reporter = GroupReporter(sio, "done")
+        reporter.wrap_width = 16
+        self.assertEqual(sio.getvalue(), "")
+        changes = []
+        for _ in range(6):
+            reporter.update({"working": ["1", "2"]})
+            changes.append(sio.getvalue())
+        for _ in range(10):
+            reporter.update({"working": ["1"], "done": ["2"]})
+            changes.append(sio.getvalue())
+        self.assertEqual(changes[::4], [
+            "working: 1, 2",
+            "working: 1, 2 ..\n..",
+            "working: 1, 2 ..\n...\n"
+            "working: 1 ..",
+            "working: 1, 2 ..\n...\n"
+            "working: 1 .....\n.",
+        ])
+        reporter.finish()
+        self.assertEqual(sio.getvalue(), changes[-1] + "\n")
