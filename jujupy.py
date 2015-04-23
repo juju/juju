@@ -39,6 +39,8 @@ from utility import (
 
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
+JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
+
 
 class ErroredUnit(Exception):
 
@@ -154,6 +156,8 @@ class EnvJujuClient:
             full_path = os.path.abspath(juju_path)
         if version.startswith('1.16'):
             raise Exception('Unsupported juju: %s' % version)
+        elif re.match('^1\.24[.-]', version):
+            return EnvJujuClient24(env, version, full_path, debug=debug)
         else:
             return EnvJujuClient(env, version, full_path, debug=debug)
 
@@ -459,6 +463,19 @@ class EnvJujuClient:
         backup_file_path = os.path.abspath(backup_file_name)
         print_now("State-Server backup at %s" % backup_file_path)
         return backup_file_path
+
+
+class EnvJujuClient24(EnvJujuClient):
+
+    def _shell_environ(self, juju_home=None):
+        """Generate a suitable shell environment.
+
+        Juju's directory must be in the PATH to support plugins.
+        """
+        env = super(EnvJujuClient24, self)._shell_environ()
+        if self.env.config.get('type') == 'cloudsigma':
+            env[JUJU_DEV_FEATURE_FLAGS] = 'cloudsigma'
+        return env
 
 
 def get_local_root(juju_home, env):
