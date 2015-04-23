@@ -4,14 +4,17 @@
 package vmware
 
 import (
+	"archive/tar"
 	"encoding/base64"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strings"
+	"os"
+	"path"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/progress"
 	"github.com/vmware/govmomi/vim25/soap"
@@ -33,27 +36,27 @@ This file contains implementation of the process of importing OVF template using
 */
 
 //this type implements progress.Sinker interface, that is requred to obtain the status of uploading an item to vspehere
-type ovfFileItem struct {
+type ovaFileItem struct {
 	url  *url.URL
 	item types.OvfFileItem
 	ch   chan progress.Report
 }
 
-func (o ovfFileItem) Sink() chan<- progress.Report {
+func (o ovaFileItem) Sink() chan<- progress.Report {
 	return o.ch
 }
 
-type ovfImportManager struct {
+type ovaImportManager struct {
 	client *client
 }
 
-func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hwc *instance.HardwareCharacteristics, img *OvfFileMetadata, userData []byte, sshKey string, isState bool) (*object.VirtualMachine, error) {
+func (m *ovaImportManager) importOva(machineID string, zone *vmwareAvailZone, hwc *instance.HardwareCharacteristics, img *OvaFileMetadata, userData []byte, sshKey string, isState bool) (*object.VirtualMachine, error) {
 	folders, err := m.client.datacenter.Folders(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	ovf, err := m.downloadOvf(img.Url)
+	ovf, path, err := m.downloadOva(img.Url)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -89,13 +92,14 @@ func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hw
 	}
 	for _, d := range s.DeviceChange {
 		if disk, ok := d.GetVirtualDeviceConfigSpec().Device.(*types.VirtualDisk); ok {
-			disk.CapacityInKB = int64(*hwc.RootDisk * 1024)
-		}
-		//Set UnitNumber to -1 if it is unset in ovf file template (in this case it is parces as 0)
-		//but 0 causes an error for some devices
-		n := &d.GetVirtualDeviceConfigSpec().Device.GetVirtualDevice().UnitNumber
-		if *n == 0 {
-			*n = -1
+			if disk.CapacityInKB < int64(*hwc.RootDisk*1024) {
+				disk.CapacityInKB = int64(*hwc.RootDisk * 1024)
+			}
+			//Set UnitNumber to -1 if it is unset in ovf file template (in this case it is parces as 0)
+			//but 0 causes an error for disk devices
+			if disk.UnitNumber == 0 {
+				disk.UnitNumber = -1
+			}
 		}
 	}
 	rp := object.NewResourcePool(m.client.connection.Client, *zone.r.ResourcePool)
@@ -108,7 +112,7 @@ func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hw
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	items := []ovfFileItem{}
+	items := []ovaFileItem{}
 	for _, device := range info.DeviceUrl {
 		for _, item := range spec.FileItem {
 			if device.ImportKey != item.DeviceId {
@@ -120,7 +124,7 @@ func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hw
 				return nil, errors.Trace(err)
 			}
 
-			i := ovfFileItem{
+			i := ovaFileItem{
 				url:  u,
 				item: item,
 				ch:   make(chan progress.Report),
@@ -130,8 +134,7 @@ func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hw
 	}
 
 	for _, i := range items {
-		ind := strings.LastIndex(img.Url, "/")
-		err = m.uploadImage(i, img.Url[:ind])
+		err = m.uploadImage(i, path)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -140,27 +143,99 @@ func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hw
 	return object.NewVirtualMachine(m.client.connection.Client, info.Entity), nil
 }
 
-func (m *ovfImportManager) downloadOvf(url string) (string, error) {
-	logger.Debugf("Downloading ovf file from url: %s", url)
+func (m *ovaImportManager) downloadOva(url string) (string, string, error) {
+	logger.Debugf("Downloading ova file from url: %s", url)
 	resp, err := http.Get(url)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", "", errors.Trace(err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("can't download ovf file from url: %s, status: %s", url, resp.StatusCode)
+		return "", "", errors.Errorf("can't download ova file from url: %s, status: %s", url, resp.StatusCode)
 	}
-	bytes, err := ioutil.ReadAll(resp.Body)
+
+	basePath, err := m.prepareTmpStorage()
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", "", errors.Trace(err)
 	}
-	return string(bytes), nil
+	ovfFileName, err := m.extractOva(basePath, resp.Body)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+
+	file, err := os.Open(path.Join(basePath, ovfFileName))
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	bytes, err := ioutil.ReadAll(file)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	return string(bytes), basePath, nil
 }
 
-func (m *ovfImportManager) uploadImage(ofi ovfFileItem, baseUrl string) error {
-	f, err := m.downloadFileItem(strings.Join([]string{baseUrl, ofi.item.Path}, "/"))
+func (m *ovaImportManager) extractOva(basePath string, body io.Reader) (string, error) {
+	logger.Debugf("Extracting ova to path: %s", basePath)
+	tarBallReader := tar.NewReader(body)
+	var ovfFileName string
+
+	for {
+		header, err := tarBallReader.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return "", errors.Trace(err)
+		}
+		filename := header.Name
+		if path.Ext(filename) == ".ovf" {
+			ovfFileName = filename
+		}
+		logger.Debugf("Writing file %s", filename)
+		err = func() error {
+			writer, err := os.Create(path.Join(basePath, filename))
+			defer writer.Close()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			_, err = io.Copy(writer, tarBallReader)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			return nil
+		}()
+		if err != nil {
+			return "", err
+		}
+	}
+	if ovfFileName == "" {
+		return "", errors.Errorf("no ovf file found in the archive")
+	}
+	logger.Debugf("Ova extracted successfully")
+	return ovfFileName, nil
+}
+
+func (m *ovaImportManager) prepareTmpStorage() (string, error) {
+	path := path.Join(osenv.JujuHome(), "tmp")
+
+	logger.Debugf("prepare %q for tmp storage", path)
+	logger.Debugf("  removing all...")
+	if err := os.RemoveAll(path); err != nil {
+		return "", errors.Errorf("create tmp storage (RemoveAll): %v", err)
+	}
+	logger.Debugf("  creating tmp storage...")
+	if err := os.MkdirAll(path, 0755); err != nil {
+		return "", errors.Errorf("create tmp storage (MkdirAll): %v", err)
+	}
+	return path, nil
+}
+
+func (m *ovaImportManager) uploadImage(ofi ovaFileItem, basePath string) error {
+	filepath := path.Join(basePath, ofi.item.Path)
+	logger.Debugf("Uploading item from path: %s", filepath)
+	f, err := os.Open(filepath)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	defer f.Close()
@@ -191,19 +266,4 @@ func (m *ovfImportManager) uploadImage(ofi ovfFileItem, baseUrl string) error {
 	}
 
 	return err
-}
-
-func (m *ovfImportManager) downloadFileItem(url string) (io.ReadCloser, error) {
-	logger.Debugf("Downloading file from url %s", url)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if resp.StatusCode != 200 {
-		resp.Body.Close()
-		return nil, errors.Errorf("can't download file from url: %s, status: %s", url, resp.StatusCode)
-	}
-
-	return resp.Body, nil
 }
