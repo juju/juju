@@ -306,7 +306,7 @@ func (f *fakeUnitAgent) Tag() names.Tag {
 	return names.NewUnitTag(f.unitName)
 }
 
-func (f *fakeUnitAgent) ChangeConfig(agentcmd.AgentConfigMutator) error {
+func (f *fakeUnitAgent) ChangeConfig(agent.ConfigMutator) error {
 	panic("fakeUnitAgent.ChangeConfig called unexpectedly")
 }
 

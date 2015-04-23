@@ -149,9 +149,9 @@ type AgentInitializer interface {
 type AgentConfigWriter interface {
 	// ReadConfig reads the config for the given tag from disk.
 	ReadConfig(tag string) error
-	// ChangeConfig executes the given AgentConfigMutator in a
+	// ChangeConfig executes the given agent.ConfigMutator in a
 	// thread-safe context.
-	ChangeConfig(AgentConfigMutator) error
+	ChangeConfig(agent.ConfigMutator) error
 	// CurrentConfig returns a copy of the in-memory agent config.
 	CurrentConfig() agent.Config
 }
@@ -453,7 +453,7 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	return worker.ErrRebootMachine
 }
 
-func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
+func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	err := a.AgentConfigWriter.ChangeConfig(mutate)
 	a.configChangedVal.Set(struct{}{})
 	if err != nil {
@@ -1049,6 +1049,8 @@ func (a *MachineAgent) startEnvWorkers(
 	}()
 
 	// Start workers that depend on a *state.State.
+	// TODO(fwereade): 2015-04-21 THIS SHALL NOT PASS
+	// Seriously, these should all be using the API.
 	runner.StartWorker("instancepoller", func() (worker.Worker, error) {
 		return instancepoller.NewWorker(st), nil
 	})
