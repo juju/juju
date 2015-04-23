@@ -13,6 +13,7 @@ import re
 import string
 import subprocess
 import sys
+import time
 from time import sleep
 import json
 import shutil
@@ -140,41 +141,39 @@ def deploy_dummy_stack(client, charm_prefix):
     check_token(client, token)
 
 
-GET_TOKEN_SCRIPT = """
-        for x in $(seq 120); do
-          if [ -f /var/run/dummy-sink/token ]; then
-            if [ "$(cat /var/run/dummy-sink/token)" != "" ]; then
-              break
-            fi
-          fi
-          sleep 1
-        done
-        cat /var/run/dummy-sink/token
-    """
-
-
 def check_token(client, token):
     # Wait up to 120 seconds for token to be created.
     # Utopic is slower, maybe because the devel series gets more
     # package updates.
     logging.info('Retrieving token.')
-    try:
-        result = client.get_juju_output('ssh', 'dummy-sink/0',
-                                        GET_TOKEN_SCRIPT)
-    except subprocess.CalledProcessError as err:
-        print("WARNING: juju ssh failed: {}".format(str(err)))
-        print("Falling back to ssh.")
-        dummy_sink = client.get_status().status['services']['dummy-sink']
-        dummy_sink_ip = dummy_sink['units']['dummy-sink/0']['public-address']
-        user_at_host = 'ubuntu@{}'.format(dummy_sink_ip)
-        result = subprocess.check_output(
-            ['ssh', user_at_host,
-             '-o', 'UserKnownHostsFile /dev/null',
-             '-o', 'StrictHostKeyChecking no',
-             'cat /var/run/dummy-sink/token'])
-    result = re.match(r'([^\n\r]*)\r?\n?', result).group(1)
-    if result != token:
-        raise ValueError('Token is %r' % result)
+    cat_script = 'cat /var/run/dummy-sink/token'
+    fallback = False
+    start = time.time()
+    while True:
+        if not fallback:
+            try:
+                result = client.get_juju_output('ssh', 'dummy-sink/0',
+                                                cat_script)
+            except subprocess.CalledProcessError as err:
+                print("WARNING: juju ssh failed: {}".format(str(err)))
+                print("Falling back to ssh.")
+                fallback = True
+        if fallback:
+            dummy_sink = client.get_status().status['services']['dummy-sink']
+            dummy_sink_ip = dummy_sink['units']['dummy-sink/0']['public-address']
+            user_at_host = 'ubuntu@{}'.format(dummy_sink_ip)
+            result = subprocess.check_output(
+                ['ssh', user_at_host,
+                 '-o', 'UserKnownHostsFile /dev/null',
+                 '-o', 'StrictHostKeyChecking no',
+                 cat_script])
+        result = re.match(r'([^\n\r]*)\r?\n?', result).group(1)
+        if result == token:
+            return
+        if time.time() - start > 120:
+            raise ValueError('Token is %r' % result)
+        logging.info("Got token %r expected %r", result, token)
+        time.sleep(5)
 
 
 def get_random_string():
