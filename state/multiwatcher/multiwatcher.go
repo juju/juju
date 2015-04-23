@@ -144,6 +144,15 @@ func (i *MachineInfo) EntityId() EntityId {
 	}
 }
 
+type StatusInfo struct {
+	Err     error
+	Current Status
+	Message string
+	Since   *time.Time
+	Version string
+	Data    map[string]interface{}
+}
+
 type ServiceInfo struct {
 	Name        string `bson:"_id"`
 	Exposed     bool
@@ -154,6 +163,7 @@ type ServiceInfo struct {
 	Constraints constraints.Value
 	Config      map[string]interface{}
 	Subordinate bool
+	Status      StatusInfo
 }
 
 func (i *ServiceInfo) EntityId() EntityId {
@@ -173,10 +183,14 @@ type UnitInfo struct {
 	MachineId      string
 	Ports          []network.Port
 	PortRanges     []network.PortRange
-	Status         Status
-	StatusInfo     string
-	StatusData     map[string]interface{}
 	Subordinate    bool
+	// The following 3 status values are deprecated.
+	Status     Status
+	StatusInfo string
+	StatusData map[string]interface{}
+	// Workload and agent state are modelled separately.
+	WorkloadStatus StatusInfo
+	AgentStatus    StatusInfo
 }
 
 func (i *UnitInfo) EntityId() EntityId {
