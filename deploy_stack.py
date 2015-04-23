@@ -24,7 +24,6 @@ from jujuconfig import (
     translate_to_env,
 )
 from jujupy import (
-    bootstrap_from_env,
     EnvJujuClient,
     get_local_root,
     SimpleEnvironment,

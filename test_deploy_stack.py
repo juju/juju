@@ -730,7 +730,7 @@ class TestBootContext(TestCase):
             'foo', {'type': 'paas'}), '1.23', 'path')
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                         return_value='foo'))
-        c_mock = self.addContext(patch('subprocess.call'))
+        self.addContext(patch('subprocess.call'))
         with boot_context('bar', client, None, [], None, None, None,
                           keep_env=False, upload_tools=True):
             pass
