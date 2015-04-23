@@ -29,10 +29,12 @@ from jujupy import (
     CannotConnectEnv,
     Environment,
     EnvJujuClient,
+    EnvJujuClient24,
     ErroredUnit,
     GroupReporter,
     get_local_root,
     JujuClientDevel,
+    JUJU_DEV_FEATURE_FLAGS,
     SimpleEnvironment,
     Status,
     temp_bootstrap_env,
@@ -69,12 +71,32 @@ class TestErroredUnit(TestCase):
         self.assertEqual('bar is in state baz', str(e))
 
 
-class TestEnvJujuClient(TestCase):
+class ClientTest(TestCase):
 
     def setUp(self):
+        super(ClientTest, self).setUp()
         patcher = patch('jujupy.pause')
         self.addCleanup(patcher.stop)
         self.pause_mock = patcher.start()
+
+
+class TestEnvJujuClient24(ClientTest):
+
+    def test__shell_environ_not_cloudsigma(self):
+        client = EnvJujuClient24(
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.24-foobar', 'path')
+        env = client._shell_environ()
+        self.assertEqual(env.get(JUJU_DEV_FEATURE_FLAGS, ''), '')
+
+    def test__shell_environ_cloudsigma(self):
+        client = EnvJujuClient24(
+            SimpleEnvironment('baz', {'type': 'cloudsigma'}),
+            '1.24-foobar', 'path')
+        env = client._shell_environ()
+        self.assertEqual(env[JUJU_DEV_FEATURE_FLAGS], 'cloudsigma')
+
+
+class TestEnvJujuClient(ClientTest):
 
     def test_get_version(self):
         value = ' 5.6 \n'
@@ -127,6 +149,9 @@ class TestEnvJujuClient(TestCase):
             yield '1.16'
             yield '1.16.1'
             yield '1.15'
+            yield '1.24-alpha1'
+            yield '1.24.7'
+            yield '1.25.1'
 
         context = patch.object(
             EnvJujuClient, 'get_version',
@@ -142,6 +167,15 @@ class TestEnvJujuClient(TestCase):
             client = EnvJujuClient.by_version(None)
             self.assertIs(EnvJujuClient, type(client))
             self.assertEqual('1.15', client.version)
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient24)
+            self.assertEqual(client.version, '1.24-alpha1')
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient24)
+            self.assertEqual(client.version, '1.24.7')
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '1.25.1')
 
     def test_by_version_path(self):
         with patch('subprocess.check_output', return_value=' 4.3') as vsn:
@@ -328,6 +362,13 @@ class TestEnvJujuClient(TestCase):
         self.assertEqual(
             sco_mock.call_args[0][0],
             ('timeout', '5.00s', 'juju', '--show-log', 'bar', '-e', 'foo'))
+
+    def test__shell_environ_cloudsigma(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('baz', {'type': 'cloudsigma'}),
+            '1.24-foobar', 'path')
+        env = client._shell_environ()
+        self.assertEqual(env.get(JUJU_DEV_FEATURE_FLAGS, ''), '')
 
     def test_juju_output_supplies_path(self):
         env = Environment('foo', '')
