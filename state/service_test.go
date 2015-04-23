@@ -325,7 +325,7 @@ func (s *ServiceSuite) TestSetCharmWithDyingService(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ServiceSuite) TestUniqueUnitIds(c *gc.C) {
+func (s *ServiceSuite) TestSequenceUnitIdsAfterDestroy(c *gc.C) {
 	unit, err := s.mysql.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/0")
@@ -334,6 +334,15 @@ func (s *ServiceSuite) TestUniqueUnitIds(c *gc.C) {
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.mysql = s.AddTestingService(c, "mysql", s.charm)
+	unit, err = s.mysql.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Name(), gc.Equals, "mysql/1")
+}
+
+func (s *ServiceSuite) TestSequenceUnitIds(c *gc.C) {
+	unit, err := s.mysql.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Name(), gc.Equals, "mysql/0")
 	unit, err = s.mysql.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/1")
