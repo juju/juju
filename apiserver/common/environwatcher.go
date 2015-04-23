@@ -70,11 +70,11 @@ func (e *EnvironWatcher) EnvironConfig() (params.EnvironConfigResult, error) {
 		// Delete the code below and mark the bug as fixed,
 		// once it's live tested on MAAS and 1.16 compatibility
 		// is dropped.
-		env, err := environs.New(config)
+		provider, err := environs.Provider(config.Type())
 		if err != nil {
 			return result, err
 		}
-		secretAttrs, err := env.Provider().SecretAttrs(config)
+		secretAttrs, err := provider.SecretAttrs(config)
 		for k := range secretAttrs {
 			allAttrs[k] = "not available"
 		}
