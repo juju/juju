@@ -421,7 +421,7 @@ func (s *IsRunningSuite) TestUpstartInstalledButBroken(c *gc.C) {
 func (s *IsRunningSuite) TestUpstartInstalledButNotRunning(c *gc.C) {
 	const stderr = `Name "com.ubuntu.Upstart" does not exist`
 	const errorCode = 1
-	s.createInitctl(c, "", errorCode, modeExecutable)
+	s.createInitctl(c, stderr, errorCode, modeExecutable)
 
 	isUpstart, err := upstart.IsRunning()
 	c.Assert(isUpstart, jc.IsFalse)
