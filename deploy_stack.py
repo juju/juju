@@ -568,6 +568,9 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, bootstrap_host,
         if upgrade:
             client.juju('status', ())
             assess_upgrade(client, juju_path)
+            token = get_random_string()
+            client.juju('set', ('dummy-source', 'token=%s' % token))
+            check_token(client, token)
 
 
 def run_deployer():
