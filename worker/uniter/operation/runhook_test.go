@@ -177,7 +177,7 @@ func (s *RunHookSuite) testExecuteLockError(c *gc.C, newHook newHook) {
 	newState, err := op.Execute(operation.State{})
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "blart")
-	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running hook some-hook-name")
+	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running some-hook-name hook")
 }
 
 func (s *RunHookSuite) TestExecuteLockError_Run(c *gc.C) {
@@ -215,7 +215,7 @@ func (s *RunHookSuite) testExecuteMissingHookError(c *gc.C, newHook newHook) {
 		Step: operation.Done,
 		Hook: &hook.Info{Kind: hooks.ConfigChanged},
 	})
-	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running hook some-hook-name")
+	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running some-hook-name hook")
 	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
 	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
 	c.Assert(callbacks.MockNotifyHookCompleted.gotName, gc.IsNil)
@@ -243,7 +243,7 @@ func (s *RunHookSuite) testExecuteRequeueRebootError(c *gc.C, newHook newHook) {
 		Step: operation.Queued,
 		Hook: &hook.Info{Kind: hooks.ConfigChanged},
 	})
-	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running hook some-hook-name")
+	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running some-hook-name hook")
 	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
 	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookCompleted.gotName, gc.Equals, "some-hook-name")
@@ -272,7 +272,7 @@ func (s *RunHookSuite) testExecuteRebootError(c *gc.C, newHook newHook) {
 		Step: operation.Done,
 		Hook: &hook.Info{Kind: hooks.ConfigChanged},
 	})
-	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running hook some-hook-name")
+	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running some-hook-name hook")
 	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
 	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookCompleted.gotName, gc.Equals, "some-hook-name")
@@ -297,7 +297,7 @@ func (s *RunHookSuite) testExecuteOtherError(c *gc.C, newHook newHook) {
 	newState, err := op.Execute(operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrHookFailed)
 	c.Assert(newState, gc.IsNil)
-	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running hook some-hook-name")
+	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running some-hook-name hook")
 	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
 	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookFailed.gotName, gc.Equals, "some-hook-name")
@@ -325,7 +325,7 @@ func (s *RunHookSuite) testExecuteSuccess(
 	newState, err := op.Execute(*midState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.DeepEquals, &after)
-	c.Check(callbacks.executingMessage, gc.Equals, "running hook some-hook-name")
+	c.Check(callbacks.executingMessage, gc.Equals, "running some-hook-name hook")
 }
 
 func (s *RunHookSuite) TestExecuteSuccess_BlankSlate(c *gc.C) {

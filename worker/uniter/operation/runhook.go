@@ -63,10 +63,15 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 	}.apply(state), nil
 }
 
+// RunningHookMessage returns the info message to print when running a hook.
+func RunningHookMessage(hookName string) string {
+	return fmt.Sprintf("running %s hook", hookName)
+}
+
 // Execute runs the hook.
 // Execute is part of the Operation interface.
 func (rh *runHook) Execute(state State) (*State, error) {
-	message := fmt.Sprintf("running hook %s", rh.name)
+	message := RunningHookMessage(rh.name)
 	unlock, err := rh.callbacks.AcquireExecutionLock(message)
 	if err != nil {
 		return nil, err

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/worker/uniter/operation"
 )
 
 // FullStatus gives the information needed for juju status over the api
@@ -692,13 +694,21 @@ func processUnitStatus(unit *state.Unit) (agentStatus, workloadStatus api.AgentS
 	return
 }
 
-// processUnitLost determines whether the given unit should be marked as lost.
-func processUnitLost(unit *state.Unit, status *api.UnitStatus) {
+func canBeLost(status *api.UnitStatus) bool {
 	// Pending and Installing are deprecated.
 	// Need to still check pending for existing deployments.
-	if status.UnitAgent.Status == params.StatusPending ||
-		status.UnitAgent.Status == params.StatusInstalling ||
-		status.UnitAgent.Status == params.StatusAllocating {
+	switch status.UnitAgent.Status {
+	case params.StatusPending, params.StatusInstalling, params.StatusAllocating:
+		return false
+	case params.StatusExecuting:
+		return status.UnitAgent.Info != operation.RunningHookMessage(string(hooks.Install))
+	}
+	return true
+}
+
+// processUnitLost determines whether the given unit should be marked as lost.
+func processUnitLost(unit *state.Unit, status *api.UnitStatus) {
+	if !canBeLost(status) {
 		// The status is allocating or installing - there's no point
 		// in enquiring about the agent liveness.
 		return

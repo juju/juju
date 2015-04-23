@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/keyupdater"
-	apileadership "github.com/juju/juju/api/leadership"
 	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/networker"
@@ -29,7 +28,6 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/leadership"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/version"
 )
@@ -259,13 +257,6 @@ func (st *State) Uniter() (*uniter.State, error) {
 		return nil, errors.Errorf("expected UnitTag, got %T %v", st.authTag, st.authTag)
 	}
 	return uniter.NewState(st, unitTag), nil
-}
-
-func (st *State) LeadershipManager() leadership.LeadershipManager {
-	// TODO(fwereade): hm, not sure this really needs the client stuff, but I
-	// don't think it really hurts.
-	facade, caller := base.NewClientFacade(st, "LeadershipService")
-	return apileadership.NewClient(facade, caller)
 }
 
 // DiskManager returns a version of the state that provides functionality

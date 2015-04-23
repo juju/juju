@@ -14,6 +14,13 @@ import (
 	"github.com/juju/juju/feature"
 )
 
+// TODO(fwereade): move these definitions to juju/charm/hooks.
+const (
+	LeaderElected         hooks.Kind = "leader-elected"
+	LeaderDeposed         hooks.Kind = "leader-deposed"
+	LeaderSettingsChanged hooks.Kind = "leader-settings-changed"
+)
+
 // Info holds details required to execute a hook. Not all fields are
 // relevant to all Kind values.
 type Info struct {
@@ -55,6 +62,9 @@ func (hi Info) Validate() error {
 			}
 			return nil
 		}
+	// TODO(fwereade): define these in charm/hooks...
+	case LeaderElected, LeaderDeposed, LeaderSettingsChanged:
+		return nil
 	}
 	return fmt.Errorf("unknown hook kind %q", hi.Kind)
 }
