@@ -29,23 +29,27 @@ var (
 
 // IsRunning returns whether or not upstart is the local init system.
 func IsRunning() (bool, error) {
-	cmd := exec.Command(initctlPath, "--system", "list")
-	_, err := cmd.CombinedOutput()
-	if err == nil {
-		return true, nil
-	}
-	logger.Debugf("exec %q failed: %#v", initctlPath, err)
-	if os.IsNotExist(err) {
-		// Executable could not be found, go 1.3 and later
+	if _, err := os.Stat(initctlPath); os.IsNotExist(err) {
 		return false, nil
+	} else if err != nil {
+		return false, errors.Trace(err)
 	}
-	if execErr, ok := err.(*exec.Error); ok {
-		// Executable could not be found, go 1.2
-		if os.IsNotExist(execErr.Err) || execErr.Err == exec.ErrNotFound {
+
+	cmd := exec.Command(initctlPath, "--system", "list")
+	switch err := cmd.Run().(type) {
+	case *exec.ExitError:
+		logger.Debugf("exec %q failed: %#v", initctlPath, err)
+		if err.Error() == "exit status 1" {
 			return false, nil
 		}
+		return false, errors.Trace(err)
+	default:
+		if err != nil {
+			logger.Debugf("exec %q failed: %#v", initctlPath, err)
+			return false, errors.Trace(err)
+		}
 	}
-	return false, errors.Trace(err)
+	return true, nil
 }
 
 // ListServices returns the name of all installed services on the
