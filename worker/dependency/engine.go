@@ -15,9 +15,11 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.dependency")
 
-// NewEngine returns an Engine that will maintain any Installed Manifolds until
-// either the engine is killed or one of the manifolds' workers returns an error
-// that satisfies isFatal. The caller takes responsibility for the returned Engine.
+// NewEngine returns an Engine that will maintain any installed Manifolds until
+// either the engine is stopped or one of the manifolds' workers returns an error
+// that satisfies isFatal. The caller takes responsibility for the returned Engine:
+// it's responsible for Kill()ing the Engine when no longer used, and must handle
+// any error from Wait().
 func NewEngine(isFatal IsFatalFunc, errorDelay, bounceDelay time.Duration) Engine {
 	engine := &engine{
 		isFatal:     isFatal,
