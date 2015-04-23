@@ -16,10 +16,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/leadership"
 	"github.com/juju/juju/api/uniter"
-	leadershipapi "github.com/juju/juju/apiserver/leadership"
 	"github.com/juju/juju/apiserver/params"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
@@ -32,11 +31,11 @@ import (
 	"github.com/juju/juju/version"
 )
 
+// leadershipSuite tests the LeadershipService api calls.
 type leadershipSuite struct {
 	agenttesting.AgentSuite
 
-	clientFacade base.ClientFacade
-	facadeCaller base.FacadeCaller
+	apiState     *api.State
 	machineAgent *agentcmd.MachineAgent
 	unitId       string
 	serviceId    string
@@ -81,12 +80,7 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	s.unitId = unit.UnitTag().Id()
 
 	c.Assert(unit.SetPassword(password), gc.IsNil)
-	unitState := s.OpenAPIAs(c, unit.Tag(), password)
-
-	// Create components needed to construct a client.
-	s.clientFacade, s.facadeCaller = base.NewClientFacade(unitState, leadershipapi.FacadeName)
-	c.Assert(s.clientFacade, gc.NotNil)
-	c.Assert(s.facadeCaller, gc.NotNil)
+	s.apiState = s.OpenAPIAs(c, unit.Tag(), password)
 
 	// Tweak and write out the config file for the state server.
 	writeStateAgentConfig(
@@ -122,14 +116,17 @@ func (s *leadershipSuite) TearDownTest(c *gc.C) {
 	err := s.machineAgent.Stop()
 	c.Assert(err, gc.IsNil)
 	os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
+	if s.apiState != nil {
+		err := s.apiState.Close()
+		c.Assert(err, gc.IsNil)
+	}
 
 	s.AgentSuite.TearDownTest(c)
 }
 
 func (s *leadershipSuite) TestClaimLeadership(c *gc.C) {
 
-	client := leadership.NewClient(s.clientFacade, s.facadeCaller)
-	defer func() { err := client.Close(); c.Assert(err, gc.IsNil) }()
+	client := leadership.NewClient(s.apiState)
 
 	err := client.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
 	c.Assert(err, gc.IsNil)
@@ -152,8 +149,7 @@ func (s *leadershipSuite) TestClaimLeadership(c *gc.C) {
 
 func (s *leadershipSuite) TestReleaseLeadership(c *gc.C) {
 
-	client := leadership.NewClient(s.clientFacade, s.facadeCaller)
-	defer func() { err := client.Close(); c.Assert(err, gc.IsNil) }()
+	client := leadership.NewClient(s.apiState)
 
 	err := client.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
 	c.Assert(err, gc.IsNil)
@@ -164,8 +160,7 @@ func (s *leadershipSuite) TestReleaseLeadership(c *gc.C) {
 
 func (s *leadershipSuite) TestUnblock(c *gc.C) {
 
-	client := leadership.NewClient(s.clientFacade, s.facadeCaller)
-	defer func() { err := client.Close(); c.Assert(err, gc.IsNil) }()
+	client := leadership.NewClient(s.apiState)
 
 	err := client.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
 	c.Assert(err, gc.IsNil)
@@ -189,12 +184,13 @@ func (s *leadershipSuite) TestUnblock(c *gc.C) {
 	}
 }
 
+// uniterLeadershipSuite tests the Uniter api calls that make use of leadership
+// features in the background.
 type uniterLeadershipSuite struct {
 	agenttesting.AgentSuite
 
 	factory      *factory.Factory
-	clientFacade base.ClientFacade
-	facadeCaller base.FacadeCaller
+	apiState     *api.State
 	machineAgent *agentcmd.MachineAgent
 	unitId       string
 	serviceId    string
@@ -203,12 +199,11 @@ type uniterLeadershipSuite struct {
 func (s *uniterLeadershipSuite) TestReadLeadershipSettings(c *gc.C) {
 
 	// First, the unit must be elected leader; otherwise merges will be denied.
-	leaderClient := leadership.NewClient(s.clientFacade, s.facadeCaller)
-	defer func() { err := leaderClient.Close(); c.Assert(err, gc.IsNil) }()
+	leaderClient := leadership.NewClient(s.apiState)
 	err := leaderClient.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
 	c.Assert(err, gc.IsNil)
 
-	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))
+	client := uniter.NewState(s.apiState, names.NewUnitTag(s.unitId))
 
 	// Toss a few settings in.
 	desiredSettings := map[string]string{
@@ -227,12 +222,11 @@ func (s *uniterLeadershipSuite) TestReadLeadershipSettings(c *gc.C) {
 func (s *uniterLeadershipSuite) TestMergeLeadershipSettings(c *gc.C) {
 
 	// First, the unit must be elected leader; otherwise merges will be denied.
-	leaderClient := leadership.NewClient(s.clientFacade, s.facadeCaller)
-	defer func() { err := leaderClient.Close(); c.Assert(err, gc.IsNil) }()
+	leaderClient := leadership.NewClient(s.apiState)
 	err := leaderClient.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
 	c.Assert(err, gc.IsNil)
 
-	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))
+	client := uniter.NewState(s.apiState, names.NewUnitTag(s.unitId))
 
 	// Grab what settings exist.
 	settings, err := client.LeadershipSettings.Read(s.serviceId)
@@ -257,12 +251,11 @@ func (s *uniterLeadershipSuite) TestMergeLeadershipSettings(c *gc.C) {
 func (s *uniterLeadershipSuite) TestSettingsChangeNotifier(c *gc.C) {
 
 	// First, the unit must be elected leader; otherwise merges will be denied.
-	leadershipClient := leadership.NewClient(s.clientFacade, s.facadeCaller)
-	defer func() { err := leadershipClient.Close(); c.Assert(err, gc.IsNil) }()
-	err := leadershipClient.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
+	leaderClient := leadership.NewClient(s.apiState)
+	err := leaderClient.ClaimLeadership(s.serviceId, s.unitId, 10*time.Second)
 	c.Assert(err, gc.IsNil)
 
-	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))
+	client := uniter.NewState(s.apiState, names.NewUnitTag(s.unitId))
 
 	// Listen for changes
 	watcher, err := client.LeadershipSettings.WatchLeadershipSettings(s.serviceId)
@@ -336,12 +329,7 @@ func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {
 	s.unitId = unit.UnitTag().Id()
 
 	c.Assert(unit.SetPassword(password), gc.IsNil)
-	unitState := s.OpenAPIAs(c, unit.Tag(), password)
-
-	// Create components needed to construct a client.
-	s.clientFacade, s.facadeCaller = base.NewClientFacade(unitState, leadershipapi.FacadeName)
-	c.Assert(s.clientFacade, gc.NotNil)
-	c.Assert(s.facadeCaller, gc.NotNil)
+	s.apiState = s.OpenAPIAs(c, unit.Tag(), password)
 
 	// Tweak and write out the config file for the state server.
 	writeStateAgentConfig(
@@ -388,8 +376,11 @@ func createMockJujudExecutable(c *gc.C, dir, tag string) string {
 func (s *uniterLeadershipSuite) TearDownTest(c *gc.C) {
 	c.Log("Stopping machine agent...")
 	err := s.machineAgent.Stop()
-	c.Assert(err, gc.IsNil)
-
+	c.Check(err, gc.IsNil)
+	if s.apiState != nil {
+		err := s.apiState.Close()
+		c.Assert(err, gc.IsNil)
+	}
 	s.AgentSuite.TearDownTest(c)
 }
 

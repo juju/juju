@@ -1,16 +1,22 @@
-package leadership
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package leadership_test
 
 import (
-	"fmt"
-	"testing"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/base"
+	apitesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/leadership"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/leadership"
+	coreleadership "github.com/juju/juju/leadership"
 )
 
 /*
@@ -19,180 +25,233 @@ service layer correctly, and also translates the results back
 correctly.
 */
 
-func Test(t *testing.T) { gc.TestingT(t) }
+type ClientSuite struct {
+	testing.IsolationSuite
+}
 
-var _ = gc.Suite(&clientSuite{})
-
-type clientSuite struct{}
+var _ = gc.Suite(&ClientSuite{})
 
 const (
 	StubServiceNm = "stub-service"
 	StubUnitNm    = "stub-unit/0"
 )
 
-type stubFacade struct {
-	FacadeCallFn func(string, interface{}, interface{}) error
+func (s *ClientSuite) apiCaller(c *gc.C, check func(request string, arg, result interface{}) error) base.APICaller {
+	return apitesting.APICallerFunc(func(facade string, version int, id, request string, arg, result interface{}) error {
+		c.Check(facade, gc.Equals, "LeadershipService")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		return check(request, arg, result)
+	})
 }
 
-func (s *stubFacade) FacadeCall(request string, params, response interface{}) error {
-	if s.FacadeCallFn != nil {
-		return s.FacadeCallFn(request, params, response)
-	}
-	return nil
-}
-
-func (s *stubFacade) BestAPIVersion() int { return -1 }
-func (s *stubFacade) Close() error        { return nil }
-
-func (s *clientSuite) TestClaimLeadershipTranslation(c *gc.C) {
+func (s *ClientSuite) TestClaimLeadershipTranslation(c *gc.C) {
 
 	const claimTime = 5 * time.Hour
 	numStubCalls := 0
 
-	stub := &stubFacade{
-		FacadeCallFn: func(name string, parameters, response interface{}) error {
-			numStubCalls++
-			c.Check(name, gc.Equals, "ClaimLeadership")
-			c.Assert(parameters, gc.Not(gc.IsNil))
+	apiCaller := s.apiCaller(c, func(request string, arg, result interface{}) error {
+		numStubCalls++
+		c.Check(request, gc.Equals, "ClaimLeadership")
+		c.Check(arg, jc.DeepEquals, params.ClaimLeadershipBulkParams{
+			Params: []params.ClaimLeadershipParams{{
+				ServiceTag:      "service-stub-service",
+				UnitTag:         "unit-stub-unit-0",
+				DurationSeconds: claimTime.Seconds(),
+			}},
+		})
+		switch result := result.(type) {
+		case *params.ClaimLeadershipBulkResults:
+			result.Results = []params.ErrorResult{{}}
+		default:
+			c.Fatalf("bad result type: %T", result)
+		}
+		return nil
+	})
 
-			typedP, ok := parameters.(params.ClaimLeadershipBulkParams)
-			c.Assert(ok, gc.Equals, true)
-
-			typedR, ok := response.(*params.ClaimLeadershipBulkResults)
-			c.Assert(ok, gc.Equals, true)
-			typedR.Results = []params.ErrorResult{{}}
-
-			c.Assert(typedP.Params, gc.HasLen, 1)
-			c.Check(typedP.Params[0].ServiceTag, gc.Equals, names.NewServiceTag(StubServiceNm).String())
-			c.Check(typedP.Params[0].UnitTag, gc.Equals, names.NewUnitTag(StubUnitNm).String())
-			c.Check(typedP.Params[0].DurationSeconds, gc.Equals, claimTime.Seconds())
-
-			return nil
-		},
-	}
-
-	client := NewClient(stub, stub)
+	client := leadership.NewClient(apiCaller)
 	err := client.ClaimLeadership(StubServiceNm, StubUnitNm, claimTime)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(numStubCalls, gc.Equals, 1)
 }
 
-func (s *clientSuite) TestClaimLeadershipDeniedError(c *gc.C) {
+func (s *ClientSuite) TestClaimLeadershipDeniedError(c *gc.C) {
 
 	numStubCalls := 0
-	stub := &stubFacade{
-		FacadeCallFn: func(name string, parameters, response interface{}) error {
-			numStubCalls++
-			typedR, ok := response.(*params.ClaimLeadershipBulkResults)
-			c.Assert(ok, gc.Equals, true)
-			typedR.Results = []params.ErrorResult{{
-				Error: &params.Error{
-					Message: "blah",
-					Code:    params.CodeLeadershipClaimDenied,
-				},
-			}}
-			return nil
-		},
-	}
+	apiCaller := s.apiCaller(c, func(_ string, _, result interface{}) error {
+		numStubCalls++
+		switch result := result.(type) {
+		case *params.ClaimLeadershipBulkResults:
+			result.Results = []params.ErrorResult{{Error: &params.Error{
+				Message: "blah",
+				Code:    params.CodeLeadershipClaimDenied,
+			}}}
+		default:
+			c.Fatalf("bad result type: %T", result)
+		}
+		return nil
+	})
 
-	client := NewClient(stub, stub)
+	client := leadership.NewClient(apiCaller)
 	err := client.ClaimLeadership(StubServiceNm, StubUnitNm, 0)
 	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(err, gc.Equals, leadership.ErrClaimDenied)
+	c.Check(err, gc.Equals, coreleadership.ErrClaimDenied)
 }
 
-func (s *clientSuite) TestClaimLeadershipUnknownError(c *gc.C) {
+func (s *ClientSuite) TestClaimLeadershipUnknownError(c *gc.C) {
 
 	errMsg := "I'm trying!"
 	numStubCalls := 0
-	stub := &stubFacade{
-		FacadeCallFn: func(name string, parameters, response interface{}) error {
-			numStubCalls++
-			typedR, ok := response.(*params.ClaimLeadershipBulkResults)
-			c.Assert(ok, gc.Equals, true)
-			typedR.Results = []params.ErrorResult{{
-				Error: &params.Error{Message: errMsg},
-			}}
-			return nil
-		},
-	}
+	apiCaller := s.apiCaller(c, func(_ string, _, result interface{}) error {
+		numStubCalls++
+		switch result := result.(type) {
+		case *params.ClaimLeadershipBulkResults:
+			result.Results = []params.ErrorResult{{Error: &params.Error{
+				Message: errMsg,
+			}}}
+		default:
+			c.Fatalf("bad result type: %T", result)
+		}
+		return nil
+	})
 
-	client := NewClient(stub, stub)
+	client := leadership.NewClient(apiCaller)
 	err := client.ClaimLeadership(StubServiceNm, StubUnitNm, 0)
 	c.Check(numStubCalls, gc.Equals, 1)
 	c.Check(err, gc.ErrorMatches, errMsg)
 }
 
-func (s *clientSuite) TestClaimLeadershipFacadeCallError(c *gc.C) {
+func (s *ClientSuite) TestClaimLeadershipFacadeCallError(c *gc.C) {
 	errMsg := "well, I just give up."
 	numStubCalls := 0
-	stub := &stubFacade{
-		FacadeCallFn: func(name string, parameters, response interface{}) error {
-			numStubCalls++
-			return fmt.Errorf(errMsg)
-		},
-	}
+	apiCaller := s.apiCaller(c, func(_ string, _, _ interface{}) error {
+		numStubCalls++
+		return errors.Errorf(errMsg)
+	})
 
-	client := NewClient(stub, stub)
+	client := leadership.NewClient(apiCaller)
 	err := client.ClaimLeadership(StubServiceNm, StubUnitNm, 0)
 	c.Check(numStubCalls, gc.Equals, 1)
 	c.Check(err, gc.ErrorMatches, "error making a leadership claim: "+errMsg)
 }
 
-func (s *clientSuite) TestReleaseLeadershipTranslation(c *gc.C) {
+func (s *ClientSuite) TestReleaseLeadershipTranslation(c *gc.C) {
 
 	numStubCalls := 0
-	stub := &stubFacade{
-		FacadeCallFn: func(name string, parameters, response interface{}) error {
-			numStubCalls++
-			c.Check(name, gc.Equals, "ReleaseLeadership")
-			c.Assert(parameters, gc.Not(gc.IsNil))
+	apiCaller := s.apiCaller(c, func(request string, arg, result interface{}) error {
+		numStubCalls++
+		c.Check(request, gc.Equals, "ReleaseLeadership")
+		c.Check(arg, jc.DeepEquals, params.ReleaseLeadershipBulkParams{
+			Params: []params.ReleaseLeadershipParams{{
+				ServiceTag: "service-stub-service",
+				UnitTag:    "unit-stub-unit-0",
+			}},
+		})
+		switch result := result.(type) {
+		case *params.ReleaseLeadershipBulkResults:
+			result.Results = []params.ErrorResult{{}}
+		default:
+			c.Fatalf("bad result type: %T", result)
+		}
+		return nil
+	})
 
-			typedP, ok := parameters.(params.ReleaseLeadershipBulkParams)
-			c.Assert(ok, gc.Equals, true)
-
-			typedR, ok := response.(*params.ReleaseLeadershipBulkResults)
-			c.Assert(ok, gc.Equals, true)
-			typedR.Results = []params.ErrorResult{{}}
-
-			c.Assert(typedP.Params, gc.HasLen, 1)
-			c.Check(typedP.Params[0].ServiceTag, gc.Equals, names.NewServiceTag(StubServiceNm).String())
-			c.Check(typedP.Params[0].UnitTag, gc.Equals, names.NewUnitTag(StubUnitNm).String())
-
-			return nil
-		},
-	}
-
-	client := NewClient(stub, stub)
+	client := leadership.NewClient(apiCaller)
 	err := client.ReleaseLeadership(StubServiceNm, StubUnitNm)
+	c.Check(numStubCalls, gc.Equals, 1)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *ClientSuite) TestReleaseLeadershipUnknownError(c *gc.C) {
+
+	errMsg := "I'm trying!"
+	numStubCalls := 0
+	apiCaller := s.apiCaller(c, func(_ string, _, result interface{}) error {
+		numStubCalls++
+		switch result := result.(type) {
+		case *params.ReleaseLeadershipBulkResults:
+			result.Results = []params.ErrorResult{{Error: &params.Error{
+				Message: errMsg,
+			}}}
+		default:
+			c.Fatalf("bad result type: %T", result)
+		}
+		return nil
+	})
+
+	client := leadership.NewClient(apiCaller)
+	err := client.ReleaseLeadership(StubServiceNm, StubUnitNm)
+	c.Check(numStubCalls, gc.Equals, 1)
+	c.Check(err, gc.ErrorMatches, errMsg)
+}
+
+func (s *ClientSuite) TestReleaseLeadershipFacadeCallError(c *gc.C) {
+	errMsg := "well, I just give up."
+	numStubCalls := 0
+	apiCaller := s.apiCaller(c, func(_ string, _, _ interface{}) error {
+		numStubCalls++
+		return errors.Errorf(errMsg)
+	})
+
+	client := leadership.NewClient(apiCaller)
+	err := client.ReleaseLeadership(StubServiceNm, StubUnitNm)
+	c.Check(numStubCalls, gc.Equals, 1)
+	c.Check(err, gc.ErrorMatches, "cannot release leadership: "+errMsg)
+}
+
+func (s *ClientSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
+
+	numStubCalls := 0
+	apiCaller := s.apiCaller(c, func(request string, arg, result interface{}) error {
+		numStubCalls++
+		c.Check(request, gc.Equals, "BlockUntilLeadershipReleased")
+		c.Check(arg, jc.DeepEquals, names.NewServiceTag(StubServiceNm))
+		switch result := result.(type) {
+		case *params.ErrorResult:
+		default:
+			c.Fatalf("bad result type: %T", result)
+		}
+		return nil
+	})
+
+	client := leadership.NewClient(apiCaller)
+	err := client.BlockUntilLeadershipReleased(StubServiceNm)
 
 	c.Check(numStubCalls, gc.Equals, 1)
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *clientSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
+func (s *ClientSuite) TestBlockUntilLeadershipReleasedError(c *gc.C) {
 
 	numStubCalls := 0
-	stub := &stubFacade{
-		FacadeCallFn: func(name string, parameters, response interface{}) error {
-			numStubCalls++
-			c.Check(name, gc.Equals, "BlockUntilLeadershipReleased")
-			c.Assert(parameters, gc.Not(gc.IsNil))
+	apiCaller := s.apiCaller(c, func(_ string, _, result interface{}) error {
+		numStubCalls++
+		switch result := result.(type) {
+		case *params.ErrorResult:
+			*result = params.ErrorResult{Error: &params.Error{Message: "splat"}}
+		default:
+			c.Fatalf("bad result type: %T", result)
+		}
+		return nil
+	})
 
-			typedP, ok := parameters.(names.ServiceTag)
-			c.Assert(ok, gc.Equals, true)
-			c.Check(typedP.Id(), gc.Equals, StubServiceNm)
-
-			_, ok = response.(*params.ErrorResult)
-			c.Assert(ok, gc.Equals, true)
-
-			return nil
-		},
-	}
-
-	client := NewClient(stub, stub)
+	client := leadership.NewClient(apiCaller)
 	err := client.BlockUntilLeadershipReleased(StubServiceNm)
 
 	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, gc.ErrorMatches, "error blocking on leadership release: splat")
+}
+
+func (s *ClientSuite) TestBlockUntilLeadershipReleasedFacadeCallError(c *gc.C) {
+	errMsg := "well, I just give up."
+	numStubCalls := 0
+	apiCaller := s.apiCaller(c, func(_ string, _, _ interface{}) error {
+		numStubCalls++
+		return errors.Errorf(errMsg)
+	})
+
+	client := leadership.NewClient(apiCaller)
+	err := client.BlockUntilLeadershipReleased(StubServiceNm)
+	c.Check(numStubCalls, gc.Equals, 1)
+	c.Check(err, gc.ErrorMatches, "error blocking on leadership release: "+errMsg)
 }
