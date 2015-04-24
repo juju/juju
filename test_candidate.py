@@ -211,24 +211,30 @@ class CandidateTestCase(TestCase):
             buildvars_path = os.path.join(artifacts_dir_path, 'buildvars.json')
             with open(buildvars_path, 'w') as bv:
                 json.dump(dict(version='1.2.3'), bv)
+            os.utime(buildvars_path, (1426186437, 1426186437))
             master_dir_path = os.path.join(base_dir, 'master')
+            os.makedirs(master_dir_path)
             package_path = os.path.join(master_dir_path, 'foo.deb')
             with patch('candidate.prepare_dir') as pd_mock:
                 with patch('candidate.get_package',
                            return_value=package_path) as gp_mock:
                     with patch('subprocess.check_call') as cc_mock:
-                        with patch('shutil.copyfile') as cf_mock:
-                            with patch('shutil.copystat') as cs_mock:
-                                extract_candidates(
-                                    base_dir, dry_run=dry_run, verbose=verbose)
-            return (pd_mock, gp_mock, cc_mock, cf_mock, cs_mock,
+                        extract_candidates(
+                            base_dir, dry_run=dry_run, verbose=verbose)
+            copied_path = os.path.join(master_dir_path, 'buildvars.json')
+            if not dry_run:
+                self.assertTrue(os.path.isfile(copied_path))
+                self.assertEqual(os.stat(copied_path).st_mtime, 1426186437)
+            else:
+                self.assertFalse(os.path.isfile(copied_path))
+            return (pd_mock, gp_mock, cc_mock,
                     artifacts_dir_path, buildvars_path, master_dir_path,
                     package_path)
 
     def test_extract_candidates(self):
         results = self.setup_extract_candidates(dry_run=False, verbose=False)
-        pd_mock, gp_mock, cc_mock, cf_mock, cs_mock = results[0:5]
-        artifacts_dir, buildvars_path, master_dir, package_path = results[5:9]
+        pd_mock, gp_mock, cc_mock = results[0:3]
+        artifacts_dir, buildvars_path, master_dir, package_path = results[3:7]
         args, kwargs = pd_mock.call_args
         self.assertEqual((master_dir, False, False), args)
         args, kwargs = gp_mock.call_args
@@ -236,21 +242,15 @@ class CandidateTestCase(TestCase):
         args, kwargs = cc_mock.call_args
         self.assertEqual(
             (['dpkg', '-x', package_path, master_dir], ), args)
-        args, kwargs = cf_mock.call_args
-        copied_path = os.path.join(master_dir, 'buildvars.json')
-        self.assertEqual((buildvars_path, copied_path), args)
-        self.assertEqual((buildvars_path, copied_path), cs_mock.call_args[0])
 
     def test_extract_candidates_dry_run(self):
         results = self.setup_extract_candidates(dry_run=True, verbose=True)
-        pd_mock, gp_mock, cc_mock, cf_mock, cs_mock = results[0:5]
-        artifacts_dir, buildvars_path, master_dir, package_path = results[5:9]
+        pd_mock, gp_mock, cc_mock = results[0:3]
+        artifacts_dir, buildvars_path, master_dir, package_path = results[3:7]
         args, kwargs = pd_mock.call_args
         self.assertEqual((master_dir, True, True), args)
         args, kwargs = gp_mock.call_args
         self.assertEqual((artifacts_dir, '1.2.3'), args)
-        self.assertEqual(0, cc_mock.call_count)
-        self.assertEqual(0, cf_mock.call_count)
 
     def test_get_scripts(self):
         assemble_script, publish_script = get_scripts()
