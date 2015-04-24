@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eu
 
 LOCAL_REPO=$(readlink -f $1)  # Path to the local repo: gogo/src/github.com/foo
 REMOTE_REPO=$(echo "$LOCAL_REPO" | sed -e 's,.*/src/,,')
@@ -27,5 +28,8 @@ if [[ $OLD_HASH == $NEW_HASH ]]; then
     exit 1
 else
     echo "A new revision can be tested."
+    set +e
+    echo "Updating all go deps."
+    go get ./...
     exit 0
 fi
