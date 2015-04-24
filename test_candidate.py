@@ -218,16 +218,17 @@ class CandidateTestCase(TestCase):
                            return_value=package_path) as gp_mock:
                     with patch('subprocess.check_call') as cc_mock:
                         with patch('shutil.copyfile') as cf_mock:
-                            extract_candidates(
-                                base_dir, dry_run=dry_run, verbose=verbose)
-            return (pd_mock, gp_mock, cc_mock, cf_mock,
+                            with patch('shutil.copystat') as cs_mock:
+                                extract_candidates(
+                                    base_dir, dry_run=dry_run, verbose=verbose)
+            return (pd_mock, gp_mock, cc_mock, cf_mock, cs_mock,
                     artifacts_dir_path, buildvars_path, master_dir_path,
                     package_path)
 
     def test_extract_candidates(self):
         results = self.setup_extract_candidates(dry_run=False, verbose=False)
-        pd_mock, gp_mock, cc_mock, cf_mock = results[0:4]
-        artifacts_dir, buildvars_path, master_dir, package_path = results[4:8]
+        pd_mock, gp_mock, cc_mock, cf_mock, cs_mock = results[0:5]
+        artifacts_dir, buildvars_path, master_dir, package_path = results[5:9]
         args, kwargs = pd_mock.call_args
         self.assertEqual((master_dir, False, False), args)
         args, kwargs = gp_mock.call_args
@@ -238,11 +239,12 @@ class CandidateTestCase(TestCase):
         args, kwargs = cf_mock.call_args
         copied_path = os.path.join(master_dir, 'buildvars.json')
         self.assertEqual((buildvars_path, copied_path), args)
+        self.assertEqual((buildvars_path, copied_path), cs_mock.call_args[0])
 
     def test_extract_candidates_dry_run(self):
         results = self.setup_extract_candidates(dry_run=True, verbose=True)
-        pd_mock, gp_mock, cc_mock, cf_mock = results[0:4]
-        artifacts_dir, buildvars_path, master_dir, package_path = results[4:8]
+        pd_mock, gp_mock, cc_mock, cf_mock, cs_mock = results[0:5]
+        artifacts_dir, buildvars_path, master_dir, package_path = results[5:9]
         args, kwargs = pd_mock.call_args
         self.assertEqual((master_dir, True, True), args)
         args, kwargs = gp_mock.call_args
