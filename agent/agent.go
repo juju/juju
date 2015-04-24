@@ -191,6 +191,8 @@ type ConfigSetterOnly interface {
 	SetStateServingInfo(info params.StateServingInfo)
 }
 
+type ConfigMutator func(ConfigSetter) error
+
 type ConfigWriter interface {
 	// Write writes the agent configuration.
 	Write() error

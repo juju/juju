@@ -1951,7 +1951,7 @@ func (s *UniterSuite) TestLeadership(c *gc.C) {
 		), ut(
 			"hook tools when not leader",
 			quickStart{minion: true},
-			runCommands{`if [ $(is-leader) != "False" ]; then exit -1; fi`},
+			runCommands{leadershipScript},
 		), ut(
 			"leader-elected triggers when elected",
 			quickStart{minion: true},

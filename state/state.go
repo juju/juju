@@ -414,10 +414,17 @@ func IsUpgradeInProgressError(err error) bool {
 	return errors.Cause(err) == UpgradeInProgressError
 }
 
-// SetEnvironAgentVersion changes the agent version for the
-// environment to the given version, only if the environment is in a
-// stable state (all agents are running the current version).
+// SetEnvironAgentVersion changes the agent version for the environment to the
+// given version, only if the environment is in a stable state (all agents are
+// running the current version). If this is a hosted environment, newVersion
+// cannot be higher than the state server version.
 func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
+	if isHigher, err := st.isVersionHigherThanServer(newVersion); err == nil && !st.IsStateServer() && isHigher {
+		return errors.Errorf("a hosted environment cannot have a higher version than the server environment")
+	} else if err != nil {
+		return err
+	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		settings, err := readSettings(st, environGlobalKey)
 		if err != nil {
@@ -450,7 +457,10 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 				C:      settingsC,
 				Id:     st.docID(environGlobalKey),
 				Assert: bson.D{{"txn-revno", settings.txnRevno}},
-				Update: bson.D{{"$set", bson.D{{"agent-version", newVersion.String()}}}},
+				Update: bson.D{
+					{"$set", bson.D{{"agent-version", newVersion.String()}}},
+					{"$set", bson.D{{"previous-agent-version", currentVersion}}},
+				},
 			},
 		}
 		return ops, nil
@@ -466,6 +476,23 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 		}
 	}
 	return errors.Trace(err)
+}
+
+func (st *State) isVersionHigherThanServer(newVersion version.Number) (bool, error) {
+	env, err := st.StateServerEnvironment()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	cfg, err := env.Config()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	agentVersion, ok := cfg.AgentVersion()
+	if !ok {
+		return false, errors.New("agent version not set in environment config")
+	}
+	// Is the desired version greater than the current API server version?
+	return agentVersion.Compare(newVersion) < 0, nil
 }
 
 func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {

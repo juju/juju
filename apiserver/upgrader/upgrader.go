@@ -120,7 +120,7 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 	return result, nil
 }
 
-func (u *UpgraderAPI) getGlobalAgentVersion() (version.Number, *config.Config, error) {
+func (u *UpgraderAPI) getTargetVersionForEnviron() (version.Number, *config.Config, error) {
 	// Get the Agent Version requested in the Environment Config
 	cfg, err := u.st.EnvironConfig()
 	if err != nil {
@@ -155,7 +155,7 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 	if len(args.Entities) == 0 {
 		return params.VersionResults{}, nil
 	}
-	agentVersion, _, err := u.getGlobalAgentVersion()
+	agentVersion, cfg, err := u.getTargetVersionForEnviron()
 	if err != nil {
 		return params.VersionResults{}, common.ServerError(err)
 	}
@@ -178,11 +178,15 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 			// This ensures that state machine agents will upgrade first -
 			// once they have restarted and are running the new version other
 			// agents will start to see the new agent version.
-			if !isNewerVersion || u.entityIsManager(tag) || !u.st.IsStateServer() {
+			if !isNewerVersion || u.entityIsManager(tag) {
 				results[i].Version = &agentVersion
 			} else {
-				logger.Debugf("desired version is %s, but current version is %s and agent is not a manager node", agentVersion, version.Current.Number)
-				results[i].Version = &version.Current.Number
+				logger.Debugf("desired version is %s, but current server version is %s and agent is not a manager node", agentVersion, version.Current.Number)
+				if previous, ok := cfg.PreviousAgentVersion(); ok {
+					results[i].Version = &previous
+				} else {
+					results[i].Version = &version.Current.Number
+				}
 			}
 			err = nil
 		}

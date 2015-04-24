@@ -3507,7 +3507,7 @@ func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name strin
 	c.Assert(s.State.UpdateEnvironConfig(attrs, nil, nil), gc.IsNil)
 }
 
-func (s *StateSuite) assertAgentVersion(c *gc.C, st *state.State, envConfig *config.Config, vers string) {
+func assertAgentVersion(c *gc.C, st *state.State, vers string) {
 	envConfig, err := st.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
@@ -3528,7 +3528,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionRetriesOnConfigChange(c *gc.C) {
 	// Change the agent-version and ensure it has changed.
 	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertAgentVersion(c, s.State, envConfig, "4.5.6")
+	assertAgentVersion(c, s.State, "4.5.6")
 }
 
 func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) {
@@ -3544,18 +3544,34 @@ func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) 
 	// Change the agent-version and verify.
 	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertAgentVersion(c, s.State, envConfig, "4.5.6")
+	assertAgentVersion(c, s.State, "4.5.6")
 }
 
-func (s *StateSuite) TestSetEnvironAgentVersionSucceedsOtherEnviron(c *gc.C) {
+func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
 	otherSt := s.Factory.MakeEnvironment(c, nil)
 	defer otherSt.Close()
-	envConfig, _ := s.prepareAgentVersionTests(c, otherSt)
+	assertAgentVersion(c, s.State, "1.2.3")
+	assertAgentVersion(c, otherSt, "1.2.3")
 
-	// Change the agent-version and verify.
+	// Change the server agent-version, other environ should remain unchanged
 	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertAgentVersion(c, otherSt, envConfig, "4.5.6")
+	assertAgentVersion(c, otherSt, "1.2.3")
+
+	// Set other environ version to < server envrion version
+	err = otherSt.SetEnvironAgentVersion(version.MustParse("4.5.5"))
+	c.Assert(err, jc.ErrorIsNil)
+	assertAgentVersion(c, otherSt, "4.5.5")
+
+	// Set other environ version == server envrion version
+	err = otherSt.SetEnvironAgentVersion(version.MustParse("4.5.6"))
+	c.Assert(err, jc.ErrorIsNil)
+	assertAgentVersion(c, otherSt, "4.5.6")
+
+	// Wet other environ version to > server envrion version
+	err = otherSt.SetEnvironAgentVersion(version.MustParse("4.5.7"))
+	c.Assert(err, gc.ErrorMatches, "a hosted environment cannot have a higher version than the server environment")
+	assertAgentVersion(c, otherSt, "4.5.6")
 }
 
 func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
@@ -3572,7 +3588,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
 	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
 	c.Assert(errors.Cause(err), gc.Equals, txn.ErrExcessiveContention)
 	// Make sure the version remained the same.
-	s.assertAgentVersion(c, s.State, envConfig, currentVersion)
+	assertAgentVersion(c, s.State, currentVersion)
 }
 
 func (s *StateSuite) TestSetEnvironAgentFailsIfUpgrading(c *gc.C) {

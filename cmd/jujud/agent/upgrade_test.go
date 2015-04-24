@@ -994,7 +994,7 @@ func (a *fakeUpgradingMachineAgent) CurrentConfig() agent.Config {
 	return a.config
 }
 
-func (a *fakeUpgradingMachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
+func (a *fakeUpgradingMachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	return mutate(a.config)
 }
 

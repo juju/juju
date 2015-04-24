@@ -328,8 +328,11 @@ func (s *upgraderSuite) TestDesiredVersionRestrictedForNonAPIAgents(c *gc.C) {
 	c.Check(*agentVersion, gc.DeepEquals, version.Current.Number)
 }
 
-func (s *upgraderSuite) TestDesiredVersionUnrestrictedForNonAPIAgentsInOtherEnvirons(c *gc.C) {
-	// Setup the environment and machine
+func (s *upgraderSuite) TestHostedDesiredVersionReturnsPreviousVersionForDoubleUpgrade(c *gc.C) {
+	// Make versions to test with
+	v := makeVersions(3)
+
+	// Setup the hosted environment and machine
 	otherSt := s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		ConfigAttrs: map[string]interface{}{
 			"state-server": false,
@@ -337,24 +340,57 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForNonAPIAgentsInOtherEnvi
 		Prepare: true,
 	})
 	defer otherSt.Close()
-	err := otherSt.SetEnvironAgentVersion(version.Current.Number)
-	c.Assert(err, jc.ErrorIsNil)
-	machine, err := otherSt.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	machine.SetAgentVersion(version.Current)
-	newVersion := version.Current
-
-	// Upgrade the environment
-	newVersion.Patch++
-	err = otherSt.SetEnvironAgentVersion(newVersion.Number)
+	otherMachine, err := otherSt.AddMachine("trusty", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check the upgrader returns the desired version
+	// Assert current environ versions
+	assertEnvironAgentVersion(c, s.State, v[0].Number.String())
+	assertEnvironAgentVersion(c, otherSt, version.MustParse("1.2.3").String())
+
+	// Bump the server version
+	setEnvironVersion(c, s.State, v[2])
+
+	// Now we can bump the hosted version to < server
+	// version but > version.Current
+	setEnvironVersion(c, otherSt, v[1])
+
+	// Assert desired version == previous hosted version
+	s.assertDesiredVersion(c, otherSt, otherMachine, version.MustParse("1.2.3"))
+
+	// Sainty check server versions
+	s.assertDesiredVersion(c, s.State, s.apiMachine, v[2].Number)
+	s.assertDesiredVersion(c, s.State, s.rawMachine, v[0].Number)
+}
+
+func assertEnvironAgentVersion(c *gc.C, st *state.State, vers string) {
+	envConfig, err := st.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	agentVersion, ok := envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(agentVersion.String(), gc.Equals, vers)
+}
+
+// makeVersions returns n versions, starting at version.Current and
+// incrimenting by one patch.
+func makeVersions(n int) []version.Binary {
+	versions := make([]version.Binary, n)
+	versions[0] = version.Current
+	for i := 1; i < n; i++ {
+		next := versions[i-1]
+		next.Patch++
+		versions[i] = next
+	}
+	return versions
+}
+
+// assertDesiredVersion checks the upgrader for machine returns the desired version
+func (s upgraderSuite) assertDesiredVersion(c *gc.C, st *state.State, machine *state.Machine, expectedVesion version.Number) {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: machine.Tag(),
 	}
-	upgraderAPI, err := upgrader.NewUpgraderAPI(otherSt, s.resources, authorizer)
+	upgraderAPI, err := upgrader.NewUpgraderAPI(st, s.resources, authorizer)
 	c.Assert(err, jc.ErrorIsNil)
+
 	args := params.Entities{Entities: []params.Entity{{Tag: machine.Tag().String()}}}
 	results, err := upgraderAPI.DesiredVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -362,5 +398,19 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForNonAPIAgentsInOtherEnvi
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	agentVersion := results.Results[0].Version
 	c.Assert(agentVersion, gc.NotNil)
-	c.Check(*agentVersion, gc.DeepEquals, newVersion.Number)
+	c.Check(*agentVersion, gc.DeepEquals, expectedVesion)
+}
+
+// setEnvironVersion sets all machine agent versions and then the environment
+// agent version.
+func setEnvironVersion(c *gc.C, st *state.State, v version.Binary) {
+	machines, err := st.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, m := range machines {
+		err := m.SetAgentVersion(v)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	c.Assert(st.SetEnvironAgentVersion(v.Number), jc.ErrorIsNil)
 }
