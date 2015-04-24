@@ -2,7 +2,7 @@
 set -eux
 
 WORKSPACE=$(readlink -f $1)  # Where to build the tree.
-LOCAL_TREE=$(readlink -f $2)  # Path to the repo: ~gogo/src
+LOCAL_TREE=$(readlink -f $2)  # Path to the repo: ~/gogo/src
 ECO_PROJECT=$3  # Go Package name: github.com/juju/foo
 
 : ${CI_TOOLS=$(readlink -f $(dirname $0))}
@@ -34,6 +34,8 @@ GOPATH=$WORKSPACE/ecosystem
 export GOPATH
 ECO_PATH="$GOPATH/src/$(dirname $ECO_PROJECT)"
 PACKAGE=$(basename $ECO_PROJECT)
+BASE="$GOPATH/src/github.com/juju/juju/dependencies.tsv"
+OVERLAY="$ECO_PATH/$PACKAGE/dependencies.tsv"
 
 # Copy the local Go tree to the GOPATH and use master for the eco project.
 mkdir -p $ECO_PATH
@@ -50,22 +52,14 @@ if [[ -n "$JUJU_BUILD" ]]; then
     jujuci.py get -b $JUJU_BUILD build-revision \
         buildvars.bash $WORKSPACE/
     source $WORKSPACE/buildvars.bash
-    # Set the base to juju when we are testing its revision.
-    BASE="$GOPATH/src/github.com/juju/juju/dependencies.tsv"
-    OVERLAY="$ECO_PATH/$PACKAGE/dependencies.tsv"
     JUJU_REVISION=$REVISION_ID
 else
-    # Set the base to eco when we are testing its revision.
-    BASE="$ECO_PATH/$PACKAGE/dependencies.tsv"
-    OVERLAY="$GOPATH/src/github.com/juju/juju/dependencies.tsv"
-    JUJU_REVISION=$(grep github.com/juju/juju $BASE | cut -d $'\t' -f 3)
+    JUJU_REVISION=$(grep github.com/juju/juju $OVERLAY | cut -d $'\t' -f 3)
 fi
 
-# Update Juju to the version under test. The branch is set to master during
-# pull to avoid cases where the current branch is not in the remote.
+# Update Juju to the version under test.
 cd $GOPATH/src/github.com/juju/juju
-git checkout master
-git pull
+git fetch
 git checkout $JUJU_REVISION
 
 # Reassemble. We are still waiting for multifile godeps.
