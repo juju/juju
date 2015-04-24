@@ -63,19 +63,19 @@ func (s *configSuite) TestNewEnvironConfig(c *gc.C) {
 	}{{
 		info:   "username is required",
 		remove: []string{"username"},
-		err:    "rs: must not be empty%\\!\\(EXTRA string=username\\)",
+		err:    "username: must not be empty",
 	}, {
 		info:   "username cannot be empty",
 		insert: testing.Attrs{"username": ""},
-		err:    "rs: must not be empty%\\!\\(EXTRA string=username\\)",
+		err:    "username: must not be empty",
 	}, {
 		info:   "password is required",
 		remove: []string{"password"},
-		err:    "rs: must not be empty%\\!\\(EXTRA string=password\\)",
+		err:    "password: must not be empty",
 	}, {
 		info:   "password cannot be empty",
 		insert: testing.Attrs{"password": ""},
-		err:    "rs: must not be empty%\\!\\(EXTRA string=password\\)",
+		err:    "password: must not be empty",
 	}, {
 		info:   "region is inserted if missing",
 		remove: []string{"region"},
@@ -83,7 +83,7 @@ func (s *configSuite) TestNewEnvironConfig(c *gc.C) {
 	}, {
 		info:   "region must not be empty",
 		insert: testing.Attrs{"region": ""},
-		err:    "rs: must not be empty%\\!\\(EXTRA string=region\\)",
+		err:    "region: must not be empty",
 	}}
 
 	for i, test := range newConfigTests {
@@ -124,7 +124,7 @@ var changeConfigTests = []struct {
 }, {
 	info:   "can not change username to empty",
 	insert: testing.Attrs{"username": ""},
-	err:    "rs: must not be empty%\\!\\(EXTRA string=username\\)",
+	err:    "username: must not be empty",
 }, {
 	info:   "can change password",
 	insert: testing.Attrs{"password": "cloudsigma_password"},
@@ -132,7 +132,7 @@ var changeConfigTests = []struct {
 }, {
 	info:   "can not change password to empty",
 	insert: testing.Attrs{"password": ""},
-	err:    "rs: must not be empty%\\!\\(EXTRA string=password\\)",
+	err:    "password: must not be empty",
 }, {
 	info:   "can change region",
 	insert: testing.Attrs{"region": "lvs"},
