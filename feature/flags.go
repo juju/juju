@@ -48,3 +48,6 @@ const NewStatus = "new-status"
 
 // CloudSigma enables the CloudSigma provider.
 const CloudSigma = "cloudsigma"
+
+// VSphereProvider enables the generic vmware provider.
+const VSphereProvider = "vsphere-provider"
