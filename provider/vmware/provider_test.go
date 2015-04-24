@@ -24,7 +24,7 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	var err error
-	s.provider, err = environs.Provider("vmware")
+	s.provider, err = environs.Provider("vsphere")
 	c.Check(err, jc.ErrorIsNil)
 }
 

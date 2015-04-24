@@ -28,7 +28,7 @@ import (
 
 var (
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
-		"type":       "vmware",
+		"type":       "vsphere",
 		"uuid":       "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
 		"datacenter": "/datacenter1",
 		"host":       "host1",

@@ -13,12 +13,12 @@ import (
 )
 
 const (
-	providerType = "vmware"
+	providerType = "vsphere"
 )
 
 func init() {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	if featureflag.Enabled(feature.VMWareProvider) {
+	if featureflag.Enabled(feature.VSphereProvider) {
 		environs.RegisterProvider(providerType, providerInstance)
 		registry.RegisterEnvironStorageProviders(providerType)
 	}

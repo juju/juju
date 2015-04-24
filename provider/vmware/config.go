@@ -25,7 +25,7 @@ const (
 // date when you change environment configuration below.
 var boilerplateConfig = `
 vmware:
-  type: vmware
+  type: vsphere
 
   # Vsphere API host or DNS name
   host:
