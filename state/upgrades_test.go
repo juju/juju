@@ -2504,7 +2504,7 @@ func (s *upgradesSuite) TestIPAddressLifeIdempotent(c *gc.C) {
 	c.Assert(doc.Life, gc.Equals, Alive)
 }
 
-func (s *upgradesSuite) TestAddLeadershipSettingsDocs(c *gc.C) {
+func (s *upgradesSuite) prepareEnvsForLeadership(c *gc.C) []string {
 	environments, closer := s.state.getRawCollection(environmentsC)
 	defer closer()
 	addEnvironment := func(envUUID string) {
@@ -2539,17 +2539,45 @@ func (s *upgradesSuite) TestAddLeadershipSettingsDocs(c *gc.C) {
 	addEnvironment(UUID2)
 	addService(UUID2, "mysql")
 
-	err := AddLeadershipSettingsDocs(s.state)
-	c.Assert(err, jc.ErrorIsNil)
+	return expectedDocIDs
+}
 
-	settings, closer := s.state.getRawCollection(settingsC)
+func (s *upgradesSuite) readDocIDs(c *gc.C, coll, regex string) []string {
+	settings, closer := s.state.getRawCollection(coll)
 	defer closer()
 	var docs []bson.M
-	err = settings.Find(bson.D{{"_id", bson.D{{"$regex", ".+#leader$"}}}}).All(&docs)
+	err := settings.Find(bson.D{{"_id", bson.D{{"$regex", regex}}}}).All(&docs)
 	c.Assert(err, jc.ErrorIsNil)
 	var actualDocIDs []string
 	for _, doc := range docs {
 		actualDocIDs = append(actualDocIDs, doc["_id"].(string))
 	}
+	return actualDocIDs
+}
+
+func (s *upgradesSuite) TestAddLeadershipSettingsDocs(c *gc.C) {
+	expectedDocIDs := s.prepareEnvsForLeadership(c)
+
+	err := AddLeadershipSettingsDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actualDocIDs := s.readDocIDs(c, settingsC, ".+#leader$")
 	c.Assert(actualDocIDs, jc.SameContents, expectedDocIDs)
+}
+
+func (s *upgradesSuite) TestAddLeadershipSettingsIdempotent(c *gc.C) {
+	s.prepareEnvsForLeadership(c)
+
+	originalIDs := s.readDocIDs(c, settingsC, ".+#leader$")
+	c.Assert(originalIDs, gc.HasLen, 0)
+
+	err := AddLeadershipSettingsDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	firstPassIDs := s.readDocIDs(c, settingsC, ".+#leader$")
+
+	err = AddLeadershipSettingsDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	secondPassIDs := s.readDocIDs(c, settingsC, ".+#leader$")
+
+	c.Check(firstPassIDs, jc.SameContents, secondPassIDs)
 }
