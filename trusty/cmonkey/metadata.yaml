@@ -3,9 +3,6 @@ maintainer: John George <john.george@canonical.com>
 summary: Juju Chaos Monkey
 description: |
   This charm is used to deploy and run the Juju chaos monkey.
-peers:
-  cluster:
-    interface: juju-chaos-monkey
 requires:
   juju-info:
     interface: juju-info

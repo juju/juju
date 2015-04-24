@@ -1,6 +1,3 @@
 #!/bin/bash -eux
 
-apt-get update
-apt-get install -y python bzr
-
 ${CHARM_DIR}/hooks/cp_chaos_monkey.bash
