@@ -135,11 +135,7 @@ func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManagerAndStatu
 	err = s.unit.SetMeterStatus("GREEN", "Information.")
 	c.Assert(err, jc.ErrorIsNil)
 	assertMeterStatusChanged(c, watcher)
-	select {
-	case <-watcher.Changes():
-		c.Fatalf("unexpected event from watcher")
-	case <-time.After(testing.ShortWait):
-	}
+	assertMeterStatusNotChanged(c, watcher)
 }
 
 func assertMeterStatusChanged(c *gc.C, w state.NotifyWatcher) {
@@ -147,6 +143,14 @@ func assertMeterStatusChanged(c *gc.C, w state.NotifyWatcher) {
 	case <-w.Changes():
 	case <-time.After(testing.LongWait):
 		c.Fatalf("expected event from watcher by now")
+	}
+}
+
+func assertMeterStatusNotChanged(c *gc.C, w state.NotifyWatcher) {
+	select {
+	case <-w.Changes():
+		c.Fatalf("unexpected event from watcher")
+	case <-time.After(testing.ShortWait):
 	}
 }
 
