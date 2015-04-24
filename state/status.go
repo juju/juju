@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -121,6 +122,14 @@ const (
 	StatusActive Status = "active"
 )
 
+var errStatusNotFound = errors.NotFoundf("status")
+
+// IsStatusNotFound returns true if the provided error is
+// errStatusNotFound
+func IsStatusNotFound(e error) bool {
+	return e == errStatusNotFound
+}
+
 // ValidAgentStatus returns true if status has a known value for an agent.
 // This is used by the status command to filter out
 // unknown status values.
@@ -234,6 +243,64 @@ type statusDoc struct {
 	StatusInfo string
 	StatusData map[string]interface{}
 	Updated    *time.Time
+}
+
+type historicalStatusDoc struct {
+	EnvUUID    string `bson:"env-uuid"`
+	Status     Status
+	StatusInfo string
+	StatusData map[string]interface{}
+	Updated    *time.Time
+	EntityId   string
+}
+
+func newHistoricalStatusDoc(s statusDoc, id string) *historicalStatusDoc {
+	return &historicalStatusDoc{
+		EnvUUID:    s.EnvUUID,
+		Status:     s.Status,
+		StatusInfo: s.StatusInfo,
+		StatusData: s.StatusData,
+		Updated:    s.Updated,
+		EntityId:   id,
+	}
+}
+
+func updateStatusHistory(oldDoc statusDoc, globalKey string, st *State) error {
+	hDoc := newHistoricalStatusDoc(oldDoc, globalKey)
+
+	h := txn.Op{
+		C:      statusesHistoryC,
+		Id:     fmt.Sprintf("%s%d", st.docID(globalKey), time.Now().UTC().UnixNano()),
+		Insert: hDoc,
+	}
+
+	err := st.runTransaction([]txn.Op{h})
+	return errors.Annotatef(err, "cannot update status history of unit agent %q", globalKey)
+}
+
+func statusHistory(size int, globalKey string, st *State) ([]StatusInfo, error) {
+	statusHistory, closer := st.getCollection(statusesHistoryC)
+	defer closer()
+
+	sInfo := []StatusInfo{}
+	results := []historicalStatusDoc{}
+	err := statusHistory.Find(bson.D{{"entityid", globalKey}}).Sort("-updated").Limit(size).All(&results)
+	if err == mgo.ErrNotFound {
+		return []StatusInfo{}, errors.NotFoundf("statusHistory")
+	}
+	if err != nil {
+		return []StatusInfo{}, errors.Annotatef(err, "cannot get status history for %q", globalKey)
+	}
+	for _, s := range results {
+		sInfo = append(sInfo, StatusInfo{
+			Status:  s.Status,
+			Message: s.StatusInfo,
+			Data:    s.StatusData,
+			Since:   s.Updated,
+		})
+	}
+	return sInfo, nil
+
 }
 
 type machineStatusDoc struct {
@@ -445,7 +512,7 @@ func getStatus(st *State, globalKey string) (statusDoc, error) {
 	var doc statusDoc
 	err := statuses.FindId(globalKey).One(&doc)
 	if err == mgo.ErrNotFound {
-		return statusDoc{}, errors.NotFoundf("status")
+		return statusDoc{}, errStatusNotFound
 	}
 	if err != nil {
 		return statusDoc{}, errors.Annotatef(err, "cannot get status %q", globalKey)
@@ -483,4 +550,58 @@ func removeStatusOp(st *State, globalKey string) txn.Op {
 		Id:     st.docID(globalKey),
 		Remove: true,
 	}
+}
+
+// PruneStatusHistory removes status history entries until
+// only the maxLogsPerEntity newest records per unit remain.
+func PruneStatusHistory(st *State, maxLogsPerEntity int) error {
+	historyColl, closer := st.getCollection(statusesHistoryC)
+	defer closer()
+	globalKeys, err := getEntitiesWithStatuses(historyColl)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, globalKey := range globalKeys {
+		keepUpTo, ok, err := getOldestTimeToKeep(historyColl, globalKey, maxLogsPerEntity)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !ok {
+			continue
+		}
+		_, err = historyColl.RemoveAll(bson.D{
+			{"entityid", globalKey},
+			{"updated", bson.M{"$lt": keepUpTo}},
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// getOldestTimeToKeep returns the update time for the oldest
+// status log to be kept.
+func getOldestTimeToKeep(coll stateCollection, globalKey string, size int) (*time.Time, bool, error) {
+	result := historicalStatusDoc{}
+	err := coll.Find(bson.D{{"entityid", globalKey}}).Sort("-updated").Limit(size).One(&result)
+	if err == mgo.ErrNotFound {
+		return &time.Time{}, false, nil
+	}
+	if err != nil {
+		return &time.Time{}, false, errors.Trace(err)
+	}
+	return result.Updated, true, nil
+
+}
+
+// getEntitiesWithStatuses returns the ids for all entities that
+// have history entries
+func getEntitiesWithStatuses(coll stateCollection) ([]string, error) {
+	var entityKeys []string
+	err := coll.Find(nil).Distinct("entityid", &entityKeys)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return entityKeys, nil
 }

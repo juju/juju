@@ -55,6 +55,7 @@ type AgentStatus struct {
 	Info    string
 	Data    map[string]interface{}
 	Since   *time.Time
+	Kind    params.HistoryKind
 	Version string
 	Life    string
 	Err     error
@@ -98,6 +99,11 @@ type ServiceStatus struct {
 	SubordinateTo []string
 	Units         map[string]UnitStatus
 	Status        AgentStatus
+}
+
+// UnitStatusHistory holds a slice of statuses.
+type UnitStatusHistory struct {
+	Statuses []AgentStatus
 }
 
 // UnitStatus holds status info about a unit.
@@ -169,6 +175,25 @@ func (c *Client) Status(patterns []string) (*Status, error) {
 		return nil, err
 	}
 	return &result, nil
+}
+
+// UnitStatusHistory retrieves the last <size> results of <kind:combined|agent|workload> status
+// for <unitName> unit
+func (c *Client) UnitStatusHistory(kind params.HistoryKind, unitName string, size int) (*UnitStatusHistory, error) {
+	var results UnitStatusHistory
+	args := params.StatusHistory{
+		Kind: kind,
+		Size: size,
+		Name: unitName,
+	}
+	err := c.facade.FacadeCall("UnitStatusHistory", args, &results)
+	if err != nil {
+		if params.IsCodeNotImplemented(err) {
+			return &UnitStatusHistory{}, errors.NotImplementedf("UnitStatusHistory")
+		}
+		return &UnitStatusHistory{}, errors.Trace(err)
+	}
+	return &results, nil
 }
 
 // LegacyMachineStatus holds just the instance-id of a machine.

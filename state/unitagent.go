@@ -58,7 +58,14 @@ func (u *UnitAgent) Status() (StatusInfo, error) {
 
 // SetStatus sets the status of the unit agent. The optional values
 // allow to pass additional helpful status data.
-func (u *UnitAgent) SetStatus(status Status, info string, data map[string]interface{}) error {
+func (u *UnitAgent) SetStatus(status Status, info string, data map[string]interface{}) (err error) {
+	oldDoc, err := getStatus(u.st, u.globalKey())
+	if IsStatusNotFound(err) {
+		logger.Debugf("there is no state for %q yet", u.globalKey())
+	} else if err != nil {
+		logger.Debugf("cannot get state for %q yet", u.globalKey())
+	}
+
 	doc, err := newUnitAgentStatusDoc(status, info, data)
 	if err != nil {
 		return errors.Trace(err)
@@ -70,7 +77,20 @@ func (u *UnitAgent) SetStatus(status Status, info string, data map[string]interf
 	if err != nil {
 		return errors.Errorf("cannot set status of unit agent %q: %v", u, onAbort(err, ErrDead))
 	}
+
+	if oldDoc.Status != "" {
+		if err := updateStatusHistory(oldDoc, u.globalKey(), u.st); err != nil {
+			logger.Errorf("could not record status history before change to %q: %v", status, err)
+		}
+	}
+
 	return nil
+}
+
+// StatusHistory returns a slice of at most <size> StatusInfo items
+// representing past statuses for this agent.
+func (u *UnitAgent) StatusHistory(size int) ([]StatusInfo, error) {
+	return statusHistory(size, u.globalKey(), u.st)
 }
 
 // unitAgentGlobalKey returns the global database key for the named unit.
