@@ -1042,7 +1042,7 @@ type settingsRefsDoc struct {
 // status is derived from the unit status values.
 func (s *Service) Status() (StatusInfo, error) {
 	doc, err := getStatus(s.st, s.globalKey())
-	if errors.IsNotFound(err) && s.IsPrincipal() {
+	if errors.IsNotFound(err) {
 		return s.deriveStatus()
 	}
 	if err != nil {
