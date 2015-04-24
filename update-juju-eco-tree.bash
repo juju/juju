@@ -18,7 +18,7 @@ while [[ "${1-}" != "" ]]; do
 done
 
 cd $LOCAL_REPO
-git co master
+git checkout master
 OLD_HASH=$(git log --first-parent -1 --pretty=format:%h)
 source $CLOUD_CITY/juju-bot.txt
 git pull https://$github_user:$github_password@$REMOTE_REPO.git master
