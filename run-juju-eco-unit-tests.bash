@@ -28,19 +28,20 @@ while [[ "${1-}" != "" ]]; do
     shift
 done
 
-export PATH="$RELEASE_TOOLS:$CI_TOOLS:$PATH"
-
 GOPATH=$WORKSPACE/ecosystem
 export GOPATH
+export PATH="$RELEASE_TOOLS:$CI_TOOLS:$PATH"
+
+JUJU_PROJECT="github.com/juju/juju"
+JUJU_DEPS="$GOPATH/src/$JUJU_PROJECT/dependencies.tsv"
 ECO_PATH="$GOPATH/src/$(dirname $ECO_PROJECT)"
-PACKAGE=$(basename $ECO_PROJECT)
-BASE="$GOPATH/src/github.com/juju/juju/dependencies.tsv"
-OVERLAY="$ECO_PATH/$PACKAGE/dependencies.tsv"
+ECO_PACKAGE=$(basename $ECO_PROJECT)
+ECO_DEPS="$ECO_PATH/$ECO_PACKAGE/dependencies.tsv"
 
 # Copy the local Go tree to the GOPATH and use master for the eco project.
 mkdir -p $ECO_PATH
 cp -rp $LOCAL_TREE $GOPATH
-cd $ECO_PATH/$PACKAGE
+cd $ECO_PATH/$ECO_PACKAGE
 git checkout master
 SHORTHASH=$(git log --first-parent -1 --pretty=format:%h)
 
@@ -54,22 +55,21 @@ if [[ -n "$JUJU_BUILD" ]]; then
     source $WORKSPACE/buildvars.bash
     JUJU_REVISION=$REVISION_ID
 else
-    JUJU_REVISION=$(grep github.com/juju/juju $OVERLAY | cut -d $'\t' -f 3)
+    JUJU_REVISION=$(grep $JUJU_PROJECT $ECO_DEPS | cut -d $'\t' -f 3)
 fi
 
 # Update Juju to the version under test.
-cd $GOPATH/src/github.com/juju/juju
+cd $GOPATH/src/$JUJU_PROJECT
 git fetch
 git checkout $JUJU_REVISION
 
 # Reassemble. We are still waiting for multifile godeps.
 # godeps exist with an error when it cannot fetch a newer revision.
-deptree.py -v $BASE $OVERLAY || deptree.py -v $BASE $OVERLAY
-
+deptree.py -v $JUJU_DEPS $ECO_DEPS || deptree.py -v $JUJU_DEPS $ECO_DEPS
 
 # Verify Juju and the eco project are integrated.
 echo ""
-echo "Testing $PACKAGE $SHORTHASH with Juju $JUJU_REVISION"
+echo "Testing $ECO_PACKAGE $SHORTHASH with Juju $JUJU_REVISION"
 set +e
 go test $ECO_PROJECT/... || go test $ECO_PROJECT/...
 EXITCODE=$?
