@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/provider/vmware"
+	"github.com/juju/juju/provider/vsphere"
 )
 
 type providerSuite struct {

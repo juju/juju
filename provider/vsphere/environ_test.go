@@ -8,7 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/vmware"
+	"github.com/juju/juju/provider/vsphere"
 )
 
 type environSuite struct {

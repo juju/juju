@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/vmware"
+	"github.com/juju/juju/provider/vsphere"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )

@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/vmware"
+	"github.com/juju/juju/provider/vsphere"
 )
 
 type environAvailzonesSuite struct {

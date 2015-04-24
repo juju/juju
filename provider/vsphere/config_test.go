@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/vmware"
+	"github.com/juju/juju/provider/vsphere"
 	"github.com/juju/juju/testing"
 )
 

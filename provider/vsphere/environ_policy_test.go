@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/juju/arch"
-	"github.com/juju/juju/provider/vmware"
+	"github.com/juju/juju/provider/vsphere"
 )
 
 type environPolSuite struct {
