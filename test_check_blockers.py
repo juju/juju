@@ -7,6 +7,14 @@ import check_blockers
 JUJUBOT_USER = {'login': 'jujubot', 'id': 7779494}
 OTHER_USER = {'login': 'user', 'id': 1}
 
+SERIES_LIST = {
+    'entries': [
+        {'name': 'trunk'},
+        {'name': '1.20'},
+        {'name': '1.21'},
+        {'name': '1.22'},
+    ]}
+
 
 class CheckBlockers(TestCase):
 
@@ -15,33 +23,28 @@ class CheckBlockers(TestCase):
         self.assertEqual('master', args.branch)
         self.assertEqual('17', args.pull_request)
 
-    def test_get_lp_bugs_with_master(self):
+    def test_get_lp_bugs_with_master_branch(self):
         args = check_blockers.parse_args(['master', '17'])
-        with patch('check_blockers.get_json') as gj:
-            data = {'entries': []}
-            gj.return_value = data
+        with patch('check_blockers.get_json', autospec=True,
+                   side_effect=[SERIES_LIST, {'entries': []}]) as gj:
             check_blockers.get_lp_bugs(args)
             gj.assert_called_with((check_blockers.LP_BUGS.format('juju-core')))
 
-    def test_get_lp_bugs_with_devel(self):
+    def test_get_lp_bugs_with_supported_branch(self):
         args = check_blockers.parse_args(['1.20', '17'])
-        with patch('check_blockers.DEVEL') as devel:
-            devel.return_value = '1.20'
-            with patch('check_blockers.get_json') as gj:
-                data = {'entries': []}
-                gj.return_value = data
-                check_blockers.get_lp_bugs(args)
-                gj.assert_called_with(
-                    (check_blockers.LP_BUGS.format('juju-core/1.20')))
-
-    def test_get_lp_bugs_with_B1_21(self):
-        args = check_blockers.parse_args(['1.21', '17'])
-        with patch('check_blockers.get_json') as gj:
-            data = {'entries': []}
-            gj.return_value = data
+        with patch('check_blockers.get_json', autospec=True,
+                   side_effect=[SERIES_LIST, {'entries': []}]) as gj:
             check_blockers.get_lp_bugs(args)
             gj.assert_called_with(
-                (check_blockers.LP_BUGS.format('juju-core/1.21')))
+                (check_blockers.LP_BUGS.format('juju-core/1.20')))
+
+    def test_get_lp_bugs_with_unsupported_branch(self):
+        args = check_blockers.parse_args(['foo', '17'])
+        with patch('check_blockers.get_json', autospec=True,
+                   side_effect=[SERIES_LIST, {'entries': []}]) as gj:
+            check_blockers.get_lp_bugs(args)
+        self.assertEqual(1, gj.call_count)
+        gj.assert_called_with(check_blockers.LP_SERIES)
 
     def test_get_lp_bugs_without_blocking_bugs(self):
         args = check_blockers.parse_args(['master', '17'])
@@ -53,13 +56,13 @@ class CheckBlockers(TestCase):
 
     def test_get_lp_bugs_with_blocking_bugs(self):
         args = check_blockers.parse_args(['master', '17'])
-        with patch('check_blockers.get_json') as gj:
-            bug_list = {
-                'entries': [
-                    {'self_link': 'https://lp/j/98765'},
-                    {'self_link': 'https://lp/j/54321'},
-                    ]}
-            gj.return_value = bug_list
+        bug_list = {
+            'entries': [
+                {'self_link': 'https://lp/j/98765'},
+                {'self_link': 'https://lp/j/54321'},
+            ]}
+        with patch('check_blockers.get_json', autospec=True,
+                   side_effect=[SERIES_LIST, bug_list]):
             bugs = check_blockers.get_lp_bugs(args)
             self.assertEqual(['54321', '98765'], sorted(bugs.keys()))
 

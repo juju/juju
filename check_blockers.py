@@ -7,19 +7,16 @@ import json
 import urllib2
 import sys
 
-
-DEVEL = 'juju-core'
-B1_21 = 'juju-core/1.21'
-STABLE = 'juju-core/1.20'
 LP_BUGS = (
     'https://api.launchpad.net/devel/{}'
     '?ws.op=searchTasks'
-    '&status%3Alist=Triaged&status%3Alist=In+Progress'
-    '&status%3Alist=Fix+Committed'
+    '&status%3Alist=Confirmed&status%3Alist=Triaged&status%3Alist=In+Progress'
+    '&status%3Alist=Fix+Committed&status%3Alist=Incomplete'
     '&importance%3Alist=Critical'
     '&tags%3Alist=regression&tags%3Alist=ci&tags_combinator=All'
-    )
+)
 GH_COMMENTS = 'https://api.github.com/repos/juju/juju/issues/{}/comments'
+LP_SERIES = 'https://api.launchpad.net/devel/juju-core/series'
 
 
 def get_json(uri):
@@ -41,12 +38,16 @@ def parse_args(args=None):
 
 def get_lp_bugs(args):
     bugs = {}
+    batch = get_json(LP_SERIES)
+    series = [s['name'] for s in batch['entries']]
+    if args.branch != 'master' and args.branch not in series:
+        # This branch is not a registered series to target bugs too.
+        return bugs
     if args.branch == 'master':
-        target = DEVEL
-    elif args.branch == '1.21':
-        target = B1_21
+        # Lp implicitly assigns bugs to trunk, which is not a series query.
+        target = 'juju-core'
     else:
-        target = STABLE
+        target = 'juju-core/%s' % args.branch
     uri = LP_BUGS.format(target)
     batch = get_json(uri)
     if batch:
