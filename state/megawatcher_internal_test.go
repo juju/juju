@@ -150,7 +150,7 @@ func (s *storeManagerStateSuite) checkGetAll(c *gc.C, expectEntities entityInfoS
 	var gotEntities entityInfoSlice = all.All()
 	sort.Sort(gotEntities)
 	sort.Sort(expectEntities)
-	substNilSinceTime(c, gotEntities)
+	substNilSinceTimeForEntities(c, gotEntities)
 	assertEntitiesEqual(c, gotEntities, expectEntities)
 }
 
@@ -371,28 +371,26 @@ type changeTestCase struct {
 	expectContents []multiwatcher.EntityInfo
 }
 
-// substNilSinceTime zeros out any updated timestamps for unit
+func substNilSinceTimeForStatus(c *gc.C, status *multiwatcher.StatusInfo) {
+	if status.Current != "" {
+		c.Assert(status.Since, gc.NotNil)
+	}
+	status.Since = nil
+}
+
+// substNilSinceTimeForEntities zeros out any updated timestamps for unit
 // or service status values so we can easily check the results.
-func substNilSinceTime(c *gc.C, entities []multiwatcher.EntityInfo) {
+func substNilSinceTimeForEntities(c *gc.C, entities []multiwatcher.EntityInfo) {
 	// Zero out any updated timestamps for unit or service status values
 	// so we can easily check the results.
 	for i, entity := range entities {
 		if unitInfo, ok := entity.(*multiwatcher.UnitInfo); ok {
-			if unitInfo.WorkloadStatus.Current != "" {
-				c.Assert(unitInfo.WorkloadStatus.Since, gc.NotNil)
-			}
-			unitInfo.WorkloadStatus.Since = nil
-			if unitInfo.AgentStatus.Current != "" {
-				c.Assert(unitInfo.AgentStatus.Since, gc.NotNil)
-			}
-			unitInfo.AgentStatus.Since = nil
+			substNilSinceTimeForStatus(c, &unitInfo.WorkloadStatus)
+			substNilSinceTimeForStatus(c, &unitInfo.AgentStatus)
 			entities[i] = unitInfo
 		}
 		if serviceInfo, ok := entity.(*multiwatcher.ServiceInfo); ok {
-			if serviceInfo.Status.Current != "" {
-				c.Assert(serviceInfo.Status.Since, gc.NotNil)
-			}
-			serviceInfo.Status.Since = nil
+			substNilSinceTimeForStatus(c, &serviceInfo.Status)
 			entities[i] = serviceInfo
 		}
 	}
@@ -416,7 +414,7 @@ func (s *storeManagerStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs
 		err := b.Changed(all, test.change)
 		c.Assert(err, jc.ErrorIsNil)
 		entities := all.All()
-		substNilSinceTime(c, entities)
+		substNilSinceTimeForEntities(c, entities)
 		assertEntitiesEqual(c, entities, test.expectContents)
 		s.Reset(c)
 	}
@@ -1751,7 +1749,7 @@ func (s *storeManagerStateSuite) TestClosingPorts(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	entities := all.All()
-	substNilSinceTime(c, entities)
+	substNilSinceTimeForEntities(c, entities)
 	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
 		&multiwatcher.UnitInfo{
 			Name:           "wordpress/0",
@@ -1834,7 +1832,7 @@ func (s *storeManagerStateSuite) TestSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	entities := all.All()
-	substNilSinceTime(c, entities)
+	substNilSinceTimeForEntities(c, entities)
 	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
 		&multiwatcher.ServiceInfo{
 			Name:     "dummy-service",
@@ -1933,21 +1931,12 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	// so we can easily check the results.
 	for i, delta := range deltas {
 		if unitInfo, ok := delta.Entity.(*multiwatcher.UnitInfo); ok {
-			if unitInfo.WorkloadStatus.Current != "" {
-				c.Assert(unitInfo.WorkloadStatus.Since, gc.NotNil)
-			}
-			unitInfo.WorkloadStatus.Since = nil
-			if unitInfo.AgentStatus.Current != "" {
-				c.Assert(unitInfo.AgentStatus.Since, gc.NotNil)
-			}
-			unitInfo.AgentStatus.Since = nil
+			substNilSinceTimeForStatus(c, &unitInfo.WorkloadStatus)
+			substNilSinceTimeForStatus(c, &unitInfo.AgentStatus)
 			delta.Entity = unitInfo
 		}
 		if serviceInfo, ok := delta.Entity.(*multiwatcher.ServiceInfo); ok {
-			if serviceInfo.Status.Current != "" {
-				c.Assert(serviceInfo.Status.Since, gc.NotNil)
-			}
-			serviceInfo.Status.Since = nil
+			substNilSinceTimeForStatus(c, &serviceInfo.Status)
 			delta.Entity = serviceInfo
 		}
 		deltas[i] = delta

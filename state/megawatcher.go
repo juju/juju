@@ -142,15 +142,15 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 func unitAndAgentStatus(st *State, name string) (unitStatus, agentStatus *StatusInfo, err error) {
 	unit, err := st.Unit(name)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 	unitStatusResult, err := unit.Status()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 	agentStatusResult, err := unit.AgentStatus()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 	return &unitStatusResult, &agentStatusResult, nil
 }
@@ -288,18 +288,18 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id inter
 		// so fetch the associated child documents.
 		c, err := readConstraints(st, key)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		info.Constraints = c
 		needConfig = true
 		// Fetch the status.
 		service, err := st.Service(svc.Name)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		serviceStatus, err := service.Status()
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		info.Status = multiwatcher.StatusInfo{
 			Current: multiwatcher.Status(serviceStatus.Status),
@@ -325,7 +325,7 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id inter
 		var err error
 		info.Config, _, err = readSettingsDoc(st, serviceSettingsKey(svc.Name, svc.CharmURL))
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	store.Update(info)
@@ -525,7 +525,7 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	// A change in a unit's status might also affect it's service.
 	service, err := st.Service(newInfo.Service)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	serviceId, ok := backingEntityIdForGlobalKey(service.globalKey())
 	if !ok {
@@ -537,7 +537,7 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	}
 	status, err := service.Status()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	newServiceInfo := *serviceInfo.(*multiwatcher.ServiceInfo)
 	newServiceInfo.Status.Current = multiwatcher.Status(status.Status)
