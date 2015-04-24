@@ -8,13 +8,16 @@ import (
 
 	"github.com/altoros/gosigma"
 	"github.com/juju/errors"
+	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -98,7 +101,12 @@ func (env *environ) Config() *config.Config {
 // and setting the agent-version configuration attribute prior to
 // bootstrapping the environment.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (string, string, environs.BootstrapFinalizer, error) {
-	return common.Bootstrap(ctx, env, params)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	if featureflag.Enabled(feature.CloudSigma) {
+
+		return common.Bootstrap(ctx, env, params)
+	}
+	return "", "", nil, errors.Errorf("Cloudsigma is currently in beta in this version of Juju. To enable anyway use JUJU_DEV_FEATURE_FLAGS=\"cloudsigma\"")
 }
 
 func (e *environ) StateServerInstances() ([]instance.Id, error) {
