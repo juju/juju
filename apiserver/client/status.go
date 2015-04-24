@@ -49,6 +49,7 @@ func (s sortableStatuses) Less(i, j int) bool {
 	return s[i].Since.Before(*s[j].Since)
 }
 
+// TODO(perrito666) this client method requires more testing, only its parts are unittested.
 // UnitStatusHistory returns a slice of past statuses for a given unit.
 func (c *Client) UnitStatusHistory(args params.StatusHistory) (api.UnitStatusHistory, error) {
 	size := args.Size - 1

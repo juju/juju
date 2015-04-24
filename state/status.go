@@ -124,6 +124,8 @@ const (
 
 var errStatusNotFound = errors.NotFoundf("status")
 
+// IsStatusNotFound returns true if the provided error is
+// errStatusNotFound
 func IsStatusNotFound(e error) bool {
 	return e == errStatusNotFound
 }
@@ -551,7 +553,7 @@ func removeStatusOp(st *State, globalKey string) txn.Op {
 }
 
 // PruneStatusHistory removes status history entries until
-// only the maxLogsPerEntity newest records remain.
+// only the maxLogsPerEntity newest records per unit remain.
 func PruneStatusHistory(st *State, maxLogsPerEntity int) error {
 	historyColl, closer := st.getCollection(statusesHistoryC)
 	defer closer()

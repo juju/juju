@@ -189,7 +189,7 @@ func (c *Client) UnitStatusHistory(kind params.HistoryKind, unitName string, siz
 	err := c.facade.FacadeCall("UnitStatusHistory", args, &results)
 	if err != nil {
 		if params.IsCodeNotImplemented(err) {
-			return &UnitStatusHistory{}, errors.NotImplementedf("UnitStatus")
+			return &UnitStatusHistory{}, errors.NotImplementedf("UnitStatusHistory")
 		}
 		return &UnitStatusHistory{}, errors.Trace(err)
 	}

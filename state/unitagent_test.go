@@ -4,7 +4,6 @@
 package state_test
 
 import (
-	"fmt"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -196,41 +195,10 @@ func (s *UnitAgentSuite) TestGetUnitAgentStatusHistory(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	agent := s.unit.Agent().(*state.UnitAgent)
 	globalKey := state.UnitAgentGlobalKey(agent)
-	begin := state.NowToTheSecond()
-	c.Logf("will use %q as base time", begin)
-	for i := 0; i < 100; i++ {
-		message := fmt.Sprintf("bogus message number %d", i)
-		c.Log("fill status history, attempt: %d", i)
-		updated := begin.Add(time.Duration(i) + time.Second)
-		statusDoc := state.StatusDoc{Status: state.StatusActive,
-			StatusInfo: message,
-			Updated:    &updated}
-		sdoc := state.NewStatusDoc(statusDoc)
-		err = state.UpdateStatusHistory(sdoc, globalKey, s.State)
-		c.Assert(err, jc.ErrorIsNil)
+	history := func(i int) ([]state.StatusInfo, error) {
+		return agent.StatusHistory(i)
 	}
-	h, err := agent.StatusHistory(100)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(h, gc.HasLen, 100)
-	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
-	c.Assert(h[99].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[99].Message, gc.Equals, "bogus message number 99")
-	h, err = agent.StatusHistory(200)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(h, gc.HasLen, 100)
-	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
-	c.Assert(h[99].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[99].Message, gc.Equals, "bogus message number 99")
-	h, err = agent.StatusHistory(50)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(h, gc.HasLen, 50)
-	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
-	c.Assert(h[49].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[49].Message, gc.Equals, "bogus message number 49")
-
+	testGetUnitStatusHistory(c, history, s.State, globalKey)
 }
 
 func (s *UnitAgentSuite) TestGetSetStatusDataMongo(c *gc.C) {

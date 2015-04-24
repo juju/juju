@@ -29,7 +29,7 @@ type StatusHistoryCommand struct {
 
 var statusHistoryDoc = `
 This command will report the history of status changes for
-a given unit past.
+a given unit.
 The statuses for the unit workload and/or agent are available.
 -type supports:
     agent: will show statuses for the unit's agent

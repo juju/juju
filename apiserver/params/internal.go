@@ -347,9 +347,11 @@ type SetStatus struct {
 
 type HistoryKind string
 
-var KindCombined HistoryKind = "combined"
-var KindAgent HistoryKind = "agent"
-var KindWorkload HistoryKind = "workload"
+const (
+	KindCombined HistoryKind = "combined"
+	KindAgent    HistoryKind = "agent"
+	KindWorkload HistoryKind = "workload"
+)
 
 // StatusHistory holds the parameters to filter a status history query.
 type StatusHistory struct {

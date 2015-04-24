@@ -45,6 +45,7 @@ func New(st *state.State, params *HistoryPrunerParams) worker.Worker {
 	return worker.NewSimpleWorker(w.loop)
 }
 
+// TODO(perrito666) Adda comprehensive test for the worker features
 func (w *pruneWorker) loop(stopCh <-chan struct{}) error {
 	p := w.params
 	for {

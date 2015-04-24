@@ -25,6 +25,46 @@ const (
 	contentionErr = ".*: state changing too quickly; try again soon"
 )
 
+type statusHistoryFunc func(int) ([]state.StatusInfo, error)
+
+func testGetUnitStatusHistory(c *gc.C, statusHistory statusHistoryFunc, st *state.State, globalKey string) {
+	begin := state.NowToTheSecond()
+	c.Logf("will use %q as base time", begin)
+	for i := 0; i < 100; i++ {
+		message := fmt.Sprintf("bogus message number %d", i)
+		c.Logf("fill status history, attempt: %d", i)
+		updated := begin.Add(time.Duration(i) + time.Second)
+		statusDoc := state.StatusDoc{Status: state.StatusActive,
+			StatusInfo: message,
+			Updated:    &updated}
+		sdoc := state.NewStatusDoc(statusDoc)
+		err := state.UpdateStatusHistory(sdoc, globalKey, st)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	h, err := statusHistory(100)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(h, gc.HasLen, 100)
+	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
+	c.Assert(h[99].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[99].Message, gc.Equals, "bogus message number 99")
+	h, err = statusHistory(200)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(h, gc.HasLen, 100)
+	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
+	c.Assert(h[99].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[99].Message, gc.Equals, "bogus message number 99")
+	h, err = statusHistory(50)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(h, gc.HasLen, 50)
+	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
+	c.Assert(h[49].Status, gc.Equals, state.StatusActive)
+	c.Assert(h[49].Message, gc.Equals, "bogus message number 49")
+
+}
+
 type UnitSuite struct {
 	ConnSuite
 	charm   *state.Charm
@@ -653,41 +693,10 @@ func (s *UnitSuite) TestGetUnitStatusHistory(c *gc.C) {
 	err := state.EraseUnitHistory(s.unit)
 	c.Assert(err, jc.ErrorIsNil)
 	globalKey := state.UnitGlobalKey(s.unit)
-	begin := state.NowToTheSecond()
-	c.Logf("will use %q as base time", begin)
-	for i := 0; i < 100; i++ {
-		message := fmt.Sprintf("bogus message number %d", i)
-		c.Logf("fill status history, attempt: %d", i)
-		updated := begin.Add(time.Duration(i) + time.Second)
-		statusDoc := state.StatusDoc{Status: state.StatusActive,
-			StatusInfo: message,
-			Updated:    &updated}
-		sdoc := state.NewStatusDoc(statusDoc)
-		err = state.UpdateStatusHistory(sdoc, globalKey, s.State)
-		c.Assert(err, jc.ErrorIsNil)
+	history := func(i int) ([]state.StatusInfo, error) {
+		return s.unit.StatusHistory(i)
 	}
-	h, err := s.unit.StatusHistory(100)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(h, gc.HasLen, 100)
-	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
-	c.Assert(h[99].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[99].Message, gc.Equals, "bogus message number 99")
-	h, err = s.unit.StatusHistory(200)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(h, gc.HasLen, 100)
-	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
-	c.Assert(h[99].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[99].Message, gc.Equals, "bogus message number 99")
-	h, err = s.unit.StatusHistory(50)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(h, gc.HasLen, 50)
-	c.Assert(h[0].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[0].Message, gc.Equals, "bogus message number 0")
-	c.Assert(h[49].Status, gc.Equals, state.StatusActive)
-	c.Assert(h[49].Message, gc.Equals, "bogus message number 49")
-
+	testGetUnitStatusHistory(c, history, s.State, globalKey)
 }
 
 func (s *UnitSuite) TestGetSetUnitStatusWhileNotAlive(c *gc.C) {

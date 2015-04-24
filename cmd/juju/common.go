@@ -259,10 +259,10 @@ func (c *csClient) authorize(curl *charm.URL) (*macaroon.Macaroon, error) {
 
 // formatStatusTime returns a string with the local time
 // formatted in an arbitrary format used for status or
-// and localized tz or in utc timezone and format TFC3339
+// and localized tz or in utc timezone and format RFC3339
 // if u is specified.
-func formatStatusTime(t *time.Time, u bool) string {
-	if u {
+func formatStatusTime(t *time.Time, formatISO bool) string {
+	if formatISO {
 		// If requested, use ISO time format
 		return t.Format(time.RFC3339)
 	} else {
