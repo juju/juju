@@ -56,7 +56,16 @@ func (m *ovaImportManager) importOva(machineID string, zone *vmwareAvailZone, hw
 		return nil, errors.Trace(err)
 	}
 
-	ovf, path, err := m.downloadOva(img.Url)
+	basePath, err := ioutil.TempDir(osenv.JujuHome(), "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer func() {
+		if err := os.RemoveAll(basePath); err != nil {
+			logger.Errorf("can't remove temp directory, error: %s", err.Error())
+		}
+	}()
+	ovf, err := m.downloadOva(basePath, img.Url)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -134,7 +143,7 @@ func (m *ovaImportManager) importOva(machineID string, zone *vmwareAvailZone, hw
 	}
 
 	for _, i := range items {
-		err = m.uploadImage(i, path)
+		err = m.uploadImage(i, basePath)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -143,35 +152,31 @@ func (m *ovaImportManager) importOva(machineID string, zone *vmwareAvailZone, hw
 	return object.NewVirtualMachine(m.client.connection.Client, info.Entity), nil
 }
 
-func (m *ovaImportManager) downloadOva(url string) (string, string, error) {
+func (m *ovaImportManager) downloadOva(basePath, url string) (string, error) {
 	logger.Debugf("Downloading ova file from url: %s", url)
 	resp, err := http.Get(url)
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", "", errors.Errorf("can't download ova file from url: %s, status: %s", url, resp.StatusCode)
+		return "", errors.Errorf("can't download ova file from url: %s, status: %s", url, resp.StatusCode)
 	}
 
-	basePath, err := m.prepareTmpStorage()
-	if err != nil {
-		return "", "", errors.Trace(err)
-	}
 	ovfFileName, err := m.extractOva(basePath, resp.Body)
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	file, err := os.Open(path.Join(basePath, ovfFileName))
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	bytes, err := ioutil.ReadAll(file)
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	return string(bytes), basePath, nil
+	return string(bytes), nil
 }
 
 func (m *ovaImportManager) extractOva(basePath string, body io.Reader) (string, error) {
@@ -213,21 +218,6 @@ func (m *ovaImportManager) extractOva(basePath string, body io.Reader) (string, 
 	}
 	logger.Debugf("Ova extracted successfully")
 	return ovfFileName, nil
-}
-
-func (m *ovaImportManager) prepareTmpStorage() (string, error) {
-	path := path.Join(osenv.JujuHome(), "tmp")
-
-	logger.Debugf("prepare %q for tmp storage", path)
-	logger.Debugf("  removing all...")
-	if err := os.RemoveAll(path); err != nil {
-		return "", errors.Errorf("create tmp storage (RemoveAll): %v", err)
-	}
-	logger.Debugf("  creating tmp storage...")
-	if err := os.MkdirAll(path, 0755); err != nil {
-		return "", errors.Errorf("create tmp storage (MkdirAll): %v", err)
-	}
-	return path, nil
 }
 
 func (m *ovaImportManager) uploadImage(ofi ovaFileItem, basePath string) error {
