@@ -1199,3 +1199,40 @@ var oldIndexesv123 = map[string][][]string{
 		{"subnetid"},
 	},
 }
+
+// AddLeadsershipSettingsDocs creates service leadership documents in
+// the settings collection for all services in all environments.
+func AddLeadershipSettingsDocs(st *State) error {
+	environments, closer := st.getCollection(environmentsC)
+	defer closer()
+
+	var envDocs []bson.M
+	err := environments.Find(nil).Select(bson.M{"_id": 1}).All(&envDocs)
+	if err != nil {
+		return errors.Annotate(err, "failed to read environments")
+	}
+
+	for _, envDoc := range envDocs {
+		envUUID := envDoc["_id"].(string)
+		envSt, err := st.ForEnviron(names.NewEnvironTag(envUUID))
+		if err != nil {
+			return errors.Annotatef(err, "failed to open environment %q", envUUID)
+		}
+		defer envSt.Close()
+
+		services, err := envSt.AllServices()
+		if err != nil {
+			return errors.Annotatef(err, "failed to retrieve services for environment %q", envUUID)
+		}
+
+		for _, service := range services {
+			// The error from this is intentionally ignored as the
+			// transaction will fail if the service already has a
+			// leadership settings doc.
+			envSt.runTransaction([]txn.Op{
+				addLeadershipSettingsOp(service.Name()),
+			})
+		}
+	}
+	return nil
+}

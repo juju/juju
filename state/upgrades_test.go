@@ -2503,3 +2503,53 @@ func (s *upgradesSuite) TestIPAddressLifeIdempotent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(doc.Life, gc.Equals, Alive)
 }
+
+func (s *upgradesSuite) TestAddLeadershipSettingsDocs(c *gc.C) {
+	environments, closer := s.state.getRawCollection(environmentsC)
+	defer closer()
+	addEnvironment := func(envUUID string) {
+		err := environments.Insert(bson.M{
+			"_id": envUUID,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	var expectedDocIDs []string
+	services, closer := s.state.getRawCollection(servicesC)
+	defer closer()
+	addService := func(envUUID, name string) {
+		err := services.Insert(bson.M{
+			"_id":      envUUID + ":" + name,
+			"env-uuid": envUUID,
+			"name":     name,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		expectedDocIDs = append(expectedDocIDs, envUUID+":"+LeadershipSettingsDocId(name))
+	}
+
+	UUID0 := s.state.EnvironUUID()
+	addService(UUID0, "mediawiki")
+	addService(UUID0, "postgresql")
+
+	UUID1 := "6983ac70-b0aa-45c5-80fe-9f207bbb18d9"
+	addEnvironment(UUID1)
+	addService(UUID1, "foobar")
+
+	UUID2 := "7983ac70-b0aa-45c5-80fe-9f207bbb18d9"
+	addEnvironment(UUID2)
+	addService(UUID2, "mysql")
+
+	err := AddLeadershipSettingsDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	settings, closer := s.state.getRawCollection(settingsC)
+	defer closer()
+	var docs []bson.M
+	err = settings.Find(bson.D{{"_id", bson.D{{"$regex", ".+#leader$"}}}}).All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	var actualDocIDs []string
+	for _, doc := range docs {
+		actualDocIDs = append(actualDocIDs, doc["_id"].(string))
+	}
+	c.Assert(actualDocIDs, jc.SameContents, expectedDocIDs)
+}
