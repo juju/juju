@@ -18,14 +18,6 @@ var _ environs.EnvironProvider = providerInstance
 
 var logger = loggo.GetLogger("juju.provider.vmware")
 
-func init() {
-	// This will only happen in binaries that actually import this provider
-	// somewhere. To enable a provider, import it in the "providers/all"
-	// package; please do *not* import individual providers anywhere else,
-	// except in direct tests for that provider.
-	environs.RegisterProvider("vmware", providerInstance)
-}
-
 // Open implements environs.EnvironProvider.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	env, err := newEnviron(cfg)
