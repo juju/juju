@@ -71,6 +71,12 @@ func stateStepsFor123() []Step {
 			run: func(context Context) error {
 				return state.LowerCaseEnvUsersID(context.State())
 			},
+		}, &upgradeStep{
+			description: "add leadership settings documents for all services",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddLeadershipSettingsDocs(context.State())
+			},
 		},
 	)
 	return steps
