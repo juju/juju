@@ -61,20 +61,22 @@ func windowsEnv(paths Paths) []string {
 // or having missing environment variables, may lead to standard go packages not working
 // (os.TempDir relies on $env:TEMP), and powershell erroring out
 // TODO(fwereade, gsamfira): this is copy/pasted from utils/exec.
+// This is only used on windows, so it is safe to do in a case insensitive way.
 func mergeEnvironment(env []string) []string {
 	if env == nil {
 		return nil
 	}
+
 	m := map[string]string{}
 	var tmpEnv []string
 	for _, val := range os.Environ() {
 		varSplit := strings.SplitN(val, "=", 2)
-		m[varSplit[0]] = varSplit[1]
+		m[strings.ToUpper(varSplit[0])] = varSplit[1]
 	}
 
 	for _, val := range env {
 		varSplit := strings.SplitN(val, "=", 2)
-		m[varSplit[0]] = varSplit[1]
+		m[strings.ToUpper(varSplit[0])] = varSplit[1]
 	}
 
 	for key, val := range m {
