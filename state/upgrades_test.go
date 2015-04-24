@@ -2504,7 +2504,7 @@ func (s *upgradesSuite) TestIPAddressLifeIdempotent(c *gc.C) {
 	c.Assert(doc.Life, gc.Equals, Alive)
 }
 
-func (s *upgradesSuite) prepareEnvsForLeadership(c *gc.C) []string {
+func (s *upgradesSuite) prepareEnvsForLeadership(c *gc.C, envs map[string][]string) []string {
 	environments, closer := s.state.getRawCollection(environmentsC)
 	defer closer()
 	addEnvironment := func(envUUID string) {
@@ -2527,17 +2527,17 @@ func (s *upgradesSuite) prepareEnvsForLeadership(c *gc.C) []string {
 		expectedDocIDs = append(expectedDocIDs, envUUID+":"+LeadershipSettingsDocId(name))
 	}
 
-	UUID0 := s.state.EnvironUUID()
-	addService(UUID0, "mediawiki")
-	addService(UUID0, "postgresql")
-
-	UUID1 := "6983ac70-b0aa-45c5-80fe-9f207bbb18d9"
-	addEnvironment(UUID1)
-	addService(UUID1, "foobar")
-
-	UUID2 := "7983ac70-b0aa-45c5-80fe-9f207bbb18d9"
-	addEnvironment(UUID2)
-	addService(UUID2, "mysql")
+	// Use the helpers to set up the environments.
+	for envUUID, svcs := range envs {
+		if envUUID == "" {
+			envUUID = s.state.EnvironUUID()
+		} else {
+			addEnvironment(envUUID)
+		}
+		for _, svc := range svcs {
+			addService(envUUID, svc)
+		}
+	}
 
 	return expectedDocIDs
 }
@@ -2556,7 +2556,11 @@ func (s *upgradesSuite) readDocIDs(c *gc.C, coll, regex string) []string {
 }
 
 func (s *upgradesSuite) TestAddLeadershipSettingsDocs(c *gc.C) {
-	expectedDocIDs := s.prepareEnvsForLeadership(c)
+	expectedDocIDs := s.prepareEnvsForLeadership(c, map[string][]string{
+		"": []string{"mediawiki", "postgresql"},
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"foobar"},
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"mysql"},
+	})
 
 	err := AddLeadershipSettingsDocs(s.state)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2565,8 +2569,33 @@ func (s *upgradesSuite) TestAddLeadershipSettingsDocs(c *gc.C) {
 	c.Assert(actualDocIDs, jc.SameContents, expectedDocIDs)
 }
 
+func (s *upgradesSuite) TestAddLeadershipSettingsFresh(c *gc.C) {
+	err := AddLeadershipSettingsDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actualDocIDs := s.readDocIDs(c, settingsC, ".+#leader$")
+	c.Assert(actualDocIDs, gc.HasLen, 0)
+}
+
+func (s *upgradesSuite) TestAddLeadershipSettingsMultipleEmpty(c *gc.C) {
+	s.prepareEnvsForLeadership(c, map[string][]string{
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": nil,
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": nil,
+	})
+
+	err := AddLeadershipSettingsDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actualDocIDs := s.readDocIDs(c, settingsC, ".+#leader$")
+	c.Assert(actualDocIDs, gc.HasLen, 0)
+}
+
 func (s *upgradesSuite) TestAddLeadershipSettingsIdempotent(c *gc.C) {
-	s.prepareEnvsForLeadership(c)
+	s.prepareEnvsForLeadership(c, map[string][]string{
+		"": []string{"mediawiki", "postgresql"},
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"foobar"},
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"mysql"},
+	})
 
 	originalIDs := s.readDocIDs(c, settingsC, ".+#leader$")
 	c.Assert(originalIDs, gc.HasLen, 0)
