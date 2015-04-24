@@ -251,6 +251,7 @@ class CandidateTestCase(TestCase):
         self.assertEqual((master_dir, True, True), args)
         args, kwargs = gp_mock.call_args
         self.assertEqual((artifacts_dir, '1.2.3'), args)
+        self.assertEqual(0, cc_mock.call_count)
 
     def test_get_scripts(self):
         assemble_script, publish_script = get_scripts()
