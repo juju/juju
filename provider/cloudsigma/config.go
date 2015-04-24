@@ -94,7 +94,7 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 	}
 	for field := range configFields {
 		if newAttrs[field] == "" {
-			return nil, errors.Errorf("rs: must not be empty", field)
+			return nil, errors.Errorf("%s: must not be empty", field)
 		}
 	}
 
