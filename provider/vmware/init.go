@@ -4,7 +4,11 @@
 package vmware
 
 import (
+	"github.com/juju/utils/featureflag"
+
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/storage/provider/registry"
 )
 
@@ -13,7 +17,9 @@ const (
 )
 
 func init() {
-	environs.RegisterProvider(providerType, providerInstance)
-
-	registry.RegisterEnvironStorageProviders(providerType)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	if featureflag.Enabled(feature.VMWareProvider) {
+		environs.RegisterProvider(providerType, providerInstance)
+		registry.RegisterEnvironStorageProviders(providerType)
+	}
 }
