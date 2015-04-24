@@ -10,12 +10,9 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -25,12 +22,6 @@ type storageGetSuite struct {
 }
 
 var _ = gc.Suite(&storageGetSuite{})
-
-func (s *storageGetSuite) SetUpTest(c *gc.C) {
-	s.ContextSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-}
 
 var (
 	storageAttributes = map[string]interface{}{

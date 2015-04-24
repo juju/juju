@@ -14,7 +14,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/charmrepo"
 	"gopkg.in/juju/charmstore.v4/csclient"
@@ -27,7 +26,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
@@ -40,7 +38,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Client", 0, NewClient)
+	common.RegisterStandardFacade("Client", 2, NewClient)
 }
 
 var (
@@ -332,50 +330,46 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		return errors.Trace(err)
 	}
 
-	// TODO(axw) stop checking feature flag once storage has graduated.
-	var storageConstraints map[string]storage.Constraints
-	if featureflag.Enabled(feature.Storage) {
-		storageConstraints = args.Storage
-		if storageConstraints == nil {
-			storageConstraints = make(map[string]storage.Constraints)
+	storageConstraints := args.Storage
+	if storageConstraints == nil {
+		storageConstraints = make(map[string]storage.Constraints)
+	}
+	// Validate the storage parameters against the charm metadata,
+	// and ensure there are no conflicting parameters.
+	if err := validateCharmStorage(args, ch); err != nil {
+		return err
+	}
+	// Handle stores with no corresponding constraints.
+	for store, charmStorage := range ch.Meta().Storage {
+		if _, ok := args.Storage[store]; ok {
+			// TODO(axw) if pool is not specified, we should set it to
+			// the environment's default pool.
+			continue
 		}
-		// Validate the storage parameters against the charm metadata,
-		// and ensure there are no conflicting parameters.
-		if err := validateCharmStorage(args, ch); err != nil {
-			return err
+		if charmStorage.Shared {
+			// TODO(axw) get the environment's default shared storage
+			// pool, and create constraints here.
+			return errors.Errorf(
+				"no constraints specified for shared charm storage %q",
+				store,
+			)
 		}
-		// Handle stores with no corresponding constraints.
-		for store, charmStorage := range ch.Meta().Storage {
-			if _, ok := args.Storage[store]; ok {
-				// TODO(axw) if pool is not specified, we should set it to
-				// the environment's default pool.
-				continue
-			}
-			if charmStorage.Shared {
-				// TODO(axw) get the environment's default shared storage
-				// pool, and create constraints here.
-				return errors.Errorf(
-					"no constraints specified for shared charm storage %q",
-					store,
-				)
-			}
-			if charmStorage.CountMin <= 0 {
-				continue
-			}
-			if charmStorage.Type != charm.StorageFilesystem {
-				// TODO(axw) clarify what the rules are for "block" kind when
-				// no constraints are specified. For "filesystem" we use rootfs.
-				return errors.Errorf(
-					"no constraints specified for %v charm storage %q",
-					charmStorage.Type,
-					store,
-				)
-			}
-			storageConstraints[store] = storage.Constraints{
-				// The pool is the provider type since rootfs provider has no configuration.
-				Pool:  string(provider.RootfsProviderType),
-				Count: uint64(charmStorage.CountMin),
-			}
+		if charmStorage.CountMin <= 0 {
+			continue
+		}
+		if charmStorage.Type != charm.StorageFilesystem {
+			// TODO(axw) clarify what the rules are for "block" kind when
+			// no constraints are specified. For "filesystem" we use rootfs.
+			return errors.Errorf(
+				"no constraints specified for %v charm storage %q",
+				charmStorage.Type,
+				store,
+			)
+		}
+		storageConstraints[store] = storage.Constraints{
+			// The pool is the provider type since rootfs provider has no configuration.
+			Pool:  string(provider.RootfsProviderType),
+			Count: uint64(charmStorage.CountMin),
 		}
 	}
 
@@ -816,25 +810,21 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		placementDirective = p.Placement.Directive
 	}
 
-	// TODO(axw) stop checking feature flag once storage has graduated.
-	var volumes []state.MachineVolumeParams
-	if featureflag.Enabled(feature.Storage) {
-		volumes = make([]state.MachineVolumeParams, 0, len(p.Disks))
-		for _, cons := range p.Disks {
-			if cons.Count == 0 {
-				return nil, errors.Errorf("invalid volume params: count not specified")
-			}
-			// Pool and Size are validated by AddMachineX.
-			volumeParams := state.VolumeParams{
-				Pool: cons.Pool,
-				Size: cons.Size,
-			}
-			volumeAttachmentParams := state.VolumeAttachmentParams{}
-			for i := uint64(0); i < cons.Count; i++ {
-				volumes = append(volumes, state.MachineVolumeParams{
-					volumeParams, volumeAttachmentParams,
-				})
-			}
+	volumes := make([]state.MachineVolumeParams, 0, len(p.Disks))
+	for _, cons := range p.Disks {
+		if cons.Count == 0 {
+			return nil, errors.Errorf("invalid volume params: count not specified")
+		}
+		// Pool and Size are validated by AddMachineX.
+		volumeParams := state.VolumeParams{
+			Pool: cons.Pool,
+			Size: cons.Size,
+		}
+		volumeAttachmentParams := state.VolumeAttachmentParams{}
+		for i := uint64(0); i < cons.Count; i++ {
+			volumes = append(volumes, state.MachineVolumeParams{
+				volumeParams, volumeAttachmentParams,
+			})
 		}
 	}
 

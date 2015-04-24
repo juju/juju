@@ -11,7 +11,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/storage"
 )
@@ -136,12 +134,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set service constraints")
 	f.StringVar(&c.Networks, "networks", "", "bind the service to specific networks")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
-	if featureflag.Enabled(feature.Storage) {
-		// NOTE: if/when the feature flag is removed, bump the client
-		// facade and check that the ServiceDeployWithNetworks facade
-		// version supports storage, and error if it doesn't.
-		f.Var(storageFlag{&c.Storage}, "storage", "charm storage constraints")
-	}
+	f.Var(storageFlag{&c.Storage}, "storage", "charm storage constraints")
 }
 
 func (c *DeployCommand) Init(args []string) error {
@@ -171,6 +164,10 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
+
+	if len(c.Storage) > 0 && client.BestAPIVersion() < 2 {
+		return errors.New("this version of Juju does not support deploying units with storage")
+	}
 
 	conf, err := service.GetClientConfig(client)
 	if err != nil {

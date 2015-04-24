@@ -708,21 +708,19 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		})
 	}
 
-	if featureflag.Enabled(feature.Storage) {
-		runner.StartWorker("diskmanager", func() (worker.Worker, error) {
-			api, err := st.DiskManager()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
-		})
-		runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
-			scope := agentConfig.Tag()
-			api := st.StorageProvisioner(scope)
-			storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-			return newStorageWorker(scope, storageDir, api, api, api, api), nil
-		})
-	}
+	runner.StartWorker("diskmanager", func() (worker.Worker, error) {
+		api, err := st.DiskManager()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
+	})
+	runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
+		scope := agentConfig.Tag()
+		api := st.StorageProvisioner(scope)
+		storageDir := filepath.Join(agentConfig.DataDir(), "storage")
+		return newStorageWorker(scope, storageDir, api, api, api, api), nil
+	})
 
 	// Check if the network management is disabled.
 	envConfig, err := st.Environment().EnvironConfig()
@@ -1068,13 +1066,11 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 		return provisioner.NewEnvironProvisioner(apiSt.Provisioner(), agentConfig), nil
 	})
-	if featureflag.Enabled(feature.Storage) {
-		singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
-			scope := agentConfig.Environment()
-			api := apiSt.StorageProvisioner(scope)
-			return newStorageWorker(scope, "", api, api, api, api), nil
-		})
-	}
+	singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
+		scope := agentConfig.Environment()
+		api := apiSt.StorageProvisioner(scope)
+		return newStorageWorker(scope, "", api, api, api, api), nil
+	})
 	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 		return charmrevisionworker.NewRevisionUpdateWorker(apiSt.CharmRevisionUpdater()), nil
 	})

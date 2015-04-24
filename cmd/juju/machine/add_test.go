@@ -10,7 +10,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,8 +17,6 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -204,14 +201,9 @@ func (s *AddMachineSuite) TestServerIsPreJobManageNetworking(c *gc.C) {
 }
 
 func (s *AddMachineSuite) TestAddMachineWithDisks(c *gc.C) {
-	// --disks is not defined unless the "storage" feature flag is enabled.
+	// To add disks, we need a recent client facade.
+	s.fake.facadeVersion = 2
 	_, err := s.run(c, "--disks", "2,1G", "--disks", "2G")
-	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: --disks")
-
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
-	_, err = s.run(c, "--disks", "2,1G", "--disks", "2G")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.args, gc.HasLen, 1)
 	param := s.fake.args[0]
@@ -221,16 +213,26 @@ func (s *AddMachineSuite) TestAddMachineWithDisks(c *gc.C) {
 	})
 }
 
+func (s *AddMachineSuite) TestAddMachineWithDisksUnsupported(c *gc.C) {
+	_, err := s.run(c, "--disks", "2,1G", "--disks", "2G")
+	c.Assert(err, gc.ErrorMatches, "this version of Juju does not support adding machines with disks")
+}
+
 type fakeAddMachineAPI struct {
-	successOrder []bool
-	currentOp    int
-	args         []params.AddMachineParams
-	addError     error
-	agentVersion interface{}
+	successOrder  []bool
+	currentOp     int
+	args          []params.AddMachineParams
+	addError      error
+	agentVersion  interface{}
+	facadeVersion int
 }
 
 func (f *fakeAddMachineAPI) Close() error {
 	return nil
+}
+
+func (f *fakeAddMachineAPI) BestAPIVersion() int {
+	return f.facadeVersion
 }
 
 func (f *fakeAddMachineAPI) EnvironmentUUID() string {

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/charmrepo"
@@ -39,9 +38,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -1682,14 +1679,6 @@ func (s *clientRepoSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 
 func (s *clientRepoSuite) TestClientServiceDeployWithStorage(c *gc.C) {
 	s.setupStoragePool(c)
-	s.testClientServiceDeployWithStorage(c, true)
-}
-
-func (s *clientRepoSuite) TestClientServiceDeployWithStorageWithoutFeature(c *gc.C) {
-	s.testClientServiceDeployWithStorage(c, false)
-}
-
-func (s *clientRepoSuite) testClientServiceDeployWithStorage(c *gc.C, expectConstraints bool) {
 	curl, ch := s.uploadCharm(c, "utopic/storage-block-10", "storage-block")
 	storageConstraints := map[string]storage.Constraints{
 		"data": {
@@ -1708,18 +1697,13 @@ func (s *clientRepoSuite) testClientServiceDeployWithStorage(c *gc.C, expectCons
 	service := s.assertPrincipalDeployed(c, "service", curl, false, ch, cons)
 	storageConstraintsOut, err := service.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-
-	if expectConstraints {
-		c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
-			"data": {
-				Count: 1,
-				Size:  1024,
-				Pool:  "loop-pool",
-			},
-		})
-	} else {
-		c.Assert(storageConstraintsOut, gc.HasLen, 0)
-	}
+	c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
+		"data": {
+			Count: 1,
+			Size:  1024,
+			Pool:  "loop-pool",
+		},
+	})
 }
 
 func (s *clientRepoSuite) TestClientServiceDeployWithInvalidStoragePool(c *gc.C) {
@@ -1742,8 +1726,6 @@ func (s *clientRepoSuite) TestClientServiceDeployWithInvalidStoragePool(c *gc.C)
 }
 
 func (s *clientRepoSuite) TestClientServiceDeployWithUnsupportedStoragePool(c *gc.C) {
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	registry.RegisterProvider("hostloop", &mockStorageProvider{kind: storage.StorageKindBlock})
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("host-loop-pool", provider.HostLoopProviderType, map[string]interface{}{})
@@ -3205,28 +3187,6 @@ func (s *clientSuite) assertVolumeParams(c *gc.C, machineId string, expectParams
 	c.Assert(foundParams, jc.SameContents, expectParams)
 }
 
-func (s *clientSuite) TestClientAddMachinesWithDisksNoFeatureFlag(c *gc.C) {
-	// If the storage feature flag is not set, then Disks should be ignored.
-	apiParams := make([]params.AddMachineParams, 2)
-	for i := range apiParams {
-		apiParams[i] = params.AddMachineParams{
-			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-		}
-	}
-	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
-	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 0, Pool: "three"}}
-	machines, err := s.APIState.Client().AddMachines(apiParams)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(machines), gc.Equals, 2)
-	c.Assert(machines[0].Machine, gc.Equals, "0")
-	c.Assert(machines[1].Machine, gc.Equals, "1")
-	m, err := s.BackingState.Machine(machines[0].Machine)
-	c.Assert(err, jc.ErrorIsNil)
-	volumeAttachments, err := s.BackingState.MachineVolumeAttachments(m.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volumeAttachments, gc.HasLen, 0)
-}
-
 func (s *clientSuite) TestClientAddMachines1dot18(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 2)
 	for i := range apiParams {
@@ -3348,7 +3308,7 @@ func (s *clientSuite) TestInjectMachinesStillExists(c *gc.C) {
 			Nonce:      "nonce",
 		}},
 	}
-	err := s.APIState.APICall("Client", 0, "", "AddMachines", args, &results)
+	err := s.APIState.APICall("Client", 2, "", "AddMachines", args, &results)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Machines, gc.HasLen, 1)
 }

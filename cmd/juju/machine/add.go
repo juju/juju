@@ -10,7 +10,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/utils/featureflag"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state/multiwatcher"
@@ -120,12 +118,7 @@ func (c *AddCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "series", "", "the charm series")
 	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "additional machine constraints")
-	if featureflag.Enabled(feature.Storage) {
-		// NOTE: if/when the feature flag is removed, bump the client
-		// facade and check that the AddMachines facade version supports
-		// disks, and error if it doesn't.
-		f.Var(disksFlag{&c.Disks}, "disks", "constraints for disks to attach to the machine")
-	}
+	f.Var(disksFlag{&c.Disks}, "disks", "constraints for disks to attach to the machine")
 }
 
 func (c *AddCommand) Init(args []string) error {
@@ -153,6 +146,7 @@ func (c *AddCommand) Init(args []string) error {
 type AddMachineAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	AddMachines1dot18([]params.AddMachineParams) ([]params.AddMachinesResult, error)
+	BestAPIVersion() int
 	Close() error
 	ForceDestroyMachines(machines ...string) error
 	EnvironmentGet() (map[string]interface{}, error)
@@ -175,6 +169,10 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer client.Close()
+
+	if len(c.Disks) > 0 && client.BestAPIVersion() < 2 {
+		return errors.New("this version of Juju does not support adding machines with disks")
+	}
 
 	logger.Infof("load config")
 	var config *config.Config

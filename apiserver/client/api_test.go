@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -19,9 +18,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
@@ -454,8 +451,6 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 }
 
 func (s *baseSuite) setupStoragePool(c *gc.C) {
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)

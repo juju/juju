@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -18,7 +17,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacadeForFeature("Storage", 1, NewAPI, feature.Storage)
+	common.RegisterStandardFacade("Storage", 1, NewAPI)
 }
 
 // API implements the storage interface and is the concrete

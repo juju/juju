@@ -5,29 +5,21 @@ package upgrades
 
 import (
 	"github.com/juju/names"
-	"github.com/juju/utils/featureflag"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/uniter"
 )
 
 // stateStepsFor123 returns upgrade steps for Juju 1.23 that manipulate state directly.
 func stateStepsFor123() []Step {
-	var steps []Step
-	// TODO(axw) stop checking feature flag once storage has graduated.
-	if featureflag.Enabled(feature.Storage) {
-		steps = append(steps,
-			&upgradeStep{
-				description: "add default storage pools",
-				targets:     []Target{DatabaseMaster},
-				run: func(context Context) error {
-					return addDefaultStoragePools(context.State())
-				},
+	return []Step{
+		&upgradeStep{
+			description: "add default storage pools",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return addDefaultStoragePools(context.State())
 			},
-		)
-	}
-	steps = append(steps,
+		},
 		&upgradeStep{
 			description: "drop old mongo indexes",
 			targets:     []Target{DatabaseMaster},
@@ -72,8 +64,7 @@ func stateStepsFor123() []Step {
 				return state.LowerCaseEnvUsersID(context.State())
 			},
 		},
-	)
-	return steps
+	}
 }
 
 // stepsFor123 returns upgrade steps for Juju 1.23 that only need the API.
