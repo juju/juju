@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package vmware_test
+package vsphere_test
 
 import (
 	"github.com/juju/errors"
@@ -12,7 +12,7 @@ import (
 )
 
 type environSuite struct {
-	vmware.BaseSuite
+	vsphere.BaseSuite
 }
 
 var _ = gc.Suite(&environSuite{})
@@ -22,7 +22,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *environSuite) TestBootstrap(c *gc.C) {
-	s.PatchValue(&vmware.Bootstrap, func(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams,
+	s.PatchValue(&vsphere.Bootstrap, func(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams,
 	) (string, string, environs.BootstrapFinalizer, error) {
 		return "", "", nil, errors.New("Bootstrap called")
 	})
@@ -31,7 +31,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 }
 
 func (s *environSuite) TestDestroy(c *gc.C) {
-	s.PatchValue(&vmware.DestroyEnv, func(env environs.Environ) error {
+	s.PatchValue(&vsphere.DestroyEnv, func(env environs.Environ) error {
 		return errors.New("Destroy called")
 	})
 	err := s.Env.Destroy()

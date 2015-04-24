@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package vmware_test
+package vsphere_test
 
 import (
 	jc "github.com/juju/testing/checkers"
@@ -13,7 +13,7 @@ import (
 )
 
 type environAvailzonesSuite struct {
-	vmware.BaseSuite
+	vsphere.BaseSuite
 }
 
 var _ = gc.Suite(&environAvailzonesSuite{})
@@ -23,7 +23,7 @@ func (s *environAvailzonesSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *environAvailzonesSuite) TestAvailabilityZones(c *gc.C) {
-	client := vmware.ExposeEnvFakeClient(s.Env)
+	client := vsphere.ExposeEnvFakeClient(s.Env)
 	s.FakeAvailabilityZones(client, "z1", "z2")
 	zones, err := s.Env.AvailabilityZones()
 
@@ -34,11 +34,11 @@ func (s *environAvailzonesSuite) TestAvailabilityZones(c *gc.C) {
 }
 
 func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
-	client := vmware.ExposeEnvFakeClient(s.Env)
-	client.SetPropertyProxyHandler("FakeDatacenter", vmware.RetrieveDatacenterProperties)
+	client := vsphere.ExposeEnvFakeClient(s.Env)
+	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
 	vmName := common.MachineFullName(s.Env, "1")
-	s.FakeInstancesWithResourcePool(client, vmware.InstRp{Inst: vmName, Rp: "rp1"})
-	s.FakeAvailabilityZonesWithResourcePool(client, vmware.ZoneRp{Zone: "z1", Rp: "rp1"}, vmware.ZoneRp{Zone: "z2", Rp: "rp2"})
+	s.FakeInstancesWithResourcePool(client, vsphere.InstRp{Inst: vmName, Rp: "rp1"})
+	s.FakeAvailabilityZonesWithResourcePool(client, vsphere.ZoneRp{Zone: "z1", Rp: "rp1"}, vsphere.ZoneRp{Zone: "z2", Rp: "rp2"})
 
 	zones, err := s.Env.InstanceAvailabilityZoneNames([]instance.Id{instance.Id(vmName)})
 

@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package vmware_test
+package vsphere_test
 
 import (
 	jc "github.com/juju/testing/checkers"
@@ -14,7 +14,7 @@ import (
 )
 
 type ConfigSuite struct {
-	vmware.BaseSuite
+	vsphere.BaseSuite
 
 	config *config.Config
 }
@@ -24,7 +24,7 @@ var _ = gc.Suite(&ConfigSuite{})
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	cfg, err := testing.EnvironConfig(c).Apply(vmware.ConfigAttrs)
+	cfg, err := testing.EnvironConfig(c).Apply(vsphere.ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.config = cfg
 }
@@ -73,7 +73,7 @@ func (ts configTestSpec) checkAttrs(c *gc.C, attrs map[string]interface{}, cfg *
 }
 
 func (ts configTestSpec) attrs() testing.Attrs {
-	return vmware.ConfigAttrs.Merge(ts.insert).Delete(ts.remove...)
+	return vsphere.ConfigAttrs.Merge(ts.insert).Delete(ts.remove...)
 }
 
 func (ts configTestSpec) newConfig(c *gc.C) *config.Config {
@@ -142,7 +142,7 @@ func (*ConfigSuite) TestValidateNewConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		validatedConfig, err := vmware.Provider.Validate(testConfig, nil)
+		validatedConfig, err := vsphere.Provider.Validate(testConfig, nil)
 
 		// Check the result
 		if test.err != "" {
@@ -160,11 +160,11 @@ func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 
 		oldcfg := test.newConfig(c)
 		newcfg := s.config
-		expected := vmware.ConfigAttrs
+		expected := vsphere.ConfigAttrs
 
 		// Validate the new config (relative to the old one) using the
 		// provider.
-		validatedConfig, err := vmware.Provider.Validate(newcfg, oldcfg)
+		validatedConfig, err := vsphere.Provider.Validate(newcfg, oldcfg)
 
 		// Check the result.
 		if test.err != "" {
@@ -187,7 +187,7 @@ func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 
 var changeConfigTests = []configTestSpec{{
 	info:   "no change, no error",
-	expect: vmware.ConfigAttrs,
+	expect: vsphere.ConfigAttrs,
 }, {
 	info:   "cannot change datacenter",
 	insert: testing.Attrs{"datacenter": "/datacenter2"},
@@ -215,7 +215,7 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		validatedConfig, err := vmware.Provider.Validate(testConfig, s.config)
+		validatedConfig, err := vsphere.Provider.Validate(testConfig, s.config)
 
 		// Check the result.
 		if test.err != "" {

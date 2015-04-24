@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package vmware_test
+package vsphere_test
 
 import (
 	jc "github.com/juju/testing/checkers"
@@ -13,7 +13,7 @@ import (
 )
 
 type providerSuite struct {
-	vmware.BaseSuite
+	vsphere.BaseSuite
 
 	provider environs.EnvironProvider
 }
@@ -29,7 +29,7 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *providerSuite) TestRegistered(c *gc.C) {
-	c.Assert(s.provider, gc.Equals, vmware.Provider)
+	c.Assert(s.provider, gc.Equals, vsphere.Provider)
 }
 
 func (s *providerSuite) TestOpen(c *gc.C) {

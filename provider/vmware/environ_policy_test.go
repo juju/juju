@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package vmware_test
+package vsphere_test
 
 import (
 	jc "github.com/juju/testing/checkers"
@@ -13,7 +13,7 @@ import (
 )
 
 type environPolSuite struct {
-	vmware.BaseSuite
+	vsphere.BaseSuite
 }
 
 var _ = gc.Suite(&environPolSuite{})

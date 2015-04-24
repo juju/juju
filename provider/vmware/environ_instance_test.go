@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package vmware_test
+package vsphere_test
 
 import (
 	jc "github.com/juju/testing/checkers"
@@ -14,7 +14,7 @@ import (
 )
 
 type environInstanceSuite struct {
-	vmware.BaseSuite
+	vsphere.BaseSuite
 }
 
 var _ = gc.Suite(&environInstanceSuite{})
@@ -24,11 +24,11 @@ func (s *environInstanceSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *environAvailzonesSuite) TestInstances(c *gc.C) {
-	client := vmware.ExposeEnvFakeClient(s.Env)
-	client.SetPropertyProxyHandler("FakeDatacenter", vmware.RetrieveDatacenterProperties)
+	client := vsphere.ExposeEnvFakeClient(s.Env)
+	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
 	vmName1 := common.MachineFullName(s.Env, "1")
 	vmName2 := common.MachineFullName(s.Env, "2")
-	s.FakeInstancesWithResourcePool(client, vmware.InstRp{Inst: vmName1, Rp: "rp1"}, vmware.InstRp{Inst: vmName2, Rp: "rp2"})
+	s.FakeInstancesWithResourcePool(client, vsphere.InstRp{Inst: vmName1, Rp: "rp1"}, vsphere.InstRp{Inst: vmName2, Rp: "rp2"})
 
 	instances, err := s.Env.Instances([]instance.Id{instance.Id(vmName1), instance.Id(vmName2)})
 
@@ -39,9 +39,9 @@ func (s *environAvailzonesSuite) TestInstances(c *gc.C) {
 }
 
 func (s *environAvailzonesSuite) TestInstancesReturnNoInstances(c *gc.C) {
-	client := vmware.ExposeEnvFakeClient(s.Env)
-	client.SetPropertyProxyHandler("FakeDatacenter", vmware.RetrieveDatacenterProperties)
-	s.FakeInstancesWithResourcePool(client, vmware.InstRp{Inst: "Some name that don't match naming convention", Rp: "rp1"})
+	client := vsphere.ExposeEnvFakeClient(s.Env)
+	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
+	s.FakeInstancesWithResourcePool(client, vsphere.InstRp{Inst: "Some name that don't match naming convention", Rp: "rp1"})
 
 	_, err := s.Env.Instances([]instance.Id{instance.Id("Some other name")})
 
@@ -49,11 +49,11 @@ func (s *environAvailzonesSuite) TestInstancesReturnNoInstances(c *gc.C) {
 }
 
 func (s *environAvailzonesSuite) TestInstancesReturnPartialInstances(c *gc.C) {
-	client := vmware.ExposeEnvFakeClient(s.Env)
-	client.SetPropertyProxyHandler("FakeDatacenter", vmware.RetrieveDatacenterProperties)
+	client := vsphere.ExposeEnvFakeClient(s.Env)
+	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
 	vmName1 := common.MachineFullName(s.Env, "1")
 	vmName2 := common.MachineFullName(s.Env, "2")
-	s.FakeInstancesWithResourcePool(client, vmware.InstRp{Inst: vmName1, Rp: "rp1"}, vmware.InstRp{Inst: "Some inst", Rp: "rp2"})
+	s.FakeInstancesWithResourcePool(client, vsphere.InstRp{Inst: vmName1, Rp: "rp1"}, vsphere.InstRp{Inst: "Some inst", Rp: "rp2"})
 
 	_, err := s.Env.Instances([]instance.Id{instance.Id(vmName1), instance.Id(vmName2)})
 

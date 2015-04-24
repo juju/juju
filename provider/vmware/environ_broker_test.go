@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package vmware_test
+package vsphere_test
 
 import (
 	jc "github.com/juju/testing/checkers"
@@ -25,7 +25,7 @@ import (
 )
 
 type environBrokerSuite struct {
-	vmware.BaseSuite
+	vsphere.BaseSuite
 }
 
 var _ = gc.Suite(&environBrokerSuite{})
@@ -35,8 +35,8 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *environBrokerSuite) PrepareStartInstanceFakes(c *gc.C) {
-	client := vmware.ExposeEnvFakeClient(s.Env)
-	client.SetPropertyProxyHandler("FakeDatacenter", vmware.RetrieveDatacenterProperties)
+	client := vsphere.ExposeEnvFakeClient(s.Env)
+	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
 	s.FakeInstances(client)
 	s.FakeAvailabilityZones(client, "z1")
 	s.FakeAvailabilityZones(client, "z1")
@@ -118,9 +118,9 @@ func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C)
 	res, err := s.Env.StartInstance(startInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*res.Hardware.CpuCores, gc.Equals, vmware.DefaultCpuCores)
-	c.Assert(*res.Hardware.CpuPower, gc.Equals, vmware.DefaultCpuPower)
-	c.Assert(*res.Hardware.Mem, gc.Equals, vmware.DefaultMemMb)
+	c.Assert(*res.Hardware.CpuCores, gc.Equals, vsphere.DefaultCpuCores)
+	c.Assert(*res.Hardware.CpuPower, gc.Equals, vsphere.DefaultCpuPower)
+	c.Assert(*res.Hardware.Mem, gc.Equals, vsphere.DefaultMemMb)
 	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB*1024)
 }
 
@@ -148,7 +148,7 @@ func (s *environBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *gc.C) 
 func (s *environBrokerSuite) TestStartInstanceCallsFinishMachineConfig(c *gc.C) {
 	s.PrepareStartInstanceFakes(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
-	s.PatchValue(&vmware.FinishInstanceConfig, func(mcfg *instancecfg.InstanceConfig, cfg *config.Config) (err error) {
+	s.PatchValue(&vsphere.FinishInstanceConfig, func(mcfg *instancecfg.InstanceConfig, cfg *config.Config) (err error) {
 		return errors.New("FinishMachineConfig called")
 	})
 	_, err := s.Env.StartInstance(startInstArgs)
@@ -174,7 +174,7 @@ func (s *environBrokerSuite) TestStartInstanceInvalidPlacement(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
-	client := vmware.ExposeEnvFakeClient(s.Env)
+	client := vsphere.ExposeEnvFakeClient(s.Env)
 	s.FakeAvailabilityZones(client, "z1", "z2")
 	s.FakeAvailabilityZones(client, "z1", "z2")
 	s.FakeCreateInstance(client, s.ServerUrl, c)
@@ -190,7 +190,7 @@ func (s *environBrokerSuite) TestStartInstanceCallsAvailabilityZoneAllocations(c
 	startInstArgs.DistributionGroup = func() ([]instance.Id, error) {
 		return []instance.Id{instance.Id("someId")}, nil
 	}
-	s.PatchValue(&vmware.AvailabilityZoneAllocations, func(env common.ZonedEnviron, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
+	s.PatchValue(&vsphere.AvailabilityZoneAllocations, func(env common.ZonedEnviron, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
 		c.Assert(len(group), gc.Equals, 1)
 		c.Assert(string(group[0]), gc.Equals, "someId")
 		return nil, errors.New("AvailabilityZoneAllocations called")
@@ -200,13 +200,13 @@ func (s *environBrokerSuite) TestStartInstanceCallsAvailabilityZoneAllocations(c
 }
 
 func (s *environBrokerSuite) TestStartInstanceTriesToCreateInstanceInAllAvailabilityZones(c *gc.C) {
-	client := vmware.ExposeEnvFakeClient(s.Env)
-	client.SetPropertyProxyHandler("FakeDatacenter", vmware.RetrieveDatacenterProperties)
+	client := vsphere.ExposeEnvFakeClient(s.Env)
+	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
 	s.FakeInstances(client)
 	s.FakeAvailabilityZones(client, "z1", "z2")
 	s.FakeAvailabilityZones(client, "z1", "z2")
 	s.FakeAvailabilityZones(client, "z1", "z2")
-	client.SetPropertyProxyHandler("FakeDatacenter", vmware.RetrieveDatacenterProperties)
+	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
 	client.SetProxyHandler("CreateImportSpec", func(req, res soap.HasFault) {
 		resBody := res.(*methods.CreateImportSpecBody)
 		resBody.Res = &types.CreateImportSpecResponse{
@@ -218,7 +218,7 @@ func (s *environBrokerSuite) TestStartInstanceTriesToCreateInstanceInAllAvailabi
 		}
 	})
 	s.FakeAvailabilityZones(client, "z1", "z2")
-	client.SetPropertyProxyHandler("FakeDatacenter", vmware.RetrieveDatacenterProperties)
+	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
 	client.SetProxyHandler("CreateImportSpec", func(req, res soap.HasFault) {
 		resBody := res.(*methods.CreateImportSpecBody)
 		resBody.Res = &types.CreateImportSpecResponse{
