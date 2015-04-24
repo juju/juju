@@ -148,7 +148,7 @@ func (m *ovfImportManager) downloadOvf(url string) (string, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("can't download ovf file from url: %s, status: %s", url, resp.StatusCode)
+		return "", errors.Errorf("can't download ovf file from url: %s status: %d", url, resp.StatusCode)
 	}
 	bytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -179,7 +179,7 @@ func (m *ovfImportManager) uploadImage(ofi ovfFileItem, baseUrl string) error {
 			curPercent := int(pr.Percentage())
 			if curPercent-lastPercent >= 10 {
 				lastPercent = curPercent
-				logger.Debugf("Progress: %d%", lastPercent)
+				logger.Debugf("Progress: %d%%", lastPercent)
 			}
 		}
 	}()
@@ -202,7 +202,7 @@ func (m *ovfImportManager) downloadFileItem(url string) (io.ReadCloser, error) {
 	}
 	if resp.StatusCode != 200 {
 		resp.Body.Close()
-		return nil, errors.Errorf("can't download file from url: %s, status: %s", url, resp.StatusCode)
+		return nil, errors.Errorf("can't download file from url: %s status: %d", url, resp.StatusCode)
 	}
 
 	return resp.Body, nil
