@@ -170,10 +170,6 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	if len(c.Disks) > 0 && client.BestAPIVersion() < 2 {
-		return errors.New("this version of Juju does not support adding machines with disks")
-	}
-
 	logger.Infof("load config")
 	var config *config.Config
 	if defaultStore, err := configstore.Default(); err != nil {

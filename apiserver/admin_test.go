@@ -573,7 +573,7 @@ func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {
 
 		// Ensure an API call that would be restricted during
 		// upgrades works after a normal login.
-		err := st.APICall("Client", 2, "", "DestroyEnvironment", nil, nil)
+		err := st.APICall("Client", 0, "", "DestroyEnvironment", nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	s.checkLoginWithValidator(c, validator, checker)
@@ -598,10 +598,10 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 		c.Assert(loginErr, gc.IsNil)
 
 		var statusResult api.Status
-		err := st.APICall("Client", 2, "", "FullStatus", params.StatusParams{}, &statusResult)
+		err := st.APICall("Client", 0, "", "FullStatus", params.StatusParams{}, &statusResult)
 		c.Assert(err, jc.ErrorIsNil)
 
-		err = st.APICall("Client", 2, "", "DestroyEnvironment", nil, nil)
+		err = st.APICall("Client", 0, "", "DestroyEnvironment", nil, nil)
 		c.Assert(err, gc.ErrorMatches, ".*upgrade in progress - Juju functionality is limited.*")
 	}
 	s.checkLoginWithValidator(c, validator, checker)

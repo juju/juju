@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -364,7 +363,6 @@ func (c *Client) ServiceDeployWithNetworks(
 	cons constraints.Value,
 	toMachineSpec string,
 	networks []string,
-	storage map[string]storage.Constraints,
 ) error {
 	params := params.ServiceDeploy{
 		ServiceName:   serviceName,
@@ -374,7 +372,6 @@ func (c *Client) ServiceDeployWithNetworks(
 		Constraints:   cons,
 		ToMachineSpec: toMachineSpec,
 		Networks:      networks,
-		Storage:       storage,
 	}
 	return c.facade.FacadeCall("ServiceDeployWithNetworks", params, nil)
 }

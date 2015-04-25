@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
+	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -158,16 +159,20 @@ func (c *DeployCommand) Init(args []string) error {
 	return c.UnitCommandBase.Init(args)
 }
 
+func (c *DeployCommand) newServiceAPIClient() (*apiservice.Client, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apiservice.NewClient(root), nil
+}
+
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-
-	if len(c.Storage) > 0 && client.BestAPIVersion() < 2 {
-		return errors.New("this version of Juju does not support deploying units with storage")
-	}
 
 	conf, err := service.GetClientConfig(client)
 	if err != nil {
@@ -240,8 +245,31 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
-	// TODO(axw) rename ServiceDeployWithNetworks to ServiceDeploy,
-	// and ServiceDeploy to ServiceDeployLegacy or some such.
+
+	// If storage is specified, we attempt to use a new API on the service facade.
+	if len(c.Storage) > 0 {
+		notSupported := errors.New("cannot deploy charms with storage: not supported by the API server")
+		serviceClient, err := c.newServiceAPIClient()
+		if err != nil {
+			return notSupported
+		}
+		defer serviceClient.Close()
+		err = serviceClient.ServiceDeploy(
+			curl.String(),
+			serviceName,
+			numUnits,
+			string(configYAML),
+			c.Constraints,
+			c.ToMachineSpec,
+			requestedNetworks,
+			c.Storage,
+		)
+		if params.IsCodeNotImplemented(err) {
+			return notSupported
+		}
+		return block.ProcessBlockedError(err, block.BlockChange)
+	}
+
 	err = client.ServiceDeployWithNetworks(
 		curl.String(),
 		serviceName,
@@ -250,7 +278,6 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		c.Constraints,
 		c.ToMachineSpec,
 		requestedNetworks,
-		c.Storage,
 	)
 	if params.IsCodeNotImplemented(err) {
 		if haveNetworks {

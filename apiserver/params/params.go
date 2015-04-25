@@ -188,6 +188,11 @@ type DestroyMachines struct {
 	Force        bool
 }
 
+// ServicesDeploy holds the parameters for deploying one or more services.
+type ServicesDeploy struct {
+	Services []ServiceDeploy
+}
+
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
 	ServiceName   string

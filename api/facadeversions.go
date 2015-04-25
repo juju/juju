@@ -19,7 +19,7 @@ var facadeVersions = map[string]int{
 	"Block":                        1,
 	"Charms":                       1,
 	"CharmRevisionUpdater":         0,
-	"Client":                       2,
+	"Client":                       0,
 	"Deployer":                     0,
 	"DiskManager":                  1,
 	"Environment":                  0,
