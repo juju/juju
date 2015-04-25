@@ -31,6 +31,7 @@ func init() {
 	gc.Suite(&apiCharmsSuite{})
 	gc.Suite(&cmdEnvironmentSuite{})
 	gc.Suite(&cmdStorageSuite{})
+	gc.Suite(&cmdSystemSuite{})
 }
 
 func Test(t *testing.T) {
