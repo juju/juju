@@ -145,8 +145,8 @@ func (c *AddCommand) Init(args []string) error {
 
 type AddMachineAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
+	AddMachinesWithDisks([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	AddMachines1dot18([]params.AddMachineParams) ([]params.AddMachinesResult, error)
-	BestAPIVersion() int
 	Close() error
 	ForceDestroyMachines(machines ...string) error
 	EnvironmentGet() (map[string]interface{}, error)
@@ -240,24 +240,34 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 		machines[i] = machineParams
 	}
 
-	results, err := client.AddMachines(machines)
-	if params.IsCodeNotImplemented(err) {
-		if c.Placement != nil {
-			containerType, parseErr := instance.ParseContainerType(c.Placement.Scope)
-			if parseErr != nil {
-				// The user specified a non-container placement directive:
-				// return original API not implemented error.
-				return err
-			}
-			machineParams.ContainerType = containerType
-			machineParams.ParentId = c.Placement.Directive
-			machineParams.Placement = nil
+	var results []params.AddMachinesResult
+	// If storage is specified, we attempt to use a new API on the service facade.
+	if len(c.Disks) > 0 {
+		notSupported := errors.New("cannot add machines with disks: not supported by the API server")
+		results, err = client.AddMachinesWithDisks(machines)
+		if params.IsCodeNotImplemented(err) {
+			return notSupported
 		}
-		logger.Infof(
-			"AddMachinesWithPlacement not supported by the API server, " +
-				"falling back to 1.18 compatibility mode",
-		)
-		results, err = client.AddMachines1dot18([]params.AddMachineParams{machineParams})
+	} else {
+		results, err = client.AddMachines(machines)
+		if params.IsCodeNotImplemented(err) {
+			if c.Placement != nil {
+				containerType, parseErr := instance.ParseContainerType(c.Placement.Scope)
+				if parseErr != nil {
+					// The user specified a non-container placement directive:
+					// return original API not implemented error.
+					return err
+				}
+				machineParams.ContainerType = containerType
+				machineParams.ParentId = c.Placement.Directive
+				machineParams.Placement = nil
+			}
+			logger.Infof(
+				"AddMachinesWithPlacement not supported by the API server, " +
+					"falling back to 1.18 compatibility mode",
+			)
+			results, err = client.AddMachines1dot18([]params.AddMachineParams{machineParams})
+		}
 	}
 	if params.IsCodeOperationBlocked(err) {
 		return block.ProcessBlockedError(err, block.BlockChange)

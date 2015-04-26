@@ -201,8 +201,6 @@ func (s *AddMachineSuite) TestServerIsPreJobManageNetworking(c *gc.C) {
 }
 
 func (s *AddMachineSuite) TestAddMachineWithDisks(c *gc.C) {
-	// To add disks, we need a recent client facade.
-	s.fake.facadeVersion = 2
 	_, err := s.run(c, "--disks", "2,1G", "--disks", "2G")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.args, gc.HasLen, 1)
@@ -214,25 +212,21 @@ func (s *AddMachineSuite) TestAddMachineWithDisks(c *gc.C) {
 }
 
 func (s *AddMachineSuite) TestAddMachineWithDisksUnsupported(c *gc.C) {
+	s.fake.addError = &params.Error{"MachineNetworkConfig", params.CodeNotImplemented}
 	_, err := s.run(c, "--disks", "2,1G", "--disks", "2G")
-	c.Assert(err, gc.ErrorMatches, "this version of Juju does not support adding machines with disks")
+	c.Assert(err, gc.ErrorMatches, "cannot add machines with disks: not supported by the API server")
 }
 
 type fakeAddMachineAPI struct {
-	successOrder  []bool
-	currentOp     int
-	args          []params.AddMachineParams
-	addError      error
-	agentVersion  interface{}
-	facadeVersion int
+	successOrder []bool
+	currentOp    int
+	args         []params.AddMachineParams
+	addError     error
+	agentVersion interface{}
 }
 
 func (f *fakeAddMachineAPI) Close() error {
 	return nil
-}
-
-func (f *fakeAddMachineAPI) BestAPIVersion() int {
-	return f.facadeVersion
 }
 
 func (f *fakeAddMachineAPI) EnvironmentUUID() string {
@@ -260,6 +254,10 @@ func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]param
 		f.currentOp++
 	}
 	return results, nil
+}
+
+func (f *fakeAddMachineAPI) AddMachinesWithDisks(args []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+	return f.AddMachines(args)
 }
 
 func (f *fakeAddMachineAPI) AddMachines1dot18(args []params.AddMachineParams) ([]params.AddMachinesResult, error) {

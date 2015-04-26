@@ -2986,7 +2986,7 @@ func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
 	apiParams[2].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "loop-pool"}}
 	apiParams[3].Disks = []storage.Constraints{{Size: 0, Count: 0}}
 	apiParams[4].Disks = []storage.Constraints{{Size: 0, Count: 1}}
-	machines, err := s.APIState.Client().AddMachines(apiParams)
+	machines, err := s.APIState.Client().AddMachinesWithDisks(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 5)
 	c.Assert(machines[0].Machine, gc.Equals, "0")

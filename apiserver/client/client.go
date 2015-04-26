@@ -588,6 +588,11 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 
 // AddMachinesV2 adds new machines with the supplied parameters.
 func (c *Client) AddMachinesV2(args params.AddMachines) (params.AddMachinesResults, error) {
+	return c.AddMachinesV3(args)
+}
+
+// AddMachinesV3 adds new machines with the supplied parameters.
+func (c *Client) AddMachinesV3(args params.AddMachines) (params.AddMachinesResults, error) {
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
 	}
