@@ -28,7 +28,8 @@ class CheckBlockers(TestCase):
         with patch('check_blockers.get_json', autospec=True,
                    side_effect=[SERIES_LIST, {'entries': []}]) as gj:
             check_blockers.get_lp_bugs(args)
-            gj.assert_called_with((check_blockers.LP_BUGS.format('juju-core')))
+            gj.assert_called_with(
+                (check_blockers.get_lp_bugs_url('juju-core')))
 
     def test_get_lp_bugs_with_supported_branch(self):
         args = check_blockers.parse_args(['1.20', '17'])
@@ -36,7 +37,7 @@ class CheckBlockers(TestCase):
                    side_effect=[SERIES_LIST, {'entries': []}]) as gj:
             check_blockers.get_lp_bugs(args)
             gj.assert_called_with(
-                (check_blockers.LP_BUGS.format('juju-core/1.20')))
+                (check_blockers.get_lp_bugs_url('juju-core/1.20')))
 
     def test_get_lp_bugs_with_unsupported_branch(self):
         args = check_blockers.parse_args(['foo', '17'])
@@ -152,8 +153,9 @@ class CheckBlockers(TestCase):
     def test_get_lp_bugs_url(self):
         self.assertEqual(
             'https://api.launchpad.net/devel/foo/bar?ws.op=searchTasks'
-            '&status%3Alist=Confirmed&status%3Alist=Triaged'
-            '&status%3Alist=In+Progress&status%3Alist=Fix+Committed'
-            '&status%3Alist=Incomplete&importance%3Alist=Critical'
-            '&tags%3Alist=blocker&tags_combinator=All',
+            '&tags_combinator=All&tags%3Alist=blocker'
+            '&importance%3Alist=Critical'
+            '&status%3Alist=Incomplete&status%3Alist=Confirmed'
+            '&status%3Alist=Triaged&status%3Alist=In+Progress'
+            '&status%3Alist=Fix+Committed',
             check_blockers.get_lp_bugs_url('foo/bar'))

@@ -9,15 +9,11 @@ import sys
 
 BUG_STATUSES = (
     'Incomplete', 'Confirmed', 'Triaged', 'In+Progress', 'Fix+Committed')
-BUG_IMPORTANCES = ('blocker', )
-BUG_TAGS = ('Critical', )
+BUG_IMPORTANCES = ('Critical', )
+BUG_TAGS = ('blocker', )
 LP_BUGS = (
-    'https://api.launchpad.net/devel/{}'
-    '?ws.op=searchTasks'
-    '&status%3Alist=Confirmed&status%3Alist=Triaged&status%3Alist=In+Progress'
-    '&status%3Alist=Fix+Committed&status%3Alist=Incomplete'
-    '&importance%3Alist=Critical'
-    '&tags%3Alist=blocker&tags_combinator=All'
+    'https://api.launchpad.net/devel/{target}'
+    '?ws.op=searchTasks&tags_combinator=All{tags}{importances}{statuses}'
 )
 GH_COMMENTS = 'https://api.github.com/repos/juju/juju/issues/{}/comments'
 LP_SERIES = 'https://api.launchpad.net/devel/juju-core/series'
@@ -42,7 +38,13 @@ def parse_args(args=None):
 
 def get_lp_bugs_url(target):
     """Return the target series url to query blocking bugs."""
-    return LP_BUGS.format(target)
+    params = {'target': target}
+    params['tags'] = ''.join('&tags%3Alist={}'.format(t) for t in BUG_TAGS)
+    params['importances'] = ''.join(
+        '&importance%3Alist={}'.format(i) for i in BUG_IMPORTANCES)
+    params['statuses'] = ''.join(
+        '&status%3Alist={}'.format(s) for s in BUG_STATUSES)
+    return LP_BUGS.format(**params)
 
 
 def get_lp_bugs(args):
@@ -57,7 +59,7 @@ def get_lp_bugs(args):
         target = 'juju-core'
     else:
         target = 'juju-core/%s' % args.branch
-    uri = LP_BUGS.format(target)
+    uri = get_lp_bugs_url(target)
     batch = get_json(uri)
     if batch:
         for bug_data in batch['entries']:
