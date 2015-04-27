@@ -13,7 +13,7 @@ LP_BUGS = (
     '&status%3Alist=Confirmed&status%3Alist=Triaged&status%3Alist=In+Progress'
     '&status%3Alist=Fix+Committed&status%3Alist=Incomplete'
     '&importance%3Alist=Critical'
-    '&tags%3Alist=regression&tags%3Alist=ci&tags_combinator=All'
+    '&tags%3Alist=blocker&tags_combinator=All'
 )
 GH_COMMENTS = 'https://api.github.com/repos/juju/juju/issues/{}/comments'
 LP_SERIES = 'https://api.launchpad.net/devel/juju-core/series'
