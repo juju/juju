@@ -275,11 +275,24 @@ func (s *BootstrapSuite) TestRunEnvNameMissing(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "the name of the environment must be specified")
 }
 
+const provisionalEnvs = `
+environments:
+    devenv:
+        type: dummy
+    cloudsigma:
+        type: cloudsigma
+    vsphere:
+        type: vsphere
+`
+
 func (s *BootstrapSuite) TestCheckProviderProvisional(c *gc.C) {
-	err := checkProviderType("dummy")
+	coretesting.WriteEnvironments(c, provisionalEnvs)
+
+	err := checkProviderType("devenv")
 	c.Assert(err, jc.ErrorIsNil)
 
 	for name, flag := range provisionalProviders {
+		c.Logf(" - trying %q -", name)
 		err := checkProviderType(name)
 		c.Check(err, gc.ErrorMatches, ".* provider is provisional .* set JUJU_DEV_FEATURE_FLAGS=.*")
 
@@ -360,6 +373,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 	// upload is only enabled for dev versions.
 	defaultSeriesVersion.Build = 1234
 	s.PatchValue(&version.Current, defaultSeriesVersion)
+	s.PatchValue(&environType, func(string) (string, error) { return "", nil })
 
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", envName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -379,6 +393,7 @@ func (s *BootstrapSuite) TestBootstrapCleansUpIfEnvironPrepFails(c *gc.C) {
 
 	cleanupRan := false
 
+	s.PatchValue(&environType, func(string) (string, error) { return "", nil })
 	s.PatchValue(
 		&environFromName,
 		func(
@@ -451,6 +466,7 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	// Simulation: prepare should fail and we should only clean up the
 	// jenv file. Any existing environment should not be destroyed.
 	s.PatchValue(&destroyPreparedEnviron, mockDestroyPreparedEnviron)
+	s.PatchValue(&environType, func(string) (string, error) { return "", nil })
 	s.PatchValue(&environFromName, mockEnvironFromName)
 	s.PatchValue(&environs.PrepareFromName, mockPrepare)
 	s.PatchValue(&destroyEnvInfo, mockDestroyEnvInfo)

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
@@ -194,8 +195,9 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if envName == "" {
 		return errors.Errorf("the name of the environment must be specified")
 	}
-
-	if err := checkProviderType(envName); err != nil {
+	if err := checkProviderType(envName); errors.IsNotFound(err) {
+		// This error will get handled later.
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -274,16 +276,33 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	return c.SetBootstrapEndpointAddress(environ)
 }
 
+var environType = func(envName string) (string, error) {
+	store, err := configstore.Default()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	cfg, _, err := environs.ConfigForName(envName, store)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return cfg.Type(), nil
+}
+
 // checkProviderType ensures the provider type is okay.
 func checkProviderType(envName string) error {
+	envType, err := environType(envName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	for name, flag := range provisionalProviders {
-		if envName != name {
+	for provisional, flag := range provisionalProviders {
+		if envType != provisional {
 			continue
 		}
 		if !featureflag.Enabled(flag) {
 			msg := `the %q provider is provisional in this version of Juju. To use it anyway, set JUJU_DEV_FEATURE_FLAGS="%s" in your shell environment`
-			return errors.Errorf(msg, envName, flag)
+			return errors.Errorf(msg, envType, flag)
 		}
 	}
 
