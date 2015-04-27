@@ -7,19 +7,16 @@ import json
 import urllib2
 import sys
 
-
-DEVEL = 'juju-core'
-B1_21 = 'juju-core/1.21'
-STABLE = 'juju-core/1.20'
+BUG_STATUSES = (
+    'Incomplete', 'Confirmed', 'Triaged', 'In+Progress', 'Fix+Committed')
+BUG_IMPORTANCES = ('Critical', )
+BUG_TAGS = ('blocker', )
 LP_BUGS = (
-    'https://api.launchpad.net/devel/{}'
-    '?ws.op=searchTasks'
-    '&status%3Alist=Triaged&status%3Alist=In+Progress'
-    '&status%3Alist=Fix+Committed'
-    '&importance%3Alist=Critical'
-    '&tags%3Alist=regression&tags%3Alist=ci&tags_combinator=All'
-    )
+    'https://api.launchpad.net/devel/{target}'
+    '?ws.op=searchTasks&tags_combinator=All{tags}{importances}{statuses}'
+)
 GH_COMMENTS = 'https://api.github.com/repos/juju/juju/issues/{}/comments'
+LP_SERIES = 'https://api.launchpad.net/devel/juju-core/series'
 
 
 def get_json(uri):
@@ -39,15 +36,30 @@ def parse_args(args=None):
     return parser.parse_args(args)
 
 
+def get_lp_bugs_url(target):
+    """Return the target series url to query blocking bugs."""
+    params = {'target': target}
+    params['tags'] = ''.join('&tags%3Alist={}'.format(t) for t in BUG_TAGS)
+    params['importances'] = ''.join(
+        '&importance%3Alist={}'.format(i) for i in BUG_IMPORTANCES)
+    params['statuses'] = ''.join(
+        '&status%3Alist={}'.format(s) for s in BUG_STATUSES)
+    return LP_BUGS.format(**params)
+
+
 def get_lp_bugs(args):
     bugs = {}
+    batch = get_json(LP_SERIES)
+    series = [s['name'] for s in batch['entries']]
+    if args.branch != 'master' and args.branch not in series:
+        # This branch is not a registered series to target bugs too.
+        return bugs
     if args.branch == 'master':
-        target = DEVEL
-    elif args.branch == '1.21':
-        target = B1_21
+        # Lp implicitly assigns bugs to trunk, which is not a series query.
+        target = 'juju-core'
     else:
-        target = STABLE
-    uri = LP_BUGS.format(target)
+        target = 'juju-core/%s' % args.branch
+    uri = get_lp_bugs_url(target)
     batch = get_json(uri)
     if batch:
         for bug_data in batch['entries']:
