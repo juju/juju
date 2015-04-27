@@ -148,3 +148,12 @@ class CheckBlockers(TestCase):
             self.assertEqual(request.get_header("Cache-control"),
                              "max-age=0, must-revalidate")
             self.assertEqual(json, {"result": []})
+
+    def test_get_lp_bugs_url(self):
+        self.assertEqual(
+            'https://api.launchpad.net/devel/foo/bar?ws.op=searchTasks'
+            '&status%3Alist=Confirmed&status%3Alist=Triaged'
+            '&status%3Alist=In+Progress&status%3Alist=Fix+Committed'
+            '&status%3Alist=Incomplete&importance%3Alist=Critical'
+            '&tags%3Alist=blocker&tags_combinator=All',
+            check_blockers.get_lp_bugs_url('foo/bar'))

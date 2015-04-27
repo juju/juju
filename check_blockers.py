@@ -7,6 +7,10 @@ import json
 import urllib2
 import sys
 
+BUG_STATUSES = (
+    'Incomplete', 'Confirmed', 'Triaged', 'In+Progress', 'Fix+Committed')
+BUG_IMPORTANCES = ('blocker', )
+BUG_TAGS = ('Critical', )
 LP_BUGS = (
     'https://api.launchpad.net/devel/{}'
     '?ws.op=searchTasks'
@@ -34,6 +38,11 @@ def parse_args(args=None):
     parser.add_argument('branch', help='The branch to merge into.')
     parser.add_argument('pull_request', help='The pull request to be merged')
     return parser.parse_args(args)
+
+
+def get_lp_bugs_url(target):
+    """Return the target series url to query blocking bugs."""
+    return LP_BUGS.format(target)
 
 
 def get_lp_bugs(args):
