@@ -18,7 +18,14 @@ SERIES_LIST = {
 
 class CheckBlockers(TestCase):
 
-    def test_parse_args(self):
+    def test_parse_args_update(self):
+        args = check_blockers.parse_args(
+            ['update', '-c', './foo.cred', 'master', '1234'])
+        self.assertEqual('master', args.branch)
+        self.assertEqual('1234', args.build)
+        self.assertEqual('./foo.cred', args.credentials)
+
+    def test_parse_args_check(self):
         args = check_blockers.parse_args(['check', 'master', '17'])
         self.assertEqual('master', args.branch)
         self.assertEqual('17', args.pull_request)

@@ -37,6 +37,14 @@ def parse_args(args=None):
     check_parser.add_argument('branch', help='The branch to merge into.')
     check_parser.add_argument(
         'pull_request', help='The pull request to be merged')
+    passed_parser = subparsers.add_parser(
+        'update', help='Update blocking for a branch that passed CI.')
+    passed_parser.add_argument(
+        "-c", "--credentials", default=None,
+        help="Launchpad credentials file.")
+    passed_parser.add_argument('branch', help='The branch that passed.')
+    passed_parser.add_argument(
+        'build', help='The build-revision build number.')
     return parser.parse_args(args)
 
 
