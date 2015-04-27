@@ -20,7 +20,7 @@ class CheckBlockers(TestCase):
 
     def test_parse_args_update(self):
         args = check_blockers.parse_args(
-            ['update', '-c', './foo.cred', 'master', '1234'])
+            ['-c', './foo.cred', 'update', 'master', '1234'])
         self.assertEqual('master', args.branch)
         self.assertEqual('1234', args.build)
         self.assertEqual('./foo.cred', args.credentials)
@@ -35,16 +35,16 @@ class CheckBlockers(TestCase):
         with patch('check_blockers.get_json', autospec=True,
                    side_effect=[SERIES_LIST, {'entries': []}]) as gj:
             check_blockers.get_lp_bugs(args)
-            gj.assert_called_with(
-                (check_blockers.get_lp_bugs_url('juju-core')))
+            url = check_blockers.get_lp_bugs_url('juju-core')
+            gj.assert_called_with(url, credentials=None)
 
     def test_get_lp_bugs_with_supported_branch(self):
         args = check_blockers.parse_args(['check', '1.20', '17'])
         with patch('check_blockers.get_json', autospec=True,
                    side_effect=[SERIES_LIST, {'entries': []}]) as gj:
             check_blockers.get_lp_bugs(args)
-            gj.assert_called_with(
-                (check_blockers.get_lp_bugs_url('juju-core/1.20')))
+            url = check_blockers.get_lp_bugs_url('juju-core/1.20')
+            gj.assert_called_with(url, credentials=None)
 
     def test_get_lp_bugs_with_unsupported_branch(self):
         args = check_blockers.parse_args(['check', 'foo', '17'])

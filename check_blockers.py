@@ -19,7 +19,7 @@ GH_COMMENTS = 'https://api.github.com/repos/juju/juju/issues/{}/comments'
 LP_SERIES = 'https://api.launchpad.net/devel/juju-core/series'
 
 
-def get_json(uri):
+def get_json(uri, credentials=None):
     request = urllib2.Request(uri, headers={
         "Cache-Control": "max-age=0, must-revalidate",
     })
@@ -31,6 +31,9 @@ def get_json(uri):
 
 def parse_args(args=None):
     parser = ArgumentParser('Check if a branch is blocked from landing')
+    parser.add_argument(
+        "-c", "--credentials", default=None,
+        help="Launchpad credentials file.")
     subparsers = parser.add_subparsers(help='sub-command help', dest="command")
     check_parser = subparsers.add_parser(
         'check', help='Check if merges are blocked for a branch.')
@@ -39,9 +42,6 @@ def parse_args(args=None):
         'pull_request', help='The pull request to be merged')
     passed_parser = subparsers.add_parser(
         'update', help='Update blocking for a branch that passed CI.')
-    passed_parser.add_argument(
-        "-c", "--credentials", default=None,
-        help="Launchpad credentials file.")
     passed_parser.add_argument('branch', help='The branch that passed.')
     passed_parser.add_argument(
         'build', help='The build-revision build number.')
@@ -72,7 +72,7 @@ def get_lp_bugs(args):
     else:
         target = 'juju-core/%s' % args.branch
     uri = get_lp_bugs_url(target)
-    batch = get_json(uri)
+    batch = get_json(uri, credentials=args.credentials)
     if batch:
         for bug_data in batch['entries']:
             bug_id = bug_data['self_link'].split('/')[-1]
@@ -107,6 +107,8 @@ def main():
         bugs = get_lp_bugs(args)
         code, reason = get_reason(bugs, args)
         print(reason)
+    elif args.command == 'update':
+        bugs = get_lp_bugs(args)
     return code
 
 
