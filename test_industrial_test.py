@@ -27,7 +27,6 @@ from industrial_test import (
     CannotUpgradeToOldClient,
     DENSITY,
     DeployManyAttempt,
-    DeployManyFactory,
     DestroyEnvironmentAttempt,
     EnsureAvailabilityAttempt,
     FULL,
@@ -248,7 +247,7 @@ class TestMultiIndustrialTest(TestCase):
             mit = MultiIndustrialTest.from_args(args, DENSITY)
         self.assertEqual(
             mit.stages, [
-                BootstrapAttempt, DeployManyFactory(2, 2),
+                BootstrapAttempt, DeployManyAttempt,
                 DestroyEnvironmentAttempt])
 
     def test_from_args_debug(self):
@@ -302,11 +301,11 @@ class TestMultiIndustrialTest(TestCase):
         self.assertEqual(
             MultiIndustrialTest.get_stages(FULL, {'type': 'maas'}), [
                 BootstrapAttempt, UpgradeCharmAttempt,
-                DeployManyFactory(2, 2), BackupRestoreAttempt,
+                DeployManyAttempt, BackupRestoreAttempt,
                 EnsureAvailabilityAttempt, DestroyEnvironmentAttempt])
         self.assertEqual(
             MultiIndustrialTest.get_stages(DENSITY, {'type': 'maas'}), [
-                BootstrapAttempt, DeployManyFactory(2, 2),
+                BootstrapAttempt, DeployManyAttempt,
                 DestroyEnvironmentAttempt])
 
     def test_density_suite(self):
@@ -1430,17 +1429,6 @@ class TestDeployManyAttempt(TestCase):
         calls = self.predict_add_machine_calls(deploy_many)
         for num, args in enumerate(calls):
             assert_juju_call(self, mock_cc, client, args, num)
-
-
-class TestDeployManyFactory(TestCase):
-
-    def test_get_test_info(self):
-        self.assertEqual(DeployManyFactory(2, 2).get_test_info(),
-                         DeployManyAttempt.get_test_info())
-
-    def test_call(self):
-        factory = DeployManyFactory(4, 2)
-        self.assertEqual(factory(), DeployManyAttempt(4, 2))
 
 
 class TestBackupRestoreAttempt(TestCase):
