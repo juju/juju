@@ -267,8 +267,10 @@ var bootstrapTests = []bootstrapTest{{
 	err:  `unrecognized args: \["anything" "else"\]`,
 }}
 
-func (s *BootstrapSuite) TestCheckEnvNameMissing(c *gc.C) {
-	err := checkEnvName("")
+func (s *BootstrapSuite) TestRunEnvNameMissing(c *gc.C) {
+	s.PatchValue(&getEnvName, func(*BootstrapCommand) string { return "" })
+
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}))
 
 	c.Check(err, gc.ErrorMatches, "the name of the environment must be specified")
 }
