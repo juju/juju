@@ -472,7 +472,7 @@ class EnvJujuClient24(EnvJujuClient):
 
         Juju's directory must be in the PATH to support plugins.
         """
-        env = super(EnvJujuClient24, self)._shell_environ()
+        env = super(EnvJujuClient24, self)._shell_environ(juju_home)
         if self.env.config.get('type') == 'cloudsigma':
             env[JUJU_DEV_FEATURE_FLAGS] = 'cloudsigma'
         return env

@@ -95,6 +95,12 @@ class TestEnvJujuClient24(ClientTest):
         env = client._shell_environ()
         self.assertEqual(env[JUJU_DEV_FEATURE_FLAGS], 'cloudsigma')
 
+    def test__shell_environ_juju_home(self):
+        client = EnvJujuClient24(
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.24-foobar', 'path')
+        env = client._shell_environ(juju_home='asdf')
+        self.assertEqual(env['JUJU_HOME'], 'asdf')
+
 
 class TestEnvJujuClient(ClientTest):
 
