@@ -11,16 +11,18 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/storage/provider/registry"
 )
 
 var logger = loggo.GetLogger("juju.provider.cloudsigma")
+
+const (
+	providerType = "cloudsigma"
+)
 
 func getImageSource(env environs.Environ) (simplestreams.DataSource, error) {
 	e, ok := env.(*environ)
@@ -42,11 +44,9 @@ func init() {
 	// somewhere. To enable a provider, import it in the "providers/all"
 	// package; please do *not* import individual providers anywhere else,
 	// except in direct tests for that provider.
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	if featureflag.Enabled(feature.CloudSigma) {
-		environs.RegisterProvider("cloudsigma", providerInstance)
-		environs.RegisterImageDataSourceFunc("Image source", getImageSource)
-	}
+	environs.RegisterProvider("cloudsigma", providerInstance)
+	environs.RegisterImageDataSourceFunc("Image source", getImageSource)
+	registry.RegisterEnvironStorageProviders(providerType)
 }
 
 // Boilerplate returns a default configuration for the environment in yaml format.
