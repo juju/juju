@@ -362,7 +362,7 @@ type AdvancedPackagingConfig interface {
 
 	// This is a helper to add the proper packages that we want to update per
 	// distribution.
-	updatePackages()
+	addRequiredPackages()
 
 	//TODO(bogdanteleaga): this might be the same as the exported proxy setting up above, need
 	//to investigate how they're used
