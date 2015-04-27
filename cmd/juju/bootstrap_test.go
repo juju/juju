@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
@@ -270,6 +271,21 @@ func (s *BootstrapSuite) TestCheckEnvNameMissing(c *gc.C) {
 	err := checkEnvName("")
 
 	c.Check(err, gc.ErrorMatches, "the name of the environment must be specified")
+}
+
+func (s *BootstrapSuite) TestCheckEnvNameProvisional(c *gc.C) {
+	err := checkEnvName("dummy")
+	c.Assert(err, jc.ErrorIsNil)
+
+	for name, flag := range provisionalProviders {
+		err := checkEnvName(name)
+		c.Check(err, gc.ErrorMatches, ".* provider is provisional .* set JUJU_DEV_FEATURE_FLAGS=.*")
+
+		err = os.Setenv(osenv.JujuFeatureFlagEnvKey, flag)
+		c.Assert(err, jc.ErrorIsNil)
+		err = checkEnvName(name)
+		c.Check(err, jc.ErrorIsNil)
+	}
 }
 
 func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
