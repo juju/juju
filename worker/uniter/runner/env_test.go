@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/juju/names"
 	envtesting "github.com/juju/testing"
@@ -33,11 +34,25 @@ func (e *MergeEnvSuite) TestMergeEnviron(c *gc.C) {
 		"DUMMYVAR2=bar",
 		"NEWVAR=ImNew",
 	}
-	expectEnv := append(origEnv, extraExpected...)
+	expectEnv := make([]string, 0, len(origEnv)+len(extraExpected))
+
+	// os.Environ prepends some garbage on Windows that we need to strip out.
+	// All the garbage starts and ends with = (for example "=C:=").
+	for _, v := range origEnv {
+		if !(strings.HasPrefix(v, "=") && strings.HasSuffix(v, "=")) {
+			expectEnv = append(expectEnv, v)
+		}
+	}
+	expectEnv = append(expectEnv, extraExpected...)
 	os.Setenv("DUMMYVAR2", "ChangeMe")
 	os.Setenv("DUMMYVAR", "foo")
 
-	newEnv := runner.MergeWindowsEnvironment([]string{"DUMMYVAR2=bar", "NEWVAR=ImNew"})
+	newEnv := make([]string, 0, len(expectEnv))
+	for _, v := range runner.MergeWindowsEnvironment([]string{"DUMMYVAR2=bar", "NEWVAR=ImNew"}) {
+		if !(strings.HasPrefix(v, "=") && strings.HasSuffix(v, "=")) {
+			newEnv = append(newEnv, v)
+		}
+	}
 	c.Assert(expectEnv, jc.SameContents, newEnv)
 }
 
