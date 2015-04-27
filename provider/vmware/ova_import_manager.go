@@ -14,11 +14,11 @@ import (
 	"path"
 
 	"github.com/juju/errors"
+	"github.com/juju/govmomi/object"
+	"github.com/juju/govmomi/vim25/progress"
+	"github.com/juju/govmomi/vim25/soap"
+	"github.com/juju/govmomi/vim25/types"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/vmware/govmomi/object"
-	"github.com/vmware/govmomi/vim25/progress"
-	"github.com/vmware/govmomi/vim25/soap"
-	"github.com/vmware/govmomi/vim25/types"
 	"golang.org/x/net/context"
 
 	"github.com/juju/juju/instance"

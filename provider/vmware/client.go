@@ -8,12 +8,12 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/vmware/govmomi"
-	"github.com/vmware/govmomi/find"
-	"github.com/vmware/govmomi/list"
-	"github.com/vmware/govmomi/object"
-	"github.com/vmware/govmomi/property"
-	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/juju/govmomi"
+	"github.com/juju/govmomi/find"
+	"github.com/juju/govmomi/list"
+	"github.com/juju/govmomi/object"
+	"github.com/juju/govmomi/property"
+	"github.com/juju/govmomi/vim25/mo"
 	"golang.org/x/net/context"
 
 	"github.com/juju/juju/instance"

@@ -16,3 +16,4 @@ func ExposeEnvFakeClient(env *environ) *fakeClient {
 }
 
 var _ environs.Environ = (*environ)(nil)
+var _ environs.EnvironProvider = providerInstance

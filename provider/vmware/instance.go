@@ -5,7 +5,7 @@ package vmware
 
 import (
 	"github.com/juju/errors"
-	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/juju/govmomi/vim25/mo"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
