@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
@@ -16,11 +17,20 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 )
+
+// provisionalProviders is the names of providers that are hidden behind
+// feature flags.
+var provisionalProviders = map[string]string{
+	"cloudsigma": feature.CloudSigma,
+	"vsphere":    feature.VSphereProvider,
+}
 
 const bootstrapDoc = `
 bootstrap starts a new environment of the current type (it will return an error
@@ -256,10 +266,21 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	return c.SetBootstrapEndpointAddress(environ)
 }
 
-// handleFeatureFlags checks bootstrap-related feature flags.
+// checkEnvName validates the given environment name.
 func checkEnvName(envName string) error {
 	if envName == "" {
 		return errors.Errorf("the name of the environment must be specified")
+	}
+
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	for name, flag := range provisionalProviders {
+		if envName != name {
+			continue
+		}
+		if !featureflag.Enabled(flag) {
+			msg := `the %q provider is provisional in this version of Juju. To use it anyway, set JUJU_DEV_FEATURE_FLAGS="%s" in your shell environment`
+			return errors.Errorf(msg, envName, flag)
+		}
 	}
 
 	return nil
