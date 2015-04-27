@@ -195,7 +195,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Errorf("the name of the environment must be specified")
 	}
 
-	if err := checkEnvName(envName); err != nil {
+	if err := checkProviderType(envName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -274,12 +274,8 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	return c.SetBootstrapEndpointAddress(environ)
 }
 
-// checkEnvName validates the given environment name.
-func checkEnvName(envName string) error {
-	if envName == "" {
-		return errors.Errorf("the name of the environment must be specified")
-	}
-
+// checkProviderType ensures the provider type is okay.
+func checkProviderType(envName string) error {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	for name, flag := range provisionalProviders {
 		if envName != name {
