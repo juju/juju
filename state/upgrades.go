@@ -1200,6 +1200,13 @@ func FixSequenceFields(st *State) error {
 // MoveServiceUnitSeqToSequence moves information from unitSeq value
 // in the services documents and puts it into a new document in the
 // sequence collection.
+// The move happens in 3 stages:
+// Insert: We insert the new sequence documents based on the values
+// in the service collection. Any existing documents with the id we ignore
+// Update: We update all the sequence documents with the correct UnitSeq.
+// this phase overwrites any existing sequence documents that existed and
+// were ignored during the install phase
+// Unset: The last phase is to remove the unitseq from the service collection.
 func MoveServiceUnitSeqToSequence(st *State) error {
 	unitSeqDocs := []struct {
 		Name    string `bson:"name"`
@@ -1214,6 +1221,7 @@ func MoveServiceUnitSeqToSequence(st *State) error {
 	}
 	insertOps := make([]txn.Op, len(unitSeqDocs))
 	updateOps := make([]txn.Op, len(unitSeqDocs))
+	unsetOps := make([]txn.Op, len(unitSeqDocs))
 	for i, svc := range unitSeqDocs {
 		tag := names.NewServiceTag(svc.Name)
 		insertOps[i] = txn.Op{
@@ -1236,8 +1244,17 @@ func MoveServiceUnitSeqToSequence(st *State) error {
 				},
 			},
 		}
+		unsetOps[i] = txn.Op{
+			C:  servicesC,
+			Id: st.docID(svc.Name),
+			Update: bson.M{
+				"$unset": bson.M{
+					"unitseq": 0},
+			},
+		}
 	}
 	ops := append(insertOps, updateOps...)
+	ops = append(ops, unsetOps...)
 	return st.runRawTransaction(ops)
 }
 

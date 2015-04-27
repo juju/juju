@@ -24,5 +24,4 @@ func stateStepsFor124() []Step {
 			},
 		},
 	}
-	return steps
 }

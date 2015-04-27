@@ -2705,7 +2705,6 @@ func (s *upgradesSuite) TestAddBlockDevicesDocsIdempotent(c *gc.C) {
 	c.Assert(firstPassIDs, jc.SameContents, secondPassIDs)
 }
 
-<<<<<<< HEAD
 func (s *upgradesSuite) TestEnvUUIDMigrationFieldOrdering(c *gc.C) {
 	// This tests a DB migration regression triggered by Go 1.3+'s
 	// randomised map iteration feature. See LP #1451674.
@@ -2789,6 +2788,7 @@ func (s *upgradesSuite) TestMoveServiceUnitSeqToSequence(c *gc.C) {
 
 	err := svcC.Insert(
 		bson.D{
+			{"_id", s.state.docID("my-service")},
 			{"unitseq", 7},
 			{"env-uuid", s.state.EnvironUUID()},
 			{"name", "my-service"},
@@ -2799,6 +2799,11 @@ func (s *upgradesSuite) TestMoveServiceUnitSeqToSequence(c *gc.C) {
 	count, err := s.state.sequence("service-my-service")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(count, gc.Equals, 7)
+
+	var result map[string]interface{}
+	err = svcC.Find(nil).Select(bson.M{"unitseq": 1}).One(&result)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result["unitseq"], gc.Equals, nil)
 }
 
 func (s *upgradesSuite) TestMoveServiceNotUnitSeq(c *gc.C) {
