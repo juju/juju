@@ -266,6 +266,12 @@ var bootstrapTests = []bootstrapTest{{
 	err:  `unrecognized args: \["anything" "else"\]`,
 }}
 
+func (s *BootstrapSuite) TestCheckEnvNameMissing(c *gc.C) {
+	err := checkEnvName("")
+
+	c.Check(err, gc.ErrorMatches, "the name of the environment must be specified")
+}
+
 func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	env := resetJujuHome(c, "devenv")
 	defaultSeriesVersion := version.Current
