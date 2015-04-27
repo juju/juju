@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 from argparse import ArgumentParser
 from contextlib import contextmanager
 from textwrap import dedent
@@ -18,6 +19,11 @@ from deploy_stack import (
     get_random_string,
     update_env,
     )
+from upload_hetero_control import (
+    HUploader,
+    get_credentials
+    )
+from jujuci import add_credential_args
 
 
 def bootstrap_client(client, upload_tools):
@@ -87,7 +93,7 @@ def assess_heterogeneous(initial, other, base_env, environment_name, log_dir,
                          upload_tools, debug, agent_url):
     """Top level function that prepares the clients and environment.
 
-    initial and other are paths to the binariy used initially, and a binary
+    initial and other are paths to the binary used initially, and a binary
     used later.  base_env is the name of the environment to base the
     environment on and environment_name is the new name for the environment.
     """
@@ -218,7 +224,17 @@ def parse_args(argv=None):
     parser.add_argument('--debug', help='Run juju with --debug',
                         action='store_true', default=False)
     parser.add_argument('--agent-url', default=None)
+    add_credential_args(parser)
     return parser.parse_args(argv)
+
+
+def upload_heterogeneous(args):
+    """
+    Uploads the test results to S3. It assumes env variable BUILD_NUMBER is set
+    """
+    cred = get_credentials(args)
+    h_uploader = HUploader.factory(credentials=cred)
+    h_uploader.upload_by_env_build_number()
 
 
 def main():
@@ -226,6 +242,7 @@ def main():
     assess_heterogeneous(args.initial, args.other, args.base_environment,
                          args.environment_name, args.log_dir,
                          args.upload_tools, args.debug, args.agent_url)
+    upload_heterogeneous(args)
 
 
 if __name__ == '__main__':

@@ -10,6 +10,7 @@ from assess_heterogeneous_control import (
     dumping_env,
     get_clients,
     parse_args,
+    upload_heterogeneous,
     )
 from jujupy import (
     EnvJujuClient,
@@ -51,11 +52,16 @@ class TestParseArgs(TestCase):
         self.assertEqual(args, Namespace(
             initial='a', other='b', base_environment='c',
             environment_name='d', log_dir='e', debug=False,
-            upload_tools=False, agent_url=None))
+            upload_tools=False, agent_url=None,
+            user=os.environ.get('JENKINS_USER'),
+            password=os.environ.get('JENKINS_PASSWORD')))
 
     def test_parse_args_agent_url(self):
-        args = parse_args(['a', 'b', 'c', 'd', 'e', '--agent-url', 'foo'])
+        args = parse_args(['a', 'b', 'c', 'd', 'e', '--agent-url', 'foo',
+                           '--user', 'my name', '--password', 'fake pass'])
         self.assertEqual(args.agent_url, 'foo')
+        self.assertEqual(args.user, 'my name')
+        self.assertEqual(args.password, 'fake pass')
 
 
 class TestGetClients(TestCase):
@@ -84,3 +90,19 @@ class TestGetClients(TestCase):
                 initial, other, released = get_clients('foo', 'bar', 'baz',
                                                        'qux', True, None)
         self.assertTrue('tools-metadata-url' not in initial.env.config)
+
+
+class TestUploadHeterogeneous(TestCase):
+
+    def test_upload_heterogeneous(self):
+        args = Namespace(user='foo', password='bar')
+        env_ctx = patch(
+            'upload_hetero_control.HUploader.upload_by_env_build_number')
+        with patch('upload_hetero_control.get_s3_access',
+                   return_value=('name', 'pass')) as a_mock:
+            with patch('upload_hetero_control.S3Connection') as c_mock:
+                with env_ctx as u_mock:
+                    upload_heterogeneous(args)
+        a_mock.assert_called_once_with()
+        c_mock.assert_called_once_with('name', 'pass')
+        u_mock.assert_called_once_with()
