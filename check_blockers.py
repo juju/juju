@@ -95,7 +95,7 @@ def get_reason(bugs, args):
 
 def main():
     args = parse_args()
-    if args.command == 'checked':
+    if args.command == 'check':
         bugs = get_lp_bugs(args)
         code, reason = get_reason(bugs, args)
         print(reason)
