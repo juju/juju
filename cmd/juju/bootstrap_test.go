@@ -275,17 +275,17 @@ func (s *BootstrapSuite) TestRunEnvNameMissing(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "the name of the environment must be specified")
 }
 
-func (s *BootstrapSuite) TestCheckEnvNameProvisional(c *gc.C) {
-	err := checkEnvName("dummy")
+func (s *BootstrapSuite) TestCheckProviderProvisional(c *gc.C) {
+	err := checkProviderType("dummy")
 	c.Assert(err, jc.ErrorIsNil)
 
 	for name, flag := range provisionalProviders {
-		err := checkEnvName(name)
+		err := checkProviderType(name)
 		c.Check(err, gc.ErrorMatches, ".* provider is provisional .* set JUJU_DEV_FEATURE_FLAGS=.*")
 
 		err = os.Setenv(osenv.JujuFeatureFlagEnvKey, flag)
 		c.Assert(err, jc.ErrorIsNil)
-		err = checkEnvName(name)
+		err = checkProviderType(name)
 		c.Check(err, jc.ErrorIsNil)
 	}
 }
