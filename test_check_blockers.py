@@ -19,12 +19,12 @@ SERIES_LIST = {
 class CheckBlockers(TestCase):
 
     def test_parse_args(self):
-        args = check_blockers.parse_args(['master', '17'])
+        args = check_blockers.parse_args(['check', 'master', '17'])
         self.assertEqual('master', args.branch)
         self.assertEqual('17', args.pull_request)
 
     def test_get_lp_bugs_with_master_branch(self):
-        args = check_blockers.parse_args(['master', '17'])
+        args = check_blockers.parse_args(['check', 'master', '17'])
         with patch('check_blockers.get_json', autospec=True,
                    side_effect=[SERIES_LIST, {'entries': []}]) as gj:
             check_blockers.get_lp_bugs(args)
@@ -32,7 +32,7 @@ class CheckBlockers(TestCase):
                 (check_blockers.get_lp_bugs_url('juju-core')))
 
     def test_get_lp_bugs_with_supported_branch(self):
-        args = check_blockers.parse_args(['1.20', '17'])
+        args = check_blockers.parse_args(['check', '1.20', '17'])
         with patch('check_blockers.get_json', autospec=True,
                    side_effect=[SERIES_LIST, {'entries': []}]) as gj:
             check_blockers.get_lp_bugs(args)
@@ -40,7 +40,7 @@ class CheckBlockers(TestCase):
                 (check_blockers.get_lp_bugs_url('juju-core/1.20')))
 
     def test_get_lp_bugs_with_unsupported_branch(self):
-        args = check_blockers.parse_args(['foo', '17'])
+        args = check_blockers.parse_args(['check', 'foo', '17'])
         with patch('check_blockers.get_json', autospec=True,
                    side_effect=[SERIES_LIST, {'entries': []}]) as gj:
             check_blockers.get_lp_bugs(args)
@@ -48,7 +48,7 @@ class CheckBlockers(TestCase):
         gj.assert_called_with(check_blockers.LP_SERIES)
 
     def test_get_lp_bugs_without_blocking_bugs(self):
-        args = check_blockers.parse_args(['master', '17'])
+        args = check_blockers.parse_args(['check', 'master', '17'])
         with patch('check_blockers.get_json') as gj:
             empty_bug_list = {'entries': []}
             gj.return_value = empty_bug_list
@@ -56,7 +56,7 @@ class CheckBlockers(TestCase):
             self.assertEqual({}, bugs)
 
     def test_get_lp_bugs_with_blocking_bugs(self):
-        args = check_blockers.parse_args(['master', '17'])
+        args = check_blockers.parse_args(['check', 'master', '17'])
         bug_list = {
             'entries': [
                 {'self_link': 'https://lp/j/98765'},
@@ -68,7 +68,7 @@ class CheckBlockers(TestCase):
             self.assertEqual(['54321', '98765'], sorted(bugs.keys()))
 
     def test_get_reason_without_blocking_bugs(self):
-        args = check_blockers.parse_args(['master', '17'])
+        args = check_blockers.parse_args(['check', 'master', '17'])
         with patch('check_blockers.get_json') as gj:
             code, reason = check_blockers.get_reason({}, args)
             self.assertEqual(0, code)
@@ -76,7 +76,7 @@ class CheckBlockers(TestCase):
             self.assertEqual(0, gj.call_count)
 
     def test_get_reason_without_comments(self):
-        args = check_blockers.parse_args(['master', '17'])
+        args = check_blockers.parse_args(['check', 'master', '17'])
         with patch('check_blockers.get_json') as gj:
             gj.return_value = []
             bugs = {'98765': {'self_link': 'https://lp/j/98765'}}
@@ -86,7 +86,7 @@ class CheckBlockers(TestCase):
             gj.assert_called_with((check_blockers.GH_COMMENTS.format('17')))
 
     def test_get_reason_with_blockers_no_match(self):
-        args = check_blockers.parse_args(['master', '17'])
+        args = check_blockers.parse_args(['check', 'master', '17'])
         with patch('check_blockers.get_json') as gj:
             gj.return_value = [{'body': '$$merge$$', 'user': OTHER_USER}]
             bugs = {'98765': {'self_link': 'https://lp/j/98765'}}
@@ -95,7 +95,7 @@ class CheckBlockers(TestCase):
             self.assertEqual("Does not match ['fixes-98765']", reason)
 
     def test_get_reason_with_blockers_with_match(self):
-        args = check_blockers.parse_args(['master', '17'])
+        args = check_blockers.parse_args(['check', 'master', '17'])
         with patch('check_blockers.get_json') as gj:
             gj.return_value = [
                 {'body': '$$merge$$', 'user': OTHER_USER},
@@ -106,7 +106,7 @@ class CheckBlockers(TestCase):
             self.assertEqual("Matches fixes-98765", reason)
 
     def test_get_reason_with_blockers_with_jujubot_comment(self):
-        args = check_blockers.parse_args(['master', '17'])
+        args = check_blockers.parse_args(['check', 'master', '17'])
         with patch('check_blockers.get_json') as gj:
             gj.return_value = [
                 {'body': '$$merge$$', 'user': OTHER_USER},
@@ -117,7 +117,7 @@ class CheckBlockers(TestCase):
             self.assertEqual("Does not match ['fixes-98765']", reason)
 
     def test_get_reason_with_blockers_with_reply_jujubot_comment(self):
-        args = check_blockers.parse_args(['master', '17'])
+        args = check_blockers.parse_args(['check', 'master', '17'])
         with patch('check_blockers.get_json') as gj:
             gj.return_value = [
                 {'body': '$$merge$$', 'user': OTHER_USER},
@@ -128,7 +128,7 @@ class CheckBlockers(TestCase):
             self.assertEqual("Does not match ['fixes-98765']", reason)
 
     def test_get_reason_with_blockers_with_jfdi(self):
-        args = check_blockers.parse_args(['master', '17'])
+        args = check_blockers.parse_args(['check', 'master', '17'])
         with patch('check_blockers.get_json') as gj:
             gj.return_value = [
                 {'body': '$$merge$$', 'user': OTHER_USER},

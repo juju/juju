@@ -31,8 +31,12 @@ def get_json(uri):
 
 def parse_args(args=None):
     parser = ArgumentParser('Check if a branch is blocked from landing')
-    parser.add_argument('branch', help='The branch to merge into.')
-    parser.add_argument('pull_request', help='The pull request to be merged')
+    subparsers = parser.add_subparsers(help='sub-command help', dest="command")
+    check_parser = subparsers.add_parser(
+        'check', help='Check if merges are blocked for a branch.')
+    check_parser.add_argument('branch', help='The branch to merge into.')
+    check_parser.add_argument(
+        'pull_request', help='The pull request to be merged')
     return parser.parse_args(args)
 
 
@@ -91,9 +95,10 @@ def get_reason(bugs, args):
 
 def main():
     args = parse_args()
-    bugs = get_lp_bugs(args)
-    code, reason = get_reason(bugs, args)
-    print(reason)
+    if args.command == 'checked':
+        bugs = get_lp_bugs(args)
+        code, reason = get_reason(bugs, args)
+        print(reason)
     return code
 
 
