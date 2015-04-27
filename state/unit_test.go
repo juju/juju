@@ -676,7 +676,7 @@ func (s *UnitSuite) TestSetUnitStatusHistory(c *gc.C) {
 	c.Assert(h, gc.HasLen, 3)
 	var message string
 	for i := 0; i < 3; i++ {
-		c.Log("checking status %q", h[i].Status)
+		c.Logf("checking status %q", h[i].Status)
 		switch h[i].Status {
 		case state.StatusUnknown:
 			message = "Waiting for agent initialization to finish"
