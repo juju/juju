@@ -14,6 +14,7 @@ func SetUniterObserver(u *Uniter, observer UniterExecutionObserver) {
 
 var (
 	ActiveMetricsTimer  = &activeMetricsTimer
+	UpdateStatusTimer   = &updateStatusTimer
 	IdleWaitTime        = &idleWaitTime
 	LeadershipGuarantee = &leadershipGuarantee
 )

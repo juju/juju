@@ -1,4 +1,4 @@
-// Copyright 2012-2014 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter_test
@@ -12,11 +12,20 @@ import (
 	"github.com/juju/juju/worker/uniter"
 )
 
-type CollectMetricsTimerSuite struct{}
+type TimerSuite struct{}
+type signal func(time.Time, time.Time, time.Duration) <-chan time.Time
 
-var _ = gc.Suite(&CollectMetricsTimerSuite{})
+var _ = gc.Suite(&TimerSuite{})
 
-func (*CollectMetricsTimerSuite) TestTimer(c *gc.C) {
+func (s *TimerSuite) TestCollectMetricsTimer(c *gc.C) {
+	s.testTimer(c, *uniter.ActiveMetricsTimer)
+}
+
+func (s *TimerSuite) TestUpdateStatusTimer(c *gc.C) {
+	s.testTimer(c, *uniter.UpdateStatusTimer)
+}
+
+func (*TimerSuite) testTimer(c *gc.C, s signal) {
 	now := time.Now()
 	defaultInterval := coretesting.ShortWait / 5
 	testCases := []struct {
@@ -47,7 +56,7 @@ func (*CollectMetricsTimerSuite) TestTimer(c *gc.C) {
 
 	for i, t := range testCases {
 		c.Logf("running test %d", i)
-		sig := (*uniter.ActiveMetricsTimer)(t.now, t.lastRun, t.interval)
+		sig := s(t.now, t.lastRun, t.interval)
 		select {
 		case <-sig:
 			if !t.expectSignal {

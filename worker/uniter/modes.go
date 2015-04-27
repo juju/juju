@@ -295,6 +295,11 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 		collectMetricsSignal := u.collectMetricsAt(
 			time.Now(), lastCollectMetrics, metricsPollInterval,
 		)
+
+		lastUpdateStatus := time.Unix(u.operationState().UpdateStatusTime, 0)
+		updateStatusSignal := u.updateStatusSignal(
+			time.Now(), lastUpdateStatus, statusPollInterval,
+		)
 		var creator creator
 		select {
 		case <-time.After(idleWaitTime):
@@ -320,6 +325,8 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			creator = newSimpleRunHookOp(hooks.MeterStatusChanged)
 		case <-collectMetricsSignal:
 			creator = newSimpleRunHookOp(hooks.CollectMetrics)
+		case <-updateStatusSignal:
+			creator = newSimpleRunHookOp(hooks.UpdateStatus)
 		case hookInfo := <-u.relations.Hooks():
 			creator = newRunHookOp(hookInfo)
 		case hookInfo := <-u.storage.Hooks():
