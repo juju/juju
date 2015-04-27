@@ -6,7 +6,6 @@ package runner_test
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 
 	"github.com/juju/names"
@@ -26,10 +25,6 @@ type MergeEnvSuite struct {
 var _ = gc.Suite(&MergeEnvSuite{})
 
 func (e *MergeEnvSuite) TestMergeEnviron(c *gc.C) {
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: There are some problems regarding os.Environ() on windows")
-	}
 	// environment does not get fully cleared on Windows
 	// when using testing.IsolationSuite
 	origEnv := os.Environ()
@@ -42,7 +37,7 @@ func (e *MergeEnvSuite) TestMergeEnviron(c *gc.C) {
 	os.Setenv("DUMMYVAR2", "ChangeMe")
 	os.Setenv("DUMMYVAR", "foo")
 
-	newEnv := runner.MergeEnvironment([]string{"DUMMYVAR2=bar", "NEWVAR=ImNew"})
+	newEnv := runner.MergeWindowsEnvironment([]string{"DUMMYVAR2=bar", "NEWVAR=ImNew"})
 	c.Assert(expectEnv, jc.SameContents, newEnv)
 }
 

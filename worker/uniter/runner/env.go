@@ -77,7 +77,7 @@ func mergeWindowsEnvironment(newEnv []string) []string {
 	uppers := make(map[string]string, len(env))
 	news := map[string]string{}
 
-	tmpEnv := make([]string, len(os.Environ()), 0)
+	tmpEnv := make([]string, 0, len(env))
 	for _, val := range env {
 		varSplit := strings.SplitN(val, "=", 2)
 		k := varSplit[0]
