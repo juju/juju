@@ -176,13 +176,14 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		fmt.Fprintln(ctx.Stderr, "Use of --upload-series is obsolete. --upload-tools now expands to all supported series of the same operating system.")
 	}
 
-	if c.ConnectionName() == "" {
-		return fmt.Errorf("the name of the environment must be specified")
+	envName := c.ConnectionName()
+	if err := checkEnvName(envName); err != nil {
+		return errors.Trace(err)
 	}
 
 	environ, cleanup, err := environFromName(
 		ctx,
-		c.ConnectionName(),
+		envName,
 		"Bootstrap",
 		bootstrapFuncs.EnsureNotBootstrapped,
 	)
@@ -253,6 +254,15 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Annotate(err, "failed to bootstrap environment")
 	}
 	return c.SetBootstrapEndpointAddress(environ)
+}
+
+// handleFeatureFlags checks bootstrap-related feature flags.
+func checkEnvName(envName string) error {
+	if envName == "" {
+		return errors.Errorf("the name of the environment must be specified")
+	}
+
+	return nil
 }
 
 // handleBootstrapError is called to clean up if bootstrap fails.
