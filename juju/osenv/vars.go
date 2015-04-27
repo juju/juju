@@ -67,14 +67,15 @@ func mergeEnvWin(current, newValues map[string]string) map[string]string {
 	}
 
 	for k, v := range newValues {
-		if _, ok := uppers[strings.ToUpper(k)]; ok {
-			uppers[strings.ToUpper(k)] = v
+		up := strings.ToUpper(k)
+		if _, ok := uppers[up]; ok {
+			uppers[up] = v
 		} else {
 			news[k] = v
 		}
 	}
 
-	for k, _ := range current {
+	for k := range current {
 		current[k] = uppers[strings.ToUpper(k)]
 	}
 	for k, v := range news {

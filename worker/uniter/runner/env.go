@@ -62,8 +62,8 @@ func windowsEnv(paths Paths) []string {
 // (os.TempDir relies on $env:TEMP), and powershell erroring out
 // TODO(fwereade, gsamfira): this is copy/pasted from utils/exec.
 // This is only used on windows, so it is safe to do in a case insensitive way.
-func mergeEnvironment(newEnv []string) []string {
-	if env == nil {
+func mergeWindowsEnvironment(newEnv []string) []string {
+	if newEnv == nil {
 		return nil
 	}
 
