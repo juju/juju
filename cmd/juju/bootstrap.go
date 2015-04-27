@@ -173,6 +173,10 @@ var getBootstrapFuncs = func() BootstrapInterface {
 	return &bootstrapFuncs{}
 }
 
+var getEnvName = func(c *BootstrapCommand) string {
+	return c.ConnectionName()
+}
+
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
@@ -186,7 +190,11 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		fmt.Fprintln(ctx.Stderr, "Use of --upload-series is obsolete. --upload-tools now expands to all supported series of the same operating system.")
 	}
 
-	envName := c.ConnectionName()
+	envName := getEnvName(c)
+	if envName == "" {
+		return errors.Errorf("the name of the environment must be specified")
+	}
+
 	if err := checkEnvName(envName); err != nil {
 		return errors.Trace(err)
 	}
