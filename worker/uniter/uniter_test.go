@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -74,6 +76,10 @@ func (s *UniterSuite) SetUpTest(c *gc.C) {
 	s.ticker = uniter.NewManualTicker()
 	s.PatchValue(uniter.ActiveMetricsTimer, s.ticker.ReturnTimer)
 	s.PatchValue(uniter.IdleWaitTime, 1*time.Millisecond)
+	// The storage feature will disappear shortly. In the mean time,
+	// we ensure that all scenarios operate correctly with storage
+	// enabled.
+	s.JujuConnSuite.SetFeatureFlags(feature.Storage)
 }
 
 func (s *UniterSuite) TearDownTest(c *gc.C) {
@@ -1989,6 +1995,75 @@ func (s *UniterSuite) TestLeadershipUnexpectedDepose(c *gc.C) {
 			quickStart{},
 			forceMinion{},
 			waitHooks{"leader-settings-changed"},
+		),
+	})
+}
+
+func (s *UniterSuite) TestStorage(c *gc.C) {
+	// appendStorageMetadata customises the wordpress charm's metadata,
+	// adding a "wp-content" filesystem store. We do it here rather
+	// than in the charm itself to avoid modifying all of the other
+	// scenarios.
+	appendStorageMetadata := func(c *gc.C, ctx *context, path string) {
+		f, err := os.OpenFile(filepath.Join(path, "metadata.yaml"), os.O_RDWR|os.O_APPEND, 0644)
+		c.Assert(err, jc.ErrorIsNil)
+		defer func() {
+			err := f.Close()
+			c.Assert(err, jc.ErrorIsNil)
+		}()
+		_, err = io.WriteString(f, "storage:\n  wp-content:\n    type: filesystem\n")
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"test that storage-attached is called",
+			createCharm{customize: appendStorageMetadata},
+			serveCharm{},
+			ensureStateWorker{},
+			createServiceAndUnit{},
+			provisionStorage{},
+			startUniter{},
+			waitAddresses{},
+			waitHooks(startupHooks(false)),
+			// TODO(axw) 2015-04-28 #1449390
+			// storage-attached should come before install.
+			waitHooks{"wp-content-storage-attached"},
+		), ut(
+			"test that storage-detached is called before stop",
+			createCharm{customize: appendStorageMetadata},
+			serveCharm{},
+			ensureStateWorker{},
+			createServiceAndUnit{},
+			provisionStorage{},
+			startUniter{},
+			waitAddresses{},
+			waitHooks(startupHooks(false)),
+			waitHooks{"wp-content-storage-attached"},
+			unitDying,
+			waitHooks{"leader-settings-changed"},
+			// "stop" hook is not called until storage is detached
+			waitHooks{},
+			destroyStorageAttachment{},
+			waitHooks{"wp-content-storage-detached", "stop"},
+			verifyStorageDetached{},
+			waitUniterDead{},
+		), ut(
+			"test that storage-detached is called only if previously attached",
+			createCharm{customize: appendStorageMetadata},
+			serveCharm{},
+			ensureStateWorker{},
+			createServiceAndUnit{},
+			// provision and destroy the storage before the uniter starts,
+			// to ensure it never sees the storage as attached
+			provisionStorage{},
+			destroyStorageAttachment{},
+			startUniter{},
+			waitHooks(startupHooks(false)),
+			unitDying,
+			// storage-detached is not called because it was never attached
+			waitHooks{"stop"},
+			verifyStorageDetached{},
+			waitUniterDead{},
 		),
 	})
 }
