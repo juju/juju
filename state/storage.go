@@ -797,35 +797,57 @@ func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstrain
 		return errors.Trace(err)
 	}
 
-	if allCons == nil {
-		allCons = make(map[string]StorageConstraints)
-	}
 	for name, charmStorage := range charmMeta.Storage {
-		cons := allCons[name]
 		kind := storageKind(charmStorage.Type)
-		var err error
-		cons, err = storageConstraintsWithDefaults(conf, kind, charmStorage, cons)
-		if err != nil {
-			if err == ErrNoDefaultStoragePool {
-				err = errors.Maskf(err, "no storage pool specified and no default available for %q storage", name)
+		cons, ok := allCons[name]
+		if !ok {
+			if charmStorage.Shared {
+				// TODO(axw) get the environment's default shared storage
+				// pool, and create constraints here.
+				return errors.Errorf(
+					"no constraints specified for shared charm storage %q",
+					name,
+				)
 			}
+			if charmStorage.CountMin == 0 {
+				continue
+			}
+			var pool storage.ProviderType
+			switch kind {
+			case storage.StorageKindBlock:
+				pool = provider.LoopProviderType
+			case storage.StorageKindFilesystem:
+				pool = provider.RootfsProviderType
+			default:
+				return errors.Errorf("unhandled storage kind %v", kind)
+			}
+			cons = StorageConstraints{
+				Pool:  string(pool),
+				Count: uint64(charmStorage.CountMin),
+			}
+		}
+		cons, err := storageConstraintsWithDefaults(conf, kind, charmStorage, cons, name)
+		if err != nil {
 			return err
 		}
-		// Replace in case pool or size were updated.
 		allCons[name] = cons
 	}
 	return nil
 }
 
 // storageConstraintsWithDefaults returns a constraints derived from cons, with any defaults filled in.
-func storageConstraintsWithDefaults(cfg *config.Config, kind storage.StorageKind,
-	charmStorage charm.Storage, cons StorageConstraints,
+func storageConstraintsWithDefaults(
+	cfg *config.Config,
+	kind storage.StorageKind,
+	charmStorage charm.Storage,
+	cons StorageConstraints,
+	storageName string,
 ) (StorageConstraints, error) {
 	withDefaults := cons
 	if cons.Pool == "" {
 		poolName, err := defaultStoragePool(cfg, kind)
 		if err != nil {
-			return withDefaults, errors.Annotatef(err, "finding default stoage pool")
+			return withDefaults, errors.Annotatef(err, "finding default pool for %q storage", storageName)
 		}
 		withDefaults.Pool = poolName
 	}

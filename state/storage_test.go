@@ -105,6 +105,34 @@ func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 	return state.StorageConstraints{Pool: pool, Size: size, Count: count}
 }
 
+func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefault(c *gc.C) {
+	ch := s.AddTestingCharm(c, "storage-block")
+	storageBlock, err := s.State.AddService("storage-block", "user-test-admin@local", ch, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	constraints, err := storageBlock.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(constraints, jc.DeepEquals, map[string]state.StorageConstraints{
+		"data": {
+			Pool:  "loop",
+			Count: 1,
+			Size:  1024,
+		},
+	})
+
+	ch = s.AddTestingCharm(c, "storage-filesystem")
+	storageFilesystem, err := s.State.AddService("storage-filesystem", "user-test-admin@local", ch, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	constraints, err = storageFilesystem.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(constraints, jc.DeepEquals, map[string]state.StorageConstraints{
+		"data": {
+			Pool:  "rootfs",
+			Count: 1,
+			Size:  1024,
+		},
+	})
+}
+
 func (s *StorageStateSuite) TestAddServiceStorageConstraintsValidation(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block2")
 	addService := func(storage map[string]state.StorageConstraints) (*state.Service, error) {
@@ -114,7 +142,6 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsValidation(c *gc.C) 
 		_, err := addService(storage)
 		c.Assert(err, gc.ErrorMatches, expect)
 	}
-	assertErr(nil, `.*no constraints specified for store.*`)
 
 	storageCons := map[string]state.StorageConstraints{
 		"multi1to10": makeStorageCons("loop-pool", 1024, 1),

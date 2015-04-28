@@ -124,7 +124,6 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *gc.C) {
 			NotifyWatcherId: "1",
 		}},
 	})
-	//c.Assert(resources.Get("1"), gc.Equals, watcher)
 	c.Assert(calls, gc.DeepEquals, []string{
 		"UnitAssignedMachine",
 		"StorageInstance",
@@ -200,7 +199,6 @@ func (s *storageSuite) TestWatchStorageAttachmentFilesystem(c *gc.C) {
 			NotifyWatcherId: "1",
 		}},
 	})
-	//c.Assert(resources.Get("1"), gc.Equals, watcher)
 	c.Assert(calls, gc.DeepEquals, []string{
 		"UnitAssignedMachine",
 		"StorageInstance",
