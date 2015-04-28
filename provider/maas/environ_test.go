@@ -225,7 +225,7 @@ func (s *environSuite) TestNewCloudinitConfigNoFeatureFlag(c *gc.C) {
 	testCase := func() {
 		cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "eth0", "quantal")
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
+		c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
 		c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
 	}
 	// First test the default case (address allocation feature flag on).
