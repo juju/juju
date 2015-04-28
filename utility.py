@@ -1,3 +1,4 @@
+import base64
 from contextlib import contextmanager
 from datetime import (
     datetime,
@@ -255,3 +256,9 @@ def get_deb_arch():
 def extract_deb(package_path, directory):
     """Extract a debian package to a specified directory."""
     subprocess.check_call(['dpkg', '-x', package_path, directory])
+
+
+def add_credentials(request, credentials):
+    encoded = base64.encodestring(
+        '{}:{}'.format(*credentials)).replace('\n', '')
+    request.add_header('Authorization', 'Basic {}'.format(encoded))

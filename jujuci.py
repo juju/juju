@@ -4,7 +4,6 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
-import base64
 from collections import namedtuple
 import fnmatch
 import json
@@ -28,6 +27,7 @@ except ImportError:
         raise NotImplementedError('Not supported on this platform!')
 
 from utility import (
+    add_credentials,
     extract_deb,
     get_deb_arch,
     get_revision_build,
@@ -58,9 +58,7 @@ class CredentialsMissing(Exception):
 
 def get_jenkins_json(credentials, url):
     req = urllib2.Request(url)
-    encoded = base64.encodestring(
-        '{}:{}'.format(*credentials)).replace('\n', '')
-    req.add_header('Authorization', 'Basic {}'.format(encoded))
+    add_credentials(req, credentials)
     build_data = urllib2.urlopen(req)
     return json.load(build_data)
 
