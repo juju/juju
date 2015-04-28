@@ -1,7 +1,9 @@
+from textwrap import dedent
 from unittest import TestCase
 from mock import Mock, patch
 
 import check_blockers
+from utility import temp_dir
 
 
 JUJUBOT_USER = {'login': 'jujubot', 'id': 7779494}
@@ -23,7 +25,7 @@ class CheckBlockers(TestCase):
             ['-c', './foo.cred', 'update', 'master', '1234'])
         self.assertEqual('master', args.branch)
         self.assertEqual('1234', args.build)
-        self.assertEqual('./foo.cred', args.credentials)
+        self.assertEqual('./foo.cred', args.credentials_file)
 
     def test_parse_args_check(self):
         args = check_blockers.parse_args(['check', 'master', '17'])
@@ -166,3 +168,17 @@ class CheckBlockers(TestCase):
             '&status%3Alist=Triaged&status%3Alist=In+Progress'
             '&status%3Alist=Fix+Committed',
             check_blockers.get_lp_bugs_url('foo/bar'))
+
+    def test_parse_credentials_file(self):
+        with temp_dir() as place:
+            cred_path = '%s/my.creds' % place
+            with open(cred_path, 'w') as f:
+                f.write(dedent("""
+                [1]
+                consumer_key = System-wide: Ubuntu (bingo)
+                consumer_secret =
+                access_token = foo
+                access_secret = bar
+                """))
+            credentials = check_blockers.parse_credential_file(cred_path)
+            self.assertEqual(('foo', 'bar'), credentials)

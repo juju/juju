@@ -7,6 +7,9 @@ import json
 import urllib2
 import sys
 
+from utility import add_credentials
+
+
 BUG_STATUSES = (
     'Incomplete', 'Confirmed', 'Triaged', 'In+Progress', 'Fix+Committed')
 BUG_IMPORTANCES = ('Critical', )
@@ -19,10 +22,25 @@ GH_COMMENTS = 'https://api.github.com/repos/juju/juju/issues/{}/comments'
 LP_SERIES = 'https://api.launchpad.net/devel/juju-core/series'
 
 
+def parse_credential_file(path):
+    token = None
+    secret = None
+    with open(path) as f:
+        content = f.read()
+    for line in content.splitlines():
+        if line.startswith('access_token'):
+            token = line.split('=')[1].strip()
+        elif line.startswith('access_secret'):
+            secret = line.split('=')[1].strip()
+    return token, secret
+
+
 def get_json(uri, credentials=None):
     request = urllib2.Request(uri, headers={
         "Cache-Control": "max-age=0, must-revalidate",
     })
+    if credentials:
+        add_credentials(request, credentials)
     data = urllib2.urlopen(request).read()
     if data:
         return json.loads(data)
@@ -32,7 +50,7 @@ def get_json(uri, credentials=None):
 def parse_args(args=None):
     parser = ArgumentParser('Check if a branch is blocked from landing')
     parser.add_argument(
-        "-c", "--credentials", default=None,
+        "-c", "--credentials-file", default=None,
         help="Launchpad credentials file.")
     subparsers = parser.add_subparsers(help='sub-command help', dest="command")
     check_parser = subparsers.add_parser(
@@ -59,7 +77,7 @@ def get_lp_bugs_url(target):
     return LP_BUGS.format(**params)
 
 
-def get_lp_bugs(args):
+def get_lp_bugs(args, credentials=None):
     bugs = {}
     batch = get_json(LP_SERIES)
     series = [s['name'] for s in batch['entries']]
@@ -72,7 +90,7 @@ def get_lp_bugs(args):
     else:
         target = 'juju-core/%s' % args.branch
     uri = get_lp_bugs_url(target)
-    batch = get_json(uri, credentials=args.credentials)
+    batch = get_json(uri, credentials=credentials)
     if batch:
         for bug_data in batch['entries']:
             bug_id = bug_data['self_link'].split('/')[-1]
@@ -103,12 +121,14 @@ def get_reason(bugs, args):
 
 def main():
     args = parse_args()
+    if args.credentials_file:
+        credentials = parse_credential_file(args.credentials_file)
     if args.command == 'check':
-        bugs = get_lp_bugs(args)
+        bugs = get_lp_bugs(args, credentials)
         code, reason = get_reason(bugs, args)
         print(reason)
     elif args.command == 'update':
-        bugs = get_lp_bugs(args)
+        bugs = get_lp_bugs(args, credentials)
     return code
 
 
