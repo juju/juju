@@ -223,14 +223,3 @@ var (
 	_ GlobalEntity = (*Charm)(nil)
 	_ GlobalEntity = (*Environment)(nil)
 )
-
-// StorageEntity is an entity that may have storage associations.
-type StorageEntity interface {
-	StorageConstraints() (map[string]StorageConstraints, error)
-	Tag() names.Tag
-}
-
-var (
-	_ StorageEntity = (*Service)(nil)
-	_ StorageEntity = (*Unit)(nil)
-)

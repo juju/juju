@@ -854,18 +854,6 @@ func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstrain
 	return nil
 }
 
-func fillDefaultStorageConstraintsNoConfig(
-	st *State,
-	name string, cons StorageConstraints,
-	charmStorage charm.Storage,
-) (StorageConstraints, error) {
-	conf, err := st.EnvironConfig()
-	if err != nil {
-		return cons, errors.Trace(err)
-	}
-	return fillDefaultStorageConstraints(conf, name, cons, charmStorage)
-}
-
 func fillDefaultStorageConstraints(
 	conf *config.Config,
 	name string, cons StorageConstraints,
@@ -925,22 +913,26 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind) (string, e
 
 // AddStorage adds StorageConstraints to
 // given entity dynamically, one storage directive at a time.
-func (st *State) AddStorage(
-	charmMeta *charm.Meta, entity StorageEntity,
+func (st *State) AddStorageForUnit(
+	charmMeta *charm.Meta, u *Unit,
 	name string, spec StorageConstraints,
 ) error {
-	all, err := entity.StorageConstraints()
+	all, err := u.StorageConstraints()
 	if err != nil {
-		return errors.Annotate(err, "getting storage constraints")
+		return errors.Annotatef(err, "getting existing storage directives for %s", u.Tag().Id())
 	}
-	currentSpec, exists := all[name]
+	_, exists := all[name]
 	if !exists {
-		return errors.NotFoundf(`storage "%s" on the charm`, name)
+		return errors.NotFoundf(`charm storage "%s"`, name)
 	}
 
-	// Populate missing defaults if needed.
-	specWithDefault, err := fillDefaultStorageConstraintsNoConfig(
-		st,
+	// Populate missing configuration parameters with default values.
+	conf, err := st.EnvironConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	completeSpec, err := fillDefaultStorageConstraints(
+		conf,
 		name, spec,
 		charmMeta.Storage[name],
 	)
@@ -952,25 +944,45 @@ func (st *State) AddStorage(
 	// which combined with existing storage instance may exceed
 	// number of storage instances specified by charm.
 	// We must take it into account when validating.
-	specWithDefault.Count = specWithDefault.Count + currentSpec.Count
+	currentCount, err := st.countEntityStorageInstancesForName(u.Tag(), name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	completeSpec.Count = completeSpec.Count + currentCount
 
 	err = validateStorageConstraintsAgainstCharmStorage(
 		st,
-		map[string]StorageConstraints{name: specWithDefault},
+		map[string]StorageConstraints{name: completeSpec},
 		charmMeta)
 	if err != nil {
-		return errors.Annotatef(err, "validating storage directive")
+		return errors.Trace(err)
 	}
-	specWithDefault.Count = specWithDefault.Count - currentSpec.Count
+	completeSpec.Count = completeSpec.Count - currentCount
 
 	storageOps, _, err := createStorageOps(
 		st,
-		entity.Tag(),
+		u.Tag(),
 		charmMeta,
-		map[string]StorageConstraints{name: specWithDefault})
+		map[string]StorageConstraints{name: completeSpec})
 
 	if err := st.runTransaction(storageOps); err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "while creating storage")
 	}
 	return nil
+}
+
+func (st *State) countEntityStorageInstancesForName(tag names.Tag, name string) (uint64, error) {
+	storageCollection, closer := st.getCollection(storageInstancesC)
+	defer closer()
+	criteria := bson.D{{
+		"$and", []bson.D{
+			bson.D{{"owner", tag.String()}},
+			bson.D{{"storagename", bson.RegEx{name, ""}}},
+		},
+	}}
+	result, err := storageCollection.Find(criteria).Count()
+	if err != nil {
+		return 0, err
+	}
+	return uint64(result), err
 }
