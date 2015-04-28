@@ -58,6 +58,9 @@ var _ = gc.Suite(&provisionerSuite{})
 
 func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	// We're testing with address allocation on by default. There are
+	// separate tests to check the behavior when the flag is not
+	// enabled.
 	s.SetFeatureFlags(feature.AddressAllocation)
 
 	var err error
@@ -80,6 +83,21 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 
 	s.EnvironWatcherTests = apitesting.NewEnvironWatcherTests(s.provisioner, s.BackingState, apitesting.HasSecrets)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
+}
+
+func (s *provisionerSuite) TestPrepareContainerInterfaceInfoNoFeatureFlag(c *gc.C) {
+	s.SetFeatureFlags() // clear the flag
+	ifaceInfo, err := s.provisioner.PrepareContainerInterfaceInfo(names.NewMachineTag("42"))
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(ifaceInfo, gc.HasLen, 0)
+}
+
+func (s *provisionerSuite) TestReleaseContainerAddressNoFeatureFlag(c *gc.C) {
+	s.SetFeatureFlags() // clear the flag
+	err := s.provisioner.ReleaseContainerAddresses(names.NewMachineTag("42"))
+	c.Assert(err, gc.ErrorMatches,
+		`cannot release static addresses for "42": address allocation not supported`,
+	)
 }
 
 func (s *provisionerSuite) TestMachineTagAndId(c *gc.C) {

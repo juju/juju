@@ -887,6 +887,31 @@ func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {
 	c.Assert(result, jc.IsTrue)
 }
 
+func (t *localServerSuite) TestSupportsAddressAllocationWithNoFeatureFlag(c *gc.C) {
+	t.SetFeatureFlags() // clear the flags.
+	env := t.prepareEnviron(c)
+	result, err := env.SupportsAddressAllocation("")
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(result, jc.IsFalse)
+}
+
+func (t *localServerSuite) TestAllocateAddressWithNoFeatureFlag(c *gc.C) {
+	t.SetFeatureFlags() // clear the flags.
+	env := t.prepareEnviron(c)
+	err := env.AllocateAddress("i-foo", "net1", network.NewAddresses("1.2.3.4")[0])
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
+func (t *localServerSuite) TestReleaseAddressWithNoFeatureFlag(c *gc.C) {
+	t.SetFeatureFlags() // clear the flags.
+	env := t.prepareEnviron(c)
+	err := env.ReleaseAddress("i-foo", "net1", network.NewAddresses("1.2.3.4")[0])
+	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
 func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
 		"default-vpc": {"none"},
