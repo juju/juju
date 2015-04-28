@@ -1,17 +1,13 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build gccgo go1.2
+
 // +build !gccgo
 // +build !go1.2 go1.3
 
-package vsphere_test
+package vsphere
 
-import (
-	"testing"
-
-	gc "gopkg.in/check.v1"
+const (
+	providerType = "vsphere"
 )
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
