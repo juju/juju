@@ -2,7 +2,6 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // +build !gccgo
-// +build !go1.2 go1.3
 
 package vsphere
 
