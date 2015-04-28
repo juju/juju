@@ -218,7 +218,6 @@ func (*environSuite) TestNewCloudinitConfigWithFeatureFlag(c *gc.C) {
 }
 
 func (s *environSuite) TestNewCloudinitConfigNoFeatureFlag(c *gc.C) {
-	s.SetFeatureFlags() // clear the flags.
 	cfg := getSimpleTestConfig(c, nil)
 	env, err := maas.NewEnviron(cfg)
 	c.Assert(err, jc.ErrorIsNil)
