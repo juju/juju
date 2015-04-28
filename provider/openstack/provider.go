@@ -1220,7 +1220,7 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 			break
 		}
 	}
-	logger.Debugf("%d/%d live servers found", len(foundServers), len(ids))
+	logger.Tracef("%d/%d live servers found", len(foundServers), len(ids))
 	if len(foundServers) == 0 {
 		return nil, environs.ErrNoInstances
 	}
