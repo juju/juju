@@ -29,7 +29,7 @@ func (environProvider) BoilerplateConfig() string {
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (p environProvider) RestrictedConfigAttributes() []string {
-	return []string{"region"}
+	return []string{"region", "access-key", "secret-key"}
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
