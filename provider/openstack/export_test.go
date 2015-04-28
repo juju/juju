@@ -9,10 +9,10 @@ import (
 	"strings"
 	"text/template"
 
-	"launchpad.net/goose/errors"
-	"launchpad.net/goose/identity"
-	"launchpad.net/goose/nova"
-	"launchpad.net/goose/swift"
+	"gopkg.in/goose.v1/errors"
+	"gopkg.in/goose.v1/identity"
+	"gopkg.in/goose.v1/nova"
+	"gopkg.in/goose.v1/swift"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
