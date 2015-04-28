@@ -725,6 +725,23 @@ func (s *localServerSuite) TestInstancesErrorResponse(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "(?s).*strange error not instance.*")
 }
 
+func (s *localServerSuite) TestInstancesMultiErrorResponse(c *gc.C) {
+	coretesting.SkipIfPPC64EL(c, "lp:1425242")
+
+	env := s.Prepare(c)
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
+		"matchServers",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			return fmt.Errorf("strange error no instances")
+		},
+	)
+	defer cleanup()
+
+	instances, err := env.Instances([]instance.Id{"1", "2"})
+	c.Check(instances, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "(?s).*strange error no instances.*")
+}
+
 // TODO (wallyworld) - this test was copied from the ec2 provider.
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
