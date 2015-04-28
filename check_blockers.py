@@ -66,10 +66,14 @@ def parse_args(args=None):
     return parser.parse_args(args)
 
 
-def get_lp_bugs_url(target):
+def get_lp_bugs_url(target, with_ci=False):
     """Return the target series url to query blocking bugs."""
     params = {'target': target}
-    params['tags'] = ''.join('&tags%3Alist={}'.format(t) for t in BUG_TAGS)
+    if with_ci:
+        bug_tags = BUG_TAGS + ('ci', )
+    else:
+        bug_tags = BUG_TAGS
+    params['tags'] = ''.join('&tags%3Alist={}'.format(t) for t in bug_tags)
     params['importances'] = ''.join(
         '&importance%3Alist={}'.format(i) for i in BUG_IMPORTANCES)
     params['statuses'] = ''.join(

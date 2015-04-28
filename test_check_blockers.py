@@ -169,6 +169,16 @@ class CheckBlockers(TestCase):
             '&status%3Alist=Fix+Committed',
             check_blockers.get_lp_bugs_url('foo/bar'))
 
+    def test_get_lp_bugs_url_with_ci(self):
+        self.assertEqual(
+            'https://api.launchpad.net/devel/foo/bar?ws.op=searchTasks'
+            '&tags_combinator=All&tags%3Alist=blocker&tags%3Alist=ci'
+            '&importance%3Alist=Critical'
+            '&status%3Alist=Incomplete&status%3Alist=Confirmed'
+            '&status%3Alist=Triaged&status%3Alist=In+Progress'
+            '&status%3Alist=Fix+Committed',
+            check_blockers.get_lp_bugs_url('foo/bar', with_ci=True))
+
     def test_parse_credentials_file(self):
         with temp_dir() as place:
             cred_path = '%s/my.creds' % place
