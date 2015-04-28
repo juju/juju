@@ -113,8 +113,8 @@ func (manager *containerManager) CreateContainer(
 		name = fmt.Sprintf("%s-%s", manager.name, name)
 	}
 
-	// Set the ContainerHostname to match the name returned by virsh list
-	instanceConfig.ContainerHostname = name
+	// Set the MachineContainerHostname to match the name returned by virsh list
+	instanceConfig.MachineContainerHostname = name
 
 	// Note here that the kvmObjectFacotry only returns a valid container
 	// object, and doesn't actually construct the underlying kvm container on

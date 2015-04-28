@@ -100,6 +100,10 @@ type InstanceConfig struct {
 	// is.  If the instance is not a container, then the type is "".
 	MachineContainerType instance.ContainerType
 
+	// MachineContainerHostname specifies the hostname to be used with the
+	// cloud config for the instance. If this is not set, hostname uses the default.
+	MachineContainerHostname string
+
 	// Networks holds a list of networks the instances should be on.
 	Networks []string
 
@@ -166,10 +170,6 @@ type InstanceConfig struct {
 	// instances. If enabled, the OS will perform any upgrades
 	// available as part of its provisioning.
 	EnableOSUpgrade bool
-
-	// ContainerHostname is used to set the hostname for cloud config. Allowing
-	// containers to override the default "ubuntu" hostname.
-	ContainerHostname string
 }
 
 func (cfg *InstanceConfig) agentInfo() service.AgentInfo {
