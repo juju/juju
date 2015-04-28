@@ -88,7 +88,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		logger.Debugf("trying to allocate static IP for container %q", machineId)
 		allocatedInfo, err := maybeAllocateStaticIP(
 			machineId, bridgeDevice, broker.api,
-			args.NetworkInfo, broker.enableNAT,
+			args.NetworkInfo,
 		)
 		if err != nil {
 			// It's fine, just ignore it. The effect will be that the

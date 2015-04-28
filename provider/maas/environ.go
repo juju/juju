@@ -125,13 +125,13 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 		// StartInstance.
 		logger.Infof(
 			"address allocation feature disabled; using %q bridge for all containers",
-			environs.DefaultBridgeName,
+			instancecfg.DefaultBridgeName,
 		)
-		args.ContainerBridgeName = environs.DefaultBridgeName
+		args.ContainerBridgeName = instancecfg.DefaultBridgeName
 	} else {
 		logger.Debugf(
-			"address allocation feature enabled; using static IPs for containers",
-			environs.DefaultBridgeName,
+			"address allocation feature enabled; using static IPs for containers: %q",
+			instancecfg.DefaultBridgeName,
 		)
 	}
 
@@ -898,7 +898,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		if args.InstanceConfig.AgentEnvironment == nil {
 			args.InstanceConfig.AgentEnvironment = make(map[string]string)
 		}
-		args.InstanceConfig.AgentEnvironment[agent.LxcBridge] = environs.DefaultBridgeName
+		args.InstanceConfig.AgentEnvironment[agent.LxcBridge] = instancecfg.DefaultBridgeName
 	}
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, environ.Config()); err != nil {
 		return nil, err
@@ -1073,7 +1073,7 @@ func setupJujuNetworking() (string, error) {
 	var buf bytes.Buffer
 	err := parsedTemplate.Execute(&buf, map[string]interface{}{
 		"Config": "/etc/network/interfaces",
-		"Bridge": environs.DefaultBridgeName,
+		"Bridge": instancecfg.DefaultBridgeName,
 	})
 	if err != nil {
 		return "", errors.Annotate(err, "bridge config template error")
@@ -1114,7 +1114,7 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series st
 			if on, set := environ.Config().DisableNetworkManagement(); on && set {
 				logger.Infof(
 					"network management disabled - not using %q bridge for containers",
-					environs.DefaultBridgeName,
+					instancecfg.DefaultBridgeName,
 				)
 				break
 			}

@@ -68,7 +68,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 
 		allocatedInfo, err := maybeAllocateStaticIP(
 			machineId, bridgeDevice, broker.api,
-			args.NetworkInfo, broker.enableNAT,
+			args.NetworkInfo,
 		)
 		if err != nil {
 			// It's fine, just ignore it. The effect will be that the
