@@ -1654,8 +1654,8 @@ var addNetworkErrorsTests = []struct {
 	state.NetworkInfo{"", "provider-id", "0.3.1.0/24", 0},
 	`cannot add network "": name must be not empty`,
 }, {
-	state.NetworkInfo{"-invalid-", "provider-id", "0.3.1.0/24", 0},
-	`cannot add network "-invalid-": invalid name`,
+	state.NetworkInfo{"$-invalid-", "provider-id", "0.3.1.0/24", 0},
+	`cannot add network "\$-invalid-": invalid name`,
 }, {
 	state.NetworkInfo{"net2", "", "0.3.1.0/24", 0},
 	`cannot add network "net2": provider id must be not empty`,
