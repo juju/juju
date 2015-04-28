@@ -141,6 +141,10 @@ func cloudInitUserData(
 	// logged in the host.
 	cloudConfig.AddRunCmd("ifconfig")
 
+	if instanceConfig.ContainerHostname != "" {
+		cloudConfig.SetAttr("hostname", instanceConfig.ContainerHostname)
+	}
+
 	data, err := cloudConfig.RenderYAML()
 	if err != nil {
 		return nil, err

@@ -166,6 +166,10 @@ type InstanceConfig struct {
 	// instances. If enabled, the OS will perform any upgrades
 	// available as part of its provisioning.
 	EnableOSUpgrade bool
+
+	// ContainerHostname is used to set the hostname for cloud config. Allowing
+	// containers to override the default "ubuntu" hostname.
+	ContainerHostname string
 }
 
 func (cfg *InstanceConfig) agentInfo() service.AgentInfo {
