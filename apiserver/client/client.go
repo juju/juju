@@ -267,6 +267,8 @@ func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
 	return svc.ClearExposed()
 }
 
+// TODO - we really want to avoid this, which we can do by refactoring code requiring this
+// to use interfaces.
 // NewCharmStore instantiates a new charm store repository.
 // It is defined at top level for testing purposes.
 var NewCharmStore = charmrepo.NewCharmStore
