@@ -112,7 +112,7 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *gc.C) {
 
 	storage, err := uniter.NewStorageAPI(state, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	watches, err := storage.WatchStorageAttachmentInfos(params.StorageAttachmentIds{
+	watches, err := storage.WatchStorageAttachments(params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
 			StorageTag: storageTag.String(),
 			UnitTag:    unitTag.String(),
@@ -188,7 +188,7 @@ func (s *storageSuite) TestWatchStorageAttachmentFilesystem(c *gc.C) {
 
 	storage, err := uniter.NewStorageAPI(state, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	watches, err := storage.WatchStorageAttachmentInfos(params.StorageAttachmentIds{
+	watches, err := storage.WatchStorageAttachments(params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
 			StorageTag: storageTag.String(),
 			UnitTag:    unitTag.String(),

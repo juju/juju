@@ -173,10 +173,10 @@ func (s *StorageAPI) watchOneUnitStorageAttachments(tag string, canAccess func(n
 	return nothing, watcher.EnsureErr(watch)
 }
 
-// WatchStorageAttachmentInfos creates watchers for a collection of storage
+// WatchStorageAttachments creates watchers for a collection of storage
 // attachments, each of which can be used to watch changes to storage
 // attachment info.
-func (s *StorageAPI) WatchStorageAttachmentInfos(args params.StorageAttachmentIds) (params.NotifyWatchResults, error) {
+func (s *StorageAPI) WatchStorageAttachments(args params.StorageAttachmentIds) (params.NotifyWatchResults, error) {
 	canAccess, err := s.accessUnit()
 	if err != nil {
 		return params.NotifyWatchResults{}, err
@@ -213,7 +213,7 @@ func (s *StorageAPI) watchOneStorageAttachment(id params.StorageAttachmentId, ca
 	if err != nil {
 		return nothing, err
 	}
-	watch, err := common.WatchStorageAttachmentInfo(s.st, storageTag, machineTag, unitTag)
+	watch, err := common.WatchStorageAttachment(s.st, storageTag, machineTag, unitTag)
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}

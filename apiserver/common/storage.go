@@ -129,10 +129,10 @@ func filesystemStorageAttachmentInfo(
 	}, nil
 }
 
-// WatchStorageAttachmentInfo returns a state.NotifyWatcher that reacts to changes
+// WatchStorageAttachment returns a state.NotifyWatcher that reacts to changes
 // to the VolumeAttachmentInfo or FilesystemAttachmentInfo corresponding to the tags
 // specified.
-func WatchStorageAttachmentInfo(
+func WatchStorageAttachment(
 	st StorageInterface,
 	storageTag names.StorageTag,
 	machineTag names.MachineTag,
