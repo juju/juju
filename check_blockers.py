@@ -123,18 +123,23 @@ def get_reason(bugs, args):
     return 1, 'Could not get {} comments from github'.format(args.pull_request)
 
 
-def main():
-    args = parse_args()
+def update_bugs(bugs, credentials):
+    return 0
+
+
+def main(argv):
+    args = parse_args(argv)
     if args.credentials_file:
         credentials = parse_credential_file(args.credentials_file)
     if args.command == 'check':
-        bugs = get_lp_bugs(args, credentials)
+        bugs = get_lp_bugs(args, with_ci=False)
         code, reason = get_reason(bugs, args)
         print(reason)
     elif args.command == 'update':
-        bugs = get_lp_bugs(args, credentials)
+        bugs = get_lp_bugs(args, with_ci=True)
+        code = update_bugs(bugs, credentials)
     return code
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

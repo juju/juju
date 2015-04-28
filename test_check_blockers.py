@@ -20,17 +20,49 @@ SERIES_LIST = {
 
 class CheckBlockers(TestCase):
 
+    def test_parse_args_check(self):
+        args = check_blockers.parse_args(['check', 'master', '17'])
+        self.assertEqual('check', args.command)
+        self.assertEqual('master', args.branch)
+        self.assertEqual('17', args.pull_request)
+
     def test_parse_args_update(self):
         args = check_blockers.parse_args(
             ['-c', './foo.cred', 'update', 'master', '1234'])
+        self.assertEqual('update', args.command)
         self.assertEqual('master', args.branch)
         self.assertEqual('1234', args.build)
         self.assertEqual('./foo.cred', args.credentials_file)
 
-    def test_parse_args_check(self):
+    def test_main_check(self):
+        bugs = {}
         args = check_blockers.parse_args(['check', 'master', '17'])
-        self.assertEqual('master', args.branch)
-        self.assertEqual('17', args.pull_request)
+        with patch('check_blockers.get_lp_bugs', autospec=True,
+                   return_value=bugs) as glb:
+            with patch('check_blockers.get_reason', autospec=True,
+                       return_value=(0, 'foo')) as gr:
+                code = check_blockers.main(['check', 'master', '17'])
+        glb.assert_called_with(args, with_ci=False)
+        gr.assert_called_with(bugs, args)
+        self.assertEqual(0, code)
+
+    def test_main_update(self):
+        bugs = {}
+        args = check_blockers.parse_args(
+            ['-c', './foo.cred', 'update', 'master', '1234'])
+        credentials = 'bingo'
+        with patch('check_blockers.parse_credential_file', autospec=True,
+                   return_value=(credentials)) as pcf:
+            with patch('check_blockers.get_lp_bugs', autospec=True,
+                       return_value=bugs) as glb:
+                with patch('check_blockers.update_bugs', autospec=True,
+                           return_value=(0)) as ub:
+                    code = check_blockers.main(
+                        ['-c', './foo.cred', 'update', 'master', '1234'])
+        pcf.assert_called_with('./foo.cred')
+        glb.assert_called_with(args, with_ci=True)
+        ub.assert_called_with(bugs, credentials)
+        self.assertEqual(0, code)
 
     def test_get_lp_bugs_with_master_branch(self):
         args = check_blockers.parse_args(['check', 'master', '17'])
