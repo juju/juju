@@ -38,7 +38,7 @@ class CheckBlockers(TestCase):
                    side_effect=[SERIES_LIST, {'entries': []}]) as gj:
             check_blockers.get_lp_bugs(args)
             url = check_blockers.get_lp_bugs_url('juju-core')
-            gj.assert_called_with(url, credentials=None)
+            gj.assert_called_with(url)
 
     def test_get_lp_bugs_with_supported_branch(self):
         args = check_blockers.parse_args(['check', '1.20', '17'])
@@ -46,7 +46,7 @@ class CheckBlockers(TestCase):
                    side_effect=[SERIES_LIST, {'entries': []}]) as gj:
             check_blockers.get_lp_bugs(args)
             url = check_blockers.get_lp_bugs_url('juju-core/1.20')
-            gj.assert_called_with(url, credentials=None)
+            gj.assert_called_with(url)
 
     def test_get_lp_bugs_with_unsupported_branch(self):
         args = check_blockers.parse_args(['check', 'foo', '17'])

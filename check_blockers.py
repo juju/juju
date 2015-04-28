@@ -81,7 +81,7 @@ def get_lp_bugs_url(target, with_ci=False):
     return LP_BUGS.format(**params)
 
 
-def get_lp_bugs(args, credentials=None):
+def get_lp_bugs(args, with_ci=False):
     bugs = {}
     batch = get_json(LP_SERIES)
     series = [s['name'] for s in batch['entries']]
@@ -93,8 +93,8 @@ def get_lp_bugs(args, credentials=None):
         target = 'juju-core'
     else:
         target = 'juju-core/%s' % args.branch
-    uri = get_lp_bugs_url(target)
-    batch = get_json(uri, credentials=credentials)
+    uri = get_lp_bugs_url(target, with_ci=with_ci)
+    batch = get_json(uri)
     if batch:
         for bug_data in batch['entries']:
             bug_id = bug_data['self_link'].split('/')[-1]
