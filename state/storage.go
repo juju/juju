@@ -679,6 +679,25 @@ func storageKind(storageType charm.StorageType) storage.StorageKind {
 }
 
 func validateStorageConstraints(st *State, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
+	err := validateStorageConstraintsAgainstCharmStorage(st, allCons, charmMeta)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// Ensure all stores have constraints specified. Defaults should have
+	// been set by this point, if the user didn't specify constraints.
+	for name, charmStorage := range charmMeta.Storage {
+		if _, ok := allCons[name]; !ok && charmStorage.CountMin > 0 {
+			return errors.Errorf("no constraints specified for store %q", name)
+		}
+	}
+	return nil
+}
+
+func validateStorageConstraintsAgainstCharmStorage(
+	st *State,
+	allCons map[string]StorageConstraints,
+	charmMeta *charm.Meta,
+) error {
 	for name, cons := range allCons {
 		charmStorage, ok := charmMeta.Storage[name]
 		if !ok {
@@ -706,19 +725,14 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 		if charmStorage.MinimumSize > 0 && cons.Size < charmStorage.MinimumSize {
 			return errors.Errorf(
 				"charm %q store %q: minimum storage size is %s, %s specified",
-				charmMeta.Name, name, humanize.Bytes(charmStorage.MinimumSize*humanize.MByte), humanize.Bytes(cons.Size*humanize.MByte),
+				charmMeta.Name, name,
+				humanize.Bytes(charmStorage.MinimumSize*humanize.MByte),
+				humanize.Bytes(cons.Size*humanize.MByte),
 			)
 		}
 		kind := storageKind(charmStorage.Type)
 		if err := validateStoragePool(st, cons.Pool, kind, nil); err != nil {
 			return err
-		}
-	}
-	// Ensure all stores have constraints specified. Defaults should have
-	// been set by this point, if the user didn't specify constraints.
-	for name, charmStorage := range charmMeta.Storage {
-		if _, ok := allCons[name]; !ok && charmStorage.CountMin > 0 {
-			return errors.Errorf("no constraints specified for store %q", name)
 		}
 	}
 	return nil
@@ -830,20 +844,44 @@ func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstrain
 		allCons = make(map[string]StorageConstraints)
 	}
 	for name, charmStorage := range charmMeta.Storage {
-		cons := allCons[name]
-		kind := storageKind(charmStorage.Type)
-		var err error
-		cons, err = storageConstraintsWithDefaults(conf, kind, charmStorage, cons)
+		cons, err := fillDefaultStorageConstraints(conf, name, allCons[name], charmStorage)
 		if err != nil {
-			if err == ErrNoDefaultStoragePool {
-				err = errors.Maskf(err, "no storage pool specified and no default available for %q storage", name)
-			}
-			return err
+			return errors.Trace(err)
 		}
 		// Replace in case pool or size were updated.
 		allCons[name] = cons
 	}
 	return nil
+}
+
+func fillDefaultStorageConstraintsNoConfig(
+	st *State,
+	name string, cons StorageConstraints,
+	charmStorage charm.Storage,
+) (StorageConstraints, error) {
+	conf, err := st.EnvironConfig()
+	if err != nil {
+		return cons, errors.Trace(err)
+	}
+	return fillDefaultStorageConstraints(conf, name, cons, charmStorage)
+}
+
+func fillDefaultStorageConstraints(
+	conf *config.Config,
+	name string, cons StorageConstraints,
+	charmStorage charm.Storage,
+) (StorageConstraints, error) {
+	kind := storageKind(charmStorage.Type)
+	consWithDefault, err := storageConstraintsWithDefaults(conf, kind, charmStorage, cons)
+	if err != nil {
+		if err == ErrNoDefaultStoragePool {
+			err = errors.Maskf(err,
+				"no storage pool specified and no default available for %q storage",
+				name)
+		}
+		return cons, err
+	}
+	return consWithDefault, nil
 }
 
 // storageConstraintsWithDefaults returns a constraints derived from cons, with any defaults filled in.
@@ -883,4 +921,56 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind) (string, e
 		return defaultPool, nil
 	}
 	return "", ErrNoDefaultStoragePool
+}
+
+// AddStorage adds StorageConstraints to
+// given entity dynamically, one storage directive at a time.
+func (st *State) AddStorage(
+	charmMeta *charm.Meta, entity StorageEntity,
+	name string, spec StorageConstraints,
+) error {
+	all, err := entity.StorageConstraints()
+	if err != nil {
+		return errors.Annotate(err, "getting storage constraints")
+	}
+	currentSpec, exists := all[name]
+	if !exists {
+		return errors.NotFoundf(`storage "%s" on the charm`, name)
+	}
+
+	// Populate missing defaults if needed.
+	specWithDefault, err := fillDefaultStorageConstraintsNoConfig(
+		st,
+		name, spec,
+		charmMeta.Storage[name],
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Storage directive may provide storage instance count
+	// which combined with existing storage instance may exceed
+	// number of storage instances specified by charm.
+	// We must take it into account when validating.
+	specWithDefault.Count = specWithDefault.Count + currentSpec.Count
+
+	err = validateStorageConstraintsAgainstCharmStorage(
+		st,
+		map[string]StorageConstraints{name: specWithDefault},
+		charmMeta)
+	if err != nil {
+		return errors.Annotatef(err, "validating storage directive")
+	}
+	specWithDefault.Count = specWithDefault.Count - currentSpec.Count
+
+	storageOps, _, err := createStorageOps(
+		st,
+		entity.Tag(),
+		charmMeta,
+		map[string]StorageConstraints{name: specWithDefault})
+
+	if err := st.runTransaction(storageOps); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
