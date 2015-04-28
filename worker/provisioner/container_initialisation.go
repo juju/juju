@@ -189,19 +189,23 @@ func (cs *ContainerSetup) runInitialiser(containerType instance.ContainerType, i
 	}
 	defer cs.initLock.Unlock()
 
-	// In order to guarantee stable statically assigned IP addresses
-	// for LXC containers, we need to install a custom version of
-	// /etc/default/lxc-net before we install the lxc package. The
-	// custom version of lxc-net is almost the same as the original,
-	// but the defined LXC_DHCP_RANGE (used by dnsmasq to give away
-	// 10.0.3.x addresses to containers bound to lxcbr0) has infinite
-	// lease time. This is necessary, because with the default lease
-	// time of 1h, dhclient running inside each container will request
-	// a renewal from dnsmasq and replace our statically configured IP
-	// address within an hour after starting the container.
-	err := maybeOverrideDefaultLXCNet(containerType, cs.addressableContainers)
-	if err != nil {
-		return errors.Trace(err)
+	// Only tweak default LXC network config when address allocation
+	// feature flag is enabled.
+	if environs.AddressAllocationEnabled() {
+		// In order to guarantee stable statically assigned IP addresses
+		// for LXC containers, we need to install a custom version of
+		// /etc/default/lxc-net before we install the lxc package. The
+		// custom version of lxc-net is almost the same as the original,
+		// but the defined LXC_DHCP_RANGE (used by dnsmasq to give away
+		// 10.0.3.x addresses to containers bound to lxcbr0) has infinite
+		// lease time. This is necessary, because with the default lease
+		// time of 1h, dhclient running inside each container will request
+		// a renewal from dnsmasq and replace our statically configured IP
+		// address within an hour after starting the container.
+		err := maybeOverrideDefaultLXCNet(containerType, cs.addressableContainers)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	if err := initialiser.Initialise(); err != nil {

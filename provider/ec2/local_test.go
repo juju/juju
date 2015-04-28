@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
@@ -183,6 +184,7 @@ func (t *localServerSuite) TearDownSuite(c *gc.C) {
 
 func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
+	t.SetFeatureFlags(feature.AddressAllocation)
 	t.srv.startServer(c)
 	t.Tests.SetUpTest(c)
 	t.PatchValue(&version.Current, version.Binary{

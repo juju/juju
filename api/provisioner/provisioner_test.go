@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
@@ -57,6 +58,7 @@ var _ = gc.Suite(&provisionerSuite{})
 
 func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.AddressAllocation)
 
 	var err error
 	s.machine, err = s.State.AddMachine("quantal", state.JobManageEnviron)
