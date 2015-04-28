@@ -212,7 +212,7 @@ func (s *AddMachineSuite) TestAddMachineWithDisks(c *gc.C) {
 }
 
 func (s *AddMachineSuite) TestAddMachineWithDisksUnsupported(c *gc.C) {
-	s.fake.addError = &params.Error{"MachineNetworkConfig", params.CodeNotImplemented}
+	s.fake.addError = &params.Error{"AddMachineWithDisks", params.CodeNotImplemented}
 	_, err := s.run(c, "--disks", "2,1G", "--disks", "2G")
 	c.Assert(err, gc.ErrorMatches, "cannot add machines with disks: not supported by the API server")
 }
