@@ -20,14 +20,14 @@ import (
 	"github.com/juju/juju/worker/logsender"
 )
 
-type Suite struct {
+type workerSuite struct {
 	jujutesting.JujuConnSuite
 	apiInfo *api.Info
 }
 
-var _ = gc.Suite(&Suite{})
+var _ = gc.Suite(&workerSuite{})
 
-func (s *Suite) SetUpTest(c *gc.C) {
+func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.SetInitialFeatureFlags(feature.DbLog)
 	s.JujuConnSuite.SetUpTest(c)
 
@@ -41,7 +41,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.apiInfo.Nonce = nonce
 }
 
-func (s *Suite) TestLogSending(c *gc.C) {
+func (s *workerSuite) TestLogSending(c *gc.C) {
 	const logCount = 5
 	logsCh := make(chan *logsender.LogRecord, logCount)
 
