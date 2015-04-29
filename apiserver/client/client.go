@@ -590,11 +590,6 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 
 // AddMachinesV2 adds new machines with the supplied parameters.
 func (c *Client) AddMachinesV2(args params.AddMachines) (params.AddMachinesResults, error) {
-	return c.AddMachinesV3(args)
-}
-
-// AddMachinesV3 adds new machines with the supplied parameters.
-func (c *Client) AddMachinesV3(args params.AddMachines) (params.AddMachinesResults, error) {
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
 	}
@@ -665,24 +660,6 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		placementDirective = p.Placement.Directive
 	}
 
-	volumes := make([]state.MachineVolumeParams, 0, len(p.Disks))
-	for _, cons := range p.Disks {
-		if cons.Count == 0 {
-			return nil, errors.Errorf("invalid volume params: count not specified")
-		}
-		// Pool and Size are validated by AddMachineX.
-		volumeParams := state.VolumeParams{
-			Pool: cons.Pool,
-			Size: cons.Size,
-		}
-		volumeAttachmentParams := state.VolumeAttachmentParams{}
-		for i := uint64(0); i < cons.Count; i++ {
-			volumes = append(volumes, state.MachineVolumeParams{
-				volumeParams, volumeAttachmentParams,
-			})
-		}
-	}
-
 	jobs, err := stateJobs(p.Jobs)
 	if err != nil {
 		return nil, err
@@ -690,7 +667,6 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 	template := state.MachineTemplate{
 		Series:      p.Series,
 		Constraints: p.Constraints,
-		Volumes:     volumes,
 		InstanceId:  p.InstanceId,
 		Jobs:        jobs,
 		Nonce:       p.Nonce,
@@ -710,32 +686,13 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 func stateJobs(jobs []multiwatcher.MachineJob) ([]state.MachineJob, error) {
 	newJobs := make([]state.MachineJob, len(jobs))
 	for i, job := range jobs {
-		newJob, err := machineJobFromParams(job)
+		newJob, err := params.MachineJobFromParams(job)
 		if err != nil {
 			return nil, err
 		}
 		newJobs[i] = newJob
 	}
 	return newJobs, nil
-}
-
-// machineJobFromParams returns the job corresponding to multiwatcher.MachineJob.
-// TODO(dfc) this function should live in apiserver/params, move there once
-// state does not depend on apiserver/params
-func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error) {
-	switch job {
-	case multiwatcher.JobHostUnits:
-		return state.JobHostUnits, nil
-	case multiwatcher.JobManageEnviron:
-		return state.JobManageEnviron, nil
-	case multiwatcher.JobManageNetworking:
-		return state.JobManageNetworking, nil
-	case multiwatcher.JobManageStateDeprecated:
-		// Deprecated in 1.18.
-		return state.JobManageStateDeprecated, nil
-	default:
-		return -1, errors.Errorf("invalid machine job %q", job)
-	}
 }
 
 // ProvisioningScript returns a shell script that, when run,

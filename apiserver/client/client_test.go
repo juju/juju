@@ -2973,64 +2973,6 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	c.Assert(m.Placement(), gc.DeepEquals, apiParams[3].Placement.Directive)
 }
 
-func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
-	s.setupStoragePool(c)
-	apiParams := make([]params.AddMachineParams, 5)
-	for i := range apiParams {
-		apiParams[i] = params.AddMachineParams{
-			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-		}
-	}
-	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
-	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "three"}}
-	apiParams[2].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "loop-pool"}}
-	apiParams[3].Disks = []storage.Constraints{{Size: 0, Count: 0}}
-	apiParams[4].Disks = []storage.Constraints{{Size: 0, Count: 1}}
-	machines, err := s.APIState.Client().AddMachinesWithDisks(apiParams)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 5)
-	c.Assert(machines[0].Machine, gc.Equals, "0")
-	c.Assert(machines[1].Error, gc.ErrorMatches, `cannot add a new machine: validating volume params: pool "three" not found`)
-	c.Assert(machines[2].Machine, gc.Equals, "2")
-	c.Assert(machines[3].Error, gc.ErrorMatches, "invalid volume params: count not specified")
-	c.Assert(machines[4].Error, gc.ErrorMatches, "cannot add a new machine: validating volume params: invalid size 0")
-
-	expectParams := []state.VolumeParams{{
-		Pool: "loop-pool",
-		Size: 1,
-	}, {
-		Pool: "loop-pool",
-		Size: 1,
-	}, {
-		Pool: "loop-pool",
-		Size: 2,
-	}}
-	s.assertVolumeParams(c, machines[0].Machine, expectParams)
-
-	expectParams = []state.VolumeParams{
-		{Size: 1, Pool: "loop-pool"}, {Size: 1, Pool: "loop-pool"},
-	}
-	s.assertVolumeParams(c, machines[2].Machine, expectParams)
-}
-
-func (s *clientSuite) assertVolumeParams(c *gc.C, machineId string, expectParams []state.VolumeParams) {
-	m, err := s.BackingState.Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
-	volumeAttachments, err := s.BackingState.MachineVolumeAttachments(m.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volumeAttachments, gc.HasLen, len(expectParams))
-
-	foundParams := make([]state.VolumeParams, len(volumeAttachments))
-	for i, attachment := range volumeAttachments {
-		volume, err := s.BackingState.Volume(attachment.Volume())
-		c.Assert(err, jc.ErrorIsNil)
-		params, ok := volume.Params()
-		c.Assert(ok, jc.IsTrue)
-		foundParams[i] = params
-	}
-	c.Assert(foundParams, jc.SameContents, expectParams)
-}
-
 func (s *clientSuite) TestClientAddMachines1dot18(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 2)
 	for i := range apiParams {

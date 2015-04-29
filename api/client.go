@@ -315,16 +315,6 @@ func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.
 	return results.Machines, err
 }
 
-// AddMachinesWithDisks adds new machines with the supplied parameters, creating any requested disks.
-func (c *Client) AddMachinesWithDisks(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
-	args := params.AddMachines{
-		MachineParams: machineParams,
-	}
-	results := new(params.AddMachinesResults)
-	err := c.facade.FacadeCall("AddMachinesV3", args, results)
-	return results.Machines, err
-}
-
 // ProvisioningScript returns a shell script that, when run,
 // provisions a machine agent on the machine executing the script.
 func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (script string, err error) {

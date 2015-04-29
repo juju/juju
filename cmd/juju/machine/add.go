@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api/machinemanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -92,7 +93,8 @@ func init() {
 // AddCommand starts a new machine and registers it in the environment.
 type AddCommand struct {
 	envcmd.EnvCommandBase
-	api AddMachineAPI
+	api               AddMachineAPI
+	machineManagerAPI MachineManagerAPI
 	// If specified, use this series, else use the environment default-series
 	Series string
 	// If specified, these constraints are merged with those already in the environment.
@@ -145,7 +147,6 @@ func (c *AddCommand) Init(args []string) error {
 
 type AddMachineAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
-	AddMachinesWithDisks([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	AddMachines1dot18([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	Close() error
 	ForceDestroyMachines(machines ...string) error
@@ -154,21 +155,54 @@ type AddMachineAPI interface {
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }
 
+type MachineManagerAPI interface {
+	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
+	BestAPIVersion() int
+	Close() error
+}
+
 var manualProvisioner = manual.ProvisionMachine
 
-func (c *AddCommand) getAddMachineAPI() (AddMachineAPI, error) {
+func (c *AddCommand) getClientAPI() (AddMachineAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
 	return c.NewAPIClient()
 }
 
+func (c *AddCommand) NewMachineManagerClient() (*machinemanager.Client, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return machinemanager.NewClient(root), nil
+}
+
+func (c *AddCommand) getMachineManagerAPI() (MachineManagerAPI, error) {
+	if c.machineManagerAPI != nil {
+		return c.machineManagerAPI, nil
+	}
+	return c.NewMachineManagerClient()
+}
+
 func (c *AddCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getAddMachineAPI()
+	client, err := c.getClientAPI()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer client.Close()
+
+	var machineManager MachineManagerAPI
+	if len(c.Disks) > 0 {
+		machineManager, err = c.getMachineManagerAPI()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer machineManager.Close()
+		if machineManager.BestAPIVersion() < 1 {
+			return errors.New("cannot add machines with disks: not supported by the API server")
+		}
+	}
 
 	logger.Infof("load config")
 	var config *config.Config
@@ -243,11 +277,7 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 	var results []params.AddMachinesResult
 	// If storage is specified, we attempt to use a new API on the service facade.
 	if len(c.Disks) > 0 {
-		notSupported := errors.New("cannot add machines with disks: not supported by the API server")
-		results, err = client.AddMachinesWithDisks(machines)
-		if params.IsCodeNotImplemented(err) {
-			return notSupported
-		}
+		results, err = machineManager.AddMachines(machines)
 	} else {
 		results, err = client.AddMachines(machines)
 		if params.IsCodeNotImplemented(err) {
