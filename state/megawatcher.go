@@ -90,14 +90,34 @@ type backingUnit unitDoc
 // This is a short term requirement until the GUI is updated to be able to handle
 // the new values.
 // We use string literals here to avoid import loops and lots of messy refactoring.
-func translateLegacyUnitAgentStatus(in multiwatcher.Status) multiwatcher.Status {
-	switch in {
+// Note: This needs to be kept in sync with apiserver/params/params.go TranslateToLegacyAgentState
+func translateLegacyUnitAgentStatus(agentStatus, workloadStatus multiwatcher.Status) multiwatcher.Status {
+	switch agentStatus {
 	case multiwatcher.Status("failed"):
 		return multiwatcher.Status("down")
 	case multiwatcher.Status("active"):
 		return multiwatcher.Status("started")
+	case multiwatcher.Status("allocating"):
+		return multiwatcher.Status("pending")
+	case multiwatcher.Status("rebooting"),
+		multiwatcher.Status("executing"),
+		multiwatcher.Status("idle"),
+		multiwatcher.Status("lost"),
+		multiwatcher.Status(""):
+		switch workloadStatus {
+		case multiwatcher.Status("error"):
+			return workloadStatus
+		case multiwatcher.Status("terminated"):
+			return multiwatcher.Status("stopped")
+		case multiwatcher.Status("maintenance"):
+			// TODO(wallyworld): until we can query status history, returning Started
+			// is a reasonable approximation.
+			return multiwatcher.Status("started")
+		default:
+			return multiwatcher.Status("started")
+		}
 	}
-	return in
+	return agentStatus
 }
 
 func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange, []network.Port, error) {
@@ -196,8 +216,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id interface{
 			info.StatusInfo = unitStatus.Message
 			info.StatusData = unitStatus.Data
 		} else {
-			info.Status = multiwatcher.Status(agentStatus.Status)
-			info.Status = translateLegacyUnitAgentStatus(info.Status)
+			info.Status = translateLegacyUnitAgentStatus(multiwatcher.Status(agentStatus.Status), multiwatcher.Status(unitStatus.Status))
 			info.StatusInfo = agentStatus.Message
 			info.StatusData = agentStatus.Data
 		}
@@ -502,14 +521,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id interfac
 }
 
 func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, id string, newInfo *multiwatcher.UnitInfo) error {
-	// Legacy status info - display the agent status or any error.
-	if !strings.HasSuffix(id, "#charm") || s.Status == StatusError {
-		newInfo.Status = multiwatcher.Status(s.Status)
-		newInfo.Status = translateLegacyUnitAgentStatus(newInfo.Status)
-		newInfo.StatusInfo = s.StatusInfo
-		newInfo.StatusData = s.StatusData
-	}
-	// Unit or workload status.
+	// Unit or workload status - display the agent status or any error.
 	if strings.HasSuffix(id, "#charm") || s.Status == StatusError {
 		newInfo.WorkloadStatus.Current = multiwatcher.Status(s.Status)
 		newInfo.WorkloadStatus.Message = s.StatusInfo
@@ -520,6 +532,16 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 		newInfo.AgentStatus.Message = s.StatusInfo
 		newInfo.AgentStatus.Data = s.StatusData
 		newInfo.AgentStatus.Since = s.Updated
+	}
+
+	// Legacy status info - it is an aggregated value between workload and agent statuses.
+	newInfo.Status = translateLegacyUnitAgentStatus(newInfo.AgentStatus.Current, newInfo.WorkloadStatus.Current)
+	if newInfo.Status == multiwatcher.Status(StatusError) {
+		newInfo.StatusInfo = newInfo.WorkloadStatus.Message
+		newInfo.StatusData = newInfo.WorkloadStatus.Data
+	} else {
+		newInfo.StatusInfo = newInfo.AgentStatus.Message
+		newInfo.StatusData = newInfo.AgentStatus.Data
 	}
 
 	// A change in a unit's status might also affect it's service.
