@@ -7,7 +7,10 @@ import json
 import sys
 import urllib2
 
-from launchpadlib.launchpad import Launchpad
+from launchpadlib.launchpad import (
+    Launchpad,
+    uris,
+)
 
 
 BUG_STATUSES = [
@@ -30,10 +33,12 @@ def get_json(uri):
 
 def get_lp(script_name, credentials_file=None):
     """Return an LP API client."""
-    lp_args = dict(service_root='https://api.launchpad.net', version='devel')
+    lp_args = dict()
     if credentials_file:
         lp_args['credentials_file'] = credentials_file
-    lp = Launchpad.login_with(script_name, **lp_args)
+    lp = Launchpad.login_with(
+        script_name, service_root=uris.LPNET_SERVICE_ROOT,
+        version='devel', **lp_args)
     return lp
 
 
