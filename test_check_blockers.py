@@ -58,36 +58,37 @@ class CheckBlockers(TestCase):
     def test_main_check(self):
         bugs = {}
         args = check_blockers.parse_args(['check', 'master', '17'])
-        with patch('check_blockers.get_lp_bugs', autospec=True,
-                   return_value=bugs) as glb:
-            with patch('check_blockers.get_reason', autospec=True,
-                       return_value=(0, 'foo')) as gr:
-                code = check_blockers.main(['check', 'master', '17'])
-        glb.assert_called_with(args, with_ci=False)
+        with patch('check_blockers.get_lp', autospec=True,
+                   return_value='lp') as gl:
+            with patch('check_blockers.get_lp_bugs', autospec=True,
+                       return_value=bugs) as glb:
+                with patch('check_blockers.get_reason', autospec=True,
+                           return_value=(0, 'foo')) as gr:
+                    code = check_blockers.main(['check', 'master', '17'])
+        gl.assert_called_with('check_blockers', credentials_file=None)
+        glb.assert_called_with('lp', 'master', with_ci=False)
         gr.assert_called_with(bugs, args)
         self.assertEqual(0, code)
 
     def test_main_update(self):
         bugs = {}
         argv = ['-c', './foo.cred', 'update', '--dry-run', 'master', '1234']
-        args = check_blockers.parse_args(argv)
-        with patch('check_blockers.get_lp_bugs', autospec=True,
-                   return_value=bugs) as glb:
-            with patch('check_blockers.update_bugs', autospec=True,
-                       return_value=[0, 'Updating']) as ub:
-                code = check_blockers.main(argv)
-        glb.assert_called_with(args, with_ci=True)
+        with patch('check_blockers.get_lp', autospec=True,
+                   return_value='lp') as gl:
+            with patch('check_blockers.get_lp_bugs', autospec=True,
+                       return_value=bugs) as glb:
+                with patch('check_blockers.update_bugs', autospec=True,
+                           return_value=[0, 'Updating']) as ub:
+                    code = check_blockers.main(argv)
+        gl.assert_called_with('check_blockers', credentials_file='./foo.cred')
+        glb.assert_called_with('lp', 'master', with_ci=True)
         ub.assert_called_with(bugs, dry_run=True)
         self.assertEqual(0, code)
 
     def test_get_lp_bugs_with_master_branch(self):
-        args = check_blockers.parse_args(['check', 'master', '17'])
         lp = make_fake_lp(series=False, bugs=True)
-        with patch('check_blockers.get_lp', autospec=True,
-                   return_value=lp) as gl:
-            bugs = check_blockers.get_lp_bugs(args)
+        bugs = check_blockers.get_lp_bugs(lp, 'master')
         self.assertEqual(['54321', '98765'], sorted(bugs.keys()))
-        gl.assert_called_with('check_blockers', credentials_file=None)
         project = lp.projects['juju-core']
         self.assertEqual(0, project.getSeries.call_count)
         project.searchTasks.assert_called_with(
@@ -96,13 +97,9 @@ class CheckBlockers(TestCase):
             tags=check_blockers.BUG_TAGS, tags_combinator='All')
 
     def test_get_lp_bugs_with_supported_branch(self):
-        args = check_blockers.parse_args(['check', '1.20', '17'])
         lp = make_fake_lp(series=True, bugs=True)
-        with patch('check_blockers.get_lp', autospec=True,
-                   return_value=lp) as gl:
-            bugs = check_blockers.get_lp_bugs(args)
+        bugs = check_blockers.get_lp_bugs(lp, '1.20')
         self.assertEqual(['54321', '98765'], sorted(bugs.keys()))
-        gl.assert_called_with('check_blockers', credentials_file=None)
         project = lp.projects['juju-core']
         project.getSeries.assert_called_with(name='1.20')
         series = lp._target
@@ -112,20 +109,16 @@ class CheckBlockers(TestCase):
             tags=check_blockers.BUG_TAGS, tags_combinator='All')
 
     def test_get_lp_bugs_with_unsupported_branch(self):
-        args = check_blockers.parse_args(['check', 'foo', '17'])
         lp = make_fake_lp(series=False, bugs=False)
-        with patch('check_blockers.get_lp', autospec=True, return_value=lp):
-            bugs = check_blockers.get_lp_bugs(args)
+        bugs = check_blockers.get_lp_bugs(lp, 'foo')
         self.assertEqual({}, bugs)
         project = lp.projects['juju-core']
         project.getSeries.assert_called_with(name='foo')
         self.assertEqual(0, project.searchTasks.call_count)
 
     def test_get_lp_bugs_without_blocking_bugs(self):
-        args = check_blockers.parse_args(['check', 'master', '17'])
         lp = make_fake_lp(series=False, bugs=False)
-        with patch('check_blockers.get_lp', autospec=True, return_value=lp):
-            bugs = check_blockers.get_lp_bugs(args)
+        bugs = check_blockers.get_lp_bugs(lp, 'master')
         self.assertEqual({}, bugs)
         project = lp.projects['juju-core']
         project.searchTasks.assert_called_with(

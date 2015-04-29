@@ -63,14 +63,13 @@ def parse_args(args=None):
     return parser.parse_args(args)
 
 
-def get_lp_bugs(args, with_ci=False):
+def get_lp_bugs(lp, branch, with_ci=False):
     bugs = {}
-    lp = get_lp('check_blockers', credentials_file=args.credentials_file)
     project = lp.projects['juju-core']
-    if args.branch == 'master':
+    if branch == 'master':
         target = project
     else:
-        target = project.getSeries(name=args.branch)
+        target = project.getSeries(name=branch)
     if not target:
         return bugs
     if with_ci:
@@ -120,12 +119,13 @@ def update_bugs(bugs, dry_run=False):
 
 def main(argv):
     args = parse_args(argv)
+    lp = get_lp('check_blockers', credentials_file=args.credentials_file)
     if args.command == 'check':
-        bugs = get_lp_bugs(args, with_ci=False)
+        bugs = get_lp_bugs(lp, args.branch, with_ci=False)
         code, reason = get_reason(bugs, args)
         print(reason)
     elif args.command == 'update':
-        bugs = get_lp_bugs(args, with_ci=True)
+        bugs = get_lp_bugs(lp, args.branch, with_ci=True)
         code, changes = update_bugs(bugs, dry_run=args.dry_run)
         print(changes)
     return code
