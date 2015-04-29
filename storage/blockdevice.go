@@ -28,7 +28,7 @@ type BlockDevice struct {
 	// these properties, so HardwareId may be empty. This is used to identify
 	// a block device if it is available, in preference to UUID or device
 	// name, as the hardware ID is immutable.
-	HardwareId string `yaml:"hwid,omitempty"`
+	HardwareId string `yaml:"hardwareid,omitempty"`
 
 	// Size is the size of the block device, in MiB.
 	Size uint64 `yaml:"size"`
