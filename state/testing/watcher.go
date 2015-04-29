@@ -70,6 +70,9 @@ type NotifyWatcherC struct {
 	Watcher NotifyWatcher
 }
 
+// SyncStarter is an interface that watcher checkers will use to ensure
+// that changes to the watched object have been synchronized. This is
+// primarily implemented by state.State.
 type SyncStarter interface {
 	StartSync()
 }

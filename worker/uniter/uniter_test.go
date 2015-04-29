@@ -76,9 +76,8 @@ func (s *UniterSuite) SetUpTest(c *gc.C) {
 	s.ticker = uniter.NewManualTicker()
 	s.PatchValue(uniter.ActiveMetricsTimer, s.ticker.ReturnTimer)
 	s.PatchValue(uniter.IdleWaitTime, 1*time.Millisecond)
-	// The storage feature will disappear shortly. In the mean time,
-	// we ensure that all scenarios operate correctly with storage
-	// enabled.
+	// The storage feature flag will disappear shortly. In the mean time,
+	// we ensure that all scenarios operate correctly with storage enabled.
 	s.JujuConnSuite.SetFeatureFlags(feature.Storage)
 }
 
