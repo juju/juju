@@ -1407,8 +1407,8 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 						Since:   &now,
 					},
 					WorkloadStatus: multiwatcher.StatusInfo{
-						Current: "active",
-						Message: "",
+						Current: "error",
+						Message: "failure",
 						Data:    map[string]interface{}{},
 						Since:   &now,
 					},
@@ -1421,11 +1421,11 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 					&multiwatcher.UnitInfo{
 						Name:       "wordpress/0",
 						Service:    "wordpress",
-						Status:     multiwatcher.Status("started"),
+						Status:     multiwatcher.Status("error"),
 						StatusData: make(map[string]interface{}),
 						WorkloadStatus: multiwatcher.StatusInfo{
-							Current: "active",
-							Message: "",
+							Current: "error",
+							Message: "failure",
 							Data:    map[string]interface{}{},
 						},
 						AgentStatus: multiwatcher.StatusInfo{
