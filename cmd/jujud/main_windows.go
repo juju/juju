@@ -1,60 +1,28 @@
-// Copyright 2014 Canonical Ltd.
-// Copyright 2014 Cloudbase Solutions
+// Copyright 2015 Canonical Ltd.
+// Copyright 2015 Cloudbase Solutions
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
 
 import (
-	"os"
-	"path/filepath"
-	"syscall"
+	"code.google.com/p/winsvc/svc"
 
-	"bitbucket.org/kardianos/service"
-
-	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/service/windows"
 )
 
-func runService() {
-	var name = "juju"
-	var displayName = "juju service"
-	var desc = "juju service"
-
-	var s, err = service.NewService(name, displayName, desc)
+func serviceWrapper(f func() int) (int, error) {
+	isInteractive, err := svc.IsAnInteractiveSession()
 	if err != nil {
-		logger.Errorf("%s", err)
-		os.Exit(1)
+		return 1, err
 	}
 
-	run := func() error {
-		go Main(os.Args)
-		return nil
+	if isInteractive {
+		code := f()
+		return code, nil
 	}
-	stop := func() error {
-		os.Exit(0)
-		return nil
+	s := windows.NewSystemService("jujud", f)
+	if err := s.Run(); err != nil {
+		return 1, err
 	}
-	err = s.Run(run, stop)
-
-	if err != nil {
-		s.Error(err.Error())
-	}
-}
-
-func runConsole() {
-	Main(os.Args)
-}
-
-func main() {
-	var mode uint32
-	err := syscall.GetConsoleMode(syscall.Stdin, &mode)
-
-	isConsole := err == nil
-
-	commandName := filepath.Base(os.Args[0])
-
-	if isConsole == true || commandName != names.Jujud {
-		runConsole()
-	} else {
-		runService()
-	}
+	return 0, nil
 }

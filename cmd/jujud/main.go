@@ -133,8 +133,12 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 
 	jujud.Register(agentcmd.NewUnitAgent(ctx))
 
-	code = cmd.Main(jujud, ctx, args[1:])
-	return code, nil
+	jujud.Register(&UnitAgent{})
+	f := func() int {
+		return cmd.Main(jujud, ctx, args[1:])
+	}
+	code, err = serviceWrapper(f)
+	return code, err
 }
 
 // Main is not redundant with main(), because it provides an entry point
@@ -170,6 +174,10 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 	}
 	os.Exit(code)
+}
+
+func main() {
+	Main(os.Args)
 }
 
 type writerFactory struct{}
