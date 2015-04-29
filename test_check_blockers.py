@@ -126,6 +126,16 @@ class CheckBlockers(TestCase):
             importance=check_blockers.BUG_IMPORTANCES,
             tags=check_blockers.BUG_TAGS, tags_combinator='All')
 
+    def test_get_lp_bugs_with_ci(self):
+        lp = make_fake_lp(series=False, bugs=True)
+        check_blockers.get_lp_bugs(lp, 'master', with_ci=True)
+        project = lp.projects['juju-core']
+        bug_tags = check_blockers.BUG_TAGS + ['ci']
+        project.searchTasks.assert_called_with(
+            status=check_blockers.BUG_STATUSES,
+            importance=check_blockers.BUG_IMPORTANCES,
+            tags=bug_tags, tags_combinator='All')
+
     def test_get_reason_without_blocking_bugs(self):
         args = check_blockers.parse_args(['check', 'master', '17'])
         with patch('check_blockers.get_json') as gj:
