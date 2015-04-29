@@ -296,14 +296,10 @@ func checkProviderType(envName string) error {
 	}
 
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	for provisional, flag := range provisionalProviders {
-		if envType != provisional {
-			continue
-		}
-		if !featureflag.Enabled(flag) {
-			msg := `the %q provider is provisional in this version of Juju. To use it anyway, set JUJU_DEV_FEATURE_FLAGS="%s" in your shell environment`
-			return errors.Errorf(msg, envType, flag)
-		}
+	flag, ok := provisionalProviders[envType]
+	if ok && !featureflag.Enabled(flag) {
+		msg := `the %q provider is provisional in this version of Juju. To use it anyway, set JUJU_DEV_FEATURE_FLAGS="%s" in your shell environment`
+		return errors.Errorf(msg, envType, flag)
 	}
 
 	return nil
