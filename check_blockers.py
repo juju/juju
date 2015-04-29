@@ -107,7 +107,7 @@ def get_reason(bugs, args):
 
 
 def update_bugs(bugs, branch, build, dry_run=False):
-    """Update the critical blocker+ci bugs for the branch to Fix released."""
+    """Update the critical blocker+ci bugs for the branch to Fix Released."""
     changes = []
     for bug_id, bug_task in bugs.items():
         changes.append('Updated %s' % bug_task.title)
