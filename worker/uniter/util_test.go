@@ -1419,7 +1419,7 @@ func (forceMinion) step(c *gc.C, ctx *context) {
 		err = ctx.leader.ClaimLeadership(ctx.svc.Name(), otherLeader, coretesting.LongWait)
 		if err == nil {
 			return
-		} else if err != leadership.ErrClaimDenied {
+		} else if errors.Cause(err) != leadership.ErrClaimDenied {
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
