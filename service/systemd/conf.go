@@ -179,7 +179,7 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 		unitOptions = append(unitOptions, &unit.UnitOption{
 			Section: "Service",
 			Name:    "Environment",
-			Value:   fmt.Sprintf(`"%q=%q"`, k, v),
+			Value:   fmt.Sprintf(`"%s=%s"`, k, v),
 		})
 	}
 
