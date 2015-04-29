@@ -6,12 +6,12 @@ chaos_dir="$(config-get chaos-dir)"
 action-set action-parameters.chaos-dir="${chaos_dir}"
 action-set action-parameters.charm-dir="${CHARM_DIR}"
 action-set action-parameters.dry-run="${dry_run}"
-action-set action-parameters.monkey-id=$$
+action-set action-parameters.monkey-id=${JUJU_ACTION_TAG#action-}
 action-set action-parameters.pause-timeout="${pause_timeout}"
 action-set action-parameters.total-timeout="${total_timeout}"
 
 # Create a unique directory to run and log this monkeys actions.
-target_dir=${chaos_dir}/chaos_monkey.$$
+target_dir=${chaos_dir}/chaos_monkey.${JUJU_ACTION_TAG#action-}
 mkdir -p ${target_dir}/log
 if [[ -d ${CHARM_DIR}/chaos-monkey ]]; then
     cp -a ${CHARM_DIR}/chaos-monkey ${target_dir}
