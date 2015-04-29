@@ -1485,8 +1485,6 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.SetStatus(StatusActive, "", nil)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetAgentStatus(StatusIdle, "", nil)
-			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
 				about: "service status is changed if the unit status changes",

@@ -90,6 +90,7 @@ type backingUnit unitDoc
 // This is a short term requirement until the GUI is updated to be able to handle
 // the new values.
 // We use string literals here to avoid import loops and lots of messy refactoring.
+// Note: This needs to be kept in sync with apiserver/params/params.go TranslateToLegacyAgentState
 func translateLegacyUnitAgentStatus(agentStatus, workloadStatus multiwatcher.Status) multiwatcher.Status {
 	switch agentStatus {
 	case multiwatcher.Status("failed"):
@@ -101,7 +102,8 @@ func translateLegacyUnitAgentStatus(agentStatus, workloadStatus multiwatcher.Sta
 	case multiwatcher.Status("rebooting"),
 		multiwatcher.Status("executing"),
 		multiwatcher.Status("idle"),
-		multiwatcher.Status("lost"):
+		multiwatcher.Status("lost"),
+		multiwatcher.Status(""):
 		switch workloadStatus {
 		case multiwatcher.Status("error"):
 			return workloadStatus
@@ -109,7 +111,7 @@ func translateLegacyUnitAgentStatus(agentStatus, workloadStatus multiwatcher.Sta
 			return multiwatcher.Status("stopped")
 		case multiwatcher.Status("maintenance"):
 			// TODO(wallyworld): until we can query status history, returning Started
-			// is a resonable approximation.
+			// is a reasonable approximation.
 			return multiwatcher.Status("started")
 		default:
 			return multiwatcher.Status("started")
@@ -535,13 +537,7 @@ func aggregatedLegacyStatus(id string, info *multiwatcher.UnitInfo, status multi
 }
 
 func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, id string, newInfo *multiwatcher.UnitInfo) error {
-	// Legacy status info - it is an aggregated value.
-
-	newInfo.Status = aggregatedLegacyStatus(st.localID(id), newInfo, multiwatcher.Status(s.Status), store)
-	newInfo.StatusInfo = s.StatusInfo
-	newInfo.StatusData = s.StatusData
-
-	// Unit or workload status.
+	// Unit or workload status - display the agent status or any error.
 	if strings.HasSuffix(id, "#charm") || s.Status == StatusError {
 		newInfo.WorkloadStatus.Current = multiwatcher.Status(s.Status)
 		newInfo.WorkloadStatus.Message = s.StatusInfo
@@ -552,6 +548,19 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 		newInfo.AgentStatus.Message = s.StatusInfo
 		newInfo.AgentStatus.Data = s.StatusData
 		newInfo.AgentStatus.Since = s.Updated
+	}
+
+	// Legacy status info - it is an aggregated value between workload and agent statuses.
+	newInfo.Status = translateLegacyUnitAgentStatus(newInfo.AgentStatus.Current, newInfo.WorkloadStatus.Current)
+	newInfo.StatusInfo = s.StatusInfo
+	newInfo.StatusData = s.StatusData
+
+	// StatusError in legacy status overrides workload status.
+	if newInfo.Status == multiwatcher.Status(StatusError) {
+		newInfo.WorkloadStatus.Current = newInfo.Status
+		newInfo.WorkloadStatus.Message = s.StatusInfo
+		newInfo.WorkloadStatus.Data = s.StatusData
+		newInfo.WorkloadStatus.Since = s.Updated
 	}
 
 	// A change in a unit's status might also affect it's service.
