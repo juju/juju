@@ -109,7 +109,7 @@ def update_bugs(bugs, branch, build, dry_run=False):
     """Update the critical blocker+ci bugs for the branch to Fix released."""
     changes = []
     for bug_id, bug_task in bugs.items():
-        changes.append('Updating bug %s [%s]' % (bug_id, bug_task.title))
+        changes.append('Updated %s' % bug_task.title)
         bug_task.status = 'Fix Released'
         if not dry_run:
             bug_task.lp_save()
