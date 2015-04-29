@@ -15,10 +15,11 @@ import (
 
 // The vmware-specific config keys.
 const (
-	cfgDatacenter = "datacenter"
-	cfgHost       = "host"
-	cfgUser       = "user"
-	cfgPassword   = "password"
+	cfgDatacenter      = "datacenter"
+	cfgHost            = "host"
+	cfgUser            = "user"
+	cfgPassword        = "password"
+	cfgExternalNetwork = "external-network"
 )
 
 // boilerplateConfig will be shown in help output, so please keep it up to
@@ -40,13 +41,16 @@ vmware:
 
 // configFields is the spec for each vmware config value's type.
 var configFields = schema.Fields{
-	cfgHost:       schema.String(),
-	cfgUser:       schema.String(),
-	cfgPassword:   schema.String(),
-	cfgDatacenter: schema.String(),
+	cfgHost:            schema.String(),
+	cfgUser:            schema.String(),
+	cfgPassword:        schema.String(),
+	cfgDatacenter:      schema.String(),
+	cfgExternalNetwork: schema.String(),
 }
 
-var configDefaults = schema.Defaults{}
+var configDefaults = schema.Defaults{
+	cfgExternalNetwork: "a",
+}
 
 var configSecretFields = []string{
 	cfgPassword,
@@ -114,6 +118,10 @@ func (c *environConfig) user() string {
 
 func (c *environConfig) password() string {
 	return c.attrs[cfgPassword].(string)
+}
+
+func (c *environConfig) externalNetwork() string {
+	return c.attrs[cfgExternalNetwork].(string)
 }
 
 func (c *environConfig) url() (*url.URL, error) {
