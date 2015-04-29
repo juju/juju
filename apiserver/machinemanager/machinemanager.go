@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 func init() {
@@ -135,7 +134,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		}
 	}
 
-	jobs, err := stateJobs(p.Jobs)
+	jobs, err := common.StateJobs(p.Jobs)
 	if err != nil {
 		return nil, err
 	}
@@ -157,16 +156,4 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		return mm.st.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
 	}
 	return mm.st.AddMachineInsideNewMachine(template, template, p.ContainerType)
-}
-
-func stateJobs(jobs []multiwatcher.MachineJob) ([]state.MachineJob, error) {
-	newJobs := make([]state.MachineJob, len(jobs))
-	for i, job := range jobs {
-		newJob, err := params.MachineJobFromParams(job)
-		if err != nil {
-			return nil, err
-		}
-		newJobs[i] = newJob
-	}
-	return newJobs, nil
 }

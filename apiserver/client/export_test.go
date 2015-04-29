@@ -9,8 +9,6 @@ var (
 	NewStateStorage        = &newStateStorage
 )
 
-var MachineJobFromParams = machineJobFromParams
-
 // Filtering exports
 var (
 	MatchPortRanges = matchPortRanges

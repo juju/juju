@@ -31,7 +31,6 @@ import (
 	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/version"
 )
@@ -660,7 +659,7 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		placementDirective = p.Placement.Directive
 	}
 
-	jobs, err := stateJobs(p.Jobs)
+	jobs, err := common.StateJobs(p.Jobs)
 	if err != nil {
 		return nil, err
 	}
@@ -681,18 +680,6 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		return c.api.state.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
 	}
 	return c.api.state.AddMachineInsideNewMachine(template, template, p.ContainerType)
-}
-
-func stateJobs(jobs []multiwatcher.MachineJob) ([]state.MachineJob, error) {
-	newJobs := make([]state.MachineJob, len(jobs))
-	for i, job := range jobs {
-		newJob, err := params.MachineJobFromParams(job)
-		if err != nil {
-			return nil, err
-		}
-		newJobs[i] = newJob
-	}
-	return newJobs, nil
 }
 
 // ProvisioningScript returns a shell script that, when run,

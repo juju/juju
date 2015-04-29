@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -120,23 +119,6 @@ type DestroyRelation struct {
 type AddCharmWithAuthorization struct {
 	URL                string
 	CharmStoreMacaroon *macaroon.Macaroon
-}
-
-// MachineJobFromParams returns the job corresponding to multiwatcher.MachineJob.
-func MachineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error) {
-	switch job {
-	case multiwatcher.JobHostUnits:
-		return state.JobHostUnits, nil
-	case multiwatcher.JobManageEnviron:
-		return state.JobManageEnviron, nil
-	case multiwatcher.JobManageNetworking:
-		return state.JobManageNetworking, nil
-	case multiwatcher.JobManageStateDeprecated:
-		// Deprecated in 1.18.
-		return state.JobManageStateDeprecated, nil
-	default:
-		return -1, errors.Errorf("invalid machine job %q", job)
-	}
 }
 
 // AddMachineParams encapsulates the parameters used to create a new machine.

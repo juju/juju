@@ -40,8 +40,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
-	statestorage "github.com/juju/juju/state/storage"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -1575,7 +1574,7 @@ func (s *clientRepoSuite) uploadCharm(c *gc.C, url, name string) (*charm.URL, ch
 	return (*charm.URL)(id), ch
 }
 
-func (s *clientRepoSuite) assertUploaded(c *gc.C, storage statestorage.Storage, storagePath, expectedSHA256 string) {
+func (s *clientRepoSuite) assertUploaded(c *gc.C, storage storage.Storage, storagePath, expectedSHA256 string) {
 	reader, _, err := storage.Get(storagePath)
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
@@ -3252,8 +3251,8 @@ func (s *clientRepoSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAdd
 
 func (s *clientRepoSuite) TestAddCharm(c *gc.C) {
 	var blobs blobs
-	s.PatchValue(client.NewStateStorage, func(uuid string, session *mgo.Session) statestorage.Storage {
-		storage := statestorage.NewStorage(uuid, session)
+	s.PatchValue(client.NewStateStorage, func(uuid string, session *mgo.Session) storage.Storage {
+		storage := storage.NewStorage(uuid, session)
 		return &recordingStorage{Storage: storage, blobs: &blobs}
 	})
 
@@ -3286,7 +3285,7 @@ func (s *clientRepoSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify it's in state and it got uploaded.
-	storage := statestorage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
 	sch, err = s.State.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
@@ -3442,7 +3441,7 @@ func (b *blobs) check() {
 }
 
 type recordingStorage struct {
-	statestorage.Storage
+	storage.Storage
 	putBarrier *sync.WaitGroup
 	blobs      *blobs
 }
@@ -3472,8 +3471,8 @@ func (s *recordingStorage) Remove(path string) error {
 func (s *clientRepoSuite) TestAddCharmConcurrently(c *gc.C) {
 	var putBarrier sync.WaitGroup
 	var blobs blobs
-	s.PatchValue(client.NewStateStorage, func(uuid string, session *mgo.Session) statestorage.Storage {
-		storage := statestorage.NewStorage(uuid, session)
+	s.PatchValue(client.NewStateStorage, func(uuid string, session *mgo.Session) storage.Storage {
+		storage := storage.NewStorage(uuid, session)
 		return &recordingStorage{Storage: storage, blobs: &blobs, putBarrier: &putBarrier}
 	})
 
@@ -3518,7 +3517,7 @@ func (s *clientRepoSuite) TestAddCharmConcurrently(c *gc.C) {
 		}
 	}
 
-	storage := statestorage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
 }
 
@@ -3636,37 +3635,6 @@ func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
 	result, err := s.APIState.Client().AgentVersion()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, current)
-}
-
-func (s *clientSuite) TestMachineJobFromParams(c *gc.C) {
-	var tests = []struct {
-		name multiwatcher.MachineJob
-		want state.MachineJob
-		err  string
-	}{{
-		name: multiwatcher.JobHostUnits,
-		want: state.JobHostUnits,
-	}, {
-		name: multiwatcher.JobManageEnviron,
-		want: state.JobManageEnviron,
-	}, {
-		name: multiwatcher.JobManageNetworking,
-		want: state.JobManageNetworking,
-	}, {
-		name: multiwatcher.JobManageStateDeprecated,
-		want: state.JobManageStateDeprecated,
-	}, {
-		name: "invalid",
-		want: -1,
-		err:  `invalid machine job "invalid"`,
-	}}
-	for _, test := range tests {
-		got, err := client.MachineJobFromParams(test.name)
-		if err != nil {
-			c.Check(err, gc.ErrorMatches, test.err)
-		}
-		c.Check(got, gc.Equals, test.want)
-	}
 }
 
 func (s *serverSuite) TestBlockServiceDestroy(c *gc.C) {
