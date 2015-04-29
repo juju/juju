@@ -82,6 +82,7 @@ func (c *PoolCreateCommand) Init(args []string) (err error) {
 func (c *PoolCreateCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "create",
+		Args:    "<name> <provider> [<key>=<value> [<key>=<value>...]]",
 		Purpose: "create storage pool",
 		Doc:     PoolCreateCommandDoc,
 	}
