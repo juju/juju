@@ -758,6 +758,7 @@ type Status multiwatcher.Status
 
 // TranslateLegacyAgentStatus returns the status value clients expect to see for
 // agent-state in versions prior to 1.24
+// Note: This needs to be kept in sync with state/megawatcher.go translateLegacyUnitAgentStatus
 func TranslateToLegacyAgentState(workloadStatus, agentStatus Status) (Status, bool) {
 	// Originally AgentState (a member of api.UnitStatus) could hold one of:
 	// StatusPending
