@@ -45,7 +45,7 @@ type VolumeInfo struct {
 	VolumeId string `yaml:"id" json:"id"`
 
 	// from params.Volume
-	HardwareId string `yaml:"hwid" json:"hwid"`
+	HardwareId string `yaml:"hardwareid" json:"hardwareid"`
 
 	// from params.Volume
 	Size uint64 `yaml:"size" json:"size"`

@@ -153,7 +153,7 @@ type MachineStorageIds struct {
 type Volume struct {
 	VolumeTag  string `json:"volumetag"`
 	VolumeId   string `json:"volumeid"`
-	HardwareId string `json:"hwid"`
+	HardwareId string `json:"hardwareid,omitempty"`
 	// Size is the size of the volume in MiB.
 	Size       uint64 `json:"size"`
 	Persistent bool   `json:"persistent"`
@@ -449,7 +449,7 @@ type VolumeInstance struct {
 	VolumeId string `json:"volumeid"`
 
 	// HardwareId is the volume's hardware ID.
-	HardwareId string `json:"hwid,omitempty"`
+	HardwareId string `json:"hardwareid,omitempty"`
 
 	// Size is the size of the volume in MiB.
 	Size uint64 `json:"size"`
