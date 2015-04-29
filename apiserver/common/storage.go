@@ -163,8 +163,8 @@ func volumeAttachmentDevicePath(
 	volumeInfo state.VolumeInfo,
 	volumeAttachmentInfo state.VolumeAttachmentInfo,
 ) (string, error) {
-	if volumeInfo.Serial != "" {
-		return path.Join("/dev/disk/by-id", volumeInfo.Serial), nil
+	if volumeInfo.HardwareId != "" {
+		return path.Join("/dev/disk/by-id", volumeInfo.HardwareId), nil
 	} else if volumeAttachmentInfo.DeviceName != "" {
 		return path.Join("/dev", volumeAttachmentInfo.DeviceName), nil
 	}

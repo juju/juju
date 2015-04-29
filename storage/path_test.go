@@ -16,7 +16,7 @@ var _ = gc.Suite(&BlockDevicePathSuite{})
 
 func (s *BlockDevicePathSuite) TestBlockDevicePathSerial(c *gc.C) {
 	testBlockDevicePath(c, storage.BlockDevice{
-		Serial:     "SPR_OSUM_123",
+		HardwareId: "SPR_OSUM_123",
 		DeviceName: "name",
 	}, "/dev/disk/by-id/SPR_OSUM_123")
 }
