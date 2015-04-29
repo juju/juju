@@ -13,7 +13,6 @@ import socket
 from StringIO import StringIO
 from time import time
 from unittest import TestCase
-import urllib2
 
 from mock import (
     call,
@@ -22,7 +21,6 @@ from mock import (
 
 from utility import (
     add_basic_testing_arguments,
-    add_credentials,
     extract_deb,
     find_candidates,
     get_auth_token,
@@ -233,15 +231,6 @@ class TestGetDebArch(TestCase):
             arch = get_deb_arch()
         co_mock.assert_called_once_with(['dpkg', '--print-architecture'])
         self.assertEqual(arch, 'amd42')
-
-
-class AddCredentialsCase(TestCase):
-
-    def test_add_credentials(self):
-        request = urllib2.Request('http://example.com/')
-        add_credentials(request, ('foo', 'bar'))
-        self.assertEqual(
-            'Basic Zm9vOmJhcg==', request.get_header('Authorization'))
 
 
 class TestAddBasicTestingArguments(TestCase):
