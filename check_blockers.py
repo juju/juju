@@ -18,6 +18,7 @@ GH_COMMENTS = 'https://api.github.com/repos/juju/juju/issues/{}/comments'
 
 
 def get_json(uri):
+    """Return the json dict response for the uri request."""
     request = urllib2.Request(uri, headers={
         "Cache-Control": "max-age=0, must-revalidate",
     })
@@ -59,6 +60,7 @@ def parse_args(args=None):
 
 
 def get_lp_bugs(lp, branch, with_ci=False):
+    """Return a dict of blocker critical bug tasks for the branch."""
     bugs = {}
     project = lp.projects['juju-core']
     if branch == 'master':
@@ -81,6 +83,7 @@ def get_lp_bugs(lp, branch, with_ci=False):
 
 
 def get_reason(bugs, args):
+    """Return the success code and reason why the branch can be merged."""
     if not bugs:
         return 0, 'No blocking bugs'
     fixes_ids = ['fixes-{}'.format(bug_id) for bug_id in bugs]
@@ -102,6 +105,7 @@ def get_reason(bugs, args):
 
 
 def update_bugs(bugs, dry_run=False):
+    """Update the critical blocker+ci bugs for the branch to Fix released."""
     changes = []
     for bug_id, bug_task in bugs.items():
         changes.append('Updating bug %s [%s]' % (bug_id, bug_task.title))
