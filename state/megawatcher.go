@@ -520,22 +520,6 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id interfac
 	return nil
 }
 
-func aggregatedLegacyStatus(id string, info *multiwatcher.UnitInfo, status multiwatcher.Status, store *multiwatcherStore) multiwatcher.Status {
-	var (
-		agentStatus    multiwatcher.Status
-		workloadStatus multiwatcher.Status
-	)
-	if strings.HasSuffix(id, "#charm") {
-		workloadStatus = status
-		agentStatus = info.AgentStatus.Current
-	} else {
-		agentStatus = status
-		workloadStatus = info.WorkloadStatus.Current
-	}
-	return translateLegacyUnitAgentStatus(agentStatus, workloadStatus)
-
-}
-
 func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, id string, newInfo *multiwatcher.UnitInfo) error {
 	// Unit or workload status - display the agent status or any error.
 	if strings.HasSuffix(id, "#charm") || s.Status == StatusError {
@@ -554,14 +538,6 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	newInfo.Status = translateLegacyUnitAgentStatus(newInfo.AgentStatus.Current, newInfo.WorkloadStatus.Current)
 	newInfo.StatusInfo = s.StatusInfo
 	newInfo.StatusData = s.StatusData
-
-	// StatusError in legacy status overrides workload status.
-	if newInfo.Status == multiwatcher.Status(StatusError) {
-		newInfo.WorkloadStatus.Current = newInfo.Status
-		newInfo.WorkloadStatus.Message = s.StatusInfo
-		newInfo.WorkloadStatus.Data = s.StatusData
-		newInfo.WorkloadStatus.Since = s.Updated
-	}
 
 	// A change in a unit's status might also affect it's service.
 	service, err := st.Service(newInfo.Service)
