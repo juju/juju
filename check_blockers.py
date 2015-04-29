@@ -64,6 +64,7 @@ def get_lp_bugs(lp, branch, with_ci=False):
     bugs = {}
     project = lp.projects['juju-core']
     if branch == 'master':
+        # Lp implicitly assigns bugs to trunk, which is not a series query.
         target = project
     else:
         target = project.getSeries(name=branch)
