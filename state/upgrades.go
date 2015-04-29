@@ -1236,3 +1236,40 @@ func AddLeadershipSettingsDocs(st *State) error {
 	}
 	return nil
 }
+
+// AddDefaultBlockDevicesDocs creates block devices documents
+// for all existing machines in all environments.
+func AddDefaultBlockDevicesDocs(st *State) error {
+	environments, closer := st.getCollection(environmentsC)
+	defer closer()
+
+	var envDocs []bson.M
+	err := environments.Find(nil).Select(bson.M{"_id": 1}).All(&envDocs)
+	if err != nil {
+		return errors.Annotate(err, "failed to read environments")
+	}
+
+	for _, envDoc := range envDocs {
+		envUUID := envDoc["_id"].(string)
+		envSt, err := st.ForEnviron(names.NewEnvironTag(envUUID))
+		if err != nil {
+			return errors.Annotatef(err, "failed to open environment %q", envUUID)
+		}
+		defer envSt.Close()
+
+		machines, err := envSt.AllMachines()
+		if err != nil {
+			return errors.Annotatef(err, "failed to retrieve machines for environment %q", envUUID)
+		}
+
+		for _, machine := range machines {
+			// The error from this is intentionally ignored as the
+			// transaction will fail if the machine already has a
+			// block devices doc.
+			envSt.runTransaction([]txn.Op{
+				createMachineBlockDevicesOp(machine.Id()),
+			})
+		}
+	}
+	return nil
+}

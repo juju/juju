@@ -101,6 +101,7 @@ func createMachineBlockDevicesOp(machineId string) txn.Op {
 		C:      blockDevicesC,
 		Id:     machineId,
 		Insert: &blockDevicesDoc{Machine: machineId},
+		Assert: txn.DocMissing,
 	}
 }
 
