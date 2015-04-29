@@ -227,8 +227,7 @@ class CheckBlockers(TestCase):
         code, changes = check_blockers.update_bugs(
             bugs, 'master', '1234', dry_run=False)
         self.assertEqual(0, code)
-        self.assertEqual(
-            'Updated two\nUpdated one', changes)
+        self.assertIn('Updated two', changes)
         self.assertEqual('Fix Released', bugs['54321'].status)
         self.assertEqual(1, bugs['54321'].lp_save.call_count)
         expected_subject = 'Fix Released in juju-core master'
