@@ -1422,6 +1422,7 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 						Name:       "wordpress/0",
 						Service:    "wordpress",
 						Status:     multiwatcher.Status("error"),
+						StatusInfo: "failure",
 						StatusData: make(map[string]interface{}),
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "error",

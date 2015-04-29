@@ -536,8 +536,13 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 
 	// Legacy status info - it is an aggregated value between workload and agent statuses.
 	newInfo.Status = translateLegacyUnitAgentStatus(newInfo.AgentStatus.Current, newInfo.WorkloadStatus.Current)
-	newInfo.StatusInfo = s.StatusInfo
-	newInfo.StatusData = s.StatusData
+	if newInfo.Status == multiwatcher.Status(StatusError) {
+		newInfo.StatusInfo = newInfo.WorkloadStatus.Message
+		newInfo.StatusData = newInfo.WorkloadStatus.Data
+	} else {
+		newInfo.StatusInfo = newInfo.AgentStatus.Message
+		newInfo.StatusData = newInfo.AgentStatus.Data
+	}
 
 	// A change in a unit's status might also affect it's service.
 	service, err := st.Service(newInfo.Service)
