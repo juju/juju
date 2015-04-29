@@ -4,16 +4,16 @@ from __future__ import print_function
 
 from argparse import ArgumentParser
 import json
-import urllib2
 import sys
+import urllib2
 
-from utility import add_credentials
+from launchpadlib.launchpad import Launchpad
 
 
-BUG_STATUSES = (
-    'Incomplete', 'Confirmed', 'Triaged', 'In+Progress', 'Fix+Committed')
-BUG_IMPORTANCES = ('Critical', )
-BUG_TAGS = ('blocker', )
+BUG_STATUSES = [
+    'Incomplete', 'Confirmed', 'Triaged', 'In Progress', 'Fix Committed']
+BUG_IMPORTANCES = ['Critical']
+BUG_TAGS = ['blocker']
 LP_BUGS = (
     'https://api.launchpad.net/devel/{target}'
     '?ws.op=searchTasks&tags_combinator=All{tags}{importances}{statuses}'
@@ -22,29 +22,23 @@ GH_COMMENTS = 'https://api.github.com/repos/juju/juju/issues/{}/comments'
 LP_SERIES = 'https://api.launchpad.net/devel/juju-core/series'
 
 
-def parse_credential_file(path):
-    token = None
-    secret = None
-    with open(path) as f:
-        content = f.read()
-    for line in content.splitlines():
-        if line.startswith('access_token'):
-            token = line.split('=')[1].strip()
-        elif line.startswith('access_secret'):
-            secret = line.split('=')[1].strip()
-    return token, secret
-
-
-def get_json(uri, credentials=None):
+def get_json(uri):
     request = urllib2.Request(uri, headers={
         "Cache-Control": "max-age=0, must-revalidate",
     })
-    if credentials:
-        add_credentials(request, credentials)
     data = urllib2.urlopen(request).read()
     if data:
         return json.loads(data)
     return None
+
+
+def get_lp(script_name, credentials_file=None):
+    """Return an LP API client."""
+    lp_args = dict(service_root='https://api.launchpad.net', version='devel')
+    if credentials_file:
+        lp_args['credentials_file'] = credentials_file
+    lp = Launchpad.login_with(script_name, **lp_args)
+    return lp
 
 
 def parse_args(args=None):
@@ -58,47 +52,37 @@ def parse_args(args=None):
     check_parser.add_argument('branch', help='The branch to merge into.')
     check_parser.add_argument(
         'pull_request', help='The pull request to be merged')
-    passed_parser = subparsers.add_parser(
+    update_parser = subparsers.add_parser(
         'update', help='Update blocking for a branch that passed CI.')
-    passed_parser.add_argument('branch', help='The branch that passed.')
-    passed_parser.add_argument(
+    update_parser.add_argument(
+        '-d', '--dry-run', action='store_true', default=False,
+        help='Do not make changes.')
+    update_parser.add_argument('branch', help='The branch that passed.')
+    update_parser.add_argument(
         'build', help='The build-revision build number.')
     return parser.parse_args(args)
 
 
-def get_lp_bugs_url(target, with_ci=False):
-    """Return the target series url to query blocking bugs."""
-    params = {'target': target}
-    if with_ci:
-        bug_tags = BUG_TAGS + ('ci', )
-    else:
-        bug_tags = BUG_TAGS
-    params['tags'] = ''.join('&tags%3Alist={}'.format(t) for t in bug_tags)
-    params['importances'] = ''.join(
-        '&importance%3Alist={}'.format(i) for i in BUG_IMPORTANCES)
-    params['statuses'] = ''.join(
-        '&status%3Alist={}'.format(s) for s in BUG_STATUSES)
-    return LP_BUGS.format(**params)
-
-
 def get_lp_bugs(args, with_ci=False):
     bugs = {}
-    batch = get_json(LP_SERIES)
-    series = [s['name'] for s in batch['entries']]
-    if args.branch != 'master' and args.branch not in series:
-        # This branch is not a registered series to target bugs too.
-        return bugs
+    lp = get_lp('check_blockers', credentials_file=args.credentials_file)
+    project = lp.projects['juju-core']
     if args.branch == 'master':
-        # Lp implicitly assigns bugs to trunk, which is not a series query.
-        target = 'juju-core'
+        target = project
     else:
-        target = 'juju-core/%s' % args.branch
-    uri = get_lp_bugs_url(target, with_ci=with_ci)
-    batch = get_json(uri)
-    if batch:
-        for bug_data in batch['entries']:
-            bug_id = bug_data['self_link'].split('/')[-1]
-            bugs[bug_id] = bug_data
+        target = project.getSeries(name=args.branch)
+    if not target:
+        return bugs
+    if with_ci:
+        bug_tags = BUG_TAGS + ['ci']
+    else:
+        bug_tags = BUG_TAGS
+    bug_tasks = target.searchTasks(
+        status=BUG_STATUSES, importance=BUG_IMPORTANCES,
+        tags=bug_tags, tags_combinator='All')
+    for bug_task in bug_tasks:
+        bug_id = bug_task.self_link.split('/')[-1]
+        bugs[bug_id] = bug_task
     return bugs
 
 
@@ -123,21 +107,27 @@ def get_reason(bugs, args):
     return 1, 'Could not get {} comments from github'.format(args.pull_request)
 
 
-def update_bugs(bugs, credentials):
-    return 0
+def update_bugs(bugs, dry_run=False):
+    changes = []
+    for bug_id, bug_task in bugs.items:
+        changes.append('Updating bug %s [%s]' % (bug_id, bug_task.title))
+        bug_task.status = 'Fix Released'
+        if not dry_run:
+            bug_task.lp_save()
+    changes = '\n'.join(changes)
+    return 0, changes
 
 
 def main(argv):
     args = parse_args(argv)
-    if args.credentials_file:
-        credentials = parse_credential_file(args.credentials_file)
     if args.command == 'check':
         bugs = get_lp_bugs(args, with_ci=False)
         code, reason = get_reason(bugs, args)
         print(reason)
     elif args.command == 'update':
         bugs = get_lp_bugs(args, with_ci=True)
-        code = update_bugs(bugs, credentials)
+        code, changes = update_bugs(bugs, dry_run=args.dry_run)
+        print(changes)
     return code
 
 

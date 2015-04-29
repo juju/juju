@@ -1,9 +1,7 @@
-from textwrap import dedent
 from unittest import TestCase
 from mock import Mock, patch
 
 import check_blockers
-from utility import temp_dir
 
 
 JUJUBOT_USER = {'login': 'jujubot', 'id': 7779494}
@@ -16,6 +14,29 @@ SERIES_LIST = {
         {'name': '1.21'},
         {'name': '1.22'},
     ]}
+
+
+def make_fake_lp(series=False, bugs=False):
+    """Return a fake Lp lib object based on Mocks"""
+    if bugs:
+        task_1 = Mock(self_link='https://lp/j/98765')
+        task_2 = Mock(self_link='https://lp/j/54321')
+        bugs = [task_1, task_2]
+    else:
+        bugs = []
+    lp = Mock(_target=None, projects={})
+    project = Mock()
+    if series:
+        series = Mock()
+        series.searchTasks.return_value = bugs
+        lp._target = series
+    else:
+        series = None
+        project.searchTasks.return_value = bugs
+        lp._target = project
+    project.getSeries.return_value = series
+    lp.projects['juju-core'] = project
+    return lp
 
 
 class CheckBlockers(TestCase):
@@ -48,65 +69,69 @@ class CheckBlockers(TestCase):
 
     def test_main_update(self):
         bugs = {}
-        args = check_blockers.parse_args(
-            ['-c', './foo.cred', 'update', 'master', '1234'])
-        credentials = 'bingo'
-        with patch('check_blockers.parse_credential_file', autospec=True,
-                   return_value=(credentials)) as pcf:
-            with patch('check_blockers.get_lp_bugs', autospec=True,
-                       return_value=bugs) as glb:
-                with patch('check_blockers.update_bugs', autospec=True,
-                           return_value=(0)) as ub:
-                    code = check_blockers.main(
-                        ['-c', './foo.cred', 'update', 'master', '1234'])
-        pcf.assert_called_with('./foo.cred')
+        argv = ['-c', './foo.cred', 'update', '--dry-run', 'master', '1234']
+        args = check_blockers.parse_args(argv)
+        with patch('check_blockers.get_lp_bugs', autospec=True,
+                   return_value=bugs) as glb:
+            with patch('check_blockers.update_bugs', autospec=True,
+                       return_value=[0, 'Updating']) as ub:
+                code = check_blockers.main(argv)
         glb.assert_called_with(args, with_ci=True)
-        ub.assert_called_with(bugs, credentials)
+        ub.assert_called_with(bugs, dry_run=True)
         self.assertEqual(0, code)
 
     def test_get_lp_bugs_with_master_branch(self):
         args = check_blockers.parse_args(['check', 'master', '17'])
-        with patch('check_blockers.get_json', autospec=True,
-                   side_effect=[SERIES_LIST, {'entries': []}]) as gj:
-            check_blockers.get_lp_bugs(args)
-            url = check_blockers.get_lp_bugs_url('juju-core')
-            gj.assert_called_with(url)
+        lp = make_fake_lp(series=False, bugs=True)
+        with patch('check_blockers.get_lp', autospec=True,
+                   return_value=lp) as gl:
+            bugs = check_blockers.get_lp_bugs(args)
+        self.assertEqual(['54321', '98765'], sorted(bugs.keys()))
+        gl.assert_called_with('check_blockers', credentials_file=None)
+        project = lp.projects['juju-core']
+        self.assertEqual(0, project.getSeries.call_count)
+        project.searchTasks.assert_called_with(
+            status=check_blockers.BUG_STATUSES,
+            importance=check_blockers.BUG_IMPORTANCES,
+            tags=check_blockers.BUG_TAGS, tags_combinator='All')
 
     def test_get_lp_bugs_with_supported_branch(self):
         args = check_blockers.parse_args(['check', '1.20', '17'])
-        with patch('check_blockers.get_json', autospec=True,
-                   side_effect=[SERIES_LIST, {'entries': []}]) as gj:
-            check_blockers.get_lp_bugs(args)
-            url = check_blockers.get_lp_bugs_url('juju-core/1.20')
-            gj.assert_called_with(url)
+        lp = make_fake_lp(series=True, bugs=True)
+        with patch('check_blockers.get_lp', autospec=True,
+                   return_value=lp) as gl:
+            bugs = check_blockers.get_lp_bugs(args)
+        self.assertEqual(['54321', '98765'], sorted(bugs.keys()))
+        gl.assert_called_with('check_blockers', credentials_file=None)
+        project = lp.projects['juju-core']
+        project.getSeries.assert_called_with(name='1.20')
+        series = lp._target
+        series.searchTasks.assert_called_with(
+            status=check_blockers.BUG_STATUSES,
+            importance=check_blockers.BUG_IMPORTANCES,
+            tags=check_blockers.BUG_TAGS, tags_combinator='All')
 
     def test_get_lp_bugs_with_unsupported_branch(self):
         args = check_blockers.parse_args(['check', 'foo', '17'])
-        with patch('check_blockers.get_json', autospec=True,
-                   side_effect=[SERIES_LIST, {'entries': []}]) as gj:
-            check_blockers.get_lp_bugs(args)
-        self.assertEqual(1, gj.call_count)
-        gj.assert_called_with(check_blockers.LP_SERIES)
+        lp = make_fake_lp(series=False, bugs=False)
+        with patch('check_blockers.get_lp', autospec=True, return_value=lp):
+            bugs = check_blockers.get_lp_bugs(args)
+        self.assertEqual({}, bugs)
+        project = lp.projects['juju-core']
+        project.getSeries.assert_called_with(name='foo')
+        self.assertEqual(0, project.searchTasks.call_count)
 
     def test_get_lp_bugs_without_blocking_bugs(self):
         args = check_blockers.parse_args(['check', 'master', '17'])
-        with patch('check_blockers.get_json') as gj:
-            empty_bug_list = {'entries': []}
-            gj.return_value = empty_bug_list
+        lp = make_fake_lp(series=False, bugs=False)
+        with patch('check_blockers.get_lp', autospec=True, return_value=lp):
             bugs = check_blockers.get_lp_bugs(args)
-            self.assertEqual({}, bugs)
-
-    def test_get_lp_bugs_with_blocking_bugs(self):
-        args = check_blockers.parse_args(['check', 'master', '17'])
-        bug_list = {
-            'entries': [
-                {'self_link': 'https://lp/j/98765'},
-                {'self_link': 'https://lp/j/54321'},
-            ]}
-        with patch('check_blockers.get_json', autospec=True,
-                   side_effect=[SERIES_LIST, bug_list]):
-            bugs = check_blockers.get_lp_bugs(args)
-            self.assertEqual(['54321', '98765'], sorted(bugs.keys()))
+        self.assertEqual({}, bugs)
+        project = lp.projects['juju-core']
+        project.searchTasks.assert_called_with(
+            status=check_blockers.BUG_STATUSES,
+            importance=check_blockers.BUG_IMPORTANCES,
+            tags=check_blockers.BUG_TAGS, tags_combinator='All')
 
     def test_get_reason_without_blocking_bugs(self):
         args = check_blockers.parse_args(['check', 'master', '17'])
@@ -190,37 +215,3 @@ class CheckBlockers(TestCase):
             self.assertEqual(request.get_header("Cache-control"),
                              "max-age=0, must-revalidate")
             self.assertEqual(json, {"result": []})
-
-    def test_get_lp_bugs_url(self):
-        self.assertEqual(
-            'https://api.launchpad.net/devel/foo/bar?ws.op=searchTasks'
-            '&tags_combinator=All&tags%3Alist=blocker'
-            '&importance%3Alist=Critical'
-            '&status%3Alist=Incomplete&status%3Alist=Confirmed'
-            '&status%3Alist=Triaged&status%3Alist=In+Progress'
-            '&status%3Alist=Fix+Committed',
-            check_blockers.get_lp_bugs_url('foo/bar'))
-
-    def test_get_lp_bugs_url_with_ci(self):
-        self.assertEqual(
-            'https://api.launchpad.net/devel/foo/bar?ws.op=searchTasks'
-            '&tags_combinator=All&tags%3Alist=blocker&tags%3Alist=ci'
-            '&importance%3Alist=Critical'
-            '&status%3Alist=Incomplete&status%3Alist=Confirmed'
-            '&status%3Alist=Triaged&status%3Alist=In+Progress'
-            '&status%3Alist=Fix+Committed',
-            check_blockers.get_lp_bugs_url('foo/bar', with_ci=True))
-
-    def test_parse_credentials_file(self):
-        with temp_dir() as place:
-            cred_path = '%s/my.creds' % place
-            with open(cred_path, 'w') as f:
-                f.write(dedent("""
-                [1]
-                consumer_key = System-wide: Ubuntu (bingo)
-                consumer_secret =
-                access_token = foo
-                access_secret = bar
-                """))
-            credentials = check_blockers.parse_credential_file(cred_path)
-            self.assertEqual(('foo', 'bar'), credentials)
