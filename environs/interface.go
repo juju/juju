@@ -94,7 +94,7 @@ type BootstrapParams struct {
 
 	// ContainerBridgeName, if non-empty, overrides the default
 	// network bridge device to use for LXC and KVM containers. See
-	// also environs.DefaultBridgeName.
+	// also instancecfg.DefaultBridgeName.
 	ContainerBridgeName string
 }
 
