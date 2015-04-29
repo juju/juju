@@ -14,12 +14,7 @@ BUG_STATUSES = [
     'Incomplete', 'Confirmed', 'Triaged', 'In Progress', 'Fix Committed']
 BUG_IMPORTANCES = ['Critical']
 BUG_TAGS = ['blocker']
-LP_BUGS = (
-    'https://api.launchpad.net/devel/{target}'
-    '?ws.op=searchTasks&tags_combinator=All{tags}{importances}{statuses}'
-)
 GH_COMMENTS = 'https://api.github.com/repos/juju/juju/issues/{}/comments'
-LP_SERIES = 'https://api.launchpad.net/devel/juju-core/series'
 
 
 def get_json(uri):
