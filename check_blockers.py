@@ -108,7 +108,7 @@ def get_reason(bugs, args):
 
 def update_bugs(bugs, dry_run=False):
     changes = []
-    for bug_id, bug_task in bugs.items:
+    for bug_id, bug_task in bugs.items():
         changes.append('Updating bug %s [%s]' % (bug_id, bug_task.title))
         bug_task.status = 'Fix Released'
         if not dry_run:

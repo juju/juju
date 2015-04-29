@@ -19,8 +19,10 @@ SERIES_LIST = {
 def make_fake_lp(series=False, bugs=False):
     """Return a fake Lp lib object based on Mocks"""
     if bugs:
-        task_1 = Mock(self_link='https://lp/j/98765')
-        task_2 = Mock(self_link='https://lp/j/54321')
+        task_1 = Mock(
+            self_link='https://lp/j/98765', title='one', status='Triaged')
+        task_2 = Mock(
+            self_link='https://lp/j/54321', title='two', status='Triaged')
         bugs = [task_1, task_2]
     else:
         bugs = []
@@ -218,3 +220,19 @@ class CheckBlockers(TestCase):
             self.assertEqual(request.get_header("Cache-control"),
                              "max-age=0, must-revalidate")
             self.assertEqual(json, {"result": []})
+
+    def test_update_bugs(self):
+        lp = make_fake_lp(series=False, bugs=True)
+        bugs = check_blockers.get_lp_bugs(lp, 'master')
+        code, changes = check_blockers.update_bugs(bugs, dry_run=False)
+        self.assertEqual(0, code)
+        self.assertEqual(
+            'Updating bug 54321 [two]\nUpdating bug 98765 [one]', changes)
+        self.assertEqual('Fix Released', bugs['54321'].status)
+        self.assertEqual(1, bugs['54321'].lp_save.call_count)
+
+    def test_update_bugs_with_dry_run(self):
+        lp = make_fake_lp(series=False, bugs=True)
+        bugs = check_blockers.get_lp_bugs(lp, 'master')
+        code, changes = check_blockers.update_bugs(bugs, dry_run=True)
+        self.assertEqual(0, bugs['54321'].lp_save.call_count)
