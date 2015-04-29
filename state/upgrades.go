@@ -1263,12 +1263,12 @@ func AddDefaultBlockDevicesDocs(st *State) error {
 		}
 
 		for _, machine := range machines {
-			// The error from this is intentionally ignored as the
-			// transaction will fail if the machine already has a
-			// block devices doc.
-			envSt.runTransaction([]txn.Op{
+			// If a txn fails because the doc already exists, that's ok.
+			if err := envSt.runTransaction([]txn.Op{
 				createMachineBlockDevicesOp(machine.Id()),
-			})
+			}); err != nil && err != txn.ErrAborted {
+				return err
+			}
 		}
 	}
 	return nil

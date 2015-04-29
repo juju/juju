@@ -2649,19 +2649,6 @@ func (s *upgradesSuite) prepareEnvsForMachineBlockDevices(c *gc.C, envs map[stri
 	return expectedDocIDs
 }
 
-func (s *upgradesSuite) readBlockDeviceIDs(c *gc.C, coll string) []string {
-	blockDevices, closer := s.state.getRawCollection(coll)
-	defer closer()
-	var docs []bson.M
-	err := blockDevices.Find(nil).All(&docs)
-	c.Assert(err, jc.ErrorIsNil)
-	var actualDocIDs []string
-	for _, doc := range docs {
-		actualDocIDs = append(actualDocIDs, doc["_id"].(string))
-	}
-	return actualDocIDs
-}
-
 func (s *upgradesSuite) TestAddBlockDevicesDocs(c *gc.C) {
 	expectedDocIDs := s.prepareEnvsForMachineBlockDevices(c, map[string][]string{
 		"": []string{"1", "2"},
@@ -2672,7 +2659,7 @@ func (s *upgradesSuite) TestAddBlockDevicesDocs(c *gc.C) {
 	err := AddDefaultBlockDevicesDocs(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	actualDocIDs := s.readBlockDeviceIDs(c, blockDevicesC)
+	actualDocIDs := s.readDocIDs(c, blockDevicesC, "")
 	c.Assert(actualDocIDs, jc.SameContents, expectedDocIDs)
 }
 
@@ -2680,7 +2667,7 @@ func (s *upgradesSuite) TestAddBlockDevicesDocsFresh(c *gc.C) {
 	err := AddDefaultBlockDevicesDocs(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	actualDocIDs := s.readBlockDeviceIDs(c, blockDevicesC)
+	actualDocIDs := s.readDocIDs(c, blockDevicesC, "")
 	c.Assert(actualDocIDs, gc.HasLen, 0)
 }
 
@@ -2693,7 +2680,7 @@ func (s *upgradesSuite) TestAddBlockDevicesDocsMultipleEmpty(c *gc.C) {
 	err := AddDefaultBlockDevicesDocs(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	actualDocIDs := s.readBlockDeviceIDs(c, blockDevicesC)
+	actualDocIDs := s.readDocIDs(c, blockDevicesC, "")
 	c.Assert(actualDocIDs, gc.HasLen, 0)
 }
 
@@ -2704,16 +2691,16 @@ func (s *upgradesSuite) TestAddBlockDevicesDocsIdempotent(c *gc.C) {
 		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"1"},
 	})
 
-	originalIDs := s.readBlockDeviceIDs(c, blockDevicesC)
+	originalIDs := s.readDocIDs(c, blockDevicesC, "")
 	c.Assert(originalIDs, gc.HasLen, 0)
 
 	err := AddDefaultBlockDevicesDocs(s.state)
 	c.Assert(err, jc.ErrorIsNil)
-	firstPassIDs := s.readBlockDeviceIDs(c, blockDevicesC)
+	firstPassIDs := s.readDocIDs(c, blockDevicesC, "")
 
 	err = AddDefaultBlockDevicesDocs(s.state)
 	c.Assert(err, jc.ErrorIsNil)
-	secondPassIDs := s.readBlockDeviceIDs(c, blockDevicesC)
+	secondPassIDs := s.readDocIDs(c, blockDevicesC, "")
 
 	c.Assert(firstPassIDs, jc.SameContents, secondPassIDs)
 }
