@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	cmdstorage "github.com/juju/juju/cmd/juju/storage"
-	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/state"
@@ -68,8 +67,6 @@ type cmdStorageSuite struct {
 
 func (s *cmdStorageSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.Storage)
-
 	setupTestStorageSupport(c, s.State)
 }
 
