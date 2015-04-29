@@ -1,3 +1,0 @@
-#!/bin/bash -eux
-
-${CHARM_DIR}/hooks/cp_chaos_monkey.bash

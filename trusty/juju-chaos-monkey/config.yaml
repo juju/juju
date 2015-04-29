@@ -3,3 +3,7 @@ options:
     type: string
     default: /home/ubuntu/juju-chaos-monkey
     description: The juju-chaos-monkey project directory.
+  dry-run:
+    type: boolean
+    default: false
+    description: If set to true only log what would happen.

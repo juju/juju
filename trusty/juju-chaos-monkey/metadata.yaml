@@ -7,6 +7,6 @@ requires:
   juju-info:
     interface: juju-info
     scope: container
-categories:
+tags:
   - misc
 subordinate: true
