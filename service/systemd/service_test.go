@@ -99,20 +99,26 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 	s.stub.Calls = nil
 }
 
-func (s *initSystemSuite) newConfStr(name, cmd, env string) string {
+func (s *initSystemSuite) newConfStr(name string) string {
+	return s.newConfStrCmd(name, "")
+}
+
+func (s *initSystemSuite) newConfStrCmd(name, cmd string) string {
 	tag := name[len("jujud-"):]
 	if cmd == "" {
 		cmd = jujud + " " + tag
 	}
-	result := fmt.Sprintf(confStr[1:], tag, cmd)
-	if env != "" {
-		r := "[Service]"
-		result = strings.Replace(
-			result, r,
-			fmt.Sprintf("%s\nEnvironment=%s", r, env),
-			1,
-		)
-	}
+	return fmt.Sprintf(confStr[1:], tag, cmd)
+}
+
+func (s *initSystemSuite) newConfStrEnv(name, env string) string {
+	const replace = "[Service]\n"
+	result := s.newConfStr(name)
+	result = strings.Replace(
+		result, replace,
+		fmt.Sprintf("%sEnvironment=%s\n", replace, env),
+		1,
+	)
 	return result
 }
 
@@ -149,7 +155,7 @@ func (s *initSystemSuite) checkCreateFileCall(c *gc.C, index int, filename, cont
 	if content == "" {
 		name := filename
 		filename = fmt.Sprintf("%s/init/%s/%s.service", s.dataDir, name, name)
-		content = s.newConfStr(name, "", "")
+		content = s.newConfStr(name)
 	}
 
 	call := s.stub.Calls[index]
@@ -667,7 +673,7 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 	}, {
 		FuncName: "Close",
 	}})
-	s.checkCreateFileCall(c, 2, filename, s.newConfStr(s.name, "", ""), 0644)
+	s.checkCreateFileCall(c, 2, filename, s.newConfStr(s.name), 0644)
 }
 
 func (s *initSystemSuite) TestInstallAlreadyInstalled(c *gc.C) {
@@ -688,7 +694,8 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 	s.addService("jujud-machine-0", "active")
 	s.addListResponse()
 	// We force the systemd API to return a slightly different conf.
-	// In this case we simply set a different Conf.Env to s.conf's.
+	// In this case we simply set a different Env value between the
+	// conf we are installing and the conf returned by the systemd API.
 	// This causes Service.Exists to return false.
 	conf := common.Conf{
 		Desc:      s.conf.Desc,
@@ -725,7 +732,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 		"Close",
 	)
 	filename := fmt.Sprintf("%s/init/%s/%s.service", s.dataDir, s.name, s.name)
-	content := s.newConfStr(s.name, "", `"a=c"`)
+	content := s.newConfStrEnv(s.name, `"a=c"`)
 	s.checkCreateFileCall(c, 12, filename, content, 0644)
 }
 
@@ -750,7 +757,7 @@ func (s *initSystemSuite) TestInstallMultiline(c *gc.C) {
 	)
 	s.checkCreateFileCall(c, 2, scriptPath, cmd, 0755)
 	filename := fmt.Sprintf("%s/init/%s/%s.service", s.dataDir, s.name, s.name)
-	content := s.newConfStr(s.name, scriptPath, "")
+	content := s.newConfStrCmd(s.name, scriptPath)
 	s.checkCreateFileCall(c, 3, filename, content, 0644)
 }
 
@@ -774,7 +781,7 @@ func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 	test := systemdtesting.WriteConfTest{
 		Service:  name,
 		DataDir:  s.dataDir,
-		Expected: s.newConfStr(name, "", ""),
+		Expected: s.newConfStr(name),
 	}
 	test.CheckCommands(c, commands)
 }
@@ -794,7 +801,7 @@ func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
 		Service: name,
 		DataDir: s.dataDir,
 		Expected: strings.Replace(
-			s.newConfStr(name, "", ""),
+			s.newConfStr(name),
 			"ExecStart=/var/lib/juju/bin/jujud machine-0",
 			"ExecStart=/tmp/init/jujud-machine-0/exec-start.sh",
 			-1),
