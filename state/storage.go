@@ -959,19 +959,40 @@ func (st *State) AddStorageForUnit(
 	}
 	completeSpec.Count = completeSpec.Count - currentCount
 
+	// Create storage db operations
 	storageOps, _, err := createStorageOps(
 		st,
 		u.Tag(),
 		charmMeta,
 		map[string]StorageConstraints{name: completeSpec})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	if err := st.runTransaction(storageOps); err != nil {
+	// Update storage attachment count.
+	priorCount := u.doc.StorageAttachmentCount
+	newCount := priorCount + int(completeSpec.Count)
+	ops := []txn.Op{
+		{
+			C:  unitsC,
+			Id: u.doc.DocID,
+			// Count validation ensures transactionality.
+			Assert: bson.D{{"storageattachmentcount", priorCount}},
+			Update: bson.D{{"$set",
+				bson.D{{"storageattachmentcount", newCount}}}},
+		},
+	}
+	ops = append(ops, storageOps...)
+	if err := st.runTransaction(ops); err != nil {
 		return errors.Annotate(err, "while creating storage")
 	}
 	return nil
 }
 
-func (st *State) countEntityStorageInstancesForName(tag names.Tag, name string) (uint64, error) {
+func (st *State) countEntityStorageInstancesForName(
+	tag names.Tag,
+	name string,
+) (uint64, error) {
 	storageCollection, closer := st.getCollection(storageInstancesC)
 	defer closer()
 	criteria := bson.D{{
