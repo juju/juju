@@ -24,22 +24,14 @@ func (env *environ) ReleaseAddress(instID instance.Id, netID network.Id, addr ne
 	return errors.Trace(errors.NotImplementedf(""))
 }
 
-// Subnets implements environs.Environ, but is not implmemented.
+// Subnets implements environs.Environ.
 func (env *environ) Subnets(inst instance.Id, ids []network.Id) ([]network.SubnetInfo, error) {
-	//TODO: implement
-	return nil, errors.Trace(errors.NotImplementedf(""))
+	return env.client.Subnets(inst, ids)
 }
 
-// ListNetworks implements environs.Environ, but is not implmemented.
-func (env *environ) ListNetworks(inst instance.Id) ([]network.SubnetInfo, error) {
-	//TODO: implement
-	return nil, errors.Trace(errors.NotImplementedf(""))
-}
-
-// NetworkInterfaces implements environs.Environ, but is not implmemented.
+// NetworkInterfaces implements environs.Environ.
 func (env *environ) NetworkInterfaces(inst instance.Id) ([]network.InterfaceInfo, error) {
-	//TODO: implement
-	return nil, errors.Trace(errors.NotImplementedf(""))
+	return env.client.GetNetworkInterfaces(inst, env.ecfg)
 }
 
 // OpenPorts opens the given port ranges for the whole environment.

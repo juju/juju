@@ -6,6 +6,7 @@
 package vsphere
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -19,6 +20,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 const (
@@ -151,17 +153,25 @@ func (c *client) Instances(prefix string) ([]*mo.VirtualMachine, error) {
 
 // Refresh refreshes the virtual machine
 func (c *client) Refresh(v *mo.VirtualMachine) error {
-	item, err := c.finder.VirtualMachine(context.TODO(), v.Name)
+	vm, err := c.getVm(v.Name)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	*v = *vm
+	return nil
+}
+
+func (c *client) getVm(name string) (*mo.VirtualMachine, error) {
+	item, err := c.finder.VirtualMachine(context.TODO(), name)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	var vm mo.VirtualMachine
 	err = c.connection.RetrieveOne(context.TODO(), item.Reference(), nil, &vm)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	*v = vm
-	return nil
+	return &vm, nil
 }
 
 //AvailabilityZones retuns list of all root compute resources in the system
@@ -189,4 +199,68 @@ func (c *client) AvailabilityZones() ([]*mo.ComputeResource, error) {
 	}
 
 	return cprs, nil
+}
+
+func (c *client) GetNetworkInterfaces(inst instance.Id, ecfg *environConfig) ([]network.InterfaceInfo, error) {
+	vm, err := c.getVm(string(inst))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if vm.Guest == nil {
+		return nil, errors.Errorf("vm guest is not initialized")
+	}
+	res := make([]network.InterfaceInfo, 0)
+	for _, net := range vm.Guest.Net {
+		ipScope := network.ScopeCloudLocal
+		if net.Network == ecfg.externalNetwork() {
+			ipScope = network.ScopePublic
+		}
+		res = append(res, network.InterfaceInfo{
+			DeviceIndex:      net.DeviceConfigId,
+			MACAddress:       net.MacAddress,
+			NetworkName:      net.Network,
+			Disabled:         !net.Connected,
+			ProviderId:       network.Id(fmt.Sprintf("net-device%d", net.DeviceConfigId)),
+			ProviderSubnetId: network.Id(net.Network),
+			InterfaceName:    fmt.Sprintf("unsupported%d", net.DeviceConfigId),
+			ConfigType:       network.ConfigDHCP,
+			Address:          network.NewScopedAddress(net.IpAddress[0], ipScope),
+		})
+	}
+	return res, nil
+}
+
+func (c *client) Subnets(inst instance.Id, ids []network.Id) ([]network.SubnetInfo, error) {
+	if len(ids) == 0 {
+		return nil, errors.Errorf("subnetIds must not be empty")
+	}
+	vm, err := c.getVm(string(inst))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	res := make([]network.SubnetInfo, 0)
+	for _, ref := range vm.Network {
+		var net mo.Network
+		err = c.connection.RetrieveOne(context.TODO(), ref, nil, &net)
+
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		existId := false
+		for _, id := range ids {
+			if string(id) == net.Name {
+				existId = true
+				break
+			}
+		}
+		if !existId {
+			continue
+		}
+		res = append(res, network.SubnetInfo{
+			ProviderId: network.Id(net.Name),
+		})
+	}
+	return res, nil
 }
