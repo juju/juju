@@ -84,7 +84,7 @@ class CheckBlockers(TestCase):
                     code = check_blockers.main(argv)
         gl.assert_called_with('check_blockers', credentials_file='./foo.cred')
         glb.assert_called_with('lp', 'master', with_ci=True)
-        ub.assert_called_with(bugs, dry_run=True)
+        ub.assert_called_with(bugs, 'master', '1234', dry_run=True)
         self.assertEqual(0, code)
 
     def test_get_lp_bugs_with_master_branch(self):
@@ -224,15 +224,23 @@ class CheckBlockers(TestCase):
     def test_update_bugs(self):
         lp = make_fake_lp(series=False, bugs=True)
         bugs = check_blockers.get_lp_bugs(lp, 'master')
-        code, changes = check_blockers.update_bugs(bugs, dry_run=False)
+        code, changes = check_blockers.update_bugs(
+            bugs, 'master', '1234', dry_run=False)
         self.assertEqual(0, code)
         self.assertEqual(
             'Updating bug 54321 [two]\nUpdating bug 98765 [one]', changes)
         self.assertEqual('Fix Released', bugs['54321'].status)
         self.assertEqual(1, bugs['54321'].lp_save.call_count)
+        expected_subject = 'Fix Released in juju-core master'
+        expected_content = (
+            'Juju-CI verified that this issue is %s:\n'
+            '    http://reports.vapour.ws/releases/1234' % expected_subject)
+        bugs['54321'].bug.newMessage.assert_called_with(
+            subject=expected_subject, content=expected_content)
 
     def test_update_bugs_with_dry_run(self):
         lp = make_fake_lp(series=False, bugs=True)
         bugs = check_blockers.get_lp_bugs(lp, 'master')
-        code, changes = check_blockers.update_bugs(bugs, dry_run=True)
+        code, changes = check_blockers.update_bugs(
+            bugs, 'master', '1234', dry_run=True)
         self.assertEqual(0, bugs['54321'].lp_save.call_count)

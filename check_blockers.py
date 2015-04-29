@@ -77,6 +77,7 @@ def get_lp_bugs(lp, branch, with_ci=False):
         status=BUG_STATUSES, importance=BUG_IMPORTANCES,
         tags=bug_tags, tags_combinator='All')
     for bug_task in bug_tasks:
+        # Avoid an extra network call to get the bug report.
         bug_id = bug_task.self_link.split('/')[-1]
         bugs[bug_id] = bug_task
     return bugs
@@ -104,7 +105,7 @@ def get_reason(bugs, args):
     return 1, 'Could not get {} comments from github'.format(args.pull_request)
 
 
-def update_bugs(bugs, dry_run=False):
+def update_bugs(bugs, branch, build, dry_run=False):
     """Update the critical blocker+ci bugs for the branch to Fix released."""
     changes = []
     for bug_id, bug_task in bugs.items():
@@ -112,6 +113,11 @@ def update_bugs(bugs, dry_run=False):
         bug_task.status = 'Fix Released'
         if not dry_run:
             bug_task.lp_save()
+            subject = 'Fix Released in juju-core %s' % branch
+            content = (
+                'Juju-CI verified that this issue is %s:\n'
+                '    http://reports.vapour.ws/releases/%s' % (subject, build))
+            bug_task.bug.newMessage(subject=subject, content=content)
     changes = '\n'.join(changes)
     return 0, changes
 
@@ -125,7 +131,8 @@ def main(argv):
         print(reason)
     elif args.command == 'update':
         bugs = get_lp_bugs(lp, args.branch, with_ci=True)
-        code, changes = update_bugs(bugs, dry_run=args.dry_run)
+        code, changes = update_bugs(
+            bugs, args.branch, args.build, dry_run=args.dry_run)
         print(changes)
     return code
 
