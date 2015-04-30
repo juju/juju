@@ -51,7 +51,7 @@ var configFields = schema.Fields{
 }
 
 var configDefaults = schema.Defaults{
-	cfgExternalNetwork: "a",
+	cfgExternalNetwork: "",
 }
 
 var configSecretFields = []string{

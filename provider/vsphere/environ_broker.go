@@ -133,7 +133,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvfFi
 			logger.Warningf("Error while getting availability zone %s: %s", zone, err)
 			continue
 		}
-		inst, err = env.client.CreateInstance(machineID, availZone, hwc, img, userData, args.InstanceConfig.AuthorizedKeys, isStateServer(args.InstanceConfig))
+		inst, err = env.client.CreateInstance(env.ecfg, machineID, availZone, hwc, img, userData, args.InstanceConfig.AuthorizedKeys, isStateServer(args.InstanceConfig))
 		if err != nil {
 			logger.Warningf("Error while trying to create instance in %s availability zone: %s", zone, err)
 			continue

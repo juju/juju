@@ -49,7 +49,7 @@ type ovfImportManager struct {
 	client *client
 }
 
-func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hwc *instance.HardwareCharacteristics, img *OvfFileMetadata, userData []byte, sshKey string, isState bool) (*object.VirtualMachine, error) {
+func (m *ovfImportManager) importOvf(ecfg *environConfig, machineID string, zone *vmwareAvailZone, hwc *instance.HardwareCharacteristics, img *OvfFileMetadata, userData []byte, sshKey string, isState bool) (*object.VirtualMachine, error) {
 	folders, err := m.client.datacenter.Folders(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -99,6 +99,26 @@ func (m *ovfImportManager) importOvf(machineID string, zone *vmwareAvailZone, hw
 		if *n == 0 {
 			*n = -1
 		}
+	}
+	if ecfg.externalNetwork() != "" {
+		s.DeviceChange = append(s.DeviceChange, &types.VirtualDeviceConfigSpec{
+			Operation: types.VirtualDeviceConfigSpecOperationAdd,
+			Device: &types.VirtualE1000{
+				types.VirtualEthernetCard{
+					VirtualDevice: types.VirtualDevice{
+						Backing: &types.VirtualEthernetCardNetworkBackingInfo{
+							VirtualDeviceDeviceBackingInfo: types.VirtualDeviceDeviceBackingInfo{
+								DeviceName: ecfg.externalNetwork(),
+							},
+						},
+						Connectable: &types.VirtualDeviceConnectInfo{
+							StartConnected:    true,
+							AllowGuestControl: true,
+						},
+					},
+				},
+			},
+		})
 	}
 	rp := object.NewResourcePool(m.client.connection.Client, *zone.r.ResourcePool)
 	lease, err := rp.ImportVApp(context.TODO(), spec.ImportSpec, folders.VmFolder, nil)

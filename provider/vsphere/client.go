@@ -67,9 +67,9 @@ var newConnection = func(url *url.URL) (*govmomi.Client, error) {
 }
 
 // CreateInstance create new vm in vsphere and run it
-func (c *client) CreateInstance(machineID string, zone *vmwareAvailZone, hwc *instance.HardwareCharacteristics, img *OvfFileMetadata, userData []byte, sshKey string, isState bool) (*mo.VirtualMachine, error) {
+func (c *client) CreateInstance(ecfg *environConfig, machineID string, zone *vmwareAvailZone, hwc *instance.HardwareCharacteristics, img *OvfFileMetadata, userData []byte, sshKey string, isState bool) (*mo.VirtualMachine, error) {
 	manager := &ovfImportManager{client: c}
-	vm, err := manager.importOvf(machineID, zone, hwc, img, userData, sshKey, isState)
+	vm, err := manager.importOvf(ecfg, machineID, zone, hwc, img, userData, sshKey, isState)
 	if err != nil {
 		return nil, errors.Annotatef(err, "Failed to import ovf file")
 	}
