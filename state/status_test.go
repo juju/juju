@@ -54,7 +54,6 @@ func (s *statusSuite) TestPruneStatusHistory(c *gc.C) {
 	err = state.PruneStatusHistory(st, 100)
 	c.Assert(err, jc.ErrorIsNil)
 	history, err = state.StatusHistory(500, globalKey, st)
-	c.Assert(len(history), gc.Equals, 100)
 	c.Assert(history, gc.HasLen, 100)
 	c.Assert(history[0].Message, gc.Equals, "Status change 200")
 	c.Assert(history[99].Message, gc.Equals, "Status change 101")
