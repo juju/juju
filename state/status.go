@@ -4,7 +4,6 @@
 package state
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -246,7 +245,7 @@ type statusDoc struct {
 }
 
 type historicalStatusDoc struct {
-	Created    int64
+	Id         int    `bson:"_id"`
 	EnvUUID    string `bson:"env-uuid"`
 	Status     Status
 	StatusInfo string
@@ -255,28 +254,31 @@ type historicalStatusDoc struct {
 	EntityId   string
 }
 
-func newHistoricalStatusDoc(s statusDoc, id string) *historicalStatusDoc {
+func newHistoricalStatusDoc(s statusDoc, entityId string) *historicalStatusDoc {
 	return &historicalStatusDoc{
-		Created:    time.Now().UTC().UnixNano(),
 		EnvUUID:    s.EnvUUID,
 		Status:     s.Status,
 		StatusInfo: s.StatusInfo,
 		StatusData: s.StatusData,
 		Updated:    s.Updated,
-		EntityId:   id,
+		EntityId:   entityId,
 	}
 }
 
 func updateStatusHistory(oldDoc statusDoc, globalKey string, st *State) error {
+	id, err := st.sequence("statushistory")
+	if err != nil {
+		errors.Annotatef(err, "cannot make id updating status history of unit agent %q", globalKey)
+	}
 	hDoc := newHistoricalStatusDoc(oldDoc, globalKey)
 
 	h := txn.Op{
 		C:      statusesHistoryC,
-		Id:     fmt.Sprintf("%s%d", st.docID(globalKey), time.Now().UTC().UnixNano()),
+		Id:     id,
 		Insert: hDoc,
 	}
 
-	err := st.runTransaction([]txn.Op{h})
+	err = st.runTransaction([]txn.Op{h})
 	return errors.Annotatef(err, "cannot update status history of unit agent %q", globalKey)
 }
 
@@ -286,7 +288,7 @@ func statusHistory(size int, globalKey string, st *State) ([]StatusInfo, error) 
 
 	sInfo := []StatusInfo{}
 	results := []historicalStatusDoc{}
-	err := statusHistory.Find(bson.D{{"entityid", globalKey}}).Sort("-created").Limit(size).All(&results)
+	err := statusHistory.Find(bson.D{{"entityid", globalKey}}).Sort("-_id").Limit(size).All(&results)
 	if err == mgo.ErrNotFound {
 		return []StatusInfo{}, errors.NotFoundf("statusHistory")
 	}
@@ -572,7 +574,7 @@ func PruneStatusHistory(st *State, maxLogsPerEntity int) error {
 		}
 		_, err = historyColl.RemoveAll(bson.D{
 			{"entityid", globalKey},
-			{"created", bson.M{"$lt": keepUpTo}},
+			{"_id", bson.M{"$lt": keepUpTo}},
 		})
 		if err != nil {
 			return errors.Trace(err)
@@ -583,16 +585,16 @@ func PruneStatusHistory(st *State, maxLogsPerEntity int) error {
 
 // getOldestTimeToKeep returns the create time for the oldest
 // status log to be kept.
-func getOldestTimeToKeep(coll stateCollection, globalKey string, size int) (int64, bool, error) {
+func getOldestTimeToKeep(coll stateCollection, globalKey string, size int) (int, bool, error) {
 	result := historicalStatusDoc{}
-	err := coll.Find(bson.D{{"entityid", globalKey}}).Sort("-created").Skip(size - 1).One(&result)
+	err := coll.Find(bson.D{{"entityid", globalKey}}).Sort("-_id").Skip(size - 1).One(&result)
 	if err == mgo.ErrNotFound {
 		return -1, false, nil
 	}
 	if err != nil {
 		return -1, false, errors.Trace(err)
 	}
-	return result.Created, true, nil
+	return result.Id, true, nil
 
 }
 
