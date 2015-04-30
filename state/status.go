@@ -4,7 +4,6 @@
 package state
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -246,6 +245,7 @@ type statusDoc struct {
 }
 
 type historicalStatusDoc struct {
+	Id         int    `bson:"_id"`
 	EnvUUID    string `bson:"env-uuid"`
 	Status     Status
 	StatusInfo string
@@ -254,27 +254,31 @@ type historicalStatusDoc struct {
 	EntityId   string
 }
 
-func newHistoricalStatusDoc(s statusDoc, id string) *historicalStatusDoc {
+func newHistoricalStatusDoc(s statusDoc, entityId string) *historicalStatusDoc {
 	return &historicalStatusDoc{
 		EnvUUID:    s.EnvUUID,
 		Status:     s.Status,
 		StatusInfo: s.StatusInfo,
 		StatusData: s.StatusData,
 		Updated:    s.Updated,
-		EntityId:   id,
+		EntityId:   entityId,
 	}
 }
 
 func updateStatusHistory(oldDoc statusDoc, globalKey string, st *State) error {
+	id, err := st.sequence("statushistory")
+	if err != nil {
+		errors.Annotatef(err, "cannot make id updating status history of unit agent %q", globalKey)
+	}
 	hDoc := newHistoricalStatusDoc(oldDoc, globalKey)
 
 	h := txn.Op{
 		C:      statusesHistoryC,
-		Id:     fmt.Sprintf("%s%d", st.docID(globalKey), time.Now().UTC().UnixNano()),
+		Id:     id,
 		Insert: hDoc,
 	}
 
-	err := st.runTransaction([]txn.Op{h})
+	err = st.runTransaction([]txn.Op{h})
 	return errors.Annotatef(err, "cannot update status history of unit agent %q", globalKey)
 }
 
@@ -284,7 +288,7 @@ func statusHistory(size int, globalKey string, st *State) ([]StatusInfo, error) 
 
 	sInfo := []StatusInfo{}
 	results := []historicalStatusDoc{}
-	err := statusHistory.Find(bson.D{{"entityid", globalKey}}).Sort("-updated").Limit(size).All(&results)
+	err := statusHistory.Find(bson.D{{"entityid", globalKey}}).Sort("-_id").Limit(size).All(&results)
 	if err == mgo.ErrNotFound {
 		return []StatusInfo{}, errors.NotFoundf("statusHistory")
 	}
@@ -300,7 +304,6 @@ func statusHistory(size int, globalKey string, st *State) ([]StatusInfo, error) 
 		})
 	}
 	return sInfo, nil
-
 }
 
 type machineStatusDoc struct {
@@ -571,7 +574,7 @@ func PruneStatusHistory(st *State, maxLogsPerEntity int) error {
 		}
 		_, err = historyColl.RemoveAll(bson.D{
 			{"entityid", globalKey},
-			{"updated", bson.M{"$lt": keepUpTo}},
+			{"_id", bson.M{"$lt": keepUpTo}},
 		})
 		if err != nil {
 			return errors.Trace(err)
@@ -580,18 +583,18 @@ func PruneStatusHistory(st *State, maxLogsPerEntity int) error {
 	return nil
 }
 
-// getOldestTimeToKeep returns the update time for the oldest
+// getOldestTimeToKeep returns the create time for the oldest
 // status log to be kept.
-func getOldestTimeToKeep(coll stateCollection, globalKey string, size int) (*time.Time, bool, error) {
+func getOldestTimeToKeep(coll stateCollection, globalKey string, size int) (int, bool, error) {
 	result := historicalStatusDoc{}
-	err := coll.Find(bson.D{{"entityid", globalKey}}).Sort("-updated").Limit(size).One(&result)
+	err := coll.Find(bson.D{{"entityid", globalKey}}).Sort("-_id").Skip(size - 1).One(&result)
 	if err == mgo.ErrNotFound {
-		return &time.Time{}, false, nil
+		return -1, false, nil
 	}
 	if err != nil {
-		return &time.Time{}, false, errors.Trace(err)
+		return -1, false, errors.Trace(err)
 	}
-	return result.Updated, true, nil
+	return result.Id, true, nil
 
 }
 
@@ -604,4 +607,46 @@ func getEntitiesWithStatuses(coll stateCollection) ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 	return entityKeys, nil
+}
+
+// TranslateLegacyAgentStatus returns the status value clients expect to see for
+// agent-state in versions prior to 1.24
+func TranslateToLegacyAgentState(agentStatus, workloadStatus Status, workloadMessage string) (Status, bool) {
+	// Originally AgentState (a member of api.UnitStatus) could hold one of:
+	// StatusPending
+	// StatusInstalled
+	// StatusStarted
+	// StatusStopped
+	// StatusError
+	// StatusDown
+	// For compatibility reasons we convert modern states (from V2 uniter) into
+	// four of the old ones: StatusPending, StatusStarted, StatusStopped, or StatusError.
+
+	// For the purposes of deriving the legacy status, there's currently no better
+	// way to determine if a unit is installed.
+	// TODO(wallyworld) - use status history to see if start hook has run.
+	isInstalled := workloadStatus != StatusMaintenance || workloadMessage != "installing charm software"
+
+	switch agentStatus {
+	case StatusAllocating:
+		return StatusPending, true
+	case StatusError:
+		return StatusError, true
+	case StatusRebooting, StatusExecuting, StatusIdle, StatusLost, StatusFailed:
+		switch workloadStatus {
+		case StatusError:
+			return StatusError, true
+		case StatusTerminated:
+			return StatusStopped, true
+		case StatusMaintenance:
+			if isInstalled {
+				return StatusStarted, true
+			} else {
+				return StatusPending, true
+			}
+		default:
+			return StatusStarted, true
+		}
+	}
+	return "", false
 }
