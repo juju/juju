@@ -180,17 +180,19 @@ func (h hostArchToolsFinder) FindTools(v version.Number, series string, arch *st
 var resolvConf = "/etc/resolv.conf"
 
 // localDNSServers parses the /etc/resolv.conf file (if available) and
-// extracts all nameservers addresses, returning them.
-func localDNSServers() ([]network.Address, error) {
+// extracts all nameservers addresses, and the default search domain
+// and returns them.
+func localDNSServers() ([]network.Address, string, error) {
 	file, err := os.Open(resolvConf)
 	if os.IsNotExist(err) {
-		return nil, nil
+		return nil, "", nil
 	} else if err != nil {
-		return nil, errors.Annotatef(err, "cannot open %q", resolvConf)
+		return nil, "", errors.Annotatef(err, "cannot open %q", resolvConf)
 	}
 	defer file.Close()
 
 	var addresses []network.Address
+	var searchDomain string
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -207,12 +209,20 @@ func localDNSServers() ([]network.Address, error) {
 			address = strings.TrimSpace(address)
 			addresses = append(addresses, network.NewAddress(address))
 		}
+		if strings.HasPrefix(line, "search") {
+			searchDomain = strings.TrimPrefix(line, "search")
+			// Drop comments after the domain, if any.
+			if strings.Contains(searchDomain, "#") {
+				searchDomain = searchDomain[:strings.Index(searchDomain, "#")]
+			}
+			searchDomain = strings.TrimSpace(searchDomain)
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, errors.Annotatef(err, "cannot read DNS servers from %q", resolvConf)
+		return nil, "", errors.Annotatef(err, "cannot read DNS servers from %q", resolvConf)
 	}
-	return addresses, nil
+	return addresses, searchDomain, nil
 }
 
 // ipRouteAdd is the command template to add a static route for
@@ -463,7 +473,8 @@ func maybeAllocateStaticIP(
 
 	// Populate ConfigType and DNSServers as needed.
 	var dnsServers []network.Address
-	dnsServers, err = localDNSServers()
+	var searchDomain string
+	dnsServers, searchDomain, err = localDNSServers()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -478,6 +489,7 @@ func maybeAllocateStaticIP(
 		finalIfaceInfo[i].MACAddress = MACAddressTemplate
 		finalIfaceInfo[i].ConfigType = network.ConfigStatic
 		finalIfaceInfo[i].DNSServers = dnsServers
+		finalIfaceInfo[i].DNSSearch = searchDomain
 		finalIfaceInfo[i].GatewayAddress = primaryAddr
 	}
 	err = setupRoutesAndIPTables(primaryNIC, primaryAddr, bridgeDevice, finalIfaceInfo)
