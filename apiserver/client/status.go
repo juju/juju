@@ -685,9 +685,9 @@ func processUnitAndAgentStatus(unit *state.Unit, status *api.UnitStatus) {
 	// We only display pending, started, error, stopped.
 	var ok bool
 	legacyState, ok := state.TranslateToLegacyAgentState(
-		state.Status(status.Workload.Status),
 		state.Status(status.UnitAgent.Status),
-		status.UnitAgent.Info,
+		state.Status(status.Workload.Status),
+		status.Workload.Info,
 	)
 	if !ok {
 		logger.Warningf(
