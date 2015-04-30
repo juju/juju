@@ -101,8 +101,35 @@ func (s *BaseSuite) PatchVersion(vers version.Binary) {
 	s.PatchValue(&getVersion, s.Patched.GetVersion)
 }
 
-func (s *BaseSuite) PatchLocalDiscovery(funcs map[string]func() (bool, error)) {
-	s.PatchValue(&discoveryFuncs, funcs)
+func NewDiscoveryCheck(name string, running bool, failure error) discoveryCheck {
+	return discoveryCheck{
+		name: name,
+		isRunning: func() (bool, error) {
+			return running, failure
+		},
+	}
+}
+
+func (s *BaseSuite) PatchLocalDiscovery(checks ...discoveryCheck) {
+	s.PatchValue(&discoveryFuncs, checks)
+}
+
+func (s *BaseSuite) PatchLocalDiscoveryDisable() {
+	s.PatchLocalDiscovery()
+}
+
+func (s *BaseSuite) PatchLocalDiscoveryNoMatch(expected string) {
+	// TODO(ericsnow) Pull from a list of supported init systems.
+	names := []string{
+		InitSystemUpstart,
+		InitSystemSystemd,
+		InitSystemWindows,
+	}
+	var checks []discoveryCheck
+	for _, name := range names {
+		checks = append(checks, NewDiscoveryCheck(name, name == expected, nil))
+	}
+	s.PatchLocalDiscovery(checks...)
 }
 
 func (s *BaseSuite) CheckFailure(c *gc.C, err error) {

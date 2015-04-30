@@ -61,25 +61,46 @@ func windowsEnv(paths Paths) []string {
 // or having missing environment variables, may lead to standard go packages not working
 // (os.TempDir relies on $env:TEMP), and powershell erroring out
 // TODO(fwereade, gsamfira): this is copy/pasted from utils/exec.
-func mergeEnvironment(env []string) []string {
-	if env == nil {
+// This is only used on windows, so it is safe to do in a case insensitive way.
+func mergeWindowsEnvironment(newEnv []string) []string {
+	if newEnv == nil {
 		return nil
 	}
-	m := map[string]string{}
-	var tmpEnv []string
-	for _, val := range os.Environ() {
-		varSplit := strings.SplitN(val, "=", 2)
-		m[varSplit[0]] = varSplit[1]
-	}
 
+	env := os.Environ()
+
+	// this whole rigamarole is so that we retain the case of existing
+	// environment variables, while being case insensitive about overwriting
+	// their values.
+
+	orig := make(map[string]string, len(env))
+	uppers := make(map[string]string, len(env))
+	news := map[string]string{}
+
+	tmpEnv := make([]string, 0, len(env))
 	for _, val := range env {
 		varSplit := strings.SplitN(val, "=", 2)
-		m[varSplit[0]] = varSplit[1]
+		k := varSplit[0]
+		uppers[strings.ToUpper(k)] = varSplit[1]
+		orig[k] = varSplit[1]
 	}
 
-	for key, val := range m {
-		tmpEnv = append(tmpEnv, key+"="+val)
+	for _, val := range newEnv {
+		varSplit := strings.SplitN(val, "=", 2)
+		k := varSplit[0]
+		if _, ok := uppers[strings.ToUpper(k)]; ok {
+			uppers[k] = varSplit[1]
+		} else {
+			news[k] = varSplit[1]
+		}
 	}
 
+	for k, _ := range orig {
+		tmpEnv = append(tmpEnv, k+"="+uppers[strings.ToUpper(k)])
+	}
+
+	for k, v := range news {
+		tmpEnv = append(tmpEnv, k+"="+v)
+	}
 	return tmpEnv
 }

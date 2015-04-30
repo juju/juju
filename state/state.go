@@ -73,6 +73,7 @@ const (
 	cleanupsC              = "cleanups"
 	annotationsC           = "annotations"
 	statusesC              = "statuses"
+	statusesHistoryC       = "statuseshistory"
 	stateServersC          = "stateServers"
 	openedPortsC           = "openedPorts"
 	metricsC               = "metrics"

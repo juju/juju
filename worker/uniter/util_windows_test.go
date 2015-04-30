@@ -23,6 +23,11 @@ var (
 )
 
 var (
+	// Used in TestLeadership
+	leadershipScript = `
+If ($(is-leader) -ne "False") {exit -1}
+`[1:]
+
 	// Different hook file contents. These are used in util_test
 	goodHook = `
 juju-log.exe %%JUJU_ENV_UUID%% %s %%JUJU_REMOTE_UNIT%%

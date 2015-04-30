@@ -18,9 +18,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
-	"github.com/juju/utils/featureflag"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/sockets"
 )
 
@@ -68,12 +66,8 @@ func allEnabledCommands() map[string]creator {
 		}
 	}
 	add(baseCommands)
-	if featureflag.Enabled(feature.Storage) {
-		add(storageCommands)
-	}
-	if featureflag.Enabled(feature.LeaderElection) {
-		add(leaderCommands)
-	}
+	add(storageCommands)
+	add(leaderCommands)
 	return all
 }
 

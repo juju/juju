@@ -97,6 +97,7 @@ func (s *MeterStateSuite) TestMeterStatusRemovedWithUnit(c *gc.C) {
 
 func (s *MeterStateSuite) TestMeterStatusWatcherRespondstoMeterStatus(c *gc.C) {
 	watcher := s.unit.WatchMeterStatus()
+	assertMeterStatusChanged(c, watcher)
 	err := s.unit.SetMeterStatus("GREEN", "Information.")
 	c.Assert(err, jc.ErrorIsNil)
 	assertMeterStatusChanged(c, watcher)
@@ -106,6 +107,7 @@ func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManager(c *gc.C
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := s.unit.WatchMeterStatus()
+	assertMeterStatusChanged(c, watcher)
 	err = mm.SetLastSuccessfulSend(time.Now())
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 3; i++ {
@@ -117,13 +119,38 @@ func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManager(c *gc.C
 	assertMeterStatusChanged(c, watcher)
 }
 
+func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManagerAndStatus(c *gc.C) {
+	mm, err := s.State.MetricsManager()
+	c.Assert(err, jc.ErrorIsNil)
+	watcher := s.unit.WatchMeterStatus()
+	assertMeterStatusChanged(c, watcher)
+	err = mm.SetLastSuccessfulSend(time.Now())
+	c.Assert(err, jc.ErrorIsNil)
+	for i := 0; i < 3; i++ {
+		err := mm.IncrementConsecutiveErrors()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	status := mm.MeterStatus()
+	c.Assert(status.Code, gc.Equals, state.MeterAmber)
+	err = s.unit.SetMeterStatus("GREEN", "Information.")
+	c.Assert(err, jc.ErrorIsNil)
+	assertMeterStatusChanged(c, watcher)
+	assertMeterStatusNotChanged(c, watcher)
+}
+
 func assertMeterStatusChanged(c *gc.C, w state.NotifyWatcher) {
-	for i := 0; i < 2; i++ {
-		select {
-		case <-w.Changes():
-		case <-time.After(testing.LongWait):
-			c.Fatalf("expected event from watcher by now")
-		}
+	select {
+	case <-w.Changes():
+	case <-time.After(testing.LongWait):
+		c.Fatalf("expected event from watcher by now")
+	}
+}
+
+func assertMeterStatusNotChanged(c *gc.C, w state.NotifyWatcher) {
+	select {
+	case <-w.Changes():
+		c.Fatalf("unexpected event from watcher")
+	case <-time.After(testing.ShortWait):
 	}
 }
 

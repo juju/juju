@@ -14,14 +14,6 @@ package feature
 // to the apiserver endpoints, api client and CLI commands.
 const JES = "jes"
 
-// Storage is the name of the feature to enable storage commands
-// and server-side functionality.
-const Storage = "storage"
-
-// LeaderElection is the name of the feature to enable leadership hooks
-// and hook tools.
-const LeaderElection = "leader-election"
-
 // LogErrorStack is a developer feature flag to have the LoggedErrorStack
 // function in the utils package write out the error stack as defined by the
 // errors package to the logger.  The ability to log the error stack is very
@@ -49,3 +41,9 @@ const DbLog = "db-log"
 // NewStatus is the name of the feature to enable the new
 // juju status output.
 const NewStatus = "new-status"
+
+// CloudSigma enables the CloudSigma provider.
+const CloudSigma = "cloudsigma"
+
+// VSphereProvider enables the generic vmware provider.
+const VSphereProvider = "vsphere-provider"

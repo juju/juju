@@ -86,6 +86,13 @@ func SkipIfI386(c *gc.C, bugID string) {
 	}
 }
 
+// SkipIfWindowsBug skips the test if the OS is Windows.
+func SkipIfWindowsBug(c *gc.C, bugID string) {
+	if runtime.GOOS == "windows" {
+		c.Skip(fmt.Sprintf("Test disabled on Windows until fixed - see bug %s", bugID))
+	}
+}
+
 // SetInitialFeatureFlags sets the feature flags to be in effect for
 // the next call to SetUpTest.
 func (s *JujuOSEnvSuite) SetInitialFeatureFlags(flags ...string) {

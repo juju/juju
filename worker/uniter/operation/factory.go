@@ -176,3 +176,13 @@ func (f *factory) NewUpdateStorage(tags []names.StorageTag) (Operation, error) {
 		storageUpdater: f.storageUpdater,
 	}, nil
 }
+
+// NewResignLeadership is part of the Factory interface.
+func (f *factory) NewResignLeadership() (Operation, error) {
+	return &resignLeadership{}, nil
+}
+
+// NewAcceptLeadership is part of the Factory interface.
+func (f *factory) NewAcceptLeadership() (Operation, error) {
+	return &acceptLeadership{}, nil
+}

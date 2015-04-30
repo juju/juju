@@ -11,10 +11,11 @@ import (
 )
 
 var (
-	ErrNoStateFile = errors.New("uniter state file does not exist")
-	ErrSkipExecute = errors.New("operation already executed")
-	ErrNeedsReboot = errors.New("reboot request issued")
-	ErrHookFailed  = errors.New("hook failed")
+	ErrNoStateFile            = errors.New("uniter state file does not exist")
+	ErrSkipExecute            = errors.New("operation already executed")
+	ErrNeedsReboot            = errors.New("reboot request issued")
+	ErrHookFailed             = errors.New("hook failed")
+	ErrCannotAcceptLeadership = errors.New("cannot accept leadership")
 )
 
 type deployConflictError struct {

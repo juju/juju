@@ -99,6 +99,7 @@ func (w *unixConfigure) ConfigureBasic() error {
 		w.conf.AddScripts(script)
 		w.conf.AddScripts("systemctl stop firewalld")
 		w.conf.AddScripts("systemctl disable firewalld")
+		w.conf.AddScripts(`sed -i "s/^.*requiretty/#Defaults requiretty/" /etc/sudoers`)
 	}
 	w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.icfg.CloudInitOutputLog, "")
 	// Create a file in a well-defined location containing the machine's
