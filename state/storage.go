@@ -927,38 +927,52 @@ func (st *State) AddStorageForUnit(
 		return errors.Trace(err)
 	}
 
-	// Storage directive may provide storage instance count
-	// which combined with existing storage instance may exceed
-	// number of storage instances specified by charm.
-	// We must take it into account when validating.
-	currentCount, err := st.countEntityStorageInstancesForName(u.Tag(), name)
+	ops, err := st.constructAddUnitStorageOps(charmMeta, u, name, completeCons)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	completeCons.Count = completeCons.Count + currentCount
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// Storage directive may provide storage instance count
+		// which combined with existing storage instance may exceed
+		// number of storage instances specified by charm.
+		// We must take it into account when validating.
+		currentCount, err := st.countEntityStorageInstancesForName(u.Tag(), name)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		completeCons.Count = completeCons.Count + currentCount
 
-	err = validateStorageConstraintsAgainstCharmStorage(
-		st,
-		map[string]StorageConstraints{name: completeCons},
-		charmMeta)
-	if err != nil {
-		return errors.Trace(err)
+		err = validateStorageConstraintsAgainstCharmStorage(
+			st,
+			map[string]StorageConstraints{name: completeCons},
+			charmMeta)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return ops, nil
 	}
-	completeCons.Count = completeCons.Count - currentCount
+	if err := st.run(buildTxn); err != nil {
+		return errors.Annotate(err, "while creating storage")
+	}
+	return nil
+}
 
+func (st *State) constructAddUnitStorageOps(
+	charmMeta *charm.Meta, u *Unit, name string, cons StorageConstraints,
+) ([]txn.Op, error) {
 	// Create storage db operations
 	storageOps, _, err := createStorageOps(
 		st,
 		u.Tag(),
 		charmMeta,
-		map[string]StorageConstraints{name: completeCons})
+		map[string]StorageConstraints{name: cons})
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	// Update storage attachment count.
 	priorCount := u.doc.StorageAttachmentCount
-	newCount := priorCount + int(completeCons.Count)
+	newCount := priorCount + int(cons.Count)
 	ops := []txn.Op{
 		{
 			C:  unitsC,
@@ -969,11 +983,7 @@ func (st *State) AddStorageForUnit(
 				bson.D{{"storageattachmentcount", newCount}}}},
 		},
 	}
-	ops = append(ops, storageOps...)
-	if err := st.runTransaction(ops); err != nil {
-		return errors.Annotate(err, "while creating storage")
-	}
-	return nil
+	return append(ops, storageOps...), nil
 }
 
 func (st *State) countEntityStorageInstancesForName(
