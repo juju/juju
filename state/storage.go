@@ -927,25 +927,12 @@ func (st *State) AddStorageForUnit(
 		return errors.Trace(err)
 	}
 
-	ops, err := st.constructAddUnitStorageOps(charmMeta, u, name, completeCons)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// Storage directive may provide storage instance count
-		// which combined with existing storage instance may exceed
-		// number of storage instances specified by charm.
-		// We must take it into account when validating.
-		currentCount, err := st.countEntityStorageInstancesForName(u.Tag(), name)
+		err := st.validateUnitStorage(charmMeta, u, name, completeCons)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		completeCons.Count = completeCons.Count + currentCount
-
-		err = validateStorageConstraintsAgainstCharmStorage(
-			st,
-			map[string]StorageConstraints{name: completeCons},
-			charmMeta)
+		ops, err := st.constructAddUnitStorageOps(charmMeta, u, name, completeCons)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -954,6 +941,30 @@ func (st *State) AddStorageForUnit(
 	if err := st.run(buildTxn); err != nil {
 		return errors.Annotate(err, "while creating storage")
 	}
+	return nil
+}
+
+func (st *State) validateUnitStorage(
+	charmMeta *charm.Meta, u *Unit, name string, cons StorageConstraints,
+) error {
+	// Storage directive may provide storage instance count
+	// which combined with existing storage instance may exceed
+	// number of storage instances specified by charm.
+	// We must take it into account when validating.
+	currentCount, err := st.countEntityStorageInstancesForName(u.Tag(), name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	cons.Count = cons.Count + currentCount
+
+	err = validateStorageConstraintsAgainstCharmStorage(
+		st,
+		map[string]StorageConstraints{name: cons},
+		charmMeta)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	cons.Count = cons.Count - currentCount
 	return nil
 }
 
