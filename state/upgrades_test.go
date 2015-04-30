@@ -2610,3 +2610,97 @@ func (s *upgradesSuite) TestAddLeadershipSettingsIdempotent(c *gc.C) {
 
 	c.Check(firstPassIDs, jc.SameContents, secondPassIDs)
 }
+
+func (s *upgradesSuite) prepareEnvsForMachineBlockDevices(c *gc.C, envs map[string][]string) []string {
+	environments, closer := s.state.getRawCollection(environmentsC)
+	defer closer()
+	addEnvironment := func(envUUID string) {
+		err := environments.Insert(bson.M{
+			"_id": envUUID,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	var expectedDocIDs []string
+	machines, closer := s.state.getRawCollection(machinesC)
+	defer closer()
+	addMachine := func(envUUID, id string) {
+		err := machines.Insert(bson.M{
+			"_id":       envUUID + ":" + id,
+			"env-uuid":  envUUID,
+			"machineid": id,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		expectedDocIDs = append(expectedDocIDs, envUUID+":"+id)
+	}
+
+	// Use the helpers to set up the environments.
+	for envUUID, machines := range envs {
+		if envUUID == "" {
+			envUUID = s.state.EnvironUUID()
+		} else {
+			addEnvironment(envUUID)
+		}
+		for _, mId := range machines {
+			addMachine(envUUID, mId)
+		}
+	}
+
+	return expectedDocIDs
+}
+
+func (s *upgradesSuite) TestAddBlockDevicesDocs(c *gc.C) {
+	expectedDocIDs := s.prepareEnvsForMachineBlockDevices(c, map[string][]string{
+		"": []string{"1", "2"},
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"1"},
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"1"},
+	})
+
+	err := AddDefaultBlockDevicesDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actualDocIDs := s.readDocIDs(c, blockDevicesC, "")
+	c.Assert(actualDocIDs, jc.SameContents, expectedDocIDs)
+}
+
+func (s *upgradesSuite) TestAddBlockDevicesDocsFresh(c *gc.C) {
+	err := AddDefaultBlockDevicesDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actualDocIDs := s.readDocIDs(c, blockDevicesC, "")
+	c.Assert(actualDocIDs, gc.HasLen, 0)
+}
+
+func (s *upgradesSuite) TestAddBlockDevicesDocsMultipleEmpty(c *gc.C) {
+	s.prepareEnvsForMachineBlockDevices(c, map[string][]string{
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": nil,
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": nil,
+	})
+
+	err := AddDefaultBlockDevicesDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actualDocIDs := s.readDocIDs(c, blockDevicesC, "")
+	c.Assert(actualDocIDs, gc.HasLen, 0)
+}
+
+func (s *upgradesSuite) TestAddBlockDevicesDocsIdempotent(c *gc.C) {
+	s.prepareEnvsForMachineBlockDevices(c, map[string][]string{
+		"": []string{"1", "2"},
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"1"},
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"1"},
+	})
+
+	originalIDs := s.readDocIDs(c, blockDevicesC, "")
+	c.Assert(originalIDs, gc.HasLen, 0)
+
+	err := AddDefaultBlockDevicesDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	firstPassIDs := s.readDocIDs(c, blockDevicesC, "")
+
+	err = AddDefaultBlockDevicesDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	secondPassIDs := s.readDocIDs(c, blockDevicesC, "")
+
+	c.Assert(firstPassIDs, jc.SameContents, secondPassIDs)
+}
