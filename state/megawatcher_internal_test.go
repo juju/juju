@@ -1453,6 +1453,16 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 					Name:    "wordpress/0",
 					Service: "wordpress",
 					Status:  multiwatcher.Status("started"),
+					AgentStatus: multiwatcher.StatusInfo{
+						Current: "idle",
+						Message: "",
+						Data:    map[string]interface{}{},
+						Since:   &now,
+					},
+					WorkloadStatus: multiwatcher.StatusInfo{
+						Current: "active",
+						Since:   &now,
+					},
 				}},
 				change: watcher.Change{
 					C:  "statuses",
@@ -1477,6 +1487,11 @@ func (s *storeManagerStateSuite) TestChangeUnits(c *gc.C) {
 								"2nd-key": 2,
 								"3rd-key": true,
 							},
+						},
+						AgentStatus: multiwatcher.StatusInfo{
+							Current: "idle",
+							Message: "",
+							Data:    map[string]interface{}{},
 						},
 					}}}
 		},

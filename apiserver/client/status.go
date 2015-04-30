@@ -684,12 +684,17 @@ func processUnitAndAgentStatus(unit *state.Unit, status *api.UnitStatus) {
 	// Legacy fields required until Juju 2.0.
 	// We only display pending, started, error, stopped.
 	var ok bool
-	status.AgentState, ok = params.TranslateToLegacyAgentState(status.Workload.Status, status.UnitAgent.Status)
+	legacyState, ok := state.TranslateToLegacyAgentState(
+		state.Status(status.UnitAgent.Status),
+		state.Status(status.Workload.Status),
+		status.Workload.Info,
+	)
 	if !ok {
 		logger.Warningf(
 			"translate to legacy status encounted unexpected workload status %q and agent status %q",
 			status.Workload.Status, status.UnitAgent.Status)
 	}
+	status.AgentState = params.Status(legacyState)
 	if status.AgentState == params.StatusError {
 		status.AgentStateInfo = status.Workload.Info
 	}
