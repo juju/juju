@@ -11,8 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/goose.v1/cinder"
-	"gopkg.in/goose.v1/client"
-	"gopkg.in/goose.v1/identity"
 	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/environs/config"
@@ -26,34 +24,31 @@ const (
 	autoAssignedMountPoint = ""
 )
 
-type OpenstackProvider struct {
-	newOpenstackAdapter func(*config.Config) (OpenstackAdapter, error)
+type cinderProvider struct {
+	newStorageAdapter func(*config.Config) (openstackStorage, error)
 }
 
-var _ storage.Provider = (*OpenstackProvider)(nil)
+var _ storage.Provider = (*cinderProvider)(nil)
 
 // VolumeSource implements storage.Provider.
-func (p *OpenstackProvider) VolumeSource(environConfig *config.Config, providerConfig *storage.Config) (storage.VolumeSource, error) {
-
+func (p *cinderProvider) VolumeSource(environConfig *config.Config, providerConfig *storage.Config) (storage.VolumeSource, error) {
 	if err := p.ValidateConfig(providerConfig); err != nil {
 		return nil, err
 	}
-
-	openstackClient, err := p.newOpenstackAdapter(environConfig)
+	storageAdapter, err := p.newStorageAdapter(environConfig)
 	if err != nil {
 		return nil, err
 	}
-
-	return &openstackVolumeSource{openstackClient}, nil
+	return &cinderVolumeSource{storageAdapter}, nil
 }
 
 // FilesystemSource implements storage.Provider.
-func (p *OpenstackProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
+func (p *cinderProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
 	return nil, errors.NotSupportedf("filesystems")
 }
 
 // Supports implements storage.Provider.
-func (p *OpenstackProvider) Supports(kind storage.StorageKind) bool {
+func (p *cinderProvider) Supports(kind storage.StorageKind) bool {
 	switch kind {
 	case storage.StorageKindBlock:
 		return true
@@ -62,243 +57,261 @@ func (p *OpenstackProvider) Supports(kind storage.StorageKind) bool {
 }
 
 // Scope implements storage.Provider.
-func (s *OpenstackProvider) Scope() storage.Scope {
+func (s *cinderProvider) Scope() storage.Scope {
 	return storage.ScopeEnviron
 }
 
 // ValidateConfig implements storage.Provider.
-func (p *OpenstackProvider) ValidateConfig(cfg *storage.Config) error {
+func (p *cinderProvider) ValidateConfig(cfg *storage.Config) error {
 	return nil
 }
 
 // Dynamic implements storage.Provider.
-func (p *OpenstackProvider) Dynamic() bool {
+func (p *cinderProvider) Dynamic() bool {
 	return true
 }
 
-type openstackVolumeSource struct {
-	openstackClient OpenstackAdapter
+type cinderVolumeSource struct {
+	storageAdapter openstackStorage
 }
 
-var _ storage.VolumeSource = (*openstackVolumeSource)(nil)
+var _ storage.VolumeSource = (*cinderVolumeSource)(nil)
 
 // CreateVolumes implements storage.VolumeSource.
-func (s *openstackVolumeSource) CreateVolumes(args []storage.VolumeParams) (vols []storage.Volume, volAtt []storage.VolumeAttachment, returnErr error) {
-
-	vols = make([]storage.Volume, 0, len(args))
-	volAtt = make([]storage.VolumeAttachment, 0, len(args))
-
-	for _, a := range args {
-
-		createdVol, err := s.openstackClient.CreateVolume(a.Size, a.Tag)
+func (s *cinderVolumeSource) CreateVolumes(args []storage.VolumeParams) (_ []storage.Volume, _ []storage.VolumeAttachment, resultErr error) {
+	volumes := make([]storage.Volume, len(args))
+	for i, arg := range args {
+		volume, err := s.createVolume(arg)
 		if err != nil {
 			return nil, nil, err
 		}
-		vols = append(vols, createdVol)
+		volumes[i] = volume
 
 		// If the method exits with an error, be sure to delete any
 		// created volumes so that we're idempotent. We create several
 		// clousures instead of one to take advantage of the loop
 		// parameter.
-		defer func(arg storage.VolumeParams, createdVol storage.Volume) {
-			if returnErr == nil {
+		defer func(arg storage.VolumeParams, volume storage.Volume) {
+			if resultErr == nil {
 				return
 			}
-
-			if arg.Attachment != nil {
-				volAttachments, err := s.openstackClient.ListVolumeAttachments(string(arg.Attachment.InstanceId))
-				if err != nil {
-					logger.Warningf("could not list volumes while cleaning up: %v", err)
-					return
-				}
-
-				if err := detachVolume(
-					string(arg.Attachment.InstanceId),
-					arg.Attachment.VolumeId,
-					volAttachments,
-					s.openstackClient,
-				); err != nil {
-					logger.Warningf("could not detach volumes while cleaning up: %v", err)
-					return
-				}
-			}
-
-			if err := s.openstackClient.DeleteVolume(createdVol.VolumeId); err != nil {
-				logger.Warningf("could not delete volumes while cleaning up: %v", err)
-				return
-			}
-		}(a, createdVol)
-
-		if a.Attachment != nil && a.Attachment.InstanceId != "" {
-
-			a.Attachment.VolumeId = createdVol.VolumeId
-
-			attachments, err := s.AttachVolumes([]storage.VolumeAttachmentParams{*a.Attachment})
+			attachments, err := s.storageAdapter.ListVolumeAttachments(string(arg.Attachment.InstanceId))
 			if err != nil {
-				return nil, nil, err
+				logger.Warningf("could not list volumes while cleaning up: %v", err)
+				return
 			}
-
-			volAtt = append(volAtt, attachments...)
-		}
+			if err := detachVolume(
+				string(arg.Attachment.InstanceId),
+				volume.VolumeId,
+				attachments,
+				s.storageAdapter,
+			); err != nil {
+				logger.Warningf("could not detach volumes while cleaning up: %v", err)
+				return
+			}
+			if err := s.storageAdapter.DeleteVolume(volume.VolumeId); err != nil {
+				logger.Warningf("could not delete volumes while cleaning up: %v", err)
+			}
+		}(arg, volume)
 	}
 
-	return vols, volAtt, nil
+	attachmentParams := make([]storage.VolumeAttachmentParams, len(volumes))
+	for i, volume := range volumes {
+		attachmentParams[i] = *args[i].Attachment
+		attachmentParams[i].VolumeId = volume.VolumeId
+	}
+	attachments, err := s.AttachVolumes(attachmentParams)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	return volumes, attachments, nil
+}
+
+func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (storage.Volume, error) {
+	cinderVolume, err := s.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+		// The Cinder documentation incorrectly states the
+		// size parameter is in GB. It is actually GiB.
+		Size: int(math.Ceil(float64(arg.Size / 1024))),
+		Name: arg.Tag.String(),
+		// TODO(axw) use the AZ of the initially attached machine.
+		AvailabilityZone: "",
+	})
+	if err != nil {
+		return storage.Volume{}, errors.Trace(err)
+	}
+	return cinderToJujuVolume(arg.Tag, cinderVolume), nil
 }
 
 // DescribeVolumes implements storage.VolumeSource.
-func (s *openstackVolumeSource) DescribeVolumes(volIds []string) ([]storage.Volume, error) {
-
+func (s *cinderVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.Volume, error) {
 	// In most cases, it is quicker to get all volumes and loop
 	// locally than to make several round-trips to the provider.
-	cinderVols, err := s.openstackClient.GetVolumesSimple()
+	cinderVolumes, err := s.storageAdapter.GetVolumesSimple()
 	if err != nil {
 		return nil, err
 	}
-
-	// Map volume ID to volume info for faster lookup.
-	idToCinderVol := make(map[string]storage.Volume)
-	for _, volInfo := range cinderVols {
-		idToCinderVol[volInfo.VolumeId] = volInfo
+	volumesById := make(map[string]*cinder.Volume)
+	for i, volume := range cinderVolumes {
+		volumesById[volume.ID] = &cinderVolumes[i]
 	}
-
-	volumes := make([]storage.Volume, len(volIds))
-	for volIdx, volId := range volIds {
-		cinderVol, ok := idToCinderVol[volId]
+	volumes := make([]storage.Volume, len(volumeIds))
+	for i, volumeId := range volumeIds {
+		cinderVolume, ok := volumesById[volumeId]
 		if !ok {
-			return nil, errors.Errorf("could not find volume: %s", volId)
+			return nil, errors.NotFoundf("volume %q", volumeId)
 		}
-		volumes[volIdx] = cinderVol
+		volumes[i] = cinderToJujuVolume(names.VolumeTag{}, cinderVolume)
 	}
-
 	return volumes, nil
 }
 
 // DestroyVolumes implements storage.VolumeSource.
-func (s *openstackVolumeSource) DestroyVolumes(volIds []string) []error {
-
-	errors := make([]error, len(volIds))
-	for volIdx, volId := range volIds {
-		if err := s.openstackClient.DeleteVolume(volId); err != nil {
-			errors[volIdx] = err
+func (s *cinderVolumeSource) DestroyVolumes(volumeIds []string) []error {
+	errors := make([]error, len(volumeIds))
+	for i, volumeId := range volumeIds {
+		if err := s.storageAdapter.DeleteVolume(volumeId); err != nil {
+			errors[i] = err
 		}
 	}
 	return errors
 }
 
 // ValidateVolumeParams implements storage.VolumeSource.
-func (s *openstackVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
+func (s *cinderVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
+	// TODO(axw) this should move to the storageprovisioner.
+	if params.Attachment == nil || params.Attachment.InstanceId == "" {
+		return storage.ErrVolumeNeedsInstance
+	}
 	return nil
 }
 
 // AttachVolumes implements storage.VolumeSource.
-func (s *openstackVolumeSource) AttachVolumes(args []storage.VolumeAttachmentParams) ([]storage.VolumeAttachment, error) {
-
-	volAttachments := make([]storage.VolumeAttachment, 0, len(args))
-	for _, attachArg := range args {
-
-		// Check to see if the volume is already attached.
-		existingVolAttachments, err := s.openstackClient.ListVolumeAttachments(string(attachArg.InstanceId))
+func (s *cinderVolumeSource) AttachVolumes(args []storage.VolumeAttachmentParams) ([]storage.VolumeAttachment, error) {
+	attachments := make([]storage.VolumeAttachment, len(args))
+	for i, arg := range args {
+		attachment, err := s.attachVolume(arg)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
-		if findAttachment(attachArg.VolumeId, existingVolAttachments) != nil {
-			continue
-		}
+		attachments[i] = attachment
+	}
+	return attachments, nil
+}
 
-		// A volume's status must be available before it can be
-		// attached.
+func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (storage.VolumeAttachment, error) {
+	// Check to see if the volume is already attached.
+	existingAttachments, err := s.storageAdapter.ListVolumeAttachments(string(arg.InstanceId))
+	if err != nil {
+		return storage.VolumeAttachment{}, err
+	}
+	novaAttachment := findAttachment(arg.VolumeId, existingAttachments)
+	if novaAttachment == nil {
+		// A volume must be "available" before it can be attached.
 		const numAttempts = 10
 		const retryInterval = 5 * time.Second
-		if err := <-s.openstackClient.VolumeStatusNotifier(
-			attachArg.VolumeId,
+		if err := <-s.storageAdapter.VolumeStatusNotifier(
+			arg.VolumeId,
 			"available",
 			numAttempts,
 			retryInterval,
 		); err != nil {
-			return nil, err
+			return storage.VolumeAttachment{}, err
 		}
 
-		novaAttachment, err := s.openstackClient.AttachVolume(
-			string(attachArg.InstanceId),
-			attachArg.VolumeId,
+		novaAttachment, err = s.storageAdapter.AttachVolume(
+			string(arg.InstanceId),
+			arg.VolumeId,
 			autoAssignedMountPoint,
 		)
 		if err != nil {
-			return nil, err
+			return storage.VolumeAttachment{}, err
 		}
-		attachment := storage.VolumeAttachment{
-			Machine:    attachArg.Machine,
-			Volume:     attachArg.Volume,
-			DeviceName: novaAttachment.Device[len("/dev/"):],
-		}
-
-		volAttachments = append(volAttachments, attachment)
 	}
-
-	return volAttachments, nil
+	return storage.VolumeAttachment{
+		Machine:    arg.Machine,
+		Volume:     arg.Volume,
+		DeviceName: novaAttachment.Device[len("/dev/"):],
+	}, nil
 }
 
 // DetachVolumes implements storage.VolumeSource.
-func (s *openstackVolumeSource) DetachVolumes(args []storage.VolumeAttachmentParams) error {
-
-	for _, attachArg := range args {
+func (s *cinderVolumeSource) DetachVolumes(args []storage.VolumeAttachmentParams) error {
+	for _, arg := range args {
 		// Check to see if the volume is already detached.
-		volAttachments, err := s.openstackClient.ListVolumeAttachments(string(attachArg.InstanceId))
+		attachments, err := s.storageAdapter.ListVolumeAttachments(string(arg.InstanceId))
 		if err != nil {
 			return err
 		}
-
 		if err := detachVolume(
-			string(attachArg.InstanceId),
-			attachArg.VolumeId,
-			volAttachments,
-			s.openstackClient,
+			string(arg.InstanceId),
+			arg.VolumeId,
+			attachments,
+			s.storageAdapter,
 		); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
-type OpenstackAdapter interface {
-	GetVolumesSimple() ([]storage.Volume, error)
-	DeleteVolume(string) error
-	CreateVolume(size uint64, tag names.VolumeTag) (storage.Volume, error)
+func cinderToJujuVolume(tag names.VolumeTag, volume *cinder.Volume) storage.Volume {
+	return storage.Volume{
+		VolumeId: volume.ID,
+		Size:     uint64(volume.Size * 1024),
+		Tag:      tag,
+		// TODO(axw) there is currently no way to mark a volume as
+		// "delete on termination", so all volumes are persistent.
+		Persistent: true,
+	}
+}
+
+func novaToJujuVolumeAttachment(attachment *nova.VolumeAttachment) storage.VolumeAttachment {
+	return storage.VolumeAttachment{
+		Volume:     names.NewVolumeTag(attachment.VolumeId),
+		Machine:    names.NewMachineTag(attachment.ServerId),
+		DeviceName: attachment.Device[len("/dev/"):],
+	}
+}
+
+func detachVolume(instanceId, volumeId string, attachments []nova.VolumeAttachment, storageAdapter openstackStorage) error {
+	// TODO(axw) verify whether we need to do this find step. From looking at the example
+	// responses in the OpenStack docs, the "attachment ID" is always the same as the
+	// volume ID. So we should just be able to issue a blind detach request, and then
+	// ignore errors that indicate the volume is already detached.
+	if findAttachment(volumeId, attachments) == nil {
+		return nil
+	}
+	return storageAdapter.DetachVolume(instanceId, volumeId)
+}
+
+func findAttachment(volId string, attachments []nova.VolumeAttachment) *nova.VolumeAttachment {
+	for _, attachment := range attachments {
+		if attachment.VolumeId == volId {
+			return &attachment
+		}
+	}
+	return nil
+}
+
+type openstackStorage interface {
+	GetVolumesSimple() ([]cinder.Volume, error)
+	DeleteVolume(volumeId string) error
+	CreateVolume(cinder.CreateVolumeVolumeParams) (*cinder.Volume, error)
 	AttachVolume(serverId, volumeId, mountPoint string) (*nova.VolumeAttachment, error)
 	VolumeStatusNotifier(volId, status string, numAttempts int, waitDur time.Duration) <-chan error
 	DetachVolume(serverId, attachmentId string) error
 	ListVolumeAttachments(serverId string) ([]nova.VolumeAttachment, error)
 }
 
-func NewGooseAdapter(environConfig *config.Config) (OpenstackAdapter, error) {
-
+func newOpenstackStorageAdapter(environConfig *config.Config) (openstackStorage, error) {
 	ecfg, err := providerInstance.newConfig(environConfig)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-
-	creds := &identity.Credentials{
-		URL:        ecfg.authURL(),
-		Region:     ecfg.region(),
-		TenantName: ecfg.tenantName(),
-	}
-	var authClient client.AuthenticatingClient
-	switch AuthMode(ecfg.authMode()) {
-	default:
-		return nil, errors.NotValidf("auth-mode not supported: %s", ecfg.authMode())
-	case AuthUserPass:
-		creds.User = ecfg.username()
-		creds.Secrets = ecfg.password()
-		authClient = client.NewClient(creds, identity.AuthUserPass, nil)
-	case AuthKeyPair:
-		creds.User = ecfg.accessKey()
-		creds.Secrets = ecfg.secretKey()
-		authClient = client.NewClient(creds, identity.AuthKeyPair, nil)
-	}
-
+	authClient := authClient(ecfg)
 	if err := authClient.Authenticate(); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	endpoint := authClient.EndpointsForRegion(ecfg.region())["volume"]
@@ -306,106 +319,38 @@ func NewGooseAdapter(environConfig *config.Config) (OpenstackAdapter, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "error parsing endpoint")
 	}
-	cinderClient := cinder.Basic(endpointUrl, authClient.TenantId(), authClient.Token)
 
-	logger.Warningf("KT: authUrl found: %s", ecfg.authURL())
-	logger.Warningf("KT: region found: %s", ecfg.region())
-	logger.Warningf("KT: endpoint found: %s", endpoint)
-
-	novaClient := nova.New(authClient)
-
-	return &gooseAdapter{cinderClient, novaClient}, nil
+	return &openstackStorageAdapter{
+		cinderClient{cinder.Basic(endpointUrl, authClient.TenantId(), authClient.Token)},
+		novaClient{nova.New(authClient)},
+	}, nil
 }
 
-type gooseAdapter struct {
-	cinder *cinder.Client
-	nova   *nova.Client
+type openstackStorageAdapter struct {
+	cinderClient
+	novaClient
 }
 
-func (ga *gooseAdapter) CreateVolume(size uint64, tag names.VolumeTag) (storage.Volume, error) {
-
-	resp, err := ga.cinder.CreateVolume(cinder.CreateVolumeVolumeParams{
-		// NOTE: The Cinder documentation incorrectly states the
-		// size parameter is in GB. It is actually GiB.
-		Size: int(math.Ceil(float64(size / 1024))),
-		Name: tag.String(),
-	})
-	if err != nil {
-		return storage.Volume{}, err
-	}
-	return cinderToJujuVolume(tag, &resp.Volume), err
+type cinderClient struct {
+	*cinder.Client
 }
 
-func (ga *gooseAdapter) DeleteVolume(volId string) error {
-	return ga.cinder.DeleteVolume(volId)
+type novaClient struct {
+	*nova.Client
 }
 
-func (ga *gooseAdapter) GetVolumesSimple() ([]storage.Volume, error) {
-
-	resp, err := ga.cinder.GetVolumesSimple()
+func (ga *openstackStorageAdapter) CreateVolume(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
+	resp, err := ga.cinderClient.CreateVolume(args)
 	if err != nil {
 		return nil, err
 	}
-
-	vols := make([]storage.Volume, len(resp.Volumes))
-	for idx, vol := range resp.Volumes {
-		vols[idx] = cinderToJujuVolume(names.VolumeTag{}, &vol)
-	}
-
-	return vols, nil
+	return &resp.Volume, nil
 }
 
-func (ga *gooseAdapter) AttachVolume(serverId, volumeId, mountPoint string) (*nova.VolumeAttachment, error) {
-	attachment, err := ga.nova.AttachVolume(serverId, volumeId, mountPoint)
+func (ga *openstackStorageAdapter) GetVolumesSimple() ([]cinder.Volume, error) {
+	resp, err := ga.cinderClient.GetVolumesSimple()
 	if err != nil {
 		return nil, err
 	}
-	return attachment, nil
-}
-
-func (ga *gooseAdapter) VolumeStatusNotifier(volId, status string, numAttempts int, waitDur time.Duration) <-chan error {
-	return ga.cinder.VolumeStatusNotifier(volId, status, numAttempts, waitDur)
-}
-
-func (ga *gooseAdapter) ListVolumeAttachments(serverId string) ([]nova.VolumeAttachment, error) {
-	novaVolAttachments, err := ga.nova.ListVolumeAttachments(serverId)
-	if err != nil {
-		return nil, err
-	}
-	return novaVolAttachments, nil
-}
-
-func (ga *gooseAdapter) DetachVolume(serverId, attachmentId string) error {
-	return ga.nova.DetachVolume(serverId, attachmentId)
-}
-
-func cinderToJujuVolume(tag names.VolumeTag, volume *cinder.Volume) storage.Volume {
-	var size uint64
-	size = uint64(int64(volume.Size * 1024))
-	return storage.Volume{
-		VolumeId: volume.ID,
-		Size:     size,
-		Tag:      tag,
-	}
-}
-
-func detachVolume(instanceId, volId string, volAttachments []nova.VolumeAttachment, openstackClient OpenstackAdapter) error {
-	// TODO(axw) verify whether we need to do this find step. From looking at the example
-	// responses in the OpenStack docs, the "attachment ID" is always the same as the
-	// volume ID. So we should just be able to issue a blind detach request, and then
-	// ignore errors that indicate the volume is already detached.
-	attachment := findAttachment(volId, volAttachments)
-	if attachment == nil {
-		return nil
-	}
-	return openstackClient.DetachVolume(instanceId, attachment.Id)
-}
-
-func findAttachment(volId string, volAttachments []nova.VolumeAttachment) *nova.VolumeAttachment {
-	for _, volAttach := range volAttachments {
-		if volAttach.VolumeId == volId {
-			return &volAttach
-		}
-	}
-	return nil
+	return resp.Volumes, nil
 }

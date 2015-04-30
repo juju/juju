@@ -21,7 +21,7 @@ func init() {
 	// Register the Openstack specific providers.
 	registry.RegisterProvider(
 		CinderProviderType,
-		&OpenstackProvider{NewGooseAdapter},
+		&cinderProvider{newOpenstackStorageAdapter},
 	)
 
 	// Register the Cinder provider with the Openstack provider.
