@@ -759,41 +759,6 @@ const (
 // It could be a unit, machine or its agent.
 type Status multiwatcher.Status
 
-// TranslateLegacyAgentStatus returns the status value clients expect to see for
-// agent-state in versions prior to 1.24
-// Note: This needs to be kept in sync with state/megawatcher.go translateLegacyUnitAgentStatus
-func TranslateToLegacyAgentState(workloadStatus, agentStatus Status) (Status, bool) {
-	// Originally AgentState (a member of api.UnitStatus) could hold one of:
-	// StatusPending
-	// StatusInstalled
-	// StatusStarted
-	// StatusStopped
-	// StatusError
-	// StatusDown
-	// For compatibility reasons we convert modern states (from V2 uniter) into
-	// four of the old ones: StatusPending, StatusStarted, StatusStopped, or StatusError.
-	switch agentStatus {
-	case StatusAllocating:
-		return StatusPending, true
-	case StatusError:
-		return StatusError, true
-	case StatusRebooting, StatusExecuting, StatusIdle, StatusLost, StatusFailed:
-		switch workloadStatus {
-		case StatusError:
-			return StatusError, true
-		case StatusTerminated:
-			return StatusStopped, true
-		case StatusMaintenance:
-			// TODO(wallyworld): until we can query status history, returning Started
-			// is a resonable approximation.
-			return StatusStarted, true
-		default:
-			return StatusStarted, true
-		}
-	}
-	return "", false
-}
-
 const (
 	// Status values common to machine and unit agents.
 
