@@ -101,14 +101,7 @@ func awsClients(cfg *config.Config) (*ec2.EC2, *s3.S3, *environConfig, error) {
 
 	auth := aws.Auth{ecfg.accessKey(), ecfg.secretKey()}
 	region := aws.Regions[ecfg.region()]
-
-	// TODO(katco-): Eventually we want to migrate to v4, but this
-	// change is designed to be least impactful. We are currently only
-	// trying to support the China region.
-	signer := aws.SignV2
-	if region == aws.CNNorth {
-		signer = aws.SignV4Factory(region.Name, "ec2")
-	}
+	signer := aws.SignV4Factory(region.Name, "ec2")
 	return ec2.New(auth, region, signer), s3.New(auth, region), ecfg, nil
 }
 
