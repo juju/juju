@@ -100,6 +100,10 @@ type InstanceConfig struct {
 	// is.  If the instance is not a container, then the type is "".
 	MachineContainerType instance.ContainerType
 
+	// MachineContainerHostname specifies the hostname to be used with the
+	// cloud config for the instance. If this is not set, hostname uses the default.
+	MachineContainerHostname string
+
 	// Networks holds a list of networks the instances should be on.
 	Networks []string
 
