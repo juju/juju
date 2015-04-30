@@ -119,6 +119,7 @@ func (s *cinderVolumeSource) CreateVolumes(args []storage.VolumeParams) (_ []sto
 	for i, volume := range volumes {
 		attachmentParams[i] = *args[i].Attachment
 		attachmentParams[i].VolumeId = volume.VolumeId
+		attachmentParams[i].Volume = volume.Tag
 	}
 	attachments, err := s.AttachVolumes(attachmentParams)
 	if err != nil {
