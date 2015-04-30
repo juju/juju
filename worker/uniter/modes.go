@@ -347,7 +347,7 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 		// (ie continuing to act as though leader after leader-deposed has run).
 	}
 	for {
-		if len(u.relations.GetInfo()) == 0 {
+		if len(u.relations.GetInfo()) == 0 && u.storage.Empty() {
 			return continueAfter(u, newSimpleRunHookOp(hooks.Stop))
 		}
 		var creator creator
@@ -361,6 +361,8 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 		case <-u.f.LeaderSettingsEvents():
 			creator = newSimpleRunHookOp(hook.LeaderSettingsChanged)
 		case hookInfo := <-u.relations.Hooks():
+			creator = newRunHookOp(hookInfo)
+		case hookInfo := <-u.storage.Hooks():
 			creator = newRunHookOp(hookInfo)
 		}
 		if err := u.runOperation(creator); err != nil {

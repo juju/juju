@@ -485,35 +485,6 @@ func destroyStorageAttachmentOps(s *storageAttachment) []txn.Op {
 	return ops
 }
 
-// EnsureStorageAttachmentDead ensures that the storage attachment is Dead
-// if it exists at all, doing nothing if it does not exist.
-func (st *State) EnsureStorageAttachmentDead(storage names.StorageTag, unit names.UnitTag) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot ensure death of storage attachment %s:%s", storage.Id(), unit.Id())
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		s, err := st.storageAttachment(storage, unit)
-		if errors.IsNotFound(err) {
-			return nil, jujutxn.ErrNoOperations
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if s.doc.Life == Dead {
-			return nil, jujutxn.ErrNoOperations
-		}
-		return ensureStorageAttachmentDeadOps(s), nil
-	}
-	return st.run(buildTxn)
-}
-
-func ensureStorageAttachmentDeadOps(s *storageAttachment) []txn.Op {
-	ops := []txn.Op{{
-		C:      storageAttachmentsC,
-		Id:     storageAttachmentId(s.doc.Unit, s.doc.StorageInstance),
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
-	}}
-	return ops
-}
-
 // Remove removes the storage attachment from state, and may remove its storage
 // instance as well, if the storage instance is Dying and no other references to
 // it exist. It will fail if the storage attachment is not Dead.
@@ -544,13 +515,13 @@ func (st *State) RemoveStorageAttachment(storage names.StorageTag, unit names.Un
 }
 
 func removeStorageAttachmentOps(s *storageAttachment, si *storageInstance) ([]txn.Op, error) {
-	if s.doc.Life != Dead {
-		return nil, errors.New("storage attachment is not dead")
+	if s.doc.Life != Dying {
+		return nil, errors.New("storage attachment is not dying")
 	}
 	ops := []txn.Op{{
 		C:      storageAttachmentsC,
 		Id:     storageAttachmentId(s.doc.Unit, s.doc.StorageInstance),
-		Assert: isDeadDoc,
+		Assert: bson.D{{"life", Dying}},
 		Remove: true,
 	}, {
 		C:      unitsC,
@@ -826,35 +797,57 @@ func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstrain
 		return errors.Trace(err)
 	}
 
-	if allCons == nil {
-		allCons = make(map[string]StorageConstraints)
-	}
 	for name, charmStorage := range charmMeta.Storage {
-		cons := allCons[name]
 		kind := storageKind(charmStorage.Type)
-		var err error
-		cons, err = storageConstraintsWithDefaults(conf, kind, charmStorage, cons)
-		if err != nil {
-			if err == ErrNoDefaultStoragePool {
-				err = errors.Maskf(err, "no storage pool specified and no default available for %q storage", name)
+		cons, ok := allCons[name]
+		if !ok {
+			if charmStorage.Shared {
+				// TODO(axw) get the environment's default shared storage
+				// pool, and create constraints here.
+				return errors.Errorf(
+					"no constraints specified for shared charm storage %q",
+					name,
+				)
 			}
+			if charmStorage.CountMin == 0 {
+				continue
+			}
+			var pool storage.ProviderType
+			switch kind {
+			case storage.StorageKindBlock:
+				pool = provider.LoopProviderType
+			case storage.StorageKindFilesystem:
+				pool = provider.RootfsProviderType
+			default:
+				return errors.Errorf("unhandled storage kind %v", kind)
+			}
+			cons = StorageConstraints{
+				Pool:  string(pool),
+				Count: uint64(charmStorage.CountMin),
+			}
+		}
+		cons, err := storageConstraintsWithDefaults(conf, kind, charmStorage, cons, name)
+		if err != nil {
 			return err
 		}
-		// Replace in case pool or size were updated.
 		allCons[name] = cons
 	}
 	return nil
 }
 
 // storageConstraintsWithDefaults returns a constraints derived from cons, with any defaults filled in.
-func storageConstraintsWithDefaults(cfg *config.Config, kind storage.StorageKind,
-	charmStorage charm.Storage, cons StorageConstraints,
+func storageConstraintsWithDefaults(
+	cfg *config.Config,
+	kind storage.StorageKind,
+	charmStorage charm.Storage,
+	cons StorageConstraints,
+	storageName string,
 ) (StorageConstraints, error) {
 	withDefaults := cons
 	if cons.Pool == "" {
 		poolName, err := defaultStoragePool(cfg, kind)
 		if err != nil {
-			return withDefaults, errors.Annotatef(err, "finding default stoage pool")
+			return withDefaults, errors.Annotatef(err, "finding default pool for %q storage", storageName)
 		}
 		withDefaults.Pool = poolName
 	}
