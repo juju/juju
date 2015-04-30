@@ -491,10 +491,10 @@ func (s *AddressableContainerSetupSuite) enableFeatureFlag() {
 func (s *AddressableContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 	for _, test := range []struct {
 		ctype    instance.ContainerType
-		packages []string
+		packages [][]string
 	}{
-		{instance.LXC, []string{"--target-release", "precise-updates/cloud-tools", "lxc", "cloud-image-utils"}},
-		{instance.KVM, []string{"uvtool-libvirt", "uvtool"}},
+		{instance.LXC, [][]string{{"--target-release", "precise-updates/cloud-tools", "lxc", "cloud-image-utils"}}},
+		{instance.KVM, [][]string{{"uvtool-libvirt", "uvtool"}}},
 	} {
 		s.enableFeatureFlag()
 		s.assertContainerInitialised(c, test.ctype, test.packages, true)
