@@ -50,6 +50,6 @@ gopkg.in/yaml.v1	git	9f9df34309c04878acc86042b16630b0f696e1de	2014-09-24T16:16:0
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20140716064605-pk32dnmfust02yab	13
 launchpad.net/golxc	bzr	ian.booth@canonical.com-20141121040613-ztm1q0iy9rune3zt	13
 launchpad.net/gomaasapi	bzr	ian.booth@canonical.com-20150113032002-n7hj4l5a9j9dzaa0	61
-gopkg.in/goose.v1	git	ff89212517d2f87ea24d0cb451e7c3a03244627e	2015-03-24T13:17:47Z
+gopkg.in/goose.v1	git	94313f948a11ebb7e75c72d85262efc7b0b3aa15	2015-04-09T10:29:48+02:00
 launchpad.net/gwacl	bzr	andrew.wilkins@canonical.com-20141203072923-27pcp2hckqyezbfe	242
 launchpad.net/tomb	bzr	gustavo@niemeyer.net-20130531003818-70ikdgklbxopn8x4	17
