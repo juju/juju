@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/container"
 	containertesting "github.com/juju/juju/container/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 	systemdtesting "github.com/juju/juju/service/systemd/testing"
@@ -153,6 +154,7 @@ func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
 }
 
 func (s *UserDataSuite) TestShutdownInitCommandsUpstart(c *gc.C) {
+	s.SetFeatureFlags(feature.AddressAllocation)
 	cmds, err := containerinit.ShutdownInitCommands(service.InitSystemUpstart)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -185,6 +187,7 @@ end script
 }
 
 func (s *UserDataSuite) TestShutdownInitCommandsSystemd(c *gc.C) {
+	s.SetFeatureFlags(feature.AddressAllocation)
 	s.PatchValue(&version.Current.Series, "vivid")
 	commands, err := containerinit.ShutdownInitCommands(service.InitSystemSystemd)
 	c.Assert(err, jc.ErrorIsNil)
