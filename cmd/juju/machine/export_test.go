@@ -10,9 +10,10 @@ var (
 )
 
 // NewAddCommand returns an AddCommand with the api provided as specified.
-func NewAddCommand(api AddMachineAPI) *AddCommand {
+func NewAddCommand(api AddMachineAPI, mmApi MachineManagerAPI) *AddCommand {
 	return &AddCommand{
-		api: api,
+		api:               api,
+		machineManagerAPI: mmApi,
 	}
 }
 

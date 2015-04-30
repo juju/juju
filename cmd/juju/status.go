@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -433,16 +432,6 @@ func (sf *statusFormatter) formatService(name string, service api.ServiceStatus)
 	return out
 }
 
-func (sf *statusFormatter) formatTime(t *time.Time) string {
-	if sf.isoTime {
-		// If requested, use ISO time format
-		return t.Format(time.RFC3339)
-	} else {
-		// Otherwise use local time.
-		return t.Local().Format("02 Jan 2006 15:04:05 MST")
-	}
-}
-
 func (sf *statusFormatter) getServiceStatusInfo(service api.ServiceStatus) statusInfoContents {
 	info := statusInfoContents{
 		Err:     service.Status.Err,
@@ -451,7 +440,7 @@ func (sf *statusFormatter) getServiceStatusInfo(service api.ServiceStatus) statu
 		Version: service.Status.Version,
 	}
 	if service.Status.Since != nil {
-		info.Since = sf.formatTime(service.Status.Since)
+		info.Since = formatStatusTime(service.Status.Since, sf.isoTime)
 	}
 	return info
 }
@@ -493,7 +482,7 @@ func (sf *statusFormatter) getWorkloadStatusInfo(unit api.UnitStatus) statusInfo
 		Version: unit.Workload.Version,
 	}
 	if unit.Workload.Since != nil {
-		info.Since = sf.formatTime(unit.Workload.Since)
+		info.Since = formatStatusTime(unit.Workload.Since, sf.isoTime)
 	}
 	return info
 }
@@ -506,7 +495,7 @@ func (sf *statusFormatter) getAgentStatusInfo(unit api.UnitStatus) statusInfoCon
 		Version: unit.UnitAgent.Version,
 	}
 	if unit.UnitAgent.Since != nil {
-		info.Since = sf.formatTime(unit.UnitAgent.Since)
+		info.Since = formatStatusTime(unit.UnitAgent.Since, sf.isoTime)
 	}
 	return info
 }

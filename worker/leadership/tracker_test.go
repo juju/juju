@@ -38,6 +38,7 @@ func refreshes(count int) time.Duration {
 }
 
 func (s *TrackerSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
 	s.unitTag = names.NewUnitTag("led-service/123")
 	s.manager = &StubLeadershipManager{
 		Stub:     &testing.Stub{},
@@ -52,12 +53,13 @@ func (s *TrackerSuite) TearDownTest(c *gc.C) {
 		close(s.manager.releases)
 		s.manager = nil
 	}
+	s.IsolationSuite.TearDownTest(c)
 }
 
 func (s *TrackerSuite) unblockRelease(c *gc.C) {
 	select {
 	case s.manager.releases <- struct{}{}:
-	default:
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("did nobody call BlockUntilLeadershipReleased?")
 	}
 }
@@ -343,6 +345,95 @@ func (s *TrackerSuite) TestWaitLeaderNeverBecomeLeader(c *gc.C) {
 	}})
 }
 
+func (s *TrackerSuite) TestWaitMinionAlreadyMinion(c *gc.C) {
+	s.manager.Stub.Errors = []error{coreleadership.ErrClaimDenied, nil}
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	defer assertStop(c, tracker)
+
+	// Check initial ticket is closed immediately.
+	assertWaitLeader(c, tracker, false)
+
+	// Stop the tracker before trying to look at its stub.
+	assertStop(c, tracker)
+	s.manager.CheckCalls(c, []testing.StubCall{{
+		FuncName: "ClaimLeadership",
+		Args: []interface{}{
+			"led-service", "led-service/123", leaseDuration,
+		},
+	}, {
+		FuncName: "BlockUntilLeadershipReleased",
+		Args: []interface{}{
+			"led-service",
+		},
+	}})
+}
+
+func (s *TrackerSuite) TestWaitMinionBecomeMinion(c *gc.C) {
+	s.manager.Stub.Errors = []error{nil, coreleadership.ErrClaimDenied, nil}
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	defer assertStop(c, tracker)
+
+	// Check the first ticket stays open.
+	assertWaitMinion(c, tracker, false)
+
+	// Wait long enough for a single refresh, to trigger ErrClaimDenied; then
+	// check the next ticket is closed.
+	<-time.After(refreshes(1))
+	assertWaitMinion(c, tracker, true)
+
+	// Stop the tracker before trying to look at its stub.
+	assertStop(c, tracker)
+
+	// Unblock the release goroutine, lest data races.
+	s.unblockRelease(c)
+
+	s.manager.CheckCalls(c, []testing.StubCall{{
+		FuncName: "ClaimLeadership",
+		Args: []interface{}{
+			"led-service", "led-service/123", leaseDuration,
+		},
+	}, {
+		FuncName: "ClaimLeadership",
+		Args: []interface{}{
+			"led-service", "led-service/123", leaseDuration,
+		},
+	}, {
+		FuncName: "BlockUntilLeadershipReleased",
+		Args: []interface{}{
+			"led-service",
+		},
+	}})
+}
+
+func (s *TrackerSuite) TestWaitMinionNeverBecomeMinion(c *gc.C) {
+	tracker := leadership.NewTrackerWorker(s.unitTag, s.manager, trackerDuration)
+	defer assertStop(c, tracker)
+
+	ticket := tracker.WaitMinion()
+	select {
+	case <-time.After(refreshes(2)):
+	case <-ticket.Ready():
+		c.Fatalf("got unexpected readiness: %v", ticket.Wait())
+	}
+
+	s.manager.CheckCalls(c, []testing.StubCall{{
+		FuncName: "ClaimLeadership",
+		Args: []interface{}{
+			"led-service", "led-service/123", leaseDuration,
+		},
+	}, {
+		FuncName: "ClaimLeadership",
+		Args: []interface{}{
+			"led-service", "led-service/123", leaseDuration,
+		},
+	}, {
+		FuncName: "ClaimLeadership",
+		Args: []interface{}{
+			"led-service", "led-service/123", leaseDuration,
+		},
+	}})
+}
+
 func assertClaimLeader(c *gc.C, tracker leadership.Tracker, expect bool) {
 	// Grab a ticket...
 	ticket := tracker.ClaimLeader()
@@ -360,7 +451,25 @@ func assertWaitLeader(c *gc.C, tracker leadership.Tracker, expect bool) {
 		return
 	}
 	select {
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(trackerDuration / 4):
+		// This wait needs to be small, compared to the resolution we run the
+		// tests at, so as not to disturb client timing too much.
+	case <-ticket.Ready():
+		c.Fatalf("got unexpected readiness: %v", ticket.Wait())
+	}
+}
+
+func assertWaitMinion(c *gc.C, tracker leadership.Tracker, expect bool) {
+	ticket := tracker.WaitMinion()
+	if expect {
+		assertTicket(c, ticket, false)
+		assertTicket(c, ticket, false)
+		return
+	}
+	select {
+	case <-time.After(trackerDuration / 4):
+		// This wait needs to be small, compared to the resolution we run the
+		// tests at, so as not to disturb client timing too much.
 	case <-ticket.Ready():
 		c.Fatalf("got unexpected readiness: %v", ticket.Wait())
 	}

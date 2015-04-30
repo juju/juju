@@ -11,16 +11,15 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
+	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/storage"
 )
@@ -136,12 +135,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set service constraints")
 	f.StringVar(&c.Networks, "networks", "", "bind the service to specific networks")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
-	if featureflag.Enabled(feature.Storage) {
-		// NOTE: if/when the feature flag is removed, bump the client
-		// facade and check that the ServiceDeployWithNetworks facade
-		// version supports storage, and error if it doesn't.
-		f.Var(storageFlag{&c.Storage}, "storage", "charm storage constraints")
-	}
+	f.Var(storageFlag{&c.Storage}, "storage", "charm storage constraints")
 }
 
 func (c *DeployCommand) Init(args []string) error {
@@ -163,6 +157,14 @@ func (c *DeployCommand) Init(args []string) error {
 		return cmd.CheckEmpty(args[2:])
 	}
 	return c.UnitCommandBase.Init(args)
+}
+
+func (c *DeployCommand) newServiceAPIClient() (*apiservice.Client, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apiservice.NewClient(root), nil
 }
 
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
@@ -243,8 +245,31 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
-	// TODO(axw) rename ServiceDeployWithNetworks to ServiceDeploy,
-	// and ServiceDeploy to ServiceDeployLegacy or some such.
+
+	// If storage is specified, we attempt to use a new API on the service facade.
+	if len(c.Storage) > 0 {
+		notSupported := errors.New("cannot deploy charms with storage: not supported by the API server")
+		serviceClient, err := c.newServiceAPIClient()
+		if err != nil {
+			return notSupported
+		}
+		defer serviceClient.Close()
+		err = serviceClient.ServiceDeploy(
+			curl.String(),
+			serviceName,
+			numUnits,
+			string(configYAML),
+			c.Constraints,
+			c.ToMachineSpec,
+			requestedNetworks,
+			c.Storage,
+		)
+		if params.IsCodeNotImplemented(err) {
+			return notSupported
+		}
+		return block.ProcessBlockedError(err, block.BlockChange)
+	}
+
 	err = client.ServiceDeployWithNetworks(
 		curl.String(),
 		serviceName,
@@ -253,7 +278,6 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		c.Constraints,
 		c.ToMachineSpec,
 		requestedNetworks,
-		c.Storage,
 	)
 	if params.IsCodeNotImplemented(err) {
 		if haveNetworks {

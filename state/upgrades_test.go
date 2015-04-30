@@ -2503,3 +2503,204 @@ func (s *upgradesSuite) TestIPAddressLifeIdempotent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(doc.Life, gc.Equals, Alive)
 }
+
+func (s *upgradesSuite) prepareEnvsForLeadership(c *gc.C, envs map[string][]string) []string {
+	environments, closer := s.state.getRawCollection(environmentsC)
+	defer closer()
+	addEnvironment := func(envUUID string) {
+		err := environments.Insert(bson.M{
+			"_id": envUUID,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	var expectedDocIDs []string
+	services, closer := s.state.getRawCollection(servicesC)
+	defer closer()
+	addService := func(envUUID, name string) {
+		err := services.Insert(bson.M{
+			"_id":      envUUID + ":" + name,
+			"env-uuid": envUUID,
+			"name":     name,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		expectedDocIDs = append(expectedDocIDs, envUUID+":"+LeadershipSettingsDocId(name))
+	}
+
+	// Use the helpers to set up the environments.
+	for envUUID, svcs := range envs {
+		if envUUID == "" {
+			envUUID = s.state.EnvironUUID()
+		} else {
+			addEnvironment(envUUID)
+		}
+		for _, svc := range svcs {
+			addService(envUUID, svc)
+		}
+	}
+
+	return expectedDocIDs
+}
+
+func (s *upgradesSuite) readDocIDs(c *gc.C, coll, regex string) []string {
+	settings, closer := s.state.getRawCollection(coll)
+	defer closer()
+	var docs []bson.M
+	err := settings.Find(bson.D{{"_id", bson.D{{"$regex", regex}}}}).All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	var actualDocIDs []string
+	for _, doc := range docs {
+		actualDocIDs = append(actualDocIDs, doc["_id"].(string))
+	}
+	return actualDocIDs
+}
+
+func (s *upgradesSuite) TestAddLeadershipSettingsDocs(c *gc.C) {
+	expectedDocIDs := s.prepareEnvsForLeadership(c, map[string][]string{
+		"": []string{"mediawiki", "postgresql"},
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"foobar"},
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"mysql"},
+	})
+
+	err := AddLeadershipSettingsDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actualDocIDs := s.readDocIDs(c, settingsC, ".+#leader$")
+	c.Assert(actualDocIDs, jc.SameContents, expectedDocIDs)
+}
+
+func (s *upgradesSuite) TestAddLeadershipSettingsFresh(c *gc.C) {
+	err := AddLeadershipSettingsDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actualDocIDs := s.readDocIDs(c, settingsC, ".+#leader$")
+	c.Assert(actualDocIDs, gc.HasLen, 0)
+}
+
+func (s *upgradesSuite) TestAddLeadershipSettingsMultipleEmpty(c *gc.C) {
+	s.prepareEnvsForLeadership(c, map[string][]string{
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": nil,
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": nil,
+	})
+
+	err := AddLeadershipSettingsDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actualDocIDs := s.readDocIDs(c, settingsC, ".+#leader$")
+	c.Assert(actualDocIDs, gc.HasLen, 0)
+}
+
+func (s *upgradesSuite) TestAddLeadershipSettingsIdempotent(c *gc.C) {
+	s.prepareEnvsForLeadership(c, map[string][]string{
+		"": []string{"mediawiki", "postgresql"},
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"foobar"},
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"mysql"},
+	})
+
+	originalIDs := s.readDocIDs(c, settingsC, ".+#leader$")
+	c.Assert(originalIDs, gc.HasLen, 0)
+
+	err := AddLeadershipSettingsDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	firstPassIDs := s.readDocIDs(c, settingsC, ".+#leader$")
+
+	err = AddLeadershipSettingsDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	secondPassIDs := s.readDocIDs(c, settingsC, ".+#leader$")
+
+	c.Check(firstPassIDs, jc.SameContents, secondPassIDs)
+}
+
+func (s *upgradesSuite) prepareEnvsForMachineBlockDevices(c *gc.C, envs map[string][]string) []string {
+	environments, closer := s.state.getRawCollection(environmentsC)
+	defer closer()
+	addEnvironment := func(envUUID string) {
+		err := environments.Insert(bson.M{
+			"_id": envUUID,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	var expectedDocIDs []string
+	machines, closer := s.state.getRawCollection(machinesC)
+	defer closer()
+	addMachine := func(envUUID, id string) {
+		err := machines.Insert(bson.M{
+			"_id":       envUUID + ":" + id,
+			"env-uuid":  envUUID,
+			"machineid": id,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		expectedDocIDs = append(expectedDocIDs, envUUID+":"+id)
+	}
+
+	// Use the helpers to set up the environments.
+	for envUUID, machines := range envs {
+		if envUUID == "" {
+			envUUID = s.state.EnvironUUID()
+		} else {
+			addEnvironment(envUUID)
+		}
+		for _, mId := range machines {
+			addMachine(envUUID, mId)
+		}
+	}
+
+	return expectedDocIDs
+}
+
+func (s *upgradesSuite) TestAddBlockDevicesDocs(c *gc.C) {
+	expectedDocIDs := s.prepareEnvsForMachineBlockDevices(c, map[string][]string{
+		"": []string{"1", "2"},
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"1"},
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"1"},
+	})
+
+	err := AddDefaultBlockDevicesDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actualDocIDs := s.readDocIDs(c, blockDevicesC, "")
+	c.Assert(actualDocIDs, jc.SameContents, expectedDocIDs)
+}
+
+func (s *upgradesSuite) TestAddBlockDevicesDocsFresh(c *gc.C) {
+	err := AddDefaultBlockDevicesDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actualDocIDs := s.readDocIDs(c, blockDevicesC, "")
+	c.Assert(actualDocIDs, gc.HasLen, 0)
+}
+
+func (s *upgradesSuite) TestAddBlockDevicesDocsMultipleEmpty(c *gc.C) {
+	s.prepareEnvsForMachineBlockDevices(c, map[string][]string{
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": nil,
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": nil,
+	})
+
+	err := AddDefaultBlockDevicesDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actualDocIDs := s.readDocIDs(c, blockDevicesC, "")
+	c.Assert(actualDocIDs, gc.HasLen, 0)
+}
+
+func (s *upgradesSuite) TestAddBlockDevicesDocsIdempotent(c *gc.C) {
+	s.prepareEnvsForMachineBlockDevices(c, map[string][]string{
+		"": []string{"1", "2"},
+		"6983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"1"},
+		"7983ac70-b0aa-45c5-80fe-9f207bbb18d9": []string{"1"},
+	})
+
+	originalIDs := s.readDocIDs(c, blockDevicesC, "")
+	c.Assert(originalIDs, gc.HasLen, 0)
+
+	err := AddDefaultBlockDevicesDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	firstPassIDs := s.readDocIDs(c, blockDevicesC, "")
+
+	err = AddDefaultBlockDevicesDocs(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	secondPassIDs := s.readDocIDs(c, blockDevicesC, "")
+
+	c.Assert(firstPassIDs, jc.SameContents, secondPassIDs)
+}
