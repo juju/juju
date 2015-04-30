@@ -1,1 +1,2 @@
-#!/bin/bash
+#!/bin/bash -eux
+${CHARM_DIR}/hooks/extract_juju_chaos_monkey.bash

@@ -19,6 +19,6 @@ start:
         total-timeout:
             type: integer
             description: Timeout in seconds for which the monkey should run.
-        pause-timeout:
+        enablement-timeout:
             type: integer
-            description: Timeout in seconds to wait between chaos operations.
+            description: Timeout in seconds to run each chaos operation.
