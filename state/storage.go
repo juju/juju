@@ -844,7 +844,7 @@ func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstrain
 		allCons = make(map[string]StorageConstraints)
 	}
 	for name, charmStorage := range charmMeta.Storage {
-		cons, err := fillDefaultStorageConstraints(conf, name, allCons[name], charmStorage)
+		cons, err := storageConstraintsWithDefaults(conf, charmStorage, name, allCons[name])
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -854,33 +854,20 @@ func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstrain
 	return nil
 }
 
-func fillDefaultStorageConstraints(
-	conf *config.Config,
-	name string, cons StorageConstraints,
+// storageConstraintsWithDefaults returns a constraints
+// derived from cons, with any defaults filled in.
+func storageConstraintsWithDefaults(
+	cfg *config.Config,
 	charmStorage charm.Storage,
-) (StorageConstraints, error) {
-	kind := storageKind(charmStorage.Type)
-	consWithDefault, err := storageConstraintsWithDefaults(conf, kind, charmStorage, cons)
-	if err != nil {
-		if err == ErrNoDefaultStoragePool {
-			err = errors.Maskf(err,
-				"no storage pool specified and no default available for %q storage",
-				name)
-		}
-		return cons, err
-	}
-	return consWithDefault, nil
-}
-
-// storageConstraintsWithDefaults returns a constraints derived from cons, with any defaults filled in.
-func storageConstraintsWithDefaults(cfg *config.Config, kind storage.StorageKind,
-	charmStorage charm.Storage, cons StorageConstraints,
+	name string,
+	cons StorageConstraints,
 ) (StorageConstraints, error) {
 	withDefaults := cons
 	if cons.Pool == "" {
+		kind := storageKind(charmStorage.Type)
 		poolName, err := defaultStoragePool(cfg, kind)
 		if err != nil {
-			return withDefaults, errors.Annotatef(err, "finding default stoage pool")
+			return withDefaults, errors.Annotatef(err, "finding default pool for %q storage", name)
 		}
 		withDefaults.Pool = poolName
 	}
@@ -915,7 +902,7 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind) (string, e
 // given entity dynamically, one storage directive at a time.
 func (st *State) AddStorageForUnit(
 	charmMeta *charm.Meta, u *Unit,
-	name string, spec StorageConstraints,
+	name string, cons StorageConstraints,
 ) error {
 	all, err := u.StorageConstraints()
 	if err != nil {
@@ -923,7 +910,7 @@ func (st *State) AddStorageForUnit(
 	}
 	_, exists := all[name]
 	if !exists {
-		return errors.NotFoundf(`charm storage "%s"`, name)
+		return errors.NotFoundf("charm storage %q", name)
 	}
 
 	// Populate missing configuration parameters with default values.
@@ -931,10 +918,10 @@ func (st *State) AddStorageForUnit(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	completeSpec, err := fillDefaultStorageConstraints(
+	completeCons, err := storageConstraintsWithDefaults(
 		conf,
-		name, spec,
 		charmMeta.Storage[name],
+		name, cons,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -948,30 +935,30 @@ func (st *State) AddStorageForUnit(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	completeSpec.Count = completeSpec.Count + currentCount
+	completeCons.Count = completeCons.Count + currentCount
 
 	err = validateStorageConstraintsAgainstCharmStorage(
 		st,
-		map[string]StorageConstraints{name: completeSpec},
+		map[string]StorageConstraints{name: completeCons},
 		charmMeta)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	completeSpec.Count = completeSpec.Count - currentCount
+	completeCons.Count = completeCons.Count - currentCount
 
 	// Create storage db operations
 	storageOps, _, err := createStorageOps(
 		st,
 		u.Tag(),
 		charmMeta,
-		map[string]StorageConstraints{name: completeSpec})
+		map[string]StorageConstraints{name: completeCons})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Update storage attachment count.
 	priorCount := u.doc.StorageAttachmentCount
-	newCount := priorCount + int(completeSpec.Count)
+	newCount := priorCount + int(completeCons.Count)
 	ops := []txn.Op{
 		{
 			C:  unitsC,
