@@ -21,7 +21,6 @@ import (
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -76,9 +75,6 @@ func (s *UniterSuite) SetUpTest(c *gc.C) {
 	s.ticker = uniter.NewManualTicker()
 	s.PatchValue(uniter.ActiveMetricsTimer, s.ticker.ReturnTimer)
 	s.PatchValue(uniter.IdleWaitTime, 1*time.Millisecond)
-	// The storage feature flag will disappear shortly. In the mean time,
-	// we ensure that all scenarios operate correctly with storage enabled.
-	s.JujuConnSuite.SetFeatureFlags(feature.Storage)
 }
 
 func (s *UniterSuite) TearDownTest(c *gc.C) {

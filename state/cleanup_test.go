@@ -24,6 +24,11 @@ type CleanupSuite struct {
 
 var _ = gc.Suite(&CleanupSuite{})
 
+func (s *CleanupSuite) SetUpSuite(c *gc.C) {
+	s.ConnSuite.SetUpSuite(c)
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+}
+
 func (s *CleanupSuite) TestCleanupDyingServiceUnits(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
@@ -357,7 +362,7 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 
 	ch := s.AddTestingCharm(c, "storage-block")
 	storage := map[string]state.StorageConstraints{
-		"data": makeStorageCons("block", 1024, 1),
+		"data": makeStorageCons("loop", 1024, 1),
 	}
 	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
 	u, err := service.AddUnit()
