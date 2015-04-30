@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
@@ -18,7 +17,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -681,10 +679,6 @@ func storageKind(storageType charm.StorageType) storage.StorageKind {
 }
 
 func validateStorageConstraints(st *State, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
-	// TODO(axw) stop checking feature flag once storage has graduated.
-	if !featureflag.Enabled(feature.Storage) {
-		return nil
-	}
 	for name, cons := range allCons {
 		charmStorage, ok := charmMeta.Storage[name]
 		if !ok {
@@ -827,10 +821,6 @@ var ErrNoDefaultStoragePool = fmt.Errorf("no storage pool specifed and no defaul
 // addDefaultStorageConstraints fills in default constraint values, replacing any empty/missing values
 // in the specified constraints.
 func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
-	// TODO(axw) stop checking feature flag once storage has graduated.
-	if !featureflag.Enabled(feature.Storage) {
-		return nil
-	}
 	conf, err := st.EnvironConfig()
 	if err != nil {
 		return errors.Trace(err)

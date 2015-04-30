@@ -17,12 +17,9 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -225,8 +222,6 @@ var newCommandTests = []struct {
 }
 
 func (s *NewCommandSuite) TestNewCommand(c *gc.C) {
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	ctx := s.GetHookContext(c, 0, "")
 	for _, t := range newCommandTests {
 		com, err := jujuc.NewCommand(ctx, cmdString(t.name))

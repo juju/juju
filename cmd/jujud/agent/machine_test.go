@@ -19,7 +19,6 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
@@ -46,7 +45,6 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -1155,15 +1153,6 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
-	// The disk manager should only run with the feature flag set.
-	s.testMachineAgentRunsDiskManagerWorker(c, false, coretesting.ShortWait)
-
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	s.testMachineAgentRunsDiskManagerWorker(c, true, coretesting.LongWait)
-}
-
-func (s *MachineSuite) testMachineAgentRunsDiskManagerWorker(c *gc.C, shouldRun bool, timeout time.Duration) {
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	a := s.newAgent(c, m)
@@ -1180,20 +1169,12 @@ func (s *MachineSuite) testMachineAgentRunsDiskManagerWorker(c *gc.C, shouldRun 
 	// Wait for worker to be started.
 	select {
 	case <-started:
-		if !shouldRun {
-			c.Fatalf("disk manager should not run without feature flag")
-		}
-	case <-time.After(timeout):
-		if shouldRun {
-			c.Fatalf("timeout while waiting for diskmanager worker to start")
-		}
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for diskmanager worker to start")
 	}
 }
 
 func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
 	expected := []storage.BlockDevice{{DeviceName: "whatever"}}
 	s.PatchValue(&diskmanager.DefaultListBlockDevices, func() ([]storage.BlockDevice, error) {
 		return expected, nil
@@ -1220,15 +1201,6 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
-	// The storage worker should only run with the feature flag set.
-	s.testMachineAgentRunsMachineStorageWorker(c, false, coretesting.ShortWait)
-
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	s.testMachineAgentRunsMachineStorageWorker(c, true, coretesting.LongWait)
-}
-
-func (s *MachineSuite) testMachineAgentRunsMachineStorageWorker(c *gc.C, shouldRun bool, timeout time.Duration) {
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	a := s.newAgent(c, m)
@@ -1255,23 +1227,12 @@ func (s *MachineSuite) testMachineAgentRunsMachineStorageWorker(c *gc.C, shouldR
 	// Wait for worker to be started.
 	select {
 	case <-started:
-		if !shouldRun {
-			c.Fatalf("storage worker should not run without feature flag")
-		}
-	case <-time.After(timeout):
-		if shouldRun {
-			c.Fatalf("timeout while waiting for storage worker to start")
-		}
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for storage worker to start")
 	}
 }
 
 func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
-	s.SetFeatureFlags(feature.Storage)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	s.testMachineAgentRunsEnvironStorageWorkers(c, true, coretesting.LongWait)
-}
-
-func (s *MachineSuite) testMachineAgentRunsEnvironStorageWorkers(c *gc.C, shouldRun bool, timeout time.Duration) {
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, m)
@@ -1311,14 +1272,9 @@ func (s *MachineSuite) testMachineAgentRunsEnvironStorageWorkers(c *gc.C, should
 	// Wait for worker to be started.
 	select {
 	case <-started:
-		if !shouldRun {
-			c.Fatalf("storage worker should not run without feature flag")
-		}
 		c.Assert(numWorkers, gc.Equals, 2)
-	case <-time.After(timeout):
-		if shouldRun {
-			c.Fatalf("timeout while waiting for storage worker to start")
-		}
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for storage worker to start")
 	}
 }
 
@@ -1605,22 +1561,13 @@ func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
 }
 
 func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
-	s.testNewEnvironmentStartsNewWorkers(c, perEnvSingularWorkers)
-}
-
-func (s *MachineSuite) TestNewEnvironmentStartsNewWorkersStorageEnabled(c *gc.C) {
-	s.SetFeatureFlags(feature.Storage)
-	expect := make([]string, 0, len(perEnvSingularWorkers)+1)
+	expectedWorkers := make([]string, 0, len(perEnvSingularWorkers)+1)
 	for _, w := range perEnvSingularWorkers {
-		expect = append(expect, w)
+		expectedWorkers = append(expectedWorkers, w)
 		if w == "environ-provisioner" {
-			expect = append(expect, "environ-storageprovisioner")
+			expectedWorkers = append(expectedWorkers, "environ-storageprovisioner")
 		}
 	}
-	s.testNewEnvironmentStartsNewWorkers(c, expect)
-}
-
-func (s *MachineSuite) testNewEnvironmentStartsNewWorkers(c *gc.C, expectedWorkers []string) {
 	s.PatchValue(&watcher.Period, 100*time.Millisecond)
 
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)

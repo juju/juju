@@ -14,7 +14,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/charmrepo"
 	"gopkg.in/juju/charmstore.v4/csclient"
@@ -25,17 +24,14 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/highavailability"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/version"
 )
 
@@ -106,7 +102,7 @@ func (c *Client) ServiceSet(p params.ServiceSet) error {
 	if err != nil {
 		return err
 	}
-	return serviceSetSettingsStrings(svc, p.Options)
+	return service.ServiceSetSettingsStrings(svc, p.Options)
 }
 
 // NewServiceSetForClientAPI implements the server side of
@@ -270,21 +266,11 @@ func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
 	return svc.ClearExposed()
 }
 
-// newCharmStore instantiates a new charm store repository.
+// TODO - we really want to avoid this, which we can do by refactoring code requiring this
+// to use interfaces.
+// NewCharmStore instantiates a new charm store repository.
 // It is defined at top level for testing purposes.
-var newCharmStore = charmrepo.NewCharmStore
-
-func networkTagsToNames(tags []string) ([]string, error) {
-	netNames := make([]string, len(tags))
-	for i, tag := range tags {
-		t, err := names.ParseNetworkTag(tag)
-		if err != nil {
-			return nil, err
-		}
-		netNames[i] = t.Id()
-	}
-	return netNames, nil
-}
+var NewCharmStore = charmrepo.NewCharmStore
 
 // ServiceDeploy fetches the charm from the charm store and deploys it.
 // AddCharm or AddLocalCharm should be called to add the charm
@@ -294,121 +280,7 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	curl, err := charm.ParseURL(args.CharmUrl)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if curl.Revision < 0 {
-		return errors.Errorf("charm url must include revision")
-	}
-
-	if args.ToMachineSpec != "" && names.IsValidMachine(args.ToMachineSpec) {
-		_, err = c.api.state.Machine(args.ToMachineSpec)
-		if err != nil {
-			return errors.Annotatef(err, `cannot deploy "%v" to machine %v`, args.ServiceName, args.ToMachineSpec)
-		}
-	}
-
-	// Try to find the charm URL in state first.
-	ch, err := c.api.state.Charm(curl)
-	if errors.IsNotFound(err) {
-		// Remove this whole if block when 1.16 compatibility is dropped.
-		if curl.Schema != "cs" {
-			return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
-		}
-		// Note that because this block is here for backward compatibility
-		// only, we do not support macaroon authorization.
-		err = c.AddCharmWithAuthorization(params.AddCharmWithAuthorization{
-			URL: args.CharmUrl,
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
-		ch, err = c.api.state.Charm(curl)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-
-	// TODO(axw) stop checking feature flag once storage has graduated.
-	var storageConstraints map[string]storage.Constraints
-	if featureflag.Enabled(feature.Storage) {
-		storageConstraints = args.Storage
-		if storageConstraints == nil {
-			storageConstraints = make(map[string]storage.Constraints)
-		}
-		// Validate the storage parameters against the charm metadata,
-		// and ensure there are no conflicting parameters.
-		if err := validateCharmStorage(args, ch); err != nil {
-			return err
-		}
-		// Handle stores with no corresponding constraints.
-		for store, charmStorage := range ch.Meta().Storage {
-			if _, ok := args.Storage[store]; ok {
-				// TODO(axw) if pool is not specified, we should set it to
-				// the environment's default pool.
-				continue
-			}
-			if charmStorage.Shared {
-				// TODO(axw) get the environment's default shared storage
-				// pool, and create constraints here.
-				return errors.Errorf(
-					"no constraints specified for shared charm storage %q",
-					store,
-				)
-			}
-			if charmStorage.CountMin <= 0 {
-				continue
-			}
-			if charmStorage.Type != charm.StorageFilesystem {
-				// TODO(axw) clarify what the rules are for "block" kind when
-				// no constraints are specified. For "filesystem" we use rootfs.
-				return errors.Errorf(
-					"no constraints specified for %v charm storage %q",
-					charmStorage.Type,
-					store,
-				)
-			}
-			storageConstraints[store] = storage.Constraints{
-				// The pool is the provider type since rootfs provider has no configuration.
-				Pool:  string(provider.RootfsProviderType),
-				Count: uint64(charmStorage.CountMin),
-			}
-		}
-	}
-
-	var settings charm.Settings
-	if len(args.ConfigYAML) > 0 {
-		settings, err = ch.Config().ParseSettingsYAML([]byte(args.ConfigYAML), args.ServiceName)
-	} else if len(args.Config) > 0 {
-		// Parse config in a compatible way (see function comment).
-		settings, err = parseSettingsCompatible(ch, args.Config)
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// Convert network tags to names for any given networks.
-	requestedNetworks, err := networkTagsToNames(args.Networks)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	_, err = jjj.DeployService(c.api.state,
-		jjj.DeployServiceParams{
-			ServiceName: args.ServiceName,
-			// TODO(dfc) ServiceOwner should be a tag
-			ServiceOwner:   c.api.auth.GetAuthTag().String(),
-			Charm:          ch,
-			NumUnits:       args.NumUnits,
-			ConfigSettings: settings,
-			Constraints:    args.Constraints,
-			ToMachineSpec:  args.ToMachineSpec,
-			Networks:       requestedNetworks,
-			Storage:        storageConstraints,
-		})
-	return err
+	return service.DeployService(c.api.state, c.api.auth.GetAuthTag().String(), args)
 }
 
 // ServiceDeployWithNetworks works exactly like ServiceDeploy, but
@@ -417,20 +289,6 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 // constraints).
 func (c *Client) ServiceDeployWithNetworks(args params.ServiceDeploy) error {
 	return c.ServiceDeploy(args)
-}
-
-func validateCharmStorage(args params.ServiceDeploy, ch *state.Charm) error {
-	if len(args.Storage) == 0 {
-		return nil
-	}
-	if len(args.ToMachineSpec) != 0 {
-		// TODO(axw) when we support dynamic disk provisioning, we can
-		// relax this. We will need to consult the storage provider to
-		// decide whether or not this is allowable.
-		return errors.New("cannot specify storage and machine placement")
-	}
-	// Remaining validation is done in state.AddService.
-	return nil
 }
 
 // ServiceUpdate updates the service attributes, including charm URL,
@@ -442,35 +300,35 @@ func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
 			return errors.Trace(err)
 		}
 	}
-	service, err := c.api.state.Service(args.ServiceName)
+	svc, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
 		return err
 	}
 	// Set the charm for the given service.
 	if args.CharmUrl != "" {
-		if err = c.serviceSetCharm(service, args.CharmUrl, args.ForceCharmUrl); err != nil {
+		if err = c.serviceSetCharm(svc, args.CharmUrl, args.ForceCharmUrl); err != nil {
 			return err
 		}
 	}
 	// Set the minimum number of units for the given service.
 	if args.MinUnits != nil {
-		if err = service.SetMinUnits(*args.MinUnits); err != nil {
+		if err = svc.SetMinUnits(*args.MinUnits); err != nil {
 			return err
 		}
 	}
 	// Set up service's settings.
 	if args.SettingsYAML != "" {
-		if err = serviceSetSettingsYAML(service, args.SettingsYAML); err != nil {
+		if err = serviceSetSettingsYAML(svc, args.SettingsYAML); err != nil {
 			return err
 		}
 	} else if len(args.SettingsStrings) > 0 {
-		if err = serviceSetSettingsStrings(service, args.SettingsStrings); err != nil {
+		if err = service.ServiceSetSettingsStrings(svc, args.SettingsStrings); err != nil {
 			return err
 		}
 	}
 	// Update service's constraints.
 	if args.Constraints != nil {
-		return service.SetConstraints(*args.Constraints)
+		return svc.SetConstraints(*args.Constraints)
 	}
 	return nil
 }
@@ -524,21 +382,6 @@ func serviceSetSettingsYAML(service *state.Service, settings string) error {
 		return err
 	}
 	changes, err := ch.Config().ParseSettingsYAML([]byte(settings), service.Name())
-	if err != nil {
-		return err
-	}
-	return service.UpdateConfigSettings(changes)
-}
-
-// serviceSetSettingsStrings updates the settings for the given service,
-// taking the configuration from a map of strings.
-func serviceSetSettingsStrings(service *state.Service, settings map[string]string) error {
-	ch, _, err := service.Charm()
-	if err != nil {
-		return err
-	}
-	// Parse config in a compatible way (see function comment).
-	changes, err := parseSettingsCompatible(ch, settings)
 	if err != nil {
 		return err
 	}
@@ -816,36 +659,13 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		placementDirective = p.Placement.Directive
 	}
 
-	// TODO(axw) stop checking feature flag once storage has graduated.
-	var volumes []state.MachineVolumeParams
-	if featureflag.Enabled(feature.Storage) {
-		volumes = make([]state.MachineVolumeParams, 0, len(p.Disks))
-		for _, cons := range p.Disks {
-			if cons.Count == 0 {
-				return nil, errors.Errorf("invalid volume params: count not specified")
-			}
-			// Pool and Size are validated by AddMachineX.
-			volumeParams := state.VolumeParams{
-				Pool: cons.Pool,
-				Size: cons.Size,
-			}
-			volumeAttachmentParams := state.VolumeAttachmentParams{}
-			for i := uint64(0); i < cons.Count; i++ {
-				volumes = append(volumes, state.MachineVolumeParams{
-					volumeParams, volumeAttachmentParams,
-				})
-			}
-		}
-	}
-
-	jobs, err := stateJobs(p.Jobs)
+	jobs, err := common.StateJobs(p.Jobs)
 	if err != nil {
 		return nil, err
 	}
 	template := state.MachineTemplate{
 		Series:      p.Series,
 		Constraints: p.Constraints,
-		Volumes:     volumes,
 		InstanceId:  p.InstanceId,
 		Jobs:        jobs,
 		Nonce:       p.Nonce,
@@ -860,37 +680,6 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		return c.api.state.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
 	}
 	return c.api.state.AddMachineInsideNewMachine(template, template, p.ContainerType)
-}
-
-func stateJobs(jobs []multiwatcher.MachineJob) ([]state.MachineJob, error) {
-	newJobs := make([]state.MachineJob, len(jobs))
-	for i, job := range jobs {
-		newJob, err := machineJobFromParams(job)
-		if err != nil {
-			return nil, err
-		}
-		newJobs[i] = newJob
-	}
-	return newJobs, nil
-}
-
-// machineJobFromParams returns the job corresponding to multiwatcher.MachineJob.
-// TODO(dfc) this function should live in apiserver/params, move there once
-// state does not depend on apiserver/params
-func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error) {
-	switch job {
-	case multiwatcher.JobHostUnits:
-		return state.JobHostUnits, nil
-	case multiwatcher.JobManageEnviron:
-		return state.JobManageEnviron, nil
-	case multiwatcher.JobManageNetworking:
-		return state.JobManageNetworking, nil
-	case multiwatcher.JobManageStateDeprecated:
-		// Deprecated in 1.18.
-		return state.JobManageStateDeprecated, nil
-	default:
-		return -1, errors.Errorf("invalid machine job %q", job)
-	}
 }
 
 // ProvisioningScript returns a shell script that, when run,
@@ -1119,39 +908,6 @@ func (c *Client) SetAnnotations(args params.SetAnnotations) error {
 	return c.api.state.SetAnnotations(entity, args.Pairs)
 }
 
-// parseSettingsCompatible parses setting strings in a way that is
-// compatible with the behavior before this CL based on the issue
-// http://pad.lv/1194945. Until then setting an option to an empty
-// string caused it to reset to the default value. We now allow
-// empty strings as actual values, but we want to preserve the API
-// behavior.
-func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm.Settings, error) {
-	setSettings := map[string]string{}
-	unsetSettings := charm.Settings{}
-	// Split settings into those which set and those which unset a value.
-	for name, value := range settings {
-		if value == "" {
-			unsetSettings[name] = nil
-			continue
-		}
-		setSettings[name] = value
-	}
-	// Validate the settings.
-	changes, err := ch.Config().ParseSettingsStrings(setSettings)
-	if err != nil {
-		return nil, err
-	}
-	// Validate the unsettings and merge them into the changes.
-	unsetSettings, err = ch.Config().ValidateSettings(unsetSettings)
-	if err != nil {
-		return nil, err
-	}
-	for name := range unsetSettings {
-		changes[name] = nil
-	}
-	return changes, nil
-}
-
 // AgentVersion returns the current version that the API server is running.
 func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
 	return params.AgentVersionResult{Version: version.Current.Number}, nil
@@ -1295,7 +1051,7 @@ func (c *Client) AddCharmWithAuthorization(args params.AddCharmWithAuthorization
 		httpbakery.SetCookie(csParams.HTTPClient.Jar, csURL, ms)
 	}
 	repo := config.SpecializeCharmRepo(
-		newCharmStore(csParams),
+		NewCharmStore(csParams),
 		envConfig,
 	)
 	downloadedCharm, err := repo.Get(charmURL)
@@ -1377,7 +1133,7 @@ func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmRe
 		return params.ResolveCharmResults{}, err
 	}
 	repo := config.SpecializeCharmRepo(
-		newCharmStore(charmrepo.NewCharmStoreParams{}),
+		NewCharmStore(charmrepo.NewCharmStoreParams{}),
 		envConfig)
 
 	for _, ref := range args.References {

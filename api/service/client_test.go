@@ -10,7 +10,9 @@ import (
 	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/storage"
 )
 
 type serviceSuite struct {
@@ -69,4 +71,31 @@ func (s *serviceSuite) TestSetServiceMetricCredentialsNoMocks(c *gc.C) {
 	err = service.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(service.MetricCredentials(), gc.DeepEquals, []byte("creds"))
+}
+
+func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
+	var called bool
+	service.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
+		called = true
+		c.Assert(request, gc.Equals, "ServicesDeploy")
+		args, ok := a.(params.ServicesDeploy)
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(args.Services, gc.HasLen, 1)
+		c.Assert(args.Services[0].CharmUrl, gc.Equals, "charmURL")
+		c.Assert(args.Services[0].ServiceName, gc.Equals, "serviceA")
+		c.Assert(args.Services[0].NumUnits, gc.Equals, 2)
+		c.Assert(args.Services[0].ConfigYAML, gc.Equals, "configYAML")
+		c.Assert(args.Services[0].Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
+		c.Assert(args.Services[0].ToMachineSpec, gc.Equals, "machineSpec")
+		c.Assert(args.Services[0].Networks, gc.DeepEquals, []string{"neta"})
+		c.Assert(args.Services[0].Storage, gc.DeepEquals, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
+
+		result := response.(*params.ErrorResults)
+		result.Results = make([]params.ErrorResult, 1)
+		return nil
+	})
+	err := s.client.ServiceDeploy("charmURL", "serviceA", 2, "configYAML", constraints.MustParse("mem=4G"),
+		"machineSpec", []string{"neta"}, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
 }

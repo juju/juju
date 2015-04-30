@@ -4,14 +4,10 @@
 package client
 
 var (
-	ParseSettingsCompatible = parseSettingsCompatible
-	RemoteParamsForMachine  = remoteParamsForMachine
-	GetAllUnitNames         = getAllUnitNames
-	NewStateStorage         = &newStateStorage
-	NewCharmStore           = &newCharmStore
+	RemoteParamsForMachine = remoteParamsForMachine
+	GetAllUnitNames        = getAllUnitNames
+	NewStateStorage        = &newStateStorage
 )
-
-var MachineJobFromParams = machineJobFromParams
 
 // Filtering exports
 var (
