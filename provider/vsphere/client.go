@@ -67,11 +67,11 @@ var newConnection = func(url *url.URL) (*govmomi.Client, error) {
 }
 
 // CreateInstance create new vm in vsphere and run it
-func (c *client) CreateInstance(machineID string, zone *vmwareAvailZone, hwc *instance.HardwareCharacteristics, img *OvaFileMetadata, userData []byte, sshKey string, isState bool) (*mo.VirtualMachine, error) {
+func (c *client) CreateInstance(ecfg *environConfig, machineID string, zone *vmwareAvailZone, hwc *instance.HardwareCharacteristics, img *OvaFileMetadata, userData []byte, sshKey string, isState bool) (*mo.VirtualMachine, error) {
 	manager := &ovaImportManager{client: c}
-	vm, err := manager.importOva(machineID, zone, hwc, img, userData, sshKey, isState)
+	vm, err := manager.importOva(ecfg, machineID, zone, hwc, img, userData, sshKey, isState)
 	if err != nil {
-		return nil, errors.Annotatef(err, "Failed to import ovf file")
+		return nil, errors.Annotatef(err, "Failed to import OVA file")
 	}
 	task, err := vm.PowerOn(context.TODO())
 	if err != nil {

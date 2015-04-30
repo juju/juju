@@ -58,9 +58,9 @@ func (c *sshClient) ChangePorts(nicName, target string, ports []network.PortRang
 	defer session.Close()
 	cmd := ""
 	for _, port := range ports {
-		cmd += fmt.Sprintf("iptables -i %s -A INPUT -p %s --match multiport --dports %s:%s -j %s\n", nicName, port.Protocol, port.FromPort, port.ToPort, target)
+		cmd += fmt.Sprintf("sudo iptables -i %s -A INPUT -p %s --match multiport --dports %s:%s -j %s\n", nicName, port.Protocol, port.FromPort, port.ToPort, target)
 	}
-	cmd += "service iptables save"
+	cmd += "sudo service iptables save"
 	err = session.Run(cmd)
 	if err != nil {
 		return errors.Trace(err)
