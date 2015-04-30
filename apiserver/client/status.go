@@ -5,6 +5,7 @@ package client
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/juju/errors"
@@ -20,6 +21,90 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker/uniter/operation"
 )
+
+func agentStatusFromStatusInfo(s []state.StatusInfo, kind params.HistoryKind) []api.AgentStatus {
+	result := []api.AgentStatus{}
+	for _, v := range s {
+		result = append(result, api.AgentStatus{
+			Status: params.Status(v.Status),
+			Info:   v.Message,
+			Data:   v.Data,
+			Since:  v.Since,
+			Kind:   kind,
+		})
+	}
+	return result
+
+}
+
+type sortableStatuses []api.AgentStatus
+
+func (s sortableStatuses) Len() int {
+	return len(s)
+}
+func (s sortableStatuses) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s sortableStatuses) Less(i, j int) bool {
+	return s[i].Since.Before(*s[j].Since)
+}
+
+// TODO(perrito666) this client method requires more testing, only its parts are unittested.
+// UnitStatusHistory returns a slice of past statuses for a given unit.
+func (c *Client) UnitStatusHistory(args params.StatusHistory) (api.UnitStatusHistory, error) {
+	size := args.Size - 1
+	if size < 1 {
+		return api.UnitStatusHistory{}, errors.Errorf("invalid history size: %d", args.Size)
+	}
+	unit, err := c.api.state.Unit(args.Name)
+	if err != nil {
+		return api.UnitStatusHistory{}, errors.Trace(err)
+	}
+	statuses := api.UnitStatusHistory{}
+	if args.Kind == params.KindCombined || args.Kind == params.KindWorkload {
+		unitStatuses, err := unit.StatusHistory(size)
+		if err != nil {
+			return api.UnitStatusHistory{}, errors.Trace(err)
+		}
+
+		current, err := unit.Status()
+		if err != nil {
+			return api.UnitStatusHistory{}, errors.Trace(err)
+		}
+		unitStatuses = append(unitStatuses, current)
+
+		statuses.Statuses = append(statuses.Statuses, agentStatusFromStatusInfo(unitStatuses, params.KindWorkload)...)
+	}
+	if args.Kind == params.KindCombined || args.Kind == params.KindAgent {
+		agentEntity := unit.Agent()
+		agent, ok := agentEntity.(*state.UnitAgent)
+		if !ok {
+			return api.UnitStatusHistory{}, errors.Errorf("cannot obtain agent for %q", args.Name)
+		}
+		agentStatuses, err := agent.StatusHistory(size)
+		if err != nil {
+			return api.UnitStatusHistory{}, errors.Trace(err)
+		}
+
+		current, err := agent.Status()
+		if err != nil {
+			return api.UnitStatusHistory{}, errors.Trace(err)
+		}
+		agentStatuses = append(agentStatuses, current)
+
+		statuses.Statuses = append(statuses.Statuses, agentStatusFromStatusInfo(agentStatuses, params.KindAgent)...)
+	}
+
+	sort.Sort(sortableStatuses(statuses.Statuses))
+	if args.Kind == params.KindCombined {
+
+		if len(statuses.Statuses) > args.Size {
+			statuses.Statuses = statuses.Statuses[len(statuses.Statuses)-args.Size:]
+		}
+
+	}
+	return statuses, nil
+}
 
 // FullStatus gives the information needed for juju status over the api
 func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {

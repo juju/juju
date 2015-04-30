@@ -67,6 +67,8 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 		// set the status to "preparing storage".
 	case hi.Kind == hooks.ConfigChanged:
 		opc.u.f.DiscardConfigEvent()
+	case hi.Kind == hook.LeaderSettingsChanged:
+		opc.u.f.DiscardLeaderSettingsEvent()
 	}
 	return name, nil
 }
@@ -80,6 +82,8 @@ func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 		return opc.u.storage.CommitHook(hi)
 	case hi.Kind == hooks.ConfigChanged:
 		opc.u.ranConfigChanged = true
+	case hi.Kind == hook.LeaderSettingsChanged:
+		opc.u.ranLeaderSettingsChanged = true
 	}
 	return nil
 }

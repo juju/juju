@@ -18,6 +18,7 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/leadership"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/network"
@@ -175,7 +176,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return uniter.NewUniter(uniterFacade, unitTag, st.LeadershipManager(), dataDir, hookLock), nil
+		return uniter.NewUniter(uniterFacade, unitTag, leadership.NewClient(st), dataDir, hookLock), nil
 	})
 
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
