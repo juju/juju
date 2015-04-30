@@ -46,6 +46,10 @@ informing a charm URL. If the URL isn't provided, an attempt will be
 made to infer it from the current branch push URL.
 `
 
+// defaultPollDelay is the default interval between charm store polls
+// unless SetPollDelay is used to set a different value.
+const defaultPollDelay = 500 * time.Millisecond
+
 func (c *PublishCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "publish",
@@ -60,6 +64,7 @@ func (c *PublishCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *PublishCommand) Init(args []string) error {
+	c.pollDelay = defaultPollDelay
 	if len(args) == 0 {
 		return nil
 	}
